@@ -12,6 +12,29 @@ export interface Bookmark {
   created_at: string;
   updated_at: string;
   tags?: string[];
+  revision?: number;
+  preview_kind?:
+    "rams" | "architecture" | "type" | "code" | "photo" | "article";
+}
+
+export interface BookmarkChange {
+  kind: "created" | "updated" | "deleted";
+  id: number;
+  revision: number;
+  bookmark: Bookmark | null;
+}
+export interface LibraryCounts {
+  total: number;
+  favorites: number;
+}
+export interface ServerStatus {
+  running: boolean;
+  address: string;
+  error: string | null;
+}
+export interface AppSettings {
+  capture_token: string;
+  close_to_tray: boolean;
 }
 
 export interface Collection {

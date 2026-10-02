@@ -7,6 +7,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:ui": "playwright test",
+    "test:native": "playwright test --config playwright.native.config.ts",
+    "test:extension": "node scripts/smoke-extension.mjs",
+    "extension:zip": "powershell -NoProfile -File scripts/package-extension.ps1",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -17,6 +22,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tauri-apps/cli": "^2.2.0",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.0",
@@ -26,6 +32,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^5.0.3"
   }
 }

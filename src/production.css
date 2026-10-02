@@ -1,0 +1,294 @@
+body {
+  overflow: hidden;
+}
+.production .study-window {
+  height: 100vh;
+  min-height: 0;
+}
+.production .study-titlebar > div {
+  gap: 0;
+  padding: 0;
+  height: 32px;
+}
+.production .study-titlebar button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 44px;
+  height: 32px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+}
+.production .study-titlebar button:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.production .study-titlebar button:last-child:hover {
+  background: #b93838;
+  color: #fff;
+}
+.production .study-titlebar .study-wordmark {
+  pointer-events: none;
+}
+.production [data-tauri-drag-region] {
+  user-select: none;
+}
+.production .study-preview-link {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.production .study-bookmarks--list .study-preview-link {
+  width: 130px;
+  height: 98px;
+  flex-shrink: 0;
+}
+.production .study-bookmark h2 button {
+  font: inherit;
+  color: var(--ink);
+  border: 0;
+  padding: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.production .study-bookmark h2 button:hover {
+  color: var(--accent);
+}
+.bookmark-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bookmark-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--panel);
+  color: var(--muted);
+}
+.bookmark-fallback span {
+  font-size: 11px;
+  max-width: 85%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.study-site-mark img {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+}
+.production .study-card-source > span:nth-child(2) {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.production .study-card-menu {
+  margin-right: -3px;
+}
+.production .study-bookmarks--grid {
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+}
+.production .study-bookmarks--grid.with-editor {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.editor-dock {
+  width: 340px;
+  flex-shrink: 0;
+  padding: 26px 24px;
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  background: var(--card);
+  animation: study-appear 200ms ease-out;
+}
+.editor-dock > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.editor-dock h2 {
+  font:
+    400 25px Georgia,
+    serif;
+  margin: 0;
+}
+.production .study-editor {
+  top: 32px;
+  height: calc(100vh - 32px);
+  width: 370px;
+}
+.production .study-editor h2 {
+  font:
+    400 25px Georgia,
+    serif;
+  margin: 0;
+}
+.production .study-editor::backdrop {
+  background: #11120e65;
+}
+.library-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: var(--accent-soft);
+  padding: 12px 15px;
+  margin-bottom: 18px;
+  border-radius: 5px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.study-loading {
+  text-align: center;
+  color: var(--muted);
+  padding: 80px 24px;
+}
+.active-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.collection-item {
+  position: relative;
+}
+.production .study-collection-nav .collection-item > button:first-child {
+  padding-right: 34px;
+}
+.study-sidebar nav .collection-delete {
+  position: absolute;
+  width: 22px;
+  height: 26px;
+  right: 5px;
+  top: 6px;
+  padding: 0;
+  justify-content: center;
+  opacity: 0.3;
+}
+.study-sidebar nav .collection-delete:hover,
+.study-sidebar nav .collection-delete:focus-visible {
+  opacity: 1;
+  color: var(--danger);
+}
+.production .study-form .setting-checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  line-height: 1.7;
+  gap: 10px;
+  color: var(--ink);
+}
+.production .setting-checkbox input {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  padding: 0;
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.connection-status > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.connection-status.connected > span {
+  background: var(--accent);
+}
+.token-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bookmarklet-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bookmarklet-section p,
+.bookmarklet-section small {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0;
+}
+.bookmarklet-section a {
+  text-decoration: none;
+  cursor: grab;
+}
+.clipboard-action {
+  align-self: flex-start;
+  padding: 0 !important;
+  margin-top: -8px;
+  font-size: 11px;
+}
+.demo-label {
+  border-left: 1px solid var(--line);
+  margin-left: 5px;
+  padding-left: 9px;
+  font-size: 9px;
+}
+.production .study-card-source,
+.production .study-card-tags button,
+.production .study-card-body > footer,
+.production .study-result-line,
+.production .study-bottom-note {
+  font-size: 11px;
+}
+.production .study-sidebar-details summary,
+.production .study-section-label {
+  font-size: 10px;
+}
+.production .study-sidebar nav button {
+  font-size: 12px;
+}
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+@media (max-width: 850px) {
+  .production .study-main-scroll {
+    padding: 26px 24px 0;
+  }
+}
+@media (max-width: 650px) {
+  .production .study-bookmarks--grid {
+    grid-template-columns: 1fr;
+  }
+  .production .study-sidebar nav button {
+    font-size: 0;
+  }
+  .production .study-main-scroll {
+    padding: 23px 16px 0;
+  }
+  .production .study-bookmarks--list .study-preview-link {
+    height: 80px;
+    width: 70px;
+  }
+}

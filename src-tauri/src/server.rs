@@ -1,196 +1,192 @@
-use crate::db::{self, DbState};
-use crate::metadata;
-use serde::Deserialize;
-use std::sync::Arc;
-use std::thread;
-use tauri::{AppHandle, Emitter};
+use crate::{
+    capture::{self, CaptureRequest},
+    db::DbState,
+};
+use serde::Serialize;
+use std::{
+    io::Read,
+    sync::{Arc, Mutex},
+    thread,
+};
+use tauri::AppHandle;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
 use url::Url;
 
-#[derive(Deserialize, Debug)]
-struct AddRequestPayload {
-    url: String,
-    title: Option<String>,
-    tags: Option<Vec<String>>,
-    collection_id: Option<i64>,
+#[derive(Clone, Serialize)]
+pub struct ServerStatus {
+    pub running: bool,
+    pub address: String,
+    pub error: Option<String>,
 }
-
-pub fn start_server(app_handle: AppHandle, db_state: Arc<DbState>) {
+pub struct ServerState(pub Mutex<ServerStatus>);
+impl Default for ServerState {
+    fn default() -> Self {
+        Self(Mutex::new(ServerStatus {
+            running: false,
+            address: "127.0.0.1:28765".into(),
+            error: None,
+        }))
+    }
+}
+fn response(status: u16, body: impl Serialize) -> Response<std::io::Cursor<Vec<u8>>> {
+    let mut r = Response::from_string(serde_json::to_string(&body).unwrap_or_default())
+        .with_status_code(StatusCode(status));
+    for (key, value) in [
+        ("Content-Type", "application/json"),
+        ("Access-Control-Allow-Origin", "*"),
+        ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
+        (
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization",
+        ),
+    ] {
+        r.add_header(Header::from_bytes(key, value).unwrap());
+    }
+    r
+}
+fn error(status: u16, code: &str, message: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+    response(status, serde_json::json!({"code":code,"message":message}))
+}
+pub fn start_server(app: AppHandle, db: Arc<DbState>, status: Arc<ServerState>) {
     thread::spawn(move || {
-        let addr = "127.0.0.1:28765";
-        let server = match Server::http(addr) {
-            Ok(s) => {
-                println!("OddClicks Local Webhook server listening on http://{}", addr);
-                s
+        let server = match Server::http("127.0.0.1:28765") {
+            Ok(server) => {
+                status.0.lock().unwrap().running = true;
+                server
             }
             Err(e) => {
-                eprintln!("Failed to bind local server to {}: {}", addr, e);
+                status.0.lock().unwrap().error = Some(e.to_string());
                 return;
             }
         };
-
-        for mut request in server.incoming_requests() {
-            let app = app_handle.clone();
-            let db = db_state.clone();
-
-            let method = request.method().clone();
-            let raw_url = request.url().to_string();
-
-            // Handle CORS Preflight
+        for mut req in server.incoming_requests() {
+            let method = req.method().clone();
             if method == Method::Options {
-                let mut response = Response::empty(StatusCode(204));
-                add_cors_headers(&mut response);
-                let _ = request.respond(response);
+                let _ = req.respond(response(204, serde_json::json!(null)));
                 continue;
             }
-
-            // Parse URL path and query
-            let parsed_url = match Url::parse(&format!("http://127.0.0.1:28765{}", raw_url)) {
-                Ok(u) => u,
-                Err(_) => {
-                    let mut res = Response::from_string("Invalid URL").with_status_code(StatusCode(400));
-                    add_cors_headers(&mut res);
-                    let _ = request.respond(res);
+            let Ok(parsed) = Url::parse(&format!("http://127.0.0.1:28765{}", req.url())) else {
+                let _ = req.respond(error(400, "invalid_request", "Некорректный путь"));
+                continue;
+            };
+            let path = parsed.path();
+            if path == "/api/health" && method == Method::Get {
+                if let Some(auth) = req
+                    .headers()
+                    .iter()
+                    .find(|h| h.field.equiv("Authorization"))
+                {
+                    let token = db
+                        .conn
+                        .lock()
+                        .ok()
+                        .and_then(|c| crate::db::setting(&c, "capture_token").ok());
+                    if !token.is_some_and(|token| auth.value.as_str() == format!("Bearer {token}"))
+                    {
+                        let _ = req.respond(error(
+                            401,
+                            "unauthorized",
+                            "Токен подключения не подходит",
+                        ));
+                        continue;
+                    }
+                }
+                let _ = req.respond(response(
+                    200,
+                    serde_json::json!({"status":"ok","app":"OddClicks","protocol":1}),
+                ));
+                continue;
+            }
+            let versioned = path == "/api/v1/capture";
+            if !versioned && path != "/api/add" {
+                let _ = req.respond(error(404, "not_found", "Нет такого метода"));
+                continue;
+            }
+            if versioned && method != Method::Post
+                || !versioned && !matches!(method, Method::Get | Method::Post)
+            {
+                let _ = req.respond(error(
+                    405,
+                    "method_not_allowed",
+                    "Неподдерживаемый HTTP-метод",
+                ));
+                continue;
+            }
+            if versioned {
+                let token = db
+                    .conn
+                    .lock()
+                    .ok()
+                    .and_then(|conn| crate::db::setting(&conn, "capture_token").ok());
+                let authorized = req
+                    .headers()
+                    .iter()
+                    .find(|h| h.field.equiv("Authorization"))
+                    .is_some_and(|h| {
+                        token
+                            .as_ref()
+                            .is_some_and(|t| h.value.as_str() == format!("Bearer {t}"))
+                    });
+                if !authorized {
+                    let _ = req.respond(error(
+                        401,
+                        "unauthorized",
+                        "Подключите расширение локальным токеном",
+                    ));
+                    continue;
+                }
+            }
+            let has_legacy_query = !versioned && parsed.query_pairs().any(|(key, _)| key == "url");
+            let payload = if method == Method::Post && !has_legacy_query {
+                let mut body = String::new();
+                match req.as_reader().take(65537).read_to_string(&mut body) {
+                    Ok(_) if body.len() <= 65536 => serde_json::from_str::<CaptureRequest>(&body)
+                        .map_err(|_| "Некорректный JSON"),
+                    _ => Err("Тело запроса слишком велико или недоступно"),
+                }
+            } else {
+                let query = parsed
+                    .query_pairs()
+                    .into_owned()
+                    .collect::<std::collections::HashMap<_, _>>();
+                Ok(CaptureRequest {
+                    request_id: None,
+                    url: query.get("url").cloned().unwrap_or_default(),
+                    title: query.get("title").cloned(),
+                    collection_id: query.get("collection_id").and_then(|x| x.parse().ok()),
+                    tags: query
+                        .get("tags")
+                        .map(|x| x.split(',').map(str::to_owned).collect()),
+                })
+            };
+            let payload = match payload {
+                Ok(p) => p,
+                Err(message) => {
+                    let _ = req.respond(error(400, "invalid_request", message));
                     continue;
                 }
             };
-
-            let path = parsed_url.path();
-
-            if path == "/api/health" {
-                let mut res = Response::from_string(r#"{"status":"ok","app":"OddClicks"}"#);
-                add_cors_headers(&mut res);
-                add_json_header(&mut res);
-                let _ = request.respond(res);
+            if versioned && payload.request_id.is_none() {
+                let _ = req.respond(error(400, "invalid_request", "request_id обязателен"));
                 continue;
             }
-
-            if path == "/api/add" {
-                let mut target_url = String::new();
-                let mut target_title = String::new();
-                let mut tags: Vec<String> = Vec::new();
-                let mut collection_id: Option<i64> = None;
-
-                // Extract query params
-                for (key, val) in parsed_url.query_pairs() {
-                    match key.as_ref() {
-                        "url" => target_url = val.to_string(),
-                        "title" => target_title = val.to_string(),
-                        "collection_id" => collection_id = val.parse().ok(),
-                        "tags" => {
-                            for t in val.split(',') {
-                                let trim = t.trim().to_string();
-                                if !trim.is_empty() {
-                                    tags.push(trim);
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
-                // If URL was not in query and it's POST, check body
-                if target_url.is_empty() && method == Method::Post {
-                    let mut content = String::new();
-                    let mut reader = request.as_reader();
-                    if std::io::Read::read_to_string(&mut reader, &mut content).is_ok() {
-                        if let Ok(payload) = serde_json::from_str::<AddRequestPayload>(&content) {
-                            target_url = payload.url;
-                            if let Some(t) = payload.title {
-                                target_title = t;
-                            }
-                            if let Some(t_list) = payload.tags {
-                                tags = t_list;
-                            }
-                            collection_id = payload.collection_id;
-                        }
-                    }
-                }
-
-                if target_url.is_empty() {
-                    let mut res = Response::from_string(r#"{"error":"url is required"}"#).with_status_code(StatusCode(400));
-                    add_cors_headers(&mut res);
-                    add_json_header(&mut res);
-                    let _ = request.respond(res);
+            let result = match db.conn.lock() {
+                Ok(conn) => capture::save(&conn, &payload),
+                Err(_) => {
+                    let _ = req.respond(error(500, "database_error", "База данных недоступна"));
                     continue;
                 }
-
-                let domain = metadata::extract_domain(&target_url);
-                let display_title = if target_title.is_empty() {
-                    target_url.clone()
-                } else {
-                    target_title.clone()
-                };
-
-                // Save immediately into SQLite with default info
-                let conn = db.conn.lock().unwrap();
-                let initial_bookmark = db::insert_or_update_bookmark(
-                    &conn,
-                    &target_url,
-                    &display_title,
-                    None,
-                    None,
-                    Some(&format!("https://www.google.com/s2/favicons?domain={}&sz=128", domain)),
-                    &domain,
-                    collection_id,
-                    if tags.is_empty() { None } else { Some(&tags) },
-                );
-                drop(conn);
-
-                // Immediately respond to caller
-                let mut res = Response::from_string(r#"{"success":true,"message":"Bookmark queued"}"#);
-                add_cors_headers(&mut res);
-                add_json_header(&mut res);
-                let _ = request.respond(res);
-
-                // Emit initial bookmark event
-                if let Ok(ref b) = initial_bookmark {
-                    let _ = app.emit("bookmark-added", b);
+            };
+            match result {
+                Ok(saved) => {
+                    let _ = req.respond(response(200, &saved));
+                    capture::after_save(&app, db.clone(), &saved);
                 }
-
-                // Asynchronously fetch rich metadata (OG Image, description, accurate title)
-                let bg_url = target_url.clone();
-                let bg_app = app.clone();
-                let bg_db = db.clone();
-
-                tokio::spawn(async move {
-                    let meta = metadata::fetch_metadata(&bg_url).await;
-                    let conn = bg_db.conn.lock().unwrap();
-                    let updated = db::insert_or_update_bookmark(
-                        &conn,
-                        &bg_url,
-                        meta.title.as_deref().unwrap_or(&display_title),
-                        meta.description.as_deref(),
-                        meta.image_url.as_deref(),
-                        meta.favicon_url.as_deref(),
-                        &meta.domain,
-                        collection_id,
-                        if tags.is_empty() { None } else { Some(&tags) },
-                    );
-                    drop(conn);
-
-                    if let Ok(b) = updated {
-                        let _ = bg_app.emit("bookmark-added", &b);
-                    }
-                });
-
-                continue;
+                Err(e) => {
+                    let _ = req.respond(response(e.status, &e));
+                }
             }
-
-            // 404 fallback
-            let mut res = Response::from_string("Not Found").with_status_code(StatusCode(404));
-            add_cors_headers(&mut res);
-            let _ = request.respond(res);
         }
+        status.0.lock().unwrap().running = false;
     });
-}
-
-fn add_cors_headers<R: std::io::Read>(res: &mut Response<R>) {
-    res.add_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap());
-    res.add_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, OPTIONS"[..]).unwrap());
-    res.add_header(Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"Content-Type"[..]).unwrap());
-}
-
-fn add_json_header<R: std::io::Read>(res: &mut Response<R>) {
-    res.add_header(Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap());
 }
