@@ -6,6 +6,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные остаютс
 
 - [Возможности, установка и Chrome](doc/features.md)
 - [Дизайн, концепты и движение](doc/design.md)
+- [Редизайн: итерация 1 (макеты, не реализовано)](doc/redesign.md)
 - [Согласованный план](doc/plan.md)
 - [Протокол и архитектура](doc/architecture.md)
 - [Результаты проверок](doc/testing.md)
