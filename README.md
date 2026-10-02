@@ -27,4 +27,4 @@ npm run tauri build
 npm run extension:zip
 ```
 
-Расширение: папка `extension/chrome`, архив `dist/oddclicks-chrome.zip`. Установка через режим разработчика описана в [инструкции](doc/features.md#chrome).
+Расширение: папка `extension/chrome`, архив `release/oddclicks-chrome.zip`. Архив хранится отдельно от очищаемой при сборке папки `dist`. Установка через режим разработчика описана в [инструкции](doc/features.md#chrome).
