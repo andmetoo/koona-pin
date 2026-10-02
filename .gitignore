@@ -1,6 +1,10 @@
 node_modules/
 dist/
 dist-ssr/
+.cache/
+.test-data/
+test-results/
+playwright-report/
 *.local
 
 # Tauri

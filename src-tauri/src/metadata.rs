@@ -60,7 +60,9 @@ pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
     let document = Html::parse_document(&body);
 
     // Title
-    if let Ok(og_title_sel) = Selector::parse("meta[property='og:title'], meta[name='twitter:title']") {
+    if let Ok(og_title_sel) =
+        Selector::parse("meta[property='og:title'], meta[name='twitter:title']")
+    {
         for el in document.select(&og_title_sel) {
             if let Some(content) = el.value().attr("content") {
                 let trimmed = content.trim();
@@ -98,7 +100,9 @@ pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
     }
 
     // Image
-    if let Ok(img_sel) = Selector::parse("meta[property='og:image'], meta[name='twitter:image'], meta[name='twitter:image:src']") {
+    if let Ok(img_sel) = Selector::parse(
+        "meta[property='og:image'], meta[name='twitter:image'], meta[name='twitter:image:src']",
+    ) {
         for el in document.select(&img_sel) {
             if let Some(content) = el.value().attr("content") {
                 let trimmed = content.trim();
@@ -113,7 +117,9 @@ pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
     }
 
     // Favicon
-    if let Ok(fav_sel) = Selector::parse("link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']") {
+    if let Ok(fav_sel) = Selector::parse(
+        "link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']",
+    ) {
         for el in document.select(&fav_sel) {
             if let Some(href) = el.value().attr("href") {
                 let trimmed = href.trim();
@@ -136,8 +142,14 @@ mod tests {
 
     #[test]
     fn test_extract_domain() {
-        assert_eq!(extract_domain("https://www.google.com/search"), "google.com");
-        assert_eq!(extract_domain("https://github.com/tauri-apps/tauri"), "github.com");
+        assert_eq!(
+            extract_domain("https://www.google.com/search"),
+            "google.com"
+        );
+        assert_eq!(
+            extract_domain("https://github.com/tauri-apps/tauri"),
+            "github.com"
+        );
         assert_eq!(extract_domain("http://habr.com/ru/post/123"), "habr.com");
         assert_eq!(extract_domain("not_a_valid_url"), "unknown");
     }

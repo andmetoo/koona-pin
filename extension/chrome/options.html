@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OddClicks — подключение и очередь</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="brand">OddClicks</span
+        ><span class="eyebrow">Расширение для Chrome</span>
+      </header>
+      <h1>Хорошие находки,<br />в одном месте.</h1>
+      <p class="intro">
+        Сохраняйте страницу одним нажатием. Ссылки дождутся приложения в
+        локальной очереди.
+      </p>
+      <section>
+        <h2>Подключение</h2>
+        <p id="connection" role="status">Проверяем приложение…</p>
+        <form id="pair">
+          <label for="token"
+            >Локальный токен из OddClicks → Подключить браузер</label
+          >
+          <div class="field-row">
+            <input
+              id="token"
+              type="password"
+              autocomplete="off"
+              spellcheck="false"
+              required
+              placeholder="Вставьте токен подключения"
+            /><button type="submit">Подключить</button>
+          </div>
+        </form>
+        <p id="message" role="status"></p>
+      </section>
+      <section>
+        <div class="queue-heading">
+          <h2>Ожидают передачи <span id="count">0</span></h2>
+          <button id="retry" class="secondary">Повторить передачу</button>
+        </div>
+        <div id="queue"></div>
+      </section>
+      <footer>
+        Данные хранятся в Chrome и на вашем компьютере. Для передачи должны быть
+        запущены Chrome и OddClicks.
+      </footer>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
