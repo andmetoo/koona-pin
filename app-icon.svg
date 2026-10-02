@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- Rounded Base Background -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#grad)" filter="url(#shadow)"/>
+  
+  <!-- Subtle Inner Border Glow -->
+  <rect x="34" y="34" width="444" height="444" rx="110" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="4"/>
+
+  <!-- Bookmark Ribbon Symbol -->
+  <path d="M176 128 C167.163 128 160 135.163 160 144 L160 384 C160 395.2 173.2 401.4 182.2 394.4 L256 336 L329.8 394.4 C338.8 401.4 352 395.2 352 384 L352 144 C352 135.163 344.837 128 336 128 Z" fill="#ffffff" />
+  
+  <!-- Subtle Ribbon Bookmark Accent line -->
+  <path d="M256 128 L256 336" stroke="rgba(79, 70, 229, 0.15)" stroke-width="6" stroke-linecap="round" />
+</svg>
