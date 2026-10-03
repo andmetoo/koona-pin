@@ -98,8 +98,31 @@ jobs:
             (Join-Path $env:APPDATA 'OddClicks'),
             (Join-Path $env:LOCALAPPDATA 'com.oddclicks.app')
           ) | Where-Object { Test-Path $_ }
-          if ($default) { Write-Error "Tests wrote outside .test-data: $($default -join ', ')"; exit 1 }
+          if ($default) {
+            Get-ChildItem $default -Recurse -Force | Select-Object FullName, Length, LastWriteTime | Format-Table -AutoSize | Out-String -Width 300
+            Write-Error "Tests wrote outside .test-data: $($default -join ', ')"; exit 1
+          }
           Write-Output "Only .test-data was used"
+      - name: Diagnose native startup
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\*' -ErrorAction SilentlyContinue | Select-Object name, pv | Format-Table -AutoSize
+          $data = Join-Path $PWD ".test-data\diagnose"
+          New-Item -ItemType Directory -Force $data | Out-Null
+          $env:ODDCLICKS_DATA_DIR = $data
+          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $data 'webview'
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9225'
+          $env:RUST_BACKTRACE = '1'
+          $app = Start-Process src-tauri\target\debug\oddclicks.exe -PassThru -RedirectStandardOutput "$data\out.txt" -RedirectStandardError "$data\err.txt"
+          Start-Sleep 20
+          "exited: $($app.HasExited) code: $($app.ExitCode)"
+          Get-Process oddclicks, msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Name, Id, StartTime | Format-Table -AutoSize
+          Get-NetTCPConnection -State Listen -LocalPort 9225, 28765 -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess | Format-Table -AutoSize
+          '--- stdout'; Get-Content "$data\out.txt" -ErrorAction SilentlyContinue
+          '--- stderr'; Get-Content "$data\err.txt" -ErrorAction SilentlyContinue
+          '--- data'; Get-ChildItem $data -Recurse -Depth 2 | Select-Object -ExpandProperty FullName
+          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
