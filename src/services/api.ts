@@ -1,9 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, InvokeArgs } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
   AppSettings,
   Bookmark,
   BookmarkChange,
+  BookmarkPatch,
   Collection,
   DomainCount,
   FilterState,
@@ -14,6 +15,7 @@ import {
   Tag,
 } from "../types";
 import { demo } from "./demo";
+import { toCommandError } from "./errors";
 
 export const isTauri = () =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -27,26 +29,31 @@ function subscription<T>(event: string, callback: (payload: T) => void) {
     void promise.then((unlisten) => unlisten()).catch(console.error);
   };
 }
+/** Every command rejects with a `CommandError` carrying a machine code. */
+const call = <T>(command: string, args?: InvokeArgs) =>
+  invoke<T>(command, args).catch((error: unknown) => {
+    throw toCommandError(error);
+  });
 const desktop = {
   getBookmarks: (filters: Partial<FilterState> = {}) =>
-    invoke<Bookmark[]>("get_bookmarks", {
+    call<Bookmark[]>("get_bookmarks", {
       search: filters.search?.trim() || null,
       collectionId: filters.collectionId ?? null,
       tag: filters.tag || null,
       domain: filters.domain || null,
       onlyFavorites: filters.onlyFavorites ?? false,
     }),
-  getCollections: () => invoke<Collection[]>("get_collections"),
-  getTags: () => invoke<Tag[]>("get_tags"),
-  getDomains: () => invoke<DomainCount[]>("get_domains"),
-  getCounts: () => invoke<LibraryCounts>("get_counts"),
+  getCollections: () => call<Collection[]>("get_collections"),
+  getTags: () => call<Tag[]>("get_tags"),
+  getDomains: () => call<DomainCount[]>("get_domains"),
+  getCounts: () => call<LibraryCounts>("get_counts"),
   addBookmark: (data: {
     url: string;
     title?: string;
     collectionId?: number | null;
     tags?: string[];
   }) =>
-    invoke<Bookmark>("add_bookmark", {
+    call<Bookmark>("add_bookmark", {
       url: data.url,
       title: data.title || null,
       collectionId: data.collectionId ?? null,
@@ -62,7 +69,7 @@ const desktop = {
       tags?: string[];
     },
   ) =>
-    invoke<Bookmark>("update_bookmark", {
+    call<Bookmark>("update_bookmark", {
       id,
       patch: {
         title: data.title,
@@ -75,36 +82,36 @@ const desktop = {
             : data.collection_id === null
               ? { action: "clear" }
               : { action: "set", id: data.collection_id },
-      },
+      } satisfies BookmarkPatch,
     }),
-  deleteBookmark: (id: number) => invoke<boolean>("delete_bookmark", { id }),
+  deleteBookmark: (id: number) => call<boolean>("delete_bookmark", { id }),
   createCollection: (name: string, color?: string, icon?: string) =>
-    invoke<Collection>("create_collection", {
+    call<Collection>("create_collection", {
       name,
       color: color ?? null,
       icon: icon ?? null,
     }),
   deleteCollection: async (id: number) => {
-    await invoke("delete_collection", { id });
+    await call("delete_collection", { id });
     return true;
   },
   importHtmlBookmarks: (htmlContent: string) =>
-    invoke<number>("import_html_bookmarks", { htmlContent }),
-  openUrl: (url: string) => invoke<void>("open_url_external", { url }),
+    call<number>("import_html_bookmarks", { htmlContent }),
+  openUrl: (url: string) => call<void>("open_url_external", { url }),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
   onLibraryInvalidated: (callback: () => void) =>
     subscription("library-invalidated", callback),
-  getAppSettings: () => invoke<AppSettings>("get_app_settings"),
+  getAppSettings: () => call<AppSettings>("get_app_settings"),
   setCloseToTray: (enabled: boolean) =>
-    invoke<void>("set_close_to_tray", { enabled }),
-  getServerStatus: () => invoke<ServerStatus>("get_server_status"),
-  getLibraryStatus: () => invoke<LibraryStatus>("get_library_status"),
+    call<void>("set_close_to_tray", { enabled }),
+  getServerStatus: () => call<ServerStatus>("get_server_status"),
+  getLibraryStatus: () => call<LibraryStatus>("get_library_status"),
   onLibraryStatus: (callback: (status: LibraryStatus) => void) =>
     subscription("library-status", callback),
-  retryLibrary: () => invoke<void>("retry_library"),
+  retryLibrary: () => call<void>("retry_library"),
   revealLibraryPlace: (place: LibraryPlace) =>
-    invoke<void>("reveal_library_place", { place }),
-  quitApp: () => invoke<void>("quit_app"),
+    call<void>("reveal_library_place", { place }),
+  quitApp: () => call<void>("quit_app"),
 };
 export const api = isTauri() ? desktop : demo;
