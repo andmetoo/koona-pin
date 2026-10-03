@@ -34,3 +34,4 @@ url = "2.5"
 dirs = "5.0"
 # TypeScript types of the IPC contract, exported to src/bindings by `cargo test` (NP-007).
 ts-rs = { version = "12", default-features = false, features = ["serde-compat"] }
+tauri-plugin-autostart = "2"
