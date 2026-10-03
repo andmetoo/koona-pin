@@ -1,0 +1,12 @@
+[package]
+name = "search-bench"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Замер поиска Netami Pin: текущий способ против SQLite FTS5"
+
+# Отдельный проект, чтобы не собирать Tauri. Версия rusqlite совпадает с приложением.
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[workspace]

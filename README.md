@@ -23,7 +23,8 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные остаютс
 - [Протокол и архитектура](doc/architecture.md)
 - [Результаты проверок](doc/testing.md)
 - [Процесс разработки с ИИ-агентами](doc/development-process.md)
-- [Дорожная карта](doc/roadmap.md), [шаблон задачи](doc/task-template.md) и [чеклист выпуска](doc/release-checklist.md)
+- [Дорожная карта](doc/roadmap.md), [сценарии](doc/scenarios.md), [решения](doc/decisions.md) и [индекс задач GitHub](doc/issues/README.md)
+- [Шаблон задачи](doc/task-template.md) и [чеклист выпуска](doc/release-checklist.md)
 - Слайды процесса: `design/lunacy/development_process.sketch` (20 редактируемых кадров в Lunacy)
 
 ## Разработка
