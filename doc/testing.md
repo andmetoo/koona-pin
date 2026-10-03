@@ -128,6 +128,21 @@ node scripts/scroll-bench.mjs
 
 Для сравнения — интерфейс до NP-012 в том же нативном тесте (сетка, все 10 000 карточек в DOM): p95 43 мс, максимум 454 мс, 394 кадра дольше 50 мс. В Chromium без мемоизации карточек p95 был 31–36 мс ([Р-15](decisions.md#р-15-сетка-и-список-итерации-1)).
 
+## Прототип Native Messaging
+
+Прототип NP-014 ([Р-17](decisions.md#р-17-захват-через-native-messaging)) — не тест приложения, а повторяемый эксперимент с установленными браузерами. `run.mjs` копирует host в `.test-data\native-messaging-<время>`, регистрирует его в `HKCU` для Chrome, Edge и Firefox под именем `app.netami.pin.probe`, запускает браузеры без окна с тестовым расширением и в конце удаляет ключи. Результаты — `results.json` в той же папке.
+
+```powershell
+cargo build --release --manifest-path scripts/native-messaging-probe/Cargo.toml
+node scripts/native-messaging-probe/run.mjs chrome edge firefox
+```
+
+- Терминалы и агенты часто запускают процессы внутри job-объекта, который запрещает выход из него; браузер и host наследуют этот job, и результаты о job-объектах описывают терминал, а не браузер. В таком окружении запускайте `scripts/native-messaging-probe/wmi.ps1 chrome edge firefox`: WMI создаёт процесс вне job-объекта.
+- Если `msedge.exe` перехватывает перенаправитель (отладчик IFEO, например MSEdgeRedirect), скопируйте папку `Application` Edge в `.test-data` и укажите путь к копии в `NETAMIPIN_PROBE_EDGE`.
+- Firefox берётся из scoop (`%USERPROFILE%\scoop\apps\firefox\current`) и управляется через WebDriver BiDi с `--remote-allow-system-access`.
+
+Время запуска приложения до готовности принять захват — `node scripts/native-messaging-probe/app-start.mjs` на release-сборке; нужна папка `.test-data\libraries` из генератора тестовых библиотек.
+
 ## Визуальные эталоны
 
 Эталоны находятся в `tests/ui/visual.spec.ts-snapshots` и проверяются через `toHaveScreenshot` **только локально**. Они зависят от сглаживания шрифтов конкретной машины: 3 октября 2026 года эталоны от 2 октября не совпали на той же машине (около 1 % пикселей, только сглаживание текста), а шрифты раннера отличаются сильнее. Поэтому CI запускает UI с `--grep-invert "@visual"`.
@@ -147,6 +162,7 @@ node scripts/scroll-bench.mjs
 
 | Дата        | Коммит    | Окружение                                                                                                    | Результат |
 | ----------- | --------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| 3 окт. 2026 | NP-014 (#16) | Та же машина; Chrome 154.0.8037.95, Edge 154.0.4258.53 (копия папки), Firefox 157.0 (scoop); запуск через `wmi.ps1` | Прототип Native Messaging прошёл во всех трёх браузерах, результаты — [Р-17](decisions.md#р-17-захват-через-native-messaging). Запуск release-приложения до готовности захвата — 0,35–0,45 с. Тесты приложения не запускались: код приложения не менялся |
 | 3 окт. 2026 | NP-013 (#15) | Та же машина, `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` | Полный набор прошёл: Rust 62, Vitest 19, UI 33 (эталоны без изменений), WebView2 9 + замер прокрутки (`test:perf`), HTTP smoke, extension smoke |
 | 3 окт. 2026 | NP-012 (#14) | Та же машина, `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` | Полный набор прошёл: Rust 62, Vitest 19, UI 30 (эталоны пересняты по кадрам), WebView2 9, HTTP smoke, extension smoke. Замер прокрутки — [выше](#замер-прокрутки) |
 | 3 окт. 2026 | NP-011 (#13) | Та же машина, `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` | Полный набор прошёл после исправлений ревью: Rust 61, Vitest 15, UI 29 (эталоны без изменений), WebView2 8, HTTP smoke, extension smoke, `open-test-libraries.mjs` с миграцией на схему 2. Замер поиска — [выше](#замер-поиска) |
