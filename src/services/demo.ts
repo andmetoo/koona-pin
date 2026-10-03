@@ -88,6 +88,12 @@ export const demo = {
         last && rest.length > items.length
           ? { created_at: last.created_at, id: last.id }
           : null,
+      since_counts:
+        page.since && !page.after
+          ? page.since.map(
+              (start) => found.filter((b) => b.created_at >= start).length,
+            )
+          : null,
     };
   },
   async rebuildSearchIndex() {
