@@ -1,5 +1,5 @@
+import i18n from "../i18n";
 import type { CommandErrorData, ErrorCode } from "../types";
-import { language } from "./libraryMessages";
 
 /**
  * A failed command: the machine `code` decides what the interface does, the
@@ -28,29 +28,16 @@ const isData = (value: unknown): value is CommandErrorData =>
 export function toCommandError(error: unknown): CommandError {
   if (error instanceof CommandError) return error;
   if (isData(error)) return new CommandError(error.code, error.message);
-  return new CommandError(
-    "internal",
-    error instanceof Error ? error.message : String(error),
-  );
+  return new CommandError("internal", error instanceof Error ? error.message : String(error));
 }
 
-const explained: Partial<Record<ErrorCode, { ru: string; en: string }>> = {
-  disk_full: {
-    ru: "На диске закончилось место — изменения не сохранены.",
-    en: "The disk is full — the changes were not saved.",
-  },
-  read_only: {
-    ru: "Библиотека повреждена и открыта только для чтения — изменения не сохраняются.",
-    en: "The library is damaged and open read-only — changes are not saved.",
-  },
-  database_busy: {
-    ru: "Библиотека занята другой программой. Повторите через несколько секунд.",
-    en: "Another program is using the library. Try again in a few seconds.",
-  },
-};
+/** Storage failures that get an explanation instead of SQLite text. */
+const explained: ErrorCode[] = ["disk_full", "read_only", "database_busy"];
 
-/** Text for people: storage failures get an explanation, the rest keep their message. */
+/** Text for people: storage failures are explained, the rest keep their message. */
 export function describeError(error: unknown): string {
   const failure = toCommandError(error);
-  return explained[failure.code]?.[language()] ?? failure.message;
+  return explained.includes(failure.code)
+    ? i18n.t(`errors.${failure.code as "disk_full" | "read_only" | "database_busy"}`)
+    : failure.message;
 }

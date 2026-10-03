@@ -1,33 +1,31 @@
 import { ReactNode, useEffect, useState } from "react";
 import { CircleAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../services/api";
-import { LibraryStatus, OpenFailure } from "../types";
-import { WindowBar } from "./ui/WindowBar";
 import { describeError } from "../services/errors";
+import { LibraryStatus, OpenFailure } from "../types";
 import { applyTheme, isDark, storedTheme } from "../services/preferences";
-import {
-  failureReport,
-  failureText,
-  libraryLabels,
-} from "../services/libraryMessages";
+import { Icon } from "./icons";
+import { Button } from "./ui/Button";
+import { WindowBar } from "./ui/WindowBar";
 
 const ready: LibraryStatus = { state: "ready", damaged: false, moved_aside: null };
 
+/** Codes after which «Try again» cannot help: only a newer app or support can. */
+const final: OpenFailure["code"][] = ["DB_NEWER_SCHEMA", "MIGRATION_FAILED"];
+
 /**
  * Shows the library only once it has opened. Until then: nothing for the
- * first 300 ms, then "Opening…"; when opening fails, the screen of frame
+ * first 300 ms, then «Opening…»; when opening fails, the screen of frame
  * «12 · Ошибки» instead of the library. Database commands are not called
  * before the library is ready.
  */
 export function LibraryGate({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<LibraryStatus>(
-    isTauri() ? { state: "opening" } : ready,
-  );
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<LibraryStatus>(isTauri() ? { state: "opening" } : ready);
   const [slow, setSlow] = useState(false);
   useEffect(() => {
-    applyTheme(
-      isDark(storedTheme(), matchMedia("(prefers-color-scheme:dark)").matches),
-    );
+    applyTheme(isDark(storedTheme(), matchMedia("(prefers-color-scheme: dark)").matches));
   }, []);
   useEffect(() => {
     if (status.state !== "opening") return;
@@ -62,98 +60,109 @@ export function LibraryGate({ children }: { children: ReactNode }) {
   }, [status.state]);
 
   if (status.state === "ready") return <>{children}</>;
-  const labels = libraryLabels();
   return (
-    <div className="study-root study-editorial production">
-      <div className="study-window">
-        <WindowBar />
-        <main className="library-gate">
-          {status.state === "failed" ? (
-            <LibraryFailure
-              failure={status}
-              onRetry={() => {
-                setStatus({ state: "opening" });
-                void api.retryLibrary().catch(() => {});
-              }}
-            />
-          ) : (
-            slow && (
-              <p className="study-loading" role="status">
-                {labels.opening}
-              </p>
-            )
-          )}
-        </main>
-      </div>
+    <div className="flex h-full flex-col bg-bg text-ink">
+      <WindowBar />
+      <main className="flex flex-1 items-center justify-center overflow-y-auto p-6">
+        {status.state === "failed" ? (
+          <LibraryFailure
+            failure={status}
+            onRetry={() => {
+              setStatus({ state: "opening" });
+              void api.retryLibrary().catch(() => {});
+            }}
+          />
+        ) : (
+          slow && (
+            <p role="status" className="text-sm text-muted">
+              {t("gate.opening")}
+            </p>
+          )
+        )}
+      </main>
     </div>
   );
 }
 
-function LibraryFailure({
-  failure,
-  onRetry,
-}: {
-  failure: OpenFailure;
-  onRetry: () => void;
-}) {
-  const text = failureText(failure);
-  const labels = libraryLabels();
-  const report = failureReport(failure);
+/** Plain text for support; labels stay English so anyone can read them. */
+const report = (f: OpenFailure, language: string) =>
+  [
+    `Netami Pin ${f.version}`,
+    `Code: ${f.code}`,
+    `Detail: ${f.detail}`,
+    `Library: ${f.database}`,
+    f.backup && `Backup: ${f.backup}`,
+    f.schema !== null && `Schema: ${f.schema} (supported ${f.supported})`,
+    `Language: ${language}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+function LibraryFailure({ failure, onRetry }: { failure: OpenFailure; onRetry: () => void }) {
+  const { t, i18n } = useTranslation();
   const [note, setNote] = useState("");
+  const retry = !final.includes(failure.code);
+  const place = failure.code === "MIGRATION_FAILED" ? "backup" : "data";
+  const text = report(failure, i18n.language);
   const file = failure.database.split(/[\\/]/).pop();
-  const reveal = () => {
-    void api.revealLibraryPlace(text.place).catch((err) => setNote(describeError(err)));
-  };
   return (
     <section
-      className="library-failure"
       role="alert"
       aria-labelledby="library-failure-title"
       data-error-code={failure.code}
+      className="flex max-w-[480px] flex-col items-center gap-2.5 text-center text-muted"
     >
-      <span className="library-failure-icon">
-        <CircleAlert size={20} />
+      <span className="mb-1.5 flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger">
+        <Icon icon={CircleAlert} size={20} />
       </span>
-      <h1 id="library-failure-title">{text.title}</h1>
-      <p>{text.body(failure)}</p>
-      <p className="library-failure-code">
+      <h1 id="library-failure-title" className="text-lg font-semibold text-ink">
+        {t(`gate.${failure.code}.title`)}
+      </h1>
+      <p className="text-sm [overflow-wrap:anywhere]">
+        {t(`gate.${failure.code}.body`, {
+          schema: failure.schema,
+          supported: failure.supported,
+          detail: failure.detail,
+          backup: failure.backup ?? "",
+        })}
+      </p>
+      <p className="text-xs">
         {file} · {failure.code}
       </p>
-      <div className="library-failure-actions">
-        {text.retry && (
-          <button className="study-button primary" autoFocus onClick={onRetry}>
-            {labels.retry}
-          </button>
+      <div className="mt-2 flex flex-wrap justify-center gap-2">
+        {retry && (
+          <Button variant="primary" autoFocus onClick={onRetry}>
+            {t("common.retry")}
+          </Button>
         )}
-        <button className="study-button" autoFocus={!text.retry} onClick={reveal}>
-          {text.place === "backup" ? labels.backup : labels.data}
-        </button>
-        <button
-          className="study-button"
+        <Button
+          autoFocus={!retry}
+          onClick={() => void api.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
+        >
+          {place === "backup" ? t("gate.openBackup") : t("gate.openData")}
+        </Button>
+        <Button
           onClick={() => {
             navigator.clipboard
-              .writeText(report)
-              .then(() => setNote(labels.copied))
-              .catch(() => setNote(labels.copyFailed));
+              .writeText(text)
+              .then(() => setNote(t("gate.reportCopied")))
+              .catch(() => setNote(t("gate.reportFailed")));
           }}
         >
-          {labels.report}
-        </button>
-        <button
-          className="study-button quiet"
-          onClick={() => void api.quitApp().catch(() => {})}
-        >
-          {labels.quit}
-        </button>
+          {t("gate.copyReport")}
+        </Button>
+        <Button variant="ghost" onClick={() => void api.quitApp().catch(() => {})}>
+          {t("gate.quit")}
+        </Button>
       </div>
       {note && (
-        <p className="library-failure-note" role="status">
+        <p role="status" className="text-xs">
           {note}
         </p>
       )}
-      <details className="library-failure-details">
-        <summary>{labels.details}</summary>
-        <pre>{report}</pre>
+      <details className="self-stretch text-left text-2xs">
+        <summary className="text-center">{t("gate.details")}</summary>
+        <pre className="mt-2 rounded-lg bg-panel px-3 py-2.5 whitespace-pre-wrap select-text [overflow-wrap:anywhere]">{text}</pre>
       </details>
     </section>
   );

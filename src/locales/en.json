@@ -1,0 +1,267 @@
+{
+  "language": { "name": "English" },
+  "common": {
+    "close": "Close",
+    "soon": "Coming in a later version",
+    "keep": "Keep",
+    "copy": "Copy",
+    "open": "Open",
+    "retry": "Try again",
+    "ok": "Got it"
+  },
+  "window": {
+    "demo": "Demo in the browser",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close window"
+  },
+  "sidebar": {
+    "label": "Library",
+    "sections": "Sections",
+    "collections": "Collections",
+    "newCollection": "New collection",
+    "noCollections": "No collections yet",
+    "deleteCollection": "Delete collection {{name}}",
+    "tags": "Tags",
+    "moreTags_one": "+ {{count}} more",
+    "moreTags_other": "+ {{count}} more",
+    "fewerTags": "Show fewer"
+  },
+  "nav": {
+    "inbox": "Inbox",
+    "all": "All bookmarks",
+    "favorites": "Favorites",
+    "trash": "Trash",
+    "settings": "Settings"
+  },
+  "browser": {
+    "ready": "Capture is ready",
+    "failing": "Capture isn't working",
+    "checking": "Checking capture…",
+    "notConnected": "Browser not connected"
+  },
+  "toolbar": {
+    "searchLabel": "Search the library",
+    "searchPlaceholder": "Search by title, site, tag…",
+    "searchShort": "Search…",
+    "view": "Library view",
+    "grid": "Grid",
+    "list": "List",
+    "more": "More",
+    "add": "Add link",
+    "addShort": "Add",
+    "found_one": "{{count}} of {{total}}",
+    "found_other": "{{count}} of {{total}}",
+    "clearTag": "Remove tag filter {{tag}}"
+  },
+  "more": {
+    "import": "Import",
+    "importHtml": "Browser bookmarks (HTML)",
+    "importHtmlHint": "Chrome, Edge, Firefox",
+    "importJson": "Netami Pin backup (JSON)",
+    "export": "Export",
+    "exportHtml": "HTML for browsers",
+    "exportJson": "JSON — full copy",
+    "exportCsv": "CSV for spreadsheets",
+    "cleanUp": "Clean up",
+    "duplicates": "Duplicates",
+    "brokenLinks": "Check broken links"
+  },
+  "card": {
+    "open": "Open: {{title}}",
+    "actions": "Actions: {{title}}",
+    "openInBrowser": "Open in browser",
+    "copyLink": "Copy link",
+    "edit": "Edit…",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "isFavorite": "In favorites",
+    "moveTo": "Move to collection",
+    "noCollection": "No collection",
+    "addTag": "Add tag…",
+    "refresh": "Refresh title and preview",
+    "delete": "Delete…"
+  },
+  "editor": {
+    "label": "Bookmark",
+    "close": "Close editor",
+    "title": "Title",
+    "collection": "Collection",
+    "tags": "Tags",
+    "tagsHint": "Separated by commas",
+    "notes": "Note",
+    "notesPlaceholder": "What do you want to remember?",
+    "save": "Save changes",
+    "saveAgain": "Save again",
+    "saving": "Saving…"
+  },
+  "add": {
+    "title": "Add link",
+    "lead": "A good find deserves a place in the library.",
+    "url": "Link",
+    "paste": "Paste from clipboard",
+    "clipboardUnavailable": "The clipboard is unavailable. Paste the link by hand.",
+    "name": "Title",
+    "optional": "Optional",
+    "save": "Save link",
+    "saving": "Saving…"
+  },
+  "import": {
+    "title": "Import bookmarks",
+    "lead": "Export bookmarks from your browser as HTML and pick the file. Links you already have stay as they are.",
+    "file": "Bookmarks file .html",
+    "run": "Import",
+    "running": "Importing…"
+  },
+  "collection": {
+    "title": "New collection",
+    "name": "Name",
+    "placeholder": "For example, the next project",
+    "create": "Create collection"
+  },
+  "confirm": {
+    "deleteBookmark": "Delete bookmark?",
+    "deleteBookmarkText": "«{{title}}» will be removed from the library.",
+    "deleteCollection": "Delete collection?",
+    "deleteCollectionText": "Bookmarks of «{{name}}» stay in the library without a collection.",
+    "delete": "Delete"
+  },
+  "connect": {
+    "title": "Connect browser",
+    "lead": "From the browser to the library",
+    "ready": "The app is ready to receive links",
+    "checking": "Checking the connection…",
+    "install": "Install the extension from the extension/chrome folder with «Load unpacked» in Chrome, then open its settings.",
+    "token": "Connection key",
+    "copyToken": "Copy key",
+    "desktopOnly": "The connection key is available in the Netami Pin desktop app.",
+    "queue": "While the app is closed, the extension keeps links in a local queue and delivers them on the next start.",
+    "bookmarklet": "Another way: bookmarklet",
+    "bookmarkletHow": "Drag the button to the bookmarks bar or copy the code into the address of a new bookmark.",
+    "bookmarkletButton": "Save to Netami Pin",
+    "copyCode": "Copy code",
+    "bookmarkletLimits": "«Sent» means the request was sent; the bookmarklet does not check the result. Browser restrictions may block access to the local server.",
+    "bookmarkletSent": "Netami Pin: sent",
+    "bookmarkletFailed": "Start Netami Pin and try again"
+  },
+  "settings": {
+    "general": "General",
+    "language": "Language",
+    "languageHint": "English is the source: untranslated strings fall back to it",
+    "languageSystem": "System — {{name}}",
+    "theme": "Theme",
+    "themeHint": "Follows Windows unless you pick one",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "autostart": "Start with Windows",
+    "autostartHint": "Starts in the tray so links from the browser arrive right away",
+    "desktopOnly": "Available in the desktop app",
+    "tray": "Keep the app in the tray when the window is closed",
+    "trayHint": "Quit completely from the Netami Pin tray icon menu",
+    "browser": "Browser",
+    "listening": "Listening on {{address}}",
+    "connectBrowser": "Connect another browser",
+    "key": "Connection key",
+    "keyHint": "Paste it into the extension settings",
+    "data": "Data",
+    "folder": "Library folder",
+    "backups": "Backups",
+    "copies_one": "{{count}} copy",
+    "copies_other": "{{count}} copies",
+    "keeps": "keeps 7 daily and 4 weekly",
+    "openFolder": "Open folder",
+    "noCopies": "No backups yet",
+    "lastCopyToday": "Last backup today at {{time}}",
+    "lastCopyOn": "Last backup {{date}} at {{time}}",
+    "restoreHint": "The current library is backed up before restoring",
+    "restore": "Restore…",
+    "backUpNow": "Back up now",
+    "copying": "Backing up…",
+    "copyDone": "Backup created",
+    "checkUpdates": "Check for updates",
+    "report": "Report a problem"
+  },
+  "notice": {
+    "copied": "Copied",
+    "copyFailed": "Copying is unavailable. Select the text by hand.",
+    "saved": "Changes saved",
+    "linkSaved": "Link saved",
+    "imported_one": "{{count}} new link",
+    "imported_other": "{{count}} new links",
+    "moved": "Moved to «{{name}}»",
+    "movedOut": "Removed from the collection",
+    "deleted": "Deleted"
+  },
+  "empty": {
+    "library": "Your bookmarks will live here",
+    "libraryHint": "Import bookmarks from your browser, connect the extension or add a link by hand.",
+    "importBrowser": "Import from browser",
+    "connect": "Connect browser",
+    "local": "The library is stored only on this computer.",
+    "noResults": "Nothing found",
+    "noResultsIn": "Nothing found in «{{section}}»",
+    "noResultsHint": "Try another query or clear the filters.",
+    "resetSearch": "Reset search",
+    "noFavorites": "No favorites yet",
+    "noFavoritesHint": "Mark a bookmark with the star — it will appear here.",
+    "emptyCollection": "«{{name}}» is empty",
+    "emptyCollectionHint": "Add a link here or move bookmarks from the library."
+  },
+  "library": {
+    "loading": "Loading the library",
+    "newBookmarks_one": "New bookmarks · {{count}}",
+    "newBookmarks_other": "New bookmarks · {{count}}",
+    "damaged": "The library is damaged: the integrity check found errors in the file. To avoid further damage, changes are no longer saved and links from the browser wait in the extension. Quit Netami Pin and replace the file with the latest backup.",
+    "openBackups": "Open backups folder",
+    "movedAside": "The library of an earlier test build does not fit the new schema. It was kept as {{path}} and a new library was created."
+  },
+  "gate": {
+    "opening": "Opening the library…",
+    "openData": "Open data folder",
+    "openBackup": "Open backup folder",
+    "copyReport": "Copy report",
+    "reportCopied": "Report copied",
+    "reportFailed": "Could not copy. Select the report text manually.",
+    "quit": "Quit",
+    "details": "Details",
+    "DB_LOCKED": {
+      "title": "The library is in use by another program",
+      "body": "Another program has the library file open. Netami Pin has not written anything to it — your data is as it was. Close that program and click Try again."
+    },
+    "DB_NEWER_SCHEMA": {
+      "title": "A newer version of Netami Pin has updated this library",
+      "body": "The library uses schema {{schema}}; this version supports up to {{supported}}. Install the latest version from pin.netami.app. The library has not been changed."
+    },
+    "DB_FOREIGN": {
+      "title": "This is not a Netami Pin library",
+      "body": "The file was created by another program. Netami Pin does not open or change it. Move the file out of the data folder and a new library will be created on the next start."
+    },
+    "DB_NOT_DATABASE": {
+      "title": "The library file cannot be read",
+      "body": "The file is damaged or is not a database. Netami Pin does not change it. Replace it with the latest copy from the backups folder and click Try again."
+    },
+    "DB_CORRUPT": {
+      "title": "The library is damaged",
+      "body": "The integrity check found errors in the library file. To avoid further damage, Netami Pin does not update or change it. Replace the file with the latest copy from the backups folder and click Try again."
+    },
+    "BACKUP_FAILED": {
+      "title": "Could not back up the library before updating it",
+      "body": "{{detail}}. Your data has not been changed."
+    },
+    "MIGRATION_FAILED": {
+      "title": "Could not update the library",
+      "body": "Your data has not been changed. Copy made before the update: {{backup}}. The app does not use the library until the error is fixed: send the report to support."
+    },
+    "DB_OPEN_FAILED": {
+      "title": "Could not open the library",
+      "body": "{{detail}}. Your data has not been changed."
+    }
+  },
+  "errors": {
+    "disk_full": "The disk is full — the changes were not saved.",
+    "read_only": "The library is damaged and open read-only — changes are not saved.",
+    "database_busy": "Another program is using the library. Try again in a few seconds."
+  }
+}
