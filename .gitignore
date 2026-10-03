@@ -11,6 +11,7 @@ playwright-report/
 # Tauri
 src-tauri/target/
 scripts/search-bench/target/
+scripts/native-messaging-probe/target/
 
 # Logs
 npm-debug.log*
