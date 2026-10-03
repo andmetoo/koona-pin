@@ -32,3 +32,5 @@ tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5"
 dirs = "5.0"
+# TypeScript types of the IPC contract, exported to src/bindings by `cargo test` (NP-007).
+ts-rs = { version = "12", default-features = false, features = ["serde-compat"] }

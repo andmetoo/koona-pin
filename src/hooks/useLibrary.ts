@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
+import { describeError } from "../services/errors";
 import { matchesBookmark, mergeBookmark } from "../services/library";
 import {
   Bookmark,
@@ -50,7 +51,7 @@ export function useLibrary(
         setCounts(n);
       }
     } catch (err) {
-      if (alive.current) setError(String(err));
+      if (alive.current) setError(describeError(err));
     }
   }, []);
   const refresh = useCallback(async () => {
@@ -76,7 +77,7 @@ export function useLibrary(
       }
     } catch (err) {
       if (alive.current && id === seq.current) {
-        setError(String(err));
+        setError(describeError(err));
         setLoading(false);
       }
     }

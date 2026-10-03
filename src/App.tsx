@@ -35,6 +35,7 @@ import {
   Theme,
 } from "./services/preferences";
 import { libraryLabels } from "./services/libraryMessages";
+import { describeError } from "./services/errors";
 import { LibraryCard } from "./components/ui/LibraryCard";
 import { Dialog } from "./components/ui/Dialog";
 import { WindowBar } from "./components/ui/WindowBar";
@@ -170,7 +171,7 @@ export function App() {
           setSettings(s);
           setServer(status);
         })
-        .catch((err) => setFormError(String(err)));
+        .catch((err) => setFormError(describeError(err)));
     }
     if (surface === "add") {
       setCollectionId(filters.collectionId);
@@ -201,13 +202,13 @@ export function App() {
     }
   };
   const open = useCallback((url: string) => {
-    void api.openUrl(url).catch((err) => setNotice(String(err)));
+    void api.openUrl(url).catch((err) => setNotice(describeError(err)));
   }, []);
   const favorite = async (b: Bookmark) => {
     try {
       await api.updateBookmark(b.id, { is_favorite: !b.is_favorite });
     } catch (err) {
-      setNotice(String(err));
+      setNotice(describeError(err));
     }
   };
   const edit = (b: Bookmark) => {
@@ -235,7 +236,7 @@ export function App() {
     try {
       await fn();
     } catch (err) {
-      setFormError(String(err));
+      setFormError(describeError(err));
     } finally {
       setBusy(false);
     }
@@ -404,7 +405,7 @@ export function App() {
                     onClick={() => {
                       void api
                         .revealLibraryPlace("backups")
-                        .catch((err) => setNotice(String(err)));
+                        .catch((err) => setNotice(describeError(err)));
                     }}
                   >
                     {labels.backups}
@@ -764,7 +765,7 @@ export function App() {
                           setImportContent(content);
                           setImportName(file.name);
                         })
-                        .catch((err) => setFormError(String(err)));
+                        .catch((err) => setFormError(describeError(err)));
                   }}
                 />
               </label>
