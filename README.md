@@ -6,9 +6,9 @@
 
 Сайт приложения: [pin.netami.app](https://pin.netami.app).
 
-React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные остаются в `%APPDATA%\OddClicks\oddclicks.db`.
+React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятся в `%APPDATA%\Netami Pin\netamipin.db`.
 
-Прежнее название — OddClicks. Интерфейс, расширение и технические идентификаторы (папка данных, имя EXE, переменные окружения, ответ `/api/health`) пока используют его; переименование в коде ещё не сделано.
+Прежнее название — OddClicks. При первом запуске Netami Pin копирует библиотеку, токен подключения, тему и вид из OddClicks; старая папка остаётся нетронутой. Где старое имя оставлено ради совместимости — в [архитектуре](doc/architecture.md#переход-с-oddclicks).
 
 Дизайн, по приоритету:
 
@@ -44,4 +44,4 @@ npm run tauri build
 npm run extension:zip
 ```
 
-Расширение: папка `extension/chrome`, архив `release/oddclicks-chrome.zip`. Архив хранится отдельно от очищаемой при сборке папки `dist`. Установка через режим разработчика описана в [инструкции](doc/features.md#chrome).
+Расширение: папка `extension/chrome`, архив `release/netamipin-chrome.zip`. Архив хранится отдельно от очищаемой при сборке папки `dist`. Установка через режим разработчика описана в [инструкции](doc/features.md#chrome).

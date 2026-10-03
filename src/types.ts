@@ -31,6 +31,8 @@ export interface ServerStatus {
   running: boolean;
   address: string;
   error: string | null;
+  /** The port is held by OddClicks, which writes to its own library. */
+  legacy_app?: boolean;
 }
 export interface AppSettings {
   capture_token: string;

@@ -16,14 +16,14 @@ async function refresh() {
       (!status.paired
         ? "Вставьте токен, чтобы соединить расширение с приложением."
         : status.connected
-          ? "OddClicks запущен. Подключение настроено."
-          : "OddClicks закрыт или недоступен. Ссылки останутся в очереди.");
+          ? "Netami Pin запущен. Подключение настроено."
+          : "Netami Pin закрыт или недоступен. Ссылки останутся в очереди.");
     get("queue").replaceChildren();
     if (!queue.length) {
       const empty = document.createElement("p");
       empty.className = "empty";
       empty.textContent =
-        "Очередь пуста. Откройте интересную страницу и нажмите значок OddClicks.";
+        "Очередь пуста. Откройте интересную страницу и нажмите значок Netami Pin.";
       get("queue").append(empty);
     }
     for (const item of queue) {

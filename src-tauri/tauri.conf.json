@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OddClicks",
+  "productName": "Netami Pin",
   "version": "0.1.0",
-  "identifier": "com.oddclicks.app",
+  "identifier": "app.netami.pin",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "OddClicks",
+        "title": "Netami Pin",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
