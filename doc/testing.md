@@ -83,6 +83,7 @@ Chrome for Testing запускается с отдельным постоянн
 
 | Дата        | Коммит    | Окружение                                                                                                    | Результат |
 | ----------- | --------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| 3 окт. 2026 | `b887a6f` | Та же машина, `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` | Полный набор прошёл: UI 23, WebView2 2, HTTP smoke, extension smoke; ≈ 45 с после сборки. `npm run check` ≈ 26 с |
 | 3 окт. 2026 | `6fe886a` | Чистый клон; Windows 11 26300, Node.js 26.10.0, npm 11.19.1, Rust 1.98.1, Python 3.14.7, Chromium 153.0.8010.12 (Playwright 1.63.0), WebView2 154.0.4258.53 | Всё прошло, кроме 12 визуальных сравнений (сглаживание шрифтов); эталоны пересозданы в `7e1dc1d`. Extension smoke прошёл с `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` |
 | 2 окт. 2026 | —         | Windows, Node.js 24.19.0, Chrome for Testing 153.0.8010.12; WebView2 1200×800 CSS px, `devicePixelRatio=1.5`  | Всё прошло, в том числе на release-бинарнике со встроенными ресурсами |
 
