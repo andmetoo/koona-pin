@@ -19,6 +19,7 @@ env:
 
 jobs:
   checks:
+    if: false # TEMP while debugging native
     name: Build, unit tests, Playwright UI
     runs-on: windows-2025
     timeout-minutes: 40
@@ -81,6 +82,30 @@ jobs:
         run: cargo build --features custom-protocol --locked
       - name: Install Playwright Chromium
         run: npx playwright install chromium
+      - name: Diagnose native startup
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\*' -ErrorAction SilentlyContinue | Select-Object name, pv | Format-Table -AutoSize
+          $data = Join-Path $PWD ".test-data\diagnose"
+          New-Item -ItemType Directory -Force $data | Out-Null
+          $env:ODDCLICKS_DATA_DIR = $data
+          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $data 'webview'
+          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9225'
+          $env:RUST_BACKTRACE = '1'
+          $app = Start-Process src-tauri\target\debug\oddclicks.exe -PassThru -RedirectStandardOutput "$data\out.txt" -RedirectStandardError "$data\err.txt"
+          Start-Sleep 20
+          "exited: $($app.HasExited) code: $($app.ExitCode)"
+          Get-Process oddclicks, msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Name, Id, StartTime | Format-Table -AutoSize
+          Get-NetTCPConnection -State Listen -LocalPort 9225, 28765 -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess | Format-Table -AutoSize
+          '--- policies'; Get-ChildItem 'HKLM:\SOFTWARE\Policies\Microsoft', 'HKCU:\SOFTWARE\Policies\Microsoft' -Recurse -ErrorAction SilentlyContinue | Where-Object Name -match 'Edge|WebView' | ForEach-Object { $_.Name; $_ | Get-ItemProperty | Out-String }
+          '--- command lines'; Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe'" | Select-Object -First 1 -ExpandProperty CommandLine
+          '--- DevToolsActivePort'; Get-Content (Join-Path $data 'webview\EBWebView\DevToolsActivePort') -ErrorAction SilentlyContinue
+          '--- all listeners of webview'; $ids = (Get-Process msedgewebview2 -ErrorAction SilentlyContinue).Id; Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ids -contains $_.OwningProcess } | Select-Object LocalAddress, LocalPort | Format-Table -AutoSize
+          '--- stdout'; Get-Content "$data\out.txt" -ErrorAction SilentlyContinue
+          '--- stderr'; Get-Content "$data\err.txt" -ErrorAction SilentlyContinue
+          '--- data'; Get-ChildItem $data -Recurse -Depth 2 | Select-Object -ExpandProperty FullName
+          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
       # The three suites share loopback port 28765, so they run one after another.
       - name: Real WebView2
         run: npm run test:native
@@ -103,26 +128,6 @@ jobs:
             Write-Error "Tests wrote outside .test-data: $($default -join ', ')"; exit 1
           }
           Write-Output "Only .test-data was used"
-      - name: Diagnose native startup
-        if: failure()
-        shell: pwsh
-        run: |
-          Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\*' -ErrorAction SilentlyContinue | Select-Object name, pv | Format-Table -AutoSize
-          $data = Join-Path $PWD ".test-data\diagnose"
-          New-Item -ItemType Directory -Force $data | Out-Null
-          $env:ODDCLICKS_DATA_DIR = $data
-          $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $data 'webview'
-          $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--remote-debugging-port=9225'
-          $env:RUST_BACKTRACE = '1'
-          $app = Start-Process src-tauri\target\debug\oddclicks.exe -PassThru -RedirectStandardOutput "$data\out.txt" -RedirectStandardError "$data\err.txt"
-          Start-Sleep 20
-          "exited: $($app.HasExited) code: $($app.ExitCode)"
-          Get-Process oddclicks, msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Name, Id, StartTime | Format-Table -AutoSize
-          Get-NetTCPConnection -State Listen -LocalPort 9225, 28765 -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess | Format-Table -AutoSize
-          '--- stdout'; Get-Content "$data\out.txt" -ErrorAction SilentlyContinue
-          '--- stderr'; Get-Content "$data\err.txt" -ErrorAction SilentlyContinue
-          '--- data'; Get-ChildItem $data -Recurse -Depth 2 | Select-Object -ExpandProperty FullName
-          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
