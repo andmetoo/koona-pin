@@ -1,8 +1,7 @@
-use rusqlite::{params, Connection, DatabaseName, OptionalExtension, Result};
+use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{atomic::AtomicBool, Mutex};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bookmark {
@@ -45,73 +44,71 @@ pub struct DomainCount {
     pub count: i64,
 }
 
+/// The open library. Opening, checks and migrations live in `library.rs`.
 pub struct DbState {
     pub conn: Mutex<Connection>,
+    /// Read by the close handler on the main thread, which must never wait for the database.
+    pub close_to_tray: AtomicBool,
 }
 
 impl DbState {
-    pub fn init() -> Self {
-        let db_path = get_db_path();
-        if let Some(parent) = db_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let imported = crate::legacy::legacy_database().filter(|legacy| {
-            crate::legacy::import_database(legacy, &db_path)
-                .expect("Failed to import the OddClicks library; original data preserved")
-        });
-
-        let conn = Connection::open(&db_path).expect("Failed to open SQLite database");
-
-        // Enable WAL mode & foreign keys for high performance
-        conn.execute_batch(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA foreign_keys = ON;
-             PRAGMA synchronous = NORMAL;",
-        )
-        .expect("Failed to configure SQLite");
-
-        create_tables(&conn).expect("Failed to create tables");
-        migrate(&conn, Some(&db_path))
-            .expect("Failed to migrate database; original data preserved");
-        if let Some(legacy) = imported {
-            let _ = set_setting(&conn, "imported_from", &legacy.to_string_lossy());
-        }
-
+    pub fn new(conn: Connection) -> Self {
+        let close_to_tray = setting(&conn, "close_to_tray").map_or(true, |v| v == "true");
         DbState {
             conn: Mutex::new(conn),
+            close_to_tray: AtomicBool::new(close_to_tray),
         }
     }
 }
 
-pub fn migrate(conn: &Connection, db_path: Option<&std::path::Path>) -> Result<()> {
-    let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    if version >= 1 {
-        return Ok(());
-    }
-    if let Some(path) = db_path {
-        let backup = path.with_file_name("netamipin.before-v1.db");
-        if !backup.exists() {
-            conn.backup(DatabaseName::Main, backup, None)?;
+/// UTC with milliseconds, the only time format of the library: as text it
+/// sorts the same way as in time (Р-10, point 7).
+pub fn now() -> String {
+    chrono::Utc::now()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string()
+}
+
+/// Lower-case UUIDv7: the identity of a record across devices (Р-4).
+pub fn new_uid() -> String {
+    uuid::Uuid::now_v7().to_string()
+}
+
+/// Where a bookmark was saved from; `NULL` in the database means before v2.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Source {
+    App,
+    Chrome,
+    Edge,
+    Firefox,
+    Extension,
+    Bookmarklet,
+    Import,
+}
+
+impl Source {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Source::App => "app",
+            Source::Chrome => "chrome",
+            Source::Edge => "edge",
+            Source::Firefox => "firefox",
+            Source::Extension => "extension",
+            Source::Bookmarklet => "bookmarklet",
+            Source::Import => "import",
         }
     }
-    let tx = conn.unchecked_transaction()?;
-    tx.execute_batch("ALTER TABLE bookmarks ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;
-        CREATE TABLE capture_receipts (request_id TEXT PRIMARY KEY, url TEXT NOT NULL, bookmark_id INTEGER NOT NULL, outcome TEXT NOT NULL);
-        CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-        PRAGMA user_version = 1;")?;
-    tx.execute(
-        "INSERT INTO app_settings (key,value) VALUES ('capture_token',?1)",
-        params![format!(
-            "{}{}",
-            uuid::Uuid::new_v4().simple(),
-            uuid::Uuid::new_v4().simple()
-        )],
-    )?;
-    tx.execute(
-        "INSERT INTO app_settings (key,value) VALUES ('close_to_tray','true')",
-        [],
-    )?;
-    tx.commit()
+
+    /// The browser named by the extension (NP-016). An unknown or missing name
+    /// still saves the link, as "extension".
+    pub fn from_extension(name: Option<&str>) -> Self {
+        match name {
+            Some("chrome") => Source::Chrome,
+            Some("edge") => Source::Edge,
+            Some("firefox") => Source::Firefox,
+            _ => Source::Extension,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -148,7 +145,7 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
 pub const DATA_DIR_ENV: &str = "NETAMIPIN_DATA_DIR";
 const DB_FILE: &str = "netamipin.db";
 
-fn get_db_path() -> PathBuf {
+pub fn db_path() -> PathBuf {
     if let Some(directory) = std::env::var_os(DATA_DIR_ENV) {
         return PathBuf::from(directory).join(DB_FILE);
     }
@@ -158,71 +155,29 @@ fn get_db_path() -> PathBuf {
     }
 }
 
-/// Schema version 0. Public so `examples/test_libraries.rs` builds fixtures from the real schema.
-pub fn create_tables(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS collections (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            color TEXT,
-            icon TEXT,
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS bookmarks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url TEXT NOT NULL UNIQUE,
-            title TEXT NOT NULL,
-            description TEXT,
-            image_url TEXT,
-            favicon_url TEXT,
-            domain TEXT NOT NULL,
-            notes TEXT,
-            is_favorite INTEGER NOT NULL DEFAULT 0,
-            collection_id INTEGER REFERENCES collections(id) ON DELETE SET NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS bookmark_tags (
-            bookmark_id INTEGER NOT NULL REFERENCES bookmarks(id) ON DELETE CASCADE,
-            tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-            PRIMARY KEY (bookmark_id, tag_id)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_bookmarks_domain ON bookmarks(domain);
-        CREATE INDEX IF NOT EXISTS idx_bookmarks_fav ON bookmarks(is_favorite);
-        CREATE INDEX IF NOT EXISTS idx_bookmarks_collection ON bookmarks(collection_id);
-        CREATE INDEX IF NOT EXISTS idx_bookmarks_created ON bookmarks(created_at DESC);",
+fn tag_id(conn: &Connection, name: &str, now: &str) -> Result<i64> {
+    conn.execute(
+        "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(name) DO NOTHING",
+        params![new_uid(), name, now],
     )?;
+    conn.query_row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0))
+}
 
-    // Insert default collections if empty
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM collections", [], |r| r.get(0))?;
-    if count == 0 {
-        let now = chrono::Utc::now().to_rfc3339();
-        conn.execute(
-            "INSERT INTO collections (name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params!["Разработка", "#6366f1", "code", now],
-        )?;
-        conn.execute(
-            "INSERT INTO collections (name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params!["Дизайн & UI", "#ec4899", "palette", now],
-        )?;
-        conn.execute(
-            "INSERT INTO collections (name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4)",
-            params!["Статьи / Читать", "#10b981", "book-open", now],
-        )?;
+fn link_tags(conn: &Connection, bookmark_id: i64, tags: &[String], now: &str) -> Result<()> {
+    for tag_name in tags {
+        let clean = tag_name.trim().to_lowercase();
+        if !clean.is_empty() {
+            let tag_id = tag_id(conn, &clean, now)?;
+            conn.execute(
+                "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING",
+                params![bookmark_id, tag_id],
+            )?;
+        }
     }
-
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn insert_or_update_bookmark(
     conn: &Connection,
     url: &str,
@@ -233,6 +188,7 @@ pub fn insert_or_update_bookmark(
     domain: &str,
     collection_id: Option<i64>,
     tags: Option<&[String]>,
+    source: Source,
 ) -> Result<Bookmark> {
     // Capture is additive: an existing URL must never overwrite user data.
     if let Some(id) = conn
@@ -243,38 +199,18 @@ pub fn insert_or_update_bookmark(
     {
         return get_bookmark_by_id(conn, id);
     }
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = now();
+    // New links wait in the inbox; an import goes straight to the library (Р-10).
+    let triaged_at = (source == Source::Import).then(|| now.clone());
 
     conn.execute(
-        "INSERT INTO bookmarks (url, title, description, image_url, favicon_url, domain, collection_id, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
-        params![url, title, description, image_url, favicon_url, domain, collection_id, now],
+        "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, collection_id, source, created_at, updated_at, triaged_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11)",
+        params![new_uid(), url, title, description, image_url, favicon_url, domain, collection_id, source.as_str(), now, triaged_at],
     )?;
-
-    let bookmark_id: i64 = conn.query_row(
-        "SELECT id FROM bookmarks WHERE url = ?1",
-        params![url],
-        |r| r.get(0),
-    )?;
-
+    let bookmark_id = conn.last_insert_rowid();
     if let Some(tag_list) = tags {
-        for tag_name in tag_list {
-            let clean = tag_name.trim().to_lowercase();
-            if !clean.is_empty() {
-                conn.execute(
-                    "INSERT INTO tags (name, created_at) VALUES (?1, ?2) ON CONFLICT(name) DO NOTHING",
-                    params![clean, now],
-                )?;
-                let tag_id: i64 =
-                    conn.query_row("SELECT id FROM tags WHERE name = ?1", params![clean], |r| {
-                        r.get(0)
-                    })?;
-                conn.execute(
-                    "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING",
-                    params![bookmark_id, tag_id],
-                )?;
-            }
-        }
+        link_tags(conn, bookmark_id, tag_list, &now)?;
     }
 
     get_bookmark_by_id(conn, bookmark_id)
@@ -425,7 +361,7 @@ pub fn update_bookmark(
 ) -> Result<Bookmark> {
     let tx = conn.unchecked_transaction()?;
     let conn = &*tx;
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = now();
 
     if let Some(t) = title {
         conn.execute(
@@ -458,23 +394,7 @@ pub fn update_bookmark(
             "DELETE FROM bookmark_tags WHERE bookmark_id = ?1",
             params![id],
         )?;
-        for tag_name in tag_list {
-            let clean = tag_name.trim().to_lowercase();
-            if !clean.is_empty() {
-                conn.execute(
-                    "INSERT INTO tags (name, created_at) VALUES (?1, ?2) ON CONFLICT(name) DO NOTHING",
-                    params![clean, now],
-                )?;
-                let tag_id: i64 =
-                    conn.query_row("SELECT id FROM tags WHERE name = ?1", params![clean], |r| {
-                        r.get(0)
-                    })?;
-                conn.execute(
-                    "INSERT INTO bookmark_tags (bookmark_id, tag_id) VALUES (?1, ?2) ON CONFLICT DO NOTHING",
-                    params![id, tag_id],
-                )?;
-            }
-        }
+        link_tags(conn, id, &tag_list, &now)?;
     }
 
     conn.execute(
@@ -496,7 +416,7 @@ pub fn enrich_bookmark(
         title=CASE WHEN revision=?1 THEN COALESCE(?2,title) ELSE title END,
         description=COALESCE(?3,description),image_url=COALESCE(?4,image_url),favicon_url=COALESCE(?5,favicon_url),
         revision=revision+1,updated_at=?6 WHERE id=?7",
-        params![initial_revision,meta.title,meta.description,meta.image_url,meta.favicon_url,chrono::Utc::now().to_rfc3339(),id])?;
+        params![initial_revision,meta.title,meta.description,meta.image_url,meta.favicon_url,now(),id])?;
     if changed == 0 {
         Ok(None)
     } else {
@@ -504,9 +424,18 @@ pub fn enrich_bookmark(
     }
 }
 
+/// Until the trash (NP-022) deletion is final; the tombstone keeps the `uid`
+/// so a future sync can delete the record on other devices.
 pub fn delete_bookmark(conn: &Connection, id: i64) -> Result<()> {
-    conn.execute("DELETE FROM bookmarks WHERE id = ?1", params![id])?;
-    Ok(())
+    let tx = conn.unchecked_transaction()?;
+    let now = now();
+    tx.execute(
+        "INSERT OR REPLACE INTO tombstones (uid, kind, deleted_at, purged_at)
+         SELECT uid, 'bookmark', ?1, ?1 FROM bookmarks WHERE id = ?2",
+        params![now, id],
+    )?;
+    tx.execute("DELETE FROM bookmarks WHERE id = ?1", params![id])?;
+    tx.commit()
 }
 
 pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
@@ -542,10 +471,10 @@ pub fn create_collection(
     color: Option<&str>,
     icon: Option<&str>,
 ) -> Result<Collection> {
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = now();
     conn.execute(
-        "INSERT INTO collections (name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4)",
-        params![name, color, icon, now],
+        "INSERT INTO collections (uid, name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![new_uid(), name, color, icon, now],
     )?;
     let id = conn.last_insert_rowid();
     Ok(Collection {
@@ -558,9 +487,21 @@ pub fn create_collection(
     })
 }
 
+/// Bookmarks stay in the library without a collection.
 pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
-    conn.execute("DELETE FROM collections WHERE id = ?1", params![id])?;
-    Ok(())
+    let tx = conn.unchecked_transaction()?;
+    let now = now();
+    tx.execute(
+        "UPDATE bookmarks SET collection_id=NULL,revision=revision+1,updated_at=?1 WHERE collection_id=?2",
+        params![now, id],
+    )?;
+    tx.execute(
+        "INSERT OR REPLACE INTO tombstones (uid, kind, deleted_at, purged_at)
+         SELECT uid, 'collection', ?1, ?1 FROM collections WHERE id = ?2",
+        params![now, id],
+    )?;
+    tx.execute("DELETE FROM collections WHERE id = ?1", params![id])?;
+    tx.commit()
 }
 
 pub fn get_tags(conn: &Connection) -> Result<Vec<Tag>> {
@@ -614,57 +555,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn migration_preserves_legacy_data_and_backs_up_wal_snapshot() {
-        let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../.test-data")
-            .join(format!("migration-{}", uuid::Uuid::new_v4()));
-        fs::create_dir_all(&directory).unwrap();
-        let path = directory.join("netamipin.db");
-        let conn = Connection::open(&path).unwrap();
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
-            .unwrap();
-        create_tables(&conn).unwrap();
-        conn.execute("INSERT INTO bookmarks (url,title,domain,notes,is_favorite,collection_id,created_at,updated_at) VALUES ('https://example.com/legacy','Старая закладка','example.com','Личная заметка',1,1,'2020-01-01','2020-01-01')", []).unwrap();
-        conn.execute(
-            "INSERT INTO tags (name,created_at) VALUES ('архитектура','2020-01-01')",
-            [],
-        )
-        .unwrap();
-        conn.execute("INSERT INTO bookmark_tags VALUES (1,1)", [])
-            .unwrap();
-        migrate(&conn, Some(&path)).unwrap();
-        let bookmark = get_bookmark_by_id(&conn, 1).unwrap();
-        assert_eq!(bookmark.title, "Старая закладка");
-        assert_eq!(bookmark.notes.as_deref(), Some("Личная заметка"));
-        assert_eq!(bookmark.collection_id, Some(1));
-        assert_eq!(bookmark.tags.unwrap(), vec!["архитектура"]);
-        assert!(bookmark.is_favorite);
-        let token = setting(&conn, "capture_token").unwrap();
-        migrate(&conn, Some(&path)).unwrap();
-        assert_eq!(setting(&conn, "capture_token").unwrap(), token);
-        let backup = Connection::open(directory.join("netamipin.before-v1.db")).unwrap();
-        assert_eq!(
-            backup
-                .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))
-                .unwrap(),
-            0
-        );
-        assert_eq!(
-            backup
-                .query_row::<String, _, _>("SELECT notes FROM bookmarks WHERE id=1", [], |r| r
-                    .get(0))
-                .unwrap(),
-            "Личная заметка"
-        );
-        assert_eq!(
-            backup
-                .query_row::<i64, _, _>("SELECT count(*) FROM bookmark_tags", [], |r| r.get(0))
-                .unwrap(),
-            1
-        );
-    }
-
-    #[test]
     fn collection_patch_keeps_clears_and_rolls_back_on_write_error() {
         let conn = setup_test_db();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
@@ -678,6 +568,7 @@ mod tests {
             "example.com",
             Some(1),
             None,
+            Source::App,
         )
         .unwrap();
         let kept = update_bookmark(
@@ -722,6 +613,7 @@ mod tests {
             "example.com",
             None,
             None,
+            Source::App,
         )
         .unwrap();
         update_bookmark(&conn, bookmark.id, None, None, Some(true), None, None).unwrap();
@@ -753,6 +645,7 @@ mod tests {
             "example.com",
             None,
             None,
+            Source::App,
         )
         .unwrap();
         let second = insert_or_update_bookmark(
@@ -765,6 +658,7 @@ mod tests {
             "example.com",
             None,
             None,
+            Source::App,
         )
         .unwrap();
         conn.execute("UPDATE bookmarks SET created_at='2020-01-01'", [])
@@ -787,9 +681,8 @@ mod tests {
     }
 
     fn setup_test_db() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        create_tables(&conn).unwrap();
-        migrate(&conn, None).unwrap();
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::migrations::migrate(&mut conn, None).unwrap();
         conn
     }
 
@@ -809,6 +702,7 @@ mod tests {
             "tauri.app",
             None,
             Some(&tags),
+            Source::App,
         )
         .unwrap();
 
@@ -861,6 +755,7 @@ mod tests {
             "github.com",
             Some(col.id),
             None,
+            Source::App,
         )
         .unwrap();
         insert_or_update_bookmark(
@@ -873,6 +768,7 @@ mod tests {
             "github.com",
             Some(col.id),
             None,
+            Source::App,
         )
         .unwrap();
 

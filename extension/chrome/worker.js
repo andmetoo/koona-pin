@@ -203,7 +203,5 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     .catch((error) => respond({ error: error.message }));
   return true;
 });
-// The alarm had this name before the rename to Netami Pin.
-void chrome.alarms.clear("oddclicks-delivery");
 // Recreate the alarm after worker restarts: Chrome does not guarantee its persistence.
 void queue.list().then(updateStatus).catch(console.error);

@@ -1,6 +1,6 @@
 use crate::{
     capture::{self, CaptureRequest},
-    db::DbState,
+    db::{DbState, Source},
 };
 use serde::Serialize;
 use std::{
@@ -118,9 +118,7 @@ pub fn start_server(app: AppHandle, db: Arc<DbState>, status: Arc<ServerState>) 
                 }
                 let _ = req.respond(response(
                     200,
-                    // "app" stays "OddClicks": extensions connected before the
-                    // rename check it. New clients read "name".
-                    serde_json::json!({"status":"ok","app":"OddClicks","name":"Netami Pin","protocol":1}),
+                    serde_json::json!({"status":"ok","name":"Netami Pin","protocol":1}),
                 ));
                 continue;
             }
@@ -184,6 +182,7 @@ pub fn start_server(app: AppHandle, db: Arc<DbState>, status: Arc<ServerState>) 
                     tags: query
                         .get("tags")
                         .map(|x| x.split(',').map(str::to_owned).collect()),
+                    source: None,
                 })
             };
             let payload = match payload {
@@ -197,8 +196,14 @@ pub fn start_server(app: AppHandle, db: Arc<DbState>, status: Arc<ServerState>) 
                 let _ = req.respond(error(400, "invalid_request", "request_id обязателен"));
                 continue;
             }
+            // v1 is the extension; the legacy endpoint is the bookmarklet.
+            let source = if versioned {
+                Source::from_extension(payload.source.as_deref())
+            } else {
+                Source::Bookmarklet
+            };
             let result = match db.conn.lock() {
-                Ok(conn) => capture::save(&conn, &payload),
+                Ok(conn) => capture::save(&conn, &payload, source),
                 Err(_) => {
                     let _ = req.respond(error(500, "database_error", "База данных недоступна"));
                     continue;
