@@ -18,6 +18,8 @@
     "test:perf": "playwright test --config playwright.native.config.ts --grep @perf",
     "test:host": "node scripts/smoke-host.mjs",
     "test:extension": "node scripts/smoke-extension.mjs",
+    "test:extension:chrome": "node scripts/smoke-extension.mjs chrome",
+    "test:extension:edge": "node scripts/smoke-extension.mjs edge",
     "test:extension:firefox": "node scripts/smoke-extension-firefox.mjs",
     "extension:build": "node scripts/build-extension.mjs",
     "extension:lint": "npm run extension:build && web-ext lint --source-dir extension/build/firefox",
