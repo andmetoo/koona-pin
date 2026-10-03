@@ -1,8 +1,9 @@
 import { ReactNode, useState } from "react";
 import { Inbox, Link, Plus, Settings, Star, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Collection, FilterState, LibraryCounts, ServerStatus, Tag } from "../../types";
+import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
+import { statusColor, statusLabel } from "../../services/capture";
 import { Icon, LogoMark, PinIcon } from "../icons";
 import { Dot } from "../ui/Controls";
 
@@ -13,7 +14,7 @@ export interface SidebarProps {
   counts: LibraryCounts;
   collections: Collection[];
   tags: Tag[];
-  server: ServerStatus | null;
+  capture: CaptureStatus | null;
   onAll: () => void;
   onFavorites: () => void;
   onCollection: (id: number) => void;
@@ -29,18 +30,12 @@ const VISIBLE_TAGS = 6;
 /** Sidebar 232 px (frame 01); a 56 px strip of icons in a narrow window (frame 16). */
 export function Sidebar(props: SidebarProps) {
   const { t } = useTranslation();
-  const { filters, settingsOpen, counts, collections, tags, server, narrow } = props;
+  const { filters, settingsOpen, counts, collections, tags, capture, narrow } = props;
   const [allTags, setAllTags] = useState(false);
   const library = !settingsOpen;
   const all = library && !filters.collectionId && !filters.onlyFavorites;
   const favorites = library && filters.onlyFavorites;
-  const status = server?.running
-    ? { color: "var(--np-green)", label: t("browser.ready") }
-    : server?.error
-      ? { color: "var(--np-danger)", label: t("browser.failing") }
-      : server
-        ? { color: "var(--np-faint)", label: t("browser.notConnected") }
-        : { color: "var(--np-faint)", label: t("browser.checking") };
+  const status = { color: statusColor(capture), label: statusLabel(capture, t) };
   const soon = t("common.soon");
 
   if (narrow)
@@ -188,7 +183,7 @@ export function Sidebar(props: SidebarProps) {
         onClick={props.onConnect}
         trailing={<Dot color={status.color} className="size-1.5" />}
         plain
-        danger={!!server?.error && !server.running}
+        danger={capture?.state === "failing"}
       />
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
     </aside>

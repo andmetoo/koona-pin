@@ -1,0 +1,534 @@
+//! Capture over native messaging (Р-17). The browser starts netamipin-host.exe,
+//! the host passes each message over a named pipe, the app answers it. The app
+//! stays the only process that writes the library.
+//!
+//! One JSON line per connection each way. The host sends
+//! `{ "caller": "chrome-extension://…/", "message": { … } }`, where `message`
+//! comes from the extension unchanged; the reply goes back to the extension.
+
+use crate::{
+    browsers::{self, Browser, CaptureProblem, CaptureStatus, Connections, PROTOCOL},
+    capture::{self, CaptureRequest, CaptureResult},
+    db::{DbState, Source},
+};
+use chrono::{DateTime, Utc};
+use rusqlite::Connection;
+use serde::Deserialize;
+use serde_json::{json, Value};
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Emitter};
+
+/// The browser limits a message from the extension to the host; a line larger
+/// than this is not a message of ours.
+pub const MAX_MESSAGE: usize = 1024 * 1024;
+
+#[derive(Debug, Deserialize)]
+pub struct Envelope {
+    /// What the browser told the host about the extension: its origin
+    /// (Chrome, Edge) or its id (Firefox). Kept for reports.
+    #[serde(default)]
+    pub caller: Option<String>,
+    pub message: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum Message {
+    Hello {
+        #[serde(default)]
+        protocol: Option<u32>,
+        #[serde(default)]
+        version: Option<String>,
+        #[serde(default)]
+        browser: Option<String>,
+    },
+    Capture {
+        #[serde(default)]
+        protocol: Option<u32>,
+        #[serde(default)]
+        version: Option<String>,
+        #[serde(default)]
+        browser: Option<String>,
+        request_id: String,
+        url: String,
+        #[serde(default)]
+        title: Option<String>,
+    },
+}
+
+pub struct Handled {
+    pub reply: Value,
+    pub saved: Option<CaptureResult>,
+    /// A browser's record changed: the status may change too.
+    pub contact: bool,
+}
+
+fn failure(code: &str, message: &str) -> Value {
+    json!({ "ok": false, "code": code, "message": message })
+}
+
+/// Everything the app does with one message, inside the caller's database lock.
+pub fn handle(
+    conn: &Connection,
+    connections: &mut Connections,
+    envelope: &Envelope,
+    now: DateTime<Utc>,
+) -> Handled {
+    let message = match serde_json::from_value::<Message>(envelope.message.clone()) {
+        Ok(message) => message,
+        Err(_) => {
+            return Handled {
+                reply: failure("invalid_request", "Неизвестное сообщение"),
+                saved: None,
+                contact: false,
+            }
+        }
+    };
+    let (protocol, version, browser) = match &message {
+        Message::Hello {
+            protocol,
+            version,
+            browser,
+        }
+        | Message::Capture {
+            protocol,
+            version,
+            browser,
+            ..
+        } => (*protocol, version.clone(), browser.as_deref().and_then(Browser::parse)),
+    };
+    let stamp = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+    // An incompatible extension is recorded too: the status tells the user to update.
+    if let Some(browser) = browser {
+        connections.contact(browser, version, protocol, &stamp);
+    }
+    let contact = browser.is_some();
+    if protocol != Some(PROTOCOL) {
+        let mut reply = failure(
+            "incompatible_protocol",
+            "Версии Netami Pin и расширения не совпадают",
+        );
+        reply["protocol"] = json!(PROTOCOL);
+        reply["version"] = json!(env!("CARGO_PKG_VERSION"));
+        if contact {
+            let _ = connections.save(conn);
+        }
+        return Handled {
+            reply,
+            saved: None,
+            contact,
+        };
+    }
+    let handled = match message {
+        Message::Hello { .. } => Handled {
+            reply: json!({
+                "ok": true,
+                "name": "Netami Pin",
+                "protocol": PROTOCOL,
+                "version": env!("CARGO_PKG_VERSION"),
+            }),
+            saved: None,
+            contact,
+        },
+        Message::Capture {
+            request_id,
+            url,
+            title,
+            ..
+        } => {
+            let request = CaptureRequest {
+                request_id: Some(request_id),
+                url,
+                title,
+                collection_id: None,
+                tags: None,
+            };
+            let source = browser.map_or(Source::Extension, Browser::source);
+            match capture::save(conn, &request, source) {
+                Ok(saved) => {
+                    if let Some(browser) = browser {
+                        connections.captured(browser, &stamp);
+                    }
+                    Handled {
+                        reply: json!({
+                            "ok": true,
+                            "bookmark_id": saved.bookmark_id,
+                            "outcome": saved.outcome,
+                        }),
+                        saved: Some(saved),
+                        contact,
+                    }
+                }
+                Err(error) => Handled {
+                    reply: failure(error.code, &error.message),
+                    saved: None,
+                    contact,
+                },
+            }
+        }
+    };
+    // The record is a convenience: a read-only (damaged) library keeps it in memory.
+    if contact {
+        let _ = connections.save(conn);
+    }
+    handled
+}
+
+/// What the interface needs besides the library: browser records and problems.
+#[derive(Default)]
+pub struct ChannelState {
+    pub connections: Mutex<Connections>,
+    channel: Mutex<Option<String>>,
+    registration: Mutex<Option<(CaptureProblem, String)>>,
+}
+
+impl ChannelState {
+    pub fn status(&self, now: DateTime<Utc>) -> CaptureStatus {
+        let problem = lock(&self.channel)
+            .clone()
+            .map(|detail| (CaptureProblem::Channel, detail))
+            .or_else(|| lock(&self.registration).clone());
+        browsers::status(&lock(&self.connections), problem, now)
+    }
+
+    pub fn set_registration(&self, problem: Option<(CaptureProblem, String)>) {
+        *lock(&self.registration) = problem;
+    }
+
+    pub fn set_channel(&self, problem: Option<String>) {
+        *lock(&self.channel) = problem;
+    }
+
+    pub fn channel_failed(&self) -> bool {
+        lock(&self.channel).is_some()
+    }
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+pub fn emit_status(app: &AppHandle, state: &ChannelState) {
+    let _ = app.emit("capture-status", state.status(Utc::now()));
+}
+
+/// Points the browsers at the host, when this build registers (see
+/// `native_host::should_register`).
+pub fn register_host(app: &AppHandle, state: &ChannelState) {
+    if crate::native_host::should_register() {
+        state.set_registration(crate::native_host::register().err());
+        emit_status(app, state);
+    }
+}
+
+/// Loads the records of the opened library and starts the pipe.
+pub fn start(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
+    if let Ok(conn) = db.conn.lock() {
+        *lock(&state.connections) = Connections::load(&conn);
+    }
+    serve(app, db, state);
+}
+
+#[cfg(windows)]
+fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
+    use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
+    let name = crate::pipe_name::pipe_name();
+    let mut security = match security::OnlyCurrentUser::new() {
+        Ok(security) => security,
+        Err(error) => {
+            state.set_channel(Some(error.to_string()));
+            emit_status(&app, &state);
+            return;
+        }
+    };
+    // The first instance flag: if another program already holds the name,
+    // the app does not share it but reports the problem.
+    let mut create = move |first: bool| -> std::io::Result<NamedPipeServer> {
+        let _runtime = tauri::async_runtime::handle().inner().enter();
+        unsafe {
+            ServerOptions::new()
+                .first_pipe_instance(first)
+                .reject_remote_clients(true)
+                .create_with_security_attributes_raw(&name, security.attributes())
+        }
+    };
+    // The first instance is created before this returns, so «Повторить» answers
+    // with the real state.
+    let mut server = match create(true) {
+        Ok(server) => server,
+        Err(error) => {
+            eprintln!("Capture pipe: {error}");
+            state.set_channel(Some(error.to_string()));
+            emit_status(&app, &state);
+            return;
+        }
+    };
+    state.set_channel(None);
+    emit_status(&app, &state);
+    tauri::async_runtime::spawn(async move {
+        loop {
+            if server.connect().await.is_err() {
+                continue;
+            }
+            // The next instance waits before this one is answered.
+            let connected = loop {
+                match create(false) {
+                    Ok(next) => break std::mem::replace(&mut server, next),
+                    Err(error) => {
+                        eprintln!("Capture pipe: {error}");
+                        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    }
+                }
+            };
+            let (app, db, state) = (app.clone(), db.clone(), state.clone());
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = answer(connected, app, db, state).await {
+                    eprintln!("Capture pipe: {error}");
+                }
+            });
+        }
+    });
+}
+#[cfg(not(windows))]
+fn serve(app: AppHandle, _db: Arc<DbState>, state: Arc<ChannelState>) {
+    // macOS and Linux get their channel with their releases (NP-048, NP-052).
+    state.set_channel(Some("Native messaging is not available on this system yet".into()));
+    emit_status(&app, &state);
+}
+
+#[cfg(windows)]
+async fn answer(
+    pipe: tokio::net::windows::named_pipe::NamedPipeServer,
+    app: AppHandle,
+    db: Arc<DbState>,
+    state: Arc<ChannelState>,
+) -> std::io::Result<()> {
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+    let mut reader = BufReader::new(pipe);
+    let mut line = Vec::new();
+    (&mut reader)
+        .take(MAX_MESSAGE as u64 + 1)
+        .read_until(b'\n', &mut line)
+        .await?;
+    let reply = match serde_json::from_slice::<Envelope>(&line) {
+        Ok(envelope) if line.len() <= MAX_MESSAGE => {
+            let (database, records) = (db.clone(), state.clone());
+            let handled = tauri::async_runtime::spawn_blocking(move || {
+                let Ok(conn) = database.conn.lock() else {
+                    return Handled {
+                        reply: failure("database_error", "База данных недоступна"),
+                        saved: None,
+                        contact: false,
+                    };
+                };
+                let mut connections = lock(&records.connections);
+                handle(&conn, &mut connections, &envelope, Utc::now())
+            })
+            .await
+            .map_err(std::io::Error::other)?;
+            if let Some(saved) = &handled.saved {
+                capture::after_save(&app, db.clone(), saved);
+            }
+            if handled.contact {
+                emit_status(&app, &state);
+            }
+            handled.reply
+        }
+        _ => failure("invalid_request", "Неизвестное сообщение"),
+    };
+    let pipe = reader.get_mut();
+    pipe.write_all(format!("{reply}\n").as_bytes()).await?;
+    pipe.flush().await
+}
+
+#[cfg(windows)]
+mod security {
+    use windows_sys::Win32::{
+        Foundation::LocalFree,
+        Security::{
+            Authorization::{
+                ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+            },
+            PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES,
+        },
+    };
+
+    /// A pipe only the current user can open, not other users of the computer
+    /// and not services.
+    pub struct OnlyCurrentUser {
+        descriptor: PSECURITY_DESCRIPTOR,
+        attributes: SECURITY_ATTRIBUTES,
+    }
+
+    // The descriptor is only read by the system after creation.
+    unsafe impl Send for OnlyCurrentUser {}
+
+    impl OnlyCurrentUser {
+        pub fn new() -> std::io::Result<Box<Self>> {
+            let sid = crate::pipe_name::user_sid()
+                .ok_or_else(|| std::io::Error::other("cannot read the user's SID"))?;
+            let sddl: Vec<u16> = format!("D:P(A;;GA;;;{sid})")
+                .encode_utf16()
+                .chain(Some(0))
+                .collect();
+            let mut descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+            let converted = unsafe {
+                ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                    sddl.as_ptr(),
+                    SDDL_REVISION_1,
+                    &mut descriptor,
+                    std::ptr::null_mut(),
+                )
+            };
+            if converted == 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            // Boxed: the attributes point at the descriptor and must not move.
+            let mut security = Box::new(OnlyCurrentUser {
+                descriptor,
+                attributes: SECURITY_ATTRIBUTES {
+                    nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+                    lpSecurityDescriptor: std::ptr::null_mut(),
+                    bInheritHandle: 0,
+                },
+            });
+            security.attributes.lpSecurityDescriptor = security.descriptor;
+            Ok(security)
+        }
+
+        pub fn attributes(&mut self) -> *mut core::ffi::c_void {
+            &mut self.attributes as *mut SECURITY_ATTRIBUTES as *mut core::ffi::c_void
+        }
+    }
+
+    impl Drop for OnlyCurrentUser {
+        fn drop(&mut self) {
+            unsafe { LocalFree(self.descriptor) };
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db;
+
+    fn database() -> Connection {
+        let mut c = Connection::open_in_memory().unwrap();
+        c.pragma_update(None, "foreign_keys", true).unwrap();
+        crate::migrations::migrate(&mut c, None).unwrap();
+        c
+    }
+    fn envelope(message: Value) -> Envelope {
+        Envelope {
+            caller: Some("chrome-extension://iibgiagcbediajombmkohanobgicbepn/".into()),
+            message,
+        }
+    }
+    fn now() -> DateTime<Utc> {
+        "2026-10-03T12:00:00Z".parse().unwrap()
+    }
+    fn capture(id: &str, url: &str, browser: &str) -> Value {
+        json!({ "type": "capture", "protocol": PROTOCOL, "version": "0.5.0", "browser": browser,
+                "request_id": id, "url": url, "title": "Title" })
+    }
+
+    #[test]
+    fn hello_answers_and_records_the_browser() {
+        let c = database();
+        let mut connections = Connections::default();
+        let handled = handle(
+            &c,
+            &mut connections,
+            &envelope(json!({ "type": "hello", "protocol": PROTOCOL, "version": "0.5.0", "browser": "edge" })),
+            now(),
+        );
+        assert_eq!(handled.reply["ok"], true);
+        assert_eq!(handled.reply["name"], "Netami Pin");
+        assert_eq!(handled.reply["protocol"], PROTOCOL);
+        assert!(handled.contact);
+        let status = browsers::status(&Connections::load(&c), None, now());
+        assert_eq!(status.state, browsers::CaptureState::Connected);
+        assert_eq!(status.browsers[0].browser, Browser::Edge);
+        assert_eq!(status.browsers[0].extension_version.as_deref(), Some("0.5.0"));
+    }
+
+    #[test]
+    fn capture_saves_with_the_source_and_keeps_the_receipt_rules() {
+        let c = database();
+        let mut connections = Connections::default();
+        let first = handle(&c, &mut connections, &envelope(capture("r1", "https://example.com/", "firefox")), now());
+        assert_eq!(first.reply["ok"], true);
+        assert_eq!(first.reply["outcome"], "created");
+        assert!(first.saved.as_ref().unwrap().newly_created);
+        let source: String = c
+            .query_row("SELECT source FROM bookmarks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(source, "firefox");
+        // The same request again: the receipt, nothing new.
+        let replay = handle(&c, &mut connections, &envelope(capture("r1", "https://example.com/", "firefox")), now());
+        assert_eq!(replay.reply["bookmark_id"], first.reply["bookmark_id"]);
+        assert_eq!(replay.reply["outcome"], "created");
+        // Another request for the same address: existing.
+        let duplicate = handle(&c, &mut connections, &envelope(capture("r2", "https://example.com/", "chrome")), now());
+        assert_eq!(duplicate.reply["outcome"], "existing");
+        // The request id of another address: the HTTP v1 conflict code.
+        let conflict = handle(&c, &mut connections, &envelope(capture("r1", "https://other.example/", "chrome")), now());
+        assert_eq!(conflict.reply["code"], "request_id_conflict");
+        let invalid = handle(&c, &mut connections, &envelope(capture("r3", "chrome://settings", "chrome")), now());
+        assert_eq!(invalid.reply["code"], "invalid_request");
+        let status = browsers::status(&connections, None, now());
+        assert_eq!(status.last_capture.unwrap().browser, Browser::Chrome);
+    }
+
+    #[test]
+    fn another_protocol_is_refused_but_recorded() {
+        let c = database();
+        let mut connections = Connections::default();
+        let mut old = capture("r1", "https://example.com/", "chrome");
+        old["protocol"] = json!(1);
+        let handled = handle(&c, &mut connections, &envelope(old), now());
+        assert_eq!(handled.reply["code"], "incompatible_protocol");
+        assert_eq!(handled.reply["protocol"], PROTOCOL);
+        assert!(handled.saved.is_none());
+        assert_eq!(db::get_counts(&c).unwrap().total, 0);
+        assert_eq!(
+            browsers::status(&connections, None, now()).state,
+            browsers::CaptureState::Incompatible
+        );
+    }
+
+    #[test]
+    fn unknown_messages_and_browsers_are_handled() {
+        let c = database();
+        let mut connections = Connections::default();
+        let unknown = handle(&c, &mut connections, &envelope(json!({ "type": "delete" })), now());
+        assert_eq!(unknown.reply["code"], "invalid_request");
+        // A browser the app does not know still saves, as "extension".
+        let other = handle(&c, &mut connections, &envelope(capture("r1", "https://example.com/", "opera")), now());
+        assert_eq!(other.reply["ok"], true);
+        assert!(!other.contact);
+        let source: String = c
+            .query_row("SELECT source FROM bookmarks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(source, "extension");
+    }
+
+    #[test]
+    fn a_read_only_library_refuses_capture_but_answers_hello() {
+        let c = database();
+        c.pragma_update(None, "query_only", true).unwrap();
+        let mut connections = Connections::default();
+        let hello = handle(
+            &c,
+            &mut connections,
+            &envelope(json!({ "type": "hello", "protocol": PROTOCOL, "browser": "chrome" })),
+            now(),
+        );
+        assert_eq!(hello.reply["ok"], true);
+        let saved = handle(&c, &mut connections, &envelope(capture("r1", "https://example.com/", "chrome")), now());
+        assert_eq!(saved.reply["code"], "database_error");
+        // The record stays in memory.
+        assert_eq!(browsers::status(&connections, None, now()).state, browsers::CaptureState::Connected);
+    }
+}

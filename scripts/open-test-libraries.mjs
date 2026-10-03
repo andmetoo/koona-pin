@@ -4,26 +4,11 @@
 import { spawn } from "node:child_process";
 import { copyFile, mkdir, readdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
-import http from "node:http";
 import path from "node:path";
+import { appBinary, pipeReady, testPipe } from "./lib/native-host.mjs";
 
 const libraries = path.resolve(".test-data", "libraries");
-const binary = path.resolve(
-  process.env.NETAMIPIN_TEST_BINARY || "src-tauri/target/debug/netamipin.exe",
-);
-
-const healthy = () =>
-  new Promise((resolve) => {
-    const request = http.get("http://127.0.0.1:28765/api/health", (response) => {
-      response.resume();
-      resolve(response.statusCode === 200);
-    });
-    request.setTimeout(500, () => {
-      request.destroy();
-      resolve(false);
-    });
-    request.on("error", () => resolve(false));
-  });
+const binary = appBinary();
 
 function inspect(file) {
   try {
@@ -52,7 +37,8 @@ async function open(name, env) {
       result = `завершилось с кодом ${app.exitCode}: ${reason?.trim() ?? ""}`;
       break;
     }
-    if (await healthy()) {
+    // The capture pipe opens only once the library is open.
+    if (await pipeReady(env.NETAMIPIN_PIPE)) {
       result = `открыто за ${Date.now() - started} мс`;
       break;
     }
@@ -69,13 +55,16 @@ async function open(name, env) {
   console.log(`${name.padEnd(30)} ${result}`);
 }
 
-if (await healthy()) throw new Error("Port 28765 is occupied; close the running app first.");
 const stamp = Date.now();
 for (const name of (await readdir(libraries)).filter((file) => file.endsWith(".db"))) {
   const data = path.resolve(".test-data", `open-${stamp}`, name);
   await mkdir(data, { recursive: true });
   await copyFile(path.join(libraries, name), path.join(data, "netamipin.db"));
-  await open(name, { NETAMIPIN_DATA_DIR: data, WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview") });
+  await open(name, {
+    NETAMIPIN_DATA_DIR: data,
+    WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
+    NETAMIPIN_PIPE: testPipe("library"),
+  });
   const moved = (await readdir(data)).filter((file) => file.startsWith("netamipin.old-"));
   console.log(`${"".padEnd(30)} после: ${inspect(path.join(data, "netamipin.db"))}${moved.length ? `; прежняя перенесена: ${moved.join(", ")}` : ""}`);
 }

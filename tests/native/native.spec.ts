@@ -5,19 +5,11 @@ import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import net from "node:net";
-import http from "node:http";
+import { capture, hello, hostMessage, pipeReady, testPipe } from "../../scripts/lib/native-host.mjs";
 
-test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", async ({
+test("real WebView2, SQLite, capture through the host, close-to-tray and single instance", async ({
   request,
 }) => {
-  try {
-    await request.get("http://127.0.0.1:28765/api/health", { timeout: 500 });
-    throw new Error(
-      "Port 28765 already occupied; existing process is left untouched",
-    );
-  } catch (error) {
-    if (String(error).includes("already occupied")) throw error;
-  }
   const data = path.resolve(".test-data", `webview-${Date.now()}`);
   await mkdir(data, { recursive: true });
   const executable = path.resolve(
@@ -28,6 +20,7 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
     NETAMIPIN_DATA_DIR: data,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225 --lang=ru",
+    NETAMIPIN_PIPE: testPipe("webview"),
   };
   const processHandle = spawn(executable, [], {
     env,
@@ -85,27 +78,16 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
     await expect(page.locator("[data-bookmark-id] [data-collection]")).toContainText(
       "Без коллекции",
     );
-    await page.getByRole("button", { name: /Захват/ }).click();
-    await expect(
-      page.getByLabel("Токен подключения", { exact: true }),
-    ).toHaveValue(/^[a-f0-9]{64}$/);
-    const token = await page
-      .getByLabel("Токен подключения", { exact: true })
-      .inputValue();
-    const captured = await request.post(
-      "http://127.0.0.1:28765/api/v1/capture",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        data: {
-          request_id: "webview-incoming",
-          url: "https://example.invalid/native-http",
-          title: "Из браузера",
-        },
-      },
+    // Nothing has written yet: the browser is not connected.
+    await expect(page.getByRole("button", { name: "Браузер не подключён" })).toBeVisible();
+    const captured = await hostMessage(
+      capture("webview-incoming", "https://example.invalid/native-host", "Из браузера", "edge"),
+      { env },
     );
-    expect(captured.ok()).toBe(true);
-    await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+    expect(captured.reply).toMatchObject({ ok: true, outcome: "created" });
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
+    // The capture tells the app about the browser; the status updates by itself.
+    await expect(page.getByRole("button", { name: "Браузер подключён" })).toBeVisible();
     // FTS5 through IPC: the capture is in the index, case folds.
     const search = page.getByRole("textbox", { name: "Поиск в библиотеке" });
     await search.fill("БРАУЗЕРА native");
@@ -135,9 +117,8 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
     await page
       .getByRole("button", { name: "Закрыть окно", exact: true })
       .click();
-    expect((await request.get("http://127.0.0.1:28765/api/health")).ok()).toBe(
-      true,
-    );
+    // In the tray the app still answers the browser.
+    expect((await hostMessage(hello(), { env })).reply.ok).toBe(true);
     await expect
       .poll(() =>
         page.evaluate(() =>
@@ -168,6 +149,20 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
       )
       .toBe(true);
     await page.getByRole("button", { name: "Настройки", exact: true }).click();
+    // Edge saved; the hello above came from Chrome.
+    await expect(page.locator('[data-capture="connected"]')).toContainText("Подключено: Chrome, Edge");
+    await expect(page.locator('[data-capture="connected"]')).toContainText(/Последнее сохранение — сегодня в .* из Edge/);
+    // A launch from the host (--autostart) does not show the window.
+    await page.getByRole("button", { name: "Закрыть окно", exact: true }).click();
+    const fromHost = spawn(executable, ["--autostart"], { env, windowsHide: true, stdio: "ignore" });
+    await new Promise<void>((resolve) => fromHost.on("exit", () => resolve()));
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("plugin:window|is_visible"))).toBe(false);
+    const shown = spawn(executable, [], { env, windowsHide: true, stdio: "ignore" });
+    await new Promise<void>((resolve) => shown.on("exit", () => resolve()));
+    await expect
+      .poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("plugin:window|is_visible")))
+      .toBe(true);
     const tray = page.getByRole("switch", {
       name: "При закрытии окна оставлять приложение в трее",
     });
@@ -188,84 +183,43 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
   }
 });
 
-test("occupied port is reported while local library remains usable", async ({
+test("a capture pipe held by another program is reported while the library stays usable", async ({
   request,
 }) => {
-  // The app probes the port with a request; an unread request would keep the
-  // socket and server.close() pending, so the connection is dropped at once.
-  const occupied = net.createServer((socket) => socket.destroy());
+  // Another program holds the name first: the app does not share it and says why.
+  const name = testPipe("held");
+  const holder = net.createServer((socket) => socket.destroy());
   await new Promise<void>((resolve, reject) => {
-    occupied.once("error", reject);
-    occupied.listen(28765, "127.0.0.1", resolve);
+    holder.once("error", reject);
+    holder.listen(`\\\\.\\pipe\\${name}`, resolve);
   });
-  const data = path.resolve(".test-data", `occupied-${Date.now()}`);
-  await mkdir(data, { recursive: true });
-  const processHandle = spawn(
-    path.resolve(
-      process.env.NETAMIPIN_TEST_BINARY ||
-        "src-tauri/target/debug/netamipin.exe",
-    ),
-    [],
-    {
-      windowsHide: true,
-      stdio: "ignore",
-      env: {
-        ...process.env,
-        NETAMIPIN_DATA_DIR: data,
-        WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225 --lang=ru",
-      },
-    },
-  );
-  let browser;
+  const data = await folder("held-pipe");
+  const app = await launch(request, { ...isolated(data), NETAMIPIN_PIPE: name });
   try {
-    await expect
-      .poll(
-        async () => {
-          try {
-            return (
-              await request.get("http://127.0.0.1:9225/json/version", {
-                timeout: 500,
-              })
-            ).ok();
-          } catch {
-            return false;
-          }
-        },
-        { timeout: 20000 },
-      )
-      .toBe(true);
-    browser = await chromium.connectOverCDP("http://127.0.0.1:9225");
-    const page = browser.contexts()[0].pages()[0];
-    await page.getByRole("button", { name: /Захват/ }).click();
-    await expect(page.locator("[data-connection]")).toHaveAttribute(
-      "data-connection",
-      "stopped",
-    );
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          window.__TAURI_INTERNALS__.invoke("get_server_status"),
-        ),
-      )
-      .toMatchObject({ running: false, error: expect.any(String) });
-    await page.getByRole("button", { name: "Закрыть", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Добавить ссылку", exact: true })
-      .first()
-      .click();
-    await page
-      .getByLabel("Ссылка", { exact: true })
-      .fill("https://example.invalid/without-http");
+    const page = app.page;
+    await expect(page.getByRole("button", { name: "Захват не работает" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("alert").filter({ hasText: "не смог открыть канал захвата" })).toBeVisible();
+    await page.getByRole("button", { name: "Подробнее", exact: true }).click();
+    const block = page.locator('[data-capture="failing"]');
+    await expect(block).toContainText("Netami Pin не смог открыть канал захвата");
+    await page.screenshot({ path: "test-results/capture-failing.png" });
+    // The other program leaves: «Повторить» opens the pipe.
+    await new Promise<void>((resolve) => holder.close(() => resolve()));
+    await block.getByRole("button", { name: "Повторить", exact: true }).click();
+    await expect(page.locator('[data-capture="none"]')).toBeVisible();
+    await expect.poll(() => pipeReady(name)).toBe(true);
+    // The library worked all along.
+    await page.getByRole("button", { name: "Все закладки" }).click();
+    await page.getByRole("button", { name: "Добавить ссылку", exact: true }).first().click();
+    await page.getByLabel("Ссылка", { exact: true }).fill("https://example.invalid/while-held");
     await page.getByRole("button", { name: "Сохранить ссылку" }).click();
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
   } finally {
-    await browser?.close();
-    processHandle.kill();
-    await new Promise<void>((resolve) => occupied.close(() => resolve()));
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+    holder.close();
   }
 });
-
 const binary = () =>
   path.resolve(
     process.env.NETAMIPIN_TEST_BINARY || "src-tauri/target/debug/netamipin.exe",
@@ -324,52 +278,20 @@ async function launch(
   return { processHandle, exited, browser, page };
 }
 
-test("running OddClicks on the capture port is reported", async ({
-  request,
-}) => {
-  const oddclicks = http.createServer((_, response) => {
-    response.setHeader("Content-Type", "application/json");
-    response.end(JSON.stringify({ status: "ok", app: "OddClicks", protocol: 1 }));
-  });
-  await new Promise<void>((resolve, reject) => {
-    oddclicks.once("error", reject);
-    oddclicks.listen(28765, "127.0.0.1", resolve);
-  });
-  const data = path.resolve(".test-data", `legacy-port-${Date.now()}`);
-  await mkdir(data, { recursive: true });
-  const app = await launch(request, {
-    NETAMIPIN_DATA_DIR: data,
-    WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-  });
-  try {
-    await expect(app.page.getByRole("alert")).toContainText(
-      "занят прежней версией OddClicks",
-    );
-  } finally {
-    await app.browser.close();
-    app.processHandle.kill();
-    await new Promise<void>((resolve) => oddclicks.close(() => resolve()));
-  }
-});
 const NPIN = 0x4e50494e;
+/** A library, WebView2 profile and capture pipe of the test's own. */
 const isolated = (data: string) => ({
   NETAMIPIN_DATA_DIR: data,
   WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
+  NETAMIPIN_PIPE: testPipe(path.basename(data)),
 });
 async function folder(name: string) {
   const data = path.resolve(".test-data", `${name}-${Date.now()}`);
   await mkdir(data, { recursive: true });
   return data;
 }
-const healthy = async (request: import("@playwright/test").APIRequestContext) => {
-  try {
-    return (
-      await request.get("http://127.0.0.1:28765/api/health", { timeout: 500 })
-    ).ok();
-  } catch {
-    return false;
-  }
-};
+/** The capture pipe opens only with the library. */
+const captureOpen = (env: { NETAMIPIN_PIPE: string }) => pipeReady(env.NETAMIPIN_PIPE);
 
 test("library of a newer version shows a screen and stays unchanged", async ({
   request,
@@ -383,14 +305,15 @@ test("library of a newer version shows a screen and stays unchanged", async ({
   );
   db.close();
   const before = await readFile(file);
-  const app = await launch(request, isolated(data));
+  const env = isolated(data);
+  const app = await launch(request, env);
   try {
     const screen = app.page.locator('[data-error-code="DB_NEWER_SCHEMA"]');
     await expect(screen).toBeVisible({ timeout: 15000 });
     await expect(screen).toContainText("netamipin.db · DB_NEWER_SCHEMA");
     await expect(screen).toContainText("pin.netami.app");
-    // Nothing writes in this state: no HTTP server, no library commands.
-    expect(await healthy(request)).toBe(false);
+    // Nothing writes in this state: no capture pipe, no library commands.
+    expect(await captureOpen(env)).toBe(false);
     expect(
       await app.page.evaluate(() =>
         window.__TAURI_INTERNALS__.invoke("get_counts").then(
@@ -517,12 +440,12 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
           return count;
         },
       );
-      // get_server_status is a sync command: it runs on the main thread and
+      // get_library_status is a sync command: it runs on the main thread and
       // waits for it, so its delay shows whether the window is blocked.
       const delays: number[] = [];
       while (!finished && delays.length < 200) {
         const sent = performance.now();
-        await invoke("get_server_status");
+        await invoke("get_library_status");
         delays.push(performance.now() - sent);
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
@@ -552,20 +475,21 @@ test("foreign file: retry after moving it away opens a new library", async ({
   const db = new DatabaseSync(file);
   db.exec("PRAGMA application_id = 305419896; CREATE TABLE notes (text TEXT);");
   db.close();
-  const app = await launch(request, isolated(data));
+  const env = isolated(data);
+  const app = await launch(request, env);
   try {
     const screen = app.page.locator('[data-error-code="DB_FOREIGN"]');
     await expect(screen).toBeVisible({ timeout: 15000 });
     // The first button is Try again and has the focus for the keyboard.
     await expect(screen.getByRole("button").first()).toBeFocused();
-    expect(await healthy(request)).toBe(false);
+    expect(await captureOpen(env)).toBe(false);
     const { rename } = await import("node:fs/promises");
     await rename(file, path.join(data, "notes-of-another-app.db"));
     await app.page.keyboard.press("Enter");
     await expect(
       app.page.getByRole("heading", { name: "Здесь будут ваши закладки" }),
     ).toBeVisible({ timeout: 15000 });
-    await expect.poll(() => healthy(request)).toBe(true);
+    await expect.poll(() => captureOpen(env)).toBe(true);
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
