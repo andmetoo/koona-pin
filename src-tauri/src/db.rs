@@ -229,22 +229,8 @@ pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     )?;
 
     let mut b = stmt.query_row(params![id], bookmark_row)?;
-    b.tags = Some(get_tags_for_bookmark(conn, b.id)?);
+    attach_tags(conn, std::slice::from_mut(&mut b))?;
     Ok(b)
-}
-
-pub fn get_tags_for_bookmark(conn: &Connection, bookmark_id: i64) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT t.name FROM tags t
-         JOIN bookmark_tags bt ON t.id = bt.tag_id
-         WHERE bt.bookmark_id = ?1",
-    )?;
-    let rows = stmt.query_map(params![bookmark_id], |row| row.get(0))?;
-    let mut tags = Vec::new();
-    for r in rows {
-        tags.push(r?);
-    }
-    Ok(tags)
 }
 
 /// What the list shows: search, filters and the page to read.
@@ -261,6 +247,9 @@ pub struct BookmarkQuery {
     pub domain: Option<String>,
     #[serde(default)]
     pub only_favorites: bool,
+    /// Only this bookmark: whether a changed one still belongs to the list.
+    #[ts(optional)]
+    pub id: Option<i64>,
     /// Read after this bookmark; none for the first page.
     #[ts(optional)]
     pub after: Option<PageCursor>,
@@ -281,8 +270,9 @@ pub struct PageCursor {
 #[ts(export)]
 pub struct BookmarkPage {
     pub items: Vec<Bookmark>,
-    /// Every bookmark that matches, not only this page.
-    pub total: i64,
+    /// Every bookmark that matches, not only this page. Counted for the
+    /// first page only: the next ones would repeat the same work.
+    pub total: Option<i64>,
     /// Where the next page starts; none after the last one.
     pub next: Option<PageCursor>,
 }
@@ -292,10 +282,24 @@ const MAX_PAGE_SIZE: u32 = 1_000;
 /// A trigram index cannot look up shorter terms.
 const TRIGRAM: usize = 3;
 
-/// How search compares text: lower case, «ё» as «е». The index stores
-/// «ё» as «е» and folds case itself (schema 2).
+/// «ё» as «е», as the index stores it (schema 2). Case is left to the index:
+/// its tokenizer folds a query word exactly as it folded the text.
+fn without_yo(text: &str) -> String {
+    text.replace('ё', "е").replace('Ё', "Е")
+}
+
+/// How short words compare, where the index cannot help: lower case one
+/// character at a time, like the trigram tokenizer (so no final-sigma rule
+/// of `str::to_lowercase`), «ё» as «е».
 pub fn fold(text: &str) -> String {
-    text.to_lowercase().replace('ё', "е")
+    text.chars()
+        .flat_map(char::to_lowercase)
+        .map(|c| match c {
+            'ё' => 'е',
+            'ς' => 'σ',
+            c => c,
+        })
+        .collect()
 }
 
 /// A search word prepared for [`Needle::found_in`], which runs for every bookmark.
@@ -322,8 +326,11 @@ impl Needle {
                 (Some(u), None) if u == c => {}
                 _ => return Needle::Folded(folded),
             }
-            if c == 'е' {
-                forms.extend(['ё', 'Ё']);
+            // Letters `fold` merges with another one.
+            match c {
+                'е' => forms.extend(['ё', 'Ё']),
+                'σ' => forms.push('ς'),
+                _ => {}
             }
             if spellings.len() * forms.len() > Self::MAX_SPELLINGS {
                 return Needle::Folded(folded);
@@ -378,9 +385,9 @@ pub fn register_functions(conn: &Connection) -> Result<()> {
 fn search_terms(search: Option<&str>) -> (Option<String>, Vec<String>) {
     let mut indexed = Vec::new();
     let mut short = Vec::new();
-    for word in fold(search.unwrap_or("")).split_whitespace() {
+    for word in search.unwrap_or("").split_whitespace() {
         if word.chars().count() >= TRIGRAM {
-            indexed.push(format!("\"{}\"", word.replace('"', "\"\"")));
+            indexed.push(format!("\"{}\"", without_yo(word).replace('"', "\"\"")));
         } else {
             short.push(word.to_string());
         }
@@ -421,6 +428,10 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
     if query.only_favorites {
         filter.push_str(" AND b.is_favorite = 1");
     }
+    if let Some(id) = query.id {
+        filter.push_str(" AND b.id = ?");
+        values.push(id.into());
+    }
     if let Some(collection) = query.collection_id {
         filter.push_str(" AND b.collection_id = ?");
         values.push(collection.into());
@@ -460,11 +471,14 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
         values.extend([word.clone().into(), word.into()]);
     }
 
-    let total = conn.query_row(
-        &format!("SELECT count(*) FROM bookmarks b{filter}"),
-        rusqlite::params_from_iter(&values),
-        |r| r.get(0),
-    )?;
+    let total = match query.after {
+        None => Some(conn.query_row(
+            &format!("SELECT count(*) FROM bookmarks b{filter}"),
+            rusqlite::params_from_iter(&values),
+            |r| r.get(0),
+        )?),
+        Some(_) => None,
+    };
 
     let mut page_filter = filter;
     if let Some(after) = &query.after {
@@ -875,13 +889,17 @@ mod tests {
             ..Default::default()
         };
         let mut ids = Vec::new();
+        let mut total = None;
         loop {
             let page = get_bookmarks(conn, &query).unwrap();
+            // Counted on the first page only.
+            assert_eq!(page.total.is_some(), query.after.is_none());
+            total = total.or(page.total);
             ids.extend(page.items.iter().map(|b| b.id));
             match page.next {
                 Some(next) => query.after = Some(next),
                 None => {
-                    assert_eq!(page.total, ids.len() as i64, "{search}");
+                    assert_eq!(total, Some(ids.len() as i64), "{search}");
                     return ids;
                 }
             }
@@ -963,6 +981,39 @@ mod tests {
         assert!(found(&conn, "\"rust\" OR NOT").is_empty());
         assert_eq!(found(&conn, "rust*"), Vec::<i64>::new());
         assert_eq!(found(&conn, ""), [other.id, guide.id]);
+    }
+
+    #[test]
+    fn query_words_fold_as_the_index_folds_the_text() {
+        let conn = setup_test_db();
+        let street = add(&conn, "https://example.gr/a", "ΟΔΟΣ Ερμού", &[]);
+        let city = add(&conn, "https://example.tr/b", "İstanbul rehberi", &[]);
+        let sea = add(&conn, "https://example.gr/c", "Νησος", &[]);
+        assert_eq!(found(&conn, "οδος"), [street.id]);
+        assert_eq!(found(&conn, "ΟΔΟΣ"), [street.id]);
+        assert_eq!(found(&conn, "İSTANBUL"), [city.id]);
+        assert_eq!(found(&conn, "İstanbul"), [city.id]);
+        // Short words: final sigma is the same letter.
+        assert_eq!(found(&conn, "ος"), [sea.id, street.id]);
+        assert_eq!(found(&conn, "ΟΣ"), [sea.id, street.id]);
+    }
+
+    #[test]
+    fn id_asks_whether_one_bookmark_belongs_to_the_list() {
+        let conn = setup_test_db();
+        let rust = add(&conn, "https://example.com/r", "Rust guide", &[]);
+        let other = add(&conn, "https://example.com/o", "Other", &[]);
+        let matches = |id: i64, search: &str| {
+            let query = BookmarkQuery {
+                id: Some(id),
+                search: Some(search.into()),
+                ..Default::default()
+            };
+            get_bookmarks(&conn, &query).unwrap().total == Some(1)
+        };
+        assert!(matches(rust.id, "guide"));
+        assert!(!matches(other.id, "guide"));
+        assert!(!matches(rust.id, "nothing"));
     }
 
     #[test]
@@ -1065,6 +1116,7 @@ mod tests {
         .unwrap();
         let read_all = |base: BookmarkQuery| {
             let mut seen = Vec::new();
+            let mut total = 0;
             let mut query = BookmarkQuery {
                 limit: Some(40),
                 ..base
@@ -1072,10 +1124,11 @@ mod tests {
             loop {
                 let page = get_bookmarks(&conn, &query).unwrap();
                 assert!(page.items.len() <= 40);
+                total = page.total.unwrap_or(total);
                 seen.extend(page.items.iter().map(|b| (b.created_at.clone(), b.id)));
                 match page.next {
                     Some(next) => query.after = Some(next),
-                    None => return (seen, page.total),
+                    None => return (seen, total),
                 }
             }
         };

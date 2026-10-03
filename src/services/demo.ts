@@ -69,7 +69,11 @@ export const demo = {
     page: PageRequest = {},
   ): Promise<BookmarkPage> {
     const found = sortBookmarks(
-      bookmarks.filter((b) => matchesBookmark(b, filters)),
+      bookmarks.filter(
+        (b) =>
+          (page.id === undefined || b.id === page.id) &&
+          matchesBookmark(b, filters),
+      ),
     );
     const rest = page.after
       ? found.filter((b) => isAfter(b, page.after!))
@@ -78,7 +82,7 @@ export const demo = {
     const last = items.at(-1);
     return {
       items,
-      total: found.length,
+      total: page.after ? null : found.length,
       next:
         last && rest.length > items.length
           ? { created_at: last.created_at, id: last.id }
