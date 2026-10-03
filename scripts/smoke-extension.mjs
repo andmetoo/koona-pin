@@ -19,7 +19,7 @@ await appendFile(
 );
 const env = {
   ...process.env,
-  ODDCLICKS_DATA_DIR: directory,
+  NETAMIPIN_DATA_DIR: directory,
   WEBVIEW2_USER_DATA_FOLDER: path.join(directory, "webview"),
 };
 let app, browser, worker;
@@ -47,8 +47,8 @@ async function until(check, label) {
 async function startApp() {
   app = spawn(
     path.resolve(
-      process.env.ODDCLICKS_TEST_BINARY ||
-        "src-tauri/target/debug/oddclicks.exe",
+      process.env.NETAMIPIN_TEST_BINARY ||
+        "src-tauri/target/debug/netamipin.exe",
     ),
     [],
     {
@@ -60,12 +60,12 @@ async function startApp() {
   app.stdout.on("data", (chunk) => process.stdout.write(chunk));
   app.stderr.on("data", (chunk) => process.stderr.write(chunk));
   app.on("error", (error) =>
-    console.error("Cannot start OddClicks:", error.message),
+    console.error("Cannot start Netami Pin:", error.message),
   );
   app.on("exit", (code) => {
-    if (code) console.error("OddClicks exited:", code);
+    if (code) console.error("Netami Pin exited:", code);
   });
-  await until(available, "OddClicks startup");
+  await until(available, "Netami Pin startup");
 }
 async function stopApp() {
   if (!app || app.exitCode !== null) return;
@@ -112,7 +112,7 @@ assert.equal(
 );
 try {
   await startApp();
-  const db = new DatabaseSync(path.join(directory, "oddclicks.db"), {
+  const db = new DatabaseSync(path.join(directory, "netamipin.db"), {
     readOnly: true,
   });
   const token = db
@@ -138,7 +138,7 @@ try {
   await capture("chrome://settings", "Settings");
   assert.equal((await waiting()).length, 1);
   assert.ok(
-    await worker.evaluate(() => chrome.alarms.get("oddclicks-delivery")),
+    await worker.evaluate(() => chrome.alarms.get("netamipin-delivery")),
   );
   await browser.close();
   browser = undefined;
@@ -153,7 +153,7 @@ try {
   await page.goto(`chrome-extension://${id}/options.html`);
   await page.getByRole("button", { name: "Повторить передачу" }).click();
   await until(async () => (await waiting()).length === 0, "confirmed delivery");
-  const stored = new DatabaseSync(path.join(directory, "oddclicks.db"), {
+  const stored = new DatabaseSync(path.join(directory, "netamipin.db"), {
     readOnly: true,
   });
   assert.equal(

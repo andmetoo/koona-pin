@@ -2,7 +2,7 @@ import { Bookmark, BookmarkChange, Collection, FilterState } from "../types";
 import { collectionNames, seedBookmarks } from "../concepts/data";
 import { matchesBookmark, sortBookmarks } from "./library";
 
-const key = "oddclicks.demo.v1";
+const key = "netamipin.demo.v1";
 let initial = {
   bookmarks: seedBookmarks.map((b, i): Bookmark => ({
     id: b.id,
@@ -202,6 +202,7 @@ export const demo = {
       running: false,
       address: "127.0.0.1:28765",
       error: "Демонстрационное превью в браузере",
+      legacy_app: false,
     };
   },
 };

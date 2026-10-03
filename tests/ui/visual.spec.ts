@@ -13,9 +13,9 @@ for (const width of [800, 1200, 1600]) {
           });
           await page.addInitScript(
             ({ theme, view }) => {
-              localStorage.removeItem("oddclicks.demo.v1");
-              localStorage.setItem("oddclicks.theme", theme);
-              localStorage.setItem("oddclicks.view", view);
+              localStorage.removeItem("netamipin.demo.v1");
+              localStorage.setItem("netamipin.theme", theme);
+              localStorage.setItem("netamipin.view", view);
             },
             { theme, view },
           );

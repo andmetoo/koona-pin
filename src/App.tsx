@@ -41,30 +41,34 @@ const initialFilters: FilterState = {
   onlyFavorites: false,
 };
 function preference<T extends string>(
-  key: string,
+  name: string,
   allowed: T[],
   fallback: T,
 ): T {
   try {
-    const v = localStorage.getItem(key);
-    return allowed.includes(v as T) ? (v as T) : fallback;
+    // Values saved by OddClicks are read until the new key is written.
+    for (const key of [`netamipin.${name}`, `oddclicks.${name}`]) {
+      const v = localStorage.getItem(key);
+      if (allowed.includes(v as T)) return v as T;
+    }
   } catch {
-    return fallback;
+    /* Storage unavailable: use the default. */
   }
+  return fallback;
 }
 const bookmarklet =
-  "javascript:(function(){const u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);fetch('http://127.0.0.1:28765/api/add?url='+u+'&title='+t,{mode:'no-cors'}).then(()=>{const n=document.createElement('div');n.textContent='OddClicks: Отправлено';n.style='position:fixed;top:20px;right:20px;z-index:2147483647;background:#a34f34;color:#fff;padding:12px 18px;border-radius:5px;font:14px sans-serif';document.body.append(n);setTimeout(()=>n.remove(),2500)}).catch(()=>{const n=document.createElement('div');n.textContent='Запустите OddClicks и повторите';n.style='position:fixed;top:20px;right:20px;z-index:2147483647;background:#333;color:#fff;padding:12px;font:14px sans-serif';document.body.append(n);setTimeout(()=>n.remove(),3000)})})();";
+  "javascript:(function(){const u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);fetch('http://127.0.0.1:28765/api/add?url='+u+'&title='+t,{mode:'no-cors'}).then(()=>{const n=document.createElement('div');n.textContent='Netami Pin: отправлено';n.style='position:fixed;top:20px;right:20px;z-index:2147483647;background:#a34f34;color:#fff;padding:12px 18px;border-radius:5px;font:14px sans-serif';document.body.append(n);setTimeout(()=>n.remove(),2500)}).catch(()=>{const n=document.createElement('div');n.textContent='Запустите Netami Pin и повторите';n.style='position:fixed;top:20px;right:20px;z-index:2147483647;background:#333;color:#fff;padding:12px;font:14px sans-serif';document.body.append(n);setTimeout(()=>n.remove(),3000)})})();";
 
 export function App() {
   const [theme, setTheme] = useState<Theme>(() =>
-    preference("oddclicks.theme", ["light", "dark", "system"], "system"),
+    preference("theme", ["light", "dark", "system"], "system"),
   );
   const [systemDark, setSystemDark] = useState(
     matchMedia("(prefers-color-scheme:dark)").matches,
   );
   const [wide, setWide] = useState(matchMedia("(min-width:1150px)").matches);
   const [view, setView] = useState<ViewMode>(() =>
-    preference("oddclicks.view", ["grid", "list"], "grid"),
+    preference("view", ["grid", "list"], "grid"),
   );
   const [filters, setFilters] = useState(initialFilters);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -87,19 +91,20 @@ export function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [server, setServer] = useState<ServerStatus | null>(null);
   const [bookmarkletOpen, setBookmarkletOpen] = useState(false);
+  const [legacyWarning, setLegacyWarning] = useState("");
   const editorFocus = useRef<HTMLElement | null>(null);
   const dark = theme === "dark" || (theme === "system" && systemDark);
   useEffect(() => {
     document.documentElement.dataset.studyTheme = dark ? "dark" : "light";
     try {
-      localStorage.setItem("oddclicks.theme", theme);
+      localStorage.setItem("netamipin.theme", theme);
     } catch {
       /* Preference remains available for this session. */
     }
   }, [theme, dark]);
   useEffect(() => {
     try {
-      localStorage.setItem("oddclicks.view", view);
+      localStorage.setItem("netamipin.view", view);
     } catch {
       /* Session only. */
     }
@@ -130,6 +135,19 @@ export function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [wide, editing]);
+  useEffect(() => {
+    if (!isTauri()) return;
+    // The server thread reports a port conflict right after start.
+    const timer = window.setTimeout(() => {
+      void api
+        .getServerStatus()
+        .then((status) => {
+          if (status.legacy_app) setLegacyWarning(status.error ?? "");
+        })
+        .catch(() => {});
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 3000);
@@ -251,7 +269,7 @@ export function App() {
                   <BookmarkIcon size={23} strokeWidth={1.6} />
                 </span>
                 <div>
-                  OddClicks<small>Место для хороших находок</small>
+                  Netami Pin<small>Место для хороших находок</small>
                 </div>
               </div>
               <nav className="study-primary-nav" aria-label="Библиотека">
@@ -566,6 +584,17 @@ export function App() {
           {editor}
         </Dialog>
       )}
+      {legacyWarning && !notice && (
+        <div className="study-toast" role="alert">
+          {legacyWarning}
+          <button
+            className="study-button"
+            onClick={() => setLegacyWarning("")}
+          >
+            Понятно
+          </button>
+        </div>
+      )}
       {notice && (
         <div className="study-toast" role="status">
           <Check size={16} />
@@ -814,7 +843,7 @@ export function App() {
                 <span>При закрытии окна оставлять приложение в трее</span>
               </label>
               <p className="study-muted">
-                Полный выход — через меню значка OddClicks в трее.
+                Полный выход — через меню значка Netami Pin в трее.
               </p>
               {!isTauri() && (
                 <div className="study-inline-note">
@@ -866,7 +895,7 @@ export function App() {
                 </label>
               ) : (
                 <div className="study-inline-note">
-                  Токен подключения доступен в настольном приложении OddClicks.
+                  Токен подключения доступен в настольном приложении Netami Pin.
                 </div>
               )}
               <p className="study-muted">
@@ -895,7 +924,7 @@ export function App() {
                     draggable
                     onClick={(e) => e.preventDefault()}
                   >
-                    Сохранить в OddClicks
+                    Сохранить в Netami Pin
                   </a>
                   <button
                     className="study-button"
