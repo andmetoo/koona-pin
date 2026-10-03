@@ -74,7 +74,7 @@ fn main() {
                 "{label:<14} p50 {:>7.2} ms  p95 {:>7.2} ms  found {:>6}",
                 percentile(&times, 0.5),
                 percentile(&times, 0.95),
-                page.total
+                page.total.unwrap_or_default()
             );
         }
 
