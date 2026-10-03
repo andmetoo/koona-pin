@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownToLine, ChevronDown, Link, Plus, Search, Star, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { applyTheme, isDark, preference, savePreference, storedTheme, Theme } from "./services/preferences";
-import { AppSettings, Bookmark, Collection, FilterState, LibraryStatus, ServerStatus, ViewMode } from "./types";
+import { AppSettings, Bookmark, CaptureStatus, Collection, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
 import { Icon, PinIcon } from "./components/icons";
 import { Button } from "./components/ui/Button";
@@ -34,9 +34,8 @@ const NARROW = "(max-width: 999px)";
 /** From this width the editor docks on the right instead of covering the content. */
 const WIDE = "(min-width: 1150px)";
 
-/** The bookmarklet runs on other sites, so its two messages are built in. */
-const bookmarkletCode = (sent: string, failed: string) =>
-  `javascript:(function(){const u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);const s=(m,b)=>{const n=document.createElement('div');n.textContent=m;n.style='position:fixed;top:20px;right:20px;z-index:2147483647;background:'+b+';color:#fff;padding:12px 18px;border-radius:10px;font:14px sans-serif';document.body.append(n);setTimeout(()=>n.remove(),2500)};fetch('http://127.0.0.1:28765/api/add?url='+u+'&title='+t,{mode:'no-cors'}).then(()=>s(${JSON.stringify(sent)},'#2f6b4f')).catch(()=>s(${JSON.stringify(failed)},'#2e302b'))})();`;
+/** «Нет связи 3 дня» depends on the clock: the status is read again this often. */
+const CAPTURE_REFRESH_MS = 5 * 60 * 1000;
 
 function useMedia(query: string) {
   const [matches, setMatches] = useState(() => matchMedia(query).matches);
@@ -67,9 +66,7 @@ export function App() {
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [server, setServer] = useState<ServerStatus | null>(null);
-  const [connectError, setConnectError] = useState("");
-  const [legacyWarning, setLegacyWarning] = useState("");
+  const [capture, setCapture] = useState<CaptureStatus | null>(null);
   const [damaged, setDamaged] = useState(false);
   const [movedAside, setMovedAside] = useState("");
   const [slowLoading, setSlowLoading] = useState(false);
@@ -102,21 +99,19 @@ export function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [wide, editing]);
-  const refreshServer = useCallback(() => {
-    void api
-      .getServerStatus()
-      .then((status) => {
-        setServer(status);
-        if (status.legacy_app) setLegacyWarning(status.error ?? "");
-      })
-      .catch(() => {});
-  }, []);
   useEffect(() => {
-    refreshServer();
-    // The server thread reports a port conflict right after start.
-    const timer = window.setTimeout(refreshServer, 1500);
-    return () => window.clearTimeout(timer);
-  }, [refreshServer]);
+    // The app learns about browsers when their extensions write (NP-016).
+    const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
+    const off = api.onCaptureStatus(setCapture);
+    refresh();
+    const timer = window.setInterval(refresh, CAPTURE_REFRESH_MS);
+    window.addEventListener("focus", refresh);
+    return () => {
+      off();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
   useEffect(() => {
     if (!isTauri()) return;
     // The background integrity check reports damage after the start.
@@ -135,18 +130,12 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (page !== "settings" && surface !== "connect") return;
-    setConnectError("");
-    Promise.all([api.getAppSettings(), api.getServerStatus()])
-      .then(([s, status]) => {
-        setSettings(s);
-        setServer(status);
-      })
-      .catch((err) => setConnectError(describeError(err)));
-    if (surface !== "connect") return;
-    const timer = window.setInterval(refreshServer, 3000);
-    return () => window.clearInterval(timer);
-  }, [page, surface, refreshServer]);
+    if (page !== "settings") return;
+    api
+      .getAppSettings()
+      .then(setSettings)
+      .catch((err) => say(describeError(err), true));
+  }, [page]);
   useEffect(() => {
     // Frame 11: a skeleton only when the library takes longer than 300 ms.
     if (!library.loading) return setSlowLoading(false);
@@ -343,7 +332,7 @@ export function App() {
         counts={library.counts}
         collections={library.collections}
         tags={library.tags}
-        server={server}
+        capture={capture}
         onAll={() => navigate(null)}
         onFavorites={() => navigate(null, true)}
         onCollection={(id) => navigate(id)}
@@ -367,8 +356,9 @@ export function App() {
                     theme={theme}
                     onTheme={setTheme}
                     settings={settings}
-                    server={server}
+                    capture={capture}
                     onSettings={setSettings}
+                    onCapture={setCapture}
                     onConnect={() => setSurface("connect")}
                     onCopy={(text) => void copy(text)}
                     onNotice={say}
@@ -391,6 +381,17 @@ export function App() {
                     onImport={() => setSurface("import")}
                     onAdd={() => setSurface("add")}
                   />
+                  {capture?.state === "failing" && (
+                    <Banner
+                      action={
+                        <Button variant="onDanger" onClick={() => setPage("settings")}>
+                          {t("browser.details")}
+                        </Button>
+                      }
+                    >
+                      {t(`browser.banner_${capture.problem ?? "channel"}`)}
+                    </Banner>
+                  )}
                   {damaged && (
                     <Banner
                       action={
@@ -527,15 +528,7 @@ export function App() {
         />
       )}
       {surface === "connect" && (
-        <ConnectDialog
-          settings={settings}
-          server={server}
-          desktop={isTauri()}
-          error={connectError}
-          bookmarklet={bookmarkletCode(t("connect.bookmarkletSent"), t("connect.bookmarkletFailed"))}
-          onCopy={(text) => void copy(text)}
-          onClose={() => setSurface(null)}
-        />
+        <ConnectDialog capture={capture} onClose={() => setSurface(null)} />
       )}
       {deleting && (
         <ConfirmDialog
@@ -579,17 +572,6 @@ export function App() {
           }
         >
           {notice.text}
-        </Toast>
-      ) : legacyWarning ? (
-        <Toast
-          tone="alert"
-          action={
-            <button type="button" onClick={() => setLegacyWarning("")} className="font-semibold text-[#8fd0ae]">
-              {t("common.ok")}
-            </button>
-          }
-        >
-          {legacyWarning}
         </Toast>
       ) : movedAside ? (
         <Toast

@@ -7,12 +7,23 @@ import {
   FilterState,
   LibraryPlace,
   LibraryStatus,
+  CaptureStatus,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoBookmarks, demoCollections, posterOf } from "./demoData";
 import { isAfter, matchesBookmark, sortBookmarks } from "./library";
 import { CommandError } from "./errors";
 import i18n from "../i18n";
+
+const demoCaptureStatus: CaptureStatus = {
+  state: "none",
+  browsers: [],
+  last_capture: null,
+  days_silent: null,
+  problem: null,
+  detail: null,
+  protocol: 2,
+};
 
 // v2: generated previews instead of the drawn ones of the concepts.
 const key = "netamipin.demo.v2";
@@ -253,18 +264,20 @@ export const demo = {
     };
   },
   async getAppSettings() {
-    return { capture_token: "", close_to_tray: true };
+    return { close_to_tray: true };
   },
   async setCloseToTray(_enabled: boolean) {
     /* Desktop-only setting. */
   },
-  async getServerStatus() {
-    return {
-      running: false,
-      address: "127.0.0.1:28765",
-      error: null,
-      legacy_app: false,
-    };
+  /** The preview has no browser extension: never connected. */
+  async getCaptureStatus(): Promise<CaptureStatus> {
+    return demoCaptureStatus;
+  },
+  onCaptureStatus(_fn: (status: CaptureStatus) => void) {
+    return () => {};
+  },
+  async repairCapture(): Promise<CaptureStatus> {
+    return demoCaptureStatus;
   },
   async getLibraryStatus(): Promise<LibraryStatus> {
     return { state: "ready", damaged: false, moved_aside: null };

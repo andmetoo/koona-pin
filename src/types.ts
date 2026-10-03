@@ -18,8 +18,13 @@ export type { LibraryPlace } from "./bindings/LibraryPlace";
 export type { LibraryStatus } from "./bindings/LibraryStatus";
 export type { OpenCode } from "./bindings/OpenCode";
 export type { OpenFailure } from "./bindings/OpenFailure";
-export type { ServerStatus } from "./bindings/ServerStatus";
 export type { Tag } from "./bindings/Tag";
+export type { Browser } from "./bindings/Browser";
+export type { BrowserStatus } from "./bindings/BrowserStatus";
+export type { CaptureProblem } from "./bindings/CaptureProblem";
+export type { CaptureState } from "./bindings/CaptureState";
+export type { CaptureStatus } from "./bindings/CaptureStatus";
+export type { LastCapture } from "./bindings/LastCapture";
 
 export type ViewMode = "grid" | "list";
 

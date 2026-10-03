@@ -16,9 +16,6 @@ pub struct CaptureRequest {
     pub title: Option<String>,
     pub collection_id: Option<i64>,
     pub tags: Option<Vec<String>>,
-    /// Browser named by the extension: `chrome`, `edge` or `firefox` (NP-016).
-    #[serde(default)]
-    pub source: Option<String>,
 }
 #[derive(Debug, Serialize)]
 pub struct CaptureResult {
@@ -190,7 +187,6 @@ pub fn parse_html(html: &str) -> Vec<CaptureRequest> {
                 title: Some(element.text().collect::<String>().trim().into()),
                 collection_id: None,
                 tags: None,
-                source: None,
             })
         })
         .collect()
@@ -275,7 +271,6 @@ mod tests {
             title: Some("Original".into()),
             collection_id: None,
             tags: Some(vec!["one".into()]),
-            source: None,
         }
     }
     #[test]
@@ -365,18 +360,10 @@ mod tests {
     #[test]
     fn source_and_inbox_follow_the_channel() {
         let c = database();
-        let mut req = request("one");
-        req.source = Some("firefox".into());
-        save(&c, &req, Source::from_extension(req.source.as_deref())).unwrap();
+        save(&c, &request("one"), Source::Firefox).unwrap();
         let mut unknown = request("two");
         unknown.url = "https://example.com/unknown".into();
-        unknown.source = Some("netscape".into());
-        save(
-            &c,
-            &unknown,
-            Source::from_extension(unknown.source.as_deref()),
-        )
-        .unwrap();
+        save(&c, &unknown, Source::Extension).unwrap();
         import(
             &c,
             &parse_html(r#"<a href="https://example.com/imported">I</a>"#),

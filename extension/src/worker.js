@@ -1,9 +1,12 @@
 import { ext, t } from "./ext.js";
+import { failure, talk } from "./native.js";
 import { createQueue } from "./queue.js";
-import { PROTOCOL } from "./version.js";
-const origin = "http://127.0.0.1:28765";
 const alarmName = "netamipin-delivery";
-async function badge(text, title, color = "#a34f34", tabId) {
+// The app counts a browser as connected while it hears from it within three
+// days (NP-016); a hello twice a day keeps that true without any saving.
+const helloAlarm = "netamipin-hello";
+const HELLO_MINUTES = 12 * 60;
+async function badge(text, title, color = "#2f6b4f", tabId) {
   const scope = Number.isInteger(tabId) ? { tabId } : {};
   try {
     await ext.action.setBadgeText({ ...scope, text });
@@ -19,6 +22,7 @@ async function updateStatus(queue) {
     await badge(
       queue.some((item) => item.blocked) ? "!" : String(queue.length),
       t("queueWaiting", queue.length),
+      "#b59a45",
     );
   } else {
     await ext.alarms.clear(alarmName);
@@ -29,39 +33,15 @@ const queue = createQueue({
   storage: ext.storage.local,
   changed: updateStatus,
   send: async (item) => {
-    const { captureToken } = await ext.storage.local.get("captureToken");
-    if (!captureToken)
-      return { ok: false, permanent: false, error: t("errorNoToken") };
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-      const response = await fetch(`${origin}/api/v1/capture`, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${captureToken}`,
-        },
-        body: JSON.stringify({
-          request_id: item.request_id,
-          url: item.url,
-          title: item.title,
-        }),
-      });
-      const body = await response.json();
-      if (!response.ok)
-        return {
-          ok: false,
-          permanent:
-            response.status >= 400 &&
-            response.status < 500 &&
-            ![401, 408, 429].includes(response.status),
-          error: body.message || t("errorSaveFailed"),
-        };
-      return { ok: true, ...body };
-    } finally {
-      clearTimeout(timeout);
-    }
+    const reply = await talk({
+      type: "capture",
+      request_id: item.request_id,
+      url: item.url,
+      title: item.title,
+    });
+    if (!reply.ok) return { ok: false, code: reply.code, ...failure(reply) };
+    await ext.storage.local.set({ lastSaved: new Date().toISOString() });
+    return { ok: true, bookmark_id: reply.bookmark_id, outcome: reply.outcome };
   },
 });
 async function deliver() {
@@ -70,29 +50,37 @@ async function deliver() {
     await badge(
       result.outcome === "existing" ? "=" : "✓",
       result.outcome === "existing" ? t("badgeExisting") : t("badgeSaved"),
-      "#426f59",
+      "#2f6b4f",
       result.tabId,
     );
   for (const item of await queue.list()) {
     await badge(
       item.blocked ? "!" : "↗",
       item.error || t("badgeWaiting"),
-      item.blocked ? "#af3838" : "#a34f34",
+      item.blocked ? "#af3838" : "#b59a45",
       item.tabId,
     );
   }
   return results;
 }
+/** Tells the app this browser is here; a hello never starts a closed app. */
+async function hello() {
+  const reply = await talk({ type: "hello" });
+  await ext.storage.local.set({ lastHello: { at: new Date().toISOString(), reply } });
+  return reply;
+}
 async function initialize() {
+  await ext.alarms.create(helloAlarm, { periodInMinutes: HELLO_MINUTES });
+  await hello();
   const waiting = await queue.list();
   await updateStatus(waiting);
   if (waiting.length) await deliver();
 }
 async function captureTab(tab) {
   try {
-    await badge("…", t("badgeSaving"), "#a34f34", tab.id);
+    await badge("…", t("badgeSaving"), "#2f6b4f", tab.id);
     const item = await queue.enqueue(tab.url || "", tab.title, tab.id);
-    await badge("↗", t("badgeQueued"), "#a34f34", tab.id);
+    await badge("↗", t("badgeQueued"), "#b59a45", tab.id);
     const results = await deliver();
     const saved = results.find(
       (result) => result.request_id === item.request_id,
@@ -101,7 +89,7 @@ async function captureTab(tab) {
       await badge(
         saved.outcome === "existing" ? "=" : "✓",
         saved.outcome === "existing" ? t("badgeExisting") : t("badgeSaved"),
-        "#426f59",
+        "#2f6b4f",
         tab.id,
       );
     else {
@@ -112,12 +100,12 @@ async function captureTab(tab) {
         await badge(
           waiting.blocked ? "!" : "↗",
           waiting.error || t("badgeWaiting"),
-          waiting.blocked ? "#af3838" : "#a34f34",
+          waiting.blocked ? "#af3838" : "#b59a45",
           tab.id,
         );
+      // Without the app nothing will ever be delivered: show why.
+      if (waiting?.code === "host_missing") await ext.runtime.openOptionsPage();
     }
-    const { captureToken } = await ext.storage.local.get("captureToken");
-    if (!captureToken) await ext.runtime.openOptionsPage();
   } catch (error) {
     await badge("!", error.message || t("errorSaveFailed"), "#af3838", tab.id);
   }
@@ -131,6 +119,7 @@ ext.runtime.onStartup.addListener(() => {
 });
 ext.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === alarmName) void deliver();
+  if (alarm.name === helloAlarm) void hello();
 });
 ext.runtime.onMessage.addListener((message, sender, respond) => {
   if (
@@ -149,36 +138,10 @@ ext.runtime.onMessage.addListener((message, sender, respond) => {
         await queue.retry();
         await deliver();
         return { ok: true };
-      case "token": {
-        const token = String(message.token || "").trim();
-        if (!/^[a-f0-9]{64}$/i.test(token))
-          throw new Error(t("errorTokenFormat"));
-        await ext.storage.local.set({ captureToken: token });
-        await queue.retry();
-        await deliver();
-        return { ok: true };
-      }
-      case "health": {
-        const { captureToken } = await ext.storage.local.get("captureToken");
-        try {
-          const r = await fetch(`${origin}/api/health`, {
-            headers: captureToken
-              ? { Authorization: `Bearer ${captureToken}` }
-              : {},
-            signal: AbortSignal.timeout(5000),
-          });
-          const health = await r.json();
-          return {
-            connected:
-              r.ok &&
-              health.name === "Netami Pin" &&
-              health.protocol === PROTOCOL,
-            paired: !!captureToken,
-            error: r.status === 401 ? t("errorTokenRejected") : null,
-          };
-        } catch {
-          return { connected: false, paired: !!captureToken };
-        }
+      case "status": {
+        const reply = await hello();
+        const { lastSaved } = await ext.storage.local.get("lastSaved");
+        return { reply, lastSaved: lastSaved ?? null };
       }
       default:
         throw new Error(t("errorUnknownAction"));

@@ -3,13 +3,13 @@
 //!
 //! The window appears at once; the library opens (and migrates) in the
 //! background. Until it is ready `DbState` is not managed, so database
-//! commands fail instead of touching the file, and the HTTP server does not
+//! commands fail instead of touching the file, and the capture pipe does not
 //! start.
 
 use crate::{
+    capture_channel::{self, ChannelState},
     db::DbState,
     library::{self, Health, OpenFailure, Paths},
-    server::{self, ServerState},
 };
 use serde::Serialize;
 use std::{
@@ -81,8 +81,8 @@ pub fn start(app: AppHandle) {
                 crate::autostart::apply_default(&app, &opened.conn);
                 let db = Arc::new(DbState::new(opened.conn));
                 app.manage(db.clone());
-                let status = app.state::<Arc<ServerState>>().inner().clone();
-                server::start_server(app.clone(), db.clone(), status);
+                let channel = app.state::<Arc<ChannelState>>().inner().clone();
+                capture_channel::start(app.clone(), db.clone(), channel);
                 let moved_aside = opened
                     .moved_aside
                     .map(|path| path.to_string_lossy().into_owned());
