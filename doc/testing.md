@@ -1,6 +1,6 @@
 # Проверки
 
-Проверки запускаются двумя способами: CI в GitHub Actions на каждый push и PR в `main` и локально по одной инструкции ниже. Пользовательская библиотека и профиль браузера не используются: нативные сценарии создают отдельные SQLite, WebView2 и Chrome-профили в `.test-data`.
+Проверки запускаются локально по инструкции ниже. CI в GitHub Actions подготовлен, но запускается только вручную (см. [CI](#ci)). Пользовательская библиотека и профиль браузера не используются: нативные сценарии создают отдельные SQLite, WebView2 и Chrome-профили в `.test-data`.
 
 ## Автоматические проверки
 
@@ -18,22 +18,25 @@ UI-сценарии проверяют неподвижность карточк
 
 ## CI
 
-Workflow `.github/workflows/ci.yml` запускается на push в `main`, на PR в `main` и вручную. Оба job идут на `windows-2025` параллельно; падение любого шага делает статус PR красным. Новый push в ту же ветку отменяет незаконченный прогон.
+Workflow `.github/workflows/ci.yml` запускается **только вручную** (Actions → CI → Run workflow) на `windows-2025`: `npm ci`, сборка, Vitest, `cargo test --locked`, Playwright UI без `@visual`. Автоматический запуск на push и PR будет включён позже, ближе к выпуску.
 
-| Job      | Шаги                                                                                                                                                                   |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `checks` | `npm ci`, `npm run build`, Vitest, `cargo test --locked`, Playwright UI без `@visual`                                                                                  |
-| `native` | `npm run build`, `cargo build --features custom-protocol --locked`, затем последовательно `test:native`, `smoke-native.py`, `test:extension`, `extension:zip` |
+Почему вручную. Репозиторий приватный, минуты Windows-раннеров списываются с коэффициентом ×2. Один прогон двух job занимал около 10 минут на job, то есть ≈ 40 списанных минут на коммит; 3 октября 2026 года четыре отладочных прогона израсходовали около 60 из 3000 минут месяца. При частых коммитах это быстро исчерпывает лимит.
 
-Версии берутся из репозитория: Node.js — `.nvmrc`, Rust — `rust-toolchain.toml`, npm-пакеты и Chromium для Playwright — `package-lock.json`, crates — `Cargo.lock`. Python в CI — 3.14. При падении результаты Playwright сохраняются артефактом прогона.
+Нативные проверки в CI не включены. На раннере WebView2 Runtime 153 запускает приложение, SQLite и HTTP-сервер работают, но `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` не попадает в командную строку `msedgewebview2.exe`, поэтому порт отладки 9225 не открывается и Playwright не подключается. Локально (WebView2 154) переменная работает. При подключении CI можно передавать порт отладки через `additional_browser_args` окна в тестовой сборке. Также на раннере Tauri создаёт пустую папку `%LOCALAPPDATA%\com.oddclicks.app`; данные и профиль WebView2 при этом пишутся только в `.test-data`.
 
-Изоляция данных проверяется явно. Все нативные сценарии задают `ODDCLICKS_DATA_DIR` и `WEBVIEW2_USER_DATA_FOLDER` внутри `.test-data`. Последний шаг job `native` падает, если на раннере появились папки по умолчанию `%APPDATA%\OddClicks` или `%LOCALAPPDATA%\com.oddclicks.app`.
-
-**Расход минут.** Репозиторий приватный, минуты Windows-раннеров списываются с коэффициентом ×2. Прогон занимает около _N_ минут на job, то есть ≈ _M_ списанных минут на коммит. Оценка уточняется по фактическим прогонам на вкладке Actions.
+Версии берутся из репозитория: Node.js — `.nvmrc`, Rust — `rust-toolchain.toml`, npm-пакеты и Chromium для Playwright — `package-lock.json`, crates — `Cargo.lock`.
 
 ## Локальный запуск
 
-Нужны Node.js из `.nvmrc`, Rust из `rust-toolchain.toml` (rustup установит его сам), Python 3, Microsoft C++ Build Tools и WebView2 Runtime. Из чистого клона:
+Нужны Node.js из `.nvmrc`, Rust из `rust-toolchain.toml` (rustup установит его сам), Python 3, Microsoft C++ Build Tools и WebView2 Runtime.
+
+**Быстрая проверка перед коммитом** (≈ 15–30 секунд при собранных зависимостях): сборка и типы, Vitest, Rust-тесты.
+
+```powershell
+npm run check
+```
+
+**Полная проверка** перед PR и при изменении UI, захвата, окна или хранилища. Из чистого клона:
 
 ```powershell
 npm ci
@@ -51,7 +54,7 @@ npm run test:extension
 npm run extension:zip
 ```
 
-Если `python` открывает Microsoft Store, используйте `py scripts/smoke-native.py`. Переменная окружения `RUSTUP_TOOLCHAIN` переопределяет `rust-toolchain.toml`; для воспроизводимого запуска её не задавайте.
+Если `python` открывает Microsoft Store, используйте `py scripts/smoke-native.py`. Если после переноса папки проекта `cargo test` не находит файлы в `target\...\tauri-*\out`, выполните `cargo clean -p tauri --manifest-path src-tauri/Cargo.toml`. Переменная окружения `RUSTUP_TOOLCHAIN` переопределяет `rust-toolchain.toml`; для воспроизводимого запуска её не задавайте.
 
 Если браузеры Playwright установлены в нестандартную папку, задайте `PLAYWRIGHT_BROWSERS_PATH`. На машине владельца Chromium из папки по умолчанию `%LOCALAPPDATA%\ms-playwright` не запускается (ошибка side-by-side, `spawn UNKNOWN` в extension smoke), та же сборка из `.cache/playwright` работает; поэтому там используется `.cache/playwright`. Для нативных тестов порты 28765 и 9225 должны быть свободны. Запускайте нативные и extension smoke последовательно: они используют один loopback-порт. Уже работающий сервер тесты не останавливают.
 
