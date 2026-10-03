@@ -13,7 +13,8 @@ import { Dialog } from "./components/ui/Dialog";
 import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
 import { Toolbar } from "./components/shell/Toolbar";
-import { BookmarkActions, BookmarkCard, BookmarkRow } from "./components/library/Bookmarks";
+import { BookmarkActions } from "./components/library/Bookmarks";
+import { BookmarkList } from "./components/library/BookmarkList";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog } from "./components/library/Dialogs";
 import { SettingsPage } from "./components/settings/SettingsPage";
@@ -284,18 +285,19 @@ export function App() {
       </div>
     )
   ) : (
-    <>
-      <div data-view={view} aria-busy={library.loading} className={view === "grid" ? gridClass(narrow) : "flex flex-col gap-0.5"}>
-        {library.bookmarks.map((b) =>
-          view === "grid" ? (
-            <BookmarkCard key={b.id} bookmark={b} collections={library.collections} actions={actions} />
-          ) : (
-            <BookmarkRow key={b.id} bookmark={b} collections={library.collections} actions={actions} compact={narrow || (wide && !!editing)} />
-          ),
-        )}
-      </div>
-      {library.hasMore && <MoreOnScroll root={scrollRef} onVisible={library.loadMore} busy={library.loadingMore} label={t("library.loadingMore")} />}
-    </>
+    <BookmarkList
+      view={view}
+      bookmarks={library.bookmarks}
+      collections={library.collections}
+      actions={actions}
+      narrow={narrow}
+      compact={narrow || (wide && !!editing)}
+      scrollRef={scrollRef}
+      dateGroups={library.dateGroups}
+      hasMore={library.hasMore}
+      loadingMore={library.loadingMore}
+      onMore={library.loadMore}
+    />
   );
 
   const padding = narrow ? "px-6" : "px-8";
@@ -553,39 +555,6 @@ export function App() {
           {t("library.movedAside", { path: movedAside })}
         </Toast>
       ) : null}
-    </div>
-  );
-}
-
-/**
- * Asks for the next page when the end of the list comes within a screen.
- * Watching restarts after each page, so a page too short to fill the
- * window still brings the next one. Virtualization replaces this in NP-012.
- */
-function MoreOnScroll({
-  root,
-  onVisible,
-  busy,
-  label,
-}: {
-  root: React.RefObject<HTMLDivElement | null>;
-  onVisible: () => void;
-  busy: boolean;
-  label: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (busy || !ref.current) return;
-    const observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && onVisible(), {
-      root: root.current,
-      rootMargin: "0px 0px 100% 0px",
-    });
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [busy, onVisible, root]);
-  return (
-    <div ref={ref} role="status" className="flex h-12 items-center justify-center text-xs text-subtle">
-      {busy ? label : ""}
     </div>
   );
 }

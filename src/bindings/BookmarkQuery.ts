@@ -16,4 +16,10 @@ after?: PageCursor,
 /**
  * Bookmarks per page: 100 by default, at most 1000.
  */
-limit?: number, };
+limit?: number, 
+/**
+ * Times in the stored format, for example the starts of today and
+ * yesterday in the user's time zone. The first page counts how many
+ * matches were saved at or after each: the list's date groups (NP-012).
+ */
+since?: Array<string>, };

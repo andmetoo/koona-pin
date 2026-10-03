@@ -81,7 +81,8 @@
     "noCollection": "No collection",
     "addTag": "Add tag…",
     "refresh": "Refresh title and preview",
-    "delete": "Delete…"
+    "delete": "Delete…",
+    "select": "Select: {{title}}"
   },
   "editor": {
     "label": "Bookmark",
@@ -223,6 +224,12 @@
     "damaged": "The library is damaged: the integrity check found errors in the file. To avoid further damage, changes are no longer saved and links from the browser wait in the extension. Quit Netami Pin and replace the file with the latest backup.",
     "openBackups": "Open backups folder",
     "movedAside": "The library of an earlier test build does not fit the new schema. It was kept as {{path}} and a new library was created."
+  },
+  "groups": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "week": "This week",
+    "earlier": "Earlier"
   },
   "gate": {
     "opening": "Opening the library…",

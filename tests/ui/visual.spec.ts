@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-// Baselines of iteration 1 (NP-010); compare with frames 01, 02, 06, 07, 16.
+// Baselines of iteration 1 (NP-010, grid and list of NP-012); compare with frames 01, 02, 06, 07, 16.
 for (const width of [800, 1200, 1600]) {
   for (const theme of ["light", "dark"]) {
     for (const view of ["grid", "list"]) {
@@ -17,6 +17,8 @@ for (const width of [800, 1200, 1600]) {
           },
           { theme, view },
         );
+        // Date groups and short dates depend on today: a fixed day keeps the baselines.
+        await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
         await page.goto("/");
         await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
         await page.evaluate(() => document.fonts.ready);
