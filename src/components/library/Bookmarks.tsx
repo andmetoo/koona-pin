@@ -1,11 +1,11 @@
-import { MouseEvent, useEffect, useRef, useState } from "react";
+import { memo, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, Star, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { Icon } from "../icons";
-import { Dot } from "../ui/Controls";
+import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
 
 export interface BookmarkActions {
@@ -16,6 +16,27 @@ export interface BookmarkActions {
   move: (bookmark: Bookmark, collectionId: number | null) => void;
   remove: (bookmark: Bookmark) => void;
   tag: (name: string) => void;
+}
+
+/** «В коллекцию»: collections with their dot and key, then «Без коллекции». */
+function moveEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {
+  return [
+    ...collections.map((c, index) => ({
+      id: `c${c.id}`,
+      label: c.name,
+      dot: collectionColor(c.id),
+      keys: index < 9 ? String(index + 1) : undefined,
+      checked: b.collection_id === c.id,
+      onSelect: () => actions.move(b, c.id),
+    })),
+    "separator" as const,
+    {
+      id: "none",
+      label: t("card.noCollection"),
+      checked: b.collection_id === null,
+      onSelect: () => actions.move(b, null),
+    },
+  ];
 }
 
 /** Menu «⋯» of a bookmark (frame «15 · Меню карточки»). */
@@ -33,28 +54,7 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
       keys: "F",
       onSelect: () => actions.favorite(b),
     },
-    {
-      id: "move",
-      icon: Folder,
-      label: t("card.moveTo"),
-      submenu: [
-        ...collections.map((c, index) => ({
-          id: `c${c.id}`,
-          label: c.name,
-          dot: collectionColor(c.id),
-          keys: index < 9 ? String(index + 1) : undefined,
-          checked: b.collection_id === c.id,
-          onSelect: () => actions.move(b, c.id),
-        })),
-        "separator" as const,
-        {
-          id: "none",
-          label: t("card.noCollection"),
-          checked: b.collection_id === null,
-          onSelect: () => actions.move(b, null),
-        },
-      ],
-    },
+    { id: "move", icon: Folder, label: t("card.moveTo"), submenu: moveEntries(b, collections, actions, t) },
     { id: "tag", icon: TagIcon, label: t("card.addTag"), keys: "T", disabled: true, disabledHint: soon },
     "separator",
     { id: "refresh", icon: RefreshCw, label: t("card.refresh"), disabled: true, disabledHint: soon },
@@ -63,54 +63,56 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
   ];
 }
 
+type Anchor = DOMRect | { x: number; y: number };
+
+/** A menu opened from a button, the context menu or `Shift F10`. */
+function useAnchoredMenu(label: string, entries: () => MenuEntry[]) {
+  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const menu = anchor && <Menu label={label} anchor={anchor} onClose={() => setAnchor(null)} entries={entries()} />;
+  return { menu, open: !!anchor, show: setAnchor };
+}
+
 function useBookmarkMenu(b: Bookmark, collections: Collection[], actions: BookmarkActions) {
   const { t } = useTranslation();
-  const [anchor, setAnchor] = useState<DOMRect | { x: number; y: number } | null>(null);
+  const label = t("card.actions", { title: b.title });
+  const { menu, open, show } = useAnchoredMenu(label, () => menuEntries(b, collections, actions, t));
   const button = useRef<HTMLButtonElement>(null);
-  const menu = anchor && (
-    <Menu
-      label={t("card.actions", { title: b.title })}
-      anchor={anchor}
-      onClose={() => setAnchor(null)}
-      entries={menuEntries(b, collections, actions, t)}
-    />
-  );
   const trigger = (className: string) => (
     <button
       ref={button}
       type="button"
-      aria-label={t("card.actions", { title: b.title })}
+      aria-label={label}
       aria-haspopup="menu"
-      aria-expanded={!!anchor}
-      onClick={() => setAnchor(anchor ? null : button.current!.getBoundingClientRect())}
+      aria-expanded={open}
+      onClick={() => show(open ? null : button.current!.getBoundingClientRect())}
       className={className}
     >
-      <Icon icon={MoreHorizontal} />
+      <Icon icon={MoreHorizontal} size={14} />
     </button>
   );
   const onContextMenu = (e: MouseEvent) => {
     e.preventDefault();
-    setAnchor({ x: e.clientX, y: e.clientY });
+    show({ x: e.clientX, y: e.clientY });
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
       e.preventDefault();
-      setAnchor(button.current?.getBoundingClientRect() ?? null);
+      show(button.current?.getBoundingClientRect() ?? (e.target as HTMLElement).getBoundingClientRect());
     }
   };
-  return { menu, trigger, onContextMenu, onKeyDown, open: !!anchor };
+  return { menu, trigger, onContextMenu, onKeyDown, open };
 }
 
-/** Favicon 14 px, or the first letter when there is none. */
+/** Favicon, or the first letter when there is none. */
 function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [b.favicon_url]);
   return b.favicon_url && !broken ? (
-    <img src={b.favicon_url} alt="" width={size} height={size} className="shrink-0 rounded-xs object-contain" onError={() => setBroken(true)} />
+    <img src={b.favicon_url} alt="" width={size} height={size} className="shrink-0 rounded-[3px] object-contain" onError={() => setBroken(true)} />
   ) : (
     <span
       style={{ width: size, height: size, fontSize: size * 0.64 }}
-      className="flex shrink-0 items-center justify-center rounded-xs bg-hover font-semibold text-muted"
+      className="flex shrink-0 items-center justify-center rounded-[3px] bg-hover font-semibold text-muted"
     >
       {b.domain[0]?.toUpperCase()}
     </span>
@@ -122,7 +124,7 @@ function Preview({ b }: { b: Bookmark }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [b.image_url]);
   return b.image_url && !broken ? (
-    <img src={b.image_url} alt="" loading="lazy" className="size-full object-cover" onError={() => setBroken(true)} />
+    <img src={b.image_url} alt="" loading="lazy" decoding="async" className="size-full object-cover" onError={() => setBroken(true)} />
   ) : (
     <span data-preview-fallback className="flex size-full items-center justify-center bg-hover">
       <SiteMark b={b} size={20} />
@@ -130,11 +132,41 @@ function Preview({ b }: { b: Bookmark }) {
   );
 }
 
-const overlayButton =
-  "flex size-7 items-center justify-center rounded-md bg-card/95 text-icon shadow-active transition-colors duration-150 hover:text-ink";
+/**
+ * The selection checkbox of frames 01 and 02. Selection itself comes with
+ * NP-028; until then it is shown inactive with «Появится в следующих версиях».
+ */
+function SelectBox({ className, title }: { className: string; title: string }) {
+  const { t } = useTranslation();
+  return (
+    <Hint label={t("common.soon")}>
+      <span role="checkbox" aria-checked="false" aria-disabled="true" aria-label={t("card.select", { title })} className={className} />
+    </Hint>
+  );
+}
 
-/** Grid card: preview 16:10, site and domain, title in two lines (frame 01). */
-export function BookmarkCard({ bookmark: b, collections, actions }: { bookmark: Bookmark; collections: Collection[]; actions: BookmarkActions }) {
+/** Shown while the card or row is hovered, focused or has its menu open. */
+const revealed = (group: "card" | "row", open: boolean) =>
+  `transition-opacity duration-150 ${group === "card" ? "group-hover/card:opacity-100 group-focus-within/card:opacity-100" : "group-hover/row:opacity-100 group-focus-within/row:opacity-100"} ${open ? "opacity-100" : "opacity-0"}`;
+
+const previewButton = "flex size-7 items-center justify-center bg-card/95 text-ink transition-colors duration-150 hover:bg-card";
+
+/** Height of a card below its preview: 10 + domain 15 + 10 + two title lines 38 (frame 01). */
+export const CARD_TEXT_HEIGHT = 73;
+
+/**
+ * Grid card: preview 16:10, site and domain, title in two lines (frame 01).
+ * Memoized: scrolling re-renders the list, not the cards that stay on screen.
+ */
+export const BookmarkCard = memo(function BookmarkCard({
+  bookmark: b,
+  collections,
+  actions,
+}: {
+  bookmark: Bookmark;
+  collections: Collection[];
+  actions: BookmarkActions;
+}) {
   const { t } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
   return (
@@ -154,27 +186,29 @@ export function BookmarkCard({ bookmark: b, collections, actions }: { bookmark: 
         >
           <Preview b={b} />
         </button>
-        <div
-          className={`absolute top-2 right-2 flex gap-1.5 transition-opacity duration-150 group-focus-within/card:opacity-100 group-hover/card:opacity-100 ${menu.open ? "opacity-100" : "opacity-0"}`}
-        >
+        <div className={`absolute top-2.5 left-2.5 ${revealed("card", menu.open)}`}>
+          <SelectBox title={b.title} className="block size-[22px] rounded-sm border border-subtle bg-card/90" />
+        </div>
+        <div className={`absolute top-2.5 right-2 flex gap-1 ${revealed("card", menu.open)}`}>
           <button
             type="button"
             aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
             aria-pressed={b.is_favorite}
             onClick={() => actions.favorite(b)}
-            className={overlayButton}
+            className={`${previewButton} rounded-full`}
           >
             <Icon icon={Star} size={14} className={b.is_favorite ? "fill-accent text-accent" : ""} />
           </button>
-          {menu.trigger(overlayButton)}
+          {menu.trigger(`${previewButton} rounded-xl`)}
         </div>
       </div>
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
         <SiteMark b={b} />
         <span className="min-w-0 flex-1 truncate">{b.domain}</span>
-        {b.is_favorite && <Icon icon={Star} size={12} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />}
+        {b.is_favorite && <Icon icon={Star} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />}
       </div>
-      <h2 className="line-clamp-2 text-md font-medium">
+      {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
+      <h2 className="line-clamp-2 h-[38px] text-md font-medium">
         <button type="button" onClick={() => actions.open(b.url)} title={b.title} className="text-left hover:text-accent">
           {b.title || b.url}
         </button>
@@ -182,7 +216,7 @@ export function BookmarkCard({ bookmark: b, collections, actions }: { bookmark: 
       {menu.menu}
     </article>
   );
-}
+});
 
 function shortDate(value: string, language: string) {
   const date = new Date(value);
@@ -193,8 +227,24 @@ function shortDate(value: string, language: string) {
     : date.toLocaleDateString(language, { day: "numeric", month: "short", year: date.getFullYear() === today.getFullYear() ? undefined : "numeric" });
 }
 
-/** List row ≈60 px: thumbnail, text, tags, collection, date (frame 02). */
-export function BookmarkRow({
+function RowAction({ label, onClick, children, ...rest }: { label: string; onClick: (e: MouseEvent<HTMLButtonElement>) => void; children: ReactNode } & React.AriaAttributes) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="flex size-[27px] items-center justify-center rounded-md text-icon transition-colors duration-150 hover:bg-hover hover:text-ink"
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+export const ROW_HEIGHT = 60;
+
+/** List row 60 px: checkbox, thumbnail, text, tags, collection, date (frame 02). Memoized like the card. */
+export const BookmarkRow = memo(function BookmarkRow({
   bookmark: b,
   collections,
   actions,
@@ -203,19 +253,24 @@ export function BookmarkRow({
   bookmark: Bookmark;
   collections: Collection[];
   actions: BookmarkActions;
-  /** Narrow window: no tag and collection columns. */
+  /** Narrow window or docked editor: tags give way first (frame 16). */
   compact: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
+  const move = useAnchoredMenu(t("card.moveTo"), () => moveEntries(b, collections, actions, t));
+  const open = menu.open || move.open;
   const collection = collections.find((c) => c.id === b.collection_id);
   return (
     <article
       data-bookmark-id={b.id}
       onContextMenu={menu.onContextMenu}
       onKeyDown={menu.onKeyDown}
-      className={`group/row grid min-h-[60px] items-center gap-4 rounded-xl px-2 py-2 transition-colors duration-150 hover:bg-panel ${compact ? "grid-cols-[64px_minmax(0,1fr)_96px]" : "grid-cols-[64px_minmax(0,1fr)_170px_120px_96px]"}`}
+      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl py-2 pr-3 pl-2 transition-colors duration-150 hover:bg-panel ${open ? "bg-panel" : ""} ${compact ? "grid-cols-[18px_64px_minmax(0,1fr)_120px_96px]" : "grid-cols-[18px_64px_minmax(0,1fr)_170px_120px_96px]"}`}
     >
+      <div className={revealed("row", open)}>
+        <SelectBox title={b.title} className="block size-[18px] rounded-xs border border-faint bg-card" />
+      </div>
       <button
         type="button"
         data-preview
@@ -225,64 +280,69 @@ export function BookmarkRow({
       >
         <Preview b={b} />
       </button>
-      <div className="min-w-0">
-        <h2 className="truncate text-md font-medium">
-          <button type="button" onClick={() => actions.open(b.url)} title={b.title} className="max-w-full truncate text-left hover:text-accent">
+      <div className="flex min-w-0 flex-col gap-[3px]">
+        <h2 className="flex min-w-0 items-center gap-1.5 text-md font-medium">
+          <button type="button" onClick={() => actions.open(b.url)} title={b.title} className="truncate text-left hover:text-accent">
             {b.title || b.url}
           </button>
+          {b.is_favorite && <Icon icon={Star} size={12} className="shrink-0 fill-accent text-accent" aria-label={t("card.isFavorite")} />}
         </h2>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-meta">
-          <SiteMark b={b} />
-          <span className="truncate">
-            {b.domain}
-            {b.description && <span className="text-faint"> · </span>}
-            {b.description}
-          </span>
+        <p className="flex min-w-0 items-center gap-1.5 text-xs">
+          <SiteMark b={b} size={12} />
+          <span className="shrink-0 text-meta">{b.domain}</span>
+          {b.description && (
+            <>
+              <span className="text-faint">·</span>
+              <span className="truncate text-subtle">{b.description}</span>
+            </>
+          )}
         </p>
       </div>
       {!compact && (
-        <div className="flex min-w-0 flex-wrap gap-1.5 overflow-hidden">
+        // A chip that does not fit wraps onto a hidden second line: only whole chips show.
+        <div className="flex h-[19px] min-w-0 flex-wrap gap-x-1 gap-y-2 overflow-hidden">
           {(b.tags ?? []).slice(0, 3).map((tag) => (
             <button
               key={tag}
               type="button"
               onClick={() => actions.tag(tag)}
-              className="rounded-sm bg-line px-1.5 py-0.5 text-2xs text-muted hover:text-ink"
+              className="shrink-0 rounded-xs bg-line px-[7px] pt-0.5 pb-[3px] text-2xs text-icon hover:text-ink"
             >
               {tag}
             </button>
           ))}
         </div>
       )}
-      {!compact && (
-        <span data-collection className={`flex min-w-0 items-center gap-2 text-xs ${collection ? "text-muted" : "text-faint"}`}>
-          {collection && <Dot color={collectionColor(collection.id)} />}
-          <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
-        </span>
-      )}
-      <div className="relative flex h-7 items-center justify-end">
+      <span data-collection className={`flex min-w-0 items-center gap-[7px] text-xs ${collection ? "text-icon" : "text-faint"}`}>
+        {collection && <span className="size-[7px] shrink-0 rounded-full" style={{ background: collectionColor(collection.id) }} />}
+        <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
+      </span>
+      <div className="relative flex h-[27px] items-center justify-end">
         <time
           dateTime={b.created_at}
-          className={`text-xs text-subtle transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${menu.open ? "opacity-0" : ""}`}
+          className={`text-xs text-subtle transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${open ? "opacity-0" : ""}`}
         >
           {shortDate(b.created_at, i18n.language)}
         </time>
-        <div
-          className={`absolute right-0 flex gap-1 transition-opacity duration-150 group-focus-within/row:opacity-100 group-hover/row:opacity-100 ${menu.open ? "opacity-100" : "opacity-0"}`}
-        >
-          <button
-            type="button"
-            aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
-            aria-pressed={b.is_favorite}
-            onClick={() => actions.favorite(b)}
-            className={overlayButton}
+        <div className={`absolute right-0 flex gap-0.5 ${revealed("row", open)}`}>
+          <RowAction label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")} aria-pressed={b.is_favorite} onClick={() => actions.favorite(b)}>
+            <Icon icon={Star} size={15} className={b.is_favorite ? "fill-accent text-accent" : ""} />
+          </RowAction>
+          <RowAction
+            label={t("card.moveTo")}
+            aria-haspopup="menu"
+            aria-expanded={move.open}
+            onClick={(e) => move.show(move.open ? null : e.currentTarget.getBoundingClientRect())}
           >
-            <Icon icon={Star} size={14} className={b.is_favorite ? "fill-accent text-accent" : ""} />
-          </button>
-          {menu.trigger(overlayButton)}
+            <Icon icon={Folder} size={15} />
+          </RowAction>
+          <RowAction label={t("card.delete")} onClick={() => actions.remove(b)}>
+            <Icon icon={Trash2} size={15} />
+          </RowAction>
         </div>
       </div>
       {menu.menu}
+      {move.menu}
     </article>
   );
-}
+});

@@ -256,6 +256,11 @@ pub struct BookmarkQuery {
     /// Bookmarks per page: 100 by default, at most 1000.
     #[ts(optional)]
     pub limit: Option<u32>,
+    /// Times in the stored format, for example the starts of today and
+    /// yesterday in the user's time zone. The first page counts how many
+    /// matches were saved at or after each: the list's date groups (NP-012).
+    #[ts(optional)]
+    pub since: Option<Vec<String>>,
 }
 
 /// A position in the order `created_at DESC, id DESC`.
@@ -275,6 +280,8 @@ pub struct BookmarkPage {
     pub total: Option<i64>,
     /// Where the next page starts; none after the last one.
     pub next: Option<PageCursor>,
+    /// For each of `since`, the matches saved at or after it; first page only.
+    pub since_counts: Option<Vec<i64>>,
 }
 
 pub const PAGE_SIZE: u32 = 100;
@@ -471,13 +478,29 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
         values.extend([word.clone().into(), word.into()]);
     }
 
-    let total = match query.after {
-        None => Some(conn.query_row(
-            &format!("SELECT count(*) FROM bookmarks b{filter}"),
-            rusqlite::params_from_iter(&values),
-            |r| r.get(0),
-        )?),
-        Some(_) => None,
+    // The total and the date-group counts in one pass, first page only.
+    let (total, since_counts) = match query.after {
+        None => {
+            let since = query.since.as_deref().unwrap_or_default();
+            let columns: String = since
+                .iter()
+                .map(|_| ", COALESCE(sum(b.created_at >= ?), 0)")
+                .collect();
+            let mut counted: Vec<Value> = since.iter().map(|s| s.clone().into()).collect();
+            counted.extend(values.iter().cloned());
+            let row = conn.query_row(
+                &format!("SELECT count(*){columns} FROM bookmarks b{filter}"),
+                rusqlite::params_from_iter(&counted),
+                |r| {
+                    (0..=since.len())
+                        .map(|i| r.get::<_, i64>(i))
+                        .collect::<Result<Vec<_>>>()
+                },
+            )?;
+            let total = row[0];
+            (Some(total), query.since.as_ref().map(|_| row[1..].to_vec()))
+        }
+        Some(_) => (None, None),
     };
 
     let mut page_filter = filter;
@@ -506,7 +529,12 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
         }
     });
     attach_tags(conn, &mut items)?;
-    Ok(BookmarkPage { items, total, next })
+    Ok(BookmarkPage {
+        items,
+        total,
+        next,
+        since_counts,
+    })
 }
 
 /// Tags of a whole page in one query.
@@ -1150,6 +1178,65 @@ mod tests {
             .filter(|i| i % 2 == 0 && i.to_string().contains('1'))
             .count();
         assert_eq!((shelf.len(), total), (expected, expected as i64));
+    }
+
+    #[test]
+    fn first_page_counts_matches_since_each_time() {
+        let conn = setup_test_db();
+        for (i, created) in [
+            "2026-10-03T08:00:00.000Z",
+            "2026-10-02T20:00:00.000Z",
+            "2026-09-29T10:00:00.000Z",
+            "2026-01-01T00:00:00.000Z",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let b = add(&conn, &format!("https://example.com/{i}"), "Запись", &[]);
+            conn.execute(
+                "UPDATE bookmarks SET created_at = ?1 WHERE id = ?2",
+                params![created, b.id],
+            )
+            .unwrap();
+        }
+        let since = vec![
+            "2026-10-03T00:00:00.000Z".to_string(),
+            "2026-10-02T00:00:00.000Z".to_string(),
+            "2026-09-26T00:00:00.000Z".to_string(),
+        ];
+        let query = BookmarkQuery {
+            since: Some(since.clone()),
+            limit: Some(2),
+            ..Default::default()
+        };
+        let first = get_bookmarks(&conn, &query).unwrap();
+        assert_eq!(first.total, Some(4));
+        assert_eq!(first.since_counts, Some(vec![1, 2, 3]));
+        let second = get_bookmarks(
+            &conn,
+            &BookmarkQuery {
+                after: first.next,
+                ..query.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!((second.total, second.since_counts), (None, None));
+        // With a filter, and nothing found.
+        let none = BookmarkQuery {
+            search: Some("нет-такого".into()),
+            since: Some(since),
+            ..Default::default()
+        };
+        assert_eq!(
+            get_bookmarks(&conn, &none).unwrap().since_counts,
+            Some(vec![0, 0, 0])
+        );
+        assert_eq!(
+            get_bookmarks(&conn, &BookmarkQuery::default())
+                .unwrap()
+                .since_counts,
+            None
+        );
     }
 
     #[test]

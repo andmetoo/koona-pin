@@ -11,4 +11,8 @@ total: number | null,
 /**
  * Where the next page starts; none after the last one.
  */
-next: PageCursor | null, };
+next: PageCursor | null, 
+/**
+ * For each of `since`, the matches saved at or after it; first page only.
+ */
+since_counts: Array<number> | null, };
