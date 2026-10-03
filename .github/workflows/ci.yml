@@ -1,0 +1,48 @@
+name: CI
+
+# Manual only: checks run locally (doc/testing.md) to save GitHub Actions minutes.
+# Automatic push/PR triggers will be enabled later.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    name: Build, unit tests, Playwright UI
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: TypeScript and Vite build
+        run: npm run build
+      - name: Vitest
+        run: npm test
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+      # Screenshot baselines depend on local font rendering and are checked locally only.
+      - name: Playwright UI, functional
+        run: npm run test:ui -- --grep-invert "@visual"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-ui-results
+          path: test-results/
+          if-no-files-found: ignore

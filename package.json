@@ -3,11 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=26.10.0 <27"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "check": "npm run build && npm test && cargo test --locked --manifest-path src-tauri/Cargo.toml",
     "test:ui": "playwright test",
     "test:native": "playwright test --config playwright.native.config.ts",
     "test:extension": "node scripts/smoke-extension.mjs",

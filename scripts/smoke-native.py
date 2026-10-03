@@ -22,6 +22,7 @@ with socket.socket() as probe:
         raise RuntimeError('Port 28765 is already occupied; existing process is left untouched.')
 environment = os.environ.copy()
 environment['ODDCLICKS_DATA_DIR'] = str(data)
+environment['WEBVIEW2_USER_DATA_FOLDER'] = str(data / 'webview')
 startup = subprocess.STARTUPINFO()
 startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 startup.wShowWindow = subprocess.SW_HIDE
