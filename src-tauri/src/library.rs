@@ -281,15 +281,10 @@ pub fn maintain(paths: &Paths, now: DateTime<Utc>, check: bool) -> Result<Health
     if !check && !due {
         return Ok(Health::Intact { copied: None });
     }
-    let conn = Connection::open_with_flags(
-        &paths.database,
-        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-    )
-    .map_err(|e| e.to_string())?;
-    conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| e.to_string())?;
-    if let Some(problem) = quick_check(&conn).map_err(|e| e.to_string())? {
-        return Ok(Health::Damaged(problem));
-    }
+    let conn = match checked_connection(paths)? {
+        Ok(conn) => conn,
+        Err(problem) => return Ok(Health::Damaged(problem)),
+    };
     let copied = if due {
         Some(backup::create_auto(&conn, &paths.backups, now)?)
     } else {
@@ -300,18 +295,24 @@ pub fn maintain(paths: &Paths, now: DateTime<Utc>, check: bool) -> Result<Health
 
 /// «Back up now» in the settings: the same check and copy as the daily one.
 pub fn back_up_now(paths: &Paths, now: DateTime<Utc>) -> Result<PathBuf, String> {
+    let conn = checked_connection(paths)?
+        .map_err(|problem| format!("the library is damaged, no copy was made: {problem}"))?;
+    backup::create_auto(&conn, &paths.backups, now)
+}
+
+/// A separate read-only connection that passed the integrity check, or the
+/// problem the check found.
+fn checked_connection(paths: &Paths) -> Result<Result<Connection, String>, String> {
     let conn = Connection::open_with_flags(
         &paths.database,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .map_err(|e| e.to_string())?;
     conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| e.to_string())?;
-    if let Some(problem) = quick_check(&conn).map_err(|e| e.to_string())? {
-        return Err(format!(
-            "the library is damaged, no copy was made: {problem}"
-        ));
-    }
-    backup::create_auto(&conn, &paths.backups, now)
+    Ok(match quick_check(&conn).map_err(|e| e.to_string())? {
+        Some(problem) => Err(problem),
+        None => Ok(conn),
+    })
 }
 
 #[cfg(test)]
