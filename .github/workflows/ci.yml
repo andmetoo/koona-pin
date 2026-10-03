@@ -44,8 +44,9 @@ jobs:
         run: cargo test --locked
       - name: Install Playwright Chromium
         run: npx playwright install chromium
-      - name: Playwright UI
-        run: npm run test:ui
+      # Screenshot baselines depend on local font rendering and are checked locally only.
+      - name: Playwright UI, functional
+        run: npm run test:ui -- --grep-invert "@visual"
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
