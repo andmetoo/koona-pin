@@ -21,6 +21,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Claude app: local preview settings
+.claude/
+
 # OS Files
 .DS_Store
 Thumbs.db
