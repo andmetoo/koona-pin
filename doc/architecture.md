@@ -98,6 +98,10 @@ Authorization: Bearer <локальный токен>
 
 ## Расширение
 
+Один исходник `extension/src` для Chrome, Edge и Firefox (NP-015). `scripts/build-extension.mjs` пишет манифест каждого браузера и собирает распакованные папки `extension/build/<браузер>` и пакеты `release/netamipin-chrome.zip`, `netamipin-edge.zip`, `netamipin-firefox.xpi` (имена отсортированы, время фиксировано: одинаковый исходник даёт одинаковые байты). Chrome и Edge: `background.service_worker`, `minimum_chrome_version: 120`; пакет Edge совпадает с пакетом Chrome. Firefox: фоновая страница `background.scripts` (service worker в расширениях Firefox нет), модуль ES, `gecko.id` `pin@netami.app`, `strict_min_version: 140.0`, `data_collection_permissions: none`. Версия расширения и версия протокола — только в `extension/src/version.js`.
+
+API берётся из `ext.js`: `browser` в Firefox, `chrome` в Chrome и Edge, оба с промисами. Строки — `_locales/en` и `_locales/ru` (`default_locale: en`) на языке браузера, не на языке приложения; `t()` из `ext.js` в скриптах, атрибуты `data-i18n` на странице настроек. Распакованные папки Chrome и Edge получают поле `key` из `extension/dev-key.txt` — открытый ключ, приватного нет. Поэтому ID сборки для разработки одинаков на любой машине: `iibgiagcbediajombmkohanobgicbepn`. В пакеты для каталогов `key` не попадает: ID выдаёт каталог.
+
 MV3 worker выполняет запросы. `queue.js` последовательно обрабатывает добавление, отправку, повтор и удаление через одну цепочку операций. `chrome.storage.local` хранит URL, название, request_id, время и ошибку. Подтверждение требует целый `bookmark_id` и известный `outcome`.
 
 `activeTab` даёт доступ к выбранной странице после нажатия; `storage` хранит очередь; `alarms` возобновляет доставку. Host permission относится к `127.0.0.1` (Chrome match patterns не ограничивают порт), CSP и код ограничивают сервер портом 28765. Content scripts и удалённый код отсутствуют.

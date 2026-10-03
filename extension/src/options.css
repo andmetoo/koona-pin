@@ -45,6 +45,8 @@ h1 {
     serif;
   letter-spacing: -1.5px;
   margin: 36px 0 16px;
+  /* The heading's line break comes from the message text. */
+  white-space: pre-line;
 }
 .intro {
   color: var(--muted);

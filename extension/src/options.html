@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Texts come from _locales: options.js fills every data-i18n* element. -->
+    <title data-i18n="optionsTitle">Netami Pin</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="brand">Netami Pin</span
+        ><span class="eyebrow" data-i18n="optionsEyebrow"></span>
+      </header>
+      <h1 data-i18n="optionsHeading"></h1>
+      <p class="intro" data-i18n="optionsIntro"></p>
+      <section>
+        <h2 data-i18n="connectionHeading"></h2>
+        <p id="connection" role="status" data-i18n="connectionChecking"></p>
+        <form id="pair">
+          <label for="token" data-i18n="tokenLabel"></label>
+          <div class="field-row">
+            <input
+              id="token"
+              type="password"
+              autocomplete="off"
+              spellcheck="false"
+              required
+              data-i18n-placeholder="tokenPlaceholder"
+            /><button type="submit" data-i18n="connectButton"></button>
+          </div>
+        </form>
+        <p id="message" role="status"></p>
+      </section>
+      <section>
+        <div class="queue-heading">
+          <h2>
+            <span data-i18n="queueHeading"></span> <span id="count">0</span>
+          </h2>
+          <button id="retry" class="secondary" data-i18n="retryButton"></button>
+        </div>
+        <div id="queue"></div>
+      </section>
+      <footer data-i18n="optionsFooter"></footer>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
