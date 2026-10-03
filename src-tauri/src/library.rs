@@ -161,6 +161,7 @@ pub fn open_with(
 
 pub fn configure(conn: &Connection) -> rusqlite::Result<()> {
     conn.busy_timeout(BUSY_TIMEOUT)?;
+    db::register_functions(conn)?;
     // FULL: a capture confirmed to the extension survives a power cut (Р-3).
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
@@ -328,7 +329,7 @@ mod tests {
     }
 
     fn build(paths: &Paths, rows: usize) {
-        let conn = fixtures::fresh(&paths.database);
+        let conn = fixtures::fresh_at(&paths.database, 1);
         if rows > 0 {
             fixtures::generated(&conn, rows, 3);
         } else {
@@ -374,11 +375,11 @@ mod tests {
         build(&paths, 0);
         Connection::open(&paths.database)
             .unwrap()
-            .pragma_update(None, "user_version", 2)
+            .pragma_update(None, "user_version", migrations::SCHEMA_VERSION + 1)
             .unwrap();
         let failure = unchanged(&paths, || open(&paths));
         assert_eq!(failure.code, OpenCode::DbNewerSchema);
-        assert_eq!(failure.schema, Some(2));
+        assert_eq!(failure.schema, Some(migrations::SCHEMA_VERSION + 1));
         assert_eq!(failure.supported, migrations::SCHEMA_VERSION);
     }
 
@@ -424,7 +425,10 @@ mod tests {
             .unwrap();
         assert_eq!(count, 3);
         assert_eq!(db::get_counts(&opened.conn).unwrap().total, 0);
-        assert_eq!(migrations::user_version(&opened.conn).unwrap(), 1);
+        assert_eq!(
+            migrations::user_version(&opened.conn).unwrap(),
+            migrations::SCHEMA_VERSION
+        );
         // The next start opens the new library and moves nothing.
         drop(opened);
         assert!(open(&paths).unwrap().moved_aside.is_none());
