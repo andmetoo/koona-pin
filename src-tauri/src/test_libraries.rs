@@ -87,14 +87,22 @@ fn epoch() -> DateTime<Utc> {
         .to_utc()
 }
 
-/// A new library with the default collections and a fixed token.
+/// A new library of the current schema with the default collections and a fixed token.
 pub fn fresh(path: &Path) -> Connection {
+    fresh_at(path, migrations::SCHEMA_VERSION)
+}
+
+/// The same at an earlier `schema`, as a previous release left it: input for
+/// the migrations.
+pub fn fresh_at(path: &Path, schema: i64) -> Connection {
     for suffix in ["", "-wal", "-shm"] {
         let _ = fs::remove_file(format!("{}{suffix}", path.display()));
     }
     let mut conn = Connection::open(path).unwrap();
     library::configure(&conn).unwrap();
-    migrations::migrate(&mut conn, None).unwrap();
+    migrations::migrations()
+        .to_version(&mut conn, schema as usize)
+        .unwrap();
     let mut random = Random(1);
     let created = epoch();
     for id in 1..=3 {
@@ -304,6 +312,8 @@ pub fn build_all(output: &Path) -> Vec<String> {
     let mut report = Vec::new();
     let size = |name: &str| fs::metadata(output.join(name)).map_or(0, |m| m.len()) / 1024;
 
+    // Schema 1, as the release before NP-011 left them: opening one in the
+    // app runs the migrations, including building the search index.
     for (name, rows) in [
         ("empty-v1.db", 0),
         ("sample-v1.db", 3),
@@ -311,7 +321,7 @@ pub fn build_all(output: &Path) -> Vec<String> {
         ("library-10k-v1.db", 10_000),
         ("library-100k-v1.db", 100_000),
     ] {
-        let conn = fresh(&output.join(name));
+        let conn = fresh_at(&output.join(name), 1);
         match rows {
             0 => {}
             3 => sample_rows(&conn),
@@ -323,15 +333,16 @@ pub fn build_all(output: &Path) -> Vec<String> {
     }
 
     // Made by a future version: must be refused and left unchanged.
-    let newer = output.join("newer-schema-v2.db");
+    let newer = output.join("newer-schema.db");
     fs::copy(output.join("sample-v1.db"), &newer).unwrap();
     Connection::open(&newer)
         .unwrap()
         .pragma_update(None, "user_version", migrations::SCHEMA_VERSION + 1)
         .unwrap();
     report.push(format!(
-        "{:<26} sample marked as schema 2",
-        "newer-schema-v2.db"
+        "{:<26} sample marked as schema {}",
+        "newer-schema.db",
+        migrations::SCHEMA_VERSION + 1
     ));
 
     before_schema_1(&output.join("before-schema-1.db"));

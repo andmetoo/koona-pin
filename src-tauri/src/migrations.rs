@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -85,6 +85,69 @@ CREATE TABLE tombstones (
 );
 ";
 
+/// Schema 2 (NP-011): the search index. FTS5 `trigram` finds a substring of
+/// three or more characters in any field and folds case, Cyrillic included.
+/// It keeps no copy of the text (`content=''`); `contentless_delete` lets a
+/// row be removed by id. «ё» is written as «е» on the way in, the query is
+/// folded the same way in `db::fold`. Triggers keep the index in the same
+/// transaction as every write; `db::rebuild_search` rebuilds it from
+/// `bookmarks_search_source`.
+const SCHEMA_2: &str = "
+CREATE VIRTUAL TABLE bookmarks_search USING fts5(
+    title, url, domain, description, notes, tags,
+    content='', contentless_delete=1, tokenize='trigram'
+);
+CREATE VIEW bookmarks_search_source AS
+SELECT b.id,
+    replace(replace(b.title, 'ё', 'е'), 'Ё', 'Е') AS title,
+    replace(replace(b.url, 'ё', 'е'), 'Ё', 'Е') AS url,
+    replace(replace(b.domain, 'ё', 'е'), 'Ё', 'Е') AS domain,
+    replace(replace(COALESCE(b.description, ''), 'ё', 'е'), 'Ё', 'Е') AS description,
+    replace(replace(COALESCE(b.notes, ''), 'ё', 'е'), 'Ё', 'Е') AS notes,
+    replace(replace(COALESCE((SELECT group_concat(t.name, ' ') FROM bookmark_tags bt
+        JOIN tags t ON t.id = bt.tag_id WHERE bt.bookmark_id = b.id), ''), 'ё', 'е'), 'Ё', 'Е') AS tags
+FROM bookmarks b;
+
+CREATE TRIGGER bookmarks_search_insert AFTER INSERT ON bookmarks BEGIN
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = new.id;
+END;
+CREATE TRIGGER bookmarks_search_update
+AFTER UPDATE OF title, url, domain, description, notes ON bookmarks BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = old.id;
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = new.id;
+END;
+CREATE TRIGGER bookmarks_search_delete AFTER DELETE ON bookmarks BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = old.id;
+END;
+CREATE TRIGGER bookmarks_search_tag_link AFTER INSERT ON bookmark_tags BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = new.bookmark_id;
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = new.bookmark_id;
+END;
+-- Also runs for links removed by a cascade; a deleted bookmark has no source row.
+CREATE TRIGGER bookmarks_search_tag_unlink AFTER DELETE ON bookmark_tags BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = old.bookmark_id;
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = old.bookmark_id;
+END;
+CREATE TRIGGER bookmarks_search_tag_rename AFTER UPDATE OF name ON tags BEGIN
+    DELETE FROM bookmarks_search WHERE rowid IN
+        (SELECT bookmark_id FROM bookmark_tags WHERE tag_id = new.id);
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id IN
+        (SELECT bookmark_id FROM bookmark_tags WHERE tag_id = new.id);
+END;
+
+INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+SELECT * FROM bookmarks_search_source;
+
+-- Pages are read by (created_at, id); equal times need no extra sort.
+DROP INDEX idx_bookmarks_created;
+CREATE INDEX idx_bookmarks_order ON bookmarks(created_at, id);
+";
+
 /// What a new library starts with, created once: collections the user
 /// deletes never come back.
 fn seed(tx: &Transaction) -> HookResult {
@@ -114,7 +177,7 @@ fn seed(tx: &Transaction) -> HookResult {
 
 /// One step per schema version, in order; never edit a released step.
 pub fn steps() -> Vec<M<'static>> {
-    vec![M::up_with_hook(SCHEMA_1, seed)]
+    vec![M::up_with_hook(SCHEMA_1, seed), M::up(SCHEMA_2)]
 }
 
 pub fn migrations() -> Migrations<'static> {
@@ -248,7 +311,7 @@ mod tests {
     fn library_v1(name: &str, rows: usize) -> (PathBuf, Connection) {
         let folder = folder(name);
         let path = folder.join("netamipin.db");
-        let conn = fixtures::fresh(&path);
+        let conn = fixtures::fresh_at(&path, 1);
         fixtures::generated(&conn, rows, 7);
         fixtures::finish(conn);
         let conn = Connection::open(&path).unwrap();
