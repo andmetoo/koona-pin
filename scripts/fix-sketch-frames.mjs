@@ -4,9 +4,15 @@
 // turns such frames into groups without fill and radius. Rectangles survive both.
 // Close the file in Lunacy first. Safe to run twice: fixed frames are skipped.
 // Run: node scripts/fix-sketch-frames.mjs design/lunacy/iterone.sketch [more.sketch]
+//
+// With --figma <dir> the files are left alone and a copy for the Figma import is
+// written to <dir>. Lunacy stacks auto-layout children first-on-top, Figma reads
+// the same array last-on-top and imports those frames as plain groups, so the
+// copy reverses the children of every auto-layout frame. Hug-width texts get
+// 2 px of slack there, because Figma wraps them at the saved width.
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync,readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -92,23 +98,47 @@ function zip(command) {
   if (result.status !== 0) throw new Error(`pwsh failed: ${command}`);
 }
 
-for (const file of process.argv.slice(2)) {
+function prepareForFigma(layer, stats) {
+  for (const child of layer.layers || []) prepareForFigma(child, stats);
+  if (layer.groupLayout?._class === "MSImmutableFlexGroupLayout" && layer.layers?.length > 1) {
+    layer.layers.reverse();
+    stats.reversed++;
+  }
+  // Figma keeps the saved width of hug-width text, which can be a fraction short of the
+  // glyphs, and wraps it; give such text 2 px of slack on the side it grows to
+  if (layer._class === "text" && layer.horizontalSizing === 1 && !layer.attributedString.string.includes("\n")) {
+    const alignment = layer.style?.textStyle?.encodedAttributes?.paragraphStyle?.alignment;
+    layer.frame.x -= alignment === 1 ? 2 : alignment === 2 ? 1 : 0;
+    layer.frame.width += 2;
+    stats.widened++;
+  }
+}
+
+const args = process.argv.slice(2);
+const figmaIndex = args.indexOf("--figma");
+const figmaDir = figmaIndex >= 0 ? path.resolve(args.splice(figmaIndex, 2)[1]) : null;
+if (figmaDir) mkdirSync(figmaDir, { recursive: true });
+
+for (const file of args) {
   const sketch = path.resolve(file);
   const dir = mkdtempSync(path.join(tmpdir(), "sketch-"));
   try {
     zip(`[IO.Compression.ZipFile]::ExtractToDirectory('${sketch}', '${dir}', $true)`);
-    const stats = { moved: 0, images: 0 };
+    const stats = { moved: 0, images: 0, reversed: 0, widened: 0 };
     const pages = path.join(dir, "pages");
     for (const name of readdirSync(pages)) {
       const page = JSON.parse(readFileSync(path.join(pages, name), "utf8"));
       for (const layer of page.layers) fixFrame(layer, stats);
+      if (figmaDir) for (const layer of page.layers) prepareForFigma(layer, stats);
       writeFileSync(path.join(pages, name), JSON.stringify(page));
     }
-    if (stats.moved || stats.images) {
-      rmSync(sketch);
-      zip(`[IO.Compression.ZipFile]::CreateFromDirectory('${dir}', '${sketch}', 'Optimal', $false)`);
+    const target = figmaDir ? path.join(figmaDir, path.basename(sketch)) : sketch;
+    if (figmaDir || stats.moved || stats.images) {
+      rmSync(target, { force: true });
+      zip(`[IO.Compression.ZipFile]::CreateFromDirectory('${dir}', '${target}', 'Optimal', $false)`);
     }
-    console.log(`${file}: ${stats.moved} backgrounds, ${stats.images} images rounded`);
+    console.log(`${file}: ${stats.moved} backgrounds, ${stats.images} images rounded`
+      + (figmaDir ? `, ${stats.reversed} stacks reversed, ${stats.widened} texts widened -> ${target}` : ""));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
