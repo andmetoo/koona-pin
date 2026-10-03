@@ -8,6 +8,8 @@ import {
   DomainCount,
   FilterState,
   LibraryCounts,
+  LibraryPlace,
+  LibraryStatus,
   ServerStatus,
   Tag,
 } from "../types";
@@ -97,5 +99,12 @@ const desktop = {
   setCloseToTray: (enabled: boolean) =>
     invoke<void>("set_close_to_tray", { enabled }),
   getServerStatus: () => invoke<ServerStatus>("get_server_status"),
+  getLibraryStatus: () => invoke<LibraryStatus>("get_library_status"),
+  onLibraryStatus: (callback: (status: LibraryStatus) => void) =>
+    subscription("library-status", callback),
+  retryLibrary: () => invoke<void>("retry_library"),
+  revealLibraryPlace: (place: LibraryPlace) =>
+    invoke<void>("reveal_library_place", { place }),
+  quitApp: () => invoke<void>("quit_app"),
 };
 export const api = isTauri() ? desktop : demo;

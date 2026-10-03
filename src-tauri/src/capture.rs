@@ -1,6 +1,7 @@
-use crate::db::{self, Bookmark, DbState};
+use crate::db::{self, Bookmark, DbState, Source};
 use crate::metadata;
 use rusqlite::{params, Connection, OptionalExtension};
+use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -13,6 +14,9 @@ pub struct CaptureRequest {
     pub title: Option<String>,
     pub collection_id: Option<i64>,
     pub tags: Option<Vec<String>>,
+    /// Browser named by the extension: `chrome`, `edge` or `firefox` (NP-016).
+    #[serde(default)]
+    pub source: Option<String>,
 }
 #[derive(Debug, Serialize)]
 pub struct CaptureResult {
@@ -59,7 +63,25 @@ pub fn validate_url(raw: &str) -> Result<String, CaptureError> {
     }
     Ok(raw.to_owned())
 }
-pub fn save(conn: &Connection, request: &CaptureRequest) -> Result<CaptureResult, CaptureError> {
+pub fn save(
+    conn: &Connection,
+    request: &CaptureRequest,
+    source: Source,
+) -> Result<CaptureResult, CaptureError> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(CaptureError::database)?;
+    let result = save_in(&tx, request, source)?;
+    tx.commit().map_err(CaptureError::database)?;
+    Ok(result)
+}
+
+/// The caller owns the transaction; nothing is confirmed before its commit.
+fn save_in(
+    tx: &Connection,
+    request: &CaptureRequest,
+    source: Source,
+) -> Result<CaptureResult, CaptureError> {
     let url = validate_url(&request.url)?;
     if request
         .request_id
@@ -68,9 +90,6 @@ pub fn save(conn: &Connection, request: &CaptureRequest) -> Result<CaptureResult
     {
         return Err(CaptureError::invalid("Некорректный request_id"));
     }
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(CaptureError::database)?;
     if let Some(id) = &request.request_id {
         let receipt = tx
             .query_row(
@@ -94,10 +113,9 @@ pub fn save(conn: &Connection, request: &CaptureRequest) -> Result<CaptureResult
                     status: 409,
                 });
             }
-            let bookmark = db::get_bookmark_by_id(&tx, bookmark_id)
+            let bookmark = db::get_bookmark_by_id(tx, bookmark_id)
                 .optional()
                 .map_err(CaptureError::database)?;
-            tx.commit().map_err(CaptureError::database)?;
             return Ok(CaptureResult {
                 bookmark_id,
                 outcome,
@@ -119,7 +137,7 @@ pub fn save(conn: &Connection, request: &CaptureRequest) -> Result<CaptureResult
         .filter(|s| !s.trim().is_empty())
         .unwrap_or(&url);
     let bookmark = db::insert_or_update_bookmark(
-        &tx,
+        tx,
         &url,
         title,
         None,
@@ -128,19 +146,57 @@ pub fn save(conn: &Connection, request: &CaptureRequest) -> Result<CaptureResult
         &metadata::extract_domain(&url),
         request.collection_id,
         request.tags.as_deref(),
+        source,
     )
     .map_err(CaptureError::database)?;
     let outcome = if newly_created { "created" } else { "existing" }.to_owned();
     if let Some(id) = &request.request_id {
         tx.execute("INSERT INTO capture_receipts (request_id,url,bookmark_id,outcome) VALUES (?1,?2,?3,?4)",params![id,url,bookmark.id,outcome]).map_err(CaptureError::database)?;
     }
-    tx.commit().map_err(CaptureError::database)?;
     Ok(CaptureResult {
         bookmark_id: bookmark.id,
         outcome,
         bookmark: Some(bookmark),
         newly_created,
     })
+}
+
+/// Links of a browser bookmarks file; addresses that are not HTTP/HTTPS are skipped.
+pub fn parse_html(html: &str) -> Vec<CaptureRequest> {
+    let document = Html::parse_document(html);
+    let selector = Selector::parse("a[href]").expect("valid selector");
+    document
+        .select(&selector)
+        .filter_map(|element| {
+            let href = element.value().attr("href")?;
+            validate_url(href).ok()?;
+            Some(CaptureRequest {
+                request_id: None,
+                url: href.into(),
+                title: Some(element.text().collect::<String>().trim().into()),
+                collection_id: None,
+                tags: None,
+                source: None,
+            })
+        })
+        .collect()
+}
+
+/// One transaction for the whole file: an import is saved entirely or not at
+/// all, and thousands of links cost one sync to disk instead of thousands.
+/// Metadata is not fetched, so an import does not start a burst of requests.
+pub fn import(conn: &Connection, requests: &[CaptureRequest]) -> Result<usize, CaptureError> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(CaptureError::database)?;
+    let mut imported = 0;
+    for request in requests {
+        if save_in(&tx, request, Source::Import)?.newly_created {
+            imported += 1;
+        }
+    }
+    tx.commit().map_err(CaptureError::database)?;
+    Ok(imported)
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct BookmarkChange {
@@ -183,10 +239,9 @@ pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) 
 mod tests {
     use super::*;
     fn database() -> Connection {
-        let c = Connection::open_in_memory().unwrap();
+        let mut c = Connection::open_in_memory().unwrap();
         c.pragma_update(None, "foreign_keys", true).unwrap();
-        db::create_tables(&c).unwrap();
-        db::migrate(&c, None).unwrap();
+        crate::migrations::migrate(&mut c, None).unwrap();
         c
     }
     fn request(id: &str) -> CaptureRequest {
@@ -196,15 +251,16 @@ mod tests {
             title: Some("Original".into()),
             collection_id: None,
             tags: Some(vec!["one".into()]),
+            source: None,
         }
     }
     #[test]
     fn replay_after_deletion_does_not_recreate() {
         let c = database();
         let req = request("one");
-        let saved = save(&c, &req).unwrap();
+        let saved = save(&c, &req, Source::Extension).unwrap();
         db::delete_bookmark(&c, saved.bookmark_id).unwrap();
-        let replay = save(&c, &req).unwrap();
+        let replay = save(&c, &req, Source::Extension).unwrap();
         assert_eq!(replay.bookmark_id, saved.bookmark_id);
         assert!(replay.bookmark.is_none());
         assert!(!replay.newly_created);
@@ -213,7 +269,7 @@ mod tests {
     #[test]
     fn duplicate_preserves_user_fields() {
         let c = database();
-        let first = save(&c, &request("one")).unwrap();
+        let first = save(&c, &request("one"), Source::Extension).unwrap();
         db::update_bookmark(
             &c,
             first.bookmark_id,
@@ -224,7 +280,7 @@ mod tests {
             Some(vec!["user".into()]),
         )
         .unwrap();
-        let duplicate = save(&c, &request("two")).unwrap();
+        let duplicate = save(&c, &request("two"), Source::Extension).unwrap();
         let b = duplicate.bookmark.unwrap();
         assert_eq!(duplicate.outcome, "existing");
         assert_eq!(b.title, "Edited");
@@ -234,7 +290,10 @@ mod tests {
     #[test]
     fn stale_metadata_and_deleted_records_are_safe() {
         let c = database();
-        let saved = save(&c, &request("one")).unwrap().bookmark.unwrap();
+        let saved = save(&c, &request("one"), Source::Extension)
+            .unwrap()
+            .bookmark
+            .unwrap();
         db::update_bookmark(
             &c,
             saved.id,
@@ -267,7 +326,7 @@ mod tests {
         let c = database();
         let mut req = request("one");
         req.collection_id = Some(99999);
-        assert_eq!(save(&c, &req).unwrap_err().status, 500);
+        assert_eq!(save(&c, &req, Source::Extension).unwrap_err().status, 500);
         assert_eq!(db::get_counts(&c).unwrap().total, 0);
         assert_eq!(
             c.query_row("SELECT COUNT(*) FROM capture_receipts", [], |r| r
@@ -277,14 +336,74 @@ mod tests {
         );
         req.collection_id = None;
         req.url = "chrome://settings".into();
-        assert_eq!(save(&c, &req).unwrap_err().status, 400);
+        assert_eq!(save(&c, &req, Source::Extension).unwrap_err().status, 400);
     }
+    #[test]
+    fn source_and_inbox_follow_the_channel() {
+        let c = database();
+        let mut req = request("one");
+        req.source = Some("firefox".into());
+        save(&c, &req, Source::from_extension(req.source.as_deref())).unwrap();
+        let mut unknown = request("two");
+        unknown.url = "https://example.com/unknown".into();
+        unknown.source = Some("netscape".into());
+        save(
+            &c,
+            &unknown,
+            Source::from_extension(unknown.source.as_deref()),
+        )
+        .unwrap();
+        import(
+            &c,
+            &parse_html(r#"<a href="https://example.com/imported">I</a>"#),
+        )
+        .unwrap();
+        let rows: Vec<(String, Option<String>, Option<String>)> = c
+            .prepare("SELECT url, source, triaged_at FROM bookmarks ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(rows[0].1.as_deref(), Some("firefox"));
+        assert_eq!(rows[0].2, None, "a capture waits in the inbox");
+        assert_eq!(rows[1].1.as_deref(), Some("extension"));
+        assert_eq!(rows[2].1.as_deref(), Some("import"));
+        assert!(rows[2].2.is_some(), "an import goes to the library");
+    }
+
+    #[test]
+    fn import_of_ten_thousand_links_is_one_transaction() {
+        let c = database();
+        let mut html = String::from("<DL>");
+        for i in 0..10_000 {
+            html.push_str(&format!(
+                r#"<DT><A HREF="https://example.com/{i}">Link {i}</A>"#
+            ));
+        }
+        html.push_str(r#"<DT><A HREF="javascript:alert(1)">Skipped</A><DT><A HREF="https://example.com/1">Duplicate</A></DL>"#);
+        let requests = parse_html(&html);
+        assert_eq!(requests.len(), 10_001);
+        let started = std::time::Instant::now();
+        assert_eq!(import(&c, &requests).unwrap(), 10_000);
+        println!("import of 10 000 links: {:?}", started.elapsed());
+        assert_eq!(db::get_counts(&c).unwrap().total, 10_000);
+
+        // A failure in the middle keeps nothing from the file.
+        let mut broken = parse_html(
+            r#"<a href="https://example.org/a">A</a><a href="https://example.org/b">B</a>"#,
+        );
+        broken[1].collection_id = Some(99_999);
+        assert_eq!(import(&c, &broken).unwrap_err().status, 500);
+        assert_eq!(db::get_counts(&c).unwrap().total, 10_000);
+    }
+
     #[test]
     fn request_id_cannot_be_reused_for_another_url() {
         let c = database();
         let mut req = request("one");
-        save(&c, &req).unwrap();
+        save(&c, &req, Source::Extension).unwrap();
         req.url = "https://other.example/".into();
-        assert_eq!(save(&c, &req).unwrap_err().status, 409);
+        assert_eq!(save(&c, &req, Source::Extension).unwrap_err().status, 409);
     }
 }

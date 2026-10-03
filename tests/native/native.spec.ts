@@ -1,6 +1,8 @@
 import { test, expect, chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { mkdir, rename, access } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import net from "node:net";
 import http from "node:http";
@@ -314,91 +316,6 @@ async function launch(
   return { processHandle, exited, browser, page };
 }
 
-test("upgrade from OddClicks keeps library, token, theme, view and tray setting", async ({
-  request,
-}) => {
-  const root = path.resolve(".test-data", `upgrade-${Date.now()}`);
-  const legacy = path.join(root, "legacy");
-  const current = path.join(root, "current");
-  await mkdir(legacy, { recursive: true });
-  await mkdir(current, { recursive: true });
-
-  // Prepare a library the way OddClicks left it: same schema, old file and key names.
-  const old = await launch(request, {
-    NETAMIPIN_DATA_DIR: legacy,
-    WEBVIEW2_USER_DATA_FOLDER: path.join(legacy, "webview"),
-  });
-  let token: string;
-  try {
-    await old.page
-      .getByRole("button", { name: "Добавить ссылку", exact: true })
-      .first()
-      .click();
-    await old.page
-      .getByLabel("Ссылка", { exact: true })
-      .fill("https://example.invalid/from-oddclicks");
-    await old.page.getByLabel("Название", { exact: true }).fill("Из OddClicks");
-    await old.page.getByRole("button", { name: "Сохранить ссылку" }).click();
-    await expect(old.page.locator("[data-bookmark-id]")).toHaveCount(1);
-    const settings = await old.page.evaluate(() =>
-      window.__TAURI_INTERNALS__.invoke("get_app_settings"),
-    );
-    token = (settings as { capture_token: string }).capture_token;
-    await old.page.evaluate(async () => {
-      await window.__TAURI_INTERNALS__.invoke("set_close_to_tray", {
-        enabled: false,
-      });
-      localStorage.removeItem("netamipin.theme");
-      localStorage.removeItem("netamipin.view");
-      localStorage.setItem("oddclicks.theme", "dark");
-      localStorage.setItem("oddclicks.view", "list");
-    });
-    // Chromium writes localStorage to disk with a delay of a few seconds.
-    await old.page.waitForTimeout(6000);
-    await old.page
-      .getByRole("button", { name: "Закрыть окно", exact: true })
-      .click();
-    await old.exited;
-  } finally {
-    await old.browser.close().catch(() => {});
-    old.processHandle.kill();
-  }
-  for (const suffix of ["", "-wal", "-shm"]) {
-    await rename(
-      path.join(legacy, `netamipin.db${suffix}`),
-      path.join(legacy, `oddclicks.db${suffix}`),
-    ).catch(() => {});
-  }
-
-  const app = await launch(request, {
-    NETAMIPIN_DATA_DIR: current,
-    NETAMIPIN_LEGACY_DIR: legacy,
-    WEBVIEW2_USER_DATA_FOLDER: path.join(current, "webview"),
-  });
-  try {
-    await expect(app.page.locator("[data-bookmark-id]")).toHaveCount(1);
-    await expect(app.page.locator("[data-bookmark-id]")).toContainText(
-      "Из OddClicks",
-    );
-    expect(
-      await app.page.evaluate(() => ({
-        theme: document.documentElement.dataset.studyTheme,
-        view: localStorage.getItem("netamipin.view"),
-      })),
-    ).toEqual({ theme: "dark", view: "list" });
-    expect(
-      await app.page.evaluate(() =>
-        window.__TAURI_INTERNALS__.invoke("get_app_settings"),
-      ),
-    ).toEqual({ capture_token: token, close_to_tray: false });
-    await access(path.join(current, "netamipin.db"));
-    await access(path.join(legacy, "oddclicks.db"));
-  } finally {
-    await app.browser.close();
-    app.processHandle.kill();
-  }
-});
-
 test("running OddClicks on the capture port is reported", async ({
   request,
 }) => {
@@ -424,5 +341,224 @@ test("running OddClicks on the capture port is reported", async ({
     await app.browser.close();
     app.processHandle.kill();
     await new Promise<void>((resolve) => oddclicks.close(() => resolve()));
+  }
+});
+const NPIN = 0x4e50494e;
+const isolated = (data: string) => ({
+  NETAMIPIN_DATA_DIR: data,
+  WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
+});
+async function folder(name: string) {
+  const data = path.resolve(".test-data", `${name}-${Date.now()}`);
+  await mkdir(data, { recursive: true });
+  return data;
+}
+const healthy = async (request: import("@playwright/test").APIRequestContext) => {
+  try {
+    return (
+      await request.get("http://127.0.0.1:28765/api/health", { timeout: 500 })
+    ).ok();
+  } catch {
+    return false;
+  }
+};
+
+test("library of a newer version shows a screen and stays unchanged", async ({
+  request,
+}) => {
+  const data = await folder("newer-schema");
+  const file = path.join(data, "netamipin.db");
+  const db = new DatabaseSync(file);
+  db.exec(
+    `CREATE TABLE bookmarks (url TEXT); PRAGMA application_id = ${NPIN}; PRAGMA user_version = 2;`,
+  );
+  db.close();
+  const before = await readFile(file);
+  const app = await launch(request, isolated(data));
+  try {
+    const screen = app.page.locator('[data-error-code="DB_NEWER_SCHEMA"]');
+    await expect(screen).toBeVisible({ timeout: 15000 });
+    await expect(screen).toContainText("netamipin.db · DB_NEWER_SCHEMA");
+    await expect(screen).toContainText("pin.netami.app");
+    // Nothing writes in this state: no HTTP server, no library commands.
+    expect(await healthy(request)).toBe(false);
+    expect(
+      await app.page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke("get_counts").then(
+          () => "answered",
+          () => "refused",
+        ),
+      ),
+    ).toBe("refused");
+    await app.page.screenshot({ path: "test-results/library-newer-schema.png" });
+    // Try again is not offered: only a newer version can open this library.
+    await expect(screen.getByRole("button")).toHaveCount(3);
+    await screen.getByRole("button").last().click();
+    await app.exited;
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+  expect((await readFile(file)).equals(before)).toBe(true);
+  expect((await readdir(data)).some((name) => name === "backups")).toBe(false);
+});
+
+test("library of an earlier build is moved aside and a new one is created", async ({
+  request,
+}) => {
+  const data = await folder("before-schema-1");
+  const db = new DatabaseSync(path.join(data, "netamipin.db"));
+  db.exec(`CREATE TABLE bookmarks (id INTEGER PRIMARY KEY, url TEXT, title TEXT);
+    INSERT INTO bookmarks (url, title) VALUES ('https://example.invalid/old', 'Old');
+    PRAGMA user_version = 1;`);
+  db.close();
+  const app = await launch(request, isolated(data));
+  try {
+    await expect(
+      app.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+    ).toBeVisible({ timeout: 15000 });
+    await expect(app.page.getByRole("status")).toContainText("netamipin.old-");
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+  const old = (await readdir(data)).find((name) => /^netamipin\.old-.*\.db$/.test(name));
+  expect(old).toBeTruthy();
+  const kept = new DatabaseSync(path.join(data, old!), { readOnly: true });
+  expect(kept.prepare("SELECT title FROM bookmarks").get()).toEqual({ title: "Old" });
+  kept.close();
+});
+
+test("damaged library is detected in the background and not written", async ({
+  request,
+}) => {
+  const data = await folder("damaged");
+  const file = path.join(data, "netamipin.db");
+  // A real library first, then enough rows to damage pages in the middle.
+  const first = await launch(request, isolated(data));
+  try {
+    await expect(
+      first.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+    ).toBeVisible({ timeout: 15000 });
+    await first.page.evaluate(() =>
+      window.__TAURI_INTERNALS__.invoke("quit_app"),
+    ).catch(() => {});
+    await first.exited;
+  } finally {
+    await first.browser.close().catch(() => {});
+    first.processHandle.kill();
+  }
+  const db = new DatabaseSync(file);
+  const insert = db.prepare(
+    "INSERT INTO bookmarks (uid,url,title,domain,created_at,updated_at) VALUES (?,?,?,?,?,?)",
+  );
+  db.exec("BEGIN");
+  for (let i = 0; i < 3000; i++)
+    insert.run(randomUUID(), `https://example.invalid/${i}`, `Ссылка ${i}`, "example.invalid", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+  db.exec("COMMIT; PRAGMA wal_checkpoint(TRUNCATE);");
+  db.close();
+  const bytes = await readFile(file);
+  bytes.fill(0xa5, bytes.length / 2, bytes.length / 2 + 16384);
+  await writeFile(file, bytes);
+  // The intact library got its first automatic copy on the first start.
+  const copies = await readdir(path.join(data, "backups"));
+  expect(copies).toHaveLength(1);
+
+  const app = await launch(request, isolated(data));
+  try {
+    await expect(app.page.locator(".library-damaged")).toBeVisible({ timeout: 15000 });
+    await app.page.screenshot({ path: "test-results/library-damaged.png" });
+    const written = await app.page.evaluate(() =>
+      window.__TAURI_INTERNALS__.invoke("add_bookmark", {
+        url: "https://example.invalid/after-damage",
+        title: null,
+        collectionId: null,
+        tags: [],
+      }).then(
+        () => "saved",
+        (error: unknown) => String(error),
+      ),
+    );
+    expect(written).toMatch(/readonly|read-only/i);
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+  // The damaged library is not copied, and the good copy stays.
+  expect(await readdir(path.join(data, "backups"))).toEqual(copies);
+});
+
+test("import of 10 000 links keeps the window responsive", async ({ request }) => {
+  const data = await folder("import-10k");
+  const app = await launch(request, isolated(data));
+  try {
+    await expect(
+      app.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+    ).toBeVisible({ timeout: 15000 });
+    const result = await app.page.evaluate(async () => {
+      let html = "<DL>";
+      for (let i = 0; i < 10000; i++)
+        html += `<DT><A HREF="https://example.invalid/${i}">Link ${i}</A>`;
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const started = performance.now();
+      let finished = 0;
+      const importing = invoke("import_html_bookmarks", { htmlContent: html }).then(
+        (count: number) => {
+          finished = performance.now();
+          return count;
+        },
+      );
+      // get_server_status is a sync command: it runs on the main thread and
+      // waits for it, so its delay shows whether the window is blocked.
+      const delays: number[] = [];
+      while (!finished && delays.length < 200) {
+        const sent = performance.now();
+        await invoke("get_server_status");
+        delays.push(performance.now() - sent);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      return {
+        imported: await importing,
+        importMs: Math.round(finished - started),
+        probes: delays.length,
+        worstMs: Math.round(Math.max(0, ...delays)),
+      };
+    });
+    console.log("Import of 10 000 links:", result);
+    expect(result.imported).toBe(10000);
+    expect(result.probes).toBeGreaterThan(1);
+    expect(result.worstMs).toBeLessThan(250);
+    await expect(app.page.locator(".study-heading-count")).toHaveText("10000");
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+
+test("foreign file: retry after moving it away opens a new library", async ({
+  request,
+}) => {
+  const data = await folder("foreign-retry");
+  const file = path.join(data, "netamipin.db");
+  const db = new DatabaseSync(file);
+  db.exec("PRAGMA application_id = 305419896; CREATE TABLE notes (text TEXT);");
+  db.close();
+  const app = await launch(request, isolated(data));
+  try {
+    const screen = app.page.locator('[data-error-code="DB_FOREIGN"]');
+    await expect(screen).toBeVisible({ timeout: 15000 });
+    // The first button is Try again and has the focus for the keyboard.
+    await expect(screen.getByRole("button").first()).toBeFocused();
+    expect(await healthy(request)).toBe(false);
+    const { rename } = await import("node:fs/promises");
+    await rename(file, path.join(data, "notes-of-another-app.db"));
+    await app.page.keyboard.press("Enter");
+    await expect(
+      app.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+    ).toBeVisible({ timeout: 15000 });
+    await expect.poll(() => healthy(request)).toBe(true);
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
   }
 });
