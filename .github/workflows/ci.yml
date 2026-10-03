@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    name: Build, unit tests, Playwright UI
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: checks
+      - run: npm ci
+      - name: TypeScript and Vite build
+        run: npm run build
+      - name: Vitest
+        run: npm test
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+      - name: Playwright UI
+        run: npm run test:ui
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-ui-results
+          path: test-results/
+          if-no-files-found: ignore
+
+  native:
+    name: WebView2, HTTP and Chrome extension smoke
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: native
+      - run: npm ci
+      - name: Frontend build for embedding
+        run: npm run build
+      - name: Native binary with embedded assets
+        working-directory: src-tauri
+        run: cargo build --features custom-protocol --locked
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+      # The three suites share loopback port 28765, so they run one after another.
+      - name: Real WebView2
+        run: npm run test:native
+      - name: Native HTTP smoke
+        run: python scripts/smoke-native.py
+      - name: Chrome for Testing, MV3 extension
+        run: npm run test:extension
+      - name: Extension package
+        run: npm run extension:zip
+      - name: Tests left the default user data untouched
+        if: always()
+        shell: pwsh
+        run: |
+          $default = @(
+            (Join-Path $env:APPDATA 'OddClicks'),
+            (Join-Path $env:LOCALAPPDATA 'com.oddclicks.app')
+          ) | Where-Object { Test-Path $_ }
+          if ($default) { Write-Error "Tests wrote outside .test-data: $($default -join ', ')"; exit 1 }
+          Write-Output "Only .test-data was used"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: native-results
+          path: test-results/
+          if-no-files-found: ignore
