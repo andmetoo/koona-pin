@@ -68,6 +68,24 @@ export function lastSaved(status: CaptureStatus | null, t: TFunction, language: 
     : t("browser.lastSavedOn", { date: date.toLocaleDateString(language, { day: "numeric", month: "long" }), time, browser });
 }
 
+/**
+ * Catalog pages of the extension, filled in once a catalog approves it
+ * (NP-017, `extension/store/README.md`). A browser with a page installs from
+ * the catalog; the others keep the developer-mode steps.
+ */
+export const storeLinks: Partial<Record<StoreBrowser, string>> = {};
+const storeName = { chrome: "Chrome Web Store", edge: "Edge Add-ons" } as const;
+type StoreBrowser = keyof typeof storeName;
+const inStore = (browser: Browser): browser is StoreBrowser => browser in storeName;
+
+/** Step 1 and the update hint of the connect dialog for this browser. */
+export function installSteps(browser: Browser, links = storeLinks) {
+  const url = inStore(browser) ? links[browser] : undefined;
+  return url && inStore(browser)
+    ? { url, store: storeName[browser], install: `connect.store_${browser}` as const, update: "connect.updateStore" as const }
+    : { url: null, store: null, install: `connect.install_${browser}` as const, update: `connect.update_${browser}` as const };
+}
+
 /** The browser to show first in the connect dialog: the last one that saved. */
 export function preferredBrowser(status: CaptureStatus | null): Browser {
   return status?.last_capture?.browser ?? status?.browsers.find((b) => b.recent)?.browser ?? "chrome";
