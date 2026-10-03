@@ -1,11 +1,13 @@
 import { invoke, InvokeArgs } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   AppSettings,
   Bookmark,
   BookmarkChange,
   BookmarkPatch,
   Collection,
+  DataSummary,
   DomainCount,
   FilterState,
   LibraryCounts,
@@ -113,5 +115,10 @@ const desktop = {
   revealLibraryPlace: (place: LibraryPlace) =>
     call<void>("reveal_library_place", { place }),
   quitApp: () => call<void>("quit_app"),
+  getAutostart: () => call<boolean>("get_autostart"),
+  setAutostart: (enabled: boolean) => call<void>("set_autostart", { enabled }),
+  getDataSummary: () => call<DataSummary>("get_data_summary"),
+  backUpNow: () => call<DataSummary>("back_up_now"),
+  getVersion: () => getVersion(),
 };
 export const api = isTauri() ? desktop : demo;

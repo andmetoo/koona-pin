@@ -297,6 +297,22 @@ pub fn maintain(paths: &Paths, now: DateTime<Utc>, check: bool) -> Result<Health
     Ok(Health::Intact { copied })
 }
 
+/// «Back up now» in the settings: the same check and copy as the daily one.
+pub fn back_up_now(paths: &Paths, now: DateTime<Utc>) -> Result<PathBuf, String> {
+    let conn = Connection::open_with_flags(
+        &paths.database,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| e.to_string())?;
+    conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| e.to_string())?;
+    if let Some(problem) = quick_check(&conn).map_err(|e| e.to_string())? {
+        return Err(format!(
+            "the library is damaged, no copy was made: {problem}"
+        ));
+    }
+    backup::create_auto(&conn, &paths.backups, now)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

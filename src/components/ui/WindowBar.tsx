@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react";
-import { Bookmark, Copy, Minus, Square, X } from "lucide-react";
+import { Copy, Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useTranslation } from "react-i18next";
 import { isTauri } from "../../services/api";
+import { Icon } from "../icons";
+
+/**
+ * The window has no system frame: this strip drags it and holds the window
+ * buttons. The frames in Lunacy do not draw window controls.
+ */
 export function WindowBar() {
+  const { t } = useTranslation();
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
     if (!isTauri()) return;
@@ -16,38 +24,42 @@ export function WindowBar() {
       void listening.then((off) => off());
     };
   }, []);
+  const button =
+    "flex h-8 w-11 items-center justify-center text-icon transition-colors duration-150 hover:bg-hover hover:text-ink";
   return (
-    <header className="study-titlebar" data-tauri-drag-region>
-      <span className="study-wordmark" data-tauri-drag-region>
-        <Bookmark size={14} />
-        Netami Pin{!isTauri() && <span className="demo-label">Демо</span>}
-      </span>
-      <div>
-        <button
-          aria-label="Свернуть"
-          onClick={() => {
-            if (isTauri()) void getCurrentWindow().minimize();
-          }}
-        >
-          <Minus size={13} />
-        </button>
-        <button
-          aria-label={maximized ? "Восстановить" : "Развернуть"}
-          onClick={() => {
-            if (isTauri()) void getCurrentWindow().toggleMaximize();
-          }}
-        >
-          {maximized ? <Copy size={11} /> : <Square size={11} />}
-        </button>
-        <button
-          aria-label="Закрыть окно"
-          onClick={() => {
-            if (isTauri()) void getCurrentWindow().close();
-          }}
-        >
-          <X size={14} />
-        </button>
-      </div>
+    <header className="flex h-8 shrink-0 items-center justify-end" data-tauri-drag-region>
+      {!isTauri() && (
+        <span className="mr-auto pl-8 text-2xs text-subtle" data-tauri-drag-region>
+          {t("window.demo")}
+        </span>
+      )}
+      <button
+        className={button}
+        aria-label={t("window.minimize")}
+        onClick={() => {
+          if (isTauri()) void getCurrentWindow().minimize();
+        }}
+      >
+        <Icon icon={Minus} size={14} />
+      </button>
+      <button
+        className={button}
+        aria-label={maximized ? t("window.restore") : t("window.maximize")}
+        onClick={() => {
+          if (isTauri()) void getCurrentWindow().toggleMaximize();
+        }}
+      >
+        <Icon icon={maximized ? Copy : Square} size={12} />
+      </button>
+      <button
+        className={`${button} hover:!bg-[#c42b1c] hover:!text-white`}
+        aria-label={t("window.close")}
+        onClick={() => {
+          if (isTauri()) void getCurrentWindow().close();
+        }}
+      >
+        <Icon icon={X} size={14} />
+      </button>
     </header>
   );
 }

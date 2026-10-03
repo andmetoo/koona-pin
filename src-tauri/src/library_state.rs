@@ -78,6 +78,7 @@ pub fn start(app: AppHandle) {
         let library = app.state::<Arc<Library>>().inner().clone();
         match library::open(&library.paths) {
             Ok(opened) => {
+                crate::autostart::apply_default(&app, &opened.conn);
                 let db = Arc::new(DbState::new(opened.conn));
                 app.manage(db.clone());
                 let status = app.state::<Arc<ServerState>>().inner().clone();
