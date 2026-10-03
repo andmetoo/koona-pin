@@ -1,4 +1,11 @@
-import { Bookmark, BookmarkChange, Collection, FilterState } from "../types";
+import {
+  Bookmark,
+  BookmarkChange,
+  Collection,
+  FilterState,
+  LibraryPlace,
+  LibraryStatus,
+} from "../types";
 import { collectionNames, seedBookmarks } from "../concepts/data";
 import { matchesBookmark, sortBookmarks } from "./library";
 
@@ -204,5 +211,20 @@ export const demo = {
       error: "Демонстрационное превью в браузере",
       legacy_app: false,
     };
+  },
+  async getLibraryStatus(): Promise<LibraryStatus> {
+    return { state: "ready", damaged: false, moved_aside: null };
+  },
+  onLibraryStatus(_fn: (status: LibraryStatus) => void) {
+    return () => {};
+  },
+  async retryLibrary() {
+    /* The demo library always opens. */
+  },
+  async revealLibraryPlace(_place: LibraryPlace) {
+    /* No folders in the browser preview. */
+  },
+  async quitApp() {
+    /* Desktop-only. */
   },
 };
