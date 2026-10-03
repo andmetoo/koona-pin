@@ -10,6 +10,7 @@ import {
 import { demoBookmarks, demoCollections, posterOf } from "./demoData";
 import { matchesBookmark, sortBookmarks } from "./library";
 import { CommandError } from "./errors";
+import i18n from "../i18n";
 
 // v2: generated previews instead of the drawn ones of the concepts.
 const key = "netamipin.demo.v2";
@@ -263,7 +264,7 @@ export const demo = {
     };
   },
   async backUpNow(): Promise<DataSummary> {
-    throw new CommandError("internal", "Резервные копии доступны в настольном приложении");
+    throw new CommandError("internal", i18n.t("settings.desktopOnly"));
   },
   async getVersion() {
     return "demo";

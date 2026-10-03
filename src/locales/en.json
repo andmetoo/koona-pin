@@ -252,7 +252,8 @@
     },
     "MIGRATION_FAILED": {
       "title": "Could not update the library",
-      "body": "Your data has not been changed. Copy made before the update: {{backup}}. The app does not use the library until the error is fixed: send the report to support."
+      "body": "Your data has not been changed.{{backupNote}} The app does not use the library until the error is fixed: send the report to support.",
+      "backupNote": " Copy made before the update: {{backup}}."
     },
     "DB_OPEN_FAILED": {
       "title": "Could not open the library",

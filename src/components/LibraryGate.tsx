@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../services/api";
 import { describeError } from "../services/errors";
 import { LibraryStatus, OpenFailure } from "../types";
-import { applyTheme, isDark, storedTheme } from "../services/preferences";
 import { Icon } from "./icons";
 import { Button } from "./ui/Button";
 import { WindowBar } from "./ui/WindowBar";
@@ -24,9 +23,6 @@ export function LibraryGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LibraryStatus>(isTauri() ? { state: "opening" } : ready);
   const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    applyTheme(isDark(storedTheme(), matchMedia("(prefers-color-scheme: dark)").matches));
-  }, []);
   useEffect(() => {
     if (status.state !== "opening") return;
     let stopped = false;
@@ -123,7 +119,7 @@ function LibraryFailure({ failure, onRetry }: { failure: OpenFailure; onRetry: (
           schema: failure.schema,
           supported: failure.supported,
           detail: failure.detail,
-          backup: failure.backup ?? "",
+          backupNote: failure.backup ? t("gate.MIGRATION_FAILED.backupNote", { backup: failure.backup }) : "",
         })}
       </p>
       <p className="text-xs">
