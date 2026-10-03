@@ -88,6 +88,28 @@ pub fn create_auto(
     Ok(target)
 }
 
+/// Copies in the folder (`netamipin.*.db`, as the settings count them),
+/// their size and the time of the newest automatic copy.
+pub fn summary(folder: &Path) -> (usize, u64, Option<DateTime<Utc>>) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return (0, 0, None);
+    };
+    let (count, bytes) = entries
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            name.starts_with("netamipin.") && name.ends_with(".db")
+        })
+        .fold((0, 0), |(count, bytes), entry| {
+            (count + 1, bytes + entry.metadata().map_or(0, |m| m.len()))
+        });
+    let last = auto_copies(folder)
+        .into_iter()
+        .map(|(_, time)| time.and_utc())
+        .max();
+    (count, bytes, last)
+}
+
 /// The newest copy of each of the last 7 days with copies stays, then the
 /// newest copy of each of 4 earlier weeks; everything else goes. About 11
 /// copies reaching a month back.

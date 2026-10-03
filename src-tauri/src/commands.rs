@@ -9,6 +9,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{AppHandle, Emitter, State};
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
 
@@ -308,4 +309,60 @@ pub fn reveal_library_place(
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     app.exit(0);
+}
+
+#[tauri::command]
+pub fn get_autostart(app: AppHandle) -> Result<bool, CommandError> {
+    app.autolaunch()
+        .is_enabled()
+        .map_err(CommandError::internal)
+}
+#[tauri::command]
+pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), CommandError> {
+    let manager = app.autolaunch();
+    if enabled {
+        manager.enable()
+    } else {
+        manager.disable()
+    }
+    .map_err(CommandError::internal)
+}
+
+/// The «Data» block of the settings.
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct DataSummary {
+    pub library_folder: String,
+    pub backups_folder: String,
+    /// Copies in the backups folder, before-migration ones included.
+    pub copies: u32,
+    pub bytes: u64,
+    /// The newest automatic copy, UTC.
+    pub last_copy: Option<String>,
+}
+fn data_summary(library: &Library) -> DataSummary {
+    let (copies, bytes, last) = crate::backup::summary(&library.paths.backups);
+    DataSummary {
+        library_folder: library.paths.folder().to_string_lossy().into_owned(),
+        backups_folder: library.paths.backups.to_string_lossy().into_owned(),
+        copies: copies as u32,
+        bytes,
+        last_copy: last.map(|time| time.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()),
+    }
+}
+#[tauri::command]
+pub fn get_data_summary(library: State<'_, Arc<Library>>) -> DataSummary {
+    data_summary(&library)
+}
+/// A copy can take seconds on a large library, so it runs off the main thread.
+#[tauri::command]
+pub async fn back_up_now(library: State<'_, Arc<Library>>) -> Result<DataSummary, CommandError> {
+    let library = library.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::library::back_up_now(&library.paths, chrono::Utc::now())
+            .map_err(|error| CommandError::new(ErrorCode::DatabaseError, error))?;
+        Ok(data_summary(&library))
+    })
+    .await
+    .map_err(CommandError::internal)?
 }
