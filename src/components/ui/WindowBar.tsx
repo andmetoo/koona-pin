@@ -20,7 +20,7 @@ export function WindowBar() {
     <header className="study-titlebar" data-tauri-drag-region>
       <span className="study-wordmark" data-tauri-drag-region>
         <Bookmark size={14} />
-        OddClicks{!isTauri() && <span className="demo-label">Демо</span>}
+        Netami Pin{!isTauri() && <span className="demo-label">Демо</span>}
       </span>
       <div>
         <button

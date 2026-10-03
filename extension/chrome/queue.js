@@ -77,7 +77,7 @@ export function createQueue({
             result = {
               ok: false,
               permanent: false,
-              error: "OddClicks недоступен. Ссылка ожидает передачи.",
+              error: "Netami Pin недоступен. Ссылка ожидает передачи.",
             };
           }
           if (

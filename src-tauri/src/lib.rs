@@ -1,6 +1,7 @@
 pub mod capture;
 pub mod commands;
 pub mod db;
+pub mod legacy;
 pub mod metadata;
 pub mod server;
 
@@ -19,6 +20,7 @@ fn show_window(app: &tauri::AppHandle) {
     }
 }
 pub fn run() {
+    legacy::import_webview();
     let server_state = Arc::new(server::ServerState::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
@@ -30,12 +32,12 @@ pub fn run() {
             let state = Arc::new(db::DbState::init());
             app.manage(state.clone());
             server::start_server(app.handle().clone(), state, server_state);
-            let open = MenuItem::with_id(app, "open", "Открыть OddClicks", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", "Открыть Netami Pin", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выйти", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
             let mut tray = TrayIconBuilder::new()
                 .menu(&menu)
-                .tooltip("OddClicks — библиотека ссылок")
+                .tooltip("Netami Pin — библиотека ссылок")
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_window(app),
@@ -92,5 +94,5 @@ pub fn run() {
             commands::get_server_status
         ])
         .run(tauri::generate_context!())
-        .expect("error while running OddClicks");
+        .expect("error while running Netami Pin");
 }

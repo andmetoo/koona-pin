@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    oddclicks_lib::run();
+    netamipin_lib::run();
 }

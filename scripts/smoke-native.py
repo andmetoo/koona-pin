@@ -13,7 +13,7 @@ import urllib.request
 
 project = Path(__file__).resolve().parent.parent
 arguments = argparse.ArgumentParser()
-arguments.add_argument('--binary', default='src-tauri/target/debug/oddclicks.exe')
+arguments.add_argument('--binary', default='src-tauri/target/debug/netamipin.exe')
 binary = project / arguments.parse_args().binary
 data = project / '.test-data' / f'native-{time.time_ns()}'
 data.mkdir(parents=True)
@@ -21,7 +21,7 @@ with socket.socket() as probe:
     if probe.connect_ex(('127.0.0.1', 28765)) == 0:
         raise RuntimeError('Port 28765 is already occupied; existing process is left untouched.')
 environment = os.environ.copy()
-environment['ODDCLICKS_DATA_DIR'] = str(data)
+environment['NETAMIPIN_DATA_DIR'] = str(data)
 environment['WEBVIEW2_USER_DATA_FOLDER'] = str(data / 'webview')
 startup = subprocess.STARTUPINFO()
 startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -51,9 +51,9 @@ try:
             if time.monotonic() > deadline or process.poll() is not None:
                 raise RuntimeError('Native app failed to start its loopback server')
             time.sleep(.1)
-    with sqlite3.connect(data / 'oddclicks.db') as db:
+    with sqlite3.connect(data / 'netamipin.db') as db:
         token = db.execute("SELECT value FROM app_settings WHERE key='capture_token'").fetchone()[0]
-    payload = {'request_id': 'smoke-1', 'url': 'https://example.invalid/oddclicks-smoke', 'title': 'Smoke'}
+    payload = {'request_id': 'smoke-1', 'url': 'https://example.invalid/netamipin-smoke', 'title': 'Smoke'}
     assert request('/api/v1/capture', payload)[0] == 401
     status, saved = request('/api/v1/capture', payload, token)
     assert status == 200 and saved['outcome'] == 'created'
@@ -63,13 +63,13 @@ try:
     assert request('/api/v1/capture', {**payload, 'url': 'chrome://settings', 'request_id': 'bad'}, token)[0] == 400
     assert request('/api/v1/capture', {**payload, 'url': 'https://other.invalid/'}, token)[0] == 409
     assert request('/api/health', token='bad')[0] == 401
-    with sqlite3.connect(data / 'oddclicks.db') as db:
+    with sqlite3.connect(data / 'netamipin.db') as db:
         assert db.execute('SELECT COUNT(*) FROM bookmarks').fetchone()[0] == 1
         assert db.execute('SELECT title FROM bookmarks').fetchone()[0] == 'Smoke'
         db.execute('DELETE FROM bookmarks')
         db.commit()
     assert request('/api/v1/capture', payload, token)[1] == saved
-    with sqlite3.connect(data / 'oddclicks.db') as db:
+    with sqlite3.connect(data / 'netamipin.db') as db:
         assert db.execute('SELECT COUNT(*) FROM bookmarks').fetchone()[0] == 0
     legacy_url = urllib.parse.quote('https://example.invalid/legacy', safe='')
     assert request('/api/add?url=' + legacy_url)[0] == 200

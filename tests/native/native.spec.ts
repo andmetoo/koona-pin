@@ -1,8 +1,9 @@
 import { test, expect, chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rename, access } from "node:fs/promises";
 import path from "node:path";
 import net from "node:net";
+import http from "node:http";
 
 test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", async ({
   request,
@@ -18,11 +19,11 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
   const data = path.resolve(".test-data", `webview-${Date.now()}`);
   await mkdir(data, { recursive: true });
   const executable = path.resolve(
-    process.env.ODDCLICKS_TEST_BINARY || "src-tauri/target/debug/oddclicks.exe",
+    process.env.NETAMIPIN_TEST_BINARY || "src-tauri/target/debug/netamipin.exe",
   );
   const env = {
     ...process.env,
-    ODDCLICKS_DATA_DIR: data,
+    NETAMIPIN_DATA_DIR: data,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225",
   };
@@ -181,7 +182,9 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
 test("occupied port is reported while local library remains usable", async ({
   request,
 }) => {
-  const occupied = net.createServer((socket) => socket.end());
+  // The app probes the port with a request; an unread request would keep the
+  // socket and server.close() pending, so the connection is dropped at once.
+  const occupied = net.createServer((socket) => socket.destroy());
   await new Promise<void>((resolve, reject) => {
     occupied.once("error", reject);
     occupied.listen(28765, "127.0.0.1", resolve);
@@ -190,8 +193,8 @@ test("occupied port is reported while local library remains usable", async ({
   await mkdir(data, { recursive: true });
   const processHandle = spawn(
     path.resolve(
-      process.env.ODDCLICKS_TEST_BINARY ||
-        "src-tauri/target/debug/oddclicks.exe",
+      process.env.NETAMIPIN_TEST_BINARY ||
+        "src-tauri/target/debug/netamipin.exe",
     ),
     [],
     {
@@ -199,7 +202,7 @@ test("occupied port is reported while local library remains usable", async ({
       stdio: "ignore",
       env: {
         ...process.env,
-        ODDCLICKS_DATA_DIR: data,
+        NETAMIPIN_DATA_DIR: data,
         WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
         WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225",
       },
@@ -250,5 +253,176 @@ test("occupied port is reported while local library remains usable", async ({
     await browser?.close();
     processHandle.kill();
     await new Promise<void>((resolve) => occupied.close(() => resolve()));
+  }
+});
+
+const binary = () =>
+  path.resolve(
+    process.env.NETAMIPIN_TEST_BINARY || "src-tauri/target/debug/netamipin.exe",
+  );
+
+async function launch(
+  request: import("@playwright/test").APIRequestContext,
+  env: Record<string, string>,
+) {
+  // WebView2 of a previously killed app may still answer on the debugging port.
+  await expect
+    .poll(
+      async () => {
+        try {
+          await request.get("http://127.0.0.1:9225/json/version", {
+            timeout: 500,
+          });
+          return false;
+        } catch {
+          return true;
+        }
+      },
+      { timeout: 15000 },
+    )
+    .toBe(true);
+  const processHandle = spawn(binary(), [], {
+    env: {
+      ...process.env,
+      ...env,
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225",
+    },
+    windowsHide: true,
+    stdio: "ignore",
+  });
+  const exited = new Promise<void>((resolve) =>
+    processHandle.once("exit", () => resolve()),
+  );
+  await expect
+    .poll(
+      async () => {
+        try {
+          return (
+            await request.get("http://127.0.0.1:9225/json/version", {
+              timeout: 500,
+            })
+          ).ok();
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 20000 },
+    )
+    .toBe(true);
+  const browser = await chromium.connectOverCDP("http://127.0.0.1:9225");
+  const page = browser.contexts()[0].pages()[0];
+  return { processHandle, exited, browser, page };
+}
+
+test("upgrade from OddClicks keeps library, token, theme, view and tray setting", async ({
+  request,
+}) => {
+  const root = path.resolve(".test-data", `upgrade-${Date.now()}`);
+  const legacy = path.join(root, "legacy");
+  const current = path.join(root, "current");
+  await mkdir(legacy, { recursive: true });
+  await mkdir(current, { recursive: true });
+
+  // Prepare a library the way OddClicks left it: same schema, old file and key names.
+  const old = await launch(request, {
+    NETAMIPIN_DATA_DIR: legacy,
+    WEBVIEW2_USER_DATA_FOLDER: path.join(legacy, "webview"),
+  });
+  let token: string;
+  try {
+    await old.page
+      .getByRole("button", { name: "Добавить ссылку", exact: true })
+      .first()
+      .click();
+    await old.page
+      .getByLabel("Ссылка", { exact: true })
+      .fill("https://example.invalid/from-oddclicks");
+    await old.page.getByLabel("Название", { exact: true }).fill("Из OddClicks");
+    await old.page.getByRole("button", { name: "Сохранить ссылку" }).click();
+    await expect(old.page.locator("[data-bookmark-id]")).toHaveCount(1);
+    const settings = await old.page.evaluate(() =>
+      window.__TAURI_INTERNALS__.invoke("get_app_settings"),
+    );
+    token = (settings as { capture_token: string }).capture_token;
+    await old.page.evaluate(async () => {
+      await window.__TAURI_INTERNALS__.invoke("set_close_to_tray", {
+        enabled: false,
+      });
+      localStorage.removeItem("netamipin.theme");
+      localStorage.removeItem("netamipin.view");
+      localStorage.setItem("oddclicks.theme", "dark");
+      localStorage.setItem("oddclicks.view", "list");
+    });
+    // Chromium writes localStorage to disk with a delay of a few seconds.
+    await old.page.waitForTimeout(6000);
+    await old.page
+      .getByRole("button", { name: "Закрыть окно", exact: true })
+      .click();
+    await old.exited;
+  } finally {
+    await old.browser.close().catch(() => {});
+    old.processHandle.kill();
+  }
+  for (const suffix of ["", "-wal", "-shm"]) {
+    await rename(
+      path.join(legacy, `netamipin.db${suffix}`),
+      path.join(legacy, `oddclicks.db${suffix}`),
+    ).catch(() => {});
+  }
+
+  const app = await launch(request, {
+    NETAMIPIN_DATA_DIR: current,
+    NETAMIPIN_LEGACY_DIR: legacy,
+    WEBVIEW2_USER_DATA_FOLDER: path.join(current, "webview"),
+  });
+  try {
+    await expect(app.page.locator("[data-bookmark-id]")).toHaveCount(1);
+    await expect(app.page.locator("[data-bookmark-id]")).toContainText(
+      "Из OddClicks",
+    );
+    expect(
+      await app.page.evaluate(() => ({
+        theme: document.documentElement.dataset.studyTheme,
+        view: localStorage.getItem("netamipin.view"),
+      })),
+    ).toEqual({ theme: "dark", view: "list" });
+    expect(
+      await app.page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke("get_app_settings"),
+      ),
+    ).toEqual({ capture_token: token, close_to_tray: false });
+    await access(path.join(current, "netamipin.db"));
+    await access(path.join(legacy, "oddclicks.db"));
+  } finally {
+    await app.browser.close();
+    app.processHandle.kill();
+  }
+});
+
+test("running OddClicks on the capture port is reported", async ({
+  request,
+}) => {
+  const oddclicks = http.createServer((_, response) => {
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify({ status: "ok", app: "OddClicks", protocol: 1 }));
+  });
+  await new Promise<void>((resolve, reject) => {
+    oddclicks.once("error", reject);
+    oddclicks.listen(28765, "127.0.0.1", resolve);
+  });
+  const data = path.resolve(".test-data", `legacy-port-${Date.now()}`);
+  await mkdir(data, { recursive: true });
+  const app = await launch(request, {
+    NETAMIPIN_DATA_DIR: data,
+    WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
+  });
+  try {
+    await expect(app.page.getByRole("alert")).toContainText(
+      "занят прежней версией OddClicks",
+    );
+  } finally {
+    await app.browser.close();
+    app.processHandle.kill();
+    await new Promise<void>((resolve) => oddclicks.close(() => resolve()));
   }
 });

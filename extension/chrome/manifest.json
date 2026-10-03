@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "OddClicks — сохранить ссылку",
-  "version": "0.2.0",
-  "description": "Сохранение страницы одним нажатием в локальную библиотеку OddClicks. Очередь работает, даже когда приложение закрыто.",
+  "name": "Netami Pin — сохранить ссылку",
+  "version": "0.3.0",
+  "description": "Сохранение страницы одним нажатием в локальную библиотеку Netami Pin. Очередь работает, даже когда приложение закрыто.",
   "permissions": ["activeTab", "storage", "alarms"],
   "host_permissions": ["http://127.0.0.1/*"],
   "background": { "service_worker": "worker.js", "type": "module" },
   "action": {
-    "default_title": "Сохранить страницу в OddClicks",
+    "default_title": "Сохранить страницу в Netami Pin",
     "default_icon": {
       "16": "icons/16.png",
       "32": "icons/32.png",
