@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
 import { isAfter, matchesFilters, mergeBookmark } from "../services/library";
+import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
 import {
   Bookmark,
   BookmarkChange,
@@ -20,6 +21,10 @@ export function useLibrary(
 ) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [total, setTotal] = useState(0);
+  /** The day boundaries of the list's date groups and the matches since each. */
+  const [starts, setStarts] = useState(dayStarts);
+  const [sinceCounts, setSinceCounts] = useState<number[] | null>(null);
+  const startsRef = useRef(starts);
   const [next, setNext] = useState<PageCursor | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   /** A next page failed: no more automatic attempts until a refresh. */
@@ -92,7 +97,8 @@ export function useLibrary(
     const version = eventVersion.current;
     setLoading(true);
     try {
-      const page = await api.getBookmarks(filtersRef.current);
+      const since = dayStarts();
+      const page = await api.getBookmarks(filtersRef.current, { since });
       if (alive.current && id === seq.current) {
         if (version !== eventVersion.current) {
           void refresh();
@@ -102,6 +108,9 @@ export function useLibrary(
         unread.current.clear();
         setBookmarks(page.items.filter((b) => !pendingRef.current[b.id]));
         setTotal(page.total ?? 0);
+        startsRef.current = since;
+        setStarts(since);
+        setSinceCounts(page.since_counts);
         setNext(page.next);
         moreFailedRef.current = false;
         setMoreFailed(false);
@@ -161,9 +170,12 @@ export function useLibrary(
       const id = ++totalSeq.current;
       const list = seq.current;
       try {
-        const page = await api.getBookmarks(filtersRef.current, { limit: 1 });
-        if (alive.current && id === totalSeq.current && list === seq.current)
+        const since = startsRef.current;
+        const page = await api.getBookmarks(filtersRef.current, { limit: 1, since });
+        if (alive.current && id === totalSeq.current && list === seq.current) {
           setTotal(page.total ?? 0);
+          setSinceCounts(page.since_counts);
+        }
       } catch {
         /* The next refresh brings the total. */
       }
@@ -199,17 +211,26 @@ export function useLibrary(
     refresh,
   ]);
   useEffect(() => {
-    /** `null`: whether the change moved the total is unknown, ask again. */
-    const adjustTotal = (delta: number | null) => {
-      if (delta === null) refreshTotal();
-      else if (delta !== 0) setTotal((value) => Math.max(0, value + delta));
+    /**
+     * `null`: whether the change moved the total is unknown, ask again. The
+     * date-group counts move with the total when the bookmark's time is known.
+     */
+    const adjustTotal = (delta: number | null, createdAt?: string) => {
+      if (delta === null || (delta !== 0 && createdAt === undefined)) return refreshTotal();
+      if (delta === 0) return;
+      setTotal((value) => Math.max(0, value + delta));
+      setSinceCounts((counts) =>
+        counts?.map((count, i) => (createdAt! >= startsRef.current[i] ? Math.max(0, count + delta) : count)) ?? null,
+      );
     };
     const apply = (change: BookmarkChange, matches: boolean) => {
       const b = change.bookmark;
-      const shown =
-        bookmarksRef.current.some((row) => row.id === change.id) ||
-        !!pendingRef.current[change.id];
+      const known =
+        bookmarksRef.current.find((row) => row.id === change.id) ??
+        pendingRef.current[change.id];
+      const shown = !!known;
       const unreadBefore = unread.current.has(change.id);
+      const createdAt = (b ?? known ?? unread.current.get(change.id))?.created_at;
       const beyond = !!b && isAfter(b, nextRef.current);
       if (!b || !matches) {
         unread.current.delete(change.id);
@@ -221,13 +242,13 @@ export function useLibrary(
         // Counted before if it was shown or known on an unread page. Within
         // the read pages, a row that matched would have been shown.
         const counted = shown || unreadBefore;
-        const known = counted || nextRef.current === null || (!!b && !beyond);
-        adjustTotal(counted ? -1 : known ? 0 : null);
+        const certain = counted || nextRef.current === null || (!!b && !beyond);
+        adjustTotal(counted ? -1 : certain ? 0 : null, createdAt);
       } else if (beyond) {
         // Its place is on a page not read yet; scrolling brings it there.
         unread.current.set(b.id, b);
         setBookmarks((prev) => prev.filter((row) => row.id !== b.id));
-        adjustTotal(unreadBefore ? 0 : change.kind === "created" ? 1 : null);
+        adjustTotal(unreadBefore ? 0 : change.kind === "created" ? 1 : null, createdAt);
       } else {
         if (
           pendingRef.current[b.id] ||
@@ -240,7 +261,7 @@ export function useLibrary(
           setBookmarks((prev) => mergeBookmark(prev, b));
         }
         // Within the read pages: not shown means it did not match before.
-        adjustTotal(shown ? 0 : 1);
+        adjustTotal(shown ? 0 : 1, createdAt);
       }
       void refreshCatalog();
     };
@@ -275,6 +296,11 @@ export function useLibrary(
       offInvalidate();
     };
   }, [refresh, refreshCatalog, refreshTotal, scrollRef]);
+  // At midnight «today» becomes «yesterday»: read the list again.
+  useEffect(() => {
+    const timer = window.setTimeout(() => void refresh(), untilMidnight() + 1000);
+    return () => window.clearTimeout(timer);
+  }, [starts, refresh]);
   const reveal = () => {
     const incoming = Object.values(pendingRef.current);
     scrollRef.current?.scrollTo({ top: 0 });
@@ -286,6 +312,8 @@ export function useLibrary(
     bookmarks,
     /** Every bookmark that matches, loaded or not. */
     total,
+    /** Date groups of the list: boundaries and sizes over all pages, when known. */
+    dateGroups: { starts, sizes: sinceCounts ? groupSizes(total, sinceCounts) : null },
     hasMore: next !== null && !moreFailed,
     loadingMore,
     loadMore,

@@ -571,3 +571,61 @@ test("foreign file: retry after moving it away opens a new library", async ({
     app.processHandle.kill();
   }
 });
+
+test("10 000 bookmarks scroll smoothly in the grid and the list", async ({ request }) => {
+  test.setTimeout(240_000);
+  const data = await folder("scroll-10k");
+  const app = await launch(request, isolated(data));
+  try {
+    await expect(
+      app.page.getByRole("heading", { name: "Здесь будут ваши закладки" }),
+    ).toBeVisible({ timeout: 15000 });
+    await app.page.evaluate(async () => {
+      let html = "<DL>";
+      for (let i = 0; i < 10000; i++)
+        html += `<DT><A HREF="https://site${i % 300}.invalid/${i}">Закладка ${i} · Архитектура и интерфейсы</A>`;
+      await window.__TAURI_INTERNALS__.invoke("import_html_bookmarks", { htmlContent: html });
+    });
+    await expect(app.page.locator("h1")).toContainText("10000", { timeout: 15000 });
+    for (const view of ["Сетка", "Список"]) {
+      await app.page.getByRole("button", { name: view, exact: true }).click();
+      await app.page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: 0 }));
+      // Scroll to the end of the fully loaded list, a fast flick of 400 px per
+      // frame; pages of 100 arrive from SQLite on the way.
+      const result = await app.page.evaluate(async () => {
+        const scroller = document.querySelector<HTMLElement>('[data-scroll="main"]')!;
+        const loaded = () => Number(document.querySelector("[data-loaded]")?.getAttribute("data-loaded"));
+        const gaps: number[] = [];
+        let last = performance.now();
+        for (let frame = 0; frame < 10_000; frame++) {
+          const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+          if (atEnd && loaded() === 10000) break;
+          scroller.scrollTop += 400;
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const now = performance.now();
+          gaps.push(now - last);
+          last = now;
+        }
+        gaps.sort((a, b) => a - b);
+        const at = (p: number) => Math.round(gaps[Math.floor((gaps.length - 1) * p)] * 10) / 10;
+        return {
+          frames: gaps.length,
+          p50: at(0.5),
+          p95: at(0.95),
+          max: at(1),
+          over50: gaps.filter((g) => g > 50).length,
+          loaded: loaded(),
+          inDom: document.querySelectorAll("[data-bookmark-id]").length,
+        };
+      });
+      console.log(`Scrolling 10 000 bookmarks, ${view}:`, result);
+      expect(result.loaded).toBe(10000);
+      expect(result.inDom).toBeLessThan(100);
+      // Recorded in doc/testing.md; the bound only catches a clear regression.
+      expect(result.p95).toBeLessThan(50);
+    }
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
