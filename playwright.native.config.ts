@@ -1,5 +1,6 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
+  forbidOnly: !!process.env.CI,
   testDir: "./tests/native",
   workers: 1,
   timeout: 45000,
