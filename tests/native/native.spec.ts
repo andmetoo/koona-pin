@@ -80,7 +80,7 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
     await page.getByRole("button", { name: /^Действия:/ }).click();
     await page.getByRole("menuitem", { name: "Изменить…" }).click();
     await page.getByLabel("Коллекция", { exact: true }).selectOption("");
-    await page.getByRole("button", { name: "Сохранить изменения" }).click();
+    await page.getByRole("button", { name: "Сохранить", exact: true }).click();
     await page.getByRole("button", { name: "Список", exact: true }).click();
     await expect(page.locator("[data-bookmark-id] [data-collection]")).toContainText(
       "Без коллекции",
@@ -572,7 +572,10 @@ test("foreign file: retry after moving it away opens a new library", async ({
   }
 });
 
-test("10 000 bookmarks scroll smoothly in the grid and the list", async ({ request }) => {
+// A measurement, not a correctness check: about 35 s and sensitive to machine load.
+// Not in `npm run test:native`; run it with `npm run test:perf` before a release
+// and after changes to the grid, the list or paging (NP-012).
+test("10 000 bookmarks scroll smoothly in the grid and the list", { tag: "@perf" }, async ({ request }) => {
   test.setTimeout(240_000);
   const data = await folder("scroll-10k");
   const app = await launch(request, isolated(data));
@@ -624,6 +627,74 @@ test("10 000 bookmarks scroll smoothly in the grid and the list", async ({ reque
       // Recorded in doc/testing.md; the bound only catches a clear regression.
       expect(result.p95).toBeLessThan(50);
     }
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+
+test("find and edit in the new interface: search, site, editor, collection removal", async ({ request }) => {
+  const data = await folder("find-edit");
+  const app = await launch(request, isolated(data));
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const shelf = await invoke("create_collection", { name: "Полка", color: null, icon: null });
+      const add = (url: string, title: string, tags: string[], collectionId: number | null) =>
+        invoke("add_bookmark", { url, title, collectionId, tags });
+      await add("https://site-a.invalid/1", "Ёлочные игрушки", ["праздник"], shelf.id);
+      await add("https://site-a.invalid/2", "Гирлянды", [], shelf.id);
+      await add("https://site-b.invalid/3", "Рецепт пирога", ["кухня"], null);
+    });
+    const cards = page.locator("[data-bookmark-id]");
+    await expect(cards).toHaveCount(3);
+
+    // Search through IPC and FTS5: «елочн» finds «Ёлочные».
+    const search = page.getByRole("textbox", { name: "Поиск в библиотеке" });
+    await search.fill("елочн");
+    await expect(cards).toHaveCount(1);
+    await search.press("Escape");
+    await expect(cards).toHaveCount(3);
+
+    // The site filter is exact and shows a chip.
+    await page.getByRole("button", { name: "Только закладки с site-a.invalid" }).first().click();
+    await expect(cards).toHaveCount(2);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("2 из 3");
+    await page.getByRole("button", { name: "Убрать фильтр по сайту site-a.invalid" }).click();
+
+    // The editor writes title and tags to SQLite.
+    const card = page.locator("[data-bookmark-id]", { hasText: "Рецепт пирога" });
+    await card.hover();
+    await card.getByRole("button", { name: /^Действия:/ }).click();
+    await page.getByRole("menuitem", { name: "Изменить…" }).click();
+    await page.getByLabel("Название", { exact: true }).fill("Пирог с яблоками");
+    const tags = page.getByLabel("Теги", { exact: true });
+    await tags.fill("выпечка");
+    await tags.press("Control+Enter");
+    await expect(page.getByRole("status")).toContainText("Изменения сохранены");
+    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const saved = db
+      .prepare(
+        `SELECT b.title, group_concat(t.name, ',') AS tags FROM bookmarks b
+         LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id LEFT JOIN tags t ON t.id = bt.tag_id
+         WHERE b.url = 'https://site-b.invalid/3' GROUP BY b.id`,
+      )
+      .get() as { title: string; tags: string };
+    expect(saved.title).toBe("Пирог с яблоками");
+    expect(saved.tags.split(",").sort()).toEqual(["выпечка", "кухня"]);
+
+    // Deleting a collection keeps its bookmarks, without a collection.
+    await page.getByRole("button", { name: /^Полка/ }).hover();
+    await page.getByRole("button", { name: "Удалить коллекцию Полка" }).click();
+    await page.getByRole("button", { name: "Удалить", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^Полка/ })).toHaveCount(0);
+    await expect(cards).toHaveCount(3);
+    const left = () =>
+      db.prepare("SELECT count(*) AS n, sum(collection_id IS NULL) AS free FROM bookmarks").get();
+    await expect.poll(left).toEqual({ n: 3, free: 3 });
+    db.close();
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();

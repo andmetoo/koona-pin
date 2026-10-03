@@ -9,6 +9,7 @@ import { useLibrary } from "./hooks/useLibrary";
 import { Icon, PinIcon } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
+import { Kbd } from "./components/ui/Hint";
 import { Dialog } from "./components/ui/Dialog";
 import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
@@ -190,6 +191,7 @@ export function App() {
           .catch((err) => say(describeError(err), true)),
       remove: (b) => setDeleting(b),
       tag: (name) => changeFilters({ tag: name }),
+      domain: (domain) => changeFilters({ domain }),
     }),
     [library.collections, t],
   );
@@ -202,12 +204,16 @@ export function App() {
   const section = filters.onlyFavorites ? t("nav.favorites") : collection ? collection.name : t("nav.all");
   const sectionCount = filters.onlyFavorites ? library.counts.favorites : collection ? (collection.count ?? 0) : library.counts.total;
   const searching = filters.search.trim() !== "";
+  /** Search, tag or site narrow the section: the header shows «N из M». */
+  const narrowed = searching || !!filters.tag || !!filters.domain;
   const editor = editing && (
     <BookmarkEditor
       key={editing.id}
       bookmark={editing}
       collections={library.collections}
       onOpen={actions.open}
+      onCancel={closeEditor}
+      onDelete={actions.remove}
       onSave={async (data) => {
         await api.updateBookmark(editing.id, data);
         closeEditor();
@@ -217,13 +223,40 @@ export function App() {
   );
 
   const empty = (() => {
-    if (searching || filters.tag)
+    if (narrowed) {
+      // Frame 09: what was searched and where, the whole library one click away.
+      const query = filters.search.trim();
+      const inSection = !!collection || filters.onlyFavorites;
+      const title = query
+        ? inSection
+          ? t("empty.noResultsInFor", { section, query })
+          : t("empty.noResultsFor", { query })
+        : inSection
+          ? t("empty.noResultsIn", { section })
+          : t("empty.noResults");
       return {
         icon: Search,
-        title: collection || filters.onlyFavorites ? t("empty.noResultsIn", { section }) : t("empty.noResults"),
-        text: t("empty.noResultsHint"),
-        actions: <Button onClick={() => changeFilters({ search: "", tag: null })}>{t("empty.resetSearch")}</Button>,
+        title,
+        text: query ? t("empty.searchHint") : t("empty.noResultsHint"),
+        actions: (
+          <>
+            {inSection && (
+              <Button variant="primary" onClick={() => changeFilters({ collectionId: null, onlyFavorites: false })}>
+                {t("empty.searchEverywhere")}
+              </Button>
+            )}
+            <Button onClick={() => changeFilters({ search: "", tag: null, domain: null })}>
+              {query ? t("empty.resetSearch") : t("empty.resetFilters")}
+              {query && (
+                <span aria-hidden>
+                  <Kbd>Esc</Kbd>
+                </span>
+              )}
+            </Button>
+          </>
+        ),
       };
+    }
     if (filters.onlyFavorites)
       return { icon: Star, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
     if (collection)
@@ -348,7 +381,8 @@ export function App() {
                   <Toolbar
                     ref={searchRef}
                     title={section}
-                    count={searching ? undefined : sectionCount}
+                    count={narrowed ? t("toolbar.found", { count: library.total, total: sectionCount }) : sectionCount}
+                    countLive={narrowed}
                     narrow={narrow}
                     search={filters.search}
                     view={view}
@@ -385,10 +419,18 @@ export function App() {
                       {library.error}
                     </Banner>
                   )}
-                  {(filters.tag || library.pendingCount > 0 || searching) && (
+                  {(filters.tag || filters.domain || library.pendingCount > 0) && (
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                      {searching && (
-                        <span aria-live="polite">{t("toolbar.found", { count: library.total, total: sectionCount })}</span>
+                      {filters.domain && (
+                        <button
+                          type="button"
+                          onClick={() => changeFilters({ domain: null })}
+                          className="flex items-center gap-1 rounded-sm bg-accent-soft px-2 py-0.5 text-on-accent-soft"
+                          aria-label={t("toolbar.clearDomain", { domain: filters.domain })}
+                        >
+                          {t("toolbar.domainChip", { domain: filters.domain })}
+                          <Icon icon={X} size={12} />
+                        </button>
                       )}
                       {filters.tag && (
                         <button
@@ -424,14 +466,19 @@ export function App() {
             <aside className="w-[380px] shrink-0 animate-appear overflow-y-auto border-l border-border bg-card p-6" aria-label={t("editor.label")}>
               <header className="mb-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">{t("editor.label")}</h2>
-                <button
-                  type="button"
-                  aria-label={t("editor.close")}
-                  onClick={closeEditor}
-                  className="flex size-[30px] items-center justify-center rounded-md text-icon hover:bg-hover hover:text-ink"
-                >
-                  <Icon icon={X} />
-                </button>
+                <span className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label={t("editor.close")}
+                    onClick={closeEditor}
+                    className="flex size-[30px] items-center justify-center rounded-md text-icon hover:bg-hover hover:text-ink"
+                  >
+                    <Icon icon={X} />
+                  </button>
+                  <span aria-hidden>
+                    <Kbd>Esc</Kbd>
+                  </span>
+                </span>
               </header>
               {editor}
             </aside>
