@@ -1,0 +1,191 @@
+// Moves frame fills, borders, shadows and corner radius into a "Background"
+// rectangle inside the frame. Lunacy 2025.1 drops the radius of a frame when it
+// opens a .sketch file and writes 0 on the next save; the Figma .sketch import
+// turns such frames into groups without fill and radius. Rectangles survive both.
+// It also fixes the saved size of auto-layout frames sized to hug their content but drawn
+// wider or taller than it, which Lunacy would collapse on the next edit.
+// Close the file in Lunacy first. Safe to run twice: fixed frames are skipped.
+// Run: node scripts/fix-sketch-frames.mjs design/lunacy/iterone.sketch [more.sketch]
+//
+// With --figma <dir> the files are left alone and a copy for the Figma import is
+// written to <dir>. Lunacy stacks auto-layout children first-on-top, Figma reads
+// the same array last-on-top and imports those frames as plain groups, so the
+// copy reverses the children of every auto-layout frame. Hug-width texts get
+// 2 px of slack there, because Figma wraps them at the saved width.
+import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdirSync, mkdtempSync,readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+const enabled = (list) => (list || []).filter((item) => item.isEnabled !== false);
+const radiiOf = (layer) => layer.style?.corners?.radii || [0, 0, 0, 0];
+
+function setRectRadius(rect, radii) {
+  rect.style = rect.style || { _class: "style" };
+  rect.style.corners = { _class: "MSImmutableStyleCorners", radii: radii.slice(), style: 0 };
+  if (Array.isArray(rect.points) && rect.points.length === 4) {
+    rect.points.forEach((point, i) => (point.cornerRadius = radii[i]));
+  } else {
+    rect.points = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([x, y], i) => ({
+      _class: "curvePoint", cornerRadius: radii[i], cornerStyle: 0,
+      curveFrom: `{${x}, ${y}}`, curveMode: 1, curveTo: `{${x}, ${y}}`,
+      hasCurveFrom: false, hasCurveTo: false, point: `{${x}, ${y}}`,
+    }));
+  }
+  rect.fixedRadius = 0;
+  rect.pointRadiusBehaviour = 1;
+  rect.hasConvertedToNewRoundCorners = true;
+  rect.needsConvertionToNewRoundCorners = false;
+}
+
+function makeBackground(frame) {
+  const style = { _class: "style", endMarkerType: 0, miterLimit: 10, startMarkerType: 0, windingRule: 1 };
+  for (const key of ["fills", "borders", "shadows", "innerShadows", "borderOptions"]) {
+    if (frame.style[key]) style[key] = frame.style[key];
+  }
+  const rect = {
+    _class: "rectangle", do_objectID: randomUUID().toUpperCase(), booleanOperation: -1,
+    isFixedToViewport: false, isLocked: false, isVisible: true, isTemplate: false,
+    hasExplicitConstraints: true, horizontalPins: 3, verticalPins: 3,
+    layerListExpandedType: 0, name: "Background", nameIsFixed: true,
+    resizingConstraint: 18, resizingType: 0, rotation: 0, shouldBreakMaskChain: false,
+    // absolute position inside an auto-layout frame
+    userInfo: { "com.icons8.lunacy": { layoutPositioning: "true", scrollBehavior: '{"scrollBehavior":0}' } },
+    flexItem: { _class: "MSImmutableFlexItem", alignSelf: 5, ignoreLayout: true, preserveSpaceWhenHidden: false },
+    flow: { _class: "MSImmutableFlowConnection", maintainScrollPosition: false },
+    exportOptions: { _class: "exportOptions", includedLayerIds: [], layerOptions: 0, shouldTrim: false, exportFormats: [] },
+    frame: { _class: "rect", constrainProportions: false, x: 0, y: 0, width: frame.frame.width, height: frame.frame.height },
+    clippingMaskMode: 0, hasClippingMask: false, style, edited: false, isClosed: true,
+  };
+  setRectRadius(rect, radiiOf(frame));
+  return rect;
+}
+
+function fixFrame(frame, stats) {
+  for (const child of frame.layers || []) fixFrame(child, stats);
+  if (frame._class !== "group" || frame.groupBehavior !== 1 || !frame.style) return;
+  if ((frame.layers || []).some((c) => c._class === "rectangle" && c.name === "Background")) return;
+  const style = frame.style;
+  const radii = radiiOf(frame);
+  if (enabled(style.fills).length || enabled(style.borders).length
+    || enabled(style.shadows).length || enabled(style.innerShadows).length) {
+    frame.layers = frame.layers || [];
+    // Lunacy stores auto-layout children top-first and plain group children bottom-first
+    if (frame.groupLayout?._class === "MSImmutableFlexGroupLayout") frame.layers.push(makeBackground(frame));
+    else frame.layers.unshift(makeBackground(frame));
+    for (const key of ["fills", "borders", "shadows", "innerShadows"]) if (style[key]) style[key] = [];
+    stats.moved++;
+  }
+  if (radii.some((r) => r > 0)) {
+    // the rounded clip of the frame is lost too, so full-size images get the radius
+    const { width, height } = frame.frame;
+    for (const child of frame.layers || []) {
+      const f = child.frame;
+      if (child._class === "rectangle" && child.name !== "Background"
+        && Math.abs(f.x) < 0.5 && Math.abs(f.y) < 0.5
+        && Math.abs(f.width - width) < 0.5 && Math.abs(f.height - height) < 0.5
+        && !radiiOf(child).some((r) => r > 0)) {
+        setRectRadius(child, radii);
+        stats.images++;
+      }
+    }
+    style.corners = { _class: "MSImmutableStyleCorners", radii: [0, 0, 0, 0], style: 0 };
+  }
+}
+
+const isStack = (layer) => layer.groupLayout?._class === "MSImmutableFlexGroupLayout";
+const inFlow = (layer) => !layer.flexItem?.ignoreLayout && layer.isVisible !== false;
+const lunacyInfo = (layer) => {
+  layer.userInfo = layer.userInfo || {};
+  return (layer.userInfo["com.icons8.lunacy"] = layer.userInfo["com.icons8.lunacy"] || {});
+};
+
+// size an auto-layout frame would take from its content
+function hugSize(frame, horizontal) {
+  const kids = (frame.layers || []).filter(inFlow);
+  const size = (c) => (horizontal ? c.frame.width : c.frame.height);
+  const pad = horizontal ? (frame.leftPadding || 0) + (frame.rightPadding || 0)
+    : (frame.topPadding || 0) + (frame.bottomPadding || 0);
+  if (!kids.length) return pad;
+  const mainAxis = horizontal === (frame.groupLayout.flexDirection !== 1);
+  const gap = frame.groupLayout.allGuttersGap || 0;
+  return pad + (mainAxis ? kids.reduce((sum, c) => sum + size(c), 0) + gap * (kids.length - 1)
+    : Math.max(...kids.map(size)));
+}
+
+// A hug-sized auto-layout frame keeps its saved size only until Lunacy lays it out again,
+// so a frame drawn wider or taller than its content collapses on the first edit nearby.
+// "Fill" does not help: Lunacy drops it for frames when it opens the file (text keeps it).
+// So the saved size of such a frame is fixed.
+function pinHugSizes(frame, stats) {
+  for (const child of frame.layers || []) pinHugSizes(child, stats);
+  if (!isStack(frame) || frame.groupLayout.wrappingEnabled) return;
+  const info = lunacyInfo(frame);
+  for (const horizontal of [true, false]) {
+    const sizingKey = horizontal ? "horizontalSizing" : "verticalSizing";
+    if (frame[sizingKey] !== 1) continue;
+    const saved = horizontal ? frame.frame.width : frame.frame.height;
+    if (Math.abs(saved - hugSize(frame, horizontal)) <= 1) continue;
+    frame[sizingKey] = 0;
+    frame.userInfo[`com.icons8.lunacy.sketch.${sizingKey}`] = 0;
+    const layout = JSON.parse(info.layoutContainerInfo || "{}");
+    layout[horizontal ? "FixWidth" : "FixHeight"] = true;
+    info.layoutContainerInfo = JSON.stringify(layout);
+    stats.fixed++;
+  }
+}
+
+function zip(command) {
+  const result = spawnSync("pwsh", ["-NoProfile", "-Command",
+    `Add-Type -AssemblyName System.IO.Compression.FileSystem; ${command}`], { stdio: "inherit" });
+  if (result.status !== 0) throw new Error(`pwsh failed: ${command}`);
+}
+
+function prepareForFigma(layer, stats) {
+  for (const child of layer.layers || []) prepareForFigma(child, stats);
+  if (layer.groupLayout?._class === "MSImmutableFlexGroupLayout" && layer.layers?.length > 1) {
+    layer.layers.reverse();
+    stats.reversed++;
+  }
+  // Figma keeps the saved width of hug-width text, which can be a fraction short of the
+  // glyphs, and wraps it; give such text 2 px of slack on the side it grows to
+  if (layer._class === "text" && layer.horizontalSizing === 1 && !layer.attributedString.string.includes("\n")) {
+    const alignment = layer.style?.textStyle?.encodedAttributes?.paragraphStyle?.alignment;
+    layer.frame.x -= alignment === 1 ? 2 : alignment === 2 ? 1 : 0;
+    layer.frame.width += 2;
+    stats.widened++;
+  }
+}
+
+const args = process.argv.slice(2);
+const figmaIndex = args.indexOf("--figma");
+const figmaDir = figmaIndex >= 0 ? path.resolve(args.splice(figmaIndex, 2)[1]) : null;
+if (figmaDir) mkdirSync(figmaDir, { recursive: true });
+
+for (const file of args) {
+  const sketch = path.resolve(file);
+  const dir = mkdtempSync(path.join(tmpdir(), "sketch-"));
+  try {
+    zip(`[IO.Compression.ZipFile]::ExtractToDirectory('${sketch}', '${dir}', $true)`);
+    const stats = { moved: 0, images: 0, fixed: 0, reversed: 0, widened: 0 };
+    const pages = path.join(dir, "pages");
+    for (const name of readdirSync(pages)) {
+      const page = JSON.parse(readFileSync(path.join(pages, name), "utf8"));
+      for (const layer of page.layers) fixFrame(layer, stats);
+      for (const layer of page.layers) pinHugSizes(layer, stats);
+      if (figmaDir) for (const layer of page.layers) prepareForFigma(layer, stats);
+      writeFileSync(path.join(pages, name), JSON.stringify(page));
+    }
+    const target = figmaDir ? path.join(figmaDir, path.basename(sketch)) : sketch;
+    if (figmaDir || stats.moved || stats.images || stats.fixed) {
+      rmSync(target, { force: true });
+      zip(`[IO.Compression.ZipFile]::CreateFromDirectory('${dir}', '${target}', 'Optimal', $false)`);
+    }
+    console.log(`${file}: ${stats.moved} backgrounds, ${stats.images} images rounded, `
+      + `${stats.fixed} hug sizes fixed`
+      + (figmaDir ? `, ${stats.reversed} stacks reversed, ${stats.widened} texts widened -> ${target}` : ""));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
