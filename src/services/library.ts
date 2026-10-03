@@ -1,5 +1,11 @@
-import { Bookmark, FilterState } from "../types";
+import { Bookmark, FilterState, PageCursor } from "../types";
 
+/** How search compares text, as `db::fold` in Rust: lower case, «ё» as «е». */
+export function foldText(text: string): string {
+  return text.toLowerCase().replace(/ё/g, "е");
+}
+
+/** Every word of the query, in any field and order (NP-011). */
 export function matchesBookmark(
   b: Bookmark,
   filters: Partial<FilterState>,
@@ -12,19 +18,32 @@ export function matchesBookmark(
     (filters.tag && !b.tags?.includes(filters.tag))
   )
     return false;
-  const query = filters.search?.trim().toLocaleLowerCase("ru");
-  return (
-    !query ||
-    [b.title, b.url, b.domain, b.notes, b.description, ...(b.tags ?? [])]
-      .join(" ")
-      .toLocaleLowerCase("ru")
-      .includes(query)
+  const words = foldText(filters.search ?? "").split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const text = foldText(
+    [b.title, b.url, b.domain, b.notes, b.description, ...(b.tags ?? [])].join(
+      " ",
+    ),
   );
+  return words.every((word) => text.includes(word));
 }
+
+/** The list order `created_at DESC, id DESC`, compared as SQLite compares text. */
+export function compareBookmarks(
+  a: Pick<Bookmark, "created_at" | "id">,
+  b: Pick<Bookmark, "created_at" | "id">,
+): number {
+  if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
+  return b.id - a.id;
+}
+
+/** Whether `b` lies past `cursor`, on a page that has not been read yet. */
+export function isAfter(b: Bookmark, cursor: PageCursor | null): boolean {
+  return cursor !== null && compareBookmarks(b, cursor) > 0;
+}
+
 export function sortBookmarks(bookmarks: Bookmark[]): Bookmark[] {
-  return [...bookmarks].sort(
-    (a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id,
-  );
+  return [...bookmarks].sort(compareBookmarks);
 }
 export function mergeBookmark(
   bookmarks: Bookmark[],

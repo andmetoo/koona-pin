@@ -4,7 +4,10 @@
 export type { AppSettings } from "./bindings/AppSettings";
 export type { Bookmark } from "./bindings/Bookmark";
 export type { BookmarkChange } from "./bindings/BookmarkChange";
+export type { BookmarkPage } from "./bindings/BookmarkPage";
 export type { BookmarkPatch } from "./bindings/BookmarkPatch";
+export type { BookmarkQuery } from "./bindings/BookmarkQuery";
+export type { PageCursor } from "./bindings/PageCursor";
 export type { Collection } from "./bindings/Collection";
 export type { CommandError as CommandErrorData } from "./bindings/CommandError";
 export type { DataSummary } from "./bindings/DataSummary";

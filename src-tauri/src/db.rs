@@ -228,26 +228,7 @@ pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
          FROM bookmarks WHERE id = ?1",
     )?;
 
-    let mut b = stmt.query_row(params![id], |row| {
-        let fav_int: i32 = row.get(8)?;
-        Ok(Bookmark {
-            id: row.get(0)?,
-            url: row.get(1)?,
-            title: row.get(2)?,
-            description: row.get(3)?,
-            image_url: row.get(4)?,
-            favicon_url: row.get(5)?,
-            domain: row.get(6)?,
-            notes: row.get(7)?,
-            is_favorite: fav_int != 0,
-            collection_id: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
-            tags: None,
-            revision: row.get(12)?,
-        })
-    })?;
-
+    let mut b = stmt.query_row(params![id], bookmark_row)?;
     b.tags = Some(get_tags_for_bookmark(conn, b.id)?);
     Ok(b)
 }
@@ -266,94 +247,287 @@ pub fn get_tags_for_bookmark(conn: &Connection, bookmark_id: i64) -> Result<Vec<
     Ok(tags)
 }
 
-pub fn get_bookmarks(
-    conn: &Connection,
-    search: Option<String>,
-    collection_id: Option<i64>,
-    tag: Option<String>,
-    domain: Option<String>,
-    only_favorites: bool,
-) -> Result<Vec<Bookmark>> {
-    let mut query = String::from(
-        "SELECT DISTINCT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision
-         FROM bookmarks b
-         LEFT JOIN bookmark_tags bt ON b.id = bt.bookmark_id
-         LEFT JOIN tags t ON bt.tag_id = t.id
-         WHERE 1=1",
-    );
+/// What the list shows: search, filters and the page to read.
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+#[ts(export)]
+pub struct BookmarkQuery {
+    #[ts(optional)]
+    pub search: Option<String>,
+    #[ts(optional)]
+    pub collection_id: Option<i64>,
+    #[ts(optional)]
+    pub tag: Option<String>,
+    #[ts(optional)]
+    pub domain: Option<String>,
+    #[serde(default)]
+    pub only_favorites: bool,
+    /// Read after this bookmark; none for the first page.
+    #[ts(optional)]
+    pub after: Option<PageCursor>,
+    /// Bookmarks per page: 100 by default, at most 1000.
+    #[ts(optional)]
+    pub limit: Option<u32>,
+}
 
-    let mut params_vec: Vec<rusqlite::types::Value> = Vec::new();
+/// A position in the order `created_at DESC, id DESC`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct PageCursor {
+    pub created_at: String,
+    pub id: i64,
+}
 
-    if only_favorites {
-        query.push_str(" AND b.is_favorite = 1");
-    }
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct BookmarkPage {
+    pub items: Vec<Bookmark>,
+    /// Every bookmark that matches, not only this page.
+    pub total: i64,
+    /// Where the next page starts; none after the last one.
+    pub next: Option<PageCursor>,
+}
 
-    if let Some(col_id) = collection_id {
-        query.push_str(" AND b.collection_id = ?");
-        params_vec.push(col_id.into());
-    }
+pub const PAGE_SIZE: u32 = 100;
+const MAX_PAGE_SIZE: u32 = 1_000;
+/// A trigram index cannot look up shorter terms.
+const TRIGRAM: usize = 3;
 
-    if let Some(ref d) = domain {
-        query.push_str(" AND b.domain = ?");
-        params_vec.push(d.clone().into());
-    }
+/// How search compares text: lower case, «ё» as «е». The index stores
+/// «ё» as «е» and folds case itself (schema 2).
+pub fn fold(text: &str) -> String {
+    text.to_lowercase().replace('ё', "е")
+}
 
-    if let Some(ref t) = tag {
-        query.push_str(" AND t.name = ?");
-        params_vec.push(t.clone().into());
-    }
+/// A search word prepared for [`Needle::found_in`], which runs for every bookmark.
+enum Needle {
+    /// Every spelling that folds to the word: «ру» is «ру», «Ру», «рУ», «РУ».
+    /// Plain substring search over them is much faster than folding the text.
+    Spellings(Vec<String>),
+    /// Characters whose case does not map one to one: fold the text.
+    Folded(String),
+}
 
-    query.push_str(" ORDER BY b.created_at DESC, b.id DESC");
+impl Needle {
+    /// More spellings than this, and folding the text is cheaper.
+    const MAX_SPELLINGS: usize = 16;
 
-    let mut stmt = conn.prepare(&query)?;
-    let params_slice: Vec<&dyn rusqlite::types::ToSql> = params_vec
-        .iter()
-        .map(|p| p as &dyn rusqlite::types::ToSql)
-        .collect();
-
-    let rows = stmt.query_map(&params_slice[..], |row| {
-        let fav_int: i32 = row.get(8)?;
-        Ok(Bookmark {
-            id: row.get(0)?,
-            url: row.get(1)?,
-            title: row.get(2)?,
-            description: row.get(3)?,
-            image_url: row.get(4)?,
-            favicon_url: row.get(5)?,
-            domain: row.get(6)?,
-            notes: row.get(7)?,
-            is_favorite: fav_int != 0,
-            collection_id: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
-            tags: None,
-            revision: row.get(12)?,
-        })
-    })?;
-
-    let mut bookmarks = Vec::new();
-    for b_res in rows {
-        let mut b = b_res?;
-        b.tags = Some(get_tags_for_bookmark(conn, b.id)?);
-        if let Some(ref search) = search {
-            let haystack = format!(
-                "{} {} {} {} {} {}",
-                b.title,
-                b.url,
-                b.domain,
-                b.notes.as_deref().unwrap_or(""),
-                b.description.as_deref().unwrap_or(""),
-                b.tags.as_ref().map(|t| t.join(" ")).unwrap_or_default()
-            )
-            .to_lowercase();
-            if !haystack.contains(&search.to_lowercase()) {
-                continue;
+    fn new(word: &str) -> Self {
+        let folded = fold(word);
+        let mut spellings = vec![String::new()];
+        for c in folded.chars() {
+            let mut forms = vec![c];
+            let mut upper = c.to_uppercase();
+            match (upper.next(), upper.next()) {
+                (Some(u), None) if u != c && u.to_lowercase().eq([c]) => forms.push(u),
+                (Some(u), None) if u == c => {}
+                _ => return Needle::Folded(folded),
             }
+            if c == 'е' {
+                forms.extend(['ё', 'Ё']);
+            }
+            if spellings.len() * forms.len() > Self::MAX_SPELLINGS {
+                return Needle::Folded(folded);
+            }
+            spellings = spellings
+                .iter()
+                .flat_map(|s| forms.iter().map(move |f| format!("{s}{f}")))
+                .collect();
         }
-        bookmarks.push(b);
+        Needle::Spellings(spellings)
     }
 
-    Ok(bookmarks)
+    fn found_in(&self, text: &str) -> bool {
+        match self {
+            Needle::Spellings(spellings) => spellings.iter().any(|s| text.contains(s.as_str())),
+            Needle::Folded(word) => fold(text).contains(word.as_str()),
+        }
+    }
+}
+
+/// SQL functions the queries use; set on every connection in `library::configure`.
+/// `np_contains(word, field…)`: the word, folded, is in one of the fields, folded.
+pub fn register_functions(conn: &Connection) -> Result<()> {
+    use rusqlite::functions::FunctionFlags;
+    use rusqlite::types::ValueRef;
+    conn.create_scalar_function(
+        "np_contains",
+        -1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            // Prepared once per query, not once per row.
+            let needle = ctx.get_or_create_aux(0, |word| -> Result<Needle> {
+                Ok(Needle::new(word.as_str()?))
+            })?;
+            for i in 1..ctx.len() {
+                if let ValueRef::Text(bytes) = ctx.get_raw(i) {
+                    let text = std::str::from_utf8(bytes)
+                        .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
+                    if needle.found_in(text) {
+                        return Ok(true);
+                    }
+                }
+            }
+            Ok(false)
+        },
+    )
+}
+
+/// The query as words: each must appear somewhere in the bookmark, in any
+/// order (NP-011). Long words go to the index, short ones are checked on
+/// the rows the index has left.
+fn search_terms(search: Option<&str>) -> (Option<String>, Vec<String>) {
+    let mut indexed = Vec::new();
+    let mut short = Vec::new();
+    for word in fold(search.unwrap_or("")).split_whitespace() {
+        if word.chars().count() >= TRIGRAM {
+            indexed.push(format!("\"{}\"", word.replace('"', "\"\"")));
+        } else {
+            short.push(word.to_string());
+        }
+    }
+    ((!indexed.is_empty()).then(|| indexed.join(" AND ")), short)
+}
+
+/// Bookmarks whose tags contain a short word; tags are few, each is checked once.
+const SHORT_IN_TAGS: &str = "SELECT bt.bookmark_id FROM bookmark_tags bt
+    JOIN tags t ON t.id = bt.tag_id WHERE np_contains(?, t.name)";
+/// A short word in the other fields of the index.
+const SHORT_IN_FIELDS: &str = "np_contains(?, b.title, b.url, b.domain, b.description, b.notes)";
+
+fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
+    Ok(Bookmark {
+        id: row.get(0)?,
+        url: row.get(1)?,
+        title: row.get(2)?,
+        description: row.get(3)?,
+        image_url: row.get(4)?,
+        favicon_url: row.get(5)?,
+        domain: row.get(6)?,
+        notes: row.get(7)?,
+        is_favorite: row.get::<_, i32>(8)? != 0,
+        collection_id: row.get(9)?,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
+        tags: None,
+        revision: row.get(12)?,
+    })
+}
+
+/// One page of the list, newest first, with the total for the whole query.
+pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<BookmarkPage> {
+    use rusqlite::types::Value;
+    let mut filter = String::from(" WHERE 1=1");
+    let mut values: Vec<Value> = Vec::new();
+    if query.only_favorites {
+        filter.push_str(" AND b.is_favorite = 1");
+    }
+    if let Some(collection) = query.collection_id {
+        filter.push_str(" AND b.collection_id = ?");
+        values.push(collection.into());
+    }
+    if let Some(domain) = &query.domain {
+        filter.push_str(" AND b.domain = ?");
+        values.push(domain.clone().into());
+    }
+    if let Some(tag) = &query.tag {
+        filter.push_str(
+            " AND EXISTS (SELECT 1 FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id
+               WHERE bt.bookmark_id = b.id AND t.name = ?)",
+        );
+        values.push(tag.clone().into());
+    }
+    let (indexed, short) = search_terms(query.search.as_deref());
+    let narrowed = indexed.is_some();
+    if let Some(expression) = indexed {
+        filter.push_str(
+            " AND b.id IN (SELECT rowid FROM bookmarks_search WHERE bookmarks_search MATCH ?)",
+        );
+        values.push(expression.into());
+    }
+    for word in short {
+        if narrowed {
+            // Checked only on the rows the index has left.
+            filter.push_str(&format!(
+                " AND ({SHORT_IN_FIELDS} OR b.id IN ({SHORT_IN_TAGS}))"
+            ));
+        } else {
+            // Without the index: one pass in table order collects the ids,
+            // instead of reading rows one by one in list order.
+            filter.push_str(&format!(
+                " AND b.id IN (SELECT b.id FROM bookmarks b WHERE {SHORT_IN_FIELDS} UNION {SHORT_IN_TAGS})"
+            ));
+        }
+        values.extend([word.clone().into(), word.into()]);
+    }
+
+    let total = conn.query_row(
+        &format!("SELECT count(*) FROM bookmarks b{filter}"),
+        rusqlite::params_from_iter(&values),
+        |r| r.get(0),
+    )?;
+
+    let mut page_filter = filter;
+    if let Some(after) = &query.after {
+        // A row value, so the page starts by a seek in `idx_bookmarks_order`.
+        page_filter.push_str(" AND (b.created_at, b.id) < (?, ?)");
+        values.extend([after.created_at.clone().into(), after.id.into()]);
+    }
+    let limit = query.limit.unwrap_or(PAGE_SIZE).clamp(1, MAX_PAGE_SIZE);
+    // One more row than asked tells whether a next page exists.
+    values.push(i64::from(limit + 1).into());
+    let mut items = conn
+        .prepare(&format!(
+            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision
+             FROM bookmarks b{page_filter}
+             ORDER BY b.created_at DESC, b.id DESC LIMIT ?"
+        ))?
+        .query_map(rusqlite::params_from_iter(&values), bookmark_row)?
+        .collect::<Result<Vec<_>>>()?;
+    let next = (items.len() > limit as usize).then(|| {
+        items.truncate(limit as usize);
+        let last = &items[items.len() - 1];
+        PageCursor {
+            created_at: last.created_at.clone(),
+            id: last.id,
+        }
+    });
+    attach_tags(conn, &mut items)?;
+    Ok(BookmarkPage { items, total, next })
+}
+
+/// Tags of a whole page in one query.
+fn attach_tags(conn: &Connection, bookmarks: &mut [Bookmark]) -> Result<()> {
+    let ids = serde_json::to_string(&bookmarks.iter().map(|b| b.id).collect::<Vec<_>>())
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let mut tags = std::collections::HashMap::<i64, Vec<String>>::new();
+    let mut statement = conn.prepare(
+        "SELECT bt.bookmark_id, t.name FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id
+         WHERE bt.bookmark_id IN (SELECT value FROM json_each(?1))
+         ORDER BY bt.bookmark_id, bt.tag_id",
+    )?;
+    let rows = statement.query_map([ids], |r| Ok((r.get::<_, i64>(0)?, r.get(1)?)))?;
+    for row in rows {
+        let (id, name) = row?;
+        tags.entry(id).or_default().push(name);
+    }
+    for bookmark in bookmarks {
+        bookmark.tags = Some(tags.remove(&bookmark.id).unwrap_or_default());
+    }
+    Ok(())
+}
+
+/// Builds the search index anew from the library, in one transaction.
+/// Returns the number of bookmarks indexed.
+pub fn rebuild_search(conn: &Connection) -> Result<i64> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "INSERT INTO bookmarks_search (bookmarks_search) VALUES ('delete-all');
+         INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+         SELECT * FROM bookmarks_search_source;",
+    )?;
+    let count = tx.query_row("SELECT count(*) FROM bookmarks", [], |r| r.get(0))?;
+    tx.commit()?;
+    Ok(count)
 }
 
 pub fn update_bookmark(
@@ -623,17 +797,8 @@ mod tests {
         )
         .unwrap();
         update_bookmark(&conn, bookmark.id, None, None, Some(true), None, None).unwrap();
-        assert_eq!(
-            get_bookmarks(&conn, Some("АРХИТЕКТУРА".into()), None, None, None, false)
-                .unwrap()
-                .len(),
-            1
-        );
-        assert!(
-            get_bookmarks(&conn, Some("Ничего".into()), None, None, None, false)
-                .unwrap()
-                .is_empty()
-        );
+        assert_eq!(found(&conn, "АРХИТЕКТУРА"), [bookmark.id]);
+        assert!(found(&conn, "Ничего").is_empty());
         assert_eq!(get_counts(&conn).unwrap().total, 1);
         assert_eq!(get_counts(&conn).unwrap().favorites, 1);
     }
@@ -679,7 +844,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let rows = get_bookmarks(&conn, None, None, None, None, false).unwrap();
+        let rows = everything(&conn);
         assert_eq!(
             rows.iter().map(|b| b.id).collect::<Vec<_>>(),
             vec![second.id, first.id]
@@ -688,8 +853,342 @@ mod tests {
 
     fn setup_test_db() -> Connection {
         let mut conn = Connection::open_in_memory().unwrap();
+        crate::library::configure(&conn).unwrap();
         crate::migrations::migrate(&mut conn, None).unwrap();
         conn
+    }
+
+    /// The whole list in one page.
+    fn everything(conn: &Connection) -> Vec<Bookmark> {
+        let query = BookmarkQuery {
+            limit: Some(MAX_PAGE_SIZE),
+            ..Default::default()
+        };
+        get_bookmarks(conn, &query).unwrap().items
+    }
+
+    /// Ids found by `search` on every page, in list order; the total must agree.
+    fn found(conn: &Connection, search: &str) -> Vec<i64> {
+        let mut query = BookmarkQuery {
+            search: Some(search.into()),
+            limit: Some(MAX_PAGE_SIZE),
+            ..Default::default()
+        };
+        let mut ids = Vec::new();
+        loop {
+            let page = get_bookmarks(conn, &query).unwrap();
+            ids.extend(page.items.iter().map(|b| b.id));
+            match page.next {
+                Some(next) => query.after = Some(next),
+                None => {
+                    assert_eq!(page.total, ids.len() as i64, "{search}");
+                    return ids;
+                }
+            }
+        }
+    }
+
+    fn add(conn: &Connection, url: &str, title: &str, tags: &[&str]) -> Bookmark {
+        let tags: Vec<String> = tags.iter().map(|t| t.to_string()).collect();
+        insert_or_update_bookmark(
+            conn,
+            url,
+            title,
+            None,
+            None,
+            None,
+            url.split('/').nth(2).unwrap(),
+            None,
+            Some(&tags),
+            Source::App,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn search_folds_case_and_yo_in_every_field() {
+        let conn = setup_test_db();
+        let tree = add(&conn, "https://example.com/a", "Новогодняя Ёлка", &[]);
+        let hedgehog = add(&conn, "https://пример.рф/ёж", "Без названия", &["Ёжики"]);
+        let noted = add(&conn, "https://example.org/b", "Заметка", &[]);
+        update_bookmark(
+            &conn,
+            noted.id,
+            None,
+            Some("Про ЁЖИКОВ и ёлки".into()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let described = add(&conn, "https://example.net/c", "Описание", &[]);
+        conn.execute(
+            "UPDATE bookmarks SET description = 'Елочные игрушки' WHERE id = ?1",
+            [described.id],
+        )
+        .unwrap();
+
+        assert_eq!(found(&conn, "елка"), [tree.id]);
+        assert_eq!(found(&conn, "ЁЛКА"), [tree.id]);
+        assert_eq!(found(&conn, "ёлоч"), [described.id]);
+        assert_eq!(
+            found(&conn, "ежик"),
+            [noted.id, hedgehog.id],
+            "tags and notes"
+        );
+        assert_eq!(found(&conn, "ПРИМЕР.РФ"), [hedgehog.id], "domain");
+        assert_eq!(found(&conn, "example.org/b"), [noted.id], "url");
+        assert!(found(&conn, "ёлкин").is_empty());
+    }
+
+    #[test]
+    fn every_word_must_match_in_any_order_and_field() {
+        let conn = setup_test_db();
+        let guide = add(
+            &conn,
+            "https://doc.rust-lang.org/book",
+            "Руководство",
+            &["rust"],
+        );
+        let other = add(&conn, "https://example.com/guide", "Руководство по Go", &[]);
+        assert_eq!(found(&conn, "руководство rust"), [guide.id]);
+        assert_eq!(found(&conn, "  RUST   руковод "), [guide.id]);
+        assert_eq!(found(&conn, "руководство"), [other.id, guide.id]);
+        // Words shorter than a trigram are still found, alone and with others.
+        assert_eq!(found(&conn, "go"), [other.id]);
+        assert_eq!(found(&conn, "go руководство"), [other.id]);
+        assert_eq!(found(&conn, "о"), [other.id, guide.id]);
+        assert!(found(&conn, "go rust").is_empty());
+        // Query syntax is text, not an FTS5 expression.
+        assert!(found(&conn, "\"rust\" OR NOT").is_empty());
+        assert_eq!(found(&conn, "rust*"), Vec::<i64>::new());
+        assert_eq!(found(&conn, ""), [other.id, guide.id]);
+    }
+
+    #[test]
+    fn index_follows_every_write() {
+        let conn = setup_test_db();
+        let b = add(&conn, "https://example.com/x", "Первое", &["alpha"]);
+        update_bookmark(&conn, b.id, Some("Второе".into()), None, None, None, None).unwrap();
+        assert!(found(&conn, "первое").is_empty());
+        assert_eq!(found(&conn, "второе"), [b.id]);
+
+        update_bookmark(
+            &conn,
+            b.id,
+            None,
+            None,
+            None,
+            None,
+            Some(vec!["beta".into()]),
+        )
+        .unwrap();
+        assert!(found(&conn, "alpha").is_empty());
+        assert_eq!(found(&conn, "beta"), [b.id]);
+
+        let meta = crate::metadata::PageMetadata {
+            title: Some("Из метаданных".into()),
+            description: Some("Описание страницы".into()),
+            image_url: None,
+            favicon_url: None,
+            domain: "example.com".into(),
+        };
+        let revision = get_bookmark_by_id(&conn, b.id).unwrap().revision;
+        enrich_bookmark(&conn, b.id, revision, &meta).unwrap();
+        assert_eq!(found(&conn, "метаданных"), [b.id]);
+        assert_eq!(found(&conn, "страницы"), [b.id]);
+
+        conn.execute("UPDATE tags SET name = 'gamma' WHERE name = 'beta'", [])
+            .unwrap();
+        assert_eq!(found(&conn, "gamma"), [b.id]);
+        conn.execute("DELETE FROM tags WHERE name = 'gamma'", [])
+            .unwrap();
+        assert!(found(&conn, "gamma").is_empty());
+        assert_eq!(found(&conn, "метаданных"), [b.id], "the rest stays indexed");
+
+        delete_bookmark(&conn, b.id).unwrap();
+        assert!(found(&conn, "метаданных").is_empty());
+        let indexed: i64 = conn
+            .query_row("SELECT count(*) FROM bookmarks_search", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(indexed, 0);
+    }
+
+    #[test]
+    fn a_failed_write_leaves_the_index_as_it_was() {
+        let conn = setup_test_db();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        let b = add(&conn, "https://example.com/x", "Исходное", &[]);
+        assert!(update_bookmark(
+            &conn,
+            b.id,
+            Some("Откатится".into()),
+            None,
+            None,
+            Some(Some(9999)),
+            None
+        )
+        .is_err());
+        assert_eq!(found(&conn, "исходное"), [b.id]);
+        assert!(found(&conn, "откатится").is_empty());
+    }
+
+    #[test]
+    fn pages_cover_the_list_once_in_order() {
+        let conn = setup_test_db();
+        let collection = create_collection(&conn, "Полка", None, None).unwrap();
+        for i in 0..250 {
+            let b = add(
+                &conn,
+                &format!("https://example.com/{i}"),
+                &format!("Запись {i}"),
+                &[],
+            );
+            if i % 2 == 0 {
+                update_bookmark(
+                    &conn,
+                    b.id,
+                    None,
+                    None,
+                    None,
+                    Some(Some(collection.id)),
+                    None,
+                )
+                .unwrap();
+            }
+        }
+        // Equal times: the order and the cursor rely on the id.
+        conn.execute(
+            "UPDATE bookmarks SET created_at = '2026-01-01T00:00:00.000Z' WHERE id % 3 = 0",
+            [],
+        )
+        .unwrap();
+        let read_all = |base: BookmarkQuery| {
+            let mut seen = Vec::new();
+            let mut query = BookmarkQuery {
+                limit: Some(40),
+                ..base
+            };
+            loop {
+                let page = get_bookmarks(&conn, &query).unwrap();
+                assert!(page.items.len() <= 40);
+                seen.extend(page.items.iter().map(|b| (b.created_at.clone(), b.id)));
+                match page.next {
+                    Some(next) => query.after = Some(next),
+                    None => return (seen, page.total),
+                }
+            }
+        };
+        let (all, total) = read_all(BookmarkQuery::default());
+        assert_eq!(total, 250);
+        let mut expected = all.clone();
+        expected.sort_by(|a, b| b.cmp(a));
+        expected.dedup();
+        assert_eq!(all, expected, "newest first, no repeats");
+        assert_eq!(all.len(), 250);
+
+        let (shelf, total) = read_all(BookmarkQuery {
+            collection_id: Some(collection.id),
+            search: Some("запись 1".into()),
+            ..Default::default()
+        });
+        // "запись 1" means both words: "запись" and "1".
+        let expected = (0..250)
+            .filter(|i| i % 2 == 0 && i.to_string().contains('1'))
+            .count();
+        assert_eq!((shelf.len(), total), (expected, expected as i64));
+    }
+
+    #[test]
+    fn rebuild_repairs_a_lost_index() {
+        let conn = setup_test_db();
+        let b = add(&conn, "https://example.com/x", "Потерянное", &["тег"]);
+        conn.execute(
+            "INSERT INTO bookmarks_search (bookmarks_search) VALUES ('delete-all')",
+            [],
+        )
+        .unwrap();
+        assert!(found(&conn, "потерянное").is_empty());
+        assert_eq!(rebuild_search(&conn).unwrap(), 1);
+        assert_eq!(found(&conn, "потерянное"), [b.id]);
+        assert_eq!(found(&conn, "тег"), [b.id]);
+    }
+
+    /// The search before NP-011, kept as the reference: the fields joined,
+    /// lower case. Now also «ё» as «е» and every word on its own.
+    fn reference(conn: &Connection, search: &str) -> Vec<i64> {
+        let words: Vec<String> = fold(search).split_whitespace().map(String::from).collect();
+        let mut statement = conn
+            .prepare("SELECT id FROM bookmarks ORDER BY created_at DESC, id DESC")
+            .unwrap();
+        let ids: Vec<i64> = statement
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_>>()
+            .unwrap();
+        ids.into_iter()
+            .filter(|id| {
+                let b = get_bookmark_by_id(conn, *id).unwrap();
+                let haystack = fold(&format!(
+                    "{} {} {} {} {} {}",
+                    b.title,
+                    b.url,
+                    b.domain,
+                    b.notes.as_deref().unwrap_or(""),
+                    b.description.as_deref().unwrap_or(""),
+                    b.tags.unwrap_or_default().join(" ")
+                ));
+                words.iter().all(|w| haystack.contains(w.as_str()))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn migrated_library_finds_what_the_old_search_found() {
+        use crate::{migrations, test_libraries as fixtures};
+        let folder = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../.test-data")
+            .join(format!("search-reference-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&folder).unwrap();
+        let path = folder.join("netamipin.db");
+        let conn = fixtures::fresh_at(&path, 1);
+        // Words include «ёлка», domains «пример.рф»; tags, notes, descriptions vary.
+        fixtures::generated(&conn, 2_000, 11);
+        fixtures::finish(conn);
+
+        let mut conn = Connection::open(&path).unwrap();
+        crate::library::configure(&conn).unwrap();
+        migrations::migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(migrations::user_version(&conn).unwrap(), 2);
+        assert!(folder.join("backups/netamipin.before-v2.db").exists());
+
+        let queries = [
+            "архитект",
+            "АРХИТЕКТУРА",
+            "елка",
+            "Ёлка",
+            "ёж",
+            "rust",
+            "TAURI",
+            "заметка",
+            "example.com",
+            "пример.рф",
+            "github.com/1",
+            "/12",
+            "12",
+            "1",
+            "а",
+            "ё",
+            "s",
+            "дизайн rust",
+            "rust дизайн",
+            "свет поиск музыка",
+            "кириллица 99",
+            "нет-такого",
+        ];
+        for query in queries {
+            assert_eq!(found(&conn, query), reference(&conn, query), "{query}");
+        }
     }
 
     #[test]
@@ -718,7 +1217,7 @@ mod tests {
         assert_eq!(bm.tags.unwrap().len(), 2);
 
         // Query
-        let list = get_bookmarks(&conn, None, None, None, None, false).unwrap();
+        let list = everything(&conn);
         assert_eq!(list.len(), 1);
 
         // Update
@@ -737,7 +1236,7 @@ mod tests {
 
         // Delete
         delete_bookmark(&conn, bm.id).unwrap();
-        let empty = get_bookmarks(&conn, None, None, None, None, false).unwrap();
+        let empty = everything(&conn);
         assert_eq!(empty.len(), 0);
     }
 
