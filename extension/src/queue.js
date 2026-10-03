@@ -1,3 +1,5 @@
+import { t } from "./ext.js";
+
 /** All mutations, including deletion from the options page, pass through one worker. */
 export function createQueue({
   storage,
@@ -25,14 +27,10 @@ export function createQueue({
         try {
           parsed = new URL(url);
         } catch {
-          throw new Error(
-            "Эту страницу нельзя сохранить. Откройте страницу с адресом HTTP/HTTPS.",
-          );
+          throw new Error(t("errorInvalidUrl"));
         }
         if (!["http:", "https:"].includes(parsed.protocol))
-          throw new Error(
-            "Эту страницу нельзя сохранить. Поддерживаются только ссылки HTTP/HTTPS.",
-          );
+          throw new Error(t("errorUnsupportedScheme"));
         const queue = await read();
         const existing = queue.find((item) => item.url === url);
         if (existing) return existing;
@@ -77,7 +75,7 @@ export function createQueue({
             result = {
               ok: false,
               permanent: false,
-              error: "Netami Pin недоступен. Ссылка ожидает передачи.",
+              error: t("errorUnavailable"),
             };
           }
           if (
@@ -96,8 +94,7 @@ export function createQueue({
               row.request_id === item.request_id
                 ? {
                     ...row,
-                    error:
-                      result.error || "Подтверждение сохранения не получено",
+                    error: result.error || t("errorNoConfirmation"),
                     blocked: !!result.permanent,
                   }
                 : row,
