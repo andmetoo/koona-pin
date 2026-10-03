@@ -34,7 +34,7 @@ function subscription<T>(event: string, callback: (payload: T) => void) {
   };
 }
 /** Which page to read (the first by default), or one bookmark by `id`. */
-export type PageRequest = Pick<BookmarkQuery, "after" | "limit" | "id">;
+export type PageRequest = Pick<BookmarkQuery, "after" | "limit" | "id" | "since">;
 const toQuery = (
   filters: Partial<FilterState>,
   page: PageRequest,
