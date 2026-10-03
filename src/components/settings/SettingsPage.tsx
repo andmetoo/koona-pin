@@ -185,6 +185,19 @@ export function SettingsPage({
             {busy === "copy" ? t("settings.copying") : t("settings.backUpNow")}
           </Button>
         </Row>
+        <Row title={t("settings.searchIndex")} description={t("settings.searchIndexHint")}>
+          <Button
+            disabled={busy === "index"}
+            onClick={() =>
+              void attempt("index", async () => {
+                const count = await api.rebuildSearchIndex();
+                onNotice(t("settings.rebuildDone", { count }));
+              })
+            }
+          >
+            {busy === "index" ? t("settings.rebuilding") : t("settings.rebuild")}
+          </Button>
+        </Row>
       </Section>
 
       <p className="flex flex-wrap items-center gap-3 px-3 text-xs text-subtle">

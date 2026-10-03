@@ -110,7 +110,8 @@ pub fn run() {
             commands::get_autostart,
             commands::set_autostart,
             commands::get_data_summary,
-            commands::back_up_now
+            commands::back_up_now,
+            commands::rebuild_search_index
         ])
         .run(tauri::generate_context!())
         .expect("error while running Netami Pin");

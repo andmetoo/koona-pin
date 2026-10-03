@@ -106,6 +106,13 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
     expect(captured.ok()).toBe(true);
     await page.getByRole("button", { name: "Закрыть", exact: true }).click();
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
+    // FTS5 through IPC: the capture is in the index, case folds.
+    const search = page.getByRole("textbox", { name: "Поиск в библиотеке" });
+    await search.fill("БРАУЗЕРА native");
+    await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
+    await expect(page.getByText("1 из 2")).toBeVisible();
+    await search.fill("");
+    await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
     console.log(
       "WebView2 viewport:",
       await page.evaluate(() => ({
@@ -370,8 +377,9 @@ test("library of a newer version shows a screen and stays unchanged", async ({
   const data = await folder("newer-schema");
   const file = path.join(data, "netamipin.db");
   const db = new DatabaseSync(file);
+  // Far beyond any schema this build knows.
   db.exec(
-    `CREATE TABLE bookmarks (url TEXT); PRAGMA application_id = ${NPIN}; PRAGMA user_version = 2;`,
+    `CREATE TABLE bookmarks (url TEXT); PRAGMA application_id = ${NPIN}; PRAGMA user_version = 99;`,
   );
   db.close();
   const before = await readFile(file);

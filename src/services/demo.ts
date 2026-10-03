@@ -1,14 +1,16 @@
 import {
   Bookmark,
   BookmarkChange,
+  BookmarkPage,
   Collection,
   DataSummary,
   FilterState,
   LibraryPlace,
   LibraryStatus,
 } from "../types";
+import type { PageRequest } from "./api";
 import { demoBookmarks, demoCollections, posterOf } from "./demoData";
-import { matchesBookmark, sortBookmarks } from "./library";
+import { isAfter, matchesBookmark, sortBookmarks } from "./library";
 import { CommandError } from "./errors";
 
 // v2: generated previews instead of the drawn ones of the concepts.
@@ -62,8 +64,29 @@ function emit(kind: BookmarkChange["kind"], b: Bookmark) {
     });
 }
 export const demo = {
-  async getBookmarks(filters: Partial<FilterState> = {}) {
-    return sortBookmarks(bookmarks.filter((b) => matchesBookmark(b, filters)));
+  async getBookmarks(
+    filters: Partial<FilterState> = {},
+    page: PageRequest = {},
+  ): Promise<BookmarkPage> {
+    const found = sortBookmarks(
+      bookmarks.filter((b) => matchesBookmark(b, filters)),
+    );
+    const rest = page.after
+      ? found.filter((b) => isAfter(b, page.after!))
+      : found;
+    const items = rest.slice(0, page.limit ?? 100);
+    const last = items.at(-1);
+    return {
+      items,
+      total: found.length,
+      next:
+        last && rest.length > items.length
+          ? { created_at: last.created_at, id: last.id }
+          : null,
+    };
+  },
+  async rebuildSearchIndex() {
+    return bookmarks.length;
   },
   async getCollections() {
     return collections.map((c) => ({
