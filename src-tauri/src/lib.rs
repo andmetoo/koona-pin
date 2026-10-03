@@ -2,6 +2,7 @@ pub mod backup;
 pub mod capture;
 pub mod commands;
 pub mod db;
+pub mod error;
 pub mod library;
 pub mod library_state;
 pub mod metadata;

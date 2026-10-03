@@ -14,6 +14,7 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+use ts_rs::TS;
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -44,11 +45,32 @@ impl Paths {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// Why the library was not opened; the interface has a text for each code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[ts(export)]
+pub enum OpenCode {
+    DbLocked,
+    DbNewerSchema,
+    DbForeign,
+    DbNotDatabase,
+    DbCorrupt,
+    BackupFailed,
+    MigrationFailed,
+    DbOpenFailed,
+}
+
+impl std::fmt::Display for OpenCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = serde_json::to_value(self).map_err(|_| std::fmt::Error)?;
+        f.write_str(name.as_str().unwrap_or_default())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
 pub struct OpenFailure {
-    /// `DB_LOCKED`, `DB_NEWER_SCHEMA`, `DB_FOREIGN`, `DB_NOT_DATABASE`,
-    /// `DB_CORRUPT`, `BACKUP_FAILED`, `MIGRATION_FAILED` or `DB_OPEN_FAILED`.
-    pub code: &'static str,
+    pub code: OpenCode,
     /// Technical reason for the report.
     pub detail: String,
     pub database: String,
@@ -58,11 +80,11 @@ pub struct OpenFailure {
     /// Schema of a library made by a newer version.
     pub schema: Option<i64>,
     pub supported: i64,
-    pub version: &'static str,
+    pub version: String,
 }
 
 impl OpenFailure {
-    fn new(code: &'static str, detail: impl Into<String>, paths: &Paths) -> Self {
+    fn new(code: OpenCode, detail: impl Into<String>, paths: &Paths) -> Self {
         OpenFailure {
             code,
             detail: detail.into(),
@@ -71,16 +93,16 @@ impl OpenFailure {
             backup: None,
             schema: None,
             supported: migrations::SCHEMA_VERSION,
-            version: env!("CARGO_PKG_VERSION"),
+            version: env!("CARGO_PKG_VERSION").into(),
         }
     }
 
     fn sqlite(error: rusqlite::Error, paths: &Paths) -> Self {
         let code = match error.sqlite_error_code() {
-            Some(ErrorCode::NotADatabase) => "DB_NOT_DATABASE",
-            Some(ErrorCode::DatabaseCorrupt) => "DB_CORRUPT",
-            Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => "DB_LOCKED",
-            _ => "DB_OPEN_FAILED",
+            Some(ErrorCode::NotADatabase) => OpenCode::DbNotDatabase,
+            Some(ErrorCode::DatabaseCorrupt) => OpenCode::DbCorrupt,
+            Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => OpenCode::DbLocked,
+            _ => OpenCode::DbOpenFailed,
         };
         OpenFailure::new(code, error.to_string(), paths)
     }
@@ -105,7 +127,7 @@ pub fn open_with(
     target: i64,
 ) -> Result<Opened, OpenFailure> {
     fs::create_dir_all(paths.folder())
-        .map_err(|e| OpenFailure::new("DB_OPEN_FAILED", e.to_string(), paths))?;
+        .map_err(|e| OpenFailure::new(OpenCode::DbOpenFailed, e.to_string(), paths))?;
     let moved_aside = match paths.database.exists() {
         true => match inspect(paths, target)? {
             Kind::Library => None,
@@ -118,7 +140,7 @@ pub fn open_with(
     migrations::migrate_with(migrations, target, &mut conn, Some(&paths.backups)).map_err(
         |error| match error {
             migrations::MigrationError::Backup { error, .. } => {
-                OpenFailure::new("BACKUP_FAILED", error, paths)
+                OpenFailure::new(OpenCode::BackupFailed, error, paths)
             }
             migrations::MigrationError::Failed {
                 version,
@@ -127,7 +149,7 @@ pub fn open_with(
             } => OpenFailure {
                 backup: backup.map(|p| p.to_string_lossy().into_owned()),
                 ..OpenFailure::new(
-                    "MIGRATION_FAILED",
+                    OpenCode::MigrationFailed,
                     format!("migration to {version}: {error}"),
                     paths,
                 )
@@ -183,7 +205,7 @@ fn inspect(paths: &Paths, target: i64) -> Result<Kind, OpenFailure> {
         0 if bookmarks && version <= 1 => return Ok(Kind::BeforeSchema1),
         _ => {
             return Err(OpenFailure::new(
-                "DB_FOREIGN",
+                OpenCode::DbForeign,
                 format!("application_id {application_id:#x}, user_version {version}"),
                 paths,
             ))
@@ -193,7 +215,7 @@ fn inspect(paths: &Paths, target: i64) -> Result<Kind, OpenFailure> {
         return Err(OpenFailure {
             schema: Some(version),
             ..OpenFailure::new(
-                "DB_NEWER_SCHEMA",
+                OpenCode::DbNewerSchema,
                 format!("schema {version}, supported {target}"),
                 paths,
             )
@@ -202,7 +224,7 @@ fn inspect(paths: &Paths, target: i64) -> Result<Kind, OpenFailure> {
     // A damaged library is never migrated: a migration could spread the damage.
     if version < target {
         if let Some(problem) = quick_check(&conn).map_err(fail)? {
-            return Err(OpenFailure::new("DB_CORRUPT", problem, paths));
+            return Err(OpenFailure::new(OpenCode::DbCorrupt, problem, paths));
         }
     }
     Ok(Kind::Library)
@@ -218,7 +240,7 @@ fn move_aside(paths: &Paths) -> Result<PathBuf, OpenFailure> {
         let from = PathBuf::from(format!("{}{suffix}", paths.database.display()));
         if from.exists() {
             fs::rename(&from, format!("{}{suffix}", target.display()))
-                .map_err(|e| OpenFailure::new("DB_OPEN_FAILED", e.to_string(), paths))?;
+                .map_err(|e| OpenFailure::new(OpenCode::DbOpenFailed, e.to_string(), paths))?;
         }
     }
     eprintln!(
@@ -339,7 +361,7 @@ mod tests {
             .pragma_update(None, "user_version", 2)
             .unwrap();
         let failure = unchanged(&paths, || open(&paths));
-        assert_eq!(failure.code, "DB_NEWER_SCHEMA");
+        assert_eq!(failure.code, OpenCode::DbNewerSchema);
         assert_eq!(failure.schema, Some(2));
         assert_eq!(failure.supported, migrations::SCHEMA_VERSION);
     }
@@ -351,18 +373,21 @@ mod tests {
             .unwrap()
             .execute_batch("PRAGMA application_id = 305419896; CREATE TABLE bookmarks (url TEXT);")
             .unwrap();
-        assert_eq!(unchanged(&paths, || open(&paths)).code, "DB_FOREIGN");
+        assert_eq!(unchanged(&paths, || open(&paths)).code, OpenCode::DbForeign);
 
         let paths = library("open-unmarked");
         Connection::open(&paths.database)
             .unwrap()
             .execute_batch("CREATE TABLE notes (text TEXT);")
             .unwrap();
-        assert_eq!(unchanged(&paths, || open(&paths)).code, "DB_FOREIGN");
+        assert_eq!(unchanged(&paths, || open(&paths)).code, OpenCode::DbForeign);
 
         let paths = library("open-text");
         fs::write(&paths.database, b"This is not an SQLite file.\n").unwrap();
-        assert_eq!(unchanged(&paths, || open(&paths)).code, "DB_NOT_DATABASE");
+        assert_eq!(
+            unchanged(&paths, || open(&paths)).code,
+            OpenCode::DbNotDatabase
+        );
     }
 
     #[test]
@@ -395,7 +420,7 @@ mod tests {
         build(&paths, 3_000);
         fixtures::damage(&paths.database);
         let failure = unchanged(&paths, || open_with(&paths, &next_schema(), 2));
-        assert_eq!(failure.code, "DB_CORRUPT", "{}", failure.detail);
+        assert_eq!(failure.code, OpenCode::DbCorrupt, "{}", failure.detail);
     }
 
     #[test]
@@ -408,7 +433,7 @@ mod tests {
         let failure = open_with(&paths, &next_schema(), 2)
             .err()
             .expect("no migration without a copy");
-        assert_eq!(failure.code, "BACKUP_FAILED");
+        assert_eq!(failure.code, OpenCode::BackupFailed);
         let conn = Connection::open(&paths.database).unwrap();
         assert_eq!(migrations::user_version(&conn).unwrap(), 1);
     }
@@ -422,7 +447,7 @@ mod tests {
             M::up("INSERT INTO bookmarks (url) VALUES ('https://example.com/no-title');"),
         ]);
         let failure = open_with(&paths, &broken, 2).err().unwrap();
-        assert_eq!(failure.code, "MIGRATION_FAILED");
+        assert_eq!(failure.code, OpenCode::MigrationFailed);
         assert!(Path::new(failure.backup.as_deref().unwrap()).exists());
         let conn = Connection::open(&paths.database).unwrap();
         assert_eq!(migrations::user_version(&conn).unwrap(), 1);

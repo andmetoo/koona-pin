@@ -3,6 +3,7 @@ import { CircleAlert } from "lucide-react";
 import { api, isTauri } from "../services/api";
 import { LibraryStatus, OpenFailure } from "../types";
 import { WindowBar } from "./ui/WindowBar";
+import { describeError } from "../services/errors";
 import { applyTheme, isDark, storedTheme } from "../services/preferences";
 import {
   failureReport,
@@ -101,7 +102,7 @@ function LibraryFailure({
   const [note, setNote] = useState("");
   const file = failure.database.split(/[\\/]/).pop();
   const reveal = () => {
-    void api.revealLibraryPlace(text.place).catch((err) => setNote(String(err)));
+    void api.revealLibraryPlace(text.place).catch((err) => setNote(describeError(err)));
   };
   return (
     <section

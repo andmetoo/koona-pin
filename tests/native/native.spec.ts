@@ -476,10 +476,10 @@ test("damaged library is detected in the background and not written", async ({
         tags: [],
       }).then(
         () => "saved",
-        (error: unknown) => String(error),
+        (error: unknown) => error,
       ),
     );
-    expect(written).toMatch(/readonly|read-only/i);
+    expect(written).toMatchObject({ code: "read_only" });
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
