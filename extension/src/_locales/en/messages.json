@@ -1,0 +1,71 @@
+{
+  "extensionName": { "message": "Netami Pin — save link" },
+  "extensionDescription": {
+    "message": "Save the page to your local Netami Pin library in one click. Links wait in a queue while the app is closed."
+  },
+  "actionTitle": { "message": "Save page to Netami Pin" },
+  "queueWaiting": {
+    "message": "Netami Pin: $COUNT$ waiting to be sent. Open the settings to see the queue.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Saving to Netami Pin" },
+  "badgeQueued": { "message": "Link is in the local Netami Pin queue" },
+  "badgeWaiting": { "message": "Link is waiting to be sent to Netami Pin" },
+  "badgeSaved": { "message": "Saved to Netami Pin" },
+  "badgeExisting": { "message": "This link is already in Netami Pin" },
+  "errorInvalidUrl": {
+    "message": "This page can't be saved. Open a page with an HTTP/HTTPS address."
+  },
+  "errorUnsupportedScheme": {
+    "message": "This page can't be saved. Only HTTP/HTTPS links are supported."
+  },
+  "errorUnavailable": {
+    "message": "Netami Pin is unavailable. The link is waiting to be sent."
+  },
+  "errorNoConfirmation": { "message": "No confirmation that the link was saved" },
+  "errorSaveFailed": { "message": "Couldn't save the link" },
+  "errorNoToken": {
+    "message": "Connect the extension: paste the connection key in its settings."
+  },
+  "errorTokenFormat": {
+    "message": "Copy the full connection key from Netami Pin → Connect browser."
+  },
+  "errorTokenRejected": {
+    "message": "The connection key doesn't match. Copy the current key from Netami Pin."
+  },
+  "errorUnknownAction": { "message": "Unknown action" },
+  "optionsTitle": { "message": "Netami Pin — connection and queue" },
+  "optionsEyebrow": { "message": "Browser extension" },
+  "optionsHeading": { "message": "Good finds,\nin one place." },
+  "optionsIntro": {
+    "message": "Save a page in one click. Links wait for the app in a local queue."
+  },
+  "connectionHeading": { "message": "Connection" },
+  "connectionChecking": { "message": "Checking the app…" },
+  "connectionNotPaired": {
+    "message": "Paste the connection key to connect the extension to the app."
+  },
+  "connectionReady": { "message": "Netami Pin is running. The connection is set up." },
+  "connectionUnavailable": {
+    "message": "Netami Pin is closed or unavailable. Links will stay in the queue."
+  },
+  "tokenLabel": { "message": "Connection key from Netami Pin → Connect browser" },
+  "tokenPlaceholder": { "message": "Paste the connection key" },
+  "connectButton": { "message": "Connect" },
+  "tokenSaved": {
+    "message": "Key saved. Waiting links will be sent to the app."
+  },
+  "queueHeading": { "message": "Waiting to be sent" },
+  "retryButton": { "message": "Retry sending" },
+  "queueEmpty": {
+    "message": "The queue is empty. Open an interesting page and click the Netami Pin icon."
+  },
+  "removeButton": { "message": "Remove" },
+  "removeLabel": {
+    "message": "Remove from the queue: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Page title" } }
+  },
+  "optionsFooter": {
+    "message": "Data stays in the browser and on your computer. To send links, both the browser and Netami Pin must be running."
+  }
+}

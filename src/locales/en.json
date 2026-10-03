@@ -140,7 +140,7 @@
     "lead": "From the browser to the library",
     "ready": "The app is ready to receive links",
     "checking": "Checking the connection…",
-    "install": "Install the extension from the extension/chrome folder with «Load unpacked» in Chrome, then open its settings.",
+    "install": "Install the extension: in Chrome and Edge, the extension/build/chrome or extension/build/edge folder with «Load unpacked»; in Firefox, release/netamipin-firefox.xpi as a temporary add-on. Then open its settings.",
     "token": "Connection key",
     "copyToken": "Copy key",
     "desktopOnly": "The connection key is available in the Netami Pin desktop app.",

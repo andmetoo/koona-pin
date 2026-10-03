@@ -1,6 +1,7 @@
 node_modules/
 dist/
 release/
+extension/build/
 dist-ssr/
 .cache/
 .test-data/
