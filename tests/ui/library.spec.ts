@@ -45,8 +45,6 @@ test("card menu moves a bookmark to a collection with the keyboard", async ({ pa
   await page.keyboard.press("ArrowRight");
   await page.getByRole("menuitem", { name: "Разработка" }).click();
   await expect(page.getByRole("menu")).toHaveCount(0);
-  await page.getByRole("button", { name: "Список", exact: true }).click();
-  await expect(page.locator('[data-bookmark-id="2"] [data-collection]')).toContainText("Разработка");
   // Escape closes the menu and returns focus to its button.
   const trigger = page.getByRole("button", { name: /^Действия: Архитектура/ });
   await page.locator('[data-bookmark-id="2"]').hover();
@@ -54,6 +52,8 @@ test("card menu moves a bookmark to a collection with the keyboard", async ({ pa
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(trigger).toBeFocused();
+  await page.getByRole("button", { name: "Список", exact: true }).click();
+  await expect(page.locator('[data-bookmark-id="2"] [data-collection]')).toContainText("Разработка");
 });
 for (const width of [800, 1200, 1600])
   test(`layout at ${width}px and both themes`, async ({ page }) => {
@@ -215,20 +215,24 @@ test("a large library loads page by page while scrolling", async ({ page }) => {
     localStorage.setItem("netamipin.demo.v2", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
-  const cards = page.locator("[data-bookmark-id]");
-  await expect(cards).toHaveCount(100);
+  // Virtualized: only rows near the screen are in the DOM; `data-loaded` counts the pages read.
+  const list = page.locator("[data-loaded]");
+  await expect(list).toHaveAttribute("data-loaded", "100");
+  expect(await page.locator("[data-bookmark-id]").count()).toBeLessThan(60);
   const scroll = page.locator('[data-scroll="main"]');
   await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
-  await expect(cards).toHaveCount(200);
+  await expect(list).toHaveAttribute("data-loaded", "200");
   await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
-  await expect(cards).toHaveCount(250);
-  const ids = await cards.evaluateAll((elements) => elements.map((e) => Number(e.getAttribute("data-bookmark-id"))));
-  expect(new Set(ids).size).toBe(250);
+  await expect(list).toHaveAttribute("data-loaded", "250");
+  await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  // The oldest bookmark (id 250 here: the list starts with id 1) ends the list.
+  await expect(page.locator('[data-bookmark-id="250"]')).toBeVisible();
+  await expect(page.locator("[data-bookmark-id]").last()).toHaveAttribute("data-bookmark-id", "250");
 
   // «е» finds «Ёлка»; the count covers every page, not only the loaded one.
   await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("елка");
   await expect(page.getByText("125 из 250")).toBeVisible();
-  await expect(cards).toHaveCount(100);
+  await expect(list).toHaveAttribute("data-loaded", "100");
 });
 
 /** 250 demo bookmarks, newest first by id; odd ones are titled «Ёлка». */
@@ -247,7 +251,7 @@ async function largeLibrary(page: import("@playwright/test").Page) {
     localStorage.setItem("netamipin.demo.v2", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(100);
+  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
 }
 
 test("a change during a page request shows the newer version", async ({ page }) => {
@@ -257,17 +261,17 @@ test("a change during a page request shows the newer version", async ({ page }) 
     const original = api.getBookmarks;
     api.getBookmarks = async (filters, request) => {
       const result = await original(filters, request);
-      // The page is read, then bookmark 100 (on it) changes before it arrives.
-      if (request?.after) {
-        await api.updateBookmark(100, { title: "Изменено во время загрузки" });
+      // The page is read, then bookmark 150 (first on it) changes before it arrives.
+      if (request?.after && request.after.id === 151) {
+        await api.updateBookmark(150, { title: "Изменено во время загрузки" });
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       return result;
     };
   });
   await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(200);
-  await expect(page.locator('[data-bookmark-id="100"]')).toContainText("Изменено во время загрузки");
+  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", /^(200|250)$/);
+  await expect(page.locator('[data-bookmark-id="150"]')).toContainText("Изменено во время загрузки");
 });
 
 test("a failing next page is not retried in a loop", async ({ page }) => {
@@ -288,7 +292,7 @@ test("a failing next page is not retried in a loop", async ({ page }) => {
   await expect(page.getByText("Диск недоступен")).toBeVisible();
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => (window as unknown as { failures: number }).failures)).toBe(1);
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(100);
+  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
 });
 
 test("a changed bookmark joins an open search by the search rules", async ({ page }) => {
@@ -302,4 +306,25 @@ test("a changed bookmark joins an open search by the search rules", async ({ pag
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
   await expect(page.locator('[data-bookmark-id="3"]')).toBeVisible();
   await expect(page.getByText("1 из 6")).toBeVisible();
+});
+
+test("list rows: date groups over all pages, hover actions, inactive checkbox", async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
+  await largeLibrary(page);
+  await page.getByRole("button", { name: "Список", exact: true }).click();
+  // 250 bookmarks from January: one group «Раньше» sized by the database, not by the 100 loaded rows.
+  await expect(page.getByRole("heading", { name: "Раньше 250" })).toBeVisible();
+
+  const row = page.locator('[data-bookmark-id="250"]');
+  await row.hover();
+  const checkbox = row.getByRole("checkbox");
+  await expect(checkbox).toHaveAttribute("aria-disabled", "true");
+  await row.getByRole("button", { name: "В коллекцию" }).click();
+  await page.getByRole("menuitem", { name: "Разработка" }).click();
+  await expect(row.locator("[data-collection]")).toContainText("Разработка");
+  await row.hover();
+  await row.getByRole("button", { name: "Удалить…" }).click();
+  await page.getByRole("button", { name: "Удалить", exact: true }).click();
+  await expect(page.locator('[data-bookmark-id="250"]')).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Раньше 249" })).toBeVisible();
 });
