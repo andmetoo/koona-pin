@@ -1,6 +1,9 @@
 use crate::{
     capture::{self, CaptureRequest, ChangeKind},
-    db::{self, Bookmark, Collection, DbState, DomainCount, LibraryCounts, Source, Tag},
+    db::{
+        self, Bookmark, BookmarkPage, BookmarkQuery, Collection, DbState, DomainCount,
+        LibraryCounts, Source, Tag,
+    },
     error::{CommandError, ErrorCode},
     library_state::{self, Library, LibraryStatus},
     server::{ServerState, ServerStatus},
@@ -36,16 +39,23 @@ fn text(e: rusqlite::Error) -> CommandError {
 #[tauri::command]
 pub async fn get_bookmarks(
     state: State<'_, Arc<DbState>>,
-    search: Option<String>,
-    collection_id: Option<i64>,
-    tag: Option<String>,
-    domain: Option<String>,
-    only_favorites: bool,
-) -> Result<Vec<Bookmark>, CommandError> {
+    query: BookmarkQuery,
+) -> Result<BookmarkPage, CommandError> {
     blocking(&state, move |conn| {
-        db::get_bookmarks(conn, search, collection_id, tag, domain, only_favorites).map_err(text)
+        db::get_bookmarks(conn, &query).map_err(text)
     })
     .await
+}
+/// Settings → Data: rebuilds the search index if it has drifted from the library.
+#[tauri::command]
+pub async fn rebuild_search_index(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+) -> Result<i64, CommandError> {
+    let count = blocking(&state, |conn| db::rebuild_search(conn).map_err(text)).await?;
+    // An open search may now find more.
+    let _ = app.emit("library-invalidated", ());
+    Ok(count)
 }
 #[tauri::command]
 pub async fn add_bookmark(

@@ -180,6 +180,12 @@
     "backUpNow": "Back up now",
     "copying": "Backing up…",
     "copyDone": "Backup created",
+    "searchIndex": "Search index",
+    "searchIndexHint": "Rebuild it if search misses a bookmark that is in the library",
+    "rebuild": "Rebuild",
+    "rebuilding": "Rebuilding…",
+    "rebuildDone_one": "Search index rebuilt: {{count}} bookmark",
+    "rebuildDone_other": "Search index rebuilt: {{count}} bookmarks",
     "checkUpdates": "Check for updates",
     "report": "Report a problem"
   },
@@ -211,6 +217,7 @@
   },
   "library": {
     "loading": "Loading the library",
+    "loadingMore": "Loading more bookmarks",
     "newBookmarks_one": "New bookmarks · {{count}}",
     "newBookmarks_other": "New bookmarks · {{count}}",
     "damaged": "The library is damaged: the integrity check found errors in the file. To avoid further damage, changes are no longer saved and links from the browser wait in the extension. Quit Netami Pin and replace the file with the latest backup.",

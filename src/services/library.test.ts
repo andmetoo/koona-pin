@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { matchesBookmark, mergeBookmark, sortBookmarks } from "./library";
+import {
+  isAfter,
+  matchesBookmark,
+  mergeBookmark,
+  sortBookmarks,
+} from "./library";
 import { Bookmark } from "../types";
 const b: Bookmark = {
   id: 1,
@@ -36,6 +41,20 @@ describe("library reconciliation", () => {
     ).toBe(true);
     expect(matchesBookmark(b, { onlyFavorites: true })).toBe(false);
     expect(matchesBookmark(b, { collectionId: 3 })).toBe(false);
+  });
+  it("searches every word in any field and folds ё like the index", () => {
+    const tagged = { ...b, title: "Новогодняя Ёлка", notes: "игрушки" };
+    expect(matchesBookmark(tagged, { search: "елка" })).toBe(true);
+    expect(matchesBookmark(tagged, { search: "ЁЛКА дизайн" })).toBe(true);
+    expect(matchesBookmark(tagged, { search: "  игрушки   ёлка " })).toBe(true);
+    expect(matchesBookmark(tagged, { search: "ёлка rust" })).toBe(false);
+  });
+  it("knows which bookmarks lie on pages not read yet", () => {
+    const cursor = { created_at: "2026-10-01", id: 5 };
+    expect(isAfter({ ...b, created_at: "2026-09-30", id: 9 }, cursor)).toBe(true);
+    expect(isAfter({ ...b, created_at: "2026-10-01", id: 4 }, cursor)).toBe(true);
+    expect(isAfter({ ...b, created_at: "2026-10-01", id: 6 }, cursor)).toBe(false);
+    expect(isAfter({ ...b, created_at: "2026-10-02", id: 1 }, null)).toBe(false);
   });
   it("uses id as a stable tie-breaker", () => {
     expect(sortBookmarks([b, { ...b, id: 2 }]).map((x) => x.id)).toEqual([

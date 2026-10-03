@@ -5,7 +5,9 @@ import {
   AppSettings,
   Bookmark,
   BookmarkChange,
+  BookmarkPage,
   BookmarkPatch,
+  BookmarkQuery,
   Collection,
   DataSummary,
   DomainCount,
@@ -31,20 +33,28 @@ function subscription<T>(event: string, callback: (payload: T) => void) {
     void promise.then((unlisten) => unlisten()).catch(console.error);
   };
 }
+/** Which page to read: the first by default. */
+export type PageRequest = Pick<BookmarkQuery, "after" | "limit">;
+const toQuery = (
+  filters: Partial<FilterState>,
+  page: PageRequest,
+): BookmarkQuery => ({
+  search: filters.search?.trim() || undefined,
+  collection_id: filters.collectionId ?? undefined,
+  tag: filters.tag || undefined,
+  domain: filters.domain || undefined,
+  only_favorites: filters.onlyFavorites ?? false,
+  ...page,
+});
 /** Every command rejects with a `CommandError` carrying a machine code. */
 const call = <T>(command: string, args?: InvokeArgs) =>
   invoke<T>(command, args).catch((error: unknown) => {
     throw toCommandError(error);
   });
 const desktop = {
-  getBookmarks: (filters: Partial<FilterState> = {}) =>
-    call<Bookmark[]>("get_bookmarks", {
-      search: filters.search?.trim() || null,
-      collectionId: filters.collectionId ?? null,
-      tag: filters.tag || null,
-      domain: filters.domain || null,
-      onlyFavorites: filters.onlyFavorites ?? false,
-    }),
+  getBookmarks: (filters: Partial<FilterState> = {}, page: PageRequest = {}) =>
+    call<BookmarkPage>("get_bookmarks", { query: toQuery(filters, page) }),
+  rebuildSearchIndex: () => call<number>("rebuild_search_index"),
   getCollections: () => call<Collection[]>("get_collections"),
   getTags: () => call<Tag[]>("get_tags"),
   getDomains: () => call<DomainCount[]>("get_domains"),
