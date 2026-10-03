@@ -22,7 +22,10 @@ import { Menu } from "../ui/Menu";
 
 export interface ToolbarProps {
   title: string;
-  count?: number;
+  /** The section size, or «N из M» while search, a tag or a site narrows it. */
+  count?: number | string;
+  /** Announce count changes: they are search results. */
+  countLive?: boolean;
   narrow: boolean;
   search: string;
   view: ViewMode;
@@ -55,7 +58,11 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
     <div className="flex h-9 items-center gap-2.5">
       <h1 className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="truncate text-2xl font-semibold">{props.title}</span>
-        {props.count !== undefined && <span className="text-md text-subtle">{props.count}</span>}
+        {props.count !== undefined && (
+          <span className="shrink-0 text-md text-subtle" aria-live={props.countLive ? "polite" : undefined}>
+            {props.count}
+          </span>
+        )}
       </h1>
       <label className={`relative flex h-9 items-center ${props.narrow ? "w-[200px]" : "w-[340px]"}`}>
         <Icon icon={Search} size={15} className="pointer-events-none absolute left-3 text-subtle" />
@@ -63,11 +70,19 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           ref={searchRef}
           value={props.search}
           onChange={(e) => props.onSearch(e.target.value)}
+          onKeyDown={(e) => {
+            // Esc clears the query first (frame 09); an empty field lets it close layers.
+            if (e.key === "Escape" && props.search) {
+              e.preventDefault();
+              e.stopPropagation();
+              props.onSearch("");
+            }
+          }}
           aria-label={t("toolbar.searchLabel")}
           placeholder={props.narrow ? t("toolbar.searchShort") : t("toolbar.searchPlaceholder")}
           className="field h-9 pr-12 pl-[35px]"
         />
-        <Kbd className="pointer-events-none absolute right-2">Ctrl K</Kbd>
+        <Kbd className="pointer-events-none absolute right-2">{props.search ? "Esc" : "Ctrl K"}</Kbd>
       </label>
       <div role="group" aria-label={t("toolbar.view")} className="flex gap-0.5 rounded-lg bg-secondary p-[3px]">
         {viewButton("grid", t("toolbar.grid"), LayoutGrid)}

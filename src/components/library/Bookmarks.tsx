@@ -16,6 +16,19 @@ export interface BookmarkActions {
   move: (bookmark: Bookmark, collectionId: number | null) => void;
   remove: (bookmark: Bookmark) => void;
   tag: (name: string) => void;
+  /** Show only this site: the filter chip of the search row (NP-013). */
+  domain: (domain: string) => void;
+}
+
+/** The domain under a card or in a row: a click filters the library by that site. */
+function DomainButton({ b, actions, className }: { b: Bookmark; actions: BookmarkActions; className: string }) {
+  const { t } = useTranslation();
+  const label = t("card.filterDomain", { domain: b.domain });
+  return (
+    <button type="button" title={label} aria-label={label} onClick={() => actions.domain(b.domain)} className={`truncate text-left hover:text-ink hover:underline ${className}`}>
+      {b.domain}
+    </button>
+  );
 }
 
 /** «В коллекцию»: collections with their dot and key, then «Без коллекции». */
@@ -104,7 +117,7 @@ function useBookmarkMenu(b: Bookmark, collections: Collection[], actions: Bookma
 }
 
 /** Favicon, or the first letter when there is none. */
-function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
+export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [b.favicon_url]);
   return b.favicon_url && !broken ? (
@@ -120,7 +133,7 @@ function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
 }
 
 /** OpenGraph image; a plate of the same size with the site mark when there is none. */
-function Preview({ b }: { b: Bookmark }) {
+export function Preview({ b }: { b: Bookmark }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [b.image_url]);
   return b.image_url && !broken ? (
@@ -204,7 +217,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       </div>
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
         <SiteMark b={b} />
-        <span className="min-w-0 flex-1 truncate">{b.domain}</span>
+        <DomainButton b={b} actions={actions} className="min-w-0 flex-1" />
         {b.is_favorite && <Icon icon={Star} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
@@ -289,7 +302,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         </h2>
         <p className="flex min-w-0 items-center gap-1.5 text-xs">
           <SiteMark b={b} size={12} />
-          <span className="shrink-0 text-meta">{b.domain}</span>
+          <DomainButton b={b} actions={actions} className="shrink-0 text-meta" />
           {b.description && (
             <>
               <span className="text-faint">·</span>
