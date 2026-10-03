@@ -72,9 +72,13 @@ export function Menu({
     const outside = (e: PointerEvent) => {
       if (!(e.target as Element).closest?.("[data-menu]")) onClose("outside");
     };
+    const blur = () => onClose("outside");
     document.addEventListener("pointerdown", outside);
-    window.addEventListener("blur", () => onClose("outside"), { once: true });
-    return () => document.removeEventListener("pointerdown", outside);
+    window.addEventListener("blur", blur);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      window.removeEventListener("blur", blur);
+    };
   }, []);
 
   const buttons = () => Array.from(ref.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]") ?? []);
@@ -117,7 +121,14 @@ export function Menu({
         else if (e.key === "ArrowRight" && index >= 0) {
           const item = items[index];
           if (item?.submenu && !item.disabled) setOpen({ id: item.id, rect: all[index].getBoundingClientRect() });
-        } else return;
+        } else {
+          // The keys shown on the right select their item; Enter stays with the focused one.
+          const pressed = `${e.ctrlKey ? "Ctrl " : ""}${e.key === "Delete" ? "Del" : e.key.length === 1 ? e.key.toUpperCase() : e.key}`;
+          const own = (e.target as Element).closest("[role=menu]") === ref.current;
+          const match = own && pressed !== "Enter" && items.findIndex((item) => item.keys === pressed && !item.disabled);
+          if (match === false || match < 0) return;
+          select(items[match], all[match]);
+        }
         e.preventDefault();
         e.stopPropagation();
       }}
