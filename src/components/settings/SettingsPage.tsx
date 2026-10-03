@@ -34,7 +34,9 @@ export function SettingsPage({
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const [data, setData] = useState<DataSummary | null>(null);
   const [version, setVersion] = useState("");
-  const [busy, setBusy] = useState("");
+  // Several actions can run at once; each keeps its own control disabled.
+  const [running, setRunning] = useState<ReadonlySet<string>>(new Set());
+  const busy = (name: string) => running.has(name);
   const soon = t("common.soon");
 
   useEffect(() => {
@@ -44,13 +46,17 @@ export function SettingsPage({
   }, []);
 
   const attempt = async (name: string, action: () => Promise<void>) => {
-    setBusy(name);
+    setRunning((prev) => new Set(prev).add(name));
     try {
       await action();
     } catch (err) {
       onNotice(describeError(err), true);
     } finally {
-      setBusy("");
+      setRunning((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
     }
   };
   const languageName = (code: string) => languages.find((l) => l.code === code)?.name ?? code;
@@ -104,7 +110,7 @@ export function SettingsPage({
           <Switch
             label={t("settings.autostart")}
             checked={autostart ?? false}
-            disabled={!desktop || autostart === null || busy === "autostart"}
+            disabled={!desktop || autostart === null || busy("autostart")}
             onChange={(enabled) =>
               void attempt("autostart", async () => {
                 await api.setAutostart(enabled);
@@ -117,7 +123,7 @@ export function SettingsPage({
           <Switch
             label={t("settings.tray")}
             checked={settings?.close_to_tray ?? true}
-            disabled={!desktop || !settings || busy === "tray"}
+            disabled={!desktop || !settings || busy("tray")}
             onChange={(enabled) =>
               void attempt("tray", async () => {
                 await api.setCloseToTray(enabled);
@@ -174,7 +180,7 @@ export function SettingsPage({
             <Button disabled>{t("settings.restore")}</Button>
           </span>
           <Button
-            disabled={!desktop || busy === "copy"}
+            disabled={!desktop || busy("copy")}
             onClick={() =>
               void attempt("copy", async () => {
                 setData(await api.backUpNow());
@@ -182,7 +188,7 @@ export function SettingsPage({
               })
             }
           >
-            {busy === "copy" ? t("settings.copying") : t("settings.backUpNow")}
+            {busy("copy") ? t("settings.copying") : t("settings.backUpNow")}
           </Button>
         </Row>
         <Row title={t("settings.searchIndex")} description={t("settings.searchIndexHint")}>

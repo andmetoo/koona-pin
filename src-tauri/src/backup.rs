@@ -51,6 +51,12 @@ pub fn prune_before_migration(folder: &Path, version: i64) {
     }
 }
 
+/// The time of an automatic copy, from its file name.
+fn auto_stamp(name: &str) -> Option<NaiveDateTime> {
+    let stamp = name.strip_prefix(AUTO_PREFIX)?.strip_suffix(".db")?;
+    NaiveDateTime::parse_from_str(stamp, AUTO_FORMAT).ok()
+}
+
 fn auto_copies(folder: &Path) -> Vec<(PathBuf, NaiveDateTime)> {
     let Ok(entries) = fs::read_dir(folder) else {
         return Vec::new();
@@ -58,9 +64,7 @@ fn auto_copies(folder: &Path) -> Vec<(PathBuf, NaiveDateTime)> {
     entries
         .filter_map(Result::ok)
         .filter_map(|entry| {
-            let name = entry.file_name().into_string().ok()?;
-            let stamp = name.strip_prefix(AUTO_PREFIX)?.strip_suffix(".db")?;
-            let time = NaiveDateTime::parse_from_str(stamp, AUTO_FORMAT).ok()?;
+            let time = auto_stamp(entry.file_name().to_str()?)?;
             Some((entry.path(), time))
         })
         .collect()
@@ -94,20 +98,20 @@ pub fn summary(folder: &Path) -> (usize, u64, Option<DateTime<Utc>>) {
     let Ok(entries) = fs::read_dir(folder) else {
         return (0, 0, None);
     };
-    let (count, bytes) = entries
+    entries
         .filter_map(Result::ok)
-        .filter(|entry| {
+        .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
-            name.starts_with("netamipin.") && name.ends_with(".db")
+            (name.starts_with("netamipin.") && name.ends_with(".db")).then_some((name, entry))
         })
-        .fold((0, 0), |(count, bytes), entry| {
-            (count + 1, bytes + entry.metadata().map_or(0, |m| m.len()))
-        });
-    let last = auto_copies(folder)
-        .into_iter()
-        .map(|(_, time)| time.and_utc())
-        .max();
-    (count, bytes, last)
+        .fold((0, 0, None), |(count, bytes, last), (name, entry)| {
+            let time = auto_stamp(&name).map(|time| time.and_utc());
+            (
+                count + 1,
+                bytes + entry.metadata().map_or(0, |m| m.len()),
+                last.max(time),
+            )
+        })
 }
 
 /// The newest copy of each of the last 7 days with copies stays, then the
