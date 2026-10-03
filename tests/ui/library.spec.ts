@@ -146,7 +146,7 @@ test("list geometry stays within the window and broken previews keep their space
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const data = {
-      bookmarks: await api.getBookmarks(),
+      bookmarks: (await api.getBookmarks()).items,
       collections: await api.getCollections(),
     };
     data.bookmarks[0].image_url = "/broken-preview.png";
@@ -197,4 +197,36 @@ test("save errors preserve entered data and HTML import skips duplicate and unsu
   await page.getByRole("button", { name: "Импортировать", exact: true }).click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(8);
   await expect(page.getByRole("status")).toContainText("Новых ссылок: 1");
+});
+
+test("a large library loads page by page while scrolling", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const [first] = (await api.getBookmarks()).items;
+    const bookmarks = Array.from({ length: 250 }, (_, i) => ({
+      ...first,
+      id: i + 1,
+      url: `https://example.com/${i + 1}`,
+      title: i % 2 ? `Ёлка ${i + 1}` : `Запись ${i + 1}`,
+      tags: [],
+      // Every fifth one shares a time with its neighbour: the id breaks the tie.
+      created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 250 - i + (i % 5 === 0 ? 1 : 0))).toISOString(),
+    }));
+    localStorage.setItem("netamipin.demo.v2", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+  });
+  await page.reload();
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards).toHaveCount(100);
+  const scroll = page.locator('[data-scroll="main"]');
+  await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(cards).toHaveCount(200);
+  await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(cards).toHaveCount(250);
+  const ids = await cards.evaluateAll((elements) => elements.map((e) => Number(e.getAttribute("data-bookmark-id"))));
+  expect(new Set(ids).size).toBe(250);
+
+  // «е» finds «Ёлка»; the count covers every page, not only the loaded one.
+  await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("елка");
+  await expect(page.getByText("125 из 250")).toBeVisible();
+  await expect(cards).toHaveCount(100);
 });
