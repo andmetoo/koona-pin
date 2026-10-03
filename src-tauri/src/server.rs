@@ -4,9 +4,11 @@ use crate::{
 };
 use serde::Serialize;
 use std::{
-    io::Read,
+    io::{Read, Write},
+    net::TcpStream,
     sync::{Arc, Mutex},
     thread,
+    time::Duration,
 };
 use tauri::AppHandle;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
@@ -17,6 +19,8 @@ pub struct ServerStatus {
     pub running: bool,
     pub address: String,
     pub error: Option<String>,
+    /// The port is held by OddClicks, which keeps writing to its own library.
+    pub legacy_app: bool,
 }
 pub struct ServerState(pub Mutex<ServerStatus>);
 impl Default for ServerState {
@@ -25,6 +29,7 @@ impl Default for ServerState {
             running: false,
             address: "127.0.0.1:28765".into(),
             error: None,
+            legacy_app: false,
         }))
     }
 }
@@ -47,6 +52,20 @@ fn response(status: u16, body: impl Serialize) -> Response<std::io::Cursor<Vec<u
 fn error(status: u16, code: &str, message: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     response(status, serde_json::json!({"code":code,"message":message}))
 }
+/// OddClicks answers health without the "name" field.
+fn occupied_by_oddclicks() -> bool {
+    let probe = || -> std::io::Result<String> {
+        let address = "127.0.0.1:28765".parse().expect("valid address");
+        let mut stream = TcpStream::connect_timeout(&address, Duration::from_millis(500))?;
+        stream.set_read_timeout(Some(Duration::from_millis(1000)))?;
+        stream.write_all(b"GET /api/health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")?;
+        let mut reply = String::new();
+        stream.read_to_string(&mut reply)?;
+        Ok(reply)
+    };
+    probe()
+        .is_ok_and(|reply| reply.contains(r#""app":"OddClicks""#) && !reply.contains(r#""name":"#))
+}
 pub fn start_server(app: AppHandle, db: Arc<DbState>, status: Arc<ServerState>) {
     thread::spawn(move || {
         let server = match Server::http("127.0.0.1:28765") {
@@ -55,7 +74,13 @@ pub fn start_server(app: AppHandle, db: Arc<DbState>, status: Arc<ServerState>) 
                 server
             }
             Err(e) => {
-                status.0.lock().unwrap().error = Some(e.to_string());
+                let mut status = status.0.lock().unwrap();
+                if occupied_by_oddclicks() {
+                    status.legacy_app = true;
+                    status.error = Some("Порт 28765 занят прежней версией OddClicks. Закройте её через значок в трее и перезапустите Netami Pin, иначе ссылки из браузера попадут в старую библиотеку.".into());
+                } else {
+                    status.error = Some(e.to_string());
+                }
                 return;
             }
         };
@@ -93,7 +118,9 @@ pub fn start_server(app: AppHandle, db: Arc<DbState>, status: Arc<ServerState>) 
                 }
                 let _ = req.respond(response(
                     200,
-                    serde_json::json!({"status":"ok","app":"OddClicks","protocol":1}),
+                    // "app" stays "OddClicks": extensions connected before the
+                    // rename check it. New clients read "name".
+                    serde_json::json!({"status":"ok","app":"OddClicks","name":"Netami Pin","protocol":1}),
                 ));
                 continue;
             }

@@ -55,6 +55,10 @@ impl DbState {
         if let Some(parent) = db_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
+        let imported = crate::legacy::legacy_database().filter(|legacy| {
+            crate::legacy::import_database(legacy, &db_path)
+                .expect("Failed to import the OddClicks library; original data preserved")
+        });
 
         let conn = Connection::open(&db_path).expect("Failed to open SQLite database");
 
@@ -69,6 +73,9 @@ impl DbState {
         create_tables(&conn).expect("Failed to create tables");
         migrate(&conn, Some(&db_path))
             .expect("Failed to migrate database; original data preserved");
+        if let Some(legacy) = imported {
+            let _ = set_setting(&conn, "imported_from", &legacy.to_string_lossy());
+        }
 
         DbState {
             conn: Mutex::new(conn),
@@ -82,7 +89,7 @@ pub fn migrate(conn: &Connection, db_path: Option<&std::path::Path>) -> Result<(
         return Ok(());
     }
     if let Some(path) = db_path {
-        let backup = path.with_file_name("oddclicks.before-v1.db");
+        let backup = path.with_file_name("netamipin.before-v1.db");
         if !backup.exists() {
             conn.backup(DatabaseName::Main, backup, None)?;
         }
@@ -137,16 +144,17 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+/// Overrides the library folder; tests use it to stay away from user data.
+pub const DATA_DIR_ENV: &str = "NETAMIPIN_DATA_DIR";
+const DB_FILE: &str = "netamipin.db";
+
 fn get_db_path() -> PathBuf {
-    if let Some(directory) = std::env::var_os("ODDCLICKS_DATA_DIR") {
-        return PathBuf::from(directory).join("oddclicks.db");
+    if let Some(directory) = std::env::var_os(DATA_DIR_ENV) {
+        return PathBuf::from(directory).join(DB_FILE);
     }
-    if let Some(mut data_dir) = dirs::data_dir() {
-        data_dir.push("OddClicks");
-        data_dir.push("oddclicks.db");
-        data_dir
-    } else {
-        PathBuf::from("oddclicks.db")
+    match dirs::data_dir() {
+        Some(data_dir) => data_dir.join("Netami Pin").join(DB_FILE),
+        None => PathBuf::from(DB_FILE),
     }
 }
 
@@ -610,7 +618,7 @@ mod tests {
             .join("../.test-data")
             .join(format!("migration-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&directory).unwrap();
-        let path = directory.join("oddclicks.db");
+        let path = directory.join("netamipin.db");
         let conn = Connection::open(&path).unwrap();
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
             .unwrap();
@@ -633,7 +641,7 @@ mod tests {
         let token = setting(&conn, "capture_token").unwrap();
         migrate(&conn, Some(&path)).unwrap();
         assert_eq!(setting(&conn, "capture_token").unwrap(), token);
-        let backup = Connection::open(directory.join("oddclicks.before-v1.db")).unwrap();
+        let backup = Connection::open(directory.join("netamipin.before-v1.db")).unwrap();
         assert_eq!(
             backup
                 .pragma_query_value::<i64, _>(None, "user_version", |r| r.get(0))

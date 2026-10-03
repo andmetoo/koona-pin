@@ -1,6 +1,6 @@
 import { createQueue } from "./queue.js";
 const origin = "http://127.0.0.1:28765";
-const alarmName = "oddclicks-delivery";
+const alarmName = "netamipin-delivery";
 async function badge(text, title, color = "#a34f34", tabId) {
   const scope = Number.isInteger(tabId) ? { tabId } : {};
   try {
@@ -16,11 +16,11 @@ async function updateStatus(queue) {
     await chrome.alarms.create(alarmName, { periodInMinutes: 1 });
     await badge(
       queue.some((item) => item.blocked) ? "!" : String(queue.length),
-      `OddClicks: ожидают передачи ${queue.length}. Откройте настройки для просмотра очереди.`,
+      `Netami Pin: ожидают передачи ${queue.length}. Откройте настройки для просмотра очереди.`,
     );
   } else {
     await chrome.alarms.clear(alarmName);
-    await badge("", "Сохранить страницу в OddClicks");
+    await badge("", "Сохранить страницу в Netami Pin");
   }
 }
 const queue = createQueue({
@@ -72,15 +72,15 @@ async function deliver() {
     await badge(
       result.outcome === "existing" ? "=" : "✓",
       result.outcome === "existing"
-        ? "Эта ссылка уже есть в OddClicks"
-        : "Сохранено в OddClicks",
+        ? "Эта ссылка уже есть в Netami Pin"
+        : "Сохранено в Netami Pin",
       "#426f59",
       result.tabId,
     );
   for (const item of await queue.list()) {
     await badge(
       item.blocked ? "!" : "↗",
-      item.error || "Ссылка ожидает передачи в OddClicks",
+      item.error || "Ссылка ожидает передачи в Netami Pin",
       item.blocked ? "#af3838" : "#a34f34",
       item.tabId,
     );
@@ -94,9 +94,9 @@ async function initialize() {
 }
 async function captureTab(tab) {
   try {
-    await badge("…", "Сохраняется в OddClicks", "#a34f34", tab.id);
+    await badge("…", "Сохраняется в Netami Pin", "#a34f34", tab.id);
     const item = await queue.enqueue(tab.url || "", tab.title, tab.id);
-    await badge("↗", "Ссылка в локальной очереди OddClicks", "#a34f34", tab.id);
+    await badge("↗", "Ссылка в локальной очереди Netami Pin", "#a34f34", tab.id);
     const results = await deliver();
     const saved = results.find(
       (result) => result.request_id === item.request_id,
@@ -105,8 +105,8 @@ async function captureTab(tab) {
       await badge(
         saved.outcome === "existing" ? "=" : "✓",
         saved.outcome === "existing"
-          ? "Эта ссылка уже есть в OddClicks"
-          : "Сохранено в OddClicks",
+          ? "Эта ссылка уже есть в Netami Pin"
+          : "Сохранено в Netami Pin",
         "#426f59",
         tab.id,
       );
@@ -117,7 +117,7 @@ async function captureTab(tab) {
       if (waiting)
         await badge(
           waiting.blocked ? "!" : "↗",
-          waiting.error || "Ссылка ожидает передачи в OddClicks",
+          waiting.error || "Ссылка ожидает передачи в Netami Pin",
           waiting.blocked ? "#af3838" : "#a34f34",
           tab.id,
         );
@@ -164,7 +164,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
         const token = String(message.token || "").trim();
         if (!/^[a-f0-9]{64}$/i.test(token))
           throw new Error(
-            "Скопируйте полный токен из OddClicks → Подключить браузер.",
+            "Скопируйте полный токен из Netami Pin → Подключить браузер.",
           );
         await chrome.storage.local.set({ captureToken: token });
         await queue.retry();
@@ -183,11 +183,11 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
           const health = await r.json();
           return {
             connected:
-              r.ok && health.app === "OddClicks" && health.protocol === 1,
+              r.ok && health.name === "Netami Pin" && health.protocol === 1,
             paired: !!captureToken,
             error:
               r.status === 401
-                ? "Токен не подходит. Скопируйте актуальный токен из OddClicks."
+                ? "Токен не подходит. Скопируйте актуальный токен из Netami Pin."
                 : null,
           };
         } catch {
@@ -203,5 +203,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     .catch((error) => respond({ error: error.message }));
   return true;
 });
+// The alarm had this name before the rename to Netami Pin.
+void chrome.alarms.clear("oddclicks-delivery");
 // Recreate the alarm after worker restarts: Chrome does not guarantee its persistence.
 void queue.list().then(updateStatus).catch(console.error);
