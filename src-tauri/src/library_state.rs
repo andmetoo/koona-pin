@@ -18,12 +18,14 @@ use std::{
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Manager};
+use ts_rs::TS;
 
 /// Checked hourly; a copy is written when the newest one is a day old.
 const MAINTENANCE_PERIOD: Duration = Duration::from_secs(60 * 60);
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
 #[serde(tag = "state", rename_all = "lowercase")]
+#[ts(export)]
 pub enum LibraryStatus {
     Opening,
     Ready {

@@ -1,10 +1,12 @@
 use crate::db::{self, Bookmark, DbState, Source};
+use crate::error::{CommandError, ErrorCode};
 use crate::metadata;
 use rusqlite::{params, Connection, OptionalExtension};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
+use ts_rs::TS;
 use url::Url;
 
 #[derive(Debug, Deserialize)]
@@ -27,12 +29,16 @@ pub struct CaptureResult {
     #[serde(skip)]
     pub newly_created: bool,
 }
+/// `code` and `status` are the HTTP v1 contract and do not change; IPC gets
+/// the finer `ipc` code (NP-007).
 #[derive(Debug, Serialize)]
 pub struct CaptureError {
     pub code: &'static str,
     pub message: String,
     #[serde(skip)]
     pub status: u16,
+    #[serde(skip)]
+    pub ipc: ErrorCode,
 }
 impl CaptureError {
     pub fn invalid(message: &str) -> Self {
@@ -40,6 +46,7 @@ impl CaptureError {
             code: "invalid_request",
             message: message.into(),
             status: 400,
+            ipc: ErrorCode::InvalidRequest,
         }
     }
     fn database(e: rusqlite::Error) -> Self {
@@ -47,7 +54,13 @@ impl CaptureError {
             code: "database_error",
             message: e.to_string(),
             status: 500,
+            ipc: crate::error::code_of(&e),
         }
+    }
+}
+impl From<CaptureError> for CommandError {
+    fn from(error: CaptureError) -> Self {
+        CommandError::new(error.ipc, error.message)
     }
 }
 pub fn validate_url(raw: &str) -> Result<String, CaptureError> {
@@ -111,6 +124,7 @@ fn save_in(
                     code: "request_id_conflict",
                     message: "Этот request_id уже использован для другой ссылки".into(),
                     status: 409,
+                    ipc: ErrorCode::Conflict,
                 });
             }
             let bookmark = db::get_bookmark_by_id(tx, bookmark_id)
@@ -198,14 +212,24 @@ pub fn import(conn: &Connection, requests: &[CaptureRequest]) -> Result<usize, C
     tx.commit().map_err(CaptureError::database)?;
     Ok(imported)
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export)]
+pub enum ChangeKind {
+    Created,
+    Updated,
+    Deleted,
+}
+/// Payload of the `bookmark-changed` event; `bookmark` is empty for a deletion.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
 pub struct BookmarkChange {
-    pub kind: &'static str,
+    pub kind: ChangeKind,
     pub id: i64,
     pub revision: i64,
     pub bookmark: Option<Bookmark>,
 }
-pub fn emit(app: &AppHandle, kind: &'static str, bookmark: &Bookmark) {
+pub fn emit(app: &AppHandle, kind: ChangeKind, bookmark: &Bookmark) {
     let _ = app.emit(
         "bookmark-changed",
         BookmarkChange {
@@ -223,7 +247,7 @@ pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) 
     let Some(bookmark) = result.bookmark.clone() else {
         return;
     };
-    emit(app, "created", &bookmark);
+    emit(app, ChangeKind::Created, &bookmark);
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let meta = metadata::fetch_metadata(&bookmark.url).await;
@@ -231,7 +255,7 @@ pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) 
             db::enrich_bookmark(&conn, bookmark.id, bookmark.revision, &meta).map_err(|_| ())
         });
         if let Ok(Some(updated)) = updated {
-            emit(&app, "updated", &updated);
+            emit(&app, ChangeKind::Updated, &updated);
         }
     });
 }

@@ -12,9 +12,11 @@ use std::{
 };
 use tauri::AppHandle;
 use tiny_http::{Header, Method, Response, Server, StatusCode};
+use ts_rs::TS;
 use url::Url;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, TS)]
+#[ts(export)]
 pub struct ServerStatus {
     pub running: bool,
     pub address: String,
