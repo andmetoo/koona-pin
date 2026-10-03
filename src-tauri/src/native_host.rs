@@ -13,8 +13,12 @@ pub const GECKO_ID: &str = "pin@netami.app";
 /// The extension built from extension/dev-key.txt (NP-015). Anyone can load an
 /// unpacked extension with that public key, so the installer build leaves it out.
 pub const DEV_EXTENSION_ID: &str = "iibgiagcbediajombmkohanobgicbepn";
-/// Chrome Web Store and Edge Add-ons ids, known once the listings exist (NP-017).
-pub const STORE_EXTENSION_IDS: &[&str] = &[];
+/// Chrome Web Store and Edge Add-ons ids from the catalog drafts (NP-017).
+/// Edge's id differs from Chrome's; it is added once its draft exists.
+pub const STORE_EXTENSION_IDS: &[&str] = &[
+    // Chrome Web Store
+    "dedcgklilbgbieabgpklellnaccpjhpc",
+];
 /// Registers even a development build or an isolated test run.
 pub const REGISTER_ENV: &str = "NETAMIPIN_REGISTER_HOST";
 
@@ -170,6 +174,17 @@ mod tests {
         assert!(!chromium_origins(true)
             .iter()
             .any(|origin| origin.contains(DEV_EXTENSION_ID)));
+    }
+
+    #[test]
+    fn the_installer_build_lets_the_store_extensions_in() {
+        for id in STORE_EXTENSION_IDS {
+            // Chromium ids: 32 letters a–p.
+            assert!(id.len() == 32 && id.bytes().all(|b| (b'a'..=b'p').contains(&b)), "{id}");
+            assert!(chromium_origins(true).contains(&format!("chrome-extension://{id}/")));
+            assert!(chromium_origins(false).contains(&format!("chrome-extension://{id}/")));
+        }
+        assert!(!STORE_EXTENSION_IDS.is_empty());
     }
 
     #[test]
