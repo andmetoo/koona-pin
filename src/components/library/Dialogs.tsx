@@ -7,6 +7,7 @@ import { Icon } from "../icons";
 import { Button, IconButton } from "../ui/Button";
 import { Dot, Field } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
+import { CollectionSelect, TagInput } from "./Fields";
 
 /** Runs an action, keeps the dialog and its input on failure. */
 function useAction() {
@@ -46,12 +47,12 @@ export function AddLinkDialog({
   onAdd: (data: { url: string; title?: string; collectionId: number | null; tags: string[] }) => Promise<void>;
   onClose: () => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { busy, error, setError, run } = useAction();
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [collection, setCollection] = useState(collectionId);
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   return (
     <Dialog title={t("add.title")} onClose={() => !busy && onClose()}>
       <form
@@ -63,10 +64,7 @@ export function AddLinkDialog({
               url: url.trim(),
               title: title.trim() || undefined,
               collectionId: collection,
-              tags: tags
-                .split(",")
-                .map((tag) => tag.trim().toLocaleLowerCase(i18n.language))
-                .filter(Boolean),
+              tags,
             }),
           );
         }}
@@ -96,20 +94,9 @@ export function AddLinkDialog({
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label={t("editor.collection")}>
-            {(id) => (
-              <select id={id} value={collection ?? ""} onChange={(e) => setCollection(e.target.value ? Number(e.target.value) : null)} className="field">
-                <option value="">{t("card.noCollection")}</option>
-                {collections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            {(id) => <CollectionSelect id={id} value={collection} collections={collections} onChange={setCollection} />}
           </Field>
-          <Field label={t("editor.tags")}>
-            {(id) => <input id={id} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("editor.tagsHint")} className="field" />}
-          </Field>
+          <Field label={t("editor.tags")}>{(id) => <TagInput id={id} tags={tags} onChange={setTags} />}</Field>
         </div>
         <Failure error={error} />
         <Footer>
