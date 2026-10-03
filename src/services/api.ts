@@ -8,6 +8,7 @@ import {
   BookmarkPage,
   BookmarkPatch,
   BookmarkQuery,
+  CaptureStatus,
   Collection,
   DataSummary,
   DomainCount,
@@ -15,7 +16,6 @@ import {
   LibraryCounts,
   LibraryPlace,
   LibraryStatus,
-  ServerStatus,
   Tag,
 } from "../types";
 import { demo } from "./demo";
@@ -117,7 +117,10 @@ const desktop = {
   getAppSettings: () => call<AppSettings>("get_app_settings"),
   setCloseToTray: (enabled: boolean) =>
     call<void>("set_close_to_tray", { enabled }),
-  getServerStatus: () => call<ServerStatus>("get_server_status"),
+  getCaptureStatus: () => call<CaptureStatus>("get_capture_status"),
+  onCaptureStatus: (callback: (status: CaptureStatus) => void) =>
+    subscription("capture-status", callback),
+  repairCapture: () => call<CaptureStatus>("repair_capture"),
   getLibraryStatus: () => call<LibraryStatus>("get_library_status"),
   onLibraryStatus: (callback: (status: LibraryStatus) => void) =>
     subscription("library-status", callback),

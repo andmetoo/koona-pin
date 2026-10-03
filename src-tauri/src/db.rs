@@ -80,6 +80,8 @@ pub fn new_uid() -> String {
 }
 
 /// Where a bookmark was saved from; `NULL` in the database means before v2.
+/// The schema also allows `bookmarklet`: the bookmarklet is gone (NP-016),
+/// but a released schema step does not change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Source {
     App,
@@ -87,7 +89,6 @@ pub enum Source {
     Edge,
     Firefox,
     Extension,
-    Bookmarklet,
     Import,
 }
 
@@ -99,19 +100,7 @@ impl Source {
             Source::Edge => "edge",
             Source::Firefox => "firefox",
             Source::Extension => "extension",
-            Source::Bookmarklet => "bookmarklet",
             Source::Import => "import",
-        }
-    }
-
-    /// The browser named by the extension (NP-016). An unknown or missing name
-    /// still saves the link, as "extension".
-    pub fn from_extension(name: Option<&str>) -> Self {
-        match name {
-            Some("chrome") => Source::Chrome,
-            Some("edge") => Source::Edge,
-            Some("firefox") => Source::Firefox,
-            _ => Source::Extension,
         }
     }
 }

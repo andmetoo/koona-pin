@@ -33,13 +33,13 @@ export function manifest(browser, { dev = false, key } = {}) {
     description: "__MSG_extensionDescription__",
     version: VERSION,
     default_locale: "en",
-    permissions: ["activeTab", "storage", "alarms"],
-    host_permissions: ["http://127.0.0.1/*"],
+    // Links go to the app only through its native messaging host (Р-17).
+    permissions: ["activeTab", "storage", "alarms", "nativeMessaging"],
     action: { default_title: "__MSG_actionTitle__", default_icon: icons },
     icons,
     options_ui: { page: "options.html", open_in_tab: true },
     content_security_policy: {
-      extension_pages: "script-src 'self'; object-src 'none'; connect-src http://127.0.0.1:28765",
+      extension_pages: "script-src 'self'; object-src 'none'",
     },
   };
   if (browser === "firefox")
@@ -134,6 +134,10 @@ export async function buildExtension({ log = console.log } = {}) {
       data: await readFile(file),
     })),
   );
+  // Inter, as in the app (SIL OFL 1.1): the options page needs no network.
+  const fonts = path.join(root, "node_modules", "@fontsource-variable", "inter", "files");
+  for (const font of ["inter-latin-wght-normal.woff2", "inter-cyrillic-wght-normal.woff2"])
+    files.push({ name: `fonts/${font}`, data: await readFile(path.join(fonts, font)) });
   const release = path.join(root, "release");
   await mkdir(release, { recursive: true });
   const result = { version: VERSION, devId: extensionId(key), unpacked: {}, packages: {} };

@@ -1,17 +1,18 @@
 use crate::{
+    browsers::CaptureStatus,
     capture::{self, CaptureRequest, ChangeKind},
+    capture_channel::{self, ChannelState},
     db::{
         self, Bookmark, BookmarkPage, BookmarkQuery, Collection, DbState, DomainCount,
         LibraryCounts, Source, Tag,
     },
     error::{CommandError, ErrorCode},
     library_state::{self, Library, LibraryStatus},
-    server::{ServerState, ServerStatus},
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::{atomic::Ordering, Arc};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
@@ -72,7 +73,6 @@ pub async fn add_bookmark(
         title,
         collection_id,
         tags: Some(tags),
-        source: None,
     };
     let saved = blocking(&state, move |conn| {
         capture::save(conn, &request, Source::App).map_err(CommandError::from)
@@ -235,14 +235,12 @@ pub async fn import_html_bookmarks(
 #[derive(Serialize, TS)]
 #[ts(export)]
 pub struct AppSettings {
-    pub capture_token: String,
     pub close_to_tray: bool,
 }
 #[tauri::command]
 pub async fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSettings, CommandError> {
     blocking(&state, |conn| {
         Ok(AppSettings {
-            capture_token: db::setting(conn, "capture_token").map_err(text)?,
             close_to_tray: db::setting(conn, "close_to_tray").map_err(text)? == "true",
         })
     })
@@ -265,9 +263,31 @@ pub async fn set_close_to_tray(
     state.close_to_tray.store(enabled, Ordering::Relaxed);
     Ok(())
 }
+/// Which browsers are connected; the sidebar and Settings → Browser (NP-016).
 #[tauri::command]
-pub fn get_server_status(state: State<'_, Arc<ServerState>>) -> Result<ServerStatus, CommandError> {
-    Ok(state.0.lock().map_err(CommandError::internal)?.clone())
+pub fn get_capture_status(state: State<'_, Arc<ChannelState>>) -> CaptureStatus {
+    state.status(chrono::Utc::now())
+}
+
+/// «Повторить» when capture cannot work: registers the host again and reopens
+/// the pipe if it failed.
+#[tauri::command]
+pub async fn repair_capture(
+    app: AppHandle,
+    state: State<'_, Arc<ChannelState>>,
+) -> Result<CaptureStatus, CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        capture_channel::register_host(&app, &state);
+        if state.channel_failed() {
+            if let Some(db) = app.try_state::<Arc<DbState>>() {
+                capture_channel::start(app.clone(), db.inner().clone(), state.clone());
+            }
+        }
+        state.status(chrono::Utc::now())
+    })
+    .await
+    .map_err(CommandError::internal)
 }
 
 #[tauri::command]
