@@ -53,7 +53,9 @@
     "addShort": "Add",
     "found_one": "{{count}} of {{total}}",
     "found_other": "{{count}} of {{total}}",
-    "clearTag": "Remove tag filter {{tag}}"
+    "clearTag": "Remove tag filter {{tag}}",
+    "domainChip": "Site: {{domain}}",
+    "clearDomain": "Remove site filter {{domain}}"
   },
   "more": {
     "import": "Import",
@@ -82,20 +84,25 @@
     "addTag": "Add tag…",
     "refresh": "Refresh title and preview",
     "delete": "Delete…",
-    "select": "Select: {{title}}"
+    "select": "Select: {{title}}",
+    "filterDomain": "Only bookmarks from {{domain}}"
   },
   "editor": {
-    "label": "Bookmark",
+    "label": "Edit bookmark",
     "close": "Close editor",
     "title": "Title",
     "collection": "Collection",
     "tags": "Tags",
-    "tagsHint": "Separated by commas",
     "notes": "Note",
     "notesPlaceholder": "What do you want to remember?",
-    "save": "Save changes",
+    "save": "Save",
     "saveAgain": "Save again",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "titleRequired": "Title can’t be empty",
+    "saveFailed": "Couldn’t save — your changes are still in the form.",
+    "tagsPlaceholder": "+ tag",
+    "removeTag": "Remove tag {{tag}}"
   },
   "add": {
     "title": "Add link",
@@ -210,11 +217,16 @@
     "noResults": "Nothing found",
     "noResultsIn": "Nothing found in «{{section}}»",
     "noResultsHint": "Try another query or clear the filters.",
-    "resetSearch": "Reset search",
+    "resetSearch": "Clear search",
     "noFavorites": "No favorites yet",
     "noFavoritesHint": "Mark a bookmark with the star — it will appear here.",
     "emptyCollection": "«{{name}}» is empty",
-    "emptyCollectionHint": "Add a link here or move bookmarks from the library."
+    "emptyCollectionHint": "Add a link here or move bookmarks from the library.",
+    "noResultsFor": "Nothing matches “{{query}}”",
+    "noResultsInFor": "Nothing in “{{section}}” matches “{{query}}”",
+    "searchHint": "Search covers titles, addresses, descriptions, notes and tags. Check the spelling or try part of a word.",
+    "searchEverywhere": "Search the whole library",
+    "resetFilters": "Clear filters"
   },
   "library": {
     "loading": "Loading the library",

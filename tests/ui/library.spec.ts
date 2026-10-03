@@ -32,7 +32,7 @@ test("dialog restores focus and editor persists collection clearing", async ({ p
   await page.getByRole("button", { name: /^Действия:/ }).first().click();
   await page.getByRole("menuitem", { name: "Изменить…" }).click();
   await page.getByLabel("Коллекция", { exact: true }).selectOption("");
-  await page.getByRole("button", { name: "Сохранить изменения" }).click();
+  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
   await page.getByRole("button", { name: "Список", exact: true }).click();
   await expect(page.locator('[data-bookmark-id="1"] [data-collection]')).toContainText("Без коллекции");
 });
@@ -327,4 +327,97 @@ test("list rows: date groups over all pages, hover actions, inactive checkbox", 
   await page.getByRole("button", { name: "Удалить", exact: true }).click();
   await expect(page.locator('[data-bookmark-id="250"]')).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Раньше 249" })).toBeVisible();
+});
+
+test("a click on a domain filters by site; Esc clears the search; nothing found offers the whole library", async ({ page }) => {
+  await page.locator('[data-bookmark-id="1"]').getByRole("button", { name: "Только закладки с vitsoe.com" }).click();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("1 из 6");
+  await page.getByRole("button", { name: "Убрать фильтр по сайту vitsoe.com" }).click();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+
+  const search = page.getByRole("textbox", { name: "Поиск в библиотеке" });
+  await page.getByRole("button", { name: /^Вдохновение/ }).click();
+  await search.fill("типографика");
+  await expect(page.getByRole("heading", { name: "В «Вдохновение» ничего не нашлось по «типографика»" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("0 из 2");
+  await expect(page.locator("label kbd")).toHaveText("Esc");
+  await page.getByRole("button", { name: "Искать во всей библиотеке" }).click();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
+  await expect(search).toHaveValue("типографика");
+  await search.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+});
+
+test("editor: empty title is marked, tags are chips, Ctrl Enter saves, Cancel keeps the bookmark", async ({ page }) => {
+  const card = page.locator('[data-bookmark-id="1"]');
+  await card.hover();
+  await card.getByRole("button", { name: /^Действия:/ }).click();
+  await page.getByRole("menuitem", { name: "Изменить…" }).click();
+  const title = page.getByLabel("Название", { exact: true });
+  await title.fill("");
+  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await expect(title).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Название не может быть пустым")).toBeVisible();
+  await expect(title).toBeFocused();
+
+  await title.fill("Десять принципов");
+  const tags = page.getByLabel("Теги", { exact: true });
+  await page.getByRole("button", { name: "Убрать тег принципы" }).click();
+  await tags.fill("Рамс");
+  await tags.press("Enter");
+  await tags.fill("braun");
+  // Ctrl Enter saves from any field and keeps the tag still being typed.
+  await tags.press("Control+Enter");
+  await expect(page.getByRole("status")).toContainText("Изменения сохранены");
+  await page.getByRole("button", { name: "Список", exact: true }).click();
+  const row = page.locator('[data-bookmark-id="1"]');
+  await expect(row).toContainText("Десять принципов");
+  await expect(row.getByRole("button", { name: "рамс" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "braun" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "принципы" })).toHaveCount(0);
+
+  await row.hover();
+  await row.getByRole("button", { name: /^Открыть:/ }).first().focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Изменить…" }).click();
+  await page.getByLabel("Название", { exact: true }).fill("Не сохранится");
+  await page.getByRole("button", { name: "Отмена", exact: true }).click();
+  await expect(row).toContainText("Десять принципов");
+  await row.hover();
+  await row.getByRole("button", { name: /^Открыть:/ }).first().focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Изменить…" }).click();
+  await page.getByRole("complementary").getByRole("button", { name: "Удалить…" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Удалить");
+});
+
+test("editor: a failed save shows the reason and keeps everything typed", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const { CommandError } = await import("/src/services/errors.ts");
+    const original = api.updateBookmark;
+    let failed = false;
+    api.updateBookmark = async (id, data) => {
+      if (!failed) {
+        failed = true;
+        throw new CommandError("database_busy", "busy");
+      }
+      return original(id, data);
+    };
+  });
+  const card = page.locator('[data-bookmark-id="2"]');
+  await card.hover();
+  await card.getByRole("button", { name: /^Действия:/ }).click();
+  await page.getByRole("menuitem", { name: "Изменить…" }).click();
+  await page.getByLabel("Название", { exact: true }).fill("Тишина и свет");
+  await page.getByLabel("Заметка", { exact: true }).fill("Перечитать зимой");
+  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Не удалось сохранить — изменения остались в форме.");
+  await expect(page.getByLabel("Название", { exact: true })).toHaveValue("Тишина и свет");
+  await expect(page.getByLabel("Заметка", { exact: true })).toHaveValue("Перечитать зимой");
+  await page.getByRole("button", { name: "Сохранить ещё раз", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Изменения сохранены");
+  await expect(page.locator('[data-bookmark-id="2"]')).toContainText("Тишина и свет");
 });
