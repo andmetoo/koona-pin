@@ -54,7 +54,7 @@ npm run test:extension
 npm run extension:zip
 ```
 
-Если `python` открывает Microsoft Store, используйте `py scripts/smoke-native.py`. Если после переноса папки проекта `cargo test` не находит файлы в `target\...\tauri-*\out`, выполните `cargo clean -p tauri --manifest-path src-tauri/Cargo.toml`. Переменная окружения `RUSTUP_TOOLCHAIN` переопределяет `rust-toolchain.toml`; для воспроизводимого запуска её не задавайте.
+Если `python` открывает Microsoft Store, используйте `py scripts/smoke-native.py`. Если после переноса папки проекта `cargo test` не находит файлы в `target\...\tauri-*\out`, выполните `cargo clean -p tauri --manifest-path src-tauri/Cargo.toml`. После замены файлов в `src-tauri/icons` иконка EXE обновится только после `cargo clean -p netamipin --manifest-path src-tauri/Cargo.toml`. Переменная окружения `RUSTUP_TOOLCHAIN` переопределяет `rust-toolchain.toml`; для воспроизводимого запуска её не задавайте.
 
 Если браузеры Playwright установлены в нестандартную папку, задайте `PLAYWRIGHT_BROWSERS_PATH`. На машине владельца Chromium из папки по умолчанию `%LOCALAPPDATA%\ms-playwright` не запускается (ошибка side-by-side, `spawn UNKNOWN` в extension smoke), та же сборка из `.cache/playwright` работает; поэтому там используется `.cache/playwright`. Для нативных тестов порты 28765 и 9225 должны быть свободны. Запускайте нативные и extension smoke последовательно: они используют один loopback-порт. Уже работающий сервер тесты не останавливают.
 
@@ -83,6 +83,7 @@ Chrome for Testing запускается с отдельным постоянн
 
 | Дата        | Коммит    | Окружение                                                                                                    | Результат |
 | ----------- | --------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| 3 окт. 2026 | NP-009 (#11) | Та же машина | Полный набор прошёл: Rust 14, UI 23, WebView2 4 (с обновлением с OddClicks), HTTP smoke, extension smoke |
 | 3 окт. 2026 | `b887a6f` | Та же машина, `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` | Полный набор прошёл: UI 23, WebView2 2, HTTP smoke, extension smoke; ≈ 45 с после сборки. `npm run check` ≈ 26 с |
 | 3 окт. 2026 | `6fe886a` | Чистый клон; Windows 11 26300, Node.js 26.10.0, npm 11.19.1, Rust 1.98.1, Python 3.14.7, Chromium 153.0.8010.12 (Playwright 1.63.0), WebView2 154.0.4258.53 | Всё прошло, кроме 12 визуальных сравнений (сглаживание шрифтов); эталоны пересозданы в `7e1dc1d`. Extension smoke прошёл с `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` |
 | 2 окт. 2026 | —         | Windows, Node.js 24.19.0, Chrome for Testing 153.0.8010.12; WebView2 1200×800 CSS px, `devicePixelRatio=1.5`  | Всё прошло, в том числе на release-бинарнике со встроенными ресурсами |
