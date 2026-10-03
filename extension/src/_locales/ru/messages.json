@@ -20,45 +20,84 @@
     "message": "Эту страницу нельзя сохранить. Поддерживаются только ссылки HTTP/HTTPS."
   },
   "errorUnavailable": {
-    "message": "Netami Pin недоступен. Ссылка ожидает передачи."
+    "message": "Netami Pin не ответил. Ссылка уйдёт ещё раз через минуту."
+  },
+  "errorHostMissing": {
+    "message": "Netami Pin не установлен или установка повреждена. Ссылка ждёт здесь."
+  },
+  "errorIncompatible": {
+    "message": "Расширение не подходит к Netami Pin. Обновите расширение — ссылка ждёт здесь."
+  },
+  "errorIncompatibleApp": {
+    "message": "Netami Pin старше расширения. Обновите Netami Pin — ссылка ждёт здесь."
+  },
+  "errorInvalidRequest": { "message": "Netami Pin не может сохранить эту ссылку." },
+  "errorConflict": {
+    "message": "Этот запрос уже использован для другой ссылки. Удалите его из очереди."
+  },
+  "errorDatabase": {
+    "message": "Netami Pin не смог сохранить ссылку. Она уйдёт ещё раз."
   },
   "errorNoConfirmation": { "message": "Подтверждение сохранения не получено" },
   "errorSaveFailed": { "message": "Не удалось сохранить ссылку" },
-  "errorNoToken": {
-    "message": "Подключите расширение: вставьте локальный токен в настройках."
-  },
-  "errorTokenFormat": {
-    "message": "Скопируйте полный токен из Netami Pin → Подключить браузер."
-  },
-  "errorTokenRejected": {
-    "message": "Токен не подходит. Скопируйте актуальный токен из Netami Pin."
-  },
   "errorUnknownAction": { "message": "Неизвестное действие" },
-  "optionsTitle": { "message": "Netami Pin — подключение и очередь" },
-  "optionsEyebrow": { "message": "Расширение браузера" },
-  "optionsHeading": { "message": "Хорошие находки,\nв одном месте." },
-  "optionsIntro": {
-    "message": "Сохраняйте страницу одним нажатием. Ссылки дождутся приложения в локальной очереди."
+  "optionsTitle": { "message": "Netami Pin — настройки расширения" },
+  "optionsHeading": { "message": "Расширение Netami Pin" },
+  "optionsLead": {
+    "message": "Сохранённые страницы попадают в библиотеку Netami Pin на этом компьютере."
+  },
+  "extensionVersion": {
+    "message": "Расширение $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Netami Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "последнее сохранение сегодня в $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "последнее сохранение $DATE$ в $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "3 октября" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
   },
   "connectionHeading": { "message": "Подключение" },
   "connectionChecking": { "message": "Проверяем приложение…" },
-  "connectionNotPaired": {
-    "message": "Вставьте токен, чтобы соединить расширение с приложением."
+  "statusConnected": { "message": "Подключено к Netami Pin" },
+  "checkAgain": { "message": "Проверить снова" },
+  "statusClosed": { "message": "Netami Pin закрыт" },
+  "statusClosedText": {
+    "message": "Он запустится в трее, когда вы сохраните страницу. До тех пор ссылки ждут здесь."
   },
-  "connectionReady": { "message": "Netami Pin запущен. Подключение настроено." },
-  "connectionUnavailable": {
-    "message": "Netami Pin закрыт или недоступен. Ссылки останутся в очереди."
+  "statusUpdate": { "message": "Обновите расширение" },
+  "statusUpdateText": {
+    "message": "Это расширение ($MINE$) не подходит к Netami Pin $APP$. Обновите его на странице расширений браузера — до тех пор ссылки ждут здесь.",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
   },
-  "tokenLabel": { "message": "Локальный токен из Netami Pin → Подключить браузер" },
-  "tokenPlaceholder": { "message": "Вставьте токен подключения" },
-  "connectButton": { "message": "Подключить" },
-  "tokenSaved": {
-    "message": "Токен сохранён. Ожидающие ссылки будут переданы приложению."
+  "statusUpdateApp": { "message": "Обновите Netami Pin" },
+  "statusUpdateAppText": {
+    "message": "Netami Pin $APP$ старше этого расширения ($MINE$). Обновите Netami Pin — до тех пор ссылки ждут здесь.",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
   },
+  "statusMissing": { "message": "Netami Pin не установлен" },
+  "statusMissingText": {
+    "message": "Расширение не находит приложение на этом компьютере. Установите Netami Pin или переустановите, если оно уже есть."
+  },
+  "download": { "message": "Скачать Netami Pin" },
   "queueHeading": { "message": "Ожидают передачи" },
-  "retryButton": { "message": "Повторить передачу" },
+  "sendNow": { "message": "Отправить сейчас" },
   "queueEmpty": {
-    "message": "Очередь пуста. Откройте интересную страницу и нажмите значок Netami Pin."
+    "message": "Ничего не ждёт. Нажмите значок Netami Pin на странице, чтобы сохранить её."
   },
   "removeButton": { "message": "Удалить" },
   "removeLabel": {
@@ -66,6 +105,6 @@
     "placeholders": { "title": { "content": "$1", "example": "Название страницы" } }
   },
   "optionsFooter": {
-    "message": "Данные хранятся в браузере и на вашем компьютере. Для передачи должны быть запущены браузер и Netami Pin."
+    "message": "Ссылки хранятся в браузере, пока Netami Pin не подтвердит их. Если приложение закрыто, сохранение страницы запустит его в трее."
   }
 }

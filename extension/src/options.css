@@ -1,13 +1,64 @@
+/* Frame «17 · Extension settings» (iterone.sketch); tokens from doc/guidelines.md. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(fonts/inter-cyrillic-wght-normal.woff2) format("woff2-variations");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(fonts/inter-latin-wght-normal.woff2) format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #faf9f6;
   --card: #fffefa;
+  --card-border: #e8e6df;
+  --divider: #efede6;
   --ink: #2e302b;
   --muted: #74746a;
-  --line: #deded5;
-  --accent: #a34f34;
-  font-family: "Segoe UI", sans-serif;
-  font-size: 14px;
+  --meta: #8a897f;
+  --subtle: #9a998e;
+  --faint: #b8b6ab;
+  --secondary: #f2f1ec;
+  --hover: #ece9e2;
+  --accent: #2f6b4f;
+  --green: #5b8a72;
+  --ochre: #b59a45;
+  --danger: #af3838;
+  --danger-soft: #f6e4e1;
+  --on-danger-soft: #8f2c2c;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #22221f;
+    --card: #2b2b26;
+    --card-border: #2b2b26;
+    --divider: #33332d;
+    --ink: #e9e6dc;
+    --muted: #a4a296;
+    --meta: #8c8a7f;
+    --subtle: #8c8a7f;
+    --faint: #6a695f;
+    --secondary: #33332d;
+    --hover: #3d3d35;
+    --accent: #8fd0ae;
+    --green: #7db096;
+    --ochre: #d4b862;
+    --danger: #e99797;
+    --danger-soft: #3a2826;
+    --on-danger-soft: #e99797;
+  }
 }
 * {
   box-sizing: border-box;
@@ -16,90 +67,177 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
+  /* Chrome gives extension pages its own body font at 75 %; set ours here. */
+  font-family: inherit;
+  font-size: 13px;
 }
 main {
-  max-width: 780px;
-  padding: 45px 30px;
-  margin: auto;
+  max-width: 728px;
+  margin: 0 auto;
+  padding: 40px 24px 48px;
 }
-header {
+p {
+  margin: 0;
+}
+.top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 24px;
+  gap: 16px;
 }
 .brand {
-  font-size: 23px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: -0.8px;
 }
-.eyebrow {
-  font-size: 11px;
-  color: var(--muted);
+.version {
+  font-size: 12px;
+  color: var(--subtle);
 }
 h1 {
-  font:
-    400 46px/1.1 Georgia,
-    serif;
-  letter-spacing: -1.5px;
-  margin: 36px 0 16px;
-  /* The heading's line break comes from the message text. */
-  white-space: pre-line;
+  margin: 40px 0 6px;
+  font-size: 22px;
+  font-weight: 600;
 }
-.intro {
+.lead {
   color: var(--muted);
-  line-height: 1.7;
-  max-width: 530px;
 }
 section {
-  border-top: 1px solid var(--line);
-  margin-top: 35px;
-  padding-top: 24px;
+  margin-top: 22px;
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
 }
 h2 {
-  font-size: 17px;
-  font-weight: 500;
-  margin: 0 0 18px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--subtle);
+  text-transform: uppercase;
 }
-label {
+.section-head h2 {
+  margin: 0;
+}
+.card {
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--card);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 12px 16px;
+}
+.row + .row {
+  border-top: 1px solid var(--divider);
+}
+.row .text {
+  min-width: 0;
+  flex: 1;
+}
+.title {
+  font-weight: 500;
+}
+.meta {
+  margin-top: 3px;
   font-size: 12px;
   color: var(--muted);
-  display: block;
-  margin: 20px 0 8px;
 }
-input,
-button {
-  font: inherit;
-}
-input {
-  min-width: 0;
-  width: 100%;
-  padding: 11px 13px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--ink);
-  border-radius: 4px;
-}
-.field-row {
-  display: flex;
-  gap: 10px;
-}
-button {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--bg);
-  padding: 10px 14px;
-  border-radius: 4px;
-  cursor: pointer;
+.url {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.secondary {
-  border-color: var(--line);
-  background: none;
-  color: var(--ink);
+.error {
+  margin-top: 3px;
   font-size: 12px;
+  color: var(--danger);
+}
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+[data-state="connected"] .dot {
+  background: var(--green);
+}
+[data-state="update"] .dot {
+  background: var(--ochre);
+}
+[data-state="missing"] .dot {
+  background: var(--danger);
+}
+/* Other states: a card with a head, an explanation and an action. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.state .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+.state .text {
+  color: var(--muted);
+  line-height: 18px;
+}
+.card[data-state="missing"] {
+  border-color: transparent;
+  background: var(--danger-soft);
+  color: var(--on-danger-soft);
+}
+.card[data-state="missing"] .text {
+  color: var(--on-danger-soft);
+}
+button,
+.button {
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--secondary);
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 140ms;
+}
+button:hover,
+.button:hover {
+  background: var(--hover);
+}
+.card[data-state="missing"] .button {
+  background: var(--card);
+}
+.link {
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.link:hover {
+  background: none;
+  text-decoration: underline;
 }
 button:disabled {
   opacity: 0.5;
@@ -107,95 +245,35 @@ button:disabled {
 }
 :focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 4px;
-}
-.queue-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 15px;
-}
-#count {
-  font-size: 12px;
-  color: var(--muted);
-  margin-left: 6px;
-}
-#message {
-  color: var(--accent);
-  font-size: 12px;
-  line-height: 1.6;
-}
-.queue-item {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  border-bottom: 1px solid var(--line);
-  padding: 18px 0;
-}
-.queue-item > div {
-  min-width: 0;
-  flex: 1;
-}
-.queue-title {
-  margin: 0 0 5px;
-  font-size: 14px;
-}
-.queue-url {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.queue-error {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 8px 0 0;
-}
-.queue-remove {
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-size: 12px;
-  padding: 8px;
+  outline-offset: 2px;
 }
 .empty {
-  padding: 22px 0;
+  padding: 14px 16px;
   color: var(--muted);
-  font-size: 13px;
+  line-height: 18px;
+}
+#message:not(:empty) {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--danger);
 }
 footer {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.8;
-  padding: 30px 0;
+  margin-top: 22px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--subtle);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #22221f;
-    --card: #2b2b26;
-    --ink: #e9e6dc;
-    --muted: #a4a296;
-    --line: #3d3d35;
-    --accent: #db987a;
+@media (prefers-reduced-motion: reduce) {
+  button,
+  .button {
+    transition: none;
   }
 }
-@media (max-width: 500px) {
+@media (max-width: 520px) {
   main {
-    padding: 25px 20px;
+    padding: 24px 16px;
   }
-  h1 {
-    font-size: 36px;
-  }
-  .field-row {
-    flex-direction: column;
-  }
-  .queue-heading {
+  .row {
     flex-wrap: wrap;
-  }
-  .queue-item {
-    gap: 6px;
   }
 }

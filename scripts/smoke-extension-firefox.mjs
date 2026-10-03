@@ -106,7 +106,7 @@ try {
       expression: `JSON.stringify({
         lang: document.documentElement.lang,
         heading: document.querySelector("h1").textContent,
-        connection: document.getElementById("connection").textContent,
+        status: document.getElementById("status").dataset.state,
         count: document.getElementById("count").textContent,
         empty: document.querySelector("#queue .empty")?.textContent ?? null,
         message: document.getElementById("message").textContent,
@@ -116,17 +116,20 @@ try {
     });
     return JSON.parse(result.value);
   };
-  // The queue and health answers come from the background page.
+  // The queue and the status come from the background page; the status from
+  // a hello through native messaging.
   const state = await until(async () => {
     const s = await read();
-    return s.empty ? s : null;
+    return s.empty && s.status !== "checking" ? s : null;
   }, "answer from the background page");
   assert.equal(state.message, "", `options page error: ${state.message}`);
   assert.equal(state.count, "0");
-  assert.match(state.heading, /Good finds,\nin one place\./);
-  assert.match(state.connection, /^(Paste the connection key|Netami Pin is)/);
+  assert.equal(state.heading, "Netami Pin extension");
+  // Which state depends on whether this computer registered the host; any of
+  // them means the background page talked to the browser's native messaging.
+  assert.ok(["missing", "closed", "connected", "update"].includes(state.status), state.status);
   console.log(
-    `PASS: Firefox temporary install of ${path.basename(built.packages.firefox)}, background module, options page (${state.lang})`,
+    `PASS: Firefox temporary install of ${path.basename(built.packages.firefox)}, background module, native messaging hello (${state.status}), options page (${state.lang})`,
   );
 } finally {
   await session?.send("browser.close", {}).catch(() => {});

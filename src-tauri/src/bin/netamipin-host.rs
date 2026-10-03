@@ -1,0 +1,209 @@
+// No console window: the browser starts the host for every message.
+#![windows_subsystem = "windows"]
+//! The native messaging host (Р-17). The browser starts it for each message of
+//! the extension; it passes the message to the running app over the capture
+//! pipe and returns the reply. A capture starts a closed app in the tray first.
+//!
+//! The host does not link the app: it only shares the pipe name.
+
+#[path = "../pipe_name.rs"]
+mod pipe_name;
+
+use serde_json::{json, Value};
+use std::{
+    fs::OpenOptions,
+    io::{self, BufRead, BufReader, Read, Write},
+    thread,
+    time::{Duration, Instant},
+};
+
+/// The app takes a capture 0.35–0.45 s after a hidden start (NP-014); the rest
+/// is room for a slow disk or the first start of WebView2.
+const START_WAIT: Duration = Duration::from_secs(10);
+/// A message from the extension is far smaller; anything larger is refused.
+const MAX_MESSAGE: usize = 1024 * 1024;
+
+fn main() {
+    let caller = caller(&std::env::args().skip(1).collect::<Vec<_>>());
+    let mut input = io::stdin().lock();
+    let mut output = io::stdout().lock();
+    while let Some(message) = read_message(&mut input) {
+        let reply = match message {
+            Ok(message) => relay(caller.as_deref(), message),
+            Err(error) => failure("invalid_request", &error),
+        };
+        if write_message(&mut output, &reply).is_err() {
+            break;
+        }
+    }
+}
+
+/// Chrome and Edge pass the extension's origin first; Firefox passes the
+/// manifest path and then the add-on id.
+fn caller(args: &[String]) -> Option<String> {
+    match args {
+        [first, ..] if first.starts_with("chrome-extension://") => Some(first.clone()),
+        [_, id, ..] => Some(id.clone()),
+        _ => None,
+    }
+}
+
+/// UTF-8 JSON preceded by its length, a 32-bit number in native byte order.
+fn read_message(input: &mut impl Read) -> Option<Result<Value, String>> {
+    let mut length = [0u8; 4];
+    input.read_exact(&mut length).ok()?;
+    let length = u32::from_ne_bytes(length) as usize;
+    if length > MAX_MESSAGE {
+        // Skip it whole, so the next message is read from its start.
+        io::copy(&mut input.take(length as u64), &mut io::sink()).ok()?;
+        return Some(Err("message too large".into()));
+    }
+    let mut body = vec![0u8; length];
+    input.read_exact(&mut body).ok()?;
+    Some(serde_json::from_slice(&body).map_err(|e| e.to_string()))
+}
+
+fn write_message(output: &mut impl Write, message: &Value) -> io::Result<()> {
+    let body = serde_json::to_vec(message)?;
+    output.write_all(&(body.len() as u32).to_ne_bytes())?;
+    output.write_all(&body)?;
+    output.flush()
+}
+
+fn failure(code: &str, message: &str) -> Value {
+    json!({ "ok": false, "code": code, "message": message })
+}
+
+fn relay(caller: Option<&str>, message: Value) -> Value {
+    let capture = message["type"] == "capture";
+    let envelope = json!({ "caller": caller, "message": message });
+    if let Ok(reply) = send(&envelope) {
+        return reply;
+    }
+    // Only a capture starts the app: a hello does not open an app the user closed.
+    if capture && start_app().is_ok() {
+        let started = Instant::now();
+        while started.elapsed() < START_WAIT {
+            thread::sleep(Duration::from_millis(50));
+            if let Ok(reply) = send(&envelope) {
+                return reply;
+            }
+        }
+    }
+    failure("app_unavailable", "Netami Pin не запущен или не отвечает")
+}
+
+fn send(envelope: &Value) -> io::Result<Value> {
+    let name = pipe_name::pipe_name();
+    let mut attempts = 0;
+    let pipe = loop {
+        match OpenOptions::new().read(true).write(true).open(&name) {
+            Ok(pipe) => break pipe,
+            // ERROR_PIPE_BUSY: the app is about to offer the next instance.
+            Err(error) if error.raw_os_error() == Some(231) && attempts < 40 => {
+                attempts += 1;
+                thread::sleep(Duration::from_millis(25));
+            }
+            Err(error) => return Err(error),
+        }
+    };
+    (&pipe).write_all(format!("{envelope}\n").as_bytes())?;
+    let mut line = String::new();
+    BufReader::new((&pipe).take(MAX_MESSAGE as u64)).read_line(&mut line)?;
+    serde_json::from_str(&line).map_err(io::Error::other)
+}
+
+/// `netamipin.exe --autostart` next to the host: hidden, in the tray.
+///
+/// Firefox kills the host's job when it is done, so the app leaves the job
+/// (`CREATE_BREAKAWAY_FROM_JOB`); where the job forbids that, it starts inside.
+/// No handles are inherited: the app must not hold the browser's pipes, or the
+/// browser waits for it (NP-014).
+#[cfg(windows)]
+fn start_app() -> io::Result<()> {
+    use windows_sys::Win32::{
+        Foundation::CloseHandle,
+        System::Threading::{
+            CreateProcessW, CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS,
+            PROCESS_INFORMATION, STARTUPINFOW,
+        },
+    };
+    let host = std::env::current_exe()?;
+    let folder = host.parent().ok_or_else(|| io::Error::other("no folder"))?;
+    let app = folder.join("netamipin.exe");
+    let mut last = io::Error::other("not started");
+    for breakaway in [true, false] {
+        let mut command: Vec<u16> = format!("\"{}\" --autostart", app.display())
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+        let directory: Vec<u16> = folder
+            .as_os_str()
+            .to_string_lossy()
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+        let mut startup: STARTUPINFOW = unsafe { std::mem::zeroed() };
+        startup.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        let mut process: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+        let flags = DETACHED_PROCESS
+            | CREATE_NEW_PROCESS_GROUP
+            | if breakaway { CREATE_BREAKAWAY_FROM_JOB } else { 0 };
+        let created = unsafe {
+            CreateProcessW(
+                std::ptr::null(),
+                command.as_mut_ptr(),
+                std::ptr::null(),
+                std::ptr::null(),
+                0,
+                flags,
+                std::ptr::null(),
+                directory.as_ptr(),
+                &startup,
+                &mut process,
+            )
+        };
+        if created != 0 {
+            unsafe {
+                CloseHandle(process.hProcess);
+                CloseHandle(process.hThread);
+            }
+            return Ok(());
+        }
+        last = io::Error::last_os_error();
+    }
+    Err(last)
+}
+
+#[cfg(not(windows))]
+fn start_app() -> io::Result<()> {
+    Err(io::Error::other("not available on this system yet"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn caller_is_the_origin_or_the_add_on_id() {
+        let chrome = ["chrome-extension://abc/".to_string(), "--parent-window=0".into()];
+        assert_eq!(caller(&chrome).as_deref(), Some("chrome-extension://abc/"));
+        let firefox = [r"C:\Netami Pin\app.netami.pin.firefox.json".to_string(), "pin@netami.app".into()];
+        assert_eq!(caller(&firefox).as_deref(), Some("pin@netami.app"));
+        assert_eq!(caller(&[]), None);
+    }
+
+    #[test]
+    fn messages_are_length_prefixed_and_oversized_ones_are_skipped() {
+        let mut stream = Vec::new();
+        write_message(&mut stream, &json!({ "type": "hello" })).unwrap();
+        stream.extend_from_slice(&((MAX_MESSAGE + 1) as u32).to_ne_bytes());
+        stream.extend(std::iter::repeat_n(b' ', MAX_MESSAGE + 1));
+        write_message(&mut stream, &json!({ "type": "capture" })).unwrap();
+        let mut input = stream.as_slice();
+        assert_eq!(read_message(&mut input).unwrap().unwrap()["type"], "hello");
+        assert!(read_message(&mut input).unwrap().is_err());
+        assert_eq!(read_message(&mut input).unwrap().unwrap()["type"], "capture");
+        assert!(read_message(&mut input).is_none());
+    }
+}
