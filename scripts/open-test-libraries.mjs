@@ -29,10 +29,11 @@ function inspect(file) {
   try {
     const db = new DatabaseSync(file, { readOnly: true });
     const version = db.prepare("PRAGMA user_version").get().user_version;
-    const count = db.prepare("SELECT count(*) AS n FROM bookmarks").get().n;
+    const id = db.prepare("PRAGMA application_id").get().application_id;
     const check = db.prepare("PRAGMA quick_check").get().quick_check;
+    const count = db.prepare("SELECT count(*) AS n FROM bookmarks").get().n;
     db.close();
-    return `v${version}, ${count} закладок, quick_check ${check}`;
+    return `схема ${version}, application_id 0x${(id >>> 0).toString(16)}, ${count} закладок, quick_check ${check}`;
   } catch (error) {
     return `не читается: ${error.message}`;
   }
@@ -55,6 +56,12 @@ async function open(name, env) {
       result = `открыто за ${Date.now() - started} мс`;
       break;
     }
+    // The app reports a refused library on stderr and shows the error screen.
+    const refused = stderr.split("\n").find((line) => line.includes("Cannot open the library"));
+    if (refused) {
+      result = `экран ошибки за ${Date.now() - started} мс: ${refused.trim()}`;
+      break;
+    }
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
   app.kill();
@@ -69,13 +76,6 @@ for (const name of (await readdir(libraries)).filter((file) => file.endsWith(".d
   await mkdir(data, { recursive: true });
   await copyFile(path.join(libraries, name), path.join(data, "netamipin.db"));
   await open(name, { NETAMIPIN_DATA_DIR: data, WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview") });
-  console.log(`${"".padEnd(30)} после: ${inspect(path.join(data, "netamipin.db"))}`);
+  const moved = (await readdir(data)).filter((file) => file.startsWith("netamipin.old-"));
+  console.log(`${"".padEnd(30)} после: ${inspect(path.join(data, "netamipin.db"))}${moved.length ? `; прежняя перенесена: ${moved.join(", ")}` : ""}`);
 }
-const imported = path.resolve(".test-data", `open-${stamp}`, "oddclicks-legacy");
-await mkdir(imported, { recursive: true });
-await open("oddclicks-legacy (импорт)", {
-  NETAMIPIN_DATA_DIR: imported,
-  NETAMIPIN_LEGACY_DIR: path.join(libraries, "oddclicks-legacy"),
-  WEBVIEW2_USER_DATA_FOLDER: path.join(imported, "webview"),
-});
-console.log(`${"".padEnd(30)} после: ${inspect(path.join(imported, "netamipin.db"))}`);
