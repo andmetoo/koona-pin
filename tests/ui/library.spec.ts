@@ -230,3 +230,76 @@ test("a large library loads page by page while scrolling", async ({ page }) => {
   await expect(page.getByText("125 из 250")).toBeVisible();
   await expect(cards).toHaveCount(100);
 });
+
+/** 250 demo bookmarks, newest first by id; odd ones are titled «Ёлка». */
+async function largeLibrary(page: import("@playwright/test").Page) {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const [first] = (await api.getBookmarks()).items;
+    const bookmarks = Array.from({ length: 250 }, (_, i) => ({
+      ...first,
+      id: i + 1,
+      url: `https://example.com/${i + 1}`,
+      title: `Запись ${i + 1}`,
+      tags: [],
+      created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
+    }));
+    localStorage.setItem("netamipin.demo.v2", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+  });
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(100);
+}
+
+test("a change during a page request shows the newer version", async ({ page }) => {
+  await largeLibrary(page);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const original = api.getBookmarks;
+    api.getBookmarks = async (filters, request) => {
+      const result = await original(filters, request);
+      // The page is read, then bookmark 100 (on it) changes before it arrives.
+      if (request?.after) {
+        await api.updateBookmark(100, { title: "Изменено во время загрузки" });
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return result;
+    };
+  });
+  await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(200);
+  await expect(page.locator('[data-bookmark-id="100"]')).toContainText("Изменено во время загрузки");
+});
+
+test("a failing next page is not retried in a loop", async ({ page }) => {
+  await largeLibrary(page);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const original = api.getBookmarks;
+    (window as unknown as { failures: number }).failures = 0;
+    api.getBookmarks = async (filters, request) => {
+      if (request?.after) {
+        (window as unknown as { failures: number }).failures++;
+        throw new Error("Диск недоступен");
+      }
+      return original(filters, request);
+    };
+  });
+  await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(page.getByText("Диск недоступен")).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => (window as unknown as { failures: number }).failures)).toBe(1);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(100);
+});
+
+test("a changed bookmark joins an open search by the search rules", async ({ page }) => {
+  const search = page.getByRole("textbox", { name: "Поиск в библиотеке" });
+  await search.fill("ёлочн ИГРУШКИ");
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(0);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    await api.updateBookmark(3, { notes: "Игрушки для елочных базаров" });
+  });
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
+  await expect(page.locator('[data-bookmark-id="3"]')).toBeVisible();
+  await expect(page.getByText("1 из 6")).toBeVisible();
+});

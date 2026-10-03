@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
-import { isAfter, matchesBookmark, mergeBookmark } from "../services/library";
+import { isAfter, matchesFilters, mergeBookmark } from "../services/library";
 import {
   Bookmark,
+  BookmarkChange,
   Collection,
   DomainCount,
   FilterState,
@@ -21,6 +22,8 @@ export function useLibrary(
   const [total, setTotal] = useState(0);
   const [next, setNext] = useState<PageCursor | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  /** A next page failed: no more automatic attempts until a refresh. */
+  const [moreFailed, setMoreFailed] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [domains, setDomains] = useState<DomainCount[]>([]);
@@ -42,7 +45,16 @@ export function useLibrary(
   pendingRef.current = pending;
   const nextRef = useRef(next);
   nextRef.current = next;
+  const bookmarksRef = useRef(bookmarks);
+  bookmarksRef.current = bookmarks;
+  /**
+   * The newest version of changed bookmarks whose page has not been read
+   * yet. A page requested before the change carries the old row; this one
+   * replaces it.
+   */
+  const unread = useRef(new Map<number, Bookmark>());
   const loadingMoreRef = useRef(false);
+  const moreFailedRef = useRef(false);
   const catalogSeq = useRef(0);
   const totalSeq = useRef(0);
   const totalTimer = useRef(0);
@@ -87,9 +99,12 @@ export function useLibrary(
           return;
         }
         remember(page.items);
+        unread.current.clear();
         setBookmarks(page.items.filter((b) => !pendingRef.current[b.id]));
-        setTotal(page.total);
+        setTotal(page.total ?? 0);
         setNext(page.next);
+        moreFailedRef.current = false;
+        setMoreFailed(false);
         setError("");
         setLoading(false);
       }
@@ -102,7 +117,7 @@ export function useLibrary(
   }, []);
   const loadMore = useCallback(async () => {
     const after = nextRef.current;
-    if (!after || loadingMoreRef.current) return;
+    if (!after || loadingMoreRef.current || moreFailedRef.current) return;
     const id = seq.current;
     loadingMoreRef.current = true;
     setLoadingMore(true);
@@ -110,20 +125,30 @@ export function useLibrary(
       const page = await api.getBookmarks(filtersRef.current, { after });
       if (alive.current && id === seq.current) {
         remember(page.items);
+        // A row older than a change applied meanwhile: the newer version if
+        // it still belongs here, nothing if it was deleted or left the list.
+        const rows = page.items.flatMap((b) => {
+          const newer = unread.current.get(b.id);
+          unread.current.delete(b.id);
+          return current(b) ? [b] : newer ? [newer] : [];
+        });
         setBookmarks((prev) => {
           const known = new Set(prev.map((b) => b.id));
           return [
             ...prev,
-            ...page.items.filter(
-              (b) => !known.has(b.id) && current(b) && !pendingRef.current[b.id],
-            ),
+            ...rows.filter((b) => !known.has(b.id) && !pendingRef.current[b.id]),
           ];
         });
-        setTotal(page.total);
         setNext(page.next);
       }
     } catch (err) {
-      if (alive.current && id === seq.current) setError(describeError(err));
+      if (alive.current && id === seq.current) {
+        // The sentinel stays visible; retrying at once would loop. «Retry»
+        // in the error banner starts over with a refresh.
+        moreFailedRef.current = true;
+        setMoreFailed(true);
+        setError(describeError(err));
+      }
     } finally {
       loadingMoreRef.current = false;
       if (alive.current) setLoadingMore(false);
@@ -138,7 +163,7 @@ export function useLibrary(
       try {
         const page = await api.getBookmarks(filtersRef.current, { limit: 1 });
         if (alive.current && id === totalSeq.current && list === seq.current)
-          setTotal(page.total);
+          setTotal(page.total ?? 0);
       } catch {
         /* The next refresh brings the total. */
       }
@@ -174,32 +199,71 @@ export function useLibrary(
     refresh,
   ]);
   useEffect(() => {
-    const off = api.onBookmarkChanged((change) => {
-      if ((revisions.current.get(change.id) ?? 0) >= change.revision) return;
-      revisions.current.set(change.id, change.revision);
-      eventVersion.current++;
+    /** `null`: whether the change moved the total is unknown, ask again. */
+    const adjustTotal = (delta: number | null) => {
+      if (delta === null) refreshTotal();
+      else if (delta !== 0) setTotal((value) => Math.max(0, value + delta));
+    };
+    const apply = (change: BookmarkChange, matches: boolean) => {
       const b = change.bookmark;
-      if (!b || !matchesBookmark(b, filtersRef.current)) {
+      const shown =
+        bookmarksRef.current.some((row) => row.id === change.id) ||
+        !!pendingRef.current[change.id];
+      const unreadBefore = unread.current.has(change.id);
+      const beyond = !!b && isAfter(b, nextRef.current);
+      if (!b || !matches) {
+        unread.current.delete(change.id);
         setBookmarks((prev) => prev.filter((row) => row.id !== change.id));
         const next = { ...pendingRef.current };
         delete next[change.id];
         pendingRef.current = next;
         setPending(next);
-      } else if (isAfter(b, nextRef.current)) {
+        // Counted before if it was shown or known on an unread page. Within
+        // the read pages, a row that matched would have been shown.
+        const counted = shown || unreadBefore;
+        const known = counted || nextRef.current === null || (!!b && !beyond);
+        adjustTotal(counted ? -1 : known ? 0 : null);
+      } else if (beyond) {
         // Its place is on a page not read yet; scrolling brings it there.
+        unread.current.set(b.id, b);
         setBookmarks((prev) => prev.filter((row) => row.id !== b.id));
-      } else if (
-        pendingRef.current[b.id] ||
-        (change.kind === "created" && (scrollRef.current?.scrollTop ?? 0) > 20)
-      ) {
-        const next = { ...pendingRef.current, [b.id]: b };
-        pendingRef.current = next;
-        setPending(next);
+        adjustTotal(unreadBefore ? 0 : change.kind === "created" ? 1 : null);
       } else {
-        setBookmarks((prev) => mergeBookmark(prev, b));
+        if (
+          pendingRef.current[b.id] ||
+          (change.kind === "created" && (scrollRef.current?.scrollTop ?? 0) > 20)
+        ) {
+          const next = { ...pendingRef.current, [b.id]: b };
+          pendingRef.current = next;
+          setPending(next);
+        } else {
+          setBookmarks((prev) => mergeBookmark(prev, b));
+        }
+        // Within the read pages: not shown means it did not match before.
+        adjustTotal(shown ? 0 : 1);
       }
-      refreshTotal();
       void refreshCatalog();
+    };
+    const off = api.onBookmarkChanged((change) => {
+      if ((revisions.current.get(change.id) ?? 0) >= change.revision) return;
+      revisions.current.set(change.id, change.revision);
+      eventVersion.current++;
+      const b = change.bookmark;
+      const filters = filtersRef.current;
+      if (!b || !matchesFilters(b, filters)) return apply(change, false);
+      if (!filters.search.trim()) return apply(change, true);
+      // Search words are matched by the database, the only copy of the rules.
+      const list = seq.current;
+      api.getBookmarks(filters, { id: b.id, limit: 1 }).then(
+        (page) => {
+          const latest = revisions.current.get(b.id) === change.revision;
+          if (alive.current && list === seq.current && latest)
+            apply(change, page.items.length > 0);
+        },
+        () => {
+          if (alive.current && list === seq.current) void refresh();
+        },
+      );
     });
     const offInvalidate = api.onLibraryInvalidated(() => {
       eventVersion.current++;
@@ -222,7 +286,7 @@ export function useLibrary(
     bookmarks,
     /** Every bookmark that matches, loaded or not. */
     total,
-    hasMore: next !== null,
+    hasMore: next !== null && !moreFailed,
     loadingMore,
     loadMore,
     collections,
