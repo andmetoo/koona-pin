@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isAfter,
   matchesBookmark,
+  matchesFilters,
   mergeBookmark,
   sortBookmarks,
 } from "./library";
@@ -48,6 +49,10 @@ describe("library reconciliation", () => {
     expect(matchesBookmark(tagged, { search: "ЁЛКА дизайн" })).toBe(true);
     expect(matchesBookmark(tagged, { search: "  игрушки   ёлка " })).toBe(true);
     expect(matchesBookmark(tagged, { search: "ёлка rust" })).toBe(false);
+  });
+  it("leaves search words to the database outside the demo", () => {
+    expect(matchesFilters(b, { search: "nothing like it", tag: "дизайн" })).toBe(true);
+    expect(matchesFilters(b, { domain: "other.org" })).toBe(false);
   });
   it("knows which bookmarks lie on pages not read yet", () => {
     const cursor = { created_at: "2026-10-01", id: 5 };

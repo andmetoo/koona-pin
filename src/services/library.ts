@@ -1,23 +1,34 @@
 import { Bookmark, FilterState, PageCursor } from "../types";
 
-/** How search compares text, as `db::fold` in Rust: lower case, «ё» as «е». */
+/** Lower case, «ё» as «е»: the demo's stand-in for the search index. */
 export function foldText(text: string): string {
   return text.toLowerCase().replace(/ё/g, "е");
 }
 
-/** Every word of the query, in any field and order (NP-011). */
-export function matchesBookmark(
+/**
+ * The exact filters: favorites, collection, domain, tag. Whether search words
+ * match is decided by the database (`get_bookmarks` with `id`), so the
+ * interface keeps no second copy of the search rules.
+ */
+export function matchesFilters(
   b: Bookmark,
   filters: Partial<FilterState>,
 ): boolean {
-  if (
+  return !(
     (filters.onlyFavorites && !b.is_favorite) ||
     (filters.collectionId != null &&
       b.collection_id !== filters.collectionId) ||
     (filters.domain && b.domain !== filters.domain) ||
     (filters.tag && !b.tags?.includes(filters.tag))
-  )
-    return false;
+  );
+}
+
+/** The demo adapter's search: every word of the query, in any field and order. */
+export function matchesBookmark(
+  b: Bookmark,
+  filters: Partial<FilterState>,
+): boolean {
+  if (!matchesFilters(b, filters)) return false;
   const words = foldText(filters.search ?? "").split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
   const text = foldText(
