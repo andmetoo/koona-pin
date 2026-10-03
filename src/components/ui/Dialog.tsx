@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../icons";
 import { IconButton } from "./Button";
+import { Kbd } from "./Hint";
 
 /**
  * A modal dialog or, with `drawer`, the editor over the content in a narrow
@@ -61,9 +62,16 @@ export function Dialog({
           <h2 id={titleId} className="text-lg font-semibold">
             {title}
           </h2>
-          <IconButton label={t("common.close")} onClick={onClose}>
-            <Icon icon={X} />
-          </IconButton>
+          <span className="flex items-center gap-1.5">
+            <IconButton label={t("common.close")} onClick={onClose}>
+              <Icon icon={X} />
+            </IconButton>
+            {drawer && (
+              <span aria-hidden>
+                <Kbd>Esc</Kbd>
+              </span>
+            )}
+          </span>
         </header>
         {children}
       </div>

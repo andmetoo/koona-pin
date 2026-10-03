@@ -57,7 +57,9 @@
     "found_few": "{{count}} из {{total}}",
     "found_many": "{{count}} из {{total}}",
     "found_other": "{{count}} из {{total}}",
-    "clearTag": "Убрать фильтр по тегу {{tag}}"
+    "clearTag": "Убрать фильтр по тегу {{tag}}",
+    "domainChip": "Сайт: {{domain}}",
+    "clearDomain": "Убрать фильтр по сайту {{domain}}"
   },
   "more": {
     "import": "Импорт",
@@ -86,20 +88,25 @@
     "addTag": "Добавить тег…",
     "refresh": "Обновить название и превью",
     "delete": "Удалить…",
-    "select": "Выбрать: {{title}}"
+    "select": "Выбрать: {{title}}",
+    "filterDomain": "Только закладки с {{domain}}"
   },
   "editor": {
-    "label": "Закладка",
+    "label": "Изменить закладку",
     "close": "Закрыть редактор",
     "title": "Название",
     "collection": "Коллекция",
     "tags": "Теги",
-    "tagsHint": "Через запятую",
     "notes": "Заметка",
     "notesPlaceholder": "Что хочется запомнить?",
-    "save": "Сохранить изменения",
+    "save": "Сохранить",
     "saveAgain": "Сохранить ещё раз",
-    "saving": "Сохраняется…"
+    "saving": "Сохраняется…",
+    "cancel": "Отмена",
+    "titleRequired": "Название не может быть пустым",
+    "saveFailed": "Не удалось сохранить — изменения остались в форме.",
+    "tagsPlaceholder": "+ тег",
+    "removeTag": "Убрать тег {{tag}}"
   },
   "add": {
     "title": "Добавить ссылку",
@@ -224,7 +231,12 @@
     "noFavorites": "Избранного пока нет",
     "noFavoritesHint": "Отметьте закладку звездой — она появится здесь.",
     "emptyCollection": "В «{{name}}» пока пусто",
-    "emptyCollectionHint": "Добавьте сюда ссылку или перенесите закладки из библиотеки."
+    "emptyCollectionHint": "Добавьте сюда ссылку или перенесите закладки из библиотеки.",
+    "noResultsFor": "Ничего не нашлось по «{{query}}»",
+    "noResultsInFor": "В «{{section}}» ничего не нашлось по «{{query}}»",
+    "searchHint": "Поиск идёт по названию, адресу, описанию, заметке и тегам. Проверьте написание или введите часть слова.",
+    "searchEverywhere": "Искать во всей библиотеке",
+    "resetFilters": "Сбросить фильтры"
   },
   "library": {
     "loading": "Загружаем библиотеку",
