@@ -158,7 +158,8 @@ fn get_db_path() -> PathBuf {
     }
 }
 
-pub(crate) fn create_tables(conn: &Connection) -> Result<()> {
+/// Schema version 0. Public so `examples/test_libraries.rs` builds fixtures from the real schema.
+pub fn create_tables(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS collections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
