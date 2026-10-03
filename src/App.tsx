@@ -528,7 +528,7 @@ export function App() {
         />
       )}
       {surface === "connect" && (
-        <ConnectDialog capture={capture} onClose={() => setSurface(null)} />
+        <ConnectDialog capture={capture} onOpen={actions.open} onClose={() => setSurface(null)} />
       )}
       {deleting && (
         <ConfirmDialog
