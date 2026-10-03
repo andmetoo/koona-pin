@@ -14,7 +14,8 @@
     "check": "cargo test --locked --manifest-path src-tauri/Cargo.toml && npm run build && npm test",
     "check:bindings": "git add --intent-to-add src/bindings && git diff --exit-code --stat -- src/bindings",
     "test:ui": "playwright test",
-    "test:native": "playwright test --config playwright.native.config.ts",
+    "test:native": "playwright test --config playwright.native.config.ts --grep-invert @perf",
+    "test:perf": "playwright test --config playwright.native.config.ts --grep @perf",
     "test:extension": "node scripts/smoke-extension.mjs",
     "extension:zip": "powershell -NoProfile -File scripts/package-extension.ps1",
     "tauri": "tauri"
