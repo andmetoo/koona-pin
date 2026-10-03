@@ -1,0 +1,244 @@
+/* Netami Pin, iteration 1. Tokens come from doc/guidelines.md; the values
+   live here once and switch with data-theme on <html> (Р-5). */
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  color-scheme: light;
+  --np-bg: #faf9f6;
+  --np-panel: #f2f1ec;
+  --np-card: #fffefa;
+  --np-ink: #2e302b;
+  --np-icon: #5f6057;
+  --np-muted: #74746a;
+  --np-meta: #8a897f;
+  --np-subtle: #9a998e;
+  --np-faint: #b8b6ab;
+  --np-line: #e8e6df;
+  --np-border: #e4e2da;
+  --np-divider: #efede6;
+  --np-hover: #ece9e2;
+  --np-secondary: #f2f1ec;
+  --np-accent: #2f6b4f;
+  --np-on-accent: #ffffff;
+  --np-accent-soft: #e2eee6;
+  --np-on-accent-soft: #1f4a36;
+  --np-accent-muted: #6e9c84;
+  --np-danger: #af3838;
+  --np-danger-soft: #f6e4e1;
+  --np-on-danger-soft: #8f2c2c;
+  --np-toast: #2e302b;
+  --np-scrim: rgb(46 48 43 / 0.28);
+  --np-terracotta: #c9785a;
+  --np-green: #5b8a72;
+  --np-blue: #5c77a8;
+  --np-ochre: #b59a45;
+  --np-lilac: #8a6ba8;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --np-bg: #22221f;
+  --np-panel: #1c1c19;
+  --np-card: #2b2b26;
+  --np-ink: #e9e6dc;
+  --np-icon: #a4a296;
+  --np-muted: #a4a296;
+  --np-meta: #8c8a7f;
+  --np-subtle: #8c8a7f;
+  --np-faint: #6a695f;
+  --np-line: #2b2b26;
+  --np-border: #3d3d35;
+  --np-divider: #33332d;
+  --np-hover: #33332d;
+  /* On the dark card --panel is darker than the page and looks like a hole. */
+  --np-secondary: #33332d;
+  --np-accent: #8fd0ae;
+  --np-on-accent: #1c1c19;
+  --np-accent-soft: #25352c;
+  --np-on-accent-soft: #8fd0ae;
+  --np-accent-muted: #6e9c84;
+  --np-danger: #e99797;
+  --np-danger-soft: #3a2826;
+  --np-on-danger-soft: #e99797;
+  --np-toast: #3d3d35;
+  --np-scrim: rgb(0 0 0 / 0.5);
+  --np-terracotta: #d99272;
+  --np-green: #7db096;
+  --np-blue: #8aa3d0;
+  --np-ochre: #d4b862;
+  --np-lilac: #b096cc;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-white: #ffffff;
+  --color-bg: var(--np-bg);
+  --color-panel: var(--np-panel);
+  --color-card: var(--np-card);
+  --color-ink: var(--np-ink);
+  --color-icon: var(--np-icon);
+  --color-muted: var(--np-muted);
+  --color-meta: var(--np-meta);
+  --color-subtle: var(--np-subtle);
+  --color-faint: var(--np-faint);
+  --color-line: var(--np-line);
+  --color-border: var(--np-border);
+  --color-divider: var(--np-divider);
+  --color-hover: var(--np-hover);
+  --color-secondary: var(--np-secondary);
+  --color-accent: var(--np-accent);
+  --color-on-accent: var(--np-on-accent);
+  --color-accent-soft: var(--np-accent-soft);
+  --color-on-accent-soft: var(--np-on-accent-soft);
+  --color-accent-muted: var(--np-accent-muted);
+  --color-danger: var(--np-danger);
+  --color-danger-soft: var(--np-danger-soft);
+  --color-on-danger-soft: var(--np-on-danger-soft);
+  --color-toast: var(--np-toast);
+  --color-scrim: var(--np-scrim);
+  --color-terracotta: var(--np-terracotta);
+  --color-green: var(--np-green);
+  --color-blue: var(--np-blue);
+  --color-ochre: var(--np-ochre);
+  --color-lilac: var(--np-lilac);
+}
+
+@theme {
+  --text-*: initial;
+  --text-2xs: 11px;
+  --text-2xs--line-height: 14px;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-md: 14px;
+  --text-md--line-height: 19px;
+  --text-lg: 16px;
+  --text-lg--line-height: 20px;
+  --text-xl: 20px;
+  --text-xl--line-height: 26px;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 27px;
+
+  /* 6–8 controls, 10 previews and plates, 12 action panel, 14 triage card. */
+  --radius-*: initial;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 7px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --radius-3xl: 14px;
+  --radius-full: 9999px;
+
+  --shadow-*: initial;
+  --shadow-active: 0 1px 2px rgb(0 0 0 / 0.08);
+  --shadow-menu: 0 8px 24px rgb(0 0 0 / 0.14);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --animate-appear: appear 200ms var(--ease-standard);
+  @keyframes appear {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--np-bg);
+    color: var(--np-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+    -webkit-font-smoothing: antialiased;
+  }
+  button,
+  [role="button"] {
+    cursor: default;
+  }
+  /* Rings: 2 px accent with a 2 px gap; fields get a border and halo instead. */
+  :focus-visible {
+    outline: 2px solid var(--np-accent);
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+  }
+  [data-tauri-drag-region] {
+    user-select: none;
+  }
+  ::selection {
+    background: var(--np-accent-soft);
+    color: var(--np-on-accent-soft);
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--np-border);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  dialog::backdrop {
+    background: var(--np-scrim);
+  }
+}
+
+@utility field {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--np-border);
+  border-radius: 8px;
+  background: var(--np-card);
+  color: var(--np-ink);
+  padding: 7px 11px;
+  font-size: 13px;
+  line-height: 18px;
+  transition-property: border-color, box-shadow;
+  transition-duration: 140ms;
+  &::placeholder {
+    color: var(--np-subtle);
+  }
+  &:focus-visible {
+    border-color: var(--np-accent);
+    box-shadow:
+      inset 0 0 0 0.5px var(--np-accent),
+      0 0 0 3px color-mix(in srgb, var(--np-accent) 25%, transparent);
+  }
+  &[aria-invalid="true"] {
+    border-color: var(--np-danger);
+    box-shadow: inset 0 0 0 0.5px var(--np-danger);
+  }
+  &:disabled {
+    color: var(--np-subtle);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+  }
+}

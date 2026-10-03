@@ -1,3 +1,4 @@
+pub mod autostart;
 pub mod backup;
 pub mod capture;
 pub mod commands;
@@ -32,12 +33,20 @@ pub fn run() {
             show_window(app)
         }))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![autostart::ARG]),
+        ))
         .manage(server_state)
         .manage(Arc::new(library_state::Library::new(
             library::Paths::from_env(),
         )))
         .setup(move |app| {
             library_state::start(app.handle().clone());
+            // The window is created hidden; a start at sign-in stays in the tray.
+            if !autostart::started_by_system() {
+                show_window(app.handle());
+            }
             let open = MenuItem::with_id(app, "open", "Открыть Netami Pin", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выйти", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
@@ -97,7 +106,11 @@ pub fn run() {
             commands::get_library_status,
             commands::retry_library,
             commands::reveal_library_place,
-            commands::quit_app
+            commands::quit_app,
+            commands::get_autostart,
+            commands::set_autostart,
+            commands::get_data_summary,
+            commands::back_up_now
         ])
         .run(tauri::generate_context!())
         .expect("error while running Netami Pin");

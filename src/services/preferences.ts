@@ -1,10 +1,6 @@
 export type Theme = "light" | "dark" | "system";
 
-export function preference<T extends string>(
-  name: string,
-  allowed: T[],
-  fallback: T,
-): T {
+export function preference<T extends string>(name: string, allowed: T[], fallback: T): T {
   try {
     const v = localStorage.getItem(`netamipin.${name}`);
     if (allowed.includes(v as T)) return v as T;
@@ -14,12 +10,19 @@ export function preference<T extends string>(
   return fallback;
 }
 
-export const storedTheme = () =>
-  preference<Theme>("theme", ["light", "dark", "system"], "system");
+export function savePreference(name: string, value: string) {
+  try {
+    localStorage.setItem(`netamipin.${name}`, value);
+  } catch {
+    /* Kept for this session only. */
+  }
+}
 
-export const isDark = (theme: Theme, systemDark: boolean) =>
-  theme === "dark" || (theme === "system" && systemDark);
+export const storedTheme = () => preference<Theme>("theme", ["light", "dark", "system"], "system");
 
+export const isDark = (theme: Theme, systemDark: boolean) => theme === "dark" || (theme === "system" && systemDark);
+
+/** Tokens switch with this attribute (src/styles/app.css). */
 export function applyTheme(dark: boolean) {
-  document.documentElement.dataset.studyTheme = dark ? "dark" : "light";
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
