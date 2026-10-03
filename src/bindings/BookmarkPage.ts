@@ -4,9 +4,10 @@ import type { PageCursor } from "./PageCursor";
 
 export type BookmarkPage = { items: Array<Bookmark>, 
 /**
- * Every bookmark that matches, not only this page.
+ * Every bookmark that matches, not only this page. Counted for the
+ * first page only: the next ones would repeat the same work.
  */
-total: number, 
+total: number | null, 
 /**
  * Where the next page starts; none after the last one.
  */
