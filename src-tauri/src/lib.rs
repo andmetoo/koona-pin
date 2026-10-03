@@ -1,11 +1,16 @@
+pub mod backup;
 pub mod capture;
 pub mod commands;
 pub mod db;
-pub mod legacy;
+pub mod library;
+pub mod library_state;
 pub mod metadata;
+pub mod migrations;
 pub mod server;
+#[doc(hidden)]
+pub mod test_libraries;
 
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -20,18 +25,18 @@ fn show_window(app: &tauri::AppHandle) {
     }
 }
 pub fn run() {
-    legacy::import_webview();
     let server_state = Arc::new(server::ServerState::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_window(app)
         }))
         .plugin(tauri_plugin_opener::init())
-        .manage(server_state.clone())
+        .manage(server_state)
+        .manage(Arc::new(library_state::Library::new(
+            library::Paths::from_env(),
+        )))
         .setup(move |app| {
-            let state = Arc::new(db::DbState::init());
-            app.manage(state.clone());
-            server::start_server(app.handle().clone(), state, server_state);
+            library_state::start(app.handle().clone());
             let open = MenuItem::with_id(app, "open", "Открыть Netami Pin", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Выйти", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
@@ -62,14 +67,10 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let state = window.state::<Arc<db::DbState>>();
-                let hide = state
-                    .conn
-                    .lock()
-                    .ok()
-                    .and_then(|c| db::setting(&c, "close_to_tray").ok())
-                    .as_deref()
-                    == Some("true");
+                // Without an open library there is nothing to keep in the tray.
+                let hide = window
+                    .try_state::<Arc<db::DbState>>()
+                    .is_some_and(|state| state.close_to_tray.load(Ordering::Relaxed));
                 if hide {
                     api.prevent_close();
                     let _ = window.hide();
@@ -91,7 +92,11 @@ pub fn run() {
             commands::import_html_bookmarks,
             commands::get_app_settings,
             commands::set_close_to_tray,
-            commands::get_server_status
+            commands::get_server_status,
+            commands::get_library_status,
+            commands::retry_library,
+            commands::reveal_library_place,
+            commands::quit_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running Netami Pin");

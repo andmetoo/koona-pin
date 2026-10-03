@@ -1,16 +1,37 @@
 use crate::{
     capture::{self, CaptureRequest},
-    db::{self, Bookmark, Collection, DbState, DomainCount, LibraryCounts, Tag},
+    db::{self, Bookmark, Collection, DbState, DomainCount, LibraryCounts, Source, Tag},
+    library_state::{self, Library, LibraryStatus},
     server::{ServerState, ServerStatus},
 };
-use scraper::{Html, Selector};
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc};
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_opener::OpenerExt;
 
+/// Every database command runs here, off the main thread. Sync Tauri
+/// commands run on the main thread, so waiting for the database lock there
+/// (during an import, a copy or a capture) would freeze the window.
+async fn blocking<T: Send + 'static>(
+    state: &State<'_, Arc<DbState>>,
+    work: impl FnOnce(&Connection) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = state.conn.lock().map_err(|e| e.to_string())?;
+        work(&conn)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn text(e: rusqlite::Error) -> String {
+    e.to_string()
+}
+
 #[tauri::command]
-pub fn get_bookmarks(
+pub async fn get_bookmarks(
     state: State<'_, Arc<DbState>>,
     search: Option<String>,
     collection_id: Option<i64>,
@@ -18,18 +39,13 @@ pub fn get_bookmarks(
     domain: Option<String>,
     only_favorites: bool,
 ) -> Result<Vec<Bookmark>, String> {
-    db::get_bookmarks(
-        &*state.conn.lock().map_err(|e| e.to_string())?,
-        search,
-        collection_id,
-        tag,
-        domain,
-        only_favorites,
-    )
-    .map_err(|e| e.to_string())
+    blocking(&state, move |conn| {
+        db::get_bookmarks(conn, search, collection_id, tag, domain, only_favorites).map_err(text)
+    })
+    .await
 }
 #[tauri::command]
-pub fn add_bookmark(
+pub async fn add_bookmark(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     url: String,
@@ -43,9 +59,12 @@ pub fn add_bookmark(
         title,
         collection_id,
         tags: Some(tags),
+        source: None,
     };
-    let saved = capture::save(&*state.conn.lock().map_err(|e| e.to_string())?, &request)
-        .map_err(|e| e.message)?;
+    let saved = blocking(&state, move |conn| {
+        capture::save(conn, &request, Source::App).map_err(|e| e.message)
+    })
+    .await?;
     capture::after_save(&app, state.inner().clone(), &saved);
     saved
         .bookmark
@@ -69,7 +88,7 @@ pub struct BookmarkPatch {
     pub collection: CollectionPatch,
 }
 #[tauri::command]
-pub fn update_bookmark(
+pub async fn update_bookmark(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     id: i64,
@@ -83,31 +102,34 @@ pub fn update_bookmark(
         CollectionPatch::Clear => Some(None),
         CollectionPatch::Set(id) => Some(Some(id)),
     };
-    let b = db::update_bookmark(
-        &*state.conn.lock().map_err(|e| e.to_string())?,
-        id,
-        patch.title,
-        patch.notes,
-        patch.is_favorite,
-        collection,
-        patch.tags,
-    )
-    .map_err(|e| e.to_string())?;
+    let b = blocking(&state, move |conn| {
+        db::update_bookmark(
+            conn,
+            id,
+            patch.title,
+            patch.notes,
+            patch.is_favorite,
+            collection,
+            patch.tags,
+        )
+        .map_err(text)
+    })
+    .await?;
     capture::emit(&app, "updated", &b);
     Ok(b)
 }
 #[tauri::command]
-pub fn delete_bookmark(
+pub async fn delete_bookmark(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     id: i64,
 ) -> Result<bool, String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let revision = db::get_bookmark_by_id(&conn, id)
-        .map_err(|e| e.to_string())?
-        .revision
-        + 1;
-    db::delete_bookmark(&conn, id).map_err(|e| e.to_string())?;
+    let revision = blocking(&state, move |conn| {
+        let revision = db::get_bookmark_by_id(conn, id).map_err(text)?.revision + 1;
+        db::delete_bookmark(conn, id).map_err(text)?;
+        Ok(revision)
+    })
+    .await?;
     let _ = app.emit(
         "bookmark-changed",
         capture::BookmarkChange {
@@ -120,11 +142,11 @@ pub fn delete_bookmark(
     Ok(true)
 }
 #[tauri::command]
-pub fn get_collections(state: State<'_, Arc<DbState>>) -> Result<Vec<Collection>, String> {
-    db::get_collections(&*state.conn.lock().map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+pub async fn get_collections(state: State<'_, Arc<DbState>>) -> Result<Vec<Collection>, String> {
+    blocking(&state, |conn| db::get_collections(conn).map_err(text)).await
 }
 #[tauri::command]
-pub fn create_collection(
+pub async fn create_collection(
     state: State<'_, Arc<DbState>>,
     name: String,
     color: Option<String>,
@@ -133,43 +155,35 @@ pub fn create_collection(
     if name.trim().is_empty() {
         return Err("Введите название коллекции".into());
     }
-    db::create_collection(
-        &*state.conn.lock().map_err(|e| e.to_string())?,
-        name.trim(),
-        color.as_deref(),
-        icon.as_deref(),
-    )
-    .map_err(|e| e.to_string())
+    blocking(&state, move |conn| {
+        db::create_collection(conn, name.trim(), color.as_deref(), icon.as_deref()).map_err(text)
+    })
+    .await
 }
 #[tauri::command]
-pub fn delete_collection(
+pub async fn delete_collection(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     id: i64,
 ) -> Result<(), String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
-    tx.execute(
-        "UPDATE bookmarks SET collection_id=NULL,revision=revision+1 WHERE collection_id=?1",
-        [id],
-    )
-    .map_err(|e| e.to_string())?;
-    db::delete_collection(&tx, id).map_err(|e| e.to_string())?;
-    tx.commit().map_err(|e| e.to_string())?;
+    blocking(&state, move |conn| {
+        db::delete_collection(conn, id).map_err(text)
+    })
+    .await?;
     let _ = app.emit("library-invalidated", ());
     Ok(())
 }
 #[tauri::command]
-pub fn get_tags(state: State<'_, Arc<DbState>>) -> Result<Vec<Tag>, String> {
-    db::get_tags(&*state.conn.lock().map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+pub async fn get_tags(state: State<'_, Arc<DbState>>) -> Result<Vec<Tag>, String> {
+    blocking(&state, |conn| db::get_tags(conn).map_err(text)).await
 }
 #[tauri::command]
-pub fn get_domains(state: State<'_, Arc<DbState>>) -> Result<Vec<DomainCount>, String> {
-    db::get_domains(&*state.conn.lock().map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+pub async fn get_domains(state: State<'_, Arc<DbState>>) -> Result<Vec<DomainCount>, String> {
+    blocking(&state, |conn| db::get_domains(conn).map_err(text)).await
 }
 #[tauri::command]
-pub fn get_counts(state: State<'_, Arc<DbState>>) -> Result<LibraryCounts, String> {
-    db::get_counts(&*state.conn.lock().map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+pub async fn get_counts(state: State<'_, Arc<DbState>>) -> Result<LibraryCounts, String> {
+    blocking(&state, |conn| db::get_counts(conn).map_err(text)).await
 }
 #[tauri::command]
 pub fn open_url_external(app: AppHandle, url: String) -> Result<(), String> {
@@ -179,35 +193,19 @@ pub fn open_url_external(app: AppHandle, url: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 #[tauri::command]
-pub fn import_html_bookmarks(
+pub async fn import_html_bookmarks(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     html_content: String,
 ) -> Result<usize, String> {
-    let document = Html::parse_document(&html_content);
-    let selector = Selector::parse("a[href]").map_err(|e| e.to_string())?;
-    let mut imported = 0;
-    for element in document.select(&selector) {
-        let Some(href) = element.value().attr("href") else {
-            continue;
-        };
-        if capture::validate_url(href).is_err() {
-            continue;
-        }
-        let request = CaptureRequest {
-            request_id: None,
-            url: href.into(),
-            title: Some(element.text().collect::<String>().trim().into()),
-            collection_id: None,
-            tags: None,
-        };
-        let result = capture::save(&*state.conn.lock().map_err(|e| e.to_string())?, &request)
-            .map_err(|e| e.message)?;
-        if result.newly_created {
-            imported += 1;
-        }
-        // HTML import remains bounded and does not launch an unbounded scraping burst.
-    }
+    // Parsing needs no database, so the library stays available meanwhile.
+    let requests = tauri::async_runtime::spawn_blocking(move || capture::parse_html(&html_content))
+        .await
+        .map_err(|e| e.to_string())?;
+    let imported = blocking(&state, move |conn| {
+        capture::import(conn, &requests).map_err(|e| e.message)
+    })
+    .await?;
     let _ = app.emit("library-invalidated", ());
     Ok(imported)
 }
@@ -217,23 +215,83 @@ pub struct AppSettings {
     pub close_to_tray: bool,
 }
 #[tauri::command]
-pub fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSettings, String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    Ok(AppSettings {
-        capture_token: db::setting(&conn, "capture_token").map_err(|e| e.to_string())?,
-        close_to_tray: db::setting(&conn, "close_to_tray").map_err(|e| e.to_string())? == "true",
+pub async fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSettings, String> {
+    blocking(&state, |conn| {
+        Ok(AppSettings {
+            capture_token: db::setting(conn, "capture_token").map_err(text)?,
+            close_to_tray: db::setting(conn, "close_to_tray").map_err(text)? == "true",
+        })
     })
+    .await
 }
 #[tauri::command]
-pub fn set_close_to_tray(state: State<'_, Arc<DbState>>, enabled: bool) -> Result<(), String> {
-    db::set_setting(
-        &*state.conn.lock().map_err(|e| e.to_string())?,
-        "close_to_tray",
-        if enabled { "true" } else { "false" },
-    )
-    .map_err(|e| e.to_string())
+pub async fn set_close_to_tray(
+    state: State<'_, Arc<DbState>>,
+    enabled: bool,
+) -> Result<(), String> {
+    blocking(&state, move |conn| {
+        db::set_setting(
+            conn,
+            "close_to_tray",
+            if enabled { "true" } else { "false" },
+        )
+        .map_err(text)
+    })
+    .await?;
+    state.close_to_tray.store(enabled, Ordering::Relaxed);
+    Ok(())
 }
 #[tauri::command]
 pub fn get_server_status(state: State<'_, Arc<ServerState>>) -> Result<ServerStatus, String> {
     Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
+}
+
+#[tauri::command]
+pub fn get_library_status(library: State<'_, Arc<Library>>) -> LibraryStatus {
+    library.status()
+}
+/// Only a failed opening is repeated; a second click while opening does nothing.
+#[tauri::command]
+pub fn retry_library(app: AppHandle, library: State<'_, Arc<Library>>) {
+    if library.begin_retry() {
+        library_state::start(app);
+    }
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Place {
+    /// The folder with the library.
+    Data,
+    /// The folder with backup copies.
+    Backups,
+    /// The copy made before a failed migration, selected in Explorer.
+    Backup,
+}
+/// Paths come from the app, never from the page.
+#[tauri::command]
+pub fn reveal_library_place(
+    app: AppHandle,
+    library: State<'_, Arc<Library>>,
+    place: Place,
+) -> Result<(), String> {
+    let opener = app.opener();
+    let paths = &library.paths;
+    let shown = match place {
+        Place::Data => opener.open_path(paths.folder().to_string_lossy(), None::<&str>),
+        Place::Backups => {
+            std::fs::create_dir_all(&paths.backups).map_err(|e| e.to_string())?;
+            opener.open_path(paths.backups.to_string_lossy(), None::<&str>)
+        }
+        Place::Backup => match library.status() {
+            LibraryStatus::Failed(failure) if failure.backup.is_some() => {
+                opener.reveal_item_in_dir(failure.backup.unwrap_or_default())
+            }
+            _ => opener.open_path(paths.backups.to_string_lossy(), None::<&str>),
+        },
+    };
+    shown.map_err(|e| e.to_string())
+}
+#[tauri::command]
+pub fn quit_app(app: AppHandle) {
+    app.exit(0);
 }

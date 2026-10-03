@@ -34,6 +34,30 @@ export interface ServerStatus {
   /** The port is held by OddClicks, which writes to its own library. */
   legacy_app?: boolean;
 }
+/** Why the library was not opened; texts by `code` are in libraryMessages.ts. */
+export interface OpenFailure {
+  code:
+    | "DB_LOCKED"
+    | "DB_NEWER_SCHEMA"
+    | "DB_FOREIGN"
+    | "DB_NOT_DATABASE"
+    | "DB_CORRUPT"
+    | "BACKUP_FAILED"
+    | "MIGRATION_FAILED"
+    | "DB_OPEN_FAILED";
+  detail: string;
+  database: string;
+  folder: string;
+  backup: string | null;
+  schema: number | null;
+  supported: number;
+  version: string;
+}
+export type LibraryStatus =
+  | { state: "opening" }
+  | { state: "ready"; damaged: boolean; moved_aside: string | null }
+  | ({ state: "failed" } & OpenFailure);
+export type LibraryPlace = "data" | "backups" | "backup";
 export interface AppSettings {
   capture_token: string;
   close_to_tray: boolean;
