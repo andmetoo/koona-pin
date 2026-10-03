@@ -44,26 +44,29 @@ export function Dialog({
       style={drawer ? undefined : { width }}
       className={
         drawer
-          ? "fixed inset-y-0 right-0 left-auto m-0 h-full max-h-full w-[380px] max-w-full animate-appear border-l border-border bg-card p-6 text-ink shadow-menu"
-          : "m-auto max-w-[calc(100vw-32px)] animate-appear rounded-2xl border border-border bg-card p-5 text-ink shadow-menu"
+          ? "fixed inset-y-0 right-0 left-auto m-0 h-full max-h-full w-[380px] max-w-full animate-appear border-l border-border bg-card p-0 text-ink shadow-menu"
+          : "m-auto max-w-[calc(100vw-32px)] animate-appear rounded-2xl border border-border bg-card p-0 text-ink shadow-menu"
       }
       onCancel={(e) => {
         e.preventDefault();
         closeRef.current();
       }}
       onClick={(e) => {
+        // Only the backdrop: the padding belongs to the inner block.
         if (e.target === ref.current) closeRef.current();
       }}
     >
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <h2 id={titleId} className="text-lg font-semibold">
-          {title}
-        </h2>
-        <IconButton label={t("common.close")} onClick={onClose}>
-          <Icon icon={X} />
-        </IconButton>
-      </header>
-      {children}
+      <div className={drawer ? "min-h-full p-6" : "p-5"}>
+        <header className="mb-4 flex items-center justify-between gap-3">
+          <h2 id={titleId} className="text-lg font-semibold">
+            {title}
+          </h2>
+          <IconButton label={t("common.close")} onClick={onClose}>
+            <Icon icon={X} />
+          </IconButton>
+        </header>
+        {children}
+      </div>
     </dialog>
   );
 }
