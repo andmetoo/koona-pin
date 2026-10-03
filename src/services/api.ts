@@ -33,8 +33,8 @@ function subscription<T>(event: string, callback: (payload: T) => void) {
     void promise.then((unlisten) => unlisten()).catch(console.error);
   };
 }
-/** Which page to read: the first by default. */
-export type PageRequest = Pick<BookmarkQuery, "after" | "limit">;
+/** Which page to read (the first by default), or one bookmark by `id`. */
+export type PageRequest = Pick<BookmarkQuery, "after" | "limit" | "id">;
 const toQuery = (
   filters: Partial<FilterState>,
   page: PageRequest,
