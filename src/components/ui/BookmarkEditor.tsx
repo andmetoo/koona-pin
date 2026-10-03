@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Bookmark, Collection } from "../../types";
+import { describeError } from "../../services/errors";
 export function BookmarkEditor({
   bookmark,
   collections,
@@ -43,7 +44,7 @@ export function BookmarkEditor({
               .filter(Boolean),
           });
         } catch (err) {
-          setError(String(err));
+          setError(describeError(err));
         } finally {
           setSaving(false);
         }
