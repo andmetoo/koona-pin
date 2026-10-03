@@ -95,6 +95,7 @@ export function createQueue({
                 ? {
                     ...row,
                     error: result.error || t("errorNoConfirmation"),
+                    code: result.code ?? null,
                     blocked: !!result.permanent,
                   }
                 : row,

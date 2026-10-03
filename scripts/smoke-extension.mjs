@@ -1,13 +1,19 @@
+// Extension smoke (NP-016): the built Chrome package in Chrome for Testing,
+// talking to Netami Pin through the real native host. The run registers a host
+// name of its own, so an installed app's registration stays untouched.
 import { chromium } from "@playwright/test";
-import { spawn } from "node:child_process";
-import { mkdir, cp, appendFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { appendFile, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import assert from "node:assert/strict";
-import http from "node:http";
+import { setTimeout as sleep } from "node:timers/promises";
 import { buildExtension } from "./build-extension.mjs";
+import { hostBinary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
 
-const origin = "http://127.0.0.1:28765";
+const HOST = "app.netami.pin.test";
+// Chrome for Testing reads the Chromium key (checked in NP-016).
+const KEY = `HKCU\\Software\\Chromium\\NativeMessagingHosts\\${HOST}`;
 const directory = path.resolve(".test-data", `extension-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const extension = path.join(directory, "unpacked-extension");
@@ -15,199 +21,154 @@ const built = await buildExtension({ log: () => {} });
 await cp(built.unpacked.chrome, extension, { recursive: true });
 // Playwright does not expose toolbar clicks. Only the isolated test copy gets
 // a reference to the exact handler registered with chrome.action.onClicked.
-await appendFile(
-  path.join(extension, "worker.js"),
-  "\nglobalThis.__captureForTest = captureTab;\n",
-);
+await appendFile(path.join(extension, "worker.js"), "\nglobalThis.__captureForTest = captureTab;\n");
+const version = path.join(extension, "version.js");
+await writeFile(version, (await readFile(version, "utf8")).replace('"app.netami.pin"', JSON.stringify(HOST)));
+
+const pipe = testPipe("extension");
 const env = {
   ...process.env,
   NETAMIPIN_DATA_DIR: directory,
   WEBVIEW2_USER_DATA_FOLDER: path.join(directory, "webview"),
+  NETAMIPIN_PIPE: pipe,
 };
-let app, browser, worker;
-async function available() {
-  return new Promise((resolve) => {
-    const request = http.get(`${origin}/api/health`, (response) => {
-      response.resume();
-      resolve(response.statusCode === 200);
-    });
-    request.setTimeout(500, () => {
-      request.destroy();
-      resolve(false);
-    });
-    request.on("error", () => resolve(false));
-  });
-}
-async function until(check, label) {
-  const deadline = Date.now() + 15000;
+const manifest = path.join(directory, `${HOST}.json`);
+const register = (origin) =>
+  writeFile(
+    manifest,
+    JSON.stringify({ name: HOST, description: "Netami Pin test", path: hostBinary(), type: "stdio", allowed_origins: [origin] }),
+  );
+await register(`chrome-extension://${built.devId}/`);
+execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
+
+const apps = startedSince();
+const library = path.join(directory, "netamipin.db");
+let browser, worker;
+async function until(check, label, ms = 20000) {
+  const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
     if (await check()) return;
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await sleep(150);
   }
   throw new Error(`Timed out: ${label}`);
 }
-async function startApp() {
-  app = spawn(
-    path.resolve(
-      process.env.NETAMIPIN_TEST_BINARY ||
-        "src-tauri/target/debug/netamipin.exe",
-    ),
-    [],
-    {
-      env,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  app.stdout.on("data", (chunk) => process.stdout.write(chunk));
-  app.stderr.on("data", (chunk) => process.stderr.write(chunk));
-  app.on("error", (error) =>
-    console.error("Cannot start Netami Pin:", error.message),
-  );
-  app.on("exit", (code) => {
-    if (code) console.error("Netami Pin exited:", code);
-  });
-  await until(available, "Netami Pin startup");
-}
-async function stopApp() {
-  if (!app || app.exitCode !== null) return;
-  const exited = new Promise((resolve) => app.once("exit", resolve));
-  app.kill();
-  await exited;
-  app = undefined;
-}
 async function startBrowser() {
-  browser = await chromium.launchPersistentContext(
-    path.join(directory, "chrome"),
-    {
-      channel: "chromium",
-      headless: true,
-      args: [
-        `--disable-extensions-except=${extension}`,
-        `--load-extension=${extension}`,
-        // The extension speaks the browser's language; the assertions are Russian.
-        "--lang=ru",
-      ],
-    },
-  );
-  worker =
-    browser.serviceWorkers()[0] ||
-    (await browser.waitForEvent("serviceworker"));
+  browser = await chromium.launchPersistentContext(path.join(directory, "chrome"), {
+    channel: "chromium",
+    headless: true,
+    env,
+    args: [
+      `--disable-extensions-except=${extension}`,
+      `--load-extension=${extension}`,
+      // The extension speaks the browser's language; the assertions are Russian.
+      "--lang=ru",
+    ],
+  });
+  worker = browser.serviceWorkers()[0] || (await browser.waitForEvent("serviceworker"));
   const id = worker.url().split("/")[2];
   assert.equal(id, built.devId, "Development key pins the extension id");
   return id;
 }
-async function capture(url, title) {
-  await worker.evaluate(
-    async ({ url, title }) => {
-      await globalThis.__captureForTest({ url, title });
-    },
-    { url, title },
-  );
+const capture = (url, title) =>
+  worker.evaluate(async ({ url, title }) => globalThis.__captureForTest({ url, title }), { url, title });
+const waiting = () => worker.evaluate(async () => (await chrome.storage.local.get("captureQueue")).captureQueue || []);
+function rows(sql) {
+  const db = new DatabaseSync(library, { readOnly: true });
+  try {
+    return db.prepare(sql).all().map((row) => ({ ...row }));
+  } finally {
+    db.close();
+  }
 }
-const waiting = () =>
-  worker.evaluate(
-    async () =>
-      (await chrome.storage.local.get("captureQueue")).captureQueue || [],
-  );
-
-assert.equal(
-  await available(),
-  false,
-  "Port 28765 occupied: existing process left untouched",
-);
-try {
-  await startApp();
-  const db = new DatabaseSync(path.join(directory, "netamipin.db"), {
-    readOnly: true,
-  });
-  const token = db
-    .prepare("SELECT value FROM app_settings WHERE key='capture_token'")
-    .get().value;
-  db.close();
-  await stopApp();
-  let id = await startBrowser();
-  await worker.evaluate(
-    (token) => chrome.storage.local.set({ captureToken: token }),
-    token,
-  );
-  await capture(
-    "https://example.invalid/extension-capture",
-    "Настоящий Chrome worker",
-  );
-  const first = await waiting();
-  assert.equal(first.length, 1);
-  assert.ok(first[0].request_id);
-  assert.match(first[0].error, /недоступен/);
-  await capture(first[0].url, first[0].title);
-  assert.equal((await waiting()).length, 1);
-  await capture("chrome://settings", "Settings");
-  assert.equal((await waiting()).length, 1);
-  assert.ok(
-    await worker.evaluate(() => chrome.alarms.get("netamipin-delivery")),
-  );
-  await browser.close();
-  browser = undefined;
-  id = await startBrowser();
-  assert.equal(
-    (await waiting())[0].request_id,
-    first[0].request_id,
-    "Request survives Chrome restart",
-  );
-  await startApp();
+async function options(id) {
   const page = await browser.newPage();
   await page.goto(`chrome-extension://${id}/options.html`);
-  await page.getByRole("button", { name: "Повторить передачу" }).click();
-  await until(async () => (await waiting()).length === 0, "confirmed delivery");
-  const stored = new DatabaseSync(path.join(directory, "netamipin.db"), {
-    readOnly: true,
-  });
-  assert.equal(
-    stored.prepare("SELECT count(*) AS n FROM bookmarks").get().n,
-    1,
-  );
-  assert.equal(
-    stored.prepare("SELECT request_id FROM capture_receipts").get().request_id,
-    first[0].request_id,
-  );
-  await capture(first[0].url, "Заголовок дубликата");
+  return page;
+}
+
+try {
+  let id = await startBrowser();
+  // A hello does not start the app the user closed.
+  let page = await options(id);
+  await page.locator('#status[data-state="closed"]').waitFor();
+  await page.getByText("Netami Pin закрыт").waitFor();
+  assert.equal(await pipeReady(pipe), false, "hello must not start the app");
+
+  // A capture starts the app in the tray and saves.
+  await capture("https://example.invalid/extension-capture", "Настоящий Chrome worker");
   assert.equal((await waiting()).length, 0);
-  assert.equal(
-    stored.prepare("SELECT count(*) AS n FROM bookmarks").get().n,
-    1,
-  );
-  assert.equal(
-    stored.prepare("SELECT title FROM bookmarks").get().title,
-    first[0].title,
-  );
-  stored.close();
-  await worker.evaluate(() =>
-    chrome.storage.local.set({ captureToken: "0".repeat(64) }),
-  );
-  await capture(
-    "https://example.invalid/incorrect-token",
-    "Ожидает подключения",
-  );
-  assert.equal((await waiting()).length, 1);
+  assert.equal(apps.ours().length, 1, "the host started the app");
+  assert.deepEqual(rows("SELECT title, source FROM bookmarks"), [{ title: "Настоящий Chrome worker", source: "chrome" }]);
+  const [{ request_id: firstId }] = rows("SELECT request_id FROM capture_receipts");
+  await page.getByRole("button", { name: "Проверить снова" }).click();
+  await page.locator('#status[data-state="connected"]').waitFor();
+  await page.getByText("Подключено к Netami Pin").waitFor();
+
+  // A duplicate: existing, the title stays.
+  await capture("https://example.invalid/extension-capture", "Заголовок дубликата");
+  assert.equal((await waiting()).length, 0);
+  assert.deepEqual(rows("SELECT title FROM bookmarks"), [{ title: "Настоящий Chrome worker" }]);
+
+  // The library cannot open: the link stays in the queue.
+  apps.stop();
+  await until(async () => !(await pipeReady(pipe)), "app stopped");
+  for (const suffix of ["", "-wal", "-shm"])
+    await rename(library + suffix, `${library}.kept${suffix}`).catch(() => {});
+  await writeFile(library, "not a database");
+  await capture("https://example.invalid/library-failed", "Ждёт в очереди");
+  const queued = await waiting();
+  assert.equal(queued.length, 1);
+  assert.match(queued[0].error, /не ответил/);
+  assert.ok(await worker.evaluate(() => chrome.alarms.get("netamipin-delivery")));
+  apps.stop();
+
+  // The queue survives a browser restart with the same request id.
+  await browser.close();
+  id = await startBrowser();
+  assert.equal((await waiting())[0].request_id, queued[0].request_id, "Request survives Chrome restart");
+
+  // The library is back: «Send now» delivers.
+  await rm(library);
+  for (const suffix of ["", "-wal", "-shm"])
+    await rename(`${library}.kept${suffix}`, library + suffix).catch(() => {});
+  page = await options(id);
+  await page.getByRole("button", { name: "Отправить сейчас" }).click();
+  await until(async () => (await waiting()).length === 0, "delivery after the library came back");
+  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 2);
+  // Receipts: the first capture, the duplicate (existing) and the queued one.
+  const receipts = rows("SELECT request_id, outcome FROM capture_receipts");
+  assert.equal(receipts.length, 3);
+  assert.ok(receipts.some((r) => r.request_id === firstId && r.outcome === "created"));
+  assert.ok(receipts.some((r) => r.request_id === queued[0].request_id && r.outcome === "created"));
+
+  // The host refuses an extension id it does not list: the browser says «forbidden».
+  await register("chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/");
+  await capture("https://example.invalid/foreign-id", "Чужой ID");
+  const refused = await waiting();
+  assert.equal(refused.length, 1);
+  assert.equal(refused[0].code, "host_missing");
+  assert.match(refused[0].error, /не установлен/);
   await page.reload();
-  await page
-    .getByRole("status")
-    .filter({ hasText: "Токен не подходит" })
-    .waitFor();
-  await page.locator("#token").fill(token);
-  await page.getByRole("button", { name: "Подключить", exact: true }).click();
-  await until(
-    async () => (await waiting()).length === 0,
-    "delivery after token correction",
-  );
-  await page.screenshot({
-    path: "doc/concepts/chrome-options.jpg",
-    fullPage: true,
-  });
+  await page.locator('#status[data-state="missing"]').waitFor();
+  await page.getByRole("link", { name: "Скачать Netami Pin" }).waitFor();
+  await register(`chrome-extension://${built.devId}/`);
+  await page.getByRole("button", { name: "Отправить сейчас" }).click();
+  await until(async () => (await waiting()).length === 0, "delivery after registration came back");
+
+  // The app keeps a record of this browser for its status.
+  const connections = JSON.parse(rows("SELECT value FROM app_settings WHERE key='capture_connections'")[0].value);
+  assert.ok(connections.browsers.chrome, "the app knows Chrome");
+  await page.reload();
+  await page.locator('#status[data-state="connected"]').waitFor();
+  await page.screenshot({ path: "doc/concepts/chrome-options.jpg", fullPage: true });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await sleep(400); // buttons change colour with a transition
+  await page.screenshot({ path: path.join(directory, "chrome-options-dark.png"), fullPage: true });
   console.log(
-    "PASS: real MV3 worker, offline persistence, repeated captures, Chrome restart, alarms, authenticated SQLite delivery, duplicates and token correction",
+    "PASS: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, Chrome restart, send now, foreign id, browser record",
   );
 } finally {
-  await browser?.close();
-  await stopApp();
+  await browser?.close().catch(() => {});
+  apps.stop();
+  execFileSync("reg", ["delete", KEY, "/f"], { stdio: "ignore" });
 }

@@ -1,7 +1,17 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AppSettings, DataSummary, ServerStatus } from "../../types";
+import { AppSettings, CaptureStatus, DataSummary } from "../../types";
 import { api, isTauri } from "../../services/api";
+import {
+  appIsOlder,
+  browserName,
+  captureReport,
+  connectedNames,
+  incompatible,
+  lastSaved,
+  statusColor,
+  statusLabel,
+} from "../../services/capture";
 import { describeError } from "../../services/errors";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
 import { Theme } from "../../services/preferences";
@@ -13,8 +23,9 @@ export function SettingsPage({
   theme,
   onTheme,
   settings,
-  server,
+  capture,
   onSettings,
+  onCapture,
   onConnect,
   onCopy,
   onNotice,
@@ -22,8 +33,9 @@ export function SettingsPage({
   theme: Theme;
   onTheme: (theme: Theme) => void;
   settings: AppSettings | null;
-  server: ServerStatus | null;
+  capture: CaptureStatus | null;
   onSettings: (settings: AppSettings) => void;
+  onCapture: (status: CaptureStatus) => void;
   onConnect: () => void;
   onCopy: (text: string) => void;
   onNotice: (text: string, alert?: boolean) => void;
@@ -134,32 +146,13 @@ export function SettingsPage({
         </Row>
       </Section>
 
-      <Section title={t("settings.browser")}>
-        <Row
-          title={
-            <span className="flex items-center gap-2.5">
-              <Dot color={server?.running ? "var(--np-green)" : server?.error ? "var(--np-danger)" : "var(--np-faint)"} />
-              {server?.running ? t("browser.ready") : server?.error ? t("browser.failing") : server ? t("browser.notConnected") : t("browser.checking")}
-            </span>
-          }
-          description={server?.running ? t("settings.listening", { address: server.address }) : (server?.error ?? "")}
-          danger={!!server?.error && !server.running}
-        >
-          <Button onClick={onConnect}>{t("settings.connectBrowser")}</Button>
-        </Row>
-        <Row title={t("settings.key")} description={t("settings.keyHint")}>
-          <input
-            readOnly
-            type="password"
-            aria-label={t("connect.token")}
-            value={settings?.capture_token ?? ""}
-            className="field h-8 w-[160px] py-1"
-          />
-          <Button disabled={!settings?.capture_token} onClick={() => settings && onCopy(settings.capture_token)}>
-            {t("common.copy")}
-          </Button>
-        </Row>
-      </Section>
+      <BrowserSection
+        capture={capture}
+        busy={busy("capture")}
+        onConnect={onConnect}
+        onRepair={() => void attempt("capture", async () => onCapture(await api.repairCapture()))}
+        onReport={() => capture && onCopy(captureReport(capture, version))}
+      />
 
       <Section title={t("settings.data")}>
         <Row title={t("settings.folder")} description={data?.library_folder ?? ""}>
@@ -216,6 +209,84 @@ export function SettingsPage({
         </span>
       </p>
     </div>
+  );
+}
+
+/** Settings → Browser and its states (frame 14, «Блок «Браузер» — другие состояния»). */
+function BrowserSection({
+  capture,
+  busy,
+  onConnect,
+  onRepair,
+  onReport,
+}: {
+  capture: CaptureStatus | null;
+  busy: boolean;
+  onConnect: () => void;
+  onRepair: () => void;
+  onReport: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const title = t("settings.browser");
+  const state = capture?.state;
+  if (state === "lost" || state === "incompatible" || state === "failing") {
+    const outdated = incompatible(capture);
+    const text =
+      state === "lost"
+        ? t("browser.lostText", { count: capture?.days_silent ?? 3 })
+        : state === "incompatible"
+          ? t(appIsOlder(capture) ? "browser.updateAppText" : "browser.updateText", {
+              browser: outdated ? browserName[outdated.browser] : "",
+              version: outdated?.extension_version ?? "?",
+            })
+          : t(`browser.problem_${capture?.problem ?? "channel"}`);
+    const failing = state === "failing";
+    return (
+      <section className="flex flex-col gap-2" data-capture={state}>
+        <h2 className="text-2xs font-semibold text-subtle uppercase">{title}</h2>
+        <div
+          className={`flex flex-col items-start gap-2.5 rounded-xl px-4 py-3.5 ${failing ? "bg-danger-soft text-on-danger-soft" : "border border-line bg-card"}`}
+        >
+          <div className="flex items-center gap-2.5 text-sm font-medium">
+            <Dot color={statusColor(capture)} />
+            {statusLabel(capture, t)}
+          </div>
+          <p className={`text-sm leading-[18px] ${failing ? "" : "text-muted"}`}>{text}</p>
+          <div className="flex gap-2">
+            {failing ? (
+              <>
+                <Button variant="onDanger" disabled={busy} onClick={onRepair}>
+                  {t("common.retry")}
+                </Button>
+                <Button variant="onDanger" onClick={onReport}>
+                  {t("browser.copyReport")}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={onConnect}>{state === "lost" ? t("browser.howToConnect") : t("browser.howToUpdate")}</Button>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="flex flex-col gap-2" data-capture={state ?? "checking"}>
+      <h2 className="text-2xs font-semibold text-subtle uppercase">{title}</h2>
+      <div className="rounded-xl border border-line bg-card">
+        <Row
+          title={
+            <span className="flex items-center gap-2.5">
+              <Dot color={statusColor(capture)} />
+              {state === "connected" ? t("browser.connectedTo", { browsers: connectedNames(capture) }) : statusLabel(capture, t)}
+            </span>
+          }
+          description={state === "connected" ? lastSaved(capture, t, i18n.language) : state === "none" ? t("browser.notConnectedHint") : ""}
+        >
+          <Button onClick={onConnect}>{state === "connected" ? t("settings.connectBrowser") : t("browser.connect")}</Button>
+        </Row>
+      </div>
+    </section>
   );
 }
 
