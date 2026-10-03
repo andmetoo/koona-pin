@@ -64,6 +64,16 @@ Chrome for Testing запускается с отдельным постоянн
 
 Чтобы повторить проверку релизного бинарника, сначала выполните `cargo build --release --features custom-protocol --locked` в `src-tauri`, затем задайте `$env:NETAMIPIN_TEST_BINARY='src-tauri/target/release/netamipin.exe'` для `test:native` и `test:extension`. Python smoke принимает `--binary src-tauri/target/release/netamipin.exe`. Скрипт Chrome smoke использует встроенный модуль Node.js `node:sqlite`.
 
+## Тестовые библиотеки
+
+Базы без личных данных для проверок хранилища и миграций ([Р-10](decisions.md#р-10-модель-данных-и-миграции)). Генератор строит их кодом настоящей схемы в `.test-data/libraries`; результат одинаков на любой машине.
+
+```powershell
+cargo run --example test_libraries --manifest-path src-tauri/Cargo.toml
+node scripts/open-test-libraries.mjs
+```
+
+Второй скрипт открывает каждую базу собранным `netamipin.exe` (порт 28765 должен быть свободен) и печатает, открылась ли она, версию схемы, число закладок и `quick_check`. Повреждённые базы сейчас завершают приложение через panic — это известное ограничение до NP-006.
 ## Визуальные эталоны
 
 Эталоны находятся в `tests/ui/visual.spec.ts-snapshots` и проверяются через `toHaveScreenshot` **только локально**. Они зависят от сглаживания шрифтов конкретной машины: 3 октября 2026 года эталоны от 2 октября не совпали на той же машине (около 1 % пикселей, только сглаживание текста), а шрифты раннера отличаются сильнее. Поэтому CI запускает UI с `--grep-invert "@visual"`.

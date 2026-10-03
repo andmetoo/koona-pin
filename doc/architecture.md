@@ -18,6 +18,8 @@
 
 Событие `bookmark-changed`: `{ kind: "created" | "updated" | "deleted", id, revision, bookmark }`. Массовая операция выдаёт `library-invalidated`. Patch коллекции: `{ action: "keep" }`, `{ action: "clear" }`, `{ action: "set", id: 1 }`.
 
+Следующая схема (v2) и правила миграций описаны в [Р-10](decisions.md#р-10-модель-данных-и-миграции): входящие (`triaged_at`), корзина (`deleted_at`) с одним адресом на строку, `source`, `uid` (UUIDv7), таблица `tombstones`, время UTC с миллисекундами, `application_id`, резервные копии `VACUUM INTO` в `backups`.
+
 ### Известные ограничения хранилища
 
 Состояние кода на 3 октября 2026 года; исправления запланированы в NP-006 и NP-011 по решениям [Р-2 и Р-3](decisions.md).
