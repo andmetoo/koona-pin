@@ -13,7 +13,7 @@ env:
 
 jobs:
   checks:
-    name: Build, unit tests, Playwright UI
+    name: Build, unit tests, IPC types, Playwright UI
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -28,13 +28,17 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # Rust tests also regenerate the IPC types in src/bindings (ts-rs, NP-007),
+      # so the TypeScript build below checks the interface against fresh types.
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --locked
+      - name: Generated IPC types are committed
+        run: npm run check:bindings
       - name: TypeScript and Vite build
         run: npm run build
       - name: Vitest
         run: npm test
-      - name: Rust tests
-        working-directory: src-tauri
-        run: cargo test --locked
       - name: Install Playwright Chromium
         run: npx playwright install chromium
       # Screenshot baselines depend on local font rendering and are checked locally only.

@@ -2,8 +2,10 @@ use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{atomic::AtomicBool, Mutex};
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Bookmark {
     pub id: i64,
     pub url: String,
@@ -21,7 +23,8 @@ pub struct Bookmark {
     pub revision: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Collection {
     pub id: i64,
     pub name: String,
@@ -31,14 +34,16 @@ pub struct Collection {
     pub created_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Tag {
     pub id: i64,
     pub name: String,
     pub count: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct DomainCount {
     pub domain: String,
     pub count: i64,
@@ -111,7 +116,8 @@ impl Source {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
 pub struct LibraryCounts {
     pub total: i64,
     pub favorites: i64,

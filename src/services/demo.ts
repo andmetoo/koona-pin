@@ -8,6 +8,7 @@ import {
 } from "../types";
 import { collectionNames, seedBookmarks } from "../concepts/data";
 import { matchesBookmark, sortBookmarks } from "./library";
+import { CommandError } from "./errors";
 
 const key = "netamipin.demo.v1";
 let initial = {
@@ -15,9 +16,11 @@ let initial = {
     id: b.id,
     url: b.url,
     title: b.title,
-    description: b.description,
+    description: b.description ?? null,
+    image_url: null,
+    favicon_url: null,
     domain: b.domain,
-    notes: b.notes,
+    notes: b.notes ?? null,
     is_favorite: b.favorite,
     collection_id: collectionNames.indexOf(b.collection) + 1,
     tags: b.tags,
@@ -29,7 +32,10 @@ let initial = {
   collections: collectionNames.map((name, i): Collection => ({
     id: i + 1,
     name,
-    created_at: "2026-10-02",
+    color: null,
+    icon: null,
+    count: null,
+    created_at: "2026-10-02T00:00:00.000Z",
   })),
 };
 try {
@@ -91,15 +97,27 @@ export const demo = {
     collectionId?: number | null;
     tags?: string[];
   }) {
-    const url = new URL(data.url.trim());
+    let url: URL;
+    try {
+      url = new URL(data.url.trim());
+    } catch {
+      throw new CommandError("invalid_request", "Некорректная ссылка");
+    }
     if (!["http:", "https:"].includes(url.protocol))
-      throw new Error("Поддерживаются только HTTP/HTTPS");
+      throw new CommandError(
+        "invalid_request",
+        "Поддерживаются только ссылки HTTP/HTTPS",
+      );
     const previous = bookmarks.find((b) => b.url === data.url.trim());
     if (previous) return previous;
     const b: Bookmark = {
       id: Date.now(),
       url: data.url.trim(),
       title: data.title?.trim() || url.hostname,
+      description: null,
+      image_url: null,
+      favicon_url: null,
+      notes: null,
       domain: url.hostname.replace(/^www\./, ""),
       collection_id: data.collectionId ?? null,
       tags: data.tags ?? [],
@@ -124,7 +142,7 @@ export const demo = {
     },
   ) {
     const previous = bookmarks.find((b) => b.id === id);
-    if (!previous) throw new Error("Закладка удалена");
+    if (!previous) throw new CommandError("not_found", "Закладка удалена");
     const b = {
       ...previous,
       ...data,
@@ -145,12 +163,13 @@ export const demo = {
   },
   async createCollection(name: string, color?: string, icon?: string) {
     if (collections.some((c) => c.name === name.trim()))
-      throw new Error("Такая коллекция уже есть");
-    const c = {
+      throw new CommandError("conflict", "Такая коллекция уже есть");
+    const c: Collection = {
       id: Date.now(),
       name: name.trim(),
-      color,
-      icon,
+      color: color ?? null,
+      icon: icon ?? null,
+      count: 0,
       created_at: new Date().toISOString(),
     };
     collections = [...collections, c];
