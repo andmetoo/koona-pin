@@ -14,10 +14,12 @@ pub const GECKO_ID: &str = "pin@netami.app";
 /// unpacked extension with that public key, so the installer build leaves it out.
 pub const DEV_EXTENSION_ID: &str = "iibgiagcbediajombmkohanobgicbepn";
 /// Chrome Web Store and Edge Add-ons ids from the catalog drafts (NP-017).
-/// Edge's id differs from Chrome's; it is added once its draft exists.
+/// Edge Add-ons gives the same package an id of its own.
 pub const STORE_EXTENSION_IDS: &[&str] = &[
     // Chrome Web Store
     "dedcgklilbgbieabgpklellnaccpjhpc",
+    // Edge Add-ons
+    "ocdkndgdeagephdnlmofffbapdifhkho",
 ];
 /// Registers even a development build or an isolated test run.
 pub const REGISTER_ENV: &str = "NETAMIPIN_REGISTER_HOST";
