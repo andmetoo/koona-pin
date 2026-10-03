@@ -1,6 +1,6 @@
 # Netami Pin
 
-Локальная библиотека ссылок для Windows: светлая и тёмная темы, коллекции, теги, избранное и захват страниц из Chrome с устойчивой очередью.
+Локальная библиотека ссылок для Windows: светлая и тёмная темы, коллекции, теги, избранное и захват страниц из Chrome, Edge и Firefox с устойчивой очередью.
 
 **Дизайн.** Актуальный дизайн — редизайн, итерация 1 (envy green, Inter, разбор входящих, массовые действия). В коде — его основа (NP-010): оболочка, компоненты, настройки, английский и русский; остальные экраны доводятся задачами дорожной карты. Что главнее и где что лежит — в [гайдлайне](doc/guidelines.md).
 
@@ -18,7 +18,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятс
 
 Остальное:
 
-- [Возможности, установка и Chrome](doc/features.md)
+- [Возможности, установка и расширение](doc/features.md)
 - [Согласованный план](doc/plan.md)
 - [Протокол и архитектура](doc/architecture.md)
 - [Проверки и CI](doc/testing.md)
@@ -41,7 +41,7 @@ npm run tauri dev
 ```powershell
 npm run build
 npm run tauri build
-npm run extension:zip
+npm run extension:build
 ```
 
-Расширение: папка `extension/chrome`, архив `release/netamipin-chrome.zip`. Архив хранится отдельно от очищаемой при сборке папки `dist`. Установка через режим разработчика описана в [инструкции](doc/features.md#chrome).
+Расширение для Chrome, Edge и Firefox собирается из одного исходника `extension/src`: распакованные папки `extension/build/chrome`, `edge`, `firefox` и пакеты `release/netamipin-chrome.zip`, `netamipin-edge.zip`, `netamipin-firefox.xpi`. Пакеты хранятся отдельно от очищаемой при сборке папки `dist`. Установка — в [инструкции](doc/features.md#браузеры).

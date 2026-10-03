@@ -39,6 +39,9 @@ jobs:
         run: npm run build
       - name: Vitest
         run: npm test
+      # Builds the Chrome, Edge and Firefox packages, then lints the Firefox one.
+      - name: Extension packages, web-ext lint
+        run: npm run extension:lint
       - name: Install Playwright Chromium
         run: npx playwright install chromium
       # Screenshot baselines depend on local font rendering and are checked locally only.

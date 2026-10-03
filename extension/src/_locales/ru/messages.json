@@ -1,0 +1,71 @@
+{
+  "extensionName": { "message": "Netami Pin — сохранить ссылку" },
+  "extensionDescription": {
+    "message": "Сохранение страницы одним нажатием в локальную библиотеку Netami Pin. Очередь работает, даже когда приложение закрыто."
+  },
+  "actionTitle": { "message": "Сохранить страницу в Netami Pin" },
+  "queueWaiting": {
+    "message": "Netami Pin: ожидают передачи $COUNT$. Откройте настройки для просмотра очереди.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Сохраняется в Netami Pin" },
+  "badgeQueued": { "message": "Ссылка в локальной очереди Netami Pin" },
+  "badgeWaiting": { "message": "Ссылка ожидает передачи в Netami Pin" },
+  "badgeSaved": { "message": "Сохранено в Netami Pin" },
+  "badgeExisting": { "message": "Эта ссылка уже есть в Netami Pin" },
+  "errorInvalidUrl": {
+    "message": "Эту страницу нельзя сохранить. Откройте страницу с адресом HTTP/HTTPS."
+  },
+  "errorUnsupportedScheme": {
+    "message": "Эту страницу нельзя сохранить. Поддерживаются только ссылки HTTP/HTTPS."
+  },
+  "errorUnavailable": {
+    "message": "Netami Pin недоступен. Ссылка ожидает передачи."
+  },
+  "errorNoConfirmation": { "message": "Подтверждение сохранения не получено" },
+  "errorSaveFailed": { "message": "Не удалось сохранить ссылку" },
+  "errorNoToken": {
+    "message": "Подключите расширение: вставьте локальный токен в настройках."
+  },
+  "errorTokenFormat": {
+    "message": "Скопируйте полный токен из Netami Pin → Подключить браузер."
+  },
+  "errorTokenRejected": {
+    "message": "Токен не подходит. Скопируйте актуальный токен из Netami Pin."
+  },
+  "errorUnknownAction": { "message": "Неизвестное действие" },
+  "optionsTitle": { "message": "Netami Pin — подключение и очередь" },
+  "optionsEyebrow": { "message": "Расширение браузера" },
+  "optionsHeading": { "message": "Хорошие находки,\nв одном месте." },
+  "optionsIntro": {
+    "message": "Сохраняйте страницу одним нажатием. Ссылки дождутся приложения в локальной очереди."
+  },
+  "connectionHeading": { "message": "Подключение" },
+  "connectionChecking": { "message": "Проверяем приложение…" },
+  "connectionNotPaired": {
+    "message": "Вставьте токен, чтобы соединить расширение с приложением."
+  },
+  "connectionReady": { "message": "Netami Pin запущен. Подключение настроено." },
+  "connectionUnavailable": {
+    "message": "Netami Pin закрыт или недоступен. Ссылки останутся в очереди."
+  },
+  "tokenLabel": { "message": "Локальный токен из Netami Pin → Подключить браузер" },
+  "tokenPlaceholder": { "message": "Вставьте токен подключения" },
+  "connectButton": { "message": "Подключить" },
+  "tokenSaved": {
+    "message": "Токен сохранён. Ожидающие ссылки будут переданы приложению."
+  },
+  "queueHeading": { "message": "Ожидают передачи" },
+  "retryButton": { "message": "Повторить передачу" },
+  "queueEmpty": {
+    "message": "Очередь пуста. Откройте интересную страницу и нажмите значок Netami Pin."
+  },
+  "removeButton": { "message": "Удалить" },
+  "removeLabel": {
+    "message": "Удалить из очереди: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Название страницы" } }
+  },
+  "optionsFooter": {
+    "message": "Данные хранятся в браузере и на вашем компьютере. Для передачи должны быть запущены браузер и Netami Pin."
+  }
+}
