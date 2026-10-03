@@ -572,7 +572,10 @@ test("foreign file: retry after moving it away opens a new library", async ({
   }
 });
 
-test("10 000 bookmarks scroll smoothly in the grid and the list", async ({ request }) => {
+// A measurement, not a correctness check: about 35 s and sensitive to machine load.
+// Not in `npm run test:native`; run it with `npm run test:perf` before a release
+// and after changes to the grid, the list or paging (NP-012).
+test("10 000 bookmarks scroll smoothly in the grid and the list", { tag: "@perf" }, async ({ request }) => {
   test.setTimeout(240_000);
   const data = await folder("scroll-10k");
   const app = await launch(request, isolated(data));
