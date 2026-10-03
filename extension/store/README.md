@@ -77,5 +77,5 @@ The extension is a companion to the Netami Pin desktop app for Windows. Without 
 
 1. Загрузить пакет в черновик. ID появляется сразу: в Chrome Web Store — в адресе и на вкладке Package, в Edge — «CRX ID» в Extension identity. ID в Edge отличается от ID в Chrome.
 2. ID вписать в `STORE_EXTENSION_IDS` (`src-tauri/src/native_host.rs`): с ними установщик (`--features public-release`) разрешает host только каталожным расширениям.
-3. Заполнить карточку по этому файлу и отправить на проверку с видимостью Unlisted / Hidden.
+3. Заполнить карточку по этому файлу. На проверку с видимостью Unlisted / Hidden отправлять после установщика (NP-037): без приложения проверяющий видит только «Netami Pin не установлен» (решение владельца 4 окт. 2026). В заметку для проверяющих — ссылку на установщик.
 4. После одобрения ссылки на карточки — в `storeLinks` (`src/services/capture.ts`): «Подключить браузер» показывает установку из каталога вместо режима разработчика.
