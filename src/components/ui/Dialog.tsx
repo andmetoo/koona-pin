@@ -1,17 +1,28 @@
-import { useEffect, useRef, useId } from "react";
+import { ReactNode, useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Icon } from "../icons";
+import { IconButton } from "./Button";
 
+/**
+ * A modal dialog or, with `drawer`, the editor over the content in a narrow
+ * window. Escape and a click on the backdrop close it; focus returns to the
+ * element that opened it.
+ */
 export function Dialog({
   title,
   onClose,
   children,
   drawer = false,
+  width = 440,
 }: {
   title: string;
   onClose: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
   drawer?: boolean;
+  width?: number;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const closeRef = useRef(onClose);
@@ -29,7 +40,13 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className={drawer ? "study-editor" : "study-dialog"}
+      data-drawer={drawer || undefined}
+      style={drawer ? undefined : { width }}
+      className={
+        drawer
+          ? "fixed inset-y-0 right-0 left-auto m-0 h-full max-h-full w-[380px] max-w-full animate-appear border-l border-border bg-card p-6 text-ink shadow-menu"
+          : "m-auto max-w-[calc(100vw-32px)] animate-appear rounded-2xl border border-border bg-card p-5 text-ink shadow-menu"
+      }
       onCancel={(e) => {
         e.preventDefault();
         closeRef.current();
@@ -38,11 +55,13 @@ export function Dialog({
         if (e.target === ref.current) closeRef.current();
       }}
     >
-      <header>
-        <h2 id={titleId}>{title}</h2>
-        <button className="study-icon" aria-label="Закрыть" onClick={onClose}>
-          <X size={18} />
-        </button>
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <h2 id={titleId} className="text-lg font-semibold">
+          {title}
+        </h2>
+        <IconButton label={t("common.close")} onClick={onClose}>
+          <Icon icon={X} />
+        </IconButton>
       </header>
       {children}
     </dialog>

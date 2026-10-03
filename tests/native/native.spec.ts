@@ -27,7 +27,7 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
     ...process.env,
     NETAMIPIN_DATA_DIR: data,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225",
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225 --lang=ru",
   };
   const processHandle = spawn(executable, [], {
     env,
@@ -61,7 +61,7 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
       console.error("WebView page error:", error.message),
     );
     await expect(
-      page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+      page.getByRole("heading", { name: "Здесь будут ваши закладки" }),
     ).toBeVisible({ timeout: 15000 });
     await page
       .getByRole("button", { name: "Добавить ссылку", exact: true })
@@ -76,16 +76,16 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
       .selectOption({ label: "Разработка" });
     await page.getByRole("button", { name: "Сохранить ссылку" }).click();
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
-    await page.locator("[data-bookmark-id] summary").click();
-    await page
-      .getByRole("button", { name: "Редактировать", exact: true })
-      .click();
+    await page.locator("[data-bookmark-id]").hover();
+    await page.getByRole("button", { name: /^Действия:/ }).click();
+    await page.getByRole("menuitem", { name: "Изменить…" }).click();
     await page.getByLabel("Коллекция", { exact: true }).selectOption("");
     await page.getByRole("button", { name: "Сохранить изменения" }).click();
-    await expect(page.locator("[data-bookmark-id] footer")).toContainText(
+    await page.getByRole("button", { name: "Список", exact: true }).click();
+    await expect(page.locator("[data-bookmark-id] [data-collection]")).toContainText(
       "Без коллекции",
     );
-    await page.getByRole("button", { name: "Подключить браузер" }).click();
+    await page.getByRole("button", { name: /Захват/ }).click();
     await expect(
       page.getByLabel("Токен подключения", { exact: true }),
     ).toHaveValue(/^[a-f0-9]{64}$/);
@@ -161,13 +161,13 @@ test("real WebView2, SQLite, HTTP events, close-to-tray and single instance", as
       )
       .toBe(true);
     await page.getByRole("button", { name: "Настройки", exact: true }).click();
-    await page
-      .getByLabel("При закрытии окна оставлять приложение в трее")
-      .uncheck();
-    await expect(
-      page.getByLabel("При закрытии окна оставлять приложение в трее"),
-    ).toBeEnabled();
-    await page.getByRole("button", { name: "Закрыть", exact: true }).click();
+    const tray = page.getByRole("switch", {
+      name: "При закрытии окна оставлять приложение в трее",
+    });
+    await expect(tray).toHaveAttribute("aria-checked", "true");
+    await tray.click();
+    await expect(tray).toHaveAttribute("aria-checked", "false");
+    await expect(tray).toBeEnabled();
     const exited = new Promise<void>((resolve) =>
       processHandle.once("exit", () => resolve()),
     );
@@ -206,7 +206,7 @@ test("occupied port is reported while local library remains usable", async ({
         ...process.env,
         NETAMIPIN_DATA_DIR: data,
         WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225",
+        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225 --lang=ru",
       },
     },
   );
@@ -230,9 +230,10 @@ test("occupied port is reported while local library remains usable", async ({
       .toBe(true);
     browser = await chromium.connectOverCDP("http://127.0.0.1:9225");
     const page = browser.contexts()[0].pages()[0];
-    await page.getByRole("button", { name: "Подключить браузер" }).click();
-    await expect(page.locator(".connection-status")).not.toHaveClass(
-      /connected/,
+    await page.getByRole("button", { name: /Захват/ }).click();
+    await expect(page.locator("[data-connection]")).toHaveAttribute(
+      "data-connection",
+      "stopped",
     );
     await expect
       .poll(() =>
@@ -287,7 +288,7 @@ async function launch(
     env: {
       ...process.env,
       ...env,
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225",
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225 --lang=ru",
     },
     windowsHide: true,
     stdio: "ignore",
@@ -415,7 +416,7 @@ test("library of an earlier build is moved aside and a new one is created", asyn
   const app = await launch(request, isolated(data));
   try {
     await expect(
-      app.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+      app.page.getByRole("heading", { name: "Здесь будут ваши закладки" }),
     ).toBeVisible({ timeout: 15000 });
     await expect(app.page.getByRole("status")).toContainText("netamipin.old-");
   } finally {
@@ -438,7 +439,7 @@ test("damaged library is detected in the background and not written", async ({
   const first = await launch(request, isolated(data));
   try {
     await expect(
-      first.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+      first.page.getByRole("heading", { name: "Здесь будут ваши закладки" }),
     ).toBeVisible({ timeout: 15000 });
     await first.page.evaluate(() =>
       window.__TAURI_INTERNALS__.invoke("quit_app"),
@@ -466,7 +467,7 @@ test("damaged library is detected in the background and not written", async ({
 
   const app = await launch(request, isolated(data));
   try {
-    await expect(app.page.locator(".library-damaged")).toBeVisible({ timeout: 15000 });
+    await expect(app.page.getByRole("alert").filter({ hasText: "Библиотека повреждена" })).toBeVisible({ timeout: 15000 });
     await app.page.screenshot({ path: "test-results/library-damaged.png" });
     const written = await app.page.evaluate(() =>
       window.__TAURI_INTERNALS__.invoke("add_bookmark", {
@@ -493,7 +494,7 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
   const app = await launch(request, isolated(data));
   try {
     await expect(
-      app.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+      app.page.getByRole("heading", { name: "Здесь будут ваши закладки" }),
     ).toBeVisible({ timeout: 15000 });
     const result = await app.page.evaluate(async () => {
       let html = "<DL>";
@@ -528,7 +529,7 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
     expect(result.imported).toBe(10000);
     expect(result.probes).toBeGreaterThan(1);
     expect(result.worstMs).toBeLessThan(250);
-    await expect(app.page.locator(".study-heading-count")).toHaveText("10000");
+    await expect(app.page.locator("h1")).toContainText("10000");
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
@@ -554,7 +555,7 @@ test("foreign file: retry after moving it away opens a new library", async ({
     await rename(file, path.join(data, "notes-of-another-app.db"));
     await app.page.keyboard.press("Enter");
     await expect(
-      app.page.getByRole("heading", { name: "Здесь будет ваша библиотека" }),
+      app.page.getByRole("heading", { name: "Здесь будут ваши закладки" }),
     ).toBeVisible({ timeout: 15000 });
     await expect.poll(() => healthy(request)).toBe(true);
   } finally {

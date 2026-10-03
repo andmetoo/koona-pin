@@ -2,34 +2,35 @@ import {
   Bookmark,
   BookmarkChange,
   Collection,
+  DataSummary,
   FilterState,
   LibraryPlace,
   LibraryStatus,
 } from "../types";
-import { collectionNames, seedBookmarks } from "../concepts/data";
+import { demoBookmarks, demoCollections, posterOf } from "./demoData";
 import { matchesBookmark, sortBookmarks } from "./library";
 import { CommandError } from "./errors";
 
-const key = "netamipin.demo.v1";
+// v2: generated previews instead of the drawn ones of the concepts.
+const key = "netamipin.demo.v2";
 let initial = {
-  bookmarks: seedBookmarks.map((b, i): Bookmark => ({
+  bookmarks: demoBookmarks.map((b, i): Bookmark => ({
     id: b.id,
     url: b.url,
     title: b.title,
     description: b.description ?? null,
-    image_url: null,
+    image_url: posterOf(b),
     favicon_url: null,
     domain: b.domain,
-    notes: b.notes ?? null,
+    notes: b.notes || null,
     is_favorite: b.favorite,
-    collection_id: collectionNames.indexOf(b.collection) + 1,
+    collection_id: demoCollections.indexOf(b.collection) + 1,
     tags: b.tags,
     created_at: new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString(),
     updated_at: new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString(),
     revision: 1,
-    preview_kind: b.preview,
   })),
-  collections: collectionNames.map((name, i): Collection => ({
+  collections: demoCollections.map((name, i): Collection => ({
     id: i + 1,
     name,
     color: null,
@@ -227,7 +228,7 @@ export const demo = {
     return {
       running: false,
       address: "127.0.0.1:28765",
-      error: "Демонстрационное превью в браузере",
+      error: null,
       legacy_app: false,
     };
   },
@@ -245,5 +246,26 @@ export const demo = {
   },
   async quitApp() {
     /* Desktop-only. */
+  },
+  async getAutostart() {
+    return false;
+  },
+  async setAutostart(_enabled: boolean) {
+    /* Desktop-only. */
+  },
+  async getDataSummary(): Promise<DataSummary> {
+    return {
+      library_folder: "%APPDATA%\\Netami Pin",
+      backups_folder: "%APPDATA%\\Netami Pin\\backups",
+      copies: 0,
+      bytes: 0,
+      last_copy: null,
+    };
+  },
+  async backUpNow(): Promise<DataSummary> {
+    throw new CommandError("internal", "Резервные копии доступны в настольном приложении");
+  },
+  async getVersion() {
+    return "demo";
   },
 };
