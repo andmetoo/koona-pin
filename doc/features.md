@@ -57,7 +57,7 @@ npm run tauri build
    - **Firefox**: `about:debugging#/runtime/this-firefox` → «Загрузить временное дополнение…» → файл `release/netamipin-firefox.xpi`. Пока XPI не подписан (NP-018), Firefox удаляет временное дополнение при закрытии.
 3. Закрепите значок Netami Pin и нажимайте его на страницах, которые хотите сохранить. Если Netami Pin закрыт, сохранение запустит его в трее.
 
-Релизная сборка регистрирует помощника для Chrome, Edge и Firefox сама при каждом запуске. Отладочная — только с `NETAMIPIN_REGISTER_HOST=1`, чтобы не перехватить регистрацию установленного приложения. Netami Pin пускает расширение из Chrome Web Store (ID `dedcgklilbgbieabgpklellnaccpjhpc`, черновик; Edge Add-ons — NP-017) и, кроме сборки установщика, расширение, собранное из этого репозитория (ID `iibgiagcbediajombmkohanobgicbepn`).
+Релизная сборка регистрирует помощника для Chrome, Edge и Firefox сама при каждом запуске. Отладочная — только с `NETAMIPIN_REGISTER_HOST=1`, чтобы не перехватить регистрацию установленного приложения. Netami Pin пускает расширение из Chrome Web Store (ID `dedcgklilbgbieabgpklellnaccpjhpc`) и Edge Add-ons (ID `ocdkndgdeagephdnlmofffbapdifhkho`) — пока это черновики, они уйдут на проверку после установщика (NP-037) — и, кроме сборки установщика, расширение, собранное из этого репозитория (ID `iibgiagcbediajombmkohanobgicbepn`).
 
 Не перемещайте папку распакованного расширения после установки. Повторная сборка обновляет файлы в той же папке; затем нажмите «Обновить» на странице расширений.
 
