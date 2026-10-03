@@ -20,7 +20,7 @@
 | 4   | [design.md](design.md)                                                                                        | Реализовано, устаревает | Интерфейс «Редакция», который сейчас в коде                                            |
 | 5   | `src/concepts`, `concept.html`, `doc/concepts/{catalog,editorial}-*.jpg`, визуальная часть [plan.md](plan.md) | Архив                   | История выбора направления                                                             |
 
-Код не является источником дизайна, пока редизайн не реализован. `design/lunacy/development_process.sketch` пуст и не используется. Макеты хранятся в Git LFS; Lunacy открывает их как Sketch.
+Код не является источником дизайна, пока редизайн не реализован. `design/lunacy/development_process.sketch` содержит 20 слайдов о процессе разработки с ИИ-агентами; это справочный материал, а не источник дизайна интерфейса. Полный процесс и рабочие шаблоны — в [development-process.md](development-process.md). Макеты хранятся в Git LFS; Lunacy открывает их как Sketch.
 
 ## Что устарело
 
