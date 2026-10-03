@@ -193,7 +193,7 @@ export function SettingsPage({
         </Row>
         <Row title={t("settings.searchIndex")} description={t("settings.searchIndexHint")}>
           <Button
-            disabled={busy === "index"}
+            disabled={busy("index")}
             onClick={() =>
               void attempt("index", async () => {
                 const count = await api.rebuildSearchIndex();
@@ -201,7 +201,7 @@ export function SettingsPage({
               })
             }
           >
-            {busy === "index" ? t("settings.rebuilding") : t("settings.rebuild")}
+            {busy("index") ? t("settings.rebuilding") : t("settings.rebuild")}
           </Button>
         </Row>
       </Section>
