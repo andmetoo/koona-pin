@@ -22,17 +22,25 @@ import {
   AppSettings,
   Bookmark,
   FilterState,
+  LibraryStatus,
   ServerStatus,
   ViewMode,
 } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
+import {
+  applyTheme,
+  isDark,
+  preference,
+  storedTheme,
+  Theme,
+} from "./services/preferences";
+import { libraryLabels } from "./services/libraryMessages";
 import { LibraryCard } from "./components/ui/LibraryCard";
 import { Dialog } from "./components/ui/Dialog";
 import { WindowBar } from "./components/ui/WindowBar";
 import { BookmarkEditor } from "./components/ui/BookmarkEditor";
 
 type Surface = "add" | "import" | "connect" | "settings" | "collection" | null;
-type Theme = "light" | "dark" | "system";
 const initialFilters: FilterState = {
   search: "",
   collectionId: null,
@@ -40,29 +48,11 @@ const initialFilters: FilterState = {
   domain: null,
   onlyFavorites: false,
 };
-function preference<T extends string>(
-  name: string,
-  allowed: T[],
-  fallback: T,
-): T {
-  try {
-    // Values saved by OddClicks are read until the new key is written.
-    for (const key of [`netamipin.${name}`, `oddclicks.${name}`]) {
-      const v = localStorage.getItem(key);
-      if (allowed.includes(v as T)) return v as T;
-    }
-  } catch {
-    /* Storage unavailable: use the default. */
-  }
-  return fallback;
-}
 const bookmarklet =
   "javascript:(function(){const u=encodeURIComponent(location.href),t=encodeURIComponent(document.title);fetch('http://127.0.0.1:28765/api/add?url='+u+'&title='+t,{mode:'no-cors'}).then(()=>{const n=document.createElement('div');n.textContent='Netami Pin: отправлено';n.style='position:fixed;top:20px;right:20px;z-index:2147483647;background:#a34f34;color:#fff;padding:12px 18px;border-radius:5px;font:14px sans-serif';document.body.append(n);setTimeout(()=>n.remove(),2500)}).catch(()=>{const n=document.createElement('div');n.textContent='Запустите Netami Pin и повторите';n.style='position:fixed;top:20px;right:20px;z-index:2147483647;background:#333;color:#fff;padding:12px;font:14px sans-serif';document.body.append(n);setTimeout(()=>n.remove(),3000)})})();";
 
 export function App() {
-  const [theme, setTheme] = useState<Theme>(() =>
-    preference("theme", ["light", "dark", "system"], "system"),
-  );
+  const [theme, setTheme] = useState<Theme>(storedTheme);
   const [systemDark, setSystemDark] = useState(
     matchMedia("(prefers-color-scheme:dark)").matches,
   );
@@ -92,10 +82,13 @@ export function App() {
   const [server, setServer] = useState<ServerStatus | null>(null);
   const [bookmarkletOpen, setBookmarkletOpen] = useState(false);
   const [legacyWarning, setLegacyWarning] = useState("");
+  const [damaged, setDamaged] = useState(false);
+  const [movedAside, setMovedAside] = useState("");
+  const labels = libraryLabels();
   const editorFocus = useRef<HTMLElement | null>(null);
-  const dark = theme === "dark" || (theme === "system" && systemDark);
+  const dark = isDark(theme, systemDark);
   useEffect(() => {
-    document.documentElement.dataset.studyTheme = dark ? "dark" : "light";
+    applyTheme(dark);
     try {
       localStorage.setItem("netamipin.theme", theme);
     } catch {
@@ -147,6 +140,18 @@ export function App() {
         .catch(() => {});
     }, 1500);
     return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!isTauri()) return;
+    // The background integrity check reports damage after the start.
+    const apply = (status: LibraryStatus) => {
+      if (status.state !== "ready") return;
+      setDamaged(status.damaged);
+      if (status.moved_aside) setMovedAside(status.moved_aside);
+    };
+    const off = api.onLibraryStatus(apply);
+    void api.getLibraryStatus().then(apply).catch(() => {});
+    return off;
   }, []);
   useEffect(() => {
     if (!notice) return;
@@ -391,6 +396,21 @@ export function App() {
           </aside>
           <main className="study-main">
             <div ref={scrollRef} className="study-main-scroll">
+              {damaged && (
+                <div className="library-damaged" role="alert">
+                  <span>{labels.damaged}</span>
+                  <button
+                    className="study-button"
+                    onClick={() => {
+                      void api
+                        .revealLibraryPlace("backups")
+                        .catch((err) => setNotice(String(err)));
+                    }}
+                  >
+                    {labels.backups}
+                  </button>
+                </div>
+              )}
               <div className="study-heading-row">
                 <div>
                   <p className="study-eyebrow">Личная библиотека</p>
@@ -583,6 +603,14 @@ export function App() {
         <Dialog title="Закладка" drawer onClose={closeEditor}>
           {editor}
         </Dialog>
+      )}
+      {movedAside && !legacyWarning && !notice && (
+        <div className="study-toast" role="status">
+          {labels.movedAside(movedAside)}
+          <button className="study-button" onClick={() => setMovedAside("")}>
+            {labels.ok}
+          </button>
+        </div>
       )}
       {legacyWarning && !notice && (
         <div className="study-toast" role="alert">
