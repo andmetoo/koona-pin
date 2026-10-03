@@ -7,10 +7,10 @@
 | Проверка                   | Покрытие                                                                                                                                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | TypeScript и Vite          | Типы и сборка обоих входов: приложение и концепты                                                                                                                                                      |
-| Rust: 12 тестов            | CRUD, миграция старой схемы, согласованная WAL-копия, Unicode-поиск, сортировка при равных датах, tri-state коллекции, откат ошибки записи, дубликаты, квитанции после удаления, устаревшие метаданные |
+| Rust: 14 тестов            | Перенос базы и localStorage из OddClicks, CRUD, миграция старой схемы, согласованная WAL-копия, Unicode-поиск, сортировка при равных датах, tri-state коллекции, откат ошибки записи, дубликаты, квитанции после удаления, устаревшие метаданные |
 | Vitest: 9 тестов           | Фильтры, объединение по id/ревизии, стабильный порядок, устойчивая очередь, повторные нажатия, потеря ответа, некорректное подтверждение, постоянные ошибки и удаление во время передачи               |
 | Playwright UI: 23 сценария | 11 функциональных сценариев и 12 визуальных сравнений (тег `@visual`); обе темы, сетка/список, 800×550, 1200×800, 1600×800                                                                             |
-| Настоящий WebView2         | SQLite-добавление, очистка коллекции, HTTP-события, стандартные кнопки окна, закрытие в трей, повторный запуск, отключение трея, занятый порт и сохранение через IPC при недоступном HTTP              |
+| Настоящий WebView2         | Обновление с копии OddClicks (библиотека, токен, тема, вид, трей), предупреждение о запущенной OddClicks, SQLite-добавление, очистка коллекции, HTTP-события, стандартные кнопки окна, закрытие в трей, повторный запуск, отключение трея, занятый порт и сохранение через IPC при недоступном HTTP              |
 | Нативный HTTP smoke        | Health, токен, дубликаты, повтор квитанции после удаления, invalid URL, конфликт request_id, совместимый GET/POST букмарклет                                                                           |
 | Chrome for Testing, MV3    | Очередь при закрытом приложении, тот же request_id после закрытия/запуска Chrome, повторные нажатия, alarm, реальная доставка в SQLite, дубликат URL, неверный токен и исправление подключения         |
 
@@ -22,7 +22,7 @@ Workflow `.github/workflows/ci.yml` запускается **только вру
 
 Почему вручную. Репозиторий приватный, минуты Windows-раннеров списываются с коэффициентом ×2. Один прогон двух job занимал около 10 минут на job, то есть ≈ 40 списанных минут на коммит; 3 октября 2026 года четыре отладочных прогона израсходовали около 60 из 3000 минут месяца. При частых коммитах это быстро исчерпывает лимит.
 
-Нативные проверки в CI не включены. На раннере WebView2 Runtime 153 запускает приложение, SQLite и HTTP-сервер работают, но `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` не попадает в командную строку `msedgewebview2.exe`, поэтому порт отладки 9225 не открывается и Playwright не подключается. Локально (WebView2 154) переменная работает. При подключении CI можно передавать порт отладки через `additional_browser_args` окна в тестовой сборке. Также на раннере Tauri создаёт пустую папку `%LOCALAPPDATA%\com.oddclicks.app`; данные и профиль WebView2 при этом пишутся только в `.test-data`.
+Нативные проверки в CI не включены. На раннере WebView2 Runtime 153 запускает приложение, SQLite и HTTP-сервер работают, но `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` не попадает в командную строку `msedgewebview2.exe`, поэтому порт отладки 9225 не открывается и Playwright не подключается. Локально (WebView2 154) переменная работает. При подключении CI можно передавать порт отладки через `additional_browser_args` окна в тестовой сборке. Также на раннере Tauri создаёт пустую папку профиля по умолчанию (тогда `%LOCALAPPDATA%\com.oddclicks.app`, теперь `app.netami.pin`); данные и профиль WebView2 при этом пишутся только в `.test-data`.
 
 Версии берутся из репозитория: Node.js — `.nvmrc`, Rust — `rust-toolchain.toml`, npm-пакеты и Chromium для Playwright — `package-lock.json`, crates — `Cargo.lock`.
 
@@ -54,7 +54,7 @@ npm run test:extension
 npm run extension:zip
 ```
 
-Если `python` открывает Microsoft Store, используйте `py scripts/smoke-native.py`. Если после переноса папки проекта `cargo test` не находит файлы в `target\...\tauri-*\out`, выполните `cargo clean -p tauri --manifest-path src-tauri/Cargo.toml`. Переменная окружения `RUSTUP_TOOLCHAIN` переопределяет `rust-toolchain.toml`; для воспроизводимого запуска её не задавайте.
+Если `python` открывает Microsoft Store, используйте `py scripts/smoke-native.py`. Если после переноса папки проекта `cargo test` не находит файлы в `target\...\tauri-*\out`, выполните `cargo clean -p tauri --manifest-path src-tauri/Cargo.toml`. После замены файлов в `src-tauri/icons` иконка EXE обновится только после `cargo clean -p netamipin --manifest-path src-tauri/Cargo.toml`. Переменная окружения `RUSTUP_TOOLCHAIN` переопределяет `rust-toolchain.toml`; для воспроизводимого запуска её не задавайте.
 
 Если браузеры Playwright установлены в нестандартную папку, задайте `PLAYWRIGHT_BROWSERS_PATH`. На машине владельца Chromium из папки по умолчанию `%LOCALAPPDATA%\ms-playwright` не запускается (ошибка side-by-side, `spawn UNKNOWN` в extension smoke), та же сборка из `.cache/playwright` работает; поэтому там используется `.cache/playwright`. Для нативных тестов порты 28765 и 9225 должны быть свободны. Запускайте нативные и extension smoke последовательно: они используют один loopback-порт. Уже работающий сервер тесты не останавливают.
 
@@ -62,7 +62,7 @@ Chrome for Testing запускается с отдельным постоянн
 
 Основания: [проверка WebView2](https://playwright.dev/docs/webview2), [проверка расширений](https://playwright.dev/docs/chrome-extensions).
 
-Чтобы повторить проверку релизного бинарника, сначала выполните `cargo build --release --features custom-protocol --locked` в `src-tauri`, затем задайте `$env:ODDCLICKS_TEST_BINARY='src-tauri/target/release/oddclicks.exe'` для `test:native` и `test:extension`. Python smoke принимает `--binary src-tauri/target/release/oddclicks.exe`. Скрипт Chrome smoke использует встроенный модуль Node.js `node:sqlite`.
+Чтобы повторить проверку релизного бинарника, сначала выполните `cargo build --release --features custom-protocol --locked` в `src-tauri`, затем задайте `$env:NETAMIPIN_TEST_BINARY='src-tauri/target/release/netamipin.exe'` для `test:native` и `test:extension`. Python smoke принимает `--binary src-tauri/target/release/netamipin.exe`. Скрипт Chrome smoke использует встроенный модуль Node.js `node:sqlite`.
 
 ## Визуальные эталоны
 
@@ -83,6 +83,7 @@ Chrome for Testing запускается с отдельным постоянн
 
 | Дата        | Коммит    | Окружение                                                                                                    | Результат |
 | ----------- | --------- | ------------------------------------------------------------------------------------------------------------ | --------- |
+| 3 окт. 2026 | NP-009 (#11) | Та же машина | Полный набор прошёл: Rust 14, UI 23, WebView2 4 (с обновлением с OddClicks), HTTP smoke, extension smoke |
 | 3 окт. 2026 | `b887a6f` | Та же машина, `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` | Полный набор прошёл: UI 23, WebView2 2, HTTP smoke, extension smoke; ≈ 45 с после сборки. `npm run check` ≈ 26 с |
 | 3 окт. 2026 | `6fe886a` | Чистый клон; Windows 11 26300, Node.js 26.10.0, npm 11.19.1, Rust 1.98.1, Python 3.14.7, Chromium 153.0.8010.12 (Playwright 1.63.0), WebView2 154.0.4258.53 | Всё прошло, кроме 12 визуальных сравнений (сглаживание шрифтов); эталоны пересозданы в `7e1dc1d`. Extension smoke прошёл с `PLAYWRIGHT_BROWSERS_PATH=.cache/playwright` |
 | 2 окт. 2026 | —         | Windows, Node.js 24.19.0, Chrome for Testing 153.0.8010.12; WebView2 1200×800 CSS px, `devicePixelRatio=1.5`  | Всё прошло, в том числе на release-бинарнике со встроенными ресурсами |

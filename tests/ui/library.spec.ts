@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(() => localStorage.removeItem("oddclicks.demo.v1"));
+  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v1"));
   await page.reload();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
 });
@@ -165,7 +165,7 @@ test("list geometry stays within the window and broken previews keep their space
     data.bookmarks[0].preview_kind = null;
     data.bookmarks[0].image_url = "/broken-preview.png";
     data.bookmarks[0].title = "Очень длинный заголовок ".repeat(12);
-    localStorage.setItem("oddclicks.demo.v1", JSON.stringify(data));
+    localStorage.setItem("netamipin.demo.v1", JSON.stringify(data));
   });
   await page.reload();
   await expect(

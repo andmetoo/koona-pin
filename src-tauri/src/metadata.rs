@@ -38,7 +38,7 @@ pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(6))
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 OddClicks/0.1")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 NetamiPin/0.1")
         .build();
 
     let client = match client {

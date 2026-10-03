@@ -4,7 +4,7 @@
 
 `App.tsx` собирает оболочку и сценарии. `components/ui` содержит окно, карточку, редактор и диалог. `useLibrary` отделяет результаты, справочники, счётчики и события. `services/library.ts` содержит чистые правила фильтрации и объединения по `id`.
 
-`services/api.ts` — типизированная граница IPC. В Tauri она вызывает Rust-команды, в браузере — независимый `demo.ts` с ключом localStorage `oddclicks.demo.v1`. Превью не обращается к основной базе.
+`services/api.ts` — типизированная граница IPC. В Tauri она вызывает Rust-команды, в браузере — независимый `demo.ts` с ключом localStorage `netamipin.demo.v1`. Превью не обращается к основной базе.
 
 Поиск задерживается на 150 мс. Номер запроса и версия событий не дают старому ответу заменить новые результаты. Повторные события отбрасываются по ревизии; удаление содержит следующую ревизию без записи. Общие счётчики не зависят от поиска.
 
@@ -60,7 +60,7 @@ Authorization: Bearer <локальный токен>
 | 409    | `request_id_conflict` | Идентификатор относится к другому URL               |
 | 500    | `database_error`      | Запись не подтверждена                              |
 
-Ошибка имеет `code` и `message`. `GET /api/health` возвращает `{ "status":"ok", "app":"OddClicks", "protocol":1 }`. Без токена health доступен для диагностики; переданный Authorization проверяется. IPC `get_server_status` сообщает фактический результат привязки порта.
+Ошибка имеет `code` и `message`. `GET /api/health` возвращает `{ "status":"ok", "app":"OddClicks", "name":"Netami Pin", "protocol":1 }`: поле `app` сохранено для расширений, подключённых до переименования, новые клиенты проверяют `name`. Без токена health доступен для диагностики; переданный Authorization проверяется. IPC `get_server_status` сообщает фактический результат привязки порта.
 
 Совместимый `/api/add` принимает GET/POST с query-параметрами либо POST с JSON, без токена. Это ограничение совместимости: токен защищает новый v1 API, старый канал допускает локальное добавление ссылок.
 
@@ -72,4 +72,19 @@ MV3 worker выполняет запросы. `queue.js` последовате�
 
 Основания: [сетевые запросы](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests), [жизненный цикл worker](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle), [chrome.alarms](https://developer.chrome.com/docs/extensions/reference/api/alarms).
 
-Для тестов `ODDCLICKS_DATA_DIR` меняет каталог SQLite, `WEBVIEW2_USER_DATA_FOLDER` — профиль WebView2. Обычный запуск сохраняет существующий путь.
+Для тестов `NETAMIPIN_DATA_DIR` меняет каталог SQLite и отключает перенос из OddClicks, `NETAMIPIN_LEGACY_DIR` указывает на подготовленную копию данных OddClicks, `WEBVIEW2_USER_DATA_FOLDER` — профиль WebView2.
+
+## Переход с OddClicks
+
+Приложение раньше называлось OddClicks. При запуске `legacy.rs` один раз переносит его данные; папки OddClicks только читаются и остаются копией для отката.
+
+| Что | Откуда | Куда | Когда |
+| --- | --- | --- | --- |
+| Библиотека, токен, настройка трея | `%APPDATA%\OddClicks\oddclicks.db` | `%APPDATA%\Netami Pin\netamipin.db` | Новой базы нет. Копия SQLite Backup API через временный `netamipin.db.importing`; ошибка останавливает запуск, исходник не меняется. В `app_settings` пишется `imported_from` |
+| Тема и вид (localStorage) | `%LOCALAPPDATA%\com.oddclicks.app\EBWebView\Default\Local Storage` | профиль `app.netami.pin` | Нового профиля WebView2 нет; до создания окна. Ошибка только логируется |
+
+Интерфейс читает `netamipin.theme` и `netamipin.view`, а пока их нет — `oddclicks.theme` и `oddclicks.view`. Расширение при запуске удаляет alarm `oddclicks-delivery`.
+
+Две версии не пишут в одну базу: OddClicks продолжает работать со своей копией. Если OddClicks запущена и держит порт 28765, сервер Netami Pin распознаёт её по `/api/health` без поля `name`, а интерфейс показывает предупреждение: ссылки из браузера уйдут в старую библиотеку, пока OddClicks не закрыта.
+
+Старое имя осталось только ради совместимости: поле `app` в `/api/health`, чтение старых путей и ключей при переносе, удаление старого alarm в расширении. Архивные концепты (`src/concepts`, `concept.html`) и исторические документы не переименовывались.

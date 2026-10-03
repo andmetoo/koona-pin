@@ -1,11 +1,11 @@
 [package]
-name = "oddclicks"
+name = "netamipin"
 version = "0.1.0"
-description = "OddClicks Desktop Bookmark Manager"
+description = "Netami Pin desktop bookmark library"
 edition = "2021"
 
 [lib]
-name = "oddclicks_lib"
+name = "netamipin_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
