@@ -1,6 +1,14 @@
+import { ext, t } from "./ext.js";
 const get = (id) => document.getElementById(id);
+function translate() {
+  document.documentElement.lang = ext.i18n.getUILanguage();
+  for (const element of document.querySelectorAll("[data-i18n]"))
+    element.textContent = t(element.dataset.i18n);
+  for (const element of document.querySelectorAll("[data-i18n-placeholder]"))
+    element.placeholder = t(element.dataset.i18nPlaceholder);
+}
 async function message(payload) {
-  const result = await chrome.runtime.sendMessage(payload);
+  const result = await ext.runtime.sendMessage(payload);
   if (result?.error) throw new Error(result.error);
   return result;
 }
@@ -14,16 +22,15 @@ async function refresh() {
     get("connection").textContent =
       status.error ||
       (!status.paired
-        ? "Вставьте токен, чтобы соединить расширение с приложением."
+        ? t("connectionNotPaired")
         : status.connected
-          ? "Netami Pin запущен. Подключение настроено."
-          : "Netami Pin закрыт или недоступен. Ссылки останутся в очереди.");
+          ? t("connectionReady")
+          : t("connectionUnavailable"));
     get("queue").replaceChildren();
     if (!queue.length) {
       const empty = document.createElement("p");
       empty.className = "empty";
-      empty.textContent =
-        "Очередь пуста. Откройте интересную страницу и нажмите значок Netami Pin.";
+      empty.textContent = t("queueEmpty");
       get("queue").append(empty);
     }
     for (const item of queue) {
@@ -45,8 +52,8 @@ async function refresh() {
       }
       const remove = document.createElement("button");
       remove.className = "queue-remove";
-      remove.textContent = "Удалить";
-      remove.setAttribute("aria-label", `Удалить из очереди: ${item.title}`);
+      remove.textContent = t("removeButton");
+      remove.setAttribute("aria-label", t("removeLabel", item.title));
       remove.addEventListener("click", async () => {
         remove.disabled = true;
         try {
@@ -71,8 +78,7 @@ get("pair").addEventListener("submit", async (event) => {
   try {
     await message({ type: "token", token: get("token").value });
     get("token").value = "";
-    get("message").textContent =
-      "Токен сохранён. Ожидающие ссылки будут переданы приложению.";
+    get("message").textContent = t("tokenSaved");
     await refresh();
   } catch (error) {
     get("message").textContent = error.message;
@@ -91,7 +97,8 @@ get("retry").addEventListener("click", async () => {
     get("retry").disabled = false;
   }
 });
-chrome.storage.onChanged.addListener((changes) => {
+ext.storage.onChanged.addListener((changes) => {
   if (changes.captureQueue) void refresh();
 });
+translate();
 void refresh();

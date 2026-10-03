@@ -5,12 +5,14 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { buildExtension } from "./build-extension.mjs";
 
 const origin = "http://127.0.0.1:28765";
 const directory = path.resolve(".test-data", `extension-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const extension = path.join(directory, "unpacked-extension");
-await cp(path.resolve("extension/chrome"), extension, { recursive: true });
+const built = await buildExtension({ log: () => {} });
+await cp(built.unpacked.chrome, extension, { recursive: true });
 // Playwright does not expose toolbar clicks. Only the isolated test copy gets
 // a reference to the exact handler registered with chrome.action.onClicked.
 await appendFile(
@@ -83,13 +85,17 @@ async function startBrowser() {
       args: [
         `--disable-extensions-except=${extension}`,
         `--load-extension=${extension}`,
+        // The extension speaks the browser's language; the assertions are Russian.
+        "--lang=ru",
       ],
     },
   );
   worker =
     browser.serviceWorkers()[0] ||
     (await browser.waitForEvent("serviceworker"));
-  return worker.url().split("/")[2];
+  const id = worker.url().split("/")[2];
+  assert.equal(id, built.devId, "Development key pins the extension id");
+  return id;
 }
 async function capture(url, title) {
   await worker.evaluate(
