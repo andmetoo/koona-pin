@@ -69,5 +69,6 @@
 | NP-039 | [#41](https://github.com/andmetoo/netamipin/issues/41) | Провести сквозную приёмку Windows-beta | Windows beta | W7 |
 | NP-040 | [#42](https://github.com/andmetoo/netamipin/issues/42) | Подготовить загрузку, диагностику и поддержку | Windows beta | W7 |
 | NP-041 | [#43](https://github.com/andmetoo/netamipin/issues/43) | Выпустить и проверить публичную Windows-beta | Windows beta | W7 |
+| NP-042 | [#77](https://github.com/andmetoo/netamipin/issues/77) | Получить подпись кода и ключ обновлений | Windows beta | W7 |
 
 Ключи NP-042–NP-078 зарезервированы за задачами последующих выпусков; они перечислены в родительских issues и создаются перед началом вехи.
