@@ -2,6 +2,8 @@
 // rectangle inside the frame. Lunacy 2025.1 drops the radius of a frame when it
 // opens a .sketch file and writes 0 on the next save; the Figma .sketch import
 // turns such frames into groups without fill and radius. Rectangles survive both.
+// It also fixes the saved size of auto-layout frames sized to hug their content but drawn
+// wider or taller than it, which Lunacy would collapse on the next edit.
 // Close the file in Lunacy first. Safe to run twice: fixed frames are skipped.
 // Run: node scripts/fix-sketch-frames.mjs design/lunacy/iterone.sketch [more.sketch]
 //
@@ -92,6 +94,48 @@ function fixFrame(frame, stats) {
   }
 }
 
+const isStack = (layer) => layer.groupLayout?._class === "MSImmutableFlexGroupLayout";
+const inFlow = (layer) => !layer.flexItem?.ignoreLayout && layer.isVisible !== false;
+const lunacyInfo = (layer) => {
+  layer.userInfo = layer.userInfo || {};
+  return (layer.userInfo["com.icons8.lunacy"] = layer.userInfo["com.icons8.lunacy"] || {});
+};
+
+// size an auto-layout frame would take from its content
+function hugSize(frame, horizontal) {
+  const kids = (frame.layers || []).filter(inFlow);
+  const size = (c) => (horizontal ? c.frame.width : c.frame.height);
+  const pad = horizontal ? (frame.leftPadding || 0) + (frame.rightPadding || 0)
+    : (frame.topPadding || 0) + (frame.bottomPadding || 0);
+  if (!kids.length) return pad;
+  const mainAxis = horizontal === (frame.groupLayout.flexDirection !== 1);
+  const gap = frame.groupLayout.allGuttersGap || 0;
+  return pad + (mainAxis ? kids.reduce((sum, c) => sum + size(c), 0) + gap * (kids.length - 1)
+    : Math.max(...kids.map(size)));
+}
+
+// A hug-sized auto-layout frame keeps its saved size only until Lunacy lays it out again,
+// so a frame drawn wider or taller than its content collapses on the first edit nearby.
+// "Fill" does not help: Lunacy drops it for frames when it opens the file (text keeps it).
+// So the saved size of such a frame is fixed.
+function pinHugSizes(frame, stats) {
+  for (const child of frame.layers || []) pinHugSizes(child, stats);
+  if (!isStack(frame) || frame.groupLayout.wrappingEnabled) return;
+  const info = lunacyInfo(frame);
+  for (const horizontal of [true, false]) {
+    const sizingKey = horizontal ? "horizontalSizing" : "verticalSizing";
+    if (frame[sizingKey] !== 1) continue;
+    const saved = horizontal ? frame.frame.width : frame.frame.height;
+    if (Math.abs(saved - hugSize(frame, horizontal)) <= 1) continue;
+    frame[sizingKey] = 0;
+    frame.userInfo[`com.icons8.lunacy.sketch.${sizingKey}`] = 0;
+    const layout = JSON.parse(info.layoutContainerInfo || "{}");
+    layout[horizontal ? "FixWidth" : "FixHeight"] = true;
+    info.layoutContainerInfo = JSON.stringify(layout);
+    stats.fixed++;
+  }
+}
+
 function zip(command) {
   const result = spawnSync("pwsh", ["-NoProfile", "-Command",
     `Add-Type -AssemblyName System.IO.Compression.FileSystem; ${command}`], { stdio: "inherit" });
@@ -124,20 +168,22 @@ for (const file of args) {
   const dir = mkdtempSync(path.join(tmpdir(), "sketch-"));
   try {
     zip(`[IO.Compression.ZipFile]::ExtractToDirectory('${sketch}', '${dir}', $true)`);
-    const stats = { moved: 0, images: 0, reversed: 0, widened: 0 };
+    const stats = { moved: 0, images: 0, fixed: 0, reversed: 0, widened: 0 };
     const pages = path.join(dir, "pages");
     for (const name of readdirSync(pages)) {
       const page = JSON.parse(readFileSync(path.join(pages, name), "utf8"));
       for (const layer of page.layers) fixFrame(layer, stats);
+      for (const layer of page.layers) pinHugSizes(layer, stats);
       if (figmaDir) for (const layer of page.layers) prepareForFigma(layer, stats);
       writeFileSync(path.join(pages, name), JSON.stringify(page));
     }
     const target = figmaDir ? path.join(figmaDir, path.basename(sketch)) : sketch;
-    if (figmaDir || stats.moved || stats.images) {
+    if (figmaDir || stats.moved || stats.images || stats.fixed) {
       rmSync(target, { force: true });
       zip(`[IO.Compression.ZipFile]::CreateFromDirectory('${dir}', '${target}', 'Optimal', $false)`);
     }
-    console.log(`${file}: ${stats.moved} backgrounds, ${stats.images} images rounded`
+    console.log(`${file}: ${stats.moved} backgrounds, ${stats.images} images rounded, `
+      + `${stats.fixed} hug sizes fixed`
       + (figmaDir ? `, ${stats.reversed} stacks reversed, ${stats.widened} texts widened -> ${target}` : ""));
   } finally {
     rmSync(dir, { recursive: true, force: true });
