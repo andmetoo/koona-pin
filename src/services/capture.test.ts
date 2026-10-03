@@ -7,7 +7,16 @@ import { CaptureStatus } from "../types";
 // The app's i18n module touches the document; tests use the same catalogs directly.
 const i18n = i18next.createInstance();
 await i18n.init({ resources: { en: { translation: en }, ru: { translation: ru } }, lng: "en", interpolation: { escapeValue: false } });
-import { appIsOlder, captureReport, connectedNames, lastSaved, preferredBrowser, statusColor, statusLabel } from "./capture";
+import {
+  appIsOlder,
+  captureReport,
+  connectedNames,
+  installSteps,
+  lastSaved,
+  preferredBrowser,
+  statusColor,
+  statusLabel,
+} from "./capture";
 
 const base: CaptureStatus = {
   state: "none",
@@ -62,6 +71,23 @@ describe("browser status", () => {
     const status = { ...base, last_capture: { at, browser: "edge" as const } };
     expect(lastSaved(status, t, "en", new Date(2026, 9, 3, 18, 0))).toMatch(/^Last saved today at 11:48 (AM )?from Edge$/);
     expect(lastSaved(status, t, "en", new Date(2026, 9, 5, 9, 0))).toMatch(/^Last saved October 3 at 11:48 (AM )?from Edge$/);
+  });
+
+  it("installs from the catalog once it has a page, otherwise in developer mode", async () => {
+    await i18n.changeLanguage("ru");
+    const t = i18n.t.bind(i18n);
+    const links = { edge: "https://microsoftedge.microsoft.com/addons/detail/netami-pin/abc" };
+    const edge = installSteps("edge", links);
+    expect(edge.url).toBe(links.edge);
+    expect(t(edge.install)).toBe("Откройте страницу Netami Pin в Edge Add-ons и нажмите «Получить».");
+    expect(t("connect.openStore", { store: edge.store })).toBe("Открыть Edge Add-ons");
+    expect(t(edge.update)).toMatch(/^Расширение из каталога обновляется само/);
+    const chrome = installSteps("chrome", links);
+    expect(chrome.url).toBeNull();
+    expect(t(chrome.install)).toMatch(/^Откройте chrome:\/\/extensions/);
+    expect(t(installSteps("chrome", { chrome: "https://chromewebstore.google.com/detail/x" }).install)).toMatch(/Chrome Web Store/);
+    // Nothing is approved yet: every browser keeps the developer steps.
+    for (const browser of ["chrome", "edge", "firefox"] as const) expect(installSteps(browser).url).toBeNull();
   });
 
   it("puts the problem and every browser into the report", () => {
