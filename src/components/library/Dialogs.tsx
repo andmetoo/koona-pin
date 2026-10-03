@@ -3,7 +3,16 @@ import { ArrowDownToLine, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Browser, CaptureStatus, Collection } from "../../types";
 import { describeError } from "../../services/errors";
-import { browserName, browsers, connectedNames, lastSaved, preferredBrowser, statusColor, statusLabel } from "../../services/capture";
+import {
+  browserName,
+  browsers,
+  connectedNames,
+  installSteps,
+  lastSaved,
+  preferredBrowser,
+  statusColor,
+  statusLabel,
+} from "../../services/capture";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Dot, Field, Segmented } from "../ui/Controls";
@@ -209,17 +218,34 @@ export function ConfirmDialog({
 }
 
 /** Frame 18: how to connect, reconnect and update the extension in each browser. */
-export function ConnectDialog({ capture, onClose }: { capture: CaptureStatus | null; onClose: () => void }) {
+export function ConnectDialog({
+  capture,
+  onOpen,
+  onClose,
+}: {
+  capture: CaptureStatus | null;
+  onOpen: (url: string) => void;
+  onClose: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const [browser, setBrowser] = useState<Browser>(() => preferredBrowser(capture));
   const status =
     capture?.state === "connected"
       ? `${t("browser.connectedTo", { browsers: connectedNames(capture) })} · ${lastSaved(capture, t, i18n.language)}`
       : statusLabel(capture, t);
+  const install = installSteps(browser);
   const steps = [
-    { title: t("connect.installTitle"), text: t(`connect.install_${browser}`) },
-    { title: t("connect.pinTitle"), text: t(`connect.pin_${browser}`) },
-    { title: t("connect.saveTitle"), text: t("connect.save") },
+    {
+      title: t("connect.installTitle"),
+      text: t(install.install),
+      action: install.url ? (
+        <Button className="mt-2" onClick={() => onOpen(install.url)}>
+          {t("connect.openStore", { store: install.store })}
+        </Button>
+      ) : null,
+    },
+    { title: t("connect.pinTitle"), text: t(`connect.pin_${browser}`), action: null },
+    { title: t("connect.saveTitle"), text: t("connect.save"), action: null },
   ];
   return (
     <Dialog title={t("connect.title")} onClose={onClose}>
@@ -251,6 +277,7 @@ export function ConnectDialog({ capture, onClose }: { capture: CaptureStatus | n
               <div>
                 <div className="font-medium">{step.title}</div>
                 <p className="mt-0.5 leading-[18px] text-muted">{step.text}</p>
+                {step.action}
               </div>
             </li>
           ))}
@@ -262,7 +289,7 @@ export function ConnectDialog({ capture, onClose }: { capture: CaptureStatus | n
           </div>
           <div>
             <div className="font-medium">{t("connect.updateTitle")}</div>
-            <p className="mt-0.5 leading-[18px] text-muted">{t(`connect.update_${browser}`)}</p>
+            <p className="mt-0.5 leading-[18px] text-muted">{t(install.update)}</p>
           </div>
         </div>
       </div>
