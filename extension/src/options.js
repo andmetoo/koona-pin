@@ -1,96 +1,125 @@
 import { ext, t } from "./ext.js";
+import { appIsOlder } from "./native.js";
+import { VERSION } from "./version.js";
 const get = (id) => document.getElementById(id);
+const DOWNLOAD = "https://pin.netami.app";
 function translate() {
   document.documentElement.lang = ext.i18n.getUILanguage();
   for (const element of document.querySelectorAll("[data-i18n]"))
     element.textContent = t(element.dataset.i18n);
-  for (const element of document.querySelectorAll("[data-i18n-placeholder]"))
-    element.placeholder = t(element.dataset.i18nPlaceholder);
+  get("version").textContent = t("extensionVersion", VERSION);
 }
 async function message(payload) {
   const result = await ext.runtime.sendMessage(payload);
   if (result?.error) throw new Error(result.error);
   return result;
 }
-async function refresh() {
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+function button(text, onClick) {
+  const node = element("button", "", text);
+  node.type = "button";
+  node.addEventListener("click", onClick);
+  return node;
+}
+function savedAt(iso) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  const language = ext.i18n.getUILanguage();
+  const time = date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
+  return date.toDateString() === new Date().toDateString()
+    ? t("lastSavedToday", time)
+    : t("lastSavedOn", date.toLocaleDateString(language, { day: "numeric", month: "long" }), time);
+}
+
+/** Frame 17: connected is a row; closed, update and missing are cards. */
+function renderStatus({ reply, lastSaved }) {
+  const status = get("status");
+  status.replaceChildren();
+  if (reply?.ok) {
+    status.dataset.state = "connected";
+    const row = element("div", "row");
+    const text = element("div", "text");
+    const meta = [t("appVersion", reply.version ?? "?"), savedAt(lastSaved)].filter(Boolean).join(" · ");
+    text.append(element("p", "title", t("statusConnected")), element("p", "meta", meta));
+    row.append(element("span", "dot"), text, button(t("checkAgain"), refreshStatus));
+    status.append(row);
+    return;
+  }
+  const state =
+    reply?.code === "incompatible_protocol" ? "update" : ["host_missing", "host_failed"].includes(reply?.code) ? "missing" : "closed";
+  status.dataset.state = state;
+  const older = appIsOlder(reply);
+  const [head, text] = {
+    closed: [t("statusClosed"), t("statusClosedText")],
+    update: older
+      ? [t("statusUpdateApp"), t("statusUpdateAppText", reply?.version ?? "?", VERSION)]
+      : [t("statusUpdate"), t("statusUpdateText", VERSION, reply?.version ?? "?")],
+    missing: [t("statusMissing"), t("statusMissingText")],
+  }[state];
+  const card = element("div", "state");
+  const top = element("div", "head");
+  top.append(element("span", "dot"), element("span", "", head));
+  card.append(top, element("p", "text", text));
+  if (state === "missing") {
+    const link = element("a", "button", t("download"));
+    link.href = DOWNLOAD;
+    link.target = "_blank";
+    link.rel = "noopener";
+    card.append(link);
+  } else {
+    card.append(button(t("checkAgain"), refreshStatus));
+  }
+  status.append(card);
+}
+async function refreshStatus() {
   try {
-    const [{ queue }, status] = await Promise.all([
-      message({ type: "queue" }),
-      message({ type: "health" }),
-    ]);
+    renderStatus(await message({ type: "status" }));
+  } catch (error) {
+    get("message").textContent = error.message;
+  }
+}
+async function refreshQueue() {
+  try {
+    const { queue } = await message({ type: "queue" });
     get("count").textContent = String(queue.length);
-    get("connection").textContent =
-      status.error ||
-      (!status.paired
-        ? t("connectionNotPaired")
-        : status.connected
-          ? t("connectionReady")
-          : t("connectionUnavailable"));
-    get("queue").replaceChildren();
-    if (!queue.length) {
-      const empty = document.createElement("p");
-      empty.className = "empty";
-      empty.textContent = t("queueEmpty");
-      get("queue").append(empty);
-    }
+    get("retry").hidden = !queue.length;
+    const list = get("queue");
+    list.replaceChildren();
+    if (!queue.length) list.append(element("p", "empty", t("queueEmpty")));
     for (const item of queue) {
-      const row = document.createElement("div");
-      row.className = "queue-item";
-      const content = document.createElement("div");
-      const title = document.createElement("p");
-      title.className = "queue-title";
-      title.textContent = item.title;
-      const url = document.createElement("span");
-      url.className = "queue-url";
-      url.textContent = item.url;
-      content.append(title, url);
-      if (item.error) {
-        const error = document.createElement("p");
-        error.className = "queue-error";
-        error.textContent = item.error;
-        content.append(error);
-      }
-      const remove = document.createElement("button");
-      remove.className = "queue-remove";
-      remove.textContent = t("removeButton");
-      remove.setAttribute("aria-label", t("removeLabel", item.title));
-      remove.addEventListener("click", async () => {
+      const row = element("div", "row");
+      const text = element("div", "text");
+      text.append(element("p", "title", item.title), element("p", "url", item.url));
+      if (item.error) text.append(element("p", "error", item.error));
+      const remove = button(t("removeButton"), async () => {
         remove.disabled = true;
         try {
           await message({ type: "remove", request_id: item.request_id });
-          await refresh();
+          await refreshQueue();
         } catch (error) {
           get("message").textContent = error.message;
           remove.disabled = false;
         }
       });
-      row.append(content, remove);
-      get("queue").append(row);
+      remove.setAttribute("aria-label", t("removeLabel", item.title));
+      row.append(text, remove);
+      list.append(row);
     }
   } catch (error) {
     get("message").textContent = error.message;
   }
 }
-get("pair").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const button = get("pair").querySelector("button");
-  button.disabled = true;
-  try {
-    await message({ type: "token", token: get("token").value });
-    get("token").value = "";
-    get("message").textContent = t("tokenSaved");
-    await refresh();
-  } catch (error) {
-    get("message").textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-});
 get("retry").addEventListener("click", async () => {
   get("retry").disabled = true;
+  get("message").textContent = "";
   try {
     await message({ type: "retry" });
-    await refresh();
+    await Promise.all([refreshQueue(), refreshStatus()]);
   } catch (error) {
     get("message").textContent = error.message;
   } finally {
@@ -98,7 +127,8 @@ get("retry").addEventListener("click", async () => {
   }
 });
 ext.storage.onChanged.addListener((changes) => {
-  if (changes.captureQueue) void refresh();
+  if (changes.captureQueue) void refreshQueue();
 });
 translate();
-void refresh();
+void refreshQueue();
+void refreshStatus();

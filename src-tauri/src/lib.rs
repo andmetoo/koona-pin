@@ -1,6 +1,8 @@
 pub mod autostart;
 pub mod backup;
+pub mod browsers;
 pub mod capture;
+pub mod capture_channel;
 pub mod commands;
 pub mod db;
 pub mod error;
@@ -8,7 +10,8 @@ pub mod library;
 pub mod library_state;
 pub mod metadata;
 pub mod migrations;
-pub mod server;
+pub mod native_host;
+pub mod pipe_name;
 #[doc(hidden)]
 pub mod test_libraries;
 
@@ -27,22 +30,28 @@ fn show_window(app: &tauri::AppHandle) {
     }
 }
 pub fn run() {
-    let server_state = Arc::new(server::ServerState::default());
+    let channel_state = Arc::new(capture_channel::ChannelState::default());
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            show_window(app)
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            // The native host starts the app with --autostart to save a link;
+            // an app that is already running stays where it is.
+            if !args.iter().any(|arg| arg == autostart::ARG) {
+                show_window(app)
+            }
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![autostart::ARG]),
         ))
-        .manage(server_state)
+        .manage(channel_state.clone())
         .manage(Arc::new(library_state::Library::new(
             library::Paths::from_env(),
         )))
         .setup(move |app| {
             library_state::start(app.handle().clone());
+            let handle = app.handle().clone();
+            std::thread::spawn(move || capture_channel::register_host(&handle, &channel_state));
             // The window is created hidden; a start at sign-in stays in the tray.
             if !autostart::started_by_system() {
                 show_window(app.handle());
@@ -102,7 +111,8 @@ pub fn run() {
             commands::import_html_bookmarks,
             commands::get_app_settings,
             commands::set_close_to_tray,
-            commands::get_server_status,
+            commands::get_capture_status,
+            commands::repair_capture,
             commands::get_library_status,
             commands::retry_library,
             commands::reveal_library_place,

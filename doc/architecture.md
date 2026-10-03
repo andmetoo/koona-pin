@@ -16,17 +16,17 @@
 
 ## Rust и SQLite
 
-`capture.rs` обслуживает IPC-добавление, HTTP и HTML-импорт. Допускаются HTTP/HTTPS с хостом. Дубликаты сравниваются по полному сохранённому URL; существующая запись не меняется. Вставка, теги и квитанция выполняются в одной транзакции; успех возвращается после commit.
+`capture.rs` обслуживает IPC-добавление, захват из браузера и HTML-импорт. Допускаются HTTP/HTTPS с хостом. Дубликаты сравниваются по полному сохранённому URL; существующая запись не меняется. Вставка, теги и квитанция выполняются в одной транзакции; успех возвращается после commit.
 
 `db.rs` содержит запросы. Время везде UTC с миллисекундами (`YYYY-MM-DDTHH:MM:SS.sssZ`), у закладок, коллекций и тегов есть `uid` (UUIDv7). Захват пишет `source` и оставляет `triaged_at` пустым (во «Входящих»), импорт пишет `import` и время разбора. Удаление закладки и коллекции оставляет запись в `tombstones`. `capture_receipts` намеренно не имеет внешнего ключа на закладку: квитанция переживает удаление.
 
-Команды возвращают `Result<_, CommandError>` (`error.rs`): `{ "code": "...", "message": "..." }`, как ошибки HTTP v1. Код ошибки базы выводится из кода SQLite: `SQLITE_FULL` → `disk_full`, занятость → `database_busy`, `query_only` после повреждения → `read_only`, нарушение уникальности → `conflict`, внешнего ключа или нет строки → `not_found`, другие ограничения → `invalid_request`, прочее → `database_error`; ошибки вне базы — `internal`. Пока библиотека не открыта, Tauri сам отклоняет команды с базой текстом, интерфейс видит их как `internal`.
+Команды возвращают `Result<_, CommandError>` (`error.rs`): `{ "code": "...", "message": "..." }`, как ошибки захвата. Код ошибки базы выводится из кода SQLite: `SQLITE_FULL` → `disk_full`, занятость → `database_busy`, `query_only` после повреждения → `read_only`, нарушение уникальности → `conflict`, внешнего ключа или нет строки → `not_found`, другие ограничения → `invalid_request`, прочее → `database_error`; ошибки вне базы — `internal`. Пока библиотека не открыта, Tauri сам отклоняет команды с базой текстом, интерфейс видит их как `internal`.
 
 Все команды с базой асинхронные: `commands::blocking` выполняет работу через `spawn_blocking`, поэтому главный поток (окно, трей) никогда не ждёт блокировку базы. Синхронными остались команды без базы. Обработчик закрытия окна читает настройку трея из `AtomicBool`. HTML-импорт разбирает файл вне блокировки и сохраняет все ссылки одной транзакцией.
 
 ### Открытие библиотеки
 
-`library_state.rs` открывает библиотеку в фоновом потоке, окно появляется сразу. Интерфейс спрашивает `get_library_status` (`opening`, `ready` с `damaged` и `moved_aside`, `failed` с `OpenFailure`) и слушает событие `library-status`. Пока библиотека не открыта, `DbState` не зарегистрирован, команды с базой отвечают ошибкой, HTTP-сервер не запущен. `retry_library` повторяет открытие после ошибки, `reveal_library_place` открывает папку с данными, копиями или копию перед миграцией (пути знает только Rust), `quit_app` закрывает приложение.
+`library_state.rs` открывает библиотеку в фоновом потоке, окно появляется сразу. Интерфейс спрашивает `get_library_status` (`opening`, `ready` с `damaged` и `moved_aside`, `failed` с `OpenFailure`) и слушает событие `library-status`. Пока библиотека не открыта, `DbState` не зарегистрирован, команды с базой отвечают ошибкой, канал захвата закрыт. `retry_library` повторяет открытие после ошибки, `reveal_library_place` открывает папку с данными, копиями или копию перед миграцией (пути знает только Rust), `quit_app` закрывает приложение.
 
 `library.rs` по шагам:
 
@@ -60,56 +60,57 @@
 
 У строки окна есть разрешения для сворачивания, разворачивания, закрытия и перетаскивания; последнее нужно отдельно для `data-tauri-drag-region` согласно [документации Tauri](https://v2.tauri.app/learn/window-customization/).
 
-## HTTP v1
+## Захват: Native Messaging
 
-Расширение переходит на Native Messaging ([Р-17](decisions.md#р-17-захват-через-native-messaging), реализация — NP-016); до неё раздел описывает действующий канал.
+Решение — [Р-17](decisions.md#р-17-захват-через-native-messaging), реализация — NP-016 ([Р-19](decisions.md#р-19-подключение-браузеров-и-статус-захвата)). HTTP-сервера и порта 28765 нет, букмарклета тоже.
 
-Адрес: `http://127.0.0.1:28765`. Токен из двух случайных UUID хранится в локальных настройках и переносится пользователем в Chrome. Захват требует `Authorization: Bearer <token>`.
-
-```http
-POST /api/v1/capture
-Content-Type: application/json
-Authorization: Bearer <локальный токен>
-
-{"request_id":"постоянный UUID захвата","url":"https://example.com/article","title":"Название страницы"}
+```text
+расширение ──sendNativeMessage("app.netami.pin")──▶ netamipin-host.exe ──\\.\pipe\netamipin-<SID>──▶ Netami Pin ──▶ SQLite
 ```
 
-```json
-{ "bookmark_id": 42, "outcome": "created" }
-```
+**Host** — `src-tauri/src/bin/netamipin-host.rs`, отдельный бинарник рядом с `netamipin.exe`, без Tauri: с приложением делит только `pipe_name.rs`. Браузер запускает его на каждое сообщение (Chrome и Edge — через `cmd.exe`, Firefox — сам, в своём job-объекте). Host читает сообщение (32-битная длина в порядке байтов платформы + JSON UTF-8, до 1 МиБ), передаёт приложению строкой `{ "caller": "<origin или id Gecko>", "message": {…} }` и возвращает ответ. Если канал закрыт и это `capture`, host запускает `netamipin.exe --autostart` (`CreateProcessW`, `CREATE_BREAKAWAY_FROM_JOB`, если job-объект разрешает, `DETACHED_PROCESS`, без наследования дескрипторов) и ждёт канал до 10 с; `hello` закрытое приложение не запускает. Не дождался — `{ ok: false, code: "app_unavailable" }`.
 
-Повтор URL с новым request_id возвращает `existing`. Повтор исходного request_id возвращает квитанцию, даже если закладка удалена; он не вставляет запись снова. Один request_id с другим URL возвращает конфликт. Максимум URL — 8192 символа, request_id — 128 символов, тело HTTP — 64 KiB.
+**Канал** — `capture_channel.rs`, именованный канал `\\.\pipe\netamipin-<SID пользователя>` (`NETAMIPIN_PIPE` переопределяет имя для тестов). Создаётся с `FILE_FLAG_FIRST_PIPE_INSTANCE`, `PIPE_REJECT_REMOTE_CLIENTS` и DACL `D:P(A;;GA;;;<SID>)`: открыть его может только этот пользователь, а занятое чужой программой имя приложение не делит, а показывает ошибку. Канал открывается вместе с библиотекой, первый экземпляр — синхронно, поэтому «Повторить» отвечает настоящим состоянием. Одна строка JSON в каждую сторону на соединение.
 
-| Статус | Код                   | Причина                                             |
-| ------ | --------------------- | --------------------------------------------------- |
-| 200    | —                     | Подтверждённая транзакция, `created` или `existing` |
-| 400    | `invalid_request`     | Неверные данные                                     |
-| 401    | `unauthorized`        | Нет токена или токен не подходит                    |
-| 404    | `not_found`           | Неизвестный endpoint                                |
-| 405    | `method_not_allowed`  | Неверный метод                                      |
-| 409    | `request_id_conflict` | Идентификатор относится к другому URL               |
-| 500    | `database_error`      | Запись не подтверждена                              |
+**Протокол 2** (`browsers::PROTOCOL`, в расширении — `extension/src/version.js`):
 
-Ошибка имеет `code` и `message`. `GET /api/health` возвращает `{ "status":"ok", "name":"Netami Pin", "protocol":1 }`; расширение проверяет `name`. Без токена health доступен для диагностики; переданный Authorization проверяется. IPC `get_server_status` сообщает фактический результат привязки порта.
+| Сообщение расширения | Ответ |
+| --- | --- |
+| `{ type: "hello", protocol, version, browser }` | `{ ok: true, name: "Netami Pin", protocol, version }` |
+| `{ type: "capture", protocol, version, browser, request_id, url, title }` | `{ ok: true, bookmark_id, outcome }` — `created` или `existing` |
+| Любое с другим `protocol` | `{ ok: false, code: "incompatible_protocol", protocol, version }` |
 
-Необязательное поле `source` в теле v1 (`chrome`, `edge`, `firefox`) сохраняется как источник закладки; другое значение или его отсутствие — `extension` (поле начнёт отправлять расширение в NP-016). `/api/add` пишет `bookmarklet`, IPC — `app`, HTML-импорт — `import`. В библиотеке только для чтения (повреждение) захват отвечает `500 database_error`, и ссылка остаётся в очереди расширения.
+Ошибки — `{ ok: false, code, message }` с кодами прежнего HTTP v1: `invalid_request`, `request_id_conflict`, `database_error`; от host — `app_unavailable`. Правила квитанций прежние: повтор URL с новым `request_id` — `existing`; повтор исходного `request_id` возвращает квитанцию, даже если закладка удалена, и запись не создаёт; тот же `request_id` с другим URL — конфликт. Максимум URL — 8192 символа, `request_id` — 128. `browser` (`chrome`, `edge`, `firefox`) становится `source` закладки, другое значение — `extension`. В библиотеке только для чтения (повреждение) `capture` отвечает `database_error`, ссылка остаётся в очереди, `hello` работает.
 
-Совместимый `/api/add` принимает GET/POST с query-параметрами либо POST с JSON, без токена. Это ограничение совместимости: токен защищает новый v1 API, старый канал допускает локальное добавление ссылок.
+**Статус** (`browsers.rs`). Каждое сообщение с известным `browser` обновляет запись браузера: время, версия расширения, протокол; успешный захват — «последнее сохранение». Записи лежат в `app_settings` (`capture_connections`), повреждённая запись начинается заново. `get_capture_status` и событие `capture-status` отдают `CaptureStatus`:
 
+| `state` | Когда | Боковая панель |
+| --- | --- | --- |
+| `failing` | Канал не открылся или регистрация не удалась (`problem`: `channel`, `registration`, `host_missing`) | «Захват не работает» |
+| `incompatible` | Браузер писал за 3 дня с другим протоколом | «Обновите расширение» или «Обновите Netami Pin» |
+| `connected` | Хотя бы один браузер писал за 3 дня | «Браузер подключён» |
+| `lost` | Браузеры были, но 3 дня молчат | «Нет связи N дней» |
+| `none` | Ни один браузер не писал | «Браузер не подключён» |
+
+Расширение говорит `hello` при запуске браузера, при установке и раз в 12 часов, поэтому «подключён» не требует сохранений. Интерфейс перечитывает статус раз в 5 минут и при фокусе окна: состояние зависит от часов. `repair_capture` повторяет регистрацию и открывает канал заново.
+
+**Регистрация** (`native_host.rs`). Манифесты `app.netami.pin.chromium.json` (`allowed_origins`) и `app.netami.pin.firefox.json` (`allowed_extensions: ["pin@netami.app"]`) пишутся рядом с приложением с относительным путём к host, ключи `HKCU\Software\{Google\Chrome,Microsoft\Edge,Mozilla}\NativeMessagingHosts\app.netami.pin` указывают на них. Приложение проверяет и восстанавливает это при каждом запуске релизной сборки; отладочные сборки и изолированные тесты (`NETAMIPIN_DATA_DIR`) — только при `NETAMIPIN_REGISTER_HOST=1`. Пока ID каталогов нет (NP-017), в `allowed_origins` — ID сборки для разработки; сборка установщика с `--features public-release` его не включает. Нет `netamipin-host.exe` рядом с приложением — состояние `failing` с `host_missing`.
+
+Запуск с `--autostart` при уже работающем приложении окно не показывает: так host не поднимает окно на каждое сохранение.
 ## Расширение
 
 Один исходник `extension/src` для Chrome, Edge и Firefox (NP-015). `scripts/build-extension.mjs` пишет манифест каждого браузера и собирает распакованные папки `extension/build/<браузер>` и пакеты `release/netamipin-chrome.zip`, `netamipin-edge.zip`, `netamipin-firefox.xpi` (имена отсортированы, время фиксировано: одинаковый исходник даёт одинаковые байты). Chrome и Edge: `background.service_worker`, `minimum_chrome_version: 120`; пакет Edge совпадает с пакетом Chrome. Firefox: фоновая страница `background.scripts` (service worker в расширениях Firefox нет), модуль ES, `gecko.id` `pin@netami.app`, `strict_min_version: 140.0`, `data_collection_permissions: none`. Версия расширения и версия протокола — только в `extension/src/version.js`.
 
 API берётся из `ext.js`: `browser` в Firefox, `chrome` в Chrome и Edge, оба с промисами. Строки — `_locales/en` и `_locales/ru` (`default_locale: en`) на языке браузера, не на языке приложения; `t()` из `ext.js` в скриптах, атрибуты `data-i18n` на странице настроек. Распакованные папки Chrome и Edge получают поле `key` из `extension/dev-key.txt` — открытый ключ, приватного нет. Поэтому ID сборки для разработки одинаков на любой машине: `iibgiagcbediajombmkohanobgicbepn`. В пакеты для каталогов `key` не попадает: ID выдаёт каталог.
 
-MV3 worker выполняет запросы. `queue.js` последовательно обрабатывает добавление, отправку, повтор и удаление через одну цепочку операций. `chrome.storage.local` хранит URL, название, request_id, время и ошибку. Подтверждение требует целый `bookmark_id` и известный `outcome`.
+Фоновый скрипт (`worker.js`) отправляет сообщения через `native.js`: `runtime.sendNativeMessage` с протоколом, версией и браузером (Firefox — по `runtime.getBrowserInfo`, Edge — по `navigator.userAgentData`; Edge может поставить и пакет из Chrome Web Store). Ошибки браузера «host not found», «forbidden» и «No such native application» становятся кодом `host_missing`, прочие — `host_failed`. `queue.js` последовательно обрабатывает добавление, отправку, повтор и удаление через одну цепочку операций. `storage.local` хранит URL, название, request_id, время, ошибку и её код. Подтверждение требует целый `bookmark_id` и известный `outcome`; навсегда блокируют элемент только `invalid_request` и `request_id_conflict`, остальное повторяется раз в минуту. Без установленного приложения (`host_missing`) расширение открывает свою страницу настроек.
 
-`activeTab` даёт доступ к выбранной странице после нажатия; `storage` хранит очередь; `alarms` возобновляет доставку. Host permission относится к `127.0.0.1` (Chrome match patterns не ограничивают порт), CSP и код ограничивают сервер портом 28765. Content scripts и удалённый код отсутствуют.
+`activeTab` даёт доступ к выбранной странице после нажатия; `storage` хранит очередь; `alarms` возобновляет доставку и говорит `hello` раз в 12 часов; `nativeMessaging` — канал к приложению. Доступа к сайтам и `localhost` нет, CSP — `script-src 'self'; object-src 'none'`. Content scripts и удалённый код отсутствуют. Страница настроек (кадр 17) показывает подключение (`hello`, сохранение не запускает приложение) и очередь; шрифт Inter входит в пакет.
 
-Основания: [сетевые запросы](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests), [жизненный цикл worker](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle), [chrome.alarms](https://developer.chrome.com/docs/extensions/reference/api/alarms).
+Основания: [native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging), [жизненный цикл worker](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle), [chrome.alarms](https://developer.chrome.com/docs/extensions/reference/api/alarms).
 
-Для тестов `NETAMIPIN_DATA_DIR` меняет каталог SQLite, `WEBVIEW2_USER_DATA_FOLDER` — профиль WebView2.
+Для тестов `NETAMIPIN_DATA_DIR` меняет каталог SQLite, `WEBVIEW2_USER_DATA_FOLDER` — профиль WebView2, `NETAMIPIN_PIPE` — имя канала захвата.
 
 ## Прежнее имя OddClicks
 
-Данные OddClicks и тестовых сборок до схемы 1 не переносятся ([Р-11](decisions.md#р-11-чистая-схема-1-вместо-переноса-данных)). Старое имя осталось только в одном месте: если OddClicks запущена и держит порт 28765, сервер Netami Pin распознаёт её по `/api/health` с `"app":"OddClicks"` без поля `name`, а интерфейс показывает предупреждение — ссылки из браузера уйдут в старую библиотеку, пока OddClicks не закрыта. Архивные концепты (`src/concepts`, `concept.html`) и исторические документы не переименовывались.
+Данные OddClicks и тестовых сборок до схемы 1 не переносятся ([Р-11](decisions.md#р-11-чистая-схема-1-вместо-переноса-данных)). С уходом HTTP-сервера пропало и последнее упоминание: OddClicks больше не может перехватить ссылки из браузера, ведь порта 28765 нет. Архивные концепты (`src/concepts`, `concept.html`) и исторические документы не переименовывались.

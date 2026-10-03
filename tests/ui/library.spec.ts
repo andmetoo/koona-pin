@@ -421,3 +421,21 @@ test("editor: a failed save shows the reason and keeps everything typed", async 
   await expect(page.getByRole("status")).toContainText("Изменения сохранены");
   await expect(page.locator('[data-bookmark-id="2"]')).toContainText("Тишина и свет");
 });
+test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
+  await page.getByRole("button", { name: "Браузер не подключён" }).click();
+  const dialog = page.getByRole("dialog", { name: "Подключить браузер" });
+  await expect(dialog.locator('[data-capture="none"]')).toContainText("Браузер не подключён");
+  await expect(dialog).toContainText("extension/build/chrome");
+  await dialog.getByRole("radio", { name: "Edge" }).click();
+  await expect(dialog).toContainText("edge://extensions");
+  await dialog.getByRole("radio", { name: "Firefox" }).click();
+  await expect(dialog).toContainText("netamipin-firefox.xpi");
+  await expect(dialog).toContainText("about:addons");
+  await expect(dialog).not.toContainText(/токен|букмарклет/i);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Настройки", exact: true }).click();
+  const block = page.locator('[data-capture="none"]');
+  await expect(block).toContainText("Расширение сохраняет страницу одним нажатием");
+  await block.getByRole("button", { name: "Подключить", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Подключить браузер" })).toBeVisible();
+});

@@ -1,11 +1,12 @@
 import { ReactNode, useState } from "react";
-import { ArrowDownToLine, Bookmark as BookmarkIcon, ChevronDown, Copy, Link } from "lucide-react";
+import { ArrowDownToLine, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { AppSettings, Collection, ServerStatus } from "../../types";
+import { Browser, CaptureStatus, Collection } from "../../types";
 import { describeError } from "../../services/errors";
+import { browserName, browsers, connectedNames, lastSaved, preferredBrowser, statusColor, statusLabel } from "../../services/capture";
 import { Icon } from "../icons";
-import { Button, IconButton } from "../ui/Button";
-import { Dot, Field } from "../ui/Controls";
+import { Button } from "../ui/Button";
+import { Dot, Field, Segmented } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 import { CollectionSelect, TagInput } from "./Fields";
 
@@ -207,79 +208,63 @@ export function ConfirmDialog({
   );
 }
 
-export function ConnectDialog({
-  settings,
-  server,
-  bookmarklet,
-  desktop,
-  error,
-  onCopy,
-  onClose,
-}: {
-  settings: AppSettings | null;
-  server: ServerStatus | null;
-  bookmarklet: string;
-  desktop: boolean;
-  error: string;
-  onCopy: (text: string) => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const [alternative, setAlternative] = useState(false);
+/** Frame 18: how to connect, reconnect and update the extension in each browser. */
+export function ConnectDialog({ capture, onClose }: { capture: CaptureStatus | null; onClose: () => void }) {
+  const { t, i18n } = useTranslation();
+  const [browser, setBrowser] = useState<Browser>(() => preferredBrowser(capture));
+  const status =
+    capture?.state === "connected"
+      ? `${t("browser.connectedTo", { browsers: connectedNames(capture) })} · ${lastSaved(capture, t, i18n.language)}`
+      : statusLabel(capture, t);
+  const steps = [
+    { title: t("connect.installTitle"), text: t(`connect.install_${browser}`) },
+    { title: t("connect.pinTitle"), text: t(`connect.pin_${browser}`) },
+    { title: t("connect.saveTitle"), text: t("connect.save") },
+  ];
   return (
     <Dialog title={t("connect.title")} onClose={onClose}>
-      <div className="flex flex-col gap-4 text-sm">
+      <div className="flex w-[440px] max-w-full flex-col gap-4 text-sm">
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-full bg-secondary text-icon">
-            <Icon icon={Link} size={20} />
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-icon">
+            <Icon icon={Link} />
           </span>
-          <h3 className="text-md font-semibold">{t("connect.lead")}</h3>
-        </div>
-        <p data-connection={server?.running ? "running" : "stopped"} className="flex items-center gap-2 text-xs text-muted">
-          <Dot color={server?.running ? "var(--np-green)" : server?.error ? "var(--np-danger)" : "var(--np-faint)"} className="size-1.5" />
-          {server?.running ? t("connect.ready") : server?.error || t("connect.checking")}
-        </p>
-        <p className="text-muted">{t("connect.install")}</p>
-        {desktop ? (
-          <Field label={t("connect.token")}>
-            {(id) => (
-              <div className="flex items-center gap-2">
-                <input id={id} readOnly type="password" value={settings?.capture_token ?? ""} className="field" />
-                <IconButton label={t("connect.copyToken")} disabled={!settings?.capture_token} onClick={() => settings && onCopy(settings.capture_token)}>
-                  <Icon icon={Copy} />
-                </IconButton>
-              </div>
-            )}
-          </Field>
-        ) : (
-          <p className="rounded-xl bg-panel px-3 py-2.5 text-xs text-muted">{t("connect.desktopOnly")}</p>
-        )}
-        <p className="text-muted">{t("connect.queue")}</p>
-        <Button className="self-start" onClick={() => setAlternative(!alternative)} aria-expanded={alternative}>
-          <Icon icon={BookmarkIcon} size={15} />
-          {t("connect.bookmarklet")}
-          <Icon icon={ChevronDown} size={14} />
-        </Button>
-        {alternative && (
-          <div className="flex flex-col gap-3 text-xs text-muted">
-            <p>{t("connect.bookmarkletHow")}</p>
-            <div className="flex gap-2">
-              <a
-                className="inline-flex h-[30px] cursor-grab items-center rounded-md bg-accent px-3 text-sm font-semibold text-on-accent no-underline"
-                ref={(element) => {
-                  element?.setAttribute("href", bookmarklet);
-                }}
-                draggable
-                onClick={(e) => e.preventDefault()}
-              >
-                {t("connect.bookmarkletButton")}
-              </a>
-              <Button onClick={() => onCopy(bookmarklet)}>{t("connect.copyCode")}</Button>
-            </div>
-            <small>{t("connect.bookmarkletLimits")}</small>
+          <div className="min-w-0">
+            <h3 className="text-md font-semibold">{t("connect.lead")}</h3>
+            <p data-capture={capture?.state ?? "checking"} className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+              <Dot color={statusColor(capture)} className="size-1.5" />
+              {status}
+            </p>
           </div>
-        )}
-        <Failure error={error} />
+        </div>
+        <Segmented<Browser>
+          label={t("connect.browsers")}
+          value={browser}
+          onChange={setBrowser}
+          options={browsers.map((value) => ({ value, label: browserName[value] }))}
+        />
+        <ol className="flex flex-col gap-4">
+          {steps.map((step, index) => (
+            <li key={step.title} className="flex gap-3">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-2xs font-semibold text-on-accent-soft">
+                {index + 1}
+              </span>
+              <div>
+                <div className="font-medium">{step.title}</div>
+                <p className="mt-0.5 leading-[18px] text-muted">{step.text}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <div className="flex flex-col gap-3 border-t border-divider pt-4">
+          <div>
+            <div className="font-medium">{t("connect.lostTitle")}</div>
+            <p className="mt-0.5 leading-[18px] text-muted">{t(`connect.lost_${browser}`)}</p>
+          </div>
+          <div>
+            <div className="font-medium">{t("connect.updateTitle")}</div>
+            <p className="mt-0.5 leading-[18px] text-muted">{t(`connect.update_${browser}`)}</p>
+          </div>
+        </div>
       </div>
     </Dialog>
   );
