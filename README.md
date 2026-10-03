@@ -21,7 +21,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные остаютс
 - [Возможности, установка и Chrome](doc/features.md)
 - [Согласованный план](doc/plan.md)
 - [Протокол и архитектура](doc/architecture.md)
-- [Результаты проверок](doc/testing.md)
+- [Проверки и CI](doc/testing.md)
 - [Процесс разработки с ИИ-агентами](doc/development-process.md)
 - [Дорожная карта](doc/roadmap.md), [сценарии](doc/scenarios.md), [решения](doc/decisions.md) и [индекс задач GitHub](doc/issues/README.md)
 - [Шаблон задачи](doc/task-template.md) и [чеклист выпуска](doc/release-checklist.md)
@@ -29,7 +29,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные остаютс
 
 ## Разработка
 
-Нужны Node.js, Rust, Microsoft C++ Build Tools и WebView2.
+Нужны Node.js (версия в `.nvmrc`), Rust (версия в `rust-toolchain.toml`, rustup установит её сам), Microsoft C++ Build Tools и WebView2. Все проверки и CI описаны в [doc/testing.md](doc/testing.md).
 
 ```powershell
 npm ci
