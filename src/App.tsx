@@ -672,7 +672,10 @@ export function App() {
                     >
                       {narrow
                         ? t("inbox.bannerShort", { count: counts.inbox })
-                        : counts.inbox > QUICK_INBOX
+                        : counts.inbox_imported > 0
+                          ? // Frame 24: after an import into the inbox the banner counts everything.
+                            t("inbox.bannerImported", { count: counts.inbox, imported: counts.inbox_imported })
+                          : counts.inbox > QUICK_INBOX
                           ? t("inbox.bannerMany", { count: counts.inbox })
                           : t("inbox.banner", { count: counts.inbox })}
                     </Banner>
@@ -798,12 +801,14 @@ export function App() {
       {surface === "import" && (
         <ImportDialog
           onClose={() => setSurface(null)}
-          onImport={async (content) => {
-            const { imported, in_trash } = await api.importHtmlBookmarks(content);
+          onImport={async (content, toInbox) => {
+            const summary = await api.importHtmlBookmarks(content, toInbox);
             await Promise.all([library.refresh(), library.refreshCatalog()]);
+            return summary;
+          }}
+          onOpenInbox={() => {
             setSurface(null);
-            // A link in the trash stays there: the import does not undo a clean-up.
-            say(in_trash > 0 ? t("notice.importedTrash", { count: imported, trash: in_trash }) : t("notice.imported", { count: imported }));
+            openInbox();
           }}
         />
       )}

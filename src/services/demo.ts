@@ -8,6 +8,7 @@ import {
   CommandAction,
   DataSummary,
   FilterState,
+  ImportProgress,
   ImportSummary,
   LibraryPlace,
   LibraryStatus,
@@ -16,6 +17,7 @@ import {
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoBookmarks, demoCollections, posterOf } from "./demoData";
+import { parseBookmarksFile } from "./bookmarksFile";
 import { isAfter, listTime, matchesBookmark, sortBookmarks } from "./library";
 import { suggestFrom } from "./triage";
 import { CommandError } from "./errors";
@@ -112,6 +114,7 @@ function actionOf(data: Partial<Fields>): CommandAction {
 }
 const listeners = new Set<(change: BookmarkChange) => void>();
 const invalidations = new Set<() => void>();
+const progressListeners = new Set<(progress: ImportProgress) => void>();
 function persist() {
   localStorage.setItem(key, JSON.stringify({ bookmarks, collections }));
 }
@@ -194,6 +197,7 @@ export const demo = {
       favorites: live().filter((b) => b.is_favorite).length,
       inbox: inbox.length,
       inbox_newest: inbox.reduce<string | null>((newest, b) => (newest === null || b.created_at > newest ? b.created_at : newest), null),
+      inbox_imported: inbox.filter((b) => b.source === "import").length,
       trash: bookmarks.length - live().length,
     };
   },
@@ -204,8 +208,6 @@ export const demo = {
       collectionId?: number | null;
       tags?: string[];
     },
-    /** An import goes straight to the library, as in the desktop app. */
-    imported = false,
   ): Promise<AddedLink> {
     let url: URL;
     try {
@@ -219,7 +221,7 @@ export const demo = {
         "Поддерживаются только ссылки HTTP/HTTPS",
       );
     const previous = bookmarks.find((b) => b.url === data.url.trim());
-    if (previous?.deleted_at && !imported) {
+    if (previous?.deleted_at) {
       // Saved again from the trash: back with its fields, waiting in the inbox.
       const back = change(previous, { deleted_at: null, triaged_at: null });
       emit("created", back);
@@ -242,9 +244,9 @@ export const demo = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       revision: 1,
-      triaged_at: imported ? new Date().toISOString() : null,
+      triaged_at: null,
       deleted_at: null,
-      source: imported ? "import" : "app",
+      source: "app",
     };
     bookmarks = [b, ...bookmarks];
     persist();
@@ -356,23 +358,84 @@ export const demo = {
     invalidations.forEach((fn) => fn());
     return true;
   },
-  async importHtmlBookmarks(content: string) {
-    const document = new DOMParser().parseFromString(content, "text/html");
-    const summary: ImportSummary = { imported: 0, in_trash: 0 };
-    for (const a of document.querySelectorAll("a[href]")) {
-      const url = a.getAttribute("href")!;
-      const known = bookmarks.find((b) => b.url === url);
-      // A repeated import does not undo a clean-up.
-      if (known?.deleted_at) summary.in_trash++;
-      if (known) continue;
-      try {
-        await demo.addBookmark({ url, title: a.textContent?.trim() }, true);
-        summary.imported++;
-      } catch {
-        /* Invalid schemes are skipped. */
+  /** `import.rs` in the browser: the same folder rule, all or nothing, progress by hundreds. */
+  async importHtmlBookmarks(content: string, toInbox = false): Promise<ImportSummary> {
+    const parsed = parseBookmarksFile(content);
+    const summary: ImportSummary = {
+      added: 0,
+      existing: 0,
+      in_trash: 0,
+      not_web: parsed.skipped.filter((s) => s.reason === "not_web").length,
+      invalid: parsed.skipped.filter((s) => s.reason === "invalid").length,
+      repeated: parsed.skipped.filter((s) => s.reason === "repeated").length,
+      skipped: parsed.skipped.slice(0, 200),
+      collections: [],
+      tags: 0,
+    };
+    const known = new Map(bookmarks.map((b) => [b.url, b]));
+    const tagsBefore = new Set(bookmarks.flatMap((b) => b.tags ?? []));
+    const named = new Map(collections.map((c) => [c.name.toLocaleLowerCase(), c.id]));
+    const created: Collection[] = [];
+    const added: Bookmark[] = [];
+    const now = new Date().toISOString();
+    let id = Math.max(Date.now(), ...bookmarks.map((b) => b.id + 1));
+    for (const [index, link] of parsed.links.entries()) {
+      const previous = known.get(link.url);
+      if (previous?.deleted_at) summary.in_trash++;
+      else if (previous) summary.existing++;
+      else {
+        let collectionId: number | null = null;
+        if (link.collection) {
+          const key = link.collection.toLocaleLowerCase();
+          collectionId = named.get(key) ?? null;
+          if (collectionId === null) {
+            const c: Collection = { id: id++, name: link.collection, color: null, icon: null, count: 0, created_at: now };
+            created.push(c);
+            named.set(key, c.id);
+            collectionId = c.id;
+          }
+        }
+        const url = new URL(link.url);
+        added.push({
+          id: id++,
+          url: link.url,
+          title: link.title || link.url,
+          description: null,
+          image_url: null,
+          favicon_url: null,
+          notes: null,
+          domain: url.hostname.replace(/^www\./, ""),
+          collection_id: collectionId,
+          tags: link.tags,
+          is_favorite: false,
+          created_at: link.addedAt ?? now,
+          updated_at: now,
+          revision: 1,
+          triaged_at: toInbox ? null : now,
+          deleted_at: null,
+          source: "import",
+        });
+        summary.added++;
+      }
+      if ((index + 1) % 100 === 0 || index + 1 === parsed.links.length) {
+        progressListeners.forEach((fn) => fn({ done: index + 1, total: parsed.links.length }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
+    // Written at the end, like the transaction of the desktop app.
+    bookmarks = [...added, ...bookmarks];
+    collections = [...collections, ...created];
+    summary.collections = created.map((c) => c.name);
+    summary.tags = new Set(added.flatMap((b) => b.tags ?? []).filter((t) => !tagsBefore.has(t))).size;
+    persist();
+    invalidations.forEach((fn) => fn());
     return summary;
+  },
+  onImportProgress(fn: (progress: ImportProgress) => void) {
+    progressListeners.add(fn);
+    return () => {
+      progressListeners.delete(fn);
+    };
   },
   async openUrl(url: string) {
     window.open(url, "_blank", "noopener,noreferrer");

@@ -16,18 +16,21 @@ export function Dialog({
   children,
   drawer = false,
   width = 440,
+  locked = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   drawer?: boolean;
   width?: number;
+  /** While work that cannot stop runs: Escape, the backdrop and «×» do nothing (frame 28). */
+  locked?: boolean;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  closeRef.current = locked ? () => {} : onClose;
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const dialog = ref.current;
@@ -63,7 +66,7 @@ export function Dialog({
             {title}
           </h2>
           <span className="flex items-center gap-1.5">
-            <IconButton label={t("common.close")} onClick={onClose}>
+            <IconButton label={t("common.close")} onClick={onClose} disabled={locked}>
               <Icon icon={X} />
             </IconButton>
             {drawer && (

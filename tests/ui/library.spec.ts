@@ -224,7 +224,10 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
     buffer: Buffer.from('<a href="https://type.today/ru">Типографика</a>'),
   });
   await page.getByRole("button", { name: "Импортировать", exact: true }).click();
-  await expect(toast).toContainText("Новых ссылок: 0 · в корзине осталось: 1");
+  const report = page.getByRole("dialog", { name: "Импорт завершён" });
+  await expect(report.getByRole("status")).toHaveText("Новых закладок нет");
+  await expect(report).toContainText("В корзине — остались там1");
+  await report.getByRole("button", { name: "Готово" }).click();
   await expect(nav("Корзина 1")).toBeVisible();
   await nav("Корзина 1").click();
   await page.locator('[data-bookmark-id="3"]').hover();
@@ -579,8 +582,96 @@ test("save errors preserve entered data and HTML import skips duplicate and unsu
     ),
   });
   await page.getByRole("button", { name: "Импортировать", exact: true }).click();
+  const report = page.getByRole("dialog", { name: "Импорт завершён" });
+  await expect(report.getByRole("status")).toHaveText("1 закладка добавлена в библиотеку");
+  await expect(report).toContainText("Уже были в библиотеке — не изменены1");
+  await expect(report).toContainText("Не веб-адрес (javascript:, place:, file:)1");
+  await report.getByRole("button", { name: "Готово" }).click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(8);
-  await expect(page.getByRole("status")).toContainText("Новых ссылок: 1");
+});
+
+const fixture = (name: string) => new URL(`../fixtures/bookmarks/${name}.html`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+async function openImport(page: import("@playwright/test").Page, file: string | { name: string; mimeType: string; buffer: Buffer }) {
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Закладки браузера/ }).click();
+  await page.locator("dialog input[type=file]").setInputFiles(file);
+  return page.getByRole("dialog");
+}
+
+test("import: browser folders become collections and tags, the report gives reasons, a repeated import changes nothing", async ({ page }) => {
+  const dialog = await openImport(page, fixture("chrome"));
+  await expect(dialog).toContainText("7 ссылок в 4 папках · выбрать другой файл");
+  await expect(dialog.getByRole("radio", { name: "Библиотека" })).toHaveAttribute("aria-checked", "true");
+  await dialog.getByRole("button", { name: "Импортировать", exact: true }).click();
+
+  const report = page.getByRole("dialog", { name: "Импорт завершён" });
+  await expect(report.getByRole("status")).toHaveText("7 закладок добавлено в библиотеку");
+  await expect(report).toContainText("2 новые коллекции: Работа, Чтение · 2 новых тега");
+  await expect(report).toContainText("Пропущено3");
+  await expect(report).toContainText("Повтор внутри файла1");
+  await report.getByRole("button", { name: "Показать пропущенные адреса" }).click();
+  await expect(report.getByRole("listitem")).toHaveText(["javascript:void(document.title)", "https://github.com/", "chrome://settings/"]);
+  await report.getByRole("button", { name: "Готово" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Top-level folder → collection, nested folders → tags, the browser's date kept.
+  await page.getByRole("button", { name: /^Работа 3/ }).click();
+  await page.getByRole("button", { name: "Список", exact: true }).click();
+  const tokio = page.locator("[data-bookmark-id]", { hasText: "Tokio" });
+  await expect(tokio.getByRole("button", { name: "rust" })).toBeVisible();
+  await expect(tokio.getByRole("button", { name: "async" })).toBeVisible();
+  await expect(tokio.locator("time")).toHaveAttribute("datetime", "2023-07-22T04:31:40.000Z");
+
+  // Again: nothing new, nothing changed.
+  const again = await openImport(page, fixture("chrome"));
+  await again.getByRole("button", { name: "Импортировать", exact: true }).click();
+  await expect(report.getByRole("status")).toHaveText("Новых закладок нет");
+  await expect(report).toContainText("Уже были в библиотеке — не изменены7");
+  await expect(report).not.toContainText("новые коллекции");
+});
+
+test("import into the inbox: the banner counts the import; an error changes nothing; an empty file is named", async ({ page }) => {
+  const dialog = await openImport(page, fixture("firefox"));
+  await dialog.getByRole("radio", { name: "Входящие" }).click();
+  await dialog.getByRole("button", { name: "Импортировать", exact: true }).click();
+  const report = page.getByRole("dialog", { name: "Импорт завершён" });
+  await expect(report.getByRole("status")).toHaveText("7 закладок добавлено во «Входящие»");
+  await report.getByRole("button", { name: "Открыть «Входящие»" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Входящие");
+  await expect(page.getByRole("region", { name: "Новые закладки" })).toContainText("9 новых закладок ждут разбора — 7 из импорта");
+
+  // The library is busy: the dialog keeps the file and offers to try again.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const { CommandError } = await import("/src/services/errors.ts");
+    api.importHtmlBookmarks = async () => {
+      throw new CommandError("busy", "Библиотека занята.");
+    };
+  });
+  const failing = await openImport(page, fixture("edge"));
+  await failing.getByRole("button", { name: "Импортировать", exact: true }).click();
+  await expect(failing.getByRole("alert")).toContainText("Не удалось импортировать. Библиотека занята.");
+  await expect(failing.getByRole("alert")).toContainText("Ничего не добавлено — библиотека осталась как была.");
+  await expect(failing.getByRole("button", { name: "Повторить" })).toBeVisible();
+  await expect(failing).toContainText("edge.html");
+  await failing.getByRole("button", { name: "Отмена" }).click();
+  await expect(page.getByRole("button", { name: /^Design/ })).toHaveCount(0);
+
+  const empty = await openImport(page, { name: "notes.html", mimeType: "text/html", buffer: Buffer.from("<html><body>Notes</body></html>") });
+  await expect(empty.getByRole("alert")).toContainText("В этом файле нет закладок");
+  await expect(empty.getByRole("button", { name: "Импортировать", exact: true })).toBeDisabled();
+});
+
+test("import of 10 000 links shows progress and keeps the window usable", async ({ page }) => {
+  let html = "<DL>";
+  for (let i = 0; i < 10_000; i++) html += `<DT><A HREF="https://example.com/${i}" ADD_DATE="1700000000">Link ${i}</A>`;
+  const dialog = await openImport(page, { name: "big.html", mimeType: "text/html", buffer: Buffer.from(html + "</DL>") });
+  await expect(dialog).toContainText("10 000 ссылок");
+  await dialog.getByRole("button", { name: "Импортировать", exact: true }).click();
+  await expect(page.getByRole("progressbar")).toBeVisible();
+  // Escape does not close it while the file is being written.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Импорт завершён" }).getByRole("status")).toHaveText("10 000 закладок добавлено в библиотеку", { timeout: 20_000 });
 });
 
 test("a large library loads page by page while scrolling", async ({ page }) => {

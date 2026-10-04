@@ -130,6 +130,8 @@ pub struct LibraryCounts {
     /// When the newest of them was saved: the inbox banner hidden before it
     /// comes back once a newer one arrives.
     pub inbox_newest: Option<String>,
+    /// Of the waiting ones, those an import put there: «— 340 из импорта» (frame 24, NP-031).
+    pub inbox_imported: i64,
     /// Bookmarks in the trash (NP-022); none of the others count them.
     pub trash: i64,
 }
@@ -141,6 +143,7 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 COALESCE(SUM(deleted_at IS NULL AND is_favorite),0),
                 COALESCE(SUM(deleted_at IS NULL AND triaged_at IS NULL),0),
                 MAX(CASE WHEN deleted_at IS NULL AND triaged_at IS NULL THEN created_at END),
+                COALESCE(SUM(deleted_at IS NULL AND triaged_at IS NULL AND source = 'import'),0),
                 COALESCE(SUM(deleted_at IS NOT NULL),0)
          FROM bookmarks",
         [],
@@ -150,7 +153,8 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 favorites: r.get(1)?,
                 inbox: r.get(2)?,
                 inbox_newest: r.get(3)?,
-                trash: r.get(4)?,
+                inbox_imported: r.get(4)?,
+                trash: r.get(5)?,
             })
         },
     )

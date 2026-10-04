@@ -4,6 +4,9 @@
 export type { AddedLink } from "./bindings/AddedLink";
 export type { AppSettings } from "./bindings/AppSettings";
 export type { ImportSummary } from "./bindings/ImportSummary";
+export type { ImportProgress } from "./bindings/ImportProgress";
+export type { SkipReason } from "./bindings/SkipReason";
+export type { SkippedLink } from "./bindings/SkippedLink";
 export type { Bookmark } from "./bindings/Bookmark";
 export type { BookmarkChange } from "./bindings/BookmarkChange";
 export type { BookmarkPage } from "./bindings/BookmarkPage";
