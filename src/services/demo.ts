@@ -32,7 +32,8 @@ const demoCaptureStatus: CaptureStatus = {
 };
 
 // v2: generated previews instead of the drawn ones of the concepts; v3: the inbox; v4: the trash.
-const key = "netamipin.demo.v4";
+export const DEMO_STORAGE_KEY = "netamipin.demo.v4";
+const key = DEMO_STORAGE_KEY;
 const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString();
 let initial = {
   bookmarks: demoBookmarks.map((b, i): Bookmark => ({
