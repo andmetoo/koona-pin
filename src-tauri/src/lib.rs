@@ -16,6 +16,7 @@ pub mod migrations;
 pub mod native_host;
 pub mod net_guard;
 pub mod pipe_name;
+pub mod restore;
 #[doc(hidden)]
 pub mod test_libraries;
 pub mod trash;
@@ -125,6 +126,8 @@ pub fn run() {
             commands::import_html_bookmarks,
             commands::export_library,
             commands::reveal_export,
+            commands::check_restore,
+            commands::restore_library,
             commands::get_app_settings,
             commands::set_close_to_tray,
             commands::get_capture_status,
