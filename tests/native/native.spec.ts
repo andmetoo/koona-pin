@@ -627,3 +627,62 @@ test("find and edit in the new interface: search, site, editor, collection remov
     app.processHandle.kill();
   }
 });
+test("security boundaries: CSP, narrow permissions, no HTTP port", async ({ request }) => {
+  const data = await folder("boundaries");
+  const env = isolated(data);
+  const app = await launch(request, env);
+  try {
+    const refused: string[] = [];
+    app.page.on("console", (message) => {
+      if (/Content Security Policy|Refused to/i.test(message.text())) refused.push(message.text());
+    });
+    await app.page.reload();
+    await expect(app.page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    // The interface itself breaks no rule of its policy.
+    expect(refused).toEqual([]);
+    const checks = await app.page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const outcome = (promise: Promise<unknown>) => promise.then(() => "answered", () => "refused");
+      // A script from elsewhere is blocked by the policy.
+      const blocked = await new Promise<string>((resolve) => {
+        document.addEventListener("securitypolicyviolation", (event) => resolve(event.violatedDirective), { once: true });
+        const script = document.createElement("script");
+        script.src = "https://example.invalid/injected.js";
+        document.head.append(script);
+        setTimeout(() => resolve("not blocked"), 3000);
+      });
+      let evaluated = "ran";
+      try {
+        new Function("return 1")();
+      } catch {
+        evaluated = "blocked";
+      }
+      return {
+        blocked,
+        evaluated,
+        version: await outcome(invoke("plugin:app|version")),
+        opener: await outcome(invoke("plugin:opener|open_url", { url: "https://example.com" })),
+        title: await outcome(invoke("plugin:window|set_title", { label: "main", value: "x" })),
+        own: await outcome(invoke("get_counts")),
+      };
+    });
+    expect(checks).toEqual({
+      blocked: "script-src-elem",
+      evaluated: "blocked",
+      version: "answered",
+      opener: "refused",
+      title: "refused",
+      own: "answered",
+    });
+    // The bookmarklet's HTTP server is gone (Р-19): nothing listens on its port.
+    const port = await new Promise<string>((resolve) => {
+      const socket = net.connect(28765, "127.0.0.1");
+      socket.on("connect", () => (socket.destroy(), resolve("open")));
+      socket.on("error", (error: NodeJS.ErrnoException) => resolve(error.code ?? "error"));
+    });
+    expect(port).toBe("ECONNREFUSED");
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
