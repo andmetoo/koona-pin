@@ -34,4 +34,6 @@ export interface FilterState {
   tag: string | null;
   domain: string | null;
   onlyFavorites: boolean;
+  /** The «Inbox» section: bookmarks not sorted yet (NP-021). */
+  onlyInbox: boolean;
 }

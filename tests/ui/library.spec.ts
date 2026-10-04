@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v2"));
+  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v3"));
   await page.reload();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
 });
@@ -102,6 +102,59 @@ test("incoming capture preserves reading position until explicitly revealed", as
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(0);
 });
+test("inbox: new links wait there until a decision, the banner hides until a newer one", async ({ page }) => {
+  const inbox = (count: number) => page.getByRole("button", { name: `Входящие ${count}`, exact: true });
+  const banner = page.getByRole("region", { name: "Новые закладки" });
+  const cards = page.locator("[data-bookmark-id]");
+  const capture = (url: string) =>
+    page.evaluate(async (url) => {
+      const { api } = await import("/src/services/api.ts");
+      await api.addBookmark({ url, title: "Из браузера" });
+    }, url);
+  // All bookmarks include the inbox; the banner leads there.
+  await expect(inbox(2)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Все закладки\s*6/);
+  await expect(banner).toContainText("2 новые закладки ждут разбора — оставить, разложить или выбросить займёт около минуты");
+  await banner.getByRole("button", { name: "Разобрать" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Входящие\s*2/);
+  await expect(cards).toHaveCount(2);
+  await expect(banner).toHaveCount(0);
+  // Search stays in the section.
+  await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("тишины");
+  await expect(cards).toHaveCount(1);
+  await expect(page.getByText("1 из 2")).toBeVisible();
+  await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("");
+  // A capture is in the inbox and its counter at once.
+  await capture("https://example.com/captured");
+  await expect(cards).toHaveCount(3);
+  await expect(inbox(3)).toBeVisible();
+  // A decision, here the star, takes a bookmark out of the inbox.
+  await page.locator('[data-bookmark-id="2"]').hover();
+  await page.locator('[data-bookmark-id="2"]').getByRole("button", { name: "В избранное" }).click();
+  await expect(cards).toHaveCount(2);
+  await expect(inbox(2)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Избранное 3" })).toBeVisible();
+
+  // Hidden until a bookmark newer than the ones waiting arrives, also after a restart.
+  await page.getByRole("button", { name: "Все закладки" }).click();
+  await banner.getByRole("button", { name: "Скрыть до новых закладок" }).click();
+  await expect(banner).toHaveCount(0);
+  await page.reload();
+  await expect(cards).toHaveCount(7);
+  await expect(banner).toHaveCount(0);
+  await expect(inbox(2)).toBeVisible();
+  await capture("https://example.com/newer");
+  await expect(banner).toContainText("3 новые закладки ждут разбора");
+
+  // Nothing left: no banner, no badge, the empty inbox.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    for (const b of (await api.getBookmarks({ onlyInbox: true })).items) await api.updateBookmark(b.id, { notes: "Решено" });
+  });
+  await expect(banner).toHaveCount(0);
+  await page.getByRole("button", { name: "Входящие", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Всё разобрано" })).toBeVisible();
+});
 test("metadata updates keep order and filtered captures stay out of the list", async ({ page }) => {
   const ids = await page
     .locator("[data-bookmark-id]")
@@ -151,7 +204,7 @@ test("list geometry stays within the window and broken previews keep their space
     };
     data.bookmarks[0].image_url = "/broken-preview.png";
     data.bookmarks[0].title = "Очень длинный заголовок ".repeat(12);
-    localStorage.setItem("netamipin.demo.v2", JSON.stringify(data));
+    localStorage.setItem("netamipin.demo.v3", JSON.stringify(data));
   });
   await page.reload();
   await expect(page.locator('[data-bookmark-id="1"] [data-preview-fallback]')).toBeVisible();
@@ -212,7 +265,7 @@ test("a large library loads page by page while scrolling", async ({ page }) => {
       // Every fifth one shares a time with its neighbour: the id breaks the tie.
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 250 - i + (i % 5 === 0 ? 1 : 0))).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v2", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("netamipin.demo.v3", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   // Virtualized: only rows near the screen are in the DOM; `data-loaded` counts the pages read.
@@ -248,7 +301,7 @@ async function largeLibrary(page: import("@playwright/test").Page) {
       tags: [],
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v2", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("netamipin.demo.v3", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");

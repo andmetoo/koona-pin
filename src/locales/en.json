@@ -30,6 +30,8 @@
   },
   "nav": {
     "inbox": "Inbox",
+    "inboxWaiting_one": "Inbox: {{count}} waiting",
+    "inboxWaiting_other": "Inbox: {{count}} waiting",
     "all": "All bookmarks",
     "favorites": "Favorites",
     "trash": "Trash",
@@ -257,7 +259,20 @@
     "noResultsInFor": "Nothing in “{{section}}” matches “{{query}}”",
     "searchHint": "Search covers titles, addresses, descriptions, notes and tags. Check the spelling or try part of a word.",
     "searchEverywhere": "Search the whole library",
-    "resetFilters": "Clear filters"
+    "resetFilters": "Clear filters",
+    "inbox": "All sorted",
+    "inboxHint": "New bookmarks from the browser and imports land here and wait for a decision."
+  },
+  "inbox": {
+    "banner_one": "{{count}} new bookmark is waiting — keeping, filing or tossing it takes a moment",
+    "banner_other": "{{count}} new bookmarks are waiting — keeping, filing or tossing them takes about a minute",
+    "bannerMany_one": "{{count}} new bookmark is waiting",
+    "bannerMany_other": "{{count}} new bookmarks are waiting",
+    "bannerShort_one": "{{count}} new bookmark to sort",
+    "bannerShort_other": "{{count}} new bookmarks to sort",
+    "bannerLabel": "New bookmarks",
+    "sort": "Sort",
+    "hide": "Hide until new bookmarks arrive"
   },
   "library": {
     "loading": "Loading the library",
