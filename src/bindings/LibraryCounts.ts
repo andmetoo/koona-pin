@@ -9,4 +9,8 @@ inbox: number,
  * When the newest of them was saved: the inbox banner hidden before it
  * comes back once a newer one arrives.
  */
-inbox_newest: string | null, };
+inbox_newest: string | null, 
+/**
+ * Bookmarks in the trash (NP-022); none of the others count them.
+ */
+trash: number, };
