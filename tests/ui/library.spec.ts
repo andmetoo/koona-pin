@@ -115,10 +115,12 @@ test("inbox: new links wait there until a decision, the banner hides until a new
   await expect(inbox(2)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Все закладки\s*6/);
   await expect(banner).toContainText("2 новые закладки ждут разбора — оставить, разложить или выбросить займёт около минуты");
-  await banner.getByRole("button", { name: "Разобрать" }).click();
+  await inbox(2).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Входящие\s*2/);
   await expect(cards).toHaveCount(2);
-  await expect(banner).toHaveCount(0);
+  // In the section the banner stays: it is the way into triage, and it cannot be hidden there.
+  await expect(banner.getByRole("button", { name: "Разобрать" })).toBeVisible();
+  await expect(banner.getByRole("button", { name: "Скрыть до новых закладок" })).toHaveCount(0);
   // Search stays in the section.
   await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("тишины");
   await expect(cards).toHaveCount(1);
@@ -333,6 +335,120 @@ test("undo: Ctrl Z takes actions back one by one, a decision returns to the inbo
   await page.keyboard.press("Control+z");
   await expect(alert).toContainText("Не отменено: «Десять принципов хорошего дизайна» уже удалена навсегда");
   await expect(nav("Корзина 0")).toBeVisible();
+});
+test("triage: every key, a failed decision, undo, a new link, the end and back to the library", async ({ page }) => {
+  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const heading = page.getByRole("heading", { level: 1 });
+  const title = page.locator("[data-triage-card] h2");
+  const toast = page.locator(".fixed[role=status]");
+  const alert = page.locator(".fixed[role=alert]");
+  const add = (url: string, title: string) =>
+    page.evaluate(
+      async ([url, title]) => {
+        const { api } = await import("/src/services/api.ts");
+        await api.addBookmark({ url, title });
+      },
+      [url, title],
+    );
+  // Three new links join the two waiting: the queue goes newest first.
+  for (const [url, name] of [
+    ["https://example.com/a", "Первая новая"],
+    ["https://example.com/b", "Вторая новая"],
+    ["https://example.com/c", "Третья новая"],
+  ])
+    await add(url, name);
+  await page.evaluate(() => {
+    (window as unknown as { opened: string[] }).opened = [];
+    window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
+  });
+  await page.getByRole("region", { name: "Новые закладки" }).getByRole("button", { name: "Разобрать" }).click();
+  await expect(heading).toHaveText(/Разбор входящих\s*1 из 5/);
+  await expect(title).toHaveText("Третья новая");
+  await expect(page.locator("[data-triage-card]")).toContainText(/example\.com\s*· добавлено вручную сегодня в \d/);
+  await expect(page.getByText("Дальше")).toBeVisible();
+
+  // F and T stay on the card; Space opens the page.
+  await page.keyboard.press("f");
+  await expect(nav("Избранное 3")).toBeVisible();
+  await page.keyboard.press("t");
+  await page.getByRole("textbox", { name: "Новый тег" }).fill("Срочно");
+  await page.keyboard.press("Enter");
+  await expect(toast).toContainText("Тег «срочно» добавлен");
+  await expect(page.locator("[data-triage-card] ~ div").getByText("#срочно")).toBeVisible();
+  await page.keyboard.press("Space");
+  expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual(["https://example.com/c"]);
+  await expect(heading).toHaveText(/1 из 5/);
+
+  // A number files and moves on; ← to the trash; Z brings it back to the card.
+  await page.keyboard.press("2");
+  await expect(heading).toHaveText(/2 из 5/);
+  await expect(page.getByRole("listitem").filter({ hasText: "Третья новая" })).toContainText("→ Разработка");
+  await page.keyboard.press("ArrowLeft");
+  await expect(nav("Корзина 1")).toBeVisible();
+  await page.keyboard.press("z");
+  await expect(toast).toContainText("Снова в очереди: Вторая новая");
+  await expect(title).toHaveText("Вторая новая");
+  await expect(heading).toHaveText(/2 из 5/);
+  await expect(nav("Корзина 0")).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+
+  // E: the editor; its save is a decision and moves on.
+  await expect(title).toHaveText("Первая новая");
+  await page.keyboard.press("e");
+  await page.getByLabel("Название", { exact: true }).fill("Первая, исправленная");
+  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await expect(heading).toHaveText(/4 из 5/);
+  await expect(page.getByRole("listitem").filter({ hasText: "Первая, исправленная" })).toContainText("оставлено");
+
+  // A link saved during triage joins the end.
+  await add("https://example.com/d", "Пришла во время разбора");
+  await expect(heading).toHaveText(/4 из 6\s*\+1 новая/);
+
+  // A failed decision keeps the card; «Повторить» or the same key tries again.
+  await expect(title).toHaveText("Архитектура тишины");
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const { CommandError } = await import("/src/services/errors.ts");
+    const original = api.trashBookmark;
+    api.trashBookmark = async (id) => {
+      api.trashBookmark = original;
+      throw new CommandError("database_busy", "busy");
+    };
+  });
+  await page.keyboard.press("ArrowLeft");
+  await expect(alert).toContainText("Не удалось переместить в корзину: библиотека занята");
+  await expect(alert.getByRole("button", { name: "Повторить" })).toBeVisible();
+  await expect(heading).toHaveText(/4 из 6/);
+  await page.keyboard.press("ArrowLeft");
+  await expect(heading).toHaveText(/5 из 6/);
+  await expect(alert).toHaveCount(0);
+
+  // The end: the summary, the badge gone; Z brings the last card back.
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("heading", { name: "Входящие разобраны" })).toBeVisible();
+  await expect(page.getByText("6 решений: 4 оставлено, 1 разложено по коллекциям, 1 в корзине.")).toBeVisible();
+  await expect(nav("Входящие")).toBeVisible();
+  await page.keyboard.press("z");
+  await expect(title).toHaveText("Пришла во время разбора");
+  await expect(nav("Входящие 1")).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  // Ten bookmarks, one of them in the trash.
+  await expect(heading).toHaveText(/Все закладки\s*9/);
+});
+test("triage: Esc goes back where it was opened, the inbox always offers it", async ({ page }) => {
+  await page.getByRole("button", { name: "Входящие 2", exact: true }).click();
+  const banner = page.getByRole("region", { name: "Новые закладки" });
+  // In the inbox the banner has no «hide»: it is the way into triage.
+  await expect(banner.getByRole("button", { name: "Скрыть до новых закладок" })).toHaveCount(0);
+  await banner.getByRole("button", { name: "Разобрать" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Разбор входящих\s*1 из 2/);
+  await page.keyboard.press("ArrowRight");
+  await page.getByRole("button", { name: "Закончить" }).focus();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Входящие\s*1/);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
 });
 test("metadata updates keep order and filtered captures stay out of the list", async ({ page }) => {
   const ids = await page

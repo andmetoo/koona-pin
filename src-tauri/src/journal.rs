@@ -29,6 +29,8 @@ pub const LIMIT: usize = 100;
 #[serde(rename_all = "lowercase")]
 #[ts(export, rename = "CommandAction")]
 pub enum Action {
+    /// «Оставить» in triage: only the decision (NP-025).
+    Keep,
     /// The editor: any fields at once.
     Edit,
     Favorite,
@@ -426,6 +428,25 @@ mod tests {
         let star = (None, None, Some(true), None, None);
         edit(&mut journal, &conn, Action::Favorite, b.id, star);
         assert!(!undone(journal.undo(&conn, None).unwrap())[0].is_favorite);
+
+        // «Оставить» in triage changes only the decision.
+        let fresh = captured(&conn, "fresh", &[]);
+        let kept = edit(
+            &mut journal,
+            &conn,
+            Action::Keep,
+            fresh.id,
+            (None, None, None, None, None),
+        );
+        assert!(kept.is_some());
+        assert!(get_bookmark_by_id(&conn, fresh.id)
+            .unwrap()
+            .triaged_at
+            .is_some());
+        assert_eq!(
+            undone(journal.undo(&conn, None).unwrap())[0].triaged_at,
+            None
+        );
 
         let into = (None, None, None, Some(Some(shelf.id)), None);
         edit(&mut journal, &conn, Action::Move, b.id, into);
