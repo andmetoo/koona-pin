@@ -10,6 +10,15 @@ export function preference<T extends string>(name: string, allowed: T[], fallbac
   return fallback;
 }
 
+/** A free-form value, such as a time; `null` when none is stored. */
+export function storedValue(name: string): string | null {
+  try {
+    return localStorage.getItem(`netamipin.${name}`);
+  } catch {
+    return null;
+  }
+}
+
 export function savePreference(name: string, value: string) {
   try {
     localStorage.setItem(`netamipin.${name}`, value);

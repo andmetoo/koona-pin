@@ -24,23 +24,37 @@ export function Toast({
   );
 }
 
-/** Plate over the content: an error, or the soft accent for good news. */
+/** Plate over the content: an error, or the soft accent, such as the inbox banner. */
 export function Banner({
   children,
   action,
   tone = "danger",
+  icon,
+  label,
 }: {
   children: ReactNode;
   action?: ReactNode;
   tone?: "danger" | "accent";
+  /** The accent icon on the left; an error always has the alert sign. */
+  icon?: ReactNode;
+  /**
+   * An accent banner with a name is a region, not a live one: the inbox
+   * banner would otherwise be read out again with every new link.
+   */
+  label?: string;
 }) {
   return (
     <div
-      role={tone === "danger" ? "alert" : "status"}
+      role={tone === "danger" ? "alert" : label ? "region" : "status"}
+      aria-label={label}
       className={`flex items-center justify-between gap-5 rounded-xl px-4 py-3 text-sm ${tone === "danger" ? "bg-danger-soft text-on-danger-soft" : "bg-accent-soft text-on-accent-soft"}`}
     >
       <span className="flex min-w-0 items-start gap-2.5 [overflow-wrap:anywhere]">
-        {tone === "danger" && <Icon icon={CircleAlert} className="mt-px shrink-0" />}
+        {tone === "danger" ? (
+          <Icon icon={CircleAlert} className="mt-px shrink-0" />
+        ) : (
+          icon && <span className="mt-px flex shrink-0 text-accent">{icon}</span>
+        )}
         <span>{children}</span>
       </span>
       {action}

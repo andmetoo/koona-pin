@@ -21,6 +21,8 @@ pub struct Bookmark {
     pub updated_at: String,
     pub tags: Option<Vec<String>>,
     pub revision: i64,
+    /// When the bookmark was sorted; none while it waits in the inbox.
+    pub triaged_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -110,16 +112,25 @@ impl Source {
 pub struct LibraryCounts {
     pub total: i64,
     pub favorites: i64,
+    /// Bookmarks waiting for a decision (NP-021).
+    pub inbox: i64,
+    /// When the newest of them was saved: the inbox banner hidden before it
+    /// comes back once a newer one arrives.
+    pub inbox_newest: Option<String>,
 }
 
 pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
     conn.query_row(
-        "SELECT COUNT(*), COALESCE(SUM(is_favorite),0) FROM bookmarks",
+        "SELECT COUNT(*), COALESCE(SUM(is_favorite),0), COALESCE(SUM(triaged_at IS NULL),0),
+                MAX(CASE WHEN triaged_at IS NULL THEN created_at END)
+         FROM bookmarks",
         [],
         |r| {
             Ok(LibraryCounts {
                 total: r.get(0)?,
                 favorites: r.get(1)?,
+                inbox: r.get(2)?,
+                inbox_newest: r.get(3)?,
             })
         },
     )
@@ -213,7 +224,7 @@ pub fn insert_or_update_bookmark(
 
 pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut stmt = conn.prepare(
-        "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision
+        "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at
          FROM bookmarks WHERE id = ?1",
     )?;
 
@@ -236,6 +247,9 @@ pub struct BookmarkQuery {
     pub domain: Option<String>,
     #[serde(default)]
     pub only_favorites: bool,
+    /// Only bookmarks waiting in the inbox.
+    #[serde(default)]
+    pub only_inbox: bool,
     /// Only this bookmark: whether a changed one still belongs to the list.
     #[ts(optional)]
     pub id: Option<i64>,
@@ -413,6 +427,7 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         updated_at: row.get(11)?,
         tags: None,
         revision: row.get(12)?,
+        triaged_at: row.get(13)?,
     })
 }
 
@@ -423,6 +438,9 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
     let mut values: Vec<Value> = Vec::new();
     if query.only_favorites {
         filter.push_str(" AND b.is_favorite = 1");
+    }
+    if query.only_inbox {
+        filter.push_str(" AND b.triaged_at IS NULL");
     }
     if let Some(id) = query.id {
         filter.push_str(" AND b.id = ?");
@@ -503,7 +521,7 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
     values.push(i64::from(limit + 1).into());
     let mut items = conn
         .prepare(&format!(
-            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision
+            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision, b.triaged_at
              FROM bookmarks b{page_filter}
              ORDER BY b.created_at DESC, b.id DESC LIMIT ?"
         ))?
@@ -608,8 +626,9 @@ pub fn update_bookmark(
         link_tags(conn, id, &tag_list, &now)?;
     }
 
+    // Any decision about a bookmark sorts it: it leaves the inbox (NP-021).
     conn.execute(
-        "UPDATE bookmarks SET revision=revision+1,updated_at=?1 WHERE id=?2",
+        "UPDATE bookmarks SET revision=revision+1,updated_at=?1,triaged_at=COALESCE(triaged_at,?1) WHERE id=?2",
         params![now, id],
     )?;
     let updated = get_bookmark_by_id(conn, id)?;
@@ -880,6 +899,135 @@ mod tests {
             rows.iter().map(|b| b.id).collect::<Vec<_>>(),
             vec![second.id, first.id]
         );
+    }
+
+    #[test]
+    fn new_links_wait_in_the_inbox_until_a_decision() {
+        let conn = setup_test_db();
+        let save = |url: &str, title: &str, source| {
+            insert_or_update_bookmark(
+                &conn,
+                url,
+                title,
+                None,
+                None,
+                None,
+                "example.com",
+                None,
+                None,
+                source,
+            )
+            .unwrap()
+        };
+        let captured = save(
+            "https://example.com/captured",
+            "Захват из браузера",
+            Source::Chrome,
+        );
+        let added = save(
+            "https://example.com/added",
+            "Добавлено вручную",
+            Source::App,
+        );
+        let imported = save("https://example.com/imported", "Импорт", Source::Import);
+        assert_eq!(captured.triaged_at, None);
+        assert_eq!(added.triaged_at, None);
+        assert!(
+            imported.triaged_at.is_some(),
+            "an import goes to the library"
+        );
+        conn.execute(
+            "UPDATE bookmarks SET created_at = CASE id WHEN ?1 THEN '2026-10-01T10:00:00.000Z' ELSE '2026-10-02T10:00:00.000Z' END",
+            [captured.id],
+        )
+        .unwrap();
+
+        let inbox = |search: Option<&str>| {
+            let page = get_bookmarks(
+                &conn,
+                &BookmarkQuery {
+                    only_inbox: true,
+                    search: search.map(Into::into),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(page.total, Some(page.items.len() as i64));
+            page.items.iter().map(|b| b.id).collect::<Vec<_>>()
+        };
+        assert_eq!(inbox(None), [added.id, captured.id]);
+        assert_eq!(
+            inbox(Some("браузера")),
+            [captured.id],
+            "search stays in the section"
+        );
+        assert_eq!(
+            everything(&conn).len(),
+            3,
+            "the inbox is also in All bookmarks"
+        );
+        let counts = get_counts(&conn).unwrap();
+        assert_eq!((counts.total, counts.inbox), (3, 2));
+        assert_eq!(
+            counts.inbox_newest.as_deref(),
+            Some("2026-10-02T10:00:00.000Z")
+        );
+
+        // Metadata and a removed collection are not decisions.
+        let meta = crate::metadata::PageMetadata {
+            title: Some("Новое название".into()),
+            ..Default::default()
+        };
+        enrich_bookmark(&conn, captured.id, captured.revision, &meta).unwrap();
+        let collection = create_collection(&conn, "Временная", None, None).unwrap();
+        conn.execute(
+            "UPDATE bookmarks SET collection_id = ?1 WHERE id = ?2",
+            [collection.id, captured.id],
+        )
+        .unwrap();
+        delete_collection(&conn, collection.id).unwrap();
+        assert_eq!(
+            get_bookmark_by_id(&conn, captured.id).unwrap().triaged_at,
+            None
+        );
+
+        // Any change by the user is one: the star sorts the bookmark, and a
+        // later edit keeps the time of that first decision.
+        let starred =
+            update_bookmark(&conn, captured.id, None, None, Some(true), None, None).unwrap();
+        let sorted_at = starred.triaged_at.clone().expect("sorted");
+        assert_eq!(inbox(None), [added.id]);
+        let edited = update_bookmark(
+            &conn,
+            captured.id,
+            None,
+            Some("Заметка".into()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(edited.triaged_at, Some(sorted_at));
+        let counts = get_counts(&conn).unwrap();
+        assert_eq!(counts.inbox, 1);
+        assert_eq!(
+            counts.inbox_newest.as_deref(),
+            Some("2026-10-02T10:00:00.000Z")
+        );
+
+        update_bookmark(
+            &conn,
+            added.id,
+            Some("Решено".into()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let counts = get_counts(&conn).unwrap();
+        assert_eq!((counts.inbox, counts.inbox_newest), (0, None));
+        assert!(inbox(None).is_empty());
     }
 
     fn setup_test_db() -> Connection {
@@ -1288,8 +1436,11 @@ mod tests {
         let mut conn = Connection::open(&path).unwrap();
         crate::library::configure(&conn).unwrap();
         migrations::migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
-        assert_eq!(migrations::user_version(&conn).unwrap(), 2);
-        assert!(folder.join("backups/netamipin.before-v2.db").exists());
+        let version = migrations::SCHEMA_VERSION;
+        assert_eq!(migrations::user_version(&conn).unwrap(), version);
+        assert!(folder
+            .join(format!("backups/netamipin.before-v{version}.db"))
+            .exists());
 
         let queries = [
             "архитект",

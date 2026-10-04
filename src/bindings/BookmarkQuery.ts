@@ -6,6 +6,10 @@ import type { PageCursor } from "./PageCursor";
  */
 export type BookmarkQuery = { search?: string, collection_id?: number, tag?: string, domain?: string, only_favorites: boolean, 
 /**
+ * Only bookmarks waiting in the inbox.
+ */
+only_inbox: boolean, 
+/**
  * Only this bookmark: whether a changed one still belongs to the list.
  */
 id?: number, 

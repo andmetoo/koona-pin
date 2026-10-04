@@ -22,6 +22,7 @@ const b: Bookmark = {
   updated_at: "2026-10-01",
   revision: 1,
   tags: ["дизайн"],
+  triaged_at: "2026-10-01",
 };
 describe("library reconciliation", () => {
   it("updates metadata in place and rejects stale revisions", () => {
@@ -53,6 +54,11 @@ describe("library reconciliation", () => {
   it("leaves search words to the database outside the demo", () => {
     expect(matchesFilters(b, { search: "nothing like it", tag: "дизайн" })).toBe(true);
     expect(matchesFilters(b, { domain: "other.org" })).toBe(false);
+  });
+  it("keeps only unsorted bookmarks in the inbox", () => {
+    expect(matchesFilters(b, { onlyInbox: true })).toBe(false);
+    expect(matchesFilters({ ...b, triaged_at: null }, { onlyInbox: true })).toBe(true);
+    expect(matchesFilters({ ...b, triaged_at: null }, {})).toBe(true);
   });
   it("knows which bookmarks lie on pages not read yet", () => {
     const cursor = { created_at: "2026-10-01", id: 5 };
