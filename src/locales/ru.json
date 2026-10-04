@@ -284,6 +284,8 @@
     "trash": "В корзину",
     "keep": "Оставить",
     "fileHint": "Или сразу разложите — нажмите цифру",
+    "suggested": "предложено",
+    "suggestedWhy": "Ссылки с {{domain}} чаще всего лежат в «{{name}}»: {{count}} из {{filed}}",
     "tag": "Тег…",
     "tagLabel": "Новый тег",
     "tagPlaceholder": "Тег, затем Enter",

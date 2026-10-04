@@ -17,6 +17,7 @@ import {
 import type { PageRequest } from "./api";
 import { demoBookmarks, demoCollections, posterOf } from "./demoData";
 import { isAfter, listTime, matchesBookmark, sortBookmarks } from "./library";
+import { suggestFrom } from "./triage";
 import { CommandError } from "./errors";
 import i18n from "../i18n";
 
@@ -177,6 +178,10 @@ export const demo = {
       domain,
       count: live().filter((b) => b.domain === domain).length,
     }));
+  },
+  async suggestCollection(id: number) {
+    const b = bookmarks.find((item) => item.id === id);
+    return b ? suggestFrom(bookmarks, b) : null;
   },
   async getCounts() {
     const inbox = live().filter((b) => b.triaged_at === null);
