@@ -32,3 +32,5 @@ Thumbs.db
 *.db
 *.db-shm
 *.db-wal
+scripts/platform-probe/mobile-app/src-tauri/target/
+scripts/platform-probe/mobile-app/src-tauri/gen/
