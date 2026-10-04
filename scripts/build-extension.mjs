@@ -48,6 +48,9 @@ export function manifest(browser, { dev = false, key } = {}) {
   if (browser === "firefox")
     return {
       ...common,
+      // The toolbar button's right-click item to the settings page (Chrome
+      // and Edge have «Options» there already).
+      permissions: [...common.permissions, "menus"],
       // Firefox has no extension service workers: an event page instead.
       background: { scripts: ["worker.js"], type: "module" },
       browser_specific_settings: {
