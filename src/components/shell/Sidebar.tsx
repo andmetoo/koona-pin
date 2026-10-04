@@ -32,6 +32,10 @@ export interface SidebarProps {
 export interface NewCollectionField {
   /** The offered name, selected so typing replaces it. */
   suggested: string;
+  /** Selected bookmarks that will move there: the count on the right (sheet 27). */
+  count: number;
+  /** The colour the new collection will get. */
+  color: string;
   /** Enter: create the collection and move the selection into it, one action. */
   onCreate: (name: string) => void;
   /** Esc or leaving the field: nothing is created. */
@@ -218,8 +222,8 @@ export function Sidebar(props: SidebarProps) {
   );
 }
 
-/** The new collection's row: a dot, the name field in focus with the name selected, keys under it (frame 27). */
-function NameField({ suggested, onCreate, onCancel }: NewCollectionField) {
+/** The new collection's row (sheet 27): its dot, the name field in focus with the name selected, the count, keys under it. */
+function NameField({ suggested, count, color, onCreate, onCancel }: NewCollectionField) {
   const { t } = useTranslation();
   const [name, setName] = useState(suggested);
   const done = useRef(false);
@@ -232,14 +236,14 @@ function NameField({ suggested, onCreate, onCancel }: NewCollectionField) {
   return (
     <div className="flex flex-col gap-1 pb-1">
       <form
-        className="flex h-[30px] items-center gap-2.5 rounded-md border-[1.5px] border-accent bg-accent-soft pr-1 pl-2.5"
+        className="flex h-[30px] items-center gap-2.5 rounded-md border-[1.5px] border-accent bg-card pr-2.5 pl-1.5 shadow-[0_0_0_3px_color-mix(in_srgb,var(--np-accent)_25%,transparent)]"
         onSubmit={(e) => {
           e.preventDefault();
           finish(true);
         }}
       >
         <span className="flex size-4 shrink-0 items-center justify-center">
-          <Dot color="var(--np-accent)" />
+          <Dot color={color} />
         </span>
         <input
           autoFocus
@@ -254,8 +258,9 @@ function NameField({ suggested, onCreate, onCancel }: NewCollectionField) {
             e.stopPropagation();
             finish(false);
           }}
-          className="min-w-0 flex-1 bg-transparent text-sm text-on-accent-soft outline-none"
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none selection:bg-accent/20"
         />
+        <span className="text-xs text-subtle">{count}</span>
       </form>
       {/* Two keys, each whole: the sidebar is narrower than the line of frame 27 in Russian. */}
       <p className="flex flex-wrap gap-x-1.5 px-2.5 text-2xs text-subtle">
