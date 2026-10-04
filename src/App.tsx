@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, ChevronDown, Link, Plus, Search, Star, X } from "lucide-react";
+import { ArrowDownToLine, ChevronDown, ChevronRight, Inbox, Link, Plus, Search, Star, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
-import { applyTheme, isDark, preference, savePreference, storedTheme, Theme } from "./services/preferences";
+import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
 import { AppSettings, Bookmark, CaptureStatus, Collection, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
 import { Icon, PinIcon } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
-import { Kbd } from "./components/ui/Hint";
+import { Hint, Kbd } from "./components/ui/Hint";
 import { Dialog } from "./components/ui/Dialog";
 import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
@@ -28,7 +28,10 @@ const initialFilters: FilterState = {
   tag: null,
   domain: null,
   onlyFavorites: false,
+  onlyInbox: false,
 };
+/** Above this many the banner does not promise «about a minute». */
+const QUICK_INBOX = 20;
 /** Below this width the sidebar becomes a strip of icons (frame 16). */
 const NARROW = "(max-width: 999px)";
 /** From this width the editor docks on the right instead of covering the content. */
@@ -70,6 +73,8 @@ export function App() {
   const [damaged, setDamaged] = useState(false);
   const [movedAside, setMovedAside] = useState("");
   const [slowLoading, setSlowLoading] = useState(false);
+  /** The newest inbox bookmark when the banner was hidden: it returns for a newer one. */
+  const [bannerHidden, setBannerHidden] = useState(() => storedValue("inboxBannerHidden"));
   const editorFocus = useRef<HTMLElement | null>(null);
   const dark = isDark(theme, systemDark);
   const say = (text: string, alert = false) => setNotice({ text, alert });
@@ -148,8 +153,15 @@ export function App() {
     scrollRef.current?.scrollTo({ top: 0 });
     setFilters((prev) => ({ ...prev, ...partial }));
   };
-  const navigate = (collectionId: number | null, onlyFavorites = false) =>
-    changeFilters({ collectionId, onlyFavorites, tag: null, domain: null });
+  const navigate = (collectionId: number | null, onlyFavorites = false, onlyInbox = false) =>
+    changeFilters({ collectionId, onlyFavorites, onlyInbox, tag: null, domain: null });
+  const openInbox = () => navigate(null, false, true);
+  const hideBanner = () => {
+    const newest = library.counts.inbox_newest;
+    if (!newest) return;
+    setBannerHidden(newest);
+    savePreference("inboxBannerHidden", newest);
+  };
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -190,8 +202,27 @@ export function App() {
   };
 
   const collection = library.collections.find((c) => c.id === filters.collectionId);
-  const section = filters.onlyFavorites ? t("nav.favorites") : collection ? collection.name : t("nav.all");
-  const sectionCount = filters.onlyFavorites ? library.counts.favorites : collection ? (collection.count ?? 0) : library.counts.total;
+  const { counts } = library;
+  const section = filters.onlyInbox
+    ? t("nav.inbox")
+    : filters.onlyFavorites
+      ? t("nav.favorites")
+      : collection
+        ? collection.name
+        : t("nav.all");
+  const sectionCount = filters.onlyInbox
+    ? counts.inbox
+    : filters.onlyFavorites
+      ? counts.favorites
+      : collection
+        ? (collection.count ?? 0)
+        : counts.total;
+  // Hidden until a bookmark newer than the remembered one arrives (NP-020).
+  // In the inbox itself «Sort» would lead nowhere until triage mode (NP-025).
+  const inboxBanner =
+    counts.inbox > 0 &&
+    !filters.onlyInbox &&
+    !(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden);
   const searching = filters.search.trim() !== "";
   /** Search, tag or site narrow the section: the header shows «N из M». */
   const narrowed = searching || !!filters.tag || !!filters.domain;
@@ -215,7 +246,7 @@ export function App() {
     if (narrowed) {
       // Frame 09: what was searched and where, the whole library one click away.
       const query = filters.search.trim();
-      const inSection = !!collection || filters.onlyFavorites;
+      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox;
       const title = query
         ? inSection
           ? t("empty.noResultsInFor", { section, query })
@@ -230,7 +261,7 @@ export function App() {
         actions: (
           <>
             {inSection && (
-              <Button variant="primary" onClick={() => changeFilters({ collectionId: null, onlyFavorites: false })}>
+              <Button variant="primary" onClick={() => changeFilters({ collectionId: null, onlyFavorites: false, onlyInbox: false })}>
                 {t("empty.searchEverywhere")}
               </Button>
             )}
@@ -246,6 +277,7 @@ export function App() {
         ),
       };
     }
+    if (filters.onlyInbox) return { icon: Inbox, title: t("empty.inbox"), text: t("empty.inboxHint"), actions: null };
     if (filters.onlyFavorites)
       return { icon: Star, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
     if (collection)
@@ -333,6 +365,7 @@ export function App() {
         collections={library.collections}
         tags={library.tags}
         capture={capture}
+        onInbox={openInbox}
         onAll={() => navigate(null)}
         onFavorites={() => navigate(null, true)}
         onCollection={(id) => navigate(id)}
@@ -418,6 +451,37 @@ export function App() {
                       }
                     >
                       {library.error}
+                    </Banner>
+                  )}
+                  {inboxBanner && (
+                    <Banner
+                      tone="accent"
+                      label={t("inbox.bannerLabel")}
+                      icon={<Icon icon={Inbox} size={18} />}
+                      action={
+                        <span className="flex shrink-0 items-center gap-3">
+                          <Button variant="primary" onClick={openInbox}>
+                            {t("inbox.sort")}
+                            <Icon icon={ChevronRight} size={13} />
+                          </Button>
+                          <Hint label={t("inbox.hide")}>
+                            <button
+                              type="button"
+                              aria-label={t("inbox.hide")}
+                              onClick={hideBanner}
+                              className="flex size-6 items-center justify-center rounded-md text-accent-muted transition-colors duration-150 hover:text-on-accent-soft"
+                            >
+                              <Icon icon={X} size={14} />
+                            </button>
+                          </Hint>
+                        </span>
+                      }
+                    >
+                      {narrow
+                        ? t("inbox.bannerShort", { count: counts.inbox })
+                        : counts.inbox > QUICK_INBOX
+                          ? t("inbox.bannerMany", { count: counts.inbox })
+                          : t("inbox.banner", { count: counts.inbox })}
                     </Banner>
                   )}
                   {(filters.tag || filters.domain || library.pendingCount > 0) && (

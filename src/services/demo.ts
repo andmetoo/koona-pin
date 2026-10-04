@@ -25,8 +25,9 @@ const demoCaptureStatus: CaptureStatus = {
   protocol: 2,
 };
 
-// v2: generated previews instead of the drawn ones of the concepts.
-const key = "netamipin.demo.v2";
+// v2: generated previews instead of the drawn ones of the concepts; v3: the inbox.
+const key = "netamipin.demo.v3";
+const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString();
 let initial = {
   bookmarks: demoBookmarks.map((b, i): Bookmark => ({
     id: b.id,
@@ -40,9 +41,10 @@ let initial = {
     is_favorite: b.favorite,
     collection_id: demoCollections.indexOf(b.collection) + 1,
     tags: b.tags,
-    created_at: new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString(),
-    updated_at: new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString(),
+    created_at: stamp(i),
+    updated_at: stamp(i),
     revision: 1,
+    triaged_at: b.inbox ? null : stamp(i),
   })),
   collections: demoCollections.map((name, i): Collection => ({
     id: i + 1,
@@ -132,17 +134,24 @@ export const demo = {
     }));
   },
   async getCounts() {
+    const inbox = bookmarks.filter((b) => b.triaged_at === null);
     return {
       total: bookmarks.length,
       favorites: bookmarks.filter((b) => b.is_favorite).length,
+      inbox: inbox.length,
+      inbox_newest: inbox.reduce<string | null>((newest, b) => (newest === null || b.created_at > newest ? b.created_at : newest), null),
     };
   },
-  async addBookmark(data: {
-    url: string;
-    title?: string;
-    collectionId?: number | null;
-    tags?: string[];
-  }) {
+  async addBookmark(
+    data: {
+      url: string;
+      title?: string;
+      collectionId?: number | null;
+      tags?: string[];
+    },
+    /** An import goes straight to the library, as in the desktop app. */
+    imported = false,
+  ) {
     let url: URL;
     try {
       url = new URL(data.url.trim());
@@ -171,6 +180,7 @@ export const demo = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       revision: 1,
+      triaged_at: imported ? new Date().toISOString() : null,
     };
     bookmarks = [b, ...bookmarks];
     persist();
@@ -189,11 +199,14 @@ export const demo = {
   ) {
     const previous = bookmarks.find((b) => b.id === id);
     if (!previous) throw new CommandError("not_found", "Закладка удалена");
+    const now = new Date().toISOString();
+    // Any decision sorts the bookmark, as `update_bookmark` does.
     const b = {
       ...previous,
       ...data,
       revision: (previous.revision ?? 1) + 1,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
+      triaged_at: previous.triaged_at ?? now,
     };
     bookmarks = bookmarks.map((item) => (item.id === id ? b : item));
     persist();
@@ -240,7 +253,7 @@ export const demo = {
       const url = a.getAttribute("href")!;
       if (bookmarks.some((b) => b.url === url)) continue;
       try {
-        await demo.addBookmark({ url, title: a.textContent?.trim() });
+        await demo.addBookmark({ url, title: a.textContent?.trim() }, true);
         count++;
       } catch {
         /* Invalid schemes are skipped. */

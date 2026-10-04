@@ -35,6 +35,8 @@ export function useLibrary(
   const [counts, setCounts] = useState<LibraryCounts>({
     total: 0,
     favorites: 0,
+    inbox: 0,
+    inbox_newest: null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -208,6 +210,7 @@ export function useLibrary(
     filters.tag,
     filters.domain,
     filters.onlyFavorites,
+    filters.onlyInbox,
     refresh,
   ]);
   useEffect(() => {
