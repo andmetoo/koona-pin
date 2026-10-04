@@ -30,6 +30,9 @@ import {
   RestoreCheck,
   RestoreMode,
   RestoreOutcome,
+  DuplicateGroup,
+  MergeGroup,
+  Merged,
   PickedCopy,
   SaveCopyOutcome,
   Suggestion,
@@ -197,6 +200,12 @@ const desktop = {
   restoreBackup: (source: BackupSource) => call<BackupRestoreOutcome>("restore_backup", { source }),
   /** A copy in the backups folder, selected in Explorer. */
   revealBackup: (fileName: string) => call<void>("reveal_backup", { fileName }),
+  /** The section «Дубликаты» (NP-035): groups of the same page. */
+  getDuplicates: () => call<DuplicateGroup[]>("get_duplicates"),
+  /** One transaction and one journal command for all the groups. */
+  mergeDuplicates: (groups: MergeGroup[]) => call<Merged>("merge_duplicates", { groups }),
+  dismissDuplicates: (key: string, ids: number[]) => call<number>("dismiss_duplicates", { key, ids }),
+  undismissDuplicates: (key: string, ids: number[]) => call<number>("undismiss_duplicates", { key, ids }),
   getVersion: () => getVersion(),
 };
 export const api = isTauri() ? desktop : demo;

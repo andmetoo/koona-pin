@@ -299,8 +299,8 @@ pub fn import(
                 };
                 let title = if link.title.is_empty() { &link.url } else { &link.title };
                 tx.execute(
-                    "INSERT INTO bookmarks (uid, url, title, domain, collection_id, source, created_at, updated_at, triaged_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    "INSERT INTO bookmarks (uid, url, title, domain, collection_id, source, created_at, updated_at, triaged_at, url_key)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                     params![
                         db::new_uid(),
                         link.url,
@@ -311,6 +311,7 @@ pub fn import(
                         link.added_at.as_deref().unwrap_or(&now),
                         now,
                         triaged_at,
+                        crate::dedupe::url_key(&link.url),
                     ],
                 )?;
                 if !link.tags.is_empty() {
