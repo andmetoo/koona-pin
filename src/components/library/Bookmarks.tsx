@@ -37,26 +37,37 @@ function DomainButton({ b, actions, className }: { b: Bookmark; actions: Bookmar
   );
 }
 
-/** «В коллекцию»: collections with their dot and key, then «Без коллекции». */
-function moveEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {
+/**
+ * «В коллекцию»: collections with their dot and key `1`–`9`, then «Без
+ * коллекции». `current` is checked; the selection bar (NP-029) has none.
+ */
+export function collectionEntries(
+  collections: Collection[],
+  onMove: (collectionId: number | null) => void,
+  t: TFunction,
+  current?: number | null,
+): MenuEntry[] {
   return [
     ...collections.map((c, index) => ({
       id: `c${c.id}`,
       label: c.name,
       dot: collectionColor(c.id),
       keys: index < 9 ? String(index + 1) : undefined,
-      checked: b.collection_id === c.id,
-      onSelect: () => actions.move(b, c.id),
+      checked: current === c.id,
+      onSelect: () => onMove(c.id),
     })),
-    "separator" as const,
+    ...(collections.length ? ["separator" as const] : []),
     {
       id: "none",
       label: t("card.noCollection"),
-      checked: b.collection_id === null,
-      onSelect: () => actions.move(b, null),
+      checked: current === null,
+      onSelect: () => onMove(null),
     },
   ];
 }
+
+const moveEntries = (b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction) =>
+  collectionEntries(collections, (collectionId) => actions.move(b, collectionId), t, b.collection_id);
 
 /** Menu «⋯» of a bookmark (frame «15 · Меню карточки»); in the trash, restore, open and delete for good (frame 25). */
 function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../services/api";
 import { BookmarkChange, FilterState } from "../types";
 
@@ -21,8 +21,8 @@ export function useSelection(filters: FilterState, active: boolean) {
   const [ids, setIds] = useState<ReadonlySet<number>>(NONE);
   /** The selected that the current list shows, when known; `null` until asked. */
   const [matching, setMatching] = useState<ReadonlySet<number> | null>(null);
-  /** Every bookmark with a star, when known. */
-  const [starred, setStarred] = useState<ReadonlySet<number> | null>(null);
+  /** Every selected bookmark has a star; unknown counts as no. */
+  const [allStarred, setAllStarred] = useState(false);
   const idsRef = useRef(ids);
   idsRef.current = ids;
   const filtersRef = useRef(filters);
@@ -118,26 +118,15 @@ export function useSelection(filters: FilterState, active: boolean) {
     };
   }, [update]);
 
-  // Which selected the list shows, and which have a star: asked when the
-  // filters or the library change. The star decides «В избранное» or
-  // «Убрать из избранного» for selected bookmarks the list does not show too.
+  // Which selected the list shows: asked when the filters or the library change.
   const selecting = ids.size > 0;
   useEffect(() => {
-    if (!selecting) {
-      setMatching(null);
-      setStarred(null);
-      return;
-    }
+    if (!selecting) return setMatching(null);
     let current = true;
     const timer = window.setTimeout(() => {
       api.getBookmarkIds(filtersRef.current).then(
         (shown) => current && setMatching(new Set(shown)),
         () => current && setMatching(null),
-      );
-      if (filtersRef.current.onlyTrash) return setStarred(null);
-      api.getBookmarkIds({ onlyFavorites: true }).then(
-        (stars) => current && setStarred(new Set(stars)),
-        () => current && setStarred(null),
       );
     }, 150);
     return () => {
@@ -146,10 +135,28 @@ export function useSelection(filters: FilterState, active: boolean) {
     };
   }, [selecting, version, filters.search, filters.tag, filters.domain, sectionKey]);
 
-  let hidden = 0;
-  if (matching) for (const id of ids) if (!matching.has(id)) hidden++;
-  /** Every selected bookmark has a star: the bar offers to take it off. Unknown counts as no. */
-  let allStarred = !!starred && ids.size > 0;
-  if (starred) for (const id of ids) if (!starred.has(id)) allStarred = false;
+  // Whether every selected one has a star, those the list does not show
+  // included: «В избранное» or «Из избранного». Asked of the selected only.
+  const inTrash = filters.onlyTrash;
+  useEffect(() => {
+    if (!ids.size || inTrash) return setAllStarred(false);
+    let current = true;
+    const timer = window.setTimeout(() => {
+      api.allFavorite([...ids]).then(
+        (all) => current && setAllStarred(all),
+        () => current && setAllStarred(false),
+      );
+    }, 150);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [ids, version, inTrash]);
+
+  const hidden = useMemo(() => {
+    let count = 0;
+    if (matching) for (const id of ids) if (!matching.has(id)) count++;
+    return count;
+  }, [ids, matching]);
   return { ids, hidden, allStarred, update, clear, toggle, range, selectAll };
 }

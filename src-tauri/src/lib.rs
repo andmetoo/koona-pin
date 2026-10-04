@@ -114,6 +114,8 @@ pub fn run() {
             commands::restore_bookmark,
             commands::undo,
             commands::bulk_update,
+            commands::all_favorite,
+            commands::next_collection_id,
             commands::delete_forever,
             commands::delete_forever_many,
             commands::empty_trash,

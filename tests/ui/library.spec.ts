@@ -1102,9 +1102,22 @@ test("bulk actions: move, tag and star as one action each, undone whole; Del to 
   await expect(notice(page, "Тег «срочно» добавлен к 3 закладкам")).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Библиотека" }).getByRole("button", { name: "срочно" })).toBeVisible();
 
+  // A second click on «Тег» or «В коллекцию…» closes what the first opened.
+  await bar.getByRole("button", { name: "Тег" }).click();
+  await expect(field).toBeVisible();
+  await bar.getByRole("button", { name: "Тег" }).click();
+  await expect(field).toHaveCount(0);
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
   // One of the three has a star: «В избранное» stars all, then offers to take it off.
-  await bar.getByRole("button", { name: "В избранное" }).click();
+  // From the keyboard: the button keeps the focus when it turns into «Из избранного».
+  await bar.getByRole("button", { name: "В избранное" }).focus();
+  await page.keyboard.press("Enter");
   await expect(notice(page, "3 закладки в избранном")).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Убрать из избранного" })).toBeFocused();
   await bar.getByRole("button", { name: "Убрать из избранного" }).click();
   await expect(notice(page, "3 закладки убраны из избранного")).toBeVisible();
   // «Отменить» in the notice undoes that action only.
