@@ -701,6 +701,24 @@ test("bulk actions on 1 000 bookmarks: one transaction in SQLite, the window kee
     await page.keyboard.press("Control+z");
     await expect(page.getByText("Возвращено из корзины 1000 закладок")).toBeVisible();
     expect(await counts()).toEqual({ shelf: 1000, tagged: 0, total: 1000, trash: 0 });
+
+    // NP-030: the same 1 000 dragged onto «Корзина» with the mouse of WebView2 — the hint says it, SQLite does it.
+    await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+a");
+    await expect(bar.getByRole("status")).toHaveText("1000 выбрано");
+    const from = (await page.locator("[data-bookmark-id][data-selected]").first().boundingBox())!;
+    const to = (await page.getByRole("button", { name: /^Корзина/ }).boundingBox())!;
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2 + 8, { steps: 3 });
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+    await expect(page.locator("[data-drop-hint]")).toHaveText("1000 в корзину");
+    await page.mouse.up();
+    await expect(page.getByText("1000 закладок в корзине")).toBeVisible();
+    expect(await counts()).toEqual({ shelf: 0, tagged: 0, total: 0, trash: 1000 });
+    await page.keyboard.press("Control+z");
+    await expect(page.getByText("Возвращено из корзины 1000 закладок")).toBeVisible();
+    expect(await counts()).toEqual({ shelf: 1000, tagged: 0, total: 1000, trash: 0 });
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();

@@ -31,7 +31,21 @@
     "fewerTags": "Свернуть",
     "newCollectionName": "Название новой коллекции",
     "newCollectionCreate": "Enter — создать и перенести",
-    "newCollectionCancel": "Esc — отмена"
+    "newCollectionCancel": "Esc — отмена",
+    "tagsDrop": "Теги — бросьте на тег",
+    "dropNewCollection": "Новая коллекция из выбранного"
+  },
+  "drag": {
+    "more_one": "и ещё {{count}} закладка",
+    "more_few": "и ещё {{count}} закладки",
+    "more_many": "и ещё {{count}} закладок",
+    "more_other": "и ещё {{count}} закладки",
+    "move": "Переместить {{count}} в «{{name}}»",
+    "tag": "Добавить тег «{{tag}}» к {{count}}",
+    "trash": "{{count}} в корзину",
+    "new": "Новая коллекция из {{count}}",
+    "nowhere": "Бросьте на коллекцию, тег или корзину",
+    "keys": "Отпустите над коллекцией, тегом или корзиной  ·  Esc — отменить перетаскивание"
   },
   "nav": {
     "inbox": "Входящие",
@@ -143,7 +157,7 @@
     "tagLabel": "Тег для выбранных закладок",
     "tagPlaceholder": "Тег, затем Enter",
     "tagSuggestions": "Теги библиотеки",
-    "keys": "Shift / Ctrl — добавить к выделению  ·  Ctrl+A — выделить всё  ·  Esc — снять выделение",
+    "keys": "Shift / Ctrl — добавить к выделению  ·  Ctrl+A — выделить всё  ·  или перетащите выбранное на коллекцию или тег слева",
     "keysTrash": "Ctrl+A — выделить всё  ·  Del — удалить навсегда  ·  Esc — снять выделение",
     "hiddenBySearch_one": "{{count}} из {{total}} выбранных скрыта поиском — действия её учитывают  ·  Esc — снять выделение",
     "hiddenBySearch_few": "{{count}} из {{total}} выбранных скрыты поиском — действия их учитывают  ·  Esc — снять выделение",

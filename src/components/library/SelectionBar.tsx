@@ -46,6 +46,7 @@ export function SelectionBar({
   tags,
   actions,
   onClear,
+  dragging = false,
 }: {
   count: number;
   /** Selected bookmarks the list does not show; actions still include them. */
@@ -62,6 +63,8 @@ export function SelectionBar({
   tags: Tag[];
   actions: SelectionActions;
   onClear: () => void;
+  /** The selection is being dragged (NP-030): the hint row says how to drop or cancel. */
+  dragging?: boolean;
 }) {
   const { t } = useTranslation();
   const [popover, setPopover] = useState<Popover | null>(null);
@@ -99,7 +102,9 @@ export function SelectionBar({
         { id: "export", icon: ArrowUpFromLine, label: t("selection.export"), popover: "export", run: toggle("export") },
         { id: "trash", icon: Trash2, label: t("selection.trash"), keys: "Del", run: actions.trash },
       ];
-  const hint = hidden
+  const hint = dragging
+    ? t("drag.keys")
+    : hidden
     ? t(narrowed ? "selection.hiddenBySearch" : "selection.hiddenElsewhere", { count: hidden, total: count })
     : t(trash ? "selection.keysTrash" : "selection.keys");
   return (
