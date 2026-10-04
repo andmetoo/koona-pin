@@ -21,6 +21,8 @@ use tauri::{AppHandle, Emitter};
 /// The browser limits a message from the extension to the host; a line larger
 /// than this is not a message of ours.
 pub const MAX_MESSAGE: usize = 1024 * 1024;
+/// The host writes its line right after connecting.
+pub const READ_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 #[derive(Debug, Deserialize)]
 pub struct Envelope {
@@ -29,6 +31,14 @@ pub struct Envelope {
     #[serde(default)]
     pub caller: Option<String>,
     pub message: Value,
+}
+
+/// One line from the pipe; anything too long or not our JSON is refused.
+pub fn parse(line: &[u8]) -> Option<Envelope> {
+    if line.len() > MAX_MESSAGE {
+        return None;
+    }
+    serde_json::from_slice(line).ok()
 }
 
 #[derive(Debug, Deserialize)]
@@ -306,12 +316,17 @@ async fn answer(
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
     let mut reader = BufReader::new(pipe);
     let mut line = Vec::new();
-    (&mut reader)
-        .take(MAX_MESSAGE as u64 + 1)
-        .read_until(b'\n', &mut line)
-        .await?;
-    let reply = match serde_json::from_slice::<Envelope>(&line) {
-        Ok(envelope) if line.len() <= MAX_MESSAGE => {
+    // A client that connects and says nothing does not keep a task forever.
+    tokio::time::timeout(
+        READ_TIMEOUT,
+        (&mut reader)
+            .take(MAX_MESSAGE as u64 + 1)
+            .read_until(b'\n', &mut line),
+    )
+    .await
+    .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "no message"))??;
+    let reply = match parse(&line) {
+        Some(envelope) => {
             let (database, records) = (db.clone(), state.clone());
             let handled = tauri::async_runtime::spawn_blocking(move || {
                 let Ok(conn) = database.conn.lock() else {
@@ -431,6 +446,94 @@ mod tests {
     fn capture(id: &str, url: &str, browser: &str) -> Value {
         json!({ "type": "capture", "protocol": PROTOCOL, "version": "0.5.0", "browser": browser,
                 "request_id": id, "url": url, "title": "Title" })
+    }
+
+    #[test]
+    fn oversized_and_foreign_lines_are_refused() {
+        let ok = br#"{"caller":null,"message":{"type":"hello"}}"#;
+        assert!(parse(ok).is_some());
+        assert!(parse(b"not json\n").is_none());
+        assert!(parse(br#"{"message_missing":true}"#).is_none());
+        assert!(parse(b"").is_none());
+        let mut huge = br#"{"caller":null,"message":{"type":"capture","title":""#.to_vec();
+        huge.resize(MAX_MESSAGE, b'x');
+        huge.extend_from_slice(br#""}}"#);
+        assert!(serde_json::from_slice::<Envelope>(&huge).is_ok(), "valid JSON, only too long");
+        assert!(parse(&huge).is_none());
+    }
+
+    /// Only the current user may open the pipe: a protected DACL with one
+    /// entry, so other users and services are refused by Windows itself.
+    #[cfg(windows)]
+    #[test]
+    fn the_pipe_admits_only_the_current_user() {
+        use tokio::net::windows::named_pipe::ServerOptions;
+        use windows_sys::Win32::{
+            Foundation::LocalFree,
+            Security::{
+                Authorization::{
+                    ConvertSecurityDescriptorToStringSecurityDescriptorW, GetSecurityInfo,
+                    SDDL_REVISION_1, SE_KERNEL_OBJECT,
+                },
+                DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
+            },
+        };
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let _entered = runtime.enter();
+        let mut security = security::OnlyCurrentUser::new().unwrap();
+        let name = format!(r"\\.\pipe\netamipin-dacl-test-{}", std::process::id());
+        let pipe = unsafe {
+            ServerOptions::new()
+                .first_pipe_instance(true)
+                .reject_remote_clients(true)
+                .create_with_security_attributes_raw(&name, security.attributes())
+                .unwrap()
+        };
+        use std::os::windows::io::AsRawHandle;
+        let mut descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+        let status = unsafe {
+            GetSecurityInfo(
+                pipe.as_raw_handle() as _,
+                SE_KERNEL_OBJECT,
+                DACL_SECURITY_INFORMATION,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                &mut descriptor,
+            )
+        };
+        assert_eq!(status, 0);
+        let mut text: *mut u16 = std::ptr::null_mut();
+        let converted = unsafe {
+            ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                descriptor,
+                SDDL_REVISION_1,
+                DACL_SECURITY_INFORMATION,
+                &mut text,
+                std::ptr::null_mut(),
+            )
+        };
+        assert_ne!(converted, 0);
+        let sddl = unsafe {
+            let length = (0..).take_while(|&i| *text.add(i) != 0).count();
+            String::from_utf16_lossy(std::slice::from_raw_parts(text, length))
+        };
+        unsafe {
+            LocalFree(text as _);
+            LocalFree(descriptor);
+        }
+        let sid = crate::pipe_name::user_sid().unwrap();
+        // GA is stored as the pipe's full access (FA).
+        assert_eq!(sddl, format!("D:P(A;;FA;;;{sid})"));
+        // A second server on the same name is refused (FILE_FLAG_FIRST_PIPE_INSTANCE).
+        let second = unsafe {
+            ServerOptions::new()
+                .first_pipe_instance(true)
+                .create_with_security_attributes_raw(&name, security.attributes())
+        };
+        assert!(second.is_err());
+        drop(pipe);
     }
 
     #[test]
