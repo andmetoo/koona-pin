@@ -173,7 +173,7 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await trashCard(1);
   await expect(nav("Корзина 1")).toBeVisible();
   await page.keyboard.press("Control+z");
-  await expect(toast).toContainText("Восстановлено");
+  await expect(toast).toContainText("Возвращено из корзины: «Десять принципов хорошего дизайна»");
   await expect(nav("Корзина 0")).toBeVisible();
 
   // In the trash: out of counts and search, newest deletion first, days left, the note.
@@ -271,6 +271,67 @@ test("trash: deleting for good asks first, «Оставить» keeps it, emptyi
   await expect(nav("Все закладки 3")).toBeVisible();
   // Gone after a restart too.
   await page.reload();
+  await expect(nav("Корзина 0")).toBeVisible();
+});
+test("undo: Ctrl Z takes actions back one by one, a decision returns to the inbox, a later change wins", async ({ page }) => {
+  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const card = (id: number) => page.locator(`[data-bookmark-id="${id}"]`);
+  const toast = page.locator(".fixed[role=status]");
+  const alert = page.locator(".fixed[role=alert]");
+  // Two decisions about a bookmark from the inbox: the star, then a collection.
+  await card(2).hover();
+  await card(2).getByRole("button", { name: "В избранное" }).click();
+  await expect(nav("Входящие 1")).toBeVisible();
+  await card(2).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "В коллекцию" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await page.getByRole("menuitem", { name: "Разработка" }).click();
+  await expect(toast).toContainText("Перемещено в «Разработка»");
+  await expect(toast.getByRole("button", { name: /Отменить/ })).toBeVisible();
+  // The last action first, then the one before: the bookmark waits in the inbox again.
+  await page.keyboard.press("Control+z");
+  await expect(toast).toContainText("Отменено: «Архитектура тишины»");
+  await page.getByRole("button", { name: "Список", exact: true }).click();
+  await expect(card(2).locator("[data-collection]")).toContainText("Вдохновение");
+  await page.keyboard.press("Control+z");
+  await expect(nav("Входящие 2")).toBeVisible();
+  await expect(nav("Избранное 2")).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(toast).toContainText("Отменять нечего");
+
+  // The editor's save is one action; its notice undoes it.
+  await card(3).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Изменить…" }).click();
+  await page.getByLabel("Название", { exact: true }).fill("Голос шрифта");
+  await page.getByLabel("Заметка", { exact: true }).fill("Показать команде");
+  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+  await expect(card(3)).toContainText("Голос шрифта");
+  await toast.getByRole("button", { name: /Отменить/ }).click();
+  await expect(toast).toContainText("Отменено: «Типографика — это голос»");
+  await expect(card(3)).toContainText("Типографика — это голос");
+
+  // Saved again from the trash meanwhile: «to the trash» is not undone over it.
+  await card(3).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "В корзину" }).click();
+  await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
+  await page.getByLabel("Ссылка", { exact: true }).fill("https://type.today/ru");
+  await page.getByRole("button", { name: "Сохранить ссылку" }).click();
+  await expect(toast).toContainText("Возвращено из корзины во «Входящие»");
+  await page.keyboard.press("Control+z");
+  await expect(alert).toContainText("Не отменено: «Типографика — это голос» изменили после этого действия");
+  await expect(nav("Входящие 3")).toBeVisible();
+  await expect(nav("Корзина 0")).toBeVisible();
+
+  // Deleted for good: nothing to bring back, and it says so.
+  await card(1).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "В корзину" }).click();
+  await nav("Корзина 1").click();
+  await card(1).hover();
+  await card(1).getByRole("button", { name: "Удалить навсегда…" }).click();
+  await page.getByRole("dialog", { name: "Удалить навсегда?" }).getByRole("button", { name: "Удалить навсегда" }).click();
+  await expect(toast).toContainText("Удалено навсегда");
+  await page.keyboard.press("Control+z");
+  await expect(alert).toContainText("Не отменено: «Десять принципов хорошего дизайна» уже удалена навсегда");
   await expect(nav("Корзина 0")).toBeVisible();
 });
 test("metadata updates keep order and filtered captures stay out of the list", async ({ page }) => {
