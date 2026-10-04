@@ -4,8 +4,10 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { undoNotice } from "./services/undo";
+import { bulkFailure, bulkNotice } from "./services/bulk";
+import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, Bookmark, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
+import { AppSettings, Bookmark, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { Icon, PinIcon } from "./components/icons";
@@ -19,12 +21,13 @@ import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
 import { BookmarkList } from "./components/library/BookmarkList";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
-import { SelectionBar } from "./components/library/SelectionBar";
+import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
-type Surface = "add" | "import" | "restore" | "connect" | "collection" | null;
+/** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
+type Surface = "add" | "import" | "restore" | "connect" | "collection" | "selectionCollection" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -93,8 +96,14 @@ export function App() {
   const editingRef = useRef(editing);
   editingRef.current = editing;
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
-  /** What the confirmation (frame 26) would delete for good: one bookmark or the whole trash. */
-  const [purging, setPurging] = useState<Bookmark | "all" | null>(null);
+  /** What the confirmation (frame 26) would delete for good: one bookmark, the selection or the whole trash. */
+  const [purging, setPurging] = useState<Bookmark | "all" | { selected: number[] } | null>(null);
+  /** A bulk action is running: the bar waits (NP-029). */
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const bulkBusyRef = useRef(bulkBusy);
+  bulkBusyRef.current = bulkBusy;
+  /** «Новая коллекция из выбранного»: the name offered in the sidebar field and the colour the collection will get, while it is open. */
+  const [naming, setNaming] = useState<{ suggested: string; color: string } | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
@@ -169,11 +178,17 @@ export function App() {
           void selectionRef.current.selectAll().catch((err) => say(describeError(err), true));
         }
         if (e.key === "Escape" && selectionRef.current.ids.size) selectionRef.current.clear();
+        // Del: the selection to the trash, or, in the trash, the dialog to delete it for good (NP-029).
+        if (e.key === "Delete" && !typing && selectionRef.current.ids.size && !e.repeat && !bulkBusyRef.current) {
+          e.preventDefault();
+          if (filters.onlyTrash) selectionActionsRef.current.deleteForever();
+          else selectionActionsRef.current.trash();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [wide, editing, triage, page]);
+  }, [wide, editing, triage, page, filters.onlyTrash]);
   useEffect(() => {
     // The app learns about browsers when their extensions write (NP-016).
     const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
@@ -255,11 +270,11 @@ export function App() {
    * в … · Показать» for 8 seconds, or an alert with the reason and
    * «Повторить», which opens the dialog again. Cancelling says nothing.
    */
-  const exportLibrary = (format: ExportFormat) => {
+  const exportLibrary = (format: ExportFormat, ids?: number[]) => {
     const columns =
       format === "csv" ? (Object.fromEntries(CSV_COLUMNS.map((key) => [key, t(`export.columns.${key}`)])) as CsvColumns) : undefined;
-    const retry = () => exportLibrary(format);
-    api.exportLibrary(format, columns).then(
+    const retry = () => exportLibrary(format, ids);
+    api.exportLibrary(format, columns, ids).then(
       (result) => {
         if (result.outcome === "cancelled") return;
         if (result.outcome === "saved")
@@ -283,6 +298,58 @@ export function App() {
       (err) => setNotice({ text: describeError(err), alert: true, retry }),
     );
   };
+  /**
+   * One action on every selected bookmark (NP-029, frame 27): one transaction
+   * and one command of the journal. The notice counts them and undoes the
+   * whole action; after «В корзину» and «Восстановить» the selected leave the
+   * list and the selection clears, after the rest it stays. A failure changed
+   * nothing: the alert waits with «Повторить», which repeats the same action
+   * on the same bookmarks.
+   */
+  /** The name «Новая коллекция из выбранного» offers, from the selected the list has loaded. */
+  const offeredName = () =>
+    suggestedName(library.bookmarks.filter((b) => selection.ids.has(b.id))) ?? t("selection.newCollectionName");
+  const runBulk = (change: BulkChange, ids = [...selection.ids]) => {
+    const target = change.action === "move" ? library.collections.find((c) => c.id === change.collection_id)?.name : undefined;
+    setBulkBusy(true);
+    setNotice(null);
+    api.bulkUpdate(ids, change).then(
+      (result) => {
+        setBulkBusy(false);
+        if (change.action === "trash" || change.action === "restore") {
+          selectionRef.current.clear();
+          if (editingRef.current && ids.includes(editingRef.current.id)) closeEditor();
+        }
+        if (result.collection) void library.refreshCatalog();
+        say(bulkNotice(t, change, result.count, target), false, undoing(result.command));
+      },
+      (err) => {
+        setBulkBusy(false);
+        setNotice({ text: bulkFailure(t, change, ids.length, err, target), alert: true, retry: () => runBulk(change, ids) });
+      },
+    );
+  };
+  const selectionActions: SelectionActions = {
+    move: (collectionId) => runBulk({ action: "move", collection_id: collectionId }),
+    // The strip of a narrow window has no room for the field: the dialog asks instead.
+    newCollection: () => {
+      if (narrow) return setSurface("selectionCollection");
+      const suggested = offeredName();
+      // Colours follow the id (services/collections); the library knows the next one.
+      void api.nextCollectionId().then(
+        (id) => setNaming({ suggested, color: collectionColor(id) }),
+        (err) => say(describeError(err), true),
+      );
+    },
+    tag: (name) => runBulk({ action: "tag", name }),
+    favorite: (favorite) => runBulk({ action: "favorite", favorite }),
+    export: (format) => exportLibrary(format, [...selection.ids]),
+    trash: () => runBulk({ action: "trash" }),
+    restore: () => runBulk({ action: "restore" }),
+    deleteForever: () => setPurging({ selected: [...selection.ids] }),
+  };
+  const selectionActionsRef = useRef(selectionActions);
+  selectionActionsRef.current = selectionActions;
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -590,6 +657,20 @@ export function App() {
         onConnect={() => setSurface("connect")}
         onNewCollection={() => setSurface("collection")}
         onDeleteCollection={setDeletingCollection}
+        naming={
+          naming !== null && selecting
+            ? {
+                suggested: naming.suggested,
+                count: selection.ids.size,
+                color: naming.color,
+                onCreate: (name) => {
+                  setNaming(null);
+                  runBulk({ action: "new_collection", name });
+                },
+                onCancel: () => setNaming(null),
+              }
+            : null
+        }
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <WindowBar />
@@ -790,6 +871,12 @@ export function App() {
                       hidden={selection.hidden}
                       narrowed={narrowed}
                       compact={compact}
+                      trash={filters.onlyTrash}
+                      allStarred={selection.allStarred}
+                      busy={bulkBusy}
+                      collections={library.collections}
+                      tags={library.tags}
+                      actions={selectionActions}
                       onClear={selection.clear}
                     />
                   </div>
@@ -879,6 +966,18 @@ export function App() {
           }}
         />
       )}
+      {surface === "selectionCollection" && (
+        <CollectionDialog
+          initial={offeredName()}
+          onClose={() => setSurface(null)}
+          onCreate={async (name) => {
+            const result = await api.bulkUpdate([...selection.ids], { action: "new_collection", name });
+            await library.refreshCatalog();
+            setSurface(null);
+            say(bulkNotice(t, { action: "new_collection", name }, result.count), false, undoing(result.command));
+          }}
+        />
+      )}
       {surface === "connect" && (
         <ConnectDialog capture={capture} onOpen={actions.open} onClose={() => setSurface(null)} />
       )}
@@ -905,7 +1004,9 @@ export function App() {
           text={
             purging === "all"
               ? t("confirm.emptyTrashText", { count: counts.trash })
-              : t("confirm.deleteForeverText", { title: purging.title || purging.url })
+              : "selected" in purging
+                ? t("confirm.emptyTrashText", { count: purging.selected.length })
+                : t("confirm.deleteForeverText", { title: purging.title || purging.url })
           }
           confirm={t("confirm.deleteForeverButton")}
           onClose={() => setPurging(null)}
@@ -913,6 +1014,10 @@ export function App() {
             if (purging === "all") {
               const count = await api.emptyTrash();
               say(t("notice.emptied", { count }));
+            } else if ("selected" in purging) {
+              const count = await api.deleteForeverMany(purging.selected);
+              selection.clear();
+              say(t("bulk.purged", { count }));
             } else {
               await api.deleteForever(purging.id);
               say(t("notice.purged"));

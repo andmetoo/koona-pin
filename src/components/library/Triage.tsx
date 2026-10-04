@@ -1,9 +1,9 @@
-import { FormEvent, ReactNode, useEffect, useId, useRef, useState } from "react";
+import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Check, Folder, Star, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
 import { collectionColor } from "../../services/collections";
-import { describeError, toCommandError } from "../../services/errors";
+import { describeError, reasonOf, toCommandError } from "../../services/errors";
 import { browserName, collectionKeys, nextWaiting, savedDay, Step, summary, waiting } from "../../services/triage";
 import { short, undoNotice } from "../../services/undo";
 import { Bookmark, BookmarkPage, Changed, Collection, PageCursor, Suggestion } from "../../types";
@@ -13,6 +13,7 @@ import { Button } from "../ui/Button";
 import { Hint, Kbd } from "../ui/Hint";
 import { BookmarkChanges } from "./BookmarkEditor";
 import { Preview, SiteMark } from "./Bookmarks";
+import { TagField } from "./Fields";
 
 /** What the app shows at the bottom: one notice at a time. */
 export interface TriageNotice {
@@ -199,7 +200,7 @@ export function Triage({
   /** Why a decision failed, short: «библиотека занята» (frame 20). */
   const reason = (err: unknown) => {
     const { code } = toCommandError(err);
-    return code === "database_busy" || code === "disk_full" || code === "read_only" ? t(`triage.reason.${code}`) : describeError(err);
+    return code === "database_busy" || code === "disk_full" || code === "read_only" ? reasonOf(err) : describeError(err);
   };
 
   /**
@@ -493,7 +494,13 @@ export function Triage({
                     );
                   })}
                   {tagging ? (
-                    <TagField onAdd={(name) => (setTagging(false), void tag(name))} onClose={() => setTagging(false)} />
+                    <TagField
+                      label={t("triage.tagLabel")}
+                      placeholder={t("triage.tagPlaceholder")}
+                      inputClassName="field h-7 w-[180px] rounded-lg px-2.5 text-sm"
+                      onAdd={(name) => (setTagging(false), void tag(name))}
+                      onClose={() => setTagging(false)}
+                    />
                   ) : (
                     <button
                       type="button"
@@ -619,37 +626,5 @@ export function Triage({
         </div>
       </div>
     </section>
-  );
-}
-
-/** `T`: a tag typed in place of the «Тег…» chip; Enter adds it, Esc or leaving cancels. */
-function TagField({ onAdd, onClose }: { onAdd: (name: string) => void; onClose: () => void }) {
-  const { t } = useTranslation();
-  const [value, setValue] = useState("");
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const name = value.trim().toLowerCase();
-    if (name) onAdd(name);
-    else onClose();
-  };
-  return (
-    <form onSubmit={submit}>
-      <input
-        autoFocus
-        aria-label={t("triage.tagLabel")}
-        placeholder={t("triage.tagPlaceholder")}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={onClose}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.preventDefault();
-            e.stopPropagation();
-            onClose();
-          }
-        }}
-        className="field h-7 w-[180px] rounded-lg px-2.5 text-sm"
-      />
-    </form>
   );
 }

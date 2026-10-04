@@ -23,6 +23,10 @@ use ts_rs::TS;
 
 /// Older commands are forgotten.
 pub const LIMIT: usize = 100;
+/// Bookmarks the kept commands may hold together: bulk actions (NP-029) of
+/// thousands each would otherwise hold the library several times in memory.
+/// The newest command is kept whatever its size.
+pub const CHANGE_LIMIT: usize = 50_000;
 
 /// What a command did, for the words of the undo notice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
@@ -216,6 +220,10 @@ impl Journal {
         if self.commands.len() > LIMIT {
             self.commands.pop_front();
         }
+        let mut held: usize = self.commands.iter().map(|c| c.changes.len()).sum();
+        while held > CHANGE_LIMIT && self.commands.len() > 1 {
+            held -= self.commands.pop_front().map_or(0, |c| c.changes.len());
+        }
         Ok((bookmarks, Some(self.last)))
     }
 
@@ -280,9 +288,11 @@ fn put_back(conn: &Connection, command: &Command) -> Result<Undo> {
 mod tests {
     use super::*;
     use crate::db::{
-        create_collection, delete_collection, enrich_bookmark, get_bookmark_by_id, get_bookmarks,
-        get_counts, insert_or_update_bookmark, purge_trash, restore_bookmark, trash_bookmark,
-        update_bookmark, BookmarkQuery, Purge, Source,
+        all_favorite, apply_bulk, bulk_into_new_collection, create_collection, delete_collection,
+        next_collection_id,
+        enrich_bookmark, get_bookmark_by_id, get_bookmarks, get_counts, insert_or_update_bookmark,
+        purge_trash, restore_bookmark, trash_bookmark, update_bookmark, Bulk, BookmarkQuery,
+        Purge, Source,
     };
 
     fn library() -> Connection {
@@ -691,6 +701,233 @@ mod tests {
         assert!(matches!(journal.undo(&conn, None).unwrap(), Undo::Nothing));
         // Back to how the oldest command kept left it.
         assert!(get_bookmark_by_id(&conn, b.id).unwrap().is_favorite);
+    }
+
+    /// A bulk action as the command records it (NP-029).
+    fn bulk(journal: &mut Journal, conn: &Connection, action: Action, ids: &[i64], change: Bulk) -> (usize, Vec<Bookmark>, Option<i64>) {
+        let mut count = 0;
+        let (changed, command) = journal
+            .record(conn, action, ids, |conn| {
+                apply_bulk(conn, ids, &change).map(|(n, changed)| {
+                    count = n;
+                    changed
+                })
+            })
+            .unwrap();
+        (count, changed, command)
+    }
+
+    fn snapshot(conn: &Connection, ids: &[i64]) -> Vec<(Fields, i64)> {
+        ids.iter()
+            .map(|&id| {
+                let b = get_bookmark_by_id(conn, id).unwrap();
+                (Fields::from(&b), b.revision)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_bulk_action_is_one_command_undone_whole() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let work = create_collection(&conn, "Работа", None, None).unwrap();
+        let home = create_collection(&conn, "Дом", None, None).unwrap();
+        let a = captured(&conn, "a", &["старый"]);
+        let b = captured(&conn, "b", &[]);
+        let c = captured(&conn, "c", &[]);
+        let ids = [a.id, b.id, c.id];
+        bulk(&mut journal, &conn, Action::Move, &[c.id], Bulk::Move(Some(home.id)));
+        let start = snapshot(&conn, &ids);
+
+        // Into «Работа», tagged and starred: three commands, each over all three.
+        let (count, changed, moved) = bulk(&mut journal, &conn, Action::Move, &ids, Bulk::Move(Some(work.id)));
+        assert_eq!((count, changed.len()), (3, 3));
+        assert!(changed.iter().all(|b| b.collection_id == Some(work.id) && b.triaged_at.is_some()));
+        assert_eq!(get_counts(&conn).unwrap().inbox, 0, "a decision sorts them out of the inbox");
+        let (_, tagged, _) = bulk(&mut journal, &conn, Action::Tag, &ids, Bulk::Tag(" Crypto ".into()));
+        assert!(tagged.iter().all(|b| b.tags.as_ref().unwrap().contains(&"crypto".to_string())));
+        assert_eq!(get_bookmark_by_id(&conn, a.id).unwrap().tags.unwrap(), ["старый", "crypto"]);
+        assert_eq!(search(&conn, "crypto"), 3, "the search index follows the tag");
+        let (_, starred, _) = bulk(&mut journal, &conn, Action::Favorite, &ids, Bulk::Favorite(true));
+        assert_eq!(starred.len(), 3);
+
+        // Those already as asked are counted, not changed, and keep their revision.
+        let before = get_bookmark_by_id(&conn, a.id).unwrap().revision;
+        let (count, again, command) = bulk(&mut journal, &conn, Action::Favorite, &ids, Bulk::Favorite(true));
+        assert_eq!((count, again.len(), command), (3, 0, None));
+        assert_eq!(get_bookmark_by_id(&conn, a.id).unwrap().revision, before);
+
+        // Ctrl Z three times: star, tag, collection, the inbox included.
+        for _ in 0..3 {
+            assert_eq!(undone(journal.undo(&conn, None).unwrap()).len(), 3);
+        }
+        let back: Vec<Fields> = snapshot(&conn, &ids).into_iter().map(|(f, _)| f).collect();
+        assert_eq!(back, start.iter().map(|(f, _)| f.clone()).collect::<Vec<_>>());
+        assert_eq!(get_counts(&conn).unwrap().inbox, 2);
+        assert_eq!(search(&conn, "crypto"), 0);
+        assert!(matches!(journal.undo(&conn, moved).unwrap(), Undo::Nothing));
+    }
+
+    #[test]
+    fn trash_and_restore_in_bulk_leave_the_rest_alone() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let a = captured(&conn, "a", &[]);
+        let b = captured(&conn, "b", &[]);
+        let gone = captured(&conn, "gone", &[]);
+        trash_bookmark(&conn, gone.id).unwrap();
+        purge_trash(&conn, Purge::One(gone.id)).unwrap();
+        let ids = [a.id, b.id, gone.id];
+
+        let (count, changed, _) = bulk(&mut journal, &conn, Action::Trash, &ids, Bulk::Trash);
+        assert_eq!((count, changed.len()), (2, 2), "a bookmark gone for good is skipped");
+        assert!(changed.iter().all(|b| b.deleted_at.is_some() && b.triaged_at.is_none()), "the inbox flag stays for a restore");
+        let counts = get_counts(&conn).unwrap();
+        assert_eq!((counts.trash, counts.inbox), (2, 0));
+        // Moving bookmarks in the trash changes nothing: only restore reaches there.
+        let (count, changed, command) = bulk(&mut journal, &conn, Action::Move, &ids, Bulk::Move(None));
+        assert_eq!((count, changed.len(), command), (0, 0, None));
+        // A tag that nothing gets is not created.
+        let (count, changed, command) = bulk(&mut journal, &conn, Action::Tag, &ids, Bulk::Tag("пусто".into()));
+        assert_eq!((count, changed.len(), command), (0, 0, None));
+        let empty: i64 = conn.query_row("SELECT count(*) FROM tags WHERE name = 'пусто'", [], |r| r.get(0)).unwrap();
+        assert_eq!(empty, 0, "no empty tag is left behind");
+
+        let (count, restored, _) = bulk(&mut journal, &conn, Action::Restore, &[a.id], Bulk::Restore);
+        assert_eq!((count, restored.len()), (1, 1));
+        assert_eq!(get_counts(&conn).unwrap().inbox, 1, "back in the inbox it was in");
+        // Ctrl Z: back to the trash, then out of it.
+        undone(journal.undo(&conn, None).unwrap());
+        assert_eq!(get_counts(&conn).unwrap().trash, 2);
+        undone(journal.undo(&conn, None).unwrap());
+        assert_eq!(get_counts(&conn).unwrap().trash, 0);
+
+        // Deleting the selection for good takes only what is in the trash.
+        bulk(&mut journal, &conn, Action::Trash, &[a.id], Bulk::Trash);
+        let purged = purge_trash(&conn, Purge::Some(&[a.id, b.id])).unwrap();
+        assert_eq!(purged.iter().map(|p| p.0).collect::<Vec<_>>(), [a.id]);
+        assert!(get_bookmark_by_id(&conn, b.id).is_ok());
+    }
+
+    #[test]
+    fn a_failed_bulk_action_leaves_nothing_behind() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let work = create_collection(&conn, "Работа", None, None).unwrap();
+        let ids: Vec<i64> = (0..5).map(|i| captured(&conn, &format!("p{i}"), &["был"]).id).collect();
+        let start = snapshot(&conn, &ids);
+        let collections = crate::db::get_collections(&conn).unwrap().len();
+        // The write fails on the fourth bookmark, after three were written.
+        conn.execute_batch(&format!(
+            "CREATE TEMP TRIGGER fail BEFORE UPDATE ON bookmarks WHEN NEW.id = {}
+             BEGIN SELECT RAISE(ABORT, 'disk I/O'); END;",
+            ids[3]
+        ))
+        .unwrap();
+        for change in [
+            Bulk::Move(Some(work.id)),
+            Bulk::Tag("новый".into()),
+            Bulk::Favorite(true),
+            Bulk::Trash,
+        ] {
+            let failed = journal.record(&conn, Action::Edit, &ids, |conn| apply_bulk(conn, &ids, &change).map(|(_, c)| c));
+            assert!(failed.is_err(), "{change:?} must fail");
+            assert_eq!(snapshot(&conn, &ids), start, "{change:?} left a partial result");
+        }
+        assert!(bulk_into_new_collection(&conn, &ids, "Пустая").is_err());
+        assert_eq!(crate::db::get_collections(&conn).unwrap().len(), collections, "no empty collection is left");
+        assert_eq!(search(&conn, "новый"), 0);
+        assert!(journal.commands.is_empty(), "nothing to undo");
+
+        // A collection deleted meanwhile: nothing moves.
+        conn.execute_batch("DROP TRIGGER fail").unwrap();
+        delete_collection(&conn, work.id).unwrap();
+        let moved = journal.record(&conn, Action::Move, &ids, |conn| apply_bulk(conn, &ids, &Bulk::Move(Some(work.id))).map(|(_, c)| c));
+        assert_eq!(crate::error::code_of(&moved.err().unwrap()), crate::error::ErrorCode::NotFound);
+        assert_eq!(snapshot(&conn, &ids), start);
+    }
+
+    #[test]
+    fn the_bar_asks_for_the_star_of_the_selected_and_the_next_collection_id() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let a = captured(&conn, "a", &[]);
+        let b = captured(&conn, "b", &[]);
+        assert!(!all_favorite(&conn, &[]).unwrap(), "nothing selected has no star");
+        bulk(&mut journal, &conn, Action::Favorite, &[a.id], Bulk::Favorite(true));
+        assert!(all_favorite(&conn, &[a.id]).unwrap());
+        assert!(!all_favorite(&conn, &[a.id, b.id]).unwrap());
+        // One in the trash does not count: it is not where the bar is.
+        trash_bookmark(&conn, b.id).unwrap();
+        assert!(all_favorite(&conn, &[a.id, b.id]).unwrap());
+
+        // AUTOINCREMENT: the id of a deleted newest collection is not reused.
+        let first = create_collection(&conn, "Первая", None, None).unwrap();
+        let second = create_collection(&conn, "Вторая", None, None).unwrap();
+        assert_eq!(next_collection_id(&conn).unwrap(), second.id + 1);
+        delete_collection(&conn, second.id).unwrap();
+        assert_eq!(next_collection_id(&conn).unwrap(), second.id + 1);
+        assert_eq!(create_collection(&conn, "Третья", None, None).unwrap().id, second.id + 1);
+        assert!(first.id < second.id);
+    }
+
+    #[test]
+    fn a_new_collection_from_the_selection_is_one_action() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let ids: Vec<i64> = (0..3).map(|i| captured(&conn, &format!("n{i}"), &[]).id).collect();
+        let mut made = None;
+        let (changed, command) = journal
+            .record(&conn, Action::Move, &ids, |conn| {
+                bulk_into_new_collection(conn, &ids, "Из выбранного").map(|(collection, _, changed)| {
+                    made = Some(collection);
+                    changed
+                })
+            })
+            .unwrap();
+        let made = made.unwrap();
+        assert_eq!((made.name.as_str(), made.count), ("Из выбранного", Some(3)));
+        assert!(changed.iter().all(|b| b.collection_id == Some(made.id)));
+        let back = undone(journal.undo(&conn, command).unwrap());
+        assert!(back.iter().all(|b| b.collection_id.is_none() && b.triaged_at.is_none()));
+    }
+
+    #[test]
+    fn a_thousand_bookmarks_in_one_go_and_the_journal_keeps_its_size() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let shelf = create_collection(&conn, "Полка", None, None).unwrap();
+        conn.execute_batch(
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1000)
+             INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at)
+             SELECT 'u' || i, 'https://example.com/' || i, 'Запись ' || i, 'example.com',
+                    '2026-10-04T12:00:00.000Z', '2026-10-04T12:00:00.000Z' FROM n;",
+        )
+        .unwrap();
+        let ids: Vec<i64> = conn
+            .prepare("SELECT id FROM bookmarks")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_>>()
+            .unwrap();
+        let started = std::time::Instant::now();
+        let (count, changed, _) = bulk(&mut journal, &conn, Action::Move, &ids, Bulk::Move(Some(shelf.id)));
+        let (_, tagged, _) = bulk(&mut journal, &conn, Action::Tag, &ids, Bulk::Tag("пачка".into()));
+        let took = started.elapsed();
+        assert_eq!((count, changed.len(), tagged.len()), (1000, 1000, 1000));
+        assert_eq!(search(&conn, "пачка"), 100, "the first page of the search");
+        let started = std::time::Instant::now();
+        assert_eq!(undone(journal.undo(&conn, None).unwrap()).len(), 1000);
+        println!("1000 bookmarks: move + tag {took:?}, undo {:?}", started.elapsed());
+
+        // Commands of a thousand each: the oldest go once they hold too many.
+        for i in 0..(CHANGE_LIMIT / 1000 + 5) {
+            bulk(&mut journal, &conn, Action::Favorite, &ids, Bulk::Favorite(i % 2 == 0));
+        }
+        let held: usize = journal.commands.iter().map(|c| c.changes.len()).sum();
+        assert!(held <= CHANGE_LIMIT, "{held} bookmarks held");
+        assert_eq!(journal.commands.len(), CHANGE_LIMIT / 1000);
     }
 
     #[test]

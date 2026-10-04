@@ -86,9 +86,25 @@ pub struct JsonLibrary {
     pub bookmarks: Vec<JsonBookmark>,
 }
 
+/// What an export takes: the library, or the bookmarks selected (NP-029).
+#[derive(Debug, Clone, Copy)]
+pub enum Scope<'a> {
+    Library,
+    /// Exactly these, wherever they are: a selection in the trash exports
+    /// what was selected there.
+    Selected(&'a [i64]),
+}
+
+impl<'a> Scope<'a> {
+    /// The selection when there is one, else the library.
+    pub fn of(ids: Option<&'a [i64]>) -> Self {
+        ids.map_or(Scope::Library, Scope::Selected)
+    }
+}
+
 /// Every bookmark with its collection uid and tags, in list order (newest
 /// first). The trash only when asked: HTML and CSV leave it out.
-fn bookmarks(conn: &Connection, with_trash: bool) -> rusqlite::Result<Vec<JsonBookmark>> {
+fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Result<Vec<JsonBookmark>> {
     let mut tags: HashMap<i64, Vec<String>> = HashMap::new();
     let mut statement = conn.prepare(
         // By name: the copy is the same whatever order the tags were created in.
@@ -99,14 +115,22 @@ fn bookmarks(conn: &Connection, with_trash: bool) -> rusqlite::Result<Vec<JsonBo
         let (id, name) = row?;
         tags.entry(id).or_default().push(name);
     }
-    let filter = if with_trash { "" } else { "WHERE b.deleted_at IS NULL" };
+    // The selection binds its ids; the library binds nothing.
+    let (filter, params): (&str, Vec<String>) = match scope {
+        Scope::Selected(ids) => (
+            "WHERE b.id IN (SELECT value FROM json_each(?1))",
+            vec![serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?],
+        ),
+        Scope::Library if with_trash => ("", Vec::new()),
+        Scope::Library => ("WHERE b.deleted_at IS NULL", Vec::new()),
+    };
     let mut statement = conn.prepare(&format!(
         "SELECT b.id, b.uid, b.url, b.title, b.description, b.notes, b.domain, b.image_url, b.favicon_url, b.is_favorite,
                 c.uid, b.source, b.created_at, b.updated_at, b.triaged_at, b.deleted_at
          FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id {filter}
          ORDER BY b.created_at DESC, b.id DESC"
     ))?;
-    let rows = statement.query_map([], |r| {
+    let rows = statement.query_map(rusqlite::params_from_iter(params), |r| {
         Ok(JsonBookmark {
             tags: tags.remove(&r.get::<_, i64>(0)?).unwrap_or_default(),
             uid: r.get(1)?,
@@ -138,19 +162,26 @@ fn collections(conn: &Connection) -> rusqlite::Result<Vec<JsonCollection>> {
 }
 
 /// The full copy: inbox and trash included, every field the user can set.
-pub fn json(conn: &Connection, now: DateTime<Utc>) -> rusqlite::Result<(String, usize)> {
-    let tags = conn
+/// A selection carries only the collections and tags its bookmarks use.
+pub fn json(conn: &Connection, scope: Scope, now: DateTime<Utc>) -> rusqlite::Result<(String, usize)> {
+    let mut tags = conn
         .prepare("SELECT uid, name, created_at FROM tags ORDER BY name")?
         .query_map([], |r| Ok(JsonTag { uid: r.get(0)?, name: r.get(1)?, created_at: r.get(2)? }))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    let marks = bookmarks(conn, scope, true)?;
+    let mut folders = collections(conn)?;
+    if let Scope::Selected(_) = scope {
+        folders.retain(|c| marks.iter().any(|b| b.collection.as_deref() == Some(c.uid.as_str())));
+        tags.retain(|t| marks.iter().any(|b| b.tags.contains(&t.name)));
+    }
     let library = JsonLibrary {
         format: JSON_FORMAT.into(),
         version: JSON_VERSION,
         exported_at: db::stamp(now),
         app_version: env!("CARGO_PKG_VERSION").into(),
-        collections: collections(conn)?,
+        collections: folders,
         tags,
-        bookmarks: bookmarks(conn, true)?,
+        bookmarks: marks,
     };
     let count = library.bookmarks.len();
     let text = serde_json::to_string_pretty(&library).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -169,8 +200,8 @@ fn unix(stamp: &str) -> i64 {
 /// The Netscape bookmarks file Chrome, Edge and Firefox import: collections
 /// become folders, a bookmark without one sits at the top, tags go in
 /// `TAGS` (Firefox reads them), notes in `DD`. The trash stays out.
-pub fn html(conn: &Connection) -> rusqlite::Result<(String, usize)> {
-    let marks = bookmarks(conn, false)?;
+pub fn html(conn: &Connection, scope: Scope) -> rusqlite::Result<(String, usize)> {
+    let marks = bookmarks(conn, scope, false)?;
     let folders = collections(conn)?;
     let link = |b: &JsonBookmark, indent: &str| {
         let mut line = format!(
@@ -239,8 +270,8 @@ fn field(value: &str, separator: char) -> String {
 /// UTF-8 with a byte order mark and CRLF, the separator of the system's
 /// list settings: Excel opens it with a double click (owner's choice).
 /// The trash stays out; times are local.
-pub fn csv(conn: &Connection, columns: &CsvColumns, separator: char) -> rusqlite::Result<(String, usize)> {
-    let marks = bookmarks(conn, false)?;
+pub fn csv(conn: &Connection, scope: Scope, columns: &CsvColumns, separator: char) -> rusqlite::Result<(String, usize)> {
+    let marks = bookmarks(conn, scope, false)?;
     let names: HashMap<String, String> = collections(conn)?.into_iter().map(|c| (c.uid, c.name)).collect();
     let join = |fields: Vec<String>| fields.join(&separator.to_string()) + "\r\n";
     let mut out = String::from("\u{feff}");
@@ -342,9 +373,11 @@ pub fn problem_of(error: &std::io::Error) -> ExportProblem {
     }
 }
 
-/// `netami-pin-2026-10-04.html`: the local date of the export.
-pub fn default_name(format: ExportFormat) -> String {
-    format!("netami-pin-{}.{}", Local::now().format("%Y-%m-%d"), format.extension())
+/// `netami-pin-2026-10-04.html`: the local date of the export; a selection
+/// is `netami-pin-selected-…`, so it does not replace a copy of the library.
+pub fn default_name(format: ExportFormat, scope: Scope) -> String {
+    let what = if let Scope::Selected(_) = scope { "selected-" } else { "" };
+    format!("netami-pin-{what}{}.{}", Local::now().format("%Y-%m-%d"), format.extension())
 }
 
 #[cfg(test)]
@@ -374,7 +407,7 @@ mod tests {
     #[test]
     fn json_is_the_full_versioned_copy_with_inbox_and_trash() {
         let c = library();
-        let (text, count) = json(&c, Utc.with_ymd_and_hms(2026, 10, 4, 12, 0, 0).unwrap()).unwrap();
+        let (text, count) = json(&c, Scope::Library, Utc.with_ymd_and_hms(2026, 10, 4, 12, 0, 0).unwrap()).unwrap();
         let parsed: JsonLibrary = serde_json::from_str(&text).unwrap();
         assert_eq!((parsed.format.as_str(), parsed.version, count, parsed.bookmarks.len()), ("netami-pin", 1, 7, 7));
         assert_eq!(parsed.exported_at, "2026-10-04T12:00:00.000Z");
@@ -393,7 +426,7 @@ mod tests {
     #[test]
     fn html_goes_back_through_our_import_with_folders_tags_and_dates() {
         let c = library();
-        let (text, count) = html(&c).unwrap();
+        let (text, count) = html(&c, Scope::Library).unwrap();
         assert_eq!(count, 6, "the trash stays out");
         assert!(text.starts_with("<!DOCTYPE NETSCAPE-Bookmark-file-1>"));
         assert!(text.contains(r#"GitHub &quot;code&quot; &amp; &lt;more&gt;</A>"#));
@@ -425,7 +458,7 @@ mod tests {
             inbox: "Во входящих".into(),
             saved: "Сохранено".into(),
         };
-        let (text, count) = csv(&c, &columns, ';').unwrap();
+        let (text, count) = csv(&c, Scope::Library, &columns, ';').unwrap();
         assert_eq!(count, 6);
         assert!(text.starts_with("\u{feff}Название;Адрес;Сайт;Коллекция;Теги;Заметка;Избранное;Во входящих;Сохранено\r\n"));
         let tokio = text.lines().find(|l| l.contains("tokio.rs")).unwrap();
@@ -434,8 +467,41 @@ mod tests {
         assert!(text.contains("'=HYPERLINK(1);https://m.example.com/;m.example.com;;;;0;1;"));
         assert!(!text.contains("habr.com"));
         // With a comma separator the tags are joined by «; » and quoted only when needed.
-        let (comma, _) = csv(&c, &columns, ',').unwrap();
+        let (comma, _) = csv(&c, Scope::Library, &columns, ',').unwrap();
         assert!(comma.contains("Tokio,https://tokio.rs/,tokio.rs,Работа,async; rust,,0,0,"));
+    }
+
+    #[test]
+    fn a_selection_exports_exactly_what_was_selected() {
+        let c = library();
+        let id = |url: &str| c.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get::<_, i64>(0)).unwrap();
+        // Tokio is in «Работа», habr.com in the trash: selected there, it is exported too.
+        let ids = [id("https://tokio.rs/"), id("https://habr.com/ru/articles/")];
+        let selected = Scope::Selected(&ids);
+        let (text, count) = json(&c, selected, Utc::now()).unwrap();
+        let parsed: JsonLibrary = serde_json::from_str(&text).unwrap();
+        assert_eq!(count, 2);
+        let mut urls: Vec<&str> = parsed.bookmarks.iter().map(|b| b.url.as_str()).collect();
+        urls.sort();
+        assert_eq!(urls, ["https://habr.com/ru/articles/", "https://tokio.rs/"]);
+        let mut used: Vec<&str> = parsed.bookmarks.iter().flat_map(|b| b.tags.iter().map(String::as_str)).collect();
+        used.sort();
+        used.dedup();
+        let mut tags: Vec<&str> = parsed.tags.iter().map(|t| t.name.as_str()).collect();
+        tags.sort();
+        assert_eq!(tags, used, "only the tags the selection uses");
+        assert!(parsed.collections.iter().all(|f| parsed.bookmarks.iter().any(|b| b.collection.as_deref() == Some(f.uid.as_str()))));
+        assert!(parsed.collections.iter().any(|f| f.name == "Работа"));
+        let (text, count) = html(&c, selected).unwrap();
+        assert_eq!(count, 2);
+        assert!(text.contains("tokio.rs") && text.contains("habr.com") && !text.contains("github.com"));
+        let (_, count) = csv(&c, Scope::Selected(&ids[..1]), &CsvColumns {
+            title: "t".into(), url: "u".into(), domain: "d".into(), collection: "c".into(), tags: "g".into(),
+            notes: "n".into(), favorite: "f".into(), inbox: "i".into(), saved: "s".into(),
+        }, ';').unwrap();
+        assert_eq!(count, 1);
+        assert!(default_name(ExportFormat::Csv, selected).starts_with("netami-pin-selected-"));
+        assert!(!default_name(ExportFormat::Csv, Scope::Library).contains("selected"));
     }
 
     #[test]
@@ -495,9 +561,9 @@ mod tests {
             inbox: "Во входящих".into(),
             saved: "Сохранено".into(),
         };
-        write_atomically(&folder.join("sample.html"), html(&c).unwrap().0.as_bytes()).unwrap();
-        write_atomically(&folder.join("sample.json"), json(&c, Utc::now()).unwrap().0.as_bytes()).unwrap();
-        write_atomically(&folder.join("sample.csv"), csv(&c, &columns, list_separator()).unwrap().0.as_bytes()).unwrap();
+        write_atomically(&folder.join("sample.html"), html(&c, Scope::Library).unwrap().0.as_bytes()).unwrap();
+        write_atomically(&folder.join("sample.json"), json(&c, Scope::Library, Utc::now()).unwrap().0.as_bytes()).unwrap();
+        write_atomically(&folder.join("sample.csv"), csv(&c, Scope::Library, &columns, list_separator()).unwrap().0.as_bytes()).unwrap();
     }
 
     /// How long the three files take for a large library (doc/testing.md):
@@ -521,9 +587,9 @@ mod tests {
                 notes: "n".into(), favorite: "f".into(), inbox: "i".into(), saved: "s".into(),
             };
             for (name, run) in [
-                ("html", Box::new(|| html(&c).unwrap()) as Box<dyn Fn() -> (String, usize)>),
-                ("json", Box::new(|| json(&c, Utc::now()).unwrap())),
-                ("csv", Box::new(|| csv(&c, &columns, ';').unwrap())),
+                ("html", Box::new(|| html(&c, Scope::Library).unwrap()) as Box<dyn Fn() -> (String, usize)>),
+                ("json", Box::new(|| json(&c, Scope::Library, Utc::now()).unwrap())),
+                ("csv", Box::new(|| csv(&c, Scope::Library, &columns, ';').unwrap())),
             ] {
                 let started = std::time::Instant::now();
                 let (text, count) = run();

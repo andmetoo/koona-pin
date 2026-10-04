@@ -227,6 +227,35 @@ pub fn emit(app: &AppHandle, kind: ChangeKind, bookmark: &Bookmark) {
         },
     );
 }
+/// The batch event of a bulk action or an undo of many (NP-029): every
+/// change at once, so the interface merges them in one pass instead of
+/// reading the list again. One bookmark still goes as `bookmark-changed`.
+pub fn emit_many(app: &AppHandle, bookmarks: &[Bookmark]) {
+    match bookmarks {
+        [] => {}
+        [one] => emit(app, ChangeKind::Updated, one),
+        _ => {
+            let changes: Vec<BookmarkChange> = bookmarks
+                .iter()
+                .map(|b| BookmarkChange {
+                    kind: ChangeKind::Updated,
+                    id: b.id,
+                    revision: b.revision,
+                    bookmark: Some(b.clone()),
+                })
+                .collect();
+            let _ = app.emit("bookmarks-changed", changes);
+        }
+    }
+}
+/// Bookmarks deleted for good, in one event.
+pub fn emit_deleted_many(app: &AppHandle, gone: &[(i64, i64)]) {
+    let changes: Vec<BookmarkChange> = gone
+        .iter()
+        .map(|&(id, revision)| BookmarkChange { kind: ChangeKind::Deleted, id, revision: revision + 1, bookmark: None })
+        .collect();
+    let _ = app.emit("bookmarks-changed", changes);
+}
 /// A bookmark deleted for good: no bookmark, the next revision.
 pub fn emit_deleted(app: &AppHandle, id: i64, revision: i64) {
     let _ = app.emit(
