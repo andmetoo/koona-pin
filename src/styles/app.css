@@ -26,6 +26,7 @@
   --np-accent-soft: #e2eee6;
   --np-on-accent-soft: #1f4a36;
   --np-accent-muted: #6e9c84;
+  --np-suggested: #9cc5ae;
   --np-danger: #af3838;
   --np-danger-soft: #f6e4e1;
   --np-on-danger-soft: #8f2c2c;
@@ -60,6 +61,7 @@
   --np-accent-soft: #25352c;
   --np-on-accent-soft: #8fd0ae;
   --np-accent-muted: #6fa58a;
+  --np-suggested: #3e6b55;
   --np-danger: #e99797;
   --np-danger-soft: #3a2826;
   --np-on-danger-soft: #e99797;
@@ -97,6 +99,7 @@
   --color-accent-soft: var(--np-accent-soft);
   --color-on-accent-soft: var(--np-on-accent-soft);
   --color-accent-muted: var(--np-accent-muted);
+  --color-suggested: var(--np-suggested);
   --color-danger: var(--np-danger);
   --color-danger-soft: var(--np-danger-soft);
   --color-on-danger-soft: var(--np-on-danger-soft);
