@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { Inbox, Link, Plus, Settings, Star, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
@@ -25,6 +25,21 @@ export interface SidebarProps {
   onConnect: () => void;
   onNewCollection: () => void;
   onDeleteCollection: (collection: Collection) => void;
+  /** «Новая коллекция из выбранного» (Р-27): the name field at the end of the collections. */
+  naming?: NewCollectionField | null;
+}
+
+export interface NewCollectionField {
+  /** The offered name, selected so typing replaces it. */
+  suggested: string;
+  /** Selected bookmarks that will move there: the count on the right (sheet 27). */
+  count: number;
+  /** The colour the new collection will get. */
+  color: string;
+  /** Enter: create the collection and move the selection into it, one action. */
+  onCreate: (name: string) => void;
+  /** Esc or leaving the field: nothing is created. */
+  onCancel: () => void;
 }
 
 const VISIBLE_TAGS = 6;
@@ -133,7 +148,7 @@ export function Sidebar(props: SidebarProps) {
         </button>
       </div>
       <nav aria-label={t("sidebar.collections")} className="flex flex-col gap-0.5">
-        {collections.length === 0 && <p className="px-2.5 py-1 text-xs text-subtle">{t("sidebar.noCollections")}</p>}
+        {collections.length === 0 && !props.naming && <p className="px-2.5 py-1 text-xs text-subtle">{t("sidebar.noCollections")}</p>}
         {collections.map((c) => (
           <div key={c.id} className="group relative">
             <NavRow
@@ -159,6 +174,7 @@ export function Sidebar(props: SidebarProps) {
             </button>
           </div>
         ))}
+        {props.naming && <NameField key={props.naming.suggested} {...props.naming} />}
       </nav>
 
       {tags.length > 0 && (
@@ -203,6 +219,56 @@ export function Sidebar(props: SidebarProps) {
       />
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
     </aside>
+  );
+}
+
+/** The new collection's row (sheet 27): its dot, the name field in focus with the name selected, the count, keys under it. */
+function NameField({ suggested, count, color, onCreate, onCancel }: NewCollectionField) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(suggested);
+  const done = useRef(false);
+  const finish = (create: boolean) => {
+    if (done.current) return;
+    done.current = true;
+    if (create && name.trim()) onCreate(name.trim());
+    else onCancel();
+  };
+  return (
+    <div className="flex flex-col gap-1 pb-1">
+      <form
+        className="flex h-[30px] items-center gap-2.5 rounded-md border-[1.5px] border-accent bg-card pr-2.5 pl-1.5 shadow-[0_0_0_3px_color-mix(in_srgb,var(--np-accent)_25%,transparent)]"
+        onSubmit={(e) => {
+          e.preventDefault();
+          finish(true);
+        }}
+      >
+        <span className="flex size-4 shrink-0 items-center justify-center">
+          <Dot color={color} />
+        </span>
+        <input
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label={t("sidebar.newCollectionName")}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => finish(false)}
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            e.stopPropagation();
+            finish(false);
+          }}
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none selection:bg-accent/20"
+        />
+        <span className="text-xs text-subtle">{count}</span>
+      </form>
+      {/* Two keys, each whole: the sidebar is narrower than the line of frame 27 in Russian. */}
+      <p className="flex flex-wrap gap-x-1.5 px-2.5 text-2xs text-subtle">
+        <span className="whitespace-nowrap">{t("sidebar.newCollectionCreate")}</span>
+        <span aria-hidden>·</span>
+        <span className="whitespace-nowrap">{t("sidebar.newCollectionCancel")}</span>
+      </p>
+    </div>
   );
 }
 

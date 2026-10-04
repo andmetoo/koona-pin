@@ -1,8 +1,9 @@
-import { KeyboardEvent, useState } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { FormEvent, KeyboardEvent, useId, useState } from "react";
+import { ChevronDown, Tag as TagIcon, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Collection } from "../../types";
+import { Collection, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
+import { foldText } from "../../services/library";
 import { Icon } from "../icons";
 
 /** Collection picker of frame 16: the collection's dot before its name. */
@@ -47,6 +48,99 @@ export function CollectionSelect({
 
 /** Tags are stored lower case, without surrounding spaces (`db::link_tags`). */
 const cleanTag = (tag: string, language: string) => tag.trim().toLocaleLowerCase(language);
+
+/** Library tags offered under a one-tag field. */
+const SUGGESTIONS = 6;
+
+/**
+ * One tag typed in place: `T` in triage, «Тег» of the selection bar (sheet
+ * 31). Enter adds it, Esc or leaving the field cancels. With `suggestions`
+ * the library's tags that match are listed under it; arrows pick one and
+ * Enter adds the picked one instead of the typed text.
+ */
+export function TagField({
+  label,
+  placeholder,
+  suggestions = [],
+  onAdd,
+  onClose,
+  inputClassName,
+}: {
+  label: string;
+  placeholder: string;
+  suggestions?: Tag[];
+  onAdd: (name: string) => void;
+  onClose: () => void;
+  inputClassName: string;
+}) {
+  const { t, i18n } = useTranslation();
+  const [value, setValue] = useState("");
+  const [active, setActive] = useState(-1);
+  const listId = useId();
+  const typed = foldText(value.trim());
+  const offered = suggestions.filter((tag) => !typed || foldText(tag.name).includes(typed)).slice(0, SUGGESTIONS);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const name = offered[active]?.name ?? cleanTag(value, i18n.language);
+    if (name) onAdd(name);
+    else onClose();
+  };
+  return (
+    <form onSubmit={submit}>
+      <input
+        autoFocus
+        role={suggestions.length ? "combobox" : undefined}
+        aria-label={label}
+        aria-expanded={suggestions.length ? offered.length > 0 : undefined}
+        aria-controls={suggestions.length ? listId : undefined}
+        aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setActive(-1);
+        }}
+        onBlur={onClose}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && offered.length) {
+            e.preventDefault();
+            // From the field (-1) through the tags and back to the field.
+            const step = e.key === "ArrowDown" ? 1 : -1;
+            setActive((i) => {
+              const next = i + step;
+              return next < -1 ? offered.length - 1 : next >= offered.length ? -1 : next;
+            });
+          }
+        }}
+        className={inputClassName}
+      />
+      {offered.length > 0 && (
+        <ul id={listId} role="listbox" aria-label={t("selection.tagSuggestions")} className="mt-1 flex flex-col">
+          {offered.map((tag, i) => (
+            <li
+              key={tag.id}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === active}
+              // Keeps the field focused: a blur would close it first.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onAdd(tag.name)}
+              className={`flex h-8 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-hover ${i === active ? "bg-hover" : ""}`}
+            >
+              <Icon icon={TagIcon} className="text-icon" />
+              <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+              <span className="text-2xs text-subtle">{tag.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </form>
+  );
+}
 
 /**
  * Tags as chips (frame 16): `Enter` or a comma adds the typed tag,

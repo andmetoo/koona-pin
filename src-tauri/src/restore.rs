@@ -363,7 +363,7 @@ mod tests {
         c
     }
     fn copy_of(c: &Connection) -> String {
-        export::json(c, Utc.with_ymd_and_hms(2026, 10, 4, 18, 20, 0).unwrap()).unwrap().0
+        export::json(c, export::Scope::Library, Utc.with_ymd_and_hms(2026, 10, 4, 18, 20, 0).unwrap()).unwrap().0
     }
     fn folder() -> PathBuf {
         let folder = std::env::temp_dir().join(format!("netamipin-restore-{}", uuid::Uuid::new_v4().simple()));

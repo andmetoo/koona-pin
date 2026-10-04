@@ -25,6 +25,8 @@ export type { BookmarkPage } from "./bindings/BookmarkPage";
 export type { BookmarkPatch } from "./bindings/BookmarkPatch";
 export type { BookmarkQuery } from "./bindings/BookmarkQuery";
 export type { Changed } from "./bindings/Changed";
+export type { BulkChange } from "./bindings/BulkChange";
+export type { BulkChanged } from "./bindings/BulkChanged";
 export type { CommandAction } from "./bindings/CommandAction";
 export type { Undo } from "./bindings/Undo";
 export type { Suggestion } from "./bindings/Suggestion";

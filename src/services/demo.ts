@@ -3,6 +3,8 @@ import {
   Bookmark,
   BookmarkChange,
   BookmarkPage,
+  BulkChange,
+  BulkChanged,
   Changed,
   Collection,
   CommandAction,
@@ -84,6 +86,12 @@ try {
 // Saved before NP-025, without source.
 let bookmarks: Bookmark[] = initial.bookmarks.map((b) => ({ ...b, source: b.source ?? null }));
 let collections: Collection[] = initial.collections;
+/** The highest collection id handed out: like AUTOINCREMENT, a deleted one is not reused. */
+let lastCollection = 0;
+const nextCollection = () => {
+  lastCollection = Math.max(lastCollection, ...collections.map((c) => c.id)) + 1;
+  return lastCollection;
+};
 /** Everything outside the trash: what the library, its counts and catalogs show. */
 const live = () => bookmarks.filter((b) => !b.deleted_at);
 /** A stored change with a new revision, like an UPDATE in the desktop app. */
@@ -105,11 +113,18 @@ const fieldsOf = (b: Bookmark): Fields => Object.fromEntries(FIELDS.map((f) => [
 const same = (field: keyof Fields, a: Fields, b: Fields) =>
   field === "tags" ? [...(a.tags ?? [])].sort().join("\n") === [...(b.tags ?? [])].sort().join("\n") : a[field] === b[field];
 const touched = (step: Command["changes"][number]) => FIELDS.filter((f) => !same(f, step.before, step.after));
+/** Bookmarks the kept commands may hold together (`CHANGE_LIMIT`); the newest command stays. */
+const JOURNAL_CHANGES = 50_000;
+function remember(action: CommandAction, changes: Command["changes"]): number | null {
+  const steps = changes.filter((step) => touched(step).length > 0);
+  if (steps.length === 0) return null;
+  journal = [...journal, { id: ++lastCommand, action, changes: steps }].slice(-JOURNAL_LIMIT);
+  let held = journal.reduce((sum, c) => sum + c.changes.length, 0);
+  while (held > JOURNAL_CHANGES && journal.length > 1) held -= journal.shift()!.changes.length;
+  return lastCommand;
+}
 function record(action: CommandAction, previous: Bookmark, b: Bookmark): Changed {
-  const step = { id: b.id, before: fieldsOf(previous), after: fieldsOf(b) };
-  if (touched(step).length === 0) return { bookmark: b, command: null };
-  journal = [...journal, { id: ++lastCommand, action, changes: [step] }].slice(-JOURNAL_LIMIT);
-  return { bookmark: b, command: lastCommand };
+  return { bookmark: b, command: remember(action, [{ id: b.id, before: fieldsOf(previous), after: fieldsOf(b) }]) };
 }
 /** What `update_bookmark` calls the change, for the undo notice. */
 function actionOf(data: Partial<Fields>): CommandAction {
@@ -121,19 +136,47 @@ function actionOf(data: Partial<Fields>): CommandAction {
   return "edit";
 }
 const listeners = new Set<(change: BookmarkChange) => void>();
+const batchListeners = new Set<(changes: BookmarkChange[]) => void>();
 const invalidations = new Set<() => void>();
 const progressListeners = new Set<(progress: ImportProgress) => void>();
 function persist() {
   localStorage.setItem(key, JSON.stringify({ bookmarks, collections }));
 }
+const changeOf = (kind: BookmarkChange["kind"], b: Bookmark): BookmarkChange => ({
+  kind,
+  id: b.id,
+  revision: b.revision ?? 1,
+  bookmark: kind === "deleted" ? null : b,
+});
 function emit(kind: BookmarkChange["kind"], b: Bookmark) {
-  for (const fn of listeners)
-    fn({
-      kind,
-      id: b.id,
-      revision: b.revision ?? 1,
-      bookmark: kind === "deleted" ? null : b,
-    });
+  for (const fn of listeners) fn(changeOf(kind, b));
+}
+/** `bookmarks-changed`: many at once in one event, one as `bookmark-changed` (`capture::emit_many`). */
+function emitMany(kind: BookmarkChange["kind"], list: Bookmark[]) {
+  if (list.length === 1) return emit(kind, list[0]);
+  if (list.length === 0) return;
+  const changes = list.map((b) => changeOf(kind, b));
+  for (const fn of batchListeners) fn(changes);
+}
+/** What a bulk action writes to `b`, or nothing when it already holds it (`db::bulk_in`). */
+function bulkFields(b: Bookmark, change: BulkChange, collectionId: number | null, now: string): Partial<Bookmark> | null {
+  const sorted = { triaged_at: b.triaged_at ?? now };
+  switch (change.action) {
+    case "move":
+    case "new_collection":
+      return b.collection_id === collectionId && b.triaged_at ? null : { collection_id: collectionId, ...sorted };
+    case "tag": {
+      const name = change.name.trim().toLowerCase();
+      const has = (b.tags ?? []).includes(name);
+      return has && b.triaged_at ? null : { tags: has ? b.tags : [...(b.tags ?? []), name], ...sorted };
+    }
+    case "favorite":
+      return b.is_favorite === change.favorite && b.triaged_at ? null : { is_favorite: change.favorite, ...sorted };
+    case "trash":
+      return { deleted_at: now };
+    case "restore":
+      return { deleted_at: null };
+  }
 }
 /** A JSON copy as the demo reads it: the format, the version, the lists and every address (`restore.rs` checks more). */
 type CopyBookmark = {
@@ -354,11 +397,57 @@ export const demo = {
     }
     const undone = entry.changes.map((step) => {
       const fields: Partial<Bookmark> = Object.fromEntries(touched(step).map((f) => [f, step.before[f]]));
-      const b = change(bookmarks.find((item) => item.id === step.id)!, fields);
-      emit("updated", b);
-      return b;
+      return change(bookmarks.find((item) => item.id === step.id)!, fields);
     });
+    emitMany("updated", undone);
     return { outcome: "undone", action, bookmarks: undone };
+  },
+  /** `bulk_update`: one action on every selected bookmark, one journal command, all or nothing. */
+  async bulkUpdate(ids: number[], bulk: BulkChange): Promise<BulkChanged> {
+    if ((bulk.action === "tag" || bulk.action === "new_collection") && !bulk.name.trim())
+      throw new CommandError("invalid_request", bulk.action === "tag" ? "Введите тег" : "Введите название коллекции");
+    if (bulk.action === "move" && bulk.collection_id !== null && !collections.some((c) => c.id === bulk.collection_id))
+      throw new CommandError("not_found", "FOREIGN KEY constraint failed");
+    const created = bulk.action === "new_collection" ? await demo.createCollection(bulk.name) : null;
+    const target = created ? created.id : bulk.action === "move" ? bulk.collection_id : null;
+    const restore = bulk.action === "restore";
+    const chosen = new Set(ids);
+    const now = new Date().toISOString();
+    let count = 0;
+    const steps: Command["changes"] = [];
+    const changed: Bookmark[] = [];
+    bookmarks = bookmarks.map((b) => {
+      if (!chosen.has(b.id) || !!b.deleted_at !== restore) return b;
+      count++;
+      const fields = bulkFields(b, bulk, target, now);
+      if (!fields) return b;
+      const next = { ...b, ...fields, revision: (b.revision ?? 1) + 1, updated_at: now };
+      steps.push({ id: b.id, before: fieldsOf(b), after: fieldsOf(next) });
+      changed.push(next);
+      return next;
+    });
+    persist();
+    const action: CommandAction = bulk.action === "new_collection" ? "move" : bulk.action;
+    const command = remember(action, steps);
+    emitMany("updated", changed);
+    return { count, changed: changed.length, command, collection: created && { ...created, count } };
+  },
+  async allFavorite(ids: number[]): Promise<boolean> {
+    const chosen = new Set(ids);
+    const shown = bookmarks.filter((b) => chosen.has(b.id) && !b.deleted_at);
+    return shown.length > 0 && shown.every((b) => b.is_favorite);
+  },
+  async nextCollectionId(): Promise<number> {
+    return Math.max(lastCollection, ...collections.map((c) => c.id)) + 1;
+  },
+  /** `delete_forever_many`: only those in the trash, no undo. */
+  async deleteForeverMany(ids: number[]): Promise<number> {
+    const chosen = new Set(ids);
+    const gone = bookmarks.filter((b) => chosen.has(b.id) && b.deleted_at);
+    bookmarks = bookmarks.filter((b) => !gone.includes(b));
+    persist();
+    emitMany("deleted", gone.map((b) => ({ ...b, revision: (b.revision ?? 1) + 1 })));
+    return gone.length;
   },
   /** Only from the trash, like the desktop app (NP-023). */
   async deleteForever(id: number) {
@@ -379,7 +468,7 @@ export const demo = {
     if (collections.some((c) => c.name === name.trim()))
       throw new CommandError("conflict", "Такая коллекция уже есть");
     const c: Collection = {
-      id: Date.now(),
+      id: nextCollection(),
       name: name.trim(),
       color: color ?? null,
       icon: icon ?? null,
@@ -479,10 +568,15 @@ export const demo = {
    * were saved under the default name, with the count the desktop app would
    * write (the trash only in JSON). Tests replace it for the other outcomes.
    */
-  async exportLibrary(format: ExportFormat, columns?: CsvColumns): Promise<ExportOutcome> {
+  async exportLibrary(format: ExportFormat, columns?: CsvColumns, ids?: number[]): Promise<ExportOutcome> {
     if (format === "csv" && !columns) throw new CommandError("invalid_request", "CSV needs column titles");
     const day = new Date();
     const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    if (ids) {
+      const chosen = new Set(ids);
+      const count = bookmarks.filter((b) => chosen.has(b.id)).length;
+      return { outcome: "saved", file_name: `netami-pin-selected-${date}.${format}`, count };
+    }
     return { outcome: "saved", file_name: `netami-pin-${date}.${format}`, count: format === "json" ? bookmarks.length : live().length };
   },
   async revealExport() {
@@ -574,6 +668,12 @@ export const demo = {
     listeners.add(fn);
     return () => {
       listeners.delete(fn);
+    };
+  },
+  onBookmarksChanged(fn: (changes: BookmarkChange[]) => void) {
+    batchListeners.add(fn);
+    return () => {
+      batchListeners.delete(fn);
     };
   },
   onLibraryInvalidated(fn: () => void) {

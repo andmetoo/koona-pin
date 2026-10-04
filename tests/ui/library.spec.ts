@@ -965,7 +965,7 @@ for (const view of ["Сетка", "Список"])
     await expect(count).toHaveText("3 выбрано");
     await expect(selected).toHaveCount(3);
     expect(popups).toHaveLength(0);
-    await expect(bar.getByRole("button", { name: "В корзину" })).toHaveAttribute("aria-disabled", "true");
+    await expect(bar.getByRole("button", { name: "В корзину" })).toBeEnabled();
     await page.keyboard.press("Escape");
     await expect(bar).toHaveCount(0);
 
@@ -1058,6 +1058,202 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   await search.focus();
   await search.press("Escape");
   await expect(bar).toHaveCount(0);
+});
+
+/** Ctrl+click on the titles of these demo cards. */
+async function selectCards(page: import("@playwright/test").Page, titles: string[]) {
+  for (const title of titles) await page.getByRole("button", { name: title, exact: true }).click({ modifiers: ["Control"] });
+  await expect(page.getByRole("toolbar", { name: "Выделенные закладки" }).getByRole("status")).toHaveText(`${titles.length} выбрано`);
+}
+const notice = (page: import("@playwright/test").Page, text: string | RegExp) =>
+  page.locator("[role=status], [role=alert]").filter({ hasText: text });
+
+test("bulk actions: move, tag and star as one action each, undone whole; Del to the trash; a failure changes nothing", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+  const three = ["Архитектура тишины", "Типографика — это голос", "Интерфейсы, которые не мешают"];
+  await selectCards(page, three);
+  await expect(page.getByRole("button", { name: /^Входящие/ })).toContainText("2");
+
+  // «В коллекцию…»: the menu above the bar; the selection stays.
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await page.getByRole("menuitem", { name: "Разработка" }).click();
+  await expect(notice(page, "3 закладки перемещены в «Разработка»")).toBeVisible();
+  await expect(bar.getByRole("status")).toHaveText("3 выбрано");
+  // «Интерфейсы…» was there already: counted in the notice, not changed.
+  await expect(page.getByRole("button", { name: /^Разработка/ })).toContainText("3");
+  // A decision sorts the inbox one out of the inbox, as a single edit does.
+  await expect(page.getByRole("button", { name: /^Входящие/ })).toContainText("1");
+  await page.screenshot({ path: "test-results/bulk-moved-1440.png" });
+  // Ctrl Z takes back the two it changed, the inbox included.
+  await page.keyboard.press("Control+z");
+  await expect(notice(page, "Отменено для 2 закладок")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Разработка/ })).toContainText("1");
+  await expect(page.getByRole("button", { name: /^Входящие/ })).toContainText("2");
+
+  // «Тег»: a field with the library's tags; Enter adds the typed one to every selected.
+  await bar.getByRole("button", { name: "Тег" }).click();
+  const field = page.getByRole("combobox", { name: "Тег для выбранных закладок" });
+  await expect(field).toBeFocused();
+  await expect(page.getByRole("listbox", { name: "Теги библиотеки" }).getByRole("option")).not.toHaveCount(0);
+  await page.screenshot({ path: "test-results/bulk-tag-1440.png" });
+  await field.fill("Срочно");
+  await field.press("Enter");
+  await expect(notice(page, "Тег «срочно» добавлен к 3 закладкам")).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Библиотека" }).getByRole("button", { name: "срочно" })).toBeVisible();
+
+  // A second click on «Тег» or «В коллекцию…» closes what the first opened.
+  await bar.getByRole("button", { name: "Тег" }).click();
+  await expect(field).toBeVisible();
+  await bar.getByRole("button", { name: "Тег" }).click();
+  await expect(field).toHaveCount(0);
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  // One of the three has a star: «В избранное» stars all, then offers to take it off.
+  // From the keyboard: the button keeps the focus when it turns into «Из избранного».
+  await bar.getByRole("button", { name: "В избранное" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(notice(page, "3 закладки в избранном")).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Убрать из избранного" })).toBeFocused();
+  await bar.getByRole("button", { name: "Убрать из избранного" }).click();
+  await expect(notice(page, "3 закладки убраны из избранного")).toBeVisible();
+  // «Отменить» in the notice undoes that action only.
+  await notice(page, "убраны из избранного").getByRole("button", { name: /Отменить/ }).click();
+  await expect(page.getByRole("button", { name: /^Избранное/ })).toContainText("4");
+
+  // A failure changes nothing: the alert waits, the selection stays, «Повторить» does the same again.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const { CommandError } = await import("/src/services/errors.ts");
+    const original = api.bulkUpdate;
+    let failed = false;
+    api.bulkUpdate = async (ids, change) => {
+      if (!failed) {
+        failed = true;
+        throw new CommandError("database_busy", "database is locked");
+      }
+      return original(ids, change);
+    };
+  });
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await page.getByRole("menuitem", { name: "Вдохновение" }).click();
+  const alert = page.getByRole("alert");
+  await expect(alert).toHaveText(/Не удалось переместить 3 закладки в «Вдохновение»: библиотека занята\. Ничего не изменено\./);
+  await expect(page.getByRole("button", { name: /^Вдохновение/ })).toContainText("2");
+  await expect(bar.getByRole("status")).toHaveText("3 выбрано");
+  await page.screenshot({ path: "test-results/bulk-failed-1440.png" });
+  await alert.getByRole("button", { name: "Повторить" }).click();
+  await expect(notice(page, "3 закладки перемещены в «Вдохновение»")).toBeVisible();
+
+  // Del: to the trash without a dialog; the selected leave the list and the bar closes.
+  await page.keyboard.press("Delete");
+  await expect(notice(page, "3 закладки в корзине")).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(3);
+  await page.keyboard.press("Control+z");
+  await expect(notice(page, "Возвращены из корзины 3 закладки")).toBeVisible();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+});
+
+test("bulk actions: a new collection from the selection, export of the selected, the trash restores and deletes for good", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+  await selectCards(page, ["Десять принципов хорошего дизайна", "Наблюдать повседневное"]);
+
+  // The name field in the sidebar: Esc creates nothing, Enter creates and moves in one action.
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await page.getByRole("menuitem", { name: "Новая коллекция из выбранного…" }).click();
+  const name = page.getByRole("textbox", { name: "Название новой коллекции" });
+  await expect(name).toBeFocused();
+  await expect(name).toHaveValue("Новая коллекция");
+  await expect(page.getByText("Enter — создать и перенести")).toBeVisible();
+  await page.screenshot({ path: "test-results/bulk-new-collection-1440.png" });
+  await name.press("Escape");
+  await expect(name).toHaveCount(0);
+  await expect(bar).toBeVisible();
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await page.getByRole("menuitem", { name: "Новая коллекция из выбранного…" }).click();
+  await name.fill("Отобранное");
+  await name.press("Enter");
+  await expect(notice(page, "2 закладки перемещены в «Отобранное»")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Отобранное/ })).toContainText("2");
+
+  // Export: the formats of the «⋯» menu, the selected only.
+  await bar.getByRole("button", { name: "Экспорт" }).click();
+  await page.getByRole("menuitem", { name: /CSV для таблиц/ }).click();
+  await expect(notice(page, /^2 закладки сохранены в netami-pin-selected-\d{4}-\d{2}-\d{2}\.csv/)).toBeVisible();
+
+  // In the trash the bar offers to restore, export and delete for good.
+  await page.keyboard.press("Delete");
+  await page.getByRole("button", { name: /^Корзина/ }).click();
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Control+a");
+  await expect(bar.getByRole("status")).toHaveText("2 выбрано");
+  await expect(bar.getByRole("button", { name: "В коллекцию…" })).toHaveCount(0);
+  await page.screenshot({ path: "test-results/bulk-trash-1440.png" });
+  await bar.getByRole("button", { name: "Восстановить" }).click();
+  await expect(notice(page, "2 закладки восстановлены")).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Все закладки" }).click();
+  await selectCards(page, ["Десять принципов хорошего дизайна", "Наблюдать повседневное"]);
+  await page.keyboard.press("Delete");
+  await page.getByRole("button", { name: /^Корзина/ }).click();
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Delete");
+  const dialog = page.getByRole("dialog", { name: "Удалить навсегда?" });
+  await expect(dialog).toContainText("2 закладки будут удалены навсегда");
+  await dialog.getByRole("button", { name: "Удалить навсегда" }).click();
+  await expect(notice(page, "2 закладки удалены навсегда")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Корзина/ })).toContainText("0");
+});
+
+test("bulk actions on 1 000 bookmarks keep the loaded pages and the scroll position", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const [first] = (await api.getBookmarks()).items;
+    const bookmarks = Array.from({ length: 1000 }, (_, i) => ({
+      ...first,
+      id: i + 1,
+      url: `https://example.com/${i + 1}`,
+      title: `Запись ${i + 1}`,
+      tags: [],
+      is_favorite: false,
+      collection_id: null,
+      triaged_at: "2026-01-01T00:00:00.000Z",
+      created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
+    }));
+    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+  });
+  await page.reload();
+  const list = page.locator("[data-loaded]");
+  await expect(list).toHaveAttribute("data-loaded", "100");
+  const scroll = page.locator('[data-scroll="main"]');
+  await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(list).toHaveAttribute("data-loaded", "200");
+  const top = await scroll.evaluate((el) => el.scrollTop);
+
+  await page.keyboard.press("Control+a");
+  const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+  await expect(bar.getByRole("status")).toHaveText("1000 выбрано");
+  const started = Date.now();
+  await bar.getByRole("button", { name: "В коллекцию…" }).click();
+  await page.getByRole("menuitem", { name: "Прочитать" }).click();
+  await expect(notice(page, "1000 закладок перемещено в «Прочитать»")).toBeVisible();
+  expect(Date.now() - started).toBeLessThan(2000);
+  await expect(page.getByRole("button", { name: /^Прочитать/ })).toContainText("1000");
+  // Merged in place: no page was read again, the list did not jump.
+  await expect(list).toHaveAttribute("data-loaded", "200");
+  expect(Math.abs((await scroll.evaluate((el) => el.scrollTop)) - top)).toBeLessThan(2);
+  await page.keyboard.press("Control+z");
+  await expect(notice(page, "Отменено для 1000 закладок")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Прочитать/ })).toContainText("0");
+  await expect(list).toHaveAttribute("data-loaded", "200");
 });
 
 test("a click on a domain filters by site; Esc clears the search; nothing found offers the whole library", async ({ page }) => {
