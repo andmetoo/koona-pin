@@ -29,6 +29,9 @@ export function SettingsPage({
   onConnect,
   onCopy,
   onNotice,
+  onSaveCopy,
+  onRestoreBackup,
+  dataVersion,
 }: {
   theme: Theme;
   onTheme: (theme: Theme) => void;
@@ -39,6 +42,11 @@ export function SettingsPage({
   onConnect: () => void;
   onCopy: (text: string) => void;
   onNotice: (text: string, alert?: boolean) => void;
+  /** «Save a copy…» (NP-034): the notice with «Show» is the caller's. */
+  onSaveCopy: () => Promise<void>;
+  onRestoreBackup: () => void;
+  /** Changes after a restore: the copies are counted again. */
+  dataVersion: number;
 }) {
   const { t, i18n } = useTranslation();
   const desktop = isTauri();
@@ -53,6 +61,8 @@ export function SettingsPage({
 
   useEffect(() => {
     void api.getDataSummary().then(setData).catch(() => {});
+  }, [dataVersion]);
+  useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
     if (desktop) void api.getAutostart().then(setAutostart).catch(() => setAutostart(null));
   }, []);
@@ -168,10 +178,10 @@ export function SettingsPage({
             {t("settings.openFolder")}
           </Button>
         </Row>
-        <Row title={lastCopy} description={t("settings.restoreHint")}>
-          <span title={soon}>
-            <Button disabled>{t("settings.restore")}</Button>
-          </span>
+        <Row title={lastCopy} description={t("settings.saveHint")}>
+          <Button disabled={!desktop || busy("save")} onClick={() => void attempt("save", onSaveCopy)}>
+            {busy("save") ? t("settings.savingCopy") : t("settings.saveCopy")}
+          </Button>
           <Button
             disabled={!desktop || busy("copy")}
             onClick={() =>
@@ -183,6 +193,9 @@ export function SettingsPage({
           >
             {busy("copy") ? t("settings.copying") : t("settings.backUpNow")}
           </Button>
+        </Row>
+        <Row title={t("settings.restoreBackup")} description={t("settings.restoreHint")}>
+          <Button onClick={onRestoreBackup}>{t("settings.restore")}</Button>
         </Row>
         <Row title={t("settings.searchIndex")} description={t("settings.searchIndexHint")}>
           <Button
@@ -198,6 +211,7 @@ export function SettingsPage({
           </Button>
         </Row>
       </Section>
+      <p className="-mt-2.5 px-3 text-xs leading-[17px] text-muted">{t("settings.backupNote")}</p>
 
       <p className="flex flex-wrap items-center gap-3 px-3 text-xs text-subtle">
         <span>Netami Pin {version}</span>

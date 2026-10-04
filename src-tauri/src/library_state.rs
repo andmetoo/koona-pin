@@ -64,6 +64,21 @@ impl Library {
         let _ = app.emit("library-status", status);
     }
 
+    fn damaged(&self) -> bool {
+        matches!(self.status(), LibraryStatus::Ready { damaged: true, .. })
+    }
+
+    /// After a restore into the open library (NP-034): intact and writable again.
+    pub fn restored(&self, app: &AppHandle) {
+        self.set(
+            app,
+            LibraryStatus::Ready {
+                damaged: false,
+                moved_aside: None,
+            },
+        );
+    }
+
     pub fn begin_retry(&self) -> bool {
         let mut status = self.status.lock().unwrap_or_else(|e| e.into_inner());
         if matches!(*status, LibraryStatus::Failed(_)) {
@@ -111,6 +126,11 @@ pub fn start(app: AppHandle) {
 fn maintain(app: &AppHandle, library: &Library, db: &DbState, moved_aside: Option<String>) {
     let mut check = true;
     loop {
+        // A damaged library gets no copies and no cleanup until it is restored.
+        if library.damaged() {
+            thread::sleep(MAINTENANCE_PERIOD);
+            continue;
+        }
         match library::maintain(&library.paths, chrono::Utc::now(), check) {
             Ok(Health::Damaged(problem)) => {
                 eprintln!("The library is damaged: {problem}");
@@ -123,10 +143,10 @@ fn maintain(app: &AppHandle, library: &Library, db: &DbState, moved_aside: Optio
                     app,
                     LibraryStatus::Ready {
                         damaged: true,
-                        moved_aside,
+                        moved_aside: moved_aside.clone(),
                     },
                 );
-                return;
+                continue;
             }
             Ok(Health::Intact { .. }) => {}
             Err(error) => eprintln!("Automatic backup failed: {error}"),

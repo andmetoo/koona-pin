@@ -6,17 +6,23 @@
 
 use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
 use rusqlite::Connection;
+use serde::Serialize;
 use std::{
     collections::HashSet,
     fs,
     path::{Path, PathBuf},
 };
+use ts_rs::TS;
 
 pub const FOLDER: &str = "backups";
 const DAILY: usize = 7;
 const WEEKLY: usize = 4;
 const AUTO_PREFIX: &str = "netamipin.auto-";
 const AUTO_FORMAT: &str = "%Y%m%d-%H%M%S";
+const BEFORE_MIGRATION: &str = "netamipin.before-v";
+const BEFORE_RESTORE: &str = "netamipin.before-restore-";
+/// Copies before a restore kept, like those before a migration (Р-10, point 9).
+const KEPT_BEFORE_RESTORE: usize = 2;
 
 pub fn write_copy(conn: &Connection, target: &Path) -> Result<(), String> {
     let folder = target.parent().ok_or("backup path has no folder")?;
@@ -49,6 +55,132 @@ pub fn prune_before_migration(folder: &Path, version: i64) {
     for old in 1..version - 1 {
         let _ = fs::remove_file(before_migration_path(folder, old));
     }
+}
+
+/// `netamipin.before-restore-<time>.db`: the library as it was before a restore.
+pub fn before_restore_path(folder: &Path) -> PathBuf {
+    folder.join(format!(
+        "{BEFORE_RESTORE}{}.db",
+        chrono::Local::now().format("%Y%m%d-%H%M%S")
+    ))
+}
+
+/// Keeps the newest copies before a restore; the names sort by time.
+pub fn prune_before_restore(folder: &Path) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    let mut copies: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with(BEFORE_RESTORE) && n.ends_with(".db"))
+        })
+        .collect();
+    copies.sort();
+    let extra = copies.len().saturating_sub(KEPT_BEFORE_RESTORE);
+    for old in &copies[..extra] {
+        let _ = fs::remove_file(old);
+        let _ = fs::remove_file(format!("{}-wal", old.display()));
+    }
+}
+
+/// What made a copy in the backups folder, from its name (sheet 33).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum CopyKind {
+    /// Daily, or «Back up now».
+    Automatic,
+    BeforeUpdate,
+    BeforeRestore,
+    Other,
+}
+
+fn kind_of(name: &str) -> CopyKind {
+    if name.starts_with(AUTO_PREFIX) {
+        CopyKind::Automatic
+    } else if name.starts_with(BEFORE_RESTORE) {
+        CopyKind::BeforeRestore
+    } else if name.starts_with(BEFORE_MIGRATION) {
+        CopyKind::BeforeUpdate
+    } else {
+        CopyKind::Other
+    }
+}
+
+/// A copy the restore dialog offers.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct BackupCopy {
+    pub file_name: String,
+    pub kind: CopyKind,
+    /// When it was written, UTC.
+    pub created_at: String,
+    #[ts(type = "number")]
+    pub bytes: u64,
+    /// Bookmarks outside the trash; none when the file cannot be read.
+    pub bookmarks: Option<u32>,
+}
+
+/// Bookmarks outside the trash, read without changing the file.
+pub fn bookmarks_in(path: &Path) -> Option<u32> {
+    let conn = Connection::open_with_flags(
+        path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    conn.query_row(
+        "SELECT count(*) FROM bookmarks WHERE deleted_at IS NULL",
+        [],
+        |r| r.get(0),
+    )
+    .ok()
+}
+
+/// One copy as the dialog shows it; the time of an automatic copy comes from
+/// its name, of the others from the file.
+pub fn describe(path: &Path) -> Option<BackupCopy> {
+    let file_name = path.file_name()?.to_str()?.to_owned();
+    let metadata = fs::metadata(path).ok()?;
+    let created = auto_stamp(&file_name)
+        .map(|time| time.and_utc())
+        .or_else(|| metadata.modified().ok().map(DateTime::<Utc>::from))?;
+    Some(BackupCopy {
+        kind: kind_of(&file_name),
+        created_at: crate::db::stamp(created),
+        bytes: metadata.len(),
+        bookmarks: bookmarks_in(path),
+        file_name,
+    })
+}
+
+/// The copies in the folder (`netamipin.*.db`, as the settings count them),
+/// newest first.
+pub fn list(folder: &Path) -> Vec<BackupCopy> {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return Vec::new();
+    };
+    let mut copies: Vec<_> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            name.starts_with("netamipin.") && name.ends_with(".db")
+        })
+        .filter_map(|entry| describe(&entry.path()))
+        .collect();
+    copies.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    copies
+}
+
+/// A listed copy by name; anything that is not a plain file name of the
+/// folder is refused, so the page cannot point outside it.
+pub fn listed(folder: &Path, file_name: &str) -> Option<PathBuf> {
+    let plain = Path::new(file_name).file_name()?.to_str()? == file_name;
+    (plain && file_name.starts_with("netamipin.") && file_name.ends_with(".db"))
+        .then(|| folder.join(file_name))
+        .filter(|path| path.is_file())
 }
 
 /// The time of an automatic copy, from its file name.
@@ -180,6 +312,42 @@ mod tests {
         assert!(expired(&left).is_empty());
         // One copy per day: the older copy of the newest day goes.
         assert!(gone.contains(&copies[118].0));
+    }
+
+    #[test]
+    fn copies_are_listed_newest_first_with_their_kind() {
+        use chrono::Timelike;
+        let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../.test-data")
+            .join(format!("backups-list-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&folder).unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE bookmarks (deleted_at TEXT);
+             INSERT INTO bookmarks VALUES (NULL), (NULL), ('2026-10-01T00:00:00.000Z');",
+        )
+        .unwrap();
+        let older = Utc::now() - chrono::Duration::days(2);
+        create_auto(&conn, &folder, older).unwrap();
+        before_migration(&conn, &folder, 4).unwrap();
+        write_copy(&conn, &before_restore_path(&folder)).unwrap();
+        fs::write(folder.join("notes.txt"), "not a copy").unwrap();
+        fs::create_dir_all(folder.join("restoring")).unwrap();
+
+        let copies = list(&folder);
+        let kinds: Vec<_> = copies.iter().map(|c| c.kind).collect();
+        assert_eq!(copies.len(), 3);
+        assert_eq!(*kinds.last().unwrap(), CopyKind::Automatic, "the oldest is last");
+        assert!(kinds.contains(&CopyKind::BeforeUpdate) && kinds.contains(&CopyKind::BeforeRestore));
+        assert!(copies.iter().all(|c| c.bookmarks == Some(2) && c.bytes > 0));
+        assert_eq!(copies.last().unwrap().created_at, crate::db::stamp(older.with_nanosecond(0).unwrap()));
+
+        // Only plain names of copies in the folder can be restored by name.
+        let name = &copies[0].file_name;
+        assert_eq!(listed(&folder, name), Some(folder.join(name)));
+        for wrong in ["../netamipin.db", "notes.txt", "netamipin.missing.db", "C:\\netamipin.x.db"] {
+            assert_eq!(listed(&folder, wrong), None, "{wrong}");
+        }
     }
 
     #[test]

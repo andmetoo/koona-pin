@@ -4,6 +4,9 @@ import { getVersion } from "@tauri-apps/api/app";
 import {
   AddedLink,
   AppSettings,
+  BackupCopy,
+  BackupRestoreOutcome,
+  BackupSource,
   BookmarkChange,
   BookmarkPage,
   BookmarkPatch,
@@ -27,6 +30,8 @@ import {
   RestoreCheck,
   RestoreMode,
   RestoreOutcome,
+  PickedCopy,
+  SaveCopyOutcome,
   Suggestion,
   Tag,
   Undo,
@@ -183,6 +188,15 @@ const desktop = {
   setAutostart: (enabled: boolean) => call<void>("set_autostart", { enabled }),
   getDataSummary: () => call<DataSummary>("get_data_summary"),
   backUpNow: () => call<DataSummary>("back_up_now"),
+  /** «Save a copy…» (NP-034): the Save dialog, then a checked copy there. */
+  saveBackupCopy: () => call<SaveCopyOutcome>("save_backup_copy"),
+  listBackups: () => call<BackupCopy[]>("list_backups"),
+  /** «Choose a file…»: the Open dialog, then the file checked in full. */
+  pickBackup: () => call<PickedCopy>("pick_backup"),
+  /** Replaces the library with a copy, after saving the current one. */
+  restoreBackup: (source: BackupSource) => call<BackupRestoreOutcome>("restore_backup", { source }),
+  /** A copy in the backups folder, selected in Explorer. */
+  revealBackup: (fileName: string) => call<void>("reveal_backup", { fileName }),
   getVersion: () => getVersion(),
 };
 export const api = isTauri() ? desktop : demo;

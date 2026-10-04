@@ -796,6 +796,33 @@ test("restore: replace asks first with the numbers, then the library is the copy
   await expect(page.getByRole("button", { name: /^Корзина 1/ })).toBeVisible();
 });
 
+test("backup: the settings explain copies, the dialog lists them, asks with the numbers and names the copy of the old library", async ({ page }) => {
+  await page.getByRole("button", { name: "Настройки", exact: true }).click();
+  await expect(page.getByText("Резервная копия — вся библиотека как есть")).toBeVisible();
+  await page.getByRole("button", { name: "Восстановить…", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Восстановление из резервной копии" });
+  const radios = dialog.getByRole("radio");
+  await expect(radios).toHaveCount(2);
+  await expect(radios.first()).toHaveAttribute("aria-checked", "true");
+  await expect(radios.first()).toContainText(/Сегодня, \d\d:\d\d/);
+  await expect(radios.nth(1)).toContainText("Перед обновлением библиотеки");
+  await radios.nth(1).click();
+  await expect(radios.nth(1)).toHaveAttribute("aria-checked", "true");
+  await dialog.getByRole("button", { name: "Восстановить…" }).click();
+  const confirm = page.getByRole("dialog", { name: /^Восстановить копию: / });
+  await expect(confirm).toContainText("Сейчас в библиотеке 6 закладок, в копии — 4.");
+  // «Оставить» changes nothing and returns to the list.
+  await confirm.getByRole("button", { name: "Оставить" }).click();
+  await expect(page.getByRole("dialog", { name: /^Восстановить копию: / })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Восстановить…" }).click();
+  await page.getByRole("dialog", { name: /^Восстановить копию: / }).getByRole("button", { name: "Восстановить", exact: true }).click();
+  const report = page.getByRole("dialog", { name: "Библиотека восстановлена" });
+  await expect(report.getByRole("status")).toContainText("4 закладки из копии:");
+  await expect(report).toContainText("netamipin.before-restore-demo.db");
+  await report.getByRole("button", { name: "Готово" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("import of 10 000 links shows progress and keeps the window usable", async ({ page }) => {
   let html = "<DL>";
   for (let i = 0; i < 10_000; i++) html += `<DT><A HREF="https://example.com/${i}" ADD_DATE="1700000000">Link ${i}</A>`;
