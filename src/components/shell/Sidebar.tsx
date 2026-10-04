@@ -3,6 +3,7 @@ import { Inbox, Link, Plus, Settings, Star, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
+import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { statusColor, statusLabel } from "../../services/capture";
 import { Icon, LogoMark, PinIcon } from "../icons";
 import { Dot } from "../ui/Controls";
@@ -27,6 +28,12 @@ export interface SidebarProps {
   onDeleteCollection: (collection: Collection) => void;
   /** «Новая коллекция из выбранного» (Р-27): the name field at the end of the collections. */
   naming?: NewCollectionField | null;
+  /**
+   * The selection is being dragged (NP-030, frame 05, sheet 32): collections,
+   * every tag, «Корзина» and «Новая коллекция из выбранного» become targets;
+   * `target` is the one under the pointer.
+   */
+  dropping?: { target: DropTarget | null } | null;
 }
 
 export interface NewCollectionField {
@@ -55,6 +62,11 @@ export function Sidebar(props: SidebarProps) {
   const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash;
   const favorites = library && filters.onlyFavorites;
   const status = { color: statusColor(capture), label: statusLabel(capture, t) };
+  const { dropping } = props;
+  /** While dragging: the element's `data-drop` and whether the pointer is over it. */
+  const drop = (target: DropTarget): Drop | undefined =>
+    dropping ? { attr: dropAttribute(target), hot: sameDrop(dropping.target, target) } : undefined;
+  const trashDrop = drop({ kind: "trash" });
 
   if (narrow)
     return (
@@ -78,7 +90,7 @@ export function Sidebar(props: SidebarProps) {
         <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites}>
           <Icon icon={Star} />
         </StripButton>
-        <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash}>
+        <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash} drop={trashDrop && { ...trashDrop, danger: true }}>
           <Icon icon={Trash2} />
         </StripButton>
         <div className="my-2.5 h-px w-6 bg-line" />
@@ -88,6 +100,7 @@ export function Sidebar(props: SidebarProps) {
             label={c.name}
             active={library && filters.collectionId === c.id}
             onClick={() => props.onCollection(c.id)}
+            drop={drop({ kind: "collection", id: c.id })}
           >
             <Dot color={collectionColor(c.id)} />
           </StripButton>
@@ -109,6 +122,7 @@ export function Sidebar(props: SidebarProps) {
     <aside
       className="flex w-[232px] shrink-0 flex-col gap-0.5 overflow-y-auto bg-panel px-3 py-3.5"
       aria-label={t("sidebar.label")}
+      data-drop-scroll
     >
       <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-[18px] text-accent" data-tauri-drag-region>
         <LogoMark />
@@ -132,7 +146,14 @@ export function Sidebar(props: SidebarProps) {
           active={favorites}
           onClick={props.onFavorites}
         />
-        <NavRow icon={<Icon icon={Trash2} />} label={t("nav.trash")} count={counts.trash} active={trash} onClick={props.onTrash} />
+        <NavRow
+          icon={<Icon icon={Trash2} />}
+          label={t("nav.trash")}
+          count={counts.trash}
+          active={trash}
+          onClick={props.onTrash}
+          drop={trashDrop && { ...trashDrop, danger: true }}
+        />
       </nav>
 
       <div className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
@@ -162,39 +183,55 @@ export function Sidebar(props: SidebarProps) {
               active={library && filters.collectionId === c.id}
               onClick={() => props.onCollection(c.id)}
               plain
+              drop={drop({ kind: "collection", id: c.id })}
             />
-            <button
-              type="button"
-              aria-label={t("sidebar.deleteCollection", { name: c.name })}
-              title={t("sidebar.deleteCollection", { name: c.name })}
-              onClick={() => props.onDeleteCollection(c)}
-              className="absolute top-[7px] right-8 flex size-4 items-center justify-center rounded-xs text-faint opacity-0 group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
-            >
-              <Icon icon={X} size={12} />
-            </button>
+            {!dropping && (
+              <button
+                type="button"
+                aria-label={t("sidebar.deleteCollection", { name: c.name })}
+                title={t("sidebar.deleteCollection", { name: c.name })}
+                onClick={() => props.onDeleteCollection(c)}
+                className="absolute top-[7px] right-8 flex size-4 items-center justify-center rounded-xs text-faint opacity-0 group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
+              >
+                <Icon icon={X} size={12} />
+              </button>
+            )}
           </div>
         ))}
+        {dropping && <NewCollectionTarget hot={sameDrop(dropping.target, { kind: "new" })} />}
         {props.naming && <NameField key={props.naming.suggested} {...props.naming} />}
       </nav>
 
       {tags.length > 0 && (
         <>
-          <h2 className="pt-[22px] pr-2 pb-1.5 pl-2.5 text-2xs font-semibold text-subtle uppercase">
-            {t("sidebar.tags")}
+          <h2 className={`pt-[22px] pr-2 pb-1.5 pl-2.5 text-2xs font-semibold text-subtle ${dropping ? "" : "uppercase"}`}>
+            {dropping ? t("sidebar.tagsDrop") : t("sidebar.tags")}
           </h2>
           <div className="flex flex-wrap gap-1.5 px-2 py-2">
-            {(allTags ? tags : tags.slice(0, VISIBLE_TAGS)).map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                aria-pressed={filters.tag === tag.name}
-                onClick={() => props.onTag(tag.name)}
-                className={`rounded-sm px-1.5 py-0.5 text-2xs transition-colors duration-150 ${filters.tag === tag.name ? "bg-accent-soft text-on-accent-soft" : "bg-line text-muted hover:text-ink"}`}
-              >
-                {tag.name}
-              </button>
-            ))}
-            {tags.length > VISIBLE_TAGS && (
+            {/* While dragging every tag is a target, not only the first six (sheet 32). */}
+            {(allTags || dropping ? tags : tags.slice(0, VISIBLE_TAGS)).map((tag) => {
+              const target = drop({ kind: "tag", name: tag.name });
+              const look = target
+                ? target.hot
+                  ? `bg-accent-soft text-on-accent-soft ${hotOutline}`
+                  : "text-muted outline-1 -outline-offset-1 outline-faint outline-dashed"
+                : filters.tag === tag.name
+                  ? "bg-accent-soft text-on-accent-soft"
+                  : "bg-line text-muted hover:text-ink";
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  aria-pressed={filters.tag === tag.name}
+                  data-drop={target?.attr}
+                  onClick={() => props.onTag(tag.name)}
+                  className={`rounded-sm px-1.5 py-0.5 text-2xs transition-colors duration-150 ${look}`}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+            {tags.length > VISIBLE_TAGS && !dropping && (
               <button
                 type="button"
                 onClick={() => setAllTags(!allTags)}
@@ -219,6 +256,33 @@ export function Sidebar(props: SidebarProps) {
       />
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
     </aside>
+  );
+}
+
+/** A drop target and whether the pointer is over it; «Корзина» is lit in the danger tint (sheet 32). */
+type Drop = { attr: string; hot: boolean; danger?: boolean };
+
+/**
+ * The ring of a target under the pointer: 1.5 px inside, so nothing around it
+ * moves. A shadow, not an outline: Chromium rounds an outline to whole pixels.
+ */
+const hotOutline = "shadow-[inset_0_0_0_1.5px_var(--np-accent)]";
+const dropLook = (drop: Drop) =>
+  drop.danger
+    ? "bg-danger-soft text-on-danger-soft shadow-[inset_0_0_0_1.5px_var(--np-danger)]"
+    : `bg-accent-soft text-on-accent-soft ${hotOutline}`;
+
+/** «Новая коллекция из выбранного» as a target (frame 05): a dashed row under the collections. */
+function NewCollectionTarget({ hot }: { hot: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <div
+      data-drop="new"
+      className={`flex min-h-[43px] items-center gap-2.5 rounded-[10px] py-1.5 pr-2.5 pl-[11px] text-xs ${hot ? dropLook({ attr: "new", hot }) : "text-subtle outline-1 -outline-offset-1 outline-faint outline-dashed"}`}
+    >
+      <Icon icon={Plus} size={12} className="shrink-0" />
+      <span>{t("sidebar.dropNewCollection")}</span>
+    </div>
   );
 }
 
@@ -283,6 +347,7 @@ function NavRow({
   plain = false,
   trailing,
   danger = false,
+  drop,
 }: {
   icon: ReactNode;
   label: string;
@@ -296,18 +361,27 @@ function NavRow({
   plain?: boolean;
   trailing?: ReactNode;
   danger?: boolean;
+  /** A drop target while the selection is dragged (NP-030). */
+  drop?: Drop;
 }) {
+  const hot = drop?.hot;
+  const look = hot
+    ? `${dropLook(drop)} ${plain ? "" : "font-medium"}`
+    : `${active ? "bg-card font-semibold shadow-active" : `${plain ? "" : "font-medium"} hover:bg-hover`} ${danger ? "text-danger" : "text-ink"}`;
   return (
     <button
       type="button"
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       title={title}
-      className={`flex h-[30px] w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-[background-color,color] duration-150 ${active ? "bg-card font-semibold shadow-active" : `${plain ? "" : "font-medium"} hover:bg-hover`} ${danger ? "text-danger" : "text-ink"}`}
+      data-drop={drop?.attr}
+      className={`flex h-[30px] w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-[background-color,color] duration-150 ${look}`}
     >
-      <span className={`flex shrink-0 ${active ? "text-accent" : "text-icon"}`}>{icon}</span>
+      <span className={`flex shrink-0 ${hot ? (drop.danger ? "text-danger" : "") : active ? "text-accent" : "text-icon"}`}>{icon}</span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {count !== undefined && <span className="text-xs font-normal text-subtle">{count}</span>}
+      {count !== undefined && (
+        <span className={`text-xs font-normal ${hot ? (drop.danger ? "text-danger" : "text-accent-muted") : "text-subtle"}`}>{count}</span>
+      )}
       {!!badge && (
         <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-[7px] text-2xs font-semibold text-on-accent">
           {badge}
@@ -323,12 +397,20 @@ function StripButton({
   children,
   active = false,
   onClick,
+  drop,
 }: {
   label: string;
   children: ReactNode;
   active?: boolean;
   onClick?: () => void;
+  /** Collections and «Корзина» are drop targets in the strip too (sheet 32). */
+  drop?: Drop;
 }) {
+  const look = drop?.hot
+    ? `${dropLook(drop)} ${drop.danger ? "text-danger" : "text-icon"}`
+    : active
+      ? "bg-card text-accent shadow-active"
+      : "text-icon hover:bg-hover";
   return (
     <button
       type="button"
@@ -336,7 +418,8 @@ function StripButton({
       title={label}
       aria-current={active ? "page" : undefined}
       onClick={onClick}
-      className={`flex h-8 w-9 items-center justify-center rounded-md transition-[background-color,color] duration-150 ${active ? "bg-card text-accent shadow-active" : "text-icon hover:bg-hover"}`}
+      data-drop={drop?.attr}
+      className={`flex h-8 w-9 items-center justify-center rounded-md transition-[background-color,color] duration-150 ${look}`}
     >
       {children}
     </button>
