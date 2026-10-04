@@ -39,6 +39,7 @@ export function useLibrary(
     inbox_newest: null,
     inbox_imported: 0,
     trash: 0,
+    duplicates: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
