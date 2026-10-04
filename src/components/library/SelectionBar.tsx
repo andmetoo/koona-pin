@@ -4,11 +4,10 @@ import {
   FileSpreadsheet,
   FileText,
   Folder,
-  FolderPlus,
   LucideIcon,
+  Plus,
   RotateCcw,
   Star,
-  StarOff,
   Tag as TagIcon,
   Trash2,
   X,
@@ -96,10 +95,10 @@ export function SelectionBar({
     ...(collections.length ? ["separator" as const] : []),
     { id: "none", label: t("card.noCollection"), onSelect: () => actions.move(null) },
     "separator",
-    { id: "new", icon: FolderPlus, label: t("selection.newCollection"), onSelect: actions.newCollection },
+    { id: "new", icon: Plus, label: t("selection.newCollection"), onSelect: actions.newCollection },
   ];
   /** `name` — the full name when the label on the bar is shorter. */
-  type Action = { id: string; icon: LucideIcon; label: string; name?: string; keys?: string; pressed?: boolean; run: (button: HTMLElement) => void };
+  type Action = { id: string; icon: LucideIcon; label: string; name?: string; keys?: string; pressed?: boolean; filled?: boolean; run: (button: HTMLElement) => void };
   const open = (id: "move" | "export") => (button: HTMLElement) =>
     setMenu(menu?.id === id ? null : { id, anchor: button.getBoundingClientRect() });
   const list: Action[] = trash
@@ -119,8 +118,8 @@ export function SelectionBar({
             setTagging(tagging === null ? button.getBoundingClientRect().left - bar.current!.getBoundingClientRect().left : null),
         },
         allStarred
-          ? // «Из избранного» keeps the bar 740 px wide; the name says it whole.
-            { id: "favorite", icon: StarOff, label: t("selection.unfavorite"), name: t("selection.unfavoriteName"), run: () => actions.favorite(false) }
+          ? // Sheet 31: a filled star and «Из избранного», which keeps the bar 740 px wide; the name says it whole.
+            { id: "favorite", icon: Star, filled: true, label: t("selection.unfavorite"), name: t("selection.unfavoriteName"), run: () => actions.favorite(false) }
           : { id: "favorite", icon: Star, label: t("selection.favorite"), run: () => actions.favorite(true) },
         { id: "export", icon: ArrowUpFromLine, label: t("selection.export"), run: open("export") },
         { id: "trash", icon: Trash2, label: t("selection.trash"), keys: "Del", run: actions.trash },
@@ -154,7 +153,7 @@ export function SelectionBar({
               onClick={(e) => action.run(e.currentTarget)}
               className={`flex h-8 shrink-0 items-center gap-[7px] rounded-lg px-2.5 transition-colors duration-150 hover:bg-white/10 hover:text-white disabled:text-white/45 disabled:hover:bg-transparent ${action.pressed || menu?.id === action.id ? "bg-white/10 text-white" : ""} ${compact ? "w-8 justify-center px-0" : ""}`}
             >
-              <Icon icon={action.icon} size={15} />
+              <Icon icon={action.icon} size={15} fill={action.filled ? "currentColor" : "none"} />
               {!compact && action.label}
             </button>
           );
