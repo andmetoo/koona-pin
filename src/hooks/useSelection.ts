@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
-import { FilterState } from "../types";
+import { BookmarkChange, FilterState } from "../types";
 
 const NONE: ReadonlySet<number> = new Set();
 
@@ -21,6 +21,8 @@ export function useSelection(filters: FilterState, active: boolean) {
   const [ids, setIds] = useState<ReadonlySet<number>>(NONE);
   /** The selected that the current list shows, when known; `null` until asked. */
   const [matching, setMatching] = useState<ReadonlySet<number> | null>(null);
+  /** Every bookmark with a star, when known. */
+  const [starred, setStarred] = useState<ReadonlySet<number> | null>(null);
   const idsRef = useRef(ids);
   idsRef.current = ids;
   const filtersRef = useRef(filters);
@@ -82,10 +84,20 @@ export function useSelection(filters: FilterState, active: boolean) {
       const kept = [...idsRef.current].filter((id) => !gone(id));
       if (kept.length !== idsRef.current.size) update(new Set(kept));
     };
+    /** Deleted for good, thrown away, or restored while the trash is open: it leaves. */
+    const left = (change: BookmarkChange) =>
+      !change.bookmark || (change.bookmark.deleted_at !== null) !== filtersRef.current.onlyTrash;
     const offChange = api.onBookmarkChanged((change) => {
       if (!idsRef.current.has(change.id)) return;
-      const b = change.bookmark;
-      if (!b || (b.deleted_at !== null) !== filtersRef.current.onlyTrash) drop((id) => id === change.id);
+      if (left(change)) drop((id) => id === change.id);
+      setVersion((v) => v + 1);
+    });
+    // A bulk action or an undo of many (NP-029).
+    const offBatch = api.onBookmarksChanged((changes) => {
+      const mine = changes.filter((change) => idsRef.current.has(change.id));
+      if (!mine.length) return;
+      const gone = new Set(mine.filter(left).map((change) => change.id));
+      if (gone.size) drop((id) => gone.has(id));
       setVersion((v) => v + 1);
     });
     // An import, emptying the trash or an undo of many: ask which still live where the section does.
@@ -101,19 +113,31 @@ export function useSelection(filters: FilterState, active: boolean) {
     });
     return () => {
       offChange();
+      offBatch();
       offInvalidate();
     };
   }, [update]);
 
-  // Which selected the list shows: asked when the filters or the library change.
+  // Which selected the list shows, and which have a star: asked when the
+  // filters or the library change. The star decides «В избранное» or
+  // «Убрать из избранного» for selected bookmarks the list does not show too.
   const selecting = ids.size > 0;
   useEffect(() => {
-    if (!selecting) return setMatching(null);
+    if (!selecting) {
+      setMatching(null);
+      setStarred(null);
+      return;
+    }
     let current = true;
     const timer = window.setTimeout(() => {
       api.getBookmarkIds(filtersRef.current).then(
         (shown) => current && setMatching(new Set(shown)),
         () => current && setMatching(null),
+      );
+      if (filtersRef.current.onlyTrash) return setStarred(null);
+      api.getBookmarkIds({ onlyFavorites: true }).then(
+        (stars) => current && setStarred(new Set(stars)),
+        () => current && setStarred(null),
       );
     }, 150);
     return () => {
@@ -124,5 +148,8 @@ export function useSelection(filters: FilterState, active: boolean) {
 
   let hidden = 0;
   if (matching) for (const id of ids) if (!matching.has(id)) hidden++;
-  return { ids, hidden, update, clear, toggle, range, selectAll };
+  /** Every selected bookmark has a star: the bar offers to take it off. Unknown counts as no. */
+  let allStarred = !!starred && ids.size > 0;
+  if (starred) for (const id of ids) if (!starred.has(id)) allStarred = false;
+  return { ids, hidden, allStarred, update, clear, toggle, range, selectAll };
 }

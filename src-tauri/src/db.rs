@@ -764,10 +764,119 @@ pub fn restore_bookmark(conn: &Connection, id: i64, to_inbox: bool) -> Result<Bo
     get_bookmark_by_id(conn, id)
 }
 
+/// What a bulk action does to every selected bookmark (NP-029, Р-27).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Bulk {
+    /// Into a collection, or out of any.
+    Move(Option<i64>),
+    /// Adds one tag; the tags a bookmark has stay.
+    Tag(String),
+    /// Stars all of them, or takes the star off all.
+    Favorite(bool),
+    Trash,
+    Restore,
+}
+
+/// `ids` as the JSON array `json_each` reads.
+fn id_list(ids: &[i64]) -> Result<String> {
+    serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
+}
+
+/// Applies `bulk` to those of `ids` that exist, in one transaction: all of
+/// them or none. Only bookmarks whose fields change get a new revision; a
+/// decision about one sorts it out of the inbox, like a single edit. The
+/// trash is touched by «Восстановить» only. Returns how many of `ids` the
+/// action applies to and the bookmarks it changed.
+pub fn apply_bulk(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize, Vec<Bookmark>)> {
+    let tx = conn.unchecked_transaction()?;
+    let done = bulk_in(&tx, ids, bulk)?;
+    tx.commit()?;
+    Ok(done)
+}
+
+/// «Новая коллекция из выбранного» (Р-27, point 3): the collection and the
+/// move in one transaction, so a failure leaves no empty collection.
+pub fn bulk_into_new_collection(
+    conn: &Connection,
+    ids: &[i64],
+    name: &str,
+) -> Result<(Collection, usize, Vec<Bookmark>)> {
+    let tx = conn.unchecked_transaction()?;
+    let collection = create_collection(&tx, name, None, None)?;
+    let (count, changed) = bulk_in(&tx, ids, &Bulk::Move(Some(collection.id)))?;
+    tx.commit()?;
+    Ok((Collection { count: Some(count as i64), ..collection }, count, changed))
+}
+
+fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize, Vec<Bookmark>)> {
+    use rusqlite::types::Value;
+    let now = now();
+    let all = id_list(ids)?;
+    let place = if *bulk == Bulk::Restore { "deleted_at IS NOT NULL" } else { "deleted_at IS NULL" };
+    let count: i64 = conn.query_row(
+        &format!("SELECT count(*) FROM bookmarks WHERE id IN (SELECT value FROM json_each(?1)) AND {place}"),
+        [&all],
+        |r| r.get(0),
+    )?;
+    // Which of them change, and what is written: `?2` is the value, `?3` the time.
+    let tag = match bulk {
+        Bulk::Tag(name) => Some(tag_id(conn, &name.trim().to_lowercase(), &now)?),
+        _ => None,
+    };
+    let sorts = "triaged_at=COALESCE(triaged_at,?3)";
+    let (changes, set, value): (&str, String, Value) = match bulk {
+        Bulk::Move(collection) => (
+            "(collection_id IS NOT ?2 OR triaged_at IS NULL)",
+            format!("collection_id=?2, {sorts}"),
+            (*collection).into(),
+        ),
+        Bulk::Tag(_) => (
+            "(triaged_at IS NULL OR NOT EXISTS (SELECT 1 FROM bookmark_tags bt WHERE bt.bookmark_id=bookmarks.id AND bt.tag_id=?2))",
+            sorts.to_string(),
+            tag.into(),
+        ),
+        Bulk::Favorite(on) => (
+            "(is_favorite IS NOT ?2 OR triaged_at IS NULL)",
+            format!("is_favorite=?2, {sorts}"),
+            (*on).into(),
+        ),
+        // A bookmark keeps everything in the trash, as a single one does (Р-21).
+        Bulk::Trash => ("?2 IS NULL", "deleted_at=?3".to_string(), Value::Null),
+        Bulk::Restore => ("?2 IS NULL", "deleted_at=NULL".to_string(), Value::Null),
+    };
+    let changing: Vec<i64> = conn
+        .prepare(&format!(
+            "SELECT id FROM bookmarks WHERE id IN (SELECT value FROM json_each(?1)) AND {place} AND {changes}"
+        ))?
+        .query_map(params![all, value], |r| r.get(0))?
+        .collect::<Result<_>>()?;
+    if changing.is_empty() {
+        return Ok((count as usize, Vec::new()));
+    }
+    let list = id_list(&changing)?;
+    if let Some(tag) = tag {
+        conn.execute(
+            "INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT value, ?2 FROM json_each(?1) WHERE true
+             ON CONFLICT DO NOTHING",
+            params![list, tag],
+        )?;
+    }
+    conn.execute(
+        &format!(
+            "UPDATE bookmarks SET {set}, updated_at=?3, revision=revision+1
+             WHERE id IN (SELECT value FROM json_each(?1))"
+        ),
+        params![list, value, now],
+    )?;
+    Ok((count as usize, get_bookmarks_by_ids(conn, &changing)?))
+}
+
 /// Which bookmarks of the trash go for good.
 pub enum Purge<'a> {
     /// «Удалить навсегда» on one bookmark.
     One(i64),
+    /// «Удалить навсегда…» on the selection in the trash (NP-029).
+    Some(&'a [i64]),
     /// The cleanup: deleted at this time or earlier.
     Before(&'a str),
     /// «Очистить корзину».
@@ -781,6 +890,7 @@ pub enum Purge<'a> {
 pub fn purge_trash(conn: &Connection, which: Purge) -> Result<Vec<(i64, i64)>> {
     let (filter, value): (&str, rusqlite::types::Value) = match which {
         Purge::One(id) => ("id = ?1", id.into()),
+        Purge::Some(ids) => ("id IN (SELECT value FROM json_each(?1))", id_list(ids)?.into()),
         Purge::Before(time) => ("deleted_at <= ?1", time.to_string().into()),
         Purge::All => ("?1 IS NULL", rusqlite::types::Value::Null),
     };

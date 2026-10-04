@@ -336,10 +336,19 @@ export function ImportDialog({
   );
 }
 
-export function CollectionDialog({ onCreate, onClose }: { onCreate: (name: string) => Promise<void>; onClose: () => void }) {
+/** `initial` — the name offered for «Новая коллекция из выбранного» in a narrow window (NP-029). */
+export function CollectionDialog({
+  initial = "",
+  onCreate,
+  onClose,
+}: {
+  initial?: string;
+  onCreate: (name: string) => Promise<void>;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const { busy, error, run } = useAction();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initial);
   return (
     <Dialog title={t("collection.title")} onClose={() => !busy && onClose()} width={400}>
       <form
