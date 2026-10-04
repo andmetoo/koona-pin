@@ -7,6 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Tag,
     },
     error::{CommandError, ErrorCode},
+    journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
 use rusqlite::Connection;
@@ -35,6 +36,66 @@ async fn blocking<T: Send + 'static>(
 
 fn text(e: rusqlite::Error) -> CommandError {
     e.into()
+}
+
+/// A changed bookmark and its place in the journal (NP-024).
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct Changed {
+    pub bookmark: Bookmark,
+    /// What `undo` takes back; none when nothing changed.
+    pub command: Option<i64>,
+}
+
+/// A change of one bookmark, recorded in the journal so it can be undone.
+async fn journaled(
+    app: &AppHandle,
+    state: &State<'_, Arc<DbState>>,
+    action: Action,
+    id: i64,
+    work: impl FnOnce(&Connection) -> rusqlite::Result<Bookmark> + Send + 'static,
+) -> Result<Changed, CommandError> {
+    let state = state.inner().clone();
+    let changed = tauri::async_runtime::spawn_blocking(move || {
+        let conn = state.conn.lock().map_err(CommandError::internal)?;
+        let mut journal = state.journal.lock().map_err(CommandError::internal)?;
+        let (mut bookmarks, command) =
+            journal.record(&conn, action, &[id], |conn| work(conn).map(|b| vec![b]))?;
+        Ok::<_, CommandError>(Changed {
+            bookmark: bookmarks.remove(0),
+            command,
+        })
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    capture::emit(app, ChangeKind::Updated, &changed.bookmark);
+    Ok(changed)
+}
+
+/// Ctrl Z (NP-024): the last command, or the one an undo notice names.
+#[tauri::command]
+pub async fn undo(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    command: Option<i64>,
+) -> Result<Undo, CommandError> {
+    let state = state.inner().clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        let conn = state.conn.lock().map_err(CommandError::internal)?;
+        let mut journal = state.journal.lock().map_err(CommandError::internal)?;
+        journal.undo(&conn, command).map_err(CommandError::from)
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    if let Undo::Undone { bookmarks, .. } = &outcome {
+        match bookmarks.as_slice() {
+            [one] => capture::emit(&app, ChangeKind::Updated, one),
+            _ => {
+                let _ = app.emit("library-invalidated", ());
+            }
+        }
+    }
+    Ok(outcome)
 }
 
 #[tauri::command]
@@ -123,16 +184,24 @@ pub async fn update_bookmark(
     state: State<'_, Arc<DbState>>,
     id: i64,
     patch: BookmarkPatch,
-) -> Result<Bookmark, CommandError> {
+) -> Result<Changed, CommandError> {
     if patch.title.as_ref().is_some_and(|s| s.trim().is_empty()) {
         return Err(CommandError::invalid("Название не должно быть пустым"));
     }
+    let plain = patch.title.is_none() && patch.notes.is_none();
+    let keep = matches!(patch.collection, CollectionPatch::Keep);
+    let action = match (patch.is_favorite, &patch.tags) {
+        (Some(_), None) if plain && keep => Action::Favorite,
+        (None, Some(_)) if plain && keep => Action::Tag,
+        (None, None) if plain && !keep => Action::Move,
+        _ => Action::Edit,
+    };
     let collection = match patch.collection {
         CollectionPatch::Keep => None,
         CollectionPatch::Clear => Some(None),
         CollectionPatch::Set(id) => Some(Some(id)),
     };
-    let b = blocking(&state, move |conn| {
+    journaled(&app, &state, action, id, move |conn| {
         db::update_bookmark(
             conn,
             id,
@@ -142,11 +211,8 @@ pub async fn update_bookmark(
             collection,
             patch.tags,
         )
-        .map_err(text)
     })
-    .await?;
-    capture::emit(&app, ChangeKind::Updated, &b);
-    Ok(b)
+    .await
 }
 /// To the trash (NP-022); the interface offers to undo it right away.
 #[tauri::command]
@@ -154,13 +220,11 @@ pub async fn trash_bookmark(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     id: i64,
-) -> Result<Bookmark, CommandError> {
-    let b = blocking(&state, move |conn| {
-        db::trash_bookmark(conn, id).map_err(text)
+) -> Result<Changed, CommandError> {
+    journaled(&app, &state, Action::Trash, id, move |conn| {
+        db::trash_bookmark(conn, id)
     })
-    .await?;
-    capture::emit(&app, ChangeKind::Updated, &b);
-    Ok(b)
+    .await
 }
 /// Out of the trash with everything the bookmark had, inbox flag included.
 #[tauri::command]
@@ -168,13 +232,11 @@ pub async fn restore_bookmark(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     id: i64,
-) -> Result<Bookmark, CommandError> {
-    let b = blocking(&state, move |conn| {
-        db::restore_bookmark(conn, id, false).map_err(text)
+) -> Result<Changed, CommandError> {
+    journaled(&app, &state, Action::Restore, id, move |conn| {
+        db::restore_bookmark(conn, id, false)
     })
-    .await?;
-    capture::emit(&app, ChangeKind::Updated, &b);
-    Ok(b)
+    .await
 }
 /// «Удалить навсегда» in the trash (NP-023), after the dialog. A bookmark
 /// in the library is never deleted at once.
