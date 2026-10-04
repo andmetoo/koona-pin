@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import { CircleCheck, FileText, Folder, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Browser, CaptureStatus, Collection, ImportProgress, ImportSummary } from "../../types";
+import { TFunction } from "i18next";
+import { Browser, CaptureStatus, Collection, ImportProgress, ImportSummary, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
 import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
@@ -16,7 +17,7 @@ import {
   statusLabel,
 } from "../../services/capture";
 import { Icon } from "../icons";
-import { Button } from "../ui/Button";
+import { Button, buttonClass } from "../ui/Button";
 import { Dot, Field, Segmented } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 import { CollectionSelect, TagInput } from "./Fields";
@@ -333,6 +334,247 @@ export function ImportDialog({
         </Footer>
       </div>
     </Dialog>
+  );
+}
+
+/** Why a copy cannot be restored, in words (frame 30). */
+function problemText(problem: RestoreProblem, t: TFunction): string {
+  switch (problem.problem) {
+    case "not_json":
+      return t("restore.notJson");
+    case "not_ours":
+      return t("restore.notOurs");
+    case "newer":
+      return t("restore.newer", { version: problem.version });
+    case "damaged":
+      return t("restore.damaged", {
+        what: t(`restore.damage.${problem.item}_${problem.damage}` as "restore.damage.file_structure", { index: problem.index, detail: problem.detail }),
+      });
+  }
+}
+
+/** A radio card of frame 30: the mode and what it does. */
+function ModeOption({ checked, title, hint, onSelect }: { checked: boolean; title: string; hint: string; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      onClick={onSelect}
+      className={`flex w-full gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors duration-150 ${checked ? "border-accent bg-accent-soft outline outline-[0.5px] outline-accent" : "border-border bg-card hover:bg-panel"}`}
+    >
+      <span className={`mt-px flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] bg-card ${checked ? "border-accent" : "border-subtle"}`}>
+        {checked && <span className="size-2 rounded-full bg-accent" />}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-xs text-muted">{hint}</span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Frame 30: the copy and what it holds, merge or replace, the confirmation of
+ * a replace, the report; a damaged, foreign or newer copy is refused with
+ * nothing changed.
+ */
+export function RestoreDialog({
+  onRestore,
+  onShowBackups,
+  onClose,
+}: {
+  onRestore: (content: string, mode: RestoreMode) => Promise<RestoreOutcome>;
+  onShowBackups: () => void;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const [file, setFile] = useState<{ name: string; content: string; preview: RestorePreview } | null>(null);
+  const [problem, setProblem] = useState<string>("");
+  const [mode, setMode] = useState<RestoreMode>("merge");
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [report, setReport] = useState<{ summary: RestoreSummary; mode: RestoreMode } | null>(null);
+  const number = (n: number) => n.toLocaleString(i18n.language);
+
+  const pick = async (picked: File) => {
+    setError("");
+    setProblem("");
+    setFile(null);
+    try {
+      const content = await picked.text();
+      const check = await api.checkRestore(content);
+      if (check.outcome === "rejected") {
+        setFile({ name: picked.name, content, preview: { bookmarks: 0, collections: 0, tags: 0, exported_at: "", current: 0 } });
+        setProblem(problemText(check.problem, t));
+      } else setFile({ name: picked.name, content, preview: check.preview });
+    } catch (err) {
+      setError(describeError(err));
+    }
+  };
+  const run = async () => {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      const outcome = await onRestore(file.content, mode);
+      if (outcome.outcome === "restored") setReport({ summary: outcome.summary, mode });
+      else if (outcome.outcome === "rejected") setProblem(problemText(outcome.problem, t));
+      else setError(t("restore.backupFailed", { detail: outcome.detail }));
+    } catch (err) {
+      setError(t("restore.failed", { reason: describeError(err) }));
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  };
+
+  if (report) {
+    const { summary } = report;
+    const created = [
+      summary.collections.length > 0 && t("restore.collections", { count: summary.collections.length }),
+      summary.tags > 0 && t("import.tags", { count: summary.tags }),
+    ].filter(Boolean);
+    const row = (label: string, count: number) => (
+      <div className="flex items-center justify-between gap-3 border-t border-divider py-2 text-sm first:border-t-0">
+        <span>{label}</span>
+        <span className="font-medium tabular-nums">{number(count)}</span>
+      </div>
+    );
+    const sub = (label: string, count: number) => (
+      <div className="flex justify-between gap-3 pb-1.5 pl-4 text-xs text-muted">
+        <span>{label}</span>
+        <span className="tabular-nums">{number(count)}</span>
+      </div>
+    );
+    return (
+      <Dialog title={t("restore.finished")} onClose={onClose}>
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-2.5">
+            <Icon icon={CircleCheck} size={18} className="mt-px shrink-0 text-accent" />
+            <div className="min-w-0">
+              <p role="status" className="text-md font-semibold">
+                {report.mode === "replace"
+                  ? t("restore.restored", { count: summary.added })
+                  : summary.added > 0
+                    ? t("restore.added", { count: summary.added })
+                    : t("import.nothingNew")}
+              </p>
+              {created.length > 0 && <p className="mt-0.5 text-xs text-muted">{created.join(" · ")}</p>}
+            </div>
+          </div>
+          <div className="border-y border-divider">
+            {row(report.mode === "replace" ? t("restore.rowRestored") : t("import.added"), summary.added)}
+            {summary.in_inbox > 0 && sub(t("restore.inInbox"), summary.in_inbox)}
+            {summary.in_trash > 0 && sub(t("restore.inTrash"), summary.in_trash)}
+            {report.mode === "merge" && row(t("import.existing"), summary.existing)}
+            {summary.backup && (
+              <div className="flex items-center justify-between gap-3 border-t border-divider py-2 text-sm">
+                <span className="min-w-0 [overflow-wrap:anywhere]">{t("restore.backup", { name: summary.backup })}</span>
+                <button type="button" onClick={onShowBackups} className="shrink-0 font-medium text-accent hover:underline">
+                  {t("export.show")}
+                </button>
+              </div>
+            )}
+          </div>
+          <Footer>
+            <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+              {t("import.done")}
+            </Button>
+          </Footer>
+        </div>
+      </Dialog>
+    );
+  }
+
+  const { preview } = file ?? { preview: null };
+  const made = preview?.exported_at ? new Date(preview.exported_at).toLocaleDateString(i18n.language, { day: "numeric", month: "short", year: "numeric" }) : "";
+  return (
+    <>
+      <Dialog title={t("restore.title")} onClose={() => !busy && onClose()} locked={busy}>
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted">{t("restore.lead")}</p>
+          <label className="flex cursor-default items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm hover:bg-hover focus-within:outline-2 focus-within:outline-accent">
+            <Icon icon={FileText} className="shrink-0 text-icon" />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className={file ? "font-medium [overflow-wrap:anywhere]" : "text-muted"}>{file?.name ?? t("restore.file")}</span>
+              {file && (
+                <span className="text-xs text-subtle">
+                  {problem
+                    ? t("restore.checkedBad")
+                    : [
+                        t("restore.bookmarks", { count: preview!.bookmarks }),
+                        t("restore.collectionsCount", { count: preview!.collections }),
+                        t("restore.tagsCount", { count: preview!.tags }),
+                        made,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                </span>
+              )}
+            </span>
+            <input
+              type="file"
+              accept=".json,application/json"
+              className="sr-only"
+              onChange={(e) => {
+                const picked = e.target.files?.[0];
+                e.target.value = "";
+                if (picked) void pick(picked);
+              }}
+            />
+          </label>
+          {problem ? (
+            <Failure error={`${problem}`} />
+          ) : (
+            <div className="flex flex-col gap-2">
+              <span id="restore-mode" className="text-xs font-medium text-muted">
+                {t("restore.how")}
+              </span>
+              <div role="radiogroup" aria-labelledby="restore-mode" className="flex flex-col gap-2">
+                <ModeOption checked={mode === "merge"} title={t("restore.merge")} hint={t("restore.mergeHint")} onSelect={() => setMode("merge")} />
+                <ModeOption checked={mode === "replace"} title={t("restore.replace")} hint={t("restore.replaceHint")} onSelect={() => setMode("replace")} />
+              </div>
+            </div>
+          )}
+          <Failure error={error} />
+          <Footer>
+            <Button variant="outline" size="lg" disabled={busy} onClick={onClose}>
+              {t("import.cancel")}
+            </Button>
+            {problem ? (
+              <label className={`${buttonClass("primary", "lg")} cursor-default focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent`}>
+                {t("restore.another")}
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const picked = e.target.files?.[0];
+                    e.target.value = "";
+                    if (picked) void pick(picked);
+                  }}
+                />
+              </label>
+            ) : (
+              <Button variant="primary" size="lg" disabled={!file || busy} onClick={() => (mode === "replace" ? setConfirming(true) : void run())}>
+                {busy ? t("restore.running") : error && file ? t("common.retry") : t("restore.run")}
+              </Button>
+            )}
+          </Footer>
+        </div>
+      </Dialog>
+      {confirming && file && (
+        <ConfirmDialog
+          title={t("restore.confirmTitle")}
+          text={t("restore.confirmText", { count: preview!.current, copy: number(preview!.bookmarks) })}
+          confirm={t("restore.confirm")}
+          onClose={() => setConfirming(false)}
+          onConfirm={run}
+        />
+      )}
+    </>
   );
 }
 

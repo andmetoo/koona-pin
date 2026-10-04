@@ -171,6 +171,12 @@ pub struct Journal {
 }
 
 impl Journal {
+    /// Forgets every command: after the library was replaced (NP-033) they
+    /// would point at bookmarks that are no longer there.
+    pub fn clear(&mut self) {
+        self.commands.clear();
+    }
+
     /// Runs a command on the bookmarks `ids` and remembers what it changed.
     /// `work` returns the bookmarks as it left them. The command id is none
     /// when nothing changed: there is nothing to undo.
