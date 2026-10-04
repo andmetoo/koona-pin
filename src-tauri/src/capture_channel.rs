@@ -467,6 +467,50 @@ mod tests {
         assert!(parse(&huge).is_none());
     }
 
+    /// A DACL in SDDL as Windows itself writes it back.
+    #[cfg(windows)]
+    fn canonical(sddl: &str) -> String {
+        use windows_sys::Win32::{
+            Foundation::LocalFree,
+            Security::{
+                Authorization::{
+                    ConvertSecurityDescriptorToStringSecurityDescriptorW,
+                    ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+                },
+                DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
+            },
+        };
+        let wide: Vec<u16> = sddl.encode_utf16().chain(Some(0)).collect();
+        let mut descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+        let mut text: *mut u16 = std::ptr::null_mut();
+        unsafe {
+            assert_ne!(
+                ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                    wide.as_ptr(),
+                    SDDL_REVISION_1,
+                    &mut descriptor,
+                    std::ptr::null_mut(),
+                ),
+                0
+            );
+            assert_ne!(
+                ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                    descriptor,
+                    SDDL_REVISION_1,
+                    DACL_SECURITY_INFORMATION,
+                    &mut text,
+                    std::ptr::null_mut(),
+                ),
+                0
+            );
+            let length = (0..).take_while(|&i| *text.add(i) != 0).count();
+            let result = String::from_utf16_lossy(std::slice::from_raw_parts(text, length));
+            LocalFree(text as _);
+            LocalFree(descriptor);
+            result
+        }
+    }
+
     /// Only the current user may open the pipe: a protected DACL with one
     /// entry, so other users and services are refused by Windows itself.
     #[cfg(windows)]
@@ -529,8 +573,10 @@ mod tests {
             LocalFree(descriptor);
         }
         let sid = crate::pipe_name::user_sid().unwrap();
-        // GA is stored as the pipe's full access (FA).
-        assert_eq!(sddl, format!("D:P(A;;FA;;;{sid})"));
+        // GA is stored as the pipe's full access (FA). Windows writes some
+        // accounts by alias (the built-in Administrator of a CI runner is
+        // «LA»), so the expected text goes through the same conversion.
+        assert_eq!(sddl, canonical(&format!("D:P(A;;FA;;;{sid})")));
         // A second server on the same name is refused (FILE_FLAG_FIRST_PIPE_INSTANCE).
         let second = unsafe {
             ServerOptions::new()
