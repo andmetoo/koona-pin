@@ -113,6 +113,7 @@ pub fn run() {
             commands::delete_collection,
             commands::get_tags,
             commands::get_domains,
+            commands::suggest_collection,
             commands::get_counts,
             commands::open_url_external,
             commands::import_html_bookmarks,

@@ -872,6 +872,45 @@ pub fn get_tags(conn: &Connection) -> Result<Vec<Tag>> {
     Ok(tags)
 }
 
+/// The collection triage offers under key 1 (NP-026, Р-25), and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct Suggestion {
+    pub collection_id: i64,
+    /// Other bookmarks of the site in that collection.
+    pub count: i64,
+    /// Other bookmarks of the site in any collection.
+    pub filed: i64,
+}
+
+/// Fewer bookmarks of a site in one collection suggest nothing.
+pub const SUGGEST_AT_LEAST: i64 = 2;
+
+/// Where the other bookmarks of the same site (exact domain, outside the
+/// trash) mostly lie: a collection holding at least two of them and more
+/// than half of those filed anywhere. A tie or too little data suggests
+/// nothing. Only reads: nothing changes until the user chooses.
+pub fn suggest_collection(conn: &Connection, id: i64) -> Result<Option<Suggestion>> {
+    let counts = conn
+        .prepare(
+            "SELECT o.collection_id, count(*) FROM bookmarks b
+             JOIN bookmarks o ON o.domain = b.domain AND o.id <> b.id
+                 AND o.deleted_at IS NULL AND o.collection_id IS NOT NULL
+             WHERE b.id = ?1
+             GROUP BY o.collection_id ORDER BY count(*) DESC, o.collection_id",
+        )?
+        .query_map([id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?
+        .collect::<Result<Vec<_>>>()?;
+    let filed: i64 = counts.iter().map(|(_, n)| n).sum();
+    Ok(counts.first().and_then(|&(collection_id, count)| {
+        (count >= SUGGEST_AT_LEAST && count * 2 > filed).then_some(Suggestion {
+            collection_id,
+            count,
+            filed,
+        })
+    }))
+}
+
 pub fn get_domains(conn: &Connection) -> Result<Vec<DomainCount>> {
     let mut stmt = conn.prepare(
         "SELECT domain, COUNT(id) as count
@@ -1299,6 +1338,61 @@ mod tests {
         assert_eq!(back.triaged_at, first.triaged_at);
         assert_eq!(found(&conn, "корзину"), [first.id]);
         assert_eq!(get_counts(&conn).unwrap().trash, 1);
+    }
+
+    #[test]
+    fn a_collection_is_suggested_by_where_the_site_mostly_lies() {
+        let conn = setup_test_db();
+        let hardware = create_collection(&conn, "Железо", None, None).unwrap();
+        let work = create_collection(&conn, "Работа", None, None).unwrap();
+        let file = |url: &str, collection: Option<i64>| {
+            let b = add(&conn, url, "Ссылка", &[]);
+            if collection.is_some() {
+                update_bookmark(&conn, b.id, None, None, None, Some(collection), None).unwrap();
+            }
+            b
+        };
+        let new = file("https://trezor.io/new", None);
+        let suggest = || suggest_collection(&conn, new.id).unwrap();
+        let expect = |collection_id, count, filed| {
+            Some(Suggestion {
+                collection_id,
+                count,
+                filed,
+            })
+        };
+
+        // Too little: nothing filed, then one link only.
+        assert_eq!(suggest(), None);
+        file("https://trezor.io/a", Some(hardware.id));
+        assert_eq!(suggest(), None);
+        // Unfiled links, other sites and the bookmark itself do not count.
+        file("https://trezor.io/kept", None);
+        file("https://other.org/x", Some(work.id));
+        file("https://other.org/y", Some(work.id));
+        update_bookmark(&conn, new.id, None, None, None, Some(Some(work.id)), None).unwrap();
+        assert_eq!(suggest(), None);
+
+        file("https://trezor.io/b", Some(hardware.id));
+        assert_eq!(suggest(), expect(hardware.id, 2, 2));
+        // A tie suggests nothing; a majority does.
+        file("https://trezor.io/c", Some(work.id));
+        let tie = file("https://trezor.io/d", Some(work.id));
+        assert_eq!(suggest(), None);
+        let third = file("https://trezor.io/e", Some(hardware.id));
+        assert_eq!(suggest(), expect(hardware.id, 3, 5));
+        // The trash is not where the site lies.
+        trash_bookmark(&conn, third.id).unwrap();
+        trash_bookmark(&conn, tie.id).unwrap();
+        assert_eq!(suggest(), expect(hardware.id, 2, 3));
+
+        // Reading a suggestion changes nothing, also in a read-only library.
+        let before = get_bookmark_by_id(&conn, new.id).unwrap();
+        conn.execute_batch("PRAGMA query_only = ON").unwrap();
+        assert_eq!(suggest(), expect(hardware.id, 2, 3));
+        conn.execute_batch("PRAGMA query_only = OFF").unwrap();
+        assert_eq!(get_bookmark_by_id(&conn, new.id).unwrap().revision, before.revision);
+        assert_eq!(suggest_collection(&conn, 9_999).unwrap(), None);
     }
 
     fn setup_test_db() -> Connection {
