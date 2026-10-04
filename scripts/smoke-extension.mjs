@@ -15,7 +15,9 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { setTimeout as sleep } from "node:timers/promises";
 import { buildExtension } from "./build-extension.mjs";
-import { hostBinary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+import { assertNoOtherApp, hostBinary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+
+assertNoOtherApp();
 
 const targets = {
   // Chrome for Testing reads the Chromium key (checked in NP-016).

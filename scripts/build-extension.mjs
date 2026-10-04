@@ -4,7 +4,7 @@
 //   extension/build/<browser>/        unpacked, for "Load unpacked" and tests
 //   release/netamipin-chrome.zip      Chrome Web Store
 //   release/netamipin-edge.zip        Edge Add-ons
-//   release/netamipin-firefox.xpi     Firefox (unsigned until NP-018)
+//   release/netamipin-firefox.xpi     Firefox, unsigned (npm run extension:sign:firefox signs it)
 //
 // The unpacked Chrome and Edge folders carry the development key
 // (extension/dev-key.txt), so their extension id is the same on every machine:
@@ -21,6 +21,9 @@ const source = path.join(root, "extension", "src");
 const { VERSION } = await import(pathToFileURL(path.join(source, "version.js")).href);
 
 export const geckoId = "pin@netami.app";
+/** Self-hosted Firefox updates (NP-018); the file is published with the site. */
+export const firefoxUpdateUrl = "https://pin.netami.app/firefox/updates.json";
+export const firefoxDownloadBase = "https://pin.netami.app/firefox";
 export const browsers = ["chrome", "edge", "firefox"];
 
 const icons = { 16: "icons/16.png", 32: "icons/32.png", 48: "icons/48.png", 128: "icons/128.png" };
@@ -53,6 +56,10 @@ export function manifest(browser, { dev = false, key } = {}) {
           strict_min_version: "140.0",
           // Links go only to the app on this computer.
           data_collection_permissions: { required: ["none"] },
+          // The signed XPI has no AMO listing: Firefox looks for updates here
+          // (NP-018). It must ship in the first signed version; added later it
+          // reaches nobody without a manual reinstall.
+          update_url: firefoxUpdateUrl,
         },
       },
     };
