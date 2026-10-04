@@ -3,6 +3,7 @@
   "extensionDescription": {
     "message": "Save the page to your local Netami Pin library in one click. Links wait in a queue while the app is closed."
   },
+  "menuOptions": { "message": "Settings and queue" },
   "actionTitle": { "message": "Save page to Netami Pin" },
   "queueWaiting": {
     "message": "Netami Pin: $COUNT$ waiting to be sent. Open the settings to see the queue.",

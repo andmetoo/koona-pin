@@ -70,6 +70,27 @@ export function hostStartedApps(binary = appBinary()) {
 }
 
 /**
+ * One Netami Pin per Windows user (single instance): while another one runs,
+ * an app the test starts hands over to it and exits, and the host waits for
+ * nothing. Stop early with the reason instead.
+ */
+export function assertNoOtherApp() {
+  const out = execFileSync(
+    "powershell",
+    [
+      "-NoProfile",
+      "-Command",
+      `Get-CimInstance Win32_Process -Filter "Name='netamipin.exe'" | ForEach-Object { "$($_.ProcessId) $($_.ExecutablePath)" }`,
+    ],
+    { encoding: "utf8" },
+  ).trim();
+  if (out)
+    throw new Error(
+      `Quit Netami Pin before this check (tray menu → Exit): only one instance runs per user, so the test app would exit at once.\n${out}`,
+    );
+}
+
+/**
  * Remembers the apps running now; `stop()` ends only those started since,
  * so an app the user runs from the same folder stays.
  */

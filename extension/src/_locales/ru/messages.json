@@ -3,6 +3,7 @@
   "extensionDescription": {
     "message": "Сохранение страницы одним нажатием в локальную библиотеку Netami Pin. Очередь работает, даже когда приложение закрыто."
   },
+  "menuOptions": { "message": "Настройки и очередь" },
   "actionTitle": { "message": "Сохранить страницу в Netami Pin" },
   "queueWaiting": {
     "message": "Netami Pin: ожидают передачи $COUNT$. Откройте настройки для просмотра очереди.",

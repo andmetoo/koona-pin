@@ -5,7 +5,10 @@ import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import net from "node:net";
-import { capture, hello, hostMessage, pipeReady, testPipe } from "../../scripts/lib/native-host.mjs";
+import { assertNoOtherApp, capture, hello, hostMessage, pipeReady, testPipe } from "../../scripts/lib/native-host.mjs";
+
+// The test apps are single-instance too: a running Netami Pin would take them over.
+test.beforeAll(() => assertNoOtherApp());
 
 test("real WebView2, SQLite, capture through the host, close-to-tray and single instance", async ({
   request,
