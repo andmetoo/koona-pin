@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
-import { isAfter, listTime, matchesFilters, mergeBookmark, sortBookmarks } from "../services/library";
+import { isAfter, listTime, matchesFilters, mergeBookmark } from "../services/library";
 import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
 import {
   Bookmark,
@@ -229,7 +229,8 @@ export function useLibrary(
         counts?.map((count, i) => (createdAt! >= startsRef.current[i] ? Math.max(0, count + delta) : count)) ?? null,
       );
     };
-    const apply = (change: BookmarkChange, matches: boolean) => {
+    /** One change into the list; `catalog` false when the caller refreshes the catalog once for many. */
+    const apply = (change: BookmarkChange, matches: boolean, catalog = true) => {
       const b = change.bookmark;
       const known =
         bookmarksRef.current.find((row) => row.id === change.id) ??
@@ -271,7 +272,7 @@ export function useLibrary(
         // Within the read pages: not shown means it did not match before.
         adjustTotal(shown ? 0 : 1, createdAt);
       }
-      void refreshCatalog();
+      if (catalog) void refreshCatalog();
     };
     const off = api.onBookmarkChanged((change) => {
       if ((revisions.current.get(change.id) ?? 0) >= change.revision) return;
@@ -295,9 +296,10 @@ export function useLibrary(
       );
     });
     /**
-     * A bulk action or an undo of many (NP-029): every change merged in one
-     * pass, so the loaded pages and the scroll position stay. Under a search
-     * the database says once which of them match.
+     * A bulk action or an undo of many (NP-029): each change goes through the
+     * same `apply` as a single one, so the loaded pages and the scroll
+     * position stay; under a search the database says once which of them
+     * match, and the catalog is read once for all.
      */
     const offBatch = api.onBookmarksChanged(async (changes) => {
       const fresh = changes.filter((c) => (revisions.current.get(c.id) ?? 0) < c.revision);
@@ -316,36 +318,10 @@ export function useLibrary(
         }
         if (!alive.current || list !== seq.current) return;
       }
-      const matches = (b: Bookmark | null): b is Bookmark => !!b && matchesFilters(b, filters) && (!found || found.has(b.id));
-      const byId = new Map(fresh.map((c) => [c.id, c.bookmark]));
-      const cursor = nextRef.current;
-      for (const [id, b] of byId) {
-        if (matches(b) && isAfter(b, cursor)) unread.current.set(id, b);
-        else unread.current.delete(id);
+      for (const c of fresh) {
+        const b = c.bookmark;
+        apply(c, !!b && matchesFilters(b, filters) && (!found || found.has(b.id)), false);
       }
-      setBookmarks((prev) => {
-        const kept = prev.flatMap((row) => {
-          if (!byId.has(row.id)) return [row];
-          const b = byId.get(row.id)!;
-          return matches(b) && !isAfter(b, cursor) ? [b] : [];
-        });
-        const shown = new Set(kept.map((row) => row.id));
-        const joined = [...byId.values()].filter(
-          (b): b is Bookmark => matches(b) && !isAfter(b, cursor) && !shown.has(b.id) && !pendingRef.current[b.id],
-        );
-        return joined.length ? sortBookmarks([...kept, ...joined]) : kept;
-      });
-      if (fresh.some((c) => pendingRef.current[c.id])) {
-        const next = { ...pendingRef.current };
-        for (const c of fresh) {
-          if (!next[c.id]) continue;
-          if (matches(c.bookmark)) next[c.id] = c.bookmark;
-          else delete next[c.id];
-        }
-        pendingRef.current = next;
-        setPending(next);
-      }
-      refreshTotal();
       void refreshCatalog();
     });
     const offInvalidate = api.onLibraryInvalidated(() => {

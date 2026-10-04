@@ -794,6 +794,27 @@ pub fn apply_bulk(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize,
     Ok(done)
 }
 
+/// Whether every one of `ids` outside the trash has a star, and there is one:
+/// the selection bar offers «Из избранного» then (NP-029).
+pub fn all_favorite(conn: &Connection, ids: &[i64]) -> Result<bool> {
+    conn.query_row(
+        "SELECT COALESCE(SUM(NOT is_favorite), 1) = 0 FROM bookmarks
+         WHERE id IN (SELECT value FROM json_each(?1)) AND deleted_at IS NULL",
+        [id_list(ids)?],
+        |r| r.get(0),
+    )
+}
+
+/// The id the next collection gets: collections use AUTOINCREMENT, so a
+/// deleted newest one is not reused. Its colour follows the id.
+pub fn next_collection_id(conn: &Connection) -> Result<i64> {
+    conn.query_row(
+        "SELECT COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'collections'), 0) + 1",
+        [],
+        |r| r.get(0),
+    )
+}
+
 /// «Новая коллекция из выбранного» (Р-27, point 3): the collection and the
 /// move in one transaction, so a failure leaves no empty collection.
 pub fn bulk_into_new_collection(
@@ -819,9 +840,17 @@ fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize, Vec<Bo
         |r| r.get(0),
     )?;
     // Which of them change, and what is written: `?2` is the value, `?3` the time.
-    let tag = match bulk {
-        Bulk::Tag(name) => Some(tag_id(conn, &name.trim().to_lowercase(), &now)?),
+    // A new tag is only looked up here and created below, once a bookmark
+    // gets it: an action that changes nothing leaves no empty tag behind.
+    let tag_name = match bulk {
+        Bulk::Tag(name) => Some(name.trim().to_lowercase()),
         _ => None,
+    };
+    let tag: Option<i64> = match &tag_name {
+        Some(name) => conn
+            .query_row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0))
+            .optional()?,
+        None => None,
     };
     let sorts = "triaged_at=COALESCE(triaged_at,?3)";
     let (changes, set, value): (&str, String, Value) = match bulk {
@@ -854,7 +883,8 @@ fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize, Vec<Bo
         return Ok((count as usize, Vec::new()));
     }
     let list = id_list(&changing)?;
-    if let Some(tag) = tag {
+    if let Some(name) = &tag_name {
+        let tag = tag_id(conn, name, &now)?;
         conn.execute(
             "INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT value, ?2 FROM json_each(?1) WHERE true
              ON CONFLICT DO NOTHING",

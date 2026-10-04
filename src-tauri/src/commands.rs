@@ -172,6 +172,18 @@ pub async fn bulk_update(
     Ok(done)
 }
 
+/// Whether every selected bookmark has a star: «В избранное» or «Из избранного».
+#[tauri::command]
+pub async fn all_favorite(state: State<'_, Arc<DbState>>, ids: Vec<i64>) -> Result<bool, CommandError> {
+    blocking(&state, move |conn| db::all_favorite(conn, &ids).map_err(text)).await
+}
+
+/// The id, and so the colour, «Новая коллекция из выбранного» will get.
+#[tauri::command]
+pub async fn next_collection_id(state: State<'_, Arc<DbState>>) -> Result<i64, CommandError> {
+    blocking(&state, |conn| db::next_collection_id(conn).map_err(text)).await
+}
+
 /// «Удалить навсегда…» on the selection in the trash, after the dialog:
 /// how many went for good. No undo, as for one (Р-22).
 #[tauri::command]

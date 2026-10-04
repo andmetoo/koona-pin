@@ -115,13 +115,14 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
         let (id, name) = row?;
         tags.entry(id).or_default().push(name);
     }
-    let (filter, ids) = match scope {
+    // The selection binds its ids; the library binds nothing.
+    let (filter, params): (&str, Vec<String>) = match scope {
         Scope::Selected(ids) => (
             "WHERE b.id IN (SELECT value FROM json_each(?1))",
-            serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+            vec![serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?],
         ),
-        Scope::Library if with_trash => ("WHERE ?1 IS NOT NULL", String::new()),
-        Scope::Library => ("WHERE b.deleted_at IS NULL AND ?1 IS NOT NULL", String::new()),
+        Scope::Library if with_trash => ("", Vec::new()),
+        Scope::Library => ("WHERE b.deleted_at IS NULL", Vec::new()),
     };
     let mut statement = conn.prepare(&format!(
         "SELECT b.id, b.uid, b.url, b.title, b.description, b.notes, b.domain, b.image_url, b.favicon_url, b.is_favorite,
@@ -129,7 +130,7 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
          FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id {filter}
          ORDER BY b.created_at DESC, b.id DESC"
     ))?;
-    let rows = statement.query_map([ids], |r| {
+    let rows = statement.query_map(rusqlite::params_from_iter(params), |r| {
         Ok(JsonBookmark {
             tags: tags.remove(&r.get::<_, i64>(0)?).unwrap_or_default(),
             uid: r.get(1)?,
