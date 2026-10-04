@@ -36,6 +36,9 @@ export interface ToolbarProps {
   onExport: (format: ExportFormat) => void;
   /** Menu «⋯» → «Резервная копия Netami Pin (JSON)» (NP-033, frame 30). */
   onRestore: () => void;
+  /** Groups of duplicates (NP-035): the count of «Дубликаты» and the section. */
+  duplicates: number;
+  onDuplicates: () => void;
   onAdd: () => void;
 }
 
@@ -128,7 +131,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
             { id: "export-csv", icon: FileSpreadsheet, label: t("more.exportCsv"), onSelect: () => props.onExport("csv") },
             "separator",
             { heading: t("more.cleanUp") },
-            { id: "duplicates", icon: Copy, label: t("more.duplicates"), disabled: true, disabledHint: soon },
+            { id: "duplicates", icon: Copy, label: t("more.duplicates"), count: props.duplicates || undefined, onSelect: props.onDuplicates },
             { id: "broken", icon: Unlink, label: t("more.brokenLinks"), disabled: true, disabledHint: soon },
           ]}
         />

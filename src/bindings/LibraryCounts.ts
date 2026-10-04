@@ -17,4 +17,9 @@ inbox_imported: number,
 /**
  * Bookmarks in the trash (NP-022); none of the others count them.
  */
-trash: number, };
+trash: number, 
+/**
+ * Groups of duplicates (NP-035): the sidebar and the menu «⋯». Counted
+ * by the command, not by [`get_counts`]: schemas before 5 have no key.
+ */
+duplicates: number, };

@@ -5,6 +5,7 @@ pub mod capture;
 pub mod capture_channel;
 pub mod commands;
 pub mod db;
+pub mod dedupe;
 pub mod error;
 pub mod export;
 pub mod import;
@@ -150,6 +151,10 @@ pub fn run() {
             commands::pick_backup,
             commands::restore_backup,
             commands::reveal_backup,
+            commands::get_duplicates,
+            commands::merge_duplicates,
+            commands::dismiss_duplicates,
+            commands::undismiss_duplicates,
             commands::rebuild_search_index
         ])
         .run(tauri::generate_context!())

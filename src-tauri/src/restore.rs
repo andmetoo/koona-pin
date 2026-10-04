@@ -279,8 +279,8 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
             continue;
         }
         tx.execute(
-            "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, source, created_at, updated_at, triaged_at, deleted_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 b.uid,
                 b.url,
@@ -297,6 +297,7 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
                 b.updated_at,
                 b.triaged_at,
                 b.deleted_at,
+                crate::dedupe::url_key(&b.url),
             ],
         )?;
         if !b.tags.is_empty() {

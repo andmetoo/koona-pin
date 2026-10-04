@@ -648,6 +648,55 @@ test("backup: copy, changes, restore in place with capture working after it; a b
   expect(texts).toContain("This is not an SQLite file.\n");
 });
 
+test("duplicates: captured twins form a group in SQLite, merge is one command, Ctrl Z brings them back", async ({ request }) => {
+  const data = await folder("duplicates");
+  const env = isolated(data);
+  const hostEnv = { ...process.env, ...env };
+  const app = await launch(request, env);
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await captureOpen(env);
+    for (const [id, url] of [
+      ["one", "https://example.invalid/page"],
+      ["two", "http://www.example.invalid/page/?utm_source=mail"],
+      ["three", "https://example.invalid/page#part"],
+      ["other", "https://example.invalid/page?ref=x"],
+    ])
+      expect((await hostMessage(capture(id, url, id, "chrome"), { env: hostEnv })).reply).toMatchObject({ ok: true, outcome: "created" });
+    await expect(page.getByRole("complementary").getByRole("button", { name: "Дубликаты 1", exact: true })).toBeVisible();
+    const result = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const groups = (await invoke("get_duplicates")) as { key: string; main: number; bookmarks: { id: number; url: string }[] }[];
+      const [group] = groups;
+      const merged = await invoke("merge_duplicates", {
+        groups: [{ main: group.main, others: group.bookmarks.filter((b) => b.id !== group.main).map((b) => b.id) }],
+      });
+      const after = await invoke("get_counts");
+      const undone = await invoke("undo", { command: (merged as { command: number }).command });
+      const back = await invoke("get_counts");
+      return { groups, merged, after, undone: (undone as { outcome: string }).outcome, back };
+    });
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].key).toBe("example.invalid/page");
+    expect(result.groups[0].bookmarks[0].url).toBe("https://example.invalid/page");
+    expect(result.merged).toMatchObject({ groups: 1, trashed: 2 });
+    expect(result.after).toMatchObject({ total: 2, trash: 2, duplicates: 0 });
+    expect(result.undone).toBe("undone");
+    expect(result.back).toMatchObject({ total: 4, trash: 0, duplicates: 1 });
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+  const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
+  expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
+    { url_key: "example.invalid/page", n: 3 },
+    { url_key: "example.invalid/page?ref=x", n: 1 },
+  ]);
+  db.close();
+});
+
 test("Ctrl A selects 10 000 bookmarks from SQLite without loading their pages", async ({ request }) => {
   const data = await folder("select-10k");
   const app = await launch(request, isolated(data));

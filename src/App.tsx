@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownToLine, ChevronDown, ChevronRight, Inbox, Link, Plus, Search, Star, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
@@ -27,6 +27,8 @@ import { SelectionActions, SelectionBar } from "./components/library/SelectionBa
 import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
+import { DuplicatesPage } from "./components/library/DuplicatesPage";
+import { mergedNotice } from "./services/duplicates";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
@@ -81,7 +83,7 @@ export function App() {
   const wide = useMedia(WIDE);
   const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "list"], "grid"));
   const [filters, setFilters] = useState(initialFilters);
-  const [page, setPage] = useState<"library" | "settings">("library");
+  const [page, setPage] = useState<"library" | "settings" | "duplicates">("library");
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const library = useLibrary(filters, scrollRef);
@@ -124,6 +126,7 @@ export function App() {
   const editHooks = useRef<EditHooks | null>(null);
   const dark = isDark(theme, systemDark);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
+  const sayAlert = useCallback((text: string) => setNotice({ text, alert: true }), []);
   /**
    * Ctrl Z takes back the last command, «Отменить» in a notice its own
    * (NP-024). What was changed since is not overwritten: the notice says why.
@@ -265,6 +268,12 @@ export function App() {
     setNotice(null);
     setTriage(filters);
     setFilters({ ...initialFilters, onlyInbox: true });
+  };
+  /** The section «Дубликаты» (NP-035): from the sidebar or the menu «⋯». */
+  const openDuplicates = () => {
+    setTriage(null);
+    setEditing(null);
+    setPage("duplicates");
   };
   /** «Закончить» `Esc`: back where triage was opened. */
   const finishTriage = () => {
@@ -689,6 +698,7 @@ export function App() {
         narrow={narrow}
         filters={filters}
         settingsOpen={page === "settings"}
+        duplicatesOpen={page === "duplicates"}
         counts={library.counts}
         collections={library.collections}
         tags={library.tags}
@@ -703,6 +713,7 @@ export function App() {
           setTriage(null);
           setPage("settings");
         }}
+        onDuplicates={openDuplicates}
         onConnect={() => setSurface("connect")}
         onNewCollection={() => setSurface("collection")}
         onDeleteCollection={setDeletingCollection}
@@ -749,6 +760,23 @@ export function App() {
                   />
                 </div>
               </>
+            ) : page === "duplicates" ? (
+              <DuplicatesPage
+                collections={library.collections}
+                padding={padding}
+                onMerged={(merged) => setNotice({ text: mergedNotice(t, merged), alert: false, undo: undoing(merged.command) })}
+                onHidden={(key, ids) =>
+                  setNotice({
+                    text: t("duplicates.hidden", { key }),
+                    alert: false,
+                    undo: () => {
+                      setNotice(null);
+                      void api.undismissDuplicates(key, ids).then(() => library.refreshCatalog(), (err) => say(describeError(err), true));
+                    },
+                  })
+                }
+                onFailed={sayAlert}
+              />
             ) : triage ? (
               <Triage
                 collections={library.collections}
@@ -780,6 +808,8 @@ export function App() {
                     onImport={() => setSurface("import")}
                     onExport={exportLibrary}
                     onRestore={() => setSurface("restore")}
+                    duplicates={library.counts.duplicates}
+                    onDuplicates={openDuplicates}
                     onAdd={() => setSurface("add")}
                   />
                   {capture?.state === "failing" && (
