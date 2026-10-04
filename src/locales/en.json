@@ -26,7 +26,10 @@
     "tags": "Tags",
     "moreTags_one": "+ {{count}} more",
     "moreTags_other": "+ {{count}} more",
-    "fewerTags": "Show fewer"
+    "fewerTags": "Show fewer",
+    "newCollectionName": "Name of the new collection",
+    "newCollectionCreate": "Enter — create and move",
+    "newCollectionCancel": "Esc — cancel"
   },
   "nav": {
     "inbox": "Inbox",
@@ -121,10 +124,18 @@
     "move": "Move to…",
     "tag": "Tag",
     "favorite": "Favorite",
+    "unfavorite": "Unfavorite",
+    "unfavoriteName": "Remove from favorites",
     "export": "Export",
     "trash": "Trash",
     "clear": "Clear selection",
+    "newCollection": "New collection from selection…",
+    "newCollectionName": "New collection",
+    "tagLabel": "Tag for the selected bookmarks",
+    "tagPlaceholder": "Tag, then Enter",
+    "tagSuggestions": "Tags in the library",
     "keys": "Shift / Ctrl — add to selection  ·  Ctrl+A — select all  ·  Esc — clear selection",
+    "keysTrash": "Ctrl+A — select all  ·  Del — delete forever  ·  Esc — clear selection",
     "hiddenBySearch_one": "{{count}} of the {{total}} selected is hidden by the search — actions include it  ·  Esc — clear selection",
     "hiddenBySearch_other": "{{count}} of the {{total}} selected are hidden by the search — actions include them  ·  Esc — clear selection",
     "hiddenElsewhere_one": "{{count}} of the {{total}} selected is not in this section — actions include it  ·  Esc — clear selection",
@@ -362,11 +373,6 @@
     "failedMove": "Couldn't move to «{{name}}»: {{reason}}",
     "failedKeep": "Couldn't keep: {{reason}}",
     "failedSave": "Couldn't save: {{reason}}",
-    "reason": {
-      "database_busy": "the library is busy",
-      "disk_full": "the disk is full",
-      "read_only": "the library is read-only"
-    },
     "done": "Inbox sorted",
     "summary_one": "{{count}} bookmark decided: {{kept}} kept, {{filed}} filed into collections, {{trashed}} moved to trash.",
     "summary_other": "{{count}} bookmarks decided: {{kept}} kept, {{filed}} filed into collections, {{trashed}} moved to trash.",
@@ -382,7 +388,13 @@
     "conflict": "Not undone: «{{title}}» has changed since",
     "gone": "Not undone: «{{title}}» was deleted for good",
     "no_collection": "Not undone: the collection of «{{title}}» is gone",
-    "nothing": "Nothing to undo"
+    "nothing": "Nothing to undo",
+    "undoneMany_one": "Undone for {{count}} bookmark",
+    "undoneMany_other": "Undone for {{count}} bookmarks",
+    "undoneTrashMany_one": "Back from Trash: {{count}} bookmark",
+    "undoneTrashMany_other": "Back from Trash: {{count}} bookmarks",
+    "undoneRestoreMany_one": "Back in Trash: {{count}} bookmark",
+    "undoneRestoreMany_other": "Back in Trash: {{count}} bookmarks"
   },
   "trash": {
     "restore": "Restore",
@@ -491,6 +503,48 @@
   "errors": {
     "disk_full": "The disk is full — the changes were not saved.",
     "read_only": "The library is damaged and open read-only — changes are not saved.",
-    "database_busy": "Another program is using the library. Try again in a few seconds."
+    "database_busy": "Another program is using the library. Try again in a few seconds.",
+    "reason": {
+      "database_busy": "the library is busy",
+      "disk_full": "the disk is full",
+      "read_only": "the library is read-only",
+      "not_found": "the collection or bookmark no longer exists",
+      "conflict": "that name is taken"
+    }
+  },
+  "bulk": {
+    "moved_one": "{{count}} bookmark moved to «{{name}}»",
+    "moved_other": "{{count}} bookmarks moved to «{{name}}»",
+    "movedOut_one": "{{count}} bookmark taken out of its collection",
+    "movedOut_other": "{{count}} bookmarks taken out of their collections",
+    "tagged_one": "Tag «{{tag}}» added to {{count}} bookmark",
+    "tagged_other": "Tag «{{tag}}» added to {{count}} bookmarks",
+    "starred_one": "{{count}} bookmark in Favorites",
+    "starred_other": "{{count}} bookmarks in Favorites",
+    "unstarred_one": "{{count}} bookmark removed from Favorites",
+    "unstarred_other": "{{count}} bookmarks removed from Favorites",
+    "trashed_one": "{{count}} bookmark in Trash",
+    "trashed_other": "{{count}} bookmarks in Trash",
+    "restored_one": "{{count}} bookmark restored",
+    "restored_other": "{{count}} bookmarks restored",
+    "purged_one": "{{count}} bookmark deleted for good",
+    "purged_other": "{{count}} bookmarks deleted for good",
+    "failed": {
+      "move_one": "Couldn't move {{count}} bookmark to «{{name}}»: {{reason}}. Nothing changed.",
+      "move_other": "Couldn't move {{count}} bookmarks to «{{name}}»: {{reason}}. Nothing changed.",
+      "moveOut_one": "Couldn't take {{count}} bookmark out of its collection: {{reason}}. Nothing changed.",
+      "moveOut_other": "Couldn't take {{count}} bookmarks out of their collections: {{reason}}. Nothing changed.",
+      "newCollection": "Couldn't create the collection «{{name}}»: {{reason}}. Nothing changed.",
+      "tag_one": "Couldn't add the tag «{{tag}}» to {{count}} bookmark: {{reason}}. Nothing changed.",
+      "tag_other": "Couldn't add the tag «{{tag}}» to {{count}} bookmarks: {{reason}}. Nothing changed.",
+      "star_one": "Couldn't add {{count}} bookmark to Favorites: {{reason}}. Nothing changed.",
+      "star_other": "Couldn't add {{count}} bookmarks to Favorites: {{reason}}. Nothing changed.",
+      "unstar_one": "Couldn't remove {{count}} bookmark from Favorites: {{reason}}. Nothing changed.",
+      "unstar_other": "Couldn't remove {{count}} bookmarks from Favorites: {{reason}}. Nothing changed.",
+      "trash_one": "Couldn't move {{count}} bookmark to Trash: {{reason}}. Nothing changed.",
+      "trash_other": "Couldn't move {{count}} bookmarks to Trash: {{reason}}. Nothing changed.",
+      "restore_one": "Couldn't restore {{count}} bookmark: {{reason}}. Nothing changed.",
+      "restore_other": "Couldn't restore {{count}} bookmarks: {{reason}}. Nothing changed."
+    }
   }
 }
