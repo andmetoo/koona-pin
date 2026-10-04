@@ -5,7 +5,7 @@ import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
-import { suggestedName } from "./services/collections";
+import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
 import { AppSettings, Bookmark, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
@@ -653,6 +653,9 @@ export function App() {
           naming !== null && selecting
             ? {
                 suggested: naming,
+                count: selection.ids.size,
+                // Colours follow the id (services/collections): the next one gets the next colour.
+                color: collectionColor(Math.max(0, ...library.collections.map((c) => c.id)) + 1),
                 onCreate: (name) => {
                   setNaming(null);
                   runBulk({ action: "new_collection", name });
