@@ -23,11 +23,11 @@ import { BookmarkList } from "./components/library/BookmarkList";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
-import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog } from "./components/library/Dialogs";
+import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "connect" | "collection" | "selectionCollection" | null;
+type Surface = "add" | "import" | "restore" | "connect" | "collection" | "selectionCollection" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -715,6 +715,7 @@ export function App() {
                     onView={setView}
                     onImport={() => setSurface("import")}
                     onExport={exportLibrary}
+                    onRestore={() => setSurface("restore")}
                     onAdd={() => setSurface("add")}
                   />
                   {capture?.state === "failing" && (
@@ -930,7 +931,22 @@ export function App() {
           }}
         />
       )}
-      {surface === "collection" && (
+      {surface === "restore" && (
+        <RestoreDialog
+          onClose={() => setSurface(null)}
+          onRestore={async (content, mode) => {
+            const outcome = await api.restoreLibrary(content, mode);
+            if (outcome.outcome === "restored") {
+              // After a replace no open editor or selection points at a bookmark that is gone.
+              closeEditor();
+              selection.clear();
+              await Promise.all([library.refresh(), library.refreshCatalog()]);
+            }
+            return outcome;
+          }}
+          onShowBackups={() => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}
+        />
+      )}      {surface === "collection" && (
         <CollectionDialog
           onClose={() => setSurface(null)}
           onCreate={async (name) => {

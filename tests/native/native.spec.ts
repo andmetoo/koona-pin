@@ -520,6 +520,52 @@ test("import of the three browsers' files: folders into collections in SQLite, t
   }
 });
 
+test("restore from JSON through IPC: a refused copy changes nothing, a replace leaves a backup of the old library first", async ({ request }) => {
+  const data = await folder("restore-json");
+  const app = await launch(request, isolated(data));
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    const chrome = await readFile(path.join("tests/fixtures/bookmarks", "chrome.html"), "utf8");
+    const result = await page.evaluate(async (chrome) => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      await invoke("import_html_bookmarks", { htmlContent: chrome, toInbox: false });
+      const at = "2026-09-01T10:00:00.000Z";
+      const copy = {
+        format: "netami-pin", version: 1, exported_at: at, app_version: "0.1.0",
+        collections: [{ uid: "c1", name: "Из копии", color: null, icon: null, created_at: at }],
+        tags: [],
+        bookmarks: [
+          { uid: "b1", url: "https://copy.example/1", title: "Первая", description: null, notes: "заметка", domain: "copy.example", image_url: null, favicon_url: null,
+            is_favorite: true, collection: "c1", tags: ["копия"], source: "chrome", created_at: at, updated_at: at, triaged_at: null, deleted_at: null },
+        ],
+      };
+      const refused = await invoke("restore_library", { content: JSON.stringify({ ...copy, version: 9 }), mode: "replace" });
+      const countsAfterRefused = await invoke("get_counts");
+      const check = await invoke("check_restore", { content: JSON.stringify(copy) });
+      const restored = await invoke("restore_library", { content: JSON.stringify(copy), mode: "replace" });
+      const counts = await invoke("get_counts");
+      const collections = ((await invoke("get_collections")) as { name: string }[]).map((c) => c.name);
+      return { refused, countsAfterRefused, check, restored, counts, collections };
+    }, chrome);
+    expect(result.refused).toEqual({ outcome: "rejected", problem: { problem: "newer", version: 9 } });
+    expect(result.countsAfterRefused).toMatchObject({ total: 7 });
+    expect(result.check).toMatchObject({ outcome: "ready", preview: { bookmarks: 1, collections: 1, current: 7 } });
+    expect(result.restored).toMatchObject({ outcome: "restored", summary: { added: 1, in_inbox: 1, collections: ["Из копии"] } });
+    expect(result.counts).toMatchObject({ total: 1, inbox: 1, favorites: 1 });
+    expect(result.collections).toEqual(["Из копии"]);
+    const backupName = (result.restored as { summary: { backup: string } }).summary.backup;
+    const backups = await readdir(path.join(data, "backups"));
+    expect(backups).toContain(backupName);
+    const saved = new DatabaseSync(path.join(data, "backups", backupName), { readOnly: true });
+    expect(saved.prepare("SELECT count(*) AS n FROM bookmarks").get()).toEqual({ n: 7 });
+    saved.close();
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+
 test("Ctrl A selects 10 000 bookmarks from SQLite without loading their pages", async ({ request }) => {
   const data = await folder("select-10k");
   const app = await launch(request, isolated(data));

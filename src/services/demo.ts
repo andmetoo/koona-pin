@@ -14,6 +14,11 @@ import {
   ExportFormat,
   ExportOutcome,
   ImportProgress,
+  RestoreCheck,
+  RestoreMode,
+  RestoreOutcome,
+  RestoreProblem,
+  RestoreSummary,
   ImportSummary,
   LibraryPlace,
   LibraryStatus,
@@ -166,6 +171,41 @@ function bulkFields(b: Bookmark, change: BulkChange, collectionId: number | null
     case "restore":
       return { deleted_at: null };
   }
+}
+/** A JSON copy as the demo reads it: the format, the version, the lists and every address (`restore.rs` checks more). */
+type CopyBookmark = {
+  uid: string; url: string; title: string; description?: string | null; notes?: string | null; domain?: string;
+  image_url?: string | null; favicon_url?: string | null; is_favorite?: boolean; collection?: string | null; tags?: string[];
+  source?: Bookmark["source"]; created_at: string; updated_at: string; triaged_at?: string | null; deleted_at?: string | null;
+};
+type Copy = {
+  exported_at: string;
+  collections: { uid: string; name: string; color?: string | null; icon?: string | null; created_at: string }[];
+  tags: { uid: string; name: string }[];
+  bookmarks: CopyBookmark[];
+};
+function readCopy(content: string): Copy | RestoreProblem {
+  let value: Record<string, unknown>;
+  try {
+    value = JSON.parse(content.replace(/^﻿/, ""));
+  } catch {
+    return { problem: "not_json" };
+  }
+  if (value?.format !== "netami-pin" || typeof value.version !== "number") return { problem: "not_ours" };
+  if (value.version > 1) return { problem: "newer", version: value.version };
+  const copy = value as unknown as Copy;
+  if (!Array.isArray(copy.bookmarks) || !Array.isArray(copy.collections) || !Array.isArray(copy.tags))
+    return { problem: "damaged", item: "file", index: 0, damage: "structure", detail: "bookmarks, collections or tags missing" };
+  for (const [i, b] of copy.bookmarks.entries()) {
+    let ok = false;
+    try {
+      ok = ["http:", "https:"].includes(new URL(b.url).protocol);
+    } catch {
+      /* Not an address. */
+    }
+    if (!ok) return { problem: "damaged", item: "bookmark", index: i + 1, damage: "bad_address", detail: String(b.url ?? "") };
+  }
+  return copy;
 }
 export const demo = {
   async getBookmarks(
@@ -527,6 +567,79 @@ export const demo = {
   },
   async revealExport() {
     /* No folders in the browser preview. */
+  },
+  /** `restore.rs` in the browser: the same checks of the format, the version and every address. */
+  async checkRestore(content: string): Promise<RestoreCheck> {
+    const read = readCopy(content);
+    if ("problem" in read) return { outcome: "rejected", problem: read };
+    return {
+      outcome: "ready",
+      preview: {
+        bookmarks: read.bookmarks.length,
+        collections: read.collections.length,
+        tags: read.tags.length,
+        exported_at: read.exported_at,
+        current: bookmarks.length,
+      },
+    };
+  },
+  /** Merge keeps every bookmark with the same address; replace takes the copy as it is. No backups in the preview. */
+  async restoreLibrary(content: string, mode: RestoreMode): Promise<RestoreOutcome> {
+    const copy = readCopy(content);
+    if ("problem" in copy) return { outcome: "rejected", problem: copy };
+    if (mode === "replace") {
+      bookmarks = [];
+      collections = [];
+    }
+    const summary: RestoreSummary = { added: 0, in_inbox: 0, in_trash: 0, existing: 0, collections: [], tags: 0, backup: mode === "replace" ? "netami-pin.before-restore.db" : null };
+    const tagsBefore = new Set(bookmarks.flatMap((b) => b.tags ?? []));
+    let id = Math.max(Date.now(), ...bookmarks.map((b) => b.id + 1), ...collections.map((c) => c.id + 1));
+    const collectionOf = new Map<string, number>();
+    for (const c of copy.collections) {
+      const same = collections.find((existing) => existing.name.toLocaleLowerCase() === c.name.toLocaleLowerCase());
+      if (same) collectionOf.set(c.uid, same.id);
+      else {
+        collections = [...collections, { id: id, name: c.name, color: c.color ?? null, icon: c.icon ?? null, count: 0, created_at: c.created_at }];
+        summary.collections.push(c.name);
+        collectionOf.set(c.uid, id++);
+      }
+    }
+    const known = new Set(bookmarks.map((b) => b.url));
+    for (const b of copy.bookmarks) {
+      if (known.has(b.url)) {
+        summary.existing++;
+        continue;
+      }
+      bookmarks = [
+        ...bookmarks,
+        {
+          id: id++,
+          url: b.url,
+          title: b.title,
+          description: b.description ?? null,
+          image_url: b.image_url ?? null,
+          favicon_url: b.favicon_url ?? null,
+          notes: b.notes ?? null,
+          domain: b.domain || new URL(b.url).hostname,
+          collection_id: b.collection ? (collectionOf.get(b.collection) ?? null) : null,
+          tags: b.tags ?? [],
+          is_favorite: !!b.is_favorite,
+          created_at: b.created_at,
+          updated_at: b.updated_at,
+          revision: 1,
+          triaged_at: b.triaged_at ?? null,
+          deleted_at: b.deleted_at ?? null,
+          source: b.source ?? null,
+        },
+      ];
+      summary.added++;
+      if (b.deleted_at) summary.in_trash++;
+      else if (!b.triaged_at) summary.in_inbox++;
+    }
+    summary.tags = new Set(bookmarks.flatMap((b) => b.tags ?? []).filter((t) => !tagsBefore.has(t))).size;
+    persist();
+    invalidations.forEach((fn) => fn());
+    return { outcome: "restored", summary };
   },
   onImportProgress(fn: (progress: ImportProgress) => void) {
     progressListeners.add(fn);
