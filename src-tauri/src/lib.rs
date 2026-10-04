@@ -6,6 +6,7 @@ pub mod capture_channel;
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod export;
 pub mod import;
 pub mod journal;
 pub mod library;
@@ -44,11 +45,14 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_opener::init())
+        // The Save dialog of an export, called from Rust only (NP-032): no permission for the interface.
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![autostart::ARG]),
         ))
         .manage(channel_state.clone())
+        .manage(commands::LastExport::default())
         .manage(Arc::new(library_state::Library::new(
             library::Paths::from_env(),
         )))
@@ -119,6 +123,8 @@ pub fn run() {
             commands::get_counts,
             commands::open_url_external,
             commands::import_html_bookmarks,
+            commands::export_library,
+            commands::reveal_export,
             commands::get_app_settings,
             commands::set_close_to_tray,
             commands::get_capture_status,

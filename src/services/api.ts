@@ -14,6 +14,9 @@ import {
   DataSummary,
   DomainCount,
   FilterState,
+  CsvColumns,
+  ExportFormat,
+  ExportOutcome,
   ImportProgress,
   ImportSummary,
   LibraryCounts,
@@ -131,6 +134,11 @@ const desktop = {
     call<ImportSummary>("import_html_bookmarks", { htmlContent, toInbox }),
   onImportProgress: (callback: (progress: ImportProgress) => void) =>
     subscription("import-progress", callback),
+  /** The Save dialog and the file (NP-032); CSV needs its column titles. */
+  exportLibrary: (format: ExportFormat, columns?: CsvColumns) =>
+    call<ExportOutcome>("export_library", { format, columns: columns ?? null }),
+  /** The last exported file in Explorer. */
+  revealExport: () => call<void>("reveal_export"),
   openUrl: (url: string) => call<void>("open_url_external", { url }),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
