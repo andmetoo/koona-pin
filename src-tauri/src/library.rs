@@ -300,6 +300,230 @@ pub fn back_up_now(paths: &Paths, now: DateTime<Utc>) -> Result<PathBuf, String>
     backup::create_auto(&conn, &paths.backups, now)
 }
 
+/// «Save a copy…»: the same check and copy as «Back up now», to a file the
+/// user chose.
+pub fn save_copy(paths: &Paths, target: &Path) -> Result<(), String> {
+    let conn = checked_connection(paths)?
+        .map_err(|problem| format!("the library is damaged, no copy was made: {problem}"))?;
+    backup::write_copy(&conn, target)
+}
+
+/// Why a copy cannot be restored (sheet 33); nothing was changed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "problem", rename_all = "snake_case")]
+#[ts(export)]
+pub enum CopyProblem {
+    NotDatabase,
+    /// Another program's file, or a library of the builds before schema 1.
+    NotOurs,
+    Newer { schema: i64, supported: i64 },
+    Damaged { detail: String },
+    Unreadable { detail: String },
+}
+
+fn copy_problem(error: rusqlite::Error) -> CopyProblem {
+    match error.sqlite_error_code() {
+        Some(ErrorCode::NotADatabase) => CopyProblem::NotDatabase,
+        Some(ErrorCode::DatabaseCorrupt) => CopyProblem::Damaged {
+            detail: error.to_string(),
+        },
+        _ => CopyProblem::Unreadable {
+            detail: error.to_string(),
+        },
+    }
+}
+
+/// Reads a copy without changing it: ours, not newer than this build, intact.
+/// Returns its bookmarks outside the trash.
+pub fn check_copy(path: &Path) -> Result<u32, CopyProblem> {
+    let conn = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(copy_problem)?;
+    conn.busy_timeout(BUSY_TIMEOUT).map_err(copy_problem)?;
+    let application_id: i32 = conn
+        .pragma_query_value(None, "application_id", |r| r.get(0))
+        .map_err(copy_problem)?;
+    if application_id != migrations::APPLICATION_ID {
+        return Err(CopyProblem::NotOurs);
+    }
+    let schema = migrations::user_version(&conn).map_err(copy_problem)?;
+    if schema > migrations::SCHEMA_VERSION {
+        return Err(CopyProblem::Newer {
+            schema,
+            supported: migrations::SCHEMA_VERSION,
+        });
+    }
+    if let Some(detail) = quick_check(&conn).map_err(copy_problem)? {
+        return Err(CopyProblem::Damaged { detail });
+    }
+    conn.query_row(
+        "SELECT count(*) FROM bookmarks WHERE deleted_at IS NULL",
+        [],
+        |r| r.get(0),
+    )
+    .map_err(copy_problem)
+}
+
+#[derive(Debug)]
+pub struct Restored {
+    /// Bookmarks of the copy outside the trash.
+    pub bookmarks: u32,
+    /// The library as it was before the restore.
+    pub previous: PathBuf,
+}
+
+#[derive(Debug)]
+pub enum RestoreFailure {
+    Rejected(CopyProblem),
+    /// The current library could not be saved first: nothing was changed.
+    Backup(String),
+    /// Nothing was changed either.
+    Failed(String),
+}
+
+/// The copy brought to the current schema in a working folder next to the
+/// copies: the chosen file is never written to, and migrations run on the
+/// working file, not on the library.
+fn prepare(source: &Path, backups: &Path) -> Result<PathBuf, String> {
+    let work = backups.join("restoring");
+    let _ = fs::remove_dir_all(&work);
+    fs::create_dir_all(&work).map_err(|e| e.to_string())?;
+    let database = work.join("netamipin.db");
+    let source = Connection::open_with_flags(
+        source,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| e.to_string())?;
+    backup::write_copy(&source, &database)?;
+    drop(source);
+    let opened = open(&Paths {
+        database: database.clone(),
+        backups: work.join(backup::FOLDER),
+    })
+    .map_err(|failure| format!("{}: {}", failure.code, failure.detail))?;
+    // Without a WAL the file holds everything the backup API reads.
+    opened
+        .conn
+        .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+        .map_err(|e| e.to_string())?;
+    Ok(database)
+}
+
+fn discard(prepared: &Path) {
+    if let Some(work) = prepared.parent() {
+        let _ = fs::remove_dir_all(work);
+    }
+}
+
+/// The library as it is, before it is replaced: a consistent copy, or the
+/// files as they are when a damaged library cannot be copied.
+fn save_current(conn: &Connection, paths: &Paths) -> Result<PathBuf, String> {
+    let target = backup::before_restore_path(&paths.backups);
+    if let Err(error) = backup::write_copy(conn, &target) {
+        fs::copy(&paths.database, &target).map_err(|e| format!("{error}; {e}"))?;
+        let wal = PathBuf::from(format!("{}-wal", paths.database.display()));
+        if wal.exists() {
+            fs::copy(&wal, format!("{}-wal", target.display())).map_err(|e| e.to_string())?;
+        }
+    }
+    backup::prune_before_restore(&paths.backups);
+    Ok(target)
+}
+
+/// Every page of the library replaced by the prepared copy in one write
+/// transaction of the backup API: on failure the library stays as it was.
+fn replace_pages(conn: &mut Connection, prepared: &Path) -> rusqlite::Result<()> {
+    use rusqlite::backup::{Backup, StepResult};
+    let source = Connection::open_with_flags(
+        prepared,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    let copy = Backup::new(&source, conn)?;
+    for _ in 0..100 {
+        match copy.step(-1)? {
+            StepResult::Done => return Ok(()),
+            StepResult::More => {}
+            // A reader of the maintenance thread; it lets go within moments.
+            _ => std::thread::sleep(Duration::from_millis(50)),
+        }
+    }
+    Err(rusqlite::Error::SqliteFailure(
+        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_BUSY),
+        Some("the library stayed busy".into()),
+    ))
+}
+
+/// Restores a copy into the open library in place (sheet 33): the
+/// connection, the capture channel and the window stay. The caller holds
+/// the library lock and clears what refers to the old contents.
+pub fn restore_into(
+    conn: &mut Connection,
+    paths: &Paths,
+    source: &Path,
+) -> Result<Restored, RestoreFailure> {
+    let bookmarks = check_copy(source).map_err(RestoreFailure::Rejected)?;
+    let prepared = prepare(source, &paths.backups).map_err(RestoreFailure::Failed)?;
+    let result = (|| {
+        let previous = save_current(conn, paths).map_err(RestoreFailure::Backup)?;
+        // A damaged library is read-only; the restored one is not.
+        let read_only: bool = conn
+            .pragma_query_value(None, "query_only", |r| r.get(0))
+            .unwrap_or(false);
+        let replaced = conn
+            .pragma_update(None, "query_only", false)
+            .and_then(|_| replace_pages(conn, &prepared));
+        if let Err(error) = replaced {
+            let _ = conn.pragma_update(None, "query_only", read_only);
+            return Err(RestoreFailure::Failed(error.to_string()));
+        }
+        Ok(Restored { bookmarks, previous })
+    })();
+    discard(&prepared);
+    result
+}
+
+/// Moves the library with its WAL; the shared-memory file is only a cache.
+fn move_files(from: &Path, to: &Path) -> std::io::Result<()> {
+    let moved = from.exists();
+    if moved {
+        fs::rename(from, to)?;
+    }
+    let wal = PathBuf::from(format!("{}-wal", from.display()));
+    if wal.exists() {
+        if let Err(error) = fs::rename(&wal, format!("{}-wal", to.display())) {
+            // Without its WAL the file is not the library: put it back.
+            if moved {
+                let _ = fs::rename(to, from);
+            }
+            return Err(error);
+        }
+    }
+    let _ = fs::remove_file(format!("{}-shm", from.display()));
+    Ok(())
+}
+
+/// The same for a library that did not open (frame 12): its files go to the
+/// backups folder as they are and the prepared copy takes their place. The
+/// caller opens the library again.
+pub fn restore_closed(paths: &Paths, source: &Path) -> Result<Restored, RestoreFailure> {
+    let bookmarks = check_copy(source).map_err(RestoreFailure::Rejected)?;
+    let prepared = prepare(source, &paths.backups).map_err(RestoreFailure::Failed)?;
+    let result = (|| {
+        let previous = backup::before_restore_path(&paths.backups);
+        move_files(&paths.database, &previous).map_err(|e| RestoreFailure::Backup(e.to_string()))?;
+        if let Err(error) = fs::rename(&prepared, &paths.database) {
+            let _ = move_files(&previous, &paths.database);
+            return Err(RestoreFailure::Failed(error.to_string()));
+        }
+        backup::prune_before_restore(&paths.backups);
+        Ok(Restored { bookmarks, previous })
+    })();
+    discard(&prepared);
+    result
+}
+
 /// A separate read-only connection that passed the integrity check, or the
 /// problem the check found.
 fn checked_connection(paths: &Paths) -> Result<Result<Connection, String>, String> {
@@ -492,6 +716,184 @@ mod tests {
             maintain(&paths, now + chrono::Duration::hours(1), false).unwrap(),
             Health::Intact { copied: None }
         );
+    }
+
+    fn bookmarks(conn: &Connection) -> i64 {
+        conn.query_row(
+            "SELECT count(*) FROM bookmarks WHERE deleted_at IS NULL",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    }
+
+    fn capture(conn: &Connection, url: &str, request: &str) -> crate::capture::CaptureResult {
+        crate::capture::save(
+            conn,
+            &crate::capture::CaptureRequest {
+                request_id: Some(request.into()),
+                url: url.into(),
+                title: Some("Captured".into()),
+                collection_id: None,
+                tags: None,
+            },
+            db::Source::Chrome,
+        )
+        .unwrap()
+    }
+
+    fn before_restore_copies(paths: &Paths) -> Vec<PathBuf> {
+        fs::read_dir(&paths.backups)
+            .map(|entries| {
+                entries
+                    .filter_map(|e| e.ok().map(|e| e.path()))
+                    .filter(|p| {
+                        let name = p.file_name().unwrap().to_string_lossy();
+                        name.starts_with("netamipin.before-restore-") && name.ends_with(".db")
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn restore_replaces_an_open_wal_library_in_place() {
+        let paths = library("restore-open");
+        build(&paths, 200);
+        let mut conn = open(&paths).unwrap().conn;
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        let in_copy = bookmarks(&conn);
+        // Changes after the copy stay in the WAL of the open library.
+        capture(&conn, "https://example.com/after-the-copy", "after");
+        conn.execute("UPDATE bookmarks SET deleted_at = '2026-10-04T10:00:00.000Z' WHERE id = 1", [])
+            .unwrap();
+        assert!(Path::new(&format!("{}-wal", paths.database.display())).exists());
+
+        let restored = restore_into(&mut conn, &paths, &copy).unwrap();
+        assert_eq!(restored.bookmarks as i64, in_copy);
+        assert_eq!(bookmarks(&conn), in_copy, "the open connection sees the copy");
+        assert_eq!(quick_check(&conn).unwrap(), None);
+        let after: i64 = conn
+            .query_row("SELECT count(*) FROM bookmarks WHERE url = 'https://example.com/after-the-copy'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after, 0, "changes after the copy are gone");
+        // The replaced library is kept, with the change made after the copy.
+        let previous = Connection::open(&restored.previous).unwrap();
+        assert_eq!(bookmarks(&previous), in_copy, "one added, one trashed");
+        assert_eq!(before_restore_copies(&paths), vec![restored.previous.clone()]);
+        assert!(!paths.backups.join("restoring").exists(), "the working copy is removed");
+
+        // Capture from the extension works on the same connection, and a
+        // retried request after the copy saves the link again.
+        let again = capture(&conn, "https://example.com/after-the-copy", "after");
+        assert!(again.newly_created);
+        // The search index came with the copy and still answers.
+        conn.query_row(
+            "SELECT count(*) FROM bookmarks_search WHERE bookmarks_search MATCH 'captured'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap();
+        drop(conn);
+        // The next start opens the restored library as it is.
+        let reopened = open(&paths).unwrap().conn;
+        assert_eq!(bookmarks(&reopened), in_copy + 1);
+    }
+
+    #[test]
+    fn restore_makes_a_read_only_damaged_library_writable() {
+        let paths = library("restore-damaged");
+        build(&paths, 0);
+        let mut conn = open(&paths).unwrap().conn;
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        // As the background check leaves a damaged library.
+        conn.pragma_update(None, "query_only", true).unwrap();
+        restore_into(&mut conn, &paths, &copy).unwrap();
+        capture(&conn, "https://example.com/writable", "writable");
+    }
+
+    #[test]
+    fn restore_of_an_older_schema_migrates_the_copy_only() {
+        let paths = library("restore-older");
+        drop(open(&paths).unwrap());
+        let old = paths.folder().join("old-copy.db");
+        let conn = fixtures::fresh_at(&old, 1);
+        fixtures::sample_rows(&conn);
+        fixtures::finish(conn);
+        let original = fs::read(&old).unwrap();
+        let mut conn = open(&paths).unwrap().conn;
+        let restored = restore_into(&mut conn, &paths, &old).unwrap();
+        assert_eq!(
+            migrations::user_version(&conn).unwrap(),
+            migrations::SCHEMA_VERSION
+        );
+        assert_eq!(bookmarks(&conn), restored.bookmarks as i64);
+        assert!(restored.bookmarks > 0);
+        assert_eq!(fs::read(&old).unwrap(), original, "the chosen file is not written to");
+    }
+
+    #[test]
+    fn copies_that_cannot_be_restored_change_nothing() {
+        let paths = library("restore-refused");
+        build(&paths, 0);
+        let mut conn = open(&paths).unwrap().conn;
+        let count = bookmarks(&conn);
+        let folder = paths.folder();
+
+        let text = folder.join("text.db");
+        fs::write(&text, b"This is not an SQLite file.\n").unwrap();
+        let foreign = folder.join("foreign.db");
+        Connection::open(&foreign)
+            .unwrap()
+            .execute_batch("PRAGMA application_id = 305419896; CREATE TABLE notes (text TEXT);")
+            .unwrap();
+        let newer = back_up_now(&paths, Utc::now()).unwrap();
+        Connection::open(&newer)
+            .unwrap()
+            .pragma_update(None, "user_version", migrations::SCHEMA_VERSION + 1)
+            .unwrap();
+        let damaged = folder.join("damaged.db");
+        let big = fixtures::fresh_at(&damaged, 1);
+        fixtures::generated(&big, 3_000, 3);
+        fixtures::finish(big);
+        fixtures::damage(&damaged);
+
+        for (file, expected) in [
+            (&text, "not_database"),
+            (&foreign, "not_ours"),
+            (&newer, "newer"),
+            (&damaged, "damaged"),
+            (&folder.join("missing.db"), "unreadable"),
+        ] {
+            let Err(RestoreFailure::Rejected(problem)) = restore_into(&mut conn, &paths, file) else {
+                panic!("{} must be refused", file.display());
+            };
+            let tag = serde_json::to_value(&problem).unwrap()["problem"].clone();
+            assert_eq!(tag, expected, "{}", file.display());
+        }
+        assert_eq!(bookmarks(&conn), count);
+        assert!(before_restore_copies(&paths).is_empty(), "no copy before a refused restore");
+    }
+
+    #[test]
+    fn restore_replaces_a_library_that_did_not_open() {
+        let paths = library("restore-closed");
+        build(&paths, 0);
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        let in_copy = bookmarks(&Connection::open(&copy).unwrap());
+        fs::write(&paths.database, b"This is not an SQLite file.\n").unwrap();
+        assert_eq!(open(&paths).err().unwrap().code, OpenCode::DbNotDatabase);
+
+        let restored = restore_closed(&paths, &copy).unwrap();
+        assert_eq!(restored.bookmarks as i64, in_copy);
+        assert_eq!(
+            fs::read(&restored.previous).unwrap(),
+            b"This is not an SQLite file.\n",
+            "the broken file is kept as it was"
+        );
+        let conn = open(&paths).unwrap().conn;
+        assert_eq!(bookmarks(&conn), in_copy);
+        assert_eq!(quick_check(&conn).unwrap(), None);
     }
 
     #[test]
