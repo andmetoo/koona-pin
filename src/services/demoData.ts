@@ -10,6 +10,8 @@ export interface DemoBookmark {
   collection: string;
   tags: string[];
   favorite: boolean;
+  /** Still waits in the inbox (NP-021). */
+  inbox?: boolean;
   notes: string;
   /** Two colours and a word for the generated preview. */
   poster: [string, string, string];
@@ -43,6 +45,7 @@ export const demoBookmarks: DemoBookmark[] = [
     collection: "Вдохновение",
     tags: ["архитектура", "пространство"],
     favorite: false,
+    inbox: true,
     notes: "",
     poster: ["#b8b6ab", "#5f6057", "Space · Light"],
   },
@@ -79,6 +82,7 @@ export const demoBookmarks: DemoBookmark[] = [
     collection: "Вдохновение",
     tags: ["фотография"],
     favorite: false,
+    inbox: true,
     notes: "",
     poster: ["#d4b862", "#b59a45", "Noticing"],
   },
