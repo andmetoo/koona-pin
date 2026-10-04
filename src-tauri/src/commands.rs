@@ -4,7 +4,7 @@ use crate::{
     capture_channel::{self, ChannelState},
     db::{
         self, Bookmark, BookmarkPage, BookmarkQuery, Collection, DbState, DomainCount,
-        LibraryCounts, Purge, Source, Tag,
+        LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode},
     journal::{Action, Undo},
@@ -307,6 +307,17 @@ pub async fn delete_collection(
 #[tauri::command]
 pub async fn get_tags(state: State<'_, Arc<DbState>>) -> Result<Vec<Tag>, CommandError> {
     blocking(&state, |conn| db::get_tags(conn).map_err(text)).await
+}
+/// Triage: the collection the site's other bookmarks mostly lie in (NP-026).
+#[tauri::command]
+pub async fn suggest_collection(
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+) -> Result<Option<Suggestion>, CommandError> {
+    blocking(&state, move |conn| {
+        db::suggest_collection(conn, id).map_err(text)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn get_domains(state: State<'_, Arc<DbState>>) -> Result<Vec<DomainCount>, CommandError> {

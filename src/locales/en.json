@@ -263,6 +263,8 @@
     "trash": "Move to trash",
     "keep": "Keep",
     "fileHint": "Or file it right away — press a number",
+    "suggested": "suggested",
+    "suggestedWhy": "Links from {{domain}} mostly live in «{{name}}»: {{count}} of {{filed}}",
     "tag": "Tag…",
     "tagLabel": "New tag",
     "tagPlaceholder": "Tag, then Enter",

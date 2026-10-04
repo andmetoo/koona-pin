@@ -851,6 +851,38 @@ test("triage: decisions reach SQLite at once, a restart midway loses nothing", a
     app.processHandle.kill();
   }
 });
+test("triage suggests a collection by the site from SQLite and changes nothing until chosen", async ({ request }) => {
+  const data = await folder("suggest");
+  const app = await launch(request, isolated(data));
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    const id = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const collections: { id: number; name: string }[] = await invoke("get_collections");
+      const shelf = collections.find((c) => c.name === "Статьи / Читать")!;
+      for (const n of [1, 2]) {
+        const { bookmark } = await invoke("add_bookmark", { url: `https://suggest.invalid/${n}`, title: `Статья ${n}`, collectionId: null, tags: [] });
+        await invoke("update_bookmark", { id: bookmark.id, patch: { collection: { action: "set", id: shelf.id } } });
+      }
+      const { bookmark } = await invoke("add_bookmark", { url: "https://suggest.invalid/new", title: "Новая статья", collectionId: null, tags: [] });
+      return bookmark.id;
+    });
+    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const row = () => db.prepare("SELECT collection_id IS NULL AS free, triaged_at IS NULL AS inbox FROM bookmarks WHERE id = ?").get(id);
+    await page.getByRole("region", { name: "Новые закладки" }).getByRole("button", { name: "Разобрать" }).click();
+    const offered = page.locator("[data-suggested]");
+    await expect(offered).toHaveText(/1\s*Статьи \/ Читать\s*предложено/);
+    expect(row()).toEqual({ free: 1, inbox: 1 });
+    await page.keyboard.press("1");
+    await expect(page.getByRole("heading", { name: "Входящие разобраны" })).toBeVisible();
+    await expect.poll(row).toEqual({ free: 0, inbox: 0 });
+    db.close();
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
 test("security boundaries: CSP, narrow permissions, no HTTP port", async ({ request }) => {
   const data = await folder("boundaries");
   const env = isolated(data);

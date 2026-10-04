@@ -12,6 +12,7 @@ export type { BookmarkQuery } from "./bindings/BookmarkQuery";
 export type { Changed } from "./bindings/Changed";
 export type { CommandAction } from "./bindings/CommandAction";
 export type { Undo } from "./bindings/Undo";
+export type { Suggestion } from "./bindings/Suggestion";
 export type { PageCursor } from "./bindings/PageCursor";
 export type { Collection } from "./bindings/Collection";
 export type { CommandError as CommandErrorData } from "./bindings/CommandError";
