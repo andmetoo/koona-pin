@@ -37,6 +37,7 @@ export function useLibrary(
     favorites: 0,
     inbox: 0,
     inbox_newest: null,
+    inbox_imported: 0,
     trash: 0,
   });
   const [loading, setLoading] = useState(true);
