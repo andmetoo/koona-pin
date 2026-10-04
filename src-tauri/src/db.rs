@@ -23,6 +23,8 @@ pub struct Bookmark {
     pub revision: i64,
     /// When the bookmark was sorted; none while it waits in the inbox.
     pub triaged_at: Option<String>,
+    /// When the bookmark went to the trash; none outside it (NP-022).
+    pub deleted_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -117,12 +119,18 @@ pub struct LibraryCounts {
     /// When the newest of them was saved: the inbox banner hidden before it
     /// comes back once a newer one arrives.
     pub inbox_newest: Option<String>,
+    /// Bookmarks in the trash (NP-022); none of the others count them.
+    pub trash: i64,
 }
 
+/// One pass: the trash is counted apart, every other count leaves it out.
 pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
     conn.query_row(
-        "SELECT COUNT(*), COALESCE(SUM(is_favorite),0), COALESCE(SUM(triaged_at IS NULL),0),
-                MAX(CASE WHEN triaged_at IS NULL THEN created_at END)
+        "SELECT COALESCE(SUM(deleted_at IS NULL),0),
+                COALESCE(SUM(deleted_at IS NULL AND is_favorite),0),
+                COALESCE(SUM(deleted_at IS NULL AND triaged_at IS NULL),0),
+                MAX(CASE WHEN deleted_at IS NULL AND triaged_at IS NULL THEN created_at END),
+                COALESCE(SUM(deleted_at IS NOT NULL),0)
          FROM bookmarks",
         [],
         |r| {
@@ -131,6 +139,7 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 favorites: r.get(1)?,
                 inbox: r.get(2)?,
                 inbox_newest: r.get(3)?,
+                trash: r.get(4)?,
             })
         },
     )
@@ -224,7 +233,7 @@ pub fn insert_or_update_bookmark(
 
 pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut stmt = conn.prepare(
-        "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at
+        "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at
          FROM bookmarks WHERE id = ?1",
     )?;
 
@@ -250,6 +259,10 @@ pub struct BookmarkQuery {
     /// Only bookmarks waiting in the inbox.
     #[serde(default)]
     pub only_inbox: bool,
+    /// The trash instead of the library, newest deletion first (NP-022).
+    /// Every other query leaves the trash out.
+    #[serde(default)]
+    pub only_trash: bool,
     /// Only this bookmark: whether a changed one still belongs to the list.
     #[ts(optional)]
     pub id: Option<i64>,
@@ -261,16 +274,18 @@ pub struct BookmarkQuery {
     pub limit: Option<u32>,
     /// Times in the stored format, for example the starts of today and
     /// yesterday in the user's time zone. The first page counts how many
-    /// matches were saved at or after each: the list's date groups (NP-012).
+    /// matches were saved (in the trash: deleted) at or after each: the
+    /// list's date groups (NP-012).
     #[ts(optional)]
     pub since: Option<Vec<String>>,
 }
 
-/// A position in the order `created_at DESC, id DESC`.
+/// A position in the order `at DESC, id DESC`, where `at` is when the
+/// bookmark was saved, or deleted in the trash.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct PageCursor {
-    pub created_at: String,
+    pub at: String,
     pub id: i64,
 }
 
@@ -428,13 +443,22 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         tags: None,
         revision: row.get(12)?,
         triaged_at: row.get(13)?,
+        deleted_at: row.get(14)?,
     })
 }
 
 /// One page of the list, newest first, with the total for the whole query.
+/// The library is ordered by when a bookmark was saved, the trash by when
+/// it was deleted.
 pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<BookmarkPage> {
     use rusqlite::types::Value;
-    let mut filter = String::from(" WHERE 1=1");
+    let (mut filter, at) = match query.only_trash {
+        true => (
+            String::from(" WHERE b.deleted_at IS NOT NULL"),
+            "b.deleted_at",
+        ),
+        false => (String::from(" WHERE b.deleted_at IS NULL"), "b.created_at"),
+    };
     let mut values: Vec<Value> = Vec::new();
     if query.only_favorites {
         filter.push_str(" AND b.is_favorite = 1");
@@ -491,7 +515,7 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
             let since = query.since.as_deref().unwrap_or_default();
             let columns: String = since
                 .iter()
-                .map(|_| ", COALESCE(sum(b.created_at >= ?), 0)")
+                .map(|_| format!(", COALESCE(sum({at} >= ?), 0)"))
                 .collect();
             let mut counted: Vec<Value> = since.iter().map(|s| s.clone().into()).collect();
             counted.extend(values.iter().cloned());
@@ -513,17 +537,17 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
     let mut page_filter = filter;
     if let Some(after) = &query.after {
         // A row value, so the page starts by a seek in `idx_bookmarks_order`.
-        page_filter.push_str(" AND (b.created_at, b.id) < (?, ?)");
-        values.extend([after.created_at.clone().into(), after.id.into()]);
+        page_filter.push_str(&format!(" AND ({at}, b.id) < (?, ?)"));
+        values.extend([after.at.clone().into(), after.id.into()]);
     }
     let limit = query.limit.unwrap_or(PAGE_SIZE).clamp(1, MAX_PAGE_SIZE);
     // One more row than asked tells whether a next page exists.
     values.push(i64::from(limit + 1).into());
     let mut items = conn
         .prepare(&format!(
-            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision, b.triaged_at
+            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision, b.triaged_at, b.deleted_at
              FROM bookmarks b{page_filter}
-             ORDER BY b.created_at DESC, b.id DESC LIMIT ?"
+             ORDER BY {at} DESC, b.id DESC LIMIT ?"
         ))?
         .query_map(rusqlite::params_from_iter(&values), bookmark_row)?
         .collect::<Result<Vec<_>>>()?;
@@ -531,7 +555,10 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
         items.truncate(limit as usize);
         let last = &items[items.len() - 1];
         PageCursor {
-            created_at: last.created_at.clone(),
+            at: last
+                .deleted_at
+                .clone()
+                .unwrap_or_else(|| last.created_at.clone()),
             id: last.id,
         }
     });
@@ -654,8 +681,33 @@ pub fn enrich_bookmark(
     }
 }
 
-/// Until the trash (NP-022) deletion is final; the tombstone keeps the `uid`
-/// so a future sync can delete the record on other devices.
+/// Sends a bookmark to the trash (NP-022) in one UPDATE: it is there whole
+/// or not at all. Note, tags, collection, star and inbox flag stay for a
+/// restore. A bookmark already in the trash keeps its time there.
+pub fn trash_bookmark(conn: &Connection, id: i64) -> Result<Bookmark> {
+    conn.execute(
+        "UPDATE bookmarks SET deleted_at=?1, updated_at=?1, revision=revision+1
+         WHERE id=?2 AND deleted_at IS NULL",
+        params![now(), id],
+    )?;
+    get_bookmark_by_id(conn, id)
+}
+
+/// Takes a bookmark out of the trash with everything it had. `to_inbox`
+/// when a link from the trash is saved again: it waits for a decision anew
+/// (Р-10, point 2).
+pub fn restore_bookmark(conn: &Connection, id: i64, to_inbox: bool) -> Result<Bookmark> {
+    conn.execute(
+        "UPDATE bookmarks SET deleted_at=NULL, updated_at=?1, revision=revision+1,
+                triaged_at=CASE WHEN ?3 THEN NULL ELSE triaged_at END
+         WHERE id=?2 AND deleted_at IS NOT NULL",
+        params![now(), id, to_inbox],
+    )?;
+    get_bookmark_by_id(conn, id)
+}
+
+/// Final deletion, for the trash cleanup (NP-023): the tombstone keeps the
+/// `uid` so a future sync can delete the record on other devices.
 pub fn delete_bookmark(conn: &Connection, id: i64) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now = now();
@@ -672,7 +724,7 @@ pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
     let mut stmt = conn.prepare(
         "SELECT c.id, c.name, c.color, c.icon, c.created_at, COUNT(b.id) as count
          FROM collections c
-         LEFT JOIN bookmarks b ON c.id = b.collection_id
+         LEFT JOIN bookmarks b ON c.id = b.collection_id AND b.deleted_at IS NULL
          GROUP BY c.id
          ORDER BY c.name ASC",
     )?;
@@ -739,6 +791,7 @@ pub fn get_tags(conn: &Connection) -> Result<Vec<Tag>> {
         "SELECT t.id, t.name, COUNT(bt.bookmark_id) as count
          FROM tags t
          JOIN bookmark_tags bt ON t.id = bt.tag_id
+         JOIN bookmarks b ON b.id = bt.bookmark_id AND b.deleted_at IS NULL
          GROUP BY t.id
          ORDER BY count DESC, t.name ASC",
     )?;
@@ -762,6 +815,7 @@ pub fn get_domains(conn: &Connection) -> Result<Vec<DomainCount>> {
     let mut stmt = conn.prepare(
         "SELECT domain, COUNT(id) as count
          FROM bookmarks
+         WHERE deleted_at IS NULL
          GROUP BY domain
          ORDER BY count DESC",
     )?;
@@ -1028,6 +1082,159 @@ mod tests {
         let counts = get_counts(&conn).unwrap();
         assert_eq!((counts.inbox, counts.inbox_newest), (0, None));
         assert!(inbox(None).is_empty());
+    }
+
+    #[test]
+    fn the_trash_keeps_everything_and_stays_out_of_the_library() {
+        let conn = setup_test_db();
+        let collection = create_collection(&conn, "Железо", None, None).unwrap();
+        let kept = add(&conn, "https://example.com/kept", "Оставленная", &["общий"]);
+        let first = add(
+            &conn,
+            "https://example.com/first",
+            "Первая в корзину",
+            &["общий", "только-корзина"],
+        );
+        let second = add(&conn, "https://other.org/second", "Вторая в корзину", &[]);
+        update_bookmark(
+            &conn,
+            first.id,
+            None,
+            Some("Заметка".into()),
+            Some(true),
+            Some(Some(collection.id)),
+            None,
+        )
+        .unwrap();
+        let first = get_bookmark_by_id(&conn, first.id).unwrap();
+
+        let trashed = trash_bookmark(&conn, first.id).unwrap();
+        assert!(trashed.deleted_at.is_some());
+        assert_eq!(trashed.revision, first.revision + 1);
+        conn.execute(
+            "UPDATE bookmarks SET deleted_at='2026-10-01T10:00:00.000Z' WHERE id=?1",
+            [first.id],
+        )
+        .unwrap();
+        trash_bookmark(&conn, second.id).unwrap();
+        conn.execute(
+            "UPDATE bookmarks SET deleted_at='2026-10-03T10:00:00.000Z' WHERE id=?1",
+            [second.id],
+        )
+        .unwrap();
+        // Trashing again keeps the time it went there.
+        assert_eq!(
+            trash_bookmark(&conn, second.id)
+                .unwrap()
+                .deleted_at
+                .as_deref(),
+            Some("2026-10-03T10:00:00.000Z")
+        );
+
+        // Out of the library, its search, counts, collections, tags and sites.
+        assert_eq!(
+            everything(&conn).iter().map(|b| b.id).collect::<Vec<_>>(),
+            [kept.id]
+        );
+        assert!(found(&conn, "корзину").is_empty());
+        let counts = get_counts(&conn).unwrap();
+        assert_eq!(
+            (counts.total, counts.favorites, counts.inbox, counts.trash),
+            (1, 0, 1, 2)
+        );
+        assert_eq!(
+            get_collections(&conn)
+                .unwrap()
+                .iter()
+                .find(|c| c.id == collection.id)
+                .unwrap()
+                .count,
+            Some(0)
+        );
+        let tags = get_tags(&conn).unwrap();
+        assert_eq!(
+            tags.iter()
+                .map(|t| (t.name.as_str(), t.count))
+                .collect::<Vec<_>>(),
+            [("общий", Some(1))]
+        );
+        assert!(get_domains(&conn)
+            .unwrap()
+            .iter()
+            .all(|d| d.domain != "other.org"));
+
+        // The trash: newest deletion first, pages and groups by that time, its own search.
+        let trash = |search: Option<&str>, after: Option<PageCursor>, limit: u32| {
+            get_bookmarks(
+                &conn,
+                &BookmarkQuery {
+                    only_trash: true,
+                    search: search.map(Into::into),
+                    after,
+                    limit: Some(limit),
+                    since: Some(vec!["2026-10-02T00:00:00.000Z".into()]),
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+        };
+        let page = trash(None, None, 1);
+        assert_eq!(
+            page.items.iter().map(|b| b.id).collect::<Vec<_>>(),
+            [second.id]
+        );
+        assert_eq!(
+            (page.total, page.since_counts.clone()),
+            (Some(2), Some(vec![1]))
+        );
+        let next = page.next.expect("a second page");
+        assert_eq!(next.at, "2026-10-03T10:00:00.000Z");
+        assert_eq!(trash(None, Some(next), 1).items[0].id, first.id);
+        assert_eq!(
+            trash(Some("первая"), None, 10)
+                .items
+                .iter()
+                .map(|b| b.id)
+                .collect::<Vec<_>>(),
+            [first.id]
+        );
+
+        // Late metadata does not bring a bookmark back.
+        let meta = crate::metadata::PageMetadata {
+            description: Some("Описание".into()),
+            ..Default::default()
+        };
+        enrich_bookmark(&conn, first.id, trashed.revision, &meta).unwrap();
+        assert!(get_bookmark_by_id(&conn, first.id)
+            .unwrap()
+            .deleted_at
+            .is_some());
+
+        // A failed write leaves the bookmark where it was.
+        conn.execute_batch("PRAGMA query_only = ON").unwrap();
+        assert!(restore_bookmark(&conn, first.id, false).is_err());
+        assert!(trash_bookmark(&conn, kept.id).is_err());
+        conn.execute_batch("PRAGMA query_only = OFF").unwrap();
+        assert!(get_bookmark_by_id(&conn, first.id)
+            .unwrap()
+            .deleted_at
+            .is_some());
+        assert!(get_bookmark_by_id(&conn, kept.id)
+            .unwrap()
+            .deleted_at
+            .is_none());
+
+        // Restored with everything, inbox flag included.
+        let back = restore_bookmark(&conn, first.id, false).unwrap();
+        assert_eq!(back.deleted_at, None);
+        assert_eq!(
+            (back.notes.as_deref(), back.is_favorite, back.collection_id),
+            (Some("Заметка"), true, Some(collection.id))
+        );
+        assert_eq!(back.tags.unwrap(), ["общий", "только-корзина"]);
+        assert_eq!(back.triaged_at, first.triaged_at);
+        assert_eq!(found(&conn, "корзину"), [first.id]);
+        assert_eq!(get_counts(&conn).unwrap().trash, 1);
     }
 
     fn setup_test_db() -> Connection {

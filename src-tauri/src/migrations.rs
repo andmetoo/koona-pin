@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -155,6 +155,18 @@ const SCHEMA_3: &str = "
 CREATE INDEX idx_bookmarks_inbox ON bookmarks(created_at, id) WHERE triaged_at IS NULL;
 ";
 
+/// Schema 4 (NP-022): the trash. Every count leaves the trash out, so the
+/// site and collection indexes carry `deleted_at`: on 100 000 bookmarks the
+/// sites took 115 ms and the collections 46 ms without it, 2–5 ms with it.
+/// The trash itself is read by deletion time, also by its cleanup (NP-023).
+const SCHEMA_4: &str = "
+DROP INDEX idx_bookmarks_domain;
+CREATE INDEX idx_bookmarks_domain ON bookmarks(domain, deleted_at);
+DROP INDEX idx_bookmarks_collection;
+CREATE INDEX idx_bookmarks_collection ON bookmarks(collection_id, deleted_at);
+CREATE INDEX idx_bookmarks_trash ON bookmarks(deleted_at, id) WHERE deleted_at IS NOT NULL;
+";
+
 /// What a new library starts with, created once: collections the user
 /// deletes never come back.
 fn seed(tx: &Transaction) -> HookResult {
@@ -188,6 +200,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up_with_hook(SCHEMA_1, seed),
         M::up(SCHEMA_2),
         M::up(SCHEMA_3),
+        M::up(SCHEMA_4),
     ]
 }
 
@@ -417,32 +430,56 @@ mod tests {
         assert!(backups.join("netamipin.before-v3.db").exists());
     }
 
+    /// Schemas 3 and 4 add indexes only: a library of schema 2 gets them with
+    /// one copy, every bookmark keeps its state, the queries use them.
     #[test]
-    fn schema_3_indexes_the_inbox_of_an_existing_library() {
-        let paths = Paths::new(folder("migrate-v3").join("netamipin.db"));
+    fn schemas_3_and_4_index_an_existing_library() {
+        let paths = Paths::new(folder("migrate-indexes").join("netamipin.db"));
         let conn = fixtures::fresh_at(&paths.database, 2);
         fixtures::generated(&conn, 2_000, 5);
-        let waiting = db::get_counts(&conn).unwrap().inbox;
+        conn.execute(
+            "UPDATE bookmarks SET deleted_at = updated_at WHERE id % 10 = 0",
+            [],
+        )
+        .unwrap();
+        let counts = db::get_counts(&conn).unwrap();
         fixtures::finish(conn);
 
         let conn = library::open(&paths).unwrap().conn;
-        assert_eq!(user_version(&conn).unwrap(), 3);
-        assert!(paths.backups.join("netamipin.before-v3.db").exists());
-        assert!(waiting > 0);
+        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
+        let copy = format!("netamipin.before-v{SCHEMA_VERSION}.db");
+        assert!(paths.backups.join(copy).exists());
+        assert!(counts.inbox > 0 && counts.trash > 0);
+        let after = db::get_counts(&conn).unwrap();
         assert_eq!(
-            db::get_counts(&conn).unwrap().inbox,
-            waiting,
+            (after.total, after.inbox, after.trash),
+            (counts.total, counts.inbox, counts.trash),
             "no bookmark changes its state"
         );
-        let plan = rows(
-            &conn,
-            "EXPLAIN QUERY PLAN SELECT b.id FROM bookmarks b WHERE b.triaged_at IS NULL
-             ORDER BY b.created_at DESC, b.id DESC LIMIT 101",
-        );
-        assert!(
-            plan.iter().any(|step| step.contains("idx_bookmarks_inbox")),
-            "{plan:?}"
-        );
+        for (query, index) in [
+            (
+                "SELECT b.id FROM bookmarks b WHERE b.deleted_at IS NULL AND b.triaged_at IS NULL
+                 ORDER BY b.created_at DESC, b.id DESC LIMIT 101",
+                "idx_bookmarks_inbox",
+            ),
+            (
+                "SELECT b.id FROM bookmarks b WHERE b.deleted_at IS NOT NULL
+                 ORDER BY b.deleted_at DESC, b.id DESC LIMIT 101",
+                "idx_bookmarks_trash",
+            ),
+            (
+                "SELECT domain, COUNT(id) FROM bookmarks WHERE deleted_at IS NULL GROUP BY domain",
+                "COVERING INDEX idx_bookmarks_domain",
+            ),
+            (
+                "SELECT c.id, COUNT(b.id) FROM collections c
+                 LEFT JOIN bookmarks b ON c.id = b.collection_id AND b.deleted_at IS NULL GROUP BY c.id",
+                "COVERING INDEX idx_bookmarks_collection",
+            ),
+        ] {
+            let plan = rows(&conn, &format!("EXPLAIN QUERY PLAN {query}"));
+            assert!(plan.iter().any(|step| step.contains(index)), "{index}: {plan:?}");
+        }
     }
 
     #[test]

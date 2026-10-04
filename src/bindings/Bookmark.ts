@@ -4,4 +4,8 @@ export type Bookmark = { id: number, url: string, title: string, description: st
 /**
  * When the bookmark was sorted; none while it waits in the inbox.
  */
-triaged_at: string | null, };
+triaged_at: string | null, 
+/**
+ * When the bookmark went to the trash; none outside it (NP-022).
+ */
+deleted_at: string | null, };

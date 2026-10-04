@@ -1,9 +1,10 @@
 import { memo, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, Star, Tag as TagIcon, Trash2, Folder } from "lucide-react";
+import { Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Star, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
+import { daysLeft } from "../../services/library";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
@@ -14,7 +15,9 @@ export interface BookmarkActions {
   edit: (bookmark: Bookmark) => void;
   favorite: (bookmark: Bookmark) => void;
   move: (bookmark: Bookmark, collectionId: number | null) => void;
-  remove: (bookmark: Bookmark) => void;
+  /** To the trash, with an undo in the notice (NP-022). */
+  trash: (bookmark: Bookmark) => void;
+  restore: (bookmark: Bookmark) => void;
   tag: (name: string) => void;
   /** Show only this site: the filter chip of the search row (NP-013). */
   domain: (domain: string) => void;
@@ -52,9 +55,16 @@ function moveEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
   ];
 }
 
-/** Menu «⋯» of a bookmark (frame «15 · Меню карточки»). */
+/** Menu «⋯» of a bookmark (frame «15 · Меню карточки»); in the trash, restore and open (frame 25). */
 function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {
   const soon = t("common.soon");
+  if (b.deleted_at)
+    return [
+      { id: "restore", icon: RotateCcw, label: t("trash.restore"), onSelect: () => actions.restore(b) },
+      "separator",
+      { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
+      { id: "copy", icon: Copy, label: t("card.copyLink"), keys: "Ctrl C", onSelect: () => actions.copy(b.url) },
+    ];
   return [
     { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
     { id: "copy", icon: Copy, label: t("card.copyLink"), keys: "Ctrl C", onSelect: () => actions.copy(b.url) },
@@ -72,8 +82,18 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
     "separator",
     { id: "refresh", icon: RefreshCw, label: t("card.refresh"), disabled: true, disabledHint: soon },
     "separator",
-    { id: "delete", icon: Trash2, label: t("card.delete"), keys: "Del", onSelect: () => actions.remove(b) },
+    { id: "delete", icon: Trash2, label: t("card.delete"), keys: "Del", onSelect: () => actions.trash(b) },
   ];
+}
+
+function DaysLeft({ deletedAt, className = "" }: { deletedAt: string; className?: string }) {
+  const { t } = useTranslation();
+  const days = daysLeft(deletedAt);
+  return (
+    <span className={`shrink-0 text-xs text-subtle ${className}`}>
+      {days > 0 ? t("trash.daysLeft", { count: days }) : t("trash.lastDay")}
+    </span>
+  );
 }
 
 type Anchor = DOMRect | { x: number; y: number };
@@ -203,22 +223,38 @@ export const BookmarkCard = memo(function BookmarkCard({
           <SelectBox title={b.title} className="block size-[22px] rounded-sm border border-subtle bg-card/90" />
         </div>
         <div className={`absolute top-2.5 right-2 flex gap-1 ${revealed("card", menu.open)}`}>
-          <button
-            type="button"
-            aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
-            aria-pressed={b.is_favorite}
-            onClick={() => actions.favorite(b)}
-            className={`${previewButton} rounded-full`}
-          >
-            <Icon icon={Star} size={14} className={b.is_favorite ? "fill-accent text-accent" : ""} />
-          </button>
+          {b.deleted_at ? (
+            // Frame 25: in the trash the star gives way to «Восстановить».
+            <button
+              type="button"
+              onClick={() => actions.restore(b)}
+              className={`${previewButton} w-auto gap-1.5 rounded-lg px-2 text-xs font-medium`}
+            >
+              <Icon icon={RotateCcw} size={13} />
+              {t("trash.restore")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
+              aria-pressed={b.is_favorite}
+              onClick={() => actions.favorite(b)}
+              className={`${previewButton} rounded-full`}
+            >
+              <Icon icon={Star} size={14} className={b.is_favorite ? "fill-accent text-accent" : ""} />
+            </button>
+          )}
           {menu.trigger(`${previewButton} rounded-xl`)}
         </div>
       </div>
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
         <SiteMark b={b} />
         <DomainButton b={b} actions={actions} className="min-w-0 flex-1" />
-        {b.is_favorite && <Icon icon={Star} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />}
+        {b.deleted_at ? (
+          <DaysLeft deletedAt={b.deleted_at} />
+        ) : (
+          b.is_favorite && <Icon icon={Star} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />
+        )}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
       <h2 className="line-clamp-2 h-[38px] text-md font-medium">
@@ -331,12 +367,29 @@ export const BookmarkRow = memo(function BookmarkRow({
         <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
       </span>
       <div className="relative flex h-[27px] items-center justify-end">
-        <time
-          dateTime={b.created_at}
-          className={`text-xs text-subtle transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${open ? "opacity-0" : ""}`}
-        >
-          {shortDate(b.created_at, i18n.language)}
-        </time>
+        {b.deleted_at ? (
+          <DaysLeft deletedAt={b.deleted_at} className={`transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${open ? "opacity-0" : ""}`} />
+        ) : (
+          <time
+            dateTime={b.created_at}
+            className={`text-xs text-subtle transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${open ? "opacity-0" : ""}`}
+          >
+            {shortDate(b.created_at, i18n.language)}
+          </time>
+        )}
+        {b.deleted_at ? (
+          // Frame 25: one action in the trash.
+          <div className={`absolute right-0 ${revealed("row", open)}`}>
+            <button
+              type="button"
+              onClick={() => actions.restore(b)}
+              className="flex h-[27px] items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs font-medium transition-colors duration-150 hover:bg-hover"
+            >
+              <Icon icon={RotateCcw} size={13} />
+              {t("trash.restore")}
+            </button>
+          </div>
+        ) : (
         <div className={`absolute right-0 flex gap-0.5 ${revealed("row", open)}`}>
           <RowAction label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")} aria-pressed={b.is_favorite} onClick={() => actions.favorite(b)}>
             <Icon icon={Star} size={15} className={b.is_favorite ? "fill-accent text-accent" : ""} />
@@ -349,10 +402,11 @@ export const BookmarkRow = memo(function BookmarkRow({
           >
             <Icon icon={Folder} size={15} />
           </RowAction>
-          <RowAction label={t("card.delete")} onClick={() => actions.remove(b)}>
+          <RowAction label={t("card.delete")} onClick={() => actions.trash(b)}>
             <Icon icon={Trash2} size={15} />
           </RowAction>
         </div>
+        )}
       </div>
       {menu.menu}
       {move.menu}

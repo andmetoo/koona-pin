@@ -125,6 +125,9 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(
       page.getByRole("button", { name: "Развернуть", exact: true }),
     ).toBeVisible();
+    // The restored window can land a row under the cursor; the docs show the list at rest.
+    await page.mouse.move(1, 1);
+    await page.waitForTimeout(300);
     await page.screenshot({ path: "doc/concepts/native-webview2.jpg" });
     await page
       .getByRole("button", { name: "Закрыть окно", exact: true })
@@ -242,6 +245,8 @@ async function launch(
   env: Record<string, string>,
 ) {
   // WebView2 of a previously killed app may still answer on the debugging port.
+  // Only a refused connection means it is gone: one busy shutting down only times
+  // out, and the test would then drive the old window and its library.
   await expect
     .poll(
       async () => {
@@ -250,8 +255,8 @@ async function launch(
             timeout: 500,
           });
           return false;
-        } catch {
-          return true;
+        } catch (error) {
+          return String(error).includes("ECONNREFUSED");
         }
       },
       { timeout: 15000 },
@@ -447,9 +452,9 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
       const started = performance.now();
       let finished = 0;
       const importing = invoke("import_html_bookmarks", { htmlContent: html }).then(
-        (count: number) => {
+        (summary: { imported: number; in_trash: number }) => {
           finished = performance.now();
-          return count;
+          return summary.imported;
         },
       );
       // get_library_status is a sync command: it runs on the main thread and
@@ -631,6 +636,56 @@ test("find and edit in the new interface: search, site, editor, collection remov
       db.prepare("SELECT count(*) AS n, sum(collection_id IS NULL) AS free FROM bookmarks").get();
     await expect.poll(left).toEqual({ n: 3, free: 3 });
     db.close();
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+test("trash survives a restart: delete, quit, start again, restore with every field", async ({ request }) => {
+  const data = await folder("trash-restart");
+  const env = isolated(data);
+  let app = await launch(request, env);
+  try {
+    let page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const shelf = await invoke("create_collection", { name: "Полка", color: null, icon: null });
+      const { bookmark } = await invoke("add_bookmark", { url: "https://trash.invalid/1", title: "В корзину и обратно", collectionId: shelf.id, tags: ["тег"] });
+      await invoke("update_bookmark", { id: bookmark.id, patch: { notes: "Заметка", is_favorite: true, collection: { action: "keep" } } });
+    });
+    const card = page.locator("[data-bookmark-id]");
+    await expect(card).toHaveCount(1);
+    // No confirmation: to the trash with an undo notice.
+    await card.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "В корзину" }).click();
+    await expect(page.locator(".fixed[role=status]")).toContainText("Перемещено в корзину");
+    await expect(page.getByRole("button", { name: "Корзина 1", exact: true })).toBeVisible();
+
+    // Quit and start again on the same library.
+    void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
+    await app.exited;
+    await app.browser.close().catch(() => {});
+    app = await launch(request, env);
+    page = app.page;
+    await page.getByRole("button", { name: "Корзина 1", exact: true }).click({ timeout: 15000 });
+    const trashed = page.locator("[data-bookmark-id]");
+    await expect(trashed).toHaveCount(1);
+    await trashed.hover();
+    await trashed.getByRole("button", { name: "Восстановить" }).click();
+    await expect(page.getByRole("heading", { name: "Корзина пуста" })).toBeVisible();
+
+    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const back = db
+      .prepare(
+        `SELECT b.deleted_at, b.notes, b.is_favorite, c.name AS collection, group_concat(t.name) AS tags
+         FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id
+         LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id LEFT JOIN tags t ON t.id = bt.tag_id
+         GROUP BY b.id`,
+      )
+      .get();
+    db.close();
+    expect(back).toEqual({ deleted_at: null, notes: "Заметка", is_favorite: 1, collection: "Полка", tags: "тег" });
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
