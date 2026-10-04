@@ -349,6 +349,48 @@
     "update_firefox": "Rebuild the extension and load the new release/netamipin-firefox.xpi. A signed version updates by itself.",
     "updateStore": "The extension from the store updates by itself: the browser checks for updates several times a day."
   },
+  "backup": {
+    "title": "Restore from a backup",
+    "lead": "Pick a copy. The library goes back to how it was then; changes made after it are lost.",
+    "loading": "Looking for backups…",
+    "empty": "No backups in the backups folder yet. Netami Pin makes one when it starts and once a day; a copy saved elsewhere can be chosen as a file.",
+    "kind": {
+      "automatic": "Automatic",
+      "before_update": "Before a library update",
+      "before_restore": "Before a restore",
+      "other": "Copy"
+    },
+    "bookmarks_one": "{{count}} bookmark",
+    "bookmarks_other": "{{count}} bookmarks",
+    "unreadable": "Can't be read",
+    "today": "Today, {{time}}",
+    "yesterday": "Yesterday, {{time}}",
+    "on": "{{date}}, {{time}}",
+    "todayAt": "today, {{time}}",
+    "yesterdayAt": "yesterday, {{time}}",
+    "choose": "Choose a file…",
+    "run": "Restore…",
+    "running": "Restoring…",
+    "confirmTitle": "Restore the copy from {{when}}?",
+    "confirmText_one": "The library has {{count}} bookmark now; the copy holds {{copy}}. Everything changed after {{when}} will be lost. A backup of the current library is saved first. Ctrl Z can't undo this.",
+    "confirmText_other": "The library has {{count}} bookmarks now; the copy holds {{copy}}. Everything changed after {{when}} will be lost. A backup of the current library is saved first. Ctrl Z can't undo this.",
+    "confirmClosed": "The library that didn't open is moved to the backups folder as it is, and the copy with {{copy}} takes its place.",
+    "confirm": "Restore",
+    "done": "Library restored",
+    "summary_one": "{{count}} bookmark from the copy of {{when}}",
+    "summary_other": "{{count}} bookmarks from the copy of {{when}}",
+    "journalCleared": "Undo history was cleared: it pointed to the replaced library.",
+    "previous": "Backup of the previous library",
+    "checkedBad": "Checked: the copy can't be restored",
+    "another": "Choose another file",
+    "notDatabase": "This file isn't a database, so it can't be a Netami Pin backup. Nothing was changed.",
+    "notOurs": "This file belongs to another program, not Netami Pin. Nothing was changed.",
+    "newer": "A newer Netami Pin made this copy (schema {{schema}}). Update the app to restore it. Nothing was changed.",
+    "damaged": "The copy is damaged: {{detail}}. Nothing was changed.",
+    "unreadable": "The copy can't be read: {{detail}}. Nothing was changed.",
+    "backupFailed": "Couldn't save a backup of the current library: {{detail}}. Nothing was changed.",
+    "failed": "Couldn't restore the copy: {{detail}}. Nothing was changed."
+  },
   "settings": {
     "general": "General",
     "language": "Language",
@@ -376,8 +418,15 @@
     "noCopies": "No backups yet",
     "lastCopyToday": "Last backup today at {{time}}",
     "lastCopyOn": "Last backup {{date}} at {{time}}",
-    "restoreHint": "The current library is backed up before restoring",
+    "saveHint": "Save a copy to another drive or a cloud folder",
+    "saveCopy": "Save a copy…",
+    "savingCopy": "Saving…",
+    "copySaved": "Backup saved as {{name}}",
+    "copySaveFailed": "Couldn't save the backup {{name}}: {{detail}}. Nothing was written.",
+    "restoreBackup": "Restore from a backup",
+    "restoreHint": "The library goes back to how it was in the copy",
     "restore": "Restore…",
+    "backupNote": "A backup is the whole library exactly as it was, for Netami Pin — restore it after damage or a mistake. To move bookmarks into another library, use Export → JSON; HTML is for browsers, CSV for spreadsheets.",
     "backUpNow": "Back up now",
     "copying": "Backing up…",
     "copyDone": "Backup created",
@@ -516,7 +565,9 @@
     "loadingMore": "Loading more bookmarks",
     "newBookmarks_one": "New bookmarks · {{count}}",
     "newBookmarks_other": "New bookmarks · {{count}}",
-    "damaged": "The library is damaged: the integrity check found errors in the file. To avoid further damage, changes are no longer saved and links from the browser wait in the extension. Quit Netami Pin and replace the file with the latest backup.",
+    "damaged": "The library is damaged, so changes aren't saved and links from the browser wait in the extension. Restore the latest good copy.",
+    "damagedLatest": "The library is damaged, so changes aren't saved and links from the browser wait in the extension. Restore the latest good copy — {{when}}.",
+    "restore": "Restore…",
     "openBackups": "Open backups folder",
     "movedAside": "The library of an earlier test build does not fit the new schema. It was kept as {{path}} and a new library was created."
   },
@@ -534,6 +585,7 @@
     "reportCopied": "Report copied",
     "reportFailed": "Could not copy. Select the report text manually.",
     "quit": "Quit",
+    "restore": "Restore from backup…",
     "details": "Details",
     "DB_LOCKED": {
       "title": "The library is in use by another program",
@@ -549,11 +601,11 @@
     },
     "DB_NOT_DATABASE": {
       "title": "The library file cannot be read",
-      "body": "The file is damaged or is not a database. Netami Pin does not change it. Replace it with the latest copy from the backups folder and click Try again."
+      "body": "The file is damaged or is not a database. Netami Pin does not change it. Restore the latest backup: the file is kept in the backups folder as it is."
     },
     "DB_CORRUPT": {
       "title": "The library is damaged",
-      "body": "The integrity check found errors in the library file. To avoid further damage, Netami Pin does not update or change it. Replace the file with the latest copy from the backups folder and click Try again."
+      "body": "The integrity check found errors in the library file. To avoid further damage, Netami Pin does not update or change it. Restore the latest backup: the damaged file is kept in the backups folder as it is."
     },
     "BACKUP_FAILED": {
       "title": "Could not back up the library before updating it",

@@ -10,7 +10,7 @@ use chrono::DateTime;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
@@ -201,29 +201,6 @@ pub fn preview(conn: &Connection, library: &JsonLibrary) -> rusqlite::Result<Res
     })
 }
 
-/// `backups/netamipin.before-restore-<time>.db`: the library as it was before a replace.
-pub fn backup_path(folder: &Path) -> PathBuf {
-    folder.join(format!("{BEFORE_RESTORE}{}.db", chrono::Local::now().format("%Y%m%d-%H%M%S")))
-}
-
-const BEFORE_RESTORE: &str = "netamipin.before-restore-";
-/// Copies before a replace kept, like those before a migration (Р-10, point 9).
-const KEPT_BEFORE_RESTORE: usize = 2;
-
-/// Keeps the newest copies before a replace; the names sort by time.
-fn prune_before_restore(folder: &Path) {
-    let Ok(entries) = std::fs::read_dir(folder) else { return };
-    let mut copies: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(BEFORE_RESTORE) && n.ends_with(".db")))
-        .collect();
-    copies.sort();
-    let extra = copies.len().saturating_sub(KEPT_BEFORE_RESTORE);
-    for old in &copies[..extra] {
-        let _ = std::fs::remove_file(old);
-    }
-}
-
 #[derive(Debug)]
 pub enum RestoreError {
     /// The copy before a replace could not be written: nothing was changed.
@@ -241,9 +218,9 @@ impl From<rusqlite::Error> for RestoreError {
 pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, backups: &Path) -> Result<RestoreSummary, RestoreError> {
     let backup = match mode {
         RestoreMode::Replace => {
-            let path = backup_path(backups);
+            let path = crate::backup::before_restore_path(backups);
             crate::backup::write_copy(conn, &path).map_err(RestoreError::Backup)?;
-            prune_before_restore(backups);
+            crate::backup::prune_before_restore(backups);
             Some(path)
         }
         RestoreMode::Merge => None,
@@ -365,7 +342,7 @@ mod tests {
     fn copy_of(c: &Connection) -> String {
         export::json(c, export::Scope::Library, Utc.with_ymd_and_hms(2026, 10, 4, 18, 20, 0).unwrap()).unwrap().0
     }
-    fn folder() -> PathBuf {
+    fn folder() -> std::path::PathBuf {
         let folder = std::env::temp_dir().join(format!("netamipin-restore-{}", uuid::Uuid::new_v4().simple()));
         std::fs::create_dir_all(&folder).unwrap();
         folder
