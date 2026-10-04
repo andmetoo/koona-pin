@@ -73,9 +73,11 @@ impl DbState {
 /// UTC with milliseconds, the only time format of the library: as text it
 /// sorts the same way as in time (Р-10, point 7).
 pub fn now() -> String {
-    chrono::Utc::now()
-        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
-        .to_string()
+    stamp(chrono::Utc::now())
+}
+
+pub fn stamp(time: chrono::DateTime<chrono::Utc>) -> String {
+    time.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
 }
 
 /// Lower-case UUIDv7: the identity of a record across devices (Р-4).
@@ -706,18 +708,47 @@ pub fn restore_bookmark(conn: &Connection, id: i64, to_inbox: bool) -> Result<Bo
     get_bookmark_by_id(conn, id)
 }
 
-/// Final deletion, for the trash cleanup (NP-023): the tombstone keeps the
-/// `uid` so a future sync can delete the record on other devices.
-pub fn delete_bookmark(conn: &Connection, id: i64) -> Result<()> {
+/// Which bookmarks of the trash go for good.
+pub enum Purge<'a> {
+    /// «Удалить навсегда» on one bookmark.
+    One(i64),
+    /// The cleanup: deleted at this time or earlier.
+    Before(&'a str),
+    /// «Очистить корзину».
+    All,
+}
+
+/// Final deletion (NP-023), only ever from the trash: a bookmark in the
+/// library is never deleted at once. One transaction; the tombstone keeps
+/// the `uid` and the time it went to the trash so a future sync can delete
+/// the record on other devices (Р-10). Returns the `id` and revision of each.
+pub fn purge_trash(conn: &Connection, which: Purge) -> Result<Vec<(i64, i64)>> {
+    let (filter, value): (&str, rusqlite::types::Value) = match which {
+        Purge::One(id) => ("id = ?1", id.into()),
+        Purge::Before(time) => ("deleted_at <= ?1", time.to_string().into()),
+        Purge::All => ("?1 IS NULL", rusqlite::types::Value::Null),
+    };
+    let condition = format!("deleted_at IS NOT NULL AND {filter}");
     let tx = conn.unchecked_transaction()?;
-    let now = now();
+    let gone = tx
+        .prepare(&format!(
+            "SELECT id, revision FROM bookmarks WHERE {condition}"
+        ))?
+        .query_map([&value], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<Vec<_>>>()?;
     tx.execute(
-        "INSERT OR REPLACE INTO tombstones (uid, kind, deleted_at, purged_at)
-         SELECT uid, 'bookmark', ?1, ?1 FROM bookmarks WHERE id = ?2",
-        params![now, id],
+        &format!(
+            "INSERT OR REPLACE INTO tombstones (uid, kind, deleted_at, purged_at)
+             SELECT uid, 'bookmark', deleted_at, ?2 FROM bookmarks WHERE {condition}"
+        ),
+        params![value, now()],
     )?;
-    tx.execute("DELETE FROM bookmarks WHERE id = ?1", params![id])?;
-    tx.commit()
+    tx.execute(
+        &format!("DELETE FROM bookmarks WHERE {condition}"),
+        [&value],
+    )?;
+    tx.commit()?;
+    Ok(gone)
 }
 
 pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
@@ -1429,7 +1460,8 @@ mod tests {
         assert!(found(&conn, "gamma").is_empty());
         assert_eq!(found(&conn, "метаданных"), [b.id], "the rest stays indexed");
 
-        delete_bookmark(&conn, b.id).unwrap();
+        trash_bookmark(&conn, b.id).unwrap();
+        purge_trash(&conn, Purge::One(b.id)).unwrap();
         assert!(found(&conn, "метаданных").is_empty());
         let indexed: i64 = conn
             .query_row("SELECT count(*) FROM bookmarks_search", [], |r| r.get(0))
@@ -1722,7 +1754,8 @@ mod tests {
         assert!(updated.is_favorite);
 
         // Delete
-        delete_bookmark(&conn, bm.id).unwrap();
+        trash_bookmark(&conn, bm.id).unwrap();
+        purge_trash(&conn, Purge::One(bm.id)).unwrap();
         let empty = everything(&conn);
         assert_eq!(empty.len(), 0);
     }

@@ -102,6 +102,9 @@ const desktop = {
     }),
   trashBookmark: (id: number) => call<Bookmark>("trash_bookmark", { id }),
   restoreBookmark: (id: number) => call<Bookmark>("restore_bookmark", { id }),
+  /** Only bookmarks in the trash; there is no way back. */
+  deleteForever: (id: number) => call<void>("delete_forever", { id }),
+  emptyTrash: () => call<number>("empty_trash"),
   createCollection: (name: string, color?: string, icon?: string) =>
     call<Collection>("create_collection", {
       name,

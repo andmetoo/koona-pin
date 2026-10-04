@@ -18,6 +18,8 @@ export interface BookmarkActions {
   /** To the trash, with an undo in the notice (NP-022). */
   trash: (bookmark: Bookmark) => void;
   restore: (bookmark: Bookmark) => void;
+  /** From the trash for good, after a dialog (NP-023). */
+  deleteForever: (bookmark: Bookmark) => void;
   tag: (name: string) => void;
   /** Show only this site: the filter chip of the search row (NP-013). */
   domain: (domain: string) => void;
@@ -55,7 +57,7 @@ function moveEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
   ];
 }
 
-/** Menu «⋯» of a bookmark (frame «15 · Меню карточки»); in the trash, restore and open (frame 25). */
+/** Menu «⋯» of a bookmark (frame «15 · Меню карточки»); in the trash, restore, open and delete for good (frame 25). */
 function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {
   const soon = t("common.soon");
   if (b.deleted_at)
@@ -64,6 +66,8 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
       "separator",
       { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
       { id: "copy", icon: Copy, label: t("card.copyLink"), keys: "Ctrl C", onSelect: () => actions.copy(b.url) },
+      "separator",
+      { id: "delete", icon: Trash2, label: t("trash.deleteForever"), keys: "Del", onSelect: () => actions.deleteForever(b) },
     ];
   return [
     { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
@@ -378,8 +382,8 @@ export const BookmarkRow = memo(function BookmarkRow({
           </time>
         )}
         {b.deleted_at ? (
-          // Frame 25: one action in the trash.
-          <div className={`absolute right-0 ${revealed("row", open)}`}>
+          // Frame 25: restore, or delete for good after the dialog.
+          <div className={`absolute right-0 flex gap-0.5 ${revealed("row", open)}`}>
             <button
               type="button"
               onClick={() => actions.restore(b)}
@@ -388,6 +392,9 @@ export const BookmarkRow = memo(function BookmarkRow({
               <Icon icon={RotateCcw} size={13} />
               {t("trash.restore")}
             </button>
+            <RowAction label={t("trash.deleteForever")} onClick={() => actions.deleteForever(b)}>
+              <Icon icon={Trash2} size={15} />
+            </RowAction>
           </div>
         ) : (
         <div className={`absolute right-0 flex gap-0.5 ${revealed("row", open)}`}>

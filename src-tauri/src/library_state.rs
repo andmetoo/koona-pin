@@ -10,6 +10,7 @@ use crate::{
     capture_channel::{self, ChannelState},
     db::DbState,
     library::{self, Health, OpenFailure, Paths},
+    trash,
 };
 use serde::Serialize;
 use std::{
@@ -20,7 +21,8 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager};
 use ts_rs::TS;
 
-/// Checked hourly; a copy is written when the newest one is a day old.
+/// Checked hourly; a copy is written when the newest one is a day old, and
+/// the trash lets go of what it has kept 30 days.
 const MAINTENANCE_PERIOD: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -128,6 +130,19 @@ fn maintain(app: &AppHandle, library: &Library, db: &DbState, moved_aside: Optio
             }
             Ok(Health::Intact { .. }) => {}
             Err(error) => eprintln!("Automatic backup failed: {error}"),
+        }
+        // After the copy: what the cleanup deletes is still in the newest one.
+        let tidied = match db.conn.lock() {
+            Ok(conn) => trash::tidy(&conn, chrono::Utc::now()),
+            Err(_) => Ok(Vec::new()),
+        };
+        match tidied {
+            // Silent (Р-22): the trash count simply goes down.
+            Ok(gone) if !gone.is_empty() => {
+                let _ = app.emit("library-invalidated", ());
+            }
+            Ok(_) => {}
+            Err(error) => eprintln!("Emptying the trash failed, will try again: {error}"),
         }
         check = false;
         thread::sleep(MAINTENANCE_PERIOD);
