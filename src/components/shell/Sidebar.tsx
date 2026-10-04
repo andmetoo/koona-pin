@@ -1,5 +1,5 @@
 import { ReactNode, useRef, useState } from "react";
-import { Inbox, Link, Plus, Settings, Star, Trash2, X } from "lucide-react";
+import { Copy, Inbox, Link, Plus, Settings, Star, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
@@ -12,6 +12,8 @@ export interface SidebarProps {
   narrow: boolean;
   filters: FilterState;
   settingsOpen: boolean;
+  /** The section «Дубликаты» is open (NP-035, sheet 34). */
+  duplicatesOpen: boolean;
   counts: LibraryCounts;
   collections: Collection[];
   tags: Tag[];
@@ -23,6 +25,7 @@ export interface SidebarProps {
   onCollection: (id: number) => void;
   onTag: (name: string) => void;
   onSettings: () => void;
+  onDuplicates: () => void;
   onConnect: () => void;
   onNewCollection: () => void;
   onDeleteCollection: (collection: Collection) => void;
@@ -56,7 +59,10 @@ export function Sidebar(props: SidebarProps) {
   const { t } = useTranslation();
   const { filters, settingsOpen, counts, collections, tags, capture, narrow } = props;
   const [allTags, setAllTags] = useState(false);
-  const library = !settingsOpen;
+  const duplicatesOpen = props.duplicatesOpen;
+  const library = !settingsOpen && !duplicatesOpen;
+  /** Shown while there are groups, or while the section is open. */
+  const duplicates = counts.duplicates > 0 || duplicatesOpen;
   const inbox = library && filters.onlyInbox;
   const trash = library && filters.onlyTrash;
   const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash;
@@ -93,7 +99,14 @@ export function Sidebar(props: SidebarProps) {
         <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash} drop={trashDrop && { ...trashDrop, danger: true }}>
           <Icon icon={Trash2} />
         </StripButton>
-        <div className="my-2.5 h-px w-6 bg-line" />
+        {duplicates && (
+          <StripButton label={`${t("nav.duplicates")} ${counts.duplicates}`} active={duplicatesOpen} onClick={props.onDuplicates}>
+            <span className="relative">
+              <Icon icon={Copy} />
+              {counts.duplicates > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-subtle" />}
+            </span>
+          </StripButton>
+        )}        <div className="my-2.5 h-px w-6 bg-line" />
         {collections.map((c) => (
           <StripButton
             key={c.id}
@@ -154,6 +167,9 @@ export function Sidebar(props: SidebarProps) {
           onClick={props.onTrash}
           drop={trashDrop && { ...trashDrop, danger: true }}
         />
+        {duplicates && (
+          <NavRow icon={<Icon icon={Copy} />} label={t("nav.duplicates")} count={counts.duplicates} active={duplicatesOpen} onClick={props.onDuplicates} />
+        )}
       </nav>
 
       <div className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">

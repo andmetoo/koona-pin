@@ -42,6 +42,8 @@ pub enum Action {
     Tag,
     Trash,
     Restore,
+    /// Duplicates merged into one (NP-035).
+    Merge,
 }
 
 /// What `undo` did.
@@ -75,6 +77,8 @@ struct Fields {
     tags: Vec<String>,
     triaged_at: Option<String>,
     deleted_at: Option<String>,
+    /// When it was saved: merging duplicates keeps the earliest (NP-035).
+    created_at: String,
 }
 
 impl From<&Bookmark> for Fields {
@@ -89,6 +93,7 @@ impl From<&Bookmark> for Fields {
             tags,
             triaged_at: b.triaged_at.clone(),
             deleted_at: b.deleted_at.clone(),
+            created_at: b.created_at.clone(),
         }
     }
 }
@@ -110,12 +115,13 @@ impl Change {
             && (b.tags == a.tags || now.tags == a.tags)
             && (b.triaged_at == a.triaged_at || now.triaged_at == a.triaged_at)
             && (b.deleted_at == a.deleted_at || now.deleted_at == a.deleted_at)
+            && (b.created_at == a.created_at || now.created_at == a.created_at)
     }
 
     /// Writes back the fields the command changed, in place of what it wrote.
     fn rewind(&self, conn: &Connection) -> Result<()> {
         let (b, a) = (&self.before, &self.after);
-        let fields: [(&str, bool, Value); 6] = [
+        let fields: [(&str, bool, Value); 7] = [
             ("title", b.title != a.title, b.title.clone().into()),
             ("notes", b.notes != a.notes, b.notes.clone().into()),
             (
@@ -137,6 +143,11 @@ impl Change {
                 "deleted_at",
                 b.deleted_at != a.deleted_at,
                 b.deleted_at.clone().into(),
+            ),
+            (
+                "created_at",
+                b.created_at != a.created_at,
+                b.created_at.clone().into(),
             ),
         ];
         let now = db::now();
