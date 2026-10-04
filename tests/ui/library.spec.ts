@@ -705,6 +705,97 @@ test("export: saved says how many and offers Show; cancelled says nothing; a fai
   await expect(toast).toContainText("5 закладок сохранено в netami-pin.csv");
 });
 
+/** A JSON copy as Export writes it: one bookmark the demo has, one waiting in the inbox, one in the trash. */
+async function copyFile(page: import("@playwright/test").Page, edit: (copy: Record<string, unknown>) => void = () => {}) {
+  const existing = await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    return (await api.getBookmarks()).items[0].url;
+  });
+  const at = "2026-09-01T10:00:00.000Z";
+  const bookmark = (uid: string, url: string, title: string, more: Record<string, unknown> = {}) => ({
+    uid, url, title, description: null, notes: null, domain: new URL(url).hostname, image_url: null, favicon_url: null,
+    is_favorite: false, collection: null, tags: [], source: "import", created_at: at, updated_at: at, triaged_at: at, deleted_at: null, ...more,
+  });
+  const copy: Record<string, unknown> = {
+    format: "netami-pin",
+    version: 1,
+    exported_at: "2026-10-04T18:20:00.000Z",
+    app_version: "0.1.0",
+    collections: [
+      { uid: "c1", name: "Восстановленная", color: null, icon: null, created_at: at },
+      { uid: "c2", name: "Ещё одна", color: null, icon: null, created_at: at },
+    ],
+    tags: [{ uid: "t1", name: "из-копии", created_at: at }],
+    bookmarks: [
+      bookmark("b1", existing, "Уже есть"),
+      bookmark("b2", "https://restored.example/inbox", "Ждёт разбора", { triaged_at: null, collection: "c1", tags: ["из-копии"] }),
+      bookmark("b3", "https://restored.example/trash", "Была в корзине", { deleted_at: at }),
+    ],
+  };
+  edit(copy);
+  return { name: "netami-pin-2026-10-04.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) };
+}
+async function openRestore(page: import("@playwright/test").Page, file: { name: string; mimeType: string; buffer: Buffer }) {
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Резервная копия Netami Pin/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Восстановление из JSON-копии" });
+  await dialog.locator("input[type=file]").first().setInputFiles(file);
+  return dialog;
+}
+
+test("restore: merge adds what is missing with its state and keeps what is there; a bad copy is refused with nothing changed", async ({ page }) => {
+  const dialog = await openRestore(page, await copyFile(page));
+  await expect(dialog).toContainText(/3 закладки · 2 коллекции · 1 тег · 4 окт\.? 2026/);
+  await expect(dialog.getByRole("radio", { name: /Объединить с текущей библиотекой/ })).toHaveAttribute("aria-checked", "true");
+  await dialog.getByRole("button", { name: "Восстановить", exact: true }).click();
+  const report = page.getByRole("dialog", { name: "Восстановление завершено" });
+  await expect(report.getByRole("status")).toHaveText("2 закладки добавлены из копии");
+  await expect(report).toContainText("2 новые коллекции · 1 новый тег");
+  await expect(report).toContainText("Из них ждут во «Входящих»1");
+  await expect(report).toContainText("Из них в корзине1");
+  await expect(report).toContainText("Уже были в библиотеке — не изменены1");
+  await report.getByRole("button", { name: "Готово" }).click();
+  await expect(page.getByRole("button", { name: /^Восстановленная 1/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Входящие 3/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Корзина 1/ })).toBeVisible();
+
+  // Refused copies: the library stays as it was.
+  const refused = [
+    [{ name: "notes.json", mimeType: "application/json", buffer: Buffer.from("not json") }, "Это не JSON-файл."],
+    [await copyFile(page, (c) => (c.format = "other-app")), "Это не копия Netami Pin"],
+    [await copyFile(page, (c) => (c.version = 2)), "Копию сделала более новая версия Netami Pin (формат 2)"],
+    [await copyFile(page, (c) => ((c.bookmarks as { url: string }[])[1].url = "javascript:alert(1)")), "Копия повреждена: у закладки 2 нет правильного адреса. Ничего не изменено."],
+  ] as const;
+  for (const [file, text] of refused) {
+    const bad = await openRestore(page, file);
+    await expect(bad.getByRole("alert")).toContainText(text);
+    await expect(bad).toContainText("Проверено: копию нельзя восстановить");
+    await expect(bad.getByText("Выбрать другой файл")).toBeVisible();
+    await bad.getByRole("button", { name: "Отмена" }).click();
+  }
+  await expect(page.getByRole("button", { name: /^Корзина 1/ })).toBeVisible();
+});
+
+test("restore: replace asks first with the numbers, then the library is the copy and the backup is named", async ({ page }) => {
+  const dialog = await openRestore(page, await copyFile(page));
+  await dialog.getByRole("radio", { name: /Заменить библиотеку/ }).click();
+  await dialog.getByRole("button", { name: "Восстановить", exact: true }).click();
+  const confirm = page.getByRole("dialog", { name: "Заменить библиотеку?" });
+  await expect(confirm).toContainText("Сейчас в библиотеке 6 закладок, после восстановления будет 3 из копии.");
+  // «Оставить» changes nothing.
+  await confirm.getByRole("button", { name: "Оставить" }).click();
+  await expect(page.getByRole("dialog", { name: "Заменить библиотеку?" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Восстановить", exact: true }).click();
+  await page.getByRole("dialog", { name: "Заменить библиотеку?" }).getByRole("button", { name: "Заменить" }).click();
+  const report = page.getByRole("dialog", { name: "Восстановление завершено" });
+  await expect(report.getByRole("status")).toHaveText("3 закладки восстановлены");
+  await expect(report).toContainText("Копия прежней библиотеки:");
+  await expect(report.getByRole("button", { name: "Показать" })).toBeVisible();
+  await report.getByRole("button", { name: "Готово" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("2");
+  await expect(page.getByRole("button", { name: /^Корзина 1/ })).toBeVisible();
+});
+
 test("import of 10 000 links shows progress and keeps the window usable", async ({ page }) => {
   let html = "<DL>";
   for (let i = 0; i < 10_000; i++) html += `<DT><A HREF="https://example.com/${i}" ADD_DATE="1700000000">Link ${i}</A>`;

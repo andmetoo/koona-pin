@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode},
-    export, import,
+    export, import, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -430,6 +430,75 @@ pub fn reveal_export(app: AppHandle, last: State<'_, LastExport>) -> Result<(), 
     let path = last.0.lock().map_err(CommandError::internal)?.clone();
     let path = path.ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Nothing was exported yet"))?;
     app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
+}
+
+/// The check of a JSON copy before the restore (frame 30).
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum RestoreCheck {
+    Ready { preview: restore::RestorePreview },
+    Rejected { problem: restore::RestoreProblem },
+}
+
+/// What a restore did; on `rejected` and `backup_failed` nothing was changed.
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum RestoreOutcome {
+    Restored { summary: restore::RestoreSummary },
+    Rejected { problem: restore::RestoreProblem },
+    BackupFailed { detail: String },
+}
+
+/// Menu «⋯» → «Резервная копия Netami Pin (JSON)»: reads and checks the
+/// whole copy, changes nothing (NP-033).
+#[tauri::command]
+pub async fn check_restore(state: State<'_, Arc<DbState>>, content: String) -> Result<RestoreCheck, CommandError> {
+    blocking(&state, move |conn| match restore::check(&content) {
+        Ok(library) => Ok(RestoreCheck::Ready { preview: restore::preview(conn, &library).map_err(text)? }),
+        Err(problem) => Ok(RestoreCheck::Rejected { problem }),
+    })
+    .await
+}
+
+/// Merges the copy into the library or replaces the library with it, after
+/// checking it again (Р-31). A replace writes a backup first and empties the
+/// undo journal: its commands point at bookmarks that are gone.
+#[tauri::command]
+pub async fn restore_library(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    library: State<'_, Arc<Library>>,
+    content: String,
+    mode: restore::RestoreMode,
+) -> Result<RestoreOutcome, CommandError> {
+    let backups = library.paths.backups.clone();
+    let state = state.inner().clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        let copy = match restore::check(&content) {
+            Ok(copy) => copy,
+            Err(problem) => return Ok(RestoreOutcome::Rejected { problem }),
+        };
+        let conn = state.conn.lock().map_err(CommandError::internal)?;
+        let mut journal = state.journal.lock().map_err(CommandError::internal)?;
+        match restore::restore(&conn, &copy, mode, &backups) {
+            Ok(summary) => {
+                if mode == restore::RestoreMode::Replace {
+                    journal.clear();
+                }
+                Ok(RestoreOutcome::Restored { summary })
+            }
+            Err(restore::RestoreError::Backup(detail)) => Ok(RestoreOutcome::BackupFailed { detail }),
+            Err(restore::RestoreError::Database(e)) => Err(CommandError::from(e)),
+        }
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    if matches!(outcome, RestoreOutcome::Restored { .. }) {
+        let _ = app.emit("library-invalidated", ());
+    }
+    Ok(outcome)
 }
 
 /// Payload of `import-progress`: links written of all the file's links.
