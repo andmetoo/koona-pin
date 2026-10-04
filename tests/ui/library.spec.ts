@@ -692,7 +692,7 @@ test("a changed bookmark joins an open search by the search rules", async ({ pag
   await expect(page.getByText("1 из 6")).toBeVisible();
 });
 
-test("list rows: date groups over all pages, hover actions, inactive checkbox", async ({ page }) => {
+test("list rows: date groups over all pages, hover actions, the checkbox selects", async ({ page }) => {
   await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
   await largeLibrary(page);
   await page.getByRole("button", { name: "Список", exact: true }).click();
@@ -700,16 +700,139 @@ test("list rows: date groups over all pages, hover actions, inactive checkbox", 
   await expect(page.getByRole("heading", { name: "Раньше 250" })).toBeVisible();
 
   const row = page.locator('[data-bookmark-id="250"]');
+  const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
   await row.hover();
   const checkbox = row.getByRole("checkbox");
-  await expect(checkbox).toHaveAttribute("aria-disabled", "true");
+  await checkbox.click();
+  await expect(checkbox).toHaveAttribute("aria-checked", "true");
+  await expect(row).toHaveAttribute("data-selected", "true");
+  await expect(bar.getByRole("status")).toHaveText("1 выбрано");
+  // A changed bookmark stays selected.
   await row.getByRole("button", { name: "В коллекцию" }).click();
   await page.getByRole("menuitem", { name: "Разработка" }).click();
   await expect(row.locator("[data-collection]")).toContainText("Разработка");
+  await expect(row).toHaveAttribute("data-selected", "true");
+  // A deleted one leaves the selection silently.
   await row.hover();
   await row.getByRole("button", { name: "В корзину" }).click();
   await expect(page.locator('[data-bookmark-id="250"]')).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Раньше 249" })).toBeVisible();
+  await expect(bar).toHaveCount(0);
+});
+
+for (const view of ["Сетка", "Список"])
+  test(`selection in the ${view === "Сетка" ? "grid" : "list"}: Ctrl and Shift click, a frame that scrolls and loads pages, Esc`, async ({ page }) => {
+    await largeLibrary(page);
+    await page.getByRole("button", { name: view, exact: true }).click();
+    const popups: unknown[] = [];
+    page.on("popup", (popup) => popups.push(popup));
+    const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+    const count = bar.getByRole("status");
+    const selected = page.locator("[data-selected]");
+    const title = (id: number) => page.locator(`[data-bookmark-id="${id}"]`).getByRole("button", { name: `Запись ${id}`, exact: true });
+
+    // Newest first: 250, 249, 248…
+    await title(250).click({ modifiers: ["Control"] });
+    await expect(count).toHaveText("1 выбрано");
+    await title(247).click({ modifiers: ["Shift"] });
+    await expect(count).toHaveText("4 выбрано");
+    await title(249).click({ modifiers: ["Control"] });
+    await expect(count).toHaveText("3 выбрано");
+    await expect(selected).toHaveCount(3);
+    expect(popups).toHaveLength(0);
+    await expect(bar.getByRole("button", { name: "В корзину" })).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Escape");
+    await expect(bar).toHaveCount(0);
+
+    // A frame from the empty margin down past the bottom edge scrolls the list;
+    // pages load on the way and the frame keeps selecting rows that left the DOM.
+    const scroll = page.locator('[data-scroll="main"]');
+    const box = (await scroll.boundingBox())!;
+    await page.mouse.move(box.x + 10, box.y + 3);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width - 60, box.y + 200, { steps: 5 });
+    await page.mouse.move(box.x + box.width - 60, box.y + box.height + 150, { steps: 5 });
+    const selectedCount = async () => Number(((await count.textContent()) ?? "0").split(" ")[0]);
+    await expect.poll(selectedCount, { timeout: 15_000 }).toBeGreaterThan(100);
+    await page.mouse.up();
+    await expect(page.locator("[data-selection-frame]")).toHaveCount(0);
+    expect(Number(await page.locator("[data-loaded]").getAttribute("data-loaded"))).toBeGreaterThan(100);
+    const framed = await selectedCount();
+    // Scrolling back keeps it: the selection is by id, not by element.
+    await scroll.evaluate((el) => el.scrollTo({ top: 0 }));
+    await expect(page.locator('[data-bookmark-id="250"]')).toHaveAttribute("data-selected", "true");
+    await expect(count).toHaveText(`${framed} выбрано`);
+
+    // A frame without a modifier replaces the selection, with Ctrl it adds.
+    await page.mouse.move(box.x + 10, box.y + 3);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 60, box.y + 60, { steps: 5 });
+    await page.mouse.up();
+    await expect(count).toHaveText("1 выбрано");
+    await title(240).click({ modifiers: ["Control"] });
+    await expect(count).toHaveText("2 выбрано");
+
+    // A click on an empty place clears it.
+    await page.mouse.click(box.x + 10, box.y + box.height - 10);
+    await expect(bar).toHaveCount(0);
+  });
+
+test("selection: Ctrl A takes every match of 10 000 without loading them; search keeps it, another section clears it", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const [first] = (await api.getBookmarks()).items;
+    const bookmarks = Array.from({ length: 10_000 }, (_, i) => ({
+      ...first,
+      id: i + 1,
+      url: `https://example.com/${i + 1}`,
+      title: i % 10 ? `Запись ${i + 1}` : `Ёлка ${i + 1}`,
+      description: null,
+      notes: null,
+      image_url: null,
+      tags: [],
+      is_favorite: i < 3,
+      created_at: new Date(Date.UTC(2026, 0, 1) + i * 1000).toISOString(),
+    }));
+    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+  });
+  await page.reload();
+  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
+  const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+  const search = page.getByRole("textbox", { name: "Поиск в библиотеке" });
+
+  // In the search field Ctrl A is the field's own.
+  await search.fill("ёлка");
+  await search.press("Control+a");
+  await expect(bar).toHaveCount(0);
+  await search.fill("");
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+
+  const started = Date.now();
+  await page.keyboard.press("Control+a");
+  await expect(bar.getByRole("status")).toHaveText("10000 выбрано");
+  expect(Date.now() - started).toBeLessThan(1000);
+  // Selected, not loaded: the list still holds one page.
+  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
+
+  // Search narrows the list, not the selection; the hint counts what it hides.
+  await search.fill("ёлка");
+  await expect(page.getByText("9000 из 10000 выбранных скрыты поиском — действия их учитывают")).toBeVisible();
+  await expect(page.locator('[data-bookmark-id="9991"]')).toHaveAttribute("data-selected", "true");
+  // Esc in the field clears the query first and keeps the selection.
+  await search.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(page.getByText("Shift / Ctrl — добавить к выделению", { exact: false })).toBeVisible();
+
+  // Another section clears it.
+  await page.getByRole("button", { name: /^Избранное/ }).click();
+  await expect(bar).toHaveCount(0);
+  // Ctrl A there adds that section only; Esc in the empty field clears it.
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Control+a");
+  await expect(bar.getByRole("status")).toHaveText("3 выбрано");
+  await search.focus();
+  await search.press("Escape");
+  await expect(bar).toHaveCount(0);
 });
 
 test("a click on a domain filters by site; Esc clears the search; nothing found offers the whole library", async ({ page }) => {
