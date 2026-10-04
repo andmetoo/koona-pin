@@ -157,14 +157,14 @@ export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
 }
 
 /** OpenGraph image; a plate of the same size with the site mark when there is none. */
-export function Preview({ b }: { b: Bookmark }) {
+export function Preview({ b, mark = 20 }: { b: Bookmark; mark?: number }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [b.image_url]);
   return b.image_url && !broken ? (
     <img src={b.image_url} alt="" loading="lazy" decoding="async" className="size-full object-cover" onError={() => setBroken(true)} />
   ) : (
     <span data-preview-fallback className="flex size-full items-center justify-center bg-hover">
-      <SiteMark b={b} size={20} />
+      <SiteMark b={b} size={mark} />
     </span>
   );
 }
