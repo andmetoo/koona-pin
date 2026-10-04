@@ -1,3 +1,4 @@
+use crate::journal::Journal;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -55,7 +56,11 @@ pub struct DomainCount {
 
 /// The open library. Opening, checks and migrations live in `library.rs`.
 pub struct DbState {
+    /// Every write of the library goes through this connection, under its
+    /// lock: the journal relies on it.
     pub conn: Mutex<Connection>,
+    /// Commands to undo (NP-024), for this run only. Locked after `conn`.
+    pub journal: Mutex<Journal>,
     /// Read by the close handler on the main thread, which must never wait for the database.
     pub close_to_tray: AtomicBool,
 }
@@ -65,6 +70,7 @@ impl DbState {
         let close_to_tray = setting(&conn, "close_to_tray").map_or(true, |v| v == "true");
         DbState {
             conn: Mutex::new(conn),
+            journal: Mutex::new(Journal::default()),
             close_to_tray: AtomicBool::new(close_to_tray),
         }
     }
@@ -180,7 +186,12 @@ fn tag_id(conn: &Connection, name: &str, now: &str) -> Result<i64> {
     conn.query_row("SELECT id FROM tags WHERE name = ?1", [name], |r| r.get(0))
 }
 
-fn link_tags(conn: &Connection, bookmark_id: i64, tags: &[String], now: &str) -> Result<()> {
+pub(crate) fn link_tags(
+    conn: &Connection,
+    bookmark_id: i64,
+    tags: &[String],
+    now: &str,
+) -> Result<()> {
     for tag_name in tags {
         let clean = tag_name.trim().to_lowercase();
         if !clean.is_empty() {
@@ -242,6 +253,21 @@ pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut b = stmt.query_row(params![id], bookmark_row)?;
     attach_tags(conn, std::slice::from_mut(&mut b))?;
     Ok(b)
+}
+
+/// Those of `ids` that exist, with their tags, in no particular order.
+pub fn get_bookmarks_by_ids(conn: &Connection, ids: &[i64]) -> Result<Vec<Bookmark>> {
+    let ids = serde_json::to_string(ids)
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let mut items = conn
+        .prepare(
+            "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at
+             FROM bookmarks WHERE id IN (SELECT value FROM json_each(?1))",
+        )?
+        .query_map([ids], bookmark_row)?
+        .collect::<Result<Vec<_>>>()?;
+    attach_tags(conn, &mut items)?;
+    Ok(items)
 }
 
 /// What the list shows: search, filters and the page to read.
