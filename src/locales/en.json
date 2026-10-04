@@ -29,7 +29,19 @@
     "fewerTags": "Show fewer",
     "newCollectionName": "Name of the new collection",
     "newCollectionCreate": "Enter — create and move",
-    "newCollectionCancel": "Esc — cancel"
+    "newCollectionCancel": "Esc — cancel",
+    "tagsDrop": "Tags — drop on a tag to add it",
+    "dropNewCollection": "New collection from selection"
+  },
+  "drag": {
+    "more_one": "and {{count}} more bookmark",
+    "more_other": "and {{count}} more bookmarks",
+    "move": "Move {{count}} to “{{name}}”",
+    "tag": "Add tag “{{tag}}” to {{count}}",
+    "trash": "Move {{count}} to Trash",
+    "new": "New collection from {{count}}",
+    "nowhere": "Drop on a collection, a tag or Trash",
+    "keys": "Release over a collection, a tag or Trash  ·  Esc — cancel the drag"
   },
   "nav": {
     "inbox": "Inbox",
@@ -134,7 +146,7 @@
     "tagLabel": "Tag for the selected bookmarks",
     "tagPlaceholder": "Tag, then Enter",
     "tagSuggestions": "Tags in the library",
-    "keys": "Shift / Ctrl — add to selection  ·  Ctrl+A — select all  ·  Esc — clear selection",
+    "keys": "Shift / Ctrl — add to selection  ·  Ctrl+A — select all  ·  or drag the selection onto a collection or tag on the left",
     "keysTrash": "Ctrl+A — select all  ·  Del — delete forever  ·  Esc — clear selection",
     "hiddenBySearch_one": "{{count}} of the {{total}} selected is hidden by the search — actions include it  ·  Esc — clear selection",
     "hiddenBySearch_other": "{{count}} of the {{total}} selected are hidden by the search — actions include them  ·  Esc — clear selection",

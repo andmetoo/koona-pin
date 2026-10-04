@@ -23,6 +23,8 @@ const SCROLL_EDGE = 48;
 const SCROLL_MAX = 40;
 /** Where a press does not start a frame: controls, menus. */
 const INTERACTIVE = "button, a, input, textarea, select, [data-menu]";
+/** Where a press on a selected bookmark does not start a drag: its checkbox, menus, fields. */
+const NOT_DRAG = "[role=checkbox], [aria-haspopup], [data-menu], input, textarea, select";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 type Geometry = {
@@ -72,7 +74,8 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
  * Selection by a frame (NP-028, frame 04): press on an empty place and drag.
  * Near the top or bottom edge the list scrolls, and the next page loads as
  * usual. Without a modifier the frame replaces the selection, with `Ctrl` or
- * `Shift` it adds. A click on an empty place clears the selection.
+ * `Shift` it adds. A click on an empty place clears the selection. A press on
+ * a selected bookmark starts a drag instead (NP-030, Р-28): `onDrag`.
  */
 function useSelectionFrame(
   scrollRef: RefObject<HTMLDivElement | null>,
@@ -81,17 +84,25 @@ function useSelectionFrame(
   selected: ReadonlySet<number>,
   onSelect: (ids: ReadonlySet<number>) => void,
   onClear: () => void,
+  onDrag: ((e: PointerEvent, id: number) => void) | undefined,
 ) {
   const [frame, setFrame] = useState<Rect | null>(null);
-  const latest = useRef({ selected, onSelect, onClear });
-  latest.current = { selected, onSelect, onClear };
+  const latest = useRef({ selected, onSelect, onClear, onDrag });
+  latest.current = { selected, onSelect, onClear, onDrag };
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;
     let stop = () => {};
     const down = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
-      if (e.button !== 0 || e.pointerType === "touch" || target.closest(INTERACTIVE) || !inner.current) return;
+      if (e.button !== 0 || e.pointerType === "touch" || !inner.current) return;
+      const card = target.closest<HTMLElement>("[data-bookmark-id]");
+      const drag = latest.current.onDrag;
+      if (drag && card?.dataset.selected !== undefined && !(e.ctrlKey || e.metaKey || e.shiftKey) && !target.closest(NOT_DRAG)) {
+        drag(e, Number(card.dataset.bookmarkId));
+        return;
+      }
+      if (target.closest(INTERACTIVE)) return;
       // The scrollbar is part of the element but not of its content.
       const box = scroller.getBoundingClientRect();
       if (e.clientX >= box.left + scroller.clientLeft + scroller.clientWidth) return;
@@ -100,7 +111,7 @@ function useSelectionFrame(
       const pointer = { x: e.clientX, y: e.clientY };
       const additive = e.ctrlKey || e.metaKey || e.shiftKey;
       const base: ReadonlySet<number> = additive ? latest.current.selected : new Set();
-      const onCard = !!target.closest("[data-bookmark-id]");
+      const onCard = !!card;
       let dragging = false;
       let animation = 0;
       let last = "";
@@ -159,9 +170,13 @@ function useSelectionFrame(
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", up);
     };
+    // A preview image would start the browser's own drag and cancel the pointer.
+    const native = (e: DragEvent) => e.preventDefault();
     scroller.addEventListener("pointerdown", down);
+    scroller.addEventListener("dragstart", native);
     return () => {
       scroller.removeEventListener("pointerdown", down);
+      scroller.removeEventListener("dragstart", native);
       stop();
     };
   }, [scrollRef, inner, geometry]);
@@ -202,6 +217,8 @@ export function BookmarkList({
   selected,
   onSelect,
   onClearSelection,
+  onDragStart,
+  dragging,
 }: {
   view: ViewMode;
   bookmarks: Bookmark[];
@@ -218,6 +235,10 @@ export function BookmarkList({
   /** The selection the frame makes (NP-028). */
   onSelect: (ids: ReadonlySet<number>) => void;
   onClearSelection: () => void;
+  /** A press on a selected bookmark (NP-030); without it the selection is not dragged (the trash). */
+  onDragStart?: (e: PointerEvent, id: number) => void;
+  /** The selection is being dragged: the selected fade to 45 % (frame 05). */
+  dragging: boolean;
 }) {
   const { t } = useTranslation();
   const box = useRef<HTMLDivElement>(null);
@@ -270,7 +291,7 @@ export function BookmarkList({
 
   const geometry = useRef<Geometry>(null!);
   geometry.current = { grid, bookmarks, entries, columns, cardWidth, cardHeight, width };
-  const frame = useSelectionFrame(scrollRef, inner, geometry, selected, onSelect, onClearSelection);
+  const frame = useSelectionFrame(scrollRef, inner, geometry, selected, onSelect, onClearSelection, onDragStart);
 
   const items = virtualizer.getVirtualItems();
   const last = items.at(-1)?.index ?? -1;
@@ -280,7 +301,7 @@ export function BookmarkList({
   }, [hasMore, loadingMore, count, last, margin, onMore]);
 
   return (
-    <div ref={box} data-view={view} data-loaded={bookmarks.length}>
+    <div ref={box} data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined}>
       <div ref={inner} className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {frame && (
           // Frame 04: accent fill 4 %, border accent 80 %.

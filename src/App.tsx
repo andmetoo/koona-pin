@@ -10,6 +10,7 @@ import { applyTheme, isDark, preference, savePreference, storedTheme, storedValu
 import { AppSettings, Bookmark, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
+import { useSelectionDrag } from "./hooks/useSelectionDrag";
 import { Icon, PinIcon } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
@@ -20,6 +21,7 @@ import { Sidebar } from "./components/shell/Sidebar";
 import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
 import { BookmarkList } from "./components/library/BookmarkList";
+import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
@@ -350,6 +352,19 @@ export function App() {
   };
   const selectionActionsRef = useRef(selectionActions);
   selectionActionsRef.current = selectionActions;
+  /** The selection dropped on the sidebar (NP-030): the bar's action, one command of the journal. */
+  const selectionDrag = useSelectionDrag((target) => {
+    const run = selectionActionsRef.current;
+    if (target.kind === "collection") run.move(target.id);
+    else if (target.kind === "tag") run.tag(target.name);
+    else if (target.kind === "trash") run.trash();
+    else run.newCollection();
+  });
+  const dragging = selectionDrag.drag;
+  const startDrag = (e: PointerEvent, id: number) => {
+    const bookmark = library.bookmarks.find((b) => b.id === id);
+    if (bookmark) selectionDrag.start(e, bookmark, selection.ids.size);
+  };
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -579,6 +594,9 @@ export function App() {
       selected={selection.ids}
       onSelect={selection.update}
       onClearSelection={selection.clear}
+      // In the trash the selection is not dragged; while an action runs, nothing starts.
+      onDragStart={filters.onlyTrash || bulkBusy ? undefined : startDrag}
+      dragging={!!dragging}
     />
   );
   const toast = notice ? (
@@ -671,7 +689,9 @@ export function App() {
               }
             : null
         }
+        dropping={dragging && { target: dragging.target }}
       />
+      {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
         <WindowBar />
         <div className="flex min-h-0 flex-1">
@@ -878,6 +898,7 @@ export function App() {
                       tags={library.tags}
                       actions={selectionActions}
                       onClear={selection.clear}
+                      dragging={!!dragging}
                     />
                   </div>
                 )}
