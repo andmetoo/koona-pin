@@ -2,7 +2,6 @@ use crate::db::{self, Bookmark, DbState, Source};
 use crate::error::{CommandError, ErrorCode};
 use crate::metadata;
 use rusqlite::{params, Connection, OptionalExtension};
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -30,9 +29,6 @@ pub struct CaptureResult {
     /// 0.3 and older know only `created` and `existing`.
     #[serde(skip)]
     pub restored: bool,
-    /// An import met the link in the trash and left it there.
-    #[serde(skip)]
-    pub in_trash: bool,
 }
 /// `code` and `status` are the HTTP v1 contract and do not change; IPC gets
 /// the finer `ipc` code (NP-007).
@@ -141,7 +137,6 @@ fn save_in(
                 bookmark,
                 newly_created: false,
                 restored: false,
-                in_trash: false,
             });
         }
     }
@@ -154,17 +149,7 @@ fn save_in(
         .optional()
         .map_err(CaptureError::database)?;
     if let Some((id, true)) = existing {
-        if source == Source::Import {
-            // A repeated import of browser bookmarks must not undo a clean-up.
-            return Ok(CaptureResult {
-                bookmark_id: id,
-                outcome: "existing".into(),
-                bookmark: None,
-                newly_created: false,
-                restored: false,
-                in_trash: true,
-            });
-        }
+        // An import never comes here: it leaves the trash alone (`import.rs`).
         // Saved again: back from the trash with its fields, waiting in the inbox.
         let bookmark = db::restore_bookmark(tx, id, true).map_err(CaptureError::database)?;
         if let Some(request_id) = &request.request_id {
@@ -180,7 +165,6 @@ fn save_in(
             bookmark: Some(bookmark),
             newly_created: false,
             restored: true,
-            in_trash: false,
         });
     }
     let newly_created = existing.is_none();
@@ -212,57 +196,9 @@ fn save_in(
         bookmark: Some(bookmark),
         newly_created,
         restored: false,
-        in_trash: false,
     })
 }
 
-/// Links of a browser bookmarks file; addresses that are not HTTP/HTTPS are skipped.
-pub fn parse_html(html: &str) -> Vec<CaptureRequest> {
-    let document = Html::parse_document(html);
-    let selector = Selector::parse("a[href]").expect("valid selector");
-    document
-        .select(&selector)
-        .filter_map(|element| {
-            let href = element.value().attr("href")?;
-            validate_url(href).ok()?;
-            Some(CaptureRequest {
-                request_id: None,
-                url: href.into(),
-                title: Some(element.text().collect::<String>().trim().into()),
-                collection_id: None,
-                tags: None,
-            })
-        })
-        .collect()
-}
-
-/// One transaction for the whole file: an import is saved entirely or not at
-/// all, and thousands of links cost one sync to disk instead of thousands.
-/// Metadata is not fetched, so an import does not start a burst of requests.
-pub fn import(
-    conn: &Connection,
-    requests: &[CaptureRequest],
-) -> Result<ImportSummary, CaptureError> {
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(CaptureError::database)?;
-    let mut summary = ImportSummary::default();
-    for request in requests {
-        let saved = save_in(&tx, request, Source::Import)?;
-        summary.imported += u32::from(saved.newly_created);
-        summary.in_trash += u32::from(saved.in_trash);
-    }
-    tx.commit().map_err(CaptureError::database)?;
-    Ok(summary)
-}
-
-/// What an HTML import did: new links, and links it left in the trash.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, TS)]
-#[ts(export)]
-pub struct ImportSummary {
-    pub imported: u32,
-    pub in_trash: u32,
-}
 #[derive(Debug, Clone, Copy, Serialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export)]
@@ -438,11 +374,7 @@ mod tests {
         let mut unknown = request("two");
         unknown.url = "https://example.com/unknown".into();
         save(&c, &unknown, Source::Extension).unwrap();
-        import(
-            &c,
-            &parse_html(r#"<a href="https://example.com/imported">I</a>"#),
-        )
-        .unwrap();
+        imported(&c, r#"<a href="https://example.com/imported">I</a>"#);
         let rows: Vec<(String, Option<String>, Option<String>)> = c
             .prepare("SELECT url, source, triaged_at FROM bookmarks ORDER BY id")
             .unwrap()
@@ -457,30 +389,9 @@ mod tests {
         assert!(rows[2].2.is_some(), "an import goes to the library");
     }
 
-    #[test]
-    fn import_of_ten_thousand_links_is_one_transaction() {
-        let c = database();
-        let mut html = String::from("<DL>");
-        for i in 0..10_000 {
-            html.push_str(&format!(
-                r#"<DT><A HREF="https://example.com/{i}">Link {i}</A>"#
-            ));
-        }
-        html.push_str(r#"<DT><A HREF="javascript:alert(1)">Skipped</A><DT><A HREF="https://example.com/1">Duplicate</A></DL>"#);
-        let requests = parse_html(&html);
-        assert_eq!(requests.len(), 10_001);
-        let started = std::time::Instant::now();
-        assert_eq!(import(&c, &requests).unwrap().imported, 10_000);
-        println!("import of 10 000 links: {:?}", started.elapsed());
-        assert_eq!(db::get_counts(&c).unwrap().total, 10_000);
-
-        // A failure in the middle keeps nothing from the file.
-        let mut broken = parse_html(
-            r#"<a href="https://example.org/a">A</a><a href="https://example.org/b">B</a>"#,
-        );
-        broken[1].collection_id = Some(99_999);
-        assert_eq!(import(&c, &broken).unwrap_err().status, 500);
-        assert_eq!(db::get_counts(&c).unwrap().total, 10_000);
+    /// An import of `html` into the library (`import.rs`).
+    fn imported(c: &Connection, html: &str) -> crate::import::ImportSummary {
+        crate::import::import(c, &crate::import::parse(html, chrono::Utc::now()), false, |_, _| {}).unwrap()
     }
 
     #[test]
@@ -501,18 +412,8 @@ mod tests {
         db::trash_bookmark(&c, id).unwrap();
 
         // An import leaves it in the trash and says so.
-        let summary = import(
-            &c,
-            &parse_html(r#"<a href="https://example.com/">Again</a>"#),
-        )
-        .unwrap();
-        assert_eq!(
-            summary,
-            ImportSummary {
-                imported: 0,
-                in_trash: 1
-            }
-        );
+        let summary = imported(&c, r#"<a href="https://example.com/">Again</a>"#);
+        assert_eq!((summary.added, summary.in_trash), (0, 1));
         assert_eq!(db::get_counts(&c).unwrap().trash, 1);
 
         // A capture brings it back with its fields, waiting in the inbox again.

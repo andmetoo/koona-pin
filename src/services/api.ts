@@ -14,6 +14,7 @@ import {
   DataSummary,
   DomainCount,
   FilterState,
+  ImportProgress,
   ImportSummary,
   LibraryCounts,
   LibraryPlace,
@@ -125,8 +126,11 @@ const desktop = {
     await call("delete_collection", { id });
     return true;
   },
-  importHtmlBookmarks: (htmlContent: string) =>
-    call<ImportSummary>("import_html_bookmarks", { htmlContent }),
+  /** Folders by the rule of Р-10, into the library or the inbox; the report of frame 28. */
+  importHtmlBookmarks: (htmlContent: string, toInbox = false) =>
+    call<ImportSummary>("import_html_bookmarks", { htmlContent, toInbox }),
+  onImportProgress: (callback: (progress: ImportProgress) => void) =>
+    subscription("import-progress", callback),
   openUrl: (url: string) => call<void>("open_url_external", { url }),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),

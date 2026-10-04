@@ -11,6 +11,10 @@ inbox: number,
  */
 inbox_newest: string | null, 
 /**
+ * Of the waiting ones, those an import put there: «— 340 из импорта» (frame 24, NP-031).
+ */
+inbox_imported: number, 
+/**
  * Bookmarks in the trash (NP-022); none of the others count them.
  */
 trash: number, };
