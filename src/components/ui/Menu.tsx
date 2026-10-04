@@ -38,6 +38,7 @@ export function Menu({
   width = 264,
   onClose,
   nested = false,
+  trigger,
 }: {
   entries: MenuEntry[];
   anchor: DOMRect | { x: number; y: number };
@@ -47,6 +48,8 @@ export function Menu({
   /** `escape` returns focus to where the menu was opened from. */
   onClose: (reason: CloseReason) => void;
   nested?: boolean;
+  /** The button that opened the menu: a press on it is not «outside», so its click can close the menu. */
+  trigger?: Element | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
@@ -70,6 +73,7 @@ export function Menu({
   useEffect(() => {
     if (nested) return;
     const outside = (e: PointerEvent) => {
+      if (trigger?.contains(e.target as Node)) return;
       if (!(e.target as Element).closest?.("[data-menu]")) onClose("outside");
     };
     const blur = () => onClose("outside");

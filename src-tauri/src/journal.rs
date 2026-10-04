@@ -288,7 +288,8 @@ fn put_back(conn: &Connection, command: &Command) -> Result<Undo> {
 mod tests {
     use super::*;
     use crate::db::{
-        apply_bulk, bulk_into_new_collection, create_collection, delete_collection,
+        all_favorite, apply_bulk, bulk_into_new_collection, create_collection, delete_collection,
+        next_collection_id,
         enrich_bookmark, get_bookmark_by_id, get_bookmarks, get_counts, insert_or_update_bookmark,
         purge_trash, restore_bookmark, trash_bookmark, update_bookmark, Bulk, BookmarkQuery,
         Purge, Source,
@@ -786,6 +787,11 @@ mod tests {
         // Moving bookmarks in the trash changes nothing: only restore reaches there.
         let (count, changed, command) = bulk(&mut journal, &conn, Action::Move, &ids, Bulk::Move(None));
         assert_eq!((count, changed.len(), command), (0, 0, None));
+        // A tag that nothing gets is not created.
+        let (count, changed, command) = bulk(&mut journal, &conn, Action::Tag, &ids, Bulk::Tag("пусто".into()));
+        assert_eq!((count, changed.len(), command), (0, 0, None));
+        let empty: i64 = conn.query_row("SELECT count(*) FROM tags WHERE name = 'пусто'", [], |r| r.get(0)).unwrap();
+        assert_eq!(empty, 0, "no empty tag is left behind");
 
         let (count, restored, _) = bulk(&mut journal, &conn, Action::Restore, &[a.id], Bulk::Restore);
         assert_eq!((count, restored.len()), (1, 1));
@@ -839,6 +845,30 @@ mod tests {
         let moved = journal.record(&conn, Action::Move, &ids, |conn| apply_bulk(conn, &ids, &Bulk::Move(Some(work.id))).map(|(_, c)| c));
         assert_eq!(crate::error::code_of(&moved.err().unwrap()), crate::error::ErrorCode::NotFound);
         assert_eq!(snapshot(&conn, &ids), start);
+    }
+
+    #[test]
+    fn the_bar_asks_for_the_star_of_the_selected_and_the_next_collection_id() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let a = captured(&conn, "a", &[]);
+        let b = captured(&conn, "b", &[]);
+        assert!(!all_favorite(&conn, &[]).unwrap(), "nothing selected has no star");
+        bulk(&mut journal, &conn, Action::Favorite, &[a.id], Bulk::Favorite(true));
+        assert!(all_favorite(&conn, &[a.id]).unwrap());
+        assert!(!all_favorite(&conn, &[a.id, b.id]).unwrap());
+        // One in the trash does not count: it is not where the bar is.
+        trash_bookmark(&conn, b.id).unwrap();
+        assert!(all_favorite(&conn, &[a.id, b.id]).unwrap());
+
+        // AUTOINCREMENT: the id of a deleted newest collection is not reused.
+        let first = create_collection(&conn, "Первая", None, None).unwrap();
+        let second = create_collection(&conn, "Вторая", None, None).unwrap();
+        assert_eq!(next_collection_id(&conn).unwrap(), second.id + 1);
+        delete_collection(&conn, second.id).unwrap();
+        assert_eq!(next_collection_id(&conn).unwrap(), second.id + 1);
+        assert_eq!(create_collection(&conn, "Третья", None, None).unwrap().id, second.id + 1);
+        assert!(first.id < second.id);
     }
 
     #[test]

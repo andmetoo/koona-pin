@@ -86,6 +86,12 @@ try {
 // Saved before NP-025, without source.
 let bookmarks: Bookmark[] = initial.bookmarks.map((b) => ({ ...b, source: b.source ?? null }));
 let collections: Collection[] = initial.collections;
+/** The highest collection id handed out: like AUTOINCREMENT, a deleted one is not reused. */
+let lastCollection = 0;
+const nextCollection = () => {
+  lastCollection = Math.max(lastCollection, ...collections.map((c) => c.id)) + 1;
+  return lastCollection;
+};
 /** Everything outside the trash: what the library, its counts and catalogs show. */
 const live = () => bookmarks.filter((b) => !b.deleted_at);
 /** A stored change with a new revision, like an UPDATE in the desktop app. */
@@ -426,6 +432,14 @@ export const demo = {
     emitMany("updated", changed);
     return { count, changed: changed.length, command, collection: created && { ...created, count } };
   },
+  async allFavorite(ids: number[]): Promise<boolean> {
+    const chosen = new Set(ids);
+    const shown = bookmarks.filter((b) => chosen.has(b.id) && !b.deleted_at);
+    return shown.length > 0 && shown.every((b) => b.is_favorite);
+  },
+  async nextCollectionId(): Promise<number> {
+    return Math.max(lastCollection, ...collections.map((c) => c.id)) + 1;
+  },
   /** `delete_forever_many`: only those in the trash, no undo. */
   async deleteForeverMany(ids: number[]): Promise<number> {
     const chosen = new Set(ids);
@@ -454,7 +468,7 @@ export const demo = {
     if (collections.some((c) => c.name === name.trim()))
       throw new CommandError("conflict", "Такая коллекция уже есть");
     const c: Collection = {
-      id: Date.now(),
+      id: nextCollection(),
       name: name.trim(),
       color: color ?? null,
       icon: icon ?? null,

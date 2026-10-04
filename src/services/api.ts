@@ -123,6 +123,10 @@ const desktop = {
     call<Undo>("undo", { command: command ?? null }),
   /** One action on every selected bookmark: one transaction, one command to undo (NP-029). */
   bulkUpdate: (ids: number[], change: BulkChange) => call<BulkChanged>("bulk_update", { ids, change }),
+  /** Every selected bookmark has a star: the bar offers «Из избранного». */
+  allFavorite: (ids: number[]) => call<boolean>("all_favorite", { ids }),
+  /** The id, and so the colour, the next collection gets. */
+  nextCollectionId: () => call<number>("next_collection_id"),
   /** Only bookmarks in the trash; there is no way back. */
   deleteForever: (id: number) => call<void>("delete_forever", { id }),
   /** The selection in the trash, for good: how many went. */

@@ -102,8 +102,8 @@ export function App() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const bulkBusyRef = useRef(bulkBusy);
   bulkBusyRef.current = bulkBusy;
-  /** «Новая коллекция из выбранного»: the name offered in the sidebar field, while it is open. */
-  const [naming, setNaming] = useState<string | null>(null);
+  /** «Новая коллекция из выбранного»: the name offered in the sidebar field and the colour the collection will get, while it is open. */
+  const [naming, setNaming] = useState<{ suggested: string; color: string } | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
@@ -332,7 +332,15 @@ export function App() {
   const selectionActions: SelectionActions = {
     move: (collectionId) => runBulk({ action: "move", collection_id: collectionId }),
     // The strip of a narrow window has no room for the field: the dialog asks instead.
-    newCollection: () => (narrow ? setSurface("selectionCollection") : setNaming(offeredName())),
+    newCollection: () => {
+      if (narrow) return setSurface("selectionCollection");
+      const suggested = offeredName();
+      // Colours follow the id (services/collections); the library knows the next one.
+      void api.nextCollectionId().then(
+        (id) => setNaming({ suggested, color: collectionColor(id) }),
+        (err) => say(describeError(err), true),
+      );
+    },
     tag: (name) => runBulk({ action: "tag", name }),
     favorite: (favorite) => runBulk({ action: "favorite", favorite }),
     export: (format) => exportLibrary(format, [...selection.ids]),
@@ -652,10 +660,9 @@ export function App() {
         naming={
           naming !== null && selecting
             ? {
-                suggested: naming,
+                suggested: naming.suggested,
                 count: selection.ids.size,
-                // Colours follow the id (services/collections): the next one gets the next colour.
-                color: collectionColor(Math.max(0, ...library.collections.map((c) => c.id)) + 1),
+                color: naming.color,
                 onCreate: (name) => {
                   setNaming(null);
                   runBulk({ action: "new_collection", name });
