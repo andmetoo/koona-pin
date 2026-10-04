@@ -15,6 +15,7 @@ pub mod net_guard;
 pub mod pipe_name;
 #[doc(hidden)]
 pub mod test_libraries;
+pub mod trash;
 
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{
@@ -103,6 +104,8 @@ pub fn run() {
             commands::update_bookmark,
             commands::trash_bookmark,
             commands::restore_bookmark,
+            commands::delete_forever,
+            commands::empty_trash,
             commands::get_collections,
             commands::create_collection,
             commands::delete_collection,

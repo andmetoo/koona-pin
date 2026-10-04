@@ -249,6 +249,21 @@ export const demo = {
     emit("updated", b);
     return b;
   },
+  /** Only from the trash, like the desktop app (NP-023). */
+  async deleteForever(id: number) {
+    const b = bookmarks.find((item) => item.id === id && item.deleted_at);
+    if (!b) throw new CommandError("not_found", "Этой закладки нет в корзине");
+    bookmarks = bookmarks.filter((item) => item.id !== id);
+    persist();
+    emit("deleted", { ...b, revision: (b.revision ?? 1) + 1 });
+  },
+  async emptyTrash() {
+    const gone = bookmarks.length - live().length;
+    bookmarks = live();
+    persist();
+    invalidations.forEach((fn) => fn());
+    return gone;
+  },
   async createCollection(name: string, color?: string, icon?: string) {
     if (collections.some((c) => c.name === name.trim()))
       throw new CommandError("conflict", "Такая коллекция уже есть");

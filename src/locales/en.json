@@ -158,7 +158,13 @@
   "confirm": {
     "deleteCollection": "Delete collection?",
     "deleteCollectionText": "Bookmarks of «{{name}}» stay in the library without a collection.",
-    "delete": "Delete"
+    "delete": "Delete",
+    "emptyTrash": "Empty trash?",
+    "emptyTrashText_one": "{{count}} bookmark will be deleted for good. This can't be undone, and it won't come back with Restore.",
+    "emptyTrashText_other": "{{count}} bookmarks will be deleted for good. This can't be undone, and they won't come back with Restore.",
+    "deleteForever": "Delete forever?",
+    "deleteForeverText": "«{{title}}» will be deleted for good. This can't be undone.",
+    "deleteForeverButton": "Delete forever"
   },
   "connect": {
     "title": "Connect browser",
@@ -243,13 +249,18 @@
     "trashed": "Moved to Trash",
     "undo": "Undo",
     "restored": "Restored",
-    "restoredLink": "Back from Trash, waiting in Inbox"
+    "restoredLink": "Back from Trash, waiting in Inbox",
+    "purged": "Deleted for good",
+    "emptied_one": "Trash emptied: {{count}} bookmark deleted for good",
+    "emptied_other": "Trash emptied: {{count}} bookmarks deleted for good"
   },
   "trash": {
     "restore": "Restore",
     "daysLeft_one": "{{count}} day left",
     "daysLeft_other": "{{count}} days left",
     "lastDay": "Deleting soon",
+    "deleteForever": "Delete forever…",
+    "empty": "Empty trash…",
     "note": "Deleted bookmarks stay here for 30 days, then they're gone for good. Restore brings one back with its note, tags, collection and star."
   },
   "empty": {

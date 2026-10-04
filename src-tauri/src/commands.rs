@@ -4,7 +4,7 @@ use crate::{
     capture_channel::{self, ChannelState},
     db::{
         self, Bookmark, BookmarkPage, BookmarkQuery, Collection, DbState, DomainCount,
-        LibraryCounts, Source, Tag,
+        LibraryCounts, Purge, Source, Tag,
     },
     error::{CommandError, ErrorCode},
     library_state::{self, Library, LibraryStatus},
@@ -175,6 +175,37 @@ pub async fn restore_bookmark(
     .await?;
     capture::emit(&app, ChangeKind::Updated, &b);
     Ok(b)
+}
+/// «Удалить навсегда» in the trash (NP-023), after the dialog. A bookmark
+/// in the library is never deleted at once.
+#[tauri::command]
+pub async fn delete_forever(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+) -> Result<(), CommandError> {
+    let gone = blocking(&state, move |conn| {
+        db::purge_trash(conn, Purge::One(id)).map_err(text)
+    })
+    .await?;
+    let &(id, revision) = gone
+        .first()
+        .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Этой закладки нет в корзине"))?;
+    capture::emit_deleted(&app, id, revision);
+    Ok(())
+}
+/// «Очистить корзину»: how many bookmarks went for good.
+#[tauri::command]
+pub async fn empty_trash(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+) -> Result<u32, CommandError> {
+    let gone = blocking(&state, |conn| {
+        db::purge_trash(conn, Purge::All).map_err(text)
+    })
+    .await?;
+    let _ = app.emit("library-invalidated", ());
+    Ok(gone.len() as u32)
 }
 #[tauri::command]
 pub async fn get_collections(
