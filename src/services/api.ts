@@ -4,12 +4,12 @@ import { getVersion } from "@tauri-apps/api/app";
 import {
   AddedLink,
   AppSettings,
-  Bookmark,
   BookmarkChange,
   BookmarkPage,
   BookmarkPatch,
   BookmarkQuery,
   CaptureStatus,
+  Changed,
   Collection,
   DataSummary,
   DomainCount,
@@ -19,6 +19,7 @@ import {
   LibraryPlace,
   LibraryStatus,
   Tag,
+  Undo,
 } from "../types";
 import { demo } from "./demo";
 import { toCommandError } from "./errors";
@@ -85,7 +86,7 @@ const desktop = {
       tags?: string[];
     },
   ) =>
-    call<Bookmark>("update_bookmark", {
+    call<Changed>("update_bookmark", {
       id,
       patch: {
         title: data.title,
@@ -100,8 +101,11 @@ const desktop = {
               : { action: "set", id: data.collection_id },
       } satisfies BookmarkPatch,
     }),
-  trashBookmark: (id: number) => call<Bookmark>("trash_bookmark", { id }),
-  restoreBookmark: (id: number) => call<Bookmark>("restore_bookmark", { id }),
+  trashBookmark: (id: number) => call<Changed>("trash_bookmark", { id }),
+  restoreBookmark: (id: number) => call<Changed>("restore_bookmark", { id }),
+  /** The last command, or `command` from an undo notice (NP-024). */
+  undo: (command?: number | null) =>
+    call<Undo>("undo", { command: command ?? null }),
   /** Only bookmarks in the trash; there is no way back. */
   deleteForever: (id: number) => call<void>("delete_forever", { id }),
   emptyTrash: () => call<number>("empty_trash"),
