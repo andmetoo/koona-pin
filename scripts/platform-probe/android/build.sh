@@ -13,8 +13,10 @@ rm -rf /work/probe && cp -r /src/scripts/platform-probe/mobile-app /work/probe
 cd /work/probe
 export CARGO_TARGET_DIR=/target/probe
 start=$(date +%s)
-npx --yes @tauri-apps/cli@2.12.1 android init --ci
-npx --yes @tauri-apps/cli@2.12.1 android build --ci --debug --apk --target aarch64
+# Gradle calls `npm run tauri` of this folder while it builds the Rust part.
+npm install --no-audit --no-fund
+npm run tauri -- android init --ci
+npm run tauri -- android build --ci --debug --apk --target aarch64
 echo "probe build: exit $? after $(( $(date +%s) - start )) s"
 find src-tauri/gen/android -name "*.apk" -exec cp {} /out/ \; -exec ls -l {} \;
 # What the generated Android project is made of: a share target would live here.

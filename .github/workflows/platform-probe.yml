@@ -18,6 +18,8 @@ env:
 jobs:
   macos:
     name: macOS app bundle, launch, screenshot
+    # Passed in the first run (37207212974); the second run repeats iOS only.
+    if: false
     runs-on: macos-latest
     timeout-minutes: 40
     steps:
@@ -95,16 +97,20 @@ jobs:
         continue-on-error: true
         working-directory: src-tauri
         run: |
-          cargo check --lib --target aarch64-apple-ios 2> ../probe/app-check.log
-          echo "errors: $(grep -c '^error' ../probe/app-check.log)" | tee -a ../probe/system.txt
+          cargo check --lib --target aarch64-apple-ios 2> ../probe/app-check.log || true
+          echo "errors: $(grep -c 'error\[' ../probe/app-check.log || true)" | tee -a ../probe/system.txt
+      # Outside the repository: Xcode calls `npm run tauri` of the nearest
+      # package.json, which inside it would be the real app (first run).
       - name: Probe app for the simulator
-        working-directory: scripts/platform-probe/mobile-app
         run: |
-          npx --yes @tauri-apps/cli@2.12.1 ios init --ci 2>&1 | tail -n 20 | tee ../../../probe/ios-init.log
-          npx --yes @tauri-apps/cli@2.12.1 ios build --ci --debug --target aarch64-sim 2>&1 | tail -n 40 | tee ../../../probe/ios-build.log
+          cp -R scripts/platform-probe/mobile-app "$RUNNER_TEMP/probe"
+          cd "$RUNNER_TEMP/probe"
+          npm install --no-audit --no-fund
+          npm run tauri -- ios init --ci 2>&1 | tail -n 20 | tee "$GITHUB_WORKSPACE/probe/ios-init.log"
+          npm run tauri -- ios build --ci --debug --target aarch64-sim 2>&1 | tail -n 40 | tee "$GITHUB_WORKSPACE/probe/ios-build.log"
       - name: Run in the simulator, screenshot
         run: |
-          app=$(find scripts/platform-probe/mobile-app/src-tauri/gen/apple -name "*.app" -path "*simulator*" | head -1)
+          app=$(find "$RUNNER_TEMP/probe/src-tauri/gen/apple" "$HOME/Library/Developer/Xcode/DerivedData" -name "*.app" -path "*simulator*" 2>/dev/null | head -1)
           echo "app: $app" | tee -a probe/system.txt
           device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
           xcrun simctl boot "$device"
