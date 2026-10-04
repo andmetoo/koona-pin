@@ -46,7 +46,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_opener::init())
-        // The Save dialog of an export, called from Rust only (NP-032): no permission for the interface.
+        // File dialogs of export and backups, called from Rust only (NP-032, NP-034): no permission for the interface.
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -54,6 +54,7 @@ pub fn run() {
         ))
         .manage(channel_state.clone())
         .manage(commands::LastExport::default())
+        .manage(commands::PickedBackup::default())
         .manage(Arc::new(library_state::Library::new(
             library::Paths::from_env(),
         )))
@@ -144,6 +145,11 @@ pub fn run() {
             commands::set_autostart,
             commands::get_data_summary,
             commands::back_up_now,
+            commands::save_backup_copy,
+            commands::list_backups,
+            commands::pick_backup,
+            commands::restore_backup,
+            commands::reveal_backup,
             commands::rebuild_search_index
         ])
         .run(tauri::generate_context!())

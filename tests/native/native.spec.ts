@@ -1,6 +1,6 @@
 import { test, expect, chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -564,6 +564,88 @@ test("restore from JSON through IPC: a refused copy changes nothing, a replace l
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
   }
+});
+
+test("backup: copy, changes, restore in place with capture working after it; a broken file is replaced from the error screen", async ({ request }) => {
+  const data = await folder("restore-backup");
+  const env = isolated(data);
+  const hostEnv = { ...process.env, ...env };
+  const counts = (page: import("@playwright/test").Page) =>
+    page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_counts")) as Promise<{ total: number }>;
+  const app = await launch(request, env);
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await captureOpen(env);
+    const save = (id: string, url: string) => hostMessage(capture(id, url, id, "chrome"), { env: hostEnv });
+    expect((await save("before-copy", "https://example.invalid/before-copy")).reply).toMatchObject({ ok: true, outcome: "created" });
+    await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("back_up_now"));
+    // Changes after the copy: they stay in the WAL of the open library.
+    expect((await save("after-copy", "https://example.invalid/after-copy")).reply).toMatchObject({ ok: true, outcome: "created" });
+    expect(await counts(page)).toMatchObject({ total: 2 });
+
+    await page.getByRole("button", { name: "Настройки", exact: true }).click();
+    await page.getByRole("button", { name: "Восстановить…", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Восстановление из резервной копии" });
+    await expect(dialog.getByRole("radio").first()).toHaveAttribute("aria-checked", "true");
+    await expect(dialog.getByRole("radio").first()).toContainText("1 закладка");
+    await dialog.getByRole("button", { name: "Восстановить…" }).click();
+    const confirm = page.getByRole("dialog", { name: /^Восстановить копию: сегодня/ });
+    await expect(confirm).toContainText("Сейчас в библиотеке 2 закладки, в копии — 1");
+    await confirm.getByRole("button", { name: "Восстановить", exact: true }).click();
+    const report = page.getByRole("dialog", { name: "Библиотека восстановлена" });
+    await expect(report).toContainText("1 закладка из копии: сегодня");
+    await page.screenshot({ path: "test-results/backup-restored.png" });
+    const previous = (await report.locator("span.text-subtle").innerText()).trim();
+    await report.getByRole("button", { name: "Готово" }).click();
+    expect(await counts(page)).toMatchObject({ total: 1 });
+    // The replaced library is kept with the change made after the copy.
+    const saved = new DatabaseSync(path.join(data, "backups", previous), { readOnly: true });
+    expect(saved.prepare("SELECT count(*) AS n FROM bookmarks").get()).toEqual({ n: 2 });
+    saved.close();
+    // Capture through the host works on the restored library, and the link
+    // saved after the copy comes back when the extension sends it again.
+    expect((await save("after-copy", "https://example.invalid/after-copy")).reply).toMatchObject({ ok: true, outcome: "created" });
+    expect((await save("after-restore", "https://example.invalid/after-restore")).reply).toMatchObject({ ok: true, outcome: "created" });
+    expect(await counts(page)).toMatchObject({ total: 3 });
+    await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
+    await app.exited;
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+
+  // A file that is not a database where the library was: the error screen restores a copy.
+  // Without its WAL, which after the restore holds every page of the library.
+  await rm(path.join(data, "netamipin.db-wal"), { force: true });
+  await rm(path.join(data, "netamipin.db-shm"), { force: true });
+  await writeFile(path.join(data, "netamipin.db"), "This is not an SQLite file.\n");
+  const broken = await launch(request, env);
+  try {
+    const page = broken.page;
+    await expect(page.locator("[data-error-code=DB_NOT_DATABASE]")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: "Восстановить из копии…" }).click();
+    const dialog = page.getByRole("dialog", { name: "Восстановление из резервной копии" });
+    // The newest readable copy is the library as it was before the restore above.
+    await expect(dialog.getByRole("radio").first()).toContainText("Перед восстановлением");
+    await dialog.getByRole("button", { name: "Восстановить…" }).click();
+    const confirm = page.getByRole("dialog", { name: /^Восстановить копию/ });
+    await expect(confirm).toContainText("переносится в папку копий как есть");
+    await confirm.getByRole("button", { name: "Восстановить", exact: true }).click();
+    await page.getByRole("dialog", { name: "Библиотека восстановлена" }).getByRole("button", { name: "Готово" }).click();
+    await captureOpen(env);
+    expect(await counts(page)).toMatchObject({ total: 2 });
+    expect((await hostMessage(capture("after-gate", "https://example.invalid/after-gate", "after-gate", "chrome"), { env: hostEnv })).reply).toMatchObject({
+      ok: true,
+      outcome: "created",
+    });
+  } finally {
+    await broken.browser.close().catch(() => {});
+    broken.processHandle.kill();
+  }
+  const kept = (await readdir(path.join(data, "backups"))).filter((name) => name.startsWith("netamipin.before-restore-"));
+  const texts = await Promise.all(kept.map((name) => readFile(path.join(data, "backups", name), "utf8").catch(() => "")));
+  expect(texts).toContain("This is not an SQLite file.\n");
 });
 
 test("Ctrl A selects 10 000 bookmarks from SQLite without loading their pages", async ({ request }) => {
