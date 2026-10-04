@@ -229,6 +229,50 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await page.locator('[data-bookmark-id="3"]').getByRole("button", { name: "Восстановить" }).click();
   await expect(page.getByRole("heading", { name: "Корзина пуста" })).toBeVisible();
 });
+test("trash: deleting for good asks first, «Оставить» keeps it, emptying takes the rest", async ({ page }) => {
+  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const cards = page.locator("[data-bookmark-id]");
+  const toast = page.locator(".fixed[role=status]");
+  for (const id of [1, 2, 3]) {
+    await page.locator(`[data-bookmark-id="${id}"]`).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "В корзину" }).click();
+  }
+  await nav("Корзина 3").click();
+  await page.getByRole("button", { name: "Список", exact: true }).click();
+
+  // One bookmark from the row: the dialog names it, «Оставить» changes nothing.
+  const row = page.locator('[data-bookmark-id="1"]');
+  await row.hover();
+  await row.getByRole("button", { name: "Удалить навсегда…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Удалить навсегда?" });
+  await expect(dialog).toContainText("«Десять принципов хорошего дизайна» будет удалена навсегда");
+  await dialog.getByRole("button", { name: "Оставить" }).click();
+  await expect(cards).toHaveCount(3);
+  await row.hover();
+  await row.getByRole("button", { name: "Удалить навсегда…" }).click();
+  await dialog.getByRole("button", { name: "Удалить навсегда" }).click();
+  await expect(toast).toContainText("Удалено навсегда");
+  await expect(toast.getByRole("button", { name: /Отменить/ })).toHaveCount(0);
+  await expect(cards).toHaveCount(2);
+  await expect(nav("Корзина 2")).toBeVisible();
+
+  // The menu of a bookmark in the trash offers it too.
+  await page.locator('[data-bookmark-id="2"]').click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Удалить навсегда…" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // The whole trash: the count in the dialog, then empty.
+  await page.getByRole("button", { name: "Очистить корзину…" }).click();
+  const empty = page.getByRole("dialog", { name: "Очистить корзину?" });
+  await expect(empty).toContainText("2 закладки будут удалены навсегда");
+  await empty.getByRole("button", { name: "Удалить навсегда" }).click();
+  await expect(toast).toContainText("Корзина очищена: 2 закладки удалены навсегда");
+  await expect(page.getByRole("heading", { name: "Корзина пуста" })).toBeVisible();
+  await expect(nav("Все закладки 3")).toBeVisible();
+  // Gone after a restart too.
+  await page.reload();
+  await expect(nav("Корзина 0")).toBeVisible();
+});
 test("metadata updates keep order and filtered captures stay out of the list", async ({ page }) => {
   const ids = await page
     .locator("[data-bookmark-id]")

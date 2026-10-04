@@ -73,6 +73,8 @@ export function App() {
   const editingRef = useRef(editing);
   editingRef.current = editing;
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
+  /** What the confirmation (frame 26) would delete for good: one bookmark or the whole trash. */
+  const [purging, setPurging] = useState<Bookmark | "all" | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const noticeRef = useRef(notice);
   noticeRef.current = notice;
@@ -226,6 +228,7 @@ export function App() {
           .restoreBookmark(b.id)
           .then(() => say(t("notice.restored")))
           .catch((err) => say(describeError(err), true)),
+      deleteForever: (b) => setPurging(b),
       tag: (name) => changeFilters({ tag: name }),
       domain: (domain) => changeFilters({ domain }),
     }),
@@ -528,8 +531,17 @@ export function App() {
                     </Banner>
                   )}
                   {filters.onlyTrash && counts.trash > 0 && (
-                    // Frame 25: how long the trash keeps things and what restoring brings back.
-                    <p className="rounded-xl bg-panel px-3 py-2.5 text-sm text-icon">{t("trash.note")}</p>
+                    // Frame 25: how long the trash keeps things, what restoring brings back, and emptying it.
+                    <div className="flex items-center gap-3 rounded-xl bg-panel py-1.5 pr-1.5 pl-3 text-sm text-icon">
+                      <p className="min-w-0 flex-1 py-1">{t("trash.note")}</p>
+                      <button
+                        type="button"
+                        onClick={() => setPurging("all")}
+                        className="flex h-[27px] shrink-0 items-center rounded-md border border-border bg-card px-2.5 text-xs font-medium text-ink transition-colors duration-150 hover:bg-hover"
+                      >
+                        {t("trash.empty")}
+                      </button>
+                    </div>
                   )}
                   {(filters.tag || filters.domain || library.pendingCount > 0) && (
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -654,6 +666,30 @@ export function App() {
             await Promise.all([library.refresh(), library.refreshCatalog()]);
             setDeletingCollection(null);
             say(t("notice.deleted"));
+          }}
+        />
+      )}
+
+      {purging && (
+        // Frame 26: deleting for good is confirmed every time and cannot be undone.
+        <ConfirmDialog
+          title={purging === "all" ? t("confirm.emptyTrash") : t("confirm.deleteForever")}
+          text={
+            purging === "all"
+              ? t("confirm.emptyTrashText", { count: counts.trash })
+              : t("confirm.deleteForeverText", { title: purging.title || purging.url })
+          }
+          confirm={t("confirm.deleteForeverButton")}
+          onClose={() => setPurging(null)}
+          onConfirm={async () => {
+            if (purging === "all") {
+              const count = await api.emptyTrash();
+              say(t("notice.emptied", { count }));
+            } else {
+              await api.deleteForever(purging.id);
+              say(t("notice.purged"));
+            }
+            setPurging(null);
           }}
         />
       )}
