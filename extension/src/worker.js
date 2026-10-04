@@ -1,6 +1,7 @@
 import { ext, t } from "./ext.js";
 import { failure, talk } from "./native.js";
 import { createQueue } from "./queue.js";
+import { onMenuClicked, registerMenu } from "./menu.js";
 const alarmName = "netamipin-delivery";
 // The app counts a browser as connected while it hears from it within three
 // days (NP-016); a hello twice a day keeps that true without any saving.
@@ -70,6 +71,7 @@ async function hello() {
   return reply;
 }
 async function initialize() {
+  await registerMenu(ext.menus).catch(console.error);
   await ext.alarms.create(helloAlarm, { periodInMinutes: HELLO_MINUTES });
   await hello();
   const waiting = await queue.list();
@@ -111,6 +113,7 @@ async function captureTab(tab) {
   }
 }
 ext.action.onClicked.addListener(captureTab);
+ext.menus?.onClicked.addListener((info) => onMenuClicked(info, () => ext.runtime.openOptionsPage()));
 ext.runtime.onInstalled.addListener(() => {
   void initialize();
 });
