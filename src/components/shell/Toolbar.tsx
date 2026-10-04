@@ -34,6 +34,8 @@ export interface ToolbarProps {
   onImport: () => void;
   /** Menu «⋯» → Export (NP-032, frame 29). */
   onExport: (format: ExportFormat) => void;
+  /** Menu «⋯» → «Резервная копия Netami Pin (JSON)» (NP-033, frame 30). */
+  onRestore: () => void;
   onAdd: () => void;
 }
 
@@ -118,7 +120,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
               description: t("more.importHtmlHint"),
               onSelect: props.onImport,
             },
-            { id: "import-json", icon: FileJson, label: t("more.importJson"), disabled: true, disabledHint: soon },
+            { id: "import-json", icon: FileJson, label: t("more.importJson"), onSelect: props.onRestore },
             "separator",
             { heading: t("more.export") },
             { id: "export-html", icon: ArrowUpFromLine, label: t("more.exportHtml"), onSelect: () => props.onExport("html") },
