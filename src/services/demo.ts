@@ -1,17 +1,19 @@
 import {
+  AddedLink,
   Bookmark,
   BookmarkChange,
   BookmarkPage,
   Collection,
   DataSummary,
   FilterState,
+  ImportSummary,
   LibraryPlace,
   LibraryStatus,
   CaptureStatus,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoBookmarks, demoCollections, posterOf } from "./demoData";
-import { isAfter, matchesBookmark, sortBookmarks } from "./library";
+import { isAfter, listTime, matchesBookmark, sortBookmarks } from "./library";
 import { CommandError } from "./errors";
 import i18n from "../i18n";
 
@@ -25,8 +27,8 @@ const demoCaptureStatus: CaptureStatus = {
   protocol: 2,
 };
 
-// v2: generated previews instead of the drawn ones of the concepts; v3: the inbox.
-const key = "netamipin.demo.v3";
+// v2: generated previews instead of the drawn ones of the concepts; v3: the inbox; v4: the trash.
+const key = "netamipin.demo.v4";
 const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString();
 let initial = {
   bookmarks: demoBookmarks.map((b, i): Bookmark => ({
@@ -45,6 +47,7 @@ let initial = {
     updated_at: stamp(i),
     revision: 1,
     triaged_at: b.inbox ? null : stamp(i),
+    deleted_at: null,
   })),
   collections: demoCollections.map((name, i): Collection => ({
     id: i + 1,
@@ -63,6 +66,15 @@ try {
 }
 let bookmarks: Bookmark[] = initial.bookmarks;
 let collections: Collection[] = initial.collections;
+/** Everything outside the trash: what the library, its counts and catalogs show. */
+const live = () => bookmarks.filter((b) => !b.deleted_at);
+/** A stored change with a new revision, like an UPDATE in the desktop app. */
+function change(previous: Bookmark, fields: Partial<Bookmark>): Bookmark {
+  const b = { ...previous, ...fields, revision: (previous.revision ?? 1) + 1, updated_at: new Date().toISOString() };
+  bookmarks = bookmarks.map((item) => (item.id === b.id ? b : item));
+  persist();
+  return b;
+}
 const listeners = new Set<(change: BookmarkChange) => void>();
 const invalidations = new Set<() => void>();
 function persist() {
@@ -99,12 +111,12 @@ export const demo = {
       total: page.after ? null : found.length,
       next:
         last && rest.length > items.length
-          ? { created_at: last.created_at, id: last.id }
+          ? { at: listTime(last), id: last.id }
           : null,
       since_counts:
         page.since && !page.after
           ? page.since.map(
-              (start) => found.filter((b) => b.created_at >= start).length,
+              (start) => found.filter((b) => listTime(b) >= start).length,
             )
           : null,
     };
@@ -115,31 +127,32 @@ export const demo = {
   async getCollections() {
     return collections.map((c) => ({
       ...c,
-      count: bookmarks.filter((b) => b.collection_id === c.id).length,
+      count: live().filter((b) => b.collection_id === c.id).length,
     }));
   },
   async getTags() {
-    return [...new Set(bookmarks.flatMap((b) => b.tags ?? []))].map(
+    return [...new Set(live().flatMap((b) => b.tags ?? []))].map(
       (name, i) => ({
         id: i + 1,
         name,
-        count: bookmarks.filter((b) => b.tags?.includes(name)).length,
+        count: live().filter((b) => b.tags?.includes(name)).length,
       }),
     );
   },
   async getDomains() {
-    return [...new Set(bookmarks.map((b) => b.domain))].map((domain) => ({
+    return [...new Set(live().map((b) => b.domain))].map((domain) => ({
       domain,
-      count: bookmarks.filter((b) => b.domain === domain).length,
+      count: live().filter((b) => b.domain === domain).length,
     }));
   },
   async getCounts() {
-    const inbox = bookmarks.filter((b) => b.triaged_at === null);
+    const inbox = live().filter((b) => b.triaged_at === null);
     return {
-      total: bookmarks.length,
-      favorites: bookmarks.filter((b) => b.is_favorite).length,
+      total: live().length,
+      favorites: live().filter((b) => b.is_favorite).length,
       inbox: inbox.length,
       inbox_newest: inbox.reduce<string | null>((newest, b) => (newest === null || b.created_at > newest ? b.created_at : newest), null),
+      trash: bookmarks.length - live().length,
     };
   },
   async addBookmark(
@@ -151,7 +164,7 @@ export const demo = {
     },
     /** An import goes straight to the library, as in the desktop app. */
     imported = false,
-  ) {
+  ): Promise<AddedLink> {
     let url: URL;
     try {
       url = new URL(data.url.trim());
@@ -164,7 +177,13 @@ export const demo = {
         "Поддерживаются только ссылки HTTP/HTTPS",
       );
     const previous = bookmarks.find((b) => b.url === data.url.trim());
-    if (previous) return previous;
+    if (previous?.deleted_at && !imported) {
+      // Saved again from the trash: back with its fields, waiting in the inbox.
+      const back = change(previous, { deleted_at: null, triaged_at: null });
+      emit("created", back);
+      return { bookmark: back, restored: true };
+    }
+    if (previous) return { bookmark: previous, restored: false };
     const b: Bookmark = {
       id: Date.now(),
       url: data.url.trim(),
@@ -181,11 +200,12 @@ export const demo = {
       updated_at: new Date().toISOString(),
       revision: 1,
       triaged_at: imported ? new Date().toISOString() : null,
+      deleted_at: null,
     };
     bookmarks = [b, ...bookmarks];
     persist();
     emit("created", b);
-    return b;
+    return { bookmark: b, restored: false };
   },
   async updateBookmark(
     id: number,
@@ -213,12 +233,21 @@ export const demo = {
     emit("updated", b);
     return b;
   },
-  async deleteBookmark(id: number) {
-    const b = bookmarks.find((b) => b.id === id);
-    bookmarks = bookmarks.filter((b) => b.id !== id);
-    persist();
-    if (b) emit("deleted", { ...b, revision: (b.revision ?? 1) + 1 });
-    return true;
+  async trashBookmark(id: number) {
+    const previous = bookmarks.find((b) => b.id === id);
+    if (!previous) throw new CommandError("not_found", "Закладка удалена");
+    if (previous.deleted_at) return previous;
+    const b = change(previous, { deleted_at: new Date().toISOString() });
+    emit("updated", b);
+    return b;
+  },
+  async restoreBookmark(id: number) {
+    const previous = bookmarks.find((b) => b.id === id);
+    if (!previous) throw new CommandError("not_found", "Закладка удалена");
+    if (!previous.deleted_at) return previous;
+    const b = change(previous, { deleted_at: null });
+    emit("updated", b);
+    return b;
   },
   async createCollection(name: string, color?: string, icon?: string) {
     if (collections.some((c) => c.name === name.trim()))
@@ -248,18 +277,21 @@ export const demo = {
   },
   async importHtmlBookmarks(content: string) {
     const document = new DOMParser().parseFromString(content, "text/html");
-    let count = 0;
+    const summary: ImportSummary = { imported: 0, in_trash: 0 };
     for (const a of document.querySelectorAll("a[href]")) {
       const url = a.getAttribute("href")!;
-      if (bookmarks.some((b) => b.url === url)) continue;
+      const known = bookmarks.find((b) => b.url === url);
+      // A repeated import does not undo a clean-up.
+      if (known?.deleted_at) summary.in_trash++;
+      if (known) continue;
       try {
         await demo.addBookmark({ url, title: a.textContent?.trim() }, true);
-        count++;
+        summary.imported++;
       } catch {
         /* Invalid schemes are skipped. */
       }
     }
-    return count;
+    return summary;
   },
   async openUrl(url: string) {
     window.open(url, "_blank", "noopener,noreferrer");

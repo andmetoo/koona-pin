@@ -5,8 +5,23 @@ export function foldText(text: string): string {
   return text.toLowerCase().replace(/ё/g, "е");
 }
 
+/** The trash keeps a bookmark this long; NP-023 deletes it then. */
+export const TRASH_DAYS = 30;
+const DAY = 24 * 60 * 60 * 1000;
+
+/** Days, rounded up, until the trash deletes the bookmark for good; 0 once its time is up. */
+export function daysLeft(deletedAt: string, now = Date.now()): number {
+  return Math.max(0, Math.ceil((Date.parse(deletedAt) + TRASH_DAYS * DAY - now) / DAY));
+}
+
 /**
- * The exact filters: inbox, favorites, collection, domain, tag. Whether search words
+ * When the list places a bookmark: deleted in the trash, saved everywhere
+ * else (the library has no deleted bookmarks). The page cursor holds it.
+ */
+export const listTime = (b: Pick<Bookmark, "created_at" | "deleted_at">) => b.deleted_at ?? b.created_at;
+
+/**
+ * The exact filters: trash, inbox, favorites, collection, domain, tag. Whether search words
  * match is decided by the database (`get_bookmarks` with `id`), so the
  * interface keeps no second copy of the search rules.
  */
@@ -15,6 +30,7 @@ export function matchesFilters(
   filters: Partial<FilterState>,
 ): boolean {
   return !(
+    !!filters.onlyTrash !== (b.deleted_at !== null) ||
     (filters.onlyInbox && b.triaged_at !== null) ||
     (filters.onlyFavorites && !b.is_favorite) ||
     (filters.collectionId != null &&
@@ -40,18 +56,25 @@ export function matchesBookmark(
   return words.every((word) => text.includes(word));
 }
 
-/** The list order `created_at DESC, id DESC`, compared as SQLite compares text. */
-export function compareBookmarks(
-  a: Pick<Bookmark, "created_at" | "id">,
-  b: Pick<Bookmark, "created_at" | "id">,
-): number {
-  if (a.created_at !== b.created_at) return a.created_at < b.created_at ? 1 : -1;
+type Placed = { at: string; id: number };
+const placed = (b: Pick<Bookmark, "created_at" | "deleted_at" | "id">): Placed => ({ at: listTime(b), id: b.id });
+
+/** The list order `at DESC, id DESC`, compared as SQLite compares text. */
+function compareAt(a: Placed, b: Placed): number {
+  if (a.at !== b.at) return a.at < b.at ? 1 : -1;
   return b.id - a.id;
+}
+
+export function compareBookmarks(
+  a: Pick<Bookmark, "created_at" | "deleted_at" | "id">,
+  b: Pick<Bookmark, "created_at" | "deleted_at" | "id">,
+): number {
+  return compareAt(placed(a), placed(b));
 }
 
 /** Whether `b` lies past `cursor`, on a page that has not been read yet. */
 export function isAfter(b: Bookmark, cursor: PageCursor | null): boolean {
-  return cursor !== null && compareBookmarks(b, cursor) > 0;
+  return cursor !== null && compareAt(placed(b), cursor) > 0;
 }
 
 export function sortBookmarks(bookmarks: Bookmark[]): Bookmark[] {

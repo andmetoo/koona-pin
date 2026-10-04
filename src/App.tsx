@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, ChevronDown, ChevronRight, Inbox, Link, Plus, Search, Star, X } from "lucide-react";
+import { ArrowDownToLine, ChevronDown, ChevronRight, Inbox, Link, Plus, Search, Star, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
@@ -21,7 +21,9 @@ import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDi
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 type Surface = "add" | "import" | "connect" | "collection" | null;
-type Notice = { text: string; alert: boolean } | null;
+/** `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12). */
+type Notice = { text: string; alert: boolean; undo?: () => void } | null;
+type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash">>;
 const initialFilters: FilterState = {
   search: "",
   collectionId: null,
@@ -29,7 +31,10 @@ const initialFilters: FilterState = {
   domain: null,
   onlyFavorites: false,
   onlyInbox: false,
+  onlyTrash: false,
 };
+const NOTICE_MS = 3000;
+const UNDO_MS = 8000;
 /** Above this many the banner does not promise «about a minute». */
 const QUICK_INBOX = 20;
 /** Below this width the sidebar becomes a strip of icons (frame 16). */
@@ -65,9 +70,12 @@ export function App() {
   const library = useLibrary(filters, scrollRef);
   const [surface, setSurface] = useState<Surface>(null);
   const [editing, setEditing] = useState<Bookmark | null>(null);
-  const [deleting, setDeleting] = useState<Bookmark | null>(null);
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  const noticeRef = useRef(notice);
+  noticeRef.current = notice;
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   const [damaged, setDamaged] = useState(false);
@@ -77,7 +85,7 @@ export function App() {
   const [bannerHidden, setBannerHidden] = useState(() => storedValue("inboxBannerHidden"));
   const editorFocus = useRef<HTMLElement | null>(null);
   const dark = isDark(theme, systemDark);
-  const say = (text: string, alert = false) => setNotice({ text, alert });
+  const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
 
   useEffect(() => {
     applyTheme(dark);
@@ -99,6 +107,14 @@ export function App() {
       if (e.key === "Escape" && wide && editing && !document.querySelector("dialog[open], [data-menu]")) {
         setEditing(null);
         editorFocus.current?.focus();
+      }
+      // While the undo notice is up, Ctrl Z takes the action back; in a text
+      // field it stays the field's own undo. Any action — NP-024.
+      const undo = noticeRef.current?.undo;
+      const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]");
+      if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && undo && !typing) {
+        e.preventDefault();
+        undo();
       }
     };
     window.addEventListener("keydown", handler);
@@ -131,7 +147,7 @@ export function App() {
   }, []);
   useEffect(() => {
     if (!notice || notice.alert) return;
-    const timer = window.setTimeout(() => setNotice(null), 3000);
+    const timer = window.setTimeout(() => setNotice(null), notice.undo ? UNDO_MS : NOTICE_MS);
     return () => window.clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
@@ -153,9 +169,10 @@ export function App() {
     scrollRef.current?.scrollTo({ top: 0 });
     setFilters((prev) => ({ ...prev, ...partial }));
   };
-  const navigate = (collectionId: number | null, onlyFavorites = false, onlyInbox = false) =>
-    changeFilters({ collectionId, onlyFavorites, onlyInbox, tag: null, domain: null });
-  const openInbox = () => navigate(null, false, true);
+  /** One section at a time: All, Inbox, Favorites, Trash or a collection. */
+  const navigate = (section: Section = {}) =>
+    changeFilters({ collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, ...section, tag: null, domain: null });
+  const openInbox = () => navigate({ onlyInbox: true });
   const hideBanner = () => {
     const newest = library.counts.inbox_newest;
     if (!newest) return;
@@ -190,7 +207,25 @@ export function App() {
             ),
           )
           .catch((err) => say(describeError(err), true)),
-      remove: (b) => setDeleting(b),
+      trash: (b) =>
+        void api
+          .trashBookmark(b.id)
+          .then(() => {
+            if (editingRef.current?.id === b.id) closeEditor();
+            say(t("notice.trashed"), false, () => {
+              setNotice(null);
+              void api.restoreBookmark(b.id).then(
+                () => say(t("notice.restored")),
+                (err) => say(describeError(err), true),
+              );
+            });
+          })
+          .catch((err) => say(describeError(err), true)),
+      restore: (b) =>
+        void api
+          .restoreBookmark(b.id)
+          .then(() => say(t("notice.restored")))
+          .catch((err) => say(describeError(err), true)),
       tag: (name) => changeFilters({ tag: name }),
       domain: (domain) => changeFilters({ domain }),
     }),
@@ -203,25 +238,31 @@ export function App() {
 
   const collection = library.collections.find((c) => c.id === filters.collectionId);
   const { counts } = library;
-  const section = filters.onlyInbox
-    ? t("nav.inbox")
-    : filters.onlyFavorites
-      ? t("nav.favorites")
-      : collection
-        ? collection.name
-        : t("nav.all");
-  const sectionCount = filters.onlyInbox
-    ? counts.inbox
-    : filters.onlyFavorites
-      ? counts.favorites
-      : collection
-        ? (collection.count ?? 0)
-        : counts.total;
+  const section = filters.onlyTrash
+    ? t("nav.trash")
+    : filters.onlyInbox
+      ? t("nav.inbox")
+      : filters.onlyFavorites
+        ? t("nav.favorites")
+        : collection
+          ? collection.name
+          : t("nav.all");
+  const sectionCount = filters.onlyTrash
+    ? counts.trash
+    : filters.onlyInbox
+      ? counts.inbox
+      : filters.onlyFavorites
+        ? counts.favorites
+        : collection
+          ? (collection.count ?? 0)
+          : counts.total;
   // Hidden until a bookmark newer than the remembered one arrives (NP-020).
-  // In the inbox itself «Sort» would lead nowhere until triage mode (NP-025).
+  // In the inbox itself «Sort» would lead nowhere until triage mode (NP-025);
+  // the trash is about what was thrown away (frame 25).
   const inboxBanner =
     counts.inbox > 0 &&
     !filters.onlyInbox &&
+    !filters.onlyTrash &&
     !(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden);
   const searching = filters.search.trim() !== "";
   /** Search, tag or site narrow the section: the header shows «N из M». */
@@ -233,7 +274,7 @@ export function App() {
       collections={library.collections}
       onOpen={actions.open}
       onCancel={closeEditor}
-      onDelete={actions.remove}
+      onDelete={actions.trash}
       onSave={async (data) => {
         await api.updateBookmark(editing.id, data);
         closeEditor();
@@ -246,7 +287,7 @@ export function App() {
     if (narrowed) {
       // Frame 09: what was searched and where, the whole library one click away.
       const query = filters.search.trim();
-      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox;
+      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox || filters.onlyTrash;
       const title = query
         ? inSection
           ? t("empty.noResultsInFor", { section, query })
@@ -261,7 +302,7 @@ export function App() {
         actions: (
           <>
             {inSection && (
-              <Button variant="primary" onClick={() => changeFilters({ collectionId: null, onlyFavorites: false, onlyInbox: false })}>
+              <Button variant="primary" onClick={() => changeFilters({ collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false })}>
                 {t("empty.searchEverywhere")}
               </Button>
             )}
@@ -277,6 +318,7 @@ export function App() {
         ),
       };
     }
+    if (filters.onlyTrash) return { icon: Trash2, title: t("empty.trash"), text: t("empty.trashHint"), actions: null };
     if (filters.onlyInbox) return { icon: Inbox, title: t("empty.inbox"), text: t("empty.inboxHint"), actions: null };
     if (filters.onlyFavorites)
       return { icon: Star, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
@@ -366,9 +408,10 @@ export function App() {
         tags={library.tags}
         capture={capture}
         onInbox={openInbox}
-        onAll={() => navigate(null)}
-        onFavorites={() => navigate(null, true)}
-        onCollection={(id) => navigate(id)}
+        onAll={() => navigate()}
+        onFavorites={() => navigate({ onlyFavorites: true })}
+        onTrash={() => navigate({ onlyTrash: true })}
+        onCollection={(id) => navigate({ collectionId: id })}
         onTag={(name) => changeFilters({ tag: filters.tag === name ? null : name })}
         onSettings={() => setPage("settings")}
         onConnect={() => setSurface("connect")}
@@ -484,6 +527,10 @@ export function App() {
                           : t("inbox.banner", { count: counts.inbox })}
                     </Banner>
                   )}
+                  {filters.onlyTrash && counts.trash > 0 && (
+                    // Frame 25: how long the trash keeps things and what restoring brings back.
+                    <p className="rounded-xl bg-panel px-3 py-2.5 text-sm text-icon">{t("trash.note")}</p>
+                  )}
                   {(filters.tag || filters.domain || library.pendingCount > 0) && (
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                       {filters.domain && (
@@ -562,11 +609,11 @@ export function App() {
           collectionId={filters.collectionId}
           onClose={() => setSurface(null)}
           onAdd={async (data) => {
-            await api.addBookmark(data);
+            const added = await api.addBookmark(data);
             scrollRef.current?.scrollTo({ top: 0 });
             await library.refresh();
             setSurface(null);
-            say(t("notice.linkSaved"));
+            say(added.restored ? t("notice.restoredLink") : t("notice.linkSaved"));
           }}
         />
       )}
@@ -574,10 +621,11 @@ export function App() {
         <ImportDialog
           onClose={() => setSurface(null)}
           onImport={async (content) => {
-            const count = await api.importHtmlBookmarks(content);
+            const { imported, in_trash } = await api.importHtmlBookmarks(content);
             await Promise.all([library.refresh(), library.refreshCatalog()]);
             setSurface(null);
-            say(t("notice.imported", { count }));
+            // A link in the trash stays there: the import does not undo a clean-up.
+            say(in_trash > 0 ? t("notice.importedTrash", { count: imported, trash: in_trash }) : t("notice.imported", { count: imported }));
           }}
         />
       )}
@@ -594,20 +642,6 @@ export function App() {
       {surface === "connect" && (
         <ConnectDialog capture={capture} onOpen={actions.open} onClose={() => setSurface(null)} />
       )}
-      {deleting && (
-        <ConfirmDialog
-          title={t("confirm.deleteBookmark")}
-          text={t("confirm.deleteBookmarkText", { title: deleting.title })}
-          confirm={t("confirm.delete")}
-          onClose={() => setDeleting(null)}
-          onConfirm={async () => {
-            await api.deleteBookmark(deleting.id);
-            if (editing?.id === deleting.id) closeEditor();
-            setDeleting(null);
-            say(t("notice.deleted"));
-          }}
-        />
-      )}
       {deletingCollection && (
         <ConfirmDialog
           title={t("confirm.deleteCollection")}
@@ -616,7 +650,7 @@ export function App() {
           onClose={() => setDeletingCollection(null)}
           onConfirm={async () => {
             await api.deleteCollection(deletingCollection.id);
-            if (filters.collectionId === deletingCollection.id) navigate(null);
+            if (filters.collectionId === deletingCollection.id) navigate();
             await Promise.all([library.refresh(), library.refreshCatalog()]);
             setDeletingCollection(null);
             say(t("notice.deleted"));
@@ -628,10 +662,17 @@ export function App() {
         <Toast
           tone={notice.alert ? "alert" : "status"}
           action={
-            notice.alert && (
-              <button type="button" aria-label={t("common.close")} onClick={() => setNotice(null)} className="text-white/70 hover:text-white">
-                <Icon icon={X} size={14} />
+            notice.undo ? (
+              <button type="button" onClick={notice.undo} className="flex items-center gap-2 font-semibold text-[#8fd0ae]">
+                {t("notice.undo")}
+                <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">Ctrl Z</kbd>
               </button>
+            ) : (
+              notice.alert && (
+                <button type="button" aria-label={t("common.close")} onClick={() => setNotice(null)} className="text-white/70 hover:text-white">
+                  <Icon icon={X} size={14} />
+                </button>
+              )
             )
           }
         >

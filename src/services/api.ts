@@ -2,6 +2,7 @@ import { invoke, InvokeArgs } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
 import {
+  AddedLink,
   AppSettings,
   Bookmark,
   BookmarkChange,
@@ -13,6 +14,7 @@ import {
   DataSummary,
   DomainCount,
   FilterState,
+  ImportSummary,
   LibraryCounts,
   LibraryPlace,
   LibraryStatus,
@@ -45,6 +47,7 @@ const toQuery = (
   domain: filters.domain || undefined,
   only_favorites: filters.onlyFavorites ?? false,
   only_inbox: filters.onlyInbox ?? false,
+  only_trash: filters.onlyTrash ?? false,
   ...page,
 });
 /** Every command rejects with a `CommandError` carrying a machine code. */
@@ -66,7 +69,7 @@ const desktop = {
     collectionId?: number | null;
     tags?: string[];
   }) =>
-    call<Bookmark>("add_bookmark", {
+    call<AddedLink>("add_bookmark", {
       url: data.url,
       title: data.title || null,
       collectionId: data.collectionId ?? null,
@@ -97,7 +100,8 @@ const desktop = {
               : { action: "set", id: data.collection_id },
       } satisfies BookmarkPatch,
     }),
-  deleteBookmark: (id: number) => call<boolean>("delete_bookmark", { id }),
+  trashBookmark: (id: number) => call<Bookmark>("trash_bookmark", { id }),
+  restoreBookmark: (id: number) => call<Bookmark>("restore_bookmark", { id }),
   createCollection: (name: string, color?: string, icon?: string) =>
     call<Collection>("create_collection", {
       name,
@@ -109,7 +113,7 @@ const desktop = {
     return true;
   },
   importHtmlBookmarks: (htmlContent: string) =>
-    call<number>("import_html_bookmarks", { htmlContent }),
+    call<ImportSummary>("import_html_bookmarks", { htmlContent }),
   openUrl: (url: string) => call<void>("open_url_external", { url }),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
