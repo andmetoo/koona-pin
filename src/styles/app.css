@@ -210,6 +210,10 @@
   dialog::backdrop {
     background: var(--np-scrim);
   }
+  /* The selected stay in place at 45 % while they are dragged (frame 05). */
+  [data-dragging] [data-selected] {
+    opacity: 0.45;
+  }
 }
 
 @utility field {
