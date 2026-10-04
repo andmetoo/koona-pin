@@ -452,9 +452,9 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
       const started = performance.now();
       let finished = 0;
       const importing = invoke("import_html_bookmarks", { htmlContent: html }).then(
-        (summary: { imported: number; in_trash: number }) => {
+        (summary: { added: number }) => {
           finished = performance.now();
-          return summary.imported;
+          return summary.added;
         },
       );
       // get_library_status is a sync command: it runs on the main thread and
@@ -478,6 +478,42 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
     expect(result.probes).toBeGreaterThan(1);
     expect(result.worstMs).toBeLessThan(250);
     await expect(app.page.locator("h1")).toContainText("10000");
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+
+test("import of the three browsers' files: folders into collections in SQLite, the inbox, nothing twice", async ({ request }) => {
+  const data = await folder("import-browsers");
+  const app = await launch(request, isolated(data));
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    const files = Object.fromEntries(
+      await Promise.all(
+        ["chrome", "edge", "firefox"].map(async (name) => [name, await readFile(path.join("tests/fixtures/bookmarks", `${name}.html`), "utf8")]),
+      ),
+    );
+    const result = await page.evaluate(async (files) => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const run = (html: string, toInbox: boolean) => invoke("import_html_bookmarks", { htmlContent: html, toInbox });
+      const chrome = await run(files.chrome, false);
+      const edge = await run(files.edge, false);
+      const firefox = await run(files.firefox, true);
+      const again = await run(files.chrome, false);
+      const collections = ((await invoke("get_collections")) as { name: string; count: number }[]).map((c) => `${c.name}:${c.count}`);
+      const counts = await invoke("get_counts");
+      return { chrome, edge, firefox, again, collections, counts };
+    }, files);
+    expect(result.chrome).toMatchObject({ added: 7, not_web: 2, repeated: 1, collections: ["Работа", "Чтение"], tags: 2 });
+    expect(result.edge).toMatchObject({ added: 4, not_web: 1, invalid: 1, collections: ["Design"] });
+    expect(result.firefox).toMatchObject({ added: 7, not_web: 1, collections: ["Mozilla Firefox", "Recipes", "Reading"] });
+    expect(result.again).toMatchObject({ added: 0, existing: 7, collections: [], tags: 0 });
+    // Edge's «работа» landed in Chrome's «Работа».
+    expect(result.collections).toEqual(expect.arrayContaining(["Работа:4", "Чтение:1", "Design:2", "Recipes:2", "Reading:1"]));
+    expect(result.counts).toMatchObject({ total: 18, inbox: 7, inbox_imported: 7 });
+    await expect(page.getByRole("region", { name: "Новые закладки" })).toContainText("7 из импорта");
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
