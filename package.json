@@ -21,8 +21,10 @@
     "test:extension:chrome": "node scripts/smoke-extension.mjs chrome",
     "test:extension:edge": "node scripts/smoke-extension.mjs edge",
     "test:extension:firefox": "node scripts/smoke-extension-firefox.mjs",
+    "test:extension:firefox:esr": "node scripts/smoke-extension-firefox.mjs esr",
     "extension:build": "node scripts/build-extension.mjs",
-    "extension:lint": "npm run extension:build && web-ext lint --source-dir extension/build/firefox",
+    "extension:sign:firefox": "node scripts/sign-firefox.mjs",
+    "extension:lint": "npm run extension:build && web-ext lint --self-hosted --source-dir extension/build/firefox",
     "tauri": "tauri"
   },
   "dependencies": {

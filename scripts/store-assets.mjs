@@ -8,7 +8,9 @@ import { execFileSync } from "node:child_process";
 import { appendFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildExtension } from "./build-extension.mjs";
-import { hostBinary, startedSince, testPipe } from "./lib/native-host.mjs";
+import { assertNoOtherApp, hostBinary, startedSince, testPipe } from "./lib/native-host.mjs";
+
+assertNoOtherApp();
 
 const HOST = "app.netami.pin.test";
 const KEY = `HKCU\\Software\\Chromium\\NativeMessagingHosts\\${HOST}`;
