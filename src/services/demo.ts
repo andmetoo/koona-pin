@@ -51,6 +51,8 @@ let initial = {
     revision: 1,
     triaged_at: b.inbox ? null : stamp(i),
     deleted_at: null,
+    // Waiting ones came from a browser; triage says which (NP-025).
+    source: b.inbox ? (i % 2 ? "firefox" : "chrome") : "import",
   })),
   collections: demoCollections.map((name, i): Collection => ({
     id: i + 1,
@@ -67,7 +69,8 @@ try {
 } catch {
   /* Recover a corrupted preview only; never accesses the desktop DB. */
 }
-let bookmarks: Bookmark[] = initial.bookmarks;
+// Saved before NP-025, without source.
+let bookmarks: Bookmark[] = initial.bookmarks.map((b) => ({ ...b, source: b.source ?? null }));
 let collections: Collection[] = initial.collections;
 /** Everything outside the trash: what the library, its counts and catalogs show. */
 const live = () => bookmarks.filter((b) => !b.deleted_at);
@@ -99,6 +102,7 @@ function record(action: CommandAction, previous: Bookmark, b: Bookmark): Changed
 /** What `update_bookmark` calls the change, for the undo notice. */
 function actionOf(data: Partial<Fields>): CommandAction {
   const keys = Object.keys(data).filter((k) => data[k as keyof Fields] !== undefined);
+  if (keys.length === 0) return "keep";
   if (keys.length === 1 && keys[0] === "is_favorite") return "favorite";
   if (keys.length === 1 && keys[0] === "tags") return "tag";
   if (keys.length === 1 && keys[0] === "collection_id") return "move";
@@ -214,7 +218,8 @@ export const demo = {
     }
     if (previous) return { bookmark: previous, restored: false };
     const b: Bookmark = {
-      id: Date.now(),
+      // Unique even for links added within the same millisecond.
+      id: Math.max(Date.now(), ...bookmarks.map((item) => item.id + 1)),
       url: data.url.trim(),
       title: data.title?.trim() || url.hostname,
       description: null,
@@ -230,6 +235,7 @@ export const demo = {
       revision: 1,
       triaged_at: imported ? new Date().toISOString() : null,
       deleted_at: null,
+      source: imported ? "import" : "app",
     };
     bookmarks = [b, ...bookmarks];
     persist();

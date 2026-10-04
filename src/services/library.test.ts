@@ -25,6 +25,7 @@ const b: Bookmark = {
   tags: ["дизайн"],
   triaged_at: "2026-10-01",
   deleted_at: null,
+  source: "app",
 };
 describe("library reconciliation", () => {
   it("updates metadata in place and rejects stale revisions", () => {
