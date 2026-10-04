@@ -10,6 +10,11 @@ export type BookmarkQuery = { search?: string, collection_id?: number, tag?: str
  */
 only_inbox: boolean, 
 /**
+ * The trash instead of the library, newest deletion first (NP-022).
+ * Every other query leaves the trash out.
+ */
+only_trash: boolean, 
+/**
  * Only this bookmark: whether a changed one still belongs to the list.
  */
 id?: number, 
@@ -24,6 +29,7 @@ limit?: number,
 /**
  * Times in the stored format, for example the starts of today and
  * yesterday in the user's time zone. The first page counts how many
- * matches were saved at or after each: the list's date groups (NP-012).
+ * matches were saved (in the trash: deleted) at or after each: the
+ * list's date groups (NP-012).
  */
 since?: Array<string>, };

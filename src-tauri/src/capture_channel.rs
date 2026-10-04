@@ -159,12 +159,17 @@ pub fn handle(
                     if let Some(browser) = browser {
                         connections.captured(browser, &stamp);
                     }
+                    let mut reply = json!({
+                        "ok": true,
+                        "bookmark_id": saved.bookmark_id,
+                        "outcome": saved.outcome,
+                    });
+                    // Back from the trash: older extensions see a plain `created`.
+                    if saved.restored {
+                        reply["restored"] = json!(true);
+                    }
                     Handled {
-                        reply: json!({
-                            "ok": true,
-                            "bookmark_id": saved.bookmark_id,
-                            "outcome": saved.outcome,
-                        }),
+                        reply,
                         saved: Some(saved),
                         contact,
                     }
@@ -580,8 +585,13 @@ mod tests {
         assert_eq!(conflict.reply["code"], "request_id_conflict");
         let invalid = handle(&c, &mut connections, &envelope(capture("r3", "chrome://settings", "chrome")), now());
         assert_eq!(invalid.reply["code"], "invalid_request");
+        assert!(duplicate.reply.get("restored").is_none());
+        // From the trash: `created` for older extensions, `restored` for new ones.
+        db::trash_bookmark(&c, first.reply["bookmark_id"].as_i64().unwrap()).unwrap();
+        let back = handle(&c, &mut connections, &envelope(capture("r4", "https://example.com/", "edge")), now());
+        assert_eq!((back.reply["outcome"].as_str(), back.reply["restored"].as_bool()), (Some("created"), Some(true)));
         let status = browsers::status(&connections, None, now());
-        assert_eq!(status.last_capture.unwrap().browser, Browser::Chrome);
+        assert_eq!(status.last_capture.unwrap().browser, Browser::Edge);
     }
 
     #[test]

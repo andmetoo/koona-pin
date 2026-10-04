@@ -110,7 +110,7 @@
     "noCollection": "No collection",
     "addTag": "Add tag…",
     "refresh": "Refresh title and preview",
-    "delete": "Delete…",
+    "delete": "Move to trash",
     "select": "Select: {{title}}",
     "filterDomain": "Only bookmarks from {{domain}}"
   },
@@ -156,8 +156,6 @@
     "create": "Create collection"
   },
   "confirm": {
-    "deleteBookmark": "Delete bookmark?",
-    "deleteBookmarkText": "«{{title}}» will be removed from the library.",
     "deleteCollection": "Delete collection?",
     "deleteCollectionText": "Bookmarks of «{{name}}» stay in the library without a collection.",
     "delete": "Delete"
@@ -237,9 +235,22 @@
     "linkSaved": "Link saved",
     "imported_one": "{{count}} new link",
     "imported_other": "{{count}} new links",
+    "importedTrash_one": "{{count}} new link · {{trash}} left in Trash",
+    "importedTrash_other": "{{count}} new links · {{trash}} left in Trash",
     "moved": "Moved to «{{name}}»",
     "movedOut": "Removed from the collection",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "trashed": "Moved to Trash",
+    "undo": "Undo",
+    "restored": "Restored",
+    "restoredLink": "Back from Trash, waiting in Inbox"
+  },
+  "trash": {
+    "restore": "Restore",
+    "daysLeft_one": "{{count}} day left",
+    "daysLeft_other": "{{count}} days left",
+    "lastDay": "Deleting soon",
+    "note": "Deleted bookmarks stay here for 30 days, then they're gone for good. Restore brings one back with its note, tags, collection and star."
   },
   "empty": {
     "library": "Your bookmarks will live here",
@@ -261,7 +272,9 @@
     "searchEverywhere": "Search the whole library",
     "resetFilters": "Clear filters",
     "inbox": "All sorted",
-    "inboxHint": "New bookmarks from the browser and imports land here and wait for a decision."
+    "inboxHint": "New bookmarks from the browser and imports land here and wait for a decision.",
+    "trash": "Trash is empty",
+    "trashHint": "Deleted bookmarks stay here for 30 days, then they're gone for good."
   },
   "inbox": {
     "banner_one": "{{count}} new bookmark is waiting — keeping, filing or tossing it takes a moment",

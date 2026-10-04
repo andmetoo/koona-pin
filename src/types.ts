@@ -1,7 +1,9 @@
 // The IPC contract is generated from Rust by ts-rs into src/bindings during
 // `cargo test` (NP-007); do not describe these types by hand. Only types that
 // exist in the interface alone are declared here.
+export type { AddedLink } from "./bindings/AddedLink";
 export type { AppSettings } from "./bindings/AppSettings";
+export type { ImportSummary } from "./bindings/ImportSummary";
 export type { Bookmark } from "./bindings/Bookmark";
 export type { BookmarkChange } from "./bindings/BookmarkChange";
 export type { BookmarkPage } from "./bindings/BookmarkPage";
@@ -36,4 +38,6 @@ export interface FilterState {
   onlyFavorites: boolean;
   /** The «Inbox» section: bookmarks not sorted yet (NP-021). */
   onlyInbox: boolean;
+  /** The «Trash» section (NP-022); every other section leaves the trash out. */
+  onlyTrash: boolean;
 }
