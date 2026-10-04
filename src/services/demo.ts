@@ -156,6 +156,9 @@ export const demo = {
           : null,
     };
   },
+  async getBookmarkIds(filters: Partial<FilterState> = {}): Promise<number[]> {
+    return sortBookmarks(bookmarks.filter((b) => matchesBookmark(b, filters))).map((b) => b.id);
+  },
   async rebuildSearchIndex() {
     return bookmarks.length;
   },

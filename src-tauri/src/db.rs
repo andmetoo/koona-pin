@@ -479,10 +479,9 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
     })
 }
 
-/// One page of the list, newest first, with the total for the whole query.
-/// The library is ordered by when a bookmark was saved, the trash by when
-/// it was deleted.
-pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<BookmarkPage> {
+/// The `WHERE` of a query over `bookmarks b`, its values, and the column the
+/// list is ordered by: when a bookmark was saved, or deleted in the trash.
+fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::types::Value>) {
     use rusqlite::types::Value;
     let (mut filter, at) = match query.only_trash {
         true => (
@@ -540,6 +539,29 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
         }
         values.extend([word.clone().into(), word.into()]);
     }
+    (filter, at, values)
+}
+
+/// Every bookmark the query matches, in list order, without the page limit:
+/// `Ctrl A` selects what is not loaded yet (NP-028). Ids only, so 100 000 of
+/// them still answer quickly.
+pub fn get_bookmark_ids(conn: &Connection, query: &BookmarkQuery) -> Result<Vec<i64>> {
+    let (filter, at, values) = query_filter(query);
+    let ids = conn
+        .prepare(&format!(
+            "SELECT b.id FROM bookmarks b{filter} ORDER BY {at} DESC, b.id DESC"
+        ))?
+        .query_map(rusqlite::params_from_iter(&values), |r| r.get(0))?
+        .collect();
+    ids
+}
+
+/// One page of the list, newest first, with the total for the whole query.
+/// The library is ordered by when a bookmark was saved, the trash by when
+/// it was deleted.
+pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<BookmarkPage> {
+    use rusqlite::types::Value;
+    let (filter, at, mut values) = query_filter(query);
 
     // The total and the date-group counts in one pass, first page only.
     let (total, since_counts) = match query.after {
@@ -1663,6 +1685,7 @@ mod tests {
                 }
             }
         };
+        let ids = |rows: &[(String, i64)]| rows.iter().map(|(_, id)| *id).collect::<Vec<_>>();
         let (all, total) = read_all(BookmarkQuery::default());
         assert_eq!(total, 250);
         let mut expected = all.clone();
@@ -1670,17 +1693,49 @@ mod tests {
         expected.dedup();
         assert_eq!(all, expected, "newest first, no repeats");
         assert_eq!(all.len(), 250);
+        // `Ctrl A`: the same bookmarks in the same order, without pages.
+        assert_eq!(
+            get_bookmark_ids(&conn, &BookmarkQuery::default()).unwrap(),
+            ids(&all)
+        );
 
-        let (shelf, total) = read_all(BookmarkQuery {
+        let filtered = BookmarkQuery {
             collection_id: Some(collection.id),
             search: Some("запись 1".into()),
             ..Default::default()
-        });
+        };
+        let (shelf, total) = read_all(filtered.clone());
         // "запись 1" means both words: "запись" and "1".
         let expected = (0..250)
             .filter(|i| i % 2 == 0 && i.to_string().contains('1'))
             .count();
         assert_eq!((shelf.len(), total), (expected, expected as i64));
+        assert_eq!(get_bookmark_ids(&conn, &filtered).unwrap(), ids(&shelf));
+    }
+
+    #[test]
+    fn ids_of_a_large_section_answer_quickly() {
+        let conn = setup_test_db();
+        conn.execute_batch(
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 10000)
+             INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at, triaged_at)
+             SELECT 'uid-' || i, 'https://example.com/' || i, 'Запись ' || i, 'example.com',
+                    printf('2026-01-01T00:00:%05d', i), '2026-01-01', NULL FROM n;",
+        )
+        .unwrap();
+        let started = std::time::Instant::now();
+        let ids = get_bookmark_ids(
+            &conn,
+            &BookmarkQuery {
+                only_inbox: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(ids.len(), 10_000);
+        assert_eq!((ids[0], ids[9_999]), (10_000, 1));
+        // Generous for a debug build on a busy runner; release is far below.
+        assert!(started.elapsed() < std::time::Duration::from_millis(500));
     }
 
     #[test]

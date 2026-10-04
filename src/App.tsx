@@ -7,6 +7,7 @@ import { undoNotice } from "./services/undo";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
 import { AppSettings, Bookmark, CaptureStatus, Collection, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
+import { useSelection } from "./hooks/useSelection";
 import { Icon, PinIcon } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
@@ -18,6 +19,7 @@ import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
 import { BookmarkList } from "./components/library/BookmarkList";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
+import { SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog } from "./components/library/Dialogs";
 import { SettingsPage } from "./components/settings/SettingsPage";
@@ -75,6 +77,15 @@ export function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const library = useLibrary(filters, scrollRef);
   const [surface, setSurface] = useState<Surface>(null);
+  /** Inbox triage (NP-025) and the filters to go back to when it ends. */
+  const [triage, setTriage] = useState<FilterState | null>(null);
+  /** Selected bookmarks (NP-028): cleared by another section, settings or triage. */
+  const selection = useSelection(filters, page === "library" && !triage);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  /** The loaded order, for `Shift`+click ranges. */
+  const loadedRef = useRef(library.bookmarks);
+  loadedRef.current = library.bookmarks;
   const [editing, setEditing] = useState<Bookmark | null>(null);
   const editingRef = useRef(editing);
   editingRef.current = editing;
@@ -90,8 +101,6 @@ export function App() {
   /** The newest inbox bookmark when the banner was hidden: it returns for a newer one. */
   const [bannerHidden, setBannerHidden] = useState(() => storedValue("inboxBannerHidden"));
   const editorFocus = useRef<HTMLElement | null>(null);
-  /** Inbox triage (NP-025) and the filters to go back to when it ends. */
-  const [triage, setTriage] = useState<FilterState | null>(null);
   /** The editor opened from triage: its save and «В корзину» are triage decisions. */
   const editHooks = useRef<EditHooks | null>(null);
   const dark = isDark(theme, systemDark);
@@ -148,10 +157,20 @@ export function App() {
         e.preventDefault();
         undoRef.current();
       }
+      // Selection (NP-028): Ctrl A adds everything the list shows, loaded or
+      // not; in a field it selects the field's text. Esc clears; the search
+      // field keeps it while it holds a query (the toolbar stops it there).
+      if (page === "library" && !layer) {
+        if ((e.ctrlKey || e.metaKey) && key === "a" && !e.shiftKey && !typing) {
+          e.preventDefault();
+          void selectionRef.current.selectAll().catch((err) => say(describeError(err), true));
+        }
+        if (e.key === "Escape" && selectionRef.current.ids.size) selectionRef.current.clear();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [wide, editing, triage]);
+  }, [wide, editing, triage, page]);
   useEffect(() => {
     // The app learns about browsers when their extensions write (NP-016).
     const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
@@ -274,6 +293,8 @@ export function App() {
       deleteForever: (b) => setPurging(b),
       tag: (name) => changeFilters({ tag: name }),
       domain: (domain) => changeFilters({ domain }),
+      select: (b, range) =>
+        range ? selectionRef.current.range(b.id, loadedRef.current.map((item) => item.id)) : selectionRef.current.toggle(b.id),
     }),
     [library.collections, t],
   );
@@ -408,6 +429,9 @@ export function App() {
     };
   })();
 
+  const compact = narrow || (wide && !!editing);
+  /** The selection bar is up: notices rise above it (frame 27). */
+  const selecting = selection.ids.size > 0 && page === "library" && !triage;
   const content = library.bookmarks.length === 0 ? (
     library.loading ? (
       slowLoading ? (
@@ -443,14 +467,64 @@ export function App() {
       collections={library.collections}
       actions={actions}
       narrow={narrow}
-      compact={narrow || (wide && !!editing)}
+      compact={compact}
       scrollRef={scrollRef}
       dateGroups={library.dateGroups}
       hasMore={library.hasMore}
       loadingMore={library.loadingMore}
       onMore={library.loadMore}
+      selected={selection.ids}
+      onSelect={selection.update}
+      onClearSelection={selection.clear}
     />
   );
+  const toast = notice ? (
+    <Toast
+      docked={selecting}
+      tone={notice.alert ? "alert" : "status"}
+      action={
+        notice.undo ? (
+          <button type="button" onClick={notice.undo} className="flex items-center gap-2 font-semibold text-[#8fd0ae]">
+            {t("notice.undo")}
+            <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">Ctrl Z</kbd>
+          </button>
+        ) : (
+          (notice.alert || notice.long) && (
+            <span className="flex items-center gap-3">
+              {notice.retry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotice(null);
+                    notice.retry?.();
+                  }}
+                  className="font-semibold text-[#8fd0ae]"
+                >
+                  {t("common.retry")}
+                </button>
+              )}
+              <button type="button" aria-label={t("common.close")} onClick={() => setNotice(null)} className="text-white/70 hover:text-white">
+                <Icon icon={X} size={14} />
+              </button>
+            </span>
+          )
+        )
+      }
+    >
+      {notice.text}
+    </Toast>
+  ) : movedAside ? (
+    <Toast
+      docked={selecting}
+      action={
+        <button type="button" onClick={() => setMovedAside("")} className="font-semibold text-[#8fd0ae]">
+          {t("common.ok")}
+        </button>
+      }
+    >
+      {t("library.movedAside", { path: movedAside })}
+    </Toast>
+  ) : null;
 
   const padding = narrow ? "px-6" : "px-8";
   return (
@@ -480,7 +554,7 @@ export function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         <WindowBar />
         <div className="flex min-h-0 flex-1">
-          <main className="flex min-w-0 flex-1 flex-col">
+          <main className="relative flex min-w-0 flex-1 flex-col">
             {page === "settings" ? (
               <>
                 <div className={`${padding} pt-2 pb-5`}>
@@ -516,7 +590,8 @@ export function App() {
               />
             ) : (
               <>
-                <div className={`flex flex-col gap-4 ${padding} pt-2 pb-5`}>
+                {/* 13 + 7 px above the list: room for the selection ring of the first row. */}
+                <div className={`flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
                   <Toolbar
                     ref={searchRef}
                     title={section}
@@ -652,9 +727,28 @@ export function App() {
                     </div>
                   )}
                 </div>
-                <div ref={scrollRef} data-scroll="main" className={`min-h-0 flex-1 overflow-y-auto ${padding} pb-8`}>
+                <div
+                  ref={scrollRef}
+                  data-scroll="main"
+                  className={`min-h-0 flex-1 overflow-y-auto ${padding} pt-[7px] ${selecting ? "pb-[120px]" : "pb-8"}`}
+                >
                   {content}
                 </div>
+                {selecting && (
+                  // Frames 04 and 27: the bar 42 px above the bottom, its hints under it, notices above it.
+                  <div
+                    className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-2 px-4 *:pointer-events-auto ${compact ? "bottom-6" : "bottom-[18px]"}`}
+                  >
+                    {toast}
+                    <SelectionBar
+                      count={selection.ids.size}
+                      hidden={selection.hidden}
+                      narrowed={narrowed}
+                      compact={compact}
+                      onClear={selection.clear}
+                    />
+                  </div>
+                )}
               </>
             )}
           </main>
@@ -766,51 +860,7 @@ export function App() {
         />
       )}
 
-      {notice ? (
-        <Toast
-          tone={notice.alert ? "alert" : "status"}
-          action={
-            notice.undo ? (
-              <button type="button" onClick={notice.undo} className="flex items-center gap-2 font-semibold text-[#8fd0ae]">
-                {t("notice.undo")}
-                <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">Ctrl Z</kbd>
-              </button>
-            ) : (
-              (notice.alert || notice.long) && (
-                <span className="flex items-center gap-3">
-                  {notice.retry && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNotice(null);
-                        notice.retry?.();
-                      }}
-                      className="font-semibold text-[#8fd0ae]"
-                    >
-                      {t("common.retry")}
-                    </button>
-                  )}
-                  <button type="button" aria-label={t("common.close")} onClick={() => setNotice(null)} className="text-white/70 hover:text-white">
-                    <Icon icon={X} size={14} />
-                  </button>
-                </span>
-              )
-            )
-          }
-        >
-          {notice.text}
-        </Toast>
-      ) : movedAside ? (
-        <Toast
-          action={
-            <button type="button" onClick={() => setMovedAside("")} className="font-semibold text-[#8fd0ae]">
-              {t("common.ok")}
-            </button>
-          }
-        >
-          {t("library.movedAside", { path: movedAside })}
-        </Toast>
-      ) : null}
+      {!selecting && toast}
     </div>
   );
 }
