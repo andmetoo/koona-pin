@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection, ViewMode } from "../../types";
 import { DateGroup, groupOf } from "../../services/dateGroups";
+import { listTime } from "../../services/library";
 import { BookmarkActions, BookmarkCard, BookmarkRow, CARD_TEXT_HEIGHT, ROW_HEIGHT } from "./Bookmarks";
 
 /** Grid of frames 01 and 16: gaps 24 and 28 px, cards at least 240 px (190 px in a narrow window). */
@@ -71,14 +72,15 @@ export function BookmarkList({
   const entries = useMemo<ListEntry[]>(() => {
     if (view !== "list") return [];
     const loaded = new Map<DateGroup, number>();
+    // Grouped by when the list places them: saved, or deleted in the trash.
     for (const b of bookmarks) {
-      const group = groupOf(b.created_at, dateGroups.starts);
+      const group = groupOf(listTime(b), dateGroups.starts);
       loaded.set(group, (loaded.get(group) ?? 0) + 1);
     }
     const result: ListEntry[] = [];
     let current: DateGroup | null = null;
     for (const bookmark of bookmarks) {
-      const group = groupOf(bookmark.created_at, dateGroups.starts);
+      const group = groupOf(listTime(bookmark), dateGroups.starts);
       if (group !== current) {
         current = group;
         // The size over every page when the database counted it.

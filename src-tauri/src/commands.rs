@@ -58,6 +58,13 @@ pub async fn rebuild_search_index(
     let _ = app.emit("library-invalidated", ());
     Ok(count)
 }
+/// The link added by hand, and whether it came back from the trash.
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct AddedLink {
+    pub bookmark: Bookmark,
+    pub restored: bool,
+}
 #[tauri::command]
 pub async fn add_bookmark(
     app: AppHandle,
@@ -66,7 +73,7 @@ pub async fn add_bookmark(
     title: Option<String>,
     collection_id: Option<i64>,
     tags: Vec<String>,
-) -> Result<Bookmark, CommandError> {
+) -> Result<AddedLink, CommandError> {
     let request = CaptureRequest {
         request_id: None,
         url,
@@ -79,8 +86,10 @@ pub async fn add_bookmark(
     })
     .await?;
     capture::after_save(&app, state.inner().clone(), &saved);
+    let restored = saved.restored;
     saved
         .bookmark
+        .map(|bookmark| AddedLink { bookmark, restored })
         .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Закладка больше не существует"))
 }
 #[derive(Deserialize, Default, TS)]
@@ -139,28 +148,33 @@ pub async fn update_bookmark(
     capture::emit(&app, ChangeKind::Updated, &b);
     Ok(b)
 }
+/// To the trash (NP-022); the interface offers to undo it right away.
 #[tauri::command]
-pub async fn delete_bookmark(
+pub async fn trash_bookmark(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     id: i64,
-) -> Result<bool, CommandError> {
-    let revision = blocking(&state, move |conn| {
-        let revision = db::get_bookmark_by_id(conn, id).map_err(text)?.revision + 1;
-        db::delete_bookmark(conn, id).map_err(text)?;
-        Ok(revision)
+) -> Result<Bookmark, CommandError> {
+    let b = blocking(&state, move |conn| {
+        db::trash_bookmark(conn, id).map_err(text)
     })
     .await?;
-    let _ = app.emit(
-        "bookmark-changed",
-        capture::BookmarkChange {
-            kind: ChangeKind::Deleted,
-            id,
-            revision,
-            bookmark: None,
-        },
-    );
-    Ok(true)
+    capture::emit(&app, ChangeKind::Updated, &b);
+    Ok(b)
+}
+/// Out of the trash with everything the bookmark had, inbox flag included.
+#[tauri::command]
+pub async fn restore_bookmark(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+) -> Result<Bookmark, CommandError> {
+    let b = blocking(&state, move |conn| {
+        db::restore_bookmark(conn, id, false).map_err(text)
+    })
+    .await?;
+    capture::emit(&app, ChangeKind::Updated, &b);
+    Ok(b)
 }
 #[tauri::command]
 pub async fn get_collections(
@@ -220,7 +234,7 @@ pub async fn import_html_bookmarks(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     html_content: String,
-) -> Result<usize, CommandError> {
+) -> Result<capture::ImportSummary, CommandError> {
     // Parsing needs no database, so the library stays available meanwhile.
     let requests = tauri::async_runtime::spawn_blocking(move || capture::parse_html(&html_content))
         .await

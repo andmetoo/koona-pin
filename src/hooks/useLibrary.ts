@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
-import { isAfter, matchesFilters, mergeBookmark } from "../services/library";
+import { isAfter, listTime, matchesFilters, mergeBookmark } from "../services/library";
 import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
 import {
   Bookmark,
@@ -37,6 +37,7 @@ export function useLibrary(
     favorites: 0,
     inbox: 0,
     inbox_newest: null,
+    trash: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -211,6 +212,7 @@ export function useLibrary(
     filters.domain,
     filters.onlyFavorites,
     filters.onlyInbox,
+    filters.onlyTrash,
     refresh,
   ]);
   useEffect(() => {
@@ -233,7 +235,9 @@ export function useLibrary(
         pendingRef.current[change.id];
       const shown = !!known;
       const unreadBefore = unread.current.has(change.id);
-      const createdAt = (b ?? known ?? unread.current.get(change.id))?.created_at;
+      // Where the list places it: the time the date groups count by.
+      const placedAt = b ?? known ?? unread.current.get(change.id);
+      const createdAt = placedAt && listTime(placedAt);
       const beyond = !!b && isAfter(b, nextRef.current);
       if (!b || !matches) {
         unread.current.delete(change.id);
