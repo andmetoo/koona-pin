@@ -6,7 +6,7 @@ export function foldText(text: string): string {
 }
 
 /**
- * The exact filters: favorites, collection, domain, tag. Whether search words
+ * The exact filters: inbox, favorites, collection, domain, tag. Whether search words
  * match is decided by the database (`get_bookmarks` with `id`), so the
  * interface keeps no second copy of the search rules.
  */
@@ -15,6 +15,7 @@ export function matchesFilters(
   filters: Partial<FilterState>,
 ): boolean {
   return !(
+    (filters.onlyInbox && b.triaged_at !== null) ||
     (filters.onlyFavorites && !b.is_favorite) ||
     (filters.collectionId != null &&
       b.collection_id !== filters.collectionId) ||
