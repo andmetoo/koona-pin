@@ -1,0 +1,119 @@
+name: Platform probe (NP-008)
+
+# A one-off experiment on cloud macOS: the app bundle on macOS, the probe app
+# on an iOS simulator, and a check of the real app for iOS. macOS minutes are
+# billed ×10 in a private repository, so it runs only when this file changes on
+# the research branch (owner's approval for 1–2 runs, 4 October 2026).
+on:
+  push:
+    branches: [research/np-008-platforms]
+    paths: [.github/workflows/platform-probe.yml]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  macos:
+    name: macOS app bundle, launch, screenshot
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: System and WebKit
+        run: |
+          mkdir -p probe
+          {
+            sw_vers
+            uname -m
+            echo "WebKit: $(defaults read /System/Library/Frameworks/WebKit.framework/Resources/Info.plist CFBundleVersion)"
+            echo "Safari: $(defaults read /Applications/Safari.app/Contents/Info.plist CFBundleShortVersionString)"
+          } | tee probe/system.txt
+      - name: Build the app bundle
+        run: |
+          start=$(date +%s)
+          npm run tauri build -- --bundles app 2>&1 | tail -n 40 | tee probe/build.log
+          echo "build seconds: $(( $(date +%s) - start ))" | tee -a probe/system.txt
+          du -sh src-tauri/target/release/bundle/macos/*.app | tee -a probe/system.txt
+      - name: Launch, screenshot, single instance, data folder
+        run: |
+          app=$(ls -d src-tauri/target/release/bundle/macos/*.app)
+          bin=$(ls "$app/Contents/MacOS/" | head -1)
+          "$app/Contents/MacOS/$bin" > probe/app.log 2>&1 &
+          pid=$!
+          sleep 20
+          screencapture -x probe/macos.png
+          echo "first alive: $(kill -0 $pid 2>/dev/null && echo yes || echo no)" | tee -a probe/system.txt
+          ls -la "$HOME/Library/Application Support/Netami Pin" 2>&1 | tee -a probe/system.txt
+          "$app/Contents/MacOS/$bin" > probe/second.log 2>&1 &
+          second=$!
+          sleep 8
+          echo "second still running after 8 s: $(kill -0 $second 2>/dev/null && echo yes || echo no)" | tee -a probe/system.txt
+          kill $pid $second 2>/dev/null || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: probe-macos
+          path: probe/
+
+  ios:
+    name: iOS simulator probe and app check
+    runs-on: macos-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Rust toolchain with iOS targets
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+            scripts/platform-probe/mobile-app/src-tauri
+      - name: Xcode and XcodeGen
+        run: |
+          mkdir -p probe
+          xcodebuild -version | tee probe/system.txt
+          brew install xcodegen > /dev/null
+      - name: The real app for iOS (desktop-only code)
+        continue-on-error: true
+        working-directory: src-tauri
+        run: |
+          cargo check --lib --target aarch64-apple-ios 2> ../probe/app-check.log
+          echo "errors: $(grep -c '^error' ../probe/app-check.log)" | tee -a ../probe/system.txt
+      - name: Probe app for the simulator
+        working-directory: scripts/platform-probe/mobile-app
+        run: |
+          npx --yes @tauri-apps/cli@2.12.1 ios init --ci 2>&1 | tail -n 20 | tee ../../../probe/ios-init.log
+          npx --yes @tauri-apps/cli@2.12.1 ios build --ci --debug --target aarch64-sim 2>&1 | tail -n 40 | tee ../../../probe/ios-build.log
+      - name: Run in the simulator, screenshot
+        run: |
+          app=$(find scripts/platform-probe/mobile-app/src-tauri/gen/apple -name "*.app" -path "*simulator*" | head -1)
+          echo "app: $app" | tee -a probe/system.txt
+          device=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in d for x in d[r] if 'iPhone' in x['name']))")
+          xcrun simctl boot "$device"
+          xcrun simctl install "$device" "$app"
+          xcrun simctl launch "$device" app.netami.pin.probe | tee -a probe/system.txt
+          sleep 25
+          xcrun simctl io "$device" screenshot probe/ios.png
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: probe-ios
+          path: probe/

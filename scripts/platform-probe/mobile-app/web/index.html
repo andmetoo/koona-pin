@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Netami Pin Probe</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 16px; background: #faf9f6; color: #2e302b; }
+      pre { white-space: pre-wrap; word-break: break-all; background: #fffefa; border: 1px solid #e4e2da; border-radius: 10px; padding: 12px; }
+      button { font: inherit; padding: 10px 14px; border-radius: 8px; border: 0; background: #2f6b4f; color: #fff; }
+      /* Tailwind 4 relies on these: oklch colours, color-mix, nesting, @property. */
+      @property --probe { syntax: "<length>"; inherits: false; initial-value: 0px; }
+      .modern { color: color-mix(in oklch, oklch(0.5 0.1 150) 80%, white); & span { font-weight: 600; } }
+    </style>
+  </head>
+  <body>
+    <h1>Netami Pin Probe</h1>
+    <p class="modern">Modern CSS: <span id="css"></span></p>
+    <p>WebView: <span id="ua"></span></p>
+    <pre id="out">…</pre>
+    <button id="open">Open https://example.com/</button>
+    <script>
+      const css = ["color: color-mix(in oklch, red, blue)", "color: oklch(0.5 0.1 150)", "selector(&)"].map((rule) =>
+        rule.startsWith("selector") ? CSS.supports(rule) : CSS.supports(...rule.split(": ")),
+      );
+      document.getElementById("css").textContent = css.every(Boolean) ? "yes" : `no ${JSON.stringify(css)}`;
+      document.getElementById("ua").textContent = navigator.userAgent;
+      const { invoke } = window.__TAURI__.core;
+      invoke("probe").then(
+        (result) => (document.getElementById("out").textContent = JSON.stringify(result, null, 2)),
+        (error) => (document.getElementById("out").textContent = `error: ${error}`),
+      );
+      document.getElementById("open").onclick = () => invoke("open", { url: "https://example.com/" }).catch(alert);
+    </script>
+  </body>
+</html>
