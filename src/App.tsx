@@ -5,7 +5,7 @@ import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { undoNotice } from "./services/undo";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, Bookmark, CaptureStatus, Collection, FilterState, LibraryStatus, ViewMode } from "./types";
+import { AppSettings, Bookmark, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { Icon, PinIcon } from "./components/icons";
@@ -28,9 +28,12 @@ type Surface = "add" | "import" | "connect" | "collection" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
- * 8 seconds with a close button (frame 21).
+ * 8 seconds with a close button (frame 21); `show` is «Показать» after an
+ * export, 8 seconds (frame 29).
  */
-type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean } | null;
+type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void } | null;
+/** Columns of the CSV, titled in the interface's language (NP-032). */
+const CSV_COLUMNS = ["title", "url", "domain", "collection", "tags", "notes", "favorite", "inbox", "saved"] as const;
 type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash">>;
 const initialFilters: FilterState = {
   search: "",
@@ -246,6 +249,39 @@ export function App() {
     if (!newest) return;
     setBannerHidden(newest);
     savePreference("inboxBannerHidden", newest);
+  };
+  /**
+   * Menu «⋯» → Export (NP-032, frame 29): the Save dialog, then «… сохранено
+   * в … · Показать» for 8 seconds, or an alert with the reason and
+   * «Повторить», which opens the dialog again. Cancelling says nothing.
+   */
+  const exportLibrary = (format: ExportFormat) => {
+    const columns =
+      format === "csv" ? (Object.fromEntries(CSV_COLUMNS.map((key) => [key, t(`export.columns.${key}`)])) as CsvColumns) : undefined;
+    const retry = () => exportLibrary(format);
+    api.exportLibrary(format, columns).then(
+      (result) => {
+        if (result.outcome === "cancelled") return;
+        if (result.outcome === "saved")
+          return setNotice({
+            text: t("export.saved", { count: result.count, name: result.file_name }),
+            alert: false,
+            long: true,
+            show: () => void api.revealExport().catch((err) => say(describeError(err), true)),
+          });
+        const { file_name: name, folder, detail } = result;
+        const text =
+          result.problem === "disk_full"
+            ? t("export.diskFull", { name })
+            : result.problem === "no_permission"
+              ? t("export.noPermission", { folder })
+              : result.problem === "in_use"
+                ? t("export.inUse", { name })
+                : t("export.other", { name, detail });
+        setNotice({ text, alert: true, retry });
+      },
+      (err) => setNotice({ text: describeError(err), alert: true, retry }),
+    );
   };
   const copy = async (text: string) => {
     try {
@@ -488,6 +524,10 @@ export function App() {
             {t("notice.undo")}
             <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">Ctrl Z</kbd>
           </button>
+        ) : notice.show ? (
+          <button type="button" onClick={notice.show} className="font-semibold text-[#8fd0ae]">
+            {t("export.show")}
+          </button>
         ) : (
           (notice.alert || notice.long) && (
             <span className="flex items-center gap-3">
@@ -603,6 +643,7 @@ export function App() {
                     onSearch={(search) => changeFilters({ search })}
                     onView={setView}
                     onImport={() => setSurface("import")}
+                    onExport={exportLibrary}
                     onAdd={() => setSurface("add")}
                   />
                   {capture?.state === "failing" && (
