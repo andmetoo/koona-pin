@@ -1,10 +1,11 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../services/api";
 import { describeError } from "../services/errors";
 import { LibraryStatus, OpenFailure } from "../types";
 import { Icon } from "./icons";
+import { BackupRestoreDialog } from "./BackupRestoreDialog";
 import { Button } from "./ui/Button";
 import { WindowBar } from "./ui/WindowBar";
 
@@ -12,6 +13,8 @@ const ready: LibraryStatus = { state: "ready", damaged: false, moved_aside: null
 
 /** Codes after which «Try again» cannot help: only a newer app or support can. */
 const final: OpenFailure["code"][] = ["DB_NEWER_SCHEMA", "MIGRATION_FAILED"];
+/** A file that is not a working library: a backup can take its place (NP-034). */
+const replaceable: OpenFailure["code"][] = ["DB_CORRUPT", "DB_NOT_DATABASE", "DB_FOREIGN"];
 
 /**
  * Shows the library only once it has opened. Until then: nothing for the
@@ -23,6 +26,9 @@ export function LibraryGate({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LibraryStatus>(isTauri() ? { state: "opening" } : ready);
   const [slow, setSlow] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  /** Set once a backup took the broken file's place; the library is opening again. */
+  const restored = useRef(false);
   useEffect(() => {
     if (status.state !== "opening") return;
     let stopped = false;
@@ -67,6 +73,7 @@ export function LibraryGate({ children }: { children: ReactNode }) {
               setStatus({ state: "opening" });
               void api.retryLibrary().catch(() => {});
             }}
+            onRestore={() => setRestoring(true)}
           />
         ) : (
           slow && (
@@ -76,6 +83,18 @@ export function LibraryGate({ children }: { children: ReactNode }) {
           )
         )}
       </main>
+      {restoring && (
+        <BackupRestoreDialog
+          onRestored={() => {
+            restored.current = true;
+          }}
+          onClose={() => {
+            setRestoring(false);
+            // The app opens the restored library already; follow it.
+            if (restored.current) setStatus({ state: "opening" });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -94,7 +113,7 @@ const report = (f: OpenFailure, language: string) =>
     .filter(Boolean)
     .join("\n");
 
-function LibraryFailure({ failure, onRetry }: { failure: OpenFailure; onRetry: () => void }) {
+function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure; onRetry: () => void; onRestore: () => void }) {
   const { t, i18n } = useTranslation();
   const [note, setNote] = useState("");
   const retry = !final.includes(failure.code);
@@ -151,6 +170,11 @@ function LibraryFailure({ failure, onRetry }: { failure: OpenFailure; onRetry: (
           {t("gate.quit")}
         </Button>
       </div>
+      {replaceable.includes(failure.code) && (
+        <button type="button" onClick={onRestore} className="mt-1 text-xs font-medium text-accent hover:underline">
+          {t("gate.restore")}
+        </button>
+      )}
       {note && (
         <p role="status" className="text-xs">
           {note}

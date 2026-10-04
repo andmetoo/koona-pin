@@ -1,5 +1,8 @@
 import {
   AddedLink,
+  BackupCopy,
+  BackupRestoreOutcome,
+  BackupSource,
   Bookmark,
   BookmarkChange,
   BookmarkPage,
@@ -23,6 +26,8 @@ import {
   LibraryPlace,
   LibraryStatus,
   CaptureStatus,
+  PickedCopy,
+  SaveCopyOutcome,
   Undo,
 } from "../types";
 import type { PageRequest } from "./api";
@@ -730,6 +735,35 @@ export const demo = {
   },
   async backUpNow(): Promise<DataSummary> {
     throw new CommandError("internal", i18n.t("settings.desktopOnly"));
+  },
+  async saveBackupCopy(): Promise<SaveCopyOutcome> {
+    throw new CommandError("internal", i18n.t("settings.desktopOnly"));
+  },
+  /** Two made-up copies, so the restore dialog of sheet 33 can be tried in the browser. */
+  async listBackups(): Promise<BackupCopy[]> {
+    const at = (daysAgo: number) => {
+      const time = new Date();
+      time.setDate(time.getDate() - daysAgo);
+      time.setHours(9, 12, 0, 0);
+      return time.toISOString();
+    };
+    const count = demoBookmarks.length;
+    return [
+      { file_name: "netamipin.auto-demo-1.db", kind: "automatic", created_at: at(0), bytes: 1_300_000, bookmarks: count },
+      { file_name: "netamipin.before-v4.db", kind: "before_update", created_at: at(2), bytes: 1_250_000, bookmarks: count - 2 },
+    ];
+  },
+  async pickBackup(): Promise<PickedCopy> {
+    return { outcome: "cancelled" };
+  },
+  /** The demo library stays as it is: there is no file to replace. */
+  async restoreBackup(source: BackupSource): Promise<BackupRestoreOutcome> {
+    const copy = (await this.listBackups()).find((c) => source.from === "listed" && c.file_name === source.file_name);
+    if (!copy) throw new CommandError("not_found", "The copy is gone");
+    return { outcome: "restored", bookmarks: copy.bookmarks ?? 0, previous: "netamipin.before-restore-demo.db" };
+  },
+  async revealBackup(_fileName: string) {
+    /* No folders in the browser preview. */
   },
   async getVersion() {
     return "demo";
