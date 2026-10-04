@@ -823,6 +823,66 @@ test("backup: the settings explain copies, the dialog lists them, asks with the 
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
+test("duplicates: the section groups the same page, the main one is chosen, merge keeps everything and Ctrl Z takes it back", async ({ page }) => {
+  const add = async (url: string) => {
+    await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
+    await page.getByLabel("Ссылка", { exact: true }).fill(url);
+    await page.getByRole("button", { name: "Сохранить ссылку" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  };
+  const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true });
+  // No duplicates: no sidebar entry; the menu «⋯» still leads to the section.
+  await expect(page.getByRole("complementary").getByRole("button", { name: /^Дубликаты/ })).toHaveCount(0);
+  await add("http://vitsoe.com/rw/about/good-design/?utm_source=mail");
+  await add("https://www.vitsoe.com/rw/about/good-design#top");
+  await add("https://example.com/vitsoe?ref=other");
+  await nav("Дубликаты 1").click();
+
+  const group = page.locator("[data-duplicate-group='vitsoe.com/rw/about/good-design']");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Дубликаты");
+  const radios = group.getByRole("radio");
+  await expect(radios).toHaveCount(3);
+  // The plainest address of the oldest: the demo's own bookmark with its note, tags and collection.
+  await expect(radios.first()).toHaveAttribute("aria-checked", "true");
+  await expect(radios.first()).toContainText("Десять принципов хорошего дизайна");
+  await expect(group.locator("[data-after]")).toContainText("теги дизайн, принципы");
+  await expect(group.locator("[data-after]")).toContainText("другие 2 уйдут в корзину на 30 дней");
+  // Another main one changes what stays, then back.
+  await radios.nth(2).click();
+  await expect(radios.nth(2)).toHaveAttribute("aria-checked", "true");
+  await radios.first().click();
+
+  await group.getByRole("button", { name: "Объединить" }).click();
+  const toast = page.getByRole("status").filter({ hasText: "объединены" });
+  await expect(toast).toContainText("3 закладки объединены в «Десять принципов хорошего дизайна»");
+  await expect(page.getByRole("heading", { name: "Дубликатов нет" })).toBeVisible();
+  await expect(nav("Корзина 2")).toBeVisible();
+  await expect(nav("Дубликаты 0")).toBeVisible();
+
+  // Ctrl Z: the group again, nothing lost.
+  await page.keyboard.press("Control+z");
+  await expect(radios).toHaveCount(3);
+  await expect(nav("Корзина 0")).toBeVisible();
+
+  // «Не дубликаты» hides it until undone.
+  await group.getByRole("button", { name: "Не дубликаты" }).click();
+  await expect(page.getByText("Группа скрыта: «vitsoe.com/rw/about/good-design»")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Дубликатов нет" })).toBeVisible();
+  await page.getByRole("button", { name: "Отменить" }).click();
+  await expect(radios).toHaveCount(3);
+
+  // «Объединить все…» asks first with the numbers.
+  await page.getByRole("button", { name: "Объединить все…" }).click();
+  const confirm = page.getByRole("dialog", { name: "Объединить 1 группу?" });
+  await expect(confirm).toContainText("Закладок станет 1 вместо 3");
+  await confirm.getByRole("button", { name: "Объединить все" }).click();
+  await expect(page.getByRole("heading", { name: "Дубликатов нет" })).toBeVisible();
+
+  // The kept bookmark has everything; a page with another parameter was never a duplicate.
+  await nav("Все закладки 7").click();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
+});
+
 test("import of 10 000 links shows progress and keeps the window usable", async ({ page }) => {
   let html = "<DL>";
   for (let i = 0; i < 10_000; i++) html += `<DT><A HREF="https://example.com/${i}" ADD_DATE="1700000000">Link ${i}</A>`;

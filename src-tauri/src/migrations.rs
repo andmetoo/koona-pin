@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 5;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -167,6 +167,36 @@ CREATE INDEX idx_bookmarks_collection ON bookmarks(collection_id, deleted_at);
 CREATE INDEX idx_bookmarks_trash ON bookmarks(deleted_at, id) WHERE deleted_at IS NOT NULL;
 ";
 
+/// Schema 5 (NP-035, Р-35): duplicates. The address key (`dedupe::url_key`,
+/// registered as `np_url_key`) is stored so groups are found by an index
+/// instead of parsing every address; rows written without it get it from
+/// `dedupe::fill_keys`. The hook fills the keys of existing bookmarks. «Не дубликаты» remembers the bookmarks (by `uid`)
+/// of a group that are different pages.
+const SCHEMA_5: &str = "
+ALTER TABLE bookmarks ADD COLUMN url_key TEXT;
+CREATE INDEX idx_bookmarks_url_key ON bookmarks(url_key) WHERE deleted_at IS NULL;
+CREATE TABLE duplicates_dismissed (
+    url_key TEXT NOT NULL,
+    uid TEXT NOT NULL,
+    dismissed_at TEXT NOT NULL,
+    PRIMARY KEY (url_key, uid)
+) WITHOUT ROWID;
+";
+
+/// Keys of the existing bookmarks, computed in Rust: the step must not need
+/// the SQL functions of `library::configure` (`validate()` runs without them).
+fn url_keys(tx: &Transaction) -> HookResult {
+    let rows: Vec<(i64, String)> = tx
+        .prepare("SELECT id, url FROM bookmarks")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut update = tx.prepare("UPDATE bookmarks SET url_key = ?1 WHERE id = ?2")?;
+    for (id, url) in rows {
+        update.execute(params![crate::dedupe::url_key(&url), id])?;
+    }
+    Ok(())
+}
+
 /// What a new library starts with, created once: collections the user
 /// deletes never come back.
 fn seed(tx: &Transaction) -> HookResult {
@@ -201,6 +231,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up(SCHEMA_2),
         M::up(SCHEMA_3),
         M::up(SCHEMA_4),
+        M::up_with_hook(SCHEMA_5, url_keys),
     ]
 }
 
@@ -480,6 +511,26 @@ mod tests {
             let plan = rows(&conn, &format!("EXPLAIN QUERY PLAN {query}"));
             assert!(plan.iter().any(|step| step.contains(index)), "{index}: {plan:?}");
         }
+    }
+
+    /// Schema 5 keys every existing address: the near duplicates of the test
+    /// libraries become one group; «?ref=» stays another page.
+    #[test]
+    fn schema_5_keys_the_addresses_of_an_existing_library() {
+        let paths = Paths::new(folder("migrate-duplicates").join("netamipin.db"));
+        let conn = fixtures::fresh_at(&paths.database, 4);
+        fixtures::near_duplicates(&conn);
+        fixtures::finish(conn);
+        let conn = library::open(&paths).unwrap().conn;
+        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
+        let missing: i64 = conn.query_row("SELECT count(*) FROM bookmarks WHERE url_key IS NULL", [], |r| r.get(0)).unwrap();
+        assert_eq!(missing, 0);
+        let groups = crate::dedupe::groups(&conn).unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].bookmarks.len(), 7);
+        assert_eq!(groups[0].bookmarks[0].url, "https://example.com/page", "the plain and oldest one");
+        let plan = rows(&conn, "EXPLAIN QUERY PLAN SELECT url_key FROM bookmarks WHERE deleted_at IS NULL AND url_key IS NOT NULL GROUP BY url_key");
+        assert!(plan.iter().any(|step| step.contains("idx_bookmarks_url_key")), "{plan:?}");
     }
 
     #[test]

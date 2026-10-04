@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode},
-    backup, export, import, restore,
+    backup, dedupe, export, import, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -439,7 +439,80 @@ pub async fn get_domains(state: State<'_, Arc<DbState>>) -> Result<Vec<DomainCou
 }
 #[tauri::command]
 pub async fn get_counts(state: State<'_, Arc<DbState>>) -> Result<LibraryCounts, CommandError> {
-    blocking(&state, |conn| db::get_counts(conn).map_err(text)).await
+    blocking(&state, |conn| {
+        let mut counts = db::get_counts(conn).map_err(text)?;
+        counts.duplicates = dedupe::count(conn).map_err(text)?;
+        Ok(counts)
+    })
+    .await
+}
+
+/// The section «Дубликаты» (NP-035, sheet 34). Keys missing from rows an
+/// older build or another program wrote are filled first; a read-only
+/// (damaged) library shows the groups it already knows.
+#[tauri::command]
+pub async fn get_duplicates(state: State<'_, Arc<DbState>>) -> Result<Vec<dedupe::DuplicateGroup>, CommandError> {
+    blocking(&state, |conn| {
+        let _ = dedupe::fill_keys(conn);
+        dedupe::groups(conn).map_err(text)
+    })
+    .await
+}
+
+/// What «Объединить» did.
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct Merged {
+    pub groups: u32,
+    /// Bookmarks moved to the trash.
+    pub trashed: u32,
+    /// The bookmark kept, when one group was merged: the notice names it.
+    pub title: Option<String>,
+    pub command: Option<i64>,
+}
+
+/// «Объединить» and «Объединить все»: one transaction and one command of the
+/// journal, so `Ctrl Z` takes the whole merge back.
+#[tauri::command]
+pub async fn merge_duplicates(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    groups: Vec<dedupe::MergeGroup>,
+) -> Result<Merged, CommandError> {
+    let state = state.inner().clone();
+    let (merged, changed) = tauri::async_runtime::spawn_blocking(move || {
+        let conn = state.conn.lock().map_err(CommandError::internal)?;
+        let mut journal = state.journal.lock().map_err(CommandError::internal)?;
+        let ids: Vec<i64> = groups.iter().flat_map(|g| std::iter::once(g.main).chain(g.others.iter().copied())).collect();
+        let (changed, command) = journal.record(&conn, Action::Merge, &ids, |conn| dedupe::merge(conn, &groups))?;
+        let title = match groups.as_slice() {
+            [one] => changed.iter().find(|b| b.id == one.main).map(|b| b.title.clone()),
+            _ => None,
+        };
+        let merged = Merged {
+            groups: groups.iter().filter(|g| !g.others.is_empty()).count() as u32,
+            trashed: changed.iter().filter(|b| b.deleted_at.is_some()).count() as u32,
+            title,
+            command,
+        };
+        Ok::<_, CommandError>((merged, changed))
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    capture::emit_many(&app, &changed);
+    Ok(merged)
+}
+
+/// «Не дубликаты»: the group is hidden until another twin arrives.
+#[tauri::command]
+pub async fn dismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
+    blocking(&state, move |conn| dedupe::dismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await
+}
+
+/// «Отменить» after «Не дубликаты».
+#[tauri::command]
+pub async fn undismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
+    blocking(&state, move |conn| dedupe::undismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await
 }
 #[tauri::command]
 pub fn open_url_external(app: AppHandle, url: String) -> Result<(), CommandError> {
