@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Bookmark } from "../types";
-import { browserName, nextWaiting, savedDay, Step, summary, waiting } from "./triage";
+import { browserName, collectionKeys, nextWaiting, savedDay, Step, suggestFrom, summary, waiting } from "./triage";
 
 const bookmark = (id: number, fields: Partial<Bookmark> = {}): Bookmark => ({
   id,
@@ -59,6 +59,31 @@ describe("triage", () => {
       step("trash"),
     ];
     expect(summary(steps)).toEqual({ count: 5, kept: 2, filed: 2, trashed: 1 });
+  });
+
+  it("suggests the collection most of the site lies in, as the database does", () => {
+    const at = (id: number, domain: string, collection_id: number | null, deleted = false) =>
+      bookmark(id, { domain, collection_id, deleted_at: deleted ? "2026-10-04T11:00:00.000Z" : null });
+    const card = at(1, "trezor.io", null);
+    const library = [card, at(2, "trezor.io", 7), at(3, "other.org", 7), at(4, "trezor.io", null)];
+    expect(suggestFrom(library, card)).toBeNull();
+    library.push(at(5, "trezor.io", 7));
+    expect(suggestFrom(library, card)).toEqual({ collection_id: 7, count: 2, filed: 2 });
+    library.push(at(6, "trezor.io", 8), at(7, "trezor.io", 8));
+    expect(suggestFrom(library, card)).toBeNull();
+    library.push(at(8, "trezor.io", 7), at(9, "trezor.io", 7, true));
+    expect(suggestFrom(library, card)).toEqual({ collection_id: 7, count: 3, filed: 5 });
+  });
+
+  it("puts the suggestion under key 1 and the rest in sidebar order", () => {
+    const collection = (id: number) => ({ id, name: `К${id}`, color: null, icon: null, count: 0, created_at: "" });
+    const collections = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(collection);
+    const ids = (suggestion: Parameters<typeof collectionKeys>[1]) => collectionKeys(collections, suggestion).map((c) => c.id);
+    expect(ids(null)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(ids({ collection_id: 10, count: 2, filed: 2 })).toEqual([10, 1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(ids({ collection_id: 3, count: 2, filed: 3 })).toEqual([3, 1, 2, 4, 5, 6, 7, 8, 9]);
+    // A collection deleted since: no suggestion.
+    expect(ids({ collection_id: 99, count: 2, filed: 2 })).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   it("names the day in local time and the browser", () => {
