@@ -40,6 +40,7 @@ dirs = "5.0"
 # TypeScript types of the IPC contract, exported to src/bindings by `cargo test` (NP-007).
 ts-rs = { version = "12", default-features = false, features = ["serde-compat"] }
 tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
 
 [dev-dependencies]
 # Already in the tree through Tauri: a test recomputes the development

@@ -662,6 +662,49 @@ test("import into the inbox: the banner counts the import; an error changes noth
   await expect(empty.getByRole("button", { name: "Импортировать", exact: true })).toBeDisabled();
 });
 
+test("export: saved says how many and offers Show; cancelled says nothing; a failure names the reason and tries again", async ({ page }) => {
+  const exportAs = async (item: RegExp) => {
+    await page.getByRole("button", { name: "Ещё", exact: true }).click();
+    await page.getByRole("menuitem", { name: item }).click();
+  };
+  const toast = page.locator("[role=status], [role=alert]").filter({ hasText: /сохран/i });
+  // The trash stays out of HTML and CSV; JSON takes everything.
+  await page.locator('[data-bookmark-id="2"]').hover();
+  await page.locator('[data-bookmark-id="2"]').getByRole("button", { name: /^Действия:/ }).click();
+  await page.getByRole("menuitem", { name: "В корзину" }).click();
+  await exportAs(/HTML для браузера/);
+  await expect(toast).toContainText(/^5 закладок сохранено в netami-pin-\d{4}-\d{2}-\d{2}\.html/);
+  await expect(toast.getByRole("button", { name: "Показать" })).toBeVisible();
+  await exportAs(/JSON — полная копия/);
+  await expect(toast).toContainText(/^6 закладок сохранено в netami-pin-.*\.json/);
+
+  // CSV gets its column titles in the interface's language; a cancelled dialog says nothing.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const calls: unknown[] = [];
+    (window as unknown as { exportCalls: unknown[] }).exportCalls = calls;
+    let attempt = 0;
+    api.exportLibrary = async (format, columns) => {
+      calls.push({ format, columns });
+      attempt++;
+      if (attempt === 1) return { outcome: "cancelled" };
+      if (attempt === 2) return { outcome: "failed", file_name: "netami-pin.csv", folder: "D:\\", problem: "disk_full", detail: "There is not enough space on the disk. (os error 112)" };
+      return { outcome: "saved", file_name: "netami-pin.csv", count: 5 };
+    };
+  });
+  await exportAs(/CSV для таблиц/);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { exportCalls: unknown[] }).exportCalls.length)).toBe(1);
+  await expect(page.getByText("netami-pin.csv", { exact: false })).toHaveCount(0);
+  const calls = await page.evaluate(() => (window as unknown as { exportCalls: { format: string; columns: Record<string, string> }[] }).exportCalls);
+  expect(calls[0]).toMatchObject({ format: "csv", columns: { title: "Название", inbox: "Во входящих", saved: "Сохранено" } });
+
+  await exportAs(/CSV для таблиц/);
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("Не удалось сохранить netami-pin.csv: на диске нет места. Ничего не записано.");
+  await alert.getByRole("button", { name: "Повторить" }).click();
+  await expect(toast).toContainText("5 закладок сохранено в netami-pin.csv");
+});
+
 test("import of 10 000 links shows progress and keeps the window usable", async ({ page }) => {
   let html = "<DL>";
   for (let i = 0; i < 10_000; i++) html += `<DT><A HREF="https://example.com/${i}" ADD_DATE="1700000000">Link ${i}</A>`;

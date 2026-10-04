@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode},
-    import,
+    export, import,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -347,6 +347,91 @@ pub fn open_url_external(app: AppHandle, url: String) -> Result<(), CommandError
         .open_url(url, None::<&str>)
         .map_err(CommandError::internal)
 }
+/// What an export did (frame 29): nothing when the Save dialog was cancelled.
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum ExportOutcome {
+    Cancelled,
+    Saved {
+        file_name: String,
+        count: u32,
+    },
+    /// Nothing was written: the old file, if any, is as it was.
+    Failed {
+        file_name: String,
+        folder: String,
+        problem: export::ExportProblem,
+        detail: String,
+    },
+}
+
+/// The last file an export saved: «Показать» reveals only that one.
+#[derive(Default)]
+pub struct LastExport(pub std::sync::Mutex<Option<std::path::PathBuf>>);
+
+/// Menu «⋯» → Export (NP-032, Р-30): the system Save dialog, then the file
+/// written next to the target and renamed over it when complete.
+#[tauri::command]
+pub async fn export_library(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    last: State<'_, LastExport>,
+    format: export::ExportFormat,
+    columns: Option<export::CsvColumns>,
+) -> Result<ExportOutcome, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+    if format == export::ExportFormat::Csv && columns.is_none() {
+        return Err(CommandError::invalid("CSV needs column titles"));
+    }
+    let mut dialog = app
+        .dialog()
+        .file()
+        .set_file_name(export::default_name(format))
+        .add_filter(format.extension().to_uppercase(), &[format.extension()]);
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(picked) = picked else {
+        return Ok(ExportOutcome::Cancelled);
+    };
+    let path = picked.into_path().map_err(CommandError::internal)?;
+    let separator = export::list_separator();
+    let (content, count) = blocking(&state, move |conn| {
+        match format {
+            export::ExportFormat::Html => export::html(conn),
+            export::ExportFormat::Json => export::json(conn, chrono::Utc::now()),
+            export::ExportFormat::Csv => export::csv(conn, &columns.expect("checked above"), separator),
+        }
+        .map_err(text)
+    })
+    .await?;
+    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let folder = path.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+    let target = path.clone();
+    let written = tauri::async_runtime::spawn_blocking(move || export::write_atomically(&target, content.as_bytes()))
+        .await
+        .map_err(CommandError::internal)?;
+    Ok(match written {
+        Ok(()) => {
+            *last.0.lock().map_err(CommandError::internal)? = Some(path);
+            ExportOutcome::Saved { file_name, count: count as u32 }
+        }
+        Err(error) => ExportOutcome::Failed { file_name, folder, problem: export::problem_of(&error), detail: error.to_string() },
+    })
+}
+
+/// «Показать» after an export: Explorer with the file selected.
+#[tauri::command]
+pub fn reveal_export(app: AppHandle, last: State<'_, LastExport>) -> Result<(), CommandError> {
+    let path = last.0.lock().map_err(CommandError::internal)?.clone();
+    let path = path.ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Nothing was exported yet"))?;
+    app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
+}
+
 /// Payload of `import-progress`: links written of all the file's links.
 #[derive(Clone, Serialize, TS)]
 #[ts(export)]

@@ -14,7 +14,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { ViewMode } from "../../types";
+import { ExportFormat, ViewMode } from "../../types";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Hint, Kbd } from "../ui/Hint";
@@ -32,6 +32,8 @@ export interface ToolbarProps {
   onSearch: (value: string) => void;
   onView: (view: ViewMode) => void;
   onImport: () => void;
+  /** Menu «⋯» → Export (NP-032, frame 29). */
+  onExport: (format: ExportFormat) => void;
   onAdd: () => void;
 }
 
@@ -119,9 +121,9 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
             { id: "import-json", icon: FileJson, label: t("more.importJson"), disabled: true, disabledHint: soon },
             "separator",
             { heading: t("more.export") },
-            { id: "export-html", icon: ArrowUpFromLine, label: t("more.exportHtml"), disabled: true, disabledHint: soon },
-            { id: "export-json", icon: FileText, label: t("more.exportJson"), disabled: true, disabledHint: soon },
-            { id: "export-csv", icon: FileSpreadsheet, label: t("more.exportCsv"), disabled: true, disabledHint: soon },
+            { id: "export-html", icon: ArrowUpFromLine, label: t("more.exportHtml"), onSelect: () => props.onExport("html") },
+            { id: "export-json", icon: FileText, label: t("more.exportJson"), onSelect: () => props.onExport("json") },
+            { id: "export-csv", icon: FileSpreadsheet, label: t("more.exportCsv"), onSelect: () => props.onExport("csv") },
             "separator",
             { heading: t("more.cleanUp") },
             { id: "duplicates", icon: Copy, label: t("more.duplicates"), disabled: true, disabledHint: soon },

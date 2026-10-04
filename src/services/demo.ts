@@ -8,6 +8,9 @@ import {
   CommandAction,
   DataSummary,
   FilterState,
+  CsvColumns,
+  ExportFormat,
+  ExportOutcome,
   ImportProgress,
   ImportSummary,
   LibraryPlace,
@@ -430,6 +433,20 @@ export const demo = {
     persist();
     invalidations.forEach((fn) => fn());
     return summary;
+  },
+  /**
+   * The preview has no Save dialog and no files: it answers as if the file
+   * were saved under the default name, with the count the desktop app would
+   * write (the trash only in JSON). Tests replace it for the other outcomes.
+   */
+  async exportLibrary(format: ExportFormat, columns?: CsvColumns): Promise<ExportOutcome> {
+    if (format === "csv" && !columns) throw new CommandError("invalid_request", "CSV needs column titles");
+    const day = new Date();
+    const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    return { outcome: "saved", file_name: `netami-pin-${date}.${format}`, count: format === "json" ? bookmarks.length : live().length };
+  },
+  async revealExport() {
+    /* No folders in the browser preview. */
   },
   onImportProgress(fn: (progress: ImportProgress) => void) {
     progressListeners.add(fn);
