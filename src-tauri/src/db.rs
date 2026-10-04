@@ -26,6 +26,9 @@ pub struct Bookmark {
     pub triaged_at: Option<String>,
     /// When the bookmark went to the trash; none outside it (NP-022).
     pub deleted_at: Option<String>,
+    /// Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
+    /// `extension`, `import`; none for links of unknown origin. Triage shows it (NP-025).
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -246,7 +249,7 @@ pub fn insert_or_update_bookmark(
 
 pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut stmt = conn.prepare(
-        "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at
+        "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source
          FROM bookmarks WHERE id = ?1",
     )?;
 
@@ -261,7 +264,7 @@ pub fn get_bookmarks_by_ids(conn: &Connection, ids: &[i64]) -> Result<Vec<Bookma
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     let mut items = conn
         .prepare(
-            "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at
+            "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source
              FROM bookmarks WHERE id IN (SELECT value FROM json_each(?1))",
         )?
         .query_map([ids], bookmark_row)?
@@ -472,6 +475,7 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         revision: row.get(12)?,
         triaged_at: row.get(13)?,
         deleted_at: row.get(14)?,
+        source: row.get(15)?,
     })
 }
 
@@ -573,7 +577,7 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
     values.push(i64::from(limit + 1).into());
     let mut items = conn
         .prepare(&format!(
-            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision, b.triaged_at, b.deleted_at
+            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision, b.triaged_at, b.deleted_at, b.source
              FROM bookmarks b{page_filter}
              ORDER BY {at} DESC, b.id DESC LIMIT ?"
         ))?
@@ -1043,6 +1047,9 @@ mod tests {
         let imported = save("https://example.com/imported", "Импорт", Source::Import);
         assert_eq!(captured.triaged_at, None);
         assert_eq!(added.triaged_at, None);
+        // Triage says where each came from (NP-025).
+        let sources = [&captured, &added, &imported].map(|b| b.source.as_deref());
+        assert_eq!(sources, [Some("chrome"), Some("app"), Some("import")]);
         assert!(
             imported.triaged_at.is_some(),
             "an import goes to the library"
