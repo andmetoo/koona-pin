@@ -437,6 +437,42 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   // Ten bookmarks, one of them in the trash.
   await expect(heading).toHaveText(/Все закладки\s*9/);
 });
+test("triage: a collection is suggested by the site, explained, and nothing changes until chosen", async ({ page }) => {
+  // Two links from example.org already lie in «Вдохновение»; a third waits.
+  const newId = await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    for (const n of [1, 2]) {
+      const { bookmark } = await api.addBookmark({ url: `https://example.org/${n}`, title: `Пример ${n}` });
+      await api.updateBookmark(bookmark.id, { collection_id: 3 });
+    }
+    return (await api.addBookmark({ url: "https://example.org/new", title: "Ещё пример" })).bookmark.id;
+  });
+  await page.getByRole("region", { name: "Новые закладки" }).getByRole("button", { name: "Разобрать" }).click();
+  await expect(page.locator("[data-triage-card] h2")).toHaveText("Ещё пример");
+  const offered = page.locator("[data-suggested]");
+  const chips = page.locator("[data-keys] button");
+  await expect(offered).toHaveText(/1\s*Вдохновение\s*предложено/);
+  await expect(chips.nth(1)).toHaveText(/2\s*Дизайн/);
+  await offered.hover();
+  await expect(page.getByRole("tooltip").filter({ hasText: "Ссылки с example.org" })).toHaveText(
+    "Ссылки с example.org чаще всего лежат в «Вдохновение»: 2 из 2",
+  );
+  // Shown, not applied: the bookmark still waits without a collection.
+  const stored = () =>
+    page.evaluate(async (id) => {
+      const { api } = await import("/src/services/api.ts");
+      const { items } = await api.getBookmarks({}, { id });
+      return [items[0].collection_id, items[0].triaged_at];
+    }, newId);
+  expect(await stored()).toEqual([null, null]);
+  await page.keyboard.press("1");
+  await expect(page.getByRole("listitem").filter({ hasText: "Ещё пример" })).toContainText("→ Вдохновение");
+  expect((await stored())[0]).toBe(3);
+  // A site with nothing filed: no suggestion, the sidebar order.
+  await expect(page.locator("[data-triage-card] h2")).toHaveText("Архитектура тишины");
+  await expect(offered).toHaveCount(0);
+  await expect(chips.first()).toHaveText(/1\s*Дизайн/);
+});
 test("triage: Esc goes back where it was opened, the inbox always offers it", async ({ page }) => {
   await page.getByRole("button", { name: "Входящие 2", exact: true }).click();
   const banner = page.getByRole("region", { name: "Новые закладки" });

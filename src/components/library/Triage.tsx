@@ -1,16 +1,16 @@
-import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Check, Folder, Star, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
 import { collectionColor } from "../../services/collections";
 import { describeError, toCommandError } from "../../services/errors";
-import { browserName, nextWaiting, savedDay, Step, summary, waiting } from "../../services/triage";
+import { browserName, collectionKeys, nextWaiting, savedDay, Step, summary, waiting } from "../../services/triage";
 import { short, undoNotice } from "../../services/undo";
-import { Bookmark, BookmarkPage, Changed, Collection, PageCursor } from "../../types";
+import { Bookmark, BookmarkPage, Changed, Collection, PageCursor, Suggestion } from "../../types";
 import { Icon } from "../icons";
 import { Banner } from "../ui/Notices";
 import { Button } from "../ui/Button";
-import { Kbd } from "../ui/Hint";
+import { Hint, Kbd } from "../ui/Hint";
 import { BookmarkChanges } from "./BookmarkEditor";
 import { Preview, SiteMark } from "./Bookmarks";
 
@@ -86,6 +86,8 @@ export function Triage({
   const [queue, setQueue] = useState<Queue | null>(null);
   const [loadError, setLoadError] = useState("");
   const [tagging, setTagging] = useState(false);
+  const collectionsRef = useRef(collections);
+  collectionsRef.current = collections;
   /** The truth for decisions in flight: updated at once, before React renders. */
   const queueRef = useRef(queue);
   const update = (change: (q: Queue) => Queue) => {
@@ -161,6 +163,27 @@ export function Triage({
     if (queue && !done && !current) update((q) => ({ ...q, position: nextWaiting(q.ids, q.items, q.position + 1) }));
   }, [queue, done, current]);
 
+  /**
+   * The suggestion for the card on screen (NP-026), asked again after each
+   * decision: filing one link can make the next one of the site suggested.
+   * Keys 1–9 wait for it, so they never shift under a pressed key.
+   */
+  const [suggestion, setSuggestion] = useState<{ id: number; value: Suggestion | null } | null>(null);
+  const currentId = current?.id;
+  const decisions = queue?.steps.length ?? 0;
+  useEffect(() => {
+    if (currentId === undefined) return;
+    let live = true;
+    const settle = (value: Suggestion | null) => live && setSuggestion({ id: currentId, value });
+    api.suggestCollection(currentId).then(settle, () => settle(null));
+    return () => {
+      live = false;
+    };
+  }, [currentId, decisions]);
+  const keysReady = suggestion?.id === currentId;
+  const suggested = keysReady ? (suggestion?.value ?? null) : null;
+  const whyId = useId();
+
   const record = (kind: Step["kind"], { bookmark, command }: Changed, advance: boolean, collectionId: number | null = null) =>
     update((q) => {
       const items = { ...q.items, [bookmark.id]: bookmark };
@@ -184,28 +207,45 @@ export function Triage({
    * queue and the journal as they were; «Повторить» or the same key tries again.
    */
   const decide = (kind: Step["kind"], run: (b: Bookmark) => Promise<Changed>, advance: boolean, collection?: Collection) =>
+    enqueue(() => decision(kind, run, advance, collection));
+  /** The card a queued decision applies to: the one on screen when its turn comes. */
+  const onScreen = () => {
+    const q = queueRef.current;
+    return q && q.position < q.ids.length ? q.items[q.ids[q.position]] : undefined;
+  };
+  const decision = async (kind: Step["kind"], run: (b: Bookmark) => Promise<Changed>, advance: boolean, collection?: Collection) => {
+    const b = onScreen();
+    if (!b) return;
+    try {
+      const changed = await run(b);
+      record(kind, changed, advance, collection?.id ?? null);
+      if (advance) notify(null);
+      if (kind === "tag") notify({ text: t("triage.tagAdded", { tag: changed.bookmark.tags?.at(-1) ?? "" }) });
+    } catch (err) {
+      const why = reason(err);
+      const text =
+        kind === "trash"
+          ? t("triage.failedTrash", { reason: why })
+          : kind === "move"
+            ? t("triage.failedMove", { name: collection?.name ?? "", reason: why })
+            : kind === "keep"
+              ? t("triage.failedKeep", { reason: why })
+              : t("triage.failedSave", { reason: why });
+      epoch.current++;
+      notify({ text, alert: true, retry: () => decide(kind, run, advance, collection) });
+    }
+  };
+  /**
+   * A number key: which collection it means depends on the card it reaches,
+   * whose suggestion may differ from the card on screen when it was pressed.
+   */
+  const fileByKey = (n: number) =>
     enqueue(async () => {
-      const q = queueRef.current;
-      const b = q && q.position < q.ids.length ? q.items[q.ids[q.position]] : undefined;
+      const b = onScreen();
       if (!b) return;
-      try {
-        const changed = await run(b);
-        record(kind, changed, advance, collection?.id ?? null);
-        if (advance) notify(null);
-        if (kind === "tag") notify({ text: t("triage.tagAdded", { tag: changed.bookmark.tags?.at(-1) ?? "" }) });
-      } catch (err) {
-        const why = reason(err);
-        const text =
-          kind === "trash"
-            ? t("triage.failedTrash", { reason: why })
-            : kind === "move"
-              ? t("triage.failedMove", { name: collection?.name ?? "", reason: why })
-              : kind === "keep"
-                ? t("triage.failedKeep", { reason: why })
-                : t("triage.failedSave", { reason: why });
-        epoch.current++;
-        notify({ text, alert: true, retry: () => decide(kind, run, advance, collection) });
-      }
+      const offer = await api.suggestCollection(b.id).catch(() => null);
+      const c = collectionKeys(collectionsRef.current, offer, KEYS)[n - 1];
+      if (c) await decision("move", (b) => api.updateBookmark(b.id, { collection_id: c.id }), true, c);
     });
   const keep = () => decide("keep", (b) => api.updateBookmark(b.id, {}), true);
   const trash = () => decide("trash", (b) => api.trashBookmark(b.id), true);
@@ -259,7 +299,7 @@ export function Triage({
       }
     });
 
-  const keys = collections.slice(0, KEYS);
+  const keys = collectionKeys(collections, suggested, KEYS);
   const handler = useRef<(e: KeyboardEvent) => void>(() => {});
   handler.current = (e: KeyboardEvent) => {
     if (blocked || !queue || document.querySelector("dialog[open], [data-menu]")) return;
@@ -283,11 +323,7 @@ export function Triage({
       return;
     }
     const digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
-    if (digit) {
-      const c = keys[Number(digit[1]) - 1];
-      if (c) act(() => void file(c));
-      return;
-    }
+    if (digit) return act(() => fileByKey(Number(digit[1])));
     switch (e.code) {
       case "ArrowRight":
         return act(() => void keep());
@@ -424,20 +460,38 @@ export function Triage({
                 </div>
 
                 <p className="mt-[22px] text-xs text-subtle">{t("triage.fileHint")}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {keys.map((c, i) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => void file(c)}
-                      aria-pressed={current.collection_id === c.id}
-                      className="flex h-7 items-center gap-2 rounded-lg bg-secondary pr-2.5 pl-1.5 text-sm transition-colors duration-150 hover:bg-hover aria-pressed:outline aria-pressed:outline-accent"
-                    >
-                      <KeyChip className="h-[18px] min-w-[18px] bg-card text-2xs text-muted">{i + 1}</KeyChip>
-                      <span className="size-[7px] rounded-full" style={{ background: collectionColor(c.id) }} />
-                      {c.name}
-                    </button>
-                  ))}
+                <div data-keys className="mt-2 flex min-h-7 flex-wrap gap-2">
+                  {keysReady && keys.map((c, i) => {
+                    // Frame 03: the suggestion leads under key 1, its reason in the hint (NP-026).
+                    const offer = i === 0 && suggested?.collection_id === c.id ? suggested : null;
+                    const offered = !!offer;
+                    const chip = (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => void file(c)}
+                        aria-pressed={current.collection_id === c.id}
+                        aria-describedby={offered ? whyId : undefined}
+                        data-suggested={offered || undefined}
+                        className={`flex h-7 items-center gap-2 rounded-lg pr-2.5 pl-1.5 text-sm transition-colors duration-150 aria-pressed:outline aria-pressed:outline-accent ${offered ? "border border-suggested bg-accent-soft pl-[5px]" : "bg-secondary hover:bg-hover"}`}
+                      >
+                        <KeyChip className={`h-[18px] min-w-[18px] bg-card text-2xs ${offered ? "text-accent" : "text-muted"}`}>{i + 1}</KeyChip>
+                        <span className="size-[7px] rounded-full" style={{ background: collectionColor(c.id) }} />
+                        <span className={offered ? "font-medium text-on-accent-soft" : ""}>{c.name}</span>
+                        {offered && <span className="text-2xs text-accent-muted">{t("triage.suggested")}</span>}
+                      </button>
+                    );
+                    return offer ? (
+                      <Hint key={c.id} label={t("triage.suggestedWhy", { domain: current.domain, name: c.name, count: offer.count, filed: offer.filed })}>
+                        {chip}
+                        <span id={whyId} hidden>
+                          {t("triage.suggestedWhy", { domain: current.domain, name: c.name, count: offer.count, filed: offer.filed })}
+                        </span>
+                      </Hint>
+                    ) : (
+                      chip
+                    );
+                  })}
                   {tagging ? (
                     <TagField onAdd={(name) => (setTagging(false), void tag(name))} onClose={() => setTagging(false)} />
                   ) : (

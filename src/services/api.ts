@@ -18,6 +18,7 @@ import {
   LibraryCounts,
   LibraryPlace,
   LibraryStatus,
+  Suggestion,
   Tag,
   Undo,
 } from "../types";
@@ -63,6 +64,8 @@ const desktop = {
   getCollections: () => call<Collection[]>("get_collections"),
   getTags: () => call<Tag[]>("get_tags"),
   getDomains: () => call<DomainCount[]>("get_domains"),
+  /** Triage: where the site's other bookmarks mostly lie (NP-026); none when unclear. */
+  suggestCollection: (id: number) => call<Suggestion | null>("suggest_collection", { id }),
   getCounts: () => call<LibraryCounts>("get_counts"),
   addBookmark: (data: {
     url: string;
