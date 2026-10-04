@@ -3,6 +3,7 @@ import { ArrowDownToLine, ChevronDown, ChevronRight, Inbox, Link, Plus, Search, 
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
+import { undoNotice } from "./services/undo";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
 import { AppSettings, Bookmark, CaptureStatus, Collection, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
@@ -17,12 +18,17 @@ import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
 import { BookmarkList } from "./components/library/BookmarkList";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
+import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog } from "./components/library/Dialogs";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 type Surface = "add" | "import" | "connect" | "collection" | null;
-/** `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12). */
-type Notice = { text: string; alert: boolean; undo?: () => void } | null;
+/**
+ * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
+ * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
+ * 8 seconds with a close button (frame 21).
+ */
+type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean } | null;
 type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash">>;
 const initialFilters: FilterState = {
   search: "",
@@ -37,8 +43,6 @@ const NOTICE_MS = 3000;
 const UNDO_MS = 8000;
 /** Above this many the banner does not promise «about a minute». */
 const QUICK_INBOX = 20;
-/** A title in a notice: the notice stays one line. */
-const short = (title: string) => (title.length > 48 ? `${title.slice(0, 47)}…` : title);
 /** Below this width the sidebar becomes a strip of icons (frame 16). */
 const NARROW = "(max-width: 999px)";
 /** From this width the editor docks on the right instead of covering the content. */
@@ -86,6 +90,10 @@ export function App() {
   /** The newest inbox bookmark when the banner was hidden: it returns for a newer one. */
   const [bannerHidden, setBannerHidden] = useState(() => storedValue("inboxBannerHidden"));
   const editorFocus = useRef<HTMLElement | null>(null);
+  /** Inbox triage (NP-025) and the filters to go back to when it ends. */
+  const [triage, setTriage] = useState<FilterState | null>(null);
+  /** The editor opened from triage: its save and «В корзину» are triage decisions. */
+  const editHooks = useRef<EditHooks | null>(null);
   const dark = isDark(theme, systemDark);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
   /**
@@ -96,17 +104,9 @@ export function App() {
     setNotice(null);
     api.undo(command).then(
       (result) => {
-        if (result.outcome === "nothing") return say(t("undo.nothing"));
-        if (result.outcome !== "undone") return say(t(`undo.${result.outcome}`, { title: short(result.title) }), true);
-        if (result.bookmarks.some((b) => b.id === editingRef.current?.id)) closeEditor();
-        const title = short(result.bookmarks[0]?.title ?? "");
-        say(
-          result.action === "trash"
-            ? t("undo.undoneTrash", { title })
-            : result.action === "restore"
-              ? t("undo.undoneRestore", { title })
-              : t("undo.undone", { title }),
-        );
+        if (result.outcome === "undone" && result.bookmarks.some((b) => b.id === editingRef.current?.id)) closeEditor();
+        const { text, alert } = undoNotice(t, result);
+        say(text, alert);
       },
       (err) => say(describeError(err), true),
     );
@@ -127,6 +127,7 @@ export function App() {
       if ((e.ctrlKey || e.metaKey) && key === "k") {
         e.preventDefault();
         setPage("library");
+        setTriage(null);
         requestAnimationFrame(() => searchRef.current?.focus());
       }
       if ((e.ctrlKey || e.metaKey) && key === "n" && !document.querySelector("dialog[open]")) {
@@ -141,7 +142,8 @@ export function App() {
       // the field's own undo; under a dialog, a menu or the editor it waits:
       // the bookmark there could change under the form.
       const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]");
-      const layer = editing || document.querySelector("dialog[open], [data-menu]");
+      // Triage takes `Z` and Ctrl Z back for its own decisions.
+      const layer = editing || triage || document.querySelector("dialog[open], [data-menu]");
       if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && !typing && !layer) {
         e.preventDefault();
         undoRef.current();
@@ -149,7 +151,7 @@ export function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [wide, editing]);
+  }, [wide, editing, triage]);
   useEffect(() => {
     // The app learns about browsers when their extensions write (NP-016).
     const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
@@ -177,7 +179,7 @@ export function App() {
   }, []);
   useEffect(() => {
     if (!notice || notice.alert) return;
-    const timer = window.setTimeout(() => setNotice(null), notice.undo ? UNDO_MS : NOTICE_MS);
+    const timer = window.setTimeout(() => setNotice(null), notice.undo || notice.long ? UNDO_MS : NOTICE_MS);
     return () => window.clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
@@ -196,6 +198,7 @@ export function App() {
 
   const changeFilters = (partial: Partial<FilterState>) => {
     setPage("library");
+    setTriage(null);
     scrollRef.current?.scrollTo({ top: 0 });
     setFilters((prev) => ({ ...prev, ...partial }));
   };
@@ -203,6 +206,22 @@ export function App() {
   const navigate = (section: Section = {}) =>
     changeFilters({ collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, ...section, tag: null, domain: null });
   const openInbox = () => navigate({ onlyInbox: true });
+  /** «Разобрать»: triage over the whole inbox; the sidebar shows «Входящие» meanwhile. */
+  const openTriage = () => {
+    if (library.counts.inbox === 0) return;
+    setPage("library");
+    setEditing(null);
+    setNotice(null);
+    setTriage(filters);
+    setFilters({ ...initialFilters, onlyInbox: true });
+  };
+  /** «Закончить» `Esc`: back where triage was opened. */
+  const finishTriage = () => {
+    if (!triage) return;
+    setNotice(null);
+    setFilters(triage);
+    setTriage(null);
+  };
   const hideBanner = () => {
     const newest = library.counts.inbox_newest;
     if (!newest) return;
@@ -259,6 +278,7 @@ export function App() {
     [library.collections, t],
   );
   const closeEditor = () => {
+    editHooks.current = null;
     setEditing(null);
     editorFocus.current?.focus();
   };
@@ -284,13 +304,12 @@ export function App() {
           ? (collection.count ?? 0)
           : counts.total;
   // Hidden until a bookmark newer than the remembered one arrives (NP-020).
-  // In the inbox itself «Sort» would lead nowhere until triage mode (NP-025);
-  // the trash is about what was thrown away (frame 25).
+  // In the inbox itself it always leads to triage (NP-025), there is no other
+  // way in; the trash is about what was thrown away (frame 25).
   const inboxBanner =
     counts.inbox > 0 &&
-    !filters.onlyInbox &&
     !filters.onlyTrash &&
-    !(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden);
+    (filters.onlyInbox || !(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden));
   const searching = filters.search.trim() !== "";
   /** Search, tag or site narrow the section: the header shows «N из M». */
   const narrowed = searching || !!filters.tag || !!filters.domain;
@@ -301,8 +320,18 @@ export function App() {
       collections={library.collections}
       onOpen={actions.open}
       onCancel={closeEditor}
-      onDelete={actions.trash}
+      onDelete={(b) => {
+        const hooks = editHooks.current;
+        if (!hooks) return actions.trash(b);
+        closeEditor();
+        hooks.trash();
+      }}
       onSave={async (data) => {
+        const hooks = editHooks.current;
+        if (hooks) {
+          await hooks.save(data);
+          return closeEditor();
+        }
         const { command } = await api.updateBookmark(editing.id, data);
         closeEditor();
         say(t("notice.saved"), false, undoing(command));
@@ -440,7 +469,10 @@ export function App() {
         onTrash={() => navigate({ onlyTrash: true })}
         onCollection={(id) => navigate({ collectionId: id })}
         onTag={(name) => changeFilters({ tag: filters.tag === name ? null : name })}
-        onSettings={() => setPage("settings")}
+        onSettings={() => {
+          setTriage(null);
+          setPage("settings");
+        }}
         onConnect={() => setSurface("connect")}
         onNewCollection={() => setSurface("collection")}
         onDeleteCollection={setDeletingCollection}
@@ -468,6 +500,20 @@ export function App() {
                   />
                 </div>
               </>
+            ) : triage ? (
+              <Triage
+                collections={library.collections}
+                blocked={!!editing || surface !== null || !!purging || !!deletingCollection}
+                notify={(next) => setNotice(next && { alert: false, ...next })}
+                onOpen={actions.open}
+                onEdit={(b, hooks) => {
+                  editorFocus.current = document.activeElement as HTMLElement;
+                  editHooks.current = hooks;
+                  setEditing(b);
+                }}
+                onFinish={finishTriage}
+                onLibrary={() => navigate()}
+              />
             ) : (
               <>
                 <div className={`flex flex-col gap-4 ${padding} pt-2 pb-5`}>
@@ -530,10 +576,11 @@ export function App() {
                       icon={<Icon icon={Inbox} size={18} />}
                       action={
                         <span className="flex shrink-0 items-center gap-3">
-                          <Button variant="primary" onClick={openInbox}>
+                          <Button variant="primary" onClick={openTriage}>
                             {t("inbox.sort")}
                             <Icon icon={ChevronRight} size={13} />
                           </Button>
+                          {!filters.onlyInbox && (
                           <Hint label={t("inbox.hide")}>
                             <button
                               type="button"
@@ -544,6 +591,7 @@ export function App() {
                               <Icon icon={X} size={14} />
                             </button>
                           </Hint>
+                          )}
                         </span>
                       }
                     >
@@ -728,10 +776,24 @@ export function App() {
                 <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">Ctrl Z</kbd>
               </button>
             ) : (
-              notice.alert && (
-                <button type="button" aria-label={t("common.close")} onClick={() => setNotice(null)} className="text-white/70 hover:text-white">
-                  <Icon icon={X} size={14} />
-                </button>
+              (notice.alert || notice.long) && (
+                <span className="flex items-center gap-3">
+                  {notice.retry && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotice(null);
+                        notice.retry?.();
+                      }}
+                      className="font-semibold text-[#8fd0ae]"
+                    >
+                      {t("common.retry")}
+                    </button>
+                  )}
+                  <button type="button" aria-label={t("common.close")} onClick={() => setNotice(null)} className="text-white/70 hover:text-white">
+                    <Icon icon={X} size={14} />
+                  </button>
+                </span>
               )
             )
           }
