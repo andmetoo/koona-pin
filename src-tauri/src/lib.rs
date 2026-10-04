@@ -101,6 +101,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_bookmarks,
+            commands::get_bookmark_ids,
             commands::add_bookmark,
             commands::update_bookmark,
             commands::trash_bookmark,

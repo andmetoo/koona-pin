@@ -1,12 +1,11 @@
 import { memo, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Star, Tag as TagIcon, Trash2, Folder } from "lucide-react";
+import { Check, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Star, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { daysLeft } from "../../services/library";
 import { Icon } from "../icons";
-import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
 
 export interface BookmarkActions {
@@ -23,6 +22,8 @@ export interface BookmarkActions {
   tag: (name: string) => void;
   /** Show only this site: the filter chip of the search row (NP-013). */
   domain: (domain: string) => void;
+  /** The checkbox or `Ctrl`+click toggles; `Shift` adds the range from the last one (NP-028). */
+  select: (bookmark: Bookmark, range: boolean) => void;
 }
 
 /** The domain under a card or in a row: a click filters the library by that site. */
@@ -170,16 +171,58 @@ export function Preview({ b, mark = 20 }: { b: Bookmark; mark?: number }) {
 }
 
 /**
- * The selection checkbox of frames 01 and 02. Selection itself comes with
- * NP-028; until then it is shown inactive with «Появится в следующих версиях».
+ * The selection checkbox of frames 01 and 02, shown on hover and focus. A
+ * selected card is marked by the ring around its preview, a row by its
+ * background (frame 04), not by the checkbox.
  */
-function SelectBox({ className, title }: { className: string; title: string }) {
+function SelectBox({
+  b,
+  selected,
+  actions,
+  className,
+  idle,
+}: {
+  b: Bookmark;
+  selected: boolean;
+  actions: BookmarkActions;
+  className: string;
+  /** Border and fill while not selected. */
+  idle: string;
+}) {
   const { t } = useTranslation();
   return (
-    <Hint label={t("common.soon")}>
-      <span role="checkbox" aria-checked="false" aria-disabled="true" aria-label={t("card.select", { title })} className={className} />
-    </Hint>
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={selected}
+      aria-label={t("card.select", { title: b.title || b.url })}
+      onClick={(e) => actions.select(b, e.shiftKey)}
+      className={`flex items-center justify-center border transition-colors duration-150 ${selected ? "border-accent bg-accent text-on-accent" : idle} ${className}`}
+    >
+      {selected && <Icon icon={Check} size={12} strokeWidth={2.5} absoluteStrokeWidth />}
+    </button>
   );
+}
+
+/**
+ * `Ctrl`+click and `Shift`+click anywhere on a card or row select instead of
+ * opening, before the buttons inside see the click.
+ */
+function selectionClicks(b: Bookmark, actions: BookmarkActions) {
+  return {
+    onClickCapture: (e: MouseEvent) => {
+      if (!(e.ctrlKey || e.metaKey || e.shiftKey)) return;
+      // The menu lives inside the card but is not part of it.
+      if ((e.target as HTMLElement).closest("[data-menu]")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      actions.select(b, e.shiftKey);
+    },
+    // Shift would otherwise select the text between the two clicks.
+    onMouseDown: (e: MouseEvent) => {
+      if (e.shiftKey) e.preventDefault();
+    },
+  };
 }
 
 /** Shown while the card or row is hovered, focused or has its menu open. */
@@ -199,21 +242,26 @@ export const BookmarkCard = memo(function BookmarkCard({
   bookmark: b,
   collections,
   actions,
+  selected,
 }: {
   bookmark: Bookmark;
   collections: Collection[];
   actions: BookmarkActions;
+  selected: boolean;
 }) {
   const { t } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
   return (
     <article
       data-bookmark-id={b.id}
+      data-selected={selected || undefined}
       className="group/card flex min-w-0 flex-col gap-2.5"
       onContextMenu={menu.onContextMenu}
       onKeyDown={menu.onKeyDown}
+      {...selectionClicks(b, actions)}
     >
-      <div className="relative">
+      {/* Selected: a 2.5 px accent ring 4 px around the preview, radius 14 (frame 04); the image is not tinted. */}
+      <div className={`relative rounded-xl ${selected ? "outline-[length:2.5px] outline-offset-4 outline-accent outline-solid" : ""}`}>
         <button
           type="button"
           data-preview
@@ -223,8 +271,8 @@ export const BookmarkCard = memo(function BookmarkCard({
         >
           <Preview b={b} />
         </button>
-        <div className={`absolute top-2.5 left-2.5 ${revealed("card", menu.open)}`}>
-          <SelectBox title={b.title} className="block size-[22px] rounded-sm border border-subtle bg-card/90" />
+        <div className={`absolute top-2.5 left-2.5 flex ${revealed("card", menu.open)}`}>
+          <SelectBox b={b} selected={selected} actions={actions} className="size-[22px] rounded-sm" idle="border-subtle bg-card/90" />
         </div>
         <div className={`absolute top-2.5 right-2 flex gap-1 ${revealed("card", menu.open)}`}>
           {b.deleted_at ? (
@@ -302,27 +350,33 @@ export const BookmarkRow = memo(function BookmarkRow({
   collections,
   actions,
   compact,
+  selected,
 }: {
   bookmark: Bookmark;
   collections: Collection[];
   actions: BookmarkActions;
   /** Narrow window or docked editor: tags give way first (frame 16). */
   compact: boolean;
+  selected: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
   const move = useAnchoredMenu(t("card.moveTo"), () => moveEntries(b, collections, actions, t));
   const open = menu.open || move.open;
   const collection = collections.find((c) => c.id === b.collection_id);
+  // Selected: the soft accent background (frame 05) instead of the hover one.
+  const background = selected ? "bg-accent-soft" : `hover:bg-panel ${open ? "bg-panel" : ""}`;
   return (
     <article
       data-bookmark-id={b.id}
+      data-selected={selected || undefined}
       onContextMenu={menu.onContextMenu}
       onKeyDown={menu.onKeyDown}
-      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl py-2 pr-3 pl-2 transition-colors duration-150 hover:bg-panel ${open ? "bg-panel" : ""} ${compact ? "grid-cols-[18px_64px_minmax(0,1fr)_120px_96px]" : "grid-cols-[18px_64px_minmax(0,1fr)_170px_120px_96px]"}`}
+      {...selectionClicks(b, actions)}
+      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl py-2 pr-3 pl-2 transition-colors duration-150 ${background} ${compact ? "grid-cols-[18px_64px_minmax(0,1fr)_120px_96px]" : "grid-cols-[18px_64px_minmax(0,1fr)_170px_120px_96px]"}`}
     >
-      <div className={revealed("row", open)}>
-        <SelectBox title={b.title} className="block size-[18px] rounded-xs border border-faint bg-card" />
+      <div className={`flex ${revealed("row", open)}`}>
+        <SelectBox b={b} selected={selected} actions={actions} className="size-[18px] rounded-xs" idle="border-faint bg-card" />
       </div>
       <button
         type="button"

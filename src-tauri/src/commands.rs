@@ -108,6 +108,18 @@ pub async fn get_bookmarks(
     })
     .await
 }
+/// Every bookmark the query matches, ids only, in list order: `Ctrl A` and
+/// what the selection bar counts as hidden by the search (NP-028).
+#[tauri::command]
+pub async fn get_bookmark_ids(
+    state: State<'_, Arc<DbState>>,
+    query: BookmarkQuery,
+) -> Result<Vec<i64>, CommandError> {
+    blocking(&state, move |conn| {
+        db::get_bookmark_ids(conn, &query).map_err(text)
+    })
+    .await
+}
 /// Settings → Data: rebuilds the search index if it has drifted from the library.
 #[tauri::command]
 pub async fn rebuild_search_index(
