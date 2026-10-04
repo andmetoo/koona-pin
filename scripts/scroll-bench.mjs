@@ -23,6 +23,8 @@ async function measure(view) {
   await page.evaluate(
     async ({ count, view }) => {
       const { api } = await import("/src/services/api.ts");
+      // The demo's own key: a stale copy here once left the run on the 6 default bookmarks.
+      const { DEMO_STORAGE_KEY } = await import("/src/services/demo.ts");
       const [first] = (await api.getBookmarks()).items;
       const words = ["Архитектура", "интерфейс", "design", "notes", "Ёлка", "search", "библиотека", "release"];
       const bookmarks = Array.from({ length: count }, (_, i) => ({
@@ -39,13 +41,22 @@ async function measure(view) {
         // Spread over a year, newest first by id.
         created_at: new Date(Date.UTC(2026, 9, 3) - i * 3_153_600).toISOString(),
       }));
-      localStorage.setItem("netamipin.demo.v2", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+      localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ bookmarks, collections: await api.getCollections() }));
       localStorage.setItem("netamipin.view", view);
     },
     { count, view },
   );
   await page.reload();
   await page.waitForSelector("[data-bookmark-id]");
+  // The first page of the seeded library, not the demo's own few bookmarks.
+  const first = Math.min(count, 100);
+  await page.waitForFunction(
+    (first) => Number(document.querySelector("[data-loaded]")?.getAttribute("data-loaded")) === first,
+    first,
+    { timeout: 10_000 },
+  ).catch(() => {
+    throw new Error(`the demo did not take the seeded library: expected ${first} loaded bookmarks`);
+  });
   const result = await page.evaluate(
     async ({ STEP, MAX_FRAMES, count }) => {
       const scroller = document.querySelector('[data-scroll="main"]');
@@ -84,6 +95,7 @@ async function measure(view) {
 console.log(`${count} bookmarks, scrolled to the end at ${STEP} px per frame, 1440×900`);
 for (const view of ["grid", "list"]) {
   const r = await measure(view);
+  if (r.loaded !== count) throw new Error(`${view}: scrolled to the end with ${r.loaded} of ${count} bookmarks loaded`);
   const ms = (v) => `${v.toFixed(1)} ms`;
   console.log(
     `${view.padEnd(4)}  frame p50 ${ms(r.p50)}  p95 ${ms(r.p95)}  p99 ${ms(r.p99)}  max ${ms(r.max)}  ` +
