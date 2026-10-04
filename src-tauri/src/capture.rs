@@ -291,6 +291,18 @@ pub fn emit(app: &AppHandle, kind: ChangeKind, bookmark: &Bookmark) {
         },
     );
 }
+/// A bookmark deleted for good: no bookmark, the next revision.
+pub fn emit_deleted(app: &AppHandle, id: i64, revision: i64) {
+    let _ = app.emit(
+        "bookmark-changed",
+        BookmarkChange {
+            kind: ChangeKind::Deleted,
+            id,
+            revision: revision + 1,
+            bookmark: None,
+        },
+    );
+}
 pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) {
     let Some(bookmark) = result.bookmark.clone() else {
         return;
@@ -338,7 +350,8 @@ mod tests {
         let c = database();
         let req = request("one");
         let saved = save(&c, &req, Source::Extension).unwrap();
-        db::delete_bookmark(&c, saved.bookmark_id).unwrap();
+        db::trash_bookmark(&c, saved.bookmark_id).unwrap();
+        db::purge_trash(&c, db::Purge::One(saved.bookmark_id)).unwrap();
         let replay = save(&c, &req, Source::Extension).unwrap();
         assert_eq!(replay.bookmark_id, saved.bookmark_id);
         assert!(replay.bookmark.is_none());
@@ -395,7 +408,8 @@ mod tests {
                 .title,
             "User title"
         );
-        db::delete_bookmark(&c, saved.id).unwrap();
+        db::trash_bookmark(&c, saved.id).unwrap();
+        db::purge_trash(&c, db::Purge::One(saved.id)).unwrap();
         assert!(db::enrich_bookmark(&c, saved.id, saved.revision, &meta)
             .unwrap()
             .is_none());

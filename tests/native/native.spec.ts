@@ -641,7 +641,7 @@ test("find and edit in the new interface: search, site, editor, collection remov
     app.processHandle.kill();
   }
 });
-test("trash survives a restart: delete, quit, start again, restore with every field", async ({ request }) => {
+test("trash survives a restart, empties itself at start, deletes for good on request, restores with every field", async ({ request }) => {
   const data = await folder("trash-restart");
   const env = isolated(data);
   let app = await launch(request, env);
@@ -653,6 +653,10 @@ test("trash survives a restart: delete, quit, start again, restore with every fi
       const shelf = await invoke("create_collection", { name: "Полка", color: null, icon: null });
       const { bookmark } = await invoke("add_bookmark", { url: "https://trash.invalid/1", title: "В корзину и обратно", collectionId: shelf.id, tags: ["тег"] });
       await invoke("update_bookmark", { id: bookmark.id, patch: { notes: "Заметка", is_favorite: true, collection: { action: "keep" } } });
+      for (const url of ["https://trash.invalid/old", "https://trash.invalid/recent"]) {
+        const added = await invoke("add_bookmark", { url, title: null, collectionId: null, tags: [] });
+        await invoke("trash_bookmark", { id: added.bookmark.id });
+      }
     });
     const card = page.locator("[data-bookmark-id]");
     await expect(card).toHaveCount(1);
@@ -660,15 +664,39 @@ test("trash survives a restart: delete, quit, start again, restore with every fi
     await card.click({ button: "right" });
     await page.getByRole("menuitem", { name: "В корзину" }).click();
     await expect(page.locator(".fixed[role=status]")).toContainText("Перемещено в корзину");
-    await expect(page.getByRole("button", { name: "Корзина 1", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Корзина 3", exact: true })).toBeVisible();
 
-    // Quit and start again on the same library.
+    // Quit; meanwhile one bookmark has lain in the trash 40 days, another 10,
+    // and the clock is trusted (looked at an hour ago).
     void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
     await app.exited;
     await app.browser.close().catch(() => {});
+    const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+    const edit = new DatabaseSync(path.join(data, "netamipin.db"));
+    edit.prepare("UPDATE bookmarks SET deleted_at = ? WHERE url = ?").run(ago(40), "https://trash.invalid/old");
+    edit.prepare("UPDATE bookmarks SET deleted_at = ? WHERE url = ?").run(ago(10), "https://trash.invalid/recent");
+    edit
+      .prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?), (?, ?)")
+      .run("trash_clock_looked", ago(1 / 24), "trash_clock_wait_ms", "0");
+    edit.close();
+
+    // Started again: the cleanup at start takes only the old one.
     app = await launch(request, env);
     page = app.page;
-    await page.getByRole("button", { name: "Корзина 1", exact: true }).click({ timeout: 15000 });
+    await page.getByRole("button", { name: "Корзина 2", exact: true }).click({ timeout: 15000 });
+    // «Удалить навсегда» through IPC: only from the trash, once.
+    const second = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const { items } = await invoke("get_bookmarks", { query: { only_trash: true } });
+      const recent = items.find((b: { url: string }) => b.url === "https://trash.invalid/recent");
+      await invoke("delete_forever", { id: recent.id });
+      return invoke("delete_forever", { id: recent.id }).then(
+        () => "deleted",
+        (e: { code: string }) => e.code,
+      );
+    });
+    expect(second).toBe("not_found");
+    await expect(page.getByRole("button", { name: "Корзина 1", exact: true })).toBeVisible();
     const trashed = page.locator("[data-bookmark-id]");
     await expect(trashed).toHaveCount(1);
     await trashed.hover();
@@ -684,8 +712,10 @@ test("trash survives a restart: delete, quit, start again, restore with every fi
          GROUP BY b.id`,
       )
       .get();
+    const tombstones = db.prepare("SELECT count(*) AS n FROM tombstones WHERE kind = 'bookmark'").get();
     db.close();
     expect(back).toEqual({ deleted_at: null, notes: "Заметка", is_favorite: 1, collection: "Полка", tags: "тег" });
+    expect(tombstones).toEqual({ n: 2 });
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
