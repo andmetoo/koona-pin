@@ -16,6 +16,158 @@ const LIST_GAP = 2;
 
 type ListEntry = { kind: "header"; group: DateGroup; size: number } | { kind: "row"; bookmark: Bookmark };
 
+/** The selection frame starts after this many pixels; a shorter press is a click. */
+const DRAG_START = 4;
+/** Near the edge of the scroll area the frame scrolls it, faster the further out. */
+const SCROLL_EDGE = 48;
+const SCROLL_MAX = 40;
+/** Where a press does not start a frame: controls, menus. */
+const INTERACTIVE = "button, a, input, textarea, select, [data-menu]";
+
+type Rect = { left: number; top: number; right: number; bottom: number };
+type Geometry = {
+  grid: boolean;
+  bookmarks: Bookmark[];
+  entries: ListEntry[];
+  columns: number;
+  cardWidth: number;
+  cardHeight: number;
+  width: number;
+};
+
+/**
+ * Bookmarks the frame touches, by the computed layout rather than the DOM:
+ * the frame keeps selecting rows the virtualizer has already removed.
+ */
+function framed(g: Geometry, r: Rect): number[] {
+  const hits: number[] = [];
+  if (g.grid) {
+    const rowStep = g.cardHeight + GAP_Y;
+    const columnStep = g.cardWidth + GAP_X;
+    for (let row = Math.max(0, Math.floor(r.top / rowStep)); row <= Math.floor(r.bottom / rowStep); row++) {
+      const y = row * rowStep;
+      if (y >= r.bottom || y + g.cardHeight <= r.top) continue;
+      for (let column = 0; column < g.columns; column++) {
+        const b = g.bookmarks[row * g.columns + column];
+        if (!b) break;
+        const x = column * columnStep;
+        if (x < r.right && x + g.cardWidth > r.left) hits.push(b.id);
+      }
+    }
+    return hits;
+  }
+  let y = 0;
+  for (const entry of g.entries) {
+    if (y >= r.bottom) break;
+    const height = entry.kind === "header" ? HEADER_HEIGHT : ROW_HEIGHT;
+    if (entry.kind === "row" && y + height > r.top && r.right > 0 && r.left < g.width) hits.push(entry.bookmark.id);
+    y += height + LIST_GAP;
+  }
+  return hits;
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+/**
+ * Selection by a frame (NP-028, frame 04): press on an empty place and drag.
+ * Near the top or bottom edge the list scrolls, and the next page loads as
+ * usual. Without a modifier the frame replaces the selection, with `Ctrl` or
+ * `Shift` it adds. A click on an empty place clears the selection.
+ */
+function useSelectionFrame(
+  scrollRef: RefObject<HTMLDivElement | null>,
+  inner: RefObject<HTMLDivElement | null>,
+  geometry: RefObject<Geometry>,
+  selected: ReadonlySet<number>,
+  onSelect: (ids: ReadonlySet<number>) => void,
+  onClear: () => void,
+) {
+  const [frame, setFrame] = useState<Rect | null>(null);
+  const latest = useRef({ selected, onSelect, onClear });
+  latest.current = { selected, onSelect, onClear };
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    let stop = () => {};
+    const down = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.button !== 0 || e.pointerType === "touch" || target.closest(INTERACTIVE) || !inner.current) return;
+      // The scrollbar is part of the element but not of its content.
+      const box = scroller.getBoundingClientRect();
+      if (e.clientX >= box.left + scroller.clientLeft + scroller.clientWidth) return;
+      const origin = () => inner.current!.getBoundingClientRect();
+      const start = { x: e.clientX - origin().left, y: e.clientY - origin().top };
+      const pointer = { x: e.clientX, y: e.clientY };
+      const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+      const base: ReadonlySet<number> = additive ? latest.current.selected : new Set();
+      const onCard = !!target.closest("[data-bookmark-id]");
+      let dragging = false;
+      let animation = 0;
+      let last = "";
+      const tick = () => {
+        animation = requestAnimationFrame(tick);
+        const view = scroller.getBoundingClientRect();
+        const below = pointer.y - (view.bottom - SCROLL_EDGE);
+        const above = view.top + SCROLL_EDGE - pointer.y;
+        if (below > 0) scroller.scrollTop += Math.min(SCROLL_MAX, Math.ceil(below / 3));
+        else if (above > 0) scroller.scrollTop -= Math.min(SCROLL_MAX, Math.ceil(above / 3));
+        const g = geometry.current;
+        const now = origin();
+        const x = clamp(pointer.x - now.left, 0, g.width);
+        const y = clamp(pointer.y - now.top, 0, inner.current?.offsetHeight ?? 0);
+        const rect = {
+          left: Math.min(start.x, x),
+          top: Math.min(start.y, y),
+          right: Math.max(start.x, x),
+          bottom: Math.max(start.y, y),
+        };
+        setFrame((prev) =>
+          prev && prev.left === rect.left && prev.top === rect.top && prev.right === rect.right && prev.bottom === rect.bottom ? prev : rect,
+        );
+        const hits = framed(g, rect);
+        const key = hits.join(",");
+        if (key === last) return;
+        last = key;
+        const next = new Set(base);
+        for (const id of hits) next.add(id);
+        latest.current.onSelect(next);
+      };
+      const move = (ev: PointerEvent) => {
+        pointer.x = ev.clientX;
+        pointer.y = ev.clientY;
+        if (!dragging && Math.hypot(ev.clientX - e.clientX, ev.clientY - e.clientY) > DRAG_START) {
+          dragging = true;
+          document.body.classList.add("select-none");
+          window.getSelection()?.removeAllRanges();
+          tick();
+        }
+      };
+      const up = () => {
+        stop();
+        if (!dragging && !onCard && !additive) latest.current.onClear();
+      };
+      stop = () => {
+        cancelAnimationFrame(animation);
+        document.body.classList.remove("select-none");
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        setFrame(null);
+        stop = () => {};
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
+    };
+    scroller.addEventListener("pointerdown", down);
+    return () => {
+      scroller.removeEventListener("pointerdown", down);
+      stop();
+    };
+  }, [scrollRef, inner, geometry]);
+  return frame;
+}
+
 function useWidth(ref: RefObject<HTMLElement | null>) {
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -47,6 +199,9 @@ export function BookmarkList({
   hasMore,
   loadingMore,
   onMore,
+  selected,
+  onSelect,
+  onClearSelection,
 }: {
   view: ViewMode;
   bookmarks: Bookmark[];
@@ -59,9 +214,14 @@ export function BookmarkList({
   hasMore: boolean;
   loadingMore: boolean;
   onMore: () => void;
+  selected: ReadonlySet<number>;
+  /** The selection the frame makes (NP-028). */
+  onSelect: (ids: ReadonlySet<number>) => void;
+  onClearSelection: () => void;
 }) {
   const { t } = useTranslation();
   const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
   const width = useWidth(box);
 
   const minCard = narrow ? MIN_CARD.narrow : MIN_CARD.wide;
@@ -108,6 +268,10 @@ export function BookmarkList({
   // Sizes are computed, not measured: recompute when they change.
   useEffect(() => virtualizer.measure(), [virtualizer, grid, cardHeight, entries]);
 
+  const geometry = useRef<Geometry>(null!);
+  geometry.current = { grid, bookmarks, entries, columns, cardWidth, cardHeight, width };
+  const frame = useSelectionFrame(scrollRef, inner, geometry, selected, onSelect, onClearSelection);
+
   const items = virtualizer.getVirtualItems();
   const last = items.at(-1)?.index ?? -1;
   const margin = grid ? 3 : 20;
@@ -117,7 +281,16 @@ export function BookmarkList({
 
   return (
     <div ref={box} data-view={view} data-loaded={bookmarks.length}>
-      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+      <div ref={inner} className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {frame && (
+          // Frame 04: accent fill 4 %, border accent 80 %.
+          <div
+            aria-hidden
+            data-selection-frame
+            className="pointer-events-none absolute z-10 border border-accent/80 bg-accent/4"
+            style={{ left: frame.left, top: frame.top, width: frame.right - frame.left, height: frame.bottom - frame.top }}
+          />
+        )}
         {items.map((item) => {
           const style = { transform: `translateY(${item.start}px)` };
           if (grid) {
@@ -129,7 +302,7 @@ export function BookmarkList({
                 style={{ ...style, height: cardHeight, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, columnGap: GAP_X }}
               >
                 {row.map((b) => (
-                  <BookmarkCard key={b.id} bookmark={b} collections={collections} actions={actions} />
+                  <BookmarkCard key={b.id} bookmark={b} collections={collections} actions={actions} selected={selected.has(b.id)} />
                 ))}
               </div>
             );
@@ -144,7 +317,13 @@ export function BookmarkList({
                   <span aria-hidden className="h-px flex-1 bg-line" />
                 </h3>
               ) : (
-                <BookmarkRow bookmark={entry.bookmark} collections={collections} actions={actions} compact={compact} />
+                <BookmarkRow
+                  bookmark={entry.bookmark}
+                  collections={collections}
+                  actions={actions}
+                  compact={compact}
+                  selected={selected.has(entry.bookmark.id)}
+                />
               )}
             </div>
           );

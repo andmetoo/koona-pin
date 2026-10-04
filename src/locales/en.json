@@ -114,6 +114,22 @@
     "select": "Select: {{title}}",
     "filterDomain": "Only bookmarks from {{domain}}"
   },
+  "selection": {
+    "label": "Selected bookmarks",
+    "selected_one": "selected",
+    "selected_other": "selected",
+    "move": "Move to…",
+    "tag": "Tag",
+    "favorite": "Favorite",
+    "export": "Export",
+    "trash": "Trash",
+    "clear": "Clear selection",
+    "keys": "Shift / Ctrl — add to selection  ·  Ctrl+A — select all  ·  Esc — clear selection",
+    "hiddenBySearch_one": "{{count}} of the {{total}} selected is hidden by the search — actions include it  ·  Esc — clear selection",
+    "hiddenBySearch_other": "{{count}} of the {{total}} selected are hidden by the search — actions include them  ·  Esc — clear selection",
+    "hiddenElsewhere_one": "{{count}} of the {{total}} selected is not in this section — actions include it  ·  Esc — clear selection",
+    "hiddenElsewhere_other": "{{count}} of the {{total}} selected are not in this section — actions include them  ·  Esc — clear selection"
+  },
   "editor": {
     "label": "Edit bookmark",
     "close": "Close editor",
