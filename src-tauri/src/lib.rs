@@ -6,6 +6,7 @@ pub mod capture_channel;
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod import;
 pub mod journal;
 pub mod library;
 pub mod library_state;

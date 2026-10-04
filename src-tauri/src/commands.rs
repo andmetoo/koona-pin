@@ -7,6 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode},
+    import,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -346,22 +347,46 @@ pub fn open_url_external(app: AppHandle, url: String) -> Result<(), CommandError
         .open_url(url, None::<&str>)
         .map_err(CommandError::internal)
 }
+/// Payload of `import-progress`: links written of all the file's links.
+#[derive(Clone, Serialize, TS)]
+#[ts(export)]
+pub struct ImportProgress {
+    pub done: u32,
+    pub total: u32,
+}
+
+/// A browser bookmarks file (NP-031): folders by the rule of Р-10, into the
+/// library or the inbox, in one transaction off the main thread; the dialog
+/// follows `import-progress` and shows the report.
 #[tauri::command]
 pub async fn import_html_bookmarks(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
     html_content: String,
-) -> Result<capture::ImportSummary, CommandError> {
+    to_inbox: Option<bool>,
+) -> Result<import::ImportSummary, CommandError> {
     // Parsing needs no database, so the library stays available meanwhile.
-    let requests = tauri::async_runtime::spawn_blocking(move || capture::parse_html(&html_content))
-        .await
-        .map_err(CommandError::internal)?;
-    let imported = blocking(&state, move |conn| {
-        capture::import(conn, &requests).map_err(CommandError::from)
+    let parsed = tauri::async_runtime::spawn_blocking(move || {
+        import::parse(&html_content, chrono::Utc::now())
+    })
+    .await
+    .map_err(CommandError::internal)?;
+    let progress = app.clone();
+    let summary = blocking(&state, move |conn| {
+        import::import(conn, &parsed, to_inbox.unwrap_or(false), |done, total| {
+            let _ = progress.emit(
+                "import-progress",
+                ImportProgress {
+                    done: done as u32,
+                    total: total as u32,
+                },
+            );
+        })
+        .map_err(text)
     })
     .await?;
     let _ = app.emit("library-invalidated", ());
-    Ok(imported)
+    Ok(summary)
 }
 #[derive(Serialize, TS)]
 #[ts(export)]
