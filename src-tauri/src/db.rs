@@ -134,6 +134,9 @@ pub struct LibraryCounts {
     pub inbox_imported: i64,
     /// Bookmarks in the trash (NP-022); none of the others count them.
     pub trash: i64,
+    /// Groups of duplicates (NP-035): the sidebar and the menu «⋯». Counted
+    /// by the command, not by [`get_counts`]: schemas before 5 have no key.
+    pub duplicates: i64,
 }
 
 /// One pass: the trash is counted apart, every other count leaves it out.
@@ -155,6 +158,7 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 inbox_newest: r.get(3)?,
                 inbox_imported: r.get(4)?,
                 trash: r.get(5)?,
+                duplicates: 0,
             })
         },
     )
@@ -239,9 +243,9 @@ pub fn insert_or_update_bookmark(
     let triaged_at = (source == Source::Import).then(|| now.clone());
 
     conn.execute(
-        "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, collection_id, source, created_at, updated_at, triaged_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11)",
-        params![new_uid(), url, title, description, image_url, favicon_url, domain, collection_id, source.as_str(), now, triaged_at],
+        "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, collection_id, source, created_at, updated_at, triaged_at, url_key)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12)",
+        params![new_uid(), url, title, description, image_url, favicon_url, domain, collection_id, source.as_str(), now, triaged_at, crate::dedupe::url_key(url)],
     )?;
     let bookmark_id = conn.last_insert_rowid();
     if let Some(tag_list) = tags {
@@ -436,6 +440,14 @@ pub fn register_functions(conn: &Connection) -> Result<()> {
             }
             Ok(false)
         },
+    )?;
+    // `np_url_key(url)`: the address key of duplicates (NP-035); schema 5 and
+    // `dedupe::fill_keys` use it, every insert writes the key itself.
+    conn.create_scalar_function(
+        "np_url_key",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| Ok(crate::dedupe::url_key(&ctx.get::<String>(0)?)),
     )
 }
 

@@ -28,6 +28,9 @@ import {
   CaptureStatus,
   PickedCopy,
   SaveCopyOutcome,
+  DuplicateGroup,
+  MergeGroup,
+  Merged,
   Undo,
 } from "../types";
 import type { PageRequest } from "./api";
@@ -35,6 +38,7 @@ import { demoBookmarks, demoCollections, posterOf } from "./demoData";
 import { parseBookmarksFile } from "./bookmarksFile";
 import { isAfter, listTime, matchesBookmark, sortBookmarks } from "./library";
 import { suggestFrom } from "./triage";
+import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
 import i18n from "../i18n";
 
@@ -108,11 +112,13 @@ function change(previous: Bookmark, fields: Partial<Bookmark>): Bookmark {
 }
 /** The command journal of `journal.rs`: this session only, the last 100, undone field by field. */
 const JOURNAL_LIMIT = 100;
-const FIELDS = ["title", "notes", "is_favorite", "collection_id", "tags", "triaged_at", "deleted_at"] as const;
+const FIELDS = ["title", "notes", "is_favorite", "collection_id", "tags", "triaged_at", "deleted_at", "created_at"] as const;
 type Fields = Pick<Bookmark, (typeof FIELDS)[number]>;
 type Command = { id: number; action: CommandAction; changes: { id: number; before: Fields; after: Fields }[] };
 let journal: Command[] = [];
 let lastCommand = 0;
+/** «Не дубликаты» (NP-035): bookmarks of a group set aside, this session only. */
+const dismissed = new Map<string, Set<number>>();
 const fieldsOf = (b: Bookmark): Fields => Object.fromEntries(FIELDS.map((f) => [f, b[f]])) as Fields;
 /** The order of tags means nothing. */
 const same = (field: keyof Fields, a: Fields, b: Fields) =>
@@ -290,6 +296,7 @@ export const demo = {
       inbox_newest: inbox.reduce<string | null>((newest, b) => (newest === null || b.created_at > newest ? b.created_at : newest), null),
       inbox_imported: inbox.filter((b) => b.source === "import").length,
       trash: bookmarks.length - live().length,
+      duplicates: groupsOf(bookmarks, dismissed).length,
     };
   },
   async addBookmark(
@@ -735,6 +742,52 @@ export const demo = {
   },
   async backUpNow(): Promise<DataSummary> {
     throw new CommandError("internal", i18n.t("settings.desktopOnly"));
+  },
+  async getDuplicates(): Promise<DuplicateGroup[]> {
+    return groupsOf(bookmarks, dismissed);
+  },
+  /** `dedupe::merge`: all groups or none, one journal command. */
+  async mergeDuplicates(groups: MergeGroup[]): Promise<Merged> {
+    const live = (id: number) => bookmarks.find((b) => b.id === id && !b.deleted_at);
+    const keyed = new Map(groupsOf(bookmarks, new Map()).flatMap((g) => g.bookmarks.map((b) => [b.id, g.key] as const)));
+    const seen = new Set<number>();
+    for (const g of groups)
+      for (const id of [g.main, ...g.others])
+        if (!live(id) || seen.has(id) || keyed.get(id) !== keyed.get(g.main) || !keyed.has(id))
+          throw new CommandError("not_found", "Query returned no rows");
+        else seen.add(id);
+    const now = new Date().toISOString();
+    const steps: Command["changes"] = [];
+    const changed: Bookmark[] = [];
+    let trashed = 0;
+    for (const g of groups) {
+      if (g.others.length === 0) continue;
+      const main = live(g.main)!;
+      const others = g.others.map((id) => live(id)!);
+      const updates: [Bookmark, Partial<Bookmark>][] = [[main, mergedFields(main, others)], ...others.map((o): [Bookmark, Partial<Bookmark>] => [o, { deleted_at: now }])];
+      for (const [before, fields] of updates) {
+        const after = change(before, fields);
+        steps.push({ id: after.id, before: fieldsOf(before), after: fieldsOf(after) });
+        changed.push(after);
+      }
+      trashed += others.length;
+    }
+    const command = remember("merge", steps);
+    emitMany("updated", changed);
+    const merged = groups.filter((g) => g.others.length > 0);
+    return { groups: merged.length, trashed, title: merged.length === 1 ? (live(merged[0].main)?.title ?? null) : null, command };
+  },
+  async dismissDuplicates(key: string, ids: number[]): Promise<number> {
+    const set = dismissed.get(key) ?? new Set<number>();
+    ids.forEach((id) => set.add(id));
+    dismissed.set(key, set);
+    for (const fn of invalidations) fn();
+    return ids.length;
+  },
+  async undismissDuplicates(key: string, ids: number[]): Promise<number> {
+    ids.forEach((id) => dismissed.get(key)?.delete(id));
+    for (const fn of invalidations) fn();
+    return ids.length;
   },
   async saveBackupCopy(): Promise<SaveCopyOutcome> {
     throw new CommandError("internal", i18n.t("settings.desktopOnly"));
