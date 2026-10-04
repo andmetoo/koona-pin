@@ -107,7 +107,8 @@ impl<'a> Scope<'a> {
 fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Result<Vec<JsonBookmark>> {
     let mut tags: HashMap<i64, Vec<String>> = HashMap::new();
     let mut statement = conn.prepare(
-        "SELECT bt.bookmark_id, t.name FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id ORDER BY bt.bookmark_id, bt.tag_id",
+        // By name: the copy is the same whatever order the tags were created in.
+        "SELECT bt.bookmark_id, t.name FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id ORDER BY bt.bookmark_id, t.name",
     )?;
     let rows = statement.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
     for row in rows {
@@ -412,7 +413,7 @@ mod tests {
         let work = parsed.collections.iter().find(|c| c.name == "Работа").unwrap();
         let tokio = parsed.bookmarks.iter().find(|b| b.url == "https://tokio.rs/").unwrap();
         assert_eq!(tokio.collection.as_deref(), Some(work.uid.as_str()));
-        assert_eq!(tokio.tags, ["rust", "async"]);
+        assert_eq!(tokio.tags, ["async", "rust"]);
         assert_eq!(tokio.created_at, "2023-07-22T04:31:40.000Z");
         let github = parsed.bookmarks.iter().find(|b| b.url == "https://github.com/").unwrap();
         assert_eq!((github.is_favorite, github.notes.as_deref()), (true, Some("заметка;\nвторая строка")));
@@ -432,7 +433,7 @@ mod tests {
         let back = crate::import::parse(&text, Utc::now());
         assert!(back.skipped.is_empty());
         let tokio = back.links.iter().find(|l| l.url == "https://tokio.rs/").unwrap();
-        assert_eq!((tokio.collection.as_deref(), tokio.tags.as_slice(), tokio.added_at.as_deref()), (Some("Работа"), &["rust".to_string(), "async".to_string()][..], Some("2023-07-22T04:31:40.000Z")));
+        assert_eq!((tokio.collection.as_deref(), tokio.tags.as_slice(), tokio.added_at.as_deref()), (Some("Работа"), &["async".to_string(), "rust".to_string()][..], Some("2023-07-22T04:31:40.000Z")));
         let github = back.links.iter().find(|l| l.url == "https://github.com/").unwrap();
         assert_eq!(github.title, "GitHub \"code\" & <more>");
         assert_eq!(back.links.iter().find(|l| l.url == "https://news.ycombinator.com/").unwrap().collection, None);
@@ -460,13 +461,13 @@ mod tests {
         assert_eq!(count, 6);
         assert!(text.starts_with("\u{feff}Название;Адрес;Сайт;Коллекция;Теги;Заметка;Избранное;Во входящих;Сохранено\r\n"));
         let tokio = text.lines().find(|l| l.contains("tokio.rs")).unwrap();
-        assert!(tokio.starts_with("Tokio;https://tokio.rs/;tokio.rs;Работа;rust, async;;0;0;2023-07-22 "), "{tokio}");
+        assert!(tokio.starts_with("Tokio;https://tokio.rs/;tokio.rs;Работа;async, rust;;0;0;2023-07-22 "), "{tokio}");
         assert!(text.contains("GitHub \"\"code\"\" & <more>") && text.contains("\"заметка;\nвторая строка\";1;0;"));
         assert!(text.contains("'=HYPERLINK(1);https://m.example.com/;m.example.com;;;;0;1;"));
         assert!(!text.contains("habr.com"));
         // With a comma separator the tags are joined by «; » and quoted only when needed.
         let (comma, _) = csv(&c, Scope::Library, &columns, ',').unwrap();
-        assert!(comma.contains("Tokio,https://tokio.rs/,tokio.rs,Работа,rust; async,,0,0,"));
+        assert!(comma.contains("Tokio,https://tokio.rs/,tokio.rs,Работа,async; rust,,0,0,"));
     }
 
     #[test]

@@ -24,6 +24,9 @@ import {
   LibraryCounts,
   LibraryPlace,
   LibraryStatus,
+  RestoreCheck,
+  RestoreMode,
+  RestoreOutcome,
   Suggestion,
   Tag,
   Undo,
@@ -145,6 +148,11 @@ const desktop = {
     call<ExportOutcome>("export_library", { format, columns: columns ?? null, ids: ids ?? null }),
   /** The last exported file in Explorer. */
   revealExport: () => call<void>("reveal_export"),
+  /** Reads and checks a JSON copy; changes nothing (NP-033). */
+  checkRestore: (content: string) => call<RestoreCheck>("check_restore", { content }),
+  /** Merges the copy or replaces the library with it, after a backup. */
+  restoreLibrary: (content: string, mode: RestoreMode) =>
+    call<RestoreOutcome>("restore_library", { content, mode }),
   openUrl: (url: string) => call<void>("open_url_external", { url }),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
