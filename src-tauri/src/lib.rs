@@ -11,6 +11,7 @@ pub mod library_state;
 pub mod metadata;
 pub mod migrations;
 pub mod native_host;
+pub mod net_guard;
 pub mod pipe_name;
 #[doc(hidden)]
 pub mod test_libraries;
