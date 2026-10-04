@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
-import { isAfter, listTime, matchesFilters, mergeBookmark } from "../services/library";
+import { isAfter, listTime, matchesFilters, mergeBookmark, sortBookmarks } from "../services/library";
 import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
 import {
   Bookmark,
@@ -294,6 +294,60 @@ export function useLibrary(
         },
       );
     });
+    /**
+     * A bulk action or an undo of many (NP-029): every change merged in one
+     * pass, so the loaded pages and the scroll position stay. Under a search
+     * the database says once which of them match.
+     */
+    const offBatch = api.onBookmarksChanged(async (changes) => {
+      const fresh = changes.filter((c) => (revisions.current.get(c.id) ?? 0) < c.revision);
+      if (!fresh.length) return;
+      for (const c of fresh) revisions.current.set(c.id, c.revision);
+      eventVersion.current++;
+      const filters = filtersRef.current;
+      const list = seq.current;
+      let found: Set<number> | null = null;
+      if (filters.search.trim()) {
+        try {
+          found = new Set(await api.getBookmarkIds(filters));
+        } catch {
+          if (alive.current && list === seq.current) void refresh();
+          return;
+        }
+        if (!alive.current || list !== seq.current) return;
+      }
+      const matches = (b: Bookmark | null): b is Bookmark => !!b && matchesFilters(b, filters) && (!found || found.has(b.id));
+      const byId = new Map(fresh.map((c) => [c.id, c.bookmark]));
+      const cursor = nextRef.current;
+      for (const [id, b] of byId) {
+        if (matches(b) && isAfter(b, cursor)) unread.current.set(id, b);
+        else unread.current.delete(id);
+      }
+      setBookmarks((prev) => {
+        const kept = prev.flatMap((row) => {
+          if (!byId.has(row.id)) return [row];
+          const b = byId.get(row.id)!;
+          return matches(b) && !isAfter(b, cursor) ? [b] : [];
+        });
+        const shown = new Set(kept.map((row) => row.id));
+        const joined = [...byId.values()].filter(
+          (b): b is Bookmark => matches(b) && !isAfter(b, cursor) && !shown.has(b.id) && !pendingRef.current[b.id],
+        );
+        return joined.length ? sortBookmarks([...kept, ...joined]) : kept;
+      });
+      if (fresh.some((c) => pendingRef.current[c.id])) {
+        const next = { ...pendingRef.current };
+        for (const c of fresh) {
+          if (!next[c.id]) continue;
+          if (matches(c.bookmark)) next[c.id] = c.bookmark;
+          else delete next[c.id];
+        }
+        pendingRef.current = next;
+        setPending(next);
+      }
+      refreshTotal();
+      void refreshCatalog();
+    });
     const offInvalidate = api.onLibraryInvalidated(() => {
       eventVersion.current++;
       void refreshCatalog();
@@ -301,6 +355,7 @@ export function useLibrary(
     });
     return () => {
       off();
+      offBatch();
       offInvalidate();
     };
   }, [refresh, refreshCatalog, refreshTotal, scrollRef]);

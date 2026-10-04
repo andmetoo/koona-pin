@@ -34,6 +34,17 @@ export function toCommandError(error: unknown): CommandError {
 /** Storage failures that get an explanation instead of SQLite text. */
 const explained: ErrorCode[] = ["disk_full", "read_only", "database_busy"];
 
+/**
+ * The reason in the middle of a sentence: «Не удалось … : библиотека занята.
+ * Ничего не изменено.» (frame 27). Codes without words keep the message.
+ */
+export function reasonOf(error: unknown): string {
+  const failure = toCommandError(error);
+  const known = ["disk_full", "read_only", "database_busy", "not_found", "conflict"] as const;
+  const code = known.find((c) => c === failure.code);
+  return code ? i18n.t(`errors.reason.${code}`) : failure.message.replace(/\.$/, "");
+}
+
 /** Text for people: storage failures are explained, the rest keep their message. */
 export function describeError(error: unknown): string {
   const failure = toCommandError(error);

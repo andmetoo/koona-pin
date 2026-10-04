@@ -8,6 +8,8 @@ import {
   BookmarkPage,
   BookmarkPatch,
   BookmarkQuery,
+  BulkChange,
+  BulkChanged,
   CaptureStatus,
   Changed,
   Collection,
@@ -116,8 +118,12 @@ const desktop = {
   /** The last command, or `command` from an undo notice (NP-024). */
   undo: (command?: number | null) =>
     call<Undo>("undo", { command: command ?? null }),
+  /** One action on every selected bookmark: one transaction, one command to undo (NP-029). */
+  bulkUpdate: (ids: number[], change: BulkChange) => call<BulkChanged>("bulk_update", { ids, change }),
   /** Only bookmarks in the trash; there is no way back. */
   deleteForever: (id: number) => call<void>("delete_forever", { id }),
+  /** The selection in the trash, for good: how many went. */
+  deleteForeverMany: (ids: number[]) => call<number>("delete_forever_many", { ids }),
   emptyTrash: () => call<number>("empty_trash"),
   createCollection: (name: string, color?: string, icon?: string) =>
     call<Collection>("create_collection", {
@@ -134,15 +140,18 @@ const desktop = {
     call<ImportSummary>("import_html_bookmarks", { htmlContent, toInbox }),
   onImportProgress: (callback: (progress: ImportProgress) => void) =>
     subscription("import-progress", callback),
-  /** The Save dialog and the file (NP-032); CSV needs its column titles. */
-  exportLibrary: (format: ExportFormat, columns?: CsvColumns) =>
-    call<ExportOutcome>("export_library", { format, columns: columns ?? null }),
+  /** The Save dialog and the file (NP-032); CSV needs its column titles; `ids` — only the selected (NP-029). */
+  exportLibrary: (format: ExportFormat, columns?: CsvColumns, ids?: number[]) =>
+    call<ExportOutcome>("export_library", { format, columns: columns ?? null, ids: ids ?? null }),
   /** The last exported file in Explorer. */
   revealExport: () => call<void>("reveal_export"),
   openUrl: (url: string) => call<void>("open_url_external", { url }),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
-  onLibraryInvalidated: (callback: () => void) =>
+  /** Many changes at once: a bulk action or an undo of one (NP-029). */
+  onBookmarksChanged: (callback: (changes: BookmarkChange[]) => void) =>
+    subscription("bookmarks-changed", callback),
+  onLibraryInvalidated:(callback: () => void) =>
     subscription("library-invalidated", callback),
   getAppSettings: () => call<AppSettings>("get_app_settings"),
   setCloseToTray: (enabled: boolean) =>

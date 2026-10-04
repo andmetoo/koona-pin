@@ -3,7 +3,7 @@ import { Check, Folder, Star, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
 import { collectionColor } from "../../services/collections";
-import { describeError, toCommandError } from "../../services/errors";
+import { describeError, reasonOf, toCommandError } from "../../services/errors";
 import { browserName, collectionKeys, nextWaiting, savedDay, Step, summary, waiting } from "../../services/triage";
 import { short, undoNotice } from "../../services/undo";
 import { Bookmark, BookmarkPage, Changed, Collection, PageCursor, Suggestion } from "../../types";
@@ -199,7 +199,7 @@ export function Triage({
   /** Why a decision failed, short: «библиотека занята» (frame 20). */
   const reason = (err: unknown) => {
     const { code } = toCommandError(err);
-    return code === "database_busy" || code === "disk_full" || code === "read_only" ? t(`triage.reason.${code}`) : describeError(err);
+    return code === "database_busy" || code === "disk_full" || code === "read_only" ? reasonOf(err) : describeError(err);
   };
 
   /**
