@@ -44,6 +44,7 @@ const toQuery = (
   tag: filters.tag || undefined,
   domain: filters.domain || undefined,
   only_favorites: filters.onlyFavorites ?? false,
+  only_inbox: filters.onlyInbox ?? false,
   ...page,
 });
 /** Every command rejects with a `CommandError` carrying a machine code. */

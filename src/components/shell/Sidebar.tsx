@@ -15,6 +15,7 @@ export interface SidebarProps {
   collections: Collection[];
   tags: Tag[];
   capture: CaptureStatus | null;
+  onInbox: () => void;
   onAll: () => void;
   onFavorites: () => void;
   onCollection: (id: number) => void;
@@ -33,7 +34,8 @@ export function Sidebar(props: SidebarProps) {
   const { filters, settingsOpen, counts, collections, tags, capture, narrow } = props;
   const [allTags, setAllTags] = useState(false);
   const library = !settingsOpen;
-  const all = library && !filters.collectionId && !filters.onlyFavorites;
+  const inbox = library && filters.onlyInbox;
+  const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox;
   const favorites = library && filters.onlyFavorites;
   const status = { color: statusColor(capture), label: statusLabel(capture, t) };
   const soon = t("common.soon");
@@ -44,8 +46,15 @@ export function Sidebar(props: SidebarProps) {
         <div className="mb-3 text-accent" data-tauri-drag-region>
           <LogoMark />
         </div>
-        <StripButton label={t("nav.inbox")} disabled title={soon}>
-          <Icon icon={Inbox} />
+        <StripButton
+          label={counts.inbox > 0 ? t("nav.inboxWaiting", { count: counts.inbox }) : t("nav.inbox")}
+          active={inbox}
+          onClick={props.onInbox}
+        >
+          <span className="relative">
+            <Icon icon={Inbox} />
+            {counts.inbox > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-accent" />}
+          </span>
         </StripButton>
         <StripButton label={t("nav.all")} active={all} onClick={props.onAll}>
           <PinIcon />
@@ -92,7 +101,13 @@ export function Sidebar(props: SidebarProps) {
         </span>
       </div>
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
-        <NavRow icon={<Icon icon={Inbox} />} label={t("nav.inbox")} disabled title={soon} />
+        <NavRow
+          icon={<Icon icon={Inbox} />}
+          label={t("nav.inbox")}
+          badge={counts.inbox}
+          active={inbox}
+          onClick={props.onInbox}
+        />
         <NavRow icon={<PinIcon />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
         <NavRow
           icon={<Icon icon={Star} />}
@@ -194,6 +209,7 @@ function NavRow({
   icon,
   label,
   count,
+  badge,
   active = false,
   onClick,
   disabled = false,
@@ -205,6 +221,8 @@ function NavRow({
   icon: ReactNode;
   label: string;
   count?: number;
+  /** An accent counter, shown when above zero: bookmarks waiting in the inbox. */
+  badge?: number;
   active?: boolean;
   onClick?: () => void;
   disabled?: boolean;
@@ -226,6 +244,11 @@ function NavRow({
       <span className={`flex shrink-0 ${active ? "text-accent" : disabled ? "text-faint" : "text-icon"}`}>{icon}</span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count !== undefined && <span className="text-xs font-normal text-subtle">{count}</span>}
+      {!!badge && (
+        <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-[7px] text-2xs font-semibold text-on-accent">
+          {badge}
+        </span>
+      )}
       {trailing}
     </button>
   );

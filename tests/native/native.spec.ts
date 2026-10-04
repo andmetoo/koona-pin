@@ -81,6 +81,8 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(page.locator("[data-bookmark-id] [data-collection]")).toContainText(
       "Без коллекции",
     );
+    // The link added by hand waited in the inbox; saving it in the editor sorted it.
+    await expect(page.getByRole("button", { name: "Входящие", exact: true })).toBeVisible();
     // Nothing has written yet: the browser is not connected.
     await expect(page.getByRole("button", { name: "Браузер не подключён" })).toBeVisible();
     const captured = await hostMessage(
@@ -91,6 +93,13 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
     // The capture tells the app about the browser; the status updates by itself.
     await expect(page.getByRole("button", { name: "Браузер подключён" })).toBeVisible();
+    // The capture waits in the inbox at once: badge, banner, section.
+    await expect(page.getByRole("button", { name: "Входящие 1", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Новые закладки" })).toContainText("1 новая закладка ждёт разбора");
+    await page.getByRole("button", { name: "Входящие 1", exact: true }).click();
+    await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
+    await expect(page.locator("[data-bookmark-id]")).toContainText("Из браузера");
+    await page.getByRole("button", { name: "Все закладки" }).click();
     // FTS5 through IPC: the capture is in the index, case folds.
     const search = page.getByRole("textbox", { name: "Поиск в библиотеке" });
     await search.fill("БРАУЗЕРА native");
