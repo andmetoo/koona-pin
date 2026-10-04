@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode},
-    export, import, restore,
+    backup, export, import, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -809,4 +809,207 @@ pub async fn back_up_now(library: State<'_, Arc<Library>>) -> Result<DataSummary
     })
     .await
     .map_err(CommandError::internal)?
+}
+
+/// What «Save a copy…» did: nothing when the Save dialog was cancelled.
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum SaveCopyOutcome {
+    Cancelled,
+    Saved { file_name: String },
+    /// Nothing was written: the old file, if any, is as it was.
+    Failed { file_name: String, detail: String },
+}
+
+/// «Save a copy…» (sheet 33): the system Save dialog, then the same checked
+/// copy as «Back up now», written next to the target and renamed over it.
+/// «Show» reveals it like an export.
+#[tauri::command]
+pub async fn save_backup_copy(
+    app: AppHandle,
+    library: State<'_, Arc<Library>>,
+    last: State<'_, LastExport>,
+) -> Result<SaveCopyOutcome, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+    let name = format!("netami-pin-backup-{}.db", chrono::Local::now().format("%Y-%m-%d"));
+    let mut dialog = app.dialog().file().set_file_name(name).add_filter("Netami Pin", &["db"]);
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(picked) = picked else {
+        return Ok(SaveCopyOutcome::Cancelled);
+    };
+    let path = picked.into_path().map_err(CommandError::internal)?;
+    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let (library, target) = (library.inner().clone(), path.clone());
+    let written = tauri::async_runtime::spawn_blocking(move || crate::library::save_copy(&library.paths, &target))
+        .await
+        .map_err(CommandError::internal)?;
+    Ok(match written {
+        Ok(()) => {
+            *last.0.lock().map_err(CommandError::internal)? = Some(path);
+            SaveCopyOutcome::Saved { file_name }
+        }
+        Err(detail) => SaveCopyOutcome::Failed { file_name, detail },
+    })
+}
+
+/// The copies the restore dialog lists, newest first.
+#[tauri::command]
+pub async fn list_backups(library: State<'_, Arc<Library>>) -> Result<Vec<backup::BackupCopy>, CommandError> {
+    let library = library.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || backup::list(&library.paths.backups))
+        .await
+        .map_err(CommandError::internal)
+}
+
+/// The file «Choose a file…» picked and checked; a restore from it reads only this path.
+#[derive(Default)]
+pub struct PickedBackup(pub std::sync::Mutex<Option<std::path::PathBuf>>);
+
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum PickedCopy {
+    Cancelled,
+    Ready { copy: backup::BackupCopy },
+    Rejected { file_name: String, problem: crate::library::CopyProblem },
+}
+
+/// «Choose a file…»: the system Open dialog in the backups folder, then the
+/// file is checked in full; nothing is changed.
+#[tauri::command]
+pub async fn pick_backup(
+    app: AppHandle,
+    library: State<'_, Arc<Library>>,
+    picked: State<'_, PickedBackup>,
+) -> Result<PickedCopy, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+    let mut dialog = app
+        .dialog()
+        .file()
+        .add_filter("Netami Pin", &["db"])
+        .set_directory(&library.paths.backups);
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let chosen = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(chosen) = chosen else {
+        return Ok(PickedCopy::Cancelled);
+    };
+    let path = chosen.into_path().map_err(CommandError::internal)?;
+    let checked = path.clone();
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        let file_name = checked.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        match crate::library::check_copy(&checked) {
+            Ok(bookmarks) => match backup::describe(&checked) {
+                Some(copy) => PickedCopy::Ready { copy: backup::BackupCopy { bookmarks: Some(bookmarks), ..copy } },
+                None => PickedCopy::Rejected { file_name, problem: crate::library::CopyProblem::Unreadable { detail: String::new() } },
+            },
+            Err(problem) => PickedCopy::Rejected { file_name, problem },
+        }
+    })
+    .await
+    .map_err(CommandError::internal)?;
+    *picked.0.lock().map_err(CommandError::internal)? = matches!(outcome, PickedCopy::Ready { .. }).then_some(path);
+    Ok(outcome)
+}
+
+/// Where a restore takes its copy.
+#[derive(Deserialize, TS)]
+#[serde(tag = "from", rename_all = "snake_case")]
+#[ts(export)]
+pub enum BackupSource {
+    Listed { file_name: String },
+    /// The file «Choose a file…» checked last.
+    Picked,
+}
+
+/// What a restore did; on anything but `restored` nothing was changed.
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum BackupRestoreOutcome {
+    Restored {
+        bookmarks: u32,
+        /// The copy of the library as it was, in the backups folder.
+        previous: String,
+    },
+    Rejected { problem: crate::library::CopyProblem },
+    BackupFailed { detail: String },
+    Failed { detail: String },
+}
+
+/// Restores a backup (NP-034, sheet 33). Into the open library in place: the
+/// undo journal is cleared, the damage flag goes, the window reloads. When the
+/// library did not open (frame 12), its files are replaced and it opens again.
+#[tauri::command]
+pub async fn restore_backup(
+    app: AppHandle,
+    library: State<'_, Arc<Library>>,
+    picked: State<'_, PickedBackup>,
+    source: BackupSource,
+) -> Result<BackupRestoreOutcome, CommandError> {
+    let library = library.inner().clone();
+    let path = match source {
+        BackupSource::Listed { file_name } => backup::listed(&library.paths.backups, &file_name),
+        BackupSource::Picked => picked.0.lock().map_err(CommandError::internal)?.clone(),
+    }
+    .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "The copy is gone"))?;
+    let db = app.try_state::<Arc<DbState>>().map(|state| state.inner().clone());
+    let closed = matches!(library.status(), LibraryStatus::Failed(_));
+    if db.is_none() && !closed {
+        return Err(CommandError::new(ErrorCode::DatabaseBusy, "The library is still opening"));
+    }
+    let paths = library.paths.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || match db {
+        Some(db) => {
+            let mut conn = db.conn.lock().map_err(CommandError::internal)?;
+            let mut journal = db.journal.lock().map_err(CommandError::internal)?;
+            let result = crate::library::restore_into(&mut conn, &paths, &path);
+            if result.is_ok() {
+                // Its commands point at bookmarks of the replaced library.
+                journal.clear();
+                let tray = db::setting(&conn, "close_to_tray").map_or(true, |v| v == "true");
+                db.close_to_tray.store(tray, Ordering::Relaxed);
+            }
+            Ok::<_, CommandError>(result)
+        }
+        None => Ok(crate::library::restore_closed(&paths, &path)),
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    Ok(match result {
+        Ok(restored) => {
+            if closed {
+                if library.begin_retry() {
+                    library_state::start(app);
+                }
+            } else {
+                library.restored(&app);
+                let _ = app.emit("library-invalidated", ());
+            }
+            BackupRestoreOutcome::Restored {
+                bookmarks: restored.bookmarks,
+                previous: restored.previous.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+            }
+        }
+        Err(crate::library::RestoreFailure::Rejected(problem)) => BackupRestoreOutcome::Rejected { problem },
+        Err(crate::library::RestoreFailure::Backup(detail)) => BackupRestoreOutcome::BackupFailed { detail },
+        Err(crate::library::RestoreFailure::Failed(detail)) => BackupRestoreOutcome::Failed { detail },
+    })
+}
+
+/// «Show» after a restore: Explorer with the copy of the replaced library selected.
+#[tauri::command]
+pub fn reveal_backup(app: AppHandle, library: State<'_, Arc<Library>>, file_name: String) -> Result<(), CommandError> {
+    let path = backup::listed(&library.paths.backups, &file_name)
+        .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "The copy is gone"))?;
+    app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
 }

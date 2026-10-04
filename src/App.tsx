@@ -7,7 +7,7 @@ import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, Bookmark, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
+import { AppSettings, BackupCopy, Bookmark, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { useSelectionDrag } from "./hooks/useSelectionDrag";
@@ -26,10 +26,11 @@ import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
+import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "connect" | "collection" | "selectionCollection" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -73,7 +74,7 @@ function useMedia(query: string) {
 }
 
 export function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [theme, setTheme] = useState<Theme>(storedTheme);
   const systemDark = useMedia("(prefers-color-scheme: dark)");
   const narrow = useMedia(NARROW);
@@ -110,6 +111,10 @@ export function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   const [damaged, setDamaged] = useState(false);
+  /** The newest readable copy, offered by the damage banner (sheet 33). */
+  const [latestCopy, setLatestCopy] = useState<BackupCopy | null>(null);
+  /** Bumped after a restore: the settings count the copies again. */
+  const [dataVersion, setDataVersion] = useState(0);
   const [movedAside, setMovedAside] = useState("");
   const [slowLoading, setSlowLoading] = useState(false);
   /** The newest inbox bookmark when the banner was hidden: it returns for a newer one. */
@@ -217,6 +222,13 @@ export function App() {
     return off;
   }, []);
   useEffect(() => {
+    if (!damaged) return setLatestCopy(null);
+    void api
+      .listBackups()
+      .then((copies) => setLatestCopy(copies.find((copy) => copy.bookmarks !== null) ?? null))
+      .catch(() => {});
+  }, [damaged]);
+  useEffect(() => {
     if (!notice || notice.alert) return;
     const timer = window.setTimeout(() => setNotice(null), notice.undo || notice.long ? UNDO_MS : NOTICE_MS);
     return () => window.clearTimeout(timer);
@@ -300,6 +312,25 @@ export function App() {
       (err) => setNotice({ text: describeError(err), alert: true, retry }),
     );
   };
+  /**
+   * Settings → «Save a copy…» (NP-034, sheet 33): like an export, «… · Show»
+   * for 8 seconds, or an alert with the reason and «Retry».
+   */
+  const saveBackupCopy = () =>
+    api.saveBackupCopy().then(
+      (result) => {
+        if (result.outcome === "cancelled") return;
+        if (result.outcome === "saved")
+          return setNotice({
+            text: t("settings.copySaved", { name: result.file_name }),
+            alert: false,
+            long: true,
+            show: () => void api.revealExport().catch((err) => say(describeError(err), true)),
+          });
+        setNotice({ text: t("settings.copySaveFailed", { name: result.file_name, detail: result.detail }), alert: true, retry: () => void saveBackupCopy() });
+      },
+      (err) => setNotice({ text: describeError(err), alert: true, retry: () => void saveBackupCopy() }),
+    );
   /**
    * One action on every selected bookmark (NP-029, frame 27): one transaction
    * and one command of the journal. The notice counts them and undoes the
@@ -712,6 +743,9 @@ export function App() {
                     onConnect={() => setSurface("connect")}
                     onCopy={(text) => void copy(text)}
                     onNotice={say}
+                    onSaveCopy={saveBackupCopy}
+                    onRestoreBackup={() => setSurface("backup")}
+                    dataVersion={dataVersion}
                   />
                 </div>
               </>
@@ -762,12 +796,19 @@ export function App() {
                   {damaged && (
                     <Banner
                       action={
-                        <Button variant="onDanger" onClick={() => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}>
-                          {t("library.openBackups")}
-                        </Button>
+                        <span className="flex shrink-0 gap-2">
+                          <Button variant="onDanger" onClick={() => setSurface("backup")}>
+                            {t("library.restore")}
+                          </Button>
+                          <Button variant="onDanger" onClick={() => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}>
+                            {t("library.openBackups")}
+                          </Button>
+                        </span>
                       }
                     >
-                      {t("library.damaged")}
+                      {latestCopy
+                        ? t("library.damagedLatest", { when: copyTime(latestCopy.created_at, t, i18n.language, true) })
+                        : t("library.damaged")}
                     </Banner>
                   )}
                   {library.error && (
@@ -977,7 +1018,21 @@ export function App() {
           }}
           onShowBackups={() => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}
         />
-      )}      {surface === "collection" && (
+      )}
+      {surface === "backup" && (
+        <BackupRestoreDialog
+          current={counts.total}
+          onClose={() => setSurface(null)}
+          onRestored={async () => {
+            // The whole library changed: nothing open may point at what is gone.
+            closeEditor();
+            selection.clear();
+            setDataVersion((version) => version + 1);
+            await Promise.all([library.refresh(), library.refreshCatalog()]);
+          }}
+        />
+      )}
+      {surface === "collection" && (
         <CollectionDialog
           onClose={() => setSurface(null)}
           onCreate={async (name) => {
