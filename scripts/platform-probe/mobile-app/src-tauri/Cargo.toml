@@ -1,0 +1,24 @@
+# NP-008: the smallest Tauri app with the dependencies Netami Pin cannot do
+# without, to see whether they build and work on Android and iOS: SQLite
+# with FTS5 trigram, rustls requests, opening a link, the app data folder.
+[package]
+name = "netamipin-probe"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "netamipin_probe_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled", "functions"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+scraper = "0.20"
+dirs = "5"

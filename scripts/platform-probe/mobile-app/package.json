@@ -1,0 +1,12 @@
+{
+  "name": "netamipin-probe",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NP-008: the platform probe app. Built outside the repository: Xcode and Gradle call `npm run tauri` of the nearest package.json.",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.1"
+  }
+}
