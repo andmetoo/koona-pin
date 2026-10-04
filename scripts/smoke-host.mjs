@@ -8,7 +8,9 @@ import { mkdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { capture, hello, hostMessage, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+import { assertNoOtherApp, capture, hello, hostMessage, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+
+assertNoOtherApp();
 
 const data = path.resolve(".test-data", `host-${Date.now()}`);
 await mkdir(data, { recursive: true });
