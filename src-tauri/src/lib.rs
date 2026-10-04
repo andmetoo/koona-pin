@@ -6,6 +6,7 @@ pub mod capture_channel;
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod journal;
 pub mod library;
 pub mod library_state;
 pub mod metadata;
@@ -104,6 +105,7 @@ pub fn run() {
             commands::update_bookmark,
             commands::trash_bookmark,
             commands::restore_bookmark,
+            commands::undo,
             commands::delete_forever,
             commands::empty_trash,
             commands::get_collections,
