@@ -60,6 +60,9 @@ const call = <T>(command: string, args?: InvokeArgs) =>
 const desktop = {
   getBookmarks: (filters: Partial<FilterState> = {}, page: PageRequest = {}) =>
     call<BookmarkPage>("get_bookmarks", { query: toQuery(filters, page) }),
+  /** Every match in list order, ids only, loaded or not (NP-028). */
+  getBookmarkIds: (filters: Partial<FilterState> = {}) =>
+    call<number[]>("get_bookmark_ids", { query: toQuery(filters, {}) }),
   rebuildSearchIndex: () => call<number>("rebuild_search_index"),
   getCollections: () => call<Collection[]>("get_collections"),
   getTags: () => call<Tag[]>("get_tags"),

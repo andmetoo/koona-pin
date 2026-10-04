@@ -484,6 +484,49 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
   }
 });
 
+test("Ctrl A selects 10 000 bookmarks from SQLite without loading their pages", async ({ request }) => {
+  const data = await folder("select-10k");
+  const app = await launch(request, isolated(data));
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async () => {
+      let html = "<DL>";
+      for (let i = 0; i < 10000; i++) html += `<DT><A HREF="https://example.invalid/${i}">Link ${i}</A>`;
+      await window.__TAURI_INTERNALS__.invoke("import_html_bookmarks", { htmlContent: html });
+    });
+    await expect(page.locator("h1")).toContainText("10000", { timeout: 15000 });
+    // The command alone, ten times after a warm-up.
+    const commandMs = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const times: number[] = [];
+      for (let i = 0; i < 11; i++) {
+        const started = performance.now();
+        const ids = (await invoke("get_bookmark_ids", { query: { only_favorites: false, only_inbox: false, only_trash: false } })) as number[];
+        if (ids.length !== 10000) throw new Error(`${ids.length} ids`);
+        if (i) times.push(performance.now() - started);
+      }
+      return Math.round(Math.max(...times));
+    });
+    // The key press until the bar counts every bookmark.
+    await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+    const pressMs = await page.evaluate(async () => {
+      const started = performance.now();
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", ctrlKey: true, bubbles: true }));
+      while (!document.querySelector('[role="toolbar"] [role="status"]')?.textContent?.startsWith("10000"))
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      return Math.round(performance.now() - started);
+    });
+    console.log("Ctrl A over 10 000:", { commandMs, pressMs });
+    await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
+    // «Без заметной задержки»: well under the 100 ms of an instant response.
+    expect(pressMs).toBeLessThan(100);
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+
 test("foreign file: retry after moving it away opens a new library", async ({
   request,
 }) => {
