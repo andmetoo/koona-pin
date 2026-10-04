@@ -89,14 +89,115 @@ pub async fn undo(
     .await
     .map_err(CommandError::internal)??;
     if let Undo::Undone { bookmarks, .. } = &outcome {
-        match bookmarks.as_slice() {
-            [one] => capture::emit(&app, ChangeKind::Updated, one),
-            _ => {
-                let _ = app.emit("library-invalidated", ());
-            }
-        }
+        capture::emit_many(&app, bookmarks);
     }
     Ok(outcome)
+}
+
+/// What the selection bar asks for (NP-029, Р-27).
+#[derive(Deserialize, TS)]
+#[serde(tag = "action", rename_all = "snake_case")]
+#[ts(export)]
+pub enum BulkChange {
+    /// Into a collection; none takes them out of any.
+    Move { collection_id: Option<i64> },
+    Tag { name: String },
+    Favorite { favorite: bool },
+    Trash,
+    Restore,
+    /// «Новая коллекция из выбранного»: created and filled in one go.
+    NewCollection { name: String },
+}
+
+/// What a bulk action did.
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct BulkChanged {
+    /// Selected bookmarks the action applies to: in the library, or in the
+    /// trash for «Восстановить». Those already as asked count too.
+    pub count: u32,
+    /// Bookmarks it actually changed.
+    pub changed: u32,
+    /// What `undo` takes back; none when nothing changed.
+    pub command: Option<i64>,
+    /// The collection «Новая коллекция из выбранного» created.
+    pub collection: Option<Collection>,
+}
+
+/// One action on every selected bookmark: one transaction and one command
+/// of the journal, so it is done whole or not at all and undone whole.
+#[tauri::command]
+pub async fn bulk_update(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    ids: Vec<i64>,
+    change: BulkChange,
+) -> Result<BulkChanged, CommandError> {
+    // `Err` holds the name of the collection to create and fill.
+    let (action, bulk) = match change {
+        BulkChange::Move { collection_id } => (Action::Move, Ok(db::Bulk::Move(collection_id))),
+        BulkChange::Tag { name } if name.trim().is_empty() => return Err(CommandError::invalid("Введите тег")),
+        BulkChange::Tag { name } => (Action::Tag, Ok(db::Bulk::Tag(name))),
+        BulkChange::Favorite { favorite } => (Action::Favorite, Ok(db::Bulk::Favorite(favorite))),
+        BulkChange::Trash => (Action::Trash, Ok(db::Bulk::Trash)),
+        BulkChange::Restore => (Action::Restore, Ok(db::Bulk::Restore)),
+        BulkChange::NewCollection { name } if name.trim().is_empty() => {
+            return Err(CommandError::invalid("Введите название коллекции"))
+        }
+        BulkChange::NewCollection { name } => (Action::Move, Err(name.trim().to_string())),
+    };
+    let state = state.inner().clone();
+    let (done, changed) = tauri::async_runtime::spawn_blocking(move || {
+        let conn = state.conn.lock().map_err(CommandError::internal)?;
+        let mut journal = state.journal.lock().map_err(CommandError::internal)?;
+        let mut count = 0;
+        let mut created = None;
+        let (changed, command) = journal.record(&conn, action, &ids, |conn| match &bulk {
+            Ok(bulk) => db::apply_bulk(conn, &ids, bulk).map(|(n, changed)| {
+                count = n;
+                changed
+            }),
+            Err(name) => db::bulk_into_new_collection(conn, &ids, name).map(|(collection, n, changed)| {
+                count = n;
+                created = Some(collection);
+                changed
+            }),
+        })?;
+        let done = BulkChanged { count: count as u32, changed: changed.len() as u32, command, collection: created };
+        Ok::<_, CommandError>((done, changed))
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    capture::emit_many(&app, &changed);
+    Ok(done)
+}
+
+/// Whether every selected bookmark has a star: «В избранное» or «Из избранного».
+#[tauri::command]
+pub async fn all_favorite(state: State<'_, Arc<DbState>>, ids: Vec<i64>) -> Result<bool, CommandError> {
+    blocking(&state, move |conn| db::all_favorite(conn, &ids).map_err(text)).await
+}
+
+/// The id, and so the colour, «Новая коллекция из выбранного» will get.
+#[tauri::command]
+pub async fn next_collection_id(state: State<'_, Arc<DbState>>) -> Result<i64, CommandError> {
+    blocking(&state, |conn| db::next_collection_id(conn).map_err(text)).await
+}
+
+/// «Удалить навсегда…» on the selection in the trash, after the dialog:
+/// how many went for good. No undo, as for one (Р-22).
+#[tauri::command]
+pub async fn delete_forever_many(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    ids: Vec<i64>,
+) -> Result<u32, CommandError> {
+    let gone = blocking(&state, move |conn| {
+        db::purge_trash(conn, Purge::Some(&ids)).map_err(text)
+    })
+    .await?;
+    capture::emit_deleted_many(&app, &gone);
+    Ok(gone.len() as u32)
 }
 
 #[tauri::command]
@@ -371,7 +472,8 @@ pub enum ExportOutcome {
 pub struct LastExport(pub std::sync::Mutex<Option<std::path::PathBuf>>);
 
 /// Menu «⋯» → Export (NP-032, Р-30): the system Save dialog, then the file
-/// written next to the target and renamed over it when complete.
+/// written next to the target and renamed over it when complete. With `ids`,
+/// only the selected bookmarks (the selection bar, NP-029).
 #[tauri::command]
 pub async fn export_library(
     app: AppHandle,
@@ -379,6 +481,7 @@ pub async fn export_library(
     last: State<'_, LastExport>,
     format: export::ExportFormat,
     columns: Option<export::CsvColumns>,
+    ids: Option<Vec<i64>>,
 ) -> Result<ExportOutcome, CommandError> {
     use tauri_plugin_dialog::DialogExt;
     if format == export::ExportFormat::Csv && columns.is_none() {
@@ -387,7 +490,7 @@ pub async fn export_library(
     let mut dialog = app
         .dialog()
         .file()
-        .set_file_name(export::default_name(format))
+        .set_file_name(export::default_name(format, export::Scope::of(ids.as_deref())))
         .add_filter(format.extension().to_uppercase(), &[format.extension()]);
     if let Some(window) = app.get_webview_window("main") {
         dialog = dialog.set_parent(&window);
@@ -401,10 +504,11 @@ pub async fn export_library(
     let path = picked.into_path().map_err(CommandError::internal)?;
     let separator = export::list_separator();
     let (content, count) = blocking(&state, move |conn| {
+        let scope = export::Scope::of(ids.as_deref());
         match format {
-            export::ExportFormat::Html => export::html(conn),
-            export::ExportFormat::Json => export::json(conn, chrono::Utc::now()),
-            export::ExportFormat::Csv => export::csv(conn, &columns.expect("checked above"), separator),
+            export::ExportFormat::Html => export::html(conn, scope),
+            export::ExportFormat::Json => export::json(conn, scope, chrono::Utc::now()),
+            export::ExportFormat::Csv => export::csv(conn, scope, &columns.expect("checked above"), separator),
         }
         .map_err(text)
     })

@@ -229,7 +229,8 @@ export function useLibrary(
         counts?.map((count, i) => (createdAt! >= startsRef.current[i] ? Math.max(0, count + delta) : count)) ?? null,
       );
     };
-    const apply = (change: BookmarkChange, matches: boolean) => {
+    /** One change into the list; `catalog` false when the caller refreshes the catalog once for many. */
+    const apply = (change: BookmarkChange, matches: boolean, catalog = true) => {
       const b = change.bookmark;
       const known =
         bookmarksRef.current.find((row) => row.id === change.id) ??
@@ -271,7 +272,7 @@ export function useLibrary(
         // Within the read pages: not shown means it did not match before.
         adjustTotal(shown ? 0 : 1, createdAt);
       }
-      void refreshCatalog();
+      if (catalog) void refreshCatalog();
     };
     const off = api.onBookmarkChanged((change) => {
       if ((revisions.current.get(change.id) ?? 0) >= change.revision) return;
@@ -294,6 +295,35 @@ export function useLibrary(
         },
       );
     });
+    /**
+     * A bulk action or an undo of many (NP-029): each change goes through the
+     * same `apply` as a single one, so the loaded pages and the scroll
+     * position stay; under a search the database says once which of them
+     * match, and the catalog is read once for all.
+     */
+    const offBatch = api.onBookmarksChanged(async (changes) => {
+      const fresh = changes.filter((c) => (revisions.current.get(c.id) ?? 0) < c.revision);
+      if (!fresh.length) return;
+      for (const c of fresh) revisions.current.set(c.id, c.revision);
+      eventVersion.current++;
+      const filters = filtersRef.current;
+      const list = seq.current;
+      let found: Set<number> | null = null;
+      if (filters.search.trim()) {
+        try {
+          found = new Set(await api.getBookmarkIds(filters));
+        } catch {
+          if (alive.current && list === seq.current) void refresh();
+          return;
+        }
+        if (!alive.current || list !== seq.current) return;
+      }
+      for (const c of fresh) {
+        const b = c.bookmark;
+        apply(c, !!b && matchesFilters(b, filters) && (!found || found.has(b.id)), false);
+      }
+      void refreshCatalog();
+    });
     const offInvalidate = api.onLibraryInvalidated(() => {
       eventVersion.current++;
       void refreshCatalog();
@@ -301,6 +331,7 @@ export function useLibrary(
     });
     return () => {
       off();
+      offBatch();
       offInvalidate();
     };
   }, [refresh, refreshCatalog, refreshTotal, scrollRef]);

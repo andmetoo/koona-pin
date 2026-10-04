@@ -609,6 +609,104 @@ test("Ctrl A selects 10 000 bookmarks from SQLite without loading their pages", 
   }
 });
 
+test("bulk actions on 1 000 bookmarks: one transaction in SQLite, the window keeps drawing, undone whole", async ({ request }) => {
+  const data = await folder("bulk-1k");
+  const app = await launch(request, isolated(data));
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      let html = "<DL>";
+      for (let i = 0; i < 1000; i++) html += `<DT><A HREF="https://bulk.invalid/${i}" TAGS="старый">Ссылка ${i}</A>`;
+      await invoke("import_html_bookmarks", { htmlContent: html });
+      await invoke("create_collection", { name: "Пачка", color: null, icon: null });
+    });
+    await page.reload();
+    await expect(page.locator("h1")).toContainText("1000", { timeout: 15000 });
+    const counts = () =>
+      page.evaluate(async () => {
+        const invoke = window.__TAURI_INTERNALS__.invoke;
+        const collections = (await invoke("get_collections")) as { name: string; count: number }[];
+        const tags = (await invoke("get_tags")) as { name: string; count: number }[];
+        const library = (await invoke("get_counts")) as { total: number; trash: number; favorites: number };
+        return {
+          shelf: collections.find((c) => c.name === "Пачка")?.count,
+          tagged: tags.find((t) => t.name === "срочно")?.count ?? 0,
+          total: library.total,
+          trash: library.trash,
+        };
+      });
+
+    // A failed action through IPC: a collection that is gone. Nothing is written.
+    const failed = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const ids = (await invoke("get_bookmark_ids", { query: {} })) as number[];
+      return invoke("bulk_update", { ids, change: { action: "move", collection_id: 999999 } }).then(
+        () => "written",
+        (error: { code: string }) => error.code,
+      );
+    });
+    expect(failed).toBe("not_found");
+    expect(await counts()).toEqual({ shelf: 0, tagged: 0, total: 1000, trash: 0 });
+
+    // Ctrl A, then «В коллекцию…» → «Пачка»: the frames keep coming while SQLite writes.
+    await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+a");
+    const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+    await expect(bar.getByRole("status")).toHaveText("1000 выбрано");
+    await bar.getByRole("button", { name: "В коллекцию…" }).click();
+    const item = page.getByRole("menuitem", { name: "Пачка" });
+    await expect(item).toBeVisible();
+    const moved = await page.evaluate(async () => {
+      let longest = 0;
+      let last = performance.now();
+      let running = true;
+      const frames = () => {
+        const now = performance.now();
+        longest = Math.max(longest, now - last);
+        last = now;
+        if (running) requestAnimationFrame(frames);
+      };
+      requestAnimationFrame(frames);
+      const started = performance.now();
+      [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((e) => e.textContent?.includes("Пачка"))!.click();
+      while (!document.body.textContent?.includes("перемещено в «Пачка»")) await new Promise((resolve) => requestAnimationFrame(resolve));
+      running = false;
+      return { ms: Math.round(performance.now() - started), longestFrame: Math.round(longest) };
+    });
+    console.log("Move 1 000 in bulk:", moved);
+    expect(moved.longestFrame).toBeLessThan(100);
+    expect((await counts()).shelf).toBe(1000);
+
+    // A tag to all, then Ctrl Z takes it off all of them and keeps the move.
+    await bar.getByRole("button", { name: "Тег" }).click();
+    await page.getByRole("combobox", { name: "Тег для выбранных закладок" }).fill("срочно");
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Тег «срочно» добавлен к 1000 закладкам")).toBeVisible();
+    expect((await counts()).tagged).toBe(1000);
+    await page.keyboard.press("Control+z");
+    await expect(page.getByText("Отменено для 1000 закладок")).toBeVisible();
+    expect(await counts()).toEqual({ shelf: 1000, tagged: 0, total: 1000, trash: 0 });
+    const kept = await page.evaluate(async () => {
+      const { items } = (await window.__TAURI_INTERNALS__.invoke("get_bookmarks", { query: { limit: 1 } })) as { items: { tags: string[] }[] };
+      return items[0].tags;
+    });
+    expect(kept).toEqual(["старый"]);
+
+    // Del: all of them to the trash in one go; Ctrl Z brings them back into «Пачка».
+    await page.keyboard.press("Delete");
+    await expect(page.getByText("1000 закладок в корзине")).toBeVisible();
+    expect(await counts()).toEqual({ shelf: 0, tagged: 0, total: 0, trash: 1000 });
+    await page.keyboard.press("Control+z");
+    await expect(page.getByText("Возвращено из корзины 1000 закладок")).toBeVisible();
+    expect(await counts()).toEqual({ shelf: 1000, tagged: 0, total: 1000, trash: 0 });
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+
 test("foreign file: retry after moving it away opens a new library", async ({
   request,
 }) => {

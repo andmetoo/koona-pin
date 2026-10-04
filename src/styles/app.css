@@ -160,6 +160,11 @@
   #root {
     height: 100%;
   }
+  /* A hint near the window edge must not make the window scrollable: focus
+     moving after a rerender would scroll it sideways (NP-029). */
+  #root {
+    overflow: clip;
+  }
   body {
     margin: 0;
     overflow: hidden;
