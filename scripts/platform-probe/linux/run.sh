@@ -15,9 +15,12 @@ echo "distro: $PRETTY_NAME"
 case "$ID" in
   ubuntu|debian)
     export DEBIAN_FRONTEND=noninteractive
+    # NO_TRAY_LIB=1: a system without the tray library (minimal installs).
+    tray=libayatana-appindicator3-1
+    [ "${NO_TRAY_LIB:-}" = 1 ] && tray=""
     apt-get update -qq
     apt-get install -y -qq --no-install-recommends \
-      libwebkit2gtk-4.1-0 libayatana-appindicator3-1 librsvg2-common \
+      libwebkit2gtk-4.1-0 $tray librsvg2-common \
       xvfb xauth dbus-x11 xdotool x11-utils imagemagick fonts-dejavu-core >/dev/null
     webkit=$(dpkg-query -W -f='${Version}' libwebkit2gtk-4.1-0)
     ;;
