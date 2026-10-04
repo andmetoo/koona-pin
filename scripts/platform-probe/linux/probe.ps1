@@ -24,3 +24,8 @@ foreach ($image in $Distros) {
   docker run --rm -v "${out}/bin:/bin-in:ro" -v "${out}:/out" -v "${here}:/probe:ro" `
     $image bash /probe/run.sh $name
 }
+# Without the tray library, and under Wayland (Weston) instead of X11.
+docker run --rm -e NO_TRAY_LIB=1 -v "${out}/bin:/bin-in:ro" -v "${out}:/out" -v "${here}:/probe:ro" `
+  ubuntu:24.04 bash /probe/run.sh ubuntu-24-04-no-tray
+docker run --rm -v "${out}/bin:/bin-in:ro" -v "${out}:/out" -v "${here}:/probe:ro" `
+  ubuntu:24.04 bash /probe/run-wayland.sh ubuntu-24-04-wayland
