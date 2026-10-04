@@ -1213,6 +1213,157 @@ test("bulk actions: a new collection from the selection, export of the selected,
   await expect(page.getByRole("button", { name: /^Корзина/ })).toContainText("0");
 });
 
+/** Press on `from`, move past the 4 px threshold, then over `to`; the button stays down. */
+async function dragOver(page: import("@playwright/test").Page, from: import("@playwright/test").Locator, to: import("@playwright/test").Locator) {
+  const a = (await from.boundingBox())!;
+  const b = (await to.boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2 + 12, a.y + a.height / 2 + 8, { steps: 3 });
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
+}
+const dropHint = (page: import("@playwright/test").Page) => page.locator("[data-drop-hint]");
+
+test("drag: the selection onto a collection, a tag and the trash; the hint names the action and Ctrl Z takes it back", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+  const sidebar = page.getByRole("complementary", { name: "Библиотека" });
+  const three = ["Архитектура тишины", "Типографика — это голос", "Интерфейсы, которые не мешают"];
+  await selectCards(page, three);
+  await expect(page.getByText("или перетащите выбранное на коллекцию или тег слева")).toBeVisible();
+  const opened: string[] = [];
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    (window as unknown as { opened: string[] }).opened = [];
+    api.openUrl = async (url: string) => void (window as unknown as { opened: string[] }).opened.push(url);
+  });
+
+  // From the preview of a selected card onto «Разработка»: the stack, the targets, the hint.
+  const preview = page.locator("[data-bookmark-id][data-selected] [data-preview]").first();
+  await dragOver(page, preview, sidebar.getByRole("button", { name: /^Разработка/ }));
+  await expect(dropHint(page)).toHaveText("Переместить 3 в «Разработка»");
+  await expect(page.locator("[data-drag-stack]")).toContainText("и ещё 2 закладки");
+  await expect(page.locator("[data-dragging] [data-selected]").first()).toHaveCSS("opacity", "0.45");
+  await expect(sidebar.getByText("Новая коллекция из выбранного")).toBeVisible();
+  await expect(sidebar.getByText("Теги — бросьте на тег")).toBeVisible();
+  await expect(page.getByText("Отпустите над коллекцией, тегом или корзиной")).toBeVisible();
+  await page.screenshot({ path: "test-results/drag-collection-1440.png" });
+  await page.mouse.up();
+  await expect(notice(page, "3 закладки перемещены в «Разработка»")).toBeVisible();
+  await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+  await expect(sidebar.getByRole("button", { name: /^Разработка/ })).toContainText("3");
+  // The drop did not open the card it started on, and the selection stays.
+  expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual(opened);
+  await expect(bar.getByRole("status")).toHaveText("3 выбрано");
+  await page.keyboard.press("Control+z");
+  await expect(notice(page, "Отменено для 2 закладок")).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: /^Разработка/ })).toContainText("1");
+
+  // Every tag is a target while dragging, the hidden ones too; the hint follows the pointer.
+  const tags = sidebar.locator('[data-drop^="tag:"]');
+  await expect(sidebar.getByRole("button", { name: /^\+ ещё/ })).toBeVisible();
+  await dragOver(page, preview, sidebar.getByRole("button", { name: /^Избранное/ }));
+  await expect(dropHint(page)).toHaveText("Бросьте на коллекцию, тег или корзину");
+  await expect(tags).toHaveCount(10);
+  await expect(sidebar.getByRole("button", { name: /^\+ ещё/ })).toHaveCount(0);
+  const last = tags.last();
+  const tag = (await last.textContent())!;
+  const box = (await last.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
+  await expect(dropHint(page)).toHaveText(`Добавить тег «${tag}» к 3`);
+  await page.screenshot({ path: "test-results/drag-tag-1440.png" });
+  await page.mouse.up();
+  await expect(notice(page, `Тег «${tag}» добавлен к 3 закладкам`)).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: /^\+ ещё/ })).toBeVisible();
+
+  // «Корзина»: no confirmation, the selected leave and the bar closes; Ctrl Z brings them back.
+  await dragOver(page, preview, sidebar.getByRole("button", { name: /^Корзина/ }));
+  await expect(dropHint(page)).toHaveText("3 в корзину");
+  await page.screenshot({ path: "test-results/drag-trash-1440.png" });
+  await page.mouse.up();
+  await expect(notice(page, "3 закладки в корзине")).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  await page.keyboard.press("Control+z");
+  await expect(notice(page, "Возвращены из корзины 3 закладки")).toBeVisible();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+});
+
+test("drag: Esc and a drop outside a target change nothing; an unselected card still starts the frame; a new collection asks for its name", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const bar = page.getByRole("toolbar", { name: "Выделенные закладки" });
+  const sidebar = page.getByRole("complementary", { name: "Библиотека" });
+  await selectCards(page, ["Десять принципов хорошего дизайна", "Наблюдать повседневное"]);
+  const selected = page.locator("[data-bookmark-id][data-selected]").first();
+
+  // Esc ends the drag only: no action, the selection stays.
+  await dragOver(page, selected.locator("[data-preview]"), sidebar.getByRole("button", { name: /^Вдохновение/ }));
+  await expect(dropHint(page)).toHaveText("Переместить 2 в «Вдохновение»");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(bar.getByRole("status")).toHaveText("2 выбрано");
+  await expect(sidebar.getByRole("button", { name: /^Вдохновение/ })).toContainText("2");
+  await expect(page.locator("[data-dragging]")).toHaveCount(0);
+
+  // Released over the list: nothing happens.
+  await dragOver(page, selected.locator("[data-preview]"), page.getByRole("heading", { name: "Все закладки" }));
+  await page.mouse.up();
+  await expect(page.locator("[role=status], [role=alert]").filter({ hasText: /перемещены|в корзине|добавлен/ })).toHaveCount(0);
+  await expect(bar.getByRole("status")).toHaveText("2 выбрано");
+
+  // A press on an unselected card is a selection frame, as before.
+  const other = page.locator("[data-bookmark-id]:not([data-selected])").first();
+  const box = (await other.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height - 4);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 30, box.y + box.height + 20, { steps: 4 });
+  await expect(page.locator("[data-selection-frame]")).toBeVisible();
+  await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(bar.getByRole("status")).toHaveText("1 выбрано");
+
+  // «Новая коллекция из выбранного»: the name field, Enter creates and moves in one action.
+  await page.keyboard.press("Escape");
+  await selectCards(page, ["Десять принципов хорошего дизайна", "Наблюдать повседневное"]);
+  // The target appears only once the drag has started.
+  await dragOver(page, page.locator("[data-bookmark-id][data-selected] [data-preview]").first(), sidebar.getByRole("button", { name: /^Избранное/ }));
+  const fresh = (await sidebar.getByText("Новая коллекция из выбранного").boundingBox())!;
+  await page.mouse.move(fresh.x + fresh.width / 2, fresh.y + fresh.height / 2, { steps: 6 });
+  await expect(dropHint(page)).toHaveText("Новая коллекция из 2");
+  await page.screenshot({ path: "test-results/drag-new-collection-1440.png" });
+  await page.mouse.up();
+  const name = page.getByRole("textbox", { name: "Название новой коллекции" });
+  await expect(name).toBeFocused();
+  await name.fill("Перетащено");
+  await name.press("Enter");
+  await expect(notice(page, "2 закладки перемещены в «Перетащено»")).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: /^Перетащено/ })).toContainText("2");
+});
+
+test("drag in a narrow window: collection dots and the trash of the strip are targets; the trash section does not drag", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await selectCards(page, ["Архитектура тишины", "Типографика — это голос"]);
+  const strip = page.getByRole("complementary", { name: "Библиотека" });
+  const preview = page.locator("[data-bookmark-id][data-selected] [data-preview]").first();
+  await dragOver(page, preview, strip.getByRole("button", { name: "Разработка", exact: true }));
+  await expect(dropHint(page)).toHaveText("Переместить 2 в «Разработка»");
+  await page.screenshot({ path: "test-results/drag-narrow-900.png" });
+  await page.mouse.up();
+  await expect(notice(page, "2 закладки перемещены в «Разработка»")).toBeVisible();
+  await dragOver(page, preview, strip.getByRole("button", { name: "Корзина", exact: true }));
+  await expect(dropHint(page)).toHaveText("2 в корзину");
+  await page.mouse.up();
+  await expect(notice(page, "2 закладки в корзине")).toBeVisible();
+
+  // In the trash a press on a selected card does not lift it.
+  await strip.getByRole("button", { name: "Корзина", exact: true }).click();
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Control+a");
+  await dragOver(page, page.locator("[data-bookmark-id][data-selected] [data-preview]").first(), strip.getByRole("button", { name: "Разработка", exact: true }));
+  await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+  await page.mouse.up();
+});
+
 test("bulk actions on 1 000 bookmarks keep the loaded pages and the scroll position", async ({ page }) => {
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
