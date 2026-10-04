@@ -205,6 +205,26 @@
     "done": "Done",
     "failed": "Couldn't import. {{reason}} Nothing was added — the library is as it was."
   },
+  "export": {
+    "saved_one": "{{count, number}} bookmark saved to {{name}}",
+    "saved_other": "{{count, number}} bookmarks saved to {{name}}",
+    "show": "Show",
+    "diskFull": "Couldn't save {{name}}: the disk is full. Nothing was written.",
+    "noPermission": "Couldn't save to {{folder}}: no permission to write there. Choose another folder.",
+    "inUse": "Couldn't save {{name}}: another program has it open. Close it and try again.",
+    "other": "Couldn't save {{name}}: {{detail}}",
+    "columns": {
+      "title": "Title",
+      "url": "Address",
+      "domain": "Site",
+      "collection": "Collection",
+      "tags": "Tags",
+      "notes": "Note",
+      "favorite": "Favorite",
+      "inbox": "In Inbox",
+      "saved": "Saved"
+    }
+  },
   "collection": {
     "title": "New collection",
     "name": "Name",
