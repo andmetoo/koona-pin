@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v3"));
+  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v4"));
   await page.reload();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
 });
@@ -87,7 +87,7 @@ test("incoming capture preserves reading position until explicitly revealed", as
   expect(before).toBeGreaterThan(20);
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
-    const incoming = await api.addBookmark({
+    const { bookmark: incoming } = await api.addBookmark({
       url: "https://example.com/incoming",
       title: "Incoming capture",
     });
@@ -155,6 +155,80 @@ test("inbox: new links wait there until a decision, the banner hides until a new
   await page.getByRole("button", { name: "Входящие", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Всё разобрано" })).toBeVisible();
 });
+test("trash: delete without a dialog, undo, restore with every field, a link saved again comes back", async ({ page }) => {
+  const nav = (name: string) => page.getByRole("button", { name, exact: true });
+  const cards = page.locator("[data-bookmark-id]");
+  const toast = page.locator(".fixed[role=status]");
+  // The context menu works on a card and on a row alike.
+  const trashCard = async (id: number) => {
+    await page.locator(`[data-bookmark-id="${id}"]`).click({ button: "right" });
+    await page.getByRole("menuitem", { name: "В корзину" }).click();
+  };
+  // The undo notice: its button, then Ctrl Z.
+  await trashCard(1);
+  await expect(toast).toContainText("Перемещено в корзину");
+  await expect(cards).toHaveCount(5);
+  await toast.getByRole("button", { name: /Отменить/ }).click();
+  await expect(cards).toHaveCount(6);
+  await trashCard(1);
+  await expect(nav("Корзина 1")).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(toast).toContainText("Восстановлено");
+  await expect(nav("Корзина 0")).toBeVisible();
+
+  // In the trash: out of counts and search, newest deletion first, days left, the note.
+  await trashCard(3);
+  await trashCard(1);
+  await expect(nav("Избранное 0")).toBeVisible();
+  await expect(nav("Все закладки 4")).toBeVisible();
+  await expect(nav("Дизайн 0")).toBeVisible();
+  await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("принципов");
+  await expect(cards).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("");
+  await nav("Корзина 2").click();
+  await expect(page.getByText(/«Восстановить» вернёт закладку с заметкой/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Новые закладки" })).toHaveCount(0);
+  await expect(cards.first()).toHaveAttribute("data-bookmark-id", "1");
+  await expect(cards.first()).toContainText("ещё 30 дней");
+  await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("типографика");
+  await expect(cards).toHaveCount(1);
+  await page.getByRole("textbox", { name: "Поиск в библиотеке" }).fill("");
+
+  // Restore brings back the star, the collection and the tags.
+  await page.getByRole("button", { name: "Список", exact: true }).click();
+  const row = page.locator('[data-bookmark-id="1"]');
+  await row.hover();
+  await row.getByRole("button", { name: "Восстановить" }).click();
+  await expect(cards).toHaveCount(1);
+  await nav("Избранное 1").click();
+  await expect(row).toContainText("Дизайн");
+  await expect(row.getByRole("button", { name: "принципы" })).toBeVisible();
+
+  // Added again by hand: back from the trash, waiting in the inbox.
+  await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
+  await page.getByLabel("Ссылка", { exact: true }).fill("https://type.today/ru");
+  await page.getByRole("button", { name: "Сохранить ссылку" }).click();
+  await expect(toast).toContainText("Возвращено из корзины во «Входящие»");
+  await expect(nav("Корзина 0")).toBeVisible();
+  await expect(nav("Входящие 3")).toBeVisible();
+
+  // An import leaves a link in the trash where it is and says so.
+  await trashCard(3);
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Закладки браузера/ }).click();
+  await page.locator("input[type=file]").setInputFiles({
+    name: "bookmarks.html",
+    mimeType: "text/html",
+    buffer: Buffer.from('<a href="https://type.today/ru">Типографика</a>'),
+  });
+  await page.getByRole("button", { name: "Импортировать", exact: true }).click();
+  await expect(toast).toContainText("Новых ссылок: 0 · в корзине осталось: 1");
+  await expect(nav("Корзина 1")).toBeVisible();
+  await nav("Корзина 1").click();
+  await page.locator('[data-bookmark-id="3"]').hover();
+  await page.locator('[data-bookmark-id="3"]').getByRole("button", { name: "Восстановить" }).click();
+  await expect(page.getByRole("heading", { name: "Корзина пуста" })).toBeVisible();
+});
 test("metadata updates keep order and filtered captures stay out of the list", async ({ page }) => {
   const ids = await page
     .locator("[data-bookmark-id]")
@@ -204,7 +278,7 @@ test("list geometry stays within the window and broken previews keep their space
     };
     data.bookmarks[0].image_url = "/broken-preview.png";
     data.bookmarks[0].title = "Очень длинный заголовок ".repeat(12);
-    localStorage.setItem("netamipin.demo.v3", JSON.stringify(data));
+    localStorage.setItem("netamipin.demo.v4", JSON.stringify(data));
   });
   await page.reload();
   await expect(page.locator('[data-bookmark-id="1"] [data-preview-fallback]')).toBeVisible();
@@ -265,7 +339,7 @@ test("a large library loads page by page while scrolling", async ({ page }) => {
       // Every fifth one shares a time with its neighbour: the id breaks the tie.
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 250 - i + (i % 5 === 0 ? 1 : 0))).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v3", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   // Virtualized: only rows near the screen are in the DOM; `data-loaded` counts the pages read.
@@ -301,7 +375,7 @@ async function largeLibrary(page: import("@playwright/test").Page) {
       tags: [],
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v3", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
@@ -376,8 +450,7 @@ test("list rows: date groups over all pages, hover actions, inactive checkbox", 
   await page.getByRole("menuitem", { name: "Разработка" }).click();
   await expect(row.locator("[data-collection]")).toContainText("Разработка");
   await row.hover();
-  await row.getByRole("button", { name: "Удалить…" }).click();
-  await page.getByRole("button", { name: "Удалить", exact: true }).click();
+  await row.getByRole("button", { name: "В корзину" }).click();
   await expect(page.locator('[data-bookmark-id="250"]')).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Раньше 249" })).toBeVisible();
 });
@@ -442,8 +515,12 @@ test("editor: empty title is marked, tags are chips, Ctrl Enter saves, Cancel ke
   await row.getByRole("button", { name: /^Открыть:/ }).first().focus();
   await page.keyboard.press("Shift+F10");
   await page.getByRole("menuitem", { name: "Изменить…" }).click();
-  await page.getByRole("complementary").getByRole("button", { name: "Удалить…" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Удалить");
+  // No confirmation: the bookmark goes to the trash and the editor closes.
+  const editor = page.getByRole("complementary", { name: "Изменить закладку" });
+  await editor.getByRole("button", { name: "В корзину" }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Перемещено в корзину");
+  await expect(page.locator('[data-bookmark-id="1"]')).toHaveCount(0);
 });
 
 test("editor: a failed save shows the reason and keeps everything typed", async ({ page }) => {

@@ -25,6 +25,14 @@ pub struct CaptureResult {
     pub bookmark: Option<Bookmark>,
     #[serde(skip)]
     pub newly_created: bool,
+    /// The link was in the trash and came back to the inbox (Р-10, point 2).
+    /// The wire says `outcome: "created"` with `restored: true`: extensions
+    /// 0.3 and older know only `created` and `existing`.
+    #[serde(skip)]
+    pub restored: bool,
+    /// An import met the link in the trash and left it there.
+    #[serde(skip)]
+    pub in_trash: bool,
 }
 /// `code` and `status` are the HTTP v1 contract and do not change; IPC gets
 /// the finer `ipc` code (NP-007).
@@ -132,15 +140,49 @@ fn save_in(
                 outcome,
                 bookmark,
                 newly_created: false,
+                restored: false,
+                in_trash: false,
             });
         }
     }
     let existing = tx
-        .query_row("SELECT id FROM bookmarks WHERE url=?1", [&url], |r| {
-            r.get::<_, i64>(0)
-        })
+        .query_row(
+            "SELECT id, deleted_at IS NOT NULL FROM bookmarks WHERE url=?1",
+            [&url],
+            |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)),
+        )
         .optional()
         .map_err(CaptureError::database)?;
+    if let Some((id, true)) = existing {
+        if source == Source::Import {
+            // A repeated import of browser bookmarks must not undo a clean-up.
+            return Ok(CaptureResult {
+                bookmark_id: id,
+                outcome: "existing".into(),
+                bookmark: None,
+                newly_created: false,
+                restored: false,
+                in_trash: true,
+            });
+        }
+        // Saved again: back from the trash with its fields, waiting in the inbox.
+        let bookmark = db::restore_bookmark(tx, id, true).map_err(CaptureError::database)?;
+        if let Some(request_id) = &request.request_id {
+            tx.execute(
+                "INSERT INTO capture_receipts (request_id,url,bookmark_id,outcome) VALUES (?1,?2,?3,'created')",
+                params![request_id, url, id],
+            )
+            .map_err(CaptureError::database)?;
+        }
+        return Ok(CaptureResult {
+            bookmark_id: id,
+            outcome: "created".into(),
+            bookmark: Some(bookmark),
+            newly_created: false,
+            restored: true,
+            in_trash: false,
+        });
+    }
     let newly_created = existing.is_none();
     let title = request
         .title
@@ -169,6 +211,8 @@ fn save_in(
         outcome,
         bookmark: Some(bookmark),
         newly_created,
+        restored: false,
+        in_trash: false,
     })
 }
 
@@ -195,18 +239,29 @@ pub fn parse_html(html: &str) -> Vec<CaptureRequest> {
 /// One transaction for the whole file: an import is saved entirely or not at
 /// all, and thousands of links cost one sync to disk instead of thousands.
 /// Metadata is not fetched, so an import does not start a burst of requests.
-pub fn import(conn: &Connection, requests: &[CaptureRequest]) -> Result<usize, CaptureError> {
+pub fn import(
+    conn: &Connection,
+    requests: &[CaptureRequest],
+) -> Result<ImportSummary, CaptureError> {
     let tx = conn
         .unchecked_transaction()
         .map_err(CaptureError::database)?;
-    let mut imported = 0;
+    let mut summary = ImportSummary::default();
     for request in requests {
-        if save_in(&tx, request, Source::Import)?.newly_created {
-            imported += 1;
-        }
+        let saved = save_in(&tx, request, Source::Import)?;
+        summary.imported += u32::from(saved.newly_created);
+        summary.in_trash += u32::from(saved.in_trash);
     }
     tx.commit().map_err(CaptureError::database)?;
-    Ok(imported)
+    Ok(summary)
+}
+
+/// What an HTML import did: new links, and links it left in the trash.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct ImportSummary {
+    pub imported: u32,
+    pub in_trash: u32,
 }
 #[derive(Debug, Clone, Copy, Serialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -237,12 +292,17 @@ pub fn emit(app: &AppHandle, kind: ChangeKind, bookmark: &Bookmark) {
     );
 }
 pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) {
-    if !result.newly_created {
-        return;
-    }
     let Some(bookmark) = result.bookmark.clone() else {
         return;
     };
+    // A link back from the trash arrives like a new one; its metadata is there.
+    if result.restored {
+        emit(app, ChangeKind::Created, &bookmark);
+        return;
+    }
+    if !result.newly_created {
+        return;
+    }
     emit(app, ChangeKind::Created, &bookmark);
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -396,7 +456,7 @@ mod tests {
         let requests = parse_html(&html);
         assert_eq!(requests.len(), 10_001);
         let started = std::time::Instant::now();
-        assert_eq!(import(&c, &requests).unwrap(), 10_000);
+        assert_eq!(import(&c, &requests).unwrap().imported, 10_000);
         println!("import of 10 000 links: {:?}", started.elapsed());
         assert_eq!(db::get_counts(&c).unwrap().total, 10_000);
 
@@ -407,6 +467,70 @@ mod tests {
         broken[1].collection_id = Some(99_999);
         assert_eq!(import(&c, &broken).unwrap_err().status, 500);
         assert_eq!(db::get_counts(&c).unwrap().total, 10_000);
+    }
+
+    #[test]
+    fn a_link_in_the_trash_comes_back_when_saved_but_not_by_an_import() {
+        let c = database();
+        let first = save(&c, &request("one"), Source::Chrome).unwrap();
+        let id = first.bookmark_id;
+        db::update_bookmark(
+            &c,
+            id,
+            None,
+            Some("Заметка".into()),
+            Some(true),
+            Some(Some(1)),
+            Some(vec!["тег".into()]),
+        )
+        .unwrap();
+        db::trash_bookmark(&c, id).unwrap();
+
+        // An import leaves it in the trash and says so.
+        let summary = import(
+            &c,
+            &parse_html(r#"<a href="https://example.com/">Again</a>"#),
+        )
+        .unwrap();
+        assert_eq!(
+            summary,
+            ImportSummary {
+                imported: 0,
+                in_trash: 1
+            }
+        );
+        assert_eq!(db::get_counts(&c).unwrap().trash, 1);
+
+        // A capture brings it back with its fields, waiting in the inbox again.
+        let again = save(&c, &request("two"), Source::Edge).unwrap();
+        assert_eq!((again.outcome.as_str(), again.restored), ("created", true));
+        assert!(!again.newly_created, "no new record, no metadata request");
+        let b = again.bookmark.unwrap();
+        assert_eq!((b.id, b.deleted_at, b.triaged_at), (id, None, None));
+        assert_eq!(
+            (b.notes.as_deref(), b.is_favorite, b.collection_id),
+            (Some("Заметка"), true, Some(1))
+        );
+        assert_eq!(b.tags.unwrap(), ["тег"]);
+
+        // The receipt of the first delivery replays without touching the trash.
+        db::trash_bookmark(&c, id).unwrap();
+        let replay = save(&c, &request("one"), Source::Chrome).unwrap();
+        assert!(!replay.restored);
+        assert!(db::get_bookmark_by_id(&c, id).unwrap().deleted_at.is_some());
+        // Its own receipt replays as `created` and restores nothing either.
+        let replay = save(&c, &request("two"), Source::Edge).unwrap();
+        assert_eq!(
+            (replay.outcome.as_str(), replay.restored),
+            ("created", false)
+        );
+        assert!(db::get_bookmark_by_id(&c, id).unwrap().deleted_at.is_some());
+
+        // Added by hand: back too.
+        let mut by_hand = request("three");
+        by_hand.request_id = None;
+        assert!(save(&c, &by_hand, Source::App).unwrap().restored);
+        assert_eq!(db::get_counts(&c).unwrap().trash, 0);
     }
 
     #[test]

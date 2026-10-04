@@ -16,6 +16,7 @@ export interface SidebarProps {
   tags: Tag[];
   capture: CaptureStatus | null;
   onInbox: () => void;
+  onTrash: () => void;
   onAll: () => void;
   onFavorites: () => void;
   onCollection: (id: number) => void;
@@ -35,10 +36,10 @@ export function Sidebar(props: SidebarProps) {
   const [allTags, setAllTags] = useState(false);
   const library = !settingsOpen;
   const inbox = library && filters.onlyInbox;
-  const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox;
+  const trash = library && filters.onlyTrash;
+  const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash;
   const favorites = library && filters.onlyFavorites;
   const status = { color: statusColor(capture), label: statusLabel(capture, t) };
-  const soon = t("common.soon");
 
   if (narrow)
     return (
@@ -62,7 +63,7 @@ export function Sidebar(props: SidebarProps) {
         <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites}>
           <Icon icon={Star} />
         </StripButton>
-        <StripButton label={t("nav.trash")} disabled title={soon}>
+        <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash}>
           <Icon icon={Trash2} />
         </StripButton>
         <div className="my-2.5 h-px w-6 bg-line" />
@@ -116,7 +117,7 @@ export function Sidebar(props: SidebarProps) {
           active={favorites}
           onClick={props.onFavorites}
         />
-        <NavRow icon={<Icon icon={Trash2} />} label={t("nav.trash")} disabled title={soon} />
+        <NavRow icon={<Icon icon={Trash2} />} label={t("nav.trash")} count={counts.trash} active={trash} onClick={props.onTrash} />
       </nav>
 
       <div className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
@@ -212,7 +213,6 @@ function NavRow({
   badge,
   active = false,
   onClick,
-  disabled = false,
   title,
   plain = false,
   trailing,
@@ -225,7 +225,6 @@ function NavRow({
   badge?: number;
   active?: boolean;
   onClick?: () => void;
-  disabled?: boolean;
   title?: string;
   /** Regular weight: collections and the bottom items. */
   plain?: boolean;
@@ -235,13 +234,12 @@ function NavRow({
   return (
     <button
       type="button"
-      onClick={disabled ? undefined : onClick}
+      onClick={onClick}
       aria-current={active ? "page" : undefined}
-      aria-disabled={disabled || undefined}
       title={title}
-      className={`flex h-[30px] w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-[background-color,color] duration-150 ${active ? "bg-card font-semibold shadow-active" : `${plain ? "" : "font-medium"} ${disabled ? "" : "hover:bg-hover"}`} ${disabled ? "text-faint" : danger ? "text-danger" : "text-ink"}`}
+      className={`flex h-[30px] w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-[background-color,color] duration-150 ${active ? "bg-card font-semibold shadow-active" : `${plain ? "" : "font-medium"} hover:bg-hover`} ${danger ? "text-danger" : "text-ink"}`}
     >
-      <span className={`flex shrink-0 ${active ? "text-accent" : disabled ? "text-faint" : "text-icon"}`}>{icon}</span>
+      <span className={`flex shrink-0 ${active ? "text-accent" : "text-icon"}`}>{icon}</span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count !== undefined && <span className="text-xs font-normal text-subtle">{count}</span>}
       {!!badge && (
@@ -259,25 +257,20 @@ function StripButton({
   children,
   active = false,
   onClick,
-  disabled = false,
-  title,
 }: {
   label: string;
   children: ReactNode;
   active?: boolean;
   onClick?: () => void;
-  disabled?: boolean;
-  title?: string;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
-      title={title ?? label}
+      title={label}
       aria-current={active ? "page" : undefined}
-      aria-disabled={disabled || undefined}
-      onClick={disabled ? undefined : onClick}
-      className={`flex h-8 w-9 items-center justify-center rounded-md transition-[background-color,color] duration-150 ${active ? "bg-card text-accent shadow-active" : disabled ? "text-faint" : "text-icon hover:bg-hover"}`}
+      onClick={onClick}
+      className={`flex h-8 w-9 items-center justify-center rounded-md transition-[background-color,color] duration-150 ${active ? "bg-card text-accent shadow-active" : "text-icon hover:bg-hover"}`}
     >
       {children}
     </button>
