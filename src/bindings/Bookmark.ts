@@ -8,4 +8,9 @@ triaged_at: string | null,
 /**
  * When the bookmark went to the trash; none outside it (NP-022).
  */
-deleted_at: string | null, };
+deleted_at: string | null, 
+/**
+ * Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
+ * `extension`, `import`; none for links of unknown origin. Triage shows it (NP-025).
+ */
+source: string | null, };

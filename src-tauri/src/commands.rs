@@ -191,6 +191,7 @@ pub async fn update_bookmark(
     let plain = patch.title.is_none() && patch.notes.is_none();
     let keep = matches!(patch.collection, CollectionPatch::Keep);
     let action = match (patch.is_favorite, &patch.tags) {
+        (None, None) if plain && keep => Action::Keep,
         (Some(_), None) if plain && keep => Action::Favorite,
         (None, Some(_)) if plain && keep => Action::Tag,
         (None, None) if plain && !keep => Action::Move,

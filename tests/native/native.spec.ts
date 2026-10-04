@@ -788,6 +788,69 @@ test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart 
     app.processHandle.kill();
   }
 });
+test("triage: decisions reach SQLite at once, a restart midway loses nothing", async ({ request }) => {
+  const data = await folder("triage");
+  const env = isolated(data);
+  let app = await launch(request, env);
+  try {
+    let page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      for (const n of [1, 2, 3])
+        await invoke("add_bookmark", { url: `https://triage.invalid/${n}`, title: `Разбор ${n}`, collectionId: null, tags: [] });
+    });
+    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const rows = () =>
+      db
+        .prepare(
+          `SELECT b.url, c.name AS collection, b.triaged_at IS NOT NULL AS sorted, b.deleted_at IS NOT NULL AS trashed
+           FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id ORDER BY b.url`,
+        )
+        .all();
+    const heading = page.getByRole("heading", { level: 1 });
+    await page.getByRole("region", { name: "Новые закладки" }).getByRole("button", { name: "Разобрать" }).click();
+    await expect(heading).toHaveText(/Разбор входящих\s*1 из 3/);
+    await expect(page.locator("[data-triage-card]")).toContainText("добавлено вручную сегодня в");
+
+    // 1 files into the first collection of the sidebar, ← to the trash: written at once.
+    await page.keyboard.press("1");
+    await expect(heading).toHaveText(/2 из 3/);
+    await page.keyboard.press("ArrowLeft");
+    await expect(heading).toHaveText(/3 из 3/);
+    await expect
+      .poll(rows)
+      .toEqual([
+        { url: "https://triage.invalid/1", collection: null, sorted: 0, trashed: 0 },
+        { url: "https://triage.invalid/2", collection: null, sorted: 0, trashed: 1 },
+        { url: "https://triage.invalid/3", collection: "Дизайн & UI", sorted: 1, trashed: 0 },
+      ]);
+    // A link saved meanwhile joins the end.
+    await page.evaluate(() =>
+      window.__TAURI_INTERNALS__.invoke("add_bookmark", { url: "https://triage.invalid/4", title: "Разбор 4", collectionId: null, tags: [] }),
+    );
+    await expect(heading).toHaveText(/3 из 4\s*\+1 новая/);
+
+    // Quit in the middle; nothing decided is lost, the rest waits.
+    void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
+    await app.exited;
+    await app.browser.close().catch(() => {});
+    app = await launch(request, env);
+    page = app.page;
+    await expect(page.getByRole("button", { name: "Входящие 2", exact: true })).toBeVisible({ timeout: 15000 });
+    await page.getByRole("region", { name: "Новые закладки" }).getByRole("button", { name: "Разобрать" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Разбор входящих\s*1 из 2/);
+    await expect(page.locator("[data-triage-card] h2")).toHaveText("Разбор 4");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("heading", { name: "Входящие разобраны" })).toBeVisible();
+    await expect.poll(() => (rows() as { sorted: number }[]).filter((r) => r.sorted).length).toBe(3);
+    db.close();
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
 test("security boundaries: CSP, narrow permissions, no HTTP port", async ({ request }) => {
   const data = await folder("boundaries");
   const env = isolated(data);
