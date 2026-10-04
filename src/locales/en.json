@@ -254,6 +254,15 @@
     "emptied_one": "Trash emptied: {{count}} bookmark deleted for good",
     "emptied_other": "Trash emptied: {{count}} bookmarks deleted for good"
   },
+  "undo": {
+    "undone": "Undone: «{{title}}»",
+    "undoneTrash": "Back from Trash: «{{title}}»",
+    "undoneRestore": "Back in Trash: «{{title}}»",
+    "conflict": "Not undone: «{{title}}» has changed since",
+    "gone": "Not undone: «{{title}}» was deleted for good",
+    "no_collection": "Not undone: the collection of «{{title}}» is gone",
+    "nothing": "Nothing to undo"
+  },
   "trash": {
     "restore": "Restore",
     "daysLeft_one": "{{count}} day left",

@@ -3,13 +3,16 @@ import {
   Bookmark,
   BookmarkChange,
   BookmarkPage,
+  Changed,
   Collection,
+  CommandAction,
   DataSummary,
   FilterState,
   ImportSummary,
   LibraryPlace,
   LibraryStatus,
   CaptureStatus,
+  Undo,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoBookmarks, demoCollections, posterOf } from "./demoData";
@@ -74,6 +77,32 @@ function change(previous: Bookmark, fields: Partial<Bookmark>): Bookmark {
   bookmarks = bookmarks.map((item) => (item.id === b.id ? b : item));
   persist();
   return b;
+}
+/** The command journal of `journal.rs`: this session only, the last 100, undone field by field. */
+const JOURNAL_LIMIT = 100;
+const FIELDS = ["title", "notes", "is_favorite", "collection_id", "tags", "triaged_at", "deleted_at"] as const;
+type Fields = Pick<Bookmark, (typeof FIELDS)[number]>;
+type Command = { id: number; action: CommandAction; changes: { id: number; before: Fields; after: Fields }[] };
+let journal: Command[] = [];
+let lastCommand = 0;
+const fieldsOf = (b: Bookmark): Fields => Object.fromEntries(FIELDS.map((f) => [f, b[f]])) as Fields;
+/** The order of tags means nothing. */
+const same = (field: keyof Fields, a: Fields, b: Fields) =>
+  field === "tags" ? [...(a.tags ?? [])].sort().join("\n") === [...(b.tags ?? [])].sort().join("\n") : a[field] === b[field];
+const touched = (step: Command["changes"][number]) => FIELDS.filter((f) => !same(f, step.before, step.after));
+function record(action: CommandAction, previous: Bookmark, b: Bookmark): Changed {
+  const step = { id: b.id, before: fieldsOf(previous), after: fieldsOf(b) };
+  if (touched(step).length === 0) return { bookmark: b, command: null };
+  journal = [...journal, { id: ++lastCommand, action, changes: [step] }].slice(-JOURNAL_LIMIT);
+  return { bookmark: b, command: lastCommand };
+}
+/** What `update_bookmark` calls the change, for the undo notice. */
+function actionOf(data: Partial<Fields>): CommandAction {
+  const keys = Object.keys(data).filter((k) => data[k as keyof Fields] !== undefined);
+  if (keys.length === 1 && keys[0] === "is_favorite") return "favorite";
+  if (keys.length === 1 && keys[0] === "tags") return "tag";
+  if (keys.length === 1 && keys[0] === "collection_id") return "move";
+  return "edit";
 }
 const listeners = new Set<(change: BookmarkChange) => void>();
 const invalidations = new Set<() => void>();
@@ -231,23 +260,45 @@ export const demo = {
     bookmarks = bookmarks.map((item) => (item.id === id ? b : item));
     persist();
     emit("updated", b);
-    return b;
+    return record(actionOf(data), previous, b);
   },
-  async trashBookmark(id: number) {
+  async trashBookmark(id: number): Promise<Changed> {
     const previous = bookmarks.find((b) => b.id === id);
     if (!previous) throw new CommandError("not_found", "Закладка удалена");
-    if (previous.deleted_at) return previous;
+    if (previous.deleted_at) return { bookmark: previous, command: null };
     const b = change(previous, { deleted_at: new Date().toISOString() });
     emit("updated", b);
-    return b;
+    return record("trash", previous, b);
   },
-  async restoreBookmark(id: number) {
+  async restoreBookmark(id: number): Promise<Changed> {
     const previous = bookmarks.find((b) => b.id === id);
     if (!previous) throw new CommandError("not_found", "Закладка удалена");
-    if (!previous.deleted_at) return previous;
+    if (!previous.deleted_at) return { bookmark: previous, command: null };
     const b = change(previous, { deleted_at: null });
     emit("updated", b);
-    return b;
+    return record("restore", previous, b);
+  },
+  async undo(command?: number | null): Promise<Undo> {
+    const entry = command == null ? journal.at(-1) : journal.find((c) => c.id === command);
+    if (!entry) return { outcome: "nothing" };
+    journal = journal.filter((c) => c !== entry);
+    const { action } = entry;
+    for (const step of entry.changes) {
+      const current = bookmarks.find((b) => b.id === step.id);
+      if (!current) return { outcome: "gone", action, title: step.after.title };
+      const now = fieldsOf(current);
+      if (touched(step).some((f) => !same(f, now, step.after))) return { outcome: "conflict", action, title: current.title };
+      const collection = step.before.collection_id;
+      if (touched(step).includes("collection_id") && collection !== null && !collections.some((c) => c.id === collection))
+        return { outcome: "no_collection", action, title: current.title };
+    }
+    const undone = entry.changes.map((step) => {
+      const fields: Partial<Bookmark> = Object.fromEntries(touched(step).map((f) => [f, step.before[f]]));
+      const b = change(bookmarks.find((item) => item.id === step.id)!, fields);
+      emit("updated", b);
+      return b;
+    });
+    return { outcome: "undone", action, bookmarks: undone };
   },
   /** Only from the trash, like the desktop app (NP-023). */
   async deleteForever(id: number) {

@@ -721,6 +721,73 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     app.processHandle.kill();
   }
 });
+test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart starts a new journal", async ({ request }) => {
+  const data = await folder("undo");
+  const env = isolated(data);
+  let app = await launch(request, env);
+  try {
+    let page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      await invoke("add_bookmark", { url: "https://undo.invalid/1", title: "Решение", collectionId: null, tags: ["тег"] });
+    });
+    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const row = () =>
+      db.prepare("SELECT is_favorite, triaged_at IS NULL AS inbox, deleted_at IS NULL AS live FROM bookmarks WHERE url = ?").get("https://undo.invalid/1");
+    const card = page.locator("[data-bookmark-id]");
+    await expect(card).toHaveCount(1);
+
+    // The star is a decision; Ctrl Z takes it back, into the inbox again.
+    await card.hover();
+    await card.getByRole("button", { name: "В избранное" }).click();
+    await expect.poll(row).toEqual({ is_favorite: 1, inbox: 0, live: 1 });
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".fixed[role=status]")).toContainText("Отменено: «Решение»");
+    await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
+    await expect(page.getByRole("button", { name: "Входящие 1", exact: true })).toBeVisible();
+
+    // To the trash and back with Ctrl Z.
+    await card.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "В корзину" }).click();
+    await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 0 });
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".fixed[role=status]")).toContainText("Возвращено из корзины: «Решение»");
+    await expect.poll(row).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
+
+    // Saved again from the trash after «to the trash»: the undo is refused, nothing is written.
+    const outcome = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      const { items } = await invoke("get_bookmarks", { query: {} });
+      const { command } = await invoke("trash_bookmark", { id: items[0].id });
+      await invoke("add_bookmark", { url: "https://undo.invalid/1", title: null, collectionId: null, tags: [] });
+      return invoke("undo", { command });
+    });
+    expect(outcome).toMatchObject({ outcome: "conflict", action: "trash", title: "Решение" });
+    expect(row()).toEqual({ is_favorite: 0, inbox: 1, live: 1 });
+
+    // The journal belongs to this run: after a restart there is nothing to undo.
+    await card.hover();
+    await card.getByRole("button", { name: "В избранное" }).click();
+    await expect.poll(row).toEqual({ is_favorite: 1, inbox: 0, live: 1 });
+    db.close();
+    void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
+    await app.exited;
+    await app.browser.close().catch(() => {});
+    app = await launch(request, env);
+    page = app.page;
+    await expect(page.locator("[data-bookmark-id]")).toHaveCount(1, { timeout: 15000 });
+    await page.locator("main").click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".fixed[role=status]")).toContainText("Отменять нечего");
+    const after = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    expect(after.prepare("SELECT is_favorite FROM bookmarks").get()).toEqual({ is_favorite: 1 });
+    after.close();
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
 test("security boundaries: CSP, narrow permissions, no HTTP port", async ({ request }) => {
   const data = await folder("boundaries");
   const env = isolated(data);

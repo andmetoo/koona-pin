@@ -37,6 +37,8 @@ const NOTICE_MS = 3000;
 const UNDO_MS = 8000;
 /** Above this many the banner does not promise «about a minute». */
 const QUICK_INBOX = 20;
+/** A title in a notice: the notice stays one line. */
+const short = (title: string) => (title.length > 48 ? `${title.slice(0, 47)}…` : title);
 /** Below this width the sidebar becomes a strip of icons (frame 16). */
 const NARROW = "(max-width: 999px)";
 /** From this width the editor docks on the right instead of covering the content. */
@@ -76,8 +78,6 @@ export function App() {
   /** What the confirmation (frame 26) would delete for good: one bookmark or the whole trash. */
   const [purging, setPurging] = useState<Bookmark | "all" | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
-  const noticeRef = useRef(notice);
-  noticeRef.current = notice;
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   const [damaged, setDamaged] = useState(false);
@@ -88,6 +88,33 @@ export function App() {
   const editorFocus = useRef<HTMLElement | null>(null);
   const dark = isDark(theme, systemDark);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
+  /**
+   * Ctrl Z takes back the last command, «Отменить» in a notice its own
+   * (NP-024). What was changed since is not overwritten: the notice says why.
+   */
+  const undo = (command?: number) => {
+    setNotice(null);
+    api.undo(command).then(
+      (result) => {
+        if (result.outcome === "nothing") return say(t("undo.nothing"));
+        if (result.outcome !== "undone") return say(t(`undo.${result.outcome}`, { title: short(result.title) }), true);
+        if (result.bookmarks.some((b) => b.id === editingRef.current?.id)) closeEditor();
+        const title = short(result.bookmarks[0]?.title ?? "");
+        say(
+          result.action === "trash"
+            ? t("undo.undoneTrash", { title })
+            : result.action === "restore"
+              ? t("undo.undoneRestore", { title })
+              : t("undo.undone", { title }),
+        );
+      },
+      (err) => say(describeError(err), true),
+    );
+  };
+  const undoRef = useRef(undo);
+  undoRef.current = undo;
+  /** «Отменить» for a notice, when the command changed anything. */
+  const undoing = (command: number | null) => (command === null ? undefined : () => undoRef.current(command));
 
   useEffect(() => {
     applyTheme(dark);
@@ -110,13 +137,14 @@ export function App() {
         setEditing(null);
         editorFocus.current?.focus();
       }
-      // While the undo notice is up, Ctrl Z takes the action back; in a text
-      // field it stays the field's own undo. Any action — NP-024.
-      const undo = noticeRef.current?.undo;
+      // Ctrl Z takes back the last action (NP-024). In a text field it stays
+      // the field's own undo; under a dialog, a menu or the editor it waits:
+      // the bookmark there could change under the form.
       const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]");
-      if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && undo && !typing) {
+      const layer = editing || document.querySelector("dialog[open], [data-menu]");
+      if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && !typing && !layer) {
         e.preventDefault();
-        undo();
+        undoRef.current();
       }
     };
     window.addEventListener("keydown", handler);
@@ -201,32 +229,28 @@ export function App() {
       move: (b, collectionId) =>
         void api
           .updateBookmark(b.id, { collection_id: collectionId })
-          .then(() =>
+          .then(({ command }) =>
             say(
               collectionId === null
                 ? t("notice.movedOut")
                 : t("notice.moved", { name: library.collections.find((c) => c.id === collectionId)?.name ?? "" }),
+              false,
+              undoing(command),
             ),
           )
           .catch((err) => say(describeError(err), true)),
       trash: (b) =>
         void api
           .trashBookmark(b.id)
-          .then(() => {
+          .then(({ command }) => {
             if (editingRef.current?.id === b.id) closeEditor();
-            say(t("notice.trashed"), false, () => {
-              setNotice(null);
-              void api.restoreBookmark(b.id).then(
-                () => say(t("notice.restored")),
-                (err) => say(describeError(err), true),
-              );
-            });
+            say(t("notice.trashed"), false, undoing(command));
           })
           .catch((err) => say(describeError(err), true)),
       restore: (b) =>
         void api
           .restoreBookmark(b.id)
-          .then(() => say(t("notice.restored")))
+          .then(({ command }) => say(t("notice.restored"), false, undoing(command)))
           .catch((err) => say(describeError(err), true)),
       deleteForever: (b) => setPurging(b),
       tag: (name) => changeFilters({ tag: name }),
@@ -279,9 +303,9 @@ export function App() {
       onCancel={closeEditor}
       onDelete={actions.trash}
       onSave={async (data) => {
-        await api.updateBookmark(editing.id, data);
+        const { command } = await api.updateBookmark(editing.id, data);
         closeEditor();
-        say(t("notice.saved"));
+        say(t("notice.saved"), false, undoing(command));
       }}
     />
   );
