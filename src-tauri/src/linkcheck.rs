@@ -506,24 +506,30 @@ pub fn count(conn: &Connection) -> Result<i64> {
     )
 }
 
-/// Bookmarks the run started at `?1` has left to check.
-const LEFT: &str = "FROM bookmarks b LEFT JOIN link_checks l ON l.bookmark_id = b.id
-     WHERE b.deleted_at IS NULL AND NOT (l.bookmark_id IS NOT NULL AND (l.url = b.url OR (l.outcome = 'moved' AND l.target = b.url)) AND l.checked_at >= ?1)";
+/// Bookmarks the run started at `?1` has left to check: none of its results
+/// holds for them, by the same rule as the counts ([`VALID`]).
+fn left_to_check() -> String {
+    format!(
+        "FROM bookmarks b LEFT JOIN link_checks l ON l.bookmark_id = b.id
+         WHERE b.deleted_at IS NULL AND NOT (l.bookmark_id IS NOT NULL AND {VALID} AND l.checked_at >= ?1)"
+    )
+}
 
 /// What the run started at `since` has left to check, those never checked first.
 fn remaining(conn: &Connection, since: &str) -> Result<Vec<Item>> {
-    conn.prepare(&format!("SELECT b.id, b.url {LEFT} ORDER BY l.checked_at IS NOT NULL, l.checked_at, b.id"))?
+    let left = left_to_check();
+    conn.prepare(&format!("SELECT b.id, b.url {left} ORDER BY l.checked_at IS NOT NULL, l.checked_at, b.id"))?
         .query_map([since], |r| Ok(Item { id: r.get(0)?, url: r.get(1)? }))?
         .collect()
 }
 
 fn left(conn: &Connection, since: &str) -> Result<i64> {
-    conn.query_row(&format!("SELECT count(*) {LEFT}"), [since], |r| r.get(0))
+    conn.query_row(&format!("SELECT count(*) {}", left_to_check()), [since], |r| r.get(0))
 }
 
 /// Of `ids`, those outside the trash: «Проверить снова» on a group.
 fn chosen(conn: &Connection, ids: &[i64]) -> Result<Vec<Item>> {
-    let list = serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let list = db::id_list(ids)?;
     conn.prepare("SELECT id, url FROM bookmarks WHERE id IN (SELECT value FROM json_each(?1)) AND deleted_at IS NULL ORDER BY id")?
         .query_map([list], |r| Ok(Item { id: r.get(0)?, url: r.get(1)? }))?
         .collect()
