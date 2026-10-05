@@ -57,16 +57,18 @@ pub fn prune_before_migration(folder: &Path, version: i64) {
     }
 }
 
+/// The time in the name of a copy before a restore: UTC with milliseconds,
+/// marked `Z`. Earlier builds wrote local time to the second.
+const RESTORE_FORMAT: &str = "%Y%m%d-%H%M%S%3fZ";
+const RESTORE_FORMAT_LOCAL: &str = "%Y%m%d-%H%M%S";
+
 /// `netamipin.before-restore-<time>.db`: the library as it was before a
-/// restore. The time has milliseconds and the name is always a free one: a
-/// second restore in the same second must not write over the first copy.
-/// Names still sort by time, those of earlier builds (seconds only) first.
+/// restore. UTC, so the clock going back (end of summer time) does not make
+/// a newer copy look older; milliseconds and a free name, so a second restore
+/// in the same second does not write over the first copy.
 pub fn before_restore_path(folder: &Path) -> PathBuf {
     loop {
-        let path = folder.join(format!(
-            "{BEFORE_RESTORE}{}.db",
-            chrono::Local::now().format("%Y%m%d-%H%M%S%3f")
-        ));
+        let path = folder.join(format!("{BEFORE_RESTORE}{}.db", Utc::now().format(RESTORE_FORMAT)));
         if !path.exists() {
             return path;
         }
@@ -74,7 +76,21 @@ pub fn before_restore_path(folder: &Path) -> PathBuf {
     }
 }
 
-/// Keeps the newest copies before a restore; the names sort by time.
+/// When a copy before a restore was written, from its name, either format.
+fn restore_stamp(name: &str) -> Option<DateTime<Utc>> {
+    let stamp = name.strip_prefix(BEFORE_RESTORE)?.strip_suffix(".db")?;
+    match NaiveDateTime::parse_from_str(stamp, RESTORE_FORMAT) {
+        Ok(time) => Some(time.and_utc()),
+        Err(_) => NaiveDateTime::parse_from_str(stamp, RESTORE_FORMAT_LOCAL)
+            .ok()?
+            .and_local_timezone(chrono::Local)
+            .earliest()
+            .map(|time| time.with_timezone(&Utc)),
+    }
+}
+
+/// Keeps the newest copies before a restore, by the time in their names; a
+/// name without a time counts as the oldest.
 pub fn prune_before_restore(folder: &Path) {
     let Ok(entries) = fs::read_dir(folder) else {
         return;
@@ -87,7 +103,7 @@ pub fn prune_before_restore(folder: &Path) {
                 .is_some_and(|n| n.starts_with(BEFORE_RESTORE) && n.ends_with(".db"))
         })
         .collect();
-    copies.sort();
+    copies.sort_by_cached_key(|p| (p.file_name().and_then(|n| n.to_str()).and_then(restore_stamp), p.clone()));
     let extra = copies.len().saturating_sub(KEPT_BEFORE_RESTORE);
     for old in &copies[..extra] {
         let _ = fs::remove_file(old);
@@ -333,16 +349,19 @@ mod tests {
         fs::write(&first, "the library before the first restore").unwrap();
         let second = before_restore_path(&folder);
         assert_ne!(first, second);
-        assert!(second > first, "names sort by time");
-        // A copy named by an earlier build, in seconds only, sorts before.
-        let name = |p: &Path| p.file_name().unwrap().to_string_lossy().into_owned();
-        let older = format!("{}.db", &name(&first)[..name(&first).len() - ".db".len() - 3]);
-        assert!(older < name(&first));
-        // Pruning keeps the two newest, in that order.
         fs::write(&second, "the library before the second restore").unwrap();
-        fs::write(folder.join(&older), "older").unwrap();
+        // A copy of an earlier build, a minute before: local time to the
+        // second. East of UTC its name sorts after the new ones as text.
+        let older = folder.join(format!(
+            "{BEFORE_RESTORE}{}.db",
+            (chrono::Local::now() - chrono::Duration::minutes(1)).format(RESTORE_FORMAT_LOCAL)
+        ));
+        fs::write(&older, "older").unwrap();
+        let stamp = |p: &Path| restore_stamp(p.file_name().unwrap().to_str().unwrap()).unwrap();
+        assert!(stamp(&older) < stamp(&first) && stamp(&first) < stamp(&second), "by the time in the names");
+        // Pruning keeps the two newest.
         prune_before_restore(&folder);
-        assert!(!folder.join(&older).exists() && first.exists() && second.exists());
+        assert!(!older.exists() && first.exists() && second.exists());
     }
 
     #[test]
