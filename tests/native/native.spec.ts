@@ -689,6 +689,16 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
     expect(result.after).toMatchObject({ total: 2, trash: 2, duplicates: 0 });
     expect(result.undone).toBe("undone");
     expect(result.back).toMatchObject({ total: 4, trash: 0, duplicates: 1 });
+    // «Не дубликаты» and its undo change no bookmark, yet reach the count and the section.
+    const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true });
+    await nav("Дубликаты 1").click();
+    const group = page.locator("[data-duplicate-group='example.invalid/page']");
+    await group.getByRole("button", { name: "Не дубликаты" }).click();
+    await expect(page.getByRole("heading", { name: "Дубликатов нет" })).toBeVisible();
+    await expect(nav("Дубликаты 0")).toBeVisible();
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await expect(group.getByRole("radio")).toHaveCount(3);
+    await expect(nav("Дубликаты 1")).toBeVisible();
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();

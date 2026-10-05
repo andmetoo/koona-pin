@@ -816,7 +816,7 @@ export function App() {
                     alert: false,
                     undo: () => {
                       setNotice(null);
-                      void api.undismissDuplicates(key, ids).then(() => library.refreshCatalog(), (err) => say(describeError(err), true));
+                      void api.undismissDuplicates(key, ids).catch((err) => say(describeError(err), true));
                     },
                   })
                 }
