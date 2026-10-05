@@ -111,7 +111,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    Скрипт собирает сайт, копирует архив и `Caddyfile` по `scp`, распаковывает рядом со старой версией, проверяет конфиг (`caddy validate`; при ошибке прежний `Caddyfile` возвращается, сайт не меняется), меняет папки местами и перезагружает Caddy. Предыдущая версия остаётся в `site.old`.
 8. **Проверка после выкладки:** открываются `https://pin.netami.app`, `/ru/`, `/privacy`, `/ru/privacy`, `/licenses`; `https://pin.netami.app/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, в страницах нет вставленных Cloudflare скриптов; с русским языком браузера `/` переходит на `/ru/`.
 
-Без прокси (серое облако, `A` на сервер) из `site/Caddyfile` убираются строки `import cloudflare_origin`: Caddy сам получит сертификат Let's Encrypt.
+Без прокси (серое облако, `A` на сервер) из `site/Caddyfile` убираются строки `tls`: Caddy сам получит сертификат Let's Encrypt.
 ## Открытые вопросы
 
 1. Ссылка «Support»: сейчас ведёт на `https://github.com/andmetoo/netami-pin-releases/issues/new/choose`. Почта на `netami.app` ([Р-9](decisions.md#р-9-распространение-windows)) — добавить, когда появится адрес.
