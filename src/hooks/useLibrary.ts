@@ -327,6 +327,13 @@ export function useLibrary(
       void refreshCatalog();
     });
     const offInvalidate = api.onLibraryInvalidated(() => {
+      // The library may have been replaced (a restore from a copy, NP-034):
+      // its bookmarks keep their ids with older revisions, and new ones take
+      // ids this list has already seen. What it remembers about them is void.
+      revisions.current.clear();
+      unread.current.clear();
+      pendingRef.current = {};
+      setPending({});
       eventVersion.current++;
       void refreshCatalog();
       void refresh();
