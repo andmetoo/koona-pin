@@ -1,5 +1,5 @@
 use crate::db::{self, Bookmark, DbState, Source};
-use crate::error::{CommandError, ErrorCode};
+use crate::error::{CommandError, ErrorCode, ErrorDetail};
 use crate::metadata;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,9 @@ pub struct CaptureError {
     pub status: u16,
     #[serde(skip)]
     pub ipc: ErrorCode,
+    /// What the interface says about it; the extension has its own words.
+    #[serde(skip)]
+    pub detail: Option<ErrorDetail>,
 }
 impl CaptureError {
     pub fn invalid(message: &str) -> Self {
@@ -48,6 +51,13 @@ impl CaptureError {
             message: message.into(),
             status: 400,
             ipc: ErrorCode::InvalidRequest,
+            detail: None,
+        }
+    }
+    fn invalid_url(detail: ErrorDetail, message: &str) -> Self {
+        Self {
+            detail: Some(detail),
+            ..Self::invalid(message)
         }
     }
     fn database(e: rusqlite::Error) -> Self {
@@ -56,23 +66,28 @@ impl CaptureError {
             message: e.to_string(),
             status: 500,
             ipc: crate::error::code_of(&e),
+            detail: None,
         }
     }
 }
 impl From<CaptureError> for CommandError {
     fn from(error: CaptureError) -> Self {
-        CommandError::new(error.ipc, error.message)
+        CommandError {
+            detail: error.detail,
+            ..CommandError::new(error.ipc, error.message)
+        }
     }
 }
 pub fn validate_url(raw: &str) -> Result<String, CaptureError> {
     let raw = raw.trim();
-    let parsed = Url::parse(raw).map_err(|_| CaptureError::invalid("Некорректная ссылка"))?;
+    let parsed = Url::parse(raw).map_err(|_| CaptureError::invalid_url(ErrorDetail::InvalidUrl, "Not a valid link"))?;
     if raw.len() > 8192
         || !matches!(parsed.scheme(), "http" | "https")
         || parsed.host_str().is_none()
     {
-        return Err(CaptureError::invalid(
-            "Поддерживаются только ссылки HTTP/HTTPS",
+        return Err(CaptureError::invalid_url(
+            ErrorDetail::UnsupportedUrl,
+            "Only HTTP and HTTPS links are supported",
         ));
     }
     Ok(raw.to_owned())
@@ -102,7 +117,7 @@ fn save_in(
         .as_ref()
         .is_some_and(|id| id.is_empty() || id.len() > 128)
     {
-        return Err(CaptureError::invalid("Некорректный request_id"));
+        return Err(CaptureError::invalid("Invalid request_id"));
     }
     if let Some(id) = &request.request_id {
         let receipt = tx
@@ -123,9 +138,10 @@ fn save_in(
             if saved_url != url {
                 return Err(CaptureError {
                     code: "request_id_conflict",
-                    message: "Этот request_id уже использован для другой ссылки".into(),
+                    message: "This request_id was already used for another link".into(),
                     status: 409,
                     ipc: ErrorCode::Conflict,
+                    detail: None,
                 });
             }
             let bookmark = db::get_bookmark_by_id(tx, bookmark_id)
@@ -426,6 +442,7 @@ mod tests {
     #[test]
     fn a_link_in_the_trash_comes_back_when_saved_but_not_by_an_import() {
         let c = database();
+        db::create_starter_collections(&c, &["Development".into()]).unwrap();
         let first = save(&c, &request("one"), Source::Chrome).unwrap();
         let id = first.bookmark_id;
         db::update_bookmark(

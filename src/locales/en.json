@@ -740,8 +740,48 @@
       "disk_full": "the disk is full",
       "read_only": "the library is read-only",
       "not_found": "the collection or bookmark no longer exists",
-      "conflict": "that name is taken"
+      "conflict": "that name is taken",
+      "invalid_request": "the request was not accepted",
+      "internal": "something went wrong ({{message}})",
+      "empty_tag": "the tag is empty",
+      "empty_collection_name": "the name is empty",
+      "empty_title": "the title is empty",
+      "bookmark_gone": "the bookmark no longer exists",
+      "not_in_trash": "the bookmark is not in the trash",
+      "invalid_url": "that is not a link",
+      "unsupported_url": "only http and https links can be saved",
+      "nothing_exported": "nothing has been exported yet",
+      "copy_gone": "the copy is no longer there",
+      "library_opening": "the library is still opening"
+    },
+    "code": {
+      "not_found": "It no longer exists — it may have been deleted meanwhile.",
+      "conflict": "That name is taken.",
+      "invalid_request": "The app did not accept this request.",
+      "internal": "Something went wrong: {{message}}"
+    },
+    "detail": {
+      "empty_tag": "Enter a tag.",
+      "empty_collection_name": "Enter a collection name.",
+      "empty_title": "The title can't be empty.",
+      "bookmark_gone": "This bookmark no longer exists.",
+      "not_in_trash": "This bookmark is not in the trash.",
+      "invalid_url": "That doesn't look like a link.",
+      "unsupported_url": "Only http:// and https:// links can be saved.",
+      "nothing_exported": "Nothing has been exported yet.",
+      "copy_gone": "This copy is no longer there.",
+      "library_opening": "The library is still opening. Try again in a few seconds."
     }
+  },
+  "tray": {
+    "open": "Open Netami Pin",
+    "quit": "Quit",
+    "tooltip": "Netami Pin — your link library"
+  },
+  "starter": {
+    "development": "Development",
+    "design": "Design & UI",
+    "reading": "Articles / To read"
   },
   "bulk": {
     "moved_one": "{{count}} bookmark moved to «{{name}}»",

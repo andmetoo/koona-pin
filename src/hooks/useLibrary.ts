@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import i18n from "../i18n";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
 import { isAfter, listTime, matchesFilters, mergeBookmark } from "../services/library";
@@ -205,7 +206,13 @@ export function useLibrary(
   }, []);
   useEffect(() => {
     alive.current = true;
-    void refreshCatalog();
+    // A new library gets its first collections in the interface's language;
+    // the app makes them once, any later call gets nothing (NP-085).
+    const starters = ["starter.development", "starter.design", "starter.reading"] as const;
+    void api
+      .createStarterCollections(starters.map((key) => i18n.t(key)))
+      .catch(() => [])
+      .then(() => refreshCatalog());
     return () => {
       alive.current = false;
       seq.current++;

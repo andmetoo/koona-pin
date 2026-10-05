@@ -52,6 +52,8 @@ export type { LinkFailure } from "./bindings/LinkFailure";
 export type { Replaced } from "./bindings/Replaced";
 export type { DomainCount } from "./bindings/DomainCount";
 export type { ErrorCode } from "./bindings/ErrorCode";
+export type { ErrorDetail } from "./bindings/ErrorDetail";
+export type { TrayLabels } from "./bindings/TrayLabels";
 export type { LibraryCounts } from "./bindings/LibraryCounts";
 export type { LibraryPlace } from "./bindings/LibraryPlace";
 export type { LibraryStatus } from "./bindings/LibraryStatus";
