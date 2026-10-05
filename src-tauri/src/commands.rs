@@ -721,10 +721,8 @@ pub async fn restore_library(
     mode: restore::RestoreMode,
 ) -> Result<RestoreOutcome, CommandError> {
     let backups = library.paths.backups.clone();
-    if mode == restore::RestoreMode::Replace {
-        app.state::<linkcheck::Checker>().abandon();
-    }
     let state = state.inner().clone();
+    let handle = app.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         let copy = match restore::check(&content) {
             Ok(copy) => copy,
@@ -736,6 +734,8 @@ pub async fn restore_library(
             Ok(summary) => {
                 if mode == restore::RestoreMode::Replace {
                     journal.clear();
+                    // Still under the lock: a link check writes nothing into the new library.
+                    handle.state::<linkcheck::Checker>().abandon();
                 }
                 Ok(RestoreOutcome::Restored { summary })
             }
@@ -1114,7 +1114,7 @@ pub async fn restore_backup(
         return Err(CommandError::new(ErrorCode::DatabaseBusy, "The library is still opening"));
     }
     let paths = library.paths.clone();
-    app.state::<linkcheck::Checker>().abandon();
+    let handle = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || match db {
         Some(db) => {
             let mut conn = db.conn.lock().map_err(CommandError::internal)?;
@@ -1123,6 +1123,8 @@ pub async fn restore_backup(
             if result.is_ok() {
                 // Its commands point at bookmarks of the replaced library.
                 journal.clear();
+                // Still under the lock: a link check writes nothing into the new library.
+                handle.state::<linkcheck::Checker>().abandon();
                 let tray = db::setting(&conn, "close_to_tray").map_or(true, |v| v == "true");
                 db.close_to_tray.store(tray, Ordering::Relaxed);
             }

@@ -13,6 +13,8 @@ import { Dot } from "../ui/Controls";
 import { Preview } from "./Bookmarks";
 
 type Group = "gone" | "moved" | "failed";
+/** How often a running check's results are read again. */
+const RUNNING_RELOAD_MS = 2000;
 const GROUPS: Group[] = ["gone", "moved", "failed"];
 
 /**
@@ -54,15 +56,30 @@ export function LinkCheckPage({
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(load, 150);
     };
+    // While a check runs, results are read again at most this often: the
+    // report holds every group, so once a second would be wasted on a big library.
+    let throttled = 0;
+    const soon = () => {
+      if (throttled) return;
+      throttled = window.setTimeout(() => {
+        throttled = 0;
+        load();
+      }, RUNNING_RELOAD_MS);
+    };
     // Progress moves the strip at once; written results are read again.
     const progress = (p: LinkCheckProgress) => {
       setReport((prev) => prev && { ...prev, state: p.state, done: p.done, total: p.total, eta_seconds: p.eta_seconds });
-      if (p.written || p.state !== "running") later();
+      if (p.state !== "running") {
+        window.clearTimeout(throttled);
+        throttled = 0;
+        later();
+      } else if (p.written) soon();
       if (p.error) onFailed(t("links.writeFailed", { reason: p.error }));
     };
     const offs = [api.onLinkCheck(progress), api.onBookmarkChanged(later), api.onBookmarksChanged(later), api.onLibraryInvalidated(later)];
     return () => {
       window.clearTimeout(timer.current);
+      window.clearTimeout(throttled);
       offs.forEach((off) => off());
     };
   }, [load, onFailed, t]);

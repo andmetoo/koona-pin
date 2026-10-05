@@ -21,7 +21,8 @@ use crate::db::{self, Bookmark, DbState};
 use crate::net_guard;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -156,7 +157,7 @@ impl Limits {
 /// What one request ended with.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Probe {
-    /// irst is the status of the first redirect, if any.
+    /// `first` is the status of the first redirect, if any.
     Answer { status: u16, last: Url, permanent: bool, first: Option<u16> },
     Local,
     NoSite,
@@ -268,13 +269,15 @@ fn verdict(item: &Item, probe: Probe) -> Checked {
 }
 
 /// How a run ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum End {
     Done,
     /// «Остановить»: requests in flight were dropped.
     Stopped,
     /// The connection is down; the failures of that streak are not reported.
     Offline,
+    /// The run could not start, with the reason.
+    Failed(String),
 }
 
 /// A run's progress: links done of all, in the first pass.
@@ -284,23 +287,36 @@ pub struct Step {
     pub total: usize,
 }
 
+/// Sites whose answer proves the connection works: those that answered in
+/// this run first, then `known` — ones that opened in earlier checks.
+const WITNESSES: usize = 3;
+
 /// Checks `items` and reports each result to `report` as it comes; a link
 /// tried again is reported after its second try. Returns at once when
-/// `stop` turns true.
+/// `stop` turns true. `known` are addresses that opened before: when many
+/// links in a row fail to connect, one of them is asked to tell a dead site
+/// from a dead connection.
 pub async fn run(
     items: Vec<Item>,
     limits: &Limits,
+    known: Vec<Url>,
     mut stop: watch::Receiver<bool>,
     mut report: impl FnMut(Step, Option<Checked>),
 ) -> End {
     let total = items.len();
     let mut done = 0;
-    let mut queue: VecDeque<(Item, Url, String)> = VecDeque::new();
+    // Links waiting, by site, and the sites free to go, by when they may.
+    let mut waiting: Waiting = HashMap::new();
+    let mut ready: BinaryHeap<Reverse<(Instant, u64, String)>> = BinaryHeap::new();
+    let mut order = 0u64;
+    let mut left = 0usize;
+    let start = Instant::now();
     for item in items {
         match Url::parse(item.url.trim()) {
             Ok(url) if url.host_str().is_some() => {
                 let site = url.host_str().unwrap_or_default().to_ascii_lowercase();
-                queue.push_back((item, url, site));
+                enqueue(&mut waiting, &mut ready, &mut order, item, url, site, start);
+                left += 1;
             }
             // Not a web address: nothing to request.
             _ => {
@@ -310,18 +326,19 @@ pub async fn run(
             }
         }
     }
-    let Ok(client) = client(limits) else {
-        return End::Stopped;
+    let client = match client(limits) {
+        Ok(client) => Arc::new(client),
+        Err(e) => return End::Failed(e.to_string()),
     };
-    let client = Arc::new(client);
-    let mut busy: HashSet<String> = HashSet::new();
-    let mut next_at: HashMap<String, Instant> = HashMap::new();
     let mut flight: JoinSet<(Item, Url, String, Probe)> = JoinSet::new();
     let mut again: Vec<(Item, Url, String)> = Vec::new();
     let mut second = false;
     // Network errors in a row and the sites they came from.
     let mut streak = 0;
     let mut streak_sites: HashSet<String> = HashSet::new();
+    // Of them, sites whose name does not resolve.
+    let mut streak_missing = 0;
+    let mut answered: VecDeque<Url> = VecDeque::new();
 
     loop {
         if *stop.borrow() {
@@ -330,28 +347,22 @@ pub async fn run(
         }
         // Start what may start: a free site whose pause is over.
         let now = Instant::now();
-        let mut wake: Option<Instant> = None;
         while flight.len() < limits.parallel {
-            let ready = queue.iter().position(|(_, _, site)| {
-                !busy.contains(site) && next_at.get(site).is_none_or(|at| *at <= now)
-            });
-            let Some(index) = ready else { break };
-            let (item, url, site) = queue.remove(index).expect("found above");
-            busy.insert(site.clone());
+            match ready.peek() {
+                Some(Reverse((at, _, _))) if *at <= now => {}
+                _ => break,
+            }
+            let Some(Reverse((_, _, site))) = ready.pop() else { break };
+            let Some((item, url)) = waiting.get_mut(&site).and_then(VecDeque::pop_front) else { continue };
+            left -= 1;
             let (client, limits) = (client.clone(), limits.clone());
             flight.spawn(async move {
                 let probe = probe(&client, &url, &limits).await;
                 (item, url, site, probe)
             });
         }
-        if flight.len() < limits.parallel {
-            wake = queue
-                .iter()
-                .filter(|(_, _, site)| !busy.contains(site))
-                .filter_map(|(_, _, site)| next_at.get(site).copied())
-                .min();
-        }
-        if flight.is_empty() && queue.is_empty() {
+        let wake = (flight.len() < limits.parallel).then(|| ready.peek().map(|Reverse((at, _, _))| *at)).flatten();
+        if flight.is_empty() && left == 0 {
             if second || again.is_empty() {
                 return End::Done;
             }
@@ -363,43 +374,98 @@ pub async fn run(
                 _ = tokio::time::sleep(limits.retry_after) => {}
             }
             second = true;
-            queue.extend(again.drain(..));
-            next_at.clear();
+            let now = Instant::now();
+            for (item, url, site) in again.drain(..) {
+                enqueue(&mut waiting, &mut ready, &mut order, item, url, site, now);
+                left += 1;
+            }
             continue;
         }
-        tokio::select! {
+        let finished = tokio::select! {
             _ = stop.wait_for(|stopped| *stopped) => {
                 flight.abort_all();
                 return End::Stopped;
             }
-            Some(joined) = flight.join_next(), if !flight.is_empty() => {
-                let Ok((item, url, site, probe)) = joined else { continue };
-                busy.remove(&site);
-                next_at.insert(site.clone(), Instant::now() + limits.per_site);
-                if probe.network() {
-                    streak += 1;
-                    streak_sites.insert(format!("{site}:{}", url.port_or_known_default().unwrap_or(0)));
-                    if streak >= limits.offline_after && streak_sites.len() >= 3 {
-                        flight.abort_all();
-                        return End::Offline;
+            Some(joined) = flight.join_next(), if !flight.is_empty() => match joined {
+                Ok(finished) => finished,
+                Err(_) => continue,
+            },
+            _ = async { tokio::time::sleep_until(wake.expect("guarded").into()).await }, if wake.is_some() => continue,
+        };
+        let (item, url, site, probe) = finished;
+        // The site may go again after its pause, if it has more.
+        if waiting.get(&site).is_some_and(|q| !q.is_empty()) {
+            order += 1;
+            ready.push(Reverse((Instant::now() + limits.per_site, order, site.clone())));
+        }
+        if probe.network() {
+            streak += 1;
+            streak_missing += usize::from(probe == Probe::NoSite);
+            streak_sites.insert(format!("{site}:{}", url.port_or_known_default().unwrap_or(0)));
+            if streak >= limits.offline_after && streak_sites.len() >= 3 {
+                // A dead site or a dead connection? Ask sites that answered before.
+                let witnesses: Vec<Url> = answered.iter().chain(known.iter()).take(WITNESSES).cloned().collect();
+                let online = if witnesses.is_empty() {
+                    // Nothing to ask: names that do not resolve say nothing about the connection.
+                    streak_missing == streak
+                } else {
+                    tokio::select! {
+                        _ = stop.wait_for(|stopped| *stopped) => {
+                            flight.abort_all();
+                            return End::Stopped;
+                        }
+                        online = answers(&client, &witnesses, limits) => online,
                     }
-                } else {
-                    streak = 0;
-                    streak_sites.clear();
+                };
+                if !online {
+                    flight.abort_all();
+                    return End::Offline;
                 }
-                if !second {
-                    done += 1;
-                }
-                if !second && probe.retry() {
-                    again.push((item, url, site));
-                    report(Step { done, total }, None);
-                } else {
-                    report(Step { done, total }, Some(verdict(&item, probe)));
-                }
+                streak = 0;
+                streak_missing = 0;
+                streak_sites.clear();
             }
-            _ = async { tokio::time::sleep_until(wake.expect("guarded").into()).await }, if wake.is_some() => {}
+        } else {
+            streak = 0;
+            streak_missing = 0;
+            streak_sites.clear();
+            if matches!(probe, Probe::Answer { .. }) && !answered.iter().any(|a| a.host_str() == url.host_str()) {
+                answered.push_front(url.clone());
+                answered.truncate(WITNESSES);
+            }
+        }
+        if !second {
+            done += 1;
+        }
+        if !second && probe.retry() {
+            again.push((item, url, site));
+            report(Step { done, total }, None);
+        } else {
+            report(Step { done, total }, Some(verdict(&item, probe)));
         }
     }
+}
+
+type Waiting = HashMap<String, VecDeque<(Item, Url)>>;
+
+/// Puts a link in its site's line; a site with nothing waiting becomes ready at `at`.
+fn enqueue(waiting: &mut Waiting, ready: &mut BinaryHeap<Reverse<(Instant, u64, String)>>, order: &mut u64, item: Item, url: Url, site: String, at: Instant) {
+    let queue = waiting.entry(site.clone()).or_default();
+    if queue.is_empty() {
+        *order += 1;
+        ready.push(Reverse((at, *order, site)));
+    }
+    queue.push_back((item, url));
+}
+
+/// Whether any of `witnesses` answers at all: the connection works.
+async fn answers(client: &reqwest::Client, witnesses: &[Url], limits: &Limits) -> bool {
+    for url in witnesses {
+        if matches!(probe(client, url, limits).await, Probe::Answer { .. }) {
+            return true;
+        }
+    }
+    false
 }
 
 // ---- The library: results, the report, replacing addresses.
@@ -514,15 +580,17 @@ pub struct LinkCheckReport {
 }
 
 fn results(conn: &Connection, outcome: &str) -> Result<Vec<CheckedLink>> {
-    let rows: Vec<(i64, Option<u16>, Option<String>, Option<String>, bool, String)> = conn
-        .prepare(&format!(
+    /// id, status, reason, target, conflict, checked_at.
+    type Row = (i64, Option<u16>, Option<String>, Option<String>, bool, String);
+    let rows: Vec<Row> = conn
+        .prepare(
             "SELECT b.id, l.status, l.reason, l.target,
                     l.target IS NOT NULL AND EXISTS (SELECT 1 FROM bookmarks t WHERE t.url = l.target),
                     l.checked_at
              FROM link_checks l JOIN bookmarks b ON b.id = l.bookmark_id
              WHERE b.deleted_at IS NULL AND l.url = b.url AND l.outcome = ?1
-             ORDER BY l.checked_at DESC, b.id"
-        ))?
+             ORDER BY l.checked_at DESC, b.id",
+        )?
         .query_map([outcome], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?
         .collect::<Result<_>>()?;
     let ids: Vec<i64> = rows.iter().map(|r| r.0).collect();
@@ -653,10 +721,18 @@ impl Checker {
         }
     }
 
-    /// The library is about to be replaced (NP-033, NP-034): stop, and write nothing more.
+    /// The library was just replaced (NP-033, NP-034); the caller still holds
+    /// its connection. The run stops, writes nothing more, and its state is
+    /// forgotten: it described the old library.
     pub fn abandon(&self) {
         self.abandoned.store(true, Ordering::SeqCst);
         self.stop();
+        if let Ok(mut last) = self.last.lock() {
+            *last = None;
+        }
+        if let Ok(mut scope) = self.scope.lock() {
+            *scope = None;
+        }
     }
 
     pub fn running(&self) -> bool {
@@ -684,10 +760,20 @@ impl Checker {
     }
 }
 
-/// What a run checks, and how many of the whole it had done before.
-fn plan(conn: &Connection, ids: Option<&[i64]>, resume: bool) -> Result<(Vec<Item>, usize)> {
+/// What a run checks, how many of the whole it had done before, and
+/// addresses that opened in earlier checks (witnesses of the connection).
+fn plan(conn: &Connection, ids: Option<&[i64]>, resume: bool) -> Result<(Vec<Item>, usize, Vec<Url>)> {
+    let known: Vec<Url> = conn
+        .prepare(
+            "SELECT b.url FROM link_checks l JOIN bookmarks b ON b.id = l.bookmark_id
+             WHERE l.outcome = 'ok' AND l.url = b.url AND b.deleted_at IS NULL
+             GROUP BY b.domain ORDER BY max(l.checked_at) DESC LIMIT 3",
+        )?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .filter_map(|url| url.ok().and_then(|url| Url::parse(&url).ok()))
+        .collect();
     if let Some(ids) = ids {
-        return Ok((chosen(conn, ids)?, 0));
+        return Ok((chosen(conn, ids)?, 0, known));
     }
     let since = match db::setting(conn, STARTED).optional()? {
         Some(since) if resume => since,
@@ -697,7 +783,52 @@ fn plan(conn: &Connection, ids: Option<&[i64]>, resume: bool) -> Result<(Vec<Ite
     let library: i64 = conn.query_row("SELECT count(*) FROM bookmarks WHERE deleted_at IS NULL", [], |r| r.get(0))?;
     let items = remaining(conn, &since)?;
     let before = (library as usize).saturating_sub(items.len());
-    Ok((items, before))
+    Ok((items, before, known))
+}
+
+/// Writes batches of results on its own thread, so the run never waits for
+/// the library (an import may hold it for seconds) and «Остановить» stays
+/// immediate. A failed write stops the run.
+struct Writer {
+    batches: std::sync::mpsc::Sender<Vec<Checked>>,
+    thread: std::thread::JoinHandle<std::result::Result<(), String>>,
+    /// Batches written so far: the section reads the results again when it grows.
+    written: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl Writer {
+    fn start(app: &AppHandle, state: Arc<DbState>, stop: watch::Sender<bool>) -> Writer {
+        let (batches, inbox) = std::sync::mpsc::channel::<Vec<Checked>>();
+        let written = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (count, app) = (written.clone(), app.clone());
+        let thread = std::thread::spawn(move || {
+            for batch in inbox {
+                let checker = app.state::<Checker>();
+                let conn = state.conn.lock().map_err(|e| e.to_string())?;
+                // Checked under the lock: a library replaced meanwhile gets nothing.
+                if checker.abandoned.load(Ordering::SeqCst) {
+                    continue;
+                }
+                if let Err(e) = save(&conn, &batch, &db::now()) {
+                    let _ = stop.send(true);
+                    return Err(e.to_string());
+                }
+                count.fetch_add(1, Ordering::SeqCst);
+            }
+            Ok(())
+        });
+        Writer { batches, thread, written }
+    }
+
+    /// Waits for every batch sent; the first failure, if any.
+    async fn finish(self) -> Option<String> {
+        drop(self.batches);
+        let thread = self.thread;
+        match tauri::async_runtime::spawn_blocking(move || thread.join()).await {
+            Ok(Ok(result)) => result.err(),
+            _ => Some("the writer of results stopped".to_string()),
+        }
+    }
 }
 
 /// Starts a check in the background: of `ids` («Проверить снова» on a
@@ -724,7 +855,7 @@ pub fn start(app: AppHandle, state: Arc<DbState>, ids: Option<Vec<i64>>, resume:
         scope.clone()
     };
     let planned = state.conn.lock().map_err(|e| e.to_string()).and_then(|conn| plan(&conn, ids.as_deref(), resume).map_err(|e| e.to_string()));
-    let (items, before) = match planned {
+    let (items, before, known) = match planned {
         Ok(planned) => planned,
         Err(error) => {
             if let Ok(mut run) = checker.run.lock() {
@@ -749,43 +880,46 @@ pub fn start(app: AppHandle, state: Arc<DbState>, ids: Option<Vec<i64>>, resume:
         checker.remember(&first);
         emit(&app, &first);
 
-        // Results are written in batches; a failed write stops the run.
+        // Results go to the writer in batches of 50, or once a second.
+        let writer = Writer::start(&app, state.clone(), stop);
         let mut pending: Vec<Checked> = Vec::new();
         let mut flushed = Instant::now();
         let mut shown = Instant::now();
-        let mut failure: Option<String> = None;
+        let mut seen = 0;
         let mut done = before;
-        let end = run(items, &Limits::PUBLIC, stopped, |step, checked| {
+        let end = run(items, &Limits::PUBLIC, known, stopped, |step, checked| {
             done = before + step.done;
             pending.extend(checked);
-            let flush = pending.len() >= 50 || (!pending.is_empty() && flushed.elapsed() > Duration::from_secs(1));
-            if flush && failure.is_none() && !checker.abandoned.load(Ordering::SeqCst) {
-                if let Err(e) = write(&state, &pending) {
-                    failure = Some(e);
-                    let _ = stop.send(true);
-                }
-                pending.clear();
+            if pending.len() >= 50 || (!pending.is_empty() && flushed.elapsed() > Duration::from_secs(1)) {
+                let _ = writer.batches.send(std::mem::take(&mut pending));
                 flushed = Instant::now();
             }
-            if flush || shown.elapsed() > Duration::from_millis(250) {
+            if shown.elapsed() > Duration::from_millis(250) {
                 shown = Instant::now();
-                let now = progress(done, RunState::Running, flush, None);
+                let written = writer.written.load(Ordering::SeqCst);
+                let now = progress(done, RunState::Running, written != seen, None);
+                seen = written;
                 checker.remember(&now);
                 emit(&app, &now);
             }
         })
         .await;
-        if failure.is_none() && !pending.is_empty() && !checker.abandoned.load(Ordering::SeqCst) {
-            failure = write(&state, &pending).err();
+        if !pending.is_empty() {
+            let _ = writer.batches.send(pending);
         }
-        if whole && end == End::Done && failure.is_none() {
+        let mut failure = writer.finish().await;
+        if let End::Failed(reason) = &end {
+            failure.get_or_insert_with(|| reason.clone());
+        }
+        let abandoned = checker.abandoned.load(Ordering::SeqCst);
+        if whole && end == End::Done && failure.is_none() && !abandoned {
             if let Ok(conn) = state.conn.lock() {
                 let _ = db::set_setting(&conn, FINISHED, &db::now());
                 let _ = conn.execute("DELETE FROM app_settings WHERE key = ?1", [STARTED]);
             }
         }
-        let state = match (end, &failure) {
-            (_, Some(_)) | (End::Stopped, _) => RunState::Stopped,
+        let state = match (&end, &failure) {
+            (_, Some(_)) | (End::Stopped, _) | (End::Failed(_), _) => RunState::Stopped,
             (End::Done, _) => RunState::Idle,
             (End::Offline, _) => RunState::Offline,
         };
@@ -794,8 +928,12 @@ pub fn start(app: AppHandle, state: Arc<DbState>, ids: Option<Vec<i64>>, resume:
                 *scope = None;
             }
         }
+        // After a replaced library the run belongs to nothing: it ends idle.
+        let state = if abandoned { RunState::Idle } else { state };
         let finished = progress(done, state, true, failure);
-        checker.remember(&finished);
+        if !abandoned {
+            checker.remember(&finished);
+        }
         if let Ok(mut run) = checker.run.lock() {
             *run = None;
         }
@@ -806,11 +944,6 @@ pub fn start(app: AppHandle, state: Arc<DbState>, ids: Option<Vec<i64>>, resume:
 
 fn emit(app: &AppHandle, progress: &LinkCheckProgress) {
     let _ = app.emit("link-check", progress);
-}
-
-fn write(state: &DbState, results: &[Checked]) -> std::result::Result<(), String> {
-    let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    save(&conn, results, &db::now()).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -865,10 +998,14 @@ mod tests {
     }
 
     async fn check(urls: &[String], limits: &Limits) -> (End, Vec<Checked>) {
+        check_with(urls, limits, Vec::new()).await
+    }
+
+    async fn check_with(urls: &[String], limits: &Limits, known: Vec<Url>) -> (End, Vec<Checked>) {
         let items = urls.iter().enumerate().map(|(i, url)| Item { id: i as i64, url: url.clone() }).collect();
         let (_stop, stopped) = watch::channel(false);
         let mut found = Vec::new();
-        let end = run(items, limits, stopped, |_, checked| found.extend(checked)).await;
+        let end = run(items, limits, known, stopped, |_, checked| found.extend(checked)).await;
         found.sort_by_key(|c| c.id);
         (end, found)
     }
@@ -1002,6 +1139,44 @@ mod tests {
         let (end, found) = check(&closed, &limits).await;
         assert_eq!(end, End::Offline);
         assert!(found.is_empty(), "{found:?}");
+        // A site that opened before is asked first; it does not answer either: offline.
+        let gone = TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port();
+        let witness = Url::parse(&format!("http://127.0.0.1:{gone}/")).unwrap();
+        let (end, found) = check_with(&closed, &limits, vec![witness]).await;
+        assert_eq!(end, End::Offline);
+        assert!(found.is_empty(), "{found:?}");
+    }
+
+    /// Many dead sites in a row are not a dead connection: a site that opened
+    /// before still answers, and names that do not resolve say nothing on their own.
+    #[tokio::test]
+    async fn dead_domains_in_a_row_are_not_offline() {
+        let dead: Vec<String> = (0..10).map(|i| format!("https://dead-{i}.invalid/")).collect();
+        let (end, found) = check(&dead, &TEST).await;
+        assert_eq!(end, End::Done);
+        assert_eq!(found.len(), 10);
+        assert!(found.iter().all(|c| c.reason == Some(Reason::NoSite)), "{found:?}");
+
+        // Refused connections, but the witness answers: the sites are down, not the connection.
+        let (port, hits) = server("127.0.0.1", |_, _| status(200));
+        let closed: Vec<String> = (2..12)
+            .map(|i| {
+                let address = format!("127.0.0.{i}");
+                let port = TcpListener::bind((address.as_str(), 0)).unwrap().local_addr().unwrap().port();
+                format!("http://{address}:{port}/")
+            })
+            .collect();
+        let limits = Limits { allow: any_loopback, connect_timeout: Duration::from_millis(500), ..TEST };
+        let witness = Url::parse(&format!("http://127.0.0.1:{port}/")).unwrap();
+        let (end, found) = check_with(&closed, &limits, vec![witness]).await;
+        assert_eq!(end, End::Done);
+        assert_eq!(found.len(), 10);
+        // Windows reports a refused loopback connection late: a timeout or a network error.
+        assert!(
+            found.iter().all(|c| c.outcome == Outcome::Failed && matches!(c.reason, Some(Reason::Network | Reason::Timeout))),
+            "{found:?}"
+        );
+        assert!(hits.load(Ordering::SeqCst) >= 1, "the witness was asked");
     }
 
     /// Acceptance 2: «Остановить» returns at once and drops what is in flight.
@@ -1018,7 +1193,7 @@ mod tests {
         let limits = Limits { timeout: Duration::from_secs(20), ..TEST };
         let reported = Arc::new(AtomicUsize::new(0));
         let counted = reported.clone();
-        let task = tokio::spawn(async move { run(items, &limits, stopped, move |_, c| { if c.is_some() { counted.fetch_add(1, Ordering::SeqCst); } }).await });
+        let task = tokio::spawn(async move { run(items, &limits, Vec::new(), stopped, move |_, c| { if c.is_some() { counted.fetch_add(1, Ordering::SeqCst); } }).await });
         tokio::time::sleep(Duration::from_millis(200)).await;
         let asked = Instant::now();
         stop.send(true).unwrap();
