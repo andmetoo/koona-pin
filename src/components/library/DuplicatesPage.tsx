@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Star } from "lucide-react";
+import { Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection, DuplicateGroup, MergeGroup, Merged } from "../../types";
 import { api } from "../../services/api";
@@ -264,7 +264,7 @@ function Row({
           <span className="text-subtle">{t("duplicates.noCollection")}</span>
         )}
       </span>
-      <span className="flex w-4 shrink-0">{b.is_favorite && <Icon icon={Star} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />}</span>
+      <span className="flex w-4 shrink-0">{b.is_favorite && <Icon icon={Heart} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />}</span>
       <span className="w-[120px] shrink-0 text-right text-xs text-subtle">{saved}</span>
     </button>
   );

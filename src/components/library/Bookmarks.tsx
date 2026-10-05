@@ -1,5 +1,5 @@
 import { memo, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
-import { Check, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Star, Tag as TagIcon, Trash2, Folder } from "lucide-react";
+import { Check, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
@@ -88,7 +88,7 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
     "separator",
     {
       id: "favorite",
-      icon: Star,
+      icon: Heart,
       label: b.is_favorite ? t("card.unfavorite") : t("card.favorite"),
       keys: "F",
       onSelect: () => actions.favorite(b),
@@ -287,7 +287,7 @@ export const BookmarkCard = memo(function BookmarkCard({
         </div>
         <div className={`absolute top-2.5 right-2 flex gap-1 ${revealed("card", menu.open)}`}>
           {b.deleted_at ? (
-            // Frame 25: in the trash the star gives way to «Восстановить».
+            // Frame 25: in the trash the heart gives way to «Восстановить».
             <button
               type="button"
               onClick={() => actions.restore(b)}
@@ -304,7 +304,7 @@ export const BookmarkCard = memo(function BookmarkCard({
               onClick={() => actions.favorite(b)}
               className={`${previewButton} rounded-full`}
             >
-              <Icon icon={Star} size={14} className={b.is_favorite ? "fill-accent text-accent" : ""} />
+              <Icon icon={Heart} size={14} className={b.is_favorite ? "fill-accent text-accent" : ""} />
             </button>
           )}
           {menu.trigger(`${previewButton} rounded-xl`)}
@@ -316,7 +316,7 @@ export const BookmarkCard = memo(function BookmarkCard({
         {b.deleted_at ? (
           <DaysLeft deletedAt={b.deleted_at} />
         ) : (
-          b.is_favorite && <Icon icon={Star} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />
+          b.is_favorite && <Icon icon={Heart} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />
         )}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
@@ -403,7 +403,7 @@ export const BookmarkRow = memo(function BookmarkRow({
           <button type="button" onClick={() => actions.open(b.url)} title={b.title} className="truncate text-left hover:text-accent">
             {b.title || b.url}
           </button>
-          {b.is_favorite && <Icon icon={Star} size={12} className="shrink-0 fill-accent text-accent" aria-label={t("card.isFavorite")} />}
+          {b.is_favorite && <Icon icon={Heart} size={12} className="shrink-0 fill-accent text-accent" aria-label={t("card.isFavorite")} />}
         </h2>
         <p className="flex min-w-0 items-center gap-1.5 text-xs">
           <SiteMark b={b} size={12} />
@@ -464,7 +464,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         ) : (
         <div className={`absolute right-0 flex gap-0.5 ${revealed("row", open)}`}>
           <RowAction label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")} aria-pressed={b.is_favorite} onClick={() => actions.favorite(b)}>
-            <Icon icon={Star} size={15} className={b.is_favorite ? "fill-accent text-accent" : ""} />
+            <Icon icon={Heart} size={15} className={b.is_favorite ? "fill-accent text-accent" : ""} />
           </RowAction>
           <RowAction
             label={t("card.moveTo")}

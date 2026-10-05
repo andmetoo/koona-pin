@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, ChevronDown, ChevronRight, Inbox, Link, Plus, Search, Star, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, ChevronDown, ChevronRight, Heart, Link, Plus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
@@ -11,7 +11,7 @@ import { AppSettings, BackupCopy, Bookmark, BulkChange, CaptureStatus, Collectio
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { useSelectionDrag } from "./hooks/useSelectionDrag";
-import { Icon, PinIcon } from "./components/icons";
+import { ClipIcon, Icon, InboxTray } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
 import { Hint, Kbd } from "./components/ui/Hint";
@@ -554,9 +554,9 @@ export function App() {
       };
     }
     if (filters.onlyTrash) return { icon: Trash2, title: t("empty.trash"), text: t("empty.trashHint"), actions: null };
-    if (filters.onlyInbox) return { icon: Inbox, title: t("empty.inbox"), text: t("empty.inboxHint"), actions: null };
+    if (filters.onlyInbox) return { icon: InboxTray, title: t("empty.inbox"), text: t("empty.inboxHint"), actions: null };
     if (filters.onlyFavorites)
-      return { icon: Star, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
+      return { icon: Heart, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
     if (collection)
       return {
         icon: Plus,
@@ -610,7 +610,7 @@ export function App() {
     ) : (
       <div className="mx-auto flex max-w-[480px] flex-col items-center gap-3 py-16 text-center">
         <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
-          {empty.icon ? <Icon icon={empty.icon} size={20} /> : <PinIcon size={22} />}
+          {empty.icon ? <Icon icon={empty.icon} size={20} /> : <Icon icon={ClipIcon} size={22} />}
         </span>
         <h2 className="text-xl font-semibold">{empty.title}</h2>
         <p className="text-sm text-muted">{empty.text}</p>
@@ -862,7 +862,7 @@ export function App() {
                     <Banner
                       tone="accent"
                       label={t("inbox.bannerLabel")}
-                      icon={<Icon icon={Inbox} size={18} />}
+                      icon={<Icon icon={InboxTray} size={18} />}
                       action={
                         <span className="flex shrink-0 items-center gap-3">
                           <Button variant="primary" onClick={openTriage}>

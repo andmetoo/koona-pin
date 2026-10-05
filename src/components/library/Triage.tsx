@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useId, useRef, useState } from "react";
-import { Check, Folder, Star, Trash2 } from "lucide-react";
+import { Check, Folder, Heart, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
 import { collectionColor } from "../../services/collections";
@@ -455,7 +455,7 @@ export function Triage({
                     onClick={() => void favorite()}
                     className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card transition-colors duration-150 hover:bg-hover"
                   >
-                    <Icon icon={Star} className={current.is_favorite ? "fill-accent text-accent" : "text-icon"} />
+                    <Icon icon={Heart} className={current.is_favorite ? "fill-accent text-accent" : "text-icon"} />
                     <KeyChip>F</KeyChip>
                   </button>
                 </div>

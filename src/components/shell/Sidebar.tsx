@@ -1,11 +1,11 @@
 import { ReactNode, useRef, useState } from "react";
-import { Copy, Inbox, Link, Plus, Settings, Star, Trash2, X } from "lucide-react";
+import { Copy, Heart, Link, Plus, Settings, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { statusColor, statusLabel } from "../../services/capture";
-import { Icon, LogoMark, PinIcon } from "../icons";
+import { ClipIcon, Icon, InboxTray, LogoMark } from "../icons";
 import { Dot } from "../ui/Controls";
 
 export interface SidebarProps {
@@ -86,15 +86,15 @@ export function Sidebar(props: SidebarProps) {
           onClick={props.onInbox}
         >
           <span className="relative">
-            <Icon icon={Inbox} />
+            <Icon icon={InboxTray} />
             {counts.inbox > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-accent" />}
           </span>
         </StripButton>
         <StripButton label={t("nav.all")} active={all} onClick={props.onAll}>
-          <PinIcon />
+          <Icon icon={ClipIcon} />
         </StripButton>
         <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites}>
-          <Icon icon={Star} />
+          <Icon icon={Heart} />
         </StripButton>
         <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash} drop={trashDrop && { ...trashDrop, danger: true }}>
           <Icon icon={Trash2} />
@@ -145,15 +145,15 @@ export function Sidebar(props: SidebarProps) {
       </div>
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
         <NavRow
-          icon={<Icon icon={Inbox} />}
+          icon={<Icon icon={InboxTray} />}
           label={t("nav.inbox")}
           badge={counts.inbox}
           active={inbox}
           onClick={props.onInbox}
         />
-        <NavRow icon={<PinIcon />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
+        <NavRow icon={<Icon icon={ClipIcon} />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
         <NavRow
-          icon={<Icon icon={Star} />}
+          icon={<Icon icon={Heart} />}
           label={t("nav.favorites")}
           count={counts.favorites}
           active={favorites}

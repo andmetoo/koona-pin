@@ -80,12 +80,9 @@ async function options(lang) {
 const font = async (name) =>
   `data:font/woff2;base64,${(await readFile(path.join(built.unpacked.chrome, "fonts", name))).toString("base64")}`;
 const [latin, cyrillic] = [await font("inter-latin-wght-normal.woff2"), await font("inter-cyrillic-wght-normal.woff2")];
-const mark = (size, color) => `
-  <svg width="${(size * 18) / 24}" height="${size}" viewBox="0 0 18 24" fill="none">
-    <path d="M0 121V30C0 21.7 2.93 14.6 8.79 8.79 14.6 2.93 21.7 0 30 0s15.4 2.93 21.2 8.79C57.1 14.6 60 21.7 60 30v11c10 8.67 10 17.5 0 26.5-10 8.67-10 17.5 0 26.5 10 9 10 18 0 27"
-      transform="translate(2.87 1) scale(0.1819)" stroke="${color}" stroke-width="${(2.73 * size) / 24}"
-      vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
+// On envy green the mascot has the cream body (design/brand/pin-spirit-flat, NP-081).
+const spirit = `data:image/svg+xml;base64,${(await readFile(path.resolve("design/brand/pin-spirit-flat/pin-spirit-cream.svg"))).toString("base64")}`;
+const mark = (size) => `<img src="${spirit}" width="${Math.round((size * 880) / 916)}" height="${size}" alt="">`;
 const fontFace = `
   @font-face { font-family: Inter; src: url("${latin}") format("woff2"); font-weight: 100 900; }
   @font-face { font-family: Inter; src: url("${cyrillic}") format("woff2"); font-weight: 100 900; unicode-range: U+0400-04FF; }
@@ -103,14 +100,14 @@ async function images() {
         body { width: 440px; height: 280px; background: #2f6b4f; color: #fffefa; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; gap: 18px; }
         .brand { display: flex; align-items: center; gap: 16px; font-size: 40px; font-weight: 600; letter-spacing: -0.5px; }
         p { font-size: 20px; color: #e2eee6; }
-        </style><div class="brand">${mark(52, "#fffefa")}netami pin</div><p>${tagline[lang]}</p>`);
+        </style><div class="brand">${mark(84)}netami pin</div><p>${tagline[lang]}</p>`);
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: path.join(out, lang, "promo-440x280.png") });
     }
     await page.setViewportSize({ width: 300, height: 300 });
     await page.setContent(`<style>${fontFace}
       body { width: 300px; height: 300px; background: #2f6b4f; display: grid; place-items: center; }
-      </style>${mark(180, "#fffefa")}`);
+      </style>${mark(240)}`);
     await page.screenshot({ path: path.join(out, "logo-300x300.png") });
   } finally {
     await browser.close();
