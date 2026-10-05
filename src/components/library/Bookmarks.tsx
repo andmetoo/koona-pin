@@ -112,6 +112,28 @@ function DaysLeft({ deletedAt, className = "" }: { deletedAt: string; className?
   );
 }
 
+/**
+ * The heart of a card or row (NP-086): always there, grey until the bookmark
+ * is a favorite, accent then; one click toggles it. A 13 px icon in a 24×24
+ * target, so `className` pulls the target into the line without making it
+ * taller. Ctrl and Shift clicks never reach it: the card selects instead.
+ */
+function FavoriteButton({ b, actions, className = "" }: { b: Bookmark; actions: BookmarkActions; className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      data-favorite
+      aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
+      aria-pressed={b.is_favorite}
+      onClick={() => actions.favorite(b)}
+      className={`flex size-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150 ${b.is_favorite ? "text-accent" : "text-faint hover:text-icon"} ${className}`}
+    >
+      <Icon icon={Heart} size={13} className={b.is_favorite ? "fill-accent" : ""} />
+    </button>
+  );
+}
+
 type Anchor = DOMRect | { x: number; y: number };
 
 /** A menu opened from a button, the context menu or `Shift F10`. */
@@ -286,8 +308,8 @@ export const BookmarkCard = memo(function BookmarkCard({
           <SelectBox b={b} selected={selected} actions={actions} className="size-[22px] rounded-sm" idle="border-subtle bg-card/90" />
         </div>
         <div className={`absolute top-2.5 right-2 flex gap-1 ${revealed("card", menu.open)}`}>
-          {b.deleted_at ? (
-            // Frame 25: in the trash the heart gives way to «Восстановить».
+          {/* Frame 25: in the trash «Восстановить»; the heart lives in the domain line (NP-086). */}
+          {b.deleted_at && (
             <button
               type="button"
               onClick={() => actions.restore(b)}
@@ -296,16 +318,6 @@ export const BookmarkCard = memo(function BookmarkCard({
               <Icon icon={RotateCcw} size={13} />
               {t("trash.restore")}
             </button>
-          ) : (
-            <button
-              type="button"
-              aria-label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")}
-              aria-pressed={b.is_favorite}
-              onClick={() => actions.favorite(b)}
-              className={`${previewButton} rounded-full`}
-            >
-              <Icon icon={Heart} size={14} className={b.is_favorite ? "fill-accent text-accent" : ""} />
-            </button>
           )}
           {menu.trigger(`${previewButton} rounded-xl`)}
         </div>
@@ -313,11 +325,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
         <SiteMark b={b} />
         <DomainButton b={b} actions={actions} className="min-w-0 flex-1" />
-        {b.deleted_at ? (
-          <DaysLeft deletedAt={b.deleted_at} />
-        ) : (
-          b.is_favorite && <Icon icon={Heart} size={13} className="fill-accent text-accent" aria-label={t("card.isFavorite")} />
-        )}
+        {b.deleted_at ? <DaysLeft deletedAt={b.deleted_at} /> : <FavoriteButton b={b} actions={actions} className="-my-[4.5px] -mr-[5.5px]" />}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
       <h2 className="line-clamp-2 h-[38px] text-md font-medium">
@@ -355,7 +363,7 @@ function RowAction({ label, onClick, children, ...rest }: { label: string; onCli
 
 export const ROW_HEIGHT = 60;
 
-/** List row 60 px: checkbox, thumbnail, text, tags, collection, date (frame 02). Memoized like the card. */
+/** List row 60 px: checkbox, thumbnail, text, tags, collection, heart, date (frame 02, NP-086). Memoized like the card. */
 export const BookmarkRow = memo(function BookmarkRow({
   bookmark: b,
   collections,
@@ -384,7 +392,7 @@ export const BookmarkRow = memo(function BookmarkRow({
       onContextMenu={menu.onContextMenu}
       onKeyDown={menu.onKeyDown}
       {...selectionClicks(b, actions)}
-      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl py-2 pr-3 pl-2 transition-colors duration-150 ${background} ${compact ? "grid-cols-[18px_64px_minmax(0,1fr)_120px_96px]" : "grid-cols-[18px_64px_minmax(0,1fr)_170px_120px_96px]"}`}
+      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl py-2 pr-3 pl-2 transition-colors duration-150 ${background} ${compact ? "grid-cols-[18px_64px_minmax(0,1fr)_120px_24px_96px]" : "grid-cols-[18px_64px_minmax(0,1fr)_170px_120px_24px_96px]"}`}
     >
       <div className={`flex ${revealed("row", open)}`}>
         <SelectBox b={b} selected={selected} actions={actions} className="size-[18px] rounded-xs" idle="border-faint bg-card" />
@@ -403,7 +411,6 @@ export const BookmarkRow = memo(function BookmarkRow({
           <button type="button" onClick={() => actions.open(b.url)} title={b.title} className="truncate text-left hover:text-accent">
             {b.title || b.url}
           </button>
-          {b.is_favorite && <Icon icon={Heart} size={12} className="shrink-0 fill-accent text-accent" aria-label={t("card.isFavorite")} />}
         </h2>
         <p className="flex min-w-0 items-center gap-1.5 text-xs">
           <SiteMark b={b} size={12} />
@@ -435,6 +442,8 @@ export const BookmarkRow = memo(function BookmarkRow({
         {collection && <span className="size-[7px] shrink-0 rounded-full" style={{ background: collectionColor(collection.id) }} />}
         <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
       </span>
+      {/* Its own column, so the hearts stand in a line as in the grid (NP-086, variant A); none in the trash. */}
+      {b.deleted_at ? <span /> : <FavoriteButton b={b} actions={actions} />}
       <div className="relative flex h-[27px] items-center justify-end">
         {b.deleted_at ? (
           <DaysLeft deletedAt={b.deleted_at} className={`transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${open ? "opacity-0" : ""}`} />
@@ -463,9 +472,6 @@ export const BookmarkRow = memo(function BookmarkRow({
           </div>
         ) : (
         <div className={`absolute right-0 flex gap-0.5 ${revealed("row", open)}`}>
-          <RowAction label={b.is_favorite ? t("card.unfavorite") : t("card.favorite")} aria-pressed={b.is_favorite} onClick={() => actions.favorite(b)}>
-            <Icon icon={Heart} size={15} className={b.is_favorite ? "fill-accent text-accent" : ""} />
-          </RowAction>
           <RowAction
             label={t("card.moveTo")}
             aria-haspopup="menu"
