@@ -3,6 +3,79 @@
   "extensionDescription": {
     "message": "Сохранение страницы одним нажатием в локальную библиотеку Netami Pin. Очередь работает, даже когда приложение закрыто."
   },
+  "menuSearch": { "message": "Найти ссылку" },
+  "commandSearch": { "message": "Найти ссылку в Netami Pin" },
+  "searchPlaceholder": { "message": "Поиск по ссылкам" },
+  "searchFilters": { "message": "Где искать" },
+  "searchKeys": { "message": "↑↓ · ↵ открыть · Shift ↵ здесь · Ctrl C копия" },
+  "searchOpenApp": { "message": "Открыть Netami Pin" },
+  "searchAll": { "message": "Все" },
+  "searchInbox": { "message": "Входящие" },
+  "searchFavorites": { "message": "Избранное" },
+  "searchOpen": { "message": "Открыть" },
+  "searchToday": { "message": "Сегодня" },
+  "searchRecent": { "message": "Недавно сохранённые" },
+  "searchMore": {
+    "message": "Показаны первые $COUNT$. Добавьте слово, чтобы сузить поиск.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "Пока ничего не сохранено" },
+  "searchEmptyLibraryText": { "message": "Нажмите кнопку Netami Pin на странице, чтобы сохранить её." },
+  "searchNothing": {
+    "message": "По «$QUERY$» ничего не нашлось",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "В «$PLACE$» по «$QUERY$» ничего не нашлось",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Разработка" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "В «$PLACE$» пока пусто",
+    "placeholders": { "place": { "content": "$1", "example": "Избранное" } }
+  },
+  "searchNothingText": { "message": "Попробуйте другое слово или ищите по всей библиотеке — корзина не ищется." },
+  "searchEverywhere": { "message": "Искать везде" },
+  "searchStarting": { "message": "Netami Pin запускается…" },
+  "searchMissingText": {
+    "message": "Поиск идёт по библиотеке Netami Pin на этом компьютере. Установите приложение — сохранённые ссылки пока ждут здесь."
+  },
+  "searchUpdateApp": { "message": "Обновите Netami Pin, чтобы искать" },
+  "searchUpdateAppText": { "message": "Эта версия Netami Pin сохраняет ссылки, но искать из браузера ещё не умеет. Сохранение работает." },
+  "searchUpdateButton": { "message": "Скачать обновление" },
+  "searchUpdateExtensionText": {
+    "message": "Расширение не подходит к Netami Pin. Обновите его на странице расширений браузера — сохранение работает."
+  },
+  "searchLibrary": { "message": "Библиотека не открылась" },
+  "searchLibraryText": { "message": "Откройте Netami Pin, чтобы узнать почему. Сохранённые ссылки пока ждут здесь." },
+  "searchUnavailable": { "message": "Netami Pin не ответил" },
+  "searchUnavailableText": { "message": "Попробуйте ещё раз через минуту." },
+  "searchCopied": { "message": "Ссылка скопирована" },
+  "shortcutHeading": { "message": "Сочетание клавиш" },
+  "shortcutText": { "message": "Открывает поиск по библиотеке." },
+  "shortcutNone": { "message": "Не задано" },
+  "shortcutChangeIn": {
+    "message": "Изменить в $BROWSER$",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ меняет сочетания расширений только на своей странице $PAGE$ — кнопка откроет её.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "Изменить" },
+  "shortcutPress": { "message": "Нажмите новое сочетание…" },
+  "shortcutCancel": { "message": "Esc — отмена. Нужен Ctrl или Alt, но не оба сразу." },
+  "shortcutInvalid": { "message": "Эта клавиша не подходит. Используйте Ctrl или Alt с буквой, цифрой или F1–F12." },
+  "shortcutSaved": { "message": "Сохранено." },
+  "shortcutRefused": {
+    "message": "Firefox не принял $SHORTCUT$. Попробуйте другое.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
   "menuOptions": { "message": "Настройки и очередь" },
   "actionTitle": { "message": "Сохранить страницу в Netami Pin" },
   "queueWaiting": {

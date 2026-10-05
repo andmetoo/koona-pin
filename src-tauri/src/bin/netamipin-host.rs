@@ -75,13 +75,15 @@ fn failure(code: &str, message: &str) -> Value {
 }
 
 fn relay(caller: Option<&str>, message: Value) -> Value {
-    let capture = message["type"] == "capture";
+    // What the person asked for starts the app: saving, searching from the
+    // popup (NP-082) and «Open Netami Pin». A hello does not open an app the
+    // user closed.
+    let starts = matches!(message["type"].as_str(), Some("capture" | "search" | "show"));
     let envelope = json!({ "caller": caller, "message": message });
     if let Ok(reply) = send(&envelope) {
         return reply;
     }
-    // Only a capture starts the app: a hello does not open an app the user closed.
-    if capture && start_app().is_ok() {
+    if starts && start_app().is_ok() {
         let started = Instant::now();
         while started.elapsed() < START_WAIT {
             thread::sleep(Duration::from_millis(50));

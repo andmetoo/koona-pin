@@ -175,8 +175,18 @@ const capture = (url, title) =>
 const waiting = () => run('return (await browser.storage.local.get("captureQueue")).captureQueue || [];');
 const status = () => run('return document.getElementById("status").dataset.state;');
 const reload = () => run("setTimeout(() => location.reload(), 0); return true;");
+// The page may be reloading (a reload, or the extension opening its settings
+// for host_missing): the button is waited for, not clicked blindly.
 const click = (label) =>
-  run("[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === arg).click(); return true;", label);
+  until(
+    () =>
+      run(
+        "const b = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === arg); if (!b) return false; b.click(); return true;",
+        label,
+      ).catch(() => false),
+    `button «${label}»`,
+    5000,
+  );
 
 try {
   const url = await until(() => output.match(/WebDriver BiDi listening on (ws:\/\/\S+)/)?.[1], "Firefox BiDi");
