@@ -19,12 +19,19 @@ const microSrc = await readFile(path.join(brand, "pin-spirit-micro.svg"), "utf8"
 const BODY = "#699A74", LINE = "#365E42", EYE = "#EEEBDC";
 const viewBox = microSrc.match(/viewBox="([^"]+)"/)[1];
 const [silhouette, ...eyes] = microSrc.match(/ d="([^"]+)"/)[1].split(/(?=M)/);
-const micro = (stroke) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">` +
-  `<path d="${silhouette}" fill="${BODY}" stroke="${LINE}" stroke-width="${stroke}" stroke-linejoin="round"/>` +
-  `<path d="${eyes.join("")}" fill="${EYE}"/></svg>`;
+// The source viewBox is tight (the silhouette touches its top and bottom), so it is widened
+// by half the outline on every side — otherwise the outline is cut off at the edges.
+const [vx, vy, vw, vh] = viewBox.split(/\s+/).map(Number);
+const micro = (stroke) => {
+  const pad = stroke / 2;
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${[vx - pad, vy - pad, vw + 2 * pad, vh + 2 * pad].map((n) => n.toFixed(2)).join(" ")}">` +
+    `<path d="${silhouette}" fill="${BODY}" stroke="${LINE}" stroke-width="${stroke.toFixed(2)}" stroke-linejoin="round"/>` +
+    `<path d="${eyes.join("")}" fill="${EYE}"/></svg>`
+  );
+};
 /** Outline ≈ 1.1 px at the target size; the viewBox is ~126 units wide. */
-const microAt = (size) => micro(((126 / size) * 1.1).toFixed(2));
+const microAt = (size) => micro((126 / size) * 1.1);
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
