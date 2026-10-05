@@ -57,7 +57,10 @@ const built = await buildExtension({ log: () => {} });
 await cp(built.unpacked[target.package], extension, { recursive: true });
 // Playwright does not expose toolbar clicks. Only the isolated test copy gets
 // a reference to the exact handler registered with chrome.action.onClicked.
-await appendFile(path.join(extension, "worker.js"), "\nglobalThis.__captureForTest = captureTab;\n");
+await appendFile(
+  path.join(extension, "worker.js"),
+  "\nglobalThis.__captureForTest = captureTab;\nglobalThis.__openSearchForTest = openSearch;\n",
+);
 // The click grants activeTab; without a click the test copy may script the
 // local test page (NP-080, the message on the page).
 const testManifest = path.join(extension, "manifest.json");
@@ -285,6 +288,37 @@ try {
   }
   assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 5);
 
+  // NP-082: the quick search. The popup's page opened as a tab talks to the
+  // app the same way; the shortcut is the browser's, the popup is set only
+  // for one opening.
+  const commands = await worker.evaluate(() => chrome.commands.getAll());
+  assert.equal(commands.find((c) => c.name === "quick-search")?.shortcut, "Alt+Shift+D");
+  await worker.evaluate(() => globalThis.__openSearchForTest());
+  assert.equal(await worker.evaluate(() => chrome.action.getPopup({})), "", "the button saves again after the search");
+  const search = await browser.newPage();
+  await search.goto(`chrome-extension://${id}/search.html`);
+  const results = search.locator("#results li");
+  await search.getByText("Недавно сохранённые").waitFor();
+  assert.equal(await results.count(), 5, "an empty query lists the latest saved");
+  await search.getByRole("button", { name: "Входящие 5" }).waitFor();
+  await search.locator("#query").fill("очереди");
+  await search.locator("#results li", { hasText: "Ждёт в очереди" }).waitFor();
+  await until(async () => (await results.count()) === 1, "one match");
+  await search.getByRole("button", { name: "Все 1" }).waitFor();
+  await search.locator("#query").fill("нет такого слова");
+  await search.getByText("По «нет такого слова» ничего не нашлось").waitFor();
+  await search.locator("#query").fill("Отклик");
+  await search.locator("#results li", { hasText: "Отклик" }).waitFor();
+  await search.screenshot({ path: path.join(directory, "search-results.png") });
+  // The page closes itself after opening, as the popup does; the new tab has the link.
+  const opened = () =>
+    worker.evaluate(async () =>
+      (await chrome.tabs.query({})).some((tab) => /^http:\/\/127\.0\.0\.1:\d+\/feedback$/.test(tab.pendingUrl || tab.url || "")),
+    );
+  await search.locator("#query").press("Enter");
+  await until(opened, "Enter opens the link in a new tab");
+  await search.close().catch(() => {});
+
   // The app keeps a record of this browser for its status.
   const connections = JSON.parse(rows("SELECT value FROM app_settings WHERE key='capture_connections'")[0].value);
   assert.ok(connections.browsers[target.source], `the app knows ${target.name}`);
@@ -304,7 +338,7 @@ try {
   console.log(`${target.name}: ${userAgent.match(/(Edg|Chrome)\/[\d.]+/g)?.join(" ")}; ${notes.join("; ") || "extension loaded over CDP"}`);
   console.log(`cold capture (app started by the host) ${coldMs} ms; alarm delivered the queued link in ${retryS} s`);
   console.log(
-    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record, save feedback on the button and the page`,
+    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record, save feedback on the button and the page, quick search`,
   );
 } finally {
   await browser?.close().catch(() => {});

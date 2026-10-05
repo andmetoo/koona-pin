@@ -40,6 +40,10 @@ export function manifest(browser, { dev = false, key } = {}) {
     // `scripting` with `activeTab`: the message after a click, on that tab only (NP-080, Р-39).
     permissions: ["activeTab", "scripting", "storage", "alarms", "nativeMessaging"],
     action: { default_title: "__MSG_actionTitle__", default_icon: icons },
+    // Quick search (NP-082, Р-40). Ctrl+Shift+D is the browsers' own «bookmark all tabs».
+    commands: {
+      "quick-search": { suggested_key: { default: "Alt+Shift+D" }, description: "__MSG_commandSearch__" },
+    },
     icons,
     options_ui: { page: "options.html", open_in_tab: true },
     content_security_policy: {
@@ -69,6 +73,8 @@ export function manifest(browser, { dev = false, key } = {}) {
     };
   return {
     ...common,
+    // «Find a link» in the button's menu (NP-082); Firefox has it as `menus`.
+    permissions: [...common.permissions, "contextMenus"],
     ...(dev && key ? { key } : {}),
     minimum_chrome_version: "120",
     background: { service_worker: "worker.js", type: "module" },
