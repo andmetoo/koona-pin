@@ -1,0 +1,354 @@
+/* Sheet «37 · Quick search» (iterone.sketch); tokens from doc/guidelines.md, as options.css. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(fonts/inter-cyrillic-wght-normal.woff2) format("woff2-variations");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url(fonts/inter-latin-wght-normal.woff2) format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+21B5, U+FEFF, U+FFFD;
+}
+:root {
+  color-scheme: light;
+  --bg: #faf9f6;
+  --card: #fffefa;
+  --ink: #2e302b;
+  --muted: #74746a;
+  --meta: #8a897f;
+  --subtle: #9a998e;
+  --line: #e8e6df;
+  --chip: #f2f1ec;
+  --hover: #ece9e2;
+  --accent: #2f6b4f;
+  --on-accent: #ffffff;
+  --accent-soft: #e2eee6;
+  --on-accent-soft: #1f4a36;
+  --danger-soft: #f6e4e1;
+  --on-danger-soft: #8f2c2c;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #22221f;
+    --card: #2b2b26;
+    --ink: #e9e6dc;
+    --muted: #a4a296;
+    --meta: #8c8a7f;
+    --subtle: #8c8a7f;
+    --line: #33332d;
+    --chip: #33332d;
+    --hover: #2b2b26;
+    --accent: #8fd0ae;
+    --on-accent: #1c1c19;
+    --accent-soft: #25352c;
+    --on-accent-soft: #8fd0ae;
+    --danger-soft: #3a2826;
+    --on-danger-soft: #e99797;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  width: 420px;
+  height: 520px;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  overflow: hidden;
+}
+p {
+  margin: 0;
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  margin: 12px 12px 0;
+  padding: 0 7px 0 11px;
+  border: 1.5px solid var(--accent);
+  border-radius: 9px;
+  background: var(--card);
+}
+.glass {
+  flex: none;
+  color: var(--muted);
+}
+#query {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+#query::placeholder {
+  color: var(--subtle);
+}
+kbd {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--chip);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+}
+.filters {
+  display: flex;
+  gap: 6px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.filters:empty {
+  min-height: 12px;
+  padding: 0;
+}
+.chip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--card);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--on-accent-soft);
+  font-weight: 600;
+}
+.dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 6px;
+}
+.section {
+  padding: 6px 10px 4px;
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  margin-bottom: 4px;
+  padding: 0 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+li[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+.tile {
+  display: grid;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.text {
+  flex: 1;
+  min-width: 0;
+}
+.title,
+.meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title {
+  font-weight: 500;
+}
+li[aria-selected="true"] .title {
+  color: var(--on-accent-soft);
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  color: var(--meta);
+  font-size: 12px;
+}
+.date {
+  flex: none;
+  color: var(--subtle);
+  font-size: 11px;
+}
+.more {
+  padding: 6px 10px 10px;
+  color: var(--subtle);
+  font-size: 11px;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 104px 24px 0;
+  text-align: center;
+}
+.empty .title {
+  white-space: normal;
+  font-size: 14px;
+}
+.empty .text {
+  max-width: 332px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.status .dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+}
+.skeleton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 10px;
+}
+.skeleton i {
+  display: block;
+  border-radius: 4px;
+  background: var(--chip);
+}
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+}
+.notice.danger {
+  border-color: transparent;
+  background: var(--danger-soft);
+  color: var(--on-danger-soft);
+}
+.notice .title {
+  white-space: normal;
+  font-weight: 600;
+}
+.notice .text {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.notice.danger .text {
+  color: inherit;
+}
+button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--chip);
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+button.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.notice.danger button {
+  background: var(--card);
+}
+button.link {
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 48px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+  color: var(--subtle);
+  font-size: 11px;
+}
+#keys {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+footer button {
+  flex: none;
+  white-space: nowrap;
+}

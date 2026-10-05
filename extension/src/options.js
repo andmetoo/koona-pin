@@ -1,5 +1,6 @@
 import { ext, t } from "./ext.js";
-import { appIsOlder } from "./native.js";
+import { appIsOlder, browserName } from "./native.js";
+import { shortcutFrom } from "./search-model.js";
 import { VERSION } from "./version.js";
 const get = (id) => document.getElementById(id);
 const DOWNLOAD = "https://pin.netami.app";
@@ -141,6 +142,60 @@ async function feedbackSwitches() {
     });
   }
 }
+/**
+ * «Keyboard shortcut» (NP-082, sheet 37). Chrome and Edge let only their own
+ * page change an extension's shortcut; Firefox lets the extension do it.
+ */
+const SEARCH_COMMAND = "quick-search";
+async function shortcutSection() {
+  const browser = browserName();
+  const keys = get("shortcut");
+  const change = get("shortcut-change");
+  const note = get("shortcut-note");
+  const show = async () => {
+    const shortcut = (await ext.commands.getAll()).find((c) => c.name === SEARCH_COMMAND)?.shortcut ?? "";
+    keys.replaceChildren(...(shortcut ? shortcut.split("+").map((key) => element("kbd", "", key)) : [element("span", "meta", t("shortcutNone"))]));
+  };
+  await show();
+  if (browser !== "firefox") {
+    const name = browser === "edge" ? "Edge" : "Chrome";
+    change.textContent = t("shortcutChangeIn", name);
+    note.textContent = t("shortcutNote", name, `${browser}://extensions/shortcuts`);
+    change.addEventListener("click", () => void ext.tabs.create({ url: `${browser}://extensions/shortcuts` }));
+    return;
+  }
+  change.textContent = t("shortcutChange");
+  let recording = false;
+  const stop = (message = "") => {
+    recording = false;
+    change.textContent = t("shortcutChange");
+    change.classList.remove("recording");
+    note.textContent = message;
+  };
+  change.addEventListener("click", () => {
+    recording = true;
+    change.textContent = t("shortcutPress");
+    change.classList.add("recording");
+    note.textContent = t("shortcutCancel");
+  });
+  change.addEventListener("keydown", async (event) => {
+    if (!recording) return;
+    event.preventDefault();
+    if (event.key === "Escape") return stop();
+    const shortcut = shortcutFrom(event);
+    if (!shortcut) {
+      if (!["Control", "Alt", "Shift", "Meta"].includes(event.key)) note.textContent = t("shortcutInvalid");
+      return;
+    }
+    try {
+      await ext.commands.update({ name: SEARCH_COMMAND, shortcut });
+      stop(t("shortcutSaved"));
+      await show();
+    } catch {
+      stop(t("shortcutRefused", shortcut));
+    }
+  });
+}
 // The service worker cannot ask the system about motion; this page can.
 const motion = matchMedia("(prefers-reduced-motion: reduce)");
 const saveMotion = () => ext.storage.local.set({ reducedMotion: motion.matches });
@@ -150,6 +205,7 @@ ext.storage.onChanged.addListener((changes) => {
 });
 translate();
 void feedbackSwitches();
+void shortcutSection();
 void saveMotion();
 void refreshQueue();
 void refreshStatus();

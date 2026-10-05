@@ -4,6 +4,79 @@
     "message": "Save the page to your local Netami Pin library in one click. Links wait in a queue while the app is closed."
   },
   "menuOptions": { "message": "Settings and queue" },
+  "menuSearch": { "message": "Find a link" },
+  "commandSearch": { "message": "Find a link in Netami Pin" },
+  "searchPlaceholder": { "message": "Search your links" },
+  "searchFilters": { "message": "Where to search" },
+  "searchKeys": { "message": "↑↓ · ↵ open · Shift ↵ here · Ctrl C copy" },
+  "searchOpenApp": { "message": "Open Netami Pin" },
+  "searchAll": { "message": "All" },
+  "searchInbox": { "message": "Inbox" },
+  "searchFavorites": { "message": "Favorites" },
+  "searchOpen": { "message": "Open" },
+  "searchToday": { "message": "Today" },
+  "searchRecent": { "message": "Recently saved" },
+  "searchMore": {
+    "message": "The first $COUNT$ are shown. Add a word to narrow the search.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "Nothing saved yet" },
+  "searchEmptyLibraryText": { "message": "Click the Netami Pin button on a page to save it." },
+  "searchNothing": {
+    "message": "Nothing found for “$QUERY$”",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "Nothing found for “$QUERY$” in $PLACE$",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "Nothing in $PLACE$ yet",
+    "placeholders": { "place": { "content": "$1", "example": "Favorites" } }
+  },
+  "searchNothingText": { "message": "Try another word, or search the whole library — the trash is never searched." },
+  "searchEverywhere": { "message": "Search everywhere" },
+  "searchStarting": { "message": "Starting Netami Pin…" },
+  "searchMissingText": {
+    "message": "Search goes to the Netami Pin library on this computer. Install the app — links you save wait here until then."
+  },
+  "searchUpdateApp": { "message": "Update Netami Pin to search" },
+  "searchUpdateAppText": { "message": "This Netami Pin saves links but can't search from the browser yet. Saving keeps working." },
+  "searchUpdateButton": { "message": "Download update" },
+  "searchUpdateExtensionText": {
+    "message": "This extension doesn't match Netami Pin. Update it on the browser's extension page — saving keeps working."
+  },
+  "searchLibrary": { "message": "The library didn't open" },
+  "searchLibraryText": { "message": "Open Netami Pin to see why. Links you save wait here until then." },
+  "searchUnavailable": { "message": "Netami Pin didn't answer" },
+  "searchUnavailableText": { "message": "Try again in a moment." },
+  "searchCopied": { "message": "Link copied" },
+  "shortcutHeading": { "message": "Keyboard shortcut" },
+  "shortcutText": { "message": "Opens the search over your library." },
+  "shortcutNone": { "message": "No shortcut" },
+  "shortcutChangeIn": {
+    "message": "Change in $BROWSER$",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ changes extension shortcuts only on its own page, $PAGE$: the button opens it.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "Change" },
+  "shortcutPress": { "message": "Press the new shortcut…" },
+  "shortcutCancel": { "message": "Esc to cancel. A shortcut needs Ctrl or Alt, not both." },
+  "shortcutInvalid": { "message": "This key can't be a shortcut. Use Ctrl or Alt with a letter, a digit or F1–F12." },
+  "shortcutSaved": { "message": "Saved." },
+  "shortcutRefused": {
+    "message": "Firefox didn't accept $SHORTCUT$. Try another.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
   "actionTitle": { "message": "Save page to Netami Pin" },
   "queueWaiting": {
     "message": "Netami Pin: $COUNT$ waiting to be sent. Open the settings to see the queue.",
