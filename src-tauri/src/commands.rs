@@ -233,12 +233,15 @@ pub async fn rebuild_search_index(
     let _ = app.emit("library-invalidated", ());
     Ok(count)
 }
-/// The link added by hand, and whether it came back from the trash.
+/// The link added by hand, and whether it came back from the trash or was
+/// in the library already. Either way the bookmark keeps its own fields:
+/// adding never overwrites what the person set.
 #[derive(Serialize, TS)]
 #[ts(export)]
 pub struct AddedLink {
     pub bookmark: Bookmark,
     pub restored: bool,
+    pub existing: bool,
 }
 #[tauri::command]
 pub async fn add_bookmark(
@@ -261,10 +264,10 @@ pub async fn add_bookmark(
     })
     .await?;
     capture::after_save(&app, state.inner().clone(), &saved);
-    let restored = saved.restored;
+    let (restored, existing) = (saved.restored, saved.outcome == "existing");
     saved
         .bookmark
-        .map(|bookmark| AddedLink { bookmark, restored })
+        .map(|bookmark| AddedLink { bookmark, restored, existing })
         .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Закладка больше не существует"))
 }
 #[derive(Deserialize, Default, TS)]
