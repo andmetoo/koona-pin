@@ -33,6 +33,9 @@ import {
   DuplicateGroup,
   MergeGroup,
   Merged,
+  LinkCheckProgress,
+  LinkCheckReport,
+  Replaced,
   PickedCopy,
   SaveCopyOutcome,
   Suggestion,
@@ -206,6 +209,14 @@ const desktop = {
   mergeDuplicates: (groups: MergeGroup[]) => call<Merged>("merge_duplicates", { groups }),
   dismissDuplicates: (key: string, ids: number[]) => call<number>("dismiss_duplicates", { key, ids }),
   undismissDuplicates: (key: string, ids: number[]) => call<number>("undismiss_duplicates", { key, ids }),
+  /** The section «Проверка ссылок» (NP-036): results and the run under way. */
+  getLinkCheck: () => call<LinkCheckReport>("get_link_check"),
+  /** In the background, reported by onLinkCheck; ids — only those, esume — go on with the one stopped. */
+  startLinkCheck: (ids: number[] | null, resume: boolean) => call<void>("start_link_check", { ids, resume }),
+  stopLinkCheck: () => call<void>("stop_link_check"),
+  /** «Заменить адрес»: one journal command for all of them. */
+  replaceAddresses: (ids: number[]) => call<Replaced>("replace_addresses", { ids }),
+  onLinkCheck: (callback: (progress: LinkCheckProgress) => void) => subscription("link-check", callback),
   getVersion: () => getVersion(),
 };
 export const api = isTauri() ? desktop : demo;

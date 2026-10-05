@@ -137,6 +137,9 @@ pub struct LibraryCounts {
     /// Groups of duplicates (NP-035): the sidebar and the menu «⋯». Counted
     /// by the command, not by [`get_counts`]: schemas before 5 have no key.
     pub duplicates: i64,
+    /// Links a check found broken or moved (NP-036): «Проверка ссылок N».
+    /// Counted by the command too: schemas before 6 have no results.
+    pub links: i64,
 }
 
 /// One pass: the trash is counted apart, every other count leaves it out.
@@ -159,6 +162,7 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 inbox_imported: r.get(4)?,
                 trash: r.get(5)?,
                 duplicates: 0,
+                links: 0,
             })
         },
     )

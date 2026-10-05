@@ -39,6 +39,9 @@ export interface ToolbarProps {
   /** Groups of duplicates (NP-035): the count of «Дубликаты» and the section. */
   duplicates: number;
   onDuplicates: () => void;
+  /** Links a check found broken or moved (NP-036): the count of «Проверка ссылок» and the section. */
+  links: number;
+  onLinks: () => void;
   onAdd: () => void;
 }
 
@@ -47,7 +50,6 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   const { t } = useTranslation();
   const more = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<DOMRect | null>(null);
-  const soon = t("common.soon");
   const viewButton = (mode: ViewMode, label: string, glyph: typeof List) => (
     <Hint label={label}>
       <button
@@ -132,7 +134,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
             "separator",
             { heading: t("more.cleanUp") },
             { id: "duplicates", icon: Copy, label: t("more.duplicates"), count: props.duplicates || undefined, onSelect: props.onDuplicates },
-            { id: "broken", icon: Unlink, label: t("more.brokenLinks"), disabled: true, disabledHint: soon },
+            { id: "links", icon: Unlink, label: t("more.links"), count: props.links || undefined, onSelect: props.onLinks },
           ]}
         />
       )}

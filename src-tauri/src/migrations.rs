@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 5;
+pub const SCHEMA_VERSION: i64 = 6;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -183,6 +183,23 @@ CREATE TABLE duplicates_dismissed (
 ) WITHOUT ROWID;
 ";
 
+/// Schema 6 (NP-036, Р-38): link check results. One row per bookmark, for the
+/// address it was made for (`url`): a bookmark whose address changes is
+/// unchecked again. Results are not exported: they say what a site answered
+/// on a day, not what the person saved.
+const SCHEMA_6: &str = "
+CREATE TABLE link_checks (
+    bookmark_id INTEGER PRIMARY KEY REFERENCES bookmarks(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    checked_at TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (outcome IN ('ok','gone','moved','failed','local')),
+    status INTEGER,
+    reason TEXT,
+    target TEXT
+);
+CREATE INDEX idx_link_checks_outcome ON link_checks(outcome) WHERE outcome IN ('gone','moved','failed');
+";
+
 /// Keys of the existing bookmarks, computed in Rust: the step must not need
 /// the SQL functions of `library::configure` (`validate()` runs without them).
 fn url_keys(tx: &Transaction) -> HookResult {
@@ -232,6 +249,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up(SCHEMA_3),
         M::up(SCHEMA_4),
         M::up_with_hook(SCHEMA_5, url_keys),
+        M::up(SCHEMA_6),
     ]
 }
 

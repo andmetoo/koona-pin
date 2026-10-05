@@ -28,6 +28,7 @@ import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { DuplicatesPage } from "./components/library/DuplicatesPage";
+import { LinkCheckPage } from "./components/library/LinkCheckPage";
 import { mergedNotice } from "./services/duplicates";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
@@ -83,10 +84,14 @@ export function App() {
   const wide = useMedia(WIDE);
   const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "list"], "grid"));
   const [filters, setFilters] = useState(initialFilters);
-  const [page, setPage] = useState<"library" | "settings" | "duplicates">("library");
+  const [page, setPage] = useState<"library" | "settings" | "duplicates" | "links">("library");
+  const pageRef = useRef(page);
+  pageRef.current = page;
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const library = useLibrary(filters, scrollRef);
+  const libraryRef = useRef(library);
+  libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
   /** Inbox triage (NP-025) and the filters to go back to when it ends. */
   const [triage, setTriage] = useState<FilterState | null>(null);
@@ -213,6 +218,31 @@ export function App() {
     };
   }, []);
   useEffect(() => {
+    // A link check runs in the background (NP-036): written results change the
+    // sidebar count; its end is announced when the section is not open.
+    let running = false;
+    let timer = 0;
+    const off = api.onLinkCheck((progress) => {
+      if (progress.written) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => void libraryRef.current.refreshCatalog(), 500);
+      }
+      if (progress.state === "running") running = true;
+      else if (running) {
+        running = false;
+        if (progress.state === "idle" && pageRef.current !== "links")
+          void api.getCounts().then((counts) => {
+            if (counts.links > 0)
+              setNotice({ text: t("links.finished", { count: counts.links }), alert: false, long: true, show: () => openLinksRef.current() });
+          });
+      }
+    });
+    return () => {
+      off();
+      window.clearTimeout(timer);
+    };
+  }, [t]);
+  useEffect(() => {
     if (!isTauri()) return;
     // The background integrity check reports damage after the start.
     const apply = (status: LibraryStatus) => {
@@ -275,6 +305,14 @@ export function App() {
     setEditing(null);
     setPage("duplicates");
   };
+  /** The section «Проверка ссылок» (NP-036): from the sidebar or the menu «⋯». */
+  const openLinks = () => {
+    setTriage(null);
+    setEditing(null);
+    setPage("links");
+  };
+  const openLinksRef = useRef(openLinks);
+  openLinksRef.current = openLinks;
   /** «Закончить» `Esc`: back where triage was opened. */
   const finishTriage = () => {
     if (!triage) return;
@@ -714,6 +752,8 @@ export function App() {
           setPage("settings");
         }}
         onDuplicates={openDuplicates}
+        linksOpen={page === "links"}
+        onLinks={openLinks}
         onConnect={() => setSurface("connect")}
         onNewCollection={() => setSurface("collection")}
         onDeleteCollection={setDeletingCollection}
@@ -777,6 +817,14 @@ export function App() {
                 }
                 onFailed={sayAlert}
               />
+            ) : page === "links" ? (
+              <LinkCheckPage
+                collections={library.collections}
+                padding={padding}
+                onOpen={actions.open}
+                onDone={(text, alert, command) => setNotice({ text, alert, undo: alert ? undefined : undoing(command) })}
+                onFailed={sayAlert}
+              />
             ) : triage ? (
               <Triage
                 collections={library.collections}
@@ -810,6 +858,8 @@ export function App() {
                     onRestore={() => setSurface("restore")}
                     duplicates={library.counts.duplicates}
                     onDuplicates={openDuplicates}
+                    links={library.counts.links}
+                    onLinks={openLinks}
                     onAdd={() => setSurface("add")}
                   />
                   {capture?.state === "failing" && (
