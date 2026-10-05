@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode},
-    backup, dedupe, export, import, restore,
+    backup, dedupe, export, import, linkcheck, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -442,6 +442,7 @@ pub async fn get_counts(state: State<'_, Arc<DbState>>) -> Result<LibraryCounts,
     blocking(&state, |conn| {
         let mut counts = db::get_counts(conn).map_err(text)?;
         counts.duplicates = dedupe::count(conn).map_err(text)?;
+        counts.links = linkcheck::count(conn).map_err(text)?;
         Ok(counts)
     })
     .await
@@ -514,6 +515,75 @@ pub async fn dismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids
 pub async fn undismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
     blocking(&state, move |conn| dedupe::undismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await
 }
+/// The section «Проверка ссылок» (NP-036, sheet 35).
+#[tauri::command]
+pub async fn get_link_check(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<linkcheck::LinkCheckReport, CommandError> {
+    blocking(&state, move |conn| app.state::<linkcheck::Checker>().report(conn).map_err(text)).await
+}
+
+/// «Проверить 1 248 ссылок», «Проверить снова», «Продолжить», «Повторить»:
+/// the check runs in the background and reports through `link-check`. With
+/// `ids`, only those bookmarks; `resume` goes on with the check stopped.
+#[tauri::command]
+pub async fn start_link_check(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    ids: Option<Vec<i64>>,
+    resume: bool,
+) -> Result<(), CommandError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || linkcheck::start(app, state, ids, resume))
+        .await
+        .map_err(CommandError::internal)?
+        .map_err(|e| CommandError::new(ErrorCode::DatabaseError, e))
+}
+
+/// «Остановить»: at once; what was found stays.
+#[tauri::command]
+pub fn stop_link_check(checker: State<'_, linkcheck::Checker>) {
+    checker.stop();
+}
+
+/// What «Заменить адрес» and «Заменить все» did.
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct Replaced {
+    pub replaced: u32,
+    /// Not replaced: the new address is already saved, or the result no longer holds.
+    pub skipped: u32,
+    /// The new address, when one bookmark changed: the notice names its site.
+    pub address: Option<String>,
+    pub command: Option<i64>,
+}
+
+/// Each moved bookmark takes the address its page moved to: one transaction
+/// and one command of the journal, so `Ctrl Z` takes it all back.
+#[tauri::command]
+pub async fn replace_addresses(app: AppHandle, state: State<'_, Arc<DbState>>, ids: Vec<i64>) -> Result<Replaced, CommandError> {
+    let state = state.inner().clone();
+    let (replaced, changed) = tauri::async_runtime::spawn_blocking(move || {
+        let conn = state.conn.lock().map_err(CommandError::internal)?;
+        let mut journal = state.journal.lock().map_err(CommandError::internal)?;
+        let mut skipped = 0;
+        let (changed, command) = journal.record(&conn, Action::Replace, &ids, |conn| {
+            linkcheck::replace(conn, &ids).map(|(changed, s)| {
+                skipped = s;
+                changed
+            })
+        })?;
+        let address = match changed.as_slice() {
+            [one] => Some(one.url.clone()),
+            _ => None,
+        };
+        let replaced = Replaced { replaced: changed.len() as u32, skipped: skipped as u32, address, command };
+        Ok::<_, CommandError>((replaced, changed))
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    capture::emit_many(&app, &changed);
+    Ok(replaced)
+}
+
 #[tauri::command]
 pub fn open_url_external(app: AppHandle, url: String) -> Result<(), CommandError> {
     let url = capture::validate_url(&url).map_err(CommandError::from)?;
@@ -652,6 +722,7 @@ pub async fn restore_library(
 ) -> Result<RestoreOutcome, CommandError> {
     let backups = library.paths.backups.clone();
     let state = state.inner().clone();
+    let handle = app.clone();
     let outcome = tauri::async_runtime::spawn_blocking(move || {
         let copy = match restore::check(&content) {
             Ok(copy) => copy,
@@ -663,6 +734,8 @@ pub async fn restore_library(
             Ok(summary) => {
                 if mode == restore::RestoreMode::Replace {
                     journal.clear();
+                    // Still under the lock: a link check writes nothing into the new library.
+                    handle.state::<linkcheck::Checker>().abandon();
                 }
                 Ok(RestoreOutcome::Restored { summary })
             }
@@ -1041,6 +1114,7 @@ pub async fn restore_backup(
         return Err(CommandError::new(ErrorCode::DatabaseBusy, "The library is still opening"));
     }
     let paths = library.paths.clone();
+    let handle = app.clone();
     let result = tauri::async_runtime::spawn_blocking(move || match db {
         Some(db) => {
             let mut conn = db.conn.lock().map_err(CommandError::internal)?;
@@ -1049,6 +1123,8 @@ pub async fn restore_backup(
             if result.is_ok() {
                 // Its commands point at bookmarks of the replaced library.
                 journal.clear();
+                // Still under the lock: a link check writes nothing into the new library.
+                handle.state::<linkcheck::Checker>().abandon();
                 let tray = db::setting(&conn, "close_to_tray").map_or(true, |v| v == "true");
                 db.close_to_tray.store(tray, Ordering::Relaxed);
             }
