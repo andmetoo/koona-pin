@@ -308,8 +308,21 @@ try {
     const otherId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, otherUrl);
     await sleep(1000);
     assert.notEqual(await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), otherId), "Эта ссылка уже есть в Netami Pin");
+    // An address the page rewrites itself (history.replaceState: tracking
+    // parameters dropped, an app's route) is asked about too: Chrome reports
+    // it as loading and complete, with no network load.
+    const rewrittenUrl = pageUrl.replace("/feedback", "/rewritten");
+    const rewritten = await browser.newPage();
+    await rewritten.goto(rewrittenUrl);
+    const rewrittenId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, rewrittenUrl);
+    await sleep(500);
+    await rewritten.evaluate(() => history.replaceState(null, "", "/feedback"));
+    await until(
+      async () => (await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), rewrittenId)) === "Эта ссылка уже есть в Netami Pin",
+      "a page rewritten to a saved address is marked",
+    );
     await worker.evaluate(() => chrome.storage.local.remove("feedback"));
-    await Promise.all([again.close(), other.close()]);
+    await Promise.all([again.close(), other.close(), rewritten.close()]);
   } finally {
     site.close();
   }
