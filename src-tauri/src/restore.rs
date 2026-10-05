@@ -166,6 +166,13 @@ pub fn check(text: &str) -> Result<JsonLibrary, RestoreProblem> {
         if b.domain.trim().is_empty() {
             b.domain = crate::metadata::extract_domain(&b.url);
         }
+        // The WebView loads pictures itself (NP-019): a copy must not point it
+        // at the user's computer or network. Only the picture goes.
+        for picture in [&mut b.image_url, &mut b.favicon_url] {
+            if picture.as_deref().is_some_and(|raw| !crate::net_guard::public_url(raw)) {
+                *picture = None;
+            }
+        }
         let bad_date = |value: &str| damaged(CopyItem::Bookmark, at, Damage::BadDate, value);
         b.created_at = time(&b.created_at).ok_or_else(|| bad_date(&b.created_at))?;
         b.updated_at = time(&b.updated_at).ok_or_else(|| bad_date(&b.updated_at))?;
@@ -445,6 +452,21 @@ mod tests {
         });
         assert!(matches!(check(&broken), Err(RestoreProblem::Damaged { item: CopyItem::File, damage: Damage::Structure, .. })));
         assert_eq!(everything(&c), before);
+    }
+
+    #[test]
+    fn pictures_at_local_addresses_are_dropped_and_the_bookmarks_stay() {
+        let mut copy: serde_json::Value = serde_json::from_str(&copy_of(&library())).unwrap();
+        copy["bookmarks"][0]["image_url"] = "http://192.168.1.1/cgi-bin/reboot".into();
+        copy["bookmarks"][0]["favicon_url"] = "https://example.com/favicon.ico".into();
+        copy["bookmarks"][1]["favicon_url"] = "http://localhost:8080/admin".into();
+        copy["bookmarks"][2]["image_url"] = "file:///C:/Windows/win.ini".into();
+        let checked = check(&copy.to_string()).unwrap();
+        let pictures = |i: usize| (checked.bookmarks[i].image_url.as_deref(), checked.bookmarks[i].favicon_url.as_deref());
+        assert_eq!(pictures(0), (None, Some("https://example.com/favicon.ico")));
+        assert_eq!(pictures(1).1, None);
+        assert_eq!(pictures(2).0, None);
+        assert_eq!(checked.bookmarks.len(), 7);
     }
 
     #[test]
