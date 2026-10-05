@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowUpFromLine, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Star, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { ArrowUpFromLine, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, ExportFormat, Tag } from "../../types";
 import { Icon } from "../icons";
@@ -56,7 +56,7 @@ export function SelectionBar({
   compact: boolean;
   /** The selection is in the trash. */
   trash: boolean;
-  /** Every selected bookmark has a star: the button takes it off. */
+  /** Every selected bookmark has a heart: the button takes it off. */
   allStarred: boolean;
   busy: boolean;
   collections: Collection[];
@@ -96,9 +96,9 @@ export function SelectionBar({
         { id: "move", icon: Folder, label: t("selection.move"), popover: "move", run: toggle("move") },
         { id: "tag", icon: TagIcon, label: t("selection.tag"), popover: "tag", run: toggle("tag") },
         allStarred
-          ? // Sheet 31: a filled star and «Из избранного», which keeps the bar 740 px wide; the name says it whole.
-            { id: "favorite", icon: Star, filled: true, label: t("selection.unfavorite"), name: t("selection.unfavoriteName"), run: () => actions.favorite(false) }
-          : { id: "favorite", icon: Star, label: t("selection.favorite"), run: () => actions.favorite(true) },
+          ? // Sheet 31: a filled heart and «Из избранного», which keeps the bar 740 px wide; the name says it whole.
+            { id: "favorite", icon: Heart, filled: true, label: t("selection.unfavorite"), name: t("selection.unfavoriteName"), run: () => actions.favorite(false) }
+          : { id: "favorite", icon: Heart, label: t("selection.favorite"), run: () => actions.favorite(true) },
         { id: "export", icon: ArrowUpFromLine, label: t("selection.export"), popover: "export", run: toggle("export") },
         { id: "trash", icon: Trash2, label: t("selection.trash"), keys: "Del", run: actions.trash },
       ];

@@ -1,41 +1,32 @@
-import type { LucideIcon, LucideProps } from "lucide-react";
+import { createLucideIcon, type LucideIcon, type LucideProps } from "lucide-react";
 
 // One outline set (doc/guidelines.md, «Иконки»): 16 px frame, 1.5 px stroke,
 // round caps. Icons follow Lucide geometry (ISC licence, lucide.dev).
 
-/** The bobby pin bent into an «n», from app-icon.svg (logo.sketch). */
-const PIN = "M0 121V30C0 21.7 2.93 14.6 8.79 8.79 14.6 2.93 21.7 0 30 0s15.4 2.93 21.2 8.79C57.1 14.6 60 21.7 60 30v11c10 8.67 10 17.5 0 26.5-10 8.67-10 17.5 0 26.5 10 9 10 18 0 27";
+/** «Inbox»: a tray with an arrow into it, as `Icon/Inbox` in iterone.sketch (16 grid × 1.5). */
+/**
+ * «All bookmarks»: the paperclip of the Pin Spirit (NP-081). Two loops ~2 px apart at 16 px,
+ * so it keeps the weight of the set (Lucide's three-wire clip clots at this size).
+ */
+export const ClipIcon = createLucideIcon("ClipIcon", [
+  ["path", { d: "M12.375 7.875V17.25a3 3 0 0 0 6 0V7.125a6.375 6.375 0 0 0-12.75 0v12", transform: "rotate(40 12 12)", key: "wire" }],
+]);
 
-/** «All bookmarks»: the brand mark in the icon stroke; narrow by design. */
-export function PinIcon({ size = 16, className }: { size?: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className} aria-hidden="true">
-      <path
-        d={PIN}
-        transform="translate(4.51 1.75) scale(0.1033)"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        vectorEffect="non-scaling-stroke"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+export const InboxTray = createLucideIcon("InboxTray", [
+  ["path", { d: "M12 2.625v7.125", key: "shaft" }],
+  ["path", { d: "m8.25 6 3.75 3.75L15.75 6", key: "head" }],
+  ["path", { d: "M2.625 13.875H7.5l1.5 2.25h6l1.5-2.25h4.875v4.5a3 3 0 0 1-3 3H5.625a3 3 0 0 1-3-3z", key: "tray" }],
+]);
 
-/** The logo mark, 18×24, stroke 2.73 as in the sidebar. */
-export function LogoMark({ className }: { className?: string }) {
+/** The Pin Spirit mark: silhouette with eye cut-outs (design/brand/pin-spirit-flat/pin-spirit-micro.svg). */
+const SPIRIT =
+  "M15.9 0.1C16.6 0.5 17 1.1 17.4 1.8C17.5 2 17.6 2.3 17.7 2.5C17.8 2.6 17.8 2.7 17.9 2.8C18.2 3.5 18.7 4.2 19.1 4.9C19.2 4.9 19.2 4.9 19.3 5.1C20.4 6.7 21.5 8.2 22.8 9.6C23 9.9 23.3 10.2 23.6 10.5C24.7 11.8 26 12.9 27.3 14C27.5 14.1 27.6 14.2 27.8 14.4C33.2 18.6 39.8 21.1 46.5 22.1C46.6 22.2 46.8 22.2 46.9 22.2C51 22.8 55.3 22.5 59.4 22.4C61.4 22.3 63.4 22.3 65.4 22.3C65.5 22.3 65.7 22.3 65.8 22.3C70.3 22.4 75 22.9 79.3 23.9C79.5 23.9 79.7 24 79.9 24C88.2 26 96.3 29.7 102.9 35.3C103.2 35.5 103.5 35.8 103.8 36C104.4 36.5 105 37.1 105.6 37.7C105.9 38 106.2 38.2 106.5 38.5C107.2 39.1 107.8 39.7 108.4 40.4C108.5 40.5 108.7 40.6 108.8 40.8C116.3 48.9 121.3 59.7 123 70.7C123 70.8 123 70.9 123.1 71C123.4 73 123.5 75 123.6 77C123.6 77.1 123.6 77.3 123.6 77.5C123.6 81.2 123.6 84.8 122.9 88.4C122.9 88.6 122.8 88.7 122.8 88.9C121.5 96.4 118 104 112.8 109.6C112.6 109.8 112.4 110 112.3 110.2C110.8 111.9 109.2 113.5 107.4 114.8C107.2 115 107 115.1 106.9 115.2C103.5 117.9 99.7 119.9 95.7 121.6C95.6 121.6 95.4 121.7 95.3 121.7C88.6 124.4 81.2 125.5 74.1 125.9C74 125.9 73.8 125.9 73.7 125.9C71.5 126 69.4 126.1 67.2 126.1C66.8 126.1 66.5 126.1 66.1 126.1C65.4 126.1 64.7 126.1 63.9 126.1C63.2 126.1 62.5 126.1 61.7 126.1C47.2 126.1 32.6 124.7 17.2 114C17.1 113.9 16.9 113.8 16.8 113.7C13.9 111.3 11.3 108.7 9.1 105.7C9 105.6 8.9 105.5 8.8 105.4C1.9 96-1.2 84.6 0.4 73C0.7 71.2 1.1 69.4 1.5 67.6C1.6 67.5 1.6 67.3 1.6 67.2C3 61.9 5.6 56.3 9.1 52.2C9.4 51.8 9.4 51.8 9.3 51.4C9 51 8.6 50.7 8.3 50.4C7.3 49.6 6.6 48.7 5.8 47.8C5.8 47.7 5.7 47.6 5.7 47.5C2.5 43.5 0.6 38.6 0.5 33.5C0.5 33.4 0.5 33.2 0.5 33C0.5 30.2 0.5 30.2 1.4 29.1C1.7 28.9 1.7 28.9 2.2 28.8C3 28.9 3.4 29.3 3.9 29.9C7.9 33.8 12.9 35.7 18.3 36.6C18.2 36.4 18 36.2 17.9 36C17.8 35.9 17.7 35.8 17.6 35.7C17.3 35.4 17.1 35.1 16.9 34.9C15.6 33.6 14.6 32.1 13.5 30.6C13.5 30.5 13.4 30.4 13.3 30.4C9.6 24.8 7.7 17.3 9 10.6C9.1 10.3 9.1 10 9.2 9.7C9.3 9.5 9.3 9.3 9.3 9C10.1 5.8 11.8 2.5 14.4 0.3C15 0 15.3-0.1 15.9 0.1ZM28.6 71.7C28.7 71.7 28.8 71.7 28.9 71.7C35 71.7 41.2 73.5 45.9 77.5C46 77.7 46.1 77.8 46.3 77.9C50.3 81.4 53.7 87 54.1 92.4C54.1 93.6 54.1 93.6 53.9 94C51.4 95.7 46.6 95.5 43.8 95.5C43.6 95.5 43.5 95.5 43.4 95.5C35.7 95.5 29 93 23.5 87.5C20.7 84.5 17.6 79.7 17.5 75.4C17.5 75.3 17.5 75.2 17.4 75C17.6 74.5 17.9 74.3 18.3 74C21.5 72.3 25 71.7 28.6 71.7ZM102.6 71.7C102.8 71.7 102.9 71.7 103 71.7C106.2 71.7 110.4 72 112.8 74.3C112.9 75.3 112.7 76.1 112.4 76.9C112.4 77.1 112.3 77.2 112.3 77.4C111.3 80.6 109.6 83.5 107.4 86C107.2 86.2 107.1 86.3 107 86.5C106.6 86.8 106.3 87.2 105.9 87.6C105.8 87.7 105.7 87.8 105.7 87.9C101.4 92.4 94.7 94.9 88.6 95.2C88.2 95.2 87.8 95.2 87.5 95.2C87.3 95.2 87.2 95.2 87 95.2C86.7 95.2 86.4 95.2 86.1 95.2C85.7 95.2 85.3 95.2 84.8 95.2C79 95.2 79 95.2 76.9 93.9C76.2 90.7 78.7 86.2 80.3 83.6C83.8 77.8 89.5 74.1 96 72.5C96.2 72.4 96.3 72.4 96.4 72.3C98.5 71.9 100.5 71.7 102.6 71.7Z";
+
+/** The logo mark in the sidebar: one colour (currentColor), 24 px. */
+export function LogoMark({ size = 24, className }: { size?: number; className?: string }) {
   return (
-    <svg width={18} height={24} viewBox="0 0 18 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d={PIN}
-        transform="translate(2.87 1) scale(0.1819)"
-        stroke="currentColor"
-        strokeWidth={2.73}
-        vectorEffect="non-scaling-stroke"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width={size} height={size} viewBox="-1.25 0 126.09 126.09" className={className} aria-hidden="true">
+      <path d={SPIRIT} fill="currentColor" fillRule="evenodd" />
     </svg>
   );
 }
