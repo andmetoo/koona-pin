@@ -40,6 +40,7 @@ import {
   SaveCopyOutcome,
   Suggestion,
   Tag,
+  TrayLabels,
   Undo,
 } from "../types";
 import { demo } from "./demo";
@@ -149,6 +150,8 @@ const desktop = {
       color: color ?? null,
       icon: icon ?? null,
     }),
+  /** A new library's first collections, named in the interface's language; once (NP-085). */
+  createStarterCollections: (names: string[]) => call<Collection[]>("create_starter_collections", { names }),
   deleteCollection: async (id: number) => {
     await call("delete_collection", { id });
     return true;
@@ -220,5 +223,7 @@ const desktop = {
   replaceAddresses: (ids: number[]) => call<Replaced>("replace_addresses", { ids }),
   onLinkCheck: (callback: (progress: LinkCheckProgress) => void) => subscription("link-check", callback),
   getVersion: () => getVersion(),
+  /** The tray menu and tooltip in the interface's language (NP-085). */
+  setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
 };
 export const api = isTauri() ? desktop : demo;

@@ -10,7 +10,7 @@
 //! `PRAGMA foreign_keys` cannot change inside the migration transaction, and
 //! dropping a parent table with them on deletes the children.
 
-use crate::{backup, db};
+use crate::backup;
 use rusqlite::{params, Connection, Transaction};
 use rusqlite_migration::{HookResult, Migrations, M};
 use std::path::{Path, PathBuf};
@@ -214,20 +214,14 @@ fn url_keys(tx: &Transaction) -> HookResult {
     Ok(())
 }
 
-/// What a new library starts with, created once: collections the user
-/// deletes never come back.
+/// What a new library starts with, created once. Its first collections wait
+/// for the interface to name them in its language (`starter_collections`,
+/// NP-085); libraries seeded before keep the ones they got.
 fn seed(tx: &Transaction) -> HookResult {
-    let now = db::now();
-    for (name, color, icon) in [
-        ("Разработка", "#6366f1", "code"),
-        ("Дизайн & UI", "#ec4899", "palette"),
-        ("Статьи / Читать", "#10b981", "book-open"),
-    ] {
-        tx.execute(
-            "INSERT INTO collections (uid, name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![db::new_uid(), name, color, icon, now],
-        )?;
-    }
+    tx.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('starter_collections', 'pending')",
+        [],
+    )?;
     let token = format!(
         "{}{}",
         uuid::Uuid::new_v4().simple(),
@@ -412,7 +406,9 @@ mod tests {
             .pragma_query_value(None, "application_id", |r| r.get(0))
             .unwrap();
         assert_eq!(id, APPLICATION_ID);
-        assert_eq!(db::get_collections(&conn).unwrap().len(), 3);
+        // No collection in any language until the interface names them (NP-085).
+        assert!(db::get_collections(&conn).unwrap().is_empty());
+        assert_eq!(db::setting(&conn, "starter_collections").unwrap(), "pending");
         assert_eq!(db::setting(&conn, "capture_token").unwrap().len(), 64);
         assert!(
             !paths.backups.exists(),
@@ -425,9 +421,36 @@ mod tests {
     }
 
     #[test]
+    fn starter_collections_are_named_by_the_interface_once() {
+        let paths = Paths::new(folder("starters").join("netamipin.db"));
+        let conn = library::open(&paths).unwrap().conn;
+        let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
+        let made = db::create_starter_collections(&conn, &names).unwrap();
+        assert_eq!(made.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), names);
+        assert_eq!(made[0].icon.as_deref(), Some("code"));
+        // A second call, another language or another start: nothing more.
+        let again = ["Разработка", "Дизайн", "Статьи"].map(String::from);
+        assert!(db::create_starter_collections(&conn, &again).unwrap().is_empty());
+        drop(conn);
+        let conn = library::open(&paths).unwrap().conn;
+        assert!(db::create_starter_collections(&conn, &again).unwrap().is_empty());
+        assert_eq!(db::get_collections(&conn).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_library_seeded_before_gets_no_starters() {
+        let (_folder, conn) = library_v1("old-starters", 0);
+        assert!(db::setting(&conn, "starter_collections").is_err());
+        let names = ["One", "Two", "Three"].map(String::from);
+        assert!(db::create_starter_collections(&conn, &names).unwrap().is_empty());
+    }
+
+    #[test]
     fn deleted_collections_do_not_come_back() {
         let paths = Paths::new(folder("collections-once").join("netamipin.db"));
         let conn = library::open(&paths).unwrap().conn;
+        let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
+        db::create_starter_collections(&conn, &names).unwrap();
         for c in db::get_collections(&conn).unwrap() {
             db::delete_collection(&conn, c.id).unwrap();
         }
