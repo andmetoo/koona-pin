@@ -44,6 +44,8 @@ pub enum Action {
     Restore,
     /// Duplicates merged into one (NP-035).
     Merge,
+    /// «Заменить адрес» after a link check (NP-036).
+    Replace,
 }
 
 /// What `undo` did.
@@ -69,6 +71,8 @@ pub enum Undo {
 /// The fields of a bookmark a person decides; the rest come from the page.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Fields {
+    /// «Заменить адрес» changes it (NP-036).
+    url: String,
     title: String,
     notes: Option<String>,
     is_favorite: bool,
@@ -86,6 +90,7 @@ impl From<&Bookmark> for Fields {
         let mut tags = b.tags.clone().unwrap_or_default();
         tags.sort();
         Fields {
+            url: b.url.clone(),
             title: b.title.clone(),
             notes: b.notes.clone(),
             is_favorite: b.is_favorite,
@@ -108,7 +113,8 @@ impl Change {
     /// Every field the command changed still holds what it wrote.
     fn holds(&self, now: &Fields) -> bool {
         let (b, a) = (&self.before, &self.after);
-        (b.title == a.title || now.title == a.title)
+        (b.url == a.url || now.url == a.url)
+            && (b.title == a.title || now.title == a.title)
             && (b.notes == a.notes || now.notes == a.notes)
             && (b.is_favorite == a.is_favorite || now.is_favorite == a.is_favorite)
             && (b.collection_id == a.collection_id || now.collection_id == a.collection_id)
@@ -121,7 +127,11 @@ impl Change {
     /// Writes back the fields the command changed, in place of what it wrote.
     fn rewind(&self, conn: &Connection) -> Result<()> {
         let (b, a) = (&self.before, &self.after);
-        let fields: [(&str, bool, Value); 7] = [
+        let moved = b.url != a.url;
+        let fields: [(&str, bool, Value); 10] = [
+            ("url", moved, b.url.clone().into()),
+            ("url_key", moved, crate::dedupe::url_key(&b.url).into()),
+            ("domain", moved, crate::metadata::extract_domain(&b.url).into()),
             ("title", b.title != a.title, b.title.clone().into()),
             ("notes", b.notes != a.notes, b.notes.clone().into()),
             (
@@ -271,6 +281,17 @@ fn put_back(conn: &Connection, command: &Command) -> Result<Undo> {
         let title = current.title.clone();
         if !change.holds(&current.into()) {
             return Ok(Undo::Conflict { action, title });
+        }
+        // The old address was saved again meanwhile: it cannot be taken twice.
+        if change.before.url != change.after.url {
+            let taken: bool = tx.query_row(
+                "SELECT EXISTS (SELECT 1 FROM bookmarks WHERE url=?1 AND id<>?2)",
+                rusqlite::params![change.before.url, change.id],
+                |r| r.get(0),
+            )?;
+            if taken {
+                return Ok(Undo::Conflict { action, title });
+            }
         }
         let moved = change.before.collection_id != change.after.collection_id;
         if let (true, Some(collection)) = (moved, change.before.collection_id) {
