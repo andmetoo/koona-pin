@@ -119,7 +119,7 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
     let (filter, params): (&str, Vec<String>) = match scope {
         Scope::Selected(ids) => (
             "WHERE b.id IN (SELECT value FROM json_each(?1))",
-            vec![serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?],
+            vec![db::id_list(ids)?],
         ),
         Scope::Library if with_trash => ("", Vec::new()),
         Scope::Library => ("WHERE b.deleted_at IS NULL", Vec::new()),

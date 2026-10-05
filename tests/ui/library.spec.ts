@@ -233,6 +233,12 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await expect(toast).toContainText("Возвращено из корзины во «Входящие»");
   await expect(nav("Корзина 0")).toBeVisible();
   await expect(nav("Входящие 3")).toBeVisible();
+  // Added once more: it is in the library already, and the notice says nothing changed.
+  await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
+  await page.getByLabel("Ссылка", { exact: true }).fill("https://type.today/ru");
+  await page.getByRole("button", { name: "Сохранить ссылку" }).click();
+  await expect(toast).toContainText("Эта ссылка уже есть в библиотеке, ничего не изменилось");
+  await expect(nav("Входящие 3")).toBeVisible();
 
   // An import leaves a link in the trash where it is and says so.
   await trashCard(3);

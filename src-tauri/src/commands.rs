@@ -233,12 +233,15 @@ pub async fn rebuild_search_index(
     let _ = app.emit("library-invalidated", ());
     Ok(count)
 }
-/// The link added by hand, and whether it came back from the trash.
+/// The link added by hand, and whether it came back from the trash or was
+/// in the library already. Either way the bookmark keeps its own fields:
+/// adding never overwrites what the person set.
 #[derive(Serialize, TS)]
 #[ts(export)]
 pub struct AddedLink {
     pub bookmark: Bookmark,
     pub restored: bool,
+    pub existing: bool,
 }
 #[tauri::command]
 pub async fn add_bookmark(
@@ -261,10 +264,10 @@ pub async fn add_bookmark(
     })
     .await?;
     capture::after_save(&app, state.inner().clone(), &saved);
-    let restored = saved.restored;
+    let (restored, existing) = (saved.restored, saved.outcome == "existing");
     saved
         .bookmark
-        .map(|bookmark| AddedLink { bookmark, restored })
+        .map(|bookmark| AddedLink { bookmark, restored, existing })
         .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Закладка больше не существует"))
 }
 #[derive(Deserialize, Default, TS)]
@@ -504,16 +507,21 @@ pub async fn merge_duplicates(
     Ok(merged)
 }
 
-/// «Не дубликаты»: the group is hidden until another twin arrives.
+/// «Не дубликаты»: the group is hidden until another twin arrives. No
+/// bookmark changes: `duplicates-changed` tells the count and the section.
 #[tauri::command]
-pub async fn dismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
-    blocking(&state, move |conn| dedupe::dismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await
+pub async fn dismiss_duplicates(app: AppHandle, state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
+    let hidden = blocking(&state, move |conn| dedupe::dismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await?;
+    let _ = app.emit("duplicates-changed", ());
+    Ok(hidden)
 }
 
-/// «Отменить» after «Не дубликаты».
+/// «Отменить» after «Не дубликаты»: the group is shown again.
 #[tauri::command]
-pub async fn undismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
-    blocking(&state, move |conn| dedupe::undismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await
+pub async fn undismiss_duplicates(app: AppHandle, state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
+    let shown = blocking(&state, move |conn| dedupe::undismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await?;
+    let _ = app.emit("duplicates-changed", ());
+    Ok(shown)
 }
 /// The section «Проверка ссылок» (NP-036, sheet 35).
 #[tauri::command]

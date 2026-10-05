@@ -55,7 +55,7 @@ export function DuplicatesPage({
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(load, 150);
     };
-    const offs = [api.onBookmarkChanged(later), api.onBookmarksChanged(later), api.onLibraryInvalidated(later)];
+    const offs = [api.onBookmarkChanged(later), api.onBookmarksChanged(later), api.onLibraryInvalidated(later), api.onDuplicatesChanged(later)];
     return () => {
       window.clearTimeout(timer.current);
       offs.forEach((off) => off());
@@ -82,12 +82,13 @@ export function DuplicatesPage({
   const hide = async (g: DuplicateGroup) => {
     const ids = g.bookmarks.map((b) => b.id);
     try {
+      // The section reads the groups again on `duplicates-changed`.
       await api.dismissDuplicates(g.key, ids);
       onHidden(g.key, ids);
     } catch (err) {
       onFailed(describeError(err));
+      load();
     }
-    load();
   };
 
   const saved = (iso: string) => {

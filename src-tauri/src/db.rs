@@ -272,8 +272,7 @@ pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
 
 /// Those of `ids` that exist, with their tags, in no particular order.
 pub fn get_bookmarks_by_ids(conn: &Connection, ids: &[i64]) -> Result<Vec<Bookmark>> {
-    let ids = serde_json::to_string(ids)
-        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let ids = id_list(ids)?;
     let mut items = conn
         .prepare(
             "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source
@@ -686,8 +685,7 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
 
 /// Tags of a whole page in one query.
 fn attach_tags(conn: &Connection, bookmarks: &mut [Bookmark]) -> Result<()> {
-    let ids = serde_json::to_string(&bookmarks.iter().map(|b| b.id).collect::<Vec<_>>())
-        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let ids = id_list(&bookmarks.iter().map(|b| b.id).collect::<Vec<_>>())?;
     let mut tags = std::collections::HashMap::<i64, Vec<String>>::new();
     let mut statement = conn.prepare(
         "SELECT bt.bookmark_id, t.name FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id
@@ -833,7 +831,7 @@ pub enum Bulk {
 }
 
 /// `ids` as the JSON array `json_each` reads.
-fn id_list(ids: &[i64]) -> Result<String> {
+pub(crate) fn id_list(ids: &[i64]) -> Result<String> {
     serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))
 }
 

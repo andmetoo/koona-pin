@@ -553,6 +553,7 @@
     "copyFailed": "Copying is unavailable. Select the text by hand.",
     "saved": "Changes saved",
     "linkSaved": "Link saved",
+    "linkExisting": "This link is already in the library; nothing changed",
     "moved": "Moved to «{{name}}»",
     "movedOut": "Removed from the collection",
     "deleted": "Deleted",

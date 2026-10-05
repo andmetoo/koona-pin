@@ -221,7 +221,6 @@ export function Triage({
       const changed = await run(b);
       record(kind, changed, advance, collection?.id ?? null);
       if (advance) notify(null);
-      if (kind === "tag") notify({ text: t("triage.tagAdded", { tag: changed.bookmark.tags?.at(-1) ?? "" }) });
     } catch (err) {
       const why = reason(err);
       const text =
@@ -252,8 +251,18 @@ export function Triage({
   const trash = () => decide("trash", (b) => api.trashBookmark(b.id), true);
   const file = (c: Collection) => decide("move", (b) => api.updateBookmark(b.id, { collection_id: c.id }), true, c);
   const favorite = () => decide("favorite", (b) => api.updateBookmark(b.id, { is_favorite: !b.is_favorite }), false);
+  // The notice names the tag added: the bookmark's tags come back in the
+  // library's order, not in the order they were added.
   const tag = (name: string) =>
-    decide("tag", (b) => api.updateBookmark(b.id, { tags: [...(b.tags ?? []).filter((t) => t !== name), name] }), false);
+    decide(
+      "tag",
+      async (b) => {
+        const changed = await api.updateBookmark(b.id, { tags: [...(b.tags ?? []).filter((t) => t !== name), name] });
+        notify({ text: t("triage.tagAdded", { tag: name }) });
+        return changed;
+      },
+      false,
+    );
   const edit = () => {
     if (!current) return;
     onEdit(current, {
