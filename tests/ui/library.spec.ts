@@ -502,6 +502,74 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
   await expect(offered).toHaveCount(0);
   await expect(chips.first()).toHaveText(/1\s*Дизайн/);
 });
+test("triage: the decisions keep their words at any width, a longer label goes compact (NP-084)", async ({ page }) => {
+  const row = page.locator("[data-fit]");
+  const label = row.locator("[data-label]");
+  /** The row inside its column, the words whole, no sideways scroll. */
+  const fits = () =>
+    row.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const inside = [...el.children].every((b) => {
+        const r = b.getBoundingClientRect();
+        return r.left >= box.left - 0.5 && r.right <= box.right + 0.5 && b.scrollWidth <= b.clientWidth;
+      });
+      const words = el.querySelector("[data-label]");
+      return {
+        inside,
+        overflow: el.scrollWidth > el.clientWidth || document.documentElement.scrollWidth > innerWidth,
+        words: !words || words.scrollWidth <= words.clientWidth,
+      };
+    });
+  const language = (code: string) =>
+    page.evaluate(async (code) => {
+      const { default: i18n } = await import("/src/i18n/index.ts");
+      await i18n.changeLanguage(code);
+    }, code);
+  await page.getByRole("region", { name: "Новые закладки" }).getByRole("button", { name: "Разобрать" }).click();
+  await expect(page.locator("[data-triage-card]")).toBeVisible();
+  // 1160 px is the reported window: 1740 px at 150 %, the «Только что» column beside the card.
+  for (const [code, words] of [
+    ["en", "Move to trash"],
+    ["ru", "В корзину"],
+  ]) {
+    await language(code);
+    for (const width of [800, 1100, 1160, 1600]) {
+      await page.setViewportSize({ width, height: width === 800 ? 550 : 800 });
+      await expect(label, `${code} ${width}`).toHaveText(words);
+      await expect(row).toHaveAttribute("data-fit", "0");
+      await expect.poll(fits, { message: `${code} ${width}` }).toEqual({ inside: true, overflow: false, words: true });
+    }
+  }
+  // A label half as long again: Keep and the heart stay in the row, the keys go first, then the words.
+  await page.evaluate(async () => {
+    const { default: i18n } = await import("/src/i18n/index.ts");
+    i18n.addResource("en", "translation", "triage.trash", "Move this one to the trash");
+  });
+  await language("en");
+  for (const width of [800, 1100, 1160, 1600]) {
+    await page.setViewportSize({ width, height: width === 800 ? 550 : 800 });
+    await expect(row.getByRole("button", { name: "Move this one to the trash" })).toBeVisible();
+    await expect.poll(fits, { message: `long ${width}` }).toEqual({ inside: true, overflow: false, words: true });
+  }
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await expect(row).toHaveAttribute("data-fit", "0");
+  await page.setViewportSize({ width: 1160, height: 800 });
+  await expect(row).not.toHaveAttribute("data-fit", "0");
+  // A wider window brings the words back.
+  await page.setViewportSize({ width: 1600, height: 800 });
+  await expect(row).toHaveAttribute("data-fit", "0");
+  await expect(label).toHaveText("Move this one to the trash");
+
+  // The keys work as before.
+  await page.setViewportSize({ width: 1160, height: 800 });
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/1 of 2/);
+  await page.keyboard.press("f");
+  await expect(row.getByRole("button", { name: "Remove from favorites" })).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/2 of 2/);
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
+});
 test("triage: Esc goes back where it was opened, the inbox always offers it", async ({ page }) => {
   await page.getByRole("button", { name: "Входящие 2", exact: true }).click();
   const banner = page.getByRole("region", { name: "Новые закладки" });
