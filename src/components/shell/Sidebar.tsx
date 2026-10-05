@@ -114,7 +114,7 @@ export function Sidebar(props: SidebarProps) {
           </StripButton>
         )}
         {links && (
-          <StripButton label={` `} active={linksOpen} onClick={props.onLinks}>
+          <StripButton label={`${t("nav.links")} ${counts.links}`} active={linksOpen} onClick={props.onLinks}>
             <span className="relative">
               <Icon icon={Unlink} />
               {counts.links > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-subtle" />}
