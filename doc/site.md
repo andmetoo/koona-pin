@@ -96,19 +96,22 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
 
 ## Выкладка
 
-Выкладывает владелец ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)). Нужны Caddy 2.7 или новее на сервере и доступ по SSH с `sudo`.
+Выкладывает владелец ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)). Сервер — Ubuntu в Oracle Cloud с Caddy 2.7+, домен за прокси Cloudflare (оранжевое облако), между Cloudflare и сервером — Cloudflare Origin Certificate в режиме «Full (strict)».
 
-1. **DNS:** запись `A` (и `AAAA`, если у сервера есть IPv6) для `pin.netami.app` на адрес сервера; для `www.pin.netami.app` — та же или `CNAME` на `pin.netami.app`. Порты 80 и 443 открыты: Caddy сам получает и продлевает сертификат.
-2. **Первый раз:** в главном конфиге сервера (`/etc/caddy/Caddyfile`) добавить строку `import /srv/pin.netami.app/Caddyfile`. Скрипт ниже кладёт `site/Caddyfile` в `/srv/pin.netami.app/Caddyfile`, файлы сайта — в `/srv/pin.netami.app/site`, лог — `/var/log/caddy/pin.netami.app.log` (без заголовков, параметров адреса и с обрезанным IP).
-3. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Netami Pin, `npm run site:shots`, закоммитить `site/src/shots`.
-4. **Обновления Firefox:** после `npm run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/firefox`; сборка сайта забирает их и сверяет хеши.
-5. **Выкладка:**
+1. **Сертификат сервера** (один раз, на 15 лет): Cloudflare → `netami.app` → SSL/TLS → Origin Server → Create Certificate, имена `pin.netami.app` и `*.pin.netami.app`. Сертификат и ключ — в `/etc/caddy/certs/pin.netami.app.pem` и `.key`, владелец `root:caddy`, права `640`. В репозиторий они не попадают.
+2. **Порт 443** открыт в Security List сети Oracle (VCN) и в `iptables` сервера (`netfilter-persistent save`). Можно открыть только для [адресов Cloudflare](https://www.cloudflare.com/ips/).
+3. **Подключение к Caddy** (один раз): в `/etc/caddy/Caddyfile` строка `import /srv/pin.netami.app/Caddyfile`; стандартный блок `:80` со страницей «Caddy works!» можно удалить. Скрипт ниже кладёт `site/Caddyfile` в `/srv/pin.netami.app/Caddyfile`, файлы сайта — в `/srv/pin.netami.app/site`, лог — `/var/log/caddy/pin.netami.app.log` (без заголовков и параметров адреса, IP обрезается).
+4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Выключены всё, что вставляет в страницы скрипты или ставит cookies: Web Analytics (автоматическая вставка), Email Address Obfuscation, Rocket Loader, Bot Fight Mode. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/` → `/ru/` зависит от языка браузера.
+5. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Netami Pin, `npm run site:shots`, закоммитить `site/src/shots`.
+6. **Обновления Firefox:** после `npm run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/firefox`; сборка сайта забирает их и сверяет хеши.
+7. **Выкладка:**
    ```powershell
    pwsh scripts/deploy-site.ps1 -Server user@host
    ```
-   Скрипт собирает сайт, копирует архив и `Caddyfile` по `scp`, распаковывает рядом со старой версией, проверяет конфиг (`caddy validate`), меняет папки местами и перезагружает Caddy (`systemctl reload caddy`). Предыдущая версия остаётся в `site.old`: откат — `sudo mv /srv/pin.netami.app/site.old /srv/pin.netami.app/site` после переименования текущей.
-6. **Проверка после выкладки:** открываются `https://pin.netami.app`, `/ru/`, `/privacy`, `/ru/privacy`, `/licenses`; `https://pin.netami.app/firefox/updates.json` отдаёт JSON; в инструментах разработчика нет запросов к другим доменам и cookies; с русским языком браузера `/` переходит на `/ru/`.
+   Скрипт собирает сайт, копирует архив и `Caddyfile` по `scp`, распаковывает рядом со старой версией, проверяет конфиг (`caddy validate`; при ошибке прежний `Caddyfile` возвращается, сайт не меняется), меняет папки местами и перезагружает Caddy. Предыдущая версия остаётся в `site.old`.
+8. **Проверка после выкладки:** открываются `https://pin.netami.app`, `/ru/`, `/privacy`, `/ru/privacy`, `/licenses`; `https://pin.netami.app/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, в страницах нет вставленных Cloudflare скриптов; с русским языком браузера `/` переходит на `/ru/`.
 
+Без прокси (серое облако, `A` на сервер) из `site/Caddyfile` убираются строки `import cloudflare_origin`: Caddy сам получит сертификат Let's Encrypt.
 ## Открытые вопросы
 
 1. Ссылка «Support»: сейчас ведёт на `https://github.com/andmetoo/netami-pin-releases/issues/new/choose`. Почта на `netami.app` ([Р-9](decisions.md#р-9-распространение-windows)) — добавить, когда появится адрес.

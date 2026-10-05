@@ -52,7 +52,7 @@ export const content = {
     ],
     footer: { privacy: "Privacy", licenses: "Licenses", support: "Support", note: "No cookies, no analytics." },
     back: "Netami Pin",
-    privacyPage: { title: "Privacy policy", updated: "Last updated 3 October 2026", section: "English" },
+    privacyPage: { title: "Privacy policy", updated: "Last updated 5 October 2026", section: "English" },
     licenses: {
       title: "Licenses",
       lead: "What this site is made of and under which terms.",
@@ -119,7 +119,7 @@ export const content = {
     ],
     footer: { privacy: "Приватность", licenses: "Лицензии", support: "Поддержка", note: "Без cookies и аналитики." },
     back: "Netami Pin",
-    privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 3 октября 2026 года", section: "Русский" },
+    privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 5 октября 2026 года", section: "Русский" },
     licenses: {
       title: "Лицензии",
       lead: "Из чего сделан этот сайт и на каких условиях.",
