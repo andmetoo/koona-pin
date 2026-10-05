@@ -1764,6 +1764,89 @@ test("editor: a failed save shows the reason and keeps everything typed", async 
   await expect(page.getByRole("status")).toContainText("Changes saved");
   await expect(page.locator('[data-bookmark-id="2"]')).toContainText("Silence and light");
 });
+test("the heart: one per card and row, seen without hover, one click, Ctrl Z, keyboard, Ctrl click selects (NP-086)", async ({ page }) => {
+  const favorites = page.getByRole("button", { name: /^Favorites \d/ });
+  const heart = (id: number) => page.locator(`[data-bookmark-id="${id}"] [data-favorite]`);
+  // Grid, no hover: one heart in each card, its state on it.
+  await page.mouse.move(0, 0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+  for (const id of [1, 2, 3, 4, 5, 6]) {
+    await expect(page.locator(`[data-bookmark-id="${id}"]`).getByRole("button", { name: /favorites/ })).toHaveCount(1);
+    await expect(heart(id)).toBeVisible();
+  }
+  await expect(heart(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(heart(4)).toHaveAttribute("aria-pressed", "false");
+  await expect(heart(4)).toHaveAccessibleName("Add to favorites");
+  await expect(favorites).toHaveText(/2$/);
+
+  // One click on and off; the count follows at once; Ctrl Z takes the last one back.
+  await heart(4).click();
+  await expect(heart(4)).toHaveAttribute("aria-pressed", "true");
+  await expect(heart(4)).toHaveAccessibleName("Remove from favorites");
+  await expect(favorites).toHaveText(/3$/);
+  await heart(4).click();
+  await expect(favorites).toHaveText(/2$/);
+  await page.keyboard.press("Control+z");
+  await expect(heart(4)).toHaveAttribute("aria-pressed", "true");
+  await expect(favorites).toHaveText(/3$/);
+  // The click opened nothing and selected nothing.
+  await expect(page.getByRole("toolbar", { name: "Selected bookmarks" })).toHaveCount(0);
+
+  // Ctrl click on the heart selects the card, as anywhere else on it.
+  await heart(5).click({ modifiers: ["Control"] });
+  await expect(page.getByRole("toolbar", { name: "Selected bookmarks" }).getByRole("status")).toHaveText("1 selected");
+  await expect(heart(5)).toHaveAttribute("aria-pressed", "false");
+  // A click on the heart keeps the selection, and on a selected card it is no drag, even with a shaky hand.
+  await heart(6).click({ modifiers: ["Control"] });
+  const selection = page.getByRole("toolbar", { name: "Selected bookmarks" }).getByRole("status");
+  await expect(selection).toHaveText("2 selected");
+  await heart(4).click();
+  await expect(heart(4)).toHaveAttribute("aria-pressed", "false");
+  await expect(selection).toHaveText("2 selected");
+  const box = (await heart(5).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 8, box.y + box.height / 2 + 3, { steps: 3 });
+  await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(heart(5)).toHaveAttribute("aria-pressed", "true");
+  await expect(selection).toHaveText("2 selected");
+  await heart(5).click();
+  await heart(4).click();
+  await expect(favorites).toHaveText(/3$/);
+  await page.keyboard.press("Escape");
+
+  // From the keyboard: Tab reaches it, Enter and Space toggle.
+  await heart(6).focus();
+  await page.keyboard.press("Enter");
+  await expect(heart(6)).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press(" ");
+  await expect(heart(6)).toHaveAttribute("aria-pressed", "false");
+  await page.locator('[data-bookmark-id="6"]').getByRole("button", { name: "Only bookmarks from are.na" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(heart(6)).toBeFocused();
+
+  // The list: the same heart in its own column, always there; not among the hover actions.
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  await expect(heart(2)).toBeVisible();
+  await heart(2).click();
+  await expect(heart(2)).toHaveAttribute("aria-pressed", "true");
+  await expect(favorites).toHaveText(/4$/);
+  await page.locator('[data-bookmark-id="3"]').hover();
+  await expect(page.locator('[data-bookmark-id="3"]').getByRole("button", { name: /favorites/ })).toHaveCount(1);
+
+  // Kept after a restart; in the trash there is no heart.
+  await page.reload();
+  await expect(favorites).toHaveText(/4$/);
+  await page.locator('[data-bookmark-id="5"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Move to trash" }).click();
+  await page.getByRole("button", { name: "Trash 1", exact: true }).click();
+  await expect(page.locator('[data-bookmark-id="5"]')).toBeVisible();
+  await expect(heart(5)).toHaveCount(0);
+  await page.getByRole("button", { name: "Grid", exact: true }).click();
+  await expect(heart(5)).toHaveCount(0);
+  await expect(page.locator('[data-bookmark-id="5"]')).toContainText("30 days left");
+});
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
   await page.getByRole("button", { name: "Browser not connected" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
