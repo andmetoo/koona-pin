@@ -1,0 +1,84 @@
+# pin.netami.app (NP-079, Р-37). Static files of `node scripts/build-site.mjs`, copied to
+# /srv/pin.netami.app (doc/site.md, «Выкладка»). Import it from the server's main Caddyfile:
+#   import /srv/pin.netami.app/Caddyfile
+# or paste the block there. Caddy gets and renews the HTTPS certificate itself.
+
+www.pin.netami.app {
+	redir https://pin.netami.app{uri} permanent
+}
+
+pin.netami.app {
+	root * /srv/pin.netami.app/site
+	encode zstd gzip
+
+	# The site loads nothing from other domains and runs no scripts (doc/site.md).
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	# First visit of "/" from a Russian browser goes to /ru/. The language switch is a link
+	# from this site (same-origin Referer), so a chosen English page stays English.
+	@russian {
+		path /
+		header_regexp Accept-Language (?i)^\s*ru\b
+		not header Referer https://pin.netami.app/*
+	}
+	redir @russian /ru/ 302
+	header / Vary "Accept-Language"
+
+	# Old .html addresses go to the clean ones.
+	@html path_regexp html ^(.+)\.html$
+	redir @html {re.html.1} 301
+
+	# Fonts, brand and screenshots change with their names only rarely; pages are always fresh.
+	@assets path /fonts/* /brand/* /shots/* /site.css
+	header @assets Cache-Control "public, max-age=604800"
+	header /*.html Cache-Control "no-cache"
+
+	# Firefox updates (NP-018): the address is inside the signed XPI.
+	header /firefox/updates.json {
+		Content-Type "application/json"
+		Cache-Control "no-cache"
+	}
+	@xpi path /firefox/*.xpi
+	header @xpi Content-Type "application/x-xpinstall"
+
+	try_files {path} {path}.html {path}/index.html
+	file_server
+
+	handle_errors 404 {
+		@ru path /ru/*
+		rewrite @ru /ru/404.html
+		rewrite * /404.html
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/pin.netami.app.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+		# No headers, query strings or full addresses in the log: the site promises not to track.
+		format filter {
+			wrap console
+			fields {
+				request>headers delete
+				request>uri regexp \?.*$ ""
+				request>remote_ip ip_mask {
+					ipv4 16
+					ipv6 32
+				}
+				request>client_ip ip_mask {
+					ipv4 16
+					ipv6 32
+				}
+			}
+		}
+	}
+}

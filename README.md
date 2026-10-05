@@ -4,7 +4,7 @@
 
 **Дизайн.** Актуальный дизайн — редизайн, итерация 1 (envy green, Inter, разбор входящих, массовые действия). В коде — его основа (NP-010): оболочка, компоненты, настройки, английский и русский; остальные экраны доводятся задачами дорожной карты. Что главнее и где что лежит — в [гайдлайне](doc/guidelines.md).
 
-Сайт приложения: [pin.netami.app](https://pin.netami.app).
+Сайт приложения: [pin.netami.app](https://pin.netami.app). Исходники — `site/`, сборка `npm run site:build`, проверка `npm run site:check`, выкладка на сервер владельца с Caddy — `pwsh scripts/deploy-site.ps1 -Server user@host`; подробно — [doc/site.md](doc/site.md#выкладка).
 
 React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятся в `%APPDATA%\Netami Pin\netamipin.db`.
 

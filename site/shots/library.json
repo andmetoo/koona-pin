@@ -1,0 +1,34 @@
+{
+  "collections": [
+    { "en": "Design", "ru": "Дизайн" },
+    { "en": "Development", "ru": "Разработка" },
+    { "en": "Inspiration", "ru": "Вдохновение" },
+    { "en": "To read", "ru": "Прочитать" }
+  ],
+  "bookmarks": [
+    { "url": "https://www.vitsoe.com/rw/about/good-design", "preview": "desk.jpg", "collection": 0, "favorite": true, "inbox": false,
+      "title": { "en": "Ten principles for good design", "ru": "Десять принципов хорошего дизайна" },
+      "tags": { "en": ["design", "principles"], "ru": ["дизайн", "принципы"] } },
+    { "url": "https://www.asml.com/en/technology", "preview": "chip.jpg", "collection": 2, "favorite": false, "inbox": true,
+      "title": { "en": "The making of a microchip", "ru": "Как делают микрочип" },
+      "tags": { "en": ["hardware"], "ru": ["железо"] } },
+    { "url": "https://martinfowler.com/articles/", "preview": "code.jpg", "collection": 1, "favorite": false, "inbox": false,
+      "title": { "en": "Writing code you can read in a year", "ru": "Код, который поймёшь и через год" },
+      "tags": { "en": ["code", "craft"], "ru": ["код", "ремесло"] } },
+    { "url": "https://css-tricks.com/", "preview": "gradient.jpg", "collection": 0, "favorite": true, "inbox": false,
+      "title": { "en": "Gradients that don't look muddy", "ru": "Градиенты без грязи" },
+      "tags": { "en": ["colour", "css"], "ru": ["цвет", "css"] } },
+    { "url": "https://www.wired.com/", "preview": "network.jpg", "collection": 3, "favorite": false, "inbox": true,
+      "title": { "en": "Set up a home network that just works", "ru": "Домашняя сеть, которая просто работает" },
+      "tags": { "en": ["network"], "ru": ["сеть"] } },
+    { "url": "https://basecamp.com/shapeup", "preview": "meeting.jpg", "collection": 3, "favorite": false, "inbox": false,
+      "title": { "en": "How small teams make decisions", "ru": "Как маленькие команды принимают решения" },
+      "tags": { "en": ["teams", "essay"], "ru": ["команды", "эссе"] } },
+    { "url": "https://www.archdaily.com/", "preview": "shapes.jpg", "collection": 2, "favorite": true, "inbox": false,
+      "title": { "en": "Buildings made of simple shapes", "ru": "Архитектура из простых форм" },
+      "tags": { "en": ["architecture"], "ru": ["архитектура"] } },
+    { "url": "https://arstechnica.com/", "preview": "board.jpg", "collection": 1, "favorite": false, "inbox": false,
+      "title": { "en": "How a computer boots, step by step", "ru": "Как загружается компьютер, шаг за шагом" },
+      "tags": { "en": ["hardware", "explainer"], "ru": ["железо", "объяснение"] } }
+  ]
+}
