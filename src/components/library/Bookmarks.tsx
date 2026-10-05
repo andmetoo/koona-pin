@@ -117,9 +117,9 @@ function DaysLeft({ deletedAt, className = "" }: { deletedAt: string; className?
  * is a favorite, accent then; one click toggles it. A 13 px icon in a 24×24
  * target, so `className` pulls the target into the line without making it
  * taller. Ctrl and Shift clicks never reach it: the card selects instead.
+ * `t` is the card's own: no translation hook per heart.
  */
-function FavoriteButton({ b, actions, className = "" }: { b: Bookmark; actions: BookmarkActions; className?: string }) {
-  const { t } = useTranslation();
+function FavoriteButton({ b, actions, t, className = "" }: { b: Bookmark; actions: BookmarkActions; t: TFunction; className?: string }) {
   return (
     <button
       type="button"
@@ -325,7 +325,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
         <SiteMark b={b} />
         <DomainButton b={b} actions={actions} className="min-w-0 flex-1" />
-        {b.deleted_at ? <DaysLeft deletedAt={b.deleted_at} /> : <FavoriteButton b={b} actions={actions} className="-my-[4.5px] -mr-[5.5px]" />}
+        {b.deleted_at ? <DaysLeft deletedAt={b.deleted_at} /> : <FavoriteButton b={b} actions={actions} t={t} className="-my-[4.5px] -mr-[5.5px]" />}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
       <h2 className="line-clamp-2 h-[38px] text-md font-medium">
@@ -443,7 +443,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
       </span>
       {/* Its own column, so the hearts stand in a line as in the grid (NP-086, variant A); none in the trash. */}
-      {b.deleted_at ? <span /> : <FavoriteButton b={b} actions={actions} />}
+      {b.deleted_at ? <span /> : <FavoriteButton b={b} actions={actions} t={t} />}
       <div className="relative flex h-[27px] items-center justify-end">
         {b.deleted_at ? (
           <DaysLeft deletedAt={b.deleted_at} className={`transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${open ? "opacity-0" : ""}`} />
