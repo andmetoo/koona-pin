@@ -27,7 +27,7 @@ export function bulkNotice(t: TFunction, change: BulkChange, count: number, name
 
 /** «Не удалось переместить 4 закладки в «Работа»: библиотека занята. Ничего не изменено.» */
 export function bulkFailure(t: TFunction, change: BulkChange, count: number, error: unknown, name = ""): string {
-  const reason = reasonOf(error);
+  const reason = reasonOf(error, t);
   switch (change.action) {
     case "move":
       return change.collection_id === null
