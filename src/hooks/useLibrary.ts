@@ -347,11 +347,10 @@ export function useLibrary(
     const offInvalidate = api.onLibraryInvalidated(() => {
       // The library may have been replaced (a restore from a copy, NP-034):
       // its bookmarks keep their ids with older revisions, and new ones take
-      // ids this list has already seen. What it remembers about them is void.
+      // ids this list has already seen. What it remembers about them is void;
+      // the list is read anew. New bookmarks held back stay so: `replaced`.
       revisions.current.clear();
       unread.current.clear();
-      pendingRef.current = {};
-      setPending({});
       eventVersion.current++;
       void refreshCatalog();
       void refresh();
@@ -370,6 +369,11 @@ export function useLibrary(
     const timer = window.setTimeout(() => void refresh(), untilMidnight() + 1000);
     return () => window.clearTimeout(timer);
   }, [starts, refresh]);
+  /** The library was replaced by a copy: new bookmarks held back belong to the old one. */
+  const replaced = () => {
+    pendingRef.current = {};
+    setPending({});
+  };
   const reveal = () => {
     const incoming = Object.values(pendingRef.current);
     scrollRef.current?.scrollTo({ top: 0 });
@@ -396,5 +400,6 @@ export function useLibrary(
     refresh,
     refreshCatalog,
     reveal,
+    replaced,
   };
 }

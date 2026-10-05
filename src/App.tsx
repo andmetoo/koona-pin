@@ -1097,6 +1097,7 @@ export function App() {
               // After a replace no open editor or selection points at a bookmark that is gone.
               closeEditor();
               selection.clear();
+              if (mode === "replace") library.replaced();
               await Promise.all([library.refresh(), library.refreshCatalog()]);
             }
             return outcome;
@@ -1112,6 +1113,7 @@ export function App() {
             // The whole library changed: nothing open may point at what is gone.
             closeEditor();
             selection.clear();
+            library.replaced();
             setDataVersion((version) => version + 1);
             await Promise.all([library.refresh(), library.refreshCatalog()]);
           }}
