@@ -78,6 +78,12 @@ pub async fn resolve(host: &str, allow: fn(IpAddr) -> bool) -> std::io::Result<V
     Ok(allowed)
 }
 
+/// A URL the WebView may load, judged without the network: for addresses
+/// that come from a file, not from a page the app fetched.
+pub fn public_url(raw: &str) -> bool {
+    Url::parse(raw).is_ok_and(|url| allowed_url(&url, public_ip))
+}
+
 /// A URL the WebView may load as a preview or icon: allowed, and its host
 /// resolves to public addresses only.
 pub async fn public_resource(raw: &str) -> bool {
@@ -181,6 +187,23 @@ mod tests {
         // Decimal and hex forms are normalised by the URL parser.
         assert!(!ok("http://2130706433/"));
         assert!(!ok("http://0x7f.1/"));
+    }
+
+    #[test]
+    fn a_picture_from_a_file_needs_a_public_web_address() {
+        assert!(public_url("https://www.google.com/s2/favicons?domain=example.com&sz=128"));
+        assert!(public_url("http://93.184.215.14/logo.png"));
+        for refused in [
+            "http://192.168.1.1/cgi-bin/reboot",
+            "http://localhost:1420/x.png",
+            "http://[::1]/x.png",
+            "data:image/png;base64,AAAA",
+            "file:///C:/Windows/win.ini",
+            "javascript:alert(1)",
+            "not an address",
+        ] {
+            assert!(!public_url(refused), "{refused} must be refused");
+        }
     }
 
     #[tokio::test]
