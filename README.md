@@ -25,6 +25,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятс
 - [Процесс разработки с ИИ-агентами](doc/development-process.md)
 - [Дорожная карта](doc/roadmap.md), [сценарии](doc/scenarios.md), [решения](doc/decisions.md) и [индекс задач GitHub](doc/issues/README.md)
 - [Шаблон задачи](doc/task-template.md) и [чеклист выпуска](doc/release-checklist.md)
+- Выпуски и обратная связь — публичный репозиторий [andmetoo/netami-pin-releases](https://github.com/andmetoo/netami-pin-releases) ([Р-9](doc/decisions.md#р-9-распространение-windows)): README, формы issues и SECURITY.md лежат в нём, метки и настройки — `scripts/setup-releases-repo.ps1`
 - Слайды процесса: `design/lunacy/development_process.sketch` (20 редактируемых кадров в Lunacy)
 
 ## Разработка
