@@ -1,6 +1,6 @@
 # Netami Pin — privacy policy
 
-Text for https://pin.netami.app/privacy, in English and Russian. Last updated: 3 October 2026.
+Text for https://pin.netami.app/privacy, in English and Russian. Last updated: 5 October 2026.
 
 ---
 
@@ -15,6 +15,8 @@ Netami Pin is a desktop app for Windows that keeps your bookmarks on your comput
 **What the app keeps.** The app stores your bookmarks, collections, tags and notes in a library file on your computer, and keeps local backup copies of it. It records which browsers saved links and when, to show the connection status.
 
 **Network requests.** The extension makes none. The app connects to the website of a link you save to read its title, description, preview image and icon; that website sees an ordinary request from your computer. When a site has no icon, the app asks Google's favicon service for one and sends it the site's domain name. Nothing is sent to the developer: no analytics, no telemetry, no crash reports.
+
+**This website.** pin.netami.app is delivered through Cloudflare. Cloudflare Web Analytics counts visits to the site without cookies; the server keeps short access logs of the pages it served, without your IP address.
 
 **Sharing.** Your data is not sold, shared or transferred to anyone, and is not used for anything other than saving and showing your bookmarks.
 
@@ -33,6 +35,8 @@ Netami Pin — приложение для Windows, которое хранит 
 **Что хранит приложение.** Приложение хранит закладки, коллекции, теги и заметки в файле библиотеки на вашем компьютере и делает его локальные резервные копии. Оно запоминает, из каких браузеров и когда сохранялись ссылки, чтобы показывать состояние подключения.
 
 **Сетевые запросы.** Расширение их не делает. Приложение обращается к сайту сохранённой ссылки, чтобы получить заголовок, описание, превью и значок; сайт видит обычный запрос с вашего компьютера. Если у сайта нет значка, приложение запрашивает его у сервиса значков Google и передаёт ему доменное имя сайта. Разработчику ничего не отправляется: ни аналитики, ни телеметрии, ни отчётов о сбоях.
+
+**Этот сайт.** pin.netami.app доставляет Cloudflare. Cloudflare Web Analytics считает посещения сайта без cookies; сервер ведёт короткие журналы отданных страниц без вашего IP-адреса.
 
 **Передача.** Ваши данные не продаются, не передаются и не используются ни для чего, кроме сохранения и показа ваших закладок.
 
