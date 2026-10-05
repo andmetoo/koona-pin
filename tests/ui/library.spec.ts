@@ -1796,6 +1796,24 @@ test("the heart: one per card and row, seen without hover, one click, Ctrl Z, ke
   await heart(5).click({ modifiers: ["Control"] });
   await expect(page.getByRole("toolbar", { name: "Selected bookmarks" }).getByRole("status")).toHaveText("1 selected");
   await expect(heart(5)).toHaveAttribute("aria-pressed", "false");
+  // A click on the heart keeps the selection, and on a selected card it is no drag, even with a shaky hand.
+  await heart(6).click({ modifiers: ["Control"] });
+  const selection = page.getByRole("toolbar", { name: "Selected bookmarks" }).getByRole("status");
+  await expect(selection).toHaveText("2 selected");
+  await heart(4).click();
+  await expect(heart(4)).toHaveAttribute("aria-pressed", "false");
+  await expect(selection).toHaveText("2 selected");
+  const box = (await heart(5).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 8, box.y + box.height / 2 + 3, { steps: 3 });
+  await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(heart(5)).toHaveAttribute("aria-pressed", "true");
+  await expect(selection).toHaveText("2 selected");
+  await heart(5).click();
+  await heart(4).click();
+  await expect(favorites).toHaveText(/3$/);
   await page.keyboard.press("Escape");
 
   // From the keyboard: Tab reaches it, Enter and Space toggle.
