@@ -1067,8 +1067,11 @@ export function App() {
           onClose={() => setSurface(null)}
           onAdd={async (data) => {
             const added = await api.addBookmark(data);
-            scrollRef.current?.scrollTo({ top: 0 });
-            await library.refresh();
+            // A link already there changed nothing: the list stays where it was read.
+            if (!added.existing) {
+              scrollRef.current?.scrollTo({ top: 0 });
+              await library.refresh();
+            }
             setSurface(null);
             say(added.restored ? t("notice.restoredLink") : added.existing ? t("notice.linkExisting") : t("notice.linkSaved"));
           }}
