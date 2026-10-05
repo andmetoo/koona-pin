@@ -22,4 +22,9 @@ trash: number,
  * Groups of duplicates (NP-035): the sidebar and the menu «⋯». Counted
  * by the command, not by [`get_counts`]: schemas before 5 have no key.
  */
-duplicates: number, };
+duplicates: number, 
+/**
+ * Links a check found broken or moved (NP-036): «Проверка ссылок N».
+ * Counted by the command too: schemas before 6 have no results.
+ */
+links: number, };

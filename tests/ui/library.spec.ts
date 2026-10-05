@@ -903,6 +903,57 @@ test("duplicates: the section groups the same page, the main one is chosen, merg
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
 });
 
+test("link check: the person starts it, results come in groups, replace and trash are undone with Ctrl Z", async ({ page }) => {
+  const add = async (url: string) => {
+    await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
+    await page.getByLabel("Ссылка", { exact: true }).fill(url);
+    await page.getByRole("button", { name: "Сохранить ссылку" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  };
+  // The demo's made-up answers (services/demo.ts): 404, a move, no answer.
+  await add("https://example.org/page-1");
+  await add("https://example.org/page-3");
+  await add("https://example.org/page-4");
+  const sidebar = page.getByRole("complementary");
+  // Nothing checked yet: no sidebar entry; the menu «⋯» leads to the section.
+  await expect(sidebar.getByRole("button", { name: /^Проверка ссылок/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Проверка ссылок/ }).click();
+
+  // Before the first check: what will happen; nothing starts on its own.
+  await expect(page.getByRole("heading", { name: "Проверить ссылки" })).toBeVisible();
+  await expect(page.getByText("Каждый сайт увидит обычный запрос с вашего компьютера", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Проверить 9 ссылок" }).click();
+  await expect(page.locator("[data-link-check='finished']")).toContainText("Проверено 9 ссылок сегодня в");
+
+  const row = (url: string) => page.locator("[data-bookmark-id]").filter({ hasText: url });
+  const gone = page.locator("[data-link-group='gone']");
+  const moved = page.locator("[data-link-group='moved']");
+  const failed = page.locator("[data-link-group='failed']");
+  await expect(gone.locator("[data-bookmark-id]").filter({ hasText: "example.org/page-1" }).locator("[data-result]")).toHaveText("404 · Не найдена");
+  await expect(moved.locator("[data-bookmark-id]").filter({ hasText: "example.org/page-3" })).toContainText("https://example.org/moved/page-3");
+  await expect(failed.locator("[data-bookmark-id]").filter({ hasText: "example.org/page-4" }).locator("[data-result]")).toHaveText("Нет ответа за 10 с");
+  await expect(failed).toContainText("Битыми не считаются");
+  // The sidebar counts what needs a decision: broken and moved, not «could not check».
+  const decide = (await gone.locator("[data-bookmark-id]").count()) + (await moved.locator("[data-bookmark-id]").count());
+  await expect(sidebar.getByRole("button", { name: `Проверка ссылок ${decide}`, exact: true })).toBeVisible();
+
+  // «Заменить адрес»: the bookmark takes the new address; Ctrl Z puts the old one and its result back.
+  await row("example.org/page-3").getByRole("button", { name: "Заменить адрес" }).click();
+  await expect(page.getByText("Адрес заменён: example.org")).toBeVisible();
+  await expect(row("example.org/page-3")).toHaveCount(0);
+  await page.keyboard.press("Control+z");
+  await expect(moved.locator("[data-bookmark-id]").filter({ hasText: "example.org/page-3" })).toBeVisible();
+
+  // «В корзину» on hover; Ctrl Z brings it back to the group.
+  await row("example.org/page-1").hover();
+  await row("example.org/page-1").getByRole("button", { name: "В корзину" }).click();
+  await expect(page.getByText(/1 закладка в корзине/)).toBeVisible();
+  await expect(row("example.org/page-1")).toHaveCount(0);
+  await page.keyboard.press("Control+z");
+  await expect(gone.locator("[data-bookmark-id]").filter({ hasText: "example.org/page-1" })).toBeVisible();
+});
+
 test("import of 10 000 links shows progress and keeps the window usable", async ({ page }) => {
   let html = "<DL>";
   for (let i = 0; i < 10_000; i++) html += `<DT><A HREF="https://example.com/${i}" ADD_DATE="1700000000">Link ${i}</A>`;
