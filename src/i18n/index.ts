@@ -23,6 +23,8 @@ export const languages: Language[] = Object.entries(files)
 
 export type LanguageSetting = "system" | string;
 const key = "netamipin.language";
+/** A new install speaks English until the person picks a language or «System» (NP-085). */
+export const defaultLanguage: LanguageSetting = "en";
 
 export function storedLanguage(): LanguageSetting {
   try {
@@ -30,9 +32,9 @@ export function storedLanguage(): LanguageSetting {
     if (value && (value === "system" || languages.some((l) => l.code === value)))
       return value;
   } catch {
-    /* Storage unavailable: follow the system. */
+    /* Storage unavailable: the default. */
   }
-  return "system";
+  return defaultLanguage;
 }
 
 /** The first system language we have a file for, by its base code. */
@@ -71,8 +73,17 @@ void i18n.use(initReactI18next).init({
   returnNull: false,
 });
 
+/** The tray menu is drawn by Rust: it gets its words in the interface's language (NP-085). */
+let tellTray: (labels: { open: string; quit: string; tooltip: string }) => void = () => {};
+export function onTrayLabels(send: typeof tellTray) {
+  tellTray = send;
+  send(trayLabels());
+}
+const trayLabels = () => ({ open: i18n.t("tray.open"), quit: i18n.t("tray.quit"), tooltip: i18n.t("tray.tooltip") });
+
 i18n.on("languageChanged", (code) => {
-  document.documentElement.lang = code;
+  if (typeof document !== "undefined") document.documentElement.lang = code;
+  tellTray(trayLabels());
 });
 if (typeof document !== "undefined") document.documentElement.lang = i18n.language;
 

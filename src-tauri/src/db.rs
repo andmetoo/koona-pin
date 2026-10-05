@@ -1049,6 +1049,31 @@ pub fn create_collection(
     })
 }
 
+/// Colour and icon of each starter collection, in the order of their names.
+const STARTERS: [(&str, &str); 3] = [
+    ("#6366f1", "code"),
+    ("#ec4899", "palette"),
+    ("#10b981", "book-open"),
+];
+
+/// A new library waits for its first collections (`starter_collections` in
+/// `app_settings`, NP-085): the interface names them in its language. Only
+/// once — deleted ones never come back, older libraries never get them.
+pub fn create_starter_collections(conn: &Connection, names: &[String]) -> Result<Vec<Collection>> {
+    let tx = conn.unchecked_transaction()?;
+    if tx.execute("DELETE FROM app_settings WHERE key = 'starter_collections'", [])? == 0 {
+        return Ok(Vec::new());
+    }
+    let made = STARTERS
+        .iter()
+        .zip(names)
+        .filter(|(_, name)| !name.trim().is_empty())
+        .map(|((color, icon), name)| create_collection(&tx, name.trim(), Some(color), Some(icon)))
+        .collect::<Result<Vec<_>>>()?;
+    tx.commit()?;
+    Ok(made)
+}
+
 /// Bookmarks stay in the library without a collection.
 pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
@@ -1618,6 +1643,8 @@ mod tests {
         let mut conn = Connection::open_in_memory().unwrap();
         crate::library::configure(&conn).unwrap();
         crate::migrations::migrate(&mut conn, None).unwrap();
+        let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
+        create_starter_collections(&conn, &names).unwrap();
         conn
     }
 
