@@ -15,7 +15,8 @@ function usedKeys() {
   const keys = new Set();
   for (const file of readdirSync(here).filter((f) => f.endsWith(".js") && !f.includes(".test.")))
     for (const [, key] of source(file).matchAll(/\bt\("(\w+)"/g)) keys.add(key);
-  for (const [, key] of source("options.html").matchAll(/data-i18n(?:-\w+)?="(\w+)"/g)) keys.add(key);
+  for (const page of ["options.html", "search.html"])
+    for (const [, key] of source(page).matchAll(/data-i18n(?:-\w+)?="(\w+)"/g)) keys.add(key);
   const build = readFileSync(path.join(here, "../../scripts/build-extension.mjs"), "utf8");
   for (const [, key] of build.matchAll(/__MSG_(\w+)__/g)) keys.add(key);
   return keys;

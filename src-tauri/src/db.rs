@@ -576,6 +576,45 @@ pub fn get_bookmark_ids(conn: &Connection, query: &BookmarkQuery) -> Result<Vec<
     ids
 }
 
+/// How many bookmarks a search finds in each filter of the browser's quick
+/// search (NP-082): all, the inbox, favorites and per collection. One pass
+/// over the matches; the trash is left out as in every list.
+pub struct SearchCounts {
+    pub all: i64,
+    pub inbox: i64,
+    pub favorites: i64,
+    pub collections: Vec<(i64, i64)>,
+}
+
+pub fn search_counts(conn: &Connection, search: Option<&str>) -> Result<SearchCounts> {
+    let query = BookmarkQuery {
+        search: search.map(str::to_string),
+        ..Default::default()
+    };
+    let (filter, _, values) = query_filter(&query);
+    let (all, inbox, favorites) = conn.query_row(
+        &format!(
+            "SELECT count(*), COALESCE(sum(b.triaged_at IS NULL), 0), COALESCE(sum(b.is_favorite = 1), 0)
+             FROM bookmarks b{filter}"
+        ),
+        rusqlite::params_from_iter(&values),
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+    let collections = conn
+        .prepare(&format!(
+            "SELECT b.collection_id, count(*) FROM bookmarks b{filter} AND b.collection_id IS NOT NULL
+             GROUP BY b.collection_id"
+        ))?
+        .query_map(rusqlite::params_from_iter(&values), |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<Vec<_>>>()?;
+    Ok(SearchCounts {
+        all,
+        inbox,
+        favorites,
+        collections,
+    })
+}
+
 /// One page of the list, newest first, with the total for the whole query.
 /// The library is ordered by when a bookmark was saved, the trash by when
 /// it was deleted.

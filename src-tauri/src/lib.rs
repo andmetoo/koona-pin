@@ -18,6 +18,7 @@ pub mod migrations;
 pub mod native_host;
 pub mod net_guard;
 pub mod pipe_name;
+pub mod quick_search;
 pub mod restore;
 #[doc(hidden)]
 pub mod test_libraries;
@@ -30,7 +31,7 @@ use tauri::{
     Manager,
 };
 
-fn show_window(app: &tauri::AppHandle) {
+pub(crate) fn show_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
         let _ = window.unminimize();

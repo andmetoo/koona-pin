@@ -1,23 +1,35 @@
 import { describe, it, expect, vi } from "vitest";
-import { MENU_ID, onMenuClicked, registerMenu } from "./menu.js";
+import { MENU_ID, SEARCH_ID, onMenuClicked, registerMenu } from "./menu.js";
+
+const menus = () => ({ removeAll: vi.fn(async () => {}), create: vi.fn() });
 
 describe("toolbar button menu", () => {
-  it("adds one settings item to the button where the browser has menus", async () => {
-    const menus = { removeAll: vi.fn(async () => {}), create: vi.fn() };
-    expect(await registerMenu(menus)).toBe(true);
-    expect(menus.removeAll).toHaveBeenCalledBefore(menus.create);
-    expect(menus.create).toHaveBeenCalledWith({ id: MENU_ID, title: "menuOptions", contexts: ["action"] });
+  it("offers the quick search with its shortcut, and the settings where the button has no Options", async () => {
+    const firefox = menus();
+    expect(await registerMenu(firefox, { settings: true, shortcut: "Alt+Shift+D" })).toBe(true);
+    expect(firefox.removeAll).toHaveBeenCalledBefore(firefox.create);
+    expect(firefox.create.mock.calls).toEqual([
+      [{ id: SEARCH_ID, title: "menuSearch (Alt+Shift+D)", contexts: ["action"] }],
+      [{ id: MENU_ID, title: "menuOptions", contexts: ["action"] }],
+    ]);
   });
 
-  it("adds nothing in Chrome and Edge, which have no menus", async () => {
+  it("gives Chrome and Edge only the search, without a shortcut when none is set", async () => {
+    const chrome = menus();
+    await registerMenu(chrome, { shortcut: "" });
+    expect(chrome.create.mock.calls).toEqual([[{ id: SEARCH_ID, title: "menuSearch", contexts: ["action"] }]]);
     expect(await registerMenu(undefined)).toBe(false);
   });
 
-  it("opens the settings page only for its own item", () => {
-    const open = vi.fn();
-    onMenuClicked({ menuItemId: "other" }, open);
-    expect(open).not.toHaveBeenCalled();
-    onMenuClicked({ menuItemId: MENU_ID }, open);
-    expect(open).toHaveBeenCalledOnce();
+  it("opens what its own item names", () => {
+    const openOptions = vi.fn();
+    const openSearch = vi.fn();
+    onMenuClicked({ menuItemId: "other" }, { openOptions, openSearch });
+    expect(openOptions).not.toHaveBeenCalled();
+    expect(openSearch).not.toHaveBeenCalled();
+    onMenuClicked({ menuItemId: MENU_ID }, { openOptions, openSearch });
+    onMenuClicked({ menuItemId: SEARCH_ID }, { openOptions, openSearch });
+    expect(openOptions).toHaveBeenCalledOnce();
+    expect(openSearch).toHaveBeenCalledOnce();
   });
 });

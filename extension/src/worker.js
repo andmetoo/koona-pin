@@ -1,5 +1,5 @@
 import { ext, t } from "./ext.js";
-import { failure, talk } from "./native.js";
+import { browserName, failure, talk } from "./native.js";
 import { createQueue } from "./queue.js";
 import { onMenuClicked, registerMenu } from "./menu.js";
 import { GLYPHS, MARKS, BADGES, PRESS, TONES, drawIcon, frames, parseMark, parseMascot, rest, showMessage } from "./feedback.js";
@@ -123,7 +123,7 @@ async function hello() {
   return reply;
 }
 async function initialize() {
-  await registerMenu(ext.menus).catch(console.error);
+  await refreshMenu();
   await ext.alarms.create(helloAlarm, { periodInMinutes: HELLO_MINUTES });
   // Versions before NP-080 wrote badge text; the marks are in the icon now.
   await ext.action.setBadgeText({ text: "" }).catch(() => {});
@@ -203,8 +203,34 @@ async function captureTab(tab) {
   if (opensSettings) await ext.runtime.openOptionsPage();
   return state;
 }
+// Quick search (NP-082, Р-40): the button keeps saving; the shortcut and the
+// menu give it the search popup for one opening. Firefox opens a popup only
+// inside the handler of the person's action, so nothing is awaited before it.
+const SEARCH_COMMAND = "quick-search";
+function openSearch() {
+  const set = ext.action.setPopup({ popup: "search.html" });
+  const opened = ext.action.openPopup();
+  return Promise.allSettled([set, opened]).then(async ([, result]) => {
+    await ext.action.setPopup({ popup: "" }).catch(() => {});
+    return result.status === "fulfilled";
+  });
+}
+/** The shortcut the browser has for the search now; the person may have changed it. */
+async function searchShortcut() {
+  const commands = (await ext.commands?.getAll?.().catch(() => [])) ?? [];
+  return commands.find((command) => command.name === SEARCH_COMMAND)?.shortcut ?? "";
+}
+// Chrome and Edge call it contextMenus; Firefox, menus.
+const menus = ext.menus ?? ext.contextMenus;
+async function refreshMenu() {
+  await registerMenu(menus, { settings: browserName() === "firefox", shortcut: await searchShortcut() }).catch(console.error);
+}
 ext.action.onClicked.addListener(captureTab);
-ext.menus?.onClicked.addListener((info) => onMenuClicked(info, () => ext.runtime.openOptionsPage()));
+ext.commands?.onCommand.addListener((name) => {
+  if (name === SEARCH_COMMAND) void openSearch();
+});
+ext.commands?.onChanged?.addListener(() => void refreshMenu());
+menus?.onClicked.addListener((info) => onMenuClicked(info, { openOptions: () => ext.runtime.openOptionsPage(), openSearch }));
 // A new page in the tab drops its icon; a later delivery must not mark that page.
 ext.tabs.onUpdated.addListener((tabId, change) => {
   if (change.status === "loading") void forgetTab(tabId);
@@ -253,3 +279,6 @@ ext.runtime.onMessage.addListener((message, sender, respond) => {
 });
 // Recreate the alarm after worker restarts: Chrome does not guarantee its persistence.
 void queue.list().then(updateStatus).catch(console.error);
+// Chrome and Edge change shortcuts on their own page and say nothing: the
+// menu takes the current one whenever the worker wakes.
+void refreshMenu();

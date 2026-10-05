@@ -271,6 +271,30 @@ label.row {
 .switch:checked {
   background: radial-gradient(circle 8px at 26px 50%, var(--knob-on) 7.5px, transparent 8px), var(--accent);
 }
+/* «Keyboard shortcut» (sheet 37). */
+.keys {
+  display: flex;
+  gap: 4px;
+}
+.keys kbd {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--secondary);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+}
+button.recording {
+  outline: 1.5px solid var(--accent);
+  background: var(--card);
+  color: var(--muted);
+}
+.note:not(:empty) {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--muted);
+}
 .empty {
   padding: 14px 16px;
   color: var(--muted);
