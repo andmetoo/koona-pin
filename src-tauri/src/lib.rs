@@ -12,6 +12,7 @@ pub mod import;
 pub mod journal;
 pub mod library;
 pub mod library_state;
+pub mod linkcheck;
 pub mod metadata;
 pub mod migrations;
 pub mod native_host;
@@ -56,6 +57,7 @@ pub fn run() {
         .manage(channel_state.clone())
         .manage(commands::LastExport::default())
         .manage(commands::PickedBackup::default())
+        .manage(linkcheck::Checker::default())
         .manage(Arc::new(library_state::Library::new(
             library::Paths::from_env(),
         )))
@@ -155,6 +157,10 @@ pub fn run() {
             commands::merge_duplicates,
             commands::dismiss_duplicates,
             commands::undismiss_duplicates,
+            commands::get_link_check,
+            commands::start_link_check,
+            commands::stop_link_check,
+            commands::replace_addresses,
             commands::rebuild_search_index
         ])
         .run(tauri::generate_context!())
