@@ -78,6 +78,26 @@ test("language switches without a restart", async ({ page }) => {
   await page.getByLabel("Language", { exact: true }).selectOption("system");
   await expect(page.getByRole("heading", { name: "Настройки" })).toBeVisible();
 });
+test("demo library is created in the interface's language and kept after a switch", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("netamipin.language", "en"));
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+  await expect(page.getByText("Ten principles for good design")).toBeVisible();
+  await expect(page.getByRole("button", { name: "To read 1" })).toBeVisible();
+  // The first change saves it: switching back to Russian keeps the English library.
+  await page.locator('[data-bookmark-id="4"]').hover();
+  await page.locator('[data-bookmark-id="4"]').getByRole("button", { name: "Add to favorites" }).click();
+  await expect(page.getByRole("button", { name: "Favorites 3" })).toBeVisible();
+  await page.evaluate(() => localStorage.setItem("netamipin.language", "ru"));
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Избранное 3" })).toBeVisible();
+  await expect(page.getByText("Ten principles for good design")).toBeVisible();
+  // Without a saved library the reload creates it again, now in Russian.
+  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v4"));
+  await page.reload();
+  await expect(page.getByText("Десять принципов хорошего дизайна")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Прочитать 1" })).toBeVisible();
+});
 test("incoming capture preserves reading position until explicitly revealed", async ({ page }) => {
   // A short window, so the six cards scroll.
   await page.setViewportSize({ width: 1200, height: 550 });
