@@ -455,9 +455,9 @@ export const demo = {
       // Saved again from the trash: back with its fields, waiting in the inbox.
       const back = change(previous, { deleted_at: null, triaged_at: null });
       emit("created", back);
-      return { bookmark: back, restored: true };
+      return { bookmark: back, restored: true, existing: false };
     }
-    if (previous) return { bookmark: previous, restored: false };
+    if (previous) return { bookmark: previous, restored: false, existing: true };
     const b: Bookmark = {
       // Unique even for links added within the same millisecond.
       id: Math.max(Date.now(), ...bookmarks.map((item) => item.id + 1)),
@@ -481,7 +481,7 @@ export const demo = {
     bookmarks = [b, ...bookmarks];
     persist();
     emit("created", b);
-    return { bookmark: b, restored: false };
+    return { bookmark: b, restored: false, existing: false };
   },
   async updateBookmark(
     id: number,
