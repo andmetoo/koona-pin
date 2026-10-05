@@ -78,6 +78,13 @@ enum Message {
         #[serde(default)]
         protocol: Option<u32>,
     },
+    /// Is this page in the library? Asked on every page load when the person
+    /// turned it on (NP-083).
+    Lookup {
+        #[serde(default)]
+        protocol: Option<u32>,
+        url: String,
+    },
 }
 
 pub struct Handled {
@@ -125,7 +132,9 @@ pub fn handle(
             browser,
             ..
         } => (*protocol, version.clone(), browser.as_deref().and_then(Browser::parse)),
-        Message::Search { protocol, .. } | Message::Show { protocol } => (*protocol, None, None),
+        Message::Search { protocol, .. } | Message::Show { protocol } | Message::Lookup { protocol, .. } => {
+            (*protocol, None, None)
+        }
     };
     let stamp = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
     // An incompatible extension is recorded too: the status tells the user to update.
@@ -174,6 +183,13 @@ pub fn handle(
             saved: None,
             contact,
             show: true,
+        },
+        Message::Lookup { url, .. } => Handled {
+            reply: crate::quick_search::lookup(conn, &url)
+                .unwrap_or_else(|error| failure("database_error", &error.to_string())),
+            saved: None,
+            contact,
+            show: false,
         },
         Message::Capture {
             request_id,
@@ -752,6 +768,14 @@ mod tests {
         // No query and no filter: the latest saved, every filter counted.
         let recent = handle(&c, &mut connections, &envelope(json!({ "type": "search", "protocol": PROTOCOL })), now());
         assert_eq!(recent.reply["counts"]["all"], 1);
+        let known = handle(
+            &c,
+            &mut connections,
+            &envelope(json!({ "type": "lookup", "protocol": PROTOCOL, "url": "https://blog.rust-lang.org" })),
+            now(),
+        );
+        assert_eq!((known.reply["saved"].clone(), known.contact), (json!(true), false));
+        assert_eq!(connections, before, "a lookup is not a contact to record");
         let show = handle(&c, &mut connections, &envelope(json!({ "type": "show", "protocol": PROTOCOL })), now());
         assert_eq!((show.reply["ok"].clone(), show.show), (json!(true), true));
         // An extension of another protocol is told to update, as for a capture.

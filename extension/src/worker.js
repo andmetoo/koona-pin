@@ -181,7 +181,10 @@ async function captureTab(tab) {
     item = await queue.enqueue(tab.url || "", tab.title, tabId);
     const results = await deliver();
     const saved = results.find((result) => result.request_id === item.request_id);
-    if (saved) state = outcomeState(saved);
+    if (saved) {
+      state = outcomeState(saved);
+      known.set(tab.url, { saved: true, at: Date.now() });
+    }
     else {
       const waiting = (await queue.list()).find((row) => row.request_id === item.request_id);
       state = waiting?.blocked ? "failed" : "queued";
@@ -231,9 +234,39 @@ ext.commands?.onCommand.addListener((name) => {
 });
 ext.commands?.onChanged?.addListener(() => void refreshMenu());
 menus?.onClicked.addListener((info) => onMenuClicked(info, { openOptions: () => ext.runtime.openOptionsPage(), openSearch }));
+// «Show that a page is already saved» (NP-083, Р-41): with the optional tabs
+// permission the worker sees each loaded page and asks the app. A closed app
+// is not started for it (the host starts it only for what the person asked):
+// then there is no mark. Answers are kept a minute, so tab switches and
+// reloads do not ask again.
+const known = new Map();
+const KNOWN_MS = 60_000;
+async function knownEnabled() {
+  const { feedback } = await ext.storage.local.get("feedback");
+  return feedback?.known === true && (await ext.permissions.contains({ permissions: ["tabs"] }));
+}
+async function markKnown(tabId, url) {
+  if (!/^https?:/.test(url || "") || !(await knownEnabled())) return;
+  let saved = known.get(url);
+  if (!saved || Date.now() - saved.at > KNOWN_MS) {
+    const reply = await talk({ type: "lookup", url });
+    if (!reply.ok) return;
+    saved = { saved: reply.saved === true, at: Date.now() };
+    known.set(url, saved);
+    if (known.size > 500) known.delete(known.keys().next().value);
+  }
+  if (saved.saved) await paint(rest("existing"), stateTitle("existing"), tabId);
+}
 // A new page in the tab drops its icon; a later delivery must not mark that page.
-ext.tabs.onUpdated.addListener((tabId, change) => {
+ext.tabs.onUpdated.addListener((tabId, change, tab) => {
   if (change.status === "loading") void forgetTab(tabId);
+  if (change.status === "complete") void markKnown(tabId, tab?.url);
+});
+// Turned on: the tabs already open get their marks too.
+ext.storage.onChanged.addListener((changes) => {
+  const { newValue, oldValue } = changes.feedback ?? {};
+  if (newValue?.known && !oldValue?.known)
+    void ext.tabs.query({}).then((tabs) => tabs.forEach((tab) => void markKnown(tab.id, tab.url)));
 });
 ext.tabs.onRemoved.addListener((tabId) => void forgetTab(tabId));
 ext.runtime.onInstalled.addListener(() => {

@@ -127,6 +127,10 @@
   "settingMessageText": {
     "message": "A short note in the corner after you click the button. It leaves by itself after 3 seconds."
   },
+  "settingKnown": { "message": "Show that a page is already saved" },
+  "settingKnownText": {
+    "message": "The button checks every page you open against your library on this computer, while Netami Pin runs. The browser asks for access to your tabs once; addresses go only to the app."
+  },
   "settingAnimate": { "message": "Animate the button" },
   "settingAnimateText": {
     "message": "The Netami Pin icon hops when a page is saved. It stays still when the system asks for less motion."
