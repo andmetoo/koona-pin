@@ -356,10 +356,13 @@ export function useLibrary(
       void refreshCatalog();
       void refresh();
     });
+    // «Не дубликаты»: only the count of groups changes.
+    const offDuplicates = api.onDuplicatesChanged(catalogSoon);
     return () => {
       off();
       offBatch();
       offInvalidate();
+      offDuplicates();
     };
   }, [refresh, refreshCatalog, catalogSoon, refreshTotal, scrollRef]);
   // At midnight «today» becomes «yesterday»: read the list again.

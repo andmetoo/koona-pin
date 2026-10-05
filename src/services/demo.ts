@@ -160,6 +160,7 @@ function actionOf(data: Partial<Fields>): CommandAction {
 const listeners = new Set<(change: BookmarkChange) => void>();
 const batchListeners = new Set<(changes: BookmarkChange[]) => void>();
 const invalidations = new Set<() => void>();
+const duplicateListeners = new Set<() => void>();
 const progressListeners = new Set<(progress: ImportProgress) => void>();
 function persist() {
   localStorage.setItem(key, JSON.stringify({ bookmarks, collections }));
@@ -925,13 +926,19 @@ export const demo = {
     const set = dismissed.get(key) ?? new Set<number>();
     ids.forEach((id) => set.add(id));
     dismissed.set(key, set);
-    for (const fn of invalidations) fn();
+    for (const fn of duplicateListeners) fn();
     return ids.length;
   },
   async undismissDuplicates(key: string, ids: number[]): Promise<number> {
     ids.forEach((id) => dismissed.get(key)?.delete(id));
-    for (const fn of invalidations) fn();
+    for (const fn of duplicateListeners) fn();
     return ids.length;
+  },
+  onDuplicatesChanged(fn: () => void) {
+    duplicateListeners.add(fn);
+    return () => {
+      duplicateListeners.delete(fn);
+    };
   },
   async saveBackupCopy(): Promise<SaveCopyOutcome> {
     throw new CommandError("internal", i18n.t("settings.desktopOnly"));
