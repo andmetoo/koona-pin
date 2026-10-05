@@ -268,11 +268,20 @@ ext.tabs.onUpdated.addListener((tabId, change, tab) => {
   if (change.status === "loading") void forgetTab(tabId);
   if (change.status === "complete") void markKnown(tabId, tab?.url);
 });
-// Turned on: the tabs already open get their marks too.
+// Turned on: the tabs already open get their marks too. Each lookup starts a
+// host process, so a few at a time: dozens at once would crowd the app's
+// pipe, and a tab refused there would get no mark. Tabs on the same page
+// then find the answer kept.
+const LOOKUPS_AT_ONCE = 4;
 ext.storage.onChanged.addListener((changes) => {
   const { newValue, oldValue } = changes.feedback ?? {};
-  if (newValue?.known && !oldValue?.known)
-    void ext.tabs.query({}).then((tabs) => tabs.forEach((tab) => void markKnown(tab.id, tab.url)));
+  if (!newValue?.known || oldValue?.known) return;
+  void ext.tabs.query({}).then((tabs) => {
+    const lane = async () => {
+      for (let tab = tabs.shift(); tab; tab = tabs.shift()) await markKnown(tab.id, tab.url);
+    };
+    return Promise.all(Array.from({ length: LOOKUPS_AT_ONCE }, lane));
+  });
 });
 ext.tabs.onRemoved.addListener((tabId) => {
   pages.delete(tabId);
