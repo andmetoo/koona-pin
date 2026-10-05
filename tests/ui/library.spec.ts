@@ -1847,6 +1847,72 @@ test("the heart: one per card and row, seen without hover, one click, Ctrl Z, ke
   await expect(heart(5)).toHaveCount(0);
   await expect(page.locator('[data-bookmark-id="5"]')).toContainText("30 days left");
 });
+test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; hover lives; Refresh preview (NP-087)", async ({ page }) => {
+  const cover = (id: number) => page.locator(`[data-bookmark-id="${id}"] [data-cover]`);
+  // The demo's pages without a picture get covers; no grey plate anywhere.
+  await expect(cover(4)).toBeVisible();
+  await expect(cover(6)).toBeVisible();
+  await expect(page.locator("[data-bookmark-id] [data-preview-fallback]:not([data-cover])")).toHaveCount(0);
+  await expect(cover(6).locator(".cover-letter")).toHaveText("A");
+  const style = (id: number) =>
+    cover(id).evaluate((el) => ({ from: el.style.getPropertyValue("--from"), to: el.style.getPropertyValue("--to"), pattern: el.dataset.cover }));
+
+  // Two more pages of linear.app: the colour of the site, patterns of their own.
+  const ids = await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const data = { bookmarks: (await api.getBookmarks()).items, collections: await api.getCollections() };
+    const at = new Date(Date.now() - 60_000).toISOString();
+    const next = (n: number, url: string, created = at) => ({ ...data.bookmarks[0], id: n, url, domain: new URL(url).hostname, title: url, image_url: null, favicon_url: null, created_at: created, source: "chrome" });
+    data.bookmarks.unshift(
+      next(7, "https://linear.app/method"),
+      next(8, "https://linear.app/changelog/2026-10-01"),
+      // Saved a moment ago: its metadata is still on its way.
+      next(9, "https://example.com/just-saved", new Date(Date.now() - 9_000).toISOString()),
+    );
+    localStorage.setItem("netamipin.demo.v4", JSON.stringify(data));
+    return [7, 8];
+  });
+  await page.reload();
+  await expect(page.locator('[data-bookmark-id="9"] [data-preview-pending]')).toBeVisible();
+  const [four, seven, eight] = [await style(4), await style(ids[0]), await style(ids[1])];
+  expect([seven.from, seven.to]).toEqual([four.from, four.to]);
+  expect([eight.from, eight.to]).toEqual([four.from, four.to]);
+  // When the wait is over without a picture, the cover takes its place.
+  await expect(cover(9)).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator("[data-preview-pending]")).toHaveCount(0);
+
+  // A live grid cover answers the pointer; a list thumbnail does not.
+  await expect(cover(4)).toHaveAttribute("data-live");
+  await cover(4).scrollIntoViewIfNeeded();
+  const box = (await cover(4).boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height * 0.5);
+  await page.mouse.move(box.x + box.width * 0.95, box.y + box.height * 0.5);
+  await expect.poll(() => cover(4).evaluate((el) => Number(el.style.getPropertyValue("--cx")))).toBeGreaterThan(0.5);
+  await page.mouse.move(0, 0);
+  await expect.poll(() => cover(4).evaluate((el) => el.style.getPropertyValue("--cx"))).toBe("");
+  // Without motion: no drift, no glint.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  expect(await cover(4).evaluate((el) => getComputedStyle(el).animationDuration)).toBe("0s");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  await expect(cover(4)).toBeVisible();
+  await expect(cover(4)).not.toHaveAttribute("data-live");
+
+  // «Refresh preview» reads the page again; the demo reads none and says so.
+  await page.locator('[data-bookmark-id="6"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Refresh preview" }).click();
+  await expect(page.getByRole("status")).toContainText("The page offers no picture — the cover stays");
+
+  // A picture that does not load gives way to the cover too.
+  await page.evaluate(async () => {
+    const data = JSON.parse(localStorage.getItem("netamipin.demo.v4")!);
+    data.bookmarks.find((b: { id: number }) => b.id === 1).image_url = "/missing-picture.png";
+    localStorage.setItem("netamipin.demo.v4", JSON.stringify(data));
+  });
+  await page.reload();
+  await expect(cover(1)).toBeVisible();
+});
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
   await page.getByRole("button", { name: "Browser not connected" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });

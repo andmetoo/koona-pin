@@ -235,7 +235,7 @@ function Row({
         {main && <span className="size-2 rounded-full bg-accent" />}
       </span>
       <span className="h-11 w-16 shrink-0 overflow-hidden rounded-md">
-        <Preview b={b} mark={16} />
+        <Preview b={b} small />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-md font-medium">{b.title}</span>

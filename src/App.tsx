@@ -494,6 +494,11 @@ export function App() {
       deleteForever: (b) => setPurging(b),
       tag: (name) => changeFilters({ tag: name }),
       domain: (domain) => changeFilters({ domain }),
+      refresh: (b) =>
+        void api
+          .refreshPreview(b.id)
+          .then((fresh) => say(fresh.image_url ? t("notice.previewRefreshed") : t("notice.noPicture")))
+          .catch((err) => say(describeError(err), true)),
       select: (b, range) =>
         range ? selectionRef.current.range(b.id, loadedRef.current.map((item) => item.id)) : selectionRef.current.toggle(b.id),
     }),

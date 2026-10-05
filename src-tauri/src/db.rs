@@ -792,6 +792,22 @@ pub fn enrich_bookmark(
     }
 }
 
+/// «Обновить превью» (NP-087): the picture and icon of the page, read again.
+/// A new one replaces the old, what was not found keeps what there was. Title
+/// and description fill in only where empty: the person may have edited them.
+/// The trash is left alone.
+pub fn refresh_preview(conn: &Connection, id: i64, meta: &crate::metadata::PageMetadata) -> Result<Bookmark> {
+    conn.execute(
+        "UPDATE bookmarks SET image_url=COALESCE(?1,image_url), favicon_url=COALESCE(?2,favicon_url),
+            description=COALESCE(NULLIF(description,''),?3),
+            title=CASE WHEN title='' OR title=url THEN COALESCE(?4,title) ELSE title END,
+            revision=revision+1, updated_at=?5
+         WHERE id=?6 AND deleted_at IS NULL",
+        params![meta.image_url, meta.favicon_url, meta.description, meta.title, now(), id],
+    )?;
+    get_bookmark_by_id(conn, id)
+}
+
 /// Sends a bookmark to the trash (NP-022) in one UPDATE: it is there whole
 /// or not at all. Note, tags, collection, star and inbox flag stay for a
 /// restore. A bookmark already in the trash keeps its time there.
@@ -1637,6 +1653,39 @@ mod tests {
         conn.execute_batch("PRAGMA query_only = OFF").unwrap();
         assert_eq!(get_bookmark_by_id(&conn, new.id).unwrap().revision, before.revision);
         assert_eq!(suggest_collection(&conn, 9_999).unwrap(), None);
+    }
+
+    #[test]
+    fn refreshing_a_preview_keeps_what_the_person_wrote() {
+        let conn = setup_test_db();
+        let url = "https://example.org/imported";
+        let imported = insert_or_update_bookmark(&conn, url, url, None, None, None, "example.org", None, None, Source::Import).unwrap();
+        let meta = crate::metadata::PageMetadata {
+            title: Some("Page title".into()),
+            description: Some("From the page".into()),
+            image_url: Some("https://example.org/og.jpg".into()),
+            favicon_url: Some("https://example.org/touch.png".into()),
+            domain: "example.org".into(),
+        };
+        let refreshed = refresh_preview(&conn, imported.id, &meta).unwrap();
+        // An imported link had nothing: it gets everything.
+        assert_eq!(refreshed.title, "Page title");
+        assert_eq!(refreshed.description.as_deref(), Some("From the page"));
+        assert_eq!(refreshed.image_url.as_deref(), Some("https://example.org/og.jpg"));
+        assert_eq!(refreshed.favicon_url.as_deref(), Some("https://example.org/touch.png"));
+        assert!(refreshed.revision > imported.revision);
+        // Edited words stay; a picture not found again stays too.
+        update_bookmark(&conn, imported.id, Some("Mine".into()), None, None, None, None).unwrap();
+        conn.execute("UPDATE bookmarks SET description='My words' WHERE id=?1", [imported.id]).unwrap();
+        let none = crate::metadata::PageMetadata { title: Some("Other".into()), description: Some("Other".into()), ..Default::default() };
+        let again = refresh_preview(&conn, imported.id, &none).unwrap();
+        assert_eq!((again.title.as_str(), again.description.as_deref()), ("Mine", Some("My words")));
+        assert_eq!(again.image_url.as_deref(), Some("https://example.org/og.jpg"));
+        // The trash is left alone.
+        trash_bookmark(&conn, imported.id).unwrap();
+        let trashed = refresh_preview(&conn, imported.id, &meta).unwrap();
+        assert_eq!(trashed.revision, get_bookmark_by_id(&conn, imported.id).unwrap().revision);
+        assert_eq!(trashed.title, "Mine");
     }
 
     fn setup_test_db() -> Connection {

@@ -1042,6 +1042,12 @@ export const demo = {
       linkListeners.delete(fn);
     };
   },
+  /** The demo reads no pages: the bookmark stays as it is. */
+  async refreshPreview(id: number) {
+    const b = bookmarks.find((item) => item.id === id && !item.deleted_at);
+    if (!b) throw new CommandError("not_found", "Query returned no rows");
+    return { ...b };
+  },
   /** The demo library is made in its language already. */
   async createStarterCollections(_names: string[]): Promise<Collection[]> {
     return [];
