@@ -15,7 +15,7 @@
 
 ## Правила
 
-- Без аналитики, трекеров, cookies и сторонних доменов: шрифт Inter, маскот и картинки лежат на сайте. Иначе сайт противоречит собственной политике.
+- Обещания приватности — про приложение и расширение, не про сайт: сайт — страница для скачивания. Сайт без cookies и рекламных трекеров, шрифт Inter, маскот и картинки лежат на нём самом; единственный сторонний скрипт — Cloudflare Web Analytics, который вставляет Cloudflare (без cookies, [Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)), он раскрыт в политике (раздел «This website»).
 - Надпись «netami pin» рядом с маскотом — Nunito ExtraBold (вариант B листа «Wordmark · options»), на сайте кривыми в SVG, без файла шрифта. Остальной текст — Inter.
 - Логотип один — в шапке. Маскот крупно сидит над блоком загрузки («ждёт выпуска»), не на первом экране.
 - Язык: при первом заходе на `/` по языку браузера, переключатель EN / RU в шапке ведёт на ту же страницу другого языка. Выбор не хранится в cookies.
@@ -39,9 +39,9 @@
 | 4 | Как это работает | Три шага с номерами |
 | 5 | Что внутри | Пять возможностей с иконками; на 1440 рядом скриншот списка |
 | 6 | Браузеры | Chrome 120+, Edge 120+, Firefox 140+ |
-| 7 | Приватность коротко | Панель на мягком акценте: заголовок, абзац, ссылка на политику, четыре факта |
+| 7 | Приватность коротко | Панель на мягком акценте: заголовок, абзац, ссылка на политику, три факта о приложении и расширении (в макете четвёртый — «сайт не ставит cookies» — убран в коде) |
 | 8 | Загрузка | Маскот, «beta скоро», системные требования |
-| 9 | Подвал | Privacy, Licenses, Support, © 2026 Netami, «No cookies, no analytics» |
+| 9 | Подвал | Privacy, Licenses, Support, © 2026 Netami |
 
 ### Тексты
 
@@ -59,7 +59,7 @@
 | Шаг 3 | Click the button — The page lands in Inbox. Sort it later — it takes about a minute. | Нажмите кнопку — Страница попадёт во «Входящие». Разберите потом — это займёт около минуты. |
 | Что внутри | Find it, sort it, keep it: Sort the inbox from the keyboard · Search titles, sites and tags · Collections and tags · Trash keeps links for 30 days · Import and export | Найти, разобрать, сохранить: Разбор входящих с клавиатуры · Поиск по названию, сайту и тегам · Коллекции и теги · Корзина хранит ссылки 30 дней · Импорт и экспорт |
 | Браузеры | Works with your browser | Работает с вашим браузером |
-| Приватность | Your links stay with you. Netami Pin keeps everything on your computer. There is no server to send it to. Facts: the extension reads only the address and title of the tab you save · no analytics, telemetry or crash reports · no account and no cloud · this site sets no cookies | Ваши ссылки остаются у вас. Netami Pin хранит всё на вашем компьютере. Отправлять это некуда: сервера нет. Факты: расширение читает только адрес и заголовок сохраняемой вкладки · ни аналитики, ни телеметрии, ни отчётов о сбоях · ни аккаунта, ни облака · этот сайт не ставит cookies |
+| Приватность | Your links stay with you. Netami Pin keeps everything on your computer. There is no server to send it to. Facts: the extension reads only the address and title of the tab you save · the app sends no analytics, telemetry or crash reports · no account and no cloud | Ваши ссылки остаются у вас. Netami Pin хранит всё на вашем компьютере. Отправлять это некуда: сервера нет. Факты: расширение читает только адрес и заголовок сохраняемой вкладки · приложение не отправляет аналитику, телеметрию и отчёты о сбоях · ни аккаунта, ни облака |
 | Загрузка, «скоро» | Windows beta is on its way. The installer and the browser extensions will be published here. | Windows-beta уже в пути. Установщик и расширения для браузеров появятся здесь. |
 | Требования | Windows 11, 64-bit (no administrator rights needed) · Chrome or Edge 120+, Firefox 140+ (current release or ESR 140) | Windows 11, 64 бит (права администратора не нужны) · Chrome или Edge 120+, Firefox 140+ (текущий релиз или ESR 140) |
 
@@ -101,7 +101,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
 1. **Сертификат сервера** (один раз, на 15 лет): Cloudflare → `netami.app` → SSL/TLS → Origin Server → Create Certificate, имена `pin.netami.app` и `*.pin.netami.app`. Сертификат и ключ — в `/etc/caddy/certs/pin.netami.app.pem` и `.key`, владелец `root:caddy`, права `640`. В репозиторий они не попадают.
 2. **Порт 443** открыт в Security List сети Oracle (VCN) и в `iptables` сервера (`netfilter-persistent save`). Можно открыть только для [адресов Cloudflare](https://www.cloudflare.com/ips/).
 3. **Подключение к Caddy** (один раз): в `/etc/caddy/Caddyfile` строка `import /srv/pin.netami.app/Caddyfile`; стандартный блок `:80` со страницей «Caddy works!» можно удалить. Скрипт ниже кладёт `site/Caddyfile` в `/srv/pin.netami.app/Caddyfile`, файлы сайта — в `/srv/pin.netami.app/site`, лог — `/var/log/caddy/pin.netami.app.log` (без заголовков и параметров адреса; за прокси в нём адрес Cloudflare, адрес посетителя — только в удаляемом заголовке `Cf-Connecting-IP`).
-4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Выключены всё, что вставляет в страницы скрипты или ставит cookies: Web Analytics (автоматическая вставка), Email Address Obfuscation, Rocket Loader, Bot Fight Mode. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/` → `/ru/` зависит от языка браузера.
+4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Web Analytics (вставка скрипта, без cookies) включена, CSP её разрешает; Email Address Obfuscation и Rocket Loader выключены — они вставляют скрипты, которые CSP заблокирует; Bot Fight Mode выключен — он может ставить cookies. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/` → `/ru/` зависит от языка браузера.
 5. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Netami Pin, `npm run site:shots`, закоммитить `site/src/shots`.
 6. **Обновления Firefox:** после `npm run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/firefox`; сборка сайта забирает их и сверяет хеши.
 7. **Выкладка:**
@@ -109,7 +109,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    pwsh scripts/deploy-site.ps1 -Server user@host
    ```
    Скрипт собирает сайт, копирует архив и `Caddyfile` по `scp`, распаковывает рядом со старой версией, проверяет конфиг (`caddy validate`; при ошибке прежний `Caddyfile` возвращается, сайт не меняется), меняет папки местами и перезагружает Caddy. Предыдущая версия остаётся в `site.old`.
-8. **Проверка после выкладки:** открываются `https://pin.netami.app`, `/ru/`, `/privacy`, `/ru/privacy`, `/licenses`; `https://pin.netami.app/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, в страницах нет вставленных Cloudflare скриптов; с русским языком браузера `/` переходит на `/ru/`.
+8. **Проверка после выкладки:** открываются `https://pin.netami.app`, `/ru/`, `/privacy`, `/ru/privacy`, `/licenses`; `https://pin.netami.app/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, из вставок Cloudflare в страницах только скрипт Web Analytics; с русским языком браузера `/` переходит на `/ru/`.
 
 Без прокси (серое облако, `A` на сервер) из `site/Caddyfile` убираются строки `tls`: Caddy сам получит сертификат Let's Encrypt.
 ## Открытые вопросы

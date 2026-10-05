@@ -39,9 +39,8 @@ export const content = {
     privacyBody: "Netami Pin keeps everything on your computer. There is no server to send it to.",
     privacyFacts: [
       "The extension reads only the address and title of the tab you save.",
-      "No analytics, telemetry or crash reports.",
+      "The app sends no analytics, telemetry or crash reports.",
       "No account and no cloud.",
-      "This site sets no cookies.",
     ],
     privacyLink: "Read the privacy policy",
     dlTitle: "Windows beta is on its way",
@@ -50,7 +49,7 @@ export const content = {
       ["Windows 11, 64-bit", "No administrator rights needed"],
       ["Chrome or Edge 120+, Firefox 140+", "Current release or ESR 140"],
     ],
-    footer: { privacy: "Privacy", licenses: "Licenses", support: "Support", note: "No cookies, no analytics." },
+    footer: { privacy: "Privacy", licenses: "Licenses", support: "Support" },
     back: "Netami Pin",
     privacyPage: { title: "Privacy policy", updated: "Last updated 5 October 2026", section: "English" },
     licenses: {
@@ -106,9 +105,8 @@ export const content = {
     privacyBody: "Netami Pin хранит всё на вашем компьютере. Отправлять это некуда: сервера нет.",
     privacyFacts: [
       "Расширение читает только адрес и заголовок сохраняемой вкладки.",
-      "Ни аналитики, ни телеметрии, ни отчётов о сбоях.",
+      "Приложение не отправляет аналитику, телеметрию и отчёты о сбоях.",
       "Ни аккаунта, ни облака.",
-      "Этот сайт не ставит cookies.",
     ],
     privacyLink: "Политика конфиденциальности",
     dlTitle: "Windows-beta уже в пути",
@@ -117,7 +115,7 @@ export const content = {
       ["Windows 11, 64 бит", "Права администратора не нужны"],
       ["Chrome или Edge 120+, Firefox 140+", "Текущий релиз или ESR 140"],
     ],
-    footer: { privacy: "Приватность", licenses: "Лицензии", support: "Поддержка", note: "Без cookies и аналитики." },
+    footer: { privacy: "Приватность", licenses: "Лицензии", support: "Поддержка" },
     back: "Netami Pin",
     privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 5 октября 2026 года", section: "Русский" },
     licenses: {
