@@ -249,18 +249,20 @@ async function knownEnabled() {
   const { feedback } = await ext.storage.local.get("feedback");
   return feedback?.known === true && (await ext.permissions.contains({ permissions: ["tabs"] }));
 }
+/** Marks the tab when its page is saved; false only when the app gave no answer. */
 async function markKnown(tabId, url) {
   const page = pageOf(tabId);
-  if (!/^https?:/.test(url || "") || !(await knownEnabled())) return;
+  if (!/^https?:/.test(url || "") || !(await knownEnabled())) return true;
   let saved = known.get(url);
   if (!saved || Date.now() - saved.at > KNOWN_MS) {
     const reply = await talk({ type: "lookup", url });
-    if (!reply.ok) return;
+    if (!reply.ok) return false;
     saved = { saved: reply.saved === true, at: Date.now() };
     known.set(url, saved);
     if (known.size > 500) known.delete(known.keys().next().value);
   }
   if (saved.saved && pageOf(tabId) === page) await paint(rest("existing"), stateTitle("existing"), tabId);
+  return true;
 }
 // A new page in the tab drops its icon; a later delivery must not mark that page.
 ext.tabs.onUpdated.addListener((tabId, change, tab) => {
@@ -278,7 +280,9 @@ ext.storage.onChanged.addListener((changes) => {
   if (!newValue?.known || oldValue?.known) return;
   void ext.tabs.query({}).then((tabs) => {
     const lane = async () => {
-      for (let tab = tabs.shift(); tab; tab = tabs.shift()) await markKnown(tab.id, tab.url);
+      for (let tab = tabs.shift(); tab; tab = tabs.shift())
+        // No answer (the app is closed, the host missing): no other tab gets one either.
+        if (!(await markKnown(tab.id, tab.url))) tabs.length = 0;
     };
     return Promise.all(Array.from({ length: LOOKUPS_AT_ONCE }, lane));
   });
