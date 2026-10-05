@@ -34,13 +34,13 @@ import {
   Undo,
 } from "../types";
 import type { PageRequest } from "./api";
-import { demoBookmarks, demoCollections, posterOf } from "./demoData";
+import { demoLibrary, posterOf } from "./demoData";
 import { parseBookmarksFile } from "./bookmarksFile";
 import { isAfter, listTime, matchesBookmark, sortBookmarks } from "./library";
 import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
-import i18n from "../i18n";
+import i18n, { resolveLanguage, storedLanguage } from "../i18n";
 
 const demoCaptureStatus: CaptureStatus = {
   state: "none",
@@ -56,8 +56,12 @@ const demoCaptureStatus: CaptureStatus = {
 export const DEMO_STORAGE_KEY = "netamipin.demo.v4";
 const key = DEMO_STORAGE_KEY;
 const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString();
+// The texts follow the interface's language when the library is created; a saved
+// library keeps its own after a switch. Until the first change nothing is saved,
+// so a reload creates it again in the current language.
+const sample = demoLibrary(resolveLanguage(storedLanguage()));
 let initial = {
-  bookmarks: demoBookmarks.map((b, i): Bookmark => ({
+  bookmarks: sample.bookmarks.map((b, i): Bookmark => ({
     id: b.id,
     url: b.url,
     title: b.title,
@@ -67,7 +71,7 @@ let initial = {
     domain: b.domain,
     notes: b.notes || null,
     is_favorite: b.favorite,
-    collection_id: demoCollections.indexOf(b.collection) + 1,
+    collection_id: sample.collections.indexOf(b.collection) + 1,
     tags: b.tags,
     created_at: stamp(i),
     updated_at: stamp(i),
@@ -77,7 +81,7 @@ let initial = {
     // Waiting ones came from a browser; triage says which (NP-025).
     source: b.inbox ? (i % 2 ? "firefox" : "chrome") : "import",
   })),
-  collections: demoCollections.map((name, i): Collection => ({
+  collections: sample.collections.map((name, i): Collection => ({
     id: i + 1,
     name,
     color: null,
@@ -800,7 +804,7 @@ export const demo = {
       time.setHours(9, 12, 0, 0);
       return time.toISOString();
     };
-    const count = demoBookmarks.length;
+    const count = sample.bookmarks.length;
     return [
       { file_name: "netamipin.auto-demo-1.db", kind: "automatic", created_at: at(0), bytes: 1_300_000, bookmarks: count },
       { file_name: "netamipin.before-v4.db", kind: "before_update", created_at: at(2), bytes: 1_250_000, bookmarks: count - 2 },
