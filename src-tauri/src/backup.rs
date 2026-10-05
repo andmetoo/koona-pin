@@ -57,12 +57,21 @@ pub fn prune_before_migration(folder: &Path, version: i64) {
     }
 }
 
-/// `netamipin.before-restore-<time>.db`: the library as it was before a restore.
+/// `netamipin.before-restore-<time>.db`: the library as it was before a
+/// restore. The time has milliseconds and the name is always a free one: a
+/// second restore in the same second must not write over the first copy.
+/// Names still sort by time, those of earlier builds (seconds only) first.
 pub fn before_restore_path(folder: &Path) -> PathBuf {
-    folder.join(format!(
-        "{BEFORE_RESTORE}{}.db",
-        chrono::Local::now().format("%Y%m%d-%H%M%S")
-    ))
+    loop {
+        let path = folder.join(format!(
+            "{BEFORE_RESTORE}{}.db",
+            chrono::Local::now().format("%Y%m%d-%H%M%S%3f")
+        ));
+        if !path.exists() {
+            return path;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
 }
 
 /// Keeps the newest copies before a restore; the names sort by time.
@@ -312,6 +321,28 @@ mod tests {
         assert!(expired(&left).is_empty());
         // One copy per day: the older copy of the newest day goes.
         assert!(gone.contains(&copies[118].0));
+    }
+
+    #[test]
+    fn a_second_restore_in_the_same_second_keeps_the_first_copy() {
+        let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../.test-data")
+            .join(format!("backups-restore-names-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&folder).unwrap();
+        let first = before_restore_path(&folder);
+        fs::write(&first, "the library before the first restore").unwrap();
+        let second = before_restore_path(&folder);
+        assert_ne!(first, second);
+        assert!(second > first, "names sort by time");
+        // A copy named by an earlier build, in seconds only, sorts before.
+        let name = |p: &Path| p.file_name().unwrap().to_string_lossy().into_owned();
+        let older = format!("{}.db", &name(&first)[..name(&first).len() - ".db".len() - 3]);
+        assert!(older < name(&first));
+        // Pruning keeps the two newest, in that order.
+        fs::write(&second, "the library before the second restore").unwrap();
+        fs::write(folder.join(&older), "older").unwrap();
+        prune_before_restore(&folder);
+        assert!(!folder.join(&older).exists() && first.exists() && second.exists());
     }
 
     #[test]
