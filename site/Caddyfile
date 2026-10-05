@@ -63,11 +63,15 @@ pin.netami.app {
 	try_files {path} {path}.html {path}/index.html
 	file_server
 
-	handle_errors 404 {
-		@ru path /ru/*
-		rewrite @ru /ru/404.html
-		rewrite * /404.html
-		file_server
+	# Status codes after handle_errors need Caddy 2.8; the expression works on older ones too.
+	handle_errors {
+		@notfound expression {err.status_code} == 404
+		handle @notfound {
+			@ru path /ru/*
+			rewrite @ru /ru/404.html
+			rewrite * /404.html
+			file_server
+		}
 	}
 
 	log {
@@ -75,20 +79,13 @@ pin.netami.app {
 			roll_size 10MiB
 			roll_keep 5
 		}
-		# No headers, query strings or full addresses in the log: the site promises not to track.
+		# No headers (the visitor's address comes in Cf-Connecting-IP) and no query strings:
+		# the site promises not to track. remote_ip is Cloudflare's.
 		format filter {
 			wrap console
 			fields {
 				request>headers delete
 				request>uri regexp \?.*$ ""
-				request>remote_ip ip_mask {
-					ipv4 16
-					ipv6 32
-				}
-				request>client_ip ip_mask {
-					ipv4 16
-					ipv6 32
-				}
 			}
 		}
 	}

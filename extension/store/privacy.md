@@ -16,7 +16,7 @@ Netami Pin is a desktop app for Windows that keeps your bookmarks on your comput
 
 **Network requests.** The extension makes none. The app connects to the website of a link you save to read its title, description, preview image and icon; that website sees an ordinary request from your computer. When a site has no icon, the app asks Google's favicon service for one and sends it the site's domain name. Nothing is sent to the developer: no analytics, no telemetry, no crash reports.
 
-**This website.** pin.netami.app sets no cookies and runs no scripts or analytics. It is delivered through Cloudflare, which passes your requests to our server; the server keeps short access logs without the page you came from, with shortened IP addresses.
+**This website.** pin.netami.app sets no cookies and runs no scripts or analytics. It is delivered through Cloudflare, which passes your requests to our server; the server keeps short access logs of the pages it served, without your IP address and the page you came from.
 
 **Sharing.** Your data is not sold, shared or transferred to anyone, and is not used for anything other than saving and showing your bookmarks.
 
@@ -36,7 +36,7 @@ Netami Pin — приложение для Windows, которое хранит 
 
 **Сетевые запросы.** Расширение их не делает. Приложение обращается к сайту сохранённой ссылки, чтобы получить заголовок, описание, превью и значок; сайт видит обычный запрос с вашего компьютера. Если у сайта нет значка, приложение запрашивает его у сервиса значков Google и передаёт ему доменное имя сайта. Разработчику ничего не отправляется: ни аналитики, ни телеметрии, ни отчётов о сбоях.
 
-**Этот сайт.** pin.netami.app не ставит cookies и не запускает скриптов и аналитики. Его доставляет Cloudflare, который передаёт ваши запросы нашему серверу; сервер ведёт короткие журналы запросов без адреса страницы, с которой вы пришли, и с сокращёнными IP-адресами.
+**Этот сайт.** pin.netami.app не ставит cookies и не запускает скриптов и аналитики. Его доставляет Cloudflare, который передаёт ваши запросы нашему серверу; сервер ведёт короткие журналы отданных страниц — без вашего IP-адреса и адреса страницы, с которой вы пришли.
 
 **Передача.** Ваши данные не продаются, не передаются и не используются ни для чего, кроме сохранения и показа ваших закладок.
 

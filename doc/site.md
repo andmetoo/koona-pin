@@ -96,11 +96,11 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
 
 ## Выкладка
 
-Выкладывает владелец ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)). Сервер — Ubuntu в Oracle Cloud с Caddy 2.7+, домен за прокси Cloudflare (оранжевое облако), между Cloudflare и сервером — Cloudflare Origin Certificate в режиме «Full (strict)».
+Выкладывает владелец ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)). Сервер — Ubuntu в Oracle Cloud с Caddy 2 (`handle_errors` без кодов статуса — для версий до 2.8), домен за прокси Cloudflare (оранжевое облако), между Cloudflare и сервером — Cloudflare Origin Certificate в режиме «Full (strict)».
 
 1. **Сертификат сервера** (один раз, на 15 лет): Cloudflare → `netami.app` → SSL/TLS → Origin Server → Create Certificate, имена `pin.netami.app` и `*.pin.netami.app`. Сертификат и ключ — в `/etc/caddy/certs/pin.netami.app.pem` и `.key`, владелец `root:caddy`, права `640`. В репозиторий они не попадают.
 2. **Порт 443** открыт в Security List сети Oracle (VCN) и в `iptables` сервера (`netfilter-persistent save`). Можно открыть только для [адресов Cloudflare](https://www.cloudflare.com/ips/).
-3. **Подключение к Caddy** (один раз): в `/etc/caddy/Caddyfile` строка `import /srv/pin.netami.app/Caddyfile`; стандартный блок `:80` со страницей «Caddy works!» можно удалить. Скрипт ниже кладёт `site/Caddyfile` в `/srv/pin.netami.app/Caddyfile`, файлы сайта — в `/srv/pin.netami.app/site`, лог — `/var/log/caddy/pin.netami.app.log` (без заголовков и параметров адреса, IP обрезается).
+3. **Подключение к Caddy** (один раз): в `/etc/caddy/Caddyfile` строка `import /srv/pin.netami.app/Caddyfile`; стандартный блок `:80` со страницей «Caddy works!» можно удалить. Скрипт ниже кладёт `site/Caddyfile` в `/srv/pin.netami.app/Caddyfile`, файлы сайта — в `/srv/pin.netami.app/site`, лог — `/var/log/caddy/pin.netami.app.log` (без заголовков и параметров адреса; за прокси в нём адрес Cloudflare, адрес посетителя — только в удаляемом заголовке `Cf-Connecting-IP`).
 4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Выключены всё, что вставляет в страницы скрипты или ставит cookies: Web Analytics (автоматическая вставка), Email Address Obfuscation, Rocket Loader, Bot Fight Mode. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/` → `/ru/` зависит от языка браузера.
 5. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Netami Pin, `npm run site:shots`, закоммитить `site/src/shots`.
 6. **Обновления Firefox:** после `npm run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/firefox`; сборка сайта забирает их и сверяет хеши.
