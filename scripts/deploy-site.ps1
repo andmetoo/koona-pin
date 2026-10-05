@@ -25,11 +25,13 @@ sudo mkdir -p $Root
 sudo rm -rf $Root/site.new && sudo mkdir $Root/site.new
 sudo tar -xzf /tmp/pin-netami-site.tgz -C $Root/site.new
 sudo chmod -R a+rX $Root/site.new
-if [ -f $Root/Caddyfile ]; then sudo cp $Root/Caddyfile $Root/Caddyfile.bak; fi
+# The backup goes to a folder of its own, out of reach of an import glob over the root.
+sudo mkdir -p $Root/backup
+if [ -f $Root/Caddyfile ]; then sudo cp $Root/Caddyfile $Root/backup/Caddyfile; fi
 sudo install -m 644 /tmp/Caddyfile $Root/Caddyfile
 # A broken config must not stay where the main Caddyfile imports it.
 if ! sudo caddy validate --config $CaddyConfig --adapter caddyfile; then
-  if [ -f $Root/Caddyfile.bak ]; then sudo mv $Root/Caddyfile.bak $Root/Caddyfile; else sudo rm -f $Root/Caddyfile; fi
+  if [ -f $Root/backup/Caddyfile ]; then sudo cp $Root/backup/Caddyfile $Root/Caddyfile; else sudo rm -f $Root/Caddyfile; fi
   echo "caddy validate failed: the previous Caddyfile is back, the site is not changed" >&2
   exit 1
 fi
