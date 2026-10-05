@@ -28,11 +28,34 @@ pub enum ErrorCode {
     Internal,
 }
 
+/// What exactly went wrong, when people are told more than the code says.
+/// The interface has words for each in `src/locales` (`errors.detail`);
+/// the English `message` stays for the log (NP-085).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ErrorDetail {
+    EmptyTag,
+    EmptyCollectionName,
+    EmptyTitle,
+    BookmarkGone,
+    NotInTrash,
+    InvalidUrl,
+    UnsupportedUrl,
+    NothingExported,
+    CopyGone,
+    LibraryOpening,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 pub struct CommandError {
     pub code: ErrorCode,
+    /// English, for the log; people read `detail` or `code` in their language.
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub detail: Option<ErrorDetail>,
 }
 
 impl CommandError {
@@ -40,6 +63,15 @@ impl CommandError {
         CommandError {
             code,
             message: message.into(),
+            detail: None,
+        }
+    }
+
+    /// A failure the interface explains in its own words.
+    pub fn detailed(code: ErrorCode, detail: ErrorDetail, message: impl Into<String>) -> Self {
+        CommandError {
+            detail: Some(detail),
+            ..CommandError::new(code, message)
         }
     }
 
@@ -122,8 +154,13 @@ mod tests {
             CommandError::from(missing.unwrap_err()).code,
             ErrorCode::NotFound
         );
-        let json = serde_json::to_string(&CommandError::invalid("Пусто")).unwrap();
-        assert_eq!(json, r#"{"code":"invalid_request","message":"Пусто"}"#);
+        let json = serde_json::to_string(&CommandError::invalid("Empty")).unwrap();
+        assert_eq!(json, r#"{"code":"invalid_request","message":"Empty"}"#);
+        let detailed = CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyTag, "Enter a tag");
+        assert_eq!(
+            serde_json::to_string(&detailed).unwrap(),
+            r#"{"code":"invalid_request","message":"Enter a tag","detail":"empty_tag"}"#
+        );
     }
 
     #[test]

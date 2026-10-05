@@ -26,7 +26,7 @@ describe("quick search rules (NP-082)", () => {
   it("tells why there are no results from the app's answer", () => {
     expect(answerState({ ok: true, items: [] })).toBe("results");
     expect(answerState({ ok: false, code: "host_missing" })).toBe("missing");
-    expect(answerState({ ok: false, code: "invalid_request", message: "Неизвестное сообщение" })).toBe("update-app");
+    expect(answerState({ ok: false, code: "invalid_request", message: "Unknown message" })).toBe("update-app");
     expect(answerState({ ok: false, code: "incompatible_protocol", protocol: 1 })).toBe("update-app");
     expect(answerState({ ok: false, code: "incompatible_protocol", protocol: 9 })).toBe("update-extension");
     expect(answerState({ ok: false, code: "database_error" })).toBe("library");

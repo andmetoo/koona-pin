@@ -6,7 +6,7 @@ use crate::{
         self, Bookmark, BookmarkPage, BookmarkQuery, Collection, DbState, DomainCount,
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
-    error::{CommandError, ErrorCode},
+    error::{CommandError, ErrorCode, ErrorDetail},
     backup, dedupe, export, import, linkcheck, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
@@ -136,13 +136,13 @@ pub async fn bulk_update(
     // `Err` holds the name of the collection to create and fill.
     let (action, bulk) = match change {
         BulkChange::Move { collection_id } => (Action::Move, Ok(db::Bulk::Move(collection_id))),
-        BulkChange::Tag { name } if name.trim().is_empty() => return Err(CommandError::invalid("Введите тег")),
+        BulkChange::Tag { name } if name.trim().is_empty() => return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyTag, "Enter a tag")),
         BulkChange::Tag { name } => (Action::Tag, Ok(db::Bulk::Tag(name))),
         BulkChange::Favorite { favorite } => (Action::Favorite, Ok(db::Bulk::Favorite(favorite))),
         BulkChange::Trash => (Action::Trash, Ok(db::Bulk::Trash)),
         BulkChange::Restore => (Action::Restore, Ok(db::Bulk::Restore)),
         BulkChange::NewCollection { name } if name.trim().is_empty() => {
-            return Err(CommandError::invalid("Введите название коллекции"))
+            return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyCollectionName, "Enter a collection name"))
         }
         BulkChange::NewCollection { name } => (Action::Move, Err(name.trim().to_string())),
     };
@@ -268,7 +268,7 @@ pub async fn add_bookmark(
     saved
         .bookmark
         .map(|bookmark| AddedLink { bookmark, restored, existing })
-        .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Закладка больше не существует"))
+        .ok_or_else(|| CommandError::detailed(ErrorCode::NotFound, ErrorDetail::BookmarkGone, "The bookmark no longer exists"))
 }
 #[derive(Deserialize, Default, TS)]
 #[serde(tag = "action", content = "id", rename_all = "lowercase")]
@@ -303,7 +303,7 @@ pub async fn update_bookmark(
     patch: BookmarkPatch,
 ) -> Result<Changed, CommandError> {
     if patch.title.as_ref().is_some_and(|s| s.trim().is_empty()) {
-        return Err(CommandError::invalid("Название не должно быть пустым"));
+        return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyTitle, "The title must not be empty"));
     }
     let plain = patch.title.is_none() && patch.notes.is_none();
     let keep = matches!(patch.collection, CollectionPatch::Keep);
@@ -370,7 +370,7 @@ pub async fn delete_forever(
     .await?;
     let &(id, revision) = gone
         .first()
-        .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Этой закладки нет в корзине"))?;
+        .ok_or_else(|| CommandError::detailed(ErrorCode::NotFound, ErrorDetail::NotInTrash, "This bookmark is not in the trash"))?;
     capture::emit_deleted(&app, id, revision);
     Ok(())
 }
@@ -401,12 +401,21 @@ pub async fn create_collection(
     icon: Option<String>,
 ) -> Result<Collection, CommandError> {
     if name.trim().is_empty() {
-        return Err(CommandError::invalid("Введите название коллекции"));
+        return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyCollectionName, "Enter a collection name"));
     }
     blocking(&state, move |conn| {
         db::create_collection(conn, name.trim(), color.as_deref(), icon.as_deref()).map_err(text)
     })
     .await
+}
+/// A new library's first collections, named by the interface in its language
+/// (NP-085). Made once: a library that already had them gets nothing.
+#[tauri::command]
+pub async fn create_starter_collections(
+    state: State<'_, Arc<DbState>>,
+    names: Vec<String>,
+) -> Result<Vec<Collection>, CommandError> {
+    blocking(&state, move |conn| db::create_starter_collections(conn, &names).map_err(text)).await
 }
 #[tauri::command]
 pub async fn delete_collection(
@@ -683,7 +692,7 @@ pub async fn export_library(
 #[tauri::command]
 pub fn reveal_export(app: AppHandle, last: State<'_, LastExport>) -> Result<(), CommandError> {
     let path = last.0.lock().map_err(CommandError::internal)?.clone();
-    let path = path.ok_or_else(|| CommandError::new(ErrorCode::NotFound, "Nothing was exported yet"))?;
+    let path = path.ok_or_else(|| CommandError::detailed(ErrorCode::NotFound, ErrorDetail::NothingExported, "Nothing was exported yet"))?;
     app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
 }
 
@@ -1115,11 +1124,11 @@ pub async fn restore_backup(
         BackupSource::Listed { file_name } => backup::listed(&library.paths.backups, &file_name),
         BackupSource::Picked => picked.0.lock().map_err(CommandError::internal)?.clone(),
     }
-    .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "The copy is gone"))?;
+    .ok_or_else(|| CommandError::detailed(ErrorCode::NotFound, ErrorDetail::CopyGone, "The copy is gone"))?;
     let db = app.try_state::<Arc<DbState>>().map(|state| state.inner().clone());
     let closed = matches!(library.status(), LibraryStatus::Failed(_));
     if db.is_none() && !closed {
-        return Err(CommandError::new(ErrorCode::DatabaseBusy, "The library is still opening"));
+        return Err(CommandError::detailed(ErrorCode::DatabaseBusy, ErrorDetail::LibraryOpening, "The library is still opening"));
     }
     let paths = library.paths.clone();
     let handle = app.clone();
@@ -1167,6 +1176,6 @@ pub async fn restore_backup(
 #[tauri::command]
 pub fn reveal_backup(app: AppHandle, library: State<'_, Arc<Library>>, file_name: String) -> Result<(), CommandError> {
     let path = backup::listed(&library.paths.backups, &file_name)
-        .ok_or_else(|| CommandError::new(ErrorCode::NotFound, "The copy is gone"))?;
+        .ok_or_else(|| CommandError::detailed(ErrorCode::NotFound, ErrorDetail::CopyGone, "The copy is gone"))?;
     app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
 }
