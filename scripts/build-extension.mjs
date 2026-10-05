@@ -39,6 +39,9 @@ export function manifest(browser, { dev = false, key } = {}) {
     // Links go to the app only through its native messaging host (Р-17).
     // `scripting` with `activeTab`: the message after a click, on that tab only (NP-080, Р-39).
     permissions: ["activeTab", "scripting", "storage", "alarms", "nativeMessaging"],
+    // «Show that a page is already saved» (NP-083): asked for only when the
+    // person turns it on, so installing and updating show no warning.
+    optional_permissions: ["tabs"],
     action: { default_title: "__MSG_actionTitle__", default_icon: icons },
     // Quick search (NP-082, Р-40). Ctrl+Shift+D is the browsers' own «bookmark all tabs».
     commands: {
