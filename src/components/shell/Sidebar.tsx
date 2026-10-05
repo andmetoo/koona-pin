@@ -5,7 +5,7 @@ import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../.
 import { collectionColor } from "../../services/collections";
 import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { statusColor, statusLabel } from "../../services/capture";
-import { ClipIcon, Icon, InboxTray, LogoMark } from "../icons";
+import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
 
 export interface SidebarProps {
@@ -78,7 +78,7 @@ export function Sidebar(props: SidebarProps) {
     return (
       <aside className="flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
         <div className="mb-3 text-accent" data-tauri-drag-region>
-          <LogoMark />
+          <Mascot size={34} className="pointer-events-none" />
         </div>
         <StripButton
           label={counts.inbox > 0 ? t("nav.inboxWaiting", { count: counts.inbox }) : t("nav.inbox")}
@@ -138,7 +138,7 @@ export function Sidebar(props: SidebarProps) {
       data-drop-scroll
     >
       <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-[18px] text-accent" data-tauri-drag-region>
-        <LogoMark />
+        <Mascot className="pointer-events-none" />
         <span className="text-lg font-semibold" data-tauri-drag-region>
           netami pin
         </span>
