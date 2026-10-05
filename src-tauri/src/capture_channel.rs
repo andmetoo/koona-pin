@@ -64,6 +64,20 @@ enum Message {
         #[serde(default)]
         title: Option<String>,
     },
+    /// The quick search of the extension's popup (NP-082).
+    Search {
+        #[serde(default)]
+        protocol: Option<u32>,
+        #[serde(default)]
+        query: String,
+        #[serde(default)]
+        filter: crate::quick_search::Filter,
+    },
+    /// «Open Netami Pin» in the popup: the main window comes up.
+    Show {
+        #[serde(default)]
+        protocol: Option<u32>,
+    },
 }
 
 pub struct Handled {
@@ -71,6 +85,8 @@ pub struct Handled {
     pub saved: Option<CaptureResult>,
     /// A browser's record changed: the status may change too.
     pub contact: bool,
+    /// The extension asked to show the main window.
+    pub show: bool,
 }
 
 fn failure(code: &str, message: &str) -> Value {
@@ -91,9 +107,12 @@ pub fn handle(
                 reply: failure("invalid_request", "Неизвестное сообщение"),
                 saved: None,
                 contact: false,
+                show: false,
             }
         }
     };
+    // Searching is not a contact to record: a popup sends a message for
+    // every key, and the record would be written each time.
     let (protocol, version, browser) = match &message {
         Message::Hello {
             protocol,
@@ -106,6 +125,7 @@ pub fn handle(
             browser,
             ..
         } => (*protocol, version.clone(), browser.as_deref().and_then(Browser::parse)),
+        Message::Search { protocol, .. } | Message::Show { protocol } => (*protocol, None, None),
     };
     let stamp = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
     // An incompatible extension is recorded too: the status tells the user to update.
@@ -127,6 +147,7 @@ pub fn handle(
             reply,
             saved: None,
             contact,
+            show: false,
         };
     }
     let handled = match message {
@@ -139,6 +160,20 @@ pub fn handle(
             }),
             saved: None,
             contact,
+            show: false,
+        },
+        Message::Search { query, filter, .. } => Handled {
+            reply: crate::quick_search::search(conn, &query, &filter)
+                .unwrap_or_else(|error| failure("database_error", &error.to_string())),
+            saved: None,
+            contact,
+            show: false,
+        },
+        Message::Show { .. } => Handled {
+            reply: json!({ "ok": true }),
+            saved: None,
+            contact,
+            show: true,
         },
         Message::Capture {
             request_id,
@@ -172,12 +207,14 @@ pub fn handle(
                         reply,
                         saved: Some(saved),
                         contact,
+                        show: false,
                     }
                 }
                 Err(error) => Handled {
                     reply: failure(error.code, &error.message),
                     saved: None,
                     contact,
+                    show: false,
                 },
             }
         }
@@ -339,6 +376,7 @@ async fn answer(
                         reply: failure("database_error", "База данных недоступна"),
                         saved: None,
                         contact: false,
+                        show: false,
                     };
                 };
                 let mut connections = lock(&records.connections);
@@ -351,6 +389,9 @@ async fn answer(
             }
             if handled.contact {
                 emit_status(&app, &state);
+            }
+            if handled.show {
+                crate::show_window(&app);
             }
             handled.reply
         }
@@ -689,5 +730,39 @@ mod tests {
         assert_eq!(saved.reply["code"], "database_error");
         // The record stays in memory.
         assert_eq!(browsers::status(&connections, None, now()).state, browsers::CaptureState::Connected);
+    }
+
+    #[test]
+    fn the_popup_searches_and_shows_the_window_without_writing_records() {
+        let c = database();
+        let mut connections = Connections::default();
+        handle(&c, &mut connections, &envelope(capture("r1", "https://blog.rust-lang.org/", "chrome")), now());
+        let before = connections.clone();
+        let found = handle(
+            &c,
+            &mut connections,
+            &envelope(json!({ "type": "search", "protocol": PROTOCOL, "query": "rust-lang", "filter": { "kind": "inbox" } })),
+            now(),
+        );
+        assert_eq!(found.reply["ok"], true);
+        assert_eq!(found.reply["items"][0]["url"], "https://blog.rust-lang.org/");
+        assert_eq!(found.reply["counts"]["inbox"], 1);
+        assert!(!found.contact && !found.show);
+        assert_eq!(connections, before, "a search is not a contact to record");
+        // No query and no filter: the latest saved, every filter counted.
+        let recent = handle(&c, &mut connections, &envelope(json!({ "type": "search", "protocol": PROTOCOL })), now());
+        assert_eq!(recent.reply["counts"]["all"], 1);
+        let show = handle(&c, &mut connections, &envelope(json!({ "type": "show", "protocol": PROTOCOL })), now());
+        assert_eq!((show.reply["ok"].clone(), show.show), (json!(true), true));
+        // An extension of another protocol is told to update, as for a capture.
+        let old = handle(&c, &mut connections, &envelope(json!({ "type": "search", "protocol": 1, "query": "x" })), now());
+        assert_eq!(old.reply["code"], "incompatible_protocol");
+        let bad = handle(
+            &c,
+            &mut connections,
+            &envelope(json!({ "type": "search", "protocol": PROTOCOL, "filter": { "kind": "trash" } })),
+            now(),
+        );
+        assert_eq!(bad.reply["code"], "invalid_request");
     }
 }

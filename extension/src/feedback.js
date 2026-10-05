@@ -109,13 +109,14 @@ export function drawIcon(canvas, mark, size, pose = {}) {
   const target = canvas(size);
   const ctx = target.getContext("2d");
   ctx.clearRect(0, 0, size, size);
-  // As brand-icons.mjs: the view box widened by half the outline (≈ 1.1 px).
+  // As brand-icons.mjs: the view box widened by half the outline (≈ 1.1 px) and a 1 px margin.
   const stroke = (126 / size) * 1.1;
+  const pad = stroke / 2 + 126 / size;
   const [vx, vy, vw] = mark.viewBox;
-  const scale = size / (vw + stroke);
+  const scale = size / (vw + 2 * pad);
   ctx.save();
   ctx.scale(scale, scale);
-  ctx.translate(-(vx - stroke / 2), -(vy - stroke / 2));
+  ctx.translate(-(vx - pad), -(vy - pad));
   ctx.globalAlpha = pose.opacity ?? 1;
   ctx.translate(63 + (pose.dx ?? 0), 126 + (pose.dy ?? 0));
   ctx.scale(pose.sx ?? 1, pose.sy ?? 1);
