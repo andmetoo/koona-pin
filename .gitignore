@@ -34,3 +34,6 @@ Thumbs.db
 *.db-wal
 scripts/platform-probe/mobile-app/src-tauri/target/
 scripts/platform-probe/mobile-app/src-tauri/gen/
+
+# pin.netami.app build (scripts/build-site.mjs)
+dist-site/
