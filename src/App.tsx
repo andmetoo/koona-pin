@@ -1070,7 +1070,7 @@ export function App() {
             scrollRef.current?.scrollTo({ top: 0 });
             await library.refresh();
             setSurface(null);
-            say(added.restored ? t("notice.restoredLink") : t("notice.linkSaved"));
+            say(added.restored ? t("notice.restoredLink") : added.existing ? t("notice.linkExisting") : t("notice.linkSaved"));
           }}
         />
       )}
