@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import i18n from "../i18n";
 import type { CommandErrorData, ErrorCode } from "../types";
 
@@ -37,12 +38,13 @@ const explained: ErrorCode[] = ["disk_full", "read_only", "database_busy"];
 /**
  * The reason in the middle of a sentence: «Не удалось … : библиотека занята.
  * Ничего не изменено.» (frame 27). Codes without words keep the message.
+ * `t` is the sentence's own: the reason speaks its language.
  */
-export function reasonOf(error: unknown): string {
+export function reasonOf(error: unknown, t: TFunction = i18n.t): string {
   const failure = toCommandError(error);
   const known = ["disk_full", "read_only", "database_busy", "not_found", "conflict"] as const;
   const code = known.find((c) => c === failure.code);
-  return code ? i18n.t(`errors.reason.${code}`) : failure.message.replace(/\.$/, "");
+  return code ? t(`errors.reason.${code}`) : failure.message.replace(/\.$/, "");
 }
 
 /** Text for people: storage failures are explained, the rest keep their message. */
