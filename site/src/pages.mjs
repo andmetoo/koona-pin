@@ -106,7 +106,7 @@ function footer(t, wordmark) {
 <a href="${SUPPORT}" rel="noopener">${esc(t.footer.support)}</a>
 </nav>
 </div>
-<div class="foot-row foot-small"><span>© 2026 Netami</span><span>${esc(t.footer.note)}</span></div>
+<div class="foot-row foot-small"><span>© 2026 Netami</span></div>
 </div>
 </footer>
 </body>
