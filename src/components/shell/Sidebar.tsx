@@ -1,5 +1,5 @@
 import { ReactNode, useRef, useState } from "react";
-import { Copy, Heart, Link, Plus, Settings, Trash2, X } from "lucide-react";
+import { Copy, Heart, Link, Plus, Settings, Trash2, Unlink, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
@@ -14,6 +14,8 @@ export interface SidebarProps {
   settingsOpen: boolean;
   /** The section «Дубликаты» is open (NP-035, sheet 34). */
   duplicatesOpen: boolean;
+  /** The section «Проверка ссылок» is open (NP-036, sheet 35). */
+  linksOpen: boolean;
   counts: LibraryCounts;
   collections: Collection[];
   tags: Tag[];
@@ -26,6 +28,7 @@ export interface SidebarProps {
   onTag: (name: string) => void;
   onSettings: () => void;
   onDuplicates: () => void;
+  onLinks: () => void;
   onConnect: () => void;
   onNewCollection: () => void;
   onDeleteCollection: (collection: Collection) => void;
@@ -60,9 +63,12 @@ export function Sidebar(props: SidebarProps) {
   const { filters, settingsOpen, counts, collections, tags, capture, narrow } = props;
   const [allTags, setAllTags] = useState(false);
   const duplicatesOpen = props.duplicatesOpen;
-  const library = !settingsOpen && !duplicatesOpen;
+  const linksOpen = props.linksOpen;
+  const library = !settingsOpen && !duplicatesOpen && !linksOpen;
   /** Shown while there are groups, or while the section is open. */
   const duplicates = counts.duplicates > 0 || duplicatesOpen;
+  /** Shown while a check found links to decide on, or while the section is open. */
+  const links = counts.links > 0 || linksOpen;
   const inbox = library && filters.onlyInbox;
   const trash = library && filters.onlyTrash;
   const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash;
@@ -106,7 +112,16 @@ export function Sidebar(props: SidebarProps) {
               {counts.duplicates > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-subtle" />}
             </span>
           </StripButton>
-        )}        <div className="my-2.5 h-px w-6 bg-line" />
+        )}
+        {links && (
+          <StripButton label={` `} active={linksOpen} onClick={props.onLinks}>
+            <span className="relative">
+              <Icon icon={Unlink} />
+              {counts.links > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-subtle" />}
+            </span>
+          </StripButton>
+        )}
+        <div className="my-2.5 h-px w-6 bg-line" />
         {collections.map((c) => (
           <StripButton
             key={c.id}
@@ -170,6 +185,7 @@ export function Sidebar(props: SidebarProps) {
         {duplicates && (
           <NavRow icon={<Icon icon={Copy} />} label={t("nav.duplicates")} count={counts.duplicates} active={duplicatesOpen} onClick={props.onDuplicates} />
         )}
+        {links && <NavRow icon={<Icon icon={Unlink} />} label={t("nav.links")} count={counts.links} active={linksOpen} onClick={props.onLinks} />}
       </nav>
 
       <div className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">

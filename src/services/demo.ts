@@ -31,6 +31,12 @@ import {
   DuplicateGroup,
   MergeGroup,
   Merged,
+  CheckedLink,
+  LinkCheckProgress,
+  LinkCheckReport,
+  LinkCheckState,
+  LinkFailure,
+  Replaced,
   Undo,
 } from "../types";
 import type { PageRequest } from "./api";
@@ -116,7 +122,8 @@ function change(previous: Bookmark, fields: Partial<Bookmark>): Bookmark {
 }
 /** The command journal of `journal.rs`: this session only, the last 100, undone field by field. */
 const JOURNAL_LIMIT = 100;
-const FIELDS = ["title", "notes", "is_favorite", "collection_id", "tags", "triaged_at", "deleted_at", "created_at"] as const;
+// `url` and `domain`: «Заменить адрес» (NP-036).
+const FIELDS = ["url", "domain", "title", "notes", "is_favorite", "collection_id", "tags", "triaged_at", "deleted_at", "created_at"] as const;
 type Fields = Pick<Bookmark, (typeof FIELDS)[number]>;
 type Command = { id: number; action: CommandAction; changes: { id: number; before: Fields; after: Fields }[] };
 let journal: Command[] = [];
@@ -228,6 +235,121 @@ function readCopy(content: string): Copy | RestoreProblem {
   }
   return copy;
 }
+/**
+ * Link check (NP-036) in the browser preview: no request leaves the page.
+ * Each address gets a made-up answer from its own text, so the demo and its
+ * tests always see the same groups. Results live for this session only.
+ */
+type LinkResult = {
+  url: string;
+  outcome: "ok" | "gone" | "moved" | "failed" | "local";
+  status: number | null;
+  reason: LinkFailure | null;
+  target: string | null;
+  checked_at: string;
+};
+const linkResults = new Map<number, LinkResult>();
+const linkListeners = new Set<(progress: LinkCheckProgress) => void>();
+let linkRun: { timer: number; queue: number[]; done: number; total: number; whole: boolean } | null = null;
+let linkLast: LinkCheckProgress | null = null;
+/** When the check of the whole library under way, or stopped, began; when the last one ended. */
+let linkStarted: string | null = null;
+let linkFinished: string | null = null;
+/** The bookmarks of the last «Проверить снова» on a group: «Продолжить» after a stop checks them. */
+let linkScope: number[] | null = null;
+const LINK_STEP_MS = 40;
+
+/** The answer the demo pretends a site gave. */
+export function demoAnswer(url: string): Omit<LinkResult, "url" | "checked_at"> {
+  const none = { status: null, reason: null, target: null };
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { outcome: "local", ...none };
+  }
+  const host = parsed.hostname;
+  if (host === "localhost" || host.endsWith(".local") || /^(127|10)\.|^192\.168\./.test(host)) return { outcome: "local", ...none };
+  const hash = [...url].reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) >>> 0, 7) % 12;
+  switch (hash) {
+    case 0:
+      return { outcome: "gone", status: 404, reason: null, target: null };
+    case 1:
+      return { outcome: "gone", status: 410, reason: null, target: null };
+    case 2: {
+      const target = new URL(parsed);
+      target.pathname = `/moved${parsed.pathname}`;
+      return { outcome: "moved", status: 301, reason: null, target: target.toString() };
+    }
+    case 3:
+      return { outcome: "failed", status: null, reason: "timeout", target: null };
+    case 4:
+      return { outcome: "failed", status: 503, reason: "status", target: null };
+    default:
+      return { outcome: "ok", status: 200, reason: null, target: null };
+  }
+}
+/** The result still describes the bookmark: same address, or the one the page moved to after «Заменить адрес». */
+const holds = (r: LinkResult, b: Bookmark) => r.url === b.url || (r.outcome === "moved" && r.target === b.url);
+function linkReport(): LinkCheckReport {
+  const library = live();
+  const group = (outcome: LinkResult["outcome"]): CheckedLink[] =>
+    library
+      .flatMap((b) => {
+        const r = linkResults.get(b.id);
+        return r && r.url === b.url && r.outcome === outcome
+          ? [{ bookmark: b, status: r.status, reason: r.reason, target: r.target, checked_at: r.checked_at, conflict: !!r.target && bookmarks.some((x) => x.url === r.target) }]
+          : [];
+      })
+      .sort((a, b) => b.checked_at.localeCompare(a.checked_at) || a.bookmark.id - b.bookmark.id);
+  const valid = library.filter((b) => {
+    const r = linkResults.get(b.id);
+    return r && holds(r, b);
+  });
+  const now = (b: Bookmark) => {
+    const r = linkResults.get(b.id)!;
+    return r.url === b.url ? r.outcome : "ok";
+  };
+  const left = linkStarted ? leftToCheck(linkStarted).length : 0;
+  return {
+    state: linkRun ? "running" : (linkLast?.state ?? (linkStarted ? "stopped" : "idle")),
+    done: linkLast && linkLast.state !== "idle" ? linkLast.done : linkStarted ? library.length - left : 0,
+    total: linkLast && linkLast.state !== "idle" ? linkLast.total : linkStarted ? library.length : 0,
+    eta_seconds: linkRun ? (linkLast?.eta_seconds ?? null) : null,
+    finished_at: linkFinished,
+    library: library.length,
+    open: valid.filter((b) => now(b) === "ok").length,
+    local: valid.filter((b) => now(b) === "local").length,
+    unchecked: library.length - valid.length,
+    gone: group("gone"),
+    moved: group("moved"),
+    failed: group("failed"),
+  };
+}
+/** What the run started at `since` has left, those never checked first. */
+function leftToCheck(since: string): number[] {
+  return live()
+    .filter((b) => {
+      const r = linkResults.get(b.id);
+      return !(r && holds(r, b) && r.checked_at >= since);
+    })
+    .sort((a, b) => (linkResults.get(a.id)?.checked_at ?? "").localeCompare(linkResults.get(b.id)?.checked_at ?? "") || a.id - b.id)
+    .map((b) => b.id);
+}
+function linkProgress(state: LinkCheckState, written: boolean) {
+  const run = linkRun;
+  const progress: LinkCheckProgress = {
+    state,
+    done: run?.done ?? linkLast?.done ?? 0,
+    total: run?.total ?? linkLast?.total ?? 0,
+    eta_seconds: run && state === "running" ? Math.ceil(((run.total - run.done) * LINK_STEP_MS) / 1000) : null,
+    written,
+    error: null,
+  };
+  linkLast = progress;
+  for (const fn of linkListeners) fn(progress);
+}
+
 export const demo = {
   async getBookmarks(
     filters: Partial<FilterState> = {},
@@ -301,6 +423,7 @@ export const demo = {
       inbox_imported: inbox.filter((b) => b.source === "import").length,
       trash: bookmarks.length - live().length,
       duplicates: groupsOf(bookmarks, dismissed).length,
+      links: linkReport().gone.length + linkReport().moved.length,
     };
   },
   async addBookmark(
@@ -407,6 +530,9 @@ export const demo = {
       if (!current) return { outcome: "gone", action, title: step.after.title };
       const now = fieldsOf(current);
       if (touched(step).some((f) => !same(f, now, step.after))) return { outcome: "conflict", action, title: current.title };
+      // The old address was saved again meanwhile.
+      if (touched(step).includes("url") && bookmarks.some((b) => b.id !== step.id && b.url === step.before.url))
+        return { outcome: "conflict", action, title: current.title };
       const collection = step.before.collection_id;
       if (touched(step).includes("collection_id") && collection !== null && !collections.some((c) => c.id === collection))
         return { outcome: "no_collection", action, title: current.title };
@@ -821,6 +947,80 @@ export const demo = {
   },
   async revealBackup(_fileName: string) {
     /* No folders in the browser preview. */
+  },
+  async getLinkCheck(): Promise<LinkCheckReport> {
+    return linkReport();
+  },
+  async startLinkCheck(ids: number[] | null, resume: boolean): Promise<void> {
+    if (linkRun) return;
+    if (ids !== null) linkScope = ids;
+    else if (!resume) linkScope = null;
+    else if (linkScope) ids = linkScope;
+    const whole = ids === null;
+    let queue: number[];
+    let before = 0;
+    if (ids === null) {
+      linkStarted = resume && linkStarted ? linkStarted : new Date().toISOString();
+      queue = leftToCheck(linkStarted);
+      before = live().length - queue.length;
+    } else {
+      queue = ids.filter((id) => live().some((b) => b.id === id));
+    }
+    const run = { timer: 0, queue, done: before, total: before + queue.length, whole };
+    linkRun = run;
+    linkProgress("running", false);
+    const finish = () => {
+      window.clearInterval(run.timer);
+      if (whole) {
+        linkFinished = new Date().toISOString();
+        linkStarted = null;
+      }
+      linkScope = null;
+      linkProgress("idle", true);
+      linkRun = null;
+    };
+    run.timer = window.setInterval(() => {
+      const id = run.queue.shift();
+      if (id === undefined) return finish();
+      const b = live().find((item) => item.id === id);
+      if (b) linkResults.set(id, { url: b.url, checked_at: new Date().toISOString(), ...demoAnswer(b.url) });
+      run.done++;
+      if (run.queue.length === 0) return finish();
+      linkProgress("running", run.done % 5 === 0);
+    }, LINK_STEP_MS);
+  },
+  async stopLinkCheck(): Promise<void> {
+    if (!linkRun) return;
+    window.clearInterval(linkRun.timer);
+    linkProgress("stopped", true);
+    linkRun = null;
+  },
+  /** `linkcheck::replace`: the moved ones take their new address, one journal command. */
+  async replaceAddresses(ids: number[]): Promise<Replaced> {
+    const steps: Command["changes"] = [];
+    const changed: Bookmark[] = [];
+    let skipped = 0;
+    for (const id of ids) {
+      const b = live().find((item) => item.id === id);
+      const r = b && linkResults.get(id);
+      const target = r && r.url === b.url && r.outcome === "moved" ? r.target : null;
+      if (!b || !target || bookmarks.some((x) => x.url === target)) {
+        skipped++;
+        continue;
+      }
+      const after = change(b, { url: target, domain: new URL(target).hostname.replace(/^www\./, "") });
+      steps.push({ id, before: fieldsOf(b), after: fieldsOf(after) });
+      changed.push(after);
+    }
+    const command = remember("replace", steps);
+    emitMany("updated", changed);
+    return { replaced: changed.length, skipped, address: changed.length === 1 ? changed[0].url : null, command };
+  },
+  onLinkCheck(fn: (progress: LinkCheckProgress) => void) {
+    linkListeners.add(fn);
+    return () => {
+      linkListeners.delete(fn);
+    };
   },
   async getVersion() {
     return "demo";

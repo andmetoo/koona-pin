@@ -689,10 +689,80 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
     app.processHandle.kill();
   }
   const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 5 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
   expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
     { url_key: "example.invalid/page", n: 3 },
     { url_key: "example.invalid/page?ref=x", n: 1 },
+  ]);
+  db.close();
+});
+
+test("link check: runs in the background through IPC, a missing site is never broken, a local one is not requested, stop is at once", async ({ request }) => {
+  const data = await folder("link-check");
+  const env = isolated(data);
+  const hostEnv = { ...process.env, ...env };
+  // A local server that must get no request: the guard of NP-019 keeps it out.
+  let hits = 0;
+  const server = net.createServer((socket) => {
+    hits++;
+    socket.end("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as net.AddressInfo).port;
+  const app = await launch(request, env);
+  try {
+    const page = app.page;
+    await expect(page.getByRole("heading", { name: "Здесь будут ваши закладки" })).toBeVisible({ timeout: 15000 });
+    await captureOpen(env);
+    // `.invalid` never resolves (RFC 2606): three sites that are not found.
+    for (const [id, url] of [
+      ["one", "https://one.invalid/page"],
+      ["two", "https://two.invalid/"],
+      ["three", "https://three.invalid/a"],
+      ["local", `http://127.0.0.1:${port}/router`],
+    ])
+      expect((await hostMessage(capture(id, url, id, "chrome"), { env: hostEnv })).reply).toMatchObject({ ok: true, outcome: "created" });
+    const result = await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      type Report = { state: string; done: number; total: number; library: number; local: number; unchecked: number; finished_at: string | null; failed: { reason: string }[]; gone: unknown[] };
+      const before = (await invoke("get_link_check")) as Report;
+      await invoke("start_link_check", { ids: null, resume: false });
+      // The window answers while the check runs.
+      const started = performance.now();
+      await invoke("get_counts");
+      const answered = performance.now() - started;
+      let report = before;
+      for (let i = 0; i < 200 && (report = (await invoke("get_link_check")) as Report).state === "running"; i++)
+        await new Promise((r) => setTimeout(r, 100));
+      // A second run, stopped at once.
+      await invoke("start_link_check", { ids: null, resume: false });
+      const asked = performance.now();
+      await invoke("stop_link_check");
+      let stopped = report;
+      for (let i = 0; i < 50 && (stopped = (await invoke("get_link_check")) as Report).state === "running"; i++)
+        await new Promise((r) => setTimeout(r, 20));
+      return { before, report, answered, stopped: stopped.state, stopTook: performance.now() - asked };
+    });
+    expect(result.before).toMatchObject({ state: "idle", library: 4, unchecked: 4, finished_at: null });
+    expect(result.answered).toBeLessThan(500);
+    expect(result.report).toMatchObject({ state: "idle", library: 4, local: 1, unchecked: 0, gone: [] });
+    expect(result.report.failed.map((f) => f.reason)).toEqual(["no_site", "no_site", "no_site"]);
+    expect(result.report.finished_at).not.toBeNull();
+    expect(result.stopped).toBe("stopped");
+    expect(result.stopTook).toBeLessThan(1000);
+    // Nothing to decide: no sidebar entry; the section shows what could not be checked.
+    await expect(page.getByRole("complementary").getByRole("button", { name: /^Проверка ссылок/ })).toHaveCount(0);
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+    server.close();
+  }
+  expect(hits).toBe(0);
+  const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+  expect(db.prepare("SELECT outcome, reason, count(*) AS n FROM link_checks GROUP BY outcome, reason ORDER BY outcome").all()).toEqual([
+    { outcome: "failed", reason: "no_site", n: 3 },
+    { outcome: "local", reason: null, n: 1 },
   ]);
   db.close();
 });
