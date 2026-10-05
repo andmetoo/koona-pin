@@ -1,6 +1,6 @@
 # Сайт pin.netami.app
 
-Макеты от 5 октября 2026 года, задача NP-079 (#82). Состояние: **макеты приняты владельцем 5 октября 2026 года, сайт собран в коде** (`site/`, `scripts/build-site.mjs`); выкладывает владелец. Источник вида — `design/lunacy/landing.sketch`; цвета, шрифт и маскот — по [гайдлайну](guidelines.md#бренд).
+Макеты от 5 октября 2026 года, задача NP-079 (#82). Состояние: **макеты приняты владельцем 5 октября 2026 года, сайт выложен на https://pin.netami.app** (`site/`, `scripts/build-site.mjs`, выкладывает владелец). Источник вида — `design/lunacy/landing.sketch`; цвета, шрифт и маскот — по [гайдлайну](guidelines.md#бренд).
 
 ## Страницы и адреса
 
@@ -110,6 +110,10 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    ```
    Скрипт собирает сайт, копирует архив и `Caddyfile` по `scp`, распаковывает рядом со старой версией, проверяет конфиг (`caddy validate`; при ошибке прежний `Caddyfile` возвращается, сайт не меняется), меняет папки местами и перезагружает Caddy. Предыдущая версия остаётся в `site.old`.
 8. **Проверка после выкладки:** открываются `https://pin.netami.app`, `/ru/`, `/privacy`, `/ru/privacy`, `/licenses`; `https://pin.netami.app/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, из вставок Cloudflare в страницах только скрипт Web Analytics; с русским языком браузера `/` переходит на `/ru/`.
+
+Проверено 5 октября 2026 года на выложенном сайте: HTTPS через Cloudflare, страницы en/ru 200, 404 на своих страницах, `/` → `/ru/` для русского браузера, `/privacy.html` → `/privacy`, `http` → `https`, без `Set-Cookie` и cookies в браузере, из сторонних хостов только `static.cloudflareinsights.com` (данные Web Analytics уходят на `/cdn-cgi/rum` того же домена), без ошибок CSP, `updates.json` и XPI 0.5.2 с совпадающим SHA-256; Lighthouse (мобильный) `/` и `/ru/` — Performance 96–97, Accessibility, Best Practices и SEO 100.
+
+`www.pin.netami.app` не используется: бесплатный Universal SSL Cloudflare покрывает `netami.app` и `*.netami.app`, но не третий уровень `*.pin.netami.app`, и браузер на `www.pin` получает ошибку TLS ещё на Cloudflare. Запись `www.pin` в DNS не нужна (блок в `Caddyfile` безвреден); для `www` понадобился бы Advanced Certificate Manager.
 
 Без прокси (серое облако, `A` на сервер) из `site/Caddyfile` убираются строки `tls`: Caddy сам получит сертификат Let's Encrypt.
 ## Открытые вопросы
