@@ -508,11 +508,11 @@ pub async fn merge_duplicates(
 }
 
 /// «Не дубликаты»: the group is hidden until another twin arrives. No
-/// bookmark changes, so the counts and the section learn it from the event.
+/// bookmark changes: `duplicates-changed` tells the count and the section.
 #[tauri::command]
 pub async fn dismiss_duplicates(app: AppHandle, state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
     let hidden = blocking(&state, move |conn| dedupe::dismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await?;
-    let _ = app.emit("library-invalidated", ());
+    let _ = app.emit("duplicates-changed", ());
     Ok(hidden)
 }
 
@@ -520,7 +520,7 @@ pub async fn dismiss_duplicates(app: AppHandle, state: State<'_, Arc<DbState>>, 
 #[tauri::command]
 pub async fn undismiss_duplicates(app: AppHandle, state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
     let shown = blocking(&state, move |conn| dedupe::undismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await?;
-    let _ = app.emit("library-invalidated", ());
+    let _ = app.emit("duplicates-changed", ());
     Ok(shown)
 }
 /// The section «Проверка ссылок» (NP-036, sheet 35).
