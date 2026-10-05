@@ -462,7 +462,7 @@ export function Triage({
                     // 280 px as in frame 03; a low window keeps the decisions on screen.
                     className="block h-[clamp(140px,calc(100dvh_-_430px),280px)] w-full overflow-hidden bg-hover"
                   >
-                    <Preview b={current} mark={32} />
+                    <Preview b={current} live />
                   </button>
                   <div className="flex flex-col gap-2 px-6 pt-5 pb-[22px]">
                     <p className="flex min-w-0 items-center gap-1.5 text-xs">
@@ -627,7 +627,7 @@ export function Triage({
                     return (
                       <li key={id} style={{ opacity: UP_NEXT[i] }} className="flex h-[46px] items-center gap-3 px-1">
                         <span className="h-[34px] w-12 shrink-0 overflow-hidden rounded-[5px] bg-hover">
-                          <Preview b={b} mark={14} />
+                          <Preview b={b} small />
                         </span>
                         <span className="flex min-w-0 flex-col">
                           <span className="truncate text-sm font-medium">{b.title || b.url}</span>

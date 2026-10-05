@@ -37,7 +37,7 @@ export function DragStack({
       {count > 1 && <div aria-hidden className={`${back} top-[15px] left-3 opacity-85`} />}
       <div aria-hidden className="absolute top-2.5 left-2 flex h-14 w-60 items-center gap-2.5 rounded-xl border border-border bg-card px-2 shadow-[0_8px_20px_rgb(0_0_0/0.15)]">
         <span className="h-[38px] w-[52px] shrink-0 overflow-hidden rounded-[5px] bg-hover">
-          <Preview b={bookmark} mark={16} />
+          <Preview b={bookmark} small />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-xs font-medium text-ink">{bookmark.title || bookmark.url}</span>

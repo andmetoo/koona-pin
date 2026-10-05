@@ -336,7 +336,7 @@ function Row({
       className="group/row flex min-h-[52px] items-center gap-3.5 rounded-lg px-2.5 py-1 transition-colors duration-150 hover:bg-panel focus-within:bg-panel"
     >
       <span className="h-11 w-16 shrink-0 overflow-hidden rounded-md">
-        <Preview b={b} mark={16} />
+        <Preview b={b} small />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-md font-medium" title={b.title}>
