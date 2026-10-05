@@ -608,6 +608,11 @@ test("backup: copy, changes, restore in place with capture working after it; a b
     expect((await save("after-copy", "https://example.invalid/after-copy")).reply).toMatchObject({ ok: true, outcome: "created" });
     expect((await save("after-restore", "https://example.invalid/after-restore")).reply).toMatchObject({ ok: true, outcome: "created" });
     expect(await counts(page)).toMatchObject({ total: 3 });
+    // The open window shows both. «after-copy» comes back under the id it had
+    // before the restore, with a lower revision than the window saw then.
+    await page.getByRole("button", { name: "Все закладки" }).click();
+    await expect(page.locator("[data-bookmark-id]")).toHaveCount(3);
+    await expect(page.getByRole("button", { name: "after-copy", exact: true })).toBeVisible();
     await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
     await app.exited;
   } finally {
