@@ -10,7 +10,6 @@
     "placeholders": { "count": { "content": "$1", "example": "3" } }
   },
   "badgeSaving": { "message": "Saving to Netami Pin" },
-  "badgeQueued": { "message": "Link is in the local Netami Pin queue" },
   "badgeWaiting": { "message": "Link is waiting to be sent to Netami Pin" },
   "badgeSaved": { "message": "Saved to Netami Pin" },
   "badgeExisting": { "message": "This link is already in Netami Pin" },
@@ -42,6 +41,23 @@
   "errorNoConfirmation": { "message": "No confirmation that the link was saved" },
   "errorSaveFailed": { "message": "Couldn't save the link" },
   "errorUnknownAction": { "message": "Unknown action" },
+  "messageSavedTitle": { "message": "Saved to Netami Pin" },
+  "messageSavedText": { "message": "Added to Inbox" },
+  "messageExistingTitle": { "message": "Already in Netami Pin" },
+  "messageExistingText": { "message": "Your tags and notes are unchanged" },
+  "messageQueuedTitle": { "message": "Waiting for Netami Pin" },
+  "messageQueuedText": { "message": "Will be sent when the app opens" },
+  "messageFailedTitle": { "message": "Couldn't save the link" },
+  "messageFailedText": { "message": "See the extension settings" },
+  "feedbackHeading": { "message": "After saving" },
+  "settingMessage": { "message": "Show a message on the page" },
+  "settingMessageText": {
+    "message": "A short note in the corner after you click the button. It leaves by itself after 3 seconds."
+  },
+  "settingAnimate": { "message": "Animate the button" },
+  "settingAnimateText": {
+    "message": "The Netami Pin icon hops when a page is saved. It stays still when the system asks for less motion."
+  },
   "optionsTitle": { "message": "Netami Pin — extension settings" },
   "optionsHeading": { "message": "Netami Pin extension" },
   "optionsLead": {

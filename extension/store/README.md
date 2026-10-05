@@ -57,6 +57,7 @@ Save the current page (its address and title) to the Netami Pin desktop app on t
 | Разрешение | Текст |
 |---|---|
 | `activeTab` | `When the user clicks the toolbar button, the extension reads the address and title of that tab to save it. It reads no other tabs and no page content.` |
+| `scripting` | `Right after the user clicks the toolbar button, the extension shows a short note in the corner of that tab: saved, already saved, waiting for the app, or not saved. It runs only on the clicked tab, through activeTab, reads nothing from the page, and the note can be turned off in the extension settings.` |
 | `nativeMessaging` | `The saved link is delivered to the Netami Pin desktop app on the same computer through native messaging. The app's installer registers the native host; the extension talks to nothing else.` |
 | `storage` | `Links wait in local extension storage until the app confirms them, so nothing is lost while the app is closed or busy. Also keeps the time of the last save shown on the settings page.` |
 | `alarms` | `Retries delivery of waiting links once a minute, and tells the app twice a day that the browser is still connected.` |
@@ -70,7 +71,7 @@ Save the current page (its address and title) to the Netami Pin desktop app on t
 Edge Add-ons: поле «Notes for certification». Chrome Web Store: поле для проверяющих на вкладке Distribution, если оно есть.
 
 ```text
-The extension is a companion to the Netami Pin desktop app for Windows. Without the app, clicking the button keeps the link in a local queue and the settings page says that Netami Pin isn't installed, with a download link. With the app installed (https://pin.netami.app), clicking the button saves the current page to the app's library; the app starts in the tray if it was closed. The extension has no host permissions and makes no network requests.
+The extension is a companion to the Netami Pin desktop app for Windows. Without the app, clicking the button keeps the link in a local queue and the settings page says that Netami Pin isn't installed, with a download link. With the app installed (https://pin.netami.app), clicking the button saves the current page to the app's library; the app starts in the tray if it was closed. A short note in the corner of the page and an animation of the button confirm the save; the note can be turned off in the extension settings. The extension has no host permissions and makes no network requests.
 ```
 
 ## Порядок

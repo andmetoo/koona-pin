@@ -219,6 +219,8 @@ try {
   const queued = await waiting();
   assert.equal(queued.length, 1);
   assert.match(queued[0].error, /didn't answer|не ответил/);
+  // NP-080: the event page draws the clock into the icon; the title is set only after setIcon succeeds.
+  assert.match(await run("return browser.action.getTitle({});"), /waiting to be sent|ожидают передачи/);
   assert.ok(await run('return !!(await browser.alarms.get("netamipin-delivery"));'));
 
   // The library is back: the delivery alarm brings the link without a click.
@@ -266,7 +268,7 @@ try {
   assert.deepEqual([...new Set(rows("SELECT source FROM bookmarks").map((r) => r.source))], ["firefox"]);
   console.log(`Firefox ${capabilities.browserVersion} (${flavor}); cold capture ${coldMs} ms; alarm delivered the queued link in ${retryS} s`);
   console.log(
-    `PASS Firefox ${flavor}: native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, delivery by the alarm, host not registered, foreign id, send now, browser record`,
+    `PASS Firefox ${flavor}: native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, delivery by the alarm, host not registered, foreign id, send now, browser record, the queue clock drawn into the icon`,
   );
 } catch (error) {
   // Firefox prints what the native host writes to stderr.

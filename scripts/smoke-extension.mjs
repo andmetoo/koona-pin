@@ -9,6 +9,7 @@
 import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import http from "node:http";
 import { appendFile, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
@@ -57,6 +58,13 @@ await cp(built.unpacked[target.package], extension, { recursive: true });
 // Playwright does not expose toolbar clicks. Only the isolated test copy gets
 // a reference to the exact handler registered with chrome.action.onClicked.
 await appendFile(path.join(extension, "worker.js"), "\nglobalThis.__captureForTest = captureTab;\n");
+// The click grants activeTab; without a click the test copy may script the
+// local test page (NP-080, the message on the page).
+const testManifest = path.join(extension, "manifest.json");
+await writeFile(
+  testManifest,
+  JSON.stringify({ ...JSON.parse(await readFile(testManifest, "utf8")), host_permissions: ["http://127.0.0.1/*"] }, null, 2),
+);
 const version = path.join(extension, "version.js");
 await writeFile(version, (await readFile(version, "utf8")).replace('"app.netami.pin"', JSON.stringify(HOST)));
 
@@ -121,8 +129,8 @@ async function startBrowser() {
   }
   return built.devId;
 }
-const capture = (url, title) =>
-  worker.evaluate(async ({ url, title }) => globalThis.__captureForTest({ url, title }), { url, title });
+const capture = (url, title, id) =>
+  worker.evaluate(async ({ url, title, id }) => globalThis.__captureForTest({ url, title, id }), { url, title, id });
 const waiting = () => worker.evaluate(async () => (await chrome.storage.local.get("captureQueue")).captureQueue || []);
 function rows(sql) {
   const db = new DatabaseSync(library, { readOnly: true });
@@ -147,9 +155,13 @@ try {
   await page.getByText("Netami Pin закрыт").waitFor();
   assert.equal(await pipeReady(pipe), false, "hello must not start the app");
 
+  // A browser page cannot be saved: the button says so, nothing is queued.
+  assert.equal(await capture("chrome://extensions/", "Расширения"), "failed");
+  assert.equal((await waiting()).length, 0);
+
   // A capture starts the app in the tray and saves, under this browser's name.
   const started = performance.now();
-  await capture("https://example.invalid/extension-capture", `Настоящий ${target.name}`);
+  assert.equal(await capture("https://example.invalid/extension-capture", `Настоящий ${target.name}`), "saved");
   const coldMs = Math.round(performance.now() - started);
   assert.equal((await waiting()).length, 0);
   assert.equal(apps.ours().length, 1, "the host started the app");
@@ -160,7 +172,7 @@ try {
   await page.getByText("Подключено к Netami Pin").waitFor();
 
   // A duplicate: existing, the title stays.
-  await capture("https://example.invalid/extension-capture", "Заголовок дубликата");
+  assert.equal(await capture("https://example.invalid/extension-capture", "Заголовок дубликата"), "existing");
   assert.equal((await waiting()).length, 0);
   assert.deepEqual(rows("SELECT title FROM bookmarks"), [{ title: `Настоящий ${target.name}` }]);
 
@@ -170,10 +182,12 @@ try {
   for (const suffix of ["", "-wal", "-shm"])
     await rename(library + suffix, `${library}.kept${suffix}`).catch(() => {});
   await writeFile(library, "not a database");
-  await capture("https://example.invalid/library-failed", "Ждёт в очереди");
+  assert.equal(await capture("https://example.invalid/library-failed", "Ждёт в очереди"), "queued");
   const queued = await waiting();
   assert.equal(queued.length, 1);
   assert.match(queued[0].error, /не ответил/);
+  // Every tab shows the clock while a link waits; the title follows a successful setIcon.
+  assert.match(await worker.evaluate(() => chrome.action.getTitle({})), /ожидают передачи 1/);
   assert.ok(await worker.evaluate(() => chrome.alarms.get("netamipin-delivery")));
   apps.stop();
 
@@ -229,6 +243,48 @@ try {
   await until(async () => (await waiting()).length === 0, "delivery after registration came back");
   assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 4);
 
+  // NP-080: the answer on the page and on the button. The page forbids every
+  // script and style of its own; the message is built from nodes in a shadow root.
+  const site = http.createServer((request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8", "content-security-policy": "default-src 'none'" });
+    response.end("<!doctype html><title>Отклик</title><h1>Страница для отклика</h1>");
+  });
+  await new Promise((resolve) => site.listen(0, "127.0.0.1", resolve));
+  try {
+    const pageUrl = `http://127.0.0.1:${site.address().port}/feedback`;
+    const tab = await browser.newPage();
+    await tab.goto(pageUrl);
+    const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, pageUrl);
+    assert.ok(Number.isInteger(tabId), "the test page is a tab");
+    const title = () => worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), tabId);
+    const message = tab.locator("#netamipin-feedback");
+    assert.equal(await capture(pageUrl, "Отклик", tabId), "saved");
+    await tab.locator('#netamipin-feedback[data-state="saved"]').waitFor();
+    assert.equal(await title(), "Сохранено в Netami Pin");
+    await sleep(400); // the message fades in
+    await tab.screenshot({ path: path.join(directory, "feedback-saved-light.png") });
+    await message.waitFor({ state: "detached", timeout: 6000 }); // leaves by itself after 3 s
+    await tab.emulateMedia({ colorScheme: "dark" });
+    assert.equal(await capture(pageUrl, "Отклик", tabId), "existing");
+    await tab.locator('#netamipin-feedback[data-state="existing"]').waitFor();
+    assert.equal(await title(), "Эта ссылка уже есть в Netami Pin");
+    await sleep(400);
+    await tab.screenshot({ path: path.join(directory, "feedback-existing-dark.png") });
+    await tab.mouse.click(1100, 40); // a click closes it
+    await message.waitFor({ state: "detached", timeout: 2000 });
+    // «After saving» off: only the button answers.
+    await worker.evaluate(() => chrome.storage.local.set({ feedback: { message: false, animate: false } }));
+    assert.equal(await capture(pageUrl, "Отклик", tabId), "existing");
+    await sleep(800);
+    assert.equal(await message.count(), 0, "no message when it is turned off");
+    assert.equal(await title(), "Эта ссылка уже есть в Netami Pin");
+    await worker.evaluate(() => chrome.storage.local.remove("feedback"));
+    await tab.close();
+  } finally {
+    site.close();
+  }
+  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 5);
+
   // The app keeps a record of this browser for its status.
   const connections = JSON.parse(rows("SELECT value FROM app_settings WHERE key='capture_connections'")[0].value);
   assert.ok(connections.browsers[target.source], `the app knows ${target.name}`);
@@ -248,7 +304,7 @@ try {
   console.log(`${target.name}: ${userAgent.match(/(Edg|Chrome)\/[\d.]+/g)?.join(" ")}; ${notes.join("; ") || "extension loaded over CDP"}`);
   console.log(`cold capture (app started by the host) ${coldMs} ms; alarm delivered the queued link in ${retryS} s`);
   console.log(
-    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record`,
+    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record, save feedback on the button and the page`,
   );
 } finally {
   await browser?.close().catch(() => {});
