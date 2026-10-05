@@ -141,6 +141,20 @@ async function feedbackSwitches() {
       await ext.storage.local.set({ feedback: { ...now, [key]: box.checked } });
     });
   }
+  // «Show that a page is already saved» (NP-083): off by default; it needs the
+  // optional tabs permission, asked for right in the click (Р-41).
+  const known = get("feedback-known");
+  const tabs = { permissions: ["tabs"] };
+  known.checked = feedback?.known === true && (await ext.permissions.contains(tabs));
+  known.addEventListener("change", async () => {
+    const on = known.checked;
+    // Nothing is awaited before the request: the browser asks only inside the click.
+    const asked = on ? ext.permissions.request(tabs) : ext.permissions.remove(tabs).then(() => false);
+    const granted = await asked.catch(() => false);
+    known.checked = on && granted;
+    const { feedback: now } = await ext.storage.local.get("feedback");
+    await ext.storage.local.set({ feedback: { ...now, known: known.checked } });
+  });
 }
 /**
  * «Keyboard shortcut» (NP-082, sheet 37). Chrome and Edge let only their own
