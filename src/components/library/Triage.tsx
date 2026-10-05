@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useId, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Check, Folder, Heart, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
@@ -56,6 +56,44 @@ function KeyChip({ children, className = "bg-secondary text-muted" }: { children
       {children}
     </span>
   );
+}
+
+/**
+ * How much of the decisions fits in the row (NP-084): 0 everything, 1 without
+ * the `←` `→` keys, 2 the trash button as its icon alone. «Move to trash»
+ * takes the width of its words and Keep the rest; a longer label or a narrower
+ * row gives up the keys first, then the words.
+ */
+function useFit(label: string) {
+  const [fit, setFit] = useState(0);
+  const row = useRef<HTMLElement | null>(null);
+  /** The width each larger fit needed when it did not fit: a row that wide tries it again. */
+  const needs = useRef({ label, widths: [] as number[] });
+  const check = useRef(() => {});
+  check.current = () => {
+    const el = row.current;
+    if (!el) return;
+    if (needs.current.label !== label) {
+      needs.current = { label, widths: [] };
+      if (fit > 0) return setFit(0);
+    }
+    const width = el.clientWidth;
+    if (el.scrollWidth > width && fit < 2) {
+      needs.current.widths[fit] = el.scrollWidth;
+      setFit(fit + 1);
+    } else if (fit > 0 && needs.current.widths[fit - 1] <= width) setFit(fit - 1);
+  };
+  useLayoutEffect(() => check.current());
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((el: HTMLElement | null) => {
+    observer.current?.disconnect();
+    row.current = el;
+    if (!el) return;
+    // The row for a narrower window, the buttons for their words.
+    observer.current = new ResizeObserver(() => check.current());
+    for (const node of [el, ...el.children]) observer.current.observe(node);
+  }, []);
+  return [fit, ref] as const;
 }
 
 /**
@@ -184,6 +222,7 @@ export function Triage({
   const keysReady = suggestion?.id === currentId;
   const suggested = keysReady ? (suggestion?.value ?? null) : null;
   const whyId = useId();
+  const [fit, decisionsRef] = useFit(t("triage.trash"));
 
   const record = (kind: Step["kind"], { bookmark, command }: Changed, advance: boolean, collectionId: number | null = null) =>
     update((q) => {
@@ -438,24 +477,30 @@ export function Triage({
                   </div>
                 </article>
 
-                <div className="mt-4 grid h-[52px] grid-cols-[minmax(0,210fr)_minmax(0,342fr)_96px] gap-3 text-md font-semibold">
+                {/* 210 : 342 as in frame 03 while the words fit; never narrower than them (NP-084). */}
+                <div
+                  ref={decisionsRef}
+                  data-fit={fit}
+                  className="mt-4 grid h-[52px] grid-cols-[minmax(max-content,210fr)_minmax(max-content,342fr)_96px] gap-3 text-md font-semibold whitespace-nowrap"
+                >
                   <button
                     type="button"
+                    aria-label={t("triage.trash")}
                     onClick={() => void trash()}
-                    className="flex items-center justify-center gap-2.5 rounded-xl border border-border bg-card transition-colors duration-150 hover:bg-hover"
+                    className="flex items-center justify-center gap-2.5 rounded-xl border border-border bg-card px-4 transition-colors duration-150 hover:bg-hover"
                   >
-                    <KeyChip>←</KeyChip>
+                    {fit < 1 && <KeyChip>←</KeyChip>}
                     <Icon icon={Trash2} />
-                    <span className="truncate">{t("triage.trash")}</span>
+                    {fit < 2 && <span data-label>{t("triage.trash")}</span>}
                   </button>
                   <button
                     type="button"
                     onClick={() => void keep()}
-                    className="flex items-center justify-center gap-2.5 rounded-xl bg-accent text-on-accent transition-opacity duration-150 hover:opacity-90"
+                    className="flex items-center justify-center gap-2.5 rounded-xl bg-accent px-4 text-on-accent transition-opacity duration-150 hover:opacity-90"
                   >
                     <Icon icon={Check} strokeWidth={2} />
                     {t("triage.keep")}
-                    <KeyChip className="bg-white/20">→</KeyChip>
+                    {fit < 1 && <KeyChip className="bg-white/20">→</KeyChip>}
                   </button>
                   <button
                     type="button"
