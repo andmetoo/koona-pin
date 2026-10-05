@@ -403,12 +403,30 @@ fn prepare(source: &Path, backups: &Path) -> Result<PathBuf, String> {
         backups: work.join(backup::FOLDER),
     })
     .map_err(|failure| format!("{}: {}", failure.code, failure.detail))?;
+    drop_local_pictures(&opened.conn).map_err(|e| e.to_string())?;
     // Without a WAL the file holds everything the backup API reads.
     opened
         .conn
         .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
         .map_err(|e| e.to_string())?;
     Ok(database)
+}
+
+/// The WebView loads pictures itself (NP-019): a copy from elsewhere must not
+/// point it at the user's computer or network. Only the picture goes.
+fn drop_local_pictures(conn: &Connection) -> rusqlite::Result<()> {
+    for column in ["image_url", "favicon_url"] {
+        let local: Vec<i64> = conn
+            .prepare(&format!("SELECT id, {column} FROM bookmarks WHERE {column} IS NOT NULL"))?
+            .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+            .filter_map(|row| row.map(|(id, url)| (!crate::net_guard::public_url(&url)).then_some(id)).transpose())
+            .collect::<rusqlite::Result<_>>()?;
+        let mut clear = conn.prepare(&format!("UPDATE bookmarks SET {column} = NULL WHERE id = ?1"))?;
+        for id in local {
+            clear.execute([id])?;
+        }
+    }
+    Ok(())
 }
 
 fn discard(prepared: &Path) {
@@ -830,6 +848,33 @@ mod tests {
         assert_eq!(bookmarks(&conn), restored.bookmarks as i64);
         assert!(restored.bookmarks > 0);
         assert_eq!(fs::read(&old).unwrap(), original, "the chosen file is not written to");
+    }
+
+    #[test]
+    fn restore_drops_pictures_at_local_addresses_and_keeps_the_copy() {
+        let paths = library("restore-pictures");
+        drop(open(&paths).unwrap());
+        let copy = paths.folder().join("picked.db");
+        let conn = fixtures::fresh_at(&copy, 1);
+        fixtures::sample_rows(&conn);
+        conn.execute_batch(
+            "UPDATE bookmarks SET image_url = 'http://192.168.1.1/cgi-bin/reboot', favicon_url = 'https://example.com/favicon.ico' WHERE id = 1;
+             UPDATE bookmarks SET favicon_url = 'http://localhost:8080/admin' WHERE id = 2;",
+        )
+        .unwrap();
+        fixtures::finish(conn);
+        let original = fs::read(&copy).unwrap();
+        let mut conn = open(&paths).unwrap().conn;
+        restore_into(&mut conn, &paths, &copy).unwrap();
+        let pictures = |id: i64| {
+            conn.query_row("SELECT image_url, favicon_url FROM bookmarks WHERE id = ?1", [id], |r| {
+                Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?))
+            })
+            .unwrap()
+        };
+        assert_eq!(pictures(1), (None, Some("https://example.com/favicon.ico".into())));
+        assert_eq!(pictures(2).1, None);
+        assert_eq!(fs::read(&copy).unwrap(), original, "the chosen file is not written to");
     }
 
     #[test]
