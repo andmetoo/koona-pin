@@ -23,8 +23,8 @@ const SCROLL_EDGE = 48;
 const SCROLL_MAX = 40;
 /** Where a press does not start a frame: controls, menus. */
 const INTERACTIVE = "button, a, input, textarea, select, [data-menu]";
-/** Where a press on a selected bookmark does not start a drag: its checkbox, menus, fields. */
-const NOT_DRAG = "[role=checkbox], [aria-haspopup], [data-menu], input, textarea, select";
+/** Where a press on a selected bookmark does not start a drag: its checkbox, heart (NP-086), menus, fields. */
+const NOT_DRAG = "[role=checkbox], [data-favorite], [aria-haspopup], [data-menu], input, textarea, select";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 type Geometry = {
