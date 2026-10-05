@@ -103,6 +103,9 @@ pub fn fresh_at(path: &Path, schema: i64) -> Connection {
     migrations::migrations()
         .to_version(&mut conn, schema as usize)
         .unwrap();
+    // A new library names its first collections when the interface opens it (NP-085).
+    let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
+    crate::db::create_starter_collections(&conn, &names).unwrap();
     let mut random = Random(1);
     let created = epoch();
     for id in 1..=3 {

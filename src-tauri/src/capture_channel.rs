@@ -111,7 +111,7 @@ pub fn handle(
         Ok(message) => message,
         Err(_) => {
             return Handled {
-                reply: failure("invalid_request", "Неизвестное сообщение"),
+                reply: failure("invalid_request", "Unknown message"),
                 saved: None,
                 contact: false,
                 show: false,
@@ -145,7 +145,7 @@ pub fn handle(
     if protocol != Some(PROTOCOL) {
         let mut reply = failure(
             "incompatible_protocol",
-            "Версии Netami Pin и расширения не совпадают",
+            "Netami Pin and the extension versions do not match",
         );
         reply["protocol"] = json!(PROTOCOL);
         reply["version"] = json!(env!("CARGO_PKG_VERSION"));
@@ -389,7 +389,7 @@ async fn answer(
             let handled = tauri::async_runtime::spawn_blocking(move || {
                 let Ok(conn) = database.conn.lock() else {
                     return Handled {
-                        reply: failure("database_error", "База данных недоступна"),
+                        reply: failure("database_error", "The database is unavailable"),
                         saved: None,
                         contact: false,
                         show: false,
@@ -411,7 +411,7 @@ async fn answer(
             }
             handled.reply
         }
-        _ => failure("invalid_request", "Неизвестное сообщение"),
+        _ => failure("invalid_request", "Unknown message"),
     };
     let pipe = reader.get_mut();
     pipe.write_all(format!("{reply}\n").as_bytes()).await?;

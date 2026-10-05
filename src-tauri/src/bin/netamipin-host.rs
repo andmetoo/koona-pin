@@ -92,7 +92,7 @@ fn relay(caller: Option<&str>, message: Value) -> Value {
             }
         }
     }
-    failure("app_unavailable", "Netami Pin не запущен или не отвечает")
+    failure("app_unavailable", "Netami Pin is not running or does not answer")
 }
 
 fn send(envelope: &Value) -> io::Result<Value> {

@@ -444,13 +444,10 @@ export const demo = {
     try {
       url = new URL(data.url.trim());
     } catch {
-      throw new CommandError("invalid_request", "Некорректная ссылка");
+      throw new CommandError("invalid_request", "Not a valid link", "invalid_url");
     }
     if (!["http:", "https:"].includes(url.protocol))
-      throw new CommandError(
-        "invalid_request",
-        "Поддерживаются только ссылки HTTP/HTTPS",
-      );
+      throw new CommandError("invalid_request", "Only HTTP and HTTPS links are supported", "unsupported_url");
     const previous = bookmarks.find((b) => b.url === data.url.trim());
     if (previous?.deleted_at) {
       // Saved again from the trash: back with its fields, waiting in the inbox.
@@ -495,7 +492,7 @@ export const demo = {
     },
   ) {
     const previous = bookmarks.find((b) => b.id === id);
-    if (!previous) throw new CommandError("not_found", "Закладка удалена");
+    if (!previous) throw new CommandError("not_found", "Query returned no rows");
     const now = new Date().toISOString();
     // Any decision sorts the bookmark, as `update_bookmark` does.
     const b = {
@@ -512,7 +509,7 @@ export const demo = {
   },
   async trashBookmark(id: number): Promise<Changed> {
     const previous = bookmarks.find((b) => b.id === id);
-    if (!previous) throw new CommandError("not_found", "Закладка удалена");
+    if (!previous) throw new CommandError("not_found", "Query returned no rows");
     if (previous.deleted_at) return { bookmark: previous, command: null };
     const b = change(previous, { deleted_at: new Date().toISOString() });
     emit("updated", b);
@@ -520,7 +517,7 @@ export const demo = {
   },
   async restoreBookmark(id: number): Promise<Changed> {
     const previous = bookmarks.find((b) => b.id === id);
-    if (!previous) throw new CommandError("not_found", "Закладка удалена");
+    if (!previous) throw new CommandError("not_found", "Query returned no rows");
     if (!previous.deleted_at) return { bookmark: previous, command: null };
     const b = change(previous, { deleted_at: null });
     emit("updated", b);
@@ -562,7 +559,9 @@ export const demo = {
   /** `bulk_update`: one action on every selected bookmark, one journal command, all or nothing. */
   async bulkUpdate(ids: number[], bulk: BulkChange): Promise<BulkChanged> {
     if ((bulk.action === "tag" || bulk.action === "new_collection") && !bulk.name.trim())
-      throw new CommandError("invalid_request", bulk.action === "tag" ? "Введите тег" : "Введите название коллекции");
+      throw bulk.action === "tag"
+        ? new CommandError("invalid_request", "Enter a tag", "empty_tag")
+        : new CommandError("invalid_request", "Enter a collection name", "empty_collection_name");
     if (bulk.action === "move" && bulk.collection_id !== null && !collections.some((c) => c.id === bulk.collection_id))
       throw new CommandError("not_found", "FOREIGN KEY constraint failed");
     const created = bulk.action === "new_collection" ? await demo.createCollection(bulk.name) : null;
@@ -609,7 +608,7 @@ export const demo = {
   /** Only from the trash, like the desktop app (NP-023). */
   async deleteForever(id: number) {
     const b = bookmarks.find((item) => item.id === id && item.deleted_at);
-    if (!b) throw new CommandError("not_found", "Этой закладки нет в корзине");
+    if (!b) throw new CommandError("not_found", "This bookmark is not in the trash", "not_in_trash");
     bookmarks = bookmarks.filter((item) => item.id !== id);
     persist();
     emit("deleted", { ...b, revision: (b.revision ?? 1) + 1 });
@@ -623,7 +622,7 @@ export const demo = {
   },
   async createCollection(name: string, color?: string, icon?: string) {
     if (collections.some((c) => c.name === name.trim()))
-      throw new CommandError("conflict", "Такая коллекция уже есть");
+      throw new CommandError("conflict", "UNIQUE constraint failed: collections.name");
     const c: Collection = {
       id: nextCollection(),
       name: name.trim(),
@@ -963,7 +962,7 @@ export const demo = {
   /** The demo library stays as it is: there is no file to replace. */
   async restoreBackup(source: BackupSource): Promise<BackupRestoreOutcome> {
     const copy = (await this.listBackups()).find((c) => source.from === "listed" && c.file_name === source.file_name);
-    if (!copy) throw new CommandError("not_found", "The copy is gone");
+    if (!copy) throw new CommandError("not_found", "The copy is gone", "copy_gone");
     return { outcome: "restored", bookmarks: copy.bookmarks ?? 0, previous: "netamipin.before-restore-demo.db" };
   },
   async revealBackup(_fileName: string) {
@@ -1043,6 +1042,11 @@ export const demo = {
       linkListeners.delete(fn);
     };
   },
+  /** The demo library is made in its language already. */
+  async createStarterCollections(_names: string[]): Promise<Collection[]> {
+    return [];
+  },
+  async setTrayLabels(_labels: { open: string; quit: string; tooltip: string }) {},
   async getVersion() {
     return "demo";
   },

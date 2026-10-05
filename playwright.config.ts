@@ -5,8 +5,8 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:1420",
     viewport: { width: 1200, height: 800 },
-    // The tests name controls in Russian; the interface follows the system language.
-    locale: "ru-RU",
+    // English first: the app starts in English and the tests name controls in it (NP-085).
+    locale: "en-US",
   },
   webServer: {
     command: "node node_modules/vite/bin/vite.js --host 127.0.0.1",
