@@ -693,6 +693,10 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
     const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true });
     await nav("Дубликаты 1").click();
     const group = page.locator("[data-duplicate-group='example.invalid/page']");
+    await expect(group.getByRole("radio")).toHaveCount(3);
+    // The counts read after the merge and the undo above (at most 150 ms later)
+    // are done first, so only the hiding itself can change them now.
+    await page.waitForTimeout(500);
     await group.getByRole("button", { name: "Не дубликаты" }).click();
     await expect(page.getByRole("heading", { name: "Дубликатов нет" })).toBeVisible();
     await expect(nav("Дубликаты 0")).toBeVisible();
