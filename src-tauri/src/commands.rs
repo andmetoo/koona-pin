@@ -507,16 +507,21 @@ pub async fn merge_duplicates(
     Ok(merged)
 }
 
-/// «Не дубликаты»: the group is hidden until another twin arrives.
+/// «Не дубликаты»: the group is hidden until another twin arrives. No
+/// bookmark changes, so the counts and the section learn it from the event.
 #[tauri::command]
-pub async fn dismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
-    blocking(&state, move |conn| dedupe::dismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await
+pub async fn dismiss_duplicates(app: AppHandle, state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
+    let hidden = blocking(&state, move |conn| dedupe::dismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await?;
+    let _ = app.emit("library-invalidated", ());
+    Ok(hidden)
 }
 
-/// «Отменить» after «Не дубликаты».
+/// «Отменить» after «Не дубликаты»: the group is shown again.
 #[tauri::command]
-pub async fn undismiss_duplicates(state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
-    blocking(&state, move |conn| dedupe::undismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await
+pub async fn undismiss_duplicates(app: AppHandle, state: State<'_, Arc<DbState>>, key: String, ids: Vec<i64>) -> Result<u32, CommandError> {
+    let shown = blocking(&state, move |conn| dedupe::undismiss(conn, &key, &ids).map(|n| n as u32).map_err(text)).await?;
+    let _ = app.emit("library-invalidated", ());
+    Ok(shown)
 }
 /// The section «Проверка ссылок» (NP-036, sheet 35).
 #[tauri::command]
