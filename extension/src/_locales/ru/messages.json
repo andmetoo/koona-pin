@@ -10,7 +10,6 @@
     "placeholders": { "count": { "content": "$1", "example": "3" } }
   },
   "badgeSaving": { "message": "Сохраняется в Netami Pin" },
-  "badgeQueued": { "message": "Ссылка в локальной очереди Netami Pin" },
   "badgeWaiting": { "message": "Ссылка ожидает передачи в Netami Pin" },
   "badgeSaved": { "message": "Сохранено в Netami Pin" },
   "badgeExisting": { "message": "Эта ссылка уже есть в Netami Pin" },
@@ -42,6 +41,23 @@
   "errorNoConfirmation": { "message": "Подтверждение сохранения не получено" },
   "errorSaveFailed": { "message": "Не удалось сохранить ссылку" },
   "errorUnknownAction": { "message": "Неизвестное действие" },
+  "messageSavedTitle": { "message": "Сохранено в Netami Pin" },
+  "messageSavedText": { "message": "Добавлено во «Входящие»" },
+  "messageExistingTitle": { "message": "Уже есть в Netami Pin" },
+  "messageExistingText": { "message": "Теги и заметки не изменились" },
+  "messageQueuedTitle": { "message": "Ссылка ждёт отправки" },
+  "messageQueuedText": { "message": "Уйдёт при запуске Netami Pin" },
+  "messageFailedTitle": { "message": "Не удалось сохранить" },
+  "messageFailedText": { "message": "Причина — в настройках" },
+  "feedbackHeading": { "message": "После сохранения" },
+  "settingMessage": { "message": "Показывать сообщение на странице" },
+  "settingMessageText": {
+    "message": "Короткая заметка в углу после нажатия кнопки. Исчезает сама через 3 секунды."
+  },
+  "settingAnimate": { "message": "Анимировать кнопку" },
+  "settingAnimateText": {
+    "message": "Значок Netami Pin подпрыгивает при сохранении. Не двигается, если система просит меньше анимации."
+  },
   "optionsTitle": { "message": "Netami Pin — настройки расширения" },
   "optionsHeading": { "message": "Расширение Netami Pin" },
   "optionsLead": {

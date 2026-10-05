@@ -37,7 +37,8 @@ export function manifest(browser, { dev = false, key } = {}) {
     version: VERSION,
     default_locale: "en",
     // Links go to the app only through its native messaging host (Р-17).
-    permissions: ["activeTab", "storage", "alarms", "nativeMessaging"],
+    // `scripting` with `activeTab`: the message after a click, on that tab only (NP-080, Р-39).
+    permissions: ["activeTab", "scripting", "storage", "alarms", "nativeMessaging"],
     action: { default_title: "__MSG_actionTitle__", default_icon: icons },
     icons,
     options_ui: { page: "options.html", open_in_tab: true },
@@ -148,6 +149,11 @@ export async function buildExtension({ log = console.log } = {}) {
   const fonts = path.join(root, "node_modules", "@fontsource-variable", "inter", "files");
   for (const font of ["inter-latin-wght-normal.woff2", "inter-cyrillic-wght-normal.woff2"])
     files.push({ name: `fonts/${font}`, data: await readFile(path.join(fonts, font)) });
+  // The button draws its frames from the micro mark, the page message shows the
+  // mascot (NP-080): one source with the app's icons, design/brand.
+  const brand = path.join(root, "design", "brand", "pin-spirit-flat");
+  files.push({ name: "mark.svg", data: await readFile(path.join(brand, "pin-spirit-micro.svg")) });
+  files.push({ name: "mascot.svg", data: await readFile(path.join(brand, "pin-spirit.svg")) });
   const release = path.join(root, "release");
   await mkdir(release, { recursive: true });
   const result = { version: VERSION, devId: extensionId(key), unpacked: {}, packages: {} };

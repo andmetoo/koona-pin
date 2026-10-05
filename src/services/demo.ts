@@ -530,8 +530,9 @@ export const demo = {
     if (!entry) return { outcome: "nothing" };
     journal = journal.filter((c) => c !== entry);
     const { action } = entry;
+    const byId = new Map(bookmarks.map((b) => [b.id, b]));
     for (const step of entry.changes) {
-      const current = bookmarks.find((b) => b.id === step.id);
+      const current = byId.get(step.id);
       if (!current) return { outcome: "gone", action, title: step.after.title };
       const now = fieldsOf(current);
       if (touched(step).some((f) => !same(f, now, step.after))) return { outcome: "conflict", action, title: current.title };
@@ -542,10 +543,18 @@ export const demo = {
       if (touched(step).includes("collection_id") && collection !== null && !collections.some((c) => c.id === collection))
         return { outcome: "no_collection", action, title: current.title };
     }
-    const undone = entry.changes.map((step) => {
+    // One pass and one write, as bulkUpdate: undoing 1 000 bookmarks one by one
+    // rewrote the whole library 1 000 times.
+    const now = new Date().toISOString();
+    const next = new Map<number, Bookmark>();
+    for (const step of entry.changes) {
+      const previous = byId.get(step.id)!;
       const fields: Partial<Bookmark> = Object.fromEntries(touched(step).map((f) => [f, step.before[f]]));
-      return change(bookmarks.find((item) => item.id === step.id)!, fields);
-    });
+      next.set(step.id, { ...previous, ...fields, revision: (previous.revision ?? 1) + 1, updated_at: now });
+    }
+    bookmarks = bookmarks.map((b) => next.get(b.id) ?? b);
+    persist();
+    const undone = entry.changes.map((step) => next.get(step.id)!);
     emitMany("updated", undone);
     return { outcome: "undone", action, bookmarks: undone };
   },

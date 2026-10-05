@@ -126,9 +126,30 @@ get("retry").addEventListener("click", async () => {
     get("retry").disabled = false;
   }
 });
+/** «After saving» (NP-080): both switches are on until the user turns one off. */
+async function feedbackSwitches() {
+  const { feedback } = await ext.storage.local.get("feedback");
+  for (const [key, id] of [
+    ["message", "feedback-message"],
+    ["animate", "feedback-animate"],
+  ]) {
+    const box = get(id);
+    box.checked = feedback?.[key] !== false;
+    box.addEventListener("change", async () => {
+      const { feedback: now } = await ext.storage.local.get("feedback");
+      await ext.storage.local.set({ feedback: { ...now, [key]: box.checked } });
+    });
+  }
+}
+// The service worker cannot ask the system about motion; this page can.
+const motion = matchMedia("(prefers-reduced-motion: reduce)");
+const saveMotion = () => ext.storage.local.set({ reducedMotion: motion.matches });
+motion.addEventListener("change", () => void saveMotion());
 ext.storage.onChanged.addListener((changes) => {
   if (changes.captureQueue) void refreshQueue();
 });
 translate();
+void feedbackSwitches();
+void saveMotion();
 void refreshQueue();
 void refreshStatus();

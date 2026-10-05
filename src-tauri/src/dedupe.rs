@@ -467,6 +467,17 @@ mod tests {
         let started = std::time::Instant::now();
         assert_eq!(groups(&conn).unwrap().len(), 1000);
         println!("100 000 bookmarks: keys {filled:?}, count {counted:?}, groups {:?}", started.elapsed());
-        assert!(counted.as_millis() < 150, "count took {counted:?}");
+        // The count is fast because it walks the address index; that is what is
+        // checked. The time limit only catches the pathological: a shared CI
+        // runner is several times slower than a desktop (31 ms here, 234 ms there).
+        let plan: Vec<String> = conn
+            .prepare(&format!("EXPLAIN QUERY PLAN SELECT count(*) FROM ({GROUP_KEYS})"))
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(3))
+            .unwrap()
+            .map(|row| row.unwrap())
+            .collect();
+        assert!(plan.iter().any(|step| step.contains("idx_bookmarks_url_key")), "{plan:?}");
+        assert!(counted.as_millis() < 1000, "count took {counted:?}");
     }
 }
