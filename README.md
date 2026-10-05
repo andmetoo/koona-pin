@@ -4,7 +4,7 @@
 
 **Дизайн.** Актуальный дизайн — редизайн, итерация 1 (envy green, Inter, разбор входящих, массовые действия). В коде — его основа (NP-010): оболочка, компоненты, настройки, английский и русский; остальные экраны доводятся задачами дорожной карты. Что главнее и где что лежит — в [гайдлайне](doc/guidelines.md).
 
-Сайт приложения: [pin.netami.app](https://pin.netami.app).
+Сайт приложения: [pin.netami.app](https://pin.netami.app). Исходники — `site/`, сборка `npm run site:build`, проверка `npm run site:check`, выкладка на сервер владельца с Caddy — `pwsh scripts/deploy-site.ps1 -Server user@host`; подробно — [doc/site.md](doc/site.md#выкладка).
 
 React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятся в `%APPDATA%\Netami Pin\netamipin.db`.
 
@@ -25,6 +25,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятс
 - [Процесс разработки с ИИ-агентами](doc/development-process.md)
 - [Дорожная карта](doc/roadmap.md), [сценарии](doc/scenarios.md), [решения](doc/decisions.md) и [индекс задач GitHub](doc/issues/README.md)
 - [Шаблон задачи](doc/task-template.md) и [чеклист выпуска](doc/release-checklist.md)
+- Выпуски и обратная связь — публичный репозиторий [andmetoo/netami-pin-releases](https://github.com/andmetoo/netami-pin-releases) ([Р-9](doc/decisions.md#р-9-распространение-windows)): README, формы issues и SECURITY.md лежат в нём, метки и настройки — `scripts/setup-releases-repo.ps1`
 - Слайды процесса: `design/lunacy/development_process.sketch` (20 редактируемых кадров в Lunacy)
 
 ## Разработка
