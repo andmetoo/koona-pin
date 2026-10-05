@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Sheet 37 (NP-082). Texts come from _locales: search.js fills every data-i18n* element. -->
+    <title data-i18n="menuSearch">Netami Pin</title>
+    <link rel="stylesheet" href="search.css" />
+  </head>
+  <body>
+    <div class="field">
+      <svg class="glass" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+        <path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      <input
+        id="query"
+        type="text"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="results"
+        autocomplete="off"
+        spellcheck="false"
+        data-i18n-placeholder="searchPlaceholder"
+        data-i18n-label="searchPlaceholder"
+      />
+      <kbd>Esc</kbd>
+    </div>
+    <div id="filters" class="filters" role="group" data-i18n-label="searchFilters"></div>
+    <main id="content" aria-live="polite"></main>
+    <footer>
+      <span id="keys" data-i18n="searchKeys"></span>
+      <button id="open" type="button" class="link" data-i18n="searchOpenApp"></button>
+    </footer>
+    <script type="module" src="search.js"></script>
+  </body>
+</html>
