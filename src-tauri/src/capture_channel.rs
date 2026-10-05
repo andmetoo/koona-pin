@@ -771,7 +771,7 @@ mod tests {
         let known = handle(
             &c,
             &mut connections,
-            &envelope(json!({ "type": "lookup", "protocol": PROTOCOL, "url": "https://blog.rust-lang.org" })),
+            &envelope(json!({ "type": "lookup", "protocol": PROTOCOL, "url": "https://blog.rust-lang.org/" })),
             now(),
         );
         assert_eq!((known.reply["saved"].clone(), known.contact), (json!(true), false));

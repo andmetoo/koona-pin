@@ -608,6 +608,11 @@ test("backup: copy, changes, restore in place with capture working after it; a b
     expect((await save("after-copy", "https://example.invalid/after-copy")).reply).toMatchObject({ ok: true, outcome: "created" });
     expect((await save("after-restore", "https://example.invalid/after-restore")).reply).toMatchObject({ ok: true, outcome: "created" });
     expect(await counts(page)).toMatchObject({ total: 3 });
+    // The open window shows both. «after-copy» comes back under the id it had
+    // before the restore, with a lower revision than the window saw then.
+    await page.getByRole("button", { name: "Все закладки" }).click();
+    await expect(page.locator("[data-bookmark-id]")).toHaveCount(3);
+    await expect(page.getByRole("button", { name: "after-copy", exact: true })).toBeVisible();
     await page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
     await app.exited;
   } finally {
@@ -684,6 +689,20 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
     expect(result.after).toMatchObject({ total: 2, trash: 2, duplicates: 0 });
     expect(result.undone).toBe("undone");
     expect(result.back).toMatchObject({ total: 4, trash: 0, duplicates: 1 });
+    // «Не дубликаты» and its undo change no bookmark, yet reach the count and the section.
+    const nav = (name: string) => page.getByRole("complementary").getByRole("button", { name, exact: true });
+    await nav("Дубликаты 1").click();
+    const group = page.locator("[data-duplicate-group='example.invalid/page']");
+    await expect(group.getByRole("radio")).toHaveCount(3);
+    // The counts read after the merge and the undo above (at most 150 ms later)
+    // are done first, so only the hiding itself can change them now.
+    await page.waitForTimeout(500);
+    await group.getByRole("button", { name: "Не дубликаты" }).click();
+    await expect(page.getByRole("heading", { name: "Дубликатов нет" })).toBeVisible();
+    await expect(nav("Дубликаты 0")).toBeVisible();
+    await page.getByRole("button", { name: "Отменить" }).click();
+    await expect(group.getByRole("radio")).toHaveCount(3);
+    await expect(nav("Дубликаты 1")).toBeVisible();
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();

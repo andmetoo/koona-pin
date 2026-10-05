@@ -241,34 +241,56 @@ menus?.onClicked.addListener((info) => onMenuClicked(info, { openOptions: () => 
 // reloads do not ask again.
 const known = new Map();
 const KNOWN_MS = 60_000;
+// Pages each tab has moved to: an answer that arrives after the tab moved on
+// belongs to the page before and must not mark the new one.
+const pages = new Map();
+const pageOf = (tabId) => pages.get(tabId) ?? 0;
 async function knownEnabled() {
   const { feedback } = await ext.storage.local.get("feedback");
   return feedback?.known === true && (await ext.permissions.contains({ permissions: ["tabs"] }));
 }
+/** Marks the tab when its page is saved; false only when the app gave no answer. */
 async function markKnown(tabId, url) {
-  if (!/^https?:/.test(url || "") || !(await knownEnabled())) return;
+  const page = pageOf(tabId);
+  if (!/^https?:/.test(url || "") || !(await knownEnabled())) return true;
   let saved = known.get(url);
   if (!saved || Date.now() - saved.at > KNOWN_MS) {
     const reply = await talk({ type: "lookup", url });
-    if (!reply.ok) return;
+    if (!reply.ok) return false;
     saved = { saved: reply.saved === true, at: Date.now() };
     known.set(url, saved);
     if (known.size > 500) known.delete(known.keys().next().value);
   }
-  if (saved.saved) await paint(rest("existing"), stateTitle("existing"), tabId);
+  if (saved.saved && pageOf(tabId) === page) await paint(rest("existing"), stateTitle("existing"), tabId);
+  return true;
 }
 // A new page in the tab drops its icon; a later delivery must not mark that page.
 ext.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (change.status === "loading" || change.url) pages.set(tabId, pageOf(tabId) + 1);
   if (change.status === "loading") void forgetTab(tabId);
   if (change.status === "complete") void markKnown(tabId, tab?.url);
 });
-// Turned on: the tabs already open get their marks too.
+// Turned on: the tabs already open get their marks too. Each lookup starts a
+// host process, so a few at a time: dozens at once would crowd the app's
+// pipe, and a tab refused there would get no mark. Tabs on the same page
+// then find the answer kept.
+const LOOKUPS_AT_ONCE = 4;
 ext.storage.onChanged.addListener((changes) => {
   const { newValue, oldValue } = changes.feedback ?? {};
-  if (newValue?.known && !oldValue?.known)
-    void ext.tabs.query({}).then((tabs) => tabs.forEach((tab) => void markKnown(tab.id, tab.url)));
+  if (!newValue?.known || oldValue?.known) return;
+  void ext.tabs.query({}).then((tabs) => {
+    const lane = async () => {
+      for (let tab = tabs.shift(); tab; tab = tabs.shift())
+        // No answer (the app is closed, the host missing): no other tab gets one either.
+        if (!(await markKnown(tab.id, tab.url))) tabs.length = 0;
+    };
+    return Promise.all(Array.from({ length: LOOKUPS_AT_ONCE }, lane));
+  });
 });
-ext.tabs.onRemoved.addListener((tabId) => void forgetTab(tabId));
+ext.tabs.onRemoved.addListener((tabId) => {
+  pages.delete(tabId);
+  void forgetTab(tabId);
+});
 ext.runtime.onInstalled.addListener(() => {
   void initialize();
 });

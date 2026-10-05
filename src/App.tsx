@@ -816,7 +816,7 @@ export function App() {
                     alert: false,
                     undo: () => {
                       setNotice(null);
-                      void api.undismissDuplicates(key, ids).then(() => library.refreshCatalog(), (err) => say(describeError(err), true));
+                      void api.undismissDuplicates(key, ids).catch((err) => say(describeError(err), true));
                     },
                   })
                 }
@@ -1067,10 +1067,13 @@ export function App() {
           onClose={() => setSurface(null)}
           onAdd={async (data) => {
             const added = await api.addBookmark(data);
-            scrollRef.current?.scrollTo({ top: 0 });
-            await library.refresh();
+            // A link already there changed nothing: the list stays where it was read.
+            if (!added.existing) {
+              scrollRef.current?.scrollTo({ top: 0 });
+              await library.refresh();
+            }
             setSurface(null);
-            say(added.restored ? t("notice.restoredLink") : t("notice.linkSaved"));
+            say(added.restored ? t("notice.restoredLink") : added.existing ? t("notice.linkExisting") : t("notice.linkSaved"));
           }}
         />
       )}
@@ -1097,6 +1100,7 @@ export function App() {
               // After a replace no open editor or selection points at a bookmark that is gone.
               closeEditor();
               selection.clear();
+              if (mode === "replace") library.replaced();
               await Promise.all([library.refresh(), library.refreshCatalog()]);
             }
             return outcome;
@@ -1112,6 +1116,7 @@ export function App() {
             // The whole library changed: nothing open may point at what is gone.
             closeEditor();
             selection.clear();
+            library.replaced();
             setDataVersion((version) => version + 1);
             await Promise.all([library.refresh(), library.refreshCatalog()]);
           }}

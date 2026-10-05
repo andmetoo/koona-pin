@@ -209,6 +209,8 @@ const desktop = {
   mergeDuplicates: (groups: MergeGroup[]) => call<Merged>("merge_duplicates", { groups }),
   dismissDuplicates: (key: string, ids: number[]) => call<number>("dismiss_duplicates", { key, ids }),
   undismissDuplicates: (key: string, ids: number[]) => call<number>("undismiss_duplicates", { key, ids }),
+  /** «Не дубликаты» or its undo: groups changed, no bookmark did. */
+  onDuplicatesChanged: (callback: () => void) => subscription("duplicates-changed", callback),
   /** The section «Проверка ссылок» (NP-036): results and the run under way. */
   getLinkCheck: () => call<LinkCheckReport>("get_link_check"),
   /** In the background, reported by onLinkCheck; ids — only those, esume — go on with the one stopped. */

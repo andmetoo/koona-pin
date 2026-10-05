@@ -224,7 +224,7 @@ pub fn merge(conn: &Connection, groups: &[MergeGroup]) -> Result<Vec<Bookmark>> 
 /// «Не дубликаты»: these bookmarks of the group are different pages. The
 /// group comes back when another bookmark with the same address arrives.
 pub fn dismiss(conn: &Connection, key: &str, ids: &[i64]) -> Result<usize> {
-    let ids = serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let ids = db::id_list(ids)?;
     conn.execute(
         "INSERT OR IGNORE INTO duplicates_dismissed (url_key, uid, dismissed_at)
          SELECT url_key, uid, ?3 FROM bookmarks WHERE url_key = ?1 AND id IN (SELECT value FROM json_each(?2))",
@@ -234,7 +234,7 @@ pub fn dismiss(conn: &Connection, key: &str, ids: &[i64]) -> Result<usize> {
 
 /// «Отменить» after «Не дубликаты»: the group is shown again.
 pub fn undismiss(conn: &Connection, key: &str, ids: &[i64]) -> Result<usize> {
-    let ids = serde_json::to_string(ids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let ids = db::id_list(ids)?;
     conn.execute(
         "DELETE FROM duplicates_dismissed WHERE url_key = ?1
          AND uid IN (SELECT uid FROM bookmarks WHERE id IN (SELECT value FROM json_each(?2)))",

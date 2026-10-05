@@ -2,6 +2,8 @@
 import type { Bookmark } from "./Bookmark";
 
 /**
- * The link added by hand, and whether it came back from the trash.
+ * The link added by hand, and whether it came back from the trash or was
+ * in the library already. Either way the bookmark keeps its own fields:
+ * adding never overwrites what the person set.
  */
-export type AddedLink = { bookmark: Bookmark, restored: boolean, };
+export type AddedLink = { bookmark: Bookmark, restored: boolean, existing: boolean, };

@@ -14,6 +14,9 @@ import {
   Tag,
 } from "../types";
 
+/** Changes within this time share one read of the catalog. */
+const CATALOG_MS = 150;
+
 /** The list is read in pages of 100 (NP-011); the next one loads on scroll. */
 export function useLibrary(
   filters: FilterState,
@@ -98,6 +101,19 @@ export function useLibrary(
       if (alive.current) setError(describeError(err));
     }
   }, []);
+  const catalogTimer = useRef(0);
+  /**
+   * The catalog after a change. Every read counts the whole library, so the
+   * changes of a burst (triage keys, metadata arriving) share one: at most
+   * one read per `CATALOG_MS`, the last change included.
+   */
+  const catalogSoon = useCallback(() => {
+    if (catalogTimer.current) return;
+    catalogTimer.current = window.setTimeout(() => {
+      catalogTimer.current = 0;
+      void refreshCatalog();
+    }, CATALOG_MS);
+  }, [refreshCatalog]);
   const refresh = useCallback(async () => {
     const id = ++seq.current;
     const version = eventVersion.current;
@@ -195,6 +211,8 @@ export function useLibrary(
       seq.current++;
       catalogSeq.current++;
       window.clearTimeout(totalTimer.current);
+      window.clearTimeout(catalogTimer.current);
+      catalogTimer.current = 0;
     };
   }, [refreshCatalog]);
   useEffect(() => {
@@ -274,7 +292,7 @@ export function useLibrary(
         // Within the read pages: not shown means it did not match before.
         adjustTotal(shown ? 0 : 1, createdAt);
       }
-      if (catalog) void refreshCatalog();
+      if (catalog) catalogSoon();
     };
     const off = api.onBookmarkChanged((change) => {
       if ((revisions.current.get(change.id) ?? 0) >= change.revision) return;
@@ -324,24 +342,38 @@ export function useLibrary(
         const b = c.bookmark;
         apply(c, !!b && matchesFilters(b, filters) && (!found || found.has(b.id)), false);
       }
-      void refreshCatalog();
+      catalogSoon();
     });
     const offInvalidate = api.onLibraryInvalidated(() => {
+      // The library may have been replaced (a restore from a copy, NP-034):
+      // its bookmarks keep their ids with older revisions, and new ones take
+      // ids this list has already seen. What it remembers about them is void;
+      // the list is read anew. New bookmarks held back stay so: `replaced`.
+      revisions.current.clear();
+      unread.current.clear();
       eventVersion.current++;
       void refreshCatalog();
       void refresh();
     });
+    // «Не дубликаты»: only the count of groups changes.
+    const offDuplicates = api.onDuplicatesChanged(catalogSoon);
     return () => {
       off();
       offBatch();
       offInvalidate();
+      offDuplicates();
     };
-  }, [refresh, refreshCatalog, refreshTotal, scrollRef]);
+  }, [refresh, refreshCatalog, catalogSoon, refreshTotal, scrollRef]);
   // At midnight «today» becomes «yesterday»: read the list again.
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), untilMidnight() + 1000);
     return () => window.clearTimeout(timer);
   }, [starts, refresh]);
+  /** The library was replaced by a copy: new bookmarks held back belong to the old one. */
+  const replaced = () => {
+    pendingRef.current = {};
+    setPending({});
+  };
   const reveal = () => {
     const incoming = Object.values(pendingRef.current);
     scrollRef.current?.scrollTo({ top: 0 });
@@ -368,5 +400,6 @@ export function useLibrary(
     refresh,
     refreshCatalog,
     reveal,
+    replaced,
   };
 }
