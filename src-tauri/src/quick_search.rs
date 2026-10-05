@@ -85,6 +85,21 @@ pub fn search(conn: &Connection, query: &str, filter: &Filter) -> rusqlite::Resu
     }))
 }
 
+/// Whether a page is already in the library (NP-083): the extension asks for
+/// every page it loads, when the person turned that on. The same address key
+/// as the duplicates (`dedupe::url_key`); a bookmark in the trash is not there.
+pub fn lookup(conn: &Connection, url: &str) -> rusqlite::Result<Value> {
+    let saved = match crate::dedupe::url_key(url) {
+        Some(key) => conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM bookmarks WHERE url_key = ?1 AND deleted_at IS NULL)",
+            [key],
+            |r| r.get::<_, bool>(0),
+        )?,
+        None => false,
+    };
+    Ok(json!({ "ok": true, "saved": saved }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,6 +171,29 @@ mod tests {
         assert_eq!(ids[0], 60, "the newest first");
         assert_eq!(recent["more"], true);
         assert_eq!(recent["counts"]["all"], 60);
+    }
+
+    #[test]
+    fn lookup_knows_a_page_by_its_address_key_and_not_from_the_trash() {
+        let conn = library();
+        let saved = |url: &str| lookup(&conn, url).unwrap()["saved"].as_bool().unwrap();
+        crate::capture::save(
+            &conn,
+            &crate::capture::CaptureRequest {
+                request_id: None,
+                url: "https://www.example.com/page/?utm_source=x".into(),
+                title: None,
+                collection_id: None,
+                tags: None,
+            },
+            db::Source::Extension,
+        )
+        .unwrap();
+        assert!(saved("http://example.com/page"), "another spelling of the same page");
+        assert!(!saved("https://example.com/other"));
+        assert!(!saved("chrome://extensions/"));
+        conn.execute("UPDATE bookmarks SET deleted_at = '2026-10-05T00:00:00.000Z'", []).unwrap();
+        assert!(!saved("https://example.com/page"), "the trash is not the library");
     }
 
     #[test]
