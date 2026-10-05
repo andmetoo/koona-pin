@@ -1,13 +1,24 @@
 # pin.netami.app (NP-079, Р-37). Static files of `node scripts/build-site.mjs`, copied to
 # /path/to/site (doc/site.md, «Выкладка»). Import it from the server's main Caddyfile:
 #   import /path/to/site/Caddyfile
-# or paste the block there. Caddy gets and renews the HTTPS certificate itself.
+# or paste the block there.
+#
+# The domain is proxied by Cloudflare (SSL mode «Full (strict)»): the server answers Cloudflare
+# with a Cloudflare Origin Certificate for pin.netami.app and *.pin.netami.app, kept on the
+# server only (doc/site.md, «Выкладка»). Without the proxy, drop the `tls` lines: Caddy then
+# gets a Let's Encrypt certificate itself.
+
+(cloudflare_origin) {
+	tls /path/to/cert.pem /path/to/cert.key
+}
 
 www.pin.netami.app {
+	import cloudflare_origin
 	redir https://pin.netami.app{uri} permanent
 }
 
 pin.netami.app {
+	import cloudflare_origin
 	root * /path/to/site/site
 	encode zstd gzip
 
