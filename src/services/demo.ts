@@ -326,6 +326,11 @@ function linkReport(): LinkCheckReport {
     failed: group("failed"),
   };
 }
+/** «Проверка ссылок N»: links that do not open or moved. */
+function linksToDecide(): number {
+  const report = linkReport();
+  return report.gone.length + report.moved.length;
+}
 /** What the run started at `since` has left, those never checked first. */
 function leftToCheck(since: string): number[] {
   return live()
@@ -423,7 +428,7 @@ export const demo = {
       inbox_imported: inbox.filter((b) => b.source === "import").length,
       trash: bookmarks.length - live().length,
       duplicates: groupsOf(bookmarks, dismissed).length,
-      links: linkReport().gone.length + linkReport().moved.length,
+      links: linksToDecide(),
     };
   },
   async addBookmark(

@@ -223,13 +223,18 @@ export function App() {
     let running = false;
     let timer = 0;
     const off = api.onLinkCheck((progress) => {
-      if (progress.written) {
-        window.clearTimeout(timer);
-        timer = window.setTimeout(() => void libraryRef.current.refreshCatalog(), 500);
-      }
+      // The count follows written results every few seconds, and at once at the end.
+      if (progress.written && progress.state === "running" && !timer)
+        timer = window.setTimeout(() => {
+          timer = 0;
+          void libraryRef.current.refreshCatalog();
+        }, 2000);
       if (progress.state === "running") running = true;
       else if (running) {
         running = false;
+        window.clearTimeout(timer);
+        timer = 0;
+        void libraryRef.current.refreshCatalog();
         if (progress.state === "idle" && pageRef.current !== "links")
           void api.getCounts().then((counts) => {
             if (counts.links > 0)
