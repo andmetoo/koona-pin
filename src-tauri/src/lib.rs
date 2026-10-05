@@ -23,13 +23,10 @@ pub mod restore;
 #[doc(hidden)]
 pub mod test_libraries;
 pub mod trash;
+pub mod tray;
 
 use std::sync::{atomic::Ordering, Arc};
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
-};
+use tauri::Manager;
 
 pub(crate) fn show_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -70,32 +67,7 @@ pub fn run() {
             if !autostart::started_by_system() {
                 show_window(app.handle());
             }
-            let open = MenuItem::with_id(app, "open", "Открыть Netami Pin", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Выйти", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &quit])?;
-            let mut tray = TrayIconBuilder::new()
-                .menu(&menu)
-                .tooltip("Netami Pin — библиотека ссылок")
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => show_window(app),
-                    "quit" => app.exit(0),
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        show_window(tray.app_handle());
-                    }
-                });
-            if let Some(icon) = app.default_window_icon() {
-                tray = tray.icon(icon.clone());
-            }
-            tray.build(app)?;
+            tray::build(app)?;
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -126,6 +98,7 @@ pub fn run() {
             commands::empty_trash,
             commands::get_collections,
             commands::create_collection,
+            commands::create_starter_collections,
             commands::delete_collection,
             commands::get_tags,
             commands::get_domains,
@@ -162,7 +135,9 @@ pub fn run() {
             commands::start_link_check,
             commands::stop_link_check,
             commands::replace_addresses,
-            commands::rebuild_search_index
+            commands::rebuild_search_index,
+            tray::set_tray_labels,
+            tray::get_tray_labels
         ])
         .run(tauri::generate_context!())
         .expect("error while running Netami Pin");
