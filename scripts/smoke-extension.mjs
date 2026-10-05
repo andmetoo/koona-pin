@@ -8,7 +8,7 @@
 // installed browsers (NETAMIPIN_CHROME / NETAMIPIN_EDGE point to another copy).
 import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import http from "node:http";
 import { appendFile, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
@@ -66,7 +66,15 @@ await appendFile(
 const testManifest = path.join(extension, "manifest.json");
 await writeFile(
   testManifest,
-  JSON.stringify({ ...JSON.parse(await readFile(testManifest, "utf8")), host_permissions: ["http://127.0.0.1/*"] }, null, 2),
+  JSON.stringify(
+    (() => {
+      const m = JSON.parse(readFileSync(testManifest, "utf8"));
+      // A person grants the optional tabs permission with a click (NP-083); the copy has it from the start.
+      return { ...m, permissions: [...m.permissions, "tabs"], host_permissions: ["http://127.0.0.1/*"] };
+    })(),
+    null,
+    2,
+  ),
 );
 const version = path.join(extension, "version.js");
 await writeFile(version, (await readFile(version, "utf8")).replace('"app.netami.pin"', JSON.stringify(HOST)));
@@ -283,6 +291,25 @@ try {
     assert.equal(await title(), "Эта ссылка уже есть в Netami Pin");
     await worker.evaluate(() => chrome.storage.local.remove("feedback"));
     await tab.close();
+
+    // NP-083: with «show that a page is already saved» on, a saved page gets
+    // the soft check as it loads, without a click; another page does not.
+    await worker.evaluate(() => chrome.storage.local.set({ feedback: { known: true } }));
+    const again = await browser.newPage();
+    await again.goto(pageUrl);
+    const againId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, pageUrl);
+    await until(
+      async () => (await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), againId)) === "Эта ссылка уже есть в Netami Pin",
+      "a saved page is marked on load",
+    );
+    const otherUrl = pageUrl.replace("/feedback", "/not-saved");
+    const other = await browser.newPage();
+    await other.goto(otherUrl);
+    const otherId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, otherUrl);
+    await sleep(1000);
+    assert.notEqual(await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), otherId), "Эта ссылка уже есть в Netami Pin");
+    await worker.evaluate(() => chrome.storage.local.remove("feedback"));
+    await Promise.all([again.close(), other.close()]);
   } finally {
     site.close();
   }
@@ -338,7 +365,7 @@ try {
   console.log(`${target.name}: ${userAgent.match(/(Edg|Chrome)\/[\d.]+/g)?.join(" ")}; ${notes.join("; ") || "extension loaded over CDP"}`);
   console.log(`cold capture (app started by the host) ${coldMs} ms; alarm delivered the queued link in ${retryS} s`);
   console.log(
-    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record, save feedback on the button and the page, quick search`,
+    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record, save feedback on the button and the page, already saved before a click, quick search`,
   );
 } finally {
   await browser?.close().catch(() => {});
