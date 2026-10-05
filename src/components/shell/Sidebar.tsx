@@ -1,11 +1,11 @@
 import { ReactNode, useRef, useState } from "react";
-import { Copy, Inbox, Link, Plus, Settings, Star, Trash2, X } from "lucide-react";
+import { Copy, Heart, Link, Plus, Settings, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { statusColor, statusLabel } from "../../services/capture";
-import { Icon, LogoMark, PinIcon } from "../icons";
+import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
 
 export interface SidebarProps {
@@ -78,7 +78,7 @@ export function Sidebar(props: SidebarProps) {
     return (
       <aside className="flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
         <div className="mb-3 text-accent" data-tauri-drag-region>
-          <LogoMark />
+          <Mascot size={34} className="pointer-events-none" />
         </div>
         <StripButton
           label={counts.inbox > 0 ? t("nav.inboxWaiting", { count: counts.inbox }) : t("nav.inbox")}
@@ -86,15 +86,15 @@ export function Sidebar(props: SidebarProps) {
           onClick={props.onInbox}
         >
           <span className="relative">
-            <Icon icon={Inbox} />
+            <Icon icon={InboxTray} />
             {counts.inbox > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-accent" />}
           </span>
         </StripButton>
         <StripButton label={t("nav.all")} active={all} onClick={props.onAll}>
-          <PinIcon />
+          <Icon icon={ClipIcon} />
         </StripButton>
         <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites}>
-          <Icon icon={Star} />
+          <Icon icon={Heart} />
         </StripButton>
         <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash} drop={trashDrop && { ...trashDrop, danger: true }}>
           <Icon icon={Trash2} />
@@ -138,22 +138,22 @@ export function Sidebar(props: SidebarProps) {
       data-drop-scroll
     >
       <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-[18px] text-accent" data-tauri-drag-region>
-        <LogoMark />
+        <Mascot className="pointer-events-none" />
         <span className="text-lg font-semibold" data-tauri-drag-region>
           netami pin
         </span>
       </div>
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
         <NavRow
-          icon={<Icon icon={Inbox} />}
+          icon={<Icon icon={InboxTray} />}
           label={t("nav.inbox")}
           badge={counts.inbox}
           active={inbox}
           onClick={props.onInbox}
         />
-        <NavRow icon={<PinIcon />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
+        <NavRow icon={<Icon icon={ClipIcon} />} label={t("nav.all")} count={counts.total} active={all} onClick={props.onAll} />
         <NavRow
-          icon={<Icon icon={Star} />}
+          icon={<Icon icon={Heart} />}
           label={t("nav.favorites")}
           count={counts.favorites}
           active={favorites}
