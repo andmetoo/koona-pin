@@ -551,6 +551,7 @@
   "notice": {
     "previewRefreshed": "Preview refreshed",
     "noPicture": "The page offers no picture — the cover stays",
+    "previewUnchanged": "Nothing new on the page — the preview stays",
     "copied": "Copied",
     "copyFailed": "Copying is unavailable. Select the text by hand.",
     "saved": "Changes saved",

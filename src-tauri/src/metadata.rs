@@ -277,8 +277,12 @@ pub fn read_page(html: &str, base: &Url, meta: &mut PageMetadata) {
                 best = Some((size, url));
             }
         }
-        if let Some((_, url)) = best {
-            meta.favicon_url = Some(url);
+        // A bare favicon.ico is usually 16 px: Google's 128 px icon, already
+        // set, serves a cover better unless the page declares a larger one.
+        if let Some((size, url)) = best {
+            if size >= 32 || meta.favicon_url.is_none() {
+                meta.favicon_url = Some(url);
+            }
         }
     }
 }
@@ -349,6 +353,22 @@ mod tests {
         assert_eq!(page(r#"<link rel="icon" href="/favicon.ico"><link rel="icon" type="image/svg+xml" href="/icon.svg">"#, "").favicon_url.as_deref(), Some("https://example.org/icon.svg"));
         assert_eq!(page(r#"<link rel="shortcut icon" href="/a.ico"><link rel="icon" href="/b.ico">"#, "").favicon_url.as_deref(), Some("https://example.org/a.ico"), "the first of equal ones");
         assert_eq!(page(r#"<link rel="icon" href="">"#, "").favicon_url, None);
+    }
+
+    #[test]
+    fn a_bare_favicon_does_not_replace_a_larger_default() {
+        let base = Url::parse("https://example.org/").unwrap();
+        let google = "https://www.google.com/s2/favicons?domain=example.org&sz=128";
+        let read = |head: &str| {
+            let mut meta = PageMetadata { favicon_url: Some(google.into()), ..Default::default() };
+            read_page(&format!("<head>{head}</head>"), &base, &mut meta);
+            meta.favicon_url.unwrap()
+        };
+        assert_eq!(read(r#"<link rel="icon" href="/favicon.ico">"#), google);
+        assert_eq!(read(r#"<link rel="icon" sizes="16x16" href="/16.png">"#), google);
+        assert_eq!(read(r#"<link rel="icon" sizes="32x32" href="/32.png">"#), "https://example.org/32.png");
+        assert_eq!(read(r#"<link rel="apple-touch-icon" href="/touch.png">"#), "https://example.org/touch.png");
+        assert_eq!(read(""), google);
     }
 
     #[test]
@@ -481,7 +501,7 @@ mod tests {
     #[tokio::test]
     async fn previews_and_icons_on_local_addresses_are_dropped() {
         let (port, _) = server("127.0.0.1", |_| {
-            html(r#"<head><title>T</title><meta property="og:image" content="http://192.168.1.1/cam.jpg"><link rel="icon" href="/favicon.ico"></head>"#)
+            html(r#"<head><title>T</title><meta property="og:image" content="http://192.168.1.1/cam.jpg"><link rel="icon" sizes="64x64" href="/favicon.png"></head>"#)
         });
         // The page itself is allowed in the test; what it points the WebView to is not.
         let mut meta = fetch_with(&format!("http://127.0.0.1:{port}/"), &TEST).await;

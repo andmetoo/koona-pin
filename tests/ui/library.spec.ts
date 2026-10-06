@@ -1868,6 +1868,7 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
       next(8, "https://linear.app/changelog/2026-10-01"),
       // Saved a moment ago: its metadata is still on its way.
       next(9, "https://example.com/just-saved", new Date(Date.now() - 9_000).toISOString()),
+      { ...next(10, "https://mail.google.com/mail/u/0/"), revision: 2 },
     );
     localStorage.setItem("netamipin.demo.v4", JSON.stringify(data));
     return [7, 8];
@@ -1880,6 +1881,9 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
   // When the wait is over without a picture, the cover takes its place.
   await expect(cover(9)).toBeVisible({ timeout: 8_000 });
   await expect(page.locator("[data-preview-pending]")).toHaveCount(0);
+  // One site, one letter: on the cover and beside the domain.
+  await expect(cover(10).locator(".cover-letter")).toHaveText("G");
+  await expect(page.locator('[data-bookmark-id="10"] > div').nth(1).locator("span").first()).toHaveText("G");
 
   // A live grid cover answers the pointer; a list thumbnail does not.
   await expect(cover(4)).toHaveAttribute("data-live");
@@ -1890,7 +1894,7 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
   await expect.poll(() => cover(4).evaluate((el) => Number(el.style.getPropertyValue("--cx")))).toBeGreaterThan(0.5);
   await page.mouse.move(0, 0);
   await expect.poll(() => cover(4).evaluate((el) => el.style.getPropertyValue("--cx"))).toBe("");
-  // Without motion: no drift, no glint.
+  // Without motion: no drift.
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   expect(await cover(4).evaluate((el) => getComputedStyle(el).animationDuration)).toBe("0s");
@@ -1903,6 +1907,19 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
   await page.locator('[data-bookmark-id="6"]').click({ button: "right" });
   await page.getByRole("menuitem", { name: "Refresh preview" }).click();
   await expect(page.getByRole("status")).toContainText("The page offers no picture — the cover stays");
+  await page.locator('[data-bookmark-id="1"]').click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Refresh preview" }).click();
+  await expect(page.getByRole("status")).toContainText("Nothing new on the page — the preview stays");
+
+  // A link added in the demo waits a moment, as the app would, then shows its cover.
+  // At the top of the list: further down a new link waits behind «New bookmarks».
+  await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: 0 }));
+  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByLabel("Link", { exact: true }).fill("https://example.net/added");
+  await page.getByRole("button", { name: "Save link" }).click();
+  const added = page.locator("[data-bookmark-id]", { hasText: "example.net" });
+  await expect(added.locator("[data-cover]")).toBeVisible({ timeout: 3_000 });
+  await expect(page.locator("[data-preview-pending]")).toHaveCount(0);
 
   // A picture that does not load gives way to the cover too.
   await page.evaluate(async () => {
