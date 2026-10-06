@@ -11,6 +11,9 @@ type Catalog = { [key: string]: string | Catalog };
 const catalog = (code: string): Catalog =>
   JSON.parse(readFileSync(path.join(locales, `${code}.json`), "utf8"));
 const text = (c: Catalog, key: string) => key.split(".").reduce<string | Catalog>((node, k) => (node as Catalog)[k], c) as string;
+/** A label as a whole-text pattern: «(», «+», «?» in it are letters. */
+const exactly = (label: string, whole = true) =>
+  new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}${whole ? "$" : ""}`);
 
 /** Interface text that is cut off: wider or taller than its box, with the overflow hidden. Bookmark data may be cut. */
 async function cutLabels(page: Page) {
@@ -53,7 +56,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
   };
   const room: Record<string, { width: number; font: string }> = {};
   for (const key of Object.keys(rows)) {
-    const label = page.locator("aside button span.truncate", { hasText: new RegExp(`^${text(en, key)}$`) }).first();
+    const label = page.locator("aside button span.truncate", { hasText: exactly(text(en, key)) }).first();
     room[key] = await label.evaluate((el) => ({ width: el.clientWidth, font: getComputedStyle(el).font }));
   }
   /** The text as the app shows it: the plural form the language picks for days the status can show. */
@@ -64,20 +67,20 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
     const rules = new Intl.PluralRules(code);
     return [1, 2, 5, 21, 30].map((n) => (node[`${name}_${rules.select(n)}`] as string).replace("{{count}}", String(n)));
   };
-  const wide: string[] = [];
-  for (const code of codes)
-    for (const [row, keys] of Object.entries(rows))
-      for (const word of new Set(keys.flatMap((key) => words(code, key)))) {
-        const width = await page.evaluate(
-          ({ word, font }) => {
-            const ctx = document.createElement("canvas").getContext("2d")!;
-            ctx.font = font;
-            return ctx.measureText(word).width;
-          },
-          { word, font: room[row].font },
-        );
-        if (width > room[row].width) wide.push(`${code} ${row}: «${word}» ${Math.ceil(width)} > ${room[row].width}`);
-      }
+  const all = codes.flatMap((code) =>
+    Object.entries(rows).flatMap(([row, keys]) =>
+      [...new Set(keys.flatMap((key) => words(code, key)))].map((word) => ({ code, row, word, ...room[row] })),
+    ),
+  );
+  // One canvas, one round trip for every word.
+  const widths = await page.evaluate((all) => {
+    const ctx = document.createElement("canvas").getContext("2d")!;
+    return all.map(({ word, font }) => ((ctx.font = font), ctx.measureText(word).width));
+  }, all);
+  const wide = all
+    .map((w, i) => ({ ...w, measured: widths[i] }))
+    .filter((w) => w.measured > w.width)
+    .map((w) => `${w.code} ${w.row}: «${w.word}» ${Math.ceil(w.measured)} > ${w.width}`);
   expect(wide).toEqual([]);
 });
 
@@ -124,7 +127,7 @@ for (const code of codes) {
       await shot("add-dialog");
       await page.keyboard.press("Escape");
 
-      await page.getByRole("button", { name: new RegExp(`^${t("nav.inbox")}`) }).first().click();
+      await page.getByRole("button", { name: exactly(t("nav.inbox"), false) }).first().click();
       await page.getByRole("button", { name: t("inbox.sort"), exact: true }).first().click();
       await shot("triage");
       await page.keyboard.press("Escape");

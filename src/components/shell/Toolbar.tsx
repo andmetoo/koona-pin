@@ -65,9 +65,11 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   );
   return (
     <div className="flex h-9 items-center gap-2.5">
-      {/* The title keeps its length up to 40 % of the row; the search field gives way first
-          (NP-089: «Todos os marcadores» at 800 px). A longer collection name is cut at 40 %. */}
-      <h1 className="flex max-w-[40%] min-w-0 shrink-0 items-baseline gap-2">
+      {/* The title takes the free room and never shrinks below its own length (the automatic
+          minimum of a flex item), so the search field gives way first (NP-089: «Todos os
+          marcadores» at 800 px). Only a title longer than the row minus the controls at their
+          smallest (440 px) is cut. */}
+      <h1 className="flex max-w-[calc(100%-440px)] flex-1 items-baseline gap-2">
         <span className="truncate text-2xl font-semibold">{props.title}</span>
         {props.count !== undefined && (
           <span className="shrink-0 text-md text-subtle" aria-live={props.countLive ? "polite" : undefined}>
