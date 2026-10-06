@@ -22,7 +22,7 @@ export const languages: Language[] = Object.entries(files)
   .sort((a, b) => (a.code === "en" ? -1 : b.code === "en" ? 1 : a.code.localeCompare(b.code)));
 
 export type LanguageSetting = "system" | string;
-const key = "netamipin.language";
+const key = "koonapin.language";
 /** A new install speaks English until the person picks a language or «System» (NP-085). */
 export const defaultLanguage: LanguageSetting = "en";
 

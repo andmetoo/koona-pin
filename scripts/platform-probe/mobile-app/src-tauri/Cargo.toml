@@ -1,13 +1,13 @@
-# NP-008: the smallest Tauri app with the dependencies Netami Pin cannot do
+# NP-008: the smallest Tauri app with the dependencies Koona Pin cannot do
 # without, to see whether they build and work on Android and iOS: SQLite
 # with FTS5 trigram, rustls requests, opening a link, the app data folder.
 [package]
-name = "netamipin-probe"
+name = "koonapin-probe"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "netamipin_probe_lib"
+name = "koonapin_probe_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

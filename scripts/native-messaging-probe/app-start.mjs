@@ -1,4 +1,4 @@
-// NP-014: how long a host would wait when it starts a closed Netami Pin.
+// NP-014: how long a host would wait when it starts a closed Koona Pin.
 // Starts the release build hidden (`--autostart`, as the host would) on an
 // isolated library and measures the time until the library is open and the
 // capture server answers. A test data folder keeps the autostart registry
@@ -11,7 +11,7 @@ import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-const binary = path.resolve(process.env.NETAMIPIN_TEST_BINARY || "src-tauri/target/release/netamipin.exe");
+const binary = path.resolve(process.env.KOONAPIN_TEST_BINARY || "src-tauri/target/release/koonapin.exe");
 const root = path.resolve(".test-data", `app-start-${Date.now()}`);
 const runs = 5;
 
@@ -26,7 +26,7 @@ async function ready() {
 async function once(dataDir) {
   const started = performance.now();
   const app = spawn(binary, ["--autostart"], {
-    env: { ...process.env, NETAMIPIN_DATA_DIR: dataDir, WEBVIEW2_USER_DATA_FOLDER: path.join(dataDir, "webview") },
+    env: { ...process.env, KOONAPIN_DATA_DIR: dataDir, WEBVIEW2_USER_DATA_FOLDER: path.join(dataDir, "webview") },
     stdio: "ignore",
   });
   try {
@@ -41,7 +41,7 @@ async function once(dataDir) {
   }
 }
 
-if (await ready()) throw new Error("Port 28765 is busy: close Netami Pin first");
+if (await ready()) throw new Error("Port 28765 is busy: close Koona Pin first");
 function report(label, times) {
   times.sort((a, b) => a - b);
   const ms = times.map(Math.round);
@@ -58,7 +58,7 @@ report("new library", created);
 for (const [label, source] of [["empty library", null], ["100 000 bookmarks", "library-100k-v1.db"]]) {
   const dataDir = path.join(root, label.replace(/\W+/g, "-"));
   await mkdir(dataDir, { recursive: true });
-  if (source) await copyFile(path.resolve(".test-data/libraries", source), path.join(dataDir, "netamipin.db"));
+  if (source) await copyFile(path.resolve(".test-data/libraries", source), path.join(dataDir, "koonapin.db"));
   await once(dataDir);
   const times = [];
   for (let i = 0; i < runs; i++) times.push(await once(dataDir));

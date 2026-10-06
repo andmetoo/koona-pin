@@ -7,8 +7,8 @@ import { t } from "./ext.js";
  * Chrome and Edge have, so there the menu also offers the settings page with
  * the queue (NP-018). A left click saves the page.
  */
-export const MENU_ID = "netamipin-options";
-export const SEARCH_ID = "netamipin-search";
+export const MENU_ID = "koonapin-options";
+export const SEARCH_ID = "koonapin-search";
 
 /** Menus outlive an event page, not an update: build the items afresh. */
 export async function registerMenu(menus, { settings = false, shortcut = "" } = {}) {

@@ -1,5 +1,5 @@
-// Pages of pin.netami.app as HTML strings. No scripts: language and theme work without JS.
-import { FEEDBACK_ENDPOINT, ORIGIN, SUPPORT } from "./content.mjs";
+// Pages of koona.app/pin as HTML strings. No scripts: language and theme work without JS.
+import { BASE, FEEDBACK_ENDPOINT, ORIGIN, SITE, SUPPORT } from "./content.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -23,20 +23,20 @@ const ICON = {
 const icon = (name, cls = "icon") =>
   `<svg class="${cls}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICON[name]}</svg>`;
 
-/** Paths of one page in both languages: "/" and "/ru/", "/privacy" and "/ru/privacy". */
-const href = (lang, page) => (lang === "en" ? `/${page}` : `/ru/${page}`);
+/** Paths of one page in both languages: "/pin/" and "/pin/ru/", "/pin/privacy" and "/pin/ru/privacy". */
+const href = (lang, page) => (lang === "en" ? `${BASE}/${page}` : `${BASE}/ru/${page}`);
 
 function mascot(size, cls = "mascot") {
   const h = Math.round((size * 916) / 880);
-  return `<picture class="${cls}"><source srcset="/brand/pin-spirit-mint.svg" media="(prefers-color-scheme: dark)"><img src="/brand/pin-spirit.svg" width="${size}" height="${h}" alt=""></picture>`;
+  return `<picture class="${cls}"><source srcset="${BASE}/brand/pin-spirit-mint.svg" media="(prefers-color-scheme: dark)"><img src="${BASE}/brand/pin-spirit.svg" width="${size}" height="${h}" alt=""></picture>`;
 }
 
 function shot(lang, view, alt, { eager = false, sizes } = {}) {
   // English and Russian screenshots in light; English dark for both (Russian dark is not shot).
-  const set = (name) => `/shots/${name}-1280.webp 1280w, /shots/${name}.webp 1920w`;
+  const set = (name) => `${BASE}/shots/${name}-1280.webp 1280w, ${BASE}/shots/${name}.webp 1920w`;
   const light = `app-${lang}-light-${view}`;
   const dark = `app-${lang === "ru" ? "en" : lang}-dark-${view}`;
-  return `<picture><source srcset="${set(dark)}" sizes="${sizes}" media="(prefers-color-scheme: dark)"><img src="/shots/${light}-1280.webp" srcset="${set(light)}" sizes="${sizes}" width="1280" height="800" alt="${esc(alt)}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async"></picture>`;
+  return `<picture><source srcset="${set(dark)}" sizes="${sizes}" media="(prefers-color-scheme: dark)"><img src="${BASE}/shots/${light}-1280.webp" srcset="${set(light)}" sizes="${sizes}" width="1280" height="800" alt="${esc(alt)}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async"></picture>`;
 }
 
 function head(t, { page, title, description, extra = "" }) {
@@ -56,17 +56,17 @@ function head(t, { page, title, description, extra = "" }) {
 <link rel="alternate" hreflang="en" href="${ORIGIN}${href("en", page)}">
 <link rel="alternate" hreflang="ru" href="${ORIGIN}${href("ru", page)}">
 <link rel="alternate" hreflang="x-default" href="${ORIGIN}${href("en", page)}">
-<link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="/brand/favicon-32.png" sizes="32x32" type="image/png">
-<link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
-<link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/site.css">${extra}
+<link rel="icon" href="${BASE}/brand/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="${BASE}/brand/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="${BASE}/brand/apple-touch-icon.png">
+<link rel="preload" href="${BASE}/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="${BASE}/site.css">${extra}
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Netami Pin">
+<meta property="og:site_name" content="Koona Pin">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${ORIGIN}${path}">
-<meta property="og:image" content="${ORIGIN}/shots/og-${t.lang}.jpg">
+<meta property="og:image" content="${SITE}/shots/og-${t.lang}.jpg">
 <meta property="og:locale" content="${t.lang === "en" ? "en_US" : "ru_RU"}">
 <meta property="og:locale:alternate" content="${other === "en" ? "en_US" : "ru_RU"}">
 </head>
@@ -88,7 +88,7 @@ function header(t, { page, wordmark, current }) {
     .join("");
   return `<header class="top">
 <div class="wrap top-row">
-<a class="logo" href="${href(t.lang, "")}" aria-label="Netami Pin">${mascot(36)}<span class="wordmark" aria-hidden="true">${wordmark}</span></a>
+<a class="logo" href="${href(t.lang, "")}" aria-label="Koona Pin">${mascot(36)}<span class="wordmark" aria-hidden="true">${wordmark}</span></a>
 <nav class="top-nav" aria-label="${t.lang === "en" ? "Main" : "Основное"}">${nav}</nav>
 <div class="lang" role="group" aria-label="${esc(t.langSwitch)}">${lang("en")}${lang("ru")}</div>
 </div>
@@ -99,14 +99,14 @@ function footer(t, wordmark) {
   return `<footer class="foot">
 <div class="wrap">
 <div class="foot-row">
-<a class="logo logo-small" href="${href(t.lang, "")}" aria-label="Netami Pin">${mascot(24)}<span class="wordmark" aria-hidden="true">${wordmark}</span></a>
+<a class="logo logo-small" href="${href(t.lang, "")}" aria-label="Koona Pin">${mascot(24)}<span class="wordmark" aria-hidden="true">${wordmark}</span></a>
 <nav class="foot-nav" aria-label="${t.lang === "en" ? "Site" : "Сайт"}">
 <a href="${href(t.lang, "privacy")}">${esc(t.footer.privacy)}</a>
 <a href="${href(t.lang, "licenses")}">${esc(t.footer.licenses)}</a>
 ${FEEDBACK_ENDPOINT ? `<a href="${href(t.lang, "feedback")}">${esc(t.footer.support)}</a>` : `<a href="${SUPPORT}" rel="noopener">${esc(t.footer.support)}</a>`}
 </nav>
 </div>
-<div class="foot-row foot-small"><span>© 2026 Netami</span></div>
+<div class="foot-row foot-small"><span>© 2026 Koona</span></div>
 </div>
 </footer>
 </body>
@@ -129,7 +129,7 @@ ${header(t, { page: "", wordmark })}
 <p class="meta">${t.meta.map(esc).join('<span aria-hidden="true"> · </span>')}</p>
 <figure class="shot shot-hero">${shot(t.lang, "grid", t.shotAlt, { eager: true, sizes: "(min-width: 1440px) 1200px, (min-width: 900px) 84vw, 640px" })}</figure>
 </section>
-<section class="pillars wrap" aria-label="${t.lang === "en" ? "Why Netami Pin" : "Почему Netami Pin"}">
+<section class="pillars wrap" aria-label="${t.lang === "en" ? "Why Koona Pin" : "Почему Koona Pin"}">
 ${t.pillars
   .map(([h, p], i) => `<article class="card pillar"><span class="well">${icon(pillarIcons[i])}</span><h2>${esc(h)}</h2><p>${esc(p)}</p></article>`)
   .join("\n")}
@@ -179,7 +179,7 @@ ${footer(t, wordmark)}`;
 }
 
 function textPage(t, { page, title, body, wordmark, current, extra }) {
-  return `${head(t, { page, title: `${title} — Netami Pin`, description: t.description, extra })}
+  return `${head(t, { page, title: `${title} — Koona Pin`, description: t.description, extra })}
 ${header(t, { page, wordmark, current })}
 <main id="main" class="wrap text-page">
 <a class="back" href="${href(t.lang, "")}">${icon("arrowLeft", "icon icon-small")}${esc(t.back)}</a>
@@ -192,7 +192,7 @@ ${footer(t, wordmark)}`;
 export function privacy(t, { markdown, wordmark }) {
   const part = markdown.split(/^## /m).find((p) => p.startsWith(t.privacyPage.section));
   const paras = part.split("\n").slice(1).map((l) => l.trim()).filter((l) => l && l !== "---");
-  const link = (s) => esc(s).replace(/https:\/\/pin\.netami\.app\/?/g, (u) => `<a href="${u}">${u}</a>`);
+  const link = (s) => esc(s).replace(/https:\/\/koona\.app\/pin\/?/g, (u) => `<a href="${u}">${u}</a>`);
   const body = paras
     .map((p) => {
       const m = p.match(/^\*\*(.+?)\*\*\s*(.*)$/);

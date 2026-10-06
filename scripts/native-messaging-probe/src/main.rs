@@ -4,7 +4,7 @@
 //! - native messaging host: the browser starts it with the caller's origin
 //!   (Chrome, Edge) or the manifest path and add-on id (Firefox) and talks
 //!   length-prefixed JSON over stdin/stdout;
-//! - `app`: a stand-in for Netami Pin that accepts captures on a named pipe.
+//! - `app`: a stand-in for Koona Pin that accepts captures on a named pipe.
 //!
 //! The host relays a capture to the app and, if asked, starts the app when the
 //! pipe is missing. Every process appends JSON lines to `probe.log` next to the
@@ -48,7 +48,7 @@ use windows_sys::Win32::{
     },
 };
 
-const PIPE: &str = r"\\.\pipe\netamipin-probe";
+const PIPE: &str = r"\\.\pipe\koonapin-probe";
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -271,7 +271,7 @@ fn serve() {
     // Where a write to %APPDATA% really lands: a packaged parent could
     // redirect it into the package's private folder.
     let marker = std::env::var("APPDATA")
-        .map(|dir| PathBuf::from(dir).join("netamipin-probe").join(format!("app-{}.txt", std::process::id())));
+        .map(|dir| PathBuf::from(dir).join("koonapin-probe").join(format!("app-{}.txt", std::process::id())));
     if let Ok(marker) = marker {
         let _ = std::fs::create_dir_all(marker.parent().unwrap());
         let _ = std::fs::write(&marker, "written by the probe app");

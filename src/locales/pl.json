@@ -71,27 +71,27 @@
     "lost_many": "Cisza od {{count}} dni",
     "lost_other": "Cisza od {{count}} dnia",
     "update": "Stare rozszerzenie",
-    "updateApp": "Zaktualizuj Netami Pin",
+    "updateApp": "Zaktualizuj Koona Pin",
     "connectedTo": "Połączono: {{browsers}}",
     "lastSavedToday": "Ostatni zapis dziś o {{time}} z {{browser}}",
     "lastSavedOn": "Ostatni zapis {{date}} o {{time}} z {{browser}}",
     "noSaves": "Nie zapisano jeszcze żadnej strony",
     "notConnectedHint": "Rozszerzenie zapisuje stronę jednym kliknięciem",
-    "lostText_one": "Żadne rozszerzenie nie odezwało się od {{count}} dnia. Otwórz przeglądarkę i sprawdź, czy Netami Pin jest włączony — linki z kolejki dotrą same.",
-    "lostText_few": "Żadne rozszerzenie nie odezwało się od {{count}} dni. Otwórz przeglądarkę i sprawdź, czy Netami Pin jest włączony — linki z kolejki dotrą same.",
-    "lostText_many": "Żadne rozszerzenie nie odezwało się od {{count}} dni. Otwórz przeglądarkę i sprawdź, czy Netami Pin jest włączony — linki z kolejki dotrą same.",
-    "lostText_other": "Żadne rozszerzenie nie odezwało się od {{count}} dnia. Otwórz przeglądarkę i sprawdź, czy Netami Pin jest włączony — linki z kolejki dotrą same.",
-    "updateText": "{{browser}} ma rozszerzenie {{version}}, które nie pasuje do tej wersji Netami Pin. Zaktualizuj rozszerzenie — do tego czasu linki czekają w nim.",
-    "updateAppText": "{{browser}} ma nowsze rozszerzenie ({{version}}). Zaktualizuj Netami Pin — do tego czasu linki czekają w rozszerzeniu.",
+    "lostText_one": "Żadne rozszerzenie nie odezwało się od {{count}} dnia. Otwórz przeglądarkę i sprawdź, czy Koona Pin jest włączony — linki z kolejki dotrą same.",
+    "lostText_few": "Żadne rozszerzenie nie odezwało się od {{count}} dni. Otwórz przeglądarkę i sprawdź, czy Koona Pin jest włączony — linki z kolejki dotrą same.",
+    "lostText_many": "Żadne rozszerzenie nie odezwało się od {{count}} dni. Otwórz przeglądarkę i sprawdź, czy Koona Pin jest włączony — linki z kolejki dotrą same.",
+    "lostText_other": "Żadne rozszerzenie nie odezwało się od {{count}} dnia. Otwórz przeglądarkę i sprawdź, czy Koona Pin jest włączony — linki z kolejki dotrą same.",
+    "updateText": "{{browser}} ma rozszerzenie {{version}}, które nie pasuje do tej wersji Koona Pin. Zaktualizuj rozszerzenie — do tego czasu linki czekają w nim.",
+    "updateAppText": "{{browser}} ma nowsze rozszerzenie ({{version}}). Zaktualizuj Koona Pin — do tego czasu linki czekają w rozszerzeniu.",
     "howToConnect": "Jak połączyć",
     "howToUpdate": "Jak zaktualizować",
     "connect": "Połącz",
-    "problem_channel": "Netami Pin nie mógł otworzyć kanału odbioru: zajmuje go inny program. Uruchom ponownie Netami Pin — linki poczekają w rozszerzeniu.",
-    "problem_registration": "Netami Pin nie mógł zarejestrować się w przeglądarkach. Spróbuj ponownie; jeśli się nie uda, zainstaluj ponownie Netami Pin — linki poczekają w rozszerzeniu.",
-    "problem_host_missing": "Brakuje części Netami Pin (netamipin-host.exe). Zainstaluj ponownie Netami Pin — linki poczekają w rozszerzeniu.",
-    "banner_channel": "Przeglądarka nie może wysyłać zakładek: Netami Pin nie mógł otworzyć kanału odbioru. Linki czekają w rozszerzeniu.",
-    "banner_registration": "Przeglądarka nie może wysyłać zakładek: Netami Pin nie mógł zarejestrować się w przeglądarkach. Linki czekają w rozszerzeniu.",
-    "banner_host_missing": "Przeglądarka nie może wysyłać zakładek: brakuje części Netami Pin. Linki czekają w rozszerzeniu.",
+    "problem_channel": "Koona Pin nie mógł otworzyć kanału odbioru: zajmuje go inny program. Uruchom ponownie Koona Pin — linki poczekają w rozszerzeniu.",
+    "problem_registration": "Koona Pin nie mógł zarejestrować się w przeglądarkach. Spróbuj ponownie; jeśli się nie uda, zainstaluj ponownie Koona Pin — linki poczekają w rozszerzeniu.",
+    "problem_host_missing": "Brakuje części Koona Pin (koonapin-host.exe). Zainstaluj ponownie Koona Pin — linki poczekają w rozszerzeniu.",
+    "banner_channel": "Przeglądarka nie może wysyłać zakładek: Koona Pin nie mógł otworzyć kanału odbioru. Linki czekają w rozszerzeniu.",
+    "banner_registration": "Przeglądarka nie może wysyłać zakładek: Koona Pin nie mógł zarejestrować się w przeglądarkach. Linki czekają w rozszerzeniu.",
+    "banner_host_missing": "Przeglądarka nie może wysyłać zakładek: brakuje części Koona Pin. Linki czekają w rozszerzeniu.",
     "details": "Szczegóły",
     "copyReport": "Kopiuj raport",
     "reportCopied": "Raport skopiowany"
@@ -118,7 +118,7 @@
     "import": "Import",
     "importHtml": "Zakładki przeglądarki (HTML)",
     "importHtmlHint": "Chrome, Edge, Firefox",
-    "importJson": "Kopia zapasowa Netami Pin (JSON)",
+    "importJson": "Kopia zapasowa Koona Pin (JSON)",
     "export": "Eksport",
     "exportHtml": "HTML dla przeglądarek",
     "exportJson": "JSON — pełna kopia",
@@ -288,7 +288,7 @@
   "restore": {
     "title": "Przywracanie z kopii JSON",
     "lead": "Wybierz kopię JSON utworzoną przez eksport. Plik jest sprawdzany w całości, zanim cokolwiek zmieni się w bibliotece.",
-    "file": "Kopia Netami Pin .json",
+    "file": "Kopia Koona Pin .json",
     "bookmarks_one": "{{count, number}} zakładka",
     "bookmarks_few": "{{count, number}} zakładki",
     "bookmarks_many": "{{count, number}} zakładek",
@@ -335,9 +335,9 @@
     "backup": "Kopia zapasowa poprzedniej biblioteki: {{name}}",
     "backupFailed": "Nie udało się zapisać kopii zapasowej obecnej biblioteki: {{detail}}. Nic nie zmieniono.",
     "failed": "Nie udało się przywrócić. {{reason}} Nic nie zmieniono.",
-    "notJson": "To nie jest plik JSON. Wybierz kopię utworzoną przez eksport w Netami Pin. Nic nie zmieniono.",
-    "notOurs": "To nie jest kopia Netami Pin: plik nie ma formatu Netami Pin. Nic nie zmieniono.",
-    "newer": "Kopię utworzył nowszy Netami Pin (format {{version}}). Zaktualizuj aplikację, aby ją przywrócić. Nic nie zmieniono.",
+    "notJson": "To nie jest plik JSON. Wybierz kopię utworzoną przez eksport w Koona Pin. Nic nie zmieniono.",
+    "notOurs": "To nie jest kopia Koona Pin: plik nie ma formatu Koona Pin. Nic nie zmieniono.",
+    "newer": "Kopię utworzył nowszy Koona Pin (format {{version}}). Zaktualizuj aplikację, aby ją przywrócić. Nic nie zmieniono.",
     "damaged": "Kopia jest uszkodzona: {{what}}. Nic nie zmieniono.",
     "damage": {
       "file_structure": "jej struktura jest uszkodzona ({{detail}})",
@@ -382,16 +382,16 @@
     "installTitle": "Zainstaluj rozszerzenie",
     "install_chrome": "Otwórz chrome://extensions, włącz tryb dewelopera, wybierz „Załaduj rozpakowane” i folder extension/build/chrome.",
     "install_edge": "Otwórz edge://extensions, włącz tryb dewelopera, wybierz „Załaduj rozpakowane” i folder extension/build/edge.",
-    "install_firefox": "Otwórz about:debugging#/runtime/this-firefox, wybierz „Wczytaj tymczasowy dodatek…” i plik release/netamipin-firefox.xpi. Do czasu podpisanej wersji Firefox usuwa go przy zamknięciu.",
-    "store_chrome": "Otwórz stronę Netami Pin w Chrome Web Store i kliknij „Dodaj do Chrome”.",
-    "store_edge": "Otwórz stronę Netami Pin w Edge Add-ons i kliknij „Pobierz”.",
+    "install_firefox": "Otwórz about:debugging#/runtime/this-firefox, wybierz „Wczytaj tymczasowy dodatek…” i plik release/koonapin-firefox.xpi. Do czasu podpisanej wersji Firefox usuwa go przy zamknięciu.",
+    "store_chrome": "Otwórz stronę Koona Pin w Chrome Web Store i kliknij „Dodaj do Chrome”.",
+    "store_edge": "Otwórz stronę Koona Pin w Edge Add-ons i kliknij „Pobierz”.",
     "openStore": "Otwórz {{store}}",
-    "pinTitle": "Przypnij ikonę Netami Pin",
-    "pin_chrome": "Otwórz menu z ikoną puzzla na pasku narzędzi i przypnij Netami Pin.",
-    "pin_edge": "Otwórz menu Rozszerzenia na pasku narzędzi i dla Netami Pin wybierz „Pokaż na pasku narzędzi”.",
-    "pin_firefox": "Otwórz menu Rozszerzenia na pasku narzędzi i dla Netami Pin wybierz „Przypnij do paska narzędzi”.",
+    "pinTitle": "Przypnij ikonę Koona Pin",
+    "pin_chrome": "Otwórz menu z ikoną puzzla na pasku narzędzi i przypnij Koona Pin.",
+    "pin_edge": "Otwórz menu Rozszerzenia na pasku narzędzi i dla Koona Pin wybierz „Pokaż na pasku narzędzi”.",
+    "pin_firefox": "Otwórz menu Rozszerzenia na pasku narzędzi i dla Koona Pin wybierz „Przypnij do paska narzędzi”.",
     "saveTitle": "Zapisz stronę",
-    "save": "Kliknij ikonę na dowolnej stronie. Jeśli Netami Pin jest zamknięty, uruchomi się w zasobniku systemowym i zapisze link.",
+    "save": "Kliknij ikonę na dowolnej stronie. Jeśli Koona Pin jest zamknięty, uruchomi się w zasobniku systemowym i zapisze link.",
     "lostTitle": "Jeśli połączenie zostanie zerwane",
     "lost_chrome": "Sprawdź, czy rozszerzenie jest włączone w chrome://extensions. Linki czekają w rozszerzeniu i dotrą same.",
     "lost_edge": "Sprawdź, czy rozszerzenie jest włączone w edge://extensions. Linki czekają w rozszerzeniu i dotrą same.",
@@ -399,14 +399,14 @@
     "updateTitle": "Aktualizacja",
     "update_chrome": "Zbuduj rozszerzenie ponownie i kliknij „Odśwież” w chrome://extensions. Wersja ze sklepu aktualizuje się sama.",
     "update_edge": "Zbuduj rozszerzenie ponownie i kliknij „Załaduj ponownie” w edge://extensions. Wersja ze sklepu aktualizuje się sama.",
-    "update_firefox": "Zbuduj rozszerzenie ponownie i wczytaj nowy release/netamipin-firefox.xpi. Podpisana wersja aktualizuje się sama.",
+    "update_firefox": "Zbuduj rozszerzenie ponownie i wczytaj nowy release/koonapin-firefox.xpi. Podpisana wersja aktualizuje się sama.",
     "updateStore": "Rozszerzenie ze sklepu aktualizuje się samo: przeglądarka sprawdza aktualizacje kilka razy dziennie."
   },
   "backup": {
     "title": "Przywracanie z kopii zapasowej",
     "lead": "Wybierz kopię. Biblioteka wróci do stanu z tamtej chwili; późniejsze zmiany zostaną utracone.",
     "loading": "Szukanie kopii zapasowych…",
-    "empty": "W folderze kopii zapasowych nie ma jeszcze kopii. Netami Pin tworzy ją przy uruchomieniu i raz dziennie; kopię zapisaną gdzie indziej możesz wybrać jako plik.",
+    "empty": "W folderze kopii zapasowych nie ma jeszcze kopii. Koona Pin tworzy ją przy uruchomieniu i raz dziennie; kopię zapisaną gdzie indziej możesz wybrać jako plik.",
     "kind": {
       "automatic": "Automatyczna",
       "before_update": "Przed aktualizacją biblioteki",
@@ -442,9 +442,9 @@
     "previous": "Kopia zapasowa poprzedniej biblioteki",
     "checkedBad": "Sprawdzono: tej kopii nie można przywrócić",
     "another": "Wybierz inny plik",
-    "notDatabase": "Ten plik nie jest bazą danych, więc nie może być kopią zapasową Netami Pin. Nic nie zmieniono.",
-    "notOurs": "Ten plik należy do innego programu, nie do Netami Pin. Nic nie zmieniono.",
-    "newer": "Tę kopię utworzył nowszy Netami Pin (schemat {{schema}}). Zaktualizuj aplikację, aby ją przywrócić. Nic nie zmieniono.",
+    "notDatabase": "Ten plik nie jest bazą danych, więc nie może być kopią zapasową Koona Pin. Nic nie zmieniono.",
+    "notOurs": "Ten plik należy do innego programu, nie do Koona Pin. Nic nie zmieniono.",
+    "newer": "Tę kopię utworzył nowszy Koona Pin (schemat {{schema}}). Zaktualizuj aplikację, aby ją przywrócić. Nic nie zmieniono.",
     "damaged": "Kopia jest uszkodzona: {{detail}}. Nic nie zmieniono.",
     "unreadable": "Nie udało się odczytać kopii: {{detail}}. Nic nie zmieniono.",
     "backupFailed": "Nie udało się zapisać kopii zapasowej obecnej biblioteki: {{detail}}. Nic nie zmieniono.",
@@ -504,10 +504,10 @@
     "title": "Sprawdzanie linków",
     "loading": "Wczytywanie wyników…",
     "introTitle": "Sprawdź swoje linki",
-    "introText_one": "Netami Pin raz otworzy adres twojej jedynej zakładki, jak przeglądarka, bez wczytywania strony. Strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
-    "introText_few": "Netami Pin raz otworzy adres każdej z twoich {{count}} zakładek, jak przeglądarka, bez wczytywania strony. Każda strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
-    "introText_many": "Netami Pin raz otworzy adres każdej z twoich {{count}} zakładek, jak przeglądarka, bez wczytywania strony. Każda strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
-    "introText_other": "Netami Pin raz otworzy adres każdej z twoich {{count}} zakładki, jak przeglądarka, bez wczytywania strony. Każda strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
+    "introText_one": "Koona Pin raz otworzy adres twojej jedynej zakładki, jak przeglądarka, bez wczytywania strony. Strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
+    "introText_few": "Koona Pin raz otworzy adres każdej z twoich {{count}} zakładek, jak przeglądarka, bez wczytywania strony. Każda strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
+    "introText_many": "Koona Pin raz otworzy adres każdej z twoich {{count}} zakładek, jak przeglądarka, bez wczytywania strony. Każda strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
+    "introText_other": "Koona Pin raz otworzy adres każdej z twoich {{count}} zakładki, jak przeglądarka, bez wczytywania strony. Każda strona zobaczy zwykłe zapytanie z twojego komputera. Możesz dalej pracować albo w każdej chwili przerwać.",
     "introSmall": "Nic nie jest usuwane samo. Linki do tego komputera ani sieci lokalnej nie są odpytywane.",
     "start_one": "Sprawdź {{count}} link",
     "start_few": "Sprawdź {{count}} linki",
@@ -603,7 +603,7 @@
     "autostartHint": "Uruchamia się w zasobniku systemowym, żeby linki z przeglądarki docierały od razu",
     "desktopOnly": "Dostępne w aplikacji na komputer",
     "tray": "Po zamknięciu okna zostaw aplikację w zasobniku systemowym",
-    "trayHint": "Całkowicie zamkniesz ją z menu ikony Netami Pin w zasobniku systemowym",
+    "trayHint": "Całkowicie zamkniesz ją z menu ikony Koona Pin w zasobniku systemowym",
     "browser": "Przeglądarka",
     "connectBrowser": "Połącz kolejną przeglądarkę",
     "data": "Dane",
@@ -626,7 +626,7 @@
     "restoreBackup": "Przywróć z kopii zapasowej",
     "restoreHint": "Biblioteka wróci do stanu z kopii",
     "restore": "Przywróć…",
-    "backupNote": "Kopia zapasowa to cała biblioteka dokładnie taka, jaka była, dla Netami Pin — przywróć ją po uszkodzeniu lub pomyłce. Aby przenieść zakładki do innej biblioteki, użyj Eksport → JSON; HTML jest dla przeglądarek, CSV dla arkuszy.",
+    "backupNote": "Kopia zapasowa to cała biblioteka dokładnie taka, jaka była, dla Koona Pin — przywróć ją po uszkodzeniu lub pomyłce. Aby przenieść zakładki do innej biblioteki, użyj Eksport → JSON; HTML jest dla przeglądarek, CSV dla arkuszy.",
     "backUpNow": "Utwórz kopię teraz",
     "copying": "Tworzenie kopii…",
     "copyDone": "Kopia zapasowa utworzona",
@@ -644,7 +644,7 @@
     "feedbackHint": "Błąd, pomysł albo pytanie — prosto do autora",
     "feedbackButton": "Wyślij opinię…",
     "github": "Zgłoszenia na GitHubie",
-    "githubHint": "Publiczne zgłoszenia w netami-pin-releases"
+    "githubHint": "Publiczne zgłoszenia w koona-pin"
   },
   "notice": {
     "previewRefreshed": "Podgląd odświeżony",
@@ -824,23 +824,23 @@
     "details": "Szczegóły",
     "DB_LOCKED": {
       "title": "Biblioteka jest używana przez inny program",
-      "body": "Plik biblioteki jest otwarty w innym programie. Netami Pin nic do niego nie zapisał — twoje dane są bez zmian. Zamknij ten program i kliknij „Spróbuj ponownie”."
+      "body": "Plik biblioteki jest otwarty w innym programie. Koona Pin nic do niego nie zapisał — twoje dane są bez zmian. Zamknij ten program i kliknij „Spróbuj ponownie”."
     },
     "DB_NEWER_SCHEMA": {
-      "title": "Nowsza wersja Netami Pin zaktualizowała tę bibliotekę",
-      "body": "Biblioteka używa schematu {{schema}}; ta wersja obsługuje do {{supported}}. Zainstaluj najnowszą wersję z pin.netami.app. Biblioteka nie została zmieniona."
+      "title": "Nowsza wersja Koona Pin zaktualizowała tę bibliotekę",
+      "body": "Biblioteka używa schematu {{schema}}; ta wersja obsługuje do {{supported}}. Zainstaluj najnowszą wersję z koona.app/pin. Biblioteka nie została zmieniona."
     },
     "DB_FOREIGN": {
-      "title": "To nie jest biblioteka Netami Pin",
-      "body": "Plik utworzył inny program. Netami Pin go nie otwiera ani nie zmienia. Przenieś plik z folderu danych, a przy następnym uruchomieniu zostanie utworzona nowa biblioteka."
+      "title": "To nie jest biblioteka Koona Pin",
+      "body": "Plik utworzył inny program. Koona Pin go nie otwiera ani nie zmienia. Przenieś plik z folderu danych, a przy następnym uruchomieniu zostanie utworzona nowa biblioteka."
     },
     "DB_NOT_DATABASE": {
       "title": "Nie można odczytać pliku biblioteki",
-      "body": "Plik jest uszkodzony albo nie jest bazą danych. Netami Pin go nie zmienia. Przywróć ostatnią kopię zapasową: plik jest zachowany bez zmian w folderze kopii zapasowych."
+      "body": "Plik jest uszkodzony albo nie jest bazą danych. Koona Pin go nie zmienia. Przywróć ostatnią kopię zapasową: plik jest zachowany bez zmian w folderze kopii zapasowych."
     },
     "DB_CORRUPT": {
       "title": "Biblioteka jest uszkodzona",
-      "body": "Sprawdzenie spójności wykryło błędy w pliku biblioteki. Aby nie pogłębiać uszkodzeń, Netami Pin go nie aktualizuje ani nie zmienia. Przywróć ostatnią kopię zapasową: uszkodzony plik jest zachowany bez zmian w folderze kopii zapasowych."
+      "body": "Sprawdzenie spójności wykryło błędy w pliku biblioteki. Aby nie pogłębiać uszkodzeń, Koona Pin go nie aktualizuje ani nie zmienia. Przywróć ostatnią kopię zapasową: uszkodzony plik jest zachowany bez zmian w folderze kopii zapasowych."
     },
     "BACKUP_FAILED": {
       "title": "Nie udało się utworzyć kopii zapasowej biblioteki przed aktualizacją",
@@ -944,9 +944,9 @@
     }
   },
   "tray": {
-    "open": "Otwórz Netami Pin",
+    "open": "Otwórz Koona Pin",
     "quit": "Zamknij",
-    "tooltip": "Netami Pin — twoja biblioteka linków"
+    "tooltip": "Koona Pin — twoja biblioteka linków"
   },
   "starter": {
     "development": "Programowanie",

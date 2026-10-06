@@ -1,4 +1,4 @@
--- Feedback from the app and from pin.netami.app (NP-088, Р-9).
+-- Feedback from the app and from koona.app/pin (NP-088, Р-9).
 -- Written only by the Edge Function `feedback` with the service role key:
 -- RLS is on and there is no policy, so `anon` and `authenticated` can neither
 -- read nor write these tables, even with the public key.

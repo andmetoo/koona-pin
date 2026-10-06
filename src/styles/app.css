@@ -1,4 +1,4 @@
-/* Netami Pin, iteration 1. Tokens come from doc/guidelines.md; the values
+/* Koona Pin, iteration 1. Tokens come from doc/guidelines.md; the values
    live here once and switch with data-theme on <html> (Р-5). */
 @import "tailwindcss";
 @import "@fontsource-variable/inter";

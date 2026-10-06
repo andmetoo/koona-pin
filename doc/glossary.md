@@ -4,7 +4,7 @@
 
 Термины совпадают в приложении (`src/locales`), расширении (`extension/src/_locales`) и на сайте. Новый перевод начинается с этой таблицы. Если термин меняется, его меняют здесь и во всех трёх местах одним изменением. Английский — источник ([Р-42](decisions.md#р-42-английский--язык-по-умолчанию-и-исходный-язык-строк)). Сербская латиница не переводится: `sr-Latn.json` собирает `npm run locales:sr-latn` из кириллицы.
 
-Не переводятся: Netami Pin, Windows, Chrome, Edge, Firefox, Chrome Web Store, Edge Add-ons, HTML, JSON, CSV, URL, HTTP/HTTPS, Ctrl, Shift, Alt, Esc, Enter, Del.
+Не переводятся: Koona Pin, Windows, Chrome, Edge, Firefox, Chrome Web Store, Edge Add-ons, HTML, JSON, CSV, URL, HTTP/HTTPS, Ctrl, Shift, Alt, Esc, Enter, Del.
 
 ## Термины
 
@@ -38,7 +38,7 @@
 | Settings | Настройки | Подешавања | Einstellungen | Configuración | Paramètres | Impostazioni | Configurações | Ustawienia | Налаштування | Ayarlar |
 | Send feedback | Отправить отзыв | Пошаљи коментар | Feedback senden | Enviar comentarios | Envoyer un avis | Invia feedback | Enviar feedback | Wyślij opinię | Надіслати відгук | Geri bildirim gönder |
 
-«Bookmark» в pt-BR — «Marcador», а не «Favorito», как в Chrome: «Favoritos» в Netami Pin — раздел со звездой.
+«Bookmark» в pt-BR — «Marcador», а не «Favorito», как в Chrome: «Favoritos» в Koona Pin — раздел со звездой.
 
 ## Обращение и типографика
 

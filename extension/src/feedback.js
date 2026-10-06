@@ -189,7 +189,7 @@ export const TONES = {
  * the system asks for less motion (the service worker cannot tell).
  */
 export function showMessage({ state, title, text, mascot, glyph, tones, label }) {
-  const ID = "netamipin-feedback";
+  const ID = "koonapin-feedback";
   const SVG = "http://www.w3.org/2000/svg";
   const media = (query) => globalThis.matchMedia?.(query).matches ?? false;
   const dark = media("(prefers-color-scheme: dark)");

@@ -1,15 +1,15 @@
 {
-  "extensionName": { "message": "Netami Pin — guardar enlace" },
+  "extensionName": { "message": "Koona Pin — guardar enlace" },
   "extensionDescription": {
-    "message": "Guarda la página en tu biblioteca local de Netami Pin con un clic. Con la app cerrada, los enlaces esperan en cola."
+    "message": "Guarda la página en tu biblioteca local de Koona Pin con un clic. Con la app cerrada, los enlaces esperan en cola."
   },
   "menuOptions": { "message": "Configuración y cola" },
   "menuSearch": { "message": "Buscar un enlace" },
-  "commandSearch": { "message": "Buscar un enlace en Netami Pin" },
+  "commandSearch": { "message": "Buscar un enlace en Koona Pin" },
   "searchPlaceholder": { "message": "Busca en tus enlaces" },
   "searchFilters": { "message": "Dónde buscar" },
   "searchKeys": { "message": "↑↓ · ↵ abrir · Shift ↵ aquí · Ctrl C copiar" },
-  "searchOpenApp": { "message": "Abrir Netami Pin" },
+  "searchOpenApp": { "message": "Abrir Koona Pin" },
   "searchAll": { "message": "Todo" },
   "searchInbox": { "message": "Bandeja de entrada" },
   "searchFavorites": { "message": "Favoritos" },
@@ -21,7 +21,7 @@
     "placeholders": { "count": { "content": "$1", "example": "50" } }
   },
   "searchEmptyLibrary": { "message": "Aún no hay nada guardado" },
-  "searchEmptyLibraryText": { "message": "Haz clic en el botón de Netami Pin en una página para guardarla." },
+  "searchEmptyLibraryText": { "message": "Haz clic en el botón de Koona Pin en una página para guardarla." },
   "searchNothing": {
     "message": "No se encontró nada para «$QUERY$»",
     "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
@@ -39,19 +39,19 @@
   },
   "searchNothingText": { "message": "Prueba otra palabra o busca en toda la biblioteca; la papelera nunca se busca." },
   "searchEverywhere": { "message": "Buscar en todo" },
-  "searchStarting": { "message": "Iniciando Netami Pin…" },
+  "searchStarting": { "message": "Iniciando Koona Pin…" },
   "searchMissingText": {
-    "message": "La búsqueda va a la biblioteca de Netami Pin en este ordenador. Instala la aplicación; hasta entonces, los enlaces que guardes esperan aquí."
+    "message": "La búsqueda va a la biblioteca de Koona Pin en este ordenador. Instala la aplicación; hasta entonces, los enlaces que guardes esperan aquí."
   },
-  "searchUpdateApp": { "message": "Actualiza Netami Pin para buscar" },
-  "searchUpdateAppText": { "message": "Este Netami Pin guarda enlaces, pero aún no puede buscar desde el navegador. Guardar sigue funcionando." },
+  "searchUpdateApp": { "message": "Actualiza Koona Pin para buscar" },
+  "searchUpdateAppText": { "message": "Este Koona Pin guarda enlaces, pero aún no puede buscar desde el navegador. Guardar sigue funcionando." },
   "searchUpdateButton": { "message": "Descargar actualización" },
   "searchUpdateExtensionText": {
-    "message": "Esta extensión no corresponde a Netami Pin. Actualízala en la página de extensiones del navegador; guardar sigue funcionando."
+    "message": "Esta extensión no corresponde a Koona Pin. Actualízala en la página de extensiones del navegador; guardar sigue funcionando."
   },
   "searchLibrary": { "message": "La biblioteca no se abrió" },
-  "searchLibraryText": { "message": "Abre Netami Pin para ver por qué. Hasta entonces, los enlaces que guardes esperan aquí." },
-  "searchUnavailable": { "message": "Netami Pin no respondió" },
+  "searchLibraryText": { "message": "Abre Koona Pin para ver por qué. Hasta entonces, los enlaces que guardes esperan aquí." },
+  "searchUnavailable": { "message": "Koona Pin no respondió" },
   "searchUnavailableText": { "message": "Vuelve a intentarlo en un momento." },
   "searchCopied": { "message": "Enlace copiado" },
   "shortcutHeading": { "message": "Atajo de teclado" },
@@ -77,15 +77,15 @@
     "message": "Firefox no aceptó $SHORTCUT$. Prueba otro.",
     "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
   },
-  "actionTitle": { "message": "Guardar la página en Netami Pin" },
+  "actionTitle": { "message": "Guardar la página en Koona Pin" },
   "queueWaiting": {
-    "message": "Netami Pin: $COUNT$ esperando para enviarse. Abre la configuración para ver la cola.",
+    "message": "Koona Pin: $COUNT$ esperando para enviarse. Abre la configuración para ver la cola.",
     "placeholders": { "count": { "content": "$1", "example": "3" } }
   },
-  "badgeSaving": { "message": "Guardando en Netami Pin" },
-  "badgeWaiting": { "message": "El enlace espera para enviarse a Netami Pin" },
-  "badgeSaved": { "message": "Guardado en Netami Pin" },
-  "badgeExisting": { "message": "Este enlace ya está en Netami Pin" },
+  "badgeSaving": { "message": "Guardando en Koona Pin" },
+  "badgeWaiting": { "message": "El enlace espera para enviarse a Koona Pin" },
+  "badgeSaved": { "message": "Guardado en Koona Pin" },
+  "badgeExisting": { "message": "Este enlace ya está en Koona Pin" },
   "errorInvalidUrl": {
     "message": "Esta página no se puede guardar. Abre una página con una dirección HTTP/HTTPS."
   },
@@ -93,32 +93,32 @@
     "message": "Esta página no se puede guardar. Solo se admiten enlaces HTTP/HTTPS."
   },
   "errorUnavailable": {
-    "message": "Netami Pin no respondió. El enlace se volverá a enviar en un minuto."
+    "message": "Koona Pin no respondió. El enlace se volverá a enviar en un minuto."
   },
   "errorHostMissing": {
-    "message": "Netami Pin no está instalado o su instalación está dañada. El enlace espera aquí."
+    "message": "Koona Pin no está instalado o su instalación está dañada. El enlace espera aquí."
   },
   "errorIncompatible": {
-    "message": "La extensión no corresponde a Netami Pin. Actualiza la extensión; el enlace espera aquí."
+    "message": "La extensión no corresponde a Koona Pin. Actualiza la extensión; el enlace espera aquí."
   },
   "errorIncompatibleApp": {
-    "message": "Netami Pin es más antiguo que la extensión. Actualiza Netami Pin; el enlace espera aquí."
+    "message": "Koona Pin es más antiguo que la extensión. Actualiza Koona Pin; el enlace espera aquí."
   },
-  "errorInvalidRequest": { "message": "Netami Pin no puede guardar este enlace." },
+  "errorInvalidRequest": { "message": "Koona Pin no puede guardar este enlace." },
   "errorConflict": {
     "message": "Esta petición ya se usó para otro enlace. Quítala de la cola."
   },
   "errorDatabase": {
-    "message": "Netami Pin no pudo guardar el enlace. Se volverá a enviar."
+    "message": "Koona Pin no pudo guardar el enlace. Se volverá a enviar."
   },
   "errorNoConfirmation": { "message": "No hay confirmación de que el enlace se guardara" },
   "errorSaveFailed": { "message": "No se pudo guardar el enlace" },
   "errorUnknownAction": { "message": "Acción desconocida" },
-  "messageSavedTitle": { "message": "Guardado en Netami Pin" },
+  "messageSavedTitle": { "message": "Guardado en Koona Pin" },
   "messageSavedText": { "message": "Añadido a la bandeja de entrada" },
-  "messageExistingTitle": { "message": "Ya está en Netami Pin" },
+  "messageExistingTitle": { "message": "Ya está en Koona Pin" },
   "messageExistingText": { "message": "Tus etiquetas y notas no cambian" },
-  "messageQueuedTitle": { "message": "Esperando a Netami Pin" },
+  "messageQueuedTitle": { "message": "Esperando a Koona Pin" },
   "messageQueuedText": { "message": "Se enviará cuando se abra la aplicación" },
   "messageFailedTitle": { "message": "No se pudo guardar el enlace" },
   "messageFailedText": { "message": "Consulta la configuración de la extensión" },
@@ -129,23 +129,23 @@
   },
   "settingKnown": { "message": "Mostrar que una página ya está guardada" },
   "settingKnownText": {
-    "message": "El botón compara cada página que abres con tu biblioteca en este ordenador mientras Netami Pin está abierto. El navegador pide acceso a tus pestañas una vez; las direcciones solo van a la aplicación."
+    "message": "El botón compara cada página que abres con tu biblioteca en este ordenador mientras Koona Pin está abierto. El navegador pide acceso a tus pestañas una vez; las direcciones solo van a la aplicación."
   },
   "settingAnimate": { "message": "Animar el botón" },
   "settingAnimateText": {
-    "message": "El icono de Netami Pin da un salto al guardar una página. Se queda quieto si el sistema pide menos movimiento."
+    "message": "El icono de Koona Pin da un salto al guardar una página. Se queda quieto si el sistema pide menos movimiento."
   },
-  "optionsTitle": { "message": "Netami Pin — configuración de la extensión" },
-  "optionsHeading": { "message": "Extensión Netami Pin" },
+  "optionsTitle": { "message": "Koona Pin — configuración de la extensión" },
+  "optionsHeading": { "message": "Extensión Koona Pin" },
   "optionsLead": {
-    "message": "Las páginas que guardas van a la biblioteca de Netami Pin en este ordenador."
+    "message": "Las páginas que guardas van a la biblioteca de Koona Pin en este ordenador."
   },
   "extensionVersion": {
     "message": "Extensión $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
   },
   "appVersion": {
-    "message": "Netami Pin $VERSION$",
+    "message": "Koona Pin $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
   },
   "lastSavedToday": {
@@ -161,37 +161,37 @@
   },
   "connectionHeading": { "message": "Conexión" },
   "connectionChecking": { "message": "Comprobando la aplicación…" },
-  "statusConnected": { "message": "Conectado a Netami Pin" },
+  "statusConnected": { "message": "Conectado a Koona Pin" },
   "checkAgain": { "message": "Comprobar de nuevo" },
-  "statusClosed": { "message": "Netami Pin está cerrado" },
+  "statusClosed": { "message": "Koona Pin está cerrado" },
   "statusClosedText": {
     "message": "Se inicia en la bandeja del sistema cuando guardas una página. Hasta entonces, los enlaces esperan aquí."
   },
   "statusUpdate": { "message": "Actualiza la extensión" },
   "statusUpdateText": {
-    "message": "Esta extensión ($MINE$) no corresponde a Netami Pin $APP$. Actualízala en la página de extensiones del navegador; hasta entonces, los enlaces esperan aquí.",
+    "message": "Esta extensión ($MINE$) no corresponde a Koona Pin $APP$. Actualízala en la página de extensiones del navegador; hasta entonces, los enlaces esperan aquí.",
     "placeholders": {
       "mine": { "content": "$1", "example": "0.4.0" },
       "app": { "content": "$2", "example": "0.9.0" }
     }
   },
-  "statusUpdateApp": { "message": "Actualiza Netami Pin" },
+  "statusUpdateApp": { "message": "Actualiza Koona Pin" },
   "statusUpdateAppText": {
-    "message": "Netami Pin $APP$ es más antiguo que esta extensión ($MINE$). Actualiza Netami Pin; hasta entonces, los enlaces esperan aquí.",
+    "message": "Koona Pin $APP$ es más antiguo que esta extensión ($MINE$). Actualiza Koona Pin; hasta entonces, los enlaces esperan aquí.",
     "placeholders": {
       "app": { "content": "$1", "example": "0.9.0" },
       "mine": { "content": "$2", "example": "0.5.0" }
     }
   },
-  "statusMissing": { "message": "Netami Pin no está instalado" },
+  "statusMissing": { "message": "Koona Pin no está instalado" },
   "statusMissingText": {
-    "message": "La extensión no encuentra la aplicación en este ordenador. Instala Netami Pin o reinstálalo si ya está."
+    "message": "La extensión no encuentra la aplicación en este ordenador. Instala Koona Pin o reinstálalo si ya está."
   },
-  "download": { "message": "Descargar Netami Pin" },
+  "download": { "message": "Descargar Koona Pin" },
   "queueHeading": { "message": "Esperando para enviarse" },
   "sendNow": { "message": "Enviar ahora" },
   "queueEmpty": {
-    "message": "No hay nada en espera. Haz clic en el icono de Netami Pin en una página para guardarla."
+    "message": "No hay nada en espera. Haz clic en el icono de Koona Pin en una página para guardarla."
   },
   "removeButton": { "message": "Quitar" },
   "removeLabel": {
@@ -199,6 +199,6 @@
     "placeholders": { "title": { "content": "$1", "example": "Título de la página" } }
   },
   "optionsFooter": {
-    "message": "Los enlaces se quedan en el navegador hasta que Netami Pin los confirma. Si la aplicación está cerrada, guardar una página la inicia en la bandeja del sistema."
+    "message": "Los enlaces se quedan en el navegador hasta que Koona Pin los confirma. Si la aplicación está cerrada, guardar una página la inicia en la bandeja del sistema."
   }
 }
