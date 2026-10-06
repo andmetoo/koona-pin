@@ -1,13 +1,21 @@
 # Publishes pin.netami.app to the owner's server with Caddy (NP-079, Р-37, doc/site.md «Выкладка»).
 # Run by the owner, from the repository root:
+#   $env:NETAMIPIN_FEEDBACK_URL = "https://<ref>.supabase.co/functions/v1/feedback"
 #   pwsh scripts/deploy-site.ps1 -Server user@host
 # Needs ssh/scp access with sudo on the server. The previous version stays in site.old for a rollback.
+# Without NETAMIPIN_FEEDBACK_URL the build leaves the feedback form out (NP-088): the script refuses
+# unless -WithoutFeedback says that is meant, so a later deploy cannot take /feedback down unnoticed.
 param(
   [Parameter(Mandatory)] [string] $Server,
   [string] $Root = "/srv/pin.netami.app",
-  [string] $CaddyConfig = "/etc/caddy/Caddyfile"
+  [string] $CaddyConfig = "/etc/caddy/Caddyfile",
+  [switch] $WithoutFeedback
 )
 $ErrorActionPreference = "Stop"
+
+if (-not $env:NETAMIPIN_FEEDBACK_URL -and -not $WithoutFeedback) {
+  throw "NETAMIPIN_FEEDBACK_URL is not set: the site would lose /feedback. Set it (supabase/README.md) or pass -WithoutFeedback."
+}
 
 node scripts/build-site.mjs
 if ($LASTEXITCODE) { throw "build failed" }

@@ -11,6 +11,9 @@ use ts_rs::TS;
 /// The function's address, set for the build that ships
 /// (`NETAMIPIN_FEEDBACK_URL`); without it sending fails as a service failure.
 pub const ENDPOINT: Option<&str> = option_env!("NETAMIPIN_FEEDBACK_URL");
+// The installer build (`--features public-release`) cannot ship a dialog that never sends.
+#[cfg(feature = "public-release")]
+const _: () = assert!(ENDPOINT.is_some(), "set NETAMIPIN_FEEDBACK_URL for the installer build (supabase/README.md)");
 pub const MAX_MESSAGE: usize = 5000;
 const MAX_REPORT: usize = 10000;
 
