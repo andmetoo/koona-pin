@@ -39,9 +39,12 @@ async function rest(path: string, body: unknown): Promise<Response> {
   return response;
 }
 
+// Without them feedback is still stored, but nobody hears about it: said once per boot.
+const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
+const chat = Deno.env.get("TELEGRAM_CHAT_ID");
+if (!token || !chat) console.warn("feedback: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set — no notifications");
+
 async function telegram(text: string) {
-  const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
-  const chat = Deno.env.get("TELEGRAM_CHAT_ID");
   if (!token || !chat) return;
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
