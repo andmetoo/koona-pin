@@ -1,7 +1,7 @@
 // Builds the Windows installer (NP-037, Р-9): NSIS per user, with --features public-release
 // (the native host accepts only the store extensions, feedback must have its address).
 //   node scripts/build-installer.mjs          unsigned → release/test/windows/<version>/, test machines only
-//   node scripts/build-installer.mjs --sign   signed with eSigner (scripts/sign-windows.ps1) →
+//   node scripts/build-installer.mjs --sign   signed in Certum SimplySign (scripts/sign-windows.ps1) →
 //                                             release/publish/windows/<version>/
 // Each folder gets the installer and SHA256SUMS.txt (folders: scripts/lib/paths.mjs).
 // Settings come from the environment or from .env in the repository root (.env.example);
@@ -23,9 +23,11 @@ if (!process.env.NETAMIPIN_FEEDBACK_URL) {
   console.error("NETAMIPIN_FEEDBACK_URL is not set: the installer build does not compile without it (supabase/README.md).");
   process.exit(1);
 }
-const signing = ["ESIGNER_USERNAME", "ESIGNER_PASSWORD", "ESIGNER_TOTP_SECRET", "CODESIGNTOOL_DIR"];
-if (sign && signing.some((name) => !process.env[name])) {
-  console.error(`--sign needs ${signing.join(", ")} (doc/release-checklist.md).`);
+const signScript = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, "scripts", "sign-windows.ps1")];
+// The certificate is in the store only while SimplySign Desktop is signed in: check before the
+// long build rather than fail at its first signature.
+if (sign && spawnSync("powershell", [...signScript, "-Check"], { stdio: "inherit" }).status !== 0) {
+  console.error("--sign needs SIGN_CERT_SHA1, signtool and SimplySign Desktop signed in (doc/release-checklist.md).");
   process.exit(1);
 }
 
@@ -34,8 +36,7 @@ if (sign && signing.some((name) => !process.env[name])) {
 const bundle = { active: true };
 if (sign) {
   // Tauri signs the app, the host, the uninstaller and the installer with it (%1 is the file).
-  const script = path.join(root, "scripts", "sign-windows.ps1");
-  bundle.windows = { signCommand: { cmd: "powershell", args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "%1"] } };
+  bundle.windows = { signCommand: { cmd: "powershell", args: [...signScript, "%1"] } };
 }
 const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
 const ofThisVersion = async () => (existsSync(dir) ? (await readdir(dir)).filter((file) => file.endsWith(".exe") && file.includes(`_${conf.version}_`)) : []);
