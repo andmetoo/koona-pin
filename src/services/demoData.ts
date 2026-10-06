@@ -14,8 +14,8 @@ export interface DemoBookmark {
   /** Still waits in the inbox (NP-021). */
   inbox?: boolean;
   notes: string;
-  /** Two colours and a word for the generated preview. */
-  poster: [string, string, string];
+  /** Two colours and a word for the generated preview; none — the page has no picture, the cover shows (NP-087). */
+  poster: [string, string, string] | null;
 }
 
 export interface DemoLibrary {
@@ -79,7 +79,7 @@ const ru: DemoLibrary = {
       tags: ["интерфейсы", "продукт"],
       favorite: false,
       notes: "",
-      poster: ["#2f6b4f", "#1f4a36", "Small details"],
+      poster: null,
     },
     {
       id: 5,
@@ -104,7 +104,7 @@ const ru: DemoLibrary = {
       tags: ["эссе", "внимание"],
       favorite: false,
       notes: "",
-      poster: ["#8a6ba8", "#5c4a75", "Внимание"],
+      poster: null,
     },
   ],
   collections: ["Дизайн", "Разработка", "Вдохновение", "Прочитать"],
@@ -160,7 +160,7 @@ const en: DemoLibrary = {
       tags: ["interfaces", "product"],
       favorite: false,
       notes: "",
-      poster: ["#2f6b4f", "#1f4a36", "Small details"],
+      poster: null,
     },
     {
       id: 5,
@@ -185,7 +185,7 @@ const en: DemoLibrary = {
       tags: ["essays", "attention"],
       favorite: false,
       notes: "",
-      poster: ["#8a6ba8", "#5c4a75", "Attention"],
+      poster: null,
     },
   ],
   collections: ["Design", "Development", "Inspiration", "To read"],
@@ -196,4 +196,4 @@ const libraries: Record<string, DemoLibrary> = { en, ru };
 /** The sample library in a language of the interface; English for any other. */
 export const demoLibrary = (language: string) => libraries[language] ?? en;
 
-export const posterOf = (b: DemoBookmark) => poster(b.poster);
+export const posterOf = (b: DemoBookmark) => (b.poster ? poster(b.poster) : null);

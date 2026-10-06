@@ -99,6 +99,7 @@ pub fn run() {
             commands::get_collections,
             commands::create_collection,
             commands::create_starter_collections,
+            commands::refresh_preview,
             commands::delete_collection,
             commands::get_tags,
             commands::get_domains,

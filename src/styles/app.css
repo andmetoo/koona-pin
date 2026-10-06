@@ -246,6 +246,159 @@
   }
 }
 
+/* The cover of a bookmark without a picture (NP-087, Р-43). Colours come from
+   `services/cover.ts` as --from, --to and --angle; sizes from the preview
+   itself, so one cover fits a 64×44 row and a 280 px triage card. */
+@layer components {
+  .cover {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    container-type: size;
+    /* Twice the size with the colours mirrored: a hover drifts it without a seam. */
+    background: linear-gradient(var(--angle), var(--from), var(--to) 50%, var(--from));
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+  }
+  /* Dark theme: the same colours, a step deeper, so white words stay quiet. */
+  [data-theme="dark"] .cover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 0.26);
+  }
+  .cover-pattern {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: rgb(255 255 255 / 0.22);
+    stroke-width: 0.8;
+    mix-blend-mode: soft-light;
+  }
+  [data-cover="dots"] .cover-pattern {
+    fill: rgb(255 255 255 / 0.3);
+    stroke: none;
+  }
+  .cover-tile {
+    position: relative;
+    display: flex;
+    width: clamp(18px, 34cqh, 64px);
+    height: clamp(18px, 34cqh, 64px);
+    align-items: center;
+    justify-content: center;
+    border-radius: 26%;
+    background: rgb(255 254 250 / 0.94);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.16);
+    transition: transform 320ms var(--ease-standard);
+  }
+  [data-theme="dark"] .cover-tile {
+    background: color-mix(in srgb, var(--np-card) 92%, transparent);
+  }
+  .cover-tile img {
+    width: 58%;
+    height: 58%;
+    object-fit: contain;
+  }
+  .cover-tile[data-icon="loading"] img {
+    opacity: 0;
+  }
+  /* A small icon stays at its own size, in the corner of the tile; the letter says the site. */
+  .cover-tile[data-icon="small"] img {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    background: var(--np-card);
+    padding: 1px;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  }
+  .cover-letter {
+    font-size: clamp(10px, 17cqh, 32px);
+    font-weight: 700;
+    line-height: 1;
+    background: linear-gradient(var(--angle), var(--from), var(--to));
+    background-clip: text;
+    color: transparent;
+  }
+  .cover-name {
+    display: none;
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 11px;
+    overflow: hidden;
+    color: rgb(255 255 255 / 0.9);
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  }
+  @container (min-width: 200px) {
+    .cover-name {
+      display: block;
+    }
+  }
+  /* A row thumbnail (64×44) or a stack card: the tile takes more of it, the corner icon gives way. */
+  @container (max-width: 120px) {
+    .cover-tile {
+      width: 62cqh;
+      height: 62cqh;
+      border-radius: 28%;
+    }
+    .cover-tile img {
+      width: 64%;
+      height: 64%;
+    }
+    .cover-letter {
+      font-size: 34cqh;
+    }
+    .cover-tile[data-icon="small"] img {
+      display: none;
+    }
+  }
+  /* A live cover drifts its gradient and leans its tile towards the pointer; no glint, too busy (NP-087). */
+  .cover[data-live]:hover {
+    animation: cover-drift 3s ease-in-out infinite alternate;
+  }
+  .cover[data-live]:hover .cover-tile {
+    transform: perspective(400px) rotateY(calc(var(--cx, 0) * 10deg)) rotateX(calc(var(--cy, 0) * -10deg))
+      translate(calc(var(--cx, 0) * 4px), calc(var(--cy, 0) * 4px)) scale(1.07);
+  }
+  @keyframes cover-drift {
+    to {
+      background-position: 100% 100%;
+    }
+  }
+  /* The metadata of a link just saved is on its way: a neutral running sheen. */
+  .cover-pending {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(100deg, var(--np-hover) 30%, color-mix(in srgb, var(--np-hover), var(--np-card) 70%) 50%, var(--np-hover) 70%);
+    background-size: 200% 100%;
+    animation: cover-pending 1.4s linear infinite;
+  }
+  @keyframes cover-pending {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

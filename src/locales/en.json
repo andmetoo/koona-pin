@@ -126,7 +126,7 @@
     "moveTo": "Move to collection",
     "noCollection": "No collection",
     "addTag": "Add tag…",
-    "refresh": "Refresh title and preview",
+    "refresh": "Refresh preview",
     "delete": "Move to trash",
     "select": "Select: {{title}}",
     "filterDomain": "Only bookmarks from {{domain}}"
@@ -549,6 +549,9 @@
     "report": "Report a problem"
   },
   "notice": {
+    "previewRefreshed": "Preview refreshed",
+    "noPicture": "The page offers no picture — the cover stays",
+    "previewUnchanged": "Nothing new on the page — the preview stays",
     "copied": "Copied",
     "copyFailed": "Copying is unavailable. Select the text by hand.",
     "saved": "Changes saved",
