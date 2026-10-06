@@ -9,7 +9,7 @@
 | `/`, `/ru/` | Лендинг на английском и русском |
 | `/privacy`, `/ru/privacy` | Политика конфиденциальности, текст из `extension/store/privacy.md` |
 | `/licenses`, `/ru/licenses` | Лицензии шрифтов, иконок и библиотек; вёрстка страницы privacy, отдельного кадра нет |
-| `/feedback`, `/ru/feedback` и `/feedback/sent`, `/limit`, `/error` | Форма отзыва и страницы, на которые её возвращает Edge Function (NP-088); вёрстка страницы privacy, отдельного кадра нет. Собираются, только если задан `NETAMIPIN_FEEDBACK_URL` |
+| `/feedback`, `/ru/feedback` и `/feedback/sent`, `/limit`, `/long`, `/error` | Форма отзыва и страницы, на которые её возвращает Edge Function (NP-088); вёрстка страницы privacy, отдельного кадра нет. Собираются, только если задан `NETAMIPIN_FEEDBACK_URL` |
 | `/firefox/updates.json`, `/firefox/netamipin-firefox-<версия>.xpi` | Обновления Firefox (NP-018). Адрес зашит в подписанный XPI и не меняется |
 
 Сайт статический, без серверной части и без скриптов на страницах. Единственная форма — отзыв (NP-088): обычный `<form>`, POST прямо в Edge Function `feedback` в Supabase, CSP разрешает `form-action` только `https://*.supabase.co`. Хостинг — сервер владельца с Caddy ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)), конфиг — `site/Caddyfile`, выкладка — ниже.

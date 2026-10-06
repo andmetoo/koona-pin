@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, notification, parse, privateAddress, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
+import { handle, notification, parse, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
 
 const URL = "https://project.supabase.co/functions/v1/feedback";
 
@@ -24,13 +24,13 @@ function fakes(slots = 5) {
 const app = (body: unknown, headers: Record<string, string> = {}) =>
   new Request(URL, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-forwarded-for": "6.6.6.6, 203.0.113.7", ...headers },
+    headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.7", "x-forwarded-for": "6.6.6.6", ...headers },
     body: JSON.stringify(body),
   });
 const site = (fields: Record<string, string>, origin: string | null = "https://pin.netami.app") =>
   new Request(URL, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", ...(origin === null ? {} : { origin }), "x-forwarded-for": "198.51.100.2" },
+    headers: { "content-type": "application/x-www-form-urlencoded", ...(origin === null ? {} : { origin }), "cf-connecting-ip": "198.51.100.2" },
     body: new URLSearchParams(fields).toString(),
   });
 const fromApp = {
@@ -149,7 +149,11 @@ describe("feedback function", () => {
     expect(limit.headers.get("location")).toBe("https://pin.netami.app/feedback/limit");
     const invalid = await handle(site({ kind: "bug", message: "", lang: "ru" }), fakes().deps);
     expect(invalid.status).toBe(303);
-    expect(invalid.headers.get("location")).toBe("https://pin.netami.app/ru/feedback/error");
+    expect(invalid.headers.get("location")).toBe("https://pin.netami.app/ru/feedback/long");
+    const long = await handle(site({ kind: "bug", message: "x".repeat(5001), lang: "en" }), fakes().deps);
+    expect(long.headers.get("location")).toBe("https://pin.netami.app/feedback/long");
+    const badKind = await handle(site({ kind: "complaint", message: "x", lang: "en" }), fakes().deps);
+    expect(badKind.headers.get("location")).toBe("https://pin.netami.app/feedback/error");
     // A foreign page posting the form, or one hiding its origin (`null`), lands on the error page
     // in the language of the form; nothing is stored.
     const foreign = await handle(site({ kind: "bug", message: "x", lang: "ru" }, "https://evil.example"), fakes().deps);
@@ -183,24 +187,13 @@ describe("feedback pieces", () => {
     expect(text).toContain("Email left for a reply · Report attached");
   });
 
-  it("the sender is what the proxies set, not what the client wrote", () => {
+  it("the sender is what Cloudflare set, never what the client could write", () => {
     const of = (headers: Record<string, string>) => senderAddress(new Headers(headers));
-    // The client wrote 6.6.6.6; the proxy appended the real address.
-    expect(of({ "x-forwarded-for": "6.6.6.6, 203.0.113.7 " })).toEqual({ address: "203.0.113.7", from: "x-forwarded-for" });
-    // Private hops a chain of proxies adds after it are skipped, not shared by every sender.
-    expect(of({ "x-forwarded-for": "6.6.6.6, 203.0.113.7, 10.0.3.4, 172.20.0.9, fd00::5" })).toEqual({ address: "203.0.113.7", from: "x-forwarded-for" });
-    expect(of({ "cf-connecting-ip": "198.51.100.2", "x-forwarded-for": "6.6.6.6, 203.0.113.7" })).toEqual({ address: "198.51.100.2", from: "cf-connecting-ip" });
-    expect(of({ "x-real-ip": "198.51.100.3", "x-forwarded-for": "6.6.6.6, 203.0.113.7" })).toEqual({ address: "198.51.100.3", from: "x-real-ip" });
-    expect(of({ "x-forwarded-for": "10.0.0.1" })).toEqual({ address: "unknown", from: "none" });
+    expect(of({ "cf-connecting-ip": " 198.51.100.2 ", "x-forwarded-for": "6.6.6.6, 203.0.113.7", "x-real-ip": "7.7.7.7" })).toEqual({ address: "198.51.100.2", from: "cf-connecting-ip" });
+    // Without it there is no address to trust: one shared key, named in the log.
+    expect(of({ "x-forwarded-for": "6.6.6.6, 203.0.113.7", "x-real-ip": "7.7.7.7" })).toEqual({ address: "unknown", from: "none" });
     expect(of({})).toEqual({ address: "unknown", from: "none" });
   });
-
-  it("private addresses are told from public ones", () => {
-    for (const ip of ["10.1.2.3", "127.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.1.1", "100.64.0.1", "::1", "fd12::1", "fe80::1", "::ffff:10.0.0.1"])
-      expect(privateAddress(ip), ip).toBe(true);
-    for (const ip of ["203.0.113.7", "172.32.0.1", "100.128.0.1", "8.8.8.8", "2606:4700::1111", "::ffff:8.8.8.8"]) expect(privateAddress(ip), ip).toBe(false);
-  });
-
   it("the excerpt cuts characters, not halves of an emoji", () => {
     const row = parse({ ...fromApp, message: "🙂".repeat(600) }, "app");
     if ("invalid" in row) throw new Error(row.invalid);

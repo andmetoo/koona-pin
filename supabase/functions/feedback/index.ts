@@ -14,14 +14,19 @@ const key = env("SUPABASE_SERVICE_ROLE_KEY");
 const salt = env("FEEDBACK_IP_SALT");
 const headers = { apikey: key, authorization: `Bearer ${key}`, "content-type": "application/json" };
 
-async function rest(path: string, body: unknown, prefer?: string): Promise<Response> {
+async function rest(path: string, body: unknown): Promise<Response> {
   const response = await fetch(`${base}/rest/v1/${path}`, {
     method: "POST",
-    headers: prefer ? { ...headers, prefer } : headers,
+    headers,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(8000),
   });
-  if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`);
+  if (!response.ok) {
+    // Only the status and PostgREST's code: its message and details can quote the row
+    // («Failing row contains …»), with the person's text and email, into the log.
+    const code = await response.json().then((body) => body?.code, () => undefined);
+    throw new Error(`${path}: ${response.status}${code ? ` ${code}` : ""}`);
+  }
   return response;
 }
 
