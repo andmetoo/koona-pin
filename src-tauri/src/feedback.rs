@@ -49,15 +49,28 @@ pub struct Payload {
     pub source: &'static str,
 }
 
+/// Which proxy the request takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Proxy {
+    /// The Windows proxy settings and the proxy environment variables.
+    System,
+    /// None: tests reach their local server directly, whatever the machine has set.
+    None,
+    /// A proxy on 127.0.0.1 at this port: for tests of proxy failures.
+    Local(u16),
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {
     pub connect_timeout: Duration,
     pub timeout: Duration,
+    pub proxy: Proxy,
 }
 
 pub const LIMITS: Limits = Limits {
     connect_timeout: Duration::from_secs(5),
     timeout: Duration::from_secs(15),
+    proxy: Proxy::System,
 };
 
 fn invalid(detail: ErrorDetail, message: &str) -> CommandError {
@@ -110,23 +123,36 @@ pub fn email_shape(email: &str) -> bool {
 
 /// Sends the payload; the error says what the dialog should tell the person.
 pub async fn send(endpoint: &str, payload: &Payload, limits: Limits) -> Result<(), CommandError> {
-    let client = reqwest::Client::builder()
+    let mut builder = reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)
-        // The system proxy, unlike metadata requests: the address is fixed, there is no
-        // name to guard, and some networks reach the internet only through a proxy.
-        .user_agent(format!("NetamiPin/{}", payload.app_version))
-        .build()
-        .map_err(CommandError::internal)?;
+        .user_agent(format!("NetamiPin/{}", payload.app_version));
+    // The system proxy, unlike metadata requests: the address is fixed, there is no
+    // name to guard, and some networks reach the internet only through a proxy.
+    match limits.proxy {
+        Proxy::System => {}
+        Proxy::None => builder = builder.no_proxy(),
+        Proxy::Local(port) => builder = builder.proxy(reqwest::Proxy::all(format!("http://127.0.0.1:{port}")).map_err(CommandError::internal)?),
+    }
+    let client = builder.build().map_err(CommandError::internal)?;
     let response = match client.post(endpoint).json(payload).send().await {
         Ok(response) => response,
-        // A refused connection or a name that does not resolve: no internet, as people see it.
-        Err(error) if error.is_connect() => return Err(failure(ErrorDetail::NoConnection, error)),
+        // The proxy refused the tunnel (sign-in required) or could not be reached.
+        Err(error) if through_proxy(&error) => return Err(failure(ErrorDetail::ProxyFailed, error)),
+        // A refused connection or a name that does not resolve: no internet, as people see it —
+        // unless the network sets its proxy with a script, which reqwest does not run.
+        Err(error) if error.is_connect() => {
+            let detail = if limits.proxy == Proxy::System && proxy_script() { ErrorDetail::ProxyFailed } else { ErrorDetail::NoConnection };
+            return Err(failure(detail, error));
+        }
         Err(error) => return Err(failure(ErrorDetail::ServiceFailed, error)),
     };
     let status = response.status();
     if status.is_success() {
         return Ok(());
+    }
+    if status.as_u16() == 407 {
+        return Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::ProxyFailed, "The proxy asks for a sign-in"));
     }
     if status.as_u16() == 429 {
         return Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "Too many messages in the last hour"));
@@ -140,6 +166,31 @@ pub async fn send(endpoint: &str, payload: &Payload, limits: Limits) -> Result<(
         }
     }
     Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("The feedback service answered {status}")))
+}
+
+/// A failure of the proxy tunnel: hyper-util names them «tunnel error: …» (407, unreachable proxy).
+fn through_proxy(error: &reqwest::Error) -> bool {
+    let mut source: Option<&dyn std::error::Error> = Some(error);
+    while let Some(e) = source {
+        if e.to_string().contains("tunnel error") {
+            return true;
+        }
+        source = e.source();
+    }
+    false
+}
+
+/// The network sets its proxy with a setup script (PAC), which this client cannot run.
+fn proxy_script() -> bool {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Registry::HKEY_CURRENT_USER;
+        windows_value(HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings", "AutoConfigURL").is_some()
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
 }
 
 fn failure(detail: ErrorDetail, error: reqwest::Error) -> CommandError {
@@ -246,7 +297,8 @@ pub fn os_name() -> String {
     let arch = std::env::consts::ARCH;
     #[cfg(windows)]
     {
-        let read = |value: &str| windows_value(r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", value);
+        use windows_sys::Win32::System::Registry::HKEY_LOCAL_MACHINE;
+        let read = |value: &str| windows_value(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", value);
         if let Some(build) = read("CurrentBuildNumber").or_else(|| read("CurrentBuild")) {
             // ProductName still says «Windows 10» on 11; the build tells them apart.
             let major = if build.parse::<u32>().is_ok_and(|b| b >= 22000) { "11" } else { "10" };
@@ -264,15 +316,16 @@ pub fn os_name() -> String {
 }
 
 #[cfg(windows)]
-fn windows_value(key: &str, value: &str) -> Option<String> {
-    use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
+fn windows_value(hive: windows_sys::Win32::System::Registry::HKEY, key: &str, value: &str) -> Option<String> {
+    use windows_sys::Win32::System::Registry::{RegGetValueW, RRF_RT_REG_SZ};
     let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
     let (key, value) = (wide(key), wide(value));
-    let mut buffer = [0u16; 64];
+    // Room for a setup script address (AutoConfigURL) as well as a version string.
+    let mut buffer = [0u16; 1024];
     let mut size = std::mem::size_of_val(&buffer) as u32;
     // SAFETY: the buffer and its size are passed together; the call writes at most `size` bytes.
     let status = unsafe {
-        RegGetValueW(HKEY_LOCAL_MACHINE, key.as_ptr(), value.as_ptr(), RRF_RT_REG_SZ, std::ptr::null_mut(), buffer.as_mut_ptr().cast(), &mut size)
+        RegGetValueW(hive, key.as_ptr(), value.as_ptr(), RRF_RT_REG_SZ, std::ptr::null_mut(), buffer.as_mut_ptr().cast(), &mut size)
     };
     (status == 0).then(|| {
         char::decode_utf16(buffer.iter().copied().take_while(|&c| c != 0))
@@ -416,7 +469,8 @@ mod tests {
         (url, rx)
     }
 
-    const QUICK: Limits = Limits { connect_timeout: Duration::from_secs(2), timeout: Duration::from_secs(2) };
+    // No proxy: the local server is reached directly even where HTTP(S)_PROXY or the Windows proxy is set.
+    const QUICK: Limits = Limits { connect_timeout: Duration::from_secs(2), timeout: Duration::from_secs(2), proxy: Proxy::None };
 
     fn sample() -> Payload {
         let mut f = feedback("Only the first card moves.", None);
@@ -464,6 +518,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_proxy_that_asks_for_a_sign_in_is_named_as_the_proxy() {
+        let refused = "HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        // Answered directly with 407 (an HTTP endpoint behind a transparent proxy).
+        let (url, _received) = server(refused);
+        assert_eq!(send(&url, &sample(), QUICK).await.unwrap_err().detail, Some(ErrorDetail::ProxyFailed));
+        // A CONNECT tunnel to the HTTPS service refused with 407 by the configured proxy.
+        let (proxy, _received) = server(refused);
+        let port = url::Url::parse(&proxy).unwrap().port().unwrap();
+        let via = Limits { proxy: Proxy::Local(port), ..QUICK };
+        let error = send("https://feedback.example/functions/v1/feedback", &sample(), via).await.unwrap_err();
+        assert_eq!(error.detail, Some(ErrorDetail::ProxyFailed), "{error:?}");
+        assert_eq!(error.code, ErrorCode::Network);
+    }
+
+    #[tokio::test]
     async fn no_listener_is_no_connection_and_silence_is_a_service_failure() {
         let gone = TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port();
         let error = send(&format!("http://127.0.0.1:{gone}/"), &sample(), QUICK).await.unwrap_err();
@@ -473,7 +542,7 @@ mod tests {
 
         let silent = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let url = format!("http://127.0.0.1:{}/", silent.local_addr().unwrap().port());
-        let quick = Limits { connect_timeout: Duration::from_secs(2), timeout: Duration::from_millis(500) };
+        let quick = Limits { timeout: Duration::from_millis(500), ..QUICK };
         let error = send(&url, &sample(), quick).await.unwrap_err();
         assert_eq!(error.detail, Some(ErrorDetail::ServiceFailed));
         assert!(!error.message.contains("127.0.0.1"), "the log has no address: {}", error.message);

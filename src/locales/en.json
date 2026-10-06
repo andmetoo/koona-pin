@@ -796,7 +796,8 @@
       "invalid_email": "the email address doesn't look right",
       "no_connection": "no internet connection",
       "service_failed": "the server didn't answer",
-      "too_many_messages": "too many messages from this network in the last hour"
+      "too_many_messages": "too many messages from this network in the last hour",
+      "proxy_failed": "the network's proxy refused the request"
     },
     "code": {
       "not_found": "It no longer exists — it may have been deleted meanwhile.",
@@ -820,7 +821,8 @@
       "invalid_email": "This doesn't look like an email address. Fix it or leave the field empty.",
       "no_connection": "Couldn't send: no internet connection. Your text is kept — try again, or copy it and send it another way.",
       "service_failed": "Couldn't send: the server didn't answer. Your text is kept — try again later, or copy it and send it another way.",
-      "too_many_messages": "Too many messages from this network in the last hour. Your text is kept — try again later."
+      "too_many_messages": "Too many messages from this network in the last hour. Your text is kept — try again later.",
+      "proxy_failed": "Couldn't send through this network's proxy: it asks for a sign-in, isn't reachable, or is set by a setup script the app can't use. Your text is kept — copy it and send it another way, for example on GitHub."
     }
   },
   "tray": {
