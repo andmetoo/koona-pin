@@ -115,8 +115,6 @@ export function BookmarkEditor({
             ref={titleField}
             id={id}
             autoFocus
-            // autoFocus beside the list; in the narrow window's drawer Dialog focuses it.
-            data-autofocus
             value={title}
             aria-invalid={!!titleError}
             aria-describedby={note}
