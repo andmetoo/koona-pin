@@ -82,12 +82,15 @@ export function isAfter(b: Bookmark, cursor: PageCursor | null): boolean {
  * interface's language (NP-089): the database sorts by code point, which puts
  * «Ä» after «Z» in German and «Č» after «Z» in Serbian.
  */
+const collators = new Map<string, Intl.Collator>();
+
 export function sortByName<T extends { name: string; count?: number | null }>(
   items: T[],
   language: string,
   byCount = false,
 ): T[] {
-  const collator = new Intl.Collator(language, { numeric: true });
+  let collator = collators.get(language);
+  if (!collator) collators.set(language, (collator = new Intl.Collator(language, { numeric: true })));
   return [...items].sort(
     (a, b) => (byCount ? (b.count ?? 0) - (a.count ?? 0) : 0) || collator.compare(a.name, b.name),
   );
