@@ -44,14 +44,24 @@
 
 Импорт закладок выполняется вне главного потока одной транзакцией: окно не замирает, а сбой посреди файла не оставляет ни половины ссылок, ни созданных по пути коллекций.
 
-Для самостоятельной сборки:
+### Установка и удаление
+
+Установщик (NP-037, [Р-9](decisions.md#р-9-распространение-windows)) — NSIS на пользователя, `Netami Pin_<версия>_x64-setup.exe`: права администратора не нужны, путь по умолчанию `%LOCALAPPDATA%\Netami Pin`. Язык — английский или русский по языку Windows. Если WebView2 нет, установщик ставит его встроенным загрузчиком Microsoft (нужна сеть). На первой странице галочка «Запускать Netami Pin в трее при входе в Windows» — включена; при повторной установке поверх копии, где запуск выключен в настройках, — снята. Обновление (NP-038) её не трогает, приложение само автозапуск не включает. Ярлык — в меню «Пуск», на рабочем столе — галочкой на последней странице. Установщик регистрирует помощника для Chrome, Edge и Firefox (`netamipin.exe --register-host`), поэтому расширение сохраняет ссылки сразу, даже до первого запуска приложения.
+
+Удаление — «Параметры → Приложения» или `uninstall.exe` в папке установки. Ключи браузеров удаляются до файлов (`--unregister-host`; ключ, указывающий на другую копию, остаётся), запись автозапуска — вместе с ними. Библиотека и резервные копии в `%APPDATA%\Netami Pin` остаются, если не отметить «Удалить библиотеку и резервные копии» (по умолчанию снята); эта галочка удаляет и профиль WebView2.
+
+Сборка установщика:
 
 ```powershell
 npm ci
-npm run tauri build
+$env:NETAMIPIN_FEEDBACK_URL = "https://<ref>.supabase.co/functions/v1/feedback"
+npm run build:installer             # без подписи — только для проверочной машины
+npm run build:installer -- --sign   # подпись eSigner, секреты — в release-checklist.md
 ```
 
-Готовая самостоятельная релизная сборка: `src-tauri/target/release/netamipin.exe`. Она проверена в настоящем WebView2 и с расширением через Native Messaging. Установщики после `tauri build`: `src-tauri/target/release/bundle/`, если включены соответствующие цели Tauri; установщик в этой реализации не создавался.
+Скрипт собирает с `--features public-release` и печатает путь в `src-tauri/target/release/bundle/nsis/` и SHA-256. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
+
+Самостоятельная релизная сборка без установщика — `cargo build --release --features custom-protocol` в `src-tauri`, результат `src-tauri/target/release/netamipin.exe`. Она проверена в настоящем WebView2 и с расширением через Native Messaging.
 
 Для запуска этой x64-сборки достаточно одного EXE на Windows с установленным **Microsoft Edge WebView2 Runtime**. Интерфейс и SQLite встроены; Node.js, Rust и исходники не нужны. Для захвата из браузера рядом лежит `netamipin-host.exe`. WebView2 не входит в EXE: на другом компьютере при его отсутствии установите [Evergreen WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section). База создаётся отдельно в `%APPDATA%\Netami Pin`, поэтому перенос EXE не переносит библиотеку.
 
@@ -72,7 +82,7 @@ npm run tauri build
    - **Firefox**: подписанный пакет `release/firefox/netamipin-firefox-<версия>.xpi` — `about:addons` → шестерёнка → «Установить дополнение из файла…». Его подписывает AMO без публичной страницы (`npm run extension:sign:firefox`, ключ AMO владельца), он остаётся после перезапуска и сам проверяет обновления по `https://pin.netami.app/firefox/updates.json` (`gecko.update_url`; файл и пакеты публикуются вместе с сайтом, NP-079). Для разработки неподписанный `release/netamipin-firefox.xpi` загружается через `about:debugging#/runtime/this-firefox` → «Загрузить временное дополнение…»; Firefox удаляет его при закрытии.
 3. Закрепите значок Netami Pin и нажимайте его на страницах, которые хотите сохранить. Если Netami Pin закрыт, сохранение запустит его в трее.
 
-Релизная сборка регистрирует помощника для Chrome, Edge и Firefox сама при каждом запуске. Отладочная — только с `NETAMIPIN_REGISTER_HOST=1`, чтобы не перехватить регистрацию установленного приложения. Netami Pin пускает расширение из Chrome Web Store (ID `dedcgklilbgbieabgpklellnaccpjhpc`) и Edge Add-ons (ID `ocdkndgdeagephdnlmofffbapdifhkho`) — пока это черновики, они уйдут на проверку после установщика (NP-037) — и, кроме сборки установщика, расширение, собранное из этого репозитория (ID `iibgiagcbediajombmkohanobgicbepn`).
+Установщик регистрирует помощника для Chrome, Edge и Firefox, релизная сборка проверяет и чинит регистрацию при каждом запуске. Отладочная — только с `NETAMIPIN_REGISTER_HOST=1`, чтобы не перехватить регистрацию установленного приложения. Netami Pin пускает расширение из Chrome Web Store (ID `dedcgklilbgbieabgpklellnaccpjhpc`) и Edge Add-ons (ID `ocdkndgdeagephdnlmofffbapdifhkho`) — пока это черновики, они уйдут на проверку после установщика (NP-037) — и, кроме сборки установщика, расширение, собранное из этого репозитория (ID `iibgiagcbediajombmkohanobgicbepn`).
 
 Не перемещайте папку распакованного расширения после установки. Повторная сборка обновляет файлы в той же папке; затем нажмите «Обновить» на странице расширений.
 

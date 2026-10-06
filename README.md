@@ -45,4 +45,6 @@ npm run tauri build
 npm run extension:build
 ```
 
+Установщик Windows для выпуска — `npm run build:installer` ([установка и удаление](doc/features.md#установка-и-удаление)).
+
 Расширение для Chrome, Edge и Firefox собирается из одного исходника `extension/src`: распакованные папки `extension/build/chrome`, `edge`, `firefox` и пакеты `release/netamipin-chrome.zip`, `netamipin-edge.zip`, `netamipin-firefox.xpi`. Пакеты хранятся отдельно от очищаемой при сборке папки `dist`. Установка — в [инструкции](doc/features.md#браузеры).
