@@ -7,9 +7,9 @@ $root = (Get-Location).Path
 $here = Join-Path $root "scripts/platform-probe/android"
 $out = Join-Path $root ".test-data/platform-probe/android"
 New-Item -ItemType Directory -Force $out | Out-Null
-docker build -t netamipin-probe-android $here
+docker build -t koonapin-probe-android $here
 if ($LASTEXITCODE) { throw "android image failed" }
 docker run --rm -v "${root}:/src:ro" -v "${out}:/out" `
-  -v netamipin-probe-android-target:/target -v netamipin-probe-android-registry:/opt/cargo/registry `
-  -v netamipin-probe-gradle:/root/.gradle -v netamipin-probe-npm:/root/.npm `
-  netamipin-probe-android bash /src/scripts/platform-probe/android/build.sh
+  -v koonapin-probe-android-target:/target -v koonapin-probe-android-registry:/opt/cargo/registry `
+  -v koonapin-probe-gradle:/root/.gradle -v koonapin-probe-npm:/root/.npm `
+  koonapin-probe-android bash /src/scripts/platform-probe/android/build.sh

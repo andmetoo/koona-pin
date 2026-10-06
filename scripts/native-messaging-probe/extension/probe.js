@@ -1,7 +1,7 @@
 // The Chrome and Edge service worker, and the script of probe.html in Firefox.
 // run.mjs calls globalThis.probe from outside and reads the results.
 const api = globalThis.browser ?? globalThis.chrome;
-const host = "app.netami.pin.probe";
+const host = "app.koona.pin.probe";
 
 globalThis.probe = {
   /** One message, one host process (runtime.sendNativeMessage). */

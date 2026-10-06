@@ -1,4 +1,4 @@
-; Tauri's English.nsh (tauri-cli 2.12.1) with two Netami Pin strings: the
+; Tauri's English.nsh (tauri-cli 2.12.1) with two Koona Pin strings: the
 ; autostart checkbox and the uninstaller's data checkbox (NP-037, Р-10 item 8).
 ; After a Tauri upgrade, copy new strings from the upstream file.
 LangString addOrReinstall ${LANG_ENGLISH} "Add/Reinstall components"

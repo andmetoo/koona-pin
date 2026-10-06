@@ -1,4 +1,4 @@
-//! NP-008 probe: what Netami Pin needs from a platform, checked at run time.
+//! NP-008 probe: what Koona Pin needs from a platform, checked at run time.
 use serde_json::{json, Value};
 use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;

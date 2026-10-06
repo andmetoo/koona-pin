@@ -377,7 +377,7 @@ mod tests {
     /// A v1 library with data, plus the next migrations to try on it.
     fn library_v1(name: &str, rows: usize) -> (PathBuf, Connection) {
         let folder = folder(name);
-        let path = folder.join("netamipin.db");
+        let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 1);
         fixtures::generated(&conn, rows, 7);
         fixtures::finish(conn);
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn new_library_gets_the_clean_schema_once() {
-        let paths = Paths::new(folder("new-library").join("netamipin.db"));
+        let paths = Paths::new(folder("new-library").join("koonapin.db"));
         let opened = library::open(&paths).unwrap();
         let conn = opened.conn;
         assert!(opened.moved_aside.is_none());
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn starter_collections_are_named_by_the_interface_once() {
-        let paths = Paths::new(folder("starters").join("netamipin.db"));
+        let paths = Paths::new(folder("starters").join("koonapin.db"));
         let conn = library::open(&paths).unwrap().conn;
         let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
         let made = db::create_starter_collections(&conn, &names).unwrap();
@@ -447,7 +447,7 @@ mod tests {
 
     #[test]
     fn deleted_collections_do_not_come_back() {
-        let paths = Paths::new(folder("collections-once").join("netamipin.db"));
+        let paths = Paths::new(folder("collections-once").join("koonapin.db"));
         let conn = library::open(&paths).unwrap().conn;
         let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
         db::create_starter_collections(&conn, &names).unwrap();
@@ -474,7 +474,7 @@ mod tests {
             with_step("ALTER TABLE bookmarks ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;");
         migrate_with(&step2, 2, &mut conn, Some(&backups)).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 2);
-        let copy = Connection::open(backups.join("netamipin.before-v2.db")).unwrap();
+        let copy = Connection::open(backups.join("koonapin.before-v2.db")).unwrap();
         assert_eq!(
             everything(&copy),
             before,
@@ -495,18 +495,18 @@ mod tests {
             M::up("ALTER TABLE bookmarks ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;"),
             M::up("CREATE TABLE notes (text TEXT);"),
         ]);
-        fs::write(backups.join("netamipin.before-v1.db"), b"older").unwrap();
+        fs::write(backups.join("koonapin.before-v1.db"), b"older").unwrap();
         migrate_with(&step3, 3, &mut conn, Some(&backups)).unwrap();
-        assert!(!backups.join("netamipin.before-v1.db").exists());
-        assert!(backups.join("netamipin.before-v2.db").exists());
-        assert!(backups.join("netamipin.before-v3.db").exists());
+        assert!(!backups.join("koonapin.before-v1.db").exists());
+        assert!(backups.join("koonapin.before-v2.db").exists());
+        assert!(backups.join("koonapin.before-v3.db").exists());
     }
 
     /// Schemas 3 and 4 add indexes only: a library of schema 2 gets them with
     /// one copy, every bookmark keeps its state, the queries use them.
     #[test]
     fn schemas_3_and_4_index_an_existing_library() {
-        let paths = Paths::new(folder("migrate-indexes").join("netamipin.db"));
+        let paths = Paths::new(folder("migrate-indexes").join("koonapin.db"));
         let conn = fixtures::fresh_at(&paths.database, 2);
         fixtures::generated(&conn, 2_000, 5);
         conn.execute(
@@ -519,7 +519,7 @@ mod tests {
 
         let conn = library::open(&paths).unwrap().conn;
         assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
-        let copy = format!("netamipin.before-v{SCHEMA_VERSION}.db");
+        let copy = format!("koonapin.before-v{SCHEMA_VERSION}.db");
         assert!(paths.backups.join(copy).exists());
         assert!(counts.inbox > 0 && counts.trash > 0);
         let after = db::get_counts(&conn).unwrap();
@@ -558,7 +558,7 @@ mod tests {
     /// libraries become one group; «?ref=» stays another page.
     #[test]
     fn schema_5_keys_the_addresses_of_an_existing_library() {
-        let paths = Paths::new(folder("migrate-duplicates").join("netamipin.db"));
+        let paths = Paths::new(folder("migrate-duplicates").join("koonapin.db"));
         let conn = fixtures::fresh_at(&paths.database, 4);
         fixtures::near_duplicates(&conn);
         fixtures::finish(conn);

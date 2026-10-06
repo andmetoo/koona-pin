@@ -1,10 +1,10 @@
-// Firefox smoke (NP-015, NP-018): the built package talks to Netami Pin through
+// Firefox smoke (NP-015, NP-018): the built package talks to Koona Pin through
 // the real native host, as the Chromium smoke does.
 //
 //   node scripts/smoke-extension-firefox.mjs [release|esr]
 //
 // release is the current Firefox, esr is Firefox ESR 140 (scoop installs;
-// NETAMIPIN_FIREFOX points to another copy). Firefox is driven over WebDriver
+// KOONAPIN_FIREFOX points to another copy). Firefox is driven over WebDriver
 // BiDi with a temporary add-on, which a browser restart removes: the restart is
 // checked by hand with the signed XPI (doc/testing.md).
 import { spawn, execFileSync } from "node:child_process";
@@ -22,11 +22,11 @@ assertNoOtherApp();
 
 const flavor = process.argv[2] || "release";
 const scoop = (app) => path.join(process.env.USERPROFILE ?? "", "scoop", "apps", app, "current", "firefox.exe");
-const firefox = process.env.NETAMIPIN_FIREFOX || scoop(flavor === "esr" ? "firefox-esr" : "firefox");
+const firefox = process.env.KOONAPIN_FIREFOX || scoop(flavor === "esr" ? "firefox-esr" : "firefox");
 if (!["release", "esr"].includes(flavor)) throw new Error(`Unknown Firefox ${flavor}: use release or esr`);
-if (!existsSync(firefox)) throw new Error(`Firefox not found: ${firefox}. Set NETAMIPIN_FIREFOX.`);
+if (!existsSync(firefox)) throw new Error(`Firefox not found: ${firefox}. Set KOONAPIN_FIREFOX.`);
 
-const HOST = "app.netami.pin.test";
+const HOST = "app.koona.pin.test";
 const KEY = `HKCU\\Software\\Mozilla\\NativeMessagingHosts\\${HOST}`;
 const directory = path.resolve(".test-data", `extension-firefox-${flavor}-${Date.now()}`);
 const profile = path.join(directory, "profile");
@@ -49,7 +49,7 @@ ext.storage.session.get("testOptionsOpened").then(async ({ testOptionsOpened }) 
 `,
 );
 const version = path.join(extension, "version.js");
-await writeFile(version, (await readFile(version, "utf8")).replace('"app.netami.pin"', JSON.stringify(HOST)));
+await writeFile(version, (await readFile(version, "utf8")).replace('"app.koona.pin"', JSON.stringify(HOST)));
 
 // A fixed internal UUID gives the options page a known moz-extension: address.
 const uuid = randomUUID();
@@ -65,15 +65,15 @@ await writeFile(
 const pipe = testPipe("firefox");
 const env = {
   ...process.env,
-  NETAMIPIN_DATA_DIR: directory,
+  KOONAPIN_DATA_DIR: directory,
   WEBVIEW2_USER_DATA_FOLDER: path.join(directory, "webview"),
-  NETAMIPIN_PIPE: pipe,
+  KOONAPIN_PIPE: pipe,
 };
 const manifest = path.join(directory, `${HOST}.json`);
 const writeManifest = (id) =>
   writeFile(
     manifest,
-    JSON.stringify({ name: HOST, description: "Netami Pin test", path: hostBinary(), type: "stdio", allowed_extensions: [id] }),
+    JSON.stringify({ name: HOST, description: "Koona Pin test", path: hostBinary(), type: "stdio", allowed_extensions: [id] }),
   );
 const register = () => execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
 const unregister = () => {
@@ -87,7 +87,7 @@ await writeManifest(geckoId);
 register();
 
 const apps = startedSince();
-const library = path.join(directory, "netamipin.db");
+const library = path.join(directory, "koonapin.db");
 async function until(check, label, ms = 30000) {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
@@ -231,7 +231,7 @@ try {
   assert.match(queued[0].error, /didn't answer|не ответил/);
   // NP-080: the event page draws the clock into the icon; the title is set only after setIcon succeeds.
   assert.match(await run("return browser.action.getTitle({});"), /waiting to be sent|ожидают передачи/);
-  assert.ok(await run('return !!(await browser.alarms.get("netamipin-delivery"));'));
+  assert.ok(await run('return !!(await browser.alarms.get("koonapin-delivery"));'));
 
   // The library is back: the delivery alarm brings the link without a click.
   apps.stop();
@@ -260,7 +260,7 @@ try {
   await until(async () => (await waiting()).length === 0, "delivery after the host came back");
 
   // The host lists another add-on id: Firefox refuses to start it.
-  await writeManifest("other@netami.app");
+  await writeManifest("other@koona.app");
   await capture("https://example.invalid/foreign-id", "Чужой ID");
   refused = await waiting();
   assert.equal(refused.length, 1);

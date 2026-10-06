@@ -41,7 +41,7 @@ async function cutLabels(page: Page) {
 // words in every language are measured against the row's room in the English layout.
 test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 800 });
-  await page.addInitScript(() => localStorage.removeItem("netamipin.demo.v4"));
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.goto("/");
   await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
@@ -97,8 +97,8 @@ for (const code of codes) {
     test(`${code} key screens ${width}×${height}`, { tag: "@languages" }, async ({ page }, info) => {
       await page.setViewportSize({ width, height });
       await page.addInitScript((language) => {
-        localStorage.removeItem("netamipin.demo.v4");
-        localStorage.setItem("netamipin.language", language);
+        localStorage.removeItem("koonapin.demo.v4");
+        localStorage.setItem("koonapin.language", language);
       }, code);
       await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
       await page.goto("/");

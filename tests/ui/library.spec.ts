@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v4"));
+  await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.reload();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
 });
@@ -89,12 +89,12 @@ test("demo library is created in the interface's language and kept after a switc
   await page.locator('[data-bookmark-id="4"]').hover();
   await page.locator('[data-bookmark-id="4"]').getByRole("button", { name: "Add to favorites" }).click();
   await expect(page.getByRole("button", { name: "Favorites 3" })).toBeVisible();
-  await page.evaluate(() => localStorage.setItem("netamipin.language", "ru"));
+  await page.evaluate(() => localStorage.setItem("koonapin.language", "ru"));
   await page.reload();
   await expect(page.getByRole("button", { name: "Избранное 3" })).toBeVisible();
   await expect(page.getByText("Ten principles for good design")).toBeVisible();
   // Without a saved library the reload creates it again, now in Russian.
-  await page.evaluate(() => localStorage.removeItem("netamipin.demo.v4"));
+  await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.reload();
   await expect(page.getByText("Десять принципов хорошего дизайна")).toBeVisible();
   await expect(page.getByRole("button", { name: "Прочитать 1" })).toBeVisible();
@@ -633,7 +633,7 @@ test("list geometry stays within the window and broken previews keep their space
     };
     data.bookmarks[0].image_url = "/broken-preview.png";
     data.bookmarks[0].title = "A very long title that goes on ".repeat(12);
-    localStorage.setItem("netamipin.demo.v4", JSON.stringify(data));
+    localStorage.setItem("koonapin.demo.v4", JSON.stringify(data));
   });
   await page.reload();
   await expect(page.locator('[data-bookmark-id="1"] [data-preview-fallback]')).toBeVisible();
@@ -695,7 +695,7 @@ test("command errors speak the interface's language, never the app's English alo
   await expect(page.getByRole("alert")).toHaveText("Only http:// and https:// links can be saved.");
   await page.keyboard.press("Escape");
 
-  await page.evaluate(() => localStorage.setItem("netamipin.language", "ru"));
+  await page.evaluate(() => localStorage.setItem("koonapin.language", "ru"));
   await page.reload();
   await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
   await save("ftp://example.com/file", "Сохранить ссылку", "Ссылка");
@@ -796,10 +796,10 @@ test("export: saved says how many and offers Show; cancelled says nothing; a fai
   await page.locator('[data-bookmark-id="2"]').getByRole("button", { name: /^Actions:/ }).click();
   await page.getByRole("menuitem", { name: "Move to trash" }).click();
   await exportAs(/HTML for browsers/);
-  await expect(toast).toContainText(/^5 bookmarks saved to netami-pin-\d{4}-\d{2}-\d{2}\.html/);
+  await expect(toast).toContainText(/^5 bookmarks saved to koona-pin-\d{4}-\d{2}-\d{2}\.html/);
   await expect(toast.getByRole("button", { name: "Show" })).toBeVisible();
   await exportAs(/JSON — full copy/);
-  await expect(toast).toContainText(/^6 bookmarks saved to netami-pin-.*\.json/);
+  await expect(toast).toContainText(/^6 bookmarks saved to koona-pin-.*\.json/);
 
   // CSV gets its column titles in the interface's language; a cancelled dialog says nothing.
   await page.evaluate(async () => {
@@ -811,21 +811,21 @@ test("export: saved says how many and offers Show; cancelled says nothing; a fai
       calls.push({ format, columns });
       attempt++;
       if (attempt === 1) return { outcome: "cancelled" };
-      if (attempt === 2) return { outcome: "failed", file_name: "netami-pin.csv", folder: "D:\\", problem: "disk_full", detail: "There is not enough space on the disk. (os error 112)" };
-      return { outcome: "saved", file_name: "netami-pin.csv", count: 5 };
+      if (attempt === 2) return { outcome: "failed", file_name: "koona-pin.csv", folder: "D:\\", problem: "disk_full", detail: "There is not enough space on the disk. (os error 112)" };
+      return { outcome: "saved", file_name: "koona-pin.csv", count: 5 };
     };
   });
   await exportAs(/CSV for spreadsheets/);
   await expect.poll(() => page.evaluate(() => (window as unknown as { exportCalls: unknown[] }).exportCalls.length)).toBe(1);
-  await expect(page.getByText("netami-pin.csv", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("koona-pin.csv", { exact: false })).toHaveCount(0);
   const calls = await page.evaluate(() => (window as unknown as { exportCalls: { format: string; columns: Record<string, string> }[] }).exportCalls);
   expect(calls[0]).toMatchObject({ format: "csv", columns: { title: "Title", inbox: "In Inbox", saved: "Saved" } });
 
   await exportAs(/CSV for spreadsheets/);
   const alert = page.getByRole("alert");
-  await expect(alert).toContainText("Couldn't save netami-pin.csv: the disk is full. Nothing was written.");
+  await expect(alert).toContainText("Couldn't save koona-pin.csv: the disk is full. Nothing was written.");
   await alert.getByRole("button", { name: "Try again" }).click();
-  await expect(toast).toContainText("5 bookmarks saved to netami-pin.csv");
+  await expect(toast).toContainText("5 bookmarks saved to koona-pin.csv");
 });
 
 /** A JSON copy as Export writes it: one bookmark the demo has, one waiting in the inbox, one in the trash. */
@@ -840,7 +840,7 @@ async function copyFile(page: import("@playwright/test").Page, edit: (copy: Reco
     is_favorite: false, collection: null, tags: [], source: "import", created_at: at, updated_at: at, triaged_at: at, deleted_at: null, ...more,
   });
   const copy: Record<string, unknown> = {
-    format: "netami-pin",
+    format: "koona-pin",
     version: 1,
     exported_at: "2026-10-04T18:20:00.000Z",
     app_version: "0.1.0",
@@ -856,11 +856,11 @@ async function copyFile(page: import("@playwright/test").Page, edit: (copy: Reco
     ],
   };
   edit(copy);
-  return { name: "netami-pin-2026-10-04.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) };
+  return { name: "koona-pin-2026-10-04.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) };
 }
 async function openRestore(page: import("@playwright/test").Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Netami Pin backup/ }).click();
+  await page.getByRole("menuitem", { name: /Koona Pin backup/ }).click();
   const dialog = page.getByRole("dialog", { name: "Restore from a JSON copy" });
   await dialog.locator("input[type=file]").first().setInputFiles(file);
   return dialog;
@@ -885,8 +885,8 @@ test("restore: merge adds what is missing with its state and keeps what is there
   // Refused copies: the library stays as it was.
   const refused = [
     [{ name: "notes.json", mimeType: "application/json", buffer: Buffer.from("not json") }, "This isn't a JSON file."],
-    [await copyFile(page, (c) => (c.format = "other-app")), "This isn't a Netami Pin copy"],
-    [await copyFile(page, (c) => (c.version = 2)), "The copy was made by a newer Netami Pin (format 2)"],
+    [await copyFile(page, (c) => (c.format = "other-app")), "This isn't a Koona Pin copy"],
+    [await copyFile(page, (c) => (c.version = 2)), "The copy was made by a newer Koona Pin (format 2)"],
     [await copyFile(page, (c) => ((c.bookmarks as { url: string }[])[1].url = "javascript:alert(1)")), "The copy is damaged: bookmark 2 has no valid address. Nothing was changed."],
   ] as const;
   for (const [file, text] of refused) {
@@ -941,7 +941,7 @@ test("backup: the settings explain copies, the dialog lists them, asks with the 
   await page.getByRole("dialog", { name: /^Restore the copy from / }).getByRole("button", { name: "Restore", exact: true }).click();
   const report = page.getByRole("dialog", { name: "Library restored" });
   await expect(report.getByRole("status")).toContainText("4 bookmarks from the copy of");
-  await expect(report).toContainText("netamipin.before-restore-demo.db");
+  await expect(report).toContainText("koonapin.before-restore-demo.db");
   await report.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
@@ -1082,7 +1082,7 @@ test("a large library loads page by page while scrolling", async ({ page }) => {
       // Every fifth one shares a time with its neighbour: the id breaks the tie.
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 250 - i + (i % 5 === 0 ? 1 : 0))).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   // Virtualized: only rows near the screen are in the DOM; `data-loaded` counts the pages read.
@@ -1118,7 +1118,7 @@ async function largeLibrary(page: import("@playwright/test").Page) {
       tags: [],
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
@@ -1279,7 +1279,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
       is_favorite: i < 3,
       created_at: new Date(Date.UTC(2026, 0, 1) + i * 1000).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
@@ -1445,7 +1445,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   // Export: the formats of the «⋯» menu, the selected only.
   await bar.getByRole("button", { name: "Export" }).click();
   await page.getByRole("menuitem", { name: /CSV for spreadsheets/ }).click();
-  await expect(notice(page, /^2 bookmarks saved to netami-pin-selected-\d{4}-\d{2}-\d{2}\.csv/)).toBeVisible();
+  await expect(notice(page, /^2 bookmarks saved to koona-pin-selected-\d{4}-\d{2}-\d{2}\.csv/)).toBeVisible();
 
   // In the trash the bar offers to restore, export and delete for good.
   await page.keyboard.press("Delete");
@@ -1640,7 +1640,7 @@ test("bulk actions on 1 000 bookmarks keep the loaded pages and the scroll posit
       triaged_at: "2026-01-01T00:00:00.000Z",
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
     }));
-    localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
   });
   await page.reload();
   const list = page.locator("[data-loaded]");
@@ -1870,7 +1870,7 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
       next(9, "https://example.com/just-saved", new Date(Date.now() - 9_000).toISOString()),
       { ...next(10, "https://mail.google.com/mail/u/0/"), revision: 2 },
     );
-    localStorage.setItem("netamipin.demo.v4", JSON.stringify(data));
+    localStorage.setItem("koonapin.demo.v4", JSON.stringify(data));
     return [7, 8];
   });
   await page.reload();
@@ -1923,9 +1923,9 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
 
   // A picture that does not load gives way to the cover too.
   await page.evaluate(async () => {
-    const data = JSON.parse(localStorage.getItem("netamipin.demo.v4")!);
+    const data = JSON.parse(localStorage.getItem("koonapin.demo.v4")!);
     data.bookmarks.find((b: { id: number }) => b.id === 1).image_url = "/missing-picture.png";
-    localStorage.setItem("netamipin.demo.v4", JSON.stringify(data));
+    localStorage.setItem("koonapin.demo.v4", JSON.stringify(data));
   });
   await page.reload();
   await expect(cover(1)).toBeVisible();
@@ -1938,7 +1938,7 @@ test("connect dialog: steps for each browser, no token and no bookmarklet", asyn
   await dialog.getByRole("radio", { name: "Edge" }).click();
   await expect(dialog).toContainText("edge://extensions");
   await dialog.getByRole("radio", { name: "Firefox" }).click();
-  await expect(dialog).toContainText("netamipin-firefox.xpi");
+  await expect(dialog).toContainText("koonapin-firefox.xpi");
   await expect(dialog).toContainText("about:addons");
   await expect(dialog).not.toContainText(/token|bookmarklet/i);
   await page.keyboard.press("Escape");
@@ -2012,7 +2012,7 @@ test("feedback: from Settings, checked before sending, a failure keeps the draft
       kind: "idea",
       message: "Let me sort the inbox by site.",
       email: "anna@example.com",
-      report: expect.stringContaining("Netami Pin demo"),
+      report: expect.stringContaining("Koona Pin demo"),
       language: "en",
     },
   ]);

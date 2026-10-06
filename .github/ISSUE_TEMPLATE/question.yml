@@ -1,0 +1,21 @@
+name: Question
+description: Not sure how something works
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are public: don't paste your saved links.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Koona Pin version
+      description: Windows Settings → Apps → Installed apps → Koona Pin. Optional.

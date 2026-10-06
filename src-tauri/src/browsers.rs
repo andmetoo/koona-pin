@@ -119,7 +119,7 @@ pub enum CaptureProblem {
     Channel,
     /// The browsers could not be told where the host is (registry, manifests).
     Registration,
-    /// netamipin-host.exe is not next to the app: a broken installation.
+    /// koonapin-host.exe is not next to the app: a broken installation.
     HostMissing,
 }
 

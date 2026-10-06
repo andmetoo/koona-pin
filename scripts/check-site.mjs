@@ -1,18 +1,21 @@
-// Checks of pin.netami.app (NP-079 acceptance): every page at 360, 390, 1440 and 1920 in both
+// Checks of koona.app/pin/ (NP-079 acceptance): every page at 360, 390, 1440 and 1920 in both
 // themes and languages — no horizontal scroll, no requests to other origins, no cookies, no
-// broken links between pages, the Russian redirect of "/". Screenshots go to test-results/site.
+// broken links between pages, the Russian redirect of /pin/. Screenshots go to test-results/site.
 //   node scripts/build-site.mjs && node scripts/check-site.mjs
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { BASE } from "../site/src/content.mjs";
 import { publish } from "./lib/paths.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const shots = path.join(root, "test-results", "site");
 const port = 4317;
-const base = `http://127.0.0.1:${port}`;
+const origin = `http://127.0.0.1:${port}`;
+// Pages below are relative to the site, which lives at /pin/ (Р-47).
+const base = `${origin}${BASE}`;
 const pages = ["/", "/privacy", "/licenses", "/ru/", "/ru/privacy", "/ru/licenses", "/nowhere", "/ru/nowhere"];
 // The feedback form and its result pages, when the build had the function's address (NP-088).
 if (existsSync(path.join(publish.site, "feedback", "index.html")))
@@ -32,7 +35,7 @@ try {
       const page = await context.newPage();
       const foreign = [];
       page.on("request", (r) => {
-        if (!r.url().startsWith(base)) foreign.push(r.url());
+        if (!r.url().startsWith(origin)) foreign.push(r.url());
       });
       let current = "";
       // A 404 page logs its own status; other errors count.
@@ -78,7 +81,7 @@ try {
     await fp.waitForURL(`${base}/feedback/sent`, { timeout: 5000 }).catch(() => {});
     if (!posted) problems.push("feedback form: nothing was posted to the function");
     else {
-      if (posted.origin !== base) problems.push(`feedback form: Origin is ${posted.origin}, expected ${base}`);
+      if (posted.origin !== origin) problems.push(`feedback form: Origin is ${posted.origin}, expected ${origin}`);
       const fields = new URLSearchParams(posted.body);
       if (fields.get("kind") !== "idea" || fields.get("message") !== "Feedback form check" || fields.get("lang") !== "en" || fields.get("hp_7q") !== "")
         problems.push(`feedback form: posted ${posted.body}`);
@@ -97,14 +100,14 @@ try {
     const res = await page.request.get(h.split("#")[0]);
     if (res.status() !== 200) problems.push(`link ${h}: ${res.status()}`);
   }
-  // A Russian browser opening "/" goes to /ru/; a click on EN from /ru/ stays English.
+  // A Russian browser opening /pin/ goes to /pin/ru/; a click on EN from /pin/ru/ stays English.
   const ru = await browser.newContext({ locale: "ru-RU", extraHTTPHeaders: { "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8" } });
   const rp = await ru.newPage();
   await rp.goto(base + "/");
-  if (!rp.url().endsWith("/ru/")) problems.push(`Russian browser on "/" stays at ${rp.url()}`);
+  if (!rp.url().endsWith(`${BASE}/ru/`)) problems.push(`Russian browser on ${BASE}/ stays at ${rp.url()}`);
   await rp.getByRole("link", { name: "EN", exact: true }).click();
   await rp.waitForLoadState();
-  if (new URL(rp.url()).pathname !== "/") problems.push(`EN from /ru/ leads to ${rp.url()}`);
+  if (new URL(rp.url()).pathname !== `${BASE}/`) problems.push(`EN from ${BASE}/ru/ leads to ${rp.url()}`);
   console.log("outside links:", [...new Set(outside)].join("\n  "));
 } finally {
   await browser.close();

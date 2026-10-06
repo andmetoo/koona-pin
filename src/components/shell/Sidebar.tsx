@@ -155,7 +155,7 @@ export function Sidebar(props: SidebarProps) {
       <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-[18px] text-accent" data-tauri-drag-region>
         <Mascot className="pointer-events-none" />
         <span className="text-lg font-semibold" data-tauri-drag-region>
-          netami pin
+          koona pin
         </span>
       </div>
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">

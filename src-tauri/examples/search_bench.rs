@@ -6,7 +6,7 @@
 //! `.test-data/search-bench`, times the migration that builds the index, then
 //! the first page (100 bookmarks with tags and the total) for typical queries.
 
-use netamipin_lib::{db, library, migrations, test_libraries as fixtures};
+use koonapin_lib::{db, library, migrations, test_libraries as fixtures};
 use rusqlite::Connection;
 use std::{path::PathBuf, time::Instant};
 

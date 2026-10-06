@@ -16,7 +16,7 @@ export function browserName(scope = globalThis) {
  */
 const missing = /not found|forbidden|No such native application|not registered/i;
 
-/** One message to Netami Pin through the native host; never throws. */
+/** One message to Koona Pin through the native host; never throws. */
 export async function talk(message, runtime = ext.runtime) {
   try {
     const reply = await runtime.sendNativeMessage(HOST, {
