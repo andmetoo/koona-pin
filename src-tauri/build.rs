@@ -10,7 +10,7 @@ fn main() {
 /// root when the environment does not set it, so `npm run tauri build`, `tauri dev` and
 /// `cargo build` get it just like `npm run build:installer`. The environment wins.
 fn feedback_url_from_dotenv() {
-    const NAME: &str = "NETAMIPIN_FEEDBACK_URL";
+    const NAME: &str = "KOONAPIN_FEEDBACK_URL";
     println!("cargo:rerun-if-env-changed={NAME}");
     // Watched even while missing, so a new .env is noticed by the next build.
     println!("cargo:rerun-if-changed=../.env");

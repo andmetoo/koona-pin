@@ -85,7 +85,7 @@ if (preview > 0) {
   process.exit(0);
 }
 
-const work = await mkdtemp(path.join(tmpdir(), "netamipin-icons-"));
+const work = await mkdtemp(path.join(tmpdir(), "koonapin-icons-"));
 const master = path.join(work, "master-1024.png");
 await writeFile(master, await png(mascot, 1024, 0.04));
 

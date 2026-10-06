@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NP-008: runs the binary built on Ubuntu 22.04 in another distribution under
-# Xvfb. Mounted: /bin-in (netamipin), /out/<name> (results).
+# Xvfb. Mounted: /bin-in (koonapin), /out/<name> (results).
 # What it checks: missing libraries, WebKitGTK version, the window appears and
 # draws the interface, the window has no frame, where the library is created,
 # a second start hands over to the first (single instance).
@@ -33,8 +33,8 @@ esac
 echo "glibc: $(ldd --version | head -1)"
 echo "webkit2gtk-4.1: $webkit"
 
-app=/tmp/netamipin
-cp /bin-in/netamipin "$app"
+app=/tmp/koonapin
+cp /bin-in/koonapin "$app"
 chmod +x "$app"
 missing=$(ldd "$app" | grep "not found" || true)
 echo "missing libraries: ${missing:-none}"
@@ -54,7 +54,7 @@ started=$(date +%s%N)
 pid=$!
 window=""
 for _ in $(seq 1 60); do
-  window=$(xdotool search --name "Netami Pin" 2>/dev/null | head -1)
+  window=$(xdotool search --name "Koona Pin" 2>/dev/null | head -1)
   [ -n "$window" ] && break
   kill -0 "$pid" 2>/dev/null || break
   sleep 0.5
@@ -71,12 +71,12 @@ echo "motif hints: $(xprop -id "$window" _MOTIF_WM_HINTS 2>&1)"
 sleep 8
 import -window root "$out/window.png"
 
-echo "library: $(ls -1 "$HOME/.local/share/Netami Pin" 2>&1 | tr '\n' ' ')"
+echo "library: $(ls -1 "$HOME/.local/share/Koona Pin" 2>&1 | tr '\n' ' ')"
 second=$(date +%s%N)
 timeout 20 "$app" > "$out/second.log" 2>&1
 code=$?
 echo "second start: exit $code after ms $(( ($(date +%s%N) - second) / 1000000 )); first alive: $(kill -0 $pid 2>/dev/null && echo yes || echo no)"
-echo "windows named Netami Pin: $(xdotool search --name "Netami Pin" | wc -l)"
+echo "windows named Koona Pin: $(xdotool search --name "Koona Pin" | wc -l)"
 kill "$pid" 2>/dev/null
 sleep 1
 echo "app log:"

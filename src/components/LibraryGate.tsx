@@ -102,7 +102,7 @@ export function LibraryGate({ children }: { children: ReactNode }) {
 /** Plain text for support; labels stay English so anyone can read them. */
 const report = (f: OpenFailure, language: string) =>
   [
-    `Netami Pin ${f.version}`,
+    `Koona Pin ${f.version}`,
     `Code: ${f.code}`,
     `Detail: ${f.detail}`,
     `Library: ${f.database}`,

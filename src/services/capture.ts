@@ -94,7 +94,7 @@ export function preferredBrowser(status: CaptureStatus | null): Browser {
 /** What «Скопировать отчёт» puts on the clipboard. */
 export function captureReport(status: CaptureStatus, version: string): string {
   return [
-    `Netami Pin ${version}`,
+    `Koona Pin ${version}`,
     `Capture: ${status.state}${status.problem ? ` (${status.problem})` : ""}`,
     status.detail ? `Detail: ${status.detail}` : "",
     `Protocol: ${status.protocol}`,

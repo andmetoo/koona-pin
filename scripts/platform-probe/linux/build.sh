@@ -18,5 +18,5 @@ export CARGO_TARGET_DIR=/target
 start=$(date +%s)
 cargo build --release --features custom-protocol --locked 2>&1 | tail -n 30 | tee /out/build.log
 echo "build seconds: $(( $(date +%s) - start ))" | tee -a /out/build-info.txt
-cp /target/release/netamipin /target/release/netamipin-host /out/
+cp /target/release/koonapin /target/release/koonapin-host /out/
 ls -l /out

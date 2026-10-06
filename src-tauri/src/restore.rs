@@ -58,9 +58,9 @@ pub enum Damage {
 #[ts(export)]
 pub enum RestoreProblem {
     NotJson,
-    /// JSON, but not a copy made by Netami Pin.
+    /// JSON, but not a copy made by Koona Pin.
     NotOurs,
-    /// Made by a newer Netami Pin: its format is not known here.
+    /// Made by a newer Koona Pin: its format is not known here.
     Newer { version: u32 },
     /// `index` counts from 1 within its kind; 0 for the whole file.
     Damaged { item: CopyItem, index: u32, damage: Damage, detail: String },
@@ -351,7 +351,7 @@ mod tests {
         export::json(c, export::Scope::Library, Utc.with_ymd_and_hms(2026, 10, 4, 18, 20, 0).unwrap()).unwrap().0
     }
     fn folder() -> std::path::PathBuf {
-        let folder = std::env::temp_dir().join(format!("netamipin-restore-{}", uuid::Uuid::new_v4().simple()));
+        let folder = std::env::temp_dir().join(format!("koonapin-restore-{}", uuid::Uuid::new_v4().simple()));
         std::fs::create_dir_all(&folder).unwrap();
         folder
     }
@@ -404,14 +404,14 @@ mod tests {
         let summary = restore(&current, &check(&copy_of(&other)).unwrap(), RestoreMode::Replace, &backups).unwrap();
         assert_eq!((summary.added, db::get_counts(&current).unwrap().total), (1, 1));
         let name = summary.backup.unwrap();
-        assert!(name.starts_with("netamipin.before-restore-") && name.ends_with(".db"));
+        assert!(name.starts_with("koonapin.before-restore-") && name.ends_with(".db"));
         let saved = Connection::open(backups.join(&name)).unwrap();
         let before: i64 = saved.query_row("SELECT count(*) FROM bookmarks", [], |r| r.get(0)).unwrap();
         assert_eq!(before, 7, "the copy holds the library as it was");
         drop(saved);
 
         // Only the two newest copies before a replace stay.
-        for old in ["netamipin.before-restore-20200101-000000.db", "netamipin.before-restore-20210101-000000.db"] {
+        for old in ["koonapin.before-restore-20200101-000000.db", "koonapin.before-restore-20210101-000000.db"] {
             std::fs::write(backups.join(old), "old").unwrap();
         }
         std::thread::sleep(std::time::Duration::from_millis(1100));

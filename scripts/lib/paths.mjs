@@ -3,10 +3,10 @@
 //
 //   release/publish/   to people and stores
 //     windows/<version>/   installer, signed, and SHA256SUMS.txt     npm run build:installer -- --sign
-//     chrome/<version>/    netamipin-chrome.zip, Chrome Web Store    npm run extension:build
-//     edge/<version>/      netamipin-edge.zip, Edge Add-ons          npm run extension:build
+//     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    npm run extension:build
+//     edge/<version>/      koonapin-edge.zip, Edge Add-ons          npm run extension:build
 //     firefox/             signed XPIs and updates.json; the site serves them   npm run extension:sign:firefox
-//     site/                pin.netami.app as deployed                npm run site:build
+//     site/                koona.app/pin as deployed                npm run site:build
 //   release/test/      a test machine; never published
 //     windows/<version>/   installer, unsigned                       npm run build:installer
 //     chrome-edge/<version>/  extension with the store id            npm run extension:build (CHROME_STORE_PUBLIC_KEY)

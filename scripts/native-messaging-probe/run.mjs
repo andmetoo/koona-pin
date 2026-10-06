@@ -13,12 +13,12 @@ import net from "node:net";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-const hostName = "app.netami.pin.probe";
-const firefoxId = "probe@netami.pin";
+const hostName = "app.koona.pin.probe";
+const firefoxId = "probe@koona.pin";
 const firefoxUuid = crypto.randomUUID();
 const root = path.resolve(".test-data", `native-messaging-${Date.now()}`);
 const hostDir = path.join(root, "host");
-const exe = path.join(hostDir, "netamipin-probe.exe");
+const exe = path.join(hostDir, "koonapin-probe.exe");
 const logPath = path.join(hostDir, "probe.log");
 const source = path.resolve("scripts/native-messaging-probe");
 const appData = process.env.APPDATA;
@@ -29,7 +29,7 @@ const browsers = {
   // debugger such as MSEdgeRedirect) intercepts the installed msedge.exe.
   edge: {
     kind: "chromium",
-    exe: process.env.NETAMIPIN_PROBE_EDGE || "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    exe: process.env.KOONAPIN_PROBE_EDGE || "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
     key: "Microsoft\\Edge",
   },
   firefox: { kind: "firefox", exe: path.join(process.env.USERPROFILE, "scoop\\apps\\firefox\\current\\firefox.exe"), key: "Mozilla" },
@@ -77,7 +77,7 @@ async function setup() {
   await fs.mkdir(hostDir, { recursive: true });
   await fs.copyFile(path.join(source, "target/release/native-messaging-probe.exe"), exe);
   const { key, id } = extensionKey();
-  const common = { name: hostName, description: "Netami Pin NP-014 probe", path: "netamipin-probe.exe", type: "stdio" };
+  const common = { name: hostName, description: "Koona Pin NP-014 probe", path: "koonapin-probe.exe", type: "stdio" };
   const manifests = {
     chromium: path.join(hostDir, "chromium.json"),
     firefox: path.join(hostDir, "firefox.json"),
@@ -92,7 +92,7 @@ async function setup() {
     await fs.mkdir(dir, { recursive: true });
     for (const file of ["probe.js", "probe.html"]) await fs.copyFile(path.join(source, "extension", file), path.join(dir, file));
   }
-  const base = { manifest_version: 3, name: "Netami Pin probe", version: "0.0.1", permissions: ["nativeMessaging"] };
+  const base = { manifest_version: 3, name: "Koona Pin probe", version: "0.0.1", permissions: ["nativeMessaging"] };
   await fs.writeFile(
     path.join(extension.chromium, "manifest.json"),
     JSON.stringify({ ...base, key, background: { service_worker: "probe.js" } }, null, 2),
@@ -132,7 +132,7 @@ async function until(check, label, ms = 15000) {
 }
 const pipeReady = () =>
   new Promise((resolve) => {
-    const socket = net.connect("\\\\.\\pipe\\netamipin-probe");
+    const socket = net.connect("\\\\.\\pipe\\koonapin-probe");
     socket.on("connect", () => {
       socket.end(JSON.stringify({ cmd: "noop" }) + "\n");
       resolve(true);
@@ -145,7 +145,7 @@ async function startApp() {
 }
 async function stopApps() {
   try {
-    execFileSync("taskkill", ["/F", "/IM", "netamipin-probe.exe"], { stdio: "ignore" });
+    execFileSync("taskkill", ["/F", "/IM", "koonapin-probe.exe"], { stdio: "ignore" });
   } catch {
     /* none running */
   }
@@ -170,11 +170,11 @@ async function closeWithin(b, ms = 15000) {
 /** Where the probe app's %APPDATA% write really landed. */
 async function marker(pid) {
   if (!pid) return null;
-  const direct = path.join(appData, "netamipin-probe", `app-${pid}.txt`);
+  const direct = path.join(appData, "koonapin-probe", `app-${pid}.txt`);
   if (existsSync(direct)) return "real %APPDATA%";
   const packages = path.join(process.env.LOCALAPPDATA, "Packages");
   for (const dir of await fs.readdir(packages).catch(() => [])) {
-    if (existsSync(path.join(packages, dir, "LocalCache\\Roaming\\netamipin-probe", `app-${pid}.txt`)))
+    if (existsSync(path.join(packages, dir, "LocalCache\\Roaming\\koonapin-probe", `app-${pid}.txt`)))
       return `redirected to Packages\\${dir}\\LocalCache`;
   }
   return "not found";
@@ -323,12 +323,12 @@ async function scenario(name, setupResult) {
     }
 
     result.errors = {
-      unknown_host: (await b.run(sendTo, ["app.netami.pin.missing", { cmd: "ping" }])).error,
+      unknown_host: (await b.run(sendTo, ["app.koona.pin.missing", { cmd: "ping" }])).error,
     };
     const original = await fs.readFile(manifest, "utf8");
     const parsed = JSON.parse(original);
     if (parsed.allowed_origins) parsed.allowed_origins = ["chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"];
-    else parsed.allowed_extensions = ["other@netami.pin"];
+    else parsed.allowed_extensions = ["other@koona.pin"];
     await fs.writeFile(manifest, JSON.stringify(parsed));
     result.errors.forbidden = (await b.run(send, { cmd: "ping" })).error;
     await fs.writeFile(manifest, JSON.stringify({ ...parsed, path: "missing.exe", allowed_origins: JSON.parse(original).allowed_origins, allowed_extensions: JSON.parse(original).allowed_extensions }));

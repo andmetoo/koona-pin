@@ -1,5 +1,5 @@
 // Store listing images (NP-017): the real options page at 1280×800 in English
-// and Russian, connected to a test Netami Pin through the real host, plus the
+// and Russian, connected to a test Koona Pin through the real host, plus the
 // promo tile (440×280) and the Edge logo (300×300). Writes extension/store/.
 //
 //   node scripts/store-assets.mjs
@@ -12,7 +12,7 @@ import { assertNoOtherApp, hostBinary, startedSince, testPipe } from "./lib/nati
 
 assertNoOtherApp();
 
-const HOST = "app.netami.pin.test";
+const HOST = "app.koona.pin.test";
 const KEY = `HKCU\\Software\\Chromium\\NativeMessagingHosts\\${HOST}`;
 const out = path.resolve("extension/store");
 const directory = path.resolve(".test-data", `store-assets-${Date.now()}`);
@@ -22,13 +22,13 @@ const extension = path.join(directory, "unpacked-extension");
 await cp(built.unpacked.chrome, extension, { recursive: true });
 await appendFile(path.join(extension, "worker.js"), "\nglobalThis.__captureForTest = captureTab;\n");
 const version = path.join(extension, "version.js");
-await writeFile(version, (await readFile(version, "utf8")).replace('"app.netami.pin"', JSON.stringify(HOST)));
+await writeFile(version, (await readFile(version, "utf8")).replace('"app.koona.pin"', JSON.stringify(HOST)));
 const manifest = path.join(directory, `${HOST}.json`);
 await writeFile(
   manifest,
   JSON.stringify({
     name: HOST,
-    description: "Netami Pin test",
+    description: "Koona Pin test",
     path: hostBinary(),
     type: "stdio",
     allowed_origins: [`chrome-extension://${built.devId}/`],
@@ -38,9 +38,9 @@ execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], {
 
 const env = {
   ...process.env,
-  NETAMIPIN_DATA_DIR: directory,
+  KOONAPIN_DATA_DIR: directory,
   WEBVIEW2_USER_DATA_FOLDER: path.join(directory, "webview"),
-  NETAMIPIN_PIPE: testPipe("store"),
+  KOONAPIN_PIPE: testPipe("store"),
 };
 const apps = startedSince();
 const titles = { en: "How Rust compiles generics", ru: "Как Rust компилирует обобщённый код" };
@@ -100,7 +100,7 @@ async function images() {
         body { width: 440px; height: 280px; background: #2f6b4f; color: #fffefa; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; gap: 18px; }
         .brand { display: flex; align-items: center; gap: 16px; font-size: 40px; font-weight: 600; letter-spacing: -0.5px; }
         p { font-size: 20px; color: #e2eee6; }
-        </style><div class="brand">${mark(84)}netami pin</div><p>${tagline[lang]}</p>`);
+        </style><div class="brand">${mark(84)}koona pin</div><p>${tagline[lang]}</p>`);
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: path.join(out, lang, "promo-440x280.png") });
     }

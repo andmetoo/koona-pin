@@ -1,27 +1,27 @@
-# pin.netami.app (NP-079, Р-37). Static files of `node scripts/build-site.mjs`, copied to
-# /srv/pin.netami.app (doc/site.md, «Выкладка»). Import it from the server's main Caddyfile, once:
-#   import /srv/pin.netami.app/Caddyfile
-# — not both an import and a pasted copy: the sites would be declared twice.
+# koona.app/pin/ (NP-079, Р-37, Р-47). Static files of `node scripts/build-site.mjs`, copied to
+# /srv/koona.app/pin (doc/site.md, «Выкладка»). This file is not a site: it is imported INSIDE
+# the koona.app block of the server's main Caddyfile, once, next to the root site's rules:
 #
-# The domain is proxied by Cloudflare (SSL mode «Full (strict)»): the server answers Cloudflare
-# with a Cloudflare Origin Certificate for pin.netami.app and *.pin.netami.app, kept on the
-# server only (doc/site.md, «Выкладка»). No snippets here: their names would clash with the main
-# Caddyfile's. Without the proxy, drop the `tls` lines: Caddy then gets a Let's Encrypt
-# certificate itself.
+#   koona.app {
+#   	tls /etc/caddy/certs/koona.app.pem /etc/caddy/certs/koona.app.key
+#   	import /srv/koona.app/pin/Caddyfile
+#   	…the root site of koona.app…
+#   }
+#
+# Every app of koona.app lives under its own path; this one only answers /pin and /pin/*.
+# The root site keeps robots.txt (with `Sitemap: https://koona.app/pin/sitemap.xml`), the
+# access log and its own error pages. No snippets and no handle_errors here: their names and
+# status codes would clash with the main Caddyfile's; the 404 pages are answered below instead.
 
-www.pin.netami.app {
-	tls /etc/caddy/certs/pin.netami.app.pem /etc/caddy/certs/pin.netami.app.key
-	redir https://pin.netami.app{uri} permanent
-}
+redir /pin /pin/ 308
 
-pin.netami.app {
-	tls /etc/caddy/certs/pin.netami.app.pem /etc/caddy/certs/pin.netami.app.key
-	root * /srv/pin.netami.app/site
+handle_path /pin/* {
+	root * /srv/koona.app/pin/site
 	encode zstd gzip
 
 	# Only own files, plus the Cloudflare Web Analytics beacon that Cloudflare inserts (Р-37).
 	# Forms post only to the Edge Function `feedback` in Supabase (NP-088, Р-9); 'self' lets its
-	# 303 back to /feedback/sent through, browsers check form-action on redirects too.
+	# 303 back to /pin/feedback/sent through, browsers check form-action on redirects too.
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; script-src https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'self' https://*.supabase.co; frame-ancestors 'none'"
@@ -32,19 +32,21 @@ pin.netami.app {
 		-Server
 	}
 
-	# First visit of "/" from a Russian browser goes to /ru/. The language switch is a link
-	# from this site (same-origin Referer), so a chosen English page stays English.
+	# Paths below are without /pin: handle_path has taken it off. Redirects put it back.
+
+	# First visit of /pin/ from a Russian browser goes to /pin/ru/. The language switch is a link
+	# from these pages (same-origin Referer), so a chosen English page stays English.
 	@russian {
 		path /
 		header_regexp Accept-Language (?i)^\s*ru\b
-		not header Referer https://pin.netami.app/*
+		not header Referer https://koona.app/pin/*
 	}
-	redir @russian /ru/ 302
+	redir @russian /pin/ru/ 302
 	header / Vary "Accept-Language"
 
 	# Old .html addresses go to the clean ones.
 	@html path_regexp html ^(.+)\.html$
-	redir @html {re.html.1} 301
+	redir @html /pin{re.html.1} 301
 
 	# Pages are always fresh; the files they link are kept a week. Pages link them with ?v=<hash>
 	# (scripts/build-site.mjs), so a changed file gets a new address and no stale copy is used.
@@ -60,33 +62,25 @@ pin.netami.app {
 	@xpi path /firefox/*.xpi
 	header @xpi Content-Type "application/x-xpinstall"
 
-	try_files {path} {path}.html {path}/index.html
-	file_server
-
-	# Status codes after handle_errors need Caddy 2.8; the expression works on older ones too.
-	handle_errors {
-		@notfound expression {err.status_code} == 404
-		handle @notfound {
-			@ru path /ru/*
-			rewrite @ru /ru/404.html
-			rewrite * /404.html
-			file_server
+	@found file {
+		try_files {path} {path}.html {path}/index.html
+	}
+	handle @found {
+		rewrite * {file_match.relative}
+		file_server
+	}
+	# Anything else is this site's own 404 page, in the language of the address.
+	@ru path /ru/*
+	handle @ru {
+		rewrite * /ru/404.html
+		file_server {
+			status 404
 		}
 	}
-
-	log {
-		output file /var/log/caddy/pin.netami.app.log {
-			roll_size 10MiB
-			roll_keep 5
-		}
-		# No headers (the visitor's address comes in Cf-Connecting-IP) and no query strings:
-		# the privacy policy says so. remote_ip is Cloudflare's.
-		format filter {
-			wrap console
-			fields {
-				request>headers delete
-				request>uri regexp \?.*$ ""
-			}
+	handle {
+		rewrite * /404.html
+		file_server {
+			status 404
 		}
 	}
 }

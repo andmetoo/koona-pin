@@ -50,7 +50,7 @@ describe("browser status", () => {
     expect(statusLabel(old, t)).toBe("Старое расширение");
     expect(appIsOlder(old)).toBe(false);
     const newer = { ...old, browsers: [seen("firefox", true, 3)] };
-    expect(statusLabel(newer, t)).toBe("Обновите Netami Pin");
+    expect(statusLabel(newer, t)).toBe("Обновите Koona Pin");
     expect(statusColor(newer)).toBe("var(--np-ochre)");
     expect(statusColor(null)).toBe("var(--np-faint)");
   });
@@ -76,10 +76,10 @@ describe("browser status", () => {
   it("installs from the catalog once it has a page, otherwise in developer mode", async () => {
     await i18n.changeLanguage("ru");
     const t = i18n.t.bind(i18n);
-    const links = { edge: "https://microsoftedge.microsoft.com/addons/detail/netami-pin/abc" };
+    const links = { edge: "https://microsoftedge.microsoft.com/addons/detail/koona-pin/abc" };
     const edge = installSteps("edge", links);
     expect(edge.url).toBe(links.edge);
-    expect(t(edge.install)).toBe("Откройте страницу Netami Pin в Edge Add-ons и нажмите «Получить».");
+    expect(t(edge.install)).toBe("Откройте страницу Koona Pin в Edge Add-ons и нажмите «Получить».");
     expect(t("connect.openStore", { store: edge.store })).toBe("Открыть Edge Add-ons");
     expect(t(edge.update)).toMatch(/^Расширение из каталога обновляется само/);
     const chrome = installSteps("chrome", links);

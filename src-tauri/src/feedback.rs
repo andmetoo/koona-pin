@@ -9,11 +9,11 @@ use std::time::Duration;
 use ts_rs::TS;
 
 /// The function's address, set for the build that ships
-/// (`NETAMIPIN_FEEDBACK_URL`); without it sending fails as a service failure.
-pub const ENDPOINT: Option<&str> = option_env!("NETAMIPIN_FEEDBACK_URL");
+/// (`KOONAPIN_FEEDBACK_URL`); without it sending fails as a service failure.
+pub const ENDPOINT: Option<&str> = option_env!("KOONAPIN_FEEDBACK_URL");
 // The installer build (`--features public-release`) cannot ship a dialog that never sends.
 #[cfg(feature = "public-release")]
-const _: () = assert!(ENDPOINT.is_some(), "set NETAMIPIN_FEEDBACK_URL for the installer build (supabase/README.md)");
+const _: () = assert!(ENDPOINT.is_some(), "set KOONAPIN_FEEDBACK_URL for the installer build (supabase/README.md)");
 pub const MAX_MESSAGE: usize = 5000;
 const MAX_REPORT: usize = 10000;
 
@@ -129,7 +129,7 @@ pub async fn send(endpoint: &str, payload: &Payload, limits: Limits) -> Result<(
     let mut builder = reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)
-        .user_agent(format!("NetamiPin/{}", payload.app_version));
+        .user_agent(format!("KoonaPin/{}", payload.app_version));
     // The system proxy, unlike metadata requests: the address is fixed, there is no
     // name to guard, and some networks reach the internet only through a proxy.
     match limits.proxy {
@@ -215,7 +215,7 @@ fn failure(detail: ErrorDetail, error: reqwest::Error) -> CommandError {
 /// user's folder are shortened and anything like a link is cut out.
 pub fn report(status: &CaptureStatus, app_version: &str, os: &str, language: &str, home: Option<&str>) -> String {
     let mut lines = vec![
-        format!("Netami Pin {app_version}"),
+        format!("Koona Pin {app_version}"),
         os.to_string(),
         format!("Language: {language}"),
         match status.problem {
@@ -411,7 +411,7 @@ mod tests {
             last_capture: None,
             days_silent: None,
             problem: Some(CaptureProblem::Registration),
-            detail: Some(r"Access denied: C:\Users\Anna\AppData\Roaming\Netami Pin\host.json, see https://example.com/help".into()),
+            detail: Some(r"Access denied: C:\Users\Anna\AppData\Roaming\Koona Pin\host.json, see https://example.com/help".into()),
             protocol: 2,
         }
     }
@@ -422,11 +422,11 @@ mod tests {
         assert_eq!(
             text,
             [
-                "Netami Pin 0.1.0",
+                "Koona Pin 0.1.0",
                 "Windows 11 24H2 (build 26300), x86_64",
                 "Language: ru",
                 "Capture: failing (registration)",
-                r"Detail: Access denied: %USERPROFILE%\AppData\Roaming\Netami Pin\host.json, see <link>",
+                r"Detail: Access denied: %USERPROFILE%\AppData\Roaming\Koona Pin\host.json, see <link>",
                 "Protocol: 2",
                 "Chrome: extension 0.5.2, protocol 2, last seen 2026-10-06T09:12:00Z",
             ]
@@ -486,7 +486,7 @@ mod tests {
 
     fn sample() -> Payload {
         let mut f = feedback("Only the first card moves.", None);
-        f.report = Some("Netami Pin 0.1.0".into());
+        f.report = Some("Koona Pin 0.1.0".into());
         payload(f, "0.1.0", "Windows 11 24H2 (build 26300), x86_64").unwrap()
     }
 
@@ -505,7 +505,7 @@ mod tests {
                 "kind": "bug",
                 "message": "Only the first card moves.",
                 "email": null,
-                "report": "Netami Pin 0.1.0",
+                "report": "Koona Pin 0.1.0",
                 "app_version": "0.1.0",
                 "os": "Windows 11 24H2 (build 26300), x86_64",
                 "language": "en",

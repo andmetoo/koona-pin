@@ -1,11 +1,11 @@
 // Extension smoke (NP-016, NP-017): the built package in a Chromium browser,
-// talking to Netami Pin through the real native host. The run registers a host
+// talking to Koona Pin through the real native host. The run registers a host
 // name of its own, so an installed app's registration stays untouched.
 //
 //   node scripts/smoke-extension.mjs [chromium|chrome|edge]
 //
 // chromium is Chrome for Testing from Playwright; chrome and edge are the
-// installed browsers (NETAMIPIN_CHROME / NETAMIPIN_EDGE point to another copy).
+// installed browsers (KOONAPIN_CHROME / KOONAPIN_EDGE point to another copy).
 import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -28,7 +28,7 @@ const targets = {
     source: "chrome",
     package: "chrome",
     key: "Google\\Chrome",
-    launch: { executablePath: process.env.NETAMIPIN_CHROME || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+    launch: { executablePath: process.env.KOONAPIN_CHROME || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
   },
   // A copy of Edge's Application folder starts where a redirector (an IFEO
   // debugger such as MSEdgeRedirect) intercepts the installed msedge.exe.
@@ -38,7 +38,7 @@ const targets = {
     package: "edge",
     key: "Microsoft\\Edge",
     launch: {
-      executablePath: process.env.NETAMIPIN_EDGE || "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      executablePath: process.env.KOONAPIN_EDGE || "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
     },
   },
 };
@@ -48,7 +48,7 @@ if (!target) throw new Error(`Unknown browser ${targetName}: use ${Object.keys(t
 if (target.launch.executablePath && !existsSync(target.launch.executablePath))
   throw new Error(`${target.name} not found at ${target.launch.executablePath}`);
 
-const HOST = "app.netami.pin.test";
+const HOST = "app.koona.pin.test";
 const KEY = `HKCU\\Software\\${target.key}\\NativeMessagingHosts\\${HOST}`;
 const directory = path.resolve(".test-data", `extension-${targetName}-${Date.now()}`);
 await mkdir(directory, { recursive: true });
@@ -77,20 +77,20 @@ await writeFile(
   ),
 );
 const version = path.join(extension, "version.js");
-await writeFile(version, (await readFile(version, "utf8")).replace('"app.netami.pin"', JSON.stringify(HOST)));
+await writeFile(version, (await readFile(version, "utf8")).replace('"app.koona.pin"', JSON.stringify(HOST)));
 
 const pipe = testPipe("extension");
 const env = {
   ...process.env,
-  NETAMIPIN_DATA_DIR: directory,
+  KOONAPIN_DATA_DIR: directory,
   WEBVIEW2_USER_DATA_FOLDER: path.join(directory, "webview"),
-  NETAMIPIN_PIPE: pipe,
+  KOONAPIN_PIPE: pipe,
 };
 const manifest = path.join(directory, `${HOST}.json`);
 const writeManifest = (origin) =>
   writeFile(
     manifest,
-    JSON.stringify({ name: HOST, description: "Netami Pin test", path: hostBinary(), type: "stdio", allowed_origins: [origin] }),
+    JSON.stringify({ name: HOST, description: "Koona Pin test", path: hostBinary(), type: "stdio", allowed_origins: [origin] }),
   );
 const register = () => execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
 const unregister = () => {
@@ -104,7 +104,7 @@ await writeManifest(`chrome-extension://${built.devId}/`);
 register();
 
 const apps = startedSince();
-const library = path.join(directory, "netamipin.db");
+const library = path.join(directory, "koonapin.db");
 let browser, worker;
 const notes = [];
 async function until(check, label, ms = 20000) {
@@ -163,7 +163,7 @@ try {
   // A hello does not start the app the user closed.
   let page = await options(id);
   await page.locator('#status[data-state="closed"]').waitFor();
-  await page.getByText("Netami Pin закрыт").waitFor();
+  await page.getByText("Koona Pin закрыт").waitFor();
   assert.equal(await pipeReady(pipe), false, "hello must not start the app");
 
   // A browser page cannot be saved: the button says so, nothing is queued.
@@ -180,7 +180,7 @@ try {
   const [{ request_id: firstId }] = rows("SELECT request_id FROM capture_receipts");
   await page.getByRole("button", { name: "Проверить снова" }).click();
   await page.locator('#status[data-state="connected"]').waitFor();
-  await page.getByText("Подключено к Netami Pin").waitFor();
+  await page.getByText("Подключено к Koona Pin").waitFor();
 
   // A duplicate: existing, the title stays.
   assert.equal(await capture("https://example.invalid/extension-capture", "Заголовок дубликата"), "existing");
@@ -199,7 +199,7 @@ try {
   assert.match(queued[0].error, /не ответил/);
   // Every tab shows the clock while a link waits; the title follows a successful setIcon.
   assert.match(await worker.evaluate(() => chrome.action.getTitle({})), /ожидают передачи 1/);
-  assert.ok(await worker.evaluate(() => chrome.alarms.get("netamipin-delivery")));
+  assert.ok(await worker.evaluate(() => chrome.alarms.get("koonapin-delivery")));
   apps.stop();
 
   // The queue survives a browser restart with the same request id.
@@ -248,7 +248,7 @@ try {
   assert.match(refused[0].error, /не установлен/);
   await page.reload();
   await page.locator('#status[data-state="missing"]').waitFor();
-  await page.getByRole("link", { name: "Скачать Netami Pin" }).waitFor();
+  await page.getByRole("link", { name: "Скачать Koona Pin" }).waitFor();
   await writeManifest(`chrome-extension://${built.devId}/`);
   await page.getByRole("button", { name: "Отправить сейчас" }).click();
   await until(async () => (await waiting()).length === 0, "delivery after registration came back");
@@ -268,17 +268,17 @@ try {
     const tabId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, pageUrl);
     assert.ok(Number.isInteger(tabId), "the test page is a tab");
     const title = () => worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), tabId);
-    const message = tab.locator("#netamipin-feedback");
+    const message = tab.locator("#koonapin-feedback");
     assert.equal(await capture(pageUrl, "Отклик", tabId), "saved");
-    await tab.locator('#netamipin-feedback[data-state="saved"]').waitFor();
-    assert.equal(await title(), "Сохранено в Netami Pin");
+    await tab.locator('#koonapin-feedback[data-state="saved"]').waitFor();
+    assert.equal(await title(), "Сохранено в Koona Pin");
     await sleep(400); // the message fades in
     await tab.screenshot({ path: path.join(directory, "feedback-saved-light.png") });
     await message.waitFor({ state: "detached", timeout: 6000 }); // leaves by itself after 3 s
     await tab.emulateMedia({ colorScheme: "dark" });
     assert.equal(await capture(pageUrl, "Отклик", tabId), "existing");
-    await tab.locator('#netamipin-feedback[data-state="existing"]').waitFor();
-    assert.equal(await title(), "Эта ссылка уже есть в Netami Pin");
+    await tab.locator('#koonapin-feedback[data-state="existing"]').waitFor();
+    assert.equal(await title(), "Эта ссылка уже есть в Koona Pin");
     await sleep(400);
     await tab.screenshot({ path: path.join(directory, "feedback-existing-dark.png") });
     await tab.mouse.click(1100, 40); // a click closes it
@@ -288,7 +288,7 @@ try {
     assert.equal(await capture(pageUrl, "Отклик", tabId), "existing");
     await sleep(800);
     assert.equal(await message.count(), 0, "no message when it is turned off");
-    assert.equal(await title(), "Эта ссылка уже есть в Netami Pin");
+    assert.equal(await title(), "Эта ссылка уже есть в Koona Pin");
     await worker.evaluate(() => chrome.storage.local.remove("feedback"));
     await tab.close();
 
@@ -299,7 +299,7 @@ try {
     await again.goto(pageUrl);
     const againId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, pageUrl);
     await until(
-      async () => (await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), againId)) === "Эта ссылка уже есть в Netami Pin",
+      async () => (await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), againId)) === "Эта ссылка уже есть в Koona Pin",
       "a saved page is marked on load",
     );
     const otherUrl = pageUrl.replace("/feedback", "/not-saved");
@@ -307,7 +307,7 @@ try {
     await other.goto(otherUrl);
     const otherId = await worker.evaluate(async (url) => (await chrome.tabs.query({ url }))[0]?.id, otherUrl);
     await sleep(1000);
-    assert.notEqual(await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), otherId), "Эта ссылка уже есть в Netami Pin");
+    assert.notEqual(await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), otherId), "Эта ссылка уже есть в Koona Pin");
     // An address the page rewrites itself (history.replaceState: tracking
     // parameters dropped, an app's route) is asked about too: Chrome reports
     // it as loading and complete, with no network load.
@@ -318,7 +318,7 @@ try {
     await sleep(500);
     await rewritten.evaluate(() => history.replaceState(null, "", "/feedback"));
     await until(
-      async () => (await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), rewrittenId)) === "Эта ссылка уже есть в Netami Pin",
+      async () => (await worker.evaluate((tabId) => chrome.action.getTitle({ tabId }), rewrittenId)) === "Эта ссылка уже есть в Koona Pin",
       "a page rewritten to a saved address is marked",
     );
     await worker.evaluate(() => chrome.storage.local.remove("feedback"));

@@ -63,25 +63,25 @@
     "lost_one": "{{count}} gündür bağlantı yok",
     "lost_other": "{{count}} gündür bağlantı yok",
     "update": "Uzantıyı güncelleyin",
-    "updateApp": "Netami Pin'i güncelle",
+    "updateApp": "Koona Pin'i güncelle",
     "connectedTo": "Bağlı: {{browsers}}",
     "lastSavedToday": "Son kayıt bugün {{time}}, {{browser}} üzerinden",
     "lastSavedOn": "Son kayıt {{date}} {{time}}, {{browser}} üzerinden",
     "noSaves": "Henüz kaydedilmiş sayfa yok",
     "notConnectedHint": "Uzantı bir sayfayı tek tıkla kaydeder",
-    "lostText_one": "{{count}} gündür hiçbir uzantıdan haber yok. Tarayıcınızı açın ve Netami Pin'in etkin olduğunu kontrol edin — sıradaki bağlantılar kendiliğinden gelecek.",
-    "lostText_other": "{{count}} gündür hiçbir uzantıdan haber yok. Tarayıcınızı açın ve Netami Pin'in etkin olduğunu kontrol edin — sıradaki bağlantılar kendiliğinden gelecek.",
-    "updateText": "{{browser}} tarayıcısında bu Netami Pin ile uyumlu olmayan {{version}} uzantısı var. Uzantıyı güncelleyin — o zamana kadar bağlantılar uzantıda bekler.",
-    "updateAppText": "{{browser}} tarayıcısında daha yeni bir uzantı var ({{version}}). Netami Pin'i güncelleyin — o zamana kadar bağlantılar uzantıda bekler.",
+    "lostText_one": "{{count}} gündür hiçbir uzantıdan haber yok. Tarayıcınızı açın ve Koona Pin'in etkin olduğunu kontrol edin — sıradaki bağlantılar kendiliğinden gelecek.",
+    "lostText_other": "{{count}} gündür hiçbir uzantıdan haber yok. Tarayıcınızı açın ve Koona Pin'in etkin olduğunu kontrol edin — sıradaki bağlantılar kendiliğinden gelecek.",
+    "updateText": "{{browser}} tarayıcısında bu Koona Pin ile uyumlu olmayan {{version}} uzantısı var. Uzantıyı güncelleyin — o zamana kadar bağlantılar uzantıda bekler.",
+    "updateAppText": "{{browser}} tarayıcısında daha yeni bir uzantı var ({{version}}). Koona Pin'i güncelleyin — o zamana kadar bağlantılar uzantıda bekler.",
     "howToConnect": "Nasıl bağlanır",
     "howToUpdate": "Nasıl güncellenir",
     "connect": "Bağla",
-    "problem_channel": "Netami Pin kayıt kanalını açamadı: başka bir program kullanıyor. Netami Pin'i yeniden başlatın — bağlantılar uzantıda bekleyecek.",
-    "problem_registration": "Netami Pin tarayıcılara kaydolamadı. Yeniden deneyin; olmazsa Netami Pin'i yeniden yükleyin — bağlantılar uzantıda bekleyecek.",
-    "problem_host_missing": "Netami Pin'in bir parçası (netamipin-host.exe) eksik. Netami Pin'i yeniden yükleyin — bağlantılar uzantıda bekleyecek.",
-    "banner_channel": "Tarayıcı yer işareti gönderemiyor: Netami Pin kayıt kanalını açamadı. Bağlantılar uzantıda bekliyor.",
-    "banner_registration": "Tarayıcı yer işareti gönderemiyor: Netami Pin tarayıcılara kaydolamadı. Bağlantılar uzantıda bekliyor.",
-    "banner_host_missing": "Tarayıcı yer işareti gönderemiyor: Netami Pin'in bir parçası eksik. Bağlantılar uzantıda bekliyor.",
+    "problem_channel": "Koona Pin kayıt kanalını açamadı: başka bir program kullanıyor. Koona Pin'i yeniden başlatın — bağlantılar uzantıda bekleyecek.",
+    "problem_registration": "Koona Pin tarayıcılara kaydolamadı. Yeniden deneyin; olmazsa Koona Pin'i yeniden yükleyin — bağlantılar uzantıda bekleyecek.",
+    "problem_host_missing": "Koona Pin'in bir parçası (koonapin-host.exe) eksik. Koona Pin'i yeniden yükleyin — bağlantılar uzantıda bekleyecek.",
+    "banner_channel": "Tarayıcı yer işareti gönderemiyor: Koona Pin kayıt kanalını açamadı. Bağlantılar uzantıda bekliyor.",
+    "banner_registration": "Tarayıcı yer işareti gönderemiyor: Koona Pin tarayıcılara kaydolamadı. Bağlantılar uzantıda bekliyor.",
+    "banner_host_missing": "Tarayıcı yer işareti gönderemiyor: Koona Pin'in bir parçası eksik. Bağlantılar uzantıda bekliyor.",
     "details": "Ayrıntılar",
     "copyReport": "Raporu kopyala",
     "reportCopied": "Rapor kopyalandı"
@@ -106,7 +106,7 @@
     "import": "İçe aktar",
     "importHtml": "Tarayıcı yer işaretleri (HTML)",
     "importHtmlHint": "Chrome, Edge, Firefox",
-    "importJson": "Netami Pin yedeği (JSON)",
+    "importJson": "Koona Pin yedeği (JSON)",
     "export": "Dışa aktar",
     "exportHtml": "Tarayıcılar için HTML",
     "exportJson": "JSON — tam kopya",
@@ -254,7 +254,7 @@
   "restore": {
     "title": "JSON kopyasından geri yükle",
     "lead": "Dışa aktarma ile oluşturulmuş bir JSON kopyası seçin. Kitaplıkta bir şey değişmeden önce dosyanın tamamı denetlenir.",
-    "file": "Netami Pin kopyası .json",
+    "file": "Koona Pin kopyası .json",
     "bookmarks_one": "{{count, number}} yer işareti",
     "bookmarks_other": "{{count, number}} yer işareti",
     "collectionsCount_one": "{{count, number}} koleksiyon",
@@ -287,9 +287,9 @@
     "backup": "Önceki kitaplığın yedeği: {{name}}",
     "backupFailed": "Mevcut kitaplığın yedeği kaydedilemedi: {{detail}}. Hiçbir şey değişmedi.",
     "failed": "Geri yüklenemedi. {{reason}} Hiçbir şey değişmedi.",
-    "notJson": "Bu bir JSON dosyası değil. Netami Pin'in dışa aktarmasıyla oluşturulmuş bir kopya seçin. Hiçbir şey değişmedi.",
-    "notOurs": "Bu bir Netami Pin kopyası değil: dosya Netami Pin biçiminde değil. Hiçbir şey değişmedi.",
-    "newer": "Kopya daha yeni bir Netami Pin ile oluşturulmuş (biçim {{version}}). Geri yüklemek için uygulamayı güncelleyin. Hiçbir şey değişmedi.",
+    "notJson": "Bu bir JSON dosyası değil. Koona Pin'in dışa aktarmasıyla oluşturulmuş bir kopya seçin. Hiçbir şey değişmedi.",
+    "notOurs": "Bu bir Koona Pin kopyası değil: dosya Koona Pin biçiminde değil. Hiçbir şey değişmedi.",
+    "newer": "Kopya daha yeni bir Koona Pin ile oluşturulmuş (biçim {{version}}). Geri yüklemek için uygulamayı güncelleyin. Hiçbir şey değişmedi.",
     "damaged": "Kopya bozuk: {{what}}. Hiçbir şey değişmedi.",
     "damage": {
       "file_structure": "yapısı bozuk ({{detail}})",
@@ -332,16 +332,16 @@
     "installTitle": "Uzantıyı yükleyin",
     "install_chrome": "chrome://extensions sayfasını açın, Geliştirici modunu açın, “Paketlenmemiş öğe yükle”yi seçin ve extension/build/chrome klasörünü gösterin.",
     "install_edge": "edge://extensions sayfasını açın, Geliştirici modunu açın, “Paketten çıkarılmış öğe yükle”yi seçin ve extension/build/edge klasörünü gösterin.",
-    "install_firefox": "about:debugging#/runtime/this-firefox sayfasını açın, “Geçici Eklenti Yükle…”yi seçin ve release/netamipin-firefox.xpi dosyasını gösterin. İmzalı sürüme kadar Firefox kapanırken onu kaldırır.",
-    "store_chrome": "Chrome Web Store'da Netami Pin sayfasını açın ve “Chrome'a ekle”ye tıklayın.",
-    "store_edge": "Edge Add-ons'ta Netami Pin sayfasını açın ve “Al”a tıklayın.",
+    "install_firefox": "about:debugging#/runtime/this-firefox sayfasını açın, “Geçici Eklenti Yükle…”yi seçin ve release/koonapin-firefox.xpi dosyasını gösterin. İmzalı sürüme kadar Firefox kapanırken onu kaldırır.",
+    "store_chrome": "Chrome Web Store'da Koona Pin sayfasını açın ve “Chrome'a ekle”ye tıklayın.",
+    "store_edge": "Edge Add-ons'ta Koona Pin sayfasını açın ve “Al”a tıklayın.",
     "openStore": "{{store}} aç",
-    "pinTitle": "Netami Pin simgesini sabitleyin",
-    "pin_chrome": "Araç çubuğundaki yapboz menüsünü açın ve Netami Pin'i sabitleyin.",
-    "pin_edge": "Araç çubuğundaki Uzantılar menüsünü açın ve Netami Pin için “Araç çubuğunda göster”i seçin.",
-    "pin_firefox": "Araç çubuğundaki Uzantılar menüsünü açın ve Netami Pin için “Araç çubuğuna sabitle”yi seçin.",
+    "pinTitle": "Koona Pin simgesini sabitleyin",
+    "pin_chrome": "Araç çubuğundaki yapboz menüsünü açın ve Koona Pin'i sabitleyin.",
+    "pin_edge": "Araç çubuğundaki Uzantılar menüsünü açın ve Koona Pin için “Araç çubuğunda göster”i seçin.",
+    "pin_firefox": "Araç çubuğundaki Uzantılar menüsünü açın ve Koona Pin için “Araç çubuğuna sabitle”yi seçin.",
     "saveTitle": "Bir sayfa kaydedin",
-    "save": "Herhangi bir sayfada simgeye tıklayın. Netami Pin kapalıysa sistem tepsisinde başlar ve bağlantıyı kaydeder.",
+    "save": "Herhangi bir sayfada simgeye tıklayın. Koona Pin kapalıysa sistem tepsisinde başlar ve bağlantıyı kaydeder.",
     "lostTitle": "Bağlantı koparsa",
     "lost_chrome": "Uzantının chrome://extensions sayfasında açık olduğunu kontrol edin. Bağlantılar uzantıda bekler ve kendiliğinden gelir.",
     "lost_edge": "Uzantının edge://extensions sayfasında açık olduğunu kontrol edin. Bağlantılar uzantıda bekler ve kendiliğinden gelir.",
@@ -349,14 +349,14 @@
     "updateTitle": "Güncelleme",
     "update_chrome": "Uzantıyı yeniden derleyin ve chrome://extensions sayfasında “Yeniden yükle”ye tıklayın. Mağaza sürümü kendiliğinden güncellenir.",
     "update_edge": "Uzantıyı yeniden derleyin ve edge://extensions sayfasında “Yeniden yükle”ye tıklayın. Mağaza sürümü kendiliğinden güncellenir.",
-    "update_firefox": "Uzantıyı yeniden derleyin ve yeni release/netamipin-firefox.xpi dosyasını yükleyin. İmzalı sürüm kendiliğinden güncellenir.",
+    "update_firefox": "Uzantıyı yeniden derleyin ve yeni release/koonapin-firefox.xpi dosyasını yükleyin. İmzalı sürüm kendiliğinden güncellenir.",
     "updateStore": "Mağazadaki uzantı kendiliğinden güncellenir: tarayıcı günde birkaç kez güncelleme denetler."
   },
   "backup": {
     "title": "Yedekten geri yükle",
     "lead": "Bir kopya seçin. Kitaplık o anki hâline döner; sonraki değişiklikler kaybolur.",
     "loading": "Yedekler aranıyor…",
-    "empty": "Yedekler klasöründe henüz yedek yok. Netami Pin başlarken ve günde bir kez yedek alır; başka bir yere kaydedilmiş kopyayı dosya olarak seçebilirsiniz.",
+    "empty": "Yedekler klasöründe henüz yedek yok. Koona Pin başlarken ve günde bir kez yedek alır; başka bir yere kaydedilmiş kopyayı dosya olarak seçebilirsiniz.",
     "kind": {
       "automatic": "Otomatik",
       "before_update": "Kitaplık güncellemesinden önce",
@@ -386,9 +386,9 @@
     "previous": "Önceki kitaplığın yedeği",
     "checkedBad": "Denetlendi: kopya geri yüklenemez",
     "another": "Başka dosya seç",
-    "notDatabase": "Bu dosya bir veritabanı değil, bu yüzden Netami Pin yedeği olamaz. Hiçbir şey değişmedi.",
-    "notOurs": "Bu dosya Netami Pin'e değil, başka bir programa ait. Hiçbir şey değişmedi.",
-    "newer": "Bu kopyayı daha yeni bir Netami Pin oluşturmuş (şema {{schema}}). Geri yüklemek için uygulamayı güncelleyin. Hiçbir şey değişmedi.",
+    "notDatabase": "Bu dosya bir veritabanı değil, bu yüzden Koona Pin yedeği olamaz. Hiçbir şey değişmedi.",
+    "notOurs": "Bu dosya Koona Pin'e değil, başka bir programa ait. Hiçbir şey değişmedi.",
+    "newer": "Bu kopyayı daha yeni bir Koona Pin oluşturmuş (şema {{schema}}). Geri yüklemek için uygulamayı güncelleyin. Hiçbir şey değişmedi.",
     "damaged": "Kopya bozuk: {{detail}}. Hiçbir şey değişmedi.",
     "unreadable": "Kopya okunamıyor: {{detail}}. Hiçbir şey değişmedi.",
     "backupFailed": "Mevcut kitaplığın yedeği kaydedilemedi: {{detail}}. Hiçbir şey değişmedi.",
@@ -436,8 +436,8 @@
     "title": "Bağlantı denetimi",
     "loading": "Sonuçlar okunuyor…",
     "introTitle": "Bağlantılarınızı denetleyin",
-    "introText_one": "Netami Pin tek yer işaretinizin adresini bir tarayıcı gibi, sayfayı yüklemeden bir kez açar. Site, bilgisayarınızdan gelen sıradan bir istek görür. Çalışmaya devam edebilir ya da istediğiniz an durdurabilirsiniz.",
-    "introText_other": "Netami Pin {{count}} yer işaretinizin her birinin adresini bir tarayıcı gibi, sayfayı yüklemeden bir kez açar. Her site, bilgisayarınızdan gelen sıradan bir istek görür. Çalışmaya devam edebilir ya da istediğiniz an durdurabilirsiniz.",
+    "introText_one": "Koona Pin tek yer işaretinizin adresini bir tarayıcı gibi, sayfayı yüklemeden bir kez açar. Site, bilgisayarınızdan gelen sıradan bir istek görür. Çalışmaya devam edebilir ya da istediğiniz an durdurabilirsiniz.",
+    "introText_other": "Koona Pin {{count}} yer işaretinizin her birinin adresini bir tarayıcı gibi, sayfayı yüklemeden bir kez açar. Her site, bilgisayarınızdan gelen sıradan bir istek görür. Çalışmaya devam edebilir ya da istediğiniz an durdurabilirsiniz.",
     "introSmall": "Hiçbir şey kendiliğinden silinmez. Bu bilgisayara veya yerel ağınıza giden bağlantılara istek gönderilmez.",
     "start_one": "{{count}} bağlantıyı denetle",
     "start_other": "{{count}} bağlantıyı denetle",
@@ -515,7 +515,7 @@
     "autostartHint": "Tarayıcıdan gelen bağlantılar hemen ulaşsın diye sistem tepsisinde başlar",
     "desktopOnly": "Masaüstü uygulamasında kullanılabilir",
     "tray": "Pencere kapatılınca uygulamayı sistem tepsisinde tut",
-    "trayHint": "Tamamen çıkmak için sistem tepsisindeki Netami Pin simgesinin menüsünü kullanın",
+    "trayHint": "Tamamen çıkmak için sistem tepsisindeki Koona Pin simgesinin menüsünü kullanın",
     "browser": "Tarayıcı",
     "connectBrowser": "Başka bir tarayıcı bağla",
     "data": "Veriler",
@@ -536,7 +536,7 @@
     "restoreBackup": "Yedekten geri yükle",
     "restoreHint": "Kitaplık kopyadaki hâline döner",
     "restore": "Geri yükle…",
-    "backupNote": "Yedek, Netami Pin için kitaplığın tam olarak o anki hâlidir — bir hasar ya da hatadan sonra geri yükleyin. Yer işaretlerini başka bir kitaplığa taşımak için Dışa aktar → JSON kullanın; HTML tarayıcılar, CSV tablolar içindir.",
+    "backupNote": "Yedek, Koona Pin için kitaplığın tam olarak o anki hâlidir — bir hasar ya da hatadan sonra geri yükleyin. Yer işaretlerini başka bir kitaplığa taşımak için Dışa aktar → JSON kullanın; HTML tarayıcılar, CSV tablolar içindir.",
     "backUpNow": "Şimdi yedekle",
     "copying": "Yedekleniyor…",
     "copyDone": "Yedek oluşturuldu",
@@ -552,7 +552,7 @@
     "feedbackHint": "Bir hata, fikir ya da soru — doğrudan geliştiriciye",
     "feedbackButton": "Geri bildirim gönder…",
     "github": "GitHub'daki bildirimler",
-    "githubHint": "netami-pin-releases içindeki herkese açık bildirimler"
+    "githubHint": "koona-pin içindeki herkese açık bildirimler"
   },
   "notice": {
     "previewRefreshed": "Önizleme yenilendi",
@@ -708,23 +708,23 @@
     "details": "Ayrıntılar",
     "DB_LOCKED": {
       "title": "Kitaplık başka bir program tarafından kullanılıyor",
-      "body": "Başka bir program kitaplık dosyasını açık tutuyor. Netami Pin dosyaya hiçbir şey yazmadı — verileriniz olduğu gibi. O programı kapatın ve Yeniden dene'ye tıklayın."
+      "body": "Başka bir program kitaplık dosyasını açık tutuyor. Koona Pin dosyaya hiçbir şey yazmadı — verileriniz olduğu gibi. O programı kapatın ve Yeniden dene'ye tıklayın."
     },
     "DB_NEWER_SCHEMA": {
-      "title": "Netami Pin'in daha yeni bir sürümü bu kitaplığı güncellemiş",
-      "body": "Kitaplık {{schema}} şemasını kullanıyor; bu sürüm en fazla {{supported}} şemasını destekliyor. En son sürümü pin.netami.app adresinden yükleyin. Kitaplık değiştirilmedi."
+      "title": "Koona Pin'in daha yeni bir sürümü bu kitaplığı güncellemiş",
+      "body": "Kitaplık {{schema}} şemasını kullanıyor; bu sürüm en fazla {{supported}} şemasını destekliyor. En son sürümü koona.app/pin adresinden yükleyin. Kitaplık değiştirilmedi."
     },
     "DB_FOREIGN": {
-      "title": "Bu bir Netami Pin kitaplığı değil",
-      "body": "Dosya başka bir program tarafından oluşturulmuş. Netami Pin onu açmaz ve değiştirmez. Dosyayı veri klasöründen çıkarın; bir sonraki başlangıçta yeni bir kitaplık oluşturulur."
+      "title": "Bu bir Koona Pin kitaplığı değil",
+      "body": "Dosya başka bir program tarafından oluşturulmuş. Koona Pin onu açmaz ve değiştirmez. Dosyayı veri klasöründen çıkarın; bir sonraki başlangıçta yeni bir kitaplık oluşturulur."
     },
     "DB_NOT_DATABASE": {
       "title": "Kitaplık dosyası okunamıyor",
-      "body": "Dosya bozuk ya da bir veritabanı değil. Netami Pin onu değiştirmez. En son yedeği geri yükleyin: dosya yedekler klasöründe olduğu gibi saklanır."
+      "body": "Dosya bozuk ya da bir veritabanı değil. Koona Pin onu değiştirmez. En son yedeği geri yükleyin: dosya yedekler klasöründe olduğu gibi saklanır."
     },
     "DB_CORRUPT": {
       "title": "Kitaplık bozuk",
-      "body": "Bütünlük denetimi kitaplık dosyasında hatalar buldu. Daha fazla zarar vermemek için Netami Pin dosyayı güncellemez ve değiştirmez. En son yedeği geri yükleyin: bozuk dosya yedekler klasöründe olduğu gibi saklanır."
+      "body": "Bütünlük denetimi kitaplık dosyasında hatalar buldu. Daha fazla zarar vermemek için Koona Pin dosyayı güncellemez ve değiştirmez. En son yedeği geri yükleyin: bozuk dosya yedekler klasöründe olduğu gibi saklanır."
     },
     "BACKUP_FAILED": {
       "title": "Güncellemeden önce kitaplık yedeklenemedi",
@@ -828,9 +828,9 @@
     }
   },
   "tray": {
-    "open": "Netami Pin'i aç",
+    "open": "Koona Pin'i aç",
     "quit": "Çık",
-    "tooltip": "Netami Pin — bağlantı kitaplığınız"
+    "tooltip": "Koona Pin — bağlantı kitaplığınız"
   },
   "starter": {
     "development": "Geliştirme",

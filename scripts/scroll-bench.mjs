@@ -42,7 +42,7 @@ async function measure(view) {
         created_at: new Date(Date.UTC(2026, 9, 3) - i * 3_153_600).toISOString(),
       }));
       localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ bookmarks, collections: await api.getCollections() }));
-      localStorage.setItem("netamipin.view", view);
+      localStorage.setItem("koonapin.view", view);
     },
     { count, view },
   );

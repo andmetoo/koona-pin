@@ -3,7 +3,7 @@ import { appIsOlder, browserName } from "./native.js";
 import { shortcutFrom } from "./search-model.js";
 import { VERSION } from "./version.js";
 const get = (id) => document.getElementById(id);
-const DOWNLOAD = "https://pin.netami.app";
+const DOWNLOAD = "https://koona.app/pin/";
 function translate() {
   document.documentElement.lang = ext.i18n.getUILanguage();
   for (const element of document.querySelectorAll("[data-i18n]"))
