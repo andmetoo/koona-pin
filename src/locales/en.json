@@ -365,7 +365,7 @@
     },
     "bookmarks_one": "{{count}} bookmark",
     "bookmarks_other": "{{count}} bookmarks",
-    "unreadable": "Can't be read",
+    "unreadableShort": "Can't be read",
     "today": "Today, {{time}}",
     "yesterday": "Yesterday, {{time}}",
     "on": "{{date}}, {{time}}",

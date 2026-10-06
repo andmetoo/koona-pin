@@ -243,7 +243,7 @@ export function BackupRestoreDialog({
                       </span>
                     </span>
                     <span className="shrink-0 text-sm text-muted tabular-nums">
-                      {readable ? t("backup.bookmarks", { count: copy.bookmarks ?? 0 }) : t("backup.unreadable")}
+                      {readable ? t("backup.bookmarks", { count: copy.bookmarks ?? 0 }) : t("backup.unreadableShort")}
                     </span>
                   </button>
                 );

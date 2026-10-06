@@ -394,7 +394,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
   await expect(heading).toHaveText(/Sort inbox\s*1 of 5/);
   await expect(title).toHaveText("Third new");
-  await expect(page.locator("[data-triage-card]")).toContainText(/example\.com\s*· added by hand today at \d/);
+  await expect(page.locator("[data-triage-card]")).toContainText(/example\.com\s*·\s*added by hand today at \d/);
   await expect(page.getByText("Up next")).toBeVisible();
 
   // F and T stay on the card; Space opens the page.
