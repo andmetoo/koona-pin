@@ -26,6 +26,8 @@ pub enum ErrorCode {
     DatabaseError,
     /// A failure outside the database: a thread, a folder, the opener.
     Internal,
+    /// A request to a service on the internet failed: feedback (NP-088).
+    Network,
 }
 
 /// What exactly went wrong, when people are told more than the code says.
@@ -45,6 +47,16 @@ pub enum ErrorDetail {
     NothingExported,
     CopyGone,
     LibraryOpening,
+    /// Feedback (NP-088): nothing to send, too long, a bad reply address.
+    EmptyMessage,
+    MessageTooLong,
+    InvalidEmail,
+    /// No internet connection, or the feedback service could not be reached.
+    NoConnection,
+    /// The service answered with an error or did not answer in time.
+    ServiceFailed,
+    /// Over the hourly limit of the service.
+    TooManyMessages,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

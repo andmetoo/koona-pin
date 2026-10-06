@@ -8,6 +8,7 @@ pub mod db;
 pub mod dedupe;
 pub mod error;
 pub mod export;
+pub mod feedback;
 pub mod import;
 pub mod journal;
 pub mod library;
@@ -137,6 +138,8 @@ pub fn run() {
             commands::stop_link_check,
             commands::replace_addresses,
             commands::rebuild_search_index,
+            commands::feedback_report,
+            commands::send_feedback,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])

@@ -9,9 +9,10 @@
 | `/`, `/ru/` | Лендинг на английском и русском |
 | `/privacy`, `/ru/privacy` | Политика конфиденциальности, текст из `extension/store/privacy.md` |
 | `/licenses`, `/ru/licenses` | Лицензии шрифтов, иконок и библиотек; вёрстка страницы privacy, отдельного кадра нет |
+| `/feedback`, `/ru/feedback` и `/feedback/sent`, `/limit`, `/error` | Форма отзыва и страницы, на которые её возвращает Edge Function (NP-088); вёрстка страницы privacy, отдельного кадра нет. Собираются, только если задан `NETAMIPIN_FEEDBACK_URL` |
 | `/firefox/updates.json`, `/firefox/netamipin-firefox-<версия>.xpi` | Обновления Firefox (NP-018). Адрес зашит в подписанный XPI и не меняется |
 
-Сайт статический, без серверной части и без скриптов на страницах. Хостинг — сервер владельца с Caddy ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)), конфиг — `site/Caddyfile`, выкладка — ниже.
+Сайт статический, без серверной части и без скриптов на страницах. Единственная форма — отзыв (NP-088): обычный `<form>`, POST прямо в Edge Function `feedback` в Supabase, CSP разрешает `form-action` только `https://*.supabase.co`. Хостинг — сервер владельца с Caddy ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)), конфиг — `site/Caddyfile`, выкладка — ниже.
 
 ## Правила
 
@@ -118,5 +119,5 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
 Без прокси (серое облако, `A` на сервер) из `site/Caddyfile` убираются строки `tls`: Caddy сам получит сертификат Let's Encrypt.
 ## Открытые вопросы
 
-1. Ссылка «Support»: сейчас ведёт на `https://github.com/andmetoo/netami-pin-releases/issues/new/choose`. Почта на `netami.app` ([Р-9](decisions.md#р-9-распространение-windows)) — добавить, когда появится адрес.
+1. Ссылка «Support»: при сборке с `NETAMIPIN_FEEDBACK_URL` ведёт на `/feedback` (там же ссылка на Issues), без него — на `https://github.com/andmetoo/netami-pin-releases/issues/new/choose`. Почта на `netami.app` ([Р-9](decisions.md#р-9-распространение-windows)) — добавить, когда появится адрес.
 2. Надпись Nunito ExtraBold выбрана для сайта. Перенос в `logo.sketch`, гайдлайн и боковую панель приложения — отдельной задачей, если владелец решит менять надпись везде.

@@ -51,7 +51,7 @@ export const content = {
     ],
     footer: { privacy: "Privacy", licenses: "Licenses", support: "Support" },
     back: "Netami Pin",
-    privacyPage: { title: "Privacy policy", updated: "Last updated 5 October 2026", section: "English" },
+    privacyPage: { title: "Privacy policy", updated: "Last updated 6 October 2026", section: "English" },
     licenses: {
       title: "Licenses",
       lead: "What this site is made of and under which terms.",
@@ -64,6 +64,25 @@ export const content = {
       app: "The licenses of the app and its components ship with the app.",
     },
     notFound: { title: "Page not found", body: "This address doesn't lead anywhere on the site.", home: "Go to the home page" },
+    feedback: {
+      title: "Send feedback",
+      lead: "Found a bug, have an idea or a question? Write to the developer.",
+      kind: "Type",
+      kinds: { bug: "Bug", idea: "Idea", question: "Question" },
+      message: "Message",
+      placeholder: "What happened, or what would you like?",
+      email: "Email for a reply (optional)",
+      trap: "Leave this field empty",
+      send: "Send",
+      note: "Stored in the EU for up to 12 months.",
+      privacy: "Privacy policy",
+      app: "In the app it is quicker: Settings → Support → Send feedback adds the versions for you.",
+      github: "Prefer to report in public? Issues on GitHub",
+      again: "Back to the form",
+      sent: { title: "Sent. Thank you!", body: "The developer reads every message. If you left an email, the reply will come there." },
+      limit: { title: "Too many messages", body: "Too many messages from this network in the last hour. Try again later: go back, your text is still in the form." },
+      error: { title: "Couldn't send", body: "The message didn't go through. Go back — your text is still in the form — and try again, or report it on GitHub." },
+    },
     skip: "Skip to content",
   },
   ru: {
@@ -117,7 +136,7 @@ export const content = {
     ],
     footer: { privacy: "Приватность", licenses: "Лицензии", support: "Поддержка" },
     back: "Netami Pin",
-    privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 5 октября 2026 года", section: "Русский" },
+    privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 6 октября 2026 года", section: "Русский" },
     licenses: {
       title: "Лицензии",
       lead: "Из чего сделан этот сайт и на каких условиях.",
@@ -130,9 +149,31 @@ export const content = {
       app: "Лицензии приложения и его компонентов поставляются вместе с приложением.",
     },
     notFound: { title: "Страница не найдена", body: "По этому адресу на сайте ничего нет.", home: "На главную" },
+    feedback: {
+      title: "Отправить отзыв",
+      lead: "Нашли ошибку, есть идея или вопрос? Напишите разработчику.",
+      kind: "Тип",
+      kinds: { bug: "Ошибка", idea: "Идея", question: "Вопрос" },
+      message: "Сообщение",
+      placeholder: "Что случилось или чего не хватает?",
+      email: "Почта для ответа (необязательно)",
+      trap: "Оставьте это поле пустым",
+      send: "Отправить",
+      note: "Хранится в ЕС до 12 месяцев.",
+      privacy: "Политика конфиденциальности",
+      app: "Из приложения быстрее: «Настройки» → «Поддержка» → «Отправить отзыв» само добавит версии.",
+      github: "Хотите сообщить публично? Issues на GitHub",
+      again: "Вернуться к форме",
+      sent: { title: "Отправлено. Спасибо!", body: "Разработчик читает каждое сообщение. Если вы оставили почту, ответ придёт туда." },
+      limit: { title: "Слишком много сообщений", body: "Слишком много сообщений из этой сети за последний час. Повторите позже: вернитесь назад, текст остался в форме." },
+      error: { title: "Не отправилось", body: "Сообщение не дошло. Вернитесь назад — текст остался в форме — и повторите или сообщите на GitHub." },
+    },
     skip: "Перейти к содержимому",
   },
 };
 
 export const SUPPORT = "https://github.com/andmetoo/netami-pin-releases/issues/new/choose";
+// The Edge Function `feedback` (NP-088): the site form posts here. Without it the
+// build leaves the form out and «Support» keeps pointing at GitHub.
+export const FEEDBACK_ENDPOINT = process.env.NETAMIPIN_FEEDBACK_URL || "";
 export const ORIGIN = "https://pin.netami.app";
