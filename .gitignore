@@ -1,7 +1,7 @@
 node_modules/
 dist/
+# Everything builds leave for people, stores, test machines and this machine (scripts/lib/paths.mjs)
 release/
-extension/build/
 dist-ssr/
 .cache/
 .test-data/
@@ -38,6 +38,3 @@ Thumbs.db
 *.db-wal
 scripts/platform-probe/mobile-app/src-tauri/target/
 scripts/platform-probe/mobile-app/src-tauri/gen/
-
-# pin.netami.app build (scripts/build-site.mjs)
-dist-site/

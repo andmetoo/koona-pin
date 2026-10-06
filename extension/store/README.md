@@ -1,6 +1,6 @@
 # Карточка расширения в Chrome Web Store и Edge Add-ons
 
-Материалы для непубличной публикации (NP-017, [Р-6](../../doc/decisions.md#р-6-захват-из-браузера)). Пакеты — `release/netamipin-chrome.zip` и `release/netamipin-edge.zip` из `npm run extension:build` (без поля `key`). Картинки пересобирает `node scripts/store-assets.mjs`.
+Материалы для непубличной публикации (NP-017, [Р-6](../../doc/decisions.md#р-6-захват-из-браузера)). Пакеты — `release/publish/chrome/<версия>/netamipin-chrome.zip` и `release/publish/edge/<версия>/netamipin-edge.zip` из `npm run extension:build` (без поля `key`). Картинки пересобирает `node scripts/store-assets.mjs`.
 
 | Поле | Chrome Web Store | Edge Add-ons |
 |---|---|---|

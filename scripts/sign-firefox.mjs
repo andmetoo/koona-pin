@@ -1,8 +1,8 @@
 // Signs the Firefox extension on AMO without a listing (NP-018) and prepares
 // the self-hosted update files:
 //
-//   release/firefox/netamipin-firefox-<version>.xpi   signed, for users and the site
-//   release/firefox/updates.json                      for gecko.update_url
+//   release/publish/firefox/netamipin-firefox-<version>.xpi   signed, for users and the site
+//   release/publish/firefox/updates.json                      for gecko.update_url
 //
 // The AMO API key of the owner's account comes from the environment
 // (WEB_EXT_API_KEY, WEB_EXT_API_SECRET); this script never prints it. AMO signs
@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildExtension, firefoxDownloadBase, geckoId } from "./build-extension.mjs";
+import { publish } from "./lib/paths.mjs";
 
 if (!process.env.WEB_EXT_API_KEY || !process.env.WEB_EXT_API_SECRET) {
   console.error(
@@ -50,7 +51,7 @@ const data = await readFile(path.join(artifacts, xpi));
 // A signed package carries Mozilla's signature files.
 if (!data.includes("META-INF/cose.sig")) throw new Error(`${xpi} has no Mozilla signature`);
 
-const out = path.resolve("release", "firefox");
+const out = publish.firefox;
 await mkdir(out, { recursive: true });
 const name = `netamipin-firefox-${built.version}.xpi`;
 await copyFile(path.join(artifacts, xpi), path.join(out, name));
