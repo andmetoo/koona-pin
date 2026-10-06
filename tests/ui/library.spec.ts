@@ -2005,6 +2005,7 @@ test("feedback: from Settings, checked before sending, a failure keeps the draft
   await expect(dialog.getByRole("radio", { name: "Idea" })).toHaveAttribute("aria-checked", "true");
   await send.click();
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
+  await expect(dialog.getByRole("button", { name: "Done" })).toBeFocused();
   const sent = await page.evaluate(() => (window as unknown as { sent: unknown[] }).sent);
   expect(sent).toEqual([
     {
@@ -2040,4 +2041,39 @@ test("dialogs open with focus on their field, not on «×»; the editor drawer t
   await page.keyboard.press("Shift+F10");
   await page.getByRole("menuitem", { name: "Edit…" }).click();
   await expect(page.locator("dialog[open][data-drawer]").getByRole("textbox", { name: "Title" })).toBeFocused();
+});
+
+test("feedback: a report still being prepared is waited for; one that failed is not promised (NP-088)", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { sent: { report: unknown }[]; release: () => void };
+    w.sent = [];
+    api.feedbackReport = () => new Promise((resolve) => (w.release = () => resolve("Slow report")));
+    api.sendFeedback = async (feedback) => void w.sent.push(feedback);
+  });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Send feedback" });
+  await dialog.getByRole("textbox", { name: "Message" }).fill("Sent at once");
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Sending…" })).toBeVisible();
+  await page.evaluate(() => (window as unknown as { release: () => void }).release());
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBe("Slow report");
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    api.feedbackReport = async () => {
+      throw new Error("no report");
+    };
+  });
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  await expect(dialog.getByRole("checkbox", { name: "Attach report" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Attach report" })).toBeDisabled();
+  await expect(dialog).toContainText("The report couldn't be prepared — the message goes without it.");
+  await dialog.getByRole("textbox", { name: "Message" }).fill("Without a report");
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[1].report)).toBeNull();
 });

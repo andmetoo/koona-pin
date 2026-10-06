@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, notification, parse, senderAddress, type Deps, type Row } from "./handler.ts";
+import { handle, notification, parse, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
 
 const URL = "https://project.supabase.co/functions/v1/feedback";
 
@@ -23,13 +23,13 @@ function fakes(slots = 5) {
 const app = (body: unknown, headers: Record<string, string> = {}) =>
   new Request(URL, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.7, 10.0.0.1", ...headers },
+    headers: { "content-type": "application/json", "x-forwarded-for": "6.6.6.6, 203.0.113.7", ...headers },
     body: JSON.stringify(body),
   });
-const site = (fields: Record<string, string>, origin = "https://pin.netami.app") =>
+const site = (fields: Record<string, string>, origin: string | null = "https://pin.netami.app") =>
   new Request(URL, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", origin, "x-forwarded-for": "198.51.100.2" },
+    headers: { "content-type": "application/x-www-form-urlencoded", ...(origin === null ? {} : { origin }), "x-forwarded-for": "198.51.100.2" },
     body: new URLSearchParams(fields).toString(),
   });
 const fromApp = {
@@ -89,6 +89,9 @@ describe("feedback function", () => {
       expect(rows).toHaveLength(0);
     }
     expect((await handle(app({ ...fromApp, message: "x".repeat(5000) }), fakes().deps)).status).toBe(200);
+    // Characters, as the app and Postgres count them: an emoji is one, not two UTF-16 units.
+    expect((await handle(app({ ...fromApp, message: "🙂".repeat(5000) }), fakes().deps)).status).toBe(200);
+    expect((await handle(app({ ...fromApp, message: "🙂".repeat(5001) }), fakes().deps)).status).toBe(400);
   });
 
   it("refuses broken bodies, other methods and other origins", async () => {
@@ -146,12 +149,19 @@ describe("feedback function", () => {
     const invalid = await handle(site({ kind: "bug", message: "", lang: "ru" }), fakes().deps);
     expect(invalid.status).toBe(303);
     expect(invalid.headers.get("location")).toBe("https://pin.netami.app/ru/feedback/error");
-    expect((await handle(site({ kind: "bug", message: "x" }, "https://evil.example"), fakes().deps)).status).toBe(403);
+    // A foreign page posting the form lands on the error page; `Origin: null` (a hidden referrer) is the site.
+    const foreign = await handle(site({ kind: "bug", message: "x" }, "https://evil.example"), fakes().deps);
+    expect([foreign.status, foreign.headers.get("location")]).toEqual([303, "https://pin.netami.app/feedback/error"]);
+    const hidden = fakes();
+    const nullOrigin = await handle(site({ kind: "bug", message: "x", lang: "en" }, "null"), hidden.deps);
+    expect(nullOrigin.headers.get("location")).toBe("https://pin.netami.app/feedback/sent");
+    expect(hidden.rows).toHaveLength(1);
+    expect((await handle(app(fromApp, { origin: "null" }), fakes().deps)).status).toBe(403);
   });
 
   it("tells a bot that filled the hidden field «sent» and keeps nothing", async () => {
     const { deps, rows, hashes } = fakes();
-    const response = await handle(site({ kind: "bug", message: "buy now", website: "https://spam.example", lang: "en" }), deps);
+    const response = await handle(site({ kind: "bug", message: "buy now", [TRAP]: "https://spam.example", lang: "en" }), deps);
     expect(response.headers.get("location")).toBe("https://pin.netami.app/feedback/sent");
     expect(rows).toHaveLength(0);
     expect(hashes).toHaveLength(0);
@@ -171,9 +181,16 @@ describe("feedback pieces", () => {
     expect(text).toContain("Email left for a reply · Report attached");
   });
 
-  it("the sender is the first X-Forwarded-For address", () => {
-    expect(senderAddress(new Headers({ "x-forwarded-for": " 203.0.113.7 , 10.0.0.1" }))).toBe("203.0.113.7");
-    expect(senderAddress(new Headers({ "cf-connecting-ip": "198.51.100.2" }))).toBe("198.51.100.2");
+  it("the sender is what the proxies set, not what the client wrote", () => {
+    // The client wrote 6.6.6.6; Supabase appended the real address.
+    expect(senderAddress(new Headers({ "x-forwarded-for": "6.6.6.6, 203.0.113.7 " }))).toBe("203.0.113.7");
+    expect(senderAddress(new Headers({ "cf-connecting-ip": "198.51.100.2", "x-forwarded-for": "6.6.6.6, 203.0.113.7" }))).toBe("198.51.100.2");
     expect(senderAddress(new Headers())).toBe("unknown");
+  });
+
+  it("the excerpt cuts characters, not halves of an emoji", () => {
+    const row = parse({ ...fromApp, message: "🙂".repeat(600) }, "app");
+    if ("invalid" in row) throw new Error(row.invalid);
+    expect(notification(row.row)).toContain(`${"🙂".repeat(500)}…`);
   });
 });

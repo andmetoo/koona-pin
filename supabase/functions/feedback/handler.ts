@@ -8,6 +8,8 @@ export const MAX_MESSAGE = 5000;
 export const MAX_REPORT = 10000;
 export const PER_HOUR = 5;
 const MAX_BODY = 32 * 1024;
+/** The hidden field of the site form; a name no autofill fills, unlike «website». */
+export const TRAP = "hp_7q";
 const EXCERPT = 500;
 
 export type Kind = "bug" | "idea" | "question";
@@ -43,7 +45,8 @@ function text(value: unknown, max: number): string | null | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   if (trimmed === "") return null;
-  return trimmed.length <= max ? trimmed : undefined;
+  // Characters as the app and Postgres count them, not UTF-16 units: an emoji is one.
+  return [...trimmed].length <= max ? trimmed : undefined;
 }
 
 /** The fields of either form, checked; the name of the first bad field otherwise. */
@@ -63,7 +66,7 @@ export function parse(fields: Record<string, unknown>, source: "app" | "site"): 
   if (app_version === undefined) return { invalid: "app_version" };
   const os = source === "app" ? text(fields.os, 100) : null;
   if (os === undefined) return { invalid: "os" };
-  const trap = source === "site" && typeof fields.website === "string" && fields.website !== "";
+  const trap = source === "site" && typeof fields[TRAP] === "string" && fields[TRAP] !== "";
   return { row: { kind: kind as Kind, message, email, app_version, os, language, report, source }, trap };
 }
 
@@ -72,14 +75,19 @@ const kindName: Record<Kind, string> = { bug: "Bug", idea: "Idea", question: "Qu
 /** What the owner reads in Telegram: no address and no report (Р-9). */
 export function notification(row: Row): string {
   const head = [kindName[row.kind], row.source, row.app_version, row.os, row.language].filter(Boolean).join(" · ");
-  const excerpt = row.message.length > EXCERPT ? `${row.message.slice(0, EXCERPT)}…` : row.message;
+  const chars = [...row.message];
+  const excerpt = chars.length > EXCERPT ? `${chars.slice(0, EXCERPT).join("")}…` : row.message;
   const extras = [row.email && "Email left for a reply", row.report && "Report attached"].filter(Boolean).join(" · ");
   return `${head}\n\n${excerpt}${extras ? `\n\n${extras}` : ""}`;
 }
 
-/** The sender's address as Supabase passes it; the first of X-Forwarded-For. */
+/**
+ * The sender's address for the limit. The client can put anything into
+ * X-Forwarded-For; Cloudflare in front of Supabase sets CF-Connecting-IP itself,
+ * and Supabase appends the real address as the last X-Forwarded-For entry.
+ */
 export function senderAddress(headers: Headers): string {
-  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("cf-connecting-ip") || "unknown";
+  return headers.get("cf-connecting-ip")?.trim() || headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() || "unknown";
 }
 
 /** Where the site form goes next: a static page of the site in its language. */
@@ -106,9 +114,12 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
   const site = type.startsWith("application/x-www-form-urlencoded");
   if (!site && !type.startsWith("application/json")) return json(415, { error: "content_type" });
   const source = site ? "site" : "app";
-  // A browser posting from anywhere but the site is not our form.
+  // A browser posting from anywhere but the site is not our form. `null` is the
+  // site too when a referrer policy hides it (the form page asks browsers not to).
   const origin = request.headers.get("origin");
-  if (origin !== null && origin !== SITE) return json(403, { error: "origin" });
+  if (origin !== null && origin !== SITE && !(site && origin === "null")) {
+    return site ? reply(source, null, "invalid", "origin") : json(403, { error: "origin" });
+  }
   const length = Number(request.headers.get("content-length") ?? "0");
   if (length > MAX_BODY) return reply(source, null, "invalid", "body");
 
