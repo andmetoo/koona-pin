@@ -2,6 +2,7 @@
 name = "koonapin"
 version = "0.1.0"
 description = "Koona Pin desktop bookmark library"
+license = "AGPL-3.0-only"
 edition = "2021"
 # src/bin/koonapin-host.rs is the native messaging host (NP-016).
 default-run = "koonapin"
