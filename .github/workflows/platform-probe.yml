@@ -46,7 +46,8 @@ jobs:
       - name: Build the app bundle
         run: |
           start=$(date +%s)
-          npm run tauri build -- --bundles app 2>&1 | tail -n 40 | tee probe/build.log
+          # tauri.conf.json keeps bundling off (only the Windows installer script turns it on, NP-037).
+          npm run tauri build -- --bundles app --config '{"bundle":{"active":true}}' 2>&1 | tail -n 40 | tee probe/build.log
           echo "build seconds: $(( $(date +%s) - start ))" | tee -a probe/system.txt
           du -sh src-tauri/target/release/bundle/macos/*.app | tee -a probe/system.txt
       - name: Launch, screenshot, single instance, data folder

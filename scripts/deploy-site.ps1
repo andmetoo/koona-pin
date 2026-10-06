@@ -1,7 +1,8 @@
 # Publishes pin.netami.app to the owner's server with Caddy (NP-079, Р-37, doc/site.md «Выкладка»).
 # Run by the owner, from the repository root:
-#   $env:NETAMIPIN_FEEDBACK_URL = "https://<ref>.supabase.co/functions/v1/feedback"
 #   pwsh scripts/deploy-site.ps1 -Server user@host
+# NETAMIPIN_FEEDBACK_URL comes from the environment or from .env in the repository root
+# (.env.example), read by the site build; a variable already set in the environment wins.
 # Needs ssh/scp access with sudo on the server. The previous version stays in site.old for a rollback.
 # Without NETAMIPIN_FEEDBACK_URL the build leaves the feedback form out (NP-088): the script refuses
 # unless -WithoutFeedback says that is meant, so a later deploy cannot take /feedback down unnoticed.
@@ -13,16 +14,19 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-if (-not $env:NETAMIPIN_FEEDBACK_URL -and -not $WithoutFeedback) {
-  throw "NETAMIPIN_FEEDBACK_URL is not set: the site would lose /feedback. Set it (supabase/README.md) or pass -WithoutFeedback."
-}
-
+# The build reads .env itself (site/src/content.mjs); whether the form made it in is checked on
+# the result, so the environment, .env and the build cannot disagree.
 node scripts/build-site.mjs
 if ($LASTEXITCODE) { throw "build failed" }
-if (-not (Test-Path dist-site/shots)) { throw "dist-site/shots is missing: run node scripts/site-screenshots.mjs first" }
+# The site build's folder, as publish.site in scripts/lib/paths.mjs.
+$site = Join-Path $PSScriptRoot "..\release\publish\site"
+if (-not (Test-Path "$site/feedback/index.html") -and -not $WithoutFeedback) {
+  throw "The build has no /feedback: NETAMIPIN_FEEDBACK_URL is not set in .env or the environment (supabase/README.md). Set it or pass -WithoutFeedback."
+}
+if (-not (Test-Path "$site/shots")) { throw "release/publish/site/shots is missing: run node scripts/site-screenshots.mjs first" }
 
 $archive = Join-Path ([IO.Path]::GetTempPath()) "pin-netami-site.tgz"
-tar -czf $archive -C dist-site .
+tar -czf $archive -C $site .
 scp $archive site/Caddyfile "${Server}:/tmp/"
 if ($LASTEXITCODE) { throw "scp failed" }
 

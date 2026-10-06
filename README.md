@@ -39,10 +39,21 @@ npm run tauri dev
 
 `npm run dev` открывает браузерное превью с отдельными демонстрационными данными на языке интерфейса. Оно не обращается к пользовательской SQLite.
 
-```powershell
-npm run build
-npm run tauri build
-npm run extension:build
-```
+Расширение для Chrome, Edge и Firefox собирается из одного исходника `extension/src`; установка — в [инструкции](doc/features.md#браузеры).
 
-Расширение для Chrome, Edge и Firefox собирается из одного исходника `extension/src`: распакованные папки `extension/build/chrome`, `edge`, `firefox` и пакеты `release/netamipin-chrome.zip`, `netamipin-edge.zip`, `netamipin-firefox.xpi`. Пакеты хранятся отдельно от очищаемой при сборке папки `dist`. Установка — в [инструкции](doc/features.md#браузеры).
+## Сборки: что где
+
+Всё, что уносится из репозитория — людям, в каталоги, на тестовую машину, в свой браузер, — лежит в `release/` (в Git не попадает): сначала зачем, потом платформа, потом версия. Пути задаёт один файл, [`scripts/lib/paths.mjs`](scripts/lib/paths.mjs). Настройки сборок (адрес отзыва, ключ каталога Chrome, секреты подписи) — в `.env`, шаблон [`.env.example`](.env.example).
+
+| Что | Команда | Результат |
+| --- | --- | --- |
+| Установщик Windows для проверки, без подписи | `npm run build:installer` | `release/test/windows/<версия>/` — установщик и `SHA256SUMS.txt` |
+| Установщик Windows для выпуска, подписанный | `npm run build:installer -- --sign` | `release/publish/windows/<версия>/` |
+| Расширение для каталогов Chrome и Edge | `npm run extension:build` | `release/publish/chrome/<версия>/`, `release/publish/edge/<версия>/` |
+| Расширение с ID каталога Chrome для тестовой машины | `npm run extension:build` с `CHROME_STORE_PUBLIC_KEY` | `release/test/chrome-edge/<версия>/` |
+| Расширение для своего браузера («Загрузить распакованное», тесты) | `npm run extension:build` | `release/dev/chrome`, `edge`, `firefox` |
+| Подписанное расширение Firefox и `updates.json` | `npm run extension:sign:firefox` | `release/publish/firefox/` (выкладывается с сайтом) |
+| Сайт pin.netami.app | `npm run site:build` (`site:check` — с проверкой) | `release/publish/site/` (выкладывает `scripts/deploy-site.ps1`) |
+| Приложение для разработки | `npm run tauri dev` | окно приложения, файл не нужен |
+
+`publish/` — людям и в каталоги, `test/` — только на тестовую машину, `dev/` — только на этот компьютер. Рабочие папки инструментов из рук не берутся: `src-tauri/target` (Cargo и Tauri: EXE, промежуточные файлы установщика) и `dist/` (интерфейс приложения для Tauri). `npm run tauri build` собирает только EXE в `src-tauri/target/release`, установщик — только `build:installer`.

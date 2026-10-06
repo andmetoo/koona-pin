@@ -1,13 +1,17 @@
 node_modules/
 dist/
+# Everything builds leave for people, stores, test machines and this machine (scripts/lib/paths.mjs)
 release/
-extension/build/
 dist-ssr/
 .cache/
 .test-data/
 test-results/
 playwright-report/
 *.local
+# Build settings and signing secrets (scripts/build-installer.mjs, .env.example)
+.env
+# Supabase CLI state of the linked project (supabase link, supabase/README.md)
+supabase/.temp/
 
 # Tauri
 src-tauri/target/
@@ -34,6 +38,3 @@ Thumbs.db
 *.db-wal
 scripts/platform-probe/mobile-app/src-tauri/target/
 scripts/platform-probe/mobile-app/src-tauri/gen/
-
-# pin.netami.app build (scripts/build-site.mjs)
-dist-site/

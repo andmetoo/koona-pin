@@ -1,4 +1,11 @@
 // Texts of pin.netami.app, English and Russian, as in landing.sketch (doc/site.md).
+import { existsSync } from "node:fs";
+
+// NETAMIPIN_FEEDBACK_URL below: from the environment or from .env in the repository root
+// (.env.example), for site:build, site:check and deploy-site.ps1 alike. The environment wins.
+const dotenv = new URL("../../.env", import.meta.url);
+if (existsSync(dotenv)) process.loadEnvFile(dotenv);
+
 export const content = {
   en: {
     lang: "en",

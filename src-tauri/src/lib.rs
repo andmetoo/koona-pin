@@ -36,6 +36,18 @@ pub(crate) fn show_window(app: &tauri::AppHandle) {
         let _ = window.set_focus();
     }
 }
+
+/// A step the installer or the uninstaller runs (NP-037): the app does it and
+/// exits with 0 or 1, without a window, the tray or the library.
+pub fn installer_step() -> Option<i32> {
+    let ok = match std::env::args().nth(1)?.as_str() {
+        native_host::REGISTER_ARG => native_host::register().is_ok(),
+        native_host::UNREGISTER_ARG => native_host::unregister().is_ok(),
+        _ => return None,
+    };
+    Some(if ok { 0 } else { 1 })
+}
+
 pub fn run() {
     let channel_state = Arc::new(capture_channel::ChannelState::default());
     tauri::Builder::default()
