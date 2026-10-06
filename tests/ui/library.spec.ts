@@ -2026,3 +2026,18 @@ test("feedback: from Settings, checked before sending, a failure keeps the draft
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
   expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[1].report)).toBeNull();
 });
+test("dialogs open with focus on their field, not on «×»; the editor drawer too", async ({ page }) => {
+  await page.keyboard.press("Control+n");
+  const add = page.getByRole("dialog", { name: "Add link" });
+  await expect(add.getByRole("textbox", { name: "Link" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "New collection", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "New collection" }).getByRole("textbox", { name: "Name" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  // The narrow window shows the editor as a drawer over the content.
+  await page.setViewportSize({ width: 800, height: 550 });
+  await page.locator("[data-bookmark-id]").first().getByRole("button", { name: /^Open:/ }).first().focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await expect(page.locator("dialog[open][data-drawer]").getByRole("textbox", { name: "Title" })).toBeFocused();
+});
