@@ -32,13 +32,11 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
    supabase functions deploy feedback --no-verify-jwt
    ```
    Адрес: `https://<ref>.supabase.co/functions/v1/feedback`.
-6. **Адрес в сборки.** Приложение и сайт читают его при сборке из `NETAMIPIN_FEEDBACK_URL`:
-   ```powershell
-   $env:NETAMIPIN_FEEDBACK_URL = "https://<ref>.supabase.co/functions/v1/feedback"
-   npm run tauri build
-   npm run site:check
+6. **Адрес в сборки.** Записать его в `.env` в корне репозитория (шаблон — `.env.example`, в Git файл не попадает):
    ```
-   Без переменной приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
+   NETAMIPIN_FEEDBACK_URL=https://<ref>.supabase.co/functions/v1/feedback
+   ```
+   Его читают сборки приложения (`src-tauri/build.rs`: `npm run tauri build`, `npm run tauri dev`, `cargo build`; установщик — `npm run build:installer`) и выкладка сайта (`scripts/deploy-site.ps1`). Переменная окружения с тем же именем важнее файла; `npm run site:check` читает только её. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
 
 ## Проверить
 
