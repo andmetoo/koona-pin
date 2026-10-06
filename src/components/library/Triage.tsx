@@ -465,10 +465,15 @@ export function Triage({
                     <Preview b={current} live />
                   </button>
                   <div className="flex flex-col gap-2 px-6 pt-5 pb-[22px]">
-                    <p className="flex min-w-0 items-center gap-1.5 text-xs">
-                      <SiteMark b={current} />
-                      <span className="shrink-0 font-medium text-icon">{current.domain}</span>
-                      <span className="truncate text-subtle">· {saved(current)}</span>
+                    {/* A long «saved … from …» moves to the next line rather than being cut (NP-089);
+                        the dot stays with the site, so the moved line doesn't start with it. */}
+                    <p className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-xs">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <SiteMark b={current} />
+                        <span className="min-w-0 truncate font-medium text-icon" data-user-text>{current.domain}</span>
+                        <span className="shrink-0 text-subtle" aria-hidden>·</span>
+                      </span>
+                      <span className="text-subtle">{saved(current)}</span>
                     </p>
                     <h2 className="line-clamp-2 text-xl leading-[26px] font-semibold" title={current.title}>
                       {current.title || current.url}
@@ -629,7 +634,7 @@ export function Triage({
                         <span className="h-[34px] w-12 shrink-0 overflow-hidden rounded-[5px] bg-hover">
                           <Preview b={b} small />
                         </span>
-                        <span className="flex min-w-0 flex-col">
+                        <span className="flex min-w-0 flex-col" data-user-text>
                           <span className="truncate text-sm font-medium">{b.title || b.url}</span>
                           <span className="truncate text-2xs text-subtle">{b.domain}</span>
                         </span>
@@ -661,7 +666,9 @@ export function Triage({
                     ) : (
                       <Icon icon={Check} size={14} strokeWidth={1.75} className="shrink-0 text-[var(--np-green)]" />
                     )}
-                    <span className={`min-w-0 flex-1 truncate text-muted ${step.kind === "trash" ? "line-through" : ""}`}>{step.title}</span>
+                    <span className={`min-w-0 flex-1 truncate text-muted ${step.kind === "trash" ? "line-through" : ""}`} data-user-text>
+                      {step.title}
+                    </span>
                     <span
                       className={`shrink-0 text-2xs ${step.kind === "trash" ? "text-meta" : collection ? "" : "text-[var(--np-green)]"}`}
                       style={collection ? { color: collectionColor(collection.id) } : undefined}

@@ -1,0 +1,204 @@
+{
+  "extensionName": { "message": "Netami Pin — salvar link" },
+  "extensionDescription": {
+    "message": "Salve a página na sua biblioteca local do Netami Pin com um clique. Com o app fechado, os links esperam na fila."
+  },
+  "menuOptions": { "message": "Configurações e fila" },
+  "menuSearch": { "message": "Encontrar um link" },
+  "commandSearch": { "message": "Encontrar um link no Netami Pin" },
+  "searchPlaceholder": { "message": "Pesquise nos seus links" },
+  "searchFilters": { "message": "Onde pesquisar" },
+  "searchKeys": { "message": "↑↓ · ↵ abrir · Shift ↵ aqui · Ctrl C copiar" },
+  "searchOpenApp": { "message": "Abrir o Netami Pin" },
+  "searchAll": { "message": "Todos" },
+  "searchInbox": { "message": "Caixa de entrada" },
+  "searchFavorites": { "message": "Favoritos" },
+  "searchOpen": { "message": "Abrir" },
+  "searchToday": { "message": "Hoje" },
+  "searchRecent": { "message": "Salvos recentemente" },
+  "searchMore": {
+    "message": "Os primeiros $COUNT$ estão sendo mostrados. Adicione uma palavra para refinar a pesquisa.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "Nada salvo ainda" },
+  "searchEmptyLibraryText": { "message": "Clique no botão do Netami Pin em uma página para salvá-la." },
+  "searchNothing": {
+    "message": "Nada encontrado para “$QUERY$”",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "Nada encontrado para “$QUERY$” em $PLACE$",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "Ainda não há nada em $PLACE$",
+    "placeholders": { "place": { "content": "$1", "example": "Favoritos" } }
+  },
+  "searchNothingText": { "message": "Tente outra palavra ou pesquise em toda a biblioteca — a lixeira nunca entra na pesquisa." },
+  "searchEverywhere": { "message": "Pesquisar em tudo" },
+  "searchStarting": { "message": "Iniciando o Netami Pin…" },
+  "searchMissingText": {
+    "message": "A pesquisa acontece na biblioteca do Netami Pin neste computador. Instale o aplicativo — até lá, os links que você salvar esperam aqui."
+  },
+  "searchUpdateApp": { "message": "Atualize o Netami Pin para pesquisar" },
+  "searchUpdateAppText": { "message": "Este Netami Pin salva links, mas ainda não pesquisa pelo navegador. Salvar continua funcionando." },
+  "searchUpdateButton": { "message": "Baixar atualização" },
+  "searchUpdateExtensionText": {
+    "message": "Esta extensão não corresponde ao Netami Pin. Atualize-a na página de extensões do navegador — salvar continua funcionando."
+  },
+  "searchLibrary": { "message": "A biblioteca não abriu" },
+  "searchLibraryText": { "message": "Abra o Netami Pin para ver o motivo. Até lá, os links que você salvar esperam aqui." },
+  "searchUnavailable": { "message": "O Netami Pin não respondeu" },
+  "searchUnavailableText": { "message": "Tente de novo em instantes." },
+  "searchCopied": { "message": "Link copiado" },
+  "shortcutHeading": { "message": "Atalho de teclado" },
+  "shortcutText": { "message": "Abre a pesquisa na sua biblioteca." },
+  "shortcutNone": { "message": "Sem atalho" },
+  "shortcutChangeIn": {
+    "message": "Alterar no $BROWSER$",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "O $BROWSER$ só altera atalhos de extensões na própria página, $PAGE$: o botão a abre.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "Alterar" },
+  "shortcutPress": { "message": "Pressione o novo atalho…" },
+  "shortcutCancel": { "message": "Esc para cancelar. Um atalho precisa de Ctrl ou Alt, não dos dois." },
+  "shortcutInvalid": { "message": "Esta tecla não pode ser um atalho. Use Ctrl ou Alt com uma letra, um número ou F1–F12." },
+  "shortcutSaved": { "message": "Salvo." },
+  "shortcutRefused": {
+    "message": "O Firefox não aceitou $SHORTCUT$. Tente outro.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "Salvar a página no Netami Pin" },
+  "queueWaiting": {
+    "message": "Netami Pin: $COUNT$ aguardando envio. Abra as configurações para ver a fila.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Salvando no Netami Pin" },
+  "badgeWaiting": { "message": "O link está esperando para ser enviado ao Netami Pin" },
+  "badgeSaved": { "message": "Salvo no Netami Pin" },
+  "badgeExisting": { "message": "Este link já está no Netami Pin" },
+  "errorInvalidUrl": {
+    "message": "Esta página não pode ser salva. Abra uma página com endereço HTTP/HTTPS."
+  },
+  "errorUnsupportedScheme": {
+    "message": "Esta página não pode ser salva. Só links HTTP/HTTPS são compatíveis."
+  },
+  "errorUnavailable": {
+    "message": "O Netami Pin não respondeu. O link será enviado de novo em um minuto."
+  },
+  "errorHostMissing": {
+    "message": "O Netami Pin não está instalado ou a instalação está danificada. O link espera aqui."
+  },
+  "errorIncompatible": {
+    "message": "A extensão não corresponde ao Netami Pin. Atualize a extensão — o link espera aqui."
+  },
+  "errorIncompatibleApp": {
+    "message": "O Netami Pin é mais antigo que a extensão. Atualize o Netami Pin — o link espera aqui."
+  },
+  "errorInvalidRequest": { "message": "O Netami Pin não consegue salvar este link." },
+  "errorConflict": {
+    "message": "Esta solicitação já foi usada para outro link. Remova-a da fila."
+  },
+  "errorDatabase": {
+    "message": "O Netami Pin não conseguiu salvar o link. Ele será enviado de novo."
+  },
+  "errorNoConfirmation": { "message": "Sem confirmação de que o link foi salvo" },
+  "errorSaveFailed": { "message": "Não foi possível salvar o link" },
+  "errorUnknownAction": { "message": "Ação desconhecida" },
+  "messageSavedTitle": { "message": "Salvo no Netami Pin" },
+  "messageSavedText": { "message": "Adicionado à caixa de entrada" },
+  "messageExistingTitle": { "message": "Já está no Netami Pin" },
+  "messageExistingText": { "message": "Suas tags e notas não mudaram" },
+  "messageQueuedTitle": { "message": "Aguardando o Netami Pin" },
+  "messageQueuedText": { "message": "Será enviado quando o aplicativo abrir" },
+  "messageFailedTitle": { "message": "Não foi possível salvar o link" },
+  "messageFailedText": { "message": "Veja as configurações da extensão" },
+  "feedbackHeading": { "message": "Depois de salvar" },
+  "settingMessage": { "message": "Mostrar uma mensagem na página" },
+  "settingMessageText": {
+    "message": "Um aviso curto no canto depois que você clica no botão. Ele some sozinho após 3 segundos."
+  },
+  "settingKnown": { "message": "Mostrar que uma página já está salva" },
+  "settingKnownText": {
+    "message": "O botão compara cada página que você abre com a sua biblioteca neste computador enquanto o Netami Pin está em execução. O navegador pede acesso às suas guias uma vez; os endereços vão só para o aplicativo."
+  },
+  "settingAnimate": { "message": "Animar o botão" },
+  "settingAnimateText": {
+    "message": "O ícone do Netami Pin dá um pulinho quando uma página é salva. Ele fica parado se o sistema pedir menos movimento."
+  },
+  "optionsTitle": { "message": "Netami Pin — configurações da extensão" },
+  "optionsHeading": { "message": "Extensão Netami Pin" },
+  "optionsLead": {
+    "message": "As páginas que você salva vão para a biblioteca do Netami Pin neste computador."
+  },
+  "extensionVersion": {
+    "message": "Extensão $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Netami Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "último salvamento hoje às $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "último salvamento em $DATE$ às $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "3 de outubro" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "Conexão" },
+  "connectionChecking": { "message": "Verificando o aplicativo…" },
+  "statusConnected": { "message": "Conectado ao Netami Pin" },
+  "checkAgain": { "message": "Verificar de novo" },
+  "statusClosed": { "message": "O Netami Pin está fechado" },
+  "statusClosedText": {
+    "message": "Ele abre na bandeja do sistema quando você salva uma página. Até lá, os links esperam aqui."
+  },
+  "statusUpdate": { "message": "Atualize a extensão" },
+  "statusUpdateText": {
+    "message": "Esta extensão ($MINE$) não corresponde ao Netami Pin $APP$. Atualize-a na página de extensões do navegador — até lá, os links esperam aqui.",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "Atualize o Netami Pin" },
+  "statusUpdateAppText": {
+    "message": "O Netami Pin $APP$ é mais antigo que esta extensão ($MINE$). Atualize o Netami Pin — até lá, os links esperam aqui.",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "O Netami Pin não está instalado" },
+  "statusMissingText": {
+    "message": "A extensão não encontra o aplicativo neste computador. Instale o Netami Pin ou reinstale-o se ele já estiver aqui."
+  },
+  "download": { "message": "Baixar o Netami Pin" },
+  "queueHeading": { "message": "Aguardando envio" },
+  "sendNow": { "message": "Enviar agora" },
+  "queueEmpty": {
+    "message": "Nada aguardando. Clique no ícone do Netami Pin em uma página para salvá-la."
+  },
+  "removeButton": { "message": "Remover" },
+  "removeLabel": {
+    "message": "Remover da fila: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Título da página" } }
+  },
+  "optionsFooter": {
+    "message": "Os links ficam no navegador até o Netami Pin confirmá-los. Se o aplicativo estiver fechado, salvar uma página o abre na bandeja do sistema."
+  }
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import i18n from "../i18n";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
-import { isAfter, listTime, matchesFilters, mergeBookmark } from "../services/library";
+import { isAfter, listTime, matchesFilters, mergeBookmark, sortByName } from "../services/library";
 import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
 import {
   Bookmark,
@@ -93,8 +93,8 @@ export function useLibrary(
         api.getCounts(),
       ]);
       if (alive.current && id === catalogSeq.current) {
-        setCollections(c);
-        setTags(t);
+        setCollections(sortByName(c, i18n.language));
+        setTags(sortByName(t, i18n.language, true));
         setDomains(d);
         setCounts(n);
       }
@@ -222,6 +222,15 @@ export function useLibrary(
       catalogTimer.current = 0;
     };
   }, [refreshCatalog]);
+  // Another language sorts names its own way (NP-089).
+  useEffect(() => {
+    const resort = () => {
+      setCollections((c) => sortByName(c, i18n.language));
+      setTags((t) => sortByName(t, i18n.language, true));
+    };
+    i18n.on("languageChanged", resort);
+    return () => i18n.off("languageChanged", resort);
+  }, []);
   useEffect(() => {
     setPending({});
     pendingRef.current = {};

@@ -1,0 +1,204 @@
+{
+  "extensionName": { "message": "Netami Pin — bağlantıyı kaydet" },
+  "extensionDescription": {
+    "message": "Sayfayı tek tıkla yerel Netami Pin kitaplığınıza kaydedin. Uygulama kapalıyken bağlantılar sırada bekler."
+  },
+  "menuOptions": { "message": "Ayarlar ve sıra" },
+  "menuSearch": { "message": "Bağlantı bul" },
+  "commandSearch": { "message": "Netami Pin'de bağlantı bul" },
+  "searchPlaceholder": { "message": "Bağlantılarınızda arayın" },
+  "searchFilters": { "message": "Nerede aransın" },
+  "searchKeys": { "message": "↑↓ · ↵ aç · Shift ↵ burada · Ctrl C kopyala" },
+  "searchOpenApp": { "message": "Netami Pin'i aç" },
+  "searchAll": { "message": "Tümü" },
+  "searchInbox": { "message": "Gelen kutusu" },
+  "searchFavorites": { "message": "Favoriler" },
+  "searchOpen": { "message": "Aç" },
+  "searchToday": { "message": "Bugün" },
+  "searchRecent": { "message": "Son kaydedilenler" },
+  "searchMore": {
+    "message": "İlk $COUNT$ sonuç gösteriliyor. Aramayı daraltmak için bir kelime ekleyin.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "Henüz kaydedilen bir şey yok" },
+  "searchEmptyLibraryText": { "message": "Bir sayfayı kaydetmek için sayfadaki Netami Pin düğmesine tıklayın." },
+  "searchNothing": {
+    "message": "“$QUERY$” için hiçbir şey bulunamadı",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "$PLACE$ içinde “$QUERY$” için hiçbir şey bulunamadı",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "$PLACE$ içinde henüz bir şey yok",
+    "placeholders": { "place": { "content": "$1", "example": "Favoriler" } }
+  },
+  "searchNothingText": { "message": "Başka bir kelime deneyin ya da tüm kitaplıkta arayın — çöp kutusunda asla arama yapılmaz." },
+  "searchEverywhere": { "message": "Her yerde ara" },
+  "searchStarting": { "message": "Netami Pin başlatılıyor…" },
+  "searchMissingText": {
+    "message": "Arama bu bilgisayardaki Netami Pin kitaplığında yapılır. Uygulamayı yükleyin — o zamana kadar kaydettiğiniz bağlantılar burada bekler."
+  },
+  "searchUpdateApp": { "message": "Aramak için Netami Pin'i güncelleyin" },
+  "searchUpdateAppText": { "message": "Bu Netami Pin bağlantı kaydediyor ama henüz tarayıcıdan arama yapamıyor. Kaydetme çalışmaya devam ediyor." },
+  "searchUpdateButton": { "message": "Güncellemeyi indir" },
+  "searchUpdateExtensionText": {
+    "message": "Bu uzantı Netami Pin ile uyumlu değil. Tarayıcının uzantılar sayfasında güncelleyin — kaydetme çalışmaya devam ediyor."
+  },
+  "searchLibrary": { "message": "Kitaplık açılmadı" },
+  "searchLibraryText": { "message": "Nedenini görmek için Netami Pin'i açın. O zamana kadar kaydettiğiniz bağlantılar burada bekler." },
+  "searchUnavailable": { "message": "Netami Pin yanıt vermedi" },
+  "searchUnavailableText": { "message": "Birazdan yeniden deneyin." },
+  "searchCopied": { "message": "Bağlantı kopyalandı" },
+  "shortcutHeading": { "message": "Klavye kısayolu" },
+  "shortcutText": { "message": "Kitaplığınızda aramayı açar." },
+  "shortcutNone": { "message": "Kısayol yok" },
+  "shortcutChangeIn": {
+    "message": "$BROWSER$ içinde değiştir",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ uzantı kısayollarını yalnızca kendi sayfasında, $PAGE$ adresinde değiştirir: düğme bu sayfayı açar.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "Değiştir" },
+  "shortcutPress": { "message": "Yeni kısayola basın…" },
+  "shortcutCancel": { "message": "İptal için Esc. Kısayolda Ctrl ya da Alt olmalı, ikisi birden değil." },
+  "shortcutInvalid": { "message": "Bu tuş kısayol olamaz. Ctrl ya da Alt'ı bir harf, rakam veya F1–F12 ile kullanın." },
+  "shortcutSaved": { "message": "Kaydedildi." },
+  "shortcutRefused": {
+    "message": "Firefox $SHORTCUT$ kısayolunu kabul etmedi. Başka bir tane deneyin.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "Sayfayı Netami Pin'e kaydet" },
+  "queueWaiting": {
+    "message": "Netami Pin: $COUNT$ öğe gönderilmeyi bekliyor. Sırayı görmek için ayarları açın.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Netami Pin'e kaydediliyor" },
+  "badgeWaiting": { "message": "Bağlantı Netami Pin'e gönderilmeyi bekliyor" },
+  "badgeSaved": { "message": "Netami Pin'e kaydedildi" },
+  "badgeExisting": { "message": "Bu bağlantı zaten Netami Pin'de" },
+  "errorInvalidUrl": {
+    "message": "Bu sayfa kaydedilemiyor. HTTP/HTTPS adresli bir sayfa açın."
+  },
+  "errorUnsupportedScheme": {
+    "message": "Bu sayfa kaydedilemiyor. Yalnızca HTTP/HTTPS bağlantıları desteklenir."
+  },
+  "errorUnavailable": {
+    "message": "Netami Pin yanıt vermedi. Bağlantı bir dakika içinde yeniden gönderilecek."
+  },
+  "errorHostMissing": {
+    "message": "Netami Pin yüklü değil ya da kurulumu bozuk. Bağlantı burada bekliyor."
+  },
+  "errorIncompatible": {
+    "message": "Uzantı Netami Pin ile uyumlu değil. Uzantıyı güncelleyin — bağlantı burada bekliyor."
+  },
+  "errorIncompatibleApp": {
+    "message": "Netami Pin uzantıdan daha eski. Netami Pin'i güncelleyin — bağlantı burada bekliyor."
+  },
+  "errorInvalidRequest": { "message": "Netami Pin bu bağlantıyı kaydedemiyor." },
+  "errorConflict": {
+    "message": "Bu istek zaten başka bir bağlantı için kullanıldı. Sıradan kaldırın."
+  },
+  "errorDatabase": {
+    "message": "Netami Pin bağlantıyı kaydedemedi. Yeniden gönderilecek."
+  },
+  "errorNoConfirmation": { "message": "Bağlantının kaydedildiğine dair onay yok" },
+  "errorSaveFailed": { "message": "Bağlantı kaydedilemedi" },
+  "errorUnknownAction": { "message": "Bilinmeyen işlem" },
+  "messageSavedTitle": { "message": "Netami Pin'e kaydedildi" },
+  "messageSavedText": { "message": "Gelen kutusuna eklendi" },
+  "messageExistingTitle": { "message": "Zaten Netami Pin'de" },
+  "messageExistingText": { "message": "Etiketleriniz ve notlarınız değişmedi" },
+  "messageQueuedTitle": { "message": "Netami Pin bekleniyor" },
+  "messageQueuedText": { "message": "Uygulama açılınca gönderilecek" },
+  "messageFailedTitle": { "message": "Bağlantı kaydedilemedi" },
+  "messageFailedText": { "message": "Uzantı ayarlarına bakın" },
+  "feedbackHeading": { "message": "Kaydettikten sonra" },
+  "settingMessage": { "message": "Sayfada bir mesaj göster" },
+  "settingMessageText": {
+    "message": "Düğmeye tıkladıktan sonra köşede kısa bir not. 3 saniye sonra kendiliğinden kaybolur."
+  },
+  "settingKnown": { "message": "Bir sayfanın zaten kayıtlı olduğunu göster" },
+  "settingKnownText": {
+    "message": "Netami Pin çalışırken düğme açtığınız her sayfayı bu bilgisayardaki kitaplığınızla karşılaştırır. Tarayıcı sekmelerinize erişim için bir kez izin ister; adresler yalnızca uygulamaya gider."
+  },
+  "settingAnimate": { "message": "Düğmeyi canlandır" },
+  "settingAnimateText": {
+    "message": "Bir sayfa kaydedilince Netami Pin simgesi zıplar. Sistem daha az hareket isterse yerinde durur."
+  },
+  "optionsTitle": { "message": "Netami Pin — uzantı ayarları" },
+  "optionsHeading": { "message": "Netami Pin uzantısı" },
+  "optionsLead": {
+    "message": "Kaydettiğiniz sayfalar bu bilgisayardaki Netami Pin kitaplığına gider."
+  },
+  "extensionVersion": {
+    "message": "Uzantı $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Netami Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "son kayıt bugün $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "son kayıt $DATE$ $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "3 Ekim" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "Bağlantı durumu" },
+  "connectionChecking": { "message": "Uygulama denetleniyor…" },
+  "statusConnected": { "message": "Netami Pin'e bağlı" },
+  "checkAgain": { "message": "Yeniden denetle" },
+  "statusClosed": { "message": "Netami Pin kapalı" },
+  "statusClosedText": {
+    "message": "Bir sayfa kaydettiğinizde sistem tepsisinde başlar. O zamana kadar bağlantılar burada bekler."
+  },
+  "statusUpdate": { "message": "Uzantıyı güncelleyin" },
+  "statusUpdateText": {
+    "message": "Bu uzantı ($MINE$) Netami Pin $APP$ ile uyumlu değil. Tarayıcının uzantılar sayfasında güncelleyin — o zamana kadar bağlantılar burada bekler.",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "Netami Pin'i güncelleyin" },
+  "statusUpdateAppText": {
+    "message": "Netami Pin $APP$ bu uzantıdan ($MINE$) daha eski. Netami Pin'i güncelleyin — o zamana kadar bağlantılar burada bekler.",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "Netami Pin yüklü değil" },
+  "statusMissingText": {
+    "message": "Uzantı bu bilgisayarda uygulamayı bulamıyor. Netami Pin'i yükleyin ya da zaten varsa yeniden yükleyin."
+  },
+  "download": { "message": "Netami Pin'i indir" },
+  "queueHeading": { "message": "Gönderilmeyi bekleyenler" },
+  "sendNow": { "message": "Şimdi gönder" },
+  "queueEmpty": {
+    "message": "Bekleyen bir şey yok. Bir sayfayı kaydetmek için sayfadaki Netami Pin simgesine tıklayın."
+  },
+  "removeButton": { "message": "Kaldır" },
+  "removeLabel": {
+    "message": "Sıradan kaldır: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Sayfa başlığı" } }
+  },
+  "optionsFooter": {
+    "message": "Bağlantılar Netami Pin onaylayana kadar tarayıcıda kalır. Uygulama kapalıysa bir sayfayı kaydetmek onu sistem tepsisinde başlatır."
+  }
+}

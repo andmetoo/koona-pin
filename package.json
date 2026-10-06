@@ -22,6 +22,7 @@
     "test:extension:edge": "node scripts/smoke-extension.mjs edge",
     "test:extension:firefox": "node scripts/smoke-extension-firefox.mjs",
     "test:extension:firefox:esr": "node scripts/smoke-extension-firefox.mjs esr",
+    "locales:sr-latn": "node scripts/sr-latn.mjs",
     "extension:build": "node scripts/build-extension.mjs",
     "extension:sign:firefox": "node scripts/sign-firefox.mjs",
     "extension:lint": "npm run extension:build && web-ext lint --self-hosted --source-dir release/dev/firefox",
