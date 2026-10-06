@@ -95,4 +95,21 @@ async function walk(dir) {
   }
 }
 await walk(out);
-console.log(`dist-site: ${files.length} files`);
+
+// Caddy lets browsers and Cloudflare keep /site.css, /brand, /shots and /fonts for a week
+// (site/Caddyfile), while pages are no-cache. Each link carries the file's hash, so a deploy
+// that changes a file changes its address, and a new page never meets the old stylesheet.
+const ASSET = /\/(?:site\.css|(?:brand|shots|fonts)\/[\w.-]+)/g;
+const versions = new Map();
+for (const file of files.filter((f) => /^(site\.css|(brand|shots|fonts)\/[^/]+)$/.test(f))) {
+  versions.set(`/${file}`, createHash("sha256").update(await readFile(path.join(out, file))).digest("hex").slice(0, 10));
+}
+for (const file of files.filter((f) => f.endsWith(".html"))) {
+  const html = await readFile(path.join(out, file), "utf8");
+  const versioned = html.replace(ASSET, (ref) => {
+    if (!versions.has(ref)) throw new Error(`${file}: ${ref} is not in dist-site`);
+    return `${ref}?v=${versions.get(ref)}`;
+  });
+  await writeFile(path.join(out, file), versioned);
+}
+console.log(`dist-site: ${files.length} files, ${versions.size} assets versioned`);
