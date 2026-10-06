@@ -139,11 +139,9 @@ pub async fn send(endpoint: &str, payload: &Payload, limits: Limits) -> Result<(
         Ok(response) => response,
         // The proxy refused the tunnel (sign-in required) or could not be reached.
         Err(error) if through_proxy(&error) => return Err(failure(ErrorDetail::ProxyFailed, error)),
-        // A refused connection or a name that does not resolve: no internet, as people see it —
-        // unless the network sets its proxy with a script, which reqwest does not run.
+        // A refused connection or a name that does not resolve: no internet, as people see it.
         Err(error) if error.is_connect() => {
-            let detail = if limits.proxy == Proxy::System && proxy_script() { ErrorDetail::ProxyFailed } else { ErrorDetail::NoConnection };
-            return Err(failure(detail, error));
+            return Err(failure(connect_detail(limits.proxy == Proxy::System && proxy_script()), error));
         }
         Err(error) => return Err(failure(ErrorDetail::ServiceFailed, error)),
     };
@@ -178,6 +176,17 @@ fn through_proxy(error: &reqwest::Error) -> bool {
         source = e.source();
     }
     false
+}
+
+/// What a failed connection is called. With a setup script (PAC) configured it may be the
+/// proxy reqwest cannot use — or just no internet: a company laptop keeps the script at home,
+/// where Windows connects directly. Both are named rather than blaming the proxy.
+fn connect_detail(proxy_script: bool) -> ErrorDetail {
+    if proxy_script {
+        ErrorDetail::NoConnectionOrProxy
+    } else {
+        ErrorDetail::NoConnection
+    }
 }
 
 /// The network sets its proxy with a setup script (PAC), which this client cannot run.
@@ -515,6 +524,12 @@ mod tests {
             let error = send(&url, &sample(), QUICK).await.unwrap_err();
             assert_eq!(error.detail, Some(expected), "{reply}");
         }
+    }
+
+    #[test]
+    fn a_failed_connection_with_a_setup_script_names_both_causes() {
+        assert_eq!(connect_detail(false), ErrorDetail::NoConnection);
+        assert_eq!(connect_detail(true), ErrorDetail::NoConnectionOrProxy);
     }
 
     #[tokio::test]
