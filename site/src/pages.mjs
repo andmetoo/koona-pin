@@ -254,9 +254,10 @@ ${kinds}
 <p><button class="button button-primary" type="submit">${esc(f.send)}</button></p>
 </form>
 <p>${esc(f.app)}</p>
-<p><a href="${SUPPORT}" rel="noopener">${esc(f.github)}</a></p>`;
+<p><a href="${SUPPORT}" rel="noopener noreferrer">${esc(f.github)}</a></p>`;
   // The site sends Referrer-Policy: same-origin, under which a POST to Supabase would carry
   // `Origin: null`; this page lets the browser name the site, which the function checks.
+  // Its links to other sites carry rel=noreferrer: they keep the rest of the site's policy.
   const extra = `\n<meta name="referrer" content="strict-origin-when-cross-origin">`;
   return textPage(t, { page: "feedback", wordmark, title: f.title, body, extra });
 }
