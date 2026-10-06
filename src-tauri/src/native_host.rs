@@ -1,7 +1,8 @@
 //! Tells the browsers where the native messaging host is (Р-17): one manifest
 //! for Chrome and Edge, one for Firefox, next to the app, and a key under
 //! `HKCU` for each browser. The app checks and repairs this at every start; the
-//! installer writes it too and the uninstaller removes it (NP-037).
+//! installer writes it too and the uninstaller removes it (NP-037), both through
+//! `netamipin.exe` with [`REGISTER_ARG`] or [`UNREGISTER_ARG`].
 
 use crate::browsers::CaptureProblem;
 use serde_json::json;
@@ -23,6 +24,11 @@ pub const STORE_EXTENSION_IDS: &[&str] = &[
 ];
 /// Registers even a development build or an isolated test run.
 pub const REGISTER_ENV: &str = "NETAMIPIN_REGISTER_HOST";
+/// The installer registers the host before the app ever starts, so the
+/// extension works right after installation with the app closed.
+pub const REGISTER_ARG: &str = "--register-host";
+/// The uninstaller removes the keys before the files they point at.
+pub const UNREGISTER_ARG: &str = "--unregister-host";
 
 const CHROMIUM_MANIFEST: &str = "app.netami.pin.chromium.json";
 const FIREFOX_MANIFEST: &str = "app.netami.pin.firefox.json";
@@ -106,16 +112,82 @@ pub fn register() -> Result<(), (CaptureProblem, String)> {
     Ok(())
 }
 
+/// Removes the keys that point at this folder and the manifests in it. A key
+/// that points elsewhere (another copy, a development build) stays.
+pub fn unregister() -> std::io::Result<()> {
+    let folder = app_folder().ok_or_else(|| std::io::Error::other("cannot find the app's folder"))?;
+    for (key, file) in BROWSER_KEYS {
+        let key = format!(r"{key}\{HOST_NAME}");
+        let ours = folder.join(file).to_string_lossy().into_owned();
+        if registry::default(&key).is_some_and(|value| value.eq_ignore_ascii_case(&ours)) {
+            registry::delete(&key)?;
+        }
+    }
+    for (file, _) in manifests(false) {
+        match std::fs::remove_file(folder.join(file)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 #[cfg(windows)]
 mod registry {
     use std::path::Path;
     use windows_sys::Win32::System::Registry::{
-        RegCloseKey, RegCreateKeyExW, RegSetValueExW, HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE,
-        REG_OPTION_NON_VOLATILE, REG_SZ,
+        RegCloseKey, RegCreateKeyExW, RegDeleteKeyW, RegGetValueW, RegSetValueExW, HKEY,
+        HKEY_CURRENT_USER, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ, RRF_RT_REG_SZ,
     };
 
     fn wide(text: &str) -> Vec<u16> {
         text.encode_utf16().chain(Some(0)).collect()
+    }
+
+    /// The default value of `HKCU\<key>`, if the key and the value exist.
+    pub fn default(key: &str) -> Option<String> {
+        let key = wide(key);
+        let mut size = 0u32;
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                key.as_ptr(),
+                std::ptr::null(),
+                RRF_RT_REG_SZ,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                &mut size,
+            )
+        };
+        if status != 0 {
+            return None;
+        }
+        let mut value = vec![0u16; (size as usize).div_ceil(2)];
+        let status = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                key.as_ptr(),
+                std::ptr::null(),
+                RRF_RT_REG_SZ,
+                std::ptr::null_mut(),
+                value.as_mut_ptr().cast(),
+                &mut size,
+            )
+        };
+        if status != 0 {
+            return None;
+        }
+        let end = value.iter().position(|&c| c == 0).unwrap_or(value.len());
+        Some(String::from_utf16_lossy(&value[..end]))
+    }
+
+    /// Deletes `HKCU\<key>`; the host keys have no subkeys.
+    pub fn delete(key: &str) -> std::io::Result<()> {
+        let key = wide(key);
+        match unsafe { RegDeleteKeyW(HKEY_CURRENT_USER, key.as_ptr()) } {
+            0 | 2 => Ok(()), // 2: ERROR_FILE_NOT_FOUND, already gone
+            status => Err(std::io::Error::from_raw_os_error(status as i32)),
+        }
     }
 
     /// `HKCU\<key>` with the default value set to `path`.
@@ -157,9 +229,17 @@ mod registry {
 
 #[cfg(not(windows))]
 mod registry {
+    // macOS and Linux keep manifests in per-browser folders (NP-048, NP-052).
     pub fn set_default(_key: &str, _path: &std::path::Path) -> std::io::Result<()> {
-        // macOS and Linux keep manifests in per-browser folders (NP-048, NP-052).
         Err(std::io::Error::other("not available on this system yet"))
+    }
+
+    pub fn default(_key: &str) -> Option<String> {
+        None
+    }
+
+    pub fn delete(_key: &str) -> std::io::Result<()> {
+        Ok(())
     }
 }
 
@@ -207,6 +287,25 @@ mod tests {
             assert!(!origin.contains('*'));
         }
         assert_eq!(firefox["allowed_extensions"], json!([GECKO_ID]));
+    }
+
+    #[test]
+    fn the_installer_hooks_match_the_app() {
+        // The hooks cannot read tauri.conf.json, so they spell the names out.
+        let hooks = include_str!("../nsis/hooks.nsh");
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let define = |name: &str, value: &str| format!(r#"!define {name} "{value}""#);
+        // The Run value tauri-plugin-autostart uses is named after productName.
+        assert!(hooks.contains(&define("NP_PRODUCT", conf["productName"].as_str().unwrap())));
+        let exe = format!("{}.exe", conf["mainBinaryName"].as_str().unwrap());
+        assert!(hooks.contains(&define("NP_EXE", &exe)));
+        assert!(hooks.contains(&define("NP_HOST_EXE", HOST_EXE)));
+        for arg in [REGISTER_ARG, UNREGISTER_ARG] {
+            assert!(hooks.contains(&format!(r#""$INSTDIR\${{NP_EXE}}" {arg}'"#)), "{arg}");
+        }
+        // The uninstaller's checkbox removes the library folder (Р-10, item 8).
+        assert!(hooks.contains(&define("NP_DATA_DIR", crate::db::DATA_FOLDER)));
     }
 
     #[test]

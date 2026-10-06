@@ -3,6 +3,7 @@
   "productName": "Netami Pin",
   "version": "0.1.0",
   "identifier": "app.netami.pin",
+  "mainBinaryName": "netamipin",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -39,6 +40,36 @@
         "frame-ancestors": "'none'"
       },
       "devCsp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Netami",
+    "copyright": "© 2026 Netami",
+    "homepage": "https://pin.netami.app",
+    "category": "Productivity",
+    "shortDescription": "Netami Pin",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "Russian"],
+        "customLanguageFiles": {
+          "English": "nsis/English.nsh",
+          "Russian": "nsis/Russian.nsh"
+        },
+        "installerHooks": "nsis/hooks.nsh",
+        "installerIcon": "icons/icon.ico"
+      }
     }
   },
   "plugins": {
