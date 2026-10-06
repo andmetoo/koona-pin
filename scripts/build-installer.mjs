@@ -1,0 +1,44 @@
+// Builds the Windows installer (NP-037, Р-9): NSIS per user, with --features public-release
+// (the native host accepts only the store extensions, feedback must have its address).
+//   $env:NETAMIPIN_FEEDBACK_URL = "https://<ref>.supabase.co/functions/v1/feedback"
+//   node scripts/build-installer.mjs            unsigned, for a test machine
+//   node scripts/build-installer.mjs --sign     signed with eSigner (scripts/sign-windows.ps1)
+// Prints the installer's path and SHA-256.
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+
+const root = path.resolve(import.meta.dirname, "..");
+const sign = process.argv.includes("--sign");
+
+if (!process.env.NETAMIPIN_FEEDBACK_URL) {
+  console.error("NETAMIPIN_FEEDBACK_URL is not set: the installer build does not compile without it (supabase/README.md).");
+  process.exit(1);
+}
+const signing = ["ESIGNER_USERNAME", "ESIGNER_PASSWORD", "ESIGNER_TOTP_SECRET", "CODESIGNTOOL_DIR"];
+if (sign && signing.some((name) => !process.env[name])) {
+  console.error(`--sign needs ${signing.join(", ")} (doc/release-checklist.md).`);
+  process.exit(1);
+}
+
+const args = [path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js"), "build", "--bundles", "nsis", "--features", "public-release"];
+if (sign) {
+  // Tauri signs the app, the host, the uninstaller and the installer with it (%1 is the file).
+  const script = path.join(root, "scripts", "sign-windows.ps1");
+  const signCommand = { cmd: "powershell", args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "%1"] };
+  args.push("--config", JSON.stringify({ bundle: { windows: { signCommand } } }));
+}
+const build = spawnSync(process.execPath, args, { cwd: root, stdio: "inherit" });
+if (build.status !== 0) process.exit(build.status ?? 1);
+
+const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
+const dir = path.join(root, "src-tauri", "target", "release", "bundle", "nsis");
+const installer = (await readdir(dir)).find((file) => file.endsWith(".exe") && file.includes(`_${conf.version}_`));
+if (!installer) {
+  console.error(`No installer for ${conf.version} in ${dir}`);
+  process.exit(1);
+}
+const file = path.join(dir, installer);
+const sha256 = createHash("sha256").update(await readFile(file)).digest("hex");
+console.log(`\n${file}\nSHA-256 ${sha256}\n${sign ? "signed" : "UNSIGNED: for a test machine only, not for publishing"}`);
