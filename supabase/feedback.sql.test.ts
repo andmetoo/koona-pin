@@ -3,7 +3,7 @@
 // revokes are tested too. Retention (pg_cron) is a separate migration, not loaded here.
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const migration = readFileSync(new URL("./migrations/20261006000000_feedback.sql", import.meta.url), "utf8");
 // What a new Supabase project has before any migration: the API roles and their default grants.
@@ -34,6 +34,7 @@ beforeEach(async () => {
   await db.exec(supabase);
   await db.exec(migration);
 });
+afterEach(() => db.close());
 
 async function as<T>(role: string, work: () => Promise<T>): Promise<T> {
   await db.exec(`set role ${role}`);

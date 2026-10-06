@@ -10,7 +10,8 @@ export type FeedbackDraft = {
 
 export const MAX_MESSAGE = 5000;
 export const emptyDraft: FeedbackDraft = { kind: "bug", message: "", email: "", attach: true };
-export const PRIVACY_URL = "https://pin.netami.app/privacy";
+/** The privacy policy in the interface's language: the site has English and Russian. */
+export const privacyUrl = (language: string) => `https://pin.netami.app${language === "ru" ? "/ru" : ""}/privacy`;
 export const GITHUB_ISSUES_URL = "https://github.com/andmetoo/netami-pin-releases/issues/new/choose";
 
 /** something@something.tld without spaces — the rule of the Rust command and the function. */

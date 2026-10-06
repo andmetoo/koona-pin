@@ -15,7 +15,7 @@ const base = `http://127.0.0.1:${port}`;
 const pages = ["/", "/privacy", "/licenses", "/ru/", "/ru/privacy", "/ru/licenses", "/nowhere", "/ru/nowhere"];
 // The feedback form and its result pages, when the build had the function's address (NP-088).
 if (existsSync(path.join(root, "dist-site", "feedback", "index.html")))
-  pages.push(...["/feedback", "/feedback/sent", "/feedback/limit", "/feedback/long", "/feedback/error"].flatMap((p) => [p, `/ru${p}`]));
+  pages.push(...["/feedback", "/feedback/sent", "/feedback/limit", "/feedback/long", "/feedback/origin", "/feedback/error"].flatMap((p) => [p, `/ru${p}`]));
 const widths = [360, 390, 1440, 1920];
 
 const server = spawn(process.execPath, ["scripts/serve-site.mjs", String(port)], { cwd: root, stdio: "ignore" });
