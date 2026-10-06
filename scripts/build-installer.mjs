@@ -7,7 +7,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -27,19 +27,26 @@ if (sign && signing.some((name) => !process.env[name])) {
   process.exit(1);
 }
 
-const args = [path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js"), "build", "--bundles", "nsis", "--features", "public-release"];
+// tauri.conf.json keeps bundling off, so `npm run tauri build` makes no installer: the only
+// installer of a version in the bundle folder is one this script built with public-release.
+const bundle = { active: true };
 if (sign) {
   // Tauri signs the app, the host, the uninstaller and the installer with it (%1 is the file).
   const script = path.join(root, "scripts", "sign-windows.ps1");
-  const signCommand = { cmd: "powershell", args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "%1"] };
-  args.push("--config", JSON.stringify({ bundle: { windows: { signCommand } } }));
+  bundle.windows = { signCommand: { cmd: "powershell", args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "%1"] } };
 }
+const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
+const dir = path.join(root, "src-tauri", "target", "release", "bundle", "nsis");
+const ofThisVersion = async () => (existsSync(dir) ? (await readdir(dir)).filter((file) => file.endsWith(".exe") && file.includes(`_${conf.version}_`)) : []);
+// An installer left from an earlier build must not pass for this one.
+for (const old of await ofThisVersion()) await rm(path.join(dir, old));
+
+const tauri = path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js");
+const args = [tauri, "build", "--bundles", "nsis", "--features", "public-release", "--config", JSON.stringify({ bundle })];
 const build = spawnSync(process.execPath, args, { cwd: root, stdio: "inherit" });
 if (build.status !== 0) process.exit(build.status ?? 1);
 
-const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
-const dir = path.join(root, "src-tauri", "target", "release", "bundle", "nsis");
-const installer = (await readdir(dir)).find((file) => file.endsWith(".exe") && file.includes(`_${conf.version}_`));
+const [installer] = await ofThisVersion();
 if (!installer) {
   console.error(`No installer for ${conf.version} in ${dir}`);
   process.exit(1);
