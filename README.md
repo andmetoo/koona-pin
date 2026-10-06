@@ -59,3 +59,7 @@ npm run tauri dev
 | Приложение для разработки | `npm run tauri dev` | окно приложения, файл не нужен |
 
 `publish/` — людям и в каталоги, `test/` — только на тестовую машину, `dev/` — только на этот компьютер. Рабочие папки инструментов из рук не берутся: `src-tauri/target` (Cargo и Tauri: EXE, промежуточные файлы установщика) и `dist/` (интерфейс приложения для Tauri). `npm run tauri build` собирает только EXE в `src-tauri/target/release`, установщик — только `build:installer`.
+
+## Лицензия
+
+Open core ([Р-48](doc/decisions.md#р-48-лицензия-open-core-agpl-30-cla-и-товарный-знак)): код — [GNU AGPL 3.0](LICENSE) (`AGPL-3.0-only`), платные возможности — под коммерческой лицензией, название, маскот и логотип — товарные знаки ([TRADEMARKS.md](TRADEMARKS.md)). Что под какой лицензией — [LICENSING.md](LICENSING.md); участие — по [CLA](CLA.md), правила — [CONTRIBUTING.md](CONTRIBUTING.md).
