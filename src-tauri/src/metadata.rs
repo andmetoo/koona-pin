@@ -147,85 +147,144 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
         }
     }
     body.truncate(limits.max_body);
-    let body = String::from_utf8_lossy(&body);
-
-    let document = Html::parse_document(&body);
-
-    // Title
-    if let Ok(og_title_sel) =
-        Selector::parse("meta[property='og:title'], meta[name='twitter:title']")
-    {
-        for el in document.select(&og_title_sel) {
-            if let Some(content) = el.value().attr("content") {
-                let trimmed = content.trim();
-                if !trimmed.is_empty() {
-                    meta.title = Some(trimmed.to_string());
-                    break;
-                }
-            }
-        }
-    }
-
-    if meta.title.is_none() {
-        if let Ok(title_sel) = Selector::parse("title") {
-            if let Some(el) = document.select(&title_sel).next() {
-                let text: String = el.text().collect();
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    meta.title = Some(trimmed.to_string());
-                }
-            }
-        }
-    }
-
-    // Description
-    if let Ok(desc_sel) = Selector::parse("meta[property='og:description'], meta[name='description'], meta[name='twitter:description']") {
-        for el in document.select(&desc_sel) {
-            if let Some(content) = el.value().attr("content") {
-                let trimmed = content.trim();
-                if !trimmed.is_empty() {
-                    meta.description = Some(trimmed.to_string());
-                    break;
-                }
-            }
-        }
-    }
-
-    // Image
-    if let Ok(img_sel) = Selector::parse(
-        "meta[property='og:image'], meta[name='twitter:image'], meta[name='twitter:image:src']",
-    ) {
-        for el in document.select(&img_sel) {
-            if let Some(content) = el.value().attr("content") {
-                let trimmed = content.trim();
-                if !trimmed.is_empty() {
-                    if let Ok(resolved) = final_url.join(trimmed) {
-                        meta.image_url = Some(resolved.to_string());
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // Favicon
-    if let Ok(fav_sel) = Selector::parse(
-        "link[rel~='icon'], link[rel='shortcut icon'], link[rel='apple-touch-icon']",
-    ) {
-        for el in document.select(&fav_sel) {
-            if let Some(href) = el.value().attr("href") {
-                let trimmed = href.trim();
-                if !trimmed.is_empty() {
-                    if let Ok(resolved) = final_url.join(trimmed) {
-                        meta.favicon_url = Some(resolved.to_string());
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
+    read_page(&String::from_utf8_lossy(&body), &final_url, &mut meta);
     meta
+}
+
+/// The first non-empty value of `attr` among the elements `selector` matches.
+fn first_attr(document: &Html, selector: &str, attr: &str) -> Option<String> {
+    let selector = Selector::parse(selector).ok()?;
+    document
+        .select(&selector)
+        .filter_map(|el| el.value().attr(attr))
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+/// An address the WebView may load as a picture: http(s), resolved against the page.
+fn picture(base: &Url, raw: &str) -> Option<String> {
+    let url = base.join(raw.trim()).ok()?;
+    matches!(url.scheme(), "http" | "https").then(|| url.to_string())
+}
+
+/// `image` of schema.org JSON-LD: a string, an object with `url`, or a list
+/// of them, on the item itself or in its `@graph`.
+fn json_ld_image(value: &serde_json::Value) -> Option<String> {
+    use serde_json::Value;
+    let of = |image: &Value| -> Option<String> {
+        match image {
+            Value::String(url) => Some(url.clone()),
+            Value::Object(object) => object.get("url").or_else(|| object.get("contentUrl")).and_then(Value::as_str).map(str::to_string),
+            Value::Array(list) => list.iter().find_map(|item| match item {
+                Value::String(url) => Some(url.clone()),
+                Value::Object(object) => object.get("url").and_then(Value::as_str).map(str::to_string),
+                _ => None,
+            }),
+            _ => None,
+        }
+    };
+    match value {
+        Value::Array(items) => items.iter().find_map(json_ld_image),
+        Value::Object(object) => object
+            .get("image")
+            .and_then(of)
+            .or_else(|| object.get("@graph").and_then(json_ld_image)),
+        _ => None,
+    }
+}
+
+/// How big an icon declares itself: `sizes` (its largest), or what its kind
+/// usually is. The largest wins: covers show icons at 32–56 px (NP-087).
+fn icon_size(rel: &str, sizes: Option<&str>, href: &str) -> u32 {
+    let declared = sizes.and_then(|sizes| {
+        sizes
+            .split_whitespace()
+            .map(|size| match size.to_ascii_lowercase().as_str() {
+                "any" => Some(512),
+                size => size.split('x').next()?.parse().ok(),
+            })
+            .max()
+            .flatten()
+    });
+    declared.unwrap_or(if rel.contains("apple-touch-icon") {
+        180
+    } else if href.ends_with(".svg") {
+        512
+    } else {
+        16
+    })
+}
+
+/// Title, description, picture and icon of a page (NP-019, NP-087).
+pub fn read_page(html: &str, base: &Url, meta: &mut PageMetadata) {
+    let document = Html::parse_document(html);
+    meta.title = first_attr(&document, "meta[property='og:title'], meta[name='twitter:title']", "content").or_else(|| {
+        let selector = Selector::parse("title").ok()?;
+        let text: String = document.select(&selector).next()?.text().collect();
+        Some(text.trim().to_string()).filter(|t| !t.is_empty())
+    });
+    meta.description = first_attr(
+        &document,
+        "meta[property='og:description'], meta[name='description'], meta[name='twitter:description']",
+        "content",
+    );
+
+    // The picture, from the most deliberate source to the least: the page's
+    // own preview tags, then what schema.org markup names, then a large image
+    // in the article itself (NP-087).
+    // One selector each: a list of selectors matches in document order.
+    let tagged = [
+        ("meta[property='og:image:secure_url']", "content"),
+        ("meta[property='og:image'], meta[property='og:image:url']", "content"),
+        ("meta[name='twitter:image'], meta[name='twitter:image:src'], meta[property='twitter:image']", "content"),
+        ("link[rel='image_src']", "href"),
+        ("meta[itemprop='image']", "content"),
+        ("link[itemprop='image']", "href"),
+        ("img[itemprop='image']", "src"),
+    ];
+    meta.image_url = tagged
+        .iter()
+        .find_map(|(selector, attr)| first_attr(&document, selector, attr).and_then(|raw| picture(base, &raw)))
+        .or_else(|| {
+            let selector = Selector::parse("script[type='application/ld+json']").ok()?;
+            document.select(&selector).find_map(|el| {
+                let json: serde_json::Value = serde_json::from_str(&el.text().collect::<String>()).ok()?;
+                picture(base, &json_ld_image(&json)?)
+            })
+        })
+        .or_else(|| {
+            // Width declared and large enough: icons, avatars and spacers are not previews.
+            let selector = Selector::parse("article img[src], main img[src]").ok()?;
+            document.select(&selector).find_map(|el| {
+                let width: u32 = el.value().attr("width")?.trim().trim_end_matches("px").parse().ok()?;
+                (width >= 300).then(|| picture(base, el.value().attr("src")?)).flatten()
+            })
+        });
+
+    // The largest icon the page offers; the first of equal ones.
+    if let Ok(selector) = Selector::parse("link[rel~='icon'], link[rel='shortcut icon'], link[rel~='apple-touch-icon'], link[rel='apple-touch-icon-precomposed']") {
+        let mut best: Option<(u32, String)> = None;
+        for el in document.select(&selector) {
+            let (Some(href), rel) = (el.value().attr("href"), el.value().attr("rel").unwrap_or("").to_ascii_lowercase()) else {
+                continue;
+            };
+            let Some(url) = picture(base, href).filter(|_| !href.trim().is_empty()) else {
+                continue;
+            };
+            let size = icon_size(&rel, el.value().attr("sizes"), href.trim());
+            if best.as_ref().is_none_or(|(largest, _)| size > *largest) {
+                best = Some((size, url));
+            }
+        }
+        // A bare favicon.ico is usually 16 px: Google's 128 px icon, already
+        // set, serves a cover better unless the page declares a larger one.
+        if let Some((size, url)) = best {
+            if size >= 32 || meta.favicon_url.is_none() {
+                meta.favicon_url = Some(url);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -244,6 +303,81 @@ mod tests {
         );
         assert_eq!(extract_domain("http://habr.com/ru/post/123"), "habr.com");
         assert_eq!(extract_domain("not_a_valid_url"), "unknown");
+    }
+
+    fn page(head: &str, body: &str) -> PageMetadata {
+        let mut meta = PageMetadata::default();
+        let base = Url::parse("https://example.org/articles/one").unwrap();
+        read_page(&format!("<html><head>{head}</head><body>{body}</body></html>"), &base, &mut meta);
+        meta
+    }
+
+    #[test]
+    fn the_picture_comes_from_the_most_deliberate_source() {
+        // Preview tags first, the secure address of og:image before the plain one.
+        let meta = page(
+            r#"<meta property="og:image" content="http://cdn.example.org/a.jpg"><meta property="og:image:secure_url" content="https://cdn.example.org/a.jpg"><link rel="image_src" href="/b.jpg">"#,
+            "",
+        );
+        assert_eq!(meta.image_url.as_deref(), Some("https://cdn.example.org/a.jpg"));
+        assert_eq!(page(r#"<link rel="image_src" href="/b.jpg">"#, "").image_url.as_deref(), Some("https://example.org/b.jpg"));
+        assert_eq!(page(r#"<meta itemprop="image" content="c.png">"#, "").image_url.as_deref(), Some("https://example.org/articles/c.png"));
+        assert_eq!(page("", r#"<img itemprop="image" src="/d.webp">"#).image_url.as_deref(), Some("https://example.org/d.webp"));
+    }
+
+    #[test]
+    fn json_ld_names_the_picture_in_any_of_its_shapes() {
+        let ld = |json: &str| page(&format!(r#"<script type="application/ld+json">{json}</script>"#), "").image_url;
+        assert_eq!(ld(r#"{"@type":"Article","image":"https://example.org/e.jpg"}"#).as_deref(), Some("https://example.org/e.jpg"));
+        assert_eq!(ld(r#"{"image":{"@type":"ImageObject","url":"/f.jpg"}}"#).as_deref(), Some("https://example.org/f.jpg"));
+        assert_eq!(ld(r#"{"image":["/g.jpg","/h.jpg"]}"#).as_deref(), Some("https://example.org/g.jpg"));
+        assert_eq!(ld(r#"{"@graph":[{"@type":"WebSite"},{"@type":"NewsArticle","image":[{"url":"/i.jpg"}]}]}"#).as_deref(), Some("https://example.org/i.jpg"));
+        assert_eq!(ld(r#"[{"@type":"Person"},{"image":"/j.jpg"}]"#).as_deref(), Some("https://example.org/j.jpg"));
+        assert_eq!(ld("{ not json"), None);
+        assert_eq!(ld(r#"{"image":"data:image/png;base64,AAAA"}"#), None, "data: addresses are not stored");
+    }
+
+    #[test]
+    fn a_large_article_image_is_the_last_resort() {
+        let body = r#"<header><img src="/logo.png" width="400"></header><article><img src="/avatar.png" width="48"><img src="/hero.jpg" width="1200" height="630"></article>"#;
+        assert_eq!(page("", body).image_url.as_deref(), Some("https://example.org/hero.jpg"));
+        assert_eq!(page("", r#"<article><img src="/no-width.jpg"></article>"#).image_url, None, "a width says it is a picture");
+        assert_eq!(page("", r#"<img src="/outside.jpg" width="800">"#).image_url, None, "only inside the article");
+        assert_eq!(page("", "").image_url, None);
+    }
+
+    #[test]
+    fn the_largest_icon_wins() {
+        let icons = r#"<link rel="icon" href="/favicon.ico"><link rel="icon" sizes="32x32" href="/32.png"><link rel="apple-touch-icon" href="/touch.png"><link rel="icon" sizes="16x16 96x96" href="/96.png">"#;
+        assert_eq!(page(icons, "").favicon_url.as_deref(), Some("https://example.org/touch.png"));
+        assert_eq!(page(r#"<link rel="icon" href="/favicon.ico"><link rel="icon" type="image/svg+xml" href="/icon.svg">"#, "").favicon_url.as_deref(), Some("https://example.org/icon.svg"));
+        assert_eq!(page(r#"<link rel="shortcut icon" href="/a.ico"><link rel="icon" href="/b.ico">"#, "").favicon_url.as_deref(), Some("https://example.org/a.ico"), "the first of equal ones");
+        assert_eq!(page(r#"<link rel="icon" href="">"#, "").favicon_url, None);
+    }
+
+    #[test]
+    fn a_bare_favicon_does_not_replace_a_larger_default() {
+        let base = Url::parse("https://example.org/").unwrap();
+        let google = "https://www.google.com/s2/favicons?domain=example.org&sz=128";
+        let read = |head: &str| {
+            let mut meta = PageMetadata { favicon_url: Some(google.into()), ..Default::default() };
+            read_page(&format!("<head>{head}</head>"), &base, &mut meta);
+            meta.favicon_url.unwrap()
+        };
+        assert_eq!(read(r#"<link rel="icon" href="/favicon.ico">"#), google);
+        assert_eq!(read(r#"<link rel="icon" sizes="16x16" href="/16.png">"#), google);
+        assert_eq!(read(r#"<link rel="icon" sizes="32x32" href="/32.png">"#), "https://example.org/32.png");
+        assert_eq!(read(r#"<link rel="apple-touch-icon" href="/touch.png">"#), "https://example.org/touch.png");
+        assert_eq!(read(""), google);
+    }
+
+    #[test]
+    fn title_and_description_are_read_as_before() {
+        let meta = page(r#"<title> Page </title><meta name="description" content=" About "><meta property="og:title" content="Shared">"#, "");
+        assert_eq!(meta.title.as_deref(), Some("Shared"));
+        assert_eq!(meta.description.as_deref(), Some("About"));
+        assert_eq!(page("<title> Only </title>", "").title.as_deref(), Some("Only"));
+        assert_eq!(page("<title>  </title>", "").title, None);
     }
 
     use std::io::{Read, Write};
@@ -367,7 +501,7 @@ mod tests {
     #[tokio::test]
     async fn previews_and_icons_on_local_addresses_are_dropped() {
         let (port, _) = server("127.0.0.1", |_| {
-            html(r#"<head><title>T</title><meta property="og:image" content="http://192.168.1.1/cam.jpg"><link rel="icon" href="/favicon.ico"></head>"#)
+            html(r#"<head><title>T</title><meta property="og:image" content="http://192.168.1.1/cam.jpg"><link rel="icon" sizes="64x64" href="/favicon.png"></head>"#)
         });
         // The page itself is allowed in the test; what it points the WebView to is not.
         let mut meta = fetch_with(&format!("http://127.0.0.1:{port}/"), &TEST).await;

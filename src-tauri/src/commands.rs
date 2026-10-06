@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode, ErrorDetail},
-    backup, dedupe, export, import, linkcheck, restore,
+    backup, dedupe, export, import, linkcheck, metadata, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -407,6 +407,21 @@ pub async fn create_collection(
         db::create_collection(conn, name.trim(), color.as_deref(), icon.as_deref()).map_err(text)
     })
     .await
+}
+/// «Обновить превью» in the bookmark's menu (NP-087): the page is read again
+/// with the rules of a capture (NP-019) — an imported link gets its picture,
+/// a page that gained one shows it.
+#[tauri::command]
+pub async fn refresh_preview(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+) -> Result<Bookmark, CommandError> {
+    let url = blocking(&state, move |conn| db::get_bookmark_by_id(conn, id).map(|b| b.url).map_err(text)).await?;
+    let meta = metadata::fetch_metadata(&url).await;
+    let bookmark = blocking(&state, move |conn| db::refresh_preview(conn, id, &meta).map_err(text)).await?;
+    capture::emit(&app, ChangeKind::Updated, &bookmark);
+    Ok(bookmark)
 }
 /// A new library's first collections, named by the interface in its language
 /// (NP-085). Made once: a library that already had them gets nothing.

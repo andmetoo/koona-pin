@@ -1,9 +1,10 @@
-import { memo, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
+import { coverOf, monogram, pendingFor, VIEW } from "../../services/cover";
 import { daysLeft } from "../../services/library";
 import { Icon } from "../icons";
 import { Menu, MenuEntry } from "../ui/Menu";
@@ -22,6 +23,8 @@ export interface BookmarkActions {
   tag: (name: string) => void;
   /** Show only this site: the filter chip of the search row (NP-013). */
   domain: (domain: string) => void;
+  /** «Обновить превью»: the page read again for its picture and icon (NP-087). */
+  refresh: (bookmark: Bookmark) => void;
   /** The checkbox or `Ctrl`+click toggles; `Shift` adds the range from the last one (NP-028). */
   select: (bookmark: Bookmark, range: boolean) => void;
 }
@@ -96,7 +99,7 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
     { id: "move", icon: Folder, label: t("card.moveTo"), submenu: moveEntries(b, collections, actions, t) },
     { id: "tag", icon: TagIcon, label: t("card.addTag"), keys: "T", disabled: true, disabledHint: soon },
     "separator",
-    { id: "refresh", icon: RefreshCw, label: t("card.refresh"), disabled: true, disabledHint: soon },
+    { id: "refresh", icon: RefreshCw, label: t("card.refresh"), onSelect: () => actions.refresh(b) },
     "separator",
     { id: "delete", icon: Trash2, label: t("card.delete"), keys: "Del", onSelect: () => actions.trash(b) },
   ];
@@ -176,31 +179,104 @@ function useBookmarkMenu(b: Bookmark, collections: Collection[], actions: Bookma
 
 /** Favicon, or the first letter when there is none. */
 export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
-  const [broken, setBroken] = useState(false);
-  useEffect(() => setBroken(false), [b.favicon_url]);
-  return b.favicon_url && !broken ? (
-    <img src={b.favicon_url} alt="" width={size} height={size} className="shrink-0 rounded-[3px] object-contain" onError={() => setBroken(true)} />
+  // The address that failed: a cached failure comes before any effect could reset a flag.
+  const [failed, setFailed] = useState<string | null>(null);
+  return b.favicon_url && failed !== b.favicon_url ? (
+    <img src={b.favicon_url} alt="" width={size} height={size} className="shrink-0 rounded-[3px] object-contain" onError={() => setFailed(b.favicon_url)} />
   ) : (
     <span
       style={{ width: size, height: size, fontSize: size * 0.64 }}
       className="flex shrink-0 items-center justify-center rounded-[3px] bg-hover font-semibold text-muted"
     >
-      {b.domain[0]?.toUpperCase()}
+      {/* The same letter as the cover above it. */}
+      {monogram(b.domain, b.title)}
     </span>
   );
 }
 
-/** OpenGraph image; a plate of the same size with the site mark when there is none. */
-export function Preview({ b, mark = 20 }: { b: Bookmark; mark?: number }) {
-  const [broken, setBroken] = useState(false);
-  useEffect(() => setBroken(false), [b.image_url]);
-  return b.image_url && !broken ? (
-    <img src={b.image_url} alt="" loading="lazy" decoding="async" className="size-full object-cover" onError={() => setBroken(true)} />
-  ) : (
-    <span data-preview-fallback className="flex size-full items-center justify-center bg-hover">
-      <SiteMark b={b} size={mark} />
+/** Where the pointer is over a live cover, −1…1 on each axis, for the tile to lean towards. */
+function followPointer(e: React.PointerEvent<HTMLElement>) {
+  const box = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty("--cx", (((e.clientX - box.left) / box.width) * 2 - 1).toFixed(3));
+  e.currentTarget.style.setProperty("--cy", (((e.clientY - box.top) / box.height) * 2 - 1).toFixed(3));
+}
+function releasePointer(e: React.PointerEvent<HTMLElement>) {
+  e.currentTarget.style.removeProperty("--cx");
+  e.currentTarget.style.removeProperty("--cy");
+}
+
+/**
+ * The cover of a bookmark without a picture (NP-087, Р-43): the site's
+ * gradient, a pattern of the page, the site's icon on a tile and, when there
+ * is room, its name. A small icon would blur when enlarged: the tile shows
+ * the site's letter and the icon at its own size beside it. `live` covers —
+ * grid cards and triage — answer the pointer: a slow drift of the
+ * gradient, the tile leaning towards the pointer. Sizes follow the preview
+ * (container units in `app.css`), so one cover serves 64×44 and 280 px.
+ */
+function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean }) {
+  const cover = useMemo(() => coverOf(b.domain, b.url), [b.domain, b.url]);
+  // Kept with the address it was learnt for: a cached icon loads before any
+  // effect would run, so resetting in an effect would lose its answer.
+  const [learnt, setLearnt] = useState<{ url: string; icon: "large" | "small" | "none" } | null>(null);
+  const icon = !b.favicon_url ? "none" : learnt?.url === b.favicon_url ? learnt.icon : "loading";
+  const setIcon = (value: "large" | "small" | "none") => b.favicon_url && setLearnt({ url: b.favicon_url, icon: value });
+  return (
+    <span
+      data-preview-fallback
+      data-cover={cover.pattern}
+      data-live={live || undefined}
+      onPointerMove={live ? followPointer : undefined}
+      onPointerLeave={live ? releasePointer : undefined}
+      className="cover"
+      style={{ "--from": cover.from, "--to": cover.to, "--angle": `${cover.angle}deg` } as CSSProperties}
+    >
+      {/* A thumbnail would not show it, and a list makes a row each frame while it scrolls. */}
+      {!small && (
+        <svg aria-hidden viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} preserveAspectRatio="xMidYMid slice" className="cover-pattern">
+          {cover.path && <path d={cover.path} />}
+          {cover.circles.map(([cx, cy, r], i) => (
+            <circle key={i} cx={cx} cy={cy} r={r} />
+          ))}
+        </svg>
+      )}
+      <span className="cover-tile" data-icon={icon}>
+        {b.favicon_url && icon !== "none" && (
+          <img
+            src={b.favicon_url}
+            alt=""
+            decoding="async"
+            onLoad={(e) => setIcon(e.currentTarget.naturalWidth >= 32 ? "large" : "small")}
+            onError={() => setIcon("none")}
+          />
+        )}
+        {(icon === "small" || icon === "none") && <span className="cover-letter">{monogram(b.domain, b.title)}</span>}
+      </span>
+      <span className="cover-name">{b.domain}</span>
     </span>
   );
+}
+
+/**
+ * The page's picture; the cover when there is none or it does not load.
+ * While a link just saved waits for its metadata, a neutral shimmer says the
+ * picture is on its way rather than missing (NP-087).
+ */
+export function Preview({ b, live = false, small = false }: { b: Bookmark; live?: boolean; small?: boolean }) {
+  // The address that failed, not a flag: a cached failure comes before any effect.
+  const [failed, setFailed] = useState<string | null>(null);
+  const broken = failed !== null && failed === b.image_url;
+  const setBroken = () => setFailed(b.image_url);
+  const [, recheck] = useState(0);
+  const pending = pendingFor(b);
+  useEffect(() => {
+    if (!pending) return;
+    const timer = window.setTimeout(() => recheck((n) => n + 1), pending);
+    return () => window.clearTimeout(timer);
+  }, [pending > 0, b.id]);
+  if (b.image_url && !broken)
+    return <img src={b.image_url} alt="" loading="lazy" decoding="async" className="size-full object-cover" onError={setBroken} />;
+  return pending ? <span data-preview-pending className="cover-pending" /> : <Cover b={b} live={live} small={small} />;
 }
 
 /**
@@ -302,7 +378,7 @@ export const BookmarkCard = memo(function BookmarkCard({
           aria-label={t("card.open", { title: b.title })}
           className="block aspect-[16/10] w-full overflow-hidden rounded-xl bg-hover"
         >
-          <Preview b={b} />
+          <Preview b={b} live />
         </button>
         <div className={`absolute top-2.5 left-2.5 flex ${revealed("card", menu.open)}`}>
           <SelectBox b={b} selected={selected} actions={actions} className="size-[22px] rounded-sm" idle="border-subtle bg-card/90" />
@@ -404,7 +480,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         aria-label={t("card.open", { title: b.title })}
         className="h-11 w-16 overflow-hidden rounded-sm bg-hover"
       >
-        <Preview b={b} />
+        <Preview b={b} small />
       </button>
       <div className="flex min-w-0 flex-col gap-[3px]">
         <h2 className="flex min-w-0 items-center gap-1.5 text-md font-medium">
