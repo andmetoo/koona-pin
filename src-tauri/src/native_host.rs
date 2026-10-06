@@ -312,6 +312,8 @@ mod tests {
     fn ids_match_the_extension_build() {
         let build = include_str!("../../scripts/build-extension.mjs");
         assert!(build.contains(&format!(r#"geckoId = "{GECKO_ID}""#)));
+        // The store-id test package (NP-037) checks its key against this id.
+        assert!(build.contains(&format!(r#"chromeStoreId = "{}""#, STORE_EXTENSION_IDS[0])));
         // The development key in the repository gives exactly this id.
         let key = include_str!("../../extension/dev-key.txt").trim();
         let der = base64::engine::general_purpose::STANDARD
