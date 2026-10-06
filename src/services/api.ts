@@ -7,6 +7,7 @@ import {
   BackupCopy,
   BackupRestoreOutcome,
   BackupSource,
+  Bookmark,
   BookmarkChange,
   BookmarkPage,
   BookmarkPatch,
@@ -150,6 +151,8 @@ const desktop = {
       color: color ?? null,
       icon: icon ?? null,
     }),
+  /** «Обновить превью»: the page read again for its picture and icon (NP-087). */
+  refreshPreview: (id: number) => call<Bookmark>("refresh_preview", { id }),
   /** A new library's first collections, named in the interface's language; once (NP-085). */
   createStarterCollections: (names: string[]) => call<Collection[]>("create_starter_collections", { names }),
   deleteCollection: async (id: number) => {
