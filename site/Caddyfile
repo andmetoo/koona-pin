@@ -20,9 +20,10 @@ pin.netami.app {
 	encode zstd gzip
 
 	# Only own files, plus the Cloudflare Web Analytics beacon that Cloudflare inserts (Р-37).
+	# Forms post only to the Edge Function `feedback` in Supabase (NP-088, Р-9).
 	header {
 		Strict-Transport-Security "max-age=31536000"
-		Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; script-src https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; script-src https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action https://*.supabase.co; frame-ancestors 'none'"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "same-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"

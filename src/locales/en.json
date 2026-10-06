@@ -7,7 +7,8 @@
     "copy": "Copy",
     "open": "Open",
     "retry": "Try again",
-    "ok": "Got it"
+    "ok": "Got it",
+    "cancel": "Cancel"
   },
   "window": {
     "demo": "Demo in the browser",
@@ -546,7 +547,12 @@
     "rebuildDone_one": "Search index rebuilt: {{count}} bookmark",
     "rebuildDone_other": "Search index rebuilt: {{count}} bookmarks",
     "checkUpdates": "Check for updates",
-    "report": "Report a problem"
+    "support": "Support",
+    "feedback": "Send feedback",
+    "feedbackHint": "A bug, an idea or a question — straight to the developer",
+    "feedbackButton": "Send feedback…",
+    "github": "Issues on GitHub",
+    "githubHint": "Public reports in netami-pin-releases"
   },
   "notice": {
     "previewRefreshed": "Preview refreshed",
@@ -734,6 +740,34 @@
       "body": "{{detail}}. Your data has not been changed."
     }
   },
+  "feedback": {
+    "title": "Send feedback",
+    "lead": "Tell the developer about a bug, an idea or a question. Nothing leaves your computer until you press Send.",
+    "kind": "Type",
+    "bug": "Bug",
+    "idea": "Idea",
+    "question": "Question",
+    "message": "Message",
+    "placeholder": "What happened, or what would you like?",
+    "count": "{{count}} / {{max}}",
+    "email": "Email for a reply (optional)",
+    "emailPlaceholder": "name@example.com",
+    "attach": "Attach report",
+    "attachHint": "App and Windows versions, capture status and browsers. No links, titles, tags or notes.",
+    "showReport": "Show report",
+    "hideReport": "Hide report",
+    "report": "Report",
+    "privacy": "Stored in the EU for up to 12 months.",
+    "privacyLink": "Privacy policy",
+    "send": "Send",
+    "sending": "Sending…",
+    "copy": "Copy text",
+    "copied": "Text copied",
+    "copyFailed": "Couldn't copy",
+    "sentTitle": "Sent. Thank you!",
+    "sentBody": "The developer reads every message. If you left an email, the reply will come there.",
+    "done": "Done"
+  },
   "errors": {
     "disk_full": "The disk is full — the changes were not saved.",
     "read_only": "The library is damaged and open read-only — changes are not saved.",
@@ -755,7 +789,13 @@
       "unsupported_url": "only http and https links can be saved",
       "nothing_exported": "nothing has been exported yet",
       "copy_gone": "the copy is no longer there",
-      "library_opening": "the library is still opening"
+      "library_opening": "the library is still opening",
+      "empty_message": "the message is empty",
+      "message_too_long": "the message is longer than 5000 characters",
+      "invalid_email": "the email address doesn't look right",
+      "no_connection": "no internet connection",
+      "service_failed": "the server didn't answer",
+      "too_many_messages": "too many messages from this network in the last hour"
     },
     "code": {
       "not_found": "It no longer exists — it may have been deleted meanwhile.",
@@ -773,7 +813,13 @@
       "unsupported_url": "Only http:// and https:// links can be saved.",
       "nothing_exported": "Nothing has been exported yet.",
       "copy_gone": "This copy is no longer there.",
-      "library_opening": "The library is still opening. Try again in a few seconds."
+      "library_opening": "The library is still opening. Try again in a few seconds.",
+      "empty_message": "Write a message.",
+      "message_too_long": "The message is longer than 5000 characters.",
+      "invalid_email": "This doesn't look like an email address. Fix it or leave the field empty.",
+      "no_connection": "Couldn't send: no internet connection. Your text is kept — try again, or copy it and send it another way.",
+      "service_failed": "Couldn't send: the server didn't answer. Your text is kept — try again later, or copy it and send it another way.",
+      "too_many_messages": "Too many messages from this network in the last hour. Your text is kept — try again later."
     }
   },
   "tray": {

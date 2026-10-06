@@ -4,6 +4,7 @@
 //   node scripts/build-site.mjs && node scripts/check-site.mjs
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -12,6 +13,9 @@ const shots = path.join(root, "test-results", "site");
 const port = 4317;
 const base = `http://127.0.0.1:${port}`;
 const pages = ["/", "/privacy", "/licenses", "/ru/", "/ru/privacy", "/ru/licenses", "/nowhere", "/ru/nowhere"];
+// The feedback form and its result pages, when the build had the function's address (NP-088).
+if (existsSync(path.join(root, "dist-site", "feedback", "index.html")))
+  pages.push(...["/feedback", "/feedback/sent", "/feedback/limit", "/feedback/error"].flatMap((p) => [p, `/ru${p}`]));
 const widths = [360, 390, 1440, 1920];
 
 const server = spawn(process.execPath, ["scripts/serve-site.mjs", String(port)], { cwd: root, stdio: "ignore" });
