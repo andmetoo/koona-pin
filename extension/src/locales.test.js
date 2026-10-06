@@ -7,7 +7,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const catalog = (code) =>
   JSON.parse(readFileSync(path.join(here, "_locales", code, "messages.json"), "utf8"));
 const en = catalog("en");
-const ru = catalog("ru");
+const codes = readdirSync(path.join(here, "_locales"));
 const source = (file) => readFileSync(path.join(here, file), "utf8");
 
 /** Keys the extension asks for: t("…") in scripts, data-i18n* in the page, __MSG_…__ in manifests. */
@@ -23,12 +23,21 @@ function usedKeys() {
 }
 
 describe("extension messages", () => {
-  it("has the same keys and placeholders in English and Russian", () => {
-    expect(Object.keys(ru).sort()).toEqual(Object.keys(en).sort());
-    for (const key of Object.keys(en))
-      expect(Object.keys(ru[key].placeholders ?? {}), key).toEqual(
+  it("speaks the languages of the app (NP-089)", () => {
+    // Chrome's codes: pt_BR for pt-BR; Serbian Latin has no code of its own.
+    expect(codes.sort()).toEqual(["de", "en", "es", "fr", "it", "pl", "pt_BR", "ru", "sr", "tr", "uk"]);
+  });
+  it.each(codes)("%s has the keys and placeholders of English", (code) => {
+    const messages = catalog(code);
+    expect(Object.keys(messages).sort()).toEqual(Object.keys(en).sort());
+    for (const key of Object.keys(en)) {
+      expect(Object.keys(messages[key].placeholders ?? {}), key).toEqual(
         Object.keys(en[key].placeholders ?? {}),
       );
+      for (const name of Object.keys(en[key].placeholders ?? {}))
+        expect(messages[key].message, `${code} ${key}`).toContain(`$${name.toUpperCase()}$`);
+      expect(messages[key].message.trim(), `${code} ${key}`).not.toBe("");
+    }
   });
   it("defines every key the extension uses, and nothing else", () => {
     const used = usedKeys();
@@ -36,7 +45,7 @@ describe("extension messages", () => {
     expect(Object.keys(en).filter((key) => !used.has(key))).toEqual([]);
   });
   it("fits store limits: name 75 characters, description 132", () => {
-    for (const messages of [en, ru]) {
+    for (const messages of codes.map(catalog)) {
       expect(messages.extensionName.message.length).toBeLessThanOrEqual(75);
       expect(messages.extensionDescription.message.length).toBeLessThanOrEqual(132);
     }

@@ -1,0 +1,204 @@
+{
+  "extensionName": { "message": "Netami Pin — zapisz link" },
+  "extensionDescription": {
+    "message": "Zapisz stronę w lokalnej bibliotece Netami Pin jednym kliknięciem. Gdy aplikacja jest zamknięta, linki czekają w kolejce."
+  },
+  "menuOptions": { "message": "Ustawienia i kolejka" },
+  "menuSearch": { "message": "Znajdź link" },
+  "commandSearch": { "message": "Znajdź link w Netami Pin" },
+  "searchPlaceholder": { "message": "Szukaj w swoich linkach" },
+  "searchFilters": { "message": "Gdzie szukać" },
+  "searchKeys": { "message": "↑↓ · ↵ otwórz · Shift ↵ tutaj · Ctrl C kopiuj" },
+  "searchOpenApp": { "message": "Otwórz Netami Pin" },
+  "searchAll": { "message": "Wszystko" },
+  "searchInbox": { "message": "Skrzynka odbiorcza" },
+  "searchFavorites": { "message": "Ulubione" },
+  "searchOpen": { "message": "Otwórz" },
+  "searchToday": { "message": "Dziś" },
+  "searchRecent": { "message": "Ostatnio zapisane" },
+  "searchMore": {
+    "message": "Pokazano pierwsze $COUNT$. Dodaj słowo, aby zawęzić wyszukiwanie.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "Nic jeszcze nie zapisano" },
+  "searchEmptyLibraryText": { "message": "Kliknij przycisk Netami Pin na stronie, aby ją zapisać." },
+  "searchNothing": {
+    "message": "Nic nie znaleziono dla „$QUERY$”",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "Nic nie znaleziono dla „$QUERY$” w $PLACE$",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "W $PLACE$ jeszcze nic nie ma",
+    "placeholders": { "place": { "content": "$1", "example": "Ulubione" } }
+  },
+  "searchNothingText": { "message": "Spróbuj innego słowa albo przeszukaj całą bibliotekę — kosz nigdy nie jest przeszukiwany." },
+  "searchEverywhere": { "message": "Szukaj wszędzie" },
+  "searchStarting": { "message": "Uruchamianie Netami Pin…" },
+  "searchMissingText": {
+    "message": "Wyszukiwanie odbywa się w bibliotece Netami Pin na tym komputerze. Zainstaluj aplikację — do tego czasu zapisane linki czekają tutaj."
+  },
+  "searchUpdateApp": { "message": "Zaktualizuj Netami Pin, aby wyszukiwać" },
+  "searchUpdateAppText": { "message": "Ten Netami Pin zapisuje linki, ale nie umie jeszcze wyszukiwać z przeglądarki. Zapisywanie nadal działa." },
+  "searchUpdateButton": { "message": "Pobierz aktualizację" },
+  "searchUpdateExtensionText": {
+    "message": "To rozszerzenie nie pasuje do Netami Pin. Zaktualizuj je na stronie rozszerzeń przeglądarki — zapisywanie nadal działa."
+  },
+  "searchLibrary": { "message": "Biblioteka się nie otworzyła" },
+  "searchLibraryText": { "message": "Otwórz Netami Pin, aby zobaczyć dlaczego. Do tego czasu zapisane linki czekają tutaj." },
+  "searchUnavailable": { "message": "Netami Pin nie odpowiedział" },
+  "searchUnavailableText": { "message": "Spróbuj ponownie za chwilę." },
+  "searchCopied": { "message": "Link skopiowany" },
+  "shortcutHeading": { "message": "Skrót klawiszowy" },
+  "shortcutText": { "message": "Otwiera wyszukiwanie w twojej bibliotece." },
+  "shortcutNone": { "message": "Brak skrótu" },
+  "shortcutChangeIn": {
+    "message": "Zmień w $BROWSER$",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ zmienia skróty rozszerzeń tylko na własnej stronie, $PAGE$: przycisk ją otwiera.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "Zmień" },
+  "shortcutPress": { "message": "Naciśnij nowy skrót…" },
+  "shortcutCancel": { "message": "Esc, aby anulować. Skrót wymaga Ctrl albo Alt, nie obu naraz." },
+  "shortcutInvalid": { "message": "Ten klawisz nie może być skrótem. Użyj Ctrl lub Alt z literą, cyfrą albo F1–F12." },
+  "shortcutSaved": { "message": "Zapisano." },
+  "shortcutRefused": {
+    "message": "Firefox nie przyjął skrótu $SHORTCUT$. Spróbuj innego.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "Zapisz stronę w Netami Pin" },
+  "queueWaiting": {
+    "message": "Netami Pin: do wysłania czeka $COUNT$. Otwórz ustawienia, aby zobaczyć kolejkę.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Zapisywanie w Netami Pin" },
+  "badgeWaiting": { "message": "Link czeka na wysłanie do Netami Pin" },
+  "badgeSaved": { "message": "Zapisano w Netami Pin" },
+  "badgeExisting": { "message": "Ten link jest już w Netami Pin" },
+  "errorInvalidUrl": {
+    "message": "Tej strony nie można zapisać. Otwórz stronę z adresem HTTP/HTTPS."
+  },
+  "errorUnsupportedScheme": {
+    "message": "Tej strony nie można zapisać. Obsługiwane są tylko linki HTTP/HTTPS."
+  },
+  "errorUnavailable": {
+    "message": "Netami Pin nie odpowiedział. Link zostanie wysłany ponownie za minutę."
+  },
+  "errorHostMissing": {
+    "message": "Netami Pin nie jest zainstalowany albo instalacja jest uszkodzona. Link czeka tutaj."
+  },
+  "errorIncompatible": {
+    "message": "Rozszerzenie nie pasuje do Netami Pin. Zaktualizuj rozszerzenie — link czeka tutaj."
+  },
+  "errorIncompatibleApp": {
+    "message": "Netami Pin jest starszy niż rozszerzenie. Zaktualizuj Netami Pin — link czeka tutaj."
+  },
+  "errorInvalidRequest": { "message": "Netami Pin nie może zapisać tego linku." },
+  "errorConflict": {
+    "message": "To zapytanie było już użyte dla innego linku. Usuń je z kolejki."
+  },
+  "errorDatabase": {
+    "message": "Netami Pin nie zapisał linku. Zostanie wysłany ponownie."
+  },
+  "errorNoConfirmation": { "message": "Brak potwierdzenia, że link został zapisany" },
+  "errorSaveFailed": { "message": "Nie udało się zapisać linku" },
+  "errorUnknownAction": { "message": "Nieznane działanie" },
+  "messageSavedTitle": { "message": "Zapisano w Netami Pin" },
+  "messageSavedText": { "message": "Dodano do skrzynki odbiorczej" },
+  "messageExistingTitle": { "message": "Już jest w Netami Pin" },
+  "messageExistingText": { "message": "Twoje tagi i notatki się nie zmieniły" },
+  "messageQueuedTitle": { "message": "Czeka na Netami Pin" },
+  "messageQueuedText": { "message": "Zostanie wysłany po otwarciu aplikacji" },
+  "messageFailedTitle": { "message": "Nie udało się zapisać linku" },
+  "messageFailedText": { "message": "Zajrzyj do ustawień rozszerzenia" },
+  "feedbackHeading": { "message": "Po zapisaniu" },
+  "settingMessage": { "message": "Pokazuj komunikat na stronie" },
+  "settingMessageText": {
+    "message": "Krótka notka w rogu po kliknięciu przycisku. Znika sama po 3 sekundach."
+  },
+  "settingKnown": { "message": "Pokazuj, że strona jest już zapisana" },
+  "settingKnownText": {
+    "message": "Przycisk porównuje każdą otwartą stronę z twoją biblioteką na tym komputerze, dopóki działa Netami Pin. Przeglądarka raz poprosi o dostęp do kart; adresy trafiają tylko do aplikacji."
+  },
+  "settingAnimate": { "message": "Animuj przycisk" },
+  "settingAnimateText": {
+    "message": "Ikona Netami Pin podskakuje, gdy strona zostanie zapisana. Stoi w miejscu, jeśli system prosi o mniej ruchu."
+  },
+  "optionsTitle": { "message": "Netami Pin — ustawienia rozszerzenia" },
+  "optionsHeading": { "message": "Rozszerzenie Netami Pin" },
+  "optionsLead": {
+    "message": "Zapisane strony trafiają do biblioteki Netami Pin na tym komputerze."
+  },
+  "extensionVersion": {
+    "message": "Rozszerzenie $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Netami Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "ostatni zapis dziś o $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "ostatni zapis $DATE$ o $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "3 października" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "Połączenie" },
+  "connectionChecking": { "message": "Sprawdzanie aplikacji…" },
+  "statusConnected": { "message": "Połączono z Netami Pin" },
+  "checkAgain": { "message": "Sprawdź ponownie" },
+  "statusClosed": { "message": "Netami Pin jest zamknięty" },
+  "statusClosedText": {
+    "message": "Uruchomi się w zasobniku systemowym, gdy zapiszesz stronę. Do tego czasu linki czekają tutaj."
+  },
+  "statusUpdate": { "message": "Zaktualizuj rozszerzenie" },
+  "statusUpdateText": {
+    "message": "To rozszerzenie ($MINE$) nie pasuje do Netami Pin $APP$. Zaktualizuj je na stronie rozszerzeń przeglądarki — do tego czasu linki czekają tutaj.",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "Zaktualizuj Netami Pin" },
+  "statusUpdateAppText": {
+    "message": "Netami Pin $APP$ jest starszy niż to rozszerzenie ($MINE$). Zaktualizuj Netami Pin — do tego czasu linki czekają tutaj.",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "Netami Pin nie jest zainstalowany" },
+  "statusMissingText": {
+    "message": "Rozszerzenie nie znajduje aplikacji na tym komputerze. Zainstaluj Netami Pin albo zainstaluj go ponownie, jeśli już jest."
+  },
+  "download": { "message": "Pobierz Netami Pin" },
+  "queueHeading": { "message": "Czeka na wysłanie" },
+  "sendNow": { "message": "Wyślij teraz" },
+  "queueEmpty": {
+    "message": "Nic nie czeka. Kliknij ikonę Netami Pin na stronie, aby ją zapisać."
+  },
+  "removeButton": { "message": "Usuń" },
+  "removeLabel": {
+    "message": "Usuń z kolejki: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Tytuł strony" } }
+  },
+  "optionsFooter": {
+    "message": "Linki zostają w przeglądarce, dopóki Netami Pin ich nie potwierdzi. Jeśli aplikacja jest zamknięta, zapisanie strony uruchomi ją w zasobniku systemowym."
+  }
+}

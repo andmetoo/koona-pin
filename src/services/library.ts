@@ -77,6 +77,22 @@ export function isAfter(b: Bookmark, cursor: PageCursor | null): boolean {
   return cursor !== null && compareAt(placed(b), cursor) > 0;
 }
 
+/**
+ * Collections by name, tags by use and then by name, in the order of the
+ * interface's language (NP-089): the database sorts by code point, which puts
+ * «Ä» after «Z» in German and «Č» after «Z» in Serbian.
+ */
+export function sortByName<T extends { name: string; count?: number | null }>(
+  items: T[],
+  language: string,
+  byCount = false,
+): T[] {
+  const collator = new Intl.Collator(language, { numeric: true });
+  return [...items].sort(
+    (a, b) => (byCount ? (b.count ?? 0) - (a.count ?? 0) : 0) || collator.compare(a.name, b.name),
+  );
+}
+
 export function sortBookmarks(bookmarks: Bookmark[]): Bookmark[] {
   return [...bookmarks].sort(compareBookmarks);
 }
