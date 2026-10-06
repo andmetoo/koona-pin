@@ -182,13 +182,15 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
 /// Overrides the library folder; tests use it to stay away from user data.
 pub const DATA_DIR_ENV: &str = "NETAMIPIN_DATA_DIR";
 const DB_FILE: &str = "netamipin.db";
+/// The library folder in `%APPDATA%`; the uninstaller may remove it (NP-037).
+pub const DATA_FOLDER: &str = "Netami Pin";
 
 pub fn db_path() -> PathBuf {
     if let Some(directory) = std::env::var_os(DATA_DIR_ENV) {
         return PathBuf::from(directory).join(DB_FILE);
     }
     match dirs::data_dir() {
-        Some(data_dir) => data_dir.join("Netami Pin").join(DB_FILE),
+        Some(data_dir) => data_dir.join(DATA_FOLDER).join(DB_FILE),
         None => PathBuf::from(DB_FILE),
     }
 }

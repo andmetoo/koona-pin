@@ -1,12 +1,13 @@
-// Serves dist-site/ locally with the rules of site/Caddyfile that matter for checking pages:
+// Serves release/publish/site/ locally with the rules of site/Caddyfile that matter for checking pages:
 // try_files {path} {path}.html {path}/index.html, the 404 pages, the Russian redirect of "/",
 // the security headers. Not a production server.
 //   node scripts/serve-site.mjs [port]   (default 4173)
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { publish } from "./lib/paths.mjs";
 
-const root = path.resolve(import.meta.dirname, "..", "dist-site");
+const root = publish.site;
 const port = Number(process.argv[2] || 4173);
 const TYPES = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
