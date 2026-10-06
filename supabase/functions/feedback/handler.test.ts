@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, notification, parse, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
+import { handle, notification, parse, privateAddress, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
 
 const URL = "https://project.supabase.co/functions/v1/feedback";
 
@@ -10,11 +10,12 @@ function fakes(slots = 5) {
   let left = slots;
   const deps: Deps = {
     hash: async (address) => `h:${address}`,
-    takeSlot: async (hash) => {
+    submit: async (hash, _perHour, row) => {
       hashes.push(hash);
-      return left-- > 0;
+      if (left-- <= 0) return false;
+      rows.push(row);
+      return true;
     },
-    insert: async (row) => void rows.push(row),
     notify: async (text) => void notes.push(text),
   };
   return { deps, rows, notes, hashes };
@@ -117,7 +118,7 @@ describe("feedback function", () => {
 
   it("answers 500 when the database fails, and still 200 when only Telegram does", async () => {
     const failing = fakes();
-    failing.deps.insert = async () => {
+    failing.deps.submit = async () => {
       throw new Error("down");
     };
     expect((await handle(app(fromApp), failing.deps)).status).toBe(500);
@@ -149,13 +150,14 @@ describe("feedback function", () => {
     const invalid = await handle(site({ kind: "bug", message: "", lang: "ru" }), fakes().deps);
     expect(invalid.status).toBe(303);
     expect(invalid.headers.get("location")).toBe("https://pin.netami.app/ru/feedback/error");
-    // A foreign page posting the form lands on the error page; `Origin: null` (a hidden referrer) is the site.
-    const foreign = await handle(site({ kind: "bug", message: "x" }, "https://evil.example"), fakes().deps);
-    expect([foreign.status, foreign.headers.get("location")]).toEqual([303, "https://pin.netami.app/feedback/error"]);
+    // A foreign page posting the form, or one hiding its origin (`null`), lands on the error page
+    // in the language of the form; nothing is stored.
+    const foreign = await handle(site({ kind: "bug", message: "x", lang: "ru" }, "https://evil.example"), fakes().deps);
+    expect([foreign.status, foreign.headers.get("location")]).toEqual([303, "https://pin.netami.app/ru/feedback/error"]);
     const hidden = fakes();
     const nullOrigin = await handle(site({ kind: "bug", message: "x", lang: "en" }, "null"), hidden.deps);
-    expect(nullOrigin.headers.get("location")).toBe("https://pin.netami.app/feedback/sent");
-    expect(hidden.rows).toHaveLength(1);
+    expect(nullOrigin.headers.get("location")).toBe("https://pin.netami.app/feedback/error");
+    expect(hidden.rows).toHaveLength(0);
     expect((await handle(app(fromApp, { origin: "null" }), fakes().deps)).status).toBe(403);
   });
 
@@ -182,10 +184,21 @@ describe("feedback pieces", () => {
   });
 
   it("the sender is what the proxies set, not what the client wrote", () => {
-    // The client wrote 6.6.6.6; Supabase appended the real address.
-    expect(senderAddress(new Headers({ "x-forwarded-for": "6.6.6.6, 203.0.113.7 " }))).toBe("203.0.113.7");
-    expect(senderAddress(new Headers({ "cf-connecting-ip": "198.51.100.2", "x-forwarded-for": "6.6.6.6, 203.0.113.7" }))).toBe("198.51.100.2");
-    expect(senderAddress(new Headers())).toBe("unknown");
+    const of = (headers: Record<string, string>) => senderAddress(new Headers(headers));
+    // The client wrote 6.6.6.6; the proxy appended the real address.
+    expect(of({ "x-forwarded-for": "6.6.6.6, 203.0.113.7 " })).toEqual({ address: "203.0.113.7", from: "x-forwarded-for" });
+    // Private hops a chain of proxies adds after it are skipped, not shared by every sender.
+    expect(of({ "x-forwarded-for": "6.6.6.6, 203.0.113.7, 10.0.3.4, 172.20.0.9, fd00::5" })).toEqual({ address: "203.0.113.7", from: "x-forwarded-for" });
+    expect(of({ "cf-connecting-ip": "198.51.100.2", "x-forwarded-for": "6.6.6.6, 203.0.113.7" })).toEqual({ address: "198.51.100.2", from: "cf-connecting-ip" });
+    expect(of({ "x-real-ip": "198.51.100.3", "x-forwarded-for": "6.6.6.6, 203.0.113.7" })).toEqual({ address: "198.51.100.3", from: "x-real-ip" });
+    expect(of({ "x-forwarded-for": "10.0.0.1" })).toEqual({ address: "unknown", from: "none" });
+    expect(of({})).toEqual({ address: "unknown", from: "none" });
+  });
+
+  it("private addresses are told from public ones", () => {
+    for (const ip of ["10.1.2.3", "127.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.1.1", "100.64.0.1", "::1", "fd12::1", "fe80::1", "::ffff:10.0.0.1"])
+      expect(privateAddress(ip), ip).toBe(true);
+    for (const ip of ["203.0.113.7", "172.32.0.1", "100.128.0.1", "8.8.8.8", "2606:4700::1111", "::ffff:8.8.8.8"]) expect(privateAddress(ip), ip).toBe(false);
   });
 
   it("the excerpt cuts characters, not halves of an emoji", () => {

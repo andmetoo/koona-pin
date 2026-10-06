@@ -14,7 +14,7 @@ export const PRIVACY_URL = "https://pin.netami.app/privacy";
 export const GITHUB_ISSUES_URL = "https://github.com/andmetoo/netami-pin-releases/issues/new/choose";
 
 /** something@something.tld without spaces — the rule of the Rust command and the function. */
-export const emailShape = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
+export const emailShape = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && [...email].length <= 254;
 
 /** Characters as people count them, not UTF-16 units. */
 export const length = (text: string) => [...text.trim()].length;
