@@ -46,7 +46,8 @@ pin.netami.app {
 	@html path_regexp html ^(.+)\.html$
 	redir @html {re.html.1} 301
 
-	# Fonts, brand and screenshots change with their names only rarely; pages are always fresh.
+	# Pages are always fresh; the files they link are kept a week. Pages link them with ?v=<hash>
+	# (scripts/build-site.mjs), so a changed file gets a new address and no stale copy is used.
 	@assets path /fonts/* /brand/* /shots/* /site.css
 	header @assets Cache-Control "public, max-age=604800"
 	header /*.html Cache-Control "no-cache"
