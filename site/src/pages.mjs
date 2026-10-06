@@ -246,7 +246,7 @@ export function feedback(t, { wordmark }) {
 ${kinds}
 </fieldset>
 <label class="field-label" for="fb-message">${esc(f.message)}</label>
-<textarea id="fb-message" name="message" rows="8" maxlength="5000" required placeholder="${esc(f.placeholder)}"></textarea>
+<textarea id="fb-message" name="message" rows="8" required placeholder="${esc(f.placeholder)}"></textarea>
 <label class="field-label" for="fb-email">${esc(f.email)}</label>
 <input id="fb-email" type="email" name="email" maxlength="254" autocomplete="email" placeholder="name@example.com">
 <div class="trap" aria-hidden="true"><label for="fb-trap">${esc(f.trap)}</label><input id="fb-trap" name="hp_7q" tabindex="-1" autocomplete="off"></div>

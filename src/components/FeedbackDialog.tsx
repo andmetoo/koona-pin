@@ -27,7 +27,7 @@ export function FeedbackDialog({
   const { t, i18n } = useTranslation();
   // `undefined` while it is being prepared, `null` when it could not be.
   const [report, setReport] = useState<string | null | undefined>(undefined);
-  const reportLoad = useRef<Promise<string | null>>(Promise.resolve(null));
+  const reportLoad = useRef<Promise<string | null> | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -73,8 +73,9 @@ export function FeedbackDialog({
     setSending(true);
     setFailure(null);
     try {
-      // Sent right after opening: the report the person asked for is waited for, not dropped.
-      const attached = attach ? (report ?? (await reportLoad.current)) : null;
+      // Sent right after opening: the report the person asked for is waited for, not dropped —
+      // but not for ever, the dialog is locked meanwhile.
+      const attached = attach ? (report ?? (await withTimeout(reportLoad.current, REPORT_WAIT_MS))) : null;
       await api.sendFeedback({
         kind: draft.kind,
         message: draft.message.trim(),
@@ -255,4 +256,12 @@ export function FeedbackDialog({
       </form>
     </Dialog>
   );
+}
+
+/** How long «Send» waits for a report still being prepared before sending without it. */
+const REPORT_WAIT_MS = 3000;
+
+function withTimeout<T>(promise: Promise<T | null> | null, ms: number): Promise<T | null> {
+  if (!promise) return Promise.resolve(null);
+  return Promise.race([promise, new Promise<null>((resolve) => window.setTimeout(() => resolve(null), ms))]);
 }

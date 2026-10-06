@@ -2077,3 +2077,20 @@ test("feedback: a report still being prepared is waited for; one that failed is 
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
   expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[1].report)).toBeNull();
 });
+
+test("feedback: a report that never comes does not lock the dialog — it goes without it (NP-088)", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { sent: { report: unknown }[] };
+    w.sent = [];
+    api.feedbackReport = () => new Promise(() => {});
+    api.sendFeedback = async (feedback) => void w.sent.push(feedback);
+  });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Send feedback" });
+  await dialog.getByRole("textbox", { name: "Message" }).fill("Report never comes");
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!", { timeout: 6000 });
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBeNull();
+});

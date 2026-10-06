@@ -1,6 +1,6 @@
 // The Edge Function `feedback` without Deno (NP-088, Р-9): checks a message
 // from the app (JSON) or from the form on pin.netami.app (a plain HTML form),
-// takes a place in the hourly limit, stores the row and notifies the owner.
+// stores the row within the hourly limit and notifies the owner.
 // `index.ts` wires the real database and Telegram; tests pass fakes.
 
 export const SITE = "https://pin.netami.app";
@@ -26,9 +26,11 @@ export type Row = {
 export type Deps = {
   /** Salted hash of the sender's address. */
   hash: (address: string) => Promise<string>;
-  /** A place in the hourly limit, or false when none is left. */
-  takeSlot: (addressHash: string, perHour: number) => Promise<boolean>;
-  insert: (row: Row) => Promise<void>;
+  /**
+   * Stores the row if the sender has a place left in the hourly limit; false when
+   * none is left. One transaction: a failed insert does not use up a place.
+   */
+  submit: (addressHash: string, perHour: number, row: Row) => Promise<boolean>;
   /** Best effort: a failed notification does not fail the request. */
   notify: (text: string) => Promise<void>;
 };
@@ -81,13 +83,32 @@ export function notification(row: Row): string {
   return `${head}\n\n${excerpt}${extras ? `\n\n${extras}` : ""}`;
 }
 
+/** Loopback, private, link-local, CGNAT and unique-local addresses: proxy hops, not senders. */
+export function privateAddress(ip: string): boolean {
+  const v4 = ip.match(/^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/i);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 10 || a === 127 || a === 0 || (a === 172 && b >= 16 && b < 32) || (a === 192 && b === 168) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b < 128);
+  }
+  const v6 = ip.toLowerCase();
+  return v6 === "::1" || v6 === "::" || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6);
+}
+
 /**
- * The sender's address for the limit. The client can put anything into
- * X-Forwarded-For; Cloudflare in front of Supabase sets CF-Connecting-IP itself,
- * and Supabase appends the real address as the last X-Forwarded-For entry.
+ * The sender's address for the limit, and the header it came from (the name is
+ * logged to check the deployment; the address never is). The client can write
+ * anything into X-Forwarded-For, proxies append to it: CF-Connecting-IP, which
+ * Cloudflare sets itself, wins; then X-Real-IP; then the rightmost public entry of
+ * X-Forwarded-For, skipping private hops a chain of proxies may add.
  */
-export function senderAddress(headers: Headers): string {
-  return headers.get("cf-connecting-ip")?.trim() || headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() || "unknown";
+export function senderAddress(headers: Headers): { address: string; from: string } {
+  for (const name of ["cf-connecting-ip", "x-real-ip"]) {
+    const value = headers.get(name)?.trim();
+    if (value) return { address: value, from: name };
+  }
+  const hops = (headers.get("x-forwarded-for") ?? "").split(",").map((h) => h.trim()).filter(Boolean);
+  const address = hops.reverse().find((h) => !privateAddress(h));
+  return address ? { address, from: "x-forwarded-for" } : { address: "unknown", from: "none" };
 }
 
 /** Where the site form goes next: a static page of the site in its language. */
@@ -114,12 +135,6 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
   const site = type.startsWith("application/x-www-form-urlencoded");
   if (!site && !type.startsWith("application/json")) return json(415, { error: "content_type" });
   const source = site ? "site" : "app";
-  // A browser posting from anywhere but the site is not our form. `null` is the
-  // site too when a referrer policy hides it (the form page asks browsers not to).
-  const origin = request.headers.get("origin");
-  if (origin !== null && origin !== SITE && !(site && origin === "null")) {
-    return site ? reply(source, null, "invalid", "origin") : json(403, { error: "origin" });
-  }
   const length = Number(request.headers.get("content-length") ?? "0");
   if (length > MAX_BODY) return reply(source, null, "invalid", "body");
 
@@ -133,15 +148,23 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
     return reply(source, null, "invalid", "body");
   }
   const language = typeof fields.lang === "string" ? fields.lang : null;
+  // A browser posting from anywhere but the site is not our form. The form page sets
+  // its own referrer policy, so the site always names itself; `null` (a hidden
+  // origin) is what any foreign page can produce, and is refused too.
+  const origin = request.headers.get("origin");
+  if (origin !== null && origin !== SITE) {
+    return site ? reply(source, language, "invalid", "origin") : json(403, { error: "origin" });
+  }
   const parsed = parse(fields, source);
   if ("invalid" in parsed) return reply(source, language, "invalid", parsed.invalid);
   // A bot filled the hidden field: it is told «sent», nothing is kept.
   if (parsed.trap) return reply(source, parsed.row.language);
 
   try {
-    const address = await deps.hash(senderAddress(request.headers));
-    if (!(await deps.takeSlot(address, PER_HOUR))) return reply(source, parsed.row.language, "rate_limited");
-    await deps.insert(parsed.row);
+    const sender = senderAddress(request.headers);
+    console.log(`feedback: ${source}, address from ${sender.from}`);
+    const address = await deps.hash(sender.address);
+    if (!(await deps.submit(address, PER_HOUR, parsed.row))) return reply(source, parsed.row.language, "rate_limited");
   } catch (error) {
     console.error("feedback:", error instanceof Error ? error.message : error);
     return reply(source, parsed.row.language, "server");

@@ -4,7 +4,7 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
 
 | Что | Где |
 | --- | --- |
-| Таблицы `feedback`, `feedback_hits`, RLS, функция лимита, хранение 12 месяцев | `migrations/20261006000000_feedback.sql` |
+| Таблицы `feedback`, `feedback_hits`, RLS, `feedback_submit` (лимит и запись одной транзакцией), хранение 12 месяцев | `migrations/20261006000000_feedback.sql` |
 | Edge Function: проверка, лимит 5 в час с адреса, запись, Telegram | `functions/feedback/` (`handler.ts` — логика, `index.ts` — Deno) |
 | Вызов без ключа | `config.toml`, `verify_jwt = false` |
 | Тесты функции | `functions/feedback/handler.test.ts`, `npm test` |
@@ -49,5 +49,7 @@ Invoke-RestMethod $url -Method Post -ContentType "application/json" -Body '{"kin
 Invoke-RestMethod "https://<ref>.supabase.co/rest/v1/feedback?select=*" -Headers @{ apikey = "<anon>"; Authorization = "Bearer <anon>" }
 # Лимит: шестой запрос за час — 429 {"error":"rate_limited"}.
 ```
+
+В Edge Functions → feedback → Logs у каждого запроса строка `feedback: app, address from <заголовок>` (адрес в лог не пишется). Ожидается `cf-connecting-ip`. Если там `x-forwarded-for` или `none`, проверить лимит с двух разных сетей (телефон без Wi-Fi и компьютер): у каждой должно быть своих 5 в час, иначе адрес берётся с прокси Supabase и правило в `senderAddress` нужно поправить.
 
 Удаление по просьбе: Table Editor → `feedback`, найти по времени и тексту, удалить строку.

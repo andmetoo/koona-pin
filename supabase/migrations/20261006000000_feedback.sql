@@ -30,9 +30,10 @@ alter table public.feedback enable row level security;
 alter table public.feedback_hits enable row level security;
 revoke all on public.feedback, public.feedback_hits from anon, authenticated;
 
--- Takes a place in the hourly limit, or says there is none left. The advisory
+-- Stores a message if its sender has a place left in the hourly limit, else returns
+-- false. One transaction: if the insert fails, the place is not used up. The advisory
 -- lock makes two requests from one address at the same moment count as two.
-create function public.feedback_take_slot(address_hash text, per_hour integer)
+create function public.feedback_submit(address_hash text, per_hour integer, entry jsonb)
 returns boolean
 language plpgsql
 set search_path = ''
@@ -47,12 +48,15 @@ begin
   if used >= per_hour then
     return false;
   end if;
+  insert into public.feedback (kind, message, email, app_version, os, language, report, source)
+    select r.kind, r.message, r.email, r.app_version, r.os, r.language, r.report, r.source
+    from jsonb_populate_record(null::public.feedback, entry) as r;
   insert into public.feedback_hits (ip_hash) values (address_hash);
   return true;
 end;
 $$;
-revoke execute on function public.feedback_take_slot(text, integer) from public, anon, authenticated;
-grant execute on function public.feedback_take_slot(text, integer) to service_role;
+revoke execute on function public.feedback_submit(text, integer, jsonb) from public, anon, authenticated;
+grant execute on function public.feedback_submit(text, integer, jsonb) to service_role;
 
 -- Retention: feedback for 12 months, address hashes for a day.
 create extension if not exists pg_cron with schema pg_catalog;
