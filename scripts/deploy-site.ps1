@@ -2,7 +2,7 @@
 # Run by the owner, from the repository root:
 #   pwsh scripts/deploy-site.ps1 -Server user@host
 # NETAMIPIN_FEEDBACK_URL comes from the environment or from .env in the repository root
-# (.env.example); a variable already set in the environment wins.
+# (.env.example), read by the site build; a variable already set in the environment wins.
 # Needs ssh/scp access with sudo on the server. The previous version stays in site.old for a rollback.
 # Without NETAMIPIN_FEEDBACK_URL the build leaves the feedback form out (NP-088): the script refuses
 # unless -WithoutFeedback says that is meant, so a later deploy cannot take /feedback down unnoticed.
@@ -14,32 +14,13 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-# KEY=VALUE lines of .env, read like node's process.loadEnvFile in build-installer.mjs: comments,
-# blank lines, an optional `export `, quotes around the value. Only names not set in the environment.
-$dotenv = @{}
-$dotenvFile = Join-Path $PSScriptRoot "..\.env"
-if (Test-Path $dotenvFile) {
-  foreach ($line in Get-Content $dotenvFile -Encoding utf8) {
-    if ($line -match '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$') {
-      $name, $value = $Matches[1], $Matches[2]
-      if ($value -match '^(["''])(.*)\1$') { $value = $Matches[2] } else { $value = $value -replace '\s+#.*$', '' }
-      if (-not [Environment]::GetEnvironmentVariable($name)) { $dotenv[$name] = $value }
-    }
-  }
-}
-
-if (-not ($env:NETAMIPIN_FEEDBACK_URL -or $dotenv.NETAMIPIN_FEEDBACK_URL) -and -not $WithoutFeedback) {
-  throw "NETAMIPIN_FEEDBACK_URL is not set: the site would lose /feedback. Set it in .env or the environment (supabase/README.md) or pass -WithoutFeedback."
-}
-
-# The build sees .env; the caller's session does not keep it afterwards (`./scripts/deploy-site.ps1`).
-foreach ($name in $dotenv.Keys) { [Environment]::SetEnvironmentVariable($name, $dotenv[$name]) }
-try {
-  node scripts/build-site.mjs
-} finally {
-  foreach ($name in $dotenv.Keys) { [Environment]::SetEnvironmentVariable($name, $null) }
-}
+# The build reads .env itself (site/src/content.mjs); whether the form made it in is checked on
+# the result, so the environment, .env and the build cannot disagree.
+node scripts/build-site.mjs
 if ($LASTEXITCODE) { throw "build failed" }
+if (-not (Test-Path dist-site/feedback/index.html) -and -not $WithoutFeedback) {
+  throw "The build has no /feedback: NETAMIPIN_FEEDBACK_URL is not set in .env or the environment (supabase/README.md). Set it or pass -WithoutFeedback."
+}
 if (-not (Test-Path dist-site/shots)) { throw "dist-site/shots is missing: run node scripts/site-screenshots.mjs first" }
 
 $archive = Join-Path ([IO.Path]::GetTempPath()) "pin-netami-site.tgz"

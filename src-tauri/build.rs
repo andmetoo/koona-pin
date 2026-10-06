@@ -25,8 +25,9 @@ fn feedback_url_from_dotenv() {
     }
 }
 
-/// `KEY=VALUE` as node's process.loadEnvFile reads it: comments, an optional `export `,
-/// quotes around the value, a ` # comment` after an unquoted one.
+/// `KEY=VALUE` as node's process.loadEnvFile reads it (checked on Node 26): comments, an
+/// optional `export `, quotes around the value, an unquoted value ends at its first `#`,
+/// the last line of a name wins.
 fn dotenv_value(text: &str, name: &str) -> Option<String> {
     text.lines().rev().find_map(|line| {
         let line = line.trim();
@@ -42,7 +43,7 @@ fn dotenv_value(text: &str, name: &str) -> Option<String> {
         let value = if quoted {
             &value[1..value.len() - 1]
         } else {
-            value.split(" #").next().unwrap_or("").trim()
+            value.split('#').next().unwrap_or("").trim()
         };
         (!value.is_empty()).then(|| value.to_string())
     })

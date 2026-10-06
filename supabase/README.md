@@ -36,7 +36,7 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
    ```
    NETAMIPIN_FEEDBACK_URL=https://<ref>.supabase.co/functions/v1/feedback
    ```
-   Его читают сборки приложения (`src-tauri/build.rs`: `npm run tauri build`, `npm run tauri dev`, `cargo build`; установщик — `npm run build:installer`) и выкладка сайта (`scripts/deploy-site.ps1`). Переменная окружения с тем же именем важнее файла; `npm run site:check` читает только её. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
+   Его читают сборки приложения (`src-tauri/build.rs`: `npm run tauri build`, `npm run tauri dev`, `cargo build`; установщик — `npm run build:installer`) и сборка сайта (`site/src/content.mjs`: `npm run site:check`, `scripts/deploy-site.ps1`). Переменная окружения с тем же именем важнее файла. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
 
 ## Проверить
 
