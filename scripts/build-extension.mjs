@@ -10,8 +10,14 @@
 // (extension/dev-key.txt), so their extension id is the same on every machine:
 // a native messaging registration can name it. Store packages are built
 // without it: the store assigns its own id.
+//
+// With CHROME_STORE_PUBLIC_KEY (environment or .env; .env.example) there is a fourth
+// result, extension/build/chrome-store/ and release/netamipin-chrome-store-id.zip: the
+// same extension with the Chrome Web Store's id, for testing the installer build before
+// the store publishes it (NP-037). Not for upload: the store refuses a manifest with `key`.
 import { crc32, deflateRawSync } from "node:zlib";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -21,6 +27,8 @@ const source = path.join(root, "extension", "src");
 const { VERSION } = await import(pathToFileURL(path.join(source, "version.js")).href);
 
 export const geckoId = "pin@netami.app";
+/** The Chrome Web Store draft's id (NP-017), as STORE_EXTENSION_IDS in native_host.rs. */
+export const chromeStoreId = "dedcgklilbgbieabgpklellnaccpjhpc";
 /** Self-hosted Firefox updates (NP-018); the file is published with the site. */
 export const firefoxUpdateUrl = "https://pin.netami.app/firefox/updates.json";
 export const firefoxDownloadBase = "https://pin.netami.app/firefox";
@@ -186,7 +194,30 @@ export async function buildExtension({ log = console.log } = {}) {
   log(`Netami Pin extension ${VERSION}, development id ${result.devId}`);
   for (const browser of browsers)
     log(`  ${browser}: ${path.relative(root, result.unpacked[browser])}, ${path.relative(root, result.packages[browser])}`);
+
+  // The draft's public key (dashboard → Package → View public key): public, not a secret.
+  const storeKey = process.env.CHROME_STORE_PUBLIC_KEY?.replace(/\s+/g, "");
+  if (storeKey) {
+    const id = extensionId(storeKey);
+    if (id !== chromeStoreId)
+      throw new Error(`CHROME_STORE_PUBLIC_KEY gives the id ${id}, not the Chrome Web Store's ${chromeStoreId}: copy the key of the Netami Pin item`);
+    const data = json(manifest("chrome", { dev: true, key: storeKey }));
+    const unpacked = path.join(root, "extension", "build", "chrome-store");
+    await rm(unpacked, { recursive: true, force: true });
+    for (const file of [...files, { name: "manifest.json", data }]) {
+      await mkdir(path.dirname(path.join(unpacked, file.name)), { recursive: true });
+      await writeFile(path.join(unpacked, file.name), file.data);
+    }
+    const archive = path.join(release, "netamipin-chrome-store-id.zip");
+    await writeFile(archive, zip([...files, { name: "manifest.json", data }]));
+    result.storeId = { id, unpacked, archive };
+    log(`  chrome and edge with the store id ${id} (testing only, not for upload): ${path.relative(root, unpacked)}, ${path.relative(root, archive)}`);
+  }
   return result;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await buildExtension();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const dotenv = path.join(root, ".env");
+  if (existsSync(dotenv)) process.loadEnvFile(dotenv);
+  await buildExtension();
+}
