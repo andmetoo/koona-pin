@@ -7,7 +7,7 @@ $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $output = Join-Path $root ".test-data\native-messaging-wmi.txt"
 Remove-Item $output -ErrorAction SilentlyContinue
 # A WMI process does not inherit this session's environment.
-$edge = if ($env:NETAMIPIN_PROBE_EDGE) { "set `"NETAMIPIN_PROBE_EDGE=$env:NETAMIPIN_PROBE_EDGE`" && " } else { "" }
+$edge = if ($env:KOONAPIN_PROBE_EDGE) { "set `"KOONAPIN_PROBE_EDGE=$env:KOONAPIN_PROBE_EDGE`" && " } else { "" }
 $command = "cmd /c $edge node scripts\native-messaging-probe\run.mjs $($Browsers -join ' ') > `"$output`" 2>&1"
 $created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
   CommandLine = $command

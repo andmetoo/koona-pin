@@ -7,7 +7,7 @@ import path from "node:path";
 import net from "node:net";
 import { assertNoOtherApp, capture, hello, hostMessage, pipeReady, testPipe } from "../../scripts/lib/native-host.mjs";
 
-// The test apps are single-instance too: a running Netami Pin would take them over.
+// The test apps are single-instance too: a running Koona Pin would take them over.
 test.beforeAll(() => assertNoOtherApp());
 
 test("real WebView2, SQLite, capture through the host, close-to-tray and single instance", async ({
@@ -16,14 +16,14 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
   const data = path.resolve(".test-data", `webview-${Date.now()}`);
   await mkdir(data, { recursive: true });
   const executable = path.resolve(
-    process.env.NETAMIPIN_TEST_BINARY || "src-tauri/target/debug/netamipin.exe",
+    process.env.KOONAPIN_TEST_BINARY || "src-tauri/target/debug/koonapin.exe",
   );
   const env = {
     ...process.env,
-    NETAMIPIN_DATA_DIR: data,
+    KOONAPIN_DATA_DIR: data,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9225",
-    NETAMIPIN_PIPE: testPipe("webview"),
+    KOONAPIN_PIPE: testPipe("webview"),
   };
   const processHandle = spawn(executable, [], {
     env,
@@ -174,11 +174,11 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(page.locator('[data-capture="connected"]')).toContainText(/Last saved today at .* from Edge/);
     // The tray speaks the interface's language and follows a switch without a restart (NP-085).
     const trayLabels = () => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_tray_labels"));
-    expect(await trayLabels()).toEqual({ open: "Open Netami Pin", quit: "Quit", tooltip: "Netami Pin — your link library" });
+    expect(await trayLabels()).toEqual({ open: "Open Koona Pin", quit: "Quit", tooltip: "Koona Pin — your link library" });
     await page.getByLabel("Language", { exact: true }).selectOption("ru");
-    await expect.poll(trayLabels).toEqual({ open: "Открыть Netami Pin", quit: "Выйти", tooltip: "Netami Pin — библиотека ссылок" });
+    await expect.poll(trayLabels).toEqual({ open: "Открыть Koona Pin", quit: "Выйти", tooltip: "Koona Pin — библиотека ссылок" });
     await page.getByLabel("Язык", { exact: true }).selectOption("en");
-    await expect.poll(trayLabels).toEqual({ open: "Open Netami Pin", quit: "Quit", tooltip: "Netami Pin — your link library" });
+    await expect.poll(trayLabels).toEqual({ open: "Open Koona Pin", quit: "Quit", tooltip: "Koona Pin — your link library" });
     // A launch from the host (--autostart) does not show the window.
     await page.getByRole("button", { name: "Close window", exact: true }).click();
     const fromHost = spawn(executable, ["--autostart"], { env, windowsHide: true, stdio: "ignore" });
@@ -221,14 +221,14 @@ test("a capture pipe held by another program is reported while the library stays
     holder.listen(`\\\\.\\pipe\\${name}`, resolve);
   });
   const data = await folder("held-pipe");
-  const app = await launch(request, { ...isolated(data), NETAMIPIN_PIPE: name });
+  const app = await launch(request, { ...isolated(data), KOONAPIN_PIPE: name });
   try {
     const page = app.page;
     await expect(page.getByRole("button", { name: "Capture isn't working" })).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("alert").filter({ hasText: "couldn't open its capture channel" })).toBeVisible();
     await page.getByRole("button", { name: "Details", exact: true }).click();
     const block = page.locator('[data-capture="failing"]');
-    await expect(block).toContainText("Netami Pin couldn't open its capture channel");
+    await expect(block).toContainText("Koona Pin couldn't open its capture channel");
     await page.screenshot({ path: "test-results/capture-failing.png" });
     // The other program leaves: «Try again» opens the pipe.
     await new Promise<void>((resolve) => holder.close(() => resolve()));
@@ -249,7 +249,7 @@ test("a capture pipe held by another program is reported while the library stays
 });
 const binary = () =>
   path.resolve(
-    process.env.NETAMIPIN_TEST_BINARY || "src-tauri/target/debug/netamipin.exe",
+    process.env.KOONAPIN_TEST_BINARY || "src-tauri/target/debug/koonapin.exe",
   );
 
 async function launch(
@@ -311,9 +311,9 @@ async function launch(
 const NPIN = 0x4e50494e;
 /** A library, WebView2 profile and capture pipe of the test's own. */
 const isolated = (data: string) => ({
-  NETAMIPIN_DATA_DIR: data,
+  KOONAPIN_DATA_DIR: data,
   WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-  NETAMIPIN_PIPE: testPipe(path.basename(data)),
+  KOONAPIN_PIPE: testPipe(path.basename(data)),
 });
 async function folder(name: string) {
   const data = path.resolve(".test-data", `${name}-${Date.now()}`);
@@ -321,11 +321,11 @@ async function folder(name: string) {
   return data;
 }
 /** The capture pipe opens only with the library. */
-const captureOpen = (env: { NETAMIPIN_PIPE: string }) => pipeReady(env.NETAMIPIN_PIPE);
+const captureOpen = (env: { KOONAPIN_PIPE: string }) => pipeReady(env.KOONAPIN_PIPE);
 
 test("a start in the tray: the hidden window still gives the tray its words (NP-085)", async ({ request }) => {
   const env = isolated(await folder("tray-language"));
-  const russian = { open: "Открыть Netami Pin", quit: "Выйти", tooltip: "Netami Pin — библиотека ссылок" };
+  const russian = { open: "Открыть Koona Pin", quit: "Выйти", tooltip: "Koona Pin — библиотека ссылок" };
   let app = await launch(request, env);
   try {
     await expect(app.page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
@@ -355,7 +355,7 @@ test("library of a newer version shows a screen and stays unchanged", async ({
   request,
 }) => {
   const data = await folder("newer-schema");
-  const file = path.join(data, "netamipin.db");
+  const file = path.join(data, "koonapin.db");
   const db = new DatabaseSync(file);
   // Far beyond any schema this build knows.
   db.exec(
@@ -368,8 +368,8 @@ test("library of a newer version shows a screen and stays unchanged", async ({
   try {
     const screen = app.page.locator('[data-error-code="DB_NEWER_SCHEMA"]');
     await expect(screen).toBeVisible({ timeout: 15000 });
-    await expect(screen).toContainText("netamipin.db · DB_NEWER_SCHEMA");
-    await expect(screen).toContainText("pin.netami.app");
+    await expect(screen).toContainText("koonapin.db · DB_NEWER_SCHEMA");
+    await expect(screen).toContainText("koona.app/pin");
     // Nothing writes in this state: no capture pipe, no library commands.
     expect(await captureOpen(env)).toBe(false);
     expect(
@@ -397,7 +397,7 @@ test("library of an earlier build is moved aside and a new one is created", asyn
   request,
 }) => {
   const data = await folder("before-schema-1");
-  const db = new DatabaseSync(path.join(data, "netamipin.db"));
+  const db = new DatabaseSync(path.join(data, "koonapin.db"));
   db.exec(`CREATE TABLE bookmarks (id INTEGER PRIMARY KEY, url TEXT, title TEXT);
     INSERT INTO bookmarks (url, title) VALUES ('https://example.invalid/old', 'Old');
     PRAGMA user_version = 1;`);
@@ -407,12 +407,12 @@ test("library of an earlier build is moved aside and a new one is created", asyn
     await expect(
       app.page.getByRole("heading", { name: "Your bookmarks will live here" }),
     ).toBeVisible({ timeout: 15000 });
-    await expect(app.page.getByRole("status")).toContainText("netamipin.old-");
+    await expect(app.page.getByRole("status")).toContainText("koonapin.old-");
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
   }
-  const old = (await readdir(data)).find((name) => /^netamipin\.old-.*\.db$/.test(name));
+  const old = (await readdir(data)).find((name) => /^koonapin\.old-.*\.db$/.test(name));
   expect(old).toBeTruthy();
   const kept = new DatabaseSync(path.join(data, old!), { readOnly: true });
   expect(kept.prepare("SELECT title FROM bookmarks").get()).toEqual({ title: "Old" });
@@ -423,7 +423,7 @@ test("damaged library is detected in the background and not written", async ({
   request,
 }) => {
   const data = await folder("damaged");
-  const file = path.join(data, "netamipin.db");
+  const file = path.join(data, "koonapin.db");
   // A real library first, then enough rows to damage pages in the middle.
   const first = await launch(request, isolated(data));
   try {
@@ -573,7 +573,7 @@ test("restore from JSON through IPC: a refused copy changes nothing, a replace l
       await invoke("import_html_bookmarks", { htmlContent: chrome, toInbox: false });
       const at = "2026-09-01T10:00:00.000Z";
       const copy = {
-        format: "netami-pin", version: 1, exported_at: at, app_version: "0.1.0",
+        format: "koona-pin", version: 1, exported_at: at, app_version: "0.1.0",
         collections: [{ uid: "c1", name: "From the copy", color: null, icon: null, created_at: at }],
         tags: [],
         bookmarks: [
@@ -663,9 +663,9 @@ test("backup: copy, changes, restore in place with capture working after it; a b
 
   // A file that is not a database where the library was: the error screen restores a copy.
   // Without its WAL, which after the restore holds every page of the library.
-  await rm(path.join(data, "netamipin.db-wal"), { force: true });
-  await rm(path.join(data, "netamipin.db-shm"), { force: true });
-  await writeFile(path.join(data, "netamipin.db"), "This is not an SQLite file.\n");
+  await rm(path.join(data, "koonapin.db-wal"), { force: true });
+  await rm(path.join(data, "koonapin.db-shm"), { force: true });
+  await writeFile(path.join(data, "koonapin.db"), "This is not an SQLite file.\n");
   const broken = await launch(request, env);
   try {
     const page = broken.page;
@@ -689,7 +689,7 @@ test("backup: copy, changes, restore in place with capture working after it; a b
     await broken.browser.close().catch(() => {});
     broken.processHandle.kill();
   }
-  const kept = (await readdir(path.join(data, "backups"))).filter((name) => name.startsWith("netamipin.before-restore-"));
+  const kept = (await readdir(path.join(data, "backups"))).filter((name) => name.startsWith("koonapin.before-restore-"));
   const texts = await Promise.all(kept.map((name) => readFile(path.join(data, "backups", name), "utf8").catch(() => "")));
   expect(texts).toContain("This is not an SQLite file.\n");
 });
@@ -748,7 +748,7 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
   }
-  const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+  const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
   expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
   expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
     { url_key: "example.invalid/page", n: 3 },
@@ -818,7 +818,7 @@ test("link check: runs in the background through IPC, a missing site is never br
     server.close();
   }
   expect(hits).toBe(0);
-  const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+  const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
   expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
   expect(db.prepare("SELECT outcome, reason, count(*) AS n FROM link_checks GROUP BY outcome, reason ORDER BY outcome").all()).toEqual([
     { outcome: "failed", reason: "no_site", n: 3 },
@@ -990,7 +990,7 @@ test("foreign file: retry after moving it away opens a new library", async ({
   request,
 }) => {
   const data = await folder("foreign-retry");
-  const file = path.join(data, "netamipin.db");
+  const file = path.join(data, "koonapin.db");
   const db = new DatabaseSync(file);
   db.exec("PRAGMA application_id = 305419896; CREATE TABLE notes (text TEXT);");
   db.close();
@@ -1117,7 +1117,7 @@ test("find and edit in the new interface: search, site, editor, collection remov
     await tags.fill("baking");
     await tags.press("Control+Enter");
     await expect(page.getByRole("status")).toContainText("Changes saved");
-    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
     const saved = db
       .prepare(
         `SELECT b.title, group_concat(t.name, ',') AS tags FROM bookmarks b
@@ -1174,7 +1174,7 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     await app.exited;
     await app.browser.close().catch(() => {});
     const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
-    const edit = new DatabaseSync(path.join(data, "netamipin.db"));
+    const edit = new DatabaseSync(path.join(data, "koonapin.db"));
     edit.prepare("UPDATE bookmarks SET deleted_at = ? WHERE url = ?").run(ago(40), "https://trash.invalid/old");
     edit.prepare("UPDATE bookmarks SET deleted_at = ? WHERE url = ?").run(ago(10), "https://trash.invalid/recent");
     edit
@@ -1205,7 +1205,7 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     await trashed.getByRole("button", { name: "Restore" }).click();
     await expect(page.getByRole("heading", { name: "Trash is empty" })).toBeVisible();
 
-    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
     const back = db
       .prepare(
         `SELECT b.deleted_at, b.notes, b.is_favorite, c.name AS collection, group_concat(t.name) AS tags
@@ -1234,7 +1234,7 @@ test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart 
       const invoke = window.__TAURI_INTERNALS__.invoke;
       await invoke("add_bookmark", { url: "https://undo.invalid/1", title: "Decision", collectionId: null, tags: ["tag"] });
     });
-    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
     const row = () =>
       db.prepare("SELECT is_favorite, triaged_at IS NULL AS inbox, deleted_at IS NULL AS live FROM bookmarks WHERE url = ?").get("https://undo.invalid/1");
     const card = page.locator("[data-bookmark-id]");
@@ -1282,7 +1282,7 @@ test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart 
     await page.locator("main").click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("Control+z");
     await expect(page.locator(".fixed[role=status]")).toContainText("Nothing to undo");
-    const after = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const after = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
     expect(after.prepare("SELECT is_favorite FROM bookmarks").get()).toEqual({ is_favorite: 1 });
     after.close();
   } finally {
@@ -1302,7 +1302,7 @@ test("triage: decisions reach SQLite at once, a restart midway loses nothing", a
       for (const n of [1, 2, 3])
         await invoke("add_bookmark", { url: `https://triage.invalid/${n}`, title: `Triage ${n}`, collectionId: null, tags: [] });
     });
-    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
     const rows = () =>
       db
         .prepare(
@@ -1370,7 +1370,7 @@ test("triage suggests a collection by the site from SQLite and changes nothing u
       const { bookmark } = await invoke("add_bookmark", { url: "https://suggest.invalid/new", title: "New article", collectionId: null, tags: [] });
       return bookmark.id;
     });
-    const db = new DatabaseSync(path.join(data, "netamipin.db"), { readOnly: true });
+    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
     const row = () => db.prepare("SELECT collection_id IS NULL AS free, triaged_at IS NULL AS inbox FROM bookmarks WHERE id = ?").get(id);
     await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
     const offered = page.locator("[data-suggested]");

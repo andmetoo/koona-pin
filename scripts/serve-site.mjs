@@ -1,10 +1,12 @@
-// Serves release/publish/site/ locally with the rules of site/Caddyfile that matter for checking pages:
-// try_files {path} {path}.html {path}/index.html, the 404 pages, the Russian redirect of "/",
-// the security headers. Not a production server.
+// Serves release/publish/site/ locally under /pin/ with the rules of site/Caddyfile that matter for
+// checking pages: /pin to /pin/, try_files {path} {path}.html {path}/index.html, the 404 pages, the
+// Russian redirect of /pin/, the security headers. "/" stands for the root site of koona.app and
+// sends to /pin/. Not a production server.
 //   node scripts/serve-site.mjs [port]   (default 4173)
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { BASE } from "../site/src/content.mjs";
 import { publish } from "./lib/paths.mjs";
 
 const root = publish.site;
@@ -23,17 +25,26 @@ const isFile = (p) => stat(p).then((s) => s.isFile(), () => false);
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const referer = req.headers.referer ?? "";
-  if (url.pathname === "/" && /^\s*ru\b/i.test(req.headers["accept-language"] ?? "") && !referer.startsWith(`http://${req.headers.host}/`)) {
-    res.writeHead(302, { Location: "/ru/", Vary: "Accept-Language" }).end();
+  if (url.pathname === "/" || url.pathname === BASE) {
+    res.writeHead(url.pathname === "/" ? 302 : 308, { Location: `${BASE}/` }).end();
     return;
   }
-  const clean = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
+  if (!url.pathname.startsWith(`${BASE}/`)) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }).end("not this site");
+    return;
+  }
+  const local = url.pathname.slice(BASE.length);
+  const referer = req.headers.referer ?? "";
+  if (local === "/" && /^\s*ru\b/i.test(req.headers["accept-language"] ?? "") && !referer.startsWith(`http://${req.headers.host}${BASE}/`)) {
+    res.writeHead(302, { Location: `${BASE}/ru/`, Vary: "Accept-Language" }).end();
+    return;
+  }
+  const clean = path.normalize(decodeURIComponent(local)).replace(/^(\.\.[/\\])+/, "");
   const candidates = [clean, `${clean}.html`, path.join(clean, "index.html")].map((p) => path.join(root, p));
   let file;
   for (const c of candidates) if (c.startsWith(root) && (await isFile(c))) { file = c; break; }
   const status = file ? 200 : 404;
-  file ??= path.join(root, url.pathname.startsWith("/ru/") ? "ru/404.html" : "404.html");
+  file ??= path.join(root, local.startsWith("/ru/") ? "ru/404.html" : "404.html");
   res.writeHead(status, { ...HEADERS, "Content-Type": TYPES[path.extname(file)] ?? "application/octet-stream" });
   res.end(await readFile(file));
-}).listen(port, "127.0.0.1", () => console.log(`http://127.0.0.1:${port}`));
+}).listen(port, "127.0.0.1", () => console.log(`http://127.0.0.1:${port}${BASE}/`));

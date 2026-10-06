@@ -69,26 +69,26 @@
     "lost_few": "Nema veze {{count}} dana",
     "lost_other": "Nema veze {{count}} dana",
     "update": "Staro proširenje",
-    "updateApp": "Ažuriraj Netami Pin",
+    "updateApp": "Ažuriraj Koona Pin",
     "connectedTo": "Povezano: {{browsers}}",
     "lastSavedToday": "Poslednje čuvanje — danas u {{time}} iz {{browser}}",
     "lastSavedOn": "Poslednje čuvanje — {{date}} u {{time}} iz {{browser}}",
     "noSaves": "Još nije sačuvana nijedna stranica",
     "notConnectedHint": "Proširenje čuva stranicu jednim klikom",
-    "lostText_one": "Nijedno proširenje se nije javilo {{count}} dan. Otvorite pregledač i proverite da li je Netami Pin uključen — linkovi iz reda stići će sami.",
-    "lostText_few": "Nijedno proširenje se nije javilo {{count}} dana. Otvorite pregledač i proverite da li je Netami Pin uključen — linkovi iz reda stići će sami.",
-    "lostText_other": "Nijedno proširenje se nije javilo {{count}} dana. Otvorite pregledač i proverite da li je Netami Pin uključen — linkovi iz reda stići će sami.",
-    "updateText": "U {{browser}} je proširenje {{version}}, koje ne odgovara ovoj verziji Netami Pin. Ažurirajte proširenje — linkovi će dotle čekati u njemu.",
-    "updateAppText": "U {{browser}} je novije proširenje ({{version}}). Ažurirajte Netami Pin — linkovi će dotle čekati u proširenju.",
+    "lostText_one": "Nijedno proširenje se nije javilo {{count}} dan. Otvorite pregledač i proverite da li je Koona Pin uključen — linkovi iz reda stići će sami.",
+    "lostText_few": "Nijedno proširenje se nije javilo {{count}} dana. Otvorite pregledač i proverite da li je Koona Pin uključen — linkovi iz reda stići će sami.",
+    "lostText_other": "Nijedno proširenje se nije javilo {{count}} dana. Otvorite pregledač i proverite da li je Koona Pin uključen — linkovi iz reda stići će sami.",
+    "updateText": "U {{browser}} je proširenje {{version}}, koje ne odgovara ovoj verziji Koona Pin. Ažurirajte proširenje — linkovi će dotle čekati u njemu.",
+    "updateAppText": "U {{browser}} je novije proširenje ({{version}}). Ažurirajte Koona Pin — linkovi će dotle čekati u proširenju.",
     "howToConnect": "Kako povezati",
     "howToUpdate": "Kako ažurirati",
     "connect": "Poveži",
-    "problem_channel": "Netami Pin nije mogao da otvori kanal za prijem: zauzeo ga je drugi program. Ponovo pokrenite Netami Pin — linkovi će čekati u proširenju.",
-    "problem_registration": "Netami Pin nije mogao da se registruje u pregledačima. Pokušajte ponovo; ako ne uspe, ponovo instalirajte Netami Pin — linkovi će čekati u proširenju.",
-    "problem_host_missing": "Nedostaje deo programa Netami Pin (netamipin-host.exe). Ponovo instalirajte Netami Pin — linkovi će čekati u proširenju.",
-    "banner_channel": "Pregledač ne može da šalje obeleživače: Netami Pin nije mogao da otvori kanal za prijem. Linkovi čekaju u proširenju.",
-    "banner_registration": "Pregledač ne može da šalje obeleživače: Netami Pin nije mogao da se registruje u pregledačima. Linkovi čekaju u proširenju.",
-    "banner_host_missing": "Pregledač ne može da šalje obeleživače: nedostaje deo programa Netami Pin. Linkovi čekaju u proširenju.",
+    "problem_channel": "Koona Pin nije mogao da otvori kanal za prijem: zauzeo ga je drugi program. Ponovo pokrenite Koona Pin — linkovi će čekati u proširenju.",
+    "problem_registration": "Koona Pin nije mogao da se registruje u pregledačima. Pokušajte ponovo; ako ne uspe, ponovo instalirajte Koona Pin — linkovi će čekati u proširenju.",
+    "problem_host_missing": "Nedostaje deo programa Koona Pin (koonapin-host.exe). Ponovo instalirajte Koona Pin — linkovi će čekati u proširenju.",
+    "banner_channel": "Pregledač ne može da šalje obeleživače: Koona Pin nije mogao da otvori kanal za prijem. Linkovi čekaju u proširenju.",
+    "banner_registration": "Pregledač ne može da šalje obeleživače: Koona Pin nije mogao da se registruje u pregledačima. Linkovi čekaju u proširenju.",
+    "banner_host_missing": "Pregledač ne može da šalje obeleživače: nedostaje deo programa Koona Pin. Linkovi čekaju u proširenju.",
     "details": "Detalji",
     "copyReport": "Kopiraj izveštaj",
     "reportCopied": "Izveštaj je kopiran"
@@ -114,7 +114,7 @@
     "import": "Uvoz",
     "importHtml": "Obeleživači pregledača (HTML)",
     "importHtmlHint": "Chrome, Edge, Firefox",
-    "importJson": "Rezervna kopija Netami Pin (JSON)",
+    "importJson": "Rezervna kopija Koona Pin (JSON)",
     "export": "Izvoz",
     "exportHtml": "HTML za pregledače",
     "exportJson": "JSON — potpuna kopija",
@@ -273,7 +273,7 @@
   "restore": {
     "title": "Vraćanje iz JSON kopije",
     "lead": "Izaberite JSON kopiju napravljenu izvozom. Datoteka se celokupno proverava pre nego što se bilo šta u biblioteci promeni.",
-    "file": "Kopija Netami Pin .json",
+    "file": "Kopija Koona Pin .json",
     "bookmarks_one": "{{count, number}} obeleživač",
     "bookmarks_few": "{{count, number}} obeleživača",
     "bookmarks_other": "{{count, number}} obeleživača",
@@ -313,9 +313,9 @@
     "backup": "Rezervna kopija prethodne biblioteke: {{name}}",
     "backupFailed": "Rezervna kopija trenutne biblioteke nije sačuvana: {{detail}}. Ništa nije promenjeno.",
     "failed": "Vraćanje nije uspelo. {{reason}} Ništa nije promenjeno.",
-    "notJson": "Ovo nije JSON datoteka. Izaberite kopiju napravljenu izvozom iz programa Netami Pin. Ništa nije promenjeno.",
-    "notOurs": "Ovo nije kopija Netami Pin: datoteka nema format Netami Pin. Ništa nije promenjeno.",
-    "newer": "Kopiju je napravio noviji Netami Pin (format {{version}}). Ažurirajte aplikaciju da biste je vratili. Ništa nije promenjeno.",
+    "notJson": "Ovo nije JSON datoteka. Izaberite kopiju napravljenu izvozom iz programa Koona Pin. Ništa nije promenjeno.",
+    "notOurs": "Ovo nije kopija Koona Pin: datoteka nema format Koona Pin. Ništa nije promenjeno.",
+    "newer": "Kopiju je napravio noviji Koona Pin (format {{version}}). Ažurirajte aplikaciju da biste je vratili. Ništa nije promenjeno.",
     "damaged": "Kopija je oštećena: {{what}}. Ništa nije promenjeno.",
     "damage": {
       "file_structure": "struktura joj je oštećena ({{detail}})",
@@ -359,16 +359,16 @@
     "installTitle": "Instalirajte proširenje",
     "install_chrome": "Otvorite chrome://extensions, uključite režim programera, izaberite „Učitaj raspakovano“ i fasciklu extension/build/chrome.",
     "install_edge": "Otvorite edge://extensions, uključite režim programera, izaberite „Učitaj raspakovano“ i fasciklu extension/build/edge.",
-    "install_firefox": "Otvorite about:debugging#/runtime/this-firefox, izaberite „Učitaj privremeni dodatak…“ i datoteku release/netamipin-firefox.xpi. Dok ne stigne potpisana verzija, Firefox ga uklanja pri zatvaranju.",
-    "store_chrome": "Otvorite stranicu Netami Pin u Chrome Web Store i kliknite „Dodaj u Chrome“.",
-    "store_edge": "Otvorite stranicu Netami Pin u Edge Add-ons i kliknite „Preuzmi“.",
+    "install_firefox": "Otvorite about:debugging#/runtime/this-firefox, izaberite „Učitaj privremeni dodatak…“ i datoteku release/koonapin-firefox.xpi. Dok ne stigne potpisana verzija, Firefox ga uklanja pri zatvaranju.",
+    "store_chrome": "Otvorite stranicu Koona Pin u Chrome Web Store i kliknite „Dodaj u Chrome“.",
+    "store_edge": "Otvorite stranicu Koona Pin u Edge Add-ons i kliknite „Preuzmi“.",
     "openStore": "Otvori {{store}}",
-    "pinTitle": "Zakačite ikonu Netami Pin",
-    "pin_chrome": "Otvorite meni sa sličicom slagalice na traci sa alatkama i zakačite Netami Pin.",
-    "pin_edge": "Otvorite meni „Proširenja“ na traci sa alatkama i za Netami Pin izaberite „Prikaži na traci sa alatkama“.",
-    "pin_firefox": "Otvorite meni „Proširenja“ na traci sa alatkama i za Netami Pin izaberite „Zakači na traku sa alatkama“.",
+    "pinTitle": "Zakačite ikonu Koona Pin",
+    "pin_chrome": "Otvorite meni sa sličicom slagalice na traci sa alatkama i zakačite Koona Pin.",
+    "pin_edge": "Otvorite meni „Proširenja“ na traci sa alatkama i za Koona Pin izaberite „Prikaži na traci sa alatkama“.",
+    "pin_firefox": "Otvorite meni „Proširenja“ na traci sa alatkama i za Koona Pin izaberite „Zakači na traku sa alatkama“.",
     "saveTitle": "Sačuvajte stranicu",
-    "save": "Kliknite na ikonu na bilo kojoj stranici. Ako je Netami Pin zatvoren, pokreće se u oblasti obaveštenja i čuva link.",
+    "save": "Kliknite na ikonu na bilo kojoj stranici. Ako je Koona Pin zatvoren, pokreće se u oblasti obaveštenja i čuva link.",
     "lostTitle": "Ako se veza izgubi",
     "lost_chrome": "Proverite da li je proširenje uključeno u chrome://extensions. Linkovi čekaju u proširenju i stižu sami.",
     "lost_edge": "Proverite da li je proširenje uključeno u edge://extensions. Linkovi čekaju u proširenju i stižu sami.",
@@ -376,14 +376,14 @@
     "updateTitle": "Ažuriranje",
     "update_chrome": "Ponovo izgradite proširenje i kliknite „Ponovo učitaj“ u chrome://extensions. Verzija iz prodavnice se ažurira sama.",
     "update_edge": "Ponovo izgradite proširenje i kliknite „Ponovo učitaj“ u edge://extensions. Verzija iz prodavnice se ažurira sama.",
-    "update_firefox": "Ponovo izgradite proširenje i učitajte novi release/netamipin-firefox.xpi. Potpisana verzija se ažurira sama.",
+    "update_firefox": "Ponovo izgradite proširenje i učitajte novi release/koonapin-firefox.xpi. Potpisana verzija se ažurira sama.",
     "updateStore": "Proširenje iz prodavnice se ažurira samo: pregledač proverava ažuriranja nekoliko puta dnevno."
   },
   "backup": {
     "title": "Vraćanje iz rezervne kopije",
     "lead": "Izaberite kopiju. Biblioteka se vraća u stanje iz tog trenutka; kasnije izmene se gube.",
     "loading": "Traže se rezervne kopije…",
-    "empty": "U fascikli rezervnih kopija još nema kopija. Netami Pin pravi jednu pri pokretanju i jednom dnevno; kopiju sačuvanu na drugom mestu možete izabrati kao datoteku.",
+    "empty": "U fascikli rezervnih kopija još nema kopija. Koona Pin pravi jednu pri pokretanju i jednom dnevno; kopiju sačuvanu na drugom mestu možete izabrati kao datoteku.",
     "kind": {
       "automatic": "Automatska",
       "before_update": "Pre ažuriranja biblioteke",
@@ -416,9 +416,9 @@
     "previous": "Rezervna kopija prethodne biblioteke",
     "checkedBad": "Provereno: kopija ne može da se vrati",
     "another": "Izaberite drugu datoteku",
-    "notDatabase": "Ova datoteka nije baza podataka, pa ne može biti rezervna kopija Netami Pin. Ništa nije promenjeno.",
-    "notOurs": "Ova datoteka pripada drugom programu, a ne programu Netami Pin. Ništa nije promenjeno.",
-    "newer": "Ovu kopiju je napravio noviji Netami Pin (šema {{schema}}). Ažurirajte aplikaciju da biste je vratili. Ništa nije promenjeno.",
+    "notDatabase": "Ova datoteka nije baza podataka, pa ne može biti rezervna kopija Koona Pin. Ništa nije promenjeno.",
+    "notOurs": "Ova datoteka pripada drugom programu, a ne programu Koona Pin. Ništa nije promenjeno.",
+    "newer": "Ovu kopiju je napravio noviji Koona Pin (šema {{schema}}). Ažurirajte aplikaciju da biste je vratili. Ništa nije promenjeno.",
     "damaged": "Kopija je oštećena: {{detail}}. Ništa nije promenjeno.",
     "unreadable": "Kopija ne može da se pročita: {{detail}}. Ništa nije promenjeno.",
     "backupFailed": "Rezervna kopija trenutne biblioteke nije sačuvana: {{detail}}. Ništa nije promenjeno.",
@@ -472,9 +472,9 @@
     "title": "Provera linkova",
     "loading": "Čitaju se rezultati…",
     "introTitle": "Proverite svoje linkove",
-    "introText_one": "Netami Pin jednom otvara adresu svakog od vaših {{count}} obeleživača, kao pregledač, bez učitavanja stranice. Svaki sajt vidi običan zahtev sa vašeg računara. Možete nastaviti sa radom ili zaustaviti u svakom trenutku.",
-    "introText_few": "Netami Pin jednom otvara adresu svakog od vaših {{count}} obeleživača, kao pregledač, bez učitavanja stranice. Svaki sajt vidi običan zahtev sa vašeg računara. Možete nastaviti sa radom ili zaustaviti u svakom trenutku.",
-    "introText_other": "Netami Pin jednom otvara adresu svakog od vaših {{count}} obeleživača, kao pregledač, bez učitavanja stranice. Svaki sajt vidi običan zahtev sa vašeg računara. Možete nastaviti sa radom ili zaustaviti u svakom trenutku.",
+    "introText_one": "Koona Pin jednom otvara adresu svakog od vaših {{count}} obeleživača, kao pregledač, bez učitavanja stranice. Svaki sajt vidi običan zahtev sa vašeg računara. Možete nastaviti sa radom ili zaustaviti u svakom trenutku.",
+    "introText_few": "Koona Pin jednom otvara adresu svakog od vaših {{count}} obeleživača, kao pregledač, bez učitavanja stranice. Svaki sajt vidi običan zahtev sa vašeg računara. Možete nastaviti sa radom ili zaustaviti u svakom trenutku.",
+    "introText_other": "Koona Pin jednom otvara adresu svakog od vaših {{count}} obeleživača, kao pregledač, bez učitavanja stranice. Svaki sajt vidi običan zahtev sa vašeg računara. Možete nastaviti sa radom ili zaustaviti u svakom trenutku.",
     "introSmall": "Ništa se ne briše samo od sebe. Linkovi ka ovom računaru ili lokalnoj mreži se ne proveravaju.",
     "start_one": "Proveri {{count}} link",
     "start_few": "Proveri {{count}} linka",
@@ -561,7 +561,7 @@
     "autostartHint": "Pokreće se u oblasti obaveštenja da bi linkovi iz pregledača odmah stizali",
     "desktopOnly": "Dostupno u desktop aplikaciji",
     "tray": "Zadrži aplikaciju u oblasti obaveštenja kad se prozor zatvori",
-    "trayHint": "Potpuno se izlazi iz menija ikone Netami Pin u oblasti obaveštenja",
+    "trayHint": "Potpuno se izlazi iz menija ikone Koona Pin u oblasti obaveštenja",
     "browser": "Pregledač",
     "connectBrowser": "Poveži još jedan pregledač",
     "data": "Podaci",
@@ -583,7 +583,7 @@
     "restoreBackup": "Vraćanje iz rezervne kopije",
     "restoreHint": "Biblioteka se vraća u stanje iz kopije",
     "restore": "Vrati…",
-    "backupNote": "Rezervna kopija je cela biblioteka tačno onakva kakva je bila, za Netami Pin — vratite je posle oštećenja ili greške. Da biste preneli obeleživače u drugu biblioteku, koristite Izvoz → JSON; HTML je za pregledače, CSV za tabele.",
+    "backupNote": "Rezervna kopija je cela biblioteka tačno onakva kakva je bila, za Koona Pin — vratite je posle oštećenja ili greške. Da biste preneli obeleživače u drugu biblioteku, koristite Izvoz → JSON; HTML je za pregledače, CSV za tabele.",
     "backUpNow": "Napravi kopiju sada",
     "copying": "Pravi se kopija…",
     "copyDone": "Rezervna kopija je napravljena",
@@ -600,7 +600,7 @@
     "feedbackHint": "Greška, ideja ili pitanje — direktno programeru",
     "feedbackButton": "Pošalji komentar…",
     "github": "Prijave na GitHub-u",
-    "githubHint": "Javne prijave u netami-pin-releases"
+    "githubHint": "Javne prijave u koona-pin"
   },
   "notice": {
     "previewRefreshed": "Pregled je osvežen",
@@ -768,23 +768,23 @@
     "details": "Detalji",
     "DB_LOCKED": {
       "title": "Biblioteku koristi drugi program",
-      "body": "Drugi program drži otvorenu datoteku biblioteke. Netami Pin u nju nije ništa zapisao — vaši podaci su kakvi su bili. Zatvorite taj program i kliknite „Pokušaj ponovo“."
+      "body": "Drugi program drži otvorenu datoteku biblioteke. Koona Pin u nju nije ništa zapisao — vaši podaci su kakvi su bili. Zatvorite taj program i kliknite „Pokušaj ponovo“."
     },
     "DB_NEWER_SCHEMA": {
-      "title": "Novija verzija Netami Pin je ažurirala ovu biblioteku",
-      "body": "Biblioteka koristi šemu {{schema}}; ova verzija podržava do {{supported}}. Instalirajte najnoviju verziju sa pin.netami.app. Biblioteka nije promenjena."
+      "title": "Novija verzija Koona Pin je ažurirala ovu biblioteku",
+      "body": "Biblioteka koristi šemu {{schema}}; ova verzija podržava do {{supported}}. Instalirajte najnoviju verziju sa koona.app/pin. Biblioteka nije promenjena."
     },
     "DB_FOREIGN": {
-      "title": "Ovo nije biblioteka Netami Pin",
-      "body": "Datoteku je napravio drugi program. Netami Pin je ne otvara i ne menja. Premestite datoteku iz fascikle podataka i pri sledećem pokretanju biće napravljena nova biblioteka."
+      "title": "Ovo nije biblioteka Koona Pin",
+      "body": "Datoteku je napravio drugi program. Koona Pin je ne otvara i ne menja. Premestite datoteku iz fascikle podataka i pri sledećem pokretanju biće napravljena nova biblioteka."
     },
     "DB_NOT_DATABASE": {
       "title": "Datoteka biblioteke ne može da se pročita",
-      "body": "Datoteka je oštećena ili nije baza podataka. Netami Pin je ne menja. Vratite poslednju rezervnu kopiju: datoteka se čuva neizmenjena u fascikli rezervnih kopija."
+      "body": "Datoteka je oštećena ili nije baza podataka. Koona Pin je ne menja. Vratite poslednju rezervnu kopiju: datoteka se čuva neizmenjena u fascikli rezervnih kopija."
     },
     "DB_CORRUPT": {
       "title": "Biblioteka je oštećena",
-      "body": "Provera integriteta je našla greške u datoteci biblioteke. Da ne bi došlo do daljeg oštećenja, Netami Pin je ne ažurira i ne menja. Vratite poslednju rezervnu kopiju: oštećena datoteka se čuva neizmenjena u fascikli rezervnih kopija."
+      "body": "Provera integriteta je našla greške u datoteci biblioteke. Da ne bi došlo do daljeg oštećenja, Koona Pin je ne ažurira i ne menja. Vratite poslednju rezervnu kopiju: oštećena datoteka se čuva neizmenjena u fascikli rezervnih kopija."
     },
     "BACKUP_FAILED": {
       "title": "Rezervna kopija biblioteke pre ažuriranja nije napravljena",
@@ -888,9 +888,9 @@
     }
   },
   "tray": {
-    "open": "Otvori Netami Pin",
+    "open": "Otvori Koona Pin",
     "quit": "Izađi",
-    "tooltip": "Netami Pin — vaša biblioteka linkova"
+    "tooltip": "Koona Pin — vaša biblioteka linkova"
   },
   "starter": {
     "development": "Programiranje",

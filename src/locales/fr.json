@@ -67,26 +67,26 @@
     "lost_many": "Muet depuis {{count}} jours",
     "lost_other": "Muet depuis {{count}} jours",
     "update": "Extension périmée",
-    "updateApp": "Netami Pin périmé",
+    "updateApp": "Koona Pin périmé",
     "connectedTo": "Connecté : {{browsers}}",
     "lastSavedToday": "Dernier enregistrement aujourd’hui à {{time}} depuis {{browser}}",
     "lastSavedOn": "Dernier enregistrement le {{date}} à {{time}} depuis {{browser}}",
     "noSaves": "Aucune page enregistrée pour l’instant",
     "notConnectedHint": "L’extension enregistre une page en un clic",
-    "lostText_one": "Aucune extension ne s’est manifestée depuis {{count}} jour. Ouvrez votre navigateur et vérifiez que Netami Pin est activé — les liens en attente arriveront d’eux-mêmes.",
-    "lostText_many": "Aucune extension ne s’est manifestée depuis {{count}} de jours. Ouvrez votre navigateur et vérifiez que Netami Pin est activé — les liens en attente arriveront d’eux-mêmes.",
-    "lostText_other": "Aucune extension ne s’est manifestée depuis {{count}} jours. Ouvrez votre navigateur et vérifiez que Netami Pin est activé — les liens en attente arriveront d’eux-mêmes.",
-    "updateText": "{{browser}} a l’extension {{version}}, qui ne correspond pas à ce Netami Pin. Mettez à jour l’extension — d’ici là, les liens y attendent.",
-    "updateAppText": "{{browser}} a une extension plus récente ({{version}}). Mettez à jour Netami Pin — d’ici là, les liens attendent dans l’extension.",
+    "lostText_one": "Aucune extension ne s’est manifestée depuis {{count}} jour. Ouvrez votre navigateur et vérifiez que Koona Pin est activé — les liens en attente arriveront d’eux-mêmes.",
+    "lostText_many": "Aucune extension ne s’est manifestée depuis {{count}} de jours. Ouvrez votre navigateur et vérifiez que Koona Pin est activé — les liens en attente arriveront d’eux-mêmes.",
+    "lostText_other": "Aucune extension ne s’est manifestée depuis {{count}} jours. Ouvrez votre navigateur et vérifiez que Koona Pin est activé — les liens en attente arriveront d’eux-mêmes.",
+    "updateText": "{{browser}} a l’extension {{version}}, qui ne correspond pas à ce Koona Pin. Mettez à jour l’extension — d’ici là, les liens y attendent.",
+    "updateAppText": "{{browser}} a une extension plus récente ({{version}}). Mettez à jour Koona Pin — d’ici là, les liens attendent dans l’extension.",
     "howToConnect": "Comment connecter",
     "howToUpdate": "Comment mettre à jour",
     "connect": "Connecter",
-    "problem_channel": "Netami Pin n’a pas pu ouvrir son canal de capture : un autre programme l’occupe. Redémarrez Netami Pin — les liens attendront dans l’extension.",
-    "problem_registration": "Netami Pin n’a pas pu s’enregistrer auprès des navigateurs. Réessayez ; en cas d’échec, réinstallez Netami Pin — les liens attendront dans l’extension.",
-    "problem_host_missing": "Une partie de Netami Pin (netamipin-host.exe) est manquante. Réinstallez Netami Pin — les liens attendront dans l’extension.",
-    "banner_channel": "Le navigateur ne peut pas envoyer de signets : Netami Pin n’a pas pu ouvrir son canal de capture. Les liens attendent dans l’extension.",
-    "banner_registration": "Le navigateur ne peut pas envoyer de signets : Netami Pin n’a pas pu s’enregistrer auprès des navigateurs. Les liens attendent dans l’extension.",
-    "banner_host_missing": "Le navigateur ne peut pas envoyer de signets : une partie de Netami Pin est manquante. Les liens attendent dans l’extension.",
+    "problem_channel": "Koona Pin n’a pas pu ouvrir son canal de capture : un autre programme l’occupe. Redémarrez Koona Pin — les liens attendront dans l’extension.",
+    "problem_registration": "Koona Pin n’a pas pu s’enregistrer auprès des navigateurs. Réessayez ; en cas d’échec, réinstallez Koona Pin — les liens attendront dans l’extension.",
+    "problem_host_missing": "Une partie de Koona Pin (koonapin-host.exe) est manquante. Réinstallez Koona Pin — les liens attendront dans l’extension.",
+    "banner_channel": "Le navigateur ne peut pas envoyer de signets : Koona Pin n’a pas pu ouvrir son canal de capture. Les liens attendent dans l’extension.",
+    "banner_registration": "Le navigateur ne peut pas envoyer de signets : Koona Pin n’a pas pu s’enregistrer auprès des navigateurs. Les liens attendent dans l’extension.",
+    "banner_host_missing": "Le navigateur ne peut pas envoyer de signets : une partie de Koona Pin est manquante. Les liens attendent dans l’extension.",
     "details": "Détails",
     "copyReport": "Copier le rapport",
     "reportCopied": "Rapport copié"
@@ -112,7 +112,7 @@
     "import": "Importer",
     "importHtml": "Signets du navigateur (HTML)",
     "importHtmlHint": "Chrome, Edge, Firefox",
-    "importJson": "Sauvegarde Netami Pin (JSON)",
+    "importJson": "Sauvegarde Koona Pin (JSON)",
     "export": "Exporter",
     "exportHtml": "HTML pour les navigateurs",
     "exportJson": "JSON — copie complète",
@@ -271,7 +271,7 @@
   "restore": {
     "title": "Restaurer depuis une copie JSON",
     "lead": "Choisissez une copie JSON créée par Exporter. Le fichier est entièrement vérifié avant tout changement dans la bibliothèque.",
-    "file": "Copie Netami Pin .json",
+    "file": "Copie Koona Pin .json",
     "bookmarks_one": "{{count, number}} signet",
     "bookmarks_many": "{{count, number}} de signets",
     "bookmarks_other": "{{count, number}} signets",
@@ -311,9 +311,9 @@
     "backup": "Sauvegarde de la bibliothèque précédente : {{name}}",
     "backupFailed": "Impossible d’enregistrer une sauvegarde de la bibliothèque actuelle : {{detail}}. Rien n’a été modifié.",
     "failed": "Échec de la restauration. {{reason}} Rien n’a été modifié.",
-    "notJson": "Ce n’est pas un fichier JSON. Choisissez une copie créée par l’export de Netami Pin. Rien n’a été modifié.",
-    "notOurs": "Ce n’est pas une copie Netami Pin : le fichier n’a pas le format Netami Pin. Rien n’a été modifié.",
-    "newer": "La copie a été créée par un Netami Pin plus récent (format {{version}}). Mettez l’application à jour pour la restaurer. Rien n’a été modifié.",
+    "notJson": "Ce n’est pas un fichier JSON. Choisissez une copie créée par l’export de Koona Pin. Rien n’a été modifié.",
+    "notOurs": "Ce n’est pas une copie Koona Pin : le fichier n’a pas le format Koona Pin. Rien n’a été modifié.",
+    "newer": "La copie a été créée par un Koona Pin plus récent (format {{version}}). Mettez l’application à jour pour la restaurer. Rien n’a été modifié.",
     "damaged": "La copie est endommagée : {{what}}. Rien n’a été modifié.",
     "damage": {
       "file_structure": "sa structure est cassée ({{detail}})",
@@ -357,16 +357,16 @@
     "installTitle": "Installer l’extension",
     "install_chrome": "Ouvrez chrome://extensions, activez le mode développeur, choisissez « Charger l’extension non empaquetée » et sélectionnez le dossier extension/build/chrome.",
     "install_edge": "Ouvrez edge://extensions, activez le mode développeur, choisissez « Charger l’extension décompressée » et sélectionnez le dossier extension/build/edge.",
-    "install_firefox": "Ouvrez about:debugging#/runtime/this-firefox, choisissez « Charger un module complémentaire temporaire… » et sélectionnez release/netamipin-firefox.xpi. En attendant la version signée, Firefox la retire à la fermeture.",
-    "store_chrome": "Ouvrez la page de Netami Pin dans le Chrome Web Store et cliquez sur « Ajouter à Chrome ».",
-    "store_edge": "Ouvrez la page de Netami Pin dans Edge Add-ons et cliquez sur « Obtenir ».",
+    "install_firefox": "Ouvrez about:debugging#/runtime/this-firefox, choisissez « Charger un module complémentaire temporaire… » et sélectionnez release/koonapin-firefox.xpi. En attendant la version signée, Firefox la retire à la fermeture.",
+    "store_chrome": "Ouvrez la page de Koona Pin dans le Chrome Web Store et cliquez sur « Ajouter à Chrome ».",
+    "store_edge": "Ouvrez la page de Koona Pin dans Edge Add-ons et cliquez sur « Obtenir ».",
     "openStore": "Ouvrir {{store}}",
-    "pinTitle": "Épingler l’icône de Netami Pin",
-    "pin_chrome": "Ouvrez le menu en forme de pièce de puzzle dans la barre d’outils et épinglez Netami Pin.",
-    "pin_edge": "Ouvrez le menu Extensions dans la barre d’outils et choisissez « Afficher dans la barre d’outils » pour Netami Pin.",
-    "pin_firefox": "Ouvrez le menu Extensions dans la barre d’outils et choisissez « Épingler à la barre d’outils » pour Netami Pin.",
+    "pinTitle": "Épingler l’icône de Koona Pin",
+    "pin_chrome": "Ouvrez le menu en forme de pièce de puzzle dans la barre d’outils et épinglez Koona Pin.",
+    "pin_edge": "Ouvrez le menu Extensions dans la barre d’outils et choisissez « Afficher dans la barre d’outils » pour Koona Pin.",
+    "pin_firefox": "Ouvrez le menu Extensions dans la barre d’outils et choisissez « Épingler à la barre d’outils » pour Koona Pin.",
     "saveTitle": "Enregistrer une page",
-    "save": "Cliquez sur l’icône sur n’importe quelle page. Si Netami Pin est fermé, il démarre dans la zone de notification et enregistre le lien.",
+    "save": "Cliquez sur l’icône sur n’importe quelle page. Si Koona Pin est fermé, il démarre dans la zone de notification et enregistre le lien.",
     "lostTitle": "Si la connexion est perdue",
     "lost_chrome": "Vérifiez que l’extension est activée dans chrome://extensions. Les liens attendent dans l’extension et arrivent d’eux-mêmes.",
     "lost_edge": "Vérifiez que l’extension est activée dans edge://extensions. Les liens attendent dans l’extension et arrivent d’eux-mêmes.",
@@ -374,14 +374,14 @@
     "updateTitle": "Mise à jour",
     "update_chrome": "Recompilez l’extension et cliquez sur « Actualiser » dans chrome://extensions. La version du store se met à jour toute seule.",
     "update_edge": "Recompilez l’extension et cliquez sur « Recharger » dans edge://extensions. La version du store se met à jour toute seule.",
-    "update_firefox": "Recompilez l’extension et chargez le nouveau release/netamipin-firefox.xpi. La version signée se met à jour toute seule.",
+    "update_firefox": "Recompilez l’extension et chargez le nouveau release/koonapin-firefox.xpi. La version signée se met à jour toute seule.",
     "updateStore": "L’extension du store se met à jour toute seule : le navigateur cherche des mises à jour plusieurs fois par jour."
   },
   "backup": {
     "title": "Restaurer depuis une sauvegarde",
     "lead": "Choisissez une copie. La bibliothèque revient à son état d’alors ; les changements faits après sont perdus.",
     "loading": "Recherche des sauvegardes…",
-    "empty": "Pas encore de sauvegarde dans le dossier des sauvegardes. Netami Pin en crée une au démarrage et une fois par jour ; une copie enregistrée ailleurs peut être choisie comme fichier.",
+    "empty": "Pas encore de sauvegarde dans le dossier des sauvegardes. Koona Pin en crée une au démarrage et une fois par jour ; une copie enregistrée ailleurs peut être choisie comme fichier.",
     "kind": {
       "automatic": "Automatique",
       "before_update": "Avant une mise à jour de la bibliothèque",
@@ -414,9 +414,9 @@
     "previous": "Sauvegarde de la bibliothèque précédente",
     "checkedBad": "Vérifié : la copie ne peut pas être restaurée",
     "another": "Choisir un autre fichier",
-    "notDatabase": "Ce fichier n’est pas une base de données, ce ne peut donc pas être une sauvegarde Netami Pin. Rien n’a été modifié.",
-    "notOurs": "Ce fichier appartient à un autre programme, pas à Netami Pin. Rien n’a été modifié.",
-    "newer": "Un Netami Pin plus récent a créé cette copie (schéma {{schema}}). Mettez l’application à jour pour la restaurer. Rien n’a été modifié.",
+    "notDatabase": "Ce fichier n’est pas une base de données, ce ne peut donc pas être une sauvegarde Koona Pin. Rien n’a été modifié.",
+    "notOurs": "Ce fichier appartient à un autre programme, pas à Koona Pin. Rien n’a été modifié.",
+    "newer": "Un Koona Pin plus récent a créé cette copie (schéma {{schema}}). Mettez l’application à jour pour la restaurer. Rien n’a été modifié.",
     "damaged": "La copie est endommagée : {{detail}}. Rien n’a été modifié.",
     "unreadable": "La copie est illisible : {{detail}}. Rien n’a été modifié.",
     "backupFailed": "Impossible d’enregistrer une sauvegarde de la bibliothèque actuelle : {{detail}}. Rien n’a été modifié.",
@@ -470,9 +470,9 @@
     "title": "Vérification des liens",
     "loading": "Lecture des résultats…",
     "introTitle": "Vérifiez vos liens",
-    "introText_one": "Netami Pin ouvre une fois l’adresse de votre {{count}} signet, comme un navigateur, sans charger la page. Le site voit une requête ordinaire venant de votre ordinateur. Vous pouvez continuer à travailler ou arrêter à tout moment.",
-    "introText_many": "Netami Pin ouvre une fois l’adresse de chacun de vos {{count}} de signets, comme un navigateur, sans charger la page. Chaque site voit une requête ordinaire venant de votre ordinateur. Vous pouvez continuer à travailler ou arrêter à tout moment.",
-    "introText_other": "Netami Pin ouvre une fois l’adresse de chacun de vos {{count}} signets, comme un navigateur, sans charger la page. Chaque site voit une requête ordinaire venant de votre ordinateur. Vous pouvez continuer à travailler ou arrêter à tout moment.",
+    "introText_one": "Koona Pin ouvre une fois l’adresse de votre {{count}} signet, comme un navigateur, sans charger la page. Le site voit une requête ordinaire venant de votre ordinateur. Vous pouvez continuer à travailler ou arrêter à tout moment.",
+    "introText_many": "Koona Pin ouvre une fois l’adresse de chacun de vos {{count}} de signets, comme un navigateur, sans charger la page. Chaque site voit une requête ordinaire venant de votre ordinateur. Vous pouvez continuer à travailler ou arrêter à tout moment.",
+    "introText_other": "Koona Pin ouvre une fois l’adresse de chacun de vos {{count}} signets, comme un navigateur, sans charger la page. Chaque site voit une requête ordinaire venant de votre ordinateur. Vous pouvez continuer à travailler ou arrêter à tout moment.",
     "introSmall": "Rien n’est supprimé tout seul. Les liens vers cet ordinateur ou votre réseau local ne sont pas interrogés.",
     "start_one": "Vérifier {{count}} lien",
     "start_many": "Vérifier {{count}} de liens",
@@ -559,7 +559,7 @@
     "autostartHint": "Démarre dans la zone de notification pour que les liens du navigateur arrivent tout de suite",
     "desktopOnly": "Disponible dans l’application de bureau",
     "tray": "Garder l’application dans la zone de notification quand la fenêtre est fermée",
-    "trayHint": "Pour quitter complètement, utilisez le menu de l’icône Netami Pin dans la zone de notification",
+    "trayHint": "Pour quitter complètement, utilisez le menu de l’icône Koona Pin dans la zone de notification",
     "browser": "Navigateur",
     "connectBrowser": "Connecter un autre navigateur",
     "data": "Données",
@@ -581,7 +581,7 @@
     "restoreBackup": "Restaurer depuis une sauvegarde",
     "restoreHint": "La bibliothèque revient à son état dans la copie",
     "restore": "Restaurer…",
-    "backupNote": "Une sauvegarde est toute la bibliothèque exactement telle qu’elle était, pour Netami Pin — restaurez-la après un dommage ou une erreur. Pour transférer des signets dans une autre bibliothèque, utilisez Exporter → JSON ; HTML est pour les navigateurs, CSV pour les tableurs.",
+    "backupNote": "Une sauvegarde est toute la bibliothèque exactement telle qu’elle était, pour Koona Pin — restaurez-la après un dommage ou une erreur. Pour transférer des signets dans une autre bibliothèque, utilisez Exporter → JSON ; HTML est pour les navigateurs, CSV pour les tableurs.",
     "backUpNow": "Sauvegarder maintenant",
     "copying": "Sauvegarde…",
     "copyDone": "Sauvegarde créée",
@@ -598,7 +598,7 @@
     "feedbackHint": "Un bug, une idée ou une question — directement au développeur",
     "feedbackButton": "Envoyer un avis…",
     "github": "Tickets sur GitHub",
-    "githubHint": "Signalements publics dans netami-pin-releases"
+    "githubHint": "Signalements publics dans koona-pin"
   },
   "notice": {
     "previewRefreshed": "Aperçu actualisé",
@@ -766,23 +766,23 @@
     "details": "Détails",
     "DB_LOCKED": {
       "title": "Un autre programme utilise la bibliothèque",
-      "body": "Un autre programme a ouvert le fichier de la bibliothèque. Netami Pin n’y a rien écrit — vos données sont intactes. Fermez ce programme et cliquez sur Réessayer."
+      "body": "Un autre programme a ouvert le fichier de la bibliothèque. Koona Pin n’y a rien écrit — vos données sont intactes. Fermez ce programme et cliquez sur Réessayer."
     },
     "DB_NEWER_SCHEMA": {
-      "title": "Une version plus récente de Netami Pin a mis à jour cette bibliothèque",
-      "body": "La bibliothèque utilise le schéma {{schema}} ; cette version prend en charge jusqu’au {{supported}}. Installez la dernière version depuis pin.netami.app. La bibliothèque n’a pas été modifiée."
+      "title": "Une version plus récente de Koona Pin a mis à jour cette bibliothèque",
+      "body": "La bibliothèque utilise le schéma {{schema}} ; cette version prend en charge jusqu’au {{supported}}. Installez la dernière version depuis koona.app/pin. La bibliothèque n’a pas été modifiée."
     },
     "DB_FOREIGN": {
-      "title": "Ce n’est pas une bibliothèque Netami Pin",
-      "body": "Le fichier a été créé par un autre programme. Netami Pin ne l’ouvre pas et ne le modifie pas. Sortez le fichier du dossier des données et une nouvelle bibliothèque sera créée au prochain démarrage."
+      "title": "Ce n’est pas une bibliothèque Koona Pin",
+      "body": "Le fichier a été créé par un autre programme. Koona Pin ne l’ouvre pas et ne le modifie pas. Sortez le fichier du dossier des données et une nouvelle bibliothèque sera créée au prochain démarrage."
     },
     "DB_NOT_DATABASE": {
       "title": "Le fichier de la bibliothèque est illisible",
-      "body": "Le fichier est endommagé ou n’est pas une base de données. Netami Pin ne le modifie pas. Restaurez la dernière sauvegarde : le fichier est conservé tel quel dans le dossier des sauvegardes."
+      "body": "Le fichier est endommagé ou n’est pas une base de données. Koona Pin ne le modifie pas. Restaurez la dernière sauvegarde : le fichier est conservé tel quel dans le dossier des sauvegardes."
     },
     "DB_CORRUPT": {
       "title": "La bibliothèque est endommagée",
-      "body": "Le contrôle d’intégrité a trouvé des erreurs dans le fichier de la bibliothèque. Pour éviter d’autres dommages, Netami Pin ne le met pas à jour et ne le modifie pas. Restaurez la dernière sauvegarde : le fichier endommagé est conservé tel quel dans le dossier des sauvegardes."
+      "body": "Le contrôle d’intégrité a trouvé des erreurs dans le fichier de la bibliothèque. Pour éviter d’autres dommages, Koona Pin ne le met pas à jour et ne le modifie pas. Restaurez la dernière sauvegarde : le fichier endommagé est conservé tel quel dans le dossier des sauvegardes."
     },
     "BACKUP_FAILED": {
       "title": "Impossible de sauvegarder la bibliothèque avant sa mise à jour",
@@ -886,9 +886,9 @@
     }
   },
   "tray": {
-    "open": "Ouvrir Netami Pin",
+    "open": "Ouvrir Koona Pin",
     "quit": "Quitter",
-    "tooltip": "Netami Pin — votre bibliothèque de liens"
+    "tooltip": "Koona Pin — votre bibliothèque de liens"
   },
   "starter": {
     "development": "Développement",

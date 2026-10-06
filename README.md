@@ -1,12 +1,12 @@
-# Netami Pin
+# Koona Pin
 
 Локальная библиотека ссылок для Windows: светлая и тёмная темы, коллекции, теги, избранное и захват страниц из Chrome, Edge и Firefox с устойчивой очередью. Интерфейс на английском, русском, сербском и восьми европейских языках ([Языки](doc/features.md#языки)).
 
 **Дизайн.** Актуальный дизайн — редизайн, итерация 1 (envy green, Inter, разбор входящих, массовые действия). В коде — его основа (NP-010): оболочка, компоненты, настройки; остальные экраны доводятся задачами дорожной карты. Что главнее и где что лежит — в [гайдлайне](doc/guidelines.md).
 
-Сайт приложения: [pin.netami.app](https://pin.netami.app). Исходники — `site/`, сборка `npm run site:build`, проверка `npm run site:check`, выкладка на сервер владельца с Caddy — `pwsh scripts/deploy-site.ps1 -Server user@host`; подробно — [doc/site.md](doc/site.md#выкладка).
+Сайт приложения: [koona.app/pin](https://koona.app/pin/). Исходники — `site/`, сборка `npm run site:build`, проверка `npm run site:check`, выкладка на сервер владельца с Caddy — `pwsh scripts/deploy-site.ps1 -Server user@host`; подробно — [doc/site.md](doc/site.md#выкладка).
 
-React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятся в `%APPDATA%\Netami Pin\netamipin.db`.
+React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятся в `%APPDATA%\Koona Pin\koonapin.db`.
 
 Прежнее название — OddClicks. Данные OddClicks и тестовых сборок до схемы 1 не переносятся ([Р-11](doc/decisions.md#р-11-чистая-схема-1-вместо-переноса-данных)). С уходом HTTP-сервера (NP-016) старого имени в коде не осталось.
 
@@ -25,7 +25,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятс
 - [Процесс разработки с ИИ-агентами](doc/development-process.md)
 - [Дорожная карта](doc/roadmap.md), [сценарии](doc/scenarios.md), [решения](doc/decisions.md) и [индекс задач GitHub](doc/issues/README.md)
 - [Шаблон задачи](doc/task-template.md) и [чеклист выпуска](doc/release-checklist.md)
-- Выпуски и обратная связь — публичный репозиторий [andmetoo/netami-pin-releases](https://github.com/andmetoo/netami-pin-releases) ([Р-9](doc/decisions.md#р-9-распространение-windows)): README, формы issues и SECURITY.md лежат в нём, метки и настройки — `scripts/setup-releases-repo.ps1`
+- Выпуски и обратная связь — в этом же репозитории [andmetoo/koona-pin](https://github.com/andmetoo/koona-pin) ([Р-9](doc/decisions.md#р-9-распространение-windows), [Р-47](doc/decisions.md#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код)): формы issues — `.github/ISSUE_TEMPLATE`, сообщения об уязвимостях — [SECURITY.md](SECURITY.md), метки и настройки — `scripts/setup-repo.ps1`
 - Слайды процесса: `design/lunacy/development_process.sketch` (20 редактируемых кадров в Lunacy)
 
 ## Разработка
@@ -55,7 +55,11 @@ npm run tauri dev
 | Расширение с ID каталога Chrome для тестовой машины | `npm run extension:build` с `CHROME_STORE_PUBLIC_KEY` | `release/test/chrome-edge/<версия>/` |
 | Расширение для своего браузера («Загрузить распакованное», тесты) | `npm run extension:build` | `release/dev/chrome`, `edge`, `firefox` |
 | Подписанное расширение Firefox и `updates.json` | `npm run extension:sign:firefox` | `release/publish/firefox/` (выкладывается с сайтом) |
-| Сайт pin.netami.app | `npm run site:build` (`site:check` — с проверкой) | `release/publish/site/` (выкладывает `scripts/deploy-site.ps1`) |
+| Сайт koona.app/pin | `npm run site:build` (`site:check` — с проверкой) | `release/publish/site/` (выкладывает `scripts/deploy-site.ps1`) |
 | Приложение для разработки | `npm run tauri dev` | окно приложения, файл не нужен |
 
 `publish/` — людям и в каталоги, `test/` — только на тестовую машину, `dev/` — только на этот компьютер. Рабочие папки инструментов из рук не берутся: `src-tauri/target` (Cargo и Tauri: EXE, промежуточные файлы установщика) и `dist/` (интерфейс приложения для Tauri). `npm run tauri build` собирает только EXE в `src-tauri/target/release`, установщик — только `build:installer`.
+
+## Лицензия
+
+Open core ([Р-48](doc/decisions.md#р-48-лицензия-open-core-agpl-30-cla-и-товарный-знак)): код — [GNU AGPL 3.0](LICENSE) (`AGPL-3.0-only`), платные возможности — под коммерческой лицензией, название, маскот и логотип — товарные знаки ([TRADEMARKS.md](TRADEMARKS.md)). Что под какой лицензией — [LICENSING.md](LICENSING.md); участие — по [CLA](CLA.md), правила — [CONTRIBUTING.md](CONTRIBUTING.md).

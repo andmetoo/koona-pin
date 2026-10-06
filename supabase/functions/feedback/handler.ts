@@ -1,9 +1,11 @@
 // The Edge Function `feedback` without Deno (NP-088, Р-9): checks a message
-// from the app (JSON) or from the form on pin.netami.app (a plain HTML form),
+// from the app (JSON) or from the form on koona.app/pin (a plain HTML form),
 // stores the row within the hourly limit and notifies the owner.
 // `index.ts` wires the real database and Telegram; tests pass fakes.
 
-export const SITE = "https://pin.netami.app";
+// The form lives at koona.app/pin; browsers send only the origin, without the path (Р-47).
+export const ORIGIN = "https://koona.app";
+export const SITE = `${ORIGIN}/pin`;
 export const MAX_MESSAGE = 5000;
 export const MAX_REPORT = 10000;
 export const PER_HOUR = 5;
@@ -149,7 +151,7 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
   // its own referrer policy, so the site always names itself; `null` (a hidden
   // origin) is what any foreign page can produce, and is refused too.
   const origin = request.headers.get("origin");
-  if (origin !== null && origin !== SITE) {
+  if (origin !== null && origin !== ORIGIN) {
     return site ? reply(source, language, "invalid", "origin") : json(403, { error: "origin" });
   }
   const parsed = parse(fields, source);

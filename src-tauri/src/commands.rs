@@ -639,7 +639,7 @@ pub async fn send_feedback(app: AppHandle, feedback: feedback::Feedback) -> Resu
         return Err(CommandError::detailed(
             ErrorCode::Network,
             ErrorDetail::ServiceFailed,
-            "This build has no feedback address (NETAMIPIN_FEEDBACK_URL)",
+            "This build has no feedback address (KOONAPIN_FEEDBACK_URL)",
         ));
     };
     feedback::send(endpoint, &payload, feedback::LIMITS).await
@@ -759,7 +759,7 @@ pub enum RestoreOutcome {
     BackupFailed { detail: String },
 }
 
-/// Menu «⋯» → «Резервная копия Netami Pin (JSON)»: reads and checks the
+/// Menu «⋯» → «Резервная копия Koona Pin (JSON)»: reads and checks the
 /// whole copy, changes nothing (NP-033).
 #[tauri::command]
 pub async fn check_restore(state: State<'_, Arc<DbState>>, content: String) -> Result<RestoreCheck, CommandError> {
@@ -1039,8 +1039,8 @@ pub async fn save_backup_copy(
     last: State<'_, LastExport>,
 ) -> Result<SaveCopyOutcome, CommandError> {
     use tauri_plugin_dialog::DialogExt;
-    let name = format!("netami-pin-backup-{}.db", chrono::Local::now().format("%Y-%m-%d"));
-    let mut dialog = app.dialog().file().set_file_name(name).add_filter("Netami Pin", &["db"]);
+    let name = format!("koona-pin-backup-{}.db", chrono::Local::now().format("%Y-%m-%d"));
+    let mut dialog = app.dialog().file().set_file_name(name).add_filter("Koona Pin", &["db"]);
     if let Some(window) = app.get_webview_window("main") {
         dialog = dialog.set_parent(&window);
     }
@@ -1099,7 +1099,7 @@ pub async fn pick_backup(
     let mut dialog = app
         .dialog()
         .file()
-        .add_filter("Netami Pin", &["db"])
+        .add_filter("Koona Pin", &["db"])
         .set_directory(&library.paths.backups);
     if let Some(window) = app.get_webview_window("main") {
         dialog = dialog.set_parent(&window);

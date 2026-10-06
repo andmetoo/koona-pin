@@ -227,7 +227,7 @@ export function SettingsPage({
       </Section>
 
       <p className="flex flex-wrap items-center gap-3 px-3 text-xs text-subtle">
-        <span>Netami Pin {version}</span>
+        <span>Koona Pin {version}</span>
         <span title={soon} className="text-faint">
           {t("settings.checkUpdates")}
         </span>

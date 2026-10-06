@@ -1,6 +1,6 @@
 # Preview photos
 
-Bookmark previews in the app screenshots of pin.netami.app (`scripts/site-screenshots.mjs`). All from Unsplash under the [Unsplash License](https://unsplash.com/license) (free, no attribution required); downloaded 5 October 2026 at 800×500.
+Bookmark previews in the app screenshots of koona.app/pin (`scripts/site-screenshots.mjs`). All from Unsplash under the [Unsplash License](https://unsplash.com/license) (free, no attribution required); downloaded 5 October 2026 at 800×500.
 
 | File | Photo | Author |
 | --- | --- | --- |

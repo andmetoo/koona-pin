@@ -1,7 +1,7 @@
 // Signs the Firefox extension on AMO without a listing (NP-018) and prepares
 // the self-hosted update files:
 //
-//   release/publish/firefox/netamipin-firefox-<version>.xpi   signed, for users and the site
+//   release/publish/firefox/koonapin-firefox-<version>.xpi   signed, for users and the site
 //   release/publish/firefox/updates.json                      for gecko.update_url
 //
 // The AMO API key of the owner's account comes from the environment
@@ -53,7 +53,7 @@ if (!data.includes("META-INF/cose.sig")) throw new Error(`${xpi} has no Mozilla 
 
 const out = publish.firefox;
 await mkdir(out, { recursive: true });
-const name = `netamipin-firefox-${built.version}.xpi`;
+const name = `koonapin-firefox-${built.version}.xpi`;
 await copyFile(path.join(artifacts, xpi), path.join(out, name));
 
 // Every signed version stays in the update manifest, newest last.

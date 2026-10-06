@@ -34,7 +34,7 @@ export interface ToolbarProps {
   onImport: () => void;
   /** Menu «⋯» → Export (NP-032, frame 29). */
   onExport: (format: ExportFormat) => void;
-  /** Menu «⋯» → «Резервная копия Netami Pin (JSON)» (NP-033, frame 30). */
+  /** Menu «⋯» → «Резервная копия Koona Pin (JSON)» (NP-033, frame 30). */
   onRestore: () => void;
   /** Groups of duplicates (NP-035): the count of «Дубликаты» and the section. */
   duplicates: number;

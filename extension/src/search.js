@@ -6,7 +6,7 @@ import { answerState, collectionColor, shortDate, siteTile } from "./search-mode
 // saves the page again.
 void ext.action?.setPopup?.({ popup: "" })?.catch?.(() => {});
 
-const DOWNLOAD = "https://pin.netami.app";
+const DOWNLOAD = "https://koona.app/pin/";
 const get = (id) => document.getElementById(id);
 const query = get("query");
 const content = get("content");

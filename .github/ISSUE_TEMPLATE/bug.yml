@@ -1,0 +1,88 @@
+name: Bug report
+description: Something in Koona Pin doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. **Issues are public:** don't paste addresses of pages you saved, names of your collections or other library content.
+
+  - type: input
+    id: app-version
+    attributes:
+      label: Koona Pin version
+      description: Windows Settings → Apps → Installed apps → Koona Pin.
+      placeholder: "0.5.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Windows
+      options:
+        - Windows 11, 64-bit
+        - Windows 10
+        - Windows on ARM
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      description: Leave empty if the problem is in the app only.
+      multiple: true
+      options:
+        - Chrome
+        - Edge
+        - Firefox
+        - Firefox ESR
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser and extension versions
+      description: "Browser: Help → About. Extension: chrome://extensions, edge://extensions or about:addons."
+      placeholder: "Chrome 131, extension 0.5.2"
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Click …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Error text, screenshots. Crop or blur your bookmarks before attaching.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: If the app offers "Collect diagnostics", attach the file. It contains no addresses or library content.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I didn't include addresses of my saved pages or other library content.
+          required: true

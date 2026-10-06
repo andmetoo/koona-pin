@@ -19,8 +19,8 @@ const sign = process.argv.includes("--sign");
 const dotenv = path.join(root, ".env");
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 
-if (!process.env.NETAMIPIN_FEEDBACK_URL) {
-  console.error("NETAMIPIN_FEEDBACK_URL is not set: the installer build does not compile without it (supabase/README.md).");
+if (!process.env.KOONAPIN_FEEDBACK_URL) {
+  console.error("KOONAPIN_FEEDBACK_URL is not set: the installer build does not compile without it (supabase/README.md).");
   process.exit(1);
 }
 const signScript = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(root, "scripts", "sign-windows.ps1")];

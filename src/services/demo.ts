@@ -61,7 +61,7 @@ const demoCaptureStatus: CaptureStatus = {
 };
 
 // v2: generated previews instead of the drawn ones of the concepts; v3: the inbox; v4: the trash.
-export const DEMO_STORAGE_KEY = "netamipin.demo.v4";
+export const DEMO_STORAGE_KEY = "koonapin.demo.v4";
 const key = DEMO_STORAGE_KEY;
 const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString();
 // The texts follow the interface's language when the library is created; a saved
@@ -222,7 +222,7 @@ function readCopy(content: string): Copy | RestoreProblem {
   } catch {
     return { problem: "not_json" };
   }
-  if (value?.format !== "netami-pin" || typeof value.version !== "number") return { problem: "not_ours" };
+  if (value?.format !== "koona-pin" || typeof value.version !== "number") return { problem: "not_ours" };
   if (value.version > 1) return { problem: "newer", version: value.version };
   const copy = value as unknown as Copy;
   if (!Array.isArray(copy.bookmarks) || !Array.isArray(copy.collections) || !Array.isArray(copy.tags))
@@ -739,9 +739,9 @@ export const demo = {
     if (ids) {
       const chosen = new Set(ids);
       const count = bookmarks.filter((b) => chosen.has(b.id)).length;
-      return { outcome: "saved", file_name: `netami-pin-selected-${date}.${format}`, count };
+      return { outcome: "saved", file_name: `koona-pin-selected-${date}.${format}`, count };
     }
-    return { outcome: "saved", file_name: `netami-pin-${date}.${format}`, count: format === "json" ? bookmarks.length : live().length };
+    return { outcome: "saved", file_name: `koona-pin-${date}.${format}`, count: format === "json" ? bookmarks.length : live().length };
   },
   async revealExport() {
     /* No folders in the browser preview. */
@@ -769,7 +769,7 @@ export const demo = {
       bookmarks = [];
       collections = [];
     }
-    const summary: RestoreSummary = { added: 0, in_inbox: 0, in_trash: 0, existing: 0, collections: [], tags: 0, backup: mode === "replace" ? "netami-pin.before-restore.db" : null };
+    const summary: RestoreSummary = { added: 0, in_inbox: 0, in_trash: 0, existing: 0, collections: [], tags: 0, backup: mode === "replace" ? "koona-pin.before-restore.db" : null };
     const tagsBefore = new Set(bookmarks.flatMap((b) => b.tags ?? []));
     let id = Math.max(Date.now(), ...bookmarks.map((b) => b.id + 1), ...collections.map((c) => c.id + 1));
     const collectionOf = new Map<string, number>();
@@ -885,8 +885,8 @@ export const demo = {
   },
   async getDataSummary(): Promise<DataSummary> {
     return {
-      library_folder: "%APPDATA%\\Netami Pin",
-      backups_folder: "%APPDATA%\\Netami Pin\\backups",
+      library_folder: "%APPDATA%\\Koona Pin",
+      backups_folder: "%APPDATA%\\Koona Pin\\backups",
       copies: 0,
       bytes: 0,
       last_copy: null,
@@ -960,8 +960,8 @@ export const demo = {
     };
     const count = sample.bookmarks.length;
     return [
-      { file_name: "netamipin.auto-demo-1.db", kind: "automatic", created_at: at(0), bytes: 1_300_000, bookmarks: count },
-      { file_name: "netamipin.before-v4.db", kind: "before_update", created_at: at(2), bytes: 1_250_000, bookmarks: count - 2 },
+      { file_name: "koonapin.auto-demo-1.db", kind: "automatic", created_at: at(0), bytes: 1_300_000, bookmarks: count },
+      { file_name: "koonapin.before-v4.db", kind: "before_update", created_at: at(2), bytes: 1_250_000, bookmarks: count - 2 },
     ];
   },
   async pickBackup(): Promise<PickedCopy> {
@@ -971,7 +971,7 @@ export const demo = {
   async restoreBackup(source: BackupSource): Promise<BackupRestoreOutcome> {
     const copy = (await this.listBackups()).find((c) => source.from === "listed" && c.file_name === source.file_name);
     if (!copy) throw new CommandError("not_found", "The copy is gone", "copy_gone");
-    return { outcome: "restored", bookmarks: copy.bookmarks ?? 0, previous: "netamipin.before-restore-demo.db" };
+    return { outcome: "restored", bookmarks: copy.bookmarks ?? 0, previous: "koonapin.before-restore-demo.db" };
   },
   async revealBackup(_fileName: string) {
     /* No folders in the browser preview. */
@@ -1062,7 +1062,7 @@ export const demo = {
   },
   async setTrayLabels(_labels: { open: string; quit: string; tooltip: string }) {},
   async feedbackReport(language: string) {
-    return ["Netami Pin demo", "Browser preview", `Language: ${language}`, `Capture: ${demoCaptureStatus.state}`, `Protocol: ${demoCaptureStatus.protocol}`].join("\n");
+    return ["Koona Pin demo", "Browser preview", `Language: ${language}`, `Capture: ${demoCaptureStatus.state}`, `Protocol: ${demoCaptureStatus.protocol}`].join("\n");
   },
   /** The preview sends nothing: the same checks as the app, then a pause. */
   async sendFeedback(feedback: Feedback) {

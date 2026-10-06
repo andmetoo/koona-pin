@@ -1,16 +1,16 @@
-//! Name of the capture pipe between netamipin-host.exe and the app (Р-17).
+//! Name of the capture pipe between koonapin-host.exe and the app (Р-17).
 //! Both binaries compile this file: the host includes it with `#[path]`, so it
 //! does not link the app.
 
 /// Overrides the pipe name; tests use it to stay away from a running app.
-pub const PIPE_ENV: &str = "NETAMIPIN_PIPE";
+pub const PIPE_ENV: &str = "KOONAPIN_PIPE";
 
-/// `\\.\pipe\netamipin-<SID>`: one pipe per Windows user.
+/// `\\.\pipe\koonapin-<SID>`: one pipe per Windows user.
 pub fn pipe_name() -> String {
     match std::env::var(PIPE_ENV) {
         Ok(name) if !name.is_empty() => format!(r"\\.\pipe\{name}"),
         _ => format!(
-            r"\\.\pipe\netamipin-{}",
+            r"\\.\pipe\koonapin-{}",
             user_sid().unwrap_or_else(|| "user".into())
         ),
     }

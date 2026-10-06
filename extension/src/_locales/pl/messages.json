@@ -1,15 +1,15 @@
 {
-  "extensionName": { "message": "Netami Pin — zapisz link" },
+  "extensionName": { "message": "Koona Pin — zapisz link" },
   "extensionDescription": {
-    "message": "Zapisz stronę w lokalnej bibliotece Netami Pin jednym kliknięciem. Gdy aplikacja jest zamknięta, linki czekają w kolejce."
+    "message": "Zapisz stronę w lokalnej bibliotece Koona Pin jednym kliknięciem. Gdy aplikacja jest zamknięta, linki czekają w kolejce."
   },
   "menuOptions": { "message": "Ustawienia i kolejka" },
   "menuSearch": { "message": "Znajdź link" },
-  "commandSearch": { "message": "Znajdź link w Netami Pin" },
+  "commandSearch": { "message": "Znajdź link w Koona Pin" },
   "searchPlaceholder": { "message": "Szukaj w swoich linkach" },
   "searchFilters": { "message": "Gdzie szukać" },
   "searchKeys": { "message": "↑↓ · ↵ otwórz · Shift ↵ tutaj · Ctrl C kopiuj" },
-  "searchOpenApp": { "message": "Otwórz Netami Pin" },
+  "searchOpenApp": { "message": "Otwórz Koona Pin" },
   "searchAll": { "message": "Wszystko" },
   "searchInbox": { "message": "Skrzynka odbiorcza" },
   "searchFavorites": { "message": "Ulubione" },
@@ -21,7 +21,7 @@
     "placeholders": { "count": { "content": "$1", "example": "50" } }
   },
   "searchEmptyLibrary": { "message": "Nic jeszcze nie zapisano" },
-  "searchEmptyLibraryText": { "message": "Kliknij przycisk Netami Pin na stronie, aby ją zapisać." },
+  "searchEmptyLibraryText": { "message": "Kliknij przycisk Koona Pin na stronie, aby ją zapisać." },
   "searchNothing": {
     "message": "Nic nie znaleziono dla „$QUERY$”",
     "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
@@ -39,19 +39,19 @@
   },
   "searchNothingText": { "message": "Spróbuj innego słowa albo przeszukaj całą bibliotekę — kosz nigdy nie jest przeszukiwany." },
   "searchEverywhere": { "message": "Szukaj wszędzie" },
-  "searchStarting": { "message": "Uruchamianie Netami Pin…" },
+  "searchStarting": { "message": "Uruchamianie Koona Pin…" },
   "searchMissingText": {
-    "message": "Wyszukiwanie odbywa się w bibliotece Netami Pin na tym komputerze. Zainstaluj aplikację — do tego czasu zapisane linki czekają tutaj."
+    "message": "Wyszukiwanie odbywa się w bibliotece Koona Pin na tym komputerze. Zainstaluj aplikację — do tego czasu zapisane linki czekają tutaj."
   },
-  "searchUpdateApp": { "message": "Zaktualizuj Netami Pin, aby wyszukiwać" },
-  "searchUpdateAppText": { "message": "Ten Netami Pin zapisuje linki, ale nie umie jeszcze wyszukiwać z przeglądarki. Zapisywanie nadal działa." },
+  "searchUpdateApp": { "message": "Zaktualizuj Koona Pin, aby wyszukiwać" },
+  "searchUpdateAppText": { "message": "Ten Koona Pin zapisuje linki, ale nie umie jeszcze wyszukiwać z przeglądarki. Zapisywanie nadal działa." },
   "searchUpdateButton": { "message": "Pobierz aktualizację" },
   "searchUpdateExtensionText": {
-    "message": "To rozszerzenie nie pasuje do Netami Pin. Zaktualizuj je na stronie rozszerzeń przeglądarki — zapisywanie nadal działa."
+    "message": "To rozszerzenie nie pasuje do Koona Pin. Zaktualizuj je na stronie rozszerzeń przeglądarki — zapisywanie nadal działa."
   },
   "searchLibrary": { "message": "Biblioteka się nie otworzyła" },
-  "searchLibraryText": { "message": "Otwórz Netami Pin, aby zobaczyć dlaczego. Do tego czasu zapisane linki czekają tutaj." },
-  "searchUnavailable": { "message": "Netami Pin nie odpowiedział" },
+  "searchLibraryText": { "message": "Otwórz Koona Pin, aby zobaczyć dlaczego. Do tego czasu zapisane linki czekają tutaj." },
+  "searchUnavailable": { "message": "Koona Pin nie odpowiedział" },
   "searchUnavailableText": { "message": "Spróbuj ponownie za chwilę." },
   "searchCopied": { "message": "Link skopiowany" },
   "shortcutHeading": { "message": "Skrót klawiszowy" },
@@ -77,15 +77,15 @@
     "message": "Firefox nie przyjął skrótu $SHORTCUT$. Spróbuj innego.",
     "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
   },
-  "actionTitle": { "message": "Zapisz stronę w Netami Pin" },
+  "actionTitle": { "message": "Zapisz stronę w Koona Pin" },
   "queueWaiting": {
-    "message": "Netami Pin: do wysłania czeka $COUNT$. Otwórz ustawienia, aby zobaczyć kolejkę.",
+    "message": "Koona Pin: do wysłania czeka $COUNT$. Otwórz ustawienia, aby zobaczyć kolejkę.",
     "placeholders": { "count": { "content": "$1", "example": "3" } }
   },
-  "badgeSaving": { "message": "Zapisywanie w Netami Pin" },
-  "badgeWaiting": { "message": "Link czeka na wysłanie do Netami Pin" },
-  "badgeSaved": { "message": "Zapisano w Netami Pin" },
-  "badgeExisting": { "message": "Ten link jest już w Netami Pin" },
+  "badgeSaving": { "message": "Zapisywanie w Koona Pin" },
+  "badgeWaiting": { "message": "Link czeka na wysłanie do Koona Pin" },
+  "badgeSaved": { "message": "Zapisano w Koona Pin" },
+  "badgeExisting": { "message": "Ten link jest już w Koona Pin" },
   "errorInvalidUrl": {
     "message": "Tej strony nie można zapisać. Otwórz stronę z adresem HTTP/HTTPS."
   },
@@ -93,32 +93,32 @@
     "message": "Tej strony nie można zapisać. Obsługiwane są tylko linki HTTP/HTTPS."
   },
   "errorUnavailable": {
-    "message": "Netami Pin nie odpowiedział. Link zostanie wysłany ponownie za minutę."
+    "message": "Koona Pin nie odpowiedział. Link zostanie wysłany ponownie za minutę."
   },
   "errorHostMissing": {
-    "message": "Netami Pin nie jest zainstalowany albo instalacja jest uszkodzona. Link czeka tutaj."
+    "message": "Koona Pin nie jest zainstalowany albo instalacja jest uszkodzona. Link czeka tutaj."
   },
   "errorIncompatible": {
-    "message": "Rozszerzenie nie pasuje do Netami Pin. Zaktualizuj rozszerzenie — link czeka tutaj."
+    "message": "Rozszerzenie nie pasuje do Koona Pin. Zaktualizuj rozszerzenie — link czeka tutaj."
   },
   "errorIncompatibleApp": {
-    "message": "Netami Pin jest starszy niż rozszerzenie. Zaktualizuj Netami Pin — link czeka tutaj."
+    "message": "Koona Pin jest starszy niż rozszerzenie. Zaktualizuj Koona Pin — link czeka tutaj."
   },
-  "errorInvalidRequest": { "message": "Netami Pin nie może zapisać tego linku." },
+  "errorInvalidRequest": { "message": "Koona Pin nie może zapisać tego linku." },
   "errorConflict": {
     "message": "To zapytanie było już użyte dla innego linku. Usuń je z kolejki."
   },
   "errorDatabase": {
-    "message": "Netami Pin nie zapisał linku. Zostanie wysłany ponownie."
+    "message": "Koona Pin nie zapisał linku. Zostanie wysłany ponownie."
   },
   "errorNoConfirmation": { "message": "Brak potwierdzenia, że link został zapisany" },
   "errorSaveFailed": { "message": "Nie udało się zapisać linku" },
   "errorUnknownAction": { "message": "Nieznane działanie" },
-  "messageSavedTitle": { "message": "Zapisano w Netami Pin" },
+  "messageSavedTitle": { "message": "Zapisano w Koona Pin" },
   "messageSavedText": { "message": "Dodano do skrzynki odbiorczej" },
-  "messageExistingTitle": { "message": "Już jest w Netami Pin" },
+  "messageExistingTitle": { "message": "Już jest w Koona Pin" },
   "messageExistingText": { "message": "Twoje tagi i notatki się nie zmieniły" },
-  "messageQueuedTitle": { "message": "Czeka na Netami Pin" },
+  "messageQueuedTitle": { "message": "Czeka na Koona Pin" },
   "messageQueuedText": { "message": "Zostanie wysłany po otwarciu aplikacji" },
   "messageFailedTitle": { "message": "Nie udało się zapisać linku" },
   "messageFailedText": { "message": "Zajrzyj do ustawień rozszerzenia" },
@@ -129,23 +129,23 @@
   },
   "settingKnown": { "message": "Pokazuj, że strona jest już zapisana" },
   "settingKnownText": {
-    "message": "Przycisk porównuje każdą otwartą stronę z twoją biblioteką na tym komputerze, dopóki działa Netami Pin. Przeglądarka raz poprosi o dostęp do kart; adresy trafiają tylko do aplikacji."
+    "message": "Przycisk porównuje każdą otwartą stronę z twoją biblioteką na tym komputerze, dopóki działa Koona Pin. Przeglądarka raz poprosi o dostęp do kart; adresy trafiają tylko do aplikacji."
   },
   "settingAnimate": { "message": "Animuj przycisk" },
   "settingAnimateText": {
-    "message": "Ikona Netami Pin podskakuje, gdy strona zostanie zapisana. Stoi w miejscu, jeśli system prosi o mniej ruchu."
+    "message": "Ikona Koona Pin podskakuje, gdy strona zostanie zapisana. Stoi w miejscu, jeśli system prosi o mniej ruchu."
   },
-  "optionsTitle": { "message": "Netami Pin — ustawienia rozszerzenia" },
-  "optionsHeading": { "message": "Rozszerzenie Netami Pin" },
+  "optionsTitle": { "message": "Koona Pin — ustawienia rozszerzenia" },
+  "optionsHeading": { "message": "Rozszerzenie Koona Pin" },
   "optionsLead": {
-    "message": "Zapisane strony trafiają do biblioteki Netami Pin na tym komputerze."
+    "message": "Zapisane strony trafiają do biblioteki Koona Pin na tym komputerze."
   },
   "extensionVersion": {
     "message": "Rozszerzenie $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
   },
   "appVersion": {
-    "message": "Netami Pin $VERSION$",
+    "message": "Koona Pin $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
   },
   "lastSavedToday": {
@@ -161,37 +161,37 @@
   },
   "connectionHeading": { "message": "Połączenie" },
   "connectionChecking": { "message": "Sprawdzanie aplikacji…" },
-  "statusConnected": { "message": "Połączono z Netami Pin" },
+  "statusConnected": { "message": "Połączono z Koona Pin" },
   "checkAgain": { "message": "Sprawdź ponownie" },
-  "statusClosed": { "message": "Netami Pin jest zamknięty" },
+  "statusClosed": { "message": "Koona Pin jest zamknięty" },
   "statusClosedText": {
     "message": "Uruchomi się w zasobniku systemowym, gdy zapiszesz stronę. Do tego czasu linki czekają tutaj."
   },
   "statusUpdate": { "message": "Zaktualizuj rozszerzenie" },
   "statusUpdateText": {
-    "message": "To rozszerzenie ($MINE$) nie pasuje do Netami Pin $APP$. Zaktualizuj je na stronie rozszerzeń przeglądarki — do tego czasu linki czekają tutaj.",
+    "message": "To rozszerzenie ($MINE$) nie pasuje do Koona Pin $APP$. Zaktualizuj je na stronie rozszerzeń przeglądarki — do tego czasu linki czekają tutaj.",
     "placeholders": {
       "mine": { "content": "$1", "example": "0.4.0" },
       "app": { "content": "$2", "example": "0.9.0" }
     }
   },
-  "statusUpdateApp": { "message": "Zaktualizuj Netami Pin" },
+  "statusUpdateApp": { "message": "Zaktualizuj Koona Pin" },
   "statusUpdateAppText": {
-    "message": "Netami Pin $APP$ jest starszy niż to rozszerzenie ($MINE$). Zaktualizuj Netami Pin — do tego czasu linki czekają tutaj.",
+    "message": "Koona Pin $APP$ jest starszy niż to rozszerzenie ($MINE$). Zaktualizuj Koona Pin — do tego czasu linki czekają tutaj.",
     "placeholders": {
       "app": { "content": "$1", "example": "0.9.0" },
       "mine": { "content": "$2", "example": "0.5.0" }
     }
   },
-  "statusMissing": { "message": "Netami Pin nie jest zainstalowany" },
+  "statusMissing": { "message": "Koona Pin nie jest zainstalowany" },
   "statusMissingText": {
-    "message": "Rozszerzenie nie znajduje aplikacji na tym komputerze. Zainstaluj Netami Pin albo zainstaluj go ponownie, jeśli już jest."
+    "message": "Rozszerzenie nie znajduje aplikacji na tym komputerze. Zainstaluj Koona Pin albo zainstaluj go ponownie, jeśli już jest."
   },
-  "download": { "message": "Pobierz Netami Pin" },
+  "download": { "message": "Pobierz Koona Pin" },
   "queueHeading": { "message": "Czeka na wysłanie" },
   "sendNow": { "message": "Wyślij teraz" },
   "queueEmpty": {
-    "message": "Nic nie czeka. Kliknij ikonę Netami Pin na stronie, aby ją zapisać."
+    "message": "Nic nie czeka. Kliknij ikonę Koona Pin na stronie, aby ją zapisać."
   },
   "removeButton": { "message": "Usuń" },
   "removeLabel": {
@@ -199,6 +199,6 @@
     "placeholders": { "title": { "content": "$1", "example": "Tytuł strony" } }
   },
   "optionsFooter": {
-    "message": "Linki zostają w przeglądarce, dopóki Netami Pin ich nie potwierdzi. Jeśli aplikacja jest zamknięta, zapisanie strony uruchomi ją w zasobniku systemowym."
+    "message": "Linki zostają w przeglądarce, dopóki Koona Pin ich nie potwierdzi. Jeśli aplikacja jest zamknięta, zapisanie strony uruchomi ją w zasobniku systemowym."
   }
 }

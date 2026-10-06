@@ -1,15 +1,15 @@
 {
-  "extensionName": { "message": "Netami Pin — сачувај линк" },
+  "extensionName": { "message": "Koona Pin — сачувај линк" },
   "extensionDescription": {
-    "message": "Сачувајте страницу у локалну библиотеку Netami Pin једним кликом. Док је апликација затворена, линкови чекају у реду."
+    "message": "Сачувајте страницу у локалну библиотеку Koona Pin једним кликом. Док је апликација затворена, линкови чекају у реду."
   },
   "menuOptions": { "message": "Подешавања и ред" },
   "menuSearch": { "message": "Пронађи линк" },
-  "commandSearch": { "message": "Пронађи линк у Netami Pin" },
+  "commandSearch": { "message": "Пронађи линк у Koona Pin" },
   "searchPlaceholder": { "message": "Претражите своје линкове" },
   "searchFilters": { "message": "Где тражити" },
   "searchKeys": { "message": "↑↓ · ↵ отвори · Shift ↵ овде · Ctrl C копирај" },
-  "searchOpenApp": { "message": "Отвори Netami Pin" },
+  "searchOpenApp": { "message": "Отвори Koona Pin" },
   "searchAll": { "message": "Све" },
   "searchInbox": { "message": "Пријемно сандуче" },
   "searchFavorites": { "message": "Омиљено" },
@@ -21,7 +21,7 @@
     "placeholders": { "count": { "content": "$1", "example": "50" } }
   },
   "searchEmptyLibrary": { "message": "Још ништа није сачувано" },
-  "searchEmptyLibraryText": { "message": "Кликните на дугме Netami Pin на страници да је сачувате." },
+  "searchEmptyLibraryText": { "message": "Кликните на дугме Koona Pin на страници да је сачувате." },
   "searchNothing": {
     "message": "Ништа није пронађено за „$QUERY$“",
     "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
@@ -39,19 +39,19 @@
   },
   "searchNothingText": { "message": "Пробајте другу реч или претражите целу библиотеку — отпад се никад не претражује." },
   "searchEverywhere": { "message": "Претражи свуда" },
-  "searchStarting": { "message": "Покреће се Netami Pin…" },
+  "searchStarting": { "message": "Покреће се Koona Pin…" },
   "searchMissingText": {
-    "message": "Претрага иде у библиотеку Netami Pin на овом рачунару. Инсталирајте апликацију — линкови које сачувате чекају овде дотле."
+    "message": "Претрага иде у библиотеку Koona Pin на овом рачунару. Инсталирајте апликацију — линкови које сачувате чекају овде дотле."
   },
-  "searchUpdateApp": { "message": "Ажурирајте Netami Pin за претрагу" },
-  "searchUpdateAppText": { "message": "Овај Netami Pin чува линкове, али још не може да претражује из прегледача. Чување и даље ради." },
+  "searchUpdateApp": { "message": "Ажурирајте Koona Pin за претрагу" },
+  "searchUpdateAppText": { "message": "Овај Koona Pin чува линкове, али још не може да претражује из прегледача. Чување и даље ради." },
   "searchUpdateButton": { "message": "Преузми ажурирање" },
   "searchUpdateExtensionText": {
-    "message": "Ово проширење не одговара програму Netami Pin. Ажурирајте га на страници проширења у прегледачу — чување и даље ради."
+    "message": "Ово проширење не одговара програму Koona Pin. Ажурирајте га на страници проширења у прегледачу — чување и даље ради."
   },
   "searchLibrary": { "message": "Библиотека се није отворила" },
-  "searchLibraryText": { "message": "Отворите Netami Pin да видите зашто. Линкови које сачувате чекају овде дотле." },
-  "searchUnavailable": { "message": "Netami Pin није одговорио" },
+  "searchLibraryText": { "message": "Отворите Koona Pin да видите зашто. Линкови које сачувате чекају овде дотле." },
+  "searchUnavailable": { "message": "Koona Pin није одговорио" },
   "searchUnavailableText": { "message": "Покушајте поново за тренутак." },
   "searchCopied": { "message": "Линк је копиран" },
   "shortcutHeading": { "message": "Пречица на тастатури" },
@@ -77,15 +77,15 @@
     "message": "Firefox није прихватио $SHORTCUT$. Пробајте другу.",
     "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
   },
-  "actionTitle": { "message": "Сачувај страницу у Netami Pin" },
+  "actionTitle": { "message": "Сачувај страницу у Koona Pin" },
   "queueWaiting": {
-    "message": "Netami Pin: на слање чека $COUNT$. Отворите подешавања да видите ред.",
+    "message": "Koona Pin: на слање чека $COUNT$. Отворите подешавања да видите ред.",
     "placeholders": { "count": { "content": "$1", "example": "3" } }
   },
-  "badgeSaving": { "message": "Чува се у Netami Pin" },
-  "badgeWaiting": { "message": "Линк чека слање у Netami Pin" },
-  "badgeSaved": { "message": "Сачувано у Netami Pin" },
-  "badgeExisting": { "message": "Овај линк је већ у Netami Pin" },
+  "badgeSaving": { "message": "Чува се у Koona Pin" },
+  "badgeWaiting": { "message": "Линк чека слање у Koona Pin" },
+  "badgeSaved": { "message": "Сачувано у Koona Pin" },
+  "badgeExisting": { "message": "Овај линк је већ у Koona Pin" },
   "errorInvalidUrl": {
     "message": "Ова страница не може да се сачува. Отворите страницу са HTTP/HTTPS адресом."
   },
@@ -93,32 +93,32 @@
     "message": "Ова страница не може да се сачува. Подржани су само HTTP/HTTPS линкови."
   },
   "errorUnavailable": {
-    "message": "Netami Pin није одговорио. Линк ће бити поново послат за минут."
+    "message": "Koona Pin није одговорио. Линк ће бити поново послат за минут."
   },
   "errorHostMissing": {
-    "message": "Netami Pin није инсталиран или је инсталација оштећена. Линк чека овде."
+    "message": "Koona Pin није инсталиран или је инсталација оштећена. Линк чека овде."
   },
   "errorIncompatible": {
-    "message": "Проширење не одговара програму Netami Pin. Ажурирајте проширење — линк чека овде."
+    "message": "Проширење не одговара програму Koona Pin. Ажурирајте проширење — линк чека овде."
   },
   "errorIncompatibleApp": {
-    "message": "Netami Pin је старији од проширења. Ажурирајте Netami Pin — линк чека овде."
+    "message": "Koona Pin је старији од проширења. Ажурирајте Koona Pin — линк чека овде."
   },
-  "errorInvalidRequest": { "message": "Netami Pin не може да сачува овај линк." },
+  "errorInvalidRequest": { "message": "Koona Pin не може да сачува овај линк." },
   "errorConflict": {
     "message": "Овај захтев је већ искоришћен за други линк. Уклоните га из реда."
   },
   "errorDatabase": {
-    "message": "Netami Pin није сачувао линк. Биће поново послат."
+    "message": "Koona Pin није сачувао линк. Биће поново послат."
   },
   "errorNoConfirmation": { "message": "Нема потврде да је линк сачуван" },
   "errorSaveFailed": { "message": "Линк није сачуван" },
   "errorUnknownAction": { "message": "Непозната радња" },
-  "messageSavedTitle": { "message": "Сачувано у Netami Pin" },
+  "messageSavedTitle": { "message": "Сачувано у Koona Pin" },
   "messageSavedText": { "message": "Додато у пријемно сандуче" },
-  "messageExistingTitle": { "message": "Већ у Netami Pin" },
+  "messageExistingTitle": { "message": "Већ у Koona Pin" },
   "messageExistingText": { "message": "Ваше ознаке и белешке су непромењене" },
-  "messageQueuedTitle": { "message": "Чека Netami Pin" },
+  "messageQueuedTitle": { "message": "Чека Koona Pin" },
   "messageQueuedText": { "message": "Биће послато кад се апликација отвори" },
   "messageFailedTitle": { "message": "Линк није сачуван" },
   "messageFailedText": { "message": "Погледајте подешавања проширења" },
@@ -129,23 +129,23 @@
   },
   "settingKnown": { "message": "Прикажи да је страница већ сачувана" },
   "settingKnownText": {
-    "message": "Дугме проверава сваку отворену страницу у вашој библиотеци на овом рачунару док Netami Pin ради. Прегледач једном тражи приступ картицама; адресе иду само апликацији."
+    "message": "Дугме проверава сваку отворену страницу у вашој библиотеци на овом рачунару док Koona Pin ради. Прегледач једном тражи приступ картицама; адресе иду само апликацији."
   },
   "settingAnimate": { "message": "Анимирај дугме" },
   "settingAnimateText": {
-    "message": "Икона Netami Pin поскочи кад се страница сачува. Мирује ако систем тражи мање покрета."
+    "message": "Икона Koona Pin поскочи кад се страница сачува. Мирује ако систем тражи мање покрета."
   },
-  "optionsTitle": { "message": "Netami Pin — подешавања проширења" },
-  "optionsHeading": { "message": "Проширење Netami Pin" },
+  "optionsTitle": { "message": "Koona Pin — подешавања проширења" },
+  "optionsHeading": { "message": "Проширење Koona Pin" },
   "optionsLead": {
-    "message": "Странице које сачувате иду у библиотеку Netami Pin на овом рачунару."
+    "message": "Странице које сачувате иду у библиотеку Koona Pin на овом рачунару."
   },
   "extensionVersion": {
     "message": "Проширење $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
   },
   "appVersion": {
-    "message": "Netami Pin $VERSION$",
+    "message": "Koona Pin $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
   },
   "lastSavedToday": {
@@ -161,37 +161,37 @@
   },
   "connectionHeading": { "message": "Веза" },
   "connectionChecking": { "message": "Проверава се апликација…" },
-  "statusConnected": { "message": "Повезано са Netami Pin" },
+  "statusConnected": { "message": "Повезано са Koona Pin" },
   "checkAgain": { "message": "Провери поново" },
-  "statusClosed": { "message": "Netami Pin је затворен" },
+  "statusClosed": { "message": "Koona Pin је затворен" },
   "statusClosedText": {
     "message": "Покреће се у области обавештења кад сачувате страницу. Линкови дотле чекају овде."
   },
   "statusUpdate": { "message": "Ажурирајте проширење" },
   "statusUpdateText": {
-    "message": "Ово проширење ($MINE$) не одговара програму Netami Pin $APP$. Ажурирајте га на страници проширења у прегледачу — линкови дотле чекају овде.",
+    "message": "Ово проширење ($MINE$) не одговара програму Koona Pin $APP$. Ажурирајте га на страници проширења у прегледачу — линкови дотле чекају овде.",
     "placeholders": {
       "mine": { "content": "$1", "example": "0.4.0" },
       "app": { "content": "$2", "example": "0.9.0" }
     }
   },
-  "statusUpdateApp": { "message": "Ажурирајте Netami Pin" },
+  "statusUpdateApp": { "message": "Ажурирајте Koona Pin" },
   "statusUpdateAppText": {
-    "message": "Netami Pin $APP$ је старији од овог проширења ($MINE$). Ажурирајте Netami Pin — линкови дотле чекају овде.",
+    "message": "Koona Pin $APP$ је старији од овог проширења ($MINE$). Ажурирајте Koona Pin — линкови дотле чекају овде.",
     "placeholders": {
       "app": { "content": "$1", "example": "0.9.0" },
       "mine": { "content": "$2", "example": "0.5.0" }
     }
   },
-  "statusMissing": { "message": "Netami Pin није инсталиран" },
+  "statusMissing": { "message": "Koona Pin није инсталиран" },
   "statusMissingText": {
-    "message": "Проширење не налази апликацију на овом рачунару. Инсталирајте Netami Pin или га поново инсталирајте ако је већ ту."
+    "message": "Проширење не налази апликацију на овом рачунару. Инсталирајте Koona Pin или га поново инсталирајте ако је већ ту."
   },
-  "download": { "message": "Преузми Netami Pin" },
+  "download": { "message": "Преузми Koona Pin" },
   "queueHeading": { "message": "Чека слање" },
   "sendNow": { "message": "Пошаљи сада" },
   "queueEmpty": {
-    "message": "Ништа не чека. Кликните на икону Netami Pin на страници да је сачувате."
+    "message": "Ништа не чека. Кликните на икону Koona Pin на страници да је сачувате."
   },
   "removeButton": { "message": "Уклони" },
   "removeLabel": {
@@ -199,6 +199,6 @@
     "placeholders": { "title": { "content": "$1", "example": "Наслов странице" } }
   },
   "optionsFooter": {
-    "message": "Линкови остају у прегледачу док их Netami Pin не потврди. Ако је апликација затворена, чување странице је покреће у области обавештења."
+    "message": "Линкови остају у прегледачу док их Koona Pin не потврди. Ако је апликација затворена, чување странице је покреће у области обавештења."
   }
 }

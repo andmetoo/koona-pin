@@ -10,12 +10,12 @@ $out = Join-Path $root ".test-data/platform-probe/linux"
 New-Item -ItemType Directory -Force $out | Out-Null
 if (-not (Test-Path (Join-Path $root "dist/index.html"))) { throw "Run npm run build first." }
 
-docker build -t netamipin-probe-build -f "$here/Dockerfile.build" $here
+docker build -t koonapin-probe-build -f "$here/Dockerfile.build" $here
 if ($LASTEXITCODE) { throw "build image failed" }
 # Cargo caches and the target folder live in volumes between runs.
 docker run --rm -v "${root}:/src:ro" -v "${out}/bin:/out" `
-  -v netamipin-probe-target:/target -v netamipin-probe-registry:/opt/cargo/registry `
-  netamipin-probe-build bash /src/scripts/platform-probe/linux/build.sh
+  -v koonapin-probe-target:/target -v koonapin-probe-registry:/opt/cargo/registry `
+  koonapin-probe-build bash /src/scripts/platform-probe/linux/build.sh
 if ($LASTEXITCODE) { throw "app build failed" }
 
 foreach ($image in $Distros) {

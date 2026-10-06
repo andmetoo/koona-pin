@@ -10,7 +10,7 @@ await mkdir(out, { recursive: true });
 
 /** The pages of the owner's screenshot (5 Oct 2026) that had empty plates, and two with pictures. */
 const sites = [
-  ["https://github.com/andmetoo/netamipin/issues", "Issues · andmetoo/netamipin", "Проблемы · andmetoo/netamipin"],
+  ["https://github.com/andmetoo/koonapin/issues", "Issues · andmetoo/koonapin", "Проблемы · andmetoo/koonapin"],
   ["https://www.iana.org/", "Internet Assigned Numbers Authority", "Internet Assigned Numbers Authority"],
   ["https://mail.google.com/mail/u/0/", "Inbox — Gmail", "Входящие — Gmail"],
   ["https://vk.com/", "VK", "ВКонтакте"],
@@ -27,8 +27,8 @@ for (const lang of ["en", "ru"])
     await page.evaluate(
       ({ lang, theme }) => {
         localStorage.clear();
-        localStorage.setItem("netamipin.language", lang);
-        localStorage.setItem("netamipin.theme", theme);
+        localStorage.setItem("koonapin.language", lang);
+        localStorage.setItem("koonapin.theme", theme);
       },
       { lang, theme },
     );
@@ -53,7 +53,7 @@ for (const lang of ["en", "ru"])
         // Saved a moment ago: its metadata is on the way, the preview shimmers.
         const fresh = { ...made[0], id: 99, url: "https://example.com/just-saved", domain: "example.com", title: lang === "ru" ? "Только что сохранено" : "Just saved", favicon_url: null, created_at: new Date().toISOString(), triaged_at: new Date().toISOString() };
         const pictures = demo.filter((b) => b.image_url).slice(0, 2).map((b) => ({ ...b, triaged_at: at, is_favorite: false }));
-        localStorage.setItem("netamipin.demo.v4", JSON.stringify({ bookmarks: [fresh, ...made.slice(0, 3), pictures[0], ...made.slice(3), pictures[1]], collections: await api.getCollections() }));
+        localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks: [fresh, ...made.slice(0, 3), pictures[0], ...made.slice(3), pictures[1]], collections: await api.getCollections() }));
       },
       { sites, lang },
     );
