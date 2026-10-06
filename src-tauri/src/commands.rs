@@ -617,16 +617,18 @@ pub async fn replace_addresses(app: AppHandle, state: State<'_, Arc<DbState>>, i
 }
 
 /// The report «Показать отчёт» shows and «Приложить отчёт» attaches (NP-088).
+/// Off the main thread: it reads the registry and waits for the capture state,
+/// which the capture thread holds while it writes to the library.
 #[tauri::command]
-pub fn feedback_report(app: AppHandle, channel: State<'_, Arc<ChannelState>>, language: String) -> String {
-    let home = dirs::home_dir().map(|p| p.to_string_lossy().into_owned());
-    feedback::report(
-        &channel.status(chrono::Utc::now()),
-        &app.package_info().version.to_string(),
-        &feedback::os_name(),
-        &language,
-        home.as_deref(),
-    )
+pub async fn feedback_report(app: AppHandle, channel: State<'_, Arc<ChannelState>>, language: String) -> Result<String, CommandError> {
+    let channel = channel.inner().clone();
+    let version = app.package_info().version.to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let home = dirs::home_dir().map(|p| p.to_string_lossy().into_owned());
+        feedback::report(&channel.status(chrono::Utc::now()), &version, &feedback::os_name(), &language, home.as_deref())
+    })
+    .await
+    .map_err(CommandError::internal)
 }
 
 /// «Отправить»: the one request to the feedback service (NP-088, Р-9).

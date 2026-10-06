@@ -4,10 +4,11 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
 
 | Что | Где |
 | --- | --- |
-| Таблицы `feedback`, `feedback_hits`, RLS, `feedback_submit` (лимит и запись одной транзакцией), хранение 12 месяцев | `migrations/20261006000000_feedback.sql` |
+| Таблицы `feedback`, `feedback_hits`, RLS, `feedback_submit` (лимит и запись одной транзакцией) | `migrations/20261006000000_feedback.sql` |
+| Хранение 12 месяцев (`pg_cron`) | `migrations/20261006000001_feedback_retention.sql` |
 | Edge Function: проверка, лимит 5 в час с адреса, запись, Telegram | `functions/feedback/` (`handler.ts` — логика, `index.ts` — Deno) |
 | Вызов без ключа | `config.toml`, `verify_jwt = false` |
-| Тесты функции | `functions/feedback/handler.test.ts`, `npm test` |
+| Тесты | `functions/feedback/handler.test.ts` — функция, `feedback.sql.test.ts` — схема на PGlite; `npm test` |
 
 ## Развернуть
 
@@ -50,6 +51,6 @@ Invoke-RestMethod "https://<ref>.supabase.co/rest/v1/feedback?select=*" -Headers
 # Лимит: шестой запрос за час — 429 {"error":"rate_limited"}.
 ```
 
-В Edge Functions → feedback → Logs у каждого запроса строка `feedback: app, address from <заголовок>` (адрес в лог не пишется). Ожидается `cf-connecting-ip`. Если там `x-forwarded-for` или `none`, проверить лимит с двух разных сетей (телефон без Wi-Fi и компьютер): у каждой должно быть своих 5 в час, иначе адрес берётся с прокси Supabase и правило в `senderAddress` нужно поправить.
+В Edge Functions → feedback → Logs у каждого запроса строка `feedback: app, address from <заголовок>` (адрес в лог не пишется). Ожидается `cf-connecting-ip`. Если вместо неё в логе ошибок `no CF-Connecting-IP — every sender shares one limit`, Supabase не передаёт функции адрес из Cloudflare: все отправители делят одни 5 отзывов в час. Тогда до выпуска поправить правило в `senderAddress` (`handler.ts`) по заголовкам, которые реально приходят. Проверка: лимит с двух разных сетей (телефон без Wi-Fi и компьютер) — у каждой своих 5 в час.
 
 Удаление по просьбе: Table Editor → `feedback`, найти по времени и тексту, удалить строку.
