@@ -63,6 +63,7 @@ export const content = {
       title: "Licenses",
       lead: "What this site is made of and under which terms.",
       items: [
+        ["Koona Pin", "The app, the extension and this site. Code under the GNU AGPL 3.0; the name, mascot and logo are trademarks and not covered by it.", "https://github.com/andmetoo/koona-pin"],
         ["Inter", "Text typeface. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
         ["Nunito", "The wordmark, shipped as outlines. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
         ["Lucide", "Icons. ISC License.", "https://lucide.dev/license"],
@@ -150,6 +151,7 @@ export const content = {
       title: "Лицензии",
       lead: "Из чего сделан этот сайт и на каких условиях.",
       items: [
+        ["Koona Pin", "Приложение, расширение и этот сайт. Код — по лицензии GNU AGPL 3.0; название, маскот и логотип — товарные знаки, лицензия их не покрывает.", "https://github.com/andmetoo/koona-pin"],
         ["Inter", "Шрифт текста. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
         ["Nunito", "Надпись-логотип, кривыми. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
         ["Lucide", "Иконки. Лицензия ISC.", "https://lucide.dev/license"],
