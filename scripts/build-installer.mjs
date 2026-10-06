@@ -1,16 +1,21 @@
 // Builds the Windows installer (NP-037, Р-9): NSIS per user, with --features public-release
 // (the native host accepts only the store extensions, feedback must have its address).
-//   $env:NETAMIPIN_FEEDBACK_URL = "https://<ref>.supabase.co/functions/v1/feedback"
 //   node scripts/build-installer.mjs            unsigned, for a test machine
 //   node scripts/build-installer.mjs --sign     signed with eSigner (scripts/sign-windows.ps1)
-// Prints the installer's path and SHA-256.
+// Settings come from the environment or from .env in the repository root (.env.example);
+// a variable already set in the environment wins. Prints the installer's path and SHA-256.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const sign = process.argv.includes("--sign");
+
+// Cargo (option_env! in feedback.rs) and Tauri's signCommand inherit these.
+const dotenv = path.join(root, ".env");
+if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 
 if (!process.env.NETAMIPIN_FEEDBACK_URL) {
   console.error("NETAMIPIN_FEEDBACK_URL is not set: the installer build does not compile without it (supabase/README.md).");

@@ -8,6 +8,8 @@ dist-ssr/
 test-results/
 playwright-report/
 *.local
+# Build settings and signing secrets (scripts/build-installer.mjs, .env.example)
+.env
 
 # Tauri
 src-tauri/target/
