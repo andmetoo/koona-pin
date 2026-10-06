@@ -29,6 +29,7 @@
     "site:check": "node scripts/build-site.mjs && node scripts/check-site.mjs",
     "site:serve": "node scripts/serve-site.mjs",
     "site:shots": "node scripts/site-screenshots.mjs",
+    "build:installer": "node scripts/build-installer.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
