@@ -465,11 +465,15 @@ export function Triage({
                     <Preview b={current} live />
                   </button>
                   <div className="flex flex-col gap-2 px-6 pt-5 pb-[22px]">
-                    {/* A long «saved … from …» moves to the next line rather than being cut (NP-089). */}
-                    <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
-                      <SiteMark b={current} />
-                      <span className="min-w-0 truncate font-medium text-icon" data-user-text>{current.domain}</span>
-                      <span className="text-subtle">· {saved(current)}</span>
+                    {/* A long «saved … from …» moves to the next line rather than being cut (NP-089);
+                        the dot stays with the site, so the moved line doesn't start with it. */}
+                    <p className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-xs">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <SiteMark b={current} />
+                        <span className="min-w-0 truncate font-medium text-icon" data-user-text>{current.domain}</span>
+                        <span className="shrink-0 text-subtle" aria-hidden>·</span>
+                      </span>
+                      <span className="text-subtle">{saved(current)}</span>
                     </p>
                     <h2 className="line-clamp-2 text-xl leading-[26px] font-semibold" title={current.title}>
                       {current.title || current.url}
