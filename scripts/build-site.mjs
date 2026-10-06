@@ -1,6 +1,6 @@
-// Builds pin.netami.app into dist-site/ (doc/site.md): static pages in English and Russian,
-// fonts, brand and screenshots served from the site itself, and the Firefox updates of NP-018
-// from release/firefox when they are there.
+// Builds pin.netami.app into release/publish/site/ (doc/site.md): static pages in English and
+// Russian, fonts, brand and screenshots served from the site itself, and the Firefox updates of
+// NP-018 from release/publish/firefox when they are there.
 //   node scripts/build-site.mjs
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -8,9 +8,9 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { content, FEEDBACK_ENDPOINT, ORIGIN } from "../site/src/content.mjs";
 import { feedback, feedbackResult, landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
+import { publish, root } from "./lib/paths.mjs";
 
-const root = path.resolve(import.meta.dirname, "..");
-const out = path.join(root, "dist-site");
+const out = publish.site;
 const from = (...p) => path.join(root, ...p);
 
 await rm(out, { recursive: true, force: true });
@@ -63,7 +63,7 @@ if (existsSync(from("site/src/shots"))) await cp(from("site/src/shots"), path.jo
 else console.warn("shots: site/src/shots is missing, run node scripts/site-screenshots.mjs");
 
 // Firefox updates (NP-018): the address is inside the signed XPI and must not move.
-const firefox = from("release/firefox");
+const firefox = publish.firefox;
 if (existsSync(firefox)) {
   // Every update the manifest lists is here and has the hash Firefox will check.
   const manifest = JSON.parse(await readFile(path.join(firefox, "updates.json"), "utf8"));
@@ -76,7 +76,7 @@ if (existsSync(firefox)) {
   await cp(firefox, path.join(out, "firefox"), { recursive: true });
   console.log("firefox:", (await readdir(firefox)).join(", "));
 } else {
-  console.log("firefox: release/firefox not found, /firefox/ is left out (npm run extension:sign:firefox)");
+  console.log("firefox: release/publish/firefox not found, /firefox/ is left out (npm run extension:sign:firefox)");
 }
 
 await writeFile(path.join(out, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${ORIGIN}/sitemap.xml\n`);
@@ -107,9 +107,9 @@ for (const file of files.filter((f) => /^(site\.css|(brand|shots|fonts)\/[^/]+)$
 for (const file of files.filter((f) => f.endsWith(".html"))) {
   const html = await readFile(path.join(out, file), "utf8");
   const versioned = html.replace(ASSET, (ref) => {
-    if (!versions.has(ref)) throw new Error(`${file}: ${ref} is not in dist-site`);
+    if (!versions.has(ref)) throw new Error(`${file}: ${ref} is not in the build`);
     return `${ref}?v=${versions.get(ref)}`;
   });
   await writeFile(path.join(out, file), versioned);
 }
-console.log(`dist-site: ${files.length} files, ${versions.size} assets versioned`);
+console.log(`${path.relative(root, out)}: ${files.length} files, ${versions.size} assets versioned`);

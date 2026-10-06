@@ -1,28 +1,29 @@
 // Builds the browser extension for Chrome, Edge and Firefox from extension/src
-// (NP-015). One command, three results:
+// (NP-015). Results (folders: scripts/lib/paths.mjs):
 //
-//   extension/build/<browser>/        unpacked, for "Load unpacked" and tests
-//   release/netamipin-chrome.zip      Chrome Web Store
-//   release/netamipin-edge.zip        Edge Add-ons
-//   release/netamipin-firefox.xpi     Firefox, unsigned (npm run extension:sign:firefox signs it)
+//   release/dev/<browser>/                            unpacked, for «Load unpacked», Firefox's
+//                                                     temporary add-on and tests
+//   release/publish/chrome/<version>/netamipin-chrome.zip   Chrome Web Store
+//   release/publish/edge/<version>/netamipin-edge.zip       Edge Add-ons
+//   (Firefox: npm run extension:sign:firefox signs the unpacked folder on AMO.)
 //
 // The unpacked Chrome and Edge folders carry the development key
 // (extension/dev-key.txt), so their extension id is the same on every machine:
 // a native messaging registration can name it. Store packages are built
 // without it: the store assigns its own id.
 //
-// With CHROME_STORE_PUBLIC_KEY (environment or .env; .env.example) there is a fourth
-// result, extension/build/chrome-store/ and release/netamipin-chrome-store-id.zip: the
-// same extension with the Chrome Web Store's id, for testing the installer build before
-// the store publishes it (NP-037). Not for upload: the store refuses a manifest with `key`.
+// With CHROME_STORE_PUBLIC_KEY (environment or .env; .env.example) there is one more:
+// release/test/chrome-edge/<version>/netamipin-chrome-store-id.zip, the same extension with
+// the Chrome Web Store's id, for testing the installer build before the store publishes it
+// (NP-037). Not for upload: the store refuses a manifest with `key`.
 import { crc32, deflateRawSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { dev, publish, root, test } from "./lib/paths.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "extension", "src");
 const { VERSION } = await import(pathToFileURL(path.join(source, "version.js")).href);
 
@@ -171,29 +172,30 @@ export async function buildExtension({ log = console.log } = {}) {
   const brand = path.join(root, "design", "brand", "pin-spirit-flat");
   files.push({ name: "mark.svg", data: await readFile(path.join(brand, "pin-spirit-micro.svg")) });
   files.push({ name: "mascot.svg", data: await readFile(path.join(brand, "pin-spirit.svg")) });
-  const release = path.join(root, "release");
-  await mkdir(release, { recursive: true });
   const result = { version: VERSION, devId: extensionId(key), unpacked: {}, packages: {} };
+  const write = async (file, data) => {
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, data);
+  };
   for (const browser of browsers) {
     // Unpacked: the folder is emptied, not replaced, so a browser that loaded
     // it keeps the same path.
-    const unpacked = path.join(root, "extension", "build", browser);
+    const unpacked = dev.extension(browser);
     await mkdir(unpacked, { recursive: true });
     for (const entry of await readdir(unpacked)) await rm(path.join(unpacked, entry), { recursive: true });
-    for (const { name, data } of files) {
-      await mkdir(path.dirname(path.join(unpacked, name)), { recursive: true });
-      await writeFile(path.join(unpacked, name), data);
-    }
+    for (const { name, data } of files) await write(path.join(unpacked, name), data);
     await writeFile(path.join(unpacked, "manifest.json"), json(manifest(browser, { dev: true, key })));
     result.unpacked[browser] = unpacked;
-
-    const archive = path.join(release, `netamipin-${browser}.${browser === "firefox" ? "xpi" : "zip"}`);
-    await writeFile(archive, zip([...files, { name: "manifest.json", data: json(manifest(browser)) }]));
+  }
+  for (const browser of ["chrome", "edge"]) {
+    const archive = path.join(publish[browser](VERSION), `netamipin-${browser}.zip`);
+    await write(archive, zip([...files, { name: "manifest.json", data: json(manifest(browser)) }]));
     result.packages[browser] = archive;
   }
+  const shown = (file) => path.relative(root, file);
   log(`Netami Pin extension ${VERSION}, development id ${result.devId}`);
-  for (const browser of browsers)
-    log(`  ${browser}: ${path.relative(root, result.unpacked[browser])}, ${path.relative(root, result.packages[browser])}`);
+  for (const browser of browsers) log(`  ${browser}, unpacked: ${shown(result.unpacked[browser])}`);
+  for (const browser of ["chrome", "edge"]) log(`  ${browser}, for the store: ${shown(result.packages[browser])}`);
 
   // The draft's public key (dashboard → Package → View public key): public, not a secret.
   const storeKey = process.env.CHROME_STORE_PUBLIC_KEY?.replace(/\s+/g, "");
@@ -201,17 +203,10 @@ export async function buildExtension({ log = console.log } = {}) {
     const id = extensionId(storeKey);
     if (id !== chromeStoreId)
       throw new Error(`CHROME_STORE_PUBLIC_KEY gives the id ${id}, not the Chrome Web Store's ${chromeStoreId}: copy the key of the Netami Pin item`);
-    const data = json(manifest("chrome", { dev: true, key: storeKey }));
-    const unpacked = path.join(root, "extension", "build", "chrome-store");
-    await rm(unpacked, { recursive: true, force: true });
-    for (const file of [...files, { name: "manifest.json", data }]) {
-      await mkdir(path.dirname(path.join(unpacked, file.name)), { recursive: true });
-      await writeFile(path.join(unpacked, file.name), file.data);
-    }
-    const archive = path.join(release, "netamipin-chrome-store-id.zip");
-    await writeFile(archive, zip([...files, { name: "manifest.json", data }]));
-    result.storeId = { id, unpacked, archive };
-    log(`  chrome and edge with the store id ${id} (testing only, not for upload): ${path.relative(root, unpacked)}, ${path.relative(root, archive)}`);
+    const archive = path.join(test.chromeEdge(VERSION), "netamipin-chrome-store-id.zip");
+    await write(archive, zip([...files, { name: "manifest.json", data: json(manifest("chrome", { dev: true, key: storeKey })) }]));
+    result.storeId = { id, archive };
+    log(`  chrome and edge with the store id ${id}, for a test machine only: ${shown(archive)}`);
   }
   return result;
 }

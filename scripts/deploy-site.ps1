@@ -18,13 +18,15 @@ $ErrorActionPreference = "Stop"
 # the result, so the environment, .env and the build cannot disagree.
 node scripts/build-site.mjs
 if ($LASTEXITCODE) { throw "build failed" }
-if (-not (Test-Path dist-site/feedback/index.html) -and -not $WithoutFeedback) {
+# The site build's folder, as publish.site in scripts/lib/paths.mjs.
+$site = Join-Path $PSScriptRoot "..\release\publish\site"
+if (-not (Test-Path "$site/feedback/index.html") -and -not $WithoutFeedback) {
   throw "The build has no /feedback: NETAMIPIN_FEEDBACK_URL is not set in .env or the environment (supabase/README.md). Set it or pass -WithoutFeedback."
 }
-if (-not (Test-Path dist-site/shots)) { throw "dist-site/shots is missing: run node scripts/site-screenshots.mjs first" }
+if (-not (Test-Path "$site/shots")) { throw "release/publish/site/shots is missing: run node scripts/site-screenshots.mjs first" }
 
 $archive = Join-Path ([IO.Path]::GetTempPath()) "pin-netami-site.tgz"
-tar -czf $archive -C dist-site .
+tar -czf $archive -C $site .
 scp $archive site/Caddyfile "${Server}:/tmp/"
 if ($LASTEXITCODE) { throw "scp failed" }
 
