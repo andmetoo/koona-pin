@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { FeedbackKind } from "../types";
 import { api } from "../services/api";
 import { CommandError, describeError, toCommandError } from "../services/errors";
-import { draftText, emailShape, emptyDraft, FeedbackDraft, length, MAX_MESSAGE, PRIVACY_URL } from "../services/feedback";
+import { draftText, emailShape, emptyDraft, FeedbackDraft, length, MAX_MESSAGE, privacyUrl } from "../services/feedback";
 import { Icon } from "./icons";
 import { Button } from "./ui/Button";
 import { Field, Segmented } from "./ui/Controls";
@@ -35,7 +35,7 @@ export function FeedbackDialog({
   const [emailWrong, setEmailWrong] = useState(false);
   const [copied, setCopied] = useState<"done" | "failed" | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const ids = { attach: useId(), report: useId() };
+  const ids = { attach: useId(), report: useId(), count: useId() };
   const language = i18n.resolvedLanguage ?? i18n.language;
 
   useEffect(() => {
@@ -144,6 +144,8 @@ export function FeedbackDialog({
         <div className="relative">
           <textarea
             aria-label={t("feedback.message")}
+            aria-describedby={ids.count}
+            aria-invalid={tooLong || undefined}
             autoFocus
             rows={6}
             value={draft.message}
@@ -158,8 +160,12 @@ export function FeedbackDialog({
             }}
             className="field block min-h-[132px] resize-y pb-6"
           />
-          <span className={`pointer-events-none absolute right-3 bottom-2 text-2xs ${tooLong ? "text-danger" : "text-subtle"}`} aria-live="polite">
+          {/* Read with the field, not on every keystroke; going over the limit is said once. */}
+          <span id={ids.count} className={`pointer-events-none absolute right-3 bottom-2 text-2xs ${tooLong ? "text-danger" : "text-subtle"}`}>
             {t("feedback.count", { count, max: MAX_MESSAGE })}
+          </span>
+          <span role="status" className="sr-only">
+            {tooLong ? t("errors.detail.message_too_long") : ""}
           </span>
         </div>
         <Field label={t("feedback.email")} error={emailWrong ? t("errors.detail.invalid_email") : undefined}>
@@ -222,7 +228,7 @@ export function FeedbackDialog({
           {t("feedback.privacy")}{" "}
           <button
             type="button"
-            onClick={() => void api.openUrl(PRIVACY_URL).catch((err) => setFailure(toCommandError(err)))}
+            onClick={() => void api.openUrl(privacyUrl(language)).catch((err) => setFailure(toCommandError(err)))}
             className="text-accent hover:underline"
           >
             {t("feedback.privacyLink")}
