@@ -113,7 +113,8 @@ pub async fn send(endpoint: &str, payload: &Payload, limits: Limits) -> Result<(
     let client = reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)
-        .no_proxy()
+        // The system proxy, unlike metadata requests: the address is fixed, there is no
+        // name to guard, and some networks reach the internet only through a proxy.
         .user_agent(format!("NetamiPin/{}", payload.app_version))
         .build()
         .map_err(CommandError::internal)?;

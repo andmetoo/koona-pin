@@ -35,7 +35,7 @@ for (const [lang, t] of Object.entries(content)) {
   // /feedback is feedback/index.html next to feedback/sent.html: Caddy tries {path}/index.html.
   if (FEEDBACK_ENDPOINT) {
     await page(`${dir}feedback/index.html`, feedback(t, { wordmark }));
-    for (const outcome of ["sent", "limit", "long", "error"]) await page(`${dir}feedback/${outcome}.html`, feedbackResult(t, { wordmark, outcome }));
+    for (const outcome of ["sent", "limit", "long", "origin", "error"]) await page(`${dir}feedback/${outcome}.html`, feedbackResult(t, { wordmark, outcome }));
   }
 }
 

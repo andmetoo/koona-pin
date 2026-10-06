@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle, notification, parse, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
+import { handle, MAX_BODY, notification, parse, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
 
 const URL = "https://project.supabase.co/functions/v1/feedback";
 
@@ -105,6 +105,8 @@ describe("feedback function", () => {
     expect((await handle(plain, deps)).status).toBe(415);
     expect((await handle(app(fromApp, { origin: "https://evil.example" }), deps)).status).toBe(403);
     expect((await handle(app({ ...fromApp, message: "x".repeat(40_000) }), deps)).status).toBe(400);
+    const huge = await handle(app({ ...fromApp, report: "x".repeat(MAX_BODY) }), deps);
+    expect([huge.status, await huge.json()]).toEqual([400, { error: "invalid", field: "body" }]);
   });
 
   it("refuses a sender over the hourly limit with its own answer", async () => {
@@ -157,12 +159,19 @@ describe("feedback function", () => {
     // A foreign page posting the form, or one hiding its origin (`null`), lands on the error page
     // in the language of the form; nothing is stored.
     const foreign = await handle(site({ kind: "bug", message: "x", lang: "ru" }, "https://evil.example"), fakes().deps);
-    expect([foreign.status, foreign.headers.get("location")]).toEqual([303, "https://pin.netami.app/ru/feedback/error"]);
+    expect([foreign.status, foreign.headers.get("location")]).toEqual([303, "https://pin.netami.app/ru/feedback/origin"]);
     const hidden = fakes();
     const nullOrigin = await handle(site({ kind: "bug", message: "x", lang: "en" }, "null"), hidden.deps);
-    expect(nullOrigin.headers.get("location")).toBe("https://pin.netami.app/feedback/error");
+    expect(nullOrigin.headers.get("location")).toBe("https://pin.netami.app/feedback/origin");
     expect(hidden.rows).toHaveLength(0);
     expect((await handle(app(fromApp, { origin: "null" }), fakes().deps)).status).toBe(403);
+  });
+
+  it("takes a long non-Latin message from the site: the cap counts encoded bytes generously", async () => {
+    const { deps, rows } = fakes();
+    const response = await handle(site({ kind: "idea", message: "漢".repeat(4999), lang: "en" }), deps);
+    expect(response.headers.get("location")).toBe("https://pin.netami.app/feedback/sent");
+    expect([...rows[0].message].length).toBe(4999);
   });
 
   it("tells a bot that filled the hidden field «sent» and keeps nothing", async () => {
@@ -175,16 +184,15 @@ describe("feedback function", () => {
 });
 
 describe("feedback pieces", () => {
-  it("the notification carries no email address and no report", () => {
+  it("the notification carries no text, no email address and no report", () => {
     const row = parse({ ...fromApp, email: "anna@example.com", message: "y".repeat(600) }, "app");
     if ("invalid" in row) throw new Error(row.invalid);
     const text = notification(row.row);
     expect(text).toContain("Bug · app · 0.1.0 · Windows 11 24H2 (build 26300), x86_64 · en");
-    expect(text).toContain(`${"y".repeat(500)}…`);
-    expect(text).not.toContain("y".repeat(501));
+    expect(text).not.toContain("yyy");
     expect(text).not.toContain("anna@example.com");
     expect(text).not.toContain("Capture: connected");
-    expect(text).toContain("Email left for a reply · Report attached");
+    expect(text).toContain("600 characters · email for a reply · report attached");
   });
 
   it("the sender is what Cloudflare set, never what the client could write", () => {
@@ -194,9 +202,9 @@ describe("feedback pieces", () => {
     expect(of({ "x-forwarded-for": "6.6.6.6, 203.0.113.7", "x-real-ip": "7.7.7.7" })).toEqual({ address: "unknown", from: "none" });
     expect(of({})).toEqual({ address: "unknown", from: "none" });
   });
-  it("the excerpt cuts characters, not halves of an emoji", () => {
+  it("the length counts characters, an emoji as one", () => {
     const row = parse({ ...fromApp, message: "🙂".repeat(600) }, "app");
     if ("invalid" in row) throw new Error(row.invalid);
-    expect(notification(row.row)).toContain(`${"🙂".repeat(500)}…`);
+    expect(notification(row.row)).toContain("600 characters");
   });
 });

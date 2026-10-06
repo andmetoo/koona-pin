@@ -7,10 +7,10 @@ export const SITE = "https://pin.netami.app";
 export const MAX_MESSAGE = 5000;
 export const MAX_REPORT = 10000;
 export const PER_HOUR = 5;
-const MAX_BODY = 32 * 1024;
+// Bytes. A site form body is percent-encoded: 5000 emoji are 60 000 bytes, CJK 45 000.
+export const MAX_BODY = 128 * 1024;
 /** The hidden field of the site form; a name no autofill fills, unlike «website». */
 export const TRAP = "hp_7q";
-const EXCERPT = 500;
 
 export type Kind = "bug" | "idea" | "question";
 export type Row = {
@@ -74,13 +74,15 @@ export function parse(fields: Record<string, unknown>, source: "app" | "site"): 
 
 const kindName: Record<Kind, string> = { bug: "Bug", idea: "Idea", question: "Question" };
 
-/** What the owner reads in Telegram: no address and no report (Р-9). */
+/**
+ * What the owner reads in Telegram (Р-9): the type, the versions and the length —
+ * not the text, the address or the report. Telegram keeps chats for ever; the text
+ * stays only in the table, which forgets it after 12 months.
+ */
 export function notification(row: Row): string {
   const head = [kindName[row.kind], row.source, row.app_version, row.os, row.language].filter(Boolean).join(" · ");
-  const chars = [...row.message];
-  const excerpt = chars.length > EXCERPT ? `${chars.slice(0, EXCERPT).join("")}…` : row.message;
-  const extras = [row.email && "Email left for a reply", row.report && "Report attached"].filter(Boolean).join(" · ");
-  return `${head}\n\n${excerpt}${extras ? `\n\n${extras}` : ""}`;
+  const extras = [`${[...row.message].length} characters`, row.email && "email for a reply", row.report && "report attached"].filter(Boolean).join(" · ");
+  return `${head}\n${extras}`;
 }
 
 /**
@@ -96,7 +98,7 @@ export function senderAddress(headers: Headers): { address: string; from: string
   return address ? { address, from: "cf-connecting-ip" } : { address: "unknown", from: "none" };
 }
 /** Where the site form goes next: a static page of the site in its language. */
-export function sitePage(language: string | null, outcome: "sent" | "limit" | "long" | "error"): string {
+export function sitePage(language: string | null, outcome: "sent" | "limit" | "long" | "origin" | "error"): string {
   return `${SITE}${language === "ru" ? "/ru" : ""}/feedback/${outcome}`;
 }
 
@@ -105,8 +107,17 @@ const json = (status: number, body: unknown) =>
 
 function reply(source: "app" | "site", language: string | null, failure?: Failure, field?: string): Response {
   if (source === "site") {
-    // A refused message (empty or over 5000 characters) has its own page; the rest is «error».
-    const outcome = !failure ? "sent" : failure === "rate_limited" ? "limit" : field === "message" ? "long" : "error";
+    // A refused message (empty or over 5000 characters) and a hidden or foreign origin
+    // have pages that say why; the rest is «error».
+    const outcome = !failure
+      ? "sent"
+      : failure === "rate_limited"
+        ? "limit"
+        : field === "message"
+          ? "long"
+          : field === "origin"
+            ? "origin"
+            : "error";
     return new Response(null, { status: 303, headers: { location: sitePage(language, outcome) } });
   }
   if (!failure) return json(200, { ok: true });
@@ -125,8 +136,9 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
 
   let fields: Record<string, unknown>;
   try {
-    const body = await request.text();
-    if (body.length > MAX_BODY) return reply(source, null, "invalid", "body");
+    const bytes = await request.arrayBuffer();
+    if (bytes.byteLength > MAX_BODY) return reply(source, null, "invalid", "body");
+    const body = new TextDecoder().decode(bytes);
     fields = site ? Object.fromEntries(new URLSearchParams(body)) : JSON.parse(body);
     if (typeof fields !== "object" || fields === null || Array.isArray(fields)) throw new Error("not an object");
   } catch {
