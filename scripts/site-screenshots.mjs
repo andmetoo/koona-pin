@@ -19,6 +19,7 @@ const root = path.resolve(import.meta.dirname, "..");
 const previews = path.join(root, "site", "shots", "previews");
 const out = path.join(root, "site", "src", "shots");
 const VIEW = { width: 1280, height: 800 };
+const PREVIEW_HOST = "previews.koona.test";
 
 const library = JSON.parse(await readFile(path.join(root, "site", "shots", "library.json"), "utf8"));
 
@@ -56,7 +57,10 @@ function servePreviews() {
         res.writeHead(404).end();
       }
     });
-    server.listen(0, "127.0.0.1", () => resolve({ server, base: `http://127.0.0.1:${server.address().port}` }));
+    // The app drops pictures on local addresses from a restored copy (NP-019, net_guard::public_url),
+    // so the copy names a host of the reserved .test zone; only the WebView of these shots maps it
+    // to this server (PREVIEW_HOST below).
+    server.listen(0, "127.0.0.1", () => resolve({ server, base: `http://${PREVIEW_HOST}:${server.address().port}` }));
   });
 }
 
@@ -80,7 +84,7 @@ async function shoot(lang, base, encoder) {
     KOONAPIN_DATA_DIR: data,
     KOONAPIN_PIPE: pipe,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=9226 --lang=${lang === "ru" ? "ru" : "en-US"}`,
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=9226 --lang=${lang === "ru" ? "ru" : "en-US"} --host-resolver-rules="MAP ${PREVIEW_HOST} 127.0.0.1"`,
   };
   const app = spawn(appBinary(), [], { env, windowsHide: true, stdio: "ignore" });
   let browser;
@@ -107,10 +111,12 @@ async function shoot(lang, base, encoder) {
     for (const theme of ["light", "dark"]) {
       for (const view of ["grid", "list"]) {
         if (lang === "ru" && theme === "dark") continue;
-        await page.evaluate(([t, v]) => {
+        // The app speaks English until a language is picked (NP-085): pick the shot's.
+        await page.evaluate(([t, v, l]) => {
+          localStorage.setItem("koonapin.language", l);
           localStorage.setItem("koonapin.theme", t);
           localStorage.setItem("koonapin.view", v);
-        }, [theme, view]);
+        }, [theme, view, lang]);
         await page.reload();
         await metrics();
         await page.locator("[data-bookmark-id]").first().waitFor();
@@ -120,6 +126,13 @@ async function shoot(lang, base, encoder) {
           () => page.evaluate(() => [...document.images].filter((i) => i.getBoundingClientRect().top < innerHeight).every((i) => i.complete)),
           "previews",
         );
+        // A preview that failed to load turns into a cover (NP-087): the shots must show the photos.
+        if (view === "grid") {
+          const photos = await page.evaluate(() => [...document.querySelectorAll("[data-bookmark-id] img")].filter((i) => i.naturalWidth > 0).length);
+          if (!photos) throw new Error(`${lang} ${theme}: no preview photo loaded, the cards show covers`);
+        }
+        // The window is a real one: a pointer resting over it would leave a card in its hover state.
+        await page.mouse.move(VIEW.width / 2, 16);
         await page.waitForTimeout(500);
         const png = await page.screenshot({ scale: "device" });
         const name = `app-${lang}-${theme}-${view}`;
