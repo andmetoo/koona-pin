@@ -26,6 +26,7 @@ import {
   LibraryPlace,
   LibraryStatus,
   CaptureStatus,
+  Feedback,
   PickedCopy,
   SaveCopyOutcome,
   DuplicateGroup,
@@ -46,6 +47,7 @@ import { isAfter, listTime, matchesBookmark, sortBookmarks } from "./library";
 import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
+import { emailShape, length, MAX_MESSAGE } from "./feedback";
 import i18n, { resolveLanguage, storedLanguage } from "../i18n";
 
 const demoCaptureStatus: CaptureStatus = {
@@ -1059,6 +1061,18 @@ export const demo = {
     return [];
   },
   async setTrayLabels(_labels: { open: string; quit: string; tooltip: string }) {},
+  async feedbackReport(language: string) {
+    return ["Netami Pin demo", "Browser preview", `Language: ${language}`, `Capture: ${demoCaptureStatus.state}`, `Protocol: ${demoCaptureStatus.protocol}`].join("\n");
+  },
+  /** The preview sends nothing: the same checks as the app, then a pause. */
+  async sendFeedback(feedback: Feedback) {
+    if (!feedback.message.trim()) throw new CommandError("invalid_request", "The message is empty", "empty_message");
+    if (length(feedback.message) > MAX_MESSAGE)
+      throw new CommandError("invalid_request", "The message is longer than 5000 characters", "message_too_long");
+    if (feedback.email && !emailShape(feedback.email.trim()))
+      throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  },
   async getVersion() {
     return "demo";
   },

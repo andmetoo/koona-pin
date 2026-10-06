@@ -1,0 +1,6 @@
+# Supabase project of Netami Pin feedback (NP-088). Only what differs from the
+# defaults: the app and the site call the function without a key.
+project_id = "netami-pin"
+
+[functions.feedback]
+verify_jwt = false

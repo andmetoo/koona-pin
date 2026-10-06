@@ -1948,3 +1948,149 @@ test("connect dialog: steps for each browser, no token and no bookmarklet", asyn
   await block.getByRole("button", { name: "Connect", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Connect browser" })).toBeVisible();
 });
+
+test("feedback: from Settings, checked before sending, a failure keeps the draft, Try again sends it (NP-088)", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByText("Report a problem")).toHaveCount(0);
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Send feedback" });
+  const send = dialog.getByRole("button", { name: "Send", exact: true });
+  const message = dialog.getByRole("textbox", { name: "Message" });
+  await expect(dialog.getByRole("radio", { name: "Bug" })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByRole("checkbox", { name: "Attach report" })).toBeChecked();
+  await expect(send).toBeDisabled();
+
+  // The report is shown in full before anything is sent.
+  await dialog.getByRole("button", { name: "Show report" }).click();
+  await expect(dialog.getByLabel("Report", { exact: true })).toContainText("Language: en");
+  await expect(dialog.getByLabel("Report", { exact: true })).not.toContainText("http");
+  await dialog.getByRole("button", { name: "Hide report" }).click();
+
+  await dialog.getByRole("radio", { name: "Idea" }).click();
+  await message.fill("Let me sort the inbox by site.");
+  await expect(dialog).toContainText("30 / 5000");
+  await dialog.getByRole("textbox", { name: "Email for a reply (optional)" }).fill("anna@example");
+  await send.click();
+  await expect(dialog).toContainText("This doesn't look like an email address");
+  await expect(dialog.getByRole("textbox", { name: "Email for a reply (optional)" })).toBeFocused();
+  await dialog.getByRole("textbox", { name: "Email for a reply (optional)" }).fill("anna@example.com");
+
+  // No connection, then the hourly limit: the text stays, the reason is said.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const { CommandError } = await import("/src/services/errors.ts");
+    const w = window as unknown as { sent: unknown[] };
+    w.sent = [];
+    const answers = [
+      new CommandError("network", "error sending request", "no_connection"),
+      new CommandError("network", "Too many messages in the last hour", "too_many_messages"),
+    ];
+    api.sendFeedback = async (feedback) => {
+      const answer = answers.shift();
+      if (answer) throw answer;
+      w.sent.push(feedback);
+    };
+  });
+  await message.press("Control+Enter");
+  await expect(dialog.getByRole("alert")).toContainText("Couldn't send: no internet connection. Your text is kept");
+  await expect(message).toHaveValue("Let me sort the inbox by site.");
+  await dialog.getByRole("button", { name: "Try again" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Too many messages from this network in the last hour");
+
+  // Closing keeps the draft; the dialog opens with it.
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  await expect(message).toHaveValue("Let me sort the inbox by site.");
+  await expect(dialog.getByRole("radio", { name: "Idea" })).toHaveAttribute("aria-checked", "true");
+  await send.click();
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
+  await expect(dialog.getByRole("button", { name: "Done" })).toBeFocused();
+  const sent = await page.evaluate(() => (window as unknown as { sent: unknown[] }).sent);
+  expect(sent).toEqual([
+    {
+      kind: "idea",
+      message: "Let me sort the inbox by site.",
+      email: "anna@example.com",
+      report: expect.stringContaining("Netami Pin demo"),
+      language: "en",
+    },
+  ]);
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  // Sent: the next message starts empty; without the box there is no report.
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  await expect(message).toHaveValue("");
+  await message.fill("Thanks!");
+  await dialog.getByRole("checkbox", { name: "Attach report" }).uncheck();
+  await send.click();
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[1].report)).toBeNull();
+});
+test("dialogs open with focus on their field, not on «×»; the editor drawer too", async ({ page }) => {
+  await page.keyboard.press("Control+n");
+  const add = page.getByRole("dialog", { name: "Add link" });
+  await expect(add.getByRole("textbox", { name: "Link" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "New collection", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "New collection" }).getByRole("textbox", { name: "Name" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  // The narrow window shows the editor as a drawer over the content.
+  await page.setViewportSize({ width: 800, height: 550 });
+  await page.locator("[data-bookmark-id]").first().getByRole("button", { name: /^Open:/ }).first().focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await expect(page.locator("dialog[open][data-drawer]").getByRole("textbox", { name: "Title" })).toBeFocused();
+});
+
+test("feedback: a report still being prepared is waited for; one that failed is not promised (NP-088)", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { sent: { report: unknown }[]; release: () => void };
+    w.sent = [];
+    api.feedbackReport = () => new Promise((resolve) => (w.release = () => resolve("Slow report")));
+    api.sendFeedback = async (feedback) => void w.sent.push(feedback);
+  });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Send feedback" });
+  await dialog.getByRole("textbox", { name: "Message" }).fill("Sent at once");
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Sending…" })).toBeVisible();
+  await page.evaluate(() => (window as unknown as { release: () => void }).release());
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBe("Slow report");
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    api.feedbackReport = async () => {
+      throw new Error("no report");
+    };
+  });
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  await expect(dialog.getByRole("checkbox", { name: "Attach report" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Attach report" })).toBeDisabled();
+  await expect(dialog).toContainText("The report couldn't be prepared — the message goes without it.");
+  await dialog.getByRole("textbox", { name: "Message" }).fill("Without a report");
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[1].report)).toBeNull();
+});
+
+test("feedback: a report that never comes does not lock the dialog — it goes without it (NP-088)", async ({ page }) => {
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { sent: { report: unknown }[] };
+    w.sent = [];
+    api.feedbackReport = () => new Promise(() => {});
+    api.sendFeedback = async (feedback) => void w.sent.push(feedback);
+  });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Send feedback…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Send feedback" });
+  await dialog.getByRole("textbox", { name: "Message" }).fill("Report never comes");
+  await dialog.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!", { timeout: 6000 });
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBeNull();
+});

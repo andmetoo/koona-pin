@@ -4,7 +4,8 @@
 //   node scripts/build-site.mjs && node scripts/check-site.mjs
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -12,6 +13,9 @@ const shots = path.join(root, "test-results", "site");
 const port = 4317;
 const base = `http://127.0.0.1:${port}`;
 const pages = ["/", "/privacy", "/licenses", "/ru/", "/ru/privacy", "/ru/licenses", "/nowhere", "/ru/nowhere"];
+// The feedback form and its result pages, when the build had the function's address (NP-088).
+if (existsSync(path.join(root, "dist-site", "feedback", "index.html")))
+  pages.push(...["/feedback", "/feedback/sent", "/feedback/limit", "/feedback/long", "/feedback/origin", "/feedback/error"].flatMap((p) => [p, `/ru${p}`]));
 const widths = [360, 390, 1440, 1920];
 
 const server = spawn(process.execPath, ["scripts/serve-site.mjs", String(port)], { cwd: root, stdio: "ignore" });
@@ -51,6 +55,35 @@ try {
       if (foreign.length) problems.push(`${width} ${scheme}: requests to other origins: ${[...new Set(foreign)].join(", ")}`);
       await context.close();
     }
+  }
+  // The feedback form really submits (NP-088): the CSP lets it post to the function and lets
+  // the function's 303 back to /feedback/sent, and the browser names the site in Origin
+  // (the site's own Referrer-Policy would make it `null`). The function is faked here.
+  const form = path.join(root, "dist-site", "feedback", "index.html");
+  if (existsSync(form)) {
+    const action = (await readFile(form, "utf8")).match(/<form[^>]* action="([^"]+)"/)?.[1];
+    const fp = await browser.newPage();
+    const refused = [];
+    fp.on("console", (m) => m.type() === "error" && refused.push(m.text()));
+    let posted = null;
+    await fp.route(action, (route) => {
+      posted = { origin: route.request().headers()["origin"], body: route.request().postData() };
+      return route.fulfill({ status: 303, headers: { location: `${base}/feedback/sent` } });
+    });
+    await fp.goto(`${base}/feedback`);
+    await fp.getByRole("radio", { name: "Idea" }).check();
+    await fp.getByLabel("Message").fill("Feedback form check");
+    await fp.getByRole("button", { name: "Send" }).click();
+    await fp.waitForURL(`${base}/feedback/sent`, { timeout: 5000 }).catch(() => {});
+    if (!posted) problems.push("feedback form: nothing was posted to the function");
+    else {
+      if (posted.origin !== base) problems.push(`feedback form: Origin is ${posted.origin}, expected ${base}`);
+      const fields = new URLSearchParams(posted.body);
+      if (fields.get("kind") !== "idea" || fields.get("message") !== "Feedback form check" || fields.get("lang") !== "en" || fields.get("hp_7q") !== "")
+        problems.push(`feedback form: posted ${posted.body}`);
+    }
+    if (!fp.url().endsWith("/feedback/sent")) problems.push(`feedback form: ended at ${fp.url()} ${refused.join(" ")}`);
+    await fp.close();
   }
   // Links inside the site lead somewhere; outside links are listed for a look.
   const outside = [];

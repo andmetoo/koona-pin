@@ -23,6 +23,7 @@ import {
   CsvColumns,
   ExportFormat,
   ExportOutcome,
+  Feedback,
   ImportProgress,
   ImportSummary,
   LibraryCounts,
@@ -225,6 +226,10 @@ const desktop = {
   /** «Заменить адрес»: one journal command for all of them. */
   replaceAddresses: (ids: number[]) => call<Replaced>("replace_addresses", { ids }),
   onLinkCheck: (callback: (progress: LinkCheckProgress) => void) => subscription("link-check", callback),
+  /** The report «Show report» shows and «Attach report» sends (NP-088). */
+  feedbackReport: (language: string) => call<string>("feedback_report", { language }),
+  /** «Send»: the one request to the feedback service; nothing goes out before it (NP-088). */
+  sendFeedback: (feedback: Feedback) => call<void>("send_feedback", { feedback }),
   getVersion: () => getVersion(),
   /** The tray menu and tooltip in the interface's language (NP-085). */
   setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
