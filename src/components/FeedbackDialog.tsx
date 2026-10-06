@@ -7,7 +7,7 @@ import { CommandError, describeError, toCommandError } from "../services/errors"
 import { draftText, emailShape, emptyDraft, FeedbackDraft, length, MAX_MESSAGE, PRIVACY_URL } from "../services/feedback";
 import { Icon } from "./icons";
 import { Button } from "./ui/Button";
-import { Segmented } from "./ui/Controls";
+import { Field, Segmented } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
 /**
@@ -25,7 +25,9 @@ export function FeedbackDialog({
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [report, setReport] = useState<string | null>(null);
+  // `undefined` while it is being prepared, `null` when it could not be.
+  const [report, setReport] = useState<string | null | undefined>(undefined);
+  const reportLoad = useRef<Promise<string | null>>(Promise.resolve(null));
   const [showReport, setShowReport] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -33,15 +35,15 @@ export function FeedbackDialog({
   const [emailWrong, setEmailWrong] = useState(false);
   const [copied, setCopied] = useState<"done" | "failed" | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
-  const ids = { message: useId(), email: useId(), emailNote: useId(), attach: useId(), report: useId() };
+  const ids = { attach: useId(), report: useId() };
   const language = i18n.resolvedLanguage ?? i18n.language;
 
   useEffect(() => {
     let current = true;
-    void api
-      .feedbackReport(language)
-      .then((text) => current && setReport(text))
-      .catch(() => current && setReport(null));
+    setReport(undefined);
+    const load = api.feedbackReport(language).catch(() => null);
+    reportLoad.current = load;
+    void load.then((text) => current && setReport(text));
     return () => {
       current = false;
     };
@@ -57,6 +59,8 @@ export function FeedbackDialog({
   const tooLong = count > MAX_MESSAGE;
   const canSend = count > 0 && !tooLong && !sending;
   const kindLabel = t(`feedback.${draft.kind}`);
+  // A report that could not be prepared is not offered: nothing would be attached.
+  const attach = draft.attach && report !== null;
 
   const send = async () => {
     if (!canSend) return;
@@ -69,11 +73,13 @@ export function FeedbackDialog({
     setSending(true);
     setFailure(null);
     try {
+      // Sent right after opening: the report the person asked for is waited for, not dropped.
+      const attached = attach ? (report ?? (await reportLoad.current)) : null;
       await api.sendFeedback({
         kind: draft.kind,
         message: draft.message.trim(),
         email: email || null,
-        report: draft.attach ? report : null,
+        report: attached,
         language,
       });
       setSent(true);
@@ -90,7 +96,7 @@ export function FeedbackDialog({
   };
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(draftText(draft, kindLabel, draft.attach ? report : null));
+      await navigator.clipboard.writeText(draftText(draft, kindLabel, attach ? (report ?? null) : null));
       setCopied("done");
     } catch {
       setCopied("failed");
@@ -108,7 +114,7 @@ export function FeedbackDialog({
           <p className="max-w-[360px] text-sm text-muted">{t("feedback.sentBody")}</p>
         </div>
         <footer className="mt-5 flex justify-end">
-          <Button variant="primary" size="lg" data-autofocus onClick={onClose}>
+          <Button variant="primary" size="lg" autoFocus onClick={onClose}>
             {t("feedback.done")}
           </Button>
         </footer>
@@ -136,9 +142,8 @@ export function FeedbackDialog({
         </div>
         <div className="relative">
           <textarea
-            id={ids.message}
             aria-label={t("feedback.message")}
-            data-autofocus
+            autoFocus
             rows={6}
             value={draft.message}
             disabled={sending}
@@ -156,40 +161,34 @@ export function FeedbackDialog({
             {t("feedback.count", { count, max: MAX_MESSAGE })}
           </span>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={ids.email} className="text-xs font-medium text-muted">
-            {t("feedback.email")}
-          </label>
-          <input
-            id={ids.email}
-            ref={emailRef}
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={draft.email}
-            disabled={sending}
-            placeholder={t("feedback.emailPlaceholder")}
-            aria-invalid={emailWrong || undefined}
-            aria-describedby={emailWrong ? ids.emailNote : undefined}
-            onChange={(e) => {
-              setEmailWrong(false);
-              change({ email: e.target.value });
-            }}
-            className={`field ${emailWrong ? "border-danger" : ""}`}
-          />
-          {emailWrong && (
-            <p id={ids.emailNote} className="text-xs text-danger">
-              {t("errors.detail.invalid_email")}
-            </p>
+        <Field label={t("feedback.email")} error={emailWrong ? t("errors.detail.invalid_email") : undefined}>
+          {(id, note) => (
+            <input
+              id={id}
+              ref={emailRef}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={draft.email}
+              disabled={sending}
+              placeholder={t("feedback.emailPlaceholder")}
+              aria-invalid={emailWrong || undefined}
+              aria-describedby={note}
+              onChange={(e) => {
+                setEmailWrong(false);
+                change({ email: e.target.value });
+              }}
+              className={`field ${emailWrong ? "border-danger" : ""}`}
+            />
           )}
-        </div>
+        </Field>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <input
               id={ids.attach}
               type="checkbox"
-              checked={draft.attach}
-              disabled={sending}
+              checked={attach}
+              disabled={sending || report === null}
               onChange={(e) => change({ attach: e.target.checked })}
               className="size-4 shrink-0 accent-accent"
             />
@@ -206,7 +205,7 @@ export function FeedbackDialog({
               {showReport ? t("feedback.hideReport") : t("feedback.showReport")}
             </button>
           </div>
-          <p className="pl-6 text-xs text-subtle">{t("feedback.attachHint")}</p>
+          <p className="pl-6 text-xs text-subtle">{report === null ? t("feedback.reportFailed") : t("feedback.attachHint")}</p>
           {showReport && (
             <pre
               id={ids.report}
@@ -214,7 +213,7 @@ export function FeedbackDialog({
               tabIndex={0}
               className="mt-2 max-h-[160px] overflow-auto rounded-lg bg-secondary px-3 py-2.5 font-mono text-2xs leading-4 whitespace-pre-wrap text-icon [overflow-wrap:anywhere]"
             >
-              {report ?? "…"}
+              {report === undefined ? "…" : (report ?? t("feedback.reportFailed"))}
             </pre>
           )}
         </div>

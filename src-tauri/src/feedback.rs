@@ -191,20 +191,22 @@ fn name(value: &impl Serialize) -> String {
 pub fn scrub(text: &str, home: Option<&str>) -> String {
     let mut out = text.to_string();
     if let Some(home) = home.filter(|h| h.len() > 3) {
-        let lower = out.to_lowercase();
-        let needle = home.to_lowercase();
+        // Compared char by char in lower case: offsets stay those of the original text,
+        // whatever lowercasing does to the length (İ becomes two chars).
+        let needle: Vec<char> = home.chars().flat_map(char::to_lowercase).collect();
         let mut result = String::with_capacity(out.len());
-        let mut rest = 0;
-        // Lowercasing keeps byte offsets for the ASCII and Cyrillic names Windows uses.
-        if lower.len() == out.len() {
-            for (at, _) in lower.match_indices(&needle) {
-                result.push_str(&out[rest..at]);
+        let mut at = 0;
+        while at < out.len() {
+            if let Some(len) = starts_with_folded(&out[at..], &needle) {
                 result.push_str("%USERPROFILE%");
-                rest = at + needle.len();
+                at += len;
+            } else {
+                let c = out[at..].chars().next().unwrap_or_default();
+                result.push(c);
+                at += c.len_utf8();
             }
-            result.push_str(&out[rest..]);
-            out = result;
         }
+        out = result;
     }
     out.split(' ')
         .map(|word| {
@@ -217,6 +219,24 @@ pub fn scrub(text: &str, home: Option<&str>) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// The byte length of the prefix of `text` that lowercases to `needle`, if it does.
+fn starts_with_folded(text: &str, needle: &[char]) -> Option<usize> {
+    let mut want = needle.iter();
+    let mut next = want.next();
+    for (i, c) in text.char_indices() {
+        for lower in c.to_lowercase() {
+            match next {
+                Some(&w) if w == lower => next = want.next(),
+                _ => return None,
+            }
+        }
+        if next.is_none() {
+            return Some(i + c.len_utf8());
+        }
+    }
+    None
 }
 
 /// «Windows 11 24H2 (build 26300), x86_64»; elsewhere the OS name and architecture.
@@ -344,6 +364,10 @@ mod tests {
         );
         assert_eq!(scrub(r"c:\users\anna\x", Some(r"C:\Users\Anna")), r"%USERPROFILE%\x");
         assert_eq!(scrub("open www.example.com now", None), "open <link> now");
+        // Lowercasing that changes the length still masks the folder: İ is two chars in lower case.
+        assert_eq!(scrub(r"Denied: C:\Users\İlker\AppData\x", Some(r"C:\Users\İlker")), r"Denied: %USERPROFILE%\AppData\x");
+        assert_eq!(scrub(r"Пусть C:\USERS\АННА\x", Some(r"C:\Users\Анна")), r"Пусть %USERPROFILE%\x");
+        assert_eq!(scrub(r"C:\Users\Ann\x", Some(r"C:\Users\Anna")), r"C:\Users\Ann\x");
     }
 
     #[test]

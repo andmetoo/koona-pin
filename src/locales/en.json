@@ -757,6 +757,7 @@
     "showReport": "Show report",
     "hideReport": "Hide report",
     "report": "Report",
+    "reportFailed": "The report couldn't be prepared — the message goes without it.",
     "privacy": "Stored in the EU for up to 12 months.",
     "privacyLink": "Privacy policy",
     "send": "Send",

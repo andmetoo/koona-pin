@@ -39,7 +39,7 @@ function shot(lang, view, alt, { eager = false, sizes } = {}) {
   return `<picture><source srcset="${set(dark)}" sizes="${sizes}" media="(prefers-color-scheme: dark)"><img src="/shots/${light}-1280.webp" srcset="${set(light)}" sizes="${sizes}" width="1280" height="800" alt="${esc(alt)}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async"></picture>`;
 }
 
-function head(t, { page, title, description }) {
+function head(t, { page, title, description, extra = "" }) {
   const path = href(t.lang, page);
   const other = t.lang === "en" ? "ru" : "en";
   return `<!doctype html>
@@ -60,7 +60,7 @@ function head(t, { page, title, description }) {
 <link rel="icon" href="/brand/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
 <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/site.css">${extra}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Netami Pin">
 <meta property="og:title" content="${esc(title)}">
@@ -178,8 +178,8 @@ ${t.req.map(([a, b], i) => `<li>${icon(i === 0 ? "monitor" : "globe")}<div><stro
 ${footer(t, wordmark)}`;
 }
 
-function textPage(t, { page, title, body, wordmark, current }) {
-  return `${head(t, { page, title: `${title} — Netami Pin`, description: t.description })}
+function textPage(t, { page, title, body, wordmark, current, extra }) {
+  return `${head(t, { page, title: `${title} — Netami Pin`, description: t.description, extra })}
 ${header(t, { page, wordmark, current })}
 <main id="main" class="wrap text-page">
 <a class="back" href="${href(t.lang, "")}">${icon("arrowLeft", "icon icon-small")}${esc(t.back)}</a>
@@ -249,13 +249,16 @@ ${kinds}
 <textarea id="fb-message" name="message" rows="8" maxlength="5000" required placeholder="${esc(f.placeholder)}"></textarea>
 <label class="field-label" for="fb-email">${esc(f.email)}</label>
 <input id="fb-email" type="email" name="email" maxlength="254" autocomplete="email" placeholder="name@example.com">
-<div class="trap" aria-hidden="true"><label for="fb-website">${esc(f.trap)}</label><input id="fb-website" name="website" tabindex="-1" autocomplete="off"></div>
+<div class="trap" aria-hidden="true"><label for="fb-trap">${esc(f.trap)}</label><input id="fb-trap" name="hp_7q" tabindex="-1" autocomplete="off"></div>
 <p class="form-note">${esc(f.note)} <a href="${href(t.lang, "privacy")}">${esc(f.privacy)}</a></p>
 <p><button class="button button-primary" type="submit">${esc(f.send)}</button></p>
 </form>
 <p>${esc(f.app)}</p>
 <p><a href="${SUPPORT}" rel="noopener">${esc(f.github)}</a></p>`;
-  return textPage(t, { page: "feedback", wordmark, title: f.title, body });
+  // The site sends Referrer-Policy: same-origin, under which a POST to Supabase would carry
+  // `Origin: null`; this page lets the browser name the site, which the function checks.
+  const extra = `\n<meta name="referrer" content="strict-origin-when-cross-origin">`;
+  return textPage(t, { page: "feedback", wordmark, title: f.title, body, extra });
 }
 
 /** Where the function sends the browser: sent, limit or error. */
