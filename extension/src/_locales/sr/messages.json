@@ -1,0 +1,204 @@
+{
+  "extensionName": { "message": "Netami Pin — сачувај линк" },
+  "extensionDescription": {
+    "message": "Сачувајте страницу у локалну библиотеку Netami Pin једним кликом. Док је апликација затворена, линкови чекају у реду."
+  },
+  "menuOptions": { "message": "Подешавања и ред" },
+  "menuSearch": { "message": "Пронађи линк" },
+  "commandSearch": { "message": "Пронађи линк у Netami Pin" },
+  "searchPlaceholder": { "message": "Претражите своје линкове" },
+  "searchFilters": { "message": "Где тражити" },
+  "searchKeys": { "message": "↑↓ · ↵ отвори · Shift ↵ овде · Ctrl C копирај" },
+  "searchOpenApp": { "message": "Отвори Netami Pin" },
+  "searchAll": { "message": "Све" },
+  "searchInbox": { "message": "Пријемно сандуче" },
+  "searchFavorites": { "message": "Омиљено" },
+  "searchOpen": { "message": "Отвори" },
+  "searchToday": { "message": "Данас" },
+  "searchRecent": { "message": "Недавно сачувано" },
+  "searchMore": {
+    "message": "Приказано је првих $COUNT$. Додајте реч да сузите претрагу.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "Још ништа није сачувано" },
+  "searchEmptyLibraryText": { "message": "Кликните на дугме Netami Pin на страници да је сачувате." },
+  "searchNothing": {
+    "message": "Ништа није пронађено за „$QUERY$“",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "Ништа није пронађено за „$QUERY$“ у $PLACE$",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "У $PLACE$ још нема ничега",
+    "placeholders": { "place": { "content": "$1", "example": "Омиљено" } }
+  },
+  "searchNothingText": { "message": "Пробајте другу реч или претражите целу библиотеку — отпад се никад не претражује." },
+  "searchEverywhere": { "message": "Претражи свуда" },
+  "searchStarting": { "message": "Покреће се Netami Pin…" },
+  "searchMissingText": {
+    "message": "Претрага иде у библиотеку Netami Pin на овом рачунару. Инсталирајте апликацију — линкови које сачувате чекају овде дотле."
+  },
+  "searchUpdateApp": { "message": "Ажурирајте Netami Pin за претрагу" },
+  "searchUpdateAppText": { "message": "Овај Netami Pin чува линкове, али још не може да претражује из прегледача. Чување и даље ради." },
+  "searchUpdateButton": { "message": "Преузми ажурирање" },
+  "searchUpdateExtensionText": {
+    "message": "Ово проширење не одговара програму Netami Pin. Ажурирајте га на страници проширења у прегледачу — чување и даље ради."
+  },
+  "searchLibrary": { "message": "Библиотека се није отворила" },
+  "searchLibraryText": { "message": "Отворите Netami Pin да видите зашто. Линкови које сачувате чекају овде дотле." },
+  "searchUnavailable": { "message": "Netami Pin није одговорио" },
+  "searchUnavailableText": { "message": "Покушајте поново за тренутак." },
+  "searchCopied": { "message": "Линк је копиран" },
+  "shortcutHeading": { "message": "Пречица на тастатури" },
+  "shortcutText": { "message": "Отвара претрагу ваше библиотеке." },
+  "shortcutNone": { "message": "Нема пречице" },
+  "shortcutChangeIn": {
+    "message": "Промени у $BROWSER$",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ мења пречице проширења само на својој страници $PAGE$: дугме је отвара.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "Промени" },
+  "shortcutPress": { "message": "Притисните нову пречицу…" },
+  "shortcutCancel": { "message": "Esc за отказивање. Пречици треба Ctrl или Alt, не оба." },
+  "shortcutInvalid": { "message": "Овај тастер не може бити пречица. Користите Ctrl или Alt са словом, цифром или F1–F12." },
+  "shortcutSaved": { "message": "Сачувано." },
+  "shortcutRefused": {
+    "message": "Firefox није прихватио $SHORTCUT$. Пробајте другу.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "Сачувај страницу у Netami Pin" },
+  "queueWaiting": {
+    "message": "Netami Pin: на слање чека $COUNT$. Отворите подешавања да видите ред.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Чува се у Netami Pin" },
+  "badgeWaiting": { "message": "Линк чека слање у Netami Pin" },
+  "badgeSaved": { "message": "Сачувано у Netami Pin" },
+  "badgeExisting": { "message": "Овај линк је већ у Netami Pin" },
+  "errorInvalidUrl": {
+    "message": "Ова страница не може да се сачува. Отворите страницу са HTTP/HTTPS адресом."
+  },
+  "errorUnsupportedScheme": {
+    "message": "Ова страница не може да се сачува. Подржани су само HTTP/HTTPS линкови."
+  },
+  "errorUnavailable": {
+    "message": "Netami Pin није одговорио. Линк ће бити поново послат за минут."
+  },
+  "errorHostMissing": {
+    "message": "Netami Pin није инсталиран или је инсталација оштећена. Линк чека овде."
+  },
+  "errorIncompatible": {
+    "message": "Проширење не одговара програму Netami Pin. Ажурирајте проширење — линк чека овде."
+  },
+  "errorIncompatibleApp": {
+    "message": "Netami Pin је старији од проширења. Ажурирајте Netami Pin — линк чека овде."
+  },
+  "errorInvalidRequest": { "message": "Netami Pin не може да сачува овај линк." },
+  "errorConflict": {
+    "message": "Овај захтев је већ искоришћен за други линк. Уклоните га из реда."
+  },
+  "errorDatabase": {
+    "message": "Netami Pin није сачувао линк. Биће поново послат."
+  },
+  "errorNoConfirmation": { "message": "Нема потврде да је линк сачуван" },
+  "errorSaveFailed": { "message": "Линк није сачуван" },
+  "errorUnknownAction": { "message": "Непозната радња" },
+  "messageSavedTitle": { "message": "Сачувано у Netami Pin" },
+  "messageSavedText": { "message": "Додато у пријемно сандуче" },
+  "messageExistingTitle": { "message": "Већ у Netami Pin" },
+  "messageExistingText": { "message": "Ваше ознаке и белешке су непромењене" },
+  "messageQueuedTitle": { "message": "Чека Netami Pin" },
+  "messageQueuedText": { "message": "Биће послато кад се апликација отвори" },
+  "messageFailedTitle": { "message": "Линк није сачуван" },
+  "messageFailedText": { "message": "Погледајте подешавања проширења" },
+  "feedbackHeading": { "message": "После чувања" },
+  "settingMessage": { "message": "Прикажи поруку на страници" },
+  "settingMessageText": {
+    "message": "Кратка напомена у углу пошто кликнете на дугме. Нестаје сама после 3 секунде."
+  },
+  "settingKnown": { "message": "Прикажи да је страница већ сачувана" },
+  "settingKnownText": {
+    "message": "Дугме проверава сваку отворену страницу у вашој библиотеци на овом рачунару док Netami Pin ради. Прегледач једном тражи приступ картицама; адресе иду само апликацији."
+  },
+  "settingAnimate": { "message": "Анимирај дугме" },
+  "settingAnimateText": {
+    "message": "Икона Netami Pin поскочи кад се страница сачува. Мирује ако систем тражи мање покрета."
+  },
+  "optionsTitle": { "message": "Netami Pin — подешавања проширења" },
+  "optionsHeading": { "message": "Проширење Netami Pin" },
+  "optionsLead": {
+    "message": "Странице које сачувате иду у библиотеку Netami Pin на овом рачунару."
+  },
+  "extensionVersion": {
+    "message": "Проширење $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Netami Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "последње чување данас у $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "последње чување $DATE$ у $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "3. октобар" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "Веза" },
+  "connectionChecking": { "message": "Проверава се апликација…" },
+  "statusConnected": { "message": "Повезано са Netami Pin" },
+  "checkAgain": { "message": "Провери поново" },
+  "statusClosed": { "message": "Netami Pin је затворен" },
+  "statusClosedText": {
+    "message": "Покреће се у области обавештења кад сачувате страницу. Линкови дотле чекају овде."
+  },
+  "statusUpdate": { "message": "Ажурирајте проширење" },
+  "statusUpdateText": {
+    "message": "Ово проширење ($MINE$) не одговара програму Netami Pin $APP$. Ажурирајте га на страници проширења у прегледачу — линкови дотле чекају овде.",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "Ажурирајте Netami Pin" },
+  "statusUpdateAppText": {
+    "message": "Netami Pin $APP$ је старији од овог проширења ($MINE$). Ажурирајте Netami Pin — линкови дотле чекају овде.",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "Netami Pin није инсталиран" },
+  "statusMissingText": {
+    "message": "Проширење не налази апликацију на овом рачунару. Инсталирајте Netami Pin или га поново инсталирајте ако је већ ту."
+  },
+  "download": { "message": "Преузми Netami Pin" },
+  "queueHeading": { "message": "Чека слање" },
+  "sendNow": { "message": "Пошаљи сада" },
+  "queueEmpty": {
+    "message": "Ништа не чека. Кликните на икону Netami Pin на страници да је сачувате."
+  },
+  "removeButton": { "message": "Уклони" },
+  "removeLabel": {
+    "message": "Уклони из реда: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Наслов странице" } }
+  },
+  "optionsFooter": {
+    "message": "Линкови остају у прегледачу док их Netami Pin не потврди. Ако је апликација затворена, чување странице је покреће у области обавештења."
+  }
+}

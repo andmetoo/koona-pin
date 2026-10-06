@@ -1,0 +1,204 @@
+{
+  "extensionName": { "message": "Netami Pin — Link speichern" },
+  "extensionDescription": {
+    "message": "Speichert die Seite mit einem Klick in Ihrer lokalen Netami-Pin-Bibliothek. Ist die App zu, warten Links in einer Schlange."
+  },
+  "menuOptions": { "message": "Einstellungen und Warteschlange" },
+  "menuSearch": { "message": "Link finden" },
+  "commandSearch": { "message": "Link in Netami Pin finden" },
+  "searchPlaceholder": { "message": "Ihre Links durchsuchen" },
+  "searchFilters": { "message": "Wo suchen" },
+  "searchKeys": { "message": "↑↓ · ↵ öffnen · Umschalt ↵ hier · Strg C kopieren" },
+  "searchOpenApp": { "message": "Netami Pin öffnen" },
+  "searchAll": { "message": "Alle" },
+  "searchInbox": { "message": "Eingang" },
+  "searchFavorites": { "message": "Favoriten" },
+  "searchOpen": { "message": "Öffnen" },
+  "searchToday": { "message": "Heute" },
+  "searchRecent": { "message": "Zuletzt gespeichert" },
+  "searchMore": {
+    "message": "Die ersten $COUNT$ werden angezeigt. Ergänzen Sie ein Wort, um die Suche einzugrenzen.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "Noch nichts gespeichert" },
+  "searchEmptyLibraryText": { "message": "Klicken Sie auf einer Seite auf die Netami-Pin-Schaltfläche, um sie zu speichern." },
+  "searchNothing": {
+    "message": "Nichts gefunden für „$QUERY$“",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "Nichts gefunden für „$QUERY$“ in $PLACE$",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "In $PLACE$ ist noch nichts",
+    "placeholders": { "place": { "content": "$1", "example": "Favoriten" } }
+  },
+  "searchNothingText": { "message": "Versuchen Sie ein anderes Wort oder durchsuchen Sie die ganze Bibliothek — der Papierkorb wird nie durchsucht." },
+  "searchEverywhere": { "message": "Überall suchen" },
+  "searchStarting": { "message": "Netami Pin wird gestartet…" },
+  "searchMissingText": {
+    "message": "Die Suche läuft in der Netami-Pin-Bibliothek auf diesem Computer. Installieren Sie die App — gespeicherte Links warten bis dahin hier."
+  },
+  "searchUpdateApp": { "message": "Netami Pin aktualisieren, um zu suchen" },
+  "searchUpdateAppText": { "message": "Dieses Netami Pin speichert Links, kann aber noch nicht aus dem Browser suchen. Das Speichern funktioniert weiter." },
+  "searchUpdateButton": { "message": "Update herunterladen" },
+  "searchUpdateExtensionText": {
+    "message": "Diese Erweiterung passt nicht zu Netami Pin. Aktualisieren Sie sie auf der Erweiterungsseite des Browsers — das Speichern funktioniert weiter."
+  },
+  "searchLibrary": { "message": "Die Bibliothek hat sich nicht geöffnet" },
+  "searchLibraryText": { "message": "Öffnen Sie Netami Pin, um den Grund zu sehen. Gespeicherte Links warten bis dahin hier." },
+  "searchUnavailable": { "message": "Netami Pin hat nicht geantwortet" },
+  "searchUnavailableText": { "message": "Versuchen Sie es gleich noch einmal." },
+  "searchCopied": { "message": "Link kopiert" },
+  "shortcutHeading": { "message": "Tastenkürzel" },
+  "shortcutText": { "message": "Öffnet die Suche in Ihrer Bibliothek." },
+  "shortcutNone": { "message": "Kein Tastenkürzel" },
+  "shortcutChangeIn": {
+    "message": "In $BROWSER$ ändern",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ ändert Tastenkürzel von Erweiterungen nur auf der eigenen Seite $PAGE$: Die Schaltfläche öffnet sie.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "Ändern" },
+  "shortcutPress": { "message": "Drücken Sie das neue Tastenkürzel…" },
+  "shortcutCancel": { "message": "Esc zum Abbrechen. Ein Tastenkürzel braucht Strg oder Alt, nicht beides." },
+  "shortcutInvalid": { "message": "Diese Taste kann kein Tastenkürzel sein. Nutzen Sie Strg oder Alt mit einem Buchstaben, einer Ziffer oder F1–F12." },
+  "shortcutSaved": { "message": "Gespeichert." },
+  "shortcutRefused": {
+    "message": "Firefox hat $SHORTCUT$ nicht angenommen. Versuchen Sie ein anderes.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "Seite in Netami Pin speichern" },
+  "queueWaiting": {
+    "message": "Netami Pin: $COUNT$ warten auf das Senden. Öffnen Sie die Einstellungen, um die Warteschlange zu sehen.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Wird in Netami Pin gespeichert" },
+  "badgeWaiting": { "message": "Link wartet darauf, an Netami Pin gesendet zu werden" },
+  "badgeSaved": { "message": "In Netami Pin gespeichert" },
+  "badgeExisting": { "message": "Dieser Link ist schon in Netami Pin" },
+  "errorInvalidUrl": {
+    "message": "Diese Seite kann nicht gespeichert werden. Öffnen Sie eine Seite mit einer HTTP/HTTPS-Adresse."
+  },
+  "errorUnsupportedScheme": {
+    "message": "Diese Seite kann nicht gespeichert werden. Nur HTTP/HTTPS-Links werden unterstützt."
+  },
+  "errorUnavailable": {
+    "message": "Netami Pin hat nicht geantwortet. Der Link wird in einer Minute erneut gesendet."
+  },
+  "errorHostMissing": {
+    "message": "Netami Pin ist nicht installiert oder die Installation ist beschädigt. Der Link wartet hier."
+  },
+  "errorIncompatible": {
+    "message": "Die Erweiterung passt nicht zu Netami Pin. Aktualisieren Sie die Erweiterung — der Link wartet hier."
+  },
+  "errorIncompatibleApp": {
+    "message": "Netami Pin ist älter als die Erweiterung. Aktualisieren Sie Netami Pin — der Link wartet hier."
+  },
+  "errorInvalidRequest": { "message": "Netami Pin kann diesen Link nicht speichern." },
+  "errorConflict": {
+    "message": "Diese Anfrage wurde schon für einen anderen Link verwendet. Entfernen Sie sie aus der Warteschlange."
+  },
+  "errorDatabase": {
+    "message": "Netami Pin konnte den Link nicht speichern. Er wird erneut gesendet."
+  },
+  "errorNoConfirmation": { "message": "Keine Bestätigung, dass der Link gespeichert wurde" },
+  "errorSaveFailed": { "message": "Link konnte nicht gespeichert werden" },
+  "errorUnknownAction": { "message": "Unbekannte Aktion" },
+  "messageSavedTitle": { "message": "In Netami Pin gespeichert" },
+  "messageSavedText": { "message": "Zum Eingang hinzugefügt" },
+  "messageExistingTitle": { "message": "Schon in Netami Pin" },
+  "messageExistingText": { "message": "Ihre Tags und Notizen bleiben unverändert" },
+  "messageQueuedTitle": { "message": "Wartet auf Netami Pin" },
+  "messageQueuedText": { "message": "Wird gesendet, sobald die App geöffnet ist" },
+  "messageFailedTitle": { "message": "Link konnte nicht gespeichert werden" },
+  "messageFailedText": { "message": "Siehe Einstellungen der Erweiterung" },
+  "feedbackHeading": { "message": "Nach dem Speichern" },
+  "settingMessage": { "message": "Eine Meldung auf der Seite zeigen" },
+  "settingMessageText": {
+    "message": "Ein kurzer Hinweis in der Ecke, nachdem Sie auf die Schaltfläche geklickt haben. Er verschwindet nach 3 Sekunden von selbst."
+  },
+  "settingKnown": { "message": "Zeigen, dass eine Seite schon gespeichert ist" },
+  "settingKnownText": {
+    "message": "Die Schaltfläche gleicht jede geöffnete Seite mit Ihrer Bibliothek auf diesem Computer ab, solange Netami Pin läuft. Der Browser fragt einmal nach Zugriff auf Ihre Tabs; Adressen gehen nur an die App."
+  },
+  "settingAnimate": { "message": "Schaltfläche animieren" },
+  "settingAnimateText": {
+    "message": "Das Netami-Pin-Symbol hüpft, wenn eine Seite gespeichert wird. Es bleibt still, wenn das System weniger Bewegung wünscht."
+  },
+  "optionsTitle": { "message": "Netami Pin — Einstellungen der Erweiterung" },
+  "optionsHeading": { "message": "Netami-Pin-Erweiterung" },
+  "optionsLead": {
+    "message": "Gespeicherte Seiten kommen in die Netami-Pin-Bibliothek auf diesem Computer."
+  },
+  "extensionVersion": {
+    "message": "Erweiterung $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Netami Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "zuletzt gespeichert heute um $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "zuletzt gespeichert am $DATE$ um $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "3. Oktober" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "Verbindung" },
+  "connectionChecking": { "message": "App wird geprüft…" },
+  "statusConnected": { "message": "Mit Netami Pin verbunden" },
+  "checkAgain": { "message": "Erneut prüfen" },
+  "statusClosed": { "message": "Netami Pin ist geschlossen" },
+  "statusClosedText": {
+    "message": "Es startet im Infobereich, wenn Sie eine Seite speichern. Links warten bis dahin hier."
+  },
+  "statusUpdate": { "message": "Erweiterung aktualisieren" },
+  "statusUpdateText": {
+    "message": "Diese Erweiterung ($MINE$) passt nicht zu Netami Pin $APP$. Aktualisieren Sie sie auf der Erweiterungsseite des Browsers — Links warten bis dahin hier.",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "Netami Pin aktualisieren" },
+  "statusUpdateAppText": {
+    "message": "Netami Pin $APP$ ist älter als diese Erweiterung ($MINE$). Aktualisieren Sie Netami Pin — Links warten bis dahin hier.",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "Netami Pin ist nicht installiert" },
+  "statusMissingText": {
+    "message": "Die Erweiterung findet die App auf diesem Computer nicht. Installieren Sie Netami Pin oder installieren Sie es neu, falls es schon da ist."
+  },
+  "download": { "message": "Netami Pin herunterladen" },
+  "queueHeading": { "message": "Wartet auf das Senden" },
+  "sendNow": { "message": "Jetzt senden" },
+  "queueEmpty": {
+    "message": "Nichts wartet. Klicken Sie auf einer Seite auf das Netami-Pin-Symbol, um sie zu speichern."
+  },
+  "removeButton": { "message": "Entfernen" },
+  "removeLabel": {
+    "message": "Aus der Warteschlange entfernen: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Seitentitel" } }
+  },
+  "optionsFooter": {
+    "message": "Links bleiben im Browser, bis Netami Pin sie bestätigt. Ist die App geschlossen, startet das Speichern einer Seite sie im Infobereich."
+  }
+}

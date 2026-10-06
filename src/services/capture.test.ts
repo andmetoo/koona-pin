@@ -41,13 +41,13 @@ describe("browser status", () => {
     await i18n.changeLanguage("ru");
     const t = i18n.t.bind(i18n);
     expect(statusLabel(null, t)).toBe("Проверяем захват…");
-    expect(statusLabel(base, t)).toBe("Браузер не подключён");
+    expect(statusLabel(base, t)).toBe("Браузер отключён");
     expect(statusLabel({ ...base, state: "connected", browsers: [seen("chrome")] }, t)).toBe("Браузер подключён");
     expect(statusLabel({ ...base, state: "lost", days_silent: 3 }, t)).toBe("Нет связи 3 дня");
     expect(statusLabel({ ...base, state: "lost", days_silent: 5 }, t)).toBe("Нет связи 5 дней");
     expect(statusLabel({ ...base, state: "failing", problem: "channel" }, t)).toBe("Захват не работает");
     const old = { ...base, state: "incompatible" as const, browsers: [seen("firefox", true, 1)] };
-    expect(statusLabel(old, t)).toBe("Обновите расширение");
+    expect(statusLabel(old, t)).toBe("Старое расширение");
     expect(appIsOlder(old)).toBe(false);
     const newer = { ...old, browsers: [seen("firefox", true, 3)] };
     expect(statusLabel(newer, t)).toBe("Обновите Netami Pin");

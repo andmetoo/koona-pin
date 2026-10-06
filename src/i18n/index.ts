@@ -37,13 +37,38 @@ export function storedLanguage(): LanguageSetting {
   return defaultLanguage;
 }
 
-/** The first system language we have a file for, by its base code. */
+/** Language, script and region of a tag, with the likely ones filled in: `sr-RS` → sr, Cyrl, RS. */
+function subtags(tag: string) {
+  try {
+    const locale = new Intl.Locale(tag).maximize();
+    return { language: locale.language, script: locale.script, region: locale.region };
+  } catch {
+    return { language: tag.toLowerCase().split("-")[0], script: undefined, region: undefined };
+  }
+}
+
+/** Our file for one system language: same language and script, the same region if we have it (NP-089).
+ * `sr-Latn-RS` → sr-Latn, `sr-RS` → sr, `pt-PT` → pt-BR, `de-AT` → de. */
+export function matchLanguage(tag: string, codes = languages.map((l) => l.code)): string | undefined {
+  const wanted = subtags(tag);
+  const same = codes.filter((code) => subtags(code).language === wanted.language);
+  const sameScript = same.filter((code) => subtags(code).script === wanted.script);
+  return (
+    sameScript.find((code) => subtags(code).region === wanted.region) ??
+    sameScript.find((code) => !code.includes("-")) ??
+    sameScript[0] ??
+    same.find((code) => !code.includes("-")) ??
+    same[0]
+  );
+}
+
+/** The first system language we have a file for. */
 export function systemLanguage(): string {
   const preferred =
     typeof navigator === "undefined" ? [] : [...(navigator.languages ?? []), navigator.language];
   for (const tag of preferred) {
-    const base = tag?.toLowerCase().split("-")[0];
-    if (languages.some((l) => l.code === base)) return base;
+    const code = tag ? matchLanguage(tag) : undefined;
+    if (code) return code;
   }
   return "en";
 }

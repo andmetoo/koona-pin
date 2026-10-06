@@ -338,7 +338,8 @@ function Row({
     <div className="flex min-h-[60px] items-center gap-4 px-3 py-2.5">
       <div className="min-w-0 flex-1">
         <div className={`text-sm font-medium ${danger ? "text-danger" : ""}`}>{title}</div>
-        {description && <div className="mt-0.5 truncate text-xs text-muted">{description}</div>}
+        {/* A longer language wraps the hint to a second line rather than cutting it (NP-089). */}
+        {description && <div className="mt-0.5 text-xs text-pretty [overflow-wrap:anywhere] text-muted">{description}</div>}
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>

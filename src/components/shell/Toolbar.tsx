@@ -65,7 +65,9 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   );
   return (
     <div className="flex h-9 items-center gap-2.5">
-      <h1 className="flex min-w-0 flex-1 items-baseline gap-2">
+      {/* The title keeps its length up to 40 % of the row; the search field gives way first
+          (NP-089: «Todos os marcadores» at 800 px). A longer collection name is cut at 40 %. */}
+      <h1 className="flex max-w-[40%] min-w-0 shrink-0 items-baseline gap-2">
         <span className="truncate text-2xl font-semibold">{props.title}</span>
         {props.count !== undefined && (
           <span className="shrink-0 text-md text-subtle" aria-live={props.countLive ? "polite" : undefined}>
@@ -73,7 +75,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           </span>
         )}
       </h1>
-      <label className={`relative flex h-9 items-center ${props.narrow ? "w-[200px]" : "w-[340px]"}`}>
+      <label className={`relative ml-auto flex h-9 min-w-[120px] items-center ${props.narrow ? "w-[200px]" : "w-[340px]"}`}>
         <Icon icon={Search} size={15} className="pointer-events-none absolute left-3 text-subtle" />
         <input
           ref={searchRef}
