@@ -21,11 +21,15 @@ $arguments = @(
 )
 if ($env:ESIGNER_CREDENTIAL_ID) { $arguments += "-credential_id=$env:ESIGNER_CREDENTIAL_ID" }
 
-# CodeSignTool reads its settings from its own folder.
+# CodeSignTool reads its settings from its own folder. Tauri runs this script in Windows
+# PowerShell 5.1, where a native stderr line under 'Stop' becomes a terminating error: the
+# tool may log there and still sign, so the signature below decides, not its streams.
 Push-Location $env:CODESIGNTOOL_DIR
+$ErrorActionPreference = 'Continue'
 try {
-  $output = & .\CodeSignTool.bat @arguments 2>&1 | Out-String
+  $output = & .\CodeSignTool.bat @arguments 2>&1 | ForEach-Object { "$_" } | Out-String
 } finally {
+  $ErrorActionPreference = 'Stop'
   Pop-Location
 }
 Write-Host $output
