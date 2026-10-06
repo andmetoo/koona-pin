@@ -86,7 +86,7 @@ export function AddLinkDialog({
         <Field label={t("add.url")}>
           {(id) => (
             <div className="flex flex-col gap-1.5">
-              <input id={id} autoFocus required type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" className="field" />
+              <input id={id} autoFocus data-autofocus required type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" className="field" />
               <button
                 type="button"
                 className="self-start text-xs text-muted hover:text-ink"
@@ -225,7 +225,7 @@ export function ImportDialog({
                 {t("import.openInbox")}
               </Button>
             )}
-            <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+            <Button variant="primary" size="lg" autoFocus data-autofocus onClick={onClose}>
               {t("import.done")}
             </Button>
           </Footer>
@@ -479,7 +479,7 @@ export function RestoreDialog({
             )}
           </div>
           <Footer>
-            <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+            <Button variant="primary" size="lg" autoFocus data-autofocus onClick={onClose}>
               {t("import.done")}
             </Button>
           </Footer>
@@ -602,7 +602,7 @@ export function CollectionDialog({
       >
         <Field label={t("collection.name")}>
           {(id) => (
-            <input id={id} autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder={t("collection.placeholder")} className="field" />
+            <input id={id} autoFocus data-autofocus required value={name} onChange={(e) => setName(e.target.value)} placeholder={t("collection.placeholder")} className="field" />
           )}
         </Field>
         <Failure error={error} />

@@ -157,7 +157,7 @@ export function BackupRestoreDialog({
           </div>
           <Failure error={error} />
           <footer className="mt-1 flex justify-end gap-2">
-            <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+            <Button variant="primary" size="lg" autoFocus data-autofocus onClick={onClose}>
               {t("import.done")}
             </Button>
           </footer>
@@ -187,7 +187,7 @@ export function BackupRestoreDialog({
             <Button variant="outline" size="lg" onClick={onClose}>
               {t("import.cancel")}
             </Button>
-            <Button variant="primary" size="lg" autoFocus onClick={() => void choose()}>
+            <Button variant="primary" size="lg" autoFocus data-autofocus onClick={() => void choose()}>
               {t("backup.another")}
             </Button>
           </footer>
