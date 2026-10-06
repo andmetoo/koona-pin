@@ -17,7 +17,13 @@
 | R-ANDROID | [#52](https://github.com/andmetoo/koona-pin/issues/52) | Android · Сохранять и разбирать ссылки на телефоне | Android | — |
 | R-EXT | [#53](https://github.com/andmetoo/koona-pin/issues/53) | Расширения в каталогах · Обычная установка и обновление расширений | Расширения в каталогах | — |
 | R-IOS | [#54](https://github.com/andmetoo/koona-pin/issues/54) | iOS · Сохранять и разбирать ссылки на iPhone | iOS | — |
-| R-LINUX | [#55](https://github.com/andmetoo/koona-pin/issues/55) | Linux · Выпустить Koona Pin для выбранных дистрибутивов | Linux | — |
+| R-LINUX | [#55](https://github.com/andmetoo/koona-pin/issues/55) | Linux beta · Выпустить Koona Pin для Ubuntu, Fedora и Arch | Linux beta | — |
+| R-LINUX1 | [#145](https://github.com/andmetoo/koona-pin/issues/145) | Linux 1.0 · Стабильный выпуск Linux по итогам beta | Linux 1.0 | — |
+| L0 | [#140](https://github.com/andmetoo/koona-pin/issues/140) | L0 · Основа: контракт, среда и проверки Linux | Linux beta | R-LINUX |
+| L1 | [#141](https://github.com/andmetoo/koona-pin/issues/141) | L1 · Пользователь работает в Linux как в привычной программе | Linux beta | R-LINUX |
+| L2 | [#142](https://github.com/andmetoo/koona-pin/issues/142) | L2 · Пользователь сохраняет ссылки из браузеров в Linux | Linux beta | R-LINUX |
+| L3 | [#143](https://github.com/andmetoo/koona-pin/issues/143) | L3 · Пользователь устанавливает и обновляет Koona Pin в Linux | Linux beta | R-LINUX |
+| L4 | [#144](https://github.com/andmetoo/koona-pin/issues/144) | L4 · Пользователь находит, ставит и проверяет Linux-beta | Linux beta | R-LINUX |
 | R-MAC | [#56](https://github.com/andmetoo/koona-pin/issues/56) | macOS · Выпустить Koona Pin для macOS | macOS | — |
 | R-PAID | [#57](https://github.com/andmetoo/koona-pin/issues/57) | Платные сервисы · Оплата синхронизации без риска для локальной библиотеки | Платные сервисы | — |
 | R-SYNC-D | [#58](https://github.com/andmetoo/koona-pin/issues/58) | Синхронизация: проектирование · Сценарии, архитектура и модель конфликтов | Синхронизация | — |
@@ -71,4 +77,28 @@
 | NP-041 | [#43](https://github.com/andmetoo/koona-pin/issues/43) | Выпустить и проверить публичную Windows-beta | Windows beta | W7 |
 | NP-042 | [#77](https://github.com/andmetoo/koona-pin/issues/77) | Получить подпись кода и ключ обновлений | Windows beta | W7 |
 
-Ключи NP-042–NP-078 зарезервированы за задачами последующих выпусков; они перечислены в родительских issues и создаются перед началом вехи.
+## Задачи Linux-beta
+
+Созданы 6 октября 2026 года ([Р-44](../decisions.md#р-44-linux-раньше-macos-пока-идёт-проверка-подписи), [контракт](../roadmap.md#контракт-linux-beta)).
+
+| Ключ | Issue | Название | Milestone | Родитель |
+| --- | --- | --- | --- | --- |
+| NP-052 | [#146](https://github.com/andmetoo/koona-pin/issues/146) | Зафиксировать контракт Linux-beta | Linux beta | L0 |
+| NP-093 | [#147](https://github.com/andmetoo/koona-pin/issues/147) | Подготовить среду разработки и проверки Linux | Linux beta | L0 |
+| NP-094 | [#148](https://github.com/andmetoo/koona-pin/issues/148) | Собирать и проверять Linux в CI | Linux beta | L0 |
+| NP-095 | [#149](https://github.com/andmetoo/koona-pin/issues/149) | Выбрать нативные тесты для WebKitGTK | Linux beta | L0 |
+| NP-096 | [#150](https://github.com/andmetoo/koona-pin/issues/150) | Принять дизайн окна, трея и захвата в Linux | Linux beta | L1 |
+| NP-053 | [#151](https://github.com/andmetoo/koona-pin/issues/151) | Адаптировать окно, трей и единственный экземпляр в Linux | Linux beta | L1 |
+| NP-097 | [#152](https://github.com/andmetoo/koona-pin/issues/152) | Перенести пути, автозапуск, файлы и отчёт на Linux | Linux beta | L1 |
+| NP-098 | [#153](https://github.com/andmetoo/koona-pin/issues/153) | Проверить вид и скорость интерфейса на WebKitGTK | Linux beta | L1 |
+| NP-099 | [#154](https://github.com/andmetoo/koona-pin/issues/154) | Передавать захват через Unix-сокет и запускать приложение из host | Linux beta | L2 |
+| NP-100 | [#155](https://github.com/andmetoo/koona-pin/issues/155) | Регистрировать native host в браузерах Linux | Linux beta | L2 |
+| NP-054 | [#156](https://github.com/andmetoo/koona-pin/issues/156) | Проверить захват в браузерах и окружениях Linux | Linux beta | L2 |
+| NP-055 | [#157](https://github.com/andmetoo/koona-pin/issues/157) | Собирать пакеты .deb и .rpm | Linux beta | L3 |
+| NP-101 | [#158](https://github.com/andmetoo/koona-pin/issues/158) | Опубликовать пакет в AUR | Linux beta | L3 |
+| NP-102 | [#159](https://github.com/andmetoo/koona-pin/issues/159) | Доставлять обновления .deb и .rpm | Linux beta | L3 |
+| NP-103 | [#160](https://github.com/andmetoo/koona-pin/issues/160) | Подготовить загрузку, требования и поддержку для Linux | Linux beta | L4 |
+| NP-104 | [#161](https://github.com/andmetoo/koona-pin/issues/161) | Провести сквозную приёмку Linux-beta | Linux beta | L4 |
+| NP-105 | [#162](https://github.com/andmetoo/koona-pin/issues/162) | Выпустить и проверить публичную Linux-beta | Linux beta | L4 |
+
+Ключи NP-042–NP-078 зарезервированы за задачами последующих выпусков; они перечислены в родительских issues и создаются перед началом вехи. NP-052–NP-055 (Linux) созданы вместе с задачами Linux-beta; NP-108–NP-110 зарезервированы за Linux 1.0 (#145).
