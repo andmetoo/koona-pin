@@ -95,7 +95,8 @@ pub fn payload(feedback: Feedback, app_version: &str, os: &str) -> Result<Payloa
 
 /// something@something.tld without spaces — the function's rule.
 pub fn email_shape(email: &str) -> bool {
-    if email.len() > 254 || email.chars().any(char::is_whitespace) {
+    // Characters, as the dialog, the function and Postgres count them, not UTF-8 bytes.
+    if email.chars().count() > 254 || email.chars().any(char::is_whitespace) {
         return false;
     }
     let Some((local, domain)) = email.split_once('@') else {
@@ -322,6 +323,9 @@ mod tests {
         for good in ["a@b.co", "anna.k+pin@mail.example.org", "имя@почта.рф"] {
             assert!(email_shape(good), "{good}");
         }
+        // 250 characters of Cyrillic are 500 bytes and still fit the limit of 254 characters.
+        assert!(email_shape(&format!("{}@почта.рф", "я".repeat(240))));
+        assert!(!email_shape(&format!("{}@почта.рф", "я".repeat(250))));
         for bad in ["anna@example", "anna@.com", "@example.com", "anna example@x.com", "a@b@c.com", "a@b.c", "plain"] {
             assert!(!email_shape(bad), "{bad}");
         }

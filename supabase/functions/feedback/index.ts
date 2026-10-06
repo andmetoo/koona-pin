@@ -30,11 +30,8 @@ const deps = {
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${salt}:${address}`));
     return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
   },
-  takeSlot: async (addressHash: string, perHour: number) =>
-    (await rest("rpc/feedback_take_slot", { address_hash: addressHash, per_hour: perHour }).then((r) => r.json())) === true,
-  insert: async (row: Row) => {
-    await rest("feedback", row, "return=minimal");
-  },
+  submit: async (addressHash: string, perHour: number, row: Row) =>
+    (await rest("rpc/feedback_submit", { address_hash: addressHash, per_hour: perHour, entry: row }).then((r) => r.json())) === true,
   notify: async (text: string) => {
     const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const chat = Deno.env.get("TELEGRAM_CHAT_ID");
