@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode, ErrorDetail},
-    backup, dedupe, export, import, linkcheck, metadata, restore,
+    backup, dedupe, export, feedback, import, linkcheck, metadata, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -614,6 +614,33 @@ pub async fn replace_addresses(app: AppHandle, state: State<'_, Arc<DbState>>, i
     .map_err(CommandError::internal)??;
     capture::emit_many(&app, &changed);
     Ok(replaced)
+}
+
+/// The report «Показать отчёт» shows and «Приложить отчёт» attaches (NP-088).
+#[tauri::command]
+pub fn feedback_report(app: AppHandle, channel: State<'_, Arc<ChannelState>>, language: String) -> String {
+    let home = dirs::home_dir().map(|p| p.to_string_lossy().into_owned());
+    feedback::report(
+        &channel.status(chrono::Utc::now()),
+        &app.package_info().version.to_string(),
+        &feedback::os_name(),
+        &language,
+        home.as_deref(),
+    )
+}
+
+/// «Отправить»: the one request to the feedback service (NP-088, Р-9).
+#[tauri::command]
+pub async fn send_feedback(app: AppHandle, feedback: feedback::Feedback) -> Result<(), CommandError> {
+    let payload = feedback::payload(feedback, &app.package_info().version.to_string(), &feedback::os_name())?;
+    let Some(endpoint) = feedback::ENDPOINT else {
+        return Err(CommandError::detailed(
+            ErrorCode::Network,
+            ErrorDetail::ServiceFailed,
+            "This build has no feedback address (NETAMIPIN_FEEDBACK_URL)",
+        ));
+    };
+    feedback::send(endpoint, &payload, feedback::LIMITS).await
 }
 
 #[tauri::command]

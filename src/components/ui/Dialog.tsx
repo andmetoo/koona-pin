@@ -35,6 +35,9 @@ export function Dialog({
     const previous = document.activeElement as HTMLElement | null;
     const dialog = ref.current;
     dialog?.showModal();
+    // showModal() focuses the first focusable element («×»): React's autoFocus
+    // ran while the dialog was still hidden. `data-autofocus` names the field.
+    dialog?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
     return () => {
       dialog?.close();
       previous?.focus();
