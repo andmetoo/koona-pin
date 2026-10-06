@@ -83,36 +83,20 @@ export function notification(row: Row): string {
   return `${head}\n\n${excerpt}${extras ? `\n\n${extras}` : ""}`;
 }
 
-/** Loopback, private, link-local, CGNAT and unique-local addresses: proxy hops, not senders. */
-export function privateAddress(ip: string): boolean {
-  const v4 = ip.match(/^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/i);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    return a === 10 || a === 127 || a === 0 || (a === 172 && b >= 16 && b < 32) || (a === 192 && b === 168) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b < 128);
-  }
-  const v6 = ip.toLowerCase();
-  return v6 === "::1" || v6 === "::" || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6);
-}
-
 /**
  * The sender's address for the limit, and the header it came from (the name is
- * logged to check the deployment; the address never is). The client can write
- * anything into X-Forwarded-For, proxies append to it: CF-Connecting-IP, which
- * Cloudflare sets itself, wins; then X-Real-IP; then the rightmost public entry of
- * X-Forwarded-For, skipping private hops a chain of proxies may add.
+ * logged to check the deployment; the address never is). Only CF-Connecting-IP is
+ * trusted: Cloudflare in front of Supabase sets it itself. X-Real-IP and every entry
+ * of X-Forwarded-For can be written by the client or be a shared proxy hop, so
+ * without CF-Connecting-IP all senders share one limit — loud in the log and caught
+ * by the check in supabase/README.md, rather than a silent hole.
  */
 export function senderAddress(headers: Headers): { address: string; from: string } {
-  for (const name of ["cf-connecting-ip", "x-real-ip"]) {
-    const value = headers.get(name)?.trim();
-    if (value) return { address: value, from: name };
-  }
-  const hops = (headers.get("x-forwarded-for") ?? "").split(",").map((h) => h.trim()).filter(Boolean);
-  const address = hops.reverse().find((h) => !privateAddress(h));
-  return address ? { address, from: "x-forwarded-for" } : { address: "unknown", from: "none" };
+  const address = headers.get("cf-connecting-ip")?.trim();
+  return address ? { address, from: "cf-connecting-ip" } : { address: "unknown", from: "none" };
 }
-
 /** Where the site form goes next: a static page of the site in its language. */
-export function sitePage(language: string | null, outcome: "sent" | "limit" | "error"): string {
+export function sitePage(language: string | null, outcome: "sent" | "limit" | "long" | "error"): string {
   return `${SITE}${language === "ru" ? "/ru" : ""}/feedback/${outcome}`;
 }
 
@@ -121,7 +105,8 @@ const json = (status: number, body: unknown) =>
 
 function reply(source: "app" | "site", language: string | null, failure?: Failure, field?: string): Response {
   if (source === "site") {
-    const outcome = !failure ? "sent" : failure === "rate_limited" ? "limit" : "error";
+    // A refused message (empty or over 5000 characters) has its own page; the rest is «error».
+    const outcome = !failure ? "sent" : failure === "rate_limited" ? "limit" : field === "message" ? "long" : "error";
     return new Response(null, { status: 303, headers: { location: sitePage(language, outcome) } });
   }
   if (!failure) return json(200, { ok: true });
@@ -162,7 +147,8 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
 
   try {
     const sender = senderAddress(request.headers);
-    console.log(`feedback: ${source}, address from ${sender.from}`);
+    if (sender.from === "none") console.error(`feedback: ${source}, no CF-Connecting-IP — every sender shares one limit`);
+    else console.log(`feedback: ${source}, address from ${sender.from}`);
     const address = await deps.hash(sender.address);
     if (!(await deps.submit(address, PER_HOUR, parsed.row))) return reply(source, parsed.row.language, "rate_limited");
   } catch (error) {
