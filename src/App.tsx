@@ -497,7 +497,16 @@ export function App() {
       refresh: (b) =>
         void api
           .refreshPreview(b.id)
-          .then((fresh) => say(fresh.image_url ? t("notice.previewRefreshed") : t("notice.noPicture")))
+          // Said as it is: a new picture or icon, none at all, or nothing new beside the old one.
+          .then((fresh) =>
+            say(
+              fresh.image_url !== b.image_url || fresh.favicon_url !== b.favicon_url
+                ? t("notice.previewRefreshed")
+                : fresh.image_url
+                  ? t("notice.previewUnchanged")
+                  : t("notice.noPicture"),
+            ),
+          )
           .catch((err) => say(describeError(err), true)),
       select: (b, range) =>
         range ? selectionRef.current.range(b.id, loadedRef.current.map((item) => item.id)) : selectionRef.current.toggle(b.id),

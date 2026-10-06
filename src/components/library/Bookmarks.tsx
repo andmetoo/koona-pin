@@ -188,7 +188,8 @@ export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
       style={{ width: size, height: size, fontSize: size * 0.64 }}
       className="flex shrink-0 items-center justify-center rounded-[3px] bg-hover font-semibold text-muted"
     >
-      {b.domain[0]?.toUpperCase()}
+      {/* The same letter as the cover above it. */}
+      {monogram(b.domain, b.title)}
     </span>
   );
 }
@@ -209,7 +210,7 @@ function releasePointer(e: React.PointerEvent<HTMLElement>) {
  * gradient, a pattern of the page, the site's icon on a tile and, when there
  * is room, its name. A small icon would blur when enlarged: the tile shows
  * the site's letter and the icon at its own size beside it. `live` covers —
- * grid cards and triage — answer the pointer: a glint, a slow drift of the
+ * grid cards and triage — answer the pointer: a slow drift of the
  * gradient, the tile leaning towards the pointer. Sizes follow the preview
  * (container units in `app.css`), so one cover serves 64×44 and 280 px.
  */

@@ -367,29 +367,13 @@
       display: none;
     }
   }
-  /* A glint across a live cover on hover: the cover is alive, not an empty load. */
-  .cover[data-live]::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.32) 50%, transparent 65%);
-    transform: translateX(-110%);
-    pointer-events: none;
-  }
-  .cover[data-live]:hover::after {
-    animation: cover-glint 900ms var(--ease-standard) forwards;
-  }
+  /* A live cover drifts its gradient and leans its tile towards the pointer; no glint, too busy (NP-087). */
   .cover[data-live]:hover {
     animation: cover-drift 3s ease-in-out infinite alternate;
   }
   .cover[data-live]:hover .cover-tile {
     transform: perspective(400px) rotateY(calc(var(--cx, 0) * 10deg)) rotateX(calc(var(--cy, 0) * -10deg))
       translate(calc(var(--cx, 0) * 4px), calc(var(--cy, 0) * 4px)) scale(1.07);
-  }
-  @keyframes cover-glint {
-    to {
-      transform: translateX(110%);
-    }
   }
   @keyframes cover-drift {
     to {

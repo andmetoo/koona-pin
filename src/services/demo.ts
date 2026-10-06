@@ -479,6 +479,12 @@ export const demo = {
     bookmarks = [b, ...bookmarks];
     persist();
     emit("created", b);
+    // The app reads the page and updates the bookmark, found or not; the demo
+    // reads none, but answers the same way, so the preview stops waiting (NP-087).
+    window.setTimeout(() => {
+      const now = bookmarks.find((item) => item.id === b.id);
+      if (now && now.revision === 1) emit("updated", change(now, {}));
+    }, 600);
     return { bookmark: b, restored: false, existing: false };
   },
   async updateBookmark(
