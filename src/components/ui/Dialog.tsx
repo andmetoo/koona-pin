@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useId, useRef } from "react";
+import { ReactNode, useId, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../icons";
@@ -8,7 +8,9 @@ import { Kbd } from "./Hint";
 /**
  * A modal dialog or, with `drawer`, the editor over the content in a narrow
  * window. Escape and a click on the backdrop close it; focus returns to the
- * element that opened it.
+ * element that opened it. The content mounts only once the dialog is open, so
+ * `autoFocus` inside it works: on a hidden dialog React's focus is lost, and
+ * showModal() would then pick the first control — «×».
  */
 export function Dialog({
   title,
@@ -31,10 +33,12 @@ export function Dialog({
   const titleId = useId();
   const closeRef = useRef(onClose);
   closeRef.current = locked ? () => {} : onClose;
-  useEffect(() => {
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const dialog = ref.current;
     dialog?.showModal();
+    setOpen(true);
     return () => {
       dialog?.close();
       previous?.focus();
@@ -60,24 +64,26 @@ export function Dialog({
         if (e.target === ref.current) closeRef.current();
       }}
     >
-      <div className={drawer ? "min-h-full p-6" : "p-5"}>
-        <header className="mb-4 flex items-center justify-between gap-3">
-          <h2 id={titleId} className="text-lg font-semibold">
-            {title}
-          </h2>
-          <span className="flex items-center gap-1.5">
-            <IconButton label={t("common.close")} onClick={onClose} disabled={locked}>
-              <Icon icon={X} />
-            </IconButton>
-            {drawer && (
-              <span aria-hidden>
-                <Kbd>Esc</Kbd>
-              </span>
-            )}
-          </span>
-        </header>
-        {children}
-      </div>
+      {open && (
+        <div className={drawer ? "min-h-full p-6" : "p-5"}>
+          <header className="mb-4 flex items-center justify-between gap-3">
+            <h2 id={titleId} className="text-lg font-semibold">
+              {title}
+            </h2>
+            <span className="flex items-center gap-1.5">
+              <IconButton label={t("common.close")} onClick={onClose} disabled={locked}>
+                <Icon icon={X} />
+              </IconButton>
+              {drawer && (
+                <span aria-hidden>
+                  <Kbd>Esc</Kbd>
+                </span>
+              )}
+            </span>
+          </header>
+          {children}
+        </div>
+      )}
     </dialog>
   );
 }

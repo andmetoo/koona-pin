@@ -5,4 +5,4 @@
  * The interface has words for each in `src/locales` (`errors.detail`);
  * the English `message` stays for the log (NP-085).
  */
-export type ErrorDetail = "empty_tag" | "empty_collection_name" | "empty_title" | "bookmark_gone" | "not_in_trash" | "invalid_url" | "unsupported_url" | "nothing_exported" | "copy_gone" | "library_opening";
+export type ErrorDetail = "empty_tag" | "empty_collection_name" | "empty_title" | "bookmark_gone" | "not_in_trash" | "invalid_url" | "unsupported_url" | "nothing_exported" | "copy_gone" | "library_opening" | "empty_message" | "message_too_long" | "invalid_email" | "no_connection" | "service_failed" | "too_many_messages" | "proxy_failed" | "no_connection_or_proxy";
