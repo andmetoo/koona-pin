@@ -11,9 +11,9 @@ for (const width of [800, 1200, 1600]) {
         });
         await page.addInitScript(
           ({ theme, view }) => {
-            localStorage.removeItem("netamipin.demo.v4");
-            localStorage.setItem("netamipin.theme", theme);
-            localStorage.setItem("netamipin.view", view);
+            localStorage.removeItem("koonapin.demo.v4");
+            localStorage.setItem("koonapin.theme", theme);
+            localStorage.setItem("koonapin.view", view);
           },
           { theme, view },
         );

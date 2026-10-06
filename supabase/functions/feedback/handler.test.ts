@@ -27,7 +27,7 @@ const app = (body: unknown, headers: Record<string, string> = {}) =>
     headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.7", "x-forwarded-for": "6.6.6.6", ...headers },
     body: JSON.stringify(body),
   });
-const site = (fields: Record<string, string>, origin: string | null = "https://pin.netami.app") =>
+const site = (fields: Record<string, string>, origin: string | null = "https://koona.app") =>
   new Request(URL, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", ...(origin === null ? {} : { origin }), "cf-connecting-ip": "198.51.100.2" },
@@ -37,7 +37,7 @@ const fromApp = {
   kind: "bug",
   message: "  Only the first card moves.  ",
   email: null,
-  report: "Netami Pin 0.1.0\nCapture: connected",
+  report: "Koona Pin 0.1.0\nCapture: connected",
   app_version: "0.1.0",
   os: "Windows 11 24H2 (build 26300), x86_64",
   language: "en",
@@ -58,7 +58,7 @@ describe("feedback function", () => {
         app_version: "0.1.0",
         os: "Windows 11 24H2 (build 26300), x86_64",
         language: "en",
-        report: "Netami Pin 0.1.0\nCapture: connected",
+        report: "Koona Pin 0.1.0\nCapture: connected",
         source: "app",
       },
     ]);
@@ -139,7 +139,7 @@ describe("feedback function", () => {
       deps,
     );
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://pin.netami.app/ru/feedback/sent");
+    expect(response.headers.get("location")).toBe("https://koona.app/pin/ru/feedback/sent");
     expect(rows).toEqual([
       { kind: "idea", message: "Dark mode for the site", email: "anna@example.com", app_version: null, os: null, language: "ru", report: null, source: "site" },
     ]);
@@ -148,21 +148,21 @@ describe("feedback function", () => {
   it("sends the site form to the limit and error pages in its language", async () => {
     const limited = fakes(0);
     const limit = await handle(site({ kind: "bug", message: "x", lang: "en" }), limited.deps);
-    expect(limit.headers.get("location")).toBe("https://pin.netami.app/feedback/limit");
+    expect(limit.headers.get("location")).toBe("https://koona.app/pin/feedback/limit");
     const invalid = await handle(site({ kind: "bug", message: "", lang: "ru" }), fakes().deps);
     expect(invalid.status).toBe(303);
-    expect(invalid.headers.get("location")).toBe("https://pin.netami.app/ru/feedback/long");
+    expect(invalid.headers.get("location")).toBe("https://koona.app/pin/ru/feedback/long");
     const long = await handle(site({ kind: "bug", message: "x".repeat(5001), lang: "en" }), fakes().deps);
-    expect(long.headers.get("location")).toBe("https://pin.netami.app/feedback/long");
+    expect(long.headers.get("location")).toBe("https://koona.app/pin/feedback/long");
     const badKind = await handle(site({ kind: "complaint", message: "x", lang: "en" }), fakes().deps);
-    expect(badKind.headers.get("location")).toBe("https://pin.netami.app/feedback/error");
+    expect(badKind.headers.get("location")).toBe("https://koona.app/pin/feedback/error");
     // A foreign page posting the form, or one hiding its origin (`null`), lands on the error page
     // in the language of the form; nothing is stored.
     const foreign = await handle(site({ kind: "bug", message: "x", lang: "ru" }, "https://evil.example"), fakes().deps);
-    expect([foreign.status, foreign.headers.get("location")]).toEqual([303, "https://pin.netami.app/ru/feedback/origin"]);
+    expect([foreign.status, foreign.headers.get("location")]).toEqual([303, "https://koona.app/pin/ru/feedback/origin"]);
     const hidden = fakes();
     const nullOrigin = await handle(site({ kind: "bug", message: "x", lang: "en" }, "null"), hidden.deps);
-    expect(nullOrigin.headers.get("location")).toBe("https://pin.netami.app/feedback/origin");
+    expect(nullOrigin.headers.get("location")).toBe("https://koona.app/pin/feedback/origin");
     expect(hidden.rows).toHaveLength(0);
     expect((await handle(app(fromApp, { origin: "null" }), fakes().deps)).status).toBe(403);
   });
@@ -170,14 +170,14 @@ describe("feedback function", () => {
   it("takes a long non-Latin message from the site: the cap counts encoded bytes generously", async () => {
     const { deps, rows } = fakes();
     const response = await handle(site({ kind: "idea", message: "漢".repeat(4999), lang: "en" }), deps);
-    expect(response.headers.get("location")).toBe("https://pin.netami.app/feedback/sent");
+    expect(response.headers.get("location")).toBe("https://koona.app/pin/feedback/sent");
     expect([...rows[0].message].length).toBe(4999);
   });
 
   it("tells a bot that filled the hidden field «sent» and keeps nothing", async () => {
     const { deps, rows, hashes } = fakes();
     const response = await handle(site({ kind: "bug", message: "buy now", [TRAP]: "https://spam.example", lang: "en" }), deps);
-    expect(response.headers.get("location")).toBe("https://pin.netami.app/feedback/sent");
+    expect(response.headers.get("location")).toBe("https://koona.app/pin/feedback/sent");
     expect(rows).toHaveLength(0);
     expect(hashes).toHaveLength(0);
   });

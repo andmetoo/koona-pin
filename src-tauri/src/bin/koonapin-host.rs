@@ -76,7 +76,7 @@ fn failure(code: &str, message: &str) -> Value {
 
 fn relay(caller: Option<&str>, message: Value) -> Value {
     // What the person asked for starts the app: saving, searching from the
-    // popup (NP-082) and «Open Netami Pin». A hello does not open an app the
+    // popup (NP-082) and «Open Koona Pin». A hello does not open an app the
     // user closed.
     let starts = matches!(message["type"].as_str(), Some("capture" | "search" | "show"));
     let envelope = json!({ "caller": caller, "message": message });
@@ -92,7 +92,7 @@ fn relay(caller: Option<&str>, message: Value) -> Value {
             }
         }
     }
-    failure("app_unavailable", "Netami Pin is not running or does not answer")
+    failure("app_unavailable", "Koona Pin is not running or does not answer")
 }
 
 fn send(envelope: &Value) -> io::Result<Value> {
@@ -115,7 +115,7 @@ fn send(envelope: &Value) -> io::Result<Value> {
     serde_json::from_str(&line).map_err(io::Error::other)
 }
 
-/// `netamipin.exe --autostart` next to the host: hidden, in the tray.
+/// `koonapin.exe --autostart` next to the host: hidden, in the tray.
 ///
 /// Firefox kills the host's job when it is done, so the app leaves the job
 /// (`CREATE_BREAKAWAY_FROM_JOB`); where the job forbids that, it starts inside.
@@ -132,7 +132,7 @@ fn start_app() -> io::Result<()> {
     };
     let host = std::env::current_exe()?;
     let folder = host.parent().ok_or_else(|| io::Error::other("no folder"))?;
-    let app = folder.join("netamipin.exe");
+    let app = folder.join("koonapin.exe");
     let mut last = io::Error::other("not started");
     for breakaway in [true, false] {
         let mut command: Vec<u16> = format!("\"{}\" --autostart", app.display())
@@ -190,8 +190,8 @@ mod tests {
     fn caller_is_the_origin_or_the_add_on_id() {
         let chrome = ["chrome-extension://abc/".to_string(), "--parent-window=0".into()];
         assert_eq!(caller(&chrome).as_deref(), Some("chrome-extension://abc/"));
-        let firefox = [r"C:\Netami Pin\app.netami.pin.firefox.json".to_string(), "pin@netami.app".into()];
-        assert_eq!(caller(&firefox).as_deref(), Some("pin@netami.app"));
+        let firefox = [r"C:\Koona Pin\app.koona.pin.firefox.json".to_string(), "pin@koona.app".into()];
+        assert_eq!(caller(&firefox).as_deref(), Some("pin@koona.app"));
         assert_eq!(caller(&[]), None);
     }
 

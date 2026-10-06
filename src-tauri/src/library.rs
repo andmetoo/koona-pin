@@ -236,7 +236,7 @@ fn move_aside(paths: &Paths) -> Result<PathBuf, OpenFailure> {
     let stamp = Utc::now().format("%Y%m%d-%H%M%S");
     let target = paths
         .database
-        .with_file_name(format!("netamipin.old-{stamp}.db"));
+        .with_file_name(format!("koonapin.old-{stamp}.db"));
     for suffix in ["-wal", "-shm", ""] {
         let from = PathBuf::from(format!("{}{suffix}", paths.database.display()));
         if from.exists() {
@@ -390,7 +390,7 @@ fn prepare(source: &Path, backups: &Path) -> Result<PathBuf, String> {
     let work = backups.join("restoring");
     let _ = fs::remove_dir_all(&work);
     fs::create_dir_all(&work).map_err(|e| e.to_string())?;
-    let database = work.join("netamipin.db");
+    let database = work.join("koonapin.db");
     let source = Connection::open_with_flags(
         source,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -568,7 +568,7 @@ mod tests {
             .join("../.test-data")
             .join(format!("{name}-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&folder).unwrap();
-        Paths::new(folder.join("netamipin.db"))
+        Paths::new(folder.join("koonapin.db"))
     }
 
     fn build(paths: &Paths, rows: usize) {
@@ -767,7 +767,7 @@ mod tests {
                     .filter_map(|e| e.ok().map(|e| e.path()))
                     .filter(|p| {
                         let name = p.file_name().unwrap().to_string_lossy();
-                        name.starts_with("netamipin.before-restore-") && name.ends_with(".db")
+                        name.starts_with("koonapin.before-restore-") && name.ends_with(".db")
                     })
                     .collect()
             })

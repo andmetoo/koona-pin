@@ -180,10 +180,10 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
 }
 
 /// Overrides the library folder; tests use it to stay away from user data.
-pub const DATA_DIR_ENV: &str = "NETAMIPIN_DATA_DIR";
-const DB_FILE: &str = "netamipin.db";
+pub const DATA_DIR_ENV: &str = "KOONAPIN_DATA_DIR";
+const DB_FILE: &str = "koonapin.db";
 /// The library folder in `%APPDATA%`; the uninstaller may remove it (NP-037).
-pub const DATA_FOLDER: &str = "Netami Pin";
+pub const DATA_FOLDER: &str = "Koona Pin";
 
 pub fn db_path() -> PathBuf {
     if let Some(directory) = std::env::var_os(DATA_DIR_ENV) {
@@ -2123,7 +2123,7 @@ mod tests {
             .join("../.test-data")
             .join(format!("search-reference-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&folder).unwrap();
-        let path = folder.join("netamipin.db");
+        let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 1);
         // Words include «ёлка», domains «пример.рф»; tags, notes, descriptions vary.
         fixtures::generated(&conn, 2_000, 11);
@@ -2135,7 +2135,7 @@ mod tests {
         let version = migrations::SCHEMA_VERSION;
         assert_eq!(migrations::user_version(&conn).unwrap(), version);
         assert!(folder
-            .join(format!("backups/netamipin.before-v{version}.db"))
+            .join(format!("backups/koonapin.before-v{version}.db"))
             .exists());
 
         let queries = [

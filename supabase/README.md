@@ -1,6 +1,6 @@
 # Supabase: приёмник отзывов
 
-NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows). Отзыв из приложения и форма на pin.netami.app пишут в один проект Supabase через Edge Function `feedback`. Разворачивает владелец; ключ `service_role` не попадает ни в приложение, ни в репозиторий.
+NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows). Отзыв из приложения и форма на koona.app/pin пишут в один проект Supabase через Edge Function `feedback`. Разворачивает владелец; ключ `service_role` не попадает ни в приложение, ни в репозиторий.
 
 | Что | Где |
 | --- | --- |
@@ -34,7 +34,7 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
    Адрес: `https://<ref>.supabase.co/functions/v1/feedback`.
 6. **Адрес в сборки.** Записать его в `.env` в корне репозитория (шаблон — `.env.example`, в Git файл не попадает):
    ```
-   NETAMIPIN_FEEDBACK_URL=https://<ref>.supabase.co/functions/v1/feedback
+   KOONAPIN_FEEDBACK_URL=https://<ref>.supabase.co/functions/v1/feedback
    ```
    Его читают сборки приложения (`src-tauri/build.rs`: `npm run tauri build`, `npm run tauri dev`, `cargo build`; установщик — `npm run build:installer`) и сборка сайта (`site/src/content.mjs`: `npm run site:check`, `scripts/deploy-site.ps1`). Переменная окружения с тем же именем важнее файла. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
 

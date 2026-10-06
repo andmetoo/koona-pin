@@ -3,4 +3,4 @@
 // app must speak (Р-17); HOST is the native messaging host the app registers.
 export const VERSION = "0.8.0";
 export const PROTOCOL = 2;
-export const HOST = "app.netami.pin";
+export const HOST = "app.koona.pin";

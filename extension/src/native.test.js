@@ -27,7 +27,7 @@ describe("native messaging", () => {
     const failing = (text) => ({ sendNativeMessage: async () => Promise.reject(new Error(text)) });
     expect((await talk({}, failing("Specified native messaging host not found."))).code).toBe("host_missing");
     expect((await talk({}, failing("Access to the specified native messaging host is forbidden."))).code).toBe("host_missing");
-    expect((await talk({}, failing("No such native application app.netami.pin"))).code).toBe("host_missing");
+    expect((await talk({}, failing("No such native application app.koona.pin"))).code).toBe("host_missing");
     expect((await talk({}, failing("Native host has exited."))).code).toBe("host_failed");
   });
 

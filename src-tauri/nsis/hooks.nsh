@@ -1,4 +1,4 @@
-; Netami Pin installer hooks (NP-037, Р-9, Р-17).
+; Koona Pin installer hooks (NP-037, Р-9, Р-17).
 ;
 ; Tauri's NSIS template (tauri-cli 2.12) includes this file after MUI2 and
 ; LogicLib but before its own defines and pages. So the functions below spell
@@ -7,10 +7,10 @@
 ; (the Welcome page), and MUI_CUSTOMFUNCTION_GUIINIT to MUI's .onGUIInit. After
 ; a Tauri upgrade, check all three still hold (doc/testing.md, «Установщик»).
 
-!define NP_PRODUCT "Netami Pin"
-!define NP_EXE "netamipin.exe"
-!define NP_HOST_EXE "netamipin-host.exe"
-!define NP_DATA_DIR "Netami Pin"
+!define NP_PRODUCT "Koona Pin"
+!define NP_EXE "koonapin.exe"
+!define NP_HOST_EXE "koonapin-host.exe"
+!define NP_DATA_DIR "Koona Pin"
 !define NP_RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 ; Task Manager's «Disabled» flag: 12 bytes, zeros after the first four mean
 ; enabled (as tauri-plugin-autostart reads it); no value means enabled.
@@ -107,7 +107,7 @@ FunctionEnd
   ; app's own code, so the extension saves links before the app first starts.
   ExecWait '"$INSTDIR\${NP_EXE}" --register-host' $0
   ${If} $0 != 0
-    DetailPrint "Netami Pin could not register the browser helper ($0); the app retries at every start."
+    DetailPrint "Koona Pin could not register the browser helper ($0); the app retries at every start."
   ${EndIf}
 
   ; The person's choice on the Welcome page; without the page (passive, silent,
@@ -133,7 +133,7 @@ FunctionEnd
   ${If} $UpdateMode <> 1
     ExecWait '"$INSTDIR\${NP_EXE}" --unregister-host' $0
     ${If} $0 != 0
-      DetailPrint "Netami Pin could not remove the browser helper's keys ($0)."
+      DetailPrint "Koona Pin could not remove the browser helper's keys ($0)."
     ${EndIf}
   ${EndIf}
 !macroend

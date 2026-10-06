@@ -1,15 +1,15 @@
 {
-  "extensionName": { "message": "Netami Pin — зберегти посилання" },
+  "extensionName": { "message": "Koona Pin — зберегти посилання" },
   "extensionDescription": {
-    "message": "Зберігайте сторінку в локальну бібліотеку Netami Pin одним натисканням. Поки застосунок закритий, посилання чекають у черзі."
+    "message": "Зберігайте сторінку в локальну бібліотеку Koona Pin одним натисканням. Поки застосунок закритий, посилання чекають у черзі."
   },
   "menuOptions": { "message": "Налаштування й черга" },
   "menuSearch": { "message": "Знайти посилання" },
-  "commandSearch": { "message": "Знайти посилання в Netami Pin" },
+  "commandSearch": { "message": "Знайти посилання в Koona Pin" },
   "searchPlaceholder": { "message": "Пошук у ваших посиланнях" },
   "searchFilters": { "message": "Де шукати" },
   "searchKeys": { "message": "↑↓ · ↵ відкрити · Shift ↵ тут · Ctrl C копіювати" },
-  "searchOpenApp": { "message": "Відкрити Netami Pin" },
+  "searchOpenApp": { "message": "Відкрити Koona Pin" },
   "searchAll": { "message": "Усі" },
   "searchInbox": { "message": "Вхідні" },
   "searchFavorites": { "message": "Обране" },
@@ -21,7 +21,7 @@
     "placeholders": { "count": { "content": "$1", "example": "50" } }
   },
   "searchEmptyLibrary": { "message": "Поки нічого не збережено" },
-  "searchEmptyLibraryText": { "message": "Натисніть кнопку Netami Pin на сторінці, щоб зберегти її." },
+  "searchEmptyLibraryText": { "message": "Натисніть кнопку Koona Pin на сторінці, щоб зберегти її." },
   "searchNothing": {
     "message": "За запитом «$QUERY$» нічого не знайдено",
     "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
@@ -39,19 +39,19 @@
   },
   "searchNothingText": { "message": "Спробуйте інше слово або шукайте в усій бібліотеці — у кошику пошук не ведеться." },
   "searchEverywhere": { "message": "Шукати всюди" },
-  "searchStarting": { "message": "Запускаємо Netami Pin…" },
+  "searchStarting": { "message": "Запускаємо Koona Pin…" },
   "searchMissingText": {
-    "message": "Пошук іде в бібліотеці Netami Pin на цьому комп'ютері. Встановіть застосунок — збережені посилання до того чекатимуть тут."
+    "message": "Пошук іде в бібліотеці Koona Pin на цьому комп'ютері. Встановіть застосунок — збережені посилання до того чекатимуть тут."
   },
-  "searchUpdateApp": { "message": "Оновіть Netami Pin, щоб шукати" },
-  "searchUpdateAppText": { "message": "Цей Netami Pin зберігає посилання, але ще не вміє шукати з браузера. Збереження працює далі." },
+  "searchUpdateApp": { "message": "Оновіть Koona Pin, щоб шукати" },
+  "searchUpdateAppText": { "message": "Цей Koona Pin зберігає посилання, але ще не вміє шукати з браузера. Збереження працює далі." },
   "searchUpdateButton": { "message": "Завантажити оновлення" },
   "searchUpdateExtensionText": {
-    "message": "Це розширення не підходить до Netami Pin. Оновіть його на сторінці розширень браузера — збереження працює далі."
+    "message": "Це розширення не підходить до Koona Pin. Оновіть його на сторінці розширень браузера — збереження працює далі."
   },
   "searchLibrary": { "message": "Бібліотека не відкрилася" },
-  "searchLibraryText": { "message": "Відкрийте Netami Pin, щоб побачити причину. Збережені посилання до того чекатимуть тут." },
-  "searchUnavailable": { "message": "Netami Pin не відповів" },
+  "searchLibraryText": { "message": "Відкрийте Koona Pin, щоб побачити причину. Збережені посилання до того чекатимуть тут." },
+  "searchUnavailable": { "message": "Koona Pin не відповів" },
   "searchUnavailableText": { "message": "Спробуйте ще раз за мить." },
   "searchCopied": { "message": "Посилання скопійовано" },
   "shortcutHeading": { "message": "Сполучення клавіш" },
@@ -77,15 +77,15 @@
     "message": "Firefox не прийняв $SHORTCUT$. Спробуйте інше.",
     "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
   },
-  "actionTitle": { "message": "Зберегти сторінку в Netami Pin" },
+  "actionTitle": { "message": "Зберегти сторінку в Koona Pin" },
   "queueWaiting": {
-    "message": "Netami Pin: на надсилання чекає $COUNT$. Відкрийте налаштування, щоб побачити чергу.",
+    "message": "Koona Pin: на надсилання чекає $COUNT$. Відкрийте налаштування, щоб побачити чергу.",
     "placeholders": { "count": { "content": "$1", "example": "3" } }
   },
-  "badgeSaving": { "message": "Зберігаємо в Netami Pin" },
-  "badgeWaiting": { "message": "Посилання чекає на надсилання в Netami Pin" },
-  "badgeSaved": { "message": "Збережено в Netami Pin" },
-  "badgeExisting": { "message": "Це посилання вже є в Netami Pin" },
+  "badgeSaving": { "message": "Зберігаємо в Koona Pin" },
+  "badgeWaiting": { "message": "Посилання чекає на надсилання в Koona Pin" },
+  "badgeSaved": { "message": "Збережено в Koona Pin" },
+  "badgeExisting": { "message": "Це посилання вже є в Koona Pin" },
   "errorInvalidUrl": {
     "message": "Цю сторінку не можна зберегти. Відкрийте сторінку з адресою HTTP/HTTPS."
   },
@@ -93,32 +93,32 @@
     "message": "Цю сторінку не можна зберегти. Підтримуються лише посилання HTTP/HTTPS."
   },
   "errorUnavailable": {
-    "message": "Netami Pin не відповів. Посилання буде надіслано знову за хвилину."
+    "message": "Koona Pin не відповів. Посилання буде надіслано знову за хвилину."
   },
   "errorHostMissing": {
-    "message": "Netami Pin не встановлено або його встановлення пошкоджено. Посилання чекає тут."
+    "message": "Koona Pin не встановлено або його встановлення пошкоджено. Посилання чекає тут."
   },
   "errorIncompatible": {
-    "message": "Розширення не підходить до Netami Pin. Оновіть розширення — посилання чекає тут."
+    "message": "Розширення не підходить до Koona Pin. Оновіть розширення — посилання чекає тут."
   },
   "errorIncompatibleApp": {
-    "message": "Netami Pin старіший за розширення. Оновіть Netami Pin — посилання чекає тут."
+    "message": "Koona Pin старіший за розширення. Оновіть Koona Pin — посилання чекає тут."
   },
-  "errorInvalidRequest": { "message": "Netami Pin не може зберегти це посилання." },
+  "errorInvalidRequest": { "message": "Koona Pin не може зберегти це посилання." },
   "errorConflict": {
     "message": "Цей запит уже використано для іншого посилання. Приберіть його з черги."
   },
   "errorDatabase": {
-    "message": "Netami Pin не зміг зберегти посилання. Його буде надіслано знову."
+    "message": "Koona Pin не зміг зберегти посилання. Його буде надіслано знову."
   },
   "errorNoConfirmation": { "message": "Немає підтвердження, що посилання збережено" },
   "errorSaveFailed": { "message": "Не вдалося зберегти посилання" },
   "errorUnknownAction": { "message": "Невідома дія" },
-  "messageSavedTitle": { "message": "Збережено в Netami Pin" },
+  "messageSavedTitle": { "message": "Збережено в Koona Pin" },
   "messageSavedText": { "message": "Додано у вхідні" },
-  "messageExistingTitle": { "message": "Уже є в Netami Pin" },
+  "messageExistingTitle": { "message": "Уже є в Koona Pin" },
   "messageExistingText": { "message": "Ваші теги й нотатки не змінилися" },
-  "messageQueuedTitle": { "message": "Чекає на Netami Pin" },
+  "messageQueuedTitle": { "message": "Чекає на Koona Pin" },
   "messageQueuedText": { "message": "Буде надіслано, коли застосунок відкриється" },
   "messageFailedTitle": { "message": "Не вдалося зберегти посилання" },
   "messageFailedText": { "message": "Дивіться налаштування розширення" },
@@ -129,23 +129,23 @@
   },
   "settingKnown": { "message": "Показувати, що сторінку вже збережено" },
   "settingKnownText": {
-    "message": "Кнопка звіряє кожну відкриту сторінку з вашою бібліотекою на цьому комп'ютері, поки працює Netami Pin. Браузер один раз попросить доступ до вкладок; адреси йдуть лише застосунку."
+    "message": "Кнопка звіряє кожну відкриту сторінку з вашою бібліотекою на цьому комп'ютері, поки працює Koona Pin. Браузер один раз попросить доступ до вкладок; адреси йдуть лише застосунку."
   },
   "settingAnimate": { "message": "Анімувати кнопку" },
   "settingAnimateText": {
-    "message": "Значок Netami Pin підстрибує, коли сторінку збережено. Він не рухається, якщо система просить менше анімації."
+    "message": "Значок Koona Pin підстрибує, коли сторінку збережено. Він не рухається, якщо система просить менше анімації."
   },
-  "optionsTitle": { "message": "Netami Pin — налаштування розширення" },
-  "optionsHeading": { "message": "Розширення Netami Pin" },
+  "optionsTitle": { "message": "Koona Pin — налаштування розширення" },
+  "optionsHeading": { "message": "Розширення Koona Pin" },
   "optionsLead": {
-    "message": "Збережені сторінки потрапляють у бібліотеку Netami Pin на цьому комп'ютері."
+    "message": "Збережені сторінки потрапляють у бібліотеку Koona Pin на цьому комп'ютері."
   },
   "extensionVersion": {
     "message": "Розширення $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
   },
   "appVersion": {
-    "message": "Netami Pin $VERSION$",
+    "message": "Koona Pin $VERSION$",
     "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
   },
   "lastSavedToday": {
@@ -161,37 +161,37 @@
   },
   "connectionHeading": { "message": "Зв'язок" },
   "connectionChecking": { "message": "Перевіряємо застосунок…" },
-  "statusConnected": { "message": "Підключено до Netami Pin" },
+  "statusConnected": { "message": "Підключено до Koona Pin" },
   "checkAgain": { "message": "Перевірити знову" },
-  "statusClosed": { "message": "Netami Pin закритий" },
+  "statusClosed": { "message": "Koona Pin закритий" },
   "statusClosedText": {
     "message": "Він запуститься в системному лотку, коли ви збережете сторінку. До того посилання чекають тут."
   },
   "statusUpdate": { "message": "Оновіть розширення" },
   "statusUpdateText": {
-    "message": "Це розширення ($MINE$) не підходить до Netami Pin $APP$. Оновіть його на сторінці розширень браузера — до того посилання чекають тут.",
+    "message": "Це розширення ($MINE$) не підходить до Koona Pin $APP$. Оновіть його на сторінці розширень браузера — до того посилання чекають тут.",
     "placeholders": {
       "mine": { "content": "$1", "example": "0.4.0" },
       "app": { "content": "$2", "example": "0.9.0" }
     }
   },
-  "statusUpdateApp": { "message": "Оновіть Netami Pin" },
+  "statusUpdateApp": { "message": "Оновіть Koona Pin" },
   "statusUpdateAppText": {
-    "message": "Netami Pin $APP$ старіший за це розширення ($MINE$). Оновіть Netami Pin — до того посилання чекають тут.",
+    "message": "Koona Pin $APP$ старіший за це розширення ($MINE$). Оновіть Koona Pin — до того посилання чекають тут.",
     "placeholders": {
       "app": { "content": "$1", "example": "0.9.0" },
       "mine": { "content": "$2", "example": "0.5.0" }
     }
   },
-  "statusMissing": { "message": "Netami Pin не встановлено" },
+  "statusMissing": { "message": "Koona Pin не встановлено" },
   "statusMissingText": {
-    "message": "Розширення не знаходить застосунок на цьому комп'ютері. Встановіть Netami Pin або перевстановіть його, якщо він уже є."
+    "message": "Розширення не знаходить застосунок на цьому комп'ютері. Встановіть Koona Pin або перевстановіть його, якщо він уже є."
   },
-  "download": { "message": "Завантажити Netami Pin" },
+  "download": { "message": "Завантажити Koona Pin" },
   "queueHeading": { "message": "Чекають на надсилання" },
   "sendNow": { "message": "Надіслати зараз" },
   "queueEmpty": {
-    "message": "Нічого не чекає. Натисніть значок Netami Pin на сторінці, щоб зберегти її."
+    "message": "Нічого не чекає. Натисніть значок Koona Pin на сторінці, щоб зберегти її."
   },
   "removeButton": { "message": "Прибрати" },
   "removeLabel": {
@@ -199,6 +199,6 @@
     "placeholders": { "title": { "content": "$1", "example": "Назва сторінки" } }
   },
   "optionsFooter": {
-    "message": "Посилання залишаються в браузері, доки Netami Pin їх не підтвердить. Якщо застосунок закритий, збереження сторінки запустить його в системному лотку."
+    "message": "Посилання залишаються в браузері, доки Koona Pin їх не підтвердить. Якщо застосунок закритий, збереження сторінки запустить його в системному лотку."
   }
 }

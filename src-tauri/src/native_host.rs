@@ -2,15 +2,15 @@
 //! for Chrome and Edge, one for Firefox, next to the app, and a key under
 //! `HKCU` for each browser. The app checks and repairs this at every start; the
 //! installer writes it too and the uninstaller removes it (NP-037), both through
-//! `netamipin.exe` with [`REGISTER_ARG`] or [`UNREGISTER_ARG`].
+//! `koonapin.exe` with [`REGISTER_ARG`] or [`UNREGISTER_ARG`].
 
 use crate::browsers::CaptureProblem;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
-pub const HOST_NAME: &str = "app.netami.pin";
-pub const HOST_EXE: &str = "netamipin-host.exe";
-pub const GECKO_ID: &str = "pin@netami.app";
+pub const HOST_NAME: &str = "app.koona.pin";
+pub const HOST_EXE: &str = "koonapin-host.exe";
+pub const GECKO_ID: &str = "pin@koona.app";
 /// The extension built from extension/dev-key.txt (NP-015). Anyone can load an
 /// unpacked extension with that public key, so the installer build leaves it out.
 pub const DEV_EXTENSION_ID: &str = "iibgiagcbediajombmkohanobgicbepn";
@@ -23,15 +23,15 @@ pub const STORE_EXTENSION_IDS: &[&str] = &[
     "ocdkndgdeagephdnlmofffbapdifhkho",
 ];
 /// Registers even a development build or an isolated test run.
-pub const REGISTER_ENV: &str = "NETAMIPIN_REGISTER_HOST";
+pub const REGISTER_ENV: &str = "KOONAPIN_REGISTER_HOST";
 /// The installer registers the host before the app ever starts, so the
 /// extension works right after installation with the app closed.
 pub const REGISTER_ARG: &str = "--register-host";
 /// The uninstaller removes the keys before the files they point at.
 pub const UNREGISTER_ARG: &str = "--unregister-host";
 
-const CHROMIUM_MANIFEST: &str = "app.netami.pin.chromium.json";
-const FIREFOX_MANIFEST: &str = "app.netami.pin.firefox.json";
+const CHROMIUM_MANIFEST: &str = "app.koona.pin.chromium.json";
+const FIREFOX_MANIFEST: &str = "app.koona.pin.firefox.json";
 const BROWSER_KEYS: [(&str, &str); 3] = [
     (r"Software\Google\Chrome\NativeMessagingHosts", CHROMIUM_MANIFEST),
     (r"Software\Microsoft\Edge\NativeMessagingHosts", CHROMIUM_MANIFEST),
@@ -52,7 +52,7 @@ pub fn manifests(public_release: bool) -> [(&'static str, String); 2] {
     let common = |extra: (&str, serde_json::Value)| {
         let mut manifest = json!({
             "name": HOST_NAME,
-            "description": "Netami Pin",
+            "description": "Koona Pin",
             "path": HOST_EXE,
             "type": "stdio",
         });

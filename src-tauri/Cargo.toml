@@ -1,13 +1,13 @@
 [package]
-name = "netamipin"
+name = "koonapin"
 version = "0.1.0"
-description = "Netami Pin desktop bookmark library"
+description = "Koona Pin desktop bookmark library"
 edition = "2021"
-# src/bin/netamipin-host.rs is the native messaging host (NP-016).
-default-run = "netamipin"
+# src/bin/koonapin-host.rs is the native messaging host (NP-016).
+default-run = "koonapin"
 
 [lib]
-name = "netamipin_lib"
+name = "koonapin_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

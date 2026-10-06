@@ -1,4 +1,4 @@
-//! Capture over native messaging (Р-17). The browser starts netamipin-host.exe,
+//! Capture over native messaging (Р-17). The browser starts koonapin-host.exe,
 //! the host passes each message over a named pipe, the app answers it. The app
 //! stays the only process that writes the library.
 //!
@@ -73,7 +73,7 @@ enum Message {
         #[serde(default)]
         filter: crate::quick_search::Filter,
     },
-    /// «Open Netami Pin» in the popup: the main window comes up.
+    /// «Open Koona Pin» in the popup: the main window comes up.
     Show {
         #[serde(default)]
         protocol: Option<u32>,
@@ -145,7 +145,7 @@ pub fn handle(
     if protocol != Some(PROTOCOL) {
         let mut reply = failure(
             "incompatible_protocol",
-            "Netami Pin and the extension versions do not match",
+            "Koona Pin and the extension versions do not match",
         );
         reply["protocol"] = json!(PROTOCOL);
         reply["version"] = json!(env!("CARGO_PKG_VERSION"));
@@ -163,7 +163,7 @@ pub fn handle(
         Message::Hello { .. } => Handled {
             reply: json!({
                 "ok": true,
-                "name": "Netami Pin",
+                "name": "Koona Pin",
                 "protocol": PROTOCOL,
                 "version": env!("CARGO_PKG_VERSION"),
             }),
@@ -587,7 +587,7 @@ mod tests {
         let runtime = tokio::runtime::Runtime::new().unwrap();
         let _entered = runtime.enter();
         let mut security = security::OnlyCurrentUser::new().unwrap();
-        let name = format!(r"\\.\pipe\netamipin-dacl-test-{}", std::process::id());
+        let name = format!(r"\\.\pipe\koonapin-dacl-test-{}", std::process::id());
         let pipe = unsafe {
             ServerOptions::new()
                 .first_pipe_instance(true)
@@ -655,7 +655,7 @@ mod tests {
             now(),
         );
         assert_eq!(handled.reply["ok"], true);
-        assert_eq!(handled.reply["name"], "Netami Pin");
+        assert_eq!(handled.reply["name"], "Koona Pin");
         assert_eq!(handled.reply["protocol"], PROTOCOL);
         assert!(handled.contact);
         let status = browsers::status(&Connections::load(&c), None, now());

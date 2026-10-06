@@ -32,7 +32,7 @@ impl ExportFormat {
 
 /// The JSON format: `format` and `version` say what the file is, the rest
 /// is the library. Version 1 (Р-30); NP-033 restores it.
-pub const JSON_FORMAT: &str = "netami-pin";
+pub const JSON_FORMAT: &str = "koona-pin";
 pub const JSON_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -373,11 +373,11 @@ pub fn problem_of(error: &std::io::Error) -> ExportProblem {
     }
 }
 
-/// `netami-pin-2026-10-04.html`: the local date of the export; a selection
-/// is `netami-pin-selected-…`, so it does not replace a copy of the library.
+/// `koona-pin-2026-10-04.html`: the local date of the export; a selection
+/// is `koona-pin-selected-…`, so it does not replace a copy of the library.
 pub fn default_name(format: ExportFormat, scope: Scope) -> String {
     let what = if let Scope::Selected(_) = scope { "selected-" } else { "" };
-    format!("netami-pin-{what}{}.{}", Local::now().format("%Y-%m-%d"), format.extension())
+    format!("koona-pin-{what}{}.{}", Local::now().format("%Y-%m-%d"), format.extension())
 }
 
 #[cfg(test)]
@@ -409,7 +409,7 @@ mod tests {
         let c = library();
         let (text, count) = json(&c, Scope::Library, Utc.with_ymd_and_hms(2026, 10, 4, 12, 0, 0).unwrap()).unwrap();
         let parsed: JsonLibrary = serde_json::from_str(&text).unwrap();
-        assert_eq!((parsed.format.as_str(), parsed.version, count, parsed.bookmarks.len()), ("netami-pin", 1, 7, 7));
+        assert_eq!((parsed.format.as_str(), parsed.version, count, parsed.bookmarks.len()), ("koona-pin", 1, 7, 7));
         assert_eq!(parsed.exported_at, "2026-10-04T12:00:00.000Z");
         let work = parsed.collections.iter().find(|c| c.name == "Работа").unwrap();
         let tokio = parsed.bookmarks.iter().find(|b| b.url == "https://tokio.rs/").unwrap();
@@ -500,13 +500,13 @@ mod tests {
             notes: "n".into(), favorite: "f".into(), inbox: "i".into(), saved: "s".into(),
         }, ';').unwrap();
         assert_eq!(count, 1);
-        assert!(default_name(ExportFormat::Csv, selected).starts_with("netami-pin-selected-"));
+        assert!(default_name(ExportFormat::Csv, selected).starts_with("koona-pin-selected-"));
         assert!(!default_name(ExportFormat::Csv, Scope::Library).contains("selected"));
     }
 
     #[test]
     fn a_failed_write_leaves_the_old_file_and_no_temporary_one() {
-        let folder = std::env::temp_dir().join(format!("netamipin-export-{}", uuid::Uuid::new_v4().simple()));
+        let folder = std::env::temp_dir().join(format!("koonapin-export-{}", uuid::Uuid::new_v4().simple()));
         std::fs::create_dir_all(&folder).unwrap();
         let target = folder.join("library.json");
         std::fs::write(&target, "old").unwrap();
@@ -543,11 +543,11 @@ mod tests {
 
     /// The three files of the sample library, for importing into browsers and
     /// opening in Excel by hand (doc/testing.md):
-    /// `NETAMIPIN_EXPORT_SAMPLES=<folder> cargo test --lib export::tests::write_samples -- --ignored`
+    /// `KOONAPIN_EXPORT_SAMPLES=<folder> cargo test --lib export::tests::write_samples -- --ignored`
     #[test]
     #[ignore]
     fn write_samples() {
-        let folder = std::path::PathBuf::from(std::env::var("NETAMIPIN_EXPORT_SAMPLES").expect("NETAMIPIN_EXPORT_SAMPLES"));
+        let folder = std::path::PathBuf::from(std::env::var("KOONAPIN_EXPORT_SAMPLES").expect("KOONAPIN_EXPORT_SAMPLES"));
         std::fs::create_dir_all(&folder).unwrap();
         let c = library();
         let columns = CsvColumns {

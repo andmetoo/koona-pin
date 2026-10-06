@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/andmetoo/koona-pin/security/advisories/new
+    about: Please don't report security issues in public.
+  - name: Privacy policy
+    url: https://koona.app/pin/privacy
+    about: What the app and the extension do with your data.

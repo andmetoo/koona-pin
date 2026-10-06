@@ -110,7 +110,7 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
                 attempt.follow()
             }
         }))
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 NetamiPin/0.1")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 KoonaPin/0.1")
         .build();
 
     let client = match client {

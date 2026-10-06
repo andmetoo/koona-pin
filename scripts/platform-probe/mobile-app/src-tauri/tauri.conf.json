@@ -1,14 +1,14 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Netami Pin Probe",
+  "productName": "Koona Pin Probe",
   "version": "0.1.0",
-  "identifier": "app.netami.pin.probe",
+  "identifier": "app.koona.pin.probe",
   "build": {
     "frontendDist": "../web"
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": [{ "title": "Netami Pin Probe", "width": 480, "height": 720 }],
+    "windows": [{ "title": "Koona Pin Probe", "width": 480, "height": 720 }],
     "security": { "csp": null }
   },
   "bundle": {

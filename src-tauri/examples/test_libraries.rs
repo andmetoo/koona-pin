@@ -14,7 +14,7 @@ fn main() {
         .unwrap_or_else(|| {
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.test-data/libraries")
         });
-    for line in netamipin_lib::test_libraries::build_all(&output) {
+    for line in koonapin_lib::test_libraries::build_all(&output) {
         println!("{line}");
     }
 }
