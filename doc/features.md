@@ -54,9 +54,9 @@
 
 ```powershell
 npm ci
-copy .env.example .env              # адрес отзыва и секреты подписи; .env не в Git
+copy .env.example .env              # адрес отзыва и отпечаток сертификата; .env не в Git
 npm run build:installer             # без подписи — только для проверочной машины
-npm run build:installer -- --sign   # подпись eSigner, секреты — в release-checklist.md
+npm run build:installer -- --sign   # подпись Certum SimplySign, условия — в release-checklist.md
 ```
 
 Настройки берутся из `.env` в корне репозитория или из переменных окружения (переменная окружения важнее). Скрипт собирает с `--features public-release` и кладёт установщик с `SHA256SUMS.txt` в `release/test/windows/<версия>/`, с `--sign` — в `release/publish/windows/<версия>/`. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
