@@ -9,9 +9,10 @@
 | `/`, `/ru/` | Лендинг на английском и русском |
 | `/privacy`, `/ru/privacy` | Политика конфиденциальности, текст из `extension/store/privacy.md` |
 | `/licenses`, `/ru/licenses` | Лицензии шрифтов, иконок и библиотек; вёрстка страницы privacy, отдельного кадра нет |
+| `/feedback`, `/ru/feedback` и `/feedback/sent`, `/limit`, `/long`, `/origin`, `/error` | Форма отзыва и страницы, на которые её возвращает Edge Function (NP-088); вёрстка страницы privacy, отдельного кадра нет. Собираются, только если задан `NETAMIPIN_FEEDBACK_URL` |
 | `/firefox/updates.json`, `/firefox/netamipin-firefox-<версия>.xpi` | Обновления Firefox (NP-018). Адрес зашит в подписанный XPI и не меняется |
 
-Сайт статический, без серверной части и без скриптов на страницах. Хостинг — сервер владельца с Caddy ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)), конфиг — `site/Caddyfile`, выкладка — ниже.
+Сайт статический, без серверной части и без скриптов на страницах. Единственная форма — отзыв (NP-088): обычный `<form>`, POST прямо в Edge Function `feedback` в Supabase, CSP разрешает `form-action` только `https://*.supabase.co`. Хостинг — сервер владельца с Caddy ([Р-37](decisions.md#р-37-сайт-pinnetamiapp-статика-на-сервере-владельца-надпись-nunito)), конфиг — `site/Caddyfile`, выкладка — ниже.
 
 ## Правила
 
@@ -59,7 +60,7 @@
 | Шаг 3 | Click the button — The page lands in Inbox. Sort it later — it takes about a minute. | Нажмите кнопку — Страница попадёт во «Входящие». Разберите потом — это займёт около минуты. |
 | Что внутри | Find it, sort it, keep it: Sort the inbox from the keyboard · Search titles, sites and tags · Collections and tags · Trash keeps links for 30 days · Import and export | Найти, разобрать, сохранить: Разбор входящих с клавиатуры · Поиск по названию, сайту и тегам · Коллекции и теги · Корзина хранит ссылки 30 дней · Импорт и экспорт |
 | Браузеры | Works with your browser | Работает с вашим браузером |
-| Приватность | Your links stay with you. Netami Pin keeps everything on your computer. There is no server to send it to. Facts: the extension reads only the address and title of the tab you save · the app sends no analytics, telemetry or crash reports · no account and no cloud | Ваши ссылки остаются у вас. Netami Pin хранит всё на вашем компьютере. Отправлять это некуда: сервера нет. Факты: расширение читает только адрес и заголовок сохраняемой вкладки · приложение не отправляет аналитику, телеметрию и отчёты о сбоях · ни аккаунта, ни облака |
+| Приватность | Your links stay with you. Netami Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send reaches the developer. Facts: the extension reads only the address and title of the tab you save · the app sends no analytics, telemetry or crash reports · no account and no cloud | Ваши ссылки остаются у вас. Netami Pin хранит библиотеку на вашем компьютере: ваши ссылки не видит ни один сервер. Разработчику уходит только отзыв, который вы отправите сами. Факты: расширение читает только адрес и заголовок сохраняемой вкладки · приложение не отправляет аналитику, телеметрию и отчёты о сбоях · ни аккаунта, ни облака |
 | Загрузка, «скоро» | Windows beta is on its way. The installer and the browser extensions will be published here. | Windows-beta уже в пути. Установщик и расширения для браузеров появятся здесь. |
 | Требования | Windows 11, 64-bit (no administrator rights needed) · Chrome or Edge 120+, Firefox 140+ (current release or ESR 140) | Windows 11, 64 бит (права администратора не нужны) · Chrome или Edge 120+, Firefox 140+ (текущий релиз или ESR 140) |
 
@@ -104,7 +105,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
 4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Web Analytics (вставка скрипта, без cookies) включена, CSP её разрешает; Email Address Obfuscation и Rocket Loader выключены — они вставляют скрипты, которые CSP заблокирует; Bot Fight Mode выключен — он может ставить cookies. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/` → `/ru/` зависит от языка браузера.
 5. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Netami Pin, `npm run site:shots`, закоммитить `site/src/shots`.
 6. **Обновления Firefox:** после `npm run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/firefox`; сборка сайта забирает их и сверяет хеши.
-7. **Выкладка:**
+7. **Выкладка** (с адресом функции отзыва в `NETAMIPIN_FEEDBACK_URL`, иначе скрипт откажется — форма `/feedback` пропала бы; намеренно без неё — `-WithoutFeedback`):
    ```powershell
    pwsh scripts/deploy-site.ps1 -Server user@host
    ```
@@ -118,5 +119,5 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
 Без прокси (серое облако, `A` на сервер) из `site/Caddyfile` убираются строки `tls`: Caddy сам получит сертификат Let's Encrypt.
 ## Открытые вопросы
 
-1. Ссылка «Support»: сейчас ведёт на `https://github.com/andmetoo/netami-pin-releases/issues/new/choose`. Почта на `netami.app` ([Р-9](decisions.md#р-9-распространение-windows)) — добавить, когда появится адрес.
+1. Ссылка «Support»: при сборке с `NETAMIPIN_FEEDBACK_URL` ведёт на `/feedback` (там же ссылка на Issues), без него — на `https://github.com/andmetoo/netami-pin-releases/issues/new/choose`. Почта на `netami.app` ([Р-9](decisions.md#р-9-распространение-windows)) — добавить, когда появится адрес.
 2. Надпись Nunito ExtraBold выбрана для сайта. Перенос в `logo.sketch`, гайдлайн и боковую панель приложения — отдельной задачей, если владелец решит менять надпись везде.

@@ -31,7 +31,7 @@ describe("command errors", () => {
     await i18n.changeLanguage("en");
   });
   it("has words for every detail and code in every language", () => {
-    const details = ["empty_tag", "empty_collection_name", "empty_title", "bookmark_gone", "not_in_trash", "invalid_url", "unsupported_url", "nothing_exported", "copy_gone", "library_opening"];
+    const details = ["empty_tag", "empty_collection_name", "empty_title", "bookmark_gone", "not_in_trash", "invalid_url", "unsupported_url", "nothing_exported", "copy_gone", "library_opening", "empty_message", "message_too_long", "invalid_email", "no_connection", "service_failed", "too_many_messages", "proxy_failed", "no_connection_or_proxy"];
     for (const language of Object.keys(i18n.options.resources ?? {}))
       for (const key of [
         ...details.flatMap((d) => [`errors.detail.${d}`, `errors.reason.${d}`]),

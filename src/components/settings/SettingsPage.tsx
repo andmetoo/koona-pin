@@ -13,6 +13,7 @@ import {
   statusLabel,
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
+import { GITHUB_ISSUES_URL } from "../../services/feedback";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
 import { Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
@@ -31,6 +32,7 @@ export function SettingsPage({
   onNotice,
   onSaveCopy,
   onRestoreBackup,
+  onFeedback,
   dataVersion,
 }: {
   theme: Theme;
@@ -45,6 +47,8 @@ export function SettingsPage({
   /** «Save a copy…» (NP-034): the notice with «Show» is the caller's. */
   onSaveCopy: () => Promise<void>;
   onRestoreBackup: () => void;
+  /** «Send feedback…» (NP-088): the dialog is the caller's, it keeps the draft. */
+  onFeedback: () => void;
   /** Changes after a restore: the copies are counted again. */
   dataVersion: number;
 }) {
@@ -213,13 +217,19 @@ export function SettingsPage({
       </Section>
       <p className="-mt-2.5 px-3 text-xs leading-[17px] text-muted">{t("settings.backupNote")}</p>
 
+      <Section title={t("settings.support")}>
+        <Row title={t("settings.feedback")} description={t("settings.feedbackHint")}>
+          <Button onClick={onFeedback}>{t("settings.feedbackButton")}</Button>
+        </Row>
+        <Row title={t("settings.github")} description={t("settings.githubHint")}>
+          <Button onClick={() => void attempt("github", () => api.openUrl(GITHUB_ISSUES_URL))}>{t("common.open")}</Button>
+        </Row>
+      </Section>
+
       <p className="flex flex-wrap items-center gap-3 px-3 text-xs text-subtle">
         <span>Netami Pin {version}</span>
         <span title={soon} className="text-faint">
           {t("settings.checkUpdates")}
-        </span>
-        <span title={soon} className="text-faint">
-          {t("settings.report")}
         </span>
       </p>
     </div>

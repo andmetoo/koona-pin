@@ -1,5 +1,5 @@
 // Pages of pin.netami.app as HTML strings. No scripts: language and theme work without JS.
-import { ORIGIN, SUPPORT } from "./content.mjs";
+import { FEEDBACK_ENDPOINT, ORIGIN, SUPPORT } from "./content.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -39,7 +39,7 @@ function shot(lang, view, alt, { eager = false, sizes } = {}) {
   return `<picture><source srcset="${set(dark)}" sizes="${sizes}" media="(prefers-color-scheme: dark)"><img src="/shots/${light}-1280.webp" srcset="${set(light)}" sizes="${sizes}" width="1280" height="800" alt="${esc(alt)}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async"></picture>`;
 }
 
-function head(t, { page, title, description }) {
+function head(t, { page, title, description, extra = "" }) {
   const path = href(t.lang, page);
   const other = t.lang === "en" ? "ru" : "en";
   return `<!doctype html>
@@ -60,7 +60,7 @@ function head(t, { page, title, description }) {
 <link rel="icon" href="/brand/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
 <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/site.css">${extra}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Netami Pin">
 <meta property="og:title" content="${esc(title)}">
@@ -103,7 +103,7 @@ function footer(t, wordmark) {
 <nav class="foot-nav" aria-label="${t.lang === "en" ? "Site" : "Сайт"}">
 <a href="${href(t.lang, "privacy")}">${esc(t.footer.privacy)}</a>
 <a href="${href(t.lang, "licenses")}">${esc(t.footer.licenses)}</a>
-<a href="${SUPPORT}" rel="noopener">${esc(t.footer.support)}</a>
+${FEEDBACK_ENDPOINT ? `<a href="${href(t.lang, "feedback")}">${esc(t.footer.support)}</a>` : `<a href="${SUPPORT}" rel="noopener">${esc(t.footer.support)}</a>`}
 </nav>
 </div>
 <div class="foot-row foot-small"><span>© 2026 Netami</span></div>
@@ -178,8 +178,8 @@ ${t.req.map(([a, b], i) => `<li>${icon(i === 0 ? "monitor" : "globe")}<div><stro
 ${footer(t, wordmark)}`;
 }
 
-function textPage(t, { page, title, body, wordmark, current }) {
-  return `${head(t, { page, title: `${title} — Netami Pin`, description: t.description })}
+function textPage(t, { page, title, body, wordmark, current, extra }) {
+  return `${head(t, { page, title: `${title} — Netami Pin`, description: t.description, extra })}
 ${header(t, { page, wordmark, current })}
 <main id="main" class="wrap text-page">
 <a class="back" href="${href(t.lang, "")}">${icon("arrowLeft", "icon icon-small")}${esc(t.back)}</a>
@@ -225,5 +225,52 @@ export function notFound(t, { wordmark }) {
     wordmark,
     title: n.title,
     body: `<h1>${esc(n.title)}</h1>\n<p class="lead">${esc(n.body)}</p>\n<p><a href="${href(t.lang, "")}">${esc(n.home)}</a></p>`,
+  });
+}
+
+/**
+ * The feedback form (NP-088): a plain form posted straight to the Edge Function, which sends
+ * the browser back to /feedback/sent, /limit or /error. No scripts; a hidden field catches bots.
+ */
+export function feedback(t, { wordmark }) {
+  const f = t.feedback;
+  const kinds = Object.entries(f.kinds)
+    .map(([value, label], i) => `<label><input type="radio" name="kind" value="${value}"${i === 0 ? " checked" : ""}> ${esc(label)}</label>`)
+    .join("\n");
+  const body = `<h1>${esc(f.title)}</h1>
+<p class="lead">${esc(f.lead)}</p>
+<form class="feedback" method="post" action="${esc(FEEDBACK_ENDPOINT)}" accept-charset="utf-8">
+<input type="hidden" name="lang" value="${t.lang}">
+<fieldset class="kinds">
+<legend>${esc(f.kind)}</legend>
+${kinds}
+</fieldset>
+<label class="field-label" for="fb-message">${esc(f.message)}</label>
+<textarea id="fb-message" name="message" rows="8" required placeholder="${esc(f.placeholder)}"></textarea>
+<label class="field-label" for="fb-email">${esc(f.email)}</label>
+<input id="fb-email" type="email" name="email" maxlength="254" autocomplete="email" placeholder="name@example.com">
+<div class="trap" aria-hidden="true"><label for="fb-trap">${esc(f.trap)}</label><input id="fb-trap" name="hp_7q" tabindex="-1" autocomplete="off"></div>
+<p class="form-note">${esc(f.note)} <a href="${href(t.lang, "privacy")}">${esc(f.privacy)}</a></p>
+<p><button class="button button-primary" type="submit">${esc(f.send)}</button></p>
+</form>
+<p>${esc(f.app)}</p>
+<p><a href="${SUPPORT}" rel="noopener noreferrer">${esc(f.github)}</a></p>`;
+  // The site sends Referrer-Policy: same-origin, under which a POST to Supabase would carry
+  // `Origin: null`; this page lets the browser name the site, which the function checks.
+  // Its links to other sites carry rel=noreferrer: they keep the rest of the site's policy.
+  const extra = `\n<meta name="referrer" content="strict-origin-when-cross-origin">`;
+  return textPage(t, { page: "feedback", wordmark, title: f.title, body, extra });
+}
+
+/** Where the function sends the browser: sent, limit or error. */
+export function feedbackResult(t, { wordmark, outcome }) {
+  const f = t.feedback;
+  const r = f[outcome];
+  const back = outcome === "sent" ? "" : `\n<p><a href="${href(t.lang, "feedback")}">${esc(f.again)}</a></p>`;
+  return textPage(t, {
+    page: `feedback/${outcome}`,
+    wordmark,
+    title: r.title,
+    body: `<h1>${esc(r.title)}</h1>\n<p class="lead">${esc(r.body)}</p>${back}`,
   });
 }

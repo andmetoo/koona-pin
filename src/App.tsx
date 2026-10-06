@@ -27,13 +27,15 @@ import { SelectionActions, SelectionBar } from "./components/library/SelectionBa
 import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
+import { FeedbackDialog } from "./components/FeedbackDialog";
+import { emptyDraft, FeedbackDraft } from "./services/feedback";
 import { DuplicatesPage } from "./components/library/DuplicatesPage";
 import { LinkCheckPage } from "./components/library/LinkCheckPage";
 import { mergedNotice } from "./services/duplicates";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | "feedback" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -93,6 +95,8 @@ export function App() {
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
+  // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
+  const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(emptyDraft);
   /** Inbox triage (NP-025) and the filters to go back to when it ends. */
   const [triage, setTriage] = useState<FilterState | null>(null);
   /** Selected bookmarks (NP-028): cleared by another section, settings or triage. */
@@ -815,6 +819,7 @@ export function App() {
                     onNotice={say}
                     onSaveCopy={saveBackupCopy}
                     onRestoreBackup={() => setSurface("backup")}
+                    onFeedback={() => setSurface("feedback")}
                     dataVersion={dataVersion}
                   />
                 </div>
@@ -1135,6 +1140,9 @@ export function App() {
             await Promise.all([library.refresh(), library.refreshCatalog()]);
           }}
         />
+      )}
+      {surface === "feedback" && (
+        <FeedbackDialog draft={feedbackDraft} onDraft={setFeedbackDraft} onClose={() => setSurface(null)} />
       )}
       {surface === "collection" && (
         <CollectionDialog

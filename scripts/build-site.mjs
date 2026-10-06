@@ -6,8 +6,8 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { content, ORIGIN } from "../site/src/content.mjs";
-import { landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
+import { content, FEEDBACK_ENDPOINT, ORIGIN } from "../site/src/content.mjs";
+import { feedback, feedbackResult, landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const out = path.join(root, "dist-site");
@@ -32,8 +32,14 @@ for (const [lang, t] of Object.entries(content)) {
   await page(`${dir}privacy.html`, privacy(t, { markdown, wordmark }));
   await page(`${dir}licenses.html`, licenses(t, { wordmark }));
   await page(`${dir}404.html`, notFound(t, { wordmark }));
+  // /feedback is feedback/index.html next to feedback/sent.html: Caddy tries {path}/index.html.
+  if (FEEDBACK_ENDPOINT) {
+    await page(`${dir}feedback/index.html`, feedback(t, { wordmark }));
+    for (const outcome of ["sent", "limit", "long", "origin", "error"]) await page(`${dir}feedback/${outcome}.html`, feedbackResult(t, { wordmark, outcome }));
+  }
 }
 
+if (!FEEDBACK_ENDPOINT) console.log("feedback: NETAMIPIN_FEEDBACK_URL is not set, the form is left out and Support points at GitHub");
 await cp(from("site/src/site.css"), path.join(out, "site.css"));
 
 // Inter Variable: Latin, Latin Extended, Cyrillic (the pages use nothing else).
@@ -74,7 +80,7 @@ if (existsSync(firefox)) {
 }
 
 await writeFile(path.join(out, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${ORIGIN}/sitemap.xml\n`);
-const urls = ["", "privacy", "licenses"].flatMap((p) => [`/${p}`, `/ru/${p}`]);
+const urls = ["", "privacy", "licenses", ...(FEEDBACK_ENDPOINT ? ["feedback"] : [])].flatMap((p) => [`/${p}`, `/ru/${p}`]);
 await writeFile(
   path.join(out, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${ORIGIN}${u}</loc></url>`).join("\n")}\n</urlset>\n`,
