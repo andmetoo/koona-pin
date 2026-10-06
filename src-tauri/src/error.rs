@@ -57,9 +57,11 @@ pub enum ErrorDetail {
     ServiceFailed,
     /// Over the hourly limit of the service.
     TooManyMessages,
-    /// The network's proxy refused the request: it asks for a sign-in, cannot be
-    /// reached, or is set by a setup script the app cannot run.
+    /// The network's proxy refused the request: it asks for a sign-in or cannot be reached.
     ProxyFailed,
+    /// No connection on a network whose proxy is set by a setup script the app cannot
+    /// run: either cause is possible.
+    NoConnectionOrProxy,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
