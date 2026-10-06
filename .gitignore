@@ -10,6 +10,8 @@ playwright-report/
 *.local
 # Build settings and signing secrets (scripts/build-installer.mjs, .env.example)
 .env
+# Supabase CLI state of the linked project (supabase link, supabase/README.md)
+supabase/.temp/
 
 # Tauri
 src-tauri/target/
