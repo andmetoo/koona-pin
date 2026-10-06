@@ -54,12 +54,12 @@
 
 ```powershell
 npm ci
-$env:NETAMIPIN_FEEDBACK_URL = "https://<ref>.supabase.co/functions/v1/feedback"
+copy .env.example .env              # адрес отзыва и секреты подписи; .env не в Git
 npm run build:installer             # без подписи — только для проверочной машины
 npm run build:installer -- --sign   # подпись eSigner, секреты — в release-checklist.md
 ```
 
-Скрипт собирает с `--features public-release` и печатает путь в `src-tauri/target/release/bundle/nsis/` и SHA-256. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
+Настройки берутся из `.env` в корне репозитория или из переменных окружения (переменная окружения важнее). Скрипт собирает с `--features public-release` и печатает путь в `src-tauri/target/release/bundle/nsis/` и SHA-256. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
 
 Самостоятельная релизная сборка без установщика — `cargo build --release --features custom-protocol` в `src-tauri`, результат `src-tauri/target/release/netamipin.exe`. Она проверена в настоящем WebView2 и с расширением через Native Messaging.
 
