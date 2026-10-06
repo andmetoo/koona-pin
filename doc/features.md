@@ -59,7 +59,7 @@ npm run build:installer             # без подписи — только д�
 npm run build:installer -- --sign   # подпись eSigner, секреты — в release-checklist.md
 ```
 
-Настройки берутся из `.env` в корне репозитория или из переменных окружения (переменная окружения важнее). Скрипт собирает с `--features public-release` и печатает путь в `src-tauri/target/release/bundle/nsis/` и SHA-256. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
+Настройки берутся из `.env` в корне репозитория или из переменных окружения (переменная окружения важнее). Скрипт собирает с `--features public-release` и кладёт установщик с `SHA256SUMS.txt` в `release/test/windows/<версия>/`, с `--sign` — в `release/publish/windows/<версия>/`. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
 
 Самостоятельная релизная сборка без установщика — `cargo build --release --features custom-protocol` в `src-tauri`, результат `src-tauri/target/release/netamipin.exe`. Она проверена в настоящем WebView2 и с расширением через Native Messaging.
 
@@ -69,7 +69,7 @@ npm run build:installer -- --sign   # подпись eSigner, секреты —
 
 Расширение сохраняет текущую HTTP/HTTPS-страницу одним нажатием в Chrome и Edge 120+ и Firefox 140+. Страница настроек с очередью открывается правым кликом по кнопке: «Параметры» в Chrome и Edge, «Настройки и очередь» в Firefox (там у кнопки нет своего пункта, NP-018). Передаются адрес и название вкладки, без тегов и коллекции. Обычного popup нет. Служебные страницы браузера, локальные файлы и другие схемы не поддерживаются. Язык расширения — язык браузера: русский или английский.
 
-Все три варианта собирает одна команда `npm run extension:build` из `extension/src`: распакованные папки `extension/build/chrome`, `edge`, `firefox` и пакеты `release/netamipin-chrome.zip`, `netamipin-edge.zip`, `netamipin-firefox.xpi`; тесты в них не входят. Публикации в каталогах пока нет (NP-017, NP-018), расширение не устанавливается вместе с приложением. Карточки для Chrome Web Store и Edge Add-ons (непубличная публикация), их тексты, обоснование разрешений, картинки и политика конфиденциальности — в `extension/store` (NP-017). Когда в `storeLinks` (`src/services/capture.ts`) появится страница расширения, «Подключить браузер» для этого браузера предложит установку из каталога одной кнопкой вместо режима разработчика.
+Все три варианта собирает одна команда `npm run extension:build` из `extension/src`: распакованные папки `release/dev/chrome`, `edge`, `firefox` и пакеты `release/publish/chrome/<версия>/netamipin-chrome.zip` и `release/publish/edge/<версия>/netamipin-edge.zip`; тесты в них не входят. Публикации в каталогах пока нет (NP-017, NP-018), расширение не устанавливается вместе с приложением. Карточки для Chrome Web Store и Edge Add-ons (непубличная публикация), их тексты, обоснование разрешений, картинки и политика конфиденциальности — в `extension/store` (NP-017). Когда в `storeLinks` (`src/services/capture.ts`) появится страница расширения, «Подключить браузер» для этого браузера предложит установку из каталога одной кнопкой вместо режима разработчика.
 
 ### Установка и подключение
 
@@ -77,9 +77,9 @@ npm run build:installer -- --sign   # подпись eSigner, секреты —
 
 1. Соберите расширение: `npm run extension:build`.
 2. Установите его:
-   - **Chrome**: `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное расширение» → папка `extension/build/chrome`.
-   - **Edge**: `edge://extensions` → «Режим разработчика» → «Загрузить распакованное» → папка `extension/build/edge`.
-   - **Firefox**: подписанный пакет `release/firefox/netamipin-firefox-<версия>.xpi` — `about:addons` → шестерёнка → «Установить дополнение из файла…». Его подписывает AMO без публичной страницы (`npm run extension:sign:firefox`, ключ AMO владельца), он остаётся после перезапуска и сам проверяет обновления по `https://pin.netami.app/firefox/updates.json` (`gecko.update_url`; файл и пакеты публикуются вместе с сайтом, NP-079). Для разработки неподписанный `release/netamipin-firefox.xpi` загружается через `about:debugging#/runtime/this-firefox` → «Загрузить временное дополнение…»; Firefox удаляет его при закрытии.
+   - **Chrome**: `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное расширение» → папка `release/dev/chrome`.
+   - **Edge**: `edge://extensions` → «Режим разработчика» → «Загрузить распакованное» → папка `release/dev/edge`.
+   - **Firefox**: подписанный пакет `release/publish/firefox/netamipin-firefox-<версия>.xpi` — `about:addons` → шестерёнка → «Установить дополнение из файла…». Его подписывает AMO без публичной страницы (`npm run extension:sign:firefox`, ключ AMO владельца), он остаётся после перезапуска и сам проверяет обновления по `https://pin.netami.app/firefox/updates.json` (`gecko.update_url`; файл и пакеты публикуются вместе с сайтом, NP-079). Для разработки `release/dev/firefox/manifest.json` загружается через `about:debugging#/runtime/this-firefox` → «Загрузить временное дополнение…»; Firefox удаляет его при закрытии.
 3. Закрепите значок Netami Pin и нажимайте его на страницах, которые хотите сохранить. Если Netami Pin закрыт, сохранение запустит его в трее.
 
 Установщик регистрирует помощника для Chrome, Edge и Firefox, релизная сборка проверяет и чинит регистрацию при каждом запуске. Отладочная — только с `NETAMIPIN_REGISTER_HOST=1`, чтобы не перехватить регистрацию установленного приложения. Netami Pin пускает расширение из Chrome Web Store (ID `dedcgklilbgbieabgpklellnaccpjhpc`) и Edge Add-ons (ID `ocdkndgdeagephdnlmofffbapdifhkho`) — пока это черновики, они уйдут на проверку после установщика (NP-037) — и, кроме сборки установщика, расширение, собранное из этого репозитория (ID `iibgiagcbediajombmkohanobgicbepn`).

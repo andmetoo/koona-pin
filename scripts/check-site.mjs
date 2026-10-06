@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { publish } from "./lib/paths.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const shots = path.join(root, "test-results", "site");
@@ -14,7 +15,7 @@ const port = 4317;
 const base = `http://127.0.0.1:${port}`;
 const pages = ["/", "/privacy", "/licenses", "/ru/", "/ru/privacy", "/ru/licenses", "/nowhere", "/ru/nowhere"];
 // The feedback form and its result pages, when the build had the function's address (NP-088).
-if (existsSync(path.join(root, "dist-site", "feedback", "index.html")))
+if (existsSync(path.join(publish.site, "feedback", "index.html")))
   pages.push(...["/feedback", "/feedback/sent", "/feedback/limit", "/feedback/long", "/feedback/origin", "/feedback/error"].flatMap((p) => [p, `/ru${p}`]));
 const widths = [360, 390, 1440, 1920];
 
@@ -59,7 +60,7 @@ try {
   // The feedback form really submits (NP-088): the CSP lets it post to the function and lets
   // the function's 303 back to /feedback/sent, and the browser names the site in Origin
   // (the site's own Referrer-Policy would make it `null`). The function is faked here.
-  const form = path.join(root, "dist-site", "feedback", "index.html");
+  const form = path.join(publish.site, "feedback", "index.html");
   if (existsSync(form)) {
     const action = (await readFile(form, "utf8")).match(/<form[^>]* action="([^"]+)"/)?.[1];
     const fp = await browser.newPage();
