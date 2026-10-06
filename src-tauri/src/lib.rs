@@ -156,5 +156,5 @@ pub fn run() {
             tray::get_tray_labels
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Netami Pin");
+        .expect("error while running Koona Pin");
 }

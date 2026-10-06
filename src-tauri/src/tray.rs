@@ -25,9 +25,9 @@ pub struct TrayLabels {
 impl Default for TrayLabels {
     fn default() -> Self {
         TrayLabels {
-            open: "Open Netami Pin".into(),
+            open: "Open Koona Pin".into(),
             quit: "Quit".into(),
-            tooltip: "Netami Pin — your link library".into(),
+            tooltip: "Koona Pin — your link library".into(),
         }
     }
 }

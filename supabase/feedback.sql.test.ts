@@ -24,7 +24,7 @@ const row = {
   app_version: "0.1.0",
   os: "Windows 11",
   language: "en",
-  report: "Netami Pin 0.1.0",
+  report: "Koona Pin 0.1.0",
   source: "app",
 };
 

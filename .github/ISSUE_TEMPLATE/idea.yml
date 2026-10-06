@@ -1,0 +1,30 @@
+name: Idea
+description: Suggest how Koona Pin could work better for you
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem first — what you are trying to do — rather than a ready solution. It helps to find the best one. Issues are public: don't paste your saved links.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      placeholder: "I save 20 links a day and want to …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you do it now?
+      description: In Koona Pin, another app or by hand. What gets in the way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+      description: Optional. A sketch or a description of how you see it.

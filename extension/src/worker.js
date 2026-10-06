@@ -3,10 +3,10 @@ import { browserName, failure, talk } from "./native.js";
 import { createQueue } from "./queue.js";
 import { onMenuClicked, registerMenu } from "./menu.js";
 import { GLYPHS, MARKS, BADGES, PRESS, TONES, drawIcon, frames, parseMark, parseMascot, rest, showMessage } from "./feedback.js";
-const alarmName = "netamipin-delivery";
+const alarmName = "koonapin-delivery";
 // The app counts a browser as connected while it hears from it within three
 // days (NP-016); a hello twice a day keeps that true without any saving.
-const helloAlarm = "netamipin-hello";
+const helloAlarm = "koonapin-hello";
 const HELLO_MINUTES = 12 * 60;
 const ICONS = { 16: "icons/16.png", 32: "icons/32.png" };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

@@ -1,4 +1,4 @@
-// Native messaging smoke (NP-016): the built netamipin-host.exe and app on an
+// Native messaging smoke (NP-016): the built koonapin-host.exe and app on an
 // isolated library and pipe, driven the way a browser drives the host.
 //
 //   cargo build --manifest-path src-tauri/Cargo.toml
@@ -17,9 +17,9 @@ await mkdir(data, { recursive: true });
 const pipe = testPipe("smoke");
 const env = {
   ...process.env,
-  NETAMIPIN_DATA_DIR: data,
+  KOONAPIN_DATA_DIR: data,
   WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-  NETAMIPIN_PIPE: pipe,
+  KOONAPIN_PIPE: pipe,
 };
 const send = (message, options) => hostMessage(message, { env, ...options });
 
@@ -33,7 +33,7 @@ try {
   assert.equal(await pipeReady(pipe), false, "hello must not start the app");
 
   // A capture starts it hidden, in the tray, and saves.
-  const first = capture("smoke-1", "https://example.invalid/netamipin-smoke", "Smoke");
+  const first = capture("smoke-1", "https://example.invalid/koonapin-smoke", "Smoke");
   const saved = await send(first);
   assert.equal(saved.reply.ok, true, JSON.stringify(saved.reply));
   assert.equal(saved.reply.outcome, "created");
@@ -48,7 +48,7 @@ try {
   assert.equal((await send(capture("smoke-3", "chrome://settings", "x"))).reply.code, "invalid_request");
   assert.equal((await send(capture("smoke-1", "https://other.invalid/", "x"))).reply.code, "request_id_conflict");
 
-  const db = new DatabaseSync(path.join(data, "netamipin.db"));
+  const db = new DatabaseSync(path.join(data, "koonapin.db"));
   db.exec("PRAGMA busy_timeout = 5000");
   assert.deepEqual({ ...db.prepare("SELECT title, source FROM bookmarks").get() }, { title: "Smoke", source: "chrome" });
   // A replay after deletion does not bring the bookmark back.
@@ -57,9 +57,9 @@ try {
   assert.equal(db.prepare("SELECT count(*) AS n FROM bookmarks").get().n, 0);
 
   // Firefox passes the manifest path and the add-on id.
-  const firefox = await send(hello("firefox"), { args: [path.join(data, "app.netami.pin.firefox.json"), "pin@netami.app"] });
+  const firefox = await send(hello("firefox"), { args: [path.join(data, "app.koona.pin.firefox.json"), "pin@koona.app"] });
   assert.equal(firefox.reply.ok, true);
-  assert.equal(firefox.reply.name, "Netami Pin");
+  assert.equal(firefox.reply.name, "Koona Pin");
   // An extension of another protocol is refused, with the app's protocol and version.
   const old = await send(hello("edge", 1));
   assert.equal(old.reply.code, "incompatible_protocol");

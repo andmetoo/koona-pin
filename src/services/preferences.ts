@@ -2,7 +2,7 @@ export type Theme = "light" | "dark" | "system";
 
 export function preference<T extends string>(name: string, allowed: T[], fallback: T): T {
   try {
-    const v = localStorage.getItem(`netamipin.${name}`);
+    const v = localStorage.getItem(`koonapin.${name}`);
     if (allowed.includes(v as T)) return v as T;
   } catch {
     /* Storage unavailable: use the default. */
@@ -13,7 +13,7 @@ export function preference<T extends string>(name: string, allowed: T[], fallbac
 /** A free-form value, such as a time; `null` when none is stored. */
 export function storedValue(name: string): string | null {
   try {
-    return localStorage.getItem(`netamipin.${name}`);
+    return localStorage.getItem(`koonapin.${name}`);
   } catch {
     return null;
   }
@@ -21,7 +21,7 @@ export function storedValue(name: string): string | null {
 
 export function savePreference(name: string, value: string) {
   try {
-    localStorage.setItem(`netamipin.${name}`, value);
+    localStorage.setItem(`koonapin.${name}`, value);
   } catch {
     /* Kept for this session only. */
   }

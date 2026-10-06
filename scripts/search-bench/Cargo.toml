@@ -3,7 +3,7 @@ name = "search-bench"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Замер поиска Netami Pin: текущий способ против SQLite FTS5"
+description = "Замер поиска Koona Pin: текущий способ против SQLite FTS5"
 
 # Отдельный проект, чтобы не собирать Tauri. Версия rusqlite совпадает с приложением.
 [dependencies]

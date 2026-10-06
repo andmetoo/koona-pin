@@ -17,10 +17,10 @@ use ts_rs::TS;
 pub const FOLDER: &str = "backups";
 const DAILY: usize = 7;
 const WEEKLY: usize = 4;
-const AUTO_PREFIX: &str = "netamipin.auto-";
+const AUTO_PREFIX: &str = "koonapin.auto-";
 const AUTO_FORMAT: &str = "%Y%m%d-%H%M%S";
-const BEFORE_MIGRATION: &str = "netamipin.before-v";
-const BEFORE_RESTORE: &str = "netamipin.before-restore-";
+const BEFORE_MIGRATION: &str = "koonapin.before-v";
+const BEFORE_RESTORE: &str = "koonapin.before-restore-";
 /// Copies before a restore kept, like those before a migration (Р-10, point 9).
 const KEPT_BEFORE_RESTORE: usize = 2;
 
@@ -40,7 +40,7 @@ pub fn write_copy(conn: &Connection, target: &Path) -> Result<(), String> {
 }
 
 pub fn before_migration_path(folder: &Path, version: i64) -> PathBuf {
-    folder.join(format!("netamipin.before-v{version}.db"))
+    folder.join(format!("koonapin.before-v{version}.db"))
 }
 
 /// A repeated attempt replaces the copy: the library has not changed since.
@@ -62,7 +62,7 @@ pub fn prune_before_migration(folder: &Path, version: i64) {
 const RESTORE_FORMAT: &str = "%Y%m%d-%H%M%S%3fZ";
 const RESTORE_FORMAT_LOCAL: &str = "%Y%m%d-%H%M%S";
 
-/// `netamipin.before-restore-<time>.db`: the library as it was before a
+/// `koonapin.before-restore-<time>.db`: the library as it was before a
 /// restore. UTC, so the clock going back (end of summer time) does not make
 /// a newer copy look older; milliseconds and a free name, so a second restore
 /// in the same second does not write over the first copy.
@@ -181,7 +181,7 @@ pub fn describe(path: &Path) -> Option<BackupCopy> {
     })
 }
 
-/// The copies in the folder (`netamipin.*.db`, as the settings count them),
+/// The copies in the folder (`koonapin.*.db`, as the settings count them),
 /// newest first.
 pub fn list(folder: &Path) -> Vec<BackupCopy> {
     let Ok(entries) = fs::read_dir(folder) else {
@@ -191,7 +191,7 @@ pub fn list(folder: &Path) -> Vec<BackupCopy> {
         .filter_map(Result::ok)
         .filter(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
-            name.starts_with("netamipin.") && name.ends_with(".db")
+            name.starts_with("koonapin.") && name.ends_with(".db")
         })
         .filter_map(|entry| describe(&entry.path()))
         .collect();
@@ -203,7 +203,7 @@ pub fn list(folder: &Path) -> Vec<BackupCopy> {
 /// folder is refused, so the page cannot point outside it.
 pub fn listed(folder: &Path, file_name: &str) -> Option<PathBuf> {
     let plain = Path::new(file_name).file_name()?.to_str()? == file_name;
-    (plain && file_name.starts_with("netamipin.") && file_name.ends_with(".db"))
+    (plain && file_name.starts_with("koonapin.") && file_name.ends_with(".db"))
         .then(|| folder.join(file_name))
         .filter(|path| path.is_file())
 }
@@ -249,7 +249,7 @@ pub fn create_auto(
     Ok(target)
 }
 
-/// Copies in the folder (`netamipin.*.db`, as the settings count them),
+/// Copies in the folder (`koonapin.*.db`, as the settings count them),
 /// their size and the time of the newest automatic copy.
 pub fn summary(folder: &Path) -> (usize, u64, Option<DateTime<Utc>>) {
     let Ok(entries) = fs::read_dir(folder) else {
@@ -259,7 +259,7 @@ pub fn summary(folder: &Path) -> (usize, u64, Option<DateTime<Utc>>) {
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
-            (name.starts_with("netamipin.") && name.ends_with(".db")).then_some((name, entry))
+            (name.starts_with("koonapin.") && name.ends_with(".db")).then_some((name, entry))
         })
         .fold((0, 0, None), |(count, bytes, last), (name, entry)| {
             let time = auto_stamp(&name).map(|time| time.and_utc());
@@ -395,7 +395,7 @@ mod tests {
         // Only plain names of copies in the folder can be restored by name.
         let name = &copies[0].file_name;
         assert_eq!(listed(&folder, name), Some(folder.join(name)));
-        for wrong in ["../netamipin.db", "notes.txt", "netamipin.missing.db", "C:\\netamipin.x.db"] {
+        for wrong in ["../koonapin.db", "notes.txt", "koonapin.missing.db", "C:\\koonapin.x.db"] {
             assert_eq!(listed(&folder, wrong), None, "{wrong}");
         }
     }

@@ -4,8 +4,8 @@ import { coverOf, hash, monogram, PALETTE, pendingFor, PENDING_MS } from "./cove
 describe("covers of bookmarks without a picture (NP-087)", () => {
   it("are the same for the same address, on every start", () => {
     expect(hash("iana.org")).toBe(hash("iana.org"));
-    const a = coverOf("github.com", "https://github.com/andmetoo/netamipin/issues");
-    expect(coverOf("github.com", "https://github.com/andmetoo/netamipin/issues")).toEqual(a);
+    const a = coverOf("github.com", "https://github.com/andmetoo/koonapin/issues");
+    expect(coverOf("github.com", "https://github.com/andmetoo/koonapin/issues")).toEqual(a);
     // The FNV-1a reference value: a change of the hash would recolour every library.
     expect(hash("a")).toBe(0xe40c292c);
   });

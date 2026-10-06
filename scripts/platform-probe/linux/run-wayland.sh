@@ -25,15 +25,15 @@ unset DISPLAY
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 WEBKIT_DISABLE_COMPOSITING_MODE=1
 eval "$(dbus-launch --sh-syntax)"
 
-cp /bin-in/netamipin /tmp/netamipin && chmod +x /tmp/netamipin
-/tmp/netamipin > "$out/app.log" 2>&1 &
+cp /bin-in/koonapin /tmp/koonapin && chmod +x /tmp/koonapin
+/tmp/koonapin > "$out/app.log" 2>&1 &
 pid=$!
 sleep 12
 echo "app alive: $(kill -0 $pid 2>/dev/null && echo yes || echo no)"
-echo "library: $(ls -1 "$HOME/.local/share/Netami Pin" 2>&1 | tr '\n' ' ')"
+echo "library: $(ls -1 "$HOME/.local/share/Koona Pin" 2>&1 | tr '\n' ' ')"
 cd "$out" && weston-screenshooter >/dev/null 2>&1; cd - >/dev/null
 echo "screenshot: $(ls "$out"/wayland-screenshot-*.png 2>/dev/null | head -1)"
-timeout 20 /tmp/netamipin > "$out/second.log" 2>&1
+timeout 20 /tmp/koonapin > "$out/second.log" 2>&1
 echo "second start: exit $?; first alive: $(kill -0 $pid 2>/dev/null && echo yes || echo no)"
 kill "$pid" 2>/dev/null
 echo "app log:"

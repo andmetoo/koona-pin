@@ -1,4 +1,4 @@
-// Screenshots of the real app for pin.netami.app (NP-079): the debug build with WebView2
+// Screenshots of the real app for koona.app/pin (NP-079): the debug build with WebView2
 // and SQLite in a data folder of its own, a sample library restored from JSON, previews from
 // site/shots/previews (Unsplash licence, site/shots/previews/CREDITS.md), Chrome connected.
 //
@@ -6,7 +6,7 @@
 //   node scripts/site-screenshots.mjs
 //
 // Writes site/src/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280)
-// and og-<lang>.jpg. Quit your own Netami Pin first:
+// and og-<lang>.jpg. Quit your own Koona Pin first:
 // only one instance runs per user.
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
@@ -41,7 +41,7 @@ function copyOf(lang, base) {
     };
   });
   return {
-    format: "netami-pin", version: 1, exported_at: day(0), app_version: "0.1.0",
+    format: "koona-pin", version: 1, exported_at: day(0), app_version: "0.1.0",
     collections, tags: [...tags.values()], bookmarks,
   };
 }
@@ -77,8 +77,8 @@ async function shoot(lang, base, encoder) {
   const pipe = testPipe(`site-${lang}`);
   const env = {
     ...process.env,
-    NETAMIPIN_DATA_DIR: data,
-    NETAMIPIN_PIPE: pipe,
+    KOONAPIN_DATA_DIR: data,
+    KOONAPIN_PIPE: pipe,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=9226 --lang=${lang === "ru" ? "ru" : "en-US"}`,
   };
@@ -108,8 +108,8 @@ async function shoot(lang, base, encoder) {
       for (const view of ["grid", "list"]) {
         if (lang === "ru" && theme === "dark") continue;
         await page.evaluate(([t, v]) => {
-          localStorage.setItem("netamipin.theme", t);
-          localStorage.setItem("netamipin.view", v);
+          localStorage.setItem("koonapin.theme", t);
+          localStorage.setItem("koonapin.view", v);
         }, [theme, view]);
         await page.reload();
         await metrics();

@@ -191,7 +191,7 @@ fn client(limits: &Limits) -> reqwest::Result<reqwest::Client> {
         .dns_resolver(net_guard::resolver(limits.allow))
         // Followed by hand: each hop is checked and its status counted.
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 NetamiPin/0.1")
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 KoonaPin/0.1")
         .build()
 }
 

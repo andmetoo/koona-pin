@@ -1,4 +1,4 @@
-// Замер поиска: текущий способ Netami Pin (db::get_bookmarks) против SQLite FTS5.
+// Замер поиска: текущий способ Koona Pin (db::get_bookmarks) против SQLite FTS5.
 // Синтетическая библиотека в памяти; та же сборка SQLite, что в приложении (rusqlite 0.32 bundled).
 // Запуск: cargo run --release --locked (из scripts/search-bench).
 use rusqlite::{params, Connection};

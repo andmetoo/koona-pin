@@ -1,4 +1,4 @@
-// Builds pin.netami.app into release/publish/site/ (doc/site.md): static pages in English and
+// Builds koona.app/pin/ into release/publish/site/ (doc/site.md): static pages in English and
 // Russian, fonts, brand and screenshots served from the site itself, and the Firefox updates of
 // NP-018 from release/publish/firefox when they are there.
 //   node scripts/build-site.mjs
@@ -6,7 +6,7 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { content, FEEDBACK_ENDPOINT, ORIGIN } from "../site/src/content.mjs";
+import { BASE, content, FEEDBACK_ENDPOINT, SITE } from "../site/src/content.mjs";
 import { feedback, feedbackResult, landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
 import { publish, root } from "./lib/paths.mjs";
 
@@ -39,7 +39,7 @@ for (const [lang, t] of Object.entries(content)) {
   }
 }
 
-if (!FEEDBACK_ENDPOINT) console.log("feedback: NETAMIPIN_FEEDBACK_URL is not set, the form is left out and Support points at GitHub");
+if (!FEEDBACK_ENDPOINT) console.log("feedback: KOONAPIN_FEEDBACK_URL is not set, the form is left out and Support points at GitHub");
 await cp(from("site/src/site.css"), path.join(out, "site.css"));
 
 // Inter Variable: Latin, Latin Extended, Cyrillic (the pages use nothing else).
@@ -69,7 +69,7 @@ if (existsSync(firefox)) {
   const manifest = JSON.parse(await readFile(path.join(firefox, "updates.json"), "utf8"));
   for (const u of Object.values(manifest.addons).flatMap((a) => a.updates)) {
     const file = path.join(firefox, path.basename(new URL(u.update_link).pathname));
-    if (!u.update_link.startsWith(`${ORIGIN}/firefox/`)) throw new Error(`updates.json: ${u.update_link} is not under ${ORIGIN}/firefox/`);
+    if (!u.update_link.startsWith(`${SITE}/firefox/`)) throw new Error(`updates.json: ${u.update_link} is not under ${SITE}/firefox/`);
     const hash = `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`;
     if (hash !== u.update_hash) throw new Error(`updates.json: ${path.basename(file)} has ${hash}, the manifest says ${u.update_hash}`);
   }
@@ -79,11 +79,11 @@ if (existsSync(firefox)) {
   console.log("firefox: release/publish/firefox not found, /firefox/ is left out (npm run extension:sign:firefox)");
 }
 
-await writeFile(path.join(out, "robots.txt"), `User-agent: *\nAllow: /\nSitemap: ${ORIGIN}/sitemap.xml\n`);
+// robots.txt belongs to the root of koona.app, which names this sitemap (site/Caddyfile, Р-47).
 const urls = ["", "privacy", "licenses", ...(FEEDBACK_ENDPOINT ? ["feedback"] : [])].flatMap((p) => [`/${p}`, `/ru/${p}`]);
 await writeFile(
   path.join(out, "sitemap.xml"),
-  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${ORIGIN}${u}</loc></url>`).join("\n")}\n</urlset>\n`,
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${SITE}${u}</loc></url>`).join("\n")}\n</urlset>\n`,
 );
 
 const files = [];
@@ -96,13 +96,13 @@ async function walk(dir) {
 }
 await walk(out);
 
-// Caddy lets browsers and Cloudflare keep /site.css, /brand, /shots and /fonts for a week
+// Caddy lets browsers and Cloudflare keep site.css, brand, shots and fonts for a week
 // (site/Caddyfile), while pages are no-cache. Each link carries the file's hash, so a deploy
 // that changes a file changes its address, and a new page never meets the old stylesheet.
-const ASSET = /\/(?:site\.css|(?:brand|shots|fonts)\/[\w.-]+)/g;
+const ASSET = new RegExp(`${BASE}/(?:site\\.css|(?:brand|shots|fonts)/[\\w.-]+)`, "g");
 const versions = new Map();
 for (const file of files.filter((f) => /^(site\.css|(brand|shots|fonts)\/[^/]+)$/.test(f))) {
-  versions.set(`/${file}`, createHash("sha256").update(await readFile(path.join(out, file))).digest("hex").slice(0, 10));
+  versions.set(`${BASE}/${file}`, createHash("sha256").update(await readFile(path.join(out, file))).digest("hex").slice(0, 10));
 }
 for (const file of files.filter((f) => f.endsWith(".html"))) {
   const html = await readFile(path.join(out, file), "utf8");

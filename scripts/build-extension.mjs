@@ -3,8 +3,8 @@
 //
 //   release/dev/<browser>/                            unpacked, for «Load unpacked», Firefox's
 //                                                     temporary add-on and tests
-//   release/publish/chrome/<version>/netamipin-chrome.zip   Chrome Web Store
-//   release/publish/edge/<version>/netamipin-edge.zip       Edge Add-ons
+//   release/publish/chrome/<version>/koonapin-chrome.zip   Chrome Web Store
+//   release/publish/edge/<version>/koonapin-edge.zip       Edge Add-ons
 //   (Firefox: npm run extension:sign:firefox signs the unpacked folder on AMO.)
 //
 // The unpacked Chrome and Edge folders carry the development key
@@ -13,7 +13,7 @@
 // without it: the store assigns its own id.
 //
 // With CHROME_STORE_PUBLIC_KEY (environment or .env; .env.example) there is one more:
-// release/test/chrome-edge/<version>/netamipin-chrome-store-id.zip, the same extension with
+// release/test/chrome-edge/<version>/koonapin-chrome-store-id.zip, the same extension with
 // the Chrome Web Store's id, for testing the installer build before the store publishes it
 // (NP-037). Not for upload: the store refuses a manifest with `key`.
 import { crc32, deflateRawSync } from "node:zlib";
@@ -27,12 +27,12 @@ import { dev, publish, root, test } from "./lib/paths.mjs";
 const source = path.join(root, "extension", "src");
 const { VERSION } = await import(pathToFileURL(path.join(source, "version.js")).href);
 
-export const geckoId = "pin@netami.app";
+export const geckoId = "pin@koona.app";
 /** The Chrome Web Store draft's id (NP-017), as STORE_EXTENSION_IDS in native_host.rs. */
 export const chromeStoreId = "dedcgklilbgbieabgpklellnaccpjhpc";
 /** Self-hosted Firefox updates (NP-018); the file is published with the site. */
-export const firefoxUpdateUrl = "https://pin.netami.app/firefox/updates.json";
-export const firefoxDownloadBase = "https://pin.netami.app/firefox";
+export const firefoxUpdateUrl = "https://koona.app/pin/firefox/updates.json";
+export const firefoxDownloadBase = "https://koona.app/pin/firefox";
 export const browsers = ["chrome", "edge", "firefox"];
 
 const icons = { 16: "icons/16.png", 32: "icons/32.png", 48: "icons/48.png", 128: "icons/128.png" };
@@ -189,12 +189,12 @@ export async function buildExtension({ log = console.log } = {}) {
     result.unpacked[browser] = unpacked;
   }
   for (const browser of ["chrome", "edge"]) {
-    const archive = path.join(publish[browser](VERSION), `netamipin-${browser}.zip`);
+    const archive = path.join(publish[browser](VERSION), `koonapin-${browser}.zip`);
     await write(archive, zip([...files, { name: "manifest.json", data: json(manifest(browser)) }]));
     result.packages[browser] = archive;
   }
   const shown = (file) => path.relative(root, file);
-  log(`Netami Pin extension ${VERSION}, development id ${result.devId}`);
+  log(`Koona Pin extension ${VERSION}, development id ${result.devId}`);
   for (const browser of browsers) log(`  ${browser}, unpacked: ${shown(result.unpacked[browser])}`);
   for (const browser of ["chrome", "edge"]) log(`  ${browser}, for the store: ${shown(result.packages[browser])}`);
 
@@ -203,8 +203,8 @@ export async function buildExtension({ log = console.log } = {}) {
   if (storeKey) {
     const id = extensionId(storeKey);
     if (id !== chromeStoreId)
-      throw new Error(`CHROME_STORE_PUBLIC_KEY gives the id ${id}, not the Chrome Web Store's ${chromeStoreId}: copy the key of the Netami Pin item`);
-    const archive = path.join(test.chromeEdge(VERSION), "netamipin-chrome-store-id.zip");
+      throw new Error(`CHROME_STORE_PUBLIC_KEY gives the id ${id}, not the Chrome Web Store's ${chromeStoreId}: copy the key of the Koona Pin item`);
+    const archive = path.join(test.chromeEdge(VERSION), "koonapin-chrome-store-id.zip");
     await write(archive, zip([...files, { name: "manifest.json", data: json(manifest("chrome", { dev: true, key: storeKey })) }]));
     result.storeId = { id, archive };
     log(`  chrome and edge with the store id ${id}, for a test machine only: ${shown(archive)}`);

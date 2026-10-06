@@ -1,7 +1,7 @@
-// Texts of pin.netami.app, English and Russian, as in landing.sketch (doc/site.md).
+// Texts of koona.app/pin, English and Russian, as in landing.sketch (doc/site.md).
 import { existsSync } from "node:fs";
 
-// NETAMIPIN_FEEDBACK_URL below: from the environment or from .env in the repository root
+// KOONAPIN_FEEDBACK_URL below: from the environment or from .env in the repository root
 // (.env.example), for site:build, site:check and deploy-site.ps1 alike. The environment wins.
 const dotenv = new URL("../../.env", import.meta.url);
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
@@ -9,17 +9,17 @@ if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 export const content = {
   en: {
     lang: "en",
-    title: "Netami Pin — bookmarks for Windows, saved in one click",
+    title: "Koona Pin — bookmarks for Windows, saved in one click",
     description:
       "A bookmark library for Windows. Save pages from Chrome, Edge and Firefox with one button; they stay on your computer. No account, no cloud.",
     nav: { how: "How it works", privacy: "Privacy", download: "Download" },
     langSwitch: "Language",
     h1: ["Save a link in one click.", "Find it when you need it."],
-    sub: "Netami Pin is a bookmark library for Windows. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer. No account, no cloud.",
+    sub: "Koona Pin is a bookmark library for Windows. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer. No account, no cloud.",
     soon: "Windows beta — coming soon",
     how: "How it works",
     meta: ["Windows 11", "Chrome, Edge, Firefox", "Free"],
-    shotAlt: "Netami Pin with eight bookmarks in a grid: previews, sites, titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox.",
+    shotAlt: "Koona Pin with eight bookmarks in a grid: previews, sites, titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox.",
     listAlt: "The same library as a list grouped by date, with tags, collections and dates.",
     pillars: [
       ["One button", "Click it on any page and the link is saved — even when the app is closed."],
@@ -28,7 +28,7 @@ export const content = {
     ],
     howTitle: "How it works",
     steps: [
-      ["Install the app", "Netami Pin for Windows starts with the system and waits in the tray."],
+      ["Install the app", "Koona Pin for Windows starts with the system and waits in the tray."],
       ["Add the extension", "Chrome, Edge or Firefox. It talks only to the app on your computer."],
       ["Click the button", "The page lands in Inbox. Sort it later — it takes about a minute."],
     ],
@@ -43,7 +43,7 @@ export const content = {
     browsersTitle: "Works with your browser",
     browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
     privacyTitle: "Your links stay with you",
-    privacyBody: "Netami Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send reaches the developer.",
+    privacyBody: "Koona Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send reaches the developer.",
     privacyFacts: [
       "The extension reads only the address and title of the tab you save.",
       "The app sends no analytics, telemetry or crash reports.",
@@ -57,7 +57,7 @@ export const content = {
       ["Chrome or Edge 120+, Firefox 140+", "Current release or ESR 140"],
     ],
     footer: { privacy: "Privacy", licenses: "Licenses", support: "Support" },
-    back: "Netami Pin",
+    back: "Koona Pin",
     privacyPage: { title: "Privacy policy", updated: "Last updated 6 October 2026", section: "English" },
     licenses: {
       title: "Licenses",
@@ -89,24 +89,24 @@ export const content = {
       sent: { title: "Sent. Thank you!", body: "The developer reads every message. If you left an email, the reply will come there." },
       limit: { title: "Too many messages", body: "Too many messages from this network in the last hour. Try again later: your browser's Back button returns to the form with your text." },
       long: { title: "Message too long", body: "A message can be from 1 to 5000 characters. Your browser's Back button returns to the form with your text — shorten it and send it again." },
-      origin: { title: "Couldn't send", body: "The browser did not say which site the form came from, so the message was not accepted. This happens with strict privacy settings or extensions that hide the referrer: allow it for pin.netami.app and send again with the browser's Back button, or report on GitHub." },
+      origin: { title: "Couldn't send", body: "The browser did not say which site the form came from, so the message was not accepted. This happens with strict privacy settings or extensions that hide the referrer: allow it for koona.app/pin and send again with the browser's Back button, or report on GitHub." },
       error: { title: "Couldn't send", body: "The message didn't go through. Your browser's Back button returns to the form with your text: try again, or report it on GitHub." },
     },
     skip: "Skip to content",
   },
   ru: {
     lang: "ru",
-    title: "Netami Pin — закладки для Windows одной кнопкой",
+    title: "Koona Pin — закладки для Windows одной кнопкой",
     description:
       "Библиотека закладок для Windows. Сохраняйте страницы из Chrome, Edge и Firefox одной кнопкой — они остаются на вашем компьютере. Без аккаунта и облака.",
     nav: { how: "Как это работает", privacy: "Приватность", download: "Скачать" },
     langSwitch: "Язык",
     h1: ["Сохраняйте ссылки одной кнопкой.", "Находите, когда понадобятся."],
-    sub: "Netami Pin — библиотека закладок для Windows. Страницы попадают в неё из Chrome, Edge и Firefox одной кнопкой и остаются на вашем компьютере. Без аккаунта и облака.",
+    sub: "Koona Pin — библиотека закладок для Windows. Страницы попадают в неё из Chrome, Edge и Firefox одной кнопкой и остаются на вашем компьютере. Без аккаунта и облака.",
     soon: "Windows-beta — скоро",
     how: "Как это работает",
     meta: ["Windows 11", "Chrome, Edge, Firefox", "Бесплатно"],
-    shotAlt: "Netami Pin с восемью закладками сеткой: превью, сайты, заголовки, коллекции и теги в боковой панели, две новые закладки ждут во «Входящих».",
+    shotAlt: "Koona Pin с восемью закладками сеткой: превью, сайты, заголовки, коллекции и теги в боковой панели, две новые закладки ждут во «Входящих».",
     listAlt: "Та же библиотека списком по датам, с тегами, коллекциями и датами.",
     pillars: [
       ["Одна кнопка", "Нажмите на любой странице — ссылка сохранится, даже если приложение закрыто."],
@@ -115,7 +115,7 @@ export const content = {
     ],
     howTitle: "Как это работает",
     steps: [
-      ["Установите приложение", "Netami Pin для Windows запускается вместе с системой и ждёт в трее."],
+      ["Установите приложение", "Koona Pin для Windows запускается вместе с системой и ждёт в трее."],
       ["Добавьте расширение", "Chrome, Edge или Firefox. Оно общается только с приложением на вашем компьютере."],
       ["Нажмите кнопку", "Страница попадёт во «Входящие». Разберите потом — это займёт около минуты."],
     ],
@@ -130,7 +130,7 @@ export const content = {
     browsersTitle: "Работает с вашим браузером",
     browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
     privacyTitle: "Ваши ссылки остаются у вас",
-    privacyBody: "Netami Pin хранит библиотеку на вашем компьютере: ваши ссылки не видит ни один сервер. Разработчику уходит только отзыв, который вы отправите сами.",
+    privacyBody: "Koona Pin хранит библиотеку на вашем компьютере: ваши ссылки не видит ни один сервер. Разработчику уходит только отзыв, который вы отправите сами.",
     privacyFacts: [
       "Расширение читает только адрес и заголовок сохраняемой вкладки.",
       "Приложение не отправляет аналитику, телеметрию и отчёты о сбоях.",
@@ -144,7 +144,7 @@ export const content = {
       ["Chrome или Edge 120+, Firefox 140+", "Текущий релиз или ESR 140"],
     ],
     footer: { privacy: "Приватность", licenses: "Лицензии", support: "Поддержка" },
-    back: "Netami Pin",
+    back: "Koona Pin",
     privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 6 октября 2026 года", section: "Русский" },
     licenses: {
       title: "Лицензии",
@@ -176,15 +176,18 @@ export const content = {
       sent: { title: "Отправлено. Спасибо!", body: "Разработчик читает каждое сообщение. Если вы оставили почту, ответ придёт туда." },
       limit: { title: "Слишком много сообщений", body: "Слишком много сообщений из этой сети за последний час. Повторите позже: кнопка «Назад» браузера вернёт форму с вашим текстом." },
       long: { title: "Слишком длинное сообщение", body: "В сообщении может быть от 1 до 5000 символов. Кнопка «Назад» браузера вернёт форму с вашим текстом — сократите его и отправьте снова." },
-      origin: { title: "Не отправилось", body: "Браузер не сообщил, с какого сайта пришла форма, поэтому сообщение не принято. Так бывает со строгими настройками приватности или расширениями, которые скрывают источник перехода: разрешите его для pin.netami.app и отправьте снова кнопкой «Назад» браузера или сообщите на GitHub." },
+      origin: { title: "Не отправилось", body: "Браузер не сообщил, с какого сайта пришла форма, поэтому сообщение не принято. Так бывает со строгими настройками приватности или расширениями, которые скрывают источник перехода: разрешите его для koona.app/pin и отправьте снова кнопкой «Назад» браузера или сообщите на GitHub." },
       error: { title: "Не отправилось", body: "Сообщение не дошло. Кнопка «Назад» браузера вернёт форму с вашим текстом: повторите или сообщите на GitHub." },
     },
     skip: "Перейти к содержимому",
   },
 };
 
-export const SUPPORT = "https://github.com/andmetoo/netami-pin-releases/issues/new/choose";
+export const SUPPORT = "https://github.com/andmetoo/koona-pin/issues/new/choose";
 // The Edge Function `feedback` (NP-088): the site form posts here. Without it the
 // build leaves the form out and «Support» keeps pointing at GitHub.
-export const FEEDBACK_ENDPOINT = process.env.NETAMIPIN_FEEDBACK_URL || "";
-export const ORIGIN = "https://pin.netami.app";
+export const FEEDBACK_ENDPOINT = process.env.KOONAPIN_FEEDBACK_URL || "";
+export const ORIGIN = "https://koona.app";
+// Every app of koona.app is a path of it (Р-47): pages, assets and redirects of this site are under BASE.
+export const BASE = "/pin";
+export const SITE = `${ORIGIN}${BASE}`;

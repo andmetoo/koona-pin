@@ -38,7 +38,7 @@ async function open(name, env) {
       break;
     }
     // The capture pipe opens only once the library is open.
-    if (await pipeReady(env.NETAMIPIN_PIPE)) {
+    if (await pipeReady(env.KOONAPIN_PIPE)) {
       result = `открыто за ${Date.now() - started} мс`;
       break;
     }
@@ -59,12 +59,12 @@ const stamp = Date.now();
 for (const name of (await readdir(libraries)).filter((file) => file.endsWith(".db"))) {
   const data = path.resolve(".test-data", `open-${stamp}`, name);
   await mkdir(data, { recursive: true });
-  await copyFile(path.join(libraries, name), path.join(data, "netamipin.db"));
+  await copyFile(path.join(libraries, name), path.join(data, "koonapin.db"));
   await open(name, {
-    NETAMIPIN_DATA_DIR: data,
+    KOONAPIN_DATA_DIR: data,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-    NETAMIPIN_PIPE: testPipe("library"),
+    KOONAPIN_PIPE: testPipe("library"),
   });
-  const moved = (await readdir(data)).filter((file) => file.startsWith("netamipin.old-"));
-  console.log(`${"".padEnd(30)} после: ${inspect(path.join(data, "netamipin.db"))}${moved.length ? `; прежняя перенесена: ${moved.join(", ")}` : ""}`);
+  const moved = (await readdir(data)).filter((file) => file.startsWith("koonapin.old-"));
+  console.log(`${"".padEnd(30)} после: ${inspect(path.join(data, "koonapin.db"))}${moved.length ? `; прежняя перенесена: ${moved.join(", ")}` : ""}`);
 }
