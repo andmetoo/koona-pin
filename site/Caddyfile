@@ -34,14 +34,21 @@ handle_path /pin/* {
 
 	# Paths below are without /pin: handle_path has taken it off. Redirects put it back.
 
-	# First visit of /pin/ from a Russian browser goes to /pin/ru/. The language switch is a link
-	# from these pages (same-origin Referer), so a chosen English page stays English.
-	@russian {
+	# First visit of /pin/ goes to the browser's first language, if the site has it (NP-107), as
+	# matchLanguage of the app does, with the site's one Serbian (Latin) for either script and
+	# Portuguese of any region to pt-br. The language menu is a link from these pages (same-origin Referer),
+	# so a chosen English page stays English. scripts/serve-site.mjs reads these rules from here:
+	# keep one `@name header_regexp …` line and one `redir @name …` line per rule.
+	@welcome {
 		path /
-		header_regexp Accept-Language (?i)^\s*ru\b
 		not header Referer https://koona.app/pin/*
 	}
-	redir @russian /pin/ru/ 302
+	route @welcome {
+		@pt header_regexp Accept-Language (?i)^\s*pt\b
+		redir @pt /pin/pt-br/ 302
+		@other header_regexp lang Accept-Language (?i)^\s*(de|es|fr|it|pl|ru|sr|tr|uk)\b
+		redir @other /pin/{re.lang.1}/ 302
+	}
 	header / Vary "Accept-Language"
 
 	# Old .html addresses go to the clean ones.
@@ -70,9 +77,9 @@ handle_path /pin/* {
 		file_server
 	}
 	# Anything else is this site's own 404 page, in the language of the address.
-	@ru path /ru/*
-	handle @ru {
-		rewrite * /ru/404.html
+	@language path_regexp language ^/(ru|de|es|fr|it|pl|pt-br|sr|tr|uk)/
+	handle @language {
+		rewrite * /{re.language.1}/404.html
 		file_server {
 			status 404
 		}

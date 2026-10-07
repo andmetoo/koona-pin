@@ -1,191 +1,64 @@
-// Texts of koona.app/pin, English and Russian, as in landing.sketch (doc/site.md).
-import { existsSync } from "node:fs";
+// Texts of koona.app/pin (doc/site.md): one file per language in ./locales, English the source.
+// The languages are the app's (NP-089, NP-107), with one Serbian: Latin, the owner's choice.
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 // KOONAPIN_FEEDBACK_URL below: from the environment or from .env in the repository root
 // (.env.example), for site:build, site:check and deploy-site.ps1 alike. The environment wins.
 const dotenv = new URL("../../.env", import.meta.url);
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 
-export const content = {
-  en: {
-    lang: "en",
-    title: "Koona Pin — desktop bookmarks, saved in one click",
-    description:
-      "A desktop bookmark library. Save pages from Chrome, Edge and Firefox with one button; they stay on your computer. No account, no cloud.",
-    nav: { how: "How it works", privacy: "Privacy", download: "Download" },
-    langSwitch: "Language",
-    h1: ["Save a link in one click.", "Find it when you need it."],
-    sub: "Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer. No account, no cloud.",
-    soon: "Beta — coming soon",
-    how: "How it works",
-    meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Free"],
-    shotAlt: "Koona Pin with eight bookmarks in a grid: previews, sites, titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox.",
-    listAlt: "The same library as a list grouped by date, with tags, collections and dates.",
-    pillars: [
-      ["One button", "Click it on any page and the link is saved — even when the app is closed."],
-      ["On your computer", "The library is a file on your disk, with automatic backups. Works offline."],
-      ["No account", "Nothing to sign up for. The developer never sees your links."],
-    ],
-    howTitle: "How it works",
-    steps: [
-      ["Install the app", "Koona Pin starts with the system and waits in the tray."],
-      ["Add the extension", "Chrome, Edge or Firefox. It talks only to the app on your computer."],
-      ["Click the button", "The page lands in Inbox. Sort it later — it takes about a minute."],
-    ],
-    insideTitle: "Find it, sort it, keep it",
-    inside: [
-      ["Sort the inbox from the keyboard", "Keep, file or toss — one key each."],
-      ["Search titles, sites and tags", "Results while you type, Ctrl K from anywhere."],
-      ["Collections and tags", "Group links the way you think about them."],
-      ["Trash keeps links for 30 days", "Delete without fear, restore in one click."],
-      ["Import and export", "Bring bookmarks from your browser, take them out as HTML, JSON or CSV."],
-    ],
-    browsersTitle: "Works with your browser",
-    browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
-    privacyTitle: "Your links stay with you",
-    privacyBody: "Koona Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send reaches the developer.",
-    privacyFacts: [
-      "The extension reads only the address and title of the tab you save.",
-      "The app sends no analytics, telemetry or crash reports.",
-      "No account and no cloud.",
-    ],
-    privacyLink: "Read the privacy policy",
-    dlTitle: "The beta is on its way",
-    dlBody: "Packages for Windows and Linux and the browser extensions will be published here.",
-    req: [
-      ["Windows 11, 64-bit", "No administrator rights needed"],
-      ["Linux, 64-bit", "Ubuntu 24.04 and 26.04, Fedora 44 and 45, Arch Linux"],
-      ["Chrome or Edge 120+, Firefox 140+", "Current release or ESR 140"],
-    ],
-    footer: { privacy: "Privacy", licenses: "Licenses", support: "Support" },
-    back: "Koona Pin",
-    privacyPage: { title: "Privacy policy", updated: "Last updated 7 October 2026", section: "English" },
-    licenses: {
-      title: "Licenses",
-      lead: "What this site is made of and under which terms.",
-      items: [
-        ["Koona Pin", "The app, the extension and this site. Code under the GNU AGPL 3.0; the name, mascot and logo are trademarks and not covered by it.", "https://github.com/andmetoo/koona-pin"],
-        ["Inter", "Text typeface. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
-        ["Nunito", "The wordmark, shipped as outlines. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
-        ["Lucide", "Icons. ISC License.", "https://lucide.dev/license"],
-        ["Photos in the screenshots", "Bookmark previews from Unsplash under the Unsplash License, by Teddy GR, Vishnu Mohanan, Chris Ried, Milad Fakurian, Jordan Harrison, Bennie Bates and Anders Jildén.", "https://unsplash.com/license"],
-      ],
-      app: "The licenses of the app and its components ship with the app.",
-    },
-    notFound: { title: "Page not found", body: "This address doesn't lead anywhere on the site.", home: "Go to the home page" },
-    feedback: {
-      title: "Send feedback",
-      lead: "Found a bug, have an idea or a question? Write to the developer.",
-      kind: "Type",
-      kinds: { bug: "Bug", idea: "Idea", question: "Question" },
-      message: "Message",
-      placeholder: "What happened, or what would you like?",
-      email: "Email for a reply (optional)",
-      trap: "Leave this field empty",
-      send: "Send",
-      note: "Stored in the EU for up to 12 months.",
-      privacy: "Privacy policy",
-      app: "In the app it is quicker: Settings → Support → Send feedback adds the versions for you.",
-      github: "Prefer to report in public? Issues on GitHub",
-      again: "Write a new message",
-      sent: { title: "Sent. Thank you!", body: "The developer reads every message. If you left an email, the reply will come there." },
-      limit: { title: "Too many messages", body: "Too many messages from this network in the last hour. Try again later: your browser's Back button returns to the form with your text." },
-      long: { title: "Message too long", body: "A message can be from 1 to 5000 characters. Your browser's Back button returns to the form with your text — shorten it and send it again." },
-      origin: { title: "Couldn't send", body: "The browser did not say which site the form came from, so the message was not accepted. This happens with strict privacy settings or extensions that hide the referrer: allow it for koona.app/pin and send again with the browser's Back button, or report on GitHub." },
-      error: { title: "Couldn't send", body: "The message didn't go through. Your browser's Back button returns to the form with your text: try again, or report it on GitHub." },
-    },
-    skip: "Skip to content",
-  },
-  ru: {
-    lang: "ru",
-    title: "Koona Pin — закладки на компьютере одной кнопкой",
-    description:
-      "Библиотека закладок для компьютера. Сохраняйте страницы из Chrome, Edge и Firefox одной кнопкой — они остаются на вашем компьютере. Без аккаунта и облака.",
-    nav: { how: "Как это работает", privacy: "Приватность", download: "Скачать" },
-    langSwitch: "Язык",
-    h1: ["Сохраняйте ссылки одной кнопкой.", "Находите, когда понадобятся."],
-    sub: "Koona Pin — библиотека закладок для компьютера. Страницы попадают в неё из Chrome, Edge и Firefox одной кнопкой и остаются на вашем компьютере. Без аккаунта и облака.",
-    soon: "Beta — скоро",
-    how: "Как это работает",
-    meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Бесплатно"],
-    shotAlt: "Koona Pin с восемью закладками сеткой: превью, сайты, заголовки, коллекции и теги в боковой панели, две новые закладки ждут во «Входящих».",
-    listAlt: "Та же библиотека списком по датам, с тегами, коллекциями и датами.",
-    pillars: [
-      ["Одна кнопка", "Нажмите на любой странице — ссылка сохранится, даже если приложение закрыто."],
-      ["На вашем компьютере", "Библиотека — файл на вашем диске, с автоматическими копиями. Работает без сети."],
-      ["Без аккаунта", "Регистрироваться не нужно. Разработчик не видит ваших ссылок."],
-    ],
-    howTitle: "Как это работает",
-    steps: [
-      ["Установите приложение", "Koona Pin запускается вместе с системой и ждёт в трее."],
-      ["Добавьте расширение", "Chrome, Edge или Firefox. Оно общается только с приложением на вашем компьютере."],
-      ["Нажмите кнопку", "Страница попадёт во «Входящие». Разберите потом — это займёт около минуты."],
-    ],
-    insideTitle: "Найти, разобрать, сохранить",
-    inside: [
-      ["Разбор входящих с клавиатуры", "Оставить, разложить или выбросить — одна клавиша."],
-      ["Поиск по названию, сайту и тегам", "Результаты по мере ввода, Ctrl K откуда угодно."],
-      ["Коллекции и теги", "Группируйте ссылки так, как вы о них думаете."],
-      ["Корзина хранит ссылки 30 дней", "Удаляйте без страха, восстанавливайте одним щелчком."],
-      ["Импорт и экспорт", "Перенесите закладки из браузера, заберите их в HTML, JSON или CSV."],
-    ],
-    browsersTitle: "Работает с вашим браузером",
-    browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
-    privacyTitle: "Ваши ссылки остаются у вас",
-    privacyBody: "Koona Pin хранит библиотеку на вашем компьютере: ваши ссылки не видит ни один сервер. Разработчику уходит только отзыв, который вы отправите сами.",
-    privacyFacts: [
-      "Расширение читает только адрес и заголовок сохраняемой вкладки.",
-      "Приложение не отправляет аналитику, телеметрию и отчёты о сбоях.",
-      "Ни аккаунта, ни облака.",
-    ],
-    privacyLink: "Политика конфиденциальности",
-    dlTitle: "Beta уже в пути",
-    dlBody: "Пакеты для Windows и Linux и расширения для браузеров появятся здесь.",
-    req: [
-      ["Windows 11, 64 бит", "Права администратора не нужны"],
-      ["Linux, 64 бит", "Ubuntu 24.04 и 26.04, Fedora 44 и 45, Arch Linux"],
-      ["Chrome или Edge 120+, Firefox 140+", "Текущий релиз или ESR 140"],
-    ],
-    footer: { privacy: "Приватность", licenses: "Лицензии", support: "Поддержка" },
-    back: "Koona Pin",
-    privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 7 октября 2026 года", section: "Русский" },
-    licenses: {
-      title: "Лицензии",
-      lead: "Из чего сделан этот сайт и на каких условиях.",
-      items: [
-        ["Koona Pin", "Приложение, расширение и этот сайт. Код — по лицензии GNU AGPL 3.0; название, маскот и логотип — товарные знаки, лицензия их не покрывает.", "https://github.com/andmetoo/koona-pin"],
-        ["Inter", "Шрифт текста. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
-        ["Nunito", "Надпись-логотип, кривыми. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
-        ["Lucide", "Иконки. Лицензия ISC.", "https://lucide.dev/license"],
-        ["Фото на скриншотах", "Превью закладок с Unsplash по лицензии Unsplash; авторы — Teddy GR, Vishnu Mohanan, Chris Ried, Milad Fakurian, Jordan Harrison, Bennie Bates и Anders Jildén.", "https://unsplash.com/license"],
-      ],
-      app: "Лицензии приложения и его компонентов поставляются вместе с приложением.",
-    },
-    notFound: { title: "Страница не найдена", body: "По этому адресу на сайте ничего нет.", home: "На главную" },
-    feedback: {
-      title: "Отправить отзыв",
-      lead: "Нашли ошибку, есть идея или вопрос? Напишите разработчику.",
-      kind: "Тип",
-      kinds: { bug: "Ошибка", idea: "Идея", question: "Вопрос" },
-      message: "Сообщение",
-      placeholder: "Что случилось или чего не хватает?",
-      email: "Почта для ответа (необязательно)",
-      trap: "Оставьте это поле пустым",
-      send: "Отправить",
-      note: "Хранится в ЕС до 12 месяцев.",
-      privacy: "Политика конфиденциальности",
-      app: "Из приложения быстрее: «Настройки» → «Поддержка» → «Отправить отзыв» само добавит версии.",
-      github: "Хотите сообщить публично? Issues на GitHub",
-      again: "Написать новое сообщение",
-      sent: { title: "Отправлено. Спасибо!", body: "Разработчик читает каждое сообщение. Если вы оставили почту, ответ придёт туда." },
-      limit: { title: "Слишком много сообщений", body: "Слишком много сообщений из этой сети за последний час. Повторите позже: кнопка «Назад» браузера вернёт форму с вашим текстом." },
-      long: { title: "Слишком длинное сообщение", body: "В сообщении может быть от 1 до 5000 символов. Кнопка «Назад» браузера вернёт форму с вашим текстом — сократите его и отправьте снова." },
-      origin: { title: "Не отправилось", body: "Браузер не сообщил, с какого сайта пришла форма, поэтому сообщение не принято. Так бывает со строгими настройками приватности или расширениями, которые скрывают источник перехода: разрешите его для koona.app/pin и отправьте снова кнопкой «Назад» браузера или сообщите на GitHub." },
-      error: { title: "Не отправилось", body: "Сообщение не дошло. Кнопка «Назад» браузера вернёт форму с вашим текстом: повторите или сообщите на GitHub." },
-    },
-    skip: "Перейти к содержимому",
-  },
-};
+const locales = new URL("./locales/", import.meta.url);
+const sources = {};
+for (const file of readdirSync(locales).filter((f) => f.endsWith(".mjs")))
+  sources[file.slice(0, -4)] = (await import(new URL(file, locales).href)).default;
+
+/** Same keys and list lengths as English; a string English has is never left empty. */
+function sameShape(code, en, other, at = "") {
+  if (typeof en === "string") {
+    if (typeof other !== "string") throw new Error(`site/src/locales/${code}: ${at} is not a text`);
+    if (en && !other.trim()) throw new Error(`site/src/locales/${code}: ${at} is empty`);
+    // A Latin letter in a Cyrillic word (or back) looks right and breaks search and spelling.
+    const mixed = other.split(/[^\p{L}]+/u).find((w) => /\p{Script=Latin}/u.test(w) && /\p{Script=Cyrillic}/u.test(w));
+    if (mixed) throw new Error(`site/src/locales/${code}: ${at} mixes scripts in «${mixed}»`);
+    return;
+  }
+  if (Array.isArray(en) !== Array.isArray(other) || typeof other !== "object" || other === null)
+    throw new Error(`site/src/locales/${code}: ${at} has another shape than English`);
+  const keys = Object.keys(en);
+  const extra = Object.keys(other).filter((k) => !(k in en));
+  if (extra.length || keys.length !== Object.keys(other).length)
+    throw new Error(`site/src/locales/${code}: ${at || "the file"} has keys ${Object.keys(other).join(", ")}, English ${keys.join(", ")}`);
+  for (const k of keys) sameShape(code, en[k], other[k], at ? `${at}.${k}` : k);
+}
+for (const [code, t] of Object.entries(sources)) sameShape(code, sources.en, t);
+
+/** The language's own name, as the app's language menu shows it (src/locales/<code>.json). */
+const nativeName = (code) => JSON.parse(readFileSync(new URL(`../../src/locales/${code}.json`, import.meta.url), "utf8")).language.name;
+const OG = { en: "en_US", ru: "ru_RU", de: "de_DE", es: "es_ES", fr: "fr_FR", it: "it_IT", pl: "pl_PL", "pt-BR": "pt_BR", "sr-Latn": "sr_RS", tr: "tr_TR", uk: "uk_UA" };
+// The only Serbian of the site is plain «sr» to people: /pin/sr/, «Srpski», «Serbian».
+const ONLY = { "sr-Latn": { dir: "sr/", name: "Srpski", display: "sr" } };
+
+/** The site's languages in the order of the menu: by their own names, Latin before Cyrillic. */
+export const languages = Object.keys(sources)
+  .map((code) => ({
+    lang: code,
+    // Addresses are lower case: /pin/, /pin/de/, /pin/pt-br/.
+    dir: ONLY[code]?.dir ?? (code === "en" ? "" : `${code.toLowerCase()}/`),
+    name: ONLY[code]?.name ?? nativeName(code),
+    display: ONLY[code]?.display ?? code,
+    short: code.split("-")[0].toUpperCase(),
+    og: OG[code] ?? code.replace("-", "_"),
+  }))
+  .sort((a, b) => new Intl.Collator("en").compare(a.name, b.name));
+
+export const content = Object.fromEntries(languages.map((l) => [l.lang, { ...sources[l.lang], ...l }]));
+
+/** A language's name in the language of a page, for the second line of the menu: «German» on /pin/. */
+export function nameIn(page, code) {
+  const shown = languages.find((l) => l.lang === code)?.display ?? code;
+  const name = new Intl.DisplayNames([page], { type: "language" }).of(shown) ?? code;
+  return name.charAt(0).toLocaleUpperCase(page) + name.slice(1);
+}
 
 export const SUPPORT = "https://github.com/andmetoo/koona-pin/issues/new/choose";
 // The Edge Function `feedback` (NP-088): the site form posts here. Without it the
