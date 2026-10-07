@@ -205,10 +205,14 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 На Linux-машине, в клоне репозитория:
 
 ```bash
-act workflow_dispatch -W .github/workflows/linux.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest
+act workflow_dispatch -W .github/workflows/linux.yml
 ```
 
-Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:45`. `act` копирует рабочую копию в контейнер и кеша не держит: каждый прогон собирает Rust заново.
+Образ раннера `act` берёт из `.actrc`. Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:44`. `act` копирует рабочую копию в контейнер; Rust и `npm ci` каждый прогон заново — около минуты на дистрибутив.
+
+Пакеты. Ubuntu и Debian берут их из тома `koona-ci-cache` (`linux.yml` подключает его в `/var/cache/koona-ci`): скачанные `.deb` — по папке на выпуск, второй прогон ничего не качает. Зеркало Ubuntu выбирает [fast-apt-mirror.sh](https://github.com/vegardit/fast-apt-mirror.sh) — замеряет зеркала страны (закреплён по коммиту и хешу); выбор живёт в томе сутки, apt берёт сначала его, при отказе — `archive.ubuntu.com`. Своё зеркало — `act … --env APT_MIRROR=http://…/ubuntu/`. Готовый Action проекта не подходит: ему нужен `sudo`, которого в контейнере нет, и под `act` он ничего не делает. 7 октября 2026 года `archive.ubuntu.com` отдавал сети владельца 0,7 МБ/с — 20 минут пакетов на задание Ubuntu; ближайшее зеркало под нагрузкой трёх заданий отвечало 403, поэтому и нужен запасной источник. Том с нуля — `docker volume rm koona-ci-cache`.
+
+Когда одно задание падает, `act` пишет «Job failed» и у заданий, закончившихся после него, — смотреть на шаги («Success» / «Failure»), а не на итог.
 
 ### Чего матрица не проверяет
 
