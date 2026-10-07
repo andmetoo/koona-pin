@@ -28,5 +28,7 @@ autoinstall:
     - |
       printf 'network:\n  version: 2\n  renderer: NetworkManager\n' > /target/etc/netplan/01-network-manager-all.yaml
     - rm -f /target/etc/netplan/50-cloud-init.yaml
+    # networkd no longer manages the network: its wait-online would fail every boot.
+    - curtin in-target -- systemctl disable systemd-networkd-wait-online.service
     - curtin in-target -- systemctl set-default graphical.target
   shutdown: poweroff
