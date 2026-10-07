@@ -1,12 +1,12 @@
-// Builds koona.app/pin/ into release/publish/site/ (doc/site.md): static pages in English and
-// Russian, fonts, brand and screenshots served from the site itself, and the Firefox updates of
-// NP-018 from release/publish/firefox when they are there.
+// Builds koona.app/pin/ into release/publish/site/ (doc/site.md): static pages in the app's
+// languages (NP-107), fonts, brand and screenshots served from the site itself, and the Firefox
+// updates of NP-018 from release/publish/firefox when they are there.
 //   node scripts/build-site.mjs
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { BASE, content, FEEDBACK_ENDPOINT, SITE } from "../site/src/content.mjs";
+import { BASE, content, FEEDBACK_ENDPOINT, languages, SITE } from "../site/src/content.mjs";
 import { feedback, feedbackResult, landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
 import { publish, root } from "./lib/paths.mjs";
 
@@ -25,8 +25,8 @@ async function page(file, html) {
   await writeFile(target, html);
 }
 
-for (const [lang, t] of Object.entries(content)) {
-  const dir = lang === "en" ? "" : "ru/";
+for (const t of Object.values(content)) {
+  const dir = t.dir;
   await page(`${dir}index.html`, landing(t, { wordmark }));
   // /privacy and /licenses: Caddy tries {path}.html (site/Caddyfile).
   await page(`${dir}privacy.html`, privacy(t, { markdown, wordmark }));
@@ -80,7 +80,7 @@ if (existsSync(firefox)) {
 }
 
 // robots.txt belongs to the root of koona.app, which names this sitemap (site/Caddyfile, Р-47).
-const urls = ["", "privacy", "licenses", ...(FEEDBACK_ENDPOINT ? ["feedback"] : [])].flatMap((p) => [`/${p}`, `/ru/${p}`]);
+const urls = ["", "privacy", "licenses", ...(FEEDBACK_ENDPOINT ? ["feedback"] : [])].flatMap((p) => languages.map((l) => `/${l.dir}${p}`));
 await writeFile(
   path.join(out, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${SITE}${u}</loc></url>`).join("\n")}\n</urlset>\n`,

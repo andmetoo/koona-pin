@@ -1,5 +1,6 @@
 // Pages of koona.app/pin as HTML strings. No scripts: language and theme work without JS.
-import { BASE, FEEDBACK_ENDPOINT, ORIGIN, SITE, SUPPORT } from "./content.mjs";
+import { existsSync } from "node:fs";
+import { BASE, content, FEEDBACK_ENDPOINT, languages, nameIn, ORIGIN, SITE, SUPPORT } from "./content.mjs";
 
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -19,12 +20,16 @@ const ICON = {
   globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
   arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
   arrowLeft: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  chevronDown: '<path d="m6 9 6 6 6-6"/>',
 };
 const icon = (name, cls = "icon") =>
   `<svg class="${cls}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICON[name]}</svg>`;
 
-/** Paths of one page in both languages: "/pin/" and "/pin/ru/", "/pin/privacy" and "/pin/ru/privacy". */
-const href = (lang, page) => (lang === "en" ? `${BASE}/${page}` : `${BASE}/ru/${page}`);
+/** Path of a page in a language: "/pin/", "/pin/de/", "/pin/privacy", "/pin/sr-latn/privacy". */
+const href = (lang, page) => `${BASE}/${content[lang].dir}${page}`;
+
+/** A file of the site in the page's language, else the English one: shots exist for en and ru only. */
+const localized = (name, lang) => (existsSync(new URL(`./shots/${name.replace("{lang}", lang)}`, import.meta.url)) ? name.replace("{lang}", lang) : name.replace("{lang}", "en"));
 
 function mascot(size, cls = "mascot") {
   const h = Math.round((size * 916) / 880);
@@ -32,16 +37,18 @@ function mascot(size, cls = "mascot") {
 }
 
 function shot(lang, view, alt, { eager = false, sizes } = {}) {
-  // English and Russian screenshots in light; English dark for both (Russian dark is not shot).
+  // The app in the page's language where it was shot (English and Russian light, English dark),
+  // English otherwise.
   const set = (name) => `${BASE}/shots/${name}-1280.webp 1280w, ${BASE}/shots/${name}.webp 1920w`;
-  const light = `app-${lang}-light-${view}`;
-  const dark = `app-${lang === "ru" ? "en" : lang}-dark-${view}`;
+  const light = localized(`app-{lang}-light-${view}.webp`, lang).slice(0, -5);
+  const dark = localized(`app-{lang}-dark-${view}.webp`, lang).slice(0, -5);
   return `<picture><source srcset="${set(dark)}" sizes="${sizes}" media="(prefers-color-scheme: dark)"><img src="${BASE}/shots/${light}-1280.webp" srcset="${set(light)}" sizes="${sizes}" width="1280" height="800" alt="${esc(alt)}"${eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async"></picture>`;
 }
 
 function head(t, { page, title, description, extra = "" }) {
   const path = href(t.lang, page);
-  const other = t.lang === "en" ? "ru" : "en";
+  const alternates = languages.map((l) => `<link rel="alternate" hreflang="${l.lang}" href="${ORIGIN}${href(l.lang, page)}">`).join("\n");
+  const ogAlternates = languages.filter((l) => l.og !== t.og).map((l) => `<meta property="og:locale:alternate" content="${l.og}">`);
   return `<!doctype html>
 <html lang="${t.lang}">
 <head>
@@ -53,8 +60,7 @@ function head(t, { page, title, description, extra = "" }) {
 <meta name="theme-color" content="#faf9f6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#22221f" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="${ORIGIN}${path}">
-<link rel="alternate" hreflang="en" href="${ORIGIN}${href("en", page)}">
-<link rel="alternate" hreflang="ru" href="${ORIGIN}${href("ru", page)}">
+${alternates}
 <link rel="alternate" hreflang="x-default" href="${ORIGIN}${href("en", page)}">
 <link rel="icon" href="${BASE}/brand/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="${BASE}/brand/favicon-32.png" sizes="32x32" type="image/png">
@@ -66,19 +72,30 @@ function head(t, { page, title, description, extra = "" }) {
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${ORIGIN}${path}">
-<meta property="og:image" content="${SITE}/shots/og-${t.lang}.jpg">
-<meta property="og:locale" content="${t.lang === "en" ? "en_US" : "ru_RU"}">
-<meta property="og:locale:alternate" content="${other === "en" ? "en_US" : "ru_RU"}">
+<meta property="og:image" content="${SITE}/shots/${localized("og-{lang}.jpg", t.lang)}">
+<meta property="og:locale" content="${t.og}">
+${[...new Set(ogAlternates)].join("\n")}
 </head>
 <body>
 <a class="skip" href="#main">${esc(t.skip)}</a>`;
 }
 
 function header(t, { page, wordmark, current }) {
-  const lang = (code) =>
-    code === t.lang
-      ? `<span class="lang-option" aria-current="true">${code.toUpperCase()}</span>`
-      : `<a class="lang-option" href="${href(code, page)}" hreflang="${code}" lang="${code}">${code.toUpperCase()}</a>`;
+  // The language menu (NP-107): CSS opens it on hover and while focus is inside (keyboard, a tap).
+  // Each language is a link to this page in it: its own name, then its name in this page's language.
+  const lang = (l) => {
+    const current = l.lang === t.lang;
+    return `<li><a href="${href(l.lang, page)}" hreflang="${l.lang}"${current ? ' aria-current="true"' : ""}><span class="lang-own" lang="${l.lang}">${esc(l.name)}</span><span class="lang-local">${esc(nameIn(t.lang, l.lang))}</span>${current ? icon("check", "icon icon-small") : ""}</a></li>`;
+  };
+  const menu = `<div class="lang">
+<button class="lang-button" type="button" aria-label="${esc(`${t.langSwitch}: ${t.name}`)}">${icon("globe", "icon icon-small")}<span class="lang-full">${esc(t.name)}</span><span class="lang-short">${t.short}</span>${icon("chevronDown", "icon icon-small")}</button>
+<div class="lang-menu">
+<p class="lang-title" id="lang-title">${esc(t.langSwitch)}</p>
+<ul class="lang-list" aria-labelledby="lang-title">
+${languages.map(lang).join("\n")}
+</ul>
+</div>
+</div>`;
   const nav = [
     ["how", `${href(t.lang, "")}#how`],
     ["privacy", href(t.lang, "privacy")],
@@ -89,8 +106,8 @@ function header(t, { page, wordmark, current }) {
   return `<header class="top">
 <div class="wrap top-row">
 <a class="logo" href="${href(t.lang, "")}" aria-label="Koona Pin">${mascot(36)}<span class="wordmark" aria-hidden="true">${wordmark}</span></a>
-<nav class="top-nav" aria-label="${t.lang === "en" ? "Main" : "Основное"}">${nav}</nav>
-<div class="lang" role="group" aria-label="${esc(t.langSwitch)}">${lang("en")}${lang("ru")}</div>
+<nav class="top-nav" aria-label="${esc(t.labels.main)}">${nav}</nav>
+${menu}
 </div>
 </header>`;
 }
@@ -100,7 +117,7 @@ function footer(t, wordmark) {
 <div class="wrap">
 <div class="foot-row">
 <a class="logo logo-small" href="${href(t.lang, "")}" aria-label="Koona Pin">${mascot(24)}<span class="wordmark" aria-hidden="true">${wordmark}</span></a>
-<nav class="foot-nav" aria-label="${t.lang === "en" ? "Site" : "Сайт"}">
+<nav class="foot-nav" aria-label="${esc(t.labels.site)}">
 <a href="${href(t.lang, "privacy")}">${esc(t.footer.privacy)}</a>
 <a href="${href(t.lang, "licenses")}">${esc(t.footer.licenses)}</a>
 ${FEEDBACK_ENDPOINT ? `<a href="${href(t.lang, "feedback")}">${esc(t.footer.support)}</a>` : `<a href="${SUPPORT}" rel="noopener">${esc(t.footer.support)}</a>`}
@@ -129,7 +146,7 @@ ${header(t, { page: "", wordmark })}
 <p class="meta">${t.meta.map(esc).join('<span aria-hidden="true"> · </span>')}</p>
 <figure class="shot shot-hero">${shot(t.lang, "grid", t.shotAlt, { eager: true, sizes: "(min-width: 1440px) 1200px, (min-width: 900px) 84vw, 640px" })}</figure>
 </section>
-<section class="pillars wrap" aria-label="${t.lang === "en" ? "Why Koona Pin" : "Почему Koona Pin"}">
+<section class="pillars wrap" aria-label="${esc(t.labels.why)}">
 ${t.pillars
   .map(([h, p], i) => `<article class="card pillar"><span class="well">${icon(pillarIcons[i])}</span><h2>${esc(h)}</h2><p>${esc(p)}</p></article>`)
   .join("\n")}
@@ -190,7 +207,8 @@ ${footer(t, wordmark)}`;
 
 /** The privacy policy from extension/store/privacy.md: one language section, **Heading.** paragraphs. */
 export function privacy(t, { markdown, wordmark }) {
-  const part = markdown.split(/^## /m).find((p) => p.startsWith(t.privacyPage.section));
+  const part = markdown.split(/^## /m).find((p) => p.split("\n")[0].trim() === t.privacyPage.section);
+  if (!part) throw new Error(`extension/store/privacy.md: no section «${t.privacyPage.section}» for ${t.lang}`);
   const paras = part.split("\n").slice(1).map((l) => l.trim()).filter((l) => l && l !== "---");
   const link = (s) => esc(s).replace(/https:\/\/koona\.app\/pin\/?/g, (u) => `<a href="${u}">${u}</a>`);
   const body = paras
@@ -200,12 +218,15 @@ export function privacy(t, { markdown, wordmark }) {
       return `<h2>${esc(m[1].replace(/\.$/, ""))}</h2>\n<p>${link(m[2])}</p>`;
     })
     .join("\n");
+  // A translation without a native speaker's review says so and links the English text (NP-107).
+  const p = t.privacyPage;
+  const note = p.note ? `<p class="translation-note">${esc(p.note)} <a href="${href("en", "privacy")}" hreflang="en">${esc(p.original)}</a></p>\n` : "";
   return textPage(t, {
     page: "privacy",
     current: "privacy",
     wordmark,
-    title: t.privacyPage.title,
-    body: `<h1>${esc(t.privacyPage.title)}</h1>\n<p class="updated">${esc(t.privacyPage.updated)}</p>\n${body}`,
+    title: p.title,
+    body: `<h1>${esc(p.title)}</h1>\n<p class="updated">${esc(p.updated)}</p>\n${note}${body}`,
   });
 }
 

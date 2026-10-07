@@ -6,7 +6,8 @@ import { answerState, collectionColor, shortDate, siteTile } from "./search-mode
 // saves the page again.
 void ext.action?.setPopup?.({ popup: "" })?.catch?.(() => {});
 
-const DOWNLOAD = "https://koona.app/pin/";
+// The site in the browser's language (NP-107).
+const DOWNLOAD = t("siteUrl");
 const get = (id) => document.getElementById(id);
 const query = get("query");
 const content = get("content");

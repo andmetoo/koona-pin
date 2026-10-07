@@ -99,9 +99,14 @@ export function senderAddress(headers: Headers): { address: string; from: string
   const address = headers.get("cf-connecting-ip")?.trim();
   return address ? { address, from: "cf-connecting-ip" } : { address: "unknown", from: "none" };
 }
-/** Where the site form goes next: a static page of the site in its language. */
+/** Languages of the site and their paths (NP-107); the form sends its page's `lang`. */
+const SITE_PATHS: Record<string, string> = {
+  en: "", ru: "/ru", de: "/de", es: "/es", fr: "/fr", it: "/it", pl: "/pl", "pt-BR": "/pt-br", "sr-Latn": "/sr", tr: "/tr", uk: "/uk",
+};
+/** Where the site form goes next: a static page of the site in its language, else English. */
 export function sitePage(language: string | null, outcome: "sent" | "limit" | "long" | "origin" | "error"): string {
-  return `${SITE}${language === "ru" ? "/ru" : ""}/feedback/${outcome}`;
+  // The field comes from the browser: only own keys, so «constructor» and the like stay English.
+  return `${SITE}${language && Object.hasOwn(SITE_PATHS, language) ? SITE_PATHS[language] : ""}/feedback/${outcome}`;
 }
 
 const json = (status: number, body: unknown) =>
