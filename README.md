@@ -60,6 +60,8 @@ npm run tauri dev
 
 `publish/` — людям и в каталоги, `test/` — только на тестовую машину, `dev/` — только на этот компьютер. Рабочие папки инструментов из рук не берутся: `src-tauri/target` (Cargo и Tauri: EXE, промежуточные файлы установщика) и `dist/` (интерфейс приложения для Tauri). `npm run tauri build` собирает только EXE в `src-tauri/target/release`, установщик — только `build:installer`.
 
+**Мусор тестов.** Каждый прогон теста и скрипта оставляет свою папку в `.test-data`, а Rust-тесты — папки `koonapin-*` во временной папке системы. `npm run clean` убирает их вместе с `test-results` и `playwright-report`; `libraries` (тестовые библиотеки) и всё, что менялось за последние 30 минут, остаются, `release/` не трогается. Сам он запускается перед `check`, `test:native`, `test:host`, `test:extension`, `test:extension:firefox` и `build:installer`. `npm run clean -- --list` показывает, сколько занимают папки сборок, `npm run clean -- --cargo` ещё и очищает папки Cargo — следующая сборка пойдёт с нуля.
+
 ## Лицензия
 
 Open core ([Р-48](doc/decisions.md#р-48-лицензия-open-core-agpl-30-cla-и-товарный-знак)): код — [GNU AGPL 3.0](LICENSE) (`AGPL-3.0-only`), платные возможности — под коммерческой лицензией, название, маскот и логотип — товарные знаки ([TRADEMARKS.md](TRADEMARKS.md)). Что под какой лицензией — [LICENSING.md](LICENSING.md); участие — по [CLA](CLA.md), правила — [CONTRIBUTING.md](CONTRIBUTING.md).
