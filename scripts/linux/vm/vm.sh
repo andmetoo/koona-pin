@@ -72,7 +72,8 @@ iso() {
   esac
   [ -n "${file:-}" ] || die "no image found at $base"
   local sum
-  sum=$(grep -E "(^|\()$file(\)| |$)" <<< "$sums" | grep -oE '[0-9a-f]{64}' | head -1)
+  # «hash *file» (Ubuntu), «SHA256 (file) = hash» (Fedora), «hash  file» (Arch).
+  sum=$(grep -E "[ *(]${file//./\\.}([) ]|$)" <<< "$sums" | grep -oE '[0-9a-f]{64}' | head -1)
   [ -n "$sum" ] || die "no checksum for $file"
   mkdir -p "$root/iso"
   image="$root/iso/$name-$file"
