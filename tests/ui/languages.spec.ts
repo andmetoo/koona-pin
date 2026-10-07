@@ -84,9 +84,121 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
   expect(wide).toEqual([]);
 });
 
-// Every language is checked for cut labels; German and Serbian also leave snapshots to look at.
+// An IME (Chinese, Japanese, Korean) builds a character over several keys: the list waits for
+// the finished one, and Esc inside the IME cancels the character, not the query (NP-090).
+test("search waits for the IME to finish a character", { tag: "@languages" }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  const all = await cards.count();
+  const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
+  await search.focus();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.imeSetComposition", { text: "けんさく", selectionStart: 4, selectionEnd: 4 });
+  await expect(search).toHaveValue("けんさく");
+  // Longer than the list's own 150 ms wait: still the whole library.
+  await page.waitForTimeout(600);
+  await expect(cards).toHaveCount(all);
+  await expect(page.getByText(/Nothing matches/)).toHaveCount(0);
+  await cdp.send("Input.insertText", { text: "検索" });
+  await expect(search).toHaveValue("検索");
+  await expect(page.getByText("Nothing matches “検索”")).toBeVisible();
+});
+
+// Keys inside an IME are the IME's: Esc cancels the character, not the query. WebView2 sends them
+// as keyCode 229 or with isComposing; CDP's own key events carry neither, so they are dispatched.
+test("Esc inside an IME keeps the query", { tag: "@languages" }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
+  await search.fill("silence");
+  await expect(cards).toHaveCount(1);
+  for (const init of [{ isComposing: true }, { keyCode: 229 }]) {
+    const sent = await search.evaluate((el, init) => {
+      const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, ...init });
+      el.dispatchEvent(event);
+      return { isComposing: event.isComposing, keyCode: event.keyCode };
+    }, init);
+    // Each event carries only its own sign: the guard must know both.
+    expect(sent).toEqual({ isComposing: "isComposing" in init, keyCode: "keyCode" in init ? 229 : 0 });
+  }
+  await expect(search).toHaveValue("silence");
+  await expect(cards).toHaveCount(1);
+  // A plain Esc still clears it.
+  await search.press("Escape");
+  await expect(search).toHaveValue("");
+});
+
+// A comma ends a tag, the Chinese and Japanese ones too, also when the IME commits it: the
+// selection's tag field adds the text before it at once, never a tag with a comma in it.
+test("a comma from an IME ends the tag", { tag: "@languages" }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  await cards.first().click({ modifiers: ["Control"] });
+  await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
+  const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
+  await field.focus();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.imeSetComposition", { text: "设计，", selectionStart: 3, selectionEnd: 3 });
+  await expect(field).toHaveValue("设计，");
+  await cdp.send("Input.insertText", { text: "设计，" });
+  await expect(page.getByText("Tag «设计» added to 1 bookmark")).toBeVisible();
+});
+
+// A comma with nothing before it is a slip: the field stays open and empty, nothing is added.
+test("a lone comma keeps the tag field open", { tag: "@languages" }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  await cards.first().click({ modifiers: ["Control"] });
+  await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
+  const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
+  await field.focus();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.imeSetComposition", { text: "，", selectionStart: 1, selectionEnd: 1 });
+  await cdp.send("Input.insertText", { text: "，" });
+  await expect(field).toBeVisible();
+  await expect(field).toHaveValue("");
+  await field.press(",");
+  await expect(field).toHaveValue("");
+  await field.pressSequentially("ux,");
+  await expect(page.getByText("Tag «ux» added to 1 bookmark")).toBeVisible();
+});
+
+// A query changed from outside while a character is composed wins: the end of the composition
+// does not bring the old text back.
+test("a reset during an IME composition stays", { tag: "@languages" }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  const all = await cards.count();
+  const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
+  await search.fill("zzz");
+  await page.getByRole("button", { name: text(catalog("en"), "empty.resetSearch") }).waitFor();
+  await search.focus();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.imeSetComposition", { text: "けん", selectionStart: 2, selectionEnd: 2 });
+  await expect(search).toHaveValue("zzzけん");
+  // «Clear search» of the empty state, pressed without taking the focus from the field.
+  await page.getByRole("button", { name: text(catalog("en"), "empty.resetSearch") }).dispatchEvent("click");
+  await expect(search).toHaveValue("");
+  await expect(cards).toHaveCount(all);
+  await cdp.send("Input.insertText", { text: "" });
+  await page.waitForTimeout(400);
+  await expect(cards).toHaveCount(all);
+});
+
+// Every language is checked for cut labels; German, Serbian, Japanese and Korean also leave
+// snapshots to look at.
 const codes = readdirSync(locales).map((file) => file.replace(/\.json$/, ""));
-const snapshots = ["de", "sr"];
+const snapshots = ["de", "sr", "ja", "ko"];
 
 for (const code of codes) {
   const t = (key: string) => text(catalog(code), key);

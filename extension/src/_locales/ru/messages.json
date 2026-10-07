@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "Ссылки хранятся в браузере, пока Koona Pin не подтвердит их. Если приложение закрыто, сохранение страницы запустит его в трее."
   },
+  "languageCode": { "message": "ru" },
   "siteUrl": { "message": "https://koona.app/pin/ru/" }
 }

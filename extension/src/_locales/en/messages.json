@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "Links stay in the browser until Koona Pin confirms them. If the app is closed, saving a page starts it in the tray."
   },
+  "languageCode": { "message": "en" },
   "siteUrl": { "message": "https://koona.app/pin/" }
 }

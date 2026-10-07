@@ -74,8 +74,27 @@
   --np-lilac: #b096cc;
 }
 
+/* Inter has no Chinese, Japanese or Korean characters: after it, the system
+   font of the interface's language, so a character shared by the three takes
+   that language's form, not the one the browser happens to pick (NP-090).
+   Windows first; macOS and Linux names for the later builds. No CJK font is
+   bundled: one weighs about as much as the whole installer. The extension and
+   the site name the same fonts: src/styles/fonts.test.ts keeps them equal. */
+:root {
+  --np-font: "Inter Variable", "Inter", system-ui, sans-serif;
+}
+:root:lang(zh) {
+  --np-font: "Inter Variable", "Inter", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+}
+:root:lang(ja) {
+  --np-font: "Inter Variable", "Inter", "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", system-ui, sans-serif;
+}
+:root:lang(ko) {
+  --np-font: "Inter Variable", "Inter", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", system-ui, sans-serif;
+}
+
 @theme inline {
-  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-sans: var(--np-font);
 
   --color-*: initial;
   --color-transparent: transparent;
@@ -174,6 +193,16 @@
     font-size: 13px;
     line-height: 18px;
     -webkit-font-smoothing: antialiased;
+  }
+  /* Korean breaks lines between words, as Latin does, not between any two
+     syllables; a word longer than its box still wraps. Japanese keeps its
+     line-start rules: no 。 or ー at the start of a line (NP-090). */
+  :root:lang(ko) body {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  :root:lang(ja) body {
+    line-break: strict;
   }
   button,
   [role="button"] {

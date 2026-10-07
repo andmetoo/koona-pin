@@ -82,11 +82,38 @@ html {
     transition: none !important;
   }
 }
+/* Inter has no Chinese, Japanese or Korean characters: after it, the system font
+   of the text's language (NP-090), the app's stacks (src/styles/fonts.test.ts). Any element with `lang` picks
+   its own, so «日本語» in the menu of an English page is drawn as Japanese. */
+:root {
+  --font: Inter, system-ui, sans-serif;
+}
+:lang(zh) {
+  --font: Inter, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+}
+:lang(ja) {
+  --font: Inter, "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", system-ui, sans-serif;
+  line-break: strict;
+}
+/* Big Japanese headings break between phrases, not inside a word («ワンク / リック»). */
+h1:lang(ja),
+h2:lang(ja),
+h3:lang(ja) {
+  word-break: auto-phrase;
+}
+:lang(ko) {
+  --font: Inter, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+[lang] {
+  font-family: var(--font);
+}
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 400 16px/1.5 Inter, system-ui, sans-serif;
+  font: 400 16px/1.5 var(--font);
   font-feature-settings: "cv11";
   overflow-x: hidden;
 }

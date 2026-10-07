@@ -538,7 +538,7 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
         values.push(tag.clone().into());
     }
     let (indexed, short) = search_terms(query.search.as_deref());
-    let narrowed = indexed.is_some();
+    let mut narrowed = indexed.is_some();
     if let Some(expression) = indexed {
         filter.push_str(
             " AND b.id IN (SELECT rowid FROM bookmarks_search WHERE bookmarks_search MATCH ?)",
@@ -554,9 +554,12 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
         } else {
             // Without the index: one pass in table order collects the ids,
             // instead of reading rows one by one in list order.
+            // The next short words are checked on the rows this one left
+            // («东京 旅行», NP-090), not in a pass of their own.
             filter.push_str(&format!(
                 " AND b.id IN (SELECT b.id FROM bookmarks b WHERE {SHORT_IN_FIELDS} UNION {SHORT_IN_TAGS})"
             ));
+            narrowed = true;
         }
         values.extend([word.clone().into(), word.into()]);
     }
@@ -1823,6 +1826,27 @@ mod tests {
         // Short words: final sigma is the same letter.
         assert_eq!(found(&conn, "ος"), [sea.id, street.id]);
         assert_eq!(found(&conn, "ΟΣ"), [sea.id, street.id]);
+    }
+
+    #[test]
+    fn two_character_cjk_words_are_found_inside_text_without_spaces() {
+        // Chinese and Japanese write without spaces, and their words are
+        // often two characters: shorter than a trigram (NP-090).
+        let conn = setup_test_db();
+        let tokyo = add(&conn, "https://example.jp/a", "东京旅行指南", &[]);
+        let search = add(&conn, "https://example.jp/b", "全文検索の仕組み", &["読書"]);
+        let korean = add(&conn, "https://example.kr/c", "여행 검색 도구", &[]);
+        assert_eq!(found(&conn, "东京"), [tokyo.id]);
+        assert_eq!(found(&conn, "旅行"), [tokyo.id]);
+        assert_eq!(found(&conn, "検索"), [search.id]);
+        assert_eq!(found(&conn, "読書"), [search.id]);
+        assert_eq!(found(&conn, "검색"), [korean.id]);
+        // Two short words, and a short word with an indexed one.
+        assert_eq!(found(&conn, "东京 指南"), [tokyo.id]);
+        assert_eq!(found(&conn, "検索 仕組み"), [search.id]);
+        assert_eq!(found(&conn, "旅行指南"), [tokyo.id]);
+        assert_eq!(found(&conn, "の"), [search.id]);
+        assert!(found(&conn, "东京 검색").is_empty());
     }
 
     #[test]

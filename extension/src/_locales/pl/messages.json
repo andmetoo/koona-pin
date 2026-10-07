@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "Linki zostają w przeglądarce, dopóki Koona Pin ich nie potwierdzi. Jeśli aplikacja jest zamknięta, zapisanie strony uruchomi ją w zasobniku systemowym."
   },
+  "languageCode": { "message": "pl" },
   "siteUrl": { "message": "https://koona.app/pin/pl/" }
 }

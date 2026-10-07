@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "I link restano nel browser finché Koona Pin non li conferma. Se l’app è chiusa, salvare una pagina la avvia nell’area di notifica."
   },
+  "languageCode": { "message": "it" },
   "siteUrl": { "message": "https://koona.app/pin/it/" }
 }

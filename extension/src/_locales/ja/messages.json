@@ -1,0 +1,206 @@
+{
+  "extensionName": { "message": "Koona Pin — リンクを保存" },
+  "extensionDescription": {
+    "message": "ワンクリックでページをこのコンピューターの Koona Pin ライブラリに保存。アプリが閉じている間、リンクはキューで待機します。"
+  },
+  "menuOptions": { "message": "設定とキュー" },
+  "menuSearch": { "message": "リンクを探す" },
+  "commandSearch": { "message": "Koona Pin でリンクを探す" },
+  "searchPlaceholder": { "message": "リンクを検索" },
+  "searchFilters": { "message": "検索する場所" },
+  "searchKeys": { "message": "↑↓ · ↵ 開く · Shift ↵ このタブで · Ctrl C コピー" },
+  "searchOpenApp": { "message": "Koona Pin を開く" },
+  "searchAll": { "message": "すべて" },
+  "searchInbox": { "message": "インボックス" },
+  "searchFavorites": { "message": "お気に入り" },
+  "searchOpen": { "message": "開く" },
+  "searchToday": { "message": "今日" },
+  "searchRecent": { "message": "最近保存したもの" },
+  "searchMore": {
+    "message": "最初の $COUNT$ 件を表示しています。語句を加えると絞り込めます。",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "まだ何も保存していません" },
+  "searchEmptyLibraryText": { "message": "ページで Koona Pin のボタンをクリックすると保存できます。" },
+  "searchNothing": {
+    "message": "「$QUERY$」は見つかりませんでした",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "$PLACE$ に「$QUERY$」は見つかりませんでした",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "$PLACE$ にはまだ何もありません",
+    "placeholders": { "place": { "content": "$1", "example": "Favorites" } }
+  },
+  "searchNothingText": { "message": "別の語句で試すか、ライブラリ全体を検索してください。ゴミ箱は検索しません。" },
+  "searchEverywhere": { "message": "すべてを検索" },
+  "searchStarting": { "message": "Koona Pin を起動しています…" },
+  "searchMissingText": {
+    "message": "検索はこのコンピューターの Koona Pin ライブラリで行います。アプリをインストールしてください。それまで、保存したリンクはここで待機します。"
+  },
+  "searchUpdateApp": { "message": "検索するには Koona Pin を更新してください" },
+  "searchUpdateAppText": { "message": "この Koona Pin はリンクを保存できますが、まだブラウザーからは検索できません。保存は引き続き使えます。" },
+  "searchUpdateButton": { "message": "更新をダウンロード" },
+  "searchUpdateExtensionText": {
+    "message": "この拡張機能は Koona Pin と合っていません。ブラウザーの拡張機能ページで更新してください。保存は引き続き使えます。"
+  },
+  "searchLibrary": { "message": "ライブラリを開けませんでした" },
+  "searchLibraryText": { "message": "Koona Pin を開いて原因を確認してください。それまで、保存したリンクはここで待機します。" },
+  "searchUnavailable": { "message": "Koona Pin が応答しませんでした" },
+  "searchUnavailableText": { "message": "少し待ってからもう一度お試しください。" },
+  "searchCopied": { "message": "リンクをコピーしました" },
+  "shortcutHeading": { "message": "キーボード ショートカット" },
+  "shortcutText": { "message": "ライブラリの検索を開きます。" },
+  "shortcutNone": { "message": "ショートカットなし" },
+  "shortcutChangeIn": {
+    "message": "$BROWSER$ で変更",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ では拡張機能のショートカットを専用のページ $PAGE$ でしか変更できません。ボタンでそのページを開きます。",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "変更" },
+  "shortcutPress": { "message": "新しいショートカットを押してください…" },
+  "shortcutCancel": { "message": "Esc でキャンセル。ショートカットには Ctrl か Alt のどちらか一方が必要です。" },
+  "shortcutInvalid": { "message": "このキーはショートカットにできません。Ctrl または Alt と、英字、数字、F1–F12 のいずれかを組み合わせてください。" },
+  "shortcutSaved": { "message": "保存しました。" },
+  "shortcutRefused": {
+    "message": "Firefox が $SHORTCUT$ を受け付けませんでした。別のものをお試しください。",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "ページを Koona Pin に保存" },
+  "queueWaiting": {
+    "message": "Koona Pin：$COUNT$ 件が送信待ちです。設定を開くとキューを確認できます。",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Koona Pin に保存中" },
+  "badgeWaiting": { "message": "リンクは Koona Pin への送信を待っています" },
+  "badgeSaved": { "message": "Koona Pin に保存しました" },
+  "badgeExisting": { "message": "このリンクはすでに Koona Pin にあります" },
+  "errorInvalidUrl": {
+    "message": "このページは保存できません。HTTP/HTTPS アドレスのページを開いてください。"
+  },
+  "errorUnsupportedScheme": {
+    "message": "このページは保存できません。対応しているのは HTTP/HTTPS のリンクだけです。"
+  },
+  "errorUnavailable": {
+    "message": "Koona Pin が応答しませんでした。1 分後にリンクをもう一度送信します。"
+  },
+  "errorHostMissing": {
+    "message": "Koona Pin がインストールされていないか、インストールが壊れています。リンクはここで待機します。"
+  },
+  "errorIncompatible": {
+    "message": "拡張機能が Koona Pin と合っていません。拡張機能を更新してください。リンクはここで待機します。"
+  },
+  "errorIncompatibleApp": {
+    "message": "Koona Pin が拡張機能より古いバージョンです。Koona Pin を更新してください。リンクはここで待機します。"
+  },
+  "errorInvalidRequest": { "message": "Koona Pin はこのリンクを保存できません。" },
+  "errorConflict": {
+    "message": "このリクエストはすでに別のリンクで使われています。キューから削除してください。"
+  },
+  "errorDatabase": {
+    "message": "Koona Pin がリンクを保存できませんでした。もう一度送信します。"
+  },
+  "errorNoConfirmation": { "message": "リンクを保存したという確認がありません" },
+  "errorSaveFailed": { "message": "リンクを保存できませんでした" },
+  "errorUnknownAction": { "message": "不明な操作です" },
+  "messageSavedTitle": { "message": "Koona Pin に保存しました" },
+  "messageSavedText": { "message": "インボックスに追加しました" },
+  "messageExistingTitle": { "message": "すでに Koona Pin にあります" },
+  "messageExistingText": { "message": "タグとメモは変わりません" },
+  "messageQueuedTitle": { "message": "Koona Pin を待っています" },
+  "messageQueuedText": { "message": "アプリが開くと送信されます" },
+  "messageFailedTitle": { "message": "リンクを保存できませんでした" },
+  "messageFailedText": { "message": "拡張機能の設定を確認してください" },
+  "feedbackHeading": { "message": "保存の後" },
+  "settingMessage": { "message": "ページにメッセージを表示" },
+  "settingMessageText": {
+    "message": "ボタンをクリックすると隅に短いお知らせが出て、3 秒後に自動的に消えます。"
+  },
+  "settingKnown": { "message": "保存済みのページを示す" },
+  "settingKnownText": {
+    "message": "Koona Pin の実行中、ボタンは開いたページをこのコンピューターのライブラリと照合します。ブラウザーはタブへのアクセスを一度だけ求めます。アドレスはアプリにだけ送られます。"
+  },
+  "settingAnimate": { "message": "ボタンのアニメーション" },
+  "settingAnimateText": {
+    "message": "ページを保存すると Koona Pin のアイコンが跳ねます。システムで動きを減らす設定になっているときは動きません。"
+  },
+  "optionsTitle": { "message": "Koona Pin — 拡張機能の設定" },
+  "optionsHeading": { "message": "Koona Pin 拡張機能" },
+  "optionsLead": {
+    "message": "保存したページは、このコンピューターの Koona Pin ライブラリに入ります。"
+  },
+  "extensionVersion": {
+    "message": "拡張機能 $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Koona Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "最終保存：今日 $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "最終保存：$DATE$ $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "October 3" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "接続" },
+  "connectionChecking": { "message": "アプリを確認しています…" },
+  "statusConnected": { "message": "Koona Pin に接続済み" },
+  "checkAgain": { "message": "もう一度確認" },
+  "statusClosed": { "message": "Koona Pin は閉じています" },
+  "statusClosedText": {
+    "message": "ページを保存すると通知領域で起動します。それまでリンクはここで待機します。"
+  },
+  "statusUpdate": { "message": "拡張機能を更新してください" },
+  "statusUpdateText": {
+    "message": "この拡張機能（$MINE$）は Koona Pin $APP$ と合っていません。ブラウザーの拡張機能ページで更新してください。それまでリンクはここで待機します。",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "Koona Pin を更新してください" },
+  "statusUpdateAppText": {
+    "message": "Koona Pin $APP$ はこの拡張機能（$MINE$）より古いバージョンです。Koona Pin を更新してください。それまでリンクはここで待機します。",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "Koona Pin がインストールされていません" },
+  "statusMissingText": {
+    "message": "拡張機能がこのコンピューターでアプリを見つけられません。Koona Pin をインストールするか、すでにある場合は再インストールしてください。"
+  },
+  "download": { "message": "Koona Pin をダウンロード" },
+  "queueHeading": { "message": "送信待ち" },
+  "sendNow": { "message": "今すぐ送信" },
+  "queueEmpty": {
+    "message": "待機中のものはありません。ページで Koona Pin のアイコンをクリックすると保存できます。"
+  },
+  "removeButton": { "message": "削除" },
+  "removeLabel": {
+    "message": "キューから削除：$TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Page title" } }
+  },
+  "optionsFooter": {
+    "message": "リンクは Koona Pin が受け取りを確認するまでブラウザーに残ります。アプリが閉じていても、ページを保存すると通知領域で起動します。"
+  },
+  "languageCode": { "message": "ja" },
+  "siteUrl": { "message": "https://koona.app/pin/ja/" }
+}

@@ -1,9 +1,10 @@
-import { FormEvent, KeyboardEvent, useId, useState } from "react";
+import { ChangeEvent, CompositionEvent, FormEvent, KeyboardEvent, useId, useRef, useState } from "react";
 import { ChevronDown, Tag as TagIcon, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { foldText } from "../../services/library";
+import { composing } from "../../services/ime";
 import { Icon } from "../icons";
 
 /** Collection picker of frame 16: the collection's dot before its name. */
@@ -48,6 +49,35 @@ export function CollectionSelect({
 
 /** Tags are stored lower case, without surrounding spaces (`db::link_tags`). */
 const cleanTag = (tag: string, language: string) => tag.trim().toLocaleLowerCase(language);
+/** A comma separates tags, the Chinese and Japanese ones too (NP-090). */
+const SEPARATORS = /[,，、]/;
+/**
+ * A comma ends the tag typed before it, whether typed, pasted or committed by
+ * an IME. The IME's comma arrives while composing, so it ends the tag at
+ * compositionend. Firefox and WebKit then send one more, non-composing input
+ * event with the same text: that echo is skipped, or the tag would be added twice.
+ */
+function useCommaEnds(end: (text: string) => void) {
+  const ended = useRef<string | null>(null);
+  return {
+    /** For onChange: true when the comma ended the tag and the change is handled. */
+    ended(e: ChangeEvent<HTMLInputElement>) {
+      const value = e.target.value;
+      const echo = ended.current === value;
+      ended.current = null;
+      if (echo) return true;
+      if (!SEPARATORS.test(value) || (e.nativeEvent as InputEvent).isComposing) return false;
+      end(value);
+      return true;
+    },
+    onCompositionEnd(e: CompositionEvent<HTMLInputElement>) {
+      const value = e.currentTarget.value;
+      if (!SEPARATORS.test(value)) return;
+      ended.current = value;
+      end(value);
+    },
+  };
+}
 
 /** Library tags offered under a one-tag field. */
 const SUGGESTIONS = 6;
@@ -56,7 +86,9 @@ const SUGGESTIONS = 6;
  * One tag typed in place: `T` in triage, «Тег» of the selection bar (sheet
  * 31). Enter adds it, Esc or leaving the field cancels. With `suggestions`
  * the library's tags that match are listed under it; arrows pick one and
- * Enter adds the picked one instead of the typed text.
+ * Enter adds the picked one instead of the typed text. A comma ends the tag,
+ * as in the editor's chips: the text before it is added, never a tag with a
+ * comma in it (NP-090).
  */
 export function TagField({
   label,
@@ -79,12 +111,20 @@ export function TagField({
   const listId = useId();
   const typed = foldText(value.trim());
   const offered = suggestions.filter((tag) => !typed || foldText(tag.name).includes(typed)).slice(0, SUGGESTIONS);
+  /** The typed tag: the text before the first comma. */
+  const typedTag = (text: string) => cleanTag(text.split(SEPARATORS).find((part) => part.trim()) ?? "", i18n.language);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const name = offered[active]?.name ?? cleanTag(value, i18n.language);
+    const name = offered[active]?.name ?? typedTag(value);
     if (name) onAdd(name);
     else onClose();
   };
+  // A comma with nothing before it is a slip, not «cancel»: the field stays open and empty.
+  const commas = useCommaEnds((text) => {
+    const name = typedTag(text);
+    if (name) onAdd(name);
+    else setValue("");
+  });
   return (
     <form onSubmit={submit}>
       <input
@@ -97,11 +137,14 @@ export function TagField({
         placeholder={placeholder}
         value={value}
         onChange={(e) => {
+          if (commas.ended(e)) return;
           setValue(e.target.value);
           setActive(-1);
         }}
+        onCompositionEnd={commas.onCompositionEnd}
         onBlur={onClose}
         onKeyDown={(e) => {
+          if (composing(e)) return;
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
@@ -162,14 +205,17 @@ export function TagInput({
   const [draft, setDraft] = useState("");
   const add = (text: string) => {
     const next = [...tags];
-    for (const part of text.split(",")) {
+    for (const part of text.split(SEPARATORS)) {
       const tag = cleanTag(part, i18n.language);
       if (tag && !next.includes(tag)) next.push(tag);
     }
     onChange(next);
     setDraft("");
   };
+  const commas = useCommaEnds(add);
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Enter inside an IME confirms the character, not the tag (NP-090).
+    if (composing(e)) return;
     if ((e.key === "Enter" || e.key === ",") && draft.trim()) {
       e.preventDefault();
       add(draft);
@@ -196,7 +242,8 @@ export function TagInput({
         id={id}
         value={draft}
         aria-describedby={describedBy}
-        onChange={(e) => (e.target.value.includes(",") ? add(e.target.value) : setDraft(e.target.value))}
+        onChange={(e) => commas.ended(e) || setDraft(e.target.value)}
+        onCompositionEnd={commas.onCompositionEnd}
         onKeyDown={onKeyDown}
         onBlur={() => draft.trim() && add(draft)}
         placeholder={t("editor.tagsPlaceholder")}

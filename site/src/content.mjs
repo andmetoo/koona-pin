@@ -34,9 +34,10 @@ for (const [code, t] of Object.entries(sources)) sameShape(code, sources.en, t);
 
 /** The language's own name, as the app's language menu shows it (src/locales/<code>.json). */
 const nativeName = (code) => JSON.parse(readFileSync(new URL(`../../src/locales/${code}.json`, import.meta.url), "utf8")).language.name;
-const OG = { en: "en_US", ru: "ru_RU", de: "de_DE", es: "es_ES", fr: "fr_FR", it: "it_IT", pl: "pl_PL", "pt-BR": "pt_BR", "sr-Latn": "sr_RS", tr: "tr_TR", uk: "uk_UA" };
-// The only Serbian of the site is plain «sr» to people: /pin/sr/, «Srpski», «Serbian».
-const ONLY = { "sr-Latn": { dir: "sr/", name: "Srpski", display: "sr" } };
+const OG = { en: "en_US", ru: "ru_RU", de: "de_DE", es: "es_ES", fr: "fr_FR", it: "it_IT", pl: "pl_PL", "pt-BR": "pt_BR", "sr-Latn": "sr_RS", tr: "tr_TR", uk: "uk_UA", "zh-CN": "zh_CN", ja: "ja_JP", ko: "ko_KR" };
+// The only Serbian of the site is plain «sr» to people: /pin/sr/, «Srpski», «Serbian». The
+// Chinese is simplified, not Chinese of China (NP-090): «Simplified Chinese» in the menu.
+const ONLY = { "sr-Latn": { dir: "sr/", name: "Srpski", display: "sr" }, "zh-CN": { display: "zh-Hans" } };
 
 /** The site's languages in the order of the menu: by their own names, Latin before Cyrillic. */
 export const languages = Object.keys(sources)

@@ -1,4 +1,4 @@
-import { ext, t } from "./ext.js";
+import { ext, t, textLanguage } from "./ext.js";
 import { browserName, failure, talk } from "./native.js";
 import { createQueue } from "./queue.js";
 import { onMenuClicked, registerMenu } from "./menu.js";
@@ -155,6 +155,7 @@ async function tell(tab, state) {
           mascot,
           glyph: GLYPHS[BADGES[MARKS[state]].glyph],
           tones: TONES[state],
+          lang: textLanguage(),
         },
       ],
     });

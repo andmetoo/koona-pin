@@ -1,0 +1,206 @@
+{
+  "extensionName": { "message": "Koona Pin — 保存链接" },
+  "extensionDescription": {
+    "message": "一键将页面保存到本机的 Koona Pin 资料库。应用关闭时，链接会在队列中等待。"
+  },
+  "menuOptions": { "message": "设置和队列" },
+  "menuSearch": { "message": "查找链接" },
+  "commandSearch": { "message": "在 Koona Pin 中查找链接" },
+  "searchPlaceholder": { "message": "搜索你的链接" },
+  "searchFilters": { "message": "搜索范围" },
+  "searchKeys": { "message": "↑↓ · ↵ 打开 · Shift ↵ 在此打开 · Ctrl C 复制" },
+  "searchOpenApp": { "message": "打开 Koona Pin" },
+  "searchAll": { "message": "全部" },
+  "searchInbox": { "message": "收件箱" },
+  "searchFavorites": { "message": "星标" },
+  "searchOpen": { "message": "打开" },
+  "searchToday": { "message": "今天" },
+  "searchRecent": { "message": "最近保存" },
+  "searchMore": {
+    "message": "仅显示前 $COUNT$ 个。添加一个词可以缩小搜索范围。",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "还没有保存任何内容" },
+  "searchEmptyLibraryText": { "message": "在页面上点击 Koona Pin 按钮即可保存。" },
+  "searchNothing": {
+    "message": "未找到“$QUERY$”",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "在 $PLACE$ 中未找到“$QUERY$”",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "$PLACE$ 中还没有内容",
+    "placeholders": { "place": { "content": "$1", "example": "Favorites" } }
+  },
+  "searchNothingText": { "message": "换个词试试，或搜索整个资料库 — 回收站永远不会被搜索。" },
+  "searchEverywhere": { "message": "全部搜索" },
+  "searchStarting": { "message": "正在启动 Koona Pin…" },
+  "searchMissingText": {
+    "message": "搜索会在这台电脑上的 Koona Pin 资料库中进行。请安装应用 — 在此之前，你保存的链接会在这里等待。"
+  },
+  "searchUpdateApp": { "message": "请更新 Koona Pin 以使用搜索" },
+  "searchUpdateAppText": { "message": "此 Koona Pin 可以保存链接，但还不能从浏览器中搜索。保存功能照常工作。" },
+  "searchUpdateButton": { "message": "下载更新" },
+  "searchUpdateExtensionText": {
+    "message": "此扩展与 Koona Pin 不匹配。请在浏览器的扩展页面中更新它 — 保存功能照常工作。"
+  },
+  "searchLibrary": { "message": "资料库未能打开" },
+  "searchLibraryText": { "message": "打开 Koona Pin 查看原因。在此之前，你保存的链接会在这里等待。" },
+  "searchUnavailable": { "message": "Koona Pin 没有响应" },
+  "searchUnavailableText": { "message": "请稍后重试。" },
+  "searchCopied": { "message": "链接已复制" },
+  "shortcutHeading": { "message": "快捷键" },
+  "shortcutText": { "message": "打开资料库搜索。" },
+  "shortcutNone": { "message": "无快捷键" },
+  "shortcutChangeIn": {
+    "message": "在 $BROWSER$ 中更改",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$ 只能在自己的页面 $PAGE$ 中更改扩展快捷键：点击按钮即可打开。",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "更改" },
+  "shortcutPress": { "message": "请按下新的快捷键…" },
+  "shortcutCancel": { "message": "按 Esc 取消。快捷键需要 Ctrl 或 Alt，但不能同时使用两者。" },
+  "shortcutInvalid": { "message": "此按键不能用作快捷键。请将 Ctrl 或 Alt 与字母、数字或 F1–F12 组合使用。" },
+  "shortcutSaved": { "message": "已保存。" },
+  "shortcutRefused": {
+    "message": "Firefox 不接受 $SHORTCUT$。请换一个试试。",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "将页面保存到 Koona Pin" },
+  "queueWaiting": {
+    "message": "Koona Pin：$COUNT$ 个待发送。打开设置查看队列。",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "正在保存到 Koona Pin" },
+  "badgeWaiting": { "message": "链接正在等待发送到 Koona Pin" },
+  "badgeSaved": { "message": "已保存到 Koona Pin" },
+  "badgeExisting": { "message": "此链接已在 Koona Pin 中" },
+  "errorInvalidUrl": {
+    "message": "无法保存此页面。请打开地址为 HTTP/HTTPS 的页面。"
+  },
+  "errorUnsupportedScheme": {
+    "message": "无法保存此页面。仅支持 HTTP/HTTPS 链接。"
+  },
+  "errorUnavailable": {
+    "message": "Koona Pin 没有响应。一分钟后会再次发送链接。"
+  },
+  "errorHostMissing": {
+    "message": "Koona Pin 未安装或安装已损坏。链接会在这里等待。"
+  },
+  "errorIncompatible": {
+    "message": "扩展与 Koona Pin 不匹配。请更新扩展 — 链接会在这里等待。"
+  },
+  "errorIncompatibleApp": {
+    "message": "Koona Pin 比扩展旧。请更新 Koona Pin — 链接会在这里等待。"
+  },
+  "errorInvalidRequest": { "message": "Koona Pin 无法保存此链接。" },
+  "errorConflict": {
+    "message": "此请求已被用于另一个链接。请将其从队列中移除。"
+  },
+  "errorDatabase": {
+    "message": "Koona Pin 无法保存链接。稍后会再次发送。"
+  },
+  "errorNoConfirmation": { "message": "没有收到链接已保存的确认" },
+  "errorSaveFailed": { "message": "无法保存链接" },
+  "errorUnknownAction": { "message": "未知操作" },
+  "messageSavedTitle": { "message": "已保存到 Koona Pin" },
+  "messageSavedText": { "message": "已添加到收件箱" },
+  "messageExistingTitle": { "message": "已在 Koona Pin 中" },
+  "messageExistingText": { "message": "你的标签和笔记保持不变" },
+  "messageQueuedTitle": { "message": "正在等待 Koona Pin" },
+  "messageQueuedText": { "message": "应用打开后会发送" },
+  "messageFailedTitle": { "message": "无法保存链接" },
+  "messageFailedText": { "message": "请查看扩展设置" },
+  "feedbackHeading": { "message": "保存之后" },
+  "settingMessage": { "message": "在页面上显示提示" },
+  "settingMessageText": {
+    "message": "点击按钮后，角落里会出现一条简短提示，3 秒后自动消失。"
+  },
+  "settingKnown": { "message": "显示页面是否已保存" },
+  "settingKnownText": {
+    "message": "Koona Pin 运行时，按钮会将你打开的每个页面与本机资料库进行比对。浏览器会请求一次标签页访问权限；地址只会发送给应用。"
+  },
+  "settingAnimate": { "message": "按钮动画" },
+  "settingAnimateText": {
+    "message": "保存页面时，Koona Pin 图标会跳一下。如果系统要求减少动态效果，它会保持静止。"
+  },
+  "optionsTitle": { "message": "Koona Pin — 扩展设置" },
+  "optionsHeading": { "message": "Koona Pin 扩展" },
+  "optionsLead": {
+    "message": "你保存的页面会进入这台电脑上的 Koona Pin 资料库。"
+  },
+  "extensionVersion": {
+    "message": "扩展 $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Koona Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "最近一次保存：今天 $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "最近一次保存：$DATE$ $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "October 3" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "连接" },
+  "connectionChecking": { "message": "正在检查应用…" },
+  "statusConnected": { "message": "已连接到 Koona Pin" },
+  "checkAgain": { "message": "再次检查" },
+  "statusClosed": { "message": "Koona Pin 未运行" },
+  "statusClosedText": {
+    "message": "保存页面时它会在系统托盘中启动。在此之前，链接会在这里等待。"
+  },
+  "statusUpdate": { "message": "请更新扩展" },
+  "statusUpdateText": {
+    "message": "此扩展（$MINE$）与 Koona Pin $APP$ 不匹配。请在浏览器的扩展页面中更新它 — 在此之前，链接会在这里等待。",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "请更新 Koona Pin" },
+  "statusUpdateAppText": {
+    "message": "Koona Pin $APP$ 比此扩展（$MINE$）旧。请更新 Koona Pin — 在此之前，链接会在这里等待。",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "Koona Pin 未安装" },
+  "statusMissingText": {
+    "message": "扩展在这台电脑上找不到应用。请安装 Koona Pin；如果已经安装，请重新安装。"
+  },
+  "download": { "message": "下载 Koona Pin" },
+  "queueHeading": { "message": "等待发送" },
+  "sendNow": { "message": "立即发送" },
+  "queueEmpty": {
+    "message": "没有等待中的链接。在页面上点击 Koona Pin 图标即可保存。"
+  },
+  "removeButton": { "message": "移除" },
+  "removeLabel": {
+    "message": "从队列中移除：$TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Page title" } }
+  },
+  "optionsFooter": {
+    "message": "链接会留在浏览器中，直到 Koona Pin 确认收到。如果应用未运行，保存页面会让它在系统托盘中启动。"
+  },
+  "languageCode": { "message": "zh-CN" },
+  "siteUrl": { "message": "https://koona.app/pin/zh-cn/" }
+}

@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "Links bleiben im Browser, bis Koona Pin sie bestätigt. Ist die App geschlossen, startet das Speichern einer Seite sie im Infobereich."
   },
+  "languageCode": { "message": "de" },
   "siteUrl": { "message": "https://koona.app/pin/de/" }
 }

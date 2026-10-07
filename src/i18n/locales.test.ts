@@ -137,9 +137,27 @@ describe("Serbian", () => {
   });
 });
 
+describe("Korean", () => {
+  // 을/를, 이/가, 은/는, 와/과, (으)로 depend on the last sound of the word before them:
+  // after a substitution only the double form is right (doc/glossary.md, NP-090).
+  it("puts the double particle after a substitution", () => {
+    const fixed = /\}\}[’']?(을|를|이|가|은|는|와|과|으로|로)(?![(가-힣])/;
+    expect([...flat(read("ko"))].filter(([, text]) => fixed.test(text)).map(([key]) => key)).toEqual([]);
+  });
+});
+
 describe("system language", () => {
-  const ours = ["en", "ru", "sr", "sr-Latn", "de", "pt-BR", "uk"];
+  const ours = ["en", "ru", "sr", "sr-Latn", "de", "pt-BR", "uk", "zh-CN", "ja", "ko"];
   it.each([
+    ["zh-CN", "zh-CN"],
+    ["zh-Hans-CN", "zh-CN"],
+    ["zh-SG", "zh-CN"],
+    ["zh", "zh-CN"],
+    ["ja-JP", "ja"],
+    ["ko-KR", "ko"],
+    ["de_DE", "de"],
+    ["pt_BR", "pt-BR"],
+    ["de-x-!!", "de"],
     ["sr-Latn-RS", "sr-Latn"],
     ["sr-RS", "sr"],
     ["sr-Cyrl-BA", "sr"],
@@ -154,6 +172,9 @@ describe("system language", () => {
     expect(matchLanguage(tag, ours)).toBe(code);
   });
   it("has no file for a language it doesn't speak", () => {
-    expect(matchLanguage("ja-JP", ours)).toBeUndefined();
+    expect(matchLanguage("he-IL", ours)).toBeUndefined();
+  });
+  it.each(["zh-TW", "zh-HK", "zh-Hant", "zh-MO"])("%s, traditional Chinese, is not simplified (NP-090)", (tag) => {
+    expect(matchLanguage(tag, ours)).toBeUndefined();
   });
 });

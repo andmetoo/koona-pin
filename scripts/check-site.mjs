@@ -1,7 +1,7 @@
 // Checks of koona.app/pin/ (NP-079, NP-107 acceptance): every page of every language at 360, 390,
 // 1440 and 1920 in both themes — no horizontal scroll, no clipped labels, no requests to other
 // origins, no cookies, no broken links between pages; the language menu opens inside the screen;
-// the first visit of /pin/ goes to the browser's language. Screenshots of en, ru, de and sr go
+// the first visit of /pin/ goes to the browser's language. Screenshots of en, ru, de, sr and ja go
 // to test-results/site.
 //   node scripts/build-site.mjs && node scripts/check-site.mjs
 import { chromium } from "@playwright/test";
@@ -23,8 +23,8 @@ const own = ["", "privacy", "licenses", "nowhere"];
 if (existsSync(path.join(publish.site, "feedback", "index.html")))
   own.push("feedback", "feedback/sent", "feedback/limit", "feedback/long", "feedback/origin", "feedback/error");
 const pages = languages.flatMap((l) => own.map((p) => ({ path: `/${l.dir}${p}`, lang: l.lang, home: p === "" })));
-// Screenshots to look at: English, Russian, the longest (German) and Serbian.
-const shown = new Set(["en", "ru", "de", "sr-Latn"]);
+// Screenshots to look at: English, Russian, the longest (German), Serbian and Japanese (NP-090).
+const shown = new Set(["en", "ru", "de", "sr-Latn", "ja"]);
 const widths = [360, 390, 1440, 1920];
 
 // The Caddyfile answers 404 in every language the site has.
@@ -133,7 +133,8 @@ try {
   const welcome = {
     "de-AT,de;q=0.9": "de/", "es-419": "es/", "fr-CH,fr": "fr/", "it": "it/", "pl-PL": "pl/", "pt-PT": "pt-br/", "pt-BR": "pt-br/",
     "ru-RU,ru;q=0.9,en;q=0.8": "ru/", "sr-RS": "sr/", "sr-Latn-RS": "sr/", "sr-ME": "sr/", "tr-TR": "tr/",
-    "uk-UA": "uk/", "en-US,de;q=0.9": "", "ja-JP": "", "be-BY,ru;q=0.8": "",
+    "uk-UA": "uk/", "en-US,de;q=0.9": "", "he-IL": "", "be-BY,ru;q=0.8": "",
+    "ja-JP": "ja/", "ko-KR,ko;q=0.9": "ko/", "zh-CN,zh;q=0.9": "zh-cn/", "zh": "zh-cn/", "zh-Hans-SG": "zh-cn/", "zh-TW,zh;q=0.9": "", "zh-HK": "", "zh-Hant": "",
   };
   for (const [accept, dir] of Object.entries(welcome)) {
     const res = await fetch(`${base}/`, { headers: { "Accept-Language": accept }, redirect: "manual" });

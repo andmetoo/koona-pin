@@ -14,6 +14,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { composing } from "../../services/ime";
 import { ExportFormat, ViewMode } from "../../types";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
@@ -50,6 +51,12 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   const { t } = useTranslation();
   const more = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<DOMRect | null>(null);
+  // What an IME is still building (NP-090): the field shows it, the list
+  // waits for the finished character. `from` is the query it started on: a
+  // query changed meanwhile from outside («Clear search», Esc on the window)
+  // wins, and the end of the composition does not bring the old text back.
+  const [composition, setComposition] = useState<{ text: string; from: string } | null>(null);
+  const composed = composition && composition.from === props.search ? composition.text : null;
   const viewButton = (mode: ViewMode, label: string, glyph: typeof List) => (
     <Hint label={label}>
       <button
@@ -81,9 +88,20 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
         <Icon icon={Search} size={15} className="pointer-events-none absolute left-3 text-subtle" />
         <input
           ref={searchRef}
-          value={props.search}
-          onChange={(e) => props.onSearch(e.target.value)}
+          value={composed ?? props.search}
+          onChange={(e) =>
+            composed !== null || (e.nativeEvent as InputEvent).isComposing
+              ? setComposition({ text: e.target.value, from: props.search })
+              : props.onSearch(e.target.value)
+          }
+          onCompositionStart={(e) => setComposition({ text: e.currentTarget.value, from: props.search })}
+          onCompositionEnd={(e) => {
+            setComposition(null);
+            if (composed !== null) props.onSearch(e.currentTarget.value);
+          }}
           onKeyDown={(e) => {
+            // Esc inside an IME cancels the character, not the query.
+            if (composing(e)) return;
             // Esc clears the query first (frame 09); an empty field lets it close layers.
             if (e.key === "Escape" && props.search) {
               e.preventDefault();
@@ -95,7 +113,8 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           placeholder={props.narrow ? t("toolbar.searchShort") : t("toolbar.searchPlaceholder")}
           className="field h-9 pr-12 pl-[35px]"
         />
-        <Kbd className="pointer-events-none absolute right-2">{props.search ? "Esc" : "Ctrl K"}</Kbd>
+        {/* Esc also takes back a character the IME is composing: the field is not empty then either. */}
+        <Kbd className="pointer-events-none absolute right-2">{(composed ?? props.search) ? "Esc" : "Ctrl K"}</Kbd>
       </label>
       <div role="group" aria-label={t("toolbar.view")} className="flex gap-0.5 rounded-lg bg-secondary p-[3px]">
         {viewButton("grid", t("toolbar.grid"), LayoutGrid)}
