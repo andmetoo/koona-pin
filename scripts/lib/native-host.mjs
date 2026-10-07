@@ -6,12 +6,14 @@ import path from "node:path";
 
 export const DEV_ORIGIN = "chrome-extension://iibgiagcbediajombmkohanobgicbepn/";
 
+const exe = process.platform === "win32" ? ".exe" : "";
+
 /** The test binary, as the native tests and smoke scripts pick it. */
 export const appBinary = () =>
-  path.resolve(process.env.KOONAPIN_TEST_BINARY || "src-tauri/target/debug/koonapin.exe");
+  path.resolve(process.env.KOONAPIN_TEST_BINARY || `src-tauri/target/debug/koonapin${exe}`);
 
 /** The host is built next to the app. */
-export const hostBinary = (app = appBinary()) => path.join(path.dirname(app), "koonapin-host.exe");
+export const hostBinary = (app = appBinary()) => path.join(path.dirname(app), `koonapin-host${exe}`);
 
 /**
  * A pipe name of its own for each run (`KOONAPIN_PIPE`): a running Koona Pin
