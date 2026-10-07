@@ -16,7 +16,7 @@ fi
 # written in the repository, so every CI and every machine picks its own. It needs curl, which the base
 # image lacks (one slow `apt-get update`), so the choice is kept for a day in /var/cache/koona-ci when a
 # volume is mounted there (linux.yml does). APT_MIRROR sets a mirror by hand. The script is pinned to a
-# commit and its hash.
+# commit and its hash. Not the project's Action: it needs sudo, which containers lack, and skips act runs.
 if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
   cache=/var/cache/koona-ci/apt-mirror-ubuntu
   mirror=${APT_MIRROR:-}
@@ -34,7 +34,8 @@ if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
       https://raw.githubusercontent.com/vegardit/fast-apt-mirror.sh/806c59276adfff2df420124ad5e4587f018c358a/fast-apt-mirror.sh
     echo "c1e1b20304e2f2ecd4056deac352cd9fef237e530c2adc7d0ee2f7afbe06b12d  $fam" | sha256sum -c --quiet
     chmod 755 "$fam"
-    if mirror=$("$fam" find --apply | tail -1) && [[ $mirror == http* ]]; then
+    # The probe of the project's GitHub Action (10 mirrors, 1 MB each), wider than the CLI default.
+    if mirror=$("$fam" find --apply --speedtests 10 --sample-size 1024 --parallel 2 | tail -1) && [[ $mirror == http* ]]; then
       [ -d "${cache%/*}" ] && echo "$mirror" > "$cache"
     else
       echo "fast-apt-mirror.sh found nothing; the default mirror stays"
