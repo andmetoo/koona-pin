@@ -50,6 +50,20 @@
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
   font-size: 13px;
 }
+/* The system font of the interface's language after Inter, which has no
+   Chinese, Japanese or Korean characters (NP-090, as in the app). */
+:root:lang(zh) {
+  font-family: "Inter", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+}
+:root:lang(ja) {
+  font-family: "Inter", "Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", system-ui, sans-serif;
+  line-break: strict;
+}
+:root:lang(ko) {
+  font-family: "Inter", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", system-ui, sans-serif;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;

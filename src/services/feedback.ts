@@ -13,6 +13,7 @@ export const emptyDraft: FeedbackDraft = { kind: "bug", message: "", email: "", 
 /** Address paths of the site's languages (NP-107): one Serbian, in Latin script, for both of the app's. */
 const SITE_PATHS: Record<string, string> = {
   en: "", ru: "ru/", de: "de/", es: "es/", fr: "fr/", it: "it/", pl: "pl/", "pt-BR": "pt-br/", sr: "sr/", "sr-Latn": "sr/", tr: "tr/", uk: "uk/",
+  "zh-CN": "zh-cn/", ja: "ja/", ko: "ko/",
 };
 /** The privacy policy in the interface's language, English where the site has no page in it. */
 export const privacyUrl = (language: string) => `https://koona.app/pin/${Object.prototype.hasOwnProperty.call(SITE_PATHS, language) ? SITE_PATHS[language] : ""}privacy`;

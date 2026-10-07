@@ -138,8 +138,14 @@ describe("Serbian", () => {
 });
 
 describe("system language", () => {
-  const ours = ["en", "ru", "sr", "sr-Latn", "de", "pt-BR", "uk"];
+  const ours = ["en", "ru", "sr", "sr-Latn", "de", "pt-BR", "uk", "zh-CN", "ja", "ko"];
   it.each([
+    ["zh-CN", "zh-CN"],
+    ["zh-Hans-CN", "zh-CN"],
+    ["zh-SG", "zh-CN"],
+    ["zh", "zh-CN"],
+    ["ja-JP", "ja"],
+    ["ko-KR", "ko"],
     ["sr-Latn-RS", "sr-Latn"],
     ["sr-RS", "sr"],
     ["sr-Cyrl-BA", "sr"],
@@ -154,6 +160,9 @@ describe("system language", () => {
     expect(matchLanguage(tag, ours)).toBe(code);
   });
   it("has no file for a language it doesn't speak", () => {
-    expect(matchLanguage("ja-JP", ours)).toBeUndefined();
+    expect(matchLanguage("he-IL", ours)).toBeUndefined();
+  });
+  it.each(["zh-TW", "zh-HK", "zh-Hant", "zh-MO"])("%s, traditional Chinese, is not simplified (NP-090)", (tag) => {
+    expect(matchLanguage(tag, ours)).toBeUndefined();
   });
 });

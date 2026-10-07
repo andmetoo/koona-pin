@@ -49,10 +49,16 @@ async function search() {
   render();
 }
 let typing;
-query.addEventListener("input", () => {
+// An IME (Chinese, Japanese, Korean) builds a character over several keys:
+// the list waits for the finished one (NP-090).
+const later = () => {
   clearTimeout(typing);
   typing = setTimeout(search, 120);
+};
+query.addEventListener("input", (event) => {
+  if (!event.isComposing) later();
 });
+query.addEventListener("compositionend", later);
 
 function renderFilters() {
   filters.replaceChildren();
@@ -222,6 +228,8 @@ async function showApp() {
 get("open").addEventListener("click", () => void showApp());
 
 document.addEventListener("keydown", async (event) => {
+  // Enter, Esc and arrows inside an IME pick and confirm characters (NP-090).
+  if (event.isComposing || event.keyCode === 229) return;
   const item = state.items[state.selected];
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
