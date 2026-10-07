@@ -10,7 +10,6 @@
 //   release/test/      a test machine; never published
 //     windows/<version>/   installer, unsigned                       npm run build:installer
 //     chrome-edge/<version>/  extension with the store id            npm run extension:build (CHROME_STORE_PUBLIC_KEY)
-//     linux/<version>/     koonapin and koonapin-host, x86_64       npm run check:linux
 //   release/dev/       this machine
 //     chrome/, edge/, firefox/  unpacked, development id («Load unpacked», tests)   npm run extension:build
 //
@@ -33,7 +32,6 @@ export const publish = {
 export const test = {
   windows: (version) => path.join(release, "test", "windows", version),
   chromeEdge: (version) => path.join(release, "test", "chrome-edge", version),
-  linux: (version) => path.join(release, "test", "linux", version),
 };
 
 export const dev = {

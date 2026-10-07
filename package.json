@@ -15,7 +15,6 @@
     "clean": "node scripts/clean.mjs",
     "precheck": "node scripts/clean.mjs",
     "check": "cargo test --locked --manifest-path src-tauri/Cargo.toml && npm run build && npm test",
-    "check:linux": "node scripts/linux/check.mjs",
     "check:bindings": "git add --intent-to-add src/bindings && git diff --exit-code --stat -- src/bindings",
     "test:ui": "playwright test",
     "pretest:native": "node scripts/clean.mjs && node scripts/build-test-app.mjs",
