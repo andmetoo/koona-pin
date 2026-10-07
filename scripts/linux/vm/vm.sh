@@ -5,6 +5,7 @@
 # (~/vms). Installation is unattended: Ubuntu autoinstall, Fedora kickstart, an archiso script.
 #
 #   vm.sh create <machine>       download the image, install, first boot, snapshot «clean»
+#   vm.sh firstboot <machine>    only the first boot and «clean», after a create that stopped there
 #   vm.sh start <machine> [--view]   boot in the background; --view opens a window on the host session
 #   vm.sh stop <machine>         shut down (ACPI, then hard after 60 s)
 #   vm.sh restore <machine> [tag]    back to a snapshot, «clean» by default; the machine must be off
@@ -151,21 +152,34 @@ create() {
   esac
   bsdtar -xf "$image" -C "$dir" "$kernel" "$initrd"
   python3 -m http.server --bind 127.0.0.1 "$http_port" --directory "$root/serve" > "$dir/http.log" 2>&1 &
-  local http=$!
-  trap 'kill $http 2> /dev/null || true' EXIT
+  http=$!
+  trap 'kill ${http:-} 2> /dev/null || true' EXIT
 
   log "installing $name ($installer $release, $desktop); serial log: $dir/serial.log"
   qemu_args
+  local status=0
   timeout 3h qemu-system-x86_64 "${args[@]}" -drive "file=$image,media=cdrom,readonly=on" \
-    -kernel "$dir/$kernel" -initrd "$dir/$initrd" -append "$append" -no-reboot ||
-    die "the installer did not finish (see $dir/serial.log)"
+    -kernel "$dir/$kernel" -initrd "$dir/$initrd" -append "$append" -no-reboot || status=$?
+  # QEMU 11.1 with egl-headless may crash while quitting after the guest powered off (139): the first
+  # boot below decides whether the install worked. 124 is the timeout.
+  case $status in
+    0) ;;
+    139) log "QEMU crashed on exit after the installer; the first boot decides" ;;
+    *) die "the installer did not finish, status $status (see $dir/serial.log)" ;;
+  esac
   kill $http 2> /dev/null || true
   rm -rf "${dir:?}/casper" "${dir:?}/images" "${dir:?}/arch" "$root/serve/$name"
+  firstboot "$name"
+}
 
+# The first boot after the install, then the «clean» snapshot; on its own it resumes a create that
+# stopped after the installer.
+firstboot() {
+  load "$1"
   log "first boot"
   start "$name"
   wait_ssh
-  ssh_vm 'systemctl is-system-running --wait || true; cat /etc/os-release | head -2'
+  ssh_vm 'systemctl is-system-running --wait || systemctl --failed --no-legend; grep PRETTY_NAME /etc/os-release'
   stop "$name"
   snapshot "$name" clean
   log "$name ready: vm.sh start $name"
@@ -242,8 +256,8 @@ list() {
 command=${1:-}
 shift || true
 case "$command" in
-  create | start | stop | restore | snapshot | shot) "$command" "$@" ;;
+  create | firstboot | start | stop | restore | snapshot | shot) "$command" "$@" ;;
   ssh) load "$1"; shift; ssh_vm "$@" ;;
   list) list ;;
-  *) sed -n '2,15p' "$0"; exit 1 ;;
+  *) sed -n '2,16p' "$0"; exit 1 ;;
 esac
