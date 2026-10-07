@@ -244,11 +244,11 @@ node scripts/linux/deps-check.mjs fedora:45    # один
 | `fedora:45` (ещё prerelease) | 2.44 | 2.54.1 |
 | `archlinux:latest` | 2.44 | 2.54.1 |
 
-Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona Pin`. Тестовые библиотеки строятся так же, как на Windows (`cargo run --example test_libraries`), открываются вручную через `KOONAPIN_DATA_DIR`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)); если помогло, записать в протокол машины.
+Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona Pin`. Тестовые библиотеки строятся так же, как на Windows (`cargo run --example test_libraries`), открываются вручную через `KOONAPIN_DATA_DIR`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)); если помогло, записать в протокол машины. Разработка на Linux — для того, у кого Linux рабочая система; на машине владельца проверки не идут (VM ниже).
 
 ### Машины Linux
 
-Строки GNOME и KDE матрицы [release-checklist.md](release-checklist.md#интерфейс-и-платформы) — виртуальные машины QEMU/KVM на Arch-машине владельца через [quickemu](https://github.com/quickemu-project/quickemu) (AUR): официальный образ, 3D через VirGL на встроенной графике, диск qcow2 со снимком `clean` сразу после установки системы и обновлений, до установки Koona Pin; проверка начинается с отката к снимку. VirtualBox не используется: медленный, тащит свои драйверы в гостя; QEMU на Windows не даёт гостю 3D.
+Все строки матрицы [release-checklist.md](release-checklist.md#интерфейс-и-платформы) — виртуальные машины QEMU/KVM на Arch-машине владельца через [quickemu](https://github.com/quickemu-project/quickemu) (AUR): официальный образ, 3D через VirGL на встроенной графике, диск qcow2 со снимком `clean` сразу после установки системы и обновлений, до установки Koona Pin; проверка начинается с отката к снимку. VirtualBox не используется: медленный, тащит свои драйверы в гостя; QEMU на Windows не даёт гостю 3D.
 
 ```bash
 quickget ubuntu 24.04                                    # образ и ubuntu-24.04.conf
@@ -257,7 +257,7 @@ quickemu --vm ubuntu-24.04.conf --snapshot create clean
 quickemu --vm ubuntu-24.04.conf --snapshot apply clean   # перед каждой проверкой
 ```
 
-Строка Hyprland — железо владельца: Arch с [Omarchy](https://github.com/basecamp/omarchy) (Chromium, uwsm, Nautilus, порталы GTK и Hyprland, Noto Sans CJK). Там же — быстрые проверки без VM: `npm run tauri dev`, `npm run check`, пакеты Ubuntu и Fedora в distrobox с настоящей видеокартой (без GNOME, KDE и трея — финальную приёмку не заменяет).
+Строка Hyprland — тоже VM: Arch с [Omarchy](https://github.com/basecamp/omarchy) из её ISO (quickemu принимает любой образ; Chromium, uwsm, Nautilus, порталы GTK и Hyprland, Noto Sans CJK); Hyprland без 3D не стартует, VirGL обязателен. На самой Arch-машине владельца ничего не ставится и не проверяется — только QEMU и quickemu, машины лежат в одной папке.
 
 Протокол машины — вывод `bash scripts/linux/system-info.sh` в её графическом сеансе: система, ядро, сеанс и окружение, WebKitGTK, Mesa, библиотека трея, видеокарта и рендерер.
 
@@ -270,7 +270,7 @@ quickemu --vm ubuntu-24.04.conf --snapshot apply clean   # перед каждо
 | Fedora 45 KDE Plasma Desktop | KDE Plasma, Wayland | VM, `quickget fedora 45 KDE` | — | — |
 | Arch Linux | GNOME, Wayland | VM, `quickget archlinux latest` + `gnome` | — | — |
 | Arch Linux | KDE Plasma, Wayland | VM, `quickget archlinux latest` + `plasma` | — | — |
-| Arch Linux (Omarchy), 2 компьютера | Hyprland, Wayland; встроенная графика | железо владельца | не нужен | — |
+| Arch Linux (Omarchy) | Hyprland, Wayland | VM, ISO Omarchy | — | — |
 
 Имена версий и редакций — `quickget <система>` без аргументов печатает список; Arch ставится из образа, окружение — пакетом `gnome` или `plasma` перед снимком.
 
