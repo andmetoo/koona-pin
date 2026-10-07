@@ -113,7 +113,8 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           placeholder={props.narrow ? t("toolbar.searchShort") : t("toolbar.searchPlaceholder")}
           className="field h-9 pr-12 pl-[35px]"
         />
-        <Kbd className="pointer-events-none absolute right-2">{props.search ? "Esc" : "Ctrl K"}</Kbd>
+        {/* Esc also takes back a character the IME is composing: the field is not empty then either. */}
+        <Kbd className="pointer-events-none absolute right-2">{(composed ?? props.search) ? "Esc" : "Ctrl K"}</Kbd>
       </label>
       <div role="group" aria-label={t("toolbar.view")} className="flex gap-0.5 rounded-lg bg-secondary p-[3px]">
         {viewButton("grid", t("toolbar.grid"), LayoutGrid)}

@@ -1,4 +1,4 @@
-import { ext, t } from "./ext.js";
+import { ext, t, textLanguage } from "./ext.js";
 import { appIsOlder, browserName } from "./native.js";
 import { shortcutFrom } from "./search-model.js";
 import { VERSION } from "./version.js";
@@ -7,7 +7,7 @@ const get = (id) => document.getElementById(id);
 const DOWNLOAD = t("siteUrl");
 function translate() {
   // The language of the catalog the text comes from: a zh-TW browser reads English (NP-090).
-  document.documentElement.lang = t("languageCode");
+  document.documentElement.lang = textLanguage();
   for (const element of document.querySelectorAll("[data-i18n]"))
     element.textContent = t(element.dataset.i18n);
   get("version").textContent = t("extensionVersion", VERSION);
@@ -33,7 +33,7 @@ function savedAt(iso) {
   if (!iso) return "";
   const date = new Date(iso);
   // Dates in the language of the sentence around them.
-  const language = t("languageCode");
+  const language = textLanguage();
   const time = date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
   return date.toDateString() === new Date().toDateString()
     ? t("lastSavedToday", time)
