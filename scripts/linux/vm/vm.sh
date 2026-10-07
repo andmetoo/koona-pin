@@ -12,6 +12,7 @@
 #   vm.sh snapshot <machine> <tag>   take a snapshot; the machine must be off
 #   vm.sh ssh <machine> [command]    as «tester», passwordless sudo
 #   vm.sh shot <machine> <file.png>  screenshot of the screen
+#   vm.sh vnc <machine> click|type|key ...   input, see vnc.py
 #   vm.sh list                   machines and their state
 set -euo pipefail
 
@@ -101,9 +102,9 @@ qemu_args() {
   args=(
     -name "koona-$name" -enable-kvm -machine q35 -cpu host -smp 4 -m 4096
     -drive "if=pflash,format=raw,readonly=on,file=$ovmf_code" -drive "if=pflash,format=raw,file=$dir/vars.fd"
-    -drive "file=$dir/disk.qcow2,if=virtio,format=qcow2"
-    -device virtio-vga-gl -display "$display"
-    -netdev "user,id=net,hostfwd=tcp:127.0.0.1:$port-:22" -device virtio-net-pci,netdev=net
+    -drive "if=none,id=disk,file=$dir/disk.qcow2,format=qcow2" -device virtio-blk-pci,drive=disk,bootindex=1
+    -device virtio-vga-gl -display "$display" -vnc "unix:$dir/vnc.sock"
+    -netdev "user,id=net,hostfwd=tcp:127.0.0.1:$port-:22" -device virtio-net-pci,netdev=net,romfile=
     -device qemu-xhci -device usb-tablet -device virtio-rng-pci
     -qmp "unix:$dir/qmp.sock,server,nowait" -serial "file:$dir/serial.log" -monitor none
   )
@@ -240,10 +241,9 @@ wait_ssh() {
 shot() {
   load "$1"
   running || die "$name is off"
-  local out
-  out=$(realpath -m "$2")
-  qmp "{\"execute\":\"screendump\",\"arguments\":{\"filename\":\"$out\",\"format\":\"png\"}}" > /dev/null
-  log "$out"
+  # Not QMP screendump: with VirGL it returns the last 2D frame, the firmware screen.
+  python3 "$here/vnc.py" "$dir/vnc.sock" shot "$2"
+  log "$(realpath "$2")"
 }
 
 list() {
@@ -262,6 +262,7 @@ shift || true
 case "$command" in
   create | firstboot | start | stop | restore | snapshot | shot) "$command" "$@" ;;
   ssh) load "$1"; shift; ssh_vm "$@" ;;
+  vnc) load "$1"; shift; running || die "$name is off"; python3 "$here/vnc.py" "$dir/vnc.sock" "$@" ;;
   list) list ;;
-  *) sed -n '2,16p' "$0"; exit 1 ;;
+  *) sed -n '2,17p' "$0"; exit 1 ;;
 esac
