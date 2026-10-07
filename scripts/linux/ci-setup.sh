@@ -13,20 +13,19 @@ if command -v apt-get > /dev/null; then
 fi
 # Ubuntu: archive.ubuntu.com gave the owner's network 0.7 MB/s (20 minutes of packages), a nearby mirror
 # 26 MB/s. fast-apt-mirror.sh measures the mirrors of the country and picks the fastest; no mirror is
-# written in the repository, so every CI and every machine picks its own. It needs curl, which the base
-# image lacks (one slow `apt-get update`), so the choice is kept for a day in /var/cache/koona-ci when a
-# volume is mounted there (linux.yml does). APT_MIRROR sets a mirror by hand. The script is pinned to a
-# commit and its hash. Not the project's Action: it needs sudo, which containers lack, and skips act runs.
+# written in the repository, so every CI and every machine picks its own. apt reads a list: the fast
+# mirror, then archive.ubuntu.com — a mirror that starts refusing (403 under load, seen 7 October 2026)
+# costs a retry, not the job. The script needs curl, which the base image lacks (one slow
+# `apt-get update`), so the choice is kept for a day in /var/cache/koona-ci when a volume is mounted there
+# (linux.yml does). APT_MIRROR sets a mirror by hand. The script is pinned to a commit and its hash; not
+# the project's Action: it needs sudo, which containers lack, and skips act runs.
 if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
   cache=/var/cache/koona-ci/apt-mirror-ubuntu
   mirror=${APT_MIRROR:-}
   if [ -z "$mirror" ] && [ -n "$(find "$cache" -mmin -1440 2> /dev/null)" ]; then
     mirror=$(cat "$cache")
   fi
-  if [ -n "$mirror" ]; then
-    echo "apt mirror: $mirror"
-    sed -i -E "s#http://(archive|security)\.ubuntu\.com/ubuntu/?#${mirror%/}/#" /etc/apt/sources.list.d/ubuntu.sources
-  else
+  if [ -z "$mirror" ]; then
     apt-get update -qq
     apt-get install -y -qq curl ca-certificates > /dev/null
     fam=/usr/local/bin/fast-apt-mirror.sh
@@ -35,11 +34,13 @@ if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
     echo "c1e1b20304e2f2ecd4056deac352cd9fef237e530c2adc7d0ee2f7afbe06b12d  $fam" | sha256sum -c --quiet
     chmod 755 "$fam"
     # The probe of the project's GitHub Action (10 mirrors, 1 MB each), wider than the CLI default.
-    if mirror=$("$fam" find --apply --speedtests 10 --sample-size 1024 --parallel 2 | tail -1) && [[ $mirror == http* ]]; then
-      [ -d "${cache%/*}" ] && echo "$mirror" > "$cache"
-    else
-      echo "fast-apt-mirror.sh found nothing; the default mirror stays"
-    fi
+    mirror=$("$fam" find --speedtests 10 --sample-size 1024 --parallel 2 | tail -1) || true
+    [[ $mirror == http* ]] && [ -d "${cache%/*}" ] && echo "$mirror" > "$cache"
+  fi
+  if [[ $mirror == http* ]]; then
+    echo "apt mirror: $mirror, then archive.ubuntu.com"
+    printf '%s\n' "${mirror%/}/" http://archive.ubuntu.com/ubuntu/ > /etc/apt/koona-mirrors.txt
+    sed -i -E 's#http://archive\.ubuntu\.com/ubuntu/?#mirror+file:/etc/apt/koona-mirrors.txt#' /etc/apt/sources.list.d/ubuntu.sources
   fi
 fi
 bash scripts/linux/deps.sh
