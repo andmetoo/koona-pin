@@ -1,0 +1,28 @@
+#cloud-config
+# Ubuntu autoinstall for vm.sh: the server installer, then the full desktop (ubuntu-desktop: GNOME on
+# Wayland, Firefox from Snap) as on a clean Ubuntu Desktop. User «tester», key-only SSH, passwordless
+# sudo for the checks, GDM signs in by itself so the session runs without anyone at the screen.
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard: {layout: us}
+  timezone: UTC
+  identity:
+    hostname: @HOSTNAME@
+    username: tester
+    password: "@PASSWORD_HASH@"
+  ssh:
+    install-server: true
+    allow-pw: false
+    authorized-keys: ["@SSH_KEY@"]
+  storage:
+    layout: {name: direct}
+  packages: [ubuntu-desktop]
+  late-commands:
+    - echo 'tester ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/tester
+    - printf '[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=tester\n' > /target/etc/gdm3/custom.conf
+    # The desktop uses NetworkManager, as Ubuntu Desktop does.
+    - printf 'network:\n  version: 2\n  renderer: NetworkManager\n' > /target/etc/netplan/01-network-manager-all.yaml
+    - rm -f /target/etc/netplan/50-cloud-init.yaml
+    - curtin in-target -- systemctl set-default graphical.target
+  shutdown: poweroff
