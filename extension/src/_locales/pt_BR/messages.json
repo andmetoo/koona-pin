@@ -200,5 +200,6 @@
   },
   "optionsFooter": {
     "message": "Os links ficam no navegador até o Koona Pin confirmá-los. Se o aplicativo estiver fechado, salvar uma página o abre na bandeja do sistema."
-  }
+  },
+  "siteUrl": { "message": "https://koona.app/pin/pt-br/" }
 }
