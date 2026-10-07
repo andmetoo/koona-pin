@@ -170,7 +170,7 @@ ${mascot(72, "mascot mascot-large")}
 <p>${esc(t.dlBody)}</p>
 ${soon(t)}
 <ul class="req">
-${t.req.map(([a, b], i) => `<li>${icon(i === 0 ? "monitor" : "globe")}<div><strong>${esc(a)}</strong><span>${esc(b)}</span></div></li>`).join("\n")}
+${t.req.map(([a, b], i) => `<li>${icon(i === t.req.length - 1 ? "globe" : "monitor")}<div><strong>${esc(a)}</strong><span>${esc(b)}</span></div></li>`).join("\n")}
 </ul>
 </div>
 </section>
