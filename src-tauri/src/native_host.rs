@@ -309,6 +309,64 @@ mod tests {
     }
 
     #[test]
+    fn every_installer_language_has_every_string() {
+        // A missing LangString is only a makensis warning, and the page shows
+        // an empty label (NP-106).
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let nsis = &conf["bundle"]["windows"]["nsis"];
+        let files = nsis["customLanguageFiles"].as_object().unwrap();
+        let languages: Vec<&str> = nsis["languages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|language| language.as_str().unwrap())
+            .collect();
+        assert_eq!(languages[0], "English", "the fallback for other languages");
+        assert_eq!(languages.len(), files.len());
+        let folder = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let strings = |language: &str| -> Vec<(String, String)> {
+            let path = files[language].as_str().unwrap();
+            let text = std::fs::read_to_string(folder.join(path)).unwrap();
+            let prefix = format!("${{LANG_{}}} \"", language.to_uppercase());
+            text.lines()
+                .filter(|line| !line.starts_with(';') && !line.is_empty())
+                .map(|line| {
+                    let rest = line.strip_prefix("LangString ").expect(line);
+                    let (key, value) = rest.split_once(' ').expect(line);
+                    let value = value.strip_prefix(&prefix).expect(line);
+                    let value = value.strip_suffix('"').expect(line);
+                    (key.to_owned(), value.to_owned())
+                })
+                .collect()
+        };
+        let english = strings("English");
+        let keys: Vec<&String> = english.iter().map(|(key, _)| key).collect();
+        let hooks = include_str!("../nsis/hooks.nsh");
+        assert!(hooks.contains("$(npAutostart)") && keys.contains(&&"npAutostart".to_owned()));
+        // The variables the template fills in, which a translation must keep.
+        let tokens = ["{{product_name}}", "${PRODUCTNAME}", "${VERSION}", "$R4", "$0", "$1"];
+        for language in languages {
+            let translated = strings(language);
+            let translated_keys: Vec<&String> = translated.iter().map(|(key, _)| key).collect();
+            assert_eq!(translated_keys, keys, "{language}");
+            for ((key, value), (_, source)) in translated.iter().zip(&english) {
+                assert!(!value.trim().is_empty(), "{language} {key}");
+                for token in tokens {
+                    assert_eq!(
+                        value.matches(token).count() > 0,
+                        source.matches(token).count() > 0,
+                        "{language} {key} {token}"
+                    );
+                }
+                // A lost brace leaves {product_name} as text in the dialog.
+                let braces = value.replace("{{product_name}}", "");
+                assert!(!braces.contains("product_name"), "{language} {key}");
+            }
+        }
+    }
+
+    #[test]
     fn ids_match_the_extension_build() {
         let build = include_str!("../../scripts/build-extension.mjs");
         assert!(build.contains(&format!(r#"geckoId = "{GECKO_ID}""#)));
