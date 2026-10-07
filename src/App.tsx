@@ -3,6 +3,7 @@ import { ArrowDownToLine, ChevronDown, ChevronRight, Heart, Link, Plus, Search, 
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
+import { composing } from "./services/ime";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
@@ -163,6 +164,8 @@ export function App() {
   useEffect(() => savePreference("view", view), [view]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Keys an IME uses to build a character are not shortcuts (NP-090).
+      if (composing(e)) return;
       const key = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && key === "k") {
         e.preventDefault();

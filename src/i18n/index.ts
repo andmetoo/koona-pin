@@ -48,17 +48,18 @@ function subtags(tag: string) {
 }
 
 /** Our file for one system language: same language and script, the same region if we have it (NP-089).
- * `sr-Latn-RS` → sr-Latn, `sr-RS` → sr, `pt-PT` → pt-BR, `de-AT` → de. */
+ * `sr-Latn-RS` → sr-Latn, `sr-RS` → sr, `pt-PT` → pt-BR, `de-AT` → de. Another script is
+ * another language to its reader: `zh-TW` (traditional) gets no file from zh-CN (NP-090). */
 export function matchLanguage(tag: string, codes = languages.map((l) => l.code)): string | undefined {
   const wanted = subtags(tag);
-  const same = codes.filter((code) => subtags(code).language === wanted.language);
-  const sameScript = same.filter((code) => subtags(code).script === wanted.script);
+  const sameScript = codes.filter((code) => {
+    const own = subtags(code);
+    return own.language === wanted.language && own.script === wanted.script;
+  });
   return (
     sameScript.find((code) => subtags(code).region === wanted.region) ??
     sameScript.find((code) => !code.includes("-")) ??
-    sameScript[0] ??
-    same.find((code) => !code.includes("-")) ??
-    same[0]
+    sameScript[0]
   );
 }
 

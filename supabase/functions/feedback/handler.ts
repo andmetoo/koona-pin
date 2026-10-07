@@ -99,9 +99,10 @@ export function senderAddress(headers: Headers): { address: string; from: string
   const address = headers.get("cf-connecting-ip")?.trim();
   return address ? { address, from: "cf-connecting-ip" } : { address: "unknown", from: "none" };
 }
-/** Languages of the site and their paths (NP-107); the form sends its page's `lang`. */
+/** Languages of the site and their paths (NP-107, NP-090); the form sends its page's `lang`. */
 const SITE_PATHS: Record<string, string> = {
   en: "", ru: "/ru", de: "/de", es: "/es", fr: "/fr", it: "/it", pl: "/pl", "pt-BR": "/pt-br", "sr-Latn": "/sr", tr: "/tr", uk: "/uk",
+  "zh-CN": "/zh-cn", ja: "/ja", ko: "/ko",
 };
 /** Where the site form goes next: a static page of the site in its language, else English. */
 export function sitePage(language: string | null, outcome: "sent" | "limit" | "long" | "origin" | "error"): string {

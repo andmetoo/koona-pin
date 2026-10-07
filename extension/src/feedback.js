@@ -188,8 +188,15 @@ export const TONES = {
  * so the page's CSP and Trusted Types have nothing to block. Returns whether
  * the system asks for less motion (the service worker cannot tell).
  */
-export function showMessage({ state, title, text, mascot, glyph, tones, label }) {
+export function showMessage({ state, title, text, mascot, glyph, tones, label, lang = "en" }) {
   const ID = "koonapin-feedback";
+  // The words are in the extension's language, not the page's: their system
+  // font for Chinese, Japanese and Korean (NP-090).
+  const cjk = {
+    zh: '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", ',
+    ja: '"Yu Gothic UI", "Meiryo UI", "Hiragino Sans", ',
+    ko: '"Malgun Gothic", "Apple SD Gothic Neo", ',
+  }[lang.slice(0, 2)] ?? "";
   const SVG = "http://www.w3.org/2000/svg";
   const media = (query) => globalThis.matchMedia?.(query).matches ?? false;
   const dark = media("(prefers-color-scheme: dark)");
@@ -236,13 +243,14 @@ export function showMessage({ state, title, text, mascot, glyph, tones, label })
     border: `1px solid ${c.border}`,
     "border-radius": "12px",
     "box-shadow": `0 8px 24px ${c.shadow}`,
-    font: '13px/1.25 "Segoe UI", system-ui, -apple-system, sans-serif',
+    font: `13px/1.25 "Segoe UI", ${cjk}system-ui, -apple-system, sans-serif`,
     color: c.ink,
     cursor: "default",
     opacity: "0",
     transform: reduce ? "none" : "translateY(-4px)",
     transition: reduce ? "none" : "opacity 150ms ease-out, transform 150ms ease-out",
   });
+  card.setAttribute("lang", lang);
   card.setAttribute("role", "status");
   card.setAttribute("aria-live", "polite");
 

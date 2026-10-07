@@ -14,6 +14,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { composing } from "../../services/ime";
 import { ExportFormat, ViewMode } from "../../types";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
@@ -50,6 +51,9 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   const { t } = useTranslation();
   const more = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<DOMRect | null>(null);
+  // What an IME is still building (NP-090): the field shows it, the list
+  // waits for the finished character.
+  const [composed, setComposed] = useState<string | null>(null);
   const viewButton = (mode: ViewMode, label: string, glyph: typeof List) => (
     <Hint label={label}>
       <button
@@ -81,9 +85,20 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
         <Icon icon={Search} size={15} className="pointer-events-none absolute left-3 text-subtle" />
         <input
           ref={searchRef}
-          value={props.search}
-          onChange={(e) => props.onSearch(e.target.value)}
+          value={composed ?? props.search}
+          onChange={(e) =>
+            composed !== null || (e.nativeEvent as InputEvent).isComposing
+              ? setComposed(e.target.value)
+              : props.onSearch(e.target.value)
+          }
+          onCompositionStart={(e) => setComposed(e.currentTarget.value)}
+          onCompositionEnd={(e) => {
+            setComposed(null);
+            props.onSearch(e.currentTarget.value);
+          }}
           onKeyDown={(e) => {
+            // Esc inside an IME cancels the character, not the query.
+            if (composing(e)) return;
             // Esc clears the query first (frame 09); an empty field lets it close layers.
             if (e.key === "Escape" && props.search) {
               e.preventDefault();

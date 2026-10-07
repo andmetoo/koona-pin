@@ -15,7 +15,7 @@ describe("privacyUrl", () => {
     }
   });
   it("falls back to English for a language the site lacks", () => {
-    expect(privacyUrl("ja")).toBe("https://koona.app/pin/privacy");
+    expect(privacyUrl("he")).toBe("https://koona.app/pin/privacy");
     expect(privacyUrl("constructor")).toBe("https://koona.app/pin/privacy");
   });
 });
