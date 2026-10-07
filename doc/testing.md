@@ -48,7 +48,6 @@ npm run build
 npm test
 cd src-tauri
 cargo test --locked
-cargo build --features custom-protocol --locked
 cd ..
 npx playwright install chromium
 npm run test:ui
@@ -72,6 +71,8 @@ npm run test:extension:firefox:esr   # Firefox ESR 140
 Браузер запускается без окна с отдельным постоянным профилем. Фирменные Chrome и Edge с версии 137 не принимают `--load-extension`, поэтому распакованное расширение во всех трёх браузерах загружается одинаково: `--enable-unsafe-extension-debugging` и CDP `Extensions.loadUnpacked` (NP-014). После перезапуска браузера расширение загружается заново с тем же ID, его хранилище и очередь сохраняются. Playwright не предоставляет нажатие на кнопку расширения в панели браузера: тестовая копия worker получает ссылку на тот же обработчик `chrome.action.onClicked`, который вызывается тестом. В поставляемом worker такого тестового доступа нет. Хранилище, lifecycle, alarms, разрешения, запросы, страница подключения и SQLite используются настоящие.
 
 Основания: [проверка WebView2](https://playwright.dev/docs/webview2), [проверка расширений](https://playwright.dev/docs/chrome-extensions).
+
+`test:native`, `test:perf` и `site:shots` сначала сами собирают приложение, которое проверяют (`scripts/build-test-app.mjs`): интерфейс (`npm run build`) и отладочный `src-tauri/target/debug/koonapin.exe` с встроенным интерфейсом (`cargo build --features custom-protocol`), как в выпуске. Обычный `cargo build` и `cargo test` из `npm run check` пишут тот же файл без встроенного интерфейса: такое окно открывает Vite на `localhost:1420`, и CSP в нём нет совсем — Tauri применяет его только к встроенным страницам. Нативные тесты на таком бинарнике сразу останавливаются с этим объяснением, а не падают проверкой CSP.
 
 Чтобы повторить проверку релизного бинарника, сначала выполните `cargo build --release --features custom-protocol --locked` в `src-tauri`, затем задайте `$env:KOONAPIN_TEST_BINARY='src-tauri/target/release/koonapin.exe'` для `test:native`, `test:host` и `test:extension`; host берётся из той же папки. Скрипт Chrome smoke использует встроенный модуль Node.js `node:sqlite`.
 
