@@ -201,6 +201,7 @@ pwsh scripts/platform-probe/android/probe.ps1
 | Визуальные сравнения                     | Зависят от отрисовки шрифтов машины; в CI не запускаются                                                                                        |
 | `test:native`, `test:extension`          | Перезаписывают отслеживаемые `doc/concepts/native-webview2.jpg` и `chrome-options.jpg`, после локального запуска рабочая копия становится изменённой |
 | `test:native`                            | Падает, если порт отладки 9225 занят, например другим WebView2                                                                                     |
+| Папки прогонов                           | Тесты и скрипты не удаляют свои папки в `.test-data` и `koonapin-*` во временной папке; их убирает `npm run clean`, он же запускается перед `check`, `test:native`, `test:host`, `test:extension`, `test:extension:firefox` и `build:installer`. Папки моложе 30 минут остаются |
 | Chromium из `%LOCALAPPDATA%\ms-playwright` | На машине владельца не запускается, см. выше; к проекту не относится                                                                          |
 
 ## Журнал проверок
