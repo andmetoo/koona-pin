@@ -187,6 +187,67 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 
 Время запуска приложения до готовности принять захват — `node scripts/native-messaging-probe/app-start.mjs` на release-сборке; нужна папка `.test-data\libraries` из генератора тестовых библиотек.
 
+## Linux
+
+Среда Linux-beta (NP-093, [контракт](roadmap.md#контракт-linux-beta)). Linux проверяется одной дорогой — матрицей в контейнерах: workflow `.github/workflows/linux.yml`, локально — `act` на Linux-машине владельца (Docker там быстрее, чем Docker Desktop на Windows), в CI — тем же файлом по ручному запуску (NP-094). Изменение общего кода проверяется и на Windows (`npm run check`, `test:host`, `test:native`).
+
+### Матрица
+
+| Задание | Контейнер | Что проверяет |
+| --- | --- | --- |
+| `check` | `ubuntu:24.04` (glibc 2.39 — самая старая в матрице) | `npm ci`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `cargo clippy --all-targets` (предупреждения не валят задание), release-сборка — тот бинарник, который запускается на всех дистрибутивах |
+| `distro` | `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `fedora:43`, `fedora:44`, `archlinux:latest`, `opensuse/tumbleweed` — только x86_64 | пакеты по `scripts/linux/deps.sh`, сборка с встроенным интерфейсом против библиотек дистрибутива, запуск без экрана (Xvfb, сессионная шина D-Bus): библиотека создаётся в `~/.local/share/Koona Pin`, процесс жив через 5 с, второй запуск передаёт управление первому и выходит |
+
+Скрипты заданий — `scripts/linux/ci-setup.sh` (root: пакеты, Rust из `rust-toolchain.toml`, Node из `.nvmrc`, пользователь `dev`), `ci-check.sh` и `ci-smoke.sh` (от `dev`). Не root: root не замечает прав на файлы и папки, и тесты прав проходили бы не по той причине. В контейнере у WebKitGTK нет пространств имён для песочницы — запуск выключает её (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`), на рабочем столе этого не нужно.
+
+### Запуск
+
+На Linux-машине, в клоне репозитория:
+
+```bash
+act workflow_dispatch -W .github/workflows/linux.yml
+```
+
+Образ раннера `act` берёт из `.actrc`. Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:44`. `act` копирует рабочую копию в контейнер; Rust и `npm ci` каждый прогон заново — около минуты на дистрибутив.
+
+Пакеты. Ubuntu и Debian берут их из тома `koona-ci-cache` (`linux.yml` подключает его в `/var/cache/koona-ci`): скачанные `.deb` — по папке на выпуск, второй прогон ничего не качает. Зеркало Ubuntu выбирает [fast-apt-mirror.sh](https://github.com/vegardit/fast-apt-mirror.sh) — замеряет зеркала страны (закреплён по коммиту и хешу); выбор живёт в томе сутки, apt берёт сначала его, при отказе — `archive.ubuntu.com`. Своё зеркало — `act … --env APT_MIRROR=http://…/ubuntu/`. Готовый Action проекта не подходит: ему нужен `sudo`, которого в контейнере нет, и под `act` он ничего не делает. 7 октября 2026 года `archive.ubuntu.com` отдавал сети владельца 0,7 МБ/с — 20 минут пакетов на задание Ubuntu; ближайшее зеркало под нагрузкой трёх заданий отвечало 403, поэтому и нужен запасной источник. Том с нуля — `docker volume rm koona-ci-cache`.
+
+Когда одно задание падает, `act` пишет «Job failed» и у заданий, закончившихся после него, — смотреть на шаги («Success» / «Failure»), а не на итог.
+
+### Чего матрица не проверяет
+
+Контейнер — не рабочий стол: в нём нет GNOME, KDE, Hyprland, трея, автозапуска, порталов, polkit, Firefox из Snap и видеокарты. Эти пункты контракта автоматически не проверяются; их проверяет человек на настоящем рабочем столе при приёмке (NP-104). Пока не работает и ждёт своих задач: канал захвата (NP-099) — без него `test:host`, extension smoke и `scripts/open-test-libraries.mjs`; регистрация host в браузерах (NP-100); нативные тесты — на WebView2 через CDP, для WebKitGTK их выбирает NP-095.
+
+Разобрано при подготовке (7 октября 2026 года): из 239 Rust-тестов на Linux падал один — `a_failed_write_leaves_the_old_file_and_no_temporary_one`. На Unix переименование заменяет файл «только для чтения», запрет даёт папка без права записи — тест проверяет на Unix её. Тогда же `problem_of` перестал сравнивать коды ошибок Windows на других ОС: на Linux 39 — это `ENOTEMPTY`, и отказ назывался бы «Диск заполнен».
+
+Виртуальные машины QEMU/KVM с автоматической установкой GNOME, KDE и Hyprland пробовались 7 октября 2026 года и отвергнуты владельцем: долго и сложно для пользы, которую дают.
+
+### Разработка на Linux
+
+На Ubuntu 24.04 и 26.04, Debian 13, Fedora 43 и 44, Arch, openSUSE Tumbleweed:
+
+```bash
+bash scripts/linux/deps.sh       # пакеты Tauri 2 для этого дистрибутива, с sudo
+curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal   # версию возьмёт rust-toolchain.toml
+# Node.js из .nvmrc: fnm (fnm install, читает .nvmrc), nvm или архив с nodejs.org
+npm ci
+npm run tauri dev
+npm run check
+```
+
+`deps.sh` повторяет prerequisites Tauri 2 (сверено 7 октября 2026 года): на Ubuntu и Debian библиотека трея — `libayatana-appindicator3-dev`, на Fedora и Arch — `libappindicator-gtk3`, на openSUSE — `libappindicator3-1`. Его проверяет задание `distro`. Версии в контейнерах 7 октября 2026 года:
+
+| Образ | glibc | WebKitGTK |
+| --- | --- | --- |
+| `ubuntu:24.04` (24.04.5) | 2.39 | 2.52.6 |
+| `ubuntu:26.04` (26.04.1) | 2.43 | 2.52.6 |
+| `debian:13` | 2.41 | 2.54.0 |
+| `fedora:43` | 2.42 | 2.52.5 |
+| `fedora:44` | 2.43 | 2.54.1 |
+| `archlinux:latest` | 2.44 | 2.54.1 |
+| `opensuse/tumbleweed` | 2.44 | 2.52.6 |
+
+Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona Pin`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)).
 ## Проба платформ
 
 NP-008 ([Р-26](decisions.md#р-26-риски-других-платформ-блокеров-tauri-нет)) — эксперимент, а не тест приложения: ищет архитектурные блокеры на macOS, Linux, iOS и Android. Результаты — [матрица](release-checklist.md#эксперимент-np-008-другие-платформы).

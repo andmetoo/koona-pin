@@ -45,7 +45,7 @@ export default {
   dlBody: "Windows 및 Linux용 패키지와 브라우저 확장 프로그램은 이곳에 게시됩니다.",
   req: [
     ["Windows 11, 64비트", "관리자 권한 필요 없음"],
-    ["Linux, 64비트", "Ubuntu 24.04 및 26.04, Fedora 44 및 45, Arch Linux"],
+    ["Linux, 64비트", "Ubuntu 24.04 및 26.04, Debian 13, Fedora 43 및 44, Arch Linux, openSUSE Tumbleweed"],
     ["Chrome 또는 Edge 120+, Firefox 140+", "현재 버전 또는 ESR 140"],
   ],
   footer: { privacy: "개인정보", licenses: "라이선스", support: "지원" },
