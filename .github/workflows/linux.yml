@@ -2,7 +2,7 @@ name: Linux
 
 # The Linux-beta test matrix (NP-093, doc/testing.md «Linux»): every distribution of the contract in its
 # own container. Manual only, like ci.yml; locally with act on the owner's Linux host:
-#   act workflow_dispatch -W .github/workflows/linux.yml
+#   act workflow_dispatch -W .github/workflows/linux.yml       (.actrc picks the runner image)
 on:
   workflow_dispatch:
 
@@ -18,7 +18,10 @@ jobs:
   check:
     name: Tests, clippy, release build (Ubuntu 24.04)
     runs-on: ubuntu-latest
-    container: ubuntu:24.04
+    container:
+      image: ubuntu:24.04
+      # The apt mirror chosen by scripts/linux/ci-setup.sh is kept here for a day; a new empty volume on GitHub.
+      options: --volume koona-ci-cache:/var/cache/koona-ci
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -34,7 +37,9 @@ jobs:
   distro:
     name: ${{ matrix.image }}
     runs-on: ubuntu-latest
-    container: ${{ matrix.image }}
+    container:
+      image: ${{ matrix.image }}
+      options: --volume koona-ci-cache:/var/cache/koona-ci
     timeout-minutes: 60
     strategy:
       fail-fast: false

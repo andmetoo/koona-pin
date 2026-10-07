@@ -15,7 +15,7 @@ fi
 # 26 MB/s. fast-apt-mirror.sh measures the mirrors of the country and picks the fastest; no mirror is
 # written in the repository, so every CI and every machine picks its own. It needs curl, which the base
 # image lacks (one slow `apt-get update`), so the choice is kept for a day in /var/cache/koona-ci when a
-# volume is mounted there (act does, .actrc). APT_MIRROR sets a mirror by hand. The script is pinned to a
+# volume is mounted there (linux.yml does). APT_MIRROR sets a mirror by hand. The script is pinned to a
 # commit and its hash.
 if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
   cache=/var/cache/koona-ci/apt-mirror-ubuntu
