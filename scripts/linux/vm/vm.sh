@@ -185,6 +185,8 @@ firstboot() {
   log "first boot"
   start "$name"
   wait_ssh
+  # Ubuntu Desktop ships Firefox as a snap; snaps cannot be seeded from the server installer's chroot.
+  [ "$installer" = ubuntu ] && ssh_vm 'sudo snap wait system seed.loaded && sudo snap install firefox'
   ssh_vm 'systemctl is-system-running --wait || systemctl --failed --no-legend; grep PRETTY_NAME /etc/os-release'
   stop "$name"
   snapshot "$name" clean
