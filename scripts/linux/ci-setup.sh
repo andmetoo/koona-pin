@@ -6,6 +6,10 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 # tzdata and others would ask questions; a job has no one to answer.
 export DEBIAN_FRONTEND=noninteractive
+# Docker without an IPv6 route: apt picks the IPv6 addresses of archive.ubuntu.com and fails to connect.
+if command -v apt-get > /dev/null; then
+  printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99koona-ci
+fi
 bash scripts/linux/deps.sh
 . /etc/os-release
 case "$ID" in
