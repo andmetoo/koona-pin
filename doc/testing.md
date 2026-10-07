@@ -235,12 +235,13 @@ npm run check
 
 | Образ | glibc | WebKitGTK |
 | --- | --- | --- |
-| `ubuntu:22.04` | 2.35 | 2.50.4 |
 | `ubuntu:24.04` (24.04.5) | 2.39 | 2.52.6 |
 | `ubuntu:26.04` (26.04.1) | 2.43 | 2.52.6 |
+| `debian:13` | 2.41 | 2.54.0 |
+| `fedora:43` | 2.42 | 2.52.5 |
 | `fedora:44` | 2.43 | 2.54.1 |
-| `fedora:45` (ещё prerelease) | 2.44 | 2.54.1 |
 | `archlinux:latest` | 2.44 | 2.54.1 |
+| `opensuse/tumbleweed` | 2.44 | 2.52.6 |
 
 Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona Pin`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)).
 ## Проба платформ
