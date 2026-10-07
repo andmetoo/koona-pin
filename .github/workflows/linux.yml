@@ -1,7 +1,7 @@
 name: Linux
 
-# The Linux-beta test matrix (NP-093, doc/testing.md «Linux»): every distribution of the contract in its
-# own container. Manual only, like ci.yml; locally with act on the owner's Linux host:
+# The Linux-beta test matrix (NP-093, NP-094; doc/testing.md «Linux»): every distribution of the contract
+# in its own container. Manual only, like ci.yml (Actions → Linux → Run workflow); locally with act:
 #   act workflow_dispatch -W .github/workflows/linux.yml       (.actrc picks the runner image)
 on:
   workflow_dispatch:
@@ -13,18 +13,30 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # What `npm run check` does on Windows, on the oldest glibc of the matrix (Ubuntu 24.04, 2.39), plus
-  # clippy and the release build: the binary built here is the one that runs on every distribution.
+  # What ci.yml does on Windows — Rust tests, IPC types, build, Vitest, extension lint, Playwright UI
+  # without @visual — on the oldest glibc of the matrix (Debian 13, 2.41), plus the release build: the
+  # binary built here is the one that runs on every distribution.
   check:
-    name: Tests, clippy, release build (Ubuntu 24.04)
+    name: Tests, release build (Debian 13)
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:24.04
-      # The apt mirror chosen by scripts/linux/ci-setup.sh is kept here for a day; a new empty volume on GitHub.
+      image: debian:13
+      # The apt mirror and packages of scripts/linux/ci-setup.sh are kept here between act runs; on
+      # GitHub it is a new empty volume.
       options: --volume koona-ci-cache:/var/cache/koona-ci
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+      # GitHub only: act keeps no cache server, and the step needs Node in the container.
+      - uses: actions/cache@v6
+        if: ${{ !env.ACT }}
+        with:
+          path: |
+            /opt/cargo/registry
+            /home/dev/.npm
+            src-tauri/target
+          key: linux-check-${{ hashFiles('rust-toolchain.toml', 'src-tauri/Cargo.lock', 'package-lock.json') }}
+          restore-keys: linux-check-
       - name: Packages, Rust, Node, user «dev»
         run: bash scripts/linux/ci-setup.sh
       # Not root: root ignores file permissions, and the tests of read-only folders would pass for the
@@ -33,7 +45,8 @@ jobs:
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-check.sh"
 
   # Each distribution of the contract: its packages from deps.sh, the app built against its libraries,
-  # started without a screen: library in ~/.local/share/Koona Pin, a second start hands over to the first.
+  # started without a screen under X11 and Wayland: library in ~/.local/share/Koona Pin, a second start
+  # hands over to the first.
   distro:
     name: ${{ matrix.image }}
     runs-on: ubuntu-latest
@@ -44,9 +57,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [ubuntu:24.04, ubuntu:26.04, debian:13, fedora:43, fedora:44, archlinux:latest, opensuse/tumbleweed]
+        image: [ubuntu:26.04, debian:13, fedora:44, archlinux:latest, opensuse/tumbleweed]
     steps:
       - uses: actions/checkout@v7
+      # Downloads only: a build against each distribution's libraries takes about a minute, and five
+      # target folders would crowd the repository's 10 GB of cache.
+      - uses: actions/cache@v6
+        if: ${{ !env.ACT }}
+        with:
+          path: |
+            /opt/cargo/registry
+            /home/dev/.npm
+          key: linux-${{ matrix.image }}-${{ hashFiles('src-tauri/Cargo.lock', 'package-lock.json') }}
+          restore-keys: linux-${{ matrix.image }}-
       - name: Packages, Rust, Node, user «dev»
         run: bash scripts/linux/ci-setup.sh
       - name: Build and start as «dev»

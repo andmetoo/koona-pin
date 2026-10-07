@@ -46,7 +46,7 @@ export default {
   dlBody: "Paketi za Windows i Linux i proširenja za pregledače biće objavljeni ovde.",
   req: [
     ["Windows 11, 64-bitni", "Nisu potrebna administratorska prava"],
-    ["Linux, 64-bitni", "Ubuntu 24.04 i 26.04, Debian 13, Fedora 43 i 44, Arch Linux, openSUSE Tumbleweed"],
+    ["Linux, 64-bitni", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux, openSUSE Tumbleweed"],
     ["Chrome ili Edge 120+, Firefox 140+", "Trenutno izdanje ili ESR 140"],
   ],
   footer: { privacy: "Privatnost", licenses: "Licence", support: "Podrška" },
