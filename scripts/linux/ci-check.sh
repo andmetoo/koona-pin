@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The «check» job of .github/workflows/linux.yml, as «dev»: what `npm run check` does on Windows, the
-# generated IPC types against the repository, the extension lint and Playwright UI as in ci.yml, and the
-# release build.
+# generated IPC types against the repository, the extension lint and Playwright UI as in ci.yml. The release
+# binary is the «build» job's.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:/opt/node/bin:$PATH
@@ -40,6 +40,3 @@ step "Playwright UI, functional"
 npx playwright install chromium
 npm run test:ui -- --grep-invert "@visual|sidebar rows fit in every language|en key screens 1600×800"
 
-step "Release build"
-(cd src-tauri && cargo build --release --features custom-protocol --locked)
-ls -l src-tauri/target/release/koonapin src-tauri/target/release/koonapin-host

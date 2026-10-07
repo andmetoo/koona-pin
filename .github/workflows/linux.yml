@@ -1,8 +1,10 @@
 name: Linux
 
-# The Linux-beta test matrix (NP-093, NP-094; doc/testing.md «Linux»): every distribution of the contract
-# in its own container. Manual only, like ci.yml (Actions → Linux → Run workflow); locally with act:
-#   act workflow_dispatch -W .github/workflows/linux.yml       (.actrc picks the runner image)
+# The Linux-beta test matrix (NP-093, NP-094; doc/testing.md «Linux»): the release binary is built once on
+# the oldest glibc of the matrix first; then the tests and that very binary on every distribution, each in
+# its own container. Manual only, like ci.yml (Actions → Linux → Run workflow); locally
+# the same workflow with act:
+#   act workflow_dispatch -W .github/workflows/linux.yml       (.actrc: runner image, artifact folder)
 on:
   workflow_dispatch:
 
@@ -13,21 +15,52 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # What ci.yml does on Windows — Rust tests, IPC types, build, Vitest, extension lint, Playwright UI
-  # without @visual — on the oldest glibc of the matrix (Debian 13, 2.41), plus the release build: the
-  # binary built here is the one that runs on every distribution.
-  check:
-    name: Tests, release build (Debian 13)
+  # The binary that ships: built on Debian 13 (glibc 2.41, the oldest of the matrix) — a binary built on a
+  # newer glibc does not start on an older one.
+  build:
+    name: Release build (Debian 13)
     runs-on: ubuntu-latest
     container:
       image: debian:13
-      # The apt mirror and packages of scripts/linux/ci-setup.sh are kept here between act runs; on
+      # The apt mirror and packages of scripts/linux/ci-setup.sh are kept here between local runs; on
       # GitHub it is a new empty volume.
       options: --volume koona-ci-cache:/var/cache/koona-ci
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      # GitHub only: act keeps no cache server, and the step needs Node in the container.
+      - uses: actions/cache@v6
+        if: ${{ !env.ACT }}
+        with:
+          path: |
+            /opt/cargo/registry
+            /home/dev/.npm
+            src-tauri/target
+          key: linux-build-${{ hashFiles('rust-toolchain.toml', 'src-tauri/Cargo.lock', 'package-lock.json') }}
+          restore-keys: linux-build-
+      - name: Packages, Rust, Node, user «dev»
+        run: bash scripts/linux/ci-setup.sh
+      - name: Release build as «dev»
+        run: su dev -s /bin/bash -c "bash scripts/linux/ci-build.sh"
+      # v4, not v7: the artifact server of act 0.2.89 answers v7 with an empty body. GitHub serves both.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: koonapin-linux-x86_64
+          path: dist-linux/
+          if-no-files-found: error
+
+  # What ci.yml does on Windows — Rust tests, IPC types, build, Vitest, extension lint, Playwright UI
+  # without @visual — from the sources, once the build has passed.
+  check:
+    name: Tests (Debian 13)
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: debian:13
+      options: --volume koona-ci-cache:/var/cache/koona-ci
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      # The cache action keeps nothing under act (no cache server): it is skipped there.
       - uses: actions/cache@v6
         if: ${{ !env.ACT }}
         with:
@@ -41,36 +74,32 @@ jobs:
         run: bash scripts/linux/ci-setup.sh
       # Not root: root ignores file permissions, and the tests of read-only folders would pass for the
       # wrong reason.
-      - name: Checks as «dev»
+      - name: Tests as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-check.sh"
 
-  # Each distribution of the contract: its packages from deps.sh, the app built against its libraries,
-  # started without a screen under X11 and Wayland: library in ~/.local/share/Koona Pin, a second start
-  # hands over to the first.
+  # The latest version of each distribution: only the libraries the binary needs at run time (the future
+  # package dependencies), then the binary of «build» started without a screen under X11 and Wayland:
+  # library in ~/.local/share/Koona Pin, a second start hands over to the first.
   distro:
     name: ${{ matrix.image }}
+    needs: build
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
-      options: --volume koona-ci-cache:/var/cache/koona-ci
-    timeout-minutes: 60
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        image: [ubuntu:26.04, debian:13, fedora:44, archlinux:latest, opensuse/tumbleweed]
+        image: [ubuntu:26.04, debian:13, fedora:44, archlinux:latest]
     steps:
       - uses: actions/checkout@v7
-      # Downloads only: a build against each distribution's libraries takes about a minute, and five
-      # target folders would crowd the repository's 10 GB of cache.
-      - uses: actions/cache@v6
-        if: ${{ !env.ACT }}
+      - name: Run-time libraries, user «dev»
+        run: bash scripts/linux/ci-runtime.sh
+      - uses: actions/download-artifact@v4
         with:
-          path: |
-            /opt/cargo/registry
-            /home/dev/.npm
-          key: linux-${{ matrix.image }}-${{ hashFiles('src-tauri/Cargo.lock', 'package-lock.json') }}
-          restore-keys: linux-${{ matrix.image }}-
-      - name: Packages, Rust, Node, user «dev»
-        run: bash scripts/linux/ci-setup.sh
-      - name: Build and start as «dev»
+          name: koonapin-linux-x86_64
+          path: dist-linux/
+      # Artifacts arrive as root and without the executable bit.
+      - run: chown -R dev dist-linux && chmod +x dist-linux/koonapin dist-linux/koonapin-host
+      - name: Start the binary as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"

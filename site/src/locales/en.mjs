@@ -46,7 +46,7 @@ export default {
   dlBody: "Packages for Windows and Linux and the browser extensions will be published here.",
   req: [
     ["Windows 11, 64-bit", "No administrator rights needed"],
-    ["Linux, 64-bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux, openSUSE Tumbleweed"],
+    ["Linux, 64-bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome or Edge 120+, Firefox 140+", "Current release or ESR 140"],
   ],
   footer: { privacy: "Privacy", licenses: "Licenses", support: "Support" },

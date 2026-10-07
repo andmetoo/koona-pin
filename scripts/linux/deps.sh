@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# System packages for building and running Koona Pin from source on Ubuntu, Debian, Fedora, Arch and openSUSE
+# System packages for building and running Koona Pin from source on Ubuntu, Debian, Fedora and Arch
 # (NP-093, doc/testing.md «Linux»): the Tauri 2 prerequisites (v2.tauri.app/start/prerequisites,
 # checked 7 October 2026). Node.js (.nvmrc) and Rust (rustup, rust-toolchain.toml) are not here.
 #   bash scripts/linux/deps.sh
@@ -22,14 +22,8 @@ case "${ID}" in
     $sudo pacman -Syu --needed --noconfirm webkit2gtk-4.1 base-devel curl wget file openssl \
       appmenu-gtk-module libappindicator-gtk3 librsvg xdotool
     ;;
-  opensuse-tumbleweed)
-    # By pkg-config name: the package names on the Tauri page are out of date for Tumbleweed.
-    $sudo zypper --non-interactive install 'pkgconfig(webkit2gtk-4.1)' 'pkgconfig(openssl)' \
-      'pkgconfig(librsvg-2.0)' 'pkgconfig(ayatana-appindicator3-0.1)' xdotool-devel curl wget file
-    $sudo zypper --non-interactive install -t pattern devel_basis
-    ;;
   *)
-    echo "deps.sh: ${PRETTY_NAME:-$ID} is not in the Linux test matrix (Ubuntu, Debian, Fedora, Arch, openSUSE Tumbleweed)" >&2
+    echo "deps.sh: ${PRETTY_NAME:-$ID} is not in the Linux test matrix (Ubuntu, Debian, Fedora, Arch)" >&2
     exit 1
     ;;
 esac
