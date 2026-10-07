@@ -320,7 +320,7 @@ NP-003 начать сразу после NP-001: подпись кода и х�
 | Установка | Системная, пакетным менеджером, с паролем администратора. Зависимости: `webkit2gtk-4.1`, `libayatana-appindicator` (без неё приложение падает) |
 | Регистрация host | Манифесты Native Messaging — файлы пакета в системных каталогах Chrome, Edge и Firefox; удаляются вместе с пакетом. Приложение их только проверяет |
 | Канал захвата | Unix-сокет в `$XDG_RUNTIME_DIR`, только для пользователя; протокол 2 без изменений |
-| Браузеры | Chrome и Edge 120+ из пакетов производителя; Firefox — релиз и ESR 140: пакет Fedora и Arch, Snap на Ubuntu (через портал WebExtensions), deb Mozilla. Chromium Snap, браузеры Flatpak, Brave и Vivaldi не заявляются |
+| Браузеры | Chrome и Edge 120+ из пакетов производителя; Chromium 120+ — пакет дистрибутива (Debian, Fedora, Arch, openSUSE; в Omarchy — браузер по умолчанию) и Snap на Ubuntu; Firefox — релиз и ESR 140: пакет дистрибутива, Snap на Ubuntu (через портал WebExtensions), deb Mozilla. Браузеры Flatpak, Brave и Vivaldi не заявляются |
 | Обновления | Встроенный updater (`tauri-plugin-updater` 2.10+) для `.deb` и `.rpm`, тот же `latest.json` и ключ, что у Windows; пароль спрашивает polkit. AUR — без updater, обновляет pacman. GPG и свои репозитории APT/DNF — не в beta |
 | Данные | `~/.local/share/Koona Pin`; удаление пакета библиотеку не трогает |
 | Автозапуск | Включён по умолчанию, старт скрытым; ярлык в `~/.config/autostart` создаёт приложение при первом запуске (только на Linux: на Windows значение задаёт установщик), выключается в настройках |
