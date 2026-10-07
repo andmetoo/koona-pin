@@ -37,7 +37,7 @@ npm ci
 npm run tauri dev
 ```
 
-На Linux — пакеты из `bash scripts/linux/deps.sh`, затем то же; проверка Linux из Windows — `npm run check:linux` в Docker ([Linux](doc/testing.md#linux)).
+На Linux — пакеты из `bash scripts/linux/deps.sh`, затем то же; проверка Linux — матрица `.github/workflows/linux.yml` через `act` ([Linux](doc/testing.md#linux)).
 
 `npm run dev` открывает браузерное превью с отдельными демонстрационными данными на языке интерфейса. Оно не обращается к пользовательской SQLite.
 
