@@ -45,7 +45,7 @@ export default {
   dlBody: "Windows と Linux のパッケージ、ブラウザーの拡張機能はここで公開します。",
   req: [
     ["Windows 11、64 ビット", "管理者権限は不要"],
-    ["Linux、64 ビット", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux、openSUSE Tumbleweed"],
+    ["Linux、64 ビット", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux"],
     ["Chrome または Edge 120+、Firefox 140+", "最新版または ESR 140"],
   ],
   footer: { privacy: "プライバシー", licenses: "ライセンス", support: "サポート" },

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Root part of a «distro» job of .github/workflows/linux.yml: only what the release binary needs to run —
+# WebKitGTK and the tray library, the future dependencies of the packages (NP-055) — plus X11 and Wayland
+# servers without a display and a session bus. No compilers. Node only for the artifact action under act
+# (GitHub brings its own), and the user «dev».
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+export DEBIAN_FRONTEND=noninteractive
+. /etc/os-release
+case "$ID" in
+  ubuntu | debian)
+    printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\nAPT::Install-Recommends "false";\n' > /etc/apt/apt.conf.d/99koona-ci
+    apt-get update -qq
+    apt-get install -y -qq libwebkit2gtk-4.1-0 libayatana-appindicator3-1 \
+      xvfb xauth dbus weston curl xz-utils ca-certificates > /dev/null
+    ;;
+  fedora)
+    dnf install -y -q webkit2gtk4.1 libayatana-appindicator-gtk3 \
+      xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon weston xz
+    ;;
+  arch)
+    pacman -Sy --needed --noconfirm webkit2gtk-4.1 libayatana-appindicator \
+      xorg-server-xvfb xorg-xauth dbus weston xz > /dev/null
+    ;;
+esac
+# \r: a Windows checkout under act.
+node=$(tr -d 'v \r\n' < .nvmrc)
+mkdir -p /opt/node
+curl -sSf "https://nodejs.org/dist/v$node/node-v$node-linux-x64.tar.xz" | tar -xJ -C /opt/node --strip-components 1
+ln -sf /opt/node/bin/node /usr/local/bin/node
+id dev > /dev/null 2>&1 || useradd -m -u 1001 -U dev
+chown -R dev "$PWD"
