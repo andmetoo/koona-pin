@@ -1,4 +1,4 @@
-import { FormEvent, KeyboardEvent, useId, useState } from "react";
+import { ChangeEvent, CompositionEvent, FormEvent, KeyboardEvent, useId, useRef, useState } from "react";
 import { ChevronDown, Tag as TagIcon, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, Tag } from "../../types";
@@ -51,9 +51,33 @@ export function CollectionSelect({
 const cleanTag = (tag: string, language: string) => tag.trim().toLocaleLowerCase(language);
 /** A comma separates tags, the Chinese and Japanese ones too (NP-090). */
 const SEPARATORS = /[,，、]/;
-/** Those commas come through an IME: the input event of the character is still composing. */
-const separated = (e: { nativeEvent: Event; target: EventTarget }) =>
-  SEPARATORS.test((e.target as HTMLInputElement).value) && !(e.nativeEvent as InputEvent).isComposing;
+/**
+ * A comma ends the tag typed before it, whether typed, pasted or committed by
+ * an IME. The IME's comma arrives while composing, so it ends the tag at
+ * compositionend. Firefox and WebKit then send one more, non-composing input
+ * event with the same text: that echo is skipped, or the tag would be added twice.
+ */
+function useCommaEnds(end: (text: string) => void) {
+  const ended = useRef<string | null>(null);
+  return {
+    /** For onChange: true when the comma ended the tag and the change is handled. */
+    ended(e: ChangeEvent<HTMLInputElement>) {
+      const value = e.target.value;
+      const echo = ended.current === value;
+      ended.current = null;
+      if (echo) return true;
+      if (!SEPARATORS.test(value) || (e.nativeEvent as InputEvent).isComposing) return false;
+      end(value);
+      return true;
+    },
+    onCompositionEnd(e: CompositionEvent<HTMLInputElement>) {
+      const value = e.currentTarget.value;
+      if (!SEPARATORS.test(value)) return;
+      ended.current = value;
+      end(value);
+    },
+  };
+}
 
 /** Library tags offered under a one-tag field. */
 const SUGGESTIONS = 6;
@@ -87,13 +111,20 @@ export function TagField({
   const listId = useId();
   const typed = foldText(value.trim());
   const offered = suggestions.filter((tag) => !typed || foldText(tag.name).includes(typed)).slice(0, SUGGESTIONS);
-  const finish = (name: string) => (name ? onAdd(name) : onClose());
   /** The typed tag: the text before the first comma. */
   const typedTag = (text: string) => cleanTag(text.split(SEPARATORS).find((part) => part.trim()) ?? "", i18n.language);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    finish(offered[active]?.name ?? typedTag(value));
+    const name = offered[active]?.name ?? typedTag(value);
+    if (name) onAdd(name);
+    else onClose();
   };
+  // A comma with nothing before it is a slip, not «cancel»: the field stays open and empty.
+  const commas = useCommaEnds((text) => {
+    const name = typedTag(text);
+    if (name) onAdd(name);
+    else setValue("");
+  });
   return (
     <form onSubmit={submit}>
       <input
@@ -106,11 +137,11 @@ export function TagField({
         placeholder={placeholder}
         value={value}
         onChange={(e) => {
-          if (separated(e)) return finish(typedTag(e.target.value));
+          if (commas.ended(e)) return;
           setValue(e.target.value);
           setActive(-1);
         }}
-        onCompositionEnd={(e) => SEPARATORS.test(e.currentTarget.value) && finish(typedTag(e.currentTarget.value))}
+        onCompositionEnd={commas.onCompositionEnd}
         onBlur={onClose}
         onKeyDown={(e) => {
           if (composing(e)) return;
@@ -181,6 +212,7 @@ export function TagInput({
     onChange(next);
     setDraft("");
   };
+  const commas = useCommaEnds(add);
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     // Enter inside an IME confirms the character, not the tag (NP-090).
     if (composing(e)) return;
@@ -210,9 +242,8 @@ export function TagInput({
         id={id}
         value={draft}
         aria-describedby={describedBy}
-        onChange={(e) => (separated(e) ? add(e.target.value) : setDraft(e.target.value))}
-        // A comma typed through an IME arrives while composing, and no input event follows it.
-        onCompositionEnd={(e) => SEPARATORS.test(e.currentTarget.value) && add(e.currentTarget.value)}
+        onChange={(e) => commas.ended(e) || setDraft(e.target.value)}
+        onCompositionEnd={commas.onCompositionEnd}
         onKeyDown={onKeyDown}
         onBlur={() => draft.trim() && add(draft)}
         placeholder={t("editor.tagsPlaceholder")}

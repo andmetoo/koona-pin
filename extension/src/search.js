@@ -1,4 +1,4 @@
-import { ext, t } from "./ext.js";
+import { ext, t, textLanguage } from "./ext.js";
 import { talk } from "./native.js";
 import { answerState, collectionColor, shortDate, siteTile } from "./search-model.js";
 
@@ -17,7 +17,7 @@ const state = { filter: { kind: "all" }, items: [], selected: 0, counts: null, m
 
 function translate() {
   // The language of the catalog the text comes from: a zh-TW browser reads English (NP-090).
-  document.documentElement.lang = t("languageCode");
+  document.documentElement.lang = textLanguage();
   for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
   for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
   for (const node of document.querySelectorAll("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel));
@@ -49,13 +49,23 @@ async function search() {
   Object.assign(state, { items: reply.items, counts: reply.counts, more: reply.more, selected: 0 });
   render();
 }
-let typing;
+let typing = 0;
 // An IME (Chinese, Japanese, Korean) builds a character over several keys:
 // the list waits for the finished one (NP-090).
 const later = () => {
   clearTimeout(typing);
-  typing = setTimeout(search, 120);
+  typing = setTimeout(() => {
+    typing = 0;
+    void search();
+  }, 120);
 };
+/** The answer for what is typed now: Enter right after a character must not open the previous list. */
+async function current() {
+  if (!typing) return;
+  clearTimeout(typing);
+  typing = 0;
+  await search();
+}
 query.addEventListener("input", (event) => {
   if (!event.isComposing) later();
 });
@@ -105,7 +115,7 @@ function row(item, index) {
   const side =
     index === state.selected
       ? element("kbd", "", `↵ ${t("searchOpen")}`)
-      : element("span", "date", shortDate(item.created_at, { language: t("languageCode"), today: t("searchToday") }));
+      : element("span", "date", shortDate(item.created_at, { language: textLanguage(), today: t("searchToday") }));
   node.append(tile, text, side);
   node.addEventListener("mousemove", () => select(index));
   node.addEventListener("click", (event) => open(item, event.shiftKey));
@@ -209,7 +219,7 @@ function select(index) {
     const item = state.items[Number(node.id.slice(5))];
     const next = chosen
       ? element("kbd", "", `↵ ${t("searchOpen")}`)
-      : element("span", "date", shortDate(item.created_at, { language: t("languageCode"), today: t("searchToday") }));
+      : element("span", "date", shortDate(item.created_at, { language: textLanguage(), today: t("searchToday") }));
     side.replaceWith(next);
     if (chosen) node.scrollIntoView({ block: "nearest" });
   }
@@ -235,9 +245,11 @@ document.addEventListener("keydown", async (event) => {
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
     select(Math.min(state.items.length - 1, Math.max(0, state.selected + (event.key === "ArrowDown" ? 1 : -1))));
-  } else if (event.key === "Enter" && item && !event.target.closest?.("button")) {
+  } else if (event.key === "Enter" && (item || typing) && !event.target.closest?.("button")) {
     event.preventDefault();
-    await open(item, event.shiftKey);
+    await current();
+    const chosen = state.items[state.selected];
+    if (chosen) await open(chosen, event.shiftKey);
   } else if (event.key === "Escape") {
     window.close();
   } else if ((event.ctrlKey || event.metaKey) && event.code === "KeyC" && item && query.selectionStart === query.selectionEnd) {

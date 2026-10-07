@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { textLanguage } from "./ext.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const catalog = (code) =>
@@ -43,6 +44,16 @@ describe("extension messages", () => {
     const used = usedKeys();
     expect([...used].filter((key) => !(key in en))).toEqual([]);
     expect(Object.keys(en).filter((key) => !used.has(key))).toEqual([]);
+  });
+  it("names each catalog's language with a tag Intl accepts (NP-090)", () => {
+    for (const code of codes) {
+      const tag = catalog(code).languageCode.message;
+      expect(tag, code).toBe(code.replace("_", "-"));
+      expect(Intl.getCanonicalLocales(tag), code).toEqual([tag]);
+    }
+    // Outside a browser t() returns the key, which is no language: dates still format.
+    expect(textLanguage()).toBe("en");
+    expect(() => new Date().toLocaleDateString(textLanguage())).not.toThrow();
   });
   it("fits store limits: name 75 characters, description 132", () => {
     for (const messages of codes.map(catalog)) {
