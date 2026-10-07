@@ -57,10 +57,13 @@ iso() {
       file=$(grep -o "ubuntu-$release[0-9.]*-live-server-amd64.iso" <<< "$sums" | sort -V | tail -1)
       ;;
     fedora)
-      base="https://download.fedoraproject.org/pub/fedora/linux/releases/$release/Everything/x86_64/iso"
-      curl -fsIL "$base/" > /dev/null 2>&1 || base="https://download.fedoraproject.org/pub/fedora/linux/development/$release/Everything/x86_64/iso"
-      local index
-      index=$(curl -fsSL "$base/")
+      # The release, else its Beta before the release date, else the nightly compose.
+      local index="" mirror=https://dl.fedoraproject.org/pub/fedora/linux
+      for base in "$mirror/releases/$release" "$mirror/releases/test/${release}_Beta" "$mirror/development/$release"; do
+        base="$base/Everything/x86_64/iso"
+        index=$(curl -fsSL "$base/" 2> /dev/null) && break
+      done
+      [ -n "$index" ] || die "no Fedora $release image"
       file=$(grep -o 'Fedora-Everything-netinst-x86_64-[^"]*\.iso' <<< "$index" | sort -V | tail -1)
       sums=$(curl -fsSL "$base/$(grep -o 'Fedora-Everything-[^"]*-x86_64-CHECKSUM' <<< "$index" | head -1)")
       ;;
@@ -76,7 +79,8 @@ iso() {
   sum=$(grep -E "[ *(]${file//./\\.}([) ]|$)" <<< "$sums" | grep -oE '[0-9a-f]{64}' | head -1)
   [ -n "$sum" ] || die "no checksum for $file"
   mkdir -p "$root/iso"
-  image="$root/iso/$name-$file"
+  # Shared between machines by file name; a changed «latest» image fails the checksum and comes again.
+  image="$root/iso/$file"
   if [ ! -f "$image" ] || ! echo "$sum  $image" | sha256sum -c --status; then
     log "downloading $file"
     curl -fL --progress-bar -o "$image.part" "$base/$file"
