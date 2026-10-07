@@ -116,8 +116,15 @@ test("Esc inside an IME keeps the query", { tag: "@languages" }, async ({ page }
   const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
   await search.fill("silence");
   await expect(cards).toHaveCount(1);
-  for (const init of [{ isComposing: true }, { keyCode: 229 }])
-    await search.evaluate((el, init) => el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, ...init })), init);
+  for (const init of [{ isComposing: true }, { keyCode: 229 }]) {
+    const sent = await search.evaluate((el, init) => {
+      const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, ...init });
+      el.dispatchEvent(event);
+      return { isComposing: event.isComposing, keyCode: event.keyCode };
+    }, init);
+    // Each event carries only its own sign: the guard must know both.
+    expect(sent).toEqual({ isComposing: "isComposing" in init, keyCode: "keyCode" in init ? 229 : 0 });
+  }
   await expect(search).toHaveValue("silence");
   await expect(cards).toHaveCount(1);
   // A plain Esc still clears it.
@@ -141,6 +148,27 @@ test("a comma from an IME ends the tag", { tag: "@languages" }, async ({ page })
   await expect(field).toHaveValue("设计，");
   await cdp.send("Input.insertText", { text: "设计，" });
   await expect(page.getByText("Tag «设计» added to 1 bookmark")).toBeVisible();
+});
+
+// A comma with nothing before it is a slip: the field stays open and empty, nothing is added.
+test("a lone comma keeps the tag field open", { tag: "@languages" }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  await cards.first().click({ modifiers: ["Control"] });
+  await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
+  const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
+  await field.focus();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.imeSetComposition", { text: "，", selectionStart: 1, selectionEnd: 1 });
+  await cdp.send("Input.insertText", { text: "，" });
+  await expect(field).toBeVisible();
+  await expect(field).toHaveValue("");
+  await field.press(",");
+  await expect(field).toHaveValue("");
+  await field.pressSequentially("ux,");
+  await expect(page.getByText("Tag «ux» added to 1 bookmark")).toBeVisible();
 });
 
 // A query changed from outside while a character is composed wins: the end of the composition

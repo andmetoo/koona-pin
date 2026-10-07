@@ -9,3 +9,19 @@ export const ext = globalThis.browser ?? globalThis.chrome;
 export function t(key, ...substitutions) {
   return ext?.i18n?.getMessage(key, substitutions.map(String)) || key;
 }
+
+/**
+ * The language of the catalog the text comes from (NP-090): a zh-TW browser
+ * reads English. Without the message — outside a browser — the browser's
+ * language, else English: never a tag `Intl` rejects.
+ */
+export function textLanguage() {
+  for (const code of [t("languageCode"), ext?.i18n?.getUILanguage?.(), "en"]) {
+    try {
+      if (code && Intl.getCanonicalLocales(code).length) return code;
+    } catch {
+      /* not a language tag: the next one */
+    }
+  }
+  return "en";
+}
