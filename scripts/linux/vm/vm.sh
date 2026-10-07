@@ -18,7 +18,6 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=${KOONA_VMS:-$HOME/vms}
 ovmf_code=/usr/share/edk2/x64/OVMF_CODE.4m.fd
 ovmf_vars=/usr/share/edk2/x64/OVMF_VARS.4m.fd
-http_port=8730
 
 die() { echo "vm.sh: $*" >&2; exit 1; }
 log() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
@@ -110,6 +109,8 @@ create() {
   [ -f "$dir/disk.qcow2" ] && die "$name exists: $dir (remove it to start over)"
   secrets
   iso
+  # Its own port, so several machines install at once.
+  http_port=$((port + 6500))
   mkdir -p "$dir" "$root/serve/$name"
   qemu-img create -q -f qcow2 "$dir/disk.qcow2" 40G
   cp "$ovmf_vars" "$dir/vars.fd"
