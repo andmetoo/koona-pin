@@ -10,6 +10,13 @@ export DEBIAN_FRONTEND=noninteractive
 # Recommended packages are hundreds of megabytes the build does not need.
 if command -v apt-get > /dev/null; then
   printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\nAPT::Install-Recommends "false";\n' > /etc/apt/apt.conf.d/99koona-ci
+  # Downloaded packages stay in the cache volume, one folder per release: the next run downloads nothing.
+  # The images' docker-clean only empties the default folder.
+  if [ -d /var/cache/koona-ci ]; then
+    archives=/var/cache/koona-ci/apt/$(. /etc/os-release; echo "$ID-$VERSION_ID")
+    mkdir -p "$archives/partial"
+    printf 'Dir::Cache::Archives "%s/";\nBinary::apt::APT::Keep-Downloaded-Packages "true";\n' "$archives" >> /etc/apt/apt.conf.d/99koona-ci
+  fi
 fi
 # Ubuntu: archive.ubuntu.com gave the owner's network 0.7 MB/s (20 minutes of packages), a nearby mirror
 # 26 MB/s. fast-apt-mirror.sh measures the mirrors of the country and picks the fastest; no mirror is
