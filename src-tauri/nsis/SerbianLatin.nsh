@@ -1,0 +1,33 @@
+; Koona Pin's own SerbianLatin.nsh: tauri-cli 2.12.1 ships no Serbian strings,
+; so these follow its English.nsh key for key, with the autostart checkbox and
+; the uninstaller's data checkbox (NP-037, Р-10 item 8). Serbian is Latin only,
+; as on the site (NP-106). After a Tauri upgrade, translate new strings from the
+; upstream English file.
+LangString addOrReinstall ${LANG_SERBIANLATIN} "Dodaj ili ponovo instaliraj komponente"
+LangString alreadyInstalled ${LANG_SERBIANLATIN} "Već instalirano"
+LangString alreadyInstalledLong ${LANG_SERBIANLATIN} "${PRODUCTNAME} ${VERSION} je već instaliran. Izaberite radnju koju želite da izvršite i kliknite na „Napred“ da biste nastavili."
+LangString appRunning ${LANG_SERBIANLATIN} "Aplikacija {{product_name}} je pokrenuta! Zatvorite je, pa pokušajte ponovo."
+LangString appRunningOkKill ${LANG_SERBIANLATIN} "Aplikacija {{product_name}} je pokrenuta!$\nKliknite na OK da biste je zatvorili"
+LangString chooseMaintenanceOption ${LANG_SERBIANLATIN} "Izaberite radnju koju želite da izvršite."
+LangString choowHowToInstall ${LANG_SERBIANLATIN} "Izaberite kako želite da instalirate ${PRODUCTNAME}."
+LangString createDesktop ${LANG_SERBIANLATIN} "Napravi prečicu na radnoj površini"
+LangString dontUninstall ${LANG_SERBIANLATIN} "Ne deinstaliraj"
+LangString dontUninstallDowngrade ${LANG_SERBIANLATIN} "Ne deinstaliraj (ovaj instalacioni program ne instalira stariju verziju bez deinstaliranja trenutne)"
+LangString failedToKillApp ${LANG_SERBIANLATIN} "Zatvaranje aplikacije {{product_name}} nije uspelo. Zatvorite je, pa pokušajte ponovo"
+LangString installingWebview2 ${LANG_SERBIANLATIN} "Instaliranje komponente WebView2..."
+LangString newerVersionInstalled ${LANG_SERBIANLATIN} "Novija verzija aplikacije ${PRODUCTNAME} je već instalirana! Ne preporučuje se instaliranje starije verzije. Ako zaista želite da instalirate ovu stariju verziju, bolje je da prvo deinstalirate trenutnu. Izaberite radnju koju želite da izvršite i kliknite na „Napred“ da biste nastavili."
+LangString older ${LANG_SERBIANLATIN} "Starija"
+LangString olderOrUnknownVersionInstalled ${LANG_SERBIANLATIN} "$R4 verzija aplikacije ${PRODUCTNAME} je instalirana na sistemu. Preporučuje se da pre instaliranja deinstalirate trenutnu verziju. Izaberite radnju koju želite da izvršite i kliknite na „Napred“ da biste nastavili."
+LangString silentDowngrades ${LANG_SERBIANLATIN} "Ovaj instalacioni program ne instalira starije verzije, pa tiho instaliranje ne može da se nastavi. Koristite instalacioni program sa grafičkim interfejsom.$\n"
+LangString unableToUninstall ${LANG_SERBIANLATIN} "Deinstaliranje nije uspelo!"
+LangString uninstallApp ${LANG_SERBIANLATIN} "Deinstaliraj ${PRODUCTNAME}"
+LangString uninstallBeforeInstalling ${LANG_SERBIANLATIN} "Deinstaliraj pre instaliranja"
+LangString unknown ${LANG_SERBIANLATIN} "Nepoznata"
+LangString webview2AbortError ${LANG_SERBIANLATIN} "Instaliranje komponente WebView2 nije uspelo! Aplikacija ne može da radi bez nje. Pokušajte ponovo da pokrenete instalacioni program."
+LangString webview2DownloadError ${LANG_SERBIANLATIN} "Greška: preuzimanje komponente WebView2 nije uspelo - $0"
+LangString webview2DownloadSuccess ${LANG_SERBIANLATIN} "Instalacioni program za WebView2 je preuzet"
+LangString webview2Downloading ${LANG_SERBIANLATIN} "Preuzimanje instalacionog programa za WebView2..."
+LangString webview2InstallError ${LANG_SERBIANLATIN} "Greška: instaliranje komponente WebView2 nije uspelo, izlazni kod $1"
+LangString webview2InstallSuccess ${LANG_SERBIANLATIN} "Komponenta WebView2 je instalirana"
+LangString deleteAppData ${LANG_SERBIANLATIN} "Obriši biblioteku i rezervne kopije"
+LangString npAutostart ${LANG_SERBIANLATIN} "Pokreni ${PRODUCTNAME} u oblasti obaveštenja pri prijavljivanju na Windows"

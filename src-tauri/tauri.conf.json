@@ -62,10 +62,31 @@
       },
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English", "Russian"],
+        "languages": [
+          "English",
+          "Russian",
+          "German",
+          "Spanish",
+          "French",
+          "Italian",
+          "PortugueseBR",
+          "Polish",
+          "Ukrainian",
+          "Turkish",
+          "SerbianLatin"
+        ],
         "customLanguageFiles": {
           "English": "nsis/English.nsh",
-          "Russian": "nsis/Russian.nsh"
+          "Russian": "nsis/Russian.nsh",
+          "German": "nsis/German.nsh",
+          "Spanish": "nsis/Spanish.nsh",
+          "French": "nsis/French.nsh",
+          "Italian": "nsis/Italian.nsh",
+          "PortugueseBR": "nsis/PortugueseBR.nsh",
+          "Polish": "nsis/Polish.nsh",
+          "Ukrainian": "nsis/Ukrainian.nsh",
+          "Turkish": "nsis/Turkish.nsh",
+          "SerbianLatin": "nsis/SerbianLatin.nsh"
         },
         "installerHooks": "nsis/hooks.nsh",
         "installerIcon": "icons/icon.ico"
