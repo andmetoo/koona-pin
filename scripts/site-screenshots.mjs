@@ -2,8 +2,7 @@
 // and SQLite in a data folder of its own, a sample library restored from JSON, previews from
 // site/shots/previews (Unsplash licence, site/shots/previews/CREDITS.md), Chrome connected.
 //
-//   cargo build --manifest-path src-tauri/Cargo.toml   (once, the debug app and its host)
-//   node scripts/site-screenshots.mjs
+//   npm run site:shots   (builds the debug app with its interface embedded first, scripts/build-test-app.mjs)
 //
 // Writes site/src/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280)
 // and og-<lang>.jpg. Quit your own Koona Pin first:
@@ -73,7 +72,8 @@ async function until(check, what, ms = 30000) {
   throw new Error(`Timed out waiting for ${what}`);
 }
 
-const devServerUp = () => fetch("http://127.0.0.1:1420").then((r) => r.ok);
+/** The window's page: the interface embedded in the binary (scripts/build-test-app.mjs). */
+const appPage = (p) => p.url().startsWith("http://tauri.localhost");
 
 async function shoot(lang, base, encoder) {
   const data = path.join(root, ".test-data", `site-shots-${lang}-${Date.now()}`);
@@ -96,8 +96,8 @@ async function shoot(lang, base, encoder) {
       return true;
     }, "a DevTools connection");
     const context = browser.contexts()[0];
-    await until(async () => context.pages().some((p) => p.url().includes("1420")), "the app page");
-    const page = context.pages().find((p) => p.url().includes("1420"));
+    await until(async () => context.pages().some(appPage), "the app page (built with the interface embedded? npm run site:shots does it)");
+    const page = context.pages().find(appPage);
     await until(() => pipeReady(pipe), "the capture pipe");
     await page.evaluate(
       (content) => window.__TAURI_INTERNALS__.invoke("restore_library", { content, mode: "replace" }),
@@ -152,10 +152,6 @@ async function shoot(lang, base, encoder) {
 
 assertNoOtherApp();
 await mkdir(out, { recursive: true });
-const vite = (await devServerUp().catch(() => false))
-  ? null
-  : spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1"], { cwd: root, stdio: "ignore" });
-await until(devServerUp, "the dev server");
 const { server, base } = await servePreviews();
 // WebP for the site: Chromium encodes it from the PNG screenshot.
 const encoderBrowser = await chromium.launch();
@@ -182,5 +178,4 @@ try {
 } finally {
   await encoderBrowser.close();
   server.close();
-  vite?.kill();
 }
