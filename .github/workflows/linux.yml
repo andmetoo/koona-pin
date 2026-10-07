@@ -13,12 +13,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # What `npm run check` does on Windows, on the oldest glibc of the contract (2.35), plus clippy and the
-  # release build: the binary built here is the one that runs on every distribution.
+  # What `npm run check` does on Windows, on the oldest glibc of the matrix (Ubuntu 24.04, 2.39), plus
+  # clippy and the release build: the binary built here is the one that runs on every distribution.
   check:
-    name: Tests, clippy, release build (Ubuntu 22.04)
+    name: Tests, clippy, release build (Ubuntu 24.04)
     runs-on: ubuntu-latest
-    container: ubuntu:22.04
+    container: ubuntu:24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [ubuntu:24.04, ubuntu:26.04, fedora:44, fedora:45, archlinux:latest]
+        image: [ubuntu:24.04, ubuntu:26.04, debian:13, fedora:43, fedora:44, archlinux:latest, opensuse/tumbleweed]
     steps:
       - uses: actions/checkout@v7
       - name: Packages, Rust, Node, user «dev»

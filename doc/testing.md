@@ -189,30 +189,34 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 
 ## Linux
 
-Среда Linux-beta (NP-093, [контракт](roadmap.md#контракт-linux-beta)). Код для Linux пишется на Windows и проверяется в Docker; окно, трей, захват и пакеты — на Linux-машине и в виртуальных машинах. Изменение общего кода проверяется и на Windows (`npm run check`, `test:host`, `test:native`).
+Среда Linux-beta (NP-093, [контракт](roadmap.md#контракт-linux-beta)). Linux проверяется одной дорогой — матрицей в контейнерах: workflow `.github/workflows/linux.yml`, локально — `act` на Linux-машине владельца (Docker там быстрее, чем Docker Desktop на Windows), в CI — тем же файлом по ручному запуску (NP-094). Изменение общего кода проверяется и на Windows (`npm run check`, `test:host`, `test:native`).
 
-### Проверка из Windows
+### Матрица
 
-Нужен запущенный Docker Desktop.
+| Задание | Контейнер | Что проверяет |
+| --- | --- | --- |
+| `check` | `ubuntu:22.04` (glibc 2.35 — самая старая в контракте) | `npm ci`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `cargo clippy --all-targets` (предупреждения не валят задание), release-сборка — тот бинарник, который запускается на всех дистрибутивах |
+| `distro` | `ubuntu:24.04`, `ubuntu:26.04`, `fedora:44`, `fedora:45`, `archlinux:latest` | пакеты по `scripts/linux/deps.sh`, сборка с встроенным интерфейсом против библиотек дистрибутива, запуск без экрана (Xvfb, сессионная шина D-Bus): библиотека создаётся в `~/.local/share/Koona Pin`, процесс жив через 5 с, второй запуск передаёт управление первому и выходит |
 
-```powershell
-npm run check:linux
+Скрипты заданий — `scripts/linux/ci-setup.sh` (root: пакеты, Rust из `rust-toolchain.toml`, Node из `.nvmrc`, пользователь `dev`), `ci-check.sh` и `ci-smoke.sh` (от `dev`). Не root: root не замечает прав на файлы и папки, и тесты прав проходили бы не по той причине. В контейнере у WebKitGTK нет пространств имён для песочницы — запуск выключает её (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`), на рабочем столе этого не нужно.
+
+### Запуск
+
+На Linux-машине, в клоне репозитория:
+
+```bash
+act workflow_dispatch -W .github/workflows/linux.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
 
-Собирает образ `koonapin-linux` (`scripts/linux/Dockerfile`: Ubuntu 22.04, glibc 2.35 — самая старая в контракте; пакеты — `scripts/linux/deps.sh`, Rust из `rust-toolchain.toml` с clippy, Node из `.nvmrc`) и выполняет в нём `scripts/linux/check.sh`: копия репозитория без папок сборок и `.gitignore`, `npm ci` при изменении `package-lock.json`, затем то же, что `npm run check` (Rust-тесты, сборка, Vitest), сверка `src/bindings` с репозиторием, `cargo clippy --all-targets` (предупреждения не валят проверку; 7 октября 2026 года их 12, ни одного платформенного) и release-сборка. Бинарники `koonapin` и `koonapin-host` и версии окружения (`environment.txt`) — в `release/test/linux/<версия>/`. Первый прогон — около 15 минут (образ, `npm ci`, три сборки Rust), следующие — инкрементально: копия, `node_modules`, target и реестр Cargo живут в томах `koonapin-linux-work` и `koonapin-linux-cargo`.
+Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:45`. `act` копирует рабочую копию в контейнер и кеша не держит: каждый прогон собирает Rust заново.
 
-Отдельная команда в той же копии — аргументами, оболочка — `bash`:
+### Чего матрица не проверяет
 
-```powershell
-npm run check:linux -- cargo test --locked --manifest-path src-tauri/Cargo.toml export::
-npm run check:linux -- bash
-```
-
-Чем контейнер отличается от Linux-машины. Проверки идут от пользователя `dev`, а не root: root не замечает прав на файлы и папки, и тесты прав проходили бы не по той причине. Исходники приходят из рабочей копии Windows с концами строк CRLF (`core.autocrlf`), в клоне на Linux — LF. Окна, трея и сеанса нет: `test:native` и `test:host` в контейнере не запускаются. Тома с нуля — `docker volume rm koonapin-linux-work koonapin-linux-cargo`.
-
-Что на Linux пока не работает и ждёт своих задач: канал захвата (NP-099) — без него `test:host`, extension smoke и `scripts/open-test-libraries.mjs` (он ждёт открытия канала); регистрация host в браузерах (NP-100); нативные тесты — на WebView2 через CDP, для WebKitGTK их выбирает NP-095.
+Контейнер — не рабочий стол: в нём нет GNOME, KDE, Hyprland, трея, автозапуска, порталов, polkit, Firefox из Snap и видеокарты. Эти пункты контракта автоматически не проверяются; их проверяет человек на настоящем рабочем столе при приёмке (NP-104). Пока не работает и ждёт своих задач: канал захвата (NP-099) — без него `test:host`, extension smoke и `scripts/open-test-libraries.mjs`; регистрация host в браузерах (NP-100); нативные тесты — на WebView2 через CDP, для WebKitGTK их выбирает NP-095.
 
 Разобрано при подготовке (7 октября 2026 года): из 239 Rust-тестов на Linux падал один — `a_failed_write_leaves_the_old_file_and_no_temporary_one`. На Unix переименование заменяет файл «только для чтения», запрет даёт папка без права записи — тест проверяет на Unix её. Тогда же `problem_of` перестал сравнивать коды ошибок Windows на других ОС: на Linux 39 — это `ENOTEMPTY`, и отказ назывался бы «Диск заполнен».
+
+Виртуальные машины QEMU/KVM с автоматической установкой GNOME, KDE и Hyprland пробовались 7 октября 2026 года и отвергнуты владельцем: долго и сложно для пользы, которую дают.
 
 ### Разработка на Linux
 
@@ -227,53 +231,18 @@ npm run tauri dev
 npm run check
 ```
 
-`deps.sh` повторяет prerequisites Tauri 2 (сверено 7 октября 2026 года): на Ubuntu библиотека трея — `libayatana-appindicator3-dev`, на Fedora и Arch — `libappindicator-gtk3`. Список проверен сборкой приложения в чистом образе каждого дистрибутива контракта; повторить после изменения `deps.sh` или зависимостей Rust:
-
-```powershell
-node scripts/linux/deps-check.mjs              # ubuntu:24.04 ubuntu:26.04 fedora:44 fedora:45 archlinux
-node scripts/linux/deps-check.mjs fedora:45    # один
-```
-
-Версии систем и WebKitGTK — `.test-data/linux-deps/<образ>.txt`. Прогон 7 октября 2026 года — все пять собрали приложение:
+`deps.sh` повторяет prerequisites Tauri 2 (сверено 7 октября 2026 года): на Ubuntu библиотека трея — `libayatana-appindicator3-dev`, на Fedora и Arch — `libappindicator-gtk3`. Его проверяет задание `distro`. Версии в контейнерах 7 октября 2026 года:
 
 | Образ | glibc | WebKitGTK |
 | --- | --- | --- |
+| `ubuntu:22.04` | 2.35 | 2.50.4 |
 | `ubuntu:24.04` (24.04.5) | 2.39 | 2.52.6 |
 | `ubuntu:26.04` (26.04.1) | 2.43 | 2.52.6 |
 | `fedora:44` | 2.43 | 2.54.1 |
 | `fedora:45` (ещё prerelease) | 2.44 | 2.54.1 |
 | `archlinux:latest` | 2.44 | 2.54.1 |
 
-Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona Pin`. Тестовые библиотеки строятся так же, как на Windows (`cargo run --example test_libraries`), открываются вручную через `KOONAPIN_DATA_DIR`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)); если помогло, записать в протокол машины. Разработка на Linux — для того, у кого Linux рабочая система; на машине владельца проверки не идут (VM ниже).
-
-### Машины Linux
-
-Все строки матрицы [release-checklist.md](release-checklist.md#интерфейс-и-платформы) — виртуальные машины QEMU/KVM на Arch-машине владельца через [quickemu](https://github.com/quickemu-project/quickemu) (AUR): официальный образ, 3D через VirGL на встроенной графике, диск qcow2 со снимком `clean` сразу после установки системы и обновлений, до установки Koona Pin; проверка начинается с отката к снимку. VirtualBox не используется: медленный, тащит свои драйверы в гостя; QEMU на Windows не даёт гостю 3D.
-
-```bash
-quickget ubuntu 24.04                                    # образ и ubuntu-24.04.conf
-quickemu --vm ubuntu-24.04.conf                          # установка, обновления, затем выключить
-quickemu --vm ubuntu-24.04.conf --snapshot create clean
-quickemu --vm ubuntu-24.04.conf --snapshot apply clean   # перед каждой проверкой
-```
-
-Строка Hyprland — тоже VM: Arch с [Omarchy](https://github.com/basecamp/omarchy) из её ISO (quickemu принимает любой образ; Chromium, uwsm, Nautilus, порталы GTK и Hyprland, Noto Sans CJK); Hyprland без 3D не стартует, VirGL обязателен. На самой Arch-машине владельца ничего не ставится и не проверяется — только QEMU и quickemu, машины лежат в одной папке.
-
-Протокол машины — вывод `bash scripts/linux/system-info.sh` в её графическом сеансе: система, ядро, сеанс и окружение, WebKitGTK, Mesa, библиотека трея, видеокарта и рендерер.
-
-| Машина | Окружение | Где | Снимок `clean` | Протокол |
-| --- | --- | --- | --- | --- |
-| Ubuntu 24.04 LTS | GNOME, Wayland | VM, `quickget ubuntu 24.04` | — | — |
-| Ubuntu 26.04 LTS | GNOME, Wayland | VM, `quickget ubuntu 26.04` | — | — |
-| Fedora 44 Workstation | GNOME, Wayland | VM, `quickget fedora 44 Workstation` | — | — |
-| Fedora 45 Workstation | GNOME, Wayland | VM, `quickget fedora 45 Workstation` | — | — |
-| Fedora 45 KDE Plasma Desktop | KDE Plasma, Wayland | VM, `quickget fedora 45 KDE` | — | — |
-| Arch Linux | GNOME, Wayland | VM, `quickget archlinux latest` + `gnome` | — | — |
-| Arch Linux | KDE Plasma, Wayland | VM, `quickget archlinux latest` + `plasma` | — | — |
-| Arch Linux (Omarchy) | Hyprland, Wayland | VM, ISO Omarchy | — | — |
-
-Имена версий и редакций — `quickget <система>` без аргументов печатает список; Arch ставится из образа, окружение — пакетом `gnome` или `plasma` перед снимком.
-
+Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona Pin`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)).
 ## Проба платформ
 
 NP-008 ([Р-26](decisions.md#р-26-риски-других-платформ-блокеров-tauri-нет)) — эксперимент, а не тест приложения: ищет архитектурные блокеры на macOS, Linux, iOS и Android. Результаты — [матрица](release-checklist.md#эксперимент-np-008-другие-платформы).
