@@ -192,10 +192,11 @@ export function showMessage({ state, title, text, mascot, glyph, tones, label, l
   const ID = "koonapin-feedback";
   // The words are in the extension's language, not the page's: their system
   // font for Chinese, Japanese and Korean (NP-090).
+  // The stacks of languages.css (src/styles/fonts.test.ts keeps them equal).
   const cjk = {
-    zh: '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", ',
-    ja: '"Yu Gothic UI", "Meiryo UI", "Hiragino Sans", ',
-    ko: '"Malgun Gothic", "Apple SD Gothic Neo", ',
+    zh: '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", ',
+    ja: '"Yu Gothic UI", "Meiryo UI", "Hiragino Sans", "Noto Sans CJK JP", ',
+    ko: '"Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans CJK KR", ',
   }[lang.slice(0, 2)] ?? "";
   const SVG = "http://www.w3.org/2000/svg";
   const media = (query) => globalThis.matchMedia?.(query).matches ?? false;

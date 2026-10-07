@@ -78,7 +78,8 @@
    font of the interface's language, so a character shared by the three takes
    that language's form, not the one the browser happens to pick (NP-090).
    Windows first; macOS and Linux names for the later builds. No CJK font is
-   bundled: one weighs more than the whole app. */
+   bundled: one weighs about as much as the whole installer. The extension and
+   the site name the same fonts: src/styles/fonts.test.ts keeps them equal. */
 :root {
   --np-font: "Inter Variable", "Inter", system-ui, sans-serif;
 }

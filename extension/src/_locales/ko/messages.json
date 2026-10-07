@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "링크는 Koona Pin이 받았다고 확인할 때까지 브라우저에 남습니다. 앱이 닫혀 있으면 페이지를 저장할 때 알림 영역에서 시작됩니다."
   },
+  "languageCode": { "message": "ko" },
   "siteUrl": { "message": "https://koona.app/pin/ko/" }
 }

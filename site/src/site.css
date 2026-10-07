@@ -83,7 +83,7 @@ html {
   }
 }
 /* Inter has no Chinese, Japanese or Korean characters: after it, the system font
-   of the text's language (NP-090), as in the app. Any element with `lang` picks
+   of the text's language (NP-090), the app's stacks (src/styles/fonts.test.ts). Any element with `lang` picks
    its own, so «日本語» in the menu of an English page is drawn as Japanese. */
 :root {
   --font: Inter, system-ui, sans-serif;

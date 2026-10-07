@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "Les liens restent dans le navigateur jusqu’à ce que Koona Pin les confirme. Si l’application est fermée, enregistrer une page la démarre dans la zone de notification."
   },
+  "languageCode": { "message": "fr" },
   "siteUrl": { "message": "https://koona.app/pin/fr/" }
 }

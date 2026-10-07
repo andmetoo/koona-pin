@@ -6,7 +6,8 @@ const get = (id) => document.getElementById(id);
 // The site in the browser's language (NP-107).
 const DOWNLOAD = t("siteUrl");
 function translate() {
-  document.documentElement.lang = ext.i18n.getUILanguage();
+  // The language of the catalog the text comes from: a zh-TW browser reads English (NP-090).
+  document.documentElement.lang = t("languageCode");
   for (const element of document.querySelectorAll("[data-i18n]"))
     element.textContent = t(element.dataset.i18n);
   get("version").textContent = t("extensionVersion", VERSION);
@@ -31,7 +32,8 @@ function button(text, onClick) {
 function savedAt(iso) {
   if (!iso) return "";
   const date = new Date(iso);
-  const language = ext.i18n.getUILanguage();
+  // Dates in the language of the sentence around them.
+  const language = t("languageCode");
   const time = date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
   return date.toDateString() === new Date().toDateString()
     ? t("lastSavedToday", time)
