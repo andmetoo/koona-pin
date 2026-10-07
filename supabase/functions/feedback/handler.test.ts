@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { handle, MAX_BODY, notification, parse, senderAddress, TRAP, type Deps, type Row } from "./handler.ts";
+import { handle, MAX_BODY, notification, parse, senderAddress, sitePage, TRAP, type Deps, type Row } from "./handler.ts";
+import { languages } from "../../../site/src/content.mjs";
 
 const URL = "https://project.supabase.co/functions/v1/feedback";
 
@@ -165,6 +166,13 @@ describe("feedback function", () => {
     expect(nullOrigin.headers.get("location")).toBe("https://koona.app/pin/feedback/origin");
     expect(hidden.rows).toHaveLength(0);
     expect((await handle(app(fromApp, { origin: "null" }), fakes().deps)).status).toBe(403);
+  });
+
+  it("returns the form to a page in every language of the site, and to English for anything else (NP-107)", () => {
+    for (const l of languages) expect(sitePage(l.lang, "sent"), l.lang).toBe(`https://koona.app/pin/${l.dir}feedback/sent`);
+    expect(sitePage("sr-Latn", "limit")).toBe("https://koona.app/pin/sr/feedback/limit");
+    for (const other of [null, "", "ja", "sr", "constructor", "__proto__", "../evil"])
+      expect(sitePage(other, "error"), String(other)).toBe("https://koona.app/pin/feedback/error");
   });
 
   it("takes a long non-Latin message from the site: the cap counts encoded bytes generously", async () => {

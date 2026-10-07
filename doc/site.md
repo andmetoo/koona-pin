@@ -4,14 +4,14 @@
 
 ## Страницы и адреса
 
-Все адреса ниже — внутри `https://koona.app/pin` (`BASE` в `site/src/content.mjs`): `/ru/` — это `koona.app/pin/ru/`. Разделы следующих задач (например, загрузки) идут внутри языка: `/pin/downloads/`, `/pin/ru/downloads/`.
+Все адреса ниже — внутри `https://koona.app/pin` (`BASE` в `site/src/content.mjs`): `/de/` — это `koona.app/pin/de/`. Каждая страница есть на всех языках сайта ([Р-49](decisions.md#р-49-сайт-на-языках-приложения)): английский без префикса, остальные — `/<код>/…`: `/ru/`, `/de/`, `/es/`, `/fr/`, `/it/`, `/pl/`, `/pt-br/`, `/sr/` (сербский латиницей), `/tr/`, `/uk/`. Разделы следующих задач (например, загрузки) идут внутри языка: `/pin/downloads/`, `/pin/de/downloads/`.
 
 | Адрес | Что |
 | --- | --- |
-| `/`, `/ru/` | Лендинг на английском и русском |
-| `/privacy`, `/ru/privacy` | Политика конфиденциальности, текст из `extension/store/privacy.md` |
-| `/licenses`, `/ru/licenses` | Лицензии шрифтов, иконок и библиотек; вёрстка страницы privacy, отдельного кадра нет |
-| `/feedback`, `/ru/feedback` и `/feedback/sent`, `/limit`, `/long`, `/origin`, `/error` | Форма отзыва и страницы, на которые её возвращает Edge Function (NP-088); вёрстка страницы privacy, отдельного кадра нет. Собираются, только если задан `KOONAPIN_FEEDBACK_URL` |
+| `/`, `/<код>/` | Лендинг |
+| `/privacy`, `/<код>/privacy` | Политика конфиденциальности, текст из `extension/store/privacy.md`; на языках, кроме английского и русского, — с пометкой о переводе и ссылкой на английский текст |
+| `/licenses`, `/<код>/licenses` | Лицензии шрифтов, иконок и библиотек; вёрстка страницы privacy, отдельного кадра нет |
+| `/feedback`, `/<код>/feedback` и `…/feedback/sent`, `/limit`, `/long`, `/origin`, `/error` | Форма отзыва и страницы, на которые её возвращает Edge Function (NP-088) на языке формы; вёрстка страницы privacy, отдельного кадра нет. Собираются, только если задан `KOONAPIN_FEEDBACK_URL` |
 | `/firefox/updates.json`, `/firefox/koonapin-firefox-<версия>.xpi` | Обновления Firefox (NP-018). Адрес зашит в подписанный XPI: после первого выпуска не меняется |
 
 Сайт статический, без серверной части и без скриптов на страницах. Единственная форма — отзыв (NP-088): обычный `<form>`, POST прямо в Edge Function `feedback` в Supabase, CSP разрешает `form-action` только `https://*.supabase.co`. Хостинг — сервер владельца с Caddy ([Р-37](decisions.md#р-37-сайт-koonaapppin-статика-на-сервере-владельца-надпись-nunito)), конфиг — `site/Caddyfile`, выкладка — ниже.
@@ -21,7 +21,9 @@
 - Обещания приватности — про приложение и расширение, не про сайт: сайт — страница для скачивания. Сайт без cookies и рекламных трекеров, шрифт Inter, маскот и картинки лежат на нём самом; единственный сторонний скрипт — Cloudflare Web Analytics, который вставляет Cloudflare (без cookies, [Р-37](decisions.md#р-37-сайт-koonaapppin-статика-на-сервере-владельца-надпись-nunito)), он раскрыт в политике (раздел «This website»).
 - Надпись «koona pin» рядом с маскотом — Nunito ExtraBold (вариант B листа «Wordmark · options»), на сайте кривыми в SVG, без файла шрифта. Остальной текст — Inter.
 - Логотип один — в шапке. Маскот крупно сидит над блоком загрузки («ждёт выпуска»), не на первом экране.
-- Язык: при первом заходе на `/` по языку браузера, переключатель EN / RU в шапке ведёт на ту же страницу другого языка. Выбор не хранится в cookies.
+- Язык: при первом заходе на `/` — по первому языку браузера (`site/Caddyfile`, регион не важен: `de-AT` → `/de/`, `pt-PT` → `/pt-br/`, `sr-RS` и `sr-Latn-RS` → `/sr/`); меню языка в шапке ведёт на ту же страницу другого языка. Выбор не хранится в cookies.
+- Меню языка (NP-107, лист «Language menu»): кнопка «🌐 English ▾» и панель в две колонки — родное название языка и под ним название на языке страницы; текущий язык — мягкий акцент и галочка. Открывается без скриптов: `:hover` и `:focus-within` (Tab, нажатие на кнопку). На узком экране панель во всю ширину с отступами 16 px и затемнением страницы, на кнопке — код языка.
+- Тексты — `site/src/locales/<код>.mjs`, термины — по [глоссарию](glossary.md). Сборка падает, если у языка другие ключи, чем у английского, пустая строка или слово из латиницы вперемешку с кириллицей. Новый язык: файл текстов, раздел в `extension/store/privacy.md`, строки в `site/Caddyfile` (переадресация и 404) и `SITE_PATHS` в `src/services/feedback.ts` и `supabase/functions/feedback/handler.ts` ([Р-49](decisions.md#р-49-сайт-на-языках-приложения)).
 - Тема — по системе (`prefers-color-scheme`), переключателя нет.
 - Ширины: кадры 1440 и 390; без горизонтальной прокрутки от 360 до 1920. Заголовки — `text-wrap: balance`, чтобы на узком экране не оставалось одного слова в строке.
 - Скриншоты приложения — настоящая сборка (WebView2, SQLite) в своей папке данных, `scripts/site-screenshots.mjs`: выборка закладок `site/shots/library.json`, превью — фото Unsplash из `site/shots/previews` (авторы — `CREDITS.md` там же и страница `/licenses`), Chrome подключён через хост. Фото отдаются с имени `previews.koona.test`, которое только WebView съёмки направляет на локальный сервер (`--host-resolver-rules`): картинки с локальных адресов приложение из копии отбрасывает (NP-019). Язык интерфейса снимка выбирается настройкой: по умолчанию приложение говорит по-английски (NP-085). Скрипт падает, если в сетке не загрузилось ни одно фото. Тёмных русских снимков нет: русские страницы в тёмной теме показывают английские. В макетах — браузерное превью с фото Icons8.
@@ -36,7 +38,7 @@
 
 | # | Блок | Содержание |
 | --- | --- | --- |
-| 1 | Шапка | Маскот 36 px и надпись; ссылки «How it works», «Privacy», «Download»; переключатель EN / RU. На 390 ссылок нет — логотип и язык |
+| 1 | Шапка | Маскот 36 px и надпись; ссылки «How it works», «Privacy», «Download»; меню языка. На 390 ссылок нет — логотип и язык |
 | 2 | Первый экран | Заголовок, подзаголовок, плашка «скоро» и кнопка «How it works», строка «Windows 11, Linux · Chrome, Edge, Firefox · Free»; скриншот сетки приложения |
 | 3 | Три свойства | Карточки с иконкой: одна кнопка · на вашем компьютере · без аккаунта |
 | 4 | Как это работает | Три шага с номерами |
@@ -86,14 +88,15 @@
 | Privacy · 1440 · Light · EN / Dark · EN / Light · RU | 0 · 5600 / 1600 · 5600 / 3200 · 5600 |
 | Privacy · 390 · Light · EN / Dark · EN | 4800 · 5600 / 5290 · 5600 |
 | Download · states (скоро и доступна, обе темы) | 0 · 7800 |
+| Language menu · 1440 · Light · open / 390 · Light · open / 1440 · Dark · open (NP-107) | 0 · 9600 / 1600 · 9600 / 2200 · 9600 |
 
 ## Сборка и проверка
 
 | Команда | Что делает |
 | --- | --- |
-| `npm run site:build` | Собирает `release/publish/site/`: страницы en/ru, `site.css`, шрифт Inter (латиница, расширенная латиница, кириллица), маскот, favicon, скриншоты, `sitemap.xml` (`robots.txt` — у корня `koona.app`); `release/publish/firefox` целиком, если он есть, со сверкой хешей XPI с `updates.json` |
-| `npm run site:check` | Сборка и проверка: каждая страница на 360, 390, 1440, 1920 в обеих темах — без горизонтальной прокрутки, без запросов к другим доменам, без cookies, ссылки внутри сайта открываются, `/pin/` для русского браузера ведёт на `/pin/ru/`, а EN с `/pin/ru/` — на `/pin/`; снимки в `test-results/site` |
-| `npm run site:serve` | Локальный сервер `release/publish/site/` с правилами `site/Caddyfile` (`/pin` → `/pin/`, try_files, 404, переадресация языка, заголовки) на `http://127.0.0.1:4173/pin/`; `/` стоит за корневой сайт и ведёт на `/pin/` |
+| `npm run site:build` | Собирает `release/publish/site/`: страницы всех языков, `site.css`, шрифт Inter (латиница, расширенная латиница, кириллица), маскот, favicon, скриншоты, `sitemap.xml` (`robots.txt` — у корня `koona.app`); `release/publish/firefox` целиком, если он есть, со сверкой хешей XPI с `updates.json` |
+| `npm run site:check` | Сборка и проверка: каждая страница каждого языка на 360, 390, 1440, 1920 в обеих темах — без горизонтальной прокрутки и обрезанных подписей, без запросов к другим доменам, без cookies, ссылки внутри сайта открываются; меню языка открывается наведением и Tab и не выходит за экран; `/pin/` ведёт на язык браузера для каждого языка сайта, а English из меню `/pin/ru/` — на `/pin/`; у каждого языка своя 404 в Caddyfile. Снимки en, ru, de и sr (страницы и открытое меню) — в `test-results/site` |
+| `npm run site:serve` | Локальный сервер `release/publish/site/` с правилами `site/Caddyfile` (`/pin` → `/pin/`, try_files, 404, переадресация языка — читается из Caddyfile, заголовки) на `http://127.0.0.1:4173/pin/`; `/` стоит за корневой сайт и ведёт на `/pin/` |
 | `npm run site:shots` | Скриншоты настоящего приложения в `site/src/shots` (1920 и 1280 px WebP, `og-<lang>.jpg` 1200×630). Сначала сам собирает отладочное приложение со встроенным интерфейсом (`scripts/build-test-app.mjs`), Vite не нужен; собственный Koona Pin закрыт (один экземпляр на пользователя) |
 | `node scripts/site-wordmark.mjs` | Надпись кривыми из Nunito ExtraBold в `site/src/brand/wordmark.svg`; только если надпись меняется |
 
@@ -132,7 +135,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    }
    ```
    Скрипт ниже кладёт `site/Caddyfile` в `/srv/koona.app/pin/Caddyfile`, файлы сайта — в `/srv/koona.app/pin/site`. Стандартный блок `:80` со страницей «Caddy works!» можно удалить.
-4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Web Analytics (вставка скрипта, без cookies) включена, CSP её разрешает; Email Address Obfuscation и Rocket Loader выключены — они вставляют скрипты, которые CSP заблокирует; Bot Fight Mode выключен — он может ставить cookies. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/pin/` → `/pin/ru/` зависит от языка браузера.
+4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Web Analytics (вставка скрипта, без cookies) включена, CSP её разрешает; Email Address Obfuscation и Rocket Loader выключены — они вставляют скрипты, которые CSP заблокирует; Bot Fight Mode выключен — он может ставить cookies. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/pin/` на язык (`/pin/ru/`, `/pin/de/`…) зависит от языка браузера.
 5. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Koona Pin, `npm run site:shots`, закоммитить `site/src/shots`.
 6. **Обновления Firefox:** после `npm run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/publish/firefox`; сборка сайта забирает их и сверяет хеши и адрес `https://koona.app/pin/firefox/`.
 7. **Выкладка** (с адресом функции отзыва в `KOONAPIN_FEEDBACK_URL` — в `.env` в корне репозитория, как в `.env.example`, или в окружении; иначе скрипт откажется — форма `/feedback` пропала бы; намеренно без неё — `-WithoutFeedback`):
@@ -140,7 +143,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    pwsh scripts/deploy-site.ps1 -Server user@host
    ```
    Скрипт собирает сайт, копирует архив и `Caddyfile` по `scp`, распаковывает рядом со старой версией, проверяет конфиг (`caddy validate`; при ошибке прежний `Caddyfile` возвращается, сайт не меняется), меняет папки местами и перезагружает Caddy. Предыдущая версия остаётся в `site.old`.
-8. **Проверка после выкладки:** `https://koona.app/pin` переходит на `https://koona.app/pin/`; открываются `/pin/`, `/pin/ru/`, `/pin/privacy`, `/pin/ru/privacy`, `/pin/licenses`; `https://koona.app/pin/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, из вставок Cloudflare в страницах только скрипт Web Analytics; с русским языком браузера `/pin/` переходит на `/pin/ru/`.
+8. **Проверка после выкладки:** `https://koona.app/pin` переходит на `https://koona.app/pin/`; открываются `/pin/`, `/pin/ru/`, `/pin/de/`, `/pin/sr/`, `/pin/privacy`, `/pin/de/privacy`, `/pin/licenses`, `/pin/de/nowhere` отвечает немецкой 404; `https://koona.app/pin/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, из вставок Cloudflare в страницах только скрипт Web Analytics; с русским языком браузера `/pin/` переходит на `/pin/ru/`, с немецким — на `/pin/de/`.
 
 Проверено 5 октября 2026 года на прежнем адресе сайта (до [Р-47](decisions.md#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код)): HTTPS через Cloudflare, страницы en/ru 200, 404 на своих страницах, `/` → `/ru/` для русского браузера, `/privacy.html` → `/privacy`, `http` → `https`, без `Set-Cookie` и cookies в браузере, из сторонних хостов только `static.cloudflareinsights.com` (данные Web Analytics уходят на `/cdn-cgi/rum` того же домена), без ошибок CSP, `updates.json` и XPI 0.5.2 с совпадающим SHA-256; Lighthouse (мобильный) `/` и `/ru/` — Performance 96–97, Accessibility, Best Practices и SEO 100. На `koona.app/pin/` проверку повторить после первой выкладки.
 
