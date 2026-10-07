@@ -48,11 +48,10 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
         { timeout: 20000 },
       )
       .toBe(true);
+    const url = await appPageUrl(request);
     browser = await chromium.connectOverCDP("http://127.0.0.1:9225");
     const context = browser.contexts()[0];
-    const page =
-      context.pages().find((p) => p.url().includes("1420")) ??
-      context.pages()[0];
+    const page = context.pages().find((p) => p.url() === url) ?? context.pages()[0];
     page.on("pageerror", (error) =>
       console.error("WebView page error:", error.message),
     );
@@ -252,6 +251,39 @@ const binary = () =>
     process.env.KOONAPIN_TEST_BINARY || "src-tauri/target/debug/koonapin.exe",
   );
 
+/**
+ * The address the window loaded. These tests need the interface embedded in the
+ * binary, as in the release: `npm run test:native` builds it (scripts/build-test-app.mjs).
+ * A plain `cargo build`, or the `cargo test` of `npm run check`, leaves a debug binary
+ * that loads the Vite server and runs without the CSP — stop on it instead of failing
+ * further on for a reason that has nothing to do with the test.
+ */
+async function appPageUrl(request: import("@playwright/test").APIRequestContext) {
+  let url = "";
+  await expect
+    .poll(
+      async () => {
+        try {
+          const targets = await (
+            await request.get("http://127.0.0.1:9225/json/list", { timeout: 500 })
+          ).json();
+          url = targets.find((t: { type: string; url: string }) => t.type === "page" && t.url !== "about:blank")?.url ?? "";
+        } catch {
+          url = "";
+        }
+        return url !== "";
+      },
+      { timeout: 20000 },
+    )
+    .toBe(true);
+  if (url.startsWith("http://localhost:1420"))
+    throw new Error(
+      `${binary()} loads the Vite server: it was built without the interface embedded and has no CSP. ` +
+        "Run `npm run test:native`, or `node scripts/build-test-app.mjs` before Playwright.",
+    );
+  return url;
+}
+
 async function launch(
   request: import("@playwright/test").APIRequestContext,
   env: Record<string, string>,
@@ -303,8 +335,10 @@ async function launch(
       { timeout: 20000 },
     )
     .toBe(true);
+  const url = await appPageUrl(request);
   const browser = await chromium.connectOverCDP("http://127.0.0.1:9225");
-  const page = browser.contexts()[0].pages()[0];
+  const pages = browser.contexts()[0].pages();
+  const page = pages.find((p) => p.url() === url) ?? pages[0];
   return { processHandle, exited, browser, page };
 }
 
