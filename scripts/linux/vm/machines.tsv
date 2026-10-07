@@ -1,0 +1,9 @@
+# The Linux-beta matrix as virtual machines (NP-093, doc/testing.md «Машины Linux»).
+# name	installer	release	desktop	ssh port
+ubuntu-24.04	ubuntu	24.04	gnome	2241
+ubuntu-26.04	ubuntu	26.04	gnome	2242
+fedora-44	fedora	44	gnome	2243
+fedora-45	fedora	45	gnome	2244
+fedora-45-kde	fedora	45	kde	2245
+arch-gnome	arch	latest	gnome	2246
+arch-kde	arch	latest	kde	2247
