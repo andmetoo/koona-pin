@@ -37,13 +37,15 @@ export function storedLanguage(): LanguageSetting {
   return defaultLanguage;
 }
 
-/** Language, script and region of a tag, with the likely ones filled in: `sr-RS` → sr, Cyrl, RS. */
+/** Language, script and region of a tag, with the likely ones filled in: `sr-RS` → sr, Cyrl, RS.
+ * `de_DE`, as some systems write it, is `de-DE`. */
 function subtags(tag: string) {
+  const bcp47 = tag.replace(/_/g, "-");
   try {
-    const locale = new Intl.Locale(tag).maximize();
+    const locale = new Intl.Locale(bcp47).maximize();
     return { language: locale.language, script: locale.script, region: locale.region };
   } catch {
-    return { language: tag.toLowerCase().split("-")[0], script: undefined, region: undefined };
+    return { language: bcp47.toLowerCase().split("-")[0], script: undefined, region: undefined };
   }
 }
 
@@ -52,9 +54,10 @@ function subtags(tag: string) {
  * another language to its reader: `zh-TW` (traditional) gets no file from zh-CN (NP-090). */
 export function matchLanguage(tag: string, codes = languages.map((l) => l.code)): string | undefined {
   const wanted = subtags(tag);
+  // A tag that can't be parsed says nothing of its script: its language alone decides.
   const sameScript = codes.filter((code) => {
     const own = subtags(code);
-    return own.language === wanted.language && own.script === wanted.script;
+    return own.language === wanted.language && (wanted.script === undefined || own.script === wanted.script);
   });
   return (
     sameScript.find((code) => subtags(code).region === wanted.region) ??

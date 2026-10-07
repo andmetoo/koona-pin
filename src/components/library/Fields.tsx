@@ -51,6 +51,9 @@ export function CollectionSelect({
 const cleanTag = (tag: string, language: string) => tag.trim().toLocaleLowerCase(language);
 /** A comma separates tags, the Chinese and Japanese ones too (NP-090). */
 const SEPARATORS = /[,，、]/;
+/** Those commas come through an IME: the input event of the character is still composing. */
+const separated = (e: { nativeEvent: Event; target: EventTarget }) =>
+  SEPARATORS.test((e.target as HTMLInputElement).value) && !(e.nativeEvent as InputEvent).isComposing;
 
 /** Library tags offered under a one-tag field. */
 const SUGGESTIONS = 6;
@@ -59,7 +62,9 @@ const SUGGESTIONS = 6;
  * One tag typed in place: `T` in triage, «Тег» of the selection bar (sheet
  * 31). Enter adds it, Esc or leaving the field cancels. With `suggestions`
  * the library's tags that match are listed under it; arrows pick one and
- * Enter adds the picked one instead of the typed text.
+ * Enter adds the picked one instead of the typed text. A comma ends the tag,
+ * as in the editor's chips: the text before it is added, never a tag with a
+ * comma in it (NP-090).
  */
 export function TagField({
   label,
@@ -82,11 +87,12 @@ export function TagField({
   const listId = useId();
   const typed = foldText(value.trim());
   const offered = suggestions.filter((tag) => !typed || foldText(tag.name).includes(typed)).slice(0, SUGGESTIONS);
+  const finish = (name: string) => (name ? onAdd(name) : onClose());
+  /** The typed tag: the text before the first comma. */
+  const typedTag = (text: string) => cleanTag(text.split(SEPARATORS).find((part) => part.trim()) ?? "", i18n.language);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const name = offered[active]?.name ?? cleanTag(value, i18n.language);
-    if (name) onAdd(name);
-    else onClose();
+    finish(offered[active]?.name ?? typedTag(value));
   };
   return (
     <form onSubmit={submit}>
@@ -100,9 +106,11 @@ export function TagField({
         placeholder={placeholder}
         value={value}
         onChange={(e) => {
+          if (separated(e)) return finish(typedTag(e.target.value));
           setValue(e.target.value);
           setActive(-1);
         }}
+        onCompositionEnd={(e) => SEPARATORS.test(e.currentTarget.value) && finish(typedTag(e.currentTarget.value))}
         onBlur={onClose}
         onKeyDown={(e) => {
           if (composing(e)) return;
@@ -202,11 +210,9 @@ export function TagInput({
         id={id}
         value={draft}
         aria-describedby={describedBy}
-        onChange={(e) =>
-          SEPARATORS.test(e.target.value) && !(e.nativeEvent as InputEvent).isComposing
-            ? add(e.target.value)
-            : setDraft(e.target.value)
-        }
+        onChange={(e) => (separated(e) ? add(e.target.value) : setDraft(e.target.value))}
+        // A comma typed through an IME arrives while composing, and no input event follows it.
+        onCompositionEnd={(e) => SEPARATORS.test(e.currentTarget.value) && add(e.currentTarget.value)}
         onKeyDown={onKeyDown}
         onBlur={() => draft.trim() && add(draft)}
         placeholder={t("editor.tagsPlaceholder")}

@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "リンクは Koona Pin が受け取りを確認するまでブラウザーに残ります。アプリが閉じていても、ページを保存すると通知領域で起動します。"
   },
+  "languageCode": { "message": "ja" },
   "siteUrl": { "message": "https://koona.app/pin/ja/" }
 }

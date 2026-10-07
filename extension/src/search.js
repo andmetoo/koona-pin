@@ -16,7 +16,8 @@ const dark = matchMedia("(prefers-color-scheme: dark)");
 const state = { filter: { kind: "all" }, items: [], selected: 0, counts: null, more: false, turn: 0, copied: false };
 
 function translate() {
-  document.documentElement.lang = ext.i18n.getUILanguage();
+  // The language of the catalog the text comes from: a zh-TW browser reads English (NP-090).
+  document.documentElement.lang = t("languageCode");
   for (const node of document.querySelectorAll("[data-i18n]")) node.textContent = t(node.dataset.i18n);
   for (const node of document.querySelectorAll("[data-i18n-placeholder]")) node.placeholder = t(node.dataset.i18nPlaceholder);
   for (const node of document.querySelectorAll("[data-i18n-label]")) node.setAttribute("aria-label", t(node.dataset.i18nLabel));
@@ -104,7 +105,7 @@ function row(item, index) {
   const side =
     index === state.selected
       ? element("kbd", "", `↵ ${t("searchOpen")}`)
-      : element("span", "date", shortDate(item.created_at, { language: ext.i18n.getUILanguage(), today: t("searchToday") }));
+      : element("span", "date", shortDate(item.created_at, { language: t("languageCode"), today: t("searchToday") }));
   node.append(tile, text, side);
   node.addEventListener("mousemove", () => select(index));
   node.addEventListener("click", (event) => open(item, event.shiftKey));
@@ -208,7 +209,7 @@ function select(index) {
     const item = state.items[Number(node.id.slice(5))];
     const next = chosen
       ? element("kbd", "", `↵ ${t("searchOpen")}`)
-      : element("span", "date", shortDate(item.created_at, { language: ext.i18n.getUILanguage(), today: t("searchToday") }));
+      : element("span", "date", shortDate(item.created_at, { language: t("languageCode"), today: t("searchToday") }));
     side.replaceWith(next);
     if (chosen) node.scrollIntoView({ block: "nearest" });
   }

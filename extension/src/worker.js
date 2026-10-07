@@ -155,7 +155,7 @@ async function tell(tab, state) {
           mascot,
           glyph: GLYPHS[BADGES[MARKS[state]].glyph],
           tones: TONES[state],
-          lang: ext.i18n.getUILanguage(),
+          lang: t("languageCode"),
         },
       ],
     });
