@@ -37,6 +37,8 @@ npm ci
 npm run tauri dev
 ```
 
+На Linux — пакеты из `bash scripts/linux/deps.sh`, затем то же; проверка Linux из Windows — `npm run check:linux` в Docker ([Linux](doc/testing.md#linux)).
+
 `npm run dev` открывает браузерное превью с отдельными демонстрационными данными на языке интерфейса. Оно не обращается к пользовательской SQLite.
 
 Строки интерфейса — `src/locales/<код>.json`, источник — `en.json`; как добавить строку или язык — в [гайдлайне](doc/guidelines.md#языки-интерфейса), термины — в [глоссарии](doc/glossary.md). После правки `sr.json` — `npm run locales:sr-latn`.
