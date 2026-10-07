@@ -11,12 +11,35 @@ export DEBIAN_FRONTEND=noninteractive
 if command -v apt-get > /dev/null; then
   printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\nAPT::Install-Recommends "false";\n' > /etc/apt/apt.conf.d/99koona-ci
 fi
-# archive.ubuntu.com is slow from the owner's network (0.7 MB/s, 20 minutes of packages), and
-# mirrors.ubuntu.com offers nothing else for Serbia; de.archive.ubuntu.com gives 17 MB/s. apt takes the
-# list in order and moves on when a mirror fails: UBUNTU_MIRROR first if set (act --env UBUNTU_MIRROR=…).
+# Ubuntu: archive.ubuntu.com gave the owner's network 0.7 MB/s (20 minutes of packages), a nearby mirror
+# 26 MB/s. fast-apt-mirror.sh measures the mirrors of the country and picks the fastest; no mirror is
+# written in the repository, so every CI and every machine picks its own. It needs curl, which the base
+# image lacks (one slow `apt-get update`), so the choice is kept for a day in /var/cache/koona-ci when a
+# volume is mounted there (act does, .actrc). APT_MIRROR sets a mirror by hand. The script is pinned to a
+# commit and its hash.
 if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
-  printf '%s\n' ${UBUNTU_MIRROR:-} http://de.archive.ubuntu.com/ubuntu/ http://archive.ubuntu.com/ubuntu/ > /etc/apt/koona-mirrors.txt
-  sed -i 's|http://archive.ubuntu.com/ubuntu/\?|mirror+file:/etc/apt/koona-mirrors.txt|' /etc/apt/sources.list.d/ubuntu.sources
+  cache=/var/cache/koona-ci/apt-mirror-ubuntu
+  mirror=${APT_MIRROR:-}
+  if [ -z "$mirror" ] && [ -n "$(find "$cache" -mmin -1440 2> /dev/null)" ]; then
+    mirror=$(cat "$cache")
+  fi
+  if [ -n "$mirror" ]; then
+    echo "apt mirror: $mirror"
+    sed -i -E "s#http://(archive|security)\.ubuntu\.com/ubuntu/?#${mirror%/}/#" /etc/apt/sources.list.d/ubuntu.sources
+  else
+    apt-get update -qq
+    apt-get install -y -qq curl ca-certificates > /dev/null
+    fam=/usr/local/bin/fast-apt-mirror.sh
+    curl -fsSL -o "$fam" \
+      https://raw.githubusercontent.com/vegardit/fast-apt-mirror.sh/806c59276adfff2df420124ad5e4587f018c358a/fast-apt-mirror.sh
+    echo "c1e1b20304e2f2ecd4056deac352cd9fef237e530c2adc7d0ee2f7afbe06b12d  $fam" | sha256sum -c --quiet
+    chmod 755 "$fam"
+    if mirror=$("$fam" find --apply | tail -1) && [[ $mirror == http* ]]; then
+      [ -d "${cache%/*}" ] && echo "$mirror" > "$cache"
+    else
+      echo "fast-apt-mirror.sh found nothing; the default mirror stays"
+    fi
+  fi
 fi
 bash scripts/linux/deps.sh
 . /etc/os-release
