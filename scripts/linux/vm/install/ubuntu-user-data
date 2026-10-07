@@ -18,11 +18,15 @@ autoinstall:
   storage:
     layout: {name: direct}
   packages: [ubuntu-desktop]
+  # Block scalars: a plain YAML scalar may not hold «: », and cloud-init drops the whole file then.
   late-commands:
-    - echo 'tester ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/tester
-    - printf '[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=tester\n' > /target/etc/gdm3/custom.conf
+    - |
+      echo 'tester ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/tester
+    - |
+      printf '[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=tester\n' > /target/etc/gdm3/custom.conf
     # The desktop uses NetworkManager, as Ubuntu Desktop does.
-    - printf 'network:\n  version: 2\n  renderer: NetworkManager\n' > /target/etc/netplan/01-network-manager-all.yaml
+    - |
+      printf 'network:\n  version: 2\n  renderer: NetworkManager\n' > /target/etc/netplan/01-network-manager-all.yaml
     - rm -f /target/etc/netplan/50-cloud-init.yaml
     - curtin in-target -- systemctl set-default graphical.target
   shutdown: poweroff
