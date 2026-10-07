@@ -248,18 +248,31 @@ node scripts/linux/deps-check.mjs fedora:45    # один
 
 ### Машины Linux
 
-Каждая строка матрицы [release-checklist.md](release-checklist.md#интерфейс-и-платформы) — виртуальная машина со снимком `clean` сразу после установки системы и обновлений, до установки Koona Pin; проверка начинается с отката к снимку. Протокол машины — вывод `bash scripts/linux/system-info.sh` в её графическом сеансе: система, ядро, сеанс и окружение, WebKitGTK, Mesa, библиотека трея, видеокарта и рендерер.
+Строки GNOME и KDE матрицы [release-checklist.md](release-checklist.md#интерфейс-и-платформы) — виртуальные машины QEMU/KVM на Arch-машине владельца через [quickemu](https://github.com/quickemu-project/quickemu) (AUR): официальный образ, 3D через VirGL на встроенной графике, диск qcow2 со снимком `clean` сразу после установки системы и обновлений, до установки Koona Pin; проверка начинается с отката к снимку. VirtualBox не используется: медленный, тащит свои драйверы в гостя; QEMU на Windows не даёт гостю 3D.
+
+```bash
+quickget ubuntu 24.04                                    # образ и ubuntu-24.04.conf
+quickemu --vm ubuntu-24.04.conf                          # установка, обновления, затем выключить
+quickemu --vm ubuntu-24.04.conf --snapshot create clean
+quickemu --vm ubuntu-24.04.conf --snapshot apply clean   # перед каждой проверкой
+```
+
+Строка Hyprland — железо владельца: Arch с [Omarchy](https://github.com/basecamp/omarchy) (Chromium, uwsm, Nautilus, порталы GTK и Hyprland, Noto Sans CJK). Там же — быстрые проверки без VM: `npm run tauri dev`, `npm run check`, пакеты Ubuntu и Fedora в distrobox с настоящей видеокартой (без GNOME, KDE и трея — финальную приёмку не заменяет).
+
+Протокол машины — вывод `bash scripts/linux/system-info.sh` в её графическом сеансе: система, ядро, сеанс и окружение, WebKitGTK, Mesa, библиотека трея, видеокарта и рендерер.
 
 | Машина | Окружение | Где | Снимок `clean` | Протокол |
 | --- | --- | --- | --- | --- |
-| Ubuntu 24.04 LTS | GNOME, Wayland | VM | — | — |
-| Ubuntu 26.04 LTS | GNOME, Wayland | VM | — | — |
-| Fedora 44 Workstation | GNOME, Wayland | VM | — | — |
-| Fedora 45 Workstation | GNOME, Wayland | VM | — | — |
-| Fedora 45 KDE Plasma Desktop | KDE Plasma, Wayland | VM | — | — |
-| Arch Linux | GNOME, Wayland | VM | — | — |
-| Arch Linux | KDE Plasma, Wayland | VM | — | — |
-| Компьютеры владельца (2) | Arch, Hyprland, Wayland; без дискретной видеокарты | железо | — | — |
+| Ubuntu 24.04 LTS | GNOME, Wayland | VM, `quickget ubuntu 24.04` | — | — |
+| Ubuntu 26.04 LTS | GNOME, Wayland | VM, `quickget ubuntu 26.04` | — | — |
+| Fedora 44 Workstation | GNOME, Wayland | VM, `quickget fedora 44 Workstation` | — | — |
+| Fedora 45 Workstation | GNOME, Wayland | VM, `quickget fedora 45 Workstation` | — | — |
+| Fedora 45 KDE Plasma Desktop | KDE Plasma, Wayland | VM, `quickget fedora 45 KDE` | — | — |
+| Arch Linux | GNOME, Wayland | VM, `quickget archlinux latest` + `gnome` | — | — |
+| Arch Linux | KDE Plasma, Wayland | VM, `quickget archlinux latest` + `plasma` | — | — |
+| Arch Linux (Omarchy), 2 компьютера | Hyprland, Wayland; встроенная графика | железо владельца | не нужен | — |
+
+Имена версий и редакций — `quickget <система>` без аргументов печатает список; Arch ставится из образа, окружение — пакетом `gnome` или `plasma` перед снимком.
 
 ## Проба платформ
 
