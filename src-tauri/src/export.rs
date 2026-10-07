@@ -364,8 +364,10 @@ pub enum ExportProblem {
 
 pub fn problem_of(error: &std::io::Error) -> ExportProblem {
     use std::io::ErrorKind;
-    // Windows: ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION; ERROR_DISK_FULL, ERROR_HANDLE_DISK_FULL.
-    match (error.kind(), error.raw_os_error()) {
+    // Windows codes: ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION; ERROR_DISK_FULL, ERROR_HANDLE_DISK_FULL.
+    // On Linux the same numbers are other errors (39 is ENOTEMPTY), and ENOSPC is StorageFull.
+    let windows_code = if cfg!(windows) { error.raw_os_error() } else { None };
+    match (error.kind(), windows_code) {
         (_, Some(32 | 33)) => ExportProblem::InUse,
         (ErrorKind::StorageFull, _) | (_, Some(39 | 112)) => ExportProblem::DiskFull,
         (ErrorKind::PermissionDenied | ErrorKind::ReadOnlyFilesystem, _) => ExportProblem::NoPermission,
@@ -517,26 +519,40 @@ mod tests {
         let blocked = folder.join("blocked");
         std::fs::create_dir(&blocked).unwrap();
         assert!(write_atomically(&blocked, b"new").is_err());
-        // A read-only file: the same.
-        let mut permissions = std::fs::metadata(&target).unwrap().permissions();
+        // A read-only file on Windows, a folder without write permission on Unix: the same. On Unix a
+        // rename may replace a read-only file, as editors do; the folder decides.
+        #[cfg(windows)]
+        let locked = &target;
+        #[cfg(unix)]
+        let locked = &folder;
+        let mut permissions = std::fs::metadata(locked).unwrap().permissions();
+        let writable = permissions.clone();
         permissions.set_readonly(true);
-        std::fs::set_permissions(&target, permissions.clone()).unwrap();
-        let error = write_atomically(&target, b"newer").unwrap_err();
-        assert_eq!(problem_of(&error), ExportProblem::NoPermission);
-        assert_eq!(std::fs::read_to_string(&target).unwrap(), "new");
+        std::fs::set_permissions(locked, permissions).unwrap();
+        let result = write_atomically(&target, b"newer");
         let left: Vec<_> = std::fs::read_dir(&folder).unwrap().map(|e| e.unwrap().file_name()).collect();
+        std::fs::set_permissions(locked, writable).unwrap();
+        assert_eq!(problem_of(&result.unwrap_err()), ExportProblem::NoPermission);
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "new");
         assert_eq!(left.len(), 2, "no temporary file: {left:?}");
-        #[allow(clippy::permissions_set_readonly_false)]
-        permissions.set_readonly(false);
-        std::fs::set_permissions(&target, permissions).unwrap();
         std::fs::remove_dir_all(&folder).unwrap();
     }
 
     #[test]
     fn problems_are_named_by_the_error() {
         use std::io::{Error, ErrorKind};
-        assert_eq!(problem_of(&Error::from_raw_os_error(112)), ExportProblem::DiskFull);
-        assert_eq!(problem_of(&Error::from_raw_os_error(32)), ExportProblem::InUse);
+        #[cfg(windows)]
+        {
+            assert_eq!(problem_of(&Error::from_raw_os_error(112)), ExportProblem::DiskFull);
+            assert_eq!(problem_of(&Error::from_raw_os_error(32)), ExportProblem::InUse);
+        }
+        // ENOSPC, and ENOTEMPTY and EPIPE, which share numbers with Windows codes.
+        #[cfg(target_os = "linux")]
+        {
+            assert_eq!(problem_of(&Error::from_raw_os_error(28)), ExportProblem::DiskFull);
+            assert_eq!(problem_of(&Error::from_raw_os_error(39)), ExportProblem::Other);
+            assert_eq!(problem_of(&Error::from_raw_os_error(32)), ExportProblem::Other);
+        }
         assert_eq!(problem_of(&Error::from(ErrorKind::PermissionDenied)), ExportProblem::NoPermission);
         assert_eq!(problem_of(&Error::from(ErrorKind::NotFound)), ExportProblem::Other);
     }
