@@ -36,9 +36,11 @@ handle_path /pin/* {
 
 	# First visit of /pin/ goes to the browser's first language, if the site has it (NP-107), as
 	# matchLanguage of the app does, with the site's one Serbian (Latin) for either script and
-	# Portuguese of any region to pt-br. The language menu is a link from these pages (same-origin Referer),
-	# so a chosen English page stays English. scripts/serve-site.mjs reads these rules from here:
-	# keep one `@name header_regexp …` line and one `redir @name …` line per rule.
+	# Portuguese of any region to pt-br. Chinese goes to zh-cn only in simplified script: plain zh,
+	# zh-Hans, zh-CN, zh-SG, zh-MY; zh-TW, zh-HK and zh-Hant stay English (NP-090). The language
+	# menu is a link from these pages (same-origin Referer), so a chosen English page stays English.
+	# scripts/serve-site.mjs reads these rules from here: keep one `@name header_regexp …` line and
+	# one `redir @name …` line per rule.
 	@welcome {
 		path /
 		not header Referer https://koona.app/pin/*
@@ -46,7 +48,9 @@ handle_path /pin/* {
 	route @welcome {
 		@pt header_regexp Accept-Language (?i)^\s*pt\b
 		redir @pt /pin/pt-br/ 302
-		@other header_regexp lang Accept-Language (?i)^\s*(de|es|fr|it|pl|ru|sr|tr|uk)\b
+		@zh header_regexp Accept-Language (?i)^\s*zh(-hans(-[a-z]+)?|-cn|-sg|-my)?\s*(;|,|$)
+		redir @zh /pin/zh-cn/ 302
+		@other header_regexp lang Accept-Language (?i)^\s*(de|es|fr|it|ja|ko|pl|ru|sr|tr|uk)\b
 		redir @other /pin/{re.lang.1}/ 302
 	}
 	header / Vary "Accept-Language"
@@ -77,7 +81,7 @@ handle_path /pin/* {
 		file_server
 	}
 	# Anything else is this site's own 404 page, in the language of the address.
-	@language path_regexp language ^/(ru|de|es|fr|it|pl|pt-br|sr|tr|uk)/
+	@language path_regexp language ^/(ru|de|es|fr|it|ja|ko|pl|pt-br|sr|tr|uk|zh-cn)/
 	handle @language {
 		rewrite * /{re.language.1}/404.html
 		file_server {

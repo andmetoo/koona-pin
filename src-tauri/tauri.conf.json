@@ -73,7 +73,10 @@
           "Polish",
           "Ukrainian",
           "Turkish",
-          "SerbianLatin"
+          "SerbianLatin",
+          "SimpChinese",
+          "Japanese",
+          "Korean"
         ],
         "customLanguageFiles": {
           "English": "nsis/English.nsh",
@@ -86,7 +89,10 @@
           "Polish": "nsis/Polish.nsh",
           "Ukrainian": "nsis/Ukrainian.nsh",
           "Turkish": "nsis/Turkish.nsh",
-          "SerbianLatin": "nsis/SerbianLatin.nsh"
+          "SerbianLatin": "nsis/SerbianLatin.nsh",
+          "SimpChinese": "nsis/SimpChinese.nsh",
+          "Japanese": "nsis/Japanese.nsh",
+          "Korean": "nsis/Korean.nsh"
         },
         "installerHooks": "nsis/hooks.nsh",
         "installerIcon": "icons/icon.ico"

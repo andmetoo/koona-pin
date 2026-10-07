@@ -35,6 +35,30 @@ const WORDS: &[&str] = &[
     "science",
     "photo",
 ];
+/// Chinese, Japanese and Korean words of two to four characters (NP-090):
+/// the two-character ones are below the trigram index.
+const CJK_WORDS: &[&str] = &[
+    "设计",
+    "建筑",
+    "搜索",
+    "音乐",
+    "笔记",
+    "历史",
+    "东京",
+    "旅行",
+    "料理",
+    "写真",
+    "デザイン",
+    "検索",
+    "読書",
+    "音楽",
+    "디자인",
+    "검색",
+    "여행",
+    "음악",
+    "rust",
+    "tauri",
+];
 const DOMAINS: &[&str] = &[
     "example.com",
     "пример.рф",
@@ -62,8 +86,8 @@ impl Random {
     fn below(&mut self, n: usize) -> usize {
         (self.next() % n as u64) as usize
     }
-    fn word(&mut self) -> &'static str {
-        WORDS[self.below(WORDS.len())]
+    fn word(&mut self, words: &[&'static str]) -> &'static str {
+        words[self.below(words.len())]
     }
     /// UUIDv7 at `time` with random bits from this generator.
     fn uid(&mut self, time: DateTime<Utc>) -> String {
@@ -192,13 +216,22 @@ pub fn sample_rows(conn: &Connection) {
 }
 
 pub fn generated(conn: &Connection, count: usize, seed: u64) {
+    generated_from(conn, count, seed, WORDS);
+}
+
+/// The same with Chinese, Japanese and Korean titles and tags (NP-090).
+pub fn generated_cjk(conn: &Connection, count: usize, seed: u64) {
+    generated_from(conn, count, seed, CJK_WORDS);
+}
+
+fn generated_from(conn: &Connection, count: usize, seed: u64, words: &[&'static str]) {
     let mut random = Random(seed);
     let tx = conn.unchecked_transaction().unwrap();
     {
         let mut tag = tx
             .prepare("INSERT OR IGNORE INTO tags (uid,name,created_at) VALUES (?1,?2,?3)")
             .unwrap();
-        for word in WORDS {
+        for word in words {
             tag.execute(params![random.uid(epoch()), word, stamp(epoch())])
                 .unwrap();
         }
@@ -213,10 +246,10 @@ pub fn generated(conn: &Connection, count: usize, seed: u64) {
             .unwrap();
         for index in 0..count {
             let domain = DOMAINS[random.below(DOMAINS.len())];
-            let title = format!("{} {} {}", random.word(), random.word(), index);
+            let title = format!("{} {} {}", random.word(words), random.word(words), index);
             let description = (random.below(3) > 0)
-                .then(|| format!("{} {} {}", random.word(), random.word(), random.word()));
-            let notes = (random.below(10) == 0).then(|| format!("заметка {}", random.word()));
+                .then(|| format!("{} {} {}", random.word(words), random.word(words), random.word(words)));
+            let notes = (random.below(10) == 0).then(|| format!("заметка {}", random.word(words)));
             let collection = match random.below(4) {
                 0 => None,
                 n => Some(n as i64),
@@ -230,7 +263,7 @@ pub fn generated(conn: &Connection, count: usize, seed: u64) {
             bookmark
                 .execute(params![
                     random.uid(created),
-                    format!("https://{domain}/{index}/{}", random.word()),
+                    format!("https://{domain}/{index}/{}", random.word(words)),
                     title,
                     description,
                     domain,
@@ -244,7 +277,7 @@ pub fn generated(conn: &Connection, count: usize, seed: u64) {
                 .unwrap();
             let id = tx.last_insert_rowid();
             for _ in 0..random.below(4) {
-                link.execute(params![id, 1 + random.below(WORDS.len()) as i64])
+                link.execute(params![id, 1 + random.below(words.len()) as i64])
                     .unwrap();
             }
         }

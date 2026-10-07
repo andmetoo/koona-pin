@@ -1,0 +1,205 @@
+{
+  "extensionName": { "message": "Koona Pin — 링크 저장" },
+  "extensionDescription": {
+    "message": "클릭 한 번으로 페이지를 이 컴퓨터의 Koona Pin 라이브러리에 저장합니다. 앱이 닫혀 있는 동안 링크는 대기열에서 기다립니다."
+  },
+  "menuOptions": { "message": "설정 및 대기열" },
+  "menuSearch": { "message": "링크 찾기" },
+  "commandSearch": { "message": "Koona Pin에서 링크 찾기" },
+  "searchPlaceholder": { "message": "내 링크 검색" },
+  "searchFilters": { "message": "검색할 곳" },
+  "searchKeys": { "message": "↑↓ · ↵ 열기 · Shift ↵ 이 탭에서 · Ctrl C 복사" },
+  "searchOpenApp": { "message": "Koona Pin 열기" },
+  "searchAll": { "message": "전체" },
+  "searchInbox": { "message": "받은함" },
+  "searchFavorites": { "message": "즐겨찾기" },
+  "searchOpen": { "message": "열기" },
+  "searchToday": { "message": "오늘" },
+  "searchRecent": { "message": "최근 저장" },
+  "searchMore": {
+    "message": "처음 $COUNT$개만 표시됩니다. 단어를 추가하면 범위를 좁힐 수 있습니다.",
+    "placeholders": { "count": { "content": "$1", "example": "50" } }
+  },
+  "searchEmptyLibrary": { "message": "아직 저장한 것이 없습니다" },
+  "searchEmptyLibraryText": { "message": "페이지에서 Koona Pin 버튼을 클릭하면 저장됩니다." },
+  "searchNothing": {
+    "message": "‘$QUERY$’에 대한 결과가 없습니다",
+    "placeholders": { "query": { "content": "$1", "example": "rustacean" } }
+  },
+  "searchNothingIn": {
+    "message": "$PLACE$에서 ‘$QUERY$’에 대한 결과가 없습니다",
+    "placeholders": {
+      "query": { "content": "$1", "example": "rustacean" },
+      "place": { "content": "$2", "example": "Dev" }
+    }
+  },
+  "searchNothingHere": {
+    "message": "$PLACE$에 아직 아무것도 없습니다",
+    "placeholders": { "place": { "content": "$1", "example": "Favorites" } }
+  },
+  "searchNothingText": { "message": "다른 단어로 시도하거나 라이브러리 전체를 검색하세요. 휴지통은 검색하지 않습니다." },
+  "searchEverywhere": { "message": "전체 검색" },
+  "searchStarting": { "message": "Koona Pin을 시작하는 중…" },
+  "searchMissingText": {
+    "message": "검색은 이 컴퓨터의 Koona Pin 라이브러리에서 이루어집니다. 앱을 설치하세요. 그때까지 저장한 링크는 여기에서 기다립니다."
+  },
+  "searchUpdateApp": { "message": "검색하려면 Koona Pin을 업데이트하세요" },
+  "searchUpdateAppText": { "message": "이 Koona Pin은 링크를 저장할 수 있지만 아직 브라우저에서 검색할 수는 없습니다. 저장은 계속 작동합니다." },
+  "searchUpdateButton": { "message": "업데이트 다운로드" },
+  "searchUpdateExtensionText": {
+    "message": "이 확장 프로그램은 Koona Pin과 맞지 않습니다. 브라우저의 확장 프로그램 페이지에서 업데이트하세요. 저장은 계속 작동합니다."
+  },
+  "searchLibrary": { "message": "라이브러리가 열리지 않았습니다" },
+  "searchLibraryText": { "message": "Koona Pin을 열어 원인을 확인하세요. 그때까지 저장한 링크는 여기에서 기다립니다." },
+  "searchUnavailable": { "message": "Koona Pin이 응답하지 않았습니다" },
+  "searchUnavailableText": { "message": "잠시 후 다시 시도하세요." },
+  "searchCopied": { "message": "링크를 복사했습니다" },
+  "shortcutHeading": { "message": "바로 가기 키" },
+  "shortcutText": { "message": "라이브러리 검색을 엽니다." },
+  "shortcutNone": { "message": "바로 가기 키 없음" },
+  "shortcutChangeIn": {
+    "message": "$BROWSER$에서 변경",
+    "placeholders": { "browser": { "content": "$1", "example": "Chrome" } }
+  },
+  "shortcutNote": {
+    "message": "$BROWSER$에서는 확장 프로그램 바로 가기 키를 전용 페이지 $PAGE$에서만 바꿀 수 있습니다. 버튼을 누르면 그 페이지가 열립니다.",
+    "placeholders": {
+      "browser": { "content": "$1", "example": "Chrome" },
+      "page": { "content": "$2", "example": "chrome://extensions/shortcuts" }
+    }
+  },
+  "shortcutChange": { "message": "변경" },
+  "shortcutPress": { "message": "새 바로 가기 키를 누르세요…" },
+  "shortcutCancel": { "message": "Esc를 누르면 취소됩니다. 바로 가기 키에는 Ctrl이나 Alt 중 하나가 필요합니다." },
+  "shortcutInvalid": { "message": "이 키는 바로 가기 키로 쓸 수 없습니다. Ctrl 또는 Alt를 문자, 숫자, F1–F12와 함께 사용하세요." },
+  "shortcutSaved": { "message": "저장했습니다." },
+  "shortcutRefused": {
+    "message": "Firefox가 $SHORTCUT$을(를) 받아들이지 않았습니다. 다른 키를 시도하세요.",
+    "placeholders": { "shortcut": { "content": "$1", "example": "Alt+Shift+D" } }
+  },
+  "actionTitle": { "message": "페이지를 Koona Pin에 저장" },
+  "queueWaiting": {
+    "message": "Koona Pin: $COUNT$개가 전송을 기다립니다. 설정을 열면 대기열을 볼 수 있습니다.",
+    "placeholders": { "count": { "content": "$1", "example": "3" } }
+  },
+  "badgeSaving": { "message": "Koona Pin에 저장하는 중" },
+  "badgeWaiting": { "message": "링크가 Koona Pin으로 전송되기를 기다립니다" },
+  "badgeSaved": { "message": "Koona Pin에 저장했습니다" },
+  "badgeExisting": { "message": "이 링크는 이미 Koona Pin에 있습니다" },
+  "errorInvalidUrl": {
+    "message": "이 페이지는 저장할 수 없습니다. HTTP/HTTPS 주소의 페이지를 여세요."
+  },
+  "errorUnsupportedScheme": {
+    "message": "이 페이지는 저장할 수 없습니다. HTTP/HTTPS 링크만 지원합니다."
+  },
+  "errorUnavailable": {
+    "message": "Koona Pin이 응답하지 않았습니다. 1분 후에 링크를 다시 보냅니다."
+  },
+  "errorHostMissing": {
+    "message": "Koona Pin이 설치되어 있지 않거나 설치가 손상되었습니다. 링크는 여기에서 기다립니다."
+  },
+  "errorIncompatible": {
+    "message": "확장 프로그램이 Koona Pin과 맞지 않습니다. 확장 프로그램을 업데이트하세요. 링크는 여기에서 기다립니다."
+  },
+  "errorIncompatibleApp": {
+    "message": "Koona Pin이 확장 프로그램보다 오래되었습니다. Koona Pin을 업데이트하세요. 링크는 여기에서 기다립니다."
+  },
+  "errorInvalidRequest": { "message": "Koona Pin이 이 링크를 저장할 수 없습니다." },
+  "errorConflict": {
+    "message": "이 요청은 이미 다른 링크에 사용되었습니다. 대기열에서 제거하세요."
+  },
+  "errorDatabase": {
+    "message": "Koona Pin이 링크를 저장할 수 없습니다. 다시 보냅니다."
+  },
+  "errorNoConfirmation": { "message": "링크가 저장되었다는 확인이 없습니다" },
+  "errorSaveFailed": { "message": "링크를 저장할 수 없습니다" },
+  "errorUnknownAction": { "message": "알 수 없는 작업" },
+  "messageSavedTitle": { "message": "Koona Pin에 저장했습니다" },
+  "messageSavedText": { "message": "받은함에 추가했습니다" },
+  "messageExistingTitle": { "message": "이미 Koona Pin에 있습니다" },
+  "messageExistingText": { "message": "태그와 메모는 바뀌지 않았습니다" },
+  "messageQueuedTitle": { "message": "Koona Pin을 기다리는 중" },
+  "messageQueuedText": { "message": "앱이 열리면 보냅니다" },
+  "messageFailedTitle": { "message": "링크를 저장할 수 없습니다" },
+  "messageFailedText": { "message": "확장 프로그램 설정을 확인하세요" },
+  "feedbackHeading": { "message": "저장한 후" },
+  "settingMessage": { "message": "페이지에 메시지 표시" },
+  "settingMessageText": {
+    "message": "버튼을 클릭하면 모서리에 짧은 알림이 나타났다가 3초 후 저절로 사라집니다."
+  },
+  "settingKnown": { "message": "이미 저장한 페이지 표시" },
+  "settingKnownText": {
+    "message": "Koona Pin이 실행 중일 때 버튼이 여는 페이지마다 이 컴퓨터의 라이브러리와 비교합니다. 브라우저는 탭 접근 권한을 한 번 요청하며, 주소는 앱에만 전달됩니다."
+  },
+  "settingAnimate": { "message": "버튼 애니메이션" },
+  "settingAnimateText": {
+    "message": "페이지를 저장하면 Koona Pin 아이콘이 깡충 뜁니다. 시스템에서 동작 줄이기를 요청하면 움직이지 않습니다."
+  },
+  "optionsTitle": { "message": "Koona Pin — 확장 프로그램 설정" },
+  "optionsHeading": { "message": "Koona Pin 확장 프로그램" },
+  "optionsLead": {
+    "message": "저장한 페이지는 이 컴퓨터의 Koona Pin 라이브러리에 들어갑니다."
+  },
+  "extensionVersion": {
+    "message": "확장 프로그램 $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.5.0" } }
+  },
+  "appVersion": {
+    "message": "Koona Pin $VERSION$",
+    "placeholders": { "version": { "content": "$1", "example": "0.9.0" } }
+  },
+  "lastSavedToday": {
+    "message": "마지막 저장: 오늘 $TIME$",
+    "placeholders": { "time": { "content": "$1", "example": "11:48" } }
+  },
+  "lastSavedOn": {
+    "message": "마지막 저장: $DATE$ $TIME$",
+    "placeholders": {
+      "date": { "content": "$1", "example": "October 3" },
+      "time": { "content": "$2", "example": "11:48" }
+    }
+  },
+  "connectionHeading": { "message": "연결" },
+  "connectionChecking": { "message": "앱을 확인하는 중…" },
+  "statusConnected": { "message": "Koona Pin에 연결됨" },
+  "checkAgain": { "message": "다시 확인" },
+  "statusClosed": { "message": "Koona Pin이 닫혀 있습니다" },
+  "statusClosedText": {
+    "message": "페이지를 저장하면 알림 영역에서 시작됩니다. 그때까지 링크는 여기에서 기다립니다."
+  },
+  "statusUpdate": { "message": "확장 프로그램을 업데이트하세요" },
+  "statusUpdateText": {
+    "message": "이 확장 프로그램($MINE$)은 Koona Pin $APP$과(와) 맞지 않습니다. 브라우저의 확장 프로그램 페이지에서 업데이트하세요. 그때까지 링크는 여기에서 기다립니다.",
+    "placeholders": {
+      "mine": { "content": "$1", "example": "0.4.0" },
+      "app": { "content": "$2", "example": "0.9.0" }
+    }
+  },
+  "statusUpdateApp": { "message": "Koona Pin을 업데이트하세요" },
+  "statusUpdateAppText": {
+    "message": "Koona Pin $APP$이(가) 이 확장 프로그램($MINE$)보다 오래되었습니다. Koona Pin을 업데이트하세요. 그때까지 링크는 여기에서 기다립니다.",
+    "placeholders": {
+      "app": { "content": "$1", "example": "0.9.0" },
+      "mine": { "content": "$2", "example": "0.5.0" }
+    }
+  },
+  "statusMissing": { "message": "Koona Pin이 설치되어 있지 않습니다" },
+  "statusMissingText": {
+    "message": "확장 프로그램이 이 컴퓨터에서 앱을 찾을 수 없습니다. Koona Pin을 설치하거나, 이미 있다면 다시 설치하세요."
+  },
+  "download": { "message": "Koona Pin 다운로드" },
+  "queueHeading": { "message": "전송 대기 중" },
+  "sendNow": { "message": "지금 보내기" },
+  "queueEmpty": {
+    "message": "기다리는 항목이 없습니다. 페이지에서 Koona Pin 아이콘을 클릭하면 저장됩니다."
+  },
+  "removeButton": { "message": "제거" },
+  "removeLabel": {
+    "message": "대기열에서 제거: $TITLE$",
+    "placeholders": { "title": { "content": "$1", "example": "Page title" } }
+  },
+  "optionsFooter": {
+    "message": "링크는 Koona Pin이 받았다고 확인할 때까지 브라우저에 남습니다. 앱이 닫혀 있으면 페이지를 저장할 때 알림 영역에서 시작됩니다."
+  },
+  "siteUrl": { "message": "https://koona.app/pin/ko/" }
+}

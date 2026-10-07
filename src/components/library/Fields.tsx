@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Collection, Tag } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { foldText } from "../../services/library";
+import { composing } from "../../services/ime";
 import { Icon } from "../icons";
 
 /** Collection picker of frame 16: the collection's dot before its name. */
@@ -48,6 +49,8 @@ export function CollectionSelect({
 
 /** Tags are stored lower case, without surrounding spaces (`db::link_tags`). */
 const cleanTag = (tag: string, language: string) => tag.trim().toLocaleLowerCase(language);
+/** A comma separates tags, the Chinese and Japanese ones too (NP-090). */
+const SEPARATORS = /[,，、]/;
 
 /** Library tags offered under a one-tag field. */
 const SUGGESTIONS = 6;
@@ -102,6 +105,7 @@ export function TagField({
         }}
         onBlur={onClose}
         onKeyDown={(e) => {
+          if (composing(e)) return;
           if (e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();
@@ -162,7 +166,7 @@ export function TagInput({
   const [draft, setDraft] = useState("");
   const add = (text: string) => {
     const next = [...tags];
-    for (const part of text.split(",")) {
+    for (const part of text.split(SEPARATORS)) {
       const tag = cleanTag(part, i18n.language);
       if (tag && !next.includes(tag)) next.push(tag);
     }
@@ -170,6 +174,8 @@ export function TagInput({
     setDraft("");
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Enter inside an IME confirms the character, not the tag (NP-090).
+    if (composing(e)) return;
     if ((e.key === "Enter" || e.key === ",") && draft.trim()) {
       e.preventDefault();
       add(draft);
@@ -196,7 +202,11 @@ export function TagInput({
         id={id}
         value={draft}
         aria-describedby={describedBy}
-        onChange={(e) => (e.target.value.includes(",") ? add(e.target.value) : setDraft(e.target.value))}
+        onChange={(e) =>
+          SEPARATORS.test(e.target.value) && !(e.nativeEvent as InputEvent).isComposing
+            ? add(e.target.value)
+            : setDraft(e.target.value)
+        }
         onKeyDown={onKeyDown}
         onBlur={() => draft.trim() && add(draft)}
         placeholder={t("editor.tagsPlaceholder")}

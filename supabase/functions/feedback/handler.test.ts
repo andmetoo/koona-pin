@@ -171,7 +171,7 @@ describe("feedback function", () => {
   it("returns the form to a page in every language of the site, and to English for anything else (NP-107)", () => {
     for (const l of languages) expect(sitePage(l.lang, "sent"), l.lang).toBe(`https://koona.app/pin/${l.dir}feedback/sent`);
     expect(sitePage("sr-Latn", "limit")).toBe("https://koona.app/pin/sr/feedback/limit");
-    for (const other of [null, "", "ja", "sr", "constructor", "__proto__", "../evil"])
+    for (const other of [null, "", "he", "zh-TW", "sr", "constructor", "__proto__", "../evil"])
       expect(sitePage(other, "error"), String(other)).toBe("https://koona.app/pin/feedback/error");
   });
 

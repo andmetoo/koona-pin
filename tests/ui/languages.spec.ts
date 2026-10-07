@@ -84,9 +84,34 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
   expect(wide).toEqual([]);
 });
 
-// Every language is checked for cut labels; German and Serbian also leave snapshots to look at.
+// An IME (Chinese, Japanese, Korean) builds a character over several keys: the list waits for
+// the finished one, and Esc inside the IME cancels the character, not the query (NP-090).
+test("search waits for the IME to finish a character", { tag: "@languages" }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  const all = await cards.count();
+  const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
+  await search.focus();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.imeSetComposition", { text: "けんさく", selectionStart: 4, selectionEnd: 4 });
+  await expect(search).toHaveValue("けんさく");
+  // Longer than the list's own 150 ms wait: still the whole library.
+  await page.waitForTimeout(600);
+  await expect(cards).toHaveCount(all);
+  await expect(page.getByText(/Nothing matches/)).toHaveCount(0);
+  // Esc during the composition: the browser's IME key, not the field's «clear».
+  await page.keyboard.press("Escape");
+  await cdp.send("Input.insertText", { text: "検索" });
+  await expect(search).toHaveValue("検索");
+  await expect(page.getByText("Nothing matches “検索”")).toBeVisible();
+});
+
+// Every language is checked for cut labels; German, Serbian, Japanese and Korean also leave
+// snapshots to look at.
 const codes = readdirSync(locales).map((file) => file.replace(/\.json$/, ""));
-const snapshots = ["de", "sr"];
+const snapshots = ["de", "sr", "ja", "ko"];
 
 for (const code of codes) {
   const t = (key: string) => text(catalog(code), key);
