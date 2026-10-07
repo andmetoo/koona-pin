@@ -119,6 +119,11 @@ create() {
   case "$installer" in
     ubuntu)
       render "$here/install/ubuntu-user-data" > "$root/serve/$name/user-data"
+      # Invalid YAML is not an error for the installer: it silently falls back to the interactive one.
+      if python3 -c 'import yaml' 2> /dev/null; then
+        python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))["autoinstall"]' "$root/serve/$name/user-data" ||
+          die "user-data is not valid YAML"
+      fi
       # cloud-init asks for all three; a 404 on vendor-data drops the whole source.
       : > "$root/serve/$name/meta-data"
       : > "$root/serve/$name/vendor-data"
