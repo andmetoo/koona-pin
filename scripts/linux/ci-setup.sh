@@ -11,12 +11,12 @@ export DEBIAN_FRONTEND=noninteractive
 if command -v apt-get > /dev/null; then
   printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\nAPT::Install-Recommends "false";\n' > /etc/apt/apt.conf.d/99koona-ci
 fi
-# archive.ubuntu.com is slow far from it (20 minutes of packages instead of 2): a nearby mirror from
-# mirrors.ubuntu.com by location, the next one if it fails, or UBUNTU_MIRROR (act --env UBUNTU_MIRROR=…).
+# archive.ubuntu.com is slow from the owner's network (0.7 MB/s, 20 minutes of packages), and
+# mirrors.ubuntu.com offers nothing else for Serbia; de.archive.ubuntu.com gives 17 MB/s. apt takes the
+# list in order and moves on when a mirror fails: UBUNTU_MIRROR first if set (act --env UBUNTU_MIRROR=…).
 if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
-  mirror=${UBUNTU_MIRROR:-mirror+http://mirrors.ubuntu.com/mirrors.txt}
-  sed -i "s|http://archive.ubuntu.com/ubuntu/\?|$mirror|" /etc/apt/sources.list.d/ubuntu.sources 2> /dev/null ||
-    sed -i "s|http://archive.ubuntu.com/ubuntu/\?|$mirror|" /etc/apt/sources.list
+  printf '%s\n' ${UBUNTU_MIRROR:-} http://de.archive.ubuntu.com/ubuntu/ http://archive.ubuntu.com/ubuntu/ > /etc/apt/koona-mirrors.txt
+  sed -i 's|http://archive.ubuntu.com/ubuntu/\?|mirror+file:/etc/apt/koona-mirrors.txt|' /etc/apt/sources.list.d/ubuntu.sources
 fi
 bash scripts/linux/deps.sh
 . /etc/os-release
