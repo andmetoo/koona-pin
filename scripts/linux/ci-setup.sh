@@ -57,7 +57,6 @@ case "$ID" in
   ubuntu | debian) apt-get install -y --no-install-recommends git xz-utils xvfb xauth dbus weston ca-certificates ;;
   fedora) dnf install -y git xz xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon weston ;;
   arch) pacman -S --needed --noconfirm git xz xorg-server-xvfb xorg-xauth dbus weston ;;
-  opensuse-tumbleweed) zypper --non-interactive install git xz xorg-x11-server-Xvfb xauth dbus-1 weston tar gzip shadow util-linux ;;
 esac
 
 export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo
@@ -67,6 +66,8 @@ curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolcha
 node=$(tr -d 'v \r\n' < .nvmrc)
 mkdir -p /opt/node
 curl -sSf "https://nodejs.org/dist/v$node/node-v$node-linux-x64.tar.xz" | tar -xJ -C /opt/node --strip-components 1
+# On PATH for the JavaScript actions (artifacts): GitHub brings its own Node, act does not.
+ln -sf /opt/node/bin/node /usr/local/bin/node
 
 # The «check» job (Debian) runs Playwright UI: Chromium's system libraries (root only) at the version in
 # package-lock.json, and CJK fonts for the language tests (Р-51).
