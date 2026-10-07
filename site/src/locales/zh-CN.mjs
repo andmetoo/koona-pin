@@ -45,7 +45,7 @@ export default {
   dlBody: "Windows 和 Linux 的安装包以及浏览器扩展将在这里发布。",
   req: [
     ["Windows 11，64 位", "无需管理员权限"],
-    ["Linux，64 位", "Ubuntu 24.04 和 26.04、Debian 13、Fedora 43 和 44、Arch Linux、openSUSE Tumbleweed"],
+    ["Linux，64 位", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux、openSUSE Tumbleweed"],
     ["Chrome 或 Edge 120+、Firefox 140+", "当前版本或 ESR 140"],
   ],
   footer: { privacy: "隐私", licenses: "许可", support: "支持" },

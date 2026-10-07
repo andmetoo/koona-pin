@@ -24,6 +24,8 @@ UI-сценарии проверяют неподвижность карточк
 
 Workflow `.github/workflows/ci.yml` запускается **только вручную** (Actions → CI → Run workflow) на `windows-2025`: `npm ci`, `cargo test --locked` (он же перегенерирует типы IPC), `npm run check:bindings` — сгенерированные типы совпадают с закоммиченными, сборка TypeScript и Vite по свежим типам, Vitest, сборка расширения и `web-ext lint`, Playwright UI без `@visual`. Автоматический запуск на push и PR будет включён позже, ближе к выпуску.
 
+Workflow `.github/workflows/linux.yml` — матрица Linux ([ниже](#linux)) — тоже **только вручную** (Actions → Linux → Run workflow). Задание `check` повторяет `ci.yml` на Debian 13 — Rust-тесты, сверка `src/bindings`, сборка, Vitest, `extension:lint`, Playwright UI без `@visual` — плюс release-сборку; задания `distro` собирают и запускают приложение на каждом дистрибутиве. Кеш `actions/cache`: реестр cargo и npm во всех заданиях, `src-tauri/target` — только в `check` (пять папок target не уместились бы в 10 ГБ кеша репозитория); под `act` шаги кеша пропускаются. Linux-минуты списываются без коэффициента.
+
 Почему вручную. Репозиторий приватный, минуты Windows-раннеров списываются с коэффициентом ×2. Один прогон двух job занимал около 10 минут на job, то есть ≈ 40 списанных минут на коммит; 3 октября 2026 года четыре отладочных прогона израсходовали около 60 из 3000 минут месяца. При частых коммитах это быстро исчерпывает лимит.
 
 Нативные проверки в CI не включены. На раннере WebView2 Runtime 153 запускает приложение, SQLite работает, но `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` не попадает в командную строку `msedgewebview2.exe`, поэтому порт отладки 9225 не открывается и Playwright не подключается. Локально (WebView2 154) переменная работает. При подключении CI можно передавать порт отладки через `additional_browser_args` окна в тестовой сборке. Также на раннере Tauri создаёт пустую папку профиля по умолчанию (тогда `%LOCALAPPDATA%\com.oddclicks.app`, теперь `app.koona.pin`); данные и профиль WebView2 при этом пишутся только в `.test-data`.
@@ -195,8 +197,8 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 
 | Задание | Контейнер | Что проверяет |
 | --- | --- | --- |
-| `check` | `ubuntu:24.04` (glibc 2.39 — самая старая в матрице) | `npm ci`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `cargo clippy --all-targets` (предупреждения не валят задание), release-сборка — тот бинарник, который запускается на всех дистрибутивах |
-| `distro` | `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `fedora:43`, `fedora:44`, `archlinux:latest`, `opensuse/tumbleweed` — только x86_64 | пакеты по `scripts/linux/deps.sh`, сборка с встроенным интерфейсом против библиотек дистрибутива, запуск без экрана (Xvfb, сессионная шина D-Bus): библиотека создаётся в `~/.local/share/Koona Pin`, процесс жив через 5 с, второй запуск передаёт управление первому и выходит |
+| `check` | `debian:13` (glibc 2.41 — самая старая в матрице) | `npm ci`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `extension:lint`, Playwright UI без `@visual`, release-сборка — тот бинарник, который запускается на всех дистрибутивах |
+| `distro` | последняя версия каждого дистрибутива: `ubuntu:26.04`, `debian:13`, `fedora:44`, `archlinux:latest`, `opensuse/tumbleweed` — только x86_64 | пакеты по `scripts/linux/deps.sh`, сборка с встроенным интерфейсом против библиотек дистрибутива, запуск без экрана (Xvfb, сессионная шина D-Bus): библиотека создаётся в `~/.local/share/Koona Pin`, процесс жив через 5 с, второй запуск передаёт управление первому и выходит |
 
 Скрипты заданий — `scripts/linux/ci-setup.sh` (root: пакеты, Rust из `rust-toolchain.toml`, Node из `.nvmrc`, пользователь `dev`), `ci-check.sh` и `ci-smoke.sh` (от `dev`). Не root: root не замечает прав на файлы и папки, и тесты прав проходили бы не по той причине. В контейнере у WebKitGTK нет пространств имён для песочницы — запуск выключает её (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`), на рабочем столе этого не нужно.
 
@@ -208,9 +210,9 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 act workflow_dispatch -W .github/workflows/linux.yml
 ```
 
-Образ раннера `act` берёт из `.actrc`. Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:44`. `act` копирует рабочую копию в контейнер; Rust и `npm ci` каждый прогон заново — около минуты на дистрибутив.
+Образ раннера `act` берёт из `.actrc`. Если `act` не может скачать образ («authentication required» — `act` подставляет сохранённый вход Docker Hub, а обычный `docker pull` работает), образы скачиваются заранее (`docker pull debian:13` и остальные из матрицы) и `act` запускается с `--pull=false`. Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:44`. `act` копирует рабочую копию в контейнер; Rust и `npm ci` каждый прогон заново — около минуты на дистрибутив.
 
-Пакеты. Ubuntu и Debian берут их из тома `koona-ci-cache` (`linux.yml` подключает его в `/var/cache/koona-ci`): скачанные `.deb` — по папке на выпуск, второй прогон ничего не качает. Зеркало Ubuntu выбирает [fast-apt-mirror.sh](https://github.com/vegardit/fast-apt-mirror.sh) — замеряет зеркала страны (закреплён по коммиту и хешу); выбор живёт в томе сутки, apt берёт сначала его, при отказе — `archive.ubuntu.com`. Своё зеркало — `act … --env APT_MIRROR=http://…/ubuntu/`. Готовый Action проекта не подходит: ему нужен `sudo`, которого в контейнере нет, и под `act` он ничего не делает. 7 октября 2026 года `archive.ubuntu.com` отдавал сети владельца 0,7 МБ/с — 20 минут пакетов на задание Ubuntu; ближайшее зеркало под нагрузкой трёх заданий отвечало 403, поэтому и нужен запасной источник. Том с нуля — `docker volume rm koona-ci-cache`.
+Пакеты. Ubuntu и Debian берут их из тома `koona-ci-cache` (`linux.yml` подключает его в `/var/cache/koona-ci`): скачанные `.deb` — по папке на выпуск, второй прогон ничего не качает. Зеркало Ubuntu выбирает [fast-apt-mirror.sh](https://github.com/vegardit/fast-apt-mirror.sh) — замеряет зеркала страны (закреплён по коммиту и хешу); выбор живёт в томе сутки, apt берёт сначала его, при отказе — `archive.ubuntu.com`. Своё зеркало — `act … --env APT_MIRROR=http://…/ubuntu/`. Готовый Action проекта не подходит: ему нужен `sudo`, которого в контейнере нет, и под `act` он ничего не делает. 7 октября 2026 года `archive.ubuntu.com` отдавал сети владельца 0,7 МБ/с — 20 минут пакетов на задание Ubuntu; ближайшее зеркало под нагрузкой нескольких заданий отвечало 403, поэтому и нужен запасной источник. Том с нуля — `docker volume rm koona-ci-cache`.
 
 Когда одно задание падает, `act` пишет «Job failed» и у заданий, закончившихся после него, — смотреть на шаги («Success» / «Failure»), а не на итог.
 
@@ -224,7 +226,7 @@ act workflow_dispatch -W .github/workflows/linux.yml
 
 ### Разработка на Linux
 
-На Ubuntu 24.04 и 26.04, Debian 13, Fedora 43 и 44, Arch, openSUSE Tumbleweed:
+На Ubuntu 26.04, Debian 13, Fedora 44, Arch, openSUSE Tumbleweed:
 
 ```bash
 bash scripts/linux/deps.sh       # пакеты Tauri 2 для этого дистрибутива, с sudo
@@ -239,10 +241,8 @@ npm run check
 
 | Образ | glibc | WebKitGTK |
 | --- | --- | --- |
-| `ubuntu:24.04` (24.04.5) | 2.39 | 2.52.6 |
 | `ubuntu:26.04` (26.04.1) | 2.43 | 2.52.6 |
 | `debian:13` | 2.41 | 2.54.0 |
-| `fedora:43` | 2.42 | 2.52.5 |
 | `fedora:44` | 2.43 | 2.54.1 |
 | `archlinux:latest` | 2.44 | 2.54.1 |
 | `opensuse/tumbleweed` | 2.44 | 2.52.6 |

@@ -45,7 +45,7 @@ export default {
   dlBody: "Pakiety dla Windows i Linuksa oraz rozszerzenia przeglądarek pojawią się tutaj.",
   req: [
     ["Windows 11, 64-bitowy", "Uprawnienia administratora nie są potrzebne"],
-    ["Linux, 64-bitowy", "Ubuntu 24.04 i 26.04, Debian 13, Fedora 43 i 44, Arch Linux, openSUSE Tumbleweed"],
+    ["Linux, 64-bitowy", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux, openSUSE Tumbleweed"],
     ["Chrome lub Edge 120+, Firefox 140+", "Bieżące wydanie lub ESR 140"],
   ],
   footer: { privacy: "Prywatność", licenses: "Licencje", support: "Pomoc" },
