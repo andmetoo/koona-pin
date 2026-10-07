@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "Линкови остају у прегледачу док их Koona Pin не потврди. Ако је апликација затворена, чување странице је покреће у области обавештења."
   },
+  "languageCode": { "message": "sr" },
   "siteUrl": { "message": "https://koona.app/pin/sr/" }
 }

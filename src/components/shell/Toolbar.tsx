@@ -52,8 +52,11 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   const more = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<DOMRect | null>(null);
   // What an IME is still building (NP-090): the field shows it, the list
-  // waits for the finished character.
-  const [composed, setComposed] = useState<string | null>(null);
+  // waits for the finished character. `from` is the query it started on: a
+  // query changed meanwhile from outside («Clear search», Esc on the window)
+  // wins, and the end of the composition does not bring the old text back.
+  const [composition, setComposition] = useState<{ text: string; from: string } | null>(null);
+  const composed = composition && composition.from === props.search ? composition.text : null;
   const viewButton = (mode: ViewMode, label: string, glyph: typeof List) => (
     <Hint label={label}>
       <button
@@ -88,13 +91,13 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           value={composed ?? props.search}
           onChange={(e) =>
             composed !== null || (e.nativeEvent as InputEvent).isComposing
-              ? setComposed(e.target.value)
+              ? setComposition({ text: e.target.value, from: props.search })
               : props.onSearch(e.target.value)
           }
-          onCompositionStart={(e) => setComposed(e.currentTarget.value)}
+          onCompositionStart={(e) => setComposition({ text: e.currentTarget.value, from: props.search })}
           onCompositionEnd={(e) => {
-            setComposed(null);
-            props.onSearch(e.currentTarget.value);
+            setComposition(null);
+            if (composed !== null) props.onSearch(e.currentTarget.value);
           }}
           onKeyDown={(e) => {
             // Esc inside an IME cancels the character, not the query.

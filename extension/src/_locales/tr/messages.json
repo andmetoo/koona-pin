@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "Bağlantılar Koona Pin onaylayana kadar tarayıcıda kalır. Uygulama kapalıysa bir sayfayı kaydetmek onu sistem tepsisinde başlatır."
   },
+  "languageCode": { "message": "tr" },
   "siteUrl": { "message": "https://koona.app/pin/tr/" }
 }

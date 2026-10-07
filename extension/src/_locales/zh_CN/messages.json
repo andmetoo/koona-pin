@@ -201,5 +201,6 @@
   "optionsFooter": {
     "message": "链接会留在浏览器中，直到 Koona Pin 确认收到。如果应用未运行，保存页面会让它在系统托盘中启动。"
   },
+  "languageCode": { "message": "zh-CN" },
   "siteUrl": { "message": "https://koona.app/pin/zh-cn/" }
 }
