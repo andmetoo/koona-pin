@@ -45,7 +45,7 @@ export default {
   dlBody: "Os pacotes para Windows e Linux e as extensões para navegadores serão publicados aqui.",
   req: [
     ["Windows 11, 64 bits", "Não precisa de permissões de administrador"],
-    ["Linux, 64 bits", "Ubuntu 24.04 e 26.04, Fedora 44 e 45, Arch Linux"],
+    ["Linux, 64 bits", "Ubuntu 24.04 e 26.04, Debian 13, Fedora 43 e 44, Arch Linux, openSUSE Tumbleweed"],
     ["Chrome ou Edge 120+, Firefox 140+", "Versão atual ou ESR 140"],
   ],
   footer: { privacy: "Privacidade", licenses: "Licenças", support: "Suporte" },
