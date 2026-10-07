@@ -119,7 +119,9 @@ create() {
   case "$installer" in
     ubuntu)
       render "$here/install/ubuntu-user-data" > "$root/serve/$name/user-data"
+      # cloud-init asks for all three; a 404 on vendor-data drops the whole source.
       : > "$root/serve/$name/meta-data"
+      : > "$root/serve/$name/vendor-data"
       kernel=casper/vmlinuz initrd=casper/initrd
       append="autoinstall ds=nocloud;s=http://10.0.2.2:$http_port/$name/ console=ttyS0,115200"
       ;;
