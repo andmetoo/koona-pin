@@ -10,6 +10,7 @@
 #   vm.sh stop <machine>         shut down (ACPI, then hard after 60 s)
 #   vm.sh restore <machine> [tag]    back to a snapshot, «clean» by default; the machine must be off
 #   vm.sh snapshot <machine> <tag>   take a snapshot; the machine must be off
+#   vm.sh wait <machine>         until ssh answers and the boot has finished
 #   vm.sh ssh <machine> [command]    as «tester», passwordless sudo
 #   vm.sh shot <machine> <file.png>  screenshot of the screen
 #   vm.sh vnc <machine> click|type|key ...   input, see vnc.py
@@ -262,7 +263,8 @@ shift || true
 case "$command" in
   create | firstboot | start | stop | restore | snapshot | shot) "$command" "$@" ;;
   ssh) load "$1"; shift; ssh_vm "$@" ;;
+  wait) load "$1"; running || die "$name is off"; wait_ssh; ssh_vm "systemctl is-system-running --wait > /dev/null || true" ;;
   vnc) load "$1"; shift; running || die "$name is off"; python3 "$here/vnc.py" "$dir/vnc.sock" "$@" ;;
   list) list ;;
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  *) sed -n '2,18p' "$0"; exit 1 ;;
 esac
