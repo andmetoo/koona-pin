@@ -1,0 +1,53 @@
+name: Linux
+
+# The Linux-beta test matrix (NP-093, doc/testing.md «Linux»): every distribution of the contract in its
+# own container. Manual only, like ci.yml; locally with act on the owner's Linux host:
+#   act workflow_dispatch -W .github/workflows/linux.yml       (.actrc picks the runner image)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # What `npm run check` does on Windows, on the oldest glibc of the matrix (Ubuntu 24.04, 2.39), plus
+  # clippy and the release build: the binary built here is the one that runs on every distribution.
+  check:
+    name: Tests, clippy, release build (Ubuntu 24.04)
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+      # The apt mirror chosen by scripts/linux/ci-setup.sh is kept here for a day; a new empty volume on GitHub.
+      options: --volume koona-ci-cache:/var/cache/koona-ci
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Packages, Rust, Node, user «dev»
+        run: bash scripts/linux/ci-setup.sh
+      # Not root: root ignores file permissions, and the tests of read-only folders would pass for the
+      # wrong reason.
+      - name: Checks as «dev»
+        run: su dev -s /bin/bash -c "bash scripts/linux/ci-check.sh"
+
+  # Each distribution of the contract: its packages from deps.sh, the app built against its libraries,
+  # started without a screen: library in ~/.local/share/Koona Pin, a second start hands over to the first.
+  distro:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+      options: --volume koona-ci-cache:/var/cache/koona-ci
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [ubuntu:24.04, ubuntu:26.04, debian:13, fedora:43, fedora:44, archlinux:latest, opensuse/tumbleweed]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Packages, Rust, Node, user «dev»
+        run: bash scripts/linux/ci-setup.sh
+      - name: Build and start as «dev»
+        run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
