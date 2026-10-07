@@ -7,8 +7,16 @@ cd "$(dirname "$0")/../.."
 # tzdata and others would ask questions; a job has no one to answer.
 export DEBIAN_FRONTEND=noninteractive
 # Docker without an IPv6 route: apt picks the IPv6 addresses of archive.ubuntu.com and fails to connect.
+# Recommended packages are hundreds of megabytes the build does not need.
 if command -v apt-get > /dev/null; then
-  printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\n' > /etc/apt/apt.conf.d/99koona-ci
+  printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\nAPT::Install-Recommends "false";\n' > /etc/apt/apt.conf.d/99koona-ci
+fi
+# archive.ubuntu.com is slow far from it (20 minutes of packages instead of 2): a nearby mirror from
+# mirrors.ubuntu.com by location, the next one if it fails, or UBUNTU_MIRROR (act --env UBUNTU_MIRROR=…).
+if [ "$(. /etc/os-release; echo "$ID")" = ubuntu ]; then
+  mirror=${UBUNTU_MIRROR:-mirror+http://mirrors.ubuntu.com/mirrors.txt}
+  sed -i "s|http://archive.ubuntu.com/ubuntu/\?|$mirror|" /etc/apt/sources.list.d/ubuntu.sources 2> /dev/null ||
+    sed -i "s|http://archive.ubuntu.com/ubuntu/\?|$mirror|" /etc/apt/sources.list
 fi
 bash scripts/linux/deps.sh
 . /etc/os-release
