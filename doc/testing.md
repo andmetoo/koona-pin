@@ -234,7 +234,15 @@ node scripts/linux/deps-check.mjs              # ubuntu:24.04 ubuntu:26.04 fedor
 node scripts/linux/deps-check.mjs fedora:45    # один
 ```
 
-Версии систем и WebKitGTK — `.test-data/linux-deps/<образ>.txt`.
+Версии систем и WebKitGTK — `.test-data/linux-deps/<образ>.txt`. Прогон 7 октября 2026 года — все пять собрали приложение:
+
+| Образ | glibc | WebKitGTK |
+| --- | --- | --- |
+| `ubuntu:24.04` (24.04.5) | 2.39 | 2.52.6 |
+| `ubuntu:26.04` (26.04.1) | 2.43 | 2.52.6 |
+| `fedora:44` | 2.43 | 2.54.1 |
+| `fedora:45` (ещё prerelease) | 2.44 | 2.54.1 |
+| `archlinux:latest` | 2.44 | 2.54.1 |
 
 Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona Pin`. Тестовые библиотеки строятся так же, как на Windows (`cargo run --example test_libraries`), открываются вручную через `KOONAPIN_DATA_DIR`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)); если помогло, записать в протокол машины.
 
