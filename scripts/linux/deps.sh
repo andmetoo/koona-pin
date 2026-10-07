@@ -23,8 +23,9 @@ case "${ID}" in
       appmenu-gtk-module libappindicator-gtk3 librsvg xdotool
     ;;
   opensuse-tumbleweed)
-    $sudo zypper --non-interactive install webkit2gtk3-devel libopenssl-devel curl wget file \
-      libappindicator3-1 librsvg-devel xdotool-devel
+    # By pkg-config name: the package names on the Tauri page are out of date for Tumbleweed.
+    $sudo zypper --non-interactive install 'pkgconfig(webkit2gtk-4.1)' 'pkgconfig(openssl)' \
+      'pkgconfig(librsvg-2.0)' 'pkgconfig(ayatana-appindicator3-0.1)' xdotool-devel curl wget file
     $sudo zypper --non-interactive install -t pattern devel_basis
     ;;
   *)

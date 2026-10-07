@@ -195,8 +195,8 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 
 | Задание | Контейнер | Что проверяет |
 | --- | --- | --- |
-| `check` | `ubuntu:22.04` (glibc 2.35 — самая старая в контракте) | `npm ci`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `cargo clippy --all-targets` (предупреждения не валят задание), release-сборка — тот бинарник, который запускается на всех дистрибутивах |
-| `distro` | `ubuntu:24.04`, `ubuntu:26.04`, `fedora:44`, `fedora:45`, `archlinux:latest` | пакеты по `scripts/linux/deps.sh`, сборка с встроенным интерфейсом против библиотек дистрибутива, запуск без экрана (Xvfb, сессионная шина D-Bus): библиотека создаётся в `~/.local/share/Koona Pin`, процесс жив через 5 с, второй запуск передаёт управление первому и выходит |
+| `check` | `ubuntu:24.04` (glibc 2.39 — самая старая в матрице) | `npm ci`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `cargo clippy --all-targets` (предупреждения не валят задание), release-сборка — тот бинарник, который запускается на всех дистрибутивах |
+| `distro` | `ubuntu:24.04`, `ubuntu:26.04`, `debian:13`, `fedora:43`, `fedora:44`, `archlinux:latest`, `opensuse/tumbleweed` — только x86_64 | пакеты по `scripts/linux/deps.sh`, сборка с встроенным интерфейсом против библиотек дистрибутива, запуск без экрана (Xvfb, сессионная шина D-Bus): библиотека создаётся в `~/.local/share/Koona Pin`, процесс жив через 5 с, второй запуск передаёт управление первому и выходит |
 
 Скрипты заданий — `scripts/linux/ci-setup.sh` (root: пакеты, Rust из `rust-toolchain.toml`, Node из `.nvmrc`, пользователь `dev`), `ci-check.sh` и `ci-smoke.sh` (от `dev`). Не root: root не замечает прав на файлы и папки, и тесты прав проходили бы не по той причине. В контейнере у WebKitGTK нет пространств имён для песочницы — запуск выключает её (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`), на рабочем столе этого не нужно.
 
@@ -220,7 +220,7 @@ act workflow_dispatch -W .github/workflows/linux.yml -P ubuntu-latest=catthehack
 
 ### Разработка на Linux
 
-На Ubuntu 24.04 и 26.04, Fedora 44 и 45, Arch:
+На Ubuntu 24.04 и 26.04, Debian 13, Fedora 43 и 44, Arch, openSUSE Tumbleweed:
 
 ```bash
 bash scripts/linux/deps.sh       # пакеты Tauri 2 для этого дистрибутива, с sudo
@@ -231,7 +231,7 @@ npm run tauri dev
 npm run check
 ```
 
-`deps.sh` повторяет prerequisites Tauri 2 (сверено 7 октября 2026 года): на Ubuntu библиотека трея — `libayatana-appindicator3-dev`, на Fedora и Arch — `libappindicator-gtk3`. Его проверяет задание `distro`. Версии в контейнерах 7 октября 2026 года:
+`deps.sh` повторяет prerequisites Tauri 2 (сверено 7 октября 2026 года): на Ubuntu и Debian библиотека трея — `libayatana-appindicator3-dev`, на Fedora и Arch — `libappindicator-gtk3`, на openSUSE — `libappindicator3-1`. Его проверяет задание `distro`. Версии в контейнерах 7 октября 2026 года:
 
 | Образ | glibc | WebKitGTK |
 | --- | --- | --- |
