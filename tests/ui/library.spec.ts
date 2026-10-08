@@ -2084,9 +2084,9 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
   await expect(cover(1)).toBeVisible();
 });
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
-  await page.getByRole("button", { name: "Browser not connected" }).click();
+  await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
-  await expect(dialog.locator('[data-capture="none"]')).toContainText("Browser not connected");
+  await expect(dialog.locator('[data-capture="none"]')).toContainText("No browser yet");
   await expect(dialog).toContainText("extension/build/chrome");
   await dialog.getByRole("radio", { name: "Edge" }).click();
   await expect(dialog).toContainText("edge://extensions");
@@ -2110,7 +2110,7 @@ test("Linux without a tray: round window buttons, Chromium, Firefox from Snap an
   // GNOME's layout: «×» only, round.
   await expect(page.locator("[data-window-button]")).toHaveCount(1);
   await expect(page.locator('[data-window-button="close"]')).toHaveAttribute("aria-label", "Close window");
-  await page.getByRole("button", { name: "Browser not connected" }).click();
+  await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   await expect(dialog.getByRole("radio")).toHaveText(["Chrome", "Edge", "Chromium", "Firefox"]);
   // Chromium takes Chrome's steps; a closed app starts in the background without a tray.

@@ -203,6 +203,8 @@ function problem(kind) {
     missing: linux
       ? [t("statusSandbox"), t("statusSandboxText"), button(t("download"), download)]
       : [t("statusMissing"), t("searchMissingText"), button(t("download"), download), true],
+    // The app is there but does not list this extension (NP-113): downloading it again does not help.
+    forbidden: [t("statusForbidden"), t("statusForbiddenText"), button(t("checkAgain"), () => void search()), true],
     "update-app": [t("searchUpdateApp"), t("searchUpdateAppText"), button(t("searchUpdateButton"), download, "primary")],
     "update-extension": [t("statusUpdate"), t("searchUpdateExtensionText"), null],
     library: [t("searchLibrary"), t("searchLibraryText"), button(t("searchOpenApp"), showApp)],

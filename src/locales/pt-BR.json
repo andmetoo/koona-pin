@@ -61,9 +61,9 @@
     "settings": "Configurações"
   },
   "browser": {
-    "ready": "Navegador conectado",
+    "ready": "Conectado",
     "failing": "Captura parada",
-    "checking": "Verificando a captura…",
+    "checking": "Verificando…",
     "notConnected": "Sem navegador",
     "lost_one": "{{count}} dia sem sinal",
     "lost_many": "{{count}} dias sem sinal",
@@ -74,7 +74,7 @@
     "lastSavedToday": "Último salvamento hoje às {{time}} pelo {{browser}}",
     "lastSavedOn": "Último salvamento em {{date}} às {{time}} pelo {{browser}}",
     "noSaves": "Nenhuma página salva ainda",
-    "notConnectedHint": "A extensão salva uma página com um clique",
+    "notConnectedHint": "A extensão salva uma página com um clique. Se ela já estiver instalada, o status se atualiza depois do primeiro salvamento ou sozinho em até meia hora.",
     "lostText_one": "Nenhuma extensão se comunicou há {{count}} dia. Abra o navegador e verifique se o Koona Pin está ativado — os links na fila chegarão sozinhos.",
     "lostText_many": "Nenhuma extensão se comunicou há {{count}} de dias. Abra o navegador e verifique se o Koona Pin está ativado — os links na fila chegarão sozinhos.",
     "lostText_other": "Nenhuma extensão se comunicou há {{count}} dias. Abra o navegador e verifique se o Koona Pin está ativado — os links na fila chegarão sozinhos.",
