@@ -43,6 +43,7 @@
     "build:installer": "node scripts/build-installer.mjs",
     "prebuild:linux": "node scripts/clean.mjs",
     "build:linux": "node scripts/build-linux-packages.mjs",
+    "build:aur": "node scripts/build-aur.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

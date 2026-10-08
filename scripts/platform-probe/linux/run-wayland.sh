@@ -30,7 +30,7 @@ cp /bin-in/koonapin /tmp/koonapin && chmod +x /tmp/koonapin
 pid=$!
 sleep 12
 echo "app alive: $(kill -0 $pid 2>/dev/null && echo yes || echo no)"
-echo "library: $(ls -1 "$HOME/.local/share/Koona Pin" 2>&1 | tr '\n' ' ')"
+echo "library: $(ls -1 "$HOME/.local/share/Koona/Pin" 2>&1 | tr '\n' ' ')"
 cd "$out" && weston-screenshooter >/dev/null 2>&1; cd - >/dev/null
 echo "screenshot: $(ls "$out"/wayland-screenshot-*.png 2>/dev/null | head -1)"
 timeout 20 /tmp/koonapin > "$out/second.log" 2>&1
