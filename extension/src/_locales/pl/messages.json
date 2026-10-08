@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "Rozszerzenie nie znajduje aplikacji na tym komputerze. Zainstaluj Koona Pin albo zainstaluj go ponownie, jeśli już jest."
   },
+  "statusSandbox": { "message": "Zapisywanie nie jest dostępne w tej przeglądarce" },
+  "statusSandboxText": {
+    "message": "Rozszerzenie nie może połączyć się z Koona Pin. Zainstaluj Koona Pin, jeśli jeszcze go nie ma. Jeśli jest zainstalowany, ta przeglądarka działa w piaskownicy, która blokuje aplikację — Flatpak albo Chromium ze Snapa: użyj przeglądarki z pakietów dystrybucji. Zapisane linki czekają tutaj."
+  },
   "download": { "message": "Pobierz Koona Pin" },
   "queueHeading": { "message": "Czeka na wysłanie" },
   "sendNow": { "message": "Wyślij teraz" },

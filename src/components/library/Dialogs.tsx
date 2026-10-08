@@ -2,19 +2,21 @@ import { ReactNode, useEffect, useState } from "react";
 import { CircleCheck, FileText, Folder, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
-import { Browser, CaptureStatus, Collection, ImportProgress, ImportSummary, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
+import { CaptureStatus, Collection, ImportProgress, ImportSummary, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
 import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
 import {
-  browserName,
-  browsers,
+  ConnectTab,
+  connectTabName,
+  connectTabs,
   connectedNames,
   installSteps,
   lastSaved,
   preferredBrowser,
   statusColor,
   statusLabel,
+  tabBrowser,
 } from "../../services/capture";
 import { Icon } from "../icons";
 import { Button, buttonClass } from "../ui/Button";
@@ -696,7 +698,14 @@ export function ConnectDialog({
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [browser, setBrowser] = useState<Browser>(() => preferredBrowser(capture));
+  const [tab, setTab] = useState<ConnectTab>(() => preferredBrowser(capture));
+  const browser = tabBrowser(tab);
+  // Linux (sheet 40, NP-054): a Chromium tab, Firefox from Snap, the sandboxed browsers.
+  const linux = capture?.system === "linux";
+  const [tray, setTray] = useState(true);
+  useEffect(() => {
+    if (linux) void api.getDesktop().then((desktop) => setTray(desktop.tray)).catch(() => {});
+  }, [linux]);
   const status =
     capture?.state === "connected"
       ? `${t("browser.connectedTo", { browsers: connectedNames(capture) })} · ${lastSaved(capture, t, i18n.language)}`
@@ -713,7 +722,8 @@ export function ConnectDialog({
       ) : null,
     },
     { title: t("connect.pinTitle"), text: t(`connect.pin_${browser}`), action: null },
-    { title: t("connect.saveTitle"), text: t("connect.save"), action: null },
+    // Without a tray the closed app starts «in the background» (NP-096).
+    { title: t("connect.saveTitle"), text: t(tray ? "connect.save" : "connect.save_background"), action: null },
   ];
   return (
     <Dialog title={t("connect.title")} onClose={onClose}>
@@ -730,11 +740,11 @@ export function ConnectDialog({
             </p>
           </div>
         </div>
-        <Segmented<Browser>
+        <Segmented<ConnectTab>
           label={t("connect.browsers")}
-          value={browser}
-          onChange={setBrowser}
-          options={browsers.map((value) => ({ value, label: browserName[value] }))}
+          value={tab}
+          onChange={setTab}
+          options={connectTabs(capture).map((value) => ({ value, label: connectTabName[value] }))}
         />
         <ol className="flex flex-col gap-4">
           {steps.map((step, index) => (
@@ -750,6 +760,11 @@ export function ConnectDialog({
             </li>
           ))}
         </ol>
+        {linux && tab === "firefox" && (
+          <p className="ml-8 rounded-lg bg-accent-soft px-3 py-2.5 text-xs leading-[17px] text-on-accent-soft">
+            {t("connect.snapFirefox")}
+          </p>
+        )}
         <div className="flex flex-col gap-3 border-t border-divider pt-4">
           <div>
             <div className="font-medium">{t("connect.lostTitle")}</div>
@@ -759,6 +774,12 @@ export function ConnectDialog({
             <div className="font-medium">{t("connect.updateTitle")}</div>
             <p className="mt-0.5 leading-[18px] text-muted">{t(install.update)}</p>
           </div>
+          {linux && (
+            <div data-sandboxed>
+              <div className="font-medium">{t("connect.sandboxTitle")}</div>
+              <p className="mt-0.5 leading-[18px] text-muted">{t("connect.sandboxText")}</p>
+            </div>
+          )}
         </div>
       </div>
     </Dialog>

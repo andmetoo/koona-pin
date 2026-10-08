@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "拡張機能がこのコンピューターでアプリを見つけられません。Koona Pin をインストールするか、すでにある場合は再インストールしてください。"
   },
+  "statusSandbox": { "message": "このブラウザーでは保存できません" },
+  "statusSandboxText": {
+    "message": "拡張機能から Koona Pin に接続できません。まだの場合は Koona Pin をインストールしてください。インストール済みなら、このブラウザーはアプリへのアクセスを遮断するサンドボックス（Flatpak または Snap 版 Chromium）で動いています。ディストリビューションのパッケージのブラウザーを使ってください。保存したリンクはここで待機します。"
+  },
   "download": { "message": "Koona Pin をダウンロード" },
   "queueHeading": { "message": "送信待ち" },
   "sendNow": { "message": "今すぐ送信" },

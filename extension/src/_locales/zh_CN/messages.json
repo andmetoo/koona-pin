@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "扩展在这台电脑上找不到应用。请安装 Koona Pin；如果已经安装，请重新安装。"
   },
+  "statusSandbox": { "message": "此浏览器无法保存" },
+  "statusSandboxText": {
+    "message": "扩展无法连接 Koona Pin。如果尚未安装，请安装 Koona Pin。如果已安装，此浏览器运行在阻止访问应用的沙盒中（Flatpak 或 Snap 版 Chromium）— 请使用发行版软件包中的浏览器。你保存的链接会在这里等待。"
+  },
   "download": { "message": "下载 Koona Pin" },
   "queueHeading": { "message": "等待发送" },
   "sendNow": { "message": "立即发送" },
