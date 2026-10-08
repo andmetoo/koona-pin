@@ -27,8 +27,8 @@ fn collation_version() {
 }
 
 /// The feedback address (`option_env!` in feedback.rs, NP-088) from `.env` in the repository
-/// root when the environment does not set it, so `npm run tauri build`, `tauri dev` and
-/// `cargo build` get it just like `npm run build:installer`. The environment wins.
+/// root when the environment does not set it, so `bun run tauri build`, `tauri dev` and
+/// `cargo build` get it just like `bun run build:installer`. The environment wins.
 fn feedback_url_from_dotenv() {
     const NAME: &str = "KOONAPIN_FEEDBACK_URL";
     println!("cargo:rerun-if-env-changed={NAME}");
@@ -45,9 +45,9 @@ fn feedback_url_from_dotenv() {
     }
 }
 
-/// `KEY=VALUE` as node's process.loadEnvFile reads it (checked on Node 26): comments, an
-/// optional `export `, quotes around the value, an unquoted value ends at its first `#`,
-/// the last line of a name wins.
+/// `KEY=VALUE` as process.loadEnvFile of the scripts reads it (checked on Node 26 and
+/// Bun 1.4): comments, an optional `export `, quotes around the value, an unquoted value
+/// ends at its first `#`, the last line of a name wins.
 fn dotenv_value(text: &str, name: &str) -> Option<String> {
     text.lines().rev().find_map(|line| {
         let line = line.trim();

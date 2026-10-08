@@ -1,9 +1,9 @@
 // Signs the packages of a release for the built-in updater and writes latest.json (NP-038, NP-102, Р-60):
-//   npm run build:latest                 every package of this version: the Windows installer and the .deb and .rpm
-//   npm run build:latest -- --only linux  only the Linux packages (a Linux-only release: Windows keeps the last one)
-//   npm run build:latest -- --only windows
-// Takes the files of release/publish/windows/<version>/ (npm run build:installer -- --sign) and
-// release/publish/linux/<version>/ (npm run build:linux), signs each with the update key bound to the
+//   bun run build:latest                 every package of this version: the Windows installer and the .deb and .rpm
+//   bun run build:latest -- --only linux  only the Linux packages (a Linux-only release: Windows keeps the last one)
+//   bun run build:latest -- --only windows
+// Takes the files of release/publish/windows/<version>/ (bun run build:installer -- --sign) and
+// release/publish/linux/<version>/ (bun run build:linux), signs each with the update key bound to the
 // version (`tauri signer sign --app-version`, the app checks it: `requireSignedVersion`), and writes
 // <file>.sig next to it and release/publish/updates/<version>/latest.json. The key comes from the
 // environment or .env: TAURI_SIGNING_PRIVATE_KEY (or TAURI_SIGNING_PRIVATE_KEY_PATH); the password is
@@ -43,7 +43,7 @@ const find = async (folder, test) => (existsSync(folder) ? (await readdir(folder
 if (only !== "linux") {
   const [installer, ...more] = await find(publish.windows(version), (f) => f.endsWith("-setup.exe") && f.includes(`_${version}_`));
   if (!installer || more.length) {
-    console.error(`Expected one signed installer of ${version} in ${path.relative(root, publish.windows(version))}: npm run build:installer -- --sign`);
+    console.error(`Expected one signed installer of ${version} in ${path.relative(root, publish.windows(version))}: bun run build:installer -- --sign`);
     process.exit(1);
   }
   // The NSIS build looks for windows-x86_64-nsis; a build without a bundle type for windows-x86_64.
@@ -53,7 +53,7 @@ if (only !== "windows") {
   const deb = (await find(publish.linux(version), (f) => f === `koonapin_${version}_amd64.deb`))[0];
   const rpm = (await find(publish.linux(version), (f) => f === `koonapin-${version}-1.x86_64.rpm`))[0];
   if (!deb || !rpm) {
-    console.error(`Expected the .deb and the .rpm of ${version} in ${path.relative(root, publish.linux(version))}: npm run build:linux`);
+    console.error(`Expected the .deb and the .rpm of ${version} in ${path.relative(root, publish.linux(version))}: bun run build:linux`);
     process.exit(1);
   }
   // No plain linux-x86_64: an app with an unknown bundle type must not get a package it cannot install.

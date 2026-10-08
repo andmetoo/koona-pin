@@ -94,11 +94,11 @@
 
 | Команда | Что делает |
 | --- | --- |
-| `npm run site:build` | Собирает `release/publish/site/`: страницы всех языков, `site.css`, шрифт Inter (латиница, расширенная латиница, кириллица), маскот, favicon, скриншоты, `sitemap.xml` (`robots.txt` — у корня `koona.app`); `release/publish/firefox` целиком, если он есть, со сверкой хешей XPI с `updates.json` |
-| `npm run site:check` | Сборка и проверка: каждая страница каждого языка на 360, 390, 1440, 1920 в обеих темах — без горизонтальной прокрутки и обрезанных подписей, без запросов к другим доменам, без cookies, ссылки внутри сайта открываются; меню языка открывается наведением и Tab и не выходит за экран; `/pin/` ведёт на язык браузера для каждого языка сайта, а English из меню `/pin/ru/` — на `/pin/`; у каждого языка своя 404 в Caddyfile. Снимки en, ru, de и sr (страницы и открытое меню) — в `test-results/site` |
-| `npm run site:serve` | Локальный сервер `release/publish/site/` с правилами `site/Caddyfile` (`/pin` → `/pin/`, try_files, 404, переадресация языка — читается из Caddyfile, заголовки) на `http://127.0.0.1:4173/pin/`; `/` стоит за корневой сайт и ведёт на `/pin/` |
-| `npm run site:shots` | Скриншоты настоящего приложения в `site/src/shots` (1920 и 1280 px WebP, `og-<lang>.jpg` 1200×630). Сначала сам собирает отладочное приложение со встроенным интерфейсом (`scripts/build-test-app.mjs`), Vite не нужен; собственный Koona Pin закрыт (один экземпляр на пользователя) |
-| `node scripts/site-wordmark.mjs` | Надпись кривыми из Nunito ExtraBold в `site/src/brand/wordmark.svg`; только если надпись меняется |
+| `bun run site:build` | Собирает `release/publish/site/`: страницы всех языков, `site.css`, шрифт Inter (латиница, расширенная латиница, кириллица), маскот, favicon, скриншоты, `sitemap.xml` (`robots.txt` — у корня `koona.app`); `release/publish/firefox` целиком, если он есть, со сверкой хешей XPI с `updates.json` |
+| `bun run site:check` | Сборка и проверка: каждая страница каждого языка на 360, 390, 1440, 1920 в обеих темах — без горизонтальной прокрутки и обрезанных подписей, без запросов к другим доменам, без cookies, ссылки внутри сайта открываются; меню языка открывается наведением и Tab и не выходит за экран; `/pin/` ведёт на язык браузера для каждого языка сайта, а English из меню `/pin/ru/` — на `/pin/`; у каждого языка своя 404 в Caddyfile. Снимки en, ru, de и sr (страницы и открытое меню) — в `test-results/site` |
+| `bun run site:serve` | Локальный сервер `release/publish/site/` с правилами `site/Caddyfile` (`/pin` → `/pin/`, try_files, 404, переадресация языка — читается из Caddyfile, заголовки) на `http://127.0.0.1:4173/pin/`; `/` стоит за корневой сайт и ведёт на `/pin/` |
+| `bun run site:shots` | Скриншоты настоящего приложения в `site/src/shots` (1920 и 1280 px WebP, `og-<lang>.jpg` 1200×630). Сначала сам собирает отладочное приложение со встроенным интерфейсом (`scripts/build-test-app.mjs`), Vite не нужен; собственный Koona Pin закрыт (один экземпляр на пользователя) |
+| `bun scripts/site-wordmark.mjs` | Надпись кривыми из Nunito ExtraBold в `site/src/brand/wordmark.svg`; только если надпись меняется |
 
 Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@12` с Chromium Playwright через `CHROME_PATH`, на `npm run site:serve`, настоящие скриншоты): `/`, `/ru/`, `/privacy`, `/ru/licenses` — Performance 99–100, Accessibility 100, Best Practices 100, SEO 100. `connect-src 'self'` в CSP нужен только для этой проверки: Lighthouse читает `robots.txt` запросом из страницы.
 
@@ -136,8 +136,8 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    ```
    Скрипт ниже кладёт `site/Caddyfile` в `/srv/koona.app/pin/Caddyfile`, файлы сайта — в `/srv/koona.app/pin/site`. Стандартный блок `:80` со страницей «Caddy works!» можно удалить.
 4. **Cloudflare:** SSL/TLS — «Full (strict)», «Always Use HTTPS» включён. Web Analytics (вставка скрипта, без cookies) включена, CSP её разрешает; Email Address Obfuscation и Rocket Loader выключены — они вставляют скрипты, которые CSP заблокирует; Bot Fight Mode выключен — он может ставить cookies. Кэширование — по умолчанию, без «Cache Everything» для HTML: переадресация `/pin/` на язык (`/pin/ru/`, `/pin/de/`…) зависит от языка браузера.
-5. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Koona Pin, `npm run site:shots`, закоммитить `site/src/shots`.
-6. **Обновления Firefox:** после `npm run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/publish/firefox`; сборка сайта забирает их и сверяет хеши и адрес `https://koona.app/pin/firefox/`.
+5. **Скриншоты** (если менялся интерфейс или выборка): закрыть свой Koona Pin, `bun run site:shots`, закоммитить `site/src/shots`.
+6. **Обновления Firefox:** после `bun run extension:sign:firefox` новые XPI и `updates.json` лежат в `release/publish/firefox`; сборка сайта забирает их и сверяет хеши и адрес `https://koona.app/pin/firefox/`.
 7. **Выкладка** (с адресом функции отзыва в `KOONAPIN_FEEDBACK_URL` — в `.env` в корне репозитория, как в `.env.example`, или в окружении; иначе скрипт откажется — форма `/feedback` пропала бы; намеренно без неё — `-WithoutFeedback`):
    ```powershell
    pwsh scripts/deploy-site.ps1 -Server user@host

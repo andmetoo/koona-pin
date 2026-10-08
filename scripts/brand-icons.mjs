@@ -2,7 +2,7 @@
 // the micro mark for 16–32 px. Writes src-tauri/icons (via `tauri icon` + a mixed ICO),
 // extension/src/icons and app-icon.svg.
 //
-//   node scripts/brand-icons.mjs [--preview out.png]
+//   bun scripts/brand-icons.mjs [--preview out.png]
 import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, writeFile, copyFile } from "node:fs/promises";

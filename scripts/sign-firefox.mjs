@@ -8,7 +8,7 @@
 // (WEB_EXT_API_KEY, WEB_EXT_API_SECRET); this script never prints it. AMO signs
 // each version number once: bump extension/src/version.js for a new upload.
 //
-//   npm run extension:sign:firefox
+//   bun run extension:sign:firefox
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";

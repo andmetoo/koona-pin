@@ -5,9 +5,9 @@
 // system's settings and the scroll through SQLite. On Windows the same steps run in
 // Playwright's Chromium — the engine of WebView2 — and give the other half of each pair.
 //
-//   node scripts/webkitgtk-check.mjs                  Linux: WebKitWebDriver + MiniBrowser (DISPLAY or WAYLAND_DISPLAY)
-//   node scripts/webkitgtk-check.mjs --chromium       Windows: Playwright's Chromium
-//   node scripts/webkitgtk-check.mjs --pairs <linux> <windows>   side-by-side PNGs of two runs
+//   bun scripts/webkitgtk-check.mjs                  Linux: WebKitWebDriver + MiniBrowser (DISPLAY or WAYLAND_DISPLAY)
+//   bun scripts/webkitgtk-check.mjs --chromium       Windows: Playwright's Chromium
+//   bun scripts/webkitgtk-check.mjs --pairs <linux> <windows>   side-by-side PNGs of two runs
 // Options: --only screens,scroll,media,gnome,appscroll  --app <koonapin>  --libraries <library-10k-v1.db,…>
 //          --languages en,ja  --label <name>  --frames 1500  --css <rules for the scroll>
 //          --counts 10000,100000

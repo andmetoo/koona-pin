@@ -1319,3 +1319,34 @@
 **Проверка:** Rust — статус и причины в JSON, ошибки плагина, ключ и адрес в конфигурации, коды `pkexec` (Linux). Vitest — строка, проценты, размеры, страница выпуска. Playwright — строка только с новой версией, диалог по нажатию, загрузка и отмена, ошибка охрой, настройки, узкое окно (демо). WebView2 — настоящий updater с тестовым сервером и ключом: «нет связи», предложение, отмена загрузки, подпись для другой версии отклонена, подписанный «установщик» запускается и приложение завершается (`test:native`). Не проверено: обновление настоящего установщика N → N+1 на чистой машине, пароль polkit на рабочем столе — при приёмке (NP-039, NP-111).
 
 **Повод пересмотреть:** открытие репозитория или другой хостинг выпусков; выпуск из CI (тогда ключ — в секретах); жалобы на polkit или на passive-установщик.
+
+## Р-61. Bun вместо Node и npm
+
+8 октября 2026 года. Решение владельца. Пересматривает строку «CI и выпуск» таблицы стека ([development-process.md](development-process.md#4-стек-что-оставить-и-что-улучшить)): менеджер пакетов меняется сейчас.
+
+**Контекст:** разработка шла на Node.js 26 (`.nvmrc`) и npm (`package-lock.json`): установка зависимостей, скрипты `package.json`, `scripts/*.mjs`, Vite, Vitest, Playwright, Tauri CLI, `web-ext`, матрица Linux (`linux.yml` через act). Владелец решил перейти на Bun для разработки.
+
+**Варианты:**
+
+1. Только менеджер пакетов: `bun install` и `bun run`, а Vite, Vitest, Playwright и скрипты — на Node. Меньше риска, но нужны две среды.
+2. Bun целиком, Node.js не нужен — выбран владельцем.
+
+**Решение:**
+
+1. **Версия и lock-файл** — `.bun-version` (1.4.2) и `bun.lock`. `bun install` перенёс `package-lock.json` с теми же версиями, override `shell-quote` сохранился. `.nvmrc` и `package-lock.json` удалены. Версия Bun записана только в `.bun-version`, без `engines`.
+2. **`bunfig.toml`:** `[run] bun = true` — инструменты со строкой `#!/usr/bin/env node` (vite, vitest, playwright, tauri, web-ext) тоже работают на Bun. `env = false` — Bun сам не подмешивает `.env`: его читают скрипты и `build.rs`, как раньше, и окружение важнее файла. Без этого `.env` попадал бы в окружение любого `bun run`. Это действует на `bun run` и `bun test`, а `bun install` и `bun pm` `.env` всё равно читают. Поэтому `trustedDependencies: []` в `package.json` запрещает скрипты установки зависимостей: они получили бы `.env`. Сейчас такой скрипт есть только у esbuild, и Bun его и так пропускал; новый скрипт Bun покажет как заблокированный.
+3. **`bunx`** запускает пакет по его строке `#!/usr/bin/env node`: если Node установлен, пакет работает на Node, `[run] bun` на `bunx` не действует. Поэтому Playwright запускают через `bun run test:ui -- …`, `bunx` — только с `--bun`, а Vite в `webServer` Playwright — `bun node_modules/vite/bin/vite.js`.
+4. **Скрипты** — `bun scripts/*.mjs`, в `tauri.conf.json` — `bun run dev` и `bun run build`. API Node, которыми пользуются скрипты (`node:sqlite`, `node:test`, `node:net`, `child_process`, `process.loadEnvFile`), в Bun есть. Разбор `.env` в `process.loadEnvFile` у Bun и Node совпадает: комментарии, `export`, кавычки, `#`, последняя строка, без подстановки `$`. Одно отличие: Bun принимает только путь-строку, не `URL` (`site/src/content.mjs`).
+5. **CI:** `oven-sh/setup-bun` с `.bun-version`, кеш пакетов Bun, `bun install --frozen-lockfile`. `.bun-version` и `bun.lock` — с LF при любом `core.autocrlf` (`.gitattributes`). В матрице Linux `scripts/linux/bun.sh` ставит Bun из релиза на GitHub (нужен `unzip`) и кладёт ссылку `node` на него. Под act это нужно JavaScript-действиям артефактов: своего Node там нет. `tests/webkit` (`node:test`) запускается как `bun run test:webkit`, то есть `bun test --timeout 600000`. У `bun test` по умолчанию 5 с и на тест, и на хук, а ключ `timeout` в разделе `[test]` файла `bunfig.toml` Bun 1.4 не читает (проверено).
+6. **Номер версии приложения** — в четырёх местах вместо пяти ([development-process.md](development-process.md#6-доска-задач-и-критерии-переходов)).
+
+**Последствия:**
+
+- Node.js на машине разработчика и в CI не нужен.
+- Bun совместим с Node не полностью: новый скрипт или инструмент проверяется запуском через `bun`.
+- Эксперимент NP-008 (`scripts/platform-probe/android`, `mobile-app`) остаётся на npm: это закрытое исследование, его не переносили. `platform-probe.yml` ставит Bun, но не перезапускался.
+- Записи журнала проверок и прежних решений с `npm` и Node — история, их не меняли.
+
+**Проверка:** Windows 11, Bun 1.4.2, после слияния с `main` (0.3.1): `bun run check` — Rust 273 + 2 + 2, сборка, Vitest 253; Playwright UI 109 (Vite в `webServer` на Bun); `test:native` 23; `test:host`; smoke расширения в Chrome for Testing, Chrome, Edge (6 прогонов из 6), Firefox (4 из 4) и ESR; `extension:lint` (0 ошибок, 1 ожидаемое предупреждение); `site:check`. Tauri CLI на Bun: `bun run build:installer` собрал неподписанный установщик NSIS 0.3.1, `bun run tauri dev` поднял Vite и приложение; `web-ext sign` загружается на Bun (`--help`), а подпись на AMO и `build:latest` не запускались: им нужны ключи AMO и пароль ключа обновлений. До `moveLibrary` шаг очереди в smoke на Bun давал `saved` вместо `queued` в 2 прогонах Edge из 6 и 1 Firefox из 3: проглоченная ошибка `rename` занятого файла. Матрица Linux через act (`--pull=false`: `act` не смог скачать образ со старым входом в Docker Hub, обычный `docker pull` отвечает «up to date») — 8 заданий из 8: тесты Debian 13 (Rust 278 + 3 + 2, Vitest 253, Playwright 97 на Bun, регистрация host, smoke расширения), `bun run test:webkit` 5 из 5 под X11 и Wayland на Ubuntu 26.04, Debian 13, Fedora 44 и Arch.
+
+**Повод пересмотреть:** инструмент, который не работает на Bun, — тогда запускать на Node только его; ошибки Bun, которых нет в Node, в проверках или сборке.
