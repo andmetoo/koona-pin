@@ -2,7 +2,7 @@
 // and SQLite in a data folder of its own, a sample library restored from JSON, previews from
 // site/shots/previews (Unsplash licence, site/shots/previews/CREDITS.md), Chrome connected.
 //
-//   npm run site:shots   (builds the debug app with its interface embedded first, scripts/build-test-app.mjs)
+//   bun run site:shots   (builds the debug app with its interface embedded first, scripts/build-test-app.mjs)
 //
 // Writes site/src/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280)
 // and og-<lang>.jpg. Quit your own Koona Pin first:
@@ -96,7 +96,7 @@ async function shoot(lang, base, encoder) {
       return true;
     }, "a DevTools connection");
     const context = browser.contexts()[0];
-    await until(async () => context.pages().some(appPage), "the app page (built with the interface embedded? npm run site:shots does it)");
+    await until(async () => context.pages().some(appPage), "the app page (built with the interface embedded? bun run site:shots does it)");
     const page = context.pages().find(appPage);
     await until(() => pipeReady(pipe), "the capture pipe");
     await page.evaluate(

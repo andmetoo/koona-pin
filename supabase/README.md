@@ -8,7 +8,7 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
 | Хранение 12 месяцев (`pg_cron`) | `migrations/20261006000001_feedback_retention.sql` |
 | Edge Function: проверка, лимит 5 в час с адреса, запись, Telegram | `functions/feedback/` (`handler.ts` — логика, `index.ts` — Deno) |
 | Вызов без ключа | `config.toml`, `verify_jwt = false` |
-| Тесты | `functions/feedback/handler.test.ts` — функция, `feedback.sql.test.ts` — схема на PGlite; `npm test` |
+| Тесты | `functions/feedback/handler.test.ts` — функция, `feedback.sql.test.ts` — схема на PGlite; `bun run test` |
 
 ## Развернуть
 
@@ -36,7 +36,7 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
    ```
    KOONAPIN_FEEDBACK_URL=https://<ref>.supabase.co/functions/v1/feedback
    ```
-   Его читают сборки приложения (`src-tauri/build.rs`: `npm run tauri build`, `npm run tauri dev`, `cargo build`; установщик — `npm run build:installer`) и сборка сайта (`site/src/content.mjs`: `npm run site:check`, `scripts/deploy-site.ps1`). Переменная окружения с тем же именем важнее файла. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
+   Его читают сборки приложения (`src-tauri/build.rs`: `bun run tauri build`, `bun run tauri dev`, `cargo build`; установщик — `bun run build:installer`) и сборка сайта (`site/src/content.mjs`: `bun run site:check`, `scripts/deploy-site.ps1`). Переменная окружения с тем же именем важнее файла. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
 
 ## Проверить
 

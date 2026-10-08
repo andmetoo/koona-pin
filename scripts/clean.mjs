@@ -1,12 +1,12 @@
 // Clears what tests and scripts leave behind (README, «Сборки: что где»). Every run of a test or a
 // smoke script keeps its own folder in .test-data, and Rust tests and the app keep theirs in the
-// temp folder: thousands of folders and tens of gigabytes in a week. npm runs this before check,
+// temp folder: thousands of folders and tens of gigabytes in a week. bun runs this before check,
 // the native, host and extension tests and build:installer (package.json); by hand:
 //
-//   npm run clean                 .test-data (but libraries), test-results, playwright-report,
+//   bun run clean                 .test-data (but libraries), test-results, playwright-report,
 //                                 koonapin-* in the temp folder
-//   npm run clean -- --cargo      the same, and the Cargo build folders: the next build starts over
-//   npm run clean -- --list       what the generated folders take; nothing is removed
+//   bun run clean -- --cargo      the same, and the Cargo build folders: the next build starts over
+//   bun run clean -- --list       what the generated folders take; nothing is removed
 //
 // Whatever changed in the last 30 minutes stays, so a test running in another terminal keeps its
 // folder. release/ is never touched: it holds what goes to people and stores (scripts/lib/paths.mjs).
@@ -76,7 +76,7 @@ if (args.has("--list")) {
     ["release/test", path.join(release, "test"), "test machines, kept"],
     ["release/dev", path.join(release, "dev"), "unpacked extensions, rebuilt"],
     [".cache", from(".cache"), "Playwright browsers, kept"],
-    ["node_modules", from("node_modules"), "npm ci, kept"],
+    ["node_modules", from("node_modules"), "bun install, kept"],
   ];
   for (const [name, folder, what] of rows) {
     let bytes = 0;

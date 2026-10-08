@@ -11,4 +11,4 @@ Thanks for wanting to help. Bug reports, ideas and questions go to [issues](http
 
 ## How the project works
 
-Development notes, the roadmap and decisions are in [`doc/`](doc) (in Russian). Interface strings are in `src/locales/<code>.json` with `en.json` as the source. Before sending a change, run `npm run check`; [doc/testing.md](doc/testing.md) lists the other checks.
+Development notes, the roadmap and decisions are in [`doc/`](doc) (in Russian). Interface strings are in `src/locales/<code>.json` with `en.json` as the source. Before sending a change, run `bun run check`; [doc/testing.md](doc/testing.md) lists the other checks.

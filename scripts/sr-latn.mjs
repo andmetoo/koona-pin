@@ -1,5 +1,5 @@
 // Writes src/locales/sr-Latn.json from sr.json, letter by letter (NP-089).
-// Run after any change to sr.json: npm run locales:sr-latn
+// Run after any change to sr.json: bun run locales:sr-latn
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

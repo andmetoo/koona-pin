@@ -3,7 +3,7 @@
 // origins, no cookies, no broken links between pages; the language menu opens inside the screen;
 // the first visit of /pin/ goes to the browser's language. Screenshots of en, ru, de, sr and ja go
 // to test-results/site.
-//   node scripts/build-site.mjs && node scripts/check-site.mjs
+//   bun scripts/build-site.mjs && bun scripts/check-site.mjs
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";

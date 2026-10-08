@@ -1,6 +1,6 @@
 // Scrolling a large library in the browser demo (NP-012): frame times while
 // the grid and the list scroll continuously through 10 000 bookmarks.
-// Run: node scripts/scroll-bench.mjs [count]
+// Run: bun scripts/scroll-bench.mjs [count]
 // Starts its own Vite server on a free port; Chromium from Playwright
 // (PLAYWRIGHT_BROWSERS_PATH as for the UI tests).
 import { chromium } from "@playwright/test";
