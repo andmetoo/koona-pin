@@ -76,7 +76,18 @@ if [ "${GITHUB_JOB:-}" = check ]; then
   PATH=/opt/node/bin:$PATH npx --yes "playwright@$playwright" install-deps chromium > /dev/null
   apt-get install -y -qq fonts-noto-cjk > /dev/null
   # The development registration is checked with the distribution's browsers (NP-100, smoke-registration.mjs).
-  apt-get install -y -qq chromium firefox-esr > /dev/null
+  apt-get install -y -qq chromium firefox-esr gpg > /dev/null
+  # Google Chrome and Microsoft Edge from their makers' repositories: they find the package's manifests
+  # through the links in /etc/opt/chrome and /etc/opt/edge (NP-055).
+  install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor --yes -o /etc/apt/keyrings/google.gpg
+  echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+    > /etc/apt/sources.list.d/google-chrome.list
+  curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --yes -o /etc/apt/keyrings/microsoft.gpg
+  echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" \
+    > /etc/apt/sources.list.d/microsoft-edge.list
+  apt-get update -qq
+  apt-get install -y -qq google-chrome-stable microsoft-edge-stable > /dev/null
 fi
 # The «build» job packs .deb and .rpm and checks them (npm run build:linux, NP-055).
 if [ "${GITHUB_JOB:-}" = build ]; then

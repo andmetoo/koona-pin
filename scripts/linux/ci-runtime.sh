@@ -15,8 +15,10 @@ case "$ID" in
     apt-get install -y -qq xvfb xauth x11-utils dbus weston curl xz-utils ca-certificates > /dev/null
     ;;
   fedora)
-    # libatomic: Node needs it (the artifact action under act); WebKitGTK used to bring it.
-    dnf install -y -q xorg-x11-server-Xvfb xorg-x11-xauth xprop xwininfo dbus-daemon weston xz libatomic
+    # libatomic: Node needs it (the artifact action under act); WebKitGTK used to bring it. Fedora's Chromium
+    # and Firefox check the installed .rpm (ci-browsers.sh, NP-055).
+    dnf install -y -q xorg-x11-server-Xvfb xorg-x11-xauth xprop xwininfo dbus-daemon weston xz libatomic \
+      chromium firefox
     ;;
   arch)
     pacman -Sy --needed --noconfirm webkit2gtk-4.1 libayatana-appindicator \
