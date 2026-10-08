@@ -62,6 +62,9 @@ pub enum ErrorDetail {
     /// No connection on a network whose proxy is set by a setup script the app cannot
     /// run: either cause is possible.
     NoConnectionOrProxy,
+    /// No connection on Linux while a proxy is set only in GNOME's or KDE's settings,
+    /// which the app does not read (NP-097): either cause is possible.
+    NoConnectionOrSystemProxy,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

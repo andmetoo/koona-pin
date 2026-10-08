@@ -823,7 +823,8 @@
       "service_failed": "the server didn't answer",
       "too_many_messages": "too many messages from this network in the last hour",
       "proxy_failed": "the network's proxy refused the request",
-      "no_connection_or_proxy": "no internet connection, or this network needs its proxy"
+      "no_connection_or_proxy": "no internet connection, or this network needs its proxy",
+      "no_connection_or_system_proxy": "no internet connection, or this network needs the proxy from the system settings"
     },
     "code": {
       "not_found": "It no longer exists — it may have been deleted meanwhile.",
@@ -849,7 +850,8 @@
       "service_failed": "Couldn't send: the server didn't answer. Your text is kept — try again later, or copy it and send it another way.",
       "too_many_messages": "Too many messages from this network in the last hour. Your text is kept — try again later.",
       "proxy_failed": "Couldn't send through this network's proxy: it asks for a sign-in or isn't reachable. Your text is kept — copy it and send it another way, for example on GitHub.",
-      "no_connection_or_proxy": "Couldn't send: no internet connection, or this network needs its proxy, which is set by a setup script the app can't use. Your text is kept — try again, or copy it and send it another way, for example on GitHub."
+      "no_connection_or_proxy": "Couldn't send: no internet connection, or this network needs its proxy, which is set by a setup script the app can't use. Your text is kept — try again, or copy it and send it another way, for example on GitHub.",
+      "no_connection_or_system_proxy": "Couldn't send: no internet connection, or this network needs the proxy from the system settings, which the app can't read — it uses only the https_proxy and http_proxy variables. Your text is kept — try again, or copy it and send it another way, for example on GitHub."
     }
   },
   "tray": {
