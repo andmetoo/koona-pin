@@ -43,6 +43,9 @@ pub(crate) fn show_window(app: &tauri::AppHandle) {
 }
 
 pub(crate) fn show(window: &tauri::WebviewWindow) {
+    // Off since desktop::hide.
+    #[cfg(windows)]
+    desktop::transitions(&window.as_ref().window(), true);
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
@@ -120,7 +123,7 @@ pub fn run() {
                 if !state.background_explained.load(Ordering::Relaxed) && !desktop::tray_shown() {
                     let _ = window.emit(BACKGROUND_EVENT, ());
                 } else {
-                    let _ = window.hide();
+                    let _ = desktop::hide(window);
                 }
             }
         })

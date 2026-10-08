@@ -918,7 +918,7 @@ pub async fn hide_to_background(
     .await?;
     state.background_explained.store(true, Ordering::Relaxed);
     if let Some(window) = app.get_webview_window("main") {
-        window.hide().map_err(CommandError::internal)?;
+        crate::desktop::hide(&window.as_ref().window()).map_err(CommandError::internal)?;
     }
     Ok(())
 }
