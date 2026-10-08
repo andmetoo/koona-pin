@@ -8,7 +8,8 @@ import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, BackupCopy, Bookmark, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
+import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
+import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { useSelectionDrag } from "./hooks/useSelectionDrag";
@@ -87,13 +88,15 @@ export function App() {
   const narrow = useMedia(NARROW);
   const wide = useMedia(WIDE);
   const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "list"], "grid"));
+  /** The order of every list but the trash, kept like the view (NP-114). */
+  const [sort, setSort] = useState<BookmarkSort>(() => preference("sort", SORTS, "newest"));
   const [filters, setFilters] = useState(initialFilters);
   const [page, setPage] = useState<"library" | "settings" | "duplicates" | "links">("library");
   const pageRef = useRef(page);
   pageRef.current = page;
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const library = useLibrary(filters, scrollRef);
+  const library = useLibrary(filters, sort, scrollRef);
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
@@ -163,6 +166,7 @@ export function App() {
     savePreference("theme", theme);
   }, [theme, dark]);
   useEffect(() => savePreference("view", view), [view]);
+  useEffect(() => savePreference("sort", sort), [sort]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Keys an IME uses to build a character are not shortcuts (NP-090).
@@ -700,6 +704,7 @@ export function App() {
       compact={compact}
       scrollRef={scrollRef}
       dateGroups={library.dateGroups}
+      grouped={filters.onlyTrash || byTime(sort)}
       hasMore={library.hasMore}
       loadingMore={library.loadingMore}
       onMore={library.loadMore}
@@ -791,6 +796,7 @@ export function App() {
         onConnect={() => setSurface("connect")}
         onNewCollection={() => setSurface("collection")}
         onDeleteCollection={setDeletingCollection}
+        onReorderCollections={(ids) => void library.reorderCollections(ids).catch((err) => say(describeError(err), true))}
         naming={
           naming !== null && selecting
             ? {
@@ -886,8 +892,10 @@ export function App() {
                     narrow={narrow}
                     search={filters.search}
                     view={view}
+                    sort={filters.onlyTrash ? null : sort}
                     onSearch={(search) => changeFilters({ search })}
                     onView={setView}
+                    onSort={setSort}
                     onImport={() => setSurface("import")}
                     onExport={exportLibrary}
                     onRestore={() => setSurface("restore")}

@@ -1,4 +1,4 @@
-import { Bookmark, FilterState, PageCursor } from "../types";
+import { Bookmark, BookmarkSort, Collection, FilterState, PageCursor } from "../types";
 
 /** Lower case, «ё» as «е»: the demo's stand-in for the search index. */
 export function foldText(text: string): string {
@@ -56,25 +56,92 @@ export function matchesBookmark(
   return words.every((word) => text.includes(word));
 }
 
-type Placed = { at: string; id: number };
-const placed = (b: Pick<Bookmark, "created_at" | "deleted_at" | "id">): Placed => ({ at: listTime(b), id: b.id });
+/**
+ * How the list is ordered (NP-114): the chosen order and the interface's
+ * language. The trash keeps its own order, newest deletion first.
+ */
+export type ListOrder = { sort: BookmarkSort; language: string };
+export const NEWEST: ListOrder = { sort: "newest", language: "en" };
+export const SORTS: BookmarkSort[] = ["newest", "oldest", "title", "site"];
+/** The order a list is read in: the trash keeps its own. */
+export const orderOf = (sort: BookmarkSort, trash: boolean): BookmarkSort => (trash ? "newest" : sort);
+/** Orders by time keep the date groups; by title and by site the list is one run. */
+export const byTime = (sort: BookmarkSort) => sort === "newest" || sort === "oldest";
 
-/** The list order `at DESC, id DESC`, compared as SQLite compares text. */
-function compareAt(a: Placed, b: Placed): number {
+/** What «Site A–Z» compares: the domain without `www.`, as `sorting::site` in Rust. */
+export const siteOf = (domain: string) => domain.replace(/^www\./i, "");
+
+type Sortable = Pick<Bookmark, "created_at" | "deleted_at" | "id" | "title" | "domain" | "title_key" | "site_key">;
+/**
+ * A place in the order. `key` is the database's sort key in hex, which
+ * compares as text exactly as the database orders (desktop); without it — the
+ * demo — `text` is compared by the language's collator, as the keys are made.
+ */
+type Placed = { at: string; id: number; key?: string | null; text?: string };
+const placed = (b: Sortable, sort: BookmarkSort): Placed => ({
+  at: listTime(b),
+  id: b.id,
+  key: sort === "title" ? b.title_key : sort === "site" ? b.site_key : undefined,
+  text: sort === "title" ? b.title : sort === "site" ? siteOf(b.domain) : undefined,
+});
+
+/** `at DESC, id DESC`, compared as SQLite compares text. */
+function compareAt(a: Pick<Placed, "at" | "id">, b: Pick<Placed, "at" | "id">): number {
   if (a.at !== b.at) return a.at < b.at ? 1 : -1;
   return b.id - a.id;
 }
 
-export function compareBookmarks(
-  a: Pick<Bookmark, "created_at" | "deleted_at" | "id">,
-  b: Pick<Bookmark, "created_at" | "deleted_at" | "id">,
-): number {
-  return compareAt(placed(a), placed(b));
+const textCollators = new Map<string, Intl.Collator>();
+/** The database's comparison (`sorting.rs`): case aside, accents second, numbers by value. */
+function textCollator(language: string): Intl.Collator {
+  let collator = textCollators.get(language);
+  if (!collator) textCollators.set(language, (collator = new Intl.Collator(language, { numeric: true, sensitivity: "accent" })));
+  return collator;
 }
 
-/** Whether `b` lies past `cursor`, on a page that has not been read yet. */
-export function isAfter(b: Bookmark, cursor: PageCursor | null): boolean {
-  return cursor !== null && compareAt(placed(b), cursor) > 0;
+function comparePlaced(a: Placed, b: Placed, order: ListOrder): number {
+  switch (order.sort) {
+    case "newest":
+      return compareAt(a, b);
+    case "oldest":
+      return -compareAt(a, b);
+    default: {
+      const byKey =
+        a.key && b.key
+          ? a.key < b.key
+            ? -1
+            : a.key > b.key
+              ? 1
+              : 0
+          : textCollator(order.language).compare(a.text ?? "", b.text ?? "");
+      // Equal titles and the links of one site: newest first.
+      return byKey || compareAt(a, b);
+    }
+  }
+}
+
+export function compareBookmarks(a: Sortable, b: Sortable, order: ListOrder = NEWEST): number {
+  return comparePlaced(placed(a, order.sort), placed(b, order.sort), order);
+}
+
+/**
+ * Whether `b` lies past `cursor`, on a page that has not been read yet. A
+ * cursor of the orders by title and by site carries the key in hex; the
+ * demo's carries the text instead (`demo.getBookmarks`).
+ */
+export function isAfter(b: Sortable, cursor: PageCursor | null, order: ListOrder = NEWEST): boolean {
+  if (cursor === null) return false;
+  const row = placed(b, order.sort);
+  const keyed = !!row.key;
+  const mark: Placed = { at: cursor.at, id: cursor.id, key: keyed ? cursor.key : null, text: keyed ? undefined : (cursor.key ?? "") };
+  return comparePlaced(row, mark, order) > 0;
+}
+
+/** The cursor after `b`: in the orders by title and by site, with its key (the demo: its text). */
+export function cursorAt(b: Sortable, order: ListOrder): PageCursor {
+  const row = placed(b, order.sort);
+  const key = row.key ?? row.text;
+  return key === undefined ? { at: row.at, id: row.id } : { at: row.at, id: row.id, key };
 }
 
 /**
@@ -96,18 +163,49 @@ export function sortByName<T extends { name: string; count?: number | null }>(
   );
 }
 
-export function sortBookmarks(bookmarks: Bookmark[]): Bookmark[] {
-  return [...bookmarks].sort(compareBookmarks);
+/**
+ * Collections in the sidebar's order (NP-114): where the person put them,
+ * then those never moved by name in the interface's language — the order of
+ * `get_collections`, kept when the language changes.
+ */
+export function sortCollections<T extends Pick<Collection, "name" | "position">>(items: T[], language: string): T[] {
+  const placed = items.filter((c) => c.position != null).sort((a, b) => a.position! - b.position!);
+  const rest = sortByName(
+    items.filter((c) => c.position == null),
+    language,
+  );
+  return [...placed, ...rest];
 }
+
+/** The ids of `collections` with the one at `from` put at `to` (both in the sidebar's order). */
+export function moveCollection(collections: Pick<Collection, "id">[], from: number, to: number): number[] {
+  const ids = collections.map((c) => c.id);
+  const [moved] = ids.splice(from, 1);
+  ids.splice(Math.max(0, Math.min(to, ids.length)), 0, moved);
+  return ids;
+}
+
+export function sortBookmarks(bookmarks: Bookmark[], order: ListOrder = NEWEST): Bookmark[] {
+  return [...bookmarks].sort((a, b) => compareBookmarks(a, b, order));
+}
+
+/**
+ * A changed or new bookmark into the loaded list. By time it takes its place;
+ * by title and by site a row already there stays where it is (a title that
+ * arrives later does not move the row under the pointer, NP-114) and takes
+ * its place on the next read of the list.
+ */
 export function mergeBookmark(
   bookmarks: Bookmark[],
   bookmark: Bookmark,
+  order: ListOrder = NEWEST,
 ): Bookmark[] {
-  const previous = bookmarks.find((b) => b.id === bookmark.id);
+  const at = bookmarks.findIndex((b) => b.id === bookmark.id);
+  const previous = bookmarks[at];
   if (previous && (previous.revision ?? 0) > (bookmark.revision ?? 0))
     return bookmarks;
-  return sortBookmarks([
-    ...bookmarks.filter((b) => b.id !== bookmark.id),
-    bookmark,
-  ]);
+  if (previous && !byTime(order.sort)) return bookmarks.map((b, i) => (i === at ? bookmark : b));
+  const rest = bookmarks.filter((b) => b.id !== bookmark.id);
+  const place = rest.findIndex((b) => compareBookmarks(bookmark, b, order) < 0);
+  return place === -1 ? [...rest, bookmark] : [...rest.slice(0, place), bookmark, ...rest.slice(place)];
 }
