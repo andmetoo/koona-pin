@@ -76,7 +76,7 @@
     "lastSavedToday": "Ostatni zapis dziś o {{time}} z {{browser}}",
     "lastSavedOn": "Ostatni zapis {{date}} o {{time}} z {{browser}}",
     "noSaves": "Nie zapisano jeszcze żadnej strony",
-    "notConnectedHint": "Rozszerzenie zapisuje stronę jednym kliknięciem",
+    "notConnectedHint": "Rozszerzenie zapisuje stronę jednym kliknięciem. Jeśli jest już zainstalowane, stan odświeży się po pierwszym zapisie albo sam w ciągu pół godziny.",
     "lostText_one": "Żadne rozszerzenie nie odezwało się od {{count}} dnia. Otwórz przeglądarkę i sprawdź, czy Koona Pin jest włączony — linki z kolejki dotrą same.",
     "lostText_few": "Żadne rozszerzenie nie odezwało się od {{count}} dni. Otwórz przeglądarkę i sprawdź, czy Koona Pin jest włączony — linki z kolejki dotrą same.",
     "lostText_many": "Żadne rozszerzenie nie odezwało się od {{count}} dni. Otwórz przeglądarkę i sprawdź, czy Koona Pin jest włączony — linki z kolejki dotrą same.",
