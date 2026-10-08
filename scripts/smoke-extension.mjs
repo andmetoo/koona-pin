@@ -372,7 +372,13 @@ try {
     worker.evaluate(async () =>
       (await chrome.tabs.query({})).some((tab) => /^http:\/\/127\.0\.0\.1:\d+\/feedback$/.test(tab.pendingUrl || tab.url || "")),
     );
-  await search.locator("#query").press("Enter");
+  // The page may close before Playwright sees the press end: only that error is expected.
+  await search
+    .locator("#query")
+    .press("Enter")
+    .catch((error) => {
+      if (!/has been closed/.test(error.message)) throw error;
+    });
   await until(opened, "Enter opens the link in a new tab");
   await search.close().catch(() => {});
 
