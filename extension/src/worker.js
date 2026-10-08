@@ -5,9 +5,11 @@ import { onMenuClicked, registerMenu } from "./menu.js";
 import { GLYPHS, MARKS, BADGES, PRESS, TONES, drawIcon, frames, parseMark, parseMascot, rest, showMessage } from "./feedback.js";
 const alarmName = "koonapin-delivery";
 // The app counts a browser as connected while it hears from it within three
-// days (NP-016); a hello twice a day keeps that true without any saving.
+// days (NP-016). The app cannot ask the browser, so a hello every half hour
+// also tells an app that has just started, or a new library, that the browser
+// is here, without any saving. A hello never starts a closed app.
 const helloAlarm = "koonapin-hello";
-const HELLO_MINUTES = 12 * 60;
+const HELLO_MINUTES = 30;
 const ICONS = { 16: "icons/16.png", 32: "icons/32.png" };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
