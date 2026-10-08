@@ -37,6 +37,16 @@
   --np-blue: #5c77a8;
   --np-ochre: #b59a45;
   --np-lilac: #8a6ba8;
+  /* The row «Update available» (NP-038, sheet 42): collection blue, apart from the green of the
+     browser status; a failed update in ochre, never red. */
+  --np-update: #5c77a8;
+  --np-update-soft: #e3e8f2;
+  --np-on-update-soft: #3d5584;
+  --np-update-track: #c9d3e6;
+  --np-update-glow: rgb(92 119 168 / 0.4);
+  --np-amber: #b59a45;
+  --np-amber-soft: #f3ecd6;
+  --np-on-amber-soft: #6b5a23;
 }
 
 [data-theme="dark"] {
@@ -72,6 +82,15 @@
   --np-blue: #8aa3d0;
   --np-ochre: #d4b862;
   --np-lilac: #b096cc;
+  --np-update: #8aa3d0;
+  --np-update-soft: #262e3d;
+  --np-on-update-soft: #afc1e3;
+  --np-update-track: #3a4660;
+  --np-update-glow: rgb(138 163 208 / 0.27);
+  /* The ochre of the collections turns olive on the dark panel: a warm amber instead. */
+  --np-amber: #e8b866;
+  --np-amber-soft: #3a3124;
+  --np-on-amber-soft: #f2d9a6;
 }
 
 /* Inter has no Chinese, Japanese or Korean characters: after it, the system
@@ -129,6 +148,13 @@
   --color-blue: var(--np-blue);
   --color-ochre: var(--np-ochre);
   --color-lilac: var(--np-lilac);
+  --color-update: var(--np-update);
+  --color-update-soft: var(--np-update-soft);
+  --color-on-update-soft: var(--np-on-update-soft);
+  --color-update-track: var(--np-update-track);
+  --color-amber: var(--np-amber);
+  --color-amber-soft: var(--np-amber-soft);
+  --color-on-amber-soft: var(--np-on-amber-soft);
 }
 
 @theme {
@@ -169,6 +195,25 @@
     from {
       opacity: 0;
       transform: translateY(5px);
+    }
+  }
+  /* «Update available» appears: the glow breathes twice, then stays (sheet 42). */
+  --animate-update-pulse: update-pulse 1.2s ease-in-out 2;
+  @keyframes update-pulse {
+    0% {
+      box-shadow: 0 0 0 var(--np-update-glow);
+    }
+    50% {
+      box-shadow: 0 0 12px 2px var(--np-update-glow);
+    }
+    100% {
+      box-shadow: 0 0 8px var(--np-update-glow);
+    }
+  }
+  --animate-spin: spin 0.9s linear infinite;
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
     }
   }
 }

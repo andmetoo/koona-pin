@@ -8,7 +8,7 @@ import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, ViewMode } from "./types";
+import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, UpdateStatus, ViewMode } from "./types";
 import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
@@ -30,6 +30,8 @@ import { EditHooks, Triage } from "./components/library/Triage";
 import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
+import { UpdateDialog } from "./components/UpdateDialog";
+import { offer } from "./services/update";
 import { emptyDraft, FeedbackDraft } from "./services/feedback";
 import { DuplicatesPage } from "./components/library/DuplicatesPage";
 import { LinkCheckPage } from "./components/library/LinkCheckPage";
@@ -38,7 +40,7 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | "feedback" | "background" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -126,6 +128,10 @@ export function App() {
   const [notice, setNotice] = useState<Notice>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
+  /** The app's own update (NP-038, sheet 42), checked by Rust; the version that runs and the system for the dialog. */
+  const [update, setUpdate] = useState<UpdateStatus | null>(null);
+  const [appVersion, setAppVersion] = useState("");
+  const [linux, setLinux] = useState(false);
   const [damaged, setDamaged] = useState(false);
   /** The newest readable copy, offered by the damage banner (sheet 33). */
   const [latestCopy, setLatestCopy] = useState<BackupCopy | null>(null);
@@ -223,6 +229,18 @@ export function App() {
   }, [wide, editing, triage, page, filters.onlyTrash]);
   // The first close without a tray explains that the app keeps running (NP-096).
   useEffect(() => api.onCloseToBackground(() => setSurface("background")), []);
+  useEffect(() => {
+    const off = api.onUpdateStatus(setUpdate);
+    void api.getUpdateStatus().then(setUpdate).catch(() => {});
+    void api.getVersion().then(setAppVersion).catch(() => {});
+    void api.getDesktop().then((desktop) => setLinux(desktop.linux)).catch(() => {});
+    return off;
+  }, []);
+  // The dialog follows the update; when no version is in play any more (cancelled into a recheck,
+  // or the preview «restarted»), it goes.
+  useEffect(() => {
+    if (surface === "update" && !offer(update)) setSurface(null);
+  }, [surface, update]);
   useEffect(() => {
     // The app learns about browsers when their extensions write (NP-016).
     const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
@@ -780,6 +798,8 @@ export function App() {
         collections={library.collections}
         tags={library.tags}
         capture={capture}
+        update={update}
+        onUpdate={() => setSurface("update")}
         onInbox={openInbox}
         onAll={() => navigate()}
         onFavorites={() => navigate({ onlyFavorites: true })}
@@ -837,6 +857,9 @@ export function App() {
                     onSaveCopy={saveBackupCopy}
                     onRestoreBackup={() => setSurface("backup")}
                     onFeedback={() => setSurface("feedback")}
+                    update={update}
+                    onUpdate={() => setSurface("update")}
+                    onCheckUpdates={async () => setUpdate(await api.checkForUpdates())}
                     dataVersion={dataVersion}
                   />
                 </div>
@@ -1186,6 +1209,17 @@ export function App() {
         />
       )}
       {surface === "background" && <BackgroundDialog onClose={() => setSurface(null)} />}
+      {surface === "update" && offer(update) && (
+        <UpdateDialog
+          update={offer(update)!}
+          current={appVersion}
+          linux={linux}
+          onClose={() => setSurface(null)}
+          onInstall={() => void api.installUpdate().catch((err) => say(describeError(err), true))}
+          onCancel={() => void api.cancelUpdate().catch((err) => say(describeError(err), true))}
+          onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
+        />
+      )}
       {surface === "connect" && (
         <ConnectDialog capture={capture} onOpen={actions.open} onClose={() => setSurface(null)} />
       )}
