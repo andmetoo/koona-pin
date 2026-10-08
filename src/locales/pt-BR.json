@@ -59,9 +59,9 @@
     "settings": "Configurações"
   },
   "browser": {
-    "ready": "Navegador conectado",
+    "ready": "Conectado",
     "failing": "Captura parada",
-    "checking": "Verificando a captura…",
+    "checking": "Verificando…",
     "notConnected": "Sem navegador",
     "lost_one": "{{count}} dia sem sinal",
     "lost_many": "{{count}} dias sem sinal",

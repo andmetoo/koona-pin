@@ -37,6 +37,9 @@ async function cutLabels(page: Page) {
   });
 }
 
+/** WebKitGTK draws a line 1–5 px wider than Windows (#183): the browser status keeps this much of its 144 px slot free (Р-52, п. 7). */
+const LINUX_SPARE = 8;
+
 // The sidebar shows one browser status of several, and the demo has only one of them: every row's
 // words in every language are measured against the row's room in the English layout.
 test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page }) => {
@@ -59,6 +62,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
     const label = page.locator("aside button span.truncate", { hasText: exactly(text(en, key)) }).first();
     room[key] = await label.evaluate((el) => ({ width: el.clientWidth, font: getComputedStyle(el).font }));
   }
+  room["browser.notConnected"].width -= LINUX_SPARE;
   /** The text as the app shows it: the plural form the language picks for days the status can show. */
   const words = (code: string, key: string): string[] => {
     const [section, name] = key.split(".");

@@ -58,10 +58,10 @@
   "browser": {
     "ready": "Tarayıcı bağlı",
     "failing": "Kaydetme çalışmıyor",
-    "checking": "Bağlantı denetleniyor…",
+    "checking": "Denetleniyor…",
     "notConnected": "Tarayıcı bağlı değil",
-    "lost_one": "{{count}} gündür bağlantı yok",
-    "lost_other": "{{count}} gündür bağlantı yok",
+    "lost_one": "{{count}} gündür sessiz",
+    "lost_other": "{{count}} gündür sessiz",
     "update": "Uzantıyı güncelleyin",
     "updateApp": "Koona Pin'i güncelle",
     "connectedTo": "Bağlı: {{browsers}}",
