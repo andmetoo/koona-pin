@@ -28,10 +28,14 @@ scripts/native-messaging-probe/target/
 # Claude app: local preview settings
 .claude/
 
+# Lunacy mockups live with the owner, outside Git: they may hold stock photos that are not ours to hand out
+# (LICENSING.md). On 9 October 2026 they were cut out of the whole history.
+/design/lunacy/
+
 # Not for git, which never reads .git as content, but for act: it copies the working copy into every job's
-# container, skipping what is listed here. .git is 1.1 GB (the LFS store keeps every version of the designs)
-# and the jobs do not use it; on 8 October 2026 such a copy stalled Docker Desktop for half an hour. On
-# GitHub actions/checkout fetches its own.
+# container, skipping what is listed here. The jobs do not use .git; on 8 October 2026 a copy of it (1.1 GB
+# then, with every version of the mockups in LFS) stalled Docker Desktop for half an hour. On GitHub
+# actions/checkout fetches its own.
 /.git/
 
 # OS Files
