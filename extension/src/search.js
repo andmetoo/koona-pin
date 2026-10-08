@@ -1,4 +1,4 @@
-import { ext, t, textLanguage } from "./ext.js";
+import { ext, systemName, t, textLanguage } from "./ext.js";
 import { talk } from "./native.js";
 import { answerState, collectionColor, shortDate, siteTile } from "./search-model.js";
 
@@ -14,6 +14,9 @@ const content = get("content");
 const filters = get("filters");
 const dark = matchMedia("(prefers-color-scheme: dark)");
 const state = { filter: { kind: "all" }, items: [], selected: 0, counts: null, more: false, turn: 0, copied: false };
+// Known long before the host answers (NP-054): a missing app is calm on Linux.
+let linux = false;
+void systemName().then((os) => (linux = os === "linux"));
 
 function translate() {
   // The language of the catalog the text comes from: a zh-TW browser reads English (NP-090).
@@ -196,7 +199,10 @@ function problem(kind) {
   filters.replaceChildren();
   content.replaceChildren();
   const [title, text, action, danger] = {
-    missing: [t("statusMissing"), t("searchMissingText"), button(t("download"), download), true],
+    // On Linux the browser may be a sandbox that keeps an installed app out (sheet 40).
+    missing: linux
+      ? [t("statusSandbox"), t("statusSandboxText"), button(t("download"), download)]
+      : [t("statusMissing"), t("searchMissingText"), button(t("download"), download), true],
     "update-app": [t("searchUpdateApp"), t("searchUpdateAppText"), button(t("searchUpdateButton"), download, "primary")],
     "update-extension": [t("statusUpdate"), t("searchUpdateExtensionText"), null],
     library: [t("searchLibrary"), t("searchLibraryText"), button(t("searchOpenApp"), showApp)],

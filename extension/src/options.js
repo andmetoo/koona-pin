@@ -1,4 +1,4 @@
-import { ext, t, textLanguage } from "./ext.js";
+import { ext, systemName, t, textLanguage } from "./ext.js";
 import { appIsOlder, browserName } from "./native.js";
 import { shortcutFrom } from "./search-model.js";
 import { VERSION } from "./version.js";
@@ -40,8 +40,12 @@ function savedAt(iso) {
     : t("lastSavedOn", date.toLocaleDateString(language, { day: "numeric", month: "long" }), time);
 }
 
-/** Frame 17: connected is a row; closed, update and missing are cards. */
-function renderStatus({ reply, lastSaved }) {
+/**
+ * Frame 17: connected is a row; closed, update and missing are cards. On Linux
+ * a missing app is «unreachable» — a calm card (sheet 40): the browser may be
+ * a sandbox that keeps an installed app out.
+ */
+function renderStatus({ reply, lastSaved }, linux = false) {
   const status = get("status");
   status.replaceChildren();
   if (reply?.ok) {
@@ -54,8 +58,9 @@ function renderStatus({ reply, lastSaved }) {
     status.append(row);
     return;
   }
+  const missing = ["host_missing", "host_failed"].includes(reply?.code);
   const state =
-    reply?.code === "incompatible_protocol" ? "update" : ["host_missing", "host_failed"].includes(reply?.code) ? "missing" : "closed";
+    reply?.code === "incompatible_protocol" ? "update" : missing ? (linux ? "unreachable" : "missing") : "closed";
   status.dataset.state = state;
   const older = appIsOlder(reply);
   const [head, text] = {
@@ -64,12 +69,13 @@ function renderStatus({ reply, lastSaved }) {
       ? [t("statusUpdateApp"), t("statusUpdateAppText", reply?.version ?? "?", VERSION)]
       : [t("statusUpdate"), t("statusUpdateText", VERSION, reply?.version ?? "?")],
     missing: [t("statusMissing"), t("statusMissingText")],
+    unreachable: [t("statusSandbox"), t("statusSandboxText")],
   }[state];
   const card = element("div", "state");
   const top = element("div", "head");
   top.append(element("span", "dot"), element("span", "", head));
   card.append(top, element("p", "text", text));
-  if (state === "missing") {
+  if (missing) {
     const link = element("a", "button", t("download"));
     link.href = DOWNLOAD;
     link.target = "_blank";
@@ -82,7 +88,7 @@ function renderStatus({ reply, lastSaved }) {
 }
 async function refreshStatus() {
   try {
-    renderStatus(await message({ type: "status" }));
+    renderStatus(await message({ type: "status" }), (await systemName()) === "linux");
   } catch (error) {
     get("message").textContent = error.message;
   }

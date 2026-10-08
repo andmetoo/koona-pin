@@ -10,6 +10,20 @@ export function t(key, ...substitutions) {
   return ext?.i18n?.getMessage(key, substitutions.map(String)) || key;
 }
 
+let platform;
+/**
+ * The system the browser runs on: «linux», «win», «mac»… (NP-054). On Linux an
+ * unreachable app may as well be a sandboxed browser (Flatpak, Chromium from
+ * Snap), so the pages say both, calmly. Asked once per page; "" when unknown.
+ */
+export function systemName() {
+  platform ??= Promise.resolve(ext?.runtime?.getPlatformInfo?.()).then(
+    (info) => info?.os ?? "",
+    () => "",
+  );
+  return platform;
+}
+
 /**
  * The language of the catalog the text comes from (NP-090): a zh-TW browser
  * reads English. Without the message — outside a browser — the browser's
