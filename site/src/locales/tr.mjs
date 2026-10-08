@@ -45,7 +45,7 @@ export default {
   dlBody: "Windows ve Linux paketleri ile tarayıcı uzantıları burada yayımlanacak.",
   req: [
     ["Windows 11, 64 bit", "Yönetici hakları gerekmez"],
-    ["Linux, 64 bit", "Ubuntu 24.04 ve 26.04, Debian 13, Fedora 43 ve 44, Arch Linux, openSUSE Tumbleweed"],
+    ["Linux, 64 bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome veya Edge 120+, Firefox 140+", "Güncel sürüm veya ESR 140"],
   ],
   footer: { privacy: "Gizlilik", licenses: "Lisanslar", support: "Destek" },

@@ -57,15 +57,27 @@ case "$ID" in
   ubuntu | debian) apt-get install -y --no-install-recommends git xz-utils xvfb xauth dbus weston ca-certificates ;;
   fedora) dnf install -y git xz xorg-x11-server-Xvfb xorg-x11-xauth dbus-daemon weston ;;
   arch) pacman -S --needed --noconfirm git xz xorg-server-xvfb xorg-xauth dbus weston ;;
-  opensuse-tumbleweed) zypper --non-interactive install git xz xorg-x11-server-Xvfb xauth dbus-1 weston tar gzip shadow util-linux ;;
 esac
 
 export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo
-rust=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
-curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --component clippy --default-toolchain "$rust" > /dev/null
-node=$(tr -d 'v \n' < .nvmrc)
+rust=$(tr -d '\r' < rust-toolchain.toml | sed -n 's/^channel *= *"\(.*\)"/\1/p')
+curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$rust" > /dev/null
+# \r: a Windows checkout under act.
+node=$(tr -d 'v \r\n' < .nvmrc)
 mkdir -p /opt/node
 curl -sSf "https://nodejs.org/dist/v$node/node-v$node-linux-x64.tar.xz" | tar -xJ -C /opt/node --strip-components 1
+# On PATH for the JavaScript actions (artifacts): GitHub brings its own Node, act does not.
+ln -sf /opt/node/bin/node /usr/local/bin/node
+
+# The «check» job (Debian) runs Playwright UI: Chromium's system libraries (root only) at the version in
+# package-lock.json, and CJK fonts for the language tests (Р-51).
+if [ "${GITHUB_JOB:-}" = check ]; then
+  playwright=$(/opt/node/bin/node -p "require('./package-lock.json').packages['node_modules/playwright'].version")
+  PATH=/opt/node/bin:$PATH npx --yes "playwright@$playwright" install-deps chromium > /dev/null
+  apt-get install -y -qq fonts-noto-cjk > /dev/null
+fi
 
 id dev > /dev/null 2>&1 || useradd -m -u 1001 -U dev
-chown -R dev /opt/cargo /opt/rustup "$PWD"
+# The caches of linux.yml are restored as root before this script.
+mkdir -p /home/dev/.npm
+chown -R dev /opt/cargo /opt/rustup /home/dev/.npm "$PWD"
