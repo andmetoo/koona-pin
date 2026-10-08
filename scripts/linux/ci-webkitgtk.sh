@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # The «webkitgtk» job of .github/workflows/linux.yml (NP-098): the interface in the distribution's own
 # WebKitGTK over WebDriver (scripts/webkitgtk-check.mjs) — key screens of every language in both themes and
-# cut labels, the first 1 500 frames of scrolling 10 000 and 100 000 bookmarks (the preview in MiniBrowser:
-# drawn without a GPU, 10 000 to the end take 20 minutes — the full measure is by hand), the system theme and
-# «reduce motion» from GTK and GNOME settings (Koona Pin itself, the binary of the «build» job).
+# cut labels (the preview in MiniBrowser), the system theme and «reduce motion» from GTK and GNOME settings
+# (Koona Pin itself, the binary of the «build» job). No speed measures in the matrix: the scroll is measured
+# by hand (doc/testing.md «Замер прокрутки»).
 #   ci-webkitgtk.sh setup    as root: WebKitWebDriver and MiniBrowser, fonts, X11, Wayland, dconf, the
 #                            settings portal, Node, user «dev»
 #   ci-webkitgtk.sh          as «dev»: npm ci, then the check under X11 (Xvfb) and under Wayland (Weston)
@@ -57,7 +57,7 @@ status=0
 # with it the abstract X11 socket (see ci-smoke.sh). GTK settings.ini — what KDE writes for GTK programs and
 # what a window manager without a settings daemon leaves — counts only without the settings portal: the
 # portal's colour scheme, «no preference» here, outranks it. A session bus that starts no services.
-step "X11 (Xvfb): screens, scrolling, settings.ini"
+step "X11 (Xvfb): screens, settings.ini"
 bus=$XDG_RUNTIME_DIR/bus.conf
 printf '%s\n' '<busconfig><type>session</type><listen>unix:tmpdir=/tmp</listen>' \
   '<policy context="default"><allow send_destination="*" eavesdrop="true"/><allow eavesdrop="true"/><allow own="*"/></policy></busconfig>' > "$bus"
@@ -65,7 +65,7 @@ Xvfb :97 -screen 0 1920x1200x24 -nolisten tcp -nolisten local > "$XDG_RUNTIME_DI
 xvfb=$!
 for _ in $(seq 50); do [ -S /tmp/.X11-unix/X97 ] && break; sleep 0.2; done
 DISPLAY=:97 GDK_BACKEND=x11 dbus-run-session --config-file="$bus" -- \
-  node scripts/webkitgtk-check.mjs --only screens,scroll,media --frames 1500 --app "$app" || status=1
+  node scripts/webkitgtk-check.mjs --only screens,media --app "$app" || status=1
 kill $xvfb 2> /dev/null || true
 
 # Under Wayland GTK 3 reads GNOME's settings from dconf and the settings portal and follows their changes;
