@@ -12,6 +12,8 @@
 !define NP_HOST_EXE "koonapin-host.exe"
 !define NP_BRAND_DIR "Koona"
 !define NP_DATA_DIR "Pin"
+; The library folder of the builds before NP-112 (Р-56).
+!define NP_LEGACY_DATA_DIR "Koona Pin"
 !define NP_RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 ; Task Manager's «Disabled» flag: 12 bytes, zeros after the first four mean
 ; enabled (as tauri-plugin-autostart reads it); no value means enabled.
@@ -149,5 +151,7 @@ FunctionEnd
     ; Without /r: the brand folder goes only when empty, the data of other
     ; Koona apps stays (Р-56).
     RmDir "$APPDATA\${NP_BRAND_DIR}"
+    ; A library an earlier build left there goes with the current one.
+    RmDir /r "$APPDATA\${NP_LEGACY_DATA_DIR}"
   ${EndIf}
 !macroend
