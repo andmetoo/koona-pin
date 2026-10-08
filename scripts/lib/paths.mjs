@@ -5,6 +5,7 @@
 //     windows/<version>/   installer, signed, and SHA256SUMS.txt     npm run build:installer -- --sign
 //     linux/<version>/     .deb, .rpm and SHA256SUMS.txt             npm run build:linux (on Debian 13)
 //     aur/<version>/       PKGBUILD and .SRCINFO of koonapin-bin     npm run build:aur
+//     updates/<version>/   latest.json of the updater; .sig files lie next to the packages   npm run build:latest
 //     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    npm run extension:build
 //     edge/<version>/      koonapin-edge.zip, Edge Add-ons          npm run extension:build
 //     firefox/             signed XPIs and updates.json; the site serves them   npm run extension:sign:firefox
