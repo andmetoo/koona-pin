@@ -2,7 +2,7 @@ use crate::journal::Journal;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::{atomic::AtomicBool, Mutex};
+use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -66,16 +66,31 @@ pub struct DbState {
     pub journal: Mutex<Journal>,
     /// Read by the close handler on the main thread, which must never wait for the database.
     pub close_to_tray: AtomicBool,
+    /// Without a tray the first close explains that the app keeps running
+    /// (NP-096); once the window has been hidden that way, closing just hides.
+    pub background_explained: AtomicBool,
 }
 
 impl DbState {
     pub fn new(conn: Connection) -> Self {
-        let close_to_tray = setting(&conn, "close_to_tray").map_or(true, |v| v == "true");
-        DbState {
+        let state = DbState {
+            close_to_tray: AtomicBool::new(true),
+            background_explained: AtomicBool::new(false),
             conn: Mutex::new(conn),
             journal: Mutex::new(Journal::default()),
-            close_to_tray: AtomicBool::new(close_to_tray),
+        };
+        if let Ok(conn) = state.conn.lock() {
+            state.reload_settings(&conn);
         }
+        state
+    }
+
+    /// The settings the close handler reads, after an opening or a restore.
+    pub fn reload_settings(&self, conn: &Connection) {
+        let tray = setting(conn, "close_to_tray").map_or(true, |v| v == "true");
+        self.close_to_tray.store(tray, Ordering::Relaxed);
+        let explained = setting(conn, "background_explained").is_ok_and(|v| v == "true");
+        self.background_explained.store(explained, Ordering::Relaxed);
     }
 }
 
