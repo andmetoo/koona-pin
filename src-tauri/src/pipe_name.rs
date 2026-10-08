@@ -1,11 +1,14 @@
-//! Name of the capture pipe between koonapin-host.exe and the app (Р-17).
-//! Both binaries compile this file: the host includes it with `#[path]`, so it
-//! does not link the app.
+//! Address of the capture channel between koonapin-host and the app (Р-17):
+//! a named pipe on Windows, a Unix socket on Linux (Р-45, п. 6). Both binaries
+//! compile this file: the host includes it with `#[path]`, so it does not link
+//! the app.
 
-/// Overrides the pipe name; tests use it to stay away from a running app.
+/// Overrides the pipe name (the socket name on Linux); tests use it to stay
+/// away from a running app.
 pub const PIPE_ENV: &str = "KOONAPIN_PIPE";
 
 /// `\\.\pipe\koonapin-<SID>`: one pipe per Windows user.
+#[cfg(windows)]
 pub fn pipe_name() -> String {
     match std::env::var(PIPE_ENV) {
         Ok(name) if !name.is_empty() => format!(r"\\.\pipe\{name}"),
@@ -14,6 +17,27 @@ pub fn pipe_name() -> String {
             user_sid().unwrap_or_else(|| "user".into())
         ),
     }
+}
+
+/// `$XDG_RUNTIME_DIR/koonapin/capture.sock`: the runtime folder belongs to the
+/// user and lives as long as the session. Without it there is no private
+/// place for the socket, and the channel says so rather than falling back to
+/// `/tmp`.
+#[cfg(target_os = "linux")]
+pub fn socket_path() -> std::io::Result<std::path::PathBuf> {
+    let runtime = std::env::var_os("XDG_RUNTIME_DIR")
+        .filter(|dir| !dir.is_empty())
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "XDG_RUNTIME_DIR is not set: the capture socket has no private folder",
+            )
+        })?;
+    let name = match std::env::var(PIPE_ENV) {
+        Ok(name) if !name.is_empty() => format!("{name}.sock"),
+        _ => "capture.sock".into(),
+    };
+    Ok(std::path::Path::new(&runtime).join("koonapin").join(name))
 }
 
 /// The SID of the current user as a string, `S-1-5-21-…`.
@@ -57,9 +81,4 @@ pub fn user_sid() -> Option<String> {
         LocalFree(text.cast());
         Some(sid)
     }
-}
-
-#[cfg(not(windows))]
-pub fn user_sid() -> Option<String> {
-    None
 }

@@ -102,6 +102,8 @@
 
 **Канал** — `capture_channel.rs`, именованный канал `\\.\pipe\koonapin-<SID пользователя>` (`KOONAPIN_PIPE` переопределяет имя для тестов). Создаётся с `FILE_FLAG_FIRST_PIPE_INSTANCE`, `PIPE_REJECT_REMOTE_CLIENTS` и DACL `D:P(A;;GA;;;<SID>)`: открыть его может только этот пользователь, а занятое чужой программой имя приложение не делит, а показывает ошибку. Канал открывается вместе с библиотекой, первый экземпляр — синхронно, поэтому «Повторить» отвечает настоящим состоянием. Одна строка JSON в каждую сторону на соединение; строку длиннее 1 МиБ или не наш JSON приложение отклоняет (`invalid_request`), а клиент, который за 10 с ничего не прислал, отключается. DACL проверяется Rust-тестом по настоящему каналу (NP-019).
 
+**Linux** ([Р-45](decisions.md#р-45-контракт-linux-beta), п. 6; NP-099) — вместо именованного канала Unix-сокет `$XDG_RUNTIME_DIR/koonapin/capture.sock` (`KOONAPIN_PIPE=<имя>` — `<имя>.sock` в той же папке); протокол и строки те же. Папку приложение создаёт `0700` и принимает уже существующую, только если это настоящая папка (не ссылка) этого пользователя; сокет — `0600`; у каждого соединения проверяется UID собеседника (`SO_PEERCRED`). Без `XDG_RUNTIME_DIR` — ошибка канала, сокета в `/tmp` нет. Первый экземпляр: если на сокете кто-то отвечает, приложение его не занимает и показывает ошибку канала с «Повторить»; файл без слушателя (остался после сбоя) заменяется. Host запускает `koonapin --autostart` из своей папки (`/usr/bin` в пакете) новым сеансом (`setsid`), stdin, stdout и stderr — `/dev/null`, остальные дескрипторы закрываются при `exec`: браузер не ждёт приложение, как ждал Chrome на Windows из-за унаследованного канала (Р-17, п. 3). Права, занятый и оставшийся сокет, UID — Rust-тесты; сессия и stdio запущенного приложения — `test:host` в контейнерах `linux.yml`.
+
 **Протокол 2** (`browsers::PROTOCOL`, в расширении — `extension/src/version.js`):
 
 | Сообщение расширения | Ответ |
@@ -171,7 +173,7 @@ API берётся из `ext.js`: `browser` в Firefox, `chrome` в Chrome и Ed
 
 Основания: [native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging), [жизненный цикл worker](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle), [chrome.alarms](https://developer.chrome.com/docs/extensions/reference/api/alarms).
 
-Для тестов `KOONAPIN_DATA_DIR` меняет каталог SQLite, `WEBVIEW2_USER_DATA_FOLDER` — профиль WebView2, `KOONAPIN_PIPE` — имя канала захвата.
+Для тестов `KOONAPIN_DATA_DIR` меняет каталог SQLite, `WEBVIEW2_USER_DATA_FOLDER` — профиль WebView2, `KOONAPIN_PIPE` — имя канала захвата (на Linux — имя сокета).
 
 ## Прежнее имя OddClicks
 

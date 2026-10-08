@@ -62,3 +62,8 @@ windows-sys = { version = "0.59", features = [
   "Win32_System_Registry",
   "Win32_System_Threading",
 ] }
+
+# The capture socket on Linux (NP-099): the user's UID for the folder and the
+# peer check, a new session for the app the host starts. Already in the tree.
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"

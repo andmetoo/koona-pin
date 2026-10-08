@@ -3,7 +3,8 @@
 # one that ships — started on this distribution without a screen, under X11 (Xvfb) and under Wayland
 # (Weston headless), each with a session bus. Checks what a container can: the process stays up, the
 # library is created where the contract puts it, a second start hands over to the first (single instance
-# over D-Bus) and exits. Tray, autostart and the desktop are not here.
+# over D-Bus) and exits; under X11 also the native host and the capture socket (test:host). Tray,
+# autostart and the desktop are not here.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 step() { printf '\n== %s\n' "$1"; }
@@ -48,6 +49,12 @@ step "X11 (Xvfb)"
 Xvfb :99 -screen 0 1280x800x24 -nolisten tcp > /dev/null 2>&1 &
 xvfb=$!
 DISPLAY=:99 GDK_BACKEND=x11 check
+
+# test:host with this binary (NP-099): the host passes messages over the socket in $XDG_RUNTIME_DIR and
+# starts the closed app in a session of its own.
+step "Native host, capture socket (npm run test:host)"
+HOME=$(mktemp -d) DISPLAY=:99 GDK_BACKEND=x11 KOONAPIN_TEST_BINARY=$app \
+  dbus-run-session -- node scripts/smoke-host.mjs
 kill $xvfb 2> /dev/null || true
 
 step "Wayland (Weston headless, no XWayland)"
