@@ -58,7 +58,7 @@
     "checking": "저장 기능 확인 중…",
     "notConnected": "브라우저 연결 안 됨",
     "lost_other": "{{count}}일째 연락 없음",
-    "update": "확장 프로그램 업데이트",
+    "update": "확장 프로그램 구버전",
     "updateApp": "Koona Pin 업데이트",
     "connectedTo": "연결됨: {{browsers}}",
     "lastSavedToday": "마지막 저장: 오늘 {{time}}, {{browser}}에서",
