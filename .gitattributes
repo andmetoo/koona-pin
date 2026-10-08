@@ -3,3 +3,6 @@ design/**/*.sketch filter=lfs diff=lfs merge=lfs -text
 site/Caddyfile text eol=lf
 # Tauri regenerates these on every build and writes LF
 src-tauri/gen/schemas/*.json text eol=lf
+# Files of the Linux packages (NP-055): the desktop entry, the spec and the manual pages are read as they
+# are, also from a Windows checkout copied by act.
+src-tauri/linux/** text eol=lf
