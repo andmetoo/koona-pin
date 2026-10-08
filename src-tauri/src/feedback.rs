@@ -413,6 +413,7 @@ mod tests {
             problem: Some(CaptureProblem::Registration),
             detail: Some(r"Access denied: C:\Users\Anna\AppData\Roaming\Koona Pin\host.json, see https://example.com/help".into()),
             protocol: 2,
+            system: crate::browsers::System::Windows,
         }
     }
 
