@@ -20,7 +20,7 @@ echo "tauri-driver: $KOONAPIN_TAURI_DRIVER, WebKitWebDriver: $(command -v WebKit
 # The drivers' and the app's output (driver.log) and the last window (last.png) stay in the run's library
 # folder under .test-data; the log is shown when a test fails.
 tests() {
-  HOME=$(mktemp -d) dbus-run-session -- bun test --timeout 600000 tests/webkit/ || {
+  HOME=$(mktemp -d) dbus-run-session -- bun run test:webkit || {
     log=$(ls -t .test-data/webkit-*/driver.log | head -1)
     echo "--- $log, without GTK's warnings"
     grep -v -e '-CRITICAL \*\*' -e '-WARNING \*\*' -e '^$' "$log" | tail -n 60
