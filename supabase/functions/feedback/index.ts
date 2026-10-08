@@ -46,12 +46,19 @@ if (!token || !chat) console.warn("feedback: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT
 
 async function telegram(text: string) {
   if (!token || !chat) return;
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chat, text }),
-    signal: AbortSignal.timeout(5000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: chat, text }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch (error) {
+    // The token is in the address, and the Edge Runtime quotes the address in a transport
+    // error («error sending request for url (…)»): only the kind of failure goes to the log.
+    throw new Error(`telegram: no response (${error instanceof Error ? error.name : typeof error})`);
+  }
   if (!response.ok) throw new Error(`telegram: ${response.status}`);
 }
 
