@@ -197,8 +197,9 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
 /// Overrides the library folder; tests use it to stay away from user data.
 pub const DATA_DIR_ENV: &str = "KOONAPIN_DATA_DIR";
 const DB_FILE: &str = "koonapin.db";
-/// The brand's folder in `%APPDATA%`: each Koona app keeps its data in its own
-/// subfolder and never touches the others (Р-56).
+/// The brand's folder in the platform data folder (`dirs::data_dir`: `%APPDATA%`,
+/// `$XDG_DATA_HOME`, `~/Library/Application Support`): each Koona app keeps its
+/// data in its own subfolder and never touches the others (Р-56).
 pub const BRAND_FOLDER: &str = "Koona";
 /// The library folder in [`BRAND_FOLDER`]; the uninstaller may remove it (NP-037).
 pub const DATA_FOLDER: &str = "Pin";
