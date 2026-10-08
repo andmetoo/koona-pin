@@ -8,7 +8,7 @@
 // installed browsers (KOONAPIN_CHROME / KOONAPIN_EDGE point to another copy).
 import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync } from "node:fs";
 import http from "node:http";
 import { appendFile, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
@@ -86,16 +86,28 @@ const env = {
   WEBVIEW2_USER_DATA_FOLDER: path.join(directory, "webview"),
   KOONAPIN_PIPE: pipe,
 };
-const manifest = path.join(directory, `${HOST}.json`);
-const writeManifest = (origin) =>
-  writeFile(
-    manifest,
+// Linux (NP-054): no registry — Chromium reads a user's hosts from `NativeMessagingHosts` in its profile, so
+// the test host lives in the run's own profile and the person's browsers never see it. Registered there is
+// the file itself; on Windows the key points to it.
+const linux = process.platform === "linux";
+const manifest = linux
+  ? path.join(directory, "profile", "NativeMessagingHosts", `${HOST}.json`)
+  : path.join(directory, `${HOST}.json`);
+const unregistered = `${manifest}.off`;
+const writeManifest = async (origin) => {
+  await mkdir(path.dirname(manifest), { recursive: true });
+  await writeFile(
+    existsSync(unregistered) ? unregistered : manifest,
     JSON.stringify({ name: HOST, description: "Koona Pin test", path: hostBinary(), type: "stdio", allowed_origins: [origin] }),
   );
-const register = () => execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
+};
+const register = linux
+  ? () => existsSync(unregistered) && renameSync(unregistered, manifest)
+  : () => execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
 const unregister = () => {
   try {
-    execFileSync("reg", ["delete", KEY, "/f"], { stdio: "ignore" });
+    if (linux) renameSync(manifest, unregistered);
+    else execFileSync("reg", ["delete", KEY, "/f"], { stdio: "ignore" });
   } catch {
     /* already gone */
   }
@@ -103,6 +115,8 @@ const unregister = () => {
 await writeManifest(`chrome-extension://${built.devId}/`);
 register();
 
+// A missing app is calm on Linux: the browser may be a sandbox that keeps an installed app out (sheet 40).
+const missingState = linux ? "unreachable" : "missing";
 const apps = startedSince();
 const library = path.join(directory, "koonapin.db");
 let browser, worker;
@@ -234,7 +248,7 @@ try {
   assert.equal(refused.length, 1);
   assert.equal(refused[0].code, "host_missing");
   await page.reload();
-  await page.locator('#status[data-state="missing"]').waitFor();
+  await page.locator(`#status[data-state="${missingState}"]`).waitFor();
   register();
   await page.getByRole("button", { name: "Отправить сейчас" }).click();
   await until(async () => (await waiting()).length === 0, "delivery after the host came back");
@@ -247,8 +261,9 @@ try {
   assert.equal(refused[0].code, "host_missing");
   assert.match(refused[0].error, /не установлен/);
   await page.reload();
-  await page.locator('#status[data-state="missing"]').waitFor();
+  await page.locator(`#status[data-state="${missingState}"]`).waitFor();
   await page.getByRole("link", { name: "Скачать Koona Pin" }).waitFor();
+  if (linux) await page.getByText("Сохранение недоступно в этом браузере").waitFor();
   await writeManifest(`chrome-extension://${built.devId}/`);
   await page.getByRole("button", { name: "Отправить сейчас" }).click();
   await until(async () => (await waiting()).length === 0, "delivery after registration came back");

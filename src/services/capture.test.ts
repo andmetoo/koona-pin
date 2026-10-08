@@ -10,6 +10,7 @@ await i18n.init({ resources: { en: { translation: en }, ru: { translation: ru } 
 import {
   appIsOlder,
   captureReport,
+  connectTabs,
   connectedNames,
   installSteps,
   problemBanner,
@@ -18,6 +19,7 @@ import {
   preferredBrowser,
   statusColor,
   statusLabel,
+  tabBrowser,
 } from "./capture";
 
 const base: CaptureStatus = {
@@ -99,6 +101,13 @@ describe("browser status", () => {
     expect(report).toContain("Detail: Access is denied.");
     expect(report).toContain("Chrome: extension 0.5.0, protocol 2");
     expect(report).toContain("Protocol: 2, system: windows");
+  });
+
+  it("gives Chromium a tab of its own on Linux, with Chrome's steps (NP-054)", () => {
+    expect(connectTabs({ ...base, system: "windows" })).toEqual(["chrome", "edge", "firefox"]);
+    expect(connectTabs({ ...base, system: "linux" })).toEqual(["chrome", "edge", "chromium", "firefox"]);
+    expect(tabBrowser("chromium")).toBe("chrome");
+    expect(installSteps(tabBrowser("chromium"))).toEqual(installSteps("chrome"));
   });
 
   it("tells a Linux user to reinstall the package, not Koona Pin (NP-100)", () => {
