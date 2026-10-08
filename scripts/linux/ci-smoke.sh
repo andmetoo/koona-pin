@@ -6,7 +6,7 @@
 # library is created where the contract puts it, a second start hands over to the first (single instance
 # over D-Bus) and exits; under X11 also the native host and the capture socket (test:host), under Wayland
 # the window's app_id and the activation token a second start passes on (NP-053); the autostart entry of the
-# first start and the XDG folders (NP-097). Tray,
+# first start and the XDG folders (NP-097); the window is drawn, not empty, under both (NP-098). Tray,
 # autostart and the desktop are not here.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -126,6 +126,25 @@ startup() {
   ' startup "$app"
 }
 
+# NP-098: the window is drawn, not empty — WebKitGTK's renderer can leave it blank (DMABUF on NVIDIA). The
+# whole screen in colours: before the start only the server's own background, then the interface.
+drawn() {
+  HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
+    cd "$HOME"
+    shoot() { if [ -n "${WAYLAND_DISPLAY:-}" ]; then rm -f wayland-screenshot-*.png; weston-screenshooter > /dev/null; mv wayland-screenshot-*.png "$1.png"; echo "$1.png"; else xwd -root -silent > "$1.xwd"; echo "$1.xwd"; fi; }
+    echo "before the start: $(node "$2/scripts/linux/screen-colours.mjs" "$(shoot empty)" 0)"
+    library="$HOME/.local/share/Koona Pin/koonapin.db"
+    "$1" > "$HOME/app.log" 2>&1 &
+    app=$!
+    for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
+    sleep 5
+    printf "the window: "
+    node "$2/scripts/linux/screen-colours.mjs" "$(shoot window)" || { cat "$HOME/app.log"; exit 1; }
+    echo "ok: the window is drawn"
+    kill $app
+  ' drawn "$app" "$PWD"
+}
+
 # The package's manifests from this binary (NP-100, Р-53): what NP-055 puts into the .deb, the .rpm and AUR.
 step "Native host manifests of the packages (--package-manifests)"
 for package in deb rpm arch; do
@@ -154,6 +173,7 @@ for _ in $(seq 50); do [ -S /tmp/.X11-unix/X99 ] && break; sleep 0.2; done
 DISPLAY=:99 GDK_BACKEND=x11 check
 DISPLAY=:99 GDK_BACKEND=x11 startup
 DISPLAY=:99 GDK_BACKEND=x11 xdg
+DISPLAY=:99 GDK_BACKEND=x11 drawn
 
 # test:host with this binary (NP-099): the host passes messages over the socket in $XDG_RUNTIME_DIR and
 # starts the closed app in a session of its own.
@@ -170,4 +190,13 @@ for _ in $(seq 50); do [ -S "$XDG_RUNTIME_DIR/wayland-1" ] && break; sleep 0.2; 
 [ -S "$XDG_RUNTIME_DIR/wayland-1" ] || { cat "$XDG_RUNTIME_DIR/weston.log"; echo "FAIL: Weston did not start"; exit 1; }
 WAYLAND_DISPLAY=wayland-1 GDK_BACKEND=wayland check
 WAYLAND_DISPLAY=wayland-1 GDK_BACKEND=wayland activation
+kill $weston 2> /dev/null || true
+
+# The drawn window under Wayland: Weston's desktop shell paints a background and a panel of its own, the
+# kiosk shell only black, and it shows the window over the whole screen. --debug lets the screenshooter in.
+weston --backend=headless --renderer=pixman --shell=kiosk --socket=wayland-2 --width=1280 --height=800 --idle-time=0 \
+  --debug > "$XDG_RUNTIME_DIR/kiosk.log" 2>&1 &
+weston=$!
+for _ in $(seq 50); do [ -S "$XDG_RUNTIME_DIR/wayland-2" ] && break; sleep 0.2; done
+WAYLAND_DISPLAY=wayland-2 GDK_BACKEND=wayland drawn
 kill $weston 2> /dev/null || true
