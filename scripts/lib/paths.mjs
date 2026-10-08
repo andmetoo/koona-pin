@@ -3,6 +3,7 @@
 //
 //   release/publish/   to people and stores
 //     windows/<version>/   installer, signed, and SHA256SUMS.txt     npm run build:installer -- --sign
+//     linux/<version>/     .deb, .rpm and SHA256SUMS.txt             npm run build:linux (on Debian 13)
 //     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    npm run extension:build
 //     edge/<version>/      koonapin-edge.zip, Edge Add-ons          npm run extension:build
 //     firefox/             signed XPIs and updates.json; the site serves them   npm run extension:sign:firefox
@@ -22,6 +23,7 @@ export const release = path.join(root, "release");
 
 export const publish = {
   windows: (version) => path.join(release, "publish", "windows", version),
+  linux: (version) => path.join(release, "publish", "linux", version),
   chrome: (version) => path.join(release, "publish", "chrome", version),
   edge: (version) => path.join(release, "publish", "edge", version),
   /** The address of these files is inside every signed XPI (gecko.update_url): only the local folder moves. */
