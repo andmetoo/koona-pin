@@ -30,7 +30,7 @@ Some files are someone else's work under their own terms and are not relicensed 
 
 - `site/shots/previews/` — photos from Unsplash under the [Unsplash License](https://unsplash.com/license), authors in `CREDITS.md` there;
 - `design/lunacy/` — mockups may contain stock photos from Icons8 under the Icons8 license;
-- dependencies installed by npm and Cargo — under their own licenses, listed in the app and on <https://koona.app/pin/licenses>.
+- dependencies installed by Bun (packages from npm) and Cargo — under their own licenses, listed in the app and on <https://koona.app/pin/licenses>.
 
 ## Contributions
 
