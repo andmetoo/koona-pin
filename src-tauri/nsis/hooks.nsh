@@ -10,7 +10,8 @@
 !define NP_PRODUCT "Koona Pin"
 !define NP_EXE "koonapin.exe"
 !define NP_HOST_EXE "koonapin-host.exe"
-!define NP_DATA_DIR "Koona Pin"
+!define NP_BRAND_DIR "Koona"
+!define NP_DATA_DIR "Pin"
 !define NP_RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 ; Task Manager's «Disabled» flag: 12 bytes, zeros after the first four mean
 ; enabled (as tauri-plugin-autostart reads it); no value means enabled.
@@ -144,6 +145,9 @@ FunctionEnd
   ${If} $DeleteAppDataCheckboxState = 1
   ${AndIf} $UpdateMode <> 1
     SetShellVarContext current
-    RmDir /r "$APPDATA\${NP_DATA_DIR}"
+    RmDir /r "$APPDATA\${NP_BRAND_DIR}\${NP_DATA_DIR}"
+    ; Without /r: the brand folder goes only when empty, the data of other
+    ; Koona apps stays (Р-56).
+    RmDir "$APPDATA\${NP_BRAND_DIR}"
   ${EndIf}
 !macroend

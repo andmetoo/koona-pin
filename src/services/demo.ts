@@ -908,8 +908,8 @@ export const demo = {
   },
   async getDataSummary(): Promise<DataSummary> {
     return {
-      library_folder: "%APPDATA%\\Koona Pin",
-      backups_folder: "%APPDATA%\\Koona Pin\\backups",
+      library_folder: "%APPDATA%\\Koona\\Pin",
+      backups_folder: "%APPDATA%\\Koona\\Pin\\backups",
       copies: 0,
       bytes: 0,
       last_copy: null,

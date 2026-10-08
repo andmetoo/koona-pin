@@ -591,8 +591,13 @@ mod tests {
         for arg in [REGISTER_ARG, UNREGISTER_ARG] {
             assert!(hooks.contains(&format!(r#""$INSTDIR\${{NP_EXE}}" {arg}'"#)), "{arg}");
         }
-        // The uninstaller's checkbox removes the library folder (Р-10, item 8).
+        // The uninstaller's checkbox removes the library folder (Р-10, item 8),
+        // and the brand folder only when empty: other Koona apps keep theirs (Р-56).
+        assert!(hooks.contains(&define("NP_BRAND_DIR", crate::db::BRAND_FOLDER)));
         assert!(hooks.contains(&define("NP_DATA_DIR", crate::db::DATA_FOLDER)));
+        assert!(hooks.contains(r#"RmDir /r "$APPDATA\${NP_BRAND_DIR}\${NP_DATA_DIR}""#));
+        assert!(hooks.contains(r#"RmDir "$APPDATA\${NP_BRAND_DIR}""#));
+        assert!(!hooks.contains(r#"RmDir /r "$APPDATA\${NP_BRAND_DIR}""#));
     }
 
     #[test]
