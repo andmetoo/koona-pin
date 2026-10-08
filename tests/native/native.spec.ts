@@ -385,6 +385,103 @@ test("a start in the tray: the hidden window still gives the tray its words (NP-
   }
 });
 
+/**
+ * The built-in updater against a server of the test's own (NP-038): a throwaway key, a latest.json
+ * announcing 9.9.9, a package streamed slowly enough to cancel. The debug build takes the endpoint
+ * and the public key from the environment (updates.rs); the «installer» is whoami.exe signed with
+ * that key, so the last step runs a harmless program and the app ends as before an update.
+ */
+test("updater: no connection, the offer, download and cancel, a signature for another version, then the installer starts (NP-038)", async ({ request }) => {
+  test.skip(process.platform !== "win32", "The NSIS path; Linux installs through pkexec (doc/testing.md)");
+  test.setTimeout(120000);
+  const http = await import("node:http");
+  const { spawnSync } = await import("node:child_process");
+  const data = await folder("updater");
+  const keys = path.join(data, "keys");
+  await mkdir(keys, { recursive: true });
+  const tauri = path.resolve("node_modules/@tauri-apps/cli/tauri.js");
+  const run = (...args: string[]) => {
+    const result = spawnSync(process.execPath, [tauri, ...args], { encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`tauri ${args.join(" ")}: ${result.stderr}`);
+  };
+  run("signer", "generate", "--ci", "-p", "", "-w", path.join(keys, "test.key"));
+  const pubkey = (await readFile(path.join(keys, "test.key.pub"), "utf8")).trim();
+  // The «installer»: a real program that ignores /P /UPDATE /R and ends.
+  const installer = path.join(data, "Koona Pin_9.9.9_x64-setup.exe");
+  await writeFile(installer, await readFile(path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "whoami.exe")));
+  const sign = (version: string) => {
+    run("signer", "sign", "-f", path.join(keys, "test.key"), "-p", "", "--app-version", version, installer);
+    return readFile(`${installer}.sig`, "utf8");
+  };
+  let signature = await sign("9.9.8");
+  const body = await readFile(installer);
+  const server = http.createServer((req, res) => {
+    if (req.url === "/latest.json") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ version: "9.9.9", notes: "", pub_date: "2026-10-08T12:00:00Z", platforms: { "windows-x86_64": { url: `http://127.0.0.1:${port}/setup.exe`, signature } } }));
+      return;
+    }
+    // Slowly, so the download can be cancelled midway: about four seconds.
+    res.writeHead(200, { "content-type": "application/octet-stream", "content-length": body.length });
+    let at = 0;
+    const step = Math.ceil(body.length / 40);
+    const timer = setInterval(() => {
+      if (at >= body.length || res.destroyed) {
+        clearInterval(timer);
+        res.end();
+        return;
+      }
+      res.write(body.subarray(at, at + step));
+      at += step;
+    }, 100);
+  });
+  // A port nothing listens on yet: the first check finds no connection.
+  const port = await new Promise<number>((resolve) => {
+    const probe = net.createServer().listen(0, "127.0.0.1", () => {
+      const { port } = probe.address() as net.AddressInfo;
+      probe.close(() => resolve(port));
+    });
+  });
+  const env = { ...isolated(data), KOONAPIN_UPDATE_ENDPOINT: `http://127.0.0.1:${port}/latest.json`, KOONAPIN_UPDATE_PUBKEY: pubkey };
+  const app = await launch(request, env);
+  try {
+    const { page } = app;
+    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    const updates = page.locator("section[data-update]");
+    // The check 10 s after the start reaches nothing: quiet, Settings say so.
+    await expect(updates).toContainText("Couldn't check: no connection.", { timeout: 25000 });
+    await expect(page.locator("button[data-update]")).toHaveCount(0);
+    await new Promise<void>((resolve) => server.listen(port, "127.0.0.1", resolve));
+    await updates.getByRole("button", { name: "Try again" }).click();
+    const row = page.locator("button[data-update]");
+    await expect(row).toHaveAttribute("data-update", "available");
+    await expect(row).toContainText("9.9.9");
+    // Download, cancel midway: offered again.
+    await row.click();
+    await page.getByRole("button", { name: "Update", exact: true }).click();
+    const downloading = page.getByRole("dialog", { name: "Downloading Koona Pin 9.9.9" });
+    await expect(downloading.getByRole("progressbar")).toHaveAttribute("aria-valuenow", /^[1-9]\d?$/, { timeout: 10000 });
+    await downloading.getByRole("button", { name: "Cancel download" }).click();
+    await expect(page.getByRole("dialog", { name: "Koona Pin 9.9.9 is available" })).toBeVisible();
+    await expect(row).toHaveAttribute("data-update", "available");
+    // The file is signed with the key, but for 9.9.8: refused, nothing runs.
+    await page.getByRole("button", { name: "Update", exact: true }).click();
+    const failed = page.getByRole("dialog", { name: "Couldn't update" });
+    await expect(failed.getByRole("alert")).toContainText("isn't signed by Koona", { timeout: 15000 });
+    await expect(row).toHaveAttribute("data-update", "failed");
+    // Signed for 9.9.9: verified, the «installer» starts and the app ends for it.
+    signature = await sign("9.9.9");
+    await failed.getByRole("button", { name: "Try again" }).click();
+    await Promise.race([app.exited, new Promise((_, reject) => setTimeout(() => reject(new Error("the app did not end for the installer")), 20000))]);
+    expect(app.processHandle.exitCode).toBe(0);
+  } finally {
+    server.close();
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+
 test("library of a newer version shows a screen and stays unchanged", async ({
   request,
 }) => {
