@@ -61,7 +61,7 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
   });
 
   it("shows the capture status: a capture through the host connects the browser", async () => {
-    await page.role("button", "Browser not connected");
+    await page.role("button", "No browser yet");
     const { reply } = await hostMessage(capture("webkit-incoming", "https://example.invalid/native-host", "From the browser", "firefox"), {
       env,
       host,

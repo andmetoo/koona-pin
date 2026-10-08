@@ -61,8 +61,7 @@ npx playwright install chromium
 DISPLAY=:98 GDK_BACKEND=x11 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 dbus-run-session -- node scripts/smoke-extension.mjs
 kill $xvfb 2> /dev/null || true
 
-# Screenshot baselines depend on font rendering and are checked on Windows only, as in ci.yml. Two
-# language tests find the browser status 1–5 px wider than its slot on Linux (#183): out until it is fixed.
+# Screenshot baselines depend on font rendering and are checked on Windows only, as in ci.yml.
 step "Playwright UI, functional"
-npm run test:ui -- --grep-invert "@visual|sidebar rows fit in every language|en key screens 1600×800"
+npm run test:ui -- --grep-invert "@visual"
 

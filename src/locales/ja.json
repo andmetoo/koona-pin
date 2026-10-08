@@ -54,7 +54,7 @@
   },
   "browser": {
     "ready": "ブラウザーに接続済み",
-    "failing": "保存が機能していません",
+    "failing": "保存できません",
     "checking": "保存機能を確認中…",
     "notConnected": "ブラウザー未接続",
     "lost_other": "{{count}} 日間応答なし",
