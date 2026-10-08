@@ -26,7 +26,7 @@ import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
-import { AddLinkDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
+import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { emptyDraft, FeedbackDraft } from "./services/feedback";
@@ -37,7 +37,7 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | "feedback" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | "feedback" | "background" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -174,6 +174,11 @@ export function App() {
         setTriage(null);
         requestAnimationFrame(() => searchRef.current?.focus());
       }
+      // Quits from the window on every system (NP-096): without a tray it is the way out.
+      if ((e.ctrlKey || e.metaKey) && (key === "q" || e.code === "KeyQ") && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        void api.quitApp().catch(() => {});
+      }
       if ((e.ctrlKey || e.metaKey) && key === "n" && !document.querySelector("dialog[open]")) {
         e.preventDefault();
         setSurface("add");
@@ -212,6 +217,8 @@ export function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [wide, editing, triage, page, filters.onlyTrash]);
+  // The first close without a tray explains that the app keeps running (NP-096).
+  useEffect(() => api.onCloseToBackground(() => setSurface("background")), []);
   useEffect(() => {
     // The app learns about browsers when their extensions write (NP-016).
     const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
@@ -1170,6 +1177,7 @@ export function App() {
           }}
         />
       )}
+      {surface === "background" && <BackgroundDialog onClose={() => setSurface(null)} />}
       {surface === "connect" && (
         <ConnectDialog capture={capture} onOpen={actions.open} onClose={() => setSurface(null)} />
       )}

@@ -6,6 +6,7 @@ pub mod capture_channel;
 pub mod commands;
 pub mod db;
 pub mod dedupe;
+pub mod desktop;
 pub mod error;
 pub mod export;
 pub mod feedback;
@@ -27,14 +28,22 @@ pub mod trash;
 pub mod tray;
 
 use std::sync::{atomic::Ordering, Arc};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+
+/// The window was closed without a tray for the first time: the page explains
+/// that the app keeps running (frame «40 · Без трея»).
+pub const BACKGROUND_EVENT: &str = "close-to-background";
 
 pub(crate) fn show_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
+        show(&window);
     }
+}
+
+pub(crate) fn show(window: &tauri::WebviewWindow) {
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
 }
 
 /// A step the installer or the uninstaller runs (NP-037), or the Linux package
@@ -53,13 +62,20 @@ pub fn installer_step() -> Option<i32> {
 }
 
 pub fn run() {
+    let context = tauri::generate_context!();
+    // A second start from the app menu brings its activation token along, or
+    // Wayland would not let the window take the focus (NP-053).
+    #[cfg(target_os = "linux")]
+    if desktop::linux::hand_over(&context.config().identifier) {
+        std::process::exit(0);
+    }
     let channel_state = Arc::new(capture_channel::ChannelState::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             // The native host starts the app with --autostart to save a link;
             // an app that is already running stays where it is.
             if !args.iter().any(|arg| arg == autostart::ARG) {
-                show_window(app)
+                desktop::bring_forward(app, desktop::activation_token(&args))
             }
         }))
         .plugin(tauri_plugin_opener::init())
@@ -90,11 +106,18 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 // Without an open library there is nothing to keep in the tray.
-                let hide = window
-                    .try_state::<Arc<db::DbState>>()
-                    .is_some_and(|state| state.close_to_tray.load(Ordering::Relaxed));
-                if hide {
-                    api.prevent_close();
+                let Some(state) = window.try_state::<Arc<db::DbState>>() else {
+                    return;
+                };
+                if !state.close_to_tray.load(Ordering::Relaxed) {
+                    return;
+                }
+                api.prevent_close();
+                // No tray (NP-096): the first time the window says that the app
+                // keeps running, and hides only on «Hide window».
+                if !state.background_explained.load(Ordering::Relaxed) && !desktop::tray_shown() {
+                    let _ = window.emit(BACKGROUND_EVENT, ());
+                } else {
                     let _ = window.hide();
                 }
             }
@@ -156,9 +179,11 @@ pub fn run() {
             commands::rebuild_search_index,
             commands::feedback_report,
             commands::send_feedback,
+            commands::hide_to_background,
+            desktop::get_desktop,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running Koona Pin");
 }

@@ -18,6 +18,7 @@ import {
   Changed,
   Collection,
   DataSummary,
+  Desktop,
   DomainCount,
   FilterState,
   CsvColumns,
@@ -197,6 +198,12 @@ const desktop = {
   revealLibraryPlace: (place: LibraryPlace) =>
     call<void>("reveal_library_place", { place }),
   quitApp: () => call<void>("quit_app"),
+  /** The window buttons the system wants and whether a tray shows the icon (NP-053). */
+  getDesktop: () => call<Desktop>("get_desktop"),
+  /** «Hide window» after the first close without a tray (NP-096). */
+  hideToBackground: () => call<void>("hide_to_background"),
+  onCloseToBackground: (callback: () => void) =>
+    subscription("close-to-background", callback),
   getAutostart: () => call<boolean>("get_autostart"),
   setAutostart: (enabled: boolean) => call<void>("set_autostart", { enabled }),
   getDataSummary: () => call<DataSummary>("get_data_summary"),
