@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # The «build» job of .github/workflows/linux.yml, as «dev»: the release build, once, on the oldest glibc of
-# the matrix (Debian 13), as Tauri advises for Linux, packed as .deb and .rpm (npm run build:linux, NP-055).
+# the matrix (Debian 13), as Tauri advises for Linux, packed as .deb and .rpm (bun run build:linux, NP-055).
 # The «distro» jobs install these very packages; Arch runs the bare binary. KOONAPIN_FEEDBACK_URL comes from
 # the job's secret.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:/opt/node/bin:$PATH
+export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH
 step() { printf '\n== %s\n' "$1"; }
 echo "glibc: $(ldd --version | head -1), webkit2gtk-4.1: $(pkg-config --modversion webkit2gtk-4.1)"
-npm ci --no-audit --no-fund
-npm run build:linux
+bun install --frozen-lockfile
+bun run build:linux
 
-version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+version=$(bun -p "require('./src-tauri/tauri.conf.json').version")
 packages=release/publish/linux/$version
 deb=$packages/koonapin_${version}_amd64.deb
 

@@ -1,7 +1,7 @@
 // The "koona pin" wordmark of koona.app/pin as outlines (Р-37): Nunito ExtraBold
 // (@fontsource/nunito, SIL OFL 1.1) → site/src/brand/wordmark.svg, fill="currentColor".
 // The site ships the outlines, not the font. Rerun only when the wordmark changes:
-//   node scripts/site-wordmark.mjs
+//   bun scripts/site-wordmark.mjs
 import opentype from "opentype.js";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";

@@ -18,35 +18,34 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: .nvmrc
-          cache: npm
+          bun-version-file: .bun-version
       - name: Rust toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - run: npm ci
+      - run: bun install --frozen-lockfile
       # Rust tests also regenerate the IPC types in src/bindings (ts-rs, NP-007),
       # so the TypeScript build below checks the interface against fresh types.
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --locked
       - name: Generated IPC types are committed
-        run: npm run check:bindings
+        run: bun run check:bindings
       - name: TypeScript and Vite build
-        run: npm run build
+        run: bun run build
       - name: Vitest
-        run: npm test
+        run: bun run test
       # Builds the Chrome, Edge and Firefox packages, then lints the Firefox one.
       - name: Extension packages, web-ext lint
-        run: npm run extension:lint
+        run: bun run extension:lint
       - name: Install Playwright Chromium
-        run: npx playwright install chromium
+        run: bunx playwright install chromium
       # Screenshot baselines depend on local font rendering and are checked locally only.
       - name: Playwright UI, functional
-        run: npm run test:ui -- --grep-invert "@visual"
+        run: bun run test:ui -- --grep-invert "@visual"
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

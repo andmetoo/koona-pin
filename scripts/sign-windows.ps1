@@ -1,6 +1,6 @@
 # Signs one file with the Certum code signing certificate in SimplySign (Р-9, NP-042) and checks
 # the result. Tauri calls it for every file it signs when the installer is built with
-# `node scripts/build-installer.mjs --sign`; the build first runs it with -Check.
+# `bun scripts/build-installer.mjs --sign`; the build first runs it with -Check.
 #   SIGN_CERT_SHA1  thumbprint of the certificate (not a secret): with SimplySign Desktop signed in,
 #                   Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Format-List Subject, Thumbprint
 #   SIGNTOOL        path to signtool.exe, only if it is not on PATH or in the Windows SDK folder

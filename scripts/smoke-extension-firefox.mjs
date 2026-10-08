@@ -1,7 +1,7 @@
 // Firefox smoke (NP-015, NP-018): the built package talks to Koona Pin through
 // the real native host, as the Chromium smoke does.
 //
-//   node scripts/smoke-extension-firefox.mjs [release|esr]
+//   bun scripts/smoke-extension-firefox.mjs [release|esr]
 //
 // release is the current Firefox, esr is Firefox ESR 140 (scoop installs;
 // KOONAPIN_FIREFOX points to another copy). Firefox is driven over WebDriver

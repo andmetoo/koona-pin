@@ -5,7 +5,7 @@
 //                                                     temporary add-on and tests
 //   release/publish/chrome/<version>/koonapin-chrome.zip   Chrome Web Store
 //   release/publish/edge/<version>/koonapin-edge.zip       Edge Add-ons
-//   (Firefox: npm run extension:sign:firefox signs the unpacked folder on AMO.)
+//   (Firefox: bun run extension:sign:firefox signs the unpacked folder on AMO.)
 //
 // The unpacked Chrome and Edge folders carry the development key
 // (extension/dev-key.txt), so their extension id is the same on every machine:

@@ -1,7 +1,7 @@
 // Builds the Windows installer (NP-037, Р-9): NSIS per user, with --features public-release
 // (the native host accepts only the store extensions, feedback must have its address).
-//   node scripts/build-installer.mjs          unsigned → release/test/windows/<version>/, test machines only
-//   node scripts/build-installer.mjs --sign   signed in Certum SimplySign (scripts/sign-windows.ps1) →
+//   bun scripts/build-installer.mjs          unsigned → release/test/windows/<version>/, test machines only
+//   bun scripts/build-installer.mjs --sign   signed in Certum SimplySign (scripts/sign-windows.ps1) →
 //                                             release/publish/windows/<version>/
 // Each folder gets the installer and SHA256SUMS.txt (folders: scripts/lib/paths.mjs).
 // Settings come from the environment or from .env in the repository root (.env.example);
@@ -31,7 +31,7 @@ if (sign && spawnSync("powershell", [...signScript, "-Check"], { stdio: "inherit
   process.exit(1);
 }
 
-// tauri.conf.json keeps bundling off, so `npm run tauri build` makes no installer: the only
+// tauri.conf.json keeps bundling off, so `bun run tauri build` makes no installer: the only
 // installer of a version in the bundle folder is one this script built with public-release.
 const bundle = { active: true };
 if (sign) {

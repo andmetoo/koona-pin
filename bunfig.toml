@@ -1,0 +1,6 @@
+# Scripts read .env themselves (process.loadEnvFile), and the environment wins over it.
+env = false
+
+[run]
+# Tools with a `#!/usr/bin/env node` line (vite, vitest, playwright, tauri) run on Bun too.
+bun = true

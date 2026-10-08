@@ -127,7 +127,7 @@ describe.each(codes.filter((code) => code !== "en"))("locale %s", (code) => {
 });
 
 describe("Serbian", () => {
-  it("Latin is the Cyrillic file letter by letter (npm run locales:sr-latn)", () => {
+  it("Latin is the Cyrillic file letter by letter (bun run locales:sr-latn)", () => {
     expect(read("sr-Latn")).toEqual(latinCatalog(read("sr")));
   });
   it("writes digraphs as a word or a word of capitals wants", () => {
