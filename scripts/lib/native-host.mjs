@@ -1,12 +1,14 @@
 // Helpers for tests that talk to Koona Pin the way a browser does: through
-// koonapin-host.exe and the capture pipe (Р-17, NP-016).
+// koonapin-host and the capture pipe — a Unix socket on Linux (Р-17, NP-016, NP-099).
 import { execFileSync, spawn } from "node:child_process";
+import { readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
 export const DEV_ORIGIN = "chrome-extension://iibgiagcbediajombmkohanobgicbepn/";
 
-const exe = process.platform === "win32" ? ".exe" : "";
+const windows = process.platform === "win32";
+const exe = windows ? ".exe" : "";
 
 /** The test binary, as the native tests and smoke scripts pick it. */
 export const appBinary = () =>
@@ -21,10 +23,14 @@ export const hostBinary = (app = appBinary()) => path.join(path.dirname(app), `k
  */
 export const testPipe = (label = "test") => `koonapin-${label}-${process.pid}-${Date.now()}`;
 
+/** Where the app listens for `KOONAPIN_PIPE=name` (pipe_name.rs). */
+export const pipePath = (name, env = process.env) =>
+  windows ? `\\\\.\\pipe\\${name}` : path.join(env.XDG_RUNTIME_DIR ?? "", "koonapin", `${name}.sock`);
+
 /** The app answers on its pipe once the library is open. */
-export const pipeReady = (name) =>
+export const pipeReady = (name, env = process.env) =>
   new Promise((resolve) => {
-    const socket = net.connect(`\\\\.\\pipe\\${name}`);
+    const socket = net.connect(pipePath(name, env));
     socket.on("connect", () => {
       socket.destroy();
       resolve(true);
@@ -41,9 +47,19 @@ export function hostMessage(message, { env = process.env, host = hostBinary(), a
     const started = performance.now();
     const child = spawn(host, args, { env, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     const chunks = [];
+    // "close" waits for the host's stdout to close everywhere: an app that
+    // inherited it would keep a browser waiting the same way (NP-014).
+    const hung = setTimeout(
+      () => reject(new Error("The host's stdout stayed open: a process it started holds the browser's pipe")),
+      30_000,
+    );
     child.stdout.on("data", (chunk) => chunks.push(chunk));
-    child.on("error", reject);
+    child.on("error", (error) => {
+      clearTimeout(hung);
+      reject(error);
+    });
     child.on("close", () => {
+      clearTimeout(hung);
       const out = Buffer.concat(chunks);
       if (out.length < 4) return reject(new Error("The host did not answer"));
       const length = out.readUInt32LE(0);
@@ -56,8 +72,32 @@ export function hostMessage(message, { env = process.env, host = hostBinary(), a
   });
 }
 
+/** The user's own processes on Linux: pid, executable and arguments from /proc. */
+function linuxProcesses() {
+  const processes = [];
+  for (const entry of readdirSync("/proc")) {
+    if (!/^\d+$/.test(entry)) continue;
+    try {
+      processes.push({
+        pid: Number(entry),
+        exe: readlinkSync(`/proc/${entry}/exe`),
+        args: readFileSync(`/proc/${entry}/cmdline`, "utf8").split("\0"),
+      });
+    } catch {
+      // Another user's process, or one that has just exited.
+    }
+  }
+  return processes;
+}
+
 /** Apps the host started (`--autostart`) from the binary under test. */
 export function hostStartedApps(binary = appBinary()) {
+  if (!windows) {
+    const real = realpathSync(binary);
+    return linuxProcesses()
+      .filter((p) => p.exe === real && p.args.includes("--autostart"))
+      .map((p) => p.pid);
+  }
   const quoted = binary.replaceAll("'", "''");
   const out = execFileSync(
     "powershell",
@@ -72,11 +112,19 @@ export function hostStartedApps(binary = appBinary()) {
 }
 
 /**
- * One Koona Pin per Windows user (single instance): while another one runs,
- * an app the test starts hands over to it and exits, and the host waits for
- * nothing. Stop early with the reason instead.
+ * One Koona Pin per Windows user (per session bus on Linux; single instance):
+ * while another one runs, an app the test starts hands over to it and exits,
+ * and the host waits for nothing. Stop early with the reason instead.
  */
 export function assertNoOtherApp() {
+  if (!windows) {
+    const others = linuxProcesses().filter((p) => path.basename(p.exe) === "koonapin");
+    if (others.length)
+      throw new Error(
+        `Quit Koona Pin before this check (tray menu → Exit): only one instance runs per session, so the test app would exit at once.\n${others.map((p) => `${p.pid} ${p.exe}`).join("\n")}`,
+      );
+    return;
+  }
   const out = execFileSync(
     "powershell",
     [
@@ -102,7 +150,11 @@ export function startedSince() {
   return {
     ours,
     stop() {
-      for (const pid of ours()) execFileSync("taskkill", ["/F", "/T", "/PID", String(pid)], { stdio: "ignore" });
+      for (const pid of ours()) {
+        if (windows) execFileSync("taskkill", ["/F", "/T", "/PID", String(pid)], { stdio: "ignore" });
+        // WebKit's processes end with their app.
+        else process.kill(pid, "SIGKILL");
+      }
     },
   };
 }
