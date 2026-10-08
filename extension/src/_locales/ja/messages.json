@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin がインストールされていないか、インストールが壊れています。リンクはここで待機します。"
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin はこの拡張機能のコピーを受け付けません。リンクはここで待機します。"
+  },
   "errorIncompatible": {
     "message": "拡張機能が Koona Pin と合っていません。拡張機能を更新してください。リンクはここで待機します。"
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin がインストールされていません" },
   "statusMissingText": {
     "message": "拡張機能がこのコンピューターでアプリを見つけられません。Koona Pin をインストールするか、すでにある場合は再インストールしてください。"
+  },
+  "statusForbidden": { "message": "Koona Pin はこの拡張機能を受け付けません" },
+  "statusForbiddenText": {
+    "message": "Koona Pin はインストールされていますが、この拡張機能のコピーを認識しません。Koona Pin のダウンロードページから拡張機能をインストールしてください。開発用ビルドは、アプリの開発用ビルドとだけ動作します。保存したリンクはここで待機します。"
   },
   "statusSandbox": { "message": "このブラウザーでは保存できません" },
   "statusSandboxText": {
