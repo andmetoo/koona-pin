@@ -21,6 +21,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+      # Bun's package cache, as linux.yml keeps it.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-windows-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-windows-
       - name: Rust toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
@@ -42,7 +48,7 @@ jobs:
       - name: Extension packages, web-ext lint
         run: bun run extension:lint
       - name: Install Playwright Chromium
-        run: bunx playwright install chromium
+        run: bunx --bun playwright install chromium
       # Screenshot baselines depend on local font rendering and are checked locally only.
       - name: Playwright UI, functional
         run: bun run test:ui -- --grep-invert "@visual"
