@@ -1,0 +1,7 @@
+# What rpmlint reports about the .rpm and why it stays (NP-055): the «distro» job of Fedora runs Fedora's
+# rpmlint with this file (scripts/linux/ci-package.sh), so anything new fails the job.
+Filters = [
+    # The manifest of Firefox from Mozilla (its own build, not Fedora's) is read only in /usr/lib/mozilla
+    # (Р-53); Fedora's mozilla-filesystem owns that folder for the same reason.
+    "only-non-binary-in-usr-lib",
+]

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The «distro» job of .github/workflows/linux.yml, as «dev»: the release binary of the «build» job — the
-# one that ships — started on this distribution without a screen, under X11 (Xvfb) and under Wayland
+# one that ships, installed from its package on Ubuntu, Debian and Fedora — started on this distribution
+# without a screen, under X11 (Xvfb) and under Wayland
 # (Weston headless), each with a session bus. Checks what a container can: the process stays up, the
 # library is created where the contract puts it, a second start hands over to the first (single instance
 # over D-Bus) and exits; under X11 also the native host and the capture socket (test:host), under Wayland
@@ -12,9 +13,12 @@ cd "$(dirname "$0")/../.."
 step() { printf '\n== %s\n' "$1"; }
 . /etc/os-release
 
-app=$PWD/dist-linux/koonapin
+# The installed package where the job has one (ci-package.sh, NP-055); Arch runs the bare binary.
+app=/usr/bin/koonapin
+[ -x "$app" ] || app=$PWD/dist-linux/koonapin
 
 step "Environment"
+echo "program: $app"
 echo "system: $PRETTY_NAME, glibc: $(ldd --version | head -1 | grep -oE '[0-9.]+$'), weston: $(weston --version 2>&1 | head -1)"
 missing=$(ldd "$app" | grep 'not found' || true)
 [ -z "$missing" ] || { echo "FAIL: libraries missing on $PRETTY_NAME:"; echo "$missing"; exit 1; }

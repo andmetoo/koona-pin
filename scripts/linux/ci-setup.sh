@@ -78,6 +78,10 @@ if [ "${GITHUB_JOB:-}" = check ]; then
   # The development registration is checked with the distribution's browsers (NP-100, smoke-registration.mjs).
   apt-get install -y -qq chromium firefox-esr > /dev/null
 fi
+# The «build» job packs .deb and .rpm and checks them (npm run build:linux, NP-055).
+if [ "${GITHUB_JOB:-}" = build ]; then
+  apt-get install -y -qq rpm lintian desktop-file-utils appstream > /dev/null
+fi
 
 id dev > /dev/null 2>&1 || useradd -m -u 1001 -U dev
 # The caches of linux.yml are restored as root before this script.

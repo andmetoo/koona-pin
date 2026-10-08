@@ -1,0 +1,40 @@
+.\" The manual page of the Linux packages (NP-055).
+.TH KOONAPIN 1 "October 2026" "Koona Pin" "User Commands"
+.SH NAME
+koonapin \- desktop bookmark library
+.SH SYNOPSIS
+.B koonapin
+.RB [ \-\-autostart ]
+.SH DESCRIPTION
+Koona Pin keeps your bookmarks on your computer. Pages arrive from Chrome, Edge, Chromium and Firefox
+with the button of the Koona Pin extension, also while the app is closed: the browser starts
+.BR koonapin-host (1),
+which starts the app hidden.
+.PP
+Only one Koona Pin runs in a session: a second start shows the window of the first and exits.
+.SH OPTIONS
+.TP
+.B \-\-autostart
+Start hidden, without the window; the start with the session uses it.
+.TP
+.B \-\-register\-host
+Register the native messaging host of this copy in the browsers of the current user, for a copy
+run from a build folder. The package registers it for every user.
+.TP
+.B \-\-unregister\-host
+Remove what
+.B \-\-register\-host
+wrote for this copy.
+.SH FILES
+.TP
+.I $XDG_DATA_HOME/Koona Pin
+The library and its backups (by default
+.IR "~/.local/share/Koona Pin" ).
+Removing the package leaves them in place.
+.TP
+.I $XDG_CONFIG_HOME/autostart/koonapin.desktop
+The start with the session, turned on by the first start and off in the settings.
+.SH SEE ALSO
+.BR koonapin-host (1)
+.PP
+https://koona.app/pin/
