@@ -883,7 +883,8 @@
       "service_failed": "server nije odgovorio",
       "too_many_messages": "previše poruka sa ove mreže u poslednjih sat vremena",
       "proxy_failed": "proksi mreže je odbio zahtev",
-      "no_connection_or_proxy": "nema internet veze ili ovoj mreži treba njen proksi"
+      "no_connection_or_proxy": "nema internet veze ili ovoj mreži treba njen proksi",
+      "no_connection_or_system_proxy": "nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -909,7 +910,8 @@
       "service_failed": "Slanje nije uspelo: server nije odgovorio. Vaš tekst je sačuvan — pokušajte ponovo kasnije ili ga kopirajte i pošaljite na drugi način.",
       "too_many_messages": "Previše poruka sa ove mreže u poslednjih sat vremena. Vaš tekst je sačuvan — pokušajte ponovo kasnije.",
       "proxy_failed": "Slanje preko proksija ove mreže nije uspelo: traži prijavu ili nije dostupan. Vaš tekst je sačuvan — kopirajte ga i pošaljite na drugi način, na primer na GitHub-u.",
-      "no_connection_or_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba njen proksi, koji podešava skripta za podešavanje koju aplikacija ne može da koristi. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u."
+      "no_connection_or_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba njen proksi, koji podešava skripta za podešavanje koju aplikacija ne može da koristi. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u.",
+      "no_connection_or_system_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema, koja aplikacija ne čita — koristi samo promenljive https_proxy i http_proxy. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u."
     }
   },
   "tray": {

@@ -823,7 +823,8 @@
       "service_failed": "sunucu yanıt vermedi",
       "too_many_messages": "son bir saatte bu ağdan çok fazla mesaj geldi",
       "proxy_failed": "ağın proxy sunucusu isteği reddetti",
-      "no_connection_or_proxy": "internet bağlantısı yok ya da bu ağ kendi proxy sunucusunu gerektiriyor"
+      "no_connection_or_proxy": "internet bağlantısı yok ya da bu ağ kendi proxy sunucusunu gerektiriyor",
+      "no_connection_or_system_proxy": "internet bağlantısı yok ya da bu ağ sistem ayarlarındaki proxy sunucusunu gerektiriyor"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -849,7 +850,8 @@
       "service_failed": "Gönderilemedi: sunucu yanıt vermedi. Metniniz duruyor — daha sonra yeniden deneyin ya da kopyalayıp başka bir yolla gönderin.",
       "too_many_messages": "Son bir saatte bu ağdan çok fazla mesaj geldi. Metniniz duruyor — daha sonra yeniden deneyin.",
       "proxy_failed": "Bu ağın proxy sunucusu üzerinden gönderilemedi: oturum açmayı istiyor ya da erişilemiyor. Metniniz duruyor — kopyalayıp başka bir yolla, örneğin GitHub'da gönderin.",
-      "no_connection_or_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın kullanamadığı bir kurulum betiğiyle ayarlanan kendi proxy sunucusunu gerektiriyor. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin."
+      "no_connection_or_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın kullanamadığı bir kurulum betiğiyle ayarlanan kendi proxy sunucusunu gerektiriyor. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin.",
+      "no_connection_or_system_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın okumadığı sistem ayarlarındaki proxy sunucusunu gerektiriyor — uygulama yalnızca https_proxy ve http_proxy değişkenlerini kullanır. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin."
     }
   },
   "tray": {

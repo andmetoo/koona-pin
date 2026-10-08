@@ -144,7 +144,8 @@ pub async fn send(endpoint: &str, payload: &Payload, limits: Limits) -> Result<(
         Err(error) if through_proxy(&error) => return Err(failure(ErrorDetail::ProxyFailed, error)),
         // A refused connection or a name that does not resolve: no internet, as people see it.
         Err(error) if error.is_connect() => {
-            return Err(failure(connect_detail(limits.proxy == Proxy::System && proxy_script()), error));
+            let proxy = if limits.proxy == Proxy::System { unusable_proxy() } else { None };
+            return Err(failure(connect_detail(proxy), error));
         }
         Err(error) => return Err(failure(ErrorDetail::ServiceFailed, error)),
     };
@@ -181,27 +182,30 @@ fn through_proxy(error: &reqwest::Error) -> bool {
     false
 }
 
-/// What a failed connection is called. With a setup script (PAC) configured it may be the
-/// proxy reqwest cannot use — or just no internet: a company laptop keeps the script at home,
-/// where Windows connects directly. Both are named rather than blaming the proxy.
-fn connect_detail(proxy_script: bool) -> ErrorDetail {
-    if proxy_script {
-        ErrorDetail::NoConnectionOrProxy
-    } else {
-        ErrorDetail::NoConnection
-    }
+/// What a failed connection is called. With a proxy this client cannot use it may be that
+/// proxy — or just no internet: a company laptop keeps the script at home, where Windows
+/// connects directly. Both are named rather than blaming the proxy.
+fn connect_detail(unusable_proxy: Option<ErrorDetail>) -> ErrorDetail {
+    unusable_proxy.unwrap_or(ErrorDetail::NoConnection)
 }
 
-/// The network sets its proxy with a setup script (PAC), which this client cannot run.
-fn proxy_script() -> bool {
+/// A proxy the system has and this client cannot use: a setup script (PAC) on Windows; on
+/// Linux one set only in the desktop's settings, since reqwest reads the variables
+/// (`https_proxy` and the others) and not GNOME's or KDE's settings (NP-097).
+fn unusable_proxy() -> Option<ErrorDetail> {
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::Registry::HKEY_CURRENT_USER;
-        windows_value(HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings", "AutoConfigURL").is_some()
+        windows_value(HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Internet Settings", "AutoConfigURL")
+            .map(|_| ErrorDetail::NoConnectionOrProxy)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
     {
-        false
+        linux::desktop_proxy().then_some(ErrorDetail::NoConnectionOrSystemProxy)
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    {
+        None
     }
 }
 
@@ -213,16 +217,14 @@ fn failure(detail: ErrorDetail, error: reqwest::Error) -> CommandError {
 /// The report shown in the dialog and attached as is: the app, the system,
 /// the language and capture. No links, titles, tags or notes; paths under the
 /// user's folder are shortened and anything like a link is cut out.
-pub fn report(status: &CaptureStatus, app_version: &str, os: &str, language: &str, home: Option<&str>) -> String {
-    let mut lines = vec![
-        format!("Koona Pin {app_version}"),
-        os.to_string(),
-        format!("Language: {language}"),
-        match status.problem {
-            Some(problem) => format!("Capture: {} ({})", name(&status.state), name(&problem)),
-            None => format!("Capture: {}", name(&status.state)),
-        },
-    ];
+pub fn report(status: &CaptureStatus, app_version: &str, system: &[String], language: &str, home: Option<&str>) -> String {
+    let mut lines = vec![format!("Koona Pin {app_version}")];
+    lines.extend(system.iter().map(|line| scrub(line, home)));
+    lines.push(format!("Language: {language}"));
+    lines.push(match status.problem {
+        Some(problem) => format!("Capture: {} ({})", name(&status.state), name(&problem)),
+        None => format!("Capture: {}", name(&status.state)),
+    });
     if let Some(detail) = &status.detail {
         lines.push(format!("Detail: {}", scrub(detail, home)));
     }
@@ -252,7 +254,13 @@ fn name(value: &impl Serialize) -> String {
     serde_json::to_value(value).ok().and_then(|v| v.as_str().map(str::to_string)).unwrap_or_default()
 }
 
-/// The user's folder becomes `%USERPROFILE%` (any case), links become `<link>`.
+/// What the user's folder becomes in the report: the name people know on each system.
+#[cfg(windows)]
+pub const HOME_MARK: &str = "%USERPROFILE%";
+#[cfg(not(windows))]
+pub const HOME_MARK: &str = "~";
+
+/// The user's folder becomes `HOME_MARK` (any case), links become `<link>`.
 pub fn scrub(text: &str, home: Option<&str>) -> String {
     let mut out = text.to_string();
     if let Some(home) = home.filter(|h| h.len() > 3) {
@@ -263,7 +271,7 @@ pub fn scrub(text: &str, home: Option<&str>) -> String {
         let mut at = 0;
         while at < out.len() {
             if let Some(len) = starts_with_folded(&out[at..], &needle) {
-                result.push_str("%USERPROFILE%");
+                result.push_str(HOME_MARK);
                 at += len;
             } else {
                 let c = out[at..].chars().next().unwrap_or_default();
@@ -304,9 +312,62 @@ fn starts_with_folded(text: &str, needle: &[char]) -> Option<usize> {
     None
 }
 
-/// «Windows 11 24H2 (build 26300), x86_64»; elsewhere the OS name and architecture.
+/// The lines about the system in the report: the OS, and on Linux also the
+/// web engine and how the app was installed (NP-097).
+pub fn system_lines() -> Vec<String> {
+    #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
+    let mut lines = vec![os_name()];
+    #[cfg(target_os = "linux")]
+    {
+        lines.push(linux::webkit());
+        if let Ok(program) = std::env::current_exe() {
+            lines.push(format!("Installed: {}", linux::installed_with(&program)));
+        }
+    }
+    lines
+}
+
+/// `PRETTY_NAME` of an os-release file, or its `NAME` and `VERSION_ID`.
+pub fn pretty_name(os_release: &str) -> Option<String> {
+    let value = |key: &str| {
+        os_release.lines().find_map(|line| {
+            let value = line.trim().strip_prefix(key)?.strip_prefix('=')?;
+            let value = value.trim();
+            let unquoted = value
+                .strip_prefix('"')
+                .and_then(|v| v.strip_suffix('"'))
+                .or_else(|| value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')))
+                .unwrap_or(value);
+            let text = unquoted.replace("\\\"", "\"").replace("\\\\", "\\");
+            (!text.is_empty()).then_some(text)
+        })
+    };
+    value("PRETTY_NAME").or_else(|| {
+        let name = value("NAME")?;
+        Some(match value("VERSION_ID") {
+            Some(version) => format!("{name} {version}"),
+            None => name,
+        })
+    })
+}
+
+/// «Windows 11 24H2 (build 26300), x86_64»; «Ubuntu 26.04 LTS, GNOME, Wayland,
+/// x86_64» on Linux; elsewhere the OS name and architecture.
 pub fn os_name() -> String {
     let arch = std::env::consts::ARCH;
+    #[cfg(target_os = "linux")]
+    {
+        let parts: Vec<String> = [
+            Some(linux::distribution().unwrap_or_else(|| "Linux".into())),
+            linux::desktop(),
+            linux::session(),
+            Some(arch.to_string()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        return parts.join(", ");
+    }
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::Registry::HKEY_LOCAL_MACHINE;
@@ -321,10 +382,138 @@ pub fn os_name() -> String {
         }
         format!("Windows, {arch}")
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         format!("{}, {arch}", std::env::consts::OS)
     }
+}
+
+/// What the report and a failed send need to know about a Linux desktop (NP-097).
+#[cfg(target_os = "linux")]
+mod linux {
+    use std::path::Path;
+
+    /// The distribution as `/etc/os-release` names it.
+    pub fn distribution() -> Option<String> {
+        ["/etc/os-release", "/usr/lib/os-release"]
+            .iter()
+            .find_map(|path| std::fs::read_to_string(path).ok())
+            .and_then(|text| super::pretty_name(&text))
+    }
+
+    /// `GNOME`, `KDE`, `Hyprland`; `ubuntu:GNOME` is written `ubuntu/GNOME`.
+    pub fn desktop() -> Option<String> {
+        std::env::var("XDG_CURRENT_DESKTOP")
+            .ok()
+            .map(|desktop| desktop.replace(':', "/"))
+            .filter(|desktop| !desktop.is_empty())
+    }
+
+    pub fn session() -> Option<String> {
+        let session = std::env::var("XDG_SESSION_TYPE").ok()?;
+        Some(match session.as_str() {
+            "wayland" => "Wayland".into(),
+            "x11" => "X11".into(),
+            "" => return None,
+            other => other.into(),
+        })
+    }
+
+    extern "C" {
+        // libwebkit2gtk-4.1, which the window already links (wry).
+        fn webkit_get_major_version() -> std::os::raw::c_uint;
+        fn webkit_get_minor_version() -> std::os::raw::c_uint;
+        fn webkit_get_micro_version() -> std::os::raw::c_uint;
+    }
+
+    /// The WebKitGTK the interface runs in: drawing bugs depend on it.
+    pub fn webkit() -> String {
+        // SAFETY: plain getters of the library's version, no arguments.
+        let (major, minor, micro) =
+            unsafe { (webkit_get_major_version(), webkit_get_minor_version(), webkit_get_micro_version()) };
+        format!("WebKitGTK {major}.{minor}.{micro}")
+    }
+
+    /// The package that owns the program: dpkg's file lists, pacman's local
+    /// database (the AUR package), then `rpm -qf`.
+    pub fn installed_with(program: &Path) -> String {
+        let target = program.to_string_lossy();
+        let owned = |folder: &str, list: &str, line: &str| {
+            std::fs::read_dir(folder).ok()?.flatten().find_map(|entry| {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                // dpkg keeps one `<package>.list` among the package's other files.
+                if !name.contains("koona") || (list.is_empty() && !name.ends_with(".list")) {
+                    return None;
+                }
+                let path = if list.is_empty() { entry.path() } else { entry.path().join(list) };
+                let text = std::fs::read_to_string(path).ok()?;
+                text.lines().any(|l| l == line).then_some(name)
+            })
+        };
+        if let Some(name) = owned("/var/lib/dpkg/info", "", &target) {
+            return format!("deb ({})", name.trim_end_matches(".list"));
+        }
+        if let Some(name) = owned("/var/lib/pacman/local", "files", target.trim_start_matches('/')) {
+            return format!("AUR ({name})");
+        }
+        if let Ok(output) = std::process::Command::new("rpm")
+            .args(["-qf", "--queryformat", "%{NAME}"])
+            .arg(program)
+            .output()
+        {
+            if output.status.success() {
+                return format!("rpm ({})", String::from_utf8_lossy(&output.stdout).trim());
+            }
+        }
+        "not from a package".into()
+    }
+
+    /// A proxy set in GNOME's or KDE's settings while the variables reqwest
+    /// reads are empty: the request then goes without it.
+    pub fn desktop_proxy() -> bool {
+        let variables = ["https_proxy", "HTTPS_PROXY", "http_proxy", "HTTP_PROXY", "all_proxy", "ALL_PROXY"];
+        if variables.iter().any(|name| std::env::var(name).is_ok_and(|value| !value.is_empty())) {
+            return false;
+        }
+        gnome_proxy() || kde_proxy()
+    }
+
+    /// `org.gnome.system.proxy mode`, when the schema is installed (reading a
+    /// missing schema would abort the process).
+    fn gnome_proxy() -> bool {
+        use gtk::gio::prelude::SettingsExt;
+        const SCHEMA: &str = "org.gnome.system.proxy";
+        let Some(schemas) = gtk::gio::SettingsSchemaSource::default() else {
+            return false;
+        };
+        if schemas.lookup(SCHEMA, true).is_none() {
+            return false;
+        }
+        gtk::gio::Settings::new(SCHEMA).string("mode") != "none"
+    }
+
+    fn kde_proxy() -> bool {
+        dirs::config_dir()
+            .and_then(|config| std::fs::read_to_string(config.join("kioslaverc")).ok())
+            .and_then(|text| super::kde_proxy_type(&text))
+            .is_some_and(|kind| (1..=3).contains(&kind))
+    }
+}
+
+/// `ProxyType` of KDE's `kioslaverc`: 1 manual, 2 a setup script, 3 found on
+/// the network, 4 the variables; 0 or none — no proxy.
+pub fn kde_proxy_type(kioslaverc: &str) -> Option<u32> {
+    let mut in_section = false;
+    for line in kioslaverc.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_section = line == "[Proxy Settings]";
+        } else if in_section {
+            if let Some(value) = line.strip_prefix("ProxyType=") {
+                return value.trim().parse().ok();
+            }
+        }
+    }
+    None
 }
 
 #[cfg(windows)]
@@ -419,26 +608,32 @@ mod tests {
 
     #[test]
     fn the_report_has_no_links_and_no_user_folder() {
-        let text = report(&status(), "0.1.0", "Windows 11 24H2 (build 26300), x86_64", "ru", Some(r"C:\Users\Anna"));
+        let system = ["Windows 11 24H2 (build 26300), x86_64".to_string()];
+        let text = report(&status(), "0.1.0", &system, "ru", Some(r"C:\Users\Anna"));
         assert_eq!(
             text,
             [
-                "Koona Pin 0.1.0",
-                "Windows 11 24H2 (build 26300), x86_64",
-                "Language: ru",
-                "Capture: failing (registration)",
-                r"Detail: Access denied: %USERPROFILE%\AppData\Roaming\Koona Pin\host.json, see <link>",
-                "Protocol: 2",
-                "Chrome: extension 0.5.2, protocol 2, last seen 2026-10-06T09:12:00Z",
+                "Koona Pin 0.1.0".to_string(),
+                "Windows 11 24H2 (build 26300), x86_64".into(),
+                "Language: ru".into(),
+                "Capture: failing (registration)".into(),
+                format!(r"Detail: Access denied: {HOME_MARK}\AppData\Roaming\Koona Pin\host.json, see <link>"),
+                "Protocol: 2".into(),
+                "Chrome: extension 0.5.2, protocol 2, last seen 2026-10-06T09:12:00Z".into(),
             ]
             .join("\n")
         );
-        assert_eq!(scrub(r"c:\users\anna\x", Some(r"C:\Users\Anna")), r"%USERPROFILE%\x");
+        assert_eq!(scrub(r"c:\users\anna\x", Some(r"C:\Users\Anna")), format!(r"{HOME_MARK}\x"));
         assert_eq!(scrub("open www.example.com now", None), "open <link> now");
         // Lowercasing that changes the length still masks the folder: İ is two chars in lower case.
-        assert_eq!(scrub(r"Denied: C:\Users\İlker\AppData\x", Some(r"C:\Users\İlker")), r"Denied: %USERPROFILE%\AppData\x");
-        assert_eq!(scrub(r"Пусть C:\USERS\АННА\x", Some(r"C:\Users\Анна")), r"Пусть %USERPROFILE%\x");
+        assert_eq!(scrub(r"Denied: C:\Users\İlker\AppData\x", Some(r"C:\Users\İlker")), format!(r"Denied: {HOME_MARK}\AppData\x"));
+        assert_eq!(scrub(r"Пусть C:\USERS\АННА\x", Some(r"C:\Users\Анна")), format!(r"Пусть {HOME_MARK}\x"));
         assert_eq!(scrub(r"C:\Users\Ann\x", Some(r"C:\Users\Anna")), r"C:\Users\Ann\x");
+        // Linux (NP-097): the home folder in a system line or a detail, the program path too.
+        let system = ["Ubuntu 26.04 LTS, GNOME, Wayland, x86_64".to_string(), "Installed: not from a package".into()];
+        let text = report(&status(), "0.1.0", &system, "en", Some("/home/anna"));
+        assert!(text.starts_with("Koona Pin 0.1.0\nUbuntu 26.04 LTS, GNOME, Wayland, x86_64\nInstalled: not from a package\nLanguage: en\n"), "{text}");
+        assert_eq!(scrub("Permission denied: /home/anna/.config/x", Some("/home/anna")), format!("Permission denied: {HOME_MARK}/.config/x"));
     }
 
     #[test]
@@ -447,6 +642,32 @@ mod tests {
         assert!(os.ends_with(std::env::consts::ARCH), "{os}");
         #[cfg(windows)]
         assert!(os.starts_with("Windows 1"), "{os}");
+        let lines = system_lines();
+        assert_eq!(lines[0], os);
+        // Linux: the web engine and the package as well.
+        #[cfg(target_os = "linux")]
+        {
+            assert!(lines[1].starts_with("WebKitGTK 2."), "{lines:?}");
+            assert!(lines[2].starts_with("Installed: "), "{lines:?}");
+        }
+    }
+
+    #[test]
+    fn the_distribution_is_read_from_os_release() {
+        let ubuntu = "PRETTY_NAME=\"Ubuntu 26.04 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"26.04\"\n";
+        assert_eq!(pretty_name(ubuntu).as_deref(), Some("Ubuntu 26.04 LTS"));
+        assert_eq!(pretty_name("NAME=Fedora Linux\nVERSION_ID=44\n").as_deref(), Some("Fedora Linux 44"));
+        assert_eq!(pretty_name("NAME='Arch Linux'\nPRETTY_NAME=''\n").as_deref(), Some("Arch Linux"));
+        assert_eq!(pretty_name("PRETTY_NAME=\"Say \\\"hi\\\"\"\n").as_deref(), Some("Say \"hi\""));
+        assert_eq!(pretty_name("ID=debian\n"), None);
+    }
+
+    #[test]
+    fn a_kde_proxy_is_read_from_kioslaverc() {
+        let rc = "[Cache]\nProxyType=9\n\n[Proxy Settings]\nNoProxyFor=\nProxyType=1\nhttpProxy=http://proxy 3128\n";
+        assert_eq!(kde_proxy_type(rc), Some(1));
+        assert_eq!(kde_proxy_type("[Proxy Settings]\nProxyType=0\n"), Some(0));
+        assert_eq!(kde_proxy_type("[Cache]\nProxyType=2\n"), None);
     }
 
     /// Answers one request with `reply` and hands over what it received.
@@ -532,8 +753,9 @@ mod tests {
 
     #[test]
     fn a_failed_connection_with_a_setup_script_names_both_causes() {
-        assert_eq!(connect_detail(false), ErrorDetail::NoConnection);
-        assert_eq!(connect_detail(true), ErrorDetail::NoConnectionOrProxy);
+        assert_eq!(connect_detail(None), ErrorDetail::NoConnection);
+        assert_eq!(connect_detail(Some(ErrorDetail::NoConnectionOrProxy)), ErrorDetail::NoConnectionOrProxy);
+        assert_eq!(connect_detail(Some(ErrorDetail::NoConnectionOrSystemProxy)), ErrorDetail::NoConnectionOrSystemProxy);
     }
 
     #[tokio::test]
