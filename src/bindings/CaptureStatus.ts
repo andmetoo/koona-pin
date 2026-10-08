@@ -3,6 +3,7 @@ import type { BrowserStatus } from "./BrowserStatus";
 import type { CaptureProblem } from "./CaptureProblem";
 import type { CaptureState } from "./CaptureState";
 import type { LastCapture } from "./LastCapture";
+import type { System } from "./System";
 
 export type CaptureStatus = { state: CaptureState, 
 /**
@@ -16,4 +17,9 @@ days_silent: number | null, problem: CaptureProblem | null,
 /**
  * The system's words for the problem, for the report.
  */
-detail: string | null, protocol: number, };
+detail: string | null, protocol: number, 
+/**
+ * The texts of a problem name what this system has: a package to
+ * reinstall on Linux, an installer on Windows (Р-52, п. 5).
+ */
+system: System, };

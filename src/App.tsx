@@ -33,6 +33,7 @@ import { emptyDraft, FeedbackDraft } from "./services/feedback";
 import { DuplicatesPage } from "./components/library/DuplicatesPage";
 import { LinkCheckPage } from "./components/library/LinkCheckPage";
 import { mergedNotice } from "./services/duplicates";
+import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
@@ -897,7 +898,7 @@ export function App() {
                         </Button>
                       }
                     >
-                      {t(`browser.banner_${capture.problem ?? "channel"}`)}
+                      {problemBanner(capture, t)}
                     </Banner>
                   )}
                   {damaged && (
