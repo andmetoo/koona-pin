@@ -75,6 +75,8 @@ if [ "${GITHUB_JOB:-}" = check ]; then
   playwright=$(/opt/node/bin/node -p "require('./package-lock.json').packages['node_modules/playwright'].version")
   PATH=/opt/node/bin:$PATH npx --yes "playwright@$playwright" install-deps chromium > /dev/null
   apt-get install -y -qq fonts-noto-cjk > /dev/null
+  # The development registration is checked with the distribution's browsers (NP-100, smoke-registration.mjs).
+  apt-get install -y -qq chromium firefox-esr > /dev/null
 fi
 
 id dev > /dev/null 2>&1 || useradd -m -u 1001 -U dev

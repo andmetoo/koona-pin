@@ -9,6 +9,7 @@ import {
   connectedNames,
   incompatible,
   lastSaved,
+  problemText,
   statusColor,
   statusLabel,
 } from "../../services/capture";
@@ -263,7 +264,7 @@ function BrowserSection({
               browser: outdated ? browserName[outdated.browser] : "",
               version: outdated?.extension_version ?? "?",
             })
-          : t(`browser.problem_${capture?.problem ?? "channel"}`);
+          : problemText(capture, t);
     const failing = state === "failing";
     return (
       <section className="flex flex-col gap-2" data-capture={state}>

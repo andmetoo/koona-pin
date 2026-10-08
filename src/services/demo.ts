@@ -58,6 +58,7 @@ const demoCaptureStatus: CaptureStatus = {
   problem: null,
   detail: null,
   protocol: 2,
+  system: "windows",
 };
 
 // v2: generated previews instead of the drawn ones of the concepts; v3: the inbox; v4: the trash.

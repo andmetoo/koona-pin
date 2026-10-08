@@ -1098,3 +1098,38 @@
 **Последствия:** строки приложения — в `src/locales` на всех 14 языках; строки расширения добавит задача, которая подключит их в код (тест расширения не пускает неиспользуемые ключи). Кадры — лист 40 в `iterone.sketch`, описание — [redesign.md](redesign.md#linux-окно-трей-и-захват). Код — NP-053 (#151), NP-097 (#152), NP-054 (#156).
 
 **Повод пересмотреть:** Tauri начнёт передавать щелчок по значку трея на Linux; GNOME включит AppIndicator по умолчанию; жалобы beta на кнопки окна в конкретном окружении.
+
+## Р-53. Регистрация native host на Linux
+
+8 октября 2026 года. Задача NP-100 (#155), первый шаг — проверка до кода. Выбор владельца: приложение, которое запускает host, живёт в своей области systemd (п. 6). Уточняет [Р-45](#р-45-контракт-linux-beta), п. 5 и 7, и [Р-52](#р-52-окно-трей-и-захват-на-linux), п. 6; дополняет [Р-17](#р-17-захват-через-native-messaging).
+
+**Контекст:** Р-45 оставил открытыми каталог Firefox на Fedora (`lib` или `lib64`), путь Firefox из Snap через портал, Chromium из Snap и новые профили Firefox 147 по XDG.
+
+**Как проверено (8 октября 2026 года):** пакеты браузеров распакованы в контейнерах без установки, пути каталогов прочитаны из самих бинарников; исходники — Firefox (`toolkit/xre/nsXREDirProvider.cpp`, `moz.build`, `NativeMessaging.sys.mjs`), xdg-desktop-portal Ubuntu 26.04 (`1.21.1+ds-1ubuntu3.1`, патч `webextensions-portal.patch`), [xdg-native-messaging-proxy](https://github.com/flatpak/xdg-native-messaging-proxy) 0.1.0, патчи [Firefox-Snap](https://github.com/canonical/firefox-snap) Canonical и сборка Chromium-Snap (`snap-from-source`).
+
+| Браузер | Системный каталог | Каталог пользователя |
+| --- | --- | --- |
+| Chrome 155, пакет Google | `/etc/opt/chrome/native-messaging-hosts` | `~/.config/google-chrome/NativeMessagingHosts` |
+| Edge 154, пакет Microsoft | `/etc/opt/edge/native-messaging-hosts` (строка `/etc/opt/chrome` в бинарнике тоже есть) | `~/.config/microsoft-edge/NativeMessagingHosts` |
+| Chromium 153–154, пакеты Debian, Fedora, Arch | `/etc/chromium/native-messaging-hosts` | `~/.config/chromium/NativeMessagingHosts` |
+| Firefox 157 — APT Mozilla, Arch; ESR 153 — Debian | только `/usr/lib/mozilla/native-messaging-hosts` | `~/.mozilla/native-messaging-hosts` |
+| Firefox 157, Fedora 44 | только `/usr/lib64/mozilla/native-messaging-hosts` | `~/.mozilla/native-messaging-hosts` |
+| Firefox из Snap, Ubuntu 26.04 | через портал или прокси: `/usr/lib/mozilla/…`, `/usr/lib64/mozilla/…` | `~/.mozilla/…`, `~/.config/mozilla/…` |
+| Chromium из Snap | — host не запускается | — |
+
+- **Каталог Firefox выбирается при сборке:** `--libdir` с `lib64` — только `/usr/lib64/mozilla`, иначе только `/usr/lib/mozilla`; оба он не читает. Пользовательский — всегда `~/.mozilla`, и после перехода профилей на XDG в Firefox 147 («Keep forcing the legacy path for compatibility»).
+- **Firefox из Snap.** Сборка Canonical включает и портал WebExtensions, и прокси (`widget.use-xdg-desktop-portal.native-messaging` и `…native-messaging-proxy` = 2; ESR — только портал). Firefox сначала пробует прокси, затем портал. Прокси есть в архиве Ubuntu 26.04, но `ubuntu-desktop` его не ставит: на чистой системе работает портал — он один раз спрашивает разрешение (таблица `webextensions`), прокси не спрашивает. Оба — службы пользователя systemd вне песочницы, ищут манифест в одних и тех же каталогах и запускают host с аргументами `<путь манифеста> <ID расширения>`, как сам Firefox (режим Chromium — `<origin>`). Host не меняется.
+- **Chromium из Snap** host не запустит: клиента портала или прокси нет ни в Chromium, ни в сборке Canonical (155, `core24`: ни патча, ни plug). Отсюда спокойный статус Р-52, п. 6 (#150). Манифест в `/etc/chromium` ему не мешает.
+
+**Решение:**
+
+1. **Пакет кладёт манифесты** `app.koona.pin.json` (на Linux браузер ищет файл по имени host), `path` — `/usr/bin/koonapin-host`. Chromium-семейство (`allowed_origins` — ID Chrome Web Store и Edge Add-ons): `/etc/opt/chrome/…`, `/etc/opt/edge/…`, `/etc/chromium/native-messaging-hosts`. Firefox (`allowed_extensions` — `pin@koona.app`): `/usr/lib/mozilla/native-messaging-hosts`; `.rpm` — ещё `/usr/lib64/mozilla/…` (Firefox Fedora читает только его, `/usr/lib` остаётся для сборки Mozilla); `.deb` и AUR — без `lib64` (у Debian и Arch его нет в политике). Файлы пишет `koonapin --package-manifests <deb|rpm|arch> <корень>` из констант `native_host.rs`; ID разработки — только вне `public-release`, как на Windows.
+2. **Проверка при запуске** (release-сборка): манифесты на месте — три каталога Chromium и `/usr/lib/mozilla`, а `/usr/lib64/mozilla` — если есть Firefox Fedora (`/usr/lib64/firefox`); каждый наш манифест разбирается, называет host и пускает расширения магазинов; host существует. Нет файла или он испорчен — `registration` с путём, host отсутствует — `host_missing`. Системные файлы приложение не пишет; «Повторить» проверяет заново, текст — переустановить пакет (`problem_*_linux`, Р-52, п. 5). Систему интерфейс узнаёт из статуса захвата.
+3. **Отладочная регистрация** (`KOONAPIN_REGISTER_HOST=1` или `--register-host`) пишет манифесты с абсолютным путём к host рядом с бинарником в каталоги пользователя: `$XDG_CONFIG_HOME/google-chrome/NativeMessagingHosts`, `…/microsoft-edge/…`, `…/chromium/…` и `~/.mozilla/native-messaging-hosts` (его читают Firefox, портал и прокси). `--unregister-host` удаляет те, что указывают на эту папку, чужие остаются — как ключи на Windows.
+4. **Snap:** Firefox — заявлен через портал и прокси без своего кода; Chromium — не заявлен, спокойный статус.
+5. **Edge** по документации читает `/etc/opt/edge`; манифест лежит и там, и в `/etc/opt/chrome`, так что строка в бинарнике ничего не меняет.
+6. **Своя область systemd для приложения.** Приложение, запущенное host, попадает в cgroup того, кто запустил host: в область браузера или — для Firefox из Snap — в службу портала (`xdg-desktop-portal.service`, `session.slice`). Остановка или перезапуск этой единицы убивает и приложение: `setsid` из cgroup не выводит. Это двойник job-объекта Firefox на Windows (Р-17, п. 3; NP-014). Host запускает приложение как `systemd-run --user --scope --collect --slice=app.slice --unit=app-app.koona.pin-<случайное>.scope -- koonapin --autostart` (имя и срез — по соглашению systemd для приложений), если менеджер пользователя доступен (`$XDG_RUNTIME_DIR/systemd/private`); без него (контейнеры) или если `systemd-run` сразу завершился с ошибкой — напрямую, как в NP-099.
+
+**Не проверено:** портал и прокси на настоящем рабочем столе Ubuntu 26.04 (запрос разрешения, перезапуск браузера), Firefox Fedora и Edge с манифестом — вручную при приёмке (NP-054, #156).
+
+**Повод пересмотреть:** Ubuntu начнёт ставить прокси по умолчанию или уберёт портал; Chromium получит клиент портала или прокси; Firefox перестанет читать `~/.mozilla`; Fedora сменит `libdir` Firefox.
