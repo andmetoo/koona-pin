@@ -9,7 +9,7 @@ export default defineConfig({
     locale: "en-US",
   },
   webServer: {
-    command: "node node_modules/vite/bin/vite.js --host 127.0.0.1",
+    command: "bun node_modules/vite/bin/vite.js --host 127.0.0.1",
     url: "http://127.0.0.1:1420",
     reuseExistingServer: true,
   },

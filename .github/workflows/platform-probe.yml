@@ -24,16 +24,15 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: .nvmrc
-          cache: npm
+          bun-version-file: .bun-version
       - name: Rust toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - run: npm ci
+      - run: bun install --frozen-lockfile
       - name: System and WebKit
         run: |
           mkdir -p probe
@@ -47,7 +46,7 @@ jobs:
         run: |
           start=$(date +%s)
           # tauri.conf.json keeps bundling off (only the Windows installer script turns it on, NP-037).
-          npm run tauri build -- --bundles app --config '{"bundle":{"active":true}}' 2>&1 | tail -n 40 | tee probe/build.log
+          bun run tauri build -- --bundles app --config '{"bundle":{"active":true}}' 2>&1 | tail -n 40 | tee probe/build.log
           echo "build seconds: $(( $(date +%s) - start ))" | tee -a probe/system.txt
           du -sh src-tauri/target/release/bundle/macos/*.app | tee -a probe/system.txt
       - name: Launch, screenshot, single instance, data folder
@@ -77,9 +76,9 @@ jobs:
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: .nvmrc
+          bun-version-file: .bun-version
       - name: Rust toolchain with iOS targets
         run: |
           rustup show active-toolchain || rustup toolchain install
@@ -100,15 +99,15 @@ jobs:
         run: |
           cargo check --lib --target aarch64-apple-ios 2> ../probe/app-check.log || true
           echo "errors: $(grep -c 'error\[' ../probe/app-check.log || true)" | tee -a ../probe/system.txt
-      # Outside the repository: Xcode calls `npm run tauri` of the nearest
+      # Outside the repository: Xcode calls `bun run tauri` of the nearest
       # package.json, which inside it would be the real app (first run).
       - name: Probe app for the simulator
         run: |
           cp -R scripts/platform-probe/mobile-app "$RUNNER_TEMP/probe"
           cd "$RUNNER_TEMP/probe"
-          npm install --no-audit --no-fund
-          npm run tauri -- ios init --ci 2>&1 | tail -n 20 | tee "$GITHUB_WORKSPACE/probe/ios-init.log"
-          npm run tauri -- ios build --ci --debug --target aarch64-sim 2>&1 | tail -n 40 | tee "$GITHUB_WORKSPACE/probe/ios-build.log"
+          bun install
+          bun run tauri ios init --ci 2>&1 | tail -n 20 | tee "$GITHUB_WORKSPACE/probe/ios-init.log"
+          bun run tauri ios build --ci --debug --target aarch64-sim 2>&1 | tail -n 40 | tee "$GITHUB_WORKSPACE/probe/ios-build.log"
       - name: Run in the simulator, screenshot
         run: |
           app=$(find "$RUNNER_TEMP/probe/src-tauri/gen/apple" "$HOME/Library/Developer/Xcode/DerivedData" -name "*.app" -path "*simulator*" 2>/dev/null | head -1)

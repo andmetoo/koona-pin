@@ -5,7 +5,7 @@
 // It also fixes the saved size of auto-layout frames sized to hug their content but drawn
 // wider or taller than it, which Lunacy would collapse on the next edit.
 // Close the file in Lunacy first. Safe to run twice: fixed frames are skipped.
-// Run: node scripts/fix-sketch-frames.mjs design/lunacy/iterone.sketch [more.sketch]
+// Run: bun scripts/fix-sketch-frames.mjs design/lunacy/iterone.sketch [more.sketch]
 //
 // With --figma <dir> the files are left alone and a copy for the Figma import is
 // written to <dir>. Lunacy stacks auto-layout children first-on-top, Figma reads

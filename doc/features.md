@@ -71,37 +71,37 @@
 Сборка установщика:
 
 ```powershell
-npm ci
+bun install
 copy .env.example .env              # адрес отзыва и отпечаток сертификата; .env не в Git
-npm run build:installer             # без подписи — только для проверочной машины
-npm run build:installer -- --sign   # подпись Certum SimplySign, условия — в release-checklist.md
+bun run build:installer             # без подписи — только для проверочной машины
+bun run build:installer -- --sign   # подпись Certum SimplySign, условия — в release-checklist.md
 ```
 
 Настройки берутся из `.env` в корне репозитория или из переменных окружения (переменная окружения важнее). Скрипт собирает с `--features public-release` и кладёт установщик с `SHA256SUMS.txt` в `release/test/windows/<версия>/`, с `--sign` — в `release/publish/windows/<версия>/`. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
 
-Сборка пакетов Linux — `npm run build:linux` на Debian 13 (самая старая glibc матрицы) с пакетами `scripts/linux/deps.sh` и `rpm`; `.env` и `public-release` — как у установщика. Результат с `SHA256SUMS.txt` — в `release/publish/linux/<версия>/`, без подписи GPG (Р-45, п. 8). В CI её делает задание `build` в `linux.yml` ([testing.md](testing.md#linux)).
+Сборка пакетов Linux — `bun run build:linux` на Debian 13 (самая старая glibc матрицы) с пакетами `scripts/linux/deps.sh` и `rpm`; `.env` и `public-release` — как у установщика. Результат с `SHA256SUMS.txt` — в `release/publish/linux/<версия>/`, без подписи GPG (Р-45, п. 8). В CI её делает задание `build` в `linux.yml` ([testing.md](testing.md#linux)).
 
-Манифест обновлений — `npm run build:latest` после установщика и пакетов Linux одной версии ([Р-60](decisions.md#р-60-обновление-приложения)): подписывает их ключом обновлений (`.sig` рядом) и пишет `release/publish/updates/<версия>/latest.json`; `--only windows` или `--only linux` — выпуск для одной системы. Ключ — `TAURI_SIGNING_PRIVATE_KEY` или `TAURI_SIGNING_PRIVATE_KEY_PATH`, пароль — `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` на время команды.
+Манифест обновлений — `bun run build:latest` после установщика и пакетов Linux одной версии ([Р-60](decisions.md#р-60-обновление-приложения)): подписывает их ключом обновлений (`.sig` рядом) и пишет `release/publish/updates/<версия>/latest.json`; `--only windows` или `--only linux` — выпуск для одной системы. Ключ — `TAURI_SIGNING_PRIVATE_KEY` или `TAURI_SIGNING_PRIVATE_KEY_PATH`, пароль — `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` на время команды.
 
 Самостоятельная релизная сборка без установщика — `cargo build --release --features custom-protocol` в `src-tauri`, результат `src-tauri/target/release/koonapin.exe`. Она проверена в настоящем WebView2 и с расширением через Native Messaging.
 
-Для запуска этой x64-сборки достаточно одного EXE на Windows с установленным **Microsoft Edge WebView2 Runtime**. Интерфейс и SQLite встроены; Node.js, Rust и исходники не нужны. Для захвата из браузера рядом лежит `koonapin-host.exe`. WebView2 не входит в EXE: на другом компьютере при его отсутствии установите [Evergreen WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section). База создаётся отдельно в `%APPDATA%\Koona\Pin`, поэтому перенос EXE не переносит библиотеку.
+Для запуска этой x64-сборки достаточно одного EXE на Windows с установленным **Microsoft Edge WebView2 Runtime**. Интерфейс и SQLite встроены; Bun, Rust и исходники не нужны. Для захвата из браузера рядом лежит `koonapin-host.exe`. WebView2 не входит в EXE: на другом компьютере при его отсутствии установите [Evergreen WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section). База создаётся отдельно в `%APPDATA%\Koona\Pin`, поэтому перенос EXE не переносит библиотеку.
 
 ## Браузеры
 
 Расширение сохраняет текущую HTTP/HTTPS-страницу одним нажатием в Chrome и Edge 120+ и Firefox 140+. Страница настроек с очередью открывается правым кликом по кнопке: «Параметры» в Chrome и Edge, «Настройки и очередь» в Firefox (там у кнопки нет своего пункта, NP-018). Передаются адрес и название вкладки, без тегов и коллекции. Обычного popup нет. Служебные страницы браузера, локальные файлы и другие схемы не поддерживаются. Язык расширения — язык браузера, те же языки, что у приложения ([Языки](#языки)); для остальных — английский.
 
-Все три варианта собирает одна команда `npm run extension:build` из `extension/src`: распакованные папки `release/dev/chrome`, `edge`, `firefox` и пакеты `release/publish/chrome/<версия>/koonapin-chrome.zip` и `release/publish/edge/<версия>/koonapin-edge.zip`; тесты в них не входят. Публикации в каталогах пока нет (NP-017, NP-018), расширение не устанавливается вместе с приложением. Карточки для Chrome Web Store и Edge Add-ons (непубличная публикация), их тексты, обоснование разрешений, картинки и политика конфиденциальности — в `extension/store` (NP-017). Когда в `storeLinks` (`src/services/capture.ts`) появится страница расширения, «Подключить браузер» для этого браузера предложит установку из каталога одной кнопкой вместо режима разработчика.
+Все три варианта собирает одна команда `bun run extension:build` из `extension/src`: распакованные папки `release/dev/chrome`, `edge`, `firefox` и пакеты `release/publish/chrome/<версия>/koonapin-chrome.zip` и `release/publish/edge/<версия>/koonapin-edge.zip`; тесты в них не входят. Публикации в каталогах пока нет (NP-017, NP-018), расширение не устанавливается вместе с приложением. Карточки для Chrome Web Store и Edge Add-ons (непубличная публикация), их тексты, обоснование разрешений, картинки и политика конфиденциальности — в `extension/store` (NP-017). Когда в `storeLinks` (`src/services/capture.ts`) появится страница расширения, «Подключить браузер» для этого браузера предложит установку из каталога одной кнопкой вместо режима разработчика.
 
 ### Установка и подключение
 
 Токена нет: расширение говорит с приложением через Native Messaging, браузер сам запускает помощника Koona Pin (`koonapin-host.exe`) и пускает к нему только расширение Koona Pin ([Р-17](decisions.md#р-17-захват-через-native-messaging)). Шаги для каждого браузера есть в приложении: «Подключить браузер» (кадр 18).
 
-1. Соберите расширение: `npm run extension:build`.
+1. Соберите расширение: `bun run extension:build`.
 2. Установите его:
    - **Chrome**: `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное расширение» → папка `release/dev/chrome`.
    - **Edge**: `edge://extensions` → «Режим разработчика» → «Загрузить распакованное» → папка `release/dev/edge`.
-   - **Firefox**: подписанный пакет `release/publish/firefox/koonapin-firefox-<версия>.xpi` — `about:addons` → шестерёнка → «Установить дополнение из файла…». Его подписывает AMO без публичной страницы (`npm run extension:sign:firefox`, ключ AMO владельца), он остаётся после перезапуска и сам проверяет обновления по `https://koona.app/pin/firefox/updates.json` (`gecko.update_url`; файл и пакеты публикуются вместе с сайтом, NP-079). Для разработки `release/dev/firefox/manifest.json` загружается через `about:debugging#/runtime/this-firefox` → «Загрузить временное дополнение…»; Firefox удаляет его при закрытии.
+   - **Firefox**: подписанный пакет `release/publish/firefox/koonapin-firefox-<версия>.xpi` — `about:addons` → шестерёнка → «Установить дополнение из файла…». Его подписывает AMO без публичной страницы (`bun run extension:sign:firefox`, ключ AMO владельца), он остаётся после перезапуска и сам проверяет обновления по `https://koona.app/pin/firefox/updates.json` (`gecko.update_url`; файл и пакеты публикуются вместе с сайтом, NP-079). Для разработки `release/dev/firefox/manifest.json` загружается через `about:debugging#/runtime/this-firefox` → «Загрузить временное дополнение…»; Firefox удаляет его при закрытии.
 3. Закрепите значок Koona Pin и нажимайте его на страницах, которые хотите сохранить. Если Koona Pin закрыт, сохранение запустит его в трее.
 
 Установщик регистрирует помощника для Chrome, Edge и Firefox, релизная сборка проверяет и чинит регистрацию при каждом запуске. Отладочная — только с `KOONAPIN_REGISTER_HOST=1`, чтобы не перехватить регистрацию установленного приложения. Koona Pin пускает расширение из Chrome Web Store (ID `dedcgklilbgbieabgpklellnaccpjhpc`) и Edge Add-ons (ID `ocdkndgdeagephdnlmofffbapdifhkho`) — пока это черновики, они уйдут на проверку после установщика (NP-037) — и, кроме сборки установщика, расширение, собранное из этого репозитория (ID `iibgiagcbediajombmkohanobgicbepn`).

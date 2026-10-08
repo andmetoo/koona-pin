@@ -2,7 +2,7 @@
 // talking to Koona Pin through the real native host. The run registers a host
 // name of its own, so an installed app's registration stays untouched.
 //
-//   node scripts/smoke-extension.mjs [chromium|chrome|edge]
+//   bun scripts/smoke-extension.mjs [chromium|chrome|edge]
 //
 // chromium is Chrome for Testing from Playwright; chrome and edge are the
 // installed browsers (KOONAPIN_CHROME / KOONAPIN_EDGE point to another copy).
@@ -10,13 +10,13 @@ import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, renameSync } from "node:fs";
 import http from "node:http";
-import { appendFile, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { appendFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { setTimeout as sleep } from "node:timers/promises";
 import { buildExtension } from "./build-extension.mjs";
-import { assertNoOtherApp, hostBinary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+import { assertNoOtherApp, hostBinary, moveLibrary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
 
 assertNoOtherApp();
 
@@ -202,8 +202,7 @@ try {
   // The library cannot open: the link stays in the queue.
   apps.stop();
   await until(async () => !(await pipeReady(pipe)), "app stopped");
-  for (const suffix of ["", "-wal", "-shm"])
-    await rename(library + suffix, `${library}.kept${suffix}`).catch(() => {});
+  await moveLibrary(library, `${library}.kept`);
   await writeFile(library, "not a database");
   assert.equal(await capture("https://example.invalid/library-failed", "Ждёт в очереди"), "queued");
   const queued = await waiting();
@@ -226,8 +225,7 @@ try {
   apps.stop();
   await until(async () => !(await pipeReady(pipe)), "no app left from the restart");
   await rm(library);
-  for (const suffix of ["", "-wal", "-shm"])
-    await rename(`${library}.kept${suffix}`, library + suffix).catch(() => {});
+  await moveLibrary(`${library}.kept`, library);
   const retried = performance.now();
   await until(async () => (await waiting()).length === 0, "delivery by the alarm", 150000);
   const retryS = Math.round((performance.now() - retried) / 1000);

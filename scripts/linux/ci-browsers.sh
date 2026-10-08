@@ -14,8 +14,7 @@ case "$ID" in
   arch) chromium=/usr/bin/chromium ;;
   *) echo "FAIL: no browsers of $PRETTY_NAME here: the «check» job covers the .deb"; exit 1 ;;
 esac
-export PATH=/opt/node/bin:$PATH
-npm ci --no-audit --no-fund > /dev/null
+bun install --frozen-lockfile > /dev/null
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 XDG_RUNTIME_DIR
 XDG_RUNTIME_DIR=$(mktemp -d)
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -25,4 +24,4 @@ trap 'kill $xvfb 2> /dev/null || true' EXIT
 for _ in $(seq 50); do [ -S /tmp/.X11-unix/X97 ] && break; sleep 0.2; done
 echo "Firefox $(firefox --version 2> /dev/null | grep -oE '[0-9.]+$'), Chromium $("$chromium" --version 2> /dev/null | grep -oE '[0-9.]+' | head -1)"
 KOONAPIN_CHROMIUM=$chromium KOONAPIN_FIREFOX=/usr/bin/firefox \
-  DISPLAY=:97 GDK_BACKEND=x11 dbus-run-session -- node scripts/smoke-registration.mjs --installed
+  DISPLAY=:97 GDK_BACKEND=x11 dbus-run-session -- bun scripts/smoke-registration.mjs --installed

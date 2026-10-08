@@ -1,7 +1,7 @@
 // Is the window drawn (NP-098)? A screenshot of the whole screen — X11 `xwd -root` or Weston's PNG — and
 // the number of different colours in it. An empty or black window (WebKitGTK's renderer failing, as with
 // DMABUF on NVIDIA) leaves the screen in a few flat colours; the interface brings hundreds with its text.
-//   node scripts/linux/screen-colours.mjs <file.xwd|file.png> [minimum, 50]
+//   bun scripts/linux/screen-colours.mjs <file.xwd|file.png> [minimum, 50]
 import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
 

@@ -2,7 +2,7 @@
 // checking pages: /pin to /pin/, try_files {path} {path}.html {path}/index.html, the 404 pages, the
 // language redirect of /pin/ (read from the Caddyfile itself), the security headers. "/" stands for
 // the root site of koona.app and sends to /pin/. Not a production server.
-//   node scripts/serve-site.mjs [port]   (default 4173)
+//   bun scripts/serve-site.mjs [port]   (default 4173)
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
