@@ -38,6 +38,14 @@ check() {
   ' check "$app"
 }
 
+# The package's manifests from this binary (NP-100, Р-53): what NP-055 puts into the .deb, the .rpm and AUR.
+step "Native host manifests of the packages (--package-manifests)"
+for package in deb rpm arch; do
+  root=$(mktemp -d)
+  "$app" --package-manifests "$package" "$root" > /dev/null
+  echo "ok: $package —$(cd "$root" && find . -name app.koona.pin.json | sort | sed 's/^\./ /' | tr -d '\n')"
+done
+
 # A container has no user namespaces for WebKitGTK's sandbox; a desktop system does.
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
 unset XDG_DATA_HOME KOONAPIN_DATA_DIR WAYLAND_DISPLAY DISPLAY

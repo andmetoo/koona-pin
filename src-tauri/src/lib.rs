@@ -37,12 +37,16 @@ pub(crate) fn show_window(app: &tauri::AppHandle) {
     }
 }
 
-/// A step the installer or the uninstaller runs (NP-037): the app does it and
-/// exits with 0 or 1, without a window, the tray or the library.
+/// A step the installer or the uninstaller runs (NP-037), or the Linux package
+/// build (NP-100): the app does it and exits with 0 or 1, without a window, the
+/// tray or the library.
 pub fn installer_step() -> Option<i32> {
-    let ok = match std::env::args().nth(1)?.as_str() {
-        native_host::REGISTER_ARG => native_host::register().is_ok(),
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let ok = match args.first()?.as_str() {
+        native_host::REGISTER_ARG => native_host::register_on_request().is_ok(),
         native_host::UNREGISTER_ARG => native_host::unregister().is_ok(),
+        #[cfg(target_os = "linux")]
+        native_host::linux::PACKAGE_ARG => return Some(native_host::linux::package_step(&args[1..])),
         _ => return None,
     };
     Some(if ok { 0 } else { 1 })

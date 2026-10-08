@@ -167,6 +167,30 @@ pub struct CaptureStatus {
     /// The system's words for the problem, for the report.
     pub detail: Option<String>,
     pub protocol: u32,
+    /// The texts of a problem name what this system has: a package to
+    /// reinstall on Linux, an installer on Windows (Р-52, п. 5).
+    pub system: System,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export)]
+pub enum System {
+    Windows,
+    Linux,
+    Macos,
+}
+
+impl System {
+    pub const fn current() -> Self {
+        if cfg!(target_os = "linux") {
+            System::Linux
+        } else if cfg!(target_os = "macos") {
+            System::Macos
+        } else {
+            System::Windows
+        }
+    }
 }
 
 fn parse(time: &str) -> Option<DateTime<Utc>> {
@@ -219,6 +243,7 @@ pub fn status(
         detail: problem.as_ref().map(|(_, detail)| detail.clone()),
         problem: problem.map(|(problem, _)| problem),
         protocol: PROTOCOL,
+        system: System::current(),
     }
 }
 
