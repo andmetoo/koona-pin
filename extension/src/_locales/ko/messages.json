@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin이 설치되어 있지 않거나 설치가 손상되었습니다. 링크는 여기에서 기다립니다."
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin이 이 확장 프로그램 사본을 허용하지 않습니다. 링크는 여기에서 기다립니다."
+  },
   "errorIncompatible": {
     "message": "확장 프로그램이 Koona Pin과 맞지 않습니다. 확장 프로그램을 업데이트하세요. 링크는 여기에서 기다립니다."
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin이 설치되어 있지 않습니다" },
   "statusMissingText": {
     "message": "확장 프로그램이 이 컴퓨터에서 앱을 찾을 수 없습니다. Koona Pin을 설치하거나, 이미 있다면 다시 설치하세요."
+  },
+  "statusForbidden": { "message": "Koona Pin이 이 확장 프로그램을 허용하지 않습니다" },
+  "statusForbiddenText": {
+    "message": "Koona Pin은 설치되어 있지만 이 확장 프로그램 사본을 알지 못합니다. Koona Pin 다운로드 페이지에서 확장 프로그램을 설치하세요. 개발용 빌드는 앱의 개발용 빌드에서만 작동합니다. 저장한 링크는 여기서 기다립니다."
   },
   "statusSandbox": { "message": "이 브라우저에서는 저장할 수 없습니다" },
   "statusSandboxText": {
