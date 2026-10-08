@@ -15,6 +15,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{AppHandle, Emitter, Manager, State};
+#[cfg(not(target_os = "linux"))]
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
@@ -625,7 +626,7 @@ pub async fn feedback_report(app: AppHandle, channel: State<'_, Arc<ChannelState
     let version = app.package_info().version.to_string();
     tauri::async_runtime::spawn_blocking(move || {
         let home = dirs::home_dir().map(|p| p.to_string_lossy().into_owned());
-        feedback::report(&channel.status(chrono::Utc::now()), &version, &feedback::os_name(), &language, home.as_deref())
+        feedback::report(&channel.status(chrono::Utc::now()), &version, &feedback::system_lines(), &language, home.as_deref())
     })
     .await
     .map_err(CommandError::internal)
@@ -979,21 +980,41 @@ pub fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+/// Linux keeps its own XDG autostart entry (`autostart::xdg`, NP-097).
 #[tauri::command]
 pub fn get_autostart(app: AppHandle) -> Result<bool, CommandError> {
+    #[cfg(target_os = "linux")]
+    return {
+        let _ = app;
+        Ok(crate::autostart::xdg::is_enabled())
+    };
+    #[cfg(not(target_os = "linux"))]
     app.autolaunch()
         .is_enabled()
         .map_err(CommandError::internal)
 }
 #[tauri::command]
 pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), CommandError> {
-    let manager = app.autolaunch();
-    if enabled {
-        manager.enable()
-    } else {
-        manager.disable()
+    #[cfg(target_os = "linux")]
+    return {
+        let _ = app;
+        if enabled {
+            crate::autostart::xdg::enable()
+        } else {
+            crate::autostart::xdg::disable()
+        }
+        .map_err(CommandError::internal)
+    };
+    #[cfg(not(target_os = "linux"))]
+    {
+        let manager = app.autolaunch();
+        if enabled {
+            manager.enable()
+        } else {
+            manager.disable()
+        }
+        .map_err(CommandError::internal)
     }
-    .map_err(CommandError::internal)
 }
 
 /// The «Data» block of the settings.

@@ -939,7 +939,8 @@
       "service_failed": "serwer nie odpowiedział",
       "too_many_messages": "za dużo wiadomości z tej sieci w ciągu ostatniej godziny",
       "proxy_failed": "serwer proxy sieci odrzucił zapytanie",
-      "no_connection_or_proxy": "brak połączenia z internetem albo ta sieć wymaga swojego serwera proxy"
+      "no_connection_or_proxy": "brak połączenia z internetem albo ta sieć wymaga swojego serwera proxy",
+      "no_connection_or_system_proxy": "brak połączenia z internetem albo ta sieć wymaga serwera proxy z ustawień systemu"
     },
     "code": {
       "not_found": "To już nie istnieje — mogło zostać usunięte w międzyczasie.",
@@ -965,7 +966,8 @@
       "service_failed": "Nie udało się wysłać: serwer nie odpowiedział. Twój tekst został zachowany — spróbuj później albo skopiuj go i wyślij inaczej.",
       "too_many_messages": "Za dużo wiadomości z tej sieci w ciągu ostatniej godziny. Twój tekst został zachowany — spróbuj później.",
       "proxy_failed": "Nie udało się wysłać przez serwer proxy tej sieci: wymaga logowania albo jest niedostępny. Twój tekst został zachowany — skopiuj go i wyślij inaczej, na przykład na GitHubie.",
-      "no_connection_or_proxy": "Nie udało się wysłać: brak połączenia z internetem albo ta sieć wymaga swojego serwera proxy, ustawianego skryptem konfiguracji, którego aplikacja nie może użyć. Twój tekst został zachowany — spróbuj ponownie albo skopiuj go i wyślij inaczej, na przykład na GitHubie."
+      "no_connection_or_proxy": "Nie udało się wysłać: brak połączenia z internetem albo ta sieć wymaga swojego serwera proxy, ustawianego skryptem konfiguracji, którego aplikacja nie może użyć. Twój tekst został zachowany — spróbuj ponownie albo skopiuj go i wyślij inaczej, na przykład na GitHubie.",
+      "no_connection_or_system_proxy": "Nie udało się wysłać: brak połączenia z internetem albo ta sieć wymaga serwera proxy z ustawień systemu, których aplikacja nie odczytuje — korzysta tylko ze zmiennych https_proxy i http_proxy. Twój tekst został zachowany — spróbuj ponownie albo skopiuj go i wyślij inaczej, na przykład na GitHubie."
     }
   },
   "tray": {

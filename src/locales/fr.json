@@ -881,7 +881,8 @@
       "service_failed": "le serveur n’a pas répondu",
       "too_many_messages": "trop de messages depuis ce réseau au cours de la dernière heure",
       "proxy_failed": "le proxy du réseau a refusé la requête",
-      "no_connection_or_proxy": "pas de connexion Internet, ou ce réseau a besoin de son proxy"
+      "no_connection_or_proxy": "pas de connexion Internet, ou ce réseau a besoin de son proxy",
+      "no_connection_or_system_proxy": "pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système"
     },
     "code": {
       "not_found": "Cela n’existe plus — peut-être supprimé entre-temps.",
@@ -907,7 +908,8 @@
       "service_failed": "Envoi impossible : le serveur n’a pas répondu. Votre texte est conservé — réessayez plus tard, ou copiez-le et envoyez-le autrement.",
       "too_many_messages": "Trop de messages depuis ce réseau au cours de la dernière heure. Votre texte est conservé — réessayez plus tard.",
       "proxy_failed": "Envoi impossible via le proxy de ce réseau : il demande une connexion ou est injoignable. Votre texte est conservé — copiez-le et envoyez-le autrement, par exemple sur GitHub.",
-      "no_connection_or_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin de son proxy, configuré par un script que l’application ne peut pas utiliser. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub."
+      "no_connection_or_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin de son proxy, configuré par un script que l’application ne peut pas utiliser. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub.",
+      "no_connection_or_system_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système, que l’application ne lit pas — elle n’utilise que les variables https_proxy et http_proxy. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub."
     }
   },
   "tray": {

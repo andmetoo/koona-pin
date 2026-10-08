@@ -95,6 +95,9 @@ pub fn start(app: AppHandle) {
         let library = app.state::<Arc<Library>>().inner().clone();
         match library::open(&library.paths) {
             Ok(opened) => {
+                // Linux turns the start with the session on at the first start (NP-097).
+                #[cfg(target_os = "linux")]
+                crate::autostart::xdg::apply_default(&opened.conn);
                 let db = Arc::new(DbState::new(opened.conn));
                 app.manage(db.clone());
                 let channel = app.state::<Arc<ChannelState>>().inner().clone();
