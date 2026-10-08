@@ -1201,3 +1201,35 @@
 **Проверка:** Rust — путь `db_path()` и хуки NSIS (`the_library_lives_in_the_brand_folder`, `the_installer_hooks_match_the_app`); Linux — `ci-smoke.sh` и `ci-package.sh` в `linux.yml`: путь по умолчанию, с `XDG_DATA_HOME`, библиотека после удаления пакета; деинсталлятор — шаги 12 и 14 [листа установщика](testing.md#установщик) при приёмке NP-039.
 
 **Повод пересмотреть:** выпуск в Microsoft Store или Mac App Store — папка становится контейнером пакета; приложениям Koona понадобятся общие данные.
+
+## Р-57. Нативные тесты на WebKitGTK
+
+8 октября 2026 года. Задача NP-095 (#149). Дополняет [Р-45](#р-45-контракт-linux-beta) проверкой Linux в матрице `linux.yml`.
+
+**Контекст:** нативные тесты (`npm run test:native`) подключают Playwright к WebView2 через CDP. У WebKitGTK нет CDP, а Playwright не подключается к чужой сборке WebKit — только к своей. Без нативных тестов окно, IPC, SQLite и захват на Linux проверялись только запуском (`ci-smoke.sh`) и вручную.
+
+**Варианты:**
+
+1. **`tauri-driver` + `WebKitWebDriver`, свой клиент W3C WebDriver** на `fetch` и `node:test` — без npm-пакетов.
+2. `tauri-driver` + WebdriverIO или Selenium: готовые ожидания, селекторы по роли (WebdriverIO), действия мыши. Но около 150 пакетов (WebdriverIO) и `npm ci` в каждом задании `distro`, где сейчас только Node.
+3. `WebKitWebDriver` напрямую, без `tauri-driver`: на Linux `tauri-driver` лишь переименовывает `tauri:options` в `webkitgtk:browserOptions` и задаёт `TAURI_WEBVIEW_AUTOMATION=true` — то же можно сделать в тесте.
+
+**Решение и причина:** вариант 1. Клиенту нужны десять команд WebDriver (сессия, скрипт, асинхронный скрипт для `invoke`, щелчок, ввод, снимок); элементы ищутся по роли и доступному имени скриптом в странице, как `getByRole` в `tests/native`, поэтому сценарии читаются так же. `tauri-driver` оставлен, как советует [документация Tauri](https://v2.tauri.app/develop/tests/webdriver/): те же `tauri:options` на Windows ведут к `msedgedriver` — путь, если CDP на раннере так и не заработает ([testing.md](testing.md#ci)); его сборка — около минуты в задании `build`.
+
+1. **Что проверяется** — установленный пакет, тот бинарник, что уходит людям: `TAURI_WEBVIEW_AUTOMATION` включает автоматизацию WebKit и в release-сборке (`tauri-runtime-wry`), отдельная тестовая сборка не нужна.
+2. **Где** — шаг «Native tests on WebKitGTK» каждого задания `distro` (`scripts/linux/ci-webkit.sh`): Xvfb, затем Weston headless без XWayland, у каждого свой D-Bus и свой дом. `tauri-driver` 2.1.0 собирается в `build` (`ci-build.sh`) и приходит отдельным артефактом `tauri-driver` — не в пакетах. `WebKitWebDriver` — из дистрибутива: `webkitgtk-webdriver` в Ubuntu и Debian; в Fedora и Arch он есть только в сборке под GTK 4 (`webkitgtk6.0`, `webkitgtk-6.0`) и управляет `webkit2gtk-4.1` приложения — версия WebKit та же.
+3. **Сценарии** (`tests/webkit/webkit.test.mjs`) — из первого сценария `test:native`: запуск с библиотекой в `KOONAPIN_DATA_DIR` и первыми коллекциями; добавление ссылки в SQLite через форму; статус захвата — «Browser not connected», захват через `/usr/bin/koonapin-host` и сокет, «Browser connected», «Inbox 2»; поиск FTS5 с регистром и двумя словами и очистка поля; без трея «Close window» показывает диалог «Koona Pin keeps running» (Р-52), «Hide window» прячет окно, второй запуск передаёт управление первому и показывает его окно.
+4. **Ввод — клавишами:** WebDriver «clear» меняет значение без события `input`, и React его не видит; поле очищается выделением и `Backspace`.
+
+**Последствия:**
+
+- **Перенос остальных 15 сценариев** `test:native` — около двух рабочих дней. Большинство работает через `invoke` и DOM и переносится почти дословно: схемы и экраны ошибок, импорт, восстановление, копии, дубликаты, проверка ссылок, корзина, отмена, разбор, редактор, перезапуски (новая сессия — новый запуск приложения). Клиенту не хватает клавиатурных сочетаний (`Ctrl A`, `Ctrl Z`, `Del`), наведения и перетаскивания — это команда `actions` WebDriver, около дня вместе с «массовыми действиями». Границы (NP-019) проверяют CSP: консоли у WebDriver нет, нарушения ловятся событием `securitypolicyviolation` в странице.
+- **Остаются ручными или на Windows:** замер прокрутки `@perf` — Xvfb и Weston рисуют без видеокарты, кадры несравнимы с рабочим столом; трей и его подписи (в контейнере трея нет); занятый канал захвата — на Linux это сокет другой копии, его проверяет `test:host` (NP-099); рабочие столы GNOME, KDE и Hyprland — при приёмке (NP-104).
+- Сценарии Windows не меняются: `test:native` остаётся на CDP, общих файлов у двух наборов нет — только `scripts/lib/native-host.mjs`.
+- Под Weston headless GTK пишет `gdk_seat_get_keyboard: assertion failed` на каждую клавишу (у безголового сиденья нет клавиатуры); ввод при этом доходит. Вывод драйверов и приложения — в `driver.log` папки прогона, на экран — только при падении.
+
+**Проверка:** 8 октября 2026 года, пакет из `build` (Debian 13), `tauri-driver` 2.1.0. Все пять сценариев прошли под X11 и Wayland на `ubuntu:26.04` (WebKitGTK 2.52.6), `debian:13` (2.54.0), `fedora:44` и `archlinux:latest` (2.54.1) — около 2 с на один дисплейный сервер. Повторить: `act workflow_dispatch -W .github/workflows/linux.yml -j build`, затем `-j distro` ([testing.md](testing.md#нативные-тесты-на-webkitgtk)).
+
+**Не проверено:** KDE (`kwin_wayland --virtual`) — в матрице нет образа с KDE; рабочий стол — при приёмке.
+
+**Повод пересмотреть:** перенос сценариев упрётся в ожидания и действия, которые проще взять из WebdriverIO; Playwright научится подключаться к WebKitGTK; CDP заработает на раннере Windows или понадобится один набор для обеих ОС через `msedgedriver`.

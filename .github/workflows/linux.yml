@@ -51,6 +51,13 @@ jobs:
           name: koonapin-linux-x86_64
           path: dist-linux/
           if-no-files-found: error
+      # The WebDriver server of the native tests on WebKitGTK (NP-095): a tool of the tests, kept out of the
+      # packages' artifact.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tauri-driver
+          path: dist-tools/
+          if-no-files-found: error
 
   # What ci.yml does on Windows — Rust tests, IPC types, build, Vitest, extension lint, Playwright UI
   # without @visual — from the sources, once the build has passed.
@@ -117,6 +124,14 @@ jobs:
         run: bash scripts/linux/ci-package.sh install
       - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
+      - uses: actions/download-artifact@v4
+        with:
+          name: tauri-driver
+          path: dist-tools/
+      - run: chmod +x dist-tools/tauri-driver
+      # tests/webkit through tauri-driver and the distribution's WebKitWebDriver, under X11 and Wayland (NP-095).
+      - name: Native tests on WebKitGTK as «dev»
+        run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       # Fedora's Firefox reads only /usr/lib64/mozilla, the one place the .rpm differs (Р-53); Arch's
       # Chromium and Firefox take the AUR package (NP-101). The .deb's browsers run in «check».
       - name: The distribution's Firefox and Chromium with the package as «dev»
