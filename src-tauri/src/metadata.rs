@@ -110,6 +110,8 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
                 attempt.follow()
             }
         }))
+        // Otherwise each redirect tells the next site the previous address, query and all.
+        .referer(false)
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 KoonaPin/0.1")
         .build();
 
@@ -467,6 +469,32 @@ mod tests {
         });
         assert_eq!(fetch_with(&format!("http://127.0.0.1:{named}/"), &TEST).await.title, None);
         assert_eq!(hits.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn a_redirect_does_not_tell_the_next_site_the_saved_address() {
+        // The next site keeps what it was asked.
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let next = listener.local_addr().unwrap().port();
+        let asked = Arc::new(std::sync::Mutex::new(String::new()));
+        let kept = asked.clone();
+        std::thread::spawn(move || {
+            let Ok((mut stream, _)) = listener.accept() else { return };
+            let mut request = [0u8; 4096];
+            let read = stream.read(&mut request).unwrap_or(0);
+            *kept.lock().unwrap() = String::from_utf8_lossy(&request[..read]).to_ascii_lowercase();
+            let _ = stream.write_all(&html("<title>Next</title>"));
+        });
+        let (first, _) = server("127.0.0.1", move |_| {
+            format!("HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{next}/landing\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                .into_bytes()
+        });
+        let meta = fetch_with(&format!("http://127.0.0.1:{first}/private?token=synthetic"), &TEST).await;
+        assert_eq!(meta.title.as_deref(), Some("Next"));
+        let asked = asked.lock().unwrap();
+        assert!(asked.starts_with("get /landing "), "{asked}");
+        assert!(!asked.contains("referer"), "{asked}");
+        assert!(!asked.contains("synthetic"), "{asked}");
     }
 
     #[tokio::test]
