@@ -313,10 +313,10 @@ node scripts/webkitgtk-check.mjs --pairs .test-data/webkitgtk-check/webkitgtk-2.
 
 Результаты 8 октября 2026 года (Docker Desktop на рабочем ПК владельца, Xvfb и Weston без видеокарты; выводы — [Р-58](decisions.md#р-58-интерфейс-в-webkitgtk)):
 
-- Экраны: WebKitGTK 2.54 (Debian 13) — 14 языков, обе темы, обрезанных подписей нет; 2.52 (Ubuntu 26.04) — en и ja. Шрифты: Noto Sans CJK JP, KR, SC, Noto Color Emoji.
+- Экраны: WebKitGTK 2.54 (Debian 13) и 2.52 (Ubuntu 26.04) — 14 языков, обе темы, обрезанных подписей нет (в 2.52 — после укорочения испанского «Todos los marcadores», найденного прогоном `act`). Шрифты: Noto Sans CJK JP, KR, SC, Noto Color Emoji.
 - Тема и движение в самом Koona Pin: `settings.ini` (X11, без портала) — 4 из 4; gsettings GNOME под Wayland с порталом, на ходу — 5 из 5; без портала тёмный стиль GNOME не доходит.
 - Окно (`distro`, бинарник NP-055 в Debian 13): X11 — 1 цвет до запуска, 2 584 с окном; Wayland (kiosk) — 1 и 2 589.
-- Полный прогон заданий через `act` не выполнялся.
+- Полный прогон `linux.yml` через `act` — задания `webkitgtk` на обоих образах.
 
 Результаты — `.test-data/webkitgtk-check/<движок-версия-система-сеанс>/`: `report.json`, `screens/`, `pairs/`. Параметры: `--only screens,scroll,media,gnome`, `--languages en,ja`, `--counts 10000`. WebDriver пакетом: `webkit2gtk-driver` в Debian, `webkitgtk-webdriver` в Ubuntu 26.04; версию WebKitGTK скрипт берёт у пакетного менеджера (у WebKitWebDriver нет `--version`).
 
