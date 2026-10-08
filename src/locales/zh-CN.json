@@ -765,7 +765,8 @@
       "service_failed": "服务器没有响应",
       "too_many_messages": "过去一小时内来自此网络的消息过多",
       "proxy_failed": "网络代理拒绝了请求",
-      "no_connection_or_proxy": "没有网络连接，或此网络需要使用代理"
+      "no_connection_or_proxy": "没有网络连接，或此网络需要使用代理",
+      "no_connection_or_system_proxy": "没有网络连接，或此网络需要使用系统设置中的代理"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -791,7 +792,8 @@
       "service_failed": "无法发送：服务器没有响应。你的文字已保留 — 请稍后重试，或复制后通过其他方式发送。",
       "too_many_messages": "过去一小时内来自此网络的消息过多。你的文字已保留 — 请稍后重试。",
       "proxy_failed": "无法通过此网络的代理发送：它要求登录或无法访问。你的文字已保留 — 请复制后通过其他方式发送，例如在 GitHub 上。",
-      "no_connection_or_proxy": "无法发送：没有网络连接，或此网络需要通过安装脚本设置的代理，而应用无法使用该脚本。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。"
+      "no_connection_or_proxy": "无法发送：没有网络连接，或此网络需要通过安装脚本设置的代理，而应用无法使用该脚本。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。",
+      "no_connection_or_system_proxy": "无法发送：没有网络连接，或此网络需要系统设置中的代理，而应用不读取这些设置 — 它只使用 https_proxy 和 http_proxy 变量。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。"
     }
   },
   "tray": {

@@ -4,7 +4,8 @@
 # (Weston headless), each with a session bus. Checks what a container can: the process stays up, the
 # library is created where the contract puts it, a second start hands over to the first (single instance
 # over D-Bus) and exits; under X11 also the native host and the capture socket (test:host), under Wayland
-# the window's app_id and the activation token a second start passes on (NP-053). Tray,
+# the window's app_id and the activation token a second start passes on (NP-053); the autostart entry of the
+# first start and the XDG folders (NP-097). Tray,
 # autostart and the desktop are not here.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -30,6 +31,8 @@ check() {
     sleep 5
     kill -0 $app 2> /dev/null || { cat "$HOME/app.log"; echo "FAIL: the app exited"; exit 1; }
     echo "ok: still running after 5 s"
+    [ -f "$HOME/.config/autostart/koonapin.desktop" ] || { echo "FAIL: no autostart entry after the first start"; exit 1; }
+    echo "ok: the first start turned on the start with the session (~/.config/autostart/koonapin.desktop)"
     status=0
     timeout 30 "$1" > "$HOME/second.log" 2>&1 || status=$?
     [ $status -eq 124 ] && { cat "$HOME/second.log"; echo "FAIL: the second start did not hand over"; exit 1; }
@@ -37,6 +40,30 @@ check() {
     echo "ok: second start handed over and exited ($status), the first keeps running"
     kill $app
   ' check "$app"
+}
+
+# NP-097: with XDG_DATA_HOME and XDG_CONFIG_HOME set, the library and the autostart entry go there, and the
+# entry starts this very program hidden — and only while it exists (TryExec), so a removed package leaves no
+# failing start behind.
+xdg() {
+  HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
+    export XDG_DATA_HOME="$HOME/data" XDG_CONFIG_HOME="$HOME/config"
+    library="$XDG_DATA_HOME/Koona Pin/koonapin.db"
+    entry="$XDG_CONFIG_HOME/autostart/koonapin.desktop"
+    "$1" > "$HOME/app.log" 2>&1 &
+    app=$!
+    for _ in $(seq 120); do [ -f "$library" ] && [ -f "$entry" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
+    [ -f "$library" ] || { cat "$HOME/app.log"; echo "FAIL: no library under \$XDG_DATA_HOME"; exit 1; }
+    [ ! -e "$HOME/.local/share/Koona Pin" ] || { echo "FAIL: a library under ~/.local/share as well"; exit 1; }
+    echo "ok: library under \$XDG_DATA_HOME/Koona Pin"
+    if ! grep -qx "Exec=$1 --autostart" "$entry" || ! grep -qx "TryExec=$1" "$entry"; then
+      cat "$entry"
+      echo "FAIL: the autostart entry does not start this program hidden"
+      exit 1
+    fi
+    echo "ok: autostart entry under \$XDG_CONFIG_HOME: this program with --autostart, TryExec"
+    kill $app
+  ' xdg "$app"
 }
 
 # Wayland only (NP-053): the window's app_id is what the package's .desktop must name (StartupWMClass),
@@ -105,7 +132,7 @@ done
 
 # A container has no user namespaces for WebKitGTK's sandbox; a desktop system does.
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
-unset XDG_DATA_HOME KOONAPIN_DATA_DIR WAYLAND_DISPLAY DISPLAY
+unset XDG_DATA_HOME XDG_CONFIG_HOME KOONAPIN_DATA_DIR WAYLAND_DISPLAY DISPLAY
 export XDG_RUNTIME_DIR
 XDG_RUNTIME_DIR=$(mktemp -d)
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -122,6 +149,7 @@ for _ in $(seq 50); do [ -S /tmp/.X11-unix/X99 ] && break; sleep 0.2; done
 [ -S /tmp/.X11-unix/X99 ] || { cat "$XDG_RUNTIME_DIR/xvfb.log"; echo "FAIL: Xvfb did not start"; exit 1; }
 DISPLAY=:99 GDK_BACKEND=x11 check
 DISPLAY=:99 GDK_BACKEND=x11 startup
+DISPLAY=:99 GDK_BACKEND=x11 xdg
 
 # test:host with this binary (NP-099): the host passes messages over the socket in $XDG_RUNTIME_DIR and
 # starts the closed app in a session of its own.

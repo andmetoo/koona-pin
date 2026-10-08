@@ -823,7 +823,8 @@
       "service_failed": "der Server hat nicht geantwortet",
       "too_many_messages": "zu viele Nachrichten aus diesem Netzwerk in der letzten Stunde",
       "proxy_failed": "der Proxy des Netzwerks hat die Anfrage abgelehnt",
-      "no_connection_or_proxy": "keine Internetverbindung, oder dieses Netzwerk braucht seinen Proxy"
+      "no_connection_or_proxy": "keine Internetverbindung, oder dieses Netzwerk braucht seinen Proxy",
+      "no_connection_or_system_proxy": "keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen"
     },
     "code": {
       "not_found": "Es existiert nicht mehr — vielleicht wurde es inzwischen gelöscht.",
@@ -849,7 +850,8 @@
       "service_failed": "Senden fehlgeschlagen: Der Server hat nicht geantwortet. Ihr Text bleibt erhalten — versuchen Sie es später erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg.",
       "too_many_messages": "Zu viele Nachrichten aus diesem Netzwerk in der letzten Stunde. Ihr Text bleibt erhalten — versuchen Sie es später erneut.",
       "proxy_failed": "Senden über den Proxy dieses Netzwerks fehlgeschlagen: Er verlangt eine Anmeldung oder ist nicht erreichbar. Ihr Text bleibt erhalten — kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub.",
-      "no_connection_or_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht seinen Proxy, der über ein Setup-Skript eingerichtet ist, das die App nicht nutzen kann. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub."
+      "no_connection_or_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht seinen Proxy, der über ein Setup-Skript eingerichtet ist, das die App nicht nutzen kann. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub.",
+      "no_connection_or_system_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen, die die App nicht liest — sie nutzt nur die Variablen https_proxy und http_proxy. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub."
     }
   },
   "tray": {
