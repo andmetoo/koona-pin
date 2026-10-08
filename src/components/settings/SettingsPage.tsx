@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AppSettings, CaptureStatus, DataSummary } from "../../types";
+import { AppSettings, CaptureStatus, DataSummary, Desktop } from "../../types";
 import { api, isTauri } from "../../services/api";
 import {
   appIsOlder,
@@ -19,6 +19,7 @@ import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage
 import { Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
 import { Dot, Segmented, Switch } from "../ui/Controls";
+import { Kbd } from "../ui/Hint";
 
 /** Settings in the main area (frame «14 · Настройки»), column 680 px. */
 export function SettingsPage({
@@ -59,6 +60,9 @@ export function SettingsPage({
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const [data, setData] = useState<DataSummary | null>(null);
   const [version, setVersion] = useState("");
+  const [system, setSystem] = useState<Desktop | null>(null);
+  // Without a tray (NP-096) the app keeps running «in the background», not «in the tray».
+  const tray = system?.tray ?? true;
   // Several actions can run at once; each keeps its own control disabled.
   const [running, setRunning] = useState<ReadonlySet<string>>(new Set());
   const busy = (name: string) => running.has(name);
@@ -70,6 +74,7 @@ export function SettingsPage({
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
     if (desktop) void api.getAutostart().then(setAutostart).catch(() => setAutostart(null));
+    void api.getDesktop().then(setSystem).catch(() => {});
   }, []);
 
   const attempt = async (name: string, action: () => Promise<void>) => {
@@ -133,7 +138,7 @@ export function SettingsPage({
             ]}
           />
         </Row>
-        <Row title={t("settings.autostart")} description={desktop ? t("settings.autostartHint") : t("settings.desktopOnly")}>
+        <Row title={t("settings.autostart")} description={desktop ? t(tray ? "settings.autostartHint" : "settings.autostartHintBackground") : t("settings.desktopOnly")}>
           <Switch
             label={t("settings.autostart")}
             checked={autostart ?? false}
@@ -146,9 +151,12 @@ export function SettingsPage({
             }
           />
         </Row>
-        <Row title={t("settings.tray")} description={t("settings.trayHint")}>
+        <Row
+          title={t(tray ? "settings.tray" : "settings.trayBackground")}
+          description={t(tray ? "settings.trayHint" : "settings.trayBackgroundHint")}
+        >
           <Switch
-            label={t("settings.tray")}
+            label={t(tray ? "settings.tray" : "settings.trayBackground")}
             checked={settings?.close_to_tray ?? true}
             disabled={!desktop || !settings || busy("tray")}
             onChange={(enabled) =>
@@ -158,6 +166,13 @@ export function SettingsPage({
               })
             }
           />
+        </Row>
+        {/* On every system (NP-096): without a tray it is the way out of the app. */}
+        <Row title={t("settings.quit")} description={t("settings.quitHint")}>
+          <Kbd>Ctrl Q</Kbd>
+          <Button disabled={!desktop} onClick={() => void attempt("quit", api.quitApp)}>
+            {t("settings.quitButton")}
+          </Button>
         </Row>
       </Section>
 

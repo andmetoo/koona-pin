@@ -649,6 +649,42 @@ export function ConfirmDialog({
   );
 }
 
+/**
+ * Frame «40 · Без трея: первое закрытие окна» (NP-096): the desktop has no
+ * tray, so closing the window only hides it. Shown once; «×» and Esc keep the
+ * window open.
+ */
+export function BackgroundDialog({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const { busy, error, run } = useAction();
+  return (
+    <Dialog title={t("background.title")} onClose={() => !busy && onClose()} width={440}>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm leading-[18px] text-muted">{t("background.text")}</p>
+        <p className="rounded-lg bg-panel px-3 py-2.5 text-xs leading-[17px] text-muted dark:bg-hover">{t("background.hint")}</p>
+        <Failure error={error} />
+        <Footer>
+          <Button variant="outline" disabled={busy} onClick={() => void run(api.quitApp)}>
+            {t("background.quit")}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                await api.hideToBackground();
+                onClose();
+              })
+            }
+          >
+            {t("background.hide")}
+          </Button>
+        </Footer>
+      </div>
+    </Dialog>
+  );
+}
+
 /** Frame 18: how to connect, reconnect and update the extension in each browser. */
 export function ConnectDialog({
   capture,

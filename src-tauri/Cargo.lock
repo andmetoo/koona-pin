@@ -2143,6 +2143,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dirs 5.0.1",
+ "gtk",
  "libc",
  "reqwest 0.12.28",
  "rusqlite",
@@ -2162,6 +2163,7 @@ dependencies = [
  "url",
  "uuid",
  "windows-sys 0.59.0",
+ "zbus",
 ]
 
 [[package]]

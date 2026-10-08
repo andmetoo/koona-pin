@@ -67,3 +67,8 @@ windows-sys = { version = "0.59", features = [
 # peer check, a new session for the app the host starts. Already in the tree.
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"
+# The window on Linux (NP-053): the system's button layout and the activation
+# token of a second start (GTK), whether a tray is there (the session bus).
+# Both already in the tree through Tauri and the single-instance plugin.
+gtk = "0.18"
+zbus = "5.9"
