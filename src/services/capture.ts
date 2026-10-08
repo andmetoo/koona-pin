@@ -4,6 +4,17 @@ import { Browser, BrowserStatus, CaptureStatus } from "../types";
 export const browsers: Browser[] = ["chrome", "edge", "firefox"];
 export const browserName: Record<Browser, string> = { chrome: "Chrome", edge: "Edge", firefox: "Firefox" };
 
+/**
+ * A tab of «Connect browser»: on Linux Chromium has its own (Р-45), with the
+ * steps of Chrome — the same store, `chrome://extensions` and toolbar.
+ */
+export type ConnectTab = Browser | "chromium";
+export const connectTabName: Record<ConnectTab, string> = { ...browserName, chromium: "Chromium" };
+export const connectTabs = (status: CaptureStatus | null): ConnectTab[] =>
+  status?.system === "linux" ? ["chrome", "edge", "chromium", "firefox"] : browsers;
+/** The browser whose texts a tab shows. */
+export const tabBrowser = (tab: ConnectTab): Browser => (tab === "chromium" ? "chrome" : tab);
+
 /** Dot colour of the browser status (guidelines, «Статус браузера»). */
 export function statusColor(status: CaptureStatus | null): string {
   switch (status?.state) {

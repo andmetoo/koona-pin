@@ -1949,6 +1949,32 @@ test("connect dialog: steps for each browser, no token and no bookmarklet", asyn
   await expect(page.getByRole("dialog", { name: "Connect browser" })).toBeVisible();
 });
 
+test("Linux without a tray: round window buttons, Chromium, Firefox from Snap and sandboxed browsers, «in the background» (NP-053, NP-054)", async ({ page }) => {
+  await page.evaluate(() =>
+    localStorage.setItem("koonapin.demo.desktop", JSON.stringify({ linux: true, left: [], right: ["close"], tray: false })),
+  );
+  await page.reload();
+  // GNOME's layout: «×» only, round.
+  await expect(page.locator("[data-window-button]")).toHaveCount(1);
+  await expect(page.locator('[data-window-button="close"]')).toHaveAttribute("aria-label", "Close window");
+  await page.getByRole("button", { name: "Browser not connected" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  await expect(dialog.getByRole("radio")).toHaveText(["Chrome", "Edge", "Chromium", "Firefox"]);
+  // Chromium takes Chrome's steps; a closed app starts in the background without a tray.
+  await dialog.getByRole("radio", { name: "Chromium" }).click();
+  await expect(dialog).toContainText("chrome://extensions");
+  await expect(dialog).toContainText("it starts in the background and saves the link");
+  await expect(dialog).not.toContainText("Firefox from Snap, Ubuntu's default");
+  await dialog.getByRole("radio", { name: "Firefox" }).click();
+  await expect(dialog).toContainText("Firefox from Snap, Ubuntu's default, asks on the first save");
+  await expect(dialog.locator("[data-sandboxed]")).toContainText("Browsers from Flatpak and Chromium from Snap");
+  await page.keyboard.press("Escape");
+  // Settings say «in the background» and offer the way out.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("switch", { name: "Keep running in the background when the window is closed" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Quit", exact: true })).toBeVisible();
+});
+
 test("feedback: from Settings, checked before sending, a failure keeps the draft, Try again sends it (NP-088)", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByText("Report a problem")).toHaveCount(0);
