@@ -51,12 +51,12 @@
 
 | ОС / версия / архитектура | WebView | Сборка | Запуск, окно, интерфейс | Данные, второй запуск | Ограничения |
 | --- | --- | --- | --- | --- | --- |
-| Ubuntu 22.04, x86_64, X11 (Xvfb) | WebKitGTK 2.50.4 | Да, glibc 2.35, базовая для всех Linux | Да, окно 0,5 с, без рамки, свои кнопки | `~/.local/share/Koona Pin`; второй выходит за 37 мс | Без `libayatana-appindicator3` — падение при запуске |
+| Ubuntu 22.04, x86_64, X11 (Xvfb) | WebKitGTK 2.50.4 | Да, glibc 2.35, базовая для всех Linux | Да, окно 0,5 с, без рамки, свои кнопки | `~/.local/share/Koona/Pin`; второй выходит за 37 мс | Без `libayatana-appindicator3` — падение при запуске |
 | Ubuntu 24.04, x86_64, X11 | WebKitGTK 2.52.6 | Бинарник 22.04 | Да | Да | То же |
 | Ubuntu 24.04, x86_64, Wayland (Weston, без XWayland) | WebKitGTK 2.52.6 | Бинарник 22.04 | Да, нативно | Да | Трей в GNOME только с расширением AppIndicator |
 | Debian 12, x86_64, X11 | WebKitGTK 2.50.6 | Бинарник 22.04 | Да | Да | — |
 | Fedora 42, x86_64, X11 | WebKitGTK 2.52.3 | Бинарник 22.04 | Да | Да | — |
-| macOS 26.6, arm64 | WebKit 21624 (Safari 26.6) | Да, `.app` 19 МБ, 5 мин | Да, значок в строке меню | `~/Library/Application Support/Koona Pin`; второй выходит | Нет «светофора» у окна без рамки, стандартное меню |
+| macOS 26.6, arm64 | WebKit 21624 (Safari 26.6) | Да, `.app` 19 МБ, 5 мин | Да, значок в строке меню | `~/Library/Application Support/Koona/Pin`; второй выходит | Нет «светофора» у окна без рамки, стандартное меню |
 | iOS 26.5 simulator, arm64 | WKWebView | Приложение: 10 ошибок (десктопные API). Проба: да | Не проверено (по контракту — в вехе iOS) | — | Share Extension отдельным процессом |
 | Android 17 (One UI 9.0), arm64, Samsung Galaxy Z Fold 8 владельца (внешний экран и развёрнутый) | Android System WebView, Chrome 153 (User-Agent урезан до «Android 10; K») | Приложение: те же 10 ошибок. Проба: APK, 184 МБ debug | Проба: да, вёрстка подстраивается под оба экрана; современный CSS поддержан | Проба: SQLite 3.46.0, FTS5 trigram, база в `/data/user/0/app.koona.pin.probe`; HTTPS через rustls; ссылка открывается в браузере (opener) | `dirs::data_dir()` = нет; содержимое заходит под строку состояния |
 
@@ -82,7 +82,7 @@
 - [ ] Linux, рабочий стол (проверка — NP-104): `.deb` ставится двойным щелчком в центре приложений Ubuntu 26.04, `.rpm` — в GNOME Software Fedora 44; там видны значок, описание и снимки; после установки Koona Pin в меню со своим значком, в доке под Wayland — тот же значок (не шестерёнка); после удаления пункта меню нет.
 - [ ] AUR (NP-101, [Р-55](decisions.md#р-55-пакет-aur-koonapin-bin)) — после открытия репозитория: `.deb` выпуска лежит в открытом GitHub Release `v<версия>` (адрес `source` в PKGBUILD); `npm run build:aur` пишет `PKGBUILD` и `.SRCINFO` в `release/publish/aur/<версия>/`; задание Arch в `linux.yml` собрало их `makepkg`, `namcap` без ошибок; файлы скопированы в клон `ssh://aur@aur.archlinux.org/koonapin-bin.git` (аккаунт и SSH-ключ владельца), коммит «koonapin-bin <версия>-1» и `git push`. На странице пакета в AUR — новая версия, `yay -S koonapin-bin` на чистом Arch ставит её.
 - [ ] Идентификаторы пакетов Linux не меняются после первого выпуска: пакет `koonapin`, `/usr/bin/koonapin`, `koonapin.desktop`, AppStream `app.koona.pin` — смена ломает обновление и центр приложений.
-- [ ] Технические идентификаторы совпадают с [Р-9](decisions.md#р-9-распространение-windows): `identifier` `app.koona.pin`, `productName` «Koona Pin», EXE `koonapin.exe`, установка в `%LOCALAPPDATA%\Koona Pin`, данные в `%APPDATA%\Koona Pin`. После первого публичного установщика они не меняются: смена ломает обновление.
+- [ ] Технические идентификаторы совпадают с [Р-9](decisions.md#р-9-распространение-windows): `identifier` `app.koona.pin`, `productName` «Koona Pin», EXE `koonapin.exe`, установка в `%LOCALAPPDATA%\Koona Pin`, данные в `%APPDATA%\Koona\Pin`. После первого публичного установщика они не меняются: смена ломает обновление.
 - [ ] Подпись приложения для выбранного канала настроена и проверена. Для прямой macOS-поставки запланированы signing/notarization по требованиям канала.
 - [ ] Если используется Tauri Updater, проверены отдельная подпись обновления и HTTPS-доставка. Подпись установщика ОС не заменяет подпись updater.
 - [ ] Приватные ключи находятся вне репозитория по [Р-9](decisions.md#р-9-распространение-windows): ключ updater и пароль — в менеджере паролей и офлайн-копии; восстановление проверено.

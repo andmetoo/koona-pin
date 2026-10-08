@@ -32,7 +32,7 @@ manifests=(/etc/opt/chrome /etc/opt/edge /etc/chromium /usr/lib/mozilla)
 installed=(/usr/bin/koonapin /usr/bin/koonapin-host /usr/share/applications/koonapin.desktop
   /usr/share/metainfo/app.koona.pin.metainfo.xml /usr/share/icons/hicolor/512x512/apps/koonapin.png)
 for folder in "${manifests[@]}"; do installed+=("$folder/native-messaging-hosts/app.koona.pin.json"); done
-library="/home/dev/.local/share/Koona Pin/koonapin.db"
+library="/home/dev/.local/share/Koona/Pin/koonapin.db"
 
 [ "$ID" = arch ] && installed+=(/usr/share/koonapin/channel)
 
