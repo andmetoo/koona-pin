@@ -2,7 +2,7 @@
 // and Russian, connected to a test Koona Pin through the real host, plus the
 // promo tile (440×280) and the Edge logo (300×300). Writes extension/store/.
 //
-//   node scripts/store-assets.mjs
+//   bun scripts/store-assets.mjs
 import { chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { appendFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";

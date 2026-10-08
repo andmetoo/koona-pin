@@ -3,7 +3,7 @@
 // writes results.json. Registry keys are removed at the end.
 //
 //   cargo build --release --manifest-path scripts/native-messaging-probe/Cargo.toml
-//   node scripts/native-messaging-probe/run.mjs [chrome] [edge] [firefox] [firefox-msix]
+//   bun scripts/native-messaging-probe/run.mjs [chrome] [edge] [firefox] [firefox-msix]
 import { chromium } from "@playwright/test";
 import { execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";

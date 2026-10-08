@@ -49,7 +49,7 @@ install() {
 build_aur() {
   step "Build koonapin-bin (PKGBUILD of scripts/build-aur.mjs, makepkg, namcap)"
   rm -rf "$aur"
-  node scripts/build-aur.mjs --deb "$deb" --out "$aur"
+  bun scripts/build-aur.mjs --deb "$deb" --out "$aur"
   cp "$deb" "$aur/"
   chown -R dev "$aur"
   # What an AUR helper installs before makepkg: the depends of .SRCINFO.

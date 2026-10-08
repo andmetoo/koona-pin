@@ -1,7 +1,7 @@
 // Builds koona.app/pin/ into release/publish/site/ (doc/site.md): static pages in the app's
 // languages (NP-107), fonts, brand and screenshots served from the site itself, and the Firefox
 // updates of NP-018 from release/publish/firefox when they are there.
-//   node scripts/build-site.mjs
+//   bun scripts/build-site.mjs
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -60,7 +60,7 @@ await cp(from("src-tauri/icons/128x128@2x.png"), path.join(out, "brand/apple-tou
 
 // Screenshots of the real app (scripts/site-screenshots.mjs).
 if (existsSync(from("site/src/shots"))) await cp(from("site/src/shots"), path.join(out, "shots"), { recursive: true });
-else console.warn("shots: site/src/shots is missing, run node scripts/site-screenshots.mjs");
+else console.warn("shots: site/src/shots is missing, run bun scripts/site-screenshots.mjs");
 
 // Firefox updates (NP-018): the address is inside the signed XPI and must not move.
 const firefox = publish.firefox;
@@ -76,7 +76,7 @@ if (existsSync(firefox)) {
   await cp(firefox, path.join(out, "firefox"), { recursive: true });
   console.log("firefox:", (await readdir(firefox)).join(", "));
 } else {
-  console.log("firefox: release/publish/firefox not found, /firefox/ is left out (npm run extension:sign:firefox)");
+  console.log("firefox: release/publish/firefox not found, /firefox/ is left out (bun run extension:sign:firefox)");
 }
 
 // robots.txt belongs to the root of koona.app, which names this sitemap (site/Caddyfile, Р-47).

@@ -23,46 +23,46 @@ UI-сценарии проверяют неподвижность карточк
 
 ## CI
 
-Workflow `.github/workflows/ci.yml` запускается **только вручную** (Actions → CI → Run workflow) на `windows-2025`: `npm ci`, `cargo test --locked` (он же перегенерирует типы IPC), `npm run check:bindings` — сгенерированные типы совпадают с закоммиченными, сборка TypeScript и Vite по свежим типам, Vitest, сборка расширения и `web-ext lint`, Playwright UI без `@visual`. Автоматический запуск на push и PR будет включён позже, ближе к выпуску.
+Workflow `.github/workflows/ci.yml` запускается **только вручную** (Actions → CI → Run workflow) на `windows-2025`: `bun install`, `cargo test --locked` (он же перегенерирует типы IPC), `bun run check:bindings` — сгенерированные типы совпадают с закоммиченными, сборка TypeScript и Vite по свежим типам, Vitest, сборка расширения и `web-ext lint`, Playwright UI без `@visual`. Автоматический запуск на push и PR будет включён позже, ближе к выпуску.
 
-Workflow `.github/workflows/linux.yml` — матрица Linux ([ниже](#linux)) — тоже **только вручную** (Actions → Linux → Run workflow). Задание `build` собирает release-бинарник на Debian 13, после него задание `check` повторяет `ci.yml` — Rust-тесты, сверка `src/bindings`, сборка, Vitest, `extension:lint`, Playwright UI без `@visual`; задания `distro` запускают бинарник из `build` на каждом дистрибутиве. Кеш `actions/cache`: реестр cargo и npm во всех заданиях, `src-tauri/target` — в `build` и `check`; под `act` шаги кеша пропускаются. Linux-минуты списываются без коэффициента.
+Workflow `.github/workflows/linux.yml` — матрица Linux ([ниже](#linux)) — тоже **только вручную** (Actions → Linux → Run workflow). Задание `build` собирает release-бинарник на Debian 13, после него задание `check` повторяет `ci.yml` — Rust-тесты, сверка `src/bindings`, сборка, Vitest, `extension:lint`, Playwright UI без `@visual`; задания `distro` запускают бинарник из `build` на каждом дистрибутиве. Кеш `actions/cache`: реестр cargo и кеш пакетов Bun во всех заданиях, `src-tauri/target` — в `build` и `check`; под `act` шаги кеша пропускаются. Linux-минуты списываются без коэффициента.
 
 Почему вручную. Репозиторий приватный, минуты Windows-раннеров списываются с коэффициентом ×2. Один прогон двух job занимал около 10 минут на job, то есть ≈ 40 списанных минут на коммит; 3 октября 2026 года четыре отладочных прогона израсходовали около 60 из 3000 минут месяца. При частых коммитах это быстро исчерпывает лимит.
 
 Нативные проверки в CI не включены. На раннере WebView2 Runtime 153 запускает приложение, SQLite работает, но `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` не попадает в командную строку `msedgewebview2.exe`, поэтому порт отладки 9225 не открывается и Playwright не подключается. Локально (WebView2 154) переменная работает. При подключении CI можно передавать порт отладки через `additional_browser_args` окна в тестовой сборке. Также на раннере Tauri создаёт пустую папку профиля по умолчанию (тогда `%LOCALAPPDATA%\com.oddclicks.app`, теперь `app.koona.pin`); данные и профиль WebView2 при этом пишутся только в `.test-data`.
 
-Версии берутся из репозитория: Node.js — `.nvmrc`, Rust — `rust-toolchain.toml`, npm-пакеты и Chromium для Playwright — `package-lock.json`, crates — `Cargo.lock`.
+Версии берутся из репозитория: Bun — `.bun-version`, Rust — `rust-toolchain.toml`, npm-пакеты и Chromium для Playwright — `bun.lock`, crates — `Cargo.lock`.
 
 ## Локальный запуск
 
-Нужны Node.js из `.nvmrc`, Rust из `rust-toolchain.toml` (rustup установит его сам), Microsoft C++ Build Tools и WebView2 Runtime.
+Нужны Bun из `.bun-version` (Node.js не нужен, [Р-60](decisions.md#р-60-bun-вместо-node-и-npm)), Rust из `rust-toolchain.toml` (rustup установит его сам), Microsoft C++ Build Tools и WebView2 Runtime.
 
-**Быстрая проверка перед коммитом** (≈ 15–30 секунд при собранных зависимостях): Rust-тесты (перегенерируют `src/bindings`), сборка и типы по свежим типам, Vitest. Изменённые файлы в `src/bindings` коммитятся вместе с изменением Rust; `npm run check:bindings` проверяет, что ничего не забыто.
+**Быстрая проверка перед коммитом** (≈ 15–30 секунд при собранных зависимостях): Rust-тесты (перегенерируют `src/bindings`), сборка и типы по свежим типам, Vitest. Изменённые файлы в `src/bindings` коммитятся вместе с изменением Rust; `bun run check:bindings` проверяет, что ничего не забыто.
 
 ```powershell
-npm run check
+bun run check
 ```
 
 **Полная проверка** перед PR и при изменении UI, захвата, окна или хранилища. Из чистого клона:
 
 ```powershell
-npm ci
-npm run build
-npm test
+bun install
+bun run build
+bun run test
 cd src-tauri
 cargo test --locked
 cd ..
-npx playwright install chromium
-npm run test:ui
-npm run test:native
-npm run test:host
-npm run test:perf   # замер прокрутки, перед выпуском и после изменений сетки и списка
-npm run test:extension
-npm run test:extension:chrome   # установленный Chrome
-npm run test:extension:edge     # установленный Edge
-npm run extension:lint
-npm run test:extension:firefox       # текущий Firefox
-npm run test:extension:firefox:esr   # Firefox ESR 140
+bunx playwright install chromium
+bun run test:ui
+bun run test:native
+bun run test:host
+bun run test:perf   # замер прокрутки, перед выпуском и после изменений сетки и списка
+bun run test:extension
+bun run test:extension:chrome   # установленный Chrome
+bun run test:extension:edge     # установленный Edge
+bun run extension:lint
+bun run test:extension:firefox       # текущий Firefox
+bun run test:extension:firefox:esr   # Firefox ESR 140
 ```
 
 `test:extension`, `:chrome`, `:edge` и `test:extension:firefox` сами собирают расширение. Chrome берётся из `C:\Program Files\Google\Chrome\Application`, Edge — из `C:\Program Files (x86)\Microsoft\Edge\Application`; другой путь — в `KOONAPIN_CHROME` и `KOONAPIN_EDGE`. Каждый прогон ждёт повторной доставки по alarm, поэтому длится около двух минут. Firefox берётся из scoop: `%USERPROFILE%\scoop\apps\firefox\current` и `firefox-esr\current` (`scoop install extras/firefox extras/firefox-esr`), другой путь — в `KOONAPIN_FIREFOX`. Любой прогон заканчивается не позже чем через 10 минут.
@@ -75,9 +75,9 @@ npm run test:extension:firefox:esr   # Firefox ESR 140
 
 Основания: [проверка WebView2](https://playwright.dev/docs/webview2), [проверка расширений](https://playwright.dev/docs/chrome-extensions).
 
-`test:native`, `test:perf` и `site:shots` сначала сами собирают приложение, которое проверяют (`scripts/build-test-app.mjs`): интерфейс (`npm run build`) и отладочный `src-tauri/target/debug/koonapin.exe` с встроенным интерфейсом (`cargo build --features custom-protocol`), как в выпуске. Обычный `cargo build` и `cargo test` из `npm run check` пишут тот же файл без встроенного интерфейса: такое окно открывает Vite на `localhost:1420`, и CSP в нём нет совсем — Tauri применяет его только к встроенным страницам. Нативные тесты на таком бинарнике сразу останавливаются с этим объяснением, а не падают проверкой CSP.
+`test:native`, `test:perf` и `site:shots` сначала сами собирают приложение, которое проверяют (`scripts/build-test-app.mjs`): интерфейс (`bun run build`) и отладочный `src-tauri/target/debug/koonapin.exe` с встроенным интерфейсом (`cargo build --features custom-protocol`), как в выпуске. Обычный `cargo build` и `cargo test` из `bun run check` пишут тот же файл без встроенного интерфейса: такое окно открывает Vite на `localhost:1420`, и CSP в нём нет совсем — Tauri применяет его только к встроенным страницам. Нативные тесты на таком бинарнике сразу останавливаются с этим объяснением, а не падают проверкой CSP.
 
-Чтобы повторить проверку релизного бинарника, сначала выполните `cargo build --release --features custom-protocol --locked` в `src-tauri`, затем задайте `$env:KOONAPIN_TEST_BINARY='src-tauri/target/release/koonapin.exe'` для `test:native`, `test:host` и `test:extension`; host берётся из той же папки. Скрипт Chrome smoke использует встроенный модуль Node.js `node:sqlite`.
+Чтобы повторить проверку релизного бинарника, сначала выполните `cargo build --release --features custom-protocol --locked` в `src-tauri`, затем задайте `$env:KOONAPIN_TEST_BINARY='src-tauri/target/release/koonapin.exe'` для `test:native`, `test:host` и `test:extension`; host берётся из той же папки. Скрипт Chrome smoke использует модуль `node:sqlite`, Bun его поддерживает.
 
 ## Тестовые библиотеки
 
@@ -85,7 +85,7 @@ npm run test:extension:firefox:esr   # Firefox ESR 140
 
 ```powershell
 cargo run --example test_libraries --manifest-path src-tauri/Cargo.toml
-node scripts/open-test-libraries.mjs
+bun scripts/open-test-libraries.mjs
 ```
 
 Второй скрипт открывает каждую базу собранным `koonapin.exe` (у каждой базы свой канал захвата) и печатает, открылась ли она или показала экран ошибки с кодом, схему, `application_id`, число закладок, `quick_check` и перенесённую старую библиотеку. Результат после NP-006 (3 октября 2026 года): исправные базы, включая 100 000 записей, открываются за 0,3–0,5 с; `before-schema-1.db` переносится в `koonapin.old-*.db`, создаётся пустая схема 1; `foreign-app.db`, `newer-schema.db` и `not-a-database.db` дают экраны `DB_FOREIGN`, `DB_NEWER_SCHEMA`, `DB_NOT_DATABASE` и остаются без изменений. `corrupted-pages-v1.db` открывается, затем фоновая проверка переводит библиотеку в режим только чтения с плашкой; скрипт этого не видит, это проверяет нативный тест.
@@ -184,10 +184,10 @@ cargo run --release --locked --example query_plans --manifest-path src-tauri/Car
 **Демо в Chromium** (`scripts/scroll-bench.mjs`): сам запускает Vite, кладёт 10 000 закладок в демо-адаптер браузера (превью — картинки и плашки), прокручивает сетку и список по 120 px за кадр (≈7 200 px/с) при окне 1440×900. Headless Chromium из Playwright рисует без GPU — это пессимистичная оценка.
 
 ```powershell
-node scripts/scroll-bench.mjs
+bun scripts/scroll-bench.mjs
 ```
 
-**Настоящий WebView2** — нативный тест «10 000 bookmarks scroll smoothly» с тегом `@perf`. В `npm run test:native` он не входит (около 35 с, зависит от загрузки машины); запуск — `npm run test:perf` перед выпуском и после изменений сетки, списка или подгрузки страниц. Тест: импорт 10 000 ссылок в чистую библиотеку, прокрутка по 400 px за кадр (быстрый рывок), страницы приходят из SQLite через IPC. Тест падает при p95 ≥ 50 мс — граница для явной регрессии, а не цель.
+**Настоящий WebView2** — нативный тест «10 000 bookmarks scroll smoothly» с тегом `@perf`. В `bun run test:native` он не входит (около 35 с, зависит от загрузки машины); запуск — `bun run test:perf` перед выпуском и после изменений сетки, списка или подгрузки страниц. Тест: импорт 10 000 ссылок в чистую библиотеку, прокрутка по 400 px за кадр (быстрый рывок), страницы приходят из SQLite через IPC. Тест падает при p95 ≥ 50 мс — граница для явной регрессии, а не цель.
 
 3 октября 2026 года, рабочий ПК владельца:
 
@@ -226,28 +226,28 @@ node scripts/scroll-bench.mjs
 
 ```powershell
 cargo build --release --manifest-path scripts/native-messaging-probe/Cargo.toml
-node scripts/native-messaging-probe/run.mjs chrome edge firefox
+bun scripts/native-messaging-probe/run.mjs chrome edge firefox
 ```
 
 - Терминалы и агенты часто запускают процессы внутри job-объекта, который запрещает выход из него; браузер и host наследуют этот job, и результаты о job-объектах описывают терминал, а не браузер. В таком окружении запускайте `scripts/native-messaging-probe/wmi.ps1 chrome edge firefox`: WMI создаёт процесс вне job-объекта.
 - Firefox берётся из scoop (`%USERPROFILE%\scoop\apps\firefox\current`) и управляется через WebDriver BiDi с `--remote-allow-system-access`.
 
-Время запуска приложения до готовности принять захват — `node scripts/native-messaging-probe/app-start.mjs` на release-сборке; нужна папка `.test-data\libraries` из генератора тестовых библиотек.
+Время запуска приложения до готовности принять захват — `bun scripts/native-messaging-probe/app-start.mjs` на release-сборке; нужна папка `.test-data\libraries` из генератора тестовых библиотек.
 
 ## Linux
 
-Среда Linux-beta (NP-093, [контракт](roadmap.md#контракт-linux-beta)). Linux проверяется одной дорогой — матрицей в контейнерах: workflow `.github/workflows/linux.yml`, локально — `act` на Linux-машине владельца (Docker там быстрее, чем Docker Desktop на Windows), в CI — тем же файлом по ручному запуску (NP-094). Изменение общего кода проверяется и на Windows (`npm run check`, `test:host`, `test:native`).
+Среда Linux-beta (NP-093, [контракт](roadmap.md#контракт-linux-beta)). Linux проверяется одной дорогой — матрицей в контейнерах: workflow `.github/workflows/linux.yml`, локально — `act` на Linux-машине владельца (Docker там быстрее, чем Docker Desktop на Windows), в CI — тем же файлом по ручному запуску (NP-094). Изменение общего кода проверяется и на Windows (`bun run check`, `test:host`, `test:native`).
 
 ### Матрица
 
 | Задание | Контейнер | Что проверяет |
 | --- | --- | --- |
-| `build` | `debian:13` (glibc 2.41 — самая старая в матрице: собранное на более новой glibc на старой не запустится) | `npm run build:linux` (NP-055): release-сборка с `public-release` и пакеты `.deb` и `.rpm` — то, что уходит людям; `lintian --fail-on error,warning`, `desktop-file-validate`, `appstreamcli validate`; артефакт `koonapin-linux-x86_64` — пакеты, `SHA256SUMS.txt` и голые `koonapin`, `koonapin-host` для Arch. Нужен адрес отзыва: секрет репозитория `KOONAPIN_FEEDBACK_URL`, под `act` — `.env` |
-| `check`, после `build` | `debian:13` | `npm ci`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `extension:lint`, отладочная регистрация host с Chromium и Firefox ESR Debian (`scripts/smoke-registration.mjs`, NP-100: `--register-host` во временном доме, захват из обоих браузеров через host при закрытом приложении, `--unregister-host`), установленный `.deb` из `build` (`smoke-registration.mjs --installed`, NP-055): Chromium Debian, Google Chrome и Microsoft Edge из репозиториев производителей находят манифест пакета по ссылке в `/etc` и не пускают расширение разработки («forbidden», не «not found»), Firefox ESR сохраняет ссылку через `/usr/bin/koonapin-host` до первого запуска приложения, extension smoke в Chrome for Testing (`scripts/smoke-extension.mjs`, NP-054: тестовый host в `NativeMessagingHosts` профиля прогона, все сценарии Windows, «host не зарегистрирован» — спокойное `unreachable`), Playwright UI без `@visual` |
+| `build` | `debian:13` (glibc 2.41 — самая старая в матрице: собранное на более новой glibc на старой не запустится) | `bun run build:linux` (NP-055): release-сборка с `public-release` и пакеты `.deb` и `.rpm` — то, что уходит людям; `lintian --fail-on error,warning`, `desktop-file-validate`, `appstreamcli validate`; артефакт `koonapin-linux-x86_64` — пакеты, `SHA256SUMS.txt` и голые `koonapin`, `koonapin-host` для Arch. Нужен адрес отзыва: секрет репозитория `KOONAPIN_FEEDBACK_URL`, под `act` — `.env` |
+| `check`, после `build` | `debian:13` | `bun install`, Rust-тесты, `src/bindings` совпадают с репозиторием, TypeScript и Vite, Vitest, `extension:lint`, отладочная регистрация host с Chromium и Firefox ESR Debian (`scripts/smoke-registration.mjs`, NP-100: `--register-host` во временном доме, захват из обоих браузеров через host при закрытом приложении, `--unregister-host`), установленный `.deb` из `build` (`smoke-registration.mjs --installed`, NP-055): Chromium Debian, Google Chrome и Microsoft Edge из репозиториев производителей находят манифест пакета по ссылке в `/etc` и не пускают расширение разработки («forbidden», не «not found»), Firefox ESR сохраняет ссылку через `/usr/bin/koonapin-host` до первого запуска приложения, extension smoke в Chrome for Testing (`scripts/smoke-extension.mjs`, NP-054: тестовый host в `NativeMessagingHosts` профиля прогона, все сценарии Windows, «host не зарегистрирован» — спокойное `unreachable`), Playwright UI без `@visual` |
 | `distro`, после `build` | последняя версия каждого дистрибутива: `ubuntu:26.04`, `debian:13`, `fedora:44`, `archlinux:latest` — только x86_64 | пакет из `build` ставится `apt` или `dnf` (`scripts/linux/ci-package.sh`, NP-055): WebKitGTK и трей приходят его зависимостями, файлы на местах, манифесты называют `/usr/bin/koonapin-host` и не пускают ID разработки, в Fedora — её `rpmlint`, а Firefox и Chromium из пакетов Fedora проверяют установленный `.rpm` (`ci-browsers.sh`: Firefox читает только `/usr/lib64/mozilla` и сохраняет ссылку до первого запуска, Chromium находит манифест по ссылке в `/etc/chromium`); Arch — `koonapin-bin` так, как его собирает AUR-хелпер (NP-101): `scripts/build-aur.mjs` по `.deb` из `build`, зависимости из `.SRCINFO`, `makepkg --printsrcinfo` совпадает с `.SRCINFO`, `makepkg`, `namcap` без ошибок, `pacman -U`, признак канала `/usr/share/koonapin/channel` (встроенный updater выключен), Chromium и Firefox Arch с пакетом (`ci-browsers.sh`). Установленное приложение: `ldd` находит все библиотеки, запуск без экрана под X11 (Xvfb) и Wayland (Weston headless) с сессионной шиной D-Bus — библиотека создаётся в `~/.local/share/Koona/Pin`, процесс жив через 5 с, второй запуск передаёт управление первому и выходит; второй запуск со startup id (X11) и токеном активации (Wayland) передаёт его первому окну — под X11 окно несёт его в `_NET_STARTUP_ID`, Weston xdg-activation не умеет (NP-053); `app_id` окна под Wayland — `koonapin`; первый запуск создаёт ярлык автозапуска `~/.config/autostart/koonapin.desktop`, а с заданными `XDG_DATA_HOME` и `XDG_CONFIG_HOME` библиотека и ярлык ложатся в них, ярлык запускает этот бинарник с `--autostart` и `TryExec` (NP-097); под X11 — `test:host` с этим бинарником (NP-099): канал захвата через сокет, запуск закрытого приложения новым сеансом со stdio в `/dev/null`, права сокета `0600` и папки `0700`; манифесты пакетов `--package-manifests deb|rpm|arch` (NP-100); нативные тесты на WebKitGTK под X11 и Wayland (`ci-webkit.sh`, NP-095, [ниже](#нативные-тесты-на-webkitgtk)); окно нарисовано (NP-098): снимок всего экрана под X11 (`xwd -root`) и под Wayland (Weston с `kiosk-shell`: чёрный фон, окно во весь экран) — до запуска 1 цвет, с окном больше 50 (`scripts/linux/screen-colours.mjs`; пустое окно — рендерер WebKitGTK не рисует — падает); затем пакет ставится повторно и удаляется — программы, помощника, манифестов и ярлыка нет, библиотека в доме остаётся |
 | `webkitgtk`, после `build` | `debian:13` (WebKitGTK 2.54), `ubuntu:26.04` (2.52) | Интерфейс в WebKitGTK дистрибутива (NP-098, `scripts/linux/ci-webkitgtk.sh`, [ниже](#интерфейс-в-webkitgtk)): ключевые экраны 14 языков в обеих темах без обрезанных подписей, тема системы и «уменьшить движение» из `settings.ini` (X11) и из gsettings GNOME на ходу (Wayland, с порталом настроек) в самом Koona Pin; артефакт `webkitgtk-*` — снимки и `report.json` |
 
-Скрипты заданий: `scripts/linux/ci-setup.sh` (root: пакеты `deps.sh`, Rust из `rust-toolchain.toml`, Node из `.nvmrc`, пользователь `dev`), `ci-build.sh` и `ci-check.sh` (от `dev`); в `distro` — `ci-runtime.sh` (root: библиотеки времени выполнения, без компиляторов) и `ci-smoke.sh` (от `dev`). Так советует и Tauri: собирать на самой старой поддерживаемой системе и проверять этот бинарник. Разработческие пакеты `deps.sh` проверяются сборкой на Debian; на остальных дистрибутивах — только инструкция. Не root: root не замечает прав на файлы и папки, и тесты прав проходили бы не по той причине. В контейнере у WebKitGTK нет пространств имён для песочницы — запуск выключает её (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`), на рабочем столе этого не нужно.
+Скрипты заданий: `scripts/linux/ci-setup.sh` (root: пакеты `deps.sh`, Rust из `rust-toolchain.toml`, Bun из `.bun-version` (`bun.sh`), пользователь `dev`), `ci-build.sh` и `ci-check.sh` (от `dev`); в `distro` — `ci-runtime.sh` (root: библиотеки времени выполнения, без компиляторов) и `ci-smoke.sh` (от `dev`). Так советует и Tauri: собирать на самой старой поддерживаемой системе и проверять этот бинарник. Разработческие пакеты `deps.sh` проверяются сборкой на Debian; на остальных дистрибутивах — только инструкция. Не root: root не замечает прав на файлы и папки, и тесты прав проходили бы не по той причине. В контейнере у WebKitGTK нет пространств имён для песочницы — запуск выключает её (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`), на рабочем столе этого не нужно.
 
 ### Запуск
 
@@ -257,7 +257,7 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 act workflow_dispatch -W .github/workflows/linux.yml
 ```
 
-Образ раннера, папку артефактов (`.test-data/act-artifacts`, между `build` и `distro`) и секреты из `.env` (`--secret-file`: `KOONAPIN_FEEDBACK_URL` для сборки пакетов) `act` берёт из `.actrc`; без `.env` (`.env.example`) сборка пакетов останавливается с сообщением о `KOONAPIN_FEEDBACK_URL`. Если `act` не может скачать образ («authentication required» — `act` подставляет сохранённый вход Docker Hub, а обычный `docker pull` работает), образы скачиваются заранее (`docker pull debian:13` и остальные из матрицы) и `act` запускается с `--pull=false`. Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:44`. `act` копирует рабочую копию в контейнер, пропуская то, что в `.gitignore`, — в том числе `.git` (1,1 ГБ: LFS хранит все версии макетов; задания его не используют, а копия такого размера однажды на полчаса остановила Docker Desktop), поэтому копия занимает секунды; Rust и `npm ci` каждый прогон заново — около минуты на дистрибутив. Контейнеры `act` делят сеть хоста, а с ней и абстрактные сокеты: Xvfb в `ci-smoke.sh` слушает только файл сокета (`-nolisten local`), иначе приложение одного контейнера попадает на X-сервер другого.
+Образ раннера, папку артефактов (`.test-data/act-artifacts`, между `build` и `distro`) и секреты из `.env` (`--secret-file`: `KOONAPIN_FEEDBACK_URL` для сборки пакетов) `act` берёт из `.actrc`; без `.env` (`.env.example`) сборка пакетов останавливается с сообщением о `KOONAPIN_FEEDBACK_URL`. Если `act` не может скачать образ («authentication required» — `act` подставляет сохранённый вход Docker Hub, а обычный `docker pull` работает), образы скачиваются заранее (`docker pull debian:13` и остальные из матрицы) и `act` запускается с `--pull=false`. Одно задание — `-j check` или `-j distro`, один дистрибутив — `--matrix image:fedora:44`. `act` копирует рабочую копию в контейнер, пропуская то, что в `.gitignore`, — в том числе `.git` (1,1 ГБ: LFS хранит все версии макетов; задания его не используют, а копия такого размера однажды на полчаса остановила Docker Desktop), поэтому копия занимает секунды; Rust и `bun install` каждый прогон заново — около минуты на дистрибутив. Контейнеры `act` делят сеть хоста, а с ней и абстрактные сокеты: Xvfb в `ci-smoke.sh` слушает только файл сокета (`-nolisten local`), иначе приложение одного контейнера попадает на X-сервер другого.
 
 Пакеты. Задания `build` и `check` берут их из тома `koona-ci-cache` (`linux.yml` подключает его в `/var/cache/koona-ci`): скачанные `.deb` — по папке на выпуск и задание, второй прогон ничего не качает. Зеркала не выбираются и не замеряются: apt берёт источники образа. Том с нуля — `docker volume rm koona-ci-cache`.
 
@@ -277,7 +277,7 @@ act workflow_dispatch -W .github/workflows/linux.yml -j distro --matrix image:de
 На своей Linux-машине без контейнера — `WebKitWebDriver` из пакета дистрибутива (`webkitgtk-webdriver` в Ubuntu и Debian, `webkitgtk6.0` в Fedora, `webkitgtk-6.0` в Arch), `cargo install tauri-driver --version 2.1.0 --locked` (другой путь — в `KOONAPIN_TAURI_DRIVER`) и в сеансе рабочего стола (Koona Pin при этом закрыт — один экземпляр на сеанс):
 
 ```bash
-node --test --test-reporter=spec tests/webkit/
+bun test --timeout 600000 tests/webkit/
 ```
 
 Каждый прогон пишет библиотеку, `driver.log` (вывод драйверов и приложения) и `last.png` (окно в конце) в `.test-data/webkit-x11-<время>` или `webkit-wayland-<время>`; `ci-webkit.sh` при падении показывает конец `driver.log` без предупреждений GTK.
@@ -301,13 +301,13 @@ NP-098, [Р-58](decisions.md#р-58-интерфейс-в-webkitgtk). У WebKitGT
 - **Chromium Windows** (`--chromium`, Playwright) — те же экраны и прокрутка, вторая половина пар; `--pairs <linux> <windows>` склеивает снимки двух прогонов попарно в `<linux>/pairs`.
 
 ```bash
-bash scripts/linux/ci-webkitgtk.sh setup   # root: WebKitWebDriver, шрифты, Xvfb, Weston, dconf, портал, Node, «dev»
+bash scripts/linux/ci-webkitgtk.sh setup   # root: WebKitWebDriver, шрифты, Xvfb, Weston, dconf, портал, Bun, «dev»
 su dev -c "bash scripts/linux/ci-webkitgtk.sh"
 ```
 
 ```powershell
-node scripts/webkitgtk-check.mjs --chromium
-node scripts/webkitgtk-check.mjs --pairs .test-data/webkitgtk-check/webkitgtk-2.54.0-debian-13-x11 .test-data/webkitgtk-check/chromium-win32
+bun scripts/webkitgtk-check.mjs --chromium
+bun scripts/webkitgtk-check.mjs --pairs .test-data/webkitgtk-check/webkitgtk-2.54.0-debian-13-x11 .test-data/webkitgtk-check/chromium-win32
 ```
 
 Результаты 8 октября 2026 года (Docker Desktop на рабочем ПК владельца, Xvfb и Weston без видеокарты; выводы — [Р-58](decisions.md#р-58-интерфейс-в-webkitgtk)):
@@ -326,10 +326,10 @@ node scripts/webkitgtk-check.mjs --pairs .test-data/webkitgtk-check/webkitgtk-2.
 ```bash
 bash scripts/linux/deps.sh       # пакеты Tauri 2 для этого дистрибутива, с sudo
 curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal   # версию возьмёт rust-toolchain.toml
-# Node.js из .nvmrc: fnm (fnm install, читает .nvmrc), nvm или архив с nodejs.org
-npm ci
-npm run tauri dev
-npm run check
+# Bun из .bun-version: curl -fsSL https://bun.sh/install | bash -s "bun-v$(cat .bun-version)"
+bun install
+bun run tauri dev
+bun run check
 ```
 
 `deps.sh` повторяет prerequisites Tauri 2 (сверено 7 октября 2026 года): на Ubuntu и Debian библиотека трея — `libayatana-appindicator3-dev`, на Fedora и Arch — `libappindicator-gtk3`. Его проверяет задание `distro`. Версии в контейнерах 7 октября 2026 года:
@@ -341,13 +341,13 @@ npm run check
 | `fedora:44` | 2.43 | 2.54.1 |
 | `archlinux:latest` | 2.44 | 2.54.1 |
 
-Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev npm run tauri dev`, иначе приложение откроет `~/.local/share/Koona/Pin`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)).
+Своя библиотека на время разработки — `KOONAPIN_DATA_DIR=$PWD/.test-data/dev bun run tauri dev`, иначе приложение откроет `~/.local/share/Koona/Pin`. Пустое или чёрное окно на Wayland с NVIDIA — `WEBKIT_DISABLE_DMABUF_RENDERER=1` ([Linux Graphics Issues](https://v2.tauri.app/develop/debug/linux-graphics/)).
 ## Проба платформ
 
 NP-008 ([Р-26](decisions.md#р-26-риски-других-платформ-блокеров-tauri-нет)) — эксперимент, а не тест приложения: ищет архитектурные блокеры на macOS, Linux, iOS и Android. Результаты — [матрица](release-checklist.md#эксперимент-np-008-другие-платформы).
 
 ```powershell
-npm run build
+bun run build
 pwsh scripts/platform-probe/linux/probe.ps1
 pwsh scripts/platform-probe/android/probe.ps1
 ```
@@ -361,7 +361,7 @@ pwsh scripts/platform-probe/android/probe.ps1
 
 Эталоны находятся в `tests/ui/visual.spec.ts-snapshots` и проверяются через `toHaveScreenshot` **только локально**. Они зависят от сглаживания шрифтов конкретной машины: 3 октября 2026 года эталоны от 2 октября не совпали на той же машине (около 1 % пикселей, только сглаживание текста), а шрифты раннера отличаются сильнее. Поэтому CI запускает UI с `--grep-invert "@visual"`.
 
-Менять эталоны следует только после просмотра изменения (`npx playwright test --grep "@visual" --update-snapshots=all`: без `=all` Playwright переписывает только эталоны с отличием выше порога). Эталоны итерации 1 созданы в NP-010, пересняты в NP-012 (сетка и список по кадрам) в NP-021 (плашка и бейдж «Входящих»: в демо две закладки ждут разбора) в NP-022 (пункт «Корзина» в боковой панели стал активным) и в NP-085 (интерфейс по умолчанию на английском), сверены с кадрами 01, 02, 06, 07, 16. Тест фиксирует дату 3 октября 2026 года: от неё зависят группы списка и короткие даты.
+Менять эталоны следует только после просмотра изменения (`bunx playwright test --grep "@visual" --update-snapshots=all`: без `=all` Playwright переписывает только эталоны с отличием выше порога). Эталоны итерации 1 созданы в NP-010, пересняты в NP-012 (сетка и список по кадрам) в NP-021 (плашка и бейдж «Входящих»: в демо две закладки ждут разбора) в NP-022 (пункт «Корзина» в боковой панели стал активным) и в NP-085 (интерфейс по умолчанию на английском), сверены с кадрами 01, 02, 06, 07, 16. Тест фиксирует дату 3 октября 2026 года: от неё зависят группы списка и короткие даты.
 
 ## Нестабильные и ограниченные проверки
 
@@ -370,7 +370,7 @@ pwsh scripts/platform-probe/android/probe.ps1
 | Визуальные сравнения                     | Зависят от отрисовки шрифтов машины; в CI не запускаются                                                                                        |
 | `test:native`, `test:extension`          | Перезаписывают отслеживаемые `doc/concepts/native-webview2.jpg` и `chrome-options.jpg`, после локального запуска рабочая копия становится изменённой |
 | `test:native`                            | Падает, если порт отладки 9225 занят, например другим WebView2                                                                                     |
-| Папки прогонов                           | Тесты и скрипты не удаляют свои папки в `.test-data` и `koonapin-*` во временной папке; их убирает `npm run clean`, он же запускается перед `check`, `test:native`, `test:host`, `test:extension`, `test:extension:firefox` и `build:installer`. Папки моложе 30 минут остаются |
+| Папки прогонов                           | Тесты и скрипты не удаляют свои папки в `.test-data` и `koonapin-*` во временной папке; их убирает `bun run clean`, он же запускается перед `check`, `test:native`, `test:host`, `test:extension`, `test:extension:firefox` и `build:installer`. Папки моложе 30 минут остаются |
 | Chromium из `%LOCALAPPDATA%\ms-playwright` | На машине владельца не запускается, см. выше; к проекту не относится                                                                          |
 
 ## Журнал проверок
@@ -435,7 +435,7 @@ pwsh scripts/platform-probe/android/probe.ps1
 
 ## IME
 
-Ввод через метод ввода Windows (NP-090). Автотест подаёт составление через CDP (`Input.imeSetComposition`); настоящие IME проверяются руками в собранном приложении (`npm run build:installer` или `tauri dev`) и в расширении. Включить язык ввода: Параметры → Время и язык → Язык и регион → «Добавить язык», переключение — `Win Space`.
+Ввод через метод ввода Windows (NP-090). Автотест подаёт составление через CDP (`Input.imeSetComposition`); настоящие IME проверяются руками в собранном приложении (`bun run build:installer` или `tauri dev`) и в расширении. Включить язык ввода: Параметры → Время и язык → Язык и регион → «Добавить язык», переключение — `Win Space`.
 
 | # | Действие | Ожидается |
 | --- | --- | --- |
@@ -463,11 +463,11 @@ pwsh scripts/platform-probe/android/probe.ps1
 Автоматизация не нажимает кнопку на панели браузера, поэтому эту часть проверяет человек (NP-017). Нужны release-сборка приложения и собранное расширение:
 
 ```powershell
-npm run build
+bun run build
 cd src-tauri
 cargo build --release --features custom-protocol --locked
 cd ..
-npm run extension:build
+bun run extension:build
 ```
 
 Release-сборка при первом запуске регистрирует host `app.koona.pin` для Chrome, Edge и Firefox (манифесты рядом с `koonapin.exe`). Приложение работает с обычной библиотекой пользователя.
@@ -496,7 +496,7 @@ Release-сборка при первом запуске регистрирует
 
 ### Ручной протокол кнопки в Firefox
 
-Подписанный XPI (NP-018) ставится как у пользователя и переживает перезапуск браузера; автоматическая проверка этого не делает. Нужны release-сборка приложения (как выше) и подписанный пакет: `npm run extension:sign:firefox` с ключом AMO владельца в `WEB_EXT_API_KEY` и `WEB_EXT_API_SECRET` кладёт его в `release/publish/firefox`. Проверяется в текущем Firefox и в ESR 140.
+Подписанный XPI (NP-018) ставится как у пользователя и переживает перезапуск браузера; автоматическая проверка этого не делает. Нужны release-сборка приложения (как выше) и подписанный пакет: `bun run extension:sign:firefox` с ключом AMO владельца в `WEB_EXT_API_KEY` и `WEB_EXT_API_SECRET` кладёт его в `release/publish/firefox`. Проверяется в текущем Firefox и в ESR 140.
 
 | # | Действие | Ожидается |
 |---|---|---|

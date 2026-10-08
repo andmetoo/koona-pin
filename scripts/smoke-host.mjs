@@ -3,7 +3,7 @@
 // the host. KOONAPIN_TEST_BINARY picks another app, the host is taken next to it.
 //
 //   cargo build --manifest-path src-tauri/Cargo.toml
-//   node scripts/smoke-host.mjs
+//   bun scripts/smoke-host.mjs
 import assert from "node:assert/strict";
 import { readFileSync, readlinkSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";

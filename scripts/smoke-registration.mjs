@@ -3,7 +3,7 @@
 // sent by the extension goes through koonapin-host into the library and starts the closed app;
 // `--unregister-host` takes the manifests back. The button flows of the extension are the extension smoke's.
 //
-//   node scripts/smoke-registration.mjs [--installed]
+//   bun scripts/smoke-registration.mjs [--installed]
 //
 // --installed checks the package instead (NP-055): no registration, the manifests are the package's. They let
 // in only the store extensions, so Chromium refuses the development one, while Firefox — the add-on id is

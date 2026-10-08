@@ -2,7 +2,7 @@
 // koonapin-<version>-1.x86_64.rpm for Fedora, with --features public-release (the native host accepts only
 // the store extensions, feedback must have its address) → release/publish/linux/<version>/ with
 // SHA256SUMS.txt. No GPG signature in the beta (Р-45, п. 8).
-//   npm run build:linux
+//   bun run build:linux
 // On Debian 13, the oldest glibc of the matrix (a binary built on a newer one does not start on an older),
 // with the packages of scripts/linux/deps.sh plus rpm (rpmbuild). Settings come from the environment or
 // from .env, as for build:installer.

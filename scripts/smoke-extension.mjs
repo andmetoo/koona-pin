@@ -2,7 +2,7 @@
 // talking to Koona Pin through the real native host. The run registers a host
 // name of its own, so an installed app's registration stays untouched.
 //
-//   node scripts/smoke-extension.mjs [chromium|chrome|edge]
+//   bun scripts/smoke-extension.mjs [chromium|chrome|edge]
 //
 // chromium is Chrome for Testing from Playwright; chrome and edge are the
 // installed browsers (KOONAPIN_CHROME / KOONAPIN_EDGE point to another copy).

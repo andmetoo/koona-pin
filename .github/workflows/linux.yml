@@ -33,11 +33,11 @@ jobs:
         with:
           path: |
             /opt/cargo/registry
-            /home/dev/.npm
+            /home/dev/.bun/install/cache
             src-tauri/target
-          key: linux-build-${{ hashFiles('rust-toolchain.toml', 'src-tauri/Cargo.lock', 'package-lock.json') }}
+          key: linux-build-${{ hashFiles('rust-toolchain.toml', 'src-tauri/Cargo.lock', 'bun.lock') }}
           restore-keys: linux-build-
-      - name: Packages, Rust, Node, user «dev»
+      - name: Packages, Rust, Bun, user «dev»
         run: bash scripts/linux/ci-setup.sh
       # The packages are the release build (public-release): it does not compile without the feedback
       # address. On GitHub a repository secret; under act, .env (.actrc: --secret-file).
@@ -77,11 +77,11 @@ jobs:
         with:
           path: |
             /opt/cargo/registry
-            /home/dev/.npm
+            /home/dev/.bun/install/cache
             src-tauri/target
-          key: linux-check-${{ hashFiles('rust-toolchain.toml', 'src-tauri/Cargo.lock', 'package-lock.json') }}
+          key: linux-check-${{ hashFiles('rust-toolchain.toml', 'src-tauri/Cargo.lock', 'bun.lock') }}
           restore-keys: linux-check-
-      - name: Packages, Rust, Node, user «dev»
+      - name: Packages, Rust, Bun, user «dev»
         run: bash scripts/linux/ci-setup.sh
       # The .deb of «build», for the capture before the first start with Debian's browsers (NP-055).
       - uses: actions/download-artifact@v4
@@ -121,7 +121,7 @@ jobs:
       - run: chown -R dev dist-linux && chmod +x dist-linux/koonapin
       - name: The interface in WebKitGTK as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkitgtk.sh"
-      # Screenshots to compare with Windows (node scripts/webkitgtk-check.mjs --pairs).
+      # Screenshots to compare with Windows (bun scripts/webkitgtk-check.mjs --pairs).
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
