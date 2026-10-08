@@ -132,14 +132,14 @@ drawn() {
   HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
     cd "$HOME"
     shoot() { if [ -n "${WAYLAND_DISPLAY:-}" ]; then rm -f wayland-screenshot-*.png; weston-screenshooter > /dev/null; mv wayland-screenshot-*.png "$1.png"; echo "$1.png"; else xwd -root -silent > "$1.xwd"; echo "$1.xwd"; fi; }
-    echo "before the start: $(node "$2/scripts/linux/screen-colours.mjs" "$(shoot empty)" 0)"
+    echo "before the start: $(bun "$2/scripts/linux/screen-colours.mjs" "$(shoot empty)" 0)"
     library="$HOME/.local/share/Koona/Pin/koonapin.db"
     "$1" > "$HOME/app.log" 2>&1 &
     app=$!
     for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
     sleep 5
     printf "the window: "
-    node "$2/scripts/linux/screen-colours.mjs" "$(shoot window)" || { cat "$HOME/app.log"; exit 1; }
+    bun "$2/scripts/linux/screen-colours.mjs" "$(shoot window)" || { cat "$HOME/app.log"; exit 1; }
     echo "ok: the window is drawn"
     kill $app
   ' drawn "$app" "$PWD"
@@ -177,9 +177,9 @@ DISPLAY=:99 GDK_BACKEND=x11 drawn
 
 # test:host with this binary (NP-099): the host passes messages over the socket in $XDG_RUNTIME_DIR and
 # starts the closed app in a session of its own.
-step "Native host, capture socket (npm run test:host)"
+step "Native host, capture socket (bun run test:host)"
 HOME=$(mktemp -d) DISPLAY=:99 GDK_BACKEND=x11 KOONAPIN_TEST_BINARY=$app \
-  dbus-run-session -- node scripts/smoke-host.mjs
+  dbus-run-session -- bun scripts/smoke-host.mjs
 kill $xvfb 2> /dev/null || true
 
 step "Wayland (Weston headless, no XWayland)"

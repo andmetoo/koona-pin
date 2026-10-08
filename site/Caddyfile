@@ -1,4 +1,4 @@
-# koona.app/pin/ (NP-079, Р-37, Р-47). Static files of `node scripts/build-site.mjs`, copied to
+# koona.app/pin/ (NP-079, Р-37, Р-47). Static files of `bun scripts/build-site.mjs`, copied to
 # /path/to/site (doc/site.md, «Выкладка»). This file is not a site: it is imported INSIDE
 # the koona.app block of the server's main Caddyfile, once, next to the root site's rules:
 #

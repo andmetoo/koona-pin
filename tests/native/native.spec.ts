@@ -253,8 +253,8 @@ const binary = () =>
 
 /**
  * The address the window loaded. These tests need the interface embedded in the
- * binary, as in the release: `npm run test:native` builds it (scripts/build-test-app.mjs).
- * A plain `cargo build`, or the `cargo test` of `npm run check`, leaves a debug binary
+ * binary, as in the release: `bun run test:native` builds it (scripts/build-test-app.mjs).
+ * A plain `cargo build`, or the `cargo test` of `bun run check`, leaves a debug binary
  * that loads the Vite server and runs without the CSP — stop on it instead of failing
  * further on for a reason that has nothing to do with the test.
  */
@@ -279,7 +279,7 @@ async function appPageUrl(request: import("@playwright/test").APIRequestContext)
   if (url.startsWith("http://localhost:1420"))
     throw new Error(
       `${binary()} loads the Vite server: it was built without the interface embedded and has no CSP. ` +
-        "Run `npm run test:native`, or `node scripts/build-test-app.mjs` before Playwright.",
+        "Run `bun run test:native`, or `bun scripts/build-test-app.mjs` before Playwright.",
     );
   return url;
 }
@@ -1155,7 +1155,7 @@ test("foreign file: retry after moving it away opens a new library", async ({
 });
 
 // A measurement, not a correctness check: about 35 s and sensitive to machine load.
-// Not in `npm run test:native`; run it with `npm run test:perf` before a release
+// Not in `bun run test:native`; run it with `bun run test:perf` before a release
 // and after changes to the grid, the list or paging (NP-012).
 test("10 000 bookmarks scroll smoothly in the grid and the list", { tag: "@perf" }, async ({ request }) => {
   test.setTimeout(240_000);

@@ -5,7 +5,7 @@
 // value untouched.
 //
 //   cargo build --release --features custom-protocol --locked --manifest-path src-tauri/Cargo.toml
-//   node scripts/native-messaging-probe/app-start.mjs
+//   bun scripts/native-messaging-probe/app-start.mjs
 import { execFileSync, spawn } from "node:child_process";
 import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";

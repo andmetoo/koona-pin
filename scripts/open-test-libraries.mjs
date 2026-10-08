@@ -1,6 +1,6 @@
 // Opens every test library with the built app (NP-005) and reports what happened.
 // Prepare: cargo run --example test_libraries --manifest-path src-tauri/Cargo.toml
-// Run:     node scripts/open-test-libraries.mjs
+// Run:     bun scripts/open-test-libraries.mjs
 import { spawn } from "node:child_process";
 import { copyFile, mkdir, readdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";

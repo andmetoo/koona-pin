@@ -1,9 +1,9 @@
 // The AUR package of a release (NP-101, Р-55): PKGBUILD and .SRCINFO of koonapin-bin for the .deb that
-// npm run build:linux made → release/publish/aur/<version>/, to push to aur.archlinux.org/koonapin-bin.git
+// bun run build:linux made → release/publish/aur/<version>/, to push to aur.archlinux.org/koonapin-bin.git
 // (doc/release-checklist.md). Any system: .SRCINFO is written here, and the «distro» job of Arch checks it
 // against makepkg --printsrcinfo.
-//   npm run build:aur                    the .deb of release/publish/linux/<version>/
-//   node scripts/build-aur.mjs --deb <file> --out <folder>
+//   bun run build:aur                    the .deb of release/publish/linux/<version>/
+//   bun scripts/build-aur.mjs --deb <file> --out <folder>
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -20,7 +20,7 @@ const arg = (name) => {
 const { version } = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
 const deb = path.resolve(arg("--deb") ?? path.join(publish.linux(version), `koonapin_${version}_amd64.deb`));
 if (!existsSync(deb)) {
-  console.error(`No .deb at ${deb}: npm run build:linux first, or --deb <file>.`);
+  console.error(`No .deb at ${deb}: bun run build:linux first, or --deb <file>.`);
   process.exit(1);
 }
 const out = path.resolve(arg("--out") ?? publish.aur(version));

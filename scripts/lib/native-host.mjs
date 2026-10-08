@@ -2,8 +2,10 @@
 // koonapin-host and the capture pipe — a Unix socket on Linux (Р-17, NP-016, NP-099).
 import { execFileSync, spawn } from "node:child_process";
 import { readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
+import { rename } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 export const DEV_ORIGIN = "chrome-extension://iibgiagcbediajombmkohanobgicbepn/";
 
@@ -157,6 +159,28 @@ export function startedSince() {
       }
     },
   };
+}
+
+/**
+ * Moves a library with its -wal and -shm to another name, aside or back. Windows lets go of a
+ * killed app's files a moment after taskkill returns: a busy file is tried again for 10 s, and a
+ * file that stays busy fails the run. Skipping it left the library whole, and the capture meant to
+ * wait in the queue was saved. Only -wal and -shm may be missing.
+ */
+export async function moveLibrary(from, to) {
+  for (const suffix of ["", "-wal", "-shm"]) {
+    const deadline = Date.now() + 10000;
+    for (;;) {
+      try {
+        await rename(from + suffix, to + suffix);
+        break;
+      } catch (error) {
+        if (error.code === "ENOENT" && suffix) break;
+        if (!["EBUSY", "EPERM", "EACCES"].includes(error.code) || Date.now() > deadline) throw error;
+        await sleep(100);
+      }
+    }
+  }
 }
 
 export const hello = (browser = "chrome", protocol = 2) => ({ type: "hello", protocol, version: "0.5.0", browser });

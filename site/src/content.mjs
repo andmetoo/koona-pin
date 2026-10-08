@@ -1,10 +1,12 @@
 // Texts of koona.app/pin (doc/site.md): one file per language in ./locales, English the source.
 // The languages are the app's (NP-089, NP-107), with one Serbian: Latin, the owner's choice.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // KOONAPIN_FEEDBACK_URL below: from the environment or from .env in the repository root
 // (.env.example), for site:build, site:check and deploy-site.ps1 alike. The environment wins.
-const dotenv = new URL("../../.env", import.meta.url);
+// A path, not a URL: Bun's process.loadEnvFile takes only a string.
+const dotenv = fileURLToPath(new URL("../../.env", import.meta.url));
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 
 const locales = new URL("./locales/", import.meta.url);

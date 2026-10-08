@@ -1,5 +1,5 @@
 // Serbian Latin is not translated: it is the Cyrillic file letter by letter
-// (NP-089). `npm run locales:sr-latn` writes sr-Latn.json; a test keeps it in step.
+// (NP-089). `bun run locales:sr-latn` writes sr-Latn.json; a test keeps it in step.
 
 const letters: Record<string, string> = {
   а: "a", б: "b", в: "v", г: "g", д: "d", ђ: "đ", е: "e", ж: "ž", з: "z", и: "i",

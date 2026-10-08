@@ -1,6 +1,6 @@
 // Renders the covers of NP-087 in the real interface for the Lunacy mockup:
 // grid, list and triage, both themes, English and Russian, at 1440×900.
-// Needs the dev server on http://127.0.0.1:1420 (`npm run dev`) and network
+// Needs the dev server on http://127.0.0.1:1420 (`bun run dev`) and network
 // for the sites' icons. Writes .test-data/covers/<view>-<theme>-<lang>.png (outside test-results, which a test run clears).
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
