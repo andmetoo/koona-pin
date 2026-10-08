@@ -6,9 +6,7 @@ param([Parameter(ValueFromRemainingArguments)] [string[]] $Browsers = @())
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $output = Join-Path $root ".test-data\native-messaging-wmi.txt"
 Remove-Item $output -ErrorAction SilentlyContinue
-# A WMI process does not inherit this session's environment.
-$edge = if ($env:KOONAPIN_PROBE_EDGE) { "set `"KOONAPIN_PROBE_EDGE=$env:KOONAPIN_PROBE_EDGE`" && " } else { "" }
-$command = "cmd /c $edge node scripts\native-messaging-probe\run.mjs $($Browsers -join ' ') > `"$output`" 2>&1"
+$command = "cmd /c node scripts\native-messaging-probe\run.mjs $($Browsers -join ' ') > `"$output`" 2>&1"
 $created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
   CommandLine = $command
   CurrentDirectory = "$root"

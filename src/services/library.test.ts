@@ -1,11 +1,19 @@
 import { describe, it, expect } from "vitest";
 import {
+  byTime,
+  cursorAt,
   daysLeft,
   isAfter,
+  ListOrder,
   matchesBookmark,
   matchesFilters,
   mergeBookmark,
+  moveCollection,
+  orderOf,
+  siteOf,
   sortBookmarks,
+  sortCollections,
+  SORTS,
 } from "./library";
 import { Bookmark } from "../types";
 const b: Bookmark = {
@@ -97,5 +105,81 @@ describe("library reconciliation", () => {
     expect(sortBookmarks([b, { ...b, id: 2 }]).map((x) => x.id)).toEqual([
       2, 1,
     ]);
+  });
+});
+
+describe("the orders of NP-114", () => {
+  const row = (id: number, title: string, created: string, extra: Partial<Bookmark> = {}): Bookmark => ({
+    ...b,
+    id,
+    title,
+    created_at: created,
+    ...extra,
+  });
+  const ids = (list: Bookmark[]) => list.map((x) => x.id);
+  const en = (sort: ListOrder["sort"]): ListOrder => ({ sort, language: "en" });
+
+  it("orders by time both ways and by title or site as the database does", () => {
+    const list = [
+      row(1, "Zebra", "2026-10-01", { domain: "www.b.example" }),
+      row(2, "äpfel", "2026-10-02", { domain: "a.example" }),
+      row(3, "Apfel", "2026-10-03", { domain: "c.example" }),
+      row(4, "Chapter 10", "2026-10-04", { domain: "B.example" }),
+      row(5, "Chapter 9", "2026-10-05", { domain: "a.example" }),
+    ];
+    expect(ids(sortBookmarks(list, en("newest")))).toEqual([5, 4, 3, 2, 1]);
+    expect(ids(sortBookmarks(list, en("oldest")))).toEqual([1, 2, 3, 4, 5]);
+    // Without keys (the demo): the collator, case aside, numbers by value.
+    expect(ids(sortBookmarks(list, en("title")))).toEqual([3, 2, 5, 4, 1]);
+    // «www.» left out; equal sites newest first.
+    expect(ids(sortBookmarks(list, en("site")))).toEqual([5, 2, 4, 1, 3]);
+    expect(siteOf("WWW.Example.com")).toBe("Example.com");
+  });
+
+  it("compares the database's keys as text when the rows have them", () => {
+    // Keys win over the text: the database knows the language's order.
+    const keyed = [row(1, "B", "2026-10-01", { title_key: "0A" }), row(2, "A", "2026-10-02", { title_key: "0B" }), row(3, "C", "2026-10-03", { title_key: "0A" })];
+    expect(ids(sortBookmarks(keyed, en("title")))).toEqual([3, 1, 2]);
+    const cursor = cursorAt(keyed[0], en("title"));
+    expect(cursor).toEqual({ at: "2026-10-01", id: 1, key: "0A" });
+    expect(isAfter(keyed[1], cursor, en("title"))).toBe(true);
+    expect(isAfter(keyed[2], cursor, en("title"))).toBe(false);
+  });
+
+  it("finds the next page of the demo by the cursor's text", () => {
+    const list = [row(1, "Apfel", "2026-10-01"), row(2, "Bär", "2026-10-02"), row(3, "Chapter", "2026-10-03")];
+    const cursor = cursorAt(list[1], en("title"));
+    expect(cursor.key).toBe("Bär");
+    expect(list.filter((x) => isAfter(x, cursor, en("title"))).map((x) => x.id)).toEqual([3]);
+    expect(cursorAt(list[1], en("newest"))).toEqual({ at: "2026-10-02", id: 2 });
+  });
+
+  it("keeps a row in place by title and puts a new one where it belongs", () => {
+    const list = sortBookmarks([row(1, "Apfel", "2026-10-01"), row(2, "Chapter", "2026-10-02")], en("title"));
+    const renamed = { ...list[0], title: "Zebra", revision: 2 };
+    expect(ids(mergeBookmark(list, renamed, en("title")))).toEqual([1, 2]);
+    expect(mergeBookmark(list, renamed, en("title"))[0].title).toBe("Zebra");
+    expect(ids(mergeBookmark(list, row(3, "Bär", "2026-10-03"), en("title")))).toEqual([1, 3, 2]);
+    // By time a new one takes its place too: the oldest last.
+    const byDate = sortBookmarks(list, en("oldest"));
+    expect(ids(mergeBookmark(byDate, row(3, "Bär", "2026-09-01"), en("oldest")))).toEqual([3, 1, 2]);
+  });
+
+  it("keeps the trash newest deletion first and the date groups for time only", () => {
+    expect(orderOf("title", true)).toBe("newest");
+    expect(orderOf("title", false)).toBe("title");
+    expect(SORTS.filter(byTime)).toEqual(["newest", "oldest"]);
+  });
+
+  it("puts moved collections first in their places, the others by name", () => {
+    const collections: { id: number; name: string; position?: number }[] = [
+      { id: 1, name: "Работа" },
+      { id: 2, name: "Ärger", position: 1 },
+      { id: 3, name: "Zeit", position: 0 },
+      { id: 4, name: "Bücher" },
+    ];
+    expect(sortCollections(collections, "de").map((c) => c.id)).toEqual([3, 2, 4, 1]);
+    expect(moveCollection(sortCollections(collections, "de"), 3, 0)).toEqual([1, 3, 2, 4]);
+    expect(moveCollection(collections, 0, 9)).toEqual([2, 3, 4, 1]);
   });
 });

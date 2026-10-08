@@ -42,6 +42,10 @@ pub struct JsonCollection {
     pub color: Option<String>,
     pub icon: Option<String>,
     pub created_at: String,
+    /// Its place in the sidebar (NP-114); absent until the first move and in
+    /// copies made before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -154,9 +158,16 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
 }
 
 fn collections(conn: &Connection) -> rusqlite::Result<Vec<JsonCollection>> {
-    conn.prepare("SELECT uid, name, color, icon, created_at FROM collections ORDER BY name COLLATE NOCASE, id")?
+    conn.prepare("SELECT uid, name, color, icon, created_at, position FROM collections ORDER BY name COLLATE NOCASE, id")?
         .query_map([], |r| {
-            Ok(JsonCollection { uid: r.get(0)?, name: r.get(1)?, color: r.get(2)?, icon: r.get(3)?, created_at: r.get(4)? })
+            Ok(JsonCollection {
+                uid: r.get(0)?,
+                name: r.get(1)?,
+                color: r.get(2)?,
+                icon: r.get(3)?,
+                created_at: r.get(4)?,
+                position: r.get(5)?,
+            })
         })?
         .collect()
 }

@@ -32,7 +32,9 @@
     "newCollectionCreate": "Enter — create and move",
     "newCollectionCancel": "Esc — cancel",
     "tagsDrop": "Tags — drop on a tag to add it",
-    "dropNewCollection": "New collection from selection"
+    "dropNewCollection": "New collection from selection",
+    "moveCollection": "Move",
+    "collectionMoved": "{{name}}: place {{position}} of {{count}}"
   },
   "drag": {
     "more_one": "and {{count}} more bookmark",
@@ -100,6 +102,8 @@
     "view": "Library view",
     "grid": "Grid",
     "list": "List",
+    "sortBy": "Sort by",
+    "sortHint": "Sort: {{order}}",
     "more": "More",
     "add": "Add link",
     "addShort": "Add",
@@ -108,6 +112,12 @@
     "clearTag": "Remove tag filter {{tag}}",
     "domainChip": "Site: {{domain}}",
     "clearDomain": "Remove site filter {{domain}}"
+  },
+  "sort": {
+    "newest": "Newest first",
+    "oldest": "Oldest first",
+    "title": "Title A–Z",
+    "site": "Site A–Z"
   },
   "more": {
     "import": "Import",
