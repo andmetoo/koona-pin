@@ -10,6 +10,13 @@ playwright-report/
 *.local
 # Build settings and signing secrets (scripts/build-installer.mjs, .env.example)
 .env
+.env.*
+!.env.example
+# Keys live outside the repository (the updater's in ~/.tauri, the server's in /etc/caddy); a copy here stays out of Git
+*.key
+*.pem
+*.pfx
+*.p12
 # Supabase CLI state of the linked project (supabase link, supabase/README.md)
 supabase/.temp/
 

@@ -71,6 +71,8 @@ export type { CaptureStatus } from "./bindings/CaptureStatus";
 export type { LastCapture } from "./bindings/LastCapture";
 export type { Feedback } from "./bindings/Feedback";
 export type { FeedbackKind } from "./bindings/FeedbackKind";
+export type { UpdateStatus } from "./bindings/UpdateStatus";
+export type { UpdateProblem } from "./bindings/UpdateProblem";
 
 export type ViewMode = "grid" | "list";
 

@@ -30,7 +30,7 @@ React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятс
 
 ## Разработка
 
-Нужны Bun (версия в `.bun-version`; Node.js не нужен, [Р-60](doc/decisions.md#р-60-bun-вместо-node-и-npm)), Rust (версия в `rust-toolchain.toml`, rustup установит её сам), Microsoft C++ Build Tools и WebView2. Все проверки и CI описаны в [doc/testing.md](doc/testing.md).
+Нужны Bun (версия в `.bun-version`; Node.js не нужен, [Р-61](doc/decisions.md#р-61-bun-вместо-node-и-npm)), Rust (версия в `rust-toolchain.toml`, rustup установит её сам), Microsoft C++ Build Tools и WebView2. Все проверки и CI описаны в [doc/testing.md](doc/testing.md).
 
 ```powershell
 bun install
