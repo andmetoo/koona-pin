@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The «check» job of .github/workflows/linux.yml, as «dev»: what `npm run check` does on Windows, the
-# generated IPC types against the repository, the extension lint and Playwright UI as in ci.yml. The release
-# binary is the «build» job's.
+# generated IPC types against the repository, the extension lint, the development registration of the native
+# host with Debian's browsers and Playwright UI as in ci.yml. The release binary is the «build» job's.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:/opt/node/bin:$PATH
@@ -33,6 +33,18 @@ npm test
 
 step "Extension packages, web-ext lint"
 npm run extension:lint
+
+# The app's own --register-host in a temporary home, then Debian's Chromium and Firefox capture through the
+# host (NP-100). The app needs a screen and a session bus; the browsers run headless.
+step "Development registration with Chromium and Firefox of Debian"
+(cd src-tauri && cargo build --locked)
+export XDG_RUNTIME_DIR
+XDG_RUNTIME_DIR=$(mktemp -d)
+chmod 700 "$XDG_RUNTIME_DIR"
+Xvfb :98 -screen 0 1280x800x24 -nolisten tcp -nolisten local > /dev/null 2>&1 &
+xvfb=$!
+DISPLAY=:98 GDK_BACKEND=x11 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 dbus-run-session -- node scripts/smoke-registration.mjs
+kill $xvfb 2> /dev/null || true
 
 # Screenshot baselines depend on font rendering and are checked on Windows only, as in ci.yml. Two
 # language tests find the browser status 1–5 px wider than its slot on Linux (#183): out until it is fixed.

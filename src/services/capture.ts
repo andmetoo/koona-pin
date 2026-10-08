@@ -48,6 +48,20 @@ export function statusLabel(status: CaptureStatus | null, t: TFunction): string 
   }
 }
 
+/** Settings → Browser when capture cannot work; on Linux it names the package to reinstall (Р-52, п. 5). */
+export function problemText(status: CaptureStatus | null, t: TFunction): string {
+  const problem = status?.problem ?? "channel";
+  return status?.system === "linux" ? t(`browser.problem_${problem}_linux`) : t(`browser.problem_${problem}`);
+}
+
+/** The banner above the library; on Linux only the registration line reads differently. */
+export function problemBanner(status: CaptureStatus | null, t: TFunction): string {
+  const problem = status?.problem ?? "channel";
+  return status?.system === "linux" && problem === "registration"
+    ? t("browser.banner_registration_linux")
+    : t(`browser.banner_${problem}`);
+}
+
 /** «Chrome, Edge»: the browsers that wrote within three days. */
 export function connectedNames(status: CaptureStatus | null): string {
   return (status?.browsers ?? [])
@@ -97,7 +111,7 @@ export function captureReport(status: CaptureStatus, version: string): string {
     `Koona Pin ${version}`,
     `Capture: ${status.state}${status.problem ? ` (${status.problem})` : ""}`,
     status.detail ? `Detail: ${status.detail}` : "",
-    `Protocol: ${status.protocol}`,
+    `Protocol: ${status.protocol}, system: ${status.system}`,
     ...status.browsers.map(
       (b) => `${browserName[b.browser]}: extension ${b.extension_version ?? "?"}, protocol ${b.extension_protocol ?? "?"}, last seen ${b.last_seen}`,
     ),
