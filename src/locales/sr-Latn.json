@@ -74,7 +74,7 @@
     "lastSavedToday": "Poslednje čuvanje — danas u {{time}} iz {{browser}}",
     "lastSavedOn": "Poslednje čuvanje — {{date}} u {{time}} iz {{browser}}",
     "noSaves": "Još nije sačuvana nijedna stranica",
-    "notConnectedHint": "Proširenje čuva stranicu jednim klikom",
+    "notConnectedHint": "Proširenje čuva stranicu jednim klikom. Ako je već instalirano, stanje će se osvežiti posle prvog čuvanja ili samo u roku od pola sata.",
     "lostText_one": "Nijedno proširenje se nije javilo {{count}} dan. Otvorite pregledač i proverite da li je Koona Pin uključen — linkovi iz reda stići će sami.",
     "lostText_few": "Nijedno proširenje se nije javilo {{count}} dana. Otvorite pregledač i proverite da li je Koona Pin uključen — linkovi iz reda stići će sami.",
     "lostText_other": "Nijedno proširenje se nije javilo {{count}} dana. Otvorite pregledač i proverite da li je Koona Pin uključen — linkovi iz reda stići će sami.",

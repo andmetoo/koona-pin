@@ -72,7 +72,7 @@
     "lastSavedToday": "Ultimo salvataggio oggi alle {{time}} da {{browser}}",
     "lastSavedOn": "Ultimo salvataggio il {{date}} alle {{time}} da {{browser}}",
     "noSaves": "Ancora nessuna pagina salvata",
-    "notConnectedHint": "L’estensione salva una pagina con un clic",
+    "notConnectedHint": "L’estensione salva una pagina con un clic. Se è già installata, lo stato si aggiorna al primo salvataggio o da solo entro mezz’ora.",
     "lostText_one": "Nessuna estensione si è fatta sentire da {{count}} giorno. Apri il browser e controlla che Koona Pin sia attiva: i link in coda arriveranno da soli.",
     "lostText_many": "Nessuna estensione si è fatta sentire da {{count}} di giorni. Apri il browser e controlla che Koona Pin sia attiva: i link in coda arriveranno da soli.",
     "lostText_other": "Nessuna estensione si è fatta sentire da {{count}} giorni. Apri il browser e controlla che Koona Pin sia attiva: i link in coda arriveranno da soli.",
