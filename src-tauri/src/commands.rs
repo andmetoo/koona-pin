@@ -424,6 +424,26 @@ pub async fn refresh_preview(
     capture::emit(&app, ChangeKind::Updated, &bookmark);
     Ok(bookmark)
 }
+/// The sidebar's order after a drag or `Alt ↑` / `Alt ↓` (NP-114): every
+/// collection's id from first to last.
+#[tauri::command]
+pub async fn reorder_collections(
+    state: State<'_, Arc<DbState>>,
+    ids: Vec<i64>,
+) -> Result<(), CommandError> {
+    blocking(&state, move |conn| db::reorder_collections(conn, &ids).map_err(text)).await
+}
+/// The interface's language (NP-114): «Title A–Z» and «Site A–Z» compare as
+/// it does. On start and on every change of language; the first call after
+/// an update to schema 7, or a call with another language, writes every sort
+/// key anew (about a second for 100 000 bookmarks). Returns whether it did.
+#[tauri::command]
+pub async fn set_sort_language(
+    state: State<'_, Arc<DbState>>,
+    language: String,
+) -> Result<bool, CommandError> {
+    blocking(&state, move |conn| crate::sorting::set_language(conn, &language).map_err(text)).await
+}
 /// A new library's first collections, named by the interface in its language
 /// (NP-085). Made once: a library that already had them gets nothing.
 #[tauri::command]
