@@ -1,17 +1,19 @@
 // The interface in WebKitGTK next to Chromium (NP-098): key screens of every language in both themes,
 // labels cut off, the system theme and «reduce motion», scrolling 10 000 and 100 000 bookmarks. WebKitGTK
 // has no CDP, so on Linux the distribution's own engine is driven over WebDriver: WebKitWebDriver starts
-// its MiniBrowser on the browser preview (demo adapter, no Tauri). On Windows the same steps run in
+// its MiniBrowser on the browser preview (demo adapter, no Tauri), and Koona Pin itself (--app) for the
+// system's settings and the scroll through SQLite. On Windows the same steps run in
 // Playwright's Chromium — the engine of WebView2 — and give the other half of each pair.
 //
 //   node scripts/webkitgtk-check.mjs                  Linux: WebKitWebDriver + MiniBrowser (DISPLAY or WAYLAND_DISPLAY)
 //   node scripts/webkitgtk-check.mjs --chromium       Windows: Playwright's Chromium
 //   node scripts/webkitgtk-check.mjs --pairs <linux> <windows>   side-by-side PNGs of two runs
-// Options: --only screens,media,scroll (and gnome: Wayland with dconf)  --languages en,ja  --label <name>
+// Options: --only screens,scroll,media,gnome,appscroll  --app <koonapin>  --libraries <library-10k-v1.db,…>
+//          --languages en,ja  --label <name>  --frames 1500  --css <rules for the scroll>
 //          --counts 10000,100000
 // Results: .test-data/webkitgtk-check/<label>/ — report.json, screens/, pairs/.
 import { spawn, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { createServer as createNetServer } from "node:net";
 import path from "node:path";
@@ -32,6 +34,8 @@ if (args.includes("--pairs")) {
 
 const only = new Set((option("only", "screens,media,scroll")).split(","));
 const counts = option("counts", "10000,100000").split(",").map(Number);
+/** At most this many frames per scroll: WebKitGTK drawing without a GPU takes 20 minutes for 10 000 to the end. */
+const frames = option("frames") && Number(option("frames"));
 const chromium = args.includes("--chromium");
 
 // ---- What runs in the page: one self-contained function, the same text for both engines. ----
@@ -89,6 +93,11 @@ function lib() {
       style.textContent = "*,*::before,*::after{transition:none!important;animation:none!important;caret-color:transparent!important}";
       document.head.append(style);
     },
+    style(rules) {
+      const style = document.createElement("style");
+      style.textContent = rules;
+      document.head.append(style);
+    },
     /** Interface text that is cut off — the rule of tests/ui/languages.spec.ts. */
     cut() {
       const cut = [];
@@ -124,6 +133,14 @@ function lib() {
       const loaded = () => Number(document.querySelector("[data-loaded]")?.getAttribute("data-loaded"));
       await until(() => loaded() === first, `${first} loaded bookmarks of the seeded library`, 60_000);
       const scroller = document.querySelector('[data-scroll="main"]');
+      // The page standing still first: what a frame costs without scrolling.
+      const still = [];
+      for (let i = 0, t = performance.now(); i < 120; i++) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        still.push(performance.now() - t);
+        t = performance.now();
+      }
+      still.sort((a, b) => a - b);
       const gaps = [];
       let last = performance.now();
       for (let i = 0; i < maxFrames; i++) {
@@ -138,6 +155,7 @@ function lib() {
       gaps.sort((a, b) => a - b);
       const at = (p) => gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * p))];
       return {
+        stillP50: still[60],
         frames: gaps.length,
         p50: at(0.5),
         p95: at(0.95),
@@ -244,14 +262,14 @@ async function webdriverEngine() {
       return undefined;
     }
   }, undefined) ?? "unknown";
-  let driver, base, session;
+  let driver, base, session, runs = 0;
   const call = async (method, url, body) => {
     const response = await fetch(`${base}${url}`, {
       method,
       headers: { "content-type": "application/json" },
       body: body && JSON.stringify(body),
       // A browser that never answers fails the step instead of the whole run.
-      signal: AbortSignal.timeout(url.endsWith("/execute/async") ? 30 * 60_000 : 120_000),
+      signal: AbortSignal.timeout(120_000),
     });
     const json = await response.json();
     if (!response.ok) throw new Error(`${method} ${url}: ${json.value?.error} ${json.value?.message}`);
@@ -284,7 +302,7 @@ async function webdriverEngine() {
         capabilities: { alwaysMatch: { "webkitgtk:browserOptions": app ? { binary: app, args: [] } : { binary: MINIBROWSER, args: ["--automation"] } } },
       }));
       await call("POST", s("/timeouts"), { script: 30 * 60_000, pageLoad: 120_000 });
-      if (!app) await call("POST", s("/window/rect"), { width, height });
+      await call("POST", s("/window/rect"), { width, height });
       engine.size = { width, height };
     },
     async goto(url) {
@@ -298,13 +316,27 @@ async function webdriverEngine() {
         await call("POST", s("/window/rect"), { width: rect.width + width - inner[0], height: rect.height + height - inner[1] });
       }
     },
+    /**
+     * Started in the page, then asked for: a scroll runs for minutes, longer than Node's fetch waits for an
+     * answer (5 minutes). The questions come further apart the longer it runs, so they barely touch the frames.
+     */
     async run(name, ...params) {
-      const script = `const done = arguments[arguments.length - 1];
-        Promise.resolve().then(() => ${libSource}[${JSON.stringify(name)}](...${JSON.stringify(params)}))
-          .then((value) => done({ value: value === undefined ? null : value }), (e) => done({ error: String(e) + " " + (e && e.stack) }));`;
-      const result = await call("POST", s("/execute/async"), { script, args: [] });
-      if (result.error) throw new Error(`${name}: ${result.error}`);
-      return result.value;
+      const id = JSON.stringify(`${name}-${++runs}`);
+      await call("POST", s("/execute/sync"), {
+        script: `const results = (window.__np098 ??= {}); results[${id}] = { pending: true };
+          Promise.resolve().then(() => ${libSource}[${JSON.stringify(name)}](...${JSON.stringify(params)}))
+            .then((value) => (results[${id}] = { value: value === undefined ? null : value }),
+                  (e) => (results[${id}] = { error: String(e) + " " + (e && e.stack) }));
+          return true;`,
+        args: [],
+      });
+      for (let wait = 20; ; wait = Math.min(wait * 2, 2_000)) {
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        const result = await call("POST", s("/execute/sync"), { script: `return window.__np098[${id}]`, args: [] });
+        if (result.pending) continue;
+        if (result.error) throw new Error(`${name}: ${result.error}`);
+        return result.value;
+      }
     },
     async shot(file) {
       writeFileSync(file, Buffer.from(await call("GET", s("/screenshot")), "base64"));
@@ -365,6 +397,8 @@ const dir = path.join(out, label);
 mkdirSync(path.join(dir, "screens"), { recursive: true });
 const report = { engine: engine.name, version: engine.version, system: os.PRETTY_NAME, session, date: new Date().toISOString() };
 console.log(`${engine.name} ${engine.version}, ${os.PRETTY_NAME}, ${session} → ${path.relative(root, dir)}`);
+/** Rules added for the scroll, to find what costs a frame: --css "img{display:none}". */
+const css = option("css");
 const failures = [];
 
 const locales = path.join(root, "src", "locales");
@@ -512,21 +546,22 @@ if (only.has("scroll")) {
   for (const count of counts)
     for (const view of ["grid", "list"]) {
       // 100 000 to the end would be over an hour of frames: the first 4 000 frames, pages loading on the way.
-      const maxFrames = count > 10_000 ? 4_000 : 12_000;
+      const maxFrames = frames ?? (count > 10_000 ? 4_000 : 12_000);
       await engine.open(1440, 900);
       try {
         await engine.goto(`${url}${BLANK}`);
         await engine.storage({ "koonapin.view": view, "koonapin.theme": "light", "koonapin.demo.desktop": desktop });
         await engine.goto(`${url}${SEEDED}?seed=${count}`);
         await engine.run("ready");
+        if (css) await engine.run("style", css);
         const r = await engine.run("scroll", STEP, maxFrames, count);
         report.scroll.push({ count, view, step: STEP, ...r });
         const ms = (v) => `${v.toFixed(1)} ms`;
         console.log(
-          `scroll ${count} ${view.padEnd(4)} frames ${r.frames}  p50 ${ms(r.p50)}  p95 ${ms(r.p95)}  p99 ${ms(r.p99)}  max ${ms(r.max)}  ` +
+          `scroll ${count} ${view.padEnd(4)} still ${ms(r.stillP50)}  frames ${r.frames}  p50 ${ms(r.p50)}  p95 ${ms(r.p95)}  p99 ${ms(r.p99)}  max ${ms(r.max)}  ` +
             `over 33 / 50 ms: ${r.over33} / ${r.over50}  loaded ${r.loaded}  in DOM ${r.inDom}`,
         );
-        if (count <= 10_000 && r.loaded !== count) failures.push(`scroll ${count} ${view}: ended with ${r.loaded} loaded`);
+        if (!frames && count <= 10_000 && r.loaded !== count) failures.push(`scroll ${count} ${view}: ended with ${r.loaded} loaded`);
       } catch (error) {
         failures.push(`scroll ${count} ${view}: ${error.message}`);
         console.log(`FAIL scroll ${count} ${view}: ${error.message}`);
@@ -534,6 +569,39 @@ if (only.has("scroll")) {
         await engine.closePage();
       }
     }
+}
+
+/**
+ * Scrolling Koona Pin itself: a test library (src-tauri/src/test_libraries.rs) through IPC and SQLite, as the
+ * native @perf test does on Windows. The library is a copy; the app migrates it to the current schema.
+ */
+const libraries = option("libraries");
+if (only.has("appscroll") && app && libraries) {
+  report.appScroll = [];
+  for (const file of libraries.split(",")) {
+    const count = Number(path.basename(file).match(/(\d+)k/)[1]) * 1000;
+    for (const view of ["grid", "list"]) {
+      const data = mkdtempSync(path.join(tmpdir(), "np098-data-"));
+      copyFileSync(file, path.join(data, "koonapin.db"));
+      await engine.open(1440, 900, { KOONAPIN_DATA_DIR: data }, app);
+      try {
+        await engine.run("ready");
+        if (view === "list") await engine.run("click", text(catalog("en"), "toolbar.list"));
+        const r = await engine.run("scroll", 120, frames ?? (count > 10_000 ? 4_000 : 12_000), count);
+        report.appScroll.push({ library: path.basename(file), count, view, step: 120, ...r });
+        const ms = (v) => `${v.toFixed(1)} ms`;
+        console.log(
+          `app scroll ${count} ${view.padEnd(4)} still ${ms(r.stillP50)}  frames ${r.frames}  p50 ${ms(r.p50)}  p95 ${ms(r.p95)}  p99 ${ms(r.p99)}  max ${ms(r.max)}  ` +
+            `over 33 / 50 ms: ${r.over33} / ${r.over50}  loaded ${r.loaded}  in DOM ${r.inDom}`,
+        );
+      } catch (error) {
+        failures.push(`app scroll ${count} ${view}: ${error.message}`);
+        console.log(`FAIL app scroll ${count} ${view}: ${error.message}`);
+      } finally {
+        await engine.closePage();
+      }
+    }
+  }
 }
 
 report.failures = failures;
