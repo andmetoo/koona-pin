@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AppSettings, CaptureStatus, DataSummary, Desktop } from "../../types";
+import { AppSettings, CaptureStatus, DataSummary, Desktop, UpdateStatus } from "../../types";
 import { api, isTauri } from "../../services/api";
 import {
   appIsOlder,
@@ -15,6 +15,7 @@ import {
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
 import { GITHUB_ISSUES_URL } from "../../services/feedback";
+import { notesUrl, offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
 import { Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
@@ -35,6 +36,9 @@ export function SettingsPage({
   onSaveCopy,
   onRestoreBackup,
   onFeedback,
+  update,
+  onUpdate,
+  onCheckUpdates,
   dataVersion,
 }: {
   theme: Theme;
@@ -51,6 +55,11 @@ export function SettingsPage({
   onRestoreBackup: () => void;
   /** «Send feedback…» (NP-088): the dialog is the caller's, it keeps the draft. */
   onFeedback: () => void;
+  /** The app's own update (NP-038, sheet 42) and «Update…», which opens the same dialog as the sidebar row. */
+  update: UpdateStatus | null;
+  onUpdate: () => void;
+  /** «Check for updates» and «Try again»: the status comes back through `update`. */
+  onCheckUpdates: () => Promise<void>;
   /** Changes after a restore: the copies are counted again. */
   dataVersion: number;
 }) {
@@ -66,7 +75,6 @@ export function SettingsPage({
   // Several actions can run at once; each keeps its own control disabled.
   const [running, setRunning] = useState<ReadonlySet<string>>(new Set());
   const busy = (name: string) => running.has(name);
-  const soon = t("common.soon");
 
   useEffect(() => {
     void api.getDataSummary().then(setData).catch(() => {});
@@ -176,6 +184,15 @@ export function SettingsPage({
         </Row>
       </Section>
 
+      <UpdatesSection
+        version={version}
+        update={update}
+        checking={busy("updates")}
+        onCheck={() => void attempt("updates", onCheckUpdates)}
+        onUpdate={onUpdate}
+        onNotes={(url) => void attempt("notes", () => api.openUrl(url))}
+      />
+
       <BrowserSection
         capture={capture}
         busy={busy("capture")}
@@ -241,14 +258,96 @@ export function SettingsPage({
           <Button onClick={() => void attempt("github", () => api.openUrl(GITHUB_ISSUES_URL))}>{t("common.open")}</Button>
         </Row>
       </Section>
-
-      <p className="flex flex-wrap items-center gap-3 px-3 text-xs text-subtle">
-        <span>Koona Pin {version}</span>
-        <span title={soon} className="text-faint">
-          {t("settings.checkUpdates")}
-        </span>
-      </p>
     </div>
+  );
+}
+
+/**
+ * Settings → Updates (NP-038, sheet 42): the version and the last check. A version on offer gets
+ * «What's new» and «Update…», the same dialog as the row in the sidebar; the AUR package says that
+ * pacman updates it and has no button.
+ */
+function UpdatesSection({
+  version,
+  update,
+  checking,
+  onCheck,
+  onUpdate,
+  onNotes,
+}: {
+  version: string;
+  update: UpdateStatus | null;
+  checking: boolean;
+  onCheck: () => void;
+  onUpdate: () => void;
+  onNotes: (url: string) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const desktop = isTauri();
+  const upToDate = (iso: string) => {
+    const date = new Date(iso);
+    const time = date.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
+    return date.toDateString() === new Date().toDateString()
+      ? t("settings.upToDateToday", { time })
+      : t("settings.upToDateOn", { date: date.toLocaleDateString(i18n.language, { day: "numeric", month: "long" }), time });
+  };
+  const offered = offer(update);
+  const state = checking ? "checking" : (update?.state ?? "unknown");
+  let description: string;
+  let controls: ReactNode = null;
+  if (offered) {
+    description =
+      offered.state === "downloading"
+        ? t("settings.updateDownloading", { version: offered.version, percent: percent(offered) ?? 0 })
+        : offered.state === "installing"
+          ? t("settings.updateInstalling", { version: offered.version })
+          : offered.state === "failed"
+            ? t("settings.updateFailed", { version: offered.version })
+            : t("settings.updateAvailable", { version: offered.version });
+    controls = (
+      <>
+        <button type="button" onClick={() => onNotes(notesUrl(offered))} className="px-1 text-sm font-medium text-accent hover:underline">
+          {t("settings.whatsNew")} ↗
+        </button>
+        <Button variant={offered.state === "available" ? "primary" : "secondary"} onClick={onUpdate}>
+          {t("settings.updateButton")}
+        </Button>
+      </>
+    );
+  } else if (state === "checking") {
+    description = t("settings.checking");
+    controls = (
+      <span className="flex items-center gap-2 px-1 text-sm text-muted">
+        <span aria-hidden className="size-3.5 animate-spin rounded-full border-[1.5px] border-line border-t-accent dark:border-divider dark:border-t-accent" />
+        {t("settings.checkingShort")}
+      </span>
+    );
+  } else if (update?.state === "pacman") {
+    description = t("settings.pacman");
+  } else {
+    description =
+      update?.state === "up_to_date"
+        ? upToDate(update.checked_at)
+        : update?.state === "check_failed"
+          ? t("settings.checkFailed")
+          : desktop
+            ? t("settings.notChecked")
+            : t("settings.desktopOnly");
+    controls = (
+      <Button disabled={!desktop} onClick={onCheck}>
+        {update?.state === "check_failed" ? t("common.retry") : t("settings.checkUpdates")}
+      </Button>
+    );
+  }
+  return (
+    <section className="flex flex-col gap-2" data-update={state}>
+      <h2 className="text-2xs font-semibold text-subtle uppercase">{t("settings.updates")}</h2>
+      <div className="rounded-xl border border-line bg-card">
+        <Row title={`Koona Pin ${version}`} description={description}>
+          {controls}
+        </Row>
+      </div>
+    </section>
   );
 }
 
