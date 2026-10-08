@@ -62,7 +62,7 @@
     "ready": "Browser collegato",
     "failing": "Acquisizione ferma",
     "checking": "Verifica…",
-    "notConnected": "Browser non collegato",
+    "notConnected": "Nessun browser",
     "lost_one": "Muto da {{count}} giorno",
     "lost_many": "Muto da {{count}} giorni",
     "lost_other": "Muto da {{count}} giorni",
