@@ -1,7 +1,9 @@
 import { KeyboardEvent, PointerEvent, ReactNode, useRef, useState } from "react";
-import { Copy, Heart, Link, Plus, Settings, Trash2, Unlink, X } from "lucide-react";
+import { CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag } from "../../types";
+import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
+import { Offer, offer, percent } from "../../services/update";
 import { collectionColor } from "../../services/collections";
 import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { moveCollection } from "../../services/library";
@@ -22,6 +24,9 @@ export interface SidebarProps {
   collections: Collection[];
   tags: Tag[];
   capture: CaptureStatus | null;
+  /** The app's own update (NP-038, sheet 42): a row above the browser status while one is in play. */
+  update: UpdateStatus | null;
+  onUpdate: () => void;
   onInbox: () => void;
   onTrash: () => void;
   onAll: () => void;
@@ -78,6 +83,7 @@ export function Sidebar(props: SidebarProps) {
   const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash;
   const favorites = library && filters.onlyFavorites;
   const status = { color: statusColor(capture), label: statusLabel(capture, t) };
+  const update = offer(props.update);
   const { dropping } = props;
   /** While dragging: the element's `data-drop` and whether the pointer is over it. */
   const drop = (target: DropTarget): Drop | undefined =>
@@ -200,6 +206,14 @@ export function Sidebar(props: SidebarProps) {
         {ghost}
         {announcement}
         <div className="flex-1" />
+        {update && (
+          <StripButton label={updateLabel(t, update)} onClick={props.onUpdate}>
+            <span className={`relative ${update.state === "failed" ? "text-amber" : "text-update"}`}>
+              <Icon icon={update.state === "failed" ? TriangleAlert : CircleArrowUp} />
+              <span className={`absolute -top-0.5 -right-1 size-1.5 rounded-full ${update.state === "failed" ? "bg-amber" : "bg-update"}`} />
+            </span>
+          </StripButton>
+        )}
         <StripButton label={status.label} onClick={props.onConnect}>
           <span className="relative">
             <Icon icon={Link} />
@@ -362,6 +376,7 @@ export function Sidebar(props: SidebarProps) {
       )}
 
       <div className="flex-1" />
+      {update && <UpdateRow update={update} percent={percent(props.update)} onClick={props.onUpdate} />}
       <NavRow
         icon={<Icon icon={Link} />}
         label={status.label}
@@ -373,6 +388,56 @@ export function Sidebar(props: SidebarProps) {
       />
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
     </aside>
+  );
+}
+
+/** What the update row and its strip icon say (sheet 42); the hint of the strip carries all of it. */
+function updateLabel(t: TFunction, update: Offer, short = false): string {
+  switch (update.state) {
+    case "available":
+      return short ? t("update.available") : t("update.title", { version: update.version });
+    case "downloading":
+      return t("update.downloading");
+    case "installing":
+      return t("update.restarting");
+    case "failed":
+      return t("update.failed");
+  }
+}
+
+/**
+ * «Update available» above the browser status (NP-038, sheet 42): collection blue with a glow that
+ * breathes twice when it appears; the download draws a bar along the bottom; a failure is ochre.
+ */
+function UpdateRow({ update, percent, onClick }: { update: Offer; percent: number | null; onClick: () => void }) {
+  const { t } = useTranslation();
+  const failed = update.state === "failed";
+  const right = update.state === "available" ? update.version : update.state === "downloading" && percent !== null ? `${percent}%` : failed ? t("update.retry") : "";
+  return (
+    <button
+      // A new version breathes again.
+      key={update.state === "available" ? update.version : update.state}
+      type="button"
+      onClick={onClick}
+      title={updateLabel(t, update)}
+      data-update={update.state}
+      className={`relative flex h-[30px] w-full shrink-0 items-center gap-2.5 overflow-hidden rounded-md px-2.5 text-left text-sm font-semibold ${
+        failed
+          ? "bg-amber-soft text-on-amber-soft hover:brightness-[0.97]"
+          : `bg-update-soft text-on-update-soft hover:brightness-[0.97] ${update.state === "available" ? "animate-update-pulse shadow-[0_0_8px_var(--np-update-glow)]" : ""}`
+      }`}
+    >
+      <span className={`flex shrink-0 ${failed ? "text-amber" : "text-update"}`}>
+        <Icon icon={failed ? TriangleAlert : CircleArrowUp} />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{updateLabel(t, update, true)}</span>
+      {right && <span className={`text-xs font-medium ${failed ? "text-amber" : "text-update"}`}>{right}</span>}
+      {update.state === "downloading" && (
+        <span aria-hidden className="absolute right-2.5 bottom-[3px] left-2.5 h-0.5 overflow-hidden rounded-full bg-update-track">
+          <span className="block h-full rounded-full bg-update" style={{ width: `${percent ?? 0}%` }} />
+        </span>
+      )}
+    </button>
   );
 }
 

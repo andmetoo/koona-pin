@@ -28,6 +28,7 @@ pub mod sorting;
 pub mod test_libraries;
 pub mod trash;
 pub mod tray;
+pub mod updates;
 
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{Emitter, Manager};
@@ -43,6 +44,9 @@ pub(crate) fn show_window(app: &tauri::AppHandle) {
 }
 
 pub(crate) fn show(window: &tauri::WebviewWindow) {
+    // Off since desktop::hide.
+    #[cfg(windows)]
+    desktop::transitions(&window.as_ref().window(), true);
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
@@ -87,6 +91,8 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![autostart::ARG]),
         ))
+        // Called from Rust only (updates.rs, NP-038): no permission for the interface.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(channel_state.clone())
         .manage(commands::LastExport::default())
         .manage(commands::PickedBackup::default())
@@ -103,6 +109,7 @@ pub fn run() {
                 show_window(app.handle());
             }
             tray::build(app)?;
+            updates::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -120,7 +127,7 @@ pub fn run() {
                 if !state.background_explained.load(Ordering::Relaxed) && !desktop::tray_shown() {
                     let _ = window.emit(BACKGROUND_EVENT, ());
                 } else {
-                    let _ = window.hide();
+                    let _ = desktop::hide(window);
                 }
             }
         })
@@ -185,6 +192,10 @@ pub fn run() {
             commands::send_feedback,
             commands::hide_to_background,
             desktop::get_desktop,
+            updates::get_update_status,
+            updates::check_for_updates,
+            updates::install_update,
+            updates::cancel_update,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])

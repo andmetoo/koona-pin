@@ -46,6 +46,7 @@ import {
   Tag,
   TrayLabels,
   Undo,
+  UpdateStatus,
 } from "../types";
 import { demo } from "./demo";
 import { toCommandError } from "./errors";
@@ -243,6 +244,14 @@ const desktop = {
   /** «Send»: the one request to the feedback service; nothing goes out before it (NP-088). */
   sendFeedback: (feedback: Feedback) => call<void>("send_feedback", { feedback }),
   getVersion: () => getVersion(),
+  /** The app's own update (NP-038, sheet 42): checked by Rust at the start and once a day. */
+  getUpdateStatus: () => call<UpdateStatus>("get_update_status"),
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => subscription("update-status", callback),
+  /** «Check for updates» and «Try again» in Settings. */
+  checkForUpdates: () => call<UpdateStatus>("check_for_updates"),
+  /** «Update»: the download starts; progress, installation and failure come through onUpdateStatus. */
+  installUpdate: () => call<void>("install_update"),
+  cancelUpdate: () => call<void>("cancel_update"),
   /** The tray menu and tooltip in the interface's language (NP-085). */
   setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
 };
