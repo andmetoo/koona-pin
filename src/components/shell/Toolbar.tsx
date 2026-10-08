@@ -1,7 +1,9 @@
 import { forwardRef, useRef, useState } from "react";
 import {
   ArrowDownToLine,
+  ArrowDownWideNarrow,
   ArrowUpFromLine,
+  ChevronDown,
   Copy,
   FileJson,
   FileSpreadsheet,
@@ -15,7 +17,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { composing } from "../../services/ime";
-import { ExportFormat, ViewMode } from "../../types";
+import { BookmarkSort, ExportFormat, ViewMode } from "../../types";
+import { SORTS } from "../../services/library";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Hint, Kbd } from "../ui/Hint";
@@ -30,8 +33,11 @@ export interface ToolbarProps {
   narrow: boolean;
   search: string;
   view: ViewMode;
+  /** The list's order (NP-114, sheet 41); none in the trash, which keeps its own. */
+  sort: BookmarkSort | null;
   onSearch: (value: string) => void;
   onView: (view: ViewMode) => void;
+  onSort: (sort: BookmarkSort) => void;
   onImport: () => void;
   /** Menu «⋯» → Export (NP-032, frame 29). */
   onExport: (format: ExportFormat) => void;
@@ -46,11 +52,19 @@ export interface ToolbarProps {
   onAdd: () => void;
 }
 
-/** One row 36 px (frame 01): title and count, search, view, «⋯», «Add». */
+/** One row 36 px (frame 01): title and count, search, order, view, «⋯», «Add». */
 export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolbar(props, searchRef) {
   const { t } = useTranslation();
   const more = useRef<HTMLButtonElement>(null);
   const [menu, setMenu] = useState<DOMRect | null>(null);
+  const sortButton = useRef<HTMLButtonElement>(null);
+  const [sortMenu, setSortMenu] = useState<DOMRect | null>(null);
+  const { sort } = props;
+  const sortName = sort && t(`sort.${sort}`);
+  // The order button names the order from a toolbar of 60rem (sheet 41, the
+  // `@min-[60rem]` classes below): the longest name and the longest title of a
+  // section fit there in every language. Narrower, and in a narrow window, it
+  // is an icon and the hint names the order.
   // What an IME is still building (NP-090): the field shows it, the list
   // waits for the finished character. `from` is the query it started on: a
   // query changed meanwhile from outside («Clear search», Esc on the window)
@@ -71,12 +85,11 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
     </Hint>
   );
   return (
-    <div className="flex h-9 items-center gap-2.5">
-      {/* The title takes the free room and never shrinks below its own length (the automatic
-          minimum of a flex item), so the search field gives way first (NP-089: «Todos os
-          marcadores» at 800 px). Only a title longer than the row minus the controls at their
-          smallest (440 px) is cut. */}
-      <h1 className="flex max-w-[calc(100%-440px)] flex-1 items-baseline gap-2">
+    <div className="@container flex h-9 items-center gap-2.5">
+      {/* The title takes the free room; when the row runs short the search field gives way
+          first, so much faster that the title loses not even a pixel, down to 120 px (NP-089: «Todos os marcadores» at
+          800 px), and only then is the title cut. The buttons never shrink. */}
+      <h1 className="flex min-w-0 flex-auto items-baseline gap-2">
         <span className="truncate text-2xl font-semibold">{props.title}</span>
         {props.count !== undefined && (
           <span className="shrink-0 text-md text-subtle" aria-live={props.countLive ? "polite" : undefined}>
@@ -84,7 +97,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           </span>
         )}
       </h1>
-      <label className={`relative ml-auto flex h-9 min-w-[120px] items-center ${props.narrow ? "w-[200px]" : "w-[340px]"}`}>
+      <label className={`relative ml-auto flex h-9 min-w-[120px] shrink-[100000] items-center ${props.narrow ? "w-[200px]" : "w-[340px]"}`}>
         <Icon icon={Search} size={15} className="pointer-events-none absolute left-3 text-subtle" />
         <input
           ref={searchRef}
@@ -116,6 +129,46 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
         {/* Esc also takes back a character the IME is composing: the field is not empty then either. */}
         <Kbd className="pointer-events-none absolute right-2">{(composed ?? props.search) ? "Esc" : "Ctrl K"}</Kbd>
       </label>
+      {sort && (
+        <Hint label={t("toolbar.sortHint", { order: sortName })} show={!sortMenu}>
+          <button
+            ref={sortButton}
+            type="button"
+            aria-label={t("toolbar.sortHint", { order: sortName })}
+            aria-haspopup="menu"
+            aria-expanded={!!sortMenu}
+            onClick={() => setSortMenu(sortMenu ? null : sortButton.current!.getBoundingClientRect())}
+            className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border text-sm text-ink transition-colors duration-150 hover:bg-hover ${sortMenu ? "bg-hover" : ""} ${props.narrow ? "" : `@min-[60rem]:w-auto @min-[60rem]:px-2.5`}`}
+          >
+            <Icon icon={ArrowDownWideNarrow} className="shrink-0 text-icon" />
+            {!props.narrow && (
+              <>
+                <span className={`hidden max-w-[180px] truncate @min-[60rem]:inline`}>{sortName}</span>
+                <Icon icon={ChevronDown} size={12} className={`hidden shrink-0 text-subtle @min-[60rem]:block`} />
+              </>
+            )}
+          </button>
+        </Hint>
+      )}
+      {sort && sortMenu && (
+        <Menu
+          label={t("toolbar.sortBy")}
+          anchor={sortMenu}
+          width={200}
+          trigger={sortButton.current}
+          onClose={() => setSortMenu(null)}
+          entries={[
+            { heading: t("toolbar.sortBy") },
+            ...SORTS.map((order) => ({
+              id: `sort-${order}`,
+              label: t(`sort.${order}`),
+              checked: order === sort,
+              radio: true,
+              onSelect: () => props.onSort(order),
+            })),
+          ]}
+        />
+      )}
       <div role="group" aria-label={t("toolbar.view")} className="flex gap-0.5 rounded-lg bg-secondary p-[3px]">
         {viewButton("grid", t("toolbar.grid"), LayoutGrid)}
         {viewButton("list", t("toolbar.list"), List)}

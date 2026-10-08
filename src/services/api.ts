@@ -12,6 +12,7 @@ import {
   BookmarkPage,
   BookmarkPatch,
   BookmarkQuery,
+  BookmarkSort,
   BulkChange,
   BulkChanged,
   CaptureStatus,
@@ -61,8 +62,8 @@ function subscription<T>(event: string, callback: (payload: T) => void) {
     void promise.then((unlisten) => unlisten()).catch(console.error);
   };
 }
-/** Which page to read (the first by default), or one bookmark by `id`. */
-export type PageRequest = Pick<BookmarkQuery, "after" | "limit" | "id" | "since">;
+/** Which page to read (the first by default) in which order, or one bookmark by `id`. */
+export type PageRequest = Pick<BookmarkQuery, "after" | "limit" | "id" | "since" | "sort">;
 const toQuery = (
   filters: Partial<FilterState>,
   page: PageRequest,
@@ -85,8 +86,8 @@ const desktop = {
   getBookmarks: (filters: Partial<FilterState> = {}, page: PageRequest = {}) =>
     call<BookmarkPage>("get_bookmarks", { query: toQuery(filters, page) }),
   /** Every match in list order, ids only, loaded or not (NP-028). */
-  getBookmarkIds: (filters: Partial<FilterState> = {}) =>
-    call<number[]>("get_bookmark_ids", { query: toQuery(filters, {}) }),
+  getBookmarkIds: (filters: Partial<FilterState> = {}, sort?: BookmarkSort) =>
+    call<number[]>("get_bookmark_ids", { query: toQuery(filters, { sort }) }),
   rebuildSearchIndex: () => call<number>("rebuild_search_index"),
   getCollections: () => call<Collection[]>("get_collections"),
   getTags: () => call<Tag[]>("get_tags"),
@@ -157,6 +158,10 @@ const desktop = {
   refreshPreview: (id: number) => call<Bookmark>("refresh_preview", { id }),
   /** A new library's first collections, named in the interface's language; once (NP-085). */
   createStarterCollections: (names: string[]) => call<Collection[]>("create_starter_collections", { names }),
+  /** The sidebar's order after a move: every collection's id, first to last (NP-114). */
+  reorderCollections: (ids: number[]) => call<void>("reorder_collections", { ids }),
+  /** «Title A–Z» and «Site A–Z» compare in this language; true when the keys were written anew (NP-114). */
+  setSortLanguage: (language: string) => call<boolean>("set_sort_language", { language }),
   deleteCollection: async (id: number) => {
     await call("delete_collection", { id });
     return true;

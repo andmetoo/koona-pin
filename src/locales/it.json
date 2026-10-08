@@ -33,7 +33,9 @@
     "newCollectionCreate": "Invio — crea e sposta",
     "newCollectionCancel": "Esc — annulla",
     "tagsDrop": "Tag — rilascia su un tag per aggiungerlo",
-    "dropNewCollection": "Nuova raccolta dalla selezione"
+    "dropNewCollection": "Nuova raccolta dalla selezione",
+    "moveCollection": "Sposta",
+    "collectionMoved": "{{name}}: posizione {{position}} di {{count}}"
   },
   "drag": {
     "more_one": "e {{count}} altro segnalibro",
@@ -105,6 +107,8 @@
     "view": "Vista della libreria",
     "grid": "Griglia",
     "list": "Elenco",
+    "sortBy": "Ordina per",
+    "sortHint": "Ordine: {{order}}",
     "more": "Altro",
     "add": "Aggiungi link",
     "addShort": "Aggiungi",
@@ -114,6 +118,12 @@
     "clearTag": "Rimuovi il filtro tag {{tag}}",
     "domainChip": "Sito: {{domain}}",
     "clearDomain": "Rimuovi il filtro sito {{domain}}"
+  },
+  "sort": {
+    "newest": "Prima i più recenti",
+    "oldest": "Prima i più vecchi",
+    "title": "Titolo A–Z",
+    "site": "Sito A–Z"
   },
   "more": {
     "import": "Importa",
