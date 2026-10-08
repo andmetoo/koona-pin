@@ -601,7 +601,7 @@ mod tests {
             last_capture: None,
             days_silent: None,
             problem: Some(CaptureProblem::Registration),
-            detail: Some(r"Access denied: C:\Users\Anna\AppData\Roaming\Koona Pin\host.json, see https://example.com/help".into()),
+            detail: Some(r"Access denied: C:\Users\Anna\AppData\Roaming\Koona\Pin\host.json, see https://example.com/help".into()),
             protocol: 2,
             system: crate::browsers::System::Windows,
         }
@@ -618,7 +618,7 @@ mod tests {
                 "Windows 11 24H2 (build 26300), x86_64".into(),
                 "Language: ru".into(),
                 "Capture: failing (registration)".into(),
-                format!(r"Detail: Access denied: {HOME_MARK}\AppData\Roaming\Koona Pin\host.json, see <link>"),
+                format!(r"Detail: Access denied: {HOME_MARK}\AppData\Roaming\Koona\Pin\host.json, see <link>"),
                 "Protocol: 2".into(),
                 "Chrome: extension 0.5.2, protocol 2, last seen 2026-10-06T09:12:00Z".into(),
             ]
