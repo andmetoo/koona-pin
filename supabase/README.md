@@ -12,7 +12,7 @@ NP-088, [Р-9](../doc/decisions.md#р-9-распространение-windows).
 
 ## Развернуть
 
-Нужны Supabase CLI (`npm i -g supabase` или `scoop install supabase`) и вход: `supabase login`.
+Нужны Supabase CLI (`scoop install supabase`; глобальную установку через npm Supabase не поддерживает) и вход: `supabase login`.
 
 1. **Проект.** supabase.com → New project, регион **Central EU (Frankfurt)**, пароль базы — в менеджер паролей. Записать *Project ref* (`abcd1234…` в адресе панели).
 2. **Связать и применить схему:**
