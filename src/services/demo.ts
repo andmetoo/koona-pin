@@ -6,6 +6,7 @@ import {
   Bookmark,
   BookmarkChange,
   BookmarkPage,
+  BookmarkSort,
   BulkChange,
   BulkChanged,
   Changed,
@@ -44,7 +45,7 @@ import {
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
 import { parseBookmarksFile } from "./bookmarksFile";
-import { isAfter, listTime, matchesBookmark, sortBookmarks } from "./library";
+import { cursorAt, isAfter, listTime, matchesBookmark, orderOf, sortBookmarks } from "./library";
 import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
@@ -376,15 +377,18 @@ export const demo = {
     filters: Partial<FilterState> = {},
     page: PageRequest = {},
   ): Promise<BookmarkPage> {
+    // The preview has no sort keys: titles and sites compare by the language's collator.
+    const order = { sort: orderOf(page.sort ?? "newest", !!filters.onlyTrash), language: i18n.language };
     const found = sortBookmarks(
       bookmarks.filter(
         (b) =>
           (page.id === undefined || b.id === page.id) &&
           matchesBookmark(b, filters),
       ),
+      order,
     );
     const rest = page.after
-      ? found.filter((b) => isAfter(b, page.after!))
+      ? found.filter((b) => isAfter(b, page.after!, order))
       : found;
     const items = rest.slice(0, page.limit ?? 100);
     const last = items.at(-1);
@@ -393,7 +397,7 @@ export const demo = {
       total: page.after ? null : found.length,
       next:
         last && rest.length > items.length
-          ? { at: listTime(last), id: last.id }
+          ? cursorAt(last, order)
           : null,
       since_counts:
         page.since && !page.after
@@ -403,8 +407,9 @@ export const demo = {
           : null,
     };
   },
-  async getBookmarkIds(filters: Partial<FilterState> = {}): Promise<number[]> {
-    return sortBookmarks(bookmarks.filter((b) => matchesBookmark(b, filters))).map((b) => b.id);
+  async getBookmarkIds(filters: Partial<FilterState> = {}, sort: BookmarkSort = "newest"): Promise<number[]> {
+    const order = { sort: orderOf(sort, !!filters.onlyTrash), language: i18n.language };
+    return sortBookmarks(bookmarks.filter((b) => matchesBookmark(b, filters)), order).map((b) => b.id);
   },
   async rebuildSearchIndex() {
     return bookmarks.length;
@@ -1080,6 +1085,15 @@ export const demo = {
     return { ...b };
   },
   /** The demo library is made in its language already. */
+  /** `db::reorder_collections`: every id gets its place, unknown ones change nothing. */
+  async reorderCollections(ids: number[]) {
+    collections = collections.map((c) => (ids.includes(c.id) ? { ...c, position: ids.indexOf(c.id) } : c));
+    persist();
+  },
+  /** The preview compares by the interface's collator: nothing to write. */
+  async setSortLanguage(_language: string) {
+    return false;
+  },
   async createStarterCollections(_names: string[]): Promise<Collection[]> {
     return [];
   },

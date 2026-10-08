@@ -33,7 +33,9 @@
     "newCollectionCreate": "Enter — направи и премести",
     "newCollectionCancel": "Esc — откажи",
     "tagsDrop": "Ознаке — спустите на ознаку да је додате",
-    "dropNewCollection": "Нова колекција од изабраног"
+    "dropNewCollection": "Нова колекција од изабраног",
+    "moveCollection": "Премести",
+    "collectionMoved": "{{name}}: место {{position}} од {{count}}"
   },
   "drag": {
     "more_one": "и још {{count}} обележивач",
@@ -105,6 +107,8 @@
     "view": "Приказ библиотеке",
     "grid": "Мрежа",
     "list": "Листа",
+    "sortBy": "Редослед",
+    "sortHint": "Редослед: {{order}}",
     "more": "Још",
     "add": "Додај линк",
     "addShort": "Додај",
@@ -114,6 +118,12 @@
     "clearTag": "Уклони филтер ознаке {{tag}}",
     "domainChip": "Сајт: {{domain}}",
     "clearDomain": "Уклони филтер сајта {{domain}}"
+  },
+  "sort": {
+    "newest": "Прво најновији",
+    "oldest": "Прво најстарији",
+    "title": "По наслову А–Ш",
+    "site": "По сајту А–Ш"
   },
   "more": {
     "import": "Увоз",

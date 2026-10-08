@@ -32,7 +32,9 @@
     "newCollectionCreate": "Enter — oluştur ve taşı",
     "newCollectionCancel": "Esc — iptal",
     "tagsDrop": "Etiketler — eklemek için bir etiketin üzerine bırakın",
-    "dropNewCollection": "Seçimden yeni koleksiyon"
+    "dropNewCollection": "Seçimden yeni koleksiyon",
+    "moveCollection": "Taşı",
+    "collectionMoved": "{{name}}: {{count}} içinde {{position}}. sıra"
   },
   "drag": {
     "more_one": "ve {{count}} yer işareti daha",
@@ -100,6 +102,8 @@
     "view": "Kitaplık görünümü",
     "grid": "Izgara",
     "list": "Liste",
+    "sortBy": "Sıralama",
+    "sortHint": "Sıralama: {{order}}",
     "more": "Diğer",
     "add": "Bağlantı ekle",
     "addShort": "Ekle",
@@ -108,6 +112,12 @@
     "clearTag": "{{tag}} etiket filtresini kaldır",
     "domainChip": "Site: {{domain}}",
     "clearDomain": "{{domain}} site filtresini kaldır"
+  },
+  "sort": {
+    "newest": "Önce en yeni",
+    "oldest": "Önce en eski",
+    "title": "Başlık A–Z",
+    "site": "Site A–Z"
   },
   "more": {
     "import": "İçe aktar",

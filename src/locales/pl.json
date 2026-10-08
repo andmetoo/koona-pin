@@ -34,7 +34,9 @@
     "newCollectionCreate": "Enter — utwórz i przenieś",
     "newCollectionCancel": "Esc — anuluj",
     "tagsDrop": "Tagi — upuść na tag, aby go dodać",
-    "dropNewCollection": "Nowa kolekcja z zaznaczenia"
+    "dropNewCollection": "Nowa kolekcja z zaznaczenia",
+    "moveCollection": "Przenieś",
+    "collectionMoved": "{{name}}: miejsce {{position}} z {{count}}"
   },
   "drag": {
     "more_one": "i jeszcze {{count}} zakładka",
@@ -110,6 +112,8 @@
     "view": "Widok biblioteki",
     "grid": "Siatka",
     "list": "Lista",
+    "sortBy": "Sortuj według",
+    "sortHint": "Sortowanie: {{order}}",
     "more": "Więcej",
     "add": "Dodaj link",
     "addShort": "Dodaj",
@@ -120,6 +124,12 @@
     "clearTag": "Usuń filtr tagu {{tag}}",
     "domainChip": "Strona: {{domain}}",
     "clearDomain": "Usuń filtr strony {{domain}}"
+  },
+  "sort": {
+    "newest": "Od najnowszych",
+    "oldest": "Od najstarszych",
+    "title": "Tytuł A–Z",
+    "site": "Strona A–Z"
   },
   "more": {
     "import": "Import",

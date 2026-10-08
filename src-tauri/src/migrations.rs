@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 6;
+pub const SCHEMA_VERSION: i64 = 7;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -200,6 +200,57 @@ CREATE TABLE link_checks (
 CREATE INDEX idx_link_checks_outcome ON link_checks(outcome) WHERE outcome IN ('gone','moved','failed');
 ";
 
+/// Schema 7 (NP-114, Р-59): the order of the list and of the collections.
+/// A collection gets the place the person gave it in the sidebar; none until
+/// the first move. A bookmark gets the sort keys of its title and of its site
+/// in the interface's language: the triggers write them with `np_sort_key`
+/// and `np_site_key` (`sorting.rs`) on every write, the keys of the bookmarks
+/// already there are written when the interface first tells its language
+/// (`sorting::set_language`); in a new library there are none to write.
+/// «Title A–Z» and «Site A–Z» read pages by their indexes; equal keys go
+/// newest first.
+///
+/// The query check of NP-114 (example `query_plans`, 100 000 bookmarks,
+/// release) rebuilt the other indexes of the list on the way. Each leaves the
+/// trash out or names it, and carries the columns its queries read, so a page
+/// is a seek and a total is read from the index alone: `Ctrl A` 300 → 3 ms,
+/// the inbox 18 → 0.4 ms, favorites 28 → 0.8 ms, a collection 34 → 1.6 ms,
+/// a site 25 → 0.9 ms, the sidebar counts 25 → 0.7 ms. A tag filter starts
+/// from the tag (`idx_bookmark_tags_tag`): a rare tag took 520 ms a page,
+/// now 0.06 ms. The keys and indexes add about a quarter to the file.
+const SCHEMA_7: &str = "
+ALTER TABLE collections ADD COLUMN position INTEGER;
+ALTER TABLE bookmarks ADD COLUMN title_key BLOB;
+ALTER TABLE bookmarks ADD COLUMN site_key BLOB;
+-- The list's indexes leave the trash out and still carry `deleted_at` (always
+-- NULL in them): SQLite reads an index alone only when it has every column the
+-- query names, the condition of a partial index included.
+CREATE INDEX idx_bookmarks_title ON bookmarks(title_key, created_at DESC, id DESC, deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_bookmarks_site ON bookmarks(site_key, created_at DESC, id DESC, deleted_at) WHERE deleted_at IS NULL;
+CREATE TRIGGER bookmarks_sort_insert AFTER INSERT ON bookmarks BEGIN
+    UPDATE bookmarks SET title_key = np_sort_key(new.title), site_key = np_site_key(new.domain)
+    WHERE id = new.id;
+END;
+CREATE TRIGGER bookmarks_sort_update AFTER UPDATE OF title, domain ON bookmarks BEGIN
+    UPDATE bookmarks SET title_key = np_sort_key(new.title), site_key = np_site_key(new.domain)
+    WHERE id = new.id;
+END;
+
+DROP INDEX idx_bookmarks_order;
+CREATE INDEX idx_bookmarks_order ON bookmarks(created_at, id, deleted_at) WHERE deleted_at IS NULL;
+DROP INDEX idx_bookmarks_inbox;
+CREATE INDEX idx_bookmarks_inbox ON bookmarks(created_at, id, triaged_at, deleted_at, source)
+    WHERE triaged_at IS NULL AND deleted_at IS NULL;
+DROP INDEX idx_bookmarks_fav;
+CREATE INDEX idx_bookmarks_favorites ON bookmarks(created_at, id, is_favorite, deleted_at)
+    WHERE is_favorite = 1 AND deleted_at IS NULL;
+DROP INDEX idx_bookmarks_collection;
+CREATE INDEX idx_bookmarks_collection ON bookmarks(collection_id, deleted_at, created_at, id);
+DROP INDEX idx_bookmarks_domain;
+CREATE INDEX idx_bookmarks_domain ON bookmarks(domain, deleted_at, created_at, id);
+CREATE INDEX idx_bookmark_tags_tag ON bookmark_tags(tag_id, bookmark_id);
+";
+
 /// Keys of the existing bookmarks, computed in Rust: the step must not need
 /// the SQL functions of `library::configure` (`validate()` runs without them).
 fn url_keys(tx: &Transaction) -> HookResult {
@@ -244,6 +295,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up(SCHEMA_4),
         M::up_with_hook(SCHEMA_5, url_keys),
         M::up(SCHEMA_6),
+        M::up(SCHEMA_7),
     ]
 }
 
@@ -572,6 +624,60 @@ mod tests {
         assert_eq!(groups[0].bookmarks[0].url, "https://example.com/page", "the plain and oldest one");
         let plan = rows(&conn, "EXPLAIN QUERY PLAN SELECT url_key FROM bookmarks WHERE deleted_at IS NULL AND url_key IS NOT NULL GROUP BY url_key");
         assert!(plan.iter().any(|step| step.contains("idx_bookmarks_url_key")), "{plan:?}");
+    }
+
+    /// Schema 7 (NP-114): the bookmarks already there wait for the interface's
+    /// language for their sort keys, the first order by title writes them
+    /// (English) if the interface has not; the collections have no places yet.
+    /// Each order reads its index, the totals and `Ctrl A` read an index alone.
+    #[test]
+    fn schema_7_sorts_an_existing_library_by_its_indexes() {
+        use crate::db::{BookmarkQuery, BookmarkSort};
+        let paths = Paths::new(folder("migrate-sort").join("koonapin.db"));
+        let conn = fixtures::fresh_at(&paths.database, 6);
+        fixtures::generated(&conn, 2_000, 9);
+        fixtures::finish(conn);
+        let conn = library::open(&paths).unwrap().conn;
+        assert_eq!(user_version(&conn).unwrap(), SCHEMA_VERSION);
+        assert_eq!(crate::sorting::stored_language(&conn), None);
+        let missing = |conn: &Connection| -> i64 {
+            conn.query_row("SELECT count(*) FROM bookmarks WHERE title_key IS NULL OR site_key IS NULL", [], |r| r.get(0)).unwrap()
+        };
+        assert_eq!(missing(&conn), 2_000);
+        let by_title = BookmarkQuery { sort: Some(BookmarkSort::Title), ..Default::default() };
+        assert_eq!(db::get_bookmarks(&conn, &by_title).unwrap().total, Some(db::get_counts(&conn).unwrap().total));
+        assert_eq!((missing(&conn), crate::sorting::stored_language(&conn).as_deref()), (0, Some("en")));
+        assert!(crate::sorting::set_language(&conn, "ru").unwrap());
+        assert_eq!(rows(&conn, "SELECT count(*) FROM collections WHERE position IS NOT NULL"), ["Integer(0)"]);
+
+        let live = "WHERE b.deleted_at IS NULL";
+        for (query, index) in [
+            (format!("SELECT b.id FROM bookmarks b {live} ORDER BY b.title_key, b.created_at DESC, b.id DESC LIMIT 101"), "idx_bookmarks_title"),
+            (format!("SELECT b.id FROM bookmarks b {live} AND b.title_key >= x'01' AND (b.title_key > x'01' OR (b.created_at, b.id) < ('2026', 1)) ORDER BY b.title_key, b.created_at DESC, b.id DESC LIMIT 101"), "idx_bookmarks_title (title_key>?)"),
+            (format!("SELECT b.id FROM bookmarks b {live} ORDER BY b.site_key, b.created_at DESC, b.id DESC LIMIT 101"), "idx_bookmarks_site"),
+            (format!("SELECT b.id FROM bookmarks b {live} ORDER BY b.created_at, b.id LIMIT 101"), "idx_bookmarks_order"),
+            (format!("SELECT b.id FROM bookmarks b {live} ORDER BY b.created_at DESC, b.id DESC"), "COVERING INDEX idx_bookmarks_order"),
+            // Any index of the list answers a total alone.
+            (format!("SELECT count(*), sum(b.created_at >= '2026') FROM bookmarks b {live}"), "USING COVERING INDEX"),
+            (format!("SELECT count(*) FROM bookmarks b {live} AND b.triaged_at IS NULL AND b.source = 'import'"), "COVERING INDEX idx_bookmarks_inbox"),
+            (format!("SELECT b.id FROM bookmarks b {live} AND b.is_favorite = 1 ORDER BY b.created_at DESC, b.id DESC LIMIT 101"), "idx_bookmarks_favorites"),
+            (format!("SELECT b.id FROM bookmarks b {live} AND b.collection_id = 2 ORDER BY b.created_at DESC, b.id DESC LIMIT 101"), "idx_bookmarks_collection"),
+            (format!("SELECT b.id FROM bookmarks b {live} AND b.domain = 'github.com' ORDER BY b.created_at DESC, b.id DESC LIMIT 101"), "idx_bookmarks_domain"),
+            // The links in the trash of `db::get_tags`: from the trash, not from every link.
+            (
+                "SELECT bt.tag_id, count(*) FROM bookmarks b CROSS JOIN bookmark_tags bt ON bt.bookmark_id = b.id WHERE b.deleted_at IS NOT NULL GROUP BY bt.tag_id".into(),
+                "idx_bookmarks_trash",
+            ),
+            (format!("SELECT b.id FROM bookmarks b {live} AND b.triaged_at IS NULL ORDER BY b.created_at DESC, b.id DESC LIMIT 101"), "idx_bookmarks_inbox"),
+            (
+                format!("SELECT b.id FROM bookmarks b {live} AND b.id IN (SELECT bt.bookmark_id FROM bookmark_tags bt WHERE bt.tag_id = (SELECT id FROM tags WHERE name = 'rust')) ORDER BY b.created_at DESC, b.id DESC LIMIT 101"),
+                "idx_bookmark_tags_tag",
+            ),
+        ] {
+            let plan = rows(&conn, &format!("EXPLAIN QUERY PLAN {query}"));
+            assert!(plan.iter().any(|step| step.contains(index)), "{index}: {plan:?}");
+            assert!(!plan.iter().any(|step| step.contains("TEMP B-TREE FOR ORDER BY") && !query.contains("tag_id")), "{query}: {plan:?}");
+        }
     }
 
     #[test]

@@ -2,11 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import i18n from "../i18n";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
-import { isAfter, listTime, matchesFilters, mergeBookmark, sortByName } from "../services/library";
+import {
+  byTime,
+  isAfter,
+  ListOrder,
+  listTime,
+  matchesFilters,
+  mergeBookmark,
+  orderOf,
+  sortByName,
+  sortCollections,
+} from "../services/library";
 import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
 import {
   Bookmark,
   BookmarkChange,
+  BookmarkSort,
   Collection,
   DomainCount,
   FilterState,
@@ -18,9 +29,19 @@ import {
 /** Changes within this time share one read of the catalog. */
 const CATALOG_MS = 150;
 
-/** The list is read in pages of 100 (NP-011); the next one loads on scroll. */
+/**
+ * «Title A–Z» and «Site A–Z» compare in the interface's language (NP-114):
+ * the database writes its sort keys anew when the language is another than
+ * theirs. Every call goes through here, the last one wins.
+ */
+function tellSortLanguage() {
+  return api.setSortLanguage(i18n.language).catch(() => false);
+}
+
+/** The list is read in pages of 100 (NP-011) in `sort`; the next one loads on scroll. */
 export function useLibrary(
   filters: FilterState,
+  sort: BookmarkSort,
   scrollRef: React.RefObject<HTMLDivElement | null>,
 ) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -51,6 +72,10 @@ export function useLibrary(
   const [pending, setPending] = useState<Record<number, Bookmark>>({});
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const sortRef = useRef(sort);
+  sortRef.current = sort;
+  /** The order the current list is read in: the trash keeps its own. */
+  const order = (): ListOrder => ({ sort: orderOf(sortRef.current, filtersRef.current.onlyTrash), language: i18n.language });
   /** Grows with every first-page request; a page of an older list is dropped. */
   const seq = useRef(0);
   const eventVersion = useRef(0);
@@ -93,7 +118,7 @@ export function useLibrary(
         api.getCounts(),
       ]);
       if (alive.current && id === catalogSeq.current) {
-        setCollections(sortByName(c, i18n.language));
+        setCollections(sortCollections(c, i18n.language));
         setTags(sortByName(t, i18n.language, true));
         setDomains(d);
         setCounts(n);
@@ -121,7 +146,11 @@ export function useLibrary(
     setLoading(true);
     try {
       const since = dayStarts();
-      const page = await api.getBookmarks(filtersRef.current, { since });
+      // Date groups only in the orders by time (NP-114).
+      const page = await api.getBookmarks(filtersRef.current, {
+        since: byTime(order().sort) ? since : undefined,
+        sort: sortRef.current,
+      });
       if (alive.current && id === seq.current) {
         if (version !== eventVersion.current) {
           void refresh();
@@ -133,7 +162,7 @@ export function useLibrary(
         setTotal(page.total ?? 0);
         startsRef.current = since;
         setStarts(since);
-        setSinceCounts(page.since_counts);
+        setSinceCounts(page.since_counts ?? null);
         setNext(page.next);
         moreFailedRef.current = false;
         setMoreFailed(false);
@@ -154,7 +183,7 @@ export function useLibrary(
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const page = await api.getBookmarks(filtersRef.current, { after });
+      const page = await api.getBookmarks(filtersRef.current, { after, sort: sortRef.current });
       if (alive.current && id === seq.current) {
         remember(page.items);
         // A row older than a change applied meanwhile: the newer version if
@@ -193,11 +222,11 @@ export function useLibrary(
       const id = ++totalSeq.current;
       const list = seq.current;
       try {
-        const since = startsRef.current;
-        const page = await api.getBookmarks(filtersRef.current, { limit: 1, since });
+        const since = byTime(order().sort) ? startsRef.current : undefined;
+        const page = await api.getBookmarks(filtersRef.current, { limit: 1, since, sort: sortRef.current });
         if (alive.current && id === totalSeq.current && list === seq.current) {
           setTotal(page.total ?? 0);
-          setSinceCounts(page.since_counts);
+          setSinceCounts(page.since_counts ?? null);
         }
       } catch {
         /* The next refresh brings the total. */
@@ -212,6 +241,7 @@ export function useLibrary(
     void api
       .createStarterCollections(starters.map((key) => i18n.t(key)))
       .catch(() => [])
+      .then(tellSortLanguage)
       .then(() => refreshCatalog());
     return () => {
       alive.current = false;
@@ -222,15 +252,19 @@ export function useLibrary(
       catalogTimer.current = 0;
     };
   }, [refreshCatalog]);
-  // Another language sorts names its own way (NP-089).
+  // Another language sorts names its own way (NP-089), and titles and sites
+  // too: the database writes its keys anew, then the list is read again (NP-114).
   useEffect(() => {
     const resort = () => {
-      setCollections((c) => sortByName(c, i18n.language));
+      setCollections((c) => sortCollections(c, i18n.language));
       setTags((t) => sortByName(t, i18n.language, true));
+      void tellSortLanguage().then(() => {
+        if (alive.current && !byTime(order().sort)) void refresh();
+      });
     };
     i18n.on("languageChanged", resort);
     return () => i18n.off("languageChanged", resort);
-  }, []);
+  }, [refresh]);
   useEffect(() => {
     setPending({});
     pendingRef.current = {};
@@ -250,6 +284,7 @@ export function useLibrary(
     filters.onlyFavorites,
     filters.onlyInbox,
     filters.onlyTrash,
+    sort,
     refresh,
   ]);
   useEffect(() => {
@@ -276,7 +311,8 @@ export function useLibrary(
       // Where the list places it: the time the date groups count by.
       const placedAt = b ?? known ?? unread.current.get(change.id);
       const createdAt = placedAt && listTime(placedAt);
-      const beyond = !!b && isAfter(b, nextRef.current);
+      const listOrder = order();
+      const beyond = !!b && isAfter(b, nextRef.current, listOrder);
       if (!b || !matches) {
         unread.current.delete(change.id);
         setBookmarks((prev) => prev.filter((row) => row.id !== change.id));
@@ -295,15 +331,18 @@ export function useLibrary(
         setBookmarks((prev) => prev.filter((row) => row.id !== b.id));
         adjustTotal(unreadBefore ? 0 : change.kind === "created" ? 1 : null, createdAt);
       } else {
+        // Newest first a new bookmark lands on top, out of sight while the list
+        // is scrolled: it waits behind «N new». In the other orders it takes
+        // its place among the rows.
         if (
           pendingRef.current[b.id] ||
-          (change.kind === "created" && (scrollRef.current?.scrollTop ?? 0) > 20)
+          (listOrder.sort === "newest" && change.kind === "created" && (scrollRef.current?.scrollTop ?? 0) > 20)
         ) {
           const next = { ...pendingRef.current, [b.id]: b };
           pendingRef.current = next;
           setPending(next);
         } else {
-          setBookmarks((prev) => mergeBookmark(prev, b));
+          setBookmarks((prev) => mergeBookmark(prev, b, listOrder));
         }
         // Within the read pages: not shown means it did not match before.
         adjustTotal(shown ? 0 : 1, createdAt);
@@ -365,11 +404,14 @@ export function useLibrary(
       // its bookmarks keep their ids with older revisions, and new ones take
       // ids this list has already seen. What it remembers about them is void;
       // the list is read anew. New bookmarks held back stay so: `replaced`.
+      // The copy's sort keys may be in another language (NP-114).
       revisions.current.clear();
       unread.current.clear();
       eventVersion.current++;
-      void refreshCatalog();
-      void refresh();
+      void tellSortLanguage().then(() => {
+        void refreshCatalog();
+        void refresh();
+      });
     });
     // «Не дубликаты»: only the count of groups changes.
     const offDuplicates = api.onDuplicatesChanged(catalogSoon);
@@ -385,6 +427,23 @@ export function useLibrary(
     const timer = window.setTimeout(() => void refresh(), untilMidnight() + 1000);
     return () => window.clearTimeout(timer);
   }, [starts, refresh]);
+  const collectionsRef = useRef(collections);
+  collectionsRef.current = collections;
+  /**
+   * The sidebar's order after a move (NP-114): shown at once and written
+   * behind; a failure puts the old order back and is thrown to the caller.
+   */
+  const reorderCollections = useCallback(async (ids: number[]) => {
+    const before = collectionsRef.current;
+    const place = (c: Collection) => (ids.includes(c.id) ? ids.indexOf(c.id) : c.position);
+    setCollections(sortCollections(before.map((c) => ({ ...c, position: place(c) })), i18n.language));
+    try {
+      await api.reorderCollections(ids);
+    } catch (err) {
+      if (alive.current) setCollections(before);
+      throw err;
+    }
+  }, []);
   /** The library was replaced by a copy: new bookmarks held back belong to the old one. */
   const replaced = () => {
     pendingRef.current = {};
@@ -393,7 +452,8 @@ export function useLibrary(
   const reveal = () => {
     const incoming = Object.values(pendingRef.current);
     scrollRef.current?.scrollTo({ top: 0 });
-    setBookmarks((prev) => incoming.reduce(mergeBookmark, prev));
+    const listOrder = order();
+    setBookmarks((prev) => incoming.reduce((list, b) => mergeBookmark(list, b, listOrder), prev));
     pendingRef.current = {};
     setPending({});
   };
@@ -407,6 +467,7 @@ export function useLibrary(
     loadingMore,
     loadMore,
     collections,
+    reorderCollections,
     tags,
     domains,
     counts,

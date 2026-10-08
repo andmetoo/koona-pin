@@ -31,6 +31,7 @@
 | Merge | Объединить | Спој | Zusammenführen | Combinar | Fusionner | Unisci | Mesclar | Scal | Об'єднати | Birleştir | 合并 | 統合 | 병합 |
 | Link check | Проверка ссылок | Провера линкова | Linkprüfung | Comprobación de enlaces | Vérification des liens | Controllo dei link | Verificação de links | Sprawdzanie linków | Перевірка посилань | Bağlantı denetimi | 链接检查 | リンクチェック | 링크 검사 |
 | Selection | Выделение | Избор | Auswahl | Selección | Sélection | Selezione | Seleção | Zaznaczenie | Виділення | Seçim | 选择 | 選択 | 선택 |
+| Sort by (list order) | Сортировка | Редослед | Sortieren nach | Ordenar por | Trier par | Ordina per | Ordenar por | Sortuj według | Сортування | Sıralama | 排序方式 | 並べ替え | 정렬 기준 |
 | Search index | Поисковый индекс | Индекс претраге | Suchindex | Índice de búsqueda | Index de recherche | Indice di ricerca | Índice de pesquisa | Indeks wyszukiwania | Пошуковий індекс | Arama dizini | 搜索索引 | 検索インデックス | 검색 색인 |
 | Extension | Расширение | Проширење | Erweiterung | Extensión | Extension | Estensione | Extensão | Rozszerzenie | Розширення | Uzantı | 扩展 | 拡張機能 | 확장 프로그램 |
 | Queue (extension) | Очередь | Ред | Warteschlange | Cola | File d'attente | Coda | Fila | Kolejka | Черга | Kuyruk | 队列 | キュー | 대기열 |
@@ -39,6 +40,8 @@
 | Send feedback | Отправить отзыв | Пошаљи коментар | Feedback senden | Enviar comentarios | Envoyer un avis | Invia feedback | Enviar feedback | Wyślij opinię | Надіслати відгук | Geri bildirim gönder | 发送反馈 | フィードバックを送信 | 피드백 보내기 |
 
 «Bookmark» в pt-BR — «Marcador», а не «Favorito», как в Chrome: «Favoritos» в Koona Pin — раздел со звездой.
+
+«Sort by» — порядок списка (NP-114), «Sort inbox» — разбор входящих: в английском оба через «Sort», в остальных языках — разные слова («Сортировка» и «Разбор входящих»), их не путать.
 
 ## Обращение и типографика
 

@@ -34,7 +34,9 @@
     "newCollectionCreate": "Enter — створити й перемістити",
     "newCollectionCancel": "Esc — скасувати",
     "tagsDrop": "Теги — відпустіть на тезі, щоб додати його",
-    "dropNewCollection": "Нова колекція з виділених"
+    "dropNewCollection": "Нова колекція з виділених",
+    "moveCollection": "Перемістити",
+    "collectionMoved": "{{name}}: місце {{position}} з {{count}}"
   },
   "drag": {
     "more_one": "і ще {{count}} закладка",
@@ -110,6 +112,8 @@
     "view": "Вигляд бібліотеки",
     "grid": "Сітка",
     "list": "Список",
+    "sortBy": "Сортування",
+    "sortHint": "Сортування: {{order}}",
     "more": "Ще",
     "add": "Додати посилання",
     "addShort": "Додати",
@@ -120,6 +124,12 @@
     "clearTag": "Прибрати фільтр за тегом {{tag}}",
     "domainChip": "Сайт: {{domain}}",
     "clearDomain": "Прибрати фільтр за сайтом {{domain}}"
+  },
+  "sort": {
+    "newest": "Спочатку нові",
+    "oldest": "Спочатку старі",
+    "title": "За назвою А–Я",
+    "site": "За сайтом А–Я"
   },
   "more": {
     "import": "Імпорт",

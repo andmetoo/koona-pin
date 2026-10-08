@@ -31,7 +31,9 @@
     "newCollectionCreate": "Enter — 만들고 이동",
     "newCollectionCancel": "Esc — 취소",
     "tagsDrop": "태그 — 태그 위에 놓으면 추가됩니다",
-    "dropNewCollection": "선택 항목으로 새 컬렉션"
+    "dropNewCollection": "선택 항목으로 새 컬렉션",
+    "moveCollection": "이동",
+    "collectionMoved": "{{name}}: {{count}}개 중 {{position}}번째"
   },
   "drag": {
     "more_other": "외 북마크 {{count}}개",
@@ -95,6 +97,8 @@
     "view": "라이브러리 보기",
     "grid": "격자",
     "list": "목록",
+    "sortBy": "정렬 기준",
+    "sortHint": "정렬: {{order}}",
     "more": "더 보기",
     "add": "링크 추가",
     "addShort": "추가",
@@ -102,6 +106,12 @@
     "clearTag": "태그 필터 {{tag}} 해제",
     "domainChip": "사이트: {{domain}}",
     "clearDomain": "사이트 필터 {{domain}} 해제"
+  },
+  "sort": {
+    "newest": "최신순",
+    "oldest": "오래된순",
+    "title": "제목순",
+    "site": "사이트순"
   },
   "more": {
     "import": "가져오기",
