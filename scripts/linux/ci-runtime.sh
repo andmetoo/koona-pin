@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Root part of a «distro» job of .github/workflows/linux.yml: only what the release binary needs to run —
-# WebKitGTK and the tray library, the future dependencies of the packages (NP-055) — plus X11 and Wayland
-# servers without a display, xprop and xwininfo to read the window (NP-053), and a session bus. No
-# compilers. Node only for the artifact action under act (GitHub brings its own), and the user «dev».
+# Root part of a «distro» job of .github/workflows/linux.yml: X11 and Wayland servers without a display,
+# xprop and xwininfo to read the window (NP-053), and a session bus. WebKitGTK and the tray library come with
+# the package on Ubuntu, Debian and Fedora (ci-package.sh, NP-055); Arch, which runs the bare binary, gets
+# them here. No compilers. Node only for the artifact action under act (GitHub brings its own), and the user
+# «dev».
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export DEBIAN_FRONTEND=noninteractive
@@ -11,12 +12,11 @@ case "$ID" in
   ubuntu | debian)
     printf 'Acquire::ForceIPv4 "true";\nAcquire::Retries "5";\nAPT::Install-Recommends "false";\n' > /etc/apt/apt.conf.d/99koona-ci
     apt-get update -qq
-    apt-get install -y -qq libwebkit2gtk-4.1-0 libayatana-appindicator3-1 \
-      xvfb xauth x11-utils dbus weston curl xz-utils ca-certificates > /dev/null
+    apt-get install -y -qq xvfb xauth x11-utils dbus weston curl xz-utils ca-certificates > /dev/null
     ;;
   fedora)
-    dnf install -y -q webkit2gtk4.1 libayatana-appindicator-gtk3 \
-      xorg-x11-server-Xvfb xorg-x11-xauth xprop xwininfo dbus-daemon weston xz
+    # libatomic: Node needs it (the artifact action under act); WebKitGTK used to bring it.
+    dnf install -y -q xorg-x11-server-Xvfb xorg-x11-xauth xprop xwininfo dbus-daemon weston xz libatomic
     ;;
   arch)
     pacman -Sy --needed --noconfirm webkit2gtk-4.1 libayatana-appindicator \

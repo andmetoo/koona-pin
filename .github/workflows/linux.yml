@@ -16,9 +16,9 @@ env:
 
 jobs:
   # The binary that ships: built on Debian 13 (glibc 2.41, the oldest of the matrix) — a binary built on a
-  # newer glibc does not start on an older one.
+  # newer glibc does not start on an older one — and packed as .deb and .rpm, checked by lintian (NP-055).
   build:
-    name: Release build (Debian 13)
+    name: Release build and packages (Debian 13)
     runs-on: ubuntu-latest
     container:
       image: debian:13
@@ -39,7 +39,11 @@ jobs:
           restore-keys: linux-build-
       - name: Packages, Rust, Node, user «dev»
         run: bash scripts/linux/ci-setup.sh
-      - name: Release build as «dev»
+      # The packages are the release build (public-release): it does not compile without the feedback
+      # address. On GitHub a repository secret; under act, .env (.actrc: --secret-file).
+      - name: Release build and packages as «dev»
+        env:
+          KOONAPIN_FEEDBACK_URL: ${{ secrets.KOONAPIN_FEEDBACK_URL }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-build.sh"
       # v4, not v7: the artifact server of act 0.2.89 answers v7 with an empty body. GitHub serves both.
       - uses: actions/upload-artifact@v4
@@ -72,14 +76,22 @@ jobs:
           restore-keys: linux-check-
       - name: Packages, Rust, Node, user «dev»
         run: bash scripts/linux/ci-setup.sh
+      # The .deb of «build», for the capture before the first start with Debian's browsers (NP-055).
+      - uses: actions/download-artifact@v4
+        with:
+          name: koonapin-linux-x86_64
+          path: dist-linux/
+      - name: Install the .deb
+        run: apt-get install -y -qq ./dist-linux/koonapin_*_amd64.deb > /dev/null
       # Not root: root ignores file permissions, and the tests of read-only folders would pass for the
       # wrong reason.
       - name: Tests as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-check.sh"
 
-  # The latest version of each distribution: only the libraries the binary needs at run time (the future
-  # package dependencies), then the binary of «build» started without a screen under X11 and Wayland:
-  # library in ~/.local/share/Koona Pin, a second start hands over to the first.
+  # The latest version of each distribution: the package of «build» installed by apt or dnf with its own
+  # dependencies (Arch: the bare binary with its libraries; AUR is NP-101), started without a screen under
+  # X11 and Wayland — library in ~/.local/share/Koona Pin, a second start hands over to the first — then
+  # installed again and removed (NP-055).
   distro:
     name: ${{ matrix.image }}
     needs: build
@@ -93,7 +105,7 @@ jobs:
         image: [ubuntu:26.04, debian:13, fedora:44, archlinux:latest]
     steps:
       - uses: actions/checkout@v7
-      - name: Run-time libraries, user «dev»
+      - name: Screens, session bus, user «dev»
         run: bash scripts/linux/ci-runtime.sh
       - uses: actions/download-artifact@v4
         with:
@@ -101,5 +113,9 @@ jobs:
           path: dist-linux/
       # Artifacts arrive as root and without the executable bit.
       - run: chown -R dev dist-linux && chmod +x dist-linux/koonapin dist-linux/koonapin-host
-      - name: Start the binary as «dev»
+      - name: Install the package
+        run: bash scripts/linux/ci-package.sh install
+      - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
+      - name: Install again and remove the package
+        run: bash scripts/linux/ci-package.sh remove

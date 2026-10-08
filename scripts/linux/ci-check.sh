@@ -45,6 +45,12 @@ Xvfb :98 -screen 0 1280x800x24 -nolisten tcp -nolisten local > /dev/null 2>&1 &
 xvfb=$!
 DISPLAY=:98 GDK_BACKEND=x11 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 dbus-run-session -- node scripts/smoke-registration.mjs
 
+# The .deb the job installed (NP-055): its own manifests let the store extensions in and not the development
+# one; Firefox saves through /usr/bin/koonapin-host before the app ever ran. The browsers read the user's
+# folder first, so the package did not disturb the registration above.
+step "The installed package with Chromium and Firefox of Debian"
+DISPLAY=:98 GDK_BACKEND=x11 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 dbus-run-session -- node scripts/smoke-registration.mjs --installed
+
 # The extension's flows in Chrome for Testing as on Windows (NP-054): capture, closed app, queue, browser
 # restart, duplicate, host not registered — calm on Linux —, foreign id, quick search. The test host lives in
 # the run's own browser profile.

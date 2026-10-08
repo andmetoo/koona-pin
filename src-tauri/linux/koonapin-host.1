@@ -1,0 +1,28 @@
+.\" The manual page of the Linux packages (NP-055).
+.TH KOONAPIN-HOST 1 "October 2026" "Koona Pin" "User Commands"
+.SH NAME
+koonapin-host \- native messaging host of Koona Pin
+.SH SYNOPSIS
+.B koonapin-host
+.I origin-or-manifest
+.RI [ extension-id ]
+.SH DESCRIPTION
+The browser starts
+.B koonapin-host
+for each message of the Koona Pin extension; it is not run by hand. It passes the message to
+.BR koonapin (1)
+over a socket in
+.I $XDG_RUNTIME_DIR/koonapin
+and returns the answer. A saved link starts a closed app hidden.
+.PP
+The browsers find it through the manifests
+.I app.koona.pin.json
+the package puts in
+.IR /etc/opt/chrome ,
+.IR /etc/opt/edge ,
+.I /etc/chromium
+and
+.I /usr/lib/mozilla
+(native-messaging-hosts).
+.SH SEE ALSO
+.BR koonapin (1)

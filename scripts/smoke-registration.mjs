@@ -3,7 +3,11 @@
 // sent by the extension goes through koonapin-host into the library and starts the closed app;
 // `--unregister-host` takes the manifests back. The button flows of the extension are the extension smoke's.
 //
-//   node scripts/smoke-registration.mjs
+//   node scripts/smoke-registration.mjs [--installed]
+//
+// --installed checks the package instead (NP-055): no registration, the manifests are the package's. They let
+// in only the store extensions, so Chromium refuses the development one, while Firefox — the add-on id is
+// the same — saves through /usr/bin/koonapin-host and starts an app that never ran before.
 //
 // Needs a display (the app), Chromium and Firefox: scripts/linux/ci-check.sh runs it with Debian's chromium
 // and firefox-esr; KOONAPIN_CHROMIUM and KOONAPIN_FIREFOX point to others.
@@ -20,6 +24,8 @@ import { buildExtension, geckoId } from "./build-extension.mjs";
 import { appBinary, assertNoOtherApp, capture, hostBinary, startedSince, testPipe } from "./lib/native-host.mjs";
 
 if (process.platform !== "linux") throw new Error("The development registration of Linux: run it on Linux");
+const installed = process.argv.includes("--installed");
+if (installed) process.env.KOONAPIN_TEST_BINARY ||= "/usr/bin/koonapin";
 assertNoOtherApp();
 const chromiumPath = process.env.KOONAPIN_CHROMIUM || "/usr/bin/chromium";
 const firefoxPath = process.env.KOONAPIN_FIREFOX || "/usr/bin/firefox-esr";
@@ -55,13 +61,20 @@ async function until(check, label, ms = 30000) {
   throw new Error(`Timed out: ${label}`);
 }
 
-// The app registers itself, as a development build does with KOONAPIN_REGISTER_HOST=1.
-execFileSync(appBinary(), ["--register-host"], { env, stdio: "inherit" });
 const manifests = {
   chromium: path.join(config, "chromium", "NativeMessagingHosts", "app.koona.pin.json"),
   firefox: path.join(home, ".mozilla", "native-messaging-hosts", "app.koona.pin.json"),
 };
-for (const file of Object.values(manifests)) assert.equal(JSON.parse(readFileSync(file, "utf8")).path, hostBinary());
+if (installed) {
+  // The package's own, read through the link in /etc (Р-53); nothing in the home folder.
+  for (const file of ["/etc/chromium/native-messaging-hosts/app.koona.pin.json", "/usr/lib/mozilla/native-messaging-hosts/app.koona.pin.json"])
+    assert.equal(JSON.parse(readFileSync(file, "utf8")).path, "/usr/bin/koonapin-host", file);
+  for (const file of Object.values(manifests)) assert.equal(existsSync(file), false, file);
+} else {
+  // The app registers itself, as a development build does with KOONAPIN_REGISTER_HOST=1.
+  execFileSync(appBinary(), ["--register-host"], { env, stdio: "inherit" });
+  for (const file of Object.values(manifests)) assert.equal(JSON.parse(readFileSync(file, "utf8")).path, hostBinary());
+}
 
 const built = await buildExtension({ log: () => {} });
 const apps = startedSince();
@@ -81,14 +94,22 @@ try {
   const worker =
     context.serviceWorkers().find((w) => w.url().startsWith(`chrome-extension://${id}/`)) ??
     (await context.waitForEvent("serviceworker", { predicate: (w) => w.url().startsWith(`chrome-extension://${id}/`) }));
-  const fromChromium = await worker.evaluate(
-    (message) => chrome.runtime.sendNativeMessage("app.koona.pin", message),
-    capture("registration-chromium", "https://example.invalid/chromium", "Chromium of the distribution"),
-  );
-  assert.equal(fromChromium.ok, true, JSON.stringify(fromChromium));
-  assert.equal(fromChromium.outcome, "created");
-  assert.equal(apps.ours().length, 1, "the host started the closed app");
-  console.log(`ok: Chromium ${context.browser().version()} found the manifest, the capture is in the library`);
+  const message = capture("registration-chromium", "https://example.invalid/chromium", "Chromium of the distribution");
+  if (installed) {
+    const refused = await worker.evaluate(
+      (message) => chrome.runtime.sendNativeMessage("app.koona.pin", message).then(() => "answered", (error) => error.message),
+      message,
+    );
+    assert.match(refused, /forbidden/i, "the package's manifest must not let the development extension in");
+    assert.equal(apps.ours().length, 0, "a refused extension starts nothing");
+    console.log(`ok: Chromium ${context.browser().version()} refuses the development extension: «${refused}»`);
+  } else {
+    const fromChromium = await worker.evaluate((message) => chrome.runtime.sendNativeMessage("app.koona.pin", message), message);
+    assert.equal(fromChromium.ok, true, JSON.stringify(fromChromium));
+    assert.equal(fromChromium.outcome, "created");
+    assert.equal(apps.ours().length, 1, "the host started the closed app");
+    console.log(`ok: Chromium ${context.browser().version()} found the manifest, the capture is in the library`);
+  }
 
   // Firefox of the distribution with the same home: it reads ~/.mozilla/native-messaging-hosts.
   const profile = path.join(directory, "firefox-profile");
@@ -122,9 +143,9 @@ try {
     const { contexts } = await session.send("browsingContext.getTree", {});
     return contexts.find((c) => c.url === `moz-extension://${uuid}/options.html`)?.context;
   }, "options page");
-  const message = capture("registration-firefox", "https://example.invalid/firefox", "Firefox of the distribution", "firefox");
+  const fromExtension = capture("registration-firefox", "https://example.invalid/firefox", "Firefox of the distribution", "firefox");
   const { result, exceptionDetails } = await session.send("script.evaluate", {
-    expression: `browser.runtime.sendNativeMessage("app.koona.pin", ${JSON.stringify(message)}).then(JSON.stringify)`,
+    expression: `browser.runtime.sendNativeMessage("app.koona.pin", ${JSON.stringify(fromExtension)}).then(JSON.stringify)`,
     target: { context: page },
     awaitPromise: true,
   });
@@ -132,11 +153,16 @@ try {
   const fromFirefox = JSON.parse(result.value);
   assert.equal(fromFirefox.ok, true, JSON.stringify(fromFirefox));
   assert.equal(fromFirefox.outcome, "created");
+  assert.equal(apps.ours().length, 1, "one app, started by the host");
   session.close();
-  console.log("ok: Firefox found the manifest in ~/.mozilla, the capture is in the library");
+  console.log(
+    installed
+      ? "ok: Firefox found the package's manifest in /usr/lib/mozilla; the host started the app for the first time and the capture is in the library"
+      : "ok: Firefox found the manifest in ~/.mozilla, the capture is in the library",
+  );
 
   assert.deepEqual(rows("SELECT title, source FROM bookmarks ORDER BY id"), [
-    { title: "Chromium of the distribution", source: "chrome" },
+    ...(installed ? [] : [{ title: "Chromium of the distribution", source: "chrome" }]),
     { title: "Firefox of the distribution", source: "firefox" },
   ]);
 } finally {
@@ -145,10 +171,14 @@ try {
   apps.stop();
 }
 
-// --unregister-host takes back what points at this host, and only that.
-execFileSync(appBinary(), ["--unregister-host"], { env, stdio: "inherit" });
-for (const file of Object.values(manifests)) assert.equal(existsSync(file), false, `${file} stays after --unregister-host`);
-console.log("PASS: --register-host for the user, Chromium and Firefox of the distribution capture through the host, --unregister-host");
+if (installed) {
+  console.log("PASS: the package's manifests — the development extension refused, Firefox captures before the first start");
+} else {
+  // --unregister-host takes back what points at this host, and only that.
+  execFileSync(appBinary(), ["--unregister-host"], { env, stdio: "inherit" });
+  for (const file of Object.values(manifests)) assert.equal(existsSync(file), false, `${file} stays after --unregister-host`);
+  console.log("PASS: --register-host for the user, Chromium and Firefox of the distribution capture through the host, --unregister-host");
+}
 
 /** A WebDriver BiDi connection: send(method, params) answers with the result. */
 async function bidi(url) {
