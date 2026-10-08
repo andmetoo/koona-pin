@@ -92,6 +92,7 @@
 | NP-097 | [#152](https://github.com/andmetoo/koona-pin/issues/152) | Перенести пути, автозапуск, файлы и отчёт на Linux | Linux beta | L1 |
 | NP-098 | [#153](https://github.com/andmetoo/koona-pin/issues/153) | Проверить вид и скорость интерфейса на WebKitGTK | Linux beta | L1 |
 | NP-111 | [#189](https://github.com/andmetoo/koona-pin/issues/189) | Проверить окно, автозапуск, файлы и захват на рабочих столах Linux | Linux beta | L1 |
+| NP-112 | [#197](https://github.com/andmetoo/koona-pin/issues/197) | Хранить данные в общей папке бренда Koona | Linux beta | L1 |
 | NP-099 | [#154](https://github.com/andmetoo/koona-pin/issues/154) | Передавать захват через Unix-сокет и запускать приложение из host | Linux beta | L2 |
 | NP-100 | [#155](https://github.com/andmetoo/koona-pin/issues/155) | Регистрировать native host в браузерах Linux | Linux beta | L2 |
 | NP-054 | [#156](https://github.com/andmetoo/koona-pin/issues/156) | Проверить захват в браузерах и окружениях Linux | Linux beta | L2 |
@@ -102,4 +103,4 @@
 | NP-104 | [#161](https://github.com/andmetoo/koona-pin/issues/161) | Провести сквозную приёмку Linux-beta | Linux beta | L4 |
 | NP-105 | [#162](https://github.com/andmetoo/koona-pin/issues/162) | Выпустить и проверить публичную Linux-beta | Linux beta | L4 |
 
-Ключи NP-042–NP-078 зарезервированы за задачами последующих выпусков; они перечислены в родительских issues и создаются перед началом вехи. NP-052–NP-055 (Linux) созданы вместе с задачами Linux-beta; NP-108–NP-110 зарезервированы за Linux 1.0 (#145). NP-111 выделена 8 октября 2026 года из NP-053, NP-097 и NP-054: ручная проверка окна, автозапуска, файлов и протокол браузеров на рабочих столах.
+Ключи NP-042–NP-078 зарезервированы за задачами последующих выпусков; они перечислены в родительских issues и создаются перед началом вехи. NP-052–NP-055 (Linux) созданы вместе с задачами Linux-beta; NP-108–NP-110 зарезервированы за Linux 1.0 (#145). NP-111 выделена 8 октября 2026 года из NP-053, NP-097 и NP-054: ручная проверка окна, автозапуска, файлов и протокол браузеров на рабочих столах. NP-112 создана 8 октября 2026 года: общая папка данных бренда до первого публичного выпуска ([Р-56](../decisions.md#р-56-общая-папка-данных-бренда-koona)); блокирует и приёмку Windows-beta (NP-039).
