@@ -200,8 +200,9 @@ async function captureTab(tab) {
     if (state === "queued") await markWaiting(tabId, item.request_id);
     else await forgetTab(tabId);
   }
-  // Without the app nothing will ever be delivered: the settings page says why.
-  const opensSettings = code === "host_missing";
+  // Without the app, or with an app that refuses this extension, nothing will
+  // ever be delivered: the settings page says why.
+  const opensSettings = code === "host_missing" || code === "host_forbidden";
   if (onTab && prefs.message && !opensSettings && /^https?:/.test(tab.url || "")) void tell(tab, state);
   if (onTab) await play(state, stateTitle(state, error), tabId, prefs.animate);
   if (opensSettings) await ext.runtime.openOptionsPage();

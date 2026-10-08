@@ -41,9 +41,11 @@ function savedAt(iso) {
 }
 
 /**
- * Frame 17: connected is a row; closed, update and missing are cards. On Linux
- * a missing app is «unreachable» — a calm card (sheet 40): the browser may be
- * a sandbox that keeps an installed app out.
+ * Frame 17: connected is a row; closed, update, missing and forbidden are
+ * cards. On Linux a missing app is «unreachable» — a calm card (sheet 40): the
+ * browser may be a sandbox that keeps an installed app out. Forbidden (NP-113)
+ * is the missing card with «Check again»: the app is installed, so a download
+ * does not help.
  */
 function renderStatus({ reply, lastSaved }, linux = false) {
   const status = get("status");
@@ -60,7 +62,15 @@ function renderStatus({ reply, lastSaved }, linux = false) {
   }
   const missing = ["host_missing", "host_failed"].includes(reply?.code);
   const state =
-    reply?.code === "incompatible_protocol" ? "update" : missing ? (linux ? "unreachable" : "missing") : "closed";
+    reply?.code === "incompatible_protocol"
+      ? "update"
+      : reply?.code === "host_forbidden"
+        ? "forbidden"
+        : missing
+          ? linux
+            ? "unreachable"
+            : "missing"
+          : "closed";
   status.dataset.state = state;
   const older = appIsOlder(reply);
   const [head, text] = {
@@ -69,6 +79,7 @@ function renderStatus({ reply, lastSaved }, linux = false) {
       ? [t("statusUpdateApp"), t("statusUpdateAppText", reply?.version ?? "?", VERSION)]
       : [t("statusUpdate"), t("statusUpdateText", VERSION, reply?.version ?? "?")],
     missing: [t("statusMissing"), t("statusMissingText")],
+    forbidden: [t("statusForbidden"), t("statusForbiddenText")],
     unreachable: [t("statusSandbox"), t("statusSandboxText")],
   }[state];
   const card = element("div", "state");
