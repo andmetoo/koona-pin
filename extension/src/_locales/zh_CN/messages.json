@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin 未安装或安装已损坏。链接会在这里等待。"
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin 不接受这个扩展副本。链接会在这里等待。"
+  },
   "errorIncompatible": {
     "message": "扩展与 Koona Pin 不匹配。请更新扩展 — 链接会在这里等待。"
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin 未安装" },
   "statusMissingText": {
     "message": "扩展在这台电脑上找不到应用。请安装 Koona Pin；如果已经安装，请重新安装。"
+  },
+  "statusForbidden": { "message": "Koona Pin 不接受此扩展" },
+  "statusForbiddenText": {
+    "message": "Koona Pin 已安装，但不认识这个扩展副本。请从 Koona Pin 下载页面安装扩展 — 开发版只能与应用的开发版配合使用。你保存的链接会在这里等待。"
   },
   "statusSandbox": { "message": "此浏览器无法保存" },
   "statusSandboxText": {

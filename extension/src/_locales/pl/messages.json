@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin nie jest zainstalowany albo instalacja jest uszkodzona. Link czeka tutaj."
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin nie przyjmuje tej kopii rozszerzenia. Link czeka tutaj."
+  },
   "errorIncompatible": {
     "message": "Rozszerzenie nie pasuje do Koona Pin. Zaktualizuj rozszerzenie — link czeka tutaj."
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin nie jest zainstalowany" },
   "statusMissingText": {
     "message": "Rozszerzenie nie znajduje aplikacji na tym komputerze. Zainstaluj Koona Pin albo zainstaluj go ponownie, jeśli już jest."
+  },
+  "statusForbidden": { "message": "Koona Pin nie przyjmuje tego rozszerzenia" },
+  "statusForbiddenText": {
+    "message": "Koona Pin jest zainstalowany, ale nie zna tej kopii rozszerzenia. Zainstaluj rozszerzenie ze strony pobierania Koona Pin — wersja deweloperska działa tylko z wersją deweloperską aplikacji. Zapisane linki czekają tutaj."
   },
   "statusSandbox": { "message": "Zapisywanie nie jest dostępne w tej przeglądarce" },
   "statusSandboxText": {

@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin yüklü değil ya da kurulumu bozuk. Bağlantı burada bekliyor."
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin uzantının bu kopyasını kabul etmiyor. Bağlantı burada bekliyor."
+  },
   "errorIncompatible": {
     "message": "Uzantı Koona Pin ile uyumlu değil. Uzantıyı güncelleyin — bağlantı burada bekliyor."
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin yüklü değil" },
   "statusMissingText": {
     "message": "Uzantı bu bilgisayarda uygulamayı bulamıyor. Koona Pin'i yükleyin ya da zaten varsa yeniden yükleyin."
+  },
+  "statusForbidden": { "message": "Koona Pin bu uzantıyı kabul etmiyor" },
+  "statusForbiddenText": {
+    "message": "Koona Pin yüklü ama uzantının bu kopyasını tanımıyor. Uzantıyı Koona Pin indirme sayfasından yükleyin — geliştirme sürümü yalnızca uygulamanın geliştirme sürümüyle çalışır. Kaydettiğiniz bağlantılar burada bekler."
   },
   "statusSandbox": { "message": "Bu tarayıcıda kaydetme kullanılamıyor" },
   "statusSandboxText": {

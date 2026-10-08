@@ -30,3 +30,12 @@ echo "ok: desktop-file-validate, appstreamcli validate"
 mkdir -p dist-linux
 cp "$packages"/* src-tauri/target/release/koonapin src-tauri/target/release/koonapin-host dist-linux/
 ls -l dist-linux
+
+# The WebDriver server of the native tests on WebKitGTK (NP-095, Р-57), for the «distro» jobs, which have no
+# compiler. A tool of the tests, not of the packages: its own artifact.
+step "tauri-driver"
+tools=$(mktemp -d)
+cargo install tauri-driver --version 2.1.0 --locked --root "$tools" --quiet
+mkdir -p dist-tools
+cp "$tools/bin/tauri-driver" dist-tools/
+echo "ok: tauri-driver 2.1.0 — dist-tools/tauri-driver"
