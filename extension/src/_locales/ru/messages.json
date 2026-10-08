@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin не установлен или установка повреждена. Ссылка ждёт здесь."
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin не принимает эту копию расширения. Ссылка ждёт здесь."
+  },
   "errorIncompatible": {
     "message": "Расширение не подходит к Koona Pin. Обновите расширение — ссылка ждёт здесь."
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin не установлен" },
   "statusMissingText": {
     "message": "Расширение не находит приложение на этом компьютере. Установите Koona Pin или переустановите, если оно уже есть."
+  },
+  "statusForbidden": { "message": "Koona Pin не принимает это расширение" },
+  "statusForbiddenText": {
+    "message": "Koona Pin установлен, но эту копию расширения не знает. Установите расширение со страницы загрузки Koona Pin — сборка для разработки работает только со сборкой приложения для разработки. Сохранённые ссылки ждут здесь."
   },
   "statusSandbox": { "message": "Сохранение недоступно в этом браузере" },
   "statusSandboxText": {

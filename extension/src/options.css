@@ -193,7 +193,8 @@ h2 {
 [data-state="update"] .dot {
   background: var(--ochre);
 }
-[data-state="missing"] .dot {
+[data-state="missing"] .dot,
+[data-state="forbidden"] .dot {
   background: var(--danger);
 }
 /* Other states: a card with a head, an explanation and an action. */
@@ -214,12 +215,14 @@ h2 {
   color: var(--muted);
   line-height: 18px;
 }
-.card[data-state="missing"] {
+.card[data-state="missing"],
+.card[data-state="forbidden"] {
   border-color: transparent;
   background: var(--danger-soft);
   color: var(--on-danger-soft);
 }
-.card[data-state="missing"] .text {
+.card[data-state="missing"] .text,
+.card[data-state="forbidden"] .text {
   color: var(--on-danger-soft);
 }
 button,
@@ -240,7 +243,8 @@ button:hover,
 .button:hover {
   background: var(--hover);
 }
-.card[data-state="missing"] .button {
+.card[data-state="missing"] .button,
+.card[data-state="forbidden"] button {
   background: var(--card);
 }
 .link {
