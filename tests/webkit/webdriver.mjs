@@ -1,4 +1,4 @@
-// A W3C WebDriver client for the WebKitGTK tests (NP-095, Р-56): tauri-driver in front of WebKitWebDriver,
+// A W3C WebDriver client for the WebKitGTK tests (NP-095, Р-57): tauri-driver in front of WebKitWebDriver,
 // the way Tauri documents it. No npm package: the «distro» jobs of linux.yml have Node and no node_modules,
 // and the handful of commands below is all the tests use. Elements are found the way Playwright finds them
 // in tests/native — by role and accessible name, or by label — through a script in the page.
