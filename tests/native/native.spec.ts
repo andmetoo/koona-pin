@@ -473,6 +473,9 @@ test("damaged library is detected in the background and not written", async ({
     first.processHandle.kill();
   }
   const db = new DatabaseSync(file);
+  // The triggers of schema 7 call the app's sort key functions (NP-114): without them SQLite
+  // refuses the insert. Empty keys are enough here.
+  for (const name of ["np_sort_key", "np_site_key"]) db.function(name, (_text: string) => null);
   const insert = db.prepare(
     "INSERT INTO bookmarks (uid,url,title,domain,created_at,updated_at) VALUES (?,?,?,?,?,?)",
   );
@@ -785,7 +788,7 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
   // As in the link check: the library is read once the killed app has exited.
   await app.exited;
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 7 });
   expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
     { url_key: "example.invalid/page", n: 3 },
     { url_key: "example.invalid/page?ref=x", n: 1 },
@@ -858,7 +861,7 @@ test("link check: runs in the background through IPC, a missing site is never br
   await app.exited;
   expect(hits).toBe(0);
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 7 });
   expect(db.prepare("SELECT outcome, reason, count(*) AS n FROM link_checks GROUP BY outcome, reason ORDER BY outcome").all()).toEqual([
     { outcome: "failed", reason: "no_site", n: 3 },
     { outcome: "local", reason: null, n: 1 },
@@ -1295,24 +1298,24 @@ test("sort: titles by the keys in SQLite in the interface's language, the collec
     await page.getByRole("menuitemradio", { name: "Site A–Z" }).click();
     await expect.poll(titles).toEqual(["Chapter 10", "čaj", "cvet", "zec", "Chapter 9"]);
 
-    // A collection dragged to the top is stored there.
-    const collections = page.getByRole("navigation", { name: "Collections" }).locator("[data-collection]");
-    const names = () => collections.evaluateAll((rows) => rows.map((r) => r.querySelector("span.truncate")?.textContent));
-    await expect.poll(names).toEqual(["Alpha", "Beta", "Gamma"]);
-    const gamma = (await collections.nth(2).boundingBox())!;
-    const alpha = (await collections.nth(0).boundingBox())!;
+    // A collection dragged to the top is stored there; the first collections of a new library
+    // (NP-085) sort by name with the others until then.
+    const collections = () => page.getByRole("navigation", { name: "Collections" }).locator("[data-collection]");
+    const names = () => collections().evaluateAll((rows) => rows.map((r) => r.querySelector("span.truncate")?.textContent));
+    await expect.poll(names).toEqual(["Alpha", "Articles / To read", "Beta", "Design & UI", "Development", "Gamma"]);
+    const gamma = (await collections().nth(5).boundingBox())!;
+    const alpha = (await collections().nth(0).boundingBox())!;
     await page.mouse.move(gamma.x + 40, gamma.y + gamma.height / 2);
     await page.mouse.down();
     await page.mouse.move(gamma.x + 46, gamma.y, { steps: 3 });
     await page.mouse.move(alpha.x + 60, alpha.y + 3, { steps: 10 });
     await page.mouse.up();
-    await expect.poll(names).toEqual(["Gamma", "Alpha", "Beta"]);
+    const moved = ["Gamma", "Alpha", "Articles / To read", "Beta", "Design & UI", "Development"];
+    await expect.poll(names).toEqual(moved);
     const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-    expect(db.prepare("SELECT name, position FROM collections ORDER BY position").all()).toEqual([
-      { name: "Gamma", position: 0 },
-      { name: "Alpha", position: 1 },
-      { name: "Beta", position: 2 },
-    ]);
+    expect(db.prepare("SELECT name, position FROM collections ORDER BY position").all()).toEqual(
+      moved.map((name, position) => ({ name, position })),
+    );
     expect(db.prepare("SELECT value FROM app_settings WHERE key = 'sort_language'").get()).toEqual({ value: "en" });
     db.close();
 
@@ -1338,7 +1341,7 @@ test("sort: titles by the keys in SQLite in the interface's language, the collec
     page = app.page;
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(page.getByRole("button", { name: "Sort: Site A–Z" })).toBeVisible({ timeout: 15000 });
-    await expect.poll(names).toEqual(["Gamma", "Alpha", "Beta"]);
+    await expect.poll(names).toEqual(moved);
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
