@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin ist nicht installiert oder die Installation ist beschädigt. Der Link wartet hier."
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin nimmt diese Kopie der Erweiterung nicht an. Der Link wartet hier."
+  },
   "errorIncompatible": {
     "message": "Die Erweiterung passt nicht zu Koona Pin. Aktualisieren Sie die Erweiterung — der Link wartet hier."
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin ist nicht installiert" },
   "statusMissingText": {
     "message": "Die Erweiterung findet die App auf diesem Computer nicht. Installieren Sie Koona Pin oder installieren Sie es neu, falls es schon da ist."
+  },
+  "statusForbidden": { "message": "Koona Pin nimmt diese Erweiterung nicht an" },
+  "statusForbiddenText": {
+    "message": "Koona Pin ist installiert, kennt diese Kopie der Erweiterung aber nicht. Installieren Sie die Erweiterung über die Download-Seite von Koona Pin — eine Entwicklungsversion funktioniert nur mit einer Entwicklungsversion der App. Gespeicherte Links warten hier."
   },
   "statusSandbox": { "message": "Speichern ist in diesem Browser nicht verfügbar" },
   "statusSandboxText": {

@@ -197,15 +197,19 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
 /// Overrides the library folder; tests use it to stay away from user data.
 pub const DATA_DIR_ENV: &str = "KOONAPIN_DATA_DIR";
 const DB_FILE: &str = "koonapin.db";
-/// The library folder in `%APPDATA%`; the uninstaller may remove it (NP-037).
-pub const DATA_FOLDER: &str = "Koona Pin";
+/// The brand's folder in the platform data folder (`dirs::data_dir`: `%APPDATA%`,
+/// `$XDG_DATA_HOME`, `~/Library/Application Support`): each Koona app keeps its
+/// data in its own subfolder and never touches the others (Р-56).
+pub const BRAND_FOLDER: &str = "Koona";
+/// The library folder in [`BRAND_FOLDER`]; the uninstaller may remove it (NP-037).
+pub const DATA_FOLDER: &str = "Pin";
 
 pub fn db_path() -> PathBuf {
     if let Some(directory) = std::env::var_os(DATA_DIR_ENV) {
         return PathBuf::from(directory).join(DB_FILE);
     }
     match dirs::data_dir() {
-        Some(data_dir) => data_dir.join(DATA_FOLDER).join(DB_FILE),
+        Some(data_dir) => data_dir.join(BRAND_FOLDER).join(DATA_FOLDER).join(DB_FILE),
         None => PathBuf::from(DB_FILE),
     }
 }
@@ -1217,6 +1221,16 @@ pub fn get_domains(conn: &Connection) -> Result<Vec<DomainCount>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_library_lives_in_the_brand_folder() {
+        // Р-56, and Р-9: the folder never changes after the first public installer.
+        if std::env::var_os(DATA_DIR_ENV).is_some() {
+            return;
+        }
+        let data = dirs::data_dir().unwrap();
+        assert_eq!(db_path(), data.join("Koona").join("Pin").join("koonapin.db"));
+    }
 
     #[test]
     fn collection_patch_keeps_clears_and_rolls_back_on_write_error() {

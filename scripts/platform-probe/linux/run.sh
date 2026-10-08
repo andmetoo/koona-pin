@@ -71,7 +71,7 @@ echo "motif hints: $(xprop -id "$window" _MOTIF_WM_HINTS 2>&1)"
 sleep 8
 import -window root "$out/window.png"
 
-echo "library: $(ls -1 "$HOME/.local/share/Koona Pin" 2>&1 | tr '\n' ' ')"
+echo "library: $(ls -1 "$HOME/.local/share/Koona/Pin" 2>&1 | tr '\n' ' ')"
 second=$(date +%s%N)
 timeout 20 "$app" > "$out/second.log" 2>&1
 code=$?
