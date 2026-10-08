@@ -782,6 +782,8 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
   }
+  // As in the link check: the library is read once the killed app has exited.
+  await app.exited;
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
   expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
   expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
@@ -851,6 +853,9 @@ test("link check: runs in the background through IPC, a missing site is never br
     app.processHandle.kill();
     server.close();
   }
+  // Windows closes a killed process's files only when it has exited: reading
+  // earlier gave «disk I/O error» now and then.
+  await app.exited;
   expect(hits).toBe(0);
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
   expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });

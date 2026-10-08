@@ -884,6 +884,23 @@ pub async fn set_close_to_tray(
     state.close_to_tray.store(enabled, Ordering::Relaxed);
     Ok(())
 }
+/// «Hide window» in the dialog of the first close without a tray (NP-096):
+/// from then on closing just hides the window.
+#[tauri::command]
+pub async fn hide_to_background(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+) -> Result<(), CommandError> {
+    blocking(&state, |conn| {
+        db::set_setting(conn, "background_explained", "true").map_err(text)
+    })
+    .await?;
+    state.background_explained.store(true, Ordering::Relaxed);
+    if let Some(window) = app.get_webview_window("main") {
+        window.hide().map_err(CommandError::internal)?;
+    }
+    Ok(())
+}
 /// Which browsers are connected; the sidebar and Settings → Browser (NP-016).
 #[tauri::command]
 pub fn get_capture_status(state: State<'_, Arc<ChannelState>>) -> CaptureStatus {
@@ -1186,8 +1203,7 @@ pub async fn restore_backup(
                 journal.clear();
                 // Still under the lock: a link check writes nothing into the new library.
                 handle.state::<linkcheck::Checker>().abandon();
-                let tray = db::setting(&conn, "close_to_tray").map_or(true, |v| v == "true");
-                db.close_to_tray.store(tray, Ordering::Relaxed);
+                db.reload_settings(&conn);
             }
             Ok::<_, CommandError>(result)
         }
