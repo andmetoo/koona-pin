@@ -302,9 +302,15 @@ pub fn csv(conn: &Connection, scope: Scope, columns: &CsvColumns, separator: cha
     Ok((out, marks.len()))
 }
 
-/// The list separator of the Windows region settings; `,` elsewhere or when
-/// it cannot be read or is not a single usable character.
+/// The list separator of the Windows region settings; on Linux `;` where the
+/// locale writes decimals with a comma, as Russian or German Windows does
+/// (NP-097); `,` otherwise or when it cannot be read or is not a single usable
+/// character.
 pub fn list_separator() -> char {
+    #[cfg(target_os = "linux")]
+    if let Some(point) = decimal_point() {
+        return separator_for(&point);
+    }
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_SZ};
@@ -327,6 +333,32 @@ pub fn list_separator() -> char {
         }
     }
     ','
+}
+
+/// A spreadsheet with a decimal comma takes `;` between fields.
+pub fn separator_for(decimal_point: &str) -> char {
+    if decimal_point == "," {
+        ';'
+    } else {
+        ','
+    }
+}
+
+/// The decimal point of the person's locale (`LC_ALL`, `LC_NUMERIC`, `LANG`),
+/// read without changing the process's own locale.
+#[cfg(target_os = "linux")]
+fn decimal_point() -> Option<String> {
+    // SAFETY: a locale object of our own, freed below; the string belongs to it and is copied first.
+    unsafe {
+        let locale = libc::newlocale(libc::LC_NUMERIC_MASK, c"".as_ptr(), std::ptr::null_mut());
+        if locale.is_null() {
+            return None;
+        }
+        let point = libc::nl_langinfo_l(libc::RADIXCHAR, locale);
+        let text = (!point.is_null()).then(|| std::ffi::CStr::from_ptr(point).to_string_lossy().into_owned());
+        libc::freelocale(locale);
+        text
+    }
 }
 
 /// Written next to the target under a temporary name, flushed to disk and
@@ -536,6 +568,15 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&target).unwrap(), "new");
         assert_eq!(left.len(), 2, "no temporary file: {left:?}");
         std::fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn a_decimal_comma_takes_a_semicolon_between_fields() {
+        assert_eq!(separator_for(","), ';');
+        assert_eq!(separator_for("."), ',');
+        assert_eq!(separator_for("٫"), ',');
+        // Whatever the machine's locale, the separator is one of the two.
+        assert!(matches!(list_separator(), ',' | ';') || cfg!(windows));
     }
 
     #[test]

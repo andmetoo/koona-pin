@@ -881,7 +881,8 @@
       "service_failed": "o servidor não respondeu",
       "too_many_messages": "mensagens demais desta rede na última hora",
       "proxy_failed": "o proxy da rede recusou a solicitação",
-      "no_connection_or_proxy": "sem conexão com a internet, ou esta rede precisa do seu proxy"
+      "no_connection_or_proxy": "sem conexão com a internet, ou esta rede precisa do seu proxy",
+      "no_connection_or_system_proxy": "sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema"
     },
     "code": {
       "not_found": "Não existe mais — talvez tenha sido excluído nesse meio-tempo.",
@@ -907,7 +908,8 @@
       "service_failed": "Não foi possível enviar: o servidor não respondeu. Seu texto foi mantido — tente de novo mais tarde ou copie e envie de outro jeito.",
       "too_many_messages": "Mensagens demais desta rede na última hora. Seu texto foi mantido — tente de novo mais tarde.",
       "proxy_failed": "Não foi possível enviar pelo proxy desta rede: ele pede login ou não está acessível. Seu texto foi mantido — copie e envie de outro jeito, por exemplo no GitHub.",
-      "no_connection_or_proxy": "Não foi possível enviar: sem conexão com a internet, ou esta rede precisa do seu proxy, configurado por um script que o aplicativo não consegue usar. Seu texto foi mantido — tente de novo ou copie e envie de outro jeito, por exemplo no GitHub."
+      "no_connection_or_proxy": "Não foi possível enviar: sem conexão com a internet, ou esta rede precisa do seu proxy, configurado por um script que o aplicativo não consegue usar. Seu texto foi mantido — tente de novo ou copie e envie de outro jeito, por exemplo no GitHub.",
+      "no_connection_or_system_proxy": "Não foi possível enviar: sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema, que o aplicativo não lê — ele usa só as variáveis https_proxy e http_proxy. Seu texto foi mantido — tente de novo ou copie e envie de outro jeito, por exemplo no GitHub."
     }
   },
   "tray": {

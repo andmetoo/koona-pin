@@ -881,7 +881,8 @@
       "service_failed": "il server non ha risposto",
       "too_many_messages": "troppi messaggi da questa rete nell’ultima ora",
       "proxy_failed": "il proxy della rete ha rifiutato la richiesta",
-      "no_connection_or_proxy": "nessuna connessione a internet, oppure questa rete richiede il suo proxy"
+      "no_connection_or_proxy": "nessuna connessione a internet, oppure questa rete richiede il suo proxy",
+      "no_connection_or_system_proxy": "nessuna connessione a internet, oppure questa rete richiede il proxy delle impostazioni di sistema"
     },
     "code": {
       "not_found": "Non esiste più: forse è stato eliminato nel frattempo.",
@@ -907,7 +908,8 @@
       "service_failed": "Invio non riuscito: il server non ha risposto. Il tuo testo è conservato: riprova più tardi, oppure copialo e invialo in un altro modo.",
       "too_many_messages": "Troppi messaggi da questa rete nell’ultima ora. Il tuo testo è conservato: riprova più tardi.",
       "proxy_failed": "Invio non riuscito tramite il proxy di questa rete: chiede un accesso o non è raggiungibile. Il tuo testo è conservato: copialo e invialo in un altro modo, per esempio su GitHub.",
-      "no_connection_or_proxy": "Invio non riuscito: nessuna connessione a internet, oppure questa rete richiede il suo proxy, impostato da uno script di configurazione che l’app non può usare. Il tuo testo è conservato: riprova, oppure copialo e invialo in un altro modo, per esempio su GitHub."
+      "no_connection_or_proxy": "Invio non riuscito: nessuna connessione a internet, oppure questa rete richiede il suo proxy, impostato da uno script di configurazione che l’app non può usare. Il tuo testo è conservato: riprova, oppure copialo e invialo in un altro modo, per esempio su GitHub.",
+      "no_connection_or_system_proxy": "Invio non riuscito: nessuna connessione a internet, oppure questa rete richiede il proxy delle impostazioni di sistema, che l’app non legge: usa solo le variabili https_proxy e http_proxy. Il tuo testo è conservato: riprova, oppure copialo e invialo in un altro modo, per esempio su GitHub."
     }
   },
   "tray": {
