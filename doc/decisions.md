@@ -1314,6 +1314,6 @@
 - Эксперимент NP-008 (`scripts/platform-probe/android`, `mobile-app`) остаётся на npm: это закрытое исследование, его не переносили. `platform-probe.yml` ставит Bun, но не перезапускался.
 - Записи журнала проверок и прежних решений с `npm` и Node — история, их не меняли.
 
-**Проверка:** PLACEHOLDER
+**Проверка:** Windows 11, Bun 1.4.2, без Node в путях скриптов: `bun run check` — Rust 267 + 2 + 2, сборка, Vitest 247 (как на Node); Playwright UI 108 с эталонами; `test:native` 22; `test:host`; `test:extension` (Chrome for Testing), `:chrome`, `:edge`, `:firefox`, `:firefox:esr`; `extension:lint` (0 ошибок, 1 ожидаемое предупреждение); `site:check`. Матрица Linux через act — все 8 заданий: сборка и пакеты на Debian 13, тесты Debian 13 (Playwright 96, регистрация host, smoke расширения), WebKitGTK Debian 13 и Ubuntu 26.04, `tests/webkit` 5 из 5 под X11 и Wayland на Ubuntu 26.04, Debian 13, Fedora 44 и Arch; артефакты act выгружает Bun в роли `node`. Открыто: шаг очереди в smoke расширения («библиотека не открывается») на Bun дважды из шести прогонов Edge и один раз в Firefox дал `saved` вместо `queued`; на Node 4 из 4 прошли. Связь с Bun не доказана — при повторе сбоя сравнить `rename` и `writeFile` в `node:fs/promises` под Bun на Windows.
 
 **Повод пересмотреть:** инструмент, который не работает на Bun, — тогда запускать на Node только его; ошибки Bun, которых нет в Node, в проверках или сборке.
