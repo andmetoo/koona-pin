@@ -31,7 +31,7 @@ mkdir -p dist-linux
 cp "$packages"/* src-tauri/target/release/koonapin src-tauri/target/release/koonapin-host dist-linux/
 ls -l dist-linux
 
-# The WebDriver server of the native tests on WebKitGTK (NP-095, Р-56), for the «distro» jobs, which have no
+# The WebDriver server of the native tests on WebKitGTK (NP-095, Р-57), for the «distro» jobs, which have no
 # compiler. A tool of the tests, not of the packages: its own artifact.
 step "tauri-driver"
 tools=$(mktemp -d)

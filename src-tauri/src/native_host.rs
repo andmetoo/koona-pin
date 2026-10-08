@@ -591,8 +591,26 @@ mod tests {
         for arg in [REGISTER_ARG, UNREGISTER_ARG] {
             assert!(hooks.contains(&format!(r#""$INSTDIR\${{NP_EXE}}" {arg}'"#)), "{arg}");
         }
-        // The uninstaller's checkbox removes the library folder (Р-10, item 8).
+        // The uninstaller's checkbox removes the library folder (Р-10, item 8),
+        // and the brand folder only when empty: other Koona apps keep theirs (Р-56).
+        assert!(hooks.contains(&define("NP_BRAND_DIR", crate::db::BRAND_FOLDER)));
         assert!(hooks.contains(&define("NP_DATA_DIR", crate::db::DATA_FOLDER)));
+        assert!(hooks.contains(&define("NP_LEGACY_DATA_DIR", "Koona Pin")));
+        assert!(hooks.contains(r#"RmDir "$APPDATA\${NP_BRAND_DIR}""#));
+        // NSIS commands ignore case and take flags in any order: every line
+        // that removes recursively must name one of Koona Pin's own folders.
+        let recursive: Vec<String> = hooks
+            .lines()
+            .map(|line| line.trim().to_lowercase())
+            .filter(|line| line.starts_with("rmdir") && line.split_whitespace().any(|word| word == "/r"))
+            .collect();
+        assert_eq!(
+            recursive,
+            [
+                r#"rmdir /r "$appdata\${np_brand_dir}\${np_data_dir}""#,
+                r#"rmdir /r "$appdata\${np_legacy_data_dir}""#,
+            ]
+        );
     }
 
     #[test]

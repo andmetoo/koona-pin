@@ -1,4 +1,4 @@
-// Native tests on WebKitGTK (NP-095, Р-56): the scenarios of tests/native/native.spec.ts that hold on Linux,
+// Native tests on WebKitGTK (NP-095, Р-57): the scenarios of tests/native/native.spec.ts that hold on Linux,
 // through tauri-driver and WebKitWebDriver instead of WebView2's CDP. The real binary — the installed package
 // in the «distro» jobs — its own library in KOONAPIN_DATA_DIR, the host and the capture socket.
 //   node --test tests/webkit/      (a display or Wayland compositor, a session bus: scripts/linux/ci-webkit.sh)
