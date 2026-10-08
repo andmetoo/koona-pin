@@ -42,6 +42,10 @@ pub fn build(app: &tauri::App) -> tauri::Result<()> {
     let labels = TrayLabels::default();
     let open = MenuItem::with_id(app, "open", &labels.open, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?;
+    // On Linux the menu is all the icon has (sheet 40): «Open» first, then a line.
+    #[cfg(target_os = "linux")]
+    let menu = Menu::with_items(app, &[&open, &tauri::menu::PredefinedMenuItem::separator(app)?, &quit])?;
+    #[cfg(not(target_os = "linux"))]
     let menu = Menu::with_items(app, &[&open, &quit])?;
     let mut tray = TrayIconBuilder::with_id(ID)
         .menu(&menu)
@@ -52,6 +56,7 @@ pub fn build(app: &tauri::App) -> tauri::Result<()> {
             "quit" => app.exit(0),
             _ => {}
         })
+        // Windows only: Tauri 2 sends no click of the icon on Linux.
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
