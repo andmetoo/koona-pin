@@ -44,11 +44,17 @@ chmod 700 "$XDG_RUNTIME_DIR"
 Xvfb :98 -screen 0 1280x800x24 -nolisten tcp -nolisten local > /dev/null 2>&1 &
 xvfb=$!
 DISPLAY=:98 GDK_BACKEND=x11 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 dbus-run-session -- node scripts/smoke-registration.mjs
+
+# The extension's flows in Chrome for Testing as on Windows (NP-054): capture, closed app, queue, browser
+# restart, duplicate, host not registered — calm on Linux —, foreign id, quick search. The test host lives in
+# the run's own browser profile.
+step "Extension smoke with Chrome for Testing"
+npx playwright install chromium
+DISPLAY=:98 GDK_BACKEND=x11 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 dbus-run-session -- node scripts/smoke-extension.mjs
 kill $xvfb 2> /dev/null || true
 
 # Screenshot baselines depend on font rendering and are checked on Windows only, as in ci.yml. Two
 # language tests find the browser status 1–5 px wider than its slot on Linux (#183): out until it is fixed.
 step "Playwright UI, functional"
-npx playwright install chromium
 npm run test:ui -- --grep-invert "@visual|sidebar rows fit in every language|en key screens 1600×800"
 

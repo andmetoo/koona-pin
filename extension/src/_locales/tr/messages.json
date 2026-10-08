@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "Uzantı bu bilgisayarda uygulamayı bulamıyor. Koona Pin'i yükleyin ya da zaten varsa yeniden yükleyin."
   },
+  "statusSandbox": { "message": "Bu tarayıcıda kaydetme kullanılamıyor" },
+  "statusSandboxText": {
+    "message": "Uzantı Koona Pin'e ulaşamıyor. Henüz kurmadıysanız Koona Pin'i kurun. Kuruluysa bu tarayıcı, uygulamayı dışarıda tutan bir korumalı alanda çalışıyor — Flatpak ya da Snap Chromium: dağıtımınızın paketlerinden bir tarayıcı kullanın. Kaydettiğiniz bağlantılar burada bekler."
+  },
   "download": { "message": "Koona Pin'i indir" },
   "queueHeading": { "message": "Gönderilmeyi bekleyenler" },
   "sendNow": { "message": "Şimdi gönder" },

@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "L’extension ne trouve pas l’application sur cet ordinateur. Installez Koona Pin, ou réinstallez-le s’il est déjà là."
   },
+  "statusSandbox": { "message": "L’enregistrement n’est pas disponible dans ce navigateur" },
+  "statusSandboxText": {
+    "message": "L’extension ne peut pas joindre Koona Pin. Installez Koona Pin si ce n’est pas encore fait. S’il est installé, ce navigateur tourne dans un bac à sable qui bloque l’application — Flatpak, ou Chromium en Snap : utilisez le navigateur issu des paquets de votre distribution. Les liens enregistrés attendent ici."
+  },
   "download": { "message": "Télécharger Koona Pin" },
   "queueHeading": { "message": "En attente d’envoi" },
   "sendNow": { "message": "Envoyer maintenant" },

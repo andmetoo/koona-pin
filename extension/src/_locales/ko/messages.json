@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "확장 프로그램이 이 컴퓨터에서 앱을 찾을 수 없습니다. Koona Pin을 설치하거나, 이미 있다면 다시 설치하세요."
   },
+  "statusSandbox": { "message": "이 브라우저에서는 저장할 수 없습니다" },
+  "statusSandboxText": {
+    "message": "확장 프로그램이 Koona Pin에 연결할 수 없습니다. 아직 설치하지 않았다면 Koona Pin을 설치하세요. 설치되어 있다면 이 브라우저는 앱 접근을 막는 샌드박스(Flatpak 또는 Snap 버전 Chromium)에서 실행 중입니다. 배포판 패키지의 브라우저를 사용하세요. 저장한 링크는 여기서 기다립니다."
+  },
   "download": { "message": "Koona Pin 다운로드" },
   "queueHeading": { "message": "전송 대기 중" },
   "sendNow": { "message": "지금 보내기" },
