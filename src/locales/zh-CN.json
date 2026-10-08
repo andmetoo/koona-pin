@@ -31,7 +31,9 @@
     "newCollectionCreate": "Enter — 创建并移入",
     "newCollectionCancel": "Esc — 取消",
     "tagsDrop": "标签 — 拖到标签上即可添加",
-    "dropNewCollection": "用所选内容新建合集"
+    "dropNewCollection": "用所选内容新建合集",
+    "moveCollection": "移动",
+    "collectionMoved": "{{name}}：第 {{position}} 位，共 {{count}} 个"
   },
   "drag": {
     "more_other": "及另外 {{count}} 个书签",
@@ -95,6 +97,8 @@
     "view": "资料库视图",
     "grid": "网格",
     "list": "列表",
+    "sortBy": "排序方式",
+    "sortHint": "排序：{{order}}",
     "more": "更多",
     "add": "添加链接",
     "addShort": "添加",
@@ -102,6 +106,12 @@
     "clearTag": "移除标签筛选 {{tag}}",
     "domainChip": "网站：{{domain}}",
     "clearDomain": "移除网站筛选 {{domain}}"
+  },
+  "sort": {
+    "newest": "最新优先",
+    "oldest": "最早优先",
+    "title": "标题 A–Z",
+    "site": "网站 A–Z"
   },
   "more": {
     "import": "导入",

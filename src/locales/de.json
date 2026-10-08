@@ -32,7 +32,9 @@
     "newCollectionCreate": "Enter — erstellen und verschieben",
     "newCollectionCancel": "Esc — abbrechen",
     "tagsDrop": "Tags — auf einem Tag ablegen, um ihn hinzuzufügen",
-    "dropNewCollection": "Neue Sammlung aus der Auswahl"
+    "dropNewCollection": "Neue Sammlung aus der Auswahl",
+    "moveCollection": "Verschieben",
+    "collectionMoved": "{{name}}: Platz {{position}} von {{count}}"
   },
   "drag": {
     "more_one": "und {{count}} weiteres Lesezeichen",
@@ -100,6 +102,8 @@
     "view": "Ansicht der Bibliothek",
     "grid": "Raster",
     "list": "Liste",
+    "sortBy": "Sortieren nach",
+    "sortHint": "Sortierung: {{order}}",
     "more": "Mehr",
     "add": "Link hinzufügen",
     "addShort": "Hinzufügen",
@@ -108,6 +112,12 @@
     "clearTag": "Tag-Filter {{tag}} entfernen",
     "domainChip": "Website: {{domain}}",
     "clearDomain": "Website-Filter {{domain}} entfernen"
+  },
+  "sort": {
+    "newest": "Neueste zuerst",
+    "oldest": "Älteste zuerst",
+    "title": "Titel A–Z",
+    "site": "Website A–Z"
   },
   "more": {
     "import": "Import",
