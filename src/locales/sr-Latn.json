@@ -63,7 +63,7 @@
     "settings": "Podešavanja"
   },
   "browser": {
-    "ready": "Pregledač je povezan",
+    "ready": "Pregledač povezan",
     "failing": "Čuvanje ne radi",
     "checking": "Proverava se veza…",
     "notConnected": "Nema pregledača",
