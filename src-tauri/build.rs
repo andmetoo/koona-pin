@@ -3,7 +3,27 @@ fn main() {
     // generate_context!); without this, replaced icons stay old until `cargo clean`.
     println!("cargo:rerun-if-changed=icons");
     feedback_url_from_dotenv();
+    collation_version();
     tauri_build::build()
+}
+
+/// The version of the collation data the sort keys are made with (NP-114, `sorting.rs`): new
+/// CLDR data may order some strings otherwise, and keys of two versions must not mix. Read from
+/// Cargo.lock, so an update of the crate rewrites the keys without anyone remembering to.
+fn collation_version() {
+    println!("cargo:rerun-if-changed=Cargo.lock");
+    let lock = std::fs::read_to_string("Cargo.lock").unwrap_or_default();
+    let mut package = "";
+    let mut version = "unknown";
+    for line in lock.lines().map(str::trim) {
+        if let Some(name) = line.strip_prefix("name = ") {
+            package = name;
+        } else if let (r#""icu_collator_data""#, Some(found)) = (package, line.strip_prefix("version = ")) {
+            version = found.trim_matches('"');
+            break;
+        }
+    }
+    println!("cargo:rustc-env=KOONAPIN_COLLATION_DATA={version}");
 }
 
 /// The feedback address (`option_env!` in feedback.rs, NP-088) from `.env` in the repository

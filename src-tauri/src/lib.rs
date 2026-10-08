@@ -23,6 +23,7 @@ pub mod net_guard;
 pub mod pipe_name;
 pub mod quick_search;
 pub mod restore;
+pub mod sorting;
 #[doc(hidden)]
 pub mod test_libraries;
 pub mod trash;
@@ -140,6 +141,8 @@ pub fn run() {
             commands::get_collections,
             commands::create_collection,
             commands::create_starter_collections,
+            commands::reorder_collections,
+            commands::set_sort_language,
             commands::refresh_preview,
             commands::delete_collection,
             commands::get_tags,

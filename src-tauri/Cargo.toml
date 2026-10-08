@@ -44,12 +44,18 @@ dirs = "5.0"
 ts-rs = { version = "12", default-features = false, features = ["serde-compat"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
+# «Title A–Z» and «Site A–Z» (NP-114): sort keys in the interface's language.
+# The other ICU4X crates are already in the tree through `url`.
+icu_collator = "2.3"
+icu_locale_core = "2.3"
 
 [dev-dependencies]
 # Already in the tree through Tauri: a test recomputes the development
 # extension id from extension/dev-key.txt.
 base64 = "0.22"
 sha2 = "0.10"
+# `trace`: the example `query_plans` prints the plan of every statement a command runs (NP-114).
+rusqlite = { version = "0.32", features = ["trace"] }
 
 # Native messaging (NP-016): the user's SID for the pipe name and its access
 # rule, registry keys for the browsers, starting the app from the host.

@@ -253,9 +253,12 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
         let id = match found.or_else(|| by_name.get(&db::fold(&c.name)).copied()) {
             Some(id) => id,
             None => {
+                // A replace brings the copy's sidebar order back (NP-114); a
+                // merge adds the new collections after the library's own.
+                let position = c.position.filter(|_| mode == RestoreMode::Replace);
                 tx.execute(
-                    "INSERT INTO collections (uid, name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![c.uid, c.name, c.color, c.icon, c.created_at],
+                    "INSERT INTO collections (uid, name, color, icon, created_at, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![c.uid, c.name, c.color, c.icon, c.created_at, position],
                 )?;
                 summary.collections.push(c.name.clone());
                 let id = tx.last_insert_rowid();
@@ -393,6 +396,32 @@ mod tests {
         // Again: nothing more.
         let again = restore(&target, &check(&text).unwrap(), RestoreMode::Merge, &folder()).unwrap();
         assert_eq!((again.added, again.existing, again.collections.len(), again.tags), (0, 7, 0, 0));
+    }
+
+    /// NP-114: the copy carries the sidebar's order; a replace brings it back,
+    /// a merge keeps the library's own and adds the copy's collections after it.
+    #[test]
+    fn the_sidebar_order_comes_back_with_a_replace_and_follows_in_a_merge() {
+        let names = |c: &Connection| db::get_collections(c).unwrap().into_iter().map(|c| c.name).collect::<Vec<_>>();
+        let source = library();
+        let mut ids: Vec<i64> = db::get_collections(&source).unwrap().iter().map(|c| c.id).collect();
+        ids.reverse();
+        db::reorder_collections(&source, &ids).unwrap();
+        let moved = names(&source);
+        assert_ne!(moved, { let mut by_name = moved.clone(); by_name.sort(); by_name }, "the test needs an order that is not by name");
+        let text = copy_of(&source);
+
+        let replaced = database();
+        restore(&replaced, &check(&text).unwrap(), RestoreMode::Replace, &folder()).unwrap();
+        assert_eq!(names(&replaced), moved);
+
+        let merged = database();
+        let own = db::create_collection(&merged, "Ящик", None, None).unwrap();
+        db::reorder_collections(&merged, &[own.id]).unwrap();
+        restore(&merged, &check(&text).unwrap(), RestoreMode::Merge, &folder()).unwrap();
+        let mut after = moved.clone();
+        after.sort();
+        assert_eq!(names(&merged), [vec!["Ящик".to_string()], after].concat());
     }
 
     #[test]
