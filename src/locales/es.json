@@ -51,7 +51,7 @@
     "inboxWaiting_one": "Bandeja de entrada: {{count}} en espera",
     "inboxWaiting_many": "Bandeja de entrada: {{count}} en espera",
     "inboxWaiting_other": "Bandeja de entrada: {{count}} en espera",
-    "all": "Todos los marcadores",
+    "all": "Marcadores",
     "favorites": "Favoritos",
     "trash": "Papelera",
     "duplicates": "Duplicados",
