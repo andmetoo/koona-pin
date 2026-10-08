@@ -3,7 +3,8 @@
 # one that ships — started on this distribution without a screen, under X11 (Xvfb) and under Wayland
 # (Weston headless), each with a session bus. Checks what a container can: the process stays up, the
 # library is created where the contract puts it, a second start hands over to the first (single instance
-# over D-Bus) and exits. Tray, autostart and the desktop are not here.
+# over D-Bus) and exits; under X11 also the native host and the capture socket (test:host). Tray,
+# autostart and the desktop are not here.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 step() { printf '\n== %s\n' "$1"; }
@@ -45,9 +46,22 @@ XDG_RUNTIME_DIR=$(mktemp -d)
 chmod 700 "$XDG_RUNTIME_DIR"
 
 step "X11 (Xvfb)"
-Xvfb :99 -screen 0 1280x800x24 -nolisten tcp > /dev/null 2>&1 &
+# Only the socket file (`-nolisten local`): act starts the jobs' containers with the host's network, and the
+# abstract socket @/tmp/.X11-unix/X99 belongs to the network, not to the container. Four Xvfb :99 at once
+# then share one name: the later ones exit («server already running»), and their app talks to another
+# container's X server — its shared memory is out of reach there (MIT-SHM BadAccess, the app exited;
+# 8 October 2026). The file /tmp/.X11-unix/X99 is each container's own. On GitHub every job has its own VM.
+Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -nolisten local > "$XDG_RUNTIME_DIR/xvfb.log" 2>&1 &
 xvfb=$!
+for _ in $(seq 50); do [ -S /tmp/.X11-unix/X99 ] && break; sleep 0.2; done
+[ -S /tmp/.X11-unix/X99 ] || { cat "$XDG_RUNTIME_DIR/xvfb.log"; echo "FAIL: Xvfb did not start"; exit 1; }
 DISPLAY=:99 GDK_BACKEND=x11 check
+
+# test:host with this binary (NP-099): the host passes messages over the socket in $XDG_RUNTIME_DIR and
+# starts the closed app in a session of its own.
+step "Native host, capture socket (npm run test:host)"
+HOME=$(mktemp -d) DISPLAY=:99 GDK_BACKEND=x11 KOONAPIN_TEST_BINARY=$app \
+  dbus-run-session -- node scripts/smoke-host.mjs
 kill $xvfb 2> /dev/null || true
 
 step "Wayland (Weston headless, no XWayland)"

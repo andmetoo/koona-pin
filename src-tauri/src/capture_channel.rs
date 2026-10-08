@@ -1,6 +1,6 @@
 //! Capture over native messaging (Р-17). The browser starts koonapin-host.exe,
-//! the host passes each message over a named pipe, the app answers it. The app
-//! stays the only process that writes the library.
+//! the host passes each message over a named pipe (a Unix socket on Linux),
+//! the app answers it. The app stays the only process that writes the library.
 //!
 //! One JSON line per connection each way. The host sends
 //! `{ "caller": "chrome-extension://…/", "message": { … } }`, where `message`
@@ -357,16 +357,60 @@ fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
         }
     });
 }
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
+    // Bound before this returns, so «Повторить» answers with the real state.
+    let listener = crate::pipe_name::socket_path()
+        .and_then(|path| socket::bind(&path))
+        .and_then(|listener| {
+            listener.set_nonblocking(true)?;
+            let _runtime = tauri::async_runtime::handle().inner().enter();
+            tokio::net::UnixListener::from_std(listener)
+        });
+    let listener = match listener {
+        Ok(listener) => listener,
+        Err(error) => {
+            eprintln!("Capture socket: {error}");
+            state.set_channel(Some(error.to_string()));
+            emit_status(&app, &state);
+            return;
+        }
+    };
+    state.set_channel(None);
+    emit_status(&app, &state);
+    tauri::async_runtime::spawn(async move {
+        loop {
+            let stream = match listener.accept().await {
+                Ok((stream, _)) => stream,
+                Err(error) => {
+                    // Out of descriptors, for one: not a reason to spin.
+                    eprintln!("Capture socket: {error}");
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    continue;
+                }
+            };
+            if !socket::admitted(stream.peer_cred().ok().map(|peer| peer.uid())) {
+                continue;
+            }
+            let (app, db, state) = (app.clone(), db.clone(), state.clone());
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = answer(stream, app, db, state).await {
+                    eprintln!("Capture socket: {error}");
+                }
+            });
+        }
+    });
+}
+#[cfg(not(any(windows, target_os = "linux")))]
 fn serve(app: AppHandle, _db: Arc<DbState>, state: Arc<ChannelState>) {
-    // macOS and Linux get their channel with their releases (NP-048, NP-052).
+    // macOS gets its channel with its release (NP-048).
     state.set_channel(Some("Native messaging is not available on this system yet".into()));
     emit_status(&app, &state);
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "linux"))]
 async fn answer(
-    pipe: tokio::net::windows::named_pipe::NamedPipeServer,
+    pipe: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
     app: AppHandle,
     db: Arc<DbState>,
     state: Arc<ChannelState>,
@@ -416,6 +460,75 @@ async fn answer(
     let pipe = reader.get_mut();
     pipe.write_all(format!("{reply}\n").as_bytes()).await?;
     pipe.flush().await
+}
+
+/// The capture socket on Linux (Р-45, п. 6): what the pipe's DACL and first
+/// instance flag do on Windows.
+#[cfg(target_os = "linux")]
+mod socket {
+    use std::{
+        fs, io,
+        os::unix::{
+            fs::{DirBuilderExt, MetadataExt, PermissionsExt},
+            net::{UnixListener, UnixStream},
+        },
+        path::Path,
+    };
+
+    fn own_uid() -> u32 {
+        unsafe { libc::geteuid() }
+    }
+
+    /// The socket's folder: created `0700`, or one already there that is a
+    /// real folder of this user, closed again if someone opened it.
+    pub fn private_dir(dir: &Path) -> io::Result<()> {
+        match fs::DirBuilder::new().mode(0o700).create(dir) {
+            Err(error) if error.kind() != io::ErrorKind::AlreadyExists => return Err(error),
+            _ => {}
+        }
+        let meta = fs::symlink_metadata(dir)?;
+        if !meta.is_dir() || meta.uid() != own_uid() {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!("{} is not a folder of this user", dir.display()),
+            ));
+        }
+        if meta.mode() & 0o777 != 0o700 {
+            fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
+        }
+        Ok(())
+    }
+
+    /// The first instance: a socket another process answers on is not taken
+    /// over but reported; a file left by an app that crashed is replaced.
+    pub fn bind(path: &Path) -> io::Result<UnixListener> {
+        let dir = path
+            .parent()
+            .ok_or_else(|| io::Error::other("the capture socket has no folder"))?;
+        private_dir(dir)?;
+        let listener = match UnixListener::bind(path) {
+            Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
+                if UnixStream::connect(path).is_ok() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AddrInUse,
+                        format!("Another program is answering on {}", path.display()),
+                    ));
+                }
+                fs::remove_file(path)?;
+                UnixListener::bind(path)?
+            }
+            bound => bound?,
+        };
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        Ok(listener)
+    }
+
+    /// Only processes of this user talk to the app. The folder already keeps
+    /// others out; the peer's UID (`SO_PEERCRED`) is checked as well, in case
+    /// the folder was opened.
+    pub fn admitted(peer: Option<u32>) -> bool {
+        peer == Some(own_uid())
+    }
 }
 
 #[cfg(windows)]
@@ -642,6 +755,111 @@ mod tests {
         };
         assert!(second.is_err());
         drop(pipe);
+    }
+
+    /// A folder of its own under the temporary one: a socket path stays far
+    /// below the 108 bytes of `sun_path`.
+    #[cfg(target_os = "linux")]
+    fn runtime_dir(label: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("koonapin-{label}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir(&dir).unwrap();
+        dir
+    }
+
+    /// The folder is `0700`, the socket `0600`; an opened folder is closed
+    /// again, a folder that is a symlink is refused.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_socket_and_its_folder_are_only_the_users() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let runtime = runtime_dir("modes");
+        let path = runtime.join("koonapin").join("capture.sock");
+        let listener = socket::bind(&path).unwrap();
+        let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().mode() & 0o777;
+        assert_eq!(mode(&runtime.join("koonapin")), 0o700);
+        assert_eq!(mode(&path), 0o600);
+        assert_eq!(std::fs::metadata(&path).unwrap().uid(), unsafe { libc::geteuid() });
+        drop(listener);
+        std::fs::set_permissions(runtime.join("koonapin"), std::fs::Permissions::from_mode(0o755)).unwrap();
+        socket::private_dir(&runtime.join("koonapin")).unwrap();
+        assert_eq!(mode(&runtime.join("koonapin")), 0o700);
+        // Someone else's folder put in the way as a link is not followed.
+        let elsewhere = runtime_dir("elsewhere");
+        std::os::unix::fs::symlink(&elsewhere, runtime.join("linked")).unwrap();
+        assert!(socket::bind(&runtime.join("linked").join("capture.sock")).is_err());
+        std::fs::remove_dir_all(&runtime).unwrap();
+        std::fs::remove_dir_all(&elsewhere).unwrap();
+    }
+
+    /// A live socket is reported, not taken over; the file of a crashed app
+    /// is replaced.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_live_socket_is_busy_and_a_leftover_is_replaced() {
+        let runtime = runtime_dir("first");
+        let path = runtime.join("koonapin").join("capture.sock");
+        let first = socket::bind(&path).unwrap();
+        let busy = socket::bind(&path).unwrap_err();
+        assert_eq!(busy.kind(), std::io::ErrorKind::AddrInUse);
+        assert!(busy.to_string().contains("Another program"), "{busy}");
+        // Closing the listener leaves the file, as a crash does.
+        drop(first);
+        assert!(path.exists());
+        let second = socket::bind(&path).unwrap();
+        assert!(std::os::unix::net::UnixStream::connect(&path).is_ok());
+        drop(second);
+        std::fs::remove_dir_all(&runtime).unwrap();
+    }
+
+    /// The peer's UID decides: this process is admitted, another UID or an
+    /// unknown one is not.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn only_the_users_own_processes_are_admitted() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let dir = runtime_dir("peer");
+        let path = dir.join("koonapin").join("capture.sock");
+        let listener = socket::bind(&path).unwrap();
+        let _client = std::os::unix::net::UnixStream::connect(&path).unwrap();
+        let (server, _) = listener.accept().unwrap();
+        server.set_nonblocking(true).unwrap();
+        let peer = runtime.block_on(async {
+            tokio::net::UnixStream::from_std(server).unwrap().peer_cred().unwrap().uid()
+        });
+        assert!(socket::admitted(Some(peer)));
+        assert!(!socket::admitted(Some(peer.wrapping_add(1))));
+        assert!(!socket::admitted(None));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// No runtime folder: a clear error, not a socket in /tmp; the test
+    /// name goes into the same folder.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_socket_lives_in_the_runtime_folder() {
+        // The only test that touches these variables.
+        let saved = (std::env::var_os("XDG_RUNTIME_DIR"), std::env::var_os(crate::pipe_name::PIPE_ENV));
+        std::env::remove_var("XDG_RUNTIME_DIR");
+        std::env::remove_var(crate::pipe_name::PIPE_ENV);
+        let missing = crate::pipe_name::socket_path().unwrap_err();
+        assert!(missing.to_string().contains("XDG_RUNTIME_DIR"), "{missing}");
+        std::env::set_var("XDG_RUNTIME_DIR", "/run/user/1000");
+        assert_eq!(
+            crate::pipe_name::socket_path().unwrap(),
+            std::path::Path::new("/run/user/1000/koonapin/capture.sock")
+        );
+        std::env::set_var(crate::pipe_name::PIPE_ENV, "koonapin-smoke-1");
+        assert_eq!(
+            crate::pipe_name::socket_path().unwrap(),
+            std::path::Path::new("/run/user/1000/koonapin/koonapin-smoke-1.sock")
+        );
+        for (name, value) in [("XDG_RUNTIME_DIR", saved.0), (crate::pipe_name::PIPE_ENV, saved.1)] {
+            match value {
+                Some(value) => std::env::set_var(name, value),
+                None => std::env::remove_var(name),
+            }
+        }
     }
 
     #[test]

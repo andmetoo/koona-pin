@@ -2,16 +2,16 @@
 #![windows_subsystem = "windows"]
 //! The native messaging host (Р-17). The browser starts it for each message of
 //! the extension; it passes the message to the running app over the capture
-//! pipe and returns the reply. A capture starts a closed app in the tray first.
+//! pipe (a Unix socket on Linux) and returns the reply. A capture starts a
+//! closed app in the tray first.
 //!
-//! The host does not link the app: it only shares the pipe name.
+//! The host does not link the app: it only shares the channel's address.
 
 #[path = "../pipe_name.rs"]
 mod pipe_name;
 
 use serde_json::{json, Value};
 use std::{
-    fs::OpenOptions,
     io::{self, BufRead, BufReader, Read, Write},
     thread,
     time::{Duration, Instant},
@@ -95,11 +95,12 @@ fn relay(caller: Option<&str>, message: Value) -> Value {
     failure("app_unavailable", "Koona Pin is not running or does not answer")
 }
 
+#[cfg(windows)]
 fn send(envelope: &Value) -> io::Result<Value> {
     let name = pipe_name::pipe_name();
     let mut attempts = 0;
     let pipe = loop {
-        match OpenOptions::new().read(true).write(true).open(&name) {
+        match std::fs::OpenOptions::new().read(true).write(true).open(&name) {
             Ok(pipe) => break pipe,
             // ERROR_PIPE_BUSY: the app is about to offer the next instance.
             Err(error) if error.raw_os_error() == Some(231) && attempts < 40 => {
@@ -109,9 +110,25 @@ fn send(envelope: &Value) -> io::Result<Value> {
             Err(error) => return Err(error),
         }
     };
-    (&pipe).write_all(format!("{envelope}\n").as_bytes())?;
+    exchange(pipe, envelope)
+}
+
+#[cfg(target_os = "linux")]
+fn send(envelope: &Value) -> io::Result<Value> {
+    exchange(std::os::unix::net::UnixStream::connect(pipe_name::socket_path()?)?, envelope)
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn send(_envelope: &Value) -> io::Result<Value> {
+    Err(io::Error::other("not available on this system yet"))
+}
+
+/// One line each way, as the app reads it.
+#[cfg(any(windows, target_os = "linux"))]
+fn exchange(mut channel: impl Read + Write, envelope: &Value) -> io::Result<Value> {
+    channel.write_all(format!("{envelope}\n").as_bytes())?;
     let mut line = String::new();
-    BufReader::new((&pipe).take(MAX_MESSAGE as u64)).read_line(&mut line)?;
+    BufReader::new(channel.take(MAX_MESSAGE as u64)).read_line(&mut line)?;
     serde_json::from_str(&line).map_err(io::Error::other)
 }
 
@@ -177,7 +194,52 @@ fn start_app() -> io::Result<()> {
     Err(last)
 }
 
-#[cfg(not(windows))]
+/// `koonapin --autostart` next to the host (`/usr/bin` in the package): hidden,
+/// in the tray.
+///
+/// A new session (`setsid`), so the browser's signals to the host and its
+/// group do not reach the app. Nothing of the browser is inherited: stdin,
+/// stdout and stderr are `/dev/null`, every other descriptor closes at exec —
+/// on Windows an inherited pipe kept Chrome from finishing (Р-17, п. 3).
+#[cfg(target_os = "linux")]
+fn start_app() -> io::Result<()> {
+    use std::os::unix::process::CommandExt;
+    use std::process::{Command, Stdio};
+    let host = std::env::current_exe()?;
+    let folder = host.parent().ok_or_else(|| io::Error::other("no folder"))?;
+    let mut command = Command::new(folder.join("koonapin"));
+    command
+        .arg("--autostart")
+        .current_dir("/")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    // Between fork and exec: only calls that are safe there. Close-on-exec
+    // rather than close, so Rust still hears about a failed exec.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(io::Error::last_os_error());
+            }
+            let all = libc::syscall(
+                libc::SYS_close_range,
+                3 as libc::c_uint,
+                libc::c_uint::MAX,
+                libc::CLOSE_RANGE_CLOEXEC,
+            );
+            if all != 0 {
+                // A kernel older than 5.11.
+                for fd in 3..1024 {
+                    libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC);
+                }
+            }
+            Ok(())
+        });
+    }
+    command.spawn().map(drop)
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
 fn start_app() -> io::Result<()> {
     Err(io::Error::other("not available on this system yet"))
 }
