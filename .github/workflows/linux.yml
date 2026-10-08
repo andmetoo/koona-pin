@@ -88,10 +88,10 @@ jobs:
       - name: Tests as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-check.sh"
 
-  # The latest version of each distribution: the package of «build» installed by apt or dnf with its own
-  # dependencies (Arch: the bare binary with its libraries; AUR is NP-101), started without a screen under
-  # X11 and Wayland — library in ~/.local/share/Koona Pin, a second start hands over to the first — then
-  # installed again and removed (NP-055).
+  # The latest version of each distribution: the package of «build» installed with its own dependencies —
+  # apt or dnf (NP-055), on Arch koonapin-bin built by makepkg from the AUR's PKGBUILD (NP-101) — started
+  # without a screen under X11 and Wayland — library in ~/.local/share/Koona Pin, a second start hands over
+  # to the first — then installed again and removed.
   distro:
     name: ${{ matrix.image }}
     needs: build
@@ -117,9 +117,10 @@ jobs:
         run: bash scripts/linux/ci-package.sh install
       - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
-      # Fedora's Firefox reads only /usr/lib64/mozilla: the one place the .rpm differs (Р-53).
-      - name: Fedora's Firefox and Chromium with the package as «dev»
-        if: ${{ matrix.image == 'fedora:44' }}
+      # Fedora's Firefox reads only /usr/lib64/mozilla, the one place the .rpm differs (Р-53); Arch's
+      # Chromium and Firefox take the AUR package (NP-101). The .deb's browsers run in «check».
+      - name: The distribution's Firefox and Chromium with the package as «dev»
+        if: ${{ matrix.image == 'fedora:44' || matrix.image == 'archlinux:latest' }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"
       - name: Install again and remove the package
         run: bash scripts/linux/ci-package.sh remove

@@ -1,0 +1,44 @@
+# Maintainer: @MAINTAINER@
+#
+# The AUR package of Koona Pin (NP-101, Р-55): the files of the released .deb, repacked — the repository is
+# not open yet, so no build from source. scripts/build-aur.mjs fills in the version and the checksum; the
+# .deb comes from the GitHub release.
+
+pkgname=koonapin-bin
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Desktop bookmark library: save a link in one click'
+arch=('x86_64')
+url='https://koona.app/pin/'
+license=('AGPL-3.0-only')
+# The libraries the program links, and the tray library it loads when it starts (Р-26, п. 3) — namcap
+# cannot see that one used.
+depends=(
+  'cairo'
+  'dbus'
+  'gdk-pixbuf2'
+  'glib2'
+  'glibc'
+  'gtk3'
+  'hicolor-icon-theme'
+  'libayatana-appindicator'
+  'libgcc'
+  'libsoup3'
+  'webkit2gtk-4.1'
+)
+optdepends=('noto-fonts-cjk: the Chinese, Japanese and Korean interface')
+provides=('koonapin')
+conflicts=('koonapin')
+# Stripped already; no debug package of somebody else's binary.
+options=('!strip' '!debug')
+source=("https://github.com/andmetoo/koona-pin/releases/download/v${pkgver}/koonapin_${pkgver}_amd64.deb")
+sha256sums=('@SHA256@')
+
+package() {
+  bsdtar -xf data.tar.* -C "$pkgdir"
+  # Debian's own files; the copyright notice goes where Arch keeps licenses.
+  install -Dm644 "$pkgdir/usr/share/doc/koonapin/copyright" "$pkgdir/usr/share/licenses/$pkgname/copyright"
+  rm -r "$pkgdir/usr/share/doc" "$pkgdir/usr/share/lintian"
+  # pacman updates this package, not the app (Р-45, п. 8): the built-in updater stays off.
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/koonapin/channel" <<< aur
+}

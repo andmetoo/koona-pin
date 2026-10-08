@@ -3,6 +3,7 @@ pub mod backup;
 pub mod browsers;
 pub mod capture;
 pub mod capture_channel;
+pub mod channel;
 pub mod commands;
 pub mod db;
 pub mod dedupe;
