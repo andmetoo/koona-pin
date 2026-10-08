@@ -41,6 +41,7 @@ import {
   LinkFailure,
   Replaced,
   Undo,
+  UpdateStatus,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
@@ -74,6 +75,37 @@ function storedDesktop(): Desktop | null {
     return null;
   }
 }
+/**
+ * The update the preview pretends to find (NP-038, sheet 42): `available` offers 0.3.0 and «Update»
+ * walks through the download; `failing` offers it and the download stops. Without the key the app
+ * is up to date, so screenshots and visual tests stay as they were.
+ */
+export const DEMO_UPDATE_KEY = "koonapin.demo.update";
+let demoUpdate: UpdateStatus | null = null;
+const updateListeners = new Set<(status: UpdateStatus) => void>();
+function storedUpdate(): string | null {
+  try {
+    return localStorage.getItem(DEMO_UPDATE_KEY);
+  } catch {
+    return null;
+  }
+}
+const DEMO_NEW_VERSION = "0.3.0";
+const demoOffer = (): UpdateStatus => ({
+  state: "available",
+  version: DEMO_NEW_VERSION,
+  notes_url: `https://github.com/andmetoo/koona-pin/releases/tag/v${DEMO_NEW_VERSION}`,
+});
+function currentDemoUpdate(): UpdateStatus {
+  demoUpdate ??= storedUpdate() ? demoOffer() : { state: "up_to_date", checked_at: new Date().toISOString() };
+  return demoUpdate;
+}
+function setDemoUpdate(status: UpdateStatus) {
+  demoUpdate = status;
+  updateListeners.forEach((fn) => fn(status));
+}
+let demoDownload: number | null = null;
+
 /** Capture speaks of the system the preview pretends to run on (NP-054). */
 const demoCapture = (): CaptureStatus => ({ ...demoCaptureStatus, system: storedDesktop()?.linux ? "linux" : "windows" });
 const key = DEMO_STORAGE_KEY;
@@ -1112,5 +1144,49 @@ export const demo = {
   },
   async getVersion() {
     return "demo";
+  },
+  async getUpdateStatus(): Promise<UpdateStatus> {
+    return currentDemoUpdate();
+  },
+  onUpdateStatus(fn: (status: UpdateStatus) => void) {
+    updateListeners.add(fn);
+    return () => void updateListeners.delete(fn);
+  },
+  async checkForUpdates(): Promise<UpdateStatus> {
+    const before = currentDemoUpdate();
+    if (before.state !== "up_to_date" && before.state !== "check_failed") return before;
+    setDemoUpdate({ state: "checking" });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    setDemoUpdate(storedUpdate() ? demoOffer() : { state: "up_to_date", checked_at: new Date().toISOString() });
+    return currentDemoUpdate();
+  },
+  /** 9.8 MB in about three seconds; `failing` stops at 40 %, otherwise the preview «restarts» up to date. */
+  async installUpdate() {
+    const status = currentDemoUpdate();
+    if (status.state !== "available" && status.state !== "failed") return;
+    const total = 9_800_000;
+    let received = 0;
+    setDemoUpdate({ state: "downloading", version: DEMO_NEW_VERSION, received, total });
+    demoDownload = window.setInterval(() => {
+      received = Math.min(total, received + 350_000);
+      if (storedUpdate() === "failing" && received > total * 0.4) {
+        window.clearInterval(demoDownload!);
+        demoDownload = null;
+        setDemoUpdate({ state: "failed", version: DEMO_NEW_VERSION, problem: "no_connection" });
+      } else if (received < total) {
+        setDemoUpdate({ state: "downloading", version: DEMO_NEW_VERSION, received, total });
+      } else {
+        window.clearInterval(demoDownload!);
+        demoDownload = null;
+        setDemoUpdate({ state: "installing", version: DEMO_NEW_VERSION });
+        window.setTimeout(() => setDemoUpdate({ state: "up_to_date", checked_at: new Date().toISOString() }), 1500);
+      }
+    }, 100);
+  },
+  async cancelUpdate() {
+    if (demoDownload === null) return;
+    window.clearInterval(demoDownload);
+    demoDownload = null;
+    setDemoUpdate(demoOffer());
   },
 };
