@@ -10,11 +10,22 @@ export function browserName(scope = globalThis) {
 
 /**
  * The browser's own errors when it cannot start the host. Chrome and Edge:
- * «Specified native messaging host not found.» (no key, manifest or exe) and
- * «Access to the specified native messaging host is forbidden.»; Firefox:
- * «No such native application …» (NP-014).
+ * «Specified native messaging host not found.» (no key, manifest or exe);
+ * Firefox: «No such native application …» (NP-014), also for an add-on the
+ * manifest does not list.
  */
-const missing = /not found|forbidden|No such native application|not registered/i;
+const missing = /not found|No such native application|not registered/i;
+/**
+ * Chrome and Edge: «Access to the specified native messaging host is
+ * forbidden.» — the app is there, but its manifest does not list this
+ * extension's id, as an installed app with a development build (NP-113).
+ */
+const forbidden = /forbidden/i;
+
+function hostCode(text) {
+  if (forbidden.test(text)) return "host_forbidden";
+  return missing.test(text) ? "host_missing" : "host_failed";
+}
 
 /** One message to Koona Pin through the native host; never throws. */
 export async function talk(message, runtime = ext.runtime) {
@@ -28,7 +39,7 @@ export async function talk(message, runtime = ext.runtime) {
     return reply ?? { ok: false, code: "host_failed", message: "empty reply" };
   } catch (error) {
     const text = String(error?.message ?? error);
-    return { ok: false, code: missing.test(text) ? "host_missing" : "host_failed", message: text };
+    return { ok: false, code: hostCode(text), message: text };
   }
 }
 
@@ -40,6 +51,8 @@ export function failure(reply) {
   switch (reply?.code) {
     case "host_missing":
       return { permanent: false, error: t("errorHostMissing") };
+    case "host_forbidden":
+      return { permanent: false, error: t("errorHostForbidden") };
     case "incompatible_protocol":
       return { permanent: false, error: appIsOlder(reply) ? t("errorIncompatibleApp") : t("errorIncompatible") };
     case "invalid_request":

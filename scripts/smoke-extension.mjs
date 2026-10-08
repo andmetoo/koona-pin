@@ -253,17 +253,19 @@ try {
   await page.getByRole("button", { name: "Отправить сейчас" }).click();
   await until(async () => (await waiting()).length === 0, "delivery after the host came back");
 
-  // The host refuses an extension id it does not list: the browser says «forbidden».
+  // The host refuses an extension id it does not list: the browser says «forbidden»,
+  // and the extension says that, not «not installed» — a download does not help (NP-113).
   await writeManifest("chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/");
   await capture("https://example.invalid/foreign-id", "Чужой ID");
   refused = await waiting();
   assert.equal(refused.length, 1);
-  assert.equal(refused[0].code, "host_missing");
-  assert.match(refused[0].error, /не установлен/);
+  assert.equal(refused[0].code, "host_forbidden");
+  assert.match(refused[0].error, /не принимает/);
   await page.reload();
-  await page.locator(`#status[data-state="${missingState}"]`).waitFor();
-  await page.getByRole("link", { name: "Скачать Koona Pin" }).waitFor();
-  if (linux) await page.getByText("Сохранение недоступно в этом браузере").waitFor();
+  await page.locator('#status[data-state="forbidden"]').waitFor();
+  await page.getByText("Koona Pin не принимает это расширение").waitFor();
+  await page.locator("#status").getByRole("button", { name: "Проверить снова" }).waitFor();
+  assert.equal(await page.getByRole("link", { name: "Скачать Koona Pin" }).count(), 0);
   await writeManifest(`chrome-extension://${built.devId}/`);
   await page.getByRole("button", { name: "Отправить сейчас" }).click();
   await until(async () => (await waiting()).length === 0, "delivery after registration came back");
