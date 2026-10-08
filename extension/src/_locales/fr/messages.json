@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin n’est pas installé ou son installation est endommagée. Le lien attend ici."
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin n’accepte pas cette copie de l’extension. Le lien attend ici."
+  },
   "errorIncompatible": {
     "message": "L’extension ne correspond pas à Koona Pin. Mettez à jour l’extension — le lien attend ici."
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin n’est pas installé" },
   "statusMissingText": {
     "message": "L’extension ne trouve pas l’application sur cet ordinateur. Installez Koona Pin, ou réinstallez-le s’il est déjà là."
+  },
+  "statusForbidden": { "message": "Koona Pin n’accepte pas cette extension" },
+  "statusForbiddenText": {
+    "message": "Koona Pin est installé, mais ne reconnaît pas cette copie de l’extension. Installez l’extension depuis la page de téléchargement de Koona Pin — une version de développement ne fonctionne qu’avec une version de développement de l’application. Les liens enregistrés attendent ici."
   },
   "statusSandbox": { "message": "L’enregistrement n’est pas disponible dans ce navigateur" },
   "statusSandboxText": {

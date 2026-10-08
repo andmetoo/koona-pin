@@ -74,7 +74,7 @@
     "lastSavedToday": "Dernier enregistrement aujourd’hui à {{time}} depuis {{browser}}",
     "lastSavedOn": "Dernier enregistrement le {{date}} à {{time}} depuis {{browser}}",
     "noSaves": "Aucune page enregistrée pour l’instant",
-    "notConnectedHint": "L’extension enregistre une page en un clic",
+    "notConnectedHint": "L’extension enregistre une page en un clic. Si elle est déjà installée, l’état se met à jour au premier enregistrement ou de lui-même dans la demi-heure.",
     "lostText_one": "Aucune extension ne s’est manifestée depuis {{count}} jour. Ouvrez votre navigateur et vérifiez que Koona Pin est activé — les liens en attente arriveront d’eux-mêmes.",
     "lostText_many": "Aucune extension ne s’est manifestée depuis {{count}} de jours. Ouvrez votre navigateur et vérifiez que Koona Pin est activé — les liens en attente arriveront d’eux-mêmes.",
     "lostText_other": "Aucune extension ne s’est manifestée depuis {{count}} jours. Ouvrez votre navigateur et vérifiez que Koona Pin est activé — les liens en attente arriveront d’eux-mêmes.",

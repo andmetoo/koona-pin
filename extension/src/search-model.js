@@ -46,6 +46,8 @@ export function answerState(reply) {
   switch (reply?.code) {
     case "host_missing":
       return "missing";
+    case "host_forbidden":
+      return "forbidden";
     case "invalid_request":
       return "update-app";
     case "incompatible_protocol":

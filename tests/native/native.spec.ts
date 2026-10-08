@@ -88,7 +88,7 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     // The link added by hand waited in the inbox; saving it in the editor sorted it.
     await expect(page.getByRole("button", { name: "Inbox", exact: true })).toBeVisible();
     // Nothing has written yet: the browser is not connected.
-    await expect(page.getByRole("button", { name: "Browser not connected" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "No browser yet" })).toBeVisible();
     const captured = await hostMessage(
       capture("webview-incoming", "https://example.invalid/native-host", "From the browser", "edge"),
       { env },
