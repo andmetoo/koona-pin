@@ -11,12 +11,12 @@ import { spawn, execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { appendFile, cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { appendFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { buildExtension, geckoId } from "./build-extension.mjs";
-import { assertNoOtherApp, hostBinary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+import { assertNoOtherApp, hostBinary, moveLibrary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
 
 assertNoOtherApp();
 
@@ -223,7 +223,7 @@ try {
   // The library cannot open: the link stays in the queue.
   apps.stop();
   await until(async () => !(await pipeReady(pipe)), "app stopped");
-  for (const suffix of ["", "-wal", "-shm"]) await rename(library + suffix, `${library}.kept${suffix}`).catch(() => {});
+  await moveLibrary(library, `${library}.kept`);
   await writeFile(library, "not a database");
   await capture("https://example.invalid/library-failed", "Ждёт в очереди");
   const queued = await waiting();
@@ -237,7 +237,7 @@ try {
   apps.stop();
   await until(async () => !(await pipeReady(pipe)), "no app left");
   await rm(library);
-  for (const suffix of ["", "-wal", "-shm"]) await rename(`${library}.kept${suffix}`, library + suffix).catch(() => {});
+  await moveLibrary(`${library}.kept`, library);
   const retried = performance.now();
   await until(async () => (await waiting()).length === 0, "delivery by the alarm", 150000);
   const retryS = Math.round((performance.now() - retried) / 1000);

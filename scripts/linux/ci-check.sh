@@ -57,7 +57,7 @@ KOONAPIN_CHROMIUM=/usr/bin/chromium:/usr/bin/google-chrome-stable:/usr/bin/micro
 # restart, duplicate, host not registered — calm on Linux —, foreign id, quick search. The test host lives in
 # the run's own browser profile.
 step "Extension smoke with Chrome for Testing"
-bunx playwright install chromium
+bunx --bun playwright install chromium
 DISPLAY=:98 GDK_BACKEND=x11 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 dbus-run-session -- bun scripts/smoke-extension.mjs
 kill $xvfb 2> /dev/null || true
 

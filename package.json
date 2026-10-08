@@ -4,9 +4,6 @@
   "license": "AGPL-3.0-only",
   "version": "0.2.0",
   "type": "module",
-  "engines": {
-    "bun": ">=1.4.2"
-  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -21,6 +18,7 @@
     "test:native": "playwright test --config playwright.native.config.ts --grep-invert @perf",
     "pretest:perf": "bun scripts/build-test-app.mjs",
     "test:perf": "playwright test --config playwright.native.config.ts --grep @perf",
+    "test:webkit": "bun test --timeout 600000 tests/webkit/",
     "pretest:host": "bun scripts/clean.mjs",
     "test:host": "bun scripts/smoke-host.mjs",
     "pretest:extension": "bun scripts/clean.mjs",
@@ -76,5 +74,6 @@
   },
   "overrides": {
     "shell-quote": "^1.11.0"
-  }
+  },
+  "trustedDependencies": []
 }

@@ -36,7 +36,7 @@ bash scripts/linux/bun.sh
 # bun.lock, and CJK fonts for the language tests (Р-51).
 if [ "${GITHUB_JOB:-}" = check ]; then
   playwright=$(sed -n 's/^ *"playwright": \["playwright@\([0-9.]*\)".*/\1/p' bun.lock)
-  bunx "playwright@$playwright" install-deps chromium > /dev/null
+  bunx --bun "playwright@$playwright" install-deps chromium > /dev/null
   apt-get install -y -qq fonts-noto-cjk > /dev/null
   # The development registration is checked with the distribution's browsers (NP-100, smoke-registration.mjs).
   apt-get install -y -qq chromium firefox-esr gpg > /dev/null

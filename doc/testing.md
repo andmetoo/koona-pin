@@ -52,7 +52,7 @@ bun run test
 cd src-tauri
 cargo test --locked
 cd ..
-bunx playwright install chromium
+bunx --bun playwright install chromium
 bun run test:ui
 bun run test:native
 bun run test:host
@@ -277,7 +277,7 @@ act workflow_dispatch -W .github/workflows/linux.yml -j distro --matrix image:de
 На своей Linux-машине без контейнера — `WebKitWebDriver` из пакета дистрибутива (`webkitgtk-webdriver` в Ubuntu и Debian, `webkitgtk6.0` в Fedora, `webkitgtk-6.0` в Arch), `cargo install tauri-driver --version 2.1.0 --locked` (другой путь — в `KOONAPIN_TAURI_DRIVER`) и в сеансе рабочего стола (Koona Pin при этом закрыт — один экземпляр на сеанс):
 
 ```bash
-bun test --timeout 600000 tests/webkit/
+bun run test:webkit
 ```
 
 Каждый прогон пишет библиотеку, `driver.log` (вывод драйверов и приложения) и `last.png` (окно в конце) в `.test-data/webkit-x11-<время>` или `webkit-wayland-<время>`; `ci-webkit.sh` при падении показывает конец `driver.log` без предупреждений GTK.
@@ -361,7 +361,7 @@ pwsh scripts/platform-probe/android/probe.ps1
 
 Эталоны находятся в `tests/ui/visual.spec.ts-snapshots` и проверяются через `toHaveScreenshot` **только локально**. Они зависят от сглаживания шрифтов конкретной машины: 3 октября 2026 года эталоны от 2 октября не совпали на той же машине (около 1 % пикселей, только сглаживание текста), а шрифты раннера отличаются сильнее. Поэтому CI запускает UI с `--grep-invert "@visual"`.
 
-Менять эталоны следует только после просмотра изменения (`bunx playwright test --grep "@visual" --update-snapshots=all`: без `=all` Playwright переписывает только эталоны с отличием выше порога). Эталоны итерации 1 созданы в NP-010, пересняты в NP-012 (сетка и список по кадрам) в NP-021 (плашка и бейдж «Входящих»: в демо две закладки ждут разбора) в NP-022 (пункт «Корзина» в боковой панели стал активным) и в NP-085 (интерфейс по умолчанию на английском), сверены с кадрами 01, 02, 06, 07, 16. Тест фиксирует дату 3 октября 2026 года: от неё зависят группы списка и короткие даты.
+Менять эталоны следует только после просмотра изменения (`bun run test:ui -- --grep "@visual" --update-snapshots=all`: без `=all` Playwright переписывает только эталоны с отличием выше порога). Эталоны итерации 1 созданы в NP-010, пересняты в NP-012 (сетка и список по кадрам) в NP-021 (плашка и бейдж «Входящих»: в демо две закладки ждут разбора) в NP-022 (пункт «Корзина» в боковой панели стал активным) и в NP-085 (интерфейс по умолчанию на английском), сверены с кадрами 01, 02, 06, 07, 16. Тест фиксирует дату 3 октября 2026 года: от неё зависят группы списка и короткие даты.
 
 ## Нестабильные и ограниченные проверки
 
