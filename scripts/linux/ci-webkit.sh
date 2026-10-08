@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The native tests on WebKitGTK (NP-095, Р-56) in a «distro» job of .github/workflows/linux.yml, as «dev»:
+# The native tests on WebKitGTK (NP-095, Р-57) in a «distro» job of .github/workflows/linux.yml, as «dev»:
 # tests/webkit through tauri-driver and WebKitWebDriver against the installed package, under X11 (Xvfb) and
 # under Wayland (Weston headless), each with a session bus of its own. tauri-driver comes from the «build»
 # job (dist-tools/), WebKitWebDriver from the distribution (ci-runtime.sh).
