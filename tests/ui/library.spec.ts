@@ -2128,6 +2128,52 @@ test("Linux without a tray: round window buttons, Chromium, Firefox from Snap an
   await expect(page.getByRole("button", { name: "Quit", exact: true })).toBeVisible();
 });
 
+test("app update: a row only with a new version, the dialog on demand, the download, cancel, a failure in ochre, Settings (NP-038)", async ({ page }) => {
+  // Up to date: no row, Settings say so.
+  await expect(page.locator("button[data-update]")).toHaveCount(0);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.locator("section[data-update]")).toContainText("Up to date · checked today at");
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.update", "failing"));
+  await page.reload();
+  const row = page.locator("button[data-update]");
+  await expect(row).toHaveAttribute("data-update", "available");
+  await expect(row).toHaveText("Update available0.3.0");
+  // The dialog opens only from the row.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await row.click();
+  const offer = page.getByRole("dialog", { name: "Koona Pin 0.3.0 is available" });
+  await expect(offer).toContainText("Your library, settings and browser connection stay as they are.");
+  await expect(offer).toContainText("Koona Pin closes for a few seconds");
+  await offer.getByRole("button", { name: "Later" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-update", "available");
+  // Download, then cancel: the version is offered again.
+  await row.click();
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  const downloading = page.getByRole("dialog", { name: "Downloading Koona Pin 0.3.0" });
+  await expect(downloading.getByRole("progressbar")).toBeVisible();
+  await expect(row).toHaveAttribute("data-update", "downloading");
+  await downloading.getByRole("button", { name: "Cancel download" }).click();
+  await expect(page.getByRole("dialog", { name: "Koona Pin 0.3.0 is available" })).toBeVisible();
+  await expect(row).toHaveAttribute("data-update", "available");
+  // Again; the preview's download stops at 40 %: «Couldn't update», the row in ochre with «Retry».
+  await page.getByRole("button", { name: "Update", exact: true }).click();
+  const failed = page.getByRole("dialog", { name: "Couldn't update" });
+  await expect(failed.getByRole("alert")).toContainText("The download stopped: no connection to GitHub.");
+  await expect(row).toHaveAttribute("data-update", "failed");
+  await expect(row).toHaveText("Update failedRetry");
+  await failed.getByRole("button", { name: "Close", exact: true }).last().click();
+  // Settings → Updates offers the same dialog.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.locator("section[data-update]")).toContainText("Version 0.3.0 wasn't installed");
+  await page.locator("section[data-update]").getByRole("button", { name: "Update…" }).click();
+  await expect(page.getByRole("dialog", { name: "Couldn't update" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // A narrow window: an icon above the browser in the strip, the whole text in its hint.
+  await page.setViewportSize({ width: 900, height: 600 });
+  await expect(page.getByRole("button", { name: "Update failed", exact: true })).toBeVisible();
+});
+
 test("feedback: from Settings, checked before sending, a failure keeps the draft, Try again sends it (NP-088)", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByText("Report a problem")).toHaveCount(0);
