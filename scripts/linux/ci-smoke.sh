@@ -46,10 +46,12 @@ XDG_RUNTIME_DIR=$(mktemp -d)
 chmod 700 "$XDG_RUNTIME_DIR"
 
 step "X11 (Xvfb)"
-# Without MIT-SHM: in a container GTK's shared-memory attach was sometimes refused (BadAccess, request 130),
-# an X error GTK treats as fatal — the app exited at start on Ubuntu 26.04 once in two runs (8 October 2026).
-# Without the extension clients send images over the socket; the desktop is not affected.
-Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -extension MIT-SHM > "$XDG_RUNTIME_DIR/xvfb.log" 2>&1 &
+# Only the socket file (`-nolisten local`): act starts the jobs' containers with the host's network, and the
+# abstract socket @/tmp/.X11-unix/X99 belongs to the network, not to the container. Four Xvfb :99 at once
+# then share one name: the later ones exit («server already running»), and their app talks to another
+# container's X server — its shared memory is out of reach there (MIT-SHM BadAccess, the app exited;
+# 8 October 2026). The file /tmp/.X11-unix/X99 is each container's own. On GitHub every job has its own VM.
+Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -nolisten local > "$XDG_RUNTIME_DIR/xvfb.log" 2>&1 &
 xvfb=$!
 for _ in $(seq 50); do [ -S /tmp/.X11-unix/X99 ] && break; sleep 0.2; done
 [ -S /tmp/.X11-unix/X99 ] || { cat "$XDG_RUNTIME_DIR/xvfb.log"; echo "FAIL: Xvfb did not start"; exit 1; }

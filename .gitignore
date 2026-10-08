@@ -28,6 +28,12 @@ lerna-debug.log*
 # Claude app: local preview settings
 .claude/
 
+# Not for git, which never reads .git as content, but for act: it copies the working copy into every job's
+# container, skipping what is listed here. .git is 1.1 GB (the LFS store keeps every version of the designs)
+# and the jobs do not use it; on 8 October 2026 such a copy stalled Docker Desktop for half an hour. On
+# GitHub actions/checkout fetches its own.
+/.git/
+
 # OS Files
 .DS_Store
 Thumbs.db
