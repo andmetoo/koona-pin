@@ -98,6 +98,9 @@
   "errorHostMissing": {
     "message": "Koona Pin isn't installed or its installation is damaged. The link waits here."
   },
+  "errorHostForbidden": {
+    "message": "Koona Pin doesn't accept this copy of the extension. The link waits here."
+  },
   "errorIncompatible": {
     "message": "The extension doesn't match Koona Pin. Update the extension — the link waits here."
   },
@@ -186,6 +189,10 @@
   "statusMissing": { "message": "Koona Pin isn't installed" },
   "statusMissingText": {
     "message": "The extension can't find the app on this computer. Install Koona Pin, or reinstall it if it's already there."
+  },
+  "statusForbidden": { "message": "Koona Pin doesn't accept this extension" },
+  "statusForbiddenText": {
+    "message": "Koona Pin is installed but doesn't know this copy of the extension. Install the extension from the Koona Pin download page — a development build works only with a development build of the app. Links you save wait here."
   },
   "statusSandbox": { "message": "Saving isn't available in this browser" },
   "statusSandboxText": {

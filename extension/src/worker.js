@@ -5,9 +5,11 @@ import { onMenuClicked, registerMenu } from "./menu.js";
 import { GLYPHS, MARKS, BADGES, PRESS, TONES, drawIcon, frames, parseMark, parseMascot, rest, showMessage } from "./feedback.js";
 const alarmName = "koonapin-delivery";
 // The app counts a browser as connected while it hears from it within three
-// days (NP-016); a hello twice a day keeps that true without any saving.
+// days (NP-016). The app cannot ask the browser, so a hello every half hour
+// also tells an app that has just started, or a new library, that the browser
+// is here, without any saving. A hello never starts a closed app.
 const helloAlarm = "koonapin-hello";
-const HELLO_MINUTES = 12 * 60;
+const HELLO_MINUTES = 30;
 const ICONS = { 16: "icons/16.png", 32: "icons/32.png" };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -200,8 +202,9 @@ async function captureTab(tab) {
     if (state === "queued") await markWaiting(tabId, item.request_id);
     else await forgetTab(tabId);
   }
-  // Without the app nothing will ever be delivered: the settings page says why.
-  const opensSettings = code === "host_missing";
+  // Without the app, or with an app that refuses this extension, nothing will
+  // ever be delivered: the settings page says why.
+  const opensSettings = code === "host_missing" || code === "host_forbidden";
   if (onTab && prefs.message && !opensSettings && /^https?:/.test(tab.url || "")) void tell(tab, state);
   if (onTab) await play(state, stateTitle(state, error), tabId, prefs.animate);
   if (opensSettings) await ext.runtime.openOptionsPage();
