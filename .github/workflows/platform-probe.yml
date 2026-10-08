@@ -59,7 +59,7 @@ jobs:
           sleep 20
           screencapture -x probe/macos.png
           echo "first alive: $(kill -0 $pid 2>/dev/null && echo yes || echo no)" | tee -a probe/system.txt
-          ls -la "$HOME/Library/Application Support/Koona Pin" 2>&1 | tee -a probe/system.txt
+          ls -la "$HOME/Library/Application Support/Koona/Pin" 2>&1 | tee -a probe/system.txt
           "$app/Contents/MacOS/$bin" > probe/second.log 2>&1 &
           second=$!
           sleep 8
