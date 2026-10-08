@@ -196,20 +196,69 @@ fn start_app() -> io::Result<()> {
 
 /// `koonapin --autostart` next to the host (`/usr/bin` in the package): hidden,
 /// in the tray.
-///
+#[cfg(target_os = "linux")]
+fn start_app() -> io::Result<()> {
+    let host = std::env::current_exe()?;
+    let folder = host.parent().ok_or_else(|| io::Error::other("no folder"))?;
+    launch(&folder.join("koonapin"))
+}
+
+/// In a scope of its own when the user's systemd runs (Р-53, п. 6): otherwise
+/// the app lives in the cgroup of whoever started the host — the browser, or
+/// for the Snap Firefox the portal's service — and goes when that unit stops,
+/// as a Firefox job took the app along on Windows (NP-014). `systemd-run`
+/// becomes the app once the scope exists; when it cannot make one it ends at
+/// once with an error, and the app starts without it.
+#[cfg(target_os = "linux")]
+fn launch(app: &std::path::Path) -> io::Result<()> {
+    use std::process::Command;
+    let direct = {
+        let app = app.to_path_buf();
+        move || detached(Command::new(&app).arg("--autostart")).spawn().map(drop)
+    };
+    if user_systemd() {
+        let unit = format!(
+            "--unit=app-app.koona.pin-{:x}.scope",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |t| t.as_nanos())
+                ^ u128::from(std::process::id())
+        );
+        let mut command = Command::new("systemd-run");
+        command
+            .args(["--user", "--scope", "--collect", "--quiet", "--slice=app.slice"])
+            .args(["--description=Koona Pin", &unit, "--"])
+            .arg(app)
+            .arg("--autostart");
+        if let Ok(mut scoped) = detached(&mut command).spawn() {
+            thread::spawn(move || {
+                if scoped.wait().is_ok_and(|status| !status.success()) {
+                    let _ = direct();
+                }
+            });
+            return Ok(());
+        }
+    }
+    direct()
+}
+
+/// The user's manager answers on `$XDG_RUNTIME_DIR/systemd/private`;
+/// containers have none.
+#[cfg(target_os = "linux")]
+fn user_systemd() -> bool {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .is_some_and(|dir| std::path::Path::new(&dir).join("systemd/private").exists())
+}
+
 /// A new session (`setsid`), so the browser's signals to the host and its
 /// group do not reach the app. Nothing of the browser is inherited: stdin,
 /// stdout and stderr are `/dev/null`, every other descriptor closes at exec —
 /// on Windows an inherited pipe kept Chrome from finishing (Р-17, п. 3).
 #[cfg(target_os = "linux")]
-fn start_app() -> io::Result<()> {
+fn detached(command: &mut std::process::Command) -> &mut std::process::Command {
     use std::os::unix::process::CommandExt;
-    use std::process::{Command, Stdio};
-    let host = std::env::current_exe()?;
-    let folder = host.parent().ok_or_else(|| io::Error::other("no folder"))?;
-    let mut command = Command::new(folder.join("koonapin"));
+    use std::process::Stdio;
     command
-        .arg("--autostart")
         .current_dir("/")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -236,7 +285,7 @@ fn start_app() -> io::Result<()> {
             Ok(())
         });
     }
-    command.spawn().map(drop)
+    command
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
@@ -255,6 +304,65 @@ mod tests {
         let firefox = [r"C:\Koona Pin\app.koona.pin.firefox.json".to_string(), "pin@koona.app".into()];
         assert_eq!(caller(&firefox).as_deref(), Some("pin@koona.app"));
         assert_eq!(caller(&[]), None);
+    }
+
+    /// The app starts in its own scope; when systemd-run cannot make one, or
+    /// there is no user manager, it starts directly (Р-53, п. 6). A script
+    /// stands in for systemd-run.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn the_app_starts_in_a_scope_or_without_one() {
+        use std::{os::unix::fs::PermissionsExt, path::Path};
+        let dir = std::env::temp_dir().join(format!("koonapin-launch-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let (bin, runtime) = (dir.join("bin"), dir.join("run"));
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::create_dir_all(runtime.join("systemd")).unwrap();
+        std::fs::write(runtime.join("systemd/private"), "").unwrap();
+        let script = |path: &Path, body: String| {
+            std::fs::write(path, format!("#!/bin/sh\n{body}\n")).unwrap();
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        };
+        let (app, app_args, scope_args) = (dir.join("koonapin"), dir.join("app.args"), dir.join("scope.args"));
+        script(&app, format!("echo \"$@\" > {}", app_args.display()));
+        // The only test in this binary that touches these variables.
+        std::env::set_var("PATH", format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default()));
+        std::env::set_var("XDG_RUNTIME_DIR", &runtime);
+        let started = |file: &Path| {
+            (0..100).any(|_| {
+                thread::sleep(Duration::from_millis(50));
+                std::fs::read_to_string(file).is_ok_and(|text| text.ends_with('\n'))
+            })
+        };
+        let read = |file: &Path| std::fs::read_to_string(file).unwrap().trim().to_owned();
+
+        // systemd-run makes the scope and becomes the app.
+        script(
+            &bin.join("systemd-run"),
+            format!("echo \"$@\" > {}\nwhile [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"", scope_args.display()),
+        );
+        launch(&app).unwrap();
+        assert!(started(&app_args), "the app did not start in the scope");
+        let scope = read(&scope_args);
+        assert!(scope.starts_with("--user --scope --collect --quiet --slice=app.slice"), "{scope}");
+        assert!(scope.contains("--unit=app-app.koona.pin-"), "{scope}");
+        assert!(scope.ends_with(&format!("-- {} --autostart", app.display())), "{scope}");
+        assert_eq!(read(&app_args), "--autostart");
+
+        // It cannot make one: the app starts without it.
+        std::fs::remove_file(&app_args).unwrap();
+        script(&bin.join("systemd-run"), "exit 1".into());
+        launch(&app).unwrap();
+        assert!(started(&app_args), "no fallback after systemd-run failed");
+
+        // No user manager: systemd-run is not asked at all.
+        std::fs::remove_file(&app_args).unwrap();
+        std::fs::remove_file(runtime.join("systemd/private")).unwrap();
+        script(&bin.join("systemd-run"), format!("touch {}", dir.join("asked").display()));
+        launch(&app).unwrap();
+        assert!(started(&app_args));
+        assert!(!dir.join("asked").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

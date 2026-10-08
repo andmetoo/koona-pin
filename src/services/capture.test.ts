@@ -12,6 +12,8 @@ import {
   captureReport,
   connectedNames,
   installSteps,
+  problemBanner,
+  problemText,
   lastSaved,
   preferredBrowser,
   statusColor,
@@ -26,6 +28,7 @@ const base: CaptureStatus = {
   problem: null,
   detail: null,
   protocol: 2,
+  system: "windows",
 };
 const seen = (browser: "chrome" | "edge" | "firefox", recent = true, protocol = 2) => ({
   browser,
@@ -95,5 +98,21 @@ describe("browser status", () => {
     expect(report).toContain("Capture: failing (channel)");
     expect(report).toContain("Detail: Access is denied.");
     expect(report).toContain("Chrome: extension 0.5.0, protocol 2");
+    expect(report).toContain("Protocol: 2, system: windows");
+  });
+
+  it("tells a Linux user to reinstall the package, not Koona Pin (NP-100)", () => {
+    const t = i18n.getFixedT("en");
+    const failing = (problem: "channel" | "registration" | "host_missing", system: "windows" | "linux") =>
+      ({ ...base, state: "failing", problem, system }) as CaptureStatus;
+    for (const problem of ["channel", "registration", "host_missing"] as const) {
+      expect(problemText(failing(problem, "windows"), t)).toBe(t(`browser.problem_${problem}`));
+      expect(problemText(failing(problem, "linux"), t)).toBe(t(`browser.problem_${problem}_linux`));
+      expect(problemText(failing(problem, "linux"), t)).not.toContain(".exe");
+    }
+    expect(problemText(failing("registration", "linux"), t)).toMatch(/Reinstall the koonapin package/);
+    expect(problemBanner(failing("registration", "linux"), t)).toBe(t("browser.banner_registration_linux"));
+    expect(problemBanner(failing("host_missing", "linux"), t)).toBe(t("browser.banner_host_missing"));
+    expect(problemBanner(failing("registration", "windows"), t)).toBe(t("browser.banner_registration"));
   });
 });
