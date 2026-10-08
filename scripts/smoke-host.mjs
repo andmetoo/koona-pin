@@ -1,14 +1,16 @@
-// Native messaging smoke (NP-016): the built koonapin-host.exe and app on an
-// isolated library and pipe, driven the way a browser drives the host.
+// Native messaging smoke (NP-016, NP-099 on Linux): the built koonapin-host and
+// app on an isolated library and pipe (socket), driven the way a browser drives
+// the host. KOONAPIN_TEST_BINARY picks another app, the host is taken next to it.
 //
 //   cargo build --manifest-path src-tauri/Cargo.toml
 //   node scripts/smoke-host.mjs
 import assert from "node:assert/strict";
+import { readFileSync, readlinkSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { assertNoOtherApp, capture, hello, hostMessage, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+import { assertNoOtherApp, capture, hello, hostMessage, pipePath, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
 
 assertNoOtherApp();
 
@@ -39,6 +41,17 @@ try {
   assert.equal(saved.reply.outcome, "created");
   assert.equal(apps.ours().length, 1, "one app started by the host");
   console.log(`capture with the app closed: ${saved.ms} ms`);
+  if (process.platform === "linux") {
+    // A new session, nothing of the "browser": stdio is /dev/null, and the
+    // host's stdout closed for the test as it would for Chrome (hostMessage).
+    const [pid] = apps.ours();
+    const session = Number(readFileSync(`/proc/${pid}/stat`, "utf8").split(") ")[1].split(" ")[3]);
+    assert.equal(session, pid, "the app leads a session of its own (setsid)");
+    for (const fd of [0, 1, 2]) assert.equal(readlinkSync(`/proc/${pid}/fd/${fd}`), "/dev/null");
+    const socket = statSync(pipePath(pipe, env));
+    assert.equal(socket.mode & 0o777, 0o600, "socket only for the user");
+    assert.equal(statSync(path.dirname(pipePath(pipe, env))).mode & 0o777, 0o700, "folder only for the user");
+  }
 
   // The receipt: the same request again changes nothing.
   assert.deepEqual((await send(first)).reply, saved.reply);
