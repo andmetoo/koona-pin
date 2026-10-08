@@ -91,7 +91,7 @@
 | NP-053 | [#151](https://github.com/andmetoo/koona-pin/issues/151) | Адаптировать окно, трей и единственный экземпляр в Linux | Linux beta | L1 |
 | NP-097 | [#152](https://github.com/andmetoo/koona-pin/issues/152) | Перенести пути, автозапуск, файлы и отчёт на Linux | Linux beta | L1 |
 | NP-098 | [#153](https://github.com/andmetoo/koona-pin/issues/153) | Проверить вид и скорость интерфейса на WebKitGTK | Linux beta | L1 |
-| NP-111 | [#189](https://github.com/andmetoo/koona-pin/issues/189) | Проверить окно, автозапуск, файлы и захват на рабочих столах Linux | Linux beta | L1 |
+| NP-111 | [#189](https://github.com/andmetoo/koona-pin/issues/189) | Проверить окно, автозапуск, файлы и захват на рабочих столах Linux | Linux beta | L3 |
 | NP-112 | [#197](https://github.com/andmetoo/koona-pin/issues/197) | Хранить данные в общей папке бренда Koona | Linux beta | L1 |
 | NP-099 | [#154](https://github.com/andmetoo/koona-pin/issues/154) | Передавать захват через Unix-сокет и запускать приложение из host | Linux beta | L2 |
 | NP-100 | [#155](https://github.com/andmetoo/koona-pin/issues/155) | Регистрировать native host в браузерах Linux | Linux beta | L2 |
