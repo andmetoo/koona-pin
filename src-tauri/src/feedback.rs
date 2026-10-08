@@ -323,6 +323,7 @@ pub fn system_lines() -> Vec<String> {
         if let Ok(program) = std::env::current_exe() {
             lines.push(format!("Installed: {}", linux::installed_with(&program)));
         }
+        lines.push(format!("Updates: {}", crate::channel::Channel::current().describe()));
     }
     lines
 }

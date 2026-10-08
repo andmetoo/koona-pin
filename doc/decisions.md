@@ -1155,3 +1155,23 @@
 **Не проверено:** установка из центра приложений Ubuntu и GNOME Software Fedora, значок в меню и в доке — на рабочем столе при приёмке (NP-104).
 
 **Повод пересмотреть:** Tauri научится conffiles, ссылкам и тегам rpm — тогда без перепаковки; Fedora или Ubuntu переименуют пакеты трея или CJK-шрифта; понадобится aarch64.
+
+## Р-55. Пакет AUR koonapin-bin
+
+8 октября 2026 года. Задача NP-101 (#158). Уточняет [Р-45](#р-45-контракт-linux-beta), п. 3 и 8, и [Р-54](#р-54-пакеты-deb-и-rpm).
+
+**Контекст:** репозиторий закрыт до открытия под AGPL ([Р-47](#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код), [Р-48](#р-48-лицензия-open-core-agpl-30-cla-и-товарный-знак)), сборки из исходников в AUR быть не может. Бинарник `.deb` Tauri помечает «deb», и updater (NP-102) по этой метке поставил бы на Arch `.deb` через dpkg; контракт требует, чтобы в AUR updater был выключен.
+
+**Решение:**
+
+1. **Пакет `koonapin-bin`** (`src-tauri/linux/aur/PKGBUILD`) — перепаковка `.deb` выпуска: `source` — `https://github.com/andmetoo/koona-pin/releases/download/v<версия>/koonapin_<версия>_amd64.deb`, `sha256sums` того же файла. В пакете — файлы `.deb` (манифесты браузеров и в `/etc/opt/chrome`, `/etc/opt/edge`, `/etc/chromium`, и в `/usr/lib/mozilla` — те каталоги, что читают Chrome и Edge из AUR, Chromium и Firefox Arch, Р-53), `copyright` — в `/usr/share/licenses/koonapin-bin`; файлы Debian (`/usr/share/doc`, оговорки lintian) — нет. `provides`/`conflicts` — `koonapin`: место пакета из исходников, если он появится.
+2. **Зависимости** — пакеты Arch для библиотек, которые связывает бинарник (`cairo`, `dbus`, `gdk-pixbuf2`, `glib2`, `glibc`, `gtk3`, `libgcc`, `libsoup3`, `webkit2gtk-4.1`), `hicolor-icon-theme` для значков и `libayatana-appindicator` — библиотека трея, которую приложение загружает при запуске; `optdepends` — `noto-fonts-cjk`. `options=('!strip' '!debug')`: бинарник уже без отладочных символов.
+3. **Признак канала — файл пакета** `/usr/share/koonapin/channel` со словом `aur`. Приложение читает его (`src-tauri/src/channel.rs`): есть — обновляет pacman, встроенный updater выключен; нет — установщик, `.deb` или `.rpm`, updater работает. Отдельная сборка для AUR отклонена: два бинарника одной версии. Признак по базе pacman (как отчёт отзыва) отклонён: разбор `/var/lib/pacman` при каждом запуске ради одного флага. Отчёт отзыва называет канал (`Updates:`). NP-102 обязан спросить `Channel::updater()` перед проверкой.
+4. **Шаг выпуска:** `npm run build:aur` (на любой ОС) по `.deb` из `npm run build:linux` пишет `PKGBUILD` и `.SRCINFO` в `release/publish/aur/<версия>/`; владелец копирует их в клон `aur.archlinux.org/koonapin-bin.git` и делает `git push` ([release-checklist.md](release-checklist.md)). Адрес сопровождающего — `Koona <support@koona.app>`, как у `.deb` и `.rpm` (Р-54).
+5. **Проверка** — задание Arch в `linux.yml` вместо голого бинарника: `build-aur.mjs` по `.deb` из `build`, зависимости из `.SRCINFO` через pacman, `makepkg --printsrcinfo` совпадает с `.SRCINFO`, `makepkg` от `dev` (`.deb` рядом с PKGBUILD — без скачивания, но с проверкой `sha256`), `namcap` без ошибок, `pacman -U`, признак канала, запуск под X11 и Wayland, `test:host`, Chromium и Firefox Arch с пакетом, повторная установка, `pacman -R` — файлов и манифестов нет, библиотека в доме остаётся. Предупреждения `namcap`: `libayatana-appindicator` «may not be needed» — её загружают при запуске, связей с ней не видно; «Unused shared library ld-linux» — загрузчик ELF.
+
+**Не проверено:** установка AUR-хелпером из настоящего AUR (пакета там ещё нет), трей в KDE на Arch — при приёмке NP-104.
+
+**Ограничение:** опубликовать пакет нельзя, пока `.deb` нет в открытом GitHub Release: репозиторий закрыт, AUR-хелпер не скачает `source`.
+
+**Повод пересмотреть:** репозиторий откроется — тогда возможен `koonapin` из исходников; Arch переименует пакеты трея или WebKitGTK; Tauri научится помечать бинарник каналом, которого нет среди его пакетов.
