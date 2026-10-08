@@ -1206,6 +1206,159 @@ test("list rows: date groups over all pages, hover actions, the checkbox selects
   await expect(bar).toHaveCount(0);
 });
 
+const rowTitles = (page: import("@playwright/test").Page) => page.locator("article[data-bookmark-id] h2").allTextContents();
+
+test("sort: the menu orders every section, by title and site without date groups, the trash keeps its own, the choice stays (NP-114)", async ({ page }) => {
+  await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
+  await page.reload();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  const sort = page.getByRole("button", { name: /^Sort: / });
+  // Newest first by default, named on the button in a wide window; the date groups are there.
+  await expect(sort).toHaveAccessibleName("Sort: Newest first");
+  await expect(sort).toContainText("Newest first");
+  const groups = page.getByRole("heading", { name: /^(Today|Yesterday|This week|Earlier)/ });
+  await expect(groups).toHaveText([/^Yesterday/, /^This week/]);
+  const newest = await rowTitles(page);
+
+  // The menu says which one is chosen; the keys move through it like any menu.
+  await sort.click();
+  const menu = page.getByRole("menu", { name: "Sort by" });
+  await expect(menu.getByRole("menuitemradio")).toHaveText(["Newest first", "Oldest first", "Title A–Z", "Site A–Z"]);
+  await expect(menu.getByRole("menuitemradio", { name: "Newest first" })).toHaveAttribute("aria-checked", "true");
+  await page.keyboard.press("ArrowDown");
+  await expect(menu.getByRole("menuitemradio", { name: "Oldest first" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(sort).toContainText("Oldest first");
+  await expect.poll(() => rowTitles(page)).toEqual([...newest].reverse());
+  // Oldest first keeps the groups, in their order of time.
+  await expect(groups).toHaveText([/^This week/, /^Yesterday/]);
+
+  await sort.click();
+  await menu.getByRole("menuitemradio", { name: "Title A–Z" }).click();
+  await expect.poll(() => rowTitles(page)).toEqual([...newest].sort((a, b) => a.localeCompare(b, "en", { numeric: true, sensitivity: "accent" })));
+  await expect(groups).toHaveCount(0);
+
+  await sort.click();
+  await menu.getByRole("menuitemradio", { name: "Site A–Z" }).click();
+  const sites = () => page.locator("article[data-bookmark-id] [data-domain], article[data-bookmark-id] p button").allTextContents();
+  await expect.poll(async () => {
+    const shown = await sites();
+    return shown.join() === [...shown].sort((a, b) => a.replace(/^www\./, "").localeCompare(b.replace(/^www\./, ""))).join();
+  }).toBe(true);
+
+  // Every section reads in the chosen order; the trash keeps newest deletion first and has no button.
+  await page.getByRole("button", { name: /^Favorites/ }).click();
+  await expect(sort).toContainText("Site A–Z");
+  await page.getByRole("button", { name: /^Trash/ }).click();
+  await expect(page.getByRole("button", { name: /^Sort: / })).toHaveCount(0);
+
+  // Kept like the view.
+  await page.reload();
+  await page.getByRole("button", { name: "All bookmarks" }).click();
+  await expect(page.getByRole("button", { name: /^Sort: / })).toHaveAccessibleName("Sort: Site A–Z");
+});
+
+test("collections: a drag puts one in another place, Esc and a drop outside change nothing, Alt arrows move it, the order stays (NP-114)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const sidebar = page.getByRole("complementary", { name: "Library" });
+  const collections = sidebar.getByRole("navigation", { name: "Collections" });
+  const names = () => collections.locator("[data-collection]").evaluateAll((rows) => rows.map((r) => r.querySelector("span.truncate")?.textContent));
+  const row = (name: string) => collections.locator("[data-collection]").filter({ hasText: name });
+  // Never moved: by name.
+  expect(await names()).toEqual(["Design", "Development", "Inspiration", "To read"]);
+
+  // «To read» above «Development»: the line where it lands, the ghost, the row faded.
+  const from = (await row("To read").boundingBox())!;
+  const to = (await row("Development").boundingBox())!;
+  await page.mouse.move(from.x + 40, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 46, from.y + from.height / 2 - 6, { steps: 3 });
+  await page.mouse.move(to.x + 60, to.y + 4, { steps: 10 });
+  await expect(page.locator("[data-landing]")).toHaveCount(1);
+  await expect(page.locator('[data-collection-row] .opacity-45, [data-collection-row].opacity-45')).toHaveCount(1);
+  await page.screenshot({ path: "test-results/collection-move-1440.png" });
+  await page.mouse.up();
+  expect(await names()).toEqual(["Design", "To read", "Development", "Inspiration"]);
+  // The drop did not open the collection it ended on.
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("All bookmarks");
+
+  // Esc while moving, and a drop outside the list: nothing changes.
+  const design = (await row("Design").boundingBox())!;
+  await page.mouse.move(design.x + 40, design.y + design.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(design.x + 40, design.y + 80, { steps: 8 });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await page.mouse.move(design.x + 40, design.y + design.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(design.x + 600, design.y + 60, { steps: 8 });
+  await page.mouse.up();
+  expect(await names()).toEqual(["Design", "To read", "Development", "Inspiration"]);
+  await expect(page.locator("[data-landing]")).toHaveCount(0);
+
+  // From the keyboard: the hint on focus, Alt arrows, the focus stays on the moved one.
+  await row("Development").focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(row("Development")).toBeFocused();
+  await expect(sidebar.getByRole("tooltip").filter({ hasText: "Move" }).first()).toBeVisible();
+  await page.keyboard.press("Alt+ArrowUp");
+  await page.keyboard.press("Alt+ArrowUp");
+  expect(await names()).toEqual(["Development", "Design", "To read", "Inspiration"]);
+  await expect(row("Development")).toBeFocused();
+  await page.keyboard.press("Alt+ArrowUp");
+  expect(await names()).toEqual(["Development", "Design", "To read", "Inspiration"]);
+  await expect(sidebar.locator("[aria-live=polite]")).toHaveText("Development: place 1 of 4");
+
+  // The menus follow the sidebar: «Move to collection» of a card.
+  await page.locator('[data-bookmark-id="2"]').hover();
+  await page.getByRole("button", { name: /^Actions: The architecture/ }).click();
+  await page.getByRole("menuitem", { name: "Move to collection" }).click();
+  // Keys 1–9 too: the first nine in the sidebar's order, as in triage.
+  await expect(page.getByRole("menu", { name: "Move to collection" }).getByRole("menuitem")).toHaveText([
+    /^Development\s*1$/,
+    /^Design\s*2$/,
+    /^To read\s*3$/,
+    /^Inspiration\s*4$/,
+    /No collection/,
+  ]);
+  await page.keyboard.press("Escape");
+
+  // After a reload, and a new collection goes to the end.
+  await page.reload();
+  expect(await names()).toEqual(["Development", "Design", "To read", "Inspiration"]);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    await api.createCollection("Archive");
+  });
+  await page.reload();
+  expect(await names()).toEqual(["Development", "Design", "To read", "Inspiration", "Archive"]);
+});
+
+test("sort and collections in a narrow window: the order is an icon with a hint, the dots of the strip move (NP-114)", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 550 });
+  const sort = page.getByRole("button", { name: "Sort: Newest first" });
+  await expect(sort).toBeVisible();
+  await expect(sort).not.toContainText("Newest first");
+  expect((await sort.boundingBox())!.width).toBeLessThan(40);
+  await sort.hover();
+  await expect(page.getByRole("tooltip", { name: "Sort: Newest first" })).toBeVisible();
+
+  const strip = page.getByRole("complementary", { name: "Library" });
+  const dots = () => strip.locator("[data-collection]").evaluateAll((rows) => rows.map((r) => r.getAttribute("aria-label")));
+  expect(await dots()).toEqual(["Design", "Development", "Inspiration", "To read"]);
+  const last = (await strip.locator("[data-collection]").last().boundingBox())!;
+  const first = (await strip.locator("[data-collection]").first().boundingBox())!;
+  await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(last.x + last.width / 2 + 6, last.y, { steps: 3 });
+  await page.mouse.move(first.x + first.width / 2, first.y + 3, { steps: 10 });
+  await expect(page.locator("[data-landing]")).toHaveCount(1);
+  await page.mouse.up();
+  expect(await dots()).toEqual(["To read", "Design", "Development", "Inspiration"]);
+});
+
 for (const view of ["Grid", "List"])
   test(`selection in the ${view === "Grid" ? "grid" : "list"}: Ctrl and Shift click, a frame that scrolls and loads pages, Esc`, async ({ page }) => {
     await largeLibrary(page);
