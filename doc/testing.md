@@ -65,7 +65,7 @@ npm run test:extension:firefox       # текущий Firefox
 npm run test:extension:firefox:esr   # Firefox ESR 140
 ```
 
-`test:extension`, `:chrome`, `:edge` и `test:extension:firefox` сами собирают расширение. Chrome берётся из `C:\Program Files\Google\Chrome\Application`, Edge — из `C:\Program Files (x86)\Microsoft\Edge\Application`; другой путь — в `KOONAPIN_CHROME` и `KOONAPIN_EDGE`. Если `msedge.exe` перехватывает перенаправитель (отладчик IFEO, например MSEdgeRedirect), скопируйте папку `Application` Edge в `.test-data\edge-app` и укажите `KOONAPIN_EDGE=.test-data\edge-app\msedge.exe`. Каждый прогон ждёт повторной доставки по alarm, поэтому длится около двух минут. Firefox берётся из scoop: `%USERPROFILE%\scoop\apps\firefox\current` и `firefox-esr\current` (`scoop install extras/firefox extras/firefox-esr`), другой путь — в `KOONAPIN_FIREFOX`. Любой прогон заканчивается не позже чем через 10 минут.
+`test:extension`, `:chrome`, `:edge` и `test:extension:firefox` сами собирают расширение. Chrome берётся из `C:\Program Files\Google\Chrome\Application`, Edge — из `C:\Program Files (x86)\Microsoft\Edge\Application`; другой путь — в `KOONAPIN_CHROME` и `KOONAPIN_EDGE`. Каждый прогон ждёт повторной доставки по alarm, поэтому длится около двух минут. Firefox берётся из scoop: `%USERPROFILE%\scoop\apps\firefox\current` и `firefox-esr\current` (`scoop install extras/firefox extras/firefox-esr`), другой путь — в `KOONAPIN_FIREFOX`. Любой прогон заканчивается не позже чем через 10 минут.
 
 Если после переноса папки проекта `cargo test` не находит файлы в `target\...\tauri-*\out`, выполните `cargo clean -p tauri --manifest-path src-tauri/Cargo.toml`. После замены файлов в `src-tauri/icons` иконка EXE обновится только после `cargo clean -p koonapin --manifest-path src-tauri/Cargo.toml`. Переменная окружения `RUSTUP_TOOLCHAIN` переопределяет `rust-toolchain.toml`; для воспроизводимого запуска её не задавайте.
 
@@ -230,7 +230,6 @@ node scripts/native-messaging-probe/run.mjs chrome edge firefox
 ```
 
 - Терминалы и агенты часто запускают процессы внутри job-объекта, который запрещает выход из него; браузер и host наследуют этот job, и результаты о job-объектах описывают терминал, а не браузер. В таком окружении запускайте `scripts/native-messaging-probe/wmi.ps1 chrome edge firefox`: WMI создаёт процесс вне job-объекта.
-- Если `msedge.exe` перехватывает перенаправитель (отладчик IFEO, например MSEdgeRedirect), скопируйте папку `Application` Edge в `.test-data` и укажите путь к копии в `KOONAPIN_PROBE_EDGE`.
 - Firefox берётся из scoop (`%USERPROFILE%\scoop\apps\firefox\current`) и управляется через WebDriver BiDi с `--remote-allow-system-access`.
 
 Время запуска приложения до готовности принять захват — `node scripts/native-messaging-probe/app-start.mjs` на release-сборке; нужна папка `.test-data\libraries` из генератора тестовых библиотек.

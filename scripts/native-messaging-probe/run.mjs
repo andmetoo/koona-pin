@@ -25,13 +25,7 @@ const appData = process.env.APPDATA;
 
 const browsers = {
   chrome: { kind: "chromium", exe: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", key: "Google\\Chrome" },
-  // A copy of the Application folder starts where a redirector (an IFEO
-  // debugger such as MSEdgeRedirect) intercepts the installed msedge.exe.
-  edge: {
-    kind: "chromium",
-    exe: process.env.KOONAPIN_PROBE_EDGE || "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-    key: "Microsoft\\Edge",
-  },
+  edge: { kind: "chromium", exe: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", key: "Microsoft\\Edge" },
   firefox: { kind: "firefox", exe: path.join(process.env.USERPROFILE, "scoop\\apps\\firefox\\current\\firefox.exe"), key: "Mozilla" },
   "firefox-msix": { kind: "firefox", exe: msixFirefox(), key: "Mozilla" },
 };
