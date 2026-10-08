@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Koona Pin",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "identifier": "app.koona.pin",
   "mainBinaryName": "koonapin",
   "build": {
@@ -100,6 +100,14 @@
     }
   },
   "plugins": {
-    "opener": {}
+    "opener": {},
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFBRjczMEJDOUZCNUQ1QkQKUldTOTFiV2Z2REQzR2hiMXMvOEZJSm5rL2VJbE1ib3JxSDlBS094UXNKNzVGMHRjay9ESkR1MGkK",
+      "endpoints": ["https://github.com/andmetoo/koona-pin/releases/latest/download/latest.json"],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
