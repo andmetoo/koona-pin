@@ -41,6 +41,8 @@
     "site:shots": "node scripts/site-screenshots.mjs",
     "prebuild:installer": "node scripts/clean.mjs",
     "build:installer": "node scripts/build-installer.mjs",
+    "prebuild:linux": "node scripts/clean.mjs",
+    "build:linux": "node scripts/build-linux-packages.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

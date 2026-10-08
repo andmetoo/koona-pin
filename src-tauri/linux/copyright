@@ -1,0 +1,18 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Koona Pin
+Upstream-Contact: Koona <support@koona.app>
+Source: https://github.com/andmetoo/koona-pin
+Comment: The full text of the AGPL below comes from LICENSE in the repository (scripts/build-linux-packages.mjs
+ appends it). LICENSING.md there tells which part is under which terms; the Rust crates and fonts built into
+ the app keep their own licenses, listed on https://koona.app/pin/licenses.
+
+Files: *
+Copyright: 2026 Radik Ilin
+License: AGPL-3.0-only
+
+Files: usr/share/icons/*
+Copyright: 2026 Radik Ilin
+License: other
+ The name "Koona Pin", the mascot Pin Spirit and the icon are trademarks of Radik Ilin and are not covered
+ by the AGPL: all rights reserved. What may be done with them is in TRADEMARKS.md of the repository
+ (https://github.com/andmetoo/koona-pin/blob/main/TRADEMARKS.md).
