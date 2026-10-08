@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Root part of a «distro» job of .github/workflows/linux.yml: X11 and Wayland servers without a display,
 # xprop and xwininfo to read the window (NP-053), and a session bus. WebKitGTK and the tray library come with
-# the package on Ubuntu, Debian and Fedora (ci-package.sh, NP-055); Arch, which runs the bare binary, gets
-# them here. No compilers. Node only for the artifact action under act (GitHub brings its own), and the user
-# «dev».
+# the package (ci-package.sh): the .deb on Ubuntu and Debian, the .rpm on Fedora (NP-055), koonapin-bin from
+# the AUR's PKGBUILD on Arch (NP-101). No compilers but Arch's base-devel for makepkg. Node for
+# scripts/build-aur.mjs and the artifact action under act (GitHub brings its own), and the user «dev».
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export DEBIAN_FRONTEND=noninteractive
@@ -21,7 +21,9 @@ case "$ID" in
       chromium firefox
     ;;
   arch)
-    pacman -Sy --needed --noconfirm webkit2gtk-4.1 libayatana-appindicator \
+    # base-devel and namcap build and check koonapin-bin, whose depends bring WebKitGTK and the tray
+    # (ci-package.sh, NP-101); Arch's Chromium and Firefox check the installed package (ci-browsers.sh).
+    pacman -Syu --needed --noconfirm base-devel namcap chromium firefox \
       xorg-server-xvfb xorg-xauth xorg-xprop xorg-xwininfo dbus weston xz > /dev/null
     ;;
 esac
