@@ -62,7 +62,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
     const label = page.locator("aside button span.truncate", { hasText: exactly(text(en, key)) }).first();
     room[key] = await label.evaluate((el) => ({ width: el.clientWidth, font: getComputedStyle(el).font }));
   }
-  room["browser.notConnected"].width -= LINUX_SPARE;
+  for (const key of Object.keys(room)) room[key].width -= key === "browser.notConnected" ? LINUX_SPARE.status : LINUX_SPARE.row;
   /** The text as the app shows it: the plural form the language picks for days the status can show. */
   const words = (code: string, key: string): string[] => {
     const [section, name] = key.split(".");
@@ -77,7 +77,10 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
     ),
   );
   // One canvas, one round trip for every word.
-  const widths = await page.evaluate((all) => {
+  const widths = await page.evaluate(async (all) => {
+    // Inter comes in subsets by unicode-range, loaded only for the letters a page shows: the English demo
+    // has no Cyrillic, and a canvas would measure the system's fallback font instead.
+    await Promise.all(all.map(({ word, font }) => document.fonts.load(font, word)));
     const ctx = document.createElement("canvas").getContext("2d")!;
     return all.map(({ word, font }) => ((ctx.font = font), ctx.measureText(word).width));
   }, all);
