@@ -90,7 +90,7 @@ jobs:
 
   # The latest version of each distribution: the package of «build» installed with its own dependencies —
   # apt or dnf (NP-055), on Arch koonapin-bin built by makepkg from the AUR's PKGBUILD (NP-101) — started
-  # without a screen under X11 and Wayland — library in ~/.local/share/Koona Pin, a second start hands over
+  # without a screen under X11 and Wayland — library in ~/.local/share/Koona/Pin, a second start hands over
   # to the first — then installed again and removed.
   distro:
     name: ${{ matrix.image }}

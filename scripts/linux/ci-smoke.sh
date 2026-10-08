@@ -26,12 +26,12 @@ echo "ok: every library of the binary is present"
 # One start in a fresh home: library, still running, a second start hands over and exits.
 check() {
   HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
-    library="$HOME/.local/share/Koona Pin/koonapin.db"
+    library="$HOME/.local/share/Koona/Pin/koonapin.db"
     "$1" > "$HOME/app.log" 2>&1 &
     app=$!
     for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
     if [ ! -f "$library" ]; then cat "$HOME/app.log"; echo "FAIL: no library at $library"; exit 1; fi
-    echo "ok: library created at ~/.local/share/Koona Pin/koonapin.db"
+    echo "ok: library created at ~/.local/share/Koona/Pin/koonapin.db"
     sleep 5
     kill -0 $app 2> /dev/null || { cat "$HOME/app.log"; echo "FAIL: the app exited"; exit 1; }
     echo "ok: still running after 5 s"
@@ -52,14 +52,14 @@ check() {
 xdg() {
   HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
     export XDG_DATA_HOME="$HOME/data" XDG_CONFIG_HOME="$HOME/config"
-    library="$XDG_DATA_HOME/Koona Pin/koonapin.db"
+    library="$XDG_DATA_HOME/Koona/Pin/koonapin.db"
     entry="$XDG_CONFIG_HOME/autostart/koonapin.desktop"
     "$1" > "$HOME/app.log" 2>&1 &
     app=$!
     for _ in $(seq 120); do [ -f "$library" ] && [ -f "$entry" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
     [ -f "$library" ] || { cat "$HOME/app.log"; echo "FAIL: no library under \$XDG_DATA_HOME"; exit 1; }
-    [ ! -e "$HOME/.local/share/Koona Pin" ] || { echo "FAIL: a library under ~/.local/share as well"; exit 1; }
-    echo "ok: library under \$XDG_DATA_HOME/Koona Pin"
+    [ ! -e "$HOME/.local/share/Koona" ] || { echo "FAIL: a library under ~/.local/share as well"; exit 1; }
+    echo "ok: library under \$XDG_DATA_HOME/Koona/Pin"
     if ! grep -qx "Exec=$1 --autostart" "$entry" || ! grep -qx "TryExec=$1" "$entry"; then
       cat "$entry"
       echo "FAIL: the autostart entry does not start this program hidden"
@@ -75,7 +75,7 @@ xdg() {
 # take the focus. The protocol log (WAYLAND_DEBUG) shows both.
 activation() {
   HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
-    library="$HOME/.local/share/Koona Pin/koonapin.db"
+    library="$HOME/.local/share/Koona/Pin/koonapin.db"
     WAYLAND_DEBUG=client "$1" > "$HOME/app.log" 2>&1 &
     app=$!
     for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
@@ -105,7 +105,7 @@ activation() {
 # Wayland token takes too.
 startup() {
   HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
-    library="$HOME/.local/share/Koona Pin/koonapin.db"
+    library="$HOME/.local/share/Koona/Pin/koonapin.db"
     "$1" > "$HOME/app.log" 2>&1 &
     app=$!
     for _ in $(seq 120); do [ -f "$library" ] && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
