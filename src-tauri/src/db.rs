@@ -29,6 +29,14 @@ pub struct Bookmark {
     /// Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
     /// `extension`, `import`; none for links of unknown origin. Triage shows it (NP-025).
     pub source: Option<String>,
+    /// The sort keys of the title and of the site in hex (NP-114): compared
+    /// as text, they order rows as «Title A–Z» and «Site A–Z» do.
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title_key: Option<String>,
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -40,6 +48,11 @@ pub struct Collection {
     pub icon: Option<String>,
     pub count: Option<i64>,
     pub created_at: String,
+    /// Where the person put it in the sidebar (NP-114); none until the first
+    /// move, and for a collection made since: those follow by name.
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -157,16 +170,21 @@ pub struct LibraryCounts {
     pub links: i64,
 }
 
-/// One pass: the trash is counted apart, every other count leaves it out.
+/// The trash is counted apart, every other count leaves it out. Each count
+/// reads its own index (schema 7), not the table: a pass over 100 000
+/// bookmarks took 27 ms, and the sidebar asks after every change.
 pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
+    let live = "FROM bookmarks WHERE deleted_at IS NULL";
+    let inbox = format!("{live} AND triaged_at IS NULL");
     conn.query_row(
-        "SELECT COALESCE(SUM(deleted_at IS NULL),0),
-                COALESCE(SUM(deleted_at IS NULL AND is_favorite),0),
-                COALESCE(SUM(deleted_at IS NULL AND triaged_at IS NULL),0),
-                MAX(CASE WHEN deleted_at IS NULL AND triaged_at IS NULL THEN created_at END),
-                COALESCE(SUM(deleted_at IS NULL AND triaged_at IS NULL AND source = 'import'),0),
-                COALESCE(SUM(deleted_at IS NOT NULL),0)
-         FROM bookmarks",
+        &format!(
+            "SELECT (SELECT count(*) {live}),
+                    (SELECT count(*) {live} AND is_favorite = 1),
+                    (SELECT count(*) {inbox}),
+                    (SELECT max(created_at) {inbox}),
+                    (SELECT count(*) {inbox} AND source = 'import'),
+                    (SELECT count(*) FROM bookmarks WHERE deleted_at IS NOT NULL)"
+        ),
         [],
         |r| {
             Ok(LibraryCounts {
@@ -280,12 +298,11 @@ pub fn insert_or_update_bookmark(
     get_bookmark_by_id(conn, bookmark_id)
 }
 
-pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
-    let mut stmt = conn.prepare(
-        "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source
-         FROM bookmarks WHERE id = ?1",
-    )?;
+/// The columns [`bookmark_row`] reads, in its order.
+const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key)";
 
+pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
+    let mut stmt = conn.prepare(&format!("SELECT {BOOKMARK_COLUMNS} FROM bookmarks WHERE id = ?1"))?;
     let mut b = stmt.query_row(params![id], bookmark_row)?;
     attach_tags(conn, std::slice::from_mut(&mut b))?;
     Ok(b)
@@ -295,14 +312,29 @@ pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
 pub fn get_bookmarks_by_ids(conn: &Connection, ids: &[i64]) -> Result<Vec<Bookmark>> {
     let ids = id_list(ids)?;
     let mut items = conn
-        .prepare(
-            "SELECT id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source
-             FROM bookmarks WHERE id IN (SELECT value FROM json_each(?1))",
-        )?
+        .prepare(&format!(
+            "SELECT {BOOKMARK_COLUMNS} FROM bookmarks WHERE id IN (SELECT value FROM json_each(?1))"
+        ))?
         .query_map([ids], bookmark_row)?
         .collect::<Result<Vec<_>>>()?;
     attach_tags(conn, &mut items)?;
     Ok(items)
+}
+
+/// The order of the list (NP-114, Р-59). The trash is always read newest
+/// deletion first, whatever is chosen.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum BookmarkSort {
+    /// Newest saved first: the order of the inbox and of every new library.
+    #[default]
+    Newest,
+    Oldest,
+    /// By title in the interface's language, equal titles newest first.
+    Title,
+    /// By site (the domain without `www.`), the links of a site newest first.
+    Site,
 }
 
 /// What the list shows: search, filters and the page to read.
@@ -341,15 +373,32 @@ pub struct BookmarkQuery {
     /// list's date groups (NP-012).
     #[ts(optional)]
     pub since: Option<Vec<String>>,
+    /// Newest first when none (NP-114).
+    #[ts(optional)]
+    pub sort: Option<BookmarkSort>,
 }
 
-/// A position in the order `at DESC, id DESC`, where `at` is when the
-/// bookmark was saved, or deleted in the trash.
+impl BookmarkQuery {
+    /// The order the query reads in: the trash keeps its own.
+    pub fn order(&self) -> BookmarkSort {
+        match self.only_trash {
+            true => BookmarkSort::Newest,
+            false => self.sort.unwrap_or_default(),
+        }
+    }
+}
+
+/// A position in the list's order: `at` is when the bookmark was saved, or
+/// deleted in the trash; `key` is its title or site key in hex in the orders
+/// by title and by site (NP-114).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct PageCursor {
     pub at: String,
     pub id: i64,
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -472,7 +521,11 @@ pub fn register_functions(conn: &Connection) -> Result<()> {
         1,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         |ctx| Ok(crate::dedupe::url_key(&ctx.get::<String>(0)?)),
-    )
+    )?;
+    // `np_sort_key` and `np_site_key` (NP-114): the triggers of schema 7 write
+    // the sort keys with them. English until `library::open` applies the
+    // language of the stored keys.
+    crate::sorting::register(conn, crate::sorting::DEFAULT_LANGUAGE)
 }
 
 /// The query as words: each must appear somewhere in the bookmark, in any
@@ -516,6 +569,9 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         triaged_at: row.get(13)?,
         deleted_at: row.get(14)?,
         source: row.get(15)?,
+        // `hex(NULL)` is an empty text.
+        title_key: Some(row.get::<_, String>(16)?).filter(|k| !k.is_empty()),
+        site_key: Some(row.get::<_, String>(17)?).filter(|k| !k.is_empty()),
     })
 }
 
@@ -550,9 +606,11 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
         values.push(domain.clone().into());
     }
     if let Some(tag) = &query.tag {
+        // From the tag to its bookmarks (`idx_bookmark_tags_tag`, schema 7),
+        // not a check on every row: a rare tag read 100 000 rows before.
         filter.push_str(
-            " AND EXISTS (SELECT 1 FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id
-               WHERE bt.bookmark_id = b.id AND t.name = ?)",
+            " AND b.id IN (SELECT bt.bookmark_id FROM bookmark_tags bt
+               WHERE bt.tag_id = (SELECT id FROM tags WHERE name = ?))",
         );
         values.push(tag.clone().into());
     }
@@ -585,14 +643,71 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
     (filter, at, values)
 }
 
+/// The key column of the orders by title and by site.
+fn key_column(order: BookmarkSort) -> Option<&'static str> {
+    match order {
+        BookmarkSort::Title => Some("b.title_key"),
+        BookmarkSort::Site => Some("b.site_key"),
+        BookmarkSort::Newest | BookmarkSort::Oldest => None,
+    }
+}
+
+/// `ORDER BY` of the list, `at` being its time column. Every order ends on
+/// the id, so equal times and keys still give one order; each matches an
+/// index (`idx_bookmarks_order`, `_inbox`, `_trash`, `_title`, `_site`).
+fn order_by(order: BookmarkSort, at: &str) -> String {
+    match key_column(order) {
+        Some(key) => format!("{key}, b.created_at DESC, b.id DESC"),
+        None if order == BookmarkSort::Oldest => format!("{at}, b.id"),
+        None => format!("{at} DESC, b.id DESC"),
+    }
+}
+
+/// The rows past `cursor` in that order, written so the index seeks to them.
+fn after_cursor(
+    order: BookmarkSort,
+    at: &str,
+    cursor: &PageCursor,
+    values: &mut Vec<rusqlite::types::Value>,
+) -> String {
+    let place = [cursor.at.clone().into(), cursor.id.into()];
+    match key_column(order) {
+        Some(key) => {
+            // `>=` gives the index a start; equal keys go on by time and id.
+            let hex = cursor.key.clone().unwrap_or_default();
+            values.extend([hex.clone().into(), hex.into()]);
+            values.extend(place);
+            format!(" AND {key} >= unhex(?) AND ({key} > unhex(?) OR (b.created_at, b.id) < (?, ?))")
+        }
+        None => {
+            values.extend(place);
+            let sign = if order == BookmarkSort::Oldest { ">" } else { "<" };
+            format!(" AND ({at}, b.id) {sign} (?, ?)")
+        }
+    }
+}
+
+/// The orders by title and by site need the keys of every bookmark: a library
+/// migrated to schema 7 gets them here if the interface has not set its
+/// language yet (it does on start, `sorting::set_language`).
+fn ensure_keys(conn: &Connection, order: BookmarkSort) -> Result<()> {
+    if key_column(order).is_some() && crate::sorting::stored_language(conn).is_none() {
+        crate::sorting::set_language(conn, crate::sorting::DEFAULT_LANGUAGE)?;
+    }
+    Ok(())
+}
+
 /// Every bookmark the query matches, in list order, without the page limit:
-/// `Ctrl A` selects what is not loaded yet (NP-028). Ids only, so 100 000 of
-/// them still answer quickly.
+/// `Ctrl A` selects what is not loaded yet (NP-028). Ids only, read from the
+/// order index alone, so 100 000 of them still answer quickly.
 pub fn get_bookmark_ids(conn: &Connection, query: &BookmarkQuery) -> Result<Vec<i64>> {
+    let order = query.order();
+    ensure_keys(conn, order)?;
     let (filter, at, values) = query_filter(query);
     let ids = conn
         .prepare(&format!(
-            "SELECT b.id FROM bookmarks b{filter} ORDER BY {at} DESC, b.id DESC"
+            "SELECT b.id FROM bookmarks b{filter} ORDER BY {}",
+            order_by(order, at)
         ))?
         .query_map(rusqlite::params_from_iter(&values), |r| r.get(0))?
         .collect();
@@ -638,11 +753,13 @@ pub fn search_counts(conn: &Connection, search: Option<&str>) -> Result<SearchCo
     })
 }
 
-/// One page of the list, newest first, with the total for the whole query.
-/// The library is ordered by when a bookmark was saved, the trash by when
-/// it was deleted.
+/// One page of the list in the query's order (newest first by default), with
+/// the total for the whole query. The trash is ordered by when a bookmark
+/// was deleted.
 pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<BookmarkPage> {
     use rusqlite::types::Value;
+    let order = query.order();
+    ensure_keys(conn, order)?;
     let (filter, at, mut values) = query_filter(query);
 
     // The total and the date-group counts in one pass, first page only.
@@ -672,18 +789,16 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
 
     let mut page_filter = filter;
     if let Some(after) = &query.after {
-        // A row value, so the page starts by a seek in `idx_bookmarks_order`.
-        page_filter.push_str(&format!(" AND ({at}, b.id) < (?, ?)"));
-        values.extend([after.at.clone().into(), after.id.into()]);
+        // A row value, so the page starts by a seek in the order's index.
+        page_filter.push_str(&after_cursor(order, at, after, &mut values));
     }
     let limit = query.limit.unwrap_or(PAGE_SIZE).clamp(1, MAX_PAGE_SIZE);
     // One more row than asked tells whether a next page exists.
     values.push(i64::from(limit + 1).into());
     let mut items = conn
         .prepare(&format!(
-            "SELECT b.id, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite, b.collection_id, b.created_at, b.updated_at, b.revision, b.triaged_at, b.deleted_at, b.source
-             FROM bookmarks b{page_filter}
-             ORDER BY {at} DESC, b.id DESC LIMIT ?"
+            "SELECT {BOOKMARK_COLUMNS} FROM bookmarks b{page_filter} ORDER BY {} LIMIT ?",
+            order_by(order, at)
         ))?
         .query_map(rusqlite::params_from_iter(&values), bookmark_row)?
         .collect::<Result<Vec<_>>>()?;
@@ -696,6 +811,11 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
                 .clone()
                 .unwrap_or_else(|| last.created_at.clone()),
             id: last.id,
+            key: match order {
+                BookmarkSort::Title => last.title_key.clone(),
+                BookmarkSort::Site => last.site_key.clone(),
+                BookmarkSort::Newest | BookmarkSort::Oldest => None,
+            },
         }
     });
     attach_tags(conn, &mut items)?;
@@ -1040,13 +1160,15 @@ pub fn purge_trash(conn: &Connection, which: Purge) -> Result<Vec<(i64, i64)>> {
     Ok(gone)
 }
 
+/// In the sidebar's order (NP-114): where the person put them, then those
+/// never moved by name in the language of the sort keys.
 pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
     let mut stmt = conn.prepare(
-        "SELECT c.id, c.name, c.color, c.icon, c.created_at, COUNT(b.id) as count
+        "SELECT c.id, c.name, c.color, c.icon, c.created_at, COUNT(b.id) as count, c.position
          FROM collections c
          LEFT JOIN bookmarks b ON c.id = b.collection_id AND b.deleted_at IS NULL
          GROUP BY c.id
-         ORDER BY c.name ASC",
+         ORDER BY c.position IS NULL, c.position, np_sort_key(c.name), c.id",
     )?;
 
     let rows = stmt.query_map([], |row| {
@@ -1057,6 +1179,7 @@ pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
             icon: row.get(3)?,
             created_at: row.get(4)?,
             count: Some(row.get(5)?),
+            position: row.get(6)?,
         })
     })?;
 
@@ -1065,6 +1188,22 @@ pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
         cols.push(r?);
     }
     Ok(cols)
+}
+
+/// The sidebar's order after a move (NP-114): `ids` from first to last, the
+/// interface sends all of them. One left out keeps the position it had (a
+/// collection made meanwhile has none and stays at the end); unknown ids
+/// change nothing. One transaction, only the positions that change are written.
+pub fn reorder_collections(conn: &Connection, ids: &[i64]) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    {
+        let mut place =
+            tx.prepare("UPDATE collections SET position = ?1 WHERE id = ?2 AND position IS NOT ?1")?;
+        for (position, id) in ids.iter().enumerate() {
+            place.execute(params![position as i64, id])?;
+        }
+    }
+    tx.commit()
 }
 
 pub fn create_collection(
@@ -1086,6 +1225,8 @@ pub fn create_collection(
         icon: icon.map(|s| s.to_string()),
         count: Some(0),
         created_at: now,
+        // After the moved ones: a new collection appears at the end (NP-114).
+        position: None,
     })
 }
 
@@ -1131,13 +1272,20 @@ pub fn delete_collection(conn: &Connection, id: i64) -> Result<()> {
     tx.commit()
 }
 
+/// Tags in use outside the trash, most used first. Every link is counted
+/// from the tag index and the few in the trash are taken off, instead of
+/// looking up each linked bookmark: 54 ms on 100 000 bookmarks before
+/// schema 7, and the sidebar asks after every change.
 pub fn get_tags(conn: &Connection) -> Result<Vec<Tag>> {
     let mut stmt = conn.prepare(
-        "SELECT t.id, t.name, COUNT(bt.bookmark_id) as count
+        "SELECT t.id, t.name, l.n - COALESCE(d.n, 0) AS count
          FROM tags t
-         JOIN bookmark_tags bt ON t.id = bt.tag_id
-         JOIN bookmarks b ON b.id = bt.bookmark_id AND b.deleted_at IS NULL
-         GROUP BY t.id
+         JOIN (SELECT tag_id, count(*) AS n FROM bookmark_tags GROUP BY tag_id) l ON l.tag_id = t.id
+         -- CROSS JOIN keeps the trash outside: SQLite would start from every link.
+         LEFT JOIN (SELECT bt.tag_id, count(*) AS n FROM bookmarks b
+                    CROSS JOIN bookmark_tags bt ON bt.bookmark_id = b.id
+                    WHERE b.deleted_at IS NOT NULL GROUP BY bt.tag_id) d ON d.tag_id = t.id
+         WHERE count > 0
          ORDER BY count DESC, t.name ASC",
     )?;
 
@@ -2123,6 +2271,146 @@ mod tests {
                 .since_counts,
             None
         );
+    }
+
+    /// Every page of `base` through the cursor, `size` at a time, and the total.
+    fn read_pages(conn: &Connection, base: &BookmarkQuery, size: u32) -> (Vec<i64>, i64) {
+        let mut query = BookmarkQuery { limit: Some(size), ..base.clone() };
+        let (mut ids, mut total) = (Vec::new(), 0);
+        loop {
+            let page = get_bookmarks(conn, &query).unwrap();
+            total = page.total.unwrap_or(total);
+            ids.extend(page.items.iter().map(|b| b.id));
+            match page.next {
+                Some(next) => query.after = Some(next),
+                None => return (ids, total),
+            }
+        }
+    }
+
+    /// Ties everywhere: nine titles and four sites repeated, three bookmarks
+    /// per second. Every order, alone and with filters, reads each matching
+    /// bookmark once in the order the collator gives, pages of 7 cutting
+    /// through equal keys and times; `Ctrl A` gives the same ids.
+    #[test]
+    fn every_order_pages_through_the_list_once() {
+        use std::cmp::Reverse;
+        let conn = setup_test_db();
+        let shelf = create_collection(&conn, "Полка", None, None).unwrap();
+        let titles = ["Zebra", "äpfel", "Apfel", "Chapter 10", "Chapter 9", "Bär", "apfel", "Ёж", "ель"];
+        let sites = ["www.b.example", "a.example", "B.example", "c.example"];
+        for i in 0..90usize {
+            let url = format!("https://{}/{i}", sites[i % sites.len()]);
+            let tags = if i % 5 == 0 { vec!["пятый".to_string()] } else { Vec::new() };
+            let b = insert_or_update_bookmark(&conn, &url, titles[i % titles.len()], None, None, None, sites[i % sites.len()], None, Some(&tags), Source::App).unwrap();
+            conn.execute(
+                "UPDATE bookmarks SET created_at = ?1, collection_id = ?2 WHERE id = ?3",
+                params![format!("2026-01-01T00:00:{:02}.000Z", i / 3), (i % 2 == 0).then_some(shelf.id), b.id],
+            )
+            .unwrap();
+        }
+        trash_bookmark(&conn, 5).unwrap();
+        let rows = everything(&conn);
+        let collator = crate::sorting::collator("en");
+        let key = |text: &str| crate::sorting::key(&collator, text);
+        let filters = [
+            BookmarkQuery::default(),
+            BookmarkQuery { collection_id: Some(shelf.id), ..Default::default() },
+            BookmarkQuery { tag: Some("пятый".into()), ..Default::default() },
+            BookmarkQuery { search: Some("apfel".into()), ..Default::default() },
+        ];
+        for sort in [BookmarkSort::Newest, BookmarkSort::Oldest, BookmarkSort::Title, BookmarkSort::Site] {
+            for filter in &filters {
+                let query = BookmarkQuery { sort: Some(sort), ..filter.clone() };
+                let ids: std::collections::HashSet<i64> = get_bookmark_ids(&conn, &BookmarkQuery::default()).unwrap().into_iter().collect();
+                let mut expected: Vec<&Bookmark> = rows
+                    .iter()
+                    .filter(|b| ids.contains(&b.id))
+                    .filter(|b| filter.collection_id.is_none_or(|c| b.collection_id == Some(c)))
+                    .filter(|b| filter.tag.is_none() || b.tags.as_ref().unwrap().contains(&"пятый".to_string()))
+                    .filter(|b| filter.search.is_none() || key(&b.title) == key("apfel"))
+                    .collect();
+                match sort {
+                    BookmarkSort::Newest => expected.sort_by_key(|b| Reverse((b.created_at.clone(), b.id))),
+                    BookmarkSort::Oldest => expected.sort_by_key(|b| (b.created_at.clone(), b.id)),
+                    BookmarkSort::Title => expected.sort_by_key(|b| (key(&b.title), Reverse((b.created_at.clone(), b.id)))),
+                    BookmarkSort::Site => {
+                        expected.sort_by_key(|b| (key(crate::sorting::site(&b.domain)), Reverse((b.created_at.clone(), b.id))))
+                    }
+                }
+                let expected: Vec<i64> = expected.iter().map(|b| b.id).collect();
+                let (paged, total) = read_pages(&conn, &query, 7);
+                assert_eq!(paged, expected, "{sort:?} {filter:?}");
+                assert_eq!(total, expected.len() as i64);
+                assert_eq!(get_bookmark_ids(&conn, &query).unwrap(), expected, "Ctrl A, {sort:?}");
+            }
+        }
+        // The title order as a person reads it (case aside, so «Apfel» and
+        // «apfel» mix by time), and «www.» left out of the site.
+        let mut first: Vec<String> = get_bookmarks(&conn, &BookmarkQuery { sort: Some(BookmarkSort::Title), limit: Some(90), ..Default::default() })
+            .unwrap()
+            .items
+            .iter()
+            .map(|b| b.title.to_lowercase())
+            .collect();
+        first.dedup();
+        assert_eq!(first, ["apfel", "äpfel", "bär", "chapter 9", "chapter 10", "zebra", "ёж", "ель"]);
+        let page = get_bookmarks(&conn, &BookmarkQuery { sort: Some(BookmarkSort::Site), limit: Some(90), ..Default::default() }).unwrap();
+        let first_sites: Vec<&str> = page.items.iter().map(|b| crate::sorting::site(&b.domain)).collect();
+        assert_eq!(first_sites.first(), Some(&"a.example"));
+        assert!(first_sites.windows(2).all(|w| key(w[0]) <= key(w[1])));
+        // The trash keeps its own order whatever is chosen.
+        let trash = BookmarkQuery { only_trash: true, sort: Some(BookmarkSort::Title), ..Default::default() };
+        assert_eq!(read_pages(&conn, &trash, 7).0, [5]);
+    }
+
+    #[test]
+    fn the_title_order_follows_the_interface_language() {
+        let conn = setup_test_db();
+        for title in ["cvet", "čaj", "zec"] {
+            add(&conn, &format!("https://example.com/{title}"), title, &[]);
+        }
+        let titles = |conn: &Connection| -> Vec<String> {
+            let query = BookmarkQuery { sort: Some(BookmarkSort::Title), ..Default::default() };
+            get_bookmarks(conn, &query).unwrap().items.into_iter().map(|b| b.title).collect()
+        };
+        // English keeps «č» with «c»; Serbian Latin has it as a letter after «c».
+        assert_eq!(titles(&conn), ["čaj", "cvet", "zec"]);
+        assert!(crate::sorting::set_language(&conn, "sr-Latn").unwrap());
+        assert_eq!(titles(&conn), ["cvet", "čaj", "zec"]);
+        assert!(!crate::sorting::set_language(&conn, "sr-Latn").unwrap(), "the same language writes nothing");
+        // Saved and renamed after the change: keys of the same language.
+        add(&conn, "https://example.com/c", "ćup", &[]);
+        let renamed = add(&conn, "https://example.com/r", "ako", &[]);
+        update_bookmark(&conn, renamed.id, Some("džep".into()), None, None, None, None).unwrap();
+        assert_eq!(titles(&conn), ["cvet", "čaj", "ćup", "džep", "zec"]);
+        assert_eq!(crate::sorting::stored_language(&conn).as_deref(), Some("sr-Latn"));
+        // Keys of other collation data (an update of ICU4X) are written anew.
+        set_setting(&conn, "sort_keys", "0.0.0").unwrap();
+        assert!(crate::sorting::set_language(&conn, "sr-Latn").unwrap());
+        assert_eq!(titles(&conn), ["cvet", "čaj", "ćup", "džep", "zec"]);
+    }
+
+    #[test]
+    fn collections_keep_the_order_the_person_gives_them() {
+        let conn = setup_test_db();
+        let names = |conn: &Connection| get_collections(conn).unwrap().into_iter().map(|c| c.name).collect::<Vec<_>>();
+        // Never moved: by name.
+        assert_eq!(names(&conn), ["Articles / To read", "Design & UI", "Development"]);
+        let ids: Vec<i64> = get_collections(&conn).unwrap().iter().map(|c| c.id).collect();
+        reorder_collections(&conn, &[ids[2], ids[0], ids[1]]).unwrap();
+        assert_eq!(names(&conn), ["Development", "Articles / To read", "Design & UI"]);
+        assert_eq!(get_collections(&conn).unwrap()[0].position, Some(0));
+        // A new one goes to the end whatever its name; unknown ids change nothing.
+        create_collection(&conn, "Aardvark", None, None).unwrap();
+        reorder_collections(&conn, &[9_999]).unwrap();
+        assert_eq!(names(&conn), ["Development", "Articles / To read", "Design & UI", "Aardvark"]);
+        delete_collection(&conn, ids[0]).unwrap();
+        assert_eq!(names(&conn), ["Development", "Design & UI", "Aardvark"]);
+        // Moving again writes every place.
+        let ids: Vec<i64> = get_collections(&conn).unwrap().iter().map(|c| c.id).collect();
+        reorder_collections(&conn, &[ids[2], ids[1], ids[0]]).unwrap();
+        assert_eq!(names(&conn), ["Aardvark", "Design & UI", "Development"]);
     }
 
     #[test]

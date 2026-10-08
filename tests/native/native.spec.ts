@@ -473,6 +473,9 @@ test("damaged library is detected in the background and not written", async ({
     first.processHandle.kill();
   }
   const db = new DatabaseSync(file);
+  // The triggers of schema 7 call the app's sort key functions (NP-114): without them SQLite
+  // refuses the insert. Empty keys are enough here.
+  for (const name of ["np_sort_key", "np_site_key"]) db.function(name, (_text: string) => null);
   const insert = db.prepare(
     "INSERT INTO bookmarks (uid,url,title,domain,created_at,updated_at) VALUES (?,?,?,?,?,?)",
   );
@@ -785,7 +788,7 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
   // As in the link check: the library is read once the killed app has exited.
   await app.exited;
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 7 });
   expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
     { url_key: "example.invalid/page", n: 3 },
     { url_key: "example.invalid/page?ref=x", n: 1 },
@@ -858,7 +861,7 @@ test("link check: runs in the background through IPC, a missing site is never br
   await app.exited;
   expect(hits).toBe(0);
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 6 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 7 });
   expect(db.prepare("SELECT outcome, reason, count(*) AS n FROM link_checks GROUP BY outcome, reason ORDER BY outcome").all()).toEqual([
     { outcome: "failed", reason: "no_site", n: 3 },
     { outcome: "local", reason: null, n: 1 },
@@ -1257,6 +1260,88 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     db.close();
     expect(back).toEqual({ deleted_at: null, notes: "Note", is_favorite: 1, collection: "Shelf", tags: "tag" });
     expect(tombstones).toEqual({ n: 2 });
+  } finally {
+    await app.browser.close().catch(() => {});
+    app.processHandle.kill();
+  }
+});
+test("sort: titles by the keys in SQLite in the interface's language, the collections' order and the choice survive a restart (NP-114)", async ({ request }) => {
+  const data = await folder("sort");
+  const env = isolated(data);
+  let app = await launch(request, env);
+  try {
+    let page = app.page;
+    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await page.evaluate(async () => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      for (const [title, site] of [
+        ["cvet", "b.example"],
+        ["čaj", "www.a.example"],
+        ["zec", "c.example"],
+        ["Chapter 10", "a.example"],
+        ["Chapter 9", "d.example"],
+      ])
+        await invoke("add_bookmark", { url: `https://${site}/${encodeURIComponent(title)}`, title, collectionId: null, tags: [] });
+      for (const name of ["Alpha", "Beta", "Gamma"]) await invoke("create_collection", { name, color: null, icon: null });
+    });
+    await page.reload();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const titles = () => page.locator("article[data-bookmark-id] h2, [data-bookmark-id] h2").allTextContents();
+    await expect(page.locator("[data-bookmark-id]")).toHaveCount(5, { timeout: 15000 });
+
+    // «Title A–Z»: the database's order in English — «č» with «c», numbers by value.
+    await page.getByRole("button", { name: /^Sort: / }).click();
+    await page.getByRole("menuitemradio", { name: "Title A–Z" }).click();
+    await expect.poll(titles).toEqual(["čaj", "Chapter 9", "Chapter 10", "cvet", "zec"]);
+    // «Site A–Z» leaves «www.» out.
+    await page.getByRole("button", { name: /^Sort: / }).click();
+    await page.getByRole("menuitemradio", { name: "Site A–Z" }).click();
+    await expect.poll(titles).toEqual(["Chapter 10", "čaj", "cvet", "zec", "Chapter 9"]);
+
+    // A collection dragged to the top is stored there; the first collections of a new library
+    // (NP-085) sort by name with the others until then.
+    const collections = () => page.getByRole("navigation", { name: "Collections" }).locator("[data-collection]");
+    const names = () => collections().evaluateAll((rows) => rows.map((r) => r.querySelector("span.truncate")?.textContent));
+    await expect.poll(names).toEqual(["Alpha", "Articles / To read", "Beta", "Design & UI", "Development", "Gamma"]);
+    const gamma = (await collections().nth(5).boundingBox())!;
+    const alpha = (await collections().nth(0).boundingBox())!;
+    await page.mouse.move(gamma.x + 40, gamma.y + gamma.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(gamma.x + 46, gamma.y, { steps: 3 });
+    await page.mouse.move(alpha.x + 60, alpha.y + 3, { steps: 10 });
+    await page.mouse.up();
+    const moved = ["Gamma", "Alpha", "Articles / To read", "Beta", "Design & UI", "Development"];
+    await expect.poll(names).toEqual(moved);
+    const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
+    expect(db.prepare("SELECT name, position FROM collections ORDER BY position").all()).toEqual(
+      moved.map((name, position) => ({ name, position })),
+    );
+    expect(db.prepare("SELECT value FROM app_settings WHERE key = 'sort_language'").get()).toEqual({ value: "en" });
+    db.close();
+
+    // Another language: the keys are written anew, «č» becomes a letter after «c».
+    await page.evaluate(() => localStorage.setItem("koonapin.language", "sr-Latn"));
+    await page.reload();
+    const order = () =>
+      page.evaluate(async () => {
+        const { items } = await window.__TAURI_INTERNALS__.invoke("get_bookmarks", { query: { sort: "title" } });
+        return items.map((b: { title: string }) => b.title);
+      });
+    await expect.poll(order, { timeout: 15000 }).toEqual(["Chapter 9", "Chapter 10", "cvet", "čaj", "zec"]);
+    const keys = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
+    expect(keys.prepare("SELECT value FROM app_settings WHERE key = 'sort_language'").get()).toEqual({ value: "sr-Latn" });
+    keys.close();
+    await page.evaluate(() => localStorage.setItem("koonapin.language", "en"));
+
+    // After a restart: the chosen order, the collections' order.
+    void page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app")).catch(() => {});
+    await app.exited;
+    await app.browser.close().catch(() => {});
+    app = await launch(request, env);
+    page = app.page;
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(page.getByRole("button", { name: "Sort: Site A–Z" })).toBeVisible({ timeout: 15000 });
+    await expect.poll(names).toEqual(moved);
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();

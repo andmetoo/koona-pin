@@ -30,8 +30,6 @@ const targets = {
     key: "Google\\Chrome",
     launch: { executablePath: process.env.KOONAPIN_CHROME || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
   },
-  // A copy of Edge's Application folder starts where a redirector (an IFEO
-  // debugger such as MSEdgeRedirect) intercepts the installed msedge.exe.
   edge: {
     name: "Edge",
     source: "edge",

@@ -13,4 +13,9 @@ deleted_at: string | null,
  * Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
  * `extension`, `import`; none for links of unknown origin. Triage shows it (NP-025).
  */
-source: string | null, };
+source: string | null, 
+/**
+ * The sort keys of the title and of the site in hex (NP-114): compared
+ * as text, they order rows as «Title A–Z» and «Site A–Z» do.
+ */
+title_key?: string, site_key?: string, };

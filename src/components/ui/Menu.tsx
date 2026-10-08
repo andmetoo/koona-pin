@@ -14,6 +14,8 @@ export interface MenuItem {
   count?: number | string;
   dot?: string;
   checked?: boolean;
+  /** One of a choice (the list's order, NP-114): a screen reader hears it as chosen or not. */
+  radio?: boolean;
   disabled?: boolean;
   /** Why a disabled item is not available yet. */
   disabledHint?: string;
@@ -85,7 +87,7 @@ export function Menu({
     };
   }, []);
 
-  const buttons = () => Array.from(ref.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]") ?? []);
+  const buttons = () => Array.from(ref.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem], [role=menuitemradio]") ?? []);
   function focusItem(index: number) {
     const all = buttons();
     if (!all.length) return;
@@ -148,7 +150,8 @@ export function Menu({
           <button
             key={entry.id}
             type="button"
-            role="menuitem"
+            role={entry.radio ? "menuitemradio" : "menuitem"}
+            aria-checked={entry.radio ? !!entry.checked : undefined}
             aria-disabled={entry.disabled || undefined}
             aria-haspopup={entry.submenu ? "menu" : undefined}
             aria-expanded={entry.submenu ? open?.id === entry.id : undefined}

@@ -31,7 +31,9 @@
     "newCollectionCreate": "Enter — 作成して移動",
     "newCollectionCancel": "Esc — キャンセル",
     "tagsDrop": "タグ — タグの上にドロップして追加",
-    "dropNewCollection": "選択項目から新しいコレクション"
+    "dropNewCollection": "選択項目から新しいコレクション",
+    "moveCollection": "移動",
+    "collectionMoved": "{{name}}：{{count}} 件中 {{position}} 番目"
   },
   "drag": {
     "more_other": "ほか {{count}} 件のブックマーク",
@@ -95,6 +97,8 @@
     "view": "ライブラリの表示",
     "grid": "グリッド",
     "list": "リスト",
+    "sortBy": "並べ替え",
+    "sortHint": "並べ替え：{{order}}",
     "more": "その他",
     "add": "リンクを追加",
     "addShort": "追加",
@@ -102,6 +106,12 @@
     "clearTag": "タグの絞り込み {{tag}} を解除",
     "domainChip": "サイト：{{domain}}",
     "clearDomain": "サイトの絞り込み {{domain}} を解除"
+  },
+  "sort": {
+    "newest": "新しい順",
+    "oldest": "古い順",
+    "title": "タイトル順",
+    "site": "サイト順"
   },
   "more": {
     "import": "インポート",

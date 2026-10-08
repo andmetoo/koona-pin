@@ -34,7 +34,9 @@
     "newCollectionCreate": "Enter — создать и перенести",
     "newCollectionCancel": "Esc — отмена",
     "tagsDrop": "Теги — бросьте на тег",
-    "dropNewCollection": "Новая коллекция из выбранного"
+    "dropNewCollection": "Новая коллекция из выбранного",
+    "moveCollection": "Переместить",
+    "collectionMoved": "{{name}}: место {{position}} из {{count}}"
   },
   "drag": {
     "more_one": "и ещё {{count}} закладка",
@@ -110,6 +112,8 @@
     "view": "Вид библиотеки",
     "grid": "Сетка",
     "list": "Список",
+    "sortBy": "Сортировка",
+    "sortHint": "Сортировка: {{order}}",
     "more": "Ещё",
     "add": "Добавить ссылку",
     "addShort": "Добавить",
@@ -120,6 +124,12 @@
     "clearTag": "Убрать фильтр по тегу {{tag}}",
     "domainChip": "Сайт: {{domain}}",
     "clearDomain": "Убрать фильтр по сайту {{domain}}"
+  },
+  "sort": {
+    "newest": "Сначала новые",
+    "oldest": "Сначала старые",
+    "title": "По названию А–Я",
+    "site": "По сайту А–Я"
   },
   "more": {
     "import": "Импорт",

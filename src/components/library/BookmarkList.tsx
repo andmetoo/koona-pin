@@ -211,6 +211,7 @@ export function BookmarkList({
   compact,
   scrollRef,
   dateGroups,
+  grouped,
   hasMore,
   loadingMore,
   onMore,
@@ -228,6 +229,8 @@ export function BookmarkList({
   compact: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   dateGroups: { starts: string[]; sizes: Record<DateGroup, number> | null };
+  /** Date groups in the orders by time; by title and by site the list is one run (NP-114). */
+  grouped: boolean;
   hasMore: boolean;
   loadingMore: boolean;
   onMore: () => void;
@@ -252,6 +255,7 @@ export function BookmarkList({
 
   const entries = useMemo<ListEntry[]>(() => {
     if (view !== "list") return [];
+    if (!grouped) return bookmarks.map((bookmark) => ({ kind: "row", bookmark }));
     const loaded = new Map<DateGroup, number>();
     // Grouped by when the list places them: saved, or deleted in the trash.
     for (const b of bookmarks) {
@@ -270,7 +274,7 @@ export function BookmarkList({
       result.push({ kind: "row", bookmark });
     }
     return result;
-  }, [view, bookmarks, dateGroups]);
+  }, [view, bookmarks, dateGroups, grouped]);
 
   const grid = view === "grid";
   const count = grid ? Math.ceil(bookmarks.length / columns) : entries.length;
