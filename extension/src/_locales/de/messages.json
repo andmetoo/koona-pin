@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "Die Erweiterung findet die App auf diesem Computer nicht. Installieren Sie Koona Pin oder installieren Sie es neu, falls es schon da ist."
   },
+  "statusSandbox": { "message": "Speichern ist in diesem Browser nicht verfügbar" },
+  "statusSandboxText": {
+    "message": "Die Erweiterung erreicht Koona Pin nicht. Installieren Sie Koona Pin, falls noch nicht geschehen. Ist es installiert, läuft dieser Browser in einer Sandbox, die die App aussperrt — Flatpak oder Chromium aus Snap: Nutzen Sie den Browser aus den Paketen Ihrer Distribution. Gespeicherte Links warten hier."
+  },
   "download": { "message": "Koona Pin herunterladen" },
   "queueHeading": { "message": "Wartet auf das Senden" },
   "sendNow": { "message": "Jetzt senden" },

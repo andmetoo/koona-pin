@@ -66,6 +66,15 @@ const demoCaptureStatus: CaptureStatus = {
 export const DEMO_STORAGE_KEY = "koonapin.demo.v4";
 /** The desktop the preview pretends to run on (NP-053): a JSON `Desktop`. */
 export const DEMO_DESKTOP_KEY = "koonapin.demo.desktop";
+function storedDesktop(): Desktop | null {
+  try {
+    return JSON.parse(localStorage.getItem(DEMO_DESKTOP_KEY) || "null") as Desktop | null;
+  } catch {
+    return null;
+  }
+}
+/** Capture speaks of the system the preview pretends to run on (NP-054). */
+const demoCapture = (): CaptureStatus => ({ ...demoCaptureStatus, system: storedDesktop()?.linux ? "linux" : "windows" });
 const key = DEMO_STORAGE_KEY;
 const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString();
 // The texts follow the interface's language when the library is created; a saved
@@ -858,13 +867,13 @@ export const demo = {
   },
   /** The preview has no browser extension: never connected. */
   async getCaptureStatus(): Promise<CaptureStatus> {
-    return demoCaptureStatus;
+    return demoCapture();
   },
   onCaptureStatus(_fn: (status: CaptureStatus) => void) {
     return () => {};
   },
   async repairCapture(): Promise<CaptureStatus> {
-    return demoCaptureStatus;
+    return demoCapture();
   },
   async getLibraryStatus(): Promise<LibraryStatus> {
     return { state: "ready", damaged: false, moved_aside: null };
@@ -883,13 +892,7 @@ export const demo = {
   },
   /** Windows buttons; a test or a look at the Linux bar puts a `Desktop` into localStorage. */
   async getDesktop(): Promise<Desktop> {
-    try {
-      const stored = JSON.parse(localStorage.getItem(DEMO_DESKTOP_KEY) || "null") as Desktop | null;
-      if (stored) return stored;
-    } catch {
-      /* The default below. */
-    }
-    return { linux: false, left: [], right: ["minimize", "maximize", "close"], tray: true };
+    return storedDesktop() ?? { linux: false, left: [], right: ["minimize", "maximize", "close"], tray: true };
   },
   async hideToBackground() {
     /* Desktop-only. */

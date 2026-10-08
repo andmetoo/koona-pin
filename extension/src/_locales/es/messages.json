@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "La extensión no encuentra la aplicación en este ordenador. Instala Koona Pin o reinstálalo si ya está."
   },
+  "statusSandbox": { "message": "Guardar no está disponible en este navegador" },
+  "statusSandboxText": {
+    "message": "La extensión no puede comunicarse con Koona Pin. Instala Koona Pin si aún no lo has hecho. Si ya está instalado, este navegador se ejecuta en un entorno aislado que bloquea la aplicación (Flatpak o Chromium de Snap): usa el navegador de los paquetes de tu distribución. Los enlaces que guardes esperan aquí."
+  },
   "download": { "message": "Descargar Koona Pin" },
   "queueHeading": { "message": "Esperando para enviarse" },
   "sendNow": { "message": "Enviar ahora" },

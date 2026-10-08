@@ -187,6 +187,10 @@
   "statusMissingText": {
     "message": "The extension can't find the app on this computer. Install Koona Pin, or reinstall it if it's already there."
   },
+  "statusSandbox": { "message": "Saving isn't available in this browser" },
+  "statusSandboxText": {
+    "message": "The extension can't reach Koona Pin. Install Koona Pin if it isn't installed yet. If it is, this browser runs in a sandbox that keeps the app out — Flatpak, or Chromium from Snap: use the browser from your distribution's packages. Links you save wait here."
+  },
   "download": { "message": "Download Koona Pin" },
   "queueHeading": { "message": "Waiting to be sent" },
   "sendNow": { "message": "Send now" },
