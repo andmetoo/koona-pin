@@ -46,8 +46,13 @@ XDG_RUNTIME_DIR=$(mktemp -d)
 chmod 700 "$XDG_RUNTIME_DIR"
 
 step "X11 (Xvfb)"
-Xvfb :99 -screen 0 1280x800x24 -nolisten tcp > /dev/null 2>&1 &
+# Without MIT-SHM: in a container GTK's shared-memory attach was sometimes refused (BadAccess, request 130),
+# an X error GTK treats as fatal — the app exited at start on Ubuntu 26.04 once in two runs (8 October 2026).
+# Without the extension clients send images over the socket; the desktop is not affected.
+Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -extension MIT-SHM > "$XDG_RUNTIME_DIR/xvfb.log" 2>&1 &
 xvfb=$!
+for _ in $(seq 50); do [ -S /tmp/.X11-unix/X99 ] && break; sleep 0.2; done
+[ -S /tmp/.X11-unix/X99 ] || { cat "$XDG_RUNTIME_DIR/xvfb.log"; echo "FAIL: Xvfb did not start"; exit 1; }
 DISPLAY=:99 GDK_BACKEND=x11 check
 
 # test:host with this binary (NP-099): the host passes messages over the socket in $XDG_RUNTIME_DIR and
