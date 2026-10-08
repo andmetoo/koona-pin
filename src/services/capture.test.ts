@@ -46,7 +46,7 @@ describe("browser status", () => {
     await i18n.changeLanguage("ru");
     const t = i18n.t.bind(i18n);
     expect(statusLabel(null, t)).toBe("Проверяем захват…");
-    expect(statusLabel(base, t)).toBe("Браузер отключён");
+    expect(statusLabel(base, t)).toBe("Браузера пока нет");
     expect(statusLabel({ ...base, state: "connected", browsers: [seen("chrome")] }, t)).toBe("Браузер подключён");
     expect(statusLabel({ ...base, state: "lost", days_silent: 3 }, t)).toBe("Нет связи 3 дня");
     expect(statusLabel({ ...base, state: "lost", days_silent: 5 }, t)).toBe("Нет связи 5 дней");
