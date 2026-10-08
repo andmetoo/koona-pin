@@ -56,7 +56,9 @@
 
 Запуск вместе с системой на Linux (NP-097, [Р-45](decisions.md#р-45-контракт-linux-beta), п. 10) включает само приложение при первом запуске с библиотекой: пакет в домашнюю папку не пишет. Ярлык `koonapin.desktop` в `$XDG_CONFIG_HOME/autostart` (по умолчанию `~/.config/autostart`) запускает приложение скрытым (`--autostart`); его читают GNOME, KDE и uwsm (Hyprland в Omarchy). `TryExec` выключает ярлык, когда программы больше нет: удалённый пакет не оставляет ошибки при входе. Выключатель в «Общих» удаляет ярлык; ярлык, выключенный в настройках самого рабочего стола (`Hidden=true`, `X-GNOME-Autostart-enabled=false`), выключатель показывает выключенным. «Показать в папке» выделяет файл в Files, Dolphin или Nautilus (`org.freedesktop.FileManager1`), без него — открывает папку через портал; ссылки открываются браузером по умолчанию (`xdg-open`).
 
-Удаление — «Параметры → Приложения» или `uninstall.exe` в папке установки. Ключи браузеров удаляются до файлов (`--unregister-host`; ключ, указывающий на другую копию, остаётся), запись автозапуска — вместе с ними. Библиотека и резервные копии в `%APPDATA%\Koona Pin` остаются, если не отметить «Удалить библиотеку и резервные копии» (по умолчанию снята); эта галочка удаляет и профиль WebView2.
+На Linux (NP-055, [Р-54](decisions.md#р-54-пакеты-deb-и-rpm)) — пакеты `koonapin_<версия>_amd64.deb` для Ubuntu и Debian и `koonapin-<версия>-1.x86_64.rpm` для Fedora: двойной щелчок в центре приложений, `sudo apt install ./koonapin_<версия>_amd64.deb` или `sudo dnf install ./koonapin-<версия>-1.x86_64.rpm`. Пакет тянет WebKitGTK и библиотеку трея, советует шрифт Noto Sans CJK и ставит `/usr/bin/koonapin`, `/usr/bin/koonapin-host`, пункт меню `koonapin.desktop` со значком, описание для центра приложений, страницы `man` и манифесты браузеров ([Р-53](decisions.md#р-53-регистрация-native-host-на-linux)) — расширение сохраняет ссылки сразу, до первого запуска приложения. Удаление — центром приложений, `sudo apt remove koonapin` или `sudo dnf remove koonapin`: уходят программа, помощник, манифесты и пункт меню; библиотека в `~/.local/share/Koona Pin` остаётся и после `apt purge` (вручную — удалить эту папку).
+
+Удаление на Windows — «Параметры → Приложения» или `uninstall.exe` в папке установки. Ключи браузеров удаляются до файлов (`--unregister-host`; ключ, указывающий на другую копию, остаётся), запись автозапуска — вместе с ними. Библиотека и резервные копии в `%APPDATA%\Koona Pin` остаются, если не отметить «Удалить библиотеку и резервные копии» (по умолчанию снята); эта галочка удаляет и профиль WebView2.
 
 Сборка установщика:
 
@@ -68,6 +70,8 @@ npm run build:installer -- --sign   # подпись Certum SimplySign, усло
 ```
 
 Настройки берутся из `.env` в корне репозитория или из переменных окружения (переменная окружения важнее). Скрипт собирает с `--features public-release` и кладёт установщик с `SHA256SUMS.txt` в `release/test/windows/<версия>/`, с `--sign` — в `release/publish/windows/<версия>/`. Без `--sign` установщик не подписан: SmartScreen его предупреждает, публиковать такой нельзя.
+
+Сборка пакетов Linux — `npm run build:linux` на Debian 13 (самая старая glibc матрицы) с пакетами `scripts/linux/deps.sh` и `rpm`; `.env` и `public-release` — как у установщика. Результат с `SHA256SUMS.txt` — в `release/publish/linux/<версия>/`, без подписи GPG (Р-45, п. 8). В CI её делает задание `build` в `linux.yml` ([testing.md](testing.md#linux)).
 
 Самостоятельная релизная сборка без установщика — `cargo build --release --features custom-protocol` в `src-tauri`, результат `src-tauri/target/release/koonapin.exe`. Она проверена в настоящем WebView2 и с расширением через Native Messaging.
 

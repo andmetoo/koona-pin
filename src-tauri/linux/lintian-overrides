@@ -1,0 +1,11 @@
+# Chrome and Edge read their system manifests only in /etc/opt/chrome and /etc/opt/edge (Р-45, п. 5; Р-53);
+# Google's and Microsoft's own packages install there.
+koonapin: dir-or-file-in-etc-opt [etc/opt/*]
+# The feedback report names the package that installed the app: it reads /var/lib/dpkg/info/*.list and
+# never writes there (src-tauri/src/feedback.rs).
+koonapin: uses-dpkg-database-directly [usr/bin/koonapin]
+# The app's C (SQLite) is built with dpkg-buildflags, -D_FORTIFY_SOURCE among them
+# (scripts/build-linux-packages.mjs): it calls __memcpy_chk, __memmove_chk and __memset_chk, which lintian
+# does not count. The host is only Rust: nothing for _FORTIFY_SOURCE to harden.
+koonapin: hardening-no-fortify-functions [usr/bin/koonapin]
+koonapin: hardening-no-fortify-functions [usr/bin/koonapin-host]
