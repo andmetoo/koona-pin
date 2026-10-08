@@ -9,7 +9,7 @@ src/bindings/*.ts text eol=lf
 # Files of the Linux packages (NP-055): the desktop entry, the spec and the manual pages are read as they
 # are, also from a Windows checkout copied by act.
 src-tauri/linux/** text eol=lf
-# The Bun version as setup-bun reads it on a Windows runner, without \r (Р-60); bun install writes
+# The Bun version as setup-bun reads it on a Windows runner, without \r (Р-61); bun install writes
 # bun.lock with LF.
 .bun-version text eol=lf
 bun.lock text eol=lf

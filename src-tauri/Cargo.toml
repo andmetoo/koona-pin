@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "0.2.0"
+version = "0.3.1"
 description = "Koona Pin desktop bookmark library"
 license = "AGPL-3.0-only"
 edition = "2021"
@@ -44,6 +44,10 @@ dirs = "5.0"
 ts-rs = { version = "12", default-features = false, features = ["serde-compat"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
+# The app updates itself (NP-038, NP-102, Р-60): checks latest.json, downloads and verifies the
+# minisign signature, runs the NSIS installer on Windows. No zip: releases carry the installer
+# itself. The system proxy, as feedback has (NP-088).
+tauri-plugin-updater = { version = "2.13", default-features = false, features = ["rustls-tls", "system-proxy"] }
 # «Title A–Z» and «Site A–Z» (NP-114): sort keys in the interface's language.
 # The other ICU4X crates are already in the tree through `url`.
 icu_collator = "2.3"
@@ -62,6 +66,7 @@ rusqlite = { version = "0.32", features = ["trace"] }
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
   "Win32_Foundation",
+  "Win32_Graphics_Dwm",
   "Win32_Security",
   "Win32_Security_Authorization",
   "Win32_System_Memory",

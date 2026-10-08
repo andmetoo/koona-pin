@@ -104,6 +104,35 @@ pub async fn get_desktop(app: AppHandle) -> Desktop {
     }
 }
 
+/// Hides the window into the tray or the background, at once. Windows plays its
+/// own transition for a hidden window, and on this frameless WebView2 window it
+/// stutters; transitions stay off while the window is hidden and come back in
+/// [`crate::show`], so minimizing and showing keep their animation.
+pub fn hide<R: tauri::Runtime>(window: &tauri::Window<R>) -> tauri::Result<()> {
+    #[cfg(windows)]
+    transitions(window, false);
+    window.hide()
+}
+
+/// Windows' own show, hide and minimize animations of the window.
+#[cfg(windows)]
+pub fn transitions<R: tauri::Runtime>(window: &tauri::Window<R>, on: bool) {
+    use windows_sys::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_TRANSITIONS_FORCEDISABLED};
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let disabled = i32::from(!on);
+    // The handle is the live window's; the value is a BOOL the call only reads.
+    unsafe {
+        DwmSetWindowAttribute(
+            hwnd.0,
+            DWMWA_TRANSITIONS_FORCEDISABLED as u32,
+            &disabled as *const i32 as *const std::ffi::c_void,
+            std::mem::size_of::<i32>() as u32,
+        )
+    };
+}
+
 /// Shows the window over the others, with the focus. On Wayland a window may
 /// take the focus only with a token from the launcher (xdg-activation): the
 /// second start hands its token over.

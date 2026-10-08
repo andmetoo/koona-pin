@@ -2,7 +2,7 @@
   "name": "koonapin",
   "private": true,
   "license": "AGPL-3.0-only",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -42,6 +42,7 @@
     "prebuild:linux": "bun scripts/clean.mjs",
     "build:linux": "bun scripts/build-linux-packages.mjs",
     "build:aur": "bun scripts/build-aur.mjs",
+    "build:latest": "bun scripts/build-latest.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
