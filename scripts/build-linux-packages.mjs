@@ -260,5 +260,8 @@ await writeFile(
   `${sums.join("\n")}\n\nunsigned (no GPG in the beta); commit ${git("rev-parse", "--short", "HEAD") || "unknown"}${dirty}; built ${date.toISOString()}\n`,
 );
 console.log(`\n${output("dpkg-deb", ["--info", deb])}\n\n${output("dpkg-deb", ["--contents", deb])}`);
-console.log(`\n${output("rpm", ["-qip", "--requires", rpm])}\n\n${output("rpm", ["-qlpv", rpm])}`);
+// A query of the file only: an empty database of its own, Debian has none in /var/lib/rpm.
+const rpmdb = ["--dbpath", staged("rpmdb")];
+await mkdir(staged("rpmdb"), { recursive: true });
+console.log(`\n${output("rpm", [...rpmdb, "-qip", "--requires", rpm])}\n\n${output("rpm", [...rpmdb, "-qlpv", rpm])}`);
 console.log(`\n${sums.join("\n")}`);

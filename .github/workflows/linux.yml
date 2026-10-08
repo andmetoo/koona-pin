@@ -117,5 +117,9 @@ jobs:
         run: bash scripts/linux/ci-package.sh install
       - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
+      # Fedora's Firefox reads only /usr/lib64/mozilla: the one place the .rpm differs (Р-53).
+      - name: Fedora's Firefox and Chromium with the package as «dev»
+        if: ${{ matrix.image == 'fedora:44' }}
+        run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"
       - name: Install again and remove the package
         run: bash scripts/linux/ci-package.sh remove
