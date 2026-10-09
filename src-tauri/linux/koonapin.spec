@@ -23,9 +23,8 @@ Recommends:     google-noto-sans-cjk-vf-fonts
 %description
 Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge,
 Chromium and Firefox with one button of the Koona Pin extension and stay on
-your computer: no account, no cloud. The package brings the native messaging
-host and registers it in the browsers, so saving works before the app is
-first started.
+your computer. The package brings the native messaging host and registers it
+in the browsers, so saving works before the app is first started.
 
 %install
 cp -a %{tree}/. %{buildroot}/

@@ -1,3 +1,4 @@
 -P ubuntu-latest=catthehacker/ubuntu:act-latest
 --artifact-server-path=.test-data/act-artifacts
 --secret-file=.env
+--pull=false

@@ -53,6 +53,9 @@ bun run tauri dev
 | --- | --- | --- |
 | Установщик Windows для проверки, без подписи | `bun run build:installer` | `release/test/windows/<версия>/` — установщик и `SHA256SUMS.txt` |
 | Установщик Windows для выпуска, подписанный | `bun run build:installer -- --sign` | `release/publish/windows/<версия>/` |
+| Пакеты Linux: `.deb`, `.rpm`, AppImage | `bun run build:linux` (на Windows — в Docker через `act`) | `release/publish/linux/<версия>/` |
+| `PKGBUILD` и `.SRCINFO` пакета AUR | `bun run build:aur` | `release/publish/aur/<версия>/` |
+| Подписи обновлений и `latest.json` | `bun run build:latest` | `release/publish/updates/<версия>/` (выкладывается с сайтом) |
 | Расширение для каталогов Chrome и Edge | `bun run extension:build` | `release/publish/chrome/<версия>/`, `release/publish/edge/<версия>/` |
 | Расширение с ID каталога Chrome для тестовой машины | `bun run extension:build` с `CHROME_STORE_PUBLIC_KEY` | `release/test/chrome-edge/<версия>/` |
 | Расширение для своего браузера («Загрузить распакованное», тесты) | `bun run extension:build` | `release/dev/chrome`, `edge`, `firefox` |
@@ -62,7 +65,17 @@ bun run tauri dev
 
 `publish/` — людям и в каталоги, `test/` — только на тестовую машину, `dev/` — только на этот компьютер. Рабочие папки инструментов из рук не берутся: `src-tauri/target` (Cargo и Tauri: EXE, промежуточные файлы установщика) и `dist/` (интерфейс приложения для Tauri). `bun run tauri build` собирает только EXE в `src-tauri/target/release`, установщик — только `build:installer`.
 
-**Мусор тестов.** Каждый прогон теста и скрипта оставляет свою папку в `.test-data`, а Rust-тесты — папки `koonapin-*` во временной папке системы. `bun run clean` убирает их вместе с `test-results` и `playwright-report`; `libraries` (тестовые библиотеки) и всё, что менялось за последние 30 минут, остаются, `release/` не трогается. Сам он запускается перед `check`, `test:native`, `test:host`, `test:extension`, `test:extension:firefox` и `build:installer`. `bun run clean -- --list` показывает, сколько занимают папки сборок, `bun run clean -- --cargo` ещё и очищает папки Cargo — следующая сборка пойдёт с нуля.
+**Мусор тестов.** Каждый прогон теста и скрипта оставляет свою папку в `.test-data`, а Rust-тесты — папки `koonapin-*` во временной папке системы. `bun run clean` убирает их вместе с `test-results` и `playwright-report`; `libraries` (тестовые библиотеки), `act-artifacts` (пакеты Linux из `act` до распаковки) и всё, что менялось за последние 30 минут, остаются, `release/` не трогается. Сам он запускается перед `check`, `test:native`, `test:host`, `test:extension`, `test:extension:firefox`, `build:installer` и `build:linux`. `bun run clean -- --list` показывает, сколько занимают папки сборок, `bun run clean -- --cargo` ещё и очищает папки Cargo — следующая сборка пойдёт с нуля.
+
+### Выпуск
+
+Одна команда на компьютере владельца, из чистой рабочей копии `main` с новой версией и файлом `site/content/changelog/<версия>.md`:
+
+```powershell
+bun run release
+```
+
+Она собирает то, чего у этой версии ещё нет, и пропускает готовое: подписанный установщик Windows (`build:installer -- --sign`), пакеты Linux (`build:linux`: задание `build` из `linux.yml` в Docker через `act`, около 20 минут, затем распаковка артефакта), файлы AUR (`build:aur`) и, последним шагом, подписи обновлений с `latest.json` (`build:latest`). Перед первым шагом она проверяет всё сразу и при ошибке ничего не начинает: файл изменений, ключ обновлений и его пароль в `.env`, вход в SimplySign Desktop и `SIGN_CERT_SHA1` (если установщика ещё нет), запущенный Docker (если нет пакетов Linux), незакоммиченные изменения приложения. Если пакеты собраны из коммита, после которого приложение менялось, команда останавливается: нужно поднять версию или собрать заново (`-- --rebuild windows` или `-- --rebuild linux`). Выпуск только для одной системы — `-- --only linux` или `-- --only windows`. Если шаг упал, повторный запуск продолжает с него. После выпуска сайт выкладывает владелец (`pwsh scripts/deploy-site.ps1 -Server user@host`, [site.md](doc/site.md#выкладка)), он забирает новейшую версию из `release/publish/updates`. Если `act` запускали вручную, пакеты из его артефакта распаковывает `bun run build:linux -- --unpack`.
 
 ## Лицензия
 

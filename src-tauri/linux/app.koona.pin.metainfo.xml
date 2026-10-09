@@ -12,8 +12,8 @@
     <name>Koona</name>
   </developer>
   <description>
-    <p>Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer. No account, no cloud.</p>
-    <p xml:lang="ru">Koona Pin — библиотека закладок для компьютера. Страницы попадают в неё из Chrome, Edge и Firefox одной кнопкой и остаются на вашем компьютере. Без аккаунта и облака.</p>
+    <p>Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer.</p>
+    <p xml:lang="ru">Koona Pin — библиотека закладок для компьютера. Страницы попадают в неё из Chrome, Edge и Firefox одной кнопкой и остаются на вашем компьютере.</p>
     <ul>
       <li>One button: click it on any page and the link is saved, even when the app is closed</li>
       <li xml:lang="ru">Одна кнопка: нажмите на любой странице — ссылка сохранится, даже если приложение закрыто</li>
