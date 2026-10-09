@@ -17,7 +17,6 @@ Paid features of Koona Pin are not covered by the AGPL. When their source is pub
 The AGPL covers code, not the brand. The names "Koona" and "Koona Pin", the mascot Pin Spirit, the logo and wordmark are trademarks of Radik Ilin; see [TRADEMARKS.md](TRADEMARKS.md). The following are not licensed under the AGPL and remain all rights reserved:
 
 - `design/` — brand sources, mascot and design files;
-- `doc/concepts/`;
 - `src-tauri/icons/`, `extension/src/icons/`, `scripts/platform-probe/mobile-app/src-tauri/icons/`, `app-icon.svg`;
 - `site/src/brand/`, `site/src/shots/`, `extension/store/` (images);
 - any drawing of the mascot, including one written as code.

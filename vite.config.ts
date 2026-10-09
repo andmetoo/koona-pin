@@ -15,7 +15,6 @@ export default defineConfig({
         "**/.test-data/**",
         "**/.cache/**",
         "**/test-results/**",
-        "**/doc/concepts/**",
       ],
     },
   },

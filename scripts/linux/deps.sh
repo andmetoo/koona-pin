@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # System packages for building and running Koona Pin from source on Ubuntu, Debian, Fedora and Arch
-# (NP-093, doc/testing.md «Linux»): the Tauri 2 prerequisites (v2.tauri.app/start/prerequisites,
+# (NP-093, docs/building.md): the Tauri 2 prerequisites (v2.tauri.app/start/prerequisites,
 # checked 7 October 2026). Bun (.bun-version, bun.sh) and Rust (rustup, rust-toolchain.toml) are not here.
 #   bash scripts/linux/deps.sh
 set -euo pipefail

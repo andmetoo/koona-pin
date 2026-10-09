@@ -1,4 +1,4 @@
-/* koona.app/pin — tokens of doc/guidelines.md, layout of landing.sketch (doc/site.md). */
+/* koona.app/pin — tokens of docs/design.md, layout of landing.sketch. */
 :root {
   --bg: #faf9f6;
   --panel: #f2f1ec;
@@ -1681,7 +1681,7 @@ a.tile:hover {
   }
 }
 
-/* Motion (doc/site.md): the first screen rises in once; sections rise in as they scroll into view
+/* Motion: the first screen rises in once; sections rise in as they scroll into view
    where the browser has scroll-driven animations, and are simply there elsewhere. Only opacity and
    transform; nothing at all with «reduce motion». */
 @keyframes rise {

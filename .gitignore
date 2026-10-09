@@ -28,6 +28,9 @@ scripts/native-messaging-probe/target/
 # Claude app: local preview settings
 .claude/
 
+# Internal notes live outside this repository.
+/doc/
+
 # Lunacy mockups live with the owner, outside Git: they may hold stock photos that are not ours to hand out
 # (LICENSING.md). On 9 October 2026 they were cut out of the whole history.
 /design/lunacy/

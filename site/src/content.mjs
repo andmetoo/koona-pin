@@ -1,4 +1,4 @@
-// Texts of koona.app/pin (doc/site.md): one file per language in ./locales, English the source.
+// Texts of koona.app/pin: one file per language in ./locales, English the source.
 // The languages are the app's (NP-089, NP-107), with one Serbian: Latin, the owner's choice.
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";

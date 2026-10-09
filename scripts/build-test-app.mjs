@@ -4,7 +4,7 @@
 // same src-tauri/target/debug/koonapin.exe without it: that one loads the Vite server on
 // localhost:1420 and has no CSP at all (Tauri applies it to embedded pages only).
 // bun runs this before test:native, test:perf and site:shots. With KOONAPIN_TEST_BINARY set (a
-// release binary, doc/testing.md) there is nothing to build.
+// release binary) there is nothing to build.
 //   bun scripts/build-test-app.mjs
 import { execSync } from "node:child_process";
 import { root } from "./lib/paths.mjs";

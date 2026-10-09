@@ -129,10 +129,10 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(
       page.getByRole("button", { name: "Maximize", exact: true }),
     ).toBeVisible();
-    // The restored window can land a row under the cursor; the docs show the list at rest.
+    // The restored window can land a row under the cursor; the shot shows the list at rest.
     await page.mouse.move(1, 1);
     await page.waitForTimeout(300);
-    await page.screenshot({ path: "doc/concepts/native-webview2.jpg" });
+    await page.screenshot({ path: "test-results/native-webview2.jpg" });
     await page
       .getByRole("button", { name: "Close window", exact: true })
       .click();
@@ -392,7 +392,7 @@ test("a start in the tray: the hidden window still gives the tray its words (NP-
  * that key, so the last step runs a harmless program and the app ends as before an update.
  */
 test("updater: no connection, the offer, download and cancel, a signature for another version, then the installer starts (NP-038)", async ({ request }) => {
-  test.skip(process.platform !== "win32", "The NSIS path; Linux installs through pkexec (doc/testing.md)");
+  test.skip(process.platform !== "win32", "The NSIS path; Linux installs through pkexec");
   test.setTimeout(120000);
   const http = await import("node:http");
   const { spawnSync } = await import("node:child_process");
@@ -1209,7 +1209,7 @@ test("10 000 bookmarks scroll smoothly in the grid and the list", { tag: "@perf"
       console.log(`Scrolling 10 000 bookmarks, ${view}:`, result);
       expect(result.loaded).toBe(10000);
       expect(result.inDom).toBeLessThan(100);
-      // Recorded in doc/testing.md; the bound only catches a clear regression.
+      // The bound only catches a clear regression.
       expect(result.p95).toBeLessThan(50);
     }
   } finally {
