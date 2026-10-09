@@ -67,6 +67,16 @@ xdg() {
     fi
     echo "ok: autostart entry under \$XDG_CONFIG_HOME: this program with --autostart, TryExec"
     kill $app
+    wait $app || true
+    # A power cut right after the first start leaves the entry empty (Debian 13, 0.3.3): the next start mends it.
+    : > "$entry"
+    "$1" > "$HOME/again.log" 2>&1 &
+    app=$!
+    for _ in $(seq 120); do grep -qx "Exec=$1 --autostart" "$entry" && break; kill -0 $app 2> /dev/null || break; sleep 0.5; done
+    grep -qx "Exec=$1 --autostart" "$entry" || { cat "$HOME/again.log"; echo "FAIL: an empty autostart entry was not mended"; exit 1; }
+    [ ! -e "$XDG_CONFIG_HOME/autostart/.koonapin.desktop.partial" ] || { echo "FAIL: the partial file was left behind"; exit 1; }
+    echo "ok: an empty autostart entry is mended at the next start"
+    kill $app
   ' xdg "$app"
 }
 
