@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — save link" },
   "extensionDescription": {
-    "message": "Save the page to your local Koona Pin library in one click. Links wait in a queue while the app is closed."
+    "message": "Save any page to the Koona Pin app on your computer in one click, and search your saved links from the browser."
   },
   "menuOptions": { "message": "Settings and queue" },
   "menuSearch": { "message": "Find a link" },

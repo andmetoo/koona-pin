@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — salvar link" },
   "extensionDescription": {
-    "message": "Salve a página na sua biblioteca local do Koona Pin com um clique. Com o app fechado, os links esperam na fila."
+    "message": "Salve qualquer página no app Koona Pin do seu computador com um clique e busque seus links salvos no navegador."
   },
   "menuOptions": { "message": "Configurações e fila" },
   "menuSearch": { "message": "Encontrar um link" },
