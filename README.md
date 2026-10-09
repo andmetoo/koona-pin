@@ -1,82 +1,135 @@
 # Koona Pin
 
-Локальная библиотека ссылок для компьютера — Windows, следом Linux: светлая и тёмная темы, коллекции, теги, избранное и захват страниц из Chrome, Edge и Firefox с устойчивой очередью. Интерфейс на английском, русском, сербском и восьми европейских языках ([Языки](doc/features.md#языки)).
+A desktop bookmark library. Save the page you are on from Chrome, Edge or Firefox with one button; the link lands in the app and stays on your computer.
 
-**Дизайн.** Актуальный дизайн — редизайн, итерация 1 (envy green, Inter, разбор входящих, массовые действия). В коде — его основа (NP-010): оболочка, компоненты, настройки; остальные экраны доводятся задачами дорожной карты. Что главнее и где что лежит — в [гайдлайне](doc/guidelines.md).
+Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
-Сайт приложения: [koona.app/pin](https://koona.app/pin/). Исходники — `site/`, сборка `bun run site:build`, проверка `bun run site:check`, выкладка на сервер владельца с Caddy — `pwsh scripts/deploy-site.ps1 -Server user@host`; подробно — [doc/site.md](doc/site.md#выкладка).
+![Koona Pin with eight bookmarks in a grid: previews, sites and titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox](site/src/shots/app-en-light-grid-1280.webp)
 
-React 19 · TypeScript · Tauri 2 · Rust · SQLite. Данные хранятся в `%APPDATA%\Koona\Pin\koonapin.db`.
+![The same library in the dark theme as a list grouped by date, with tags, collections and dates](site/src/shots/app-en-dark-list-1280.webp)
 
-Прежнее название — OddClicks. Данные OddClicks и тестовых сборок до схемы 1 не переносятся ([Р-11](doc/decisions.md#р-11-чистая-схема-1-вместо-переноса-данных)). С уходом HTTP-сервера (NP-016) старого имени в коде не осталось.
+## What it does
 
-Дизайн, по приоритету:
+- **One-button capture.** The browser extension saves the current page to Koona Pin, even when the app window is closed. New links arrive in Inbox.
+- **Inbox you can clear from the keyboard.** Keep, file or toss each new link with one key.
+- **Collections, tags and favorites** to group links the way you think about them.
+- **Search** across titles, sites and tags as you type; Ctrl K opens it from anywhere.
+- **Grid and list views**, a light and a dark theme.
+- **Trash** keeps deleted links for 30 days, so you can restore them.
+- **Import and export.** Import the bookmarks file your browser exports; export to HTML, JSON or CSV.
+- **Works offline.** The library is a file on your disk with automatic backups.
+- **Updates** are checked once a day and installed only when you agree.
+- **15 interface languages** (see [Translations](#translations)).
 
-1. [Гайдлайн и приоритеты](doc/guidelines.md) — начинать отсюда
-2. [Редизайн: итерация 1](doc/redesign.md) — актуальные макеты, в коде основа
-3. [Дизайн «Редакция»](doc/design.md) — прежний интерфейс, архив
+## Download
 
-Остальное:
+Current version: **0.6.1**. Get it from **[koona.app/pin/downloads](https://koona.app/pin/downloads/)**, which also lists SHA-256 checksums and install commands.
 
-- [Возможности, установка и расширение](doc/features.md)
-- [Согласованный план](doc/plan.md)
-- [Протокол и архитектура](doc/architecture.md)
-- [Проверки и CI](doc/testing.md)
-- [Процесс разработки с ИИ-агентами](doc/development-process.md)
-- [Дорожная карта](doc/roadmap.md), [сценарии](doc/scenarios.md), [решения](doc/decisions.md) и [индекс задач GitHub](doc/issues/README.md)
-- [Шаблон задачи](doc/task-template.md) и [чеклист выпуска](doc/release-checklist.md)
-- Выпуски и обратная связь — в этом же репозитории [andmetoo/koona-pin](https://github.com/andmetoo/koona-pin) ([Р-9](doc/decisions.md#р-9-распространение-windows), [Р-47](doc/decisions.md#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код)): формы issues — `.github/ISSUE_TEMPLATE`, сообщения об уязвимостях — [SECURITY.md](SECURITY.md), метки и настройки — `scripts/setup-repo.ps1`
-- Слайды процесса: `design/lunacy/development_process.sketch` (20 редактируемых кадров в Lunacy)
-
-## Разработка
-
-Нужны Bun (версия в `.bun-version`; Node.js не нужен, [Р-61](doc/decisions.md#р-61-bun-вместо-node-и-npm)), Rust (версия в `rust-toolchain.toml`, rustup установит её сам), Microsoft C++ Build Tools и WebView2. Все проверки и CI описаны в [doc/testing.md](doc/testing.md).
-
-```powershell
-bun install
-bun run tauri dev
-```
-
-На Linux — пакеты из `bash scripts/linux/deps.sh`, затем то же; проверка Linux — матрица `.github/workflows/linux.yml` через `act` ([Linux](doc/testing.md#linux)).
-
-`bun run dev` открывает браузерное превью с отдельными демонстрационными данными на языке интерфейса. Оно не обращается к пользовательской SQLite.
-
-Строки интерфейса — `src/locales/<код>.json`, источник — `en.json`; как добавить строку или язык — в [гайдлайне](doc/guidelines.md#языки-интерфейса), термины — в [глоссарии](doc/glossary.md). После правки `sr.json` — `bun run locales:sr-latn`.
-
-Расширение для Chrome, Edge и Firefox собирается из одного исходника `extension/src`; установка — в [инструкции](doc/features.md#браузеры).
-
-## Сборки: что где
-
-Всё, что уносится из репозитория — людям, в каталоги, на тестовую машину, в свой браузер, — лежит в `release/` (в Git не попадает): сначала зачем, потом платформа, потом версия. Пути задаёт один файл, [`scripts/lib/paths.mjs`](scripts/lib/paths.mjs). Настройки сборок (адрес отзыва, ключ каталога Chrome, секреты подписи) — в `.env`, шаблон [`.env.example`](.env.example).
-
-| Что | Команда | Результат |
+| Platform | Package | Notes |
 | --- | --- | --- |
-| Установщик Windows для проверки, без подписи | `bun run build:installer` | `release/test/windows/<версия>/` — установщик и `SHA256SUMS.txt` |
-| Установщик Windows для выпуска, подписанный | `bun run build:installer -- --sign` | `release/publish/windows/<версия>/` |
-| Пакеты Linux: `.deb`, `.rpm`, AppImage | `bun run build:linux` (на Windows — в Docker через `act`) | `release/publish/linux/<версия>/` |
-| `PKGBUILD` и `.SRCINFO` пакета AUR | `bun run build:aur` | `release/publish/aur/<версия>/` |
-| Подписи обновлений и `latest.json` | `bun run build:latest` | `release/publish/updates/<версия>/` (выкладывается с сайтом) |
-| Расширение для каталогов Chrome и Edge | `bun run extension:build` | `release/publish/chrome/<версия>/`, `release/publish/edge/<версия>/` |
-| Расширение с ID каталога Chrome для тестовой машины | `bun run extension:build` с `CHROME_STORE_PUBLIC_KEY` | `release/test/chrome-edge/<версия>/` |
-| Расширение для своего браузера («Загрузить распакованное», тесты) | `bun run extension:build` | `release/dev/chrome`, `edge`, `firefox` |
-| Подписанное расширение Firefox и `updates.json` | `bun run extension:sign:firefox` | `release/publish/firefox/` (выкладывается с сайтом) |
-| Сайт koona.app/pin | `bun run site:build` (`site:check` — с проверкой) | `release/publish/site/` (выкладывает `scripts/deploy-site.ps1`) |
-| Приложение для разработки | `bun run tauri dev` | окно приложения, файл не нужен |
+| Windows 11, 64-bit | Installer (`-setup.exe`) | No administrator rights needed |
+| Ubuntu 26.04, Debian 13 | `.deb` | `sudo apt install ./<file>.deb` |
+| Fedora 44 | `.rpm` | `sudo dnf install ./<file>.rpm` |
+| Other Linux distributions | AppImage | Runs without installing |
 
-`publish/` — людям и в каталоги, `test/` — только на тестовую машину, `dev/` — только на этот компьютер. Рабочие папки инструментов из рук не берутся: `src-tauri/target` (Cargo и Tauri: EXE, промежуточные файлы установщика) и `dist/` (интерфейс приложения для Tauri). `bun run tauri build` собирает только EXE в `src-tauri/target/release`, установщик — только `build:installer`.
+Linux builds are 64-bit (x86_64) and target GNOME or KDE Plasma on Wayland. macOS and an Arch Linux (AUR) package are not available yet.
 
-**Мусор тестов.** Каждый прогон теста и скрипта оставляет свою папку в `.test-data`, а Rust-тесты — папки `koonapin-*` во временной папке системы. `bun run clean` убирает их вместе с `test-results` и `playwright-report`; `libraries` (тестовые библиотеки), `act-artifacts` (пакеты Linux из `act` до распаковки) и всё, что менялось за последние 30 минут, остаются, `release/` не трогается. Сам он запускается перед `check`, `test:native`, `test:host`, `test:extension`, `test:extension:firefox`, `build:installer` и `build:linux`. `bun run clean -- --list` показывает, сколько занимают папки сборок, `bun run clean -- --cargo` ещё и очищает папки Cargo — следующая сборка пойдёт с нуля.
+Windows may warn that it protected your PC, because the app is new: choose **More info**, then **Run anyway**.
 
-### Выпуск
+## Browser extension
 
-Одна команда на компьютере владельца, из чистой рабочей копии `main` с новой версией и файлом `site/content/changelog/<версия>.md`:
+The extension works in Chrome or Edge 120+ and Firefox 140+ (including ESR 140). Install the app first; the extension talks only to Koona Pin on the same computer.
 
-```powershell
-bun run release
+- **Firefox:** "Add to Firefox" on the [downloads page](https://koona.app/pin/downloads/#extension).
+- **Chrome and Edge:** coming to the Chrome Web Store and Edge Add-ons. Until then you can build it from source (`bun run extension:build`) and load `release/dev/chrome` or `release/dev/edge` as an unpacked extension.
+
+All three browsers are built from one source in [`extension/src`](extension/src).
+
+## Privacy and where your data lives
+
+Your library is a SQLite file on your computer:
+
+| OS | Library file |
+| --- | --- |
+| Windows | `%APPDATA%\Koona\Pin\koonapin.db` |
+| Linux | `~/.local/share/Koona/Pin/koonapin.db` (or `$XDG_DATA_HOME/Koona/Pin/`) |
+
+Automatic backups go to a `backups` folder next to it. Uninstalling the Linux package keeps the library.
+
+The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it. Details: [privacy policy](https://koona.app/pin/privacy).
+
+## Building from source
+
+Koona Pin is a [Tauri 2](https://v2.tauri.app/) app: a Rust core with SQLite and a React 19 + TypeScript interface built with Vite.
+
+### Prerequisites
+
+- **[Bun](https://bun.sh/)**, the version in [`.bun-version`](.bun-version). Node.js is not needed; run every script with `bun run …`.
+- **Rust** via [rustup](https://rustup.rs/). [`rust-toolchain.toml`](rust-toolchain.toml) pins the version and rustup installs it on first build.
+- **Windows:** Microsoft C++ Build Tools and the WebView2 Runtime.
+- **Linux:** the system packages for Tauri, installed by `bash scripts/linux/deps.sh` (Ubuntu, Debian, Fedora, Arch).
+
+### Run
+
+```sh
+bun install
+bun run tauri dev    # the desktop app with hot reload
+bun run dev          # the interface alone in a browser, with demo data; it never touches your library
 ```
 
-Она собирает то, чего у этой версии ещё нет, и пропускает готовое: подписанный установщик Windows (`build:installer -- --sign`), пакеты Linux (`build:linux`: задание `build` из `linux.yml` в Docker через `act`, около 20 минут, затем распаковка артефакта), файлы AUR (`build:aur`) и, последним шагом, подписи обновлений с `latest.json` (`build:latest`). Перед первым шагом она проверяет всё сразу и при ошибке ничего не начинает: файл изменений, ключ обновлений и его пароль в `.env`, вход в SimplySign Desktop и `SIGN_CERT_SHA1` (если установщика ещё нет), запущенный Docker (если нет пакетов Linux), незакоммиченные изменения приложения. Если пакеты собраны из коммита, после которого приложение менялось, команда останавливается: нужно поднять версию или собрать заново (`-- --rebuild windows` или `-- --rebuild linux`). Выпуск только для одной системы — `-- --only linux` или `-- --only windows`. Если шаг упал, повторный запуск продолжает с него. После выпуска сайт выкладывает владелец (`pwsh scripts/deploy-site.ps1 -Server user@host`, [site.md](doc/site.md#выкладка)), он забирает новейшую версию из `release/publish/updates`. Если `act` запускали вручную, пакеты из его артефакта распаковывает `bun run build:linux -- --unpack`.
+`bun run dev` starts the interface without the Rust core, which is handy for UI work.
 
-## Лицензия
+### Checks
 
-Open core ([Р-48](doc/decisions.md#р-48-лицензия-open-core-agpl-30-cla-и-товарный-знак)): код — [GNU AGPL 3.0](LICENSE) (`AGPL-3.0-only`), платные возможности — под коммерческой лицензией, название, маскот и логотип — товарные знаки ([TRADEMARKS.md](TRADEMARKS.md)). Что под какой лицензией — [LICENSING.md](LICENSING.md); участие — по [CLA](CLA.md), правила — [CONTRIBUTING.md](CONTRIBUTING.md).
+```sh
+bun run check            # Rust tests, type check and build, Vitest; run before every commit
+bun run check:bindings   # TypeScript bindings generated from Rust are committed
+bun run test:ui          # Playwright tests of the interface
+bun run test:native      # Playwright tests of the real app window (Windows, WebView2)
+bun run test:extension   # the extension end to end against the app
+bun run extension:lint   # web-ext lint of the Firefox build
+bun run site:check       # build and check the website
+```
+
+Before the Playwright tests run `bunx --bun playwright install chromium` once. Native and extension tests use their own temporary libraries and browser profiles, not yours; close a running Koona Pin first. The full list of checks and their requirements is in [doc/testing.md](doc/testing.md) (in Russian).
+
+Build output that leaves the repository (installers, packages, extension builds, the site) goes to `release/`, which Git ignores. `bun run clean` removes what tests leave behind.
+
+## Repository layout
+
+| Folder | What is in it |
+| --- | --- |
+| [`src/`](src) | The app interface: React 19, TypeScript, Tailwind CSS, interface strings in `src/locales` |
+| [`src-tauri/`](src-tauri) | The Rust core: SQLite library, capture from the browser, import and export, backups, updates |
+| [`extension/`](extension) | The browser extension for Chrome, Edge and Firefox (`extension/src`) and store assets |
+| [`site/`](site) | The website [koona.app/pin](https://koona.app/pin/), built with Astro; changelog in `site/content/changelog` |
+| [`supabase/`](supabase) | The backend that receives feedback sent from the app and the website |
+| [`scripts/`](scripts) | Build, packaging, test and site scripts run by `bun run` |
+| [`tests/`](tests) | Playwright tests of the interface and the native app, WebKitGTK tests for Linux, and fixtures |
+| [`doc/`](doc) | Maintainers' notes |
+
+## Translations
+
+Interface strings live in [`src/locales/<code>.json`](src/locales). [`en.json`](src/locales/en.json) is the source and the fallback; every other file has the same keys, and a new file is picked up as a new language without code changes.
+
+Languages: English, Chinese (Simplified), French, German, Italian, Japanese, Korean, Polish, Portuguese (Brazil), Russian, Serbian (Cyrillic and Latin), Spanish, Turkish and Ukrainian. `sr-Latn.json` is generated from `sr.json` with `bun run locales:sr-latn`.
+
+## Contributing
+
+Bug reports, ideas and questions go to [GitHub issues](https://github.com/andmetoo/koona-pin/issues/new/choose). Please open an issue before working on anything bigger than a fix. Pull requests need a signed [Contributor License Agreement](CLA.md); the CLA check asks for it on your first pull request. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+Please don't report vulnerabilities in public issues. Use [private vulnerability reporting](https://github.com/andmetoo/koona-pin/security/advisories/new); see [SECURITY.md](SECURITY.md).
+
+## License
+
+Koona Pin is open core. The code in this repository — the app, the extension, the website, scripts, tests and documentation — is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`), unless a file or folder says otherwise. Paid features are not covered by the AGPL: if their source is published here, it lives in folders named `commercial` under a separate commercial license, and paid services such as sync are not part of this repository.
+
+The names "Koona" and "Koona Pin", the mascot, the logo and the wordmark are trademarks and are not licensed under the AGPL; brand assets, including the screenshots above, are all rights reserved. A fork must use its own name and artwork. Third-party material, such as the Unsplash photos used in the screenshots, stays under its own terms.
+
+Details: [LICENSING.md](LICENSING.md) and [TRADEMARKS.md](TRADEMARKS.md).
+
+---
+
+Maintainers' notes, the roadmap and the decision log are in [`doc/`](doc/README.md), mostly in Russian.
