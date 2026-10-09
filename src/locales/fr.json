@@ -647,7 +647,9 @@
     "feedbackHint": "Un bug, une idée ou une question — directement au développeur",
     "feedbackButton": "Envoyer un avis…",
     "github": "Tickets sur GitHub",
-    "githubHint": "Signalements publics dans koona-pin"
+    "githubHint": "Signalements publics dans koona-pin",
+    "licenses": "Licences",
+    "licensesHint": "Polices, icônes et bibliothèques qui composent Koona Pin"
   },
   "notice": {
     "previewRefreshed": "Aperçu actualisé",

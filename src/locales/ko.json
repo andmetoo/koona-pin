@@ -555,7 +555,9 @@
     "feedbackHint": "버그, 아이디어, 질문을 개발자에게 바로",
     "feedbackButton": "피드백 보내기…",
     "github": "GitHub 이슈",
-    "githubHint": "koona-pin의 공개 보고"
+    "githubHint": "koona-pin의 공개 보고",
+    "licenses": "라이선스",
+    "licensesHint": "Koona Pin에 쓰인 글꼴, 아이콘, 라이브러리"
   },
   "notice": {
     "previewRefreshed": "미리 보기를 새로 고쳤습니다",

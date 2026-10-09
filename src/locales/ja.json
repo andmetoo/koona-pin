@@ -555,7 +555,9 @@
     "feedbackHint": "不具合、アイデア、質問を開発者に直接",
     "feedbackButton": "フィードバックを送信…",
     "github": "GitHub の Issues",
-    "githubHint": "koona-pin の公開レポート"
+    "githubHint": "koona-pin の公開レポート",
+    "licenses": "ライセンス",
+    "licensesHint": "Koona Pin に使われているフォント、アイコン、ライブラリ"
   },
   "notice": {
     "previewRefreshed": "プレビューを更新しました",
