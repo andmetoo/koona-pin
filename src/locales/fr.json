@@ -982,17 +982,16 @@
     "design": "Design et UI",
     "reading": "Articles / À lire",
     "links": {
+      "koona": {
+        "title": "Apps Koona",
+        "description": "Les autres apps de Koona."
+      },
       "start": {
         "title": "Commencer ici : comment marche Koona Pin",
         "description": "Enregistrez, triez et retrouvez vos liens en quelques minutes."
       },
-      "extension": {
-        "title": "Ajoutez le bouton d’enregistrement à votre navigateur",
-        "description": "Chrome, Edge ou Firefox : un clic enregistre la page ouverte."
-      },
-      "changelog": {
-        "title": "Quoi de neuf dans Koona Pin",
-        "description": "Chaque version et ce qui y a changé."
+      "firefox": {
+        "description": "Un navigateur rapide et respectueux de la vie privée, par Mozilla."
       },
       "bun": {
         "description": "Un environnement d’exécution et une boîte à outils JavaScript rapides."

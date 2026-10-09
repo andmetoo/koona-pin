@@ -866,17 +866,16 @@
     "design": "デザインと UI",
     "reading": "記事 / あとで読む",
     "links": {
+      "koona": {
+        "title": "Koona のアプリ",
+        "description": "Koona のほかのアプリ。"
+      },
       "start": {
         "title": "はじめに：Koona Pin の使い方",
         "description": "数分でリンクの保存・整理・検索を覚えられます。"
       },
-      "extension": {
-        "title": "保存ボタンをブラウザーに追加",
-        "description": "Chrome、Edge、Firefox：ワンクリックで開いているページを保存。"
-      },
-      "changelog": {
-        "title": "Koona Pin の新機能",
-        "description": "各バージョンと変更点。"
+      "firefox": {
+        "description": "Mozilla の高速でプライバシーを守るブラウザー。"
       },
       "bun": {
         "description": "高速な JavaScript ランタイム兼ツールキット。"

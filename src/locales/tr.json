@@ -924,17 +924,16 @@
     "design": "Tasarım ve UI",
     "reading": "Makaleler / Okunacaklar",
     "links": {
+      "koona": {
+        "title": "Koona uygulamaları",
+        "description": "Koona'nın diğer uygulamaları."
+      },
       "start": {
         "title": "Buradan başlayın: Koona Pin nasıl çalışır",
         "description": "Bağlantıları birkaç dakikada kaydedin, düzenleyin ve bulun."
       },
-      "extension": {
-        "title": "Kaydet düğmesini tarayıcınıza ekleyin",
-        "description": "Chrome, Edge veya Firefox: tek tık açık sayfayı kaydeder."
-      },
-      "changelog": {
-        "title": "Koona Pin'de yenilikler",
-        "description": "Her sürüm ve içinde neyin değiştiği."
+      "firefox": {
+        "description": "Mozilla'dan hızlı ve gizliliğe saygılı bir tarayıcı."
       },
       "bun": {
         "description": "Hızlı bir JavaScript çalışma ortamı ve araç takımı."

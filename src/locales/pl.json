@@ -1040,17 +1040,16 @@
     "design": "Design i UI",
     "reading": "Artykuły / Do przeczytania",
     "links": {
+      "koona": {
+        "title": "Aplikacje Koona",
+        "description": "Inne aplikacje Koona."
+      },
       "start": {
         "title": "Zacznij tutaj: jak działa Koona Pin",
         "description": "Zapisuj, porządkuj i znajduj linki w kilka minut."
       },
-      "extension": {
-        "title": "Dodaj przycisk zapisu do przeglądarki",
-        "description": "Chrome, Edge lub Firefox: jedno kliknięcie zapisuje otwartą stronę."
-      },
-      "changelog": {
-        "title": "Co nowego w Koona Pin",
-        "description": "Każda wersja i co się w niej zmieniło."
+      "firefox": {
+        "description": "Szybka i prywatna przeglądarka od Mozilli."
       },
       "bun": {
         "description": "Szybkie środowisko uruchomieniowe i zestaw narzędzi JavaScript."
