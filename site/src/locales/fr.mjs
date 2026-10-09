@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — vos signets sur l’ordinateur, enregistrés en un clic",
   description:
-    "Une bibliothèque de signets pour l’ordinateur. Enregistrez des pages depuis Chrome, Edge et Firefox d’un seul bouton\u00a0; elles restent sur votre ordinateur. Sans compte, sans cloud.",
+    "Une bibliothèque de signets pour l’ordinateur. Enregistrez des pages depuis Chrome, Edge et Firefox d’un seul bouton\\u00a0; elles restent sur votre ordinateur.",
   nav: { how: "Fonctionnement", privacy: "Confidentialité", download: "Télécharger" },
   labels: { main: "Principal", site: "Site", why: "Pourquoi Koona Pin" },
   langSwitch: "Langue",
   h1: ["Enregistrez un lien en un clic.", "Retrouvez-le quand il le faut."],
-  sub: "Koona Pin est une bibliothèque de signets pour l’ordinateur. Les pages arrivent depuis Chrome, Edge et Firefox d’un seul bouton et restent sur votre ordinateur. Sans compte, sans cloud.",
+  sub: "Koona Pin est une bibliothèque de signets pour l’ordinateur. Les pages arrivent depuis Chrome, Edge et Firefox d’un seul bouton et restent sur votre ordinateur.",
   soon: "Bêta — bientôt",
   how: "Fonctionnement",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Gratuit"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "L’extension lit uniquement l’adresse et le titre de l’onglet que vous enregistrez.",
     "L’application n’envoie ni statistiques, ni télémétrie, ni rapports de plantage.",
-    "Ni compte, ni cloud.",
+    "Tout fonctionne hors ligne.",
   ],
   privacyLink: "Lire la politique de confidentialité",
   dlTitle: "La bêta arrive",

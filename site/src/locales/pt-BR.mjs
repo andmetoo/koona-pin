@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — marcadores no computador, salvos com um clique",
   description:
-    "Uma biblioteca de marcadores para o computador. Salve páginas do Chrome, Edge e Firefox com um botão; elas ficam no seu computador. Sem conta, sem nuvem.",
+    "Uma biblioteca de marcadores para o computador. Salve páginas do Chrome, Edge e Firefox com um botão; elas ficam no seu computador.",
   nav: { how: "Como funciona", privacy: "Privacidade", download: "Baixar" },
   labels: { main: "Principal", site: "Site", why: "Por que Koona Pin" },
   langSwitch: "Idioma",
   h1: ["Salve um link com um clique.", "Encontre quando precisar."],
-  sub: "Koona Pin é uma biblioteca de marcadores para o computador. As páginas chegam do Chrome, Edge e Firefox com um botão e ficam no seu computador. Sem conta, sem nuvem.",
+  sub: "Koona Pin é uma biblioteca de marcadores para o computador. As páginas chegam do Chrome, Edge e Firefox com um botão e ficam no seu computador.",
   soon: "Beta — em breve",
   how: "Como funciona",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Grátis"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "A extensão lê apenas o endereço e o título da aba que você salva.",
     "O aplicativo não envia análises, telemetria nem relatórios de falhas.",
-    "Sem conta e sem nuvem.",
+    "Tudo funciona offline.",
   ],
   privacyLink: "Leia a política de privacidade",
   dlTitle: "A beta está a caminho",

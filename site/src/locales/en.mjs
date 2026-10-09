@@ -2,12 +2,12 @@
 export default {
   title: "Koona Pin — desktop bookmarks, saved in one click",
   description:
-    "A desktop bookmark library. Save pages from Chrome, Edge and Firefox with one button; they stay on your computer. No account, no cloud.",
+    "A desktop bookmark library. Save pages from Chrome, Edge and Firefox with one button; they stay on your computer.",
   nav: { how: "How it works", privacy: "Privacy", download: "Download" },
   labels: { main: "Main", site: "Site", why: "Why Koona Pin" },
   langSwitch: "Language",
   h1: ["Save a link in one click.", "Find it when you need it."],
-  sub: "Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer. No account, no cloud.",
+  sub: "Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer.",
   soon: "Beta — coming soon",
   how: "How it works",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Free"],
@@ -38,7 +38,7 @@ export default {
   privacyFacts: [
     "The extension reads only the address and title of the tab you save.",
     "The app sends no analytics, telemetry or crash reports.",
-    "No account and no cloud.",
+    "Everything works offline.",
   ],
   privacyLink: "Read the privacy policy",
   dlTitle: "The beta is on its way",

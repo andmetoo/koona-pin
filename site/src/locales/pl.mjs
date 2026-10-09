@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — zakładki na komputerze, zapisane jednym kliknięciem",
   description:
-    "Biblioteka zakładek na komputer. Zapisuj strony z Chrome, Edge i Firefoksa jednym przyciskiem; zostają na Twoim komputerze. Bez konta, bez chmury.",
+    "Biblioteka zakładek na komputer. Zapisuj strony z Chrome, Edge i Firefoksa jednym przyciskiem; zostają na Twoim komputerze.",
   nav: { how: "Jak to działa", privacy: "Prywatność", download: "Pobierz" },
   labels: { main: "Główne", site: "Strona", why: "Dlaczego Koona Pin" },
   langSwitch: "Język",
   h1: ["Zapisz link jednym kliknięciem.", "Znajdź go, gdy będzie potrzebny."],
-  sub: "Koona Pin to biblioteka zakładek na komputer. Strony trafiają do niej z Chrome, Edge i Firefoksa jednym przyciskiem i zostają na Twoim komputerze. Bez konta, bez chmury.",
+  sub: "Koona Pin to biblioteka zakładek na komputer. Strony trafiają do niej z Chrome, Edge i Firefoksa jednym przyciskiem i zostają na Twoim komputerze.",
   soon: "Beta — już wkrótce",
   how: "Jak to działa",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Za darmo"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "Rozszerzenie odczytuje tylko adres i tytuł karty, którą zapisujesz.",
     "Aplikacja nie wysyła analityki, telemetrii ani raportów o awariach.",
-    "Bez konta i bez chmury.",
+    "Wszystko działa offline.",
   ],
   privacyLink: "Przeczytaj politykę prywatności",
   dlTitle: "Beta jest w drodze",
