@@ -1,6 +1,6 @@
 name: CI
 
-# Manual only: checks run locally (doc/testing.md) to save GitHub Actions minutes.
+# Manual only: checks run locally (docs/testing.md) to save GitHub Actions minutes.
 # Automatic push/PR triggers will be enabled later.
 on:
   workflow_dispatch:

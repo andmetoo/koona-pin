@@ -6,7 +6,7 @@
 param([string] $Repo = "andmetoo/koona-pin")
 $ErrorActionPreference = "Stop"
 
-# Labels of the forms and of triage, next to the task labels of doc/roadmap.md.
+# Labels of the forms and of triage, next to the task labels.
 # --force updates an existing label instead of failing; no label is deleted.
 $labels = @(
   @("bug", "d73a4a", "Something doesn't work"),

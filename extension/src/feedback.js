@@ -259,7 +259,7 @@ export function showMessage({ state, title, text, mascot, glyph, tones, label, l
   for (const path of mascot.paths) {
     const node = document.createElementNS(SVG, "path");
     node.setAttribute("d", path.d);
-    // The mascot's body is mint on dark (doc/guidelines.md).
+    // The mascot's body is mint on dark (docs/design.md).
     node.setAttribute("fill", c.body && path.fill?.toLowerCase() === "#699a74" ? c.body : path.fill);
     if (path.transform) node.setAttribute("transform", path.transform);
     art.append(node);

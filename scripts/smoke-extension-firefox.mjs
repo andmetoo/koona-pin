@@ -6,7 +6,7 @@
 // release is the current Firefox, esr is Firefox ESR 140 (scoop installs;
 // KOONAPIN_FIREFOX points to another copy). Firefox is driven over WebDriver
 // BiDi with a temporary add-on, which a browser restart removes: the restart is
-// checked by hand with the signed XPI (doc/testing.md).
+// checked by hand with the signed XPI.
 import { spawn, execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";

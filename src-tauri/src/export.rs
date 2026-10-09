@@ -610,7 +610,7 @@ mod tests {
     }
 
     /// The three files of the sample library, for importing into browsers and
-    /// opening in Excel by hand (doc/testing.md):
+    /// opening in Excel by hand:
     /// `KOONAPIN_EXPORT_SAMPLES=<folder> cargo test --lib export::tests::write_samples -- --ignored`
     #[test]
     #[ignore]
@@ -634,7 +634,7 @@ mod tests {
         write_atomically(&folder.join("sample.csv"), csv(&c, Scope::Library, &columns, list_separator()).unwrap().0.as_bytes()).unwrap();
     }
 
-    /// How long the three files take for a large library (doc/testing.md):
+    /// How long the three files take for a large library:
     /// `cargo test --release --lib export::tests::large_libraries -- --ignored --nocapture`
     #[test]
     #[ignore]

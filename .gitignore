@@ -12,7 +12,7 @@ playwright-report/
 .env
 .env.*
 !.env.example
-# Keys live outside the repository (the updater's in ~/.tauri, the server's in /etc/caddy); a copy here stays out of Git
+# Keys live outside the repository (the updater's in ~/.tauri, the server's on the server); a copy here stays out of Git
 *.key
 *.pem
 *.pfx
@@ -27,6 +27,9 @@ scripts/native-messaging-probe/target/
 
 # Claude app: local preview settings
 .claude/
+
+# Internal notes live outside this repository.
+/doc/
 
 # Lunacy mockups live with the owner, outside Git: they may hold stock photos that are not ours to hand out
 # (LICENSING.md). On 9 October 2026 they were cut out of the whole history.

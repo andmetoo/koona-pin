@@ -1,4 +1,4 @@
-// Clears what tests and scripts leave behind (doc/README.md, «Сборки: что где»). Every run of a test or a
+// Clears what tests and scripts leave behind. Every run of a test or a
 // smoke script keeps its own folder in .test-data, and Rust tests and the app keep theirs in the
 // temp folder: thousands of folders and tens of gigabytes in a week. bun runs this before check,
 // the native, host and extension tests and build:installer (package.json); by hand:

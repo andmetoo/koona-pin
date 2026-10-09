@@ -91,7 +91,7 @@ bun run extension:lint   # web-ext lint of the Firefox build
 bun run site:check       # build and check the website
 ```
 
-Before the Playwright tests run `bunx --bun playwright install chromium` once. Native and extension tests use their own temporary libraries and browser profiles, not yours; close a running Koona Pin first. The full list of checks and their requirements is in [doc/testing.md](doc/testing.md) (in Russian).
+Before the Playwright tests run `bunx --bun playwright install chromium` once. Native and extension tests use their own temporary libraries and browser profiles, not yours; close a running Koona Pin first. The full list of checks and their requirements is in [docs/testing.md](docs/testing.md).
 
 Build output that leaves the repository (installers, packages, extension builds, the site) goes to `release/`, which Git ignores. `bun run clean` removes what tests leave behind.
 
@@ -106,7 +106,7 @@ Build output that leaves the repository (installers, packages, extension builds,
 | [`supabase/`](supabase) | The backend that receives feedback sent from the app and the website |
 | [`scripts/`](scripts) | Build, packaging, test and site scripts run by `bun run` |
 | [`tests/`](tests) | Playwright tests of the interface and the native app, WebKitGTK tests for Linux, and fixtures |
-| [`doc/`](doc) | Maintainers' notes |
+| [`docs/`](docs) | Documentation: architecture, building, testing, the extension, translating, design and decisions |
 
 ## Translations
 
@@ -132,4 +132,4 @@ Details: [LICENSING.md](LICENSING.md) and [TRADEMARKS.md](TRADEMARKS.md).
 
 ---
 
-Maintainers' notes, the roadmap and the decision log are in [`doc/`](doc/README.md), mostly in Russian.
+How the app is built, tested and translated, and the decisions behind it, are in [`docs/`](docs/README.md).

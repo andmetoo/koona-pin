@@ -4,21 +4,25 @@
 //   release/publish/firefox/koonapin-firefox-<version>.xpi   signed, for users and the site
 //   release/publish/firefox/updates.json                      for gecko.update_url
 //
-// The AMO API key of the owner's account comes from the environment
-// (WEB_EXT_API_KEY, WEB_EXT_API_SECRET); this script never prints it. AMO signs
-// each version number once: bump extension/src/version.js for a new upload.
+// The AMO API key of the owner's account comes from the environment or .env
+// (WEB_EXT_API_KEY, WEB_EXT_API_SECRET; .env.example); this script never prints it.
+// AMO signs each version number once: bump extension/src/version.js for a new upload.
 //
 //   bun run extension:sign:firefox
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildExtension, firefoxDownloadBase, geckoId } from "./build-extension.mjs";
-import { publish } from "./lib/paths.mjs";
+import { publish, root } from "./lib/paths.mjs";
+
+const dotenv = path.join(root, ".env");
+if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 
 if (!process.env.WEB_EXT_API_KEY || !process.env.WEB_EXT_API_SECRET) {
   console.error(
-    "Set WEB_EXT_API_KEY and WEB_EXT_API_SECRET from addons.mozilla.org → Developer Hub → Manage API Keys, then run again.",
+    "Set WEB_EXT_API_KEY and WEB_EXT_API_SECRET in .env or the environment, from addons.mozilla.org → Developer Hub → Manage API Keys, then run again.",
   );
   process.exit(1);
 }

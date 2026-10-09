@@ -3,7 +3,7 @@
 # WebKitGTK over WebDriver (scripts/webkitgtk-check.mjs) — key screens of every language in both themes and
 # cut labels (the preview in MiniBrowser), the system theme and «reduce motion» from GTK and GNOME settings
 # (Koona Pin itself, the binary of the «build» job). No speed measures in the matrix: the scroll is measured
-# by hand (doc/testing.md «Замер прокрутки»).
+# by hand.
 #   ci-webkitgtk.sh setup    as root: WebKitWebDriver and MiniBrowser, fonts, X11, Wayland, dconf, the
 #                            settings portal, Bun, user «dev»
 #   ci-webkitgtk.sh          as «dev»: bun install, then the check under X11 (Xvfb) and under Wayland (Weston)

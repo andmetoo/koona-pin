@@ -1,6 +1,6 @@
 name: Linux
 
-# The Linux-beta test matrix (NP-093, NP-094; doc/testing.md «Linux»): the release binary is built once on
+# The Linux-beta test matrix (NP-093, NP-094; docs/testing.md): the release binary is built once on
 # the oldest glibc of the matrix first; then the tests and that very binary on every distribution, each in
 # its own container. Manual only, like ci.yml (Actions → Linux → Run workflow); locally
 # the same workflow with act:
