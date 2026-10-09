@@ -13,9 +13,9 @@ export default {
   shotAlt: "Izgarada sekiz yer işaretiyle Koona Pin: önizlemeler, siteler, başlıklar, kenar çubuğunda koleksiyonlar ve etiketler, Gelen kutusunda bekleyen iki yeni yer işareti.",
   listAlt: "Aynı kitaplık, tarihe göre gruplanmış liste olarak; etiketler, koleksiyonlar ve tarihlerle.",
   pillars: [
-    ["Tek düğme", "Herhangi bir sayfada tıklayın, bağlantı kaydedilir — uygulama kapalıyken bile."],
+    ["Tek düğme", "Herhangi bir sayfada tıklayın, bağlantı kaydedilir — uygulama kapalıyken bile. Chrome, Edge veya Firefox'ta."],
     ["Bilgisayarınızda", "Kitaplık, diskinizde otomatik yedekleri olan bir dosyadır. Çevrimdışı çalışır."],
-    ["Hesap yok", "Kaydolmanız gerekmez. Geliştirici bağlantılarınızı asla görmez."],
+    ["Her bilgisayar", "Windows, macOS veya Linux: her birinde aynı uygulama, aynı düğme."],
   ],
   howTitle: "Nasıl çalışır",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["Çöp kutusu bağlantıları 30 gün saklar", "Korkmadan silin, tek tıkla geri yükleyin."],
     ["İçe ve dışa aktarma", "Yer işaretlerini tarayıcınızdan getirin, HTML, JSON veya CSV olarak çıkarın."],
   ],
-  browsersTitle: "Tarayıcınızla çalışır",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Koona Pin'e kaydedildi", inbox: "Gelen kutusuna eklendi", backup: "Yedek", today: "Bugün, 09:00", yesterday: "Dün", mb: "MB" },
   privacyTitle: "Bağlantılarınız sizde kalır",
   privacyBody: "Koona Pin kitaplığınızı bilgisayarınızda tutar: hiçbir sunucu bağlantılarınızı görmez. Geliştiriciye yalnızca sizin göndermeyi seçtiğiniz geri bildirim ulaşır.",
   privacyFacts: [
