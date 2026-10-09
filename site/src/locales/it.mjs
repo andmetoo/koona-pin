@@ -13,9 +13,9 @@ export default {
   shotAlt: "Koona Pin con otto segnalibri in griglia: anteprime, siti, titoli, raccolte e tag nella barra laterale, due nuovi segnalibri in attesa in In arrivo.",
   listAlt: "La stessa libreria come elenco per data, con tag, raccolte e date.",
   pillars: [
-    ["Un pulsante", "Fai clic su qualsiasi pagina e il link è salvato, anche con l’app chiusa."],
+    ["Un pulsante", "Fai clic su qualsiasi pagina e il link è salvato, anche con l’app chiusa. In Chrome, Edge o Firefox."],
     ["Sul tuo computer", "La libreria è un file sul tuo disco, con backup automatici. Funziona offline."],
-    ["Niente account", "Nessuna registrazione. Lo sviluppatore non vede mai i tuoi link."],
+    ["Qualsiasi computer", "Windows, macOS o Linux: la stessa app e lo stesso pulsante ovunque."],
   ],
   howTitle: "Come funziona",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["Il cestino tiene i link per 30 giorni", "Elimina senza paura, ripristina con un clic."],
     ["Importa ed esporta", "Porta i segnalibri dal browser, portali via come HTML, JSON o CSV."],
   ],
-  browsersTitle: "Funziona con il tuo browser",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Salvato in Koona Pin", inbox: "Aggiunto a In arrivo", backup: "Backup", today: "Oggi, 09:00", yesterday: "Ieri", mb: "MB" },
   privacyTitle: "I tuoi link restano con te",
   privacyBody: "Koona Pin tiene la tua libreria sul tuo computer: nessun server vede i tuoi link. Allo sviluppatore arriva solo il feedback che scegli di inviare.",
   privacyFacts: [

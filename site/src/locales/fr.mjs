@@ -13,9 +13,9 @@ export default {
   shotAlt: "Koona Pin avec huit signets en grille\u00a0: aperçus, sites, titres, collections et étiquettes dans la barre latérale, deux nouveaux signets attendent dans la boîte de réception.",
   listAlt: "La même bibliothèque en liste par date, avec étiquettes, collections et dates.",
   pillars: [
-    ["Un seul bouton", "Cliquez sur n’importe quelle page et le lien est enregistré, même quand l’application est fermée."],
+    ["Un seul bouton", "Cliquez sur n’importe quelle page et le lien est enregistré, même quand l’application est fermée. Dans Chrome, Edge ou Firefox."],
     ["Sur votre ordinateur", "La bibliothèque est un fichier sur votre disque, avec des sauvegardes automatiques. Fonctionne hors ligne."],
-    ["Sans compte", "Aucune inscription. Le développeur ne voit jamais vos liens."],
+    ["Tout ordinateur", "Windows, macOS ou Linux : la même app et le même bouton partout."],
   ],
   howTitle: "Fonctionnement",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["La corbeille garde les liens 30 jours", "Supprimez sans crainte, restaurez en un clic."],
     ["Importer et exporter", "Récupérez les signets de votre navigateur, emportez-les en HTML, JSON ou CSV."],
   ],
-  browsersTitle: "Fonctionne avec votre navigateur",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Enregistré dans Koona Pin", inbox: "Ajouté à la boîte de réception", backup: "Sauvegarde", today: "Aujourd’hui, 09:00", yesterday: "Hier", mb: "Mo" },
   privacyTitle: "Vos liens restent chez vous",
   privacyBody: "Koona Pin garde votre bibliothèque sur votre ordinateur\u00a0: aucun serveur ne voit vos liens. Seul l’avis que vous choisissez d’envoyer parvient au développeur.",
   privacyFacts: [
