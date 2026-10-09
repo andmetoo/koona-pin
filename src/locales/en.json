@@ -594,6 +594,7 @@
     "updateInstalling": "Installing version {{version}}…",
     "updateFailed": "Version {{version}} wasn't installed",
     "updateButton": "Update…",
+    "changelog": "Changelog",
     "pacman": "Updates come from pacman: this copy was installed from the AUR",
     "support": "Support",
     "feedback": "Send feedback",

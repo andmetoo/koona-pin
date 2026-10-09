@@ -642,6 +642,7 @@
     "updateInstalling": "Instaliranje verzije {{version}}…",
     "updateFailed": "Verzija {{version}} nije instalirana",
     "updateButton": "Ažuriraj…",
+    "changelog": "Izmene",
     "pacman": "Ažuriranja stižu preko programa pacman: ova kopija je instalirana iz AUR",
     "support": "Podrška",
     "feedback": "Pošalji komentar",
