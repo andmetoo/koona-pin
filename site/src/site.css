@@ -695,7 +695,8 @@ h1 {
 }
 .foot-nav {
   display: flex;
-  gap: 28px;
+  flex-wrap: wrap;
+  gap: 12px 28px;
   font-size: 13px;
   font-weight: 500;
 }
@@ -990,3 +991,465 @@ h1 {
   padding: 0;
 }
 
+
+/* NP-040: the landing's download block with files, /downloads/, /changelog/ (landing.sketch, frames
+   NP-040). Buttons and cards reuse the tokens above. */
+.button-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.button-primary:hover {
+  border-color: transparent;
+  filter: brightness(0.94);
+}
+.icon-download {
+  transition: transform 140ms ease-out;
+}
+.button:hover .icon-download {
+  transform: translateY(2px);
+}
+.button-quiet {
+  gap: 0;
+  background: var(--panel);
+  border-color: transparent;
+  color: var(--muted);
+  cursor: default;
+}
+.button-quiet:hover {
+  border-color: transparent;
+}
+.dl-version {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.dl-actions,
+.dl-ext {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.dl-actions {
+  margin-top: 24px;
+}
+.dl-actions .button {
+  min-width: 160px;
+}
+.dl-soon {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.dl-ext-title {
+  margin: 24px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.dl-ext .button {
+  min-width: 140px;
+}
+.dl-ext-note {
+  display: none;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.download .more {
+  margin-top: 24px;
+}
+
+/* English pages: downloads and changelog, a column of 800. */
+.wide-page {
+  max-width: calc(800px + 2 * clamp(16px, 8.33vw, 120px));
+  padding-top: 56px;
+}
+.wide-page h1 {
+  margin-top: 24px;
+  font-size: clamp(30px, 2.8vw, 40px);
+  line-height: 1.2;
+}
+.wide-page .updated a,
+.wide-page p a {
+  color: var(--accent);
+}
+.wide-page .updated a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.wide-page .updated a:hover {
+  text-decoration: underline;
+}
+.wide-page > section:not(.card) {
+  margin-top: 56px;
+}
+.wide-page > section:not(.card) + section:not(.card) {
+  margin-top: 40px;
+}
+.wide-page > section:not(.card) h2 {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.wide-page > section:not(.card) p {
+  margin-top: 8px;
+  line-height: 28px;
+  color: var(--muted);
+}
+.platform {
+  margin-top: 24px;
+  padding: 32px;
+}
+.updated + .platform {
+  margin-top: 40px;
+}
+.platform-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.platform-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.platform-head h2 .icon {
+  color: var(--icon);
+}
+.platform-head p,
+.file-meta,
+.pkg-head p {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.platform-file {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 28px;
+}
+.platform-file .button {
+  min-width: 260px;
+}
+.note-amber {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #f3eedc;
+  color: #6b5a23;
+  font-size: 13px;
+  line-height: 22px;
+}
+.note-amber .icon {
+  margin-top: 1px;
+  color: #b59a45;
+}
+@media (prefers-color-scheme: dark) {
+  .note-amber {
+    background: #3a3124;
+    color: #f2d9a6;
+  }
+  .note-amber .icon {
+    color: #e8b866;
+  }
+}
+.pkg {
+  margin-top: 28px;
+}
+.pkg + .pkg {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.pkg-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.pkg-head h3 {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.pkg-head .button,
+.chip-soon {
+  min-width: 180px;
+}
+.cmd {
+  margin: 12px 0 0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--panel);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 14px/20px ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  color: var(--ink);
+}
+.chip-soon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: var(--soft);
+  color: var(--on-soft);
+  font-size: 15px;
+  font-weight: 500;
+  flex: none;
+}
+.good {
+  margin-top: 32px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.good-list {
+  margin-top: 8px;
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 13px;
+  line-height: 22px;
+  color: var(--muted);
+}
+.good-list code {
+  font: 13px ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+.platform-soon {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px 20px;
+}
+.platform-soon .chip-soon {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.platform-body {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--muted);
+}
+.platform-soon .platform-body {
+  margin-top: 0;
+}
+.ext-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 24px;
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 15px;
+  transition: border-color 140ms;
+}
+a.tile:hover {
+  border-color: var(--icon);
+}
+.tile span {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.tile .tile-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.tile-quiet {
+  border-color: transparent;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+/* Changelog: number, date and «Latest» on the left, the changes on the right. */
+.intro {
+  margin-top: 12px;
+  font-size: 18px;
+  line-height: 28px;
+  color: var(--muted);
+}
+.versions {
+  margin-top: 40px;
+  border-top: 1px solid var(--line);
+}
+.version {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 40px;
+  padding: 32px 0;
+  border-bottom: 1px solid var(--line);
+  scroll-margin-top: 24px;
+}
+.version-meta h2 {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.version-meta p {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.chip-latest {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 2px 10px;
+  border-radius: 11px;
+  background: var(--soft);
+  color: var(--on-soft);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.version-changes {
+  padding-left: 18px;
+  list-style: disc;
+  line-height: 28px;
+  color: var(--muted);
+}
+.version:target {
+  background: linear-gradient(var(--soft), var(--soft)) left top / 3px 100% no-repeat;
+}
+.foot-nav a[aria-current] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .dl-actions .button,
+  .dl-ext .button {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+  .dl-windows {
+    flex-basis: 100% !important;
+  }
+  .ext-soon {
+    display: none;
+  }
+  .dl-ext-note {
+    display: block;
+  }
+  .wide-page {
+    padding-top: 32px;
+  }
+  .platform {
+    padding: 20px;
+  }
+  .platform-file .button,
+  .pkg-head .button,
+  .pkg-head .chip-soon {
+    width: 100%;
+    min-width: 0;
+  }
+  .platform-file {
+    justify-content: center;
+  }
+  .pkg-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cmd {
+    font-size: 12px;
+  }
+  .platform-soon {
+    grid-template-columns: 1fr;
+  }
+  .platform-soon .chip-soon {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .ext-tiles {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .version {
+    grid-template-columns: 1fr;
+    padding: 24px 0;
+  }
+  .version-meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+  .version-meta p,
+  .chip-latest {
+    margin-top: 0;
+  }
+}
+
+/* Motion (doc/site.md): the first screen rises in once; sections rise in as they scroll into view
+   where the browser has scroll-driven animations, and are simply there elsewhere. Only opacity and
+   transform; nothing at all with «reduce motion». */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero > *,
+  .wide-page > :is(.back, h1, .updated, .intro) {
+    animation: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .hero > :nth-child(2),
+  .wide-page > h1 {
+    animation-delay: 60ms;
+  }
+  .hero > :nth-child(3),
+  .wide-page > :is(.updated, .intro) {
+    animation-delay: 120ms;
+  }
+  .hero > :nth-child(4) {
+    animation-delay: 160ms;
+  }
+  .hero > :nth-child(5) {
+    animation-delay: 200ms;
+  }
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+  }
+}
+.actions .button-primary,
+.download .button-primary,
+.platform .button-primary {
+  margin-top: 0;
+}
