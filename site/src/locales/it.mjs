@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — segnalibri sul computer, salvati con un clic",
   description:
-    "Una libreria di segnalibri per il computer. Salva pagine da Chrome, Edge e Firefox con un pulsante; restano sul tuo computer. Niente account, niente cloud.",
+    "Una libreria di segnalibri per il computer. Salva pagine da Chrome, Edge e Firefox con un pulsante; restano sul tuo computer.",
   nav: { how: "Come funziona", privacy: "Privacy", download: "Download" },
   labels: { main: "Principale", site: "Sito", why: "Perché Koona Pin" },
   langSwitch: "Lingua",
   h1: ["Salva un link con un clic.", "Ritrovalo quando ti serve."],
-  sub: "Koona Pin è una libreria di segnalibri per il computer. Le pagine arrivano da Chrome, Edge e Firefox con un pulsante e restano sul tuo computer. Niente account, niente cloud.",
+  sub: "Koona Pin è una libreria di segnalibri per il computer. Le pagine arrivano da Chrome, Edge e Firefox con un pulsante e restano sul tuo computer.",
   soon: "Beta — in arrivo",
   how: "Come funziona",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Gratis"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "L’estensione legge solo l’indirizzo e il titolo della scheda che salvi.",
     "L’app non invia statistiche, telemetria o rapporti sugli arresti anomali.",
-    "Niente account e niente cloud.",
+    "Tutto funziona offline.",
   ],
   privacyLink: "Leggi l’informativa sulla privacy",
   dlTitle: "La beta è in arrivo",

@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — Lesezeichen auf dem Computer, mit einem Klick gespeichert",
   description:
-    "Eine Lesezeichen-Bibliothek für den Computer. Speichern Sie Seiten aus Chrome, Edge und Firefox mit einem Klick; sie bleiben auf Ihrem Computer. Ohne Konto, ohne Cloud.",
+    "Eine Lesezeichen-Bibliothek für den Computer. Speichern Sie Seiten aus Chrome, Edge und Firefox mit einem Klick; sie bleiben auf Ihrem Computer.",
   nav: { how: "So funktioniert’s", privacy: "Datenschutz", download: "Download" },
   labels: { main: "Hauptmenü", site: "Website", why: "Warum Koona Pin" },
   langSwitch: "Sprache",
   h1: ["Links mit einem Klick speichern.", "Wiederfinden, wenn Sie sie brauchen."],
-  sub: "Koona Pin ist eine Lesezeichen-Bibliothek für den Computer. Seiten kommen mit einem Klick aus Chrome, Edge und Firefox und bleiben auf Ihrem Computer. Ohne Konto, ohne Cloud.",
+  sub: "Koona Pin ist eine Lesezeichen-Bibliothek für den Computer. Seiten kommen mit einem Klick aus Chrome, Edge und Firefox und bleiben auf Ihrem Computer.",
   soon: "Beta — bald verfügbar",
   how: "So funktioniert’s",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Kostenlos"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "Die Erweiterung liest nur Adresse und Titel des Tabs, den Sie speichern.",
     "Die App sendet keine Analysedaten, Telemetrie oder Absturzberichte.",
-    "Kein Konto und keine Cloud.",
+    "Alles funktioniert offline.",
   ],
   privacyLink: "Datenschutzerklärung lesen",
   dlTitle: "Die Beta ist unterwegs",
