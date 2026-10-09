@@ -40,6 +40,8 @@ import {
   LinkCheckState,
   LinkFailure,
   Replaced,
+  StarterLibrary,
+  StarterLink,
   Undo,
   UpdateStatus,
 } from "../types";
@@ -1133,6 +1135,18 @@ export const demo = {
   },
   async createStarterCollections(_names: string[]): Promise<Collection[]> {
     return [];
+  },
+  /** The preview has its own sample library: no starter set (NP-117). */
+  async createStarterLibrary(_names: string[], _links: StarterLink[]): Promise<StarterLibrary> {
+    return { collections: [], links: [] };
+  },
+  /** Starter links of the sample library: a test puts their ids into localStorage. */
+  async getStarterLinks(): Promise<number[]> {
+    try {
+      return JSON.parse(localStorage.getItem("koonapin.demo.starter") || "[]") as number[];
+    } catch {
+      return [];
+    }
   },
   async setTrayLabels(_labels: { open: string; quit: string; tooltip: string }) {},
   async feedbackReport(language: string) {

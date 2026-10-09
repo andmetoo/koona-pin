@@ -14,6 +14,8 @@ import {
   sortCollections,
 } from "../services/library";
 import { dayStarts, groupSizes, untilMidnight } from "../services/dateGroups";
+import { savePreference } from "../services/preferences";
+import { starterLinks } from "../services/starter";
 import {
   Bookmark,
   BookmarkChange,
@@ -68,6 +70,8 @@ export function useLibrary(
     links: 0,
   });
   const [loading, setLoading] = useState(true);
+  /** This open made the starter set: the library is new (NP-117). */
+  const [firstRun, setFirstRun] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<Record<number, Bookmark>>({});
   const filtersRef = useRef(filters);
@@ -235,12 +239,22 @@ export function useLibrary(
   }, []);
   useEffect(() => {
     alive.current = true;
-    // A new library gets its first collections in the interface's language;
-    // the app makes them once, any later call gets nothing (NP-085).
+    // A new library gets its first collections and the starter links in the
+    // interface's language; the app makes them once, any later call gets
+    // nothing (NP-085, NP-117). The first open also offers an import.
     const starters = ["starter.development", "starter.design", "starter.reading"] as const;
     void api
-      .createStarterCollections(starters.map((key) => i18n.t(key)))
-      .catch(() => [])
+      .createStarterLibrary(
+        starters.map((key) => i18n.t(key)),
+        starterLinks(i18n.t),
+      )
+      .then((made) => {
+        if (made.links.length > 0 && alive.current) {
+          savePreference("importBanner", "show");
+          setFirstRun(true);
+        }
+      })
+      .catch(() => {})
       .then(tellSortLanguage)
       .then(() => refreshCatalog());
     return () => {
@@ -472,6 +486,7 @@ export function useLibrary(
     domains,
     counts,
     loading,
+    firstRun,
     error,
     pendingCount: Object.keys(pending).length,
     refresh,

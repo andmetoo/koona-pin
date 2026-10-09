@@ -1241,18 +1241,82 @@ const STARTERS: [(&str, &str); 3] = [
 /// `app_settings`, NP-085): the interface names them in its language. Only
 /// once — deleted ones never come back, older libraries never get them.
 pub fn create_starter_collections(conn: &Connection, names: &[String]) -> Result<Vec<Collection>> {
+    create_starter_library(conn, names, &[]).map(|made| made.collections)
+}
+
+/// A link of the starter set (NP-117), named by the interface in its language.
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+pub struct StarterLink {
+    pub url: String,
+    pub title: String,
+    pub description: String,
+}
+
+/// What a new library got on its first open; empty for any other library.
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct StarterLibrary {
+    pub collections: Vec<Collection>,
+    /// The starter links in the inbox, the first of the set first.
+    pub links: Vec<Bookmark>,
+}
+
+/// The `uid`s of the starter links in `app_settings`, as a JSON array: triage
+/// says «from Koona Pin» instead of «added by hand» (NP-117).
+const STARTER_LINKS: &str = "starter_links";
+
+/// The starter collections and links of a new library in one transaction, by
+/// the same mark as [`create_starter_collections`]. The links wait in the
+/// inbox with the set's titles and descriptions, the first of the set the
+/// newest; a link that is not HTTP(S) or already saved is left out.
+pub fn create_starter_library(conn: &Connection, names: &[String], links: &[StarterLink]) -> Result<StarterLibrary> {
     let tx = conn.unchecked_transaction()?;
     if tx.execute("DELETE FROM app_settings WHERE key = 'starter_collections'", [])? == 0 {
-        return Ok(Vec::new());
+        return Ok(StarterLibrary { collections: Vec::new(), links: Vec::new() });
     }
-    let made = STARTERS
+    let collections = STARTERS
         .iter()
         .zip(names)
         .filter(|(_, name)| !name.trim().is_empty())
         .map(|((color, icon), name)| create_collection(&tx, name.trim(), Some(color), Some(icon)))
         .collect::<Result<Vec<_>>>()?;
+    let mut made = Vec::new();
+    // Newest first in the list: the last of the set is saved first.
+    for link in links.iter().rev() {
+        let Ok(url) = crate::capture::validate_url(&link.url) else { continue };
+        let exists = tx
+            .query_row("SELECT 1 FROM bookmarks WHERE url=?1", [&url], |_| Ok(()))
+            .optional()?
+            .is_some();
+        let title = link.title.trim();
+        if exists || title.is_empty() {
+            continue;
+        }
+        let description = Some(link.description.trim()).filter(|d| !d.is_empty());
+        let domain = crate::metadata::extract_domain(&url);
+        made.push(insert_or_update_bookmark(&tx, &url, title, description, None, None, &domain, None, None, Source::App)?);
+    }
+    made.reverse();
+    let uids = made
+        .iter()
+        .map(|b| tx.query_row("SELECT uid FROM bookmarks WHERE id=?1", [b.id], |r| r.get::<_, String>(0)))
+        .collect::<Result<Vec<_>>>()?;
+    if !uids.is_empty() {
+        set_setting(&tx, STARTER_LINKS, &serde_json::to_string(&uids).unwrap_or_default())?;
+    }
     tx.commit()?;
-    Ok(made)
+    Ok(StarterLibrary { collections, links: made })
+}
+
+/// The ids of the starter links still in the library (NP-117).
+pub fn starter_link_ids(conn: &Connection) -> Result<Vec<i64>> {
+    let Some(uids) = setting(conn, STARTER_LINKS).optional()? else {
+        return Ok(Vec::new());
+    };
+    conn.prepare("SELECT id FROM bookmarks WHERE uid IN (SELECT value FROM json_each(?1)) ORDER BY id")?
+        .query_map([uids], |r| r.get(0))?
+        .collect()
 }
 
 /// Bookmarks stay in the library without a collection.
@@ -1868,6 +1932,54 @@ mod tests {
         let trashed = refresh_preview(&conn, imported.id, &meta).unwrap();
         assert_eq!(trashed.revision, get_bookmark_by_id(&conn, imported.id).unwrap().revision);
         assert_eq!(trashed.title, "Mine");
+    }
+
+    #[test]
+    fn starter_links_come_once_into_the_inbox_of_a_new_library() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        crate::library::configure(&conn).unwrap();
+        crate::migrations::migrate(&mut conn, None).unwrap();
+        let link = |url: &str, title: &str| StarterLink { url: url.into(), title: title.into(), description: format!("About {title}") };
+        let links = [
+            link("https://koona.app/pin/#how", "Start here"),
+            link("https://koona.app/pin/changelog/", "What's new"),
+            link("ftp://example.com/", "Not a web page"),
+            link("https://bun.com/", "Bun"),
+            link("https://www.lunacyapp.com/", "Lunacy"),
+        ];
+        let names = ["Development", "Design", "Reading"].map(String::from);
+        let made = create_starter_library(&conn, &names, &links).unwrap();
+        assert_eq!(made.collections.len(), 3);
+        let titles: Vec<_> = made.links.iter().map(|b| b.title.as_str()).collect();
+        assert_eq!(titles, ["Start here", "What's new", "Bun", "Lunacy"]);
+        // In the inbox, newest first in the order of the set, with the set's words.
+        let list: Vec<_> = everything(&conn).into_iter().map(|b| (b.title, b.triaged_at, b.source, b.description)).collect();
+        assert_eq!(list[0], ("Start here".into(), None, Some("app".into()), Some("About Start here".into())));
+        assert_eq!(list.iter().map(|b| b.0.as_str()).collect::<Vec<_>>(), titles);
+        let lunacy = &made.links[3];
+        assert_eq!(lunacy.domain, "lunacyapp.com");
+        // Search and the duplicate key know them like any saved link.
+        let found = get_bookmarks(&conn, &BookmarkQuery { search: Some("lunacy".into()), ..Default::default() }).unwrap();
+        assert_eq!(found.items.len(), 1);
+        let key: Option<String> = conn.query_row("SELECT url_key FROM bookmarks WHERE id=?1", [lunacy.id], |r| r.get(0)).unwrap();
+        assert!(key.is_some());
+        let mut ids: Vec<_> = made.links.iter().map(|b| b.id).collect();
+        ids.sort();
+        assert_eq!(starter_link_ids(&conn).unwrap(), ids);
+        // Once: a second call, or a library made before, gets nothing.
+        let again = create_starter_library(&conn, &names, &links).unwrap();
+        assert!(again.collections.is_empty() && again.links.is_empty());
+        assert_eq!(everything(&conn).len(), 4);
+        // A starter link sent to the trash and deleted for good drops out of the list.
+        trash_bookmark(&conn, ids[0]).unwrap();
+        purge_trash(&conn, Purge::One(ids[0])).unwrap();
+        assert_eq!(starter_link_ids(&conn).unwrap(), ids[1..]);
+    }
+
+    #[test]
+    fn a_library_without_starter_links_names_none() {
+        let conn = setup_test_db();
+        assert!(starter_link_ids(&conn).unwrap().is_empty());
     }
 
     fn setup_test_db() -> Connection {

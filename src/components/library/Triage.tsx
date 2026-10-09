@@ -125,6 +125,18 @@ export function Triage({
   const [queue, setQueue] = useState<Queue | null>(null);
   const [loadError, setLoadError] = useState("");
   const [tagging, setTagging] = useState(false);
+  /** The starter links of a new library: added by Koona Pin, not by hand (NP-117). */
+  const [starter, setStarter] = useState<ReadonlySet<number>>(new Set());
+  useEffect(() => {
+    let live = true;
+    api
+      .getStarterLinks()
+      .then((ids) => live && setStarter(new Set(ids)))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
   const collectionsRef = useRef(collections);
   collectionsRef.current = collections;
   /** The truth for decisions in flight: updated at once, before React renders. */
@@ -416,6 +428,7 @@ export function Triage({
         ? t("triage.onDate", { date: at.toLocaleDateString(i18n.language, { day: "numeric", month: "long" }) })
         : t(day === "today" ? "triage.todayAt" : "triage.yesterdayAt", { time });
     const browser = browserName(b.source);
+    if (starter.has(b.id)) return t("triage.starter", { when });
     if (browser) return t("triage.savedFrom", { when, browser });
     if (b.source === "app") return t("triage.addedByHand", { when });
     if (b.source === "import") return t("triage.imported", { when });
