@@ -52,7 +52,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "隐私政策",
-    updated: "最后更新：2026 年 10 月 7 日",
+    updated: "最后更新：2026 年 10 月 9 日",
     section: "简体中文",
     note: "此为方便阅读的译文。如与英文版本不一致，以英文版本为准。",
     original: "阅读英文版",

@@ -52,7 +52,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Datenschutzerklärung",
-    updated: "Zuletzt aktualisiert am 7. Oktober 2026",
+    updated: "Zuletzt aktualisiert am 9. Oktober 2026",
     section: "Deutsch",
     note: "Dies ist eine Übersetzung zur besseren Verständlichkeit. Weicht sie vom englischen Text ab, gilt die englische Fassung.",
     original: "Auf Englisch lesen",

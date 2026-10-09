@@ -32,6 +32,8 @@ const TYPES = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
   ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".woff2": "font/woff2",
   ".json": "application/json", ".xpi": "application/x-xpinstall", ".txt": "text/plain; charset=utf-8", ".xml": "application/xml",
+  ".exe": "application/vnd.microsoft.portable-executable", ".deb": "application/vnd.debian.binary-package", ".rpm": "application/x-rpm",
+  ".sig": "text/plain; charset=utf-8",
 };
 const HEADERS = {
   "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; script-src https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'self' https://*.supabase.co; frame-ancestors 'none'",
