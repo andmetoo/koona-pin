@@ -1,0 +1,61 @@
+---
+// The landing in every language of the site (Р-49): /pin/, /pin/de/, …
+import Page from "../../layouts/Page.astro";
+import Icon from "../../components/Icon.astro";
+import Shot from "../../components/Shot.astro";
+import Scenes from "../../components/Scenes.astro";
+import DownloadBlock from "../../components/DownloadBlock.astro";
+import { firefoxAddon, release } from "../../release.mjs";
+import { everyLanguage, href } from "../../view.mjs";
+
+export const getStaticPaths = everyLanguage;
+const { t } = Astro.props;
+const rel = release();
+const firefox = firefoxAddon();
+const insideIcons = ["inbox", "search", "folder", "trash", "swap"];
+const reqIcons = ["monitor", "terminal", "globe"];
+---
+<Page t={t} page="" title={t.title}>
+<section class="hero wrap">
+<h1>{t.h1.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
+<p class="sub">{t.sub}</p>
+<div class="actions">{rel ? <a class="button button-primary" href="#download"><Icon name="download" class="icon icon-download" />{t.download}</a> : <span class="soon"><Icon name="clock" /><span>{t.soon}</span></span>}<a class="button" href="#how">{t.how}</a></div>
+<p class="meta">{t.meta.map((m, i) => <Fragment>{i > 0 && <span aria-hidden="true"> · </span>}{m}</Fragment>)}</p>
+<figure class="shot shot-hero"><Shot lang={t.lang} view="grid" alt={t.shotAlt} eager sizes="(min-width: 1440px) 1200px, (min-width: 900px) 84vw, 640px" /></figure>
+</section>
+<section class="scenes wrap reveal" aria-label={t.labels.why}>
+<Scenes t={t} />
+</section>
+<section class="how wrap reveal" id="how">
+<h2 class="section-title center">{t.howTitle}</h2>
+<ol class="steps">
+{t.steps.map(([h, p], i) => <li><span class="num" aria-hidden="true">{i + 1}</span><div><h3>{h}</h3><p>{p}</p></div></li>)}
+</ol>
+</section>
+<section class="inside wrap reveal">
+<div>
+<h2 class="section-title">{t.insideTitle}</h2>
+<ul class="features">
+{t.inside.map(([h, p], i) => <li><Icon name={insideIcons[i]} /><div><h3>{h}</h3><p>{p}</p></div></li>)}
+</ul>
+</div>
+<figure class="shot shot-list"><Shot lang={t.lang} view="list" alt={t.listAlt} sizes="(min-width: 900px) 620px, 100vw" /></figure>
+</section>
+<section class="wrap reveal">
+<div class="privacy-panel">
+<div>
+<h2>{t.privacyTitle}</h2>
+<p>{t.privacyBody}</p>
+<a class="more" href={href(t.lang, "privacy")}>{t.privacyLink}<Icon name="arrowRight" class="icon icon-small" /></a>
+</div>
+<ul class="facts">{t.privacyFacts.map((f) => <li><Icon name="check" /><span>{f}</span></li>)}</ul>
+</div>
+</section>
+<section class="wrap reveal" id="download">
+<DownloadBlock t={t} release={rel} firefox={firefox}>
+<ul class="req">
+{t.req.map(([a, b], i) => <li><Icon name={reqIcons[i]} /><div><strong>{a}</strong><span>{b}</span></div></li>)}
+</ul>
+</DownloadBlock>
+</section>
+</Page>

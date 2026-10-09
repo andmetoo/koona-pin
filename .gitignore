@@ -48,3 +48,6 @@ Thumbs.db
 *.db-wal
 scripts/platform-probe/mobile-app/src-tauri/target/
 scripts/platform-probe/mobile-app/src-tauri/gen/
+
+# Astro's cache and generated types of the site (site/astro.config.mjs)
+site/.astro/

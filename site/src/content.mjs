@@ -1,18 +1,16 @@
 // Texts of koona.app/pin (doc/site.md): one file per language in ./locales, English the source.
 // The languages are the app's (NP-089, NP-107), with one Serbian: Latin, the owner's choice.
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { nativeNames, sources } from "./locales/index.mjs";
 
 // KOONAPIN_FEEDBACK_URL below: from the environment or from .env in the repository root
 // (.env.example), for site:build, site:check and deploy-site.ps1 alike. The environment wins.
-// A path, not a URL: Bun's process.loadEnvFile takes only a string.
+// A path, not a URL: Bun's process.loadEnvFile takes only a string. Inside Astro's bundle this
+// path points nowhere; the build runs under build-site.mjs, which has read .env already and
+// passes its environment on.
 const dotenv = fileURLToPath(new URL("../../.env", import.meta.url));
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
-
-const locales = new URL("./locales/", import.meta.url);
-const sources = {};
-for (const file of readdirSync(locales).filter((f) => f.endsWith(".mjs")))
-  sources[file.slice(0, -4)] = (await import(new URL(file, locales).href)).default;
 
 /** Same keys and list lengths as English; a string English has is never left empty. */
 function sameShape(code, en, other, at = "") {
@@ -35,7 +33,7 @@ function sameShape(code, en, other, at = "") {
 for (const [code, t] of Object.entries(sources)) sameShape(code, sources.en, t);
 
 /** The language's own name, as the app's language menu shows it (src/locales/<code>.json). */
-const nativeName = (code) => JSON.parse(readFileSync(new URL(`../../src/locales/${code}.json`, import.meta.url), "utf8")).language.name;
+const nativeName = (code) => nativeNames[code];
 const OG = { en: "en_US", ru: "ru_RU", de: "de_DE", es: "es_ES", fr: "fr_FR", it: "it_IT", pl: "pl_PL", "pt-BR": "pt_BR", "sr-Latn": "sr_RS", tr: "tr_TR", uk: "uk_UA", "zh-CN": "zh_CN", ja: "ja_JP", ko: "ko_KR" };
 // The only Serbian of the site is plain «sr» to people: /pin/sr/, «Srpski», «Serbian». The
 // Chinese is simplified, not Chinese of China (NP-090): «Simplified Chinese» in the menu.

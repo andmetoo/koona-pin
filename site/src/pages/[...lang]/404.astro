@@ -1,0 +1,14 @@
+---
+// The 404 page in every language; Caddy answers it for addresses under that language (site/Caddyfile).
+import TextPage from "../../layouts/TextPage.astro";
+import { everyLanguage, href } from "../../view.mjs";
+
+export const getStaticPaths = everyLanguage;
+const { t } = Astro.props;
+const n = t.notFound;
+---
+<TextPage t={t} page="" title={n.title}>
+<h1>{n.title}</h1>
+<p class="lead">{n.body}</p>
+<p><a href={href(t.lang, "")}>{n.home}</a></p>
+</TextPage>
