@@ -693,7 +693,9 @@
     "feedbackHint": "Ошибка, идея или вопрос — прямо разработчику",
     "feedbackButton": "Отправить отзыв…",
     "github": "Issues на GitHub",
-    "githubHint": "Публичные сообщения в koona-pin"
+    "githubHint": "Публичные сообщения в koona-pin",
+    "licenses": "Лицензии",
+    "licensesHint": "Шрифты, значки и библиотеки, из которых сделан Koona Pin"
   },
   "notice": {
     "previewRefreshed": "Превью обновлено",
