@@ -601,7 +601,9 @@
     "feedbackHint": "Ein Fehler, eine Idee oder eine Frage — direkt an den Entwickler",
     "feedbackButton": "Feedback senden…",
     "github": "Issues auf GitHub",
-    "githubHint": "Öffentliche Meldungen in koona-pin"
+    "githubHint": "Öffentliche Meldungen in koona-pin",
+    "licenses": "Lizenzen",
+    "licensesHint": "Schriften, Symbole und Bibliotheken, aus denen Koona Pin besteht"
   },
   "notice": {
     "previewRefreshed": "Vorschau aktualisiert",

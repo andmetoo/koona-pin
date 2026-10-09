@@ -693,7 +693,9 @@
     "feedbackHint": "Błąd, pomysł albo pytanie — prosto do autora",
     "feedbackButton": "Wyślij opinię…",
     "github": "Zgłoszenia na GitHubie",
-    "githubHint": "Publiczne zgłoszenia w koona-pin"
+    "githubHint": "Publiczne zgłoszenia w koona-pin",
+    "licenses": "Licencje",
+    "licensesHint": "Czcionki, ikony i biblioteki, z których zbudowano Koona Pin"
   },
   "notice": {
     "previewRefreshed": "Podgląd odświeżony",

@@ -15,8 +15,12 @@ const SITE_PATHS: Record<string, string> = {
   en: "", ru: "ru/", de: "de/", es: "es/", fr: "fr/", it: "it/", pl: "pl/", "pt-BR": "pt-br/", sr: "sr/", "sr-Latn": "sr/", tr: "tr/", uk: "uk/",
   "zh-CN": "zh-cn/", ja: "ja/", ko: "ko/",
 };
-/** The privacy policy in the interface's language, English where the site has no page in it. */
-export const privacyUrl = (language: string) => `https://koona.app/pin/${Object.prototype.hasOwnProperty.call(SITE_PATHS, language) ? SITE_PATHS[language] : ""}privacy`;
+/** A page of the site in the interface's language, English where the site has no page in it. */
+export const sitePage = (language: string, page: string) =>
+  `https://koona.app/pin/${Object.prototype.hasOwnProperty.call(SITE_PATHS, language) ? SITE_PATHS[language] : ""}${page}`;
+export const privacyUrl = (language: string) => sitePage(language, "privacy");
+/** The fonts, icons and libraries of the app and their licenses (NP-040). */
+export const licensesUrl = (language: string) => sitePage(language, "licenses");
 export const GITHUB_ISSUES_URL = "https://github.com/andmetoo/koona-pin/issues/new/choose";
 
 /** something@something.tld without spaces — the rule of the Rust command and the function. */

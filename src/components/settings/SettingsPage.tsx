@@ -14,7 +14,7 @@ import {
   statusLabel,
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
-import { GITHUB_ISSUES_URL } from "../../services/feedback";
+import { GITHUB_ISSUES_URL, licensesUrl } from "../../services/feedback";
 import { changelogUrl, offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
 import { Theme } from "../../services/preferences";
@@ -256,6 +256,9 @@ export function SettingsPage({
         </Row>
         <Row title={t("settings.github")} description={t("settings.githubHint")}>
           <Button onClick={() => void attempt("github", () => api.openUrl(GITHUB_ISSUES_URL))}>{t("common.open")}</Button>
+        </Row>
+        <Row title={t("settings.licenses")} description={t("settings.licensesHint")}>
+          <Button onClick={() => void attempt("licenses", () => api.openUrl(licensesUrl(i18n.language)))}>{t("common.open")}</Button>
         </Row>
       </Section>
     </div>
