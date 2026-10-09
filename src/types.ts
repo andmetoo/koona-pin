@@ -33,6 +33,8 @@ export type { Undo } from "./bindings/Undo";
 export type { Suggestion } from "./bindings/Suggestion";
 export type { PageCursor } from "./bindings/PageCursor";
 export type { Collection } from "./bindings/Collection";
+export type { StarterLink } from "./bindings/StarterLink";
+export type { StarterLibrary } from "./bindings/StarterLibrary";
 export type { CommandError as CommandErrorData } from "./bindings/CommandError";
 export type { DataSummary } from "./bindings/DataSummary";
 export type { BackupCopy } from "./bindings/BackupCopy";

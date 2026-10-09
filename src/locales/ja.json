@@ -618,7 +618,8 @@
     "nothingDecided": "今回は何も処理しませんでした。",
     "toLibrary": "ライブラリに戻る",
     "undoLast": "最後の操作を元に戻す",
-    "doneHint": "新しいブックマークはインボックスで待機します。Esc で整理を閉じます。"
+    "doneHint": "新しいブックマークはインボックスで待機します。Esc で整理を閉じます。",
+    "starter": "{{when}}に Koona Pin が追加"
   },
   "undo": {
     "undone": "元に戻しました：「{{title}}」",
@@ -863,7 +864,27 @@
   "starter": {
     "development": "開発",
     "design": "デザインと UI",
-    "reading": "記事 / あとで読む"
+    "reading": "記事 / あとで読む",
+    "links": {
+      "start": {
+        "title": "はじめに：Koona Pin の使い方",
+        "description": "数分でリンクの保存・整理・検索を覚えられます。"
+      },
+      "extension": {
+        "title": "保存ボタンをブラウザーに追加",
+        "description": "Chrome、Edge、Firefox：ワンクリックで開いているページを保存。"
+      },
+      "changelog": {
+        "title": "Koona Pin の新機能",
+        "description": "各バージョンと変更点。"
+      },
+      "bun": {
+        "description": "高速な JavaScript ランタイム兼ツールキット。"
+      },
+      "lunacy": {
+        "description": "グラフィック素材を内蔵した無料のデザインアプリ。"
+      }
+    }
   },
   "bulk": {
     "moved_other": "{{count}} 件のブックマークを「{{name}}」に移動しました",
@@ -884,5 +905,11 @@
       "trash_other": "{{count}} 件のブックマークをゴミ箱に移動できませんでした：{{reason}}。何も変更されていません。",
       "restore_other": "{{count}} 件のブックマークを復元できませんでした：{{reason}}。何も変更されていません。"
     }
+  },
+  "importOffer": {
+    "label": "ブックマークをインポート",
+    "text": "Chrome、Edge、Firefox のブックマークを取り込めます — フォルダーはコレクションになります",
+    "action": "ブックマークをインポート…",
+    "hide": "隠す"
   }
 }

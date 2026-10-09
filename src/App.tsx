@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, ChevronDown, ChevronRight, Heart, Link, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, ChevronDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
@@ -368,6 +368,19 @@ export function App() {
     if (!newest) return;
     setBannerHidden(newest);
     savePreference("inboxBannerHidden", newest);
+  };
+  /**
+   * Sheet 43 (NP-117): a new library starts with the starter set, so frame 08
+   * with its import button is not the first screen; this banner offers the
+   * import instead, until the first import or ×. It never comes back.
+   */
+  const [importOffer, setImportOffer] = useState(() => storedValue("importBanner") === "show");
+  useEffect(() => {
+    if (library.firstRun) setImportOffer(true);
+  }, [library.firstRun]);
+  const endImportOffer = () => {
+    setImportOffer(false);
+    savePreference("importBanner", "done");
   };
   /**
    * Menu «⋯» → Export (NP-032, frame 29): the Save dialog, then «… сохранено
@@ -975,6 +988,32 @@ export function App() {
                       {library.error}
                     </Banner>
                   )}
+                  {importOffer && !filters.onlyTrash && (
+                    <Banner
+                      tone="quiet"
+                      label={t("importOffer.label")}
+                      icon={<Icon icon={Import} size={18} />}
+                      action={
+                        <span className="flex shrink-0 items-center gap-3">
+                          <Button variant="outline" className="bg-surface text-ink" onClick={() => setSurface("import")}>
+                            {t("importOffer.action")}
+                          </Button>
+                          <Hint label={t("importOffer.hide")}>
+                            <button
+                              type="button"
+                              aria-label={t("importOffer.hide")}
+                              onClick={endImportOffer}
+                              className="flex size-6 items-center justify-center rounded-md text-icon transition-colors duration-150 hover:text-ink"
+                            >
+                              <Icon icon={X} size={14} />
+                            </button>
+                          </Hint>
+                        </span>
+                      }
+                    >
+                      {t("importOffer.text")}
+                    </Banner>
+                  )}
                   {inboxBanner && (
                     <Banner
                       tone="accent"
@@ -1144,6 +1183,7 @@ export function App() {
           onClose={() => setSurface(null)}
           onImport={async (content, toInbox) => {
             const summary = await api.importHtmlBookmarks(content, toInbox);
+            if (importOffer) endImportOffer();
             await Promise.all([library.refresh(), library.refreshCatalog()]);
             return summary;
           }}

@@ -765,7 +765,8 @@
     "nothingDecided": "Tym razem nic nie rozstrzygnięto.",
     "toLibrary": "Wróć do biblioteki",
     "undoLast": "Cofnij ostatnią decyzję",
-    "doneHint": "Nowe zakładki poczekają w skrzynce odbiorczej. Esc zamyka porządkowanie."
+    "doneHint": "Nowe zakładki poczekają w skrzynce odbiorczej. Esc zamyka porządkowanie.",
+    "starter": "dodana przez Koona Pin {{when}}"
   },
   "undo": {
     "undone": "Cofnięto: „{{title}}”",
@@ -1037,7 +1038,27 @@
   "starter": {
     "development": "Programowanie",
     "design": "Design i UI",
-    "reading": "Artykuły / Do przeczytania"
+    "reading": "Artykuły / Do przeczytania",
+    "links": {
+      "start": {
+        "title": "Zacznij tutaj: jak działa Koona Pin",
+        "description": "Zapisuj, porządkuj i znajduj linki w kilka minut."
+      },
+      "extension": {
+        "title": "Dodaj przycisk zapisu do przeglądarki",
+        "description": "Chrome, Edge lub Firefox: jedno kliknięcie zapisuje otwartą stronę."
+      },
+      "changelog": {
+        "title": "Co nowego w Koona Pin",
+        "description": "Każda wersja i co się w niej zmieniło."
+      },
+      "bun": {
+        "description": "Szybkie środowisko uruchomieniowe i zestaw narzędzi JavaScript."
+      },
+      "lunacy": {
+        "description": "Darmowa aplikacja do projektowania z wbudowaną grafiką."
+      }
+    }
   },
   "bulk": {
     "moved_one": "Przeniesiono {{count}} zakładkę do „{{name}}”",
@@ -1103,5 +1124,11 @@
       "restore_many": "Nie udało się przywrócić {{count}} zakładek: {{reason}}. Nic się nie zmieniło.",
       "restore_other": "Nie udało się przywrócić {{count}} zakładki: {{reason}}. Nic się nie zmieniło."
     }
+  },
+  "importOffer": {
+    "label": "Import zakładek",
+    "text": "Przenieś zakładki z Chrome, Edge lub Firefox — ich foldery staną się kolekcjami",
+    "action": "Importuj zakładki…",
+    "hide": "Ukryj"
   }
 }

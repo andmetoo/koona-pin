@@ -453,6 +453,45 @@ pub async fn create_starter_collections(
 ) -> Result<Vec<Collection>, CommandError> {
     blocking(&state, move |conn| db::create_starter_collections(conn, &names).map_err(text)).await
 }
+/// A new library's first collections and starter links (NP-117), in the
+/// interface's language, made once like [`create_starter_collections`]. Then
+/// the links' pages are read for their pictures and icons, one after another
+/// in the background, the way «Обновить превью» does: the set's titles and
+/// descriptions stay. Without a network the covers stay drawn from the address.
+#[tauri::command]
+pub async fn create_starter_library(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    names: Vec<String>,
+    links: Vec<db::StarterLink>,
+) -> Result<db::StarterLibrary, CommandError> {
+    let made = blocking(&state, move |conn| db::create_starter_library(conn, &names, &links).map_err(text)).await?;
+    if made.links.is_empty() {
+        return Ok(made);
+    }
+    let _ = app.emit("library-invalidated", ());
+    let pages: Vec<(i64, String)> = made.links.iter().map(|b| (b.id, b.url.clone())).collect();
+    let db = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        for (id, url) in pages {
+            let meta = metadata::fetch_metadata(&url).await;
+            let updated = db
+                .conn
+                .lock()
+                .map_err(|_| ())
+                .and_then(|conn| db::refresh_preview(&conn, id, &meta).map_err(|_| ()));
+            if let Ok(bookmark) = updated {
+                capture::emit(&app, ChangeKind::Updated, &bookmark);
+            }
+        }
+    });
+    Ok(made)
+}
+/// The starter links still in the library: triage names them (NP-117).
+#[tauri::command]
+pub async fn get_starter_links(state: State<'_, Arc<DbState>>) -> Result<Vec<i64>, CommandError> {
+    blocking(&state, |conn| db::starter_link_ids(conn).map_err(text)).await
+}
 #[tauri::command]
 pub async fn delete_collection(
     app: AppHandle,

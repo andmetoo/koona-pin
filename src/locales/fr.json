@@ -716,7 +716,8 @@
     "nothingDecided": "Rien n’a été décidé cette fois.",
     "toLibrary": "Retour à la bibliothèque",
     "undoLast": "Annuler la dernière décision",
-    "doneHint": "Les nouveaux signets attendront dans la boîte de réception. Échap ferme le tri."
+    "doneHint": "Les nouveaux signets attendront dans la boîte de réception. Échap ferme le tri.",
+    "starter": "ajouté par Koona Pin {{when}}"
   },
   "undo": {
     "undone": "Annulé : « {{title}} »",
@@ -979,7 +980,27 @@
   "starter": {
     "development": "Développement",
     "design": "Design et UI",
-    "reading": "Articles / À lire"
+    "reading": "Articles / À lire",
+    "links": {
+      "start": {
+        "title": "Commencer ici : comment marche Koona Pin",
+        "description": "Enregistrez, triez et retrouvez vos liens en quelques minutes."
+      },
+      "extension": {
+        "title": "Ajoutez le bouton d’enregistrement à votre navigateur",
+        "description": "Chrome, Edge ou Firefox : un clic enregistre la page ouverte."
+      },
+      "changelog": {
+        "title": "Quoi de neuf dans Koona Pin",
+        "description": "Chaque version et ce qui y a changé."
+      },
+      "bun": {
+        "description": "Un environnement d’exécution et une boîte à outils JavaScript rapides."
+      },
+      "lunacy": {
+        "description": "Une application de design gratuite avec des visuels intégrés."
+      }
+    }
   },
   "bulk": {
     "moved_one": "{{count}} signet déplacé vers « {{name}} »",
@@ -1030,5 +1051,11 @@
       "restore_many": "Impossible de restaurer {{count}} de signets : {{reason}}. Rien n’a changé.",
       "restore_other": "Impossible de restaurer {{count}} signets : {{reason}}. Rien n’a changé."
     }
+  },
+  "importOffer": {
+    "label": "Importer des signets",
+    "text": "Apportez vos signets de Chrome, Edge ou Firefox — leurs dossiers deviennent des collections",
+    "action": "Importer des signets…",
+    "hide": "Masquer"
   }
 }
