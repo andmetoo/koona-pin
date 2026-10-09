@@ -104,11 +104,11 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
 
 ## Выкладка
 
-Выкладывает владелец ([Р-37](decisions.md#р-37-сайт-koonaapppin-статика-на-сервере-владельца-надпись-nunito), [Р-47](decisions.md#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код)). Сервер — Ubuntu в Oracle Cloud с Caddy 2, домен за прокси Cloudflare (оранжевое облако), между Cloudflare и сервером — Cloudflare Origin Certificate в режиме «Full (strict)». `site/Caddyfile` — не сайт, а фрагмент для блока `koona.app`: он отвечает только на `/pin` и `/pin/*`. Без `handle_errors` и сниппетов — их имена и коды столкнулись бы с основным `Caddyfile`; 404 отвечает `file_server` со `status 404`.
+Выкладывает владелец ([Р-37](decisions.md#р-37-сайт-koonaapppin-статика-на-сервере-владельца-надпись-nunito), [Р-47](decisions.md#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код)). Сервер — Fedora 44 с Caddy 2 (пакет Fedora) и firewalld, с 9 октября 2026 года; домен за прокси Cloudflare (оранжевое облако), между Cloudflare и сервером — Cloudflare Origin Certificate в режиме «Full (strict)». `site/Caddyfile` — не сайт, а фрагмент для блока `koona.app`: он отвечает только на `/pin` и `/pin/*`. Без `handle_errors` и сниппетов — их имена и коды столкнулись бы с основным `Caddyfile`; 404 отвечает `file_server` со `status 404`.
 
 1. **Сертификат сервера** (один раз, на 15 лет): Cloudflare → `koona.app` → SSL/TLS → Origin Server → Create Certificate, имена `koona.app` и `*.koona.app`. Сертификат и ключ — в `/etc/caddy/certs/koona.app.pem` и `.key`, владелец `root:caddy`, права `640`. В репозиторий они не попадают. Сертификат общий для домена: он нужен блоку `koona.app`, а не сайту Pin.
-2. **Порт 443** открыт в Security List сети Oracle (VCN) и в `iptables` сервера (`netfilter-persistent save`). Можно открыть только для [адресов Cloudflare](https://www.cloudflare.com/ips/).
-3. **Подключение к Caddy** (один раз): в `/etc/caddy/Caddyfile` блок корневого сайта, внутри — строка импорта Pin. Корень `koona.app` (главная, `robots.txt` со строкой `Sitemap: https://koona.app/pin/sitemap.xml`) — вне этого репозитория. Журнал — один на домен, без заголовков и параметров адреса, как обещает политика; за прокси в нём адрес Cloudflare, адрес посетителя — только в удаляемом заголовке `Cf-Connecting-IP`:
+2. **Порты:** firewalld пропускает только `ssh`, `http` и `https`. SSH — только по ключу, без входа под root (`/etc/ssh/sshd_config.d/10-hardening.conf`). Обновления безопасности ставит `dnf5-automatic.timer`, без перезагрузки. SELinux включён; Caddy из пакета Fedora работает как `unconfined_service_t`, перемаркировать `/srv` не нужно.
+3. **Подключение к Caddy** (один раз): в `/etc/caddy/Caddyfile` блок `koona.app` с импортом Pin и после него — корневого сайта. Корень `koona.app` (главная, `/privacy`, `robots.txt` со строкой `Sitemap: https://koona.app/pin/sitemap.xml`) — отдельный репозиторий, на сервере в `/srv/koona.app/site` (выкладка — в его README). Журнал — один на домен, без заголовков и параметров адреса, как обещает политика; за прокси в нём адрес Cloudflare, адрес посетителя — только в удаляемом заголовке `Cf-Connecting-IP`:
    ```caddyfile
    www.koona.app {
    	tls /etc/caddy/certs/koona.app.pem /etc/caddy/certs/koona.app.key
@@ -118,7 +118,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    koona.app {
    	tls /etc/caddy/certs/koona.app.pem /etc/caddy/certs/koona.app.key
    	import /srv/koona.app/pin/Caddyfile
-   	# …правила корневого сайта koona.app…
+   	import /srv/koona.app/site/Caddyfile
    	log {
    		output file /var/log/caddy/koona.app.log {
    			roll_size 10MiB
@@ -145,7 +145,7 @@ Lighthouse (мобильный, 5 октября 2026 года, `npx lighthouse@
    Скрипт собирает сайт, копирует архив и `Caddyfile` по `scp`, распаковывает рядом со старой версией, проверяет конфиг (`caddy validate`; при ошибке прежний `Caddyfile` возвращается, сайт не меняется), меняет папки местами и перезагружает Caddy. Предыдущая версия остаётся в `site.old`.
 8. **Проверка после выкладки:** `https://koona.app/pin` переходит на `https://koona.app/pin/`; открываются `/pin/`, `/pin/ru/`, `/pin/de/`, `/pin/sr/`, `/pin/ja/`, `/pin/zh-cn/`, `/pin/privacy`, `/pin/de/privacy`, `/pin/licenses`, `/pin/de/nowhere` отвечает немецкой 404; `https://koona.app/pin/firefox/updates.json` отдаёт JSON; в ответах нет `Set-Cookie`, из вставок Cloudflare в страницах только скрипт Web Analytics; с русским языком браузера `/pin/` переходит на `/pin/ru/`, с немецким — на `/pin/de/`, с китайским упрощённым — на `/pin/zh-cn/`, с китайским традиционным остаётся `/pin/`.
 
-Проверено 5 октября 2026 года на прежнем адресе сайта (до [Р-47](decisions.md#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код)): HTTPS через Cloudflare, страницы en/ru 200, 404 на своих страницах, `/` → `/ru/` для русского браузера, `/privacy.html` → `/privacy`, `http` → `https`, без `Set-Cookie` и cookies в браузере, из сторонних хостов только `static.cloudflareinsights.com` (данные Web Analytics уходят на `/cdn-cgi/rum` того же домена), без ошибок CSP, `updates.json` и XPI 0.5.2 с совпадающим SHA-256; Lighthouse (мобильный) `/` и `/ru/` — Performance 96–97, Accessibility, Best Practices и SEO 100. На `koona.app/pin/` проверку повторить после первой выкладки.
+Проверено 5 октября 2026 года на прежнем адресе сайта (до [Р-47](decisions.md#р-47-koona-домен-koonaapp-и-приложения-путями-открытый-код)): HTTPS через Cloudflare, страницы en/ru 200, 404 на своих страницах, `/` → `/ru/` для русского браузера, `/privacy.html` → `/privacy`, `http` → `https`, без `Set-Cookie` и cookies в браузере, из сторонних хостов только `static.cloudflareinsights.com` (данные Web Analytics уходят на `/cdn-cgi/rum` того же домена), без ошибок CSP, `updates.json` и XPI 0.5.2 с совпадающим SHA-256; Lighthouse (мобильный) `/` и `/ru/` — Performance 96–97, Accessibility, Best Practices и SEO 100. На `koona.app/pin/` повторено 9 октября 2026 года на сервере Fedora 44 через Cloudflare (Full (strict)): адреса пункта 8, 404 на своих языках, переадресация языка (ru-RU, de-AT, pt-PT, sr-Latn-RS, zh-CN, ja — на свой язык; en-US, zh-TW и переход из меню остаются на `/pin/`), без `Set-Cookie`. До этого `route @welcome` стоял после `handle` (у Caddy свой порядок директив: `handle` раньше `route`) и до переадресации не доходил. `site:check` этого не ловит: `serve-site.mjs` повторяет правила сам, а не запускает Caddy.
 
 `www.koona.app` покрывает бесплатный Universal SSL Cloudflare (`koona.app` и `*.koona.app`), Advanced Certificate Manager не нужен.
 
