@@ -71,17 +71,38 @@ pub mod xdg {
     }
 
     /// Off when the entry is gone or the desktop's own settings turned it off
-    /// (`Hidden=true`, `X-GNOME-Autostart-enabled=false`).
+    /// (`Hidden=true`, `X-GNOME-Autostart-enabled=false`), and when it is no
+    /// entry at all: an empty file is what a power cut leaves of a fresh write,
+    /// and the session skips it.
     pub fn enabled_in(text: &str) -> bool {
         let mut in_entry = false;
+        let mut found = false;
         for line in text.lines().map(str::trim) {
             if line.starts_with('[') {
                 in_entry = line == "[Desktop Entry]";
+                found |= in_entry;
             } else if in_entry && (line == "Hidden=true" || line == "X-GNOME-Autostart-enabled=false") {
                 return false;
             }
         }
-        true
+        found
+    }
+
+    /// The file is there but the session cannot start it: empty or without an
+    /// entry (a write cut short), or its `TryExec` program is gone. A file the
+    /// desktop turned off is a choice, not damage.
+    pub fn broken(text: &str, exists: impl Fn(&Path) -> bool) -> bool {
+        let turned_off = text.lines().map(str::trim).any(|l| l == "Hidden=true" || l == "X-GNOME-Autostart-enabled=false");
+        if turned_off {
+            return false;
+        }
+        if !enabled_in(text) {
+            return true;
+        }
+        match text.lines().map(str::trim).find_map(|l| l.strip_prefix("TryExec=")) {
+            Some(program) => !exists(Path::new(&program.replace("\\\\", "\\"))),
+            None => false,
+        }
     }
 
     /// `$XDG_CONFIG_HOME/autostart/koonapin.desktop`, by default under `~/.config`.
@@ -95,12 +116,25 @@ pub mod xdg {
             .is_some_and(|text| enabled_in(&text))
     }
 
+    /// Written beside and renamed over, after `fsync`: a power cut leaves the
+    /// old entry or the new one, never an empty file (ext4 keeps a fresh file's
+    /// name before its contents).
     pub fn enable() -> std::io::Result<()> {
+        use std::io::Write;
         let path = path().ok_or_else(|| std::io::Error::other("no configuration folder"))?;
-        if let Some(folder) = path.parent() {
-            std::fs::create_dir_all(folder)?;
+        let program = std::env::current_exe()?;
+        // Right after a package update the running binary is the replaced one.
+        if program.to_string_lossy().ends_with(" (deleted)") {
+            return Err(std::io::Error::other("the running program was replaced"));
         }
-        std::fs::write(path, entry(&std::env::current_exe()?))
+        let folder = path.parent().ok_or_else(|| std::io::Error::other("no autostart folder"))?;
+        std::fs::create_dir_all(folder)?;
+        let partial = folder.join(format!(".{FILE}.partial"));
+        let mut file = std::fs::File::create(&partial)?;
+        file.write_all(entry(&program).as_bytes())?;
+        file.sync_all()?;
+        std::fs::rename(&partial, &path)?;
+        std::fs::File::open(folder)?.sync_all()
     }
 
     pub fn disable() -> std::io::Result<()> {
@@ -111,11 +145,24 @@ pub mod xdg {
     }
 
     /// At the first start with a library the entry is written (on by default,
-    /// the contract); later starts leave the person's choice alone.
+    /// the contract); later starts leave the person's choice alone, but mend an
+    /// entry that is there and cannot start (`broken`) — turning it off removes
+    /// the file, so a damaged one was meant to be on.
     /// Not in a debug build: a developer's session would start `target/debug`.
     pub fn apply_default(conn: &rusqlite::Connection) {
         const DONE: &str = "autostart_default";
-        if cfg!(debug_assertions) || crate::db::setting(conn, DONE).is_ok() {
+        if cfg!(debug_assertions) {
+            return;
+        }
+        if crate::db::setting(conn, DONE).is_ok() {
+            let damaged = path()
+                .and_then(|path| std::fs::read_to_string(path).ok())
+                .is_some_and(|text| broken(&text, Path::exists));
+            if damaged {
+                if let Err(error) = enable() {
+                    eprintln!("Mending the start with the session failed: {error}");
+                }
+            }
             return;
         }
         match enable() {
@@ -151,6 +198,26 @@ pub mod xdg {
             assert!(!enabled_in("[Desktop Entry]\nExec=koonapin\nHidden=true\n"));
             assert!(!enabled_in("[Desktop Entry]\nX-GNOME-Autostart-enabled=false\n"));
             assert!(enabled_in("[Desktop Entry]\nX-GNOME-Autostart-enabled=true\n[Other]\nHidden=true\n"));
+        }
+
+        #[test]
+        fn an_empty_or_cut_entry_is_off_and_mended() {
+            // A power cut right after the first start left an empty file (Debian 13, 0.3.3).
+            assert!(!enabled_in(""));
+            assert!(!enabled_in("Exec=/usr/bin/koonapin --autostart\n"));
+            let everywhere = |_: &Path| true;
+            assert!(broken("", everywhere));
+            assert!(broken("[Desktop", everywhere));
+            assert!(!broken(&entry(Path::new("/usr/bin/koonapin")), everywhere));
+        }
+
+        #[test]
+        fn an_entry_of_a_gone_program_is_mended_and_a_turned_off_one_kept() {
+            let only_usr_bin = |p: &Path| p == Path::new("/usr/bin/koonapin");
+            assert!(!broken(&entry(Path::new("/usr/bin/koonapin")), only_usr_bin));
+            assert!(broken(&entry(Path::new("/opt/old/koonapin")), only_usr_bin));
+            assert!(!broken("[Desktop Entry]\nTryExec=/opt/old/koonapin\nHidden=true\n", only_usr_bin));
+            assert!(!broken("[Desktop Entry]\nX-GNOME-Autostart-enabled=false\n", only_usr_bin));
         }
     }
 }
