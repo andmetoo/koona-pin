@@ -52,7 +52,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "개인정보 처리방침",
-    updated: "최종 업데이트: 2026년 10월 7일",
+    updated: "최종 업데이트: 2026년 10월 9일",
     section: "한국어",
     note: "이 문서는 이해를 돕기 위한 번역입니다. 영어 원문과 다를 경우 영어 원문이 우선합니다.",
     original: "영어로 읽기",

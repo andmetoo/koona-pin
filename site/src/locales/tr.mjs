@@ -52,7 +52,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Gizlilik politikası",
-    updated: "Son güncelleme: 7 Ekim 2026",
+    updated: "Son güncelleme: 9 Ekim 2026",
     section: "Türkçe",
     note: "Bu, kolaylık sağlamak için yapılmış bir çeviridir. İngilizce metinle farklılık olursa İngilizce sürüm geçerlidir.",
     original: "İngilizce okuyun",
