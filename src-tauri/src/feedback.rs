@@ -320,7 +320,10 @@ pub fn system_lines() -> Vec<String> {
     #[cfg(target_os = "linux")]
     {
         lines.push(linux::webkit());
-        if let Ok(program) = std::env::current_exe() {
+        if crate::appimage::file().is_some() {
+            // Where the person keeps the file is theirs: only that it is one (NP-116).
+            lines.push("Installed: AppImage".into());
+        } else if let Ok(program) = std::env::current_exe() {
             lines.push(format!("Installed: {}", linux::installed_with(&program)));
         }
         lines.push(format!("Updates: {}", crate::channel::Channel::current().describe()));

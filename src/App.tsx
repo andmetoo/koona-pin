@@ -233,7 +233,8 @@ export function App() {
     const off = api.onUpdateStatus(setUpdate);
     void api.getUpdateStatus().then(setUpdate).catch(() => {});
     void api.getVersion().then(setAppVersion).catch(() => {});
-    void api.getDesktop().then((desktop) => setLinux(desktop.linux)).catch(() => {});
+    // The password texts of the update dialog are for the .deb and .rpm: an AppImage replaces its own file (NP-116).
+    void api.getDesktop().then((desktop) => setLinux(desktop.linux && !desktop.appimage)).catch(() => {});
     return off;
   }, []);
   // The dialog follows the update; when no version is in play any more (cancelled into a recheck,

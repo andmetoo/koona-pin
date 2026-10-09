@@ -1,5 +1,5 @@
 // Signs the packages of a release for the built-in updater and writes latest.json (NP-038, NP-102, Р-60):
-//   bun run build:latest                 every package of this version: the Windows installer and the .deb and .rpm
+//   bun run build:latest                 every package of this version: the Windows installer, the .deb, .rpm and AppImage
 //   bun run build:latest -- --only linux  only the Linux packages (a Linux-only release: Windows keeps the last one)
 //   bun run build:latest -- --only windows
 //   bun run build:latest -- --unsigned-windows  the installer without Certum, from release/test (test releases only)
@@ -70,12 +70,18 @@ if (only !== "linux") {
 if (only !== "windows") {
   const deb = (await find(publish.linux(version), (f) => f === `koonapin_${version}_amd64.deb`))[0];
   const rpm = (await find(publish.linux(version), (f) => f === `koonapin-${version}-1.x86_64.rpm`))[0];
-  if (!deb || !rpm) {
-    console.error(`Expected the .deb and the .rpm of ${version} in ${path.relative(root, publish.linux(version))}: bun run build:linux`);
+  const appimage = (await find(publish.linux(version), (f) => f === `koonapin-${version}-x86_64.AppImage`))[0];
+  if (!deb || !rpm || !appimage) {
+    console.error(`Expected the .deb, the .rpm and the AppImage of ${version} in ${path.relative(root, publish.linux(version))}: bun run build:linux`);
     process.exit(1);
   }
   // No plain linux-x86_64: an app with an unknown bundle type must not get a package it cannot install.
-  packages.push([["linux-x86_64-deb"], publish.linux(version), deb], [["linux-x86_64-rpm"], publish.linux(version), rpm]);
+  // The AppImage is signed as it is: the updater writes it over the person's file (NP-116).
+  packages.push(
+    [["linux-x86_64-deb"], publish.linux(version), deb],
+    [["linux-x86_64-rpm"], publish.linux(version), rpm],
+    [["linux-x86_64-appimage"], publish.linux(version), appimage],
+  );
 }
 
 const out = path.join(publish.updates, version);

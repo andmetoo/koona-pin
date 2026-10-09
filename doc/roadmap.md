@@ -319,7 +319,7 @@ NP-003 начать сразу после NP-001: подпись кода и х�
 | Архитектура | Только x86_64. Сборка на Debian 13 (glibc 2.41, самая старая в матрице) — один бинарник для всех |
 | Окружения | GNOME и KDE Plasma на Wayland — основная матрица; Hyprland на Wayland (Arch с Omarchy). X11 — тем же бинарником, выборочно |
 | WebView | `webkit2gtk-4.1` из дистрибутива; проверены 2.50–2.52 (NP-008) |
-| Пакеты | `.deb` (Ubuntu) и `.rpm` (Fedora) в GitHub Releases `andmetoo/koona-pin`, `koonapin-bin` в AUR (Arch). AppImage, Flatpak, Snap — нет |
+| Пакеты | `.deb` (Ubuntu) и `.rpm` (Fedora) в GitHub Releases `andmetoo/koona-pin`, `koonapin-bin` в AUR (Arch); AppImage для остальных дистрибутивов — с 0.5.0 ([Р-63](decisions.md#р-63-appimage)). Flatpak, Snap — нет |
 | Установка | Системная, пакетным менеджером, с паролем администратора. Зависимости: `webkit2gtk-4.1`, `libayatana-appindicator` (без неё приложение падает) |
 | Регистрация host | Манифесты Native Messaging — файлы пакета в системных каталогах Chrome, Edge и Firefox; удаляются вместе с пакетом. Приложение их только проверяет |
 | Канал захвата | Unix-сокет в `$XDG_RUNTIME_DIR`, только для пользователя; протокол 2 без изменений |

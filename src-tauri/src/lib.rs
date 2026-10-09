@@ -1,3 +1,4 @@
+pub mod appimage;
 pub mod autostart;
 pub mod backup;
 pub mod browsers;

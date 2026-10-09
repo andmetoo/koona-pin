@@ -153,7 +153,10 @@ jobs:
           name: koonapin-linux-x86_64
           path: dist-linux/
       # Artifacts arrive as root and without the executable bit.
-      - run: chown -R dev dist-linux && chmod +x dist-linux/koonapin dist-linux/koonapin-host
+      - run: chown -R dev dist-linux && chmod +x dist-linux/koonapin dist-linux/koonapin-host dist-linux/*.AppImage
+      # Before any package: the AppImage brings its own WebKitGTK and tray library (NP-116).
+      - name: The AppImage without a package as «dev»
+        run: su dev -s /bin/bash -c "bash scripts/linux/ci-appimage.sh"
       - name: Install the package
         run: bash scripts/linux/ci-package.sh install
       - name: Start the program as «dev»

@@ -46,9 +46,10 @@ export default {
   dl: {
     title: "Koona Pin'i indir",
     windows: "Windows için indir",
-    deb: "Linux .deb",
-    rpm: "Linux .rpm",
-    soon: "macOS, AppImage ve AUR çok yakında",
+    deb: ".deb",
+    rpm: ".rpm",
+    appimage: "AppImage",
+    soon: "macOS ve AUR çok yakında",
     extTitle: "Ardından uzantıyı tarayıcınıza ekleyin",
     extSoon: "yakında",
     extSoonNote: "Chrome ve Edge mağazalarına çok yakında",
