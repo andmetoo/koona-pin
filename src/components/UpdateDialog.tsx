@@ -111,8 +111,24 @@ export function UpdateDialog({
   return (
     <Dialog title={t("update.title", { version })} onClose={onClose}>
       <p className="text-sm text-muted">{t("update.current", { current })}</p>
-      <button type="button" onClick={() => onOpen(notesUrl(update))} className="mt-2.5 text-sm font-medium text-accent hover:underline">
-        {t("update.whatsNew", { version })} ↗
+      {/* What changed, from latest.json (NP-040, sheet 42a): English, as the site's changelog; a long list scrolls. */}
+      {update.state === "available" && update.notes.length > 0 && (
+        <section aria-labelledby="update-notes" className="mt-3.5">
+          <h3 id="update-notes" className="text-sm font-semibold">
+            {t("update.whatsNew", { version })}
+          </h3>
+          <ul lang="en" className="mt-1.5 max-h-[120px] overflow-y-auto text-sm leading-5 text-muted">
+            {update.notes.map((note) => (
+              <li key={note} className="flex gap-2">
+                <span aria-hidden>•</span>
+                <span>{note}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <button type="button" onClick={() => onOpen(notesUrl(update))} className="mt-2 text-sm font-medium text-accent hover:underline">
+        {t("update.fullChangelog")} ↗
       </button>
       <p className="mt-3.5 rounded-lg bg-secondary px-3 py-2.5 text-xs leading-[17px] text-muted">{t(linux ? "update.linuxHint" : "update.windowsHint")}</p>
       <footer className="mt-5 flex justify-end gap-2">
