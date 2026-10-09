@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — bilgisayarınızda yer işaretleri, tek tıkla kaydedilir",
   description:
-    "Bilgisayar için bir yer işareti kitaplığı. Chrome, Edge ve Firefox'tan sayfaları tek düğmeyle kaydedin; bilgisayarınızda kalırlar. Hesap yok, bulut yok.",
+    "Bilgisayar için bir yer işareti kitaplığı. Chrome, Edge ve Firefox'tan sayfaları tek düğmeyle kaydedin; bilgisayarınızda kalırlar.",
   nav: { how: "Nasıl çalışır", privacy: "Gizlilik", download: "İndir" },
   labels: { main: "Ana menü", site: "Site", why: "Neden Koona Pin" },
   langSwitch: "Dil",
   h1: ["Bağlantıyı tek tıkla kaydedin.", "İhtiyacınız olduğunda bulun."],
-  sub: "Koona Pin, bilgisayar için bir yer işareti kitaplığıdır. Sayfalar Chrome, Edge ve Firefox'tan tek düğmeyle gelir ve bilgisayarınızda kalır. Hesap yok, bulut yok.",
+  sub: "Koona Pin, bilgisayar için bir yer işareti kitaplığıdır. Sayfalar Chrome, Edge ve Firefox'tan tek düğmeyle gelir ve bilgisayarınızda kalır.",
   soon: "Beta — çok yakında",
   how: "Nasıl çalışır",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Ücretsiz"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "Uzantı yalnızca kaydettiğiniz sekmenin adresini ve başlığını okur.",
     "Uygulama analiz verisi, telemetri veya çökme raporu göndermez.",
-    "Hesap yok, bulut yok.",
+    "Her şey çevrimdışı çalışır.",
   ],
   privacyLink: "Gizlilik politikasını okuyun",
   dlTitle: "Beta yolda",

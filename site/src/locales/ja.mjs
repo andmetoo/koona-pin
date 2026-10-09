@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — ワンクリックで保存するデスクトップのブックマーク",
   description:
-    "デスクトップのブックマーク ライブラリ。Chrome、Edge、Firefox のページをボタン 1 つで保存し、あなたのコンピューターに残します。アカウントもクラウドも不要です。",
+    "デスクトップのブックマーク ライブラリ。Chrome、Edge、Firefox のページをボタン 1 つで保存し、あなたのコンピューターに残します。",
   nav: { how: "使い方", privacy: "プライバシー", download: "ダウンロード" },
   labels: { main: "メイン", site: "サイト", why: "Koona Pin を選ぶ理由" },
   langSwitch: "言語",
   h1: ["リンクをワンクリックで保存。", "必要なときにすぐ見つかる。"],
-  sub: "Koona Pin はデスクトップのブックマーク ライブラリです。ボタン 1 つで Chrome、Edge、Firefox からページが届き、あなたのコンピューターに残ります。アカウントもクラウドも不要です。",
+  sub: "Koona Pin はデスクトップのブックマーク ライブラリです。ボタン 1 つで Chrome、Edge、Firefox からページが届き、あなたのコンピューターに残ります。",
   soon: "ベータ版 — 近日公開",
   how: "使い方",
   meta: ["Windows 11、Linux", "Chrome、Edge、Firefox", "無料"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "拡張機能が読み取るのは、保存するタブのアドレスとタイトルだけです。",
     "アプリは分析データ、テレメトリ、クラッシュ レポートを送信しません。",
-    "アカウントもクラウドもありません。",
+    "すべてオフラインで動作します。",
   ],
   privacyLink: "プライバシー ポリシーを読む",
   dlTitle: "ベータ版はまもなく",

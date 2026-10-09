@@ -2,12 +2,12 @@
 export default {
   title: "Koona Pin — obeleživači na računaru jednim klikom",
   description:
-    "Biblioteka obeleživača za računar. Čuvajte stranice iz Chrome-a, Edge-a i Firefox-a jednim dugmetom — ostaju na vašem računaru. Bez naloga i oblaka.",
+    "Biblioteka obeleživača za računar. Čuvajte stranice iz Chrome-a, Edge-a i Firefox-a jednim dugmetom — ostaju na vašem računaru.",
   nav: { how: "Kako radi", privacy: "Privatnost", download: "Preuzimanje" },
   labels: { main: "Glavno", site: "Sajt", why: "Zašto Koona Pin" },
   langSwitch: "Jezik",
   h1: ["Sačuvajte link jednim klikom.", "Nađite ga kad vam zatreba."],
-  sub: "Koona Pin je biblioteka obeleživača za računar. Stranice stižu iz Chrome-a, Edge-a i Firefox-a jednim dugmetom i ostaju na vašem računaru. Bez naloga i oblaka.",
+  sub: "Koona Pin je biblioteka obeleživača za računar. Stranice stižu iz Chrome-a, Edge-a i Firefox-a jednim dugmetom i ostaju na vašem računaru.",
   soon: "Beta — uskoro",
   how: "Kako radi",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "Besplatno"],
@@ -38,7 +38,7 @@ export default {
   privacyFacts: [
     "Proširenje čita samo adresu i naslov kartice koju čuvate.",
     "Aplikacija ne šalje analitiku, telemetriju ni izveštaje o padovima.",
-    "Bez naloga i bez oblaka.",
+    "Sve radi bez interneta.",
   ],
   privacyLink: "Pročitajte politiku privatnosti",
   dlTitle: "Beta stiže",
