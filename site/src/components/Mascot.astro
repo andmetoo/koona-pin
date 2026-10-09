@@ -1,0 +1,7 @@
+---
+// The mascot by theme: green on light, mint on dark.
+import { mascotDark, mascotLight } from "../assets.mjs";
+const { size, class: cls = "mascot" } = Astro.props;
+const height = Math.round((size * 916) / 880);
+---
+<picture class={cls || undefined}><source srcset={mascotDark} media="(prefers-color-scheme: dark)"><img src={mascotLight} width={size} height={height} alt=""></picture>

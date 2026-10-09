@@ -20,7 +20,10 @@
 // (Cargo and Tauri: debug and release EXEs, NSIS intermediates) and dist/ (Vite, the app's interface).
 import path from "node:path";
 
-export const root = path.resolve(import.meta.dirname, "..", "..");
+// Inside the site's Astro build this file is bundled elsewhere: site/astro.config.mjs puts the
+// repository's root in import.meta.env.KOONAPIN_ROOT (NP-115). Bun's import.meta.env is the
+// environment, where it is not set.
+export const root = (import.meta.env && import.meta.env.KOONAPIN_ROOT) || path.resolve(import.meta.dirname, "..", "..");
 export const release = path.join(root, "release");
 
 export const publish = {
