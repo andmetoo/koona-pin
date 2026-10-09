@@ -8,7 +8,9 @@ import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { BASE, content, FEEDBACK_ENDPOINT, languages, SITE } from "../site/src/content.mjs";
-import { feedback, feedbackResult, landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
+import { changelog } from "../site/src/changelog.mjs";
+import { changelogPage, downloads, feedback, feedbackResult, landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
+import { firefoxAddon, release } from "../site/src/release.mjs";
 import { publish, root } from "./lib/paths.mjs";
 
 const out = publish.site;
@@ -26,9 +28,18 @@ async function page(file, html) {
   await writeFile(target, html);
 }
 
+// What can be downloaded (NP-040): the newest release and Firefox add-on. Without a release the
+// landing keeps «coming soon» and there is no /downloads/.
+const rel = release();
+const firefoxXpi = firefoxAddon();
+const newer = (a, b) => a.localeCompare(b, "en", { numeric: true }) > 0;
+// The changelog lists released versions; the released one must have its entry.
+const entries = changelog().filter((e) => !rel || !newer(e.version, rel.version));
+if (rel && entries[0]?.version !== rel.version) throw new Error(`site/changelog/${rel.version}.md is missing: the released version needs its entry`);
+
 for (const t of Object.values(content)) {
   const dir = t.dir;
-  await page(`${dir}index.html`, landing(t, { wordmark }));
+  await page(`${dir}index.html`, landing(t, { wordmark, release: rel, firefox: firefoxXpi }));
   // /privacy and /licenses: Caddy tries {path}.html (site/Caddyfile).
   await page(`${dir}privacy.html`, privacy(t, { markdown, wordmark }));
   await page(`${dir}licenses.html`, licenses(t, { wordmark }));
@@ -39,6 +50,12 @@ for (const t of Object.values(content)) {
     for (const outcome of ["sent", "limit", "long", "origin", "error"]) await page(`${dir}feedback/${outcome}.html`, feedbackResult(t, { wordmark, outcome }));
   }
 }
+
+// Downloads and changelog are in English only (NP-040): /pin/downloads/, /pin/changelog/.
+if (rel) await page("downloads/index.html", downloads(content.en, { wordmark, release: rel, firefox: firefoxXpi }));
+else console.log("downloads: no release in release/publish/updates, the landing says «coming soon» and /downloads/ is left out");
+await page("changelog/index.html", changelogPage(content.en, { wordmark, entries }));
+console.log(`changelog: ${entries.map((e) => e.version).join(", ")}`);
 
 if (!FEEDBACK_ENDPOINT) console.log("feedback: KOONAPIN_FEEDBACK_URL is not set, the form is left out and Support points at GitHub");
 await cp(from("site/src/site.css"), path.join(out, "site.css"));
@@ -115,7 +132,11 @@ if (released.length) {
 }
 
 // robots.txt belongs to the root of koona.app, which names this sitemap (site/Caddyfile, Р-47).
-const urls = ["", "privacy", "licenses", ...(FEEDBACK_ENDPOINT ? ["feedback"] : [])].flatMap((p) => languages.map((l) => `/${l.dir}${p}`));
+const urls = [
+  ...["", "privacy", "licenses", ...(FEEDBACK_ENDPOINT ? ["feedback"] : [])].flatMap((p) => languages.map((l) => `/${l.dir}${p}`)),
+  ...(rel ? ["/downloads/"] : []),
+  "/changelog/",
+];
 await writeFile(
   path.join(out, "sitemap.xml"),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${SITE}${u}</loc></url>`).join("\n")}\n</urlset>\n`,

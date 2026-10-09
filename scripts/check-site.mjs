@@ -23,6 +23,8 @@ const own = ["", "privacy", "licenses", "nowhere"];
 if (existsSync(path.join(publish.site, "feedback", "index.html")))
   own.push("feedback", "feedback/sent", "feedback/limit", "feedback/long", "feedback/origin", "feedback/error");
 const pages = languages.flatMap((l) => own.map((p) => ({ path: `/${l.dir}${p}`, lang: l.lang, home: p === "" })));
+// Downloads and changelog are in English only (NP-040); downloads only with a release in the build.
+for (const p of ["downloads/", "changelog/"]) if (existsSync(path.join(publish.site, p, "index.html"))) pages.push({ path: `/${p}`, lang: "en", home: false });
 // Screenshots to look at: English, Russian, the longest (German), Serbian and Japanese (NP-090).
 const shown = new Set(["en", "ru", "de", "sr-Latn", "ja"]);
 const widths = [360, 390, 1440, 1920];
@@ -48,7 +50,8 @@ const clipped = () =>
 try {
   for (const scheme of ["light", "dark"]) {
     for (const width of widths) {
-      const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme, locale: "en-US" });
+      // Reduced motion: full-page screenshots see every section, not one waiting to rise in.
+      const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: scheme, locale: "en-US", reducedMotion: "reduce" });
       const page = await context.newPage();
       const foreign = [];
       page.on("request", (r) => {
