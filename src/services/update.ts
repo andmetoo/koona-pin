@@ -22,7 +22,10 @@ export function megabytes(bytes: number, language: string): string {
   return new Intl.NumberFormat(language, { style: "unit", unit: "megabyte", maximumFractionDigits: 1 }).format(bytes / 1_000_000);
 }
 
-/** The version's entry in the site's changelog: «Full changelog» (NP-040). */
+/** A version's entry in the site's changelog (NP-040). */
+export const changelogUrl = (version: string) => `https://koona.app/pin/changelog/#${version}`;
+
+/** The offered version in the changelog: «Full changelog» in the dialog. */
 export function notesUrl(status: Offer): string {
-  return status.state === "available" ? status.notes_url : `https://koona.app/pin/changelog/#${status.version}`;
+  return status.state === "available" ? status.notes_url : changelogUrl(status.version);
 }

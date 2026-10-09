@@ -686,6 +686,7 @@
     "updateInstalling": "Установка версии {{version}}…",
     "updateFailed": "Версия {{version}} не установлена",
     "updateButton": "Обновить…",
+    "changelog": "Изменения",
     "pacman": "Обновления приходят через pacman: эта копия установлена из AUR",
     "support": "Поддержка",
     "feedback": "Отправить отзыв",

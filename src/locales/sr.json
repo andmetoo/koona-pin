@@ -640,6 +640,7 @@
     "updateInstalling": "Инсталирање верзије {{version}}…",
     "updateFailed": "Верзија {{version}} није инсталирана",
     "updateButton": "Ажурирај…",
+    "changelog": "Измене",
     "pacman": "Ажурирања стижу преко програма pacman: ова копија је инсталирана из AUR",
     "support": "Подршка",
     "feedback": "Пошаљи коментар",
