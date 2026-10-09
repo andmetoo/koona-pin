@@ -2133,6 +2133,8 @@ test("app update: a row only with a new version, the dialog on demand, the downl
   await expect(page.locator("button[data-update]")).toHaveCount(0);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.locator("section[data-update]")).toContainText("Up to date · checked today at");
+  // The changelog of the running version, left of the button (NP-040).
+  await expect(page.locator("section[data-update]").getByRole("button", { name: "Changelog ↗" })).toBeVisible();
   await page.evaluate(() => localStorage.setItem("koonapin.demo.update", "failing"));
   await page.reload();
   const row = page.locator("button[data-update]");
