@@ -1,4 +1,4 @@
-// A release of the app in one command, on the owner's Windows computer (README, «Выпуск»):
+// A release of the app in one command, on the owner's Windows computer (doc/README.md, «Выпуск»):
 //   bun run release                      builds what this version still lacks, keeps the rest
 //   bun run release -- --only linux      one system; the other sees no update in this release
 //   bun run release -- --rebuild linux   builds a system's packages again although they are there
