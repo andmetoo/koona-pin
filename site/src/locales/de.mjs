@@ -13,9 +13,9 @@ export default {
   shotAlt: "Koona Pin mit acht Lesezeichen im Raster: Vorschauen, Websites, Titel, Sammlungen und Tags in der Seitenleiste, zwei neue Lesezeichen warten im Eingang.",
   listAlt: "Dieselbe Bibliothek als Liste nach Datum, mit Tags, Sammlungen und Daten.",
   pillars: [
-    ["Ein Klick", "Auf einer beliebigen Seite klicken, und der Link ist gespeichert — auch wenn die App geschlossen ist."],
+    ["Ein Klick", "Auf einer beliebigen Seite klicken, und der Link ist gespeichert — auch wenn die App geschlossen ist. In Chrome, Edge oder Firefox."],
     ["Auf Ihrem Computer", "Die Bibliothek ist eine Datei auf Ihrer Festplatte, mit automatischen Sicherungen. Funktioniert offline."],
-    ["Kein Konto", "Keine Registrierung. Der Entwickler sieht Ihre Links nie."],
+    ["Jeder Computer", "Windows, macOS oder Linux — überall dieselbe App und dieselbe Schaltfläche."],
   ],
   howTitle: "So funktioniert’s",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["Der Papierkorb hält Links 30 Tage", "Ohne Sorge löschen, mit einem Klick wiederherstellen."],
     ["Import und Export", "Lesezeichen aus dem Browser holen, als HTML, JSON oder CSV mitnehmen."],
   ],
-  browsersTitle: "Funktioniert mit Ihrem Browser",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "In Koona Pin gespeichert", inbox: "Zum Eingang hinzugefügt", backup: "Sicherung", today: "Heute, 09:00", yesterday: "Gestern", mb: "MB" },
   privacyTitle: "Ihre Links bleiben bei Ihnen",
   privacyBody: "Koona Pin speichert Ihre Bibliothek auf Ihrem Computer: Kein Server sieht je Ihre Links. Nur Feedback, das Sie selbst senden, erreicht den Entwickler.",
   privacyFacts: [

@@ -13,9 +13,9 @@ export default {
   shotAlt: "以网格显示八个书签的 Koona Pin：预览图、网站、标题，侧栏中的合集和标签，收件箱中有两个新书签在等待。",
   listAlt: "同一个资料库按日期分组的列表视图，带有标签、合集和日期。",
   pillars: [
-    ["一个按钮", "在任意页面上点击它，链接就保存好了 — 即使应用没有运行。"],
+    ["一个按钮", "在任意页面上点击它，链接就保存好了 — 即使应用没有运行。支持 Chrome、Edge 和 Firefox。"],
     ["在你的电脑上", "资料库是你磁盘上的一个文件，带自动备份。离线也能用。"],
-    ["无需账号", "不用注册。开发者永远看不到你的链接。"],
+    ["任何电脑", "Windows、macOS 或 Linux，都是同一个应用、同一个按钮。"],
   ],
   howTitle: "使用方式",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["回收站保留链接 30 天", "放心删除，一键恢复。"],
     ["导入和导出", "从浏览器导入书签，以 HTML、JSON 或 CSV 导出。"],
   ],
-  browsersTitle: "支持你的浏览器",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "已保存到 Koona Pin", inbox: "已添加到收件箱", backup: "备份", today: "今天 09:00", yesterday: "昨天", mb: "MB" },
   privacyTitle: "你的链接只属于你",
   privacyBody: "Koona Pin 把你的资料库保存在你的电脑上：没有任何服务器能看到你的链接。只有你主动发送的反馈才会到达开发者。",
   privacyFacts: [

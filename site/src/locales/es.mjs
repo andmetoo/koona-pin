@@ -13,9 +13,9 @@ export default {
   shotAlt: "Koona Pin con ocho marcadores en cuadrícula: vistas previas, sitios, títulos, colecciones y etiquetas en la barra lateral, dos marcadores nuevos esperan en la bandeja de entrada.",
   listAlt: "La misma biblioteca como lista agrupada por fecha, con etiquetas, colecciones y fechas.",
   pillars: [
-    ["Un botón", "Haz clic en cualquier página y el enlace queda guardado, incluso con la aplicación cerrada."],
+    ["Un botón", "Haz clic en cualquier página y el enlace queda guardado, incluso con la aplicación cerrada. En Chrome, Edge o Firefox."],
     ["En tu ordenador", "La biblioteca es un archivo en tu disco, con copias de seguridad automáticas. Funciona sin conexión."],
-    ["Sin cuenta", "No hay que registrarse. El desarrollador nunca ve tus enlaces."],
+    ["Cualquier ordenador", "Windows, macOS o Linux: la misma app y el mismo botón en todos."],
   ],
   howTitle: "Cómo funciona",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["La papelera guarda los enlaces 30 días", "Elimina sin miedo, restaura con un clic."],
     ["Importar y exportar", "Trae marcadores de tu navegador y llévatelos como HTML, JSON o CSV."],
   ],
-  browsersTitle: "Funciona con tu navegador",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Guardado en Koona Pin", inbox: "Añadido a la bandeja de entrada", backup: "Copia de seguridad", today: "Hoy, 09:00", yesterday: "Ayer", mb: "MB" },
   privacyTitle: "Tus enlaces se quedan contigo",
   privacyBody: "Koona Pin guarda tu biblioteca en tu ordenador: ningún servidor ve tus enlaces. Al desarrollador solo le llegan los comentarios que tú decidas enviar.",
   privacyFacts: [

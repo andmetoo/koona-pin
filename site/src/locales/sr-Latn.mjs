@@ -14,9 +14,9 @@ export default {
   shotAlt: "Koona Pin sa osam obeleživača u mreži: pregledi, sajtovi, naslovi, kolekcije i oznake u bočnoj traci, dva nova obeleživača čekaju u prijemnom sandučetu.",
   listAlt: "Ista biblioteka kao lista po datumima, sa oznakama, kolekcijama i datumima.",
   pillars: [
-    ["Jedno dugme", "Kliknite na bilo kojoj stranici i link je sačuvan — čak i kad je aplikacija zatvorena."],
+    ["Jedno dugme", "Kliknite na bilo kojoj stranici i link je sačuvan — čak i kad je aplikacija zatvorena. U Chrome-u, Edge-u ili Firefox-u."],
     ["Na vašem računaru", "Biblioteka je datoteka na vašem disku, sa automatskim rezervnim kopijama. Radi i bez mreže."],
-    ["Bez naloga", "Ne morate da se registrujete. Programer nikad ne vidi vaše linkove."],
+    ["Bilo koji računar", "Windows, macOS ili Linux — svuda ista aplikacija i isto dugme."],
   ],
   howTitle: "Kako radi",
   steps: [
@@ -32,8 +32,7 @@ export default {
     ["Otpad čuva linkove 30 dana", "Brišite bez straha, vratite jednim klikom."],
     ["Uvoz i izvoz", "Donesite obeleživače iz pregledača, iznesite ih kao HTML, JSON ili CSV."],
   ],
-  browsersTitle: "Radi sa vašim pregledačem",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Sačuvano u Koona Pin", inbox: "Dodato u prijemno sanduče", backup: "Rezervna kopija", today: "Danas, 09:00", yesterday: "Juče", mb: "MB" },
   privacyTitle: "Vaši linkovi ostaju kod vas",
   privacyBody: "Koona Pin čuva biblioteku na vašem računaru: nijedan server ne vidi vaše linkove. Programeru stiže samo komentar koji sami pošaljete.",
   privacyFacts: [

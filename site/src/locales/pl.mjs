@@ -13,9 +13,9 @@ export default {
   shotAlt: "Koona Pin z ośmioma zakładkami w siatce: podglądy, strony, tytuły, kolekcje i tagi na pasku bocznym, dwie nowe zakładki czekają w skrzynce odbiorczej.",
   listAlt: "Ta sama biblioteka jako lista według dat, z tagami, kolekcjami i datami.",
   pillars: [
-    ["Jeden przycisk", "Kliknij na dowolnej stronie, a link zostanie zapisany — nawet gdy aplikacja jest zamknięta."],
+    ["Jeden przycisk", "Kliknij na dowolnej stronie, a link zostanie zapisany — nawet gdy aplikacja jest zamknięta. W Chrome, Edge lub Firefoksie."],
     ["Na Twoim komputerze", "Biblioteka to plik na Twoim dysku, z automatycznymi kopiami zapasowymi. Działa offline."],
-    ["Bez konta", "Nie trzeba się rejestrować. Twórca nigdy nie widzi Twoich linków."],
+    ["Każdy komputer", "Windows, macOS lub Linux — wszędzie ta sama aplikacja i ten sam przycisk."],
   ],
   howTitle: "Jak to działa",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["Kosz trzyma linki przez 30 dni", "Usuwaj bez obaw, przywracaj jednym kliknięciem."],
     ["Import i eksport", "Przenieś zakładki z przeglądarki, zabierz je jako HTML, JSON lub CSV."],
   ],
-  browsersTitle: "Działa z Twoją przeglądarką",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Zapisano w Koona Pin", inbox: "Dodano do skrzynki odbiorczej", backup: "Kopia zapasowa", today: "Dziś, 09:00", yesterday: "Wczoraj", mb: "MB" },
   privacyTitle: "Twoje linki zostają u Ciebie",
   privacyBody: "Koona Pin trzyma Twoją bibliotekę na Twoim komputerze: żaden serwer nie widzi Twoich linków. Do twórcy trafia tylko opinia, którą sam wyślesz.",
   privacyFacts: [
