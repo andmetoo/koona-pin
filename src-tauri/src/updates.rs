@@ -1,5 +1,5 @@
 //! The app updates itself (NP-038, NP-102; Р-9, Р-45 п. 8, Р-60, sheet 42). Ten seconds after the
-//! start and then once a day the updater reads `latest.json` of the releases of `andmetoo/koona-pin`;
+//! start and then once a day the updater reads `latest.json` on koona.app/pin (the repository is private);
 //! a newer version shows as a row in the sidebar and in Settings → Updates, and nothing more happens
 //! until the person presses «Update». The package is then downloaded and its minisign signature
 //! checked against the key in `tauri.conf.json`, bound to the announced version
@@ -440,7 +440,7 @@ mod tests {
     fn the_key_and_the_releases_are_configured() {
         let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
         let updater = &conf["plugins"]["updater"];
-        assert_eq!(updater["endpoints"][0], "https://github.com/andmetoo/koona-pin/releases/latest/download/latest.json");
+        assert_eq!(updater["endpoints"][0], "https://koona.app/pin/updates/latest.json");
         // Only a signature made for the announced version is accepted (no downgrade by an old file).
         assert_eq!(updater["requireSignedVersion"], true);
         assert_eq!(updater["windows"]["installMode"], "passive");

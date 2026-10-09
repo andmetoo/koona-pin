@@ -53,7 +53,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Politika privatnosti",
-    updated: "Ažurirano 7. oktobra 2026.",
+    updated: "Ažurirano 9. oktobra 2026.",
     section: "Srpski",
     note: "Ovo je prevod radi lakšeg čitanja. Ako se razlikuje od engleskog teksta, važi engleska verzija.",
     original: "Pročitajte na engleskom",
