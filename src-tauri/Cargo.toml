@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "0.4.1"
+version = "0.5.0"
 description = "Koona Pin desktop bookmark library"
 license = "AGPL-3.0-only"
 edition = "2021"

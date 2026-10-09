@@ -15,9 +15,8 @@ const d = t.dl;
 <p class="dl-version">{rel.version}<span aria-hidden="true"> · </span>{day(t.lang, rel.date)}</p>
 <div class="dl-actions">
 <a class="button button-primary dl-windows" href={rel.windows.url} download><Icon name="download" class="icon icon-download" />{d.windows}</a>
-<a class="button" href={rel.deb.url} download>{d.deb}</a>
-<a class="button" href={rel.rpm.url} download>{d.rpm}</a>
 </div>
+<div class="dl-linux"><span class="dl-linux-label">Linux</span><a class="button" href={rel.deb.url} download>{d.deb}</a><a class="button" href={rel.rpm.url} download>{d.rpm}</a>{rel.appimage && <a class="button" href={rel.appimage.url} download>{d.appimage}</a>}</div>
 <p class="dl-soon">{d.soon}</p>
 <p class="dl-ext-title">{d.extTitle}</p>
 <div class="dl-ext">{["Chrome", "Edge"].map((name) => <span class="button button-quiet" aria-disabled="true">{name}<span class="ext-soon"> · {d.extSoon}</span></span>)}{firefox ? <a class="button" href={firefox}>Firefox</a> : <span class="button button-quiet" aria-disabled="true">Firefox<span class="ext-soon"> · {d.extSoon}</span></span>}</div>

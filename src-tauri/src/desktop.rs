@@ -31,6 +31,9 @@ pub struct Desktop {
     /// A tray shows the icon. Without one, closing the window only hides it
     /// and the app keeps running in the background (NP-096).
     pub tray: bool,
+    /// Started from an AppImage (NP-116): an update replaces the file and needs
+    /// no password, unlike the .deb and .rpm.
+    pub appimage: bool,
 }
 
 /// Passed by a second start to the first one: the token the launcher gave the
@@ -100,6 +103,7 @@ pub async fn get_desktop(app: AppHandle) -> Desktop {
                 WindowButton::Close,
             ],
             tray: true,
+            appimage: false,
         }
     }
 }
@@ -208,6 +212,7 @@ pub mod linux {
             left,
             right,
             tray,
+            appimage: crate::appimage::file().is_some(),
         }
     }
 

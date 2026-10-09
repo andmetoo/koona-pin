@@ -46,9 +46,10 @@ export default {
   dl: {
     title: "Koona Pin 다운로드",
     windows: "Windows용 다운로드",
-    deb: "Linux .deb",
-    rpm: "Linux .rpm",
-    soon: "macOS, AppImage, AUR 곧 제공",
+    deb: ".deb",
+    rpm: ".rpm",
+    appimage: "AppImage",
+    soon: "macOS, AUR 곧 제공",
     extTitle: "그다음 브라우저에 확장 프로그램을 추가하세요",
     extSoon: "곧 제공",
     extSoonNote: "Chrome과 Edge는 곧 각 스토어에 출시됩니다",
