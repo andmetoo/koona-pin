@@ -714,7 +714,8 @@
     "nothingDecided": "Questa volta non è stato deciso nulla.",
     "toLibrary": "Torna alla libreria",
     "undoLast": "Annulla l’ultima decisione",
-    "doneHint": "I nuovi segnalibri aspetteranno in In arrivo. Esc chiude lo smistamento."
+    "doneHint": "I nuovi segnalibri aspetteranno in In arrivo. Esc chiude lo smistamento.",
+    "starter": "aggiunto da Koona Pin {{when}}"
   },
   "undo": {
     "undone": "Annullato: «{{title}}»",
@@ -977,7 +978,27 @@
   "starter": {
     "development": "Sviluppo",
     "design": "Design e UI",
-    "reading": "Articoli / Da leggere"
+    "reading": "Articoli / Da leggere",
+    "links": {
+      "start": {
+        "title": "Inizia da qui: come funziona Koona Pin",
+        "description": "Salva, ordina e trova i link in pochi minuti."
+      },
+      "extension": {
+        "title": "Aggiungi il pulsante Salva al browser",
+        "description": "Chrome, Edge o Firefox: un clic salva la pagina aperta."
+      },
+      "changelog": {
+        "title": "Novità di Koona Pin",
+        "description": "Ogni versione e cosa è cambiato."
+      },
+      "bun": {
+        "description": "Un runtime e un insieme di strumenti JavaScript veloci."
+      },
+      "lunacy": {
+        "description": "Un'app di design gratuita con grafiche incluse."
+      }
+    }
   },
   "bulk": {
     "moved_one": "{{count}} segnalibro spostato in «{{name}}»",
@@ -1028,5 +1049,11 @@
       "restore_many": "Impossibile ripristinare {{count}} di segnalibri: {{reason}}. Non è cambiato nulla.",
       "restore_other": "Impossibile ripristinare {{count}} segnalibri: {{reason}}. Non è cambiato nulla."
     }
+  },
+  "importOffer": {
+    "label": "Importa segnalibri",
+    "text": "Porta i tuoi segnalibri da Chrome, Edge o Firefox: le loro cartelle diventano raccolte",
+    "action": "Importa segnalibri…",
+    "hide": "Nascondi"
   }
 }

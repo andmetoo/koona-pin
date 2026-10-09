@@ -27,7 +27,17 @@ export function Toast({
   );
 }
 
-/** Plate over the content: an error, or the soft accent, such as the inbox banner. */
+const TONES = {
+  danger: "bg-danger-soft text-on-danger-soft",
+  accent: "bg-accent-soft text-on-accent-soft",
+  quiet: "bg-panel text-ink",
+} as const;
+
+/**
+ * Plate over the content: an error, the soft accent, such as the inbox
+ * banner, or the quiet panel of an offer, such as the import on a new
+ * library (sheet 43).
+ */
 export function Banner({
   children,
   action,
@@ -37,7 +47,7 @@ export function Banner({
 }: {
   children: ReactNode;
   action?: ReactNode;
-  tone?: "danger" | "accent";
+  tone?: "danger" | "accent" | "quiet";
   /** The accent icon on the left; an error always has the alert sign. */
   icon?: ReactNode;
   /**
@@ -50,13 +60,13 @@ export function Banner({
     <div
       role={tone === "danger" ? "alert" : label ? "region" : "status"}
       aria-label={label}
-      className={`flex items-center justify-between gap-5 rounded-xl px-4 py-3 text-sm ${tone === "danger" ? "bg-danger-soft text-on-danger-soft" : "bg-accent-soft text-on-accent-soft"}`}
+      className={`flex items-center justify-between gap-5 rounded-xl px-4 py-3 text-sm ${TONES[tone]}`}
     >
       <span className="flex min-w-0 items-start gap-2.5 [overflow-wrap:anywhere]">
         {tone === "danger" ? (
           <Icon icon={CircleAlert} className="mt-px shrink-0" />
         ) : (
-          icon && <span className="mt-px flex shrink-0 text-accent">{icon}</span>
+          icon && <span className={`mt-px flex shrink-0 ${tone === "quiet" ? "text-icon" : "text-accent"}`}>{icon}</span>
         )}
         <span>{children}</span>
       </span>
