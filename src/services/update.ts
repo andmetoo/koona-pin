@@ -22,7 +22,7 @@ export function megabytes(bytes: number, language: string): string {
   return new Intl.NumberFormat(language, { style: "unit", unit: "megabyte", maximumFractionDigits: 1 }).format(bytes / 1_000_000);
 }
 
-/** The release page of the offered version: «What's new». */
+/** The version's entry in the site's changelog: «Full changelog» (NP-040). */
 export function notesUrl(status: Offer): string {
-  return status.state === "available" ? status.notes_url : `https://github.com/andmetoo/koona-pin/releases/tag/v${status.version}`;
+  return status.state === "available" ? status.notes_url : `https://koona.app/pin/changelog/#${status.version}`;
 }

@@ -14,11 +14,14 @@
 // The site serves that folder (Р-60): the packages at https://koona.app/pin/downloads/<version>/,
 // latest.json at https://koona.app/pin/updates/latest.json, where the app reads it
 // (bun run site:build takes the newest version). The AUR package is not in it: pacman updates it (Р-55).
+// `notes` are the changes of site/changelog/<version>.md, one per line: the update dialog lists
+// them (NP-040); without that file there is no release.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { entry } from "../site/src/changelog.mjs";
 import { SITE } from "../site/src/content.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
@@ -37,6 +40,13 @@ if (!process.env.TAURI_SIGNING_PRIVATE_KEY && !process.env.TAURI_SIGNING_PRIVATE
 
 const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
 const version = conf.version;
+let changes;
+try {
+  changes = entry(version).changes;
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 // The updater reads latest.json of the site (tauri.conf.json); the packages lie next to their version.
 const download = (file) => `${SITE}/downloads/${version}/${encodeURIComponent(file)}`;
 
@@ -94,7 +104,7 @@ for (const [targets, folder, file] of packages) {
 
 const latest = {
   version,
-  notes: `https://github.com/andmetoo/koona-pin/releases/tag/v${version}`,
+  notes: changes.map((c) => `- ${c}`).join("\n"),
   pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
   platforms,
 };

@@ -15,7 +15,7 @@ import {
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
 import { GITHUB_ISSUES_URL } from "../../services/feedback";
-import { notesUrl, offer, percent } from "../../services/update";
+import { offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
 import { Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
@@ -190,7 +190,6 @@ export function SettingsPage({
         checking={busy("updates")}
         onCheck={() => void attempt("updates", onCheckUpdates)}
         onUpdate={onUpdate}
-        onNotes={(url) => void attempt("notes", () => api.openUrl(url))}
       />
 
       <BrowserSection
@@ -264,7 +263,7 @@ export function SettingsPage({
 
 /**
  * Settings → Updates (NP-038, sheet 42): the version and the last check. A version on offer gets
- * «What's new» and «Update…», the same dialog as the row in the sidebar; the AUR package says that
+ * «Update…», the same dialog as the row in the sidebar, with what changed (NP-040); the AUR package says that
  * pacman updates it and has no button.
  */
 function UpdatesSection({
@@ -273,14 +272,12 @@ function UpdatesSection({
   checking,
   onCheck,
   onUpdate,
-  onNotes,
 }: {
   version: string;
   update: UpdateStatus | null;
   checking: boolean;
   onCheck: () => void;
   onUpdate: () => void;
-  onNotes: (url: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const desktop = isTauri();
@@ -305,14 +302,9 @@ function UpdatesSection({
             ? t("settings.updateFailed", { version: offered.version })
             : t("settings.updateAvailable", { version: offered.version });
     controls = (
-      <>
-        <button type="button" onClick={() => onNotes(notesUrl(offered))} className="px-1 text-sm font-medium text-accent hover:underline">
-          {t("settings.whatsNew")} ↗
-        </button>
-        <Button variant={offered.state === "available" ? "primary" : "secondary"} onClick={onUpdate}>
-          {t("settings.updateButton")}
-        </Button>
-      </>
+      <Button variant={offered.state === "available" ? "primary" : "secondary"} onClick={onUpdate}>
+        {t("settings.updateButton")}
+      </Button>
     );
   } else if (state === "checking") {
     description = t("settings.checking");
