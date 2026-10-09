@@ -2144,6 +2144,11 @@ test("app update: a row only with a new version, the dialog on demand, the downl
   const offer = page.getByRole("dialog", { name: "Koona Pin 0.3.0 is available" });
   await expect(offer).toContainText("Your library, settings and browser connection stay as they are.");
   await expect(offer).toContainText("Koona Pin closes for a few seconds");
+  // What changed, from latest.json, and the way to the whole changelog (NP-040, sheet 42a).
+  const notes = offer.getByRole("region", { name: "What's new in 0.3.0" });
+  await expect(notes.getByRole("listitem")).toHaveCount(3);
+  await expect(notes.getByRole("listitem").first()).toHaveText(/checks koona\.app once a day/);
+  await expect(offer.getByRole("button", { name: "Full changelog ↗" })).toBeVisible();
   await offer.getByRole("button", { name: "Later" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(row).toHaveAttribute("data-update", "available");
@@ -2159,13 +2164,14 @@ test("app update: a row only with a new version, the dialog on demand, the downl
   // Again; the preview's download stops at 40 %: «Couldn't update», the row in ochre with «Retry».
   await page.getByRole("button", { name: "Update", exact: true }).click();
   const failed = page.getByRole("dialog", { name: "Couldn't update" });
-  await expect(failed.getByRole("alert")).toContainText("The download stopped: no connection to GitHub.");
+  await expect(failed.getByRole("alert")).toContainText("The download stopped: no connection to koona.app.");
   await expect(row).toHaveAttribute("data-update", "failed");
   await expect(row).toHaveText("Update failedRetry");
   await failed.getByRole("button", { name: "Close", exact: true }).last().click();
-  // Settings → Updates offers the same dialog.
+  // Settings → Updates offers the same dialog; what changed is in it, not a link beside.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.locator("section[data-update]")).toContainText("Version 0.3.0 wasn't installed");
+  await expect(page.locator("section[data-update]").getByText("What's new")).toHaveCount(0);
   await page.locator("section[data-update]").getByRole("button", { name: "Update…" }).click();
   await expect(page.getByRole("dialog", { name: "Couldn't update" })).toBeVisible();
   await page.keyboard.press("Escape");
