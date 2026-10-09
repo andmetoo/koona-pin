@@ -79,7 +79,7 @@ handle_path /pin/* {
 		Content-Type "application/json"
 		Cache-Control "no-cache"
 	}
-	header /downloads/* Cache-Control "public, max-age=604800"
+	header /downloads/*/* Cache-Control "public, max-age=604800"
 	@exe path /downloads/*/*.exe
 	header @exe Content-Type "application/vnd.microsoft.portable-executable"
 	@deb path /downloads/*/*.deb
