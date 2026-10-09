@@ -51,7 +51,7 @@ export default {
   ],
   footer: { privacy: "Privacy", licenses: "Licenses", support: "Support" },
   back: "Koona Pin",
-  privacyPage: { title: "Privacy policy", updated: "Last updated 7 October 2026", section: "English", note: "", original: "" },
+  privacyPage: { title: "Privacy policy", updated: "Last updated 9 October 2026", section: "English", note: "", original: "" },
   licenses: {
     title: "Licenses",
     lead: "What this site is made of and under which terms.",

@@ -50,7 +50,7 @@ export default {
   ],
   footer: { privacy: "Приватность", licenses: "Лицензии", support: "Поддержка" },
   back: "Koona Pin",
-  privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 7 октября 2026 года", section: "Русский", note: "", original: "" },
+  privacyPage: { title: "Политика конфиденциальности", updated: "Обновлено 9 октября 2026 года", section: "Русский", note: "", original: "" },
   licenses: {
     title: "Лицензии",
     lead: "Из чего сделан этот сайт и на каких условиях.",

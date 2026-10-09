@@ -1,6 +1,7 @@
 // Builds koona.app/pin/ into release/publish/site/ (doc/site.md): static pages in the app's
-// languages (NP-107), fonts, brand and screenshots served from the site itself, and the Firefox
-// updates of NP-018 from release/publish/firefox when they are there.
+// languages (NP-107), fonts, brand and screenshots served from the site itself, the Firefox
+// updates of NP-018 from release/publish/firefox and the app's newest release from
+// release/publish/updates (Р-60) when they are there.
 //   bun scripts/build-site.mjs
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -77,6 +78,40 @@ if (existsSync(firefox)) {
   console.log("firefox:", (await readdir(firefox)).join(", "));
 } else {
   console.log("firefox: release/publish/firefox not found, /firefox/ is left out (bun run extension:sign:firefox)");
+}
+
+// App updates (NP-038, NP-102, Р-60): the newest release of bun run build:latest. Its packages go to
+// /downloads/<version>/, its latest.json to /updates/latest.json, where every installed app reads it.
+// Older versions are not carried: the updater needs only the newest, and their signatures are bound
+// to their own number.
+const byVersion = (a, b) => {
+  const [x, y] = [a, b].map((v) => v.split(".").map(Number));
+  const i = x.findIndex((n, i) => n !== y[i]);
+  return i === -1 ? 0 : x[i] - y[i];
+};
+const released = existsSync(publish.updates)
+  ? (await readdir(publish.updates)).filter((v) => /^\d+\.\d+\.\d+$/.test(v) && existsSync(path.join(publish.updates, v, "latest.json"))).sort(byVersion)
+  : [];
+if (released.length) {
+  const version = released.at(-1);
+  const folder = path.join(publish.updates, version);
+  const latest = JSON.parse(await readFile(path.join(folder, "latest.json"), "utf8"));
+  if (latest.version !== version) throw new Error(`updates/${version}/latest.json announces ${latest.version}`);
+  // Every package the manifest names is here, under this version's address, with the signature it quotes.
+  for (const [target, { url, signature }] of Object.entries(latest.platforms)) {
+    const prefix = `${SITE}/downloads/${version}/`;
+    if (!url.startsWith(prefix)) throw new Error(`latest.json: ${target} points at ${url}, not under ${prefix}`);
+    const file = decodeURIComponent(url.slice(prefix.length));
+    const sig = path.join(folder, `${file}.sig`);
+    if (!existsSync(path.join(folder, file)) || !existsSync(sig)) throw new Error(`latest.json: ${file} or its .sig is not in updates/${version}`);
+    if ((await readFile(sig, "utf8")).trim() !== signature) throw new Error(`latest.json: the signature of ${file} is not its .sig`);
+  }
+  await cp(folder, path.join(out, "downloads", version), { recursive: true, filter: (src) => path.basename(src) !== "latest.json" });
+  await mkdir(path.join(out, "updates"));
+  await cp(path.join(folder, "latest.json"), path.join(out, "updates", "latest.json"));
+  console.log(`updates: ${version}, ${Object.keys(latest.platforms).join(", ")}`);
+} else {
+  console.log("updates: release/publish/updates has no release, /updates/ and /downloads/ are left out (bun run build:latest)");
 }
 
 // robots.txt belongs to the root of koona.app, which names this sitemap (site/Caddyfile, Р-47).

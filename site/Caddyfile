@@ -73,6 +73,22 @@ handle_path /pin/* {
 	@xpi path /firefox/*.xpi
 	header @xpi Content-Type "application/x-xpinstall"
 
+	# App updates (NP-038, NP-102, Р-60): every installed copy reads latest.json once a day, so
+	# neither browsers nor Cloudflare keep it. A version's packages never change under its number.
+	header /updates/latest.json {
+		Content-Type "application/json"
+		Cache-Control "no-cache"
+	}
+	header /downloads/* Cache-Control "public, max-age=604800"
+	@exe path /downloads/*/*.exe
+	header @exe Content-Type "application/vnd.microsoft.portable-executable"
+	@deb path /downloads/*/*.deb
+	header @deb Content-Type "application/vnd.debian.binary-package"
+	@rpm path /downloads/*/*.rpm
+	header @rpm Content-Type "application/x-rpm"
+	@text path /downloads/*/*.sig /downloads/*/*.txt
+	header @text Content-Type "text/plain; charset=utf-8"
+
 	# Caddy's own order puts handle before route: bare, these handles would answer /index.html
 	# before route @welcome is reached. Inside a route of their own they come after it, in the
 	# order written.
