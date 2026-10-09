@@ -924,17 +924,16 @@
     "design": "Design & UI",
     "reading": "Articles / To read",
     "links": {
+      "koona": {
+        "title": "Koona apps",
+        "description": "Other apps by Koona."
+      },
       "start": {
         "title": "Start here: how Koona Pin works",
         "description": "Save, sort and find links in a few minutes."
       },
-      "extension": {
-        "title": "Add the Save button to your browser",
-        "description": "Chrome, Edge or Firefox: one click saves the page you are on."
-      },
-      "changelog": {
-        "title": "What's new in Koona Pin",
-        "description": "Every version and what changed in it."
+      "firefox": {
+        "description": "A fast, private browser from Mozilla."
       },
       "bun": {
         "description": "A fast JavaScript runtime and toolkit."

@@ -866,17 +866,16 @@
     "design": "디자인 및 UI",
     "reading": "글 / 나중에 읽기",
     "links": {
+      "koona": {
+        "title": "Koona 앱",
+        "description": "Koona의 다른 앱."
+      },
       "start": {
         "title": "여기서 시작하세요: Koona Pin 사용법",
         "description": "몇 분 만에 링크를 저장하고 정리하고 찾아보세요."
       },
-      "extension": {
-        "title": "브라우저에 저장 버튼 추가하기",
-        "description": "Chrome, Edge, Firefox: 한 번 클릭으로 열린 페이지를 저장합니다."
-      },
-      "changelog": {
-        "title": "Koona Pin의 새로운 기능",
-        "description": "모든 버전과 바뀐 내용."
+      "firefox": {
+        "description": "Mozilla의 빠르고 개인 정보를 지키는 브라우저."
       },
       "bun": {
         "description": "빠른 JavaScript 런타임이자 도구 모음."

@@ -1040,17 +1040,16 @@
     "design": "Дизайн і UI",
     "reading": "Статті / Прочитати",
     "links": {
+      "koona": {
+        "title": "Застосунки Koona",
+        "description": "Інші застосунки Koona."
+      },
       "start": {
         "title": "З чого почати: як влаштований Koona Pin",
         "description": "Зберігайте, розбирайте й знаходьте посилання за кілька хвилин."
       },
-      "extension": {
-        "title": "Додайте кнопку збереження в браузер",
-        "description": "Chrome, Edge або Firefox: одне натискання зберігає відкриту сторінку."
-      },
-      "changelog": {
-        "title": "Що нового в Koona Pin",
-        "description": "Усі версії й що в них змінилося."
+      "firefox": {
+        "description": "Швидкий і приватний браузер від Mozilla."
       },
       "bun": {
         "description": "Швидке середовище виконання й набір інструментів для JavaScript."
