@@ -1,0 +1,86 @@
+# Browser extension
+
+The extension saves the current tab to Koona Pin with one click and offers a quick search of the library. One source, `extension/src`, builds for all supported browsers.
+
+## Supported browsers
+
+| Browser | Minimum | Background |
+| --- | --- | --- |
+| Chrome | 120 | service worker |
+| Edge | 120 | service worker (same package as Chrome) |
+| Firefox | 140 (release and ESR 140) | event page (`background.scripts`, ES module) |
+
+Chromium on Linux works like Chrome. Browsers in a sandbox that blocks native messaging (Flatpak browsers, Chromium from Snap) cannot reach the app; Firefox from Snap can, through the WebExtensions portal.
+
+## How capture works
+
+1. A click on the toolbar button (`worker.js`) takes the tab's URL and title. Nothing else is sent: no tags, collection or page content. The app accepts only HTTP and HTTPS URLs.
+2. The link goes into the extension's queue in `storage.local` first, with a `request_id` (`queue.js`). The queue survives browser restarts and the service worker being stopped.
+3. `native.js` sends `{ type: "capture", protocol, version, browser, request_id, url, title }` with `runtime.sendNativeMessage("app.koona.pin", …)`. The browser starts the native host `koonapin-host`, which forwards the message to the app and starts the app in the tray if it is closed.
+4. The app saves the link in one transaction and answers `created` or `existing` with the bookmark ID. Only a well-formed confirmation removes the item from the queue.
+5. On failure the item stays queued and is retried about once a minute (`alarms`), at browser start and on the next capture. Only `invalid_request` and `request_id_conflict` stop retries for an item. If the host is missing or the app does not accept this extension, the extension opens its options page, which explains the state.
+
+The button animates and shows a small status mark; a short message appears on the page through `scripting` on the active tab only (`feedback.js`, in a closed shadow root). The extension also says `hello` every 30 minutes and at browser start, so the app can show the browser as connected.
+
+The end-to-end architecture, the protocol messages and the local channel are in [architecture.md](architecture.md#capture).
+
+### Permissions
+
+`activeTab`, `scripting`, `storage`, `alarms`, `nativeMessaging`, plus `contextMenus` (Chrome, Edge) or `menus` (Firefox) for the button's menu. `tabs` is optional and requested only when the person turns on "Show that a page is already saved". There are no host permissions, no persistent content scripts and no remote code; the extension pages' CSP is `script-src 'self'; object-src 'none'`.
+
+### Quick search
+
+`Alt+Shift+D` (the `quick-search` command) or the button's menu opens `search.html` as a one-time popup. It sends `search` messages to the app and opens results with `tabs.create` or `tabs.update`. Site icons are letters on coloured squares, so the popup makes no network requests.
+
+### Strings
+
+`extension/src/_locales/<code>/messages.json`, with Chrome's locale codes (`pt_BR`, `zh_CN`), default `en`. The extension follows the browser's language, not the app's. See [translating.md](translating.md).
+
+## Building and loading unpacked
+
+```powershell
+bun run extension:build
+```
+
+Results (folders defined in [`scripts/lib/paths.mjs`](../scripts/lib/paths.mjs)):
+
+- `release/dev/chrome`, `release/dev/edge`, `release/dev/firefox` — unpacked builds. Rebuilding empties and refills the same folders, so a loaded extension keeps its path; press Reload on the extensions page afterwards.
+- `release/publish/chrome/<version>/koonapin-chrome.zip` and `release/publish/edge/<version>/koonapin-edge.zip` — store packages. ZIPs have sorted names and fixed timestamps, so the same source gives the same bytes.
+
+The extension version lives only in `extension/src/version.js` (with the protocol number and host name); the build writes it into every manifest. Tests (`*.test.js`) are not packed.
+
+Loading:
+
+- **Chrome:** `chrome://extensions` → Developer mode → Load unpacked → `release/dev/chrome`.
+- **Edge:** `edge://extensions` → Developer mode → Load unpacked → `release/dev/edge`.
+- **Firefox:** `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `release/dev/firefox/manifest.json`. Firefox removes it when it closes.
+
+The unpacked Chrome and Edge builds carry the public key in `extension/dev-key.txt` as the manifest `key`, so their ID is the same on every machine: `iibgiagcbediajombmkohanobgicbepn`. There is no private key. Store packages are built without `key`; the stores assign their own IDs. The Firefox ID is always `pin@koona.app`.
+
+## Native host registration
+
+The browser starts the host only if a manifest named `app.koona.pin` is registered and lists the extension's ID.
+
+- **Windows.** Manifests `app.koona.pin.chromium.json` and `app.koona.pin.firefox.json` are written next to the app; keys under `HKCU\Software\Google\Chrome`, `…\Microsoft\Edge` and `…\Mozilla` (`\NativeMessagingHosts\app.koona.pin`) point to them. No administrator rights are needed. The installer runs `koonapin --register-host`; a release build checks and repairs the registration at every start.
+- **Linux packages.** The `.deb`, `.rpm` and AUR package install system manifests (Chromium family under `/etc/opt/chrome`, `/etc/opt/edge`, `/etc/chromium`; Firefox under `/usr/lib/mozilla`, and `/usr/lib64/mozilla` in the `.rpm`) pointing to `/usr/bin/koonapin-host`. The app only checks them and asks to reinstall the package if one is missing.
+- **AppImage.** At each start the app copies the host into `~/.local/share/Koona/Pin/host/` and writes per-user manifests pointing to it.
+
+**Development builds.** A debug build of the app does not touch the registration by default, so it cannot take over an installed Koona Pin's. To register a development build, set `KOONAPIN_REGISTER_HOST=1` before `bun run tauri dev`, or run the built binary with `--register-host`; `--unregister-host` removes only manifests that point to this host. On Linux this writes per-user manifests (`~/.config/google-chrome/NativeMessagingHosts`, `~/.mozilla/native-messaging-hosts` and so on).
+
+Which extension IDs are accepted:
+
+- Release builds (installer and packages, `--features public-release`) accept only the store IDs (`STORE_EXTENSION_IDS` in `src-tauri/src/native_host.rs`) and the Firefox ID.
+- Development builds also accept the development ID.
+
+So the unpacked development extension talks to a development build of the app, not to an installed release. Chrome and Edge report that mismatch as "forbidden", and the extension shows "Koona Pin doesn't accept this extension". Firefox does not distinguish it from a missing host.
+
+## Store builds
+
+- **Chrome Web Store and Edge Add-ons:** upload the ZIPs from `release/publish/chrome/<version>/` and `release/publish/edge/<version>/`. Listing texts, permission justifications, images and the privacy text are in `extension/store`. With `CHROME_STORE_PUBLIC_KEY` set, `extension:build` also writes `release/test/chrome-edge/<version>/koonapin-chrome-store-id.zip`, the same extension with the store's ID, for testing against a release build before the store publishes it. It cannot be uploaded (stores refuse a manifest with `key`).
+- **Firefox:** distributed as a signed XPI outside the public add-on listing, with `update_url` pointing to `https://koona.app/pin/firefox/updates.json`, published with the site. Signing is done by the maintainer.
+
+Any change under `extension/src` must raise `VERSION` in `extension/src/version.js`: a store or signing service accepts each version number once.
+
+## Checks
+
+`bun run test` covers the queue, messages, menu and locales; the smoke tests in [testing.md](testing.md#extension-smoke-tests) run the built extension against the real host in Chrome for Testing, Chrome, Edge and Firefox; `bun run extension:lint` runs `web-ext lint`.
