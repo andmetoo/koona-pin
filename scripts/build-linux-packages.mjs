@@ -2,7 +2,8 @@
 // koonapin-<version>-1.x86_64.rpm for Fedora and koonapin-<version>-x86_64.AppImage for the rest (NP-116), with --features public-release (the native host accepts only
 // the store extensions, feedback must have its address) → release/publish/linux/<version>/ with
 // SHA256SUMS.txt. No GPG signature in the beta (Р-45, п. 8).
-//   bun run build:linux
+//   bun run build:linux               on Windows or macOS: this script on Debian 13 in Docker, by act
+//   bun run build:linux -- --unpack   on Windows or macOS: only unpack the artifact of the last act run
 // On Debian 13, the oldest glibc of the matrix (a binary built on a newer one does not start on an older),
 // with the packages of scripts/linux/deps.sh plus rpm (rpmbuild). Settings come from the environment or
 // from .env, as for build:installer.
@@ -16,14 +17,17 @@ import { existsSync } from "node:fs";
 import { chmod, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
+import { linuxInAct } from "./lib/linux-act.mjs";
 import { publish, root } from "./lib/paths.mjs";
 
-if (process.platform !== "linux") {
-  console.error("The Linux packages are built on Linux (Debian 13): see doc/testing.md, «Linux».");
-  process.exit(1);
-}
 const dotenv = path.join(root, ".env");
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
+const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
+const version = conf.version;
+if (process.platform !== "linux") {
+  await linuxInAct({ version, unpackOnly: process.argv.includes("--unpack") });
+  process.exit(0);
+}
 if (!process.env.KOONAPIN_FEEDBACK_URL) {
   console.error("KOONAPIN_FEEDBACK_URL is not set: the release build does not compile without it (supabase/README.md).");
   process.exit(1);
@@ -34,12 +38,10 @@ const MAINTAINER = "Koona <support@koona.app>";
 const SUMMARY = "Desktop bookmark library: save a link in one click";
 const DESCRIPTION = [
   "Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge, Chromium and Firefox with one",
-  "button of the Koona Pin extension and stay on your computer: no account, no cloud. The package brings the",
-  "native messaging host and registers it in the browsers, so saving works before the app is first started.",
+  "button of the Koona Pin extension and stay on your computer. The package brings the native messaging",
+  "host and registers it in the browsers, so saving works before the app is first started.",
 ].join(" ");
 
-const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
-const version = conf.version;
 const linux = path.join(root, "src-tauri", "linux");
 const target = path.join(root, "src-tauri", "target", "release");
 const stage = path.join(target, "linux-package");
@@ -268,9 +270,12 @@ for (const file of [deb, rpm, appimage]) {
 }
 const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" }).stdout?.trim() ?? "";
 const dirty = git("status", "--porcelain", "--untracked-files=no") ? " with uncommitted changes" : "";
+// act copies the working copy without .git: the commit is the GITHUB_SHA it sets (release.mjs builds
+// only a clean one).
+const commit = git("rev-parse", "--short", "HEAD") || process.env.GITHUB_SHA?.slice(0, 7) || "unknown";
 await writeFile(
   path.join(out, "SHA256SUMS.txt"),
-  `${sums.join("\n")}\n\nunsigned (no GPG in the beta); commit ${git("rev-parse", "--short", "HEAD") || "unknown"}${dirty}; built ${date.toISOString()}\n`,
+  `${sums.join("\n")}\n\nunsigned (no GPG in the beta); commit ${commit}${dirty}; built ${date.toISOString()}\n`,
 );
 console.log(`\n${output("dpkg-deb", ["--info", deb])}\n\n${output("dpkg-deb", ["--contents", deb])}`);
 // A query of the file only: an empty database of its own, Debian has none in /var/lib/rpm.
