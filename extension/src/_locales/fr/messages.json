@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — enregistrer le lien" },
   "extensionDescription": {
-    "message": "Enregistrez la page dans votre bibliothèque locale Koona Pin en un clic. App fermée, les liens attendent en file."
+    "message": "Enregistrez toute page dans l’app Koona Pin de votre ordinateur en un clic et cherchez vos liens depuis le navigateur."
   },
   "menuOptions": { "message": "Paramètres et file d’attente" },
   "menuSearch": { "message": "Trouver un lien" },
