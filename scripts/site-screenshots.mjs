@@ -4,8 +4,8 @@
 //
 //   bun run site:shots   (builds the debug app with its interface embedded first, scripts/build-test-app.mjs)
 //
-// Writes site/src/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280)
-// and og-<lang>.jpg. Quit your own Koona Pin first:
+// Writes site/src/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280).
+// The link previews (og-<lang>.jpg) are drawn, not shot: scripts/og-images.mjs. Quit your own Koona Pin first:
 // only one instance runs per user.
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
@@ -134,7 +134,7 @@ async function shoot(lang, base, encoder) {
           if (!photos) throw new Error(`${lang} ${theme}: no preview photo loaded, the cards show covers`);
         }
         // The window is a real one: the system's pointer resting over it leaves a card in its hover state
-        // (the selection box and «…» on the first card, og-en.jpg of 9 October 2026), whatever CDP moves.
+        // (the selection box and «…» on the first card, 9 October 2026), whatever CDP moves.
         // Nothing reacts to the pointer while the shot is taken, and nothing keeps the focus. A style
         // property set from script: the app's CSP refuses a <style> of the test.
         await page.mouse.move(VIEW.width / 2, 16);
@@ -147,9 +147,6 @@ async function shoot(lang, base, encoder) {
         const name = `app-${lang}-${theme}-${view}`;
         await writeFile(path.join(out, `${name}.webp`), await encoder(png));
         await writeFile(path.join(out, `${name}-1280.webp`), await encoder(png, { width: 1280 }));
-        // Link previews (og:image): the left of the light grid, 1200×630.
-        if (theme === "light" && view === "grid")
-          await writeFile(path.join(out, `og-${lang}.jpg`), await encoder(png, { width: 1600, crop: [1200, 630], type: "image/jpeg", quality: 0.85 }));
         console.log(`app-${lang}-${theme}-${view}.webp`);
       }
     }
