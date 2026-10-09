@@ -27,8 +27,8 @@ const FIRST_CHECK: Duration = Duration::from_secs(10);
 /// computer does not move a timer of 24 hours forward, the wall clock does.
 const TICK: Duration = Duration::from_secs(60 * 60);
 const DAY: chrono::TimeDelta = chrono::TimeDelta::hours(24);
-/// The release page of a version: «What's new» opens it in the browser.
-const RELEASE_PAGE: &str = "https://github.com/andmetoo/koona-pin/releases/tag/v";
+/// The changelog on the site: «Full changelog» opens the version's entry in the browser (NP-040).
+const CHANGELOG: &str = "https://koona.app/pin/changelog/#";
 /// Progress events while downloading: often enough for the bar, not for every chunk.
 const PROGRESS_EVERY: Duration = Duration::from_millis(150);
 
@@ -44,8 +44,9 @@ pub enum UpdateStatus {
     UpToDate { checked_at: String },
     /// The releases could not be reached; the next check is a day later. Quiet in the sidebar.
     CheckFailed { checked_at: String },
-    /// `notes_url`: the release page, «What's new».
-    Available { version: String, notes_url: String },
+    /// `notes`: what changed, the list of `notes` in latest.json, shown in the dialog;
+    /// `notes_url`: the version on the site's changelog, «Full changelog».
+    Available { version: String, notes: Vec<String>, notes_url: String },
     /// `total` when the server said the size.
     Downloading { version: String, received: u64, total: Option<u64> },
     /// Downloaded and verified; Windows' installer or polkit's password dialog is next.
@@ -161,10 +162,7 @@ pub async fn check(app: &AppHandle) -> UpdateStatus {
     };
     let next = match found {
         Ok(Some(update)) => {
-            let next = UpdateStatus::Available {
-                notes_url: format!("{RELEASE_PAGE}{}", update.version),
-                version: update.version.clone(),
-            };
+            let next = offer_of(&update);
             if let Ok(mut pending) = state.pending.lock() {
                 *pending = Some(update);
             }
@@ -188,6 +186,25 @@ pub async fn check(app: &AppHandle) -> UpdateStatus {
     };
     set(app, next.clone());
     next
+}
+
+/// The offer of an update: its version, what changed and where the changelog is.
+fn offer_of(update: &Update) -> UpdateStatus {
+    UpdateStatus::Available {
+        version: update.version.clone(),
+        notes: notes_of(update.body.as_deref().unwrap_or_default()),
+        notes_url: format!("{CHANGELOG}{}", update.version),
+    }
+}
+
+/// The `notes` of latest.json, one change per line (build-latest.mjs writes them from
+/// site/changelog/<version>.md); list markers and empty lines go.
+fn notes_of(body: &str) -> Vec<String> {
+    body.lines()
+        .map(|line| line.trim().trim_start_matches(['-', '*', '•']).trim())
+        .filter(|line| !line.is_empty())
+        .map(String::from)
+        .collect()
 }
 
 /// What a failure of the plugin is called in the dialog.
@@ -268,7 +285,7 @@ pub fn cancel_update(app: AppHandle) {
 
 async fn run(app: AppHandle, update: Update, cancel: Arc<Notify>) {
     let version = update.version.clone();
-    let offered_again = UpdateStatus::Available { notes_url: format!("{RELEASE_PAGE}{version}"), version: version.clone() };
+    let offered_again = offer_of(&update);
     let mut received = 0u64;
     let mut shown = Instant::now();
     let download = update.download(
@@ -411,8 +428,8 @@ mod tests {
         let json = |status: UpdateStatus| serde_json::to_string(&status).unwrap();
         assert_eq!(json(UpdateStatus::Unknown), r#"{"state":"unknown"}"#);
         assert_eq!(
-            json(UpdateStatus::Available { version: "0.3.0".into(), notes_url: format!("{RELEASE_PAGE}0.3.0") }),
-            r#"{"state":"available","version":"0.3.0","notes_url":"https://github.com/andmetoo/koona-pin/releases/tag/v0.3.0"}"#
+            json(UpdateStatus::Available { version: "0.3.0".into(), notes: vec!["Faster search.".into()], notes_url: format!("{CHANGELOG}0.3.0") }),
+            r#"{"state":"available","version":"0.3.0","notes":["Faster search."],"notes_url":"https://koona.app/pin/changelog/#0.3.0"}"#
         );
         assert_eq!(
             json(UpdateStatus::Downloading { version: "0.3.0".into(), received: 10, total: None }),
@@ -422,6 +439,17 @@ mod tests {
             json(UpdateStatus::Failed { version: "0.3.0".into(), problem: UpdateProblem::PasswordCancelled }),
             r#"{"state":"failed","version":"0.3.0","problem":"password_cancelled"}"#
         );
+    }
+
+    #[test]
+    fn the_notes_are_a_list_of_changes() {
+        assert_eq!(
+            notes_of("- Updates come from koona.app.\n\n• The start with the session survives a power cut.\r\n  * Settings show the last check.  \n"),
+            vec!["Updates come from koona.app.", "The start with the session survives a power cut.", "Settings show the last check."]
+        );
+        assert!(notes_of("").is_empty());
+        // A release without bullets is one change per line all the same.
+        assert_eq!(notes_of("Faster search"), vec!["Faster search"]);
     }
 
     #[test]

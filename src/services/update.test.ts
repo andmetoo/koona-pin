@@ -10,7 +10,7 @@ describe("the app update (sheet 42)", () => {
     expect(offer({ state: "check_failed", checked_at: "2026-10-08T12:00:00Z" })).toBeNull();
     expect(offer({ state: "pacman" })).toBeNull();
     for (const status of [
-      { state: "available", version: "0.3.0", notes_url: "https://example.com" },
+      { state: "available", version: "0.3.0", notes: [] as string[], notes_url: "https://example.com" },
       { state: "downloading", version: "0.3.0", received: 1, total: 2 },
       { state: "installing", version: "0.3.0" },
       { state: "failed", version: "0.3.0", problem: "no_connection" },
@@ -31,10 +31,10 @@ describe("the app update (sheet 42)", () => {
     expect(megabytes(9_800_000, "ru")).toMatch(/^9,8\sМБ$/);
   });
 
-  it("opens the release page of the offered version", () => {
-    expect(notesUrl({ state: "available", version: "0.3.0", notes_url: "https://github.com/andmetoo/koona-pin/releases/tag/v0.3.0" })).toBe(
-      "https://github.com/andmetoo/koona-pin/releases/tag/v0.3.0",
+  it("opens the offered version in the site's changelog", () => {
+    expect(notesUrl({ state: "available", version: "0.3.0", notes: ["Faster search."], notes_url: "https://koona.app/pin/changelog/#0.3.0" })).toBe(
+      "https://koona.app/pin/changelog/#0.3.0",
     );
-    expect(notesUrl({ state: "failed", version: "0.3.1", problem: "bad_signature" })).toBe("https://github.com/andmetoo/koona-pin/releases/tag/v0.3.1");
+    expect(notesUrl({ state: "failed", version: "0.3.1", problem: "bad_signature" })).toBe("https://koona.app/pin/changelog/#0.3.1");
   });
 });

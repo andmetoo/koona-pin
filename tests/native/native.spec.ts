@@ -418,7 +418,7 @@ test("updater: no connection, the offer, download and cancel, a signature for an
   const server = http.createServer((req, res) => {
     if (req.url === "/latest.json") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ version: "9.9.9", notes: "", pub_date: "2026-10-08T12:00:00Z", platforms: { "windows-x86_64": { url: `http://127.0.0.1:${port}/setup.exe`, signature } } }));
+      res.end(JSON.stringify({ version: "9.9.9", notes: "- Faster search.\n- Fewer clicks.", pub_date: "2026-10-08T12:00:00Z", platforms: { "windows-x86_64": { url: `http://127.0.0.1:${port}/setup.exe`, signature } } }));
       return;
     }
     // Slowly, so the download can be cancelled midway: about four seconds.
@@ -457,8 +457,11 @@ test("updater: no connection, the offer, download and cancel, a signature for an
     const row = page.locator("button[data-update]");
     await expect(row).toHaveAttribute("data-update", "available");
     await expect(row).toContainText("9.9.9");
-    // Download, cancel midway: offered again.
+    // The notes of latest.json are the list in the dialog (NP-040).
     await row.click();
+    const notes = page.getByRole("region", { name: "What's new in 9.9.9" }).getByRole("listitem");
+    await expect(notes).toHaveText(["•Faster search.", "•Fewer clicks."]);
+    // Download, cancel midway: offered again.
     await page.getByRole("button", { name: "Update", exact: true }).click();
     const downloading = page.getByRole("dialog", { name: "Downloading Koona Pin 9.9.9" });
     await expect(downloading.getByRole("progressbar")).toHaveAttribute("aria-valuenow", /^[1-9]\d?$/, { timeout: 10000 });

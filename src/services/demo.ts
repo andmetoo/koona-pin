@@ -94,7 +94,12 @@ const DEMO_NEW_VERSION = "0.3.0";
 const demoOffer = (): UpdateStatus => ({
   state: "available",
   version: DEMO_NEW_VERSION,
-  notes_url: `https://github.com/andmetoo/koona-pin/releases/tag/v${DEMO_NEW_VERSION}`,
+  notes: [
+    "Koona Pin checks koona.app once a day for a new version and installs it only when you say so.",
+    "The start with the session on Linux survives a sudden power-off.",
+    "Settings → Updates shows when the last check ran.",
+  ],
+  notes_url: `https://koona.app/pin/changelog/#${DEMO_NEW_VERSION}`,
 });
 function currentDemoUpdate(): UpdateStatus {
   demoUpdate ??= storedUpdate() ? demoOffer() : { state: "up_to_date", checked_at: new Date().toISOString() };
