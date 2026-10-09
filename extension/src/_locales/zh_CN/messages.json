@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — 保存链接" },
   "extensionDescription": {
-    "message": "一键将页面保存到本机的 Koona Pin 资料库。应用关闭时，链接会在队列中等待。"
+    "message": "一键将任意页面保存到本机的 Koona Pin 应用，并在浏览器中搜索已保存的链接。"
   },
   "menuOptions": { "message": "设置和队列" },
   "menuSearch": { "message": "查找链接" },
