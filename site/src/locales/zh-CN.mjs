@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — 电脑上的书签，一键保存",
   description:
-    "一款桌面书签资料库。一键保存 Chrome、Edge 和 Firefox 中的页面，它们只留在你的电脑上。无需账号，没有云端。",
+    "一款桌面书签资料库。一键保存 Chrome、Edge 和 Firefox 中的页面，它们只留在你的电脑上。",
   nav: { how: "使用方式", privacy: "隐私", download: "下载" },
   labels: { main: "主菜单", site: "网站", why: "为什么选择 Koona Pin" },
   langSwitch: "语言",
   h1: ["一键保存链接。", "需要时随手找到。"],
-  sub: "Koona Pin 是一款桌面书签资料库。点击一下，页面就从 Chrome、Edge 和 Firefox 来到你的电脑上，并只留在这里。无需账号，没有云端。",
+  sub: "Koona Pin 是一款桌面书签资料库。点击一下，页面就从 Chrome、Edge 和 Firefox 来到你的电脑上，并只留在这里。",
   soon: "测试版 — 即将推出",
   how: "使用方式",
   meta: ["Windows 11、Linux", "Chrome、Edge、Firefox", "免费"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "扩展只读取你所保存标签页的地址和标题。",
     "应用不发送任何分析数据、遥测或崩溃报告。",
-    "无需账号，没有云端。",
+    "一切都可离线使用。",
   ],
   privacyLink: "阅读隐私政策",
   dlTitle: "测试版即将到来",

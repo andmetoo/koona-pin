@@ -1,12 +1,12 @@
 export default {
   title: "Koona Pin — 클릭 한 번으로 저장하는 데스크톱 북마크",
   description:
-    "데스크톱 북마크 라이브러리. Chrome, Edge, Firefox의 페이지를 버튼 하나로 저장하고, 내 컴퓨터에만 보관합니다. 계정도 클라우드도 없습니다.",
+    "데스크톱 북마크 라이브러리. Chrome, Edge, Firefox의 페이지를 버튼 하나로 저장하고, 내 컴퓨터에만 보관합니다.",
   nav: { how: "사용 방법", privacy: "개인정보", download: "다운로드" },
   labels: { main: "기본 메뉴", site: "사이트", why: "Koona Pin을 쓰는 이유" },
   langSwitch: "언어",
   h1: ["클릭 한 번으로 링크 저장.", "필요할 때 바로 찾기."],
-  sub: "Koona Pin은 데스크톱 북마크 라이브러리입니다. 버튼 하나로 Chrome, Edge, Firefox의 페이지가 도착하고, 내 컴퓨터에 그대로 남습니다. 계정도 클라우드도 없습니다.",
+  sub: "Koona Pin은 데스크톱 북마크 라이브러리입니다. 버튼 하나로 Chrome, Edge, Firefox의 페이지가 도착하고, 내 컴퓨터에 그대로 남습니다.",
   soon: "베타 — 곧 출시",
   how: "사용 방법",
   meta: ["Windows 11, Linux", "Chrome, Edge, Firefox", "무료"],
@@ -37,7 +37,7 @@ export default {
   privacyFacts: [
     "확장 프로그램은 저장하는 탭의 주소와 제목만 읽습니다.",
     "앱은 분석 데이터, 원격 분석, 오류 보고서를 보내지 않습니다.",
-    "계정도 클라우드도 없습니다.",
+    "모든 기능이 오프라인에서 작동합니다.",
   ],
   privacyLink: "개인정보 처리방침 읽기",
   dlTitle: "베타가 곧 나옵니다",
