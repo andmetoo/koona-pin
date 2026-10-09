@@ -647,7 +647,9 @@
     "feedbackHint": "Грешка, идеја или питање — директно програмеру",
     "feedbackButton": "Пошаљи коментар…",
     "github": "Пријаве на GitHub-у",
-    "githubHint": "Јавне пријаве у koona-pin"
+    "githubHint": "Јавне пријаве у koona-pin",
+    "licenses": "Лиценце",
+    "licensesHint": "Фонтови, иконе и библиотеке од којих је направљен Koona Pin"
   },
   "notice": {
     "previewRefreshed": "Преглед је освежен",
