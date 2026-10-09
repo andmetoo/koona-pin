@@ -693,7 +693,9 @@
     "feedbackHint": "Помилка, ідея чи запитання — напряму розробникові",
     "feedbackButton": "Надіслати відгук…",
     "github": "Звернення на GitHub",
-    "githubHint": "Публічні звернення в koona-pin"
+    "githubHint": "Публічні звернення в koona-pin",
+    "licenses": "Ліцензії",
+    "licensesHint": "Шрифти, значки й бібліотеки, з яких зроблено Koona Pin"
   },
   "notice": {
     "previewRefreshed": "Прев'ю оновлено",

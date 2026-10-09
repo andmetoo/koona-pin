@@ -601,7 +601,9 @@
     "feedbackHint": "Bir hata, fikir ya da soru — doğrudan geliştiriciye",
     "feedbackButton": "Geri bildirim gönder…",
     "github": "GitHub'daki bildirimler",
-    "githubHint": "koona-pin içindeki herkese açık bildirimler"
+    "githubHint": "koona-pin içindeki herkese açık bildirimler",
+    "licenses": "Lisanslar",
+    "licensesHint": "Koona Pin'in yapıldığı yazı tipleri, simgeler ve kitaplıklar"
   },
   "notice": {
     "previewRefreshed": "Önizleme yenilendi",
