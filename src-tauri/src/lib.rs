@@ -149,6 +149,8 @@ pub fn run() {
             commands::get_collections,
             commands::create_collection,
             commands::create_starter_collections,
+            commands::create_starter_library,
+            commands::get_starter_links,
             commands::reorder_collections,
             commands::set_sort_language,
             commands::refresh_preview,
