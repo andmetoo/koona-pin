@@ -14,7 +14,7 @@
 // The site serves that folder (Р-60): the packages at https://koona.app/pin/downloads/<version>/,
 // latest.json at https://koona.app/pin/updates/latest.json, where the app reads it
 // (bun run site:build takes the newest version). The AUR package is not in it: pacman updates it (Р-55).
-// `notes` are the changes of site/changelog/<version>.md, one per line: the update dialog lists
+// `notes` are the changes of site/content/changelog/<version>.md, one per line: the update dialog lists
 // them (NP-040); without that file there is no release.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";

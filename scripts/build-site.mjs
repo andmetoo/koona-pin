@@ -1,84 +1,43 @@
-// Builds koona.app/pin/ into release/publish/site/ (doc/site.md): static pages in the app's
-// languages (NP-107), fonts, brand and screenshots served from the site itself, the Firefox
-// updates of NP-018 from release/publish/firefox and the app's newest release from
-// release/publish/updates (Р-60) when they are there.
+// Builds koona.app/pin/ into release/publish/site/ (doc/site.md, NP-115): Astro builds the pages
+// (site/, its own config there), then this script adds what is not a page — the Firefox updates of
+// NP-018 from release/publish/firefox, the app's newest release from release/publish/updates (Р-60)
+// and the screenshots at the addresses AppStream points to.
 //   bun scripts/build-site.mjs
-import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { cp, mkdir, readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { BASE, content, FEEDBACK_ENDPOINT, languages, SITE } from "../site/src/content.mjs";
-import { changelog } from "../site/src/changelog.mjs";
-import { changelogPage, downloads, feedback, feedbackResult, landing, licenses, notFound, privacy } from "../site/src/pages.mjs";
-import { firefoxAddon, release } from "../site/src/release.mjs";
+import { FEEDBACK_ENDPOINT, SITE } from "../site/src/content.mjs";
+import { newestRelease } from "../site/src/release.mjs";
 import { publish, root } from "./lib/paths.mjs";
 
 const out = publish.site;
 const from = (...p) => path.join(root, ...p);
 
-await rm(out, { recursive: true, force: true });
-await mkdir(out, { recursive: true });
+// Pages, stylesheet, fonts and their images (site/astro.config.mjs). Astro empties the folder first.
+const astro = spawnSync(process.execPath, [from("node_modules/astro/bin/astro.mjs"), "build", "--silent"], { cwd: from("site"), stdio: "inherit" });
+if (astro.status !== 0) process.exit(astro.status ?? 1);
+if (!FEEDBACK_ENDPOINT) console.log("feedback: KOONAPIN_FEEDBACK_URL is not set, the form is left out and Support points at GitHub");
+if (!newestRelease()) console.log("downloads: no release in release/publish/updates, the landing says «coming soon» and /downloads/ is left out");
 
-const wordmark = (await readFile(from("site/src/brand/wordmark.svg"), "utf8")).trim();
-const markdown = await readFile(from("extension/store/privacy.md"), "utf8");
-
-async function page(file, html) {
-  const target = path.join(out, file);
-  await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, html);
-}
-
-// What can be downloaded (NP-040): the newest release and Firefox add-on. Without a release the
-// landing keeps «coming soon» and there is no /downloads/.
-const rel = release();
-const firefoxXpi = firefoxAddon();
-const newer = (a, b) => a.localeCompare(b, "en", { numeric: true }) > 0;
-// The changelog lists released versions; the released one must have its entry.
-const entries = changelog().filter((e) => !rel || !newer(e.version, rel.version));
-if (rel && entries[0]?.version !== rel.version) throw new Error(`site/changelog/${rel.version}.md is missing: the released version needs its entry`);
-
-for (const t of Object.values(content)) {
-  const dir = t.dir;
-  await page(`${dir}index.html`, landing(t, { wordmark, release: rel, firefox: firefoxXpi }));
-  // /privacy and /licenses: Caddy tries {path}.html (site/Caddyfile).
-  await page(`${dir}privacy.html`, privacy(t, { markdown, wordmark }));
-  await page(`${dir}licenses.html`, licenses(t, { wordmark }));
-  await page(`${dir}404.html`, notFound(t, { wordmark }));
-  // /feedback is feedback/index.html next to feedback/sent.html: Caddy tries {path}/index.html.
-  if (FEEDBACK_ENDPOINT) {
-    await page(`${dir}feedback/index.html`, feedback(t, { wordmark }));
-    for (const outcome of ["sent", "limit", "long", "origin", "error"]) await page(`${dir}feedback/${outcome}.html`, feedbackResult(t, { wordmark, outcome }));
+const files = [];
+async function walk(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) await walk(p);
+    else files.push(path.relative(out, p).replaceAll("\\", "/"));
   }
 }
-
-// Downloads and changelog are in English only (NP-040): /pin/downloads/, /pin/changelog/.
-if (rel) await page("downloads/index.html", downloads(content.en, { wordmark, release: rel, firefox: firefoxXpi }));
-else console.log("downloads: no release in release/publish/updates, the landing says «coming soon» and /downloads/ is left out");
-await page("changelog/index.html", changelogPage(content.en, { wordmark, entries }));
-console.log(`changelog: ${entries.map((e) => e.version).join(", ")}`);
-
-if (!FEEDBACK_ENDPOINT) console.log("feedback: KOONAPIN_FEEDBACK_URL is not set, the form is left out and Support points at GitHub");
-await cp(from("site/src/site.css"), path.join(out, "site.css"));
-
-// Inter Variable: Latin, Latin Extended, Cyrillic (the pages use nothing else).
-await mkdir(path.join(out, "fonts"));
-for (const subset of ["latin", "latin-ext", "cyrillic"]) {
-  const name = `inter-${subset}-wght-normal.woff2`;
-  await cp(from("node_modules/@fontsource-variable/inter/files", name), path.join(out, "fonts", name));
+await walk(out);
+// The pages run no scripts (doc/site.md): only the beacon Cloudflare inserts on the server.
+for (const file of files.filter((f) => f.endsWith(".html"))) {
+  if (/<script\b/i.test(await readFile(path.join(out, file), "utf8"))) throw new Error(`${file}: a <script> in the page`);
 }
 
-// Brand: mascot by theme, the small mark as favicon, PNG fallbacks from the app icons.
-await mkdir(path.join(out, "brand"));
-for (const name of ["pin-spirit.svg", "pin-spirit-mint.svg"]) {
-  await cp(from("design/brand/pin-spirit-flat", name), path.join(out, "brand", name));
-}
-await cp(from("design/brand/pin-spirit-flat/pin-spirit-micro.svg"), path.join(out, "brand/favicon.svg"));
-await cp(from("src-tauri/icons/32x32.png"), path.join(out, "brand/favicon-32.png"));
-await cp(from("src-tauri/icons/128x128@2x.png"), path.join(out, "brand/apple-touch-icon.png"));
-
-// Screenshots of the real app (scripts/site-screenshots.mjs).
-if (existsSync(from("site/src/shots"))) await cp(from("site/src/shots"), path.join(out, "shots"), { recursive: true });
-else console.warn("shots: site/src/shots is missing, run bun scripts/site-screenshots.mjs");
+// Screenshots under their own names too: the AppStream metainfo of the Linux packages links them
+// (src-tauri/linux/app.koona.pin.metainfo.xml). The pages link the hashed copies of /_astro/.
+await cp(from("site/src/shots"), path.join(out, "shots"), { recursive: true });
 
 // Firefox updates (NP-018): the address is inside the signed XPI and must not move.
 const firefox = publish.firefox;
@@ -101,16 +60,8 @@ if (existsSync(firefox)) {
 // /downloads/<version>/, its latest.json to /updates/latest.json, where every installed app reads it.
 // Older versions are not carried: the updater needs only the newest, and their signatures are bound
 // to their own number.
-const byVersion = (a, b) => {
-  const [x, y] = [a, b].map((v) => v.split(".").map(Number));
-  const i = x.findIndex((n, i) => n !== y[i]);
-  return i === -1 ? 0 : x[i] - y[i];
-};
-const released = existsSync(publish.updates)
-  ? (await readdir(publish.updates)).filter((v) => /^\d+\.\d+\.\d+$/.test(v) && existsSync(path.join(publish.updates, v, "latest.json"))).sort(byVersion)
-  : [];
-if (released.length) {
-  const version = released.at(-1);
+const version = newestRelease();
+if (version) {
   const folder = path.join(publish.updates, version);
   const latest = JSON.parse(await readFile(path.join(folder, "latest.json"), "utf8"));
   if (latest.version !== version) throw new Error(`updates/${version}/latest.json announces ${latest.version}`);
@@ -131,41 +82,4 @@ if (released.length) {
   console.log("updates: release/publish/updates has no release, /updates/ and /downloads/ are left out (bun run build:latest)");
 }
 
-// robots.txt belongs to the root of koona.app, which names this sitemap (site/Caddyfile, Р-47).
-const urls = [
-  ...["", "privacy", "licenses", ...(FEEDBACK_ENDPOINT ? ["feedback"] : [])].flatMap((p) => languages.map((l) => `/${l.dir}${p}`)),
-  ...(rel ? ["/downloads/"] : []),
-  "/changelog/",
-];
-await writeFile(
-  path.join(out, "sitemap.xml"),
-  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${SITE}${u}</loc></url>`).join("\n")}\n</urlset>\n`,
-);
-
-const files = [];
-async function walk(dir) {
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) await walk(p);
-    else files.push(path.relative(out, p).replaceAll("\\", "/"));
-  }
-}
-await walk(out);
-
-// Caddy lets browsers and Cloudflare keep site.css, brand, shots and fonts for a week
-// (site/Caddyfile), while pages are no-cache. Each link carries the file's hash, so a deploy
-// that changes a file changes its address, and a new page never meets the old stylesheet.
-const ASSET = new RegExp(`${BASE}/(?:site\\.css|(?:brand|shots|fonts)/[\\w.-]+)`, "g");
-const versions = new Map();
-for (const file of files.filter((f) => /^(site\.css|(brand|shots|fonts)\/[^/]+)$/.test(f))) {
-  versions.set(`${BASE}/${file}`, createHash("sha256").update(await readFile(path.join(out, file))).digest("hex").slice(0, 10));
-}
-for (const file of files.filter((f) => f.endsWith(".html"))) {
-  const html = await readFile(path.join(out, file), "utf8");
-  const versioned = html.replace(ASSET, (ref) => {
-    if (!versions.has(ref)) throw new Error(`${file}: ${ref} is not in the build`);
-    return `${ref}?v=${versions.get(ref)}`;
-  });
-  await writeFile(path.join(out, file), versioned);
-}
-console.log(`${path.relative(root, out)}: ${files.length} files, ${versions.size} assets versioned`);
+console.log(`${path.relative(root, out)}: ${files.filter((f) => f.endsWith(".html")).length} pages, ${files.filter((f) => f.startsWith("_astro/")).length} hashed files`);

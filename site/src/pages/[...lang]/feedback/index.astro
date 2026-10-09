@@ -1,0 +1,36 @@
+---
+// The feedback form (NP-088): a plain form posted straight to the Edge Function, which sends the
+// browser back to /feedback/sent, /limit or /error. No scripts; a hidden field catches bots. Built
+// only with the function's address (KOONAPIN_FEEDBACK_URL); without it Support points at GitHub.
+import TextPage from "../../../layouts/TextPage.astro";
+import { FEEDBACK_ENDPOINT, SUPPORT } from "../../../content.mjs";
+import { everyLanguage, href } from "../../../view.mjs";
+
+export const getStaticPaths = () => (FEEDBACK_ENDPOINT ? everyLanguage() : []);
+const { t } = Astro.props;
+const f = t.feedback;
+---
+<TextPage t={t} page="feedback" title={f.title}>
+{/* The site sends Referrer-Policy: same-origin, under which a POST to Supabase would carry
+    `Origin: null`; this page lets the browser name the site, which the function checks. Its links
+    to other sites carry rel=noreferrer: they keep the rest of the site's policy. */}
+<meta slot="head" name="referrer" content="strict-origin-when-cross-origin">
+<h1>{f.title}</h1>
+<p class="lead">{f.lead}</p>
+<form class="feedback" method="post" action={FEEDBACK_ENDPOINT} accept-charset="utf-8">
+<input type="hidden" name="lang" value={t.lang}>
+<fieldset class="kinds">
+<legend>{f.kind}</legend>
+{Object.entries(f.kinds).map(([value, label], i) => <label><input type="radio" name="kind" value={value} checked={i === 0}> {label}</label>)}
+</fieldset>
+<label class="field-label" for="fb-message">{f.message}</label>
+<textarea id="fb-message" name="message" rows="8" required placeholder={f.placeholder}></textarea>
+<label class="field-label" for="fb-email">{f.email}</label>
+<input id="fb-email" type="email" name="email" maxlength="254" autocomplete="email" placeholder="name@example.com">
+<div class="trap" aria-hidden="true"><label for="fb-trap">{f.trap}</label><input id="fb-trap" name="hp_7q" tabindex="-1" autocomplete="off"></div>
+<p class="form-note">{f.note} <a href={href(t.lang, "privacy")}>{f.privacy}</a></p>
+<p><button class="button button-primary" type="submit">{f.send}</button></p>
+</form>
+<p>{f.app}</p>
+<p><a href={SUPPORT} rel="noopener noreferrer">{f.github}</a></p>
+</TextPage>
