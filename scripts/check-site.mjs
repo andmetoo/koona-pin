@@ -72,6 +72,8 @@ try {
         broken.forEach((src) => problems.push(`${p}: image not loaded ${src}`));
         if (!p.includes("nowhere")) (await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.href))).forEach((h) => links.add(h));
         if (!p.includes("nowhere") && shown.has(lang)) {
+          // Lazy screenshots below the first screen load before the full-page shot, not after it.
+          await page.evaluate(() => Promise.all([...document.images].map((i) => ((i.loading = "eager"), i.decode().catch(() => {})))));
           const name = `${(p.replace(/\//g, "_") || "_").replace(/^_|_$/g, "") || "en"}-${width}-${scheme}.png`;
           await page.screenshot({ path: path.join(shots, name), fullPage: true });
         }

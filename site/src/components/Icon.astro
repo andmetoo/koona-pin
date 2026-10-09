@@ -1,0 +1,6 @@
+---
+// A Lucide icon of view.mjs: 20 px, the colour of the text around it.
+import { ICON } from "../view.mjs";
+const { name, class: cls = "icon" } = Astro.props;
+---
+<svg class={cls} viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" set:html={ICON[name]} />
