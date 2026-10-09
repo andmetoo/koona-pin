@@ -7,9 +7,9 @@
 // release/publish/linux/<version>/ (bun run build:linux), signs each with the update key bound to the
 // version (`tauri signer sign --app-version`, the app checks it: `requireSignedVersion`), and copies
 // it with its <file>.sig into release/publish/updates/<version>/, next to latest.json and
-// SHA256SUMS.txt. The key comes from the environment or .env: TAURI_SIGNING_PRIVATE_KEY (or
-// TAURI_SIGNING_PRIVATE_KEY_PATH); the password is typed into TAURI_SIGNING_PRIVATE_KEY_PASSWORD for
-// the run and not kept in .env (NP-042).
+// SHA256SUMS.txt. The key and its password come from the environment or .env (NP-042):
+// TAURI_SIGNING_PRIVATE_KEY (or TAURI_SIGNING_PRIVATE_KEY_PATH) and TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
+// bun run release runs it last, after the packages it lacked.
 //
 // The site serves that folder (Р-60): the packages at https://koona.app/pin/downloads/<version>/,
 // latest.json at https://koona.app/pin/updates/latest.json, where the app reads it
