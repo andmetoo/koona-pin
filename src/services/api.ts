@@ -42,6 +42,8 @@ import {
   Replaced,
   PickedCopy,
   SaveCopyOutcome,
+  StarterLibrary,
+  StarterLink,
   Suggestion,
   Tag,
   TrayLabels,
@@ -159,6 +161,11 @@ const desktop = {
   refreshPreview: (id: number) => call<Bookmark>("refresh_preview", { id }),
   /** A new library's first collections, named in the interface's language; once (NP-085). */
   createStarterCollections: (names: string[]) => call<Collection[]>("create_starter_collections", { names }),
+  /** The same, with the starter links in the inbox; their previews load in the background (NP-117). */
+  createStarterLibrary: (names: string[], links: StarterLink[]) =>
+    call<StarterLibrary>("create_starter_library", { names, links }),
+  /** The starter links still in the library: triage names them (NP-117). */
+  getStarterLinks: () => call<number[]>("get_starter_links"),
   /** The sidebar's order after a move: every collection's id, first to last (NP-114). */
   reorderCollections: (ids: number[]) => call<void>("reorder_collections", { ids }),
   /** «Title A–Z» and «Site A–Z» compare in this language; true when the keys were written anew (NP-114). */

@@ -616,7 +616,8 @@
     "nothingDecided": "이번에는 아무것도 처리하지 않았습니다.",
     "toLibrary": "라이브러리로 돌아가기",
     "undoLast": "마지막 결정 실행 취소",
-    "doneHint": "새 북마크는 받은함에서 기다립니다. Esc를 누르면 정리를 닫습니다."
+    "doneHint": "새 북마크는 받은함에서 기다립니다. Esc를 누르면 정리를 닫습니다.",
+    "starter": "{{when}} Koona Pin이 추가함"
   },
   "undo": {
     "undone": "실행 취소함: ‘{{title}}’",
@@ -861,7 +862,27 @@
   "starter": {
     "development": "개발",
     "design": "디자인 및 UI",
-    "reading": "글 / 나중에 읽기"
+    "reading": "글 / 나중에 읽기",
+    "links": {
+      "start": {
+        "title": "여기서 시작하세요: Koona Pin 사용법",
+        "description": "몇 분 만에 링크를 저장하고 정리하고 찾아보세요."
+      },
+      "extension": {
+        "title": "브라우저에 저장 버튼 추가하기",
+        "description": "Chrome, Edge, Firefox: 한 번 클릭으로 열린 페이지를 저장합니다."
+      },
+      "changelog": {
+        "title": "Koona Pin의 새로운 기능",
+        "description": "모든 버전과 바뀐 내용."
+      },
+      "bun": {
+        "description": "빠른 JavaScript 런타임이자 도구 모음."
+      },
+      "lunacy": {
+        "description": "그래픽이 내장된 무료 디자인 앱."
+      }
+    }
   },
   "bulk": {
     "moved_other": "북마크 {{count}}개를 ‘{{name}}’(으)로 이동했습니다",
@@ -882,5 +903,11 @@
       "trash_other": "북마크 {{count}}개를 휴지통으로 이동할 수 없습니다: {{reason}}. 아무것도 바뀌지 않았습니다.",
       "restore_other": "북마크 {{count}}개를 복원할 수 없습니다: {{reason}}. 아무것도 바뀌지 않았습니다."
     }
+  },
+  "importOffer": {
+    "label": "북마크 가져오기",
+    "text": "Chrome, Edge, Firefox의 북마크를 가져오세요 — 폴더는 컬렉션이 됩니다",
+    "action": "북마크 가져오기…",
+    "hide": "숨기기"
   }
 }

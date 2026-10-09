@@ -716,7 +716,8 @@
     "nothingDecided": "Ovaj put ništa nije odlučeno.",
     "toLibrary": "Nazad u biblioteku",
     "undoLast": "Opozovi poslednju odluku",
-    "doneHint": "Novi obeleživači čekaće u prijemnom sandučetu. Esc zatvara razvrstavanje."
+    "doneHint": "Novi obeleživači čekaće u prijemnom sandučetu. Esc zatvara razvrstavanje.",
+    "starter": "dodao Koona Pin {{when}}"
   },
   "undo": {
     "undone": "Opozvano: „{{title}}“",
@@ -979,7 +980,27 @@
   "starter": {
     "development": "Programiranje",
     "design": "Dizajn i UI",
-    "reading": "Članci / Za čitanje"
+    "reading": "Članci / Za čitanje",
+    "links": {
+      "start": {
+        "title": "Počnite ovde: kako radi Koona Pin",
+        "description": "Čuvajte, razvrstavajte i pronalazite veze za par minuta."
+      },
+      "extension": {
+        "title": "Dodajte dugme za čuvanje u pregledač",
+        "description": "Chrome, Edge ili Firefox: jedan klik čuva otvorenu stranicu."
+      },
+      "changelog": {
+        "title": "Šta je novo u Koona Pin",
+        "description": "Svaka verzija i šta se u njoj promenilo."
+      },
+      "bun": {
+        "description": "Brzo okruženje za izvršavanje i skup alata za JavaScript."
+      },
+      "lunacy": {
+        "description": "Besplatan program za dizajn sa ugrađenom grafikom."
+      }
+    }
   },
   "bulk": {
     "moved_one": "{{count}} obeleživač premešten u „{{name}}“",
@@ -1030,5 +1051,11 @@
       "restore_few": "{{count}} obeleživača nisu vraćena: {{reason}}. Ništa nije promenjeno.",
       "restore_other": "{{count}} obeleživača nije vraćeno: {{reason}}. Ništa nije promenjeno."
     }
+  },
+  "importOffer": {
+    "label": "Uvoz obeleživača",
+    "text": "Prenesite obeleživače iz Chrome, Edge ili Firefox — njihove fascikle postaju kolekcije",
+    "action": "Uvezi obeleživače…",
+    "hide": "Sakrij"
   }
 }

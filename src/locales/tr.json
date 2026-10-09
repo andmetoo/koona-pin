@@ -665,7 +665,8 @@
     "nothingDecided": "Bu kez hiçbir karar verilmedi.",
     "toLibrary": "Kitaplığa dön",
     "undoLast": "Son kararı geri al",
-    "doneHint": "Yeni yer işaretleri gelen kutusunda bekleyecek. Esc düzenlemeyi kapatır."
+    "doneHint": "Yeni yer işaretleri gelen kutusunda bekleyecek. Esc düzenlemeyi kapatır.",
+    "starter": "{{when}} Koona Pin ekledi"
   },
   "undo": {
     "undone": "Geri alındı: “{{title}}”",
@@ -919,7 +920,27 @@
   "starter": {
     "development": "Geliştirme",
     "design": "Tasarım ve UI",
-    "reading": "Makaleler / Okunacaklar"
+    "reading": "Makaleler / Okunacaklar",
+    "links": {
+      "start": {
+        "title": "Buradan başlayın: Koona Pin nasıl çalışır",
+        "description": "Bağlantıları birkaç dakikada kaydedin, düzenleyin ve bulun."
+      },
+      "extension": {
+        "title": "Kaydet düğmesini tarayıcınıza ekleyin",
+        "description": "Chrome, Edge veya Firefox: tek tık açık sayfayı kaydeder."
+      },
+      "changelog": {
+        "title": "Koona Pin'de yenilikler",
+        "description": "Her sürüm ve içinde neyin değiştiği."
+      },
+      "bun": {
+        "description": "Hızlı bir JavaScript çalışma ortamı ve araç takımı."
+      },
+      "lunacy": {
+        "description": "Yerleşik grafikleriyle ücretsiz bir tasarım uygulaması."
+      }
+    }
   },
   "bulk": {
     "moved_one": "{{count}} yer işareti “{{name}}” koleksiyonuna taşındı",
@@ -955,5 +976,11 @@
       "restore_one": "{{count}} yer işareti geri yüklenemedi: {{reason}}. Hiçbir şey değişmedi.",
       "restore_other": "{{count}} yer işareti geri yüklenemedi: {{reason}}. Hiçbir şey değişmedi."
     }
+  },
+  "importOffer": {
+    "label": "Yer işaretlerini içe aktar",
+    "text": "Chrome, Edge veya Firefox'taki yer işaretlerinizi getirin — klasörleri koleksiyon olur",
+    "action": "Yer işaretlerini içe aktar…",
+    "hide": "Gizle"
   }
 }

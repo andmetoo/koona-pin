@@ -665,7 +665,8 @@
     "nothingDecided": "Nothing was decided this time.",
     "toLibrary": "Back to library",
     "undoLast": "Undo last decision",
-    "doneHint": "New bookmarks will wait in Inbox. Esc closes the review."
+    "doneHint": "New bookmarks will wait in Inbox. Esc closes the review.",
+    "starter": "added by Koona Pin {{when}}"
   },
   "undo": {
     "undone": "Undone: «{{title}}»",
@@ -919,7 +920,27 @@
   "starter": {
     "development": "Development",
     "design": "Design & UI",
-    "reading": "Articles / To read"
+    "reading": "Articles / To read",
+    "links": {
+      "start": {
+        "title": "Start here: how Koona Pin works",
+        "description": "Save, sort and find links in a few minutes."
+      },
+      "extension": {
+        "title": "Add the Save button to your browser",
+        "description": "Chrome, Edge or Firefox: one click saves the page you are on."
+      },
+      "changelog": {
+        "title": "What's new in Koona Pin",
+        "description": "Every version and what changed in it."
+      },
+      "bun": {
+        "description": "A fast JavaScript runtime and toolkit."
+      },
+      "lunacy": {
+        "description": "A free design app with built-in graphics."
+      }
+    }
   },
   "bulk": {
     "moved_one": "{{count}} bookmark moved to «{{name}}»",
@@ -955,5 +976,11 @@
       "restore_one": "Couldn't restore {{count}} bookmark: {{reason}}. Nothing changed.",
       "restore_other": "Couldn't restore {{count}} bookmarks: {{reason}}. Nothing changed."
     }
+  },
+  "importOffer": {
+    "label": "Import bookmarks",
+    "text": "Bring your bookmarks from Chrome, Edge or Firefox — their folders become collections",
+    "action": "Import bookmarks…",
+    "hide": "Hide"
   }
 }

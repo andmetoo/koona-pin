@@ -714,7 +714,8 @@
     "nothingDecided": "Esta vez no se decidió nada.",
     "toLibrary": "Volver a la biblioteca",
     "undoLast": "Deshacer la última decisión",
-    "doneHint": "Los marcadores nuevos esperarán en la bandeja de entrada. Esc cierra la revisión."
+    "doneHint": "Los marcadores nuevos esperarán en la bandeja de entrada. Esc cierra la revisión.",
+    "starter": "añadido por Koona Pin {{when}}"
   },
   "undo": {
     "undone": "Deshecho: «{{title}}»",
@@ -977,7 +978,27 @@
   "starter": {
     "development": "Desarrollo",
     "design": "Diseño e UI",
-    "reading": "Artículos / Para leer"
+    "reading": "Artículos / Para leer",
+    "links": {
+      "start": {
+        "title": "Empieza aquí: cómo funciona Koona Pin",
+        "description": "Guarda, ordena y encuentra enlaces en pocos minutos."
+      },
+      "extension": {
+        "title": "Añade el botón de guardar a tu navegador",
+        "description": "Chrome, Edge o Firefox: un clic guarda la página abierta."
+      },
+      "changelog": {
+        "title": "Novedades de Koona Pin",
+        "description": "Cada versión y lo que cambió en ella."
+      },
+      "bun": {
+        "description": "Un entorno de ejecución y conjunto de herramientas de JavaScript rápido."
+      },
+      "lunacy": {
+        "description": "Una app de diseño gratuita con gráficos incluidos."
+      }
+    }
   },
   "bulk": {
     "moved_one": "{{count}} marcador movido a «{{name}}»",
@@ -1028,5 +1049,11 @@
       "restore_many": "No se pudieron restaurar {{count}} de marcadores: {{reason}}. No ha cambiado nada.",
       "restore_other": "No se pudieron restaurar {{count}} marcadores: {{reason}}. No ha cambiado nada."
     }
+  },
+  "importOffer": {
+    "label": "Importar marcadores",
+    "text": "Trae tus marcadores de Chrome, Edge o Firefox: sus carpetas se convierten en colecciones",
+    "action": "Importar marcadores…",
+    "hide": "Ocultar"
   }
 }

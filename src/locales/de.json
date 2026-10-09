@@ -665,7 +665,8 @@
     "nothingDecided": "Diesmal wurde nichts entschieden.",
     "toLibrary": "Zurück zur Bibliothek",
     "undoLast": "Letzte Entscheidung rückgängig",
-    "doneHint": "Neue Lesezeichen warten im Eingang. Esc schließt die Durchsicht."
+    "doneHint": "Neue Lesezeichen warten im Eingang. Esc schließt die Durchsicht.",
+    "starter": "von Koona Pin hinzugefügt {{when}}"
   },
   "undo": {
     "undone": "Rückgängig gemacht: „{{title}}“",
@@ -919,7 +920,27 @@
   "starter": {
     "development": "Entwicklung",
     "design": "Design & UI",
-    "reading": "Artikel / Zum Lesen"
+    "reading": "Artikel / Zum Lesen",
+    "links": {
+      "start": {
+        "title": "Hier anfangen: So funktioniert Koona Pin",
+        "description": "Links speichern, sortieren und finden – in wenigen Minuten."
+      },
+      "extension": {
+        "title": "Speichern-Knopf zum Browser hinzufügen",
+        "description": "Chrome, Edge oder Firefox: Ein Klick speichert die geöffnete Seite."
+      },
+      "changelog": {
+        "title": "Neu in Koona Pin",
+        "description": "Jede Version und was sich darin geändert hat."
+      },
+      "bun": {
+        "description": "Eine schnelle JavaScript-Laufzeit samt Werkzeugen."
+      },
+      "lunacy": {
+        "description": "Ein kostenloses Design-Programm mit eingebauten Grafiken."
+      }
+    }
   },
   "bulk": {
     "moved_one": "{{count}} Lesezeichen nach „{{name}}“ verschoben",
@@ -955,5 +976,11 @@
       "restore_one": "{{count}} Lesezeichen konnte nicht wiederhergestellt werden: {{reason}}. Nichts geändert.",
       "restore_other": "{{count}} Lesezeichen konnten nicht wiederhergestellt werden: {{reason}}. Nichts geändert."
     }
+  },
+  "importOffer": {
+    "label": "Lesezeichen importieren",
+    "text": "Holen Sie Ihre Lesezeichen aus Chrome, Edge oder Firefox – ihre Ordner werden zu Sammlungen",
+    "action": "Lesezeichen importieren…",
+    "hide": "Ausblenden"
   }
 }
