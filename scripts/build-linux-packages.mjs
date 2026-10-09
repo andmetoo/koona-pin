@@ -1,5 +1,5 @@
-// Builds the Linux packages (NP-055, Р-45, Р-53): koonapin_<version>_amd64.deb for Ubuntu and Debian and
-// koonapin-<version>-1.x86_64.rpm for Fedora, with --features public-release (the native host accepts only
+// Builds the Linux packages (NP-055, Р-45, Р-53): koonapin_<version>_amd64.deb for Ubuntu and Debian,
+// koonapin-<version>-1.x86_64.rpm for Fedora and koonapin-<version>-x86_64.AppImage for the rest (NP-116), with --features public-release (the native host accepts only
 // the store extensions, feedback must have its address) → release/publish/linux/<version>/ with
 // SHA256SUMS.txt. No GPG signature in the beta (Р-45, п. 8).
 //   bun run build:linux
@@ -242,14 +242,27 @@ await writeFile(
 run("rpmbuild", ["-bb", "--quiet", "--define", `_topdir ${staged("rpmbuild")}`, "--define", `tree ${tree}`, staged("koonapin.spec")], { env });
 const rpm = path.join(stage, "rpmbuild", "RPMS", "x86_64", `koonapin-${version}-1.x86_64.rpm`);
 
+// The AppImage for the other distributions (NP-116, Р-63), last: Tauri marks the binary «appimage» for the
+// updater, and the .deb and .rpm have taken theirs already. It carries WebKitGTK and the tray library
+// with it; the manifests and the autostart entry the app writes itself at the start (appimage.rs).
+// linuxdeploy is an AppImage too: in a container without FUSE it runs unpacked.
+await rm(path.join(bundles, "appimage"), { recursive: true, force: true });
+env.APPIMAGE_EXTRACT_AND_RUN = "1";
+bundle("appimage", { deb: { desktopTemplate: path.join(linux, "koonapin.desktop") }, appimage: { bundleMediaFramework: false } });
+// The name people know from other AppImages: <name>-<version>-<arch>.AppImage.
+const appimage = path.join(stage, `koonapin-${version}-x86_64.AppImage`);
+await copyFile(path.join(bundles, "appimage", `koonapin_${version}_amd64.AppImage`), appimage);
+await chmod(appimage, 0o755);
+
 // Into release/, with the hashes and where they came from.
 const out = publish.linux(version);
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 const sums = [];
-for (const file of [deb, rpm]) {
+for (const file of [deb, rpm, appimage]) {
   const copy = path.join(out, path.basename(file));
   await copyFile(file, copy);
+  await chmod(copy, file === appimage ? 0o755 : 0o644);
   sums.push(`${createHash("sha256").update(await readFile(copy)).digest("hex")}  ${path.basename(file)}`);
   console.log(`\n${path.relative(root, copy)}: ${((await stat(copy)).size / 1024 / 1024).toFixed(1)} MB`);
 }

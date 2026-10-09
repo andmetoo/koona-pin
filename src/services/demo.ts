@@ -934,7 +934,7 @@ export const demo = {
   },
   /** Windows buttons; a test or a look at the Linux bar puts a `Desktop` into localStorage. */
   async getDesktop(): Promise<Desktop> {
-    return storedDesktop() ?? { linux: false, left: [], right: ["minimize", "maximize", "close"], tray: true };
+    return storedDesktop() ?? { linux: false, left: [], right: ["minimize", "maximize", "close"], tray: true, appimage: false };
   },
   async hideToBackground() {
     /* Desktop-only. */

@@ -46,9 +46,10 @@ export default {
   dl: {
     title: "Pobierz Koona Pin",
     windows: "Pobierz dla Windows",
-    deb: "Linux .deb",
-    rpm: "Linux .rpm",
-    soon: "macOS, AppImage i AUR — wkrótce",
+    deb: ".deb",
+    rpm: ".rpm",
+    appimage: "AppImage",
+    soon: "macOS i AUR — wkrótce",
     extTitle: "Potem dodaj rozszerzenie do przeglądarki",
     extSoon: "wkrótce",
     extSoonNote: "Chrome i Edge — wkrótce w ich sklepach",

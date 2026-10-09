@@ -14,4 +14,9 @@ left: Array<WindowButton>, right: Array<WindowButton>,
  * A tray shows the icon. Without one, closing the window only hides it
  * and the app keeps running in the background (NP-096).
  */
-tray: boolean, };
+tray: boolean, 
+/**
+ * Started from an AppImage (NP-116): an update replaces the file and needs
+ * no password, unlike the .deb and .rpm.
+ */
+appimage: boolean, };

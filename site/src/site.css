@@ -1285,6 +1285,23 @@ h1 {
 .dl-actions .button {
   min-width: 160px;
 }
+/* Linux under Windows: one word for the row, the formats on the buttons (NP-116). */
+.dl-linux {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+.dl-linux-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.dl-linux .button {
+  min-width: 112px;
+}
 .dl-soon {
   margin-top: 12px;
   font-size: 13px;
@@ -1599,6 +1616,15 @@ a.tile:hover {
   }
   .dl-windows {
     flex-basis: 100% !important;
+  }
+  .dl-linux-label {
+    flex-basis: 100%;
+    text-align: center;
+  }
+  .dl-linux .button {
+    min-width: 0;
+    flex: 1 1 0;
+    padding-inline: 8px;
   }
   .ext-soon {
     display: none;
