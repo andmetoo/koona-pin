@@ -640,6 +640,7 @@
     "updateInstalling": "Instalando a versão {{version}}…",
     "updateFailed": "A versão {{version}} não foi instalada",
     "updateButton": "Atualizar…",
+    "changelog": "Mudanças",
     "pacman": "As atualizações vêm pelo pacman: esta cópia foi instalada pelo AUR",
     "support": "Suporte",
     "feedback": "Enviar feedback",

@@ -548,6 +548,7 @@
     "updateInstalling": "バージョン {{version}} をインストール中…",
     "updateFailed": "バージョン {{version}} はインストールされませんでした",
     "updateButton": "アップデート…",
+    "changelog": "変更履歴",
     "pacman": "アップデートは pacman で配信されます：このコピーは AUR からインストールされました",
     "support": "サポート",
     "feedback": "フィードバックを送信",

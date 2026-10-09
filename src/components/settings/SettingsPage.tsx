@@ -15,7 +15,7 @@ import {
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
 import { GITHUB_ISSUES_URL } from "../../services/feedback";
-import { offer, percent } from "../../services/update";
+import { changelogUrl, offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
 import { Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
@@ -190,6 +190,7 @@ export function SettingsPage({
         checking={busy("updates")}
         onCheck={() => void attempt("updates", onCheckUpdates)}
         onUpdate={onUpdate}
+        onOpen={(url) => void attempt("changelog", () => api.openUrl(url))}
       />
 
       <BrowserSection
@@ -272,12 +273,14 @@ function UpdatesSection({
   checking,
   onCheck,
   onUpdate,
+  onOpen,
 }: {
   version: string;
   update: UpdateStatus | null;
   checking: boolean;
   onCheck: () => void;
   onUpdate: () => void;
+  onOpen: (url: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const desktop = isTauri();
@@ -331,11 +334,18 @@ function UpdatesSection({
       </Button>
     );
   }
+  // The changelog of the version that runs, on the site (NP-040): left of the button, in every state.
+  const changelog = (
+    <button type="button" onClick={() => onOpen(changelogUrl(version))} className="px-1 text-sm font-medium text-accent hover:underline">
+      {t("settings.changelog")} ↗
+    </button>
+  );
   return (
     <section className="flex flex-col gap-2" data-update={state}>
       <h2 className="text-2xs font-semibold text-subtle uppercase">{t("settings.updates")}</h2>
       <div className="rounded-xl border border-line bg-card">
         <Row title={`Koona Pin ${version}`} description={description}>
+          {changelog}
           {controls}
         </Row>
       </div>

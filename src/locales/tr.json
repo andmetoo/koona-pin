@@ -594,6 +594,7 @@
     "updateInstalling": "Yükleniyor: {{version}}…",
     "updateFailed": "Yüklenmedi: {{version}}",
     "updateButton": "Güncelle…",
+    "changelog": "Değişiklikler",
     "pacman": "Güncellemeler pacman üzerinden gelir: bu kopya AUR'dan yüklendi",
     "support": "Destek",
     "feedback": "Geri bildirim gönder",

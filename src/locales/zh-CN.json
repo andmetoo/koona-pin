@@ -548,6 +548,7 @@
     "updateInstalling": "正在安装版本 {{version}}…",
     "updateFailed": "版本 {{version}} 未安装",
     "updateButton": "更新…",
+    "changelog": "更新日志",
     "pacman": "更新由 pacman 提供：此副本是从 AUR 安装的",
     "support": "支持",
     "feedback": "发送反馈",

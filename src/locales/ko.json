@@ -548,6 +548,7 @@
     "updateInstalling": "새 버전 설치 중: {{version}}…",
     "updateFailed": "설치하지 못한 버전: {{version}}",
     "updateButton": "업데이트…",
+    "changelog": "변경 내역",
     "pacman": "업데이트는 pacman으로 제공됩니다. 이 사본은 AUR에서 설치되었습니다.",
     "support": "지원",
     "feedback": "피드백 보내기",
