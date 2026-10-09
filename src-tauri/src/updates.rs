@@ -335,9 +335,22 @@ async fn install(_app: &AppHandle, update: &Update, bytes: Vec<u8>) -> Result<()
 
 /// Linux: the package through pkexec, then a restart into the new binary. The plugin's own install
 /// would fall back to zenity and to sudo in a terminal when the password is not given; here a
-/// closed password dialog is just that.
+/// closed password dialog is just that. The AppImage (NP-116) is the person's own file: the plugin
+/// writes the new one over it, keeping a copy until it is written, and the restart starts that
+/// file (Tauri restarts `$APPIMAGE`, not the program in the old mount). No password.
 #[cfg(target_os = "linux")]
-async fn install(app: &AppHandle, _update: &Update, bytes: Vec<u8>) -> Result<(), UpdateProblem> {
+async fn install(app: &AppHandle, update: &Update, bytes: Vec<u8>) -> Result<(), UpdateProblem> {
+    if crate::appimage::file().is_some() {
+        let update = update.clone();
+        tauri::async_runtime::spawn_blocking(move || update.install(bytes))
+            .await
+            .map_err(|_| UpdateProblem::Failed)?
+            .map_err(|error| {
+                eprintln!("Koona Pin: the AppImage was not replaced: {error}");
+                UpdateProblem::InstallFailed
+            })?;
+        app.restart()
+    }
     tauri::async_runtime::spawn_blocking(move || linux::install(&bytes))
         .await
         .map_err(|_| UpdateProblem::Failed)??;

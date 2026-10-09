@@ -102,9 +102,13 @@ fn app_folder() -> Option<PathBuf> {
 }
 
 /// At every start and on «Повторить», when [`should_register`]: Linux checks
-/// the package's manifests, or registers a development build for the user.
+/// the package's manifests, registers the AppImage for the user (NP-116), or
+/// registers a development build for the user.
 #[cfg(target_os = "linux")]
 pub fn register() -> Result<(), (CaptureProblem, String)> {
+    if let Some(appimage) = crate::appimage::file() {
+        return register_appimage(&appimage);
+    }
     if std::env::var_os(REGISTER_ENV).is_some_and(|v| v == "1") {
         linux::register_user()
     } else {
@@ -112,18 +116,45 @@ pub fn register() -> Result<(), (CaptureProblem, String)> {
     }
 }
 
+/// The AppImage (NP-116, Р-63): the host copied out of the image to a path
+/// that lasts, the manifests for it in the user's folders of the browsers.
+#[cfg(target_os = "linux")]
+fn register_appimage(appimage: &Path) -> Result<(), (CaptureProblem, String)> {
+    let registration = |e: std::io::Error| (CaptureProblem::Registration, e.to_string());
+    let inside = linux::own_host().map_err(registration)?;
+    if !inside.is_file() {
+        return Err((CaptureProblem::HostMissing, inside.display().to_string()));
+    }
+    let folder = crate::appimage::host_folder().ok_or_else(|| registration(std::io::Error::other("cannot find the data folder")))?;
+    let host = crate::appimage::settle_host(&inside, appimage, &folder).map_err(registration)?;
+    let (home, config) = linux::user_places().map_err(registration)?;
+    linux::write_user(&home, &config, &host, cfg!(feature = "public-release")).map_err(registration)
+}
+
 /// `--register-host`: the installer on Windows; on Linux the registration for
 /// the user (the package brings its own files).
 pub fn register_on_request() -> Result<(), (CaptureProblem, String)> {
+    #[cfg(target_os = "linux")]
+    if let Some(appimage) = crate::appimage::file() {
+        return register_appimage(&appimage);
+    }
     #[cfg(target_os = "linux")]
     return linux::register_user();
     #[cfg(not(target_os = "linux"))]
     register()
 }
 
-/// `--unregister-host`.
+/// `--unregister-host`: the manifests that point at this copy's host — the
+/// one copied out of the AppImage, or the one next to the program.
 #[cfg(target_os = "linux")]
 pub fn unregister() -> std::io::Result<()> {
+    if crate::appimage::file().is_some() {
+        let host = crate::appimage::host_folder()
+            .ok_or_else(|| std::io::Error::other("cannot find the data folder"))?
+            .join(linux::HOST_BINARY);
+        let (home, config) = linux::user_places()?;
+        return linux::remove_user(&home, &config, &host);
+    }
     linux::unregister_user()
 }
 
@@ -355,13 +386,14 @@ pub mod linux {
         ]
     }
 
-    fn user_places() -> io::Result<(PathBuf, PathBuf)> {
+    pub fn user_places() -> io::Result<(PathBuf, PathBuf)> {
         dirs::home_dir()
             .zip(dirs::config_dir())
             .ok_or_else(|| io::Error::other("cannot find the home folder"))
     }
 
-    fn own_host() -> io::Result<PathBuf> {
+    /// The host next to the program; in an AppImage, inside the mounted image.
+    pub fn own_host() -> io::Result<PathBuf> {
         super::app_folder()
             .map(|folder| folder.join(HOST_BINARY))
             .ok_or_else(|| io::Error::other("cannot find the app's folder"))

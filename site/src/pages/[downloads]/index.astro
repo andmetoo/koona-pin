@@ -15,7 +15,9 @@ const packages = [
   { id: "deb", name: "Ubuntu 26.04, Debian 13", note: `.deb · ${megabytes(rel.deb.size)}`, file: rel.deb, label: "Download .deb", cmd: `sudo apt install ./${rel.deb.name}` },
   { id: "rpm", name: "Fedora 44", note: `.rpm · ${megabytes(rel.rpm.size)}`, file: rel.rpm, label: "Download .rpm", cmd: `sudo dnf install ./${rel.rpm.name}` },
   { id: "aur", name: "Arch Linux", note: "AUR package koonapin-bin", cmd: "yay -S koonapin-bin" },
-  { id: "appimage", name: "Other distributions", note: "AppImage · runs without installing", cmd: `chmod +x Koona_Pin-${rel.version}-x86_64.AppImage` },
+  rel.appimage
+    ? { id: "appimage", name: "Other distributions", note: `AppImage · runs without installing · ${megabytes(rel.appimage.size)}`, file: rel.appimage, label: "Download AppImage", cmd: `chmod +x ${rel.appimage.name} && ./${rel.appimage.name}` }
+    : { id: "appimage", name: "Other distributions", note: "AppImage · runs without installing", cmd: `chmod +x koonapin-${rel.version}-x86_64.AppImage` },
 ];
 ---
 <TextPage t={t} page="downloads/" title="Download" description="Download Koona Pin for Windows and Linux, and the browser extension for Chrome, Edge and Firefox." current="download" wide>
@@ -43,6 +45,7 @@ const packages = [
 <li>Firefox from Snap asks once to let the extension talk to Koona Pin.</li>
 <li>Browsers installed from Flatpak can't save to Koona Pin yet.</li>
 <li>Removing the package keeps your library in <code>~/.local/share/Koona/Pin</code>.</li>
+{rel.appimage && <li>The AppImage sets itself up for your browsers and the session at every start, wherever you keep the file. To remove it, delete the file and <code>~/.local/share/Koona/Pin/host</code>; the library stays.</li>}
 </ul>
 </section>
 

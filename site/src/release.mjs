@@ -41,6 +41,8 @@ export function release() {
     windows: file((f) => f.endsWith("-setup.exe")),
     deb: file((f) => f.endsWith(".deb")),
     rpm: file((f) => f.endsWith(".rpm")),
+    // From 0.5.0 (NP-116); an older release on the site has none.
+    appimage: file((f) => f.endsWith(".AppImage")),
     sums: file((f) => f === "SHA256SUMS.txt"),
   };
 }
