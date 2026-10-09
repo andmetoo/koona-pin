@@ -116,6 +116,8 @@ async function shoot(lang, base, encoder) {
           localStorage.setItem("koonapin.language", l);
           localStorage.setItem("koonapin.theme", t);
           localStorage.setItem("koonapin.view", v);
+          // The import offer of a new library (NP-117) is closed: the shots show the library itself.
+          localStorage.setItem("koonapin.importBanner", "done");
         }, [theme, view, lang]);
         await page.reload();
         await metrics();
@@ -131,8 +133,15 @@ async function shoot(lang, base, encoder) {
           const photos = await page.evaluate(() => [...document.querySelectorAll("[data-bookmark-id] img")].filter((i) => i.naturalWidth > 0).length);
           if (!photos) throw new Error(`${lang} ${theme}: no preview photo loaded, the cards show covers`);
         }
-        // The window is a real one: a pointer resting over it would leave a card in its hover state.
+        // The window is a real one: the system's pointer resting over it leaves a card in its hover state
+        // (the selection box and «…» on the first card, og-en.jpg of 9 October 2026), whatever CDP moves.
+        // Nothing reacts to the pointer while the shot is taken, and nothing keeps the focus. A style
+        // property set from script: the app's CSP refuses a <style> of the test.
         await page.mouse.move(VIEW.width / 2, 16);
+        await page.evaluate(() => {
+          document.documentElement.style.setProperty("pointer-events", "none", "important");
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        });
         await page.waitForTimeout(500);
         const png = await page.screenshot({ scale: "device" });
         const name = `app-${lang}-${theme}-${view}`;

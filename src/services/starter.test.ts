@@ -3,11 +3,16 @@ import i18n, { languages } from "../i18n";
 import { starterLinks } from "./starter";
 
 describe("starter links (NP-117)", () => {
-  it("are web pages in the order of the set, Bun and Lunacy last", () => {
+  it("are web pages in the order of the set: Koona, Koona Pin, then Firefox, Bun and Lunacy", () => {
     const links = starterLinks(i18n.getFixedT("en"));
-    expect(links.map((l) => new URL(l.url).hostname)).toEqual(["koona.app", "koona.app", "koona.app", "bun.com", "www.lunacyapp.com"]);
-    expect(links.every((l) => l.url.startsWith("https://"))).toBe(true);
-    expect(links.slice(-2).map((l) => l.title)).toEqual(["Bun", "Lunacy"]);
+    expect(links.map((l) => l.url)).toEqual([
+      "https://koona.app/",
+      "https://koona.app/pin/#how",
+      "https://www.firefox.com/",
+      "https://bun.com/",
+      "https://www.lunacyapp.com/",
+    ]);
+    expect(links.slice(-3).map((l) => l.title)).toEqual(["Firefox", "Bun", "Lunacy"]);
   });
 
   it("have a title and a description in every language of the app", () => {

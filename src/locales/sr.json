@@ -982,17 +982,16 @@
     "design": "Дизајн и UI",
     "reading": "Чланци / За читање",
     "links": {
+      "koona": {
+        "title": "Апликације Koona",
+        "description": "Друге апликације Koona."
+      },
       "start": {
         "title": "Почните овде: како ради Koona Pin",
         "description": "Чувајте, разврставајте и проналазите везе за пар минута."
       },
-      "extension": {
-        "title": "Додајте дугме за чување у прегледач",
-        "description": "Chrome, Edge или Firefox: један клик чува отворену страницу."
-      },
-      "changelog": {
-        "title": "Шта је ново у Koona Pin",
-        "description": "Свака верзија и шта се у њој променило."
+      "firefox": {
+        "description": "Брз и приватан прегледач компаније Mozilla."
       },
       "bun": {
         "description": "Брзо окружење за извршавање и скуп алата за JavaScript."

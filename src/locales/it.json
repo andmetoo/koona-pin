@@ -982,17 +982,16 @@
     "design": "Design e UI",
     "reading": "Articoli / Da leggere",
     "links": {
+      "koona": {
+        "title": "App di Koona",
+        "description": "Altre app di Koona."
+      },
       "start": {
         "title": "Inizia da qui: come funziona Koona Pin",
         "description": "Salva, ordina e trova i link in pochi minuti."
       },
-      "extension": {
-        "title": "Aggiungi il pulsante Salva al browser",
-        "description": "Chrome, Edge o Firefox: un clic salva la pagina aperta."
-      },
-      "changelog": {
-        "title": "Novità di Koona Pin",
-        "description": "Ogni versione e cosa è cambiato."
+      "firefox": {
+        "description": "Un browser veloce e riservato di Mozilla."
       },
       "bun": {
         "description": "Un runtime e un insieme di strumenti JavaScript veloci."
