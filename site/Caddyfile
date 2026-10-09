@@ -73,25 +73,30 @@ handle_path /pin/* {
 	@xpi path /firefox/*.xpi
 	header @xpi Content-Type "application/x-xpinstall"
 
-	@found file {
-		try_files {path} {path}.html {path}/index.html
-	}
-	handle @found {
-		rewrite * {file_match.relative}
-		file_server
-	}
-	# Anything else is this site's own 404 page, in the language of the address.
-	@language path_regexp language ^/(ru|de|es|fr|it|ja|ko|pl|pt-br|sr|tr|uk|zh-cn)/
-	handle @language {
-		rewrite * /{re.language.1}/404.html
-		file_server {
-			status 404
+	# Caddy's own order puts handle before route: bare, these handles would answer /index.html
+	# before route @welcome is reached. Inside a route of their own they come after it, in the
+	# order written.
+	route {
+		@found file {
+			try_files {path} {path}.html {path}/index.html
 		}
-	}
-	handle {
-		rewrite * /404.html
-		file_server {
-			status 404
+		handle @found {
+			rewrite * {file_match.relative}
+			file_server
+		}
+		# Anything else is this site's own 404 page, in the language of the address.
+		@language path_regexp language ^/(ru|de|es|fr|it|ja|ko|pl|pt-br|sr|tr|uk|zh-cn)/
+		handle @language {
+			rewrite * /{re.language.1}/404.html
+			file_server {
+				status 404
+			}
+		}
+		handle {
+			rewrite * /404.html
+			file_server {
+				status 404
+			}
 		}
 	}
 }
