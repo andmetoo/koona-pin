@@ -555,7 +555,9 @@
     "feedbackHint": "错误、想法或问题 — 直接发给开发者",
     "feedbackButton": "发送反馈…",
     "github": "GitHub 上的问题",
-    "githubHint": "koona-pin 中的公开报告"
+    "githubHint": "koona-pin 中的公开报告",
+    "licenses": "许可证",
+    "licensesHint": "Koona Pin 使用的字体、图标和库"
   },
   "notice": {
     "previewRefreshed": "预览已刷新",

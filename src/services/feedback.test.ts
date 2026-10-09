@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
 import { languages } from "../../site/src/content.mjs";
-import { privacyUrl } from "./feedback";
+import { licensesUrl, privacyUrl } from "./feedback";
 
 const appLanguages = readdirSync(new URL("../locales/", import.meta.url)).map((f) => f.replace(/\.json$/, ""));
 
@@ -17,5 +17,14 @@ describe("privacyUrl", () => {
   it("falls back to English for a language the site lacks", () => {
     expect(privacyUrl("he")).toBe("https://koona.app/pin/privacy");
     expect(privacyUrl("constructor")).toBe("https://koona.app/pin/privacy");
+  });
+});
+
+describe("licensesUrl", () => {
+  it("opens the licenses page of the site in the interface's language (NP-040)", () => {
+    expect(licensesUrl("en")).toBe("https://koona.app/pin/licenses");
+    expect(licensesUrl("sr")).toBe("https://koona.app/pin/sr/licenses");
+    expect(licensesUrl("pt-BR")).toBe("https://koona.app/pin/pt-br/licenses");
+    expect(licensesUrl("he")).toBe("https://koona.app/pin/licenses");
   });
 });
