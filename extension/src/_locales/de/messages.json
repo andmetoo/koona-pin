@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — Link speichern" },
   "extensionDescription": {
-    "message": "Speichert die Seite mit einem Klick in Ihrer lokalen Koona-Pin-Bibliothek. Ist die App zu, warten Links in einer Schlange."
+    "message": "Speichert jede Seite mit einem Klick in der Koona-Pin-App auf Ihrem Computer und durchsucht gespeicherte Links im Browser."
   },
   "menuOptions": { "message": "Einstellungen und Warteschlange" },
   "menuSearch": { "message": "Link finden" },

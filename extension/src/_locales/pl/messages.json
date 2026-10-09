@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — zapisz link" },
   "extensionDescription": {
-    "message": "Zapisz stronę w lokalnej bibliotece Koona Pin jednym kliknięciem. Gdy aplikacja jest zamknięta, linki czekają w kolejce."
+    "message": "Zapisuj dowolną stronę w aplikacji Koona Pin na komputerze jednym kliknięciem i szukaj zapisanych linków w przeglądarce."
   },
   "menuOptions": { "message": "Ustawienia i kolejka" },
   "menuSearch": { "message": "Znajdź link" },

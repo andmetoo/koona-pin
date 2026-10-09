@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — 링크 저장" },
   "extensionDescription": {
-    "message": "클릭 한 번으로 페이지를 이 컴퓨터의 Koona Pin 라이브러리에 저장합니다. 앱이 닫혀 있는 동안 링크는 대기열에서 기다립니다."
+    "message": "클릭 한 번으로 페이지를 이 컴퓨터의 Koona Pin 앱에 저장하고, 저장한 링크를 브라우저에서 검색하세요."
   },
   "menuOptions": { "message": "설정 및 대기열" },
   "menuSearch": { "message": "링크 찾기" },
