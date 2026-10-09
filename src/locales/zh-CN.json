@@ -866,17 +866,16 @@
     "design": "设计与界面",
     "reading": "文章 / 稍后阅读",
     "links": {
+      "koona": {
+        "title": "Koona 应用",
+        "description": "Koona 的其他应用。"
+      },
       "start": {
         "title": "从这里开始：Koona Pin 怎么用",
         "description": "几分钟内学会保存、整理和查找链接。"
       },
-      "extension": {
-        "title": "把保存按钮加到浏览器",
-        "description": "Chrome、Edge 或 Firefox：点一下就保存当前页面。"
-      },
-      "changelog": {
-        "title": "Koona Pin 有什么新变化",
-        "description": "每个版本及其改动。"
+      "firefox": {
+        "description": "Mozilla 出品的快速、注重隐私的浏览器。"
       },
       "bun": {
         "description": "快速的 JavaScript 运行时和工具集。"
