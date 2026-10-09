@@ -13,9 +13,9 @@ export default {
   shotAlt: "Koona Pin com oito marcadores em grade: prévias, sites, títulos, coleções e tags na barra lateral, dois marcadores novos esperando na caixa de entrada.",
   listAlt: "A mesma biblioteca como lista agrupada por data, com tags, coleções e datas.",
   pillars: [
-    ["Um botão", "Clique em qualquer página e o link fica salvo, mesmo com o aplicativo fechado."],
+    ["Um botão", "Clique em qualquer página e o link fica salvo, mesmo com o aplicativo fechado. No Chrome, Edge ou Firefox."],
     ["No seu computador", "A biblioteca é um arquivo no seu disco, com backups automáticos. Funciona offline."],
-    ["Sem conta", "Não precisa se cadastrar. O desenvolvedor nunca vê seus links."],
+    ["Qualquer computador", "Windows, macOS ou Linux: o mesmo app e o mesmo botão em todos."],
   ],
   howTitle: "Como funciona",
   steps: [
@@ -31,8 +31,7 @@ export default {
     ["A lixeira guarda os links por 30 dias", "Exclua sem medo, restaure com um clique."],
     ["Importar e exportar", "Traga marcadores do navegador e leve-os como HTML, JSON ou CSV."],
   ],
-  browsersTitle: "Funciona com o seu navegador",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Salvo no Koona Pin", inbox: "Adicionado à caixa de entrada", backup: "Backup", today: "Hoje, 09:00", yesterday: "Ontem", mb: "MB" },
   privacyTitle: "Seus links ficam com você",
   privacyBody: "O Koona Pin guarda sua biblioteca no seu computador: nenhum servidor vê seus links. Só o feedback que você decidir enviar chega ao desenvolvedor.",
   privacyFacts: [

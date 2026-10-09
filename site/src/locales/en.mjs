@@ -14,9 +14,9 @@ export default {
   shotAlt: "Koona Pin with eight bookmarks in a grid: previews, sites, titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox.",
   listAlt: "The same library as a list grouped by date, with tags, collections and dates.",
   pillars: [
-    ["One button", "Click it on any page and the link is saved — even when the app is closed."],
+    ["One button", "Click it on any page and the link is saved — even when the app is closed. In Chrome, Edge or Firefox."],
     ["On your computer", "The library is a file on your disk, with automatic backups. Works offline."],
-    ["No account", "Nothing to sign up for. The developer never sees your links."],
+    ["Any computer", "Windows, macOS or Linux — the same app and the same button on each."],
   ],
   howTitle: "How it works",
   steps: [
@@ -32,8 +32,7 @@ export default {
     ["Trash keeps links for 30 days", "Delete without fear, restore in one click."],
     ["Import and export", "Bring bookmarks from your browser, take them out as HTML, JSON or CSV."],
   ],
-  browsersTitle: "Works with your browser",
-  browsers: ["Chrome 120+", "Edge 120+", "Firefox 140+"],
+  scene: { saved: "Saved to Koona Pin", inbox: "Added to Inbox", backup: "Backup", today: "Today, 09:00", yesterday: "Yesterday", mb: "MB" },
   privacyTitle: "Your links stay with you",
   privacyBody: "Koona Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send reaches the developer.",
   privacyFacts: [

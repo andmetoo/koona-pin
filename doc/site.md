@@ -45,13 +45,12 @@
 | --- | --- | --- |
 | 1 | Шапка | Маскот 36 px и надпись; ссылки «How it works», «Privacy», «Download»; меню языка. На 390 ссылок нет — логотип и язык |
 | 2 | Первый экран | Заголовок, подзаголовок, плашка «скоро» и кнопка «How it works», строка «Windows 11, Linux · Chrome, Edge, Firefox · Free»; скриншот сетки приложения |
-| 3 | Три свойства | Карточки с иконкой: одна кнопка · на вашем компьютере · без аккаунта |
+| 3 | Три свойства | Сцены из самого продукта, HTML и CSS сайта, без иконок и карточек: панель браузера с вкладками Chrome, Edge, Firefox, кнопкой Koona Pin и сообщением «Saved to Koona Pin» · окно папки с файлом библиотеки и копиями, на нём маскот · три окна приложения в рамках Windows, Linux и macOS. Под сценой заголовок и текст; слова в сценах переведены (`scene` в локали). Мягкий фон под сценой (`--soft` на `--panel`). На 900–1199 сцена слева, текст справа; на 390 в одну колонку |
 | 4 | Как это работает | Три шага с номерами |
 | 5 | Что внутри | Пять возможностей с иконками; на 1440 рядом скриншот списка |
-| 6 | Браузеры | Chrome 120+, Edge 120+, Firefox 140+ |
-| 7 | Приватность коротко | Панель на мягком акценте: заголовок, абзац, ссылка на политику, три факта о приложении и расширении (в макете четвёртый — «сайт не ставит cookies» — убран в коде) |
-| 8 | Загрузка | Маскот, «beta скоро», системные требования |
-| 9 | Подвал | Privacy, Licenses, Support, © 2026 Koona |
+| 6 | Приватность коротко | Панель на мягком акценте: заголовок, абзац, ссылка на политику, три факта о приложении и расширении (в макете четвёртый — «сайт не ставит cookies» — убран в коде) |
+| 7 | Загрузка | Маскот, «beta скоро», системные требования |
+| 8 | Подвал | Privacy, Licenses, Support, © 2026 Koona |
 
 ### Тексты
 
@@ -61,14 +60,13 @@
 | Подзаголовок | Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer. No account, no cloud. | Koona Pin — библиотека закладок для компьютера. Страницы попадают в неё из Chrome, Edge и Firefox одной кнопкой и остаются на вашем компьютере. Без аккаунта и облака. |
 | Плашка «скоро» | Beta — coming soon | Beta — скоро |
 | Строка под кнопкой | Windows 11, Linux · Chrome, Edge, Firefox · Free | Windows 11, Linux · Chrome, Edge, Firefox · Бесплатно |
-| Свойство 1 | One button — Click it on any page and the link is saved — even when the app is closed. | Одна кнопка — Нажмите на любой странице — ссылка сохранится, даже если приложение закрыто. |
+| Свойство 1 | One button — Click it on any page and the link is saved — even when the app is closed. In Chrome, Edge or Firefox. | Одна кнопка — Нажмите на любой странице — ссылка сохранится, даже если приложение закрыто. В Chrome, Edge или Firefox. |
 | Свойство 2 | On your computer — The library is a file on your disk, with automatic backups. Works offline. | На вашем компьютере — Библиотека — файл на вашем диске, с автоматическими копиями. Работает без сети. |
-| Свойство 3 | No account — Nothing to sign up for. The developer never sees your links. | Без аккаунта — Регистрироваться не нужно. Разработчик не видит ваших ссылок. |
+| Свойство 3 | Any computer — Windows, macOS or Linux — the same app and the same button on each. | Любой компьютер — Windows, macOS или Linux — везде то же приложение и та же кнопка. |
 | Шаг 1 | Install the app — Koona Pin starts with the system and waits in the tray. | Установите приложение — Koona Pin запускается вместе с системой и ждёт в трее. |
 | Шаг 2 | Add the extension — Chrome, Edge or Firefox. It talks only to the app on your computer. | Добавьте расширение — Chrome, Edge или Firefox. Оно общается только с приложением на вашем компьютере. |
 | Шаг 3 | Click the button — The page lands in Inbox. Sort it later — it takes about a minute. | Нажмите кнопку — Страница попадёт во «Входящие». Разберите потом — это займёт около минуты. |
 | Что внутри | Find it, sort it, keep it: Sort the inbox from the keyboard · Search titles, sites and tags · Collections and tags · Trash keeps links for 30 days · Import and export | Найти, разобрать, сохранить: Разбор входящих с клавиатуры · Поиск по названию, сайту и тегам · Коллекции и теги · Корзина хранит ссылки 30 дней · Импорт и экспорт |
-| Браузеры | Works with your browser | Работает с вашим браузером |
 | Приватность | Your links stay with you. Koona Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send reaches the developer. Facts: the extension reads only the address and title of the tab you save · the app sends no analytics, telemetry or crash reports · no account and no cloud | Ваши ссылки остаются у вас. Koona Pin хранит библиотеку на вашем компьютере: ваши ссылки не видит ни один сервер. Разработчику уходит только отзыв, который вы отправите сами. Факты: расширение читает только адрес и заголовок сохраняемой вкладки · приложение не отправляет аналитику, телеметрию и отчёты о сбоях · ни аккаунта, ни облака |
 | Загрузка, «скоро» | The beta is on its way. Packages for Windows and Linux and the browser extensions will be published here. | Beta уже в пути. Пакеты для Windows и Linux и расширения для браузеров появятся здесь. |
 | Требования | Windows 11, 64-bit (no administrator rights needed) · Linux, 64-bit (Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux) · Chrome or Edge 120+, Firefox 140+ (current release or ESR 140) | Windows 11, 64 бит (права администратора не нужны) · Linux, 64 бит (Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux) · Chrome или Edge 120+, Firefox 140+ (текущий релиз или ESR 140) |
@@ -76,6 +74,8 @@
 Тексты подробных пунктов «Что внутри» — в кадрах. Русские строки длиннее английских на 15–25 %: плашка «скоро», ссылки подвала и заголовок «Что внутри» на 390 подобраны по русскому тексту в кадрах RU.
 
 7 октября 2026 года тексты сайта стали без привязки к одной системе: «desktop», «для компьютера» вместо «for Windows»; системы перечисляют только строка под кнопкой и требования, Linux — по контракту Linux-beta (Р-45). В landing.sketch остались прежние тексты.
+
+9 октября 2026 года свойства стали сценами (кадр «Pillars · scenes» в landing.sketch, вариант со смягчённым фоном), блок «Работает с вашим браузером» убран: браузеры названы в первом свойстве. Третье свойство — не «без аккаунта» (будет платная синхронизация без сервера), а «любой компьютер»: Windows, macOS и Linux на равных.
 
 ## Privacy
 

@@ -8,9 +8,6 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 // Lucide icons (ISC), 24-grid; drawn at 20 px with a 1.5 px stroke as in the app.
 const ICON = {
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-  pointer: '<path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>',
-  drive: '<line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/>',
-  userx: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/>',
   inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
   search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
@@ -175,8 +172,35 @@ ${req}
 </div>`;
 }
 
+/** The three pillars as small scenes of the product itself (doc/site.md): drawn in HTML, words in the page's language. */
+function scenes(t) {
+  const s = t.scene;
+  const size = `${new Intl.NumberFormat(t.lang).format(12.4)} ${s.mb}`;
+  const art = [
+    `<div class="win"><div class="tabs"><span class="tab on">Chrome</span><span class="tab">Edge</span><span class="tab">Firefox</span></div>
+<div class="bar"><span class="url">example.com/a-good-read</span><span class="pin-btn"><img src="${BASE}/brand/favicon.svg" width="20" height="20" alt=""></span></div></div>
+<div class="toast">${mascot(30, "")}<div><b>${esc(s.saved)}</b><span>${esc(s.inbox)}</span></div><span class="ok">${icon("check", "icon")}</span></div>`,
+    `<div class="win"><p class="path">Koona › Pin</p>
+<ul class="files"><li><span class="doc"></span>koonapin.db<em>${esc(size)}</em></li><li>${esc(s.backup)}<em>${esc(s.today)}</em></li><li>${esc(s.backup)}<em>${esc(s.yesterday)}</em></li></ul></div>
+${mascot(72, "scene-mascot")}`,
+    `<div class="oses">${[
+      ["os-windows", "Windows", '<i class="os-ctl">–</i><i class="os-ctl">□</i><i class="os-ctl">×</i>'],
+      ["os-linux", "Linux", '<i class="os-close">×</i>'],
+      ["os-mac", "macOS", '<i class="os-dot"></i><i class="os-dot"></i><i class="os-dot"></i>'],
+    ]
+      .map(
+        ([cls, name, bar]) =>
+          `<div class="os ${cls}"><div class="win"><span class="os-bar">${bar}</span><span class="os-app"><span class="os-side"><img src="${BASE}/brand/favicon.svg" width="14" height="14" alt=""></span><span class="os-cards"><span></span><span></span><span></span><span></span></span></span></div><b>${name}</b></div>`,
+      )
+      .join("")}</div>`,
+  ];
+  const kinds = ["s-button", "s-disk", "s-os"];
+  return t.pillars
+    .map(([h, p], i) => `<article class="scene ${kinds[i]}"><div class="stage" aria-hidden="true">${art[i]}</div><h2>${esc(h)}</h2><p>${esc(p)}</p></article>`)
+    .join("\n");
+}
+
 export function landing(t, { wordmark, release: rel = null, firefox = null }) {
-  const pillarIcons = ["pointer", "drive", "userx"];
   const insideIcons = ["inbox", "search", "folder", "trash", "swap"];
   return `${head(t, { page: "", title: t.title, description: t.description })}
 ${header(t, { page: "", wordmark })}
@@ -188,10 +212,8 @@ ${header(t, { page: "", wordmark })}
 <p class="meta">${t.meta.map(esc).join('<span aria-hidden="true"> · </span>')}</p>
 <figure class="shot shot-hero">${shot(t.lang, "grid", t.shotAlt, { eager: true, sizes: "(min-width: 1440px) 1200px, (min-width: 900px) 84vw, 640px" })}</figure>
 </section>
-<section class="pillars wrap reveal" aria-label="${esc(t.labels.why)}">
-${t.pillars
-  .map(([h, p], i) => `<article class="card pillar"><span class="well">${icon(pillarIcons[i])}</span><h2>${esc(h)}</h2><p>${esc(p)}</p></article>`)
-  .join("\n")}
+<section class="scenes wrap reveal" aria-label="${esc(t.labels.why)}">
+${scenes(t)}
 </section>
 <section class="how wrap reveal" id="how">
 <h2 class="section-title center">${esc(t.howTitle)}</h2>
@@ -207,10 +229,6 @@ ${t.inside.map(([h, p], i) => `<li>${icon(insideIcons[i])}<div><h3>${esc(h)}</h3
 </ul>
 </div>
 <figure class="shot shot-list">${shot(t.lang, "list", t.listAlt, { sizes: "(min-width: 900px) 620px, 100vw" })}</figure>
-</section>
-<section class="browsers wrap reveal">
-<h2>${esc(t.browsersTitle)}</h2>
-<ul class="chips">${t.browsers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul>
 </section>
 <section class="wrap reveal">
 <div class="privacy-panel">
