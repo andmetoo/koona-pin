@@ -327,7 +327,6 @@
     "install_firefox": "about:debugging#/runtime/this-firefox를 열고 ‘임시 부가 기능 로드…’를 선택한 다음 release/koonapin-firefox.xpi를 고르세요. 서명된 버전이 나오기 전까지는 Firefox를 닫으면 제거됩니다.",
     "store_chrome": "Chrome Web Store에서 Koona Pin 페이지를 열고 ‘Chrome에 추가’를 클릭하세요.",
     "store_edge": "Edge Add-ons에서 Koona Pin 페이지를 열고 ‘다운로드’를 클릭하세요.",
-    "store_edge_chrome": "Chrome Web Store에서 Koona Pin 페이지를 엽니다. Edge가 다른 스토어의 확장 프로그램을 허용할지 한 번 묻습니다. 허용한 다음 확장 프로그램을 추가하세요.",
     "openStore": "{{store}} 열기",
     "pinTitle": "Koona Pin 아이콘 고정",
     "pin_chrome": "도구 모음의 퍼즐 조각 메뉴를 열고 Koona Pin을 고정하세요.",

@@ -52,7 +52,6 @@ export default {
     soon: "macOS と AUR は近日公開",
     extTitle: "次にブラウザーに拡張機能を追加します",
     extSoon: "近日公開",
-    extEdge: "Edge には Chrome Web Store から追加します",
     all: "すべてのダウンロード、インストールコマンド、チェックサム",
   },
   req: [

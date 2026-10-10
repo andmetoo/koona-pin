@@ -52,7 +52,6 @@ export default {
     soon: "macOS e AUR — em breve",
     extTitle: "Depois, adicione a extensão ao seu navegador",
     extSoon: "em breve",
-    extEdge: "O Edge a instala pela Chrome Web Store",
     all: "Todos os downloads, comandos de instalação e somas de verificação",
   },
   req: [

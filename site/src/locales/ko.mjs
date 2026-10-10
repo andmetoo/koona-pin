@@ -52,7 +52,6 @@ export default {
     soon: "macOS, AUR 곧 제공",
     extTitle: "그다음 브라우저에 확장 프로그램을 추가하세요",
     extSoon: "곧 제공",
-    extEdge: "Edge에는 Chrome Web Store에서 설치합니다",
     all: "모든 다운로드, 설치 명령, 체크섬",
   },
   req: [

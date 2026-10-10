@@ -327,7 +327,6 @@
     "install_firefox": "about:debugging#/runtime/this-firefox を開き、「一時的なアドオンを読み込む…」を選んで release/koonapin-firefox.xpi を選んでください。署名版が出るまでは、Firefox を閉じると削除されます。",
     "store_chrome": "Chrome Web Store で Koona Pin のページを開き、「Chrome に追加」をクリックしてください。",
     "store_edge": "Edge Add-ons で Koona Pin のページを開き、「インストール」をクリックしてください。",
-    "store_edge_chrome": "Chrome Web Store で Koona Pin のページを開きます。Edge が一度だけ他のストアの拡張機能を許可するか確認するので、許可してから拡張機能を追加してください。",
     "openStore": "{{store}} を開く",
     "pinTitle": "Koona Pin のアイコンを固定",
     "pin_chrome": "ツールバーのパズルピースのメニューを開き、Koona Pin を固定してください。",

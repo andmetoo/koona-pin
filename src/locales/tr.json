@@ -352,7 +352,6 @@
     "install_firefox": "about:debugging#/runtime/this-firefox sayfasını açın, “Geçici Eklenti Yükle…”yi seçin ve release/koonapin-firefox.xpi dosyasını gösterin. İmzalı sürüme kadar Firefox kapanırken onu kaldırır.",
     "store_chrome": "Chrome Web Store'da Koona Pin sayfasını açın ve “Chrome'a ekle”ye tıklayın.",
     "store_edge": "Edge Add-ons'ta Koona Pin sayfasını açın ve “Al”a tıklayın.",
-    "store_edge_chrome": "Chrome Web Store'da Koona Pin sayfasını açın. Edge bir kez diğer mağazalardaki uzantılara izin verilip verilmeyeceğini sorar: izin verin, ardından uzantıyı ekleyin.",
     "openStore": "{{store}} aç",
     "pinTitle": "Koona Pin simgesini sabitleyin",
     "pin_chrome": "Araç çubuğundaki yapboz menüsünü açın ve Koona Pin'i sabitleyin.",

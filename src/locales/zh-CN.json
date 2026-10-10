@@ -327,7 +327,6 @@
     "install_firefox": "打开 about:debugging#/runtime/this-firefox，选择“临时载入附加组件…”，然后选择 release/koonapin-firefox.xpi。在签名版本推出之前，Firefox 关闭时会将其移除。",
     "store_chrome": "在 Chrome Web Store 中打开 Koona Pin 页面，然后点击“添加至 Chrome”。",
     "store_edge": "在 Edge Add-ons 中打开 Koona Pin 页面，然后点击“获取”。",
-    "store_edge_chrome": "在 Chrome Web Store 中打开 Koona Pin 页面。Edge 会询问一次是否允许来自其他商店的扩展：允许后添加该扩展即可。",
     "openStore": "打开 {{store}}",
     "pinTitle": "固定 Koona Pin 图标",
     "pin_chrome": "打开工具栏上的拼图菜单，固定 Koona Pin。",

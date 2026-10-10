@@ -377,7 +377,6 @@
     "install_firefox": "Ouvrez about:debugging#/runtime/this-firefox, choisissez « Charger un module complémentaire temporaire… » et sélectionnez release/koonapin-firefox.xpi. En attendant la version signée, Firefox la retire à la fermeture.",
     "store_chrome": "Ouvrez la page de Koona Pin dans le Chrome Web Store et cliquez sur « Ajouter à Chrome ».",
     "store_edge": "Ouvrez la page de Koona Pin dans Edge Add-ons et cliquez sur « Obtenir ».",
-    "store_edge_chrome": "Ouvrez la page de Koona Pin dans le Chrome Web Store. Edge demande une fois d’autoriser les extensions d’autres boutiques : autorisez-les, puis ajoutez l’extension.",
     "openStore": "Ouvrir {{store}}",
     "pinTitle": "Épingler l’icône de Koona Pin",
     "pin_chrome": "Ouvrez le menu en forme de pièce de puzzle dans la barre d’outils et épinglez Koona Pin.",

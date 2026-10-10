@@ -2087,12 +2087,12 @@ test("connect dialog: steps for each browser, no token and no bookmarklet", asyn
   await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   await expect(dialog.locator('[data-capture="none"]')).toContainText("No browser yet");
-  // Chrome and Edge install from the Chrome Web Store; Edge asks once to allow other stores.
+  // Chrome installs from the Chrome Web Store, Edge from Edge Add-ons.
   await expect(dialog).toContainText("Open the Koona Pin page in the Chrome Web Store");
   await expect(dialog.getByRole("button", { name: "Open Chrome Web Store" })).toBeVisible();
   await dialog.getByRole("radio", { name: "Edge" }).click();
-  await expect(dialog).toContainText("Edge asks once to allow extensions from other stores");
-  await expect(dialog.getByRole("button", { name: "Open Chrome Web Store" })).toBeVisible();
+  await expect(dialog).toContainText("Open the Koona Pin page in Edge Add-ons");
+  await expect(dialog.getByRole("button", { name: "Open Edge Add-ons" })).toBeVisible();
   await expect(dialog).toContainText("edge://extensions");
   // Firefox takes the signed add-on from koona.app's downloads page (NP-018).
   await dialog.getByRole("radio", { name: "Firefox" }).click();

@@ -1316,11 +1316,6 @@ h1 {
 .dl-ext .button {
   min-width: 140px;
 }
-.dl-ext-note {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--muted);
-}
 .download .more {
   margin-top: 24px;
 }

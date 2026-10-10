@@ -28,8 +28,9 @@ const source = path.join(root, "extension", "src");
 const { VERSION } = await import(pathToFileURL(path.join(source, "version.js")).href);
 
 export const geckoId = "pin@koona.app";
-/** The Chrome Web Store draft's id (NP-017), as STORE_EXTENSION_IDS in native_host.rs. */
+/** The Chrome Web Store and Edge Add-ons ids (NP-017), as STORE_EXTENSION_IDS in native_host.rs. */
 export const chromeStoreId = "dedcgklilbgbieabgpklellnaccpjhpc";
+export const edgeStoreId = "ocdkndgdeagephdnlmofffbapdifhkho";
 /** Self-hosted Firefox updates (NP-018); the file is published with the site. */
 export const firefoxUpdateUrl = "https://koona.app/pin/firefox/updates.json";
 export const firefoxDownloadBase = "https://koona.app/pin/firefox";

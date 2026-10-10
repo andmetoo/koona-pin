@@ -23,7 +23,7 @@ Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
 ## Download
 
-Current version: **0.6.4**. Get it from **[koona.app/pin/downloads](https://koona.app/pin/downloads/)**, which also lists SHA-256 checksums and install commands.
+Current version: **0.6.5**. Get it from **[koona.app/pin/downloads](https://koona.app/pin/downloads/)**, which also lists SHA-256 checksums and install commands.
 
 | Platform | Package | Notes |
 | --- | --- | --- |
@@ -40,7 +40,8 @@ Windows may warn that it protected your PC, because the app is new: choose **Mor
 
 The extension works in Chrome or Edge 120+ and Firefox 140+ (including ESR 140). Install the app first; the extension talks only to Koona Pin on the same computer.
 
-- **Chrome and Edge:** [Koona Pin in the Chrome Web Store](https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc). Edge asks once to allow extensions from other stores; an Edge Add-ons listing is on its way.
+- **Chrome:** [Koona Pin in the Chrome Web Store](https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc).
+- **Edge:** [Koona Pin in Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/ocdkndgdeagephdnlmofffbapdifhkho).
 - **Firefox:** "Add to Firefox" on the [downloads page](https://koona.app/pin/downloads/#extension).
 
 All three browsers are built from one source in [`extension/src`](extension/src).
