@@ -23,7 +23,7 @@ Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
 ## Download
 
-Current version: **0.6.1**. Get it from **[koona.app/pin/downloads](https://koona.app/pin/downloads/)**, which also lists SHA-256 checksums and install commands.
+Current version: **0.6.3**. Get it from **[koona.app/pin/downloads](https://koona.app/pin/downloads/)**, which also lists SHA-256 checksums and install commands.
 
 | Platform | Package | Notes |
 | --- | --- | --- |
