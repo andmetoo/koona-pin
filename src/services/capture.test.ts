@@ -81,18 +81,29 @@ describe("browser status", () => {
   it("installs from the catalog once it has a page, otherwise in developer mode", async () => {
     await i18n.changeLanguage("ru");
     const t = i18n.t.bind(i18n);
-    const links = { edge: "https://microsoftedge.microsoft.com/addons/detail/koona-pin/abc" };
+    const links = { edge: { store: "edge", url: "https://microsoftedge.microsoft.com/addons/detail/koona-pin/abc" } } as const;
     const edge = installSteps("edge", links);
-    expect(edge.url).toBe(links.edge);
+    expect(edge.url).toBe(links.edge.url);
     expect(t(edge.install)).toBe("Откройте страницу Koona Pin в Edge Add-ons и нажмите «Получить».");
     expect(t("connect.openStore", { store: edge.store })).toBe("Открыть Edge Add-ons");
     expect(t(edge.update)).toMatch(/^Расширение из каталога обновляется само/);
     const chrome = installSteps("chrome", links);
     expect(chrome.url).toBeNull();
     expect(t(chrome.install)).toMatch(/^Откройте chrome:\/\/extensions/);
-    expect(t(installSteps("chrome", { chrome: "https://chromewebstore.google.com/detail/x" }).install)).toMatch(/Chrome Web Store/);
-    // Nothing is approved yet: every browser keeps the developer steps.
-    for (const browser of ["chrome", "edge", "firefox"] as const) expect(installSteps(browser).url).toBeNull();
+    expect(t(installSteps("chrome", { chrome: { store: "chrome", url: "https://chromewebstore.google.com/detail/x" } }).install)).toMatch(/Chrome Web Store/);
+  });
+
+  it("installs Chrome and Edge from the Chrome Web Store, Firefox in developer mode", async () => {
+    await i18n.changeLanguage("en");
+    const t = i18n.t.bind(i18n);
+    const chrome = installSteps("chrome");
+    expect(chrome).toMatchObject({ store: "Chrome Web Store", install: "connect.store_chrome", update: "connect.updateStore" });
+    expect(chrome.url).toMatch(/^https:\/\/chromewebstore\.google\.com\/detail\//);
+    // Until Edge Add-ons approves its own page, Edge takes the same one and says why it asks.
+    const edge = installSteps("edge");
+    expect(edge).toMatchObject({ url: chrome.url, store: "Chrome Web Store", install: "connect.store_edge_chrome", update: "connect.updateStore" });
+    expect(t(edge.install)).toMatch(/Chrome Web Store.*other stores/);
+    expect(installSteps("firefox").url).toBeNull();
   });
 
   it("puts the problem and every browser into the report", () => {

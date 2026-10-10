@@ -52,7 +52,7 @@ export default {
     soon: "macOS и AUR — скоро",
     extTitle: "Затем добавьте расширение в браузер",
     extSoon: "скоро",
-    extSoonNote: "Chrome и Edge — скоро в их каталогах",
+    extEdge: "Edge устанавливает его из Chrome Web Store",
     all: "Все загрузки, команды установки и контрольные суммы",
   },
   req: [
