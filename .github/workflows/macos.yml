@@ -62,6 +62,13 @@ jobs:
           workspaces: src-tauri
           key: macos-test-${{ matrix.arch }}
       - run: bun install --frozen-lockfile
+      # Network tests use 127.0.0.2..11 to represent different hosts. Unlike Linux/Windows,
+      # macOS only binds configured loopback addresses; keep the tests themselves unchanged.
+      - name: Loopback aliases for local HTTP tests
+        run: |
+          for suffix in {2..11}; do
+            sudo ifconfig lo0 alias "127.0.0.$suffix" up
+          done
       - name: Rust tests
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Generated IPC types are committed

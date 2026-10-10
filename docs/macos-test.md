@@ -30,6 +30,8 @@ Outputs are `release/test/macos/<version>/<arch>/` and `test-results/macos/`. Th
 
 Native automation is behind the `macos-smoke` Cargo feature and explicit config/report environment variables. The feature is compiled out of ordinary builds. Even a test bundle does not activate automation unless `KOONAPIN_MACOS_SMOKE_CONFIG` is set, and requires `KOONAPIN_DATA_DIR`. The packaged ZIP contains this test feature and must stay under `release/test`, not `release/publish`. The fixture uses the site's sample titles without photos; screenshots show the app's generated covers without remote photo dependencies.
 
+The Rust HTTP tests model different hosts with loopback addresses `127.0.0.2` through `127.0.0.11`. macOS requires them to be configured explicitly; the workflow adds aliases to `lo0` before the tests. The first ARM run exposed this prerequisite (`AddrNotAvailable`), rather than an application failure; no network tests are skipped.
+
 ## Remaining work from the documents and GitHub
 
 Reviewed `doc/decisions.md` (Р-26 and Р-44), `doc/roadmap.md`, `doc/release-checklist.md`, the public `docs/building.md` and `docs/testing.md`, and GitHub Issues on 10 October 2026. `doc/` is a separate private notes repository, ignored by this repository; this PR keeps the review result in `docs/`.
