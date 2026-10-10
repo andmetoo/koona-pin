@@ -81,19 +81,20 @@ describe("browser status", () => {
   it("installs from the catalog once it has a page, otherwise in developer mode", async () => {
     await i18n.changeLanguage("ru");
     const t = i18n.t.bind(i18n);
-    const links = { edge: { store: "edge", url: "https://microsoftedge.microsoft.com/addons/detail/koona-pin/abc" } } as const;
-    const edge = installSteps("edge", links);
-    expect(edge.url).toBe(links.edge.url);
+    const sources = {
+      edge: { url: "https://microsoftedge.microsoft.com/addons/detail/koona-pin/abc", store: "Edge Add-ons", install: "connect.store_edge", update: "connect.updateStore" },
+    } as const;
+    const edge = installSteps("edge", sources);
+    expect(edge.url).toBe(sources.edge.url);
     expect(t(edge.install)).toBe("Откройте страницу Koona Pin в Edge Add-ons и нажмите «Получить».");
     expect(t("connect.openStore", { store: edge.store })).toBe("Открыть Edge Add-ons");
     expect(t(edge.update)).toMatch(/^Расширение из каталога обновляется само/);
-    const chrome = installSteps("chrome", links);
+    const chrome = installSteps("chrome", sources);
     expect(chrome.url).toBeNull();
     expect(t(chrome.install)).toMatch(/^Откройте chrome:\/\/extensions/);
-    expect(t(installSteps("chrome", { chrome: { store: "chrome", url: "https://chromewebstore.google.com/detail/x" } }).install)).toMatch(/Chrome Web Store/);
   });
 
-  it("installs Chrome and Edge from the Chrome Web Store, Firefox in developer mode", async () => {
+  it("installs Chrome and Edge from the Chrome Web Store, Firefox from koona.app", async () => {
     await i18n.changeLanguage("en");
     const t = i18n.t.bind(i18n);
     const chrome = installSteps("chrome");
@@ -103,7 +104,12 @@ describe("browser status", () => {
     const edge = installSteps("edge");
     expect(edge).toMatchObject({ url: chrome.url, store: "Chrome Web Store", install: "connect.store_edge_chrome", update: "connect.updateStore" });
     expect(t(edge.install)).toMatch(/Chrome Web Store.*other stores/);
-    expect(installSteps("firefox").url).toBeNull();
+    // The signed add-on is on the site's downloads page, which updates it too (NP-018).
+    const firefox = installSteps("firefox");
+    expect(firefox).toMatchObject({ url: "https://koona.app/pin/downloads/#extension", store: "koona.app", install: "connect.site_firefox" });
+    expect(t(firefox.install)).toMatch(/«Add to Firefox»/);
+    expect(t(firefox.update)).toMatch(/Firefox checks koona\.app/);
+    expect(t("connect.openStore", { store: firefox.store })).toBe("Open koona.app");
   });
 
   it("puts the problem and every browser into the report", () => {

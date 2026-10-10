@@ -336,6 +336,7 @@
     "saveTitle": "페이지 저장",
     "save": "아무 페이지에서나 아이콘을 클릭하세요. Koona Pin이 닫혀 있으면 알림 영역에서 시작되어 링크를 저장합니다.",
     "store_firefox": "Firefox Add-ons에서 Koona Pin 페이지를 열고 ‘Firefox에 추가’를 클릭하세요.",
+    "site_firefox": "Firefox에서 koona.app의 다운로드 페이지를 열고 ‘Browser extension’ 아래의 ‘Add to Firefox’를 클릭하세요. Firefox가 확인을 요청합니다. 페이지가 다른 브라우저에서 열리면 Firefox에서 여세요.",
     "save_background": "아무 페이지에서나 아이콘을 클릭하세요. Koona Pin이 닫혀 있으면 백그라운드에서 시작되어 링크를 저장합니다.",
     "snapFirefox": "Ubuntu 기본값인 Snap 버전 Firefox는 처음 저장할 때 Koona Pin 실행을 허용할지 묻습니다. ‘허용’을 선택하세요. 한 번만 묻습니다.",
     "sandboxTitle": "Flatpak 브라우저와 Snap 버전 Chromium",
@@ -343,11 +344,12 @@
     "lostTitle": "연결이 끊어졌을 때",
     "lost_chrome": "chrome://extensions에서 확장 프로그램이 켜져 있는지 확인하세요. 링크는 확장 프로그램에서 기다리다가 자동으로 도착합니다.",
     "lost_edge": "edge://extensions에서 확장 프로그램이 켜져 있는지 확인하세요. 링크는 확장 프로그램에서 기다리다가 자동으로 도착합니다.",
-    "lost_firefox": "about:addons에 확장 기능이 있는지 확인하세요. 임시 부가 기능은 Firefox를 다시 시작하면 사라집니다. 링크는 확장 프로그램에서 기다리다가 자동으로 도착합니다.",
+    "lost_firefox": "about:addons에서 확장 프로그램이 켜져 있는지 확인하세요. 링크는 확장 프로그램에서 기다리다가 자동으로 도착합니다.",
     "updateTitle": "업데이트",
     "update_chrome": "확장 프로그램을 다시 빌드하고 chrome://extensions에서 ‘새로고침’을 클릭하세요. 스토어 버전은 자동으로 업데이트됩니다.",
     "update_edge": "확장 프로그램을 다시 빌드하고 edge://extensions에서 ‘다시 로드’를 클릭하세요. 스토어 버전은 자동으로 업데이트됩니다.",
     "update_firefox": "확장 프로그램을 다시 빌드하고 새 release/koonapin-firefox.xpi를 로드하세요. 서명된 버전은 자동으로 업데이트됩니다.",
+    "updateSite_firefox": "확장 프로그램은 자동으로 업데이트됩니다. Firefox가 하루에 한 번 koona.app에서 새 버전을 확인합니다.",
     "updateStore": "스토어에서 받은 확장 프로그램은 자동으로 업데이트됩니다. 브라우저가 하루에 여러 번 업데이트를 확인합니다."
   },
   "backup": {

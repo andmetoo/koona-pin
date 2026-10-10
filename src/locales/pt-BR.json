@@ -386,6 +386,7 @@
     "saveTitle": "Salve uma página",
     "save": "Clique no ícone em qualquer página. Se o Koona Pin estiver fechado, ele abre na bandeja do sistema e salva o link.",
     "store_firefox": "Abra a página do Koona Pin no Firefox Add-ons e clique em “Adicionar ao Firefox”.",
+    "site_firefox": "Abra no Firefox a página de downloads em koona.app e clique em “Add to Firefox” em “Browser extension”; o Firefox pede confirmação. Se a página abrir em outro navegador, abra-a no Firefox.",
     "save_background": "Clique no ícone em qualquer página. Se o Koona Pin estiver fechado, ele inicia em segundo plano e salva o link.",
     "snapFirefox": "O Firefox do Snap, padrão no Ubuntu, pergunta no primeiro salvamento se o Koona Pin pode abrir. Escolha “Permitir” — ele só pergunta uma vez.",
     "sandboxTitle": "Navegadores do Flatpak e Chromium do Snap",
@@ -393,11 +394,12 @@
     "lostTitle": "Se a conexão cair",
     "lost_chrome": "Verifique se a extensão está ativada em chrome://extensions. Os links esperam na extensão e chegam sozinhos.",
     "lost_edge": "Verifique se a extensão está ativada em edge://extensions. Os links esperam na extensão e chegam sozinhos.",
-    "lost_firefox": "Verifique se a extensão aparece em about:addons — uma extensão temporária some quando o Firefox reinicia. Os links esperam na extensão e chegam sozinhos.",
+    "lost_firefox": "Verifique se a extensão está ativada em about:addons. Os links esperam na extensão e chegam sozinhos.",
     "updateTitle": "Atualização",
     "update_chrome": "Gere a extensão de novo e clique em “Recarregar” em chrome://extensions. A versão da loja se atualiza sozinha.",
     "update_edge": "Gere a extensão de novo e clique em “Recarregar” em edge://extensions. A versão da loja se atualiza sozinha.",
     "update_firefox": "Gere a extensão de novo e carregue o novo release/koonapin-firefox.xpi. A versão assinada se atualiza sozinha.",
+    "updateSite_firefox": "A extensão se atualiza sozinha: o Firefox procura uma nova versão em koona.app uma vez por dia.",
     "updateStore": "A extensão da loja se atualiza sozinha: o navegador procura atualizações várias vezes por dia."
   },
   "backup": {

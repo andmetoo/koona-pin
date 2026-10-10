@@ -388,6 +388,7 @@
     "saveTitle": "Sačuvajte stranicu",
     "save": "Kliknite na ikonu na bilo kojoj stranici. Ako je Koona Pin zatvoren, pokreće se u oblasti obaveštenja i čuva link.",
     "store_firefox": "Otvorite stranicu Koona Pin u Firefox Add-ons i kliknite „Dodaj u Firefox“.",
+    "site_firefox": "Otvorite u Firefox-u stranicu za preuzimanje na koona.app i kliknite „Add to Firefox“ u odeljku „Browser extension“; Firefox traži potvrdu. Ako se stranica otvori u drugom pregledaču, otvorite je u Firefox-u.",
     "save_background": "Kliknite na ikonu na bilo kojoj stranici. Ako je Koona Pin zatvoren, pokreće se u pozadini i čuva link.",
     "snapFirefox": "Firefox iz Snap paketa (podrazumevani u Ubuntu sistemu) pri prvom čuvanju pita da li Koona Pin sme da se pokrene. Izaberite „Dozvoli“ — pita samo jednom.",
     "sandboxTitle": "Pregledači iz Flatpak paketa i Chromium iz Snap paketa",
@@ -395,11 +396,12 @@
     "lostTitle": "Ako se veza izgubi",
     "lost_chrome": "Proverite da li je proširenje uključeno u chrome://extensions. Linkovi čekaju u proširenju i stižu sami.",
     "lost_edge": "Proverite da li je proširenje uključeno u edge://extensions. Linkovi čekaju u proširenju i stižu sami.",
-    "lost_firefox": "Proverite da li je proširenje navedeno u about:addons — privremeni dodatak nestaje posle ponovnog pokretanja pregledača Firefox. Linkovi čekaju u proširenju i stižu sami.",
+    "lost_firefox": "Proverite da li je proširenje uključeno u about:addons. Linkovi čekaju u proširenju i stižu sami.",
     "updateTitle": "Ažuriranje",
     "update_chrome": "Ponovo izgradite proširenje i kliknite „Ponovo učitaj“ u chrome://extensions. Verzija iz prodavnice se ažurira sama.",
     "update_edge": "Ponovo izgradite proširenje i kliknite „Ponovo učitaj“ u edge://extensions. Verzija iz prodavnice se ažurira sama.",
     "update_firefox": "Ponovo izgradite proširenje i učitajte novi release/koonapin-firefox.xpi. Potpisana verzija se ažurira sama.",
+    "updateSite_firefox": "Proširenje se ažurira samo: Firefox jednom dnevno proverava novu verziju na koona.app.",
     "updateStore": "Proširenje iz prodavnice se ažurira samo: pregledač proverava ažuriranja nekoliko puta dnevno."
   },
   "backup": {
