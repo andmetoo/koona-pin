@@ -1,6 +1,6 @@
 # Testing
 
-All checks run locally. The GitHub Actions workflows (`.github/workflows/ci.yml` and `linux.yml`) exist but start only by hand (`workflow_dispatch`); there are no push or pull-request triggers yet.
+`.github/workflows/ci.yml` runs on every pull request and every push to `main` (Windows: Rust tests, bindings, build, Vitest, extension lint, Playwright UI without `@visual`); `main` requires it to pass. `linux.yml` starts only by hand (`workflow_dispatch`) or locally through `act`. Run the checks locally before you push.
 
 No check touches your own library or browser profile: tests create their own SQLite files, WebView2 and browser profiles under `.test-data`, and their own capture channel name (`KOONAPIN_PIPE`). Prerequisites are those of [building.md](building.md).
 

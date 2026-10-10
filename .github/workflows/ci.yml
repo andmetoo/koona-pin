@@ -1,9 +1,19 @@
 name: CI
 
-# Manual only: checks run locally (docs/testing.md) to save GitHub Actions minutes.
-# Automatic push/PR triggers will be enabled later.
+# Every pull request and every push to main, and by hand. Pull requests from forks run with a read-only
+# token and no secrets (pull_request, never pull_request_target); this job needs none. The ruleset of
+# main requires its result. The Linux matrix (linux.yml) stays manual: it needs the feedback secret
+# for the release build and takes about an hour.
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
+
+# A new push to a pull request cancels its run still in progress.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
