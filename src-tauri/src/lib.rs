@@ -30,6 +30,8 @@ pub mod test_libraries;
 pub mod trash;
 pub mod tray;
 pub mod updates;
+#[cfg(feature = "macos-smoke")]
+mod macos_smoke;
 
 use std::sync::{atomic::Ordering, Arc};
 use tauri::{Emitter, Manager};
@@ -77,7 +79,10 @@ pub fn run() {
         std::process::exit(0);
     }
     let channel_state = Arc::new(capture_channel::ChannelState::default());
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(feature = "macos-smoke")]
+    let builder = macos_smoke::install(builder);
+    builder
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
             // The native host starts the app with --autostart to save a link;
             // an app that is already running stays where it is.

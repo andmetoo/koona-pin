@@ -1,0 +1,101 @@
+name: macOS test build
+
+# Experimental builds for #56. PR artifacts only, no Apple credentials or release uploads.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/macos.yml'
+      - 'src-tauri/**'
+      - 'src/**'
+      - 'scripts/build-macos-test.mjs'
+      - 'scripts/macos/**'
+      - 'scripts/lib/paths.mjs'
+      - 'tests/macos/**'
+      - 'tests/ui/**'
+      - 'site/shots/library.json'
+      - 'package.json'
+      - 'bun.lock'
+      - '.bun-version'
+      - 'rust-toolchain.toml'
+      - 'playwright.config.ts'
+      - 'vite.config.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  MACOSX_DEPLOYMENT_TARGET: '15.0'
+
+jobs:
+  test:
+    name: macOS 15 / ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-macos-${{ matrix.arch }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-macos-${{ matrix.arch }}-
+      - name: Rust from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: macos-test-${{ matrix.arch }}
+      - run: bun install --frozen-lockfile
+      - name: Rust tests
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Generated IPC types are committed
+        run: bun run check:bindings
+      - name: TypeScript and Vite build
+        run: bun run build
+      - name: Vitest
+        run: bun run test
+      - name: Install Playwright WebKit and Chromium
+        run: bunx --bun playwright install webkit chromium
+      # These run against the demo preview; native checks below use the bundled WKWebView.
+      - name: Functional UI in WebKit
+        run: bun run test:ui -- --browser webkit --grep-invert '@visual'
+      - name: Build test app bundle and ZIP
+        run: bun run build:macos:test
+      - name: Native WKWebView smoke and actual app screenshots
+        run: bun run test:macos
+      - name: Test bundle
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: macos-test-${{ matrix.arch }}
+          path: |
+            release/test/macos/**/*.zip
+            release/test/macos/**/SHA256SUMS.txt
+            release/test/macos/**/build.json
+            release/test/macos/**/README.txt
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Screenshots and test evidence
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: macos-evidence-${{ matrix.arch }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 14

@@ -40,6 +40,7 @@ export const publish = {
 };
 
 export const test = {
+  macos: (version, arch) => path.join(release, "test", "macos", version, arch),
   windows: (version) => path.join(release, "test", "windows", version),
   chromeEdge: (version) => path.join(release, "test", "chrome-edge", version),
 };

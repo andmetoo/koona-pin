@@ -1,6 +1,6 @@
 # Building from source
 
-Koona Pin builds on Windows 11 and on current Linux distributions (Ubuntu, Debian, Fedora, Arch). macOS is not supported.
+Koona Pin builds on Windows 11 and on current Linux distributions (Ubuntu, Debian, Fedora, Arch). macOS has an [experimental test build](macos-test.md), not a supported public release.
 
 ## Prerequisites
 
@@ -71,6 +71,7 @@ This writes unpacked extensions to `release/dev/chrome`, `release/dev/edge` and 
 | --- | --- | --- |
 | App executable only | `bun run tauri build` | `src-tauri/target/release/` |
 | Windows installer (NSIS), unsigned | `bun run build:installer` | `release/test/windows/<version>/`, installer and `SHA256SUMS.txt` |
+| macOS test `.app` in a ZIP (on a Mac) | `bun run build:macos:test` | `release/test/macos/<version>/<arch>/`, ZIP, checksums and build metadata |
 | Linux `.deb`, `.rpm` and AppImage | `bun run build:linux` | `release/publish/linux/<version>/` |
 | AUR `PKGBUILD` and `.SRCINFO` | `bun run build:aur` | `release/publish/aur/<version>/` |
 | Extension store packages | `bun run extension:build` | `release/publish/chrome/<version>/`, `release/publish/edge/<version>/` |
