@@ -2087,8 +2087,12 @@ test("connect dialog: steps for each browser, no token and no bookmarklet", asyn
   await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
   await expect(dialog.locator('[data-capture="none"]')).toContainText("No browser yet");
-  await expect(dialog).toContainText("extension/build/chrome");
+  // Chrome and Edge install from the Chrome Web Store; Edge asks once to allow other stores.
+  await expect(dialog).toContainText("Open the Koona Pin page in the Chrome Web Store");
+  await expect(dialog.getByRole("button", { name: "Open Chrome Web Store" })).toBeVisible();
   await dialog.getByRole("radio", { name: "Edge" }).click();
+  await expect(dialog).toContainText("Edge asks once to allow extensions from other stores");
+  await expect(dialog.getByRole("button", { name: "Open Chrome Web Store" })).toBeVisible();
   await expect(dialog).toContainText("edge://extensions");
   await dialog.getByRole("radio", { name: "Firefox" }).click();
   await expect(dialog).toContainText("koonapin-firefox.xpi");
@@ -2115,6 +2119,7 @@ test("Linux without a tray: round window buttons, Chromium, Firefox from Snap an
   await expect(dialog.getByRole("radio")).toHaveText(["Chrome", "Edge", "Chromium", "Firefox"]);
   // Chromium takes Chrome's steps; a closed app starts in the background without a tray.
   await dialog.getByRole("radio", { name: "Chromium" }).click();
+  await expect(dialog).toContainText("Open the Koona Pin page in the Chrome Web Store");
   await expect(dialog).toContainText("chrome://extensions");
   await expect(dialog).toContainText("it starts in the background and saves the link");
   await expect(dialog).not.toContainText("Firefox from Snap, Ubuntu's default");
