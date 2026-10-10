@@ -73,7 +73,7 @@ export default {
     title: "Lizenzen",
     lead: "Woraus diese Website besteht und unter welchen Bedingungen.",
     items: [
-      ["Koona Pin", "Die App, die Erweiterung und diese Website. Code unter der GNU AGPL 3.0; Name, Maskottchen und Logo sind Marken und davon nicht erfasst.", "https://github.com/andmetoo/koona-pin"],
+      ["Koona Pin", "Code der kostenlosen Version: GPL-3.0-only. Als Pro gekennzeichneter Code hat eine separate kommerzielle Lizenz. Für Name, Maskottchen und Logo gelten eigene Nutzungsregeln; siehe Lizenzübersicht.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Schrift des Texts. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Der Schriftzug, als Pfade ausgeliefert. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Symbole. ISC License.", "https://lucide.dev/license"],

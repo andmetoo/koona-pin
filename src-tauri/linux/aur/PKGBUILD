@@ -10,7 +10,7 @@ pkgrel=1
 pkgdesc='Desktop bookmark library: save a link in one click'
 arch=('x86_64')
 url='https://koona.app/pin/'
-license=('AGPL-3.0-only')
+license=('GPL-3.0-only')
 # The libraries the program links, and the tray library it loads when it starts (Р-26, п. 3) — namcap
 # cannot see that one used.
 depends=(

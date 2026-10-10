@@ -4,7 +4,7 @@
 <component type="desktop-application">
   <id>app.koona.pin</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>AGPL-3.0-only</project_license>
+  <project_license>GPL-3.0-only</project_license>
   <name>Koona Pin</name>
   <summary>Save a link in one click, find it when you need it</summary>
   <summary xml:lang="ru">Сохраните ссылку одной кнопкой и найдите, когда понадобится</summary>

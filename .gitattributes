@@ -1,4 +1,6 @@
 *.sh text eol=lf
+# Keep the official GPL license text identical across checkouts.
+LICENSE text eol=lf
 site/Caddyfile text eol=lf
 # Tauri regenerates these on every build and writes LF
 src-tauri/gen/schemas/*.json text eol=lf

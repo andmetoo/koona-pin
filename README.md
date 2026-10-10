@@ -116,7 +116,7 @@ Languages: English, Chinese (Simplified), French, German, Italian, Japanese, Kor
 
 ## Contributing
 
-Bug reports, ideas and questions go to [GitHub issues](https://github.com/andmetoo/koona-pin/issues/new/choose). Please open an issue before working on anything bigger than a fix. Pull requests need a signed [Contributor License Agreement](CLA.md); the CLA check asks for it on your first pull request. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports, ideas and questions go to [GitHub issues](https://github.com/andmetoo/koona-pin/issues/new/choose). Please open an issue before working on anything bigger than a fix. Original contributions are accepted under the [MIT License for Contributions](LICENSE-CONTRIBUTIONS.md), with an explicit confirmation in the pull request; authors keep their copyright. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
@@ -124,9 +124,9 @@ Please don't report vulnerabilities in public issues. Use [private vulnerability
 
 ## License
 
-Koona Pin is open core. The code in this repository — the app, the extension, the website, scripts, tests and documentation — is licensed under the [GNU Affero General Public License v3.0 only](LICENSE) (`AGPL-3.0-only`), unless a file or folder says otherwise. Paid features are not covered by the AGPL: if their source is published here, it lives in folders named `commercial` under a separate commercial license, and paid services such as sync are not part of this repository.
+Koona Pin is open core. Unless an applicable notice says otherwise, the community code — the app, the extension, the website, scripts, tests and documentation — is licensed under the [GNU General Public License v3.0 only](LICENSE) (`GPL-3.0-only`). Designated Pro code may be published in `commercial` directories under the separate [Koona Pin Commercial License](LICENSE-COMMERCIAL.md): public source is available for review and contributions, while production use requires an active subscription or another express permission. The price, currency and monthly or annual billing period are shown in Paddle checkout. This repository does not grant access to hosted services.
 
-The names "Koona" and "Koona Pin", the mascot, the logo and the wordmark are trademarks and are not licensed under the AGPL; brand assets, including the screenshots above, are all rights reserved. A fork must use its own name and artwork. Third-party material, such as the Unsplash photos used in the screenshots, stays under its own terms.
+The names "Koona" and "Koona Pin", the mascot, the logo and the wordmark are used as trademarks; project-owned brand artwork, including the screenshots above, is excluded from the GPL. [TRADEMARKS.md](TRADEMARKS.md) permits local development, contribution forks, truthful references and redistribution of unmodified official community releases. A modified product distributed to end users must use its own branding. Third-party material, such as the Unsplash photos used in the screenshots, stays under its own terms.
 
 Details: [LICENSING.md](LICENSING.md) and [TRADEMARKS.md](TRADEMARKS.md).
 

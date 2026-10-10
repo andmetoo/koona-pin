@@ -68,7 +68,7 @@ export default {
     title: "Licenses",
     lead: "What this site is made of and under which terms.",
     items: [
-      ["Koona Pin", "The app, the extension and this site. Code under the GNU AGPL 3.0; the name, mascot and logo are trademarks and not covered by it.", "https://github.com/andmetoo/koona-pin"],
+      ["Koona Pin", "Community code: GPL-3.0-only. Designated Pro code has a separate commercial license. The name, mascot and logo have separate usage rules; see the licensing overview.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Text typeface. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "The wordmark, shipped as outlines. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Icons. ISC License.", "https://lucide.dev/license"],

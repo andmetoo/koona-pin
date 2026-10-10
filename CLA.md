@@ -1,4 +1,6 @@
-# Koona Pin Contributor License Agreement
+# Historical Koona Pin Contributor License Agreement
+
+**Retired for new contributions.** New contributions follow [CONTRIBUTING.md](CONTRIBUTING.md) and the [MIT License for Contributions](LICENSE-CONTRIBUTIONS.md). The version 1.0 text below is preserved for reference to any earlier acceptance. This notice does not revoke rights previously granted under it.
 
 Version 1.0, 7 October 2026.
 

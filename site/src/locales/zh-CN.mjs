@@ -73,7 +73,7 @@ export default {
     title: "许可",
     lead: "本网站由什么构成，依据什么条款。",
     items: [
-      ["Koona Pin", "应用、扩展和本网站。代码采用 GNU AGPL 3.0；名称、吉祥物和标志是商标，不在其范围内。", "https://github.com/andmetoo/koona-pin"],
+      ["Koona Pin", "免费版代码采用 GPL-3.0-only。标明为 Pro 的代码适用单独的商业许可。名称、吉祥物和标志另有使用规则，详情请参阅许可说明。", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "正文字体。SIL Open Font License 1.1。", "https://github.com/rsms/inter"],
       ["Nunito", "字标，以轮廓形式提供。SIL Open Font License 1.1。", "https://github.com/googlefonts/nunito"],
       ["Lucide", "图标。ISC License。", "https://lucide.dev/license"],
