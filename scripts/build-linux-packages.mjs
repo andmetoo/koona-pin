@@ -93,11 +93,11 @@ await writeFile(
   staged("app.koona.pin.metainfo.xml"),
   (await readFile(path.join(linux, "app.koona.pin.metainfo.xml"), "utf8")).replaceAll("@VERSION@", version).replaceAll("@DATE@", date.toISOString().slice(0, 10)),
 );
-// Include the complete project license so the package's notice is self-contained.
-const license = (await readFile(path.join(root, "LICENSE"), "utf8")).replace(/\r/g, "").trimEnd().split("\n");
+// Debian Policy 12.5 (lintian copyright-not-using-common-license-for-gpl): the GPL is not copied
+// into the package but named by its path in base-files. The .rpm and the AppImage carry LICENSE.
 await writeFile(
   staged("copyright"),
-  `${(await readFile(path.join(linux, "copyright"), "utf8")).replace(/\r/g, "").trimEnd()}\n\nLicense: GPL-3.0-only\n${license.map((l) => (l.trim() ? ` ${l}` : " .")).join("\n")}\n`,
+  `${(await readFile(path.join(linux, "copyright"), "utf8")).replace(/\r/g, "").trimEnd()}\n\nLicense: GPL-3.0-only\n On Debian systems, the complete text of the GNU General Public License version 3 can be found\n in "/usr/share/common-licenses/GPL-3".\n`,
 );
 await writeFile(
   staged("changelog"),

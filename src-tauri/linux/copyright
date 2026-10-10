@@ -2,8 +2,8 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Koona Pin
 Upstream-Contact: Koona <support@koona.app>
 Source: https://github.com/andmetoo/koona-pin
-Comment: The full text of the GPL below comes from LICENSE in the repository (scripts/build-linux-packages.mjs
- appends it). LICENSING.md there tells which part is under which terms; the Rust crates and fonts built into
+Comment: The GPL paragraph below points to /usr/share/common-licenses/GPL-3 (scripts/build-linux-packages.mjs
+ appends it). LICENSING.md in the repository tells which part is under which terms; the Rust crates and fonts built into
  the app keep their own licenses and notices. https://koona.app/pin/licenses credits selected components
  and is not a complete dependency inventory.
 
