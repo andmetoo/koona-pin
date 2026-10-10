@@ -851,6 +851,9 @@ mod tests {
         assert!(build.contains(&format!(r#"geckoId = "{GECKO_ID}""#)));
         // The store-id test package (NP-037) checks its key against this id.
         assert!(build.contains(&format!(r#"chromeStoreId = "{}""#, STORE_EXTENSION_IDS[0])));
+        // «Connect a browser» opens this item's page; the site builds it from chromeStoreId.
+        let connect = include_str!("../../src/services/capture.ts");
+        assert!(connect.contains(&format!("chromewebstore.google.com/detail/{}\"", STORE_EXTENSION_IDS[0])));
         // The development key in the repository gives exactly this id.
         let key = include_str!("../../extension/dev-key.txt").trim();
         let der = base64::engine::general_purpose::STANDARD

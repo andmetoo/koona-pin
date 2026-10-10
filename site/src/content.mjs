@@ -2,6 +2,7 @@
 // The languages are the app's (NP-089, NP-107), with one Serbian: Latin, the owner's choice.
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { chromeStoreId } from "../../scripts/build-extension.mjs";
 import { nativeNames, sources } from "./locales/index.mjs";
 
 // KOONAPIN_FEEDBACK_URL below: from the environment or from .env in the repository root
@@ -62,8 +63,8 @@ export function nameIn(page, code) {
 }
 
 export const SUPPORT = "https://github.com/andmetoo/koona-pin/issues/new/choose";
-// The extension's catalog pages (NP-017); the app's «Connect a browser» has the same, `storeLinks` in src/services/capture.ts.
-export const CHROME_STORE = "https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc";
+// The extension's Chrome Web Store page (NP-017), for Chrome and, until Edge Add-ons approves, Edge.
+export const CHROME_STORE = `https://chromewebstore.google.com/detail/${chromeStoreId}`;
 // The Edge Function `feedback` (NP-088): the site form posts here. Without it the
 // build leaves the form out and «Support» keeps pointing at GitHub.
 export const FEEDBACK_ENDPOINT = process.env.KOONAPIN_FEEDBACK_URL || "";

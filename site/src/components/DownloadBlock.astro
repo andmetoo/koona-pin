@@ -19,8 +19,8 @@ const d = t.dl;
 <div class="dl-linux"><span class="dl-linux-label">Linux</span><a class="button" href={rel.deb.url} download>{d.deb}</a><a class="button" href={rel.rpm.url} download>{d.rpm}</a>{rel.appimage && <a class="button" href={rel.appimage.url} download>{d.appimage}</a>}</div>
 <p class="dl-soon">{d.soon}</p>
 <p class="dl-ext-title">{d.extTitle}</p>
-<div class="dl-ext"><a class="button" href={CHROME_STORE} rel="noopener">Chrome</a><span class="button button-quiet" aria-disabled="true">Edge<span class="ext-soon"> · {d.extSoon}</span></span>{firefox ? <a class="button" href={firefox}>Firefox</a> : <span class="button button-quiet" aria-disabled="true">Firefox<span class="ext-soon"> · {d.extSoon}</span></span>}</div>
-<p class="dl-ext-note">{d.extSoonNote}</p>
+<div class="dl-ext"><a class="button" href={CHROME_STORE}>Chrome</a><a class="button" href={CHROME_STORE}>Edge</a>{firefox ? <a class="button" href={firefox}>Firefox</a> : <span class="button button-quiet" aria-disabled="true">Firefox<span class="ext-soon"> · {d.extSoon}</span></span>}</div>
+<p class="dl-ext-note">{d.extEdge}</p>
 <a class="more" href={`${BASE}/downloads/`} hreflang="en">{d.all}<Icon name="arrowRight" class="icon icon-small" /></a>
 <slot />
 </div>

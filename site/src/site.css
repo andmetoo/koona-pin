@@ -1317,7 +1317,6 @@ h1 {
   min-width: 140px;
 }
 .dl-ext-note {
-  display: none;
   margin-top: 8px;
   font-size: 13px;
   color: var(--muted);
@@ -1625,12 +1624,6 @@ a.tile:hover {
     min-width: 0;
     flex: 1 1 0;
     padding-inline: 8px;
-  }
-  .ext-soon {
-    display: none;
-  }
-  .dl-ext-note {
-    display: block;
   }
   .wide-page {
     padding-top: 32px;

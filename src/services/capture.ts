@@ -93,23 +93,34 @@ export function lastSaved(status: CaptureStatus | null, t: TFunction, language: 
     : t("browser.lastSavedOn", { date: date.toLocaleDateString(language, { day: "numeric", month: "long" }), time, browser });
 }
 
-/**
- * Catalog pages of the extension, filled in once a catalog approves it
- * (NP-017, `extension/store/README.md`). A browser with a page installs from
- * the catalog; the others keep the developer-mode steps.
- */
-export const storeLinks: Partial<Record<StoreBrowser, string>> = {
-  chrome: "https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc",
-};
+/** The Chrome Web Store page; native_host.rs checks its id against STORE_EXTENSION_IDS. */
+const chromeWebStore = "https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc";
 const storeName = { chrome: "Chrome Web Store", edge: "Edge Add-ons" } as const;
-type StoreBrowser = keyof typeof storeName;
-const inStore = (browser: Browser): browser is StoreBrowser => browser in storeName;
+type Store = keyof typeof storeName;
+const inStore = (browser: Browser): browser is Store => browser in storeName;
+
+/**
+ * Where each browser installs the extension from: the catalog and its page
+ * (NP-017, `extension/store/README.md`). Edge takes the Chrome Web Store's
+ * until Edge Add-ons approves its own. A browser without one keeps the
+ * developer-mode steps.
+ */
+export const storeLinks: Partial<Record<Store, { store: Store; url: string }>> = {
+  chrome: { store: "chrome", url: chromeWebStore },
+  edge: { store: "chrome", url: chromeWebStore },
+};
 
 /** Step 1 and the update hint of the connect dialog for this browser. */
 export function installSteps(browser: Browser, links = storeLinks) {
-  const url = inStore(browser) ? links[browser] : undefined;
-  return url && inStore(browser)
-    ? { url, store: storeName[browser], install: `connect.store_${browser}` as const, update: "connect.updateStore" as const }
+  const page = inStore(browser) ? links[browser] : undefined;
+  return page && inStore(browser)
+    ? {
+        url: page.url,
+        store: storeName[page.store],
+        // Edge asks once to allow extensions from another browser's catalog.
+        install: page.store === browser ? (`connect.store_${browser}` as const) : ("connect.store_edge_chrome" as const),
+        update: "connect.updateStore" as const,
+      }
     : { url: null, store: null, install: `connect.install_${browser}` as const, update: `connect.update_${browser}` as const };
 }
 

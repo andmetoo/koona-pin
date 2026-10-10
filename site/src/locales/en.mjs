@@ -53,7 +53,7 @@ export default {
     soon: "macOS and AUR — coming soon",
     extTitle: "Then add the extension to your browser",
     extSoon: "soon",
-    extSoonNote: "Edge — coming soon to Edge Add-ons",
+    extEdge: "Edge installs it from the Chrome Web Store",
     all: "All downloads, install commands and checksums",
   },
   req: [
