@@ -12,6 +12,16 @@ The extension saves the current tab to Koona Pin with one click and offers a qui
 
 Chromium on Linux works like Chrome. Browsers in a sandbox that blocks native messaging (Flatpak browsers, Chromium from Snap) cannot reach the app; Firefox from Snap can, through the WebExtensions portal.
 
+## Where people install it
+
+- **Chrome** (and Chromium): [Chrome Web Store](https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc).
+- **Edge:** [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/ocdkndgdeagephdnlmofffbapdifhkho).
+- **Firefox:** the signed add-on on the [downloads page](https://koona.app/pin/downloads/#extension), outside the public add-on listing.
+
+The stores update their copies themselves; Firefox checks `https://koona.app/pin/firefox/updates.json` about once a day.
+
+The app's "Connect a browser" dialog opens these pages: `installSources` in `src/services/capture.ts` gives each browser its page, the button's name, the install step and the update hint. A browser without an entry falls back to the developer-mode steps. The site builds its links from `chromeStoreId` and `edgeStoreId` in `scripts/build-extension.mjs`, and a test in `src-tauri/src/native_host.rs` checks those ids and the app's URLs against `STORE_EXTENSION_IDS`.
+
 ## How capture works
 
 1. A click on the toolbar button (`worker.js`) takes the tab's URL and title. Nothing else is sent: no tags, collection or page content. The app accepts only HTTP and HTTPS URLs.
