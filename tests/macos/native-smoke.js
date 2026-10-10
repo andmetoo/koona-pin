@@ -66,12 +66,12 @@
       await sleep(700);
       assert(errors.length === 0, `JavaScript errors: ${errors.join("; ")}`);
       const capture = await invoke("get_capture_status");
-      await invoke("plugin:macos-smoke|report", {
+      await invoke("macos_smoke_report", {
         result: { ok: true, checks, errors, capture, counts, lang: config.lang, theme: config.theme,
           view: config.view, userAgent: navigator.userAgent, embedded: location.protocol === "tauri:" },
       });
     } catch (error) {
-      await invoke("plugin:macos-smoke|report", { result: { ok: false, checks, errors, error: String(error) } });
+      await invoke("macos_smoke_report", { result: { ok: false, checks, errors, error: String(error) } });
     }
   }
   // The Tauri bridge is initialized after this plugin's initialization script.

@@ -138,6 +138,8 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            #[cfg(feature = "macos-smoke")]
+            macos_smoke::macos_smoke_report,
             commands::get_bookmarks,
             commands::get_bookmark_ids,
             commands::add_bookmark,

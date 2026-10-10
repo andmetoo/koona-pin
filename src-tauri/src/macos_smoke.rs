@@ -3,7 +3,7 @@
 use tauri::{plugin::TauriPlugin, Runtime};
 
 #[tauri::command]
-fn report(result: serde_json::Value) -> Result<(), String> {
+pub fn macos_smoke_report(result: serde_json::Value) -> Result<(), String> {
     let file = std::env::var_os("KOONAPIN_MACOS_SMOKE_REPORT").ok_or("Missing report path")?;
     let bytes = serde_json::to_vec_pretty(&result).map_err(|e| e.to_string())?;
     let file = std::path::PathBuf::from(file);
@@ -15,7 +15,6 @@ fn report(result: serde_json::Value) -> Result<(), String> {
 
 fn plugin<R: Runtime>(config: serde_json::Value) -> TauriPlugin<R> {
     tauri::plugin::Builder::new("macos-smoke")
-        .invoke_handler(tauri::generate_handler![report])
         .js_init_script(format!(
             "window.__MACOS_SMOKE_CONFIG__ = {};\n{}",
             config,
