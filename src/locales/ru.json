@@ -402,7 +402,6 @@
     "install_firefox": "Откройте about:debugging#/runtime/this-firefox, нажмите «Загрузить временное дополнение…» и выберите release/koonapin-firefox.xpi. Пока нет подписанной версии, Firefox удаляет его при закрытии.",
     "store_chrome": "Откройте страницу Koona Pin в Chrome Web Store и нажмите «Установить».",
     "store_edge": "Откройте страницу Koona Pin в Edge Add-ons и нажмите «Получить».",
-    "store_edge_chrome": "Откройте страницу Koona Pin в Chrome Web Store. Edge один раз спросит, разрешить ли расширения из других магазинов: разрешите и установите расширение.",
     "openStore": "Открыть {{store}}",
     "pinTitle": "Закрепите значок Koona Pin",
     "pin_chrome": "Откройте меню расширений (значок пазла) на панели и закрепите Koona Pin.",

@@ -3,7 +3,7 @@
 // help. A dynamic segment only so that a build without a release has no such page.
 import TextPage from "../../layouts/TextPage.astro";
 import Icon from "../../components/Icon.astro";
-import { BASE, CHROME_STORE, content, FEEDBACK_ENDPOINT, SUPPORT } from "../../content.mjs";
+import { BASE, CHROME_STORE, content, EDGE_ADDONS, FEEDBACK_ENDPOINT, SUPPORT } from "../../content.mjs";
 import { firefoxAddon, megabytes, release } from "../../release.mjs";
 import { day } from "../../view.mjs";
 
@@ -60,7 +60,7 @@ const packages = [
 <p class="platform-body">Add it after the app. Its button saves the page you are on, and it talks only to Koona Pin on this computer.</p>
 <div class="ext-tiles">
 <a class="tile" href={CHROME_STORE}><strong>Chrome</strong><span class="tile-action">Add to Chrome<Icon name="arrowRight" class="icon icon-small" /></span></a>
-<a class="tile" href={CHROME_STORE}><strong>Edge</strong><span class="tile-action">Add from Chrome Web Store<Icon name="arrowRight" class="icon icon-small" /></span></a>
+<a class="tile" href={EDGE_ADDONS}><strong>Edge</strong><span class="tile-action">Add to Edge<Icon name="arrowRight" class="icon icon-small" /></span></a>
 {firefox ? <a class="tile" href={firefox}><strong>Firefox</strong><span class="tile-action">Add to Firefox<Icon name="arrowRight" class="icon icon-small" /></span></a> : <div class="tile tile-quiet"><strong>Firefox</strong><span>Coming soon</span></div>}
 </div>
 </section>

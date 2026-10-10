@@ -52,7 +52,6 @@ export default {
     soon: "macOS 和 AUR 即将推出",
     extTitle: "然后为浏览器添加扩展",
     extSoon: "即将推出",
-    extEdge: "Edge 也从 Chrome Web Store 安装",
     all: "全部下载、安装命令和校验和",
   },
   req: [

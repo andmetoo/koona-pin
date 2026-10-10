@@ -52,7 +52,6 @@ export default {
     soon: "macOS ve AUR çok yakında",
     extTitle: "Ardından uzantıyı tarayıcınıza ekleyin",
     extSoon: "yakında",
-    extEdge: "Edge, uzantıyı Chrome Web Store'dan yükler",
     all: "Tüm indirmeler, kurulum komutları ve sağlama toplamları",
   },
   req: [

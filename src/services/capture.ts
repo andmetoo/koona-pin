@@ -94,8 +94,9 @@ export function lastSaved(status: CaptureStatus | null, t: TFunction, language: 
     : t("browser.lastSavedOn", { date: date.toLocaleDateString(language, { day: "numeric", month: "long" }), time, browser });
 }
 
-/** The Chrome Web Store page; native_host.rs checks its id against STORE_EXTENSION_IDS. */
+/** The catalog pages; native_host.rs checks their ids against STORE_EXTENSION_IDS. */
 const chromeWebStore = "https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc";
+const edgeAddons = "https://microsoftedge.microsoft.com/addons/detail/ocdkndgdeagephdnlmofffbapdifhkho";
 /** The signed Firefox add-on is on the downloads page of the site (NP-018), not in a catalog. */
 const firefoxDownload = `${DOWNLOAD_PAGE}downloads/#extension`;
 
@@ -103,19 +104,18 @@ const firefoxDownload = `${DOWNLOAD_PAGE}downloads/#extension`;
 export interface InstallSource {
   url: string;
   store: string;
-  install: "connect.store_chrome" | "connect.store_edge" | "connect.store_edge_chrome" | "connect.site_firefox";
+  install: "connect.store_chrome" | "connect.store_edge" | "connect.site_firefox";
   update: "connect.updateStore" | "connect.updateSite_firefox";
 }
 
 /**
  * Where each browser installs the extension from (NP-017, NP-018,
- * `extension/store/README.md`). Edge takes the Chrome Web Store's page until
- * Edge Add-ons approves its own and asks once to allow other stores. A browser
- * without one keeps the developer-mode steps.
+ * `extension/store/README.md`). A browser without one keeps the
+ * developer-mode steps.
  */
 export const installSources: Partial<Record<Browser, InstallSource>> = {
   chrome: { url: chromeWebStore, store: "Chrome Web Store", install: "connect.store_chrome", update: "connect.updateStore" },
-  edge: { url: chromeWebStore, store: "Chrome Web Store", install: "connect.store_edge_chrome", update: "connect.updateStore" },
+  edge: { url: edgeAddons, store: "Edge Add-ons", install: "connect.store_edge", update: "connect.updateStore" },
   firefox: { url: firefoxDownload, store: "koona.app", install: "connect.site_firefox", update: "connect.updateSite_firefox" },
 };
 

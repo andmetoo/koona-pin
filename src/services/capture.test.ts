@@ -94,16 +94,16 @@ describe("browser status", () => {
     expect(t(chrome.install)).toMatch(/^Откройте chrome:\/\/extensions/);
   });
 
-  it("installs Chrome and Edge from the Chrome Web Store, Firefox from koona.app", async () => {
+  it("installs Chrome from the Chrome Web Store, Edge from Edge Add-ons, Firefox from koona.app", async () => {
     await i18n.changeLanguage("en");
     const t = i18n.t.bind(i18n);
     const chrome = installSteps("chrome");
     expect(chrome).toMatchObject({ store: "Chrome Web Store", install: "connect.store_chrome", update: "connect.updateStore" });
     expect(chrome.url).toMatch(/^https:\/\/chromewebstore\.google\.com\/detail\//);
-    // Until Edge Add-ons approves its own page, Edge takes the same one and says why it asks.
     const edge = installSteps("edge");
-    expect(edge).toMatchObject({ url: chrome.url, store: "Chrome Web Store", install: "connect.store_edge_chrome", update: "connect.updateStore" });
-    expect(t(edge.install)).toMatch(/Chrome Web Store.*other stores/);
+    expect(edge).toMatchObject({ store: "Edge Add-ons", install: "connect.store_edge", update: "connect.updateStore" });
+    expect(edge.url).toMatch(/^https:\/\/microsoftedge\.microsoft\.com\/addons\/detail\//);
+    expect(t(edge.install)).toBe("Open the Koona Pin page in Edge Add-ons and click «Get».");
     // The signed add-on is on the site's downloads page, which updates it too (NP-018).
     const firefox = installSteps("firefox");
     expect(firefox).toMatchObject({ url: "https://koona.app/pin/downloads/#extension", store: "koona.app", install: "connect.site_firefox" });

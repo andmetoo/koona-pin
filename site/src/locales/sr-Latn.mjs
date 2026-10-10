@@ -53,7 +53,6 @@ export default {
     soon: "macOS i AUR — uskoro",
     extTitle: "Zatim dodajte proširenje u pregledač",
     extSoon: "uskoro",
-    extEdge: "Edge ga instalira iz Chrome Web Store",
     all: "Sva preuzimanja, komande za instalaciju i kontrolni zbirovi",
   },
   req: [

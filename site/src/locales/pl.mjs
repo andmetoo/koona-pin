@@ -52,7 +52,6 @@ export default {
     soon: "macOS i AUR — wkrótce",
     extTitle: "Potem dodaj rozszerzenie do przeglądarki",
     extSoon: "wkrótce",
-    extEdge: "Edge instaluje je z Chrome Web Store",
     all: "Wszystkie pliki, polecenia instalacji i sumy kontrolne",
   },
   req: [
