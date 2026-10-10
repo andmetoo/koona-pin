@@ -5,7 +5,7 @@
 ; out names instead of ${PRODUCTNAME} and ${MAINBINARYNAME}, the two
 ; MUI_PAGE_CUSTOMFUNCTION defines attach to the first page the template inserts
 ; (the Welcome page), and MUI_CUSTOMFUNCTION_GUIINIT to MUI's .onGUIInit. After
-; a Tauri upgrade, check all three still hold (doc/testing.md, «Установщик»).
+; a Tauri upgrade, check all three still hold with a test install.
 
 !define NP_PRODUCT "Koona Pin"
 !define NP_EXE "koonapin.exe"

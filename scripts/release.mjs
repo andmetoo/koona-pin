@@ -1,4 +1,4 @@
-// A release of the app in one command, on the owner's Windows computer (README, «Выпуск»):
+// A release of the app in one command, on the owner's Windows computer:
 //   bun run release                      builds what this version still lacks, keeps the rest
 //   bun run release -- --only linux      one system; the other sees no update in this release
 //   bun run release -- --rebuild linux   builds a system's packages again although they are there
@@ -107,7 +107,7 @@ if (plan.windows === "build") {
     });
     if (check.status !== 0) {
       const why = `${check.stderr}${check.stdout}`.split("\n").find((l) => l.trim() && !l.startsWith(" ") && !l.startsWith("At ")) ?? "";
-      problems.push(`Certum: ${why.trim()}. Needed: SimplySign Desktop signed in, SIGN_CERT_SHA1 in .env, signtool (doc/release-checklist.md)`);
+      problems.push(`Certum: ${why.trim()}. Needed: SimplySign Desktop signed in, SIGN_CERT_SHA1 in .env, signtool`);
     }
   }
 }

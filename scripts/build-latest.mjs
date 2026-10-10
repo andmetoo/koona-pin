@@ -34,7 +34,7 @@ if (only && !["windows", "linux"].includes(only)) {
 }
 const unsignedWindows = process.argv.includes("--unsigned-windows");
 if (!process.env.TAURI_SIGNING_PRIVATE_KEY && !process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) {
-  console.error("The update key is not set: TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (NP-042, doc/release-checklist.md).");
+  console.error("The update key is not set: TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (NP-042, .env.example).");
   process.exit(1);
 }
 

@@ -389,7 +389,7 @@ try {
   await page.reload();
   await page.locator('#status[data-state="connected"]').waitFor();
   if (targetName === "chromium") {
-    await page.screenshot({ path: "doc/concepts/chrome-options.jpg", fullPage: true });
+    await page.screenshot({ path: path.join(directory, "chrome-options.jpg"), fullPage: true });
     await page.emulateMedia({ colorScheme: "dark" });
     await sleep(400); // buttons change colour with a transition
     await page.screenshot({ path: path.join(directory, "chrome-options-dark.png"), fullPage: true });

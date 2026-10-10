@@ -43,7 +43,7 @@ export async function linuxInAct({ version, unpackOnly }) {
     // act hands .env to the job as secrets (.actrc): without the address the job fails after its setup.
     if (!process.env.KOONAPIN_FEEDBACK_URL) problems.push("KOONAPIN_FEEDBACK_URL is not set in .env: the release build does not compile without it (supabase/README.md)");
     if (problems.length) fail(problems.join("\n"));
-    // act's own pull fails on a stale Docker Hub login, a plain docker pull does not (doc/testing.md, «Linux»).
+    // act's own pull fails on a stale Docker Hub login, a plain docker pull does not.
     if (!succeeds("docker", ["image", "inspect", "debian:13"]) && spawnSync("docker", ["pull", "debian:13"], { stdio: "inherit" }).status !== 0) {
       fail("docker pull debian:13 failed");
     }

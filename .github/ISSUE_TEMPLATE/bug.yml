@@ -25,6 +25,7 @@ body:
         - Windows 10
         - Windows on ARM
         - Ubuntu
+        - Debian
         - Fedora
         - Arch Linux
         - Other Linux
@@ -41,6 +42,7 @@ body:
       options:
         - Chrome
         - Edge
+        - Chromium
         - Firefox
         - Firefox ESR
 

@@ -2,7 +2,7 @@ import { createLucideIcon, type LucideIcon, type LucideProps } from "lucide-reac
 import spiritGreen from "../../design/brand/pin-spirit-flat/pin-spirit.svg";
 import spiritMint from "../../design/brand/pin-spirit-flat/pin-spirit-mint.svg";
 
-// One outline set (doc/guidelines.md, «Иконки»): 16 px frame, 1.5 px stroke,
+// One outline set (docs/design.md): 16 px frame, 1.5 px stroke,
 // round caps. Icons follow Lucide geometry (ISC licence, lucide.dev).
 
 /**

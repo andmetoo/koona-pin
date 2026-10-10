@@ -27,7 +27,7 @@ const signScript = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.jo
 // The certificate is in the store only while SimplySign Desktop is signed in: check before the
 // long build rather than fail at its first signature.
 if (sign && spawnSync("powershell", [...signScript, "-Check"], { stdio: "inherit" }).status !== 0) {
-  console.error("--sign needs SIGN_CERT_SHA1, signtool and SimplySign Desktop signed in (doc/release-checklist.md).");
+  console.error("--sign needs SIGN_CERT_SHA1, signtool and SimplySign Desktop signed in (.env.example).");
   process.exit(1);
 }
 

@@ -1,6 +1,6 @@
 # Карточка расширения в Chrome Web Store, Edge Add-ons и AMO
 
-Материалы для публикации (NP-017, NP-046, [Р-6](../../doc/decisions.md#р-6-захват-из-браузера)). Пакеты — `release/publish/chrome/<версия>/koonapin-chrome.zip` и `release/publish/edge/<версия>/koonapin-edge.zip` из `bun run extension:build` (без поля `key`). Картинки пересобирает `bun scripts/store-assets.mjs` (Koona Pin закрыт): настоящее расширение с тестовым приложением через настоящий host.
+Материалы для публикации (NP-017, NP-046). Пакеты — `release/publish/chrome/<версия>/koonapin-chrome.zip` и `release/publish/edge/<версия>/koonapin-edge.zip` из `bun run extension:build` (без поля `key`). Картинки пересобирает `bun scripts/store-assets.mjs` (Koona Pin закрыт): настоящее расширение с тестовым приложением через настоящий host.
 
 Обновлено 9 октября 2026 года для расширения 0.9.2: тексты без «no account, no cloud» (платная синхронизация может потребовать аккаунт — решение владельца), краткое описание исправлено (закрытое приложение запускается, а не ждёт очереди), четыре скриншота вместо одного.
 
@@ -100,7 +100,7 @@ Permissions: activeTab and scripting are used only on the tab where the button i
 
 ## Firefox (AMO)
 
-Сейчас — самостоятельное распространение ([Р-6](../../doc/decisions.md#р-6-захват-из-браузера), NP-018): AMO подписывает XPI («On your own»), файл и `updates.json` лежат на `koona.app/pin/firefox/`, в каталоге расширение не показано. Карточка в кабинете AMO — служебная, её видит только разработчик; тексты в ней — те же, что выше. Выставить в каталог («On this site») — отдельная сборка без `browser_specific_settings.gecko.update_url` (AMO обновляет листинговые версии сам), решение владельца.
+Сейчас — самостоятельное распространение (NP-018): AMO подписывает XPI («On your own»), файл и `updates.json` лежат на `koona.app/pin/firefox/`, в каталоге расширение не показано. Карточка в кабинете AMO — служебная, её видит только разработчик; тексты в ней — те же, что выше. Выставить в каталог («On this site») — отдельная сборка без `browser_specific_settings.gecko.update_url` (AMO обновляет листинговые версии сам), решение владельца.
 
 ## Порядок
 

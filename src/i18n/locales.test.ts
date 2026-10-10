@@ -139,7 +139,7 @@ describe("Serbian", () => {
 
 describe("Korean", () => {
   // 을/를, 이/가, 은/는, 와/과, (으)로 depend on the last sound of the word before them:
-  // after a substitution only the double form is right (doc/glossary.md, NP-090).
+  // after a substitution only the double form is right (NP-090).
   it("puts the double particle after a substitution", () => {
     const fixed = /\}\}[’']?(을|를|이|가|은|는|와|과|으로|로)(?![(가-힣])/;
     expect([...flat(read("ko"))].filter(([, text]) => fixed.test(text)).map(([key]) => key)).toEqual([]);

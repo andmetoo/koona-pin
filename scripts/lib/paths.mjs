@@ -1,5 +1,5 @@
 // Where builds put what leaves the repository: one place, so no script guesses another's folder
-// (README, «Сборки»). Everything here is under release/, which Git ignores:
+// (docs/building.md). Everything here is under release/, which Git ignores:
 //
 //   release/publish/   to people and stores
 //     windows/<version>/   installer, signed, and SHA256SUMS.txt     bun run build:installer -- --sign

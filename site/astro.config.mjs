@@ -1,4 +1,4 @@
-// koona.app/pin on Astro (NP-115, doc/site.md): static pages under /pin, no scripts, addresses as
+// koona.app/pin on Astro (NP-115): static pages under /pin, no scripts, addresses as
 // before — `preserve` keeps privacy.html, feedback/index.html, de/index.html where Caddy looks for
 // them (site/Caddyfile). Stylesheet, fonts and images of the pages get a hash in their name under
 // /pin/_astro/; scripts/build-site.mjs adds what Astro does not build: releases, Firefox updates and

@@ -1,4 +1,4 @@
-// Builds koona.app/pin/ into release/publish/site/ (doc/site.md, NP-115): Astro builds the pages
+// Builds koona.app/pin/ into release/publish/site/ (NP-115): Astro builds the pages
 // (site/, its own config there), then this script adds what is not a page — the Firefox updates of
 // NP-018 from release/publish/firefox, the app's newest release from release/publish/updates (Р-60)
 // and the screenshots at the addresses AppStream points to.
@@ -30,7 +30,7 @@ async function walk(dir) {
   }
 }
 await walk(out);
-// The pages run no scripts (doc/site.md): only the beacon Cloudflare inserts on the server.
+// The pages run no scripts: only the beacon Cloudflare inserts on the server.
 for (const file of files.filter((f) => f.endsWith(".html"))) {
   if (/<script\b/i.test(await readFile(path.join(out, file), "utf8"))) throw new Error(`${file}: a <script> in the page`);
 }

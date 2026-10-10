@@ -1,10 +1,12 @@
-# koona.app/pin/ (NP-079, Р-37, Р-47). Static files of `bun scripts/build-site.mjs`, copied to
-# /path/to/site (doc/site.md, «Выкладка»). This file is not a site: it is imported INSIDE
-# the koona.app block of the server's main Caddyfile, once, next to the root site's rules:
+# koona.app/pin/ (NP-079). Static files of `bun scripts/build-site.mjs`, copied by
+# scripts/deploy-site.ps1 to the folder site/ under KOONAPIN_SITE_ROOT on the server. The server's
+# paths are not kept in the repository: the script puts that folder in place of the placeholder below,
+# from .env (.env.example), before the upload. This file is not a site: it is imported INSIDE the
+# koona.app block of the server's main Caddyfile, once, next to the root site's rules:
 #
 #   koona.app {
-#   	tls /path/to/cert.pem /path/to/cert.key
-#   	import /path/to/site/Caddyfile
+#   	tls <certificate> <key>
+#   	import <KOONAPIN_SITE_ROOT>/Caddyfile
 #   	…the root site of koona.app…
 #   }
 #
@@ -16,7 +18,7 @@
 redir /pin /pin/ 308
 
 handle_path /pin/* {
-	root * /path/to/site/site
+	root * {$KOONAPIN_SITE_ROOT}/site
 	encode zstd gzip
 
 	# Only own files, plus the Cloudflare Web Analytics beacon that Cloudflare inserts (Р-37).

@@ -1,6 +1,6 @@
 // The AUR package of a release (NP-101, Р-55): PKGBUILD and .SRCINFO of koonapin-bin for the .deb that
 // bun run build:linux made → release/publish/aur/<version>/, to push to aur.archlinux.org/koonapin-bin.git
-// (doc/release-checklist.md). Any system: .SRCINFO is written here, and the «distro» job of Arch checks it
+// (by the owner, by hand). Any system: .SRCINFO is written here, and the «distro» job of Arch checks it
 // against makepkg --printsrcinfo.
 //   bun run build:aur                    the .deb of release/publish/linux/<version>/
 //   bun scripts/build-aur.mjs --deb <file> --out <folder>
