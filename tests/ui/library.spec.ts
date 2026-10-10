@@ -30,7 +30,8 @@ test("dialog restores focus and editor persists collection clearing", async ({ p
   const add = page.getByRole("button", { name: "Add link", exact: true });
   // WebKit on macOS does not focus a button on a mouse click. Test the keyboard-origin restore.
   await add.focus();
-  await add.click();
+  await add.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(add).toBeFocused();
   await page.locator('[data-bookmark-id="1"]').hover();
@@ -54,7 +55,8 @@ test("card menu moves a bookmark to a collection with the keyboard", async ({ pa
   const trigger = page.getByRole("button", { name: /^Actions: The architecture/ });
   await page.locator('[data-bookmark-id="2"]').hover();
   await trigger.focus();
-  await trigger.click();
+  await trigger.press("Enter");
+  await expect(page.getByRole("menuitem").first()).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(trigger).toBeFocused();
@@ -1412,6 +1414,8 @@ for (const view of ["Grid", "List"])
     await page.mouse.move(box.x + 10, box.y + 3);
     await page.mouse.down();
     await page.mouse.move(box.x + 60, box.y + 60, { steps: 5 });
+    // Selection updates on requestAnimationFrame; releasing immediately can cancel its tick.
+    await expect(count).toHaveText("1 selected");
     await page.mouse.up();
     await expect(count).toHaveText("1 selected");
     await title(240).click({ modifiers: ["ControlOrMeta"] });
@@ -1426,18 +1430,16 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const [first] = (await api.getBookmarks()).items;
+    // Keep the selection fixture below WebKit's localStorage quota (the app uses SQLite).
+    // A repeated full Bookmark carries many optional fields unrelated to this scenario.
     const bookmarks = Array.from({ length: 10_000 }, (_, i) => ({
-      ...first,
       id: i + 1,
-      url: `https://example.com/${i + 1}`,
+      url: `https://e.test/${i + 1}`,
+      domain: "e.test",
       title: i % 10 ? `Entry ${i + 1}` : `Ёлка ${i + 1}`,
-      // Rebuilt by the demo adapter; repeating the first bookmark's long ICU keys exceeds
-      // WebKit's localStorage quota. The real app stores these 10 000 entries in SQLite.
-      title_key: undefined,
-      site_key: undefined,
-      description: null,
-      notes: null,
-      image_url: null,
+      collection_id: null,
+      triaged_at: first.triaged_at,
+      deleted_at: null,
       tags: [],
       is_favorite: i < 3,
       created_at: new Date(Date.UTC(2026, 0, 1) + i * 1000).toISOString(),
