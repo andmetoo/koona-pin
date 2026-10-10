@@ -386,6 +386,7 @@
     "saveTitle": "Salva una pagina",
     "save": "Fai clic sull’icona in qualsiasi pagina. Se Koona Pin è chiuso, si avvia nell’area di notifica e salva il link.",
     "store_firefox": "Apri la pagina di Koona Pin in Firefox Add-ons e fai clic su «Aggiungi a Firefox».",
+    "site_firefox": "Apri in Firefox la pagina dei download su koona.app e fai clic su «Add to Firefox» in «Browser extension»; Firefox chiede di confermare. Se la pagina si apre in un altro browser, aprila in Firefox.",
     "save_background": "Fai clic sull’icona in qualsiasi pagina. Se Koona Pin è chiuso, si avvia in background e salva il link.",
     "snapFirefox": "Firefox da Snap, quello predefinito di Ubuntu, al primo salvataggio chiede se Koona Pin può avviarsi. Scegli «Consenti»: lo chiede una volta sola.",
     "sandboxTitle": "Browser da Flatpak e Chromium da Snap",
@@ -393,11 +394,12 @@
     "lostTitle": "Se la connessione si interrompe",
     "lost_chrome": "Controlla che l’estensione sia attiva in chrome://extensions. I link aspettano nell’estensione e arrivano da soli.",
     "lost_edge": "Controlla che l’estensione sia attiva in edge://extensions. I link aspettano nell’estensione e arrivano da soli.",
-    "lost_firefox": "Controlla che l’estensione compaia in about:addons: un componente temporaneo sparisce al riavvio di Firefox. I link aspettano nell’estensione e arrivano da soli.",
+    "lost_firefox": "Controlla che l’estensione sia attiva in about:addons. I link aspettano nell’estensione e arrivano da soli.",
     "updateTitle": "Aggiornamento",
     "update_chrome": "Ricompila l’estensione e fai clic su «Ricarica» in chrome://extensions. La versione dello store si aggiorna da sola.",
     "update_edge": "Ricompila l’estensione e fai clic su «Ricarica» in edge://extensions. La versione dello store si aggiorna da sola.",
     "update_firefox": "Ricompila l’estensione e carica il nuovo release/koonapin-firefox.xpi. La versione firmata si aggiorna da sola.",
+    "updateSite_firefox": "L’estensione si aggiorna da sola: Firefox cerca una nuova versione su koona.app una volta al giorno.",
     "updateStore": "L’estensione dello store si aggiorna da sola: il browser cerca aggiornamenti più volte al giorno."
   },
   "backup": {

@@ -2094,8 +2094,11 @@ test("connect dialog: steps for each browser, no token and no bookmarklet", asyn
   await expect(dialog).toContainText("Edge asks once to allow extensions from other stores");
   await expect(dialog.getByRole("button", { name: "Open Chrome Web Store" })).toBeVisible();
   await expect(dialog).toContainText("edge://extensions");
+  // Firefox takes the signed add-on from koona.app's downloads page (NP-018).
   await dialog.getByRole("radio", { name: "Firefox" }).click();
-  await expect(dialog).toContainText("koonapin-firefox.xpi");
+  await expect(dialog).toContainText("Open the downloads page on koona.app in Firefox");
+  await expect(dialog.getByRole("button", { name: "Open koona.app" })).toBeVisible();
+  await expect(dialog).toContainText("Firefox checks koona.app for a new version");
   await expect(dialog).toContainText("about:addons");
   await expect(dialog).not.toContainText(/token|bookmarklet/i);
   await page.keyboard.press("Escape");

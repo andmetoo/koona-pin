@@ -336,6 +336,7 @@
     "saveTitle": "ページを保存",
     "save": "どのページでもアイコンをクリックしてください。Koona Pin が閉じていても、通知領域で起動してリンクを保存します。",
     "store_firefox": "Firefox Add-ons で Koona Pin のページを開き、「Firefox へ追加」をクリックしてください。",
+    "site_firefox": "Firefox で koona.app のダウンロード ページを開き、「Browser extension」の「Add to Firefox」をクリックします。Firefox が確認を求めます。ページが別のブラウザーで開いた場合は、Firefox で開いてください。",
     "save_background": "どのページでもアイコンをクリックしてください。Koona Pin が閉じていても、バックグラウンドで起動してリンクを保存します。",
     "snapFirefox": "Snap 版 Firefox（Ubuntu の既定）は、最初の保存時に Koona Pin の起動を許可するか尋ねます。「許可」を選んでください。尋ねるのは一度だけです。",
     "sandboxTitle": "Flatpak のブラウザーと Snap 版 Chromium",
@@ -343,11 +344,12 @@
     "lostTitle": "接続が切れたとき",
     "lost_chrome": "chrome://extensions で拡張機能がオンになっているか確認してください。リンクは拡張機能内で待機し、自動的に届きます。",
     "lost_edge": "edge://extensions で拡張機能がオンになっているか確認してください。リンクは拡張機能内で待機し、自動的に届きます。",
-    "lost_firefox": "about:addons に拡張機能が表示されているか確認してください。一時的なアドオンは Firefox を再起動すると消えます。リンクは拡張機能内で待機し、自動的に届きます。",
+    "lost_firefox": "about:addons で拡張機能がオンになっているか確認してください。リンクは拡張機能内で待機し、自動的に届きます。",
     "updateTitle": "更新",
     "update_chrome": "拡張機能をビルドし直し、chrome://extensions で「再読み込み」をクリックしてください。ストア版は自動的に更新されます。",
     "update_edge": "拡張機能をビルドし直し、edge://extensions で「再読み込み」をクリックしてください。ストア版は自動的に更新されます。",
     "update_firefox": "拡張機能をビルドし直し、新しい release/koonapin-firefox.xpi を読み込んでください。署名版は自動的に更新されます。",
+    "updateSite_firefox": "拡張機能は自動的に更新されます。Firefox が 1 日に 1 回 koona.app で新しいバージョンを確認します。",
     "updateStore": "ストアからの拡張機能は自動的に更新されます。ブラウザーが 1 日に数回更新を確認します。"
   },
   "backup": {

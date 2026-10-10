@@ -361,6 +361,7 @@
     "saveTitle": "Eine Seite speichern",
     "save": "Klicken Sie auf einer beliebigen Seite auf das Symbol. Ist Koona Pin geschlossen, startet es im Infobereich und speichert den Link.",
     "store_firefox": "Öffnen Sie die Seite von Koona Pin in Firefox Add-ons und klicken Sie auf „Zu Firefox hinzufügen“.",
+    "site_firefox": "Öffnen Sie in Firefox die Download-Seite auf koona.app und klicken Sie unter „Browser extension“ auf „Add to Firefox“; Firefox fragt nach einer Bestätigung. Öffnet sich die Seite in einem anderen Browser, öffnen Sie sie in Firefox.",
     "save_background": "Klicken Sie auf einer beliebigen Seite auf das Symbol. Ist Koona Pin geschlossen, startet es im Hintergrund und speichert den Link.",
     "snapFirefox": "Firefox aus Snap, der Standard unter Ubuntu, fragt beim ersten Speichern, ob Koona Pin starten darf. Wählen Sie „Erlauben“ — die Frage kommt nur einmal.",
     "sandboxTitle": "Browser aus Flatpak und Chromium aus Snap",
@@ -368,11 +369,12 @@
     "lostTitle": "Wenn die Verbindung abreißt",
     "lost_chrome": "Prüfen Sie, ob die Erweiterung in chrome://extensions eingeschaltet ist. Links warten in der Erweiterung und kommen von selbst an.",
     "lost_edge": "Prüfen Sie, ob die Erweiterung in edge://extensions eingeschaltet ist. Links warten in der Erweiterung und kommen von selbst an.",
-    "lost_firefox": "Prüfen Sie, ob die Erweiterung in about:addons aufgeführt ist — ein temporäres Add-on ist nach einem Neustart von Firefox weg. Links warten in der Erweiterung und kommen von selbst an.",
+    "lost_firefox": "Prüfen Sie, ob die Erweiterung in about:addons eingeschaltet ist. Links warten in der Erweiterung und kommen von selbst an.",
     "updateTitle": "Aktualisieren",
     "update_chrome": "Bauen Sie die Erweiterung neu und klicken Sie in chrome://extensions auf „Neu laden“. Eine Version aus dem Store aktualisiert sich selbst.",
     "update_edge": "Bauen Sie die Erweiterung neu und klicken Sie in edge://extensions auf „Neu laden“. Eine Version aus dem Store aktualisiert sich selbst.",
     "update_firefox": "Bauen Sie die Erweiterung neu und laden Sie die neue release/koonapin-firefox.xpi. Eine signierte Version aktualisiert sich selbst.",
+    "updateSite_firefox": "Die Erweiterung aktualisiert sich selbst: Firefox sucht einmal am Tag auf koona.app nach einer neuen Version.",
     "updateStore": "Die Erweiterung aus dem Store aktualisiert sich selbst: Der Browser sucht mehrmals am Tag nach Updates."
   },
   "backup": {

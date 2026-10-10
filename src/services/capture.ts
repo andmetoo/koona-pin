@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import { Browser, BrowserStatus, CaptureStatus } from "../types";
+import { DOWNLOAD_PAGE } from "./update";
 
 export const browsers: Browser[] = ["chrome", "edge", "firefox"];
 export const browserName: Record<Browser, string> = { chrome: "Chrome", edge: "Edge", firefox: "Firefox" };
@@ -95,33 +96,34 @@ export function lastSaved(status: CaptureStatus | null, t: TFunction, language: 
 
 /** The Chrome Web Store page; native_host.rs checks its id against STORE_EXTENSION_IDS. */
 const chromeWebStore = "https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc";
-const storeName = { chrome: "Chrome Web Store", edge: "Edge Add-ons" } as const;
-type Store = keyof typeof storeName;
-const inStore = (browser: Browser): browser is Store => browser in storeName;
+/** The signed Firefox add-on is on the downloads page of the site (NP-018), not in a catalog. */
+const firefoxDownload = `${DOWNLOAD_PAGE}downloads/#extension`;
+
+/** A page the extension installs from: its name on the button, step 1 and the update hint. */
+export interface InstallSource {
+  url: string;
+  store: string;
+  install: "connect.store_chrome" | "connect.store_edge" | "connect.store_edge_chrome" | "connect.site_firefox";
+  update: "connect.updateStore" | "connect.updateSite_firefox";
+}
 
 /**
- * Where each browser installs the extension from: the catalog and its page
- * (NP-017, `extension/store/README.md`). Edge takes the Chrome Web Store's
- * until Edge Add-ons approves its own. A browser without one keeps the
- * developer-mode steps.
+ * Where each browser installs the extension from (NP-017, NP-018,
+ * `extension/store/README.md`). Edge takes the Chrome Web Store's page until
+ * Edge Add-ons approves its own and asks once to allow other stores. A browser
+ * without one keeps the developer-mode steps.
  */
-export const storeLinks: Partial<Record<Store, { store: Store; url: string }>> = {
-  chrome: { store: "chrome", url: chromeWebStore },
-  edge: { store: "chrome", url: chromeWebStore },
+export const installSources: Partial<Record<Browser, InstallSource>> = {
+  chrome: { url: chromeWebStore, store: "Chrome Web Store", install: "connect.store_chrome", update: "connect.updateStore" },
+  edge: { url: chromeWebStore, store: "Chrome Web Store", install: "connect.store_edge_chrome", update: "connect.updateStore" },
+  firefox: { url: firefoxDownload, store: "koona.app", install: "connect.site_firefox", update: "connect.updateSite_firefox" },
 };
 
 /** Step 1 and the update hint of the connect dialog for this browser. */
-export function installSteps(browser: Browser, links = storeLinks) {
-  const page = inStore(browser) ? links[browser] : undefined;
-  return page && inStore(browser)
-    ? {
-        url: page.url,
-        store: storeName[page.store],
-        // Edge asks once to allow extensions from another browser's catalog.
-        install: page.store === browser ? (`connect.store_${browser}` as const) : ("connect.store_edge_chrome" as const),
-        update: "connect.updateStore" as const,
-      }
-    : { url: null, store: null, install: `connect.install_${browser}` as const, update: `connect.update_${browser}` as const };
+export function installSteps(browser: Browser, sources = installSources) {
+  return (
+    sources[browser] ?? { url: null, store: null, install: `connect.install_${browser}` as const, update: `connect.update_${browser}` as const }
+  );
 }
 
 /** The browser to show first in the connect dialog: the last one that saved. */

@@ -361,6 +361,7 @@
     "saveTitle": "Bir sayfa kaydedin",
     "save": "Herhangi bir sayfada simgeye tıklayın. Koona Pin kapalıysa sistem tepsisinde başlar ve bağlantıyı kaydeder.",
     "store_firefox": "Firefox Add-ons'ta Koona Pin sayfasını açın ve “Firefox'a ekle”ye tıklayın.",
+    "site_firefox": "Firefox'ta koona.app'teki indirme sayfasını açın ve “Browser extension” altında “Add to Firefox”a tıklayın; Firefox onay ister. Sayfa başka bir tarayıcıda açılırsa Firefox'ta açın.",
     "save_background": "Herhangi bir sayfada simgeye tıklayın. Koona Pin kapalıysa arka planda başlar ve bağlantıyı kaydeder.",
     "snapFirefox": "Ubuntu'da varsayılan olan Snap Firefox, ilk kayıtta Koona Pin'in başlamasına izin verilip verilmediğini sorar. “İzin ver”i seçin — yalnızca bir kez sorar.",
     "sandboxTitle": "Flatpak tarayıcıları ve Snap Chromium",
@@ -368,11 +369,12 @@
     "lostTitle": "Bağlantı koparsa",
     "lost_chrome": "Uzantının chrome://extensions sayfasında açık olduğunu kontrol edin. Bağlantılar uzantıda bekler ve kendiliğinden gelir.",
     "lost_edge": "Uzantının edge://extensions sayfasında açık olduğunu kontrol edin. Bağlantılar uzantıda bekler ve kendiliğinden gelir.",
-    "lost_firefox": "Uzantının about:addons sayfasında listelendiğini kontrol edin — geçici eklenti Firefox yeniden başlayınca kaybolur. Bağlantılar uzantıda bekler ve kendiliğinden gelir.",
+    "lost_firefox": "Uzantının about:addons sayfasında açık olduğunu kontrol edin. Bağlantılar uzantıda bekler ve kendiliğinden gelir.",
     "updateTitle": "Güncelleme",
     "update_chrome": "Uzantıyı yeniden derleyin ve chrome://extensions sayfasında “Yeniden yükle”ye tıklayın. Mağaza sürümü kendiliğinden güncellenir.",
     "update_edge": "Uzantıyı yeniden derleyin ve edge://extensions sayfasında “Yeniden yükle”ye tıklayın. Mağaza sürümü kendiliğinden güncellenir.",
     "update_firefox": "Uzantıyı yeniden derleyin ve yeni release/koonapin-firefox.xpi dosyasını yükleyin. İmzalı sürüm kendiliğinden güncellenir.",
+    "updateSite_firefox": "Uzantı kendiliğinden güncellenir: Firefox günde bir kez koona.app'te yeni sürümü denetler.",
     "updateStore": "Mağazadaki uzantı kendiliğinden güncellenir: tarayıcı günde birkaç kez güncelleme denetler."
   },
   "backup": {

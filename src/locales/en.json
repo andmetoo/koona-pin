@@ -361,6 +361,7 @@
     "saveTitle": "Save a page",
     "save": "Click the icon on any page. If Koona Pin is closed, it starts in the tray and saves the link.",
     "store_firefox": "Open the Koona Pin page on Firefox Add-ons and click «Add to Firefox».",
+    "site_firefox": "Open the downloads page on koona.app in Firefox and click «Add to Firefox» under «Browser extension»; Firefox asks to confirm. If the page opens in another browser, open it in Firefox.",
     "save_background": "Click the icon on any page. If Koona Pin is closed, it starts in the background and saves the link.",
     "snapFirefox": "Firefox from Snap, Ubuntu's default, asks on the first save whether Koona Pin may run. Choose «Allow» — it asks once.",
     "sandboxTitle": "Browsers from Flatpak and Chromium from Snap",
@@ -368,11 +369,12 @@
     "lostTitle": "If the connection is lost",
     "lost_chrome": "Make sure the extension is on in chrome://extensions. Links wait in the extension and arrive by themselves.",
     "lost_edge": "Make sure the extension is on in edge://extensions. Links wait in the extension and arrive by themselves.",
-    "lost_firefox": "Make sure the extension is listed in about:addons — a temporary add-on is gone after Firefox restarts. Links wait in the extension and arrive by themselves.",
+    "lost_firefox": "Make sure the extension is on in about:addons. Links wait in the extension and arrive by themselves.",
     "updateTitle": "Updating",
     "update_chrome": "Rebuild the extension and click «Reload» on chrome://extensions. A store version updates by itself.",
     "update_edge": "Rebuild the extension and click «Reload» on edge://extensions. A store version updates by itself.",
     "update_firefox": "Rebuild the extension and load the new release/koonapin-firefox.xpi. A signed version updates by itself.",
+    "updateSite_firefox": "The extension updates by itself: Firefox checks koona.app for a new version once a day.",
     "updateStore": "The extension from the store updates by itself: the browser checks for updates several times a day."
   },
   "backup": {
