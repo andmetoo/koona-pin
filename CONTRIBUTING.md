@@ -4,10 +4,14 @@ Thanks for wanting to help. Bug reports, ideas and questions go to [issues](http
 
 ## Before a pull request
 
-- **Sign the [CLA](CLA.md).** The CLA check asks for it on your first pull request; a pull request without it is not merged. You keep your copyright; the CLA lets Koona Pin ship your work both under the AGPL and in its commercial edition ([LICENSING.md](LICENSING.md)).
+- **Sign the [CLA](CLA.md) once.** On your first pull request the CLA check posts a comment; reply with the sentence it quotes and the check turns green. A pull request without a signed CLA is not merged. You keep your copyright; the CLA lets Koona Pin ship your contribution under the GPL and in Pro builds under the commercial license ([LICENSING.md](LICENSING.md)).
 - **Talk first about anything bigger than a fix.** Open an issue and describe the problem, so that work does not go to waste.
-- **Your own work only.** Do not paste code, text or images you have no right to give under the CLA.
-- **No brand in forks.** If you build your own version, read [TRADEMARKS.md](TRADEMARKS.md).
+- **Your own work only.** Submit only what you have the right to give under the CLA, including any permission needed from your employer. Name third-party material in the pull request with its source and license, and keep its notices.
+- **Read the brand policy.** [TRADEMARKS.md](TRADEMARKS.md) permits development forks for contributions and explains when a distributed product needs its own branding. Discuss new logos, mascot drawings and other brand artwork before submitting them.
+
+Changes to code in `commercial` folders also follow the development permission in [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md).
+
+Bug descriptions, ideas and questions need no signature. Mark material you do not intend to contribute as **Not a Contribution**.
 
 ## How the project works
 

@@ -73,7 +73,7 @@ export default {
     title: "Ліцензії",
     lead: "З чого зроблено цей сайт і на яких умовах.",
     items: [
-      ["Koona Pin", "Застосунок, розширення й цей сайт. Код — за ліцензією GNU AGPL 3.0; назва, маскот і логотип — торговельні марки, ліцензія їх не охоплює.", "https://github.com/andmetoo/koona-pin"],
+      ["Koona Pin", "Код безкоштовної версії — GPL-3.0-only. Позначений код Pro — за окремою комерційною ліцензією. Для назви, маскота й логотипа діють окремі правила; подробиці — в описі ліцензування.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Шрифт тексту. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Напис-логотип, кривими. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Іконки. Ліцензія ISC.", "https://lucide.dev/license"],

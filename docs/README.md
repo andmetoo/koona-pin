@@ -9,4 +9,4 @@
 - [Technical decisions](decisions.md) — the key choices and why they were made.
 - [How it is built](how-it-is-built.md) — how the maintainer directs and reviews the AI coding agents that write most of the code.
 
-See also, in the repository root: [README](../README.md), [CONTRIBUTING](../CONTRIBUTING.md), [SECURITY](../SECURITY.md), [LICENSING](../LICENSING.md), [TRADEMARKS](../TRADEMARKS.md) and the [CLA](../CLA.md).
+See also, in the repository root: [README](../README.md), [CONTRIBUTING](../CONTRIBUTING.md), [SECURITY](../SECURITY.md), [LICENSING](../LICENSING.md), [TRADEMARKS](../TRADEMARKS.md), the [commercial license](../LICENSE-COMMERCIAL.md) and the [CLA](../CLA.md).

@@ -93,11 +93,11 @@ await writeFile(
   staged("app.koona.pin.metainfo.xml"),
   (await readFile(path.join(linux, "app.koona.pin.metainfo.xml"), "utf8")).replaceAll("@VERSION@", version).replaceAll("@DATE@", date.toISOString().slice(0, 10)),
 );
-// Debian wants the whole license text: the AGPL is not among /usr/share/common-licenses.
+// Include the complete project license so the package's notice is self-contained.
 const license = (await readFile(path.join(root, "LICENSE"), "utf8")).replace(/\r/g, "").trimEnd().split("\n");
 await writeFile(
   staged("copyright"),
-  `${(await readFile(path.join(linux, "copyright"), "utf8")).replace(/\r/g, "").trimEnd()}\n\nLicense: AGPL-3.0-only\n${license.map((l) => (l.trim() ? ` ${l}` : " .")).join("\n")}\n`,
+  `${(await readFile(path.join(linux, "copyright"), "utf8")).replace(/\r/g, "").trimEnd()}\n\nLicense: GPL-3.0-only\n${license.map((l) => (l.trim() ? ` ${l}` : " .")).join("\n")}\n`,
 );
 await writeFile(
   staged("changelog"),

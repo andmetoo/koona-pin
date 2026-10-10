@@ -10,7 +10,7 @@ Name:           koonapin
 Version:        @VERSION@
 Release:        1
 Summary:        Desktop bookmark library: save a link in one click
-License:        AGPL-3.0-only
+License:        GPL-3.0-only
 URL:            https://koona.app/pin/
 Packager:       @PACKAGER@
 BuildArch:      x86_64

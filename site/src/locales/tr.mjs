@@ -73,7 +73,7 @@ export default {
     title: "Lisanslar",
     lead: "Bu sitenin nelerden oluştuğu ve hangi koşullarla.",
     items: [
-      ["Koona Pin", "Uygulama, uzantı ve bu site. Kod GNU AGPL 3.0 lisanslıdır; ad, maskot ve logo ticari markadır ve bu lisansın kapsamında değildir.", "https://github.com/andmetoo/koona-pin"],
+      ["Koona Pin", "Ücretsiz sürümün kodu: GPL-3.0-only. Pro olarak işaretlenen kod ayrı bir ticari lisansa tabidir. Ad, maskot ve logo için ayrı kullanım kuralları geçerlidir; lisans özetine bakın.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Metin yazı tipi. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Yazı logosu, eğri olarak. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Simgeler. ISC Lisansı.", "https://lucide.dev/license"],

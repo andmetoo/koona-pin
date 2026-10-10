@@ -1,0 +1,114 @@
+# CLA check (CONTRIBUTING.md, CLA.md). Every pull request gets a commit status "CLA": green when
+# every author of its commits has signed the current CLA version, red otherwise, with one comment
+# telling the missing authors what to reply. A reply with the exact sentence records the signature
+# in signatures/cla-<version>.json on the branch cla-signatures; the main branch requires the status.
+#
+# A new CLA version: put the new text in CLA.md, tag that commit cla-<version>, change VERSION below.
+# Signatures are kept per version, so everyone signs the new text again.
+#
+# pull_request_target and issue_comment run with this repository's token even for pull requests
+# from forks, so this workflow must never check out or run code from the pull request. It only
+# reads the pull request through the API and writes the signature file. Do not add a checkout step.
+name: CLA
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: cla-signatures
+  cancel-in-progress: false
+
+jobs:
+  cla:
+    if: github.event_name == 'pull_request_target' || github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const VERSION = "1.1";
+            const PHRASE = `I have read the Koona Pin CLA ${VERSION} and I hereby sign it`;
+            const BRANCH = "cla-signatures";
+            const FILE = `signatures/cla-${VERSION}.json`;
+            const ALLOW = new Set(["andmetoo", "dependabot[bot]", "github-actions[bot]"]);
+            const MARK = "<!-- cla-check -->";
+            const { owner, repo } = context.repo;
+            const doc = `https://github.com/${owner}/${repo}/blob/cla-${VERSION}/CLA.md`;
+
+            const number = context.payload.pull_request?.number ?? context.payload.issue.number;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number });
+            if (pr.state !== "open") return;
+
+            // Everyone whose work is in the pull request: its author and every commit author.
+            const commits = await github.paginate(github.rest.pulls.listCommits, { owner, repo, pull_number: number });
+            const authors = new Set([pr.user.login]);
+            let unlinked = 0;
+            for (const c of commits) {
+              if (c.author?.login) authors.add(c.author.login);
+              else unlinked++;
+            }
+
+            let signatures = [];
+            let sha;
+            try {
+              const { data } = await github.rest.repos.getContent({ owner, repo, path: FILE, ref: BRANCH });
+              signatures = JSON.parse(Buffer.from(data.content, "base64").toString("utf8"));
+              sha = data.sha;
+            } catch (e) {
+              if (e.status !== 404) throw e;
+            }
+            const signed = new Set(signatures.map((s) => s.login));
+
+            // A reply with the exact sentence signs for its author.
+            const comment = context.payload.comment;
+            if (comment && comment.body.trim() === PHRASE && authors.has(comment.user.login) && !signed.has(comment.user.login)) {
+              signatures.push({
+                login: comment.user.login,
+                id: comment.user.id,
+                version: VERSION,
+                document: doc,
+                pull_request: number,
+                comment: comment.html_url,
+                signed_at: comment.created_at,
+              });
+              await github.rest.repos.createOrUpdateFileContents({
+                owner, repo, branch: BRANCH, path: FILE, sha,
+                message: `CLA ${VERSION}: ${comment.user.login} signs in #${number}`,
+                content: Buffer.from(JSON.stringify(signatures, null, 2) + "\n").toString("base64"),
+              });
+              signed.add(comment.user.login);
+            }
+
+            const missing = [...authors].filter((a) => !ALLOW.has(a) && !signed.has(a));
+            const ok = missing.length === 0 && unlinked === 0;
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha: pr.head.sha, context: "CLA",
+              state: ok ? "success" : "failure",
+              description: ok ? `All authors signed CLA ${VERSION}` : `CLA ${VERSION} not signed by ${missing.length + unlinked} author(s)`,
+              target_url: doc,
+            });
+
+            // One bot comment per pull request, updated in place.
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: number });
+            const mine = comments.find((c) => c.user.type === "Bot" && c.body.startsWith(MARK));
+            let body;
+            if (ok) {
+              body = `${MARK}\nAll authors of this pull request have signed the [Koona Pin CLA ${VERSION}](${doc}). Thank you!`;
+            } else {
+              body = `${MARK}\nThank you for the pull request. Before it can be merged, every author needs to sign the [Koona Pin Contributor License Agreement ${VERSION}](${doc}) once. You keep the copyright in your contribution.\n\n`;
+              if (missing.length) body += `To sign, ${missing.map((m) => "@" + m).join(", ")}, reply to this pull request with exactly:\n\n> ${PHRASE}\n\n`;
+              if (unlinked) body += `${unlinked} commit(s) have an author email that is not linked to a GitHub account. Add that email to your GitHub account or recommit with a linked one, so the signature can be matched.\n`;
+            }
+            if (mine) {
+              if (mine.body !== body) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else if (!ok) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: number, body });
+            }

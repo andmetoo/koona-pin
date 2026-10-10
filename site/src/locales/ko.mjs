@@ -73,7 +73,7 @@ export default {
     title: "라이선스",
     lead: "이 사이트를 이루는 것과 그 이용 조건.",
     items: [
-      ["Koona Pin", "앱, 확장 프로그램, 이 사이트. 코드는 GNU AGPL 3.0을 따르며, 이름, 마스코트, 로고는 상표로 이 라이선스에 포함되지 않습니다.", "https://github.com/andmetoo/koona-pin"],
+      ["Koona Pin", "무료 버전 코드는 GPL-3.0-only를 따릅니다. Pro로 표시된 코드에는 별도의 상용 라이선스가 적용됩니다. 이름, 마스코트, 로고에는 별도의 사용 규칙이 있습니다. 라이선스 개요를 확인하세요.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "본문 글꼴. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "로고타입, 윤곽선으로 제공. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "아이콘. ISC License.", "https://lucide.dev/license"],
