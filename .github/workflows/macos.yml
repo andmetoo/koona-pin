@@ -41,8 +41,9 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
-          - runner: macos-15-intel
-            arch: x64
+          # Intel is temporarily disabled; re-enable its entry when requested.
+          # - runner: macos-15-intel
+          #   arch: x64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
