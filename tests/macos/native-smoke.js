@@ -24,6 +24,11 @@
     try {
       await waitFor(() => window.__TAURI_INTERNALS__ && document.querySelector("aside"), "React and Tauri");
       await waitFor(() => invoke("get_counts"), "SQLite library");
+      const desktop = await invoke("get_desktop");
+      assert(desktop.native_frame && desktop.left.length === 0 && desktop.right.length === 0,
+        "macOS must use a decorated native window without custom buttons");
+      await waitFor(() => !document.querySelector("[data-window-controls]"), "Native title bar without duplicate HTML controls");
+      checks.push("native macOS frame without duplicate Windows buttons");
       if (config.verify) {
         const added = await invoke("add_bookmark", {
           url: "https://macos-smoke.invalid/", title: "Mac smoke Кириллица", collectionId: null, tags: ["macos"],

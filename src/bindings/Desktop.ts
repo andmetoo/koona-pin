@@ -3,6 +3,10 @@ import type { WindowButton } from "./WindowButton";
 
 export type Desktop = { 
 /**
+ * The system draws the title bar and window controls (macOS).
+ */
+native_frame: boolean, 
+/**
  * The buttons follow the system: round, by its layout (sheet 40).
  */
 linux: boolean, 
