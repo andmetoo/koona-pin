@@ -105,6 +105,6 @@ Permissions: activeTab and scripting are used only on the tab where the button i
 ## Порядок
 
 1. Черновики созданы, ID записаны в `STORE_EXTENSION_IDS` (`src-tauri/src/native_host.rs`): Chrome `dedcgklilbgbieabgpklellnaccpjhpc`, Edge `ocdkndgdeagephdnlmofffbapdifhkho`. С ними установщик (`--features public-release`) разрешает host только каталожным расширениям.
-2. Пакет загружен в черновик, карточка заполнена по этому файлу, инструкции для проверяющих — со ссылкой на установщик. Chrome отправлен на проверку 9 октября 2026 года (0.9.1).
+2. Пакет загружен в черновик, карточка заполнена по этому файлу, инструкции для проверяющих — со ссылкой на установщик. Chrome отправлен на проверку 9 октября 2026 года (0.9.1), опубликован 10 октября: https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc.
 3. Тексты карточки и картинки можно поменять и после одобрения; краткое описание и название — только новой версией пакета (0.9.2).
-4. После одобрения ссылки на карточки — в `storeLinks` (`src/services/capture.ts`): «Подключить браузер» показывает установку из каталога вместо режима разработчика; на сайте — кнопки Chrome и Edge вместо «soon» (лендинг и `/downloads/`).
+4. После одобрения ссылки на карточки — в `storeLinks` (`src/services/capture.ts`): «Подключить браузер» показывает установку из каталога вместо режима разработчика; на сайте — `CHROME_STORE` в `site/src/content.mjs`, кнопки вместо «soon» (лендинг и `/downloads/`), и README. Chrome сделан в 0.6.3, Edge — когда одобрят.

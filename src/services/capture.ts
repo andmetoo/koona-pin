@@ -98,7 +98,9 @@ export function lastSaved(status: CaptureStatus | null, t: TFunction, language: 
  * (NP-017, `extension/store/README.md`). A browser with a page installs from
  * the catalog; the others keep the developer-mode steps.
  */
-export const storeLinks: Partial<Record<StoreBrowser, string>> = {};
+export const storeLinks: Partial<Record<StoreBrowser, string>> = {
+  chrome: "https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc",
+};
 const storeName = { chrome: "Chrome Web Store", edge: "Edge Add-ons" } as const;
 type StoreBrowser = keyof typeof storeName;
 const inStore = (browser: Browser): browser is StoreBrowser => browser in storeName;

@@ -52,7 +52,7 @@ export default {
     soon: "macOS і AUR — незабаром",
     extTitle: "Потім додайте розширення до браузера",
     extSoon: "незабаром",
-    extSoonNote: "Chrome і Edge — незабаром у їхніх каталогах",
+    extSoonNote: "Edge — незабаром в Edge Add-ons",
     all: "Усі завантаження, команди встановлення й контрольні суми",
   },
   req: [

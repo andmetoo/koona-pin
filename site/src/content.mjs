@@ -62,6 +62,8 @@ export function nameIn(page, code) {
 }
 
 export const SUPPORT = "https://github.com/andmetoo/koona-pin/issues/new/choose";
+// The extension's catalog pages (NP-017); the app's «Connect a browser» has the same, `storeLinks` in src/services/capture.ts.
+export const CHROME_STORE = "https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc";
 // The Edge Function `feedback` (NP-088): the site form posts here. Without it the
 // build leaves the form out and «Support» keeps pointing at GitHub.
 export const FEEDBACK_ENDPOINT = process.env.KOONAPIN_FEEDBACK_URL || "";

@@ -91,8 +91,9 @@ describe("browser status", () => {
     expect(chrome.url).toBeNull();
     expect(t(chrome.install)).toMatch(/^Откройте chrome:\/\/extensions/);
     expect(t(installSteps("chrome", { chrome: "https://chromewebstore.google.com/detail/x" }).install)).toMatch(/Chrome Web Store/);
-    // Nothing is approved yet: every browser keeps the developer steps.
-    for (const browser of ["chrome", "edge", "firefox"] as const) expect(installSteps(browser).url).toBeNull();
+    // Chrome is published; Edge waits for Edge Add-ons, Firefox has no catalog page.
+    expect(installSteps("chrome").url).toMatch(/^https:\/\/chromewebstore\.google\.com\/detail\/dedcgklilbgbieabgpklellnaccpjhpc$/);
+    for (const browser of ["edge", "firefox"] as const) expect(installSteps(browser).url).toBeNull();
   });
 
   it("puts the problem and every browser into the report", () => {

@@ -52,7 +52,7 @@ export default {
     soon: "macOS et AUR : bientôt",
     extTitle: "Ajoutez ensuite l’extension à votre navigateur",
     extSoon: "bientôt",
-    extSoonNote: "Chrome et Edge : bientôt dans leurs boutiques",
+    extSoonNote: "Edge : bientôt dans Edge Add-ons",
     all: "Tous les téléchargements, commandes d’installation et sommes de contrôle",
   },
   req: [

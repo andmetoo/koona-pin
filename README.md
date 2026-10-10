@@ -40,8 +40,9 @@ Windows may warn that it protected your PC, because the app is new: choose **Mor
 
 The extension works in Chrome or Edge 120+ and Firefox 140+ (including ESR 140). Install the app first; the extension talks only to Koona Pin on the same computer.
 
+- **Chrome:** [Koona Pin in the Chrome Web Store](https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc).
 - **Firefox:** "Add to Firefox" on the [downloads page](https://koona.app/pin/downloads/#extension).
-- **Chrome and Edge:** coming to the Chrome Web Store and Edge Add-ons. Until then you can build it from source (`bun run extension:build`) and load `release/dev/chrome` or `release/dev/edge` as an unpacked extension.
+- **Edge:** coming to Edge Add-ons. Until then you can build it from source (`bun run extension:build`) and load `release/dev/edge` as an unpacked extension.
 
 All three browsers are built from one source in [`extension/src`](extension/src).
 

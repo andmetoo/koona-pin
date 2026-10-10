@@ -53,7 +53,7 @@ export default {
     soon: "macOS i AUR — uskoro",
     extTitle: "Zatim dodajte proširenje u pregledač",
     extSoon: "uskoro",
-    extSoonNote: "Chrome i Edge — uskoro u njihovim prodavnicama",
+    extSoonNote: "Edge — uskoro u Edge Add-ons",
     all: "Sva preuzimanja, komande za instalaciju i kontrolni zbirovi",
   },
   req: [

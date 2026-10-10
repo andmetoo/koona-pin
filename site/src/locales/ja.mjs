@@ -52,7 +52,7 @@ export default {
     soon: "macOS と AUR は近日公開",
     extTitle: "次にブラウザーに拡張機能を追加します",
     extSoon: "近日公開",
-    extSoonNote: "Chrome と Edge はまもなく各ストアで公開",
+    extSoonNote: "Edge はまもなく Edge Add-ons で公開",
     all: "すべてのダウンロード、インストールコマンド、チェックサム",
   },
   req: [
