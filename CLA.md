@@ -1,8 +1,6 @@
-# Historical Koona Pin Contributor License Agreement
+# Koona Pin Contributor License Agreement
 
-**Retired for new contributions.** New contributions follow [CONTRIBUTING.md](CONTRIBUTING.md) and the [MIT License for Contributions](LICENSE-CONTRIBUTIONS.md). The version 1.0 text below is preserved for reference to any earlier acceptance. This notice does not revoke rights previously granted under it.
-
-Version 1.0, 7 October 2026.
+Version 1.1, 10 October 2026. Version 1.0 of 7 October 2026 named the GNU AGPL as the example open source license; nothing else changed.
 
 This agreement is between you ("You") and Radik Ilin, the owner of Koona Pin ("the Owner"). It applies to every Contribution You submit to the Owner's repositories of Koona Pin, now and later. You keep the copyright in your Contributions; this agreement gives the Owner the rights needed to ship them.
 
@@ -12,7 +10,7 @@ This agreement is between you ("You") and Radik Ilin, the owner of Koona Pin ("t
 
 ## 2. Copyright license
 
-You grant the Owner and recipients of software distributed by the Owner a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense and distribute your Contributions and such derivative works, **under any license terms, including the GNU AGPL, other open source licenses and proprietary commercial licenses**, and to transfer these rights.
+You grant the Owner and recipients of software distributed by the Owner a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense and distribute your Contributions and such derivative works, **under any license terms, including the GNU GPL, other open source licenses and proprietary commercial licenses**, and to transfer these rights.
 
 ## 3. Patent license
 
@@ -30,4 +28,4 @@ The Owner does not have to use your Contribution. Unless required by law or agre
 
 ## 6. Signing
 
-You accept this agreement by the statement the CLA check asks for on your first pull request, or by any other written statement that names this agreement and its version.
+You accept this agreement by the statement the CLA check asks for on your first pull request — a comment reading "I have read the CLA Document and I hereby sign the CLA" — or by any other written statement that names this agreement and its version. The CLA check records your GitHub account, the pull request and the date.

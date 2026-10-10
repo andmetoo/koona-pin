@@ -8,7 +8,7 @@ Copyright (c) 2026 Radik Ilin. All rights reserved except as expressly granted b
 
 This license is between Radik Ilin, the developer and licensor of Koona Pin ("Licensor"), and the individual or organization exercising the permissions below ("you"). It covers the Koona Pin code expressly designated as commercial by a file or directory notice, and the corresponding commercial features in official Pro builds ("Commercial Software"). A directory notice must identify the covered files and link to this license. Publication of source code does not place it under an open-source license.
 
-This license does not replace the GPL license of the community code, the MIT license of original contributions, or the licenses of third-party components. Those licenses govern their respective material, and their independently granted rights are not restricted by this document. No permission is given here to relicense material owned by someone else. Brand assets are subject to [TRADEMARKS.md](TRADEMARKS.md).
+This license does not replace the GPL license of the community code or the licenses of third-party components. Those licenses govern their respective material, and their independently granted rights are not restricted by this document. No permission is given here to relicense material owned by someone else. Brand assets are subject to [TRADEMARKS.md](TRADEMARKS.md).
 
 For an official Pro build, Licensor also grants the subscription permission in section 3 for included community code that Licensor owns or has sufficient rights to offer on those terms. This is an additional licensing option for that code; it does not revoke its separate GPL grant or require a subscription to exercise GPL rights. Third-party licenses still apply, and this paragraph does not grant permissions beyond Licensor's authority.
 
@@ -44,7 +44,7 @@ Except as expressly permitted above, separately authorized by Licensor, independ
 - share subscription credentials or activation keys to give unlicensed users access;
 - remove copyright, license or other legal notices from the Commercial Software.
 
-These restrictions apply to the Commercial Software covered by this license. They do not prohibit lawful forks of the GPL community code, exercise of MIT rights in original contributions, truthful references to Koona Pin, or independent development that does not use protected material from the Commercial Software.
+These restrictions apply to the Commercial Software covered by this license. They do not prohibit lawful forks of the GPL community code, truthful references to Koona Pin, or independent development that does not use protected material from the Commercial Software.
 
 ## 6. Expiry and breach
 
@@ -58,7 +58,11 @@ To the extent permitted by applicable law, the Commercial Software is provided "
 
 To the extent permitted by applicable law, Licensor is not liable for indirect or consequential losses, lost profits or lost data. Licensor's total liability arising from this license is limited to the subscription fees you paid for Koona Pin Pro during the 12 months preceding the event giving rise to the claim. These exclusions and limits do not apply to fraud, intentional misconduct, death or personal injury caused by negligence, or any liability that cannot lawfully be excluded or limited. Mandatory consumer rights remain unaffected.
 
-## 8. Version and contact
+## 8. Governing law
+
+This license is governed by the law of the Republic of Serbia, without regard to its conflict-of-laws rules. The United Nations Convention on Contracts for the International Sale of Goods does not apply. The courts in Belgrade have jurisdiction over disputes arising from this license. If you are a consumer, this choice does not deprive you of the protection of the mandatory provisions of the law of the country where you habitually reside, and you may also bring proceedings in the courts there.
+
+## 9. Version and contact
 
 This license version applies to permissions granted under it. Publication of a later version does not by itself amend the terms of an existing paid period; changes for a later period must be communicated and accepted where required by law. An invalid provision does not remove mandatory rights or invalidate the remaining provisions to the extent they can operate lawfully.
 

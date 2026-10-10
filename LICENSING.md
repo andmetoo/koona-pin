@@ -16,7 +16,9 @@ This licensing change applies to revisions carrying these notices. It does not w
 
 The [Koona Pin Commercial License](LICENSE-COMMERCIAL.md) covers code expressly designated as commercial by a file notice or a `LICENSE-COMMERCIAL.md` notice in its directory. Commercial features are kept in directories named `commercial`; each such directory must carry a notice linking to that license. Code is not moved out of the GPL merely because it becomes a paid feature.
 
-Commercial source may be public. You may read it and prepare contributions under the development permission in the commercial license. Production use requires an active Pro subscription or another express permission; you may not redistribute the commercial product or reuse its code in your own product under that license. Separately granted open-source rights, including MIT rights in original contributions, are not restricted by it.
+Commercial source may be public. You may read it and prepare contributions under the development permission in the commercial license. Production use requires an active Pro subscription or another express permission; you may not redistribute the commercial product or reuse its code in your own product under that license. Separately granted open-source rights are not restricted by it.
+
+Server-side services behind paid features, such as a sync relay, are not part of this repository.
 
 Pro is a subscription sold through Paddle. The plan, billing period, price, currency, taxes and renewal terms are shown at checkout and in the purchase confirmation. The commercial license does not fix a worldwide price. Hosted services, if offered, require their own stated service terms; this repository does not grant access to them.
 
@@ -40,6 +42,4 @@ Some files are someone else's work under their own terms and are not relicensed 
 
 ## Contributions
 
-Original code, documentation and translation contributions are accepted under the [MIT License for Contributions](LICENSE-CONTRIBUTIONS.md), with the confirmation described in [CONTRIBUTING.md](CONTRIBUTING.md). Authors keep their copyright. MIT permits use in both the community and commercial editions, and also permits others to reuse the original contribution under MIT. It does not relicense the whole project or any pre-existing code in a patch.
-
-Brand artwork is not accepted under this general contribution policy; discuss its rights separately before submitting it. The previous [CLA](CLA.md) is retained for historical reference, not requested for new contributions. Existing grants are not revoked by this change.
+Contributions are accepted under the [Contributor License Agreement](CLA.md), signed once with a comment when the CLA check asks for it on the first pull request ([CONTRIBUTING.md](CONTRIBUTING.md)). Authors keep their copyright and grant the owner the right to ship their contributions under the GPL and under the commercial license, with a patent license. Brand artwork is discussed separately before it is submitted.

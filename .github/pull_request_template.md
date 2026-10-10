@@ -6,9 +6,8 @@ Describe the problem and the resulting behavior.
 
 Describe the checks you ran and any remaining limitations.
 
-## Contribution confirmation
+## Third-party material
 
-- [ ] I submit my original contribution under the MIT License for Contributions (`LICENSE-CONTRIBUTIONS.md`), version 1.0 dated 10 October 2026, and have the rights and any necessary permissions to do so.
-- [ ] I have identified any third-party material, its source and license, and preserved its notices. This confirmation does not relicense pre-existing code or third-party material.
+Name any code, text or images in this change that you did not write, with their source and license, or write "none".
 
-Third-party material, if any:
+<!-- On your first pull request the CLA check asks you to sign the Contributor License Agreement (CLA.md) with one comment. -->

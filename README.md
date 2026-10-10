@@ -116,7 +116,7 @@ Languages: English, Chinese (Simplified), French, German, Italian, Japanese, Kor
 
 ## Contributing
 
-Bug reports, ideas and questions go to [GitHub issues](https://github.com/andmetoo/koona-pin/issues/new/choose). Please open an issue before working on anything bigger than a fix. Original contributions are accepted under the [MIT License for Contributions](LICENSE-CONTRIBUTIONS.md), with an explicit confirmation in the pull request; authors keep their copyright. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports, ideas and questions go to [GitHub issues](https://github.com/andmetoo/koona-pin/issues/new/choose). Please open an issue before working on anything bigger than a fix. Pull requests need a signed [Contributor License Agreement](CLA.md): on your first one, the CLA check asks you to sign it with a single comment; authors keep their copyright. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
