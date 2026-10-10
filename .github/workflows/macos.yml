@@ -61,6 +61,7 @@ jobs:
         with:
           workspaces: src-tauri
           key: macos-test-${{ matrix.arch }}
+          cache-on-failure: true
       - run: bun install --frozen-lockfile
       # Network tests use 127.0.0.2..11 to represent different hosts. Unlike Linux/Windows,
       # macOS only binds configured loopback addresses; keep the tests themselves unchanged.
@@ -77,15 +78,23 @@ jobs:
         run: bun run build
       - name: Vitest
         run: bun run test
-      - name: Install Playwright WebKit and Chromium
-        run: bunx --bun playwright install webkit chromium
-      # These run against the demo preview; native checks below use the bundled WKWebView.
-      - name: Functional UI in WebKit
-        run: bun run test:ui -- --browser webkit --grep-invert '@visual'
       - name: Build test app bundle and ZIP
         run: bun run build:macos:test
       - name: Native WKWebView smoke and actual app screenshots
         run: bun run test:macos
+      - name: Install Playwright WebKit and Chromium
+        id: playwright
+        run: bunx --bun playwright install webkit chromium
+      - name: Enable keyboard navigation for WebKit controls
+        run: defaults write -g AppleKeyboardUIMode -int 3
+      # These run against the demo preview; native checks above use the bundled WKWebView.
+      - name: Functional UI in WebKit
+        run: bun run test:ui -- --browser webkit --grep-invert '@visual|@chromium' --output test-results/webkit
+      # Four IME tests use Chromium's CDP, unavailable in WebKit. Exercise them here as well
+      # as the rest of the functional suite rather than dropping their coverage on macOS.
+      - name: Functional UI in Chromium, including CDP IME
+        if: ${{ !cancelled() && steps.playwright.outcome == 'success' }}
+        run: bun run test:ui -- --browser chromium --grep-invert '@visual' --output test-results/chromium
       - name: Test bundle
         uses: actions/upload-artifact@v7
         if: always()

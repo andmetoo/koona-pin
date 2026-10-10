@@ -93,7 +93,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
 
 // An IME (Chinese, Japanese, Korean) builds a character over several keys: the list waits for
 // the finished one, and Esc inside the IME cancels the character, not the query (NP-090).
-test("search waits for the IME to finish a character", { tag: "@languages" }, async ({ page }) => {
+test("search waits for the IME to finish a character", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.goto("/");
   const cards = page.locator("[data-bookmark-id]");
@@ -141,12 +141,12 @@ test("Esc inside an IME keeps the query", { tag: "@languages" }, async ({ page }
 
 // A comma ends a tag, the Chinese and Japanese ones too, also when the IME commits it: the
 // selection's tag field adds the text before it at once, never a tag with a comma in it.
-test("a comma from an IME ends the tag", { tag: "@languages" }, async ({ page }) => {
+test("a comma from an IME ends the tag", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.goto("/");
   const cards = page.locator("[data-bookmark-id]");
   await expect(cards.first()).toBeVisible();
-  await cards.first().click({ modifiers: ["Control"] });
+  await cards.first().click({ modifiers: ["ControlOrMeta"] });
   await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
   const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
   await field.focus();
@@ -158,12 +158,12 @@ test("a comma from an IME ends the tag", { tag: "@languages" }, async ({ page })
 });
 
 // A comma with nothing before it is a slip: the field stays open and empty, nothing is added.
-test("a lone comma keeps the tag field open", { tag: "@languages" }, async ({ page }) => {
+test("a lone comma keeps the tag field open", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.goto("/");
   const cards = page.locator("[data-bookmark-id]");
   await expect(cards.first()).toBeVisible();
-  await cards.first().click({ modifiers: ["Control"] });
+  await cards.first().click({ modifiers: ["ControlOrMeta"] });
   await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
   const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
   await field.focus();
@@ -180,7 +180,7 @@ test("a lone comma keeps the tag field open", { tag: "@languages" }, async ({ pa
 
 // A query changed from outside while a character is composed wins: the end of the composition
 // does not bring the old text back.
-test("a reset during an IME composition stays", { tag: "@languages" }, async ({ page }) => {
+test("a reset during an IME composition stays", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.goto("/");
   const cards = page.locator("[data-bookmark-id]");
@@ -237,8 +237,8 @@ for (const code of codes) {
       await page.getByRole("button", { name: t("toolbar.list"), exact: true }).click();
       await shot("list");
 
-      await page.locator("[data-bookmark-id]").first().click({ modifiers: ["Control"] });
-      await page.locator("[data-bookmark-id]").nth(1).click({ modifiers: ["Control"] });
+      await page.locator("[data-bookmark-id]").first().click({ modifiers: ["ControlOrMeta"] });
+      await page.locator("[data-bookmark-id]").nth(1).click({ modifiers: ["ControlOrMeta"] });
       await shot("selection");
       await page.keyboard.press("Escape");
 

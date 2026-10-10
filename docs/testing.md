@@ -4,7 +4,7 @@
 
 No check touches your own library or browser profile: tests create their own SQLite files, WebView2 and browser profiles under `.test-data`, and their own capture channel name (`KOONAPIN_PIPE`). Prerequisites are those of [building.md](building.md).
 
-`macos.yml` builds experimental `.app` bundles on macOS 15 for Apple Silicon and Intel on relevant pull requests and by hand. It runs Rust, bindings, build, Vitest and functional UI tests in Playwright WebKit, then real IPC smoke tests in the bundled WKWebView and captures the actual app window in both themes, grid/list and English/Russian. ZIPs and screenshots are separate Actions artifacts. See [macOS test builds](macos-test.md) for commands and the remaining platform work.
+`macos.yml` builds experimental `.app` bundles on macOS 15 for Apple Silicon and Intel on relevant pull requests and by hand. It runs Rust, bindings, build and Vitest, real IPC smoke tests in the bundled WKWebView with actual app screenshots, and functional UI suites in Playwright WebKit and Chromium (the CDP IME tests require Chromium). Captures cover both themes, grid/list and English/Russian. ZIPs and screenshots are separate Actions artifacts. See [macOS test builds](macos-test.md) for commands and the remaining platform work.
 
 ## Before every commit: `bun run check`
 
@@ -38,6 +38,7 @@ bun run test:ui
 
 - `@visual` — screenshot comparisons, see [Visual baselines](#visual-baselines).
 - `@languages` — every language at 800×550 and 1600×800: no truncated interface labels, sidebar rows fit, IME input.
+- `@chromium` — four IME scenarios use Chromium's CDP; exclude these when running WebKit. macOS CI also runs the full Chromium suite so they stay covered.
 
 Run a subset with `bun run test:ui -- --grep @languages` or `-- --grep-invert @visual`. Use `bunx` only with `--bun`; without it, `bunx` runs a package on Node if Node is installed.
 

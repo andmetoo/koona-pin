@@ -24,7 +24,7 @@ Outputs are `release/test/macos/<version>/<arch>/` and `test-results/macos/`. Th
 ## What is checked
 
 1. Rust unit/integration tests, generated IPC types, TypeScript/Vite build and Vitest on both architectures.
-2. Functional Playwright UI tests in WebKit against the demo browser preview; visual baseline comparisons remain excluded because font rendering differs.
+2. Functional Playwright UI tests against the demo browser preview in WebKit and Chromium; visual baseline comparisons remain excluded because font rendering differs. Four IME tests are tagged `@chromium` because they use Chromium-only CDP. They run in the Chromium suite, while the other functional scenarios also run in WebKit. Tests use `ControlOrMeta` for the platform's modifier; WebKit keyboard navigation uses Option-Tab on macOS. Focus-restoration checks begin with a focused control rather than assuming that a Safari mouse click focuses buttons. The 10 000-row demo fixture omits redundant cached sort keys to fit WebKit's localStorage quota; the native app uses SQLite.
 3. The packaged app's WKWebView and actual production IPC/SQLite: add, recognize duplicates, search Cyrillic, trash, restore, undo, restore a deterministic JSON library, persist it over a restart, hand over a second launch to the running instance.
 4. The real rendered window in English/Russian, both themes and grid/list. Capture locates the app's window by PID and checks its size and sampled color diversity. It does not compare Windows baselines.
 
