@@ -2358,7 +2358,10 @@ test("feedback: a report that never comes does not lock the dialog — it goes w
   const dialog = page.getByRole("dialog", { name: "Connect an AI assistant" });
   const shown = dialog.locator("[data-tab-panel][data-active]");
   await expect(dialog.locator("[data-mcp]")).toHaveText("On · read and add");
-  await expect(dialog.getByRole("button", { name: "Install in Claude Desktop" })).toBeEnabled();
+  // The package is saved where the person picks, then opened in Claude Desktop by hand (0.7.1).
+  await shown.getByRole("button", { name: "Save for Claude Desktop…" }).click();
+  await expect(page.getByText("koona-pin.mcpb is saved: open it in Claude Desktop")).toBeVisible();
+  await expect(shown).toContainText("Settings → Extensions → Advanced settings → Install Extension…");
   await expect(shown.locator("pre")).toContainText('"mcpServers"');
   await dialog.getByRole("radio", { name: "Claude Code" }).click();
   await expect(shown.locator("pre")).toHaveText(/^claude mcp add --scope user koona-pin -- ".+koonapin-mcp\.exe"$/);

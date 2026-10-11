@@ -1348,33 +1348,37 @@ pub fn get_mcp_setup() -> Result<mcp::McpSetup, CommandError> {
     mcp::server_path().map(|server| mcp::setup(&server)).map_err(CommandError::internal)
 }
 
-/// «Install in Claude Desktop»: `koona-pin.mcpb` in the temporary folder,
-/// opened with what the system opens it with — Claude Desktop, which asks
-/// the person to confirm the installation.
+/// «Save for Claude Desktop…»: `koona-pin.mcpb` where the person saves it,
+/// Downloads by default, then shown in the file manager. Opening the file
+/// from the app failed: on Windows Claude Desktop does not always take the
+/// file type, and a package in the temporary folder could not be found to
+/// open by hand. The dialog says how to install it. None when cancelled.
 #[tauri::command]
-pub async fn install_mcpb(app: AppHandle) -> Result<(), CommandError> {
+pub async fn save_mcpb(app: AppHandle) -> Result<Option<String>, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
     let server = mcp::server_path().map_err(CommandError::internal)?;
     if !server.is_file() {
         return Err(CommandError::detailed(ErrorCode::NotFound, ErrorDetail::ServerMissing, "koonapin-mcp is not next to the app"));
     }
-    let bundle = tauri::async_runtime::spawn_blocking(move || {
-        // A folder of its own each time: Claude Desktop may still hold the
-        // package of an earlier click open. Those that it let go are removed.
-        let root = std::env::temp_dir().join("Koona Pin").join("mcpb");
-        if let Ok(earlier) = std::fs::read_dir(&root) {
-            for entry in earlier.flatten() {
-                let _ = std::fs::remove_dir_all(entry.path());
-            }
-        }
-        let folder = root.join(uuid::Uuid::new_v4().simple().to_string());
-        std::fs::create_dir_all(&folder)?;
-        let bundle = folder.join("koona-pin.mcpb");
-        mcp::write_bundle(&server, &bundle).map(|_| bundle)
-    })
-    .await
-    .map_err(CommandError::internal)?
-    .map_err(CommandError::internal)?;
-    app.opener()
-        .open_path(bundle.display().to_string(), None::<&str>)
-        .map_err(|e| CommandError::detailed(ErrorCode::Internal, ErrorDetail::NoClaudeDesktop, e.to_string()))
+    let mut dialog = app.dialog().file().set_file_name("koona-pin.mcpb").add_filter("Claude Desktop", &["mcpb"]);
+    if let Some(downloads) = dirs::download_dir() {
+        dialog = dialog.set_directory(downloads);
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+    let path = picked.into_path().map_err(CommandError::internal)?;
+    let target = path.clone();
+    tauri::async_runtime::spawn_blocking(move || mcp::write_bundle(&server, &target))
+        .await
+        .map_err(CommandError::internal)?
+        .map_err(CommandError::internal)?;
+    let _ = app.opener().reveal_item_in_dir(&path);
+    Ok(Some(path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
 }

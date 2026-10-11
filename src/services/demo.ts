@@ -1177,7 +1177,9 @@ export const demo = {
       json: JSON.stringify({ mcpServers: { "koona-pin": { command: server } } }, null, 2),
     };
   },
-  async installMcpb() {},
+  async saveMcpb(): Promise<string | null> {
+    return "koona-pin.mcpb";
+  },
   async feedbackReport(language: string) {
     return ["Koona Pin demo", "Browser preview", `Language: ${language}`, `Capture: ${demoCaptureStatus.state}`, `Protocol: ${demoCaptureStatus.protocol}`].join("\n");
   },
