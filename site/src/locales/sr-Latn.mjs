@@ -73,7 +73,7 @@ export default {
     title: "Licence",
     lead: "Od čega je napravljen ovaj sajt i pod kojim uslovima.",
     items: [
-      ["Koona Pin", "Kod besplatnog izdanja: GPL-3.0-only. Kod označen kao Pro ima posebnu komercijalnu licencu. Za naziv, maskotu i logo važe posebna pravila korišćenja; pogledajte pregled licenci.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "Kod besplatnog izdanja: GPL-3.0-only. Kod označen kao komercijalni ima posebnu licencu. Za naziv, maskotu i logo važe posebna pravila korišćenja; pogledajte pregled licenci.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Font teksta. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Natpis logotipa, kao krive. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Ikone. ISC License.", "https://lucide.dev/license"],

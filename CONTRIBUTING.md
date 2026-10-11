@@ -4,7 +4,7 @@ Thanks for wanting to help. Bug reports, ideas and questions go to [issues](http
 
 ## Before a pull request
 
-- **Sign the [CLA](CLA.md) once.** On your first pull request the CLA check posts a comment; reply with the sentence it quotes and the check turns green. A pull request without a signed CLA is not merged. You keep your copyright; the CLA lets Koona Pin ship your contribution under the GPL and in Pro builds under the commercial license ([LICENSING.md](LICENSING.md)).
+- **Sign the [CLA](CLA.md) once.** On your first pull request the CLA check posts a comment; reply with the sentence it quotes and the check turns green. A pull request without a signed CLA is not merged. You keep your copyright; the CLA lets Koona Pin ship your contribution under the GPL and, for commercial code, under the commercial license ([LICENSING.md](LICENSING.md)).
 - **Talk first about anything bigger than a fix.** Open an issue and describe the problem, so that work does not go to waste.
 - **Your own work only.** Submit only what you have the right to give under the CLA, including any permission needed from your employer. Name third-party material in the pull request with its source and license, and keep its notices.
 - **Read the brand policy.** [TRADEMARKS.md](TRADEMARKS.md) permits development forks for contributions and explains when a distributed product needs its own branding. Discuss new logos, mascot drawings and other brand artwork before submitting them.

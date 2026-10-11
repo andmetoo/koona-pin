@@ -72,7 +72,7 @@ export default {
     title: "Licencje",
     lead: "Z czego zbudowana jest ta strona i na jakich warunkach.",
     items: [
-      ["Koona Pin", "Kod bezpłatnej wersji: GPL-3.0-only. Kod oznaczony jako Pro ma osobną licencję komercyjną. Nazwa, maskotka i logo mają własne zasady użycia; zobacz opis licencjonowania.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "Kod bezpłatnej wersji: GPL-3.0-only. Kod oznaczony jako komercyjny ma osobną licencję. Nazwa, maskotka i logo mają własne zasady użycia; zobacz opis licencjonowania.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Krój tekstu. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Napis logo, jako krzywe. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Ikony. Licencja ISC.", "https://lucide.dev/license"],
