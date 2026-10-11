@@ -2409,3 +2409,27 @@ test("dialogs with tabs keep their size and place when the tab changes", async (
   await page.getByRole("button", { name: "How to connect…" }).click();
   await steady("Connect an AI assistant", ["Claude Code", "ChatGPT", "Custom", "Claude Desktop"]);
 });
+test("the webview's own menu and keys stay closed, a text field keeps its menu", async ({ page }) => {
+  // dispatchEvent returns false when a listener cancelled the event: the webview then shows nothing.
+  const shown = (selector: string, type: "contextmenu" | "keydown", init: KeyboardEventInit = {}) =>
+    page.evaluate(
+      ([selector, type, init]) => {
+        const target = document.querySelector(selector as string)!;
+        const event =
+          type === "keydown"
+            ? new KeyboardEvent("keydown", { ...(init as KeyboardEventInit), bubbles: true, cancelable: true })
+            : new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 });
+        return target.dispatchEvent(event);
+      },
+      [selector, type, init] as const,
+    );
+  expect(await shown("main", "contextmenu")).toBe(false);
+  expect(await shown('[data-bookmark-id="1"]', "contextmenu")).toBe(false);
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  expect(await shown('input[aria-label="Search the library"]', "contextmenu")).toBe(true);
+  expect(await shown("body", "keydown", { key: "F5", code: "F5" })).toBe(false);
+  expect(await shown("body", "keydown", { key: "r", code: "KeyR", ctrlKey: true })).toBe(false);
+  expect(await shown("body", "keydown", { key: "p", code: "KeyP", ctrlKey: true })).toBe(false);
+  expect(await shown('input[aria-label="Search the library"]', "keydown", { key: "c", code: "KeyC", ctrlKey: true })).toBe(true);
+});
