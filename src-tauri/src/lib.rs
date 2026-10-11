@@ -199,7 +199,7 @@ pub fn run() {
             commands::get_mcp_status,
             commands::set_mcp_access,
             commands::get_mcp_setup,
-            commands::install_mcpb,
+            commands::save_mcpb,
             desktop::get_desktop,
             updates::get_update_status,
             updates::check_for_updates,

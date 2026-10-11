@@ -46,7 +46,8 @@ export function AssistantDialog({
   const install = () => {
     setInstalling(true);
     api
-      .installMcpb()
+      .saveMcpb()
+      .then((name) => name && onNotice(t("assistant.saved", { name })))
       .catch((err) => onNotice(describeError(err), true))
       .finally(() => setInstalling(false));
   };

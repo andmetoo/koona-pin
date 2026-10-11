@@ -269,7 +269,7 @@ const desktop = {
   setMcpAccess: (access: McpAccess) => call<McpStatus>("set_mcp_access", { access }),
   onMcpStatus: (callback: (status: McpStatus) => void) => subscription("mcp-status", callback),
   getMcpSetup: () => call<McpSetup>("get_mcp_setup"),
-  /** «Install in Claude Desktop»: the .mcpb package, opened by Claude Desktop. */
-  installMcpb: () => call<void>("install_mcpb"),
+  /** «Save for Claude Desktop…»: the .mcpb package where the person saves it; its file name, none when cancelled. */
+  saveMcpb: () => call<string | null>("save_mcpb"),
 };
 export const api = isTauri() ? desktop : demo;
