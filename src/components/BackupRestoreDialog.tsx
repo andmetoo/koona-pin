@@ -282,7 +282,8 @@ export function BackupRestoreDialog({
 
   const title = { list: t("backup.title"), rejected: t("backup.title"), confirm: t("backup.confirmTitle", { when }), done: t("backup.done") }[state];
   return (
-    <Dialog title={title} onClose={onClose} width={480} locked={busy}>
+    // Escape, «×» and the backdrop on the confirmation go back to the list, as «Keep» does.
+    <Dialog title={title} onClose={() => (state === "confirm" ? setConfirming(false) : onClose())} width={480} locked={busy}>
       <StatePanels value={state} states={["list", "confirm", "done", "rejected"] as const}>
         {(shown, sizing) =>
           shown === "list"

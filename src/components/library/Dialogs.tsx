@@ -626,7 +626,8 @@ export function RestoreDialog({
 
   const title = { choose: t("restore.title"), confirm: t("restore.confirmTitle"), report: t("restore.finished") }[state];
   return (
-    <Dialog title={title} onClose={() => !busy && onClose()} locked={busy}>
+    // Escape, «×» and the backdrop on the confirmation go back to the copy, as «Keep» does.
+    <Dialog title={title} onClose={() => !busy && (state === "confirm" ? setConfirming(false) : onClose())} locked={busy}>
       <StatePanels value={state} states={["choose", "confirm", "report"] as const}>
         {(shown, sizing) =>
           shown === "report" ? report && !sizing && reportPanel(report) : shown === "confirm" ? confirmPanel() : choosePanel(sizing)

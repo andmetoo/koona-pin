@@ -129,6 +129,11 @@ for (const code of ["en", "de", "ru"]) {
       await track.same("replace?");
       await button("common.keep").click();
       await track.same("kept");
+      // Escape on the confirmation goes back to the copy, as «Keep» does.
+      await button("restore.run").click();
+      await page.keyboard.press("Escape");
+      await expect(dialog.getByRole("radio", { name: starts(t("restore.replace")) })).toHaveAttribute("aria-checked", "true");
+      await track.same("Escape on replace?");
       await button("restore.run").click();
       await button("restore.confirm").click();
       await expect(dialog.getByRole("status")).toBeVisible();
@@ -178,6 +183,10 @@ for (const code of ["en", "de", "ru"]) {
       await button("common.keep").click();
       await track.same("kept");
       await button("backup.run").click();
+      await page.keyboard.press("Escape");
+      await expect(dialog.getByRole("radio").first()).toBeVisible();
+      await track.same("Escape on confirm");
+      await button("backup.run").click();
       await button("backup.confirm").click();
       await expect(dialog.getByRole("status")).toBeVisible();
       await track.same("done");
@@ -198,6 +207,8 @@ for (const code of ["en", "de", "ru"]) {
       await track.open("feedback");
       await button("feedback.showReport").click();
       await track.same("report shown");
+      // In a low window the form scrolls; the report keeps its lines.
+      expect((await dialog.getByLabel(t("feedback.report"), { exact: true }).boundingBox())!.height).toBeGreaterThan(80);
       await dialog.getByRole("textbox", { name: t("feedback.message") }).fill("The grid jumps when a card loads.");
       await dialog.getByRole("textbox", { name: t("feedback.email") }).fill("anna@example");
       await button("feedback.send").click();
@@ -218,6 +229,7 @@ for (const code of ["en", "de", "ru"]) {
       await button("feedback.send").click();
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("failed");
+      await expect(button("common.retry")).toBeInViewport({ ratio: 1 });
       await button("common.retry").click();
       await expect(dialog.getByRole("status").filter({ hasText: t("feedback.sentTitle") })).toBeVisible();
       await track.same("sent");

@@ -35,6 +35,7 @@ export function FeedbackDialog({
   const [emailWrong, setEmailWrong] = useState(false);
   const [copied, setCopied] = useState<"done" | "failed" | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const failureRef = useRef<HTMLParagraphElement>(null);
   const ids = { attach: useId(), report: useId(), count: useId() };
   const language = i18n.resolvedLanguage ?? i18n.language;
 
@@ -48,6 +49,10 @@ export function FeedbackDialog({
       current = false;
     };
   }, [language]);
+  // In a low window the form scrolls: a failure comes into view above the buttons.
+  useEffect(() => {
+    if (failure) failureRef.current?.scrollIntoView({ block: "nearest" });
+  }, [failure]);
   useEffect(() => {
     if (!copied) return;
     const timer = window.setTimeout(() => setCopied(null), 2000);
@@ -135,117 +140,120 @@ export function FeedbackDialog({
           void send();
         }}
       >
-        <p className="-mt-1 text-sm text-muted">{t("feedback.lead")}</p>
-        <div className="flex">
-          <Segmented<FeedbackKind>
-            label={t("feedback.kind")}
-            value={draft.kind}
-            onChange={(kind) => change({ kind })}
-            options={(["bug", "idea", "question"] as const).map((value) => ({ value, label: t(`feedback.${value}`) }))}
-          />
-        </div>
-        <div className={sizing ? "relative" : "relative flex min-h-24 flex-1 flex-col"}>
-          <textarea
-            aria-label={t("feedback.message")}
-            aria-describedby={own.count}
-            aria-invalid={tooLong || undefined}
-            autoFocus={!sizing}
-            rows={6}
-            value={draft.message}
-            disabled={sending}
-            placeholder={t("feedback.placeholder")}
-            onChange={(e) => change({ message: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-            className={`field block resize-none pb-6 ${sizing ? "min-h-[132px]" : "min-h-0 flex-1"}`}
-          />
-          {/* Read with the field, not on every keystroke; going over the limit is said once. */}
-          <span id={own.count} className={`pointer-events-none absolute right-3 bottom-2 text-2xs ${tooLong ? "text-danger" : "text-subtle"}`}>
-            {t("feedback.count", { count, max: MAX_MESSAGE })}
-          </span>
-          {!sizing && (
-            <span role="status" className="sr-only">
-              {tooLong ? t("errors.detail.message_too_long") : ""}
-            </span>
-          )}
-        </div>
-        <Field label={t("feedback.email")} error={wrongEmail ? t("errors.detail.invalid_email") : undefined}>
-          {(id, note) => (
-            <input
-              id={id}
-              ref={sizing ? undefined : emailRef}
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={draft.email}
+        {/* In a low window this scrolls and the buttons stay below it. */}
+        <div className={sizing ? "flex flex-col gap-4" : "-m-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-1"}>
+          <p className="-mt-1 text-sm text-muted">{t("feedback.lead")}</p>
+          <div className="flex">
+            <Segmented<FeedbackKind>
+              label={t("feedback.kind")}
+              value={draft.kind}
+              onChange={(kind) => change({ kind })}
+              options={(["bug", "idea", "question"] as const).map((value) => ({ value, label: t(`feedback.${value}`) }))}
+            />
+          </div>
+          <div className={sizing ? "relative" : "relative flex min-h-24 flex-1 flex-col"}>
+            <textarea
+              aria-label={t("feedback.message")}
+              aria-describedby={own.count}
+              aria-invalid={tooLong || undefined}
+              autoFocus={!sizing}
+              rows={6}
+              value={draft.message}
               disabled={sending}
-              placeholder={t("feedback.emailPlaceholder")}
-              aria-invalid={wrongEmail || undefined}
-              aria-describedby={note}
-              onChange={(e) => {
-                setEmailWrong(false);
-                change({ email: e.target.value });
+              placeholder={t("feedback.placeholder")}
+              onChange={(e) => change({ message: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  void send();
+                }
               }}
-              className={`field ${wrongEmail ? "border-danger" : ""}`}
+              className={`field block resize-none pb-6 ${sizing ? "min-h-[132px]" : "min-h-0 flex-1"}`}
             />
-          )}
-        </Field>
-        <div className="flex min-h-0 shrink flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <input
-              id={own.attach}
-              type="checkbox"
-              checked={attach}
-              disabled={sending || report === null}
-              onChange={(e) => change({ attach: e.target.checked })}
-              className="size-4 shrink-0 accent-accent"
-            />
-            <label htmlFor={own.attach} className="flex-1 text-sm font-medium">
-              {t("feedback.attach")}
-            </label>
+            {/* Read with the field, not on every keystroke; going over the limit is said once. */}
+            <span id={own.count} className={`pointer-events-none absolute right-3 bottom-2 text-2xs ${tooLong ? "text-danger" : "text-subtle"}`}>
+              {t("feedback.count", { count, max: MAX_MESSAGE })}
+            </span>
+            {!sizing && (
+              <span role="status" className="sr-only">
+                {tooLong ? t("errors.detail.message_too_long") : ""}
+              </span>
+            )}
+          </div>
+          <Field label={t("feedback.email")} error={wrongEmail ? t("errors.detail.invalid_email") : undefined}>
+            {(id, note) => (
+              <input
+                id={id}
+                ref={sizing ? undefined : emailRef}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={draft.email}
+                disabled={sending}
+                placeholder={t("feedback.emailPlaceholder")}
+                aria-invalid={wrongEmail || undefined}
+                aria-describedby={note}
+                onChange={(e) => {
+                  setEmailWrong(false);
+                  change({ email: e.target.value });
+                }}
+                className={`field ${wrongEmail ? "border-danger" : ""}`}
+              />
+            )}
+          </Field>
+          <div className="flex shrink-0 flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <input
+                id={own.attach}
+                type="checkbox"
+                checked={attach}
+                disabled={sending || report === null}
+                onChange={(e) => change({ attach: e.target.checked })}
+                className="size-4 shrink-0 accent-accent"
+              />
+              <label htmlFor={own.attach} className="flex-1 text-sm font-medium">
+                {t("feedback.attach")}
+              </label>
+              <button
+                type="button"
+                aria-expanded={showReport}
+                aria-controls={own.report}
+                onClick={() => setShowReport((shown) => !shown)}
+                className="text-sm font-medium text-accent hover:underline"
+              >
+                {showReport ? t("feedback.hideReport") : t("feedback.showReport")}
+              </button>
+            </div>
+            <p className="pl-6 text-xs text-subtle">{report === null ? t("feedback.reportFailed") : t("feedback.attachHint")}</p>
+            {reportShown && (
+              <pre
+                id={own.report}
+                aria-label={sizing ? undefined : t("feedback.report")}
+                tabIndex={sizing ? undefined : 0}
+                className={`mt-2 overflow-auto rounded-lg bg-secondary px-3 py-2.5 font-mono text-2xs leading-4 whitespace-pre-wrap text-icon [overflow-wrap:anywhere] ${sizing ? "h-[160px]" : "max-h-[160px]"}`}
+              >
+                {sizing ? "" : report === undefined ? "…" : (report ?? t("feedback.reportFailed"))}
+              </pre>
+            )}
+          </div>
+          <p className="text-xs text-subtle">
+            {t("feedback.privacy")}{" "}
             <button
               type="button"
-              aria-expanded={showReport}
-              aria-controls={own.report}
-              onClick={() => setShowReport((shown) => !shown)}
-              className="text-sm font-medium text-accent hover:underline"
+              onClick={() => void api.openUrl(privacyUrl(language)).catch((err) => setFailure(toCommandError(err)))}
+              className="text-accent hover:underline"
             >
-              {showReport ? t("feedback.hideReport") : t("feedback.showReport")}
+              {t("feedback.privacyLink")}
             </button>
-          </div>
-          <p className="pl-6 text-xs text-subtle">{report === null ? t("feedback.reportFailed") : t("feedback.attachHint")}</p>
-          {reportShown && (
-            <pre
-              id={own.report}
-              aria-label={sizing ? undefined : t("feedback.report")}
-              tabIndex={sizing ? undefined : 0}
-              className={`mt-2 overflow-auto rounded-lg bg-secondary px-3 py-2.5 font-mono text-2xs leading-4 whitespace-pre-wrap text-icon [overflow-wrap:anywhere] ${sizing ? "h-[160px]" : "max-h-[160px] min-h-0"}`}
-            >
-              {sizing ? "" : report === undefined ? "…" : (report ?? t("feedback.reportFailed"))}
-            </pre>
+          </p>
+          {!sizing && failure && (
+            <p ref={failureRef} role="alert" className="flex gap-2.5 rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-on-danger-soft">
+              <Icon icon={CircleAlert} className="mt-px shrink-0" />
+              <span>{describeError(failure)}</span>
+            </p>
           )}
         </div>
-        <p className="text-xs text-subtle">
-          {t("feedback.privacy")}{" "}
-          <button
-            type="button"
-            onClick={() => void api.openUrl(privacyUrl(language)).catch((err) => setFailure(toCommandError(err)))}
-            className="text-accent hover:underline"
-          >
-            {t("feedback.privacyLink")}
-          </button>
-        </p>
-        {!sizing && failure && (
-          <p role="alert" className="flex gap-2.5 rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-on-danger-soft">
-            <Icon icon={CircleAlert} className="mt-px shrink-0" />
-            <span>{describeError(failure)}</span>
-          </p>
-        )}
-        <footer className="flex justify-end gap-2">
+        <footer className="flex shrink-0 justify-end gap-2">
           <Button variant="outline" size="lg" disabled={sending} onClick={onClose}>
             {t("common.cancel")}
           </Button>
