@@ -6,10 +6,11 @@ import { api } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
-import { Dot, Segmented } from "../ui/Controls";
+import { Dot, Segmented, TabPanels } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 
 type Client = "desktop" | "code" | "chatgpt" | "custom";
+const CLIENTS: readonly Client[] = ["desktop", "code", "chatgpt", "custom"];
 
 /**
  * «Connect an AI assistant» (NP-091, sheet 44), as «Connect browser» (frame 18): Claude Desktop installs
@@ -107,33 +108,37 @@ export function AssistantDialog({
             {t("errors.detail.server_missing")}
           </p>
         )}
-        <ol className="flex flex-col gap-4">
-          {steps[client].map((step, index) => (
-            <li key={step.title} className="flex gap-3">
-              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-2xs font-semibold text-on-accent-soft">
-                {index + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">{step.title}</div>
-                <p className="mt-0.5 leading-[18px] text-muted">{step.text}</p>
-                {step.extra}
-              </div>
-            </li>
-          ))}
-        </ol>
-        {client === "desktop" && (
-          <div className="flex flex-col gap-2.5 border-t border-divider pt-4">
-            <div>
-              <div className="font-medium">{t("assistant.manualTitle")}</div>
-              <p className="mt-0.5 leading-[18px] text-muted">{t("assistant.manualText")}</p>
-            </div>
-            {code(setup?.json)}
-          </div>
-        )}
-        <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">
-          {client === "chatgpt" && `${t("assistant.chatgptNote")} `}
-          {t("assistant.note")}
-        </p>
+        <TabPanels value={client} tabs={CLIENTS}>
+          {(shown) => (
+            <>
+              <ol className="flex flex-col gap-4">
+                {steps[shown].map((step, index) => (
+                  <li key={step.title} className="flex gap-3">
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-2xs font-semibold text-on-accent-soft">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{step.title}</div>
+                      <p className="mt-0.5 leading-[18px] text-muted">{step.text}</p>
+                      {step.extra}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              {shown === "chatgpt" && <p className="ml-8 text-xs leading-4 text-muted">{t("assistant.chatgptNote")}</p>}
+              {shown === "desktop" && (
+                <div className="flex flex-col gap-2.5 border-t border-divider pt-4">
+                  <div>
+                    <div className="font-medium">{t("assistant.manualTitle")}</div>
+                    <p className="mt-0.5 leading-[18px] text-muted">{t("assistant.manualText")}</p>
+                  </div>
+                  {code(setup?.json)}
+                </div>
+              )}
+            </>
+          )}
+        </TabPanels>
+        <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">{t("assistant.note")}</p>
       </div>
     </Dialog>
   );

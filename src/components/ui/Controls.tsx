@@ -100,3 +100,38 @@ export function Segmented<T extends string>({
 export function Dot({ color, className = "" }: { color: string; className?: string }) {
   return <span className={`inline-block size-2 shrink-0 rounded-full ${className}`} style={{ background: color }} />;
 }
+
+/**
+ * The content of every tab in one grid cell: the tallest sets the height, so a dialog with tabs keeps
+ * its size and its place on screen when the tab changes, in any language. Only the chosen tab is
+ * seen, read and reached with the keyboard.
+ */
+export function TabPanels<T extends string>({
+  value,
+  tabs,
+  children,
+}: {
+  value: T;
+  tabs: readonly T[];
+  children: (tab: T) => ReactNode;
+}) {
+  return (
+    <div className="grid">
+      {tabs.map((tab) => {
+        const active = tab === value;
+        return (
+          <div
+            key={tab}
+            data-tab-panel={tab}
+            data-active={active || undefined}
+            aria-hidden={!active || undefined}
+            inert={!active}
+            className={`flex min-w-0 flex-col gap-4 [grid-area:1/1] ${active ? "" : "invisible"}`}
+          >
+            {children(tab)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
