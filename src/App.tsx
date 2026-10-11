@@ -32,7 +32,7 @@ import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, Conne
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
-import { SignInDialog, SupporterDialog } from "./components/SupporterDialog";
+import { PlanDialog, SignInDialog, SupporterDialog } from "./components/SupporterDialog";
 import { offer } from "./services/update";
 import { emptyDraft, FeedbackDraft } from "./services/feedback";
 import { DuplicatesPage } from "./components/library/DuplicatesPage";
@@ -42,7 +42,7 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -134,6 +134,8 @@ export function App() {
   const [update, setUpdate] = useState<UpdateStatus | null>(null);
   /** Supporter (NP-066, sheet 45): the plan as kept; no request behind it. */
   const [supporter, setSupporter] = useState<SupporterStatus | null>(null);
+  /** The Supporter badge's heart in the colour of the season; a perk the dialog turns off. */
+  const [badge, setBadge] = useState(() => preference("supporterBadge", ["on", "off"], "on") === "on");
   const [appVersion, setAppVersion] = useState("");
   const [linux, setLinux] = useState(false);
   const [damaged, setDamaged] = useState(false);
@@ -824,10 +826,8 @@ export function App() {
         onUpdate={() => setSurface("update")}
         plan={supporter?.available ? (supporter.plan ? "supporter" : "free") : null}
         onSupport={() => setSurface("supporter")}
-        onPlan={() => {
-          setTriage(null);
-          setPage("settings");
-        }}
+        onPlan={() => setSurface("plan")}
+        badge={badge}
         onInbox={openInbox}
         onAll={() => navigate()}
         onFavorites={() => navigate({ onlyFavorites: true })}
@@ -889,9 +889,6 @@ export function App() {
                     update={update}
                     onUpdate={() => setSurface("update")}
                     onCheckUpdates={async () => setUpdate(await api.checkForUpdates())}
-                    supporter={supporter}
-                    onSupport={() => setSurface("supporter")}
-                    onSignIn={() => setSurface("signIn")}
                     dataVersion={dataVersion}
                   />
                 </div>
@@ -1269,9 +1266,25 @@ export function App() {
       )}
       {surface === "background" && <BackgroundDialog onClose={() => setSurface(null)} />}
       {surface === "supporter" && (
-        <SupporterDialog sandbox={!!supporter?.sandbox} email={supporter?.email ?? null} onClose={() => setSurface(null)} />
+        <SupporterDialog
+          sandbox={!!supporter?.sandbox}
+          email={supporter?.email ?? null}
+          onClose={() => setSurface(null)}
+          onSignIn={() => setSurface("signIn")}
+        />
       )}
       {surface === "signIn" && <SignInDialog onClose={() => setSurface(null)} />}
+      {surface === "plan" && supporter?.plan && (
+        <PlanDialog
+          supporter={supporter}
+          badge={badge}
+          onBadge={(shown) => {
+            setBadge(shown);
+            savePreference("supporterBadge", shown ? "on" : "off");
+          }}
+          onClose={() => setSurface(null)}
+        />
+      )}
       {surface === "update" && offer(update) && (
         <UpdateDialog
           update={offer(update)!}

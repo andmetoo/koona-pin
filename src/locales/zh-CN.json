@@ -912,7 +912,7 @@
       "no_connection_or_system_proxy": "无法发送：没有网络连接，或此网络需要系统设置中的代理，而应用不读取这些设置 — 它只使用 https_proxy 和 http_proxy 变量。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。",
       "not_supporter": "没有使用此邮箱的 Supporter。请使用付款时的邮箱。",
       "wrong_code": "验证码无效。请检查或重新获取。",
-      "signed_out": "你已退出登录。请在 设置 → 方案 中重新登录。"
+      "signed_out": "你已退出登录。请打开“支持”并选择“我已是 Supporter”重新登录。"
     }
   },
   "tray": {
@@ -998,7 +998,7 @@
     "waiting": "正在等待付款…",
     "openAgain": "重新打开页面",
     "thanksTitle": "感谢你支持 Koona Pin",
-    "thanksText": "Supporter 已为付款邮箱 {{email}} 开通。在其他电脑上，请在 {{place}} 中用它登录。",
+    "thanksText": "Supporter 已为付款邮箱 {{email}} 开通。在其他电脑上，请打开“支持”并选择“我已是 Supporter”。",
     "done": "完成",
     "signInTitle": "以 Supporter 身份登录",
     "signInText": "在其他电脑上付过款？输入付款时的邮箱，我们会发送 6 位验证码，无需密码。这样 Koona Pin 在这里也能识别你的方案。",
@@ -1013,24 +1013,30 @@
     "back": "返回",
     "signIn": "登录",
     "tooManyCodes": "请求验证码次数过多。请稍等几分钟再试。",
-    "badge": "Supporter · 谢谢！方案在设置中"
+    "badge": "Supporter · 你的方案和权益",
+    "perksTitle": "你的权益",
+    "soon": "即将推出",
+    "renewsOn": "将于 {{date}} 续订",
+    "endsOn": "不会续订 · Supporter 至 {{date}}",
+    "pastDue": "续订扣款失败——请更新银行卡",
+    "unchecked": "无法检查方案——有效期至 {{date}}",
+    "perk": {
+      "sync": "多台电脑之间同步",
+      "syncHint": "早期阶段——将随更新推出",
+      "backups": "自动备份到文件夹",
+      "backupsHint": "备份到你选择的文件夹，例如 Dropbox 或 Google 云端硬盘",
+      "badge": "Supporter 徽章",
+      "badgeHint": "侧边栏中的心形，随季节变色",
+      "early": "抢先版本",
+      "earlyHint": "比其他人稍早获得新版本"
+    }
   },
   "plan": {
-    "header": "方案",
-    "free": "免费",
-    "freeHint": "这台电脑上的一切，永久免费",
-    "become": "成为 Supporter",
     "already": "我已是 Supporter",
     "yearly": "Supporter · 按年",
     "monthly": "Supporter · 按月",
-    "renews": "{{email}} · 将于 {{date}} 续订",
-    "until": "Supporter 至 {{date}}",
-    "noRenewal": "不会续订。你的资料库保持不变。",
-    "pastDue": "Supporter · 付款未成功",
-    "pastDueHint": "Paddle 会再次尝试。更新银行卡以继续保持 Supporter。",
     "updateCard": "更新银行卡",
     "manage": "管理",
-    "signOut": "退出登录",
-    "couldNotCheck": "无法检查方案：没有网络。有效期至 {{date}}。"
+    "signOut": "退出登录"
   }
 }

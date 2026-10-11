@@ -1028,7 +1028,7 @@
       "no_connection_or_system_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système, que l’application ne lit pas — elle n’utilise que les variables https_proxy et http_proxy. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub.",
       "not_supporter": "Aucun Supporter n’a cette adresse. Utilisez celle de votre paiement.",
       "wrong_code": "Ce code n’a pas fonctionné. Vérifiez-le ou demandez-en un nouveau.",
-      "signed_out": "Vous avez été déconnecté. Reconnectez-vous dans Réglages → Formule."
+      "signed_out": "Vous avez été déconnecté. Ouvrez « Soutenir » et choisissez « Je suis déjà Supporter » pour vous reconnecter."
     }
   },
   "tray": {
@@ -1144,7 +1144,7 @@
     "waiting": "En attente du paiement…",
     "openAgain": "Rouvrir la page",
     "thanksTitle": "Merci de soutenir Koona Pin",
-    "thanksText": "Supporter est actif pour {{email}}, l’adresse de votre paiement. Sur un autre ordinateur, connectez-vous avec elle dans {{place}}.",
+    "thanksText": "Supporter est actif pour {{email}}, l’adresse de votre paiement. Sur un autre ordinateur, ouvrez « Soutenir » et choisissez « Je suis déjà Supporter ».",
     "done": "Terminé",
     "signInTitle": "Se connecter en tant que Supporter",
     "signInText": "Vous avez payé sur un autre ordinateur ? Saisissez l’adresse de votre paiement et nous enverrons un code à 6 chiffres, sans mot de passe. Koona Pin connaîtra alors votre formule ici aussi.",
@@ -1159,24 +1159,30 @@
     "back": "Retour",
     "signIn": "Se connecter",
     "tooManyCodes": "Trop de codes demandés. Patientez quelques minutes et réessayez.",
-    "badge": "Supporter · merci ! Votre formule est dans les Réglages"
+    "badge": "Supporter · votre formule et vos avantages",
+    "perksTitle": "Vos avantages",
+    "soon": "Bientôt",
+    "renewsOn": "Renouvellement le {{date}}",
+    "endsOn": "Pas de renouvellement · Supporter jusqu’au {{date}}",
+    "pastDue": "Le renouvellement n’est pas passé — mettez à jour la carte",
+    "unchecked": "Formule non vérifiée — elle reste active jusqu’au {{date}}",
+    "perk": {
+      "sync": "La synchronisation entre vos ordinateurs",
+      "syncHint": "Phase précoce — arrive avec une mise à jour",
+      "backups": "Sauvegardes automatiques dans un dossier",
+      "backupsHint": "Dans le dossier de votre choix, comme Dropbox ou Google Drive",
+      "badge": "Badge Supporter",
+      "badgeHint": "Le cœur de la barre latérale, à la couleur de la saison",
+      "early": "Versions préliminaires",
+      "earlyHint": "Les nouvelles versions un peu avant tout le monde"
+    }
   },
   "plan": {
-    "header": "Formule",
-    "free": "Gratuit",
-    "freeHint": "Tout sur cet ordinateur, gratuit pour toujours",
-    "become": "Devenir Supporter",
     "already": "Je suis déjà Supporter",
     "yearly": "Supporter · annuel",
     "monthly": "Supporter · mensuel",
-    "renews": "{{email}} · renouvellement le {{date}}",
-    "until": "Supporter jusqu’au {{date}}",
-    "noRenewal": "Pas de renouvellement. Votre bibliothèque reste telle quelle.",
-    "pastDue": "Supporter · le paiement n’est pas passé",
-    "pastDueHint": "Paddle réessaiera. Mettez à jour la carte pour rester Supporter.",
     "updateCard": "Mettre à jour la carte",
     "manage": "Gérer",
-    "signOut": "Se déconnecter",
-    "couldNotCheck": "Formule non vérifiée : pas de connexion. Elle reste active jusqu’au {{date}}."
+    "signOut": "Se déconnecter"
   }
 }

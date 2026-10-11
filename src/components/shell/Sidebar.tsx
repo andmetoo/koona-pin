@@ -33,8 +33,10 @@ export interface SidebarProps {
    */
   plan: "free" | "supporter" | null;
   onSupport: () => void;
-  /** The Supporter badge opens Settings → Plan. */
+  /** The Supporter badge opens the dialog of the plan and its perks. */
   onPlan: () => void;
+  /** The badge's heart in the colour of the season; off, the row stays with a plain heart. */
+  badge: boolean;
   onInbox: () => void;
   onTrash: () => void;
   onAll: () => void;
@@ -227,8 +229,8 @@ export function Sidebar(props: SidebarProps) {
             label={props.plan === "free" ? t("supporter.rowHint") : t("supporter.badge")}
             onClick={props.plan === "free" ? props.onSupport : props.onPlan}
           >
-            <span className="text-season">
-              <Heart size={16} strokeWidth={1.5} fill={props.plan === "free" ? "none" : "currentColor"} aria-hidden />
+            <span className={props.plan === "supporter" && !props.badge ? "" : "text-season"}>
+              <Heart size={16} strokeWidth={1.5} fill={props.plan === "supporter" && props.badge ? "currentColor" : "none"} aria-hidden />
             </span>
           </StripButton>
         )}
@@ -395,7 +397,7 @@ export function Sidebar(props: SidebarProps) {
 
       <div className="flex-1" />
       {update && <UpdateRow update={update} percent={percent(props.update)} onClick={props.onUpdate} />}
-      {props.plan && <PlanRow plan={props.plan} onClick={props.plan === "free" ? props.onSupport : props.onPlan} />}
+      {props.plan && <PlanRow plan={props.plan} badge={props.badge} onClick={props.plan === "free" ? props.onSupport : props.onPlan} />}
       <NavRow
         icon={<Icon icon={Link} />}
         label={status.label}
@@ -464,11 +466,13 @@ function UpdateRow({ update, percent, onClick }: { update: Offer; percent: numbe
  * The plan above the browser status (NP-066, sheet 45), quiet and without a fill. Free: an outlined
  * heart in the colour of the season, «Free version» in the colour of icons and «Support» in the
  * accent; it opens the Supporter dialog. Supporter: the badge — a filled heart and «Supporter»;
- * it opens Settings → Plan.
+ * it opens the dialog of the plan and its perks. With the badge turned off there, the heart stays
+ * plain: the row is still the way to that dialog.
  */
-function PlanRow({ plan, onClick }: { plan: "free" | "supporter"; onClick: () => void }) {
+function PlanRow({ plan, badge, onClick }: { plan: "free" | "supporter"; badge: boolean; onClick: () => void }) {
   const { t } = useTranslation();
   const free = plan === "free";
+  const filled = !free && badge;
   return (
     <button
       type="button"
@@ -478,8 +482,8 @@ function PlanRow({ plan, onClick }: { plan: "free" | "supporter"; onClick: () =>
       {...(free ? { "data-free-version": true } : {})}
       className="flex h-[30px] w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-icon transition-colors duration-150 hover:bg-hover"
     >
-      <span className="flex shrink-0 text-season">
-        <Heart size={16} strokeWidth={1.5} fill={free ? "none" : "currentColor"} aria-hidden />
+      <span className={`flex shrink-0 ${free || filled ? "text-season" : ""}`}>
+        <Heart size={16} strokeWidth={1.5} fill={filled ? "currentColor" : "none"} aria-hidden />
       </span>
       <span className="min-w-0 flex-1 truncate">{free ? t("supporter.free") : "Supporter"}</span>
       {free && <span className="shrink-0 font-medium text-accent">{t("supporter.support")}</span>}

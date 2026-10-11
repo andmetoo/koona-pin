@@ -1030,7 +1030,7 @@
       "no_connection_or_system_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema, koja aplikacija ne čita — koristi samo promenljive https_proxy i http_proxy. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u.",
       "not_supporter": "Nema Supporter-a sa ovom adresom. Unesite adresu iz plaćanja.",
       "wrong_code": "Kod nije prošao. Proverite ga ili zatražite novi.",
-      "signed_out": "Odjavljeni ste. Prijavite se ponovo u Podešavanja → Plan."
+      "signed_out": "Odjavljeni ste. Otvorite „Podrži“ i izaberite „Već sam Supporter“ da biste se ponovo prijavili."
     }
   },
   "tray": {
@@ -1146,7 +1146,7 @@
     "waiting": "Čekamo plaćanje…",
     "openAgain": "Ponovo otvori stranicu",
     "thanksTitle": "Hvala što podržavate Koona Pin",
-    "thanksText": "Supporter je aktivan za {{email}}, adresu iz plaćanja. Na drugom računaru prijavite se njom u odeljku {{place}}.",
+    "thanksText": "Supporter je aktivan za {{email}}, adresu iz plaćanja. Na drugom računaru otvorite „Podrži“ i izaberite „Već sam Supporter“.",
     "done": "Gotovo",
     "signInTitle": "Prijava za Supporter",
     "signInText": "Platili ste na drugom računaru? Unesite adresu iz plaćanja i poslaćemo šestocifreni kod — bez lozinke. Tada će Koona Pin znati vaš plan i ovde.",
@@ -1161,24 +1161,30 @@
     "back": "Nazad",
     "signIn": "Prijavi se",
     "tooManyCodes": "Previše zahteva za kod. Sačekajte nekoliko minuta i pokušajte ponovo.",
-    "badge": "Supporter · hvala! Plan je u podešavanjima"
+    "badge": "Supporter · vaš plan i prednosti",
+    "perksTitle": "Vaše prednosti",
+    "soon": "Uskoro",
+    "renewsOn": "Obnavlja se {{date}}",
+    "endsOn": "Ne obnavlja se · Supporter do {{date}}",
+    "pastDue": "Obnova nije prošla — ažurirajte karticu",
+    "unchecked": "Plan nije proveren — važi do {{date}}",
+    "perk": {
+      "sync": "Sinhronizacija između računara",
+      "syncHint": "Rana faza — stiže sa ažuriranjem",
+      "backups": "Automatske kopije u fasciklu",
+      "backupsHint": "U fasciklu po izboru, na primer Dropbox ili Google Disk",
+      "badge": "Oznaka Supporter",
+      "badgeHint": "Srce u bočnoj traci, u boji godišnjeg doba",
+      "early": "Rane verzije",
+      "earlyHint": "Nove verzije malo pre svih"
+    }
   },
   "plan": {
-    "header": "Plan",
-    "free": "Besplatno",
-    "freeHint": "Sve na ovom računaru, besplatno zauvek",
-    "become": "Postani Supporter",
     "already": "Već sam Supporter",
     "yearly": "Supporter · godišnje",
     "monthly": "Supporter · mesečno",
-    "renews": "{{email}} · obnavlja se {{date}}",
-    "until": "Supporter do {{date}}",
-    "noRenewal": "Ne obnavlja se. Biblioteka ostaje kakva jeste.",
-    "pastDue": "Supporter · plaćanje nije prošlo",
-    "pastDueHint": "Paddle će pokušati ponovo. Ažurirajte karticu da biste ostali Supporter.",
     "updateCard": "Ažuriraj karticu",
     "manage": "Upravljaj",
-    "signOut": "Odjavi se",
-    "couldNotCheck": "Plan nije proveren: nema veze. Važi do {{date}}."
+    "signOut": "Odjavi se"
   }
 }

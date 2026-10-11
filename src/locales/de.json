@@ -970,7 +970,7 @@
       "no_connection_or_system_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen, die die App nicht liest — sie nutzt nur die Variablen https_proxy und http_proxy. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub.",
       "not_supporter": "Kein Supporter hat diese E-Mail. Nutzen Sie die E-Mail Ihrer Zahlung.",
       "wrong_code": "Der Code hat nicht funktioniert. Prüfen Sie ihn oder fordern Sie einen neuen an.",
-      "signed_out": "Sie wurden abgemeldet. Melden Sie sich unter Einstellungen → Tarif erneut an."
+      "signed_out": "Sie wurden abgemeldet. Öffnen Sie „Unterstützen“ und wählen Sie „Ich bin schon Supporter“, um sich erneut anzumelden."
     }
   },
   "tray": {
@@ -1071,7 +1071,7 @@
     "waiting": "Warten auf die Zahlung…",
     "openAgain": "Seite erneut öffnen",
     "thanksTitle": "Danke, dass Sie Koona Pin unterstützen",
-    "thanksText": "Supporter ist für {{email}} aktiv, die E-Mail Ihrer Zahlung. Auf einem anderen Computer melden Sie sich damit unter {{place}} an.",
+    "thanksText": "Supporter ist für {{email}} aktiv, die E-Mail Ihrer Zahlung. Öffnen Sie auf einem anderen Computer „Unterstützen“ und wählen Sie „Ich bin schon Supporter“.",
     "done": "Fertig",
     "signInTitle": "Als Supporter anmelden",
     "signInText": "Auf einem anderen Computer bezahlt? Geben Sie die E-Mail Ihrer Zahlung ein, wir schicken Ihnen einen 6-stelligen Code — ohne Passwort. Dann kennt Koona Pin Ihren Tarif auch hier.",
@@ -1086,24 +1086,30 @@
     "back": "Zurück",
     "signIn": "Anmelden",
     "tooManyCodes": "Zu viele Codes angefordert. Warten Sie ein paar Minuten und versuchen Sie es erneut.",
-    "badge": "Supporter · danke! Ihr Tarif steht in den Einstellungen"
+    "badge": "Supporter · Ihr Tarif und Ihre Vorteile",
+    "perksTitle": "Ihre Vorteile",
+    "soon": "Bald",
+    "renewsOn": "Verlängert sich am {{date}}",
+    "endsOn": "Verlängert sich nicht · Supporter bis {{date}}",
+    "pastDue": "Die Verlängerung ist fehlgeschlagen — aktualisieren Sie die Karte",
+    "unchecked": "Tarif nicht geprüft — er gilt bis {{date}}",
+    "perk": {
+      "sync": "Synchronisierung zwischen Ihren Computern",
+      "syncHint": "Frühe Phase — kommt mit einem Update",
+      "backups": "Automatische Sicherungen in einen Ordner",
+      "backupsHint": "In einen Ordner Ihrer Wahl, etwa Dropbox oder Google Drive",
+      "badge": "Supporter-Abzeichen",
+      "badgeHint": "Das Herz in der Seitenleiste, in der Farbe der Jahreszeit",
+      "early": "Frühe Versionen",
+      "earlyHint": "Neue Versionen etwas vor allen anderen"
+    }
   },
   "plan": {
-    "header": "Tarif",
-    "free": "Kostenlos",
-    "freeHint": "Alles auf diesem Computer, dauerhaft kostenlos",
-    "become": "Supporter werden",
     "already": "Ich bin schon Supporter",
     "yearly": "Supporter · jährlich",
     "monthly": "Supporter · monatlich",
-    "renews": "{{email}} · verlängert sich am {{date}}",
-    "until": "Supporter bis {{date}}",
-    "noRenewal": "Verlängert sich nicht. Ihre Bibliothek bleibt, wie sie ist.",
-    "pastDue": "Supporter · Zahlung fehlgeschlagen",
-    "pastDueHint": "Paddle versucht es erneut. Aktualisieren Sie die Karte, um Supporter zu bleiben.",
     "updateCard": "Karte aktualisieren",
     "manage": "Verwalten",
-    "signOut": "Abmelden",
-    "couldNotCheck": "Tarif nicht geprüft: keine Verbindung. Er gilt bis {{date}}."
+    "signOut": "Abmelden"
   }
 }

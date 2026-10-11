@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Heart, TriangleAlert } from "lucide-react";
+import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { PlanInterval, SupporterPrices } from "../types";
+import type { PlanInterval, SupporterPrices, SupporterStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
 import { Icon } from "./icons";
 import { Button } from "./ui/Button";
-import { Field, StatePanels } from "./ui/Controls";
+import { Field, StatePanels, Switch } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
 /**
@@ -39,7 +39,18 @@ type Step = "plans" | "waiting" | "thanks";
  * height for all three (NP-118). The payment page asks for the email and the card; the server makes
  * the account from that email and the app is signed in as soon as the payment is seen.
  */
-export function SupporterDialog({ sandbox, email, onClose }: { sandbox: boolean; email: string | null; onClose: () => void }) {
+export function SupporterDialog({
+  sandbox,
+  email,
+  onClose,
+  onSignIn,
+}: {
+  sandbox: boolean;
+  email: string | null;
+  onClose: () => void;
+  /** «I'm already a Supporter»: the sign-in dialog instead of this one. */
+  onSignIn: () => void;
+}) {
   const { t } = useTranslation();
   const [step, setStep] = useState<Step>("plans");
   const [interval, setPlan] = useState<PlanInterval>("year");
@@ -130,7 +141,11 @@ export function SupporterDialog({ sandbox, email, onClose }: { sandbox: boolean;
       ) : (
         <p className="mt-3 text-xs leading-[17px] text-muted">{t("supporter.paddleHint")}</p>
       )}
-      <footer className="mt-auto flex justify-end gap-2 pt-5">
+      <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+        {/* Paid on another computer: the email of the payment and its code (sheet 45). */}
+        <button type="button" onClick={onSignIn} className="mr-auto text-sm font-medium text-accent hover:underline">
+          {t("plan.already")}
+        </button>
         <Button variant="outline" size="lg" onClick={onClose}>
           {t("supporter.notNow")}
         </Button>
@@ -171,7 +186,7 @@ export function SupporterDialog({ sandbox, email, onClose }: { sandbox: boolean;
       <span className="mt-2 flex size-14 items-center justify-center rounded-full bg-season-soft text-season">
         <Heart size={24} fill="currentColor" aria-hidden />
       </span>
-      <p className="mt-4 max-w-[400px] text-sm text-muted">{t("supporter.thanksText", { email: who ?? "", place: `${t("nav.settings")} → ${t("plan.header")}` })}</p>
+      <p className="mt-4 max-w-[400px] text-sm text-muted">{t("supporter.thanksText", { email: who ?? "" })}</p>
       <footer className="mt-auto flex w-full justify-end gap-2 pt-5">
         <Button variant="primary" size="lg" autoFocus onClick={onClose}>
           {t("supporter.done")}
@@ -413,5 +428,133 @@ function SizingField({ label, note }: { label: string; note: string | null }) {
       <div className="field">&nbsp;</div>
       {note && <p className="text-xs">{note}</p>}
     </div>
+  );
+}
+const PERK_ICONS = { sync: RefreshCw, backups: Folder, early: FlaskConical } as const;
+const DAY = 86_400_000;
+/** Days a plan stays after its period when the server cannot be asked (billing.rs, GRACE). */
+const GRACE_DAYS = 7;
+
+/**
+ * «Supporter» (NP-066, sheet 45), opened by the badge in the sidebar: the plan, its state on one
+ * line under the email, and the perks with their own controls — apart from the general settings. One
+ * height in every state: a renewal, no renewal, a failed payment, a plan that could not be checked.
+ */
+export function PlanDialog({
+  supporter,
+  badge,
+  onBadge,
+  onClose,
+}: {
+  supporter: SupporterStatus;
+  /** The heart of the badge in the colour of the season; off, the row stays plain. */
+  badge: boolean;
+  onBadge: (shown: boolean) => void;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const plan = supporter.plan;
+  const date = (iso: string, extraDays = 0) =>
+    new Date(new Date(iso).getTime() + extraDays * DAY).toLocaleDateString(i18n.language, { day: "numeric", month: "long", year: "numeric" });
+
+  const run = async (action: () => Promise<unknown>, closeAfter = false) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      if (closeAfter) onClose();
+    } catch (err) {
+      setError(failureText(err, t));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  let status: string;
+  let tone: "muted" | "danger" | "amber" = "muted";
+  let action = (
+    <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
+      {t("plan.manage")} ↗
+    </Button>
+  );
+  if (!plan) {
+    status = "";
+  } else if (supporter.check_failed) {
+    status = t("supporter.unchecked", { date: date(plan.valid_until, GRACE_DAYS) });
+    tone = "amber";
+    action = (
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(api.refreshSupporter)}>
+        {t("common.retry")}
+      </Button>
+    );
+  } else if (plan.status === "past_due") {
+    status = t("supporter.pastDue");
+    tone = "danger";
+    action = (
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
+        {t("plan.updateCard")} ↗
+      </Button>
+    );
+  } else if (plan.status === "canceling") {
+    status = t("supporter.endsOn", { date: date(plan.valid_until) });
+  } else {
+    status = plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "";
+  }
+  const toneClass = { muted: "text-muted", danger: "font-medium text-danger", amber: "font-medium text-amber" }[tone];
+
+  return (
+    <Dialog title="Supporter" onClose={onClose} width={480}>
+      <div className="flex flex-col" data-plan-dialog={plan ? (supporter.check_failed ? "unchecked" : plan.status) : "none"}>
+        <div className="flex items-center gap-3.5">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-season-soft text-season">
+            <Heart size={20} fill="currentColor" aria-hidden />
+          </span>
+          <div className="min-w-0 text-xs leading-[17px]">
+            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
+            <p className="truncate text-muted">{supporter.email}</p>
+            {/* The state of the plan always takes this one line, so the dialog keeps its height. */}
+            <p role={tone === "muted" ? undefined : "status"} className={`min-h-[17px] ${toneClass}`}>
+              {error ?? status}
+            </p>
+          </div>
+        </div>
+        <hr className="my-4 border-divider" />
+        <h3 className="text-2xs font-semibold text-subtle uppercase">{t("supporter.perksTitle")}</h3>
+        <ul className="mt-2.5 flex flex-col gap-4">
+          {(["sync", "backups", "badge", "early"] as const).map((perk) => {
+            const PerkIcon = perk === "badge" ? null : PERK_ICONS[perk];
+            return (
+              <li key={perk} className="flex items-center gap-3">
+                <span className={`flex shrink-0 self-start pt-0.5 ${perk === "badge" ? "text-season" : "text-icon"}`}>
+                  {PerkIcon ? <Icon icon={PerkIcon} /> : <Heart size={16} strokeWidth={1.5} fill="currentColor" aria-hidden />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{t(`supporter.perk.${perk}`)}</span>
+                  <span className="block text-xs leading-[17px] text-muted">{t(`supporter.perk.${perk}Hint`)}</span>
+                </span>
+                {perk === "badge" ? (
+                  <Switch label={t("supporter.perk.badge")} checked={badge} onChange={onBadge} />
+                ) : (
+                  <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-2xs font-medium text-subtle">{t("supporter.soon")}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <footer className="mt-6 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void run(api.signOutSupporter, true)}
+            className="mr-auto text-sm font-medium text-muted hover:text-ink"
+          >
+            {t("plan.signOut")}
+          </button>
+          {action}
+        </footer>
+      </div>
+    </Dialog>
   );
 }

@@ -970,7 +970,7 @@
       "no_connection_or_system_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın okumadığı sistem ayarlarındaki proxy sunucusunu gerektiriyor — uygulama yalnızca https_proxy ve http_proxy değişkenlerini kullanır. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin.",
       "not_supporter": "Bu e-postaya sahip bir Supporter yok. Ödemedeki e-postayı kullanın.",
       "wrong_code": "Kod işe yaramadı. Kontrol edin ya da yenisini isteyin.",
-      "signed_out": "Oturumunuz kapandı. Ayarlar → Plan bölümünden yeniden giriş yapın."
+      "signed_out": "Oturumunuz kapandı. Yeniden giriş yapmak için \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin."
     }
   },
   "tray": {
@@ -1071,7 +1071,7 @@
     "waiting": "Ödeme bekleniyor…",
     "openAgain": "Sayfayı yeniden aç",
     "thanksTitle": "Koona Pin'i desteklediğiniz için teşekkürler",
-    "thanksText": "Supporter, ödemedeki e-posta olan {{email}} için etkin. Başka bir bilgisayarda {{place}} bölümünden bununla giriş yapın.",
+    "thanksText": "Supporter, ödemedeki e-posta olan {{email}} için etkin. Başka bir bilgisayarda \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
     "done": "Tamam",
     "signInTitle": "Supporter olarak giriş yap",
     "signInText": "Başka bir bilgisayarda mı ödediniz? Ödemedeki e-postayı girin, 6 haneli bir kod gönderelim — parola yok. Böylece Koona Pin planınızı burada da bilir.",
@@ -1086,24 +1086,30 @@
     "back": "Geri",
     "signIn": "Giriş yap",
     "tooManyCodes": "Çok fazla kod istendi. Birkaç dakika bekleyip yeniden deneyin.",
-    "badge": "Supporter · teşekkürler! Planınız Ayarlar'da"
+    "badge": "Supporter · planınız ve avantajlarınız",
+    "perksTitle": "Avantajlarınız",
+    "soon": "Yakında",
+    "renewsOn": "{{date}} tarihinde yenilenir",
+    "endsOn": "Yenilenmez · {{date}} tarihine kadar Supporter",
+    "pastDue": "Yenileme alınamadı — kartınızı güncelleyin",
+    "unchecked": "Plan kontrol edilemedi — {{date}} tarihine kadar geçerli",
+    "perk": {
+      "sync": "Bilgisayarlarınız arasında eşitleme",
+      "syncHint": "Erken aşama — bir güncellemeyle gelecek",
+      "backups": "Bir klasöre otomatik yedekler",
+      "backupsHint": "Seçtiğiniz klasöre, örneğin Dropbox veya Google Drive",
+      "badge": "Supporter rozeti",
+      "badgeHint": "Kenar çubuğundaki kalp, mevsimin renginde",
+      "early": "Erken sürümler",
+      "earlyHint": "Yeni sürümler herkesten biraz önce"
+    }
   },
   "plan": {
-    "header": "Plan",
-    "free": "Ücretsiz",
-    "freeHint": "Bu bilgisayardaki her şey, her zaman ücretsiz",
-    "become": "Supporter ol",
     "already": "Zaten Supporter’ım",
     "yearly": "Supporter · yıllık",
     "monthly": "Supporter · aylık",
-    "renews": "{{email}} · {{date}} tarihinde yenilenir",
-    "until": "{{date}} tarihine kadar Supporter",
-    "noRenewal": "Yenilenmez. Kütüphaneniz olduğu gibi kalır.",
-    "pastDue": "Supporter · ödeme alınamadı",
-    "pastDueHint": "Paddle yeniden deneyecek. Supporter kalmak için kartınızı güncelleyin.",
     "updateCard": "Kartı güncelle",
     "manage": "Yönet",
-    "signOut": "Çıkış yap",
-    "couldNotCheck": "Plan kontrol edilemedi: bağlantı yok. {{date}} tarihine kadar geçerli."
+    "signOut": "Çıkış yap"
   }
 }

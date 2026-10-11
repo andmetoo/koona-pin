@@ -1028,7 +1028,7 @@
       "no_connection_or_system_proxy": "No se pudo enviar: no hay conexión a internet o esta red necesita el proxy de la configuración del sistema, que la aplicación no lee; solo usa las variables https_proxy y http_proxy. Tu texto se conserva; vuelve a intentarlo o cópialo y envíalo por otra vía, por ejemplo en GitHub.",
       "not_supporter": "Ningún Supporter tiene este correo. Usa el correo de tu pago.",
       "wrong_code": "El código no funcionó. Revísalo o pide uno nuevo.",
-      "signed_out": "Se cerró tu sesión. Vuelve a iniciarla en Ajustes → Plan."
+      "signed_out": "Se cerró tu sesión. Abre «Apoyar» y elige «Ya soy Supporter» para volver a entrar."
     }
   },
   "tray": {
@@ -1144,7 +1144,7 @@
     "waiting": "Esperando el pago…",
     "openAgain": "Abrir la página otra vez",
     "thanksTitle": "Gracias por apoyar Koona Pin",
-    "thanksText": "Supporter está activo para {{email}}, el correo de tu pago. En otro ordenador, inicia sesión con él en {{place}}.",
+    "thanksText": "Supporter está activo para {{email}}, el correo de tu pago. En otro ordenador, abre «Apoyar» y elige «Ya soy Supporter».",
     "done": "Listo",
     "signInTitle": "Iniciar sesión como Supporter",
     "signInText": "¿Pagaste en otro ordenador? Escribe el correo de tu pago y te enviaremos un código de 6 dígitos, sin contraseña. Así Koona Pin también conocerá tu plan aquí.",
@@ -1159,24 +1159,30 @@
     "back": "Atrás",
     "signIn": "Iniciar sesión",
     "tooManyCodes": "Se pidieron demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
-    "badge": "Supporter · ¡gracias! Tu plan está en Ajustes"
+    "badge": "Supporter · tu plan y tus ventajas",
+    "perksTitle": "Tus ventajas",
+    "soon": "Pronto",
+    "renewsOn": "Se renueva el {{date}}",
+    "endsOn": "No se renueva · Supporter hasta el {{date}}",
+    "pastDue": "La renovación no se completó — actualiza la tarjeta",
+    "unchecked": "No se pudo comprobar el plan — sigue activo hasta el {{date}}",
+    "perk": {
+      "sync": "Sincronización entre tus ordenadores",
+      "syncHint": "Fase inicial — llegará con una actualización",
+      "backups": "Copias automáticas en una carpeta",
+      "backupsHint": "En la carpeta que elijas, como Dropbox o Google Drive",
+      "badge": "Insignia de Supporter",
+      "badgeHint": "El corazón de la barra lateral, del color de la estación",
+      "early": "Versiones tempranas",
+      "earlyHint": "Versiones nuevas un poco antes que nadie"
+    }
   },
   "plan": {
-    "header": "Plan",
-    "free": "Gratis",
-    "freeHint": "Todo en este ordenador, gratis para siempre",
-    "become": "Hacerse Supporter",
     "already": "Ya soy Supporter",
     "yearly": "Supporter · anual",
     "monthly": "Supporter · mensual",
-    "renews": "{{email}} · se renueva el {{date}}",
-    "until": "Supporter hasta el {{date}}",
-    "noRenewal": "No se renueva. Tu biblioteca se queda como está.",
-    "pastDue": "Supporter · el pago no se completó",
-    "pastDueHint": "Paddle lo intentará de nuevo. Actualiza la tarjeta para seguir siendo Supporter.",
     "updateCard": "Actualizar tarjeta",
     "manage": "Gestionar",
-    "signOut": "Cerrar sesión",
-    "couldNotCheck": "No se pudo comprobar el plan: sin conexión. Sigue activo hasta el {{date}}."
+    "signOut": "Cerrar sesión"
   }
 }
