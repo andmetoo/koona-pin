@@ -825,8 +825,8 @@ export function ConnectDialog({
     );
   };
   return (
-    <Dialog title={t("connect.title")} onClose={onClose}>
-      <div className="flex w-[440px] max-w-full flex-col gap-4 text-sm">
+    <Dialog title={t("connect.title")} onClose={onClose} width={480}>
+      <div className="flex flex-col gap-4 text-sm">
         <div className="flex items-center gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-icon">
             <Icon icon={Link} />
