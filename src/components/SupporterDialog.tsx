@@ -71,8 +71,9 @@ export function SupporterDialog({
     };
   }, []);
 
-  // The payment step asks every few seconds; closing the dialog or leaving the step stops it. A
-  // payment finished after that is picked up at the next start of the app.
+  // The payment step asks every few seconds; closing the dialog or leaving the step stops it. The
+  // app keeps following the purchase by itself, less often (billing.rs, start), and signs in when
+  // it sees the payment.
   useEffect(() => {
     if (step !== "waiting") return;
     let alive = true;
@@ -87,7 +88,16 @@ export function SupporterDialog({
           } else if (state === "sign_in") {
             setStep("signIn");
           } else if (state === "none") {
-            setStep("plans");
+            // The app follows the payment by itself too (billing.rs): when it was first to see it
+            // paid, the purchase is gone here but the plan is already in place.
+            const status = await api.getSupporterStatus();
+            if (!alive) return;
+            if (status.plan) {
+              setPaidEmail(status.email);
+              setStep("thanks");
+            } else {
+              setStep("plans");
+            }
           }
         })
         .catch(() => {});

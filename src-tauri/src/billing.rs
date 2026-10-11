@@ -36,6 +36,13 @@ const GRACE: TimeDelta = TimeDelta::days(7);
 const CLAIM_LIFETIME: TimeDelta = TimeDelta::days(2);
 /// Purchases waiting at once: one per plan is the usual case, a few more cover going back and forth.
 const MAX_CHECKOUTS: usize = 4;
+/// How often the app asks about a purchase waiting here, by the age of the newest one: often while
+/// the payment page is likely open, then rarely until CLAIM_LIFETIME. Never without one.
+const CLAIM_EVERY: [(TimeDelta, Duration); 3] = [
+    (TimeDelta::minutes(30), Duration::from_secs(15)),
+    (TimeDelta::hours(3), Duration::from_secs(60)),
+    (CLAIM_LIFETIME, Duration::from_secs(10 * 60)),
+];
 const TICK: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Debug, Clone, Copy)]
@@ -156,6 +163,30 @@ impl Stored {
         let extra = self.checkouts.len().saturating_sub(MAX_CHECKOUTS);
         self.checkouts.drain(..extra);
     }
+
+    /// Signed in by a paid purchase: that one is done; the others started here keep waiting, a
+    /// payment in their tabs is still picked up.
+    fn signed_in_by(&mut self, secret: &str, session: Session, plan: Option<Plan>, now: DateTime<Utc>) {
+        self.session = Some(session);
+        self.plan = plan;
+        self.checked_at = Some(now);
+        self.check_failed = false;
+        self.checkouts.retain(|c| c.secret != secret);
+    }
+
+    /// The account a request was made for is still the one here: an answer that comes after Sign
+    /// out, or after another account signed in, changes nothing.
+    fn same_account(&self, email: &str) -> bool {
+        self.session.as_ref().is_some_and(|s| s.email == email)
+    }
+
+    /// When the background asks next: about the purchases waiting here, else the hourly tick.
+    fn next_wake(&self, now: DateTime<Utc>) -> Duration {
+        let Some(newest) = self.checkouts.iter().map(|c| c.started).max() else {
+            return TICK;
+        };
+        CLAIM_EVERY.iter().find(|(age, _)| now - newest < *age).map_or(TICK, |(_, every)| *every)
+    }
 }
 
 /// What the sidebar, the dialog and Settings → Plan show.
@@ -238,6 +269,8 @@ fn new_secret() -> String {
 pub struct Billing {
     path: PathBuf,
     stored: Mutex<Stored>,
+    /// Wakes the background when a purchase starts, so it asks about it after the dialog closes.
+    wake: tokio::sync::Notify,
 }
 
 impl Billing {
@@ -251,7 +284,7 @@ impl Billing {
         if service().is_some_and(|s| s.sandbox != stored.sandbox) {
             stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
         }
-        Billing { path, stored: Mutex::new(stored) }
+        Billing { path, stored: Mutex::new(stored), wake: tokio::sync::Notify::new() }
     }
 
     fn get(&self) -> Stored {
@@ -290,7 +323,8 @@ impl Billing {
 }
 
 /// Called in `setup`: loads the account and asks the server only when a check is due or a
-/// purchase was left waiting.
+/// purchase is waiting. A purchase is followed here whether its dialog is open or not, and a
+/// failed request is simply asked again at the next wake.
 pub fn start(app: &AppHandle) {
     let path = crate::library::Paths::from_env().folder().join(FILE);
     app.manage(Billing::load(path));
@@ -301,14 +335,18 @@ pub fn start(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(15)).await;
         let billing = app.state::<Billing>();
-        if !billing.get().checkouts.is_empty() {
-            let _ = claim(&app).await;
-        }
         loop {
-            if due(&app.state::<Billing>().get(), Utc::now()) {
+            if !billing.get().checkouts.is_empty() {
+                let _ = claim(&app).await;
+            }
+            if due(&billing.get(), Utc::now()) {
                 let _ = check(&app).await;
             }
-            tokio::time::sleep(TICK).await;
+            let wait = billing.get().next_wake(Utc::now());
+            tokio::select! {
+                _ = tokio::time::sleep(wait) => {}
+                _ = billing.wake.notified() => {}
+            }
         }
     });
 }
@@ -388,19 +426,35 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
         return Ok(Some(session.access_token));
     }
     let (status, value) = auth(app, "token?grant_type=refresh_token", json!({ "refresh_token": session.refresh_token })).await?;
+    // Only the session this refresh was for: Sign out or another sign-in meanwhile wins.
+    let same = |s: &Stored| s.session.as_ref().is_some_and(|now| now.refresh_token == session.refresh_token);
     if status.is_client_error() {
-        billing.update(app, |s| s.session = None)?;
+        billing.update(app, |s| {
+            if same(s) {
+                s.session = None;
+            }
+        })?;
         return Ok(None);
     }
     let fresh = session_of(&value).ok_or_else(|| refused("auth refresh", status))?;
     let token = fresh.access_token.clone();
-    billing.update(app, |s| s.session = Some(fresh))?;
-    Ok(Some(token))
+    let mut kept = false;
+    billing.update(app, |s| {
+        if same(s) {
+            s.session = Some(fresh);
+            kept = true;
+        }
+    })?;
+    Ok(kept.then_some(token))
 }
 
 /// Asks for the plan of the signed-in account; marks the check failed when the server is away.
+/// The answer counts only for the account it was asked for: after Sign out it changes nothing.
 async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
     let billing = app.state::<Billing>();
+    let Some(email) = billing.get().session.map(|s| s.email) else {
+        return Ok(status(&billing.get(), Utc::now()));
+    };
     let result = async {
         let Some(token) = access_token(app).await? else {
             return Ok(None);
@@ -413,17 +467,25 @@ async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
         Ok(Some((status, value))) if status.is_success() => {
             let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
             billing.update(app, |s| {
-                s.plan = plan;
-                s.checked_at = Some(Utc::now());
-                s.check_failed = false;
+                if s.same_account(&email) {
+                    s.plan = plan;
+                    s.checked_at = Some(Utc::now());
+                    s.check_failed = false;
+                }
             })
         }
         // Signed out elsewhere: the plan stays until its period ends, as when offline.
-        Ok(_) => billing.update(app, |s| s.checked_at = Some(Utc::now())),
+        Ok(_) => billing.update(app, |s| {
+            if s.same_account(&email) || s.session.is_none() {
+                s.checked_at = Some(Utc::now());
+            }
+        }),
         Err(error) => {
             billing.update(app, |s| {
-                s.checked_at = Some(Utc::now());
-                s.check_failed = true;
+                if s.same_account(&email) {
+                    s.checked_at = Some(Utc::now());
+                    s.check_failed = true;
+                }
             })?;
             Err(error)
         }
@@ -462,13 +524,9 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
         } else if value["status"] == "paid" {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
             let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
-            // Signed in: the other purchases of this computer are not needed any more.
             billing.update(app, |s| {
-                s.session = Some(session);
-                s.plan = plan;
-                s.checked_at = Some(Utc::now());
-                s.check_failed = false;
-                s.checkouts.clear();
+                s.signed_in_by(&checkout.secret, session, plan, Utc::now());
+                s.checkouts.retain(|c| !finished.contains(&c.secret));
             })?;
             return Ok(CheckoutState::Paid);
         }
@@ -533,6 +591,7 @@ pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<St
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing checkout", status))?.to_string();
     let checkout = Checkout { secret, started: Utc::now(), interval: Some(interval), url: Some(url.clone()) };
     billing.update(&app, |s| s.add_checkout(checkout))?;
+    billing.wake.notify_one();
     open(&app, &url)?;
     Ok(url)
 }
@@ -717,6 +776,36 @@ mod tests {
         }
         assert_eq!(stored.checkouts.len(), MAX_CHECKOUTS);
         assert_eq!(stored.checkouts.last().unwrap().secret, "extra5");
+    }
+
+    #[test]
+    fn a_paid_purchase_signs_in_and_leaves_the_others_waiting() {
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        stored.add_checkout(checkout("month1", "2026-10-12T11:05:00Z", PlanInterval::Month));
+        let session = supporter("2027-10-12T11:00:00Z").session.unwrap();
+        stored.signed_in_by("year1", session, None, at("2026-10-12T11:10:00Z"));
+        assert!(stored.same_account("anna@example.com"));
+        assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
+    }
+
+    #[test]
+    fn an_answer_for_an_account_that_left_changes_nothing() {
+        let stored = supporter("2027-10-11T12:00:00Z");
+        assert!(stored.same_account("anna@example.com"));
+        assert!(!stored.same_account("bob@example.com"), "another account signed in meanwhile");
+        assert!(!Stored::default().same_account("anna@example.com"), "signed out meanwhile");
+    }
+
+    #[test]
+    fn a_waiting_purchase_is_followed_often_at_first_then_rarely_and_never_without_one() {
+        let mut stored = Stored::default();
+        assert_eq!(stored.next_wake(at("2026-10-12T12:00:00Z")), TICK);
+        stored.add_checkout(checkout("year1", "2026-10-12T12:00:00Z", PlanInterval::Year));
+        assert_eq!(stored.next_wake(at("2026-10-12T12:10:00Z")), Duration::from_secs(15));
+        assert_eq!(stored.next_wake(at("2026-10-12T13:00:00Z")), Duration::from_secs(60));
+        assert_eq!(stored.next_wake(at("2026-10-13T12:00:00Z")), Duration::from_secs(600));
+        assert_eq!(stored.next_wake(at("2026-10-14T13:00:00Z")), TICK, "past its lifetime");
     }
 
     #[test]

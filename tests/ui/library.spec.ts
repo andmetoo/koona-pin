@@ -2288,6 +2288,15 @@ test("Supporter: a payment with the email of an existing account signs in only w
   await expect(page.getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
 });
 
+test("Supporter: a payment the app saw first in the background still ends in thanks (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "background"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toContainText("anna@example.com", { timeout: 15_000 });
+  await expect(page.locator("[data-plan-row]")).toHaveAttribute("data-plan-row", "supporter");
+});
+
 test("Supporter: the server cannot be reached — the dialog says so and keeps the plan chosen (NP-066)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "no_server"));
   await page.reload();
