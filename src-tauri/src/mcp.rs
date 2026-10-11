@@ -30,12 +30,17 @@ use ts_rs::TS;
 pub const ACCESS_KEY: &str = "mcp_access";
 const LAST_CLIENT_KEY: &str = "mcp_last_client";
 const LAST_AT_KEY: &str = "mcp_last_at";
+const MODE_KEY: &str = "mcp_mode";
+/// The settings say when an assistant last asked to the minute.
+const LAST_EVERY: chrono::TimeDelta = chrono::TimeDelta::seconds(60);
 
 /// Bookmarks one search returns at most, and when the assistant names none.
 pub const MAX_RESULTS: u32 = 50;
 pub const DEFAULT_RESULTS: u32 = 20;
 /// The result of one call, as JSON; a longer list is cut and says so.
 pub const MAX_REPLY: usize = 64 * 1024;
+/// Room in an answer for what is not a bookmark: the total, the cursor, the flags.
+const REPLY_FRAME: usize = 1024;
 /// Collections and tags one list returns at most.
 const MAX_NAMES: usize = 500;
 /// A longer query is not a search.
@@ -50,41 +55,13 @@ const NOTES: usize = 4_000;
 const ADDRESS: usize = 2_048;
 const NAME: usize = 100;
 
-/// Settings → AI assistants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub enum McpAccess {
-    Off,
-    Read,
-    ReadAndAdd,
-}
-
-impl From<Access> for McpAccess {
-    fn from(access: Access) -> Self {
-        match access {
-            Access::Off => McpAccess::Off,
-            Access::Read => McpAccess::Read,
-            Access::ReadAndAdd => McpAccess::ReadAndAdd,
-        }
-    }
-}
-
-impl From<McpAccess> for Access {
-    fn from(access: McpAccess) -> Self {
-        match access {
-            McpAccess::Off => Access::Off,
-            McpAccess::Read => Access::Read,
-            McpAccess::ReadAndAdd => Access::ReadAndAdd,
-        }
-    }
-}
-
 /// What the settings show, also pushed as the `mcp-status` event.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
 pub struct McpStatus {
-    pub access: McpAccess,
+    pub access: Access,
+    /// What turning access on gives: the mode chosen last, «Read only» at first.
+    pub mode: Access,
     /// The assistant of the last tool call and when it came; none before the first.
     pub last_client: Option<String>,
     pub last_at: Option<String>,
@@ -97,16 +74,53 @@ pub fn access(conn: &Connection) -> Access {
         .unwrap_or(Access::Off)
 }
 
+/// The mode last chosen, kept while access is off.
+fn mode(conn: &Connection) -> Access {
+    db::setting(conn, MODE_KEY)
+        .ok()
+        .and_then(|value| Access::parse(&value))
+        .filter(|mode| *mode != Access::Off)
+        .unwrap_or(Access::Read)
+}
+
 pub fn set_access(conn: &Connection, access: Access) -> rusqlite::Result<()> {
-    db::set_setting(conn, ACCESS_KEY, access.as_str())
+    let tx = conn.unchecked_transaction()?;
+    db::set_setting(&tx, ACCESS_KEY, &access.as_str())?;
+    if access != Access::Off {
+        db::set_setting(&tx, MODE_KEY, &access.as_str())?;
+    }
+    tx.commit()
 }
 
 pub fn status(conn: &Connection) -> McpStatus {
     McpStatus {
-        access: access(conn).into(),
+        access: access(conn),
+        mode: mode(conn),
         last_client: db::setting(conn, LAST_CLIENT_KEY).ok().filter(|v| !v.is_empty()),
         last_at: db::setting(conn, LAST_AT_KEY).ok(),
     }
+}
+
+/// Remembers the last request for the settings. Every write of the library
+/// waits for the disk, and a search is no reason to write: the same
+/// assistant within [`LAST_EVERY`] is not written again. Both values go in
+/// one statement. Whether the settings should hear of it.
+fn note_request(conn: &Connection, name: &str, now: DateTime<Utc>) -> bool {
+    let same = db::setting(conn, LAST_CLIENT_KEY).is_ok_and(|last| last == name);
+    let recent = db::setting(conn, LAST_AT_KEY)
+        .ok()
+        .and_then(|at| DateTime::parse_from_rfc3339(&at).ok())
+        .is_some_and(|at| now.signed_duration_since(at) < LAST_EVERY && at <= now);
+    if same && recent {
+        return false;
+    }
+    // A read-only (damaged) library keeps none: the last request is a convenience.
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?1, ?2), (?3, ?4)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        rusqlite::params![LAST_CLIENT_KEY, name, LAST_AT_KEY, db::stamp(now)],
+    )
+    .is_ok()
 }
 
 /// How triage and the settings name the assistant: the known ones by their
@@ -189,11 +203,8 @@ pub fn handle(conn: &Connection, journal: &mut Journal, message: &Value, now: Da
     let Some(spec) = tools::spec(&tool) else {
         return none(failure("unknown_tool", &format!("Koona Pin has no tool {tool}")));
     };
-    // The last request is a convenience: a read-only (damaged) library keeps none.
     let name = assistant_name(&message.client);
-    let stamp = db::stamp(now);
-    let status = db::set_setting(conn, LAST_CLIENT_KEY, &name).is_ok()
-        && db::set_setting(conn, LAST_AT_KEY, &stamp).is_ok();
+    let status = note_request(conn, &name, now);
     let answer = |outcome: Result<Value, String>| match outcome {
         Ok(result) => json!({ "ok": true, "access": access.as_str(), "result": result }),
         Err(error) => json!({ "ok": true, "access": access.as_str(), "error": error }),
@@ -311,19 +322,25 @@ impl Call<'_> {
         .map_err(library_error)?;
         let names = self.names()?;
         let mut items: Vec<Value> = page.items.iter().map(|b| summary(b, &names)).collect();
-        let mut next = page.next.map(|cursor| json!(serde_json::to_string(&cursor).unwrap_or_default()));
-        let mut truncated = false;
-        let reply = loop {
-            let reply = json!({ "bookmarks": items, "total": page.total, "next_cursor": next, "truncated": truncated });
-            if items.is_empty() || reply.to_string().len() <= MAX_REPLY {
-                break reply;
-            }
-            // Cut from the end; the next page starts after the last one kept.
-            items.pop();
-            truncated = true;
-            next = page.items.get(items.len().wrapping_sub(1)).and_then(cursor_of).map(|c| json!(c));
+        // What fits in MAX_REPLY, each bookmark measured once; the rest of the
+        // answer is far below REPLY_FRAME.
+        let mut used = REPLY_FRAME;
+        let fit = items
+            .iter()
+            .take_while(|item| {
+                used += item.to_string().len() + 1;
+                used <= MAX_REPLY
+            })
+            .count();
+        let truncated = fit < items.len();
+        let next = if truncated {
+            // The next page starts after the last one kept.
+            items.truncate(fit);
+            fit.checked_sub(1).and_then(|last| cursor_of(&page.items[last]))
+        } else {
+            page.next.and_then(|cursor| serde_json::to_string(&cursor).ok())
         };
-        Ok(reply)
+        Ok(json!({ "bookmarks": items, "total": page.total, "next_cursor": next, "truncated": truncated }))
     }
 
     fn get(&self, id: i64) -> Result<Value, String> {
@@ -436,12 +453,12 @@ pub fn setup(server: &std::path::Path) -> McpSetup {
     }
 }
 
-/// The manifest of the Claude Desktop package (MCPB 0.3). It runs the server
-/// installed with the app, not the copy inside: the app's updates replace
-/// that one, and the copy only satisfies the format. The command goes without
-/// `.exe`, which Claude Desktop adds to binaries itself.
+/// The manifest of the Claude Desktop package (MCPB 0.3), as the format
+/// describes a binary server: the copy inside the package, under
+/// `${__dirname}` and without `.exe`, which Claude Desktop adds itself. The
+/// path of the installed server goes in [`tools::INSTALLED_ENV`].
 pub fn manifest(server: &std::path::Path) -> Value {
-    let command = server.with_extension("").display().to_string();
+    let command = "${__dirname}/server/koonapin-mcp";
     let tools: Vec<Value> = tools::TOOLS
         .iter()
         .map(|t| json!({ "name": t.name, "description": t.title }))
@@ -459,7 +476,7 @@ pub fn manifest(server: &std::path::Path) -> Value {
         "server": {
             "type": "binary",
             "entry_point": format!("server/{SERVER_EXE}"),
-            "mcp_config": { "command": command, "args": [] },
+            "mcp_config": { "command": command, "args": [], "env": serde_json::Map::from_iter([(tools::INSTALLED_ENV.to_owned(), json!(server.display().to_string()))]) },
         },
         "tools": tools,
         "compatibility": { "platforms": [if cfg!(windows) { "win32" } else { "linux" }] },
@@ -593,6 +610,42 @@ mod tests {
         // The attempt is the last request the settings show.
         let shown = status(&conn);
         assert_eq!((shown.last_client.as_deref(), shown.last_at.as_deref()), (Some("Claude Code"), Some("2026-10-11T12:00:00.000Z")));
+        assert!(off.status);
+    }
+
+    /// A search is no reason to write the library: the same assistant within
+    /// a minute is not noted again; another assistant, or later, is.
+    #[test]
+    fn the_last_request_is_written_at_most_once_a_minute() {
+        let conn = library();
+        let mut journal = Journal::default();
+        let at = |seconds: i64| now() + chrono::TimeDelta::seconds(seconds);
+        let ask = |journal: &mut Journal, client: &str, when| {
+            handle(&conn, journal, &json!({ "type": "mcp", "protocol": PROTOCOL, "client": client, "tool": tools::TAGS }), when).status
+        };
+        assert!(ask(&mut journal, "claude-code", at(0)));
+        assert!(!ask(&mut journal, "claude-code", at(30)), "within a minute");
+        assert_eq!(status(&conn).last_at.as_deref(), Some("2026-10-11T12:00:00.000Z"));
+        assert!(ask(&mut journal, "claude-ai", at(31)), "another assistant");
+        assert!(ask(&mut journal, "claude-ai", at(95)), "a minute later");
+        assert_eq!(status(&conn).last_at.as_deref(), Some("2026-10-11T12:01:35.000Z"));
+        // A clock set back does not hide requests for good.
+        assert!(ask(&mut journal, "claude-ai", at(-600)));
+    }
+
+    /// Turning access off and on again gives back the mode chosen before.
+    #[test]
+    fn access_comes_back_in_the_mode_chosen_last() {
+        let conn = library();
+        assert_eq!((status(&conn).access, status(&conn).mode), (Access::Off, Access::Read));
+        set_access(&conn, Access::ReadAndAdd).unwrap();
+        set_access(&conn, Access::Off).unwrap();
+        assert_eq!((status(&conn).access, status(&conn).mode), (Access::Off, Access::ReadAndAdd));
+        // The names the interface and app_settings use.
+        assert_eq!(serde_json::to_value(status(&conn)).unwrap()["mode"], "read_and_add");
+        assert_eq!(Access::ReadAndAdd.as_str(), "read_and_add");
+        assert_eq!(Access::parse("off"), Some(Access::Off));
+        assert_eq!(Access::parse("write"), None);
     }
 
     #[test]
@@ -712,6 +765,30 @@ mod tests {
         assert!(first_next < last_kept, "the next page goes on after the last one kept");
         let default = call(&conn, &mut journal, tools::SEARCH, json!({}));
         assert_eq!(result(&default)["bookmarks"].as_array().unwrap().len(), DEFAULT_RESULTS as usize);
+        assert_eq!(result(&default)["truncated"], false);
+    }
+
+    /// Fifty long addresses do not fit in an answer: it is cut, says so, and
+    /// the next page starts right after the last one kept.
+    #[test]
+    fn a_long_answer_is_cut_and_goes_on_from_where_it_stopped() {
+        let conn = library();
+        let mut journal = Journal::default();
+        set_access(&conn, Access::Read).unwrap();
+        let path = "p".repeat(3_000);
+        for i in 0..50 {
+            saved(&conn, &format!("https://example.com/{i}/{path}"), &format!("Page {i}"));
+        }
+        let first = call(&conn, &mut journal, tools::SEARCH, json!({ "limit": 50 }));
+        let reply = result(&first);
+        let items = reply["bookmarks"].as_array().unwrap();
+        assert_eq!(reply["truncated"], true);
+        assert!(reply.to_string().len() <= MAX_REPLY, "{}", reply.to_string().len());
+        assert!(items.len() > 20 && items.len() < 50, "{}", items.len());
+        let next = call(&conn, &mut journal, tools::SEARCH, json!({ "limit": 50, "cursor": reply["next_cursor"] }));
+        let following = result(&next)["bookmarks"].as_array().unwrap();
+        assert_eq!(following[0]["id"].as_i64().unwrap(), items.last().unwrap()["id"].as_i64().unwrap() - 1);
+        assert_eq!(items.len() + following.len().min(50 - items.len()), 50);
     }
 
     #[test]
@@ -730,7 +807,7 @@ mod tests {
     }
 
     /// The package Claude Desktop opens: a zip whose manifest runs the server
-    /// installed with the app, and the server inside for the format.
+    /// inside it, as the format says, and names the installed one it hands over to.
     #[test]
     fn the_package_runs_the_installed_server() {
         use std::io::Read;
@@ -760,7 +837,9 @@ mod tests {
         assert_eq!(entries[&format!("server/{SERVER_EXE}")], b"binary");
         assert!(entries["icon.png"].starts_with(b"\x89PNG"));
         assert_eq!(manifest["server"]["type"], "binary");
-        assert_eq!(manifest["server"]["mcp_config"]["command"], server.with_extension("").display().to_string());
+        assert_eq!(manifest["server"]["entry_point"], format!("server/{SERVER_EXE}"));
+        assert_eq!(manifest["server"]["mcp_config"]["command"], "${__dirname}/server/koonapin-mcp");
+        assert_eq!(manifest["server"]["mcp_config"]["env"][tools::INSTALLED_ENV], server.display().to_string());
         assert_eq!(manifest["tools"].as_array().unwrap().len(), tools::TOOLS.len());
         assert_eq!(manifest["version"], env!("CARGO_PKG_VERSION"));
         std::fs::remove_dir_all(&dir).unwrap();

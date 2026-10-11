@@ -1331,10 +1331,10 @@ pub async fn get_mcp_status(state: State<'_, Arc<DbState>>) -> Result<mcp::McpSt
 pub async fn set_mcp_access(
     app: AppHandle,
     state: State<'_, Arc<DbState>>,
-    access: mcp::McpAccess,
+    access: crate::mcp_tools::Access,
 ) -> Result<mcp::McpStatus, CommandError> {
     let status = blocking(&state, move |conn| {
-        mcp::set_access(conn, access.into())?;
+        mcp::set_access(conn, access)?;
         Ok(mcp::status(conn))
     })
     .await?;
@@ -1358,7 +1358,15 @@ pub async fn install_mcpb(app: AppHandle) -> Result<(), CommandError> {
         return Err(CommandError::detailed(ErrorCode::NotFound, ErrorDetail::ServerMissing, "koonapin-mcp is not next to the app"));
     }
     let bundle = tauri::async_runtime::spawn_blocking(move || {
-        let folder = std::env::temp_dir().join("Koona Pin");
+        // A folder of its own each time: Claude Desktop may still hold the
+        // package of an earlier click open. Those that it let go are removed.
+        let root = std::env::temp_dir().join("Koona Pin").join("mcpb");
+        if let Ok(earlier) = std::fs::read_dir(&root) {
+            for entry in earlier.flatten() {
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+        let folder = root.join(uuid::Uuid::new_v4().simple().to_string());
         std::fs::create_dir_all(&folder)?;
         let bundle = folder.join("koona-pin.mcpb");
         mcp::write_bundle(&server, &bundle).map(|_| bundle)

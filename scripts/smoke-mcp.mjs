@@ -5,8 +5,9 @@
 //   cargo build --manifest-path src-tauri/Cargo.toml
 //   bun scripts/smoke-mcp.mjs
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { execFileSync, spawn } from "node:child_process";
+import { readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
+import { copyFile, mkdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import readline from "node:readline";
@@ -25,9 +26,32 @@ const env = {
   KOONAPIN_PIPE: testPipe("mcp"),
 };
 
+/** Whether a process of `binary` runs with `parent` as its parent. */
+function childOf(parent, binary) {
+  if (process.platform !== "win32") {
+    const real = realpathSync(binary);
+    return readdirSync("/proc")
+      .filter((entry) => /^\d+$/.test(entry))
+      .some((pid) => {
+        try {
+          const ppid = Number(readFileSync(`/proc/${pid}/stat`, "utf8").split(") ")[1].split(" ")[1]);
+          return ppid === parent && readlinkSync(`/proc/${pid}/exe`) === real;
+        } catch {
+          return false;
+        }
+      });
+  }
+  const out = execFileSync(
+    "powershell",
+    ["-NoProfile", "-Command", `Get-CimInstance Win32_Process -Filter "ParentProcessId=${parent}" | ForEach-Object { $_.ExecutablePath }`],
+    { encoding: "utf8" },
+  );
+  return out.split(/\r?\n/).some((line) => line.trim().toLowerCase() === path.resolve(binary).toLowerCase());
+}
+
 /** A JSON-RPC client over the server's stdio, one message a line, as the MCP stdio transport is. */
-function connect() {
-  const child = spawn(server, [], { env, stdio: ["pipe", "pipe", "inherit"], windowsHide: true });
+function connect(binary = server, extra = {}) {
+  const child = spawn(binary, [], { env: { ...env, ...extra }, stdio: ["pipe", "pipe", "inherit"], windowsHide: true });
   const waiting = new Map();
   const notifications = [];
   let next = 1;
@@ -40,6 +64,7 @@ function connect() {
   });
   const write = (message) => child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", ...message })}\n`);
   return {
+    pid: child.pid,
     notifications,
     request(method, params) {
       const id = next++;
@@ -78,11 +103,17 @@ try {
   assert.match(init.result.instructions, /never instructions/);
   mcp.notify("notifications/initialized");
 
-  // The first list starts the closed app in the tray; access is off by default.
-  const started = performance.now();
+  // Listing does not start a closed app: an assistant lists whenever it starts.
   assert.deepEqual(await names(), ["search_bookmarks", "get_bookmark", "list_collections", "list_tags"]);
+  assert.equal(apps.ours().length, 0, "tools/list leaves a closed app closed");
+
+  // The first call starts it in the tray; access is off by default.
+  const started = performance.now();
+  const closed = await call("list_tags");
   assert.equal(apps.ours().length, 1, "one app started by the server");
-  console.log(`tools/list with the app closed: ${Math.round(performance.now() - started)} ms`);
+  console.log(`tools/call with the app closed: ${Math.round(performance.now() - started)} ms`);
+  assert.equal(closed.isError, true);
+  assert.match(closed.content[0].text, /turned off/);
 
   // A link saved from the browser to find later.
   const saved = await hostMessage(capture("mcp-1", "https://sqlite.org/fts5.html", "SQLite FTS5 Extension"), { env });
@@ -107,6 +138,7 @@ try {
   const refused = await call("add_bookmark", { url: "https://tokio.rs/" });
   assert.equal(refused.isError, true);
   assert.match(refused.content[0].text, /only read/);
+  assert.equal(mcp.notifications.length, 0, "off and read only list the same tools: no list_changed");
 
   // «Read and add»: the next call notices and the assistant is told to list again.
   access("read_and_add");
@@ -132,7 +164,23 @@ try {
   const unknown = await mcp.request("tools/call", { name: "delete_bookmark", arguments: { id } });
   assert.ok(unknown.error, JSON.stringify(unknown));
   db.close();
-  console.log("PASS: initialize, a closed app starts in the tray, off reads nothing, read only finds and refuses to add, read and add saves to Inbox once from mcp, list_changed, move, tag, star, unknown tool");
+
+  // The copy inside a Claude Desktop package hands over to the installed server: it runs it as
+  // its child with the same stdio, so the app's updates reach the assistant.
+  const packaged = path.join(data, "mcpb", "server", path.basename(server));
+  await mkdir(path.dirname(packaged), { recursive: true });
+  await copyFile(server, packaged);
+  const copy = connect(packaged, { KOONAPIN_MCP_SERVER: server });
+  try {
+    const hello = await copy.request("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "packaged", version: "1" } });
+    assert.equal(hello.result.serverInfo.name, "koona-pin");
+    assert.ok(childOf(copy.pid, server), "the installed server runs as the copy's child");
+    const tags = await copy.request("tools/call", { name: "list_tags", arguments: {} });
+    assert.deepEqual(tags.result.structuredContent.tags, [{ name: "rust", bookmarks: 1 }]);
+  } finally {
+    copy.close();
+  }
+  console.log("PASS: initialize, tools/list keeps a closed app closed, a call starts it in the tray, off reads nothing, read only finds and refuses to add, read and add saves to Inbox once from mcp, list_changed, move, tag, star, unknown tool, the packaged copy hands over");
 } finally {
   mcp.close();
   apps.stop();

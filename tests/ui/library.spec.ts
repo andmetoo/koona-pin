@@ -2365,7 +2365,10 @@ test("feedback: a report that never comes does not lock the dialog — it goes w
   await expect(dialog).toContainText("Some apps name the top key «servers».");
   await expect(dialog.locator("pre")).toContainText('"koona-pin"');
   await page.keyboard.press("Escape");
-  // Off again: the modes go.
+  // Off again: the modes go; on again: the mode chosen before comes back.
   await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
   await expect(section.getByRole("radiogroup")).toHaveCount(0);
+  await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read_and_add");
+  await expect(section.getByRole("radio", { name: "Read and add" })).toHaveAttribute("aria-checked", "true");
 });

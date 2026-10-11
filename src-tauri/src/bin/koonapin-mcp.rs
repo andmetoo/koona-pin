@@ -40,9 +40,10 @@ const INSTRUCTIONS: &str = "Koona Pin is the person's bookmark library on this c
 
 #[derive(Default)]
 struct Server {
-    /// The access the last tool list was made for: when a call finds another,
-    /// the assistant is told to list again.
-    listed: Mutex<Option<Access>>,
+    /// Whether the last tool list had the tools that change the library: when a
+    /// call finds otherwise, the assistant is told to list again. Off and Read
+    /// list the same tools.
+    listed: Mutex<Option<bool>>,
 }
 
 /// The assistant's name from `initialize`, for «saved from …» and the settings.
@@ -50,10 +51,10 @@ fn client(context: &RequestContext<RoleServer>) -> String {
     context.peer.peer_info().map(|info| info.client_info.name.clone()).unwrap_or_default()
 }
 
-/// One message to the app, started if it is closed.
-async fn ask(message: Value) -> Result<Value, String> {
+/// One message to the app; a tool call starts a closed app.
+async fn ask(message: Value, start: bool) -> Result<Value, String> {
     let envelope = json!({ "caller": "mcp", "message": message });
-    tokio::task::spawn_blocking(move || channel_client::ask(&envelope, true))
+    tokio::task::spawn_blocking(move || channel_client::ask(&envelope, start))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|_| "Koona Pin is not running and could not be started.".to_string())
@@ -94,13 +95,16 @@ impl ServerHandler for Server {
         _request: Option<PaginatedRequestParams>,
         context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        // An app that cannot be reached lists what off lists: the reading tools.
-        let reply = ask(json!({ "type": "mcp", "protocol": PROTOCOL, "client": client(&context) })).await;
+        // Listing does not start a closed app: an assistant lists its servers
+        // whenever it starts. Without an answer the reading tools are listed,
+        // as off lists them; the first call starts the app and tells the
+        // assistant if the list grew.
+        let reply = ask(json!({ "type": "mcp", "protocol": PROTOCOL, "client": client(&context) }), false).await;
         let access = reply
             .ok()
             .and_then(|reply| reply["access"].as_str().and_then(Access::parse))
             .unwrap_or(Access::Off);
-        *self.listed.lock().unwrap_or_else(|e| e.into_inner()) = Some(access);
+        *self.listed.lock().unwrap_or_else(|e| e.into_inner()) = Some(access.writes());
         Ok(ListToolsResult::with_all_items(tools(access)))
     }
 
@@ -116,15 +120,15 @@ impl ServerHandler for Server {
             "tool": request.name,
             "arguments": request.arguments,
         });
-        let reply = match ask(message).await {
+        let reply = match ask(message, true).await {
             Ok(reply) => reply,
             Err(error) => return Ok(text_error(error)),
         };
         if let Some(access) = reply["access"].as_str().and_then(Access::parse) {
             let changed = {
                 let mut listed = self.listed.lock().unwrap_or_else(|e| e.into_inner());
-                let changed = listed.is_some_and(|before| before != access);
-                *listed = Some(access);
+                let changed = listed.is_some_and(|before| before != access.writes());
+                *listed = Some(access.writes());
                 changed
             };
             if changed {
@@ -146,8 +150,32 @@ impl ServerHandler for Server {
     }
 }
 
+/// The copy inside a Claude Desktop package hands over to the server installed
+/// with the app (`mcp_tools::INSTALLED_ENV`), which the app's updates replace:
+/// stdio goes to it, and its exit is this one's. Without one, or when this is
+/// that one, this copy serves.
+fn hand_over() -> Option<i32> {
+    let installed = std::path::PathBuf::from(std::env::var_os(mcp_tools::INSTALLED_ENV)?);
+    let own = std::env::current_exe().ok()?.canonicalize().ok()?;
+    if !installed.is_file() || installed.canonicalize().ok()? == own {
+        return None;
+    }
+    let status = std::process::Command::new(&installed)
+        .env_remove(mcp_tools::INSTALLED_ENV)
+        .status()
+        .ok()?;
+    Some(status.code().unwrap_or(1))
+}
+
+fn main() {
+    if let Some(code) = hand_over() {
+        std::process::exit(code);
+    }
+    serve();
+}
+
 #[tokio::main]
-async fn main() {
+async fn serve() {
     let Ok(service) = Server::default().serve(rmcp::transport::stdio()).await else {
         std::process::exit(1);
     };

@@ -87,7 +87,7 @@ function storedDesktop(): Desktop | null {
  */
 export const DEMO_UPDATE_KEY = "koonapin.demo.update";
 /** AI assistants (NP-091): off, as in a new library; no assistant ever asks the preview. */
-let demoMcp: McpStatus = { access: "off", last_client: null, last_at: null };
+let demoMcp: McpStatus = { access: "off", mode: "read", last_client: null, last_at: null };
 const mcpListeners = new Set<(status: McpStatus) => void>();
 let demoUpdate: UpdateStatus | null = null;
 const updateListeners = new Set<(status: UpdateStatus) => void>();
@@ -1159,7 +1159,7 @@ export const demo = {
     return demoMcp;
   },
   async setMcpAccess(access: McpAccess): Promise<McpStatus> {
-    demoMcp = { ...demoMcp, access };
+    demoMcp = { ...demoMcp, access, mode: access === "off" ? demoMcp.mode : access };
     for (const fn of mcpListeners) fn(demoMcp);
     return demoMcp;
   },

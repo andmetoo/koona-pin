@@ -121,6 +121,19 @@ mod tests {
         assert_eq!(std::fs::read_link(folder.join(APP_LINK)).unwrap(), dir.join("Apps/koonapin.AppImage"));
         let names: Vec<_> = std::fs::read_dir(&folder).unwrap().map(|e| e.unwrap().file_name()).collect();
         assert_eq!(names.len(), 2, "no partial files left: {names:?}");
+
+        // An image with the MCP server (NP-091): it comes out beside the host and follows new versions.
+        let server = mount.join(SERVER_BINARY);
+        std::fs::write(&server, b"mcp 1").unwrap();
+        settle_host(&inside, &dir.join("Apps/koonapin.AppImage"), &folder).unwrap();
+        let copied = folder.join(SERVER_BINARY);
+        assert_eq!(std::fs::read(&copied).unwrap(), b"mcp 1");
+        assert_eq!(std::fs::metadata(&copied).unwrap().permissions().mode() & 0o777, 0o755);
+        std::fs::write(&server, b"mcp 2").unwrap();
+        settle_host(&inside, &dir.join("Apps/koonapin.AppImage"), &folder).unwrap();
+        assert_eq!(std::fs::read(&copied).unwrap(), b"mcp 2");
+        let names: Vec<_> = std::fs::read_dir(&folder).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names.len(), 3, "host, server and link, nothing partial: {names:?}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

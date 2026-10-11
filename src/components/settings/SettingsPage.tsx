@@ -110,11 +110,8 @@ export function SettingsPage({
     );
   const lastCopy = (() => {
     if (!data?.last_copy) return t("settings.noCopies");
-    const date = new Date(data.last_copy);
-    const time = date.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
-    return date.toDateString() === new Date().toDateString()
-      ? t("settings.lastCopyToday", { time })
-      : t("settings.lastCopyOn", { date: date.toLocaleDateString(i18n.language, { day: "numeric", month: "long" }), time });
+    const at = moment(data.last_copy, i18n.language);
+    return at.today ? t("settings.lastCopyToday", at) : t("settings.lastCopyOn", at);
   })();
 
   return (
@@ -294,11 +291,8 @@ function UpdatesSection({
   const { t, i18n } = useTranslation();
   const desktop = isTauri();
   const upToDate = (iso: string) => {
-    const date = new Date(iso);
-    const time = date.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
-    return date.toDateString() === new Date().toDateString()
-      ? t("settings.upToDateToday", { time })
-      : t("settings.upToDateOn", { date: date.toLocaleDateString(i18n.language, { day: "numeric", month: "long" }), time });
+    const at = moment(iso, i18n.language);
+    return at.today ? t("settings.upToDateToday", at) : t("settings.upToDateOn", at);
   };
   const offered = offer(update);
   const state = checking ? "checking" : (update?.state ?? "unknown");
@@ -470,7 +464,7 @@ function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onN
             label={t("assistants.allow")}
             checked={on}
             disabled={!status || busy}
-            onChange={(enabled) => change(enabled ? "read" : "off")}
+            onChange={(enabled) => change(enabled ? (status?.mode ?? "read") : "off")}
           />
         </Row>
       </div>
@@ -499,12 +493,18 @@ function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onN
 /** «On · last request from Claude Code today at 14:05», or that none came yet. */
 function lastRequest(status: McpStatus | null, t: TFunction, language: string) {
   if (!status?.last_at) return t("assistants.noRequests");
-  const date = new Date(status.last_at);
-  const time = date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
-  const client = status.last_client || t("assistants.someone");
-  return date.toDateString() === new Date().toDateString()
-    ? t("assistants.lastToday", { client, time })
-    : t("assistants.lastOn", { client, time, date: date.toLocaleDateString(language, { day: "numeric", month: "long" }) });
+  const at = { ...moment(status.last_at, language), client: status.last_client || t("assistants.someone") };
+  return at.today ? t("assistants.lastToday", at) : t("assistants.lastOn", at);
+}
+
+/** When something happened, for «… today at 14:05» or «… on 3 October at 14:05». */
+function moment(iso: string, language: string) {
+  const at = new Date(iso);
+  return {
+    today: at.toDateString() === new Date().toDateString(),
+    time: at.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" }),
+    date: at.toLocaleDateString(language, { day: "numeric", month: "long" }),
+  };
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

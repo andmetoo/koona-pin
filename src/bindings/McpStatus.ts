@@ -6,6 +6,10 @@ import type { McpAccess } from "./McpAccess";
  */
 export type McpStatus = { access: McpAccess, 
 /**
+ * What turning access on gives: the mode chosen last, «Read only» at first.
+ */
+mode: McpAccess, 
+/**
  * The assistant of the last tool call and when it came; none before the first.
  */
 last_client: string | null, last_at: string | null, };
