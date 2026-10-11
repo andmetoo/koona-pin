@@ -70,7 +70,7 @@ bun run test:host
 bun run test:mcp
 ```
 
-`scripts/smoke-mcp.mjs` drives the built `koonapin-mcp` over stdio as an assistant does, on its own library and pipe: `initialize`, the first `tools/list` starts a closed app in the tray, off reads nothing, read only finds a bookmark by a word and refuses to add, read and add saves to the inbox from `mcp` once, `list_changed`, move, tag, star, an unknown tool.
+`scripts/smoke-mcp.mjs` drives the built `koonapin-mcp` over stdio as an assistant does, on its own library and pipe: `initialize`, `tools/list` keeps a closed app closed and the first call starts it in the tray, off reads nothing, read only finds a bookmark by a word and refuses to add, read and add saves to the inbox from `mcp` once, `list_changed`, move, tag, star, an unknown tool, and the copy inside a `.mcpb` handing over to the installed server.
 
 ## Extension smoke tests
 
