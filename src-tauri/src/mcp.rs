@@ -266,7 +266,12 @@ impl Call<'_> {
             }
             tools::MOVE => {
                 let a: tools::MoveArgs = args(arguments)?;
-                Ok(self.collection_id(&a.collection).and_then(|id| self.change(a.id, Action::Move, AssistantChange::Move(id))))
+                if a.collection.is_none() && a.collection_id.is_none() {
+                    return Err("collection_id or collection: the collection to move it into".into());
+                }
+                Ok(self
+                    .collection(a.collection.as_deref(), a.collection_id)
+                    .and_then(|id| self.change(a.id, Action::Move, AssistantChange::Move(id.unwrap_or_default()))))
             }
             tools::FAVORITE => {
                 let a: tools::FavoriteArgs = args(arguments)?;
@@ -284,23 +289,28 @@ impl Call<'_> {
             .collect())
     }
 
-    /// A collection named by the assistant: the name as the sidebar shows it,
-    /// case aside.
-    fn collection_id(&self, name: &str) -> Result<i64, String> {
-        let wanted = db::fold(name.trim());
-        db::get_collections(self.conn)
-            .map_err(library_error)?
-            .into_iter()
-            .find(|c| db::fold(&c.name) == wanted)
-            .map(|c| c.id)
-            .ok_or_else(|| format!("Koona Pin has no collection named «{}»; list_collections names them.", clip(name, NAME)))
+    /// The collection an assistant means: by the id list_collections gives,
+    /// which works for any name, or by the name as the sidebar shows it, case
+    /// aside. None when it names none.
+    fn collection(&self, name: Option<&str>, id: Option<i64>) -> Result<Option<i64>, String> {
+        let name = name.map(str::trim).filter(|n| !n.is_empty());
+        if id.is_none() && name.is_none() {
+            return Ok(None);
+        }
+        let all = db::get_collections(self.conn).map_err(library_error)?;
+        let found = match (id, name) {
+            (Some(id), _) => all.iter().find(|c| c.id == id),
+            (None, Some(name)) => all.iter().find(|c| db::fold(&c.name) == db::fold(name)),
+            (None, None) => None,
+        };
+        found.map(|c| Some(c.id)).ok_or_else(|| match id {
+            Some(id) => format!("Koona Pin has no collection with id {id}; list_collections lists them."),
+            None => format!("Koona Pin has no collection named «{}»; give its collection_id from list_collections.", clip(name.unwrap_or_default(), NAME)),
+        })
     }
 
     fn search(&self, a: tools::SearchArgs) -> Result<Value, String> {
-        let collection_id = match a.collection.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
-            Some(name) => Some(self.collection_id(name)?),
-            None => None,
-        };
+        let collection_id = self.collection(a.collection.as_deref(), a.collection_id)?;
         let after = match a.cursor.as_deref().filter(|c| !c.is_empty()) {
             Some(cursor) => Some(serde_json::from_str(cursor).map_err(|_| "cursor: not a next_cursor of Koona Pin".to_string())?),
             None => None,
@@ -322,16 +332,7 @@ impl Call<'_> {
         .map_err(library_error)?;
         let names = self.names()?;
         let mut items: Vec<Value> = page.items.iter().map(|b| summary(b, &names)).collect();
-        // What fits in MAX_REPLY, each bookmark measured once; the rest of the
-        // answer is far below REPLY_FRAME.
-        let mut used = REPLY_FRAME;
-        let fit = items
-            .iter()
-            .take_while(|item| {
-                used += item.to_string().len() + 1;
-                used <= MAX_REPLY
-            })
-            .count();
+        let fit = fitting(&items);
         let truncated = fit < items.len();
         let next = if truncated {
             // The next page starts after the last one kept.
@@ -357,23 +358,28 @@ impl Call<'_> {
 
     fn collections(&self) -> Result<Value, String> {
         let all = db::get_collections(self.conn).map_err(library_error)?;
-        let truncated = all.len() > MAX_NAMES;
-        let collections: Vec<Value> = all
+        let mut collections: Vec<Value> = all
             .iter()
             .take(MAX_NAMES)
             .map(|c| json!({ "id": c.id, "name": clip(&c.name, NAME), "bookmarks": c.count.unwrap_or(0) }))
             .collect();
+        let fit = fitting(&collections);
+        let truncated = fit < all.len();
+        collections.truncate(fit);
         Ok(json!({ "collections": collections, "truncated": truncated }))
     }
 
     fn tags(&self) -> Result<Value, String> {
         let all = db::get_tags(self.conn).map_err(library_error)?;
-        let truncated = all.len() > MAX_NAMES;
-        let tags: Vec<Value> = all
+        // A tag is searched by its name: cut only one far longer than any tag someone types.
+        let mut tags: Vec<Value> = all
             .iter()
             .take(MAX_NAMES)
-            .map(|t| json!({ "name": clip(&t.name, NAME), "bookmarks": t.count.unwrap_or(0) }))
+            .map(|t| json!({ "name": clip(&t.name, TITLE), "bookmarks": t.count.unwrap_or(0) }))
             .collect();
+        let fit = fitting(&tags);
+        let truncated = fit < all.len();
+        tags.truncate(fit);
         Ok(json!({ "tags": tags, "truncated": truncated }))
     }
 
@@ -523,7 +529,7 @@ fn zip(files: &[(String, Vec<u8>)]) -> std::io::Result<Vec<u8>> {
             h.extend((name.len() as u16).to_le_bytes());
             h.extend(0u16.to_le_bytes()); // extra
             if central {
-                h.extend([0u8; 8]); // comment, disk, internal attributes
+                h.extend([0u8; 6]); // comment length, disk, internal attributes
                 h.extend(0u32.to_le_bytes()); // external attributes
                 h.extend(at.to_le_bytes());
             }
@@ -546,6 +552,19 @@ fn zip(files: &[(String, Vec<u8>)]) -> std::io::Result<Vec<u8>> {
     Ok(out)
 }
 
+/// How many of `items`, from the first, fit in an answer of [`MAX_REPLY`]:
+/// each measured once, the rest of the answer far below [`REPLY_FRAME`].
+fn fitting(items: &[Value]) -> usize {
+    let mut used = REPLY_FRAME;
+    items
+        .iter()
+        .take_while(|item| {
+            used += item.to_string().len() + 1;
+            used <= MAX_REPLY
+        })
+        .count()
+}
+
 fn cursor_of(b: &Bookmark) -> Option<String> {
     serde_json::to_string(&db::PageCursor { at: b.created_at.clone(), id: b.id, key: None }).ok()
 }
@@ -559,6 +578,7 @@ fn summary(b: &Bookmark, collections: &HashMap<i64, String>) -> Value {
         "title": clip(&b.title, TITLE),
         "site": clip(&b.domain, NAME),
         "collection": b.collection_id.and_then(|id| collections.get(&id)).map(|n| clip(n, NAME)),
+        "collection_id": b.collection_id,
         "tags": tags,
         "favorite": b.is_favorite,
         "inbox": b.triaged_at.is_none(),
@@ -768,6 +788,45 @@ mod tests {
         assert_eq!(result(&default)["truncated"], false);
     }
 
+    /// A collection whose name is cut in the list is still reached by its id;
+    /// the lists of collections and tags keep to the size of an answer too.
+    #[test]
+    fn collections_are_reached_by_id_and_every_list_fits_in_an_answer() {
+        let conn = library();
+        let mut journal = Journal::default();
+        set_access(&conn, Access::ReadAndAdd).unwrap();
+        let long = format!("Reading {}", "list ".repeat(40));
+        let shelf = db::create_collection(&conn, long.trim(), None, None).unwrap();
+        let id = saved(&conn, "https://example.com/a", "A page");
+
+        let listed = call(&conn, &mut journal, tools::COLLECTIONS, json!({}));
+        let entry = result(&listed)["collections"].as_array().unwrap().iter().find(|c| c["id"] == shelf.id).unwrap().clone();
+        assert!(entry["name"].as_str().unwrap().ends_with('…'), "the name is cut");
+        let by_name = call(&conn, &mut journal, tools::MOVE, json!({ "id": id, "collection": entry["name"] }));
+        assert!(error(&by_name).contains("collection_id"), "a cut name is not a name, the error points to the id");
+        let moved = call(&conn, &mut journal, tools::MOVE, json!({ "id": id, "collection_id": shelf.id }));
+        assert_eq!(result(&moved)["bookmark"]["collection_id"], shelf.id);
+        let found = call(&conn, &mut journal, tools::SEARCH, json!({ "collection_id": shelf.id }));
+        assert_eq!(result(&found)["total"], 1);
+        let nowhere = call(&conn, &mut journal, tools::MOVE, json!({ "id": id, "collection_id": 99_999 }));
+        assert!(error(&nowhere).contains("no collection with id 99999"));
+        let neither = call(&conn, &mut journal, tools::MOVE, json!({ "id": id }));
+        assert_eq!(neither.reply["code"], "invalid_params");
+
+        // Five hundred collections and tags with long names: cut to the size of an answer, and said so.
+        for i in 0..500 {
+            db::create_collection(&conn, &format!("{i} {}", "x".repeat(150)), None, None).unwrap();
+        }
+        let tags: Vec<String> = (0..500).map(|i| format!("{i}{}", "t".repeat(200))).collect();
+        db::update_bookmark(&conn, id, None, None, None, None, Some(tags)).unwrap();
+        for tool in [tools::COLLECTIONS, tools::TAGS] {
+            let list = call(&conn, &mut journal, tool, json!({}));
+            let reply = result(&list);
+            assert!(reply.to_string().len() <= MAX_REPLY, "{tool}: {} bytes", reply.to_string().len());
+            assert_eq!(reply["truncated"], true, "{tool}");
+        }
+    }
+
     /// Fifty long addresses do not fit in an answer: it is cut, says so, and
     /// the next page starts right after the last one kept.
     #[test]
@@ -819,20 +878,30 @@ mod tests {
         write_bundle(&server, &bundle).unwrap();
         let zip = std::fs::read(&bundle).unwrap();
         assert!(!dir.join("koona-pin.partial").exists());
-        // Each local entry: its name, then the deflated data.
+        // Read as a zip reader does (APPNOTE 4.3): the end record, then each
+        // entry of the central directory, then its local header and data.
+        let field = |at: usize, size: usize| zip[at..at + size].iter().rev().fold(0usize, |n, b| n << 8 | *b as usize);
+        let end = zip.len() - 22;
+        assert_eq!(field(end, 4), 0x0605_4b50, "the end record closes the file");
+        let (count, size, start) = (field(end + 10, 2), field(end + 12, 4), field(end + 16, 4));
+        assert_eq!(start + size, end, "the central directory ends where the end record starts");
         let mut entries = HashMap::new();
-        let mut at = 0;
-        while zip[at..].starts_with(&0x0403_4b50u32.to_le_bytes()) {
-            let field = |offset: usize, size: usize| zip[at + offset..at + offset + size].iter().rev().fold(0usize, |n, b| n << 8 | *b as usize);
-            let (packed, length, name) = (field(18, 4), field(22, 4), field(26, 2));
-            let start = at + 30 + name;
+        let mut at = start;
+        for _ in 0..count {
+            assert_eq!(field(at, 4), 0x0201_4b50, "a central directory entry at {at}");
+            let (crc, packed, length) = (field(at + 16, 4), field(at + 20, 4), field(at + 24, 4));
+            let (name, extra, comment, local) = (field(at + 28, 2), field(at + 30, 2), field(at + 32, 2), field(at + 42, 4));
+            let named = String::from_utf8(zip[at + 46..at + 46 + name].to_vec()).unwrap();
+            assert_eq!(field(local, 4), 0x0403_4b50, "{named}: the local header where the directory says");
+            assert_eq!(&zip[local + 30..local + 30 + name], named.as_bytes(), "{named}: the same name in both headers");
+            let data_at = local + 30 + field(local + 26, 2) + field(local + 28, 2);
             let mut data = Vec::new();
-            flate2::read::DeflateDecoder::new(&zip[start..start + packed]).read_to_end(&mut data).unwrap();
-            assert_eq!(data.len(), length);
-            entries.insert(String::from_utf8(zip[at + 30..start].to_vec()).unwrap(), data);
-            at = start + packed;
+            flate2::read::DeflateDecoder::new(&zip[data_at..data_at + packed]).read_to_end(&mut data).unwrap();
+            assert_eq!((data.len(), crc32fast::hash(&data) as usize), (length, crc), "{named}");
+            entries.insert(named, data);
+            at += 46 + name + extra + comment;
         }
-        assert!(zip[at..].starts_with(&0x0201_4b50u32.to_le_bytes()), "the central directory follows");
+        assert_eq!(at, end);
         let manifest: Value = serde_json::from_slice(&entries["manifest.json"]).unwrap();
         assert_eq!(entries[&format!("server/{SERVER_EXE}")], b"binary");
         assert!(entries["icon.png"].starts_with(b"\x89PNG"));

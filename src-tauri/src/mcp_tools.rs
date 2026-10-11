@@ -93,7 +93,7 @@ pub const TOOLS: [Spec; 8] = [
     Spec {
         name: COLLECTIONS,
         title: "List collections",
-        description: "The collections of the library with how many bookmarks each holds.",
+        description: "The collections of the library with their ids and how many bookmarks each holds. Use the id to search in a collection or to move a bookmark into it.",
         writes: false,
         idempotent: true,
     },
@@ -121,7 +121,7 @@ pub const TOOLS: [Spec; 8] = [
     Spec {
         name: MOVE,
         title: "Move a bookmark to a collection",
-        description: "Put a bookmark into an existing collection, named as list_collections names it. The person can undo it with Ctrl Z in Koona Pin.",
+        description: "Put a bookmark into an existing collection, given by the id list_collections returns (or by its name). The person can undo it with Ctrl Z in Koona Pin.",
         writes: true,
         idempotent: true,
     },
@@ -159,7 +159,10 @@ pub struct SearchArgs {
     /// Words to find; empty for the latest saved.
     #[serde(default)]
     pub query: Option<String>,
-    /// Only in this collection, by name.
+    /// Only in this collection: its id from list_collections.
+    #[serde(default)]
+    pub collection_id: Option<i64>,
+    /// Only in this collection, by name, when no collection_id is given.
     #[serde(default)]
     pub collection: Option<String>,
     /// Only bookmarks with this tag.
@@ -215,8 +218,12 @@ pub struct TagArgs {
 pub struct MoveArgs {
     /// The bookmark's id.
     pub id: i64,
-    /// The name of an existing collection.
-    pub collection: String,
+    /// The collection's id from list_collections.
+    #[serde(default)]
+    pub collection_id: Option<i64>,
+    /// The collection's name, when no collection_id is given.
+    #[serde(default)]
+    pub collection: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
