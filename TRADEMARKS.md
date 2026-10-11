@@ -1,6 +1,6 @@
 # Trademarks
 
-"Koona", "Koona Pin", the mascot Pin Spirit, the Koona Pin logo, icon and wordmark (the "Marks") are used as trademarks of Radik Ilin. The community code is licensed under the [GPL](LICENSE); designated Pro code has a [commercial license](LICENSE-COMMERCIAL.md). Neither license gives permission to present another product as an official Koona product.
+"Koona", "Koona Pin", the mascot Pin Spirit, the Koona Pin logo, icon and wordmark (the "Marks") are used as trademarks of Radik Ilin. The community code is licensed under the [GPL](LICENSE); designated commercial code has a [commercial license](LICENSE-COMMERCIAL.md). Neither license gives permission to present another product as an official Koona product.
 
 The project-owned artwork listed in [LICENSING.md](LICENSING.md), including the mascot, logos, icons and screenshots, is also protected separately by copyright. It is not GPL-licensed. The permissions below cover use of that artwork as well as use of the Marks; third-party content keeps its own terms. They do not grant a general license to reuse the artwork in another product.
 
@@ -9,7 +9,7 @@ The project-owned artwork listed in [LICENSING.md](LICENSING.md), including the 
 - Say truthfully that your project is based on, compatible with or a fork of Koona Pin ("based on Koona Pin", "a fork of Koona Pin").
 - Use the name and screenshots of the app in truthful articles, reviews, tutorials and talks about Koona Pin. Do not imply endorsement; respect any separately applicable rights in third-party content shown in a screenshot.
 - Build and run the community code locally, including modified development builds, with the bundled artwork.
-- Copy and redistribute unmodified official community releases, source archives and builds from unmodified community source with their bundled artwork and legal notices intact. Identify their origin accurately. This is not permission to redistribute Pro builds under the commercial license.
+- Copy and redistribute unmodified official community releases, source archives and builds from unmodified community source with their bundled artwork and legal notices intact. Identify their origin accurately. This is not permission to redistribute the Commercial Software under the commercial license.
 - Keep the Marks and bundled artwork in clearly identified development forks and patches made solely to propose contributions to the official project. Follow [CONTRIBUTING.md](CONTRIBUTING.md) and, for commercial code, its separate development permission. This exception does not cover releasing a modified product to end users.
 - Link to <https://koona.app/pin/>.
 

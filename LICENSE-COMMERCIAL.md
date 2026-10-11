@@ -1,16 +1,16 @@
 # Koona Pin Commercial License
 
-Version 1.0, 10 October 2026.
+Version 1.1, 12 October 2026.
 
 Copyright (c) 2026 Radik Ilin. All rights reserved except as expressly granted below.
 
 ## 1. Scope and parties
 
-This license is between Radik Ilin, the developer and licensor of Koona Pin ("Licensor"), and the individual or organization exercising the permissions below ("you"). It covers the Koona Pin code expressly designated as commercial by a file or directory notice, and the corresponding commercial features in official Pro builds ("Commercial Software"). A directory notice must identify the covered files and link to this license. Publication of source code does not place it under an open-source license.
+This license is between Radik Ilin, an entrepreneur registered in Serbia as RADIK ILIN PR BEOGRAD, the developer and licensor of Koona Pin ("Licensor"), and the individual or organization exercising the permissions below ("you"). It covers the Koona Pin code expressly designated as commercial by a file or directory notice, and the corresponding commercial features in official Koona Pin builds ("Commercial Software"). A directory notice must identify the covered files and link to this license. Publication of source code does not place it under an open-source license.
 
 This license does not replace the GPL license of the community code or the licenses of third-party components. Those licenses govern their respective material, and their independently granted rights are not restricted by this document. No permission is given here to relicense material owned by someone else. Brand assets are subject to [TRADEMARKS.md](TRADEMARKS.md).
 
-For an official Pro build, Licensor also grants the subscription permission in section 3 for included community code that Licensor owns or has sufficient rights to offer on those terms. This is an additional licensing option for that code; it does not revoke its separate GPL grant or require a subscription to exercise GPL rights. Third-party licenses still apply, and this paragraph does not grant permissions beyond Licensor's authority.
+For an official Koona Pin build, Licensor also grants the subscription permission in section 3 for included community code that Licensor owns or has sufficient rights to offer on those terms. This is an additional licensing option for that code; it does not revoke its separate GPL grant or require a subscription to exercise GPL rights. Third-party licenses still apply, and this paragraph does not grant permissions beyond Licensor's authority.
 
 You accept this license when you expressly agree to it at purchase or exercise a permission granted only by it. You must be legally able to enter into this agreement and, when acting for an organization, authorized to do so. The limited development permission below does not require a subscription.
 
@@ -18,17 +18,17 @@ You accept this license when you expressly agree to it at purchase or exercise a
 
 You may read the published Commercial Software. You may clone the repository, maintain a development fork on its hosting platform, and build, run and modify the Commercial Software solely to evaluate a proposed change, investigate a defect or prepare a contribution to Koona Pin. You may share the source changes and necessary context in that development fork and through the official project's contribution channels for those purposes. Keep this license and the applicable notices with the material.
 
-This permission does not allow routine personal or business use of commercial features without a subscription, publication of commercial binaries, or creation or distribution of a separate product using the Commercial Software. It is not a general free trial or an alternative to a Pro subscription. Contributions are subject to [CONTRIBUTING.md](CONTRIBUTING.md); the permission you grant in your original additions does not extend to the underlying Commercial Software.
+This permission does not allow routine personal or business use of commercial features without a subscription, publication of commercial binaries, or creation or distribution of a separate product using the Commercial Software. It is not a general free trial or an alternative to a Supporter subscription. Contributions are subject to [CONTRIBUTING.md](CONTRIBUTING.md); the permission you grant in your original additions does not extend to the underlying Commercial Software.
 
-## 3. Pro subscription
+## 3. Supporter subscription
 
-During an active, paid Pro subscription, Licensor grants you a non-exclusive license to install and run the unmodified Commercial Software, including as part of an official Pro build, for your personal use or your organization's internal work. You may make reasonable installation and backup copies for that use. Unless your order expressly provides more seats, the subscription covers one individual user on devices that user owns or controls. An organization may purchase subscriptions for its users; a seat may not be shared by multiple people at the same time.
+During an active, paid Supporter subscription, Licensor grants you a non-exclusive license to install and run the unmodified Commercial Software, including as part of an official Koona Pin build, for your personal use or your organization's internal work. You may make reasonable installation and backup copies for that use. Unless your order expressly provides more seats, the subscription covers one individual user on devices that user owns or controls. An organization may purchase subscriptions for its users; a seat may not be shared by multiple people at the same time.
 
-The subscription includes access to updates released for your subscribed plan during the paid term. It does not promise any particular future feature, a release schedule, perpetual access to Pro, or updates after the subscription ends. Any trial, additional seats, hosted services or other entitlements must be expressly stated in the offer. This license alone grants no access to a hosted service.
+The subscription includes access to updates released for your subscribed plan during the paid term. It does not promise any particular future feature, a release schedule, perpetual access to Supporter features, or updates after the subscription ends. Any trial, additional seats, hosted services or other entitlements must be expressly stated in the offer. This license alone grants no access to a hosted service.
 
 ## 4. Paddle purchases and renewal
 
-Pro subscriptions are sold through Paddle as merchant of record and authorized reseller. Your payment transaction with Paddle is governed by the [Paddle Buyer Terms](https://www.paddle.com/legal/buyer-terms) and the terms presented at checkout; this document governs your use of the Commercial Software. Licensor remains the software provider.
+Supporter subscriptions are sold through Paddle as merchant of record and authorized reseller. Your payment transaction with Paddle is governed by the [Paddle Buyer Terms](https://www.paddle.com/legal/buyer-terms) and the terms presented at checkout; this document governs your use of the Commercial Software. Licensor remains the software provider.
 
 Plans may be billed monthly or annually. The price, currency, applicable taxes, billing period, renewal terms and any trial are disclosed at checkout and in your purchase confirmation. Prices may vary by country and currency; this license does not set a fixed global price. Your subscription renews as disclosed at checkout until canceled. Any renewal price change is subject to the notice and consent requirements in the applicable purchase terms and law.
 
@@ -56,7 +56,7 @@ For a material breach of this license, Licensor may terminate the affected comme
 
 To the extent permitted by applicable law, the Commercial Software is provided "as is" and "as available", without additional warranties of merchantability, fitness for a particular purpose or non-infringement. No uninterrupted or error-free operation is promised. This does not exclude obligations expressly agreed at purchase or mandatory rights relating to conformity, required updates, remedies or refunds.
 
-To the extent permitted by applicable law, Licensor is not liable for indirect or consequential losses, lost profits or lost data. Licensor's total liability arising from this license is limited to the subscription fees you paid for Koona Pin Pro during the 12 months preceding the event giving rise to the claim. These exclusions and limits do not apply to fraud, intentional misconduct, death or personal injury caused by negligence, or any liability that cannot lawfully be excluded or limited. Mandatory consumer rights remain unaffected.
+To the extent permitted by applicable law, Licensor is not liable for indirect or consequential losses, lost profits or lost data. Licensor's total liability arising from this license is limited to the subscription fees you paid for Koona Pin Supporter during the 12 months preceding the event giving rise to the claim. These exclusions and limits do not apply to fraud, intentional misconduct, death or personal injury caused by negligence, or any liability that cannot lawfully be excluded or limited. Mandatory consumer rights remain unaffected.
 
 ## 8. Governing law
 

@@ -72,7 +72,7 @@ export default {
     title: "Licencias",
     lead: "De qué está hecho este sitio y en qué condiciones.",
     items: [
-      ["Koona Pin", "Código de la edición gratuita: GPL-3.0-only. El código identificado como Pro tiene una licencia comercial independiente. El nombre, la mascota y el logotipo tienen reglas de uso propias; consulta el resumen de licencias.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "Código de la edición gratuita: GPL-3.0-only. El código identificado como comercial tiene una licencia independiente. El nombre, la mascota y el logotipo tienen reglas de uso propias; consulta el resumen de licencias.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Tipografía del texto. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "El logotipo de texto, como trazados. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Iconos. Licencia ISC.", "https://lucide.dev/license"],

@@ -72,7 +72,7 @@ export default {
     title: "ライセンス",
     lead: "このサイトを構成するものと、その利用条件。",
     items: [
-      ["Koona Pin", "無料版のコードは GPL-3.0-only です。Pro と明示されたコードには別の商用ライセンスが適用されます。名称、マスコット、ロゴには個別の使用条件があります。ライセンスの概要をご確認ください。", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "無料版のコードは GPL-3.0-only です。商用と明示されたコードには別のライセンスが適用されます。名称、マスコット、ロゴには個別の使用条件があります。ライセンスの概要をご確認ください。", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "本文の書体。SIL Open Font License 1.1。", "https://github.com/rsms/inter"],
       ["Nunito", "ロゴタイプ。アウトライン化して配布。SIL Open Font License 1.1。", "https://github.com/googlefonts/nunito"],
       ["Lucide", "アイコン。ISC License。", "https://lucide.dev/license"],
