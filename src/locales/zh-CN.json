@@ -317,6 +317,47 @@
     "deleteForeverText": "“{{title}}”将被永久删除。此操作无法撤销。",
     "deleteForeverButton": "永久删除"
   },
+  "assistants": {
+    "allow": "允许 AI 助手使用你的资料库",
+    "offHint": "这台电脑上的 Claude、Cursor 和其他 MCP 应用可以搜索你的书签",
+    "noRequests": "已开启 · 还没有请求",
+    "lastToday": "已开启 · 最近一次请求来自 {{client}}，今天 {{time}}",
+    "lastOn": "已开启 · 最近一次请求来自 {{client}}，{{date}} {{time}}",
+    "someone": "AI 助手",
+    "access": "助手可以做什么",
+    "read": "只读",
+    "readAndAdd": "读取和添加",
+    "readHint": "搜索和读取书签、合集和标签；不做任何更改",
+    "addHint": "还可以把链接添加到收件箱、添加标签、移到合集和加星标。Ctrl Z 可撤销每项更改；不会删除任何内容",
+    "connect": "连接助手",
+    "connectHint": "Claude Desktop、Claude Code 和其他支持 MCP 的应用",
+    "howToConnect": "如何连接…"
+  },
+  "assistant": {
+    "title": "连接 AI 助手",
+    "lead": "让助手在你的资料库中搜索",
+    "clients": "助手",
+    "custom": "其他",
+    "statusOff": "已关闭：在设置中开启访问之前，助手只会收到错误",
+    "statusRead": "已开启 · 只读",
+    "statusAdd": "已开启 · 读取和添加",
+    "installTitle": "在 Claude Desktop 中安装 Koona Pin",
+    "installText": "扩展会在 Claude Desktop 中打开；点击 «Install» 确认。",
+    "installButton": "安装到 Claude Desktop",
+    "askTitle": "询问你的书签",
+    "askText": "例如：«找到我那篇关于 FTS5 的文章»。Claude 第一次使用某个工具前会先询问。",
+    "manualTitle": "或者手动添加",
+    "manualText": "Settings → Developer → Edit Config，然后添加到 claude_desktop_config.json：",
+    "runTitle": "在终端中运行",
+    "runText": "为该用户的所有项目添加 Koona Pin：",
+    "checkTitle": "检查连接",
+    "checkText": "在 Claude Code 中输入 /mcp：koona-pin 显示 «connected»。",
+    "customTitle": "打开你的应用的 MCP 设置",
+    "customText": "Cursor、Windsurf、Zed 和大多数支持 MCP 的应用把服务器保存在一个 JSON 文件中。",
+    "customAddTitle": "添加 Koona Pin 并保存",
+    "customAddText": "有些应用把顶层键叫作 «servers»。之后应用会列出 koona-pin 及其工具。",
+    "note": "标题、描述和备注以数据的形式发送给助手。助手无法删除书签，也无法清空回收站。"
+  },
   "connect": {
     "title": "连接浏览器",
     "lead": "从浏览器保存页面",
@@ -489,6 +530,7 @@
     "hide": "隐藏窗口"
   },
   "settings": {
+    "assistants": "AI 助手",
     "general": "常规",
     "language": "语言",
     "languageHint": "英语是原文：未翻译的文字会显示英语",
@@ -581,6 +623,7 @@
     "emptied_other": "回收站已清空：{{count}} 个书签已永久删除"
   },
   "triage": {
+    "savedByAssistant": "{{when}} 由 AI 助手保存",
     "title": "整理收件箱",
     "progress": "{{current}} / {{total}}",
     "fresh_other": "+{{count}} 个新的",
@@ -803,6 +846,8 @@
     "read_only": "资料库已损坏，以只读方式打开 — 更改不会被保存。",
     "database_busy": "另一个程序正在使用资料库。请几秒钟后重试。",
     "reason": {
+      "server_missing": "Koona Pin 缺少一个组件（koonapin-mcp）",
+      "no_claude_desktop": "未安装 Claude Desktop",
       "database_busy": "资料库正忙",
       "disk_full": "磁盘已满",
       "read_only": "资料库为只读",
@@ -837,6 +882,8 @@
       "internal": "出了点问题：{{message}}"
     },
     "detail": {
+      "server_missing": "Koona Pin 缺少一个组件（koonapin-mcp）。请重新安装 Koona Pin。",
+      "no_claude_desktop": "这台电脑上没有能打开此安装包的应用：请安装 Claude Desktop，或手动把 Koona Pin 添加进去。",
       "empty_tag": "请输入标签。",
       "empty_collection_name": "请输入合集名称。",
       "empty_title": "标题不能为空。",

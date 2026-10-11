@@ -367,6 +367,47 @@
     "deleteForeverText": "«{{title}}» verrà eliminato definitivamente. Non si può annullare.",
     "deleteForeverButton": "Elimina definitivamente"
   },
+  "assistants": {
+    "allow": "Consenti agli assistenti IA di usare la tua libreria",
+    "offHint": "Claude, Cursor e le altre app MCP di questo computer potranno cercare tra i tuoi segnalibri",
+    "noRequests": "Attivo · ancora nessuna richiesta",
+    "lastToday": "Attivo · ultima richiesta da {{client}} oggi alle {{time}}",
+    "lastOn": "Attivo · ultima richiesta da {{client}} il {{date}} alle {{time}}",
+    "someone": "un assistente IA",
+    "access": "Cosa possono fare gli assistenti",
+    "read": "Solo lettura",
+    "readAndAdd": "Leggere e aggiungere",
+    "readHint": "Cercare e leggere segnalibri, raccolte e tag; nulla cambia",
+    "addHint": "Anche aggiungere link a In arrivo, assegnare tag, spostarli in una raccolta e segnarli come preferiti. Ctrl Z annulla ogni modifica; nulla viene eliminato",
+    "connect": "Collega un assistente",
+    "connectHint": "Claude Desktop, Claude Code e le altre app compatibili con MCP",
+    "howToConnect": "Come collegare…"
+  },
+  "assistant": {
+    "title": "Collega un assistente IA",
+    "lead": "Lascia che un assistente cerchi nella tua libreria",
+    "clients": "Assistente",
+    "custom": "Altro",
+    "statusOff": "Disattivato: gli assistenti ricevono un errore finché non attivi l’accesso nelle Impostazioni",
+    "statusRead": "Attivo · solo lettura",
+    "statusAdd": "Attivo · leggere e aggiungere",
+    "installTitle": "Installa Koona Pin in Claude Desktop",
+    "installText": "L’estensione si apre in Claude Desktop; conferma con «Install».",
+    "installButton": "Installa in Claude Desktop",
+    "askTitle": "Chiedi dei tuoi segnalibri",
+    "askText": "Per esempio: «trova il mio articolo su FTS5». Claude chiede prima di usare uno strumento la prima volta.",
+    "manualTitle": "Oppure aggiungilo a mano",
+    "manualText": "Settings → Developer → Edit Config, poi aggiungi a claude_desktop_config.json:",
+    "runTitle": "Esegui in un terminale",
+    "runText": "Aggiunge Koona Pin a tutti i progetti di questo utente:",
+    "checkTitle": "Controlla il collegamento",
+    "checkText": "Scrivi /mcp in Claude Code: koona-pin mostra «connected».",
+    "customTitle": "Apri le impostazioni MCP della tua app",
+    "customText": "Cursor, Windsurf, Zed e la maggior parte delle app compatibili con MCP tengono i server in un file JSON.",
+    "customAddTitle": "Aggiungi Koona Pin e salva",
+    "customAddText": "Alcune app chiamano «servers» la chiave principale. Poi l’app mostra koona-pin con i suoi strumenti.",
+    "note": "Titoli, descrizioni e note arrivano all’assistente come dati. Non può eliminare segnalibri né svuotare il cestino."
+  },
   "connect": {
     "title": "Collega il browser",
     "lead": "Salva pagine dal tuo browser",
@@ -577,6 +618,7 @@
     "hide": "Nascondi finestra"
   },
   "settings": {
+    "assistants": "Assistenti IA",
     "general": "Generali",
     "language": "Lingua",
     "languageHint": "L’inglese è la lingua di origine: i testi non tradotti compaiono in inglese",
@@ -675,6 +717,7 @@
     "emptied_other": "Cestino svuotato: {{count}} segnalibri eliminati definitivamente"
   },
   "triage": {
+    "savedByAssistant": "salvato {{when}} da un assistente IA",
     "title": "Smista In arrivo",
     "progress": "{{current}} di {{total}}",
     "fresh_one": "+{{count}} nuovo",
@@ -919,6 +962,8 @@
     "read_only": "La libreria è danneggiata e aperta in sola lettura: le modifiche non vengono salvate.",
     "database_busy": "Un altro programma sta usando la libreria. Riprova tra qualche secondo.",
     "reason": {
+      "server_missing": "manca una parte di Koona Pin (koonapin-mcp)",
+      "no_claude_desktop": "Claude Desktop non è installato",
       "database_busy": "la libreria è occupata",
       "disk_full": "il disco è pieno",
       "read_only": "la libreria è in sola lettura",
@@ -953,6 +998,8 @@
       "internal": "Qualcosa è andato storto: {{message}}"
     },
     "detail": {
+      "server_missing": "Manca una parte di Koona Pin (koonapin-mcp). Reinstalla Koona Pin.",
+      "no_claude_desktop": "Nulla su questo computer apre il pacchetto: installa Claude Desktop o aggiungi Koona Pin a mano.",
       "empty_tag": "Inserisci un tag.",
       "empty_collection_name": "Inserisci il nome della raccolta.",
       "empty_title": "Il titolo non può essere vuoto.",

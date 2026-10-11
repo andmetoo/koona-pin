@@ -17,6 +17,8 @@ pub mod journal;
 pub mod library;
 pub mod library_state;
 pub mod linkcheck;
+pub mod mcp;
+pub mod mcp_tools;
 pub mod metadata;
 pub mod migrations;
 pub mod native_host;
@@ -194,6 +196,10 @@ pub fn run() {
             commands::feedback_report,
             commands::send_feedback,
             commands::hide_to_background,
+            commands::get_mcp_status,
+            commands::set_mcp_access,
+            commands::get_mcp_setup,
+            commands::install_mcpb,
             desktop::get_desktop,
             updates::get_update_status,
             updates::check_for_updates,

@@ -2334,4 +2334,38 @@ test("feedback: a report that never comes does not lock the dialog — it goes w
   await dialog.getByRole("button", { name: "Send", exact: true }).click();
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!", { timeout: 6000 });
   expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBeNull();
+});test("AI assistants: off by default, read only or read and add, the dialog for each assistant (NP-091, sheet 44)", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const section = page.locator("section", { has: page.getByRole("heading", { name: "AI assistants" }) });
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "off");
+  await expect(section).toContainText("Claude, Cursor and other MCP apps on this computer can search your bookmarks");
+  await expect(section.getByRole("radiogroup")).toHaveCount(0);
+  // On: read only first, nothing asked yet.
+  await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read");
+  await expect(section).toContainText("On · no requests yet");
+  await expect(section.getByRole("radio", { name: "Read only" })).toHaveAttribute("aria-checked", "true");
+  await expect(section).toContainText("Search and read bookmarks, collections and tags; nothing changes");
+  await section.getByRole("radio", { name: "Read and add" }).click();
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read_and_add");
+  await expect(section).toContainText("Ctrl Z undoes each change; nothing is deleted");
+
+  await section.getByRole("button", { name: "How to connect…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect an AI assistant" });
+  await expect(dialog.locator("[data-mcp]")).toHaveText("On · read and add");
+  await expect(dialog.getByRole("button", { name: "Install in Claude Desktop" })).toBeEnabled();
+  await expect(dialog.locator("pre")).toContainText('"mcpServers"');
+  await dialog.getByRole("radio", { name: "Claude Code" }).click();
+  await expect(dialog.locator("pre")).toHaveText(/^claude mcp add --scope user koona-pin -- ".+koonapin-mcp\.exe"$/);
+  await dialog.getByRole("button", { name: "Copy" }).click();
+  await expect(page.getByText("Copied", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^claude mcp add/);
+  await dialog.getByRole("radio", { name: "Custom" }).click();
+  await expect(dialog).toContainText("Some apps name the top key «servers».");
+  await expect(dialog.locator("pre")).toContainText('"koona-pin"');
+  await page.keyboard.press("Escape");
+  // Off again: the modes go.
+  await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await expect(section.getByRole("radiogroup")).toHaveCount(0);
 });

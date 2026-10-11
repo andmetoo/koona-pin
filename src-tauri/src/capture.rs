@@ -105,6 +105,34 @@ pub fn save(
     Ok(result)
 }
 
+/// A link an AI assistant saves over MCP (NP-091): to the inbox like a
+/// capture, from `mcp`, with the assistant's name in the same transaction.
+/// A link already there keeps its own source.
+pub fn save_by_assistant(
+    conn: &Connection,
+    url: &str,
+    title: Option<String>,
+    assistant: &str,
+) -> Result<CaptureResult, CaptureError> {
+    let request = CaptureRequest {
+        request_id: None,
+        url: url.into(),
+        title,
+        collection_id: None,
+        tags: None,
+    };
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(CaptureError::database)?;
+    let mut result = save_in(&tx, &request, Source::Mcp)?;
+    if result.newly_created {
+        db::set_source_name(&tx, result.bookmark_id, assistant).map_err(CaptureError::database)?;
+        result.bookmark = Some(db::get_bookmark_by_id(&tx, result.bookmark_id).map_err(CaptureError::database)?);
+    }
+    tx.commit().map_err(CaptureError::database)?;
+    Ok(result)
+}
+
 /// The caller owns the transaction; nothing is confirmed before its commit.
 fn save_in(
     tx: &Connection,

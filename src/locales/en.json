@@ -342,6 +342,47 @@
     "deleteForeverText": "«{{title}}» will be deleted for good. This can't be undone.",
     "deleteForeverButton": "Delete forever"
   },
+  "assistants": {
+    "allow": "Let AI assistants use your library",
+    "offHint": "Claude, Cursor and other MCP apps on this computer can search your bookmarks",
+    "noRequests": "On · no requests yet",
+    "lastToday": "On · last request from {{client}} today at {{time}}",
+    "lastOn": "On · last request from {{client}} on {{date}} at {{time}}",
+    "someone": "an AI assistant",
+    "access": "What assistants may do",
+    "read": "Read only",
+    "readAndAdd": "Read and add",
+    "readHint": "Search and read bookmarks, collections and tags; nothing changes",
+    "addHint": "Also add links to Inbox, tag them, move them to a collection and mark favorites. Ctrl Z undoes each change; nothing is deleted",
+    "connect": "Connect an assistant",
+    "connectHint": "Claude Desktop, Claude Code and other apps that work with MCP",
+    "howToConnect": "How to connect…"
+  },
+  "assistant": {
+    "title": "Connect an AI assistant",
+    "lead": "Let an assistant search your library",
+    "clients": "Assistant",
+    "custom": "Custom",
+    "statusOff": "Off: assistants get an error until you turn it on in Settings",
+    "statusRead": "On · read only",
+    "statusAdd": "On · read and add",
+    "installTitle": "Install Koona Pin in Claude Desktop",
+    "installText": "Opens the extension in Claude Desktop; confirm with «Install».",
+    "installButton": "Install in Claude Desktop",
+    "askTitle": "Ask about your bookmarks",
+    "askText": "For example: «find my article about FTS5». Claude asks before it uses a tool for the first time.",
+    "manualTitle": "Or add it by hand",
+    "manualText": "Settings → Developer → Edit Config, then add to claude_desktop_config.json:",
+    "runTitle": "Run in a terminal",
+    "runText": "Adds Koona Pin for every project of this user:",
+    "checkTitle": "Check the connection",
+    "checkText": "Type /mcp in Claude Code: koona-pin shows «connected».",
+    "customTitle": "Open your app’s MCP settings",
+    "customText": "Cursor, Windsurf, Zed and most other apps that work with MCP keep their servers in a JSON file.",
+    "customAddTitle": "Add Koona Pin and save",
+    "customAddText": "Some apps name the top key «servers». The app then lists koona-pin with its tools.",
+    "note": "Titles, descriptions and notes reach the assistant as data. It cannot delete bookmarks or empty the trash."
+  },
   "connect": {
     "title": "Connect browser",
     "lead": "Save pages from your browser",
@@ -533,6 +574,7 @@
     "hide": "Hide window"
   },
   "settings": {
+    "assistants": "AI assistants",
     "general": "General",
     "language": "Language",
     "languageHint": "English is the source: untranslated strings fall back to it",
@@ -628,6 +670,7 @@
     "emptied_other": "Trash emptied: {{count}} bookmarks deleted for good"
   },
   "triage": {
+    "savedByAssistant": "saved {{when}} by an AI assistant",
     "title": "Sort inbox",
     "progress": "{{current}} of {{total}}",
     "fresh_one": "+{{count}} new",
@@ -861,6 +904,8 @@
     "read_only": "The library is damaged and open read-only — changes are not saved.",
     "database_busy": "Another program is using the library. Try again in a few seconds.",
     "reason": {
+      "server_missing": "part of Koona Pin (koonapin-mcp) is missing",
+      "no_claude_desktop": "Claude Desktop is not installed",
       "database_busy": "the library is busy",
       "disk_full": "the disk is full",
       "read_only": "the library is read-only",
@@ -895,6 +940,8 @@
       "internal": "Something went wrong: {{message}}"
     },
     "detail": {
+      "server_missing": "Part of Koona Pin (koonapin-mcp) is missing. Reinstall Koona Pin.",
+      "no_claude_desktop": "Nothing on this computer opens the package: install Claude Desktop, or add Koona Pin to it by hand.",
       "empty_tag": "Enter a tag.",
       "empty_collection_name": "Enter a collection name.",
       "empty_title": "The title can't be empty.",

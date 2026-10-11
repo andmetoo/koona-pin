@@ -367,6 +367,47 @@
     "deleteForeverText": "« {{title}} » sera supprimé définitivement. C’est irréversible.",
     "deleteForeverButton": "Supprimer définitivement"
   },
+  "assistants": {
+    "allow": "Autoriser les assistants IA à utiliser votre bibliothèque",
+    "offHint": "Claude, Cursor et les autres applications MCP de cet ordinateur pourront chercher dans vos signets",
+    "noRequests": "Activé · aucune requête pour l’instant",
+    "lastToday": "Activé · dernière requête de {{client}} aujourd’hui à {{time}}",
+    "lastOn": "Activé · dernière requête de {{client}} le {{date}} à {{time}}",
+    "someone": "un assistant IA",
+    "access": "Ce que les assistants peuvent faire",
+    "read": "Lecture seule",
+    "readAndAdd": "Lire et ajouter",
+    "readHint": "Chercher et lire les signets, collections et étiquettes ; rien ne change",
+    "addHint": "Aussi ajouter des liens à la Boîte de réception, les étiqueter, les déplacer dans une collection et les mettre en favori. Ctrl Z annule chaque modification ; rien n’est supprimé",
+    "connect": "Connecter un assistant",
+    "connectHint": "Claude Desktop, Claude Code et les autres applications compatibles MCP",
+    "howToConnect": "Comment connecter…"
+  },
+  "assistant": {
+    "title": "Connecter un assistant IA",
+    "lead": "Laissez un assistant chercher dans votre bibliothèque",
+    "clients": "Assistant",
+    "custom": "Autre",
+    "statusOff": "Désactivé : les assistants reçoivent une erreur tant que vous n’activez pas l’accès dans les Paramètres",
+    "statusRead": "Activé · lecture seule",
+    "statusAdd": "Activé · lire et ajouter",
+    "installTitle": "Installez Koona Pin dans Claude Desktop",
+    "installText": "L’extension s’ouvre dans Claude Desktop ; confirmez avec «Install».",
+    "installButton": "Installer dans Claude Desktop",
+    "askTitle": "Posez des questions sur vos signets",
+    "askText": "Par exemple : «trouve mon article sur FTS5». Claude demande avant d’utiliser un outil pour la première fois.",
+    "manualTitle": "Ou ajoutez-le à la main",
+    "manualText": "Settings → Developer → Edit Config, puis ajoutez à claude_desktop_config.json :",
+    "runTitle": "Exécutez dans un terminal",
+    "runText": "Ajoute Koona Pin à tous les projets de cet utilisateur :",
+    "checkTitle": "Vérifiez la connexion",
+    "checkText": "Tapez /mcp dans Claude Code : koona-pin affiche «connected».",
+    "customTitle": "Ouvrez les paramètres MCP de votre application",
+    "customText": "Cursor, Windsurf, Zed et la plupart des applications compatibles MCP gardent leurs serveurs dans un fichier JSON.",
+    "customAddTitle": "Ajoutez Koona Pin et enregistrez",
+    "customAddText": "Certaines applications nomment la clé principale «servers». L’application affiche ensuite koona-pin avec ses outils.",
+    "note": "Les titres, descriptions et notes parviennent à l’assistant comme des données. Il ne peut ni supprimer des signets ni vider la corbeille."
+  },
   "connect": {
     "title": "Connecter le navigateur",
     "lead": "Enregistrez des pages depuis votre navigateur",
@@ -577,6 +618,7 @@
     "hide": "Masquer la fenêtre"
   },
   "settings": {
+    "assistants": "Assistants IA",
     "general": "Général",
     "language": "Langue",
     "languageHint": "L’anglais est la source : les textes non traduits s’affichent en anglais",
@@ -675,6 +717,7 @@
     "emptied_other": "Corbeille vidée : {{count}} signets supprimés définitivement"
   },
   "triage": {
+    "savedByAssistant": "enregistré {{when}} par un assistant IA",
     "title": "Trier la boîte de réception",
     "progress": "{{current}} sur {{total}}",
     "fresh_one": "+{{count}} nouveau",
@@ -919,6 +962,8 @@
     "read_only": "La bibliothèque est endommagée et ouverte en lecture seule — les modifications ne sont pas enregistrées.",
     "database_busy": "Un autre programme utilise la bibliothèque. Réessayez dans quelques secondes.",
     "reason": {
+      "server_missing": "une partie de Koona Pin (koonapin-mcp) est manquante",
+      "no_claude_desktop": "Claude Desktop n’est pas installé",
       "database_busy": "la bibliothèque est occupée",
       "disk_full": "le disque est plein",
       "read_only": "la bibliothèque est en lecture seule",
@@ -953,6 +998,8 @@
       "internal": "Un problème est survenu : {{message}}"
     },
     "detail": {
+      "server_missing": "Une partie de Koona Pin (koonapin-mcp) est manquante. Réinstallez Koona Pin.",
+      "no_claude_desktop": "Rien sur cet ordinateur n’ouvre le paquet : installez Claude Desktop ou ajoutez-y Koona Pin à la main.",
       "empty_tag": "Saisissez une étiquette.",
       "empty_collection_name": "Saisissez un nom de collection.",
       "empty_title": "Le titre ne peut pas être vide.",

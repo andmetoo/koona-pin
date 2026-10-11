@@ -11,9 +11,14 @@ triaged_at: string | null,
 deleted_at: string | null, 
 /**
  * Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
- * `extension`, `import`; none for links of unknown origin. Triage shows it (NP-025).
+ * `extension`, `import`, `mcp`; none for links of unknown origin. Triage shows it (NP-025).
  */
 source: string | null, 
+/**
+ * The assistant that saved it over MCP (NP-091), as triage names it:
+ * «Claude», «Claude Code», or the name the assistant gave.
+ */
+source_name?: string, 
 /**
  * The sort keys of the title and of the site in hex (NP-114): compared
  * as text, they order rows as «Title A–Z» and «Site A–Z» do.

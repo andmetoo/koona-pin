@@ -392,6 +392,47 @@
     "deleteForeverText": "„{{title}}” zostanie usunięta na zawsze. Tego nie da się cofnąć.",
     "deleteForeverButton": "Usuń na zawsze"
   },
+  "assistants": {
+    "allow": "Pozwól asystentom AI korzystać z biblioteki",
+    "offHint": "Claude, Cursor i inne aplikacje MCP na tym komputerze będą mogły przeszukiwać Twoje zakładki",
+    "noRequests": "Włączone · jeszcze bez zapytań",
+    "lastToday": "Włączone · ostatnie zapytanie od {{client}} dziś o {{time}}",
+    "lastOn": "Włączone · ostatnie zapytanie od {{client}} {{date}} o {{time}}",
+    "someone": "asystenta AI",
+    "access": "Co mogą asystenci",
+    "read": "Tylko odczyt",
+    "readAndAdd": "Odczyt i dodawanie",
+    "readHint": "Szukać i czytać zakładki, kolekcje i tagi; nic się nie zmienia",
+    "addHint": "Także dodawać linki do Skrzynki odbiorczej, tagować je, przenosić do kolekcji i oznaczać jako ulubione. Ctrl Z cofa każdą zmianę; nic nie jest usuwane",
+    "connect": "Połącz asystenta",
+    "connectHint": "Claude Desktop, Claude Code i inne aplikacje obsługujące MCP",
+    "howToConnect": "Jak połączyć…"
+  },
+  "assistant": {
+    "title": "Połącz asystenta AI",
+    "lead": "Niech asystent przeszukuje Twoją bibliotekę",
+    "clients": "Asystent",
+    "custom": "Inna",
+    "statusOff": "Wyłączone: asystenci dostają błąd, dopóki nie włączysz dostępu w Ustawieniach",
+    "statusRead": "Włączone · tylko odczyt",
+    "statusAdd": "Włączone · odczyt i dodawanie",
+    "installTitle": "Zainstaluj Koona Pin w Claude Desktop",
+    "installText": "Rozszerzenie otworzy się w Claude Desktop; potwierdź przyciskiem «Install».",
+    "installButton": "Zainstaluj w Claude Desktop",
+    "askTitle": "Zapytaj o swoje zakładki",
+    "askText": "Na przykład: «znajdź mój artykuł o FTS5». Claude pyta, zanim pierwszy raz użyje narzędzia.",
+    "manualTitle": "Albo dodaj ręcznie",
+    "manualText": "Settings → Developer → Edit Config, a potem dodaj do claude_desktop_config.json:",
+    "runTitle": "Uruchom w terminalu",
+    "runText": "Dodaje Koona Pin do wszystkich projektów tego użytkownika:",
+    "checkTitle": "Sprawdź połączenie",
+    "checkText": "Wpisz /mcp w Claude Code: koona-pin pokazuje «connected».",
+    "customTitle": "Otwórz ustawienia MCP swojej aplikacji",
+    "customText": "Cursor, Windsurf, Zed i większość innych aplikacji obsługujących MCP trzyma serwery w pliku JSON.",
+    "customAddTitle": "Dodaj Koona Pin i zapisz",
+    "customAddText": "Niektóre aplikacje nazywają główny klucz «servers». Potem aplikacja pokaże koona-pin z jego narzędziami.",
+    "note": "Tytuły, opisy i notatki trafiają do asystenta jako dane. Nie może usuwać zakładek ani opróżniać kosza."
+  },
   "connect": {
     "title": "Połącz przeglądarkę",
     "lead": "Zapisuj strony z przeglądarki",
@@ -621,6 +662,7 @@
     "hide": "Ukryj okno"
   },
   "settings": {
+    "assistants": "Asystenci AI",
     "general": "Ogólne",
     "language": "Język",
     "languageHint": "Angielski jest językiem źródłowym: nieprzetłumaczone teksty są po angielsku",
@@ -722,6 +764,7 @@
     "emptied_other": "Kosz opróżniony: usunięto na zawsze {{count}} zakładki"
   },
   "triage": {
+    "savedByAssistant": "zapisana {{when}} przez asystenta AI",
     "title": "Porządkowanie skrzynki",
     "progress": "{{current}} z {{total}}",
     "fresh_one": "+{{count}} nowa",
@@ -977,6 +1020,8 @@
     "read_only": "Biblioteka jest uszkodzona i otwarta tylko do odczytu — zmiany nie są zapisywane.",
     "database_busy": "Inny program używa biblioteki. Spróbuj ponownie za kilka sekund.",
     "reason": {
+      "server_missing": "brakuje części Koona Pin (koonapin-mcp)",
+      "no_claude_desktop": "Claude Desktop nie jest zainstalowany",
       "database_busy": "biblioteka jest zajęta",
       "disk_full": "dysk jest pełny",
       "read_only": "biblioteka jest tylko do odczytu",
@@ -1011,6 +1056,8 @@
       "internal": "Coś poszło nie tak: {{message}}"
     },
     "detail": {
+      "server_missing": "Brakuje części Koona Pin (koonapin-mcp). Zainstaluj ponownie Koona Pin.",
+      "no_claude_desktop": "Nic na tym komputerze nie otwiera pakietu: zainstaluj Claude Desktop albo dodaj do niego Koona Pin ręcznie.",
       "empty_tag": "Wpisz tag.",
       "empty_collection_name": "Wpisz nazwę kolekcji.",
       "empty_title": "Tytuł nie może być pusty.",

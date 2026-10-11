@@ -5,14 +5,16 @@ Koona Pin is a desktop app with a browser extension. This page describes the par
 ## Processes and components
 
 ```text
-browser extension ──native messaging──▶ koonapin-host ──pipe / socket──▶ Koona Pin app ──▶ SQLite
+browser extension ──native messaging──▶ koonapin-host ──┐
+AI assistant ──────MCP over stdio─────▶ koonapin-mcp ───┴─pipe / socket──▶ Koona Pin app ──▶ SQLite
  (extension/src)                       (src-tauri/src/bin)             (src-tauri/src + src)
 ```
 
 | Part | Where | What it is |
 | --- | --- | --- |
 | App | `src-tauri/src` (Rust), `src` (React) | One Tauri 2 process: a Rust core that owns the library file, and a React 19 + TypeScript interface in the system WebView (WebView2 on Windows, WebKitGTK on Linux). Binary name `koonapin`. |
-| Native messaging host | `src-tauri/src/bin/koonapin-host.rs` | A small separate binary without Tauri, installed next to the app. The browser starts it for each message; it forwards the message to the running app and returns the answer. It shares only `pipe_name.rs` with the app. |
+| Native messaging host | `src-tauri/src/bin/koonapin-host.rs` | A small separate binary without Tauri, installed next to the app. The browser starts it for each message; it forwards the message to the running app and returns the answer. It shares only `pipe_name.rs` with the app, and `channel_client.rs` with the MCP server. |
+| MCP server | `src-tauri/src/bin/koonapin-mcp.rs` | The server an AI assistant (Claude Desktop, Claude Code, Cursor and others) starts and speaks MCP with over stdio, built on the official Rust SDK `rmcp`. Like the host it does not link the app: it passes each tool call over the same channel and starts a closed app in the tray. See [AI assistants](#ai-assistants-mcp). |
 | Browser extension | `extension/src` | One Manifest V3 source for Chrome, Edge and Firefox. Saves the current tab, keeps a queue, offers a quick search popup. See [extension.md](extension.md). |
 | Site | `site/` | The static site at koona.app/pin, built with Astro. It also serves the update feed (see [Updater](#updater)). |
 
@@ -32,7 +34,7 @@ The app is single-instance (`tauri-plugin-single-instance`). The window is creat
 - The types of the contract are generated from Rust by [ts-rs](https://crates.io/crates/ts-rs) into `src/bindings` while `cargo test` runs. The generated files are committed; `bun run check:bindings` fails if they differ from what the tests wrote.
 - Commands are registered in `src-tauri/src/lib.rs` and mostly implemented in `src-tauri/src/commands.rs`. Every command that touches the database is async and runs its work on a blocking thread, so the main thread (window, tray) never waits for the database lock.
 - Rust errors (`src-tauri/src/error.rs`) carry a machine code (`invalid_request`, `not_found`, `conflict`, `database_busy`, `disk_full`, `read_only`, `database_error`, `internal`, …) and an optional `detail`. The interface turns these into words in the user's language. Rust holds no user-facing text: `src-tauri/tests/english_source.rs` fails if Cyrillic appears in string literals outside tests (search folding of `ё`/`е` excepted).
-- Rust pushes changes to the interface as events: `bookmark-changed` and `bookmarks-changed` (one or many changed bookmarks with revisions), `library-invalidated` (re-read everything: import, restore, emptying the trash), `library-status`, `capture-status`, `update-status`, `import-progress`, `link-check`.
+- Rust pushes changes to the interface as events: `bookmark-changed` and `bookmarks-changed` (one or many changed bookmarks with revisions), `library-invalidated` (re-read everything: import, restore, emptying the trash), `library-status`, `capture-status`, `update-status`, `import-progress`, `link-check`, `mcp-status`.
 - In a plain browser (`bun run dev`) there is no Tauri: `api.ts` switches to `src/services/demo.ts`, an in-memory adapter with the same types and errors and its own demo data in `localStorage`. It never touches a real library.
 
 ## Library: SQLite
@@ -51,7 +53,7 @@ Until the library is open, database commands are refused and the capture channel
 
 ### Schema and migrations
 
-- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 7); the file is marked with `application_id = 0x4E50494E` ("NPIN").
+- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 8); the file is marked with `application_id = 0x4E50494E` ("NPIN").
 - All pending steps and the new `user_version` run in one transaction. Before migrating an existing library the app writes a copy `backups/koonapin.before-vN.db` with `VACUUM INTO`; the last two are kept. If the copy fails the migration does not start; if a step fails the transaction rolls back and the screen points to the copy.
 - A released step is never edited; a change is a new step. A step that rebuilds a table must turn foreign keys off itself before the transaction.
 - Main tables: `bookmarks`, `collections`, `tags`, `bookmark_tags`, `capture_receipts`, `app_settings`, `tombstones`, `duplicates_dismissed`, `link_checks`. Records have a UUIDv7 `uid` beside the integer `id`; times are UTC strings with milliseconds (`YYYY-MM-DDTHH:MM:SS.sssZ`).
@@ -89,6 +91,17 @@ The protocol version lives in `browsers::PROTOCOL` (Rust) and `extension/src/ver
 - `native_host.rs` writes the host manifests and registers them. On Windows: manifests next to the app and keys under `HKCU\Software\{Google\Chrome,Microsoft\Edge,Mozilla}\NativeMessagingHosts\app.koona.pin`. The installer runs `koonapin --register-host` after install and `--unregister-host` before uninstall; a release build also checks and repairs the registration at every start. On Linux the packages install system manifests; the app only checks them. Details in [extension.md](extension.md#native-host-registration).
 - The Chromium manifest lists the store extension IDs, and in non-release builds also the development ID. Builds made with `--features public-release` (installers and packages) leave the development ID out.
 
+## AI assistants (MCP)
+
+An AI assistant on this computer can search the library and, if the person allows, add to it (NP-091). Nothing about it listens on the network: the assistant's app starts `koonapin-mcp` and talks to it over stdio.
+
+- **The server** (`src-tauri/src/bin/koonapin-mcp.rs`) uses `rmcp` for the protocol: version negotiation, `initialize`, `tools/list`, `tools/call`, `ping`. The tools and their argument types live in `mcp_tools.rs`, which both the server and the app compile, so the schema the assistant sees is the one the app reads. Each call becomes one channel message `{ "type": "mcp", "protocol", "client", "tool", "arguments" }`; `client` is the name the assistant gave in `initialize`.
+- **The app decides** (`mcp.rs`). Access is in `app_settings` (`mcp_access`): `off` by default, `read` or `read_and_add` (Settings → AI assistants). Off, every call gets an error and nothing is read; the tool list stays so the assistant can say why. `read` offers `search_bookmarks`, `get_bookmark`, `list_collections`, `list_tags`; `read_and_add` also `add_bookmark`, `tag_bookmark`, `move_to_collection`, `set_favorite`. Nothing deletes. When a call finds another access than the last list, the server sends `notifications/tools/list_changed`.
+- **Changes.** A link goes to the inbox with `source = 'mcp'` and the assistant's name in `source_name` (schema 8), so triage says «saved … from Claude Code»; the same address again is `existing`. Tagging, moving and starring are commands of the undo journal (`Ctrl Z`) and, unlike the person's own decisions, leave a bookmark in the inbox.
+- **Untrusted text.** Titles, descriptions, notes, tags and collection names come from web pages or the person: the server's instructions and every tool description say they are data, the answers carry no instructions. Texts lose control characters and bidi marks and are cut (title 300 characters, notes 4000); a search returns at most 50 bookmarks and an answer at most 64 KiB.
+- **Connecting.** Settings → AI assistants → «How to connect…» shows the path of `koonapin-mcp` on this computer as a command for Claude Code and as `mcpServers` JSON for Claude Desktop, Cursor and others. «Install in Claude Desktop» writes `koona-pin.mcpb` (a zip: manifest, icon, the server) to the temporary folder and opens it; its manifest runs the installed server, so app updates reach it. The AppImage copies the server beside the host (`appimage.rs`).
+- The last request (assistant and time) is kept for the settings and pushed as the `mcp-status` event.
+
 ## Backups and restore
 
 - `library::maintain` runs at start and then hourly on a separate read-only connection: `quick_check` first, then, if the newest automatic copy is older than a day, `backups/koonapin.auto-<time>.db` via `VACUUM INTO`. Seven daily and four weekly copies are kept (`backup.rs`). The check runs before the copy, so a damaged library never pushes healthy copies out of rotation.
@@ -107,7 +120,7 @@ The protocol version lives in `browsers::PROTOCOL` (Rust) and `extension/src/ver
 
 ## Security boundaries
 
-The app accepts input from outside in one place, the capture channel above. It runs no HTTP server and listens on no port; a native test checks that the old port `127.0.0.1:28765` is closed.
+The app accepts input from outside in one place, the capture channel above; the MCP server reaches the app through it too. It runs no HTTP server and listens on no port; a native test checks that the old port `127.0.0.1:28765` is closed.
 
 **Network guard** (`net_guard.rs`, `metadata.rs`). A saved link must not make the app reach this computer or the local network (router pages, printers, dev servers):
 

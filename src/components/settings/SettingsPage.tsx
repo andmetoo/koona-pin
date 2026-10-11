@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AppSettings, CaptureStatus, DataSummary, Desktop, UpdateStatus } from "../../types";
+import type { TFunction } from "i18next";
+import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, UpdateStatus } from "../../types";
 import { api, isTauri } from "../../services/api";
 import {
   appIsOlder,
@@ -31,6 +32,7 @@ export function SettingsPage({
   onSettings,
   onCapture,
   onConnect,
+  onConnectAssistant,
   onCopy,
   onNotice,
   onSaveCopy,
@@ -48,6 +50,8 @@ export function SettingsPage({
   onSettings: (settings: AppSettings) => void;
   onCapture: (status: CaptureStatus) => void;
   onConnect: () => void;
+  /** «How to connect…» of AI assistants (NP-091, sheet 44). */
+  onConnectAssistant: () => void;
   onCopy: (text: string) => void;
   onNotice: (text: string, alert?: boolean) => void;
   /** «Save a copy…» (NP-034): the notice with «Show» is the caller's. */
@@ -200,6 +204,8 @@ export function SettingsPage({
         onRepair={() => void attempt("capture", async () => onCapture(await api.repairCapture()))}
         onReport={() => capture && onCopy(captureReport(capture, version))}
       />
+
+      <AssistantsSection onConnect={onConnectAssistant} onNotice={onNotice} />
 
       <Section title={t("settings.data")}>
         <Row title={t("settings.folder")} description={data?.library_folder ?? ""}>
@@ -432,6 +438,73 @@ function BrowserSection({
       </div>
     </section>
   );
+}
+
+/**
+ * Settings → AI assistants (NP-091, sheet 44): off by default; on, the last request, what assistants
+ * may do and «How to connect…».
+ */
+function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onNotice: (text: string, alert?: boolean) => void }) {
+  const { t, i18n } = useTranslation();
+  const [status, setStatus] = useState<McpStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void api.getMcpStatus().then(setStatus).catch(() => {});
+    return api.onMcpStatus(setStatus);
+  }, []);
+  const access = status?.access ?? "off";
+  const change = (next: McpAccess) => {
+    setBusy(true);
+    api
+      .setMcpAccess(next)
+      .then(setStatus)
+      .catch((err) => onNotice(describeError(err), true))
+      .finally(() => setBusy(false));
+  };
+  const on = access !== "off";
+  return (
+    <Section title={t("settings.assistants")}>
+      <div data-mcp={access}>
+        <Row title={t("assistants.allow")} description={on ? lastRequest(status, t, i18n.language) : t("assistants.offHint")}>
+          <Switch
+            label={t("assistants.allow")}
+            checked={on}
+            disabled={!status || busy}
+            onChange={(enabled) => change(enabled ? "read" : "off")}
+          />
+        </Row>
+      </div>
+      {on && (
+        <>
+          <Row title={t("assistants.access")} description={t(access === "read" ? "assistants.readHint" : "assistants.addHint")}>
+            <Segmented<McpAccess>
+              label={t("assistants.access")}
+              value={access}
+              onChange={(next) => !busy && change(next)}
+              options={[
+                { value: "read", label: t("assistants.read") },
+                { value: "read_and_add", label: t("assistants.readAndAdd") },
+              ]}
+            />
+          </Row>
+          <Row title={t("assistants.connect")} description={t("assistants.connectHint")}>
+            <Button onClick={onConnect}>{t("assistants.howToConnect")}</Button>
+          </Row>
+        </>
+      )}
+    </Section>
+  );
+}
+
+/** «On · last request from Claude Code today at 14:05», or that none came yet. */
+function lastRequest(status: McpStatus | null, t: TFunction, language: string) {
+  if (!status?.last_at) return t("assistants.noRequests");
+  const date = new Date(status.last_at);
+  const time = date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
+  const client = status.last_client || t("assistants.someone");
+  return date.toDateString() === new Date().toDateString()
+    ? t("assistants.lastToday", { client, time })
+    : t("assistants.lastOn", { client, time, date: date.toLocaleDateString(language, { day: "numeric", month: "long" }) });
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

@@ -369,6 +369,47 @@
     "deleteForeverText": "„{{title}}“ biće trajno obrisan. Ovo ne može da se opozove.",
     "deleteForeverButton": "Trajno obriši"
   },
+  "assistants": {
+    "allow": "Dozvolite AI asistentima pristup biblioteci",
+    "offHint": "Claude, Cursor i druge MCP aplikacije na ovom računaru moći će da pretražuju vaše obeleživače",
+    "noRequests": "Uključeno · još nema zahteva",
+    "lastToday": "Uključeno · poslednji zahtev od {{client}} danas u {{time}}",
+    "lastOn": "Uključeno · poslednji zahtev od {{client}} {{date}} u {{time}}",
+    "someone": "AI asistenta",
+    "access": "Šta asistenti smeju",
+    "read": "Samo čitanje",
+    "readAndAdd": "Čitanje i dodavanje",
+    "readHint": "Pretraživanje i čitanje obeleživača, kolekcija i oznaka; ništa se ne menja",
+    "addHint": "I dodavanje linkova u Prijemno sanduče, označavanje, premeštanje u kolekciju i dodavanje u omiljeno. Ctrl Z poništava svaku izmenu; ništa se ne briše",
+    "connect": "Povežite asistenta",
+    "connectHint": "Claude Desktop, Claude Code i druge aplikacije koje podržavaju MCP",
+    "howToConnect": "Kako povezati…"
+  },
+  "assistant": {
+    "title": "Povežite AI asistenta",
+    "lead": "Neka asistent pretražuje vašu biblioteku",
+    "clients": "Asistent",
+    "custom": "Drugo",
+    "statusOff": "Isključeno: asistenti dobijaju grešku dok ne uključite pristup u Podešavanjima",
+    "statusRead": "Uključeno · samo čitanje",
+    "statusAdd": "Uključeno · čitanje i dodavanje",
+    "installTitle": "Instalirajte Koona Pin u Claude Desktop",
+    "installText": "Proširenje se otvara u Claude Desktop; potvrdite dugmetom «Install».",
+    "installButton": "Instaliraj u Claude Desktop",
+    "askTitle": "Pitajte za svoje obeleživače",
+    "askText": "Na primer: «nađi moj članak o FTS5». Claude pita pre nego što prvi put upotrebi alatku.",
+    "manualTitle": "Ili dodajte ručno",
+    "manualText": "Settings → Developer → Edit Config, zatim dodajte u claude_desktop_config.json:",
+    "runTitle": "Pokrenite u terminalu",
+    "runText": "Dodaje Koona Pin u sve projekte ovog korisnika:",
+    "checkTitle": "Proverite vezu",
+    "checkText": "Ukucajte /mcp u Claude Code: koona-pin prikazuje «connected».",
+    "customTitle": "Otvorite MCP podešavanja svoje aplikacije",
+    "customText": "Cursor, Windsurf, Zed i većina drugih aplikacija koje podržavaju MCP čuvaju servere u JSON datoteci.",
+    "customAddTitle": "Dodajte Koona Pin i sačuvajte",
+    "customAddText": "Neke aplikacije gornji ključ zovu «servers». Zatim aplikacija prikazuje koona-pin sa njegovim alatkama.",
+    "note": "Naslovi, opisi i beleške stižu do asistenta kao podaci. Ne može da briše obeleživače ni da isprazni otpad."
+  },
   "connect": {
     "title": "Povežite pregledač",
     "lead": "Čuvajte stranice iz pregledača",
@@ -579,6 +620,7 @@
     "hide": "Sakrij prozor"
   },
   "settings": {
+    "assistants": "AI asistenti",
     "general": "Opšte",
     "language": "Jezik",
     "languageHint": "Engleski je izvor: neprevedeni tekstovi prikazuju se na engleskom",
@@ -677,6 +719,7 @@
     "emptied_other": "Otpad je ispražnjen: {{count}} obeleživača trajno obrisano"
   },
   "triage": {
+    "savedByAssistant": "sačuvano {{when}} preko AI asistenta",
     "title": "Razvrstavanje",
     "progress": "{{current}} od {{total}}",
     "fresh_one": "+{{count}} novi",
@@ -921,6 +964,8 @@
     "read_only": "Biblioteka je oštećena i otvorena samo za čitanje — izmene se ne čuvaju.",
     "database_busy": "Drugi program koristi biblioteku. Pokušajte ponovo za nekoliko sekundi.",
     "reason": {
+      "server_missing": "nedostaje deo programa Koona Pin (koonapin-mcp)",
+      "no_claude_desktop": "Claude Desktop nije instaliran",
       "database_busy": "biblioteka je zauzeta",
       "disk_full": "disk je pun",
       "read_only": "biblioteka je samo za čitanje",
@@ -955,6 +1000,8 @@
       "internal": "Nešto nije u redu: {{message}}"
     },
     "detail": {
+      "server_missing": "Nedostaje deo programa Koona Pin (koonapin-mcp). Ponovo instalirajte Koona Pin.",
+      "no_claude_desktop": "Na ovom računaru ništa ne otvara paket: instalirajte Claude Desktop ili u njega ručno dodajte Koona Pin.",
       "empty_tag": "Unesite oznaku.",
       "empty_collection_name": "Unesite naziv kolekcije.",
       "empty_title": "Naslov ne može biti prazan.",

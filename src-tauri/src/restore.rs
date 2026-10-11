@@ -105,7 +105,7 @@ fn time(value: &str) -> Option<String> {
     DateTime::parse_from_rfc3339(value.trim()).ok().map(|t| db::stamp(t.into()))
 }
 
-const SOURCES: [&str; 7] = ["app", "chrome", "edge", "firefox", "extension", "bookmarklet", "import"];
+const SOURCES: [&str; 8] = ["app", "chrome", "edge", "firefox", "extension", "bookmarklet", "import", "mcp"];
 
 /// Reads and checks the whole copy; nothing in the library is touched. Times
 /// come back in the library's format.
@@ -289,8 +289,8 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
             continue;
         }
         tx.execute(
-            "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key, source_name)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             params![
                 b.uid,
                 b.url,
@@ -308,6 +308,7 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
                 b.triaged_at,
                 b.deleted_at,
                 crate::dedupe::url_key(&b.url),
+                b.source_name,
             ],
         )?;
         if !b.tags.is_empty() {

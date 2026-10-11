@@ -342,6 +342,47 @@
     "deleteForeverText": "“{{title}}” kalıcı olarak silinecek. Bu geri alınamaz.",
     "deleteForeverButton": "Kalıcı olarak sil"
   },
+  "assistants": {
+    "allow": "Yapay zekâ asistanlarının kitaplığınızı kullanmasına izin verin",
+    "offHint": "Bu bilgisayardaki Claude, Cursor ve diğer MCP uygulamaları yer işaretlerinizde arama yapabilir",
+    "noRequests": "Açık · henüz istek yok",
+    "lastToday": "Açık · son istek {{client}} uygulamasından, bugün {{time}}",
+    "lastOn": "Açık · son istek {{client}} uygulamasından, {{date}} {{time}}",
+    "someone": "bir yapay zekâ asistanı",
+    "access": "Asistanlar ne yapabilir",
+    "read": "Yalnızca okuma",
+    "readAndAdd": "Okuma ve ekleme",
+    "readHint": "Yer işaretlerini, koleksiyonları ve etiketleri arayıp okuma; hiçbir şey değişmez",
+    "addHint": "Ayrıca bağlantıları Gelen kutusuna ekleme, etiketleme, bir koleksiyona taşıma ve favori yapma. Ctrl Z her değişikliği geri alır; hiçbir şey silinmez",
+    "connect": "Asistan bağlayın",
+    "connectHint": "Claude Desktop, Claude Code ve MCP ile çalışan diğer uygulamalar",
+    "howToConnect": "Nasıl bağlanır…"
+  },
+  "assistant": {
+    "title": "Yapay zekâ asistanı bağlayın",
+    "lead": "Bir asistan kitaplığınızda arama yapsın",
+    "clients": "Asistan",
+    "custom": "Diğer",
+    "statusOff": "Kapalı: siz Ayarlar'da erişimi açana kadar asistanlar hata alır",
+    "statusRead": "Açık · yalnızca okuma",
+    "statusAdd": "Açık · okuma ve ekleme",
+    "installTitle": "Koona Pin'i Claude Desktop'a yükleyin",
+    "installText": "Uzantı Claude Desktop'ta açılır; «Install» ile onaylayın.",
+    "installButton": "Claude Desktop'a yükle",
+    "askTitle": "Yer işaretlerinizi sorun",
+    "askText": "Örneğin: «FTS5 hakkındaki makalemi bul». Claude bir aracı ilk kez kullanmadan önce sorar.",
+    "manualTitle": "Ya da elle ekleyin",
+    "manualText": "Settings → Developer → Edit Config, ardından claude_desktop_config.json dosyasına ekleyin:",
+    "runTitle": "Bir terminalde çalıştırın",
+    "runText": "Koona Pin'i bu kullanıcının tüm projelerine ekler:",
+    "checkTitle": "Bağlantıyı denetleyin",
+    "checkText": "Claude Code'da /mcp yazın: koona-pin «connected» gösterir.",
+    "customTitle": "Uygulamanızın MCP ayarlarını açın",
+    "customText": "Cursor, Windsurf, Zed ve MCP ile çalışan çoğu uygulama sunucularını bir JSON dosyasında tutar.",
+    "customAddTitle": "Koona Pin'i ekleyip kaydedin",
+    "customAddText": "Bazı uygulamalar en üst anahtara «servers» der. Ardından uygulama koona-pin'i araçlarıyla birlikte gösterir.",
+    "note": "Başlıklar, açıklamalar ve notlar asistana veri olarak ulaşır. Asistan yer işaretlerini silemez, çöp kutusunu boşaltamaz."
+  },
   "connect": {
     "title": "Tarayıcıyı bağlayın",
     "lead": "Tarayıcınızdan sayfa kaydedin",
@@ -533,6 +574,7 @@
     "hide": "Pencereyi gizle"
   },
   "settings": {
+    "assistants": "Yapay zekâ asistanları",
     "general": "Genel",
     "language": "Dil",
     "languageHint": "Kaynak dil İngilizcedir: çevrilmemiş metinler İngilizce görünür",
@@ -628,6 +670,7 @@
     "emptied_other": "Çöp kutusu boşaltıldı: {{count}} yer işareti kalıcı olarak silindi"
   },
   "triage": {
+    "savedByAssistant": "{{when}} bir yapay zekâ asistanı tarafından kaydedildi",
     "title": "Gelen kutusunu düzenle",
     "progress": "{{current}} / {{total}}",
     "fresh_one": "+{{count}} yeni",
@@ -861,6 +904,8 @@
     "read_only": "Kitaplık bozuk ve salt okunur açıldı — değişiklikler kaydedilmiyor.",
     "database_busy": "Kitaplığı başka bir program kullanıyor. Birkaç saniye sonra yeniden deneyin.",
     "reason": {
+      "server_missing": "Koona Pin'in bir parçası (koonapin-mcp) eksik",
+      "no_claude_desktop": "Claude Desktop yüklü değil",
       "database_busy": "kitaplık meşgul",
       "disk_full": "disk dolu",
       "read_only": "kitaplık salt okunur",
@@ -895,6 +940,8 @@
       "internal": "Bir şeyler ters gitti: {{message}}"
     },
     "detail": {
+      "server_missing": "Koona Pin'in bir parçası (koonapin-mcp) eksik. Koona Pin'i yeniden yükleyin.",
+      "no_claude_desktop": "Bu bilgisayarda paketi açan bir uygulama yok: Claude Desktop'u yükleyin ya da Koona Pin'i ona elle ekleyin.",
       "empty_tag": "Bir etiket girin.",
       "empty_collection_name": "Bir koleksiyon adı girin.",
       "empty_title": "Başlık boş olamaz.",

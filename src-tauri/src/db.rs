@@ -27,8 +27,13 @@ pub struct Bookmark {
     /// When the bookmark went to the trash; none outside it (NP-022).
     pub deleted_at: Option<String>,
     /// Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
-    /// `extension`, `import`; none for links of unknown origin. Triage shows it (NP-025).
+    /// `extension`, `import`, `mcp`; none for links of unknown origin. Triage shows it (NP-025).
     pub source: Option<String>,
+    /// The assistant that saved it over MCP (NP-091), as triage names it:
+    /// «Claude», «Claude Code», or the name the assistant gave.
+    #[ts(optional)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_name: Option<String>,
     /// The sort keys of the title and of the site in hex (NP-114): compared
     /// as text, they order rows as «Title A–Z» and «Site A–Z» do.
     #[ts(optional)]
@@ -133,6 +138,8 @@ pub enum Source {
     Firefox,
     Extension,
     Import,
+    /// An AI assistant over MCP (NP-091, schema 8).
+    Mcp,
 }
 
 impl Source {
@@ -144,6 +151,7 @@ impl Source {
             Source::Firefox => "firefox",
             Source::Extension => "extension",
             Source::Import => "import",
+            Source::Mcp => "mcp",
         }
     }
 }
@@ -299,7 +307,7 @@ pub fn insert_or_update_bookmark(
 }
 
 /// The columns [`bookmark_row`] reads, in its order.
-const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key)";
+const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key), source_name";
 
 pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut stmt = conn.prepare(&format!("SELECT {BOOKMARK_COLUMNS} FROM bookmarks WHERE id = ?1"))?;
@@ -572,6 +580,7 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         // `hex(NULL)` is an empty text.
         title_key: Some(row.get::<_, String>(16)?).filter(|k| !k.is_empty()),
         site_key: Some(row.get::<_, String>(17)?).filter(|k| !k.is_empty()),
+        source_name: row.get(18)?,
     })
 }
 
@@ -916,6 +925,69 @@ pub fn update_bookmark(
     let updated = get_bookmark_by_id(conn, id)?;
     tx.commit()?;
     Ok(updated)
+}
+
+/// What an AI assistant may change on a bookmark (NP-091).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AssistantChange {
+    /// Adds these tags; the ones it has stay.
+    Tag(Vec<String>),
+    /// Into this collection.
+    Move(i64),
+    Favorite(bool),
+}
+
+/// An assistant's change, in one transaction. Unlike a change the person
+/// makes, it is no decision: a bookmark in the inbox stays there for the
+/// person to sort (Р-67). The trash is out of reach. A change that changes
+/// nothing writes nothing and keeps the revision.
+pub fn assistant_update(conn: &Connection, id: i64, change: &AssistantChange) -> Result<Bookmark> {
+    let tx = conn.unchecked_transaction()?;
+    let before = get_bookmark_by_id(&tx, id)?;
+    if before.deleted_at.is_some() {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+    let now = now();
+    let changed = match change {
+        AssistantChange::Tag(tags) => {
+            let had = before.tags.clone().unwrap_or_default();
+            let new: Vec<String> = tags
+                .iter()
+                .map(|t| t.trim().to_lowercase())
+                .filter(|t| !t.is_empty() && !had.contains(t))
+                .collect();
+            link_tags(&tx, id, &new, &now)?;
+            !new.is_empty()
+        }
+        AssistantChange::Move(collection) => {
+            tx.execute(
+                "UPDATE bookmarks SET collection_id=?1 WHERE id=?2 AND collection_id IS NOT ?1",
+                params![collection, id],
+            )? > 0
+        }
+        AssistantChange::Favorite(favorite) => {
+            tx.execute(
+                "UPDATE bookmarks SET is_favorite=?1 WHERE id=?2 AND is_favorite<>?1",
+                params![favorite, id],
+            )? > 0
+        }
+    };
+    if !changed {
+        return Ok(before);
+    }
+    tx.execute(
+        "UPDATE bookmarks SET revision=revision+1, updated_at=?1 WHERE id=?2",
+        params![now, id],
+    )?;
+    let after = get_bookmark_by_id(&tx, id)?;
+    tx.commit()?;
+    Ok(after)
+}
+
+/// Who saved a bookmark over MCP (NP-091), next to `source = 'mcp'`.
+pub fn set_source_name(conn: &Connection, id: i64, name: &str) -> Result<()> {
+    conn.execute("UPDATE bookmarks SET source_name=?1 WHERE id=?2", params![name, id])?;
+    Ok(())
 }
 
 pub fn enrich_bookmark(

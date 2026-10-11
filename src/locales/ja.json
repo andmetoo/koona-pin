@@ -317,6 +317,47 @@
     "deleteForeverText": "「{{title}}」が完全に削除されます。この操作は元に戻せません。",
     "deleteForeverButton": "完全に削除"
   },
+  "assistants": {
+    "allow": "AI アシスタントにライブラリの利用を許可",
+    "offHint": "このコンピューターの Claude、Cursor などの MCP アプリがブックマークを検索できます",
+    "noRequests": "オン · まだリクエストはありません",
+    "lastToday": "オン · 最後のリクエスト: {{client}}、今日 {{time}}",
+    "lastOn": "オン · 最後のリクエスト: {{client}}、{{date}} {{time}}",
+    "someone": "AI アシスタント",
+    "access": "アシスタントにできること",
+    "read": "読み取りのみ",
+    "readAndAdd": "読み取りと追加",
+    "readHint": "ブックマーク、コレクション、タグを検索して読み取ります。何も変更しません",
+    "addHint": "リンクをインボックスに追加し、タグを付け、コレクションに移動し、お気に入りにすることもできます。Ctrl Z で変更を一つずつ取り消せます。削除はしません",
+    "connect": "アシスタントを接続",
+    "connectHint": "Claude Desktop、Claude Code など MCP に対応したアプリ",
+    "howToConnect": "接続方法…"
+  },
+  "assistant": {
+    "title": "AI アシスタントを接続",
+    "lead": "アシスタントにライブラリを検索させる",
+    "clients": "アシスタント",
+    "custom": "その他",
+    "statusOff": "オフ: 設定でアクセスをオンにするまで、アシスタントにはエラーが返ります",
+    "statusRead": "オン · 読み取りのみ",
+    "statusAdd": "オン · 読み取りと追加",
+    "installTitle": "Claude Desktop に Koona Pin をインストール",
+    "installText": "拡張機能が Claude Desktop で開きます。«Install» で確定してください。",
+    "installButton": "Claude Desktop にインストール",
+    "askTitle": "ブックマークについて尋ねる",
+    "askText": "例: «FTS5 についての記事を探して»。Claude はツールを初めて使う前に確認します。",
+    "manualTitle": "または手動で追加",
+    "manualText": "Settings → Developer → Edit Config を開き、claude_desktop_config.json に追加します:",
+    "runTitle": "ターミナルで実行",
+    "runText": "このユーザーのすべてのプロジェクトに Koona Pin を追加します:",
+    "checkTitle": "接続を確認",
+    "checkText": "Claude Code で /mcp と入力します。koona-pin に «connected» と表示されます。",
+    "customTitle": "アプリの MCP 設定を開く",
+    "customText": "Cursor、Windsurf、Zed など MCP に対応した多くのアプリは、サーバーを JSON ファイルに保存しています。",
+    "customAddTitle": "Koona Pin を追加して保存",
+    "customAddText": "アプリによっては最上位のキーが «servers» です。その後、アプリに koona-pin とそのツールが表示されます。",
+    "note": "タイトル、説明、メモはデータとしてアシスタントに渡ります。アシスタントはブックマークの削除やゴミ箱を空にすることはできません。"
+  },
   "connect": {
     "title": "ブラウザーを接続",
     "lead": "ブラウザーからページを保存",
@@ -489,6 +530,7 @@
     "hide": "ウィンドウを隠す"
   },
   "settings": {
+    "assistants": "AI アシスタント",
     "general": "全般",
     "language": "言語",
     "languageHint": "英語が原文です。翻訳されていない文字列は英語で表示されます",
@@ -581,6 +623,7 @@
     "emptied_other": "ゴミ箱を空にしました：{{count}} 件のブックマークを完全に削除しました"
   },
   "triage": {
+    "savedByAssistant": "{{when}}に AI アシスタントが保存",
     "title": "インボックスを整理",
     "progress": "{{current}} / {{total}}",
     "fresh_other": "+{{count}} 件の新着",
@@ -803,6 +846,8 @@
     "read_only": "ライブラリが破損しているため読み取り専用で開いています — 変更は保存されません。",
     "database_busy": "別のプログラムがライブラリを使用しています。数秒後にもう一度お試しください。",
     "reason": {
+      "server_missing": "Koona Pin の一部（koonapin-mcp）が見つかりません",
+      "no_claude_desktop": "Claude Desktop がインストールされていません",
       "database_busy": "ライブラリが使用中です",
       "disk_full": "ディスクがいっぱいです",
       "read_only": "ライブラリは読み取り専用です",
@@ -837,6 +882,8 @@
       "internal": "問題が発生しました：{{message}}"
     },
     "detail": {
+      "server_missing": "Koona Pin の一部（koonapin-mcp）が見つかりません。Koona Pin を再インストールしてください。",
+      "no_claude_desktop": "このコンピューターにはパッケージを開けるアプリがありません。Claude Desktop をインストールするか、Koona Pin を手動で追加してください。",
       "empty_tag": "タグを入力してください。",
       "empty_collection_name": "コレクションの名前を入力してください。",
       "empty_title": "タイトルは空にできません。",
