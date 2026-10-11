@@ -47,6 +47,10 @@ import {
   McpAccess,
   McpSetup,
   McpStatus,
+  SupporterStatus,
+  SupporterPrices,
+  PlanInterval,
+  CheckoutState,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
@@ -118,6 +122,50 @@ function setDemoUpdate(status: UpdateStatus) {
   updateListeners.forEach((fn) => fn(status));
 }
 let demoDownload: number | null = null;
+
+/**
+ * Supporter (NP-066, sheet 45): `free` shows the row and the dialog, whose test payment is seen
+ * after two polls; `supporter`, `canceling`, `past_due`, `offline` are the cards of Settings → Plan;
+ * `no_server` makes every request fail. Without the key the build sells nothing, as a release.
+ */
+export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
+function storedSupporter(): string | null {
+  try {
+    return localStorage.getItem(DEMO_SUPPORTER_KEY);
+  } catch {
+    return null;
+  }
+}
+const supporterListeners = new Set<(status: SupporterStatus) => void>();
+const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+function demoPlan(kind: string | null): SupporterStatus["plan"] {
+  if (kind === "supporter") return { status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365) };
+  if (kind === "canceling") return { status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null };
+  if (kind === "past_due") return { status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20) };
+  if (kind === "offline") return { status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2) };
+  return null;
+}
+let demoSupporter: SupporterStatus | null = null;
+function currentDemoSupporter(): SupporterStatus {
+  const kind = storedSupporter();
+  const plan = demoPlan(kind);
+  demoSupporter ??= {
+    available: kind !== null,
+    sandbox: true,
+    email: plan ? "anna@example.com" : null,
+    plan,
+    check_failed: kind === "offline",
+  };
+  return demoSupporter;
+}
+function setDemoSupporter(status: SupporterStatus) {
+  demoSupporter = status;
+  supporterListeners.forEach((fn) => fn(status));
+}
+let demoPolls = 0;
+const noServer = () => {
+  if (storedSupporter() === "no_server") throw new CommandError("network", "No connection", "no_connection");
+};
 
 /** Capture speaks of the system the preview pretends to run on (NP-054). */
 const demoCapture = (): CaptureStatus => ({ ...demoCaptureStatus, system: storedDesktop()?.linux ? "linux" : "windows" });
@@ -1238,5 +1286,56 @@ export const demo = {
     window.clearInterval(demoDownload);
     demoDownload = null;
     setDemoUpdate(demoOffer());
+  },
+  async getSupporterStatus(): Promise<SupporterStatus> {
+    return currentDemoSupporter();
+  },
+  onSupporterStatus(fn: (status: SupporterStatus) => void) {
+    supporterListeners.add(fn);
+    return () => void supporterListeners.delete(fn);
+  },
+  async getSupporterPrices(): Promise<SupporterPrices> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    noServer();
+    return {
+      month: { price_id: "pri_month", total: "$2.00", currency: "USD" },
+      year: { price_id: "pri_year", total: "$20.00", currency: "USD" },
+    };
+  },
+  async startCheckout(_interval: PlanInterval) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    demoPolls = 0;
+    return "https://koona.app/pin/checkout/?_ptxn=txn_demo";
+  },
+  async openCheckout(_url: string) {},
+  async pollCheckout(): Promise<CheckoutState> {
+    if (++demoPolls < 3) return "waiting";
+    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false });
+    return "paid";
+  },
+  async refreshSupporter(): Promise<SupporterStatus> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    noServer();
+    const status = currentDemoSupporter();
+    if (status.check_failed) setDemoSupporter({ ...status, plan: demoPlan("supporter"), check_failed: false });
+    return currentDemoSupporter();
+  },
+  async openSupporterPortal() {},
+  async sendSignInCode(email: string) {
+    if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+  },
+  /** Any code but 000000 works in the preview. */
+  async verifySignInCode(email: string, code: string): Promise<SupporterStatus> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    if (code.replace(/\D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false });
+    return currentDemoSupporter();
+  },
+  async signOutSupporter(): Promise<SupporterStatus> {
+    setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false });
+    return currentDemoSupporter();
   },
 };

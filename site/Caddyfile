@@ -24,9 +24,15 @@ handle_path /pin/* {
 	# Only own files, plus the Cloudflare Web Analytics beacon that Cloudflare inserts (Р-37).
 	# Forms post only to the Edge Function `feedback` in Supabase (NP-088, Р-9); 'self' lets its
 	# 303 back to /pin/feedback/sent through, browsers check form-action on redirects too.
+	# The payment page (NP-066, Р-64) is the one with a script: Paddle.js from its CDN and Paddle's
+	# checkout in a frame; Paddle.js sets inline styles on the overlay. Every other page keeps the
+	# policy without scripts.
+	@checkout path /checkout /checkout/ /checkout/*
+	header @checkout Content-Security-Policy "default-src 'none'; img-src 'self' data: https://cdn.paddle.com https://sandbox-cdn.paddle.com; style-src 'self' 'unsafe-inline' https://cdn.paddle.com https://sandbox-cdn.paddle.com; font-src 'self'; script-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com https://static.cloudflareinsights.com; frame-src https://buy.paddle.com https://sandbox-buy.paddle.com; connect-src 'self' https://*.paddle.com https://cloudflareinsights.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+	@notCheckout not path /checkout /checkout/ /checkout/*
+	header @notCheckout Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; script-src https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'self' https://*.supabase.co; frame-ancestors 'none'"
 	header {
 		Strict-Transport-Security "max-age=31536000"
-		Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; script-src https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'self' https://*.supabase.co; frame-ancestors 'none'"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "same-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"

@@ -48,6 +48,10 @@ import {
   StarterLibrary,
   StarterLink,
   Suggestion,
+  SupporterPrices,
+  SupporterStatus,
+  PlanInterval,
+  CheckoutState,
   Tag,
   TrayLabels,
   Undo,
@@ -271,5 +275,19 @@ const desktop = {
   getMcpSetup: () => call<McpSetup>("get_mcp_setup"),
   /** «Save for Claude Desktop…»: the .mcpb package where the person saves it; its file name, none when cancelled. */
   saveMcpb: () => call<string | null>("save_mcpb"),
+  /** Supporter (NP-066, sheet 45): the plan as kept, no request. */
+  getSupporterStatus: () => call<SupporterStatus>("get_supporter_status"),
+  onSupporterStatus: (callback: (status: SupporterStatus) => void) => subscription("supporter-status", callback),
+  getSupporterPrices: () => call<SupporterPrices>("get_supporter_prices"),
+  /** «Continue»: the payment page opens in the browser. */
+  startCheckout: (interval: PlanInterval) => call<string>("start_checkout", { interval }),
+  openCheckout: (url: string) => call<void>("open_checkout", { url }),
+  /** Only while the dialog waits for the payment. */
+  pollCheckout: () => call<CheckoutState>("poll_checkout"),
+  refreshSupporter: () => call<SupporterStatus>("refresh_supporter"),
+  openSupporterPortal: () => call<void>("open_supporter_portal"),
+  sendSignInCode: (email: string) => call<void>("send_sign_in_code", { email }),
+  verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),
+  signOutSupporter: () => call<SupporterStatus>("sign_out_supporter"),
 };
 export const api = isTauri() ? desktop : demo;

@@ -994,7 +994,10 @@
       "too_many_messages": "trop de messages depuis ce réseau au cours de la dernière heure",
       "proxy_failed": "le proxy du réseau a refusé la requête",
       "no_connection_or_proxy": "pas de connexion Internet, ou ce réseau a besoin de son proxy",
-      "no_connection_or_system_proxy": "pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système"
+      "no_connection_or_system_proxy": "pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système",
+      "not_supporter": "aucun Supporter n’a cette adresse",
+      "wrong_code": "le code n’a pas fonctionné",
+      "signed_out": "vous avez été déconnecté"
     },
     "code": {
       "not_found": "Cela n’existe plus — peut-être supprimé entre-temps.",
@@ -1022,7 +1025,10 @@
       "too_many_messages": "Trop de messages depuis ce réseau au cours de la dernière heure. Votre texte est conservé — réessayez plus tard.",
       "proxy_failed": "Envoi impossible via le proxy de ce réseau : il demande une connexion ou est injoignable. Votre texte est conservé — copiez-le et envoyez-le autrement, par exemple sur GitHub.",
       "no_connection_or_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin de son proxy, configuré par un script que l’application ne peut pas utiliser. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub.",
-      "no_connection_or_system_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système, que l’application ne lit pas — elle n’utilise que les variables https_proxy et http_proxy. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub."
+      "no_connection_or_system_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système, que l’application ne lit pas — elle n’utilise que les variables https_proxy et http_proxy. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub.",
+      "not_supporter": "Aucun Supporter n’a cette adresse. Utilisez celle de votre paiement.",
+      "wrong_code": "Ce code n’a pas fonctionné. Vérifiez-le ou demandez-en un nouveau.",
+      "signed_out": "Vous avez été déconnecté. Reconnectez-vous dans Réglages → Formule."
     }
   },
   "tray": {
@@ -1109,5 +1115,68 @@
     "text": "Apportez vos signets de Chrome, Edge ou Firefox — leurs dossiers deviennent des collections",
     "action": "Importer des signets…",
     "hide": "Masquer"
+  },
+  "supporter": {
+    "free": "Version gratuite",
+    "support": "Soutenir",
+    "rowHint": "Version gratuite · Soutenir Koona Pin",
+    "title": "Soutenir Koona Pin",
+    "testPayments": "Paiements de test",
+    "intro": "Koona Pin reste gratuit : la bibliothèque, le bouton du navigateur, la recherche, les sauvegardes et les assistants IA. Les Supporters font vivre le projet et reçoivent :",
+    "perks": {
+      "sync": "La synchronisation entre vos ordinateurs — phase précoce, dès le premier jour",
+      "backups": "Des sauvegardes automatiques dans le dossier de votre choix, comme Dropbox",
+      "badge": "Un badge Supporter dans l’app",
+      "early": "Les versions préliminaires avant tout le monde"
+    },
+    "plan": "Formule",
+    "yearly": "Annuel",
+    "monthly": "Mensuel",
+    "perYear": "{{price}} par an",
+    "perMonth": "{{price}} par mois",
+    "twoMonthsFree": "2 mois offerts",
+    "paddleHint": "Le paiement s’ouvre dans votre navigateur. Paddle le gère, taxes comprises, en tant que revendeur. Résiliable à tout moment : votre bibliothèque reste sur votre ordinateur.",
+    "notNow": "Pas maintenant",
+    "continue": "Continuer",
+    "unreachable": "Impossible de joindre le serveur de Koona Pin. Vérifiez la connexion et réessayez.",
+    "waitingTitle": "Terminez dans le navigateur",
+    "waitingText": "La page de paiement s’est ouverte dans votre navigateur. Koona Pin repère le paiement toute seule, même si vous fermez cette fenêtre.",
+    "waiting": "En attente du paiement…",
+    "openAgain": "Rouvrir la page",
+    "thanksTitle": "Merci de soutenir Koona Pin",
+    "thanksText": "Supporter est actif pour {{email}}, l’adresse de votre paiement. Sur un autre ordinateur, connectez-vous avec elle dans {{place}}.",
+    "done": "Terminé",
+    "signInTitle": "Se connecter en tant que Supporter",
+    "signInText": "Vous avez payé sur un autre ordinateur ? Saisissez l’adresse de votre paiement et nous enverrons un code à 6 chiffres, sans mot de passe. Koona Pin connaîtra alors votre formule ici aussi.",
+    "email": "Adresse e-mail",
+    "sendCode": "Envoyer le code",
+    "codeTitle": "Vérifiez vos e-mails",
+    "codeText": "Nous avons envoyé un code à 6 chiffres à {{email}}. Saisissez-le pour vous connecter.",
+    "code": "Code",
+    "sendAgainIn": "Renvoyer dans {{time}}",
+    "sendAgain": "Renvoyer",
+    "anotherEmail": "Utiliser une autre adresse",
+    "back": "Retour",
+    "signIn": "Se connecter",
+    "tooManyCodes": "Trop de codes demandés. Patientez quelques minutes et réessayez.",
+    "badge": "Supporter · merci ! Votre formule est dans les Réglages"
+  },
+  "plan": {
+    "header": "Formule",
+    "free": "Gratuit",
+    "freeHint": "Tout sur cet ordinateur, gratuit pour toujours",
+    "become": "Devenir Supporter",
+    "already": "Je suis déjà Supporter",
+    "yearly": "Supporter · annuel",
+    "monthly": "Supporter · mensuel",
+    "renews": "{{email}} · renouvellement le {{date}}",
+    "until": "Supporter jusqu’au {{date}}",
+    "noRenewal": "Pas de renouvellement. Votre bibliothèque reste telle quelle.",
+    "pastDue": "Supporter · le paiement n’est pas passé",
+    "pastDueHint": "Paddle réessaiera. Mettez à jour la carte pour rester Supporter.",
+    "updateCard": "Mettre à jour la carte",
+    "manage": "Gérer",
+    "signOut": "Se déconnecter",
+    "couldNotCheck": "Formule non vérifiée : pas de connexion. Elle reste active jusqu’au {{date}}."
   }
 }

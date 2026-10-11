@@ -994,7 +994,10 @@
       "too_many_messages": "demasiados mensajes desde esta red en la última hora",
       "proxy_failed": "el proxy de la red rechazó la petición",
       "no_connection_or_proxy": "no hay conexión a internet o esta red necesita su proxy",
-      "no_connection_or_system_proxy": "no hay conexión a internet o esta red necesita el proxy de la configuración del sistema"
+      "no_connection_or_system_proxy": "no hay conexión a internet o esta red necesita el proxy de la configuración del sistema",
+      "not_supporter": "ningún Supporter tiene este correo",
+      "wrong_code": "el código no funcionó",
+      "signed_out": "se cerró tu sesión"
     },
     "code": {
       "not_found": "Ya no existe; puede que se haya eliminado mientras tanto.",
@@ -1022,7 +1025,10 @@
       "too_many_messages": "Demasiados mensajes desde esta red en la última hora. Tu texto se conserva; vuelve a intentarlo más tarde.",
       "proxy_failed": "No se pudo enviar a través del proxy de esta red: pide iniciar sesión o no está disponible. Tu texto se conserva; cópialo y envíalo por otra vía, por ejemplo en GitHub.",
       "no_connection_or_proxy": "No se pudo enviar: no hay conexión a internet o esta red necesita su proxy, que configura un script que la aplicación no puede usar. Tu texto se conserva; vuelve a intentarlo o cópialo y envíalo por otra vía, por ejemplo en GitHub.",
-      "no_connection_or_system_proxy": "No se pudo enviar: no hay conexión a internet o esta red necesita el proxy de la configuración del sistema, que la aplicación no lee; solo usa las variables https_proxy y http_proxy. Tu texto se conserva; vuelve a intentarlo o cópialo y envíalo por otra vía, por ejemplo en GitHub."
+      "no_connection_or_system_proxy": "No se pudo enviar: no hay conexión a internet o esta red necesita el proxy de la configuración del sistema, que la aplicación no lee; solo usa las variables https_proxy y http_proxy. Tu texto se conserva; vuelve a intentarlo o cópialo y envíalo por otra vía, por ejemplo en GitHub.",
+      "not_supporter": "Ningún Supporter tiene este correo. Usa el correo de tu pago.",
+      "wrong_code": "El código no funcionó. Revísalo o pide uno nuevo.",
+      "signed_out": "Se cerró tu sesión. Vuelve a iniciarla en Ajustes → Plan."
     }
   },
   "tray": {
@@ -1109,5 +1115,68 @@
     "text": "Trae tus marcadores de Chrome, Edge o Firefox: sus carpetas se convierten en colecciones",
     "action": "Importar marcadores…",
     "hide": "Ocultar"
+  },
+  "supporter": {
+    "free": "Versión gratuita",
+    "support": "Apoyar",
+    "rowHint": "Versión gratuita · Apoyar Koona Pin",
+    "title": "Apoyar Koona Pin",
+    "testPayments": "Pagos de prueba",
+    "intro": "Koona Pin sigue siendo gratis: la biblioteca, el botón del navegador, la búsqueda, las copias y los asistentes de IA. Quienes la apoyan mantienen el proyecto y reciben:",
+    "perks": {
+      "sync": "Sincronización entre tus ordenadores — fase inicial, desde el primer día",
+      "backups": "Copias automáticas en la carpeta que elijas, como Dropbox",
+      "badge": "Una insignia de Supporter en la app",
+      "early": "Versiones tempranas antes que nadie"
+    },
+    "plan": "Plan",
+    "yearly": "Anual",
+    "monthly": "Mensual",
+    "perYear": "{{price}} al año",
+    "perMonth": "{{price}} al mes",
+    "twoMonthsFree": "2 meses gratis",
+    "paddleHint": "El pago se abre en tu navegador. Paddle lo gestiona, con los impuestos, como nuestro revendedor. Cancela cuando quieras: tu biblioteca se queda en tu ordenador.",
+    "notNow": "Ahora no",
+    "continue": "Continuar",
+    "unreachable": "No se pudo conectar con el servidor de Koona Pin. Comprueba la conexión e inténtalo de nuevo.",
+    "waitingTitle": "Termina en el navegador",
+    "waitingText": "La página de pago se abrió en tu navegador. Koona Pin detecta el pago por sí sola, aunque cierres este cuadro.",
+    "waiting": "Esperando el pago…",
+    "openAgain": "Abrir la página otra vez",
+    "thanksTitle": "Gracias por apoyar Koona Pin",
+    "thanksText": "Supporter está activo para {{email}}, el correo de tu pago. En otro ordenador, inicia sesión con él en {{place}}.",
+    "done": "Listo",
+    "signInTitle": "Iniciar sesión como Supporter",
+    "signInText": "¿Pagaste en otro ordenador? Escribe el correo de tu pago y te enviaremos un código de 6 dígitos, sin contraseña. Así Koona Pin también conocerá tu plan aquí.",
+    "email": "Correo",
+    "sendCode": "Enviar código",
+    "codeTitle": "Revisa tu correo",
+    "codeText": "Enviamos un código de 6 dígitos a {{email}}. Escríbelo para iniciar sesión.",
+    "code": "Código",
+    "sendAgainIn": "Reenviar en {{time}}",
+    "sendAgain": "Reenviar",
+    "anotherEmail": "Usar otro correo",
+    "back": "Atrás",
+    "signIn": "Iniciar sesión",
+    "tooManyCodes": "Se pidieron demasiados códigos. Espera unos minutos e inténtalo de nuevo.",
+    "badge": "Supporter · ¡gracias! Tu plan está en Ajustes"
+  },
+  "plan": {
+    "header": "Plan",
+    "free": "Gratis",
+    "freeHint": "Todo en este ordenador, gratis para siempre",
+    "become": "Hacerse Supporter",
+    "already": "Ya soy Supporter",
+    "yearly": "Supporter · anual",
+    "monthly": "Supporter · mensual",
+    "renews": "{{email}} · se renueva el {{date}}",
+    "until": "Supporter hasta el {{date}}",
+    "noRenewal": "No se renueva. Tu biblioteca se queda como está.",
+    "pastDue": "Supporter · el pago no se completó",
+    "pastDueHint": "Paddle lo intentará de nuevo. Actualiza la tarjeta para seguir siendo Supporter.",
+    "updateCard": "Actualizar tarjeta",
+    "manage": "Gestionar",
+    "signOut": "Cerrar sesión",
+    "couldNotCheck": "No se pudo comprobar el plan: sin conexión. Sigue activo hasta el {{date}}."
   }
 }

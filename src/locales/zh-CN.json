@@ -878,7 +878,10 @@
       "too_many_messages": "过去一小时内来自此网络的消息过多",
       "proxy_failed": "网络代理拒绝了请求",
       "no_connection_or_proxy": "没有网络连接，或此网络需要使用代理",
-      "no_connection_or_system_proxy": "没有网络连接，或此网络需要使用系统设置中的代理"
+      "no_connection_or_system_proxy": "没有网络连接，或此网络需要使用系统设置中的代理",
+      "not_supporter": "没有使用此邮箱的 Supporter",
+      "wrong_code": "验证码无效",
+      "signed_out": "你已退出登录"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -906,7 +909,10 @@
       "too_many_messages": "过去一小时内来自此网络的消息过多。你的文字已保留 — 请稍后重试。",
       "proxy_failed": "无法通过此网络的代理发送：它要求登录或无法访问。你的文字已保留 — 请复制后通过其他方式发送，例如在 GitHub 上。",
       "no_connection_or_proxy": "无法发送：没有网络连接，或此网络需要通过安装脚本设置的代理，而应用无法使用该脚本。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。",
-      "no_connection_or_system_proxy": "无法发送：没有网络连接，或此网络需要系统设置中的代理，而应用不读取这些设置 — 它只使用 https_proxy 和 http_proxy 变量。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。"
+      "no_connection_or_system_proxy": "无法发送：没有网络连接，或此网络需要系统设置中的代理，而应用不读取这些设置 — 它只使用 https_proxy 和 http_proxy 变量。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。",
+      "not_supporter": "没有使用此邮箱的 Supporter。请使用付款时的邮箱。",
+      "wrong_code": "验证码无效。请检查或重新获取。",
+      "signed_out": "你已退出登录。请在 设置 → 方案 中重新登录。"
     }
   },
   "tray": {
@@ -963,5 +969,68 @@
     "text": "从 Chrome、Edge 或 Firefox 导入书签——文件夹会变成合集",
     "action": "导入书签…",
     "hide": "隐藏"
+  },
+  "supporter": {
+    "free": "免费版",
+    "support": "支持",
+    "rowHint": "免费版 · 支持 Koona Pin",
+    "title": "支持 Koona Pin",
+    "testPayments": "测试付款",
+    "intro": "Koona Pin 依然免费：资料库、浏览器按钮、搜索、备份和 AI 助手。Supporter 支持项目持续发展，并获得：",
+    "perks": {
+      "sync": "多台电脑之间同步——早期阶段，从第一天起",
+      "backups": "自动备份到你选择的文件夹，例如 Dropbox",
+      "badge": "应用内的 Supporter 徽章",
+      "early": "抢先体验预览版本"
+    },
+    "plan": "方案",
+    "yearly": "按年",
+    "monthly": "按月",
+    "perYear": "每年 {{price}}",
+    "perMonth": "每月 {{price}}",
+    "twoMonthsFree": "免费 2 个月",
+    "paddleHint": "付款会在浏览器中打开。由我们的经销商 Paddle 处理付款和税费。可随时取消：你的资料库仍保留在电脑上。",
+    "notNow": "暂不",
+    "continue": "继续",
+    "unreachable": "无法连接 Koona Pin 服务器。请检查网络后重试。",
+    "waitingTitle": "请在浏览器中完成",
+    "waitingText": "付款页面已在浏览器中打开。即使关闭此对话框，Koona Pin 也会自动发现付款。",
+    "waiting": "正在等待付款…",
+    "openAgain": "重新打开页面",
+    "thanksTitle": "感谢你支持 Koona Pin",
+    "thanksText": "Supporter 已为付款邮箱 {{email}} 开通。在其他电脑上，请在 {{place}} 中用它登录。",
+    "done": "完成",
+    "signInTitle": "以 Supporter 身份登录",
+    "signInText": "在其他电脑上付过款？输入付款时的邮箱，我们会发送 6 位验证码，无需密码。这样 Koona Pin 在这里也能识别你的方案。",
+    "email": "邮箱",
+    "sendCode": "发送验证码",
+    "codeTitle": "请查看邮箱",
+    "codeText": "我们已向 {{email}} 发送 6 位验证码。输入后即可登录。",
+    "code": "验证码",
+    "sendAgainIn": "{{time}} 后重新发送",
+    "sendAgain": "重新发送",
+    "anotherEmail": "使用其他邮箱",
+    "back": "返回",
+    "signIn": "登录",
+    "tooManyCodes": "请求验证码次数过多。请稍等几分钟再试。",
+    "badge": "Supporter · 谢谢！方案在设置中"
+  },
+  "plan": {
+    "header": "方案",
+    "free": "免费",
+    "freeHint": "这台电脑上的一切，永久免费",
+    "become": "成为 Supporter",
+    "already": "我已是 Supporter",
+    "yearly": "Supporter · 按年",
+    "monthly": "Supporter · 按月",
+    "renews": "{{email}} · 将于 {{date}} 续订",
+    "until": "Supporter 至 {{date}}",
+    "noRenewal": "不会续订。你的资料库保持不变。",
+    "pastDue": "Supporter · 付款未成功",
+    "pastDueHint": "Paddle 会再次尝试。更新银行卡以继续保持 Supporter。",
+    "updateCard": "更新银行卡",
+    "manage": "管理",
+    "signOut": "退出登录",
+    "couldNotCheck": "无法检查方案：没有网络。有效期至 {{date}}。"
   }
 }

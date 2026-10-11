@@ -1,6 +1,7 @@
 pub mod appimage;
 pub mod autostart;
 pub mod backup;
+pub mod billing;
 pub mod browsers;
 pub mod capture;
 pub mod capture_channel;
@@ -113,6 +114,7 @@ pub fn run() {
             }
             tray::build(app)?;
             updates::start(app.handle());
+            billing::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -205,6 +207,16 @@ pub fn run() {
             updates::check_for_updates,
             updates::install_update,
             updates::cancel_update,
+            billing::get_supporter_status,
+            billing::get_supporter_prices,
+            billing::start_checkout,
+            billing::poll_checkout,
+            billing::open_checkout,
+            billing::refresh_supporter,
+            billing::open_supporter_portal,
+            billing::send_sign_in_code,
+            billing::verify_sign_in_code,
+            billing::sign_out_supporter,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])

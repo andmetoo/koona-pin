@@ -996,7 +996,10 @@
       "too_many_messages": "previše poruka sa ove mreže u poslednjih sat vremena",
       "proxy_failed": "proksi mreže je odbio zahtev",
       "no_connection_or_proxy": "nema internet veze ili ovoj mreži treba njen proksi",
-      "no_connection_or_system_proxy": "nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema"
+      "no_connection_or_system_proxy": "nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema",
+      "not_supporter": "nema Supporter-a sa ovom adresom",
+      "wrong_code": "kod nije prošao",
+      "signed_out": "odjavljeni ste"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -1024,7 +1027,10 @@
       "too_many_messages": "Previše poruka sa ove mreže u poslednjih sat vremena. Vaš tekst je sačuvan — pokušajte ponovo kasnije.",
       "proxy_failed": "Slanje preko proksija ove mreže nije uspelo: traži prijavu ili nije dostupan. Vaš tekst je sačuvan — kopirajte ga i pošaljite na drugi način, na primer na GitHub-u.",
       "no_connection_or_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba njen proksi, koji podešava skripta za podešavanje koju aplikacija ne može da koristi. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u.",
-      "no_connection_or_system_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema, koja aplikacija ne čita — koristi samo promenljive https_proxy i http_proxy. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u."
+      "no_connection_or_system_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema, koja aplikacija ne čita — koristi samo promenljive https_proxy i http_proxy. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u.",
+      "not_supporter": "Nema Supporter-a sa ovom adresom. Unesite adresu iz plaćanja.",
+      "wrong_code": "Kod nije prošao. Proverite ga ili zatražite novi.",
+      "signed_out": "Odjavljeni ste. Prijavite se ponovo u Podešavanja → Plan."
     }
   },
   "tray": {
@@ -1111,5 +1117,68 @@
     "text": "Prenesite obeleživače iz Chrome, Edge ili Firefox — njihove fascikle postaju kolekcije",
     "action": "Uvezi obeleživače…",
     "hide": "Sakrij"
+  },
+  "supporter": {
+    "free": "Besplatna verzija",
+    "support": "Podrži",
+    "rowHint": "Besplatna verzija · Podrži Koona Pin",
+    "title": "Podrži Koona Pin",
+    "testPayments": "Test-plaćanja",
+    "intro": "Koona Pin ostaje besplatan: biblioteka, dugme u pregledaču, pretraga, kopije i II asistenti. Supporter podržava projekat i dobija:",
+    "perks": {
+      "sync": "Sinhronizaciju između računara — rana faza, od prvog dana",
+      "backups": "Automatske kopije u fasciklu po izboru, na primer Dropbox",
+      "badge": "Oznaku Supporter u aplikaciji",
+      "early": "Rane verzije pre svih"
+    },
+    "plan": "Plan",
+    "yearly": "Godišnje",
+    "monthly": "Mesečno",
+    "perYear": "{{price}} godišnje",
+    "perMonth": "{{price}} mesečno",
+    "twoMonthsFree": "2 mes. na poklon",
+    "paddleHint": "Plaćanje se otvara u pregledaču. Njega i poreze vodi Paddle, naš preprodavac. Otkažite kad god želite: biblioteka ostaje na računaru.",
+    "notNow": "Ne sada",
+    "continue": "Nastavi",
+    "unreachable": "Server Koona Pin nije dostupan. Proverite vezu i pokušajte ponovo.",
+    "waitingTitle": "Završite u pregledaču",
+    "waitingText": "Stranica za plaćanje se otvorila u pregledaču. Koona Pin će sama primetiti plaćanje, čak i ako zatvorite ovaj prozor.",
+    "waiting": "Čekamo plaćanje…",
+    "openAgain": "Ponovo otvori stranicu",
+    "thanksTitle": "Hvala što podržavate Koona Pin",
+    "thanksText": "Supporter je aktivan za {{email}}, adresu iz plaćanja. Na drugom računaru prijavite se njom u odeljku {{place}}.",
+    "done": "Gotovo",
+    "signInTitle": "Prijava za Supporter",
+    "signInText": "Platili ste na drugom računaru? Unesite adresu iz plaćanja i poslaćemo šestocifreni kod — bez lozinke. Tada će Koona Pin znati vaš plan i ovde.",
+    "email": "E-pošta",
+    "sendCode": "Pošalji kod",
+    "codeTitle": "Proverite e-poštu",
+    "codeText": "Poslali smo šestocifreni kod na {{email}}. Unesite ga da biste se prijavili.",
+    "code": "Kod",
+    "sendAgainIn": "Pošalji ponovo za {{time}}",
+    "sendAgain": "Pošalji ponovo",
+    "anotherEmail": "Druga adresa",
+    "back": "Nazad",
+    "signIn": "Prijavi se",
+    "tooManyCodes": "Previše zahteva za kod. Sačekajte nekoliko minuta i pokušajte ponovo.",
+    "badge": "Supporter · hvala! Plan je u podešavanjima"
+  },
+  "plan": {
+    "header": "Plan",
+    "free": "Besplatno",
+    "freeHint": "Sve na ovom računaru, besplatno zauvek",
+    "become": "Postani Supporter",
+    "already": "Već sam Supporter",
+    "yearly": "Supporter · godišnje",
+    "monthly": "Supporter · mesečno",
+    "renews": "{{email}} · obnavlja se {{date}}",
+    "until": "Supporter do {{date}}",
+    "noRenewal": "Ne obnavlja se. Biblioteka ostaje kakva jeste.",
+    "pastDue": "Supporter · plaćanje nije prošlo",
+    "pastDueHint": "Paddle će pokušati ponovo. Ažurirajte karticu da biste ostali Supporter.",
+    "updateCard": "Ažuriraj karticu",
+    "manage": "Upravljaj",
+    "signOut": "Odjavi se",
+    "couldNotCheck": "Plan nije proveren: nema veze. Važi do {{date}}."
   }
 }

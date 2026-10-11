@@ -30,9 +30,19 @@ async function walk(dir) {
   }
 }
 await walk(out);
-// The pages run no scripts: only the beacon Cloudflare inserts on the server.
+// The pages run no scripts: only the beacon Cloudflare inserts on the server. The payment page
+// (NP-066, Р-64) is the one exception: Paddle.js from its CDN and the page's own module, both by
+// address, nothing inline — its CSP in site/Caddyfile allows exactly these.
+const allowed = (file, tag) =>
+  file === "checkout/index.html" &&
+  /\ssrc="(https:\/\/cdn\.paddle\.com\/paddle\/v2\/paddle\.js|\/pin\/_astro\/[^"]+\.js)"/.test(tag) &&
+  /<\/script>/.test(tag) &&
+  /^<script[^>]*><\/script>$/.test(tag);
 for (const file of files.filter((f) => f.endsWith(".html"))) {
-  if (/<script\b/i.test(await readFile(path.join(out, file), "utf8"))) throw new Error(`${file}: a <script> in the page`);
+  const html = await readFile(path.join(out, file), "utf8");
+  for (const tag of html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? []) {
+    if (!allowed(file, tag)) throw new Error(`${file}: a <script> in the page`);
+  }
 }
 
 // Screenshots under their own names too: the AppStream metainfo of the Linux packages links them

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, UpdateStatus } from "../../types";
+import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, SupporterStatus, UpdateStatus } from "../../types";
 import { api, isTauri } from "../../services/api";
 import {
   appIsOlder,
@@ -14,7 +14,7 @@ import {
   statusColor,
   statusLabel,
 } from "../../services/capture";
-import { describeError } from "../../services/errors";
+import { describeError, toCommandError } from "../../services/errors";
 import { GITHUB_ISSUES_URL, licensesUrl } from "../../services/feedback";
 import { changelogUrl, offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
@@ -41,6 +41,9 @@ export function SettingsPage({
   update,
   onUpdate,
   onCheckUpdates,
+  supporter,
+  onSupport,
+  onSignIn,
   dataVersion,
 }: {
   theme: Theme;
@@ -64,6 +67,10 @@ export function SettingsPage({
   onUpdate: () => void;
   /** «Check for updates» and «Try again»: the status comes back through `update`. */
   onCheckUpdates: () => Promise<void>;
+  /** Settings → Plan (NP-066, sheet 45): shown in a build that sells Supporter. */
+  supporter: SupporterStatus | null;
+  onSupport: () => void;
+  onSignIn: () => void;
   /** Changes after a restore: the copies are counted again. */
   dataVersion: number;
 }) {
@@ -103,7 +110,15 @@ export function SettingsPage({
       });
     }
   };
-  const languageName = (code: string) => languages.find((l) => l.code === code)?.name ?? code;
+  // Settings → Plan: a network failure is the account server, not the feedback texts of `errors.detail`.
+  const planRequest = async (request: () => Promise<unknown>) => {
+    try {
+      await request();
+    } catch (err) {
+      if (toCommandError(err).code !== "network") throw err;
+      onNotice(t("supporter.unreachable"), true);
+    }
+  };  const languageName = (code: string) => languages.find((l) => l.code === code)?.name ?? code;
   const size = (bytes: number) =>
     new Intl.NumberFormat(i18n.language, { style: "unit", unit: "megabyte", maximumFractionDigits: 1 }).format(
       bytes / 1_000_000,
@@ -116,7 +131,17 @@ export function SettingsPage({
 
   return (
     <div className="flex w-full max-w-[680px] flex-col gap-[22px] pb-8">
-      <Section title={t("settings.general")}>
+      {supporter?.available && (
+        <PlanSection
+          supporter={supporter}
+          busy={busy("plan")}
+          onSupport={onSupport}
+          onSignIn={onSignIn}
+          onManage={() => void attempt("plan", () => planRequest(api.openSupporterPortal))}
+          onSignOut={() => void attempt("plan", () => planRequest(api.signOutSupporter))}
+          onRefresh={() => void attempt("plan", () => planRequest(api.refreshSupporter))}
+        />
+      )}      <Section title={t("settings.general")}>
         <Row title={t("settings.language")} description={t("settings.languageHint")}>
           <select
             aria-label={t("settings.language")}
@@ -349,6 +374,97 @@ function UpdatesSection({
       <div className="rounded-xl border border-line bg-card">
         <Row title={`Koona Pin ${version}`} description={description}>
           {changelog}
+          {controls}
+        </Row>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Settings → Plan (NP-066, sheet 45), in a build that sells Supporter: Free with «Become a Supporter»
+ * and «I'm already a Supporter»; a Supporter's email and renewal with «Manage ↗» and «Sign out»; a
+ * plan that does not renew, a payment Paddle retries, and a plan that could not be checked.
+ */
+function PlanSection({
+  supporter,
+  busy,
+  onSupport,
+  onSignIn,
+  onManage,
+  onSignOut,
+  onRefresh,
+}: {
+  supporter: SupporterStatus;
+  busy: boolean;
+  onSupport: () => void;
+  onSignIn: () => void;
+  onManage: () => void;
+  onSignOut: () => void;
+  onRefresh: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { plan } = supporter;
+  const date = (iso: string) => new Date(iso).toLocaleDateString(i18n.language, { day: "numeric", month: "long", year: "numeric" });
+  const manage = (label: string) => (
+    <Button disabled={busy} onClick={onManage}>
+      {label} ↗
+    </Button>
+  );
+  let title: ReactNode;
+  let description: string;
+  let controls: ReactNode;
+  if (!plan) {
+    title = t("plan.free");
+    description = t("plan.freeHint");
+    controls = (
+      <>
+        <button type="button" onClick={onSignIn} className="px-1 text-sm font-medium text-accent hover:underline">
+          {t("plan.already")}
+        </button>
+        <Button variant="primary" onClick={onSupport}>
+          {t("plan.become")}
+        </Button>
+      </>
+    );
+  } else if (supporter.check_failed) {
+    title = t(plan.interval === "month" ? "plan.monthly" : "plan.yearly");
+    description = t("plan.couldNotCheck", { date: date(new Date(new Date(plan.valid_until).getTime() + 7 * 86_400_000).toISOString()) });
+    controls = (
+      <Button disabled={busy} onClick={onRefresh}>
+        {t("common.retry")}
+      </Button>
+    );
+  } else if (plan.status === "past_due") {
+    title = (
+      <span className="flex items-center gap-2">
+        <Dot color="var(--np-danger)" className="size-[7px]" />
+        {t("plan.pastDue")}
+      </span>
+    );
+    description = t("plan.pastDueHint");
+    controls = manage(t("plan.updateCard"));
+  } else if (plan.status === "canceling") {
+    title = t("plan.until", { date: date(plan.valid_until) });
+    description = t("plan.noRenewal");
+    controls = manage(t("plan.manage"));
+  } else {
+    title = t(plan.interval === "month" ? "plan.monthly" : "plan.yearly");
+    description = plan.renews_at ? t("plan.renews", { email: supporter.email ?? "", date: date(plan.renews_at) }) : (supporter.email ?? "");
+    controls = (
+      <>
+        <button type="button" disabled={busy} onClick={onSignOut} className="px-1 text-sm font-medium text-muted hover:text-ink">
+          {t("plan.signOut")}
+        </button>
+        {manage(t("plan.manage"))}
+      </>
+    );
+  }
+  return (
+    <section className="flex flex-col gap-2" data-plan={plan ? (supporter.check_failed ? "unchecked" : plan.status) : "free"}>
+      <h2 className="text-2xs font-semibold text-subtle uppercase">{t("plan.header")}</h2>
+      <div className="rounded-xl border border-line bg-card">
+        <Row title={title} description={description}>
           {controls}
         </Row>
       </div>
