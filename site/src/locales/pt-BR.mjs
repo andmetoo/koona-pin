@@ -59,7 +59,7 @@ export default {
     ["Linux, 64 bits", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome ou Edge 120+, Firefox 140+", "Versão atual ou ESR 140"],
   ],
-  footer: { privacy: "Privacidade", licenses: "Licenças", support: "Suporte", changelog: "Mudanças" },
+  footer: { privacy: "Privacidade", licenses: "Licenças", support: "Suporte", changelog: "Mudanças", pricing: "Preços", terms: "Termos", refunds: "Reembolsos" },
   back: "Koona Pin",
   privacyPage: {
     title: "Política de privacidade",

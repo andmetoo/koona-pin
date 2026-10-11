@@ -59,7 +59,7 @@ export default {
     ["Linux, 64비트", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome 또는 Edge 120+, Firefox 140+", "현재 버전 또는 ESR 140"],
   ],
-  footer: { privacy: "개인정보", licenses: "라이선스", support: "지원", changelog: "변경 내역" },
+  footer: { privacy: "개인정보", licenses: "라이선스", support: "지원", changelog: "변경 내역", pricing: "요금", terms: "이용약관", refunds: "환불" },
   back: "Koona Pin",
   privacyPage: {
     title: "개인정보 처리방침",

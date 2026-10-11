@@ -59,7 +59,7 @@ export default {
     ["Linux, 64 bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome veya Edge 120+, Firefox 140+", "Güncel sürüm veya ESR 140"],
   ],
-  footer: { privacy: "Gizlilik", licenses: "Lisanslar", support: "Destek", changelog: "Değişiklikler" },
+  footer: { privacy: "Gizlilik", licenses: "Lisanslar", support: "Destek", changelog: "Değişiklikler", pricing: "Fiyatlar", terms: "Koşullar", refunds: "İadeler" },
   back: "Koona Pin",
   privacyPage: {
     title: "Gizlilik politikası",

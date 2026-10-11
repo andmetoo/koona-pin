@@ -59,7 +59,7 @@ export default {
     ["Linux，64 位", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux"],
     ["Chrome 或 Edge 120+、Firefox 140+", "当前版本或 ESR 140"],
   ],
-  footer: { privacy: "隐私", licenses: "许可", support: "支持", changelog: "更新日志" },
+  footer: { privacy: "隐私", licenses: "许可", support: "支持", changelog: "更新日志", pricing: "价格", terms: "条款", refunds: "退款" },
   back: "Koona Pin",
   privacyPage: {
     title: "隐私政策",
