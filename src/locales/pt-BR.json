@@ -994,7 +994,10 @@
       "too_many_messages": "mensagens demais desta rede na última hora",
       "proxy_failed": "o proxy da rede recusou a solicitação",
       "no_connection_or_proxy": "sem conexão com a internet, ou esta rede precisa do seu proxy",
-      "no_connection_or_system_proxy": "sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema"
+      "no_connection_or_system_proxy": "sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema",
+      "not_supporter": "nenhum Supporter tem este e-mail",
+      "wrong_code": "o código não funcionou",
+      "signed_out": "sua sessão foi encerrada"
     },
     "code": {
       "not_found": "Não existe mais — talvez tenha sido excluído nesse meio-tempo.",
@@ -1022,7 +1025,10 @@
       "too_many_messages": "Mensagens demais desta rede na última hora. Seu texto foi mantido — tente de novo mais tarde.",
       "proxy_failed": "Não foi possível enviar pelo proxy desta rede: ele pede login ou não está acessível. Seu texto foi mantido — copie e envie de outro jeito, por exemplo no GitHub.",
       "no_connection_or_proxy": "Não foi possível enviar: sem conexão com a internet, ou esta rede precisa do seu proxy, configurado por um script que o aplicativo não consegue usar. Seu texto foi mantido — tente de novo ou copie e envie de outro jeito, por exemplo no GitHub.",
-      "no_connection_or_system_proxy": "Não foi possível enviar: sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema, que o aplicativo não lê — ele usa só as variáveis https_proxy e http_proxy. Seu texto foi mantido — tente de novo ou copie e envie de outro jeito, por exemplo no GitHub."
+      "no_connection_or_system_proxy": "Não foi possível enviar: sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema, que o aplicativo não lê — ele usa só as variáveis https_proxy e http_proxy. Seu texto foi mantido — tente de novo ou copie e envie de outro jeito, por exemplo no GitHub.",
+      "not_supporter": "Nenhum Supporter tem este e-mail. Use o e-mail do pagamento.",
+      "wrong_code": "O código não funcionou. Confira ou peça um novo.",
+      "signed_out": "Sua sessão foi encerrada. Abra “Apoiar” e escolha “Já sou Supporter” para entrar de novo."
     }
   },
   "tray": {
@@ -1109,5 +1115,76 @@
     "text": "Traga seus marcadores do Chrome, Edge ou Firefox — as pastas viram coleções",
     "action": "Importar marcadores…",
     "hide": "Ocultar"
+  },
+  "supporter": {
+    "free": "Versão gratuita",
+    "support": "Apoiar",
+    "rowHint": "Versão gratuita · Apoiar o Koona Pin",
+    "title": "Apoiar o Koona Pin",
+    "testPayments": "Pagamentos de teste",
+    "intro": "O Koona Pin continua gratuito: a biblioteca, o botão do navegador, a busca, os backups e os assistentes de IA. Quem apoia mantém o projeto e recebe:",
+    "perks": {
+      "sync": "Sincronização entre seus computadores — fase inicial, desde o primeiro dia",
+      "backups": "Backups automáticos na pasta que você escolher, como o Dropbox",
+      "badge": "Um selo de Supporter no app",
+      "early": "Versões antecipadas antes de todos"
+    },
+    "plan": "Plano",
+    "yearly": "Anual",
+    "monthly": "Mensal",
+    "perYear": "{{price}} por ano",
+    "perMonth": "{{price}} por mês",
+    "twoMonthsFree": "2 meses grátis",
+    "paddleHint": "O pagamento abre no navegador. A Paddle cuida dele e dos impostos como nossa revendedora. Cancele quando quiser: sua biblioteca fica no seu computador.",
+    "notNow": "Agora não",
+    "continue": "Continuar",
+    "unreachable": "Não foi possível falar com o servidor do Koona Pin. Verifique a conexão e tente de novo.",
+    "waitingTitle": "Conclua no navegador",
+    "waitingText": "A página de pagamento abriu no navegador. O Koona Pin percebe o pagamento sozinho, mesmo que você feche esta janela.",
+    "waiting": "Aguardando o pagamento…",
+    "openAgain": "Abrir a página de novo",
+    "thanksTitle": "Obrigado por apoiar o Koona Pin",
+    "thanksText": "O Supporter está ativo para {{email}}, o e-mail do seu pagamento. Em outro computador, abra “Apoiar” e escolha “Já sou Supporter”.",
+    "paidTitle": "Pagamento recebido",
+    "paidSignInText": "O e-mail do pagamento já tem uma conta do Koona Pin. Entre com o código que enviaremos para ele, e o Koona Pin mostrará seu plano aqui.",
+    "done": "Pronto",
+    "signInTitle": "Entrar como Supporter",
+    "signInText": "Pagou em outro computador? Digite o e-mail do pagamento e enviaremos um código de 6 dígitos, sem senha. Assim o Koona Pin conhece seu plano aqui também.",
+    "email": "E-mail",
+    "sendCode": "Enviar código",
+    "codeTitle": "Confira seu e-mail",
+    "codeText": "Enviamos um código de 6 dígitos para {{email}}. Digite-o para entrar.",
+    "code": "Código",
+    "sendAgainIn": "Reenviar em {{time}}",
+    "sendAgain": "Reenviar",
+    "anotherEmail": "Usar outro e-mail",
+    "back": "Voltar",
+    "signIn": "Entrar",
+    "tooManyCodes": "Muitos códigos pedidos. Espere alguns minutos e tente de novo.",
+    "badge": "Supporter · seu plano e suas vantagens",
+    "perksTitle": "Suas vantagens",
+    "soon": "Em breve",
+    "renewsOn": "Renova em {{date}}",
+    "endsOn": "Não renova · Supporter até {{date}}",
+    "pastDue": "A renovação não foi concluída — atualize o cartão",
+    "unchecked": "Não foi possível verificar o plano — ele continua ativo até {{date}}",
+    "perk": {
+      "sync": "Sincronização entre seus computadores",
+      "syncHint": "Fase inicial — chega com uma atualização",
+      "backups": "Backups automáticos em uma pasta",
+      "backupsHint": "Na pasta que você escolher, como Dropbox ou Google Drive",
+      "badge": "Selo de Supporter",
+      "badgeHint": "O coração da barra lateral, na cor da estação",
+      "early": "Versões antecipadas",
+      "earlyHint": "Versões novas um pouco antes de todos"
+    }
+  },
+  "plan": {
+    "already": "Já sou Supporter",
+    "yearly": "Supporter · anual",
+    "monthly": "Supporter · mensal",
+    "updateCard": "Atualizar cartão",
+    "manage": "Gerenciar",
+    "signOut": "Sair"
   }
 }

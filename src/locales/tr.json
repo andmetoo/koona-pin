@@ -936,7 +936,10 @@
       "too_many_messages": "son bir saatte bu ağdan çok fazla mesaj geldi",
       "proxy_failed": "ağın proxy sunucusu isteği reddetti",
       "no_connection_or_proxy": "internet bağlantısı yok ya da bu ağ kendi proxy sunucusunu gerektiriyor",
-      "no_connection_or_system_proxy": "internet bağlantısı yok ya da bu ağ sistem ayarlarındaki proxy sunucusunu gerektiriyor"
+      "no_connection_or_system_proxy": "internet bağlantısı yok ya da bu ağ sistem ayarlarındaki proxy sunucusunu gerektiriyor",
+      "not_supporter": "bu e-postaya sahip bir Supporter yok",
+      "wrong_code": "kod işe yaramadı",
+      "signed_out": "oturumunuz kapandı"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -964,7 +967,10 @@
       "too_many_messages": "Son bir saatte bu ağdan çok fazla mesaj geldi. Metniniz duruyor — daha sonra yeniden deneyin.",
       "proxy_failed": "Bu ağın proxy sunucusu üzerinden gönderilemedi: oturum açmayı istiyor ya da erişilemiyor. Metniniz duruyor — kopyalayıp başka bir yolla, örneğin GitHub'da gönderin.",
       "no_connection_or_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın kullanamadığı bir kurulum betiğiyle ayarlanan kendi proxy sunucusunu gerektiriyor. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin.",
-      "no_connection_or_system_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın okumadığı sistem ayarlarındaki proxy sunucusunu gerektiriyor — uygulama yalnızca https_proxy ve http_proxy değişkenlerini kullanır. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin."
+      "no_connection_or_system_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın okumadığı sistem ayarlarındaki proxy sunucusunu gerektiriyor — uygulama yalnızca https_proxy ve http_proxy değişkenlerini kullanır. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin.",
+      "not_supporter": "Bu e-postaya sahip bir Supporter yok. Ödemedeki e-postayı kullanın.",
+      "wrong_code": "Kod işe yaramadı. Kontrol edin ya da yenisini isteyin.",
+      "signed_out": "Oturumunuz kapandı. Yeniden giriş yapmak için \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin."
     }
   },
   "tray": {
@@ -1036,5 +1042,76 @@
     "text": "Chrome, Edge veya Firefox'taki yer işaretlerinizi getirin — klasörleri koleksiyon olur",
     "action": "Yer işaretlerini içe aktar…",
     "hide": "Gizle"
+  },
+  "supporter": {
+    "free": "Ücretsiz sürüm",
+    "support": "Destekleyin",
+    "rowHint": "Ücretsiz sürüm · Koona Pin'i destekleyin",
+    "title": "Koona Pin'i destekleyin",
+    "testPayments": "Test ödemeleri",
+    "intro": "Koona Pin ücretsiz kalır: kütüphane, tarayıcı düğmesi, arama, yedekler ve yapay zekâ asistanları. Supporter'lar projeyi sürdürür ve şunları alır:",
+    "perks": {
+      "sync": "Bilgisayarlarınız arasında eşitleme — erken aşama, ilk günden",
+      "backups": "Seçtiğiniz klasöre otomatik yedekler, örneğin Dropbox",
+      "badge": "Uygulamada Supporter rozeti",
+      "early": "Erken sürümler herkesten önce"
+    },
+    "plan": "Plan",
+    "yearly": "Yıllık",
+    "monthly": "Aylık",
+    "perYear": "Yılda {{price}}",
+    "perMonth": "Ayda {{price}}",
+    "twoMonthsFree": "2 ay ücretsiz",
+    "paddleHint": "Ödeme tarayıcıda açılır. Ödemeyi ve vergileri satıcımız Paddle yürütür. İstediğiniz zaman iptal edin: kütüphaneniz bilgisayarınızda kalır.",
+    "notNow": "Şimdi değil",
+    "continue": "Devam",
+    "unreachable": "Koona Pin sunucusuna ulaşılamadı. Bağlantınızı kontrol edip yeniden deneyin.",
+    "waitingTitle": "Tarayıcıda tamamlayın",
+    "waitingText": "Ödeme sayfası tarayıcıda açıldı. Bu pencereyi kapatsanız bile Koona Pin ödemeyi kendisi fark eder.",
+    "waiting": "Ödeme bekleniyor…",
+    "openAgain": "Sayfayı yeniden aç",
+    "thanksTitle": "Koona Pin'i desteklediğiniz için teşekkürler",
+    "thanksText": "Supporter, ödemedeki e-posta olan {{email}} için etkin. Başka bir bilgisayarda \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
+    "paidTitle": "Ödeme alındı",
+    "paidSignInText": "Ödemedeki e-postanın zaten bir Koona Pin hesabı var. Bu adrese göndereceğimiz kodla giriş yapın; Koona Pin planınızı burada da gösterir.",
+    "done": "Tamam",
+    "signInTitle": "Supporter olarak giriş yap",
+    "signInText": "Başka bir bilgisayarda mı ödediniz? Ödemedeki e-postayı girin, 6 haneli bir kod gönderelim — parola yok. Böylece Koona Pin planınızı burada da bilir.",
+    "email": "E-posta",
+    "sendCode": "Kod gönder",
+    "codeTitle": "E-postanızı kontrol edin",
+    "codeText": "{{email}} adresine 6 haneli bir kod gönderdik. Giriş yapmak için kodu girin.",
+    "code": "Kod",
+    "sendAgainIn": "{{time}} sonra yeniden gönder",
+    "sendAgain": "Yeniden gönder",
+    "anotherEmail": "Başka e-posta kullanın",
+    "back": "Geri",
+    "signIn": "Giriş yap",
+    "tooManyCodes": "Çok fazla kod istendi. Birkaç dakika bekleyip yeniden deneyin.",
+    "badge": "Supporter · planınız ve avantajlarınız",
+    "perksTitle": "Avantajlarınız",
+    "soon": "Yakında",
+    "renewsOn": "{{date}} tarihinde yenilenir",
+    "endsOn": "Yenilenmez · {{date}} tarihine kadar Supporter",
+    "pastDue": "Yenileme alınamadı — kartınızı güncelleyin",
+    "unchecked": "Plan kontrol edilemedi — {{date}} tarihine kadar geçerli",
+    "perk": {
+      "sync": "Bilgisayarlarınız arasında eşitleme",
+      "syncHint": "Erken aşama — bir güncellemeyle gelecek",
+      "backups": "Bir klasöre otomatik yedekler",
+      "backupsHint": "Seçtiğiniz klasöre, örneğin Dropbox veya Google Drive",
+      "badge": "Supporter rozeti",
+      "badgeHint": "Kenar çubuğundaki kalp, mevsimin renginde",
+      "early": "Erken sürümler",
+      "earlyHint": "Yeni sürümler herkesten biraz önce"
+    }
+  },
+  "plan": {
+    "already": "Zaten Supporter’ım",
+    "yearly": "Supporter · yıllık",
+    "monthly": "Supporter · aylık",
+    "updateCard": "Kartı güncelle",
+    "manage": "Yönet",
+    "signOut": "Çıkış yap"
   }
 }

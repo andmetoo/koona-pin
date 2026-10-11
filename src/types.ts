@@ -78,6 +78,12 @@ export type { McpAccess } from "./bindings/McpAccess";
 export type { McpSetup } from "./bindings/McpSetup";
 export type { McpStatus } from "./bindings/McpStatus";
 export type { UpdateProblem } from "./bindings/UpdateProblem";
+export type { SupporterStatus } from "./bindings/SupporterStatus";
+export type { SupporterPrices } from "./bindings/SupporterPrices";
+export type { Plan } from "./bindings/Plan";
+export type { PlanInterval } from "./bindings/PlanInterval";
+export type { PlanStatus } from "./bindings/PlanStatus";
+export type { CheckoutState } from "./bindings/CheckoutState";
 
 export type ViewMode = "grid" | "list";
 

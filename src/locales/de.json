@@ -936,7 +936,10 @@
       "too_many_messages": "zu viele Nachrichten aus diesem Netzwerk in der letzten Stunde",
       "proxy_failed": "der Proxy des Netzwerks hat die Anfrage abgelehnt",
       "no_connection_or_proxy": "keine Internetverbindung, oder dieses Netzwerk braucht seinen Proxy",
-      "no_connection_or_system_proxy": "keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen"
+      "no_connection_or_system_proxy": "keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen",
+      "not_supporter": "kein Supporter hat diese E-Mail",
+      "wrong_code": "der Code hat nicht funktioniert",
+      "signed_out": "Sie wurden abgemeldet"
     },
     "code": {
       "not_found": "Es existiert nicht mehr — vielleicht wurde es inzwischen gelöscht.",
@@ -964,7 +967,10 @@
       "too_many_messages": "Zu viele Nachrichten aus diesem Netzwerk in der letzten Stunde. Ihr Text bleibt erhalten — versuchen Sie es später erneut.",
       "proxy_failed": "Senden über den Proxy dieses Netzwerks fehlgeschlagen: Er verlangt eine Anmeldung oder ist nicht erreichbar. Ihr Text bleibt erhalten — kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub.",
       "no_connection_or_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht seinen Proxy, der über ein Setup-Skript eingerichtet ist, das die App nicht nutzen kann. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub.",
-      "no_connection_or_system_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen, die die App nicht liest — sie nutzt nur die Variablen https_proxy und http_proxy. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub."
+      "no_connection_or_system_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen, die die App nicht liest — sie nutzt nur die Variablen https_proxy und http_proxy. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub.",
+      "not_supporter": "Kein Supporter hat diese E-Mail. Nutzen Sie die E-Mail Ihrer Zahlung.",
+      "wrong_code": "Der Code hat nicht funktioniert. Prüfen Sie ihn oder fordern Sie einen neuen an.",
+      "signed_out": "Sie wurden abgemeldet. Öffnen Sie „Unterstützen“ und wählen Sie „Ich bin schon Supporter“, um sich erneut anzumelden."
     }
   },
   "tray": {
@@ -1036,5 +1042,76 @@
     "text": "Holen Sie Ihre Lesezeichen aus Chrome, Edge oder Firefox – ihre Ordner werden zu Sammlungen",
     "action": "Lesezeichen importieren…",
     "hide": "Ausblenden"
+  },
+  "supporter": {
+    "free": "Kostenlose Version",
+    "support": "Unterstützen",
+    "rowHint": "Kostenlose Version · Koona Pin unterstützen",
+    "title": "Koona Pin unterstützen",
+    "testPayments": "Testzahlungen",
+    "intro": "Koona Pin bleibt kostenlos: die Bibliothek, der Browser-Button, die Suche, Sicherungen und KI-Assistenten. Supporter halten das Projekt am Laufen und bekommen:",
+    "perks": {
+      "sync": "Synchronisierung zwischen Ihren Computern — frühe Phase, ab dem ersten Tag",
+      "backups": "Automatische Sicherungen in einen Ordner Ihrer Wahl, etwa Dropbox",
+      "badge": "Ein Supporter-Abzeichen in der App",
+      "early": "Frühe Versionen vor allen anderen"
+    },
+    "plan": "Tarif",
+    "yearly": "Jährlich",
+    "monthly": "Monatlich",
+    "perYear": "{{price}} pro Jahr",
+    "perMonth": "{{price}} pro Monat",
+    "twoMonthsFree": "2 Monate gratis",
+    "paddleHint": "Die Zahlung öffnet sich im Browser. Paddle wickelt sie und die Steuern als unser Wiederverkäufer ab. Jederzeit kündbar: Ihre Bibliothek bleibt auf Ihrem Computer.",
+    "notNow": "Nicht jetzt",
+    "continue": "Weiter",
+    "unreachable": "Der Koona-Pin-Server war nicht erreichbar. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
+    "waitingTitle": "Im Browser abschließen",
+    "waitingText": "Die Zahlungsseite ist im Browser geöffnet. Koona Pin bemerkt die Zahlung von selbst, auch wenn Sie diesen Dialog schließen.",
+    "waiting": "Warten auf die Zahlung…",
+    "openAgain": "Seite erneut öffnen",
+    "thanksTitle": "Danke, dass Sie Koona Pin unterstützen",
+    "thanksText": "Supporter ist für {{email}} aktiv, die E-Mail Ihrer Zahlung. Öffnen Sie auf einem anderen Computer „Unterstützen“ und wählen Sie „Ich bin schon Supporter“.",
+    "paidTitle": "Zahlung eingegangen",
+    "paidSignInText": "Die E-Mail Ihrer Zahlung hat schon ein Konto bei Koona Pin. Melden Sie sich mit dem Code an, den wir dorthin schicken — dann zeigt Koona Pin Ihren Tarif auch hier.",
+    "done": "Fertig",
+    "signInTitle": "Als Supporter anmelden",
+    "signInText": "Auf einem anderen Computer bezahlt? Geben Sie die E-Mail Ihrer Zahlung ein, wir schicken Ihnen einen 6-stelligen Code — ohne Passwort. Dann kennt Koona Pin Ihren Tarif auch hier.",
+    "email": "E-Mail",
+    "sendCode": "Code senden",
+    "codeTitle": "Prüfen Sie Ihre E-Mails",
+    "codeText": "Wir haben einen 6-stelligen Code an {{email}} gesendet. Geben Sie ihn zum Anmelden ein.",
+    "code": "Code",
+    "sendAgainIn": "Erneut senden in {{time}}",
+    "sendAgain": "Erneut senden",
+    "anotherEmail": "Andere E-Mail",
+    "back": "Zurück",
+    "signIn": "Anmelden",
+    "tooManyCodes": "Zu viele Codes angefordert. Warten Sie ein paar Minuten und versuchen Sie es erneut.",
+    "badge": "Supporter · Ihr Tarif und Ihre Vorteile",
+    "perksTitle": "Ihre Vorteile",
+    "soon": "Bald",
+    "renewsOn": "Verlängert sich am {{date}}",
+    "endsOn": "Verlängert sich nicht · Supporter bis {{date}}",
+    "pastDue": "Die Verlängerung ist fehlgeschlagen — aktualisieren Sie die Karte",
+    "unchecked": "Tarif nicht geprüft — er gilt bis {{date}}",
+    "perk": {
+      "sync": "Synchronisierung zwischen Ihren Computern",
+      "syncHint": "Frühe Phase — kommt mit einem Update",
+      "backups": "Automatische Sicherungen in einen Ordner",
+      "backupsHint": "In einen Ordner Ihrer Wahl, etwa Dropbox oder Google Drive",
+      "badge": "Supporter-Abzeichen",
+      "badgeHint": "Das Herz in der Seitenleiste, in der Farbe der Jahreszeit",
+      "early": "Frühe Versionen",
+      "earlyHint": "Neue Versionen etwas vor allen anderen"
+    }
+  },
+  "plan": {
+    "already": "Ich bin schon Supporter",
+    "yearly": "Supporter · jährlich",
+    "monthly": "Supporter · monatlich",
+    "updateCard": "Karte aktualisieren",
+    "manage": "Verwalten",
+    "signOut": "Abmelden"
   }
 }

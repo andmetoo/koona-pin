@@ -878,7 +878,10 @@
       "too_many_messages": "過去 1 時間にこのネットワークからのメッセージが多すぎます",
       "proxy_failed": "ネットワークのプロキシがリクエストを拒否しました",
       "no_connection_or_proxy": "インターネットに接続されていないか、このネットワークではプロキシが必要です",
-      "no_connection_or_system_proxy": "インターネットに接続されていないか、このネットワークではシステム設定のプロキシが必要です"
+      "no_connection_or_system_proxy": "インターネットに接続されていないか、このネットワークではシステム設定のプロキシが必要です",
+      "not_supporter": "このメールの Supporter はいません",
+      "wrong_code": "コードが正しくありません",
+      "signed_out": "サインアウトされました"
     },
     "code": {
       "not_found": "もう存在しません。その間に削除された可能性があります。",
@@ -906,7 +909,10 @@
       "too_many_messages": "過去 1 時間にこのネットワークからのメッセージが多すぎます。テキストは残っています。後でもう一度お試しください。",
       "proxy_failed": "このネットワークのプロキシ経由で送信できませんでした：サインインを求めているか、接続できません。テキストは残っています。コピーして、GitHub など別の方法で送ってください。",
       "no_connection_or_proxy": "送信できませんでした：インターネットに接続されていないか、このネットワークではアプリが使えない設定スクリプトで指定されたプロキシが必要です。テキストは残っています。もう一度試すか、コピーして GitHub など別の方法で送ってください。",
-      "no_connection_or_system_proxy": "送信できませんでした：インターネットに接続されていないか、このネットワークではアプリが読み取らないシステム設定のプロキシが必要です。アプリが使うのは https_proxy と http_proxy の変数だけです。テキストは残っています。もう一度試すか、コピーして GitHub など別の方法で送ってください。"
+      "no_connection_or_system_proxy": "送信できませんでした：インターネットに接続されていないか、このネットワークではアプリが読み取らないシステム設定のプロキシが必要です。アプリが使うのは https_proxy と http_proxy の変数だけです。テキストは残っています。もう一度試すか、コピーして GitHub など別の方法で送ってください。",
+      "not_supporter": "このメールの Supporter はいません。支払いのメールを使ってください。",
+      "wrong_code": "コードが正しくありません。確認するか、新しいコードを送ってください。",
+      "signed_out": "サインアウトされました。「応援する」を開き、「すでに Supporter です」を選んでもう一度サインインしてください。"
     }
   },
   "tray": {
@@ -963,5 +969,76 @@
     "text": "Chrome、Edge、Firefox のブックマークを取り込めます — フォルダーはコレクションになります",
     "action": "ブックマークをインポート…",
     "hide": "隠す"
+  },
+  "supporter": {
+    "free": "無料版",
+    "support": "応援する",
+    "rowHint": "無料版 · Koona Pin を応援する",
+    "title": "Koona Pin を応援する",
+    "testPayments": "テスト決済",
+    "intro": "Koona Pin は無料のままです。ライブラリ、ブラウザーのボタン、検索、バックアップ、AI アシスタント。Supporter はプロジェクトを支え、次の特典を受け取れます:",
+    "perks": {
+      "sync": "コンピューター間の同期 — 初期段階、初日から",
+      "backups": "Dropbox など好きなフォルダーへの自動バックアップ",
+      "badge": "アプリ内の Supporter バッジ",
+      "early": "誰よりも早いプレビュー版"
+    },
+    "plan": "プラン",
+    "yearly": "年額",
+    "monthly": "月額",
+    "perYear": "年 {{price}}",
+    "perMonth": "月 {{price}}",
+    "twoMonthsFree": "2 か月分お得",
+    "paddleHint": "支払いはブラウザーで開きます。販売代理店の Paddle が支払いと税を処理します。いつでも解約でき、ライブラリはコンピューターに残ります。",
+    "notNow": "今はしない",
+    "continue": "続ける",
+    "unreachable": "Koona Pin のサーバーに接続できませんでした。接続を確認して、もう一度お試しください。",
+    "waitingTitle": "ブラウザーで完了してください",
+    "waitingText": "支払いページがブラウザーで開きました。このダイアログを閉じても、Koona Pin が支払いを自動で確認します。",
+    "waiting": "支払いを待っています…",
+    "openAgain": "ページをもう一度開く",
+    "thanksTitle": "Koona Pin を応援していただきありがとうございます",
+    "thanksText": "支払いのメール {{email}} で Supporter が有効です。別のコンピューターでは「応援する」を開き、「すでに Supporter です」を選んでください。",
+    "paidTitle": "お支払いを受け付けました",
+    "paidSignInText": "支払いのメールにはすでに Koona Pin のアカウントがあります。そのメールに送るコードでサインインすると、ここでもプランが表示されます。",
+    "done": "完了",
+    "signInTitle": "Supporter としてサインイン",
+    "signInText": "別のコンピューターで支払いましたか? 支払いのメールを入力すると、6 桁のコードを送ります。パスワードは不要です。これでこのコンピューターでもプランがわかります。",
+    "email": "メール",
+    "sendCode": "コードを送る",
+    "codeTitle": "メールを確認してください",
+    "codeText": "{{email}} に 6 桁のコードを送りました。入力してサインインしてください。",
+    "code": "コード",
+    "sendAgainIn": "{{time}} 後に再送",
+    "sendAgain": "再送",
+    "anotherEmail": "別のメールを使う",
+    "back": "戻る",
+    "signIn": "サインイン",
+    "tooManyCodes": "コードの要求が多すぎます。数分待ってからもう一度お試しください。",
+    "badge": "Supporter · プランと特典",
+    "perksTitle": "あなたの特典",
+    "soon": "近日",
+    "renewsOn": "{{date}} に更新",
+    "endsOn": "更新されません · {{date}} まで Supporter",
+    "pastDue": "更新に失敗しました — カードを更新してください",
+    "unchecked": "プランを確認できませんでした — {{date}} まで有効です",
+    "perk": {
+      "sync": "コンピューター間の同期",
+      "syncHint": "初期段階 — アップデートで登場",
+      "backups": "フォルダーへの自動バックアップ",
+      "backupsHint": "Dropbox や Google ドライブなど好きなフォルダーへ",
+      "badge": "Supporter バッジ",
+      "badgeHint": "サイドバーのハート、季節の色で",
+      "early": "早期ビルド",
+      "earlyHint": "新しいバージョンを少し早く"
+    }
+  },
+  "plan": {
+    "already": "すでに Supporter です",
+    "yearly": "Supporter · 年額",
+    "monthly": "Supporter · 月額",
+    "updateCard": "カードを更新",
+    "manage": "管理",
+    "signOut": "サインアウト"
   }
 }

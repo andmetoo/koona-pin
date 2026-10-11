@@ -67,6 +67,12 @@ pub enum ErrorDetail {
     NoConnectionOrSystemProxy,
     /// koonapin-mcp is not next to the app (NP-091): a broken installation.
     ServerMissing,
+    /// Supporter (NP-066): no Supporter account has this email.
+    NotSupporter,
+    /// The code from the email is wrong or has expired.
+    WrongCode,
+    /// The account was signed out elsewhere: sign in again.
+    SignedOut,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

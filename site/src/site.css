@@ -1714,3 +1714,29 @@ a.tile:hover {
 .platform .button-primary {
   margin-top: 0;
 }
+
+/* /checkout/ (NP-066): the line under the title while Paddle's window loads. */
+.checkout-busy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+.checkout .spinner {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: checkout-spin 0.9s linear infinite;
+}
+@keyframes checkout-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkout .spinner {
+    animation: none;
+  }
+}

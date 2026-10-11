@@ -1,0 +1,98 @@
+---
+// /checkout/ (NP-066, Р-64, frames «Checkout · 1–4»): the payment Koona Pin started, in Paddle's
+// overlay. The app creates the transaction and opens this page with `?_ptxn=`; Paddle asks for the
+// email and the card, and the app notices the payment by itself. The one page of the site with a
+// script: Paddle.js and its own CSP (site/Caddyfile). English only, as downloads; not indexed.
+// PADDLE_CLIENT_TOKEN and PADDLE_ENVIRONMENT (sandbox | production) come from .env; without a token
+// the page says that payments are not open.
+import TextPage from "../../layouts/TextPage.astro";
+import { content } from "../../content.mjs";
+
+const token = process.env.PADDLE_CLIENT_TOKEN || "";
+const environment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
+---
+<TextPage t={content.en} page="checkout/" title="Payment" description="The payment for Koona Pin Supporter.">
+<meta slot="head" name="robots" content="noindex">
+<div class="checkout" data-token={token} data-environment={environment} data-state={token ? "opening" : "closed-sales"}>
+  <section data-panel="opening">
+    <h1>Opening the payment…</h1>
+    <p class="intro">Paddle, our reseller, opens a secure payment window here. It asks for your email and your card; Koona Pin then knows about the payment by itself.</p>
+    <p class="checkout-busy" role="status"><span class="spinner" aria-hidden="true"></span>Loading Paddle…</p>
+  </section>
+  <section data-panel="failed" hidden>
+    <h1>The payment didn't load</h1>
+    <p class="intro">Paddle's window could not be loaded. Check the connection, or allow koona.app and paddle.com in a content blocker, then reload this page.</p>
+    <p><button type="button" class="button button-primary" data-action="reload">Reload</button></p>
+  </section>
+  <section data-panel="closed" hidden>
+    <h1>The payment window is closed</h1>
+    <p class="intro">Nothing was charged. Open it again, or go back to Koona Pin — you can start again there any time.</p>
+    <p><button type="button" class="button button-primary" data-action="open">Open the payment again</button></p>
+  </section>
+  <section data-panel="paid" hidden>
+    <h1>Thank you for supporting Koona Pin</h1>
+    <p class="intro">The payment went through. Go back to Koona Pin: it already knows, and Settings → Plan shows your plan. Paddle sends the receipt to your email.</p>
+  </section>
+  <section data-panel="missing" hidden>
+    <h1>Start the payment in Koona Pin</h1>
+    <p class="intro">This page opens a payment started in the app: «Free version · Support» at the bottom of the sidebar, or Settings → Plan.</p>
+  </section>
+  <section data-panel="closed-sales" hidden={!!token}>
+    <h1>Payments are not open yet</h1>
+    <p class="intro">Supporter opens when sync is ready. Koona Pin itself is free and stays free.</p>
+  </section>
+</div>
+{token && <script is:inline src="https://cdn.paddle.com/paddle/v2/paddle.js" defer></script>}
+<script>
+  // Paddle.js opens the checkout of `?_ptxn=` by itself once initialised; the page follows its events.
+  type Paddle = {
+    Environment: { set(environment: string): void };
+    Initialize(options: { token: string; eventCallback: (event: { name?: string }) => void }): void;
+    Checkout: { open(options: { transactionId: string }): void };
+  };
+  const root = document.querySelector<HTMLElement>(".checkout");
+  const show = (state: string) => {
+    if (!root) return;
+    root.dataset.state = state;
+    for (const panel of root.querySelectorAll<HTMLElement>("[data-panel]")) panel.hidden = panel.dataset.panel !== state;
+  };
+  const transaction = new URLSearchParams(location.search).get("_ptxn");
+  const token = root?.dataset.token;
+  if (token) {
+    if (!transaction) show("missing");
+    else {
+      // The script is loaded with `defer`: wait for the page, then for Paddle, at most 15 seconds.
+      const started = Date.now();
+      const start = () => {
+        const paddle = (window as unknown as { Paddle?: Paddle }).Paddle;
+        if (!paddle) {
+          if (Date.now() - started > 15_000) show("failed");
+          else window.setTimeout(start, 200);
+          return;
+        }
+        if (root?.dataset.environment === "sandbox") paddle.Environment.set("sandbox");
+        // Paddle reports a field it refuses as `checkout.error` too: only an error before the
+        // window loaded means that the payment did not load.
+        let loaded = false;
+        paddle.Initialize({
+          token,
+          eventCallback: (event) => {
+            if (event.name === "checkout.loaded") {
+              loaded = true;
+              show("opening");
+            } else if (event.name === "checkout.completed") show("paid");
+            else if (event.name === "checkout.closed" && root?.dataset.state !== "paid") show("closed");
+            else if (event.name === "checkout.error" && !loaded) show("failed");
+          },
+        });
+        root?.querySelector("[data-action=open]")?.addEventListener("click", () => {
+          show("opening");
+          paddle.Checkout.open({ transactionId: transaction });
+        });
+      };
+      start();
+    }
+    root?.querySelector("[data-action=reload]")?.addEventListener("click", () => location.reload());
+  }
+</script>
+</TextPage>
