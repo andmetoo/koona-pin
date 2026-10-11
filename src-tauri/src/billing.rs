@@ -34,6 +34,8 @@ const CHECK_EVERY: TimeDelta = TimeDelta::days(1);
 const GRACE: TimeDelta = TimeDelta::days(7);
 /// A purchase started but not seen paid is forgotten after this.
 const CLAIM_LIFETIME: TimeDelta = TimeDelta::days(2);
+/// Purchases waiting at once: one per plan is the usual case, a few more cover going back and forth.
+const MAX_CHECKOUTS: usize = 4;
 const TICK: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Debug, Clone, Copy)]
@@ -109,9 +111,51 @@ struct Stored {
     checked_at: Option<DateTime<Utc>>,
     #[serde(default)]
     check_failed: bool,
-    /// The secret of a purchase started here and not seen paid yet.
+    /// Purchases started here and not seen paid yet, oldest first. Starting another never drops
+    /// one: a payment finished in an older browser tab is still picked up.
+    #[serde(default)]
+    checkouts: Vec<Checkout>,
+    /// 0.8.0 kept a single purchase; read once and moved into `checkouts`.
+    #[serde(default, skip_serializing)]
     claim: Option<String>,
+    #[serde(default, skip_serializing)]
     claim_started: Option<DateTime<Utc>>,
+}
+
+/// A purchase started here: the secret the server knows by its hash, and the payment page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Checkout {
+    secret: String,
+    started: DateTime<Utc>,
+    /// None for a purchase kept by 0.8.0, which did not record it.
+    interval: Option<PlanInterval>,
+    url: Option<String>,
+}
+
+impl Stored {
+    /// The single purchase of 0.8.0 as the first of the list.
+    fn migrate(&mut self) {
+        if let Some(secret) = self.claim.take() {
+            let started = self.claim_started.take().unwrap_or_else(Utc::now);
+            self.checkouts.insert(0, Checkout { secret, started, interval: None, url: None });
+        }
+    }
+
+    /// Drops purchases too old to be paid now.
+    fn forget_old(&mut self, now: DateTime<Utc>) {
+        self.checkouts.retain(|c| now - c.started <= CLAIM_LIFETIME);
+    }
+
+    /// A purchase of this plan still waiting, to open again instead of a second payment.
+    fn waiting(&self, interval: PlanInterval, now: DateTime<Utc>) -> Option<&Checkout> {
+        self.checkouts.iter().rev().find(|c| c.interval == Some(interval) && c.url.is_some() && now - c.started <= CLAIM_LIFETIME)
+    }
+
+    fn add_checkout(&mut self, checkout: Checkout) {
+        self.checkouts.push(checkout);
+        let extra = self.checkouts.len().saturating_sub(MAX_CHECKOUTS);
+        self.checkouts.drain(..extra);
+    }
 }
 
 /// What the sidebar, the dialog and Settings → Plan show.
@@ -202,6 +246,7 @@ impl Billing {
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default();
+        stored.migrate();
         // An account of the other environment is not this build's.
         if service().is_some_and(|s| s.sandbox != stored.sandbox) {
             stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
@@ -213,24 +258,34 @@ impl Billing {
         self.stored.lock().map(|s| s.clone()).unwrap_or_default()
     }
 
-    /// Changes the stored state, writes the file and tells the interface.
+    /// Changes the stored state, writes the file and tells the interface. The lock is held until
+    /// the file is written: two updates at once (a background check and Sign out) are written in
+    /// the order they changed the state, and never share the temporary file. A write that fails
+    /// leaves the state in memory as it was.
     fn update(&self, app: &AppHandle, change: impl FnOnce(&mut Stored)) -> Result<SupporterStatus, CommandError> {
-        let stored = {
-            let mut stored = self.stored.lock().map_err(CommandError::internal)?;
-            change(&mut stored);
-            stored.clone()
-        };
+        let status = status(&self.apply(change)?, Utc::now());
+        let _ = app.emit(EVENT, status.clone());
+        Ok(status)
+    }
+
+    fn apply(&self, change: impl FnOnce(&mut Stored)) -> Result<Stored, CommandError> {
+        let mut stored = self.stored.lock().map_err(CommandError::internal)?;
+        let mut next = stored.clone();
+        change(&mut next);
+        self.write(&next)?;
+        *stored = next;
+        Ok(stored.clone())
+    }
+
+    fn write(&self, stored: &Stored) -> Result<(), CommandError> {
         if let Some(folder) = self.path.parent() {
             std::fs::create_dir_all(folder).map_err(CommandError::internal)?;
         }
-        let text = serde_json::to_string_pretty(&stored).map_err(CommandError::internal)?;
+        let text = serde_json::to_string_pretty(stored).map_err(CommandError::internal)?;
         // Through a temporary file: a crash mid-write never leaves half an account.
         let temporary = self.path.with_extension("json.tmp");
         std::fs::write(&temporary, text).map_err(CommandError::internal)?;
-        std::fs::rename(&temporary, &self.path).map_err(CommandError::internal)?;
-        let status = status(&stored, Utc::now());
-        let _ = app.emit(EVENT, status.clone());
-        Ok(status)
+        std::fs::rename(&temporary, &self.path).map_err(CommandError::internal)
     }
 }
 
@@ -246,7 +301,7 @@ pub fn start(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(15)).await;
         let billing = app.state::<Billing>();
-        if billing.get().claim.is_some() {
+        if !billing.get().checkouts.is_empty() {
             let _ = claim(&app).await;
         }
         loop {
@@ -375,49 +430,60 @@ async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
     }
 }
 
-/// Trades the stored purchase secret for a session once the payment is seen.
+/// Asks about every purchase started here and trades the first one seen paid for a session.
 async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     let billing = app.state::<Billing>();
-    let stored = billing.get();
-    let Some(secret) = stored.claim.clone() else {
-        return Ok(CheckoutState::None);
-    };
-    if stored.claim_started.is_some_and(|at| Utc::now() - at > CLAIM_LIFETIME) {
-        billing.update(app, |s| {
-            s.claim = None;
-            s.claim_started = None;
-        })?;
+    let now = Utc::now();
+    if billing.get().checkouts.iter().any(|c| now - c.started > CLAIM_LIFETIME) {
+        billing.update(app, |s| s.forget_old(now))?;
+    }
+    let checkouts = billing.get().checkouts;
+    if checkouts.is_empty() {
         return Ok(CheckoutState::None);
     }
-    let (status, value) = call(app, json!({ "action": "claim", "claim": secret }), None).await?;
-    let done = if status.as_u16() == 404 || value["status"] == "taken" {
-        Some(CheckoutState::None)
-    } else if value["status"] == "sign_in" {
-        Some(CheckoutState::SignIn)
-    } else {
-        None
-    };
-    if let Some(state) = done {
-        billing.update(app, |s| {
-            s.claim = None;
-            s.claim_started = None;
-        })?;
-        return Ok(state);
+    let mut finished: Vec<String> = Vec::new();
+    let mut sign_in = false;
+    let mut answered = false;
+    let mut failure = None;
+    for checkout in &checkouts {
+        let (status, value) = match call(app, json!({ "action": "claim", "claim": checkout.secret }), None).await {
+            Ok(answer) => answer,
+            Err(error) => {
+                failure.get_or_insert(error);
+                continue;
+            }
+        };
+        answered = true;
+        if status.as_u16() == 404 || value["status"] == "taken" {
+            finished.push(checkout.secret.clone());
+        } else if value["status"] == "sign_in" {
+            sign_in = true;
+            finished.push(checkout.secret.clone());
+        } else if value["status"] == "paid" {
+            let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
+            let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
+            // Signed in: the other purchases of this computer are not needed any more.
+            billing.update(app, |s| {
+                s.session = Some(session);
+                s.plan = plan;
+                s.checked_at = Some(Utc::now());
+                s.check_failed = false;
+                s.checkouts.clear();
+            })?;
+            return Ok(CheckoutState::Paid);
+        }
     }
-    if value["status"] != "paid" {
-        return Ok(CheckoutState::Waiting);
+    if !finished.is_empty() {
+        billing.update(app, |s| s.checkouts.retain(|c| !finished.contains(&c.secret)))?;
     }
-    let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
-    let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
-    billing.update(app, |s| {
-        s.session = Some(session);
-        s.plan = plan;
-        s.checked_at = Some(Utc::now());
-        s.check_failed = false;
-        s.claim = None;
-        s.claim_started = None;
-    })?;
-    Ok(CheckoutState::Paid)
+    if sign_in {
+        return Ok(CheckoutState::SignIn);
+    }
+    match failure {
+        Some(error) if !answered => Err(error),
+        _ if billing.get().checkouts.is_empty() => Ok(CheckoutState::None),
+        _ => Ok(CheckoutState::Waiting),
+    }
 }
 
 fn open(app: &AppHandle, url: &str) -> Result<(), CommandError> {
@@ -448,21 +514,25 @@ pub async fn get_supporter_prices(app: AppHandle) -> Result<SupporterPrices, Com
 }
 
 /// «Continue»: a Paddle transaction for this copy of the app, opened in the browser; its address,
-/// for «Open the page again».
+/// for «Open the page again». A purchase of the same plan still waiting is opened again instead
+/// of a second one; one of the other plan stays and is still asked about.
 #[tauri::command]
 pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<String, CommandError> {
+    let billing = app.state::<Billing>();
+    if let Some(url) = billing.get().waiting(interval, Utc::now()).and_then(|c| c.url.clone()) {
+        open(&app, &url)?;
+        return Ok(url);
+    }
     let secret = new_secret();
     let token = access_token(&app).await.unwrap_or(None);
-    let interval = match interval {
+    let name = match interval {
         PlanInterval::Month => "month",
         PlanInterval::Year => "year",
     };
-    let (status, value) = call(&app, json!({ "action": "checkout", "interval": interval, "claim": secret }), token.as_deref()).await?;
+    let (status, value) = call(&app, json!({ "action": "checkout", "interval": name, "claim": secret }), token.as_deref()).await?;
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing checkout", status))?.to_string();
-    app.state::<Billing>().update(&app, |s| {
-        s.claim = Some(secret);
-        s.claim_started = Some(Utc::now());
-    })?;
+    let checkout = Checkout { secret, started: Utc::now(), interval: Some(interval), url: Some(url.clone()) };
+    billing.update(&app, |s| s.add_checkout(checkout))?;
     open(&app, &url)?;
     Ok(url)
 }
@@ -538,11 +608,12 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
 pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, CommandError> {
     let billing = app.state::<Billing>();
     if let Some(session) = billing.get().session {
-        // Best effort: the refresh token stops working on the server too.
+        // Best effort: this computer's refresh token stops working on the server too. Only this
+        // one: Supabase's default scope, global, would sign out the person's other computers.
         if let Ok(service) = need_service() {
             if let Ok(client) = client(&app) {
                 let _ = client
-                    .post(format!("{}/auth/v1/logout", service.url))
+                    .post(format!("{}/auth/v1/logout?scope=local", service.url))
                     .header("apikey", service.key)
                     .bearer_auth(session.access_token)
                     .send()
@@ -620,5 +691,71 @@ mod tests {
         .unwrap();
         assert_eq!(plan.status, PlanStatus::Canceling);
         assert_eq!(plan.renews_at, None);
+    }
+
+    fn checkout(secret: &str, started: &str, interval: PlanInterval) -> Checkout {
+        Checkout { secret: secret.into(), started: at(started), interval: Some(interval), url: Some(format!("https://koona.app/pin/checkout/?_ptxn={secret}")) }
+    }
+
+    #[test]
+    fn a_new_purchase_keeps_the_ones_still_waiting() {
+        let now = at("2026-10-12T12:00:00Z");
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        // The same plan again opens the same payment, not a second one.
+        assert_eq!(stored.waiting(PlanInterval::Year, now).map(|c| c.secret.as_str()), Some("year1"));
+        // Another plan is a new purchase; the first stays, so a payment in its tab is still seen.
+        assert!(stored.waiting(PlanInterval::Month, now).is_none());
+        stored.add_checkout(checkout("month1", "2026-10-12T11:30:00Z", PlanInterval::Month));
+        assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["year1", "month1"]);
+        // Too old to be paid now: forgotten.
+        stored.forget_old(at("2026-10-14T11:15:00Z"));
+        assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
+        assert!(stored.waiting(PlanInterval::Month, at("2026-10-15T00:00:00Z")).is_none());
+        for i in 0..6 {
+            stored.add_checkout(checkout(&format!("extra{i}"), "2026-10-14T12:00:00Z", PlanInterval::Year));
+        }
+        assert_eq!(stored.checkouts.len(), MAX_CHECKOUTS);
+        assert_eq!(stored.checkouts.last().unwrap().secret, "extra5");
+    }
+
+    #[test]
+    fn the_purchase_kept_by_0_8_0_is_still_asked_about() {
+        let file = json!({ "sandbox": true, "claim": "old", "claim_started": "2026-10-11T12:00:00Z" });
+        let mut stored: Stored = serde_json::from_value(file).unwrap();
+        stored.migrate();
+        assert_eq!(stored.checkouts, [Checkout { secret: "old".into(), started: at("2026-10-11T12:00:00Z"), interval: None, url: None }]);
+        // Its plan is unknown: Continue makes a new purchase rather than guess.
+        assert!(stored.waiting(PlanInterval::Year, at("2026-10-11T13:00:00Z")).is_none());
+        let written = serde_json::to_value(&stored).unwrap();
+        assert!(written.get("claim").is_none() && written.get("claim_started").is_none());
+    }
+
+    #[test]
+    fn updates_are_written_one_at_a_time_and_a_failed_write_changes_nothing() {
+        let folder = std::env::temp_dir().join(format!("koonapin-billing-{}", new_secret()));
+        let billing = std::sync::Arc::new(Billing::load(folder.join(FILE)));
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                let billing = billing.clone();
+                std::thread::spawn(move || {
+                    for j in 0..20 {
+                        billing.apply(|s| s.add_checkout(checkout(&format!("{i}-{j}"), "2026-10-12T12:00:00Z", PlanInterval::Year))).unwrap();
+                    }
+                })
+            })
+            .collect();
+        threads.into_iter().for_each(|t| t.join().unwrap());
+        // The file holds exactly the state in memory: the last update wins on disk as in memory.
+        let on_disk: Stored = serde_json::from_str(&std::fs::read_to_string(folder.join(FILE)).unwrap()).unwrap();
+        assert_eq!(on_disk.checkouts, billing.get().checkouts);
+        assert!(!folder.join("account.json.tmp").exists());
+        // A write that cannot happen leaves the state as it was.
+        std::fs::remove_file(folder.join(FILE)).unwrap();
+        std::fs::create_dir(folder.join(FILE)).unwrap();
+        let before = billing.get().checkouts;
+        assert!(billing.apply(|s| s.checkouts.clear()).is_err());
+        assert_eq!(billing.get().checkouts, before);
+        let _ = std::fs::remove_dir_all(&folder);
     }
 }

@@ -11,7 +11,7 @@ import { content } from "../../content.mjs";
 const token = process.env.PADDLE_CLIENT_TOKEN || "";
 const environment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
 ---
-<TextPage t={content.en} page="checkout/" title="Payment" description="The payment for Koona Pin Supporter.">
+<TextPage t={content.en} page="checkout/" title="Payment" description="The payment for Koona Pin Supporter." english>
 <meta slot="head" name="robots" content="noindex">
 <div class="checkout" data-token={token} data-environment={environment} data-state={token ? "opening" : "closed-sales"}>
   <section data-panel="opening">

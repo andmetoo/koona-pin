@@ -45,6 +45,23 @@ for (const file of files.filter((f) => f.endsWith(".html"))) {
   }
 }
 
+// A link to the page in another language leads to a page that was built: an English-only page
+// (downloads, changelog, pricing, terms, refunds, checkout) offers no language menu of 404s.
+const built = new Set(files);
+const builtAt = (href) => {
+  const p = new URL(href, `${SITE}/`).pathname;
+  if (!p.startsWith("/pin/")) return true;
+  const rel = p.slice("/pin/".length).replace(/\/$/, "/index.html").replace(/^$/, "index.html");
+  return [rel, `${rel}.html`, `${rel}/index.html`].some((f) => built.has(f));
+};
+for (const file of files.filter((f) => f.endsWith(".html"))) {
+  const html = await readFile(path.join(out, file), "utf8");
+  for (const tag of html.match(/<(?:a|link)\b[^>]*\shreflang="[^"]+"[^>]*>/g) ?? []) {
+    const href = tag.match(/\shref="([^"]+)"/)?.[1];
+    if (href && !builtAt(href)) throw new Error(`${file}: a language link to ${href}, which is not built`);
+  }
+}
+
 // Screenshots under their own names too: the AppStream metainfo of the Linux packages links them
 // (src-tauri/linux/app.koona.pin.metainfo.xml). The pages link the hashed copies of /_astro/.
 await cp(from("site/src/shots"), path.join(out, "shots"), { recursive: true });
