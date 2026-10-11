@@ -1,0 +1,26 @@
+---
+// /refunds/ (NP-066, English only): Supporter's refund policy. Paddle, the merchant of record,
+// makes the refunds; LICENSE-COMMERCIAL.md section 4 leaves refunds to the purchase terms and law.
+import TextPage from "../../layouts/TextPage.astro";
+import { BASE, content, SUPPORT_EMAIL } from "../../content.mjs";
+---
+<TextPage t={content.en} page="refunds/" title="Refund policy" description="A full refund within 14 days of your first Koona Pin Supporter payment." current="refunds" english>
+<h1>Refund policy</h1>
+<p class="updated">Last updated 12 October 2026</p>
+<p class="lead">If Supporter isn't right for you, you get your money back.</p>
+
+<h2>14 days, full refund</h2>
+<p>Ask within 14 days of your first payment for Supporter, monthly or yearly, and you get the full amount back. You don't need to give a reason.</p>
+
+<h2>How to ask</h2>
+<p>Paddle takes payments for us, so refunds go through Paddle: find your order at <a href="https://paddle.net/" rel="noopener">paddle.net</a> with the email from your receipt, or reply to Paddle's receipt email. You can also write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> and we'll arrange it.</p>
+
+<h2>Renewals and later</h2>
+<p>Renewals and payments after the first 14 days are not refunded, and we don't refund part of a period. Cancel any time before the next payment and nothing more is charged: Supporter stays until the end of the period you paid for.</p>
+
+<h2>After a refund</h2>
+<p>A refund cancels the subscription, so nothing more is charged. Your library stays on your computer, as it always does.</p>
+
+<h2>Your rights</h2>
+<p>This policy adds to your rights under consumer law, such as the right of withdrawal in the EU; it never takes them away. The <a href={`${BASE}/terms/`}>terms of service</a> cover the rest of Supporter.</p>
+</TextPage>

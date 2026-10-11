@@ -63,6 +63,12 @@ export function nameIn(page, code) {
 }
 
 export const SUPPORT = "https://github.com/andmetoo/koona-pin/issues/new/choose";
+export const SUPPORT_EMAIL = "support@koona.app";
+// Supporter (NP-066, Р-64): sold only once release builds sell it, together with sync. Until
+// then /pricing/ says when it opens instead of where to buy it.
+export const SUPPORTER_ON_SALE = false;
+export const LICENSING = "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md";
+export const COMMERCIAL_LICENSE = "https://github.com/andmetoo/koona-pin/blob/main/LICENSE-COMMERCIAL.md";
 // The extension's catalog pages (NP-017).
 export const CHROME_STORE = `https://chromewebstore.google.com/detail/${chromeStoreId}`;
 export const EDGE_ADDONS = `https://microsoftedge.microsoft.com/addons/detail/${edgeStoreId}`;
