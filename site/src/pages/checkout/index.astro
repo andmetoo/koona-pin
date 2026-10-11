@@ -71,13 +71,18 @@ const environment = process.env.PADDLE_ENVIRONMENT === "production" ? "productio
           return;
         }
         if (root?.dataset.environment === "sandbox") paddle.Environment.set("sandbox");
+        // Paddle reports a field it refuses as `checkout.error` too: only an error before the
+        // window loaded means that the payment did not load.
+        let loaded = false;
         paddle.Initialize({
           token,
           eventCallback: (event) => {
-            if (event.name === "checkout.loaded") show("opening");
-            else if (event.name === "checkout.completed") show("paid");
+            if (event.name === "checkout.loaded") {
+              loaded = true;
+              show("opening");
+            } else if (event.name === "checkout.completed") show("paid");
             else if (event.name === "checkout.closed" && root?.dataset.state !== "paid") show("closed");
-            else if (event.name === "checkout.error") show("failed");
+            else if (event.name === "checkout.error" && !loaded) show("failed");
           },
         });
         root?.querySelector("[data-action=open]")?.addEventListener("click", () => {
