@@ -14,6 +14,11 @@ installed: boolean,
  */
 claude_code: string, 
 /**
+ * For a terminal: `codex mcp add …`; the ChatGPT desktop app and Codex
+ * share their list of servers.
+ */
+codex: string, 
+/**
  * `mcpServers` as Claude Desktop, Cursor, Windsurf and most others read it.
  */
 json: string, };

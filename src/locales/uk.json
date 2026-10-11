@@ -405,7 +405,7 @@
     "readHint": "Шукати й читати закладки, колекції та теги; нічого не змінюється",
     "addHint": "Ще додавати посилання до «Вхідних», ставити теги, переносити до колекції та позначати обраним. Ctrl Z скасовує кожну зміну; нічого не видаляється",
     "connect": "Підключити асистента",
-    "connectHint": "Claude Desktop, Claude Code та інші застосунки з підтримкою MCP",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT та інші застосунки з підтримкою MCP",
     "howToConnect": "Як підключити…"
   },
   "assistant": {
@@ -427,6 +427,11 @@
     "runText": "Додає Koona Pin до всіх проєктів цього користувача:",
     "checkTitle": "Перевірте підключення",
     "checkText": "Введіть /mcp у Claude Code: у koona-pin буде «connected».",
+    "chatgptTitle": "Додайте в застосунку ChatGPT",
+    "chatgptText": "Settings → MCP servers → Add server: назва koona-pin, тип STDIO і ця команда:",
+    "codexTitle": "Або з термінала",
+    "codexText": "Codex CLI і застосунок ChatGPT мають спільний список серверів:",
+    "chatgptNote": "Потрібен актуальний застосунок ChatGPT для комп'ютера; ChatGPT у браузері підключає лише віддалені сервери.",
     "customTitle": "Відкрийте налаштування MCP свого застосунку",
     "customText": "Cursor, Windsurf, Zed і більшість інших застосунків із підтримкою MCP зберігають сервери в JSON-файлі.",
     "customAddTitle": "Додайте Koona Pin і збережіть",

@@ -380,7 +380,7 @@
     "readHint": "Chercher et lire les signets, collections et étiquettes ; rien ne change",
     "addHint": "Aussi ajouter des liens à la Boîte de réception, les étiqueter, les déplacer dans une collection et les mettre en favori. Ctrl Z annule chaque modification ; rien n’est supprimé",
     "connect": "Connecter un assistant",
-    "connectHint": "Claude Desktop, Claude Code et les autres applications compatibles MCP",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT et les autres applications compatibles MCP",
     "howToConnect": "Comment connecter…"
   },
   "assistant": {
@@ -402,6 +402,11 @@
     "runText": "Ajoute Koona Pin à tous les projets de cet utilisateur :",
     "checkTitle": "Vérifiez la connexion",
     "checkText": "Tapez /mcp dans Claude Code : koona-pin affiche «connected».",
+    "chatgptTitle": "Ajoutez-le dans l’application ChatGPT",
+    "chatgptText": "Settings → MCP servers → Add server : nom koona-pin, type STDIO et cette commande :",
+    "codexTitle": "Ou depuis un terminal",
+    "codexText": "Codex CLI et l’application ChatGPT partagent la liste des serveurs :",
+    "chatgptNote": "Nécessite l’application de bureau ChatGPT à jour ; ChatGPT dans le navigateur ne se connecte qu’à des serveurs distants.",
     "customTitle": "Ouvrez les paramètres MCP de votre application",
     "customText": "Cursor, Windsurf, Zed et la plupart des applications compatibles MCP gardent leurs serveurs dans un fichier JSON.",
     "customAddTitle": "Ajoutez Koona Pin et enregistrez",

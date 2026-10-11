@@ -380,7 +380,7 @@
     "readHint": "Претраживање и читање обележивача, колекција и ознака; ништа се не мења",
     "addHint": "И додавање линкова у Пријемно сандуче, означавање, премештање у колекцију и додавање у омиљено. Ctrl Z поништава сваку измену; ништа се не брише",
     "connect": "Повежите асистента",
-    "connectHint": "Claude Desktop, Claude Code и друге апликације које подржавају MCP",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT и друге апликације које подржавају MCP",
     "howToConnect": "Како повезати…"
   },
   "assistant": {
@@ -402,6 +402,11 @@
     "runText": "Додаје Koona Pin у све пројекте овог корисника:",
     "checkTitle": "Проверите везу",
     "checkText": "Укуцајте /mcp у Claude Code: koona-pin приказује «connected».",
+    "chatgptTitle": "Додајте у апликацији ChatGPT",
+    "chatgptText": "Settings → MCP servers → Add server: име koona-pin, тип STDIO и ова команда:",
+    "codexTitle": "Или из терминала",
+    "codexText": "Codex CLI и апликација ChatGPT деле листу сервера:",
+    "chatgptNote": "Потребна је актуелна десктоп апликација ChatGPT; ChatGPT у прегледачу повезује само удаљене сервере.",
     "customTitle": "Отворите MCP подешавања своје апликације",
     "customText": "Cursor, Windsurf, Zed и већина других апликација које подржавају MCP чувају сервере у JSON датотеци.",
     "customAddTitle": "Додајте Koona Pin и сачувајте",

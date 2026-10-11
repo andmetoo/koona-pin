@@ -330,7 +330,7 @@
     "readHint": "搜索和读取书签、合集和标签；不做任何更改",
     "addHint": "还可以把链接添加到收件箱、添加标签、移到合集和加星标。Ctrl Z 可撤销每项更改；不会删除任何内容",
     "connect": "连接助手",
-    "connectHint": "Claude Desktop、Claude Code 和其他支持 MCP 的应用",
+    "connectHint": "Claude Desktop、Claude Code、ChatGPT 和其他支持 MCP 的应用",
     "howToConnect": "如何连接…"
   },
   "assistant": {
@@ -352,6 +352,11 @@
     "runText": "为该用户的所有项目添加 Koona Pin：",
     "checkTitle": "检查连接",
     "checkText": "在 Claude Code 中输入 /mcp：koona-pin 显示 «connected»。",
+    "chatgptTitle": "在 ChatGPT 应用中添加",
+    "chatgptText": "Settings → MCP servers → Add server：名称 koona-pin，类型 STDIO，并填入此命令：",
+    "codexTitle": "或在终端中添加",
+    "codexText": "Codex CLI 与 ChatGPT 应用共用服务器列表：",
+    "chatgptNote": "需要最新的 ChatGPT 桌面应用；浏览器中的 ChatGPT 只能连接远程服务器。",
     "customTitle": "打开你的应用的 MCP 设置",
     "customText": "Cursor、Windsurf、Zed 和大多数支持 MCP 的应用把服务器保存在一个 JSON 文件中。",
     "customAddTitle": "添加 Koona Pin 并保存",

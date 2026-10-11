@@ -330,7 +330,7 @@
     "readHint": "ブックマーク、コレクション、タグを検索して読み取ります。何も変更しません",
     "addHint": "リンクをインボックスに追加し、タグを付け、コレクションに移動し、お気に入りにすることもできます。Ctrl Z で変更を一つずつ取り消せます。削除はしません",
     "connect": "アシスタントを接続",
-    "connectHint": "Claude Desktop、Claude Code など MCP に対応したアプリ",
+    "connectHint": "Claude Desktop、Claude Code、ChatGPT など MCP に対応したアプリ",
     "howToConnect": "接続方法…"
   },
   "assistant": {
@@ -352,6 +352,11 @@
     "runText": "このユーザーのすべてのプロジェクトに Koona Pin を追加します:",
     "checkTitle": "接続を確認",
     "checkText": "Claude Code で /mcp と入力します。koona-pin に «connected» と表示されます。",
+    "chatgptTitle": "ChatGPT アプリで追加",
+    "chatgptText": "Settings → MCP servers → Add server で、名前 koona-pin、種類 STDIO、このコマンドを指定します:",
+    "codexTitle": "またはターミナルから",
+    "codexText": "Codex CLI と ChatGPT アプリはサーバーの一覧を共有しています:",
+    "chatgptNote": "最新の ChatGPT デスクトップ アプリが必要です。ブラウザーの ChatGPT はリモート サーバーにしか接続できません。",
     "customTitle": "アプリの MCP 設定を開く",
     "customText": "Cursor、Windsurf、Zed など MCP に対応した多くのアプリは、サーバーを JSON ファイルに保存しています。",
     "customAddTitle": "Koona Pin を追加して保存",

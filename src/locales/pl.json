@@ -405,7 +405,7 @@
     "readHint": "Szukać i czytać zakładki, kolekcje i tagi; nic się nie zmienia",
     "addHint": "Także dodawać linki do Skrzynki odbiorczej, tagować je, przenosić do kolekcji i oznaczać jako ulubione. Ctrl Z cofa każdą zmianę; nic nie jest usuwane",
     "connect": "Połącz asystenta",
-    "connectHint": "Claude Desktop, Claude Code i inne aplikacje obsługujące MCP",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT i inne aplikacje obsługujące MCP",
     "howToConnect": "Jak połączyć…"
   },
   "assistant": {
@@ -427,6 +427,11 @@
     "runText": "Dodaje Koona Pin do wszystkich projektów tego użytkownika:",
     "checkTitle": "Sprawdź połączenie",
     "checkText": "Wpisz /mcp w Claude Code: koona-pin pokazuje «connected».",
+    "chatgptTitle": "Dodaj w aplikacji ChatGPT",
+    "chatgptText": "Settings → MCP servers → Add server: nazwa koona-pin, typ STDIO i to polecenie:",
+    "codexTitle": "Albo z terminala",
+    "codexText": "Codex CLI i aplikacja ChatGPT mają wspólną listę serwerów:",
+    "chatgptNote": "Wymaga aktualnej aplikacji ChatGPT na komputer; ChatGPT w przeglądarce łączy się tylko z serwerami zdalnymi.",
     "customTitle": "Otwórz ustawienia MCP swojej aplikacji",
     "customText": "Cursor, Windsurf, Zed i większość innych aplikacji obsługujących MCP trzyma serwery w pliku JSON.",
     "customAddTitle": "Dodaj Koona Pin i zapisz",

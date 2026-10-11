@@ -434,6 +434,9 @@ pub struct McpSetup {
     pub installed: bool,
     /// For a terminal: `claude mcp add …`.
     pub claude_code: String,
+    /// For a terminal: `codex mcp add …`; the ChatGPT desktop app and Codex
+    /// share their list of servers.
+    pub codex: String,
     /// `mcpServers` as Claude Desktop, Cursor, Windsurf and most others read it.
     pub json: String,
 }
@@ -454,6 +457,7 @@ pub fn setup(server: &std::path::Path) -> McpSetup {
     McpSetup {
         installed: server.is_file(),
         claude_code: format!("claude mcp add --scope user {SERVER_NAME} -- \"{path}\""),
+        codex: format!("codex mcp add {SERVER_NAME} -- \"{path}\""),
         json,
         server: path,
     }
@@ -916,6 +920,7 @@ mod tests {
         let shown = setup(std::path::Path::new(r"C:\Users\Anna\AppData\Local\Koona Pin\koonapin-mcp.exe"));
         assert!(!shown.installed);
         assert_eq!(shown.claude_code, r#"claude mcp add --scope user koona-pin -- "C:\Users\Anna\AppData\Local\Koona Pin\koonapin-mcp.exe""#);
+        assert_eq!(shown.codex, r#"codex mcp add koona-pin -- "C:\Users\Anna\AppData\Local\Koona Pin\koonapin-mcp.exe""#);
         let json: Value = serde_json::from_str(&shown.json).unwrap();
         assert_eq!(json["mcpServers"]["koona-pin"]["command"], shown.server);
     }

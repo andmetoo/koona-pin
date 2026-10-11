@@ -2361,6 +2361,12 @@ test("feedback: a report that never comes does not lock the dialog — it goes w
   await dialog.getByRole("button", { name: "Copy" }).click();
   await expect(page.getByText("Copied", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^claude mcp add/);
+  // ChatGPT: the path for its form, or the Codex command (they share the list).
+  await dialog.getByRole("radio", { name: "ChatGPT" }).click();
+  await expect(dialog.locator("pre")).toHaveCount(2);
+  await expect(dialog.locator("pre").first()).toHaveText(/^.+koonapin-mcp\.exe$/);
+  await expect(dialog.locator("pre").last()).toHaveText(/^codex mcp add koona-pin -- ".+koonapin-mcp\.exe"$/);
+  await expect(dialog).toContainText("ChatGPT in the browser connects only to remote servers.");
   await dialog.getByRole("radio", { name: "Custom" }).click();
   await expect(dialog).toContainText("Some apps name the top key «servers».");
   await expect(dialog.locator("pre")).toContainText('"koona-pin"');

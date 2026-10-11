@@ -1173,6 +1173,7 @@ export const demo = {
       server,
       installed: true,
       claude_code: `claude mcp add --scope user koona-pin -- "${server}"`,
+      codex: `codex mcp add koona-pin -- "${server}"`,
       json: JSON.stringify({ mcpServers: { "koona-pin": { command: server } } }, null, 2),
     };
   },

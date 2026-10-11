@@ -9,11 +9,12 @@ import { Button } from "../ui/Button";
 import { Dot, Segmented } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 
-type Client = "desktop" | "code" | "custom";
+type Client = "desktop" | "code" | "chatgpt" | "custom";
 
 /**
  * «Connect an AI assistant» (NP-091, sheet 44), as «Connect browser» (frame 18): Claude Desktop installs
- * the .mcpb package or takes the JSON, Claude Code a command, any other MCP app the same JSON. Every
+ * the .mcpb package or takes the JSON, Claude Code a command, the ChatGPT desktop app the server's path (or Codex a
+ * command: they share the list), any other MCP app the same JSON. Every
  * path is the real one of koonapin-mcp on this computer.
  */
 export function AssistantDialog({
@@ -48,29 +49,33 @@ export function AssistantDialog({
       .catch((err) => onNotice(describeError(err), true))
       .finally(() => setInstalling(false));
   };
-  const steps: { title: string; text: string; extra?: ReactNode }[] =
-    client === "desktop"
-      ? [
-          {
-            title: t("assistant.installTitle"),
-            text: t("assistant.installText"),
-            extra: (
-              <Button variant="primary" className="mt-2" disabled={!setup?.installed || installing} onClick={install}>
-                {t("assistant.installButton")}
-              </Button>
-            ),
-          },
-          { title: t("assistant.askTitle"), text: t("assistant.askText") },
-        ]
-      : client === "code"
-        ? [
-            { title: t("assistant.runTitle"), text: t("assistant.runText"), extra: code(setup?.claude_code) },
-            { title: t("assistant.checkTitle"), text: t("assistant.checkText") },
-          ]
-        : [
-            { title: t("assistant.customTitle"), text: t("assistant.customText") },
-            { title: t("assistant.customAddTitle"), text: t("assistant.customAddText"), extra: code(setup?.json) },
-          ];
+  const steps: Record<Client, { title: string; text: string; extra?: ReactNode }[]> = {
+    desktop: [
+      {
+        title: t("assistant.installTitle"),
+        text: t("assistant.installText"),
+        extra: (
+          <Button variant="primary" className="mt-2" disabled={!setup?.installed || installing} onClick={install}>
+            {t("assistant.installButton")}
+          </Button>
+        ),
+      },
+      { title: t("assistant.askTitle"), text: t("assistant.askText") },
+    ],
+    code: [
+      { title: t("assistant.runTitle"), text: t("assistant.runText"), extra: code(setup?.claude_code) },
+      { title: t("assistant.checkTitle"), text: t("assistant.checkText") },
+    ],
+    // The desktop app takes the server's path; Codex shares its list (NP-091).
+    chatgpt: [
+      { title: t("assistant.chatgptTitle"), text: t("assistant.chatgptText"), extra: code(setup?.server) },
+      { title: t("assistant.codexTitle"), text: t("assistant.codexText"), extra: code(setup?.codex) },
+    ],
+    custom: [
+      { title: t("assistant.customTitle"), text: t("assistant.customText") },
+      { title: t("assistant.customAddTitle"), text: t("assistant.customAddText"), extra: code(setup?.json) },
+    ],
+  };
   return (
     <Dialog title={t("assistant.title")} onClose={onClose}>
       <div className="flex w-[440px] max-w-full flex-col gap-4 text-sm">
@@ -93,6 +98,7 @@ export function AssistantDialog({
           options={[
             { value: "desktop", label: "Claude Desktop" },
             { value: "code", label: "Claude Code" },
+            { value: "chatgpt", label: "ChatGPT" },
             { value: "custom", label: t("assistant.custom") },
           ]}
         />
@@ -102,7 +108,7 @@ export function AssistantDialog({
           </p>
         )}
         <ol className="flex flex-col gap-4">
-          {steps.map((step, index) => (
+          {steps[client].map((step, index) => (
             <li key={step.title} className="flex gap-3">
               <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-2xs font-semibold text-on-accent-soft">
                 {index + 1}
@@ -124,7 +130,10 @@ export function AssistantDialog({
             {code(setup?.json)}
           </div>
         )}
-        <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">{t("assistant.note")}</p>
+        <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">
+          {client === "chatgpt" && `${t("assistant.chatgptNote")} `}
+          {t("assistant.note")}
+        </p>
       </div>
     </Dialog>
   );

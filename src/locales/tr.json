@@ -355,7 +355,7 @@
     "readHint": "Yer işaretlerini, koleksiyonları ve etiketleri arayıp okuma; hiçbir şey değişmez",
     "addHint": "Ayrıca bağlantıları Gelen kutusuna ekleme, etiketleme, bir koleksiyona taşıma ve favori yapma. Ctrl Z her değişikliği geri alır; hiçbir şey silinmez",
     "connect": "Asistan bağlayın",
-    "connectHint": "Claude Desktop, Claude Code ve MCP ile çalışan diğer uygulamalar",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT ve MCP ile çalışan diğer uygulamalar",
     "howToConnect": "Nasıl bağlanır…"
   },
   "assistant": {
@@ -377,6 +377,11 @@
     "runText": "Koona Pin'i bu kullanıcının tüm projelerine ekler:",
     "checkTitle": "Bağlantıyı denetleyin",
     "checkText": "Claude Code'da /mcp yazın: koona-pin «connected» gösterir.",
+    "chatgptTitle": "ChatGPT uygulamasına ekleyin",
+    "chatgptText": "Settings → MCP servers → Add server: ad koona-pin, tür STDIO ve bu komut:",
+    "codexTitle": "Ya da terminalden",
+    "codexText": "Codex CLI ve ChatGPT uygulaması sunucu listesini paylaşır:",
+    "chatgptNote": "Güncel ChatGPT masaüstü uygulaması gerekir; tarayıcıdaki ChatGPT yalnızca uzak sunuculara bağlanır.",
     "customTitle": "Uygulamanızın MCP ayarlarını açın",
     "customText": "Cursor, Windsurf, Zed ve MCP ile çalışan çoğu uygulama sunucularını bir JSON dosyasında tutar.",
     "customAddTitle": "Koona Pin'i ekleyip kaydedin",
