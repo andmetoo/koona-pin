@@ -73,7 +73,7 @@ const env = {
 const tauri = (...args) => run(process.execPath, [path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js"), ...args], { env });
 
 tauri("build", "--no-bundle", "--features", "public-release");
-const binaries = ["koonapin", "koonapin-host"].map((name) => path.join(target, name));
+const binaries = ["koonapin", "koonapin-host", "koonapin-mcp"].map((name) => path.join(target, name));
 // What Cargo's strip leaves: the compiler's notes (lintian, as dh_strip does).
 run("strip", ["--remove-section=.comment", "--remove-section=.note", ...binaries]);
 
@@ -103,7 +103,7 @@ await writeFile(
   staged("changelog"),
   `koonapin (${version}) unstable; urgency=medium\n\n  * Koona Pin ${version} for Linux.\n\n -- ${MAINTAINER}  ${date.toUTCString().replace("GMT", "+0000")}\n`,
 );
-for (const page of ["koonapin.1", "koonapin-host.1"]) await writeFile(staged(`${page}.gz`), gzipSync(await readFile(path.join(linux, page)), { level: 9 }));
+for (const page of ["koonapin.1", "koonapin-host.1", "koonapin-mcp.1"]) await writeFile(staged(`${page}.gz`), gzipSync(await readFile(path.join(linux, page)), { level: 9 }));
 // hicolor takes an icon's folder from its size: 128x128@2x.png would land in 256x256@2 (for 512 px).
 await copyFile(path.join(root, "src-tauri", "icons", "128x128@2x.png"), staged("256x256.png"));
 const icons = ["icons/32x32.png", "icons/64x64.png", "icons/128x128.png", staged("256x256.png"), "icons/icon.png"];
@@ -153,6 +153,7 @@ bundle("deb", {
       "/usr/share/doc/koonapin/copyright": staged("copyright"),
       "/usr/share/man/man1/koonapin.1.gz": staged("koonapin.1.gz"),
       "/usr/share/man/man1/koonapin-host.1.gz": staged("koonapin-host.1.gz"),
+      "/usr/share/man/man1/koonapin-mcp.1.gz": staged("koonapin-mcp.1.gz"),
       "/usr/share/lintian/overrides/koonapin": path.join(linux, "lintian-overrides"),
     },
   },

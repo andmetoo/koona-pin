@@ -39,6 +39,9 @@ import {
   Merged,
   LinkCheckProgress,
   LinkCheckReport,
+  McpAccess,
+  McpSetup,
+  McpStatus,
   Replaced,
   PickedCopy,
   SaveCopyOutcome,
@@ -261,5 +264,12 @@ const desktop = {
   cancelUpdate: () => call<void>("cancel_update"),
   /** The tray menu and tooltip in the interface's language (NP-085). */
   setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
+  /** Settings → AI assistants (NP-091): access, the last request, and how to connect. */
+  getMcpStatus: () => call<McpStatus>("get_mcp_status"),
+  setMcpAccess: (access: McpAccess) => call<McpStatus>("set_mcp_access", { access }),
+  onMcpStatus: (callback: (status: McpStatus) => void) => subscription("mcp-status", callback),
+  getMcpSetup: () => call<McpSetup>("get_mcp_setup"),
+  /** «Install in Claude Desktop»: the .mcpb package, opened by Claude Desktop. */
+  installMcpb: () => call<void>("install_mcpb"),
 };
 export const api = isTauri() ? desktop : demo;

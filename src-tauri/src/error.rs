@@ -65,6 +65,10 @@ pub enum ErrorDetail {
     /// No connection on Linux while a proxy is set only in GNOME's or KDE's settings,
     /// which the app does not read (NP-097): either cause is possible.
     NoConnectionOrSystemProxy,
+    /// koonapin-mcp is not next to the app (NP-091): a broken installation.
+    ServerMissing,
+    /// Nothing on this computer opens an `.mcpb`: Claude Desktop is not installed.
+    NoClaudeDesktop,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

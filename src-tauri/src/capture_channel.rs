@@ -428,6 +428,31 @@ async fn answer(
     .await
     .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "no message"))??;
     let reply = match parse(&line) {
+        // koonapin-mcp (NP-091): the journal too, as the interface's changes.
+        Some(envelope) if envelope.message["type"] == "mcp" => {
+            let database = db.clone();
+            let (handled, status) = tauri::async_runtime::spawn_blocking(move || {
+                let conn = database.conn.lock().map_err(|_| ())?;
+                let mut journal = database.journal.lock().map_err(|_| ())?;
+                let handled = crate::mcp::handle(&conn, &mut journal, &envelope.message, Utc::now());
+                let status = handled.status.then(|| crate::mcp::status(&conn));
+                Ok::<_, ()>((handled, status))
+            })
+            .await
+            .map_err(std::io::Error::other)?
+            .unwrap_or_else(|_| {
+                let reply = failure("database_error", "The database is unavailable");
+                (crate::mcp::Handled { reply, changed: Vec::new(), saved: None, status: false }, None)
+            });
+            if let Some(saved) = &handled.saved {
+                capture::after_save(&app, db.clone(), saved);
+            }
+            capture::emit_many(&app, &handled.changed);
+            if let Some(status) = status {
+                let _ = app.emit("mcp-status", status);
+            }
+            handled.reply
+        }
         Some(envelope) => {
             let (database, records) = (db.clone(), state.clone());
             let handled = tauri::async_runtime::spawn_blocking(move || {

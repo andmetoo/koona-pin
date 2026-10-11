@@ -28,7 +28,7 @@ appstreamcli validate --no-net --explain "$tree/usr/share/metainfo/app.koona.pin
 echo "ok: desktop-file-validate, appstreamcli validate"
 
 mkdir -p dist-linux
-cp "$packages"/* src-tauri/target/release/koonapin src-tauri/target/release/koonapin-host dist-linux/
+cp "$packages"/* src-tauri/target/release/koonapin src-tauri/target/release/koonapin-host src-tauri/target/release/koonapin-mcp dist-linux/
 ls -l dist-linux
 
 # The WebDriver server of the native tests on WebKitGTK (NP-095, Р-57), for the «distro» jobs, which have no

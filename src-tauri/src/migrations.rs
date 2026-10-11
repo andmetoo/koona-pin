@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 7;
+pub const SCHEMA_VERSION: i64 = 8;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -251,6 +251,46 @@ CREATE INDEX idx_bookmarks_domain ON bookmarks(domain, deleted_at, created_at, i
 CREATE INDEX idx_bookmark_tags_tag ON bookmark_tags(tag_id, bookmark_id);
 ";
 
+/// Schema 8 (NP-091, Р-67): links an AI assistant saves over MCP. They come
+/// from `source = 'mcp'`, which the check of schema 1 does not allow:
+/// [`allow_mcp`] widens it. `source_name` is the assistant that saved one, as
+/// triage names it («saved … from Claude Code»).
+const SCHEMA_8: &str = "
+ALTER TABLE bookmarks ADD COLUMN source_name TEXT;
+";
+
+/// The check on `bookmarks.source` gets `'mcp'`. SQLite cannot change a check
+/// in place; rebuilding the table would copy every bookmark and rebuild its
+/// triggers and indexes. A wider check holds for every stored row, so it is
+/// written into the schema text, the way the SQLite manual describes changes
+/// that leave the stored data valid (ALTER TABLE, «other kinds of schema
+/// changes»): `writable_schema`, the new text, `schema_version` + 1, all in
+/// the migration's transaction. A schema text other than schema 1's is
+/// refused, and the migration rolls back.
+fn allow_mcp(tx: &Transaction) -> HookResult {
+    const OLD: &str = "'extension','bookmarklet','import'))";
+    const NEW: &str = "'extension','bookmarklet','import','mcp'))";
+    let sql: String = tx.query_row(
+        "SELECT sql FROM sqlite_schema WHERE type='table' AND name='bookmarks'",
+        [],
+        |r| r.get(0),
+    )?;
+    if sql.matches(OLD).count() != 1 {
+        return Err(rusqlite_migration::HookError::Hook(
+            "the bookmarks table is not the one schema 1 made".into(),
+        ));
+    }
+    let version: i64 = tx.pragma_query_value(None, "schema_version", |r| r.get(0))?;
+    tx.pragma_update(None, "writable_schema", true)?;
+    tx.execute(
+        "UPDATE sqlite_schema SET sql=?1 WHERE type='table' AND name='bookmarks'",
+        [sql.replace(OLD, NEW)],
+    )?;
+    tx.pragma_update(None, "schema_version", version + 1)?;
+    tx.pragma_update(None, "writable_schema", false)?;
+    Ok(())
+}
+
 /// Keys of the existing bookmarks, computed in Rust: the step must not need
 /// the SQL functions of `library::configure` (`validate()` runs without them).
 fn url_keys(tx: &Transaction) -> HookResult {
@@ -296,6 +336,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up_with_hook(SCHEMA_5, url_keys),
         M::up(SCHEMA_6),
         M::up(SCHEMA_7),
+        M::up_with_hook(SCHEMA_8, allow_mcp),
     ]
 }
 
@@ -470,6 +511,49 @@ mod tests {
             .pragma_query_value(None, "synchronous", |r| r.get(0))
             .unwrap();
         assert_eq!(synchronous, 2, "FULL");
+    }
+
+    /// Schema 8 (NP-091): a library of schema 7 with data takes links from
+    /// `mcp` after the migration and nothing else; every row, index and
+    /// trigger stays as it was, and the file passes the integrity check.
+    #[test]
+    fn schema_8_lets_the_assistants_save_and_keeps_everything_else() {
+        let folder = folder("schema-8");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 7);
+        fixtures::generated(&conn, 300, 8);
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        let insert = |conn: &Connection, source: &str| {
+            conn.execute(
+                "INSERT INTO bookmarks (uid, url, title, domain, source, created_at, updated_at) VALUES (?1, ?1, 't', 'd', ?2, 'x', 'x')",
+                rusqlite::params![format!("https://example.com/{source}"), source],
+            )
+        };
+        assert!(insert(&conn, "mcp").is_err(), "schema 7 refuses mcp");
+        let rows_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
+        let objects = |conn: &Connection| rows(conn, "SELECT type, name FROM sqlite_schema WHERE name <> 'bookmarks' ORDER BY name");
+        let objects_before = objects(&conn);
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 8);
+        assert_eq!(objects(&conn), objects_before, "no trigger, index or view lost");
+        let rows_after = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
+        assert_eq!(rows_after.len(), rows_before.len());
+        assert!(rows_after.iter().zip(&rows_before).all(|(after, before)| after.starts_with(before.as_str()) && after.ends_with("| Null")), "the rows, and a new empty column");
+        insert(&conn, "mcp").unwrap();
+        assert!(insert(&conn, "phone").is_err(), "the check still holds");
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        // A new connection reads the new schema text.
+        drop(conn);
+        let conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO bookmarks (uid, url, title, domain, source, created_at, updated_at) VALUES ('u2', 'https://example.com/again', 't', 'd', 'mcp', 'x', 'x')",
+            [],
+        )
+        .unwrap();
     }
 
     #[test]

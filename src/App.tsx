@@ -27,6 +27,7 @@ import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
+import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
@@ -40,7 +41,7 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -866,6 +867,7 @@ export function App() {
                     onSettings={setSettings}
                     onCapture={setCapture}
                     onConnect={() => setSurface("connect")}
+                    onConnectAssistant={() => setSurface("assistant")}
                     onCopy={(text) => void copy(text)}
                     onNotice={say}
                     onSaveCopy={saveBackupCopy}
@@ -1260,6 +1262,9 @@ export function App() {
           onCancel={() => void api.cancelUpdate().catch((err) => say(describeError(err), true))}
           onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
         />
+      )}
+      {surface === "assistant" && (
+        <AssistantDialog onCopy={(text) => void copy(text)} onNotice={say} onClose={() => setSurface(null)} />
       )}
       {surface === "connect" && (
         <ConnectDialog capture={capture} onOpen={actions.open} onClose={() => setSurface(null)} />

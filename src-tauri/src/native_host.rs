@@ -620,6 +620,10 @@ mod tests {
         let exe = format!("{}.exe", conf["mainBinaryName"].as_str().unwrap());
         assert!(hooks.contains(&define("NP_EXE", &exe)));
         assert!(hooks.contains(&define("NP_HOST_EXE", HOST_EXE)));
+        // An assistant may hold the MCP server open as a browser holds the host (NP-091).
+        #[cfg(windows)]
+        assert!(hooks.contains(&define("NP_MCP_EXE", crate::mcp::SERVER_EXE)));
+        assert_eq!(hooks.matches(r#"CheckIfAppIsRunning "$INSTDIR\${NP_MCP_EXE}""#).count(), 2, "install and uninstall");
         for arg in [REGISTER_ARG, UNREGISTER_ARG] {
             assert!(hooks.contains(&format!(r#""$INSTDIR\${{NP_EXE}}" {arg}'"#)), "{arg}");
         }

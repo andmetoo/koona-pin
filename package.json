@@ -2,7 +2,7 @@
   "name": "koonapin",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "0.6.5",
+  "version": "0.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,6 +21,7 @@
     "test:webkit": "bun test --timeout 600000 tests/webkit/",
     "pretest:host": "bun scripts/clean.mjs",
     "test:host": "bun scripts/smoke-host.mjs",
+    "test:mcp": "bun scripts/smoke-mcp.mjs",
     "pretest:extension": "bun scripts/clean.mjs",
     "test:extension": "bun scripts/smoke-extension.mjs",
     "test:extension:chrome": "bun scripts/smoke-extension.mjs chrome",

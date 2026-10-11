@@ -342,6 +342,52 @@
     "deleteForeverText": "„{{title}}“ wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.",
     "deleteForeverButton": "Endgültig löschen"
   },
+  "assistants": {
+    "allow": "KI-Assistenten Zugriff auf die Bibliothek geben",
+    "offHint": "Claude, Cursor und andere MCP-Apps auf diesem Computer können Ihre Lesezeichen durchsuchen",
+    "noRequests": "Ein · noch keine Anfragen",
+    "lastToday": "Ein · letzte Anfrage von {{client}} heute um {{time}}",
+    "lastOn": "Ein · letzte Anfrage von {{client}} am {{date}} um {{time}}",
+    "someone": "einem KI-Assistenten",
+    "access": "Was Assistenten dürfen",
+    "read": "Nur lesen",
+    "readAndAdd": "Lesen und hinzufügen",
+    "readHint": "Lesezeichen, Sammlungen und Tags suchen und lesen; nichts ändert sich",
+    "addHint": "Auch Links in den Eingang legen, mit Tags versehen, in eine Sammlung verschieben und als Favoriten markieren. Strg Z macht jede Änderung rückgängig; nichts wird gelöscht",
+    "connect": "Assistenten verbinden",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT und andere Apps mit MCP",
+    "howToConnect": "So verbinden Sie…"
+  },
+  "assistant": {
+    "title": "KI-Assistenten verbinden",
+    "lead": "Lassen Sie einen Assistenten in Ihrer Bibliothek suchen",
+    "clients": "Assistent",
+    "custom": "Andere",
+    "statusOff": "Aus: Assistenten erhalten einen Fehler, bis Sie den Zugriff in den Einstellungen einschalten",
+    "statusRead": "Ein · nur lesen",
+    "statusAdd": "Ein · lesen und hinzufügen",
+    "installTitle": "Koona Pin in Claude Desktop installieren",
+    "installText": "Die Erweiterung öffnet sich in Claude Desktop; bestätigen Sie mit «Install».",
+    "installButton": "In Claude Desktop installieren",
+    "askTitle": "Fragen Sie nach Ihren Lesezeichen",
+    "askText": "Zum Beispiel: «Finde meinen Artikel über FTS5». Claude fragt, bevor es ein Werkzeug zum ersten Mal verwendet.",
+    "manualTitle": "Oder von Hand hinzufügen",
+    "manualText": "Settings → Developer → Edit Config, dann in claude_desktop_config.json einfügen:",
+    "runTitle": "Im Terminal ausführen",
+    "runText": "Fügt Koona Pin für alle Projekte dieses Benutzers hinzu:",
+    "checkTitle": "Verbindung prüfen",
+    "checkText": "Geben Sie /mcp in Claude Code ein: koona-pin zeigt «connected».",
+    "chatgptTitle": "In der ChatGPT-App hinzufügen",
+    "chatgptText": "Settings → MCP servers → Add server: Name koona-pin, Typ STDIO und dieser Befehl:",
+    "codexTitle": "Oder im Terminal",
+    "codexText": "Codex CLI und die ChatGPT-App teilen sich die Liste der Server:",
+    "chatgptNote": "Erfordert die aktuelle ChatGPT-Desktop-App; ChatGPT im Browser verbindet sich nur mit entfernten Servern.",
+    "customTitle": "Öffnen Sie die MCP-Einstellungen Ihrer App",
+    "customText": "Cursor, Windsurf, Zed und die meisten anderen Apps mit MCP speichern ihre Server in einer JSON-Datei.",
+    "customAddTitle": "Koona Pin hinzufügen und speichern",
+    "customAddText": "Manche Apps nennen den obersten Schlüssel «servers». Danach zeigt die App koona-pin mit seinen Werkzeugen.",
+    "note": "Titel, Beschreibungen und Notizen erreichen den Assistenten als Daten. Er kann keine Lesezeichen löschen und den Papierkorb nicht leeren."
+  },
   "connect": {
     "title": "Browser verbinden",
     "lead": "Seiten aus Ihrem Browser speichern",
@@ -533,6 +579,7 @@
     "hide": "Fenster ausblenden"
   },
   "settings": {
+    "assistants": "KI-Assistenten",
     "general": "Allgemein",
     "language": "Sprache",
     "languageHint": "Englisch ist die Quelle: Nicht übersetzte Texte erscheinen auf Englisch",
@@ -628,6 +675,7 @@
     "emptied_other": "Papierkorb geleert: {{count}} Lesezeichen endgültig gelöscht"
   },
   "triage": {
+    "savedByAssistant": "gespeichert {{when}} von einem KI-Assistenten",
     "title": "Eingang sortieren",
     "progress": "{{current}} von {{total}}",
     "fresh_one": "+{{count}} neu",
@@ -861,6 +909,8 @@
     "read_only": "Die Bibliothek ist beschädigt und schreibgeschützt geöffnet — Änderungen werden nicht gespeichert.",
     "database_busy": "Ein anderes Programm verwendet die Bibliothek. Versuchen Sie es in ein paar Sekunden erneut.",
     "reason": {
+      "server_missing": "ein Teil von Koona Pin (koonapin-mcp) fehlt",
+      "no_claude_desktop": "Claude Desktop ist nicht installiert",
       "database_busy": "die Bibliothek ist belegt",
       "disk_full": "der Datenträger ist voll",
       "read_only": "die Bibliothek ist schreibgeschützt",
@@ -895,6 +945,8 @@
       "internal": "Etwas ist schiefgelaufen: {{message}}"
     },
     "detail": {
+      "server_missing": "Ein Teil von Koona Pin (koonapin-mcp) fehlt. Installieren Sie Koona Pin neu.",
+      "no_claude_desktop": "Auf diesem Computer öffnet nichts das Paket: Installieren Sie Claude Desktop oder fügen Sie Koona Pin dort von Hand hinzu.",
       "empty_tag": "Geben Sie einen Tag ein.",
       "empty_collection_name": "Geben Sie einen Namen für die Sammlung ein.",
       "empty_title": "Der Titel darf nicht leer sein.",

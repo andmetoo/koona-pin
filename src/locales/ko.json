@@ -317,6 +317,52 @@
     "deleteForeverText": "‘{{title}}’이(가) 영구 삭제됩니다. 되돌릴 수 없습니다.",
     "deleteForeverButton": "영구 삭제"
   },
+  "assistants": {
+    "allow": "AI 어시스턴트가 라이브러리를 사용하도록 허용",
+    "offHint": "이 컴퓨터의 Claude, Cursor 및 기타 MCP 앱이 북마크를 검색할 수 있습니다",
+    "noRequests": "켜짐 · 아직 요청 없음",
+    "lastToday": "켜짐 · 마지막 요청: {{client}}, 오늘 {{time}}",
+    "lastOn": "켜짐 · 마지막 요청: {{client}}, {{date}} {{time}}",
+    "someone": "AI 어시스턴트",
+    "access": "어시스턴트가 할 수 있는 일",
+    "read": "읽기만",
+    "readAndAdd": "읽기 및 추가",
+    "readHint": "북마크, 컬렉션, 태그를 검색하고 읽습니다. 아무것도 바뀌지 않습니다",
+    "addHint": "링크를 받은함에 추가하고, 태그를 달고, 컬렉션으로 옮기고, 즐겨찾기에 넣을 수도 있습니다. Ctrl Z로 변경을 하나씩 되돌릴 수 있으며 아무것도 삭제되지 않습니다",
+    "connect": "어시스턴트 연결",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT 및 MCP를 지원하는 기타 앱",
+    "howToConnect": "연결 방법…"
+  },
+  "assistant": {
+    "title": "AI 어시스턴트 연결",
+    "lead": "어시스턴트가 라이브러리를 검색하게 하기",
+    "clients": "어시스턴트",
+    "custom": "기타",
+    "statusOff": "꺼짐: 설정에서 접근을 켤 때까지 어시스턴트는 오류를 받습니다",
+    "statusRead": "켜짐 · 읽기만",
+    "statusAdd": "켜짐 · 읽기 및 추가",
+    "installTitle": "Claude Desktop에 Koona Pin 설치",
+    "installText": "확장 프로그램이 Claude Desktop에서 열립니다. «Install»로 확인하세요.",
+    "installButton": "Claude Desktop에 설치",
+    "askTitle": "북마크에 대해 물어보기",
+    "askText": "예: «FTS5에 관한 내 글을 찾아 줘». Claude는 도구를 처음 사용하기 전에 묻습니다.",
+    "manualTitle": "또는 직접 추가",
+    "manualText": "Settings → Developer → Edit Config에서 claude_desktop_config.json에 추가하세요:",
+    "runTitle": "터미널에서 실행",
+    "runText": "이 사용자의 모든 프로젝트에 Koona Pin을 추가합니다:",
+    "checkTitle": "연결 확인",
+    "checkText": "Claude Code에 /mcp를 입력하세요. koona-pin에 «connected»가 표시됩니다.",
+    "chatgptTitle": "ChatGPT 앱에서 추가",
+    "chatgptText": "Settings → MCP servers → Add server에서 이름 koona-pin, 유형 STDIO, 이 명령을 입력하세요:",
+    "codexTitle": "또는 터미널에서",
+    "codexText": "Codex CLI와 ChatGPT 앱은 서버 목록을 함께 씁니다:",
+    "chatgptNote": "최신 ChatGPT 데스크톱 앱이 필요합니다. 브라우저의 ChatGPT는 원격 서버에만 연결됩니다.",
+    "customTitle": "앱의 MCP 설정 열기",
+    "customText": "Cursor, Windsurf, Zed 등 MCP를 지원하는 대부분의 앱은 서버를 JSON 파일에 보관합니다.",
+    "customAddTitle": "Koona Pin을 추가하고 저장",
+    "customAddText": "일부 앱은 최상위 키를 «servers»라고 부릅니다. 그러면 앱에 koona-pin과 도구가 표시됩니다.",
+    "note": "제목, 설명, 메모는 데이터로 어시스턴트에 전달됩니다. 어시스턴트는 북마크를 삭제하거나 휴지통을 비울 수 없습니다."
+  },
   "connect": {
     "title": "브라우저 연결",
     "lead": "브라우저에서 페이지 저장",
@@ -489,6 +535,7 @@
     "hide": "창 숨기기"
   },
   "settings": {
+    "assistants": "AI 어시스턴트",
     "general": "일반",
     "language": "언어",
     "languageHint": "영어가 원문입니다. 번역되지 않은 문구는 영어로 표시됩니다",
@@ -581,6 +628,7 @@
     "emptied_other": "휴지통을 비웠습니다: 북마크 {{count}}개를 영구 삭제했습니다"
   },
   "triage": {
+    "savedByAssistant": "{{when}} AI 어시스턴트가 저장함",
     "title": "받은함 정리",
     "progress": "{{current}} / {{total}}",
     "fresh_other": "+새 항목 {{count}}개",
@@ -803,6 +851,8 @@
     "read_only": "라이브러리가 손상되어 읽기 전용으로 열렸습니다 — 변경 내용이 저장되지 않습니다.",
     "database_busy": "다른 프로그램이 라이브러리를 사용 중입니다. 몇 초 후에 다시 시도하세요.",
     "reason": {
+      "server_missing": "Koona Pin의 일부(koonapin-mcp)가 없습니다",
+      "no_claude_desktop": "Claude Desktop이 설치되어 있지 않습니다",
       "database_busy": "라이브러리가 사용 중입니다",
       "disk_full": "디스크가 가득 찼습니다",
       "read_only": "라이브러리가 읽기 전용입니다",
@@ -837,6 +887,8 @@
       "internal": "문제가 발생했습니다: {{message}}"
     },
     "detail": {
+      "server_missing": "Koona Pin의 일부(koonapin-mcp)가 없습니다. Koona Pin을 다시 설치하세요.",
+      "no_claude_desktop": "이 컴퓨터에는 패키지를 열 앱이 없습니다. Claude Desktop을 설치하거나 Koona Pin을 직접 추가하세요.",
       "empty_tag": "태그를 입력하세요.",
       "empty_collection_name": "컬렉션 이름을 입력하세요.",
       "empty_title": "제목은 비워 둘 수 없습니다.",

@@ -367,6 +367,52 @@
     "deleteForeverText": "«{{title}}» se eliminará definitivamente. No se puede deshacer.",
     "deleteForeverButton": "Eliminar definitivamente"
   },
+  "assistants": {
+    "allow": "Permitir que los asistentes de IA usen tu biblioteca",
+    "offHint": "Claude, Cursor y otras apps MCP de este equipo podrán buscar en tus marcadores",
+    "noRequests": "Activado · aún sin solicitudes",
+    "lastToday": "Activado · última solicitud de {{client}} hoy a las {{time}}",
+    "lastOn": "Activado · última solicitud de {{client}} el {{date}} a las {{time}}",
+    "someone": "un asistente de IA",
+    "access": "Qué pueden hacer los asistentes",
+    "read": "Solo leer",
+    "readAndAdd": "Leer y añadir",
+    "readHint": "Buscar y leer marcadores, colecciones y etiquetas; nada cambia",
+    "addHint": "Además, añadir enlaces a la Bandeja de entrada, etiquetarlos, moverlos a una colección y marcarlos como favoritos. Ctrl Z deshace cada cambio; nada se borra",
+    "connect": "Conectar un asistente",
+    "connectHint": "Claude Desktop, Claude Code, ChatGPT y otras apps compatibles con MCP",
+    "howToConnect": "Cómo conectar…"
+  },
+  "assistant": {
+    "title": "Conectar un asistente de IA",
+    "lead": "Deja que un asistente busque en tu biblioteca",
+    "clients": "Asistente",
+    "custom": "Otra",
+    "statusOff": "Desactivado: los asistentes reciben un error hasta que actives el acceso en Configuración",
+    "statusRead": "Activado · solo leer",
+    "statusAdd": "Activado · leer y añadir",
+    "installTitle": "Instala Koona Pin en Claude Desktop",
+    "installText": "La extensión se abre en Claude Desktop; confirma con «Install».",
+    "installButton": "Instalar en Claude Desktop",
+    "askTitle": "Pregunta por tus marcadores",
+    "askText": "Por ejemplo: «busca mi artículo sobre FTS5». Claude pregunta antes de usar una herramienta por primera vez.",
+    "manualTitle": "O añádelo a mano",
+    "manualText": "Settings → Developer → Edit Config y añade a claude_desktop_config.json:",
+    "runTitle": "Ejecuta en una terminal",
+    "runText": "Añade Koona Pin a todos los proyectos de este usuario:",
+    "checkTitle": "Comprueba la conexión",
+    "checkText": "Escribe /mcp en Claude Code: koona-pin muestra «connected».",
+    "chatgptTitle": "Añádelo en la app de ChatGPT",
+    "chatgptText": "Settings → MCP servers → Add server: nombre koona-pin, tipo STDIO y este comando:",
+    "codexTitle": "O desde una terminal",
+    "codexText": "Codex CLI y la app de ChatGPT comparten la lista de servidores:",
+    "chatgptNote": "Necesita la app de escritorio de ChatGPT actual; ChatGPT en el navegador solo se conecta a servidores remotos.",
+    "customTitle": "Abre los ajustes MCP de tu app",
+    "customText": "Cursor, Windsurf, Zed y la mayoría de las apps compatibles con MCP guardan sus servidores en un archivo JSON.",
+    "customAddTitle": "Añade Koona Pin y guarda",
+    "customAddText": "Algunas apps llaman «servers» a la clave principal. Después la app muestra koona-pin con sus herramientas.",
+    "note": "Los títulos, descripciones y notas llegan al asistente como datos. No puede borrar marcadores ni vaciar la papelera."
+  },
   "connect": {
     "title": "Conectar el navegador",
     "lead": "Guarda páginas desde tu navegador",
@@ -577,6 +623,7 @@
     "hide": "Ocultar ventana"
   },
   "settings": {
+    "assistants": "Asistentes de IA",
     "general": "General",
     "language": "Idioma",
     "languageHint": "El inglés es el original: los textos sin traducir se muestran en inglés",
@@ -675,6 +722,7 @@
     "emptied_other": "Papelera vaciada: {{count}} marcadores eliminados definitivamente"
   },
   "triage": {
+    "savedByAssistant": "guardado {{when}} por un asistente de IA",
     "title": "Ordenar la bandeja",
     "progress": "{{current}} de {{total}}",
     "fresh_one": "+{{count}} nuevo",
@@ -919,6 +967,8 @@
     "read_only": "La biblioteca está dañada y abierta solo para lectura: los cambios no se guardan.",
     "database_busy": "Otro programa está usando la biblioteca. Vuelve a intentarlo en unos segundos.",
     "reason": {
+      "server_missing": "falta una parte de Koona Pin (koonapin-mcp)",
+      "no_claude_desktop": "Claude Desktop no está instalado",
       "database_busy": "la biblioteca está ocupada",
       "disk_full": "el disco está lleno",
       "read_only": "la biblioteca es de solo lectura",
@@ -953,6 +1003,8 @@
       "internal": "Algo salió mal: {{message}}"
     },
     "detail": {
+      "server_missing": "Falta una parte de Koona Pin (koonapin-mcp). Reinstala Koona Pin.",
+      "no_claude_desktop": "Nada en este equipo abre el paquete: instala Claude Desktop o añade Koona Pin a mano.",
       "empty_tag": "Escribe una etiqueta.",
       "empty_collection_name": "Escribe un nombre para la colección.",
       "empty_title": "El título no puede estar vacío.",

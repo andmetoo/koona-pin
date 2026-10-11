@@ -44,6 +44,9 @@ import {
   StarterLink,
   Undo,
   UpdateStatus,
+  McpAccess,
+  McpSetup,
+  McpStatus,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
@@ -83,6 +86,9 @@ function storedDesktop(): Desktop | null {
  * is up to date, so screenshots and visual tests stay as they were.
  */
 export const DEMO_UPDATE_KEY = "koonapin.demo.update";
+/** AI assistants (NP-091): off, as in a new library; no assistant ever asks the preview. */
+let demoMcp: McpStatus = { access: "off", mode: "read", last_client: null, last_at: null };
+const mcpListeners = new Set<(status: McpStatus) => void>();
 let demoUpdate: UpdateStatus | null = null;
 const updateListeners = new Set<(status: UpdateStatus) => void>();
 function storedUpdate(): string | null {
@@ -1149,6 +1155,29 @@ export const demo = {
     }
   },
   async setTrayLabels(_labels: { open: string; quit: string; tooltip: string }) {},
+  async getMcpStatus(): Promise<McpStatus> {
+    return demoMcp;
+  },
+  async setMcpAccess(access: McpAccess): Promise<McpStatus> {
+    demoMcp = { ...demoMcp, access, mode: access === "off" ? demoMcp.mode : access };
+    for (const fn of mcpListeners) fn(demoMcp);
+    return demoMcp;
+  },
+  onMcpStatus(fn: (status: McpStatus) => void) {
+    mcpListeners.add(fn);
+    return () => void mcpListeners.delete(fn);
+  },
+  async getMcpSetup(): Promise<McpSetup> {
+    const server = String.raw`C:\Users\Anna\AppData\Local\Koona Pin\koonapin-mcp.exe`;
+    return {
+      server,
+      installed: true,
+      claude_code: `claude mcp add --scope user koona-pin -- "${server}"`,
+      codex: `codex mcp add koona-pin -- "${server}"`,
+      json: JSON.stringify({ mcpServers: { "koona-pin": { command: server } } }, null, 2),
+    };
+  },
+  async installMcpb() {},
   async feedbackReport(language: string) {
     return ["Koona Pin demo", "Browser preview", `Language: ${language}`, `Capture: ${demoCaptureStatus.state}`, `Protocol: ${demoCaptureStatus.protocol}`].join("\n");
   },

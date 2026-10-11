@@ -20,7 +20,7 @@ import {
 } from "../../services/capture";
 import { Icon } from "../icons";
 import { Button, buttonClass } from "../ui/Button";
-import { Dot, Field, Segmented } from "../ui/Controls";
+import { Dot, Field, Segmented, TabPanels } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 import { CollectionSelect, TagInput } from "./Fields";
 
@@ -699,7 +699,6 @@ export function ConnectDialog({
 }) {
   const { t, i18n } = useTranslation();
   const [tab, setTab] = useState<ConnectTab>(() => preferredBrowser(capture));
-  const browser = tabBrowser(tab);
   // Linux (sheet 40, NP-054): a Chromium tab, Firefox from Snap, the sandboxed browsers.
   const linux = capture?.system === "linux";
   const [tray, setTray] = useState(true);
@@ -710,42 +709,27 @@ export function ConnectDialog({
     capture?.state === "connected"
       ? `${t("browser.connectedTo", { browsers: connectedNames(capture) })} · ${lastSaved(capture, t, i18n.language)}`
       : statusLabel(capture, t);
-  const install = installSteps(browser);
-  const steps = [
-    {
-      title: t("connect.installTitle"),
-      text: t(install.install),
-      action: install.url ? (
-        <Button className="mt-2" onClick={() => onOpen(install.url)}>
-          {t("connect.openStore", { store: install.store })}
-        </Button>
-      ) : null,
-    },
-    { title: t("connect.pinTitle"), text: t(`connect.pin_${browser}`), action: null },
-    // Without a tray the closed app starts «in the background» (NP-096).
-    { title: t("connect.saveTitle"), text: t(tray ? "connect.save" : "connect.save_background"), action: null },
-  ];
-  return (
-    <Dialog title={t("connect.title")} onClose={onClose}>
-      <div className="flex w-[440px] max-w-full flex-col gap-4 text-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-icon">
-            <Icon icon={Link} />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-md font-semibold">{t("connect.lead")}</h3>
-            <p data-capture={capture?.state ?? "checking"} className="mt-0.5 flex items-center gap-2 text-xs text-muted">
-              <Dot color={statusColor(capture)} className="size-1.5" />
-              {status}
-            </p>
-          </div>
-        </div>
-        <Segmented<ConnectTab>
-          label={t("connect.browsers")}
-          value={tab}
-          onChange={setTab}
-          options={connectTabs(capture).map((value) => ({ value, label: connectTabName[value] }))}
-        />
+  const tabs = connectTabs(capture);
+  // Every browser's steps are laid out at once, so the dialog keeps its height when the tab changes.
+  const panel = (shown: ConnectTab) => {
+    const browser = tabBrowser(shown);
+    const install = installSteps(browser);
+    const steps = [
+      {
+        title: t("connect.installTitle"),
+        text: t(install.install),
+        action: install.url ? (
+          <Button className="mt-2" onClick={() => onOpen(install.url)}>
+            {t("connect.openStore", { store: install.store })}
+          </Button>
+        ) : null,
+      },
+      { title: t("connect.pinTitle"), text: t(`connect.pin_${browser}`), action: null },
+      // Without a tray the closed app starts «in the background» (NP-096).
+      { title: t("connect.saveTitle"), text: t(tray ? "connect.save" : "connect.save_background"), action: null },
+    ];
+    return (
+      <>
         <ol className="flex flex-col gap-4">
           {steps.map((step, index) => (
             <li key={step.title} className="flex gap-3">
@@ -760,7 +744,7 @@ export function ConnectDialog({
             </li>
           ))}
         </ol>
-        {linux && tab === "firefox" && (
+        {linux && shown === "firefox" && (
           <p className="ml-8 rounded-lg bg-accent-soft px-3 py-2.5 text-xs leading-[17px] text-on-accent-soft">
             {t("connect.snapFirefox")}
           </p>
@@ -781,6 +765,33 @@ export function ConnectDialog({
             </div>
           )}
         </div>
+      </>
+    );
+  };
+  return (
+    <Dialog title={t("connect.title")} onClose={onClose}>
+      <div className="flex w-[440px] max-w-full flex-col gap-4 text-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-icon">
+            <Icon icon={Link} />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-md font-semibold">{t("connect.lead")}</h3>
+            <p data-capture={capture?.state ?? "checking"} className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+              <Dot color={statusColor(capture)} className="size-1.5" />
+              {status}
+            </p>
+          </div>
+        </div>
+        <Segmented<ConnectTab>
+          label={t("connect.browsers")}
+          value={tab}
+          onChange={setTab}
+          options={tabs.map((value) => ({ value, label: connectTabName[value] }))}
+        />
+        <TabPanels value={tab} tabs={tabs}>
+          {panel}
+        </TabPanels>
       </div>
     </Dialog>
   );

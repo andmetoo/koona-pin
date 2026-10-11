@@ -74,6 +74,9 @@ export type { LastCapture } from "./bindings/LastCapture";
 export type { Feedback } from "./bindings/Feedback";
 export type { FeedbackKind } from "./bindings/FeedbackKind";
 export type { UpdateStatus } from "./bindings/UpdateStatus";
+export type { McpAccess } from "./bindings/McpAccess";
+export type { McpSetup } from "./bindings/McpSetup";
+export type { McpStatus } from "./bindings/McpStatus";
 export type { UpdateProblem } from "./bindings/UpdateProblem";
 
 export type ViewMode = "grid" | "list";

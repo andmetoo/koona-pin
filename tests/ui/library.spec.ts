@@ -2086,20 +2086,22 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
 test("connect dialog: steps for each browser, no token and no bookmarklet", async ({ page }) => {
   await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  // Every tab is laid out at once (fixed height); its text is read in the one shown.
+  const shown = dialog.locator("[data-tab-panel][data-active]");
   await expect(dialog.locator('[data-capture="none"]')).toContainText("No browser yet");
   // Chrome installs from the Chrome Web Store, Edge from Edge Add-ons.
-  await expect(dialog).toContainText("Open the Koona Pin page in the Chrome Web Store");
+  await expect(shown).toContainText("Open the Koona Pin page in the Chrome Web Store");
   await expect(dialog.getByRole("button", { name: "Open Chrome Web Store" })).toBeVisible();
   await dialog.getByRole("radio", { name: "Edge" }).click();
-  await expect(dialog).toContainText("Open the Koona Pin page in Edge Add-ons");
+  await expect(shown).toContainText("Open the Koona Pin page in Edge Add-ons");
   await expect(dialog.getByRole("button", { name: "Open Edge Add-ons" })).toBeVisible();
-  await expect(dialog).toContainText("edge://extensions");
+  await expect(shown).toContainText("edge://extensions");
   // Firefox takes the signed add-on from koona.app's downloads page (NP-018).
   await dialog.getByRole("radio", { name: "Firefox" }).click();
-  await expect(dialog).toContainText("Open the downloads page on koona.app in Firefox");
+  await expect(shown).toContainText("Open the downloads page on koona.app in Firefox");
   await expect(dialog.getByRole("button", { name: "Open koona.app" })).toBeVisible();
-  await expect(dialog).toContainText("Firefox checks koona.app for a new version");
-  await expect(dialog).toContainText("about:addons");
+  await expect(shown).toContainText("Firefox checks koona.app for a new version");
+  await expect(shown).toContainText("about:addons");
   await expect(dialog).not.toContainText(/token|bookmarklet/i);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -2119,16 +2121,17 @@ test("Linux without a tray: round window buttons, Chromium, Firefox from Snap an
   await expect(page.locator('[data-window-button="close"]')).toHaveAttribute("aria-label", "Close window");
   await page.getByRole("button", { name: "No browser yet" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  const shown = dialog.locator("[data-tab-panel][data-active]");
   await expect(dialog.getByRole("radio")).toHaveText(["Chrome", "Edge", "Chromium", "Firefox"]);
   // Chromium takes Chrome's steps; a closed app starts in the background without a tray.
   await dialog.getByRole("radio", { name: "Chromium" }).click();
-  await expect(dialog).toContainText("Open the Koona Pin page in the Chrome Web Store");
-  await expect(dialog).toContainText("chrome://extensions");
-  await expect(dialog).toContainText("it starts in the background and saves the link");
-  await expect(dialog).not.toContainText("Firefox from Snap, Ubuntu's default");
+  await expect(shown).toContainText("Open the Koona Pin page in the Chrome Web Store");
+  await expect(shown).toContainText("chrome://extensions");
+  await expect(shown).toContainText("it starts in the background and saves the link");
+  await expect(shown).not.toContainText("Firefox from Snap, Ubuntu's default");
   await dialog.getByRole("radio", { name: "Firefox" }).click();
-  await expect(dialog).toContainText("Firefox from Snap, Ubuntu's default, asks on the first save");
-  await expect(dialog.locator("[data-sandboxed]")).toContainText("Browsers from Flatpak and Chromium from Snap");
+  await expect(shown).toContainText("Firefox from Snap, Ubuntu's default, asks on the first save");
+  await expect(shown.locator("[data-sandboxed]")).toContainText("Browsers from Flatpak and Chromium from Snap");
   await page.keyboard.press("Escape");
   // Settings say «in the background» and offer the way out.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -2334,4 +2337,72 @@ test("feedback: a report that never comes does not lock the dialog — it goes w
   await dialog.getByRole("button", { name: "Send", exact: true }).click();
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!", { timeout: 6000 });
   expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBeNull();
+});test("AI assistants: off by default, read only or read and add, the dialog for each assistant (NP-091, sheet 44)", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const section = page.locator("section", { has: page.getByRole("heading", { name: "AI assistants" }) });
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "off");
+  await expect(section).toContainText("Claude, Cursor and other MCP apps on this computer can search your bookmarks");
+  await expect(section.getByRole("radiogroup")).toHaveCount(0);
+  // On: read only first, nothing asked yet.
+  await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read");
+  await expect(section).toContainText("On · no requests yet");
+  await expect(section.getByRole("radio", { name: "Read only" })).toHaveAttribute("aria-checked", "true");
+  await expect(section).toContainText("Search and read bookmarks, collections and tags; nothing changes");
+  await section.getByRole("radio", { name: "Read and add" }).click();
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read_and_add");
+  await expect(section).toContainText("Ctrl Z undoes each change; nothing is deleted");
+
+  await section.getByRole("button", { name: "How to connect…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect an AI assistant" });
+  const shown = dialog.locator("[data-tab-panel][data-active]");
+  await expect(dialog.locator("[data-mcp]")).toHaveText("On · read and add");
+  await expect(dialog.getByRole("button", { name: "Install in Claude Desktop" })).toBeEnabled();
+  await expect(shown.locator("pre")).toContainText('"mcpServers"');
+  await dialog.getByRole("radio", { name: "Claude Code" }).click();
+  await expect(shown.locator("pre")).toHaveText(/^claude mcp add --scope user koona-pin -- ".+koonapin-mcp\.exe"$/);
+  await shown.getByRole("button", { name: "Copy" }).click();
+  await expect(page.getByText("Copied", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^claude mcp add/);
+  // ChatGPT: the path for its form, or the Codex command (they share the list).
+  await dialog.getByRole("radio", { name: "ChatGPT" }).click();
+  await expect(shown.locator("pre")).toHaveCount(2);
+  await expect(shown.locator("pre").first()).toHaveText(/^.+koonapin-mcp\.exe$/);
+  await expect(shown.locator("pre").last()).toHaveText(/^codex mcp add koona-pin -- ".+koonapin-mcp\.exe"$/);
+  await expect(shown).toContainText("ChatGPT in the browser connects only to remote servers.");
+  await dialog.getByRole("radio", { name: "Custom" }).click();
+  await expect(shown).toContainText("Some apps name the top key «servers».");
+  await expect(shown.locator("pre")).toContainText('"koona-pin"');
+  await page.keyboard.press("Escape");
+  // Off again: the modes go; on again: the mode chosen before comes back.
+  await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await expect(section.getByRole("radiogroup")).toHaveCount(0);
+  await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read_and_add");
+  await expect(section.getByRole("radio", { name: "Read and add" })).toHaveAttribute("aria-checked", "true");
+});
+test("dialogs with tabs keep their size and place when the tab changes", async ({ page }) => {
+  const box = async (dialog: ReturnType<typeof page.getByRole>) => {
+    const b = await dialog.boundingBox();
+    return b && { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) };
+  };
+  const steady = async (name: string, tabs: string[]) => {
+    const dialog = page.getByRole("dialog", { name });
+    // After the 200 ms appearance, which moves it by 5 px.
+    await page.waitForTimeout(300);
+    const first = await box(dialog);
+    for (const tab of tabs) {
+      await dialog.getByRole("radio", { name: tab }).click();
+      await expect(dialog.locator("[data-tab-panel][data-active]")).toBeVisible();
+      expect(await box(dialog), `${name} → ${tab}`).toEqual(first);
+    }
+    await page.keyboard.press("Escape");
+  };
+  await page.getByRole("button", { name: "No browser yet" }).click();
+  await steady("Connect browser", ["Edge", "Firefox", "Chrome"]);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await page.getByRole("button", { name: "How to connect…" }).click();
+  await steady("Connect an AI assistant", ["Claude Code", "ChatGPT", "Custom", "Claude Desktop"]);
 });

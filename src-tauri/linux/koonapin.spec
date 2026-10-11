@@ -33,11 +33,13 @@ cp -a %{tree}/. %{buildroot}/
 %license %{_datadir}/licenses/koonapin/LICENSE
 %{_bindir}/koonapin
 %{_bindir}/koonapin-host
+%{_bindir}/koonapin-mcp
 %{_datadir}/applications/koonapin.desktop
 %{_datadir}/icons/hicolor/*/apps/koonapin.png
 %{_datadir}/metainfo/app.koona.pin.metainfo.xml
 %{_mandir}/man1/koonapin.1*
 %{_mandir}/man1/koonapin-host.1*
+%{_mandir}/man1/koonapin-mcp.1*
 # The manifest of Chrome, Edge and Chromium; their folders in /etc link to it, as in the .deb: links go
 # with the package and come back with a reinstall (the app's remedy, Р-53, п. 2).
 %{_datadir}/koonapin

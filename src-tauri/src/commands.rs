@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode, ErrorDetail},
-    backup, dedupe, export, feedback, import, linkcheck, metadata, restore,
+    backup, dedupe, export, feedback, import, linkcheck, mcp, metadata, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -1318,4 +1318,63 @@ pub fn reveal_backup(app: AppHandle, library: State<'_, Arc<Library>>, file_name
     let path = backup::listed(&library.paths.backups, &file_name)
         .ok_or_else(|| CommandError::detailed(ErrorCode::NotFound, ErrorDetail::CopyGone, "The copy is gone"))?;
     app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
+}
+
+/// Settings → AI assistants (NP-091): access and the last request.
+#[tauri::command]
+pub async fn get_mcp_status(state: State<'_, Arc<DbState>>) -> Result<mcp::McpStatus, CommandError> {
+    blocking(&state, |conn| Ok(mcp::status(conn))).await
+}
+
+/// Off, read only, or read and add; the settings and every open window hear of it.
+#[tauri::command]
+pub async fn set_mcp_access(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    access: crate::mcp_tools::Access,
+) -> Result<mcp::McpStatus, CommandError> {
+    let status = blocking(&state, move |conn| {
+        mcp::set_access(conn, access)?;
+        Ok(mcp::status(conn))
+    })
+    .await?;
+    let _ = app.emit("mcp-status", status.clone());
+    Ok(status)
+}
+
+/// «How to connect…»: the commands and JSON with this computer's path.
+#[tauri::command]
+pub fn get_mcp_setup() -> Result<mcp::McpSetup, CommandError> {
+    mcp::server_path().map(|server| mcp::setup(&server)).map_err(CommandError::internal)
+}
+
+/// «Install in Claude Desktop»: `koona-pin.mcpb` in the temporary folder,
+/// opened with what the system opens it with — Claude Desktop, which asks
+/// the person to confirm the installation.
+#[tauri::command]
+pub async fn install_mcpb(app: AppHandle) -> Result<(), CommandError> {
+    let server = mcp::server_path().map_err(CommandError::internal)?;
+    if !server.is_file() {
+        return Err(CommandError::detailed(ErrorCode::NotFound, ErrorDetail::ServerMissing, "koonapin-mcp is not next to the app"));
+    }
+    let bundle = tauri::async_runtime::spawn_blocking(move || {
+        // A folder of its own each time: Claude Desktop may still hold the
+        // package of an earlier click open. Those that it let go are removed.
+        let root = std::env::temp_dir().join("Koona Pin").join("mcpb");
+        if let Ok(earlier) = std::fs::read_dir(&root) {
+            for entry in earlier.flatten() {
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+        let folder = root.join(uuid::Uuid::new_v4().simple().to_string());
+        std::fs::create_dir_all(&folder)?;
+        let bundle = folder.join("koona-pin.mcpb");
+        mcp::write_bundle(&server, &bundle).map(|_| bundle)
+    })
+    .await
+    .map_err(CommandError::internal)?
+    .map_err(CommandError::internal)?;
+    app.opener()
+        .open_path(bundle.display().to_string(), None::<&str>)
+        .map_err(|e| CommandError::detailed(ErrorCode::Internal, ErrorDetail::NoClaudeDesktop, e.to_string()))
 }

@@ -17,6 +17,8 @@ pub const HOST_FOLDER: &str = "host";
 pub const APP_LINK: &str = "koonapin";
 /// The host's file, as in the package (`native_host::linux::HOST_BINARY`).
 pub const HOST_BINARY: &str = "koonapin-host";
+/// The MCP server's file (NP-091), copied out beside the host.
+pub const SERVER_BINARY: &str = "koonapin-mcp";
 
 /// The AppImage file this copy runs from: `$APPIMAGE`, set by the AppImage's runtime, when Tauri built
 /// this very binary into an AppImage. A variable alone is not enough: anyone can set it.
@@ -50,18 +52,12 @@ pub fn host_folder() -> Option<PathBuf> {
 /// a browser may be running the old host, and a start cut short leaves the old files, not half ones.
 #[cfg(unix)]
 pub fn settle_host(inside: &std::path::Path, appimage: &std::path::Path, folder: &std::path::Path) -> std::io::Result<PathBuf> {
-    use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
     std::fs::create_dir_all(folder)?;
-    let host = folder.join(HOST_BINARY);
-    let bytes = std::fs::read(inside)?;
-    if std::fs::read(&host).ok().as_deref() != Some(bytes.as_slice()) {
-        let partial = folder.join(".koonapin-host.partial");
-        let _ = std::fs::remove_file(&partial);
-        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o755).open(&partial)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        std::fs::rename(&partial, &host)?;
+    let host = settle_binary(inside, folder, HOST_BINARY)?;
+    // The MCP server (NP-091) beside the host: an assistant's settings name it once and keep it.
+    let server = inside.with_file_name(SERVER_BINARY);
+    if server.is_file() {
+        settle_binary(&server, folder, SERVER_BINARY)?;
     }
     let link = folder.join(APP_LINK);
     if std::fs::read_link(&link).ok().as_deref() != Some(appimage) {
@@ -71,6 +67,30 @@ pub fn settle_host(inside: &std::path::Path, appimage: &std::path::Path, folder:
         std::fs::rename(&partial, &link)?;
     }
     Ok(host)
+}
+
+/// `inside` copied to `folder/name` when it differs, written beside and renamed over.
+#[cfg(unix)]
+fn settle_binary(inside: &std::path::Path, folder: &std::path::Path, name: &str) -> std::io::Result<PathBuf> {
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let target = folder.join(name);
+    let bytes = std::fs::read(inside)?;
+    if std::fs::read(&target).ok().as_deref() != Some(bytes.as_slice()) {
+        let partial = folder.join(format!(".{name}.partial"));
+        let _ = std::fs::remove_file(&partial);
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o755).open(&partial)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+        std::fs::rename(&partial, &target)?;
+    }
+    Ok(target)
+}
+
+/// Where an assistant finds the MCP server of this AppImage: copied out beside the host.
+pub fn server() -> Option<PathBuf> {
+    file()?;
+    Some(host_folder()?.join(SERVER_BINARY))
 }
 
 #[cfg(all(test, unix))]
@@ -101,6 +121,19 @@ mod tests {
         assert_eq!(std::fs::read_link(folder.join(APP_LINK)).unwrap(), dir.join("Apps/koonapin.AppImage"));
         let names: Vec<_> = std::fs::read_dir(&folder).unwrap().map(|e| e.unwrap().file_name()).collect();
         assert_eq!(names.len(), 2, "no partial files left: {names:?}");
+
+        // An image with the MCP server (NP-091): it comes out beside the host and follows new versions.
+        let server = mount.join(SERVER_BINARY);
+        std::fs::write(&server, b"mcp 1").unwrap();
+        settle_host(&inside, &dir.join("Apps/koonapin.AppImage"), &folder).unwrap();
+        let copied = folder.join(SERVER_BINARY);
+        assert_eq!(std::fs::read(&copied).unwrap(), b"mcp 1");
+        assert_eq!(std::fs::metadata(&copied).unwrap().permissions().mode() & 0o777, 0o755);
+        std::fs::write(&server, b"mcp 2").unwrap();
+        settle_host(&inside, &dir.join("Apps/koonapin.AppImage"), &folder).unwrap();
+        assert_eq!(std::fs::read(&copied).unwrap(), b"mcp 2");
+        let names: Vec<_> = std::fs::read_dir(&folder).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names.len(), 3, "host, server and link, nothing partial: {names:?}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
