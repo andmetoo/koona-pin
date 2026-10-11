@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ChangeEvent, ReactNode, useEffect, useState } from "react";
 import { CircleCheck, FileText, Folder, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
@@ -20,7 +20,7 @@ import {
 } from "../../services/capture";
 import { Icon } from "../icons";
 import { Button, buttonClass } from "../ui/Button";
-import { Dot, Field, Segmented, TabPanels } from "../ui/Controls";
+import { Dot, Field, Segmented, StatePanels, TabPanels } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 import { CollectionSelect, TagInput } from "./Fields";
 
@@ -42,14 +42,36 @@ function useAction() {
   return { busy, error, setError, run };
 }
 
-const Failure = ({ error }: { error: string }) =>
-  error ? (
-    <p role="alert" className="rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-on-danger-soft">
+/**
+ * With `reserve` two lines are kept for an error while there is none, so the dialog does not grow when
+ * one comes (NP-118).
+ */
+const Failure = ({ error, reserve = false }: { error: string; reserve?: boolean }) => {
+  const alert = error ? (
+    <p role="alert" className="flex items-center rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-on-danger-soft [grid-area:1/1]">
       {error}
     </p>
   ) : null;
+  if (!reserve) return alert;
+  return (
+    <div className="grid">
+      <p aria-hidden className="invisible py-2.5 text-sm [grid-area:1/1]">
+        {" "}
+        <br />
+        {" "}
+      </p>
+      {alert}
+    </div>
+  );
+};
 
-const Footer = ({ children }: { children: ReactNode }) => <footer className="mt-1 flex justify-end gap-2">{children}</footer>;
+/** At the bottom of a state of the dialog, wherever its content ends (NP-118). */
+export const Footer = ({ children }: { children: ReactNode }) => <footer className="mt-auto flex justify-end gap-2 pt-1">{children}</footer>;
+
+/** A report longer than the dialog scrolls above its footer, which stays put (NP-118). */
+export const Scrolling = ({ children }: { children: ReactNode }) => (
+  <div className="-m-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-1">{children}</div>
+);
 
 export function AddLinkDialog({
   collections,
@@ -113,7 +135,7 @@ export function AddLinkDialog({
           </Field>
           <Field label={t("editor.tags")}>{(id) => <TagInput id={id} tags={tags} onChange={setTags} />}</Field>
         </div>
-        <Failure error={error} />
+        <Failure error={error} reserve />
         <Footer>
           <Button variant="primary" size="lg" type="submit" disabled={busy}>
             {busy ? t("add.saving") : t("add.save")}
@@ -155,8 +177,9 @@ export function ImportDialog({
       setRunning(null);
     }
   };
+  const state = report ? "report" : running && file ? "running" : "choose";
 
-  if (report) {
+  const reportPanel = (report: ImportSummary) => {
     const skipped = report.not_web + report.invalid + report.repeated;
     const shown = report.collections.slice(0, 2).join(", ");
     const names = report.collections.length > 2 ? t("import.andMore", { names: shown, count: report.collections.length - 2 }) : shown;
@@ -171,8 +194,8 @@ export function ImportDialog({
       </div>
     );
     return (
-      <Dialog title={t("import.finished")} onClose={onClose}>
-        <div className="flex flex-col gap-4">
+      <>
+        <Scrolling>
           <div className="flex gap-2.5">
             <Icon icon={CircleCheck} size={18} className="mt-px shrink-0 text-accent" />
             <div className="min-w-0">
@@ -209,7 +232,7 @@ export function ImportDialog({
                   {showSkipped ? t("import.hideSkipped") : t("import.showSkipped")}
                 </button>
                 {showSkipped && (
-                  <ul className="max-h-40 overflow-y-auto rounded-lg bg-secondary px-3 py-2 text-subtle">
+                  <ul className="rounded-lg bg-secondary px-3 py-2 text-subtle">
                     {report.skipped.map((s, i) => (
                       <li key={i} className="truncate" title={`${s.address} — ${t(`import.reason_${s.reason}`)}`}>
                         {s.address || "—"}
@@ -221,88 +244,94 @@ export function ImportDialog({
               </div>
             )}
           </div>
-          <Footer>
-            {toInbox && report.added > 0 && (
-              <Button variant="outline" size="lg" onClick={onOpenInbox}>
-                {t("import.openInbox")}
-              </Button>
-            )}
-            <Button variant="primary" size="lg" autoFocus onClick={onClose}>
-              {t("import.done")}
+        </Scrolling>
+        <Footer>
+          {toInbox && report.added > 0 && (
+            <Button variant="outline" size="lg" onClick={onOpenInbox}>
+              {t("import.openInbox")}
             </Button>
-          </Footer>
-        </div>
-      </Dialog>
+          )}
+          <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+            {t("import.done")}
+          </Button>
+        </Footer>
+      </>
     );
-  }
+  };
 
-  if (running && file) {
-    const total = Math.max(running.total, 1);
+  const runningPanel = (name: string, progress: ImportProgress) => {
+    const total = Math.max(progress.total, 1);
     return (
-      <Dialog title={t("import.title")} onClose={onClose} locked>
-        <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium [overflow-wrap:anywhere]">{t("import.importing", { name: file.name })}</p>
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={running.total}
-            aria-valuenow={running.done}
-            aria-label={t("import.importing", { name: file.name })}
-            className="h-1 overflow-hidden rounded-full bg-hover"
-          >
-            <div className="h-full rounded-full bg-accent transition-[width] duration-150" style={{ width: `${(running.done / total) * 100}%` }} />
-          </div>
-          <p className="text-xs text-muted">{t("import.progress", { done: running.done, count: running.total })}</p>
-          <p className="text-xs text-subtle">{t("import.progressNote")}</p>
-          <Footer>
-            <Button variant="primary" size="lg" disabled>
-              {t("import.running")}
-            </Button>
-          </Footer>
+      <div className="flex flex-1 flex-col gap-3">
+        <p className="text-sm font-medium [overflow-wrap:anywhere]">{t("import.importing", { name })}</p>
+        <div
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={progress.total}
+          aria-valuenow={progress.done}
+          aria-label={t("import.importing", { name })}
+          className="h-1 overflow-hidden rounded-full bg-hover"
+        >
+          <div className="h-full rounded-full bg-accent transition-[width] duration-150" style={{ width: `${(progress.done / total) * 100}%` }} />
         </div>
-      </Dialog>
+        <p className="text-xs text-muted">{t("import.progress", { done: progress.done, count: progress.total })}</p>
+        <p className="text-xs text-subtle">{t("import.progressNote")}</p>
+        <Footer>
+          <Button variant="primary" size="lg" disabled>
+            {t("import.running")}
+          </Button>
+        </Footer>
+      </div>
     );
-  }
+  };
 
-  const summary = file && [
-    t("import.links", { count: file.preview.links.length }),
-    file.preview.folders > 0 ? t("import.inFolders", { count: file.preview.folders }) : "",
-  ].filter(Boolean).join(" ");
-  return (
-    <Dialog title={t("import.title")} onClose={onClose}>
-      <div className="flex flex-col gap-4">
+  // The unseen copy has no file: the line under its name is kept for the summary either way.
+  const choosePanel = (sizing: boolean) => {
+    const picked = sizing ? null : file;
+    const failed = !sizing && !!error;
+    const summary = picked && [
+      t("import.links", { count: picked.preview.links.length }),
+      picked.preview.folders > 0 ? t("import.inFolders", { count: picked.preview.folders }) : "",
+    ].filter(Boolean).join(" ");
+    return (
+      <>
         <p className="text-sm text-muted">{t("import.lead")}</p>
-        {error && file ? (
+        {failed && picked ? (
           <div className="flex items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm">
             <Icon icon={FileText} className="shrink-0 text-icon" />
-            <span className="min-w-0 flex-1 truncate font-medium">{file.name}</span>
-            <span className="shrink-0 text-xs text-subtle">{t("import.links", { count: file.preview.links.length })}</span>
+            <span className="min-w-0 flex-1 truncate font-medium">{picked.name}</span>
+            <span className="shrink-0 text-xs text-subtle">{t("import.links", { count: picked.preview.links.length })}</span>
           </div>
         ) : (
           <label className="flex cursor-default flex-col items-center gap-1 rounded-xl border border-dashed border-border px-4 py-4 text-center text-sm hover:bg-panel focus-within:outline-2 focus-within:outline-accent">
             <Icon icon={FileText} size={22} className="mb-1.5 text-icon" />
-            <span className={file ? "font-medium [overflow-wrap:anywhere]" : "text-muted"}>{file?.name ?? t("import.file")}</span>
-            {file && <span className="text-xs text-subtle">{`${summary} · ${t("import.another")}`}</span>}
-            <input
-              type="file"
-              accept=".html,.htm"
-              className="sr-only"
-              onChange={(e) => {
-                const picked = e.target.files?.[0];
-                if (picked)
-                  void picked
-                    .text()
-                    .then((content) => {
-                      setError("");
-                      setFile({ name: picked.name, content, preview: parseBookmarksFile(content) });
-                    })
-                    .catch((err) => setError(describeError(err)));
-              }}
-            />
+            <span className={`max-w-full truncate ${picked ? "font-medium" : "text-muted"}`} title={picked?.name}>
+              {picked?.name ?? t("import.file")}
+            </span>
+            <span className="max-w-full truncate text-xs text-subtle">{picked ? `${summary} · ${t("import.another")}` : " "}</span>
+            {!sizing && (
+              <input
+                type="file"
+                accept=".html,.htm"
+                className="sr-only"
+                onChange={(e) => {
+                  const chosen = e.target.files?.[0];
+                  if (chosen)
+                    void chosen
+                      .text()
+                      .then((content) => {
+                        setError("");
+                        setFile({ name: chosen.name, content, preview: parseBookmarksFile(content) });
+                      })
+                      .catch((err) => setError(describeError(err)));
+                }}
+              />
+            )}
           </label>
         )}
-        {empty && <Failure error={t("import.empty")} />}
-        {!error && (
+        {/* A file without links, like an error, leaves nothing to choose a place for. */}
+        {!sizing && empty && <Failure error={t("import.empty")} />}
+        {!failed && !(empty && !sizing) && (
           <>
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-muted">{t("import.destination")}</span>
@@ -325,16 +354,30 @@ export function ImportDialog({
             </div>
           </>
         )}
-        {error && <Failure error={file ? t("import.failed", { reason: error }) : error} />}
+        {failed && <Failure error={picked ? t("import.failed", { reason: error }) : error} />}
         <Footer>
           <Button variant="outline" size="lg" onClick={onClose}>
             {t("import.cancel")}
           </Button>
-          <Button variant="primary" size="lg" disabled={!file || empty} onClick={() => void start()}>
-            {error && file ? t("common.retry") : t("import.run")}
+          <Button variant="primary" size="lg" disabled={!picked || empty} onClick={() => void start()}>
+            {failed && picked ? t("common.retry") : t("import.run")}
           </Button>
         </Footer>
-      </div>
+      </>
+    );
+  };
+
+  return (
+    <Dialog title={t(state === "report" ? "import.finished" : "import.title")} onClose={onClose} locked={state === "running"}>
+      <StatePanels value={state} states={["choose", "running", "report"] as const}>
+        {(shown, sizing) =>
+          shown === "report"
+            ? report && !sizing && reportPanel(report)
+            : shown === "running"
+              ? runningPanel(sizing ? " " : (file?.name ?? ""), sizing || !running ? { done: 0, total: 0 } : running)
+              : choosePanel(sizing)
+        }
+      </StatePanels>
     </Dialog>
   );
 }
@@ -432,8 +475,10 @@ export function RestoreDialog({
     }
   };
 
-  if (report) {
-    const { summary } = report;
+  const { preview } = file ?? { preview: null };
+  const state = report ? "report" : confirming && file ? "confirm" : "choose";
+
+  const reportPanel = ({ summary, mode }: { summary: RestoreSummary; mode: RestoreMode }) => {
     const created = [
       summary.collections.length > 0 && t("restore.collections", { count: summary.collections.length }),
       summary.tags > 0 && t("import.tags", { count: summary.tags }),
@@ -451,13 +496,13 @@ export function RestoreDialog({
       </div>
     );
     return (
-      <Dialog title={t("restore.finished")} onClose={onClose}>
-        <div className="flex flex-col gap-4">
+      <>
+        <Scrolling>
           <div className="flex gap-2.5">
             <Icon icon={CircleCheck} size={18} className="mt-px shrink-0 text-accent" />
             <div className="min-w-0">
               <p role="status" className="text-md font-semibold">
-                {report.mode === "replace"
+                {mode === "replace"
                   ? t("restore.restored", { count: summary.added })
                   : summary.added > 0
                     ? t("restore.added", { count: summary.added })
@@ -467,10 +512,10 @@ export function RestoreDialog({
             </div>
           </div>
           <div className="border-y border-divider">
-            {row(report.mode === "replace" ? t("restore.rowRestored") : t("import.added"), summary.added)}
+            {row(mode === "replace" ? t("restore.rowRestored") : t("import.added"), summary.added)}
             {summary.in_inbox > 0 && sub(t("restore.inInbox"), summary.in_inbox)}
             {summary.in_trash > 0 && sub(t("restore.inTrash"), summary.in_trash)}
-            {report.mode === "merge" && row(t("import.existing"), summary.existing)}
+            {mode === "merge" && row(t("import.existing"), summary.existing)}
             {summary.backup && (
               <div className="flex items-center justify-between gap-3 border-t border-divider py-2 text-sm">
                 <span className="min-w-0 [overflow-wrap:anywhere]">{t("restore.backup", { name: summary.backup })}</span>
@@ -480,103 +525,114 @@ export function RestoreDialog({
               </div>
             )}
           </div>
-          <Footer>
-            <Button variant="primary" size="lg" autoFocus onClick={onClose}>
-              {t("import.done")}
-            </Button>
-          </Footer>
-        </div>
-      </Dialog>
+        </Scrolling>
+        <Footer>
+          <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+            {t("import.done")}
+          </Button>
+        </Footer>
+      </>
     );
-  }
+  };
 
-  const { preview } = file ?? { preview: null };
-  const made = preview?.exported_at ? new Date(preview.exported_at).toLocaleDateString(i18n.language, { day: "numeric", month: "short", year: "numeric" }) : "";
-  return (
+  // The confirmation of a replace: a state of this dialog, not a second one over it.
+  const confirmPanel = () => (
     <>
-      <Dialog title={t("restore.title")} onClose={() => !busy && onClose()} locked={busy}>
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-muted">{t("restore.lead")}</p>
-          <label className="flex cursor-default items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm hover:bg-hover focus-within:outline-2 focus-within:outline-accent">
-            <Icon icon={FileText} className="shrink-0 text-icon" />
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span className={file ? "font-medium [overflow-wrap:anywhere]" : "text-muted"}>{file?.name ?? t("restore.file")}</span>
-              {file && (
-                <span className="text-xs text-subtle">
-                  {problem
-                    ? t("restore.checkedBad")
-                    : [
-                        t("restore.bookmarks", { count: preview!.bookmarks }),
-                        t("restore.collectionsCount", { count: preview!.collections }),
-                        t("restore.tagsCount", { count: preview!.tags }),
-                        made,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                </span>
-              )}
-            </span>
-            <input
-              type="file"
-              accept=".json,application/json"
-              className="sr-only"
-              onChange={(e) => {
-                const picked = e.target.files?.[0];
-                e.target.value = "";
-                if (picked) void pick(picked);
-              }}
-            />
-          </label>
-          {problem ? (
-            <Failure error={`${problem}`} />
-          ) : (
-            <div className="flex flex-col gap-2">
-              <span id="restore-mode" className="text-xs font-medium text-muted">
-                {t("restore.how")}
-              </span>
-              <div role="radiogroup" aria-labelledby="restore-mode" className="flex flex-col gap-2">
-                <ModeOption checked={mode === "merge"} title={t("restore.merge")} hint={t("restore.mergeHint")} onSelect={() => setMode("merge")} />
-                <ModeOption checked={mode === "replace"} title={t("restore.replace")} hint={t("restore.replaceHint")} onSelect={() => setMode("replace")} />
-              </div>
-            </div>
-          )}
-          <Failure error={error} />
-          <Footer>
-            <Button variant="outline" size="lg" disabled={busy} onClick={onClose}>
-              {t("import.cancel")}
-            </Button>
-            {problem ? (
-              <label className={`${buttonClass("primary", "lg")} cursor-default focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent`}>
-                {t("restore.another")}
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const picked = e.target.files?.[0];
-                    e.target.value = "";
-                    if (picked) void pick(picked);
-                  }}
-                />
-              </label>
-            ) : (
-              <Button variant="primary" size="lg" disabled={!file || busy} onClick={() => (mode === "replace" ? setConfirming(true) : void run())}>
-                {busy ? t("restore.running") : error && file ? t("common.retry") : t("restore.run")}
-              </Button>
-            )}
-          </Footer>
-        </div>
-      </Dialog>
-      {confirming && file && (
-        <ConfirmDialog
-          title={t("restore.confirmTitle")}
-          text={t("restore.confirmText", { count: preview!.current, copy: number(preview!.bookmarks) })}
-          confirm={t("restore.confirm")}
-          onClose={() => setConfirming(false)}
-          onConfirm={run}
-        />
-      )}
+      <p className="text-sm text-muted [overflow-wrap:anywhere]">
+        {t("restore.confirmText", { count: preview?.current ?? 0, copy: number(preview?.bookmarks ?? 0) })}
+      </p>
+      <Footer>
+        <Button variant="outline" size="lg" autoFocus disabled={busy} onClick={() => setConfirming(false)}>
+          {t("common.keep")}
+        </Button>
+        <Button variant="primary" size="lg" disabled={busy} onClick={() => void run()}>
+          {busy ? t("restore.running") : t("restore.confirm")}
+        </Button>
+      </Footer>
     </>
+  );
+
+  // The unseen copy has no file and no error: the line under the name is kept for what the copy holds.
+  const choosePanel = (sizing: boolean) => {
+    const picked = sizing ? null : file;
+    const refused = sizing ? "" : problem;
+    const failed = sizing ? "" : error;
+    const made = picked?.preview.exported_at
+      ? new Date(picked.preview.exported_at).toLocaleDateString(i18n.language, { day: "numeric", month: "short", year: "numeric" })
+      : "";
+    const choose = (e: ChangeEvent<HTMLInputElement>) => {
+      const chosen = e.target.files?.[0];
+      e.target.value = "";
+      if (chosen) void pick(chosen);
+    };
+    return (
+      <>
+        <p className="text-sm text-muted">{t("restore.lead")}</p>
+        <label className="flex cursor-default items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm hover:bg-hover focus-within:outline-2 focus-within:outline-accent">
+          <Icon icon={FileText} className="shrink-0 text-icon" />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className={`truncate ${picked ? "font-medium" : "text-muted"}`} title={picked?.name}>
+              {picked?.name ?? t("restore.file")}
+            </span>
+            <span className="truncate text-xs text-subtle">
+              {!picked
+                ? " "
+                : refused
+                  ? t("restore.checkedBad")
+                  : [
+                      t("restore.bookmarks", { count: picked.preview.bookmarks }),
+                      t("restore.collectionsCount", { count: picked.preview.collections }),
+                      t("restore.tagsCount", { count: picked.preview.tags }),
+                      made,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+            </span>
+          </span>
+          {!sizing && <input type="file" accept=".json,application/json" className="sr-only" onChange={choose} />}
+        </label>
+        {/* A refused copy or a failed restore takes the place of the modes; «Try again» keeps the mode chosen. */}
+        {refused || failed ? (
+          <Failure error={refused || failed} />
+        ) : (
+          <div className="flex flex-col gap-2">
+            <span id={sizing ? undefined : "restore-mode"} className="text-xs font-medium text-muted">
+              {t("restore.how")}
+            </span>
+            <div role="radiogroup" aria-labelledby={sizing ? undefined : "restore-mode"} className="flex flex-col gap-2">
+              <ModeOption checked={mode === "merge"} title={t("restore.merge")} hint={t("restore.mergeHint")} onSelect={() => setMode("merge")} />
+              <ModeOption checked={mode === "replace"} title={t("restore.replace")} hint={t("restore.replaceHint")} onSelect={() => setMode("replace")} />
+            </div>
+          </div>
+        )}
+        <Footer>
+          <Button variant="outline" size="lg" disabled={busy} onClick={onClose}>
+            {t("import.cancel")}
+          </Button>
+          {refused ? (
+            <label className={`${buttonClass("primary", "lg")} cursor-default focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent`}>
+              {t("restore.another")}
+              <input type="file" accept=".json,application/json" className="sr-only" onChange={choose} />
+            </label>
+          ) : (
+            <Button variant="primary" size="lg" disabled={!picked || busy} onClick={() => (mode === "replace" ? setConfirming(true) : void run())}>
+              {busy ? t("restore.running") : failed && picked ? t("common.retry") : t("restore.run")}
+            </Button>
+          )}
+        </Footer>
+      </>
+    );
+  };
+
+  const title = { choose: t("restore.title"), confirm: t("restore.confirmTitle"), report: t("restore.finished") }[state];
+  return (
+    <Dialog title={title} onClose={() => !busy && onClose()} locked={busy}>
+      <StatePanels value={state} states={["choose", "confirm", "report"] as const}>
+        {(shown, sizing) =>
+          shown === "report" ? report && !sizing && reportPanel(report) : shown === "confirm" ? confirmPanel() : choosePanel(sizing)
+        }
+      </StatePanels>
+    </Dialog>
   );
 }
 
@@ -607,7 +663,7 @@ export function CollectionDialog({
             <input id={id} autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder={t("collection.placeholder")} className="field" />
           )}
         </Field>
-        <Failure error={error} />
+        <Failure error={error} reserve />
         <Footer>
           <Button variant="primary" size="lg" type="submit" disabled={busy}>
             {t("collection.create")}
@@ -637,7 +693,7 @@ export function ConfirmDialog({
     <Dialog title={title} onClose={() => !busy && onClose()} width={400}>
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted [overflow-wrap:anywhere]">{text}</p>
-        <Failure error={error} />
+        <Failure error={error} reserve />
         <Footer>
           <Button disabled={busy} onClick={onClose}>
             {t("common.keep")}
@@ -664,7 +720,7 @@ export function BackgroundDialog({ onClose }: { onClose: () => void }) {
       <div className="flex flex-col gap-4">
         <p className="text-sm leading-[18px] text-muted">{t("background.text")}</p>
         <p className="rounded-lg bg-panel px-3 py-2.5 text-xs leading-[17px] text-muted dark:bg-hover">{t("background.hint")}</p>
-        <Failure error={error} />
+        <Failure error={error} reserve />
         <Footer>
           <Button variant="outline" disabled={busy} onClick={() => void run(api.quitApp)}>
             {t("background.quit")}

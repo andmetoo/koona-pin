@@ -7,7 +7,7 @@ import { CommandError, describeError, toCommandError } from "../services/errors"
 import { draftText, emailShape, emptyDraft, FeedbackDraft, length, MAX_MESSAGE, privacyUrl } from "../services/feedback";
 import { Icon } from "./icons";
 import { Button } from "./ui/Button";
-import { Field, Segmented } from "./ui/Controls";
+import { Field, Segmented, StatePanels } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
 /**
@@ -104,29 +104,32 @@ export function FeedbackDialog({
     }
   };
 
-  if (sent) {
-    return (
-      <Dialog title={t("feedback.title")} onClose={onClose} width={480}>
-        <div className="flex flex-col items-center gap-2 pt-1 text-center" role="status">
-          <span className="mb-2 flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent">
-            <Icon icon={Check} size={22} strokeWidth={2.4} />
-          </span>
-          <p className="text-lg font-semibold">{t("feedback.sentTitle")}</p>
-          <p className="max-w-[360px] text-sm text-muted">{t("feedback.sentBody")}</p>
-        </div>
-        <footer className="mt-5 flex justify-end">
-          <Button variant="primary" size="lg" autoFocus onClick={onClose}>
-            {t("feedback.done")}
-          </Button>
-        </footer>
-      </Dialog>
-    );
-  }
+  const sentPanel = () => (
+    <>
+      <div className="flex flex-col items-center gap-2 pt-1 text-center" role="status">
+        <span className="mb-2 flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent">
+          <Icon icon={Check} size={22} strokeWidth={2.4} />
+        </span>
+        <p className="text-lg font-semibold">{t("feedback.sentTitle")}</p>
+        <p className="max-w-[360px] text-sm text-muted">{t("feedback.sentBody")}</p>
+      </div>
+      <footer className="mt-auto flex justify-end pt-1">
+        <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+          {t("feedback.done")}
+        </Button>
+      </footer>
+    </>
+  );
 
-  return (
-    <Dialog title={t("feedback.title")} onClose={onClose} width={480} locked={sending}>
+  // The unseen copy has the report shown at its full height and no error. In the form shown, the
+  // message takes the room the report, an error or the note under the address leave.
+  const formPanel = (sizing: boolean) => {
+    const own = sizing ? { attach: undefined, report: undefined, count: undefined } : ids;
+    const reportShown = sizing || showReport;
+    const wrongEmail = !sizing && emailWrong;
+    return (
       <form
-        className="flex flex-col gap-4"
+        className="flex min-h-0 flex-1 flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           void send();
@@ -141,12 +144,12 @@ export function FeedbackDialog({
             options={(["bug", "idea", "question"] as const).map((value) => ({ value, label: t(`feedback.${value}`) }))}
           />
         </div>
-        <div className="relative">
+        <div className={sizing ? "relative" : "relative flex min-h-24 flex-1 flex-col"}>
           <textarea
             aria-label={t("feedback.message")}
-            aria-describedby={ids.count}
+            aria-describedby={own.count}
             aria-invalid={tooLong || undefined}
-            autoFocus
+            autoFocus={!sizing}
             rows={6}
             value={draft.message}
             disabled={sending}
@@ -158,54 +161,56 @@ export function FeedbackDialog({
                 void send();
               }
             }}
-            className="field block min-h-[132px] resize-y pb-6"
+            className={`field block resize-none pb-6 ${sizing ? "min-h-[132px]" : "min-h-0 flex-1"}`}
           />
           {/* Read with the field, not on every keystroke; going over the limit is said once. */}
-          <span id={ids.count} className={`pointer-events-none absolute right-3 bottom-2 text-2xs ${tooLong ? "text-danger" : "text-subtle"}`}>
+          <span id={own.count} className={`pointer-events-none absolute right-3 bottom-2 text-2xs ${tooLong ? "text-danger" : "text-subtle"}`}>
             {t("feedback.count", { count, max: MAX_MESSAGE })}
           </span>
-          <span role="status" className="sr-only">
-            {tooLong ? t("errors.detail.message_too_long") : ""}
-          </span>
+          {!sizing && (
+            <span role="status" className="sr-only">
+              {tooLong ? t("errors.detail.message_too_long") : ""}
+            </span>
+          )}
         </div>
-        <Field label={t("feedback.email")} error={emailWrong ? t("errors.detail.invalid_email") : undefined}>
+        <Field label={t("feedback.email")} error={wrongEmail ? t("errors.detail.invalid_email") : undefined}>
           {(id, note) => (
             <input
               id={id}
-              ref={emailRef}
+              ref={sizing ? undefined : emailRef}
               type="email"
               inputMode="email"
               autoComplete="email"
               value={draft.email}
               disabled={sending}
               placeholder={t("feedback.emailPlaceholder")}
-              aria-invalid={emailWrong || undefined}
+              aria-invalid={wrongEmail || undefined}
               aria-describedby={note}
               onChange={(e) => {
                 setEmailWrong(false);
                 change({ email: e.target.value });
               }}
-              className={`field ${emailWrong ? "border-danger" : ""}`}
+              className={`field ${wrongEmail ? "border-danger" : ""}`}
             />
           )}
         </Field>
-        <div className="flex flex-col gap-1">
+        <div className="flex min-h-0 shrink flex-col gap-1">
           <div className="flex items-center gap-2">
             <input
-              id={ids.attach}
+              id={own.attach}
               type="checkbox"
               checked={attach}
               disabled={sending || report === null}
               onChange={(e) => change({ attach: e.target.checked })}
               className="size-4 shrink-0 accent-accent"
             />
-            <label htmlFor={ids.attach} className="flex-1 text-sm font-medium">
+            <label htmlFor={own.attach} className="flex-1 text-sm font-medium">
               {t("feedback.attach")}
             </label>
             <button
               type="button"
               aria-expanded={showReport}
-              aria-controls={ids.report}
+              aria-controls={own.report}
               onClick={() => setShowReport((shown) => !shown)}
               className="text-sm font-medium text-accent hover:underline"
             >
@@ -213,14 +218,14 @@ export function FeedbackDialog({
             </button>
           </div>
           <p className="pl-6 text-xs text-subtle">{report === null ? t("feedback.reportFailed") : t("feedback.attachHint")}</p>
-          {showReport && (
+          {reportShown && (
             <pre
-              id={ids.report}
-              aria-label={t("feedback.report")}
-              tabIndex={0}
-              className="mt-2 max-h-[160px] overflow-auto rounded-lg bg-secondary px-3 py-2.5 font-mono text-2xs leading-4 whitespace-pre-wrap text-icon [overflow-wrap:anywhere]"
+              id={own.report}
+              aria-label={sizing ? undefined : t("feedback.report")}
+              tabIndex={sizing ? undefined : 0}
+              className={`mt-2 overflow-auto rounded-lg bg-secondary px-3 py-2.5 font-mono text-2xs leading-4 whitespace-pre-wrap text-icon [overflow-wrap:anywhere] ${sizing ? "h-[160px]" : "max-h-[160px] min-h-0"}`}
             >
-              {report === undefined ? "…" : (report ?? t("feedback.reportFailed"))}
+              {sizing ? "" : report === undefined ? "…" : (report ?? t("feedback.reportFailed"))}
             </pre>
           )}
         </div>
@@ -234,7 +239,7 @@ export function FeedbackDialog({
             {t("feedback.privacyLink")}
           </button>
         </p>
-        {failure && (
+        {!sizing && failure && (
           <p role="alert" className="flex gap-2.5 rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-on-danger-soft">
             <Icon icon={CircleAlert} className="mt-px shrink-0" />
             <span>{describeError(failure)}</span>
@@ -244,7 +249,7 @@ export function FeedbackDialog({
           <Button variant="outline" size="lg" disabled={sending} onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          {failure ? (
+          {!sizing && failure ? (
             <>
               <Button variant="outline" size="lg" onClick={() => void copy()}>
                 {copied === "done" ? t("feedback.copied") : copied === "failed" ? t("feedback.copyFailed") : t("feedback.copy")}
@@ -260,6 +265,14 @@ export function FeedbackDialog({
           )}
         </footer>
       </form>
+    );
+  };
+
+  return (
+    <Dialog title={t("feedback.title")} onClose={onClose} width={480} locked={sending}>
+      <StatePanels value={sent ? "sent" : "form"} states={["form", "sent"] as const}>
+        {(shown, sizing) => (shown === "sent" ? !sizing && sentPanel() : formPanel(sizing))}
+      </StatePanels>
     </Dialog>
   );
 }
