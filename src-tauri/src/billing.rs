@@ -153,6 +153,9 @@ pub enum CheckoutState {
     Waiting,
     /// Paid: the app is signed in and has the plan.
     Paid,
+    /// Paid with the email of an account that existed before: the plan is there, signing in
+    /// takes the code from the email.
+    SignIn,
     /// No purchase is waiting here.
     None,
 }
@@ -387,12 +390,19 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
         return Ok(CheckoutState::None);
     }
     let (status, value) = call(app, json!({ "action": "claim", "claim": secret }), None).await?;
-    if status.as_u16() == 404 || value["status"] == "taken" {
+    let done = if status.as_u16() == 404 || value["status"] == "taken" {
+        Some(CheckoutState::None)
+    } else if value["status"] == "sign_in" {
+        Some(CheckoutState::SignIn)
+    } else {
+        None
+    };
+    if let Some(state) = done {
         billing.update(app, |s| {
             s.claim = None;
             s.claim_started = None;
         })?;
-        return Ok(CheckoutState::None);
+        return Ok(state);
     }
     if value["status"] != "paid" {
         return Ok(CheckoutState::Waiting);

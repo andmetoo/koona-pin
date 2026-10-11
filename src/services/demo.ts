@@ -125,8 +125,9 @@ let demoDownload: number | null = null;
 
 /**
  * Supporter (NP-066, sheet 45): `free` shows the row and the dialog, whose test payment is seen
- * after two polls; `supporter`, `canceling`, `past_due`, `offline` are the cards of Settings → Plan;
- * `no_server` makes every request fail. Without the key the build sells nothing, as a release.
+ * after two polls; `existing` pays with the email of an account that existed before, so the payment
+ * asks for the code; `supporter`, `canceling`, `past_due`, `offline` are the states of the plan
+ * dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
  */
 export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
 function storedSupporter(): string | null {
@@ -1311,6 +1312,7 @@ export const demo = {
   async openCheckout(_url: string) {},
   async pollCheckout(): Promise<CheckoutState> {
     if (++demoPolls < 3) return "waiting";
+    if (storedSupporter() === "existing") return "sign_in";
     setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false });
     return "paid";
   },

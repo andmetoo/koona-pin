@@ -3,4 +3,4 @@
 /**
  * What `poll_checkout` found.
  */
-export type CheckoutState = "waiting" | "paid" | "none";
+export type CheckoutState = "waiting" | "paid" | "sign_in" | "none";

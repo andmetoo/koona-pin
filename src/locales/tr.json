@@ -1072,6 +1072,8 @@
     "openAgain": "Sayfayı yeniden aç",
     "thanksTitle": "Koona Pin'i desteklediğiniz için teşekkürler",
     "thanksText": "Supporter, ödemedeki e-posta olan {{email}} için etkin. Başka bir bilgisayarda \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
+    "paidTitle": "Ödeme alındı",
+    "paidSignInText": "Ödemedeki e-postanın zaten bir Koona Pin hesabı var. Bu adrese göndereceğimiz kodla giriş yapın; Koona Pin planınızı burada da gösterir.",
     "done": "Tamam",
     "signInTitle": "Supporter olarak giriş yap",
     "signInText": "Başka bir bilgisayarda mı ödediniz? Ödemedeki e-postayı girin, 6 haneli bir kod gönderelim — parola yok. Böylece Koona Pin planınızı burada da bilir.",

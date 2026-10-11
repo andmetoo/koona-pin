@@ -2272,6 +2272,22 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
 });
 
+test("Supporter: a payment with the email of an existing account signs in only with the code (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "existing"));
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+  const height = Math.round((await plans.boundingBox())!.height);
+  await plans.getByRole("button", { name: "Continue" }).click();
+  const paid = page.getByRole("dialog", { name: "Payment received" });
+  await expect(paid).toContainText("already has a Koona Pin account", { timeout: 15_000 });
+  expect(Math.round((await paid.boundingBox())!.height)).toBe(height);
+  await expect(row).toHaveAttribute("data-plan-row", "free");
+  await paid.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
+});
+
 test("Supporter: the server cannot be reached — the dialog says so and keeps the plan chosen (NP-066)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "no_server"));
   await page.reload();

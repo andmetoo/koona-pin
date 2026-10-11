@@ -32,7 +32,7 @@ const PERKS = ["sync", "backups", "badge", "early"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
 
-type Step = "plans" | "waiting" | "thanks";
+type Step = "plans" | "waiting" | "thanks" | "signIn";
 
 /**
  * «Support Koona Pin» (NP-066, sheet 45): the plan → the payment in the browser → thank you, one
@@ -84,6 +84,8 @@ export function SupporterDialog({
           if (state === "paid") {
             setPaidEmail((await api.getSupporterStatus()).email);
             setStep("thanks");
+          } else if (state === "sign_in") {
+            setStep("signIn");
           } else if (state === "none") {
             setStep("plans");
           }
@@ -195,7 +197,31 @@ export function SupporterDialog({
     </div>
   );
 
-  const title = { plans: t("supporter.title"), waiting: t("supporter.waitingTitle"), thanks: t("supporter.thanksTitle") }[step];
+  // Paid with the email of an account that existed before: the purchase never signs it in by
+  // itself, the code from that email does (koona-services, billing_fill_claim).
+  const signInPanel = () => (
+    <div className="flex flex-1 flex-col items-center text-center">
+      <span className="mt-2 flex size-14 items-center justify-center rounded-full bg-season-soft text-season">
+        <Heart size={24} fill="currentColor" aria-hidden />
+      </span>
+      <p className="mt-4 max-w-[400px] text-sm text-muted">{t("supporter.paidSignInText")}</p>
+      <footer className="mt-auto flex w-full justify-end gap-2 pt-5">
+        <Button variant="outline" size="lg" onClick={onClose}>
+          {t("supporter.notNow")}
+        </Button>
+        <Button variant="primary" size="lg" autoFocus onClick={onSignIn}>
+          {t("supporter.signIn")}
+        </Button>
+      </footer>
+    </div>
+  );
+
+  const title = {
+    plans: t("supporter.title"),
+    waiting: t("supporter.waitingTitle"),
+    thanks: t("supporter.thanksTitle"),
+    signIn: t("supporter.paidTitle"),
+  }[step];
   return (
     <Dialog
       title={title}
@@ -207,10 +233,11 @@ export function SupporterDialog({
         ) : null
       }
     >
-      <StatePanels value={step} states={["plans", "waiting", "thanks"] as const}>
+      <StatePanels value={step} states={["plans", "waiting", "thanks", "signIn"] as const}>
         {(state, sizing) => {
           if (state === "plans") return plansPanel(sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "waiting") return waitingPanel();
+          if (state === "signIn") return signInPanel();
           return thanksPanel(sizing ? "someone.with.a.long.address@example.com" : paidEmail);
         }}
       </StatePanels>

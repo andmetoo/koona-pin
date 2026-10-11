@@ -1145,6 +1145,8 @@
     "openAgain": "Abrir la página otra vez",
     "thanksTitle": "Gracias por apoyar Koona Pin",
     "thanksText": "Supporter está activo para {{email}}, el correo de tu pago. En otro ordenador, abre «Apoyar» y elige «Ya soy Supporter».",
+    "paidTitle": "Pago recibido",
+    "paidSignInText": "El correo de tu pago ya tiene una cuenta de Koona Pin. Inicia sesión con el código que te enviaremos y Koona Pin mostrará tu plan aquí.",
     "done": "Listo",
     "signInTitle": "Iniciar sesión como Supporter",
     "signInText": "¿Pagaste en otro ordenador? Escribe el correo de tu pago y te enviaremos un código de 6 dígitos, sin contraseña. Así Koona Pin también conocerá tu plan aquí.",
