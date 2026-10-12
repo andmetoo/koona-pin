@@ -286,6 +286,8 @@ const desktop = {
   /** Only while the dialog waits for the payment. */
   pollCheckout: () => call<CheckoutState>("poll_checkout"),
   refreshSupporter: () => call<SupporterStatus>("refresh_supporter"),
+  /** The same question without being asked: when the dialog opens and after the portal. */
+  recheckSupporter: () => call<SupporterStatus>("refresh_supporter"),
   openSupporterPortal: () => call<void>("open_supporter_portal"),
   sendSignInCode: (email: string) => call<void>("send_sign_in_code", { email }),
   verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),

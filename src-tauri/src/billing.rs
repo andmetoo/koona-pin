@@ -30,6 +30,9 @@ const ENVIRONMENT: Option<&str> = option_env!("KOONAPIN_PADDLE_ENV");
 /// The last days of a paid period, when the app asks once a day whether it renewed.
 const RENEWAL_WINDOW: TimeDelta = TimeDelta::days(3);
 const CHECK_EVERY: TimeDelta = TimeDelta::days(1);
+/// Before them, once a week: a change of plan, a cancellation or a refund shows within a week
+/// without asking more often (the Supporter dialog also asks when it opens).
+const CHECK_WEEKLY: TimeDelta = TimeDelta::days(7);
 /// How long a plan stays after its period when the server cannot be reached.
 const GRACE: TimeDelta = TimeDelta::days(7);
 /// A purchase started but not seen paid is forgotten after this.
@@ -280,12 +283,13 @@ pub fn has_plan(app: &AppHandle) -> bool {
     service().is_some() && app.try_state::<Billing>().is_some_and(|billing| effective(&billing.get(), Utc::now()).is_some())
 }
 
-/// One check a day in the last days of the period, for a signed-in Supporter.
+/// For a signed-in Supporter: one check a week, one a day in the last days of the period.
 fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
     let (Some(_), Some(plan)) = (&stored.session, &stored.plan) else {
         return false;
     };
-    now >= plan.valid_until - RENEWAL_WINDOW && stored.checked_at.is_none_or(|at| now - at >= CHECK_EVERY)
+    let every = if now >= plan.valid_until - RENEWAL_WINDOW { CHECK_EVERY } else { CHECK_WEEKLY };
+    stored.checked_at.is_none_or(|at| now - at >= every)
 }
 
 fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
@@ -753,11 +757,14 @@ mod tests {
     }
 
     #[test]
-    fn the_plan_is_kept_without_asking_until_the_last_days_of_the_period() {
-        let stored = supporter("2027-10-11T12:00:00Z");
-        assert!(!due(&stored, at("2026-10-12T00:00:00Z")), "a fresh plan is not checked");
-        assert!(!due(&stored, at("2027-10-08T11:00:00Z")), "nor more than three days before its end");
-        assert!(due(&stored, at("2027-10-08T13:00:00Z")), "three days before: once");
+    fn the_plan_is_checked_once_a_week_and_daily_in_the_last_days_of_the_period() {
+        let stored = Stored { checked_at: Some(at("2026-10-12T00:00:00Z")), ..supporter("2027-10-11T12:00:00Z") };
+        assert!(!due(&stored, at("2026-10-12T12:00:00Z")), "a fresh plan is not checked");
+        assert!(!due(&stored, at("2026-10-18T23:00:00Z")), "nor within a week");
+        assert!(due(&stored, at("2026-10-19T00:00:00Z")), "a week later: a cancellation or a refund shows");
+        let weekly = Stored { checked_at: Some(at("2027-10-05T13:00:00Z")), ..stored.clone() };
+        assert!(!due(&weekly, at("2027-10-08T11:00:00Z")), "more than three days before its end: weekly still");
+        assert!(due(&weekly, at("2027-10-08T13:00:00Z")), "three days before: daily");
         let checked = Stored { checked_at: Some(at("2027-10-08T13:00:00Z")), ..stored.clone() };
         assert!(!due(&checked, at("2027-10-09T12:00:00Z")), "not twice a day");
         assert!(due(&checked, at("2027-10-09T13:00:00Z")), "the next day again");

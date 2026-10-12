@@ -619,10 +619,29 @@ export function PlanDialog({
     }
   };
 
+  // The plan as the server has it now: a change or a cancellation in the portal shows here, not
+  // only in the last days of the period. Asked when the dialog opens and when the window comes back
+  // after «Manage»; a failure says nothing here, the background asks again.
+  const backFromPortal = useRef(false);
+  useEffect(() => {
+    void api.recheckSupporter().catch(() => {});
+    const onFocus = () => {
+      if (!backFromPortal.current) return;
+      backFromPortal.current = false;
+      void api.recheckSupporter().catch(() => {});
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+  const openPortal = async () => {
+    backFromPortal.current = true;
+    await api.openSupporterPortal();
+  };
+
   let status: string;
   let tone: "muted" | "danger" | "amber" = "muted";
   let action = (
-    <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
+    <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(openPortal)}>
       {t("plan.manage")} ↗
     </Button>
   );
@@ -640,7 +659,7 @@ export function PlanDialog({
     status = t("supporter.pastDue");
     tone = "danger";
     action = (
-      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(openPortal)}>
         {t("plan.updateCard")} ↗
       </Button>
     );

@@ -1365,6 +1365,10 @@ export const demo = {
     if (status.check_failed) setDemoSupporter({ ...status, plan: demoPlan("supporter"), check_failed: false });
     return currentDemoSupporter();
   },
+  /** The preview's server has nothing new for an automatic check: the plan stays as it is. */
+  async recheckSupporter(): Promise<SupporterStatus> {
+    return currentDemoSupporter();
+  },
   async openSupporterPortal() {},
   async sendSignInCode(email: string) {
     if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
