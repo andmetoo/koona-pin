@@ -231,6 +231,22 @@ async function compile() {
   // FUSE it runs unpacked.
   await rm(path.join(bundles, "appimage"), { recursive: true, force: true });
   env.APPIMAGE_EXTRACT_AND_RUN = "1";
+  // Tauri (cli 2.12) takes the whole line of `pkg-config --libs-only-L ayatana-appindicator3-0.1` for the
+  // tray library's folder; Void's pkgconf names several (-L/usr/lib64 -L/usr/lib …). A pkg-config first on
+  // PATH for this step gives it the first folder only.
+  const realPkgConfig = output("sh", ["-c", "command -v pkg-config"]);
+  const shim = await mkdtemp(path.join(tmpdir(), "koonapin-pkg-config-"));
+  await writeFile(
+    path.join(shim, "pkg-config"),
+    `#!/bin/sh
+case " $* " in
+  *" --libs-only-L "*) "${realPkgConfig}" "$@" | awk '{ print $1; exit }' ;;
+  *) exec "${realPkgConfig}" "$@" ;;
+esac
+`,
+    { mode: 0o755 },
+  );
+  env.PATH = `${shim}:${env.PATH}`;
   bundle("appimage", { deb: { desktopTemplate: path.join(linux, "koonapin.desktop") }, appimage: { bundleMediaFramework: false } });
   await copyFile(path.join(bundles, "appimage", `koonapin_${version}_amd64.AppImage`), files.appimage);
   await chmod(files.appimage, 0o755);
