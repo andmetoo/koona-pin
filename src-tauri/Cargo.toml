@@ -17,8 +17,6 @@ tauri-build = { version = "2.0", features = [] }
 [features]
 default = []
 custom-protocol = ["tauri/custom-protocol"]
-# Automation of the experimental macOS test bundle only. Never enabled by release scripts.
-macos-smoke = []
 # The installer build (NP-037): the native host accepts only the store
 # extensions, not the development id.
 public-release = []

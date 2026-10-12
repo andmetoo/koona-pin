@@ -4,7 +4,7 @@
 
 No check touches your own library or browser profile: tests create their own SQLite files, WebView2 and browser profiles under `.test-data`, and their own capture channel name (`KOONAPIN_PIPE`). Prerequisites are those of [building.md](building.md).
 
-`macos.yml` builds experimental `.app` bundles on macOS 15 for Apple Silicon on relevant pull requests and by hand; Intel is temporarily disabled in the matrix. It runs Rust, bindings, build and Vitest, real IPC smoke tests in the bundled WKWebView with actual app screenshots, and functional UI tests in Playwright WebKit. Four Chromium-only CDP IME tests remain in Windows CI. Captures cover both themes, grid/list and English/Russian. ZIPs and screenshots are separate Actions artifacts. See [macOS test builds](macos-test.md) for commands and the remaining platform work.
+`macos.yml` runs on macOS 15 for Apple Silicon on relevant pull requests and by hand (Intel is temporarily disabled): Rust, bindings, build and Vitest, then a build of the app bundle; it uploads nothing and runs nothing in WKWebView. See [macOS test builds](macos-test.md) for commands and the remaining platform work.
 
 ## Before every commit: `bun run check`
 

@@ -1,6 +1,6 @@
 name: macOS test build
 
-# Experimental builds for #56. PR artifacts only, no Apple credentials or release uploads.
+# Experimental macOS checks for #56: the tests and a bundle build, no artifacts, no Apple credentials.
 on:
   pull_request:
     paths:
@@ -8,16 +8,11 @@ on:
       - 'src-tauri/**'
       - 'src/**'
       - 'scripts/build-macos-test.mjs'
-      - 'scripts/macos/**'
       - 'scripts/lib/paths.mjs'
-      - 'tests/macos/**'
-      - 'tests/ui/**'
-      - 'site/shots/library.json'
       - 'package.json'
       - 'bun.lock'
       - '.bun-version'
       - 'rust-toolchain.toml'
-      - 'playwright.config.ts'
       - 'vite.config.ts'
   workflow_dispatch:
 
@@ -45,7 +40,7 @@ jobs:
           # - runner: macos-15-intel
           #   arch: x64
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -75,39 +70,9 @@ jobs:
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Generated IPC types are committed
         run: bun run check:bindings
-      - name: TypeScript and Vite build
-        run: bun run build
       - name: Vitest
         run: bun run test
-      - name: Build test app bundle and ZIP
-        run: bun run build:macos:test
-      - name: Native WKWebView smoke and actual app screenshots
-        run: bun run test:macos
-      - name: Install Playwright WebKit
-        run: bunx --bun playwright install webkit
-      - name: Enable keyboard navigation for WebKit controls
-        run: defaults write -g AppleKeyboardUIMode -int 3
-      # These run against the demo preview; native checks above use the bundled WKWebView.
-      - name: Functional UI in WebKit
-        run: bun run test:ui -- --browser webkit --grep-invert '@visual|@chromium' --output test-results/webkit
-      # Four CDP IME scenarios are Chromium-specific and remain covered by Windows CI.
-      - name: Test bundle
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: macos-test-${{ matrix.arch }}
-          path: |
-            release/test/macos/**/*.zip
-            release/test/macos/**/SHA256SUMS.txt
-            release/test/macos/**/build.json
-            release/test/macos/**/README.txt
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Screenshots and test evidence
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: macos-evidence-${{ matrix.arch }}
-          path: test-results/
-          if-no-files-found: warn
-          retention-days: 14
+      # The app bundle alone, so a packaging problem shows here; Tauri's beforeBuildCommand runs the
+      # TypeScript and Vite build first. Nothing is zipped or uploaded.
+      - name: TypeScript, Vite and the app bundle
+        run: bun run tauri build --config src-tauri/tauri.macos-test.conf.json --bundles app

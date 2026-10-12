@@ -2,35 +2,20 @@
 
 This is a test build for [#56](https://github.com/andmetoo/koona-pin/issues/56), not the macOS release. The workflow currently tests macOS 15 on Apple Silicon (`macos-15`) only; the Intel (`macos-15-intel`) matrix entry is temporarily disabled. macOS 15 is the floor of this experiment, not a declaration of the oldest supported macOS version. There is no Developer ID signing, notarization, release upload or updater manifest.
 
-## Run and download
+## Run and check
 
-`.github/workflows/macos.yml` starts on relevant pull requests, or through **Actions → macOS test build → Run workflow** on a chosen branch once the workflow exists on the default branch. A pull request runs the merge candidate of its branch and current `main`; `build.json` records the exact commit.
-
-Each enabled architecture produces two artifacts, retained for 14 days. Currently these are the `arm64` artifacts; the same scripts support `x64` when the Intel entry is re-enabled:
-
-- `macos-test-arm64` / `macos-test-x64`: `.app` inside a ZIP made with `ditto` (preserves bundle metadata), `SHA256SUMS.txt`, `build.json` and a README. Download and extract the artifact, then the inner ZIP. The test bundle may need the Mac owner's Gatekeeper approval.
-- `macos-evidence-arm64` / `macos-evidence-x64`: nine PNGs of the actual native window (eight combinations of English/Russian, light/dark, grid/list, plus a persistence relaunch), JSON assertion results and app logs. Failures retain whatever evidence was produced.
+`.github/workflows/macos.yml` starts on relevant pull requests, or through **Actions → macOS test build → Run workflow** on a chosen branch once the workflow exists on the default branch. It checks on macOS what can break there: Rust tests (with the macOS capture socket and the browsers' manifests), generated IPC types, the TypeScript/Vite build and Vitest, then builds the app bundle so a packaging problem shows. It uploads nothing. Nothing in CI runs the app or its interface in WKWebView: the UI suite runs in Chromium on Windows and the native tests in WebKitGTK on Linux, so a macOS-only interface problem shows only in a hand-built `.app`.
 
 On a Mac with Xcode Command Line Tools, Rust and the pinned Bun:
 
 ```bash
 bun install --frozen-lockfile
 bun run build:macos:test
-bun run test:macos
 ```
 
-Outputs are `release/test/macos/<version>/<arch>/` and `test-results/macos/`. The runner launches the executable inside that very packaged `.app`, not another Cargo binary. Native tests create a new `.test-data/macos-smoke-<time>` folder and never use the normal library. Quit any already-running Koona Pin before a local native run. Screen capture requires a graphical login and screen recording permission; missing permission or a blank capture fails the job instead of substituting a browser screenshot.
+The output is `release/test/macos/<version>/<arch>/`: `Koona Pin.app`, the same in a ZIP made with `ditto` (preserves bundle metadata), `SHA256SUMS.txt`, `build.json` with the exact commit, and a README. The test bundle may need the Mac owner's Gatekeeper approval. A started copy uses the normal library; set `KOONAPIN_DATA_DIR` to try it on another. Such a copy does not register with the browsers, so browser capture needs `KOONAPIN_REGISTER_HOST=1` as well (it then takes over the browsers' manifests from any installed copy until that one starts again).
 
-## What is checked
-
-1. Rust unit/integration tests, generated IPC types, TypeScript/Vite build and Vitest on each enabled architecture.
-2. Functional Playwright UI tests against the demo browser preview in WebKit; visual baseline comparisons remain excluded because font rendering differs. These cover more UI interactions than the packaged-app smoke, while the native smoke verifies actual WKWebView/IPC/SQLite integration. Four IME tests are tagged `@chromium` because they use Chromium-only CDP; they remain covered in Windows CI, without a duplicate Chromium run on macOS. Tests use `ControlOrMeta` for the platform's modifier; WebKit keyboard navigation uses Option-Tab on macOS. Focus-restoration checks activate focused controls with Enter rather than assuming that a Safari mouse click focuses buttons. Drag tests wait for the animation-frame selection update before releasing the pointer. The 10 000-row demo fixture keeps only the fields needed for selection to fit WebKit's localStorage quota; the native app uses SQLite.
-3. The packaged app's WKWebView and actual production IPC/SQLite: add, recognize duplicates, search Cyrillic, trash, restore, undo, restore a deterministic JSON library, persist it over a restart, hand over a second launch to the running instance.
-4. The real rendered window in English/Russian, both themes and grid/list. Capture locates the app's window by PID and checks its size and sampled color diversity. It does not compare Windows baselines.
-
-`tauri.macos.conf.json` enables the normal native macOS title bar (`decorations: true`, `titleBarStyle: Visible`), with real system traffic-light controls and rounded window corners. It repeats the main-window geometry because Tauri's config merge replaces the windows array. `get_desktop` reports the actual decorated-window state; the HTML window strip is absent when the system draws the frame. The title bar follows the application's light/dark theme through Tauri's window theme API. Native checks require decorations and reject duplicate HTML window controls; screenshots include the system title bar. Windows and Linux keep their existing custom controls.
-
-Native automation is behind the `macos-smoke` Cargo feature and explicit config/report environment variables. The feature is compiled out of ordinary builds. Even a test bundle does not activate automation unless `KOONAPIN_MACOS_SMOKE_CONFIG` is set, and requires `KOONAPIN_DATA_DIR`. The packaged ZIP contains this test feature and must stay under `release/test`, not `release/publish`. The fixture uses the site's sample titles without photos; screenshots show the app's generated covers without remote photo dependencies.
+`tauri.macos.conf.json` enables the normal native macOS title bar (`decorations: true`, `titleBarStyle: Visible`), with real system traffic-light controls and rounded window corners. It repeats the main-window geometry because Tauri's config merge replaces the windows array. `get_desktop` reports the actual decorated-window state; the HTML window strip is absent when the system draws the frame. The title bar follows the application's light/dark theme through Tauri's window theme API. Windows and Linux keep their existing custom controls.
 
 The Rust HTTP tests model different hosts with loopback addresses `127.0.0.2` through `127.0.0.11`. macOS requires them to be configured explicitly; the workflow adds aliases to `lo0` before the tests. The first ARM run exposed this prerequisite (`AddrNotAvailable`), rather than an application failure; no network tests are skipped.
 
@@ -41,7 +26,7 @@ Reviewed `doc/decisions.md` (Р-26 and Р-44), `doc/roadmap.md`, `doc/release-ch
 | Work | Current evidence / next step |
 | --- | --- |
 | NP-048: supported macOS versions and architectures | This experiment currently tests macOS 15 on arm64 only; Intel is temporarily disabled. Choose the public matrix and check the oldest WKWebView on a real Mac; the documents require Safari 16.4-level WebKit for Tailwind 4. |
-| NP-049: window, menu, Cmd shortcuts, paths, lifecycle | A native decorated title bar with real traffic lights and theme matching, isolated library persistence and second launch are exercised here. Manual acceptance of traffic-light actions/fullscreen, replacing the standard menu, Cmd shortcuts, Dock reopening, autostart and tray behavior still remain. |
+| NP-049: window, menu, Cmd shortcuts, paths, lifecycle | A native decorated title bar with real traffic lights and theme matching is in place. Manual acceptance of traffic-light actions/fullscreen, a second launch, replacing the standard menu, Cmd shortcuts, Dock reopening, autostart and tray behavior still remain. |
 | NP-050: browser capture | The channel is a Unix socket in the user's own system folder (`_CS_DARWIN_USER_DIR`/`koonapin/capture.sock`, `0700` folder, `0600` socket, peer UID checked), as on Linux. A release start writes `app.koona.pin.json` for the host inside the bundle into `~/Library/Application Support/{Google/Chrome,Microsoft Edge,Chromium,Mozilla}/NativeMessagingHosts`, so a moved app repairs its path; the host starts a closed app through `open -g -j`. Remaining: real Chrome/Edge/Firefox smoke tests with the store extensions, and macOS wording for the missing-host message (it names `koonapin-host.exe`). |
 | NP-051: signing and release | Developer ID, notarization, distribution package, in-app updater, install/update/removal and published-package acceptance remain. |
 
