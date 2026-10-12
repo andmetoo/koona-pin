@@ -17,8 +17,9 @@ export DEBIAN_FRONTEND=noninteractive
 . /etc/os-release
 step() { printf '\n== %s\n' "$1"; }
 
-deb=$(ls "$PWD"/dist-linux/koonapin_*_amd64.deb 2> /dev/null | head -1)
-rpm=$(ls "$PWD"/dist-linux/koonapin-*.x86_64.rpm 2> /dev/null | head -1)
+# Each package job has only its own package (pipefail would end the script on the other's missing file).
+deb=$(ls "$PWD"/dist-linux/koonapin_*_amd64.deb 2> /dev/null | head -1 || true)
+rpm=$(ls "$PWD"/dist-linux/koonapin-*.x86_64.rpm 2> /dev/null | head -1 || true)
 # Not under .test-data: made by root, that folder would keep «dev» from the tests' own.
 aur=/tmp/koonapin-aur
 case "$ID" in
