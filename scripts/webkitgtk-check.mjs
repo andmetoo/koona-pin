@@ -519,9 +519,15 @@ async function media(name, env, steps) {
     await engine.run("appReady");
     for (const [step, change, expected] of steps) {
       change?.();
-      if (change) await new Promise((resolve) => setTimeout(resolve, 1_000));
-      const seen = await engine.run("media");
-      const wrong = Object.entries(expected).filter(([k, v]) => seen[k] !== v);
+      // A change while the app runs reaches the page through GTK, the settings portal and the app's own
+      // theme: asked again for up to 10 s, as a busy runner may take longer than a desktop.
+      let seen, wrong;
+      for (let waited = 0; ; waited += 500) {
+        if (change) await new Promise((resolve) => setTimeout(resolve, waited ? 500 : 1_000));
+        seen = await engine.run("media");
+        wrong = Object.entries(expected).filter(([k, v]) => seen[k] !== v);
+        if (!change || !wrong.length || waited >= 9_000) break;
+      }
       report.media[name][step] = { ...seen, expected, ok: wrong.length === 0 };
       console.log(`${wrong.length ? "FAIL" : "ok  "} ${name}, ${step}: ${JSON.stringify(seen)}`);
       if (wrong.length) failures.push(`${name}, ${step}: ${wrong.map(([k, v]) => `${k} ${seen[k]}, expected ${v}`).join(", ")}`);
