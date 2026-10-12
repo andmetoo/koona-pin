@@ -15,6 +15,19 @@ const app = existsSync("/usr/bin/koonapin") && !process.env.KOONAPIN_TEST_BINARY
 const host = path.join(path.dirname(app), "koonapin-host");
 const isVisible = (session) => session.invoke("plugin:window|is_visible");
 
+/**
+ * A new library opens with the starter links in the inbox (NP-117); the tests are written for an empty
+ * library with its first collections, as in tests/native: the links go to the trash and out of it through
+ * the app's own commands.
+ */
+async function emptyLibrary(session) {
+  // The first collections and the starter links are made in one transaction.
+  await waitFor(() => session.invoke("get_collections"), (c) => c.length > 0, { what: "the new library" });
+  const ids = await session.invoke("get_starter_links");
+  for (const id of ids) await session.invoke("trash_bookmark", { id });
+  if (ids.length > 0) await session.invoke("empty_trash");
+}
+
 describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X11"}`, () => {
   const data = path.resolve(".test-data", `webkit-${process.env.WAYLAND_DISPLAY ? "wayland" : "x11"}-${Date.now()}`);
   const env = { ...process.env, KOONAPIN_DATA_DIR: data, KOONAPIN_PIPE: testPipe("webkit") };
@@ -26,6 +39,7 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
     await mkdir(data, { recursive: true });
     driver = await startDriver(env, path.join(data, "driver.log"));
     page = await Session.create(driver.url, app);
+    await emptyLibrary(page);
   });
 
   after(async () => {
