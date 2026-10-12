@@ -4,7 +4,7 @@ This is a test build for [#56](https://github.com/andmetoo/koona-pin/issues/56),
 
 ## Run and check
 
-`.github/workflows/macos.yml` starts on relevant pull requests, or through **Actions → macOS test build → Run workflow** on a chosen branch once the workflow exists on the default branch. It checks on macOS what can break there: Rust tests (with the macOS capture socket and the browsers' manifests), generated IPC types, the TypeScript/Vite build and Vitest, then builds the app bundle so a packaging problem shows. It uploads nothing. Nothing in CI runs the app or its interface in WKWebView: the UI suite runs in Chromium on Windows and the native tests in WebKitGTK on Linux, so a macOS-only interface problem shows only in a hand-built `.app`.
+`.github/workflows/macos.yml` starts on relevant pull requests, or through **Actions → macOS test build → Run workflow** on a chosen branch once the workflow exists on the default branch. It checks what only macOS compiles: the Rust tests (with the macOS capture socket and the browsers' manifests), then the app bundle with its TypeScript/Vite build, so a packaging problem shows. IPC types and Vitest do not depend on the system and run in `ci.yml`. It uploads nothing. Nothing in CI runs the app or its interface in WKWebView: the UI suite runs in Chromium on Windows and the native tests in WebKitGTK on Linux, so a macOS-only interface problem shows only in a hand-built `.app`.
 
 On a Mac with Xcode Command Line Tools, Rust and the pinned Bun:
 

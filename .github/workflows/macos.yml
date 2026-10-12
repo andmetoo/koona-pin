@@ -1,6 +1,7 @@
 name: macOS test build
 
-# Experimental macOS checks for #56: the tests and a bundle build, no artifacts, no Apple credentials.
+# Experimental macOS checks for #56: what only macOS compiles — the Rust tests and the app bundle.
+# IPC types and Vitest do not depend on the system and run in ci.yml. No artifacts, no Apple credentials.
 on:
   pull_request:
     paths:
@@ -68,10 +69,6 @@ jobs:
           done
       - name: Rust tests
         run: cargo test --locked --manifest-path src-tauri/Cargo.toml
-      - name: Generated IPC types are committed
-        run: bun run check:bindings
-      - name: Vitest
-        run: bun run test
       # The app bundle alone, so a packaging problem shows here; Tauri's beforeBuildCommand runs the
       # TypeScript and Vite build first. Nothing is zipped or uploaded.
       - name: TypeScript, Vite and the app bundle
