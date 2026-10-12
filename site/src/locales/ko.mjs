@@ -59,6 +59,69 @@ export default {
     ["Linux, 64비트", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome 또는 Edge 120+, Firefox 140+", "현재 버전 또는 ESR 140"],
   ],
+  supporter: {
+    "title": "Koona Pin 후원하기",
+    "lead": "Koona Pin은 무료이며, 지금 할 수 있는 모든 기능은 계속 무료입니다. Supporter는 앞으로의 개발을 후원하고 새 버전을 가장 먼저 받습니다.",
+    "yearly": "연간",
+    "monthly": "월간",
+    "freeMonths": "2개월 무료",
+    "yearRest": "또는 연 20 €",
+    "monthRest": "또는 월 2 €",
+    "buyYearly": "연간 구매",
+    "buyMonthly": "월간 구매",
+    "perks": [
+      [
+        "Supporter 배지",
+        "사이드바에 계절 색의 하트."
+      ],
+      [
+        "얼리 빌드",
+        "새 버전을 다른 사람보다 조금 먼저."
+      ],
+      [
+        "컴퓨터 간 동기화",
+        "사용하는 모든 컴퓨터에서 내 라이브러리를."
+      ],
+      [
+        "폴더에 자동 백업",
+        "Dropbox나 Google Drive처럼 원하는 폴더로."
+      ]
+    ],
+    "now": "지금 제공",
+    "from": "{date}부터",
+    "notes": [
+      "결제는 Paddle이 처리합니다",
+      "언제든지 취소 가능",
+      "첫 결제 후 14일 이내 전액 환불"
+    ],
+    "roadmapTitle": "앞으로의 계획",
+    "roadmapLead": "향후 두 달의 계획입니다.",
+    "delivered": "출시됨, 무료",
+    "roadmap": [
+      [
+        "AI 어시스턴트",
+        "Claude 등 AI 어시스턴트가 링크를 검색하고 저장합니다."
+      ],
+      [
+        "macOS 앱",
+        "Mac에서도 Koona Pin, 브라우저 버튼도 그대로."
+      ],
+      [
+        "동기화",
+        "사용하는 모든 컴퓨터에서 내 라이브러리를. Supporter 전용."
+      ],
+      [
+        "iOS 앱",
+        "iPhone과 iPad에서 내 라이브러리를."
+      ],
+      [
+        "Android 앱",
+        "Android 휴대폰과 태블릿에서 내 라이브러리를."
+      ]
+    ],
+    "firstTitle": "Supporter는 모든 릴리스를 가장 먼저",
+    "firstText": "새 버전은 다른 사람보다 조금 먼저 도착합니다. 날짜는 계획이며 약속이 아닙니다."
+  },
   footer: { privacy: "개인정보", licenses: "라이선스", support: "지원", changelog: "변경 내역", pricing: "요금", terms: "이용약관", refunds: "환불" },
   back: "Koona Pin",
   privacyPage: {

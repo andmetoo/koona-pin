@@ -17,7 +17,7 @@ const free = [
 ];
 const supporter = [
   ["Everything in Free", ""],
-  ["Sync between your computers", "Early stage, arrives in an update"],
+  ["Sync between your computers", "Planned for 30 October, early stage at first"],
   ["Automatic backups to a folder", "One you choose, like Dropbox or Google Drive"],
   ["Supporter badge", "A heart in the app, in the colour of the season"],
   ["Early builds", "New versions a little before everyone else"],
@@ -42,7 +42,7 @@ const supporter = [
 <p class="plan-note">or $20 / €20 a year <span class="chip-latest">2 months free</span></p>
 <ul class="plan-list">{supporter.map(([f, hint]) => <li><Icon name="check" class="icon icon-small" /><span>{f}{hint && <small>{hint}</small>}</span></li>)}</ul>
 {SUPPORTER_ON_SALE
-  ? <p class="plan-action plan-how">Subscribe in the app: <strong>Support</strong> at the bottom of the sidebar.</p>
+  ? <div class="plan-action plan-buy"><a class="button button-primary" href={`${BASE}/checkout/?plan=year`}>Buy yearly</a><a class="button" href={`${BASE}/checkout/?plan=month`}>Buy monthly</a><p class="plan-how">Or in the app: <strong>Support</strong> at the bottom of the sidebar.</p></div>
   : <span class="chip-soon plan-action"><Icon name="clock" class="icon icon-small" />Opens with sync</span>}
 </section>
 </div>

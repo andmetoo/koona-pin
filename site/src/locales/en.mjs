@@ -60,6 +60,69 @@ export default {
     ["Linux, 64-bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome or Edge 120+, Firefox 140+", "Current release or ESR 140"],
   ],
+  supporter: {
+    "title": "Keep Koona Pin going",
+    "lead": "Koona Pin is free, and everything it does today stays free. Supporters fund what comes next and get every new release first.",
+    "yearly": "Yearly",
+    "monthly": "Monthly",
+    "freeMonths": "2 months free",
+    "yearRest": "or €20 a year",
+    "monthRest": "or €2 a month",
+    "buyYearly": "Buy yearly",
+    "buyMonthly": "Buy monthly",
+    "perks": [
+      [
+        "Supporter badge",
+        "A heart in the sidebar, in the colour of the season."
+      ],
+      [
+        "Early builds",
+        "Each new release a little before everyone else."
+      ],
+      [
+        "Sync between computers",
+        "Your library on every computer you use."
+      ],
+      [
+        "Automatic backups to a folder",
+        "To one you choose, like Dropbox or Google Drive."
+      ]
+    ],
+    "now": "Now",
+    "from": "From {date}",
+    "notes": [
+      "Paddle takes the payment",
+      "Cancel any time",
+      "Full refund within 14 days of the first payment"
+    ],
+    "roadmapTitle": "What's next",
+    "roadmapLead": "The plan for the next two months.",
+    "delivered": "Delivered, free",
+    "roadmap": [
+      [
+        "AI assistants",
+        "Claude and other AI assistants search and save your links."
+      ],
+      [
+        "macOS app",
+        "Koona Pin on a Mac, with the same button in your browser."
+      ],
+      [
+        "Sync",
+        "Your library on every computer you use. For Supporters."
+      ],
+      [
+        "iOS app",
+        "Your library on iPhone and iPad."
+      ],
+      [
+        "Android app",
+        "Your library on Android phones and tablets."
+      ]
+    ],
+    "firstTitle": "Supporters get every release first",
+    "firstText": "Each new version reaches them a little before everyone else. Dates are our plan, not a promise."
+  },
   footer: { privacy: "Privacy", licenses: "Licenses", support: "Support", changelog: "Changelog", pricing: "Pricing", terms: "Terms", refunds: "Refunds" },
   back: "Koona Pin",
   privacyPage: { title: "Privacy policy", updated: "Last updated 12 October 2026", section: "English", note: "", original: "" },

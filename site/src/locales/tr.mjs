@@ -59,6 +59,69 @@ export default {
     ["Linux, 64 bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome veya Edge 120+, Firefox 140+", "Güncel sürüm veya ESR 140"],
   ],
+  supporter: {
+    "title": "Koona Pin'i destekleyin",
+    "lead": "Koona Pin ücretsizdir ve bugün yaptığı her şey ücretsiz kalacak. Supporter'lar sıradakileri finanse eder ve her yeni sürümü ilk onlar alır.",
+    "yearly": "Yıllık",
+    "monthly": "Aylık",
+    "freeMonths": "2 ay ücretsiz",
+    "yearRest": "veya yılda 20 €",
+    "monthRest": "veya ayda 2 €",
+    "buyYearly": "Yıllık satın al",
+    "buyMonthly": "Aylık satın al",
+    "perks": [
+      [
+        "Supporter rozeti",
+        "Kenar çubuğunda mevsimin renginde bir kalp."
+      ],
+      [
+        "Erken sürümler",
+        "Her yeni sürüm herkesten biraz önce."
+      ],
+      [
+        "Bilgisayarlar arası eşitleme",
+        "Kitaplığınız kullandığınız her bilgisayarda."
+      ],
+      [
+        "Bir klasöre otomatik yedekler",
+        "Seçtiğiniz bir klasöre, örneğin Dropbox veya Google Drive."
+      ]
+    ],
+    "now": "Şimdi",
+    "from": "{date} itibarıyla",
+    "notes": [
+      "Ödemeyi Paddle alır",
+      "İstediğiniz zaman iptal edin",
+      "İlk ödemeden sonraki 14 gün içinde tam iade"
+    ],
+    "roadmapTitle": "Sırada ne var",
+    "roadmapLead": "Önümüzdeki iki ayın planı.",
+    "delivered": "Yayında, ücretsiz",
+    "roadmap": [
+      [
+        "Yapay zekâ asistanları",
+        "Claude ve diğer asistanlar bağlantılarınızı arar ve kaydeder."
+      ],
+      [
+        "macOS uygulaması",
+        "Mac'te Koona Pin, tarayıcıda aynı düğmeyle."
+      ],
+      [
+        "Eşitleme",
+        "Kitaplığınız kullandığınız her bilgisayarda. Supporter'lar için."
+      ],
+      [
+        "iOS uygulaması",
+        "Kitaplığınız iPhone ve iPad'de."
+      ],
+      [
+        "Android uygulaması",
+        "Kitaplığınız Android telefon ve tabletlerde."
+      ]
+    ],
+    "firstTitle": "Supporter'lar her sürümü ilk alır",
+    "firstText": "Yeni sürümler onlara herkesten biraz önce ulaşır. Tarihler bir söz değil, planımızdır."
+  },
   footer: { privacy: "Gizlilik", licenses: "Lisanslar", support: "Destek", changelog: "Değişiklikler", pricing: "Fiyatlar", terms: "Koşullar", refunds: "İadeler" },
   back: "Koona Pin",
   privacyPage: {

@@ -59,6 +59,69 @@ export default {
     ["Linux, 64 bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome o Edge 120+, Firefox 140+", "Versione attuale o ESR 140"],
   ],
+  supporter: {
+    "title": "Sostieni Koona Pin",
+    "lead": "Koona Pin è gratuito, e tutto ciò che fa oggi resterà gratuito. I Supporter finanziano ciò che viene dopo e ricevono ogni nuova versione per primi.",
+    "yearly": "Annuale",
+    "monthly": "Mensile",
+    "freeMonths": "2 mesi gratis",
+    "yearRest": "o 20 € l’anno",
+    "monthRest": "o 2 € al mese",
+    "buyYearly": "Acquista annuale",
+    "buyMonthly": "Acquista mensile",
+    "perks": [
+      [
+        "Badge Supporter",
+        "Un cuore nella barra laterale, nel colore della stagione."
+      ],
+      [
+        "Versioni in anteprima",
+        "Ogni nuova versione un po’ prima di tutti."
+      ],
+      [
+        "Sincronizzazione tra computer",
+        "La tua libreria su ogni computer che usi."
+      ],
+      [
+        "Backup automatici in una cartella",
+        "In quella che scegli, come Dropbox o Google Drive."
+      ]
+    ],
+    "now": "Già ora",
+    "from": "Dal {date}",
+    "notes": [
+      "Paddle incassa il pagamento",
+      "Annulli quando vuoi",
+      "Rimborso completo entro 14 giorni dal primo pagamento"
+    ],
+    "roadmapTitle": "Cosa arriva",
+    "roadmapLead": "Il piano per i prossimi due mesi.",
+    "delivered": "Rilasciato, gratis",
+    "roadmap": [
+      [
+        "Assistenti IA",
+        "Claude e altri assistenti cercano e salvano i tuoi link."
+      ],
+      [
+        "App per macOS",
+        "Koona Pin su Mac, con lo stesso pulsante nel browser."
+      ],
+      [
+        "Sincronizzazione",
+        "La tua libreria su ogni computer che usi. Per i Supporter."
+      ],
+      [
+        "App per iOS",
+        "La tua libreria su iPhone e iPad."
+      ],
+      [
+        "App per Android",
+        "La tua libreria su telefoni e tablet Android."
+      ]
+    ],
+    "firstTitle": "I Supporter ricevono ogni versione per primi",
+    "firstText": "Le nuove versioni arrivano a loro un po’ prima che a tutti. Le date sono il nostro piano, non una promessa."
+  },
   footer: { privacy: "Privacy", licenses: "Licenze", support: "Assistenza", changelog: "Modifiche", pricing: "Prezzi", terms: "Termini", refunds: "Rimborsi" },
   back: "Koona Pin",
   privacyPage: {

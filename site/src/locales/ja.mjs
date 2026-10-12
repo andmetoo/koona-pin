@@ -59,6 +59,69 @@ export default {
     ["Linux、64 ビット", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux"],
     ["Chrome または Edge 120+、Firefox 140+", "最新版または ESR 140"],
   ],
+  supporter: {
+    "title": "Koona Pin を応援する",
+    "lead": "Koona Pin は無料で、今できることはすべて無料のままです。Supporter はこれからの開発を支え、新しいバージョンをいち早く受け取れます。",
+    "yearly": "年額",
+    "monthly": "月額",
+    "freeMonths": "2 か月分お得",
+    "yearRest": "または年 20 €",
+    "monthRest": "または月 2 €",
+    "buyYearly": "年額で購入",
+    "buyMonthly": "月額で購入",
+    "perks": [
+      [
+        "Supporter バッジ",
+        "サイドバーに季節の色のハート。"
+      ],
+      [
+        "先行ビルド",
+        "新しいバージョンを誰よりも少し早く。"
+      ],
+      [
+        "コンピューター間の同期",
+        "使っているすべてのコンピューターにライブラリを。"
+      ],
+      [
+        "フォルダーへの自動バックアップ",
+        "Dropbox や Google Drive など、選んだフォルダーへ。"
+      ]
+    ],
+    "now": "提供中",
+    "from": "{date} から",
+    "notes": [
+      "支払いは Paddle が受け付けます",
+      "いつでも解約できます",
+      "初回の支払いから 14 日以内なら全額返金"
+    ],
+    "roadmapTitle": "これから",
+    "roadmapLead": "今後 2 か月の計画です。",
+    "delivered": "リリース済み・無料",
+    "roadmap": [
+      [
+        "AI アシスタント",
+        "Claude などのアシスタントがリンクを検索・保存できます。"
+      ],
+      [
+        "macOS アプリ",
+        "Mac でも Koona Pin。ブラウザーのボタンも同じです。"
+      ],
+      [
+        "同期",
+        "使っているすべてのコンピューターにライブラリを。Supporter 向け。"
+      ],
+      [
+        "iOS アプリ",
+        "iPhone と iPad でライブラリを。"
+      ],
+      [
+        "Android アプリ",
+        "Android のスマートフォンとタブレットでライブラリを。"
+      ]
+    ],
+    "firstTitle": "Supporter はすべてのリリースをいち早く",
+    "firstText": "新しいバージョンは誰よりも少し早く届きます。日付は計画であり、約束ではありません。"
+  },
   footer: { privacy: "プライバシー", licenses: "ライセンス", support: "サポート", changelog: "変更履歴", pricing: "料金", terms: "利用規約", refunds: "返金" },
   back: "Koona Pin",
   privacyPage: {
