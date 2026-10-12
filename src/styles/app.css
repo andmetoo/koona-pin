@@ -93,6 +93,44 @@
   --np-on-amber-soft: #f2d9a6;
 }
 
+/* The Supporter heart (NP-066, sheet 45) takes the colour of the season, set on <html> as
+   `data-season` by src/services/season.ts (the northern calendar): winter glacier blue, spring
+   green, summer Kaweco Summer Purple, autumn rust. Lighter on the dark theme. */
+:root,
+:root[data-season="winter"] {
+  --np-season: #4a8db7;
+  --np-season-soft: #e1eef5;
+}
+:root[data-season="spring"] {
+  --np-season: #5e9e3e;
+  --np-season-soft: #e5f1dc;
+}
+:root[data-season="summer"] {
+  --np-season: #7e4a93;
+  --np-season-soft: #efe5f3;
+}
+:root[data-season="autumn"] {
+  --np-season: #c8642b;
+  --np-season-soft: #f7e3d6;
+}
+[data-theme="dark"],
+[data-theme="dark"][data-season="winter"] {
+  --np-season: #8ec3e0;
+  --np-season-soft: #22313a;
+}
+[data-theme="dark"][data-season="spring"] {
+  --np-season: #9ccf7c;
+  --np-season-soft: #25321f;
+}
+[data-theme="dark"][data-season="summer"] {
+  --np-season: #c39ad6;
+  --np-season-soft: #33273a;
+}
+[data-theme="dark"][data-season="autumn"] {
+  --np-season: #e8996a;
+  --np-season-soft: #3a2a20;
+}
+
 /* Inter has no Chinese, Japanese or Korean characters: after it, the system
    font of the interface's language, so a character shared by the three takes
    that language's form, not the one the browser happens to pick (NP-090).
@@ -155,6 +193,8 @@
   --color-amber: var(--np-amber);
   --color-amber-soft: var(--np-amber-soft);
   --color-on-amber-soft: var(--np-on-amber-soft);
+  --color-season: var(--np-season);
+  --color-season-soft: var(--np-season-soft);
 }
 
 @theme {

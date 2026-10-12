@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "In Koona Pin gespeichert", inbox: "Zum Eingang hinzugefügt", backup: "Sicherung", today: "Heute, 09:00", yesterday: "Gestern", mb: "MB" },
   privacyTitle: "Ihre Links bleiben bei Ihnen",
-  privacyBody: "Koona Pin speichert Ihre Bibliothek auf Ihrem Computer: Kein Server sieht je Ihre Links. Nur Feedback, das Sie selbst senden, erreicht den Entwickler.",
+  privacyBody: "Koona Pin speichert Ihre Bibliothek auf Ihrem Computer: Kein Server sieht je Ihre Links. Nur Feedback, das Sie selbst senden, und die E-Mail-Adresse eines Supporter-Kaufs erreichen den Entwickler.",
   privacyFacts: [
     "Die Erweiterung liest nur Adresse und Titel des Tabs, den Sie speichern.",
     "Die App sendet keine Analysedaten, Telemetrie oder Absturzberichte.",
@@ -59,11 +59,78 @@ export default {
     ["Linux, 64 Bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome oder Edge 120+, Firefox 140+", "Aktuelle Version oder ESR 140"],
   ],
-  footer: { privacy: "Datenschutz", licenses: "Lizenzen", support: "Support", changelog: "Änderungen" },
+  supporter: {
+    "title": "Unterstützen Sie Koona Pin",
+    "lead": "Koona Pin ist kostenlos, und alles, was es heute kann, bleibt kostenlos. Supporter finanzieren, was als Nächstes kommt, und bekommen jede neue Version zuerst.",
+    "yearly": "Jährlich",
+    "monthly": "Monatlich",
+    "freeMonths": "2 Monate gratis",
+    "yearRest": "oder 20 € im Jahr",
+    "monthRest": "oder 2 € im Monat",
+    "buyYearly": "Jährlich kaufen",
+    "buyMonthly": "Monatlich kaufen",
+    "fiveYears": "5 Jahre",
+    "saveHalf": "50 % sparen",
+    "fiveYearsRest": "oder 50 € einmalig",
+    "buyFiveYears": "5 Jahre kaufen",
+    "perks": [
+      [
+        "Supporter-Abzeichen",
+        "Ein Herz in der Seitenleiste, in der Farbe der Jahreszeit."
+      ],
+      [
+        "Frühe Versionen",
+        "Jede neue Version etwas früher als alle anderen."
+      ],
+      [
+        "Synchronisierung zwischen Computern",
+        "Ihre Bibliothek auf jedem Computer, den Sie nutzen."
+      ],
+      [
+        "Automatische Sicherungen in einen Ordner",
+        "In einen Ordner Ihrer Wahl, etwa Dropbox oder Google Drive."
+      ]
+    ],
+    "now": "Jetzt",
+    "from": "Ab {date}",
+    "notes": [
+      "Paddle nimmt die Zahlung entgegen",
+      "Jederzeit kündbar",
+      "Volle Erstattung innerhalb von 14 Tagen nach der ersten Zahlung"
+    ],
+    "roadmapTitle": "Was als Nächstes kommt",
+    "roadmapLead": "Der Plan für die nächsten zwei Monate.",
+    "delivered": "Erschienen, kostenlos",
+    "roadmap": [
+      [
+        "KI-Assistenten",
+        "Claude und andere Assistenten suchen und speichern Ihre Links."
+      ],
+      [
+        "App für macOS",
+        "Koona Pin auf dem Mac, mit derselben Schaltfläche im Browser."
+      ],
+      [
+        "Synchronisierung",
+        "Ihre Bibliothek auf jedem Computer, den Sie nutzen. Für Supporter."
+      ],
+      [
+        "App für iOS",
+        "Ihre Bibliothek auf iPhone und iPad."
+      ],
+      [
+        "App für Android",
+        "Ihre Bibliothek auf Android-Smartphones und -Tablets."
+      ]
+    ],
+    "firstTitle": "Supporter bekommen jede Version zuerst",
+    "firstText": "Neue Versionen erreichen sie etwas früher als alle anderen. Die Daten sind unser Plan, kein Versprechen."
+  },
+  footer: { privacy: "Datenschutz", licenses: "Lizenzen", support: "Support", changelog: "Änderungen", pricing: "Preise", terms: "AGB", refunds: "Erstattung" },
   back: "Koona Pin",
   privacyPage: {
     title: "Datenschutzerklärung",
-    updated: "Zuletzt aktualisiert am 9. Oktober 2026",
+    updated: "Zuletzt aktualisiert am 12. Oktober 2026",
     section: "Deutsch",
     note: "Dies ist eine Übersetzung zur besseren Verständlichkeit. Weicht sie vom englischen Text ab, gilt die englische Fassung.",
     original: "Auf Englisch lesen",
@@ -72,7 +139,7 @@ export default {
     title: "Lizenzen",
     lead: "Woraus diese Website besteht und unter welchen Bedingungen.",
     items: [
-      ["Koona Pin", "Code der kostenlosen Version: GPL-3.0-only. Als Pro gekennzeichneter Code hat eine separate kommerzielle Lizenz. Für Name, Maskottchen und Logo gelten eigene Nutzungsregeln; siehe Lizenzübersicht.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "Code der kostenlosen Version: GPL-3.0-only. Als kommerziell gekennzeichneter Code hat eine separate Lizenz. Für Name, Maskottchen und Logo gelten eigene Nutzungsregeln; siehe Lizenzübersicht.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Schrift des Texts. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Der Schriftzug, als Pfade ausgeliefert. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Symbole. ISC License.", "https://lucide.dev/license"],

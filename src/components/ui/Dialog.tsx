@@ -19,6 +19,7 @@ export function Dialog({
   drawer = false,
   width = 440,
   locked = false,
+  badge,
 }: {
   title: string;
   onClose: () => void;
@@ -27,6 +28,8 @@ export function Dialog({
   width?: number;
   /** While work that cannot stop runs: Escape, the backdrop and «×» do nothing (frame 28). */
   locked?: boolean;
+  /** Next to the title: «Test payments» of the Supporter dialog (sheet 45). */
+  badge?: ReactNode;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -53,7 +56,7 @@ export function Dialog({
       className={
         drawer
           ? "fixed inset-y-0 right-0 left-auto m-0 h-full max-h-full w-[380px] max-w-full animate-appear border-l border-border bg-card p-0 text-ink shadow-menu"
-          : "m-auto max-w-[calc(100vw-32px)] animate-appear rounded-2xl border border-border bg-card p-0 text-ink shadow-menu"
+          : "m-auto max-w-[calc(100vw-32px)] animate-appear flex-col rounded-2xl border border-border bg-card p-0 text-ink shadow-menu open:flex"
       }
       onCancel={(e) => {
         e.preventDefault();
@@ -65,11 +68,15 @@ export function Dialog({
       }}
     >
       {open && (
-        <div className={drawer ? "min-h-full p-6" : "p-5"}>
+        // A column: the states of a dialog (StatePanels) give way to a low window, the rest scrolls.
+        <div className={drawer ? "min-h-full p-6" : "flex min-h-0 flex-col p-5"}>
           <header className="mb-4 flex items-center justify-between gap-3">
-            <h2 id={titleId} className="text-lg font-semibold">
-              {title}
-            </h2>
+            <span className="flex min-w-0 items-center gap-2">
+              <h2 id={titleId} className="text-lg font-semibold">
+                {title}
+              </h2>
+              {badge}
+            </span>
             <span className="flex items-center gap-1.5">
               <IconButton label={t("common.close")} onClick={onClose} disabled={locked}>
                 <Icon icon={X} />

@@ -1,0 +1,48 @@
+---
+// /terms/ (NP-066, English only): the website and the Supporter subscription. The software licenses
+// (GPL, LICENSE-COMMERCIAL.md) govern the code; this page agrees with them and links to them.
+import TextPage from "../../layouts/TextPage.astro";
+import { BASE, COMMERCIAL_LICENSE, content, FEEDBACK_ENDPOINT, LICENSING, SUPPORT_EMAIL } from "../../content.mjs";
+---
+<TextPage t={content.en} page="terms/" title="Terms of service" description="The terms for the koona.app website and the Koona Pin Supporter subscription." current="terms" english>
+<h1>Terms of service</h1>
+<p class="updated">Last updated 12 October 2026</p>
+<p class="lead">These terms cover the koona.app website and Supporter, the optional subscription for Koona Pin. Koona Pin is made by RADIK ILIN PR BEOGRAD, a sole proprietorship registered in Serbia (“we”, “us”).</p>
+
+<h2>The app</h2>
+<p>Koona Pin is free to download and use. Its community code is licensed under GPL-3.0, code marked as commercial under the <a href={COMMERCIAL_LICENSE}>Koona Pin Commercial License</a>, and the name and logo have their own rules; see the <a href={LICENSING}>licensing overview</a>. Those licenses govern the software, and nothing here takes away a right they give you.</p>
+
+<h2>Supporter</h2>
+<p>Supporter is a subscription billed monthly ($2 or €2) or yearly ($20 or €20), or paid once for five years ($50 or €50), as shown on the <a href={`${BASE}/pricing/`}>pricing page</a>. It includes sync between your computers, automatic backups to a folder you choose, a Supporter badge and early builds. Features marked as coming arrive in later updates; we don't promise a date. One subscription is for one person on the computers they use.</p>
+
+<h2>Payment</h2>
+<p>Our order process is conducted by our online reseller Paddle.com. Paddle is the merchant of record for all our orders: it takes the payment, handles taxes, issues receipts and answers questions about billing and returns. The <a href="https://www.paddle.com/legal/buyer-terms" rel="noopener">Paddle Buyer Terms</a> apply to the purchase itself. The checkout shows the price, taxes and renewal before you pay.</p>
+
+<h2>Your account</h2>
+<p>When you pay, we create an account for the email you used at checkout. It tells Koona Pin your plan, and you sign in on another computer with a 6-digit code sent to that email; there is no password. Keep access to that email. Your library is not part of the account: it stays on your computer.</p>
+
+<h2>Renewal and cancellation</h2>
+<p>Supporter renews at the end of each period until you cancel it. Cancel any time in the app (Supporter → Manage) or from the link in Paddle's receipt email. Supporter then stays until the end of the period you paid for, and nothing more is charged. If the price changes, we tell you before it applies, and the new price starts at your next renewal.</p>
+<p>Supporter for five years is paid once and does not renew: there is nothing to cancel, and it ends five years after the payment. If you buy it again, the new five years start when the current ones end. If you buy it while a subscription is running, the five years start when the period you paid for ends, and the subscription stops renewing then: you lose no day and never pay twice.</p>
+
+<h2>If Supporter ends</h2>
+<p>If we stop offering Supporter before your paid period ends, you keep what you paid for. If we replace it with another plan, your Supporter stays until the end of your period. If Supporter or Koona Pin itself ends, we release a final update in which Supporter features work without our server, and we publish the code of the server parts, such as sync, so anyone can run them.</p>
+
+<h2>Refunds</h2>
+<p>You can get a full refund within 14 days of your first payment, or of a payment for five years; renewals are not refunded. See the <a href={`${BASE}/refunds/`}>refund policy</a>.</p>
+
+<h2>Fair use</h2>
+<p>Don't share your account with other people, and don't get around the checks that tell Koona Pin your plan. If you break these terms, we may end Supporter after telling you, as the commercial license describes; we may suspend it at once to stop fraud or abuse.</p>
+
+<h2>If something goes wrong</h2>
+<p>To the extent the law allows, Koona Pin and this website are provided as they are, without warranties, and we are not liable for indirect losses or lost data. Our total liability is limited to what you paid for Supporter in the 12 months before the claim. Your mandatory rights as a consumer are not affected.</p>
+
+<h2>Changes to these terms</h2>
+<p>We may update these terms. A change never alters a period you have already paid for; important changes are announced in the app or by email before they apply.</p>
+
+<h2>Law</h2>
+<p>These terms are governed by the law of the Republic of Serbia, and the courts in Belgrade decide disputes. If you are a consumer, you keep the protection of the law where you live and may also go to court there.</p>
+
+<h2>Contact</h2>
+<p>Write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>{FEEDBACK_ENDPOINT && <Fragment> or use <a href={`${BASE}/feedback`}>the feedback form</a></Fragment>}. For payments, receipts and refunds you can also go straight to Paddle at <a href="https://paddle.net/" rel="noopener">paddle.net</a>.</p>
+</TextPage>

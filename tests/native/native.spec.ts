@@ -1,14 +1,41 @@
 import { test, expect, chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import path from "node:path";
 import net from "node:net";
 import { assertNoOtherApp, capture, hello, hostMessage, pipeReady, testPipe } from "../../scripts/lib/native-host.mjs";
 
 // The test apps are single-instance too: a running Koona Pin would take them over.
 test.beforeAll(() => assertNoOtherApp());
+
+/** The schema the app writes, from its migrations: a library it opened is at this version. */
+const SCHEMA_VERSION = Number(/SCHEMA_VERSION: i64 = (\d+)/.exec(readFileSync("src-tauri/src/migrations.rs", "utf8"))![1]);
+
+/**
+ * A new library opens with the starter links in the inbox (NP-117). The tests are written for an empty
+ * library with its first collections, so the links go to the trash and out of it through the app's own
+ * commands; the window follows the library and shows it empty. A library opened again has no starter
+ * links left, and nothing is removed.
+ */
+async function emptyLibrary(page: import("@playwright/test").Page) {
+  // The first collections and the starter links are made in one transaction.
+  await expect
+    .poll(() => page.evaluate(() => window.__TAURI_INTERNALS__.invoke("get_collections")).then((c: unknown[]) => c.length).catch(() => 0), {
+      timeout: 15000,
+    })
+    .toBeGreaterThan(0);
+  await page.evaluate(async () => {
+    const invoke = window.__TAURI_INTERNALS__.invoke;
+    const ids: number[] = await invoke("get_starter_links");
+    for (const id of ids) await invoke("trash_bookmark", { id });
+    if (ids.length > 0) await invoke("empty_trash");
+  });
+  await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+}
 
 test("real WebView2, SQLite, capture through the host, close-to-tray and single instance", async ({
   request,
@@ -55,9 +82,7 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     page.on("pageerror", (error) =>
       console.error("WebView page error:", error.message),
     );
-    await expect(
-      page.getByRole("heading", { name: "Your bookmarks will live here" }),
-    ).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     // A new library speaks English: its first collections are named by the interface,
     // listed by name (NP-085).
     await expect
@@ -236,6 +261,7 @@ test("a capture pipe held by another program is reported while the library stays
     await expect.poll(() => pipeReady(name)).toBe(true);
     // The library worked all along.
     await page.getByRole("button", { name: "All bookmarks" }).click();
+    await emptyLibrary(page);
     await page.getByRole("button", { name: "Add link", exact: true }).first().click();
     await page.getByLabel("Link", { exact: true }).fill("https://example.invalid/while-held");
     await page.getByRole("button", { name: "Save link" }).click();
@@ -362,7 +388,7 @@ test("a start in the tray: the hidden window still gives the tray its words (NP-
   const russian = { open: "Открыть Koona Pin", quit: "Выйти", tooltip: "Koona Pin — библиотека ссылок" };
   let app = await launch(request, env);
   try {
-    await expect(app.page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(app.page);
     await app.page.getByRole("button", { name: "Settings", exact: true }).click();
     await app.page.getByLabel("Language", { exact: true }).selectOption("ru");
     await app.page.evaluate(() => window.__TAURI_INTERNALS__.invoke("quit_app"));
@@ -399,7 +425,8 @@ test("updater: no connection, the offer, download and cancel, a signature for an
   const data = await folder("updater");
   const keys = path.join(data, "keys");
   await mkdir(keys, { recursive: true });
-  const tauri = path.resolve("node_modules/@tauri-apps/cli/tauri.js");
+  // Resolved like an import: a git worktree has no node_modules of its own and finds the checkout's.
+  const tauri = createRequire(import.meta.url).resolve("@tauri-apps/cli/tauri.js");
   const run = (...args: string[]) => {
     const result = spawnSync(process.execPath, [tauri, ...args], { encoding: "utf8" });
     if (result.status !== 0) throw new Error(`tauri ${args.join(" ")}: ${result.stderr}`);
@@ -446,7 +473,7 @@ test("updater: no connection, the offer, download and cancel, a signature for an
   const app = await launch(request, env);
   try {
     const { page } = app;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     const updates = page.locator("section[data-update]");
     // The check 10 s after the start reaches nothing: quiet, Settings say so.
@@ -538,9 +565,7 @@ test("library of an earlier build is moved aside and a new one is created", asyn
   db.close();
   const app = await launch(request, isolated(data));
   try {
-    await expect(
-      app.page.getByRole("heading", { name: "Your bookmarks will live here" }),
-    ).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(app.page);
     await expect(app.page.getByRole("status")).toContainText("koonapin.old-");
   } finally {
     await app.browser.close().catch(() => {});
@@ -561,9 +586,7 @@ test("damaged library is detected in the background and not written", async ({
   // A real library first, then enough rows to damage pages in the middle.
   const first = await launch(request, isolated(data));
   try {
-    await expect(
-      first.page.getByRole("heading", { name: "Your bookmarks will live here" }),
-    ).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(first.page);
     await first.page.evaluate(() =>
       window.__TAURI_INTERNALS__.invoke("quit_app"),
     ).catch(() => {});
@@ -619,9 +642,7 @@ test("import of 10 000 links keeps the window responsive", async ({ request }) =
   const data = await folder("import-10k");
   const app = await launch(request, isolated(data));
   try {
-    await expect(
-      app.page.getByRole("heading", { name: "Your bookmarks will live here" }),
-    ).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(app.page);
     const result = await app.page.evaluate(async () => {
       let html = "<DL>";
       for (let i = 0; i < 10000; i++)
@@ -667,7 +688,7 @@ test("import of the three browsers' files: folders into collections in SQLite, t
   const app = await launch(request, isolated(data));
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     const files = Object.fromEntries(
       await Promise.all(
         ["chrome", "edge", "firefox"].map(async (name) => [name, await readFile(path.join("tests/fixtures/bookmarks", `${name}.html`), "utf8")]),
@@ -703,7 +724,7 @@ test("restore from JSON through IPC: a refused copy changes nothing, a replace l
   const app = await launch(request, isolated(data));
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     const chrome = await readFile(path.join("tests/fixtures/bookmarks", "chrome.html"), "utf8");
     const result = await page.evaluate(async (chrome) => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
@@ -753,7 +774,7 @@ test("backup: copy, changes, restore in place with capture working after it; a b
   const app = await launch(request, env);
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await captureOpen(env);
     const save = (id: string, url: string) => hostMessage(capture(id, url, id, "chrome"), { env: hostEnv });
     expect((await save("before-copy", "https://example.invalid/before-copy")).reply).toMatchObject({ ok: true, outcome: "created" });
@@ -838,7 +859,7 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
   const app = await launch(request, env);
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await captureOpen(env);
     for (const [id, url] of [
       ["one", "https://example.invalid/page"],
@@ -888,7 +909,7 @@ test("duplicates: captured twins form a group in SQLite, merge is one command, C
   // As in the link check: the library is read once the killed app has exited.
   await app.exited;
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 7 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
   expect(db.prepare("SELECT url_key, count(*) AS n FROM bookmarks GROUP BY url_key ORDER BY n DESC").all()).toEqual([
     { url_key: "example.invalid/page", n: 3 },
     { url_key: "example.invalid/page?ref=x", n: 1 },
@@ -911,7 +932,7 @@ test("link check: runs in the background through IPC, a missing site is never br
   const app = await launch(request, env);
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await captureOpen(env);
     // `.invalid` never resolves (RFC 2606): three sites that are not found.
     for (const [id, url] of [
@@ -961,7 +982,7 @@ test("link check: runs in the background through IPC, a missing site is never br
   await app.exited;
   expect(hits).toBe(0);
   const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 7 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: SCHEMA_VERSION });
   expect(db.prepare("SELECT outcome, reason, count(*) AS n FROM link_checks GROUP BY outcome, reason ORDER BY outcome").all()).toEqual([
     { outcome: "failed", reason: "no_site", n: 3 },
     { outcome: "local", reason: null, n: 1 },
@@ -974,7 +995,7 @@ test("Ctrl A selects 10 000 bookmarks from SQLite without loading their pages", 
   const app = await launch(request, isolated(data));
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await page.evaluate(async () => {
       let html = "<DL>";
       for (let i = 0; i < 10000; i++) html += `<DT><A HREF="https://example.invalid/${i}">Link ${i}</A>`;
@@ -1017,7 +1038,7 @@ test("bulk actions on 1 000 bookmarks: one transaction in SQLite, the window kee
   const app = await launch(request, isolated(data));
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       let html = "<DL>";
@@ -1147,9 +1168,7 @@ test("foreign file: retry after moving it away opens a new library", async ({
     const { rename } = await import("node:fs/promises");
     await rename(file, path.join(data, "notes-of-another-app.db"));
     await app.page.keyboard.press("Enter");
-    await expect(
-      app.page.getByRole("heading", { name: "Your bookmarks will live here" }),
-    ).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(app.page);
     await expect.poll(() => captureOpen(env)).toBe(true);
   } finally {
     await app.browser.close().catch(() => {});
@@ -1165,9 +1184,7 @@ test("10 000 bookmarks scroll smoothly in the grid and the list", { tag: "@perf"
   const data = await folder("scroll-10k");
   const app = await launch(request, isolated(data));
   try {
-    await expect(
-      app.page.getByRole("heading", { name: "Your bookmarks will live here" }),
-    ).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(app.page);
     await app.page.evaluate(async () => {
       let html = "<DL>";
       for (let i = 0; i < 10000; i++)
@@ -1223,7 +1240,7 @@ test("find and edit in the new interface: search, site, editor, collection remov
   const app = await launch(request, isolated(data));
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       const shelf = await invoke("create_collection", { name: "Shelf", color: null, icon: null });
@@ -1291,7 +1308,11 @@ test("trash survives a restart, empties itself at start, deletes for good on req
   let app = await launch(request, env);
   try {
     let page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
+    // The starter links removed for the empty library left tombstones of their own.
+    const before = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
+    const { n: starterTombstones } = before.prepare("SELECT count(*) AS n FROM tombstones WHERE kind = 'bookmark'").get() as { n: number };
+    before.close();
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       const shelf = await invoke("create_collection", { name: "Shelf", color: null, icon: null });
@@ -1359,7 +1380,7 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     const tombstones = db.prepare("SELECT count(*) AS n FROM tombstones WHERE kind = 'bookmark'").get();
     db.close();
     expect(back).toEqual({ deleted_at: null, notes: "Note", is_favorite: 1, collection: "Shelf", tags: "tag" });
-    expect(tombstones).toEqual({ n: 2 });
+    expect(tombstones).toEqual({ n: starterTombstones + 2 });
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
@@ -1371,7 +1392,7 @@ test("sort: titles by the keys in SQLite in the interface's language, the collec
   let app = await launch(request, env);
   try {
     let page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       for (const [title, site] of [
@@ -1453,7 +1474,7 @@ test("undo: Ctrl Z puts a decision back in SQLite, a later save wins, a restart 
   let app = await launch(request, env);
   try {
     let page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       await invoke("add_bookmark", { url: "https://undo.invalid/1", title: "Decision", collectionId: null, tags: ["tag"] });
@@ -1520,7 +1541,7 @@ test("triage: decisions reach SQLite at once, a restart midway loses nothing", a
   let app = await launch(request, env);
   try {
     let page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       for (const n of [1, 2, 3])
@@ -1582,7 +1603,7 @@ test("triage suggests a collection by the site from SQLite and changes nothing u
   const app = await launch(request, isolated(data));
   try {
     const page = app.page;
-    await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(page);
     const id = await page.evaluate(async () => {
       const invoke = window.__TAURI_INTERNALS__.invoke;
       const collections: { id: number; name: string }[] = await invoke("get_collections");
@@ -1620,7 +1641,7 @@ test("security boundaries: CSP, narrow permissions, no HTTP port", async ({ requ
     });
     // The first load finishes before the reload: a reload during it can leave the page without its interface.
     const empty = app.page.getByRole("heading", { name: "Your bookmarks will live here" });
-    await expect(empty).toBeVisible({ timeout: 15000 });
+    await emptyLibrary(app.page);
     await app.page.reload();
     await expect(empty).toBeVisible({ timeout: 15000 });
     // The interface itself breaks no rule of its policy.

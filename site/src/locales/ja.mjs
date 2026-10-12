@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Koona Pin に保存しました", inbox: "インボックスに追加しました", backup: "バックアップ", today: "今日 9:00", yesterday: "昨日", mb: "MB" },
   privacyTitle: "リンクはあなたの手元に",
-  privacyBody: "Koona Pin はライブラリをあなたのコンピューターに保存します。あなたのリンクがサーバーに渡ることはありません。開発者に届くのは、あなたが自分で送ったフィードバックだけです。",
+  privacyBody: "Koona Pin はライブラリをあなたのコンピューターに保存します。あなたのリンクがサーバーに渡ることはありません。開発者に届くのは、あなたが自分で送ったフィードバックと、Supporter 購入時のメールアドレスだけです。",
   privacyFacts: [
     "拡張機能が読み取るのは、保存するタブのアドレスとタイトルだけです。",
     "アプリは分析データ、テレメトリ、クラッシュ レポートを送信しません。",
@@ -59,11 +59,78 @@ export default {
     ["Linux、64 ビット", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux"],
     ["Chrome または Edge 120+、Firefox 140+", "最新版または ESR 140"],
   ],
-  footer: { privacy: "プライバシー", licenses: "ライセンス", support: "サポート", changelog: "変更履歴" },
+  supporter: {
+    "title": "Koona Pin を応援する",
+    "lead": "Koona Pin は無料で、今できることはすべて無料のままです。Supporter はこれからの開発を支え、新しいバージョンをいち早く受け取れます。",
+    "yearly": "年額",
+    "monthly": "月額",
+    "freeMonths": "2 か月分お得",
+    "yearRest": "または年 20 €",
+    "monthRest": "または月 2 €",
+    "buyYearly": "年額で購入",
+    "buyMonthly": "月額で購入",
+    "fiveYears": "5 年",
+    "saveHalf": "50% お得",
+    "fiveYearsRest": "または 50 €（1 回のみ）",
+    "buyFiveYears": "5 年分を購入",
+    "perks": [
+      [
+        "Supporter バッジ",
+        "サイドバーに季節の色のハート。"
+      ],
+      [
+        "先行ビルド",
+        "新しいバージョンを誰よりも少し早く。"
+      ],
+      [
+        "コンピューター間の同期",
+        "使っているすべてのコンピューターにライブラリを。"
+      ],
+      [
+        "フォルダーへの自動バックアップ",
+        "Dropbox や Google Drive など、選んだフォルダーへ。"
+      ]
+    ],
+    "now": "提供中",
+    "from": "{date} から",
+    "notes": [
+      "支払いは Paddle が受け付けます",
+      "いつでも解約できます",
+      "初回の支払いから 14 日以内なら全額返金"
+    ],
+    "roadmapTitle": "これから",
+    "roadmapLead": "今後 2 か月の計画です。",
+    "delivered": "リリース済み・無料",
+    "roadmap": [
+      [
+        "AI アシスタント",
+        "Claude などのアシスタントがリンクを検索・保存できます。"
+      ],
+      [
+        "macOS アプリ",
+        "Mac でも Koona Pin。ブラウザーのボタンも同じです。"
+      ],
+      [
+        "同期",
+        "使っているすべてのコンピューターにライブラリを。Supporter 向け。"
+      ],
+      [
+        "iOS アプリ",
+        "iPhone と iPad でライブラリを。"
+      ],
+      [
+        "Android アプリ",
+        "Android のスマートフォンとタブレットでライブラリを。"
+      ]
+    ],
+    "firstTitle": "Supporter はすべてのリリースをいち早く",
+    "firstText": "新しいバージョンは誰よりも少し早く届きます。日付は計画であり、約束ではありません。"
+  },
+  footer: { privacy: "プライバシー", licenses: "ライセンス", support: "サポート", changelog: "変更履歴", pricing: "料金", terms: "利用規約", refunds: "返金" },
   back: "Koona Pin",
   privacyPage: {
     title: "プライバシー ポリシー",
-    updated: "最終更新日：2026 年 10 月 9 日",
+    updated: "最終更新日：2026 年 10 月 12 日",
     section: "日本語",
     note: "これは参考のための翻訳です。英語版と内容が異なる場合は、英語版が優先されます。",
     original: "英語版を読む",
@@ -72,7 +139,7 @@ export default {
     title: "ライセンス",
     lead: "このサイトを構成するものと、その利用条件。",
     items: [
-      ["Koona Pin", "無料版のコードは GPL-3.0-only です。Pro と明示されたコードには別の商用ライセンスが適用されます。名称、マスコット、ロゴには個別の使用条件があります。ライセンスの概要をご確認ください。", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "無料版のコードは GPL-3.0-only です。商用と明示されたコードには別のライセンスが適用されます。名称、マスコット、ロゴには個別の使用条件があります。ライセンスの概要をご確認ください。", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "本文の書体。SIL Open Font License 1.1。", "https://github.com/rsms/inter"],
       ["Nunito", "ロゴタイプ。アウトライン化して配布。SIL Open Font License 1.1。", "https://github.com/googlefonts/nunito"],
       ["Lucide", "アイコン。ISC License。", "https://lucide.dev/license"],

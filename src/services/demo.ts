@@ -44,6 +44,14 @@ import {
   StarterLink,
   Undo,
   UpdateStatus,
+  McpAccess,
+  McpSetup,
+  McpStatus,
+  SupporterStatus,
+  SupporterPrices,
+  PlanInterval,
+  CheckoutState,
+  BackupFolder,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
@@ -83,6 +91,9 @@ function storedDesktop(): Desktop | null {
  * is up to date, so screenshots and visual tests stay as they were.
  */
 export const DEMO_UPDATE_KEY = "koonapin.demo.update";
+/** AI assistants (NP-091): off, as in a new library; no assistant ever asks the preview. */
+let demoMcp: McpStatus = { access: "off", mode: "read", last_client: null, last_at: null };
+const mcpListeners = new Set<(status: McpStatus) => void>();
 let demoUpdate: UpdateStatus | null = null;
 const updateListeners = new Set<(status: UpdateStatus) => void>();
 function storedUpdate(): string | null {
@@ -112,6 +123,85 @@ function setDemoUpdate(status: UpdateStatus) {
   updateListeners.forEach((fn) => fn(status));
 }
 let demoDownload: number | null = null;
+
+/**
+ * Supporter (NP-066, sheet 45): `free` shows the row and the dialog, whose test payment is seen
+ * after two polls; `existing` pays with the email of an account that existed before, so the payment
+ * asks for the code; `background` has the app see the payment before the dialog does;
+ * `later_sign_in` and `later_paid` have it see an earlier purchase while the dialog shows the plans; `supporter`, `canceling`, `past_due`, `offline`,
+ * `five_years`, `five_years_renewing` are the states of the plan dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
+ */
+export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
+/** A demo switch from localStorage; none where storage cannot be read. */
+function demoSwitch(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+const storedSupporter = () => demoSwitch(DEMO_SUPPORTER_KEY);
+const supporterListeners = new Set<(status: SupporterStatus) => void>();
+const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
+function demoPlan(kind: string | null): SupporterStatus["plan"] {
+  // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
+  const plan = { also_renews: false };
+  if (kind === "supporter") return { ...plan, status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
+  if (kind === "canceling") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null, offline_until: inDays(30) };
+  if (kind === "past_due") return { ...plan, status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
+  if (kind === "offline") return { ...plan, status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
+  // Supporter · 5 years, paid once; `five_years_renewing` while a subscription still renews too.
+  const fiveYears = { status: "active", interval: "five_years", valid_until: inDays(1826), renews_at: null, offline_until: inDays(30) } as const;
+  if (kind === "five_years") return { ...fiveYears, also_renews: false };
+  if (kind === "five_years_renewing") return { ...fiveYears, also_renews: true };
+  return null;
+}
+let demoSupporter: SupporterStatus | null = null;
+function currentDemoSupporter(): SupporterStatus {
+  const kind = storedSupporter();
+  const plan = demoPlan(kind);
+  demoSupporter ??= {
+    available: kind !== null,
+    sandbox: true,
+    email: plan ? "anna@example.com" : null,
+    plan,
+    check_failed: kind === "offline",
+    plan_unknown: false,
+    awaiting_sign_in: false,
+  };
+  return demoSupporter;
+}
+function setDemoSupporter(status: SupporterStatus) {
+  demoSupporter = status;
+  supporterListeners.forEach((fn) => fn(status));
+}
+let demoPolls = 0;
+/** The plan of the last purchase started: five years paid once become that plan. */
+let demoBought: PlanInterval | null = null;
+
+/** Backups to a folder (commercial/backup_folder.rs): `koonapin.demo.backupFolder` = `unreachable` starts with a folder that cannot be reached. */
+const folderListeners = new Set<(folder: BackupFolder) => void>();
+let demoFolder: BackupFolder | null = null;
+function currentDemoFolder(): BackupFolder {
+  let kind: string | null = null;
+  try {
+    kind = localStorage.getItem("koonapin.demo.backupFolder");
+  } catch {
+    kind = null;
+  }
+  demoFolder ??=
+    kind === "unreachable"
+      ? { path: "D:\\Dropbox\\Koona Pin", last_copy_at: inDays(-3), unreachable: true }
+      : { path: null, last_copy_at: null, unreachable: false };
+  return demoFolder;
+}
+function setDemoFolder(folder: BackupFolder) {
+  demoFolder = folder;
+  folderListeners.forEach((fn) => fn(folder));
+}
+const noServer = () => {
+  if (storedSupporter() === "no_server") throw new CommandError("network", "No connection", "no_connection");
+};
 
 /** Capture speaks of the system the preview pretends to run on (NP-054). */
 const demoCapture = (): CaptureStatus => ({ ...demoCaptureStatus, system: storedDesktop()?.linux ? "linux" : "windows" });
@@ -1149,6 +1239,31 @@ export const demo = {
     }
   },
   async setTrayLabels(_labels: { open: string; quit: string; tooltip: string }) {},
+  async getMcpStatus(): Promise<McpStatus> {
+    return demoMcp;
+  },
+  async setMcpAccess(access: McpAccess): Promise<McpStatus> {
+    demoMcp = { ...demoMcp, access, mode: access === "off" ? demoMcp.mode : access };
+    for (const fn of mcpListeners) fn(demoMcp);
+    return demoMcp;
+  },
+  onMcpStatus(fn: (status: McpStatus) => void) {
+    mcpListeners.add(fn);
+    return () => void mcpListeners.delete(fn);
+  },
+  async getMcpSetup(): Promise<McpSetup> {
+    const server = String.raw`C:\Users\Anna\AppData\Local\Koona Pin\koonapin-mcp.exe`;
+    return {
+      server,
+      installed: true,
+      claude_code: `claude mcp add --scope user koona-pin -- "${server}"`,
+      codex: `codex mcp add koona-pin -- "${server}"`,
+      json: JSON.stringify({ mcpServers: { "koona-pin": { command: server } } }, null, 2),
+    };
+  },
+  async saveMcpb(): Promise<string | null> {
+    return "koona-pin.mcpb";
+  },
   async feedbackReport(language: string) {
     return ["Koona Pin demo", "Browser preview", `Language: ${language}`, `Capture: ${demoCaptureStatus.state}`, `Protocol: ${demoCaptureStatus.protocol}`].join("\n");
   },
@@ -1207,5 +1322,113 @@ export const demo = {
     window.clearInterval(demoDownload);
     demoDownload = null;
     setDemoUpdate(demoOffer());
+  },
+  async getSupporterStatus(): Promise<SupporterStatus> {
+    return currentDemoSupporter();
+  },
+  onSupporterStatus(fn: (status: SupporterStatus) => void) {
+    supporterListeners.add(fn);
+    return () => void supporterListeners.delete(fn);
+  },
+  async getSupporterPrices(): Promise<SupporterPrices> {
+    // The app's background sees an earlier purchase while the dialog shows the plans.
+    const later = storedSupporter();
+    if (later === "later_sign_in" || later === "later_paid") {
+      window.setTimeout(() => {
+        const now = currentDemoSupporter();
+        setDemoSupporter(
+          later === "later_sign_in"
+            ? { ...now, awaiting_sign_in: true }
+            : { ...now, email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false },
+        );
+      }, 800);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    noServer();
+    return {
+      month: { price_id: "pri_month", total: "$2.00", currency: "USD" },
+      year: { price_id: "pri_year", total: "$20.00", currency: "USD" },
+      // `koonapin.demo.fiveYears` = `off`: a server that does not sell them.
+      five_years: demoSwitch("koonapin.demo.fiveYears") === "off" ? null : { price_id: "pri_5y", total: "$50.00", currency: "USD" },
+    };
+  },
+  async startCheckout(interval: PlanInterval) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+    demoPolls = 0;
+    demoBought = interval;
+    return "https://koona.app/pin/checkout/?_ptxn=txn_demo";
+  },
+  async openCheckout(_url: string) {},
+  async pollCheckout(): Promise<CheckoutState> {
+    if (++demoPolls < 3) return "waiting";
+    if (storedSupporter() === "existing") {
+      // Kept until the code signs in, as billing.rs keeps awaiting_sign_in.
+      setDemoSupporter({ ...currentDemoSupporter(), awaiting_sign_in: true });
+      return "sign_in";
+    }
+    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan(demoBought === "five_years" ? "five_years" : "supporter"), check_failed: false });
+    // The app's own background check saw the payment first: the purchase is gone, the plan is here.
+    if (storedSupporter() === "background") return "none";
+    return "paid";
+  },
+  /**
+   * `koonapin.demo.serverPlan` is the plan the preview's server has now (a kind of `demoPlan`, or
+   * `none`), as after a change in the portal. Without it the server has nothing new; only «Try
+   * again» brings back a plan that could not be checked.
+   */
+  async refreshSupporter(automatic = false): Promise<SupporterStatus> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    noServer();
+    const status = currentDemoSupporter();
+    let server: string | null = null;
+    try {
+      server = localStorage.getItem("koonapin.demo.serverPlan");
+    } catch {
+      server = null;
+    }
+    if (server !== null) setDemoSupporter({ ...status, plan: demoPlan(server), check_failed: false, plan_unknown: false });
+    else if (status.check_failed && !automatic) setDemoSupporter({ ...status, plan: demoPlan("supporter"), check_failed: false, plan_unknown: false });
+    return currentDemoSupporter();
+  },
+  async openSupporterPortal() {},
+  async sendSignInCode(email: string) {
+    if (!emailShape(email.trim())) throw new CommandError("invalid_request", "The email address does not look right", "invalid_email");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    noServer();
+  },
+  /** Any code but 000000 works in the preview. */
+  async verifySignInCode(email: string, code: string): Promise<SupporterStatus> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    if (code.replace(/\D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
+    // `free@…`: an account whose plan ended or was cancelled; `unknown@…`: signed in, but the plan
+    // check failed (the server did not answer), until «Try again».
+    const address = email.trim().toLowerCase();
+    const unknown = address.startsWith("unknown@");
+    const plan = address.startsWith("free@") || unknown ? null : demoPlan("supporter");
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false });
+    return currentDemoSupporter();
+  },
+  async getBackupFolder(): Promise<BackupFolder> {
+    return currentDemoFolder();
+  },
+  onBackupFolder(fn: (folder: BackupFolder) => void) {
+    folderListeners.add(fn);
+    return () => void folderListeners.delete(fn);
+  },
+  /** The preview's «picker» chooses a Dropbox folder at once and makes the first copy there. */
+  async chooseBackupFolder(_title: string): Promise<BackupFolder> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    setDemoFolder({ path: "D:\\Dropbox\\Koona Pin", last_copy_at: new Date().toISOString(), unreachable: false });
+    return currentDemoFolder();
+  },
+  async stopBackupFolder(): Promise<BackupFolder> {
+    setDemoFolder({ path: null, last_copy_at: null, unreachable: false });
+    return currentDemoFolder();
+  },
+  async openBackupFolder() {},
+  async signOutSupporter(): Promise<SupporterStatus> {
+    setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, awaiting_sign_in: false });
+    return currentDemoSupporter();
   },
 };

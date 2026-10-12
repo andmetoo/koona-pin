@@ -1,10 +1,10 @@
 [package]
 name = "koonapin"
-version = "0.6.5"
+version = "0.11.1"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
-# src/bin/koonapin-host.rs is the native messaging host (NP-016).
+# src/bin/koonapin-host.rs is the native messaging host (NP-016), src/bin/koonapin-mcp.rs the MCP server (NP-091).
 default-run = "koonapin"
 
 [lib]
@@ -54,11 +54,19 @@ tauri-plugin-updater = { version = "2.13", default-features = false, features = 
 # The other ICU4X crates are already in the tree through `url`.
 icu_collator = "2.3"
 icu_locale_core = "2.3"
+# The MCP server `koonapin-mcp` (NP-091): the official SDK over stdio, server side only.
+rmcp = { version = "3.4", default-features = false, features = ["server", "transport-io"] }
+# The one-click package for Claude Desktop (`.mcpb`, a zip). Both already in the tree.
+crc32fast = "1.5"
+flate2 = "1.1"
+# The plan signed by the server (Supporter, billing.rs): Ed25519 from `ring`, already in the tree
+# through rustls; base64 through Tauri.
+ring = "0.17"
+base64 = "0.22"
 
 [dev-dependencies]
 # Already in the tree through Tauri: a test recomputes the development
 # extension id from extension/dev-key.txt.
-base64 = "0.22"
 sha2 = "0.10"
 # `trace`: the example `query_plans` prints the plan of every statement a command runs (NP-114).
 rusqlite = { version = "0.32", features = ["trace"] }

@@ -3,8 +3,29 @@ fn main() {
     // generate_context!); without this, replaced icons stay old until `cargo clean`.
     println!("cargo:rerun-if-changed=icons");
     feedback_url_from_dotenv();
+    // Supporter (NP-066, billing.rs): the accounts project and Paddle's environment, under the
+    // names Supabase's and Paddle's dashboards give them in `.env`.
+    forward_from_dotenv("KOONAPIN_ACCOUNT_URL", "SUPABASE_URL");
+    forward_from_dotenv("KOONAPIN_ACCOUNT_KEY", "SUPABASE_PUBLISHABLE_KEY");
+    forward_from_dotenv("KOONAPIN_PADDLE_ENV", "PADDLE_ENVIRONMENT");
     collation_version();
     tauri_build::build()
+}
+
+/// `name` for `option_env!`, from the environment or `.env` under `name` or `source`.
+fn forward_from_dotenv(name: &str, source: &str) {
+    println!("cargo:rerun-if-env-changed={name}");
+    println!("cargo:rerun-if-env-changed={source}");
+    println!("cargo:rerun-if-changed=../.env");
+    let text = std::fs::read_to_string("../.env").unwrap_or_default();
+    let value = std::env::var(name)
+        .ok()
+        .or_else(|| std::env::var(source).ok())
+        .or_else(|| dotenv_value(&text, name))
+        .or_else(|| dotenv_value(&text, source));
+    if let Some(value) = value.filter(|v| !v.is_empty()) {
+        println!("cargo:rustc-env={name}={value}");
+    }
 }
 
 /// The version of the collation data the sort keys are made with (NP-114, `sorting.rs`): new

@@ -29,7 +29,7 @@ manifests=(/etc/opt/chrome /etc/opt/edge /etc/chromium /usr/lib/mozilla)
 [ "$ID" = fedora ] && manifests+=(/usr/lib64/mozilla)
 # On disk. The Ubuntu image leaves out /usr/share/man and /usr/share/doc when dpkg unpacks
 # (/etc/dpkg/dpkg.cfg.d/excludes): the manual pages are looked for in the package itself.
-installed=(/usr/bin/koonapin /usr/bin/koonapin-host /usr/share/applications/koonapin.desktop
+installed=(/usr/bin/koonapin /usr/bin/koonapin-host /usr/bin/koonapin-mcp /usr/share/applications/koonapin.desktop
   /usr/share/metainfo/app.koona.pin.metainfo.xml /usr/share/icons/hicolor/512x512/apps/koonapin.png)
 for folder in "${manifests[@]}"; do installed+=("$folder/native-messaging-hosts/app.koona.pin.json"); done
 library="/home/dev/.local/share/Koona/Pin/koonapin.db"
@@ -78,7 +78,7 @@ case "${1:-}" in
       fedora) contents=$(rpm -qlp "$package") ;;
       arch) contents=$(pacman -Qlp "$package") ;;
     esac
-    for page in koonapin.1.gz koonapin-host.1.gz; do
+    for page in koonapin.1.gz koonapin-host.1.gz koonapin-mcp.1.gz; do
       grep -q "/usr/share/man/man1/$page" <<< "$contents" || { echo "FAIL: the package has no $page"; exit 1; }
     done
     echo "ok: program, host, menu entry, AppStream, icons and ${#manifests[@]} manifest folders installed, manual pages in the package"
@@ -92,6 +92,12 @@ case "${1:-}" in
     missing=$(ldd /usr/bin/koonapin | grep 'not found' || true)
     [ -z "$missing" ] || { echo "FAIL: the package's dependencies leave libraries out:"; echo "$missing"; exit 1; }
     echo "ok: the package's dependencies bring every library of the program"
+    # The updater finds the release of the binary's package type; unmarked, it said «up to date» on every
+    # .rpm up to 0.11.0. The AUR package carries the binary of the .deb.
+    case "$ID" in fedora) kind=RPM ;; *) kind=DEB ;; esac
+    marks=$({ grep -ao '__TAURI_BUNDLE_TYPE_VAR_[A-Z]\{3\}' /usr/bin/koonapin || true; } | tr '\n' ' ')
+    [ "$marks" = "__TAURI_BUNDLE_TYPE_VAR_$kind " ] || { echo "FAIL: /usr/bin/koonapin has bundle type ${marks:-none}, not $kind"; exit 1; }
+    echo "ok: /usr/bin/koonapin is marked $kind for the updater"
     case "$ID" in
       ubuntu | debian) dpkg -s koonapin | grep -E '^(Version|Depends|Recommends):' ;;
       fedora)

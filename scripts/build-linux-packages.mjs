@@ -73,7 +73,7 @@ const env = {
 const tauri = (...args) => run(process.execPath, [path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js"), ...args], { env });
 
 tauri("build", "--no-bundle", "--features", "public-release");
-const binaries = ["koonapin", "koonapin-host"].map((name) => path.join(target, name));
+const binaries = ["koonapin", "koonapin-host", "koonapin-mcp"].map((name) => path.join(target, name));
 // What Cargo's strip leaves: the compiler's notes (lintian, as dh_strip does).
 run("strip", ["--remove-section=.comment", "--remove-section=.note", ...binaries]);
 
@@ -103,7 +103,7 @@ await writeFile(
   staged("changelog"),
   `koonapin (${version}) unstable; urgency=medium\n\n  * Koona Pin ${version} for Linux.\n\n -- ${MAINTAINER}  ${date.toUTCString().replace("GMT", "+0000")}\n`,
 );
-for (const page of ["koonapin.1", "koonapin-host.1"]) await writeFile(staged(`${page}.gz`), gzipSync(await readFile(path.join(linux, page)), { level: 9 }));
+for (const page of ["koonapin.1", "koonapin-host.1", "koonapin-mcp.1"]) await writeFile(staged(`${page}.gz`), gzipSync(await readFile(path.join(linux, page)), { level: 9 }));
 // hicolor takes an icon's folder from its size: 128x128@2x.png would land in 256x256@2 (for 512 px).
 await copyFile(path.join(root, "src-tauri", "icons", "128x128@2x.png"), staged("256x256.png"));
 const icons = ["icons/32x32.png", "icons/64x64.png", "icons/128x128.png", staged("256x256.png"), "icons/icon.png"];
@@ -139,7 +139,7 @@ const bundle = (kind, linuxConfig) =>
     }),
   );
 
-for (const dir of ["deb", "rpm"]) await rm(path.join(bundles, dir), { recursive: true, force: true });
+await rm(path.join(bundles, "deb"), { recursive: true, force: true });
 bundle("deb", {
   deb: {
     depends: [...linked, "libayatana-appindicator3-1"],
@@ -153,6 +153,7 @@ bundle("deb", {
       "/usr/share/doc/koonapin/copyright": staged("copyright"),
       "/usr/share/man/man1/koonapin.1.gz": staged("koonapin.1.gz"),
       "/usr/share/man/man1/koonapin-host.1.gz": staged("koonapin-host.1.gz"),
+      "/usr/share/man/man1/koonapin-mcp.1.gz": staged("koonapin-mcp.1.gz"),
       "/usr/share/lintian/overrides/koonapin": path.join(linux, "lintian-overrides"),
     },
   },
@@ -212,13 +213,21 @@ for (const file of (await filesUnder(repack)).filter((f) => !f.includes(`${path.
 await writeFile(path.join(repack, "DEBIAN", "md5sums"), `${md5.join("\n")}\n`);
 run("dpkg-deb", ["--build", "--root-owner-group", repack, deb], { stdio: ["ignore", "ignore", "inherit"] });
 
-// Tauri marks the binaries with their package type for the updater; its own .rpm is not used.
-bundle("rpm", { rpm: { desktopTemplate: path.join(linux, "koonapin.desktop") } });
 // The tree of the repacked .deb, links in /etc included; the Debian-only files go, the lib64 manifest of
 // Fedora's Firefox comes.
 const tree = staged("rpm-tree");
 await cp(repack, tree, { recursive: true, verbatimSymlinks: true, filter: (from) => !from.startsWith(path.join(repack, "DEBIAN")) });
-for (const binary of binaries) await copyFile(binary, path.join(tree, "usr", "bin", path.basename(binary)));
+// The updater looks for the release of the binary's package type (`linux-x86_64-rpm`). Tauri marks only
+// the copy it packs, never target/release: the binary of the .deb says «deb», and the .rpm made it «rpm»
+// as Tauri does, the bytes of a string of the same length. Up to 0.11.0 the .rpm took the unmarked binary
+// of target/release, found no release for itself and said it was up to date.
+const bundleType = (kind) => Buffer.from(`__TAURI_BUNDLE_TYPE_VAR_${kind}`);
+const binary = path.join(tree, "usr", "bin", "koonapin");
+const bytes = await readFile(binary);
+const at = bytes.indexOf(bundleType("DEB"));
+if (at < 0 || bytes.indexOf(bundleType("DEB"), at + 1) >= 0) throw new Error(`${binary}: not one bundle type «deb»`);
+bundleType("RPM").copy(bytes, at);
+await writeFile(binary, bytes);
 // Debian wants a link between top-level folders absolute, rpm relative.
 for (const at of Object.keys(await manifests("deb")).filter((at) => at.startsWith("/etc/"))) {
   await rm(path.join(tree, at));
@@ -243,6 +252,15 @@ await writeFile(
 );
 run("rpmbuild", ["-bb", "--quiet", "--define", `_topdir ${staged("rpmbuild")}`, "--define", `tree ${tree}`, staged("koonapin.spec")], { env });
 const rpm = path.join(stage, "rpmbuild", "RPMS", "x86_64", `koonapin-${version}-1.x86_64.rpm`);
+// What the packages carry, not the tree: the files of each unpacked, where only koonapin has the mark.
+for (const [kind, command, args] of [
+  ["DEB", "dpkg-deb", ["--fsys-tarfile", deb]],
+  ["RPM", "rpm2cpio", [rpm]],
+]) {
+  const payload = spawnSync(command, args, { maxBuffer: 1024 ** 3 }).stdout;
+  const marks = payload.toString("latin1").match(/__TAURI_BUNDLE_TYPE_VAR_\w{3}/g) ?? [];
+  if (marks.join() !== `__TAURI_BUNDLE_TYPE_VAR_${kind}`) throw new Error(`${command} ${args.at(-1)}: bundle type ${marks.join() || "none"}, not ${kind}`);
+}
 
 // The AppImage for the other distributions (NP-116, Р-63), last: Tauri marks the binary «appimage» for the
 // updater, and the .deb and .rpm have taken theirs already. It carries WebKitGTK and the tray library

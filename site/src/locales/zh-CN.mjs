@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "已保存到 Koona Pin", inbox: "已添加到收件箱", backup: "备份", today: "今天 09:00", yesterday: "昨天", mb: "MB" },
   privacyTitle: "你的链接只属于你",
-  privacyBody: "Koona Pin 把你的资料库保存在你的电脑上：没有任何服务器能看到你的链接。只有你主动发送的反馈才会到达开发者。",
+  privacyBody: "Koona Pin 把你的资料库保存在你的电脑上：没有任何服务器能看到你的链接。只有你主动发送的反馈和购买 Supporter 时使用的邮箱才会到达开发者。",
   privacyFacts: [
     "扩展只读取你所保存标签页的地址和标题。",
     "应用不发送任何分析数据、遥测或崩溃报告。",
@@ -59,11 +59,78 @@ export default {
     ["Linux，64 位", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux"],
     ["Chrome 或 Edge 120+、Firefox 140+", "当前版本或 ESR 140"],
   ],
-  footer: { privacy: "隐私", licenses: "许可", support: "支持", changelog: "更新日志" },
+  supporter: {
+    "title": "支持 Koona Pin",
+    "lead": "Koona Pin 是免费的，它现在的所有功能都将保持免费。Supporter 为接下来的开发提供资金，并抢先获得每个新版本。",
+    "yearly": "年付",
+    "monthly": "月付",
+    "freeMonths": "免费 2 个月",
+    "yearRest": "或每年 20 €",
+    "monthRest": "或每月 2 €",
+    "buyYearly": "购买年付",
+    "buyMonthly": "购买月付",
+    "fiveYears": "5 年",
+    "saveHalf": "省 50%",
+    "fiveYearsRest": "或一次性 50 €",
+    "buyFiveYears": "购买 5 年",
+    "perks": [
+      [
+        "Supporter 徽章",
+        "侧边栏中一颗随季节变色的心。"
+      ],
+      [
+        "抢先版本",
+        "每个新版本都比其他人早一点拿到。"
+      ],
+      [
+        "多台电脑同步",
+        "你的资料库出现在你使用的每台电脑上。"
+      ],
+      [
+        "自动备份到文件夹",
+        "备份到你选择的文件夹，例如 Dropbox 或 Google Drive。"
+      ]
+    ],
+    "now": "现已推出",
+    "from": "{date} 起",
+    "notes": [
+      "由 Paddle 收款",
+      "可随时取消",
+      "首次付款后 14 天内全额退款"
+    ],
+    "roadmapTitle": "接下来",
+    "roadmapLead": "未来两个月的计划。",
+    "delivered": "已推出，免费",
+    "roadmap": [
+      [
+        "AI 助手",
+        "Claude 等 AI 助手可以搜索和保存你的链接。"
+      ],
+      [
+        "macOS 应用",
+        "Mac 上的 Koona Pin，浏览器中同样的按钮。"
+      ],
+      [
+        "同步",
+        "你的资料库出现在你使用的每台电脑上。面向 Supporter。"
+      ],
+      [
+        "iOS 应用",
+        "你的资料库在 iPhone 和 iPad 上。"
+      ],
+      [
+        "Android 应用",
+        "你的资料库在 Android 手机和平板上。"
+      ]
+    ],
+    "firstTitle": "Supporter 抢先获得每个版本",
+    "firstText": "新版本会比其他人更早一点到达他们手中。日期是我们的计划，而非承诺。"
+  },
+  footer: { privacy: "隐私", licenses: "许可", support: "支持", changelog: "更新日志", pricing: "价格", terms: "条款", refunds: "退款" },
   back: "Koona Pin",
   privacyPage: {
     title: "隐私政策",
-    updated: "最后更新：2026 年 10 月 9 日",
+    updated: "最后更新：2026 年 10 月 12 日",
     section: "简体中文",
     note: "此为方便阅读的译文。如与英文版本不一致，以英文版本为准。",
     original: "阅读英文版",
@@ -72,7 +139,7 @@ export default {
     title: "许可",
     lead: "本网站由什么构成，依据什么条款。",
     items: [
-      ["Koona Pin", "免费版代码采用 GPL-3.0-only。标明为 Pro 的代码适用单独的商业许可。名称、吉祥物和标志另有使用规则，详情请参阅许可说明。", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "免费版代码采用 GPL-3.0-only。标明为商业代码的部分适用单独的许可。名称、吉祥物和标志另有使用规则，详情请参阅许可说明。", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "正文字体。SIL Open Font License 1.1。", "https://github.com/rsms/inter"],
       ["Nunito", "字标，以轮廓形式提供。SIL Open Font License 1.1。", "https://github.com/googlefonts/nunito"],
       ["Lucide", "图标。ISC License。", "https://lucide.dev/license"],

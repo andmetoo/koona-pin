@@ -433,6 +433,9 @@ export function Triage({
     if (b.source === "app") return t("triage.addedByHand", { when });
     if (b.source === "import") return t("triage.imported", { when });
     if (b.source === "extension") return t("triage.savedFromBrowser", { when });
+    // An AI assistant over MCP (NP-091): «from Claude Code», as «from Chrome».
+    if (b.source === "mcp")
+      return b.source_name ? t("triage.savedFrom", { when, browser: b.source_name }) : t("triage.savedByAssistant", { when });
     return t("triage.saved", { when });
   };
 

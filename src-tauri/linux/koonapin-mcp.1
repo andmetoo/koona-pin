@@ -1,0 +1,30 @@
+.\" The manual page of the Linux packages (NP-091).
+.TH KOONAPIN-MCP 1 "October 2026" "Koona Pin" "User Commands"
+.SH NAME
+koonapin-mcp \- MCP server of Koona Pin for AI assistants
+.SH SYNOPSIS
+.B koonapin-mcp
+.SH DESCRIPTION
+An AI assistant on this computer (Claude Code, Cursor and other apps that work with MCP) starts
+.B koonapin-mcp
+and speaks the Model Context Protocol with it over standard input and output; it is not run by hand.
+Each tool call goes to
+.BR koonapin (1)
+over a socket in
+.I $XDG_RUNTIME_DIR/koonapin
+and the answer comes back. A closed app is started hidden.
+.PP
+Access is off until it is turned on in Koona Pin: Settings \(-> AI assistants. In
+.B Read only
+the assistant searches and reads bookmarks, collections and tags; in
+.B Read and add
+it may also save links to Inbox, tag them, move them to a collection and star them. Nothing is deleted.
+.PP
+To add it to Claude Code:
+.PP
+.RS
+claude mcp add \-\-scope user koona-pin \-\- /usr/bin/koonapin-mcp
+.RE
+.SH SEE ALSO
+.BR koonapin (1),
+.BR koonapin-host (1)

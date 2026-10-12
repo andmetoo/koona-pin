@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Guardado en Koona Pin", inbox: "Añadido a la bandeja de entrada", backup: "Copia de seguridad", today: "Hoy, 09:00", yesterday: "Ayer", mb: "MB" },
   privacyTitle: "Tus enlaces se quedan contigo",
-  privacyBody: "Koona Pin guarda tu biblioteca en tu ordenador: ningún servidor ve tus enlaces. Al desarrollador solo le llegan los comentarios que tú decidas enviar.",
+  privacyBody: "Koona Pin guarda tu biblioteca en tu ordenador: ningún servidor ve tus enlaces. Al desarrollador solo le llegan los comentarios que tú decidas enviar y el correo de una compra de Supporter.",
   privacyFacts: [
     "La extensión solo lee la dirección y el título de la pestaña que guardas.",
     "La aplicación no envía analíticas, telemetría ni informes de errores.",
@@ -59,11 +59,78 @@ export default {
     ["Linux, 64 bits", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome o Edge 120+, Firefox 140+", "Versión actual o ESR 140"],
   ],
-  footer: { privacy: "Privacidad", licenses: "Licencias", support: "Soporte", changelog: "Cambios" },
+  supporter: {
+    "title": "Apoya Koona Pin",
+    "lead": "Koona Pin es gratis, y todo lo que hace hoy seguirá siendo gratis. Los Supporters financian lo que viene y reciben cada versión nueva antes que nadie.",
+    "yearly": "Anual",
+    "monthly": "Mensual",
+    "freeMonths": "2 meses gratis",
+    "yearRest": "o 20 € al año",
+    "monthRest": "o 2 € al mes",
+    "buyYearly": "Comprar anual",
+    "buyMonthly": "Comprar mensual",
+    "fiveYears": "5 años",
+    "saveHalf": "Ahorra un 50 %",
+    "fiveYearsRest": "o 50 € una sola vez",
+    "buyFiveYears": "Comprar 5 años",
+    "perks": [
+      [
+        "Insignia de Supporter",
+        "Un corazón en la barra lateral, del color de la estación."
+      ],
+      [
+        "Versiones anticipadas",
+        "Cada versión nueva un poco antes que los demás."
+      ],
+      [
+        "Sincronización entre ordenadores",
+        "Tu biblioteca en cada ordenador que uses."
+      ],
+      [
+        "Copias automáticas en una carpeta",
+        "En la que elijas, como Dropbox o Google Drive."
+      ]
+    ],
+    "now": "Ya",
+    "from": "Desde el {date}",
+    "notes": [
+      "Paddle cobra el pago",
+      "Cancela cuando quieras",
+      "Reembolso completo en los 14 días siguientes al primer pago"
+    ],
+    "roadmapTitle": "Lo que viene",
+    "roadmapLead": "El plan para los próximos dos meses.",
+    "delivered": "Publicado, gratis",
+    "roadmap": [
+      [
+        "Asistentes de IA",
+        "Claude y otros asistentes buscan y guardan tus enlaces."
+      ],
+      [
+        "App para macOS",
+        "Koona Pin en Mac, con el mismo botón en tu navegador."
+      ],
+      [
+        "Sincronización",
+        "Tu biblioteca en cada ordenador que uses. Para Supporters."
+      ],
+      [
+        "App para iOS",
+        "Tu biblioteca en iPhone y iPad."
+      ],
+      [
+        "App para Android",
+        "Tu biblioteca en móviles y tabletas Android."
+      ]
+    ],
+    "firstTitle": "Los Supporters reciben cada versión primero",
+    "firstText": "Las versiones nuevas les llegan un poco antes que a los demás. Las fechas son nuestro plan, no una promesa."
+  },
+  footer: { privacy: "Privacidad", licenses: "Licencias", support: "Soporte", changelog: "Cambios", pricing: "Precios", terms: "Términos", refunds: "Reembolsos" },
   back: "Koona Pin",
   privacyPage: {
     title: "Política de privacidad",
-    updated: "Última actualización: 9 de octubre de 2026",
+    updated: "Última actualización: 12 de octubre de 2026",
     section: "Español",
     note: "Esta es una traducción para tu comodidad. Si difiere del texto en inglés, prevalece la versión en inglés.",
     original: "Leer en inglés",
@@ -72,7 +139,7 @@ export default {
     title: "Licencias",
     lead: "De qué está hecho este sitio y en qué condiciones.",
     items: [
-      ["Koona Pin", "Código de la edición gratuita: GPL-3.0-only. El código identificado como Pro tiene una licencia comercial independiente. El nombre, la mascota y el logotipo tienen reglas de uso propias; consulta el resumen de licencias.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "Código de la edición gratuita: GPL-3.0-only. El código identificado como comercial tiene una licencia independiente. El nombre, la mascota y el logotipo tienen reglas de uso propias; consulta el resumen de licencias.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Tipografía del texto. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "El logotipo de texto, como trazados. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Iconos. Licencia ISC.", "https://lucide.dev/license"],

@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode, ErrorDetail},
-    backup, dedupe, export, feedback, import, linkcheck, metadata, restore,
+    backup, dedupe, export, feedback, import, linkcheck, mcp, metadata, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -1104,11 +1104,14 @@ pub fn get_data_summary(library: State<'_, Arc<Library>>) -> DataSummary {
 }
 /// A copy can take seconds on a large library, so it runs off the main thread.
 #[tauri::command]
-pub async fn back_up_now(library: State<'_, Arc<Library>>) -> Result<DataSummary, CommandError> {
+pub async fn back_up_now(app: AppHandle, library: State<'_, Arc<Library>>) -> Result<DataSummary, CommandError> {
     let library = library.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        crate::library::back_up_now(&library.paths, chrono::Utc::now())
+        let copy = crate::library::back_up_now(&library.paths, chrono::Utc::now())
             .map_err(|error| CommandError::new(ErrorCode::DatabaseError, error))?;
+        // A Supporter's chosen folder gets this copy too (commercial/backup_folder.rs), without
+        // holding the button: a cloud or network folder can be slow, its row says how it went.
+        std::thread::spawn(move || crate::commercial::backup_folder::mirror(&app, &copy));
         Ok(data_summary(&library))
     })
     .await
@@ -1318,4 +1321,67 @@ pub fn reveal_backup(app: AppHandle, library: State<'_, Arc<Library>>, file_name
     let path = backup::listed(&library.paths.backups, &file_name)
         .ok_or_else(|| CommandError::detailed(ErrorCode::NotFound, ErrorDetail::CopyGone, "The copy is gone"))?;
     app.opener().reveal_item_in_dir(path).map_err(CommandError::internal)
+}
+
+/// Settings → AI assistants (NP-091): access and the last request.
+#[tauri::command]
+pub async fn get_mcp_status(state: State<'_, Arc<DbState>>) -> Result<mcp::McpStatus, CommandError> {
+    blocking(&state, |conn| Ok(mcp::status(conn))).await
+}
+
+/// Off, read only, or read and add; the settings and every open window hear of it.
+#[tauri::command]
+pub async fn set_mcp_access(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    access: crate::mcp_tools::Access,
+) -> Result<mcp::McpStatus, CommandError> {
+    let status = blocking(&state, move |conn| {
+        mcp::set_access(conn, access)?;
+        Ok(mcp::status(conn))
+    })
+    .await?;
+    let _ = app.emit("mcp-status", status.clone());
+    Ok(status)
+}
+
+/// «How to connect…»: the commands and JSON with this computer's path.
+#[tauri::command]
+pub fn get_mcp_setup() -> Result<mcp::McpSetup, CommandError> {
+    mcp::server_path().map(|server| mcp::setup(&server)).map_err(CommandError::internal)
+}
+
+/// «Save for Claude Desktop…»: `koona-pin.mcpb` where the person saves it,
+/// Downloads by default, then shown in the file manager. Opening the file
+/// from the app failed: on Windows Claude Desktop does not always take the
+/// file type, and a package in the temporary folder could not be found to
+/// open by hand. The dialog says how to install it. None when cancelled.
+#[tauri::command]
+pub async fn save_mcpb(app: AppHandle) -> Result<Option<String>, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+    let server = mcp::server_path().map_err(CommandError::internal)?;
+    if !server.is_file() {
+        return Err(CommandError::detailed(ErrorCode::NotFound, ErrorDetail::ServerMissing, "koonapin-mcp is not next to the app"));
+    }
+    let mut dialog = app.dialog().file().set_file_name("koona-pin.mcpb").add_filter("Claude Desktop", &["mcpb"]);
+    if let Some(downloads) = dirs::download_dir() {
+        dialog = dialog.set_directory(downloads);
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+    let path = picked.into_path().map_err(CommandError::internal)?;
+    let target = path.clone();
+    tauri::async_runtime::spawn_blocking(move || mcp::write_bundle(&server, &target))
+        .await
+        .map_err(CommandError::internal)?
+        .map_err(CommandError::internal)?;
+    let _ = app.opener().reveal_item_in_dir(&path);
+    Ok(Some(path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
 }

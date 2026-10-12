@@ -1,6 +1,8 @@
 pub mod appimage;
 pub mod autostart;
 pub mod backup;
+pub mod billing;
+pub mod commercial;
 pub mod browsers;
 pub mod capture;
 pub mod capture_channel;
@@ -17,6 +19,8 @@ pub mod journal;
 pub mod library;
 pub mod library_state;
 pub mod linkcheck;
+pub mod mcp;
+pub mod mcp_tools;
 pub mod metadata;
 pub mod migrations;
 pub mod native_host;
@@ -107,6 +111,10 @@ pub fn run() {
             library::Paths::from_env(),
         )))
         .setup(move |app| {
+            // Before the library: its first daily copy goes to a Supporter's folder too, which
+            // needs both states managed.
+            billing::start(app.handle());
+            commercial::backup_folder::start(app.handle());
             library_state::start(app.handle().clone());
             let handle = app.handle().clone();
             std::thread::spawn(move || capture_channel::register_host(&handle, &channel_state));
@@ -201,11 +209,29 @@ pub fn run() {
             commands::feedback_report,
             commands::send_feedback,
             commands::hide_to_background,
+            commands::get_mcp_status,
+            commands::set_mcp_access,
+            commands::get_mcp_setup,
+            commands::save_mcpb,
             desktop::get_desktop,
             updates::get_update_status,
             updates::check_for_updates,
             updates::install_update,
             updates::cancel_update,
+            billing::get_supporter_status,
+            billing::get_supporter_prices,
+            billing::start_checkout,
+            billing::poll_checkout,
+            billing::open_checkout,
+            billing::refresh_supporter,
+            billing::open_supporter_portal,
+            billing::send_sign_in_code,
+            billing::verify_sign_in_code,
+            billing::sign_out_supporter,
+            commercial::backup_folder::get_backup_folder,
+            commercial::backup_folder::choose_backup_folder,
+            commercial::backup_folder::stop_backup_folder,
+            commercial::backup_folder::open_backup_folder,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])

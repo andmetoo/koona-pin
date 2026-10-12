@@ -39,12 +39,20 @@ import {
   Merged,
   LinkCheckProgress,
   LinkCheckReport,
+  McpAccess,
+  McpSetup,
+  McpStatus,
   Replaced,
   PickedCopy,
   SaveCopyOutcome,
   StarterLibrary,
   StarterLink,
   Suggestion,
+  SupporterPrices,
+  SupporterStatus,
+  PlanInterval,
+  CheckoutState,
+  BackupFolder,
   Tag,
   TrayLabels,
   Undo,
@@ -261,5 +269,34 @@ const desktop = {
   cancelUpdate: () => call<void>("cancel_update"),
   /** The tray menu and tooltip in the interface's language (NP-085). */
   setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
+  /** Settings → AI assistants (NP-091): access, the last request, and how to connect. */
+  getMcpStatus: () => call<McpStatus>("get_mcp_status"),
+  setMcpAccess: (access: McpAccess) => call<McpStatus>("set_mcp_access", { access }),
+  onMcpStatus: (callback: (status: McpStatus) => void) => subscription("mcp-status", callback),
+  getMcpSetup: () => call<McpSetup>("get_mcp_setup"),
+  /** «Save for Claude Desktop…»: the .mcpb package where the person saves it; its file name, none when cancelled. */
+  saveMcpb: () => call<string | null>("save_mcpb"),
+  /** Supporter (NP-066, sheet 45): the plan as kept, no request. */
+  getSupporterStatus: () => call<SupporterStatus>("get_supporter_status"),
+  onSupporterStatus: (callback: (status: SupporterStatus) => void) => subscription("supporter-status", callback),
+  getSupporterPrices: () => call<SupporterPrices>("get_supporter_prices"),
+  /** «Continue»: the payment page opens in the browser. */
+  startCheckout: (interval: PlanInterval) => call<string>("start_checkout", { interval }),
+  openCheckout: (url: string) => call<void>("open_checkout", { url }),
+  /** Only while the dialog waits for the payment. */
+  pollCheckout: () => call<CheckoutState>("poll_checkout"),
+  /** `automatic`: the dialog opening or coming back into focus, not asked again if just checked. */
+  refreshSupporter: (automatic = false) => call<SupporterStatus>("refresh_supporter", { automatic }),
+  openSupporterPortal: () => call<void>("open_supporter_portal"),
+  sendSignInCode: (email: string) => call<void>("send_sign_in_code", { email }),
+  verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),
+  signOutSupporter: () => call<SupporterStatus>("sign_out_supporter"),
+  // Supporter's backups to a folder of one's choice (commercial/backup_folder.rs).
+  getBackupFolder: () => call<BackupFolder>("get_backup_folder"),
+  onBackupFolder: (callback: (folder: BackupFolder) => void) => subscription("backup-folder", callback),
+  /** The system's folder picker with this title; cancelling it changes nothing. */
+  chooseBackupFolder: (title: string) => call<BackupFolder>("choose_backup_folder", { title }),
+  stopBackupFolder: () => call<BackupFolder>("stop_backup_folder"),
+  openBackupFolder: () => call<void>("open_backup_folder"),
 };
 export const api = isTauri() ? desktop : demo;

@@ -8,7 +8,7 @@ import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, UpdateStatus, ViewMode } from "./types";
+import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, Plan, SupporterStatus, UpdateStatus, ViewMode } from "./types";
 import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
@@ -27,10 +27,12 @@ import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
+import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
+import { PlanDialog, SignInDialog, SupporterDialog } from "./components/SupporterDialog";
 import { offer } from "./services/update";
 import { emptyDraft, FeedbackDraft } from "./services/feedback";
 import { DuplicatesPage } from "./components/library/DuplicatesPage";
@@ -40,7 +42,7 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -102,6 +104,8 @@ export function App() {
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
+  /** The subscription «Switch to 5 years» was chosen for: the step says when it ends. */
+  const [upgradeFrom, setUpgradeFrom] = useState<Plan | null>(null);
   // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(emptyDraft);
   /** Inbox triage (NP-025) and the filters to go back to when it ends. */
@@ -130,6 +134,16 @@ export function App() {
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   /** The app's own update (NP-038, sheet 42), checked by Rust; the version that runs and the system for the dialog. */
   const [update, setUpdate] = useState<UpdateStatus | null>(null);
+  /** Supporter (NP-066, sheet 45): the plan as kept; no request behind it. */
+  const [supporter, setSupporter] = useState<SupporterStatus | null>(null);
+  /** The Supporter badge's heart in the colour of the season; a perk the dialog turns off. */
+  const [badge, setBadge] = useState(() => preference("supporterBadge", ["on", "off"], "on") === "on");
+  // A check that finds the plan gone (cancelled, refunded) closes its dialogs for good, so nothing
+  // stays blocked behind a dialog that is no longer shown, nor offers to switch a plan that ended.
+  const hasPlan = !!supporter?.plan;
+  useEffect(() => {
+    if (!hasPlan) setSurface((open) => (open === "plan" || open === "upgrade" ? null : open));
+  }, [hasPlan]);
   const [appVersion, setAppVersion] = useState("");
   const [linux, setLinux] = useState(false);
   const [damaged, setDamaged] = useState(false);
@@ -236,6 +250,10 @@ export function App() {
     // The password texts of the update dialog are for the .deb and .rpm: an AppImage replaces its own file (NP-116).
     void api.getDesktop().then((desktop) => setLinux(desktop.linux && !desktop.appimage)).catch(() => {});
     return off;
+  }, []);
+  useEffect(() => {
+    void api.getSupporterStatus().then(setSupporter).catch(() => {});
+    return api.onSupporterStatus(setSupporter);
   }, []);
   // The dialog follows the update; when no version is in play any more (cancelled into a recheck,
   // or the preview «restarted»), it goes.
@@ -814,6 +832,10 @@ export function App() {
         capture={capture}
         update={update}
         onUpdate={() => setSurface("update")}
+        plan={supporter?.available ? (supporter.plan ? "supporter" : "free") : null}
+        onSupport={() => setSurface("supporter")}
+        onPlan={() => setSurface("plan")}
+        badge={badge}
         onInbox={openInbox}
         onAll={() => navigate()}
         onFavorites={() => navigate({ onlyFavorites: true })}
@@ -866,6 +888,7 @@ export function App() {
                     onSettings={setSettings}
                     onCapture={setCapture}
                     onConnect={() => setSurface("connect")}
+                    onConnectAssistant={() => setSurface("assistant")}
                     onCopy={(text) => void copy(text)}
                     onNotice={say}
                     onSaveCopy={saveBackupCopy}
@@ -1250,6 +1273,45 @@ export function App() {
         />
       )}
       {surface === "background" && <BackgroundDialog onClose={() => setSurface(null)} />}
+      {surface === "supporter" && (
+        <SupporterDialog
+          sandbox={!!supporter?.sandbox}
+          email={supporter?.email ?? null}
+          awaitingSignIn={!!supporter?.awaiting_sign_in}
+          paid={!!supporter?.plan}
+          planUnknown={!!supporter?.plan_unknown}
+          onClose={() => setSurface(null)}
+          onSignIn={() => setSurface("signIn")}
+        />
+      )}
+      {surface === "signIn" && <SignInDialog onClose={() => setSurface(null)} onPlans={() => setSurface("supporter")} />}
+      {surface === "plan" && supporter?.plan && (
+        <PlanDialog
+          supporter={supporter}
+          badge={badge}
+          onBadge={(shown) => {
+            setBadge(shown);
+            savePreference("supporterBadge", shown ? "on" : "off");
+          }}
+          onClose={() => setSurface(null)}
+          onUpgrade={() => {
+            setUpgradeFrom(supporter.plan);
+            setSurface("upgrade");
+          }}
+        />
+      )}
+      {/* Supporter → 5 years from a subscription (sheet 45): the plans dialog with the five years only,
+          about the subscription as it was when the switch was chosen. */}
+      {surface === "upgrade" && supporter && upgradeFrom && (
+        <SupporterDialog
+          sandbox={!!supporter.sandbox}
+          email={supporter.email ?? null}
+          paid
+          upgrade={upgradeFrom}
+          onClose={() => setSurface(null)}
+          onSignIn={() => setSurface("signIn")}
+        />
+      )}
       {surface === "update" && offer(update) && (
         <UpdateDialog
           update={offer(update)!}
@@ -1260,6 +1322,9 @@ export function App() {
           onCancel={() => void api.cancelUpdate().catch((err) => say(describeError(err), true))}
           onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
         />
+      )}
+      {surface === "assistant" && (
+        <AssistantDialog onCopy={(text) => void copy(text)} onNotice={say} onClose={() => setSurface(null)} />
       )}
       {surface === "connect" && (
         <ConnectDialog capture={capture} onOpen={actions.open} onClose={() => setSurface(null)} />

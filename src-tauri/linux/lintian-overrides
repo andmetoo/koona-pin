@@ -6,6 +6,7 @@ koonapin: dir-or-file-in-etc-opt [etc/opt/*]
 koonapin: uses-dpkg-database-directly [usr/bin/koonapin]
 # The app's C (SQLite) is built with dpkg-buildflags, -D_FORTIFY_SOURCE among them
 # (scripts/build-linux-packages.mjs): it calls __memcpy_chk, __memmove_chk and __memset_chk, which lintian
-# does not count. The host is only Rust: nothing for _FORTIFY_SOURCE to harden.
+# does not count. The host and the MCP server are only Rust: nothing for _FORTIFY_SOURCE to harden.
 koonapin: hardening-no-fortify-functions [usr/bin/koonapin]
 koonapin: hardening-no-fortify-functions [usr/bin/koonapin-host]
+koonapin: hardening-no-fortify-functions [usr/bin/koonapin-mcp]

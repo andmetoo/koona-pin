@@ -76,8 +76,11 @@ const nav = [
 <div class="foot-row">
 <a class="logo logo-small" href={href(t.lang, "")} aria-label="Koona Pin"><Mascot size={24} /><span class="wordmark" aria-hidden="true" set:html={wordmark.trim()} /></a>
 <nav class="foot-nav" aria-label={t.labels.site}>
+<a href={`${BASE}/pricing/`} hreflang="en" aria-current={footer === "pricing" ? "page" : undefined}>{t.footer.pricing}</a>
 <a href={`${BASE}/changelog/`} hreflang="en" aria-current={footer === "changelog" ? "page" : undefined}>{t.footer.changelog}</a>
 <a href={href(t.lang, "privacy")}>{t.footer.privacy}</a>
+<a href={`${BASE}/terms/`} hreflang="en" aria-current={footer === "terms" ? "page" : undefined}>{t.footer.terms}</a>
+<a href={`${BASE}/refunds/`} hreflang="en" aria-current={footer === "refunds" ? "page" : undefined}>{t.footer.refunds}</a>
 <a href={href(t.lang, "licenses")}>{t.footer.licenses}</a>
 {FEEDBACK_ENDPOINT ? <a href={href(t.lang, "feedback")}>{t.footer.support}</a> : <a href={SUPPORT} rel="noopener">{t.footer.support}</a>}
 </nav>

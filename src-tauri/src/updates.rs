@@ -168,8 +168,27 @@ pub async fn check(app: &AppHandle) -> UpdateStatus {
             }
             next
         }
+        Ok(None) => {
+            if let Ok(mut pending) = state.pending.lock() {
+                *pending = None;
+            }
+            UpdateStatus::UpToDate { checked_at: now.to_rfc3339() }
+        }
+        // On Linux an unmarked package never finds a release (build-latest.mjs writes no plain
+        // linux-x86_64): a broken build, not the newest version — every .rpm up to 0.11.0 said so.
+        Err(error @ (tauri_plugin_updater::Error::TargetNotFound(_) | tauri_plugin_updater::Error::TargetsNotFound(_)))
+            if unmarked() =>
+        {
+            eprintln!("Koona Pin: the update check failed: the binary has no bundle type, {error}");
+            if offered {
+                before
+            } else {
+                UpdateStatus::CheckFailed { checked_at: now.to_rfc3339() }
+            }
+        }
         // A release for the other system only (`build:latest -- --only linux`) has nothing for this one.
-        Ok(None) | Err(tauri_plugin_updater::Error::TargetNotFound(_) | tauri_plugin_updater::Error::TargetsNotFound(_)) => {
+        Err(error @ (tauri_plugin_updater::Error::TargetNotFound(_) | tauri_plugin_updater::Error::TargetsNotFound(_))) => {
+            eprintln!("Koona Pin: no update for this system: {error}");
             if let Ok(mut pending) = state.pending.lock() {
                 *pending = None;
             }
@@ -186,6 +205,12 @@ pub async fn check(app: &AppHandle) -> UpdateStatus {
     };
     set(app, next.clone());
     next
+}
+
+/// A Linux binary Tauri did not mark .deb, .rpm or AppImage: the updater finds no release for it
+/// and could not install one. Windows without a mark reads the plain windows-x86_64 entry.
+fn unmarked() -> bool {
+    cfg!(target_os = "linux") && tauri::utils::platform::bundle_type().is_none()
 }
 
 /// The offer of an update: its version, what changed and where the changelog is.

@@ -1,13 +1,14 @@
 ---
 // A page of text with the back link: privacy, licenses, feedback, 404 in every language, and the
-// wider pages in English only (`wide`: downloads, changelog).
+// pages in English only: wider ones (`wide`: downloads, changelog, pricing) and narrow ones
+// (`english`: terms, refunds).
 import Page from "./Page.astro";
 import Icon from "../components/Icon.astro";
 import { href } from "../view.mjs";
 
-const { t, page, title, description, current, wide = false } = Astro.props;
+const { t, page, title, description, current, wide = false, english = wide } = Astro.props;
 ---
-<Page t={t} page={page} title={`${title} — Koona Pin`} description={description} english={wide} current={current} footer={wide ? current : undefined} mainClass={wide ? "wrap wide-page" : "wrap text-page"}>
+<Page t={t} page={page} title={`${title} — Koona Pin`} description={description} english={english} current={current} footer={english ? current : undefined} mainClass={wide ? "wrap wide-page" : "wrap text-page"}>
 <slot name="head" slot="head" />
 <a class="back" href={href(t.lang, "")}><Icon name="arrowLeft" class="icon icon-small" />{t.back}</a>
 <slot />

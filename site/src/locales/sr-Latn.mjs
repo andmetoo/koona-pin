@@ -34,7 +34,7 @@ export default {
   ],
   scene: { saved: "Sačuvano u Koona Pin", inbox: "Dodato u prijemno sanduče", backup: "Rezervna kopija", today: "Danas, 09:00", yesterday: "Juče", mb: "MB" },
   privacyTitle: "Vaši linkovi ostaju kod vas",
-  privacyBody: "Koona Pin čuva biblioteku na vašem računaru: nijedan server ne vidi vaše linkove. Programeru stiže samo komentar koji sami pošaljete.",
+  privacyBody: "Koona Pin čuva biblioteku na vašem računaru: nijedan server ne vidi vaše linkove. Programeru stižu samo komentar koji sami pošaljete i adresa e-pošte iz kupovine Supporter.",
   privacyFacts: [
     "Proširenje čita samo adresu i naslov kartice koju čuvate.",
     "Aplikacija ne šalje analitiku, telemetriju ni izveštaje o padovima.",
@@ -60,11 +60,78 @@ export default {
     ["Linux, 64-bitni", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome ili Edge 120+, Firefox 140+", "Trenutno izdanje ili ESR 140"],
   ],
-  footer: { privacy: "Privatnost", licenses: "Licence", support: "Podrška", changelog: "Izmene" },
+  supporter: {
+    "title": "Podržite Koona Pin",
+    "lead": "Koona Pin je besplatan i sve što danas radi ostaje besplatno. Supporteri finansiraju ono što sledi i prvi dobijaju svaku novu verziju.",
+    "yearly": "Godišnje",
+    "monthly": "Mesečno",
+    "freeMonths": "2 meseca besplatno",
+    "yearRest": "ili 20 € godišnje",
+    "monthRest": "ili 2 € mesečno",
+    "buyYearly": "Kupi godišnje",
+    "buyMonthly": "Kupi mesečno",
+    "fiveYears": "5 godina",
+    "saveHalf": "Ušteda 50%",
+    "fiveYearsRest": "ili 50 € jednokratno",
+    "buyFiveYears": "Kupi na 5 godina",
+    "perks": [
+      [
+        "Supporter značka",
+        "Srce u bočnoj traci, u boji godišnjeg doba."
+      ],
+      [
+        "Rana izdanja",
+        "Svaka nova verzija malo pre svih ostalih."
+      ],
+      [
+        "Sinhronizacija između računara",
+        "Vaša biblioteka na svakom računaru koji koristite."
+      ],
+      [
+        "Automatske rezervne kopije u fasciklu",
+        "U fasciklu po vašem izboru, npr. Dropbox ili Google Drive."
+      ]
+    ],
+    "now": "Već sada",
+    "from": "Od {date}",
+    "notes": [
+      "Uplatu prima Paddle",
+      "Otkažite kad god želite",
+      "Pun povraćaj u roku od 14 dana od prve uplate"
+    ],
+    "roadmapTitle": "Šta sledi",
+    "roadmapLead": "Plan za naredna dva meseca.",
+    "delivered": "Objavljeno, besplatno",
+    "roadmap": [
+      [
+        "AI asistenti",
+        "Claude i drugi asistenti pretražuju i čuvaju vaše linkove."
+      ],
+      [
+        "Aplikacija za macOS",
+        "Koona Pin na Mac-u, sa istim dugmetom u pregledaču."
+      ],
+      [
+        "Sinhronizacija",
+        "Vaša biblioteka na svakom računaru koji koristite. Za Supportere."
+      ],
+      [
+        "Aplikacija za iOS",
+        "Vaša biblioteka na iPhone-u i iPad-u."
+      ],
+      [
+        "Aplikacija za Android",
+        "Vaša biblioteka na Android telefonima i tabletima."
+      ]
+    ],
+    "firstTitle": "Supporteri prvi dobijaju svaku verziju",
+    "firstText": "Nove verzije stižu do njih malo pre svih ostalih. Datumi su naš plan, ne obećanje."
+  },
+  footer: { privacy: "Privatnost", licenses: "Licence", support: "Podrška", changelog: "Izmene", pricing: "Cene", terms: "Uslovi", refunds: "Povraćaj novca" },
   back: "Koona Pin",
   privacyPage: {
     title: "Politika privatnosti",
-    updated: "Ažurirano 9. oktobra 2026.",
+    updated: "Ažurirano 12. oktobra 2026.",
     section: "Srpski",
     note: "Ovo je prevod radi lakšeg čitanja. Ako se razlikuje od engleskog teksta, važi engleska verzija.",
     original: "Pročitajte na engleskom",
@@ -73,7 +140,7 @@ export default {
     title: "Licence",
     lead: "Od čega je napravljen ovaj sajt i pod kojim uslovima.",
     items: [
-      ["Koona Pin", "Kod besplatnog izdanja: GPL-3.0-only. Kod označen kao Pro ima posebnu komercijalnu licencu. Za naziv, maskotu i logo važe posebna pravila korišćenja; pogledajte pregled licenci.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "Kod besplatnog izdanja: GPL-3.0-only. Kod označen kao komercijalni ima posebnu licencu. Za naziv, maskotu i logo važe posebna pravila korišćenja; pogledajte pregled licenci.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Font teksta. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Natpis logotipa, kao krive. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Ikone. ISC License.", "https://lucide.dev/license"],

@@ -71,6 +71,10 @@ pub struct JsonBookmark {
     /// Tag names; each is in `tags` of the file.
     pub tags: Vec<String>,
     pub source: Option<String>,
+    /// The assistant that saved it over MCP (NP-091); left out when none, so
+    /// a copy without such links reads as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_name: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     /// Empty: waiting in the inbox.
@@ -130,7 +134,7 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
     };
     let mut statement = conn.prepare(&format!(
         "SELECT b.id, b.uid, b.url, b.title, b.description, b.notes, b.domain, b.image_url, b.favicon_url, b.is_favorite,
-                c.uid, b.source, b.created_at, b.updated_at, b.triaged_at, b.deleted_at
+                c.uid, b.source, b.created_at, b.updated_at, b.triaged_at, b.deleted_at, b.source_name
          FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id {filter}
          ORDER BY b.created_at DESC, b.id DESC"
     ))?;
@@ -152,6 +156,7 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
             updated_at: r.get(13)?,
             triaged_at: r.get(14)?,
             deleted_at: r.get(15)?,
+            source_name: r.get(16)?,
         })
     })?;
     rows.collect()

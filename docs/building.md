@@ -86,6 +86,8 @@ Notes:
 
 Official releases are signed by the maintainer (Windows code signing, the update key and Firefox add-on signing); none of that is needed for local builds. An unsigned Windows installer works but triggers a SmartScreen warning.
 
+**The version and its changelog go together.** The PR that bumps the app's version (`package.json`, `src-tauri/Cargo.toml`, the `koonapin` package in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`) also adds `site/content/changelog/<version>.md`: a `date` in the front matter and a few lines in plain English about what changed for people, the way the earlier files read. `bun run release` refuses to start without it, the site's changelog page lists it, and the update dialog shows it as «What's new».
+
 ## Where outputs go
 
 Everything meant to leave the repository goes under `release/`, which Git ignores. One file defines the folders: [`scripts/lib/paths.mjs`](../scripts/lib/paths.mjs).

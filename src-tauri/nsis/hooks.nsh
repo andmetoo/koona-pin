@@ -10,6 +10,8 @@
 !define NP_PRODUCT "Koona Pin"
 !define NP_EXE "koonapin.exe"
 !define NP_HOST_EXE "koonapin-host.exe"
+; The MCP server an AI assistant runs (NP-091).
+!define NP_MCP_EXE "koonapin-mcp.exe"
 !define NP_BRAND_DIR "Koona"
 !define NP_DATA_DIR "Pin"
 ; The library folder of the builds before NP-112 (Р-56).
@@ -101,8 +103,9 @@ FunctionEnd
 !macro NSIS_HOOK_PREINSTALL
   ; A silent install has no .onGUIInit; nothing was uninstalled before this.
   Call NpReadPrior
-  ; A browser may hold the host open; the old file cannot be replaced then.
+  ; A browser may hold the host open, an assistant the MCP server; the old file cannot be replaced then.
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${NP_HOST_EXE}" "${NP_PRODUCT}"
+  !insertmacro CheckIfAppIsRunning "$INSTDIR\${NP_MCP_EXE}" "${NP_PRODUCT}"
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
@@ -126,10 +129,11 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  ; The host first (it can start the app), then the app; the template's own
-  ; check of the app that follows then finds nothing. If the person cancels
-  ; here, nothing is removed yet.
+  ; The host and the MCP server first (they can start the app), then the app;
+  ; the template's own check of the app that follows then finds nothing. If
+  ; the person cancels here, nothing is removed yet.
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${NP_HOST_EXE}" "${NP_PRODUCT}"
+  !insertmacro CheckIfAppIsRunning "$INSTDIR\${NP_MCP_EXE}" "${NP_PRODUCT}"
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${NP_EXE}" "${NP_PRODUCT}"
   ; The keys go before the files they point at. An update installs the same
   ; keys again right after.

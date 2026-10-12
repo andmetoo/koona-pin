@@ -30,9 +30,36 @@ async function walk(dir) {
   }
 }
 await walk(out);
-// The pages run no scripts: only the beacon Cloudflare inserts on the server.
+// The pages run no scripts: only the beacon Cloudflare inserts on the server. The payment page
+// (NP-066, Р-64) is the one exception: Paddle.js from its CDN and the page's own module, both by
+// address, nothing inline — its CSP in site/Caddyfile allows exactly these.
+const allowed = (file, tag) =>
+  file === "checkout/index.html" &&
+  /\ssrc="(https:\/\/cdn\.paddle\.com\/paddle\/v2\/paddle\.js|\/pin\/_astro\/[^"]+\.js)"/.test(tag) &&
+  /<\/script>/.test(tag) &&
+  /^<script[^>]*><\/script>$/.test(tag);
 for (const file of files.filter((f) => f.endsWith(".html"))) {
-  if (/<script\b/i.test(await readFile(path.join(out, file), "utf8"))) throw new Error(`${file}: a <script> in the page`);
+  const html = await readFile(path.join(out, file), "utf8");
+  for (const tag of html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? []) {
+    if (!allowed(file, tag)) throw new Error(`${file}: a <script> in the page`);
+  }
+}
+
+// A link to the page in another language leads to a page that was built: an English-only page
+// (downloads, changelog, pricing, terms, refunds, checkout) offers no language menu of 404s.
+const built = new Set(files);
+const builtAt = (href) => {
+  const p = new URL(href, `${SITE}/`).pathname;
+  if (!p.startsWith("/pin/")) return true;
+  const rel = p.slice("/pin/".length).replace(/\/$/, "/index.html").replace(/^$/, "index.html");
+  return [rel, `${rel}.html`, `${rel}/index.html`].some((f) => built.has(f));
+};
+for (const file of files.filter((f) => f.endsWith(".html"))) {
+  const html = await readFile(path.join(out, file), "utf8");
+  for (const tag of html.match(/<(?:a|link)\b[^>]*\shreflang="[^"]+"[^>]*>/g) ?? []) {
+    const href = tag.match(/\shref="([^"]+)"/)?.[1];
+    if (href && !builtAt(href)) throw new Error(`${file}: a language link to ${href}, which is not built`);
+  }
 }
 
 // Screenshots under their own names too: the AppStream metainfo of the Linux packages links them

@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Koona Pin'e kaydedildi", inbox: "Gelen kutusuna eklendi", backup: "Yedek", today: "Bugün, 09:00", yesterday: "Dün", mb: "MB" },
   privacyTitle: "Bağlantılarınız sizde kalır",
-  privacyBody: "Koona Pin kitaplığınızı bilgisayarınızda tutar: hiçbir sunucu bağlantılarınızı görmez. Geliştiriciye yalnızca sizin göndermeyi seçtiğiniz geri bildirim ulaşır.",
+  privacyBody: "Koona Pin kitaplığınızı bilgisayarınızda tutar: hiçbir sunucu bağlantılarınızı görmez. Geliştiriciye yalnızca sizin göndermeyi seçtiğiniz geri bildirim ve bir Supporter satın alımının e-posta adresi ulaşır.",
   privacyFacts: [
     "Uzantı yalnızca kaydettiğiniz sekmenin adresini ve başlığını okur.",
     "Uygulama analiz verisi, telemetri veya çökme raporu göndermez.",
@@ -59,11 +59,78 @@ export default {
     ["Linux, 64 bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome veya Edge 120+, Firefox 140+", "Güncel sürüm veya ESR 140"],
   ],
-  footer: { privacy: "Gizlilik", licenses: "Lisanslar", support: "Destek", changelog: "Değişiklikler" },
+  supporter: {
+    "title": "Koona Pin'i destekleyin",
+    "lead": "Koona Pin ücretsizdir ve bugün yaptığı her şey ücretsiz kalacak. Supporter'lar sıradakileri finanse eder ve her yeni sürümü ilk onlar alır.",
+    "yearly": "Yıllık",
+    "monthly": "Aylık",
+    "freeMonths": "2 ay ücretsiz",
+    "yearRest": "veya yılda 20 €",
+    "monthRest": "veya ayda 2 €",
+    "buyYearly": "Yıllık satın al",
+    "buyMonthly": "Aylık satın al",
+    "fiveYears": "5 yıl",
+    "saveHalf": "%50 tasarruf",
+    "fiveYearsRest": "veya tek seferde 50 €",
+    "buyFiveYears": "5 yıllık satın al",
+    "perks": [
+      [
+        "Supporter rozeti",
+        "Kenar çubuğunda mevsimin renginde bir kalp."
+      ],
+      [
+        "Erken sürümler",
+        "Her yeni sürüm herkesten biraz önce."
+      ],
+      [
+        "Bilgisayarlar arası eşitleme",
+        "Kitaplığınız kullandığınız her bilgisayarda."
+      ],
+      [
+        "Bir klasöre otomatik yedekler",
+        "Seçtiğiniz bir klasöre, örneğin Dropbox veya Google Drive."
+      ]
+    ],
+    "now": "Şimdi",
+    "from": "{date} itibarıyla",
+    "notes": [
+      "Ödemeyi Paddle alır",
+      "İstediğiniz zaman iptal edin",
+      "İlk ödemeden sonraki 14 gün içinde tam iade"
+    ],
+    "roadmapTitle": "Sırada ne var",
+    "roadmapLead": "Önümüzdeki iki ayın planı.",
+    "delivered": "Yayında, ücretsiz",
+    "roadmap": [
+      [
+        "Yapay zekâ asistanları",
+        "Claude ve diğer asistanlar bağlantılarınızı arar ve kaydeder."
+      ],
+      [
+        "macOS uygulaması",
+        "Mac'te Koona Pin, tarayıcıda aynı düğmeyle."
+      ],
+      [
+        "Eşitleme",
+        "Kitaplığınız kullandığınız her bilgisayarda. Supporter'lar için."
+      ],
+      [
+        "iOS uygulaması",
+        "Kitaplığınız iPhone ve iPad'de."
+      ],
+      [
+        "Android uygulaması",
+        "Kitaplığınız Android telefon ve tabletlerde."
+      ]
+    ],
+    "firstTitle": "Supporter'lar her sürümü ilk alır",
+    "firstText": "Yeni sürümler onlara herkesten biraz önce ulaşır. Tarihler bir söz değil, planımızdır."
+  },
+  footer: { privacy: "Gizlilik", licenses: "Lisanslar", support: "Destek", changelog: "Değişiklikler", pricing: "Fiyatlar", terms: "Koşullar", refunds: "İadeler" },
   back: "Koona Pin",
   privacyPage: {
     title: "Gizlilik politikası",
-    updated: "Son güncelleme: 9 Ekim 2026",
+    updated: "Son güncelleme: 12 Ekim 2026",
     section: "Türkçe",
     note: "Bu, kolaylık sağlamak için yapılmış bir çeviridir. İngilizce metinle farklılık olursa İngilizce sürüm geçerlidir.",
     original: "İngilizce okuyun",
@@ -72,7 +139,7 @@ export default {
     title: "Lisanslar",
     lead: "Bu sitenin nelerden oluştuğu ve hangi koşullarla.",
     items: [
-      ["Koona Pin", "Ücretsiz sürümün kodu: GPL-3.0-only. Pro olarak işaretlenen kod ayrı bir ticari lisansa tabidir. Ad, maskot ve logo için ayrı kullanım kuralları geçerlidir; lisans özetine bakın.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
+      ["Koona Pin", "Ücretsiz sürümün kodu: GPL-3.0-only. Ticari olarak işaretlenen kod ayrı bir lisansa tabidir. Ad, maskot ve logo için ayrı kullanım kuralları geçerlidir; lisans özetine bakın.", "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md"],
       ["Inter", "Metin yazı tipi. SIL Open Font License 1.1.", "https://github.com/rsms/inter"],
       ["Nunito", "Yazı logosu, eğri olarak. SIL Open Font License 1.1.", "https://github.com/googlefonts/nunito"],
       ["Lucide", "Simgeler. ISC Lisansı.", "https://lucide.dev/license"],

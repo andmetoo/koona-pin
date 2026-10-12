@@ -1,4 +1,4 @@
-import { ReactNode, useId } from "react";
+import { ReactNode, useId, useLayoutEffect, useRef } from "react";
 
 /** A labelled form field with an optional hint or error under it. */
 export function Field({
@@ -99,4 +99,95 @@ export function Segmented<T extends string>({
 /** A coloured dot for collections and statuses. */
 export function Dot({ color, className = "" }: { color: string; className?: string }) {
   return <span className={`inline-block size-2 shrink-0 rounded-full ${className}`} style={{ background: color }} />;
+}
+
+/**
+ * The content of every tab in one grid cell: the tallest sets the height, so a dialog with tabs keeps
+ * its size and its place on screen when the tab changes, in any language. Only the chosen tab is
+ * seen, read and reached with the keyboard.
+ */
+export function TabPanels<T extends string>({
+  value,
+  tabs,
+  children,
+}: {
+  value: T;
+  tabs: readonly T[];
+  children: (tab: T) => ReactNode;
+}) {
+  return (
+    <div className="grid">
+      {tabs.map((tab) => {
+        const active = tab === value;
+        return (
+          <div
+            key={tab}
+            data-tab-panel={tab}
+            data-active={active || undefined}
+            aria-hidden={!active || undefined}
+            inert={!active}
+            className={`flex min-w-0 flex-col gap-4 [grid-area:1/1] ${active ? "" : "invisible"}`}
+          >
+            {children(tab)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The states of a dialog in one grid cell (NP-118): each state is laid out once more, unseen, with
+ * its largest content, and the tallest sets the height. So the dialog opens at its final size and its
+ * title and buttons stay in place until it closes; the state shown takes that height, its footer at
+ * the bottom, a long report scrolling inside. Only the shown state is seen, read and reached with the
+ * keyboard. It mounts anew on each change, so `autoFocus` in it works; without one, focus goes to it.
+ */
+export function StatePanels<T extends string>({
+  value,
+  states,
+  children,
+}: {
+  value: T;
+  states: readonly T[];
+  /** `sizing` is the unseen copy: the state with its largest content, or null when it fits any height. */
+  children: (state: T, sizing: boolean) => ReactNode;
+}) {
+  const shown = useRef<HTMLDivElement>(null);
+  const opened = useRef(false);
+  useLayoutEffect(() => {
+    // The first state is focused by the dialog itself.
+    if (!opened.current) {
+      opened.current = true;
+      return;
+    }
+    const panel = shown.current;
+    if (panel && !panel.contains(document.activeElement)) panel.focus();
+  }, [value]);
+  // In a window lower than the tallest state the cell gets what is left, and the state shown gives way;
+  // -m-1 p-1 here and on it keep focus rings from being cut.
+  return (
+    <div className="-m-1 grid min-h-0 grid-rows-[minmax(0,1fr)] overflow-hidden p-1">
+      {/* Takes the height of the cell without adding to it. */}
+      <div
+        key={value}
+        ref={shown}
+        tabIndex={-1}
+        data-state-panel={value}
+        className="-m-1 flex min-w-0 flex-col gap-4 overflow-y-auto p-1 outline-none [contain:size] [grid-area:1/1]"
+      >
+        {children(value, false)}
+      </div>
+      {states.map((state) => {
+        const sizing = children(state, true);
+        return (
+          sizing && (
+            <div key={`sizing-${state}`} aria-hidden inert className="invisible flex min-w-0 flex-col gap-4 [grid-area:1/1]">
+              {sizing}
+            </div>
+          )
+        );
+      })}
+    </div>
+  );
 }

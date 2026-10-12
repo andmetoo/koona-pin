@@ -55,7 +55,7 @@ Needs:
 - No running Koona Pin. The app is single-instance per user, so a test build would hand over to it. The scripts stop with a hint if one is running.
 - Port 9225 free (another WebView2 app with debugging on can hold it).
 
-To test a release binary instead: build it with `cargo build --release --features custom-protocol --locked` in `src-tauri` and set `KOONAPIN_TEST_BINARY=src-tauri/target/release/koonapin.exe` for `test:native`, `test:host` and the extension smoke tests. The host is taken from the same folder.
+To test a release binary instead: build it with `cargo build --release --features custom-protocol --locked` in `src-tauri` and set `KOONAPIN_TEST_BINARY=src-tauri/target/release/koonapin.exe` for `test:native`, `test:host`, `test:mcp` and the extension smoke tests. The host and the MCP server are taken from the same folder.
 
 `bun run test:perf` runs the scrolling benchmark (tag `@perf`, 10 000 bookmarks in grid and list). Run it after changes to the grid or list.
 
@@ -66,6 +66,14 @@ bun run test:host
 ```
 
 `scripts/smoke-host.mjs` sends browser-shaped messages to `koonapin-host`: `hello` does not start a closed app, capture starts it in the tray, receipts, duplicates, invalid URLs, `request_id` conflicts, an old protocol.
+
+## MCP smoke test
+
+```powershell
+bun run test:mcp
+```
+
+`scripts/smoke-mcp.mjs` drives the built `koonapin-mcp` over stdio as an assistant does, on its own library and pipe: `initialize`, `tools/list` keeps a closed app closed and the first call starts it in the tray, off reads nothing, read only finds a bookmark by a word and refuses to add, read and add saves to the inbox from `mcp` once, `list_changed`, move, tag, star, an unknown tool, and the copy inside a `.mcpb` handing over to the installed server.
 
 ## Extension smoke tests
 

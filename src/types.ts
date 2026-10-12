@@ -74,7 +74,17 @@ export type { LastCapture } from "./bindings/LastCapture";
 export type { Feedback } from "./bindings/Feedback";
 export type { FeedbackKind } from "./bindings/FeedbackKind";
 export type { UpdateStatus } from "./bindings/UpdateStatus";
+export type { McpAccess } from "./bindings/McpAccess";
+export type { McpSetup } from "./bindings/McpSetup";
+export type { McpStatus } from "./bindings/McpStatus";
 export type { UpdateProblem } from "./bindings/UpdateProblem";
+export type { SupporterStatus } from "./bindings/SupporterStatus";
+export type { SupporterPrices } from "./bindings/SupporterPrices";
+export type { Plan } from "./bindings/Plan";
+export type { PlanInterval } from "./bindings/PlanInterval";
+export type { PlanStatus } from "./bindings/PlanStatus";
+export type { CheckoutState } from "./bindings/CheckoutState";
+export type { BackupFolder } from "./bindings/BackupFolder";
 
 export type ViewMode = "grid" | "list";
 
