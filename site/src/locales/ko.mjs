@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Koona Pin에 저장했습니다", inbox: "받은함에 추가했습니다", backup: "백업", today: "오늘 오전 9:00", yesterday: "어제", mb: "MB" },
   privacyTitle: "링크는 나에게만 남습니다",
-  privacyBody: "Koona Pin은 라이브러리를 내 컴퓨터에 보관합니다. 어떤 서버도 내 링크를 보지 못합니다. 개발자에게는 직접 보내기로 한 피드백만 전달됩니다.",
+  privacyBody: "Koona Pin은 라이브러리를 내 컴퓨터에 보관합니다. 어떤 서버도 내 링크를 보지 못합니다. 개발자에게는 직접 보내기로 한 피드백과 Supporter 구매 이메일만 전달됩니다.",
   privacyFacts: [
     "확장 프로그램은 저장하는 탭의 주소와 제목만 읽습니다.",
     "앱은 분석 데이터, 원격 분석, 오류 보고서를 보내지 않습니다.",
@@ -63,7 +63,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "개인정보 처리방침",
-    updated: "최종 업데이트: 2026년 10월 9일",
+    updated: "최종 업데이트: 2026년 10월 12일",
     section: "한국어",
     note: "이 문서는 이해를 돕기 위한 번역입니다. 영어 원문과 다를 경우 영어 원문이 우선합니다.",
     original: "영어로 읽기",

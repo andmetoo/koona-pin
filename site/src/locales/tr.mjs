@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Koona Pin'e kaydedildi", inbox: "Gelen kutusuna eklendi", backup: "Yedek", today: "Bugün, 09:00", yesterday: "Dün", mb: "MB" },
   privacyTitle: "Bağlantılarınız sizde kalır",
-  privacyBody: "Koona Pin kitaplığınızı bilgisayarınızda tutar: hiçbir sunucu bağlantılarınızı görmez. Geliştiriciye yalnızca sizin göndermeyi seçtiğiniz geri bildirim ulaşır.",
+  privacyBody: "Koona Pin kitaplığınızı bilgisayarınızda tutar: hiçbir sunucu bağlantılarınızı görmez. Geliştiriciye yalnızca sizin göndermeyi seçtiğiniz geri bildirim ve bir Supporter satın alımının e-posta adresi ulaşır.",
   privacyFacts: [
     "Uzantı yalnızca kaydettiğiniz sekmenin adresini ve başlığını okur.",
     "Uygulama analiz verisi, telemetri veya çökme raporu göndermez.",
@@ -63,7 +63,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Gizlilik politikası",
-    updated: "Son güncelleme: 9 Ekim 2026",
+    updated: "Son güncelleme: 12 Ekim 2026",
     section: "Türkçe",
     note: "Bu, kolaylık sağlamak için yapılmış bir çeviridir. İngilizce metinle farklılık olursa İngilizce sürüm geçerlidir.",
     original: "İngilizce okuyun",

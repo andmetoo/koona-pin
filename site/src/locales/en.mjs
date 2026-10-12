@@ -34,7 +34,7 @@ export default {
   ],
   scene: { saved: "Saved to Koona Pin", inbox: "Added to Inbox", backup: "Backup", today: "Today, 09:00", yesterday: "Yesterday", mb: "MB" },
   privacyTitle: "Your links stay with you",
-  privacyBody: "Koona Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send reaches the developer.",
+  privacyBody: "Koona Pin keeps your library on your computer: no server ever sees your links. Only feedback you choose to send, and the email of a Supporter purchase, reach the developer.",
   privacyFacts: [
     "The extension reads only the address and title of the tab you save.",
     "The app sends no analytics, telemetry or crash reports.",
@@ -62,7 +62,7 @@ export default {
   ],
   footer: { privacy: "Privacy", licenses: "Licenses", support: "Support", changelog: "Changelog", pricing: "Pricing", terms: "Terms", refunds: "Refunds" },
   back: "Koona Pin",
-  privacyPage: { title: "Privacy policy", updated: "Last updated 9 October 2026", section: "English", note: "", original: "" },
+  privacyPage: { title: "Privacy policy", updated: "Last updated 12 October 2026", section: "English", note: "", original: "" },
   licenses: {
     title: "Licenses",
     lead: "What this site is made of and under which terms.",

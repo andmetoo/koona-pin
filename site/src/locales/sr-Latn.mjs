@@ -34,7 +34,7 @@ export default {
   ],
   scene: { saved: "Sačuvano u Koona Pin", inbox: "Dodato u prijemno sanduče", backup: "Rezervna kopija", today: "Danas, 09:00", yesterday: "Juče", mb: "MB" },
   privacyTitle: "Vaši linkovi ostaju kod vas",
-  privacyBody: "Koona Pin čuva biblioteku na vašem računaru: nijedan server ne vidi vaše linkove. Programeru stiže samo komentar koji sami pošaljete.",
+  privacyBody: "Koona Pin čuva biblioteku na vašem računaru: nijedan server ne vidi vaše linkove. Programeru stižu samo komentar koji sami pošaljete i adresa e-pošte iz kupovine Supporter.",
   privacyFacts: [
     "Proširenje čita samo adresu i naslov kartice koju čuvate.",
     "Aplikacija ne šalje analitiku, telemetriju ni izveštaje o padovima.",
@@ -64,7 +64,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Politika privatnosti",
-    updated: "Ažurirano 9. oktobra 2026.",
+    updated: "Ažurirano 12. oktobra 2026.",
     section: "Srpski",
     note: "Ovo je prevod radi lakšeg čitanja. Ako se razlikuje od engleskog teksta, važi engleska verzija.",
     original: "Pročitajte na engleskom",

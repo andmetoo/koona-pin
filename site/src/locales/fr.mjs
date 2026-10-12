@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Enregistré dans Koona Pin", inbox: "Ajouté à la boîte de réception", backup: "Sauvegarde", today: "Aujourd’hui, 09:00", yesterday: "Hier", mb: "Mo" },
   privacyTitle: "Vos liens restent chez vous",
-  privacyBody: "Koona Pin garde votre bibliothèque sur votre ordinateur\u00a0: aucun serveur ne voit vos liens. Seul l’avis que vous choisissez d’envoyer parvient au développeur.",
+  privacyBody: "Koona Pin garde votre bibliothèque sur votre ordinateur\u00a0: aucun serveur ne voit vos liens. Seuls l’avis que vous choisissez d’envoyer et l’adresse e-mail d’un achat Supporter parviennent au développeur.",
   privacyFacts: [
     "L’extension lit uniquement l’adresse et le titre de l’onglet que vous enregistrez.",
     "L’application n’envoie ni statistiques, ni télémétrie, ni rapports de plantage.",
@@ -63,7 +63,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Politique de confidentialité",
-    updated: "Dernière mise à jour\u00a0: 9 octobre 2026",
+    updated: "Dernière mise à jour\u00a0: 12 octobre 2026",
     section: "Français",
     note: "Ceci est une traduction proposée pour plus de commodité. En cas de divergence avec le texte anglais, la version anglaise fait foi.",
     original: "Lire en anglais",
