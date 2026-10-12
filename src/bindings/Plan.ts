@@ -11,10 +11,6 @@ export type Plan = { status: PlanStatus, interval: PlanInterval | null, valid_un
  */
 offline_until: string, 
 /**
- * Paid once for this many years (Supporter · 5 years): signed `canceling`, with no renewal.
- */
-years: number | null, 
-/**
  * Paid once, and a subscription of the account still renews: the dialog says to cancel it.
  */
 also_renews: boolean, };

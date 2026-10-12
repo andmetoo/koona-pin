@@ -143,13 +143,13 @@ const supporterListeners = new Set<(status: SupporterStatus) => void>();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 function demoPlan(kind: string | null): SupporterStatus["plan"] {
   // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
-  const plan = { years: null, also_renews: false };
+  const plan = { also_renews: false };
   if (kind === "supporter") return { ...plan, status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
   if (kind === "canceling") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null, offline_until: inDays(30) };
   if (kind === "past_due") return { ...plan, status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
   if (kind === "offline") return { ...plan, status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
   // Supporter · 5 years, paid once; `five_years_renewing` while a subscription still renews too.
-  const fiveYears = { status: "canceling", interval: null, valid_until: inDays(1826), renews_at: null, offline_until: inDays(30), years: 5 } as const;
+  const fiveYears = { status: "active", interval: "five_years", valid_until: inDays(1826), renews_at: null, offline_until: inDays(30) } as const;
   if (kind === "five_years") return { ...fiveYears, also_renews: false };
   if (kind === "five_years_renewing") return { ...fiveYears, also_renews: true };
   return null;

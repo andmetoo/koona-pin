@@ -69,6 +69,10 @@ export default {
     "monthRest": "или 2 € в месяц",
     "buyYearly": "Купить на год",
     "buyMonthly": "Купить на месяц",
+    "fiveYears": "На 5 лет",
+    "saveHalf": "Выгода 50%",
+    "fiveYearsRest": "или 50 € один раз",
+    "buyFiveYears": "Купить на 5 лет",
     "perks": [
       [
         "Значок Supporter",

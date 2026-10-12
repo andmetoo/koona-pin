@@ -70,6 +70,10 @@ export default {
     "monthRest": "or €2 a month",
     "buyYearly": "Buy yearly",
     "buyMonthly": "Buy monthly",
+    "fiveYears": "5 years",
+    "saveHalf": "Save 50%",
+    "fiveYearsRest": "or €50 once",
+    "buyFiveYears": "Buy 5 years",
     "perks": [
       [
         "Supporter badge",

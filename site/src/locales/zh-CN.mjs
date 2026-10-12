@@ -69,6 +69,10 @@ export default {
     "monthRest": "或每月 2 €",
     "buyYearly": "购买年付",
     "buyMonthly": "购买月付",
+    "fiveYears": "5 年",
+    "saveHalf": "省 50%",
+    "fiveYearsRest": "或一次性 50 €",
+    "buyFiveYears": "购买 5 年",
     "perks": [
       [
         "Supporter 徽章",

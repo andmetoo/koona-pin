@@ -69,6 +69,10 @@ export default {
     "monthRest": "또는 월 2 €",
     "buyYearly": "연간 구매",
     "buyMonthly": "월간 구매",
+    "fiveYears": "5년",
+    "saveHalf": "50% 절약",
+    "fiveYearsRest": "또는 50 € 1회",
+    "buyFiveYears": "5년 구매",
     "perks": [
       [
         "Supporter 배지",

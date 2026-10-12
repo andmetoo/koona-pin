@@ -2263,8 +2263,8 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
     ["past_due", "past_due", "The renewal didn't go through — update the card"],
     ["offline", "unchecked", "Couldn't check the plan — it stays on until"],
     // Supporter · 5 years: nothing to manage, unless a subscription still renews too.
-    ["five_years", "canceling", "Paid once · Supporter until"],
-    ["five_years_renewing", "canceling", "Your subscription still renews — cancel it in Manage"],
+    ["five_years", "active", "Paid once · Supporter until"],
+    ["five_years_renewing", "active", "Your subscription still renews — cancel it in Manage"],
   ] as const) {
     await page.evaluate((k) => localStorage.setItem("koonapin.demo.supporter", k), kind);
     await page.reload();

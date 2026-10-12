@@ -784,7 +784,7 @@ export function PlanDialog({
         {t("plan.updateCard")} ↗
       </Button>
     );
-  } else if (plan.years) {
+  } else if (plan.interval === "five_years") {
     // Paid once: nothing to manage in Paddle's portal unless a subscription still renews too.
     if (plan.also_renews) {
       status = t("supporter.alsoRenews");
@@ -812,7 +812,7 @@ export function PlanDialog({
             <Heart size={20} fill="currentColor" aria-hidden />
           </span>
           <div className="min-w-0 text-xs leading-[17px]">
-            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.years ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
+            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.interval === "five_years" ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
             <p className="truncate text-muted">{supporter.email}</p>
             {/* The state of the plan always takes this one line, so the dialog keeps its height. */}
             <p role={tone === "muted" ? undefined : "status"} className={`min-h-[17px] ${toneClass}`}>

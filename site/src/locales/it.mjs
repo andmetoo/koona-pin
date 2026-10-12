@@ -69,6 +69,10 @@ export default {
     "monthRest": "o 2 € al mese",
     "buyYearly": "Acquista annuale",
     "buyMonthly": "Acquista mensile",
+    "fiveYears": "5 anni",
+    "saveHalf": "Risparmi il 50%",
+    "fiveYearsRest": "o 50 € una tantum",
+    "buyFiveYears": "Acquista 5 anni",
     "perks": [
       [
         "Badge Supporter",

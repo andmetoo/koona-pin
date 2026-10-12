@@ -3,7 +3,7 @@
 // their buy buttons, what a Supporter gets now and when, and the roadmap of the next two months.
 // The buttons open Paddle on /checkout/ (English, the one page with scripts).
 import Icon from "./Icon.astro";
-import { BASE, SUPPORTER_ON_SALE } from "../content.mjs";
+import { BASE, PADDLE_PRICES, SUPPORTER_ON_SALE } from "../content.mjs";
 
 const { t } = Astro.props;
 const s = t.supporter;
@@ -14,11 +14,13 @@ const perkIcons = ["heart", "rocket", "sync", "folder"];
 const perkWhen = ["now", "2026-10-20", "2026-10-30", "now"];
 const roadmap = ["2026-10-11", "2026-10-20", "2026-10-30", "2026-11-15", "2026-11-30"];
 const buy = (plan) => `${BASE}/checkout/?plan=${plan}`;
+// Supporter · 5 years, paid once: a third card once its price exists where the site sells.
+const fiveYears = SUPPORTER_ON_SALE && !!PADDLE_PRICES[process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox"].five_years;
 ---
 <section class="wrap reveal supporter" id="supporter" aria-labelledby="supporter-title">
 <h2 class="section-title center" id="supporter-title">{s.title}</h2>
 <p class="supporter-lead">{s.lead}</p>
-<div class="plans-row">
+<div class:list={["plans-row", { "plans-row-three": fiveYears }]}>
 <div class="plan-card plan-card-main">
 <p class="plan-card-name">{s.yearly}<span class="chip-latest">{s.freeMonths}</span></p>
 <p class="plan-card-price"><strong>$20</strong> {s.yearRest}</p>
@@ -29,6 +31,13 @@ const buy = (plan) => `${BASE}/checkout/?plan=${plan}`;
 <p class="plan-card-price"><strong>$2</strong> {s.monthRest}</p>
 {SUPPORTER_ON_SALE && <a class="button" href={buy("month")}>{s.buyMonthly}</a>}
 </div>
+{fiveYears && (
+<div class="plan-card plan-card-five">
+<p class="plan-card-name">{s.fiveYears}<span class="chip-latest">{s.saveHalf}</span></p>
+<p class="plan-card-price"><strong>$50</strong> {s.fiveYearsRest}</p>
+<a class="button" href={buy("five_years")}>{s.buyFiveYears}</a>
+</div>
+)}
 </div>
 <ul class="perks">
 {s.perks.map(([title, hint], i) => (
