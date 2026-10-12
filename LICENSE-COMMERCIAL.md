@@ -52,6 +52,8 @@ Your subscription permission ends when its paid term ends without renewal, or wh
 
 For a material breach of this license, Licensor may terminate the affected commercial permission after written notice and 30 days to remedy the breach, if it can be remedied. Immediate suspension is permitted where reasonably necessary to stop unauthorized redistribution, fraud or a security threat, subject to mandatory law and applicable purchase terms. These provisions do not shorten a paid term merely because you cancel renewal. Termination does not affect rights and obligations that have already arisen, or statutory remedies and refund rights.
 
+If Licensor stops offering Supporter while your paid term is running, your paid term is kept: if Supporter is replaced by another plan, your permission continues until the end of that term. If Supporter or Koona Pin itself is discontinued, Licensor will release a final official update in which the commercial features work without Licensor's servers or plan checks, with a permission to use them that does not end, and will publish the source code of the server-side services behind paid features, such as sync, so that anyone can run them.
+
 ## 7. Warranty and liability
 
 To the extent permitted by applicable law, the Commercial Software is provided "as is" and "as available", without additional warranties of merchantability, fitness for a particular purpose or non-infringement. No uninterrupted or error-free operation is promised. This does not exclude obligations expressly agreed at purchase or mandatory rights relating to conformity, required updates, remedies or refunds.
