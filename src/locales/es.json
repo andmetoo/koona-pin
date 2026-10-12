@@ -1117,8 +1117,6 @@
     "hide": "Ocultar"
   },
   "supporter": {
-    "free": "Versión gratuita",
-    "support": "Apoyar",
     "rowHint": "Versión gratuita · Apoyar Koona Pin",
     "title": "Apoyar Koona Pin",
     "testPayments": "Pagos de prueba",

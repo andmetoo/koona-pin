@@ -1044,8 +1044,6 @@
     "hide": "Gizle"
   },
   "supporter": {
-    "free": "Ücretsiz sürüm",
-    "support": "Destekleyin",
     "rowHint": "Ücretsiz sürüm · Koona Pin'i destekleyin",
     "title": "Koona Pin'i destekleyin",
     "testPayments": "Test ödemeleri",

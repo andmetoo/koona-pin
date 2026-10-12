@@ -2212,7 +2212,7 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   await page.reload();
   const row = page.locator("[data-plan-row]");
   await expect(row).toHaveAttribute("data-plan-row", "free");
-  await expect(row).toHaveText("Free versionSupport");
+  await expect(row).toHaveText("Support Koona Pin");
   await row.click();
   const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
   await expect(plans).toContainText("Test payments");

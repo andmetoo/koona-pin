@@ -1190,8 +1190,6 @@
     "hide": "Скрыть"
   },
   "supporter": {
-    "free": "Бесплатная версия",
-    "support": "Поддержать",
     "rowHint": "Бесплатная версия · Поддержать Koona Pin",
     "title": "Поддержать Koona Pin",
     "testPayments": "Тестовые платежи",
