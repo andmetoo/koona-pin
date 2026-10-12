@@ -67,6 +67,15 @@ pub fn build(app: &tauri::App) -> tauri::Result<()> {
                 crate::show_window(tray.app_handle());
             }
         });
+    // macOS: the one-colour mark as a template image, painted by the system for the bar and its
+    // theme (scripts/brand-icons.mjs). Elsewhere the app's icon.
+    #[cfg(target_os = "macos")]
+    {
+        tray = tray
+            .icon(tauri::include_image!("icons/tray-macos.png"))
+            .icon_as_template(true);
+    }
+    #[cfg(not(target_os = "macos"))]
     if let Some(icon) = app.default_window_icon() {
         tray = tray.icon(icon.clone());
     }

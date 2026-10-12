@@ -1,7 +1,7 @@
 // Files the pages link, built by Vite with a hash in their name under /pin/_astro/ (NP-115): a deploy
 // that changes a file changes its address, so Caddy and Cloudflare may keep them long. The screenshots
 // are also copied to /pin/shots/ under their own names by build-site.mjs: AppStream points there.
-import favicon from "../../design/brand/pin-spirit-flat/pin-spirit-micro.svg?url";
+import favicon from "../../app-icon.svg?url";
 import mascotLight from "../../design/brand/pin-spirit-flat/pin-spirit.svg?url";
 import mascotDark from "../../design/brand/pin-spirit-flat/pin-spirit-mint.svg?url";
 import favicon32 from "../../src-tauri/icons/32x32.png?url";
