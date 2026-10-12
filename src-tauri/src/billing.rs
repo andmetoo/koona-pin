@@ -298,9 +298,10 @@ fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
 /// A check that may use the answer already here instead of asking: an automatic one an answer
 /// seconds old, and any one the answer of a check that ran while it waited for its turn (a manual
 /// one only if that answer came, so «Try again» after a failure still asks). `waited_from` is the
-/// stamp seen before waiting.
-fn answered(stored: &Stored, waited_from: Option<DateTime<Utc>>, now: DateTime<Utc>, automatic: bool) -> bool {
-    let Some(at) = stored.checked_at.filter(|at| *at <= now) else {
+/// stamp seen before waiting. An answer to a question asked before `portal_at` never counts: what
+/// was changed in the portal since is not in it.
+fn answered(stored: &Stored, waited_from: Option<DateTime<Utc>>, now: DateTime<Utc>, automatic: bool, portal_at: Option<DateTime<Utc>>) -> bool {
+    let Some(at) = stored.checked_at.filter(|at| *at <= now && portal_at.is_none_or(|portal| *at >= portal)) else {
         return false;
     };
     let meanwhile = waited_from != Some(at);
@@ -338,6 +339,8 @@ pub struct Billing {
     checking: tokio::sync::Mutex<()>,
     /// One token refresh at a time: two with the same refresh token would race for the session.
     refreshing: tokio::sync::Mutex<()>,
+    /// When «Manage» last opened the portal: the check after it asks the server again.
+    portal_at: Mutex<Option<DateTime<Utc>>>,
 }
 
 impl Billing {
@@ -358,6 +361,7 @@ impl Billing {
             claiming: tokio::sync::Mutex::new(()),
             checking: tokio::sync::Mutex::new(()),
             refreshing: tokio::sync::Mutex::new(()),
+            portal_at: Mutex::new(None),
         }
     }
 
@@ -536,9 +540,13 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
     };
     // The dialog asks each time it opens or comes back into focus, and «Try again» may wait for a
     // check already on its way: the answer here is then enough.
-    if answered(&stored, waited_from, Utc::now(), automatic) {
+    let portal_at = billing.portal_at.lock().ok().and_then(|at| *at);
+    if answered(&stored, waited_from, Utc::now(), automatic, portal_at) {
         return Ok(status(&stored, Utc::now()));
     }
+    // Stamped with when it was asked, not answered: an answer that set off before the portal
+    // opened is older than it, however late it comes.
+    let asked_at = Utc::now();
     let result = async {
         let Some(token) = access_token(app).await? else {
             return Ok(None);
@@ -553,7 +561,7 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
             billing.update(app, |s| {
                 if s.same_account(&email) {
                     s.plan = plan;
-                    s.checked_at = Some(Utc::now());
+                    s.checked_at = Some(asked_at);
                     s.check_failed = false;
                 }
             })
@@ -561,13 +569,13 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
         // Signed out elsewhere: the plan stays until its period ends, as when offline.
         Ok(_) => billing.update(app, |s| {
             if s.same_account(&email) || s.session.is_none() {
-                s.checked_at = Some(Utc::now());
+                s.checked_at = Some(asked_at);
             }
         }),
         Err(error) => {
             billing.update(app, |s| {
                 if s.same_account(&email) {
-                    s.checked_at = Some(Utc::now());
+                    s.checked_at = Some(asked_at);
                     s.check_failed = true;
                 }
             })?;
@@ -708,6 +716,9 @@ pub async fn refresh_supporter(app: AppHandle, automatic: Option<bool>) -> Resul
 /// «Manage ↗»: Paddle's customer portal in the browser.
 #[tauri::command]
 pub async fn open_supporter_portal(app: AppHandle) -> Result<(), CommandError> {
+    if let Ok(mut at) = app.state::<Billing>().portal_at.lock() {
+        *at = Some(Utc::now());
+    }
     let token = access_token(&app).await?.ok_or_else(|| CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::SignedOut, "Not signed in"))?;
     let (status, value) = call(&app, json!({ "action": "portal" }), Some(&token)).await?;
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing portal", status))?.to_string();
@@ -820,17 +831,23 @@ mod tests {
         let checked = |when: &str, failed: bool| Stored { checked_at: Some(at(when)), check_failed: failed, ..supporter("2027-10-11T12:00:00Z") };
         let seconds_ago = checked("2026-10-12T11:59:55Z", false);
         let before = seconds_ago.checked_at;
-        assert!(answered(&seconds_ago, before, now, true), "the dialog skips an answer seconds old");
-        assert!(!answered(&seconds_ago, before, now, false), "«Try again» asks anyway");
-        assert!(!answered(&checked("2026-10-12T11:59:00Z", false), Some(at("2026-10-12T11:59:00Z")), now, true), "a minute old: asked again");
+        assert!(answered(&seconds_ago, before, now, true, None), "the dialog skips an answer seconds old");
+        assert!(!answered(&seconds_ago, before, now, false, None), "«Try again» asks anyway");
+        assert!(!answered(&checked("2026-10-12T11:59:00Z", false), Some(at("2026-10-12T11:59:00Z")), now, true, None), "a minute old: asked again");
         // A check ran while this one waited for its turn.
         let meanwhile = checked("2026-10-12T11:59:58Z", false);
-        assert!(answered(&meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false), "«Try again» takes the answer that just came");
+        assert!(answered(&meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false, None), "«Try again» takes the answer that just came");
         let failed_meanwhile = checked("2026-10-12T11:59:58Z", true);
-        assert!(!answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false), "but asks itself after a failure");
-        assert!(answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true), "the dialog does not repeat it");
-        assert!(!answered(&checked("2026-10-13T00:00:00Z", false), None, now, true), "a stamp in the future is not fresh");
-        assert!(!answered(&Stored { checked_at: None, ..seconds_ago.clone() }, None, now, true), "never checked: ask");
+        assert!(!answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false, None), "but asks itself after a failure");
+        assert!(answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true, None), "the dialog does not repeat it");
+        assert!(!answered(&checked("2026-10-13T00:00:00Z", false), None, now, true, None), "a stamp in the future is not fresh");
+        assert!(!answered(&Stored { checked_at: None, ..seconds_ago.clone() }, None, now, true, None), "never checked: ask");
+        // Back from «Manage»: an answer asked before the portal opened, seconds old or one that came
+        // while this check waited, says nothing about what was changed there.
+        let portal = Some(at("2026-10-12T11:59:57Z"));
+        assert!(!answered(&seconds_ago, before, now, true, portal), "seconds old but asked before the portal: asked again");
+        assert!(!answered(&checked("2026-10-12T11:59:56Z", false), Some(at("2026-10-05T00:00:00Z")), now, true, portal), "nor one that came meanwhile");
+        assert!(answered(&meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true, portal), "one asked after the portal counts");
     }
 
     #[test]
