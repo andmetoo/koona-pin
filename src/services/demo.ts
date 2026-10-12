@@ -132,13 +132,15 @@ let demoDownload: number | null = null;
  * `five_years`, `five_years_renewing` are the states of the plan dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
  */
 export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
-function storedSupporter(): string | null {
+/** A demo switch from localStorage; none where storage cannot be read. */
+function demoSwitch(key: string): string | null {
   try {
-    return localStorage.getItem(DEMO_SUPPORTER_KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
 }
+const storedSupporter = () => demoSwitch(DEMO_SUPPORTER_KEY);
 const supporterListeners = new Set<(status: SupporterStatus) => void>();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 function demoPlan(kind: string | null): SupporterStatus["plan"] {
@@ -1347,7 +1349,7 @@ export const demo = {
       month: { price_id: "pri_month", total: "$2.00", currency: "USD" },
       year: { price_id: "pri_year", total: "$20.00", currency: "USD" },
       // `koonapin.demo.fiveYears` = `off`: a server that does not sell them.
-      five_years: localStorage.getItem("koonapin.demo.fiveYears") === "off" ? null : { price_id: "pri_5y", total: "$50.00", currency: "USD" },
+      five_years: demoSwitch("koonapin.demo.fiveYears") === "off" ? null : { price_id: "pri_5y", total: "$50.00", currency: "USD" },
     };
   },
   async startCheckout(interval: PlanInterval) {

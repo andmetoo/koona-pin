@@ -1180,6 +1180,7 @@
     "upgradeTextYearly": "Payez {{price}} une seule fois au lieu de renouveler. Votre formule annuelle reste jusqu’au {{date}} puis ne se renouvelle plus ; les cinq ans commencent ce jour-là.",
     "upgradeTextMonthly": "Payez {{price}} une seule fois au lieu de renouveler. Votre formule mensuelle reste jusqu’au {{date}} puis ne se renouvelle plus ; les cinq ans commencent ce jour-là.",
     "upgradeHint": "Le paiement s’ouvre dans votre navigateur. Paddle, notre revendeur, s’en charge avec les taxes. Supporter durera jusqu’au {{date}}.",
+    "fiveYearsNotSold": "Les cinq ans en un seul paiement ne sont pas en vente pour le moment. Votre abonnement continue comme avant.",
     "pastDue": "Le renouvellement n’est pas passé — mettez à jour la carte",
     "unchecked": "Formule non vérifiée — elle reste active jusqu’au {{date}}",
     "perk": {

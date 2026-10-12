@@ -1107,6 +1107,7 @@
     "upgradeTextYearly": "Pay {{price}} once instead of renewing. Your yearly plan stays until {{date}} and then stops renewing; the five years start that day.",
     "upgradeTextMonthly": "Pay {{price}} once instead of renewing. Your monthly plan stays until {{date}} and then stops renewing; the five years start that day.",
     "upgradeHint": "Payment opens in your browser. Paddle handles it and the taxes as our reseller. Supporter then lasts until {{date}}.",
+    "fiveYearsNotSold": "Five years paid once aren't on sale right now. Your subscription goes on as before.",
     "pastDue": "The renewal didn't go through — update the card",
     "unchecked": "Couldn't check the plan — it stays on until {{date}}",
     "perk": {

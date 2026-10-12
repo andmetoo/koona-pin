@@ -2549,27 +2549,34 @@ test("Supporter: the plans show the prices Paddle gave last time at once, not do
   await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toContainText("$20 a year");
   expect(JSON.parse((await page.evaluate(() => localStorage.getItem("koonapin.supporterPrices")))!).prices.year.total).toBe("$20.00");
   // Euros last time and no answer now: euros, not the dollars kept for when nothing is known.
-  const remember = (daysAgo: number) =>
-    page.evaluate((days) => {
-      localStorage.setItem("koonapin.demo.supporter", "no_server");
-      localStorage.setItem(
-        "koonapin.supporterPrices",
-        JSON.stringify({
-          at: Date.now() - days * 86_400_000,
-          prices: { month: { price_id: "m", total: "€2.00", currency: "EUR" }, year: { price_id: "y", total: "€20.00", currency: "EUR" } },
-        }),
-      );
-    }, daysAgo);
+  const remember = (daysAgo: number, fiveYears: boolean | "unknown" = true) =>
+    page.evaluate(
+      ([days, five]) => {
+        localStorage.setItem("koonapin.demo.supporter", "no_server");
+        const prices: Record<string, unknown> = { month: { price_id: "m", total: "€2.00", currency: "EUR" }, year: { price_id: "y", total: "€20.00", currency: "EUR" } };
+        if (five !== "unknown") prices.five_years = five ? { price_id: "f", total: "€50.00", currency: "EUR" } : null;
+        localStorage.setItem("koonapin.supporterPrices", JSON.stringify({ at: Date.now() - (days as number) * 86_400_000, prices }));
+      },
+      [daysAgo, fiveYears] as const,
+    );
   await remember(1);
   await page.reload();
   await page.locator("[data-plan-row]").click();
   const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
   await expect(plans).toContainText("€20 a year");
   await expect(plans).toContainText("€2 a month");
+  await expect(plans).toContainText("€50 once");
   // Remembered more than a week ago: not shown first; with no answer, the prices nothing depends on.
   await remember(8);
   await page.reload();
   await page.locator("[data-plan-row]").click();
+  await expect(plans).toContainText("$20 a year");
+  // Remembered by 0.10, which knew nothing of five years: not shown first either, so the five-year
+  // card never appears only after Paddle's answer.
+  await remember(1, "unknown");
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toBeVisible();
   await expect(plans).toContainText("$20 a year");
 });
 

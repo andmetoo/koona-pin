@@ -1034,6 +1034,7 @@
     "upgradeTextYearly": "一次性支付 {{price}}，不再续订。你的年付计划持续到 {{date}}，之后不再续订；五年从那天开始。",
     "upgradeTextMonthly": "一次性支付 {{price}}，不再续订。你的月付计划持续到 {{date}}，之后不再续订；五年从那天开始。",
     "upgradeHint": "付款将在浏览器中打开，由我们的经销商 Paddle 处理，包括税费。Supporter 将持续到 {{date}}。",
+    "fiveYearsNotSold": "一次付清五年目前暂不出售。你的订阅照常继续。",
     "pastDue": "续订扣款失败——请更新银行卡",
     "unchecked": "无法检查方案——有效期至 {{date}}",
     "perk": {

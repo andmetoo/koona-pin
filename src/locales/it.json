@@ -1180,6 +1180,7 @@
     "upgradeTextYearly": "Paga {{price}} una volta sola invece di rinnovare. Il piano annuale resta fino al {{date}} e poi non si rinnova più; i cinque anni iniziano quel giorno.",
     "upgradeTextMonthly": "Paga {{price}} una volta sola invece di rinnovare. Il piano mensile resta fino al {{date}} e poi non si rinnova più; i cinque anni iniziano quel giorno.",
     "upgradeHint": "Il pagamento si apre nel browser. Paddle lo gestisce, con le tasse, come nostro rivenditore. Supporter durerà fino al {{date}}.",
+    "fiveYearsNotSold": "I cinque anni con un unico pagamento ora non sono in vendita. Il tuo abbonamento continua come prima.",
     "pastDue": "Il rinnovo non è andato a buon fine — aggiorna la carta",
     "unchecked": "Impossibile verificare il piano — resta attivo fino al {{date}}",
     "perk": {

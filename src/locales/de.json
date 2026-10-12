@@ -1107,6 +1107,7 @@
     "upgradeTextYearly": "Zahle einmal {{price}} statt zu verlängern. Dein Jahresplan läuft bis {{date}} und verlängert sich dann nicht mehr; die fünf Jahre beginnen an diesem Tag.",
     "upgradeTextMonthly": "Zahle einmal {{price}} statt zu verlängern. Dein Monatsplan läuft bis {{date}} und verlängert sich dann nicht mehr; die fünf Jahre beginnen an diesem Tag.",
     "upgradeHint": "Die Zahlung öffnet sich im Browser. Paddle wickelt sie und die Steuern als unser Wiederverkäufer ab. Supporter gilt dann bis {{date}}.",
+    "fiveYearsNotSold": "Fünf Jahre mit einer Zahlung gibt es gerade nicht. Dein Abo läuft weiter wie bisher.",
     "pastDue": "Die Verlängerung ist fehlgeschlagen — aktualisieren Sie die Karte",
     "unchecked": "Tarif nicht geprüft — er gilt bis {{date}}",
     "perk": {

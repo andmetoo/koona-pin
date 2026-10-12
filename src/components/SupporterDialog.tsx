@@ -46,13 +46,43 @@ function rememberedPrices(): SupporterPrices | null {
   try {
     const kept = JSON.parse(storedValue(PRICES_KEY) ?? "null") as RememberedPrices | null;
     const fresh = kept && Date.now() - kept.at < PRICES_KEPT_MS && kept.at <= Date.now();
-    return fresh && kept.prices?.month?.total && kept.prices?.year?.total ? kept.prices : null;
+    // Kept by 0.10, before five years were sold, the prices say nothing about them (no key, not
+    // null): forgotten, or their card would appear only once Paddle answers.
+    const complete = kept?.prices?.month?.total && kept.prices.year?.total && "five_years" in kept.prices;
+    return fresh && complete ? kept.prices : null;
   } catch {
     return null;
   }
 }
 const rememberPrices = (prices: SupporterPrices) =>
   savePreference(PRICES_KEY, JSON.stringify({ at: Date.now(), prices } satisfies RememberedPrices));
+
+/**
+ * Supporter's prices: the ones remembered at once, then Paddle's answer, remembered for next time.
+ * `ask` false keeps the remembered ones without asking (a dialog that only needs to know what is
+ * sold); without any remembered, Paddle is asked anyway.
+ */
+function useSupporterPrices(ask = true) {
+  const [prices, setPrices] = useState<SupporterPrices | null>(rememberedPrices);
+  const [failed, setFailed] = useState(false);
+  const needed = ask || prices === null;
+  useEffect(() => {
+    if (!needed) return;
+    let alive = true;
+    api
+      .getSupporterPrices()
+      .then((p) => {
+        rememberPrices(p);
+        if (alive) setPrices(p);
+      })
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+    // Asked once per dialog: what it shows does not depend on later renders.
+  }, []);
+  return { prices, failed };
+}
 const PERKS = ["sync", "backups", "badge", "early"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
@@ -129,26 +159,11 @@ export function SupporterDialog({
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   }, [paid, email]);
   const [interval, setPlan] = useState<PlanInterval>(upgrade ? "five_years" : "year");
-  const [prices, setPrices] = useState<SupporterPrices | null>(rememberedPrices);
-  const [pricesFailed, setPricesFailed] = useState(false);
+  const { prices, failed: pricesFailed } = useSupporterPrices();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [checkout, setCheckout] = useState<string | null>(null);
   const [paidEmail, setPaidEmail] = useState(email);
-
-  useEffect(() => {
-    let alive = true;
-    api
-      .getSupporterPrices()
-      .then((p) => {
-        rememberPrices(p);
-        if (alive) setPrices(p);
-      })
-      .catch(() => alive && setPricesFailed(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // The payment step asks every few seconds; closing the dialog or leaving the step stops it. The
   // app keeps following the purchase by itself, less often (billing.rs, start), and signs in when
@@ -280,7 +295,7 @@ export function SupporterDialog({
     const price = shown?.five_years;
     // Paddle answered and the server does not sell them (the button is not offered then either).
     const notSold = !!shown && !price;
-    const shownFailure = failure ?? (notSold && !sizing ? t("supporter.unreachable") : null);
+    const shownFailure = failure ?? (notSold && !sizing ? t("supporter.fiveYearsNotSold") : null);
     return (
       <div className="flex flex-1 flex-col">
         <p className="text-sm text-muted">
@@ -808,24 +823,10 @@ export function PlanDialog({
   const [error, setError] = useState<string | null>(null);
   const plan = supporter.plan;
   const date = (iso: string) => longDate(iso, i18n.language);
-  // «Switch to 5 years» only while the server sells them: the prices Paddle gave last time at once,
-  // then its answer now (kept for the step the switch opens).
-  const renewing = !!(plan?.renews_at && plan.status === "active" && onUpgrade);
-  const [fiveYearsSold, setFiveYearsSold] = useState(() => !!rememberedPrices()?.five_years);
-  useEffect(() => {
-    if (!renewing) return;
-    let alive = true;
-    api
-      .getSupporterPrices()
-      .then((p) => {
-        rememberPrices(p);
-        if (alive) setFiveYearsSold(!!p.five_years);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [renewing]);
+  // «Switch to 5 years» only for a renewing subscription, and only while the server sells them: the
+  // prices remembered this week say so, Paddle is asked only without them.
+  const { prices } = useSupporterPrices(false);
+  const offerSwitch = plan?.renews_at && plan.status === "active" && prices?.five_years ? onUpgrade : undefined;
 
   const run = async (action: () => Promise<unknown>, closeAfter = false) => {
     setBusy(true);
@@ -895,10 +896,10 @@ export function PlanDialog({
   } else {
     status = plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "";
     // A subscription that renews can become five years paid once, from the end of its period.
-    if (renewing && fiveYearsSold && onUpgrade) {
+    if (offerSwitch) {
       action = (
         <>
-          <Button variant="outline" size="lg" onClick={onUpgrade}>
+          <Button variant="outline" size="lg" onClick={offerSwitch}>
             {t("plan.switchToFiveYears")}
           </Button>
           {action}

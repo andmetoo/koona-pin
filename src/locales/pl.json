@@ -1253,6 +1253,7 @@
     "upgradeTextYearly": "Zapłać jednorazowo {{price}} zamiast odnawiać. Plan roczny trwa do {{date}} i potem się nie odnowi; pięć lat zacznie się tego dnia.",
     "upgradeTextMonthly": "Zapłać jednorazowo {{price}} zamiast odnawiać. Plan miesięczny trwa do {{date}} i potem się nie odnowi; pięć lat zacznie się tego dnia.",
     "upgradeHint": "Płatność otworzy się w przeglądarce. Obsługuje ją, wraz z podatkami, Paddle, nasz sprzedawca. Supporter będzie trwał do {{date}}.",
+    "fiveYearsNotSold": "Pięć lat w jednej płatności nie jest teraz w sprzedaży. Subskrypcja trwa jak dotąd.",
     "pastDue": "Odnowienie nie przeszło — zaktualizuj kartę",
     "unchecked": "Nie udało się sprawdzić planu — działa do {{date}}",
     "perk": {

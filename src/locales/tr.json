@@ -1107,6 +1107,7 @@
     "upgradeTextYearly": "Yenilemek yerine bir kez {{price}} ödeyin. Yıllık planınız {{date}} tarihine kadar sürer, sonra yenilenmez; beş yıl o gün başlar.",
     "upgradeTextMonthly": "Yenilemek yerine bir kez {{price}} ödeyin. Aylık planınız {{date}} tarihine kadar sürer, sonra yenilenmez; beş yıl o gün başlar.",
     "upgradeHint": "Ödeme tarayıcınızda açılır. Bayimiz Paddle ödemeyi ve vergileri yürütür. Supporter {{date}} tarihine kadar sürer.",
+    "fiveYearsNotSold": "Tek ödemeyle beş yıl şu anda satılmıyor. Aboneliğiniz eskisi gibi devam ediyor.",
     "pastDue": "Yenileme alınamadı — kartınızı güncelleyin",
     "unchecked": "Plan kontrol edilemedi — {{date}} tarihine kadar geçerli",
     "perk": {
