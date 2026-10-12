@@ -285,13 +285,26 @@ pub fn has_plan(app: &AppHandle) -> bool {
     service().is_some() && app.try_state::<Billing>().is_some_and(|billing| effective(&billing.get(), Utc::now()).is_some())
 }
 
-/// For a signed-in Supporter: one check a week, one a day in the last days of the period.
+/// For a signed-in Supporter: one check a week, one a day in the last days of the period and after
+/// a check that failed. A check stamped in the future (the clock was ahead) counts as old.
 fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
     let (Some(_), Some(plan)) = (&stored.session, &stored.plan) else {
         return false;
     };
-    let every = if now >= plan.valid_until - RENEWAL_WINDOW { CHECK_EVERY } else { CHECK_WEEKLY };
-    stored.checked_at.is_none_or(|at| now - at >= every)
+    let every = if stored.check_failed || now >= plan.valid_until - RENEWAL_WINDOW { CHECK_EVERY } else { CHECK_WEEKLY };
+    stored.checked_at.is_none_or(|at| at > now || now - at >= every)
+}
+
+/// A check that may use the answer already here instead of asking: an automatic one an answer
+/// seconds old, and any one the answer of a check that ran while it waited for its turn (a manual
+/// one only if that answer came, so «Try again» after a failure still asks). `waited_from` is the
+/// stamp seen before waiting.
+fn answered(stored: &Stored, waited_from: Option<DateTime<Utc>>, now: DateTime<Utc>, automatic: bool) -> bool {
+    let Some(at) = stored.checked_at.filter(|at| *at <= now) else {
+        return false;
+    };
+    let meanwhile = waited_from != Some(at);
+    (automatic && (meanwhile || now - at < FRESH)) || (meanwhile && !stored.check_failed)
 }
 
 fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
@@ -515,14 +528,16 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
 /// The answer counts only for the account it was asked for: after Sign out it changes nothing.
 async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, CommandError> {
     let billing = app.state::<Billing>();
+    let waited_from = billing.get().checked_at;
     let _one = billing.checking.lock().await;
     let stored = billing.get();
-    let Some(email) = stored.session.map(|s| s.email) else {
-        return Ok(status(&billing.get(), Utc::now()));
+    let Some(email) = stored.session.as_ref().map(|s| s.email.clone()) else {
+        return Ok(status(&stored, Utc::now()));
     };
-    // The dialog asks each time it opens or comes back into focus: an answer this fresh is enough.
-    if automatic && stored.checked_at.is_some_and(|at| Utc::now() - at < FRESH) {
-        return Ok(status(&billing.get(), Utc::now()));
+    // The dialog asks each time it opens or comes back into focus, and «Try again» may wait for a
+    // check already on its way: the answer here is then enough.
+    if answered(&stored, waited_from, Utc::now(), automatic) {
+        return Ok(status(&stored, Utc::now()));
     }
     let result = async {
         let Some(token) = access_token(app).await? else {
@@ -793,6 +808,29 @@ mod tests {
         assert!(due(&checked, at("2027-10-09T13:00:00Z")), "the next day again");
         assert!(!due(&Stored { session: None, ..stored.clone() }, at("2027-10-10T00:00:00Z")), "signed out: nothing to ask");
         assert!(!due(&Stored::default(), at("2027-10-10T00:00:00Z")), "Free: never");
+        let failed = Stored { check_failed: true, ..stored.clone() };
+        assert!(due(&failed, at("2026-10-13T00:00:00Z")), "a failed check is asked again the next day, not in a week");
+        let ahead = Stored { checked_at: Some(at("2026-10-20T00:00:00Z")), ..stored.clone() };
+        assert!(due(&ahead, at("2026-10-12T12:00:00Z")), "a check stamped in the future counts as old");
+    }
+
+    #[test]
+    fn a_check_uses_an_answer_already_here_only_when_it_may() {
+        let now = at("2026-10-12T12:00:00Z");
+        let checked = |when: &str, failed: bool| Stored { checked_at: Some(at(when)), check_failed: failed, ..supporter("2027-10-11T12:00:00Z") };
+        let seconds_ago = checked("2026-10-12T11:59:55Z", false);
+        let before = seconds_ago.checked_at;
+        assert!(answered(&seconds_ago, before, now, true), "the dialog skips an answer seconds old");
+        assert!(!answered(&seconds_ago, before, now, false), "«Try again» asks anyway");
+        assert!(!answered(&checked("2026-10-12T11:59:00Z", false), Some(at("2026-10-12T11:59:00Z")), now, true), "a minute old: asked again");
+        // A check ran while this one waited for its turn.
+        let meanwhile = checked("2026-10-12T11:59:58Z", false);
+        assert!(answered(&meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false), "«Try again» takes the answer that just came");
+        let failed_meanwhile = checked("2026-10-12T11:59:58Z", true);
+        assert!(!answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false), "but asks itself after a failure");
+        assert!(answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true), "the dialog does not repeat it");
+        assert!(!answered(&checked("2026-10-13T00:00:00Z", false), None, now, true), "a stamp in the future is not fresh");
+        assert!(!answered(&Stored { checked_at: None, ..seconds_ago.clone() }, None, now, true), "never checked: ask");
     }
 
     #[test]
