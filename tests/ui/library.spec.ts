@@ -2284,8 +2284,19 @@ test("Supporter: a payment with the email of an existing account signs in only w
   await expect(paid).toContainText("already has a Koona Pin account", { timeout: 15_000 });
   expect(Math.round((await paid.boundingBox())!.height)).toBe(height);
   await expect(row).toHaveAttribute("data-plan-row", "free");
-  await paid.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
+  // Closed with «Not now», the payment is not forgotten: Support opens on it again.
+  await paid.getByRole("button", { name: "Not now" }).click();
+  await row.click();
+  const again = page.getByRole("dialog", { name: "Payment received" });
+  await expect(again).toContainText("already has a Koona Pin account");
+  await again.getByRole("button", { name: "Sign in", exact: true }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  await signIn.getByLabel("Email").fill("anna@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(row).toHaveAttribute("data-plan-row", "supporter");
 });
 
 test("Supporter: a payment the app saw first in the background still ends in thanks (NP-066)", async ({ page }) => {

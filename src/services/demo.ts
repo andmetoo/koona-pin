@@ -156,6 +156,7 @@ function currentDemoSupporter(): SupporterStatus {
     email: plan ? "anna@example.com" : null,
     plan,
     check_failed: kind === "offline",
+    awaiting_sign_in: false,
   };
   return demoSupporter;
 }
@@ -1312,7 +1313,11 @@ export const demo = {
   async openCheckout(_url: string) {},
   async pollCheckout(): Promise<CheckoutState> {
     if (++demoPolls < 3) return "waiting";
-    if (storedSupporter() === "existing") return "sign_in";
+    if (storedSupporter() === "existing") {
+      // Kept until the code signs in, as billing.rs keeps awaiting_sign_in.
+      setDemoSupporter({ ...currentDemoSupporter(), awaiting_sign_in: true });
+      return "sign_in";
+    }
     setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false });
     // The app's own background check saw the payment first: the purchase is gone, the plan is here.
     if (storedSupporter() === "background") return "none";
@@ -1335,11 +1340,11 @@ export const demo = {
   async verifySignInCode(email: string, code: string): Promise<SupporterStatus> {
     await new Promise((resolve) => setTimeout(resolve, 300));
     if (code.replace(/\D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
-    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false });
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
   async signOutSupporter(): Promise<SupporterStatus> {
-    setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false });
+    setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
 };

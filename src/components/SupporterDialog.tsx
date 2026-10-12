@@ -42,17 +42,20 @@ type Step = "plans" | "waiting" | "thanks" | "signIn";
 export function SupporterDialog({
   sandbox,
   email,
+  awaitingSignIn = false,
   onClose,
   onSignIn,
 }: {
   sandbox: boolean;
   email: string | null;
+  /** A payment here went through for an existing account: open on «Payment received». */
+  awaitingSignIn?: boolean;
   onClose: () => void;
   /** «I'm already a Supporter»: the sign-in dialog instead of this one. */
   onSignIn: () => void;
 }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<Step>("plans");
+  const [step, setStep] = useState<Step>(awaitingSignIn ? "signIn" : "plans");
   const [interval, setPlan] = useState<PlanInterval>("year");
   const [prices, setPrices] = useState<SupporterPrices | null>(null);
   const [error, setError] = useState<string | null>(null);

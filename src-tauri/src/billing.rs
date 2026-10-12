@@ -122,7 +122,12 @@ struct Stored {
     /// one: a payment finished in an older browser tab is still picked up.
     #[serde(default)]
     checkouts: Vec<Checkout>,
-    /// 0.8.0 kept a single purchase; read once and moved into `checkouts`.
+    /// A purchase here went through with the email of an account that existed before: the plan
+    /// is that account's, and this computer signs in with the code from the email. Kept until it
+    /// does, so the dialog says so whenever it is opened, whoever saw the payment first.
+    #[serde(default)]
+    awaiting_sign_in: bool,
+    /// The first builds (0.8.0) kept a single purchase; read once and moved into `checkouts`.
     #[serde(default, skip_serializing)]
     claim: Option<String>,
     #[serde(default, skip_serializing)]
@@ -165,13 +170,39 @@ impl Stored {
     }
 
     /// Signed in by a paid purchase: that one is done; the others started here keep waiting, a
-    /// payment in their tabs is still picked up.
-    fn signed_in_by(&mut self, secret: &str, session: Session, plan: Option<Plan>, now: DateTime<Utc>) {
+    /// payment in their tabs is still picked up. Only while the purchase is still here: an answer
+    /// that arrives after Sign out (which forgets every purchase) changes nothing. False then.
+    fn signed_in_by(&mut self, secret: &str, session: Session, plan: Option<Plan>, now: DateTime<Utc>) -> bool {
+        if !self.checkouts.iter().any(|c| c.secret == secret) {
+            return false;
+        }
         self.session = Some(session);
         self.plan = plan;
         self.checked_at = Some(now);
         self.check_failed = false;
+        self.awaiting_sign_in = false;
         self.checkouts.retain(|c| c.secret != secret);
+        true
+    }
+
+    /// Paid with the email of an account that existed before: done here, sign in by code. Only
+    /// while the purchase is still here, as `signed_in_by`.
+    fn paid_for_existing_account(&mut self, secret: &str) {
+        if self.checkouts.iter().any(|c| c.secret == secret) {
+            self.checkouts.retain(|c| c.secret != secret);
+            self.awaiting_sign_in = true;
+        }
+    }
+
+    /// What the payment step shows when no purchase here is paid now.
+    fn settled(&self) -> CheckoutState {
+        if self.awaiting_sign_in && self.session.is_none() {
+            CheckoutState::SignIn
+        } else if self.checkouts.is_empty() {
+            CheckoutState::None
+        } else {
+            CheckoutState::Waiting
+        }
     }
 
     /// The account a request was made for is still the one here: an answer that comes after Sign
@@ -201,6 +232,9 @@ pub struct SupporterStatus {
     pub plan: Option<Plan>,
     /// The paid period is over and the server could not say whether it renewed.
     pub check_failed: bool,
+    /// A payment went through with the email of an existing account: the purchase dialog opens on
+    /// «Payment received» and its sign-in by code.
+    pub awaiting_sign_in: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -258,6 +292,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         email: stored.session.as_ref().map(|s| s.email.clone()),
         check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| now >= p.valid_until),
         plan,
+        awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
     }
 }
 
@@ -501,10 +536,12 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     }
     let checkouts = billing.get().checkouts;
     if checkouts.is_empty() {
-        return Ok(CheckoutState::None);
+        return Ok(billing.get().settled());
     }
+    // Every answer is applied under the lock and only to a purchase still here: Sign out, or the
+    // dialog and the background asking at once, never let a late answer undo what came after.
     let mut finished: Vec<String> = Vec::new();
-    let mut sign_in = false;
+    let mut for_existing: Vec<String> = Vec::new();
     let mut answered = false;
     let mut failure = None;
     for checkout in &checkouts {
@@ -519,28 +556,31 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
         if status.as_u16() == 404 || value["status"] == "taken" {
             finished.push(checkout.secret.clone());
         } else if value["status"] == "sign_in" {
-            sign_in = true;
-            finished.push(checkout.secret.clone());
+            for_existing.push(checkout.secret.clone());
         } else if value["status"] == "paid" {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
             let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
+            let mut signed_in = false;
             billing.update(app, |s| {
-                s.signed_in_by(&checkout.secret, session, plan, Utc::now());
+                signed_in = s.signed_in_by(&checkout.secret, session, plan, Utc::now());
                 s.checkouts.retain(|c| !finished.contains(&c.secret));
             })?;
-            return Ok(CheckoutState::Paid);
+            if signed_in {
+                return Ok(CheckoutState::Paid);
+            }
         }
     }
-    if !finished.is_empty() {
-        billing.update(app, |s| s.checkouts.retain(|c| !finished.contains(&c.secret)))?;
-    }
-    if sign_in {
-        return Ok(CheckoutState::SignIn);
+    if !finished.is_empty() || !for_existing.is_empty() {
+        billing.update(app, |s| {
+            for secret in &for_existing {
+                s.paid_for_existing_account(secret);
+            }
+            s.checkouts.retain(|c| !finished.contains(&c.secret));
+        })?;
     }
     match failure {
         Some(error) if !answered => Err(error),
-        _ if billing.get().checkouts.is_empty() => Ok(CheckoutState::None),
-        _ => Ok(CheckoutState::Waiting),
+        _ => Ok(billing.get().settled()),
     }
 }
 
@@ -658,6 +698,7 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
     app.state::<Billing>().update(&app, |s| {
         s.session = Some(session);
         s.checked_at = None;
+        s.awaiting_sign_in = false;
     })?;
     check(&app).await
 }
@@ -784,9 +825,35 @@ mod tests {
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
         stored.add_checkout(checkout("month1", "2026-10-12T11:05:00Z", PlanInterval::Month));
         let session = supporter("2027-10-12T11:00:00Z").session.unwrap();
-        stored.signed_in_by("year1", session, None, at("2026-10-12T11:10:00Z"));
+        assert!(stored.signed_in_by("year1", session.clone(), None, at("2026-10-12T11:10:00Z")));
         assert!(stored.same_account("anna@example.com"));
         assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
+        assert_eq!(stored.settled(), CheckoutState::Waiting, "month1 is still followed");
+        // Sign out forgets every purchase: a «paid» that arrives after it signs nobody in.
+        let mut signed_out = Stored { sandbox: stored.sandbox, ..Stored::default() };
+        assert!(!signed_out.signed_in_by("month1", session, None, at("2026-10-12T11:20:00Z")));
+        assert!(signed_out.session.is_none());
+        assert_eq!(signed_out.settled(), CheckoutState::None);
+    }
+
+    #[test]
+    fn a_payment_for_an_existing_account_waits_for_the_code_whoever_saw_it() {
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        stored.paid_for_existing_account("year1");
+        assert!(stored.checkouts.is_empty());
+        // The background saw it: the dialog's next ask, and a dialog opened later, still say so.
+        assert_eq!(stored.settled(), CheckoutState::SignIn);
+        assert_eq!(stored.settled(), CheckoutState::SignIn);
+        assert!(status(&stored, at("2026-10-12T11:10:00Z")).awaiting_sign_in);
+        // A late answer for a purchase gone after Sign out sets nothing.
+        let mut signed_out = Stored::default();
+        signed_out.paid_for_existing_account("year1");
+        assert_eq!(signed_out.settled(), CheckoutState::None);
+        // Signed in by the code: done.
+        stored.session = supporter("2027-10-12T11:00:00Z").session;
+        assert_eq!(stored.settled(), CheckoutState::None);
+        assert!(!status(&stored, at("2026-10-12T11:20:00Z")).awaiting_sign_in);
     }
 
     #[test]
