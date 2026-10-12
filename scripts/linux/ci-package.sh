@@ -1,20 +1,25 @@
 #!/usr/bin/env bash
-# Root part of a «distro» job of .github/workflows/linux.yml (NP-055): the package of the «build» job, as
+# Root part of a package job of .github/workflows/linux.yml (NP-055): the package of the deb or rpm job, as
 # people get it.
-#   ci-package.sh install   apt or dnf installs it from dist-linux/ with its dependencies — the job did not
-#                           install WebKitGTK or the tray library — and the files are where Р-53 puts them
+#   ci-package.sh install   apt or dnf installs it from dist-linux/ with its dependencies — the image did not
+#                           bring the tray library — and the files are where Р-53 puts them; on Debian first
+#                           lintian, desktop-file-validate and appstreamcli, on Fedora rpmlint
+#   ci-package.sh prepare   on Ubuntu and Debian, before the AppImage and the package: the tray library out
+#                           of the CI image (it is there for the WebKitGTK checks), so the AppImage must
+#                           bring its own and the .deb's Depends must bring it back (Р-26, п. 3)
 #   ci-package.sh remove    a second install over it, then removal: the program, the host, the manifests and
 #                           the menu entry go, the library in the home folder stays (Р-45, п. 9)
 # Arch gets koonapin-bin as an AUR helper builds it (NP-101): PKGBUILD and .SRCINFO from scripts/build-aur.mjs
-# for the .deb of «build», its dependencies by pacman, makepkg as «dev», namcap, pacman -U.
+# for the .deb of the deb job (dist-linux/), its dependencies by pacman, makepkg as «dev», namcap, pacman -U.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export DEBIAN_FRONTEND=noninteractive
 . /etc/os-release
 step() { printf '\n== %s\n' "$1"; }
 
-deb=$(ls "$PWD"/dist-linux/koonapin_*_amd64.deb 2> /dev/null | head -1)
-rpm=$(ls "$PWD"/dist-linux/koonapin-*.x86_64.rpm 2> /dev/null | head -1)
+# Each package job has only its own package (pipefail would end the script on the other's missing file).
+deb=$(ls "$PWD"/dist-linux/koonapin_*_amd64.deb 2> /dev/null | head -1 || true)
+rpm=$(ls "$PWD"/dist-linux/koonapin-*.x86_64.rpm 2> /dev/null | head -1 || true)
 # Not under .test-data: made by root, that folder would keep «dev» from the tests' own.
 aur=/tmp/koonapin-aur
 case "$ID" in
@@ -38,13 +43,14 @@ library="/home/dev/.local/share/Koona/Pin/koonapin.db"
 
 install() {
   case "$ID" in
-    ubuntu | debian) apt-get install -y -qq "$@" "$package" > /dev/null ;;
+    # The CI images leave apt's lists out: the package's dependencies come from the archive.
+    ubuntu | debian) apt-get update -qq && apt-get install -y -qq "$@" "$package" > /dev/null ;;
     fedora) dnf install -y -q "$@" "$package" ;;
     arch) pacman -U --noconfirm "$package" > /dev/null ;;
   esac
 }
 
-# The AUR package from the .deb of «build», as yay or paru build it: the .deb lies next to the PKGBUILD,
+# The AUR package from the .deb of the deb job, as yay or paru build it: the .deb lies next to the PKGBUILD,
 # so makepkg takes it instead of the release on GitHub and checks its sha256.
 build_aur() {
   step "Build koonapin-bin (PKGBUILD of scripts/build-aur.mjs, makepkg, namcap)"
@@ -54,7 +60,9 @@ build_aur() {
   chown -R dev "$aur"
   # What an AUR helper installs before makepkg: the depends of .SRCINFO.
   mapfile -t depends < <(sed -n 's/^\tdepends = //p' "$aur/.SRCINFO")
-  pacman -S --needed --noconfirm "${depends[@]}" > /dev/null
+  # -Syu: Arch is rolling, and the package database of the CI image ages; a package it names may be gone
+  # from the mirrors (Arch does not take a partial upgrade, -Sy alone).
+  pacman -Syu --needed --noconfirm "${depends[@]}" > /dev/null
   su dev -s /bin/bash -c "cd '$aur' && makepkg --printsrcinfo | diff -u .SRCINFO - && makepkg --noconfirm > makepkg.log 2>&1 || { cat makepkg.log; exit 1; }"
   echo "ok: .SRCINFO is what makepkg --printsrcinfo writes; makepkg built $(cd "$aur" && ls koonapin-bin-*.pkg.tar.zst)"
   package=$(ls "$aur"/koonapin-bin-*.pkg.tar.zst | head -1)
@@ -67,12 +75,45 @@ build_aur() {
   echo "ok: namcap without errors"
 }
 
+# Debian's checks of what a package may contain, as «dev» (lintian warns about root). Warnings fail the job
+# too: the ones that stay are explained in src-tauri/linux/lintian-overrides.
+lint_deb() {
+  step "lintian, desktop-file-validate, appstreamcli"
+  su dev -s /bin/bash -c "lintian --fail-on error,warning --display-info --info '$package'"
+  echo "ok: lintian"
+  tree=$(mktemp -d)
+  dpkg-deb -x "$package" "$tree"
+  desktop-file-validate "$tree/usr/share/applications/koonapin.desktop"
+  appstreamcli validate --no-net --explain "$tree/usr/share/metainfo/app.koona.pin.metainfo.xml"
+  rm -rf "$tree"
+  echo "ok: desktop-file-validate, appstreamcli validate"
+}
+
+# The tray library is loaded at run time (dlopen), so no linker check sees it missing: the app crashes
+# without it (Р-26, п. 3). The .deb names it by hand; this proves the name brings it.
+TRAY=libayatana-appindicator3-1
+
 case "${1:-}" in
+  prepare)
+    case "$ID" in
+      ubuntu | debian)
+        step "The tray library out of the image: the package must bring it"
+        apt-get remove -y -qq "$TRAY" > /dev/null
+        ! dpkg -s "$TRAY" > /dev/null 2>&1 || { echo "FAIL: $TRAY is still installed"; exit 1; }
+        echo "ok: $TRAY removed"
+        ;;
+    esac
+    ;;
   install)
     [ "$ID" = arch ] && build_aur
+    [ "$ID" = debian ] && lint_deb
     step "Install $(basename "$package") on $PRETTY_NAME"
     install
     for file in "${installed[@]}"; do [ -e "$file" ] || { echo "FAIL: $file is missing"; exit 1; }; done
+    if [ "$ID" = ubuntu ] || [ "$ID" = debian ]; then
+      dpkg -s "$TRAY" > /dev/null 2>&1 || { echo "FAIL: installing the package did not bring $TRAY"; exit 1; }
+      echo "ok: the package brought $TRAY"
+    fi
     case "$ID" in
       ubuntu | debian) contents=$(dpkg-deb --contents "$package") ;;
       fedora) contents=$(rpm -qlp "$package") ;;
@@ -103,9 +144,8 @@ case "${1:-}" in
       fedora)
         rpm -q --requires koonapin | grep -v '^rpmlib' | tr '\n' ' '
         echo
-        # Fedora's own rpmlint and configuration (Debian's rpmlint checks as openSUSE does); what stays is
-        # explained in src-tauri/linux/rpmlint.toml.
-        dnf install -y -q rpmlint > /dev/null
+        # Fedora's own rpmlint (in the image) and configuration (Debian's rpmlint checks as openSUSE does);
+        # what stays is explained in src-tauri/linux/rpmlint.toml.
         rpmlint -c src-tauri/linux/rpmlint.toml "$package"
         ;;
       arch)

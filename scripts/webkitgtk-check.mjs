@@ -13,7 +13,7 @@
 //          --counts 10000,100000
 // Results: .test-data/webkitgtk-check/<label>/ — report.json, screens/, pairs/.
 import { spawn, execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { createServer as createNetServer } from "node:net";
 import path from "node:path";
@@ -262,7 +262,35 @@ async function webdriverEngine() {
       return undefined;
     }
   }, undefined) ?? "unknown";
-  let driver, base, session, runs = 0;
+  let driver, base, session, runs = 0, started;
+  /** The running processes of a binary, by /proc (Linux, where the app is driven). */
+  const instances = (binary) => {
+    const pids = [];
+    for (const entry of readdirSync("/proc")) {
+      if (!/^\d+$/.test(entry)) continue;
+      try {
+        if (readlinkSync(`/proc/${entry}/exe`) === binary) pids.push(Number(entry));
+      } catch {}
+    }
+    return pids;
+  };
+  /**
+   * Koona Pin is one instance per session bus: one still ending when the next page opens takes that start
+   * over, and WebDriver waits for a window that never comes. So a page of the app is over only when its
+   * process is gone: asked to end, then killed after 15 s.
+   */
+  const ended = async (binary) => {
+    for (const signal of ["SIGTERM", "SIGKILL"]) {
+      for (const pid of instances(binary)) {
+        try {
+          process.kill(pid, signal);
+        } catch {}
+      }
+      for (let i = 0; i < 150 && instances(binary).length; i++) await new Promise((resolve) => setTimeout(resolve, 100));
+      if (!instances(binary).length) return;
+    }
+    throw new Error(`${binary} still runs after SIGKILL`);
+  };
   const call = async (method, url, body) => {
     const response = await fetch(`${base}${url}`, {
       method,
@@ -287,6 +315,7 @@ async function webdriverEngine() {
     async open(width, height, env = {}, app) {
       const port = await freePort();
       if (app) env = { ...env, TAURI_WEBVIEW_AUTOMATION: "true", HOME: mkdtempSync(path.join(tmpdir(), "np098-")) };
+      started = app && realpathSync(app);
       driver = spawn("WebKitWebDriver", [`--port=${port}`], { env: { ...process.env, ...env }, stdio: "ignore" });
       base = `http://127.0.0.1:${port}`;
       for (let i = 0; ; i++) {
@@ -357,6 +386,7 @@ async function webdriverEngine() {
     async closePage() {
       await call("DELETE", `/session/${session}`).catch(() => {});
       driver.kill();
+      if (started) await ended(started);
     },
     close: async () => {},
   };
@@ -489,9 +519,15 @@ async function media(name, env, steps) {
     await engine.run("appReady");
     for (const [step, change, expected] of steps) {
       change?.();
-      if (change) await new Promise((resolve) => setTimeout(resolve, 1_000));
-      const seen = await engine.run("media");
-      const wrong = Object.entries(expected).filter(([k, v]) => seen[k] !== v);
+      // A change while the app runs reaches the page through GTK, the settings portal and the app's own
+      // theme: asked again for up to 10 s, as a busy runner may take longer than a desktop.
+      let seen, wrong;
+      for (let waited = 0; ; waited += 500) {
+        if (change) await new Promise((resolve) => setTimeout(resolve, waited ? 500 : 1_000));
+        seen = await engine.run("media");
+        wrong = Object.entries(expected).filter(([k, v]) => seen[k] !== v);
+        if (!change || !wrong.length || waited >= 9_000) break;
+      }
       report.media[name][step] = { ...seen, expected, ok: wrong.length === 0 };
       console.log(`${wrong.length ? "FAIL" : "ok  "} ${name}, ${step}: ${JSON.stringify(seen)}`);
       if (wrong.length) failures.push(`${name}, ${step}: ${wrong.map(([k, v]) => `${k} ${seen[k]}, expected ${v}`).join(", ")}`);

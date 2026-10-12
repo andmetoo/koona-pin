@@ -2,6 +2,11 @@ node_modules/
 dist/
 # Everything builds leave for people, stores, test machines and this machine (scripts/lib/paths.mjs)
 release/
+# The Linux stages' exchange folder (scripts/build-linux-packages.mjs, .github/workflows/linux.yml)
+dist-linux/
+# Tauri writes the schema of the platform it builds on; only the Windows one is kept
+src-tauri/gen/schemas/macOS-schema.json
+src-tauri/gen/schemas/linux-schema.json
 dist-ssr/
 .cache/
 .test-data/

@@ -1,0 +1,279 @@
+name: Release
+
+# A release of v<version> (scripts/release.mjs shows where one stands):
+#   push of the tag v<version> (bun run release:tag)
+#     verify   the tag names the version of its four places, the changelog has it, the commit is on main
+#     linux    linux.yml with release: true — every package check, and the update signatures (.sig)
+#     macos    bun run build:macos: the .app in a ZIP and a .dmg (Apple signing only with its secrets)
+#     draft    a draft GitHub Release with the changelog's notes and these files
+#   workflow_dispatch with the tag (bun run release:windows starts it after uploading the signed installer)
+#     finalize the draft's files signed for the updater where they are not yet, latest.json, the AUR's
+#              PKGBUILD and .SRCINFO; the release published. The site takes it: bun run release:site.
+# The Windows installer is not built here: Tauri signs the exes inside it with Certum while it builds,
+# and Certum signs only on the owner's computer (SimplySign).
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Finalize {0}', inputs.tag) || format('Release {0}', github.ref_name) }}
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag, v<version>
+        required: true
+        type: string
+      only:
+        description: linux = publish without a Windows installer (Windows keeps the last one)
+        type: choice
+        options: [all, linux]
+        default: all
+
+# One run per tag at a time; a release run is never cancelled halfway.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  verify:
+    name: Tag, version, changelog
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history: verify checks that the tag's commit is on origin/main.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun scripts/release-tag.mjs --verify "$TAG"
+
+  linux:
+    name: Linux
+    needs: verify
+    uses: ./.github/workflows/linux.yml
+    with:
+      release: true
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+  macos:
+    name: macOS 15 / arm64
+    needs: verify
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+    steps:
+      # Whether there is a Developer ID certificate, without the certificate itself in the job's
+      # environment, where every step (the actions' too) would read it.
+      - name: Apple certificate configured?
+        id: apple
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: echo "certificate=$([ -n "$APPLE_CERTIFICATE" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-macos-arm64-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-macos-arm64-
+      - name: Rust from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: macos-release-arm64
+      - run: bun install --frozen-lockfile
+      # The Developer ID certificate into a keychain of this run, when the secrets are there (later,
+      # NP-051); without them build-macos.mjs makes an ad hoc signed build and says so.
+      - name: Apple certificate into a temporary keychain
+        if: steps.apple.outputs.certificate == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          keychain="$RUNNER_TEMP/release.keychain-db"
+          password="$(openssl rand -hex 16)"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+          # Notarization by an App Store Connect API key: its .p8 as a file, as Tauri expects.
+          if [ -n "$APPLE_API_PRIVATE_KEY" ]; then
+            printf '%s' "$APPLE_API_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
+            echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          fi
+      - name: Release build, ZIP and DMG
+        env:
+          KOONAPIN_FEEDBACK_URL: ${{ secrets.KOONAPIN_FEEDBACK_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          PADDLE_ENVIRONMENT: ${{ secrets.PADDLE_ENVIRONMENT }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: bun run build:macos
+      # verify made sure the tag is v<version>. A path without a wildcard: the artifact holds the files only.
+      - id: version
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: koonapin-macos-arm64
+          path: release/publish/macos/${{ steps.version.outputs.value }}/arm64/
+          if-no-files-found: error
+
+  draft:
+    name: Draft release
+    needs: [verify, linux, macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/download-artifact@v7
+        with:
+          name: koonapin-linux-x86_64
+          path: dist/linux
+      - uses: actions/download-artifact@v7
+        with:
+          name: koonapin-macos-arm64
+          path: dist/macos
+      # One SHA256SUMS per system on the release: the Windows one comes from release:windows.
+      - name: Files for the release
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          mkdir -p upload
+          for f in "koonapin_${version}_amd64.deb" "koonapin-${version}-1.x86_64.rpm" "koonapin-${version}-x86_64.AppImage"; do
+            for g in "$f" "$f.sig"; do
+              test -f "dist/linux/$g" || { echo "::error::$g is not in the Linux artifact"; exit 1; }
+              cp "dist/linux/$g" upload/
+            done
+          done
+          cp dist/linux/SHA256SUMS.txt upload/SHA256SUMS-linux.txt
+          cp dist/macos/*.zip dist/macos/*.dmg upload/
+          cp dist/macos/SHA256SUMS.txt upload/SHA256SUMS-macos.txt
+          ls -l upload
+          bun scripts/lib/release-notes.mjs "$version" > notes.md
+      # A draft may be there already: release:windows creates it when it comes first, and a rerun finds
+      # its own. A published release is never changed here.
+      - name: Draft with the changelog's notes
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [ "$draft" != true ]; then echo "::error::$TAG is published already"; exit 1; fi
+            gh release edit "$TAG" --title "Koona Pin $version" --notes-file notes.md
+          else
+            gh release create "$TAG" --draft --verify-tag --title "Koona Pin $version" --notes-file notes.md \
+              || gh release edit "$TAG" --title "Koona Pin $version" --notes-file notes.md
+          fi
+          gh release upload "$TAG" upload/* --clobber
+          echo "Draft $TAG: $(gh release view "$TAG" --json url --jq .url). Next, on Windows: bun run release:windows" >> "$GITHUB_STEP_SUMMARY"
+
+  finalize:
+    name: Finalize ${{ inputs.tag }}
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ONLY: ${{ inputs.only }}
+    steps:
+      # The tag's own scripts and version: latest.json and the AUR files are of that commit.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun scripts/release-tag.mjs --verify "$TAG"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-linux-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-linux-
+      # The Tauri CLI signs (tauri signer sign).
+      - run: bun install --frozen-lockfile
+      # The draft's packages into the folders build-latest.mjs and build-aur.mjs read
+      # (release/publish/<system>/<version>/, scripts/lib/paths.mjs).
+      - name: The draft's files
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          draft="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
+          if [ "$draft" != true ]; then echo "::error::$TAG is not a draft: published already, or no release"; exit 1; fi
+          gh release download "$TAG" --dir release/download
+          linux="release/publish/linux/$version"
+          mkdir -p "$linux"
+          for f in "koonapin_${version}_amd64.deb" "koonapin-${version}-1.x86_64.rpm" "koonapin-${version}-x86_64.AppImage"; do
+            for g in "$f" "$f.sig"; do
+              test -f "release/download/$g" || { echo "::error::The draft has no $g: release.yml's run of the tag is not done"; exit 1; }
+              mv "release/download/$g" "$linux/"
+            done
+          done
+          # gh writes the files in no particular order: a .sig must not look older than its package,
+          # or build-latest.mjs signs again (linux.yml signed them in the run of these very packages).
+          touch "$linux"/*.sig
+          if [ "$ONLY" != linux ]; then
+            installer="koonapin_${version}_x64-setup.exe"
+            test -f "release/download/$installer" || { echo "::error::The draft has no $installer: bun run release:windows (or only: linux)"; exit 1; }
+            mkdir -p "release/publish/windows/$version"
+            # Its .sig of an earlier finalize stays behind: the installer may have been uploaded again since.
+            mv "release/download/$installer" "release/publish/windows/$version/"
+          fi
+      - name: Update signatures, latest.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ "$ONLY" = linux ]; then bun run build:latest -- --only linux; else bun run build:latest; fi
+      - name: PKGBUILD and .SRCINFO of the AUR
+        run: bun run build:aur
+      # Asset names without a leading dot or spaces, which GitHub would change.
+      - name: Into the release, published
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          updates="release/publish/updates/$version"
+          mkdir -p upload
+          cp "$updates/latest.json" "$updates/SHA256SUMS.txt" upload/
+          cp "release/publish/aur/$version/PKGBUILD" upload/koonapin-bin.PKGBUILD
+          cp "release/publish/aur/$version/.SRCINFO" upload/koonapin-bin.SRCINFO
+          if [ "$ONLY" != linux ]; then cp "$updates/koonapin_${version}_x64-setup.exe.sig" upload/; fi
+          ls -l upload
+          gh release upload "$TAG" upload/* --clobber
+          gh release edit "$TAG" --draft=false --latest
+          {
+            echo "Published $TAG: $(gh release view "$TAG" --json url --jq .url)"
+            echo
+            echo "Next: bun run release:site -- -Server user@host; the AUR files to aur.archlinux.org/koonapin-bin.git by hand."
+          } >> "$GITHUB_STEP_SUMMARY"

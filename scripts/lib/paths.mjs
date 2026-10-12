@@ -4,6 +4,7 @@
 //   release/publish/   to people and stores
 //     windows/<version>/   installer, signed, and SHA256SUMS.txt     bun run build:installer -- --sign
 //     linux/<version>/     .deb, .rpm and SHA256SUMS.txt             bun run build:linux (on Debian 13)
+//     macos/<version>/<arch>/  Koona Pin.app in a ZIP, .dmg and SHA256SUMS.txt   bun run build:macos
 //     aur/<version>/       PKGBUILD and .SRCINFO of koonapin-bin     bun run build:aur
 //     updates/<version>/   packages with .sig, SHA256SUMS.txt and latest.json; the site serves the newest   bun run build:latest
 //     chrome/<version>/    koonapin-chrome.zip, Chrome Web Store    bun run extension:build
@@ -11,6 +12,7 @@
 //     firefox/             signed XPIs and updates.json; the site serves them   bun run extension:sign:firefox
 //     site/                koona.app/pin as deployed                bun run site:build
 //   release/test/      a test machine; never published
+//     macos/<version>/<arch>/  test .app, its ZIP, SHA256SUMS.txt, build.json   bun run build:macos:test
 //     windows/<version>/   installer, unsigned                       bun run build:installer
 //     chrome-edge/<version>/  extension with the store id            bun run extension:build (CHROME_STORE_PUBLIC_KEY)
 //   release/dev/       this machine
@@ -29,6 +31,8 @@ export const release = path.join(root, "release");
 export const publish = {
   windows: (version) => path.join(release, "publish", "windows", version),
   linux: (version) => path.join(release, "publish", "linux", version),
+  /** arch is process.arch of the building Mac: arm64 or x64. */
+  macos: (version, arch) => path.join(release, "publish", "macos", version, arch),
   aur: (version) => path.join(release, "publish", "aur", version),
   /** One folder per version (build-latest.mjs); build-site.mjs takes the newest. */
   updates: path.join(release, "publish", "updates"),

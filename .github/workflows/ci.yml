@@ -1,9 +1,11 @@
 name: CI
 
 # Every pull request and every push to main, and by hand. Pull requests from forks run with a read-only
-# token and no secrets (pull_request, never pull_request_target); this job needs none. The ruleset of
-# main requires its result. The Linux matrix (linux.yml) stays manual: it needs the feedback secret
-# for the release build and takes about an hour.
+# token and no secrets (pull_request, never pull_request_target): the Linux build then takes a placeholder
+# feedback address and the CI images are only pulled, never pushed (linux.yml). Linux is the main
+# platform: its pipeline (linux.yml) runs the unit tests, the IPC types, Vitest, the extension lint and
+# Playwright UI, and checks the packages on every distribution. Windows and macOS check only what is
+# their own: the Rust tests on that system and the packaging.
 on:
   pull_request:
   push:
@@ -22,16 +24,25 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  checks:
-    name: Build, unit tests, IPC types, Playwright UI
+  linux:
+    name: Linux
+    uses: ./.github/workflows/linux.yml
+    secrets: inherit
+    # The images job builds a missing CI image and pushes it to GHCR (ghcr.io/andmetoo/koona-ci-*).
+    permissions:
+      contents: read
+      packages: write
+
+  windows:
+    name: Windows / Rust tests, NSIS installer
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      # Bun's package cache, as linux.yml keeps it.
+      # Bun's package cache.
       - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -43,28 +54,65 @@ jobs:
         with:
           workspaces: src-tauri
       - run: bun install --frozen-lockfile
-      # Rust tests also regenerate the IPC types in src/bindings (ts-rs, NP-007),
-      # so the TypeScript build below checks the interface against fresh types.
+      # What differs on Windows: paths, the registry of the native host (NP-016), the single-instance pipe.
+      # The IPC types they regenerate are checked on Linux (linux.yml, check:bindings).
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --locked
-      - name: Generated IPC types are committed
-        run: bun run check:bindings
-      - name: TypeScript and Vite build
-        run: bun run build
-      - name: Vitest
-        run: bun run test
-      # Builds the Chrome, Edge and Firefox packages, then lints the Firefox one.
-      - name: Extension packages, web-ext lint
-        run: bun run extension:lint
-      - name: Install Playwright Chromium
-        run: bunx --bun playwright install chromium
-      # Screenshot baselines depend on local font rendering and are checked locally only.
-      - name: Playwright UI, functional
-        run: bun run test:ui -- --grep-invert "@visual"
-      - uses: actions/upload-artifact@v7
-        if: failure()
+      # The release build and its NSIS packaging, unsigned (Certum signs only on the owner's computer,
+      # bun run release:windows), so a packaging problem shows in the PR; nothing is uploaded. The
+      # native Playwright tests of WebView2 do not run here: on a hosted runner WebView2 does not open its
+      # CDP port (docs/testing.md), they run on the owner's computer.
+      - name: Installer, unsigned (NSIS packaging check)
+        env:
+          KOONAPIN_FEEDBACK_URL: ${{ secrets.KOONAPIN_FEEDBACK_URL || 'https://feedback.invalid/' }}
+        run: bun run build:installer
+
+  # macOS checks for #56: what only macOS compiles — the Rust tests and the app bundle. No artifacts, no
+  # Apple credentials (release.yml builds the macOS release).
+  macos:
+    name: macOS 15 / ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          # Intel is temporarily disabled; re-enable its entry when requested.
+          # - runner: macos-15-intel
+          #   arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
         with:
-          name: playwright-ui-results
-          path: test-results/
-          if-no-files-found: ignore
+          bun-version-file: .bun-version
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-macos-${{ matrix.arch }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-macos-${{ matrix.arch }}-
+      - name: Rust from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: macos-test-${{ matrix.arch }}
+          cache-on-failure: true
+      - run: bun install --frozen-lockfile
+      # Network tests use 127.0.0.2..11 to represent different hosts. Unlike Linux/Windows,
+      # macOS only binds configured loopback addresses; keep the tests themselves unchanged.
+      - name: Loopback aliases for local HTTP tests
+        run: |
+          for suffix in {2..11}; do
+            sudo ifconfig lo0 alias "127.0.0.$suffix" up
+          done
+      - name: Rust tests
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      # The app bundle alone, so a packaging problem shows here; Tauri's beforeBuildCommand runs the
+      # TypeScript and Vite build first. Nothing is zipped or uploaded.
+      - name: TypeScript, Vite and the app bundle
+        run: bun run tauri build --config src-tauri/tauri.macos-test.conf.json --bundles app

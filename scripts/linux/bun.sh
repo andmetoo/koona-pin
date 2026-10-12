@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Bun of .bun-version into /opt/bun, as root, for every job of .github/workflows/linux.yml (ci-setup.sh,
-# ci-runtime.sh, ci-webkitgtk.sh). Also on PATH as `node`: GitHub brings its own Node for the JavaScript
-# actions (artifacts), act does not, and the project has no Node of its own (Р-61).
+# Bun of .bun-version into /opt/bun, as root, at build time of every CI image (scripts/linux/images/*.Dockerfile,
+# scripts/linux/images.mjs): the jobs of .github/workflows/linux.yml install nothing. Also on PATH as `node`:
+# the project has no Node of its own (Р-61), and scripts that call `node` get Bun.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-# \r: a Windows checkout under act.
+# \r: a Windows checkout.
 bun=$(tr -d 'v \r\n' < .bun-version)
 zip=$(mktemp)
 curl -sSfL -o "$zip" "https://github.com/oven-sh/bun/releases/download/bun-v$bun/bun-linux-x64.zip"

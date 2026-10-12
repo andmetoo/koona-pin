@@ -1,10 +1,12 @@
 # Testing
 
-`.github/workflows/ci.yml` runs on every pull request and every push to `main` (Windows: Rust tests, bindings, build, Vitest, extension lint, Playwright UI without `@visual`); `main` requires it to pass. `linux.yml` starts only by hand (`workflow_dispatch`) or locally through `act`. Run the checks locally before you push.
+`.github/workflows/ci.yml` runs on every pull request, every push to `main` and by hand; `main` requires it to pass. Run the checks locally before you push. It has three parts:
+
+- **Linux**, the main platform: the reusable workflow `.github/workflows/linux.yml` runs every main test (Rust tests, bindings, build, Vitest, extension lint, Playwright UI without `@visual`) and checks the packages on each distribution. See [Linux](#linux-compile-once-test-everywhere).
+- **Windows** (`windows-2025`): the Rust tests and an unsigned release installer, so an NSIS packaging problem shows in the pull request. Nothing is uploaded.
+- **macOS** (macOS 15, Apple Silicon; Intel is temporarily disabled): the Rust tests and a build of the app bundle. It uploads nothing and runs nothing in WKWebView. See [macOS test builds](macos-test.md) for commands and the remaining platform work.
 
 No check touches your own library or browser profile: tests create their own SQLite files, WebView2 and browser profiles under `.test-data`, and their own capture channel name (`KOONAPIN_PIPE`). Prerequisites are those of [building.md](building.md).
-
-`macos.yml` runs on macOS 15 for Apple Silicon on relevant pull requests and by hand (Intel is temporarily disabled): the Rust tests and a build of the app bundle (IPC types and Vitest run in `ci.yml` only); it uploads nothing and runs nothing in WKWebView. See [macOS test builds](macos-test.md) for commands and the remaining platform work.
 
 ## Before every commit: `bun run check`
 
@@ -38,7 +40,7 @@ bun run test:ui
 
 - `@visual` — screenshot comparisons, see [Visual baselines](#visual-baselines).
 - `@languages` — every language at 800×550 and 1600×800: no truncated interface labels, sidebar rows fit, IME input.
-- `@chromium` — four IME scenarios use Chromium's CDP; exclude these when running WebKit. They remain covered by the full Windows CI suite.
+- `@chromium` — four IME scenarios use Chromium's CDP; exclude these when running WebKit. They remain covered by the full suite in CI (Chromium on Linux).
 
 Run a subset with `bun run test:ui -- --grep @languages` or `-- --grep-invert @visual`. Use `bunx` only with `--bun`; without it, `bunx` runs a package on Node if Node is installed.
 
@@ -92,26 +94,46 @@ Each builds the extension, loads the unpacked build into a fresh profile and tal
 - Each run waits for an alarm-driven redelivery, so it takes about two minutes.
 - `extension:lint` reports one expected warning: Firefox for Android understands `data_collection_permissions` only from version 142, and Android is not supported.
 
-## Linux: the matrix through act
+## Linux: compile once, test everywhere
 
-Linux is tested by one workflow, `.github/workflows/linux.yml`, run locally in containers with [act](https://github.com/nektos/act) (Docker required):
+`.github/workflows/linux.yml` is called by `ci.yml` and by `release.yml` (with `release: true`), and starts by hand through **Actions → Linux → Run workflow**. The binaries are compiled once, on Void Linux with glibc, and every package job packs and checks those very binaries on its own distribution.
+
+| Job | Image | What it checks |
+| --- | --- | --- |
+| `images` | — | Finds the CI images below in GHCR, or builds and pushes the missing ones. |
+| `build` | `void` | The release build (`build-linux-packages.mjs --stage compile`): stripped binaries, Tauri's raw `.deb` and the AppImage. `scripts/linux/check-glibc.sh` fails it if a binary needs a glibc newer than 2.41, the oldest of the matrix (Debian 13). |
+| `test` | `void` | The main tests: Rust tests, bindings unchanged, TypeScript and Vite build, Vitest, extension lint; then a development build for `deb`. |
+| `ui` | `ui` | Playwright UI without `@visual`, in Chromium. |
+| `deb` | `debian` | Packs the `.deb` (`--stage deb`), checks it with `lintian`, `desktop-file-validate`, `appstreamcli validate`; the AppImage, the installed package, the native WebKitGTK tests, host registration with Debian's Chromium and Firefox ESR, Chrome and Edge, the extension smoke test, reinstall and removal. |
+| `rpm` | `fedora` | Packs the `.rpm` (`--stage rpm`, from Tauri's `.deb`, beside `deb`), `rpmlint`; the AppImage, the package with `dnf`, the native WebKitGTK tests, Fedora's Firefox and Chromium, reinstall and removal. |
+| `ubuntu` | `ubuntu` | The `.deb` of `deb` on Ubuntu 26.04: the AppImage, the package with `apt`, the native WebKitGTK tests, reinstall and removal. |
+| `arch` | `arch` | The AUR package `koonapin-bin` built from the `.deb` with `makepkg`, `namcap`; the AppImage, the package, the native WebKitGTK tests, Arch's Firefox and Chromium, reinstall and removal. |
+| `webkitgtk` | `debian`, `ubuntu` | The interface in the distribution's WebKitGTK: key screens in every language and both themes, system theme and reduced motion. |
+| `packages` | — | The `.deb`, `.rpm`, AppImage and `SHA256SUMS.txt` in one artifact, `koonapin-linux-x86_64`; for a release also their update signatures (`.sig`). |
+
+Starting the program means: libraries resolve, start under X11 (Xvfb) and Wayland (Weston), a second instance hands over, the autostart entry, `test:host`, the window actually draws.
+
+### CI images
+
+The jobs install nothing: toolchains, Bun and system packages are in prebuilt images, one Dockerfile per role in `scripts/linux/images/` (`void`, `debian`, `ubuntu`, `fedora`, `arch`, `ui`). An image is `ghcr.io/andmetoo/koona-ci-<role>:<tag>`, and the tag is a hash of its Dockerfile and every file it copies (`rust-toolchain.toml`, `.bun-version`, the scripts it runs). An image is rebuilt exactly when what goes into it changes; to move a rolling base (Void, Arch) to a newer release, change the date in its Dockerfile. A pull request from a fork cannot push, so it fails if it needs an image that is not there yet; a run on a branch of this repository builds it.
 
 ```bash
-act workflow_dispatch -W .github/workflows/linux.yml
-act workflow_dispatch -W .github/workflows/linux.yml -j build
-act workflow_dispatch -W .github/workflows/linux.yml -j distro --matrix image:fedora:44
+bun scripts/linux/images.mjs ref debian          # the full reference of one image
+bun scripts/linux/images.mjs ensure              # build here what the registry does not have (Docker)
+bun scripts/linux/images.mjs ensure --push void  # and push it (docker login ghcr.io first)
 ```
 
-`.actrc` sets the runner image, the artifact folder (`.test-data/act-artifacts`) and reads secrets from `.env`. The `build` job needs `KOONAPIN_FEEDBACK_URL` there ([building.md](building.md#local-builds-without-signing)). `.actrc` also passes `--pull=false`, so pull the images once by hand (`docker pull debian:13` and the others).
+`KOONAPIN_CI_REGISTRY` sets another registry.
 
-| Job | Container | What it checks |
-| --- | --- | --- |
-| `build` | `debian:13` | The release build and packages (`.deb`, `.rpm`, AppImage), with `lintian`, `desktop-file-validate`, `appstreamcli validate`. Debian 13 has the oldest glibc of the matrix. |
-| `check` | `debian:13` | What `ci.yml` does on Windows (Rust tests, bindings, build, Vitest, extension lint, Playwright UI without `@visual`), plus host registration with Debian's Chromium and Firefox ESR, the installed `.deb` with Chrome and Edge, and the extension smoke test. |
-| `webkitgtk` | `debian:13`, `ubuntu:26.04` | The interface in the distribution's WebKitGTK: key screens in every language and both themes, system theme and reduced motion. |
-| `distro` | `ubuntu:26.04`, `debian:13`, `fedora:44`, `archlinux:latest` | The AppImage, then the package installed with the system package manager: libraries resolve, start under X11 (Xvfb) and Wayland (Weston), second instance hands over, autostart entry, `test:host`, the native WebKitGTK tests, the window actually draws, reinstall and removal. Fedora and Arch also test their own Firefox and Chromium with the package. |
+### Reproducing locally
 
-When one job fails, act also prints "Job failed" for jobs that finish after it; read the step results.
+There is no local runner for the workflow. The packages are built the way CI builds them with `bun run build:linux`: on macOS or Windows it runs the compile, deb and rpm stages in Docker in the same images ([building.md](building.md#local-builds-without-signing)). `bun run build:linux -- --from-ci <run id|v<version>>` takes the packages of a CI run instead. To look into a failing job, open a shell in its image with the repository mounted:
+
+```bash
+docker run --rm -it --platform linux/amd64 -v "$PWD:/work" -w /work "$(bun scripts/linux/images.mjs ref debian)" bash
+```
+
+The images run as root and have a user `dev`; the jobs run the app and the tests as `dev` (`su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"`). They are amd64 only; on Apple Silicon Docker emulates them, slowly.
 
 Native tests on a Linux desktop without containers: install WebKitWebDriver from the distribution and `cargo install tauri-driver --version 2.1.0 --locked`, quit Koona Pin, then:
 

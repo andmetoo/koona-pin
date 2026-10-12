@@ -1,10 +1,10 @@
 # Experimental macOS test builds
 
-This is a test build for [#56](https://github.com/andmetoo/koona-pin/issues/56), not the macOS release. The workflow currently tests macOS 15 on Apple Silicon (`macos-15`) only; the Intel (`macos-15-intel`) matrix entry is temporarily disabled. macOS 15 is the floor of this experiment, not a declaration of the oldest supported macOS version. There is no Developer ID signing, notarization, release upload or updater manifest.
+This is a test build for [#56](https://github.com/andmetoo/koona-pin/issues/56), not the macOS release. The workflow currently tests macOS 15 on Apple Silicon (`macos-15`) only; the Intel (`macos-15-intel`) matrix entry is temporarily disabled. macOS 15 is the floor of this experiment, not a declaration of the oldest supported macOS version. There is no Developer ID signing, notarization or updater manifest yet; a version tag uploads an ad hoc signed ZIP and DMG to the draft GitHub Release (release.yml, `bun run build:macos`).
 
 ## Run and check
 
-`.github/workflows/macos.yml` starts on relevant pull requests, or through **Actions → macOS test build → Run workflow** on a chosen branch once the workflow exists on the default branch. It checks what only macOS compiles: the Rust tests (with the macOS capture socket and the browsers' manifests), then the app bundle with its TypeScript/Vite build, so a packaging problem shows. IPC types and Vitest do not depend on the system and run in `ci.yml`. It uploads nothing. Nothing in CI runs the app or its interface in WKWebView: the UI suite runs in Chromium on Windows and the native tests in WebKitGTK on Linux, so a macOS-only interface problem shows only in a hand-built `.app`.
+The `macos` job of `.github/workflows/ci.yml` runs on every pull request, every push to `main` and by hand (**Actions → CI → Run workflow**). It checks what only macOS compiles: the Rust tests (with the macOS capture socket and the browsers' manifests), then the app bundle with its TypeScript/Vite build, so a packaging problem shows. IPC types and Vitest do not depend on the system and run in the Linux part of `ci.yml`. It uploads nothing. Nothing in CI runs the app or its interface in WKWebView: the UI suite runs in Chromium and the native tests in WebKitGTK, both on Linux, so a macOS-only interface problem shows only in a hand-built `.app`.
 
 On a Mac with Xcode Command Line Tools, Rust and the pinned Bun:
 
@@ -13,11 +13,15 @@ bun install --frozen-lockfile
 bun run build:macos:test
 ```
 
-The output is `release/test/macos/<version>/<arch>/`: `Koona Pin.app`, the same in a ZIP made with `ditto` (preserves bundle metadata), `SHA256SUMS.txt`, `build.json` with the exact commit, and a README. The test bundle may need the Mac owner's Gatekeeper approval. A started copy uses the normal library; set `KOONAPIN_DATA_DIR` to try it on another. Such a copy does not register with the browsers, so browser capture needs `KOONAPIN_REGISTER_HOST=1` as well (it then takes over the browsers' manifests from any installed copy until that one starts again).
+`bun run build:macos:test` runs `scripts/build-macos.mjs --test`. The output is `release/test/macos/<version>/<arch>/`: `Koona Pin.app`, the same in a ZIP made with `ditto` (preserves bundle metadata), `SHA256SUMS.txt`, `build.json` with the exact commit, and a README. The test bundle may need the Mac owner's Gatekeeper approval. A started copy uses the normal library; set `KOONAPIN_DATA_DIR` to try it on another. Such a copy does not register with the browsers, so browser capture needs `KOONAPIN_REGISTER_HOST=1` as well (it then takes over the browsers' manifests from any installed copy until that one starts again).
 
 `tauri.macos.conf.json` enables the normal native macOS title bar (`decorations: true`, `titleBarStyle: Visible`), with real system traffic-light controls and rounded window corners. It repeats the main-window geometry because Tauri's config merge replaces the windows array. `get_desktop` reports the actual decorated-window state; the HTML window strip is absent when the system draws the frame. The title bar follows the application's light/dark theme through Tauri's window theme API. Windows and Linux keep their existing custom controls.
 
 The Rust HTTP tests model different hosts with loopback addresses `127.0.0.2` through `127.0.0.11`. macOS requires them to be configured explicitly; the workflow adds aliases to `lo0` before the tests. The first ARM run exposed this prerequisite (`AddrNotAvailable`), rather than an application failure; no network tests are skipped.
+
+### Release build
+
+`bun run build:macos` (`scripts/build-macos.mjs` without `--test`) builds with `--features public-release` and `src-tauri/tauri.macos-release.conf.json` (app and DMG, `icon.icns`, macOS 15.0 minimum), so it needs `KOONAPIN_FEEDBACK_URL` in the environment or `.env`. The output is `release/publish/macos/<version>/<arch>/`: `koonapin-<version>-macos-<arch>.zip` (`Koona Pin.app` made with `ditto --keepParent`), `koonapin-<version>-macos-<arch>.dmg` and `SHA256SUMS.txt`, whose last line says whether the build is signed and notarized. There is no signing material yet, so the bundle is signed ad hoc and Gatekeeper needs the Mac owner's approval; the script uses `APPLE_SIGNING_IDENTITY` and the notarization variables below as soon as they are set. Bundle settings stay out of `tauri.macos.conf.json`, which Tauri merges into every macOS build, `cargo test` and dev included.
 
 ## Remaining work from the documents and GitHub
 

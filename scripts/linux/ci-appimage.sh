@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # The AppImage of the «build» job (NP-116), as «dev», on this distribution before any package is installed:
 # Fedora and Arch have no WebKitGTK 4.1 and no tray library then (only the GTK 4 WebKit of WebKitWebDriver),
-# so what the image brings must be enough; on Ubuntu and Debian WebKitWebDriver has brought WebKitGTK 4.1
-# along, and the image uses its own all the same (AppRun). Under X11 (Xvfb) with a
-# session bus: the first start makes the library, copies the host out of the image, writes the browsers'
-# manifests in the user's folders and the autostart entry for the file; a second start hands over; a browser's
-# capture through the host starts the closed app; the file moved, the next start follows it.
+# and on Ubuntu and Debian the tray library is taken out first (ci-package.sh prepare), so what the image
+# brings must be enough; there WebKitWebDriver has brought WebKitGTK 4.1 along, and the image uses its own
+# all the same (AppRun). Under X11 (Xvfb) with a session bus: the first start makes the library, copies the
+# host out of the image, writes the browsers' manifests in the user's folders and the autostart entry for the
+# file; a second start hands over; a browser's capture through the host starts the closed app; the file
+# moved, the next start follows it.
 # A container has no FUSE: the image runs unpacked (APPIMAGE_EXTRACT_AND_RUN), $APPIMAGE still names the file.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -47,20 +48,20 @@ HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
   entry="$HOME/.config/autostart/koonapin.desktop"
   # Unpacked (no FUSE), the runtime starts the app as its child and waits: ending the runtime leaves the
   # app running. Every koonapin of this user ends here.
-  stop() {
+  # An instance still ending would take the next start over (single instance) with the file it was
+  # started from: the next start must find none. What does not end in 30 s is killed.
+  instances() {
     for p in /proc/[0-9]*; do
       exe=$(readlink "$p/exe" 2> /dev/null) || continue
-      if [ "$(basename "$exe")" = koonapin ]; then kill "${p#/proc/}" 2> /dev/null || true; fi
+      if [ "$(basename "$exe")" = koonapin ]; then echo "${p#/proc/}"; fi
     done
-    for _ in $(seq 20); do
-      running=0
-      for p in /proc/[0-9]*; do
-        exe=$(readlink "$p/exe" 2> /dev/null) || continue
-        if [ "$(basename "$exe")" = koonapin ]; then running=1; fi
-      done
-      if [ $running -eq 0 ]; then break; fi
-      sleep 0.5
-    done
+  }
+  stop() {
+    for p in $(instances); do kill "$p" 2> /dev/null || true; done
+    for _ in $(seq 60); do [ -z "$(instances)" ] && break; sleep 0.5; done
+    for p in $(instances); do kill -9 "$p" 2> /dev/null || true; done
+    for _ in $(seq 20); do [ -z "$(instances)" ] && break; sleep 0.5; done
+    [ -z "$(instances)" ] || { echo "FAIL: koonapin still runs: $(instances | tr "\n" " ")"; exit 1; }
     wait 2> /dev/null || true
   }
   start() {
@@ -100,8 +101,10 @@ HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
   mv "$app" "$HOME/Apps/Koona Pin.AppImage"
   app="$HOME/Apps/Koona Pin.AppImage"
   start "$app"
-  for _ in $(seq 60); do [ "$(readlink "$folder/koonapin")" = "$app" ] && grep -qx "TryExec=$app" "$entry" && break; sleep 0.5; done
-  [ "$(readlink "$folder/koonapin")" = "$app" ] || { echo "FAIL: the link did not follow the file"; exit 1; }
+  # The library is there already, so start() returns at once; unpacking the image and starting the app
+  # take a while on a busy runner: up to two minutes.
+  for _ in $(seq 240); do [ "$(readlink "$folder/koonapin")" = "$app" ] && grep -qx "TryExec=$app" "$entry" && break; sleep 0.5; done
+  [ "$(readlink "$folder/koonapin")" = "$app" ] || { cat "$HOME/app.log"; ls -l "$folder"; echo "running: $(instances | tr "\n" " ")"; echo "FAIL: the link did not follow the file"; exit 1; }
   grep -qx "TryExec=$app" "$entry" || { cat "$entry"; echo "FAIL: the autostart entry did not follow the file"; exit 1; }
   echo "ok: the file moved (a space in its name now), the next start follows it"
   stop
