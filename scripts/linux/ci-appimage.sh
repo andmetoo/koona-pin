@@ -48,20 +48,20 @@ HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
   entry="$HOME/.config/autostart/koonapin.desktop"
   # Unpacked (no FUSE), the runtime starts the app as its child and waits: ending the runtime leaves the
   # app running. Every koonapin of this user ends here.
-  stop() {
+  # An instance still ending would take the next start over (single instance) with the file it was
+  # started from: the next start must find none. What does not end in 30 s is killed.
+  instances() {
     for p in /proc/[0-9]*; do
       exe=$(readlink "$p/exe" 2> /dev/null) || continue
-      if [ "$(basename "$exe")" = koonapin ]; then kill "${p#/proc/}" 2> /dev/null || true; fi
+      if [ "$(basename "$exe")" = koonapin ]; then echo "${p#/proc/}"; fi
     done
-    for _ in $(seq 20); do
-      running=0
-      for p in /proc/[0-9]*; do
-        exe=$(readlink "$p/exe" 2> /dev/null) || continue
-        if [ "$(basename "$exe")" = koonapin ]; then running=1; fi
-      done
-      if [ $running -eq 0 ]; then break; fi
-      sleep 0.5
-    done
+  }
+  stop() {
+    for p in $(instances); do kill "$p" 2> /dev/null || true; done
+    for _ in $(seq 60); do [ -z "$(instances)" ] && break; sleep 0.5; done
+    for p in $(instances); do kill -9 "$p" 2> /dev/null || true; done
+    for _ in $(seq 20); do [ -z "$(instances)" ] && break; sleep 0.5; done
+    [ -z "$(instances)" ] || { echo "FAIL: koonapin still runs: $(instances | tr "\n" " ")"; exit 1; }
     wait 2> /dev/null || true
   }
   start() {
@@ -104,7 +104,7 @@ HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
   # The library is there already, so start() returns at once; unpacking the image and starting the app
   # take a while on a busy runner: up to two minutes.
   for _ in $(seq 240); do [ "$(readlink "$folder/koonapin")" = "$app" ] && grep -qx "TryExec=$app" "$entry" && break; sleep 0.5; done
-  [ "$(readlink "$folder/koonapin")" = "$app" ] || { cat "$HOME/app.log"; ls -l "$folder"; echo "FAIL: the link did not follow the file"; exit 1; }
+  [ "$(readlink "$folder/koonapin")" = "$app" ] || { cat "$HOME/app.log"; ls -l "$folder"; echo "running: $(instances | tr "\n" " ")"; echo "FAIL: the link did not follow the file"; exit 1; }
   grep -qx "TryExec=$app" "$entry" || { cat "$entry"; echo "FAIL: the autostart entry did not follow the file"; exit 1; }
   echo "ok: the file moved (a space in its name now), the next start follows it"
   stop
