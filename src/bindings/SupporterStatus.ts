@@ -14,7 +14,8 @@ available: boolean,
  */
 sandbox: boolean, email: string | null, plan: Plan | null, 
 /**
- * The paid period is over and the server could not say whether it renewed.
+ * The server could not be asked when it matters: the paid period is over, or the plan stops
+ * offline within a week (`offline_until`).
  */
 check_failed: boolean, 
 /**

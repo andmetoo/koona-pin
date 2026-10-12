@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "0.9.1"
+version = "0.10.0"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
@@ -57,11 +57,14 @@ rmcp = { version = "3.4", default-features = false, features = ["server", "trans
 # The one-click package for Claude Desktop (`.mcpb`, a zip). Both already in the tree.
 crc32fast = "1.5"
 flate2 = "1.1"
+# The plan signed by the server (Supporter, billing.rs): Ed25519 from `ring`, already in the tree
+# through rustls; base64 through Tauri.
+ring = "0.17"
+base64 = "0.22"
 
 [dev-dependencies]
 # Already in the tree through Tauri: a test recomputes the development
 # extension id from extension/dev-key.txt.
-base64 = "0.22"
 sha2 = "0.10"
 # `trace`: the example `query_plans` prints the plan of every statement a command runs (NP-114).
 rusqlite = { version = "0.32", features = ["trace"] }
