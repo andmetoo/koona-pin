@@ -1388,7 +1388,9 @@ export const demo = {
   async verifySignInCode(email: string, code: string): Promise<SupporterStatus> {
     await new Promise((resolve) => setTimeout(resolve, 300));
     if (code.replace(/\D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
-    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false, awaiting_sign_in: false });
+    // `free@…`: an account whose plan ended or was cancelled.
+    const plan = email.trim().toLowerCase().startsWith("free@") ? null : demoPlan("supporter");
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
   async getBackupFolder(): Promise<BackupFolder> {

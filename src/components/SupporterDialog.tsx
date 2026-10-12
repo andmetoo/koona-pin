@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { BackupFolder, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
+import { savePreference, storedValue } from "../services/preferences";
 import { copyTime } from "./BackupRestoreDialog";
 import { Icon } from "./icons";
 import { Button, IconButton } from "./ui/Button";
@@ -24,11 +25,24 @@ function failureText(error: unknown, t: TFunction): string {
 
 /** How often the payment step asks whether the payment went through; only while it is open. */
 export const POLL_MS = 3000;
-/** Shown before Paddle's own prices arrive, or when they cannot (Р-64: $2 a month, $20 a year). */
+/** Shown when Paddle's own prices cannot be had and none are remembered (Р-64: $2 a month, $20 a year). */
 const FALLBACK: SupporterPrices = {
   month: { price_id: "", total: "$2", currency: "USD" },
   year: { price_id: "", total: "$20", currency: "USD" },
 };
+/**
+ * The prices Paddle gave last time, shown at once next time: dollars turning into euros while the
+ * dialog opens looks like a change of price. The first time the cards wait for Paddle's answer.
+ */
+const PRICES_KEY = "supporterPrices";
+function rememberedPrices(): SupporterPrices | null {
+  try {
+    const prices = JSON.parse(storedValue(PRICES_KEY) ?? "null") as SupporterPrices | null;
+    return prices?.month?.total && prices?.year?.total ? prices : null;
+  } catch {
+    return null;
+  }
+}
 const PERKS = ["sync", "backups", "badge", "early"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
@@ -74,7 +88,8 @@ export function SupporterDialog({
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   }, [paid, email]);
   const [interval, setPlan] = useState<PlanInterval>("year");
-  const [prices, setPrices] = useState<SupporterPrices | null>(null);
+  const [prices, setPrices] = useState<SupporterPrices | null>(rememberedPrices);
+  const [pricesFailed, setPricesFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [checkout, setCheckout] = useState<string | null>(null);
@@ -84,8 +99,11 @@ export function SupporterDialog({
     let alive = true;
     api
       .getSupporterPrices()
-      .then((p) => alive && setPrices(p))
-      .catch(() => {});
+      .then((p) => {
+        savePreference(PRICES_KEY, JSON.stringify(p));
+        if (alive) setPrices(p);
+      })
+      .catch(() => alive && setPricesFailed(true));
     return () => {
       alive = false;
     };
@@ -141,7 +159,8 @@ export function SupporterDialog({
     }
   };
 
-  const shown = prices ?? FALLBACK;
+  // Nothing remembered and no answer yet: the cards keep their room with no price in it.
+  const shown = prices ?? (pricesFailed ? FALLBACK : null);
   const plansPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
       <p className="text-sm text-muted">{t("supporter.intro")}</p>
@@ -160,7 +179,7 @@ export function SupporterDialog({
             checked={interval === value}
             onSelect={() => setPlan(value)}
             name={t(value === "year" ? "supporter.yearly" : "supporter.monthly")}
-            price={t(value === "year" ? "supporter.perYear" : "supporter.perMonth", { price: whole(shown[value].total) })}
+            price={shown ? t(value === "year" ? "supporter.perYear" : "supporter.perMonth", { price: whole(shown[value].total) }) : " "}
             badge={value === "year" ? t("supporter.twoMonthsFree") : null}
           />
         ))}
@@ -313,13 +332,14 @@ function PlanCard({
   );
 }
 
-type SignInStep = "email" | "code";
+type SignInStep = "email" | "code" | "noPlan";
 
 /**
  * «Sign in as a Supporter» on another computer (sheet 45): the email of the payment, then the code
- * Supabase sends to it. Opened from Settings → Plan.
+ * Supabase sends to it. Opened by «I'm already a Supporter». Signed in to an account with no active
+ * plan (it ended or was cancelled), the dialog says so instead of closing as if nothing happened.
  */
-export function SignInDialog({ onClose }: { onClose: () => void }) {
+export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlans: () => void }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<SignInStep>("email");
   const [email, setEmail] = useState("");
@@ -356,9 +376,32 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
     });
   const verify = () =>
     run(async () => {
-      await api.verifySignInCode(email, code);
+      const status = await api.verifySignInCode(email, code);
+      if (status.plan) onClose();
+      else setStep("noPlan");
+    });
+  const signOut = () =>
+    run(async () => {
+      await api.signOutSupporter();
       onClose();
     });
+
+  const noPlanPanel = (sizing: boolean) => (
+    <div className="flex flex-1 flex-col">
+      <p className="text-sm text-muted">{t("supporter.noPlanText", { email: sizing ? "" : email.trim() })}</p>
+      <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+        <button type="button" disabled={busy} onClick={() => void signOut()} className="mr-auto text-sm font-medium text-muted hover:text-ink">
+          {t("plan.signOut")}
+        </button>
+        <Button variant="outline" size="lg" onClick={onClose}>
+          {t("common.close")}
+        </Button>
+        <Button variant="primary" size="lg" onClick={onPlans}>
+          {t("supporter.seePlans")}
+        </Button>
+      </footer>
+    </div>
+  );
 
   const emailPanel = (failure: string | null, sizing: boolean) => (
     <form
@@ -465,12 +508,18 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <Dialog title={step === "email" ? t("supporter.signInTitle") : t("supporter.codeTitle")} onClose={onClose} width={480}>
-      <StatePanels value={step} states={["email", "code"] as const}>
+    <Dialog
+      title={t(step === "email" ? "supporter.signInTitle" : step === "code" ? "supporter.codeTitle" : "supporter.signedInTitle")}
+      onClose={onClose}
+      width={480}
+    >
+      <StatePanels value={step} states={["email", "code", "noPlan"] as const}>
         {(state, sizing) =>
           state === "email"
             ? emailPanel(sizing ? t("errors.detail.not_supporter") : error, sizing)
-            : codePanel(sizing ? t("errors.detail.wrong_code") : error, sizing)
+            : state === "code"
+              ? codePanel(sizing ? t("errors.detail.wrong_code") : error, sizing)
+              : noPlanPanel(sizing)
         }
       </StatePanels>
     </Dialog>

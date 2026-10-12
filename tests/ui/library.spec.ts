@@ -2390,6 +2390,50 @@ test("Supporter: the server cannot be reached — the dialog says so and keeps t
   await expect(plans.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
+test("Supporter: signed in to an account with no active plan, the dialog says so instead of closing (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  const height = Math.round((await signIn.boundingBox())!.height);
+  await signIn.getByLabel("Email").fill("free@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  const signedIn = page.getByRole("dialog", { name: "Signed in" });
+  await expect(signedIn).toContainText("You're signed in as free@example.com, but this account has no active Supporter plan.");
+  expect(Math.round((await signedIn.boundingBox())!.height), "one height through the steps").toBe(height);
+  await expect(row).toHaveAttribute("data-plan-row", "free");
+  // «See plans» goes to buying; «Sign out» from here leaves the account.
+  await signedIn.getByRole("button", { name: "See plans" }).click();
+  await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toBeVisible();
+});
+
+test("Supporter: the plans show the prices Paddle gave last time at once, not dollars first (NP-066)", async ({ page }) => {
+  // First time: Paddle's prices are remembered.
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toContainText("$20 a year");
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("koonapin.supporterPrices")))!).year.total).toBe("$20.00");
+  // Euros last time and no answer now: euros, not the dollars kept for when nothing is known.
+  await page.evaluate(() => {
+    localStorage.setItem("koonapin.demo.supporter", "no_server");
+    localStorage.setItem(
+      "koonapin.supporterPrices",
+      JSON.stringify({ month: { price_id: "m", total: "€2.00", currency: "EUR" }, year: { price_id: "y", total: "€20.00", currency: "EUR" } }),
+    );
+  });
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+  await expect(plans).toContainText("€20 a year");
+  await expect(plans).toContainText("€2 a month");
+});
+
 test("feedback: from Settings, checked before sending, a failure keeps the draft, Try again sends it (NP-088)", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByText("Report a problem")).toHaveCount(0);

@@ -1281,7 +1281,7 @@ export function App() {
           onSignIn={() => setSurface("signIn")}
         />
       )}
-      {surface === "signIn" && <SignInDialog onClose={() => setSurface(null)} />}
+      {surface === "signIn" && <SignInDialog onClose={() => setSurface(null)} onPlans={() => setSurface("supporter")} />}
       {surface === "plan" && supporter?.plan && (
         <PlanDialog
           supporter={supporter}
