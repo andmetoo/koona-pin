@@ -24,7 +24,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { chmod, copyFile, cp, mkdir, mkdtemp, readdir, readFile, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, cp, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
@@ -234,22 +234,30 @@ async function compile() {
   // FUSE it runs unpacked.
   await rm(path.join(bundles, "appimage"), { recursive: true, force: true });
   env.APPIMAGE_EXTRACT_AND_RUN = "1";
-  // Tauri (cli 2.12) takes the whole line of `pkg-config --libs-only-L ayatana-appindicator3-0.1` for the
-  // tray library's folder; Void's pkgconf names several (-L/usr/lib64 -L/usr/lib …). A pkg-config first on
-  // PATH for this step gives it the first folder only.
-  const realPkgConfig = output("sh", ["-c", "command -v pkg-config"]);
-  const shim = await mkdtemp(path.join(tmpdir(), "koonapin-pkg-config-"));
-  await writeFile(
-    path.join(shim, "pkg-config"),
-    `#!/bin/sh
-case " $* " in
-  *" --libs-only-L "*) "${realPkgConfig}" "$@" | awk '{ print $1; exit }' ;;
-  *) exec "${realPkgConfig}" "$@" ;;
-esac
-`,
-    { mode: 0o755 },
-  );
-  env.PATH = `${shim}:${env.PATH}`;
+  // Void's /usr/lib64 is a link to /usr/lib, and its pkgconf answers with either: Tauri (cli 2.12) takes the
+  // whole line of `pkg-config --libs-only-L ayatana-appindicator3-0.1` (-L/usr/lib64 -L/usr/lib …) for the
+  // tray library's folder, and linuxdeploy's GTK plugin puts GTK's modules beside the AppDir when pkgconf
+  // says /usr/lib64 and the real folder is /usr/lib. For this step a pkg-config and a pkgconf first on PATH
+  // answer /usr/lib, and one -L folder.
+  if ((await realpath("/usr/lib64").catch(() => "")) === "/usr/lib") {
+    const shim = await mkdtemp(path.join(tmpdir(), "koonapin-pkg-config-"));
+    for (const name of ["pkg-config", "pkgconf"]) {
+      const real = spawnSync("sh", ["-c", `command -v ${name}`], { encoding: "utf8" }).stdout.trim();
+      if (!real) continue;
+      await writeFile(
+        path.join(shim, name),
+        [
+          "#!/bin/sh",
+          `out=$("${real}" "$@") || exit $?`,
+          `case " $* " in *" --libs-only-L "*) out=$(printf '%s\\n' "$out" | awk '{ print $1; exit }') ;; esac`,
+          `[ -z "$out" ] || printf '%s\\n' "$out" | sed 's#/usr/lib64#/usr/lib#g'`,
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      );
+    }
+    env.PATH = `${shim}:${env.PATH}`;
+  }
   bundle("appimage", { deb: { desktopTemplate: path.join(linux, "koonapin.desktop") }, appimage: { bundleMediaFramework: false } });
   await copyFile(path.join(bundles, "appimage", `koonapin_${version}_amd64.AppImage`), files.appimage);
   await chmod(files.appimage, 0o755);
