@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The native tests on WebKitGTK (NP-095, Р-57) in a «distro» job of .github/workflows/linux.yml, as «dev»:
+# The native tests on WebKitGTK (NP-095, Р-57) in a package job of .github/workflows/linux.yml, as «dev»:
 # tests/webkit through tauri-driver and WebKitWebDriver against the installed package, under X11 (Xvfb) and
-# under Wayland (Weston headless), each with a session bus of its own. tauri-driver comes from the «build»
-# job (dist-tools/), WebKitWebDriver from the distribution (ci-runtime.sh).
+# under Wayland (Weston headless), each with a session bus of its own. tauri-driver comes from the «void»
+# image through the «build» job's artifact (dist-tools/), WebKitWebDriver from the distribution (ci-runtime.sh).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 step() { printf '\n== %s\n' "$1"; }
@@ -29,7 +29,7 @@ tests() {
 }
 
 step "X11 (Xvfb)"
-# Only the socket file, as in ci-smoke.sh: act's containers share the host's abstract sockets.
+# Only the socket file, as in ci-smoke.sh: containers on the host's network share its abstract sockets.
 Xvfb :98 -screen 0 1280x800x24 -nolisten tcp -nolisten local > "$XDG_RUNTIME_DIR/xvfb.log" 2>&1 &
 xvfb=$!
 for _ in $(seq 50); do [ -S /tmp/.X11-unix/X98 ] && break; sleep 0.2; done

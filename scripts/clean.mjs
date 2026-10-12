@@ -21,9 +21,8 @@ const args = new Set(process.argv.slice(2));
 const RECENT = 30 * 60 * 1000;
 const from = (...p) => path.join(root, ...p);
 
-/** Test libraries built by `cargo run --example test_libraries`: inputs, not output. act's artifacts
- * (.actrc): the Linux packages wait there for build:linux to unpack them; each run replaces its own. */
-const KEEP = new Set(["libraries", "act-artifacts"]);
+/** Test libraries built by `cargo run --example test_libraries`: inputs, not output. */
+const KEEP = new Set(["libraries"]);
 const cargoProjects = ["src-tauri", "scripts/search-bench", "scripts/native-messaging-probe", "scripts/platform-probe/mobile-app/src-tauri"];
 
 async function size(target) {

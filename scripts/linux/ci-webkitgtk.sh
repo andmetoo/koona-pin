@@ -4,13 +4,15 @@
 # cut labels (the preview in MiniBrowser), the system theme and «reduce motion» from GTK and GNOME settings
 # (Koona Pin itself, the binary of the «build» job). No speed measures in the matrix: the scroll is measured
 # by hand.
-#   ci-webkitgtk.sh setup    as root: WebKitWebDriver and MiniBrowser, fonts, X11, Wayland, dconf, the
-#                            settings portal, Bun, user «dev»
-#   ci-webkitgtk.sh          as «dev»: bun install, then the check under X11 (Xvfb) and under Wayland (Weston)
+#   ci-webkitgtk.sh setup    as root, when the «debian» and «ubuntu» CI images are built
+#                            (scripts/linux/images/): WebKitWebDriver and MiniBrowser, fonts, X11, Wayland,
+#                            dconf, the settings portal, Bun, user «dev»
+#   ci-webkitgtk.sh          as «dev» in the job: bun install, then the check under X11 (Xvfb) and under
+#                            Wayland (Weston), with dist-linux/bin/koonapin of the «build» job
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 . /etc/os-release
-app=$PWD/dist-linux/koonapin
+app=$PWD/dist-linux/bin/koonapin
 
 if [ "${1:-}" = setup ]; then
   export DEBIAN_FRONTEND=noninteractive
@@ -26,9 +28,9 @@ if [ "${1:-}" = setup ]; then
   apt-get install -y -qq "$driver" libwebkit2gtk-4.1-0 libayatana-appindicator3-1 xvfb xauth dbus \
     weston fonts-noto-cjk fonts-noto-color-emoji fontconfig dconf-service libglib2.0-bin \
     gsettings-desktop-schemas xdg-desktop-portal xdg-desktop-portal-gtk curl unzip ca-certificates > /dev/null
-  bash scripts/linux/bun.sh
+  rm -rf /var/lib/apt/lists/*
+  [ -x /usr/local/bin/bun ] || bash scripts/linux/bun.sh
   id dev > /dev/null 2>&1 || useradd -m -u 1001 -U dev
-  chown -R dev "$PWD"
   exit 0
 fi
 
@@ -49,8 +51,8 @@ XDG_RUNTIME_DIR=$(mktemp -d)
 chmod 700 "$XDG_RUNTIME_DIR"
 status=0
 
-# Only the socket file (`-nolisten local`): under act the jobs' containers share the host's network and
-# with it the abstract X11 socket (see ci-smoke.sh). GTK settings.ini — what KDE writes for GTK programs and
+# Only the socket file (`-nolisten local`): containers that share the host's network share the abstract
+# X11 socket too (see ci-smoke.sh). GTK settings.ini — what KDE writes for GTK programs and
 # what a window manager without a settings daemon leaves — counts only without the settings portal: the
 # portal's colour scheme, «no preference» here, outranks it. A session bus that starts no services.
 step "X11 (Xvfb): screens, settings.ini"

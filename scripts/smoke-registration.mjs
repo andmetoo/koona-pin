@@ -9,7 +9,7 @@
 // in only the store extensions, so Chromium refuses the development one, while Firefox — the add-on id is
 // the same — saves through /usr/bin/koonapin-host and starts an app that never ran before.
 //
-// Needs a display (the app), Chromium and Firefox: scripts/linux/ci-check.sh runs it with Debian's chromium
+// Needs a display (the app), Chromium and Firefox: scripts/linux/ci-browsers.sh runs it with Debian's chromium
 // and firefox-esr; KOONAPIN_CHROMIUM and KOONAPIN_FIREFOX point to others. With --installed KOONAPIN_CHROMIUM
 // may name several browsers of the Chromium family, separated by «:» (Chromium, Google Chrome, Edge): each
 // must find the package's manifest — the refusal says so — through the link in its folder under /etc.

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Root part of a «distro» job of .github/workflows/linux.yml (NP-055): the package of the «build» job, as
+# Root part of a package job of .github/workflows/linux.yml (NP-055): the package of the deb or rpm job, as
 # people get it.
-#   ci-package.sh install   apt or dnf installs it from dist-linux/ with its dependencies — the job did not
-#                           install WebKitGTK or the tray library — and the files are where Р-53 puts them
+#   ci-package.sh install   apt or dnf installs it from dist-linux/ with its dependencies — the image did not
+#                           bring the tray library — and the files are where Р-53 puts them; on Debian first
+#                           lintian, desktop-file-validate and appstreamcli, on Fedora rpmlint
 #   ci-package.sh remove    a second install over it, then removal: the program, the host, the manifests and
 #                           the menu entry go, the library in the home folder stays (Р-45, п. 9)
 # Arch gets koonapin-bin as an AUR helper builds it (NP-101): PKGBUILD and .SRCINFO from scripts/build-aur.mjs
-# for the .deb of «build», its dependencies by pacman, makepkg as «dev», namcap, pacman -U.
+# for the .deb of the deb job (dist-linux/), its dependencies by pacman, makepkg as «dev», namcap, pacman -U.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export DEBIAN_FRONTEND=noninteractive
@@ -44,7 +45,7 @@ install() {
   esac
 }
 
-# The AUR package from the .deb of «build», as yay or paru build it: the .deb lies next to the PKGBUILD,
+# The AUR package from the .deb of the deb job, as yay or paru build it: the .deb lies next to the PKGBUILD,
 # so makepkg takes it instead of the release on GitHub and checks its sha256.
 build_aur() {
   step "Build koonapin-bin (PKGBUILD of scripts/build-aur.mjs, makepkg, namcap)"
@@ -67,9 +68,24 @@ build_aur() {
   echo "ok: namcap without errors"
 }
 
+# Debian's checks of what a package may contain, as «dev» (lintian warns about root). Warnings fail the job
+# too: the ones that stay are explained in src-tauri/linux/lintian-overrides.
+lint_deb() {
+  step "lintian, desktop-file-validate, appstreamcli"
+  su dev -s /bin/bash -c "lintian --fail-on error,warning --display-info --info '$package'"
+  echo "ok: lintian"
+  tree=$(mktemp -d)
+  dpkg-deb -x "$package" "$tree"
+  desktop-file-validate "$tree/usr/share/applications/koonapin.desktop"
+  appstreamcli validate --no-net --explain "$tree/usr/share/metainfo/app.koona.pin.metainfo.xml"
+  rm -rf "$tree"
+  echo "ok: desktop-file-validate, appstreamcli validate"
+}
+
 case "${1:-}" in
   install)
     [ "$ID" = arch ] && build_aur
+    [ "$ID" = debian ] && lint_deb
     step "Install $(basename "$package") on $PRETTY_NAME"
     install
     for file in "${installed[@]}"; do [ -e "$file" ] || { echo "FAIL: $file is missing"; exit 1; }; done
@@ -103,9 +119,8 @@ case "${1:-}" in
       fedora)
         rpm -q --requires koonapin | grep -v '^rpmlib' | tr '\n' ' '
         echo
-        # Fedora's own rpmlint and configuration (Debian's rpmlint checks as openSUSE does); what stays is
-        # explained in src-tauri/linux/rpmlint.toml.
-        dnf install -y -q rpmlint > /dev/null
+        # Fedora's own rpmlint (in the image) and configuration (Debian's rpmlint checks as openSUSE does);
+        # what stays is explained in src-tauri/linux/rpmlint.toml.
         rpmlint -c src-tauri/linux/rpmlint.toml "$package"
         ;;
       arch)

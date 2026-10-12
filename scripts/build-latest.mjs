@@ -9,7 +9,12 @@
 // it with its <file>.sig into release/publish/updates/<version>/, next to latest.json and
 // SHA256SUMS.txt. The key and its password come from the environment or .env (NP-042):
 // TAURI_SIGNING_PRIVATE_KEY (or TAURI_SIGNING_PRIVATE_KEY_PATH) and TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
-// bun run release runs it last, after the packages it lacked.
+// A package that already has a fresh <file>.sig of this version next to it keeps it: release.yml's Linux
+// job signs the Linux packages, and its finalize stage runs this on the draft's files, signing only
+// the Windows installer (the key is needed only when something is left to sign).
+// The installer leaves under koonapin_<version>_x64-setup.exe, not Tauri's «Koona Pin_…»: GitHub turns
+// the space of a release asset into a dot, and the site serves the name latest.json gives, so one
+// name without spaces holds everywhere (release-windows.mjs uploads it so).
 //
 // The site serves that folder (Р-60): the packages at https://koona.app/pin/downloads/<version>/,
 // latest.json at https://koona.app/pin/updates/latest.json, where the app reads it
@@ -19,9 +24,9 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { entry } from "../site/src/changelog.mjs";
+import { changeList } from "./lib/release-notes.mjs";
 import { SITE } from "../site/src/content.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
 
@@ -33,22 +38,32 @@ if (only && !["windows", "linux"].includes(only)) {
   process.exit(1);
 }
 const unsignedWindows = process.argv.includes("--unsigned-windows");
-if (!process.env.TAURI_SIGNING_PRIVATE_KEY && !process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) {
-  console.error("The update key is not set: TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (NP-042, .env.example).");
-  process.exit(1);
-}
 
 const conf = JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8"));
 const version = conf.version;
-let changes;
 try {
-  changes = entry(version).changes;
+  changeList(version);
 } catch (error) {
   console.error(error.message);
   process.exit(1);
 }
 // The updater reads latest.json of the site (tauri.conf.json); the packages lie next to their version.
 const download = (file) => `${SITE}/downloads/${version}/${encodeURIComponent(file)}`;
+/** The name a package is published under: the installer's without the space of the product name. */
+const published = (file) => file.replace(/^Koona Pin_/, "koonapin_");
+
+/**
+ * A <file>.sig made for this file and this version, and not older than the file: the trusted comment of
+ * `tauri signer sign --app-version` reads «timestamp:… file:<name> version:<version>».
+ */
+async function freshSignature(folder, file) {
+  const sig = path.join(folder, `${file}.sig`);
+  if (!existsSync(sig)) return false;
+  if ((await stat(sig)).mtimeMs < (await stat(path.join(folder, file))).mtimeMs) return false;
+  const text = Buffer.from((await readFile(sig, "utf8")).trim(), "base64").toString("utf8");
+  const trusted = text.match(/^trusted comment: (.*)$/m)?.[1] ?? "";
+  return trusted.split("\t").includes(`file:${file}`) && trusted.split("\t").includes(`version:${version}`);
+}
 
 /** The packages of this version: [updater target keys, folder, file]. */
 const packages = [];
@@ -84,6 +99,13 @@ if (only !== "windows") {
   );
 }
 
+const fresh = new Set();
+for (const [, folder, file] of packages) if (await freshSignature(folder, file)) fresh.add(file);
+if (fresh.size < packages.length && !process.env.TAURI_SIGNING_PRIVATE_KEY && !process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) {
+  console.error("The update key is not set: TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (NP-042, .env.example).");
+  process.exit(1);
+}
+
 const out = path.join(publish.updates, version);
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
@@ -92,6 +114,12 @@ const tauri = path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js");
 const platforms = {};
 const sums = [];
 for (const [targets, folder, file] of packages) {
+  const name = published(file);
+  if (fresh.has(file)) {
+    console.log(`kept the signature of ${path.relative(root, path.join(folder, file))}`);
+    await take(targets, folder, file, name);
+    continue;
+  }
   const signed = spawnSync(process.execPath, [tauri, "signer", "sign", "--app-version", version, path.join(folder, file)], {
     cwd: root,
     stdio: ["inherit", "ignore", "inherit"],
@@ -100,17 +128,22 @@ for (const [targets, folder, file] of packages) {
     console.error(`Signing ${file} failed (the key or its password).`);
     process.exit(signed.status ?? 1);
   }
-  const signature = (await readFile(path.join(folder, `${file}.sig`), "utf8")).trim();
-  for (const target of targets) platforms[target] = { url: download(file), signature };
-  await copyFile(path.join(folder, file), path.join(out, file));
-  await copyFile(path.join(folder, `${file}.sig`), path.join(out, `${file}.sig`));
-  sums.push(`${createHash("sha256").update(await readFile(path.join(out, file))).digest("hex")}  ${file}`);
   console.log(`signed ${path.relative(root, path.join(folder, file))}`);
+  await take(targets, folder, file, name);
+}
+
+/** A signed package into the updates folder under its published name, into latest.json and the sums. */
+async function take(targets, folder, file, name) {
+  const signature = (await readFile(path.join(folder, `${file}.sig`), "utf8")).trim();
+  for (const target of targets) platforms[target] = { url: download(name), signature };
+  await copyFile(path.join(folder, file), path.join(out, name));
+  await copyFile(path.join(folder, `${file}.sig`), path.join(out, `${name}.sig`));
+  sums.push(`${createHash("sha256").update(await readFile(path.join(out, name))).digest("hex")}  ${name}`);
 }
 
 const latest = {
   version,
-  notes: changes.map((c) => `- ${c}`).join("\n"),
+  notes: changeList(version),
   pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
   platforms,
 };

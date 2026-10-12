@@ -82,7 +82,7 @@ The library lives in `<data dir>/Koona/Pin`, a brand folder with a product subfo
 
 ## Linux packages built on the oldest glibc
 
-Linux binaries are built once, in a Debian 13 container (the oldest glibc of the supported set), and that very binary is tested on Ubuntu, Debian, Fedora and Arch. The `.deb`, `.rpm`, AUR package and AppImage share it. The whole matrix is one workflow that runs the same locally with act and on GitHub Actions.
+Linux binaries are compiled once, on Void Linux with glibc 2.41, the same floor as Debian 13, the oldest glibc of the supported set. A check fails the build when a binary needs a newer glibc, so an update of the rolling Void image cannot quietly break Debian. That very binary is then packed and tested on each distribution: Debian, Ubuntu, Fedora and Arch. The `.deb`, `.rpm`, AUR package and AppImage share it. Every job runs in a prebuilt image, and a local `bun run build:linux` uses the same images in Docker.
 
 ## A static site with no scripts
 
