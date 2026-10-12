@@ -43,7 +43,8 @@ library="/home/dev/.local/share/Koona/Pin/koonapin.db"
 
 install() {
   case "$ID" in
-    ubuntu | debian) apt-get install -y -qq "$@" "$package" > /dev/null ;;
+    # The CI images leave apt's lists out: the package's dependencies come from the archive.
+    ubuntu | debian) apt-get update -qq && apt-get install -y -qq "$@" "$package" > /dev/null ;;
     fedora) dnf install -y -q "$@" "$package" ;;
     arch) pacman -U --noconfirm "$package" > /dev/null ;;
   esac
@@ -59,7 +60,9 @@ build_aur() {
   chown -R dev "$aur"
   # What an AUR helper installs before makepkg: the depends of .SRCINFO.
   mapfile -t depends < <(sed -n 's/^\tdepends = //p' "$aur/.SRCINFO")
-  pacman -S --needed --noconfirm "${depends[@]}" > /dev/null
+  # -Syu: Arch is rolling, and the package database of the CI image ages; a package it names may be gone
+  # from the mirrors (Arch does not take a partial upgrade, -Sy alone).
+  pacman -Syu --needed --noconfirm "${depends[@]}" > /dev/null
   su dev -s /bin/bash -c "cd '$aur' && makepkg --printsrcinfo | diff -u .SRCINFO - && makepkg --noconfirm > makepkg.log 2>&1 || { cat makepkg.log; exit 1; }"
   echo "ok: .SRCINFO is what makepkg --printsrcinfo writes; makepkg built $(cd "$aur" && ls koonapin-bin-*.pkg.tar.zst)"
   package=$(ls "$aur"/koonapin-bin-*.pkg.tar.zst | head -1)

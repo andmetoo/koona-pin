@@ -101,8 +101,10 @@ HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
   mv "$app" "$HOME/Apps/Koona Pin.AppImage"
   app="$HOME/Apps/Koona Pin.AppImage"
   start "$app"
-  for _ in $(seq 60); do [ "$(readlink "$folder/koonapin")" = "$app" ] && grep -qx "TryExec=$app" "$entry" && break; sleep 0.5; done
-  [ "$(readlink "$folder/koonapin")" = "$app" ] || { echo "FAIL: the link did not follow the file"; exit 1; }
+  # The library is there already, so start() returns at once; unpacking the image and starting the app
+  # take a while on a busy runner: up to two minutes.
+  for _ in $(seq 240); do [ "$(readlink "$folder/koonapin")" = "$app" ] && grep -qx "TryExec=$app" "$entry" && break; sleep 0.5; done
+  [ "$(readlink "$folder/koonapin")" = "$app" ] || { cat "$HOME/app.log"; ls -l "$folder"; echo "FAIL: the link did not follow the file"; exit 1; }
   grep -qx "TryExec=$app" "$entry" || { cat "$entry"; echo "FAIL: the autostart entry did not follow the file"; exit 1; }
   echo "ok: the file moved (a space in its name now), the next start follows it"
   stop
