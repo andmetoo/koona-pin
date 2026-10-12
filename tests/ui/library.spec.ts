@@ -2736,8 +2736,10 @@ test("feedback: a report that never comes does not lock the dialog — it goes w
   await dialog.getByRole("button", { name: "Send", exact: true }).click();
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!", { timeout: 6000 });
   expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBeNull();
-});test("AI assistants: off by default, read only or read and add, the dialog for each assistant (NP-091, sheet 44)", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+});
+test("AI assistants: off by default, read only or read and add, the dialog for each assistant (NP-091, sheet 44)", async ({ page, context, browserName }) => {
+  // WebKit has no clipboard permissions to grant; it copies on the click, but only Chromium reads it back.
+  if (browserName === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const section = page.locator("section", { has: page.getByRole("heading", { name: "AI assistants" }) });
   await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "off");
@@ -2766,7 +2768,7 @@ test("feedback: a report that never comes does not lock the dialog — it goes w
   await expect(shown.locator("pre")).toHaveText(/^claude mcp add --scope user koona-pin -- ".+koonapin-mcp\.exe"$/);
   await shown.getByRole("button", { name: "Copy" }).click();
   await expect(page.getByText("Copied", { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^claude mcp add/);
+  if (browserName === "chromium") expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^claude mcp add/);
   // ChatGPT: the path for its form, or the Codex command (they share the list).
   await dialog.getByRole("radio", { name: "ChatGPT" }).click();
   await expect(shown.locator("pre")).toHaveCount(2);
