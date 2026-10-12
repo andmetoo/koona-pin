@@ -171,7 +171,8 @@ export function SupporterDialog({
             // paid, the purchase is gone here but the plan is already in place.
             const status = await api.getSupporterStatus();
             if (!alive) return;
-            if (status.plan) {
+            // A subscriber switching to five years has a plan all along: only the five years count.
+            if (upgrade ? status.plan?.interval === "five_years" : status.plan) {
               setPaidEmail(status.email);
               setStep("thanks");
             } else {
@@ -203,7 +204,12 @@ export function SupporterDialog({
   // Nothing remembered and no answer yet: the cards keep their room with no price in it.
   const shown = prices ?? (pricesFailed ? FALLBACK : null);
   // Five years paid once, while the server sells them: their card waits for the prices too.
-  const plans = !shown || shown.five_years ? (["year", "month", "five_years"] as const) : (["year", "month"] as const);
+  const fiveYearsSold = !shown || !!shown.five_years;
+  const plans = fiveYearsSold ? (["year", "month", "five_years"] as const) : (["year", "month"] as const);
+  // Chosen before Paddle's answer said they are not sold: back to the yearly plan, never a hidden choice.
+  useEffect(() => {
+    if (!fiveYearsSold && !upgrade) setPlan((chosen) => (chosen === "five_years" ? "year" : chosen));
+  }, [fiveYearsSold, upgrade]);
   const priceLine = (value: PlanInterval, price: string) =>
     t(value === "year" ? "supporter.perYear" : value === "month" ? "supporter.perMonth" : "supporter.once", { price: whole(price) });
   const planName = (value: PlanInterval) =>
@@ -236,24 +242,14 @@ export function SupporterDialog({
               checked={interval === value}
               onSelect={() => setPlan(value)}
               name={planName(value)}
-              price={
-                price ? (
-                  priceLine(value, price.total)
-                ) : (
-                  // Paddle's answer on its way: a quiet bar in the line's room, no amount to swap.
-                  <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />
-                )
-              }
+              price={price ? priceLine(value, price.total) : <PricePending />}
               badge={planBadge(value)}
             />
           );
         })}
       </div>
       {failure ? (
-        <p role="alert" className="mt-3 flex gap-2 rounded-lg bg-danger-soft px-3 py-2.5 text-xs leading-[17px] text-on-danger-soft">
-          <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
-          {failure}
-        </p>
+        <FailureNote text={failure} />
       ) : planUnknown && email && !sizing ? (
         // Signed in, but the plan could not be checked: a Supporter must not buy it twice.
         <p role="status" className="mt-3 flex gap-2 rounded-lg bg-amber-soft px-3 py-2.5 text-xs leading-[17px] text-on-amber-soft">
@@ -279,34 +275,29 @@ export function SupporterDialog({
   );
 
   // «Switch to 5 years» (sheet 45): the five years and when they start and end, nothing to choose.
-  const upgradePanel = (plan: Plan, failure: string | null) => {
+  // The amount waits for Paddle's answer, in the text too: no dollars turning into euros.
+  const upgradePanel = (plan: Plan, failure: string | null, sizing: boolean) => {
     const price = shown?.five_years;
+    // Paddle answered and the server does not sell them (the button is not offered then either).
+    const notSold = !!shown && !price;
+    const shownFailure = failure ?? (notSold && !sizing ? t("supporter.unreachable") : null);
     return (
       <div className="flex flex-1 flex-col">
         <p className="text-sm text-muted">
-          {t(plan.interval === "month" ? "supporter.upgradeTextMonthly" : "supporter.upgradeTextYearly", {
-            date: longDate(plan.valid_until, i18n.language),
-            price: whole((price ?? FALLBACK.five_years!).total),
-          })}
+          {price || sizing ? (
+            t(plan.interval === "month" ? "supporter.upgradeTextMonthly" : "supporter.upgradeTextYearly", {
+              date: longDate(plan.valid_until, i18n.language),
+              price: whole((price ?? FALLBACK.five_years!).total),
+            })
+          ) : (
+            <span aria-hidden data-price-pending className="block h-9 animate-pulse rounded bg-secondary" />
+          )}
         </p>
-        <div className="mt-4 flex flex-col gap-1.5 rounded-[10px] bg-accent-soft px-3.5 py-3 shadow-[inset_0_0_0_1.5px_var(--np-accent)]">
-          <span className="flex items-center gap-2">
-            <span className="flex-1 text-sm font-medium">{t("supporter.fiveYears")}</span>
-            <span className="rounded-full bg-card px-2 py-px text-2xs font-medium whitespace-nowrap text-accent">{t("supporter.save50")}</span>
-          </span>
-          <span className="text-lg font-semibold">
-            {price ? (
-              t("supporter.once", { price: whole(price.total) })
-            ) : (
-              <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />
-            )}
-          </span>
+        <div className="mt-4">
+          <PlanCard checked wide name={t("supporter.fiveYears")} price={price ? priceLine("five_years", price.total) : <PricePending />} badge={t("supporter.save50")} />
         </div>
-        {failure ? (
-          <p role="alert" className="mt-3 flex gap-2 rounded-lg bg-danger-soft px-3 py-2.5 text-xs leading-[17px] text-on-danger-soft">
-            <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
-            {failure}
-          </p>
+        {shownFailure ? (
+          <FailureNote text={shownFailure} />
         ) : (
           <p className="mt-3 text-xs leading-[17px] text-muted">
             {t("supporter.upgradeHint", { date: longDate(fiveYearsAfter(plan.valid_until), i18n.language) })}
@@ -316,7 +307,7 @@ export function SupporterDialog({
           <Button variant="outline" size="lg" onClick={onClose}>
             {t("supporter.notNow")}
           </Button>
-          <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={() => void pay()}>
+          <Button variant="primary" size="lg" autoFocus disabled={busy || notSold} onClick={() => void pay()}>
             {failure ? t("common.retry") : t("supporter.continue")}
           </Button>
         </footer>
@@ -401,7 +392,7 @@ export function SupporterDialog({
     >
       <StatePanels value={step} states={["plans", "waiting", "thanks", "signIn"] as const}>
         {(state, sizing) => {
-          if (state === "plans" && upgrade) return upgradePanel(upgrade, sizing ? t("supporter.unreachable") : error);
+          if (state === "plans" && upgrade) return upgradePanel(upgrade, sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "plans") return plansPanel(sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "waiting") return waitingPanel();
           if (state === "signIn") return signInPanel();
@@ -412,6 +403,21 @@ export function SupporterDialog({
   );
 }
 
+/** Paddle's answer on its way: a quiet bar in the line's room, no amount to swap. */
+function PricePending() {
+  return <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />;
+}
+
+function FailureNote({ text }: { text: string }) {
+  return (
+    <p role="alert" className="mt-3 flex gap-2 rounded-lg bg-danger-soft px-3 py-2.5 text-xs leading-[17px] text-on-danger-soft">
+      <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
+      {text}
+    </p>
+  );
+}
+
+/** A plan to choose; without `onSelect`, the one plan of a step, shown chosen and with no radio. */
 function PlanCard({
   checked,
   onSelect,
@@ -421,39 +427,42 @@ function PlanCard({
   wide = false,
 }: {
   checked: boolean;
-  onSelect: () => void;
+  onSelect?: () => void;
   name: string;
   price: ReactNode;
   badge: string | null;
   /** Across both columns: Supporter · 5 years under the two subscriptions. */
   wide?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={checked}
-      onClick={onSelect}
-      className={`flex flex-col gap-1.5 rounded-[10px] px-3.5 py-3 text-left transition-colors duration-150 ${wide ? "col-span-2" : ""} ${
-        checked ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--np-accent)]" : "border border-border bg-card hover:bg-hover"
-      }`}
-    >
+  const className = `flex flex-col gap-1.5 rounded-[10px] px-3.5 py-3 text-left transition-colors duration-150 ${wide ? "col-span-2" : ""} ${
+    checked ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--np-accent)]" : "border border-border bg-card hover:bg-hover"
+  }`;
+  const content = (
+    <>
       <span className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className={`flex size-4 shrink-0 items-center justify-center rounded-full ${checked ? "bg-accent" : "border-[1.5px] border-faint"}`}
-        >
-          {checked && <span className="size-1.5 rounded-full bg-on-accent" />}
-        </span>
+        {onSelect && (
+          <span
+            aria-hidden
+            className={`flex size-4 shrink-0 items-center justify-center rounded-full ${checked ? "bg-accent" : "border-[1.5px] border-faint"}`}
+          >
+            {checked && <span className="size-1.5 rounded-full bg-on-accent" />}
+          </span>
+        )}
         <span className="flex-1 text-sm font-medium whitespace-nowrap">{name}</span>
-        {/* On a card not chosen the badge keeps a tint of its own: the card is bg-card too. */}
+        {/* The wide card not chosen gives its badge a tint (sheet 45): on bg-card a bg-card pill vanishes. */}
         {badge && (
-          <span className={`rounded-full px-2 py-px text-2xs font-medium whitespace-nowrap text-accent ${checked ? "bg-card" : "bg-accent-soft"}`}>
+          <span className={`rounded-full px-2 py-px text-2xs font-medium whitespace-nowrap text-accent ${wide && !checked ? "bg-accent-soft" : "bg-card"}`}>
             {badge}
           </span>
         )}
       </span>
-      <span className="pl-6 text-lg font-semibold">{price}</span>
+      <span className={`${onSelect ? "pl-6" : ""} text-lg font-semibold`}>{price}</span>
+    </>
+  );
+  if (!onSelect) return <div className={className}>{content}</div>;
+  return (
+    <button type="button" role="radio" aria-checked={checked} onClick={onSelect} className={className}>
+      {content}
     </button>
   );
 }
@@ -799,6 +808,24 @@ export function PlanDialog({
   const [error, setError] = useState<string | null>(null);
   const plan = supporter.plan;
   const date = (iso: string) => longDate(iso, i18n.language);
+  // «Switch to 5 years» only while the server sells them: the prices Paddle gave last time at once,
+  // then its answer now (kept for the step the switch opens).
+  const renewing = !!(plan?.renews_at && plan.status === "active" && onUpgrade);
+  const [fiveYearsSold, setFiveYearsSold] = useState(() => !!rememberedPrices()?.five_years);
+  useEffect(() => {
+    if (!renewing) return;
+    let alive = true;
+    api
+      .getSupporterPrices()
+      .then((p) => {
+        rememberPrices(p);
+        if (alive) setFiveYearsSold(!!p.five_years);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [renewing]);
 
   const run = async (action: () => Promise<unknown>, closeAfter = false) => {
     setBusy(true);
@@ -868,7 +895,7 @@ export function PlanDialog({
   } else {
     status = plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "";
     // A subscription that renews can become five years paid once, from the end of its period.
-    if (plan.renews_at && onUpgrade) {
+    if (renewing && fiveYearsSold && onUpgrade) {
       action = (
         <>
           <Button variant="outline" size="lg" onClick={onUpgrade}>

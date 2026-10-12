@@ -8,12 +8,10 @@
 // indexed. PADDLE_CLIENT_TOKEN and PADDLE_ENVIRONMENT (sandbox | production) come from .env; without
 // a token the page says that payments are not open.
 import TextPage from "../../layouts/TextPage.astro";
-import { BASE, PADDLE_PRICES, content } from "../../content.mjs";
+import { BASE, PADDLE_ENVIRONMENT as environment, content, paddlePrices as prices } from "../../content.mjs";
 import { release } from "../../release.mjs";
 
 const token = process.env.PADDLE_CLIENT_TOKEN || "";
-const environment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
-const prices = PADDLE_PRICES[environment];
 const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
 ---
 <TextPage t={content.en} page="checkout/" title="Payment" description="The payment for Koona Pin Supporter." english>
@@ -75,9 +73,9 @@ const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
   const query = new URLSearchParams(location.search);
   const transaction = query.get("_ptxn");
   const plan = query.get("plan");
-  const priceId =
-    (plan === "year" ? root?.dataset.year : plan === "month" ? root?.dataset.month : plan === "five_years" ? root?.dataset.fiveYears : undefined) ||
-    undefined;
+  // A plan whose price is empty (not sold) counts as none: the page asks to choose.
+  const prices: Record<string, string | undefined> = { year: root?.dataset.year, month: root?.dataset.month, five_years: root?.dataset.fiveYears };
+  const priceId = (plan && prices[plan]) || undefined;
   const token = root?.dataset.token;
   if (token) {
     if (!transaction && !priceId) show("missing");

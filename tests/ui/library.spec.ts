@@ -2310,6 +2310,26 @@ test("Supporter: a subscription switches to five years from the end of its paid 
   await expect(page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
 });
 
+test("Supporter: a server that does not sell five years offers neither the card nor the switch (NP-066)", async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem("koonapin.demo.supporter", "free");
+    localStorage.setItem("koonapin.demo.fiveYears", "off");
+  });
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+  await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$20 a year");
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toHaveCount(0);
+  await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
+  await plans.getByRole("button", { name: "Not now" }).click();
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plan = page.getByRole("dialog", { name: "Supporter" });
+  await expect(plan.getByRole("button", { name: "Manage ↗" })).toBeVisible();
+  await expect(plan.getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
+});
+
 test("Supporter: the dialog asks for the plan when it opens and when the window comes back — a change in the portal shows (NP-066)", async ({ page }) => {
   // The server has the plan cancelled at the end of its period, as after «Manage».
   await page.evaluate(() => {

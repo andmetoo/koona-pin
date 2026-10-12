@@ -3,12 +3,12 @@
 // are Paddle's (tax mode «location»): euros in Europe, dollars elsewhere.
 import TextPage from "../../layouts/TextPage.astro";
 import Icon from "../../components/Icon.astro";
-import { BASE, content, PADDLE_PRICES, SUPPORTER_ON_SALE } from "../../content.mjs";
+import { BASE, content, paddlePrices, SUPPORTER_ON_SALE } from "../../content.mjs";
 import { release } from "../../release.mjs";
 
 const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
 // Supporter · 5 years, paid once: shown once its price exists in the environment the site sells in.
-const fiveYears = !!PADDLE_PRICES[process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox"].five_years;
+const fiveYears = !!paddlePrices.five_years;
 const free = [
   "Save pages from Chrome, Edge and Firefox in one click",
   "Collections, tags and search as you type",

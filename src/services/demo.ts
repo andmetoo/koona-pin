@@ -1346,7 +1346,8 @@ export const demo = {
     return {
       month: { price_id: "pri_month", total: "$2.00", currency: "USD" },
       year: { price_id: "pri_year", total: "$20.00", currency: "USD" },
-      five_years: { price_id: "pri_5y", total: "$50.00", currency: "USD" },
+      // `koonapin.demo.fiveYears` = `off`: a server that does not sell them.
+      five_years: localStorage.getItem("koonapin.demo.fiveYears") === "off" ? null : { price_id: "pri_5y", total: "$50.00", currency: "USD" },
     };
   },
   async startCheckout(interval: PlanInterval) {
