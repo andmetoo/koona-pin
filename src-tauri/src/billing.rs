@@ -671,6 +671,11 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
             return Ok(None);
         };
         let (status, value) = call(app, json!({ "action": "plan" }), Some(&token)).await?;
+        // 401: the session no longer works (signed out elsewhere). Any other refusal — too many
+        // requests, a gateway's 4xx — says nothing about the plan: a failed check, asked again.
+        if !status.is_success() && status != reqwest::StatusCode::UNAUTHORIZED {
+            return Err(refused("billing plan", status));
+        }
         Ok::<_, CommandError>(Some((status, value)))
     }
     .await;

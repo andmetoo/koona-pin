@@ -2441,8 +2441,25 @@ test("Supporter: signed in while the server did not answer about the plan — no
   await code.getByLabel("Code").fill("482913");
   await code.getByRole("button", { name: "Sign in", exact: true }).click();
   const signedIn = page.getByRole("dialog", { name: "Signed in" });
-  await expect(signedIn).toContainText("but your plan couldn't be checked: the Koona Pin server didn't answer.");
+  await expect(signedIn).toContainText("but your plan couldn't be checked right now.");
   await expect(signedIn.getByRole("button", { name: "See plans" })).toHaveCount(0);
+  // Closed meanwhile: the plans warn before a second purchase, at the dialog's usual height.
+  await signedIn.locator("footer").getByRole("button", { name: "Close" }).click();
+  await row.click();
+  const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+  await expect(plans.getByRole("status")).toHaveText(
+    "The plan of unknown@example.com couldn't be checked yet. Already a Supporter? Wait before buying again — the app tries again within the hour.",
+  );
+  const warned = Math.round((await plans.boundingBox())!.height);
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  await row.click();
+  expect(Math.round((await page.getByRole("dialog", { name: "Support Koona Pin" }).boundingBox())!.height), "the notice fits the usual height").toBe(warned);
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  await page.getByRole("dialog", { name: "Sign in as a Supporter" }).getByLabel("Email").fill("unknown@example.com");
+  await page.getByRole("dialog", { name: "Sign in as a Supporter" }).getByRole("button", { name: "Send code" }).click();
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
   await signedIn.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(row).toHaveAttribute("data-plan-row", "supporter");

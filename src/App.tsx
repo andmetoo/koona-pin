@@ -1277,6 +1277,7 @@ export function App() {
           email={supporter?.email ?? null}
           awaitingSignIn={!!supporter?.awaiting_sign_in}
           paid={!!supporter?.plan}
+          planUnknown={!!supporter?.plan_unknown}
           onClose={() => setSurface(null)}
           onSignIn={() => setSurface("signIn")}
         />
