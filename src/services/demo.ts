@@ -142,10 +142,11 @@ function storedSupporter(): string | null {
 const supporterListeners = new Set<(status: SupporterStatus) => void>();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 function demoPlan(kind: string | null): SupporterStatus["plan"] {
-  if (kind === "supporter") return { status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365) };
-  if (kind === "canceling") return { status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null };
-  if (kind === "past_due") return { status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20) };
-  if (kind === "offline") return { status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2) };
+  // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
+  if (kind === "supporter") return { status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
+  if (kind === "canceling") return { status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null, offline_until: inDays(30) };
+  if (kind === "past_due") return { status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
+  if (kind === "offline") return { status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
   return null;
 }
 let demoSupporter: SupporterStatus | null = null;
