@@ -578,9 +578,6 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
 }
 
 const PERK_ICONS = { sync: RefreshCw, backups: Folder, early: FlaskConical } as const;
-const DAY = 86_400_000;
-/** Days a plan stays after its period when the server cannot be asked (billing.rs, GRACE). */
-const GRACE_DAYS = 7;
 
 /**
  * «Supporter» (NP-066, sheet 45), opened by the badge in the sidebar: the plan, its state on one
@@ -603,8 +600,7 @@ export function PlanDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const plan = supporter.plan;
-  const date = (iso: string, extraDays = 0) =>
-    new Date(new Date(iso).getTime() + extraDays * DAY).toLocaleDateString(i18n.language, { day: "numeric", month: "long", year: "numeric" });
+  const date = (iso: string) => new Date(iso).toLocaleDateString(i18n.language, { day: "numeric", month: "long", year: "numeric" });
 
   const run = async (action: () => Promise<unknown>, closeAfter = false) => {
     setBusy(true);
@@ -640,7 +636,8 @@ export function PlanDialog({
   if (!plan) {
     status = "";
   } else if (supporter.check_failed) {
-    status = t("supporter.unchecked", { date: date(plan.valid_until, GRACE_DAYS) });
+    // Until when the signed plan is kept without the server (billing.rs, `offline_until`).
+    status = t("supporter.unchecked", { date: date(plan.offline_until) });
     tone = "amber";
     action = (
       <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(() => api.refreshSupporter())}>

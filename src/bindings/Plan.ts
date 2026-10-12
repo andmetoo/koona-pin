@@ -3,6 +3,10 @@ import type { PlanInterval } from "./PlanInterval";
 import type { PlanStatus } from "./PlanStatus";
 
 /**
- * The plan as the server gives it.
+ * The plan as the server signed it.
  */
-export type Plan = { status: PlanStatus, interval: PlanInterval | null, valid_until: string, renews_at: string | null, };
+export type Plan = { status: PlanStatus, interval: PlanInterval | null, valid_until: string, renews_at: string | null, 
+/**
+ * Kept until then without an answer from the server.
+ */
+offline_until: string, };

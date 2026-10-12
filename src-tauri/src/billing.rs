@@ -1,9 +1,10 @@
 //! Supporter (NP-066, Р-64, sheet 45): the plan the app keeps, buying it in the browser and
-//! signing in on another computer. The plan is kept with the end of its paid period and shown
-//! until then without asking anyone; the server is asked only while the purchase dialog waits
-//! for a payment, when the person asks (Settings → Plan), and once a day in the last three days
-//! of the period, with a week of grace when it cannot be reached. Free features never depend
-//! on any of it, and sync checks the plan on its own server.
+//! signing in on another computer. The plan comes signed by the server (a lease, `PLAN_KEY`)
+//! and only what verifies counts, so editing `account.json` changes nothing. It is kept without
+//! asking until its `offline_until`: 30 days from the server's last answer, never past the paid
+//! period and a week of grace. The server is asked once a week, daily in the last three days of
+//! the period, when the Supporter dialog opens, and while the purchase dialog waits for a payment.
+//! Free features never depend on any of it, and sync checks the plan on its own server.
 //!
 //! Sales are closed until sync ships (Р-64): a build without the account service, or a sandbox
 //! one that is not a development build, has no purchase at all.
@@ -35,8 +36,10 @@ const CHECK_EVERY: TimeDelta = TimeDelta::days(1);
 const CHECK_WEEKLY: TimeDelta = TimeDelta::days(7);
 /// An automatic check this soon after the last one is not asked again.
 const FRESH: TimeDelta = TimeDelta::seconds(15);
-/// How long a plan stays after its period when the server cannot be reached.
-const GRACE: TimeDelta = TimeDelta::days(7);
+/// The dialog says the plan could not be checked this long before it would stop offline.
+const WARN_OFFLINE: TimeDelta = TimeDelta::days(7);
+/// The server's Ed25519 public key for plans (koona-services `_shared/lease.ts`), raw, base64.
+const PLAN_KEY: &str = "f7D5WIrZOYI9609dzdH7bj/tHaMyXI482chUwA4m86E=";
 /// A purchase started but not seen paid is forgotten after this.
 const CLAIM_LIFETIME: TimeDelta = TimeDelta::days(2);
 /// Purchases waiting at once: one per plan is the usual case, a few more cover going back and forth.
@@ -91,7 +94,7 @@ pub enum PlanInterval {
     Year,
 }
 
-/// The plan as the server gives it.
+/// The plan as the server signed it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Plan {
@@ -101,6 +104,51 @@ pub struct Plan {
     pub valid_until: DateTime<Utc>,
     #[ts(type = "string | null")]
     pub renews_at: Option<DateTime<Utc>>,
+    /// Kept until then without an answer from the server.
+    #[ts(type = "string")]
+    pub offline_until: DateTime<Utc>,
+}
+
+/// The plan signed by the server: `payload` is the exact text signed, kept as it came.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Lease {
+    payload: String,
+    signature: String,
+}
+
+/// What `payload` says (koona-services `_shared/lease.ts`).
+#[derive(Deserialize)]
+struct LeaseTerms {
+    v: u32,
+    email: String,
+    plan: SignedPlan,
+    offline_until: DateTime<Utc>,
+}
+
+#[derive(Deserialize)]
+struct SignedPlan {
+    status: PlanStatus,
+    interval: Option<PlanInterval>,
+    valid_until: DateTime<Utc>,
+    renews_at: Option<DateTime<Utc>>,
+}
+
+/// The plan of a lease when `key` verifies its signature and it is for `email`; None otherwise.
+fn plan_of(lease: &Lease, email: &str, key: &[u8]) -> Option<Plan> {
+    use base64::Engine;
+    let signature = base64::engine::general_purpose::STANDARD.decode(&lease.signature).ok()?;
+    ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, key).verify(lease.payload.as_bytes(), &signature).ok()?;
+    let terms: LeaseTerms = serde_json::from_str(&lease.payload).ok()?;
+    if terms.v != 1 || !terms.email.eq_ignore_ascii_case(email.trim()) {
+        return None;
+    }
+    let SignedPlan { status, interval, valid_until, renews_at } = terms.plan;
+    Some(Plan { status, interval, valid_until, renews_at, offline_until: terms.offline_until })
+}
+
+fn plan_key() -> Vec<u8> {
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.decode(PLAN_KEY).unwrap_or_default()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,7 +167,14 @@ struct Stored {
     #[serde(default)]
     sandbox: bool,
     session: Option<Session>,
+    /// The plan as the server signed it; `plan` is only what of it verifies, never read from the file.
+    #[serde(default)]
+    lease: Option<Lease>,
+    #[serde(skip)]
     plan: Option<Plan>,
+    /// The unsigned plan of the builds before 0.10: read only to ask the server at once.
+    #[serde(default, rename = "plan", skip_serializing)]
+    unsigned_plan: Option<Value>,
     checked_at: Option<DateTime<Utc>>,
     #[serde(default)]
     check_failed: bool,
@@ -150,6 +205,15 @@ struct Checkout {
 }
 
 impl Stored {
+    /// Keeps the server's signed plan and what of it verifies for the account signed in here.
+    fn keep_lease(&mut self, lease: Option<Lease>, key: &[u8]) {
+        self.plan = match (&lease, &self.session) {
+            (Some(lease), Some(session)) => plan_of(lease, &session.email, key),
+            _ => None,
+        };
+        self.lease = lease;
+    }
+
     /// The single purchase of 0.8.0 as the first of the list.
     fn migrate(&mut self) {
         if let Some(secret) = self.claim.take() {
@@ -177,12 +241,12 @@ impl Stored {
     /// Signed in by a paid purchase: that one is done; the others started here keep waiting, a
     /// payment in their tabs is still picked up. Only while the purchase is still here: an answer
     /// that arrives after Sign out (which forgets every purchase) changes nothing. False then.
-    fn signed_in_by(&mut self, secret: &str, session: Session, plan: Option<Plan>, now: DateTime<Utc>) -> bool {
+    fn signed_in_by(&mut self, secret: &str, session: Session, lease: Option<Lease>, key: &[u8], now: DateTime<Utc>) -> bool {
         if !self.checkouts.iter().any(|c| c.secret == secret) {
             return false;
         }
         self.session = Some(session);
-        self.plan = plan;
+        self.keep_lease(lease, key);
         self.checked_at = Some(now);
         self.check_failed = false;
         self.awaiting_sign_in = false;
@@ -235,7 +299,8 @@ pub struct SupporterStatus {
     pub sandbox: bool,
     pub email: Option<String>,
     pub plan: Option<Plan>,
-    /// The paid period is over and the server could not say whether it renewed.
+    /// The server could not be asked when it matters: the paid period is over, or the plan stops
+    /// offline within a week (`offline_until`).
     pub check_failed: bool,
     /// A payment went through with the email of an existing account: the purchase dialog opens on
     /// «Payment received» and its sign-in by code.
@@ -274,10 +339,10 @@ pub enum CheckoutState {
     None,
 }
 
-/// The plan the app shows: until the end of the period, and a week longer when the server
-/// could not be asked. A successful check after the period either renewed it or removed it.
+/// The plan the app shows: the signed one, until its `offline_until` — 30 days from the server's
+/// last answer, never past the period and its week of grace. Each answer moves it on.
 fn effective(stored: &Stored, now: DateTime<Utc>) -> Option<Plan> {
-    stored.plan.clone().filter(|plan| now < plan.valid_until + GRACE)
+    stored.plan.clone().filter(|plan| now < plan.offline_until)
 }
 
 /// This computer has Supporter now, as the app shows it: what the paid features check.
@@ -285,13 +350,15 @@ pub fn has_plan(app: &AppHandle) -> bool {
     service().is_some() && app.try_state::<Billing>().is_some_and(|billing| effective(&billing.get(), Utc::now()).is_some())
 }
 
-/// For a signed-in Supporter: one check a week, one a day in the last days of the period and after
-/// a check that failed. A check stamped in the future (the clock was ahead) counts as old.
+/// For a signed-in account: one check a week (a plan bought on another computer shows too), one a
+/// day in the last days of the period and after a check that failed. Never checked: now. A check
+/// stamped in the future (the clock was ahead) counts as old.
 fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
-    let (Some(_), Some(plan)) = (&stored.session, &stored.plan) else {
+    if stored.session.is_none() {
         return false;
-    };
-    let every = if stored.check_failed || now >= plan.valid_until - RENEWAL_WINDOW { CHECK_EVERY } else { CHECK_WEEKLY };
+    }
+    let ending = stored.plan.as_ref().is_some_and(|plan| now >= plan.valid_until - RENEWAL_WINDOW);
+    let every = if stored.check_failed || ending { CHECK_EVERY } else { CHECK_WEEKLY };
     stored.checked_at.is_none_or(|at| at > now || now - at >= every)
 }
 
@@ -315,7 +382,8 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         available: service.is_some(),
         sandbox: service.is_some_and(|s| s.sandbox),
         email: stored.session.as_ref().map(|s| s.email.clone()),
-        check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| now >= p.valid_until),
+        // Said once it matters: the period is over, or the plan stops offline within a week.
+        check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| now >= p.valid_until || p.offline_until - now <= WARN_OFFLINE),
         plan,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
     }
@@ -353,6 +421,13 @@ impl Billing {
         // An account of the other environment is not this build's.
         if service().is_some_and(|s| s.sandbox != stored.sandbox) {
             stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
+        }
+        // The plan only as the server signed it: a plan written in the file by hand, or kept by
+        // the builds before 0.10, counts for nothing until the server answers.
+        let lease = stored.lease.take();
+        stored.keep_lease(lease, &plan_key());
+        if stored.unsigned_plan.take().is_some() && stored.lease.is_none() {
+            stored.checked_at = None;
         }
         Billing {
             path,
@@ -557,10 +632,10 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
     .await;
     match result {
         Ok(Some((status, value))) if status.is_success() => {
-            let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
+            let lease = serde_json::from_value::<Option<Lease>>(value["lease"].clone()).unwrap_or(None);
             billing.update(app, |s| {
                 if s.same_account(&email) {
-                    s.plan = plan;
+                    s.keep_lease(lease, &plan_key());
                     s.checked_at = Some(asked_at);
                     s.check_failed = false;
                 }
@@ -617,10 +692,10 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
             for_existing.push(checkout.secret.clone());
         } else if value["status"] == "paid" {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
-            let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
+            let lease = serde_json::from_value::<Option<Lease>>(value["lease"].clone()).unwrap_or(None);
             let mut signed_in = false;
             billing.update(app, |s| {
-                signed_in = s.signed_in_by(&checkout.secret, session, plan, Utc::now());
+                signed_in = s.signed_in_by(&checkout.secret, session, lease, &plan_key(), Utc::now());
                 s.checkouts.retain(|c| !finished.contains(&c.secret));
             })?;
             if signed_in {
@@ -800,7 +875,14 @@ mod tests {
     fn supporter(until: &str) -> Stored {
         Stored {
             session: Some(Session { access_token: "a".into(), refresh_token: "r".into(), expires_at: 0, email: "anna@example.com".into() }),
-            plan: Some(Plan { status: PlanStatus::Active, interval: Some(PlanInterval::Year), valid_until: at(until), renews_at: Some(at(until)) }),
+            // As the server signs it in the last days of the period: kept a week past its end.
+            plan: Some(Plan {
+                status: PlanStatus::Active,
+                interval: Some(PlanInterval::Year),
+                valid_until: at(until),
+                renews_at: Some(at(until)),
+                offline_until: at(until) + TimeDelta::days(7),
+            }),
             ..Stored::default()
         }
     }
@@ -818,7 +900,10 @@ mod tests {
         assert!(!due(&checked, at("2027-10-09T12:00:00Z")), "not twice a day");
         assert!(due(&checked, at("2027-10-09T13:00:00Z")), "the next day again");
         assert!(!due(&Stored { session: None, ..stored.clone() }, at("2027-10-10T00:00:00Z")), "signed out: nothing to ask");
-        assert!(!due(&Stored::default(), at("2027-10-10T00:00:00Z")), "Free: never");
+        assert!(!due(&Stored::default(), at("2027-10-10T00:00:00Z")), "signed out: never");
+        let free = Stored { plan: None, ..stored.clone() };
+        assert!(!due(&free, at("2026-10-18T23:00:00Z")), "signed in without a plan: weekly too");
+        assert!(due(&free, at("2026-10-19T00:00:00Z")), "a plan bought on another computer shows");
         let failed = Stored { check_failed: true, ..stored.clone() };
         assert!(due(&failed, at("2026-10-13T00:00:00Z")), "a failed check is asked again the next day, not in a week");
         let ahead = Stored { checked_at: Some(at("2026-10-20T00:00:00Z")), ..stored.clone() };
@@ -861,6 +946,80 @@ mod tests {
     }
 
     #[test]
+    fn a_plan_is_kept_30_days_without_the_server_and_says_so_a_week_before() {
+        // Signed on 12 October for a yearly plan: offline until 11 November, not until 2027.
+        let mut stored = Stored { check_failed: true, ..supporter("2027-10-11T12:00:00Z") };
+        stored.plan.as_mut().unwrap().offline_until = at("2026-11-11T12:00:00Z");
+        assert!(effective(&stored, at("2026-11-11T11:00:00Z")).is_some());
+        assert!(effective(&stored, at("2026-11-11T12:00:01Z")).is_none(), "then Free until the server answers");
+        assert!(!status(&stored, at("2026-11-03T12:00:00Z")).check_failed, "eight days left: nothing to say yet");
+        assert!(status(&stored, at("2026-11-05T12:00:00Z")).check_failed, "a week left: the dialog says it could not check");
+        assert!(!status(&Stored { check_failed: false, ..stored.clone() }, at("2026-11-05T12:00:00Z")).check_failed, "only after a failed check");
+    }
+
+    /// A lease as koona-services signs it (`_shared/lease.ts`), with a test key.
+    fn lease(payload: &str, seed: u8) -> (Lease, Vec<u8>) {
+        use base64::Engine;
+        use ring::signature::KeyPair;
+        let pair = ring::signature::Ed25519KeyPair::from_seed_unchecked(&[seed; 32]).unwrap();
+        let signature = base64::engine::general_purpose::STANDARD.encode(pair.sign(payload.as_bytes()).as_ref());
+        (Lease { payload: payload.into(), signature }, pair.public_key().as_ref().to_vec())
+    }
+
+    const PAYLOAD: &str = r#"{"v":1,"email":"anna@example.com","plan":{"plan":"supporter","status":"canceling","interval":"month","valid_until":"2026-11-12T03:02:36.583Z","renews_at":null},"issued_at":"2026-10-12T12:00:00.000Z","offline_until":"2026-11-11T12:00:00.000Z"}"#;
+
+    #[test]
+    fn only_a_plan_the_server_signed_counts() {
+        let (signed, key) = lease(PAYLOAD, 7);
+        // The same text signed by WebCrypto with the same key, as the Edge Function signs: the
+        // two agree, so what Deno signs, ring verifies.
+        assert_eq!(signed.signature, "RscxwFxtATNYHH+JE2o7kf9QWeyHQe01oU0jnoAkNXni9ypnlWfHp5nDrTumbEAs+4fwFeKVdkr+NZBNQHL3CA==");
+        assert_eq!(
+            plan_of(&signed, "Anna@Example.com", &key),
+            Some(Plan {
+                status: PlanStatus::Canceling,
+                interval: Some(PlanInterval::Month),
+                valid_until: at("2026-11-12T03:02:36.583Z"),
+                renews_at: None,
+                offline_until: at("2026-11-11T12:00:00Z"),
+            })
+        );
+        let edited = Lease { payload: PAYLOAD.replace("2026-11-11", "2099-11-11"), ..signed.clone() };
+        assert_eq!(plan_of(&edited, "anna@example.com", &key), None, "an edited date does not verify");
+        assert_eq!(plan_of(&signed, "bob@example.com", &key), None, "another account's lease is not this one's");
+        assert_eq!(plan_of(&signed, "anna@example.com", &lease(PAYLOAD, 8).1), None, "another key");
+        assert_eq!(plan_of(&Lease { signature: "not base64!".into(), ..signed.clone() }, "anna@example.com", &key), None);
+        let (future, future_key) = lease(&PAYLOAD.replace(r#""v":1"#, r#""v":2"#), 7);
+        assert_eq!(plan_of(&future, "anna@example.com", &future_key), None, "a version it does not know");
+        assert!(!plan_key().is_empty() && plan_key().len() == 32, "the server's public key is built in");
+    }
+
+    #[test]
+    fn a_plan_written_in_the_file_counts_for_nothing() {
+        // The file of a build before 0.10, or one edited by hand: a plan, no lease.
+        let file = json!({
+            "session": { "access_token": "a", "refresh_token": "r", "expires_at": 0, "email": "anna@example.com" },
+            "plan": { "status": "active", "interval": "year", "valid_until": "2099-01-01T00:00:00Z", "renews_at": null, "offline_until": "2099-01-01T00:00:00Z" },
+            "checked_at": Utc::now(),
+        });
+        let path = std::env::temp_dir().join(format!("koonapin-account-{}.json", uuid::Uuid::new_v4().simple()));
+        std::fs::write(&path, file.to_string()).unwrap();
+        let mut stored = Billing::load(path.clone()).get();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(stored.plan, None);
+        assert!(due(&stored, Utc::now()), "checked a moment ago, but the plan was unsigned: the server is asked at once");
+        let rewritten: Value = serde_json::to_value(&stored).unwrap();
+        assert!(rewritten.get("plan").is_none(), "and the unsigned plan is not written back");
+        // A signed one is kept, and only for the account signed in.
+        let (signed, key) = lease(PAYLOAD, 7);
+        stored.keep_lease(Some(signed.clone()), &key);
+        assert!(stored.plan.is_some());
+        stored.session = None;
+        stored.keep_lease(Some(signed), &key);
+        assert_eq!(stored.plan, None, "signed out: no plan");
+    }
+
+    #[test]
     fn a_purchase_secret_is_random_hex() {
         let (a, b) = (new_secret(), new_secret());
         assert_eq!(a.len(), 64);
@@ -880,8 +1039,8 @@ mod tests {
     }
 
     #[test]
-    fn the_plan_reads_what_the_server_sends() {
-        let plan: Plan = serde_json::from_value(json!({
+    fn the_plan_reads_what_the_server_signs() {
+        let plan: SignedPlan = serde_json::from_value(json!({
             "plan": "supporter", "status": "canceling", "interval": "year",
             "valid_until": "2027-10-11T12:00:00Z", "renews_at": null
         }))
@@ -922,13 +1081,13 @@ mod tests {
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
         stored.add_checkout(checkout("month1", "2026-10-12T11:05:00Z", PlanInterval::Month));
         let session = supporter("2027-10-12T11:00:00Z").session.unwrap();
-        assert!(stored.signed_in_by("year1", session.clone(), None, at("2026-10-12T11:10:00Z")));
+        assert!(stored.signed_in_by("year1", session.clone(), None, &plan_key(), at("2026-10-12T11:10:00Z")));
         assert!(stored.same_account("anna@example.com"));
         assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
         assert_eq!(stored.settled(), CheckoutState::Waiting, "month1 is still followed");
         // Sign out forgets every purchase: a «paid» that arrives after it signs nobody in.
         let mut signed_out = Stored { sandbox: stored.sandbox, ..Stored::default() };
-        assert!(!signed_out.signed_in_by("month1", session, None, at("2026-10-12T11:20:00Z")));
+        assert!(!signed_out.signed_in_by("month1", session, None, &plan_key(), at("2026-10-12T11:20:00Z")));
         assert!(signed_out.session.is_none());
         assert_eq!(signed_out.settled(), CheckoutState::None);
     }
