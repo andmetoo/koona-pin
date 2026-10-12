@@ -31,6 +31,8 @@ const ENVIRONMENT: Option<&str> = option_env!("KOONAPIN_PADDLE_ENV");
 /// The last days of a paid period, when the app asks once a day whether it renewed.
 const RENEWAL_WINDOW: TimeDelta = TimeDelta::days(3);
 const CHECK_EVERY: TimeDelta = TimeDelta::days(1);
+/// After a check that failed: the background (hourly) asks again at its next wake.
+const CHECK_AGAIN: TimeDelta = TimeDelta::hours(1);
 /// Before them, once a week: a change of plan, a cancellation or a refund shows within a week
 /// without asking more often (the Supporter dialog also asks when it opens).
 const CHECK_WEEKLY: TimeDelta = TimeDelta::days(7);
@@ -133,6 +135,22 @@ struct SignedPlan {
     renews_at: Option<DateTime<Utc>>,
 }
 
+/// What a `plan` or `claim` answer says about the plan: whether the server names one at all, and
+/// its signed lease.
+struct Answer {
+    has_plan: bool,
+    lease: Option<Lease>,
+}
+
+impl Answer {
+    fn of(value: &Value) -> Answer {
+        Answer {
+            has_plan: value["plan"].is_object() || value["lease"].is_object(),
+            lease: serde_json::from_value(value["lease"].clone()).unwrap_or(None),
+        }
+    }
+}
+
 /// The plan of a lease when `key` verifies its signature and it is for `email`; None otherwise.
 fn plan_of(lease: &Lease, email: &str, key: &[u8]) -> Option<Plan> {
     use base64::Engine;
@@ -214,6 +232,24 @@ impl Stored {
         self.lease = lease;
     }
 
+    /// The server's answer about the plan, asked at `at`. When it says there is a plan but nothing
+    /// signed verifies (an old server, a key out of step), it is a failed check that keeps what is
+    /// here, as when offline: never «no plan» for a plan the app could not verify.
+    fn take_answer(&mut self, answer: Answer, key: &[u8], at: DateTime<Utc>) {
+        let verified = match (&answer.lease, &self.session) {
+            (Some(lease), Some(session)) => plan_of(lease, &session.email, key),
+            _ => None,
+        };
+        self.checked_at = Some(at);
+        if answer.has_plan && verified.is_none() {
+            eprintln!("The server named a plan whose signature does not verify; the plan here is kept");
+            self.check_failed = true;
+        } else {
+            self.keep_lease(answer.lease, key);
+            self.check_failed = false;
+        }
+    }
+
     /// The single purchase of 0.8.0 as the first of the list.
     fn migrate(&mut self) {
         if let Some(secret) = self.claim.take() {
@@ -241,14 +277,12 @@ impl Stored {
     /// Signed in by a paid purchase: that one is done; the others started here keep waiting, a
     /// payment in their tabs is still picked up. Only while the purchase is still here: an answer
     /// that arrives after Sign out (which forgets every purchase) changes nothing. False then.
-    fn signed_in_by(&mut self, secret: &str, session: Session, lease: Option<Lease>, key: &[u8], now: DateTime<Utc>) -> bool {
+    fn signed_in_by(&mut self, secret: &str, session: Session, answer: Answer, key: &[u8], now: DateTime<Utc>) -> bool {
         if !self.checkouts.iter().any(|c| c.secret == secret) {
             return false;
         }
         self.session = Some(session);
-        self.keep_lease(lease, key);
-        self.checked_at = Some(now);
-        self.check_failed = false;
+        self.take_answer(answer, key, now);
         self.awaiting_sign_in = false;
         self.checkouts.retain(|c| c.secret != secret);
         true
@@ -302,6 +336,9 @@ pub struct SupporterStatus {
     /// The server could not be asked when it matters: the paid period is over, or the plan stops
     /// offline within a week (`offline_until`).
     pub check_failed: bool,
+    /// Signed in, no plan here, and the last question about it failed: not «no plan», only not
+    /// known yet. The sign-in dialog says so and offers to try again.
+    pub plan_unknown: bool,
     /// A payment went through with the email of an existing account: the purchase dialog opens on
     /// «Payment received» and its sign-in by code.
     pub awaiting_sign_in: bool,
@@ -351,14 +388,20 @@ pub fn has_plan(app: &AppHandle) -> bool {
 }
 
 /// For a signed-in account: one check a week (a plan bought on another computer shows too), one a
-/// day in the last days of the period and after a check that failed. Never checked: now. A check
-/// stamped in the future (the clock was ahead) counts as old.
+/// day in the last days of the period, and within the hour after a check that failed. Never
+/// checked: now. A check stamped in the future (the clock was ahead) counts as old.
 fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
     if stored.session.is_none() {
         return false;
     }
     let ending = stored.plan.as_ref().is_some_and(|plan| now >= plan.valid_until - RENEWAL_WINDOW);
-    let every = if stored.check_failed || ending { CHECK_EVERY } else { CHECK_WEEKLY };
+    let every = if stored.check_failed {
+        CHECK_AGAIN
+    } else if ending {
+        CHECK_EVERY
+    } else {
+        CHECK_WEEKLY
+    };
     stored.checked_at.is_none_or(|at| at > now || now - at >= every)
 }
 
@@ -372,7 +415,8 @@ fn answered(stored: &Stored, waited_from: Option<DateTime<Utc>>, now: DateTime<U
         return false;
     };
     let meanwhile = waited_from != Some(at);
-    (automatic && (meanwhile || now - at < FRESH)) || (meanwhile && !stored.check_failed)
+    // A failure seconds old is not an answer: the dialog opening right after it asks again.
+    (automatic && (meanwhile || (now - at < FRESH && !stored.check_failed))) || (meanwhile && !stored.check_failed)
 }
 
 fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
@@ -385,6 +429,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         // Said once it matters: the period is over, or the plan stops offline within a week.
         check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| now >= p.valid_until || p.offline_until - now <= WARN_OFFLINE),
         plan,
+        plan_unknown: stored.session.is_some() && stored.plan.is_none() && stored.check_failed,
         awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
     }
 }
@@ -528,6 +573,24 @@ fn refused(what: &str, status: reqwest::StatusCode) -> CommandError {
     CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("{what} answered {status}"))
 }
 
+/// A refresh refused because the refresh token no longer works (signed out elsewhere, revoked):
+/// the session ends here. A rate limit (429) or a timeout (408) is not that, nor is a server error.
+fn ends_session(status: reqwest::StatusCode) -> bool {
+    status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS && status != reqwest::StatusCode::REQUEST_TIMEOUT
+}
+
+/// A code check Supabase refused: too many attempts (429) is said as such, not as a wrong code,
+/// or the person keeps retyping a good one; any other 4xx is the code.
+fn verify_refused(status: reqwest::StatusCode) -> Option<CommandError> {
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        Some(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "Too many codes tried"))
+    } else if status.is_client_error() {
+        Some(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::WrongCode, "The code did not work"))
+    } else {
+        None
+    }
+}
+
 /// One action of the Edge Function `billing`.
 async fn call(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqwest::StatusCode, Value), CommandError> {
     let service = need_service()?;
@@ -583,7 +646,11 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
     let (status, value) = auth(app, "token?grant_type=refresh_token", json!({ "refresh_token": session.refresh_token })).await?;
     // Only the session this refresh was for: Sign out or another sign-in meanwhile wins.
     let same = |s: &Stored| s.session.as_ref().is_some_and(|now| now.refresh_token == session.refresh_token);
-    if status.is_client_error() {
+    if !ends_session(status) && !status.is_success() {
+        // Too many requests, a timeout, the server down: the session is still good, ask later.
+        return Err(refused("auth refresh", status));
+    }
+    if ends_session(status) {
         billing.update(app, |s| {
             if same(s) {
                 s.session = None;
@@ -627,22 +694,27 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
             return Ok(None);
         };
         let (status, value) = call(app, json!({ "action": "plan" }), Some(&token)).await?;
-        Ok::<_, CommandError>(Some((status, value)))
+        // Any refusal — 401 for a token the gateway does not take, too many requests, a gateway's
+        // 4xx — says nothing about the plan: a failed check, asked again, never «no plan». A session
+        // that really ended shows in the refresh of its token (`access_token`, `ends_session`).
+        if !status.is_success() {
+            return Err(refused("billing plan", status));
+        }
+        Ok::<_, CommandError>(Some(value))
     }
     .await;
     match result {
-        Ok(Some((status, value))) if status.is_success() => {
-            let lease = serde_json::from_value::<Option<Lease>>(value["lease"].clone()).unwrap_or(None);
+        Ok(Some(value)) => {
+            let answer = Answer::of(&value);
             billing.update(app, |s| {
                 if s.same_account(&email) {
-                    s.keep_lease(lease, &plan_key());
-                    s.checked_at = Some(asked_at);
-                    s.check_failed = false;
+                    s.take_answer(answer, &plan_key(), asked_at);
                 }
             })
         }
-        // Signed out elsewhere: the plan stays until its period ends, as when offline.
-        Ok(_) => billing.update(app, |s| {
+        // Signed out elsewhere (the refresh token no longer works): the plan stays until its period
+        // ends, as when offline.
+        Ok(None) => billing.update(app, |s| {
             if s.same_account(&email) || s.session.is_none() {
                 s.checked_at = Some(asked_at);
             }
@@ -692,10 +764,10 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
             for_existing.push(checkout.secret.clone());
         } else if value["status"] == "paid" {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
-            let lease = serde_json::from_value::<Option<Lease>>(value["lease"].clone()).unwrap_or(None);
+            let answer = Answer::of(&value);
             let mut signed_in = false;
             billing.update(app, |s| {
-                signed_in = s.signed_in_by(&checkout.secret, session, lease, &plan_key(), Utc::now());
+                signed_in = s.signed_in_by(&checkout.secret, session, answer, &plan_key(), Utc::now());
                 s.checkouts.retain(|c| !finished.contains(&c.secret));
             })?;
             if signed_in {
@@ -828,16 +900,25 @@ pub async fn send_sign_in_code(app: AppHandle, email: String) -> Result<(), Comm
 pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) -> Result<SupporterStatus, CommandError> {
     let code: String = code.chars().filter(char::is_ascii_digit).collect();
     let (status, value) = auth(&app, "verify", json!({ "type": "email", "email": email.trim(), "token": code })).await?;
-    if status.is_client_error() {
-        return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::WrongCode, "The code did not work"));
+    if let Some(error) = verify_refused(status) {
+        return Err(error);
     }
     let session = session_of(&value).ok_or_else(|| refused("auth verify", status))?;
-    app.state::<Billing>().update(&app, |s| {
+    let billing = app.state::<Billing>();
+    billing.update(&app, |s| {
         s.session = Some(session);
+        // A plan kept here counts only if it is this account's.
+        let kept = s.lease.take();
+        s.keep_lease(kept, &plan_key());
         s.checked_at = None;
         s.awaiting_sign_in = false;
     })?;
-    check(&app, false).await
+    // Signed in whatever the plan check says: when it fails, the status says the plan is not known
+    // yet (`plan_unknown`) and the background asks again within the hour.
+    match check(&app, false).await {
+        Ok(shown) => Ok(shown),
+        Err(_) => Ok(self::status(&billing.get(), Utc::now())),
+    }
 }
 
 /// «Sign out»: the account and the plan leave this computer; the subscription goes on.
@@ -905,7 +986,8 @@ mod tests {
         assert!(!due(&free, at("2026-10-18T23:00:00Z")), "signed in without a plan: weekly too");
         assert!(due(&free, at("2026-10-19T00:00:00Z")), "a plan bought on another computer shows");
         let failed = Stored { check_failed: true, ..stored.clone() };
-        assert!(due(&failed, at("2026-10-13T00:00:00Z")), "a failed check is asked again the next day, not in a week");
+        assert!(!due(&failed, at("2026-10-12T00:59:00Z")), "a failed check is not asked again at once");
+        assert!(due(&failed, at("2026-10-12T01:00:00Z")), "but within the hour, not in a week");
         let ahead = Stored { checked_at: Some(at("2026-10-20T00:00:00Z")), ..stored.clone() };
         assert!(due(&ahead, at("2026-10-12T12:00:00Z")), "a check stamped in the future counts as old");
     }
@@ -925,6 +1007,8 @@ mod tests {
         let failed_meanwhile = checked("2026-10-12T11:59:58Z", true);
         assert!(!answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false, None), "but asks itself after a failure");
         assert!(answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true, None), "the dialog does not repeat it");
+        let failed_seconds_ago = checked("2026-10-12T11:59:55Z", true);
+        assert!(!answered(&failed_seconds_ago, failed_seconds_ago.checked_at, now, true, None), "a failure seconds old is asked again");
         assert!(!answered(&checked("2026-10-13T00:00:00Z", false), None, now, true, None), "a stamp in the future is not fresh");
         assert!(!answered(&Stored { checked_at: None, ..seconds_ago.clone() }, None, now, true, None), "never checked: ask");
         // Back from «Manage»: an answer asked before the portal opened, seconds old or one that came
@@ -992,6 +1076,49 @@ mod tests {
         let (future, future_key) = lease(&PAYLOAD.replace(r#""v":1"#, r#""v":2"#), 7);
         assert_eq!(plan_of(&future, "anna@example.com", &future_key), None, "a version it does not know");
         assert!(!plan_key().is_empty() && plan_key().len() == 32, "the server's public key is built in");
+    }
+
+    #[test]
+    fn only_a_refresh_token_that_no_longer_works_ends_the_session() {
+        use reqwest::StatusCode;
+        assert!(ends_session(StatusCode::BAD_REQUEST), "revoked or already used");
+        assert!(ends_session(StatusCode::UNAUTHORIZED));
+        assert!(!ends_session(StatusCode::TOO_MANY_REQUESTS), "a rate limit is asked again later");
+        assert!(!ends_session(StatusCode::REQUEST_TIMEOUT));
+        assert!(!ends_session(StatusCode::BAD_GATEWAY), "the server down is not a sign out");
+        assert!(!ends_session(StatusCode::OK));
+    }
+
+    #[test]
+    fn a_rate_limited_code_is_not_called_wrong() {
+        use reqwest::StatusCode;
+        let detail = |status| verify_refused(status).map(|e| e.detail);
+        assert_eq!(detail(StatusCode::TOO_MANY_REQUESTS), Some(Some(ErrorDetail::TooManyMessages)));
+        assert_eq!(detail(StatusCode::FORBIDDEN), Some(Some(ErrorDetail::WrongCode)), "an expired or wrong code");
+        assert!(verify_refused(StatusCode::OK).is_none());
+    }
+
+    #[test]
+    fn a_plan_the_server_names_but_that_does_not_verify_is_never_no_plan() {
+        let (signed, key) = lease(PAYLOAD, 7);
+        let mut stored = Stored { session: supporter("2027-10-11T12:00:00Z").session, ..Stored::default() };
+        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()) }, &key, at("2026-10-12T12:00:00Z"));
+        assert!(stored.plan.is_some() && !stored.check_failed);
+        // The server names a plan, but the lease is missing or signed by another key: the plan here
+        // stays and the check counts as failed.
+        stored.take_answer(Answer { has_plan: true, lease: None }, &key, at("2026-10-12T13:00:00Z"));
+        assert!(stored.plan.is_some(), "kept");
+        assert!(stored.check_failed);
+        assert_eq!(stored.lease, Some(signed.clone()), "the lease that verified stays too");
+        stored.take_answer(Answer { has_plan: true, lease: Some(signed.clone()) }, &lease(PAYLOAD, 8).1, at("2026-10-12T14:00:00Z"));
+        assert!(stored.plan.is_some() && stored.check_failed);
+        // The server says there is none: Free.
+        stored.take_answer(Answer { has_plan: false, lease: None }, &key, at("2026-10-12T15:00:00Z"));
+        assert!(stored.plan.is_none() && !stored.check_failed);
+        assert!(!status(&stored, at("2026-10-12T15:00:00Z")).plan_unknown, "no plan, known");
+        // Signed in with nothing known yet: not «no plan».
+        stored.take_answer(Answer { has_plan: true, lease: None }, &key, at("2026-10-12T16:00:00Z"));
+        assert!(status(&stored, at("2026-10-12T16:00:00Z")).plan_unknown);
     }
 
     #[test]
@@ -1081,13 +1208,13 @@ mod tests {
         stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
         stored.add_checkout(checkout("month1", "2026-10-12T11:05:00Z", PlanInterval::Month));
         let session = supporter("2027-10-12T11:00:00Z").session.unwrap();
-        assert!(stored.signed_in_by("year1", session.clone(), None, &plan_key(), at("2026-10-12T11:10:00Z")));
+        assert!(stored.signed_in_by("year1", session.clone(), Answer { has_plan: false, lease: None }, &plan_key(), at("2026-10-12T11:10:00Z")));
         assert!(stored.same_account("anna@example.com"));
         assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
         assert_eq!(stored.settled(), CheckoutState::Waiting, "month1 is still followed");
         // Sign out forgets every purchase: a «paid» that arrives after it signs nobody in.
         let mut signed_out = Stored { sandbox: stored.sandbox, ..Stored::default() };
-        assert!(!signed_out.signed_in_by("month1", session, None, &plan_key(), at("2026-10-12T11:20:00Z")));
+        assert!(!signed_out.signed_in_by("month1", session, Answer { has_plan: false, lease: None }, &plan_key(), at("2026-10-12T11:20:00Z")));
         assert!(signed_out.session.is_none());
         assert_eq!(signed_out.settled(), CheckoutState::None);
     }

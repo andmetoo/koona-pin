@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { BackupFolder, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
+import { savePreference, storedValue } from "../services/preferences";
 import { copyTime } from "./BackupRestoreDialog";
 import { Icon } from "./icons";
 import { Button, IconButton } from "./ui/Button";
@@ -24,11 +25,30 @@ function failureText(error: unknown, t: TFunction): string {
 
 /** How often the payment step asks whether the payment went through; only while it is open. */
 export const POLL_MS = 3000;
-/** Shown before Paddle's own prices arrive, or when they cannot (Р-64: $2 a month, $20 a year). */
+/** Shown when Paddle's own prices cannot be had and none are remembered (Р-64: $2 a month, $20 a year). */
 const FALLBACK: SupporterPrices = {
   month: { price_id: "", total: "$2", currency: "USD" },
   year: { price_id: "", total: "$20", currency: "USD" },
 };
+/**
+ * The prices Paddle gave last time, shown at once next time: dollars turning into euros while the
+ * dialog opens looks like a change of price. Kept a week, so a new price or another country's
+ * currency is not shown first for long; without them the cards wait for Paddle's answer.
+ */
+const PRICES_KEY = "supporterPrices";
+const PRICES_KEPT_MS = 7 * 86_400_000;
+type RememberedPrices = { at: number; prices: SupporterPrices };
+function rememberedPrices(): SupporterPrices | null {
+  try {
+    const kept = JSON.parse(storedValue(PRICES_KEY) ?? "null") as RememberedPrices | null;
+    const fresh = kept && Date.now() - kept.at < PRICES_KEPT_MS && kept.at <= Date.now();
+    return fresh && kept.prices?.month?.total && kept.prices?.year?.total ? kept.prices : null;
+  } catch {
+    return null;
+  }
+}
+const rememberPrices = (prices: SupporterPrices) =>
+  savePreference(PRICES_KEY, JSON.stringify({ at: Date.now(), prices } satisfies RememberedPrices));
 const PERKS = ["sync", "backups", "badge", "early"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
@@ -47,6 +67,7 @@ export function SupporterDialog({
   email,
   awaitingSignIn = false,
   paid = false,
+  planUnknown = false,
   onClose,
   onSignIn,
 }: {
@@ -54,6 +75,8 @@ export function SupporterDialog({
   email: string | null;
   /** A payment here went through for an existing account: open on «Payment received». */
   awaitingSignIn?: boolean;
+  /** Signed in, and the plan could not be checked yet (`plan_unknown`): the plans warn first. */
+  planUnknown?: boolean;
   /** This computer has the plan: when it arrives while the dialog is open, the dialog thanks. */
   paid?: boolean;
   onClose: () => void;
@@ -68,13 +91,26 @@ export function SupporterDialog({
     if (awaitingSignIn) setStep((s) => (unanswered(s) ? "signIn" : s));
   }, [awaitingSignIn]);
   const paidAtOpen = useRef(paid);
+  // Opened while the plan is not known yet: ask now. The notice goes when the answer comes, and a
+  // plan found this way closes the dialog — there was no purchase here to thank for.
+  const unknownAtOpen = useRef(planUnknown);
+  const stepNow = useRef(step);
+  stepNow.current = step;
+  useEffect(() => {
+    if (unknownAtOpen.current) void api.refreshSupporter(true).catch(() => {});
+  }, []);
   useEffect(() => {
     if (!paid || paidAtOpen.current) return;
+    if (unknownAtOpen.current && stepNow.current === "plans") {
+      onClose();
+      return;
+    }
     setPaidEmail(email);
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   }, [paid, email]);
   const [interval, setPlan] = useState<PlanInterval>("year");
-  const [prices, setPrices] = useState<SupporterPrices | null>(null);
+  const [prices, setPrices] = useState<SupporterPrices | null>(rememberedPrices);
+  const [pricesFailed, setPricesFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [checkout, setCheckout] = useState<string | null>(null);
@@ -84,8 +120,11 @@ export function SupporterDialog({
     let alive = true;
     api
       .getSupporterPrices()
-      .then((p) => alive && setPrices(p))
-      .catch(() => {});
+      .then((p) => {
+        rememberPrices(p);
+        if (alive) setPrices(p);
+      })
+      .catch(() => alive && setPricesFailed(true));
     return () => {
       alive = false;
     };
@@ -141,7 +180,8 @@ export function SupporterDialog({
     }
   };
 
-  const shown = prices ?? FALLBACK;
+  // Nothing remembered and no answer yet: the cards keep their room with no price in it.
+  const shown = prices ?? (pricesFailed ? FALLBACK : null);
   const plansPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
       <p className="text-sm text-muted">{t("supporter.intro")}</p>
@@ -153,14 +193,26 @@ export function SupporterDialog({
           </li>
         ))}
       </ul>
-      <div role="radiogroup" aria-label={sizing ? undefined : t("supporter.plan")} className="mt-5 grid grid-cols-2 gap-3">
+      <div
+        role="radiogroup"
+        aria-label={sizing ? undefined : t("supporter.plan")}
+        aria-busy={!shown || undefined}
+        className="mt-5 grid grid-cols-2 gap-3"
+      >
         {(["year", "month"] as const).map((value) => (
           <PlanCard
             key={value}
             checked={interval === value}
             onSelect={() => setPlan(value)}
             name={t(value === "year" ? "supporter.yearly" : "supporter.monthly")}
-            price={t(value === "year" ? "supporter.perYear" : "supporter.perMonth", { price: whole(shown[value].total) })}
+            price={
+              shown ? (
+                t(value === "year" ? "supporter.perYear" : "supporter.perMonth", { price: whole(shown[value].total) })
+              ) : (
+                // Paddle's answer on its way: a quiet bar in the line's room, no amount to swap.
+                <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />
+              )
+            }
             badge={value === "year" ? t("supporter.twoMonthsFree") : null}
           />
         ))}
@@ -169,6 +221,12 @@ export function SupporterDialog({
         <p role="alert" className="mt-3 flex gap-2 rounded-lg bg-danger-soft px-3 py-2.5 text-xs leading-[17px] text-on-danger-soft">
           <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
           {failure}
+        </p>
+      ) : planUnknown && email && !sizing ? (
+        // Signed in, but the plan could not be checked: a Supporter must not buy it twice.
+        <p role="status" className="mt-3 flex gap-2 rounded-lg bg-amber-soft px-3 py-2.5 text-xs leading-[17px] text-on-amber-soft">
+          <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
+          {t("supporter.planUnknownNotice", { email })}
         </p>
       ) : (
         <p className="mt-3 text-xs leading-[17px] text-muted">{t("supporter.paddleHint")}</p>
@@ -285,7 +343,7 @@ function PlanCard({
   checked: boolean;
   onSelect: () => void;
   name: string;
-  price: string;
+  price: ReactNode;
   badge: string | null;
 }) {
   return (
@@ -313,13 +371,14 @@ function PlanCard({
   );
 }
 
-type SignInStep = "email" | "code";
+type SignInStep = "email" | "code" | "noPlan";
 
 /**
  * «Sign in as a Supporter» on another computer (sheet 45): the email of the payment, then the code
- * Supabase sends to it. Opened from Settings → Plan.
+ * Supabase sends to it. Opened by «I'm already a Supporter». Signed in to an account with no active
+ * plan (it ended or was cancelled), the dialog says so instead of closing as if nothing happened.
  */
-export function SignInDialog({ onClose }: { onClose: () => void }) {
+export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlans: () => void }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<SignInStep>("email");
   const [email, setEmail] = useState("");
@@ -354,11 +413,54 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
       setStep("code");
       countdown();
     });
-  const verify = () =>
+  // Signed in with no plan here: `unknown` when the server could not be asked about it, which is
+  // not the same as «this account has none».
+  const [unknown, setUnknown] = useState(false);
+  const signedIn = (status: SupporterStatus) => {
+    if (status.plan) {
+      onClose();
+      return;
+    }
+    setUnknown(status.plan_unknown);
+    setStep("noPlan");
+  };
+  const verify = () => run(async () => signedIn(await api.verifySignInCode(email, code)));
+  const retry = () => run(async () => signedIn(await api.refreshSupporter()));
+  const signOut = () =>
     run(async () => {
-      await api.verifySignInCode(email, code);
+      await api.signOutSupporter();
       onClose();
     });
+
+  const noPlanPanel = (failure: string | null, sizing: boolean) => (
+    <div className="flex flex-1 flex-col">
+      <p className="text-sm text-muted">
+        {t(sizing || unknown ? "supporter.planUnknownText" : "supporter.noPlanText", { email: sizing ? "" : email.trim() })}
+      </p>
+      {failure && (
+        <p role={sizing ? undefined : "alert"} className="mt-3 text-xs leading-[17px] font-medium text-danger">
+          {failure}
+        </p>
+      )}
+      <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+        <button type="button" disabled={busy} onClick={() => void signOut()} className="mr-auto text-sm font-medium text-muted hover:text-ink">
+          {t("plan.signOut")}
+        </button>
+        <Button variant="outline" size="lg" onClick={onClose}>
+          {t("common.close")}
+        </Button>
+        {unknown ? (
+          <Button variant="primary" size="lg" disabled={busy} onClick={() => void retry()}>
+            {t("common.retry")}
+          </Button>
+        ) : (
+          <Button variant="primary" size="lg" onClick={onPlans}>
+            {t("supporter.seePlans")}
+          </Button>
+        )}
+      </footer>
+    </div>
+  );
 
   const emailPanel = (failure: string | null, sizing: boolean) => (
     <form
@@ -465,12 +567,18 @@ export function SignInDialog({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <Dialog title={step === "email" ? t("supporter.signInTitle") : t("supporter.codeTitle")} onClose={onClose} width={480}>
-      <StatePanels value={step} states={["email", "code"] as const}>
+    <Dialog
+      title={t(step === "email" ? "supporter.signInTitle" : step === "code" ? "supporter.codeTitle" : "supporter.signedInTitle")}
+      onClose={onClose}
+      width={480}
+    >
+      <StatePanels value={step} states={["email", "code", "noPlan"] as const}>
         {(state, sizing) =>
           state === "email"
             ? emailPanel(sizing ? t("errors.detail.not_supporter") : error, sizing)
-            : codePanel(sizing ? t("errors.detail.wrong_code") : error, sizing)
+            : state === "code"
+              ? codePanel(sizing ? t("errors.detail.wrong_code") : error, sizing)
+              : noPlanPanel(sizing ? t("supporter.unreachable") : error, sizing)
         }
       </StatePanels>
     </Dialog>

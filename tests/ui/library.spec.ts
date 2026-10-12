@@ -2390,6 +2390,133 @@ test("Supporter: the server cannot be reached — the dialog says so and keeps t
   await expect(plans.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
+test("Supporter: signed in to an account with no active plan, the dialog says so instead of closing (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  const height = Math.round((await signIn.boundingBox())!.height);
+  await signIn.getByLabel("Email").fill("free@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  const signedIn = page.getByRole("dialog", { name: "Signed in" });
+  await expect(signedIn).toContainText("You're signed in as free@example.com, but this account has no active Supporter plan.");
+  expect(Math.round((await signedIn.boundingBox())!.height), "one height through the steps").toBe(height);
+  await expect(row).toHaveAttribute("data-plan-row", "free");
+  // «See plans» goes to buying.
+  await signedIn.getByRole("button", { name: "See plans" }).click();
+  await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toBeVisible();
+});
+
+test("Supporter: from «Signed in» without a plan, Sign out leaves the account (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  await signIn.getByLabel("Email").fill("free@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("dialog", { name: "Signed in" }).getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await page.evaluate(async () => (await import("/src/services/api.ts")).api.getSupporterStatus().then((s) => s.email))).toBeNull();
+});
+
+test("Supporter: signed in while the server did not answer about the plan — not «no plan», Try again (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  await signIn.getByLabel("Email").fill("unknown@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  const signedIn = page.getByRole("dialog", { name: "Signed in" });
+  await expect(signedIn).toContainText("but your plan couldn't be checked right now.");
+  await expect(signedIn.getByRole("button", { name: "See plans" })).toHaveCount(0);
+  // Closed meanwhile: the plans warn before a second purchase, at the dialog's usual height.
+  await signedIn.locator("footer").getByRole("button", { name: "Close" }).click();
+  await row.click();
+  const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+  await expect(plans.getByRole("status")).toHaveText(
+    "The plan of unknown@example.com couldn't be checked yet. Already a Supporter? Wait before buying again — the app tries again within the hour.",
+  );
+  const warned = Math.round((await plans.boundingBox())!.height);
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  await row.click();
+  expect(Math.round((await page.getByRole("dialog", { name: "Support Koona Pin" }).boundingBox())!.height), "the notice fits the usual height").toBe(warned);
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  await page.getByRole("dialog", { name: "Sign in as a Supporter" }).getByLabel("Email").fill("unknown@example.com");
+  await page.getByRole("dialog", { name: "Sign in as a Supporter" }).getByRole("button", { name: "Send code" }).click();
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  await signedIn.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-plan-row", "supporter");
+});
+
+test("Supporter: the plans opened while the plan is not known ask again and close when it is found (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  await signIn.getByLabel("Email").fill("unknown@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("dialog", { name: "Signed in" }).locator("footer").getByRole("button", { name: "Close" }).click();
+  // The server has the plan now: opening the plans asks, finds it and closes, no «thank you».
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.serverPlan", "supporter"));
+  await row.click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-plan-row", "supporter");
+});
+
+test("Supporter: the plans show the prices Paddle gave last time at once, not dollars first (NP-066)", async ({ page }) => {
+  // First time: Paddle's prices are remembered.
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toContainText("$20 a year");
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("koonapin.supporterPrices")))!).prices.year.total).toBe("$20.00");
+  // Euros last time and no answer now: euros, not the dollars kept for when nothing is known.
+  const remember = (daysAgo: number) =>
+    page.evaluate((days) => {
+      localStorage.setItem("koonapin.demo.supporter", "no_server");
+      localStorage.setItem(
+        "koonapin.supporterPrices",
+        JSON.stringify({
+          at: Date.now() - days * 86_400_000,
+          prices: { month: { price_id: "m", total: "€2.00", currency: "EUR" }, year: { price_id: "y", total: "€20.00", currency: "EUR" } },
+        }),
+      );
+    }, daysAgo);
+  await remember(1);
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+  await expect(plans).toContainText("€20 a year");
+  await expect(plans).toContainText("€2 a month");
+  // Remembered more than a week ago: not shown first; with no answer, the prices nothing depends on.
+  await remember(8);
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await expect(plans).toContainText("$20 a year");
+});
+
 test("feedback: from Settings, checked before sending, a failure keeps the draft, Try again sends it (NP-088)", async ({ page }) => {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByText("Report a problem")).toHaveCount(0);

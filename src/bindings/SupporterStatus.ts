@@ -19,6 +19,11 @@ sandbox: boolean, email: string | null, plan: Plan | null,
  */
 check_failed: boolean, 
 /**
+ * Signed in, no plan here, and the last question about it failed: not «no plan», only not
+ * known yet. The sign-in dialog says so and offers to try again.
+ */
+plan_unknown: boolean, 
+/**
  * A payment went through with the email of an existing account: the purchase dialog opens on
  * «Payment received» and its sign-in by code.
  */

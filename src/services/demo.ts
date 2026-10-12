@@ -159,6 +159,7 @@ function currentDemoSupporter(): SupporterStatus {
     email: plan ? "anna@example.com" : null,
     plan,
     check_failed: kind === "offline",
+    plan_unknown: false,
     awaiting_sign_in: false,
   };
   return demoSupporter;
@@ -1374,8 +1375,8 @@ export const demo = {
     } catch {
       server = null;
     }
-    if (server !== null) setDemoSupporter({ ...status, plan: demoPlan(server), check_failed: false });
-    else if (status.check_failed && !automatic) setDemoSupporter({ ...status, plan: demoPlan("supporter"), check_failed: false });
+    if (server !== null) setDemoSupporter({ ...status, plan: demoPlan(server), check_failed: false, plan_unknown: false });
+    else if (status.check_failed && !automatic) setDemoSupporter({ ...status, plan: demoPlan("supporter"), check_failed: false, plan_unknown: false });
     return currentDemoSupporter();
   },
   async openSupporterPortal() {},
@@ -1388,7 +1389,12 @@ export const demo = {
   async verifySignInCode(email: string, code: string): Promise<SupporterStatus> {
     await new Promise((resolve) => setTimeout(resolve, 300));
     if (code.replace(/\D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
-    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false, awaiting_sign_in: false });
+    // `free@…`: an account whose plan ended or was cancelled; `unknown@…`: signed in, but the plan
+    // check failed (the server did not answer), until «Try again».
+    const address = email.trim().toLowerCase();
+    const unknown = address.startsWith("unknown@");
+    const plan = address.startsWith("free@") || unknown ? null : demoPlan("supporter");
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan, check_failed: unknown, plan_unknown: unknown, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
   async getBackupFolder(): Promise<BackupFolder> {
