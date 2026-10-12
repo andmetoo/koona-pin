@@ -64,11 +64,17 @@ export async function startDriver(env, log) {
   };
 }
 
+/**
+ * One WebDriver command, 30 s at most: a command WebKitWebDriver never answers (it happened while the
+ * window was hidden) would otherwise hold the test for Bun's own 5 minutes, and a waitFor that polls
+ * could not ask again. Failed, it is one more try of the poll.
+ */
 async function call(base, method, path, body) {
   const response = await fetch(`${base}${path}`, {
     method,
     headers: { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
   });
   const { value } = await response.json();
   if (!response.ok) throw new Error(`WebDriver ${method} ${path}: ${value?.error}: ${value?.message}`);

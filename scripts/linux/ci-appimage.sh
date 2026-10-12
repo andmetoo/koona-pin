@@ -49,15 +49,24 @@ HOME=$(mktemp -d) dbus-run-session -- bash -euo pipefail -c '
   # Unpacked (no FUSE), the runtime starts the app as its child and waits: ending the runtime leaves the
   # app running. Every koonapin of this user ends here.
   # An instance still ending would take the next start over (single instance) with the file it was
-  # started from: the next start must find none. What does not end in 30 s is killed.
+  # started from. And unpacked, the AppImage runtime (its process is the file) deletes the folder it
+  # unpacked to once the app ends: the moved file has the same contents, so the same folder, and a start
+  # while the old runtime cleans up loses its files and ends without a word. So the next start must find
+  # neither: the apps are asked to end, the runtimes end with them; what is left after 30 s is killed.
   instances() {
+    for p in /proc/[0-9]*; do
+      exe=$(readlink "$p/exe" 2> /dev/null) || continue
+      case "$(basename "$exe")" in koonapin | *.AppImage | *".AppImage (deleted)") echo "${p#/proc/}" ;; esac
+    done
+  }
+  apps() {
     for p in /proc/[0-9]*; do
       exe=$(readlink "$p/exe" 2> /dev/null) || continue
       if [ "$(basename "$exe")" = koonapin ]; then echo "${p#/proc/}"; fi
     done
   }
   stop() {
-    for p in $(instances); do kill "$p" 2> /dev/null || true; done
+    for p in $(apps); do kill "$p" 2> /dev/null || true; done
     for _ in $(seq 60); do [ -z "$(instances)" ] && break; sleep 0.5; done
     for p in $(instances); do kill -9 "$p" 2> /dev/null || true; done
     for _ in $(seq 20); do [ -z "$(instances)" ] && break; sleep 0.5; done

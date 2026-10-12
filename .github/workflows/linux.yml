@@ -267,6 +267,8 @@ jobs:
       - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
       - name: Native tests on WebKitGTK as «dev»
+        # The tests of both displays take seconds; a hang ends here, not at the job's limit.
+        timeout-minutes: 5
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       - name: Registration with Debian's browsers, Chrome and Edge, extension smoke as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"
@@ -313,6 +315,8 @@ jobs:
       - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
       - name: Native tests on WebKitGTK as «dev»
+        # The tests of both displays take seconds; a hang ends here, not at the job's limit.
+        timeout-minutes: 5
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       - name: Fedora's Firefox and Chromium with the package as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"
@@ -356,6 +360,8 @@ jobs:
       - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
       - name: Native tests on WebKitGTK as «dev»
+        # The tests of both displays take seconds; a hang ends here, not at the job's limit.
+        timeout-minutes: 5
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       - name: Install again and remove the package
         run: bash scripts/linux/ci-package.sh remove
@@ -397,6 +403,8 @@ jobs:
       - name: Start the program as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
       - name: Native tests on WebKitGTK as «dev»
+        # The tests of both displays take seconds; a hang ends here, not at the job's limit.
+        timeout-minutes: 5
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       - name: Arch's Firefox and Chromium with the package as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"

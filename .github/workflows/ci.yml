@@ -34,9 +34,9 @@ jobs:
       packages: write
 
   windows:
-    name: Windows / Rust tests, NSIS installer
+    name: Windows / Rust tests
     runs-on: windows-2025
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -56,17 +56,13 @@ jobs:
       - run: bun install --frozen-lockfile
       # What differs on Windows: paths, the registry of the native host (NP-016), the single-instance pipe.
       # The IPC types they regenerate are checked on Linux (linux.yml, check:bindings).
+      # No installer here: a second, release build of every crate doubled the job, and the one that ships
+      # is built and signed on the owner's computer (bun run release:windows), where a packaging problem
+      # shows. The native Playwright tests of WebView2 do not run here either: on a hosted runner WebView2
+      # does not open its CDP port (docs/testing.md), they run on the owner's computer.
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --locked
-      # The release build and its NSIS packaging, unsigned (Certum signs only on the owner's computer,
-      # bun run release:windows), so a packaging problem shows in the PR; nothing is uploaded. The
-      # native Playwright tests of WebView2 do not run here: on a hosted runner WebView2 does not open its
-      # CDP port (docs/testing.md), they run on the owner's computer.
-      - name: Installer, unsigned (NSIS packaging check)
-        env:
-          KOONAPIN_FEEDBACK_URL: ${{ secrets.KOONAPIN_FEEDBACK_URL || 'https://feedback.invalid/' }}
-        run: bun run build:installer
 
   # macOS checks for #56: what only macOS compiles — the Rust tests and the app bundle. No artifacts, no
   # Apple credentials (release.yml builds the macOS release).

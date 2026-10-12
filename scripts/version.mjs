@@ -89,7 +89,8 @@ if (import.meta.main) {
   if (existsSync(notes)) {
     console.log(`${relative}: there`);
   } else {
-    const today = new Date().toISOString().slice(0, 10);
+    // The local day (sv-SE writes YYYY-MM-DD): late in the evening UTC is already tomorrow east of it.
+    const today = new Date().toLocaleDateString("sv-SE");
     if (!dryRun) await writeFile(notes, `---\ndate: ${today}\n---\n\n- \n`);
     console.log(`${relative}: started, dated ${today}`);
   }
