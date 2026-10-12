@@ -92,6 +92,12 @@ case "${1:-}" in
     missing=$(ldd /usr/bin/koonapin | grep 'not found' || true)
     [ -z "$missing" ] || { echo "FAIL: the package's dependencies leave libraries out:"; echo "$missing"; exit 1; }
     echo "ok: the package's dependencies bring every library of the program"
+    # The updater finds the release of the binary's package type; unmarked, it said «up to date» on every
+    # .rpm up to 0.11.0. The AUR package carries the binary of the .deb.
+    case "$ID" in fedora) kind=RPM ;; *) kind=DEB ;; esac
+    marks=$({ grep -ao '__TAURI_BUNDLE_TYPE_VAR_[A-Z]\{3\}' /usr/bin/koonapin || true; } | tr '\n' ' ')
+    [ "$marks" = "__TAURI_BUNDLE_TYPE_VAR_$kind " ] || { echo "FAIL: /usr/bin/koonapin has bundle type ${marks:-none}, not $kind"; exit 1; }
+    echo "ok: /usr/bin/koonapin is marked $kind for the updater"
     case "$ID" in
       ubuntu | debian) dpkg -s koonapin | grep -E '^(Version|Depends|Recommends):' ;;
       fedora)
