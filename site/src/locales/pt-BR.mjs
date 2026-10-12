@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Salvo no Koona Pin", inbox: "Adicionado à caixa de entrada", backup: "Backup", today: "Hoje, 09:00", yesterday: "Ontem", mb: "MB" },
   privacyTitle: "Seus links ficam com você",
-  privacyBody: "O Koona Pin guarda sua biblioteca no seu computador: nenhum servidor vê seus links. Só o feedback que você decidir enviar chega ao desenvolvedor.",
+  privacyBody: "O Koona Pin guarda sua biblioteca no seu computador: nenhum servidor vê seus links. Só o feedback que você decidir enviar e o e-mail de uma compra do Supporter chegam ao desenvolvedor.",
   privacyFacts: [
     "A extensão lê apenas o endereço e o título da aba que você salva.",
     "O aplicativo não envia análises, telemetria nem relatórios de falhas.",
@@ -63,7 +63,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Política de privacidade",
-    updated: "Última atualização: 9 de outubro de 2026",
+    updated: "Última atualização: 12 de outubro de 2026",
     section: "Português (Brasil)",
     note: "Esta é uma tradução para sua conveniência. Se ela divergir do texto em inglês, vale a versão em inglês.",
     original: "Ler em inglês",

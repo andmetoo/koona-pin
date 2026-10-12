@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Salvato in Koona Pin", inbox: "Aggiunto a In arrivo", backup: "Backup", today: "Oggi, 09:00", yesterday: "Ieri", mb: "MB" },
   privacyTitle: "I tuoi link restano con te",
-  privacyBody: "Koona Pin tiene la tua libreria sul tuo computer: nessun server vede i tuoi link. Allo sviluppatore arriva solo il feedback che scegli di inviare.",
+  privacyBody: "Koona Pin tiene la tua libreria sul tuo computer: nessun server vede i tuoi link. Allo sviluppatore arrivano solo il feedback che scegli di inviare e l’email di un acquisto Supporter.",
   privacyFacts: [
     "L’estensione legge solo l’indirizzo e il titolo della scheda che salvi.",
     "L’app non invia statistiche, telemetria o rapporti sugli arresti anomali.",
@@ -63,7 +63,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Informativa sulla privacy",
-    updated: "Ultimo aggiornamento: 9 ottobre 2026",
+    updated: "Ultimo aggiornamento: 12 ottobre 2026",
     section: "Italiano",
     note: "Questa è una traduzione di cortesia. Se differisce dal testo inglese, prevale la versione inglese.",
     original: "Leggi in inglese",

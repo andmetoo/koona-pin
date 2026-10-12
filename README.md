@@ -57,7 +57,7 @@ Your library is a SQLite file on your computer:
 
 Automatic backups go to a `backups` folder next to it. Uninstalling the Linux package keeps the library.
 
-The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it. Details: [privacy policy](https://koona.app/pin/privacy).
+The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. With Supporter, the optional subscription, it also asks the Koona server about your plan: while a purchase waits for its payment, once a day in the last days of a paid period, and when you sign in or out. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it; a Supporter purchase sends them the email you paid with. Details: [privacy policy](https://koona.app/pin/privacy).
 
 ## Building from source
 

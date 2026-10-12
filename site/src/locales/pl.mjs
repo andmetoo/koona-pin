@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "Zapisano w Koona Pin", inbox: "Dodano do skrzynki odbiorczej", backup: "Kopia zapasowa", today: "Dziś, 09:00", yesterday: "Wczoraj", mb: "MB" },
   privacyTitle: "Twoje linki zostają u Ciebie",
-  privacyBody: "Koona Pin trzyma Twoją bibliotekę na Twoim komputerze: żaden serwer nie widzi Twoich linków. Do twórcy trafia tylko opinia, którą sam wyślesz.",
+  privacyBody: "Koona Pin trzyma Twoją bibliotekę na Twoim komputerze: żaden serwer nie widzi Twoich linków. Do twórcy trafia tylko opinia, którą sam wyślesz, i adres e-mail z zakupu planu Supporter.",
   privacyFacts: [
     "Rozszerzenie odczytuje tylko adres i tytuł karty, którą zapisujesz.",
     "Aplikacja nie wysyła analityki, telemetrii ani raportów o awariach.",
@@ -63,7 +63,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "Polityka prywatności",
-    updated: "Ostatnia aktualizacja: 9 października 2026",
+    updated: "Ostatnia aktualizacja: 12 października 2026",
     section: "Polski",
     note: "To tłumaczenie dla wygody czytelnika. Jeśli różni się od tekstu angielskiego, obowiązuje wersja angielska.",
     original: "Przeczytaj po angielsku",

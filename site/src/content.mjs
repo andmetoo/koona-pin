@@ -64,9 +64,9 @@ export function nameIn(page, code) {
 
 export const SUPPORT = "https://github.com/andmetoo/koona-pin/issues/new/choose";
 export const SUPPORT_EMAIL = "support@koona.app";
-// Supporter (NP-066, Р-64): sold only once release builds sell it, together with sync. Until
-// then /pricing/ says when it opens instead of where to buy it.
-export const SUPPORTER_ON_SALE = false;
+// Supporter (NP-066, Р-64): on sale from 0.8.1, the first release built with PADDLE_ENVIRONMENT=
+// production. False makes /pricing/ say when it opens instead of where to buy it.
+export const SUPPORTER_ON_SALE = true;
 export const LICENSING = "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md";
 export const COMMERCIAL_LICENSE = "https://github.com/andmetoo/koona-pin/blob/main/LICENSE-COMMERCIAL.md";
 // The extension's catalog pages (NP-017).

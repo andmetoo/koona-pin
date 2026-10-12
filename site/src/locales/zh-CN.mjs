@@ -33,7 +33,7 @@ export default {
   ],
   scene: { saved: "已保存到 Koona Pin", inbox: "已添加到收件箱", backup: "备份", today: "今天 09:00", yesterday: "昨天", mb: "MB" },
   privacyTitle: "你的链接只属于你",
-  privacyBody: "Koona Pin 把你的资料库保存在你的电脑上：没有任何服务器能看到你的链接。只有你主动发送的反馈才会到达开发者。",
+  privacyBody: "Koona Pin 把你的资料库保存在你的电脑上：没有任何服务器能看到你的链接。只有你主动发送的反馈和购买 Supporter 时使用的邮箱才会到达开发者。",
   privacyFacts: [
     "扩展只读取你所保存标签页的地址和标题。",
     "应用不发送任何分析数据、遥测或崩溃报告。",
@@ -63,7 +63,7 @@ export default {
   back: "Koona Pin",
   privacyPage: {
     title: "隐私政策",
-    updated: "最后更新：2026 年 10 月 9 日",
+    updated: "最后更新：2026 年 10 月 12 日",
     section: "简体中文",
     note: "此为方便阅读的译文。如与英文版本不一致，以英文版本为准。",
     original: "阅读英文版",
