@@ -213,13 +213,26 @@ for (const file of (await filesUnder(repack)).filter((f) => !f.includes(`${path.
 await writeFile(path.join(repack, "DEBIAN", "md5sums"), `${md5.join("\n")}\n`);
 run("dpkg-deb", ["--build", "--root-owner-group", repack, deb], { stdio: ["ignore", "ignore", "inherit"] });
 
-// Tauri marks the binaries with their package type for the updater; its own .rpm is not used.
+// Tauri's own .rpm is not used, only checked to build.
 bundle("rpm", { rpm: { desktopTemplate: path.join(linux, "koonapin.desktop") } });
+// The updater looks for the release of the binary's package type (`linux-x86_64-rpm`); Tauri marks the
+// copy it packs, never target/release. Unmarked, the app of the .rpm found no release for itself and
+// said it was up to date (every .rpm up to 0.11.0). Marked here as Tauri does it: the bytes of a
+// string of the same length.
+const markRpm = async (binary) => {
+  const bytes = await readFile(binary);
+  const unknown = Buffer.from("__TAURI_BUNDLE_TYPE_VAR_UNK");
+  const at = bytes.indexOf(unknown);
+  if (at < 0 || bytes.indexOf(unknown, at + 1) >= 0) throw new Error(`${binary}: not one unmarked bundle type`);
+  Buffer.from("__TAURI_BUNDLE_TYPE_VAR_RPM").copy(bytes, at);
+  await writeFile(binary, bytes);
+};
 // The tree of the repacked .deb, links in /etc included; the Debian-only files go, the lib64 manifest of
 // Fedora's Firefox comes.
 const tree = staged("rpm-tree");
 await cp(repack, tree, { recursive: true, verbatimSymlinks: true, filter: (from) => !from.startsWith(path.join(repack, "DEBIAN")) });
 for (const binary of binaries) await copyFile(binary, path.join(tree, "usr", "bin", path.basename(binary)));
+await markRpm(path.join(tree, "usr", "bin", "koonapin"));
 // Debian wants a link between top-level folders absolute, rpm relative.
 for (const at of Object.keys(await manifests("deb")).filter((at) => at.startsWith("/etc/"))) {
   await rm(path.join(tree, at));
