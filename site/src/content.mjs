@@ -72,7 +72,7 @@ export const SUPPORTER_ON_SALE = true;
 export const PADDLE_PRICES = {
   // `five_years`: Supporter · 5 years, paid once; empty until its price exists, and the site then
   // offers no button for it (koona-services PADDLE_PRICE_FIVE_YEARS is the same price).
-  production: { month: "pri_01m4phs3jenmt1k781twyfkdqy", year: "pri_01m4phs3q92cqzg7zzcm1txvzd", five_years: "" },
+  production: { month: "pri_01m4phs3jenmt1k781twyfkdqy", year: "pri_01m4phs3q92cqzg7zzcm1txvzd", five_years: "pri_01m4qhf25kn9jje2wsjj3z4p25" },
   sandbox: { month: "pri_01m4gj99rncr6t2yrxg7zsfx13", year: "pri_01m4gj9a8hg5gdjg2nsbhd64ww", five_years: "" },
 };
 export const LICENSING = "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md";
