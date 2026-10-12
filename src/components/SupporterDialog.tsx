@@ -33,6 +33,8 @@ const PERKS = ["sync", "backups", "badge", "early"] as const;
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
 
 type Step = "plans" | "waiting" | "thanks" | "signIn";
+/** Steps where the dialog has not heard how the payment ended. */
+const unanswered = (s: Step) => s === "plans" || s === "waiting";
 
 /**
  * «Support Koona Pin» (NP-066, sheet 45): the plan → the payment in the browser → thank you, one
@@ -43,6 +45,7 @@ export function SupporterDialog({
   sandbox,
   email,
   awaitingSignIn = false,
+  paid = false,
   onClose,
   onSignIn,
 }: {
@@ -50,12 +53,25 @@ export function SupporterDialog({
   email: string | null;
   /** A payment here went through for an existing account: open on «Payment received». */
   awaitingSignIn?: boolean;
+  /** This computer has the plan: when it arrives while the dialog is open, the dialog thanks. */
+  paid?: boolean;
   onClose: () => void;
   /** «I'm already a Supporter»: the sign-in dialog instead of this one. */
   onSignIn: () => void;
 }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<Step>(awaitingSignIn ? "signIn" : "plans");
+  // The app follows a purchase by itself (billing.rs, start) and may see it before this dialog
+  // asks: what it found moves the open dialog on, from the plans or the waiting step.
+  useEffect(() => {
+    if (awaitingSignIn) setStep((s) => (unanswered(s) ? "signIn" : s));
+  }, [awaitingSignIn]);
+  const paidAtOpen = useRef(paid);
+  useEffect(() => {
+    if (!paid || paidAtOpen.current) return;
+    setPaidEmail(email);
+    setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
+  }, [paid, email]);
   const [interval, setPlan] = useState<PlanInterval>("year");
   const [prices, setPrices] = useState<SupporterPrices | null>(null);
   const [error, setError] = useState<string | null>(null);

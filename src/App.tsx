@@ -1270,6 +1270,7 @@ export function App() {
           sandbox={!!supporter?.sandbox}
           email={supporter?.email ?? null}
           awaitingSignIn={!!supporter?.awaiting_sign_in}
+          paid={!!supporter?.plan}
           onClose={() => setSurface(null)}
           onSignIn={() => setSurface("signIn")}
         />

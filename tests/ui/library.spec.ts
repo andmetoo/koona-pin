@@ -2308,6 +2308,20 @@ test("Supporter: a payment the app saw first in the background still ends in tha
   await expect(page.locator("[data-plan-row]")).toHaveAttribute("data-plan-row", "supporter");
 });
 
+test("Supporter: what the app finds by itself moves an open dialog on (NP-066)", async ({ page }) => {
+  for (const [kind, title] of [
+    ["later_sign_in", "Payment received"],
+    ["later_paid", "Thank you for supporting Koona Pin"],
+  ] as const) {
+    await page.evaluate((k) => localStorage.setItem("koonapin.demo.supporter", k), kind);
+    await page.reload();
+    await page.locator("[data-plan-row]").click();
+    await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toBeVisible();
+    // No click: the background's finding arrives as a status event.
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+  }
+});
+
 test("Supporter: the server cannot be reached — the dialog says so and keeps the plan chosen (NP-066)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "no_server"));
   await page.reload();

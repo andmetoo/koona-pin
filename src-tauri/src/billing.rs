@@ -306,6 +306,9 @@ pub struct Billing {
     stored: Mutex<Stored>,
     /// Wakes the background when a purchase starts, so it asks about it after the dialog closes.
     wake: tokio::sync::Notify,
+    /// One `claim` at a time, network included, for the dialog, the background and Sign out: two
+    /// asks at once would let a «taken» answer drop the purchase whose «paid» is still on its way.
+    claiming: tokio::sync::Mutex<()>,
 }
 
 impl Billing {
@@ -319,7 +322,7 @@ impl Billing {
         if service().is_some_and(|s| s.sandbox != stored.sandbox) {
             stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
         }
-        Billing { path, stored: Mutex::new(stored), wake: tokio::sync::Notify::new() }
+        Billing { path, stored: Mutex::new(stored), wake: tokio::sync::Notify::new(), claiming: tokio::sync::Mutex::new(()) }
     }
 
     fn get(&self) -> Stored {
@@ -530,6 +533,7 @@ async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
 /// Asks about every purchase started here and trades the first one seen paid for a session.
 async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     let billing = app.state::<Billing>();
+    let _one_at_a_time = billing.claiming.lock().await;
     let now = Utc::now();
     if billing.get().checkouts.iter().any(|c| now - c.started > CLAIM_LIFETIME) {
         billing.update(app, |s| s.forget_old(now))?;
@@ -721,6 +725,9 @@ pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, Comma
             }
         }
     }
+    // After a claim already asking: what it signs in is signed out here, and one starting later
+    // finds no purchase.
+    let _one_at_a_time = billing.claiming.lock().await;
     billing.update(&app, |s| *s = Stored { sandbox: s.sandbox, ..Stored::default() })
 }
 
