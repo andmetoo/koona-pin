@@ -59,13 +59,13 @@ const rememberPrices = (prices: SupporterPrices) =>
 
 /**
  * Supporter's prices: the ones remembered at once, then Paddle's answer, remembered for next time.
- * `ask` false keeps the remembered ones without asking (a dialog that only needs to know what is
- * sold); without any remembered, Paddle is asked anyway.
+ * `ask` «if_unknown» keeps the remembered ones without asking (a dialog that only needs to know
+ * what is sold), and asks only without any; «never» does not ask at all.
  */
-function useSupporterPrices(ask = true) {
+function useSupporterPrices(ask: "always" | "if_unknown" | "never" = "always") {
   const [prices, setPrices] = useState<SupporterPrices | null>(rememberedPrices);
   const [failed, setFailed] = useState(false);
-  const needed = ask || prices === null;
+  const needed = ask === "always" || (ask === "if_unknown" && prices === null);
   useEffect(() => {
     if (!needed) return;
     let alive = true;
@@ -295,7 +295,6 @@ export function SupporterDialog({
     const price = shown?.five_years;
     // Paddle answered and the server does not sell them (the button is not offered then either).
     const notSold = !!shown && !price;
-    const shownFailure = failure ?? (notSold && !sizing ? t("supporter.fiveYearsNotSold") : null);
     return (
       <div className="flex flex-1 flex-col">
         <p className="text-sm text-muted">
@@ -311,8 +310,14 @@ export function SupporterDialog({
         <div className="mt-4">
           <PlanCard checked wide name={t("supporter.fiveYears")} price={price ? priceLine("five_years", price.total) : <PricePending />} badge={t("supporter.save50")} />
         </div>
-        {shownFailure ? (
-          <FailureNote text={shownFailure} />
+        {failure ? (
+          <FailureNote text={failure} />
+        ) : notSold && !sizing ? (
+          // Not a failure: nothing went wrong and the subscription goes on, so a notice, not an alert.
+          <p role="status" className="mt-3 flex gap-2 rounded-lg bg-amber-soft px-3 py-2.5 text-xs leading-[17px] text-on-amber-soft">
+            <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
+            {t("supporter.fiveYearsNotSold")}
+          </p>
         ) : (
           <p className="mt-3 text-xs leading-[17px] text-muted">
             {t("supporter.upgradeHint", { date: longDate(fiveYearsAfter(plan.valid_until), i18n.language) })}
@@ -824,9 +829,11 @@ export function PlanDialog({
   const plan = supporter.plan;
   const date = (iso: string) => longDate(iso, i18n.language);
   // «Switch to 5 years» only for a renewing subscription, and only while the server sells them: the
-  // prices remembered this week say so, Paddle is asked only without them.
-  const { prices } = useSupporterPrices(false);
-  const offerSwitch = plan?.renews_at && plan.status === "active" && prices?.five_years ? onUpgrade : undefined;
+  // prices remembered this week say so, Paddle is asked only without them, and never for a plan
+  // that cannot switch (five years, canceling, past due).
+  const renewing = !!(plan?.renews_at && plan.status === "active" && plan.interval !== "five_years");
+  const { prices } = useSupporterPrices(renewing ? "if_unknown" : "never");
+  const offerSwitch = renewing && prices?.five_years ? onUpgrade : undefined;
 
   const run = async (action: () => Promise<unknown>, closeAfter = false) => {
     setBusy(true);

@@ -75,8 +75,9 @@ const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
   const plan = query.get("plan");
   // A plan whose price is empty (not sold) counts as none: the page asks to choose.
   const prices: Record<string, string | undefined> = { year: root?.dataset.year, month: root?.dataset.month, five_years: root?.dataset.fiveYears };
-  // Own keys only: `?plan=constructor` must not find Object's members.
-  const priceId = (plan && Object.hasOwn(prices, plan) && prices[plan]) || undefined;
+  // Own keys only: `?plan=constructor` must not find Object's members. Not `Object.hasOwn`: Safari
+  // before 15.4 lacks it, and a throw here would leave the page on «Opening the payment…».
+  const priceId = (plan && Object.prototype.hasOwnProperty.call(prices, plan) && prices[plan]) || undefined;
   const token = root?.dataset.token;
   if (token) {
     if (!transaction && !priceId) show("missing");
