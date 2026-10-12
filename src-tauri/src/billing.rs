@@ -33,6 +33,8 @@ const CHECK_EVERY: TimeDelta = TimeDelta::days(1);
 /// Before them, once a week: a change of plan, a cancellation or a refund shows within a week
 /// without asking more often (the Supporter dialog also asks when it opens).
 const CHECK_WEEKLY: TimeDelta = TimeDelta::days(7);
+/// An automatic check this soon after the last one is not asked again.
+const FRESH: TimeDelta = TimeDelta::seconds(15);
 /// How long a plan stays after its period when the server cannot be reached.
 const GRACE: TimeDelta = TimeDelta::days(7);
 /// A purchase started but not seen paid is forgotten after this.
@@ -318,6 +320,11 @@ pub struct Billing {
     /// One `claim` at a time, network included, for the dialog, the background and Sign out: two
     /// asks at once would let a «taken» answer drop the purchase whose «paid» is still on its way.
     claiming: tokio::sync::Mutex<()>,
+    /// One plan check at a time (the background, the dialog, «Try again»): a late failure must not
+    /// overwrite a newer answer.
+    checking: tokio::sync::Mutex<()>,
+    /// One token refresh at a time: two with the same refresh token would race for the session.
+    refreshing: tokio::sync::Mutex<()>,
 }
 
 impl Billing {
@@ -331,7 +338,14 @@ impl Billing {
         if service().is_some_and(|s| s.sandbox != stored.sandbox) {
             stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
         }
-        Billing { path, stored: Mutex::new(stored), wake: tokio::sync::Notify::new(), claiming: tokio::sync::Mutex::new(()) }
+        Billing {
+            path,
+            stored: Mutex::new(stored),
+            wake: tokio::sync::Notify::new(),
+            claiming: tokio::sync::Mutex::new(()),
+            checking: tokio::sync::Mutex::new(()),
+            refreshing: tokio::sync::Mutex::new(()),
+        }
     }
 
     fn get(&self) -> Stored {
@@ -387,7 +401,7 @@ pub fn start(app: &AppHandle) {
                 let _ = claim(&app).await;
             }
             if due(&billing.get(), Utc::now()) {
-                let _ = check(&app).await;
+                let _ = check(&app, false).await;
             }
             let wait = billing.get().next_wake(Utc::now());
             tokio::select! {
@@ -466,6 +480,8 @@ fn session_of(value: &Value) -> Option<Session> {
 /// account was signed out elsewhere (the refresh token no longer works).
 async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
     let billing = app.state::<Billing>();
+    // The session is read under the lock: a refresh that just finished is used, not repeated.
+    let _one = billing.refreshing.lock().await;
     let Some(session) = billing.get().session else {
         return Ok(None);
     };
@@ -497,11 +513,17 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
 
 /// Asks for the plan of the signed-in account; marks the check failed when the server is away.
 /// The answer counts only for the account it was asked for: after Sign out it changes nothing.
-async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
+async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, CommandError> {
     let billing = app.state::<Billing>();
-    let Some(email) = billing.get().session.map(|s| s.email) else {
+    let _one = billing.checking.lock().await;
+    let stored = billing.get();
+    let Some(email) = stored.session.map(|s| s.email) else {
         return Ok(status(&billing.get(), Utc::now()));
     };
+    // The dialog asks each time it opens or comes back into focus: an answer this fresh is enough.
+    if automatic && stored.checked_at.is_some_and(|at| Utc::now() - at < FRESH) {
+        return Ok(status(&billing.get(), Utc::now()));
+    }
     let result = async {
         let Some(token) = access_token(app).await? else {
             return Ok(None);
@@ -661,10 +683,11 @@ pub async fn poll_checkout(app: AppHandle) -> Result<CheckoutState, CommandError
     claim(&app).await
 }
 
-/// Settings → Plan «Try again», and after the customer portal.
+/// «Try again» asks now; `automatic` — the Supporter dialog opening or coming back into focus —
+/// asks unless the plan was checked moments ago.
 #[tauri::command]
-pub async fn refresh_supporter(app: AppHandle) -> Result<SupporterStatus, CommandError> {
-    check(&app).await
+pub async fn refresh_supporter(app: AppHandle, automatic: Option<bool>) -> Result<SupporterStatus, CommandError> {
+    check(&app, automatic.unwrap_or(false)).await
 }
 
 /// «Manage ↗»: Paddle's customer portal in the browser.
@@ -713,7 +736,7 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
         s.checked_at = None;
         s.awaiting_sign_in = false;
     })?;
-    check(&app).await
+    check(&app, false).await
 }
 
 /// «Sign out»: the account and the plan leave this computer; the subscription goes on.

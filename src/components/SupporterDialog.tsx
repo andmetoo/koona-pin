@@ -620,28 +620,20 @@ export function PlanDialog({
   };
 
   // The plan as the server has it now: a change or a cancellation in the portal shows here, not
-  // only in the last days of the period. Asked when the dialog opens and when the window comes back
-  // after «Manage»; a failure says nothing here, the background asks again.
-  const backFromPortal = useRef(false);
+  // only in the last days of the period. Asked when the dialog opens and each time the window
+  // comes back into focus, as after «Manage» (the app skips an answer seconds old); a failure says
+  // nothing here, the background asks again.
   useEffect(() => {
-    void api.recheckSupporter().catch(() => {});
-    const onFocus = () => {
-      if (!backFromPortal.current) return;
-      backFromPortal.current = false;
-      void api.recheckSupporter().catch(() => {});
-    };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    const recheck = () => void api.refreshSupporter(true).catch(() => {});
+    recheck();
+    window.addEventListener("focus", recheck);
+    return () => window.removeEventListener("focus", recheck);
   }, []);
-  const openPortal = async () => {
-    backFromPortal.current = true;
-    await api.openSupporterPortal();
-  };
 
   let status: string;
   let tone: "muted" | "danger" | "amber" = "muted";
   let action = (
-    <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(openPortal)}>
+    <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
       {t("plan.manage")} ↗
     </Button>
   );
@@ -651,7 +643,7 @@ export function PlanDialog({
     status = t("supporter.unchecked", { date: date(plan.valid_until, GRACE_DAYS) });
     tone = "amber";
     action = (
-      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(api.refreshSupporter)}>
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(() => api.refreshSupporter())}>
         {t("common.retry")}
       </Button>
     );
@@ -659,7 +651,7 @@ export function PlanDialog({
     status = t("supporter.pastDue");
     tone = "danger";
     action = (
-      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(openPortal)}>
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
         {t("plan.updateCard")} ↗
       </Button>
     );

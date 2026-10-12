@@ -2274,6 +2274,29 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
 });
 
+test("Supporter: the dialog asks for the plan when it opens and when the window comes back — a change in the portal shows (NP-066)", async ({ page }) => {
+  // The server has the plan cancelled at the end of its period, as after «Manage».
+  await page.evaluate(() => {
+    localStorage.setItem("koonapin.demo.supporter", "supporter");
+    localStorage.setItem("koonapin.demo.serverPlan", "canceling");
+  });
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  const plan = page.getByRole("dialog", { name: "Supporter" });
+  await expect(plan.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "canceling");
+  await expect(plan).toContainText("Doesn't renew · Supporter until");
+  // Cancelled at once, then back to the app: the dialog closes and the row is Free again.
+  await page.evaluate(() => {
+    localStorage.setItem("koonapin.demo.serverPlan", "none");
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-plan-row", "free");
+  await row.click();
+  await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toBeVisible();
+});
+
 test("Supporter: backups to a folder — choose, change, stop, and a folder out of reach, at one height (NP-066)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
   await page.reload();
