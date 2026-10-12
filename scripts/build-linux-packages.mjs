@@ -178,9 +178,12 @@ async function compile() {
   await copyFile(path.join(root, "src-tauri", "icons", "128x128@2x.png"), staged("256x256.png"));
   const icons = ["icons/32x32.png", "icons/64x64.png", "icons/128x128.png", staged("256x256.png"), "icons/icon.png"];
 
+  // --verbose for the AppImage: Tauri prints linuxdeploy's own output only then, and says no more than
+  // «failed to run linuxdeploy» otherwise.
   const bundle = (kind, linuxConfig) =>
     tauri(
       "bundle",
+      ...(kind === "appimage" ? ["--verbose"] : []),
       "--bundles",
       kind,
       "--features",
