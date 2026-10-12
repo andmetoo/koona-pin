@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { BackupFolder, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
+import { copyTime } from "./BackupRestoreDialog";
 import { Icon } from "./icons";
 import { Button, IconButton } from "./ui/Button";
 import { Field, StatePanels, Switch } from "./ui/Controls";
@@ -521,7 +522,7 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
 
   const path = folder?.path ?? null;
   let line;
-  if (!path) {
+  if (!folder || !path) {
     line = <span className="block text-xs leading-[17px] text-muted">{t("supporter.folder.hint")}</span>;
   } else if (folder?.unreachable) {
     line = (
@@ -530,15 +531,9 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
       </span>
     );
   } else {
-    let when = t("supporter.folder.none");
-    if (folder?.last_copy_at) {
-      const at = new Date(folder.last_copy_at);
-      const time = at.toLocaleTimeString(i18n.language, { hour: "2-digit", minute: "2-digit" });
-      when =
-        at.toDateString() === new Date().toDateString()
-          ? t("supporter.folder.lastToday", { time })
-          : t("supporter.folder.lastOn", { time, date: at.toLocaleDateString(i18n.language, { day: "numeric", month: "long" }) });
-    }
+    const when = folder?.last_copy_at
+      ? t("supporter.folder.last", { when: copyTime(folder.last_copy_at, t, i18n.language, true) })
+      : t("supporter.folder.none");
     line = (
       <span title={path} className="flex text-xs leading-[17px] text-muted">
         <span className="truncate">{path}</span>
@@ -549,11 +544,15 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
 
   return (
     <>
-      <span className="min-w-0 flex-1" data-backup-folder={!path ? "none" : folder?.unreachable ? "unreachable" : "chosen"}>
+      <span
+        className="min-w-0 flex-1"
+        data-backup-folder={!folder ? "loading" : !path ? "none" : folder.unreachable ? "unreachable" : "chosen"}
+      >
         <span className="block text-sm font-medium">{t("supporter.perk.backups")}</span>
         {line}
       </span>
-      {!path ? (
+      {/* No control until the folder is known: a chosen one must not look unset for a moment. */}
+      {!folder ? null : !path ? (
         <Button variant="outline" disabled={busy} onClick={() => void choose()}>
           {t("supporter.folder.choose")}
         </Button>

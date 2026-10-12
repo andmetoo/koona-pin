@@ -1112,8 +1112,7 @@
       "chooseAgain": "Wählen…",
       "open": "Ordner öffnen",
       "stop": "Nicht mehr hierher kopieren",
-      "lastToday": "letzte Sicherung heute, {{time}}",
-      "lastOn": "letzte Sicherung {{date}}, {{time}}",
+      "last": "letzte Sicherung {{when}}",
       "none": "noch keine Sicherung",
       "unreachable": "{{path}} ist nicht erreichbar",
       "pickerTitle": "Ordner für automatische Sicherungen"

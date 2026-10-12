@@ -1039,8 +1039,7 @@
       "chooseAgain": "選択…",
       "open": "フォルダーを開く",
       "stop": "ここへのコピーを停止",
-      "lastToday": "最終コピー 今日 {{time}}",
-      "lastOn": "最終コピー {{date}} {{time}}",
+      "last": "最終コピー {{when}}",
       "none": "まだコピーなし",
       "unreachable": "{{path}} にアクセスできません",
       "pickerTitle": "自動バックアップのフォルダー"

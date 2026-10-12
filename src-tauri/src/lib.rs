@@ -106,6 +106,10 @@ pub fn run() {
             library::Paths::from_env(),
         )))
         .setup(move |app| {
+            // Before the library: its first daily copy goes to a Supporter's folder too, which
+            // needs both states managed.
+            billing::start(app.handle());
+            commercial::backup_folder::start(app.handle());
             library_state::start(app.handle().clone());
             let handle = app.handle().clone();
             std::thread::spawn(move || capture_channel::register_host(&handle, &channel_state));
@@ -115,8 +119,6 @@ pub fn run() {
             }
             tray::build(app)?;
             updates::start(app.handle());
-            billing::start(app.handle());
-            commercial::backup_folder::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {

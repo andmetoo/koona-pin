@@ -1187,8 +1187,7 @@
       "chooseAgain": "Izaberi…",
       "open": "Otvori fasciklu",
       "stop": "Ne kopiraj više ovde",
-      "lastToday": "kopija danas, {{time}}",
-      "lastOn": "kopija {{date}}, {{time}}",
+      "last": "kopija {{when}}",
       "none": "još nema kopije",
       "unreachable": "Nema pristupa {{path}}",
       "pickerTitle": "Fascikla za automatske kopije"

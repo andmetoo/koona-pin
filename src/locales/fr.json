@@ -1185,8 +1185,7 @@
       "chooseAgain": "Choisir…",
       "open": "Ouvrir le dossier",
       "stop": "Ne plus copier ici",
-      "lastToday": "dernière copie aujourd'hui, {{time}}",
-      "lastOn": "dernière copie le {{date}}, {{time}}",
+      "last": "dernière copie {{when}}",
       "none": "pas encore de copie",
       "unreachable": "Impossible d'accéder à {{path}}",
       "pickerTitle": "Dossier des sauvegardes automatiques"

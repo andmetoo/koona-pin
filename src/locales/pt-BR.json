@@ -1185,8 +1185,7 @@
       "chooseAgain": "Escolher…",
       "open": "Abrir pasta",
       "stop": "Parar de copiar aqui",
-      "lastToday": "último backup hoje, {{time}}",
-      "lastOn": "último backup em {{date}}, {{time}}",
+      "last": "último backup {{when}}",
       "none": "nenhum backup ainda",
       "unreachable": "Não foi possível acessar {{path}}",
       "pickerTitle": "Pasta para os backups automáticos"

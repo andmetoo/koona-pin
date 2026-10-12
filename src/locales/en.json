@@ -1112,8 +1112,7 @@
       "chooseAgain": "Choose…",
       "open": "Open folder",
       "stop": "Stop copying here",
-      "lastToday": "last copy today, {{time}}",
-      "lastOn": "last copy {{date}}, {{time}}",
+      "last": "last copy {{when}}",
       "none": "no copy yet",
       "unreachable": "Can't reach {{path}}",
       "pickerTitle": "Folder for automatic backups"

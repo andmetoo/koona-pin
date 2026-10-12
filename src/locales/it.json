@@ -1185,8 +1185,7 @@
       "chooseAgain": "Scegli…",
       "open": "Apri cartella",
       "stop": "Smetti di copiare qui",
-      "lastToday": "ultima copia oggi, {{time}}",
-      "lastOn": "ultima copia il {{date}}, {{time}}",
+      "last": "ultima copia {{when}}",
       "none": "ancora nessuna copia",
       "unreachable": "Impossibile raggiungere {{path}}",
       "pickerTitle": "Cartella per i backup automatici"

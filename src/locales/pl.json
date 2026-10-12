@@ -1258,8 +1258,7 @@
       "chooseAgain": "Wybierz…",
       "open": "Otwórz folder",
       "stop": "Nie kopiuj już tutaj",
-      "lastToday": "kopia dziś, {{time}}",
-      "lastOn": "kopia {{date}}, {{time}}",
+      "last": "kopia {{when}}",
       "none": "jeszcze bez kopii",
       "unreachable": "Brak dostępu do {{path}}",
       "pickerTitle": "Folder na automatyczne kopie"

@@ -3,7 +3,8 @@
 //! Supporter's automatic backups to a folder of one's choice (NP-066, sheet 45): every automatic
 //! copy the app makes (daily, and «Back up now») is also copied into that folder, such as one that
 //! Dropbox or Google Drive keep in the cloud, and the automatic copies there are pruned by the same
-//! rule as at home (7 daily, 4 weekly). Other files in the folder are never touched. Without an
+//! rule as at home (7 daily, 4 weekly), only those this computer put there: other files, and the
+//! copies of other computers that share the folder, are never touched. Without an
 //! active plan nothing is copied; the folder stays chosen for when the plan comes back.
 
 use crate::backup;
@@ -16,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -32,6 +34,10 @@ struct Stored {
     /// The last copy could not be written there: the folder is gone, offline or read-only.
     #[serde(default)]
     failed: bool,
+    /// The automatic copies this computer put there: only these are pruned, so a folder that
+    /// several computers copy into keeps the copies of the others.
+    #[serde(default)]
+    written: Vec<String>,
 }
 
 /// What the Supporter dialog shows in the backups row.
@@ -95,22 +101,40 @@ pub fn start(app: &AppHandle) {
     app.manage(BackupFolderState::load(path));
 }
 
-/// Copies one automatic copy into `folder` under the same name, through a temporary name so that a
-/// sync client never uploads half a file, then prunes the automatic copies there.
-fn copy_into(folder: &Path, copy: &Path) -> std::io::Result<()> {
+/// A `.part` this old belongs to a copy cut short (the app quit, the computer slept).
+const STALE_PART: Duration = Duration::from_secs(60 * 60);
+
+/// Copies one automatic copy into `folder` under the same name, through a temporary name of its
+/// own so that a sync client never uploads half a file, then prunes there the automatic copies of
+/// this computer (`ours` and this one). Returns the name written.
+fn copy_into(folder: &Path, copy: &Path, ours: &[String]) -> std::io::Result<String> {
     if !folder.is_dir() {
         return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "the folder is not there"));
     }
-    let name = copy.file_name().ok_or_else(|| std::io::Error::other("a copy without a name"))?;
-    let target = folder.join(name);
-    let temporary = folder.join(format!("{}.part", name.to_string_lossy()));
-    fs::copy(copy, &temporary)?;
-    if let Err(error) = fs::rename(&temporary, &target) {
+    remove_stale_parts(folder);
+    let name = copy.file_name().and_then(|n| n.to_str()).ok_or_else(|| std::io::Error::other("a copy without a name"))?.to_owned();
+    let target = folder.join(&name);
+    let temporary = folder.join(format!("{name}.{}.part", uuid::Uuid::new_v4().simple()));
+    let copied = fs::copy(copy, &temporary).and_then(|_| fs::rename(&temporary, &target));
+    if let Err(error) = copied {
         let _ = fs::remove_file(&temporary);
         return Err(error);
     }
-    backup::prune_auto(folder);
-    Ok(())
+    backup::prune_auto_among(folder, |other| other == name || ours.iter().any(|mine| mine == other));
+    Ok(name)
+}
+
+fn remove_stale_parts(folder: &Path) {
+    let Ok(entries) = fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let stale = entry.file_name().to_str().is_some_and(backup::is_auto_part)
+            && entry.metadata().and_then(|m| m.modified()).ok().and_then(|at| at.elapsed().ok()).is_some_and(|age| age > STALE_PART);
+        if stale {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
 }
 
 /// After the app made an automatic copy: the same copy into the chosen folder, for a Supporter.
@@ -118,13 +142,13 @@ pub fn mirror(app: &AppHandle, copy: &Path) {
     let Some(state) = app.try_state::<BackupFolderState>() else {
         return;
     };
-    let Some(folder) = state.get().folder else {
+    let Stored { folder: Some(folder), written, .. } = state.get() else {
         return;
     };
     if !billing::has_plan(app) {
         return;
     }
-    let result = copy_into(&folder, copy);
+    let result = copy_into(&folder, copy, &written);
     if let Err(error) = &result {
         eprintln!("Copying the backup to the chosen folder failed: {error}");
     }
@@ -132,8 +156,12 @@ pub fn mirror(app: &AppHandle, copy: &Path) {
         // Only for the folder the copy was made for: a change of folder meanwhile wins.
         if s.folder.as_deref() == Some(folder.as_path()) {
             s.failed = result.is_err();
-            if result.is_ok() {
+            if let Ok(name) = &result {
                 s.last_copy = Some(Utc::now());
+                if !s.written.contains(name) {
+                    s.written.push(name.clone());
+                }
+                s.written.retain(|mine| folder.join(mine).exists());
             }
         }
     });
@@ -171,7 +199,11 @@ pub fn get_backup_folder(state: State<'_, BackupFolderState>) -> BackupFolder {
 pub async fn choose_backup_folder(app: AppHandle, title: String) -> Result<BackupFolder, CommandError> {
     need_plan(&app)?;
     let (send, receive) = tokio::sync::oneshot::channel();
-    app.dialog().file().set_title(title).pick_folder(move |picked| {
+    let mut dialog = app.dialog().file().set_title(title);
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    dialog.pick_folder(move |picked| {
         let _ = send.send(picked);
     });
     let picked = receive.await.map_err(CommandError::internal)?;
@@ -182,6 +214,7 @@ pub async fn choose_backup_folder(app: AppHandle, title: String) -> Result<Backu
     state.update(&app, |s| {
         if s.folder.as_deref() != Some(folder.as_path()) {
             s.last_copy = None;
+            s.written.clear();
         }
         s.folder = Some(folder);
         s.failed = false;
@@ -218,14 +251,15 @@ mod tests {
     fn a_copy_lands_whole_in_the_folder_and_old_automatic_copies_go() {
         let home = folder("home");
         let cloud = folder("cloud");
-        // Fifteen daily copies already in the cloud folder, and a file of the person's own.
-        for day in 1..=15 {
-            fs::write(cloud.join(format!("koonapin.auto-202610{day:02}-090000.db")), b"old").unwrap();
+        // Fifteen daily copies of this computer already in the cloud folder, and a file of the person's own.
+        let ours: Vec<String> = (1..=15).map(|day| format!("koonapin.auto-202610{day:02}-090000.db")).collect();
+        for name in &ours {
+            fs::write(cloud.join(name), b"old").unwrap();
         }
         fs::write(cloud.join("notes.txt"), b"mine").unwrap();
         let copy = home.join("koonapin.auto-20261016-090000.db");
         fs::write(&copy, b"new").unwrap();
-        copy_into(&cloud, &copy).unwrap();
+        assert_eq!(copy_into(&cloud, &copy, &ours).unwrap(), "koonapin.auto-20261016-090000.db");
         assert_eq!(fs::read(cloud.join("koonapin.auto-20261016-090000.db")).unwrap(), b"new");
         assert!(cloud.join("notes.txt").exists(), "other files stay");
         let kept = fs::read_dir(&cloud).unwrap().filter_map(Result::ok).filter(|e| backup::is_auto(&e.file_name().to_string_lossy())).count();
@@ -241,15 +275,53 @@ mod tests {
         let copy = home.join("koonapin.auto-20261016-090000.db");
         fs::write(&copy, b"new").unwrap();
         let gone = home.join("not-there");
-        assert!(copy_into(&gone, &copy).is_err());
+        assert!(copy_into(&gone, &copy, &[]).is_err());
         assert!(!gone.exists());
         let _ = fs::remove_dir_all(home);
     }
 
     #[test]
+    fn a_folder_shared_by_two_computers_keeps_the_copies_of_the_other() {
+        let home = folder("home-shared");
+        let cloud = folder("cloud-shared");
+        // The other computer's copies, one a day for two weeks, the same day as this one's too.
+        let theirs: Vec<String> = (1..=16).map(|day| format!("koonapin.auto-202610{day:02}-070000.db")).collect();
+        for name in &theirs {
+            fs::write(cloud.join(name), b"theirs").unwrap();
+        }
+        let copy = home.join("koonapin.auto-20261016-090000.db");
+        fs::write(&copy, b"new").unwrap();
+        copy_into(&cloud, &copy, &[]).unwrap();
+        for name in &theirs {
+            assert!(cloud.join(name).exists(), "{name} of the other computer stays");
+        }
+        let _ = fs::remove_dir_all(home);
+        let _ = fs::remove_dir_all(cloud);
+    }
+
+    #[test]
+    fn a_copy_cut_short_long_ago_goes_and_a_fresh_one_stays() {
+        let home = folder("home-part");
+        let cloud = folder("cloud-part");
+        let old = cloud.join("koonapin.auto-20261015-090000.db.1234.part");
+        let fresh = cloud.join("koonapin.auto-20261016-085959.db.5678.part");
+        fs::write(&old, b"half").unwrap();
+        fs::write(&fresh, b"half").unwrap();
+        let two_hours_ago = std::time::SystemTime::now() - Duration::from_secs(2 * 60 * 60);
+        fs::File::options().write(true).open(&old).unwrap().set_modified(two_hours_ago).unwrap();
+        let copy = home.join("koonapin.auto-20261016-090000.db");
+        fs::write(&copy, b"new").unwrap();
+        copy_into(&cloud, &copy, &[]).unwrap();
+        assert!(!old.exists());
+        assert!(fresh.exists(), "another copy may still be writing it");
+        let _ = fs::remove_dir_all(home);
+        let _ = fs::remove_dir_all(cloud);
+    }
+
+    #[test]
     fn the_dialog_says_unreachable_only_for_a_chosen_folder() {
-        let shown = BackupFolder::from(&Stored { folder: Some(PathBuf::from("D:/Dropbox/Koona Pin")), last_copy: None, failed: true });
+        let shown = BackupFolder::from(&Stored { folder: Some(PathBuf::from("D:/Dropbox/Koona Pin")), failed: true, ..Stored::default() });
         assert!(shown.unreachable);
-        assert!(!BackupFolder::from(&Stored { folder: None, last_copy: None, failed: true }).unreachable);
+        assert!(!BackupFolder::from(&Stored { failed: true, ..Stored::default() }).unreachable);
     }
 }

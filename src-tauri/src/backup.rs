@@ -250,7 +250,17 @@ pub fn create_auto(
 /// Removes the automatic copies in `folder` that the rule of [`expired`] no longer keeps. Other
 /// files there are never touched: the folder may be one the person shares with other things.
 pub fn prune_auto(folder: &Path) {
-    for old in expired(&auto_copies(folder)) {
+    prune_auto_among(folder, |_| true);
+}
+
+/// Like [`prune_auto`], among the automatic copies whose names `ours` accepts: a folder that several
+/// computers copy into keeps the copies of the others.
+pub fn prune_auto_among(folder: &Path, ours: impl Fn(&str) -> bool) {
+    let copies: Vec<_> = auto_copies(folder)
+        .into_iter()
+        .filter(|(path, _)| path.file_name().and_then(|name| name.to_str()).is_some_and(&ours))
+        .collect();
+    for old in expired(&copies) {
         let _ = fs::remove_file(old);
     }
 }
@@ -258,6 +268,11 @@ pub fn prune_auto(folder: &Path) {
 /// Whether a file name is one of the automatic copies.
 pub fn is_auto(name: &str) -> bool {
     auto_stamp(name).is_some()
+}
+
+/// Whether a file name is an automatic copy still being written elsewhere, `<copy>.….part`.
+pub fn is_auto_part(name: &str) -> bool {
+    name.starts_with(AUTO_PREFIX) && name.ends_with(".part")
 }
 
 /// Copies in the folder (`koonapin.*.db`, as the settings count them),

@@ -1112,8 +1112,7 @@
       "chooseAgain": "Seç…",
       "open": "Klasörü aç",
       "stop": "Buraya kopyalamayı durdur",
-      "lastToday": "son yedek bugün, {{time}}",
-      "lastOn": "son yedek {{date}}, {{time}}",
+      "last": "son yedek {{when}}",
       "none": "henüz yedek yok",
       "unreachable": "{{path}} konumuna erişilemiyor",
       "pickerTitle": "Otomatik yedekler için klasör"

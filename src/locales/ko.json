@@ -1039,8 +1039,7 @@
       "chooseAgain": "선택…",
       "open": "폴더 열기",
       "stop": "여기로 복사 중지",
-      "lastToday": "마지막 복사 오늘 {{time}}",
-      "lastOn": "마지막 복사 {{date}} {{time}}",
+      "last": "마지막 복사 {{when}}",
       "none": "아직 복사본 없음",
       "unreachable": "{{path}}에 접근할 수 없습니다",
       "pickerTitle": "자동 백업 폴더"

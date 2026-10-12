@@ -1185,8 +1185,7 @@
       "chooseAgain": "Elegir…",
       "open": "Abrir carpeta",
       "stop": "Dejar de copiar aquí",
-      "lastToday": "última copia hoy, {{time}}",
-      "lastOn": "última copia el {{date}}, {{time}}",
+      "last": "última copia {{when}}",
       "none": "aún sin copias",
       "unreachable": "No se puede acceder a {{path}}",
       "pickerTitle": "Carpeta para las copias automáticas"

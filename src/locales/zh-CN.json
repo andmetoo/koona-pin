@@ -1039,8 +1039,7 @@
       "chooseAgain": "选择…",
       "open": "打开文件夹",
       "stop": "停止复制到这里",
-      "lastToday": "上次备份 今天 {{time}}",
-      "lastOn": "上次备份 {{date}} {{time}}",
+      "last": "上次备份 {{when}}",
       "none": "尚无备份",
       "unreachable": "无法访问 {{path}}",
       "pickerTitle": "自动备份文件夹"

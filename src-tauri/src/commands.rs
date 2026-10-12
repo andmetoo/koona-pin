@@ -1109,8 +1109,9 @@ pub async fn back_up_now(app: AppHandle, library: State<'_, Arc<Library>>) -> Re
     tauri::async_runtime::spawn_blocking(move || {
         let copy = crate::library::back_up_now(&library.paths, chrono::Utc::now())
             .map_err(|error| CommandError::new(ErrorCode::DatabaseError, error))?;
-        // A Supporter's chosen folder gets this copy too (commercial/backup_folder.rs).
-        crate::commercial::backup_folder::mirror(&app, &copy);
+        // A Supporter's chosen folder gets this copy too (commercial/backup_folder.rs), without
+        // holding the button: a cloud or network folder can be slow, its row says how it went.
+        std::thread::spawn(move || crate::commercial::backup_folder::mirror(&app, &copy));
         Ok(data_summary(&library))
     })
     .await
