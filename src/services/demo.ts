@@ -126,7 +126,8 @@ let demoDownload: number | null = null;
 /**
  * Supporter (NP-066, sheet 45): `free` shows the row and the dialog, whose test payment is seen
  * after two polls; `existing` pays with the email of an account that existed before, so the payment
- * asks for the code; `supporter`, `canceling`, `past_due`, `offline` are the states of the plan
+ * asks for the code; `background` has the app see the payment before the dialog does;
+ * `later_sign_in` and `later_paid` have it see an earlier purchase while the dialog shows the plans; `supporter`, `canceling`, `past_due`, `offline` are the states of the plan
  * dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
  */
 export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
@@ -156,6 +157,7 @@ function currentDemoSupporter(): SupporterStatus {
     email: plan ? "anna@example.com" : null,
     plan,
     check_failed: kind === "offline",
+    awaiting_sign_in: false,
   };
   return demoSupporter;
 }
@@ -1296,6 +1298,18 @@ export const demo = {
     return () => void supporterListeners.delete(fn);
   },
   async getSupporterPrices(): Promise<SupporterPrices> {
+    // The app's background sees an earlier purchase while the dialog shows the plans.
+    const later = storedSupporter();
+    if (later === "later_sign_in" || later === "later_paid") {
+      window.setTimeout(() => {
+        const now = currentDemoSupporter();
+        setDemoSupporter(
+          later === "later_sign_in"
+            ? { ...now, awaiting_sign_in: true }
+            : { ...now, email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false },
+        );
+      }, 800);
+    }
     await new Promise((resolve) => setTimeout(resolve, 200));
     noServer();
     return {
@@ -1312,8 +1326,14 @@ export const demo = {
   async openCheckout(_url: string) {},
   async pollCheckout(): Promise<CheckoutState> {
     if (++demoPolls < 3) return "waiting";
-    if (storedSupporter() === "existing") return "sign_in";
+    if (storedSupporter() === "existing") {
+      // Kept until the code signs in, as billing.rs keeps awaiting_sign_in.
+      setDemoSupporter({ ...currentDemoSupporter(), awaiting_sign_in: true });
+      return "sign_in";
+    }
     setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false });
+    // The app's own background check saw the payment first: the purchase is gone, the plan is here.
+    if (storedSupporter() === "background") return "none";
     return "paid";
   },
   async refreshSupporter(): Promise<SupporterStatus> {
@@ -1333,11 +1353,11 @@ export const demo = {
   async verifySignInCode(email: string, code: string): Promise<SupporterStatus> {
     await new Promise((resolve) => setTimeout(resolve, 300));
     if (code.replace(/\D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
-    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false });
+    setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
   async signOutSupporter(): Promise<SupporterStatus> {
-    setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false });
+    setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
 };

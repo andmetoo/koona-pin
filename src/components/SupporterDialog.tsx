@@ -33,6 +33,8 @@ const PERKS = ["sync", "backups", "badge", "early"] as const;
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
 
 type Step = "plans" | "waiting" | "thanks" | "signIn";
+/** Steps where the dialog has not heard how the payment ended. */
+const unanswered = (s: Step) => s === "plans" || s === "waiting";
 
 /**
  * «Support Koona Pin» (NP-066, sheet 45): the plan → the payment in the browser → thank you, one
@@ -42,17 +44,34 @@ type Step = "plans" | "waiting" | "thanks" | "signIn";
 export function SupporterDialog({
   sandbox,
   email,
+  awaitingSignIn = false,
+  paid = false,
   onClose,
   onSignIn,
 }: {
   sandbox: boolean;
   email: string | null;
+  /** A payment here went through for an existing account: open on «Payment received». */
+  awaitingSignIn?: boolean;
+  /** This computer has the plan: when it arrives while the dialog is open, the dialog thanks. */
+  paid?: boolean;
   onClose: () => void;
   /** «I'm already a Supporter»: the sign-in dialog instead of this one. */
   onSignIn: () => void;
 }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<Step>("plans");
+  const [step, setStep] = useState<Step>(awaitingSignIn ? "signIn" : "plans");
+  // The app follows a purchase by itself (billing.rs, start) and may see it before this dialog
+  // asks: what it found moves the open dialog on, from the plans or the waiting step.
+  useEffect(() => {
+    if (awaitingSignIn) setStep((s) => (unanswered(s) ? "signIn" : s));
+  }, [awaitingSignIn]);
+  const paidAtOpen = useRef(paid);
+  useEffect(() => {
+    if (!paid || paidAtOpen.current) return;
+    setPaidEmail(email);
+    setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
+  }, [paid, email]);
   const [interval, setPlan] = useState<PlanInterval>("year");
   const [prices, setPrices] = useState<SupporterPrices | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +90,9 @@ export function SupporterDialog({
     };
   }, []);
 
-  // The payment step asks every few seconds; closing the dialog or leaving the step stops it. A
-  // payment finished after that is picked up at the next start of the app.
+  // The payment step asks every few seconds; closing the dialog or leaving the step stops it. The
+  // app keeps following the purchase by itself, less often (billing.rs, start), and signs in when
+  // it sees the payment.
   useEffect(() => {
     if (step !== "waiting") return;
     let alive = true;
@@ -87,7 +107,16 @@ export function SupporterDialog({
           } else if (state === "sign_in") {
             setStep("signIn");
           } else if (state === "none") {
-            setStep("plans");
+            // The app follows the payment by itself too (billing.rs): when it was first to see it
+            // paid, the purchase is gone here but the plan is already in place.
+            const status = await api.getSupporterStatus();
+            if (!alive) return;
+            if (status.plan) {
+              setPaidEmail(status.email);
+              setStep("thanks");
+            } else {
+              setStep("plans");
+            }
           }
         })
         .catch(() => {});

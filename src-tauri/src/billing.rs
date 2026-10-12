@@ -34,6 +34,15 @@ const CHECK_EVERY: TimeDelta = TimeDelta::days(1);
 const GRACE: TimeDelta = TimeDelta::days(7);
 /// A purchase started but not seen paid is forgotten after this.
 const CLAIM_LIFETIME: TimeDelta = TimeDelta::days(2);
+/// Purchases waiting at once: one per plan is the usual case, a few more cover going back and forth.
+const MAX_CHECKOUTS: usize = 4;
+/// How often the app asks about a purchase waiting here, by the age of the newest one: often while
+/// the payment page is likely open, then rarely until CLAIM_LIFETIME. Never without one.
+const CLAIM_EVERY: [(TimeDelta, Duration); 3] = [
+    (TimeDelta::minutes(30), Duration::from_secs(15)),
+    (TimeDelta::hours(3), Duration::from_secs(60)),
+    (CLAIM_LIFETIME, Duration::from_secs(10 * 60)),
+];
 const TICK: Duration = Duration::from_secs(60 * 60);
 
 #[derive(Debug, Clone, Copy)]
@@ -109,9 +118,106 @@ struct Stored {
     checked_at: Option<DateTime<Utc>>,
     #[serde(default)]
     check_failed: bool,
-    /// The secret of a purchase started here and not seen paid yet.
+    /// Purchases started here and not seen paid yet, oldest first. Starting another never drops
+    /// one: a payment finished in an older browser tab is still picked up.
+    #[serde(default)]
+    checkouts: Vec<Checkout>,
+    /// A purchase here went through with the email of an account that existed before: the plan
+    /// is that account's, and this computer signs in with the code from the email. Kept until it
+    /// does, so the dialog says so whenever it is opened, whoever saw the payment first.
+    #[serde(default)]
+    awaiting_sign_in: bool,
+    /// The first builds (0.8.0) kept a single purchase; read once and moved into `checkouts`.
+    #[serde(default, skip_serializing)]
     claim: Option<String>,
+    #[serde(default, skip_serializing)]
     claim_started: Option<DateTime<Utc>>,
+}
+
+/// A purchase started here: the secret the server knows by its hash, and the payment page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct Checkout {
+    secret: String,
+    started: DateTime<Utc>,
+    /// None for a purchase kept by 0.8.0, which did not record it.
+    interval: Option<PlanInterval>,
+    url: Option<String>,
+}
+
+impl Stored {
+    /// The single purchase of 0.8.0 as the first of the list.
+    fn migrate(&mut self) {
+        if let Some(secret) = self.claim.take() {
+            let started = self.claim_started.take().unwrap_or_else(Utc::now);
+            self.checkouts.insert(0, Checkout { secret, started, interval: None, url: None });
+        }
+    }
+
+    /// Drops purchases too old to be paid now.
+    fn forget_old(&mut self, now: DateTime<Utc>) {
+        self.checkouts.retain(|c| now - c.started <= CLAIM_LIFETIME);
+    }
+
+    /// A purchase of this plan still waiting, to open again instead of a second payment.
+    fn waiting(&self, interval: PlanInterval, now: DateTime<Utc>) -> Option<&Checkout> {
+        self.checkouts.iter().rev().find(|c| c.interval == Some(interval) && c.url.is_some() && now - c.started <= CLAIM_LIFETIME)
+    }
+
+    fn add_checkout(&mut self, checkout: Checkout) {
+        self.checkouts.push(checkout);
+        let extra = self.checkouts.len().saturating_sub(MAX_CHECKOUTS);
+        self.checkouts.drain(..extra);
+    }
+
+    /// Signed in by a paid purchase: that one is done; the others started here keep waiting, a
+    /// payment in their tabs is still picked up. Only while the purchase is still here: an answer
+    /// that arrives after Sign out (which forgets every purchase) changes nothing. False then.
+    fn signed_in_by(&mut self, secret: &str, session: Session, plan: Option<Plan>, now: DateTime<Utc>) -> bool {
+        if !self.checkouts.iter().any(|c| c.secret == secret) {
+            return false;
+        }
+        self.session = Some(session);
+        self.plan = plan;
+        self.checked_at = Some(now);
+        self.check_failed = false;
+        self.awaiting_sign_in = false;
+        self.checkouts.retain(|c| c.secret != secret);
+        true
+    }
+
+    /// Paid with the email of an account that existed before: done here, sign in by code. Only
+    /// while the purchase is still here, as `signed_in_by`.
+    fn paid_for_existing_account(&mut self, secret: &str) {
+        if self.checkouts.iter().any(|c| c.secret == secret) {
+            self.checkouts.retain(|c| c.secret != secret);
+            self.awaiting_sign_in = true;
+        }
+    }
+
+    /// What the payment step shows when no purchase here is paid now.
+    fn settled(&self) -> CheckoutState {
+        if self.awaiting_sign_in && self.session.is_none() {
+            CheckoutState::SignIn
+        } else if self.checkouts.is_empty() {
+            CheckoutState::None
+        } else {
+            CheckoutState::Waiting
+        }
+    }
+
+    /// The account a request was made for is still the one here: an answer that comes after Sign
+    /// out, or after another account signed in, changes nothing.
+    fn same_account(&self, email: &str) -> bool {
+        self.session.as_ref().is_some_and(|s| s.email == email)
+    }
+
+    /// When the background asks next: about the purchases waiting here, else the hourly tick.
+    fn next_wake(&self, now: DateTime<Utc>) -> Duration {
+        let Some(newest) = self.checkouts.iter().map(|c| c.started).max() else {
+            return TICK;
+        };
+        CLAIM_EVERY.iter().find(|(age, _)| now - newest < *age).map_or(TICK, |(_, every)| *every)
+    }
 }
 
 /// What the sidebar, the dialog and Settings → Plan show.
@@ -126,6 +232,9 @@ pub struct SupporterStatus {
     pub plan: Option<Plan>,
     /// The paid period is over and the server could not say whether it renewed.
     pub check_failed: bool,
+    /// A payment went through with the email of an existing account: the purchase dialog opens on
+    /// «Payment received» and its sign-in by code.
+    pub awaiting_sign_in: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -183,6 +292,7 @@ fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
         email: stored.session.as_ref().map(|s| s.email.clone()),
         check_failed: stored.check_failed && plan.as_ref().is_some_and(|p| now >= p.valid_until),
         plan,
+        awaiting_sign_in: stored.awaiting_sign_in && stored.session.is_none(),
     }
 }
 
@@ -194,6 +304,11 @@ fn new_secret() -> String {
 pub struct Billing {
     path: PathBuf,
     stored: Mutex<Stored>,
+    /// Wakes the background when a purchase starts, so it asks about it after the dialog closes.
+    wake: tokio::sync::Notify,
+    /// One `claim` at a time, network included, for the dialog, the background and Sign out: two
+    /// asks at once would let a «taken» answer drop the purchase whose «paid» is still on its way.
+    claiming: tokio::sync::Mutex<()>,
 }
 
 impl Billing {
@@ -202,40 +317,52 @@ impl Billing {
             .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
             .unwrap_or_default();
+        stored.migrate();
         // An account of the other environment is not this build's.
         if service().is_some_and(|s| s.sandbox != stored.sandbox) {
             stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
         }
-        Billing { path, stored: Mutex::new(stored) }
+        Billing { path, stored: Mutex::new(stored), wake: tokio::sync::Notify::new(), claiming: tokio::sync::Mutex::new(()) }
     }
 
     fn get(&self) -> Stored {
         self.stored.lock().map(|s| s.clone()).unwrap_or_default()
     }
 
-    /// Changes the stored state, writes the file and tells the interface.
+    /// Changes the stored state, writes the file and tells the interface. The lock is held until
+    /// the file is written: two updates at once (a background check and Sign out) are written in
+    /// the order they changed the state, and never share the temporary file. A write that fails
+    /// leaves the state in memory as it was.
     fn update(&self, app: &AppHandle, change: impl FnOnce(&mut Stored)) -> Result<SupporterStatus, CommandError> {
-        let stored = {
-            let mut stored = self.stored.lock().map_err(CommandError::internal)?;
-            change(&mut stored);
-            stored.clone()
-        };
+        let status = status(&self.apply(change)?, Utc::now());
+        let _ = app.emit(EVENT, status.clone());
+        Ok(status)
+    }
+
+    fn apply(&self, change: impl FnOnce(&mut Stored)) -> Result<Stored, CommandError> {
+        let mut stored = self.stored.lock().map_err(CommandError::internal)?;
+        let mut next = stored.clone();
+        change(&mut next);
+        self.write(&next)?;
+        *stored = next;
+        Ok(stored.clone())
+    }
+
+    fn write(&self, stored: &Stored) -> Result<(), CommandError> {
         if let Some(folder) = self.path.parent() {
             std::fs::create_dir_all(folder).map_err(CommandError::internal)?;
         }
-        let text = serde_json::to_string_pretty(&stored).map_err(CommandError::internal)?;
+        let text = serde_json::to_string_pretty(stored).map_err(CommandError::internal)?;
         // Through a temporary file: a crash mid-write never leaves half an account.
         let temporary = self.path.with_extension("json.tmp");
         std::fs::write(&temporary, text).map_err(CommandError::internal)?;
-        std::fs::rename(&temporary, &self.path).map_err(CommandError::internal)?;
-        let status = status(&stored, Utc::now());
-        let _ = app.emit(EVENT, status.clone());
-        Ok(status)
+        std::fs::rename(&temporary, &self.path).map_err(CommandError::internal)
     }
 }
 
 /// Called in `setup`: loads the account and asks the server only when a check is due or a
-/// purchase was left waiting.
+/// purchase is waiting. A purchase is followed here whether its dialog is open or not, and a
+/// failed request is simply asked again at the next wake.
 pub fn start(app: &AppHandle) {
     let path = crate::library::Paths::from_env().folder().join(FILE);
     app.manage(Billing::load(path));
@@ -246,14 +373,18 @@ pub fn start(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(15)).await;
         let billing = app.state::<Billing>();
-        if billing.get().claim.is_some() {
-            let _ = claim(&app).await;
-        }
         loop {
-            if due(&app.state::<Billing>().get(), Utc::now()) {
+            if !billing.get().checkouts.is_empty() {
+                let _ = claim(&app).await;
+            }
+            if due(&billing.get(), Utc::now()) {
                 let _ = check(&app).await;
             }
-            tokio::time::sleep(TICK).await;
+            let wait = billing.get().next_wake(Utc::now());
+            tokio::select! {
+                _ = tokio::time::sleep(wait) => {}
+                _ = billing.wake.notified() => {}
+            }
         }
     });
 }
@@ -333,19 +464,35 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
         return Ok(Some(session.access_token));
     }
     let (status, value) = auth(app, "token?grant_type=refresh_token", json!({ "refresh_token": session.refresh_token })).await?;
+    // Only the session this refresh was for: Sign out or another sign-in meanwhile wins.
+    let same = |s: &Stored| s.session.as_ref().is_some_and(|now| now.refresh_token == session.refresh_token);
     if status.is_client_error() {
-        billing.update(app, |s| s.session = None)?;
+        billing.update(app, |s| {
+            if same(s) {
+                s.session = None;
+            }
+        })?;
         return Ok(None);
     }
     let fresh = session_of(&value).ok_or_else(|| refused("auth refresh", status))?;
     let token = fresh.access_token.clone();
-    billing.update(app, |s| s.session = Some(fresh))?;
-    Ok(Some(token))
+    let mut kept = false;
+    billing.update(app, |s| {
+        if same(s) {
+            s.session = Some(fresh);
+            kept = true;
+        }
+    })?;
+    Ok(kept.then_some(token))
 }
 
 /// Asks for the plan of the signed-in account; marks the check failed when the server is away.
+/// The answer counts only for the account it was asked for: after Sign out it changes nothing.
 async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
     let billing = app.state::<Billing>();
+    let Some(email) = billing.get().session.map(|s| s.email) else {
+        return Ok(status(&billing.get(), Utc::now()));
+    };
     let result = async {
         let Some(token) = access_token(app).await? else {
             return Ok(None);
@@ -358,66 +505,87 @@ async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
         Ok(Some((status, value))) if status.is_success() => {
             let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
             billing.update(app, |s| {
-                s.plan = plan;
-                s.checked_at = Some(Utc::now());
-                s.check_failed = false;
+                if s.same_account(&email) {
+                    s.plan = plan;
+                    s.checked_at = Some(Utc::now());
+                    s.check_failed = false;
+                }
             })
         }
         // Signed out elsewhere: the plan stays until its period ends, as when offline.
-        Ok(_) => billing.update(app, |s| s.checked_at = Some(Utc::now())),
+        Ok(_) => billing.update(app, |s| {
+            if s.same_account(&email) || s.session.is_none() {
+                s.checked_at = Some(Utc::now());
+            }
+        }),
         Err(error) => {
             billing.update(app, |s| {
-                s.checked_at = Some(Utc::now());
-                s.check_failed = true;
+                if s.same_account(&email) {
+                    s.checked_at = Some(Utc::now());
+                    s.check_failed = true;
+                }
             })?;
             Err(error)
         }
     }
 }
 
-/// Trades the stored purchase secret for a session once the payment is seen.
+/// Asks about every purchase started here and trades the first one seen paid for a session.
 async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
     let billing = app.state::<Billing>();
-    let stored = billing.get();
-    let Some(secret) = stored.claim.clone() else {
-        return Ok(CheckoutState::None);
-    };
-    if stored.claim_started.is_some_and(|at| Utc::now() - at > CLAIM_LIFETIME) {
+    let _one_at_a_time = billing.claiming.lock().await;
+    let now = Utc::now();
+    if billing.get().checkouts.iter().any(|c| now - c.started > CLAIM_LIFETIME) {
+        billing.update(app, |s| s.forget_old(now))?;
+    }
+    let checkouts = billing.get().checkouts;
+    if checkouts.is_empty() {
+        return Ok(billing.get().settled());
+    }
+    // Every answer is applied under the lock and only to a purchase still here: Sign out, or the
+    // dialog and the background asking at once, never let a late answer undo what came after.
+    let mut finished: Vec<String> = Vec::new();
+    let mut for_existing: Vec<String> = Vec::new();
+    let mut answered = false;
+    let mut failure = None;
+    for checkout in &checkouts {
+        let (status, value) = match call(app, json!({ "action": "claim", "claim": checkout.secret }), None).await {
+            Ok(answer) => answer,
+            Err(error) => {
+                failure.get_or_insert(error);
+                continue;
+            }
+        };
+        answered = true;
+        if status.as_u16() == 404 || value["status"] == "taken" {
+            finished.push(checkout.secret.clone());
+        } else if value["status"] == "sign_in" {
+            for_existing.push(checkout.secret.clone());
+        } else if value["status"] == "paid" {
+            let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
+            let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
+            let mut signed_in = false;
+            billing.update(app, |s| {
+                signed_in = s.signed_in_by(&checkout.secret, session, plan, Utc::now());
+                s.checkouts.retain(|c| !finished.contains(&c.secret));
+            })?;
+            if signed_in {
+                return Ok(CheckoutState::Paid);
+            }
+        }
+    }
+    if !finished.is_empty() || !for_existing.is_empty() {
         billing.update(app, |s| {
-            s.claim = None;
-            s.claim_started = None;
+            for secret in &for_existing {
+                s.paid_for_existing_account(secret);
+            }
+            s.checkouts.retain(|c| !finished.contains(&c.secret));
         })?;
-        return Ok(CheckoutState::None);
     }
-    let (status, value) = call(app, json!({ "action": "claim", "claim": secret }), None).await?;
-    let done = if status.as_u16() == 404 || value["status"] == "taken" {
-        Some(CheckoutState::None)
-    } else if value["status"] == "sign_in" {
-        Some(CheckoutState::SignIn)
-    } else {
-        None
-    };
-    if let Some(state) = done {
-        billing.update(app, |s| {
-            s.claim = None;
-            s.claim_started = None;
-        })?;
-        return Ok(state);
+    match failure {
+        Some(error) if !answered => Err(error),
+        _ => Ok(billing.get().settled()),
     }
-    if value["status"] != "paid" {
-        return Ok(CheckoutState::Waiting);
-    }
-    let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
-    let plan = serde_json::from_value::<Option<Plan>>(value["plan"].clone()).unwrap_or(None);
-    billing.update(app, |s| {
-        s.session = Some(session);
-        s.plan = plan;
-        s.checked_at = Some(Utc::now());
-        s.check_failed = false;
-        s.claim = None;
-        s.claim_started = None;
-    })?;
-    Ok(CheckoutState::Paid)
 }
 
 fn open(app: &AppHandle, url: &str) -> Result<(), CommandError> {
@@ -448,21 +616,26 @@ pub async fn get_supporter_prices(app: AppHandle) -> Result<SupporterPrices, Com
 }
 
 /// «Continue»: a Paddle transaction for this copy of the app, opened in the browser; its address,
-/// for «Open the page again».
+/// for «Open the page again». A purchase of the same plan still waiting is opened again instead
+/// of a second one; one of the other plan stays and is still asked about.
 #[tauri::command]
 pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<String, CommandError> {
+    let billing = app.state::<Billing>();
+    if let Some(url) = billing.get().waiting(interval, Utc::now()).and_then(|c| c.url.clone()) {
+        open(&app, &url)?;
+        return Ok(url);
+    }
     let secret = new_secret();
     let token = access_token(&app).await.unwrap_or(None);
-    let interval = match interval {
+    let name = match interval {
         PlanInterval::Month => "month",
         PlanInterval::Year => "year",
     };
-    let (status, value) = call(&app, json!({ "action": "checkout", "interval": interval, "claim": secret }), token.as_deref()).await?;
+    let (status, value) = call(&app, json!({ "action": "checkout", "interval": name, "claim": secret }), token.as_deref()).await?;
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing checkout", status))?.to_string();
-    app.state::<Billing>().update(&app, |s| {
-        s.claim = Some(secret);
-        s.claim_started = Some(Utc::now());
-    })?;
+    let checkout = Checkout { secret, started: Utc::now(), interval: Some(interval), url: Some(url.clone()) };
+    billing.update(&app, |s| s.add_checkout(checkout))?;
+    billing.wake.notify_one();
     open(&app, &url)?;
     Ok(url)
 }
@@ -529,6 +702,7 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
     app.state::<Billing>().update(&app, |s| {
         s.session = Some(session);
         s.checked_at = None;
+        s.awaiting_sign_in = false;
     })?;
     check(&app).await
 }
@@ -538,11 +712,12 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
 pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, CommandError> {
     let billing = app.state::<Billing>();
     if let Some(session) = billing.get().session {
-        // Best effort: the refresh token stops working on the server too.
+        // Best effort: this computer's refresh token stops working on the server too. Only this
+        // one: Supabase's default scope, global, would sign out the person's other computers.
         if let Ok(service) = need_service() {
             if let Ok(client) = client(&app) {
                 let _ = client
-                    .post(format!("{}/auth/v1/logout", service.url))
+                    .post(format!("{}/auth/v1/logout?scope=local", service.url))
                     .header("apikey", service.key)
                     .bearer_auth(session.access_token)
                     .send()
@@ -550,6 +725,9 @@ pub async fn sign_out_supporter(app: AppHandle) -> Result<SupporterStatus, Comma
             }
         }
     }
+    // After a claim already asking: what it signs in is signed out here, and one starting later
+    // finds no purchase.
+    let _one_at_a_time = billing.claiming.lock().await;
     billing.update(&app, |s| *s = Stored { sandbox: s.sandbox, ..Stored::default() })
 }
 
@@ -620,5 +798,127 @@ mod tests {
         .unwrap();
         assert_eq!(plan.status, PlanStatus::Canceling);
         assert_eq!(plan.renews_at, None);
+    }
+
+    fn checkout(secret: &str, started: &str, interval: PlanInterval) -> Checkout {
+        Checkout { secret: secret.into(), started: at(started), interval: Some(interval), url: Some(format!("https://koona.app/pin/checkout/?_ptxn={secret}")) }
+    }
+
+    #[test]
+    fn a_new_purchase_keeps_the_ones_still_waiting() {
+        let now = at("2026-10-12T12:00:00Z");
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        // The same plan again opens the same payment, not a second one.
+        assert_eq!(stored.waiting(PlanInterval::Year, now).map(|c| c.secret.as_str()), Some("year1"));
+        // Another plan is a new purchase; the first stays, so a payment in its tab is still seen.
+        assert!(stored.waiting(PlanInterval::Month, now).is_none());
+        stored.add_checkout(checkout("month1", "2026-10-12T11:30:00Z", PlanInterval::Month));
+        assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["year1", "month1"]);
+        // Too old to be paid now: forgotten.
+        stored.forget_old(at("2026-10-14T11:15:00Z"));
+        assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
+        assert!(stored.waiting(PlanInterval::Month, at("2026-10-15T00:00:00Z")).is_none());
+        for i in 0..6 {
+            stored.add_checkout(checkout(&format!("extra{i}"), "2026-10-14T12:00:00Z", PlanInterval::Year));
+        }
+        assert_eq!(stored.checkouts.len(), MAX_CHECKOUTS);
+        assert_eq!(stored.checkouts.last().unwrap().secret, "extra5");
+    }
+
+    #[test]
+    fn a_paid_purchase_signs_in_and_leaves_the_others_waiting() {
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        stored.add_checkout(checkout("month1", "2026-10-12T11:05:00Z", PlanInterval::Month));
+        let session = supporter("2027-10-12T11:00:00Z").session.unwrap();
+        assert!(stored.signed_in_by("year1", session.clone(), None, at("2026-10-12T11:10:00Z")));
+        assert!(stored.same_account("anna@example.com"));
+        assert_eq!(stored.checkouts.iter().map(|c| c.secret.as_str()).collect::<Vec<_>>(), ["month1"]);
+        assert_eq!(stored.settled(), CheckoutState::Waiting, "month1 is still followed");
+        // Sign out forgets every purchase: a «paid» that arrives after it signs nobody in.
+        let mut signed_out = Stored { sandbox: stored.sandbox, ..Stored::default() };
+        assert!(!signed_out.signed_in_by("month1", session, None, at("2026-10-12T11:20:00Z")));
+        assert!(signed_out.session.is_none());
+        assert_eq!(signed_out.settled(), CheckoutState::None);
+    }
+
+    #[test]
+    fn a_payment_for_an_existing_account_waits_for_the_code_whoever_saw_it() {
+        let mut stored = Stored::default();
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        stored.paid_for_existing_account("year1");
+        assert!(stored.checkouts.is_empty());
+        // The background saw it: the dialog's next ask, and a dialog opened later, still say so.
+        assert_eq!(stored.settled(), CheckoutState::SignIn);
+        assert_eq!(stored.settled(), CheckoutState::SignIn);
+        assert!(status(&stored, at("2026-10-12T11:10:00Z")).awaiting_sign_in);
+        // A late answer for a purchase gone after Sign out sets nothing.
+        let mut signed_out = Stored::default();
+        signed_out.paid_for_existing_account("year1");
+        assert_eq!(signed_out.settled(), CheckoutState::None);
+        // Signed in by the code: done.
+        stored.session = supporter("2027-10-12T11:00:00Z").session;
+        assert_eq!(stored.settled(), CheckoutState::None);
+        assert!(!status(&stored, at("2026-10-12T11:20:00Z")).awaiting_sign_in);
+    }
+
+    #[test]
+    fn an_answer_for_an_account_that_left_changes_nothing() {
+        let stored = supporter("2027-10-11T12:00:00Z");
+        assert!(stored.same_account("anna@example.com"));
+        assert!(!stored.same_account("bob@example.com"), "another account signed in meanwhile");
+        assert!(!Stored::default().same_account("anna@example.com"), "signed out meanwhile");
+    }
+
+    #[test]
+    fn a_waiting_purchase_is_followed_often_at_first_then_rarely_and_never_without_one() {
+        let mut stored = Stored::default();
+        assert_eq!(stored.next_wake(at("2026-10-12T12:00:00Z")), TICK);
+        stored.add_checkout(checkout("year1", "2026-10-12T12:00:00Z", PlanInterval::Year));
+        assert_eq!(stored.next_wake(at("2026-10-12T12:10:00Z")), Duration::from_secs(15));
+        assert_eq!(stored.next_wake(at("2026-10-12T13:00:00Z")), Duration::from_secs(60));
+        assert_eq!(stored.next_wake(at("2026-10-13T12:00:00Z")), Duration::from_secs(600));
+        assert_eq!(stored.next_wake(at("2026-10-14T13:00:00Z")), TICK, "past its lifetime");
+    }
+
+    #[test]
+    fn the_purchase_kept_by_0_8_0_is_still_asked_about() {
+        let file = json!({ "sandbox": true, "claim": "old", "claim_started": "2026-10-11T12:00:00Z" });
+        let mut stored: Stored = serde_json::from_value(file).unwrap();
+        stored.migrate();
+        assert_eq!(stored.checkouts, [Checkout { secret: "old".into(), started: at("2026-10-11T12:00:00Z"), interval: None, url: None }]);
+        // Its plan is unknown: Continue makes a new purchase rather than guess.
+        assert!(stored.waiting(PlanInterval::Year, at("2026-10-11T13:00:00Z")).is_none());
+        let written = serde_json::to_value(&stored).unwrap();
+        assert!(written.get("claim").is_none() && written.get("claim_started").is_none());
+    }
+
+    #[test]
+    fn updates_are_written_one_at_a_time_and_a_failed_write_changes_nothing() {
+        let folder = std::env::temp_dir().join(format!("koonapin-billing-{}", new_secret()));
+        let billing = std::sync::Arc::new(Billing::load(folder.join(FILE)));
+        let threads: Vec<_> = (0..8)
+            .map(|i| {
+                let billing = billing.clone();
+                std::thread::spawn(move || {
+                    for j in 0..20 {
+                        billing.apply(|s| s.add_checkout(checkout(&format!("{i}-{j}"), "2026-10-12T12:00:00Z", PlanInterval::Year))).unwrap();
+                    }
+                })
+            })
+            .collect();
+        threads.into_iter().for_each(|t| t.join().unwrap());
+        // The file holds exactly the state in memory: the last update wins on disk as in memory.
+        let on_disk: Stored = serde_json::from_str(&std::fs::read_to_string(folder.join(FILE)).unwrap()).unwrap();
+        assert_eq!(on_disk.checkouts, billing.get().checkouts);
+        assert!(!folder.join("account.json.tmp").exists());
+        // A write that cannot happen leaves the state as it was.
+        std::fs::remove_file(folder.join(FILE)).unwrap();
+        std::fs::create_dir(folder.join(FILE)).unwrap();
+        let before = billing.get().checkouts;
+        assert!(billing.apply(|s| s.checkouts.clear()).is_err());
+        assert_eq!(billing.get().checkouts, before);
+        let _ = std::fs::remove_dir_all(&folder);
     }
 }

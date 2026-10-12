@@ -16,4 +16,9 @@ sandbox: boolean, email: string | null, plan: Plan | null,
 /**
  * The paid period is over and the server could not say whether it renewed.
  */
-check_failed: boolean, };
+check_failed: boolean, 
+/**
+ * A payment went through with the email of an existing account: the purchase dialog opens on
+ * «Payment received» and its sign-in by code.
+ */
+awaiting_sign_in: boolean, };

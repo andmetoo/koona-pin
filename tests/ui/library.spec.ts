@@ -2284,8 +2284,42 @@ test("Supporter: a payment with the email of an existing account signs in only w
   await expect(paid).toContainText("already has a Koona Pin account", { timeout: 15_000 });
   expect(Math.round((await paid.boundingBox())!.height)).toBe(height);
   await expect(row).toHaveAttribute("data-plan-row", "free");
-  await paid.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Sign in as a Supporter" })).toBeVisible();
+  // Closed with «Not now», the payment is not forgotten: Support opens on it again.
+  await paid.getByRole("button", { name: "Not now" }).click();
+  await row.click();
+  const again = page.getByRole("dialog", { name: "Payment received" });
+  await expect(again).toContainText("already has a Koona Pin account");
+  await again.getByRole("button", { name: "Sign in", exact: true }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  await signIn.getByLabel("Email").fill("anna@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(row).toHaveAttribute("data-plan-row", "supporter");
+});
+
+test("Supporter: a payment the app saw first in the background still ends in thanks (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "background"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toContainText("anna@example.com", { timeout: 15_000 });
+  await expect(page.locator("[data-plan-row]")).toHaveAttribute("data-plan-row", "supporter");
+});
+
+test("Supporter: what the app finds by itself moves an open dialog on (NP-066)", async ({ page }) => {
+  for (const [kind, title] of [
+    ["later_sign_in", "Payment received"],
+    ["later_paid", "Thank you for supporting Koona Pin"],
+  ] as const) {
+    await page.evaluate((k) => localStorage.setItem("koonapin.demo.supporter", k), kind);
+    await page.reload();
+    await page.locator("[data-plan-row]").click();
+    await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toBeVisible();
+    // No click: the background's finding arrives as a status event.
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+  }
 });
 
 test("Supporter: the server cannot be reached — the dialog says so and keeps the plan chosen (NP-066)", async ({ page }) => {
