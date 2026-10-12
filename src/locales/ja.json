@@ -1031,6 +1031,19 @@
       "badgeHint": "サイドバーのハート、季節の色で",
       "early": "早期ビルド",
       "earlyHint": "新しいバージョンを少し早く"
+    },
+    "folder": {
+      "hint": "Dropbox や Google ドライブなど",
+      "choose": "フォルダーを選択…",
+      "change": "変更…",
+      "chooseAgain": "選択…",
+      "open": "フォルダーを開く",
+      "stop": "ここへのコピーを停止",
+      "lastToday": "最終コピー 今日 {{time}}",
+      "lastOn": "最終コピー {{date}} {{time}}",
+      "none": "まだコピーなし",
+      "unreachable": "{{path}} にアクセスできません",
+      "pickerTitle": "自動バックアップのフォルダー"
     }
   },
   "plan": {

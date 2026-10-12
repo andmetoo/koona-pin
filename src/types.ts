@@ -84,6 +84,7 @@ export type { Plan } from "./bindings/Plan";
 export type { PlanInterval } from "./bindings/PlanInterval";
 export type { PlanStatus } from "./bindings/PlanStatus";
 export type { CheckoutState } from "./bindings/CheckoutState";
+export type { BackupFolder } from "./bindings/BackupFolder";
 
 export type ViewMode = "grid" | "list";
 

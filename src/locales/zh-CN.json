@@ -1031,6 +1031,19 @@
       "badgeHint": "侧边栏中的心形，随季节变色",
       "early": "抢先版本",
       "earlyHint": "比其他人稍早获得新版本"
+    },
+    "folder": {
+      "hint": "例如 Dropbox 或 Google 云端硬盘",
+      "choose": "选择文件夹…",
+      "change": "更改…",
+      "chooseAgain": "选择…",
+      "open": "打开文件夹",
+      "stop": "停止复制到这里",
+      "lastToday": "上次备份 今天 {{time}}",
+      "lastOn": "上次备份 {{date}} {{time}}",
+      "none": "尚无备份",
+      "unreachable": "无法访问 {{path}}",
+      "pickerTitle": "自动备份文件夹"
     }
   },
   "plan": {

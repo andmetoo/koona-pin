@@ -275,6 +275,11 @@ fn effective(stored: &Stored, now: DateTime<Utc>) -> Option<Plan> {
     stored.plan.clone().filter(|plan| now < plan.valid_until + GRACE)
 }
 
+/// This computer has Supporter now, as the app shows it: what the paid features check.
+pub fn has_plan(app: &AppHandle) -> bool {
+    service().is_some() && app.try_state::<Billing>().is_some_and(|billing| effective(&billing.get(), Utc::now()).is_some())
+}
+
 /// One check a day in the last days of the period, for a signed-in Supporter.
 fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
     let (Some(_), Some(plan)) = (&stored.session, &stored.plan) else {

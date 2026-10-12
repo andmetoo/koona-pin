@@ -51,6 +51,7 @@ import {
   SupporterPrices,
   PlanInterval,
   CheckoutState,
+  BackupFolder,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
@@ -166,6 +167,27 @@ function setDemoSupporter(status: SupporterStatus) {
   supporterListeners.forEach((fn) => fn(status));
 }
 let demoPolls = 0;
+
+/** Backups to a folder (commercial/backup_folder.rs): `koonapin.demo.backupFolder` = `unreachable` starts with a folder that cannot be reached. */
+const folderListeners = new Set<(folder: BackupFolder) => void>();
+let demoFolder: BackupFolder | null = null;
+function currentDemoFolder(): BackupFolder {
+  let kind: string | null = null;
+  try {
+    kind = localStorage.getItem("koonapin.demo.backupFolder");
+  } catch {
+    kind = null;
+  }
+  demoFolder ??=
+    kind === "unreachable"
+      ? { path: "D:\\Dropbox\\Koona Pin", last_copy_at: inDays(-3), unreachable: true }
+      : { path: null, last_copy_at: null, unreachable: false };
+  return demoFolder;
+}
+function setDemoFolder(folder: BackupFolder) {
+  demoFolder = folder;
+  folderListeners.forEach((fn) => fn(folder));
+}
 const noServer = () => {
   if (storedSupporter() === "no_server") throw new CommandError("network", "No connection", "no_connection");
 };
@@ -1356,6 +1378,24 @@ export const demo = {
     setDemoSupporter({ ...currentDemoSupporter(), email: email.trim(), plan: demoPlan("supporter"), check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
+  async getBackupFolder(): Promise<BackupFolder> {
+    return currentDemoFolder();
+  },
+  onBackupFolder(fn: (folder: BackupFolder) => void) {
+    folderListeners.add(fn);
+    return () => void folderListeners.delete(fn);
+  },
+  /** The preview's «picker» chooses a Dropbox folder at once and makes the first copy there. */
+  async chooseBackupFolder(_title: string): Promise<BackupFolder> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    setDemoFolder({ path: "D:\\Dropbox\\Koona Pin", last_copy_at: new Date().toISOString(), unreachable: false });
+    return currentDemoFolder();
+  },
+  async stopBackupFolder(): Promise<BackupFolder> {
+    setDemoFolder({ path: null, last_copy_at: null, unreachable: false });
+    return currentDemoFolder();
+  },
+  async openBackupFolder() {},
   async signOutSupporter(): Promise<SupporterStatus> {
     setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();

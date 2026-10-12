@@ -1177,6 +1177,19 @@
       "badgeHint": "Il cuore nella barra laterale, del colore della stagione",
       "early": "Versioni in anteprima",
       "earlyHint": "Le nuove versioni un po’ prima di tutti"
+    },
+    "folder": {
+      "hint": "Come Dropbox o Google Drive",
+      "choose": "Scegli cartella…",
+      "change": "Cambia…",
+      "chooseAgain": "Scegli…",
+      "open": "Apri cartella",
+      "stop": "Smetti di copiare qui",
+      "lastToday": "ultima copia oggi, {{time}}",
+      "lastOn": "ultima copia il {{date}}, {{time}}",
+      "none": "ancora nessuna copia",
+      "unreachable": "Impossibile raggiungere {{path}}",
+      "pickerTitle": "Cartella per i backup automatici"
     }
   },
   "plan": {

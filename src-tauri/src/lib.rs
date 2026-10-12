@@ -2,6 +2,7 @@ pub mod appimage;
 pub mod autostart;
 pub mod backup;
 pub mod billing;
+pub mod commercial;
 pub mod browsers;
 pub mod capture;
 pub mod capture_channel;
@@ -115,6 +116,7 @@ pub fn run() {
             tray::build(app)?;
             updates::start(app.handle());
             billing::start(app.handle());
+            commercial::backup_folder::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -217,6 +219,10 @@ pub fn run() {
             billing::send_sign_in_code,
             billing::verify_sign_in_code,
             billing::sign_out_supporter,
+            commercial::backup_folder::get_backup_folder,
+            commercial::backup_folder::choose_backup_folder,
+            commercial::backup_folder::stop_backup_folder,
+            commercial::backup_folder::open_backup_folder,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])

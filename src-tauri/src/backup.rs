@@ -243,10 +243,21 @@ pub fn create_auto(
 ) -> Result<PathBuf, String> {
     let target = folder.join(format!("{AUTO_PREFIX}{}.db", now.format(AUTO_FORMAT)));
     write_copy(conn, &target)?;
+    prune_auto(folder);
+    Ok(target)
+}
+
+/// Removes the automatic copies in `folder` that the rule of [`expired`] no longer keeps. Other
+/// files there are never touched: the folder may be one the person shares with other things.
+pub fn prune_auto(folder: &Path) {
     for old in expired(&auto_copies(folder)) {
         let _ = fs::remove_file(old);
     }
-    Ok(target)
+}
+
+/// Whether a file name is one of the automatic copies.
+pub fn is_auto(name: &str) -> bool {
+    auto_stamp(name).is_some()
 }
 
 /// Copies in the folder (`koonapin.*.db`, as the settings count them),

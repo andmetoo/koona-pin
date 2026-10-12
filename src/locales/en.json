@@ -1104,6 +1104,19 @@
       "badgeHint": "The heart in the sidebar, in the colour of the season",
       "early": "Early builds",
       "earlyHint": "New versions a little before everyone else"
+    },
+    "folder": {
+      "hint": "Like Dropbox or Google Drive",
+      "choose": "Choose folder…",
+      "change": "Change…",
+      "chooseAgain": "Choose…",
+      "open": "Open folder",
+      "stop": "Stop copying here",
+      "lastToday": "last copy today, {{time}}",
+      "lastOn": "last copy {{date}}, {{time}}",
+      "none": "no copy yet",
+      "unreachable": "Can't reach {{path}}",
+      "pickerTitle": "Folder for automatic backups"
     }
   },
   "plan": {

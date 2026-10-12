@@ -1179,6 +1179,19 @@
       "badgeHint": "Srce u bočnoj traci, u boji godišnjeg doba",
       "early": "Rane verzije",
       "earlyHint": "Nove verzije malo pre svih"
+    },
+    "folder": {
+      "hint": "Na primer Dropbox ili Google Disk",
+      "choose": "Izaberi fasciklu…",
+      "change": "Promeni…",
+      "chooseAgain": "Izaberi…",
+      "open": "Otvori fasciklu",
+      "stop": "Ne kopiraj više ovde",
+      "lastToday": "kopija danas, {{time}}",
+      "lastOn": "kopija {{date}}, {{time}}",
+      "none": "još nema kopije",
+      "unreachable": "Nema pristupa {{path}}",
+      "pickerTitle": "Fascikla za automatske kopije"
     }
   },
   "plan": {

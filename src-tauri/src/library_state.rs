@@ -150,7 +150,9 @@ fn maintain(app: &AppHandle, library: &Library, db: &DbState, moved_aside: Optio
                 );
                 continue;
             }
-            Ok(Health::Intact { .. }) => {}
+            // A Supporter's chosen folder gets the same copy (commercial/backup_folder.rs).
+            Ok(Health::Intact { copied: Some(copy) }) => crate::commercial::backup_folder::mirror(app, &copy),
+            Ok(Health::Intact { copied: None }) => {}
             Err(error) => eprintln!("Automatic backup failed: {error}"),
         }
         // After the copy: what the cleanup deletes is still in the newest one.

@@ -1177,6 +1177,19 @@
       "badgeHint": "O coração da barra lateral, na cor da estação",
       "early": "Versões antecipadas",
       "earlyHint": "Versões novas um pouco antes de todos"
+    },
+    "folder": {
+      "hint": "Como Dropbox ou Google Drive",
+      "choose": "Escolher pasta…",
+      "change": "Alterar…",
+      "chooseAgain": "Escolher…",
+      "open": "Abrir pasta",
+      "stop": "Parar de copiar aqui",
+      "lastToday": "último backup hoje, {{time}}",
+      "lastOn": "último backup em {{date}}, {{time}}",
+      "none": "nenhum backup ainda",
+      "unreachable": "Não foi possível acessar {{path}}",
+      "pickerTitle": "Pasta para os backups automáticos"
     }
   },
   "plan": {
