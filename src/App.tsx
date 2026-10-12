@@ -8,7 +8,7 @@ import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, SupporterStatus, UpdateStatus, ViewMode } from "./types";
+import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, Plan, SupporterStatus, UpdateStatus, ViewMode } from "./types";
 import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
@@ -42,7 +42,7 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -104,6 +104,8 @@ export function App() {
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
+  /** The subscription «Switch to 5 years» was chosen for: the step says when it ends. */
+  const [upgradeFrom, setUpgradeFrom] = useState<Plan | null>(null);
   // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(emptyDraft);
   /** Inbox triage (NP-025) and the filters to go back to when it ends. */
@@ -136,11 +138,11 @@ export function App() {
   const [supporter, setSupporter] = useState<SupporterStatus | null>(null);
   /** The Supporter badge's heart in the colour of the season; a perk the dialog turns off. */
   const [badge, setBadge] = useState(() => preference("supporterBadge", ["on", "off"], "on") === "on");
-  // A check that finds the plan gone (cancelled, refunded) closes its dialog for good, so nothing
-  // stays blocked behind a dialog that is no longer shown.
+  // A check that finds the plan gone (cancelled, refunded) closes its dialogs for good, so nothing
+  // stays blocked behind a dialog that is no longer shown, nor offers to switch a plan that ended.
   const hasPlan = !!supporter?.plan;
   useEffect(() => {
-    if (!hasPlan) setSurface((open) => (open === "plan" ? null : open));
+    if (!hasPlan) setSurface((open) => (open === "plan" || open === "upgrade" ? null : open));
   }, [hasPlan]);
   const [appVersion, setAppVersion] = useState("");
   const [linux, setLinux] = useState(false);
@@ -1292,6 +1294,22 @@ export function App() {
             savePreference("supporterBadge", shown ? "on" : "off");
           }}
           onClose={() => setSurface(null)}
+          onUpgrade={() => {
+            setUpgradeFrom(supporter.plan);
+            setSurface("upgrade");
+          }}
+        />
+      )}
+      {/* Supporter → 5 years from a subscription (sheet 45): the plans dialog with the five years only,
+          about the subscription as it was when the switch was chosen. */}
+      {surface === "upgrade" && supporter && upgradeFrom && (
+        <SupporterDialog
+          sandbox={!!supporter.sandbox}
+          email={supporter.email ?? null}
+          paid
+          upgrade={upgradeFrom}
+          onClose={() => setSurface(null)}
+          onSignIn={() => setSurface("signIn")}
         />
       )}
       {surface === "update" && offer(update) && (

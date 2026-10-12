@@ -750,6 +750,13 @@ h1 {
   gap: 24px;
   margin-top: 40px;
 }
+/* With Supporter · 5 years: three in a row, the yearly one in the middle (landing.sketch «· 5 years»). */
+.plans-row-three {
+  grid-template-columns: repeat(3, 1fr);
+}
+.plan-card-five {
+  order: 2;
+}
 .plan-card {
   display: flex;
   flex-direction: column;
@@ -1334,7 +1341,8 @@ h1 {
   .plan-card {
     padding: 20px;
   }
-  .plan-card-main {
+  .plan-card-main,
+  .plan-card-five {
     order: 0;
   }
   .plan-card-price strong {

@@ -9,4 +9,8 @@ export type Plan = { status: PlanStatus, interval: PlanInterval | null, valid_un
 /**
  * Kept until then without an answer from the server.
  */
-offline_until: string, };
+offline_until: string, 
+/**
+ * Paid once, and a subscription of the account still renews: the dialog says to cancel it.
+ */
+also_renews: boolean, };

@@ -88,12 +88,15 @@ pub enum PlanStatus {
     Canceling,
 }
 
+/// What can be bought, and what the plan is: a subscription, or five years paid once
+/// (Supporter · 5 years), which never renews.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum PlanInterval {
     Month,
     Year,
+    FiveYears,
 }
 
 /// The plan as the server signed it.
@@ -109,6 +112,9 @@ pub struct Plan {
     /// Kept until then without an answer from the server.
     #[ts(type = "string")]
     pub offline_until: DateTime<Utc>,
+    /// Paid once, and a subscription of the account still renews: the dialog says to cancel it.
+    #[serde(default)]
+    pub also_renews: bool,
 }
 
 /// The plan signed by the server: `payload` is the exact text signed, kept as it came.
@@ -133,6 +139,8 @@ struct SignedPlan {
     interval: Option<PlanInterval>,
     valid_until: DateTime<Utc>,
     renews_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    also_renews: bool,
 }
 
 /// What a `plan` or `claim` answer says about the plan: whether the server names one at all, and
@@ -160,8 +168,8 @@ fn plan_of(lease: &Lease, email: &str, key: &[u8]) -> Option<Plan> {
     if terms.v != 1 || !terms.email.eq_ignore_ascii_case(email.trim()) {
         return None;
     }
-    let SignedPlan { status, interval, valid_until, renews_at } = terms.plan;
-    Some(Plan { status, interval, valid_until, renews_at, offline_until: terms.offline_until })
+    let SignedPlan { status, interval, valid_until, renews_at, also_renews } = terms.plan;
+    Some(Plan { status, interval, valid_until, renews_at, offline_until: terms.offline_until, also_renews })
 }
 
 fn plan_key() -> Vec<u8> {
@@ -358,6 +366,9 @@ pub struct Price {
 pub struct SupporterPrices {
     pub month: Price,
     pub year: Price,
+    /// Supporter · 5 years, paid once; None while the server does not sell it.
+    #[serde(default)]
+    pub five_years: Option<Price>,
 }
 
 /// What `poll_checkout` found.
@@ -831,6 +842,7 @@ pub async fn start_checkout(app: AppHandle, interval: PlanInterval) -> Result<St
     let name = match interval {
         PlanInterval::Month => "month",
         PlanInterval::Year => "year",
+        PlanInterval::FiveYears => "five_years",
     };
     let (status, value) = call(&app, json!({ "action": "checkout", "interval": name, "claim": secret }), token.as_deref()).await?;
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing checkout", status))?.to_string();
@@ -963,6 +975,7 @@ mod tests {
                 valid_until: at(until),
                 renews_at: Some(at(until)),
                 offline_until: at(until) + TimeDelta::days(7),
+                also_renews: false,
             }),
             ..Stored::default()
         }
@@ -1066,6 +1079,7 @@ mod tests {
                 valid_until: at("2026-11-12T03:02:36.583Z"),
                 renews_at: None,
                 offline_until: at("2026-11-11T12:00:00Z"),
+                also_renews: false,
             })
         );
         let edited = Lease { payload: PAYLOAD.replace("2026-11-11", "2099-11-11"), ..signed.clone() };
@@ -1174,6 +1188,28 @@ mod tests {
         .unwrap();
         assert_eq!(plan.status, PlanStatus::Canceling);
         assert_eq!(plan.renews_at, None);
+        assert!(!plan.also_renews);
+    }
+
+    #[test]
+    fn five_years_paid_once_come_signed_without_renewal() {
+        // As koona-services signs Supporter · 5 years.
+        let payload = r#"{"v":1,"email":"anna@example.com","plan":{"plan":"supporter","status":"active","interval":"five_years","valid_until":"2031-10-12T10:00:00.000Z","renews_at":null,"also_renews":true},"issued_at":"2026-10-12T12:00:00.000Z","offline_until":"2026-11-11T12:00:00.000Z"}"#;
+        let (signed, key) = lease(payload, 7);
+        let plan = plan_of(&signed, "anna@example.com", &key).unwrap();
+        assert_eq!((plan.interval, plan.renews_at, plan.also_renews), (Some(PlanInterval::FiveYears), None, true));
+        assert_eq!(plan.valid_until, at("2031-10-12T10:00:00Z"));
+        // Checked weekly like any plan: a refund shows within a week.
+        let stored = Stored { plan: Some(plan), checked_at: Some(at("2026-10-12T12:00:00Z")), ..supporter("2031-10-12T10:00:00Z") };
+        assert!(!due(&stored, at("2026-10-18T12:00:00Z")));
+        assert!(due(&stored, at("2026-10-19T12:00:00Z")));
+        // The prices of a server that does not sell them yet still read.
+        let prices: SupporterPrices = serde_json::from_value(json!({
+            "month": { "price_id": "m", "total": "$2.00", "currency": "USD" },
+            "year": { "price_id": "y", "total": "$20.00", "currency": "USD" },
+        }))
+        .unwrap();
+        assert!(prices.five_years.is_none());
     }
 
     fn checkout(secret: &str, started: &str, interval: PlanInterval) -> Checkout {

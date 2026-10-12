@@ -70,6 +70,10 @@ export default {
     "monthRest": "ili 2 € mesečno",
     "buyYearly": "Kupi godišnje",
     "buyMonthly": "Kupi mesečno",
+    "fiveYears": "5 godina",
+    "saveHalf": "Ušteda 50%",
+    "fiveYearsRest": "ili 50 € jednokratno",
+    "buyFiveYears": "Kupi na 5 godina",
     "perks": [
       [
         "Supporter značka",

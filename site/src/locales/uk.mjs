@@ -69,6 +69,10 @@ export default {
     "monthRest": "або 2 € на місяць",
     "buyYearly": "Купити на рік",
     "buyMonthly": "Купити на місяць",
+    "fiveYears": "На 5 років",
+    "saveHalf": "Вигода 50%",
+    "fiveYearsRest": "або 50 € один раз",
+    "buyFiveYears": "Купити на 5 років",
     "perks": [
       [
         "Значок Supporter",

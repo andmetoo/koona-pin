@@ -69,6 +69,10 @@ export default {
     "monthRest": "o 2 € al mes",
     "buyYearly": "Comprar anual",
     "buyMonthly": "Comprar mensual",
+    "fiveYears": "5 años",
+    "saveHalf": "Ahorra un 50 %",
+    "fiveYearsRest": "o 50 € una sola vez",
+    "buyFiveYears": "Comprar 5 años",
     "perks": [
       [
         "Insignia de Supporter",

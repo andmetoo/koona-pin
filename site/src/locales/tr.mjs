@@ -69,6 +69,10 @@ export default {
     "monthRest": "veya ayda 2 €",
     "buyYearly": "Yıllık satın al",
     "buyMonthly": "Aylık satın al",
+    "fiveYears": "5 yıl",
+    "saveHalf": "%50 tasarruf",
+    "fiveYearsRest": "veya tek seferde 50 €",
+    "buyFiveYears": "5 yıllık satın al",
     "perks": [
       [
         "Supporter rozeti",

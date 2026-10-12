@@ -1,6 +1,6 @@
 # Koona Pin Commercial License
 
-Version 1.1, 12 October 2026.
+Version 1.2, 12 October 2026.
 
 Copyright (c) 2026 Radik Ilin. All rights reserved except as expressly granted below.
 
@@ -30,7 +30,7 @@ The subscription includes access to updates released for your subscribed plan du
 
 Supporter subscriptions are sold through Paddle as merchant of record and authorized reseller. Your payment transaction with Paddle is governed by the [Paddle Buyer Terms](https://www.paddle.com/legal/buyer-terms) and the terms presented at checkout; this document governs your use of the Commercial Software. Licensor remains the software provider.
 
-Plans may be billed monthly or annually. The price, currency, applicable taxes, billing period, renewal terms and any trial are disclosed at checkout and in your purchase confirmation. Prices may vary by country and currency; this license does not set a fixed global price. Your subscription renews as disclosed at checkout until canceled. Any renewal price change is subject to the notice and consent requirements in the applicable purchase terms and law.
+Plans may be billed monthly or annually, or paid once for a fixed term, such as five years. A plan paid once is a subscription for that term: it does not renew, needs no cancellation, and ends when the term ends; a further purchase adds its term after the current one. The price, currency, applicable taxes, billing period, renewal terms and any trial are disclosed at checkout and in your purchase confirmation. Prices may vary by country and currency; this license does not set a fixed global price. A recurring subscription renews as disclosed at checkout until canceled. Any renewal price change is subject to the notice and consent requirements in the applicable purchase terms and law.
 
 You may cancel renewal through the subscription-management link in your Paddle confirmation email or by contacting [Paddle buyer support](https://paddle.net/). Cancellation normally takes effect at the end of the paid billing period, with access continuing until then. Refunds, statutory withdrawal rights and payment disputes are handled under the applicable Paddle purchase terms and mandatory law. This license does not impose a separate no-refund rule or waive those rights.
 
@@ -51,6 +51,8 @@ These restrictions apply to the Commercial Software covered by this license. The
 Your subscription permission ends when its paid term ends without renewal, or when the subscription is validly terminated under the applicable purchase terms or this license. You must then stop using the commercial features, unless another express permission applies. Cancellation or expiry does not revoke your open-source rights in the community code or transfer any rights in your own data to Licensor. The separate development permission in section 2 remains available while you comply with it.
 
 For a material breach of this license, Licensor may terminate the affected commercial permission after written notice and 30 days to remedy the breach, if it can be remedied. Immediate suspension is permitted where reasonably necessary to stop unauthorized redistribution, fraud or a security threat, subject to mandatory law and applicable purchase terms. These provisions do not shorten a paid term merely because you cancel renewal. Termination does not affect rights and obligations that have already arisen, or statutory remedies and refund rights.
+
+If Licensor stops offering Supporter while your paid term is running, your paid term is kept: if Supporter is replaced by another plan, your permission continues until the end of that term. If Supporter or Koona Pin itself is discontinued, Licensor will release a final official update in which the commercial features work without Licensor's servers or plan checks, with a permission to use them that does not end, and will publish the source code of the server-side services behind paid features, such as sync, so that anyone can run them.
 
 ## 7. Warranty and liability
 

@@ -2208,6 +2208,9 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   // The yearly plan is chosen first; whole prices without cents.
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$20 a year");
+  // Five years paid once, under the two subscriptions.
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toContainText("$50 once");
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toContainText("Save 50%");
   await plans.getByRole("radio", { name: /Monthly/ }).click();
   await expect(plans.getByRole("radio", { name: /Monthly/ })).toHaveAttribute("aria-checked", "true");
   // «Continue» opens the payment in the browser; the dialog waits and sees it paid by itself.
@@ -2259,6 +2262,9 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
     ["canceling", "canceling", "Doesn't renew · Supporter until"],
     ["past_due", "past_due", "The renewal didn't go through — update the card"],
     ["offline", "unchecked", "Couldn't check the plan — it stays on until"],
+    // Supporter · 5 years: nothing to manage, unless a subscription still renews too.
+    ["five_years", "active", "Paid once · Supporter until"],
+    ["five_years_renewing", "active", "Your subscription still renews — cancel it in Manage"],
   ] as const) {
     await page.evaluate((k) => localStorage.setItem("koonapin.demo.supporter", k), kind);
     await page.reload();
@@ -2266,12 +2272,62 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
     const plan = page.getByRole("dialog", { name: "Supporter" });
     await expect(plan.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", state);
     await expect(plan).toContainText(text);
+    if (kind.startsWith("five_years")) {
+      await expect(plan).toContainText("Supporter · 5 years");
+      await expect(plan.getByRole("button", { name: "Manage ↗" })).toHaveCount(kind === "five_years" ? 0 : 1);
+    }
     heights.push(Math.round((await plan.boundingBox())!.height));
   }
   expect(new Set(heights).size, `heights ${heights.join(", ")}`).toBe(1);
   // «Try again» asks the server and the plan is checked again.
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "offline"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
   await page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Try again" }).click();
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
+});
+
+test("Supporter: a subscription switches to five years from the end of its paid period (NP-066, sheet 45)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plan = page.getByRole("dialog", { name: "Supporter" });
+  await expect(plan).toContainText("Supporter · yearly");
+  await plan.getByRole("button", { name: "Switch to 5 years" }).click();
+  const upgrade = page.getByRole("dialog", { name: "Switch to 5 years" });
+  await expect(upgrade).toContainText("Pay $50 once instead of renewing. Your yearly plan stays until");
+  await expect(upgrade).toContainText("$50 once");
+  await expect(upgrade).toContainText("Supporter then lasts until");
+  // Nothing to choose, and no «I'm already a Supporter»: the account is signed in.
+  await expect(upgrade.getByRole("radio")).toHaveCount(0);
+  await expect(upgrade.getByRole("button", { name: "I'm already a Supporter" })).toHaveCount(0);
+  await upgrade.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Done" }).click();
+  await page.locator("[data-plan-row]").click();
+  await expect(page.getByRole("dialog", { name: "Supporter" })).toContainText("Supporter · 5 years");
+  // Five years and a plan that does not renew offer no switch.
+  await expect(page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
+});
+
+test("Supporter: a server that does not sell five years offers neither the card nor the switch (NP-066)", async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem("koonapin.demo.supporter", "free");
+    localStorage.setItem("koonapin.demo.fiveYears", "off");
+  });
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+  await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$20 a year");
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toHaveCount(0);
+  await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
+  await plans.getByRole("button", { name: "Not now" }).click();
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plan = page.getByRole("dialog", { name: "Supporter" });
+  await expect(plan.getByRole("button", { name: "Manage ↗" })).toBeVisible();
+  await expect(plan.getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
 });
 
 test("Supporter: the dialog asks for the plan when it opens and when the window comes back — a change in the portal shows (NP-066)", async ({ page }) => {
@@ -2493,27 +2549,34 @@ test("Supporter: the plans show the prices Paddle gave last time at once, not do
   await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toContainText("$20 a year");
   expect(JSON.parse((await page.evaluate(() => localStorage.getItem("koonapin.supporterPrices")))!).prices.year.total).toBe("$20.00");
   // Euros last time and no answer now: euros, not the dollars kept for when nothing is known.
-  const remember = (daysAgo: number) =>
-    page.evaluate((days) => {
-      localStorage.setItem("koonapin.demo.supporter", "no_server");
-      localStorage.setItem(
-        "koonapin.supporterPrices",
-        JSON.stringify({
-          at: Date.now() - days * 86_400_000,
-          prices: { month: { price_id: "m", total: "€2.00", currency: "EUR" }, year: { price_id: "y", total: "€20.00", currency: "EUR" } },
-        }),
-      );
-    }, daysAgo);
+  const remember = (daysAgo: number, fiveYears: boolean | "unknown" = true) =>
+    page.evaluate(
+      ([days, five]) => {
+        localStorage.setItem("koonapin.demo.supporter", "no_server");
+        const prices: Record<string, unknown> = { month: { price_id: "m", total: "€2.00", currency: "EUR" }, year: { price_id: "y", total: "€20.00", currency: "EUR" } };
+        if (five !== "unknown") prices.five_years = five ? { price_id: "f", total: "€50.00", currency: "EUR" } : null;
+        localStorage.setItem("koonapin.supporterPrices", JSON.stringify({ at: Date.now() - (days as number) * 86_400_000, prices }));
+      },
+      [daysAgo, fiveYears] as const,
+    );
   await remember(1);
   await page.reload();
   await page.locator("[data-plan-row]").click();
   const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
   await expect(plans).toContainText("€20 a year");
   await expect(plans).toContainText("€2 a month");
+  await expect(plans).toContainText("€50 once");
   // Remembered more than a week ago: not shown first; with no answer, the prices nothing depends on.
   await remember(8);
   await page.reload();
   await page.locator("[data-plan-row]").click();
+  await expect(plans).toContainText("$20 a year");
+  // Remembered by 0.10, which knew nothing of five years: not shown first either, so the five-year
+  // card never appears only after Paddle's answer.
+  await remember(1, "unknown");
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toBeVisible();
   await expect(plans).toContainText("$20 a year");
 });
 

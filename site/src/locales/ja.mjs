@@ -69,6 +69,10 @@ export default {
     "monthRest": "または月 2 €",
     "buyYearly": "年額で購入",
     "buyMonthly": "月額で購入",
+    "fiveYears": "5 年",
+    "saveHalf": "50% お得",
+    "fiveYearsRest": "または 50 €（1 回のみ）",
+    "buyFiveYears": "5 年分を購入",
     "perks": [
       [
         "Supporter バッジ",
