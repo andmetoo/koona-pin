@@ -59,6 +59,69 @@ export default {
     ["Linux, 64 Bit", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome oder Edge 120+, Firefox 140+", "Aktuelle Version oder ESR 140"],
   ],
+  supporter: {
+    "title": "Unterstützen Sie Koona Pin",
+    "lead": "Koona Pin ist kostenlos, und alles, was es heute kann, bleibt kostenlos. Supporter finanzieren, was als Nächstes kommt, und bekommen jede neue Version zuerst.",
+    "yearly": "Jährlich",
+    "monthly": "Monatlich",
+    "freeMonths": "2 Monate gratis",
+    "yearRest": "oder 20 € im Jahr",
+    "monthRest": "oder 2 € im Monat",
+    "buyYearly": "Jährlich kaufen",
+    "buyMonthly": "Monatlich kaufen",
+    "perks": [
+      [
+        "Supporter-Abzeichen",
+        "Ein Herz in der Seitenleiste, in der Farbe der Jahreszeit."
+      ],
+      [
+        "Frühe Versionen",
+        "Jede neue Version etwas früher als alle anderen."
+      ],
+      [
+        "Synchronisierung zwischen Computern",
+        "Ihre Bibliothek auf jedem Computer, den Sie nutzen."
+      ],
+      [
+        "Automatische Sicherungen in einen Ordner",
+        "In einen Ordner Ihrer Wahl, etwa Dropbox oder Google Drive."
+      ]
+    ],
+    "now": "Jetzt",
+    "from": "Ab {date}",
+    "notes": [
+      "Paddle nimmt die Zahlung entgegen",
+      "Jederzeit kündbar",
+      "Volle Erstattung innerhalb von 14 Tagen nach der ersten Zahlung"
+    ],
+    "roadmapTitle": "Was als Nächstes kommt",
+    "roadmapLead": "Der Plan für die nächsten zwei Monate.",
+    "delivered": "Erschienen, kostenlos",
+    "roadmap": [
+      [
+        "KI-Assistenten",
+        "Claude und andere Assistenten suchen und speichern Ihre Links."
+      ],
+      [
+        "App für macOS",
+        "Koona Pin auf dem Mac, mit derselben Schaltfläche im Browser."
+      ],
+      [
+        "Synchronisierung",
+        "Ihre Bibliothek auf jedem Computer, den Sie nutzen. Für Supporter."
+      ],
+      [
+        "App für iOS",
+        "Ihre Bibliothek auf iPhone und iPad."
+      ],
+      [
+        "App für Android",
+        "Ihre Bibliothek auf Android-Smartphones und -Tablets."
+      ]
+    ],
+    "firstTitle": "Supporter bekommen jede Version zuerst",
+    "firstText": "Neue Versionen erreichen sie etwas früher als alle anderen. Die Daten sind unser Plan, kein Versprechen."
+  },
   footer: { privacy: "Datenschutz", licenses: "Lizenzen", support: "Support", changelog: "Änderungen", pricing: "Preise", terms: "AGB", refunds: "Erstattung" },
   back: "Koona Pin",
   privacyPage: {

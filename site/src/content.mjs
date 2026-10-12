@@ -67,6 +67,12 @@ export const SUPPORT_EMAIL = "support@koona.app";
 // Supporter (NP-066, Р-64): on sale from 0.8.1, the first release built with PADDLE_ENVIRONMENT=
 // production. False makes /pricing/ say when it opens instead of where to buy it.
 export const SUPPORTER_ON_SALE = true;
+// Supporter's prices in Paddle (Р-64), for a purchase started on the site: /checkout/?plan=year.
+// A purchase started in the app comes with its own transaction instead (`?_ptxn=`).
+export const PADDLE_PRICES = {
+  production: { month: "pri_01m4phs3jenmt1k781twyfkdqy", year: "pri_01m4phs3q92cqzg7zzcm1txvzd" },
+  sandbox: { month: "pri_01m4gj99rncr6t2yrxg7zsfx13", year: "pri_01m4gj9a8hg5gdjg2nsbhd64ww" },
+};
 export const LICENSING = "https://github.com/andmetoo/koona-pin/blob/main/LICENSING.md";
 export const COMMERCIAL_LICENSE = "https://github.com/andmetoo/koona-pin/blob/main/LICENSE-COMMERCIAL.md";
 // The extension's catalog pages (NP-017).

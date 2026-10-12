@@ -59,6 +59,69 @@ export default {
     ["Linux，64 位", "Ubuntu 26.04、Debian 13、Fedora 44、Arch Linux"],
     ["Chrome 或 Edge 120+、Firefox 140+", "当前版本或 ESR 140"],
   ],
+  supporter: {
+    "title": "支持 Koona Pin",
+    "lead": "Koona Pin 是免费的，它现在的所有功能都将保持免费。Supporter 为接下来的开发提供资金，并抢先获得每个新版本。",
+    "yearly": "年付",
+    "monthly": "月付",
+    "freeMonths": "免费 2 个月",
+    "yearRest": "或每年 20 €",
+    "monthRest": "或每月 2 €",
+    "buyYearly": "购买年付",
+    "buyMonthly": "购买月付",
+    "perks": [
+      [
+        "Supporter 徽章",
+        "侧边栏中一颗随季节变色的心。"
+      ],
+      [
+        "抢先版本",
+        "每个新版本都比其他人早一点拿到。"
+      ],
+      [
+        "多台电脑同步",
+        "你的资料库出现在你使用的每台电脑上。"
+      ],
+      [
+        "自动备份到文件夹",
+        "备份到你选择的文件夹，例如 Dropbox 或 Google Drive。"
+      ]
+    ],
+    "now": "现已推出",
+    "from": "{date} 起",
+    "notes": [
+      "由 Paddle 收款",
+      "可随时取消",
+      "首次付款后 14 天内全额退款"
+    ],
+    "roadmapTitle": "接下来",
+    "roadmapLead": "未来两个月的计划。",
+    "delivered": "已推出，免费",
+    "roadmap": [
+      [
+        "AI 助手",
+        "Claude 等 AI 助手可以搜索和保存你的链接。"
+      ],
+      [
+        "macOS 应用",
+        "Mac 上的 Koona Pin，浏览器中同样的按钮。"
+      ],
+      [
+        "同步",
+        "你的资料库出现在你使用的每台电脑上。面向 Supporter。"
+      ],
+      [
+        "iOS 应用",
+        "你的资料库在 iPhone 和 iPad 上。"
+      ],
+      [
+        "Android 应用",
+        "你的资料库在 Android 手机和平板上。"
+      ]
+    ],
+    "firstTitle": "Supporter 抢先获得每个版本",
+    "firstText": "新版本会比其他人更早一点到达他们手中。日期是我们的计划，而非承诺。"
+  },
   footer: { privacy: "隐私", licenses: "许可", support: "支持", changelog: "更新日志", pricing: "价格", terms: "条款", refunds: "退款" },
   back: "Koona Pin",
   privacyPage: {

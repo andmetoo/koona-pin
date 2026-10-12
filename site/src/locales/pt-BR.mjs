@@ -59,6 +59,69 @@ export default {
     ["Linux, 64 bits", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome ou Edge 120+, Firefox 140+", "Versão atual ou ESR 140"],
   ],
+  supporter: {
+    "title": "Apoie o Koona Pin",
+    "lead": "O Koona Pin é gratuito, e tudo o que ele faz hoje continua gratuito. Os Supporters financiam o que vem a seguir e recebem cada nova versão primeiro.",
+    "yearly": "Anual",
+    "monthly": "Mensal",
+    "freeMonths": "2 meses grátis",
+    "yearRest": "ou 20 € por ano",
+    "monthRest": "ou 2 € por mês",
+    "buyYearly": "Comprar anual",
+    "buyMonthly": "Comprar mensal",
+    "perks": [
+      [
+        "Selo de Supporter",
+        "Um coração na barra lateral, na cor da estação."
+      ],
+      [
+        "Versões antecipadas",
+        "Cada nova versão um pouco antes de todo mundo."
+      ],
+      [
+        "Sincronização entre computadores",
+        "Sua biblioteca em cada computador que você usa."
+      ],
+      [
+        "Backups automáticos em uma pasta",
+        "Na que você escolher, como Dropbox ou Google Drive."
+      ]
+    ],
+    "now": "Já disponível",
+    "from": "A partir de {date}",
+    "notes": [
+      "O Paddle recebe o pagamento",
+      "Cancele quando quiser",
+      "Reembolso total em até 14 dias após o primeiro pagamento"
+    ],
+    "roadmapTitle": "O que vem por aí",
+    "roadmapLead": "O plano para os próximos dois meses.",
+    "delivered": "Lançado, grátis",
+    "roadmap": [
+      [
+        "Assistentes de IA",
+        "Claude e outros assistentes buscam e salvam seus links."
+      ],
+      [
+        "App para macOS",
+        "O Koona Pin no Mac, com o mesmo botão no navegador."
+      ],
+      [
+        "Sincronização",
+        "Sua biblioteca em cada computador que você usa. Para Supporters."
+      ],
+      [
+        "App para iOS",
+        "Sua biblioteca no iPhone e no iPad."
+      ],
+      [
+        "App para Android",
+        "Sua biblioteca em celulares e tablets Android."
+      ]
+    ],
+    "firstTitle": "Supporters recebem cada versão primeiro",
+    "firstText": "As novas versões chegam a eles um pouco antes de todo mundo. As datas são o nosso plano, não uma promessa."
+  },
   footer: { privacy: "Privacidade", licenses: "Licenças", support: "Suporte", changelog: "Mudanças", pricing: "Preços", terms: "Termos", refunds: "Reembolsos" },
   back: "Koona Pin",
   privacyPage: {

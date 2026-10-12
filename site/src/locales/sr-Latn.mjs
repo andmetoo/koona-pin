@@ -60,6 +60,69 @@ export default {
     ["Linux, 64-bitni", "Ubuntu 26.04, Debian 13, Fedora 44, Arch Linux"],
     ["Chrome ili Edge 120+, Firefox 140+", "Trenutno izdanje ili ESR 140"],
   ],
+  supporter: {
+    "title": "Podržite Koona Pin",
+    "lead": "Koona Pin je besplatan i sve što danas radi ostaje besplatno. Supporteri finansiraju ono što sledi i prvi dobijaju svaku novu verziju.",
+    "yearly": "Godišnje",
+    "monthly": "Mesečno",
+    "freeMonths": "2 meseca besplatno",
+    "yearRest": "ili 20 € godišnje",
+    "monthRest": "ili 2 € mesečno",
+    "buyYearly": "Kupi godišnje",
+    "buyMonthly": "Kupi mesečno",
+    "perks": [
+      [
+        "Supporter značka",
+        "Srce u bočnoj traci, u boji godišnjeg doba."
+      ],
+      [
+        "Rana izdanja",
+        "Svaka nova verzija malo pre svih ostalih."
+      ],
+      [
+        "Sinhronizacija između računara",
+        "Vaša biblioteka na svakom računaru koji koristite."
+      ],
+      [
+        "Automatske rezervne kopije u fasciklu",
+        "U fasciklu po vašem izboru, npr. Dropbox ili Google Drive."
+      ]
+    ],
+    "now": "Već sada",
+    "from": "Od {date}",
+    "notes": [
+      "Uplatu prima Paddle",
+      "Otkažite kad god želite",
+      "Pun povraćaj u roku od 14 dana od prve uplate"
+    ],
+    "roadmapTitle": "Šta sledi",
+    "roadmapLead": "Plan za naredna dva meseca.",
+    "delivered": "Objavljeno, besplatno",
+    "roadmap": [
+      [
+        "AI asistenti",
+        "Claude i drugi asistenti pretražuju i čuvaju vaše linkove."
+      ],
+      [
+        "Aplikacija za macOS",
+        "Koona Pin na Mac-u, sa istim dugmetom u pregledaču."
+      ],
+      [
+        "Sinhronizacija",
+        "Vaša biblioteka na svakom računaru koji koristite. Za Supportere."
+      ],
+      [
+        "Aplikacija za iOS",
+        "Vaša biblioteka na iPhone-u i iPad-u."
+      ],
+      [
+        "Aplikacija za Android",
+        "Vaša biblioteka na Android telefonima i tabletima."
+      ]
+    ],
+    "firstTitle": "Supporteri prvi dobijaju svaku verziju",
+    "firstText": "Nove verzije stižu do njih malo pre svih ostalih. Datumi su naš plan, ne obećanje."
+  },
   footer: { privacy: "Privatnost", licenses: "Licence", support: "Podrška", changelog: "Izmene", pricing: "Cene", terms: "Uslovi", refunds: "Povraćaj novca" },
   back: "Koona Pin",
   privacyPage: {

@@ -5,6 +5,7 @@ import Icon from "../../components/Icon.astro";
 import Shot from "../../components/Shot.astro";
 import Scenes from "../../components/Scenes.astro";
 import DownloadBlock from "../../components/DownloadBlock.astro";
+import SupporterBlock from "../../components/SupporterBlock.astro";
 import { firefoxAddon, release } from "../../release.mjs";
 import { everyLanguage, href } from "../../view.mjs";
 
@@ -51,6 +52,7 @@ const reqIcons = ["monitor", "terminal", "globe"];
 <ul class="facts">{t.privacyFacts.map((f) => <li><Icon name="check" /><span>{f}</span></li>)}</ul>
 </div>
 </section>
+<SupporterBlock t={t} />
 <section class="wrap reveal" id="download">
 <DownloadBlock t={t} release={rel} firefox={firefox}>
 <ul class="req">
