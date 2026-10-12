@@ -2465,6 +2465,26 @@ test("Supporter: signed in while the server did not answer about the plan — no
   await expect(row).toHaveAttribute("data-plan-row", "supporter");
 });
 
+test("Supporter: the plans opened while the plan is not known ask again and close when it is found (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  const row = page.locator("[data-plan-row]");
+  await row.click();
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  await signIn.getByLabel("Email").fill("unknown@example.com");
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("dialog", { name: "Signed in" }).locator("footer").getByRole("button", { name: "Close" }).click();
+  // The server has the plan now: opening the plans asks, finds it and closes, no «thank you».
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.serverPlan", "supporter"));
+  await row.click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-plan-row", "supporter");
+});
+
 test("Supporter: the plans show the prices Paddle gave last time at once, not dollars first (NP-066)", async ({ page }) => {
   // First time: Paddle's prices are remembered.
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));

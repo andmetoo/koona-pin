@@ -91,8 +91,20 @@ export function SupporterDialog({
     if (awaitingSignIn) setStep((s) => (unanswered(s) ? "signIn" : s));
   }, [awaitingSignIn]);
   const paidAtOpen = useRef(paid);
+  // Opened while the plan is not known yet: ask now. The notice goes when the answer comes, and a
+  // plan found this way closes the dialog — there was no purchase here to thank for.
+  const unknownAtOpen = useRef(planUnknown);
+  const stepNow = useRef(step);
+  stepNow.current = step;
+  useEffect(() => {
+    if (unknownAtOpen.current) void api.refreshSupporter(true).catch(() => {});
+  }, []);
   useEffect(() => {
     if (!paid || paidAtOpen.current) return;
+    if (unknownAtOpen.current && stepNow.current === "plans") {
+      onClose();
+      return;
+    }
     setPaidEmail(email);
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   }, [paid, email]);

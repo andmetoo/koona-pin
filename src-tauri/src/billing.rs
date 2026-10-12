@@ -572,6 +572,24 @@ fn refused(what: &str, status: reqwest::StatusCode) -> CommandError {
     CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("{what} answered {status}"))
 }
 
+/// A refresh refused because the refresh token no longer works (signed out elsewhere, revoked):
+/// the session ends here. A rate limit (429) or a timeout (408) is not that, nor is a server error.
+fn ends_session(status: reqwest::StatusCode) -> bool {
+    status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS && status != reqwest::StatusCode::REQUEST_TIMEOUT
+}
+
+/// A code check Supabase refused: too many attempts (429) is said as such, not as a wrong code,
+/// or the person keeps retyping a good one; any other 4xx is the code.
+fn verify_refused(status: reqwest::StatusCode) -> Option<CommandError> {
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        Some(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "Too many codes tried"))
+    } else if status.is_client_error() {
+        Some(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::WrongCode, "The code did not work"))
+    } else {
+        None
+    }
+}
+
 /// One action of the Edge Function `billing`.
 async fn call(app: &AppHandle, body: Value, token: Option<&str>) -> Result<(reqwest::StatusCode, Value), CommandError> {
     let service = need_service()?;
@@ -627,7 +645,11 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
     let (status, value) = auth(app, "token?grant_type=refresh_token", json!({ "refresh_token": session.refresh_token })).await?;
     // Only the session this refresh was for: Sign out or another sign-in meanwhile wins.
     let same = |s: &Stored| s.session.as_ref().is_some_and(|now| now.refresh_token == session.refresh_token);
-    if status.is_client_error() {
+    if !ends_session(status) && !status.is_success() {
+        // Too many requests, a timeout, the server down: the session is still good, ask later.
+        return Err(refused("auth refresh", status));
+    }
+    if ends_session(status) {
         billing.update(app, |s| {
             if same(s) {
                 s.session = None;
@@ -671,16 +693,17 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
             return Ok(None);
         };
         let (status, value) = call(app, json!({ "action": "plan" }), Some(&token)).await?;
-        // 401: the session no longer works (signed out elsewhere). Any other refusal — too many
-        // requests, a gateway's 4xx — says nothing about the plan: a failed check, asked again.
-        if !status.is_success() && status != reqwest::StatusCode::UNAUTHORIZED {
+        // Any refusal — 401 for a token the gateway does not take, too many requests, a gateway's
+        // 4xx — says nothing about the plan: a failed check, asked again, never «no plan». A session
+        // that really ended shows in the refresh of its token (`access_token`, `ends_session`).
+        if !status.is_success() {
             return Err(refused("billing plan", status));
         }
-        Ok::<_, CommandError>(Some((status, value)))
+        Ok::<_, CommandError>(Some(value))
     }
     .await;
     match result {
-        Ok(Some((status, value))) if status.is_success() => {
+        Ok(Some(value)) => {
             let answer = Answer::of(&value);
             billing.update(app, |s| {
                 if s.same_account(&email) {
@@ -688,8 +711,9 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
                 }
             })
         }
-        // Signed out elsewhere: the plan stays until its period ends, as when offline.
-        Ok(_) => billing.update(app, |s| {
+        // Signed out elsewhere (the refresh token no longer works): the plan stays until its period
+        // ends, as when offline.
+        Ok(None) => billing.update(app, |s| {
             if s.same_account(&email) || s.session.is_none() {
                 s.checked_at = Some(asked_at);
             }
@@ -875,8 +899,8 @@ pub async fn send_sign_in_code(app: AppHandle, email: String) -> Result<(), Comm
 pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) -> Result<SupporterStatus, CommandError> {
     let code: String = code.chars().filter(char::is_ascii_digit).collect();
     let (status, value) = auth(&app, "verify", json!({ "type": "email", "email": email.trim(), "token": code })).await?;
-    if status.is_client_error() {
-        return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::WrongCode, "The code did not work"));
+    if let Some(error) = verify_refused(status) {
+        return Err(error);
     }
     let session = session_of(&value).ok_or_else(|| refused("auth verify", status))?;
     let billing = app.state::<Billing>();
@@ -1049,6 +1073,26 @@ mod tests {
         let (future, future_key) = lease(&PAYLOAD.replace(r#""v":1"#, r#""v":2"#), 7);
         assert_eq!(plan_of(&future, "anna@example.com", &future_key), None, "a version it does not know");
         assert!(!plan_key().is_empty() && plan_key().len() == 32, "the server's public key is built in");
+    }
+
+    #[test]
+    fn only_a_refresh_token_that_no_longer_works_ends_the_session() {
+        use reqwest::StatusCode;
+        assert!(ends_session(StatusCode::BAD_REQUEST), "revoked or already used");
+        assert!(ends_session(StatusCode::UNAUTHORIZED));
+        assert!(!ends_session(StatusCode::TOO_MANY_REQUESTS), "a rate limit is asked again later");
+        assert!(!ends_session(StatusCode::REQUEST_TIMEOUT));
+        assert!(!ends_session(StatusCode::BAD_GATEWAY), "the server down is not a sign out");
+        assert!(!ends_session(StatusCode::OK));
+    }
+
+    #[test]
+    fn a_rate_limited_code_is_not_called_wrong() {
+        use reqwest::StatusCode;
+        let detail = |status| verify_refused(status).map(|e| e.detail);
+        assert_eq!(detail(StatusCode::TOO_MANY_REQUESTS), Some(Some(ErrorDetail::TooManyMessages)));
+        assert_eq!(detail(StatusCode::FORBIDDEN), Some(Some(ErrorDetail::WrongCode)), "an expired or wrong code");
+        assert!(verify_refused(StatusCode::OK).is_none());
     }
 
     #[test]
