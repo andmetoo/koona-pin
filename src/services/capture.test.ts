@@ -123,6 +123,7 @@ describe("browser status", () => {
   it("gives Chromium a tab of its own on Linux, with Chrome's steps (NP-054)", () => {
     expect(connectTabs({ ...base, system: "windows" })).toEqual(["chrome", "edge", "firefox"]);
     expect(connectTabs({ ...base, system: "linux" })).toEqual(["chrome", "edge", "chromium", "firefox"]);
+    expect(connectTabs({ ...base, system: "macos" })).toEqual(["chrome", "edge", "chromium", "firefox"]);
     expect(tabBrowser("chromium")).toBe("chrome");
     expect(installSteps(tabBrowser("chromium"))).toEqual(installSteps("chrome"));
   });

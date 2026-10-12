@@ -52,18 +52,12 @@ pub fn send(envelope: &Value) -> io::Result<Value> {
     exchange(pipe, envelope)
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub fn send(envelope: &Value) -> io::Result<Value> {
     exchange(std::os::unix::net::UnixStream::connect(crate::pipe_name::socket_path()?)?, envelope)
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
-pub fn send(_envelope: &Value) -> io::Result<Value> {
-    Err(io::Error::other("not available on this system yet"))
-}
-
 /// One line each way, as the app reads it.
-#[cfg(any(windows, target_os = "linux"))]
 fn exchange(mut channel: impl Read + Write, envelope: &Value) -> io::Result<Value> {
     channel.write_all(format!("{envelope}\n").as_bytes())?;
     let mut line = String::new();
@@ -227,9 +221,32 @@ fn detached(command: &mut std::process::Command) -> &mut std::process::Command {
     command
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
+/// `Koona Pin.app`, whose `Contents/MacOS` holds this binary, opened by
+/// LaunchServices hidden and in the background (`open -g -j`). The app is
+/// then launchd's, not the browser's: quitting the browser does not take it
+/// along, and nothing of the host's descriptors reaches it (NP-050).
+#[cfg(target_os = "macos")]
 pub fn start_app() -> io::Result<()> {
-    Err(io::Error::other("not available on this system yet"))
+    use std::process::{Command, Stdio};
+    let host = std::env::current_exe()?;
+    let bundle = host
+        .ancestors()
+        .nth(3)
+        .filter(|bundle| bundle.extension().is_some_and(|ext| ext == "app"))
+        .ok_or_else(|| io::Error::other("the host is not inside the app's bundle"))?;
+    let status = Command::new("/usr/bin/open")
+        .args(["-g", "-j", "-a"])
+        .arg(bundle)
+        .args(["--args", "--autostart"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(io::Error::other(format!("open did not start the app: {status}")))
+    }
 }
 
 #[cfg(test)]
