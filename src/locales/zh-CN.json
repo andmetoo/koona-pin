@@ -1019,7 +1019,7 @@
     "anotherEmail": "使用其他邮箱",
     "back": "返回",
     "signIn": "登录",
-    "tooManyCodes": "请求验证码次数过多。请稍等几分钟再试。",
+    "tooManyCodes": "尝试次数过多。请等几分钟后再试。",
     "badge": "Supporter · 你的方案和权益",
     "perksTitle": "你的权益",
     "soon": "即将推出",

@@ -415,7 +415,8 @@ fn answered(stored: &Stored, waited_from: Option<DateTime<Utc>>, now: DateTime<U
         return false;
     };
     let meanwhile = waited_from != Some(at);
-    (automatic && (meanwhile || now - at < FRESH)) || (meanwhile && !stored.check_failed)
+    // A failure seconds old is not an answer: the dialog opening right after it asks again.
+    (automatic && (meanwhile || (now - at < FRESH && !stored.check_failed))) || (meanwhile && !stored.check_failed)
 }
 
 fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
@@ -1006,6 +1007,8 @@ mod tests {
         let failed_meanwhile = checked("2026-10-12T11:59:58Z", true);
         assert!(!answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false, None), "but asks itself after a failure");
         assert!(answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true, None), "the dialog does not repeat it");
+        let failed_seconds_ago = checked("2026-10-12T11:59:55Z", true);
+        assert!(!answered(&failed_seconds_ago, failed_seconds_ago.checked_at, now, true, None), "a failure seconds old is asked again");
         assert!(!answered(&checked("2026-10-13T00:00:00Z", false), None, now, true, None), "a stamp in the future is not fresh");
         assert!(!answered(&Stored { checked_at: None, ..seconds_ago.clone() }, None, now, true, None), "never checked: ask");
         // Back from «Manage»: an answer asked before the portal opened, seconds old or one that came

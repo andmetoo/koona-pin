@@ -1019,7 +1019,7 @@
     "anotherEmail": "別のメールを使う",
     "back": "戻る",
     "signIn": "サインイン",
-    "tooManyCodes": "コードの要求が多すぎます。数分待ってからもう一度お試しください。",
+    "tooManyCodes": "試行回数が多すぎます。数分待ってからもう一度お試しください。",
     "badge": "Supporter · プランと特典",
     "perksTitle": "あなたの特典",
     "soon": "近日",
