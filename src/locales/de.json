@@ -1082,6 +1082,7 @@
     "codeTitle": "Prüfen Sie Ihre E-Mails",
     "signedInTitle": "Angemeldet",
     "noPlanText": "Sie sind als {{email}} angemeldet, aber dieses Konto hat keinen aktiven Supporter-Plan. Er ist vielleicht abgelaufen oder wurde gekündigt.",
+    "planUnknownText": "Sie sind als {{email}} angemeldet, aber der Plan konnte nicht geprüft werden: Der Koona-Pin-Server hat nicht geantwortet. Die App versucht es innerhalb einer Stunde erneut.",
     "seePlans": "Pläne ansehen",
     "codeText": "Wir haben einen 6-stelligen Code an {{email}} gesendet. Geben Sie ihn zum Anmelden ein.",
     "code": "Code",

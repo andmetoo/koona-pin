@@ -1082,6 +1082,7 @@
     "codeTitle": "E-postanızı kontrol edin",
     "signedInTitle": "Giriş yapıldı",
     "noPlanText": "{{email}} olarak giriş yaptınız, ancak bu hesabın etkin bir Supporter planı yok. Sona ermiş veya iptal edilmiş olabilir.",
+    "planUnknownText": "{{email}} olarak giriş yaptınız, ancak planınız kontrol edilemedi: Koona Pin sunucusu yanıt vermedi. Uygulama bir saat içinde yeniden deneyecek.",
     "seePlans": "Planları gör",
     "codeText": "{{email}} adresine 6 haneli bir kod gönderdik. Giriş yapmak için kodu girin.",
     "code": "Kod",

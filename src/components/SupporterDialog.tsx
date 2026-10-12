@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -32,17 +32,23 @@ const FALLBACK: SupporterPrices = {
 };
 /**
  * The prices Paddle gave last time, shown at once next time: dollars turning into euros while the
- * dialog opens looks like a change of price. The first time the cards wait for Paddle's answer.
+ * dialog opens looks like a change of price. Kept a week, so a new price or another country's
+ * currency is not shown first for long; without them the cards wait for Paddle's answer.
  */
 const PRICES_KEY = "supporterPrices";
+const PRICES_KEPT_MS = 7 * 86_400_000;
+type RememberedPrices = { at: number; prices: SupporterPrices };
 function rememberedPrices(): SupporterPrices | null {
   try {
-    const prices = JSON.parse(storedValue(PRICES_KEY) ?? "null") as SupporterPrices | null;
-    return prices?.month?.total && prices?.year?.total ? prices : null;
+    const kept = JSON.parse(storedValue(PRICES_KEY) ?? "null") as RememberedPrices | null;
+    const fresh = kept && Date.now() - kept.at < PRICES_KEPT_MS && kept.at <= Date.now();
+    return fresh && kept.prices?.month?.total && kept.prices?.year?.total ? kept.prices : null;
   } catch {
     return null;
   }
 }
+const rememberPrices = (prices: SupporterPrices) =>
+  savePreference(PRICES_KEY, JSON.stringify({ at: Date.now(), prices } satisfies RememberedPrices));
 const PERKS = ["sync", "backups", "badge", "early"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
@@ -100,7 +106,7 @@ export function SupporterDialog({
     api
       .getSupporterPrices()
       .then((p) => {
-        savePreference(PRICES_KEY, JSON.stringify(p));
+        rememberPrices(p);
         if (alive) setPrices(p);
       })
       .catch(() => alive && setPricesFailed(true));
@@ -172,14 +178,26 @@ export function SupporterDialog({
           </li>
         ))}
       </ul>
-      <div role="radiogroup" aria-label={sizing ? undefined : t("supporter.plan")} className="mt-5 grid grid-cols-2 gap-3">
+      <div
+        role="radiogroup"
+        aria-label={sizing ? undefined : t("supporter.plan")}
+        aria-busy={!shown || undefined}
+        className="mt-5 grid grid-cols-2 gap-3"
+      >
         {(["year", "month"] as const).map((value) => (
           <PlanCard
             key={value}
             checked={interval === value}
             onSelect={() => setPlan(value)}
             name={t(value === "year" ? "supporter.yearly" : "supporter.monthly")}
-            price={shown ? t(value === "year" ? "supporter.perYear" : "supporter.perMonth", { price: whole(shown[value].total) }) : " "}
+            price={
+              shown ? (
+                t(value === "year" ? "supporter.perYear" : "supporter.perMonth", { price: whole(shown[value].total) })
+              ) : (
+                // Paddle's answer on its way: a quiet bar in the line's room, no amount to swap.
+                <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />
+              )
+            }
             badge={value === "year" ? t("supporter.twoMonthsFree") : null}
           />
         ))}
@@ -304,7 +322,7 @@ function PlanCard({
   checked: boolean;
   onSelect: () => void;
   name: string;
-  price: string;
+  price: ReactNode;
   badge: string | null;
 }) {
   return (
@@ -374,21 +392,35 @@ export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlan
       setStep("code");
       countdown();
     });
-  const verify = () =>
-    run(async () => {
-      const status = await api.verifySignInCode(email, code);
-      if (status.plan) onClose();
-      else setStep("noPlan");
-    });
+  // Signed in with no plan here: `unknown` when the server could not be asked about it, which is
+  // not the same as «this account has none».
+  const [unknown, setUnknown] = useState(false);
+  const signedIn = (status: SupporterStatus) => {
+    if (status.plan) {
+      onClose();
+      return;
+    }
+    setUnknown(status.plan_unknown);
+    setStep("noPlan");
+  };
+  const verify = () => run(async () => signedIn(await api.verifySignInCode(email, code)));
+  const retry = () => run(async () => signedIn(await api.refreshSupporter()));
   const signOut = () =>
     run(async () => {
       await api.signOutSupporter();
       onClose();
     });
 
-  const noPlanPanel = (sizing: boolean) => (
+  const noPlanPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
-      <p className="text-sm text-muted">{t("supporter.noPlanText", { email: sizing ? "" : email.trim() })}</p>
+      <p className="text-sm text-muted">
+        {t(sizing || unknown ? "supporter.planUnknownText" : "supporter.noPlanText", { email: sizing ? "" : email.trim() })}
+      </p>
+      {failure && (
+        <p role={sizing ? undefined : "alert"} className="mt-3 text-xs leading-[17px] font-medium text-danger">
+          {failure}
+        </p>
+      )}
       <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
         <button type="button" disabled={busy} onClick={() => void signOut()} className="mr-auto text-sm font-medium text-muted hover:text-ink">
           {t("plan.signOut")}
@@ -396,9 +428,15 @@ export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlan
         <Button variant="outline" size="lg" onClick={onClose}>
           {t("common.close")}
         </Button>
-        <Button variant="primary" size="lg" onClick={onPlans}>
-          {t("supporter.seePlans")}
-        </Button>
+        {unknown ? (
+          <Button variant="primary" size="lg" disabled={busy} onClick={() => void retry()}>
+            {t("common.retry")}
+          </Button>
+        ) : (
+          <Button variant="primary" size="lg" onClick={onPlans}>
+            {t("supporter.seePlans")}
+          </Button>
+        )}
       </footer>
     </div>
   );
@@ -519,7 +557,7 @@ export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlan
             ? emailPanel(sizing ? t("errors.detail.not_supporter") : error, sizing)
             : state === "code"
               ? codePanel(sizing ? t("errors.detail.wrong_code") : error, sizing)
-              : noPlanPanel(sizing)
+              : noPlanPanel(sizing ? t("supporter.unreachable") : error, sizing)
         }
       </StatePanels>
     </Dialog>

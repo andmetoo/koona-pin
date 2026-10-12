@@ -1157,6 +1157,7 @@
     "codeTitle": "Proverite e-poštu",
     "signedInTitle": "Prijavljeni ste",
     "noPlanText": "Prijavljeni ste kao {{email}}, ali ovaj nalog nema aktivan Supporter plan. Možda je istekao ili je otkazan.",
+    "planUnknownText": "Prijavljeni ste kao {{email}}, ali plan nije mogao da se proveri: server Koona Pin nije odgovorio. Aplikacija će pokušati ponovo u roku od sat vremena.",
     "seePlans": "Pogledaj planove",
     "codeText": "Poslali smo šestocifreni kod na {{email}}. Unesite ga da biste se prijavili.",
     "code": "Kod",

@@ -1228,6 +1228,7 @@
     "codeTitle": "Sprawdź pocztę",
     "signedInTitle": "Zalogowano",
     "noPlanText": "Zalogowano jako {{email}}, ale to konto nie ma aktywnego planu Supporter. Mógł wygasnąć lub zostać anulowany.",
+    "planUnknownText": "Zalogowano jako {{email}}, ale nie udało się sprawdzić planu: serwer Koona Pin nie odpowiedział. Aplikacja spróbuje ponownie w ciągu godziny.",
     "seePlans": "Zobacz plany",
     "codeText": "Wysłaliśmy 6-cyfrowy kod na {{email}}. Wpisz go, aby się zalogować.",
     "code": "Kod",

@@ -1155,6 +1155,7 @@
     "codeTitle": "Controlla l’email",
     "signedInTitle": "Accesso effettuato",
     "noPlanText": "Hai effettuato l'accesso come {{email}}, ma questo account non ha un piano Supporter attivo. Potrebbe essere scaduto o annullato.",
+    "planUnknownText": "Hai effettuato l'accesso come {{email}}, ma non è stato possibile verificare il piano: il server di Koona Pin non ha risposto. L'app riprova entro un'ora.",
     "seePlans": "Vedi i piani",
     "codeText": "Abbiamo inviato un codice di 6 cifre a {{email}}. Inseriscilo per accedere.",
     "code": "Codice",

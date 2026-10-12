@@ -1155,6 +1155,7 @@
     "codeTitle": "Vérifiez vos e-mails",
     "signedInTitle": "Connecté",
     "noPlanText": "Vous êtes connecté en tant que {{email}}, mais ce compte n'a pas de plan Supporter actif. Il a peut-être expiré ou été annulé.",
+    "planUnknownText": "Vous êtes connecté en tant que {{email}}, mais votre plan n'a pas pu être vérifié : le serveur de Koona Pin n'a pas répondu. L'app réessaie dans l'heure.",
     "seePlans": "Voir les plans",
     "codeText": "Nous avons envoyé un code à 6 chiffres à {{email}}. Saisissez-le pour vous connecter.",
     "code": "Code",
