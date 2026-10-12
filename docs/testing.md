@@ -3,7 +3,7 @@
 `.github/workflows/ci.yml` runs on every pull request, every push to `main` and by hand; `main` requires it to pass. Run the checks locally before you push. It has three parts:
 
 - **Linux**, the main platform: the reusable workflow `.github/workflows/linux.yml` runs every main test (Rust tests, bindings, build, Vitest, extension lint, Playwright UI without `@visual`) and checks the packages on each distribution. See [Linux](#linux-compile-once-test-everywhere).
-- **Windows** (`windows-2025`): the Rust tests and an unsigned release installer, so an NSIS packaging problem shows in the pull request. Nothing is uploaded.
+- **Windows** (`windows-2025`): the Rust tests, for what differs on Windows (paths, the native host's registry, the single-instance pipe). The installer is not built in CI: the signed one is built on the maintainer's computer (`bun run release:windows`).
 - **macOS** (macOS 15, Apple Silicon; Intel is temporarily disabled): the Rust tests and a build of the app bundle. It uploads nothing and runs nothing in WKWebView. See [macOS test builds](macos-test.md) for commands and the remaining platform work.
 
 No check touches your own library or browser profile: tests create their own SQLite files, WebView2 and browser profiles under `.test-data`, and their own capture channel name (`KOONAPIN_PIPE`). Prerequisites are those of [building.md](building.md).
