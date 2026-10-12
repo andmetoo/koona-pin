@@ -1177,6 +1177,18 @@
       "badgeHint": "El corazón de la barra lateral, del color de la estación",
       "early": "Versiones tempranas",
       "earlyHint": "Versiones nuevas un poco antes que nadie"
+    },
+    "folder": {
+      "hint": "Como Dropbox o Google Drive",
+      "choose": "Elegir carpeta…",
+      "change": "Cambiar…",
+      "chooseAgain": "Elegir…",
+      "open": "Abrir carpeta",
+      "stop": "Dejar de copiar aquí",
+      "last": "última copia {{when}}",
+      "none": "aún sin copias",
+      "unreachable": "No se puede acceder a {{path}}",
+      "pickerTitle": "Carpeta para las copias automáticas"
     }
   },
   "plan": {

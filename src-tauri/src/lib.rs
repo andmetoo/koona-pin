@@ -2,6 +2,7 @@ pub mod appimage;
 pub mod autostart;
 pub mod backup;
 pub mod billing;
+pub mod commercial;
 pub mod browsers;
 pub mod capture;
 pub mod capture_channel;
@@ -105,6 +106,10 @@ pub fn run() {
             library::Paths::from_env(),
         )))
         .setup(move |app| {
+            // Before the library: its first daily copy goes to a Supporter's folder too, which
+            // needs both states managed.
+            billing::start(app.handle());
+            commercial::backup_folder::start(app.handle());
             library_state::start(app.handle().clone());
             let handle = app.handle().clone();
             std::thread::spawn(move || capture_channel::register_host(&handle, &channel_state));
@@ -114,7 +119,6 @@ pub fn run() {
             }
             tray::build(app)?;
             updates::start(app.handle());
-            billing::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -217,6 +221,10 @@ pub fn run() {
             billing::send_sign_in_code,
             billing::verify_sign_in_code,
             billing::sign_out_supporter,
+            commercial::backup_folder::get_backup_folder,
+            commercial::backup_folder::choose_backup_folder,
+            commercial::backup_folder::stop_backup_folder,
+            commercial::backup_folder::open_backup_folder,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])

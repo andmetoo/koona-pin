@@ -1104,6 +1104,18 @@
       "badgeHint": "Kenar çubuğundaki kalp, mevsimin renginde",
       "early": "Erken sürümler",
       "earlyHint": "Yeni sürümler herkesten biraz önce"
+    },
+    "folder": {
+      "hint": "Örneğin Dropbox veya Google Drive",
+      "choose": "Klasör seç…",
+      "change": "Değiştir…",
+      "chooseAgain": "Seç…",
+      "open": "Klasörü aç",
+      "stop": "Buraya kopyalamayı durdur",
+      "last": "son yedek {{when}}",
+      "none": "henüz yedek yok",
+      "unreachable": "{{path}} konumuna erişilemiyor",
+      "pickerTitle": "Otomatik yedekler için klasör"
     }
   },
   "plan": {

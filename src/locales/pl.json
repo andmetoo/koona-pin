@@ -1250,6 +1250,18 @@
       "badgeHint": "Serce w panelu bocznym, w kolorze pory roku",
       "early": "Wczesne wersje",
       "earlyHint": "Nowe wersje trochę wcześniej niż inni"
+    },
+    "folder": {
+      "hint": "Np. Dropbox albo Dysk Google",
+      "choose": "Wybierz folder…",
+      "change": "Zmień…",
+      "chooseAgain": "Wybierz…",
+      "open": "Otwórz folder",
+      "stop": "Nie kopiuj już tutaj",
+      "last": "kopia {{when}}",
+      "none": "jeszcze bez kopii",
+      "unreachable": "Brak dostępu do {{path}}",
+      "pickerTitle": "Folder na automatyczne kopie"
     }
   },
   "plan": {

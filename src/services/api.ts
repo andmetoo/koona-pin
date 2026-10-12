@@ -52,6 +52,7 @@ import {
   SupporterStatus,
   PlanInterval,
   CheckoutState,
+  BackupFolder,
   Tag,
   TrayLabels,
   Undo,
@@ -289,5 +290,12 @@ const desktop = {
   sendSignInCode: (email: string) => call<void>("send_sign_in_code", { email }),
   verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),
   signOutSupporter: () => call<SupporterStatus>("sign_out_supporter"),
+  // Supporter's backups to a folder of one's choice (commercial/backup_folder.rs).
+  getBackupFolder: () => call<BackupFolder>("get_backup_folder"),
+  onBackupFolder: (callback: (folder: BackupFolder) => void) => subscription("backup-folder", callback),
+  /** The system's folder picker with this title; cancelling it changes nothing. */
+  chooseBackupFolder: (title: string) => call<BackupFolder>("choose_backup_folder", { title }),
+  stopBackupFolder: () => call<BackupFolder>("stop_backup_folder"),
+  openBackupFolder: () => call<void>("open_backup_folder"),
 };
 export const api = isTauri() ? desktop : demo;

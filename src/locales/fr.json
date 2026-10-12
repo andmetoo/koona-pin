@@ -1177,6 +1177,18 @@
       "badgeHint": "Le cœur de la barre latérale, à la couleur de la saison",
       "early": "Versions préliminaires",
       "earlyHint": "Les nouvelles versions un peu avant tout le monde"
+    },
+    "folder": {
+      "hint": "Comme Dropbox ou Google Drive",
+      "choose": "Choisir un dossier…",
+      "change": "Changer…",
+      "chooseAgain": "Choisir…",
+      "open": "Ouvrir le dossier",
+      "stop": "Ne plus copier ici",
+      "last": "dernière copie {{when}}",
+      "none": "pas encore de copie",
+      "unreachable": "Impossible d'accéder à {{path}}",
+      "pickerTitle": "Dossier des sauvegardes automatiques"
     }
   },
   "plan": {

@@ -1104,6 +1104,18 @@
       "badgeHint": "Das Herz in der Seitenleiste, in der Farbe der Jahreszeit",
       "early": "Frühe Versionen",
       "earlyHint": "Neue Versionen etwas vor allen anderen"
+    },
+    "folder": {
+      "hint": "Etwa Dropbox oder Google Drive",
+      "choose": "Ordner wählen…",
+      "change": "Ändern…",
+      "chooseAgain": "Wählen…",
+      "open": "Ordner öffnen",
+      "stop": "Nicht mehr hierher kopieren",
+      "last": "letzte Sicherung {{when}}",
+      "none": "noch keine Sicherung",
+      "unreachable": "{{path}} ist nicht erreichbar",
+      "pickerTitle": "Ordner für automatische Sicherungen"
     }
   },
   "plan": {

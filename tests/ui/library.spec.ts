@@ -2223,7 +2223,9 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   await expect(plan.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
   await expect(plan).toContainText("anna@example.com");
   await expect(plan).toContainText("Renews on");
-  await expect(plan.getByText("Soon")).toHaveCount(3);
+  // Sync and early builds are still to come; backups to a folder work already.
+  await expect(plan.getByText("Soon")).toHaveCount(2);
+  await expect(plan.getByRole("button", { name: "Choose folder…" })).toBeVisible();
   // The badge is a perk: turned off, the row keeps a plain heart and still opens the dialog.
   const badge = plan.getByRole("switch", { name: "Supporter badge" });
   await expect(badge).toHaveAttribute("aria-checked", "true");
@@ -2270,6 +2272,39 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
   // «Try again» asks the server and the plan is checked again.
   await page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Try again" }).click();
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
+});
+
+test("Supporter: backups to a folder — choose, change, stop, and a folder out of reach, at one height (NP-066)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plan = page.getByRole("dialog", { name: "Supporter" });
+  const row = plan.locator("[data-backup-folder]");
+  const heights: number[] = [];
+  const height = async () => heights.push(Math.round((await plan.boundingBox())!.height));
+
+  await expect(row).toHaveAttribute("data-backup-folder", "none");
+  await expect(row).toContainText("Like Dropbox or Google Drive");
+  await height();
+  await plan.getByRole("button", { name: "Choose folder…" }).click();
+  await expect(row).toHaveAttribute("data-backup-folder", "chosen");
+  await expect(row).toContainText("D:\\Dropbox\\Koona Pin · last copy today,");
+  await expect(row.locator("[title]")).toHaveAttribute("title", "D:\\Dropbox\\Koona Pin");
+  await expect(plan.getByRole("button", { name: "Open folder" })).toBeVisible();
+  await expect(plan.getByRole("button", { name: "Change…" })).toBeVisible();
+  await height();
+  await plan.getByRole("button", { name: "Stop copying here" }).click();
+  await expect(row).toHaveAttribute("data-backup-folder", "none");
+
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.backupFolder", "unreachable"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  await expect(row).toHaveAttribute("data-backup-folder", "unreachable");
+  await expect(row).toContainText("Can't reach D:\\Dropbox\\Koona Pin");
+  await height();
+  await plan.getByRole("button", { name: "Choose…", exact: true }).click();
+  await expect(row).toHaveAttribute("data-backup-folder", "chosen");
+  expect(new Set(heights).size, `heights ${heights.join(", ")}`).toBe(1);
 });
 
 test("Supporter: a payment with the email of an existing account signs in only with the code (NP-066)", async ({ page }) => {

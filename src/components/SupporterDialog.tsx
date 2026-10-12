@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert } from "lucide-react";
+import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { PlanInterval, SupporterPrices, SupporterStatus } from "../types";
+import type { BackupFolder, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
+import { copyTime } from "./BackupRestoreDialog";
 import { Icon } from "./icons";
-import { Button } from "./ui/Button";
+import { Button, IconButton } from "./ui/Button";
 import { Field, StatePanels, Switch } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
@@ -486,6 +487,96 @@ function SizingField({ label, note }: { label: string; note: string | null }) {
     </div>
   );
 }
+/**
+ * The backups perk with its folder (sheet 45, frames «копии в папку»): not chosen yet, chosen with
+ * its last copy, or chosen but out of reach. The full path is in the hint of the line.
+ */
+function FolderRow({ onError }: { onError: (text: string | null) => void }) {
+  const { t, i18n } = useTranslation();
+  const [folder, setFolder] = useState<BackupFolder | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void api.getBackupFolder().then((current) => alive && setFolder(current), () => {});
+    const off = api.onBackupFolder(setFolder);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+
+  const act = async (action: () => Promise<BackupFolder | void>) => {
+    setBusy(true);
+    onError(null);
+    try {
+      const next = await action();
+      if (next) setFolder(next);
+    } catch (err) {
+      onError(failureText(err, t));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const choose = () => act(() => api.chooseBackupFolder(t("supporter.folder.pickerTitle")));
+
+  const path = folder?.path ?? null;
+  let line;
+  if (!folder || !path) {
+    line = <span className="block text-xs leading-[17px] text-muted">{t("supporter.folder.hint")}</span>;
+  } else if (folder?.unreachable) {
+    line = (
+      <span role="status" title={path} className="block truncate text-xs leading-[17px] font-medium text-danger">
+        {t("supporter.folder.unreachable", { path })}
+      </span>
+    );
+  } else {
+    const when = folder?.last_copy_at
+      ? t("supporter.folder.last", { when: copyTime(folder.last_copy_at, t, i18n.language, true) })
+      : t("supporter.folder.none");
+    line = (
+      <span title={path} className="flex text-xs leading-[17px] text-muted">
+        <span className="truncate">{path}</span>
+        <span className="shrink-0 whitespace-pre"> · {when}</span>
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <span
+        className="min-w-0 flex-1"
+        data-backup-folder={!folder ? "loading" : !path ? "none" : folder.unreachable ? "unreachable" : "chosen"}
+      >
+        <span className="block text-sm font-medium">{t("supporter.perk.backups")}</span>
+        {line}
+      </span>
+      {/* No control until the folder is known: a chosen one must not look unset for a moment. */}
+      {!folder ? null : !path ? (
+        <Button variant="outline" disabled={busy} onClick={() => void choose()}>
+          {t("supporter.folder.choose")}
+        </Button>
+      ) : folder?.unreachable ? (
+        <Button variant="outline" disabled={busy} onClick={() => void choose()}>
+          {t("supporter.folder.chooseAgain")}
+        </Button>
+      ) : (
+        <span className="flex shrink-0 items-center gap-1">
+          <IconButton label={t("supporter.folder.open")} title={t("supporter.folder.open")} disabled={busy} onClick={() => void act(api.openBackupFolder)}>
+            <Icon icon={Folder} />
+          </IconButton>
+          <Button variant="outline" disabled={busy} onClick={() => void choose()}>
+            {t("supporter.folder.change")}
+          </Button>
+          <IconButton label={t("supporter.folder.stop")} title={t("supporter.folder.stop")} disabled={busy} onClick={() => void act(api.stopBackupFolder)}>
+            <Icon icon={X} />
+          </IconButton>
+        </span>
+      )}
+    </>
+  );
+}
+
 const PERK_ICONS = { sync: RefreshCw, backups: Folder, early: FlaskConical } as const;
 const DAY = 86_400_000;
 /** Days a plan stays after its period when the server cannot be asked (billing.rs, GRACE). */
@@ -586,11 +677,15 @@ export function PlanDialog({
                 <span className={`flex shrink-0 self-start pt-0.5 ${perk === "badge" ? "text-season" : "text-icon"}`}>
                   {PerkIcon ? <Icon icon={PerkIcon} /> : <Heart size={16} strokeWidth={1.5} fill="currentColor" aria-hidden />}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{t(`supporter.perk.${perk}`)}</span>
-                  <span className="block text-xs leading-[17px] text-muted">{t(`supporter.perk.${perk}Hint`)}</span>
-                </span>
-                {perk === "badge" ? (
+                {perk === "backups" && plan ? (
+                  <FolderRow onError={setError} />
+                ) : (
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium">{t(`supporter.perk.${perk}`)}</span>
+                    <span className="block text-xs leading-[17px] text-muted">{t(`supporter.perk.${perk}Hint`)}</span>
+                  </span>
+                )}
+                {perk === "backups" && plan ? null : perk === "badge" ? (
                   <Switch label={t("supporter.perk.badge")} checked={badge} onChange={onBadge} />
                 ) : (
                   <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-2xs font-medium text-subtle">{t("supporter.soon")}</span>

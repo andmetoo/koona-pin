@@ -1104,11 +1104,14 @@ pub fn get_data_summary(library: State<'_, Arc<Library>>) -> DataSummary {
 }
 /// A copy can take seconds on a large library, so it runs off the main thread.
 #[tauri::command]
-pub async fn back_up_now(library: State<'_, Arc<Library>>) -> Result<DataSummary, CommandError> {
+pub async fn back_up_now(app: AppHandle, library: State<'_, Arc<Library>>) -> Result<DataSummary, CommandError> {
     let library = library.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        crate::library::back_up_now(&library.paths, chrono::Utc::now())
+        let copy = crate::library::back_up_now(&library.paths, chrono::Utc::now())
             .map_err(|error| CommandError::new(ErrorCode::DatabaseError, error))?;
+        // A Supporter's chosen folder gets this copy too (commercial/backup_folder.rs), without
+        // holding the button: a cloud or network folder can be slow, its row says how it went.
+        std::thread::spawn(move || crate::commercial::backup_folder::mirror(&app, &copy));
         Ok(data_summary(&library))
     })
     .await
