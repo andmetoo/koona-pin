@@ -971,8 +971,6 @@
     "hide": "隐藏"
   },
   "supporter": {
-    "free": "免费版",
-    "support": "支持",
     "rowHint": "免费版 · 支持 Koona Pin",
     "title": "支持 Koona Pin",
     "testPayments": "测试付款",

@@ -23,6 +23,8 @@ pub enum WindowButton {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
 pub struct Desktop {
+    /// The system draws the title bar and window controls (macOS).
+    pub native_frame: bool,
     /// The buttons follow the system: round, by its layout (sheet 40).
     pub linux: bool,
     /// Window buttons at the start of the window bar and at its end, in order.
@@ -93,15 +95,18 @@ pub async fn get_desktop(app: AppHandle) -> Desktop {
     return linux::desktop(&app).await;
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = app;
+        let native_frame = app
+            .get_webview_window("main")
+            .is_some_and(|window| window.is_decorated().unwrap_or(false));
         Desktop {
+            native_frame,
             linux: false,
             left: Vec::new(),
-            right: vec![
-                WindowButton::Minimize,
-                WindowButton::Maximize,
-                WindowButton::Close,
-            ],
+            right: if native_frame {
+                Vec::new()
+            } else {
+                vec![WindowButton::Minimize, WindowButton::Maximize, WindowButton::Close]
+            },
             tray: true,
             appimage: false,
         }
@@ -208,6 +213,7 @@ pub mod linux {
             parse_layout(&decoration_layout(app).await.unwrap_or_default())
         };
         Desktop {
+            native_frame: false,
             linux: true,
             left,
             right,

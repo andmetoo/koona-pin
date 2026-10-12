@@ -28,8 +28,8 @@ export interface SidebarProps {
   update: UpdateStatus | null;
   onUpdate: () => void;
   /**
-   * Above the browser status (NP-066, sheet 45), in a build that sells Supporter: «Free version ·
-   * Support», or the Supporter badge, a filled heart in the colour of the season. Null: no row.
+   * Above the browser status (NP-066, sheet 45), in a build that sells Supporter: «Support Koona
+   * Pin», or the Supporter badge, a filled heart in the colour of the season. Null: no row.
    */
   plan: "free" | "supporter" | null;
   onSupport: () => void;
@@ -464,8 +464,9 @@ function UpdateRow({ update, percent, onClick }: { update: Offer; percent: numbe
 
 /**
  * The plan above the browser status (NP-066, sheet 45), quiet and without a fill. Free: an outlined
- * heart in the colour of the season, «Free version» in the colour of icons and «Support» in the
- * accent; it opens the Supporter dialog. Supporter: the badge — a filled heart and «Supporter»;
+ * heart in the colour of the season and «Support Koona Pin» in the accent, the title of the dialog it
+ * opens; «Free version» is left to the hint, since next to «Support» it did not fit the sidebar in
+ * most languages. Supporter: the badge — a filled heart and «Supporter»;
  * it opens the dialog of the plan and its perks. With the badge turned off there, the heart stays
  * plain: the row is still the way to that dialog.
  */
@@ -485,8 +486,11 @@ function PlanRow({ plan, badge, onClick }: { plan: "free" | "supporter"; badge: 
       <span className={`flex shrink-0 ${free || filled ? "text-season" : ""}`}>
         <Heart size={16} strokeWidth={1.5} fill={filled ? "currentColor" : "none"} aria-hidden />
       </span>
-      <span className="min-w-0 flex-1 truncate">{free ? t("supporter.free") : "Supporter"}</span>
-      {free && <span className="shrink-0 font-medium text-accent">{t("supporter.support")}</span>}
+      {free ? (
+        <span className="min-w-0 flex-1 truncate font-medium text-accent">{t("supporter.title")}</span>
+      ) : (
+        <span className="min-w-0 flex-1 truncate">Supporter</span>
+      )}
     </button>
   );
 }

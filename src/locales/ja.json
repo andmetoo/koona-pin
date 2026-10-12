@@ -971,8 +971,6 @@
     "hide": "隠す"
   },
   "supporter": {
-    "free": "無料版",
-    "support": "応援する",
     "rowHint": "無料版 · Koona Pin を応援する",
     "title": "Koona Pin を応援する",
     "testPayments": "テスト決済",

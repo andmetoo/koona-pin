@@ -91,3 +91,8 @@ libc = "0.2"
 # Both already in the tree through Tauri and the single-instance plugin.
 gtk = "0.18"
 zbus = "5.9"
+
+# The capture socket on macOS (NP-050): the user's private folder, the UID for
+# the peer check. Already in the tree.
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"

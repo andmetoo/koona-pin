@@ -7,10 +7,10 @@ import { Desktop, WindowButton } from "../../types";
 import { Icon } from "../icons";
 
 /**
- * The window has no system frame: this strip drags it and holds the window
+ * In a frameless window this strip drags it and holds the window
  * buttons. Windows keeps its own three; on Linux the buttons follow the
  * system's layout and are round (sheet 40, NP-053). The library frames in
- * Lunacy do not draw window controls.
+ * Lunacy do not draw window controls. macOS uses its real system title bar.
  */
 export function WindowBar() {
   const { t } = useTranslation();
@@ -51,6 +51,18 @@ export function WindowBar() {
       void listening.then((off) => off());
     };
   }, []);
+  useEffect(() => {
+    if (!desktop?.native_frame || !isTauri()) return;
+    const appWindow = getCurrentWindow();
+    const syncTheme = () => {
+      const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+      void appWindow.setTheme(theme).catch(console.error);
+    };
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, [desktop?.native_frame]);
   const act = (button: WindowButton) => {
     if (!isTauri()) return;
     const appWindow = getCurrentWindow();
@@ -67,13 +79,14 @@ export function WindowBar() {
           ? t("window.restore")
           : t("window.maximize");
 
+  if (desktop?.native_frame) return null;
   if (desktop?.linux) {
     const group = (buttons: WindowButton[]) =>
       buttons.map((button) => (
         <LinuxButton key={button} button={button} label={label(button)} maximized={maximized} onClick={() => act(button)} />
       ));
     return (
-      <header className="flex h-8 shrink-0 items-center px-1" data-tauri-drag-region data-buttons="linux">
+      <header className="flex h-8 shrink-0 items-center px-1" data-tauri-drag-region data-buttons="linux" data-window-controls>
         {group(desktop.left)}
         <span className="flex-1 self-stretch" data-tauri-drag-region />
         {group(desktop.right)}
@@ -84,7 +97,7 @@ export function WindowBar() {
   const button =
     "flex h-8 w-11 items-center justify-center text-icon transition-colors duration-150 hover:bg-hover hover:text-ink";
   return (
-    <header className="flex h-8 shrink-0 items-center justify-end" data-tauri-drag-region>
+    <header className="flex h-8 shrink-0 items-center justify-end" data-tauri-drag-region data-window-controls>
       {!isTauri() && (
         <span className="mr-auto pl-8 text-2xs text-subtle" data-tauri-drag-region>
           {t("window.demo")}

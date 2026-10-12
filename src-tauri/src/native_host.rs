@@ -9,13 +9,16 @@
 //! Linux: the package puts the manifests in the browsers' system folders and
 //! the app only checks them (Р-45, п. 5); a development build registers in the
 //! user's folders instead (see [`linux`]).
+//!
+//! macOS (NP-050): the app writes the manifests in the user's folders of the
+//! browsers at every start, for the host inside its bundle (see [`macos`]).
 
 use crate::browsers::CaptureProblem;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
 pub const HOST_NAME: &str = "app.koona.pin";
-/// The host on Windows; on Linux it is `koonapin-host`.
+/// The host on Windows; on Linux and macOS it is `koonapin-host`.
 pub const HOST_EXE: &str = "koonapin-host.exe";
 pub const GECKO_ID: &str = "pin@koona.app";
 /// The extension built from extension/dev-key.txt (NP-015). Anyone can load an
@@ -39,7 +42,7 @@ pub const UNREGISTER_ARG: &str = "--unregister-host";
 
 const CHROMIUM_MANIFEST: &str = "app.koona.pin.chromium.json";
 const FIREFOX_MANIFEST: &str = "app.koona.pin.firefox.json";
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
 const BROWSER_KEYS: [(&str, &str); 3] = [
     (r"Software\Google\Chrome\NativeMessagingHosts", CHROMIUM_MANIFEST),
     (r"Software\Microsoft\Edge\NativeMessagingHosts", CHROMIUM_MANIFEST),
@@ -63,7 +66,7 @@ pub enum Family {
 }
 
 /// One manifest. `path` is the host: relative to the manifest on Windows,
-/// absolute on Linux (the only form allowed there).
+/// absolute on Linux and macOS (the only form allowed there).
 pub fn manifest(family: Family, public_release: bool, path: &str) -> String {
     let mut manifest = json!({
         "name": HOST_NAME,
@@ -159,7 +162,7 @@ pub fn unregister() -> std::io::Result<()> {
 }
 
 /// Writes the manifests next to the app and points the browsers at them.
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
 pub fn register() -> Result<(), (CaptureProblem, String)> {
     let folder = app_folder().ok_or((
         CaptureProblem::Registration,
@@ -187,7 +190,7 @@ pub fn register() -> Result<(), (CaptureProblem, String)> {
 
 /// Removes the keys that point at this folder and the manifests in it. A key
 /// that points elsewhere (another copy, a development build) stays.
-#[cfg(not(target_os = "linux"))]
+#[cfg(windows)]
 pub fn unregister() -> std::io::Result<()> {
     let folder = app_folder().ok_or_else(|| std::io::Error::other("cannot find the app's folder"))?;
     for (key, file) in BROWSER_KEYS {
@@ -204,6 +207,103 @@ pub fn unregister() -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+/// At every start and on «Повторить», when [`should_register`]: the
+/// manifests for the host in this bundle, so a copy that moved points the
+/// browsers at its new place.
+#[cfg(target_os = "macos")]
+pub fn register() -> Result<(), (CaptureProblem, String)> {
+    let registration = |e: std::io::Error| (CaptureProblem::Registration, e.to_string());
+    let host = macos::own_host().map_err(registration)?;
+    if !host.is_file() {
+        return Err((CaptureProblem::HostMissing, host.display().to_string()));
+    }
+    let home = dirs::home_dir().ok_or_else(|| registration(std::io::Error::other("cannot find the home folder")))?;
+    write_manifests(&macos::user_folders(&home), &host, cfg!(feature = "public-release")).map_err(registration)
+}
+
+/// `--unregister-host`: the manifests that point at this copy's host.
+#[cfg(target_os = "macos")]
+pub fn unregister() -> std::io::Result<()> {
+    let home = dirs::home_dir().ok_or_else(|| std::io::Error::other("cannot find the home folder"))?;
+    remove_manifests(&macos::user_folders(&home), &macos::own_host()?)
+}
+
+/// On Linux and macOS a browser finds the manifest by the host's name.
+#[cfg(any(unix, test))]
+fn manifest_file() -> String {
+    format!("{HOST_NAME}.json")
+}
+
+/// The manifests for `host` in the user's `folders`; one already right is
+/// not written again.
+#[cfg(any(unix, test))]
+fn write_manifests(folders: &[(PathBuf, Family)], host: &Path, public_release: bool) -> std::io::Result<()> {
+    let host = host
+        .to_str()
+        .ok_or_else(|| std::io::Error::other("the host's path is not UTF-8"))?;
+    for (folder, family) in folders {
+        std::fs::create_dir_all(folder)?;
+        let path = folder.join(manifest_file());
+        let content = manifest(*family, public_release, host);
+        if std::fs::read_to_string(&path).ok().as_deref() != Some(content.as_str()) {
+            std::fs::write(&path, content)?;
+        }
+    }
+    Ok(())
+}
+
+/// Removes the manifests in `folders` that point at `host`; those of another
+/// copy stay, as the keys on Windows.
+#[cfg(any(unix, test))]
+fn remove_manifests(folders: &[(PathBuf, Family)], host: &Path) -> std::io::Result<()> {
+    for (folder, _) in folders {
+        let path = folder.join(manifest_file());
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let ours = serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .is_some_and(|manifest| manifest["path"].as_str().map(Path::new) == Some(host));
+        if ours {
+            std::fs::remove_file(&path)?;
+        }
+    }
+    Ok(())
+}
+
+/// macOS (NP-050): Chrome, Edge, Chromium and Firefox each read the user's
+/// manifests from a folder under `~/Library/Application Support`. The host is
+/// `Contents/MacOS/koonapin-host` of the bundle. The tests of the folders run
+/// on every system.
+#[cfg(any(target_os = "macos", test))]
+pub mod macos {
+    use super::Family;
+    use std::{
+        io,
+        path::{Path, PathBuf},
+    };
+
+    /// The host next to the app in `Contents/MacOS`.
+    pub const HOST_BINARY: &str = "koonapin-host";
+
+    pub fn user_folders(home: &Path) -> [(PathBuf, Family); 4] {
+        let support = home.join("Library/Application Support");
+        [
+            (support.join("Google/Chrome/NativeMessagingHosts"), Family::Chromium),
+            (support.join("Microsoft Edge/NativeMessagingHosts"), Family::Chromium),
+            (support.join("Chromium/NativeMessagingHosts"), Family::Chromium),
+            (support.join("Mozilla/NativeMessagingHosts"), Family::Firefox),
+        ]
+    }
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn own_host() -> io::Result<PathBuf> {
+        super::app_folder()
+            .map(|folder| folder.join(HOST_BINARY))
+            .ok_or_else(|| io::Error::other("cannot find the app's folder"))
+    }
 }
 
 /// Linux (Р-53): the folders the browsers read, the package's manifests, the
@@ -240,7 +340,7 @@ pub mod linux {
 
     /// On Linux a browser finds the manifest by the host's name.
     pub fn file_name() -> String {
-        format!("{HOST_NAME}.json")
+        super::manifest_file()
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -412,18 +512,7 @@ pub mod linux {
     }
 
     pub fn write_user(home: &Path, config: &Path, host: &Path, public_release: bool) -> io::Result<()> {
-        let host = host
-            .to_str()
-            .ok_or_else(|| io::Error::other("the host's path is not UTF-8"))?;
-        for (folder, family) in user_folders(home, config) {
-            std::fs::create_dir_all(&folder)?;
-            let path = folder.join(file_name());
-            let content = manifest(family, public_release, host);
-            if std::fs::read_to_string(&path).ok().as_deref() != Some(content.as_str()) {
-                std::fs::write(&path, content)?;
-            }
-        }
-        Ok(())
+        super::write_manifests(&user_folders(home, config), host, public_release)
     }
 
     /// `--unregister-host`.
@@ -432,22 +521,9 @@ pub mod linux {
         remove_user(&home, &config, &own_host()?)
     }
 
-    /// Removes the user's manifests that point at this host; those of another
-    /// copy stay, as the keys on Windows.
+    /// Removes the user's manifests that point at this host.
     pub fn remove_user(home: &Path, config: &Path, host: &Path) -> io::Result<()> {
-        for (folder, _) in user_folders(home, config) {
-            let path = folder.join(file_name());
-            let Ok(text) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            let ours = serde_json::from_str::<serde_json::Value>(&text)
-                .ok()
-                .is_some_and(|manifest| manifest["path"].as_str().map(Path::new) == Some(host));
-            if ours {
-                std::fs::remove_file(&path)?;
-            }
-        }
-        Ok(())
+        super::remove_manifests(&user_folders(home, config), host)
     }
 }
 
@@ -542,22 +618,6 @@ mod registry {
                 return Err(std::io::Error::from_raw_os_error(status as i32));
             }
         }
-        Ok(())
-    }
-}
-
-#[cfg(not(any(windows, target_os = "linux")))]
-mod registry {
-    // macOS keeps manifests in per-browser folders (NP-048).
-    pub fn set_default(_key: &str, _path: &std::path::Path) -> std::io::Result<()> {
-        Err(std::io::Error::other("not available on this system yet"))
-    }
-
-    pub fn default(_key: &str) -> Option<String> {
-        None
-    }
-
-    pub fn delete(_key: &str) -> std::io::Result<()> {
         Ok(())
     }
 }
@@ -842,6 +902,45 @@ mod tests {
         let other = folders[1].0.join("app.koona.pin.json");
         std::fs::write(&other, manifest(Family::Chromium, false, "/elsewhere/koonapin-host")).unwrap();
         linux::remove_user(&home, &config, host).unwrap();
+        for (folder, _) in &folders {
+            let path = folder.join("app.koona.pin.json");
+            assert_eq!(path.exists(), path == other, "{}", path.display());
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// macOS (NP-050): each browser's own folder under Application Support,
+    /// the host inside the bundle by its absolute path; a moved copy rewrites
+    /// the path, removing takes only this copy's manifests.
+    #[test]
+    fn the_macos_registration_points_each_browser_at_the_bundle() {
+        let dir = scratch("macos");
+        let home = dir.join("home");
+        let host = Path::new("/Applications/Koona Pin.app/Contents/MacOS/koonapin-host");
+        let folders = macos::user_folders(&home);
+        write_manifests(&folders, host, true).unwrap();
+        let support = home.join("Library/Application Support");
+        for (folder, family) in [
+            ("Google/Chrome/NativeMessagingHosts", Family::Chromium),
+            ("Microsoft Edge/NativeMessagingHosts", Family::Chromium),
+            ("Chromium/NativeMessagingHosts", Family::Chromium),
+            ("Mozilla/NativeMessagingHosts", Family::Firefox),
+        ] {
+            let manifest = read_json(&support.join(folder).join("app.koona.pin.json"));
+            assert_eq!(manifest["path"], host.to_str().unwrap(), "{folder}");
+            match family {
+                Family::Chromium => assert_eq!(manifest["allowed_origins"], json!(chromium_origins(true))),
+                Family::Firefox => assert_eq!(manifest["allowed_extensions"], json!([GECKO_ID])),
+            }
+        }
+        // The app moved to another folder: the next start repairs the path.
+        let moved = Path::new("/Users/someone/Desktop/Koona Pin.app/Contents/MacOS/koonapin-host");
+        write_manifests(&folders, moved, true).unwrap();
+        assert_eq!(read_json(&folders[0].0.join("app.koona.pin.json"))["path"], moved.to_str().unwrap());
+        // Another copy registered in one folder keeps its manifest.
+        let other = folders[3].0.join("app.koona.pin.json");
+        std::fs::write(&other, manifest(Family::Firefox, true, "/elsewhere/koonapin-host")).unwrap();
+        remove_manifests(&folders, moved).unwrap();
         for (folder, _) in &folders {
             let path = folder.join("app.koona.pin.json");
             assert_eq!(path.exists(), path == other, "{}", path.display());

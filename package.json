@@ -43,6 +43,7 @@
     "prebuild:linux": "bun scripts/clean.mjs",
     "build:linux": "bun scripts/build-linux-packages.mjs",
     "build:aur": "bun scripts/build-aur.mjs",
+    "build:macos:test": "bun scripts/build-macos-test.mjs",
     "build:latest": "bun scripts/build-latest.mjs",
     "release": "bun scripts/release.mjs",
     "tauri": "tauri"

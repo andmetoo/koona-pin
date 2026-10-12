@@ -971,8 +971,6 @@
     "hide": "숨기기"
   },
   "supporter": {
-    "free": "무료 버전",
-    "support": "후원하기",
     "rowHint": "무료 버전 · Koona Pin 후원하기",
     "title": "Koona Pin 후원하기",
     "testPayments": "테스트 결제",

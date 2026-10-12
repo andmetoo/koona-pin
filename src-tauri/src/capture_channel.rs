@@ -357,7 +357,7 @@ fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
         }
     });
 }
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
     // Bound before this returns, so «Повторить» answers with the real state.
     let listener = crate::pipe_name::socket_path()
@@ -401,14 +401,6 @@ fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
         }
     });
 }
-#[cfg(not(any(windows, target_os = "linux")))]
-fn serve(app: AppHandle, _db: Arc<DbState>, state: Arc<ChannelState>) {
-    // macOS gets its channel with its release (NP-048).
-    state.set_channel(Some("Native messaging is not available on this system yet".into()));
-    emit_status(&app, &state);
-}
-
-#[cfg(any(windows, target_os = "linux"))]
 async fn answer(
     pipe: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
     app: AppHandle,
@@ -487,9 +479,9 @@ async fn answer(
     pipe.flush().await
 }
 
-/// The capture socket on Linux (Р-45, п. 6): what the pipe's DACL and first
-/// instance flag do on Windows.
-#[cfg(target_os = "linux")]
+/// The capture socket on Linux (Р-45, п. 6) and macOS (NP-050): what the
+/// pipe's DACL and first instance flag do on Windows.
+#[cfg(unix)]
 mod socket {
     use std::{
         fs, io,
@@ -549,8 +541,8 @@ mod socket {
     }
 
     /// Only processes of this user talk to the app. The folder already keeps
-    /// others out; the peer's UID (`SO_PEERCRED`) is checked as well, in case
-    /// the folder was opened.
+    /// others out; the peer's UID (`SO_PEERCRED`, `getpeereid` on macOS) is
+    /// checked as well, in case the folder was opened.
     pub fn admitted(peer: Option<u32>) -> bool {
         peer == Some(own_uid())
     }
@@ -785,8 +777,8 @@ mod tests {
     }
 
     /// A folder of its own under the temporary one: a socket path stays far
-    /// below the 108 bytes of `sun_path`.
-    #[cfg(target_os = "linux")]
+    /// below the 108 bytes of `sun_path` (104 on macOS).
+    #[cfg(unix)]
     fn runtime_dir(label: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("koonapin-{label}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -796,7 +788,7 @@ mod tests {
 
     /// The folder is `0700`, the socket `0600`; an opened folder is closed
     /// again, a folder that is a symlink is refused.
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     #[test]
     fn the_socket_and_its_folder_are_only_the_users() {
         use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -821,7 +813,7 @@ mod tests {
 
     /// A live socket is reported, not taken over; the file of a crashed app
     /// is replaced.
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     #[test]
     fn a_live_socket_is_busy_and_a_leftover_is_replaced() {
         let runtime = runtime_dir("first");
@@ -841,7 +833,7 @@ mod tests {
 
     /// The peer's UID decides: this process is admitted, another UID or an
     /// unknown one is not.
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     #[test]
     fn only_the_users_own_processes_are_admitted() {
         let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -886,6 +878,27 @@ mod tests {
                 Some(value) => std::env::set_var(name, value),
                 None => std::env::remove_var(name),
             }
+        }
+    }
+
+    /// macOS: the user's own folder of the system, kept and private, the same
+    /// for the host as for the app; the test name goes into the same folder.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_socket_lives_in_the_users_folder() {
+        // The only test that touches this variable.
+        let saved = std::env::var_os(crate::pipe_name::PIPE_ENV);
+        std::env::remove_var(crate::pipe_name::PIPE_ENV);
+        let path = crate::pipe_name::socket_path().unwrap();
+        assert!(path.ends_with("0/koonapin/capture.sock"), "{}", path.display());
+        assert!(path.starts_with("/var/folders/") || path.starts_with("/private/var/folders/"), "{}", path.display());
+        // Well below the 104 bytes of `sun_path`.
+        assert!(path.as_os_str().len() < 90, "{}", path.display());
+        std::env::set_var(crate::pipe_name::PIPE_ENV, "koonapin-smoke-1");
+        assert_eq!(crate::pipe_name::socket_path().unwrap(), path.with_file_name("koonapin-smoke-1.sock"));
+        match saved {
+            Some(value) => std::env::set_var(crate::pipe_name::PIPE_ENV, value),
+            None => std::env::remove_var(crate::pipe_name::PIPE_ENV),
         }
     }
 
