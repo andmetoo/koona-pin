@@ -30,6 +30,11 @@ const ENVIRONMENT: Option<&str> = option_env!("KOONAPIN_PADDLE_ENV");
 /// The last days of a paid period, when the app asks once a day whether it renewed.
 const RENEWAL_WINDOW: TimeDelta = TimeDelta::days(3);
 const CHECK_EVERY: TimeDelta = TimeDelta::days(1);
+/// Before them, once a week: a change of plan, a cancellation or a refund shows within a week
+/// without asking more often (the Supporter dialog also asks when it opens).
+const CHECK_WEEKLY: TimeDelta = TimeDelta::days(7);
+/// An automatic check this soon after the last one is not asked again.
+const FRESH: TimeDelta = TimeDelta::seconds(15);
 /// How long a plan stays after its period when the server cannot be reached.
 const GRACE: TimeDelta = TimeDelta::days(7);
 /// A purchase started but not seen paid is forgotten after this.
@@ -280,12 +285,27 @@ pub fn has_plan(app: &AppHandle) -> bool {
     service().is_some() && app.try_state::<Billing>().is_some_and(|billing| effective(&billing.get(), Utc::now()).is_some())
 }
 
-/// One check a day in the last days of the period, for a signed-in Supporter.
+/// For a signed-in Supporter: one check a week, one a day in the last days of the period and after
+/// a check that failed. A check stamped in the future (the clock was ahead) counts as old.
 fn due(stored: &Stored, now: DateTime<Utc>) -> bool {
     let (Some(_), Some(plan)) = (&stored.session, &stored.plan) else {
         return false;
     };
-    now >= plan.valid_until - RENEWAL_WINDOW && stored.checked_at.is_none_or(|at| now - at >= CHECK_EVERY)
+    let every = if stored.check_failed || now >= plan.valid_until - RENEWAL_WINDOW { CHECK_EVERY } else { CHECK_WEEKLY };
+    stored.checked_at.is_none_or(|at| at > now || now - at >= every)
+}
+
+/// A check that may use the answer already here instead of asking: an automatic one an answer
+/// seconds old, and any one the answer of a check that ran while it waited for its turn (a manual
+/// one only if that answer came, so «Try again» after a failure still asks). `waited_from` is the
+/// stamp seen before waiting. An answer to a question asked before `portal_at` never counts: what
+/// was changed in the portal since is not in it.
+fn answered(stored: &Stored, waited_from: Option<DateTime<Utc>>, now: DateTime<Utc>, automatic: bool, portal_at: Option<DateTime<Utc>>) -> bool {
+    let Some(at) = stored.checked_at.filter(|at| *at <= now && portal_at.is_none_or(|portal| *at >= portal)) else {
+        return false;
+    };
+    let meanwhile = waited_from != Some(at);
+    (automatic && (meanwhile || now - at < FRESH)) || (meanwhile && !stored.check_failed)
 }
 
 fn status(stored: &Stored, now: DateTime<Utc>) -> SupporterStatus {
@@ -314,6 +334,13 @@ pub struct Billing {
     /// One `claim` at a time, network included, for the dialog, the background and Sign out: two
     /// asks at once would let a «taken» answer drop the purchase whose «paid» is still on its way.
     claiming: tokio::sync::Mutex<()>,
+    /// One plan check at a time (the background, the dialog, «Try again»): a late failure must not
+    /// overwrite a newer answer.
+    checking: tokio::sync::Mutex<()>,
+    /// One token refresh at a time: two with the same refresh token would race for the session.
+    refreshing: tokio::sync::Mutex<()>,
+    /// When «Manage» last opened the portal: the check after it asks the server again.
+    portal_at: Mutex<Option<DateTime<Utc>>>,
 }
 
 impl Billing {
@@ -327,7 +354,15 @@ impl Billing {
         if service().is_some_and(|s| s.sandbox != stored.sandbox) {
             stored = Stored { sandbox: service().is_some_and(|s| s.sandbox), ..Stored::default() };
         }
-        Billing { path, stored: Mutex::new(stored), wake: tokio::sync::Notify::new(), claiming: tokio::sync::Mutex::new(()) }
+        Billing {
+            path,
+            stored: Mutex::new(stored),
+            wake: tokio::sync::Notify::new(),
+            claiming: tokio::sync::Mutex::new(()),
+            checking: tokio::sync::Mutex::new(()),
+            refreshing: tokio::sync::Mutex::new(()),
+            portal_at: Mutex::new(None),
+        }
     }
 
     fn get(&self) -> Stored {
@@ -383,7 +418,7 @@ pub fn start(app: &AppHandle) {
                 let _ = claim(&app).await;
             }
             if due(&billing.get(), Utc::now()) {
-                let _ = check(&app).await;
+                let _ = check(&app, false).await;
             }
             let wait = billing.get().next_wake(Utc::now());
             tokio::select! {
@@ -462,6 +497,8 @@ fn session_of(value: &Value) -> Option<Session> {
 /// account was signed out elsewhere (the refresh token no longer works).
 async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
     let billing = app.state::<Billing>();
+    // The session is read under the lock: a refresh that just finished is used, not repeated.
+    let _one = billing.refreshing.lock().await;
     let Some(session) = billing.get().session else {
         return Ok(None);
     };
@@ -493,11 +530,23 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
 
 /// Asks for the plan of the signed-in account; marks the check failed when the server is away.
 /// The answer counts only for the account it was asked for: after Sign out it changes nothing.
-async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
+async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, CommandError> {
     let billing = app.state::<Billing>();
-    let Some(email) = billing.get().session.map(|s| s.email) else {
-        return Ok(status(&billing.get(), Utc::now()));
+    let waited_from = billing.get().checked_at;
+    let _one = billing.checking.lock().await;
+    let stored = billing.get();
+    let Some(email) = stored.session.as_ref().map(|s| s.email.clone()) else {
+        return Ok(status(&stored, Utc::now()));
     };
+    // The dialog asks each time it opens or comes back into focus, and «Try again» may wait for a
+    // check already on its way: the answer here is then enough.
+    let portal_at = billing.portal_at.lock().ok().and_then(|at| *at);
+    if answered(&stored, waited_from, Utc::now(), automatic, portal_at) {
+        return Ok(status(&stored, Utc::now()));
+    }
+    // Stamped with when it was asked, not answered: an answer that set off before the portal
+    // opened is older than it, however late it comes.
+    let asked_at = Utc::now();
     let result = async {
         let Some(token) = access_token(app).await? else {
             return Ok(None);
@@ -512,7 +561,7 @@ async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
             billing.update(app, |s| {
                 if s.same_account(&email) {
                     s.plan = plan;
-                    s.checked_at = Some(Utc::now());
+                    s.checked_at = Some(asked_at);
                     s.check_failed = false;
                 }
             })
@@ -520,13 +569,13 @@ async fn check(app: &AppHandle) -> Result<SupporterStatus, CommandError> {
         // Signed out elsewhere: the plan stays until its period ends, as when offline.
         Ok(_) => billing.update(app, |s| {
             if s.same_account(&email) || s.session.is_none() {
-                s.checked_at = Some(Utc::now());
+                s.checked_at = Some(asked_at);
             }
         }),
         Err(error) => {
             billing.update(app, |s| {
                 if s.same_account(&email) {
-                    s.checked_at = Some(Utc::now());
+                    s.checked_at = Some(asked_at);
                     s.check_failed = true;
                 }
             })?;
@@ -657,15 +706,19 @@ pub async fn poll_checkout(app: AppHandle) -> Result<CheckoutState, CommandError
     claim(&app).await
 }
 
-/// Settings → Plan «Try again», and after the customer portal.
+/// «Try again» asks now; `automatic` — the Supporter dialog opening or coming back into focus —
+/// asks unless the plan was checked moments ago.
 #[tauri::command]
-pub async fn refresh_supporter(app: AppHandle) -> Result<SupporterStatus, CommandError> {
-    check(&app).await
+pub async fn refresh_supporter(app: AppHandle, automatic: Option<bool>) -> Result<SupporterStatus, CommandError> {
+    check(&app, automatic.unwrap_or(false)).await
 }
 
 /// «Manage ↗»: Paddle's customer portal in the browser.
 #[tauri::command]
 pub async fn open_supporter_portal(app: AppHandle) -> Result<(), CommandError> {
+    if let Ok(mut at) = app.state::<Billing>().portal_at.lock() {
+        *at = Some(Utc::now());
+    }
     let token = access_token(&app).await?.ok_or_else(|| CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::SignedOut, "Not signed in"))?;
     let (status, value) = call(&app, json!({ "action": "portal" }), Some(&token)).await?;
     let url = value["url"].as_str().filter(|_| status.is_success()).ok_or_else(|| refused("billing portal", status))?.to_string();
@@ -709,7 +762,7 @@ pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) ->
         s.checked_at = None;
         s.awaiting_sign_in = false;
     })?;
-    check(&app).await
+    check(&app, false).await
 }
 
 /// «Sign out»: the account and the plan leave this computer; the subscription goes on.
@@ -753,16 +806,48 @@ mod tests {
     }
 
     #[test]
-    fn the_plan_is_kept_without_asking_until_the_last_days_of_the_period() {
-        let stored = supporter("2027-10-11T12:00:00Z");
-        assert!(!due(&stored, at("2026-10-12T00:00:00Z")), "a fresh plan is not checked");
-        assert!(!due(&stored, at("2027-10-08T11:00:00Z")), "nor more than three days before its end");
-        assert!(due(&stored, at("2027-10-08T13:00:00Z")), "three days before: once");
+    fn the_plan_is_checked_once_a_week_and_daily_in_the_last_days_of_the_period() {
+        let stored = Stored { checked_at: Some(at("2026-10-12T00:00:00Z")), ..supporter("2027-10-11T12:00:00Z") };
+        assert!(!due(&stored, at("2026-10-12T12:00:00Z")), "a fresh plan is not checked");
+        assert!(!due(&stored, at("2026-10-18T23:00:00Z")), "nor within a week");
+        assert!(due(&stored, at("2026-10-19T00:00:00Z")), "a week later: a cancellation or a refund shows");
+        let weekly = Stored { checked_at: Some(at("2027-10-05T13:00:00Z")), ..stored.clone() };
+        assert!(!due(&weekly, at("2027-10-08T11:00:00Z")), "more than three days before its end: weekly still");
+        assert!(due(&weekly, at("2027-10-08T13:00:00Z")), "three days before: daily");
         let checked = Stored { checked_at: Some(at("2027-10-08T13:00:00Z")), ..stored.clone() };
         assert!(!due(&checked, at("2027-10-09T12:00:00Z")), "not twice a day");
         assert!(due(&checked, at("2027-10-09T13:00:00Z")), "the next day again");
         assert!(!due(&Stored { session: None, ..stored.clone() }, at("2027-10-10T00:00:00Z")), "signed out: nothing to ask");
         assert!(!due(&Stored::default(), at("2027-10-10T00:00:00Z")), "Free: never");
+        let failed = Stored { check_failed: true, ..stored.clone() };
+        assert!(due(&failed, at("2026-10-13T00:00:00Z")), "a failed check is asked again the next day, not in a week");
+        let ahead = Stored { checked_at: Some(at("2026-10-20T00:00:00Z")), ..stored.clone() };
+        assert!(due(&ahead, at("2026-10-12T12:00:00Z")), "a check stamped in the future counts as old");
+    }
+
+    #[test]
+    fn a_check_uses_an_answer_already_here_only_when_it_may() {
+        let now = at("2026-10-12T12:00:00Z");
+        let checked = |when: &str, failed: bool| Stored { checked_at: Some(at(when)), check_failed: failed, ..supporter("2027-10-11T12:00:00Z") };
+        let seconds_ago = checked("2026-10-12T11:59:55Z", false);
+        let before = seconds_ago.checked_at;
+        assert!(answered(&seconds_ago, before, now, true, None), "the dialog skips an answer seconds old");
+        assert!(!answered(&seconds_ago, before, now, false, None), "«Try again» asks anyway");
+        assert!(!answered(&checked("2026-10-12T11:59:00Z", false), Some(at("2026-10-12T11:59:00Z")), now, true, None), "a minute old: asked again");
+        // A check ran while this one waited for its turn.
+        let meanwhile = checked("2026-10-12T11:59:58Z", false);
+        assert!(answered(&meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false, None), "«Try again» takes the answer that just came");
+        let failed_meanwhile = checked("2026-10-12T11:59:58Z", true);
+        assert!(!answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, false, None), "but asks itself after a failure");
+        assert!(answered(&failed_meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true, None), "the dialog does not repeat it");
+        assert!(!answered(&checked("2026-10-13T00:00:00Z", false), None, now, true, None), "a stamp in the future is not fresh");
+        assert!(!answered(&Stored { checked_at: None, ..seconds_ago.clone() }, None, now, true, None), "never checked: ask");
+        // Back from «Manage»: an answer asked before the portal opened, seconds old or one that came
+        // while this check waited, says nothing about what was changed there.
+        let portal = Some(at("2026-10-12T11:59:57Z"));
+        assert!(!answered(&seconds_ago, before, now, true, portal), "seconds old but asked before the portal: asked again");
+        assert!(!answered(&checked("2026-10-12T11:59:56Z", false), Some(at("2026-10-05T00:00:00Z")), now, true, portal), "nor one that came meanwhile");
+        assert!(answered(&meanwhile, Some(at("2026-10-05T00:00:00Z")), now, true, portal), "one asked after the portal counts");
     }
 
     #[test]

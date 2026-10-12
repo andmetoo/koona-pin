@@ -136,6 +136,12 @@ export function App() {
   const [supporter, setSupporter] = useState<SupporterStatus | null>(null);
   /** The Supporter badge's heart in the colour of the season; a perk the dialog turns off. */
   const [badge, setBadge] = useState(() => preference("supporterBadge", ["on", "off"], "on") === "on");
+  // A check that finds the plan gone (cancelled, refunded) closes its dialog for good, so nothing
+  // stays blocked behind a dialog that is no longer shown.
+  const hasPlan = !!supporter?.plan;
+  useEffect(() => {
+    if (!hasPlan) setSurface((open) => (open === "plan" ? null : open));
+  }, [hasPlan]);
   const [appVersion, setAppVersion] = useState("");
   const [linux, setLinux] = useState(false);
   const [damaged, setDamaged] = useState(false);

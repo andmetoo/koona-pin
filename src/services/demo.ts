@@ -1358,11 +1358,23 @@ export const demo = {
     if (storedSupporter() === "background") return "none";
     return "paid";
   },
-  async refreshSupporter(): Promise<SupporterStatus> {
+  /**
+   * `koonapin.demo.serverPlan` is the plan the preview's server has now (a kind of `demoPlan`, or
+   * `none`), as after a change in the portal. Without it the server has nothing new; only «Try
+   * again» brings back a plan that could not be checked.
+   */
+  async refreshSupporter(automatic = false): Promise<SupporterStatus> {
     await new Promise((resolve) => setTimeout(resolve, 400));
     noServer();
     const status = currentDemoSupporter();
-    if (status.check_failed) setDemoSupporter({ ...status, plan: demoPlan("supporter"), check_failed: false });
+    let server: string | null = null;
+    try {
+      server = localStorage.getItem("koonapin.demo.serverPlan");
+    } catch {
+      server = null;
+    }
+    if (server !== null) setDemoSupporter({ ...status, plan: demoPlan(server), check_failed: false });
+    else if (status.check_failed && !automatic) setDemoSupporter({ ...status, plan: demoPlan("supporter"), check_failed: false });
     return currentDemoSupporter();
   },
   async openSupporterPortal() {},

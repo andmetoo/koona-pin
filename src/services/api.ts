@@ -285,7 +285,8 @@ const desktop = {
   openCheckout: (url: string) => call<void>("open_checkout", { url }),
   /** Only while the dialog waits for the payment. */
   pollCheckout: () => call<CheckoutState>("poll_checkout"),
-  refreshSupporter: () => call<SupporterStatus>("refresh_supporter"),
+  /** `automatic`: the dialog opening or coming back into focus, not asked again if just checked. */
+  refreshSupporter: (automatic = false) => call<SupporterStatus>("refresh_supporter", { automatic }),
   openSupporterPortal: () => call<void>("open_supporter_portal"),
   sendSignInCode: (email: string) => call<void>("send_sign_in_code", { email }),
   verifySignInCode: (email: string, code: string) => call<SupporterStatus>("verify_sign_in_code", { email, code }),

@@ -619,6 +619,17 @@ export function PlanDialog({
     }
   };
 
+  // The plan as the server has it now: a change or a cancellation in the portal shows here, not
+  // only in the last days of the period. Asked when the dialog opens and each time the window
+  // comes back into focus, as after «Manage» (the app skips an answer seconds old); a failure says
+  // nothing here, the background asks again.
+  useEffect(() => {
+    const recheck = () => void api.refreshSupporter(true).catch(() => {});
+    recheck();
+    window.addEventListener("focus", recheck);
+    return () => window.removeEventListener("focus", recheck);
+  }, []);
+
   let status: string;
   let tone: "muted" | "danger" | "amber" = "muted";
   let action = (
@@ -632,7 +643,7 @@ export function PlanDialog({
     status = t("supporter.unchecked", { date: date(plan.valid_until, GRACE_DAYS) });
     tone = "amber";
     action = (
-      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(api.refreshSupporter)}>
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(() => api.refreshSupporter())}>
         {t("common.retry")}
       </Button>
     );
