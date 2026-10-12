@@ -234,6 +234,14 @@ async function compile() {
   bundle("appimage", { deb: { desktopTemplate: path.join(linux, "koonapin.desktop") }, appimage: { bundleMediaFramework: false } });
   await copyFile(path.join(bundles, "appimage", `koonapin_${version}_amd64.AppImage`), files.appimage);
   await chmod(files.appimage, 0o755);
+  // The AppImage carries Void's own WebKitGTK, GTK and the rest (linuxdeploy): they must not need a newer
+  // glibc than the floor either, or the AppImage would not start where the binaries do.
+  const extracted = await mkdtemp(path.join(tmpdir(), "koonapin-appimage-"));
+  run(files.appimage, ["--appimage-extract"], { cwd: extracted, stdio: "ignore" });
+  const libraries = (await filesUnder(path.join(extracted, "squashfs-root"))).filter((file) => /\.so(\.\d+)*$/.test(file));
+  if (!libraries.length) fail(`${path.relative(root, files.appimage)}: no libraries inside`);
+  run("bash", [path.join(root, "scripts", "linux", "check-glibc.sh"), "--libraries", ...libraries]);
+  await rm(extracted, { recursive: true, force: true });
   console.log(`\n${path.relative(root, files.raw)}: ${await mb(files.raw)}\n${path.relative(root, files.appimage)}: ${await mb(files.appimage)}`);
 }
 
@@ -408,14 +416,15 @@ async function fromCi(ref) {
   if (!has("gh")) fail("gh is not installed: https://cli.github.com, then gh auth login");
   let id = ref;
   if (!/^\d+$/.test(ref)) {
-    // A run of a tag push has the tag as its branch.
-    const list = spawnSync("gh", ["run", "list", "--workflow", "release.yml", "--branch", ref, "--limit", "1", "--json", "databaseId,status,conclusion,url"], {
+    // A run of a tag push has the tag as its branch. The newest successful one: a later run that failed
+    // or still runs has no packages, an earlier one of the same tag does.
+    const list = spawnSync("gh", ["run", "list", "--workflow", "release.yml", "--branch", ref, "--status", "success", "--limit", "1", "--json", "databaseId,status,conclusion,url"], {
       cwd: root,
       encoding: "utf8",
     });
     if (list.status !== 0) fail(`gh run list: ${list.stderr.trim()}`);
     const runs = JSON.parse(list.stdout || "[]");
-    if (!runs.length) fail(`No release.yml run of ${ref}: a tag v<version> pushed by bun run release:tag starts one`);
+    if (!runs.length) fail(`No successful release.yml run of ${ref}: a tag v<version> pushed by bun run release:tag starts one (gh run list --workflow release.yml --branch ${ref})`);
     id = String(runs[0].databaseId);
     console.log(`${ref}: run ${id} (${runs[0].conclusion || runs[0].status}) ${runs[0].url}`);
   }

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # The AppImage of the «build» job (NP-116), as «dev», on this distribution before any package is installed:
-# Arch has no WebKitGTK 4.1 and no tray library then (only the GTK 4 WebKit of WebKitWebDriver), so what the
-# image brings must be enough; on Ubuntu and Debian WebKitWebDriver has brought WebKitGTK 4.1 along, and the
-# CI image of Fedora has it for the rpm stage (ci-runtime.sh): the AppImage uses its own all the same
-# (AppRun). Under X11 (Xvfb) with a session bus: the first start makes the library, copies the host out of
-# the image, writes the browsers' manifests in the user's folders and the autostart entry for the file; a
-# second start hands over; a browser's capture through the host starts the closed app; the file moved, the
-# next start follows it.
+# Fedora and Arch have no WebKitGTK 4.1 and no tray library then (only the GTK 4 WebKit of WebKitWebDriver),
+# and on Ubuntu and Debian the tray library is taken out first (ci-package.sh prepare), so what the image
+# brings must be enough; there WebKitWebDriver has brought WebKitGTK 4.1 along, and the image uses its own
+# all the same (AppRun). Under X11 (Xvfb) with a session bus: the first start makes the library, copies the
+# host out of the image, writes the browsers' manifests in the user's folders and the autostart entry for the
+# file; a second start hands over; a browser's capture through the host starts the closed app; the file
+# moved, the next start follows it.
 # A container has no FUSE: the image runs unpacked (APPIMAGE_EXTRACT_AND_RUN), $APPIMAGE still names the file.
 set -euo pipefail
 cd "$(dirname "$0")/../.."

@@ -258,6 +258,8 @@ jobs:
           name: linux-deb
           path: dist-linux/koonapin_*_amd64.deb
           if-no-files-found: error
+      - name: The tray library out of the image (the package brings it)
+        run: bash scripts/linux/ci-package.sh prepare
       - name: The AppImage without a package as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-appimage.sh"
       - name: lintian, desktop-file-validate, appstreamcli; install the package
@@ -345,6 +347,8 @@ jobs:
       - run: |
           chmod +x dist-linux/bin/* dist-linux/*.AppImage dist-tools/tauri-driver
           chown -R dev "$GITHUB_WORKSPACE"
+      - name: The tray library out of the image (the package brings it)
+        run: bash scripts/linux/ci-package.sh prepare
       - name: The AppImage without a package as «dev»
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-appimage.sh"
       - name: Install the package

@@ -4,6 +4,9 @@
 #   ci-package.sh install   apt or dnf installs it from dist-linux/ with its dependencies — the image did not
 #                           bring the tray library — and the files are where Р-53 puts them; on Debian first
 #                           lintian, desktop-file-validate and appstreamcli, on Fedora rpmlint
+#   ci-package.sh prepare   on Ubuntu and Debian, before the AppImage and the package: the tray library out
+#                           of the CI image (it is there for the WebKitGTK checks), so the AppImage must
+#                           bring its own and the .deb's Depends must bring it back (Р-26, п. 3)
 #   ci-package.sh remove    a second install over it, then removal: the program, the host, the manifests and
 #                           the menu entry go, the library in the home folder stays (Р-45, п. 9)
 # Arch gets koonapin-bin as an AUR helper builds it (NP-101): PKGBUILD and .SRCINFO from scripts/build-aur.mjs
@@ -82,13 +85,31 @@ lint_deb() {
   echo "ok: desktop-file-validate, appstreamcli validate"
 }
 
+# The tray library is loaded at run time (dlopen), so no linker check sees it missing: the app crashes
+# without it (Р-26, п. 3). The .deb names it by hand; this proves the name brings it.
+TRAY=libayatana-appindicator3-1
+
 case "${1:-}" in
+  prepare)
+    case "$ID" in
+      ubuntu | debian)
+        step "The tray library out of the image: the package must bring it"
+        apt-get remove -y -qq "$TRAY" > /dev/null
+        ! dpkg -s "$TRAY" > /dev/null 2>&1 || { echo "FAIL: $TRAY is still installed"; exit 1; }
+        echo "ok: $TRAY removed"
+        ;;
+    esac
+    ;;
   install)
     [ "$ID" = arch ] && build_aur
     [ "$ID" = debian ] && lint_deb
     step "Install $(basename "$package") on $PRETTY_NAME"
     install
     for file in "${installed[@]}"; do [ -e "$file" ] || { echo "FAIL: $file is missing"; exit 1; }; done
+    if [ "$ID" = ubuntu ] || [ "$ID" = debian ]; then
+      dpkg -s "$TRAY" > /dev/null 2>&1 || { echo "FAIL: installing the package did not bring $TRAY"; exit 1; }
+      echo "ok: the package brought $TRAY"
+    fi
     case "$ID" in
       ubuntu | debian) contents=$(dpkg-deb --contents "$package") ;;
       fedora) contents=$(rpm -qlp "$package") ;;

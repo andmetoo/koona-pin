@@ -108,7 +108,7 @@ The GitHub release has, for version `<v>`: `koonapin_<v>_amd64.deb`, `koonapin-<
 
 ### Repository secrets
 
-Set once with `gh secret set <name>`:
+Set once from `.env` with `bun run ci:secrets` (`scripts/ci-secrets.mjs`: each value goes to `gh secret set` on its standard input, `--dry-run` only lists them), or one by one with `gh secret set <name>`:
 
 | Secret | Used for |
 | --- | --- |

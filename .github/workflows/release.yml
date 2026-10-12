@@ -74,9 +74,14 @@ jobs:
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: '15.0'
-      # Only to decide whether the keychain step runs; the build does not read it.
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
     steps:
+      # Whether there is a Developer ID certificate, without the certificate itself in the job's
+      # environment, where every step (the actions' too) would read it.
+      - name: Apple certificate configured?
+        id: apple
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: echo "certificate=$([ -n "$APPLE_CERTIFICATE" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
@@ -96,8 +101,9 @@ jobs:
       # The Developer ID certificate into a keychain of this run, when the secrets are there (later,
       # NP-051); without them build-macos.mjs makes an ad hoc signed build and says so.
       - name: Apple certificate into a temporary keychain
-        if: env.APPLE_CERTIFICATE != ''
+        if: steps.apple.outputs.certificate == 'true'
         env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
         run: |

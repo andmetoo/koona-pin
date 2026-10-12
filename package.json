@@ -53,6 +53,7 @@
     "release:tag": "bun scripts/release-tag.mjs",
     "release:windows": "bun scripts/release-windows.mjs",
     "release:site": "bun scripts/release-site.mjs",
+    "ci:secrets": "bun scripts/ci-secrets.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
