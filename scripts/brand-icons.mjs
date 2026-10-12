@@ -1,7 +1,9 @@
-// Brand icons from design/brand/pin-spirit-flat (NP-081): one icon everywhere — the one-colour
-// mark (pin-spirit-micro.svg) in cream on an envy-green rounded tile, at every size, for Windows,
-// Linux, macOS and the extension. Writes src-tauri/icons (via `tauri icon` + a mixed ICO, the
-// macOS ICNS on Apple's grid, the macOS menu bar template), extension/src/icons and app-icon.svg.
+// Brand icons from design/brand/pin-spirit-flat (NP-081). The app has one icon everywhere — the
+// one-colour mark (pin-spirit-micro.svg) in cream on an envy-green rounded tile, at every size, on
+// Windows, Linux and macOS. The extension keeps no tile in the browser's toolbar: the mark drawn
+// like the mascot at 16–32 px, the mascot at 48 px and up. Writes src-tauri/icons (via `tauri icon`
+// + a mixed ICO, the macOS ICNS on Apple's grid, the macOS menu bar template), extension/src/icons
+// and app-icon.svg.
 //
 //   bun scripts/brand-icons.mjs [--preview out.png]
 import { chromium } from "@playwright/test";
@@ -13,6 +15,7 @@ import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
 const brand = path.join(root, "design", "brand", "pin-spirit-flat");
 const microSrc = await readFile(path.join(brand, "pin-spirit-micro.svg"), "utf8");
+const mascot = await readFile(path.join(brand, "pin-spirit.svg"), "utf8");
 
 const TILE = "#2F6B4F", MARK = "#FAF7F0";
 const markPath = microSrc.match(/ d="([^"]+)"/)[1];
@@ -41,14 +44,32 @@ const dock = tile({ side: 824, share: 0.62, shadow: true });
 /** The menu bar: the mark alone in black; the app marks it a template and macOS paints it. */
 const template = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}"><path d="${markPath}" fill="#000" fill-rule="evenodd"/></svg>`;
 
+/**
+ * The extension's mark: the browser's toolbar is light or dark, so it is drawn like the mascot —
+ * body green, dark outline, cream eyes. The viewBox is widened by half the outline and one more
+ * pixel on every side, or the bottom of the outline fills the last pixel row and reads as cut off.
+ */
+const BODY = "#699A74", LINE = "#365E42", EYE = "#EEEBDC";
+const [silhouette, ...eyes] = markPath.split(/(?=M)/);
+/** Outline ≈ 1.1 px at the target size and a 1 px margin; the viewBox is ~126 units wide. */
+function toolbarMark(size) {
+  const stroke = (126 / size) * 1.1, pad = stroke / 2 + 126 / size;
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${[vx - pad, vy - pad, vw + 2 * pad, vh + 2 * pad].map((n) => n.toFixed(2)).join(" ")}">` +
+    `<path d="${silhouette}" fill="${BODY}" stroke="${LINE}" stroke-width="${stroke.toFixed(2)}" stroke-linejoin="round"/>` +
+    `<path d="${eyes.join("")}" fill="${EYE}"/></svg>`
+  );
+}
+
 const browser = await chromium.launch();
 const page = await browser.newPage();
-/** Renders an SVG into a transparent square of `size` pixels. */
-async function png(svg, size) {
+/** Renders an SVG centred in a transparent square of `size` pixels, with a margin (a fraction of the side). */
+async function png(svg, size, margin = 0) {
+  const inner = Math.round(size * (1 - 2 * margin));
   await page.setViewportSize({ width: size, height: size });
   await page.setContent(
-    `<body style="margin:0;background:transparent;width:${size}px;height:${size}px">` +
-      `<img style="display:block;width:${size}px;height:${size}px" src="data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}"></body>`,
+    `<body style="margin:0;background:transparent;display:grid;place-items:center;width:${size}px;height:${size}px">` +
+      `<img style="width:${inner}px;height:${inner}px;object-fit:contain" src="data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}"></body>`,
   );
   await page.locator("img").evaluate((img) => img.decode());
   return page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
@@ -119,7 +140,8 @@ await writeFile(path.join(icons, "Square44x44Logo.png"), await png(icon(44), 44)
 await writeFile(path.join(icons, "tray-macos.png"), await png(template, 36));
 
 const ext = path.join(root, "extension", "src", "icons");
-for (const size of [16, 32, 48, 128]) await writeFile(path.join(ext, `${size}.png`), await png(icon(size), size));
+for (const size of [16, 32]) await writeFile(path.join(ext, `${size}.png`), await png(toolbarMark(size), size));
+for (const size of [48, 128]) await writeFile(path.join(ext, `${size}.png`), await png(mascot, size, 0.02));
 
 await writeFile(path.join(root, "app-icon.svg"), icon(1024) + "\n");
 await browser.close();
