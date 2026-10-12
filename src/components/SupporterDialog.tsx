@@ -25,10 +25,14 @@ function failureText(error: unknown, t: TFunction): string {
 
 /** How often the payment step asks whether the payment went through; only while it is open. */
 export const POLL_MS = 3000;
-/** Shown when Paddle's own prices cannot be had and none are remembered (Р-64: $2 a month, $20 a year). */
+/**
+ * Shown when Paddle's own prices cannot be had and none are remembered (Р-64: $2 a month, $20 a
+ * year; $50 once for 5 years).
+ */
 const FALLBACK: SupporterPrices = {
   month: { price_id: "", total: "$2", currency: "USD" },
   year: { price_id: "", total: "$20", currency: "USD" },
+  five_years: { price_id: "", total: "$50", currency: "USD" },
 };
 /**
  * The prices Paddle gave last time, shown at once next time: dollars turning into euros while the
@@ -182,6 +186,14 @@ export function SupporterDialog({
 
   // Nothing remembered and no answer yet: the cards keep their room with no price in it.
   const shown = prices ?? (pricesFailed ? FALLBACK : null);
+  // Five years paid once, while the server sells them: their card waits for the prices too.
+  const plans = !shown || shown.five_years ? (["year", "month", "five_years"] as const) : (["year", "month"] as const);
+  const priceLine = (value: PlanInterval, price: string) =>
+    t(value === "year" ? "supporter.perYear" : value === "month" ? "supporter.perMonth" : "supporter.once", { price: whole(price) });
+  const planName = (value: PlanInterval) =>
+    t(value === "year" ? "supporter.yearly" : value === "month" ? "supporter.monthly" : "supporter.fiveYears");
+  const planBadge = (value: PlanInterval) =>
+    value === "year" ? t("supporter.twoMonthsFree") : value === "five_years" ? t("supporter.save50") : null;
   const plansPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
       <p className="text-sm text-muted">{t("supporter.intro")}</p>
@@ -199,23 +211,27 @@ export function SupporterDialog({
         aria-busy={!shown || undefined}
         className="mt-5 grid grid-cols-2 gap-3"
       >
-        {(["year", "month"] as const).map((value) => (
-          <PlanCard
-            key={value}
-            checked={interval === value}
-            onSelect={() => setPlan(value)}
-            name={t(value === "year" ? "supporter.yearly" : "supporter.monthly")}
-            price={
-              shown ? (
-                t(value === "year" ? "supporter.perYear" : "supporter.perMonth", { price: whole(shown[value].total) })
-              ) : (
-                // Paddle's answer on its way: a quiet bar in the line's room, no amount to swap.
-                <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />
-              )
-            }
-            badge={value === "year" ? t("supporter.twoMonthsFree") : null}
-          />
-        ))}
+        {plans.map((value) => {
+          const price = shown?.[value];
+          return (
+            <PlanCard
+              key={value}
+              wide={value === "five_years"}
+              checked={interval === value}
+              onSelect={() => setPlan(value)}
+              name={planName(value)}
+              price={
+                price ? (
+                  priceLine(value, price.total)
+                ) : (
+                  // Paddle's answer on its way: a quiet bar in the line's room, no amount to swap.
+                  <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />
+                )
+              }
+              badge={planBadge(value)}
+            />
+          );
+        })}
       </div>
       {failure ? (
         <p role="alert" className="mt-3 flex gap-2 rounded-lg bg-danger-soft px-3 py-2.5 text-xs leading-[17px] text-on-danger-soft">
@@ -339,12 +355,15 @@ function PlanCard({
   name,
   price,
   badge,
+  wide = false,
 }: {
   checked: boolean;
   onSelect: () => void;
   name: string;
   price: ReactNode;
   badge: string | null;
+  /** Across both columns: Supporter · 5 years under the two subscriptions. */
+  wide?: boolean;
 }) {
   return (
     <button
@@ -352,7 +371,7 @@ function PlanCard({
       role="radio"
       aria-checked={checked}
       onClick={onSelect}
-      className={`flex flex-col gap-1.5 rounded-[10px] px-3.5 py-3 text-left transition-colors duration-150 ${
+      className={`flex flex-col gap-1.5 rounded-[10px] px-3.5 py-3 text-left transition-colors duration-150 ${wide ? "col-span-2" : ""} ${
         checked ? "bg-accent-soft shadow-[inset_0_0_0_1.5px_var(--np-accent)]" : "border border-border bg-card hover:bg-hover"
       }`}
     >
@@ -364,7 +383,12 @@ function PlanCard({
           {checked && <span className="size-1.5 rounded-full bg-on-accent" />}
         </span>
         <span className="flex-1 text-sm font-medium whitespace-nowrap">{name}</span>
-        {badge && <span className="rounded-full bg-card px-2 py-px text-2xs font-medium whitespace-nowrap text-accent">{badge}</span>}
+        {/* On a card not chosen the badge keeps a tint of its own: the card is bg-card too. */}
+        {badge && (
+          <span className={`rounded-full px-2 py-px text-2xs font-medium whitespace-nowrap text-accent ${checked ? "bg-card" : "bg-accent-soft"}`}>
+            {badge}
+          </span>
+        )}
       </span>
       <span className="pl-6 text-lg font-semibold">{price}</span>
     </button>
@@ -760,6 +784,19 @@ export function PlanDialog({
         {t("plan.updateCard")} ↗
       </Button>
     );
+  } else if (plan.years) {
+    // Paid once: nothing to manage in Paddle's portal unless a subscription still renews too.
+    if (plan.also_renews) {
+      status = t("supporter.alsoRenews");
+      tone = "amber";
+    } else {
+      status = t("supporter.paidUntil", { date: date(plan.valid_until) });
+      action = (
+        <Button variant="outline" size="lg" onClick={onClose}>
+          {t("common.close")}
+        </Button>
+      );
+    }
   } else if (plan.status === "canceling") {
     status = t("supporter.endsOn", { date: date(plan.valid_until) });
   } else {
@@ -775,7 +812,7 @@ export function PlanDialog({
             <Heart size={20} fill="currentColor" aria-hidden />
           </span>
           <div className="min-w-0 text-xs leading-[17px]">
-            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
+            <p className="text-[15px] leading-5 font-semibold text-ink">{t(plan?.years ? "plan.fiveYears" : plan?.interval === "month" ? "plan.monthly" : "plan.yearly")}</p>
             <p className="truncate text-muted">{supporter.email}</p>
             {/* The state of the plan always takes this one line, so the dialog keeps its height. */}
             <p role={tone === "muted" ? undefined : "status"} className={`min-h-[17px] ${toneClass}`}>

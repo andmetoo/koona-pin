@@ -1,6 +1,6 @@
 # Koona Pin Commercial License
 
-Version 1.1, 12 October 2026.
+Version 1.2, 12 October 2026.
 
 Copyright (c) 2026 Radik Ilin. All rights reserved except as expressly granted below.
 
@@ -30,7 +30,7 @@ The subscription includes access to updates released for your subscribed plan du
 
 Supporter subscriptions are sold through Paddle as merchant of record and authorized reseller. Your payment transaction with Paddle is governed by the [Paddle Buyer Terms](https://www.paddle.com/legal/buyer-terms) and the terms presented at checkout; this document governs your use of the Commercial Software. Licensor remains the software provider.
 
-Plans may be billed monthly or annually. The price, currency, applicable taxes, billing period, renewal terms and any trial are disclosed at checkout and in your purchase confirmation. Prices may vary by country and currency; this license does not set a fixed global price. Your subscription renews as disclosed at checkout until canceled. Any renewal price change is subject to the notice and consent requirements in the applicable purchase terms and law.
+Plans may be billed monthly or annually, or paid once for a fixed term, such as five years. A plan paid once is a subscription for that term: it does not renew, needs no cancellation, and ends when the term ends; a further purchase adds its term after the current one. The price, currency, applicable taxes, billing period, renewal terms and any trial are disclosed at checkout and in your purchase confirmation. Prices may vary by country and currency; this license does not set a fixed global price. A recurring subscription renews as disclosed at checkout until canceled. Any renewal price change is subject to the notice and consent requirements in the applicable purchase terms and law.
 
 You may cancel renewal through the subscription-management link in your Paddle confirmation email or by contacting [Paddle buyer support](https://paddle.net/). Cancellation normally takes effect at the end of the paid billing period, with access continuing until then. Refunds, statutory withdrawal rights and payment disputes are handled under the applicable Paddle purchase terms and mandatory law. This license does not impose a separate no-refund rule or waive those rights.
 

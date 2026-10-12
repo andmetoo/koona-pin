@@ -3,10 +3,12 @@
 // are Paddle's (tax mode «location»): euros in Europe, dollars elsewhere.
 import TextPage from "../../layouts/TextPage.astro";
 import Icon from "../../components/Icon.astro";
-import { BASE, content, SUPPORTER_ON_SALE } from "../../content.mjs";
+import { BASE, content, PADDLE_PRICES, SUPPORTER_ON_SALE } from "../../content.mjs";
 import { release } from "../../release.mjs";
 
 const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
+// Supporter · 5 years, paid once: shown once its price exists in the environment the site sells in.
+const fiveYears = !!PADDLE_PRICES[process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox"].five_years;
 const free = [
   "Save pages from Chrome, Edge and Firefox in one click",
   "Collections, tags and search as you type",
@@ -40,9 +42,10 @@ const supporter = [
 <h2 id="supporter-title"><Icon name="heart" />Supporter</h2>
 <p class="plan-price"><strong>$2</strong> or <strong>€2</strong> a month</p>
 <p class="plan-note">or $20 / €20 a year <span class="chip-latest">2 months free</span></p>
+{fiveYears && <p class="plan-note">or $50 / €50 once for 5 years <span class="chip-latest">Save 50%</span></p>}
 <ul class="plan-list">{supporter.map(([f, hint]) => <li><Icon name="check" class="icon icon-small" /><span>{f}{hint && <small>{hint}</small>}</span></li>)}</ul>
 {SUPPORTER_ON_SALE
-  ? <div class="plan-action plan-buy"><a class="button button-primary" href={`${BASE}/checkout/?plan=year`}>Buy yearly</a><a class="button" href={`${BASE}/checkout/?plan=month`}>Buy monthly</a><p class="plan-how">Or in the app: <strong>Support</strong> at the bottom of the sidebar.</p></div>
+  ? <div class="plan-action plan-buy"><a class="button button-primary" href={`${BASE}/checkout/?plan=year`}>Buy yearly</a><a class="button" href={`${BASE}/checkout/?plan=month`}>Buy monthly</a>{fiveYears && <a class="button" href={`${BASE}/checkout/?plan=five_years`}>Buy 5 years</a>}<p class="plan-how">Or in the app: <strong>Support</strong> at the bottom of the sidebar.</p></div>
   : <span class="chip-soon plan-action"><Icon name="clock" class="icon icon-small" />Opens with sync</span>}
 </section>
 </div>
@@ -57,7 +60,7 @@ const supporter = [
 </section>
 <section class="reveal">
 <h2>Cancel any time</h2>
-<p>Supporter renews until you cancel it, in the app or from Paddle's receipt email. It then stays until the end of the period you paid for. Changed your mind? You have 14 days after your first payment for a full refund; see the <a href={`${BASE}/refunds/`}>refund policy</a>.</p>
+<p>Supporter renews until you cancel it, in the app or from Paddle's receipt email. It then stays until the end of the period you paid for.{fiveYears && " Five years paid once never renew: there is nothing to cancel."} Changed your mind? You have 14 days after your first payment for a full refund; see the <a href={`${BASE}/refunds/`}>refund policy</a>.</p>
 </section>
 <section class="reveal">
 <h2>Offline</h2>

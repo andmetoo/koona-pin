@@ -16,11 +16,11 @@ This licensing change applies to revisions carrying these notices. It does not w
 
 The [Koona Pin Commercial License](LICENSE-COMMERCIAL.md) covers code expressly designated as commercial by a file notice or a `LICENSE-COMMERCIAL.md` notice in its directory. Commercial features are kept in directories named `commercial`; each such directory must carry a notice linking to that license. Code is not moved out of the GPL merely because it becomes a paid feature.
 
-Commercial source may be public. You may read it and prepare contributions under the development permission in the commercial license. Production use requires an active Supporter subscription or another express permission; you may not redistribute the commercial product or reuse its code in your own product under that license. Separately granted open-source rights are not restricted by it.
+Commercial source may be public. You may read it and prepare contributions under the development permission in the commercial license. Production use requires an active Supporter subscription (recurring, or paid once for a fixed term) or another express permission; you may not redistribute the commercial product or reuse its code in your own product under that license. Separately granted open-source rights are not restricted by it.
 
 Server-side services behind paid features, such as a sync relay, are not part of this repository.
 
-Supporter is a subscription sold through Paddle. The plan, billing period, price, currency, taxes and renewal terms are shown at checkout and in the purchase confirmation. The commercial license does not fix a worldwide price. Hosted services, if offered, require their own stated service terms; this repository does not grant access to them.
+Supporter is a subscription sold through Paddle: billed monthly or yearly, or paid once for five years without renewal. The plan, billing period, price, currency, taxes and renewal terms are shown at checkout and in the purchase confirmation. The commercial license does not fix a worldwide price. Hosted services, if offered, require their own stated service terms; this repository does not grant access to them.
 
 ## Name, mascot and brand assets: all rights reserved
 

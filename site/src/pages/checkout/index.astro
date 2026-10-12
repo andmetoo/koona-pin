@@ -1,7 +1,8 @@
 ---
 // /checkout/ (NP-066, Р-64, frames «Checkout · 1–4»): Supporter's payment in Paddle's overlay.
 // Two ways in: the app creates a transaction and opens `?_ptxn=` (it then notices the payment by
-// itself), or the site's buy buttons open `?plan=year` / `?plan=month` (the person then signs in in
+// itself), or the site's buy buttons open `?plan=year` / `?plan=month` / `?plan=five_years` (the
+// last one only once its price exists; the person then signs in in
 // the app with the email they paid with; the server made the account from it). The one page of the
 // site with a script: Paddle.js and its own CSP (site/Caddyfile). English only, as downloads; not
 // indexed. PADDLE_CLIENT_TOKEN and PADDLE_ENVIRONMENT (sandbox | production) come from .env; without
@@ -17,7 +18,7 @@ const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
 ---
 <TextPage t={content.en} page="checkout/" title="Payment" description="The payment for Koona Pin Supporter." english>
 <meta slot="head" name="robots" content="noindex">
-<div class="checkout" data-token={token} data-environment={environment} data-month={prices.month} data-year={prices.year} data-state={token ? "opening" : "closed-sales"}>
+<div class="checkout" data-token={token} data-environment={environment} data-month={prices.month} data-year={prices.year} data-five-years={prices.five_years} data-state={token ? "opening" : "closed-sales"}>
   <section data-panel="opening">
     <h1>Opening the payment…</h1>
     <p class="intro">Paddle, our reseller, opens a secure payment window here. It asks for your email and your card.</p>
@@ -48,8 +49,8 @@ const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
   </section>
   <section data-panel="missing" hidden>
     <h1>Choose a plan</h1>
-    <p class="intro">Supporter is an optional subscription that keeps Koona Pin going: $2 or €2 a month, or $20 or €20 a year.</p>
-    <p class="checkout-actions"><a class="button button-primary" href="?plan=year">Buy yearly</a><a class="button" href="?plan=month">Buy monthly</a></p>
+    <p class="intro">Supporter is an optional subscription that keeps Koona Pin going: $2 or €2 a month, or $20 or €20 a year{prices.five_years && ", or $50 or €50 once for five years"}.</p>
+    <p class="checkout-actions"><a class="button button-primary" href="?plan=year">Buy yearly</a><a class="button" href="?plan=month">Buy monthly</a>{prices.five_years && <a class="button" href="?plan=five_years">Buy 5 years</a>}</p>
   </section>
   <section data-panel="closed-sales" hidden={!!token}>
     <h1>Payments are not open yet</h1>
@@ -74,7 +75,9 @@ const download = release() ? `${BASE}/downloads/` : `${BASE}/#download`;
   const query = new URLSearchParams(location.search);
   const transaction = query.get("_ptxn");
   const plan = query.get("plan");
-  const priceId = plan === "year" ? root?.dataset.year : plan === "month" ? root?.dataset.month : undefined;
+  const priceId =
+    (plan === "year" ? root?.dataset.year : plan === "month" ? root?.dataset.month : plan === "five_years" ? root?.dataset.fiveYears : undefined) ||
+    undefined;
   const token = root?.dataset.token;
   if (token) {
     if (!transaction && !priceId) show("missing");

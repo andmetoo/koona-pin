@@ -2208,6 +2208,9 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   // The yearly plan is chosen first; whole prices without cents.
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$20 a year");
+  // Five years paid once, under the two subscriptions.
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toContainText("$50 once");
+  await expect(plans.getByRole("radio", { name: /5 years/ })).toContainText("Save 50%");
   await plans.getByRole("radio", { name: /Monthly/ }).click();
   await expect(plans.getByRole("radio", { name: /Monthly/ })).toHaveAttribute("aria-checked", "true");
   // «Continue» opens the payment in the browser; the dialog waits and sees it paid by itself.
@@ -2259,6 +2262,9 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
     ["canceling", "canceling", "Doesn't renew · Supporter until"],
     ["past_due", "past_due", "The renewal didn't go through — update the card"],
     ["offline", "unchecked", "Couldn't check the plan — it stays on until"],
+    // Supporter · 5 years: nothing to manage, unless a subscription still renews too.
+    ["five_years", "canceling", "Paid once · Supporter until"],
+    ["five_years_renewing", "canceling", "Your subscription still renews — cancel it in Manage"],
   ] as const) {
     await page.evaluate((k) => localStorage.setItem("koonapin.demo.supporter", k), kind);
     await page.reload();
@@ -2266,10 +2272,17 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
     const plan = page.getByRole("dialog", { name: "Supporter" });
     await expect(plan.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", state);
     await expect(plan).toContainText(text);
+    if (kind.startsWith("five_years")) {
+      await expect(plan).toContainText("Supporter · 5 years");
+      await expect(plan.getByRole("button", { name: "Manage ↗" })).toHaveCount(kind === "five_years" ? 0 : 1);
+    }
     heights.push(Math.round((await plan.boundingBox())!.height));
   }
   expect(new Set(heights).size, `heights ${heights.join(", ")}`).toBe(1);
   // «Try again» asks the server and the plan is checked again.
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "offline"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
   await page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Try again" }).click();
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
 });

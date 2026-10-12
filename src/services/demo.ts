@@ -128,8 +128,8 @@ let demoDownload: number | null = null;
  * Supporter (NP-066, sheet 45): `free` shows the row and the dialog, whose test payment is seen
  * after two polls; `existing` pays with the email of an account that existed before, so the payment
  * asks for the code; `background` has the app see the payment before the dialog does;
- * `later_sign_in` and `later_paid` have it see an earlier purchase while the dialog shows the plans; `supporter`, `canceling`, `past_due`, `offline` are the states of the plan
- * dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
+ * `later_sign_in` and `later_paid` have it see an earlier purchase while the dialog shows the plans; `supporter`, `canceling`, `past_due`, `offline`,
+ * `five_years`, `five_years_renewing` are the states of the plan dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
  */
 export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
 function storedSupporter(): string | null {
@@ -143,10 +143,15 @@ const supporterListeners = new Set<(status: SupporterStatus) => void>();
 const inDays = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 function demoPlan(kind: string | null): SupporterStatus["plan"] {
   // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
-  if (kind === "supporter") return { status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
-  if (kind === "canceling") return { status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null, offline_until: inDays(30) };
-  if (kind === "past_due") return { status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
-  if (kind === "offline") return { status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
+  const plan = { years: null, also_renews: false };
+  if (kind === "supporter") return { ...plan, status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
+  if (kind === "canceling") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null, offline_until: inDays(30) };
+  if (kind === "past_due") return { ...plan, status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
+  if (kind === "offline") return { ...plan, status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
+  // Supporter · 5 years, paid once; `five_years_renewing` while a subscription still renews too.
+  const fiveYears = { status: "canceling", interval: null, valid_until: inDays(1826), renews_at: null, offline_until: inDays(30), years: 5 } as const;
+  if (kind === "five_years") return { ...fiveYears, also_renews: false };
+  if (kind === "five_years_renewing") return { ...fiveYears, also_renews: true };
   return null;
 }
 let demoSupporter: SupporterStatus | null = null;
@@ -1339,6 +1344,7 @@ export const demo = {
     return {
       month: { price_id: "pri_month", total: "$2.00", currency: "USD" },
       year: { price_id: "pri_year", total: "$20.00", currency: "USD" },
+      five_years: { price_id: "pri_5y", total: "$50.00", currency: "USD" },
     };
   },
   async startCheckout(_interval: PlanInterval) {
