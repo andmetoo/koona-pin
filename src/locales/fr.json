@@ -1176,6 +1176,10 @@
     "endsOn": "Pas de renouvellement · Supporter jusqu’au {{date}}",
     "paidUntil": "Payé une fois · Supporter jusqu’au {{date}}",
     "alsoRenews": "Votre abonnement se renouvelle encore — annulez-le dans Gérer",
+    "upgradeTitle": "Passer à 5 ans",
+    "upgradeTextYearly": "Payez {{price}} une seule fois au lieu de renouveler. Votre formule annuelle reste jusqu’au {{date}} puis ne se renouvelle plus ; les cinq ans commencent ce jour-là.",
+    "upgradeTextMonthly": "Payez {{price}} une seule fois au lieu de renouveler. Votre formule mensuelle reste jusqu’au {{date}} puis ne se renouvelle plus ; les cinq ans commencent ce jour-là.",
+    "upgradeHint": "Le paiement s’ouvre dans votre navigateur. Paddle, notre revendeur, s’en charge avec les taxes. Supporter durera jusqu’au {{date}}.",
     "pastDue": "Le renouvellement n’est pas passé — mettez à jour la carte",
     "unchecked": "Formule non vérifiée — elle reste active jusqu’au {{date}}",
     "perk": {
@@ -1206,6 +1210,7 @@
     "yearly": "Supporter · annuel",
     "monthly": "Supporter · mensuel",
     "fiveYears": "Supporter · 5 ans",
+    "switchToFiveYears": "Passer à 5 ans",
     "updateCard": "Mettre à jour la carte",
     "manage": "Gérer",
     "signOut": "Se déconnecter"

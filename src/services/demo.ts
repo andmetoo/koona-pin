@@ -174,6 +174,8 @@ function setDemoSupporter(status: SupporterStatus) {
   supporterListeners.forEach((fn) => fn(status));
 }
 let demoPolls = 0;
+/** The plan of the last purchase started: five years paid once become that plan. */
+let demoBought: PlanInterval | null = null;
 
 /** Backups to a folder (commercial/backup_folder.rs): `koonapin.demo.backupFolder` = `unreachable` starts with a folder that cannot be reached. */
 const folderListeners = new Set<(folder: BackupFolder) => void>();
@@ -1347,10 +1349,11 @@ export const demo = {
       five_years: { price_id: "pri_5y", total: "$50.00", currency: "USD" },
     };
   },
-  async startCheckout(_interval: PlanInterval) {
+  async startCheckout(interval: PlanInterval) {
     await new Promise((resolve) => setTimeout(resolve, 300));
     noServer();
     demoPolls = 0;
+    demoBought = interval;
     return "https://koona.app/pin/checkout/?_ptxn=txn_demo";
   },
   async openCheckout(_url: string) {},
@@ -1361,7 +1364,7 @@ export const demo = {
       setDemoSupporter({ ...currentDemoSupporter(), awaiting_sign_in: true });
       return "sign_in";
     }
-    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan("supporter"), check_failed: false });
+    setDemoSupporter({ ...currentDemoSupporter(), email: "anna@example.com", plan: demoPlan(demoBought === "five_years" ? "five_years" : "supporter"), check_failed: false });
     // The app's own background check saw the payment first: the purchase is gone, the plan is here.
     if (storedSupporter() === "background") return "none";
     return "paid";

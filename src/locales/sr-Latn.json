@@ -1178,6 +1178,10 @@
     "endsOn": "Ne obnavlja se · Supporter do {{date}}",
     "paidUntil": "Plaćeno jednom · Supporter do {{date}}",
     "alsoRenews": "Pretplata se i dalje obnavlja — otkažite je u „Upravljaj“",
+    "upgradeTitle": "Prelazak na 5 godina",
+    "upgradeTextYearly": "Platite {{price}} jednom umesto obnavljanja. Godišnji plan traje do {{date}} i posle toga se ne obnavlja; pet godina počinje tog dana.",
+    "upgradeTextMonthly": "Platite {{price}} jednom umesto obnavljanja. Mesečni plan traje do {{date}} i posle toga se ne obnavlja; pet godina počinje tog dana.",
+    "upgradeHint": "Plaćanje se otvara u pregledaču. Njega i poreze vodi Paddle, naš preprodavac. Supporter će trajati do {{date}}.",
     "pastDue": "Obnova nije prošla — ažurirajte karticu",
     "unchecked": "Plan nije proveren — važi do {{date}}",
     "perk": {
@@ -1208,6 +1212,7 @@
     "yearly": "Supporter · godišnje",
     "monthly": "Supporter · mesečno",
     "fiveYears": "Supporter · 5 godina",
+    "switchToFiveYears": "Pređi na 5 godina",
     "updateCard": "Ažuriraj karticu",
     "manage": "Upravljaj",
     "signOut": "Odjavi se"

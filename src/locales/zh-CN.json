@@ -1030,6 +1030,10 @@
     "endsOn": "不会续订 · Supporter 至 {{date}}",
     "paidUntil": "已一次付清 · Supporter 至 {{date}}",
     "alsoRenews": "你的订阅仍会续订——请在“管理”中取消",
+    "upgradeTitle": "改为 5 年",
+    "upgradeTextYearly": "一次性支付 {{price}}，不再续订。你的年付计划持续到 {{date}}，之后不再续订；五年从那天开始。",
+    "upgradeTextMonthly": "一次性支付 {{price}}，不再续订。你的月付计划持续到 {{date}}，之后不再续订；五年从那天开始。",
+    "upgradeHint": "付款将在浏览器中打开，由我们的经销商 Paddle 处理，包括税费。Supporter 将持续到 {{date}}。",
     "pastDue": "续订扣款失败——请更新银行卡",
     "unchecked": "无法检查方案——有效期至 {{date}}",
     "perk": {
@@ -1060,6 +1064,7 @@
     "yearly": "Supporter · 按年",
     "monthly": "Supporter · 按月",
     "fiveYears": "Supporter · 5 年",
+    "switchToFiveYears": "改为 5 年",
     "updateCard": "更新银行卡",
     "manage": "管理",
     "signOut": "退出登录"

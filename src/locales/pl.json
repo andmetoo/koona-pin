@@ -1249,6 +1249,10 @@
     "endsOn": "Nie odnawia się · Supporter do {{date}}",
     "paidUntil": "Opłacone jednorazowo · Supporter do {{date}}",
     "alsoRenews": "Twoja subskrypcja nadal się odnawia — anuluj ją w Zarządzaj",
+    "upgradeTitle": "Przejście na 5 lat",
+    "upgradeTextYearly": "Zapłać jednorazowo {{price}} zamiast odnawiać. Plan roczny trwa do {{date}} i potem się nie odnowi; pięć lat zacznie się tego dnia.",
+    "upgradeTextMonthly": "Zapłać jednorazowo {{price}} zamiast odnawiać. Plan miesięczny trwa do {{date}} i potem się nie odnowi; pięć lat zacznie się tego dnia.",
+    "upgradeHint": "Płatność otworzy się w przeglądarce. Obsługuje ją, wraz z podatkami, Paddle, nasz sprzedawca. Supporter będzie trwał do {{date}}.",
     "pastDue": "Odnowienie nie przeszło — zaktualizuj kartę",
     "unchecked": "Nie udało się sprawdzić planu — działa do {{date}}",
     "perk": {
@@ -1279,6 +1283,7 @@
     "yearly": "Supporter · rocznie",
     "monthly": "Supporter · miesięcznie",
     "fiveYears": "Supporter · 5 lat",
+    "switchToFiveYears": "Przejdź na 5 lat",
     "updateCard": "Zaktualizuj kartę",
     "manage": "Zarządzaj",
     "signOut": "Wyloguj"

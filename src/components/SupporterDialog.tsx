@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { BackupFolder, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
+import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
 import { savePreference, storedValue } from "../services/preferences";
@@ -61,10 +61,23 @@ type Step = "plans" | "waiting" | "thanks" | "signIn";
 /** Steps where the dialog has not heard how the payment ended. */
 const unanswered = (s: Step) => s === "plans" || s === "waiting";
 
+/** A date as the dialogs write it: «October 11, 2027». */
+const longDate = (iso: string, language: string) => new Date(iso).toLocaleDateString(language, { day: "numeric", month: "long", year: "numeric" });
+
+/** Five years after a date, as the server counts them (koona-services `upgrade`). */
+function fiveYearsAfter(iso: string): string {
+  const date = new Date(iso);
+  date.setUTCFullYear(date.getUTCFullYear() + 5);
+  return date.toISOString();
+}
+
 /**
  * «Support Koona Pin» (NP-066, sheet 45): the plan → the payment in the browser → thank you, one
  * height for all three (NP-118). The payment page asks for the email and the card; the server makes
  * the account from that email and the app is signed in as soon as the payment is seen.
+ *
+ * With `upgrade`, a subscription's «Switch to 5 years»: only the five years, which start when its
+ * paid period ends; the server then cancels the subscription at that end.
  */
 export function SupporterDialog({
   sandbox,
@@ -72,9 +85,12 @@ export function SupporterDialog({
   awaitingSignIn = false,
   paid = false,
   planUnknown = false,
+  upgrade,
   onClose,
   onSignIn,
 }: {
+  /** The subscription being switched to five years. */
+  upgrade?: Plan;
   sandbox: boolean;
   email: string | null;
   /** A payment here went through for an existing account: open on «Payment received». */
@@ -87,7 +103,7 @@ export function SupporterDialog({
   /** «I'm already a Supporter»: the sign-in dialog instead of this one. */
   onSignIn: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [step, setStep] = useState<Step>(awaitingSignIn ? "signIn" : "plans");
   // The app follows a purchase by itself (billing.rs, start) and may see it before this dialog
   // asks: what it found moves the open dialog on, from the plans or the waiting step.
@@ -112,7 +128,7 @@ export function SupporterDialog({
     setPaidEmail(email);
     setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
   }, [paid, email]);
-  const [interval, setPlan] = useState<PlanInterval>("year");
+  const [interval, setPlan] = useState<PlanInterval>(upgrade ? "five_years" : "year");
   const [prices, setPrices] = useState<SupporterPrices | null>(rememberedPrices);
   const [pricesFailed, setPricesFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -262,6 +278,52 @@ export function SupporterDialog({
     </div>
   );
 
+  // «Switch to 5 years» (sheet 45): the five years and when they start and end, nothing to choose.
+  const upgradePanel = (plan: Plan, failure: string | null) => {
+    const price = shown?.five_years;
+    return (
+      <div className="flex flex-1 flex-col">
+        <p className="text-sm text-muted">
+          {t(plan.interval === "month" ? "supporter.upgradeTextMonthly" : "supporter.upgradeTextYearly", {
+            date: longDate(plan.valid_until, i18n.language),
+            price: whole((price ?? FALLBACK.five_years!).total),
+          })}
+        </p>
+        <div className="mt-4 flex flex-col gap-1.5 rounded-[10px] bg-accent-soft px-3.5 py-3 shadow-[inset_0_0_0_1.5px_var(--np-accent)]">
+          <span className="flex items-center gap-2">
+            <span className="flex-1 text-sm font-medium">{t("supporter.fiveYears")}</span>
+            <span className="rounded-full bg-card px-2 py-px text-2xs font-medium whitespace-nowrap text-accent">{t("supporter.save50")}</span>
+          </span>
+          <span className="text-lg font-semibold">
+            {price ? (
+              t("supporter.once", { price: whole(price.total) })
+            ) : (
+              <span aria-hidden data-price-pending className="inline-block h-[1em] w-24 animate-pulse rounded bg-secondary align-middle" />
+            )}
+          </span>
+        </div>
+        {failure ? (
+          <p role="alert" className="mt-3 flex gap-2 rounded-lg bg-danger-soft px-3 py-2.5 text-xs leading-[17px] text-on-danger-soft">
+            <Icon icon={TriangleAlert} size={14} className="mt-px shrink-0" />
+            {failure}
+          </p>
+        ) : (
+          <p className="mt-3 text-xs leading-[17px] text-muted">
+            {t("supporter.upgradeHint", { date: longDate(fiveYearsAfter(plan.valid_until), i18n.language) })}
+          </p>
+        )}
+        <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+          <Button variant="outline" size="lg" onClick={onClose}>
+            {t("supporter.notNow")}
+          </Button>
+          <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={() => void pay()}>
+            {failure ? t("common.retry") : t("supporter.continue")}
+          </Button>
+        </footer>
+      </div>
+    );
+  };
+
   const waitingPanel = () => (
     <div className="flex flex-1 flex-col">
       <p className="text-sm text-muted">{t("supporter.waitingText")}</p>
@@ -321,7 +383,7 @@ export function SupporterDialog({
   );
 
   const title = {
-    plans: t("supporter.title"),
+    plans: upgrade ? t("supporter.upgradeTitle") : t("supporter.title"),
     waiting: t("supporter.waitingTitle"),
     thanks: t("supporter.thanksTitle"),
     signIn: t("supporter.paidTitle"),
@@ -339,6 +401,7 @@ export function SupporterDialog({
     >
       <StatePanels value={step} states={["plans", "waiting", "thanks", "signIn"] as const}>
         {(state, sizing) => {
+          if (state === "plans" && upgrade) return upgradePanel(upgrade, sizing ? t("supporter.unreachable") : error);
           if (state === "plans") return plansPanel(sizing ? t("supporter.unreachable") : error, sizing);
           if (state === "waiting") return waitingPanel();
           if (state === "signIn") return signInPanel();
@@ -721,18 +784,21 @@ export function PlanDialog({
   badge,
   onBadge,
   onClose,
+  onUpgrade,
 }: {
   supporter: SupporterStatus;
   /** The heart of the badge in the colour of the season; off, the row stays plain. */
   badge: boolean;
   onBadge: (shown: boolean) => void;
   onClose: () => void;
+  /** «Switch to 5 years», offered while a subscription renews. */
+  onUpgrade?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const plan = supporter.plan;
-  const date = (iso: string) => new Date(iso).toLocaleDateString(i18n.language, { day: "numeric", month: "long", year: "numeric" });
+  const date = (iso: string) => longDate(iso, i18n.language);
 
   const run = async (action: () => Promise<unknown>, closeAfter = false) => {
     setBusy(true);
@@ -801,6 +867,17 @@ export function PlanDialog({
     status = t("supporter.endsOn", { date: date(plan.valid_until) });
   } else {
     status = plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "";
+    // A subscription that renews can become five years paid once, from the end of its period.
+    if (plan.renews_at && onUpgrade) {
+      action = (
+        <>
+          <Button variant="outline" size="lg" onClick={onUpgrade}>
+            {t("plan.switchToFiveYears")}
+          </Button>
+          {action}
+        </>
+      );
+    }
   }
   const toneClass = { muted: "text-muted", danger: "font-medium text-danger", amber: "font-medium text-amber" }[tone];
 

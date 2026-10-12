@@ -1176,6 +1176,10 @@
     "endsOn": "No se renueva · Supporter hasta el {{date}}",
     "paidUntil": "Pago único · Supporter hasta el {{date}}",
     "alsoRenews": "Tu suscripción aún se renueva: cancélala en Gestionar",
+    "upgradeTitle": "Pasar a 5 años",
+    "upgradeTextYearly": "Paga {{price}} una sola vez en lugar de renovar. Tu plan anual sigue hasta el {{date}} y luego deja de renovarse; los cinco años empiezan ese día.",
+    "upgradeTextMonthly": "Paga {{price}} una sola vez en lugar de renovar. Tu plan mensual sigue hasta el {{date}} y luego deja de renovarse; los cinco años empiezan ese día.",
+    "upgradeHint": "El pago se abre en tu navegador. Paddle lo gestiona, con los impuestos, como nuestro revendedor. Supporter durará hasta el {{date}}.",
     "pastDue": "La renovación no se completó — actualiza la tarjeta",
     "unchecked": "No se pudo comprobar el plan — sigue activo hasta el {{date}}",
     "perk": {
@@ -1206,6 +1210,7 @@
     "yearly": "Supporter · anual",
     "monthly": "Supporter · mensual",
     "fiveYears": "Supporter · 5 años",
+    "switchToFiveYears": "Pasar a 5 años",
     "updateCard": "Actualizar tarjeta",
     "manage": "Gestionar",
     "signOut": "Cerrar sesión"

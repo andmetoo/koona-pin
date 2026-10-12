@@ -1103,6 +1103,10 @@
     "endsOn": "Doesn't renew · Supporter until {{date}}",
     "paidUntil": "Paid once · Supporter until {{date}}",
     "alsoRenews": "Your subscription still renews — cancel it in Manage",
+    "upgradeTitle": "Switch to 5 years",
+    "upgradeTextYearly": "Pay {{price}} once instead of renewing. Your yearly plan stays until {{date}} and then stops renewing; the five years start that day.",
+    "upgradeTextMonthly": "Pay {{price}} once instead of renewing. Your monthly plan stays until {{date}} and then stops renewing; the five years start that day.",
+    "upgradeHint": "Payment opens in your browser. Paddle handles it and the taxes as our reseller. Supporter then lasts until {{date}}.",
     "pastDue": "The renewal didn't go through — update the card",
     "unchecked": "Couldn't check the plan — it stays on until {{date}}",
     "perk": {
@@ -1133,6 +1137,7 @@
     "yearly": "Supporter · yearly",
     "monthly": "Supporter · monthly",
     "fiveYears": "Supporter · 5 years",
+    "switchToFiveYears": "Switch to 5 years",
     "updateCard": "Update card",
     "manage": "Manage",
     "signOut": "Sign out"

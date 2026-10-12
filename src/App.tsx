@@ -42,7 +42,7 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -1292,6 +1292,18 @@ export function App() {
             savePreference("supporterBadge", shown ? "on" : "off");
           }}
           onClose={() => setSurface(null)}
+          onUpgrade={() => setSurface("upgrade")}
+        />
+      )}
+      {/* Supporter → 5 years from a subscription (sheet 45): the plans dialog with the five years only. */}
+      {surface === "upgrade" && supporter?.plan && (
+        <SupporterDialog
+          sandbox={!!supporter.sandbox}
+          email={supporter.email ?? null}
+          paid
+          upgrade={supporter.plan}
+          onClose={() => setSurface(null)}
+          onSignIn={() => setSurface("signIn")}
         />
       )}
       {surface === "update" && offer(update) && (

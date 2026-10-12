@@ -2287,6 +2287,29 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
 });
 
+test("Supporter: a subscription switches to five years from the end of its paid period (NP-066, sheet 45)", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
+  await page.reload();
+  await page.locator("[data-plan-row]").click();
+  const plan = page.getByRole("dialog", { name: "Supporter" });
+  await expect(plan).toContainText("Supporter · yearly");
+  await plan.getByRole("button", { name: "Switch to 5 years" }).click();
+  const upgrade = page.getByRole("dialog", { name: "Switch to 5 years" });
+  await expect(upgrade).toContainText("Pay $50 once instead of renewing. Your yearly plan stays until");
+  await expect(upgrade).toContainText("$50 once");
+  await expect(upgrade).toContainText("Supporter then lasts until");
+  // Nothing to choose, and no «I'm already a Supporter»: the account is signed in.
+  await expect(upgrade.getByRole("radio")).toHaveCount(0);
+  await expect(upgrade.getByRole("button", { name: "I'm already a Supporter" })).toHaveCount(0);
+  await upgrade.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Done" }).click();
+  await page.locator("[data-plan-row]").click();
+  await expect(page.getByRole("dialog", { name: "Supporter" })).toContainText("Supporter · 5 years");
+  // Five years and a plan that does not renew offer no switch.
+  await expect(page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
+});
+
 test("Supporter: the dialog asks for the plan when it opens and when the window comes back — a change in the portal shows (NP-066)", async ({ page }) => {
   // The server has the plan cancelled at the end of its period, as after «Manage».
   await page.evaluate(() => {
