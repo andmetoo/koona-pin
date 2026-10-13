@@ -1,0 +1,11 @@
+# Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
+#
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a42d6c4f83c6cdb3013baa257da2755de2eb832d05959cb8e541eb0d8a8317d9 # shrinks to steps = [Edit { replica: 1, op: NewCollection { name: 2, uid: 175258028757255161985551663327086641152 } }, Edit { replica: 0, op: Add { url: 0, title: 0, uid: 0 } }, Sync { from: 1, to: 0, max_bytes: 1, faults: [], meanwhile: Some(DeleteCollection { pick: 0 }) }, Edit { replica: 1, op: NewCollection { name: 2, uid: 0 } }, Edit { replica: 0, op: Move { pick: 0, to: 37609 } }]
+cc c0467e0508f4beb62334b949f49cd3f4543726240ad313df5377b34e9ceb9d96 # shrinks to steps = [Edit { replica: 0, op: Add { url: 0, title: 0, uid: 0 } }, Sync { from: 0, to: 0, max_bytes: 1, faults: [], meanwhile: None }, Edit { replica: 0, op: NewCollection { name: 0, uid: 212367526378254855150910520180055474176 } }, Sync { from: 0, to: 1, max_bytes: 1, faults: [], meanwhile: None }, Edit { replica: 0, op: DeleteCollection { pick: 0 } }, Edit { replica: 1, op: Move { pick: 0, to: 1681 } }, Sync { from: 1, to: 0, max_bytes: 1, faults: [0], meanwhile: None }, Edit { replica: 0, op: NewCollection { name: 0, uid: 0 } }, Edit { replica: 0, op: NewCollection { name: 0, uid: 0 } }]
+cc 1aa4c76cc14ea1a12784ed77c3a99e6b1b6d3ee4944c60e55916c43455239f6a # shrinks to steps = [Edit { replica: 0, op: NewCollection { name: 0, uid: 0 } }, Edit { replica: 0, op: Add { url: 0, title: 0, uid: 0 } }, Edit { replica: 0, op: Tag { pick: 0, name: 0, uid: 0 } }, Edit { replica: 0, op: Add { url: 0, title: 0, uid: 0 } }, Edit { replica: 0, op: NewCollection { name: 2, uid: 106872614694426665483460955937079033856 } }, Edit { replica: 2, op: NewCollection { name: 2, uid: 0 } }, Sync { from: 0, to: 1, max_bytes: 1, faults: [], meanwhile: None }, Edit { replica: 1, op: DeleteCollection { pick: 43955 } }, Edit { replica: 0, op: Move { pick: 0, to: 19787 } }]
