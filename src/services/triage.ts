@@ -68,4 +68,4 @@ export function collectionKeys(collections: Collection[], suggestion: Suggestion
 
 /** The browser named in «сохранено … из Chrome»; other sources have their own words. */
 export const browserName = (source: string | null) =>
-  ({ chrome: "Chrome", edge: "Edge", firefox: "Firefox" })[source ?? ""] ?? null;
+  ({ chrome: "Chrome", edge: "Edge", firefox: "Firefox", safari: "Safari" })[source ?? ""] ?? null;

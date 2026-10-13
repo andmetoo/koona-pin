@@ -294,7 +294,9 @@ pub fn start(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
     if let Ok(conn) = db.conn.lock() {
         *lock(&state.connections) = Connections::load(&conn);
     }
-    serve(app, db, state);
+    serve(app.clone(), db.clone(), state.clone());
+    #[cfg(target_os = "macos")]
+    serve_safari(app, db, state);
 }
 
 #[cfg(windows)]
@@ -350,7 +352,7 @@ fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
             };
             let (app, db, state) = (app.clone(), db.clone(), state.clone());
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = answer(connected, app, db, state).await {
+                if let Err(error) = answer(connected, true, |e| respond(e, app, db, state)).await {
                     eprintln!("Capture pipe: {error}");
                 }
             });
@@ -394,19 +396,97 @@ fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
             }
             let (app, db, state) = (app.clone(), db.clone(), state.clone());
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = answer(stream, app, db, state).await {
+                if let Err(error) = answer(stream, true, |e| respond(e, app, db, state)).await {
                     eprintln!("Capture socket: {error}");
                 }
             });
         }
     });
 }
-async fn answer(
+/// The Safari socket (NP-119): opened once, and only when this bundle embeds
+/// the appex. It failing to open is logged, not a failure of capture: Chrome,
+/// Edge and Firefox still reach the app through the host's socket.
+#[cfg(target_os = "macos")]
+fn serve_safari(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
+    use crate::safari_socket;
+    static OPENED: std::sync::Once = std::sync::Once::new();
+    OPENED.call_once(|| {
+        let Some(appex) = safari_socket::embedded_appex() else { return };
+        let opened = safari_socket::Admission::for_appex(&appex)
+            .map_err(std::io::Error::other)
+            .and_then(|admission| Ok((admission, safari_socket::socket_path()?)))
+            .and_then(|(admission, path)| Ok((admission, socket::bind_safari(&path)?)))
+            .and_then(|(admission, listener)| {
+                listener.set_nonblocking(true)?;
+                let _runtime = tauri::async_runtime::handle().inner().enter();
+                Ok((admission, tokio::net::UnixListener::from_std(listener)?))
+            });
+        match opened {
+            Ok((admission, listener)) => {
+                eprintln!("Safari socket: admitting {}", admission.text);
+                let respond = move |e| respond(e, app.clone(), db.clone(), state.clone());
+                tauri::async_runtime::spawn(serve_admitted(listener, Arc::new(admission), respond));
+            }
+            Err(error) => eprintln!("Safari socket: {error}"),
+        }
+    });
+}
+
+/// Accepts on the Safari socket: the user's own processes (as the host's
+/// socket) whose code satisfies `admission`. A refused peer is dropped with
+/// no reply. Only the extension's messages: `mcp` stays on the host's socket.
+#[cfg(target_os = "macos")]
+async fn serve_admitted<F, Fut>(
+    listener: tokio::net::UnixListener,
+    admission: Arc<crate::safari_socket::Admission>,
+    respond: F,
+) where
+    F: Fn(Envelope) -> Fut + Clone + Send + 'static,
+    Fut: std::future::Future<Output = std::io::Result<Value>> + Send,
+{
+    use std::os::unix::io::AsRawFd;
+    loop {
+        let stream = match listener.accept().await {
+            Ok((stream, _)) => stream,
+            Err(error) => {
+                eprintln!("Safari socket: {error}");
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                continue;
+            }
+        };
+        if !socket::admitted(stream.peer_cred().ok().map(|peer| peer.uid())) {
+            eprintln!("Safari socket: refused a process of another user");
+            continue;
+        }
+        let (admission, respond) = (admission.clone(), respond.clone());
+        tokio::spawn(async move {
+            // The descriptor stays open: `stream` lives in this task.
+            let fd = stream.as_raw_fd();
+            let checked = tokio::task::spawn_blocking(move || admission.admits(fd))
+                .await
+                .unwrap_or_else(|error| Err(error.to_string()));
+            if let Err(why) = checked {
+                eprintln!("Safari socket: refused a peer: {why}");
+                return;
+            }
+            if let Err(error) = answer(stream, false, respond).await {
+                eprintln!("Safari socket: {error}");
+            }
+        });
+    }
+}
+
+/// One line in, one line out. `takes_mcp`: koonapin-mcp's messages are
+/// answered only on the host's socket, never on Safari's (NP-119).
+async fn answer<F, Fut>(
     pipe: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
-    app: AppHandle,
-    db: Arc<DbState>,
-    state: Arc<ChannelState>,
-) -> std::io::Result<()> {
+    takes_mcp: bool,
+    respond: F,
+) -> std::io::Result<()>
+where
+    F: FnOnce(Envelope) -> Fut,
+    Fut: std::future::Future<Output = std::io::Result<Value>>,
+{
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
     let mut reader = BufReader::new(pipe);
     let mut line = Vec::new();
@@ -420,8 +500,27 @@ async fn answer(
     .await
     .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "no message"))??;
     let reply = match parse(&line) {
+        Some(envelope) if !takes_mcp && envelope.message["type"] == "mcp" => {
+            failure("invalid_request", "Unknown message")
+        }
+        Some(envelope) => respond(envelope).await?,
+        None => failure("invalid_request", "Unknown message"),
+    };
+    let pipe = reader.get_mut();
+    pipe.write_all(format!("{reply}\n").as_bytes()).await?;
+    pipe.flush().await
+}
+
+/// What the app does with a message: the same for every socket.
+async fn respond(
+    envelope: Envelope,
+    app: AppHandle,
+    db: Arc<DbState>,
+    state: Arc<ChannelState>,
+) -> std::io::Result<Value> {
+    Ok(match envelope {
         // koonapin-mcp (NP-091): the journal too, as the interface's changes.
-        Some(envelope) if envelope.message["type"] == "mcp" => {
+        envelope if envelope.message["type"] == "mcp" => {
             let database = db.clone();
             let (handled, status) = tauri::async_runtime::spawn_blocking(move || {
                 let conn = database.conn.lock().map_err(|_| ())?;
@@ -445,7 +544,7 @@ async fn answer(
             }
             handled.reply
         }
-        Some(envelope) => {
+        envelope => {
             let (database, records) = (db.clone(), state.clone());
             let handled = tauri::async_runtime::spawn_blocking(move || {
                 let Ok(conn) = database.conn.lock() else {
@@ -472,11 +571,7 @@ async fn answer(
             }
             handled.reply
         }
-        _ => failure("invalid_request", "Unknown message"),
-    };
-    let pipe = reader.get_mut();
-    pipe.write_all(format!("{reply}\n").as_bytes()).await?;
-    pipe.flush().await
+    })
 }
 
 /// The capture socket on Linux (Р-45, п. 6) and macOS (NP-050): what the
@@ -519,10 +614,24 @@ mod socket {
     /// The first instance: a socket another process answers on is not taken
     /// over but reported; a file left by an app that crashed is replaced.
     pub fn bind(path: &Path) -> io::Result<UnixListener> {
-        let dir = path
-            .parent()
-            .ok_or_else(|| io::Error::other("the capture socket has no folder"))?;
-        private_dir(dir)?;
+        private_dir(folder(path)?)?;
+        listen(path)
+    }
+
+    fn folder(path: &Path) -> io::Result<&Path> {
+        path.parent()
+            .ok_or_else(|| io::Error::other("the capture socket has no folder"))
+    }
+
+    /// The Safari socket (NP-119) in the appex's container, whose folders
+    /// are the system's: checked, not made private.
+    #[cfg(target_os = "macos")]
+    pub fn bind_safari(path: &Path) -> io::Result<UnixListener> {
+        crate::safari_socket::container_dir(folder(path)?)?;
+        listen(path)
+    }
+
+    fn listen(path: &Path) -> io::Result<UnixListener> {
         let listener = match UnixListener::bind(path) {
             Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
                 if UnixStream::connect(path).is_ok() {
@@ -1046,5 +1155,95 @@ mod tests {
             now(),
         );
         assert_eq!(bad.reply["code"], "invalid_request");
+    }
+
+    /// Safari (NP-119): its extension says hello and saves like the others,
+    /// with its own source; the app records it as connected and as the
+    /// browser of the last save.
+    #[test]
+    fn safari_says_hello_and_saves_as_safari() {
+        let c = database();
+        let mut connections = Connections::default();
+        let hello = handle(
+            &c,
+            &mut connections,
+            &envelope(json!({ "type": "hello", "protocol": PROTOCOL, "version": "0.9.0", "browser": "safari" })),
+            now(),
+        );
+        assert_eq!(hello.reply["ok"], true);
+        assert!(hello.contact);
+        let mac = |connections: &Connections| browsers::status_on(connections, None, now(), browsers::System::Macos);
+        let status = mac(&Connections::load(&c));
+        assert_eq!(status.state, browsers::CaptureState::Connected);
+        assert_eq!(status.browsers[0].browser, Browser::Safari);
+        let saved = handle(&c, &mut connections, &envelope(capture("s1", "https://www.apple.com/safari/", "safari")), now());
+        assert_eq!(saved.reply["outcome"], "created");
+        assert!(saved.contact);
+        let source: String = c
+            .query_row("SELECT source FROM bookmarks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(source, "safari");
+        let status = mac(&connections);
+        assert_eq!(status.last_capture.unwrap().browser, Browser::Safari);
+    }
+
+    /// The Safari socket (NP-119), as the app opens it but at a test path:
+    /// a peer whose signature does not satisfy the requirement gets no reply,
+    /// one that does gets what koonapin-host would get, and `mcp` is refused.
+    /// This test binary stands in for the appex: its own designated
+    /// requirement (its cdhash) admits it.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_safari_socket_admits_only_the_signed_appex() {
+        use crate::safari_socket::Admission;
+        use std::io::{Read, Write};
+        use std::os::unix::fs::PermissionsExt;
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let dir = runtime_dir("safari");
+        let library = Arc::new(Mutex::new(database()));
+        let open = |name: &str, admission: Admission| {
+            let path = dir.join(name).join("Data").join("capture.sock");
+            let listener = socket::bind_safari(&path).unwrap();
+            assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+            listener.set_nonblocking(true).unwrap();
+            let _entered = runtime.enter();
+            let listener = tokio::net::UnixListener::from_std(listener).unwrap();
+            let library = library.clone();
+            let respond = move |envelope: Envelope| {
+                let library = library.clone();
+                async move {
+                    let conn = library.lock().unwrap();
+                    Ok(handle(&conn, &mut Connections::default(), &envelope, now()).reply)
+                }
+            };
+            runtime.spawn(serve_admitted(listener, Arc::new(admission), respond));
+            path
+        };
+        let ask = |path: &std::path::Path, message: Value| -> String {
+            let mut client = std::os::unix::net::UnixStream::connect(path).unwrap();
+            client.set_read_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
+            let line = json!({ "caller": "app.koona.pin.safari", "message": message });
+            // A refused peer may be closed before it writes.
+            let _ = client.write_all(format!("{line}\n").as_bytes());
+            let mut reply = String::new();
+            let _ = client.read_to_string(&mut reply);
+            reply
+        };
+        let hello = json!({ "type": "hello", "protocol": PROTOCOL, "version": "0.9.0", "browser": "safari" });
+
+        let zero = format!("cdhash H\"{}\"", "0".repeat(40));
+        let refused = open("zero", Admission::from_text(&zero).unwrap());
+        assert_eq!(ask(&refused, hello.clone()), "", "another cdhash: no reply");
+        let apple = open("apple", Admission::for_appex(std::path::Path::new("/bin/ls")).unwrap());
+        assert_eq!(ask(&apple, hello.clone()), "", "another program's requirement: no reply");
+
+        let admitted = open("own", Admission::for_self().unwrap());
+        let reply: Value = serde_json::from_str(&ask(&admitted, hello)).unwrap();
+        assert_eq!((reply["ok"].clone(), reply["name"].clone()), (json!(true), json!("Koona Pin")));
+        let saved: Value = serde_json::from_str(&ask(&admitted, capture("s1", "https://www.apple.com/", "safari"))).unwrap();
+        assert_eq!(saved["outcome"], "created");
+        let mcp: Value = serde_json::from_str(&ask(&admitted, json!({ "type": "mcp", "tool": "list_bookmarks" }))).unwrap();
+        assert_eq!(mcp["code"], "invalid_request");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -2250,6 +2250,7 @@ version = "0.11.3"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "core-foundation 0.10.1",
  "crc32fast",
  "dirs 5.0.1",
  "flate2",
@@ -2263,6 +2264,7 @@ dependencies = [
  "rusqlite",
  "rusqlite_migration",
  "scraper",
+ "security-framework",
  "serde",
  "serde_json",
  "sha2",

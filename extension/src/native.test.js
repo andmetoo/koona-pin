@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appIsOlder, browserName, failure, talk } from "./native.js";
+import { appIsOlder, browserName, failure, shownShortcut, talk } from "./native.js";
 import { HOST, PROTOCOL, VERSION } from "./version.js";
 
 describe("native messaging", () => {
@@ -8,6 +8,22 @@ describe("native messaging", () => {
     expect(browserName({ navigator: { userAgentData: { brands: [{ brand: "Microsoft Edge" }] } } })).toBe("edge");
     expect(browserName({ browser: { runtime: { getBrowserInfo() {} } }, navigator: {} })).toBe("firefox");
     expect(browserName({})).toBe("chrome");
+  });
+
+  it("knows Safari by its extension scheme (NP-119)", () => {
+    // Safari: `browser` without getBrowserInfo, no userAgentData.
+    const safari = { browser: { runtime: {} }, chrome: { runtime: {} }, navigator: {}, location: { protocol: "safari-web-extension:" } };
+    expect(browserName(safari)).toBe("safari");
+    expect(browserName({ ...safari, location: { protocol: "chrome-extension:" } })).toBe("chrome");
+    expect(browserName({ browser: { runtime: { getBrowserInfo() {} } }, location: { protocol: "moz-extension:" } })).toBe("firefox");
+  });
+
+  it("shows Safari's shortcut with Mac keys, the others' as given (NP-119)", () => {
+    expect(shownShortcut("Alt+Shift+D", "safari")).toBe("⌥⇧D");
+    expect(shownShortcut("", "safari")).toBe("");
+    expect(shownShortcut("Alt+Shift+D", "chrome")).toBe("Alt+Shift+D");
+    expect(shownShortcut("⌥⇧D", "chrome")).toBe("⌥⇧D");
+    expect(shownShortcut("Alt+Shift+D", "firefox")).toBe("Alt+Shift+D");
   });
 
   it("sends the protocol, version and host name with every message", async () => {
@@ -31,6 +47,21 @@ describe("native messaging", () => {
     // Firefox says the same for a missing host and an add-on the manifest does not list.
     expect((await talk({}, failing("No such native application app.koona.pin"))).code).toBe("host_missing");
     expect((await talk({}, failing("Native host has exited."))).code).toBe("host_failed");
+  });
+
+  it("turns Safari's errors into codes (NP-119)", async () => {
+    const failing = (text) => ({ sendNativeMessage: async () => Promise.reject(new Error(text)) });
+    const safari = (reason) => `Invalid call to runtime.sendNativeMessage(). ${reason}.`;
+    // No app extension to load: the app is gone or damaged.
+    expect((await talk({}, failing(safari("Native messaging is not supported")))).code).toBe("host_missing");
+    for (const reason of [
+      "The native extension canceled the request or encountered an error",
+      "The native extension was interrupted or crashed",
+      "The native extension encountered an unknown error",
+      "There are too many active native message requests",
+      "Couldn’t communicate with a helper application",
+    ])
+      expect((await talk({}, failing(safari(reason)))).code, reason).toBe("host_failed");
   });
 
   it("keeps a link in the queue unless the app refuses it for good", () => {

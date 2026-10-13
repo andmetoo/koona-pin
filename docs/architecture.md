@@ -53,7 +53,7 @@ Until the library is open, database commands are refused and the capture channel
 
 ### Schema and migrations
 
-- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 8); the file is marked with `application_id = 0x4E50494E` ("NPIN").
+- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 9); the file is marked with `application_id = 0x4E50494E` ("NPIN").
 - All pending steps and the new `user_version` run in one transaction. Before migrating an existing library the app writes a copy `backups/koonapin.before-vN.db` with `VACUUM INTO`; the last two are kept. If the copy fails the migration does not start; if a step fails the transaction rolls back and the screen points to the copy.
 - A released step is never edited; a change is a new step. A step that rebuilds a table must turn foreign keys off itself before the transaction.
 - Main tables: `bookmarks`, `collections`, `tags`, `bookmark_tags`, `capture_receipts`, `app_settings`, `tombstones`, `duplicates_dismissed`, `link_checks`. Records have a UUIDv7 `uid` beside the integer `id`; times are UTC strings with milliseconds (`YYYY-MM-DDTHH:MM:SS.sssZ`).
@@ -79,6 +79,8 @@ Until the library is open, database commands are refused and the capture channel
 
 - **Windows:** a named pipe `\\.\pipe\koonapin-<user SID>`, created with `FILE_FLAG_FIRST_PIPE_INSTANCE`, `PIPE_REJECT_REMOTE_CLIENTS` and a DACL that admits only the current user. If another program already holds the name, the app shows an error instead of sharing it.
 - **Linux:** a Unix socket `$XDG_RUNTIME_DIR/koonapin/capture.sock`. The folder is `0700` and must be a real folder of this user, the socket `0600`, and every peer's UID is checked with `SO_PEERCRED`. Without `XDG_RUNTIME_DIR` there is no socket (none in `/tmp`).
+- **macOS:** the same socket in the user's own system folder, `$(getconf DARWIN_USER_DIR)koonapin/capture.sock`, checked with `getpeereid`.
+- **Safari on macOS (NP-119):** Safari's extension has no host; its handler runs in the sandboxed appex `app.koona.pin.safari` inside `Koona Pin.app/Contents/PlugIns/`, which can reach a socket only in its own container. When the bundle embeds the appex, the app opens a second socket at `~/Library/Containers/app.koona.pin.safari/Data/capture.sock` (`safari_socket.rs`). Those folders belong to the system and are only checked, not chmodded; the socket is `0600`. A peer must be of this user and its code (by audit token) must satisfy the designated requirement of the embedded appex: its cdhash while signed ad hoc, the team's requirement under Developer ID. Refused peers get no reply. The same envelope and answers as the host's socket, except that `mcp` is refused. If it cannot open, Chrome, Edge and Firefox still work.
 - One JSON line each way per connection; a line over 1 MiB or a client silent for 10 s is dropped. `KOONAPIN_PIPE` changes the name for tests.
 
 ### Protocol

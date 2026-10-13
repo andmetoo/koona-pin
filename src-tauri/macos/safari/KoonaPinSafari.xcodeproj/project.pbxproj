@@ -1,0 +1,182 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1190000000000000000B001 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1190000000000000000F001 /* SafariWebExtensionHandler.swift */; };
+		A1190000000000000000B002 /* Relay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1190000000000000000F002 /* Relay.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A1190000000000000000F001 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		A1190000000000000000F002 /* Relay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Relay.swift; sourceTree = "<group>"; };
+		A1190000000000000000F003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1190000000000000000F004 /* KoonaPinSafari.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KoonaPinSafari.entitlements; sourceTree = "<group>"; };
+		A1190000000000000000F005 /* Safari.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Safari.xcconfig; sourceTree = "<group>"; };
+		A1190000000000000000F006 /* Koona Pin Safari.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Koona Pin Safari.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A11900000000000000001D01 = {
+			isa = PBXGroup;
+			children = (
+				A1190000000000000000F005 /* Safari.xcconfig */,
+				A11900000000000000001D02 /* Extension */,
+				A11900000000000000001D03 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A11900000000000000001D02 /* Extension */ = {
+			isa = PBXGroup;
+			children = (
+				A1190000000000000000F001 /* SafariWebExtensionHandler.swift */,
+				A1190000000000000000F002 /* Relay.swift */,
+				A1190000000000000000F003 /* Info.plist */,
+				A1190000000000000000F004 /* KoonaPinSafari.entitlements */,
+			);
+			path = Extension;
+			sourceTree = "<group>";
+		};
+		A11900000000000000001D03 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1190000000000000000F006 /* Koona Pin Safari.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A11900000000000000002D01 /* KoonaPinSafari */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A11900000000000000005D02 /* Build configuration list for PBXNativeTarget "KoonaPinSafari" */;
+			buildPhases = (
+				A11900000000000000004D01 /* Sources */,
+				A11900000000000000004D02 /* Web part */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KoonaPinSafari;
+			productName = "Koona Pin Safari";
+			productReference = A1190000000000000000F006 /* Koona Pin Safari.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A11900000000000000003D01 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = A11900000000000000005D01 /* Build configuration list for PBXProject "KoonaPinSafari" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A11900000000000000001D01;
+			minimizedProjectReferenceProxies = 1;
+			productRefGroup = A11900000000000000001D03 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A11900000000000000002D01 /* KoonaPinSafari */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A11900000000000000004D02 /* Web part */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Web part";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# The extension's web part from `bun run extension:build`, never a second copy in Git (NP-119).\nset -e\nweb=\"$SRCROOT/../../../release/dev/safari\"\nif [ ! -f \"$web/manifest.json\" ]; then\n  echo \"error: $web/manifest.json is missing: run bun run extension:build first\"\n  exit 1\nfi\nmkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nrsync -a --delete \"$web/\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A11900000000000000004D01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1190000000000000000B001 /* SafariWebExtensionHandler.swift in Sources */,
+				A1190000000000000000B002 /* Relay.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A11900000000000000006D01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1190000000000000000F005 /* Safari.xcconfig */;
+			buildSettings = {
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A11900000000000000006D02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A1190000000000000000F005 /* Safari.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		A11900000000000000006D03 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A11900000000000000006D04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A11900000000000000005D01 /* Build configuration list for PBXProject "KoonaPinSafari" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A11900000000000000006D01 /* Debug */,
+				A11900000000000000006D02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A11900000000000000005D02 /* Build configuration list for PBXNativeTarget "KoonaPinSafari" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A11900000000000000006D03 /* Debug */,
+				A11900000000000000006D04 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A11900000000000000003D01 /* Project object */;
+}

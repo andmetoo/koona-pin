@@ -10,7 +10,7 @@ triaged_at: string | null,
  */
 deleted_at: string | null, 
 /**
- * Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
+ * Where it was saved from: `app`, `chrome`, `edge`, `firefox`, `safari`,
  * `extension`, `import`, `mcp`; none for links of unknown origin. Triage shows it (NP-025).
  */
 source: string | null, 

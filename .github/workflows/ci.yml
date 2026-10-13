@@ -57,7 +57,8 @@ jobs:
             echo "$file"
             case "$file" in
               docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
-              src/* | src-tauri/* | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
+              # src-tauri/* includes the Safari extension's Xcode project (src-tauri/macos/safari).
+              src/* | src-tauri/* | scripts/build-macos.mjs | scripts/build-extension.mjs | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
                 vite.config.ts | tsconfig*.json | index.html | .github/workflows/ci.yml)
                 linux=true native=true ;;
               *) linux=true ;;
@@ -160,6 +161,19 @@ jobs:
       # TypeScript and Vite build first. Nothing is zipped or uploaded.
       - name: TypeScript, Vite and the app bundle
         run: bun run tauri build --config src-tauri/tauri.macos-test.conf.json --bundles app
+      # The Safari app extension (NP-119), so a broken handler or Xcode project shows in the pull request:
+      # its relay check, then the target as build:macos:safari builds it, signed to run locally (no team,
+      # no profile). Its web part is release/dev/safari. Not embedded, nothing uploaded.
+      - name: Safari extension
+        run: |
+          bun run extension:build
+          xcrun swiftc -swift-version 5 -parse-as-library -o "$RUNNER_TEMP/relay-check" \
+            src-tauri/macos/safari/Extension/Relay.swift src-tauri/macos/safari/Tests/RelayCheck.swift
+          "$RUNNER_TEMP/relay-check"
+          xcodebuild -quiet -project src-tauri/macos/safari/KoonaPinSafari.xcodeproj -target KoonaPinSafari \
+            -configuration Release SYMROOT="$RUNNER_TEMP/safari/Products" OBJROOT="$RUNNER_TEMP/safari/Intermediates" \
+            CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
+          codesign --verify --strict "$RUNNER_TEMP/safari/Products/Release/Koona Pin Safari.appex"
 
   # The one check main requires besides CLA: green when every job above either passed or was not needed
   # (skipped), red when one failed or was cancelled. It always runs, so a pull request of docs only has

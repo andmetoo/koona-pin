@@ -28,6 +28,9 @@ pub enum Browser {
     Chrome,
     Edge,
     Firefox,
+    /// The Safari web extension inside the macOS app (NP-119); it has no
+    /// native host and reaches the app through the app's own handler.
+    Safari,
 }
 
 impl Browser {
@@ -36,6 +39,7 @@ impl Browser {
             "chrome" => Some(Browser::Chrome),
             "edge" => Some(Browser::Edge),
             "firefox" => Some(Browser::Firefox),
+            "safari" => Some(Browser::Safari),
             _ => None,
         }
     }
@@ -45,7 +49,15 @@ impl Browser {
             Browser::Chrome => Source::Chrome,
             Browser::Edge => Source::Edge,
             Browser::Firefox => Source::Firefox,
+            Browser::Safari => Source::Safari,
         }
+    }
+
+    /// Safari's extension exists only on macOS (NP-119): a library restored
+    /// from a Mac does not make Windows or Linux say "Connected" with no
+    /// browser to show. `shownBrowsers` in src/services/capture.ts agrees.
+    pub fn shown_on(self, system: System) -> bool {
+        self != Browser::Safari || system == System::Macos
     }
 }
 
@@ -158,7 +170,8 @@ pub struct BrowserStatus {
 #[ts(export)]
 pub struct CaptureStatus {
     pub state: CaptureState,
-    /// Every browser that ever wrote, in the order Chrome, Edge, Firefox.
+    /// Every browser that ever wrote, in the order Chrome, Edge, Firefox,
+    /// Safari; Safari only on macOS.
     pub browsers: Vec<BrowserStatus>,
     pub last_capture: Option<LastCapture>,
     /// Whole days since the last message from any extension; only when lost.
@@ -204,9 +217,22 @@ pub fn status(
     problem: Option<(CaptureProblem, String)>,
     now: DateTime<Utc>,
 ) -> CaptureStatus {
-    let browsers: Vec<BrowserStatus> = connections
-        .browsers
-        .iter()
+    status_on(connections, problem, now, System::current())
+}
+
+pub(crate) fn status_on(
+    connections: &Connections,
+    problem: Option<(CaptureProblem, String)>,
+    now: DateTime<Utc>,
+    system: System,
+) -> CaptureStatus {
+    let shown = || {
+        connections
+            .browsers
+            .iter()
+            .filter(move |(&browser, _)| browser.shown_on(system))
+    };
+    let browsers: Vec<BrowserStatus> = shown()
         .map(|(&browser, contact)| BrowserStatus {
             browser,
             last_seen: contact.last_seen.clone(),
@@ -217,10 +243,8 @@ pub fn status(
                 .is_some_and(|seen| (now - seen).num_days() < LOST_AFTER_DAYS),
         })
         .collect();
-    let newest = connections
-        .browsers
-        .values()
-        .filter_map(|contact| parse(&contact.last_seen))
+    let newest = shown()
+        .filter_map(|(_, contact)| parse(&contact.last_seen))
         .max();
     let state = if problem.is_some() {
         CaptureState::Failing
@@ -243,7 +267,7 @@ pub fn status(
         detail: problem.as_ref().map(|(_, detail)| detail.clone()),
         problem: problem.map(|(problem, _)| problem),
         protocol: PROTOCOL,
-        system: System::current(),
+        system,
     }
 }
 
@@ -259,6 +283,15 @@ mod tests {
     }
     fn now() -> DateTime<Utc> {
         "2026-10-03T12:00:00Z".parse().unwrap()
+    }
+
+    #[test]
+    fn browsers_are_parsed_by_the_extensions_name() {
+        assert_eq!(Browser::parse("safari"), Some(Browser::Safari));
+        assert_eq!(Browser::Safari.source(), Source::Safari);
+        assert_eq!(Browser::Safari.source().as_str(), "safari");
+        assert_eq!(Browser::parse("Safari"), None);
+        assert_eq!(Browser::parse("opera"), None);
     }
 
     #[test]
@@ -304,6 +337,27 @@ mod tests {
         c.contact(Browser::Chrome, None, Some(PROTOCOL), &at(0));
         c.contact(Browser::Firefox, None, Some(1), &at(4));
         assert_eq!(status(&c, None, now()).state, CaptureState::Connected);
+    }
+
+    /// Only Safari wrote recently, in a library restored from a Mac: Windows
+    /// and Linux do not show it and are not "Connected" (NP-119).
+    #[test]
+    fn safari_counts_only_on_macos() {
+        let mut c = Connections::default();
+        c.contact(Browser::Safari, Some("0.9.0".into()), Some(PROTOCOL), &at(0));
+        c.contact(Browser::Chrome, Some("0.9.0".into()), Some(PROTOCOL), &at(5));
+        let mac = status_on(&c, None, now(), System::Macos);
+        assert_eq!(mac.state, CaptureState::Connected);
+        assert_eq!(mac.browsers.iter().map(|b| b.browser).collect::<Vec<_>>(), vec![Browser::Chrome, Browser::Safari]);
+        for system in [System::Windows, System::Linux] {
+            let other = status_on(&c, None, now(), system);
+            assert_eq!((other.state, other.days_silent), (CaptureState::Lost, Some(5)), "{system:?}");
+            assert_eq!(other.browsers.iter().map(|b| b.browser).collect::<Vec<_>>(), vec![Browser::Chrome]);
+            assert_eq!(other.system, system);
+        }
+        let only_safari = Connections { browsers: [(Browser::Safari, c.browsers[&Browser::Safari].clone())].into(), last_capture: None };
+        assert_eq!(status_on(&only_safari, None, now(), System::Windows).state, CaptureState::None);
+        assert_eq!(status_on(&only_safari, None, now(), System::Macos).state, CaptureState::Connected);
     }
 
     #[test]

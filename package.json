@@ -46,6 +46,7 @@
     "build:aur": "bun scripts/build-aur.mjs",
     "build:macos": "bun scripts/build-macos.mjs",
     "build:macos:test": "bun scripts/build-macos.mjs --test",
+    "build:macos:safari": "bun scripts/build-macos.mjs --test --safari",
     "build:latest": "bun scripts/build-latest.mjs",
     "build:release-data": "bun scripts/build-release-data.mjs",
     "version:bump": "bun scripts/version.mjs",

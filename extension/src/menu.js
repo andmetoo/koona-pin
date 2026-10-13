@@ -3,9 +3,9 @@ import { t } from "./ext.js";
 /**
  * The toolbar button's right-click menu. «Find a link» opens the quick search
  * (NP-082) in every browser, with its shortcut in the title: browser menus
- * show no shortcuts of their own. Firefox's button has no «Options» item, as
- * Chrome and Edge have, so there the menu also offers the settings page with
- * the queue (NP-018). A left click saves the page.
+ * show no shortcuts of their own. Firefox's and Safari's buttons have no
+ * «Options» item, as Chrome and Edge have, so there the menu also offers the
+ * settings page with the queue (NP-018, NP-119). A left click saves the page.
  */
 export const MENU_ID = "koonapin-options";
 export const SEARCH_ID = "koonapin-search";

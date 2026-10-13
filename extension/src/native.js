@@ -1,20 +1,40 @@
 import { ext, t } from "./ext.js";
 import { HOST, PROTOCOL, VERSION } from "./version.js";
 
-/** Which browser runs the extension: Edge can install it from the Chrome Web Store. */
+/**
+ * Which browser runs the extension: Edge can install it from the Chrome Web
+ * Store. Safari has `browser` without getBrowserInfo and no userAgentData; its
+ * extension pages are served as safari-web-extension: (NP-119).
+ */
 export function browserName(scope = globalThis) {
   if (scope.browser?.runtime?.getBrowserInfo) return "firefox";
+  if (scope.location?.protocol === "safari-web-extension:") return "safari";
   const brands = scope.navigator?.userAgentData?.brands ?? [];
   return brands.some((b) => b.brand === "Microsoft Edge") ? "edge" : "chrome";
+}
+
+/**
+ * A command's shortcut as a Mac shows it. Chrome on a Mac already gives «⌥⇧D»;
+ * Safari gives the manifest's «Alt+Shift+D» (NP-119), which no Mac key says.
+ */
+const macKeys = { Alt: "⌥", Shift: "⇧", Ctrl: "⌃", MacCtrl: "⌃", Command: "⌘" };
+export function shownShortcut(shortcut, browser = browserName()) {
+  if (browser !== "safari" || !shortcut) return shortcut;
+  return shortcut.split("+").map((key) => macKeys[key] ?? key).join("");
 }
 
 /**
  * The browser's own errors when it cannot start the host. Chrome and Edge:
  * «Specified native messaging host not found.» (no key, manifest or exe);
  * Firefox: «No such native application …» (NP-014), also for an add-on the
- * manifest does not list.
+ * manifest does not list. Safari has no host: the message goes to the app
+ * extension in Koona Pin.app, and WebKit says «Invalid call to
+ * runtime.sendNativeMessage(). Native messaging is not supported.» when it
+ * cannot find or load it (WebExtensionContextAPIRuntimeCocoa.mm, NP-119).
+ * Its other errors (the handler canceled, crashed or failed, too many
+ * requests, «Couldn't communicate with a helper application.») are host_failed.
  */
-const missing = /not found|No such native application|not registered/i;
+const missing = /not found|No such native application|not registered|native messaging is not supported/i;
 /**
  * Chrome and Edge: «Access to the specified native messaging host is
  * forbidden.» — the app is there, but its manifest does not list this

@@ -2,20 +2,30 @@ import type { TFunction } from "i18next";
 import { Browser, BrowserStatus, CaptureStatus } from "../types";
 import { DOWNLOAD_PAGE } from "./update";
 
-export const browsers: Browser[] = ["chrome", "edge", "firefox"];
-export const browserName: Record<Browser, string> = { chrome: "Chrome", edge: "Edge", firefox: "Firefox" };
+export const browsers: Browser[] = ["chrome", "edge", "firefox", "safari"];
+export const browserName: Record<Browser, string> = { chrome: "Chrome", edge: "Edge", firefox: "Firefox", safari: "Safari" };
+
+/** Safari's extension exists only on macOS (NP-119): elsewhere its status is not shown. */
+export const shownBrowsers = (status: CaptureStatus | null): BrowserStatus[] =>
+  (status?.browsers ?? []).filter((b) => b.browser !== "safari" || status?.system === "macos");
 
 /**
  * A tab of «Connect browser»: on Linux (Р-45) and macOS (NP-050) Chromium has
  * its own, with the steps of Chrome — the same store, `chrome://extensions`
- * and toolbar.
+ * and toolbar. Safari has none until its way of installing is known (NP-119).
  */
-export type ConnectTab = Browser | "chromium";
-export const connectTabName: Record<ConnectTab, string> = { ...browserName, chromium: "Chromium" };
+export type TabBrowser = Exclude<Browser, "safari">;
+export type ConnectTab = TabBrowser | "chromium";
+export const connectTabName: Record<ConnectTab, string> = {
+  chrome: browserName.chrome,
+  edge: browserName.edge,
+  firefox: browserName.firefox,
+  chromium: "Chromium",
+};
 export const connectTabs = (status: CaptureStatus | null): ConnectTab[] =>
-  status?.system === "linux" || status?.system === "macos" ? ["chrome", "edge", "chromium", "firefox"] : browsers;
+  status?.system === "linux" || status?.system === "macos" ? ["chrome", "edge", "chromium", "firefox"] : ["chrome", "edge", "firefox"];
 /** The browser whose texts a tab shows. */
-export const tabBrowser = (tab: ConnectTab): Browser => (tab === "chromium" ? "chrome" : tab);
+export const tabBrowser = (tab: ConnectTab): TabBrowser => (tab === "chromium" ? "chrome" : tab);
 
 /** Dot colour of the browser status (guidelines, «Статус браузера»). */
 export function statusColor(status: CaptureStatus | null): string {
@@ -34,7 +44,7 @@ export function statusColor(status: CaptureStatus | null): string {
 
 /** The browser that wrote recently with another protocol, if any. */
 export function incompatible(status: CaptureStatus | null): BrowserStatus | undefined {
-  return status?.browsers.find((b) => b.recent && !b.compatible);
+  return shownBrowsers(status).find((b) => b.recent && !b.compatible);
 }
 
 /** An extension newer than the app: the app is the one to update. */
@@ -77,7 +87,7 @@ export function problemBanner(status: CaptureStatus | null, t: TFunction): strin
 
 /** «Chrome, Edge»: the browsers that wrote within three days. */
 export function connectedNames(status: CaptureStatus | null): string {
-  return (status?.browsers ?? [])
+  return shownBrowsers(status)
     .filter((b) => b.recent && b.compatible)
     .map((b) => browserName[b.browser])
     .join(", ");
@@ -114,22 +124,23 @@ export interface InstallSource {
  * `extension/store/README.md`). A browser without one keeps the
  * developer-mode steps.
  */
-export const installSources: Partial<Record<Browser, InstallSource>> = {
+export const installSources: Partial<Record<TabBrowser, InstallSource>> = {
   chrome: { url: chromeWebStore, store: "Chrome Web Store", install: "connect.store_chrome", update: "connect.updateStore" },
   edge: { url: edgeAddons, store: "Edge Add-ons", install: "connect.store_edge", update: "connect.updateStore" },
   firefox: { url: firefoxDownload, store: "koona.app", install: "connect.site_firefox", update: "connect.updateSite_firefox" },
 };
 
 /** Step 1 and the update hint of the connect dialog for this browser. */
-export function installSteps(browser: Browser, sources = installSources) {
+export function installSteps(browser: TabBrowser, sources = installSources) {
   return (
     sources[browser] ?? { url: null, store: null, install: `connect.install_${browser}` as const, update: `connect.update_${browser}` as const }
   );
 }
 
-/** The browser to show first in the connect dialog: the last one that saved. */
-export function preferredBrowser(status: CaptureStatus | null): Browser {
-  return status?.last_capture?.browser ?? status?.browsers.find((b) => b.recent)?.browser ?? "chrome";
+/** The browser to show first in the connect dialog: the last one that saved, if it has a tab. */
+export function preferredBrowser(status: CaptureStatus | null): TabBrowser {
+  const tab = (browser?: Browser) => (browser === "safari" ? undefined : browser);
+  return tab(status?.last_capture?.browser) ?? tab(status?.browsers.find((b) => b.recent && b.browser !== "safari")?.browser) ?? "chrome";
 }
 
 /** What «Скопировать отчёт» puts on the clipboard. */

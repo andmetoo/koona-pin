@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 8;
+pub const SCHEMA_VERSION: i64 = 9;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -268,23 +268,44 @@ ALTER TABLE bookmarks ADD COLUMN source_name TEXT;
 /// the migration's transaction. A schema text other than schema 1's is
 /// refused, and the migration rolls back.
 fn allow_mcp(tx: &Transaction) -> HookResult {
-    const OLD: &str = "'extension','bookmarklet','import'))";
-    const NEW: &str = "'extension','bookmarklet','import','mcp'))";
+    widen_sources(
+        tx,
+        "'extension','bookmarklet','import'))",
+        "'extension','bookmarklet','import','mcp'))",
+        "the bookmarks table is not the one schema 1 made",
+    )
+}
+
+/// Schema 9 (NP-119): links the Safari extension saves come from
+/// `source = 'safari'`; the check of schema 8 gets it the way [`allow_mcp`]
+/// added `'mcp'`. Nothing else changes.
+const SCHEMA_9: &str = "";
+
+fn allow_safari(tx: &Transaction) -> HookResult {
+    widen_sources(
+        tx,
+        "'extension','bookmarklet','import','mcp'))",
+        "'extension','bookmarklet','import','mcp','safari'))",
+        "the bookmarks table is not the one schema 8 made",
+    )
+}
+
+/// Replaces `old`, which must occur once, with `new` in the schema text of
+/// `bookmarks`: see [`allow_mcp`] for why this is safe.
+fn widen_sources(tx: &Transaction, old: &str, new: &str, refused: &str) -> HookResult {
     let sql: String = tx.query_row(
         "SELECT sql FROM sqlite_schema WHERE type='table' AND name='bookmarks'",
         [],
         |r| r.get(0),
     )?;
-    if sql.matches(OLD).count() != 1 {
-        return Err(rusqlite_migration::HookError::Hook(
-            "the bookmarks table is not the one schema 1 made".into(),
-        ));
+    if sql.matches(old).count() != 1 {
+        return Err(rusqlite_migration::HookError::Hook(refused.into()));
     }
     let version: i64 = tx.pragma_query_value(None, "schema_version", |r| r.get(0))?;
     tx.pragma_update(None, "writable_schema", true)?;
     tx.execute(
         "UPDATE sqlite_schema SET sql=?1 WHERE type='table' AND name='bookmarks'",
-        [sql.replace(OLD, NEW)],
+        [sql.replace(old, new)],
     )?;
     tx.pragma_update(None, "schema_version", version + 1)?;
     tx.pragma_update(None, "writable_schema", false)?;
@@ -337,6 +358,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up(SCHEMA_6),
         M::up(SCHEMA_7),
         M::up_with_hook(SCHEMA_8, allow_mcp),
+        M::up_with_hook(SCHEMA_9, allow_safari),
     ]
 }
 
@@ -535,7 +557,8 @@ mod tests {
         let rows_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
         let objects = |conn: &Connection| rows(conn, "SELECT type, name FROM sqlite_schema WHERE name <> 'bookmarks' ORDER BY name");
         let objects_before = objects(&conn);
-        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        let to_8 = Migrations::new(steps().into_iter().take(8).collect());
+        migrate_with(&to_8, 8, &mut conn, Some(&folder.join("backups"))).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 8);
         assert_eq!(objects(&conn), objects_before, "no trigger, index or view lost");
         let rows_after = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
@@ -551,6 +574,49 @@ mod tests {
         library::configure(&conn).unwrap();
         conn.execute(
             "INSERT INTO bookmarks (uid, url, title, domain, source, created_at, updated_at) VALUES ('u2', 'https://example.com/again', 't', 'd', 'mcp', 'x', 'x')",
+            [],
+        )
+        .unwrap();
+    }
+
+    /// Schema 9 (NP-119): a library of schema 8 with data takes links from
+    /// `safari` after the migration, keeps taking `mcp` and nothing else;
+    /// rows, indexes and triggers stay exactly as they were.
+    #[test]
+    fn schema_9_lets_safari_save_and_keeps_everything_else() {
+        let folder = folder("schema-9");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 8);
+        fixtures::generated(&conn, 300, 9);
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        let insert = |conn: &Connection, source: &str| {
+            conn.execute(
+                "INSERT INTO bookmarks (uid, url, title, domain, source, created_at, updated_at) VALUES (?1, ?1, 't', 'd', ?2, 'x', 'x')",
+                rusqlite::params![format!("https://example.com/{source}"), source],
+            )
+        };
+        assert!(insert(&conn, "safari").is_err(), "schema 8 refuses safari");
+        let rows_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
+        let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name <> 'bookmarks' ORDER BY name");
+        let objects_before = objects(&conn);
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 9);
+        assert!(folder.join("backups/koonapin.before-v9.db").exists());
+        assert_eq!(objects(&conn), objects_before, "no trigger, index or view changed");
+        assert_eq!(rows(&conn, "SELECT * FROM bookmarks ORDER BY id"), rows_before);
+        insert(&conn, "safari").unwrap();
+        insert(&conn, "mcp").unwrap();
+        assert!(insert(&conn, "phone").is_err(), "the check still holds");
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        // A new connection reads the new schema text.
+        drop(conn);
+        let conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO bookmarks (uid, url, title, domain, source, created_at, updated_at) VALUES ('u2', 'https://example.com/again', 't', 'd', 'safari', 'x', 'x')",
             [],
         )
         .unwrap();

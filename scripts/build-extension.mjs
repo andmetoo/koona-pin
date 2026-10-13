@@ -1,8 +1,11 @@
-// Builds the browser extension for Chrome, Edge and Firefox from extension/src
-// (NP-015). Results (folders: scripts/lib/paths.mjs):
+// Builds the browser extension for Chrome, Edge, Firefox and Safari from
+// extension/src (NP-015, NP-119). Results (folders: scripts/lib/paths.mjs):
 //
 //   release/dev/<browser>/                            unpacked, for «Load unpacked», Firefox's
 //                                                     temporary add-on and tests
+//   release/dev/safari/                               the web part of the Safari app extension:
+//                                                     the Xcode build copies it in (local build only,
+//                                                     no store package)
 //   release/publish/chrome/<version>/koonapin-chrome.zip   Chrome Web Store
 //   release/publish/edge/<version>/koonapin-edge.zip       Edge Add-ons
 //   (Firefox: bun run extension:sign:firefox signs the unpacked folder on AMO.)
@@ -35,6 +38,13 @@ export const edgeStoreId = "ocdkndgdeagephdnlmofffbapdifhkho";
 export const firefoxUpdateUrl = "https://koona.app/pin/firefox/updates.json";
 export const firefoxDownloadBase = "https://koona.app/pin/firefox";
 export const browsers = ["chrome", "edge", "firefox"];
+/**
+ * Built beside `browsers`, which the smoke tests and release scripts read as
+ * the browsers they load and ship: Safari is a local build only (NP-119).
+ */
+export const localBrowsers = ["safari"];
+/** Safari 18 ships with macOS 15, the oldest the Safari build supports (NP-119). */
+export const safariMinVersion = "18.0";
 
 const icons = { 16: "icons/16.png", 32: "icons/32.png", 48: "icons/48.png", 128: "icons/128.png" };
 
@@ -83,6 +93,19 @@ export function manifest(browser, { dev = false, key } = {}) {
           update_url: firefoxUpdateUrl,
         },
       },
+    };
+  if (browser === "safari")
+    return {
+      ...common,
+      // The button's menu, with the settings item as in Firefox (worker.js);
+      // Safari names it `menus` and keeps `contextMenus` as an alias.
+      permissions: [...common.permissions, "menus"],
+      // In Manifest V3 Safari runs a background page as non-persistent, and it
+      // has run `scripts` since Safari 14; its service worker was reported
+      // killed for good on iOS 17 (developer.apple.com/forums/thread/758346).
+      // worker.js already runs as Firefox's event page: one tested path (NP-119).
+      background: { scripts: ["worker.js"], type: "module", persistent: false },
+      browser_specific_settings: { safari: { strict_min_version: safariMinVersion } },
     };
   return {
     ...common,
@@ -179,7 +202,7 @@ export async function buildExtension({ log = console.log } = {}) {
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, data);
   };
-  for (const browser of browsers) {
+  for (const browser of [...browsers, ...localBrowsers]) {
     // Unpacked: the folder is emptied, not replaced, so a browser that loaded
     // it keeps the same path.
     const unpacked = dev.extension(browser);
@@ -196,7 +219,7 @@ export async function buildExtension({ log = console.log } = {}) {
   }
   const shown = (file) => path.relative(root, file);
   log(`Koona Pin extension ${VERSION}, development id ${result.devId}`);
-  for (const browser of browsers) log(`  ${browser}, unpacked: ${shown(result.unpacked[browser])}`);
+  for (const browser of [...browsers, ...localBrowsers]) log(`  ${browser}, unpacked: ${shown(result.unpacked[browser])}`);
   for (const browser of ["chrome", "edge"]) log(`  ${browser}, for the store: ${shown(result.packages[browser])}`);
 
   // The draft's public key (dashboard → Package → View public key): public, not a secret.
