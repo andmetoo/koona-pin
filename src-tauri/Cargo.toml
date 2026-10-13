@@ -96,3 +96,7 @@ zbus = "5.9"
 # the peer check. Already in the tree.
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
+# The Safari socket (NP-119) admits only the appex embedded in this bundle, by
+# its code signature. Already in the tree through the updater's TLS verifier.
+security-framework = { version = "3.7", default-features = false }
+core-foundation = "0.10"

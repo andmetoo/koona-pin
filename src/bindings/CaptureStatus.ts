@@ -7,7 +7,8 @@ import type { System } from "./System";
 
 export type CaptureStatus = { state: CaptureState, 
 /**
- * Every browser that ever wrote, in the order Chrome, Edge, Firefox, Safari.
+ * Every browser that ever wrote, in the order Chrome, Edge, Firefox,
+ * Safari; Safari only on macOS.
  */
 browsers: Array<BrowserStatus>, last_capture: LastCapture | null, 
 /**

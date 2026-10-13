@@ -28,6 +28,8 @@ pub mod net_guard;
 pub mod pipe_name;
 pub mod quick_search;
 pub mod restore;
+#[cfg(target_os = "macos")]
+pub mod safari_socket;
 pub mod sorting;
 #[doc(hidden)]
 pub mod test_libraries;

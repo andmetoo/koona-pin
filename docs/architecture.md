@@ -79,6 +79,8 @@ Until the library is open, database commands are refused and the capture channel
 
 - **Windows:** a named pipe `\\.\pipe\koonapin-<user SID>`, created with `FILE_FLAG_FIRST_PIPE_INSTANCE`, `PIPE_REJECT_REMOTE_CLIENTS` and a DACL that admits only the current user. If another program already holds the name, the app shows an error instead of sharing it.
 - **Linux:** a Unix socket `$XDG_RUNTIME_DIR/koonapin/capture.sock`. The folder is `0700` and must be a real folder of this user, the socket `0600`, and every peer's UID is checked with `SO_PEERCRED`. Without `XDG_RUNTIME_DIR` there is no socket (none in `/tmp`).
+- **macOS:** the same socket in the user's own system folder, `$(getconf DARWIN_USER_DIR)koonapin/capture.sock`, checked with `getpeereid`.
+- **Safari on macOS (NP-119):** Safari's extension has no host; its handler runs in the sandboxed appex `app.koona.pin.safari` inside `Koona Pin.app/Contents/PlugIns/`, which can reach a socket only in its own container. When the bundle embeds the appex, the app opens a second socket at `~/Library/Containers/app.koona.pin.safari/Data/capture.sock` (`safari_socket.rs`). Those folders belong to the system and are only checked, not chmodded; the socket is `0600`. A peer must be of this user and its code (by audit token) must satisfy the designated requirement of the embedded appex: its cdhash while signed ad hoc, the team's requirement under Developer ID. Refused peers get no reply. The same envelope and answers as the host's socket, except that `mcp` is refused. If it cannot open, Chrome, Edge and Firefox still work.
 - One JSON line each way per connection; a line over 1 MiB or a client silent for 10 s is dropped. `KOONAPIN_PIPE` changes the name for tests.
 
 ### Protocol
