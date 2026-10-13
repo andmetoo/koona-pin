@@ -3,6 +3,8 @@
 //   bun scripts/ci-secrets.mjs --dry-run    only says which it would set and which are missing
 // The value goes to gh on its standard input, not on the command line. TAURI_SIGNING_PRIVATE_KEY may
 // name the key's file (as Tauri accepts it): the file's contents go up then, and _PATH works the same way.
+// The update key goes to the environment «release» (open to tags v* only, release.yml), not to the
+// repository: no pull request, branch or run on main can read it.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -27,6 +29,9 @@ const REQUIRED = [
 // macOS signing and notarization (release.yml), once there is a Developer ID.
 const OPTIONAL = ["APPLE_CERTIFICATE", "APPLE_CERTIFICATE_PASSWORD", "APPLE_SIGNING_IDENTITY", "APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_PRIVATE_KEY"];
 
+/** Secrets of an environment instead of the repository's. */
+const ENVIRONMENT = { TAURI_SIGNING_PRIVATE_KEY: "release", TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "release" };
+
 const isFile = (value) => !value.includes("\n") && existsSync(value) && statSync(value).isFile();
 function value(name) {
   if (name === "TAURI_SIGNING_PRIVATE_KEY") {
@@ -44,16 +49,18 @@ for (const name of [...REQUIRED, ...OPTIONAL]) {
     if (REQUIRED.includes(name)) missing.push(name);
     continue;
   }
+  const where = ENVIRONMENT[name] ? ["--env", ENVIRONMENT[name]] : [];
+  const label = `${name}${ENVIRONMENT[name] ? ` (environment ${ENVIRONMENT[name]})` : ""}`;
   if (dryRun) {
-    console.log(`would set ${name}`);
+    console.log(`would set ${label}`);
     continue;
   }
-  const set = spawnSync("gh", ["secret", "set", name], { cwd: root, input: secret, stdio: ["pipe", "ignore", "inherit"] });
+  const set = spawnSync("gh", ["secret", "set", name, ...where], { cwd: root, input: secret, stdio: ["pipe", "ignore", "inherit"] });
   if (set.status !== 0) {
-    console.error(`gh secret set ${name} failed`);
+    console.error(`gh secret set ${label} failed`);
     process.exit(1);
   }
-  console.log(`set ${name}`);
+  console.log(`set ${label}`);
 }
 if (missing.length) {
   console.error(`Not in .env, not set: ${missing.join(", ")}`);

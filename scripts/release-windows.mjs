@@ -5,7 +5,7 @@
 //                                            the draft release, then starts release.yml's finalize stage
 //   bun run release:windows -- --no-build    uploads the installer already in release/publish/windows/<version>/
 //                                            (when it was built from the tag's commit)
-//   bun run release:windows -- --no-finalize uploads, and leaves finalize to: gh workflow run release.yml -f tag=v<version>
+//   bun run release:windows -- --no-finalize uploads, and leaves finalize to: gh workflow run release.yml --ref v<version> -f tag=v<version>
 // HEAD must be the commit of the tag v<version> (bun run release:tag made it): git switch --detach v<version>.
 // The installer goes up as koonapin_<version>_x64-setup.exe (GitHub would turn Tauri's «Koona Pin_» into
 // «Koona.Pin_»; build-latest.mjs and the site use the same name) with SHA256SUMS-windows.txt. When the
@@ -94,7 +94,7 @@ await rm(staging, { recursive: true, force: true });
 if (uploaded.status !== 0) fail(`The upload failed: bun run release:windows -- --no-build tries again.`);
 
 if (noFinalize) {
-  console.log(`\nUploaded. Finalize when the draft has the Linux packages: gh workflow run release.yml -f tag=${tag}`);
+  console.log(`\nUploaded. Finalize when the draft has the Linux packages: gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
   process.exit(0);
 }
 // Finalize needs the Linux packages of the draft: release.yml's tag run must be done.
@@ -103,10 +103,11 @@ const linux = [`koonapin_${version}_amd64.deb`, `koonapin-${version}-1.x86_64.rp
 const missing = linux.flatMap((f) => [f, `${f}.sig`]).filter((f) => !assets.includes(f));
 if (missing.length) {
   console.log(`\nUploaded. The draft has no ${missing.join(", ")} yet: release.yml's run of ${tag} is not done (bun run release).`);
-  console.log(`When it is: gh workflow run release.yml -f tag=${tag}`);
+  console.log(`When it is: gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
   process.exit(0);
 }
-console.log(`\n== Finalize: gh workflow run release.yml -f tag=${tag}`);
-const started = run("gh", ["workflow", "run", "release.yml", "--ref", "main", "-f", `tag=${tag}`], { stdio: "inherit" });
-if (started.status !== 0) fail(`Not started. Later: gh workflow run release.yml -f tag=${tag}`);
+console.log(`\n== Finalize: gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
+// From the tag, not main: the update key lives in the environment «release», open to tags v* only.
+const started = run("gh", ["workflow", "run", "release.yml", "--ref", tag, "-f", `tag=${tag}`], { stdio: "inherit" });
+if (started.status !== 0) fail(`Not started. Later: gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
 console.log(`\nFinalize is running (gh run list --workflow release.yml). When the release is published: bun run release:site -- -Server user@host`);
