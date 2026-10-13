@@ -445,7 +445,9 @@ jobs:
   # no speed measures here, the scroll is measured by hand. WebKitGTK has no CDP: WebKitWebDriver drives
   # MiniBrowser and the app. Debian 13 and Ubuntu 26.04 bring the oldest and the newest WebKitGTK of the matrix.
   webkitgtk:
-    name: WebKitGTK ${{ matrix.name }}
+    # A plain name: GitHub adds the matrix in brackets, «WebKitGTK (debian-13)»; an expression of the
+    # matrix would show unexpanded when the job is skipped (a release).
+    name: WebKitGTK
     needs: [images, build]
     if: ${{ !inputs.release }}
     continue-on-error: ${{ !inputs.release }}
@@ -454,13 +456,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - role: debian
-            name: debian-13
-          - role: ubuntu
-            name: ubuntu-26.04
+        distro: [debian-13, ubuntu-26.04]
     container:
-      image: ${{ needs.images.outputs[matrix.role] }}
+      image: ${{ needs.images.outputs[startsWith(matrix.distro, 'debian') && 'debian' || 'ubuntu'] }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -479,7 +477,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
-          name: webkitgtk-${{ matrix.name }}
+          name: webkitgtk-${{ matrix.distro }}
           path: .test-data/webkitgtk-check/
           if-no-files-found: ignore
 
@@ -488,6 +486,9 @@ jobs:
   packages:
     name: Linux packages
     needs: [build, deb, rpm]
+    # Its own condition: the default, success(), looks at every job up the chain, and in a release the test
+    # job behind «deb» is skipped, which skipped this one too (v0.12.0: no koonapin-linux-x86_64 artifact).
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.deb.result == 'success' && needs.rpm.result == 'success' }}
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
