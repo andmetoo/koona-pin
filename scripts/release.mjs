@@ -101,5 +101,5 @@ if (active(build)) next(`release.yml is building ${tag}: ${build.url}`, "Meanwhi
 if (!build) next(`No release.yml run of ${tag}: was the tag pushed before release.yml was on main? Re-push the tag, or look at Actions.`);
 if (failed(build) && !(groups.linux && groups.macos)) next(`release.yml failed for ${tag}: ${build.url}`, `Fix and rerun: gh run rerun ${build.url.split("/").pop()} --failed`);
 if (!groups.windows) next("On the Windows computer, at the tag's commit (git switch --detach " + tag + "): bun run release:windows");
-if (failed(finalize)) next(`Finalize failed: ${finalize.url}`, `Again: gh workflow run release.yml -f tag=${tag}`);
-next(`Finalize (latest.json, the AUR files, publish): gh workflow run release.yml -f tag=${tag}`);
+if (failed(finalize)) next(`Finalize failed: ${finalize.url}`, `Again: gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
+next(`Finalize (latest.json, the AUR files, publish): gh workflow run release.yml --ref ${tag} -f tag=${tag}`);

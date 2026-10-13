@@ -98,7 +98,7 @@ A release is the tag `v<version>` on a commit of `main`, a GitHub Release built 
 1. `bun run version:bump 0.12.0` in a branch, write `site/content/changelog/0.12.0.md`, open the pull request and merge it.
 2. `bun run release:tag` on `main` (equal to `origin/main`, nothing uncommitted): checks the version and the changelog, then creates and pushes `v0.12.0`. `-- --dry-run` only checks.
 3. The tag starts `.github/workflows/release.yml`. It checks the tag again, runs the whole Linux pipeline with `release: true` (the packages signed for the updater), builds macOS for Apple Silicon (`build:macos`), and puts it all in a **draft** GitHub Release whose notes come from the changelog file.
-4. On the Windows computer, `git switch --detach v0.12.0`, then `bun run release:windows`: builds and signs the installer, uploads it to the draft as `koonapin_<version>_x64-setup.exe` with `SHA256SUMS-windows.txt`, and starts `release.yml`'s finalize (`gh workflow run release.yml -f tag=v0.12.0`). `-- --no-build` uploads an installer already built from the tag's commit; `-- --no-finalize` leaves finalize for later.
+4. On the Windows computer, `git switch --detach v0.12.0`, then `bun run release:windows`: builds and signs the installer, uploads it to the draft as `koonapin_<version>_x64-setup.exe` with `SHA256SUMS-windows.txt`, and starts `release.yml`'s finalize from the tag (`gh workflow run release.yml --ref v0.12.0 -f tag=v0.12.0`: the environment holding the update key lets in tags only). `-- --no-build` uploads an installer already built from the tag's commit; `-- --no-finalize` leaves finalize for later.
 5. Finalize signs the installer for the updater, writes `latest.json` (`build:latest`) and the AUR's `PKGBUILD` and `.SRCINFO` (`build:aur`), attaches them and publishes the release. Run by hand with `only: linux`, it publishes without a new Windows installer.
 6. `bun run release:site -- -Server user@host` downloads the published packages, their `.sig` and `latest.json` into `release/publish/updates/<version>/` and deploys the site with `scripts/deploy-site.ps1`: updates come from the site, not from GitHub (Р-60). The AUR files are pushed to `aur.archlinux.org/koonapin-bin.git` by hand.
 
@@ -114,10 +114,12 @@ Set once from `.env` with `bun run ci:secrets` (`scripts/ci-secrets.mjs`: each v
 | --- | --- |
 | `KOONAPIN_FEEDBACK_URL` | The feedback address compiled into release builds. Without it a pull request build uses a placeholder; a release fails. |
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PADDLE_ENVIRONMENT` | Supporter sign-in and payments. Without them the build turns Supporter off. |
-| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | The updater's signatures (`.sig`) of the packages and the installer. |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | The updater's signatures (`.sig`) of the packages and the installer. Secrets of the **environment `release`**, not of the repository (`ci:secrets` puts them there): it lets in jobs started from a tag `v*` only, and only `release.yml`'s draft and finalize declare it, so no pull request, branch or run on `main` can read the key. |
 | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_API_ISSUER`, `APPLE_API_KEY`, `APPLE_API_PRIVATE_KEY` | Optional, for later: Developer ID signing and notarization of the macOS build (the certificate as base64 `.p12`, the App Store Connect key as the text of its `.p8`). Without them macOS is signed ad hoc. |
 
 The CI images in GHCR (`koona-ci-*`) should be public, so `build:linux` pulls them without logging in.
+
+Besides the environment, the repository guards releases with two rulesets on tags `v*`: only administrators create them, and nobody moves or deletes one. Workflows of pull requests from forks run only after a maintainer approves them (Settings → Actions → «Require approval for all external contributors»).
 
 ## Where outputs go
 

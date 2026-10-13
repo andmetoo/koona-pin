@@ -5,20 +5,21 @@ name: Linux
 # those very binaries on its own distribution. Every job runs in a prebuilt image of scripts/linux/images/
 # («images» builds and pushes the ones whose inputs changed): the jobs install nothing.
 #   ci.yml        pull requests and main, `secrets: inherit`
-#   release.yml   a version tag, `release: true`: the packages' updater signatures (.sig) too
+#   release.yml   a version tag, `release: true`: every job counts; release.yml signs the packages for the
+#                 updater itself, in the environment «release» that holds the key (never this workflow)
 #   Actions → Linux → Run workflow, by hand
 # The callers set the concurrency. The caller must let «images» have `packages: write`.
 on:
   workflow_call:
     inputs:
       release:
-        description: Release build — the feedback address is required and the packages are signed for the updater
+        description: Release build — the feedback address is required and every package job counts
         type: boolean
         default: false
   workflow_dispatch:
     inputs:
       release:
-        description: Release build — the feedback address is required and the packages are signed for the updater
+        description: Release build — the feedback address is required and every package job counts
         type: boolean
         default: false
 
@@ -453,8 +454,7 @@ jobs:
           if-no-files-found: ignore
 
   # The three packages and SHA256SUMS.txt in one artifact (bun run build:linux's collect stage), the one
-  # release.yml publishes and `bun run build:linux -- --from-ci` downloads. A release adds the updater's
-  # signature of each package (.sig, secret key, bound to the version).
+  # release.yml signs for the updater and publishes, and `bun run build:linux -- --from-ci` downloads.
   packages:
     name: Linux packages
     needs: [build, deb, rpm]
@@ -484,24 +484,6 @@ jobs:
           version=$(bun -p "require('./src-tauri/tauri.conf.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "folder=release/publish/linux/$version" >> "$GITHUB_OUTPUT"
-      - name: Sign the packages for the updater
-        if: ${{ inputs.release }}
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          VERSION: ${{ steps.collect.outputs.version }}
-          FOLDER: ${{ steps.collect.outputs.folder }}
-        run: |
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set: a release's packages are signed for the updater"
-            exit 1
-          fi
-          bun install --frozen-lockfile
-          for file in "$FOLDER/koonapin_${VERSION}_amd64.deb" "$FOLDER/koonapin-${VERSION}-1.x86_64.rpm" "$FOLDER/koonapin-${VERSION}-x86_64.AppImage"; do
-            bunx tauri signer sign --app-version "$VERSION" "$file"
-            test -s "$file.sig"
-          done
-          ls -l "$FOLDER"
       - uses: actions/upload-artifact@v7
         with:
           name: koonapin-linux-x86_64

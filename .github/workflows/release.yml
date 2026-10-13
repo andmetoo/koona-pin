@@ -3,10 +3,14 @@ name: Release
 # A release of v<version> (scripts/release.mjs shows where one stands):
 #   push of the tag v<version> (bun run release:tag)
 #     verify   the tag names the version of its four places, the changelog has it, the commit is on main
-#     linux    linux.yml with release: true — every package check, and the update signatures (.sig)
+#     linux    linux.yml with release: true — every package check counts
 #     macos    bun run build:macos: the .app in a ZIP and a .dmg (Apple signing only with its secrets)
-#     draft    a draft GitHub Release with the changelog's notes and these files
-#   workflow_dispatch with the tag (bun run release:windows starts it after uploading the signed installer)
+#     draft    the Linux packages signed for the updater, a draft GitHub Release with the changelog's notes
+#              and these files
+#   workflow_dispatch from the tag, --ref v<version> (bun run release:windows starts it after uploading the
+#   signed installer)
+# The update key (TAURI_SIGNING_PRIVATE_KEY and its password) is a secret of the environment «release»,
+# which opens to tags v* only: draft and finalize declare it, nothing else in the repository can read it.
 #     finalize the draft's files signed for the updater where they are not yet, latest.json, the AUR's
 #              PKGBUILD and .SRCINFO; the release published. The site takes it: bun run release:site.
 # The Windows installer is not built here: Tauri signs the exes inside it with Certum while it builds,
@@ -146,6 +150,9 @@ jobs:
     needs: [verify, linux, macos]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The update key lives here only: the environment «release» opens to tags v* (Settings → Environments),
+    # so no pull request, branch or run on main can read it. linux.yml never sees it.
+    environment: release
     permissions:
       contents: write
     env:
@@ -159,6 +166,23 @@ jobs:
         with:
           name: koonapin-linux-x86_64
           path: dist/linux
+      # The Tauri CLI signs (tauri signer sign), bound to the version (requireSignedVersion).
+      - run: bun install --frozen-lockfile
+      - name: Sign the Linux packages for the updater
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not in the environment «release»: bun run ci:secrets"
+            exit 1
+          fi
+          version="${TAG#v}"
+          for f in "koonapin_${version}_amd64.deb" "koonapin-${version}-1.x86_64.rpm" "koonapin-${version}-x86_64.AppImage"; do
+            bunx tauri signer sign --app-version "$version" "dist/linux/$f"
+            test -s "dist/linux/$f.sig"
+          done
       - uses: actions/download-artifact@v7
         with:
           name: koonapin-macos-arm64
@@ -201,6 +225,9 @@ jobs:
     # would show unexpanded there.
     name: Finalize
     if: github.event_name == 'workflow_dispatch'
+    # The update key signs the installer: the environment «release» lets in runs from a tag v* only, so
+    # finalize is started from the tag (gh workflow run release.yml --ref v<version>, release:windows does).
+    environment: release
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -218,6 +245,14 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun scripts/release-tag.mjs --verify "$TAG"
+      # Started from main the environment would not have let it in; started from another tag it would run
+      # that tag's workflow.
+      - name: Started from its own tag
+        run: |
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            echo "::error::Start finalize from the tag: gh workflow run release.yml --ref $TAG -f tag=$TAG (this run: $GITHUB_REF)"
+            exit 1
+          fi
       - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
