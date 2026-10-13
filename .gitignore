@@ -29,6 +29,10 @@ supabase/.temp/
 src-tauri/target/
 scripts/search-bench/target/
 scripts/native-messaging-probe/target/
+# What Xcode adds to the Safari extension's project when it is opened (src-tauri/macos/safari, NP-119);
+# its builds go to src-tauri/target/safari, its web part comes from release/dev/safari
+src-tauri/macos/safari/**/xcuserdata/
+src-tauri/macos/safari/*.xcodeproj/project.xcworkspace/
 
 # Claude app: local preview settings
 .claude/

@@ -65,7 +65,7 @@ Loading:
 - **Chrome:** `chrome://extensions` → Developer mode → Load unpacked → `release/dev/chrome`.
 - **Edge:** `edge://extensions` → Developer mode → Load unpacked → `release/dev/edge`.
 - **Firefox:** `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `release/dev/firefox/manifest.json`. Firefox removes it when it closes.
-- **Safari:** not loaded from the folder; it is built into the test `Koona Pin.app` ([macos-test.md](macos-test.md)).
+- **Safari:** not loaded from the folder; `bun run build:macos:safari` builds it into the test `Koona Pin.app` ([macos-test.md](macos-test.md#safari)).
 
 The unpacked Chrome and Edge builds carry the public key in `extension/dev-key.txt` as the manifest `key`, so their ID is the same on every machine: `iibgiagcbediajombmkohanobgicbepn`. There is no private key. Store packages are built without `key`; the stores assign their own IDs. The Firefox ID is always `pin@koona.app`.
 
@@ -95,7 +95,7 @@ Known limitations:
 - **Quick search shortcut** cannot be changed: Safari has no API or page for extension shortcuts.
 - **Quick search popup** from the shortcut and the button's menu depends on `action.openPopup`, available since Safari 16; until it is checked on a Mac it may not open there. Saving with the button is not affected.
 
-**The native path.** Safari has no `app.koona.pin.json` and no `koonapin-host`. `runtime.sendNativeMessage` ignores the host name and goes to `SafariWebExtensionHandler` in the app extension inside `Koona Pin.app/Contents/PlugIns/`, which forwards the message unchanged, in the host's envelope, to the running app (the channel: [macos-test.md](macos-test.md)). The extension's queue stays the only queue. WebKit's own errors are mapped in `native.js`: "Native messaging is not supported" (no app extension to load) is `host_missing`; a canceled, crashed or failing handler and "Couldn't communicate with a helper application" are `host_failed`. A Safari user never reads about a host: a missing app extension says that Koona Pin isn't installed or is damaged, a failing one that Koona Pin didn't answer.
+**The native path.** Safari has no `app.koona.pin.json` and no `koonapin-host`. `runtime.sendNativeMessage` ignores the host name and goes to `SafariWebExtensionHandler` (`src-tauri/macos/safari`) in the app extension `Koona Pin.app/Contents/PlugIns/Koona Pin Safari.appex` (`app.koona.pin.safari`). The handler does what the host does: it writes the message unchanged in the host's envelope, `{"caller":"app.koona.pin.safari","message":…}`, as one line to a Unix socket the app binds in the app extension's own sandbox container (`~/Library/Containers/app.koona.pin.safari/Data/capture.sock`), and returns the app's line. For `capture`, `search` and `show` it starts a closed app hidden through `NSWorkspace` and waits up to the host's `START_WAIT`; it answers `app_unavailable` and `invalid_request` with the host's words. It adds no fields and keeps no queue: the extension's queue stays the only one. Why this channel and not an App Group, XPC or a sandbox exception: [macos-test.md](macos-test.md#safari). WebKit's own errors are mapped in `native.js`: "Native messaging is not supported" (no app extension to load) is `host_missing`; a canceled, crashed or failing handler and "Couldn't communicate with a helper application" are `host_failed`. A Safari user never reads about a host: a missing app extension says that Koona Pin isn't installed or is damaged, a failing one that Koona Pin didn't answer.
 
 ## Native host registration
 

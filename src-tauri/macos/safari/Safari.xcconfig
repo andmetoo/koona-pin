@@ -1,0 +1,39 @@
+// Build settings of the Safari app extension (NP-119), the only target of KoonaPinSafari.xcodeproj.
+// The containing app is the Koona Pin.app that Tauri builds; scripts/build-macos.mjs --safari embeds
+// the .appex in its Contents/PlugIns and signs both. Generated once with safari-web-extension-packager,
+// then trimmed to the extension (docs/macos-test.md, «Safari»).
+
+PRODUCT_NAME = Koona Pin Safari
+PRODUCT_MODULE_NAME = KoonaPinSafari
+// Under the app's app.koona.pin, as an app extension's id must be; the app admits this caller only.
+PRODUCT_BUNDLE_IDENTIFIER = app.koona.pin.safari
+INFOPLIST_FILE = Extension/Info.plist
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_CFBundleDisplayName = Koona Pin
+// An app extension carries its app's version (Apple refuses a mismatch); build-macos.mjs passes the one
+// of tauri.conf.json. The extension's own VERSION is in manifest.json, which is what Safari shows.
+MARKETING_VERSION = 0.0.0
+CURRENT_PROJECT_VERSION = 0.0.0
+
+SDKROOT = macosx
+MACOSX_DEPLOYMENT_TARGET = 15.0
+SWIFT_VERSION = 5.0
+SWIFT_COMPILATION_MODE = wholemodule
+SKIP_INSTALL = YES
+ALWAYS_SEARCH_USER_PATHS = NO
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks
+
+// Sign to Run Locally: no Apple Developer account, no team, no provisioning profile. The sandbox alone,
+// no App Group and no temporary exception (docs/macos-test.md, «The channel»).
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM =
+PROVISIONING_PROFILE_SPECIFIER =
+CODE_SIGN_ENTITLEMENTS = Extension/KoonaPinSafari.entitlements
+ENABLE_HARDENED_RUNTIME = YES
+// Nothing beyond the entitlements file, not even get-task-allow, so CI signs what build-macos.mjs signs.
+CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO
+
+// The «Web part» phase copies release/dev/safari from outside the project, which a sandboxed build
+// script may not read.
+ENABLE_USER_SCRIPT_SANDBOXING = NO
