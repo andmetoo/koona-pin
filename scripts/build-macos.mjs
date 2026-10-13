@@ -5,6 +5,8 @@
 //                                        release/publish/macos/<version>/<arch>/ with SHA256SUMS.txt
 //   bun scripts/build-macos.mjs --test   experimental test .app without public-release, never published →
 //                                        release/test/macos/<version>/<arch>/
+//   bun scripts/build-macos.mjs --test --safari   the same with the Safari extension in Contents/PlugIns
+//                                        (NP-119): Xcode, signed to run locally, no Apple Developer account
 // Settings come from the environment or from .env in the repository root (.env.example); a variable
 // already set in the environment wins. The release build needs KOONAPIN_FEEDBACK_URL (feedback.rs).
 // Apple signing is optional: with APPLE_SIGNING_IDENTITY (a Developer ID Application identity in the
@@ -20,6 +22,9 @@ import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac or the macOS Actions runner");
 const testBuild = process.argv.includes("--test");
+// Release builds leave Safari out until there is a Developer ID to sign it with (NP-119).
+const safari = process.argv.includes("--safari");
+if (safari && !testBuild) throw new Error("--safari is a test build only: bun run build:macos:safari");
 // The version of the bundle is the one in tauri.conf.json, as for the other platforms' builds.
 const version = JSON.parse(readFileSync(path.join(root, "src-tauri", "tauri.conf.json"), "utf8")).version;
 const arch = process.arch;
@@ -37,19 +42,74 @@ function detach(mount) {
   run("hdiutil", ["detach", "-force", mount]);
 }
 
+/**
+ * The Safari app extension (src-tauri/macos/safari, NP-119) into Contents/PlugIns of the app at `bundle`.
+ * Xcode signs to run locally (no team, no profile); the .appex is signed again with its own entitlements,
+ * the sandbox only, then the app around it, ad hoc and without --deep, keeping what Tauri gave the app.
+ */
+function embedSafari(bundle) {
+  const project = path.join(root, "src-tauri", "macos", "safari");
+  const work = path.join(root, "src-tauri", "target", "safari");
+  // The handler's envelope and socket exchange, without Safari (Tests/RelayCheck.swift).
+  const check = path.join(work, "relay-check");
+  mkdirSync(work, { recursive: true });
+  run("xcrun", ["swiftc", "-swift-version", "5", "-parse-as-library", "-o", check,
+    path.join(project, "Extension", "Relay.swift"), path.join(project, "Tests", "RelayCheck.swift")]);
+  run(check);
+  // The web part comes from release/dev/safari (bun run extension:build) through the project's copy phase;
+  // the .appex carries the app's version, as Apple requires of an app extension.
+  run("xcodebuild", ["-quiet", "-project", path.join(project, "KoonaPinSafari.xcodeproj"), "-target", "KoonaPinSafari",
+    "-configuration", "Release", `SYMROOT=${path.join(work, "Build", "Products")}`, `OBJROOT=${path.join(work, "Build", "Intermediates")}`,
+    `MARKETING_VERSION=${version}`, `CURRENT_PROJECT_VERSION=${version}`, "CODE_SIGN_IDENTITY=-", "DEVELOPMENT_TEAM=", "build"]);
+  const built = path.join(work, "Build", "Products", "Release", "Koona Pin Safari.appex");
+  // The app opens the Safari socket only when this path exists in its bundle.
+  const appex = path.join(bundle, "Contents", "PlugIns", "Koona Pin Safari.appex");
+  rmSync(appex, { recursive: true, force: true });
+  mkdirSync(path.dirname(appex), { recursive: true });
+  run("ditto", [built, appex]);
+  run("codesign", ["--force", "--sign", "-", "--options", "runtime",
+    "--entitlements", path.join(project, "Extension", "KoonaPinSafari.entitlements"), appex]);
+  // Inside out, never --deep, which would sign the .appex again without its entitlements. The app keeps the
+  // entitlements and flags it had (none in a test build today; a Tauri setting may add some).
+  const entitlements = () => execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", bundle],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  const before = entitlements();
+  run("codesign", ["--force", "--sign", "-", "--preserve-metadata=entitlements,flags,runtime", bundle]);
+  if (entitlements() !== before) throw new Error(`Signing ${app} again changed its entitlements`);
+  run("codesign", ["--verify", "--strict", "--deep", "--verbose=2", bundle]);
+}
+
+// Steps for the person testing Safari (NP-119, docs/macos-test.md «Safari»).
+const safariReadme = `
+Safari (NP-119): Koona Pin.app/Contents/PlugIns/Koona Pin Safari.appex, signed to run locally.
+Try it with a test library, never the everyday one: start the app from Terminal with KOONAPIN_DATA_DIR,
+  KOONAPIN_DATA_DIR=~/KoonaPinTest "Koona Pin.app/Contents/MacOS/koonapin"
+1. Start Koona Pin once, so that macOS registers the extension inside it.
+2. Safari > Settings > Advanced: turn on "Show features for web developers".
+3. Develop > "Allow unsigned extensions" (Safari turns this off again every time it starts).
+4. Safari > Settings > Extensions: turn on Koona Pin, then allow it on websites.
+If Safari does not list Koona Pin, see what macOS registered:
+  pluginkit -mAvvv -p com.apple.Safari.web-extension
+macOS ignores the extension until the app around it has been started once from where it is now.
+`;
+
 if (testBuild) {
   const output = test.macos(version, arch);
+  if (safari) run("bun", ["run", "extension:build"]);
   run("bun", ["run", "tauri", "build", "--config", "src-tauri/tauri.macos-test.conf.json", "--bundles", "app"]);
   mkdirSync(output, { recursive: true });
+  // An .appex of an earlier Safari build must not stay in a plain one.
+  rmSync(path.join(output, app), { recursive: true, force: true });
   cpSync(path.join(bundleDir, "macos", app), path.join(output, app), { recursive: true });
+  if (safari) embedSafari(path.join(output, app));
   const archive = `koonapin-${version}-macos-${arch}-test.zip`;
   run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", app, archive], { cwd: output });
   writeFileSync(path.join(output, "SHA256SUMS.txt"), `${sha256(path.join(output, archive))}  ${archive}\n`);
   const commit = git("rev-parse", "HEAD");
   writeFileSync(path.join(output, "build.json"), JSON.stringify({ version, commit, arch, platform: process.platform,
     os: execFileSync("sw_vers", ["-productVersion"], { encoding: "utf8" }).trim(), features: ["custom-protocol"],
-    signedRelease: false, notarized: false }, null, 2));
-  writeFileSync(path.join(output, "README.txt"), `Koona Pin ${version}, macOS ${arch}, test build from ${commit}\n\nExtract the ZIP preserving the .app directory and open Koona Pin.app.\nThis is an experimental test bundle, without Developer ID signing or notarization.\nIt is not a public release; Gatekeeper may require the Mac owner's explicit approval.\nBrowser capture is new on macOS and not yet tested with real browsers; in-app updates are not implemented.\nSupported macOS versions, native window/menu/shortcuts and release signing remain #56.\n`);
+    signedRelease: false, notarized: false, safari }, null, 2));
+  writeFileSync(path.join(output, "README.txt"), `Koona Pin ${version}, macOS ${arch}, test build from ${commit}\n\nExtract the ZIP preserving the .app directory and open Koona Pin.app.\nThis is an experimental test bundle, without Developer ID signing or notarization.\nIt is not a public release; Gatekeeper may require the Mac owner's explicit approval.\nBrowser capture is new on macOS and not yet tested with real browsers; in-app updates are not implemented.\nSupported macOS versions, native window/menu/shortcuts and release signing remain #56.\n${safari ? safariReadme : ""}`);
   console.log(output);
   process.exit(0);
 }
