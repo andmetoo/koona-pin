@@ -2,21 +2,26 @@
 // Caddy templates: the version, the packages to download, the changelog), and signs it with the update key:
 //   bun scripts/build-release-data.mjs                     this checkout's version, signed
 //   bun scripts/build-release-data.mjs --no-sign           unsigned: tests, a look at the output
-//   bun scripts/build-release-data.mjs --version 0.12.0 --updates <dir> --changelog <dir>
+//   bun scripts/build-release-data.mjs --version 0.12.0 --updates <dir> --changelog <dir> --macos <dir>
 // Takes release/publish/updates/<version>/ as build-latest.mjs leaves it (the packages with their .sig,
 // latest.json, SHA256SUMS.txt) and changelog/, and writes release.json and release.json.sig into the same
-// folder. release.yml's finalize runs it after build:latest, uploads both to the release and deploys the
+// folder. The macOS disk image, when release/publish/macos/<version>/arm64/ (--macos) has
+// koonapin-<version>-macos-arm64.dmg, is copied into that folder and signed there with the update key,
+// bound to the version like the packages: the app has no macOS updater, so latest.json does not name it,
+// but koona-deploy wants a .sig of every file release.json lists. SHA256SUMS.txt (build-latest.mjs) does
+// not list the DMG either; release.json carries its sha256, and the release has SHA256SUMS-macos.txt. release.yml's finalize runs it after build:latest, uploads both to the release and deploys the
 // folder to koona.app (unit «app» of koona-deploy, andmetoo/koona-site), which checks the same things
 // again against the update key's public half before it serves anything.
 //
 // release.json, schema 1 (the site's templates read exactly these fields; a change is a new schema):
 //   { "schema": 1, "version", "date" (YYYY-MM-DD), "published" (ISO, latest.json's pub_date),
-//     "files": { windows?, deb?, rpm?, appimage?, sums: { "name", "size", "sha256" } },
+//     "files": { windows?, deb?, rpm?, appimage?, macos?, sums: { "name", "size", "sha256" } },
 //     "changelog": [ { "version", "date", "changes": [...] } ]  every version up to this one, newest first }
-// A file's address is /pin/downloads/<version>/<name>. `windows` is absent from a Linux-only release.
+// A file's address is /pin/downloads/<version>/<name>. `windows` is absent from a Linux-only release,
+// `macos` (koonapin-<version>-macos-arm64.dmg) from a release without the DMG.
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { entries, folder as changelogFolder } from "./lib/changelog.mjs";
 import { publish, root } from "./lib/paths.mjs";
@@ -36,6 +41,7 @@ const updates = path.resolve(arg("--updates") ?? publish.updates);
 const changelog = path.resolve(arg("--changelog") ?? changelogFolder);
 const version = arg("--version") ?? JSON.parse(await readFile(path.join(root, "src-tauri", "tauri.conf.json"), "utf8")).version;
 if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`«${version}» is not x.y.z`);
+const macos = path.resolve(arg("--macos") ?? publish.macos(version, "arm64"));
 if (sign && !hasUpdateKey()) fail("The update key is not set: TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (NP-042, .env.example); --no-sign for a test.");
 
 const folder = path.join(updates, version);
@@ -76,7 +82,7 @@ const sums = Object.fromEntries(
     .map(([hash, name]) => [name, hash]),
 );
 
-// In the order of the schema: windows, deb, rpm, appimage, sums.
+// In the order of the schema: windows, deb, rpm, appimage, macos, sums.
 const order = ["windows", "deb", "rpm", "appimage"];
 const files = {};
 for (const name of [...names].sort((a, b) => order.indexOf(kind(a)) - order.indexOf(kind(b)))) {
@@ -85,6 +91,22 @@ for (const name of [...names].sort((a, b) => order.indexOf(kind(a)) - order.inde
   if (files[key]) fail(`latest.json: two ${key} packages, ${files[key].name} and ${name}`);
   files[key] = await described(name);
   if (sums[name] !== files[key].sha256) fail(`SHA256SUMS.txt: ${name} ${sums[name] ? `is listed as ${sums[name]}, the file is ${files[key].sha256}` : "is not listed"}`);
+}
+
+// The macOS disk image: no updater entry, a download of the site. Its .sig is made here, so that one of
+// another file or version never passes for it.
+const dmg = `koonapin-${version}-macos-arm64.dmg`;
+await rm(path.join(folder, dmg), { force: true });
+await rm(path.join(folder, `${dmg}.sig`), { force: true });
+if (existsSync(path.join(macos, dmg))) {
+  await copyFile(path.join(macos, dmg), path.join(folder, dmg));
+  if (sign) {
+    if (!signFile(path.join(folder, dmg), { version })) fail(`Signing ${dmg} failed (the key or its password).`);
+    console.log(`signed ${where}/${dmg}`);
+  }
+  files.macos = await described(dmg);
+} else {
+  console.warn(`No ${dmg} in ${macos.startsWith(`${root}${path.sep}`) ? path.relative(root, macos) : macos}: release.json without macos`);
 }
 files.sums = await described("SHA256SUMS.txt");
 
@@ -108,6 +130,6 @@ if (sign) {
   if (!signFile(out, { version })) fail("Signing release.json failed (the key or its password).");
   console.log(`signed ${where}/release.json`);
 } else {
-  console.log("--no-sign: release.json has no .sig, koona-deploy refuses it");
+  console.log(`--no-sign: release.json${files.macos ? " and the DMG have" : " has"} no .sig, koona-deploy refuses ${files.macos ? "them" : "it"}`);
 }
 console.log(`${where}/release.json: ${version}, ${Object.keys(files).join(", ")}; changelog of ${log.length} versions`);
