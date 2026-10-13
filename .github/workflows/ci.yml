@@ -6,6 +6,12 @@ name: CI
 # platform: its pipeline (linux.yml) runs the unit tests, the IPC types, Vitest, the extension lint and
 # Playwright UI, and checks the packages on every distribution. Windows and macOS check only what is
 # their own: the Rust tests on that system and the packaging.
+#
+# A pull request runs what its files can break («changes»): only docs and the site, nothing; scripts,
+# tests and the Linux pipeline, Linux; the app, its dependencies and toolchains, or this file, everything.
+# Pushes to main and runs by hand run everything. «CI» sums the jobs up: it is the one check main
+# requires (with CLA), green when no job that ran failed. The package and distribution jobs of linux.yml
+# do not count outside a release (continue-on-error there).
 on:
   pull_request:
   push:
@@ -24,8 +30,46 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      linux: ${{ steps.paths.outputs.linux }}
+      native: ${{ steps.paths.outputs.native }}
+    steps:
+      # The pull request's merge commit with main as its first parent: two commits are enough.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: paths
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then
+            echo "$EVENT: everything runs"
+            printf 'linux=true\nnative=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          linux=false native=false
+          while IFS= read -r file; do
+            echo "$file"
+            case "$file" in
+              docs/* | site/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
+              src/* | src-tauri/* | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
+                vite.config.ts | tsconfig*.json | index.html | .github/workflows/ci.yml)
+                linux=true native=true ;;
+              *) linux=true ;;
+            esac
+          done < <(git diff --name-only HEAD^1 HEAD)
+          echo "Linux: $linux, Windows and macOS: $native"
+          printf 'linux=%s\nnative=%s\n' "$linux" "$native" >> "$GITHUB_OUTPUT"
+
   linux:
     name: Linux
+    needs: changes
+    if: needs.changes.outputs.linux == 'true'
     uses: ./.github/workflows/linux.yml
     secrets: inherit
     # The images job builds a missing CI image and pushes it to GHCR (ghcr.io/andmetoo/koona-ci-*).
@@ -35,6 +79,8 @@ jobs:
 
   windows:
     name: Windows / Rust tests
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -68,6 +114,8 @@ jobs:
   # Apple credentials (release.yml builds the macOS release).
   macos:
     name: macOS 15 / ${{ matrix.arch }}
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -112,3 +160,22 @@ jobs:
       # TypeScript and Vite build first. Nothing is zipped or uploaded.
       - name: TypeScript, Vite and the app bundle
         run: bun run tauri build --config src-tauri/tauri.macos-test.conf.json --bundles app
+
+  # The one check main requires besides CLA: green when every job above either passed or was not needed
+  # (skipped), red when one failed or was cancelled. It always runs, so a pull request of docs only has
+  # it too, in seconds.
+  ci:
+    name: CI
+    if: ${{ always() }}
+    needs: [changes, linux, windows, macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e 'to_entries | any(.value.result == "failure" or .value.result == "cancelled")' > /dev/null; then
+            echo "::error::A job of this run failed or was cancelled"
+            exit 1
+          fi
