@@ -82,15 +82,20 @@ function embedSafari(bundle) {
 // Steps for the person testing Safari (NP-119, docs/macos-test.md «Safari»).
 const safariReadme = `
 Safari (NP-119): Koona Pin.app/Contents/PlugIns/Koona Pin Safari.appex, signed to run locally.
-Try it with a test library, never the everyday one: start the app from Terminal with KOONAPIN_DATA_DIR,
-  KOONAPIN_DATA_DIR=~/KoonaPinTest "Koona Pin.app/Contents/MacOS/koonapin"
-1. Start Koona Pin once, so that macOS registers the extension inside it.
-2. Safari > Settings > Advanced: turn on "Show features for web developers".
-3. Develop > "Allow unsigned extensions" (Safari turns this off again every time it starts).
+Try it with a test library, never the everyday one. Safari starts a closed app without your Terminal's
+variables, so set the library for every app started from the Dock, Finder or Safari, and unset it after:
+  launchctl setenv KOONAPIN_DATA_DIR ~/KoonaPinTest      (afterwards: launchctl unsetenv KOONAPIN_DATA_DIR)
+While it is set, every Koona Pin opens that library; an installed older Koona Pin refuses it once this
+build has updated it.
+1. Safari > Settings > Advanced: turn on "Show features for web developers".
+2. Develop > "Allow unsigned extensions".
+3. Then start Koona Pin (quit it first if it runs): Safari lists an unsigned extension only when macOS
+   registers it while unsigned extensions are allowed, and Safari turns that setting off every time it
+   starts. So after every Safari start: step 2, then step 3 again.
 4. Safari > Settings > Extensions: turn on Koona Pin, then allow it on websites.
 If Safari does not list Koona Pin, see what macOS registered:
   pluginkit -mAvvv -p com.apple.Safari.web-extension
-macOS ignores the extension until the app around it has been started once from where it is now.
+Quick search (Option+Shift+D or the button's menu) opens in a small window: Safari opens no popover for it.
 `;
 
 if (testBuild) {

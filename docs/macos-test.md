@@ -47,10 +47,12 @@ bun run build:macos:safari
 
 All of that happens before the ZIP, `SHA256SUMS.txt` and `build.json` (`"safari": true`) are written, in `release/test/macos/<version>/<arch>/`. The README next to the build lists the steps:
 
-1. Start the app once (macOS registers the extensions of an app it has seen launched). Use a test library, never the everyday one: `KOONAPIN_DATA_DIR=~/KoonaPinTest "Koona Pin.app/Contents/MacOS/koonapin"`.
-2. Safari → Settings → Advanced → "Show features for web developers".
-3. Develop → "Allow unsigned extensions". Safari turns it off again every time it starts.
+1. Safari → Settings → Advanced → "Show features for web developers".
+2. Develop → "Allow unsigned extensions".
+3. Then start Koona Pin, or quit and start it again. Safari lists an ad hoc ("unsigned") extension only when macOS registers it while unsigned extensions are allowed; at its own start Safari logs "Computing the code signing dictionary failed … does not have a code signature" and skips it, and it turns the setting off on every start. Starting the app registers its extension again, so after every Safari start: step 2, then step 3.
 4. Safari → Settings → Extensions: turn on Koona Pin and allow it on websites.
+
+Use a test library, never the everyday one. A closed app started by the extension does not get the variables of a Terminal, so `launchctl setenv KOONAPIN_DATA_DIR ~/KoonaPinTest` sets it for every app started from the Dock, Finder or Safari (`launchctl unsetenv KOONAPIN_DATA_DIR` afterwards). While it is set, an installed Koona Pin opens that library too and, being older, refuses it once the test build has migrated it: that is the downgrade guard, not damage. Unused copies of `Koona Pin.app` that LaunchServices still knows (old test builds, `src-tauri/target/release/bundle`, unmounted disk images; `lsregister -dump | grep "Koona Pin.app"`) are worth removing with `lsregister -u`.
 
 If Safari doesn't list it, `pluginkit -mAvvv -p com.apple.Safari.web-extension` shows what macOS registered (`app.koona.pin.safari` and its path). PlugInKit ignores an `.appex` whose containing app LaunchServices does not know yet (the log says "plug-ins outside containing apps must be protected by SIP"): starting the app registers it; without starting it, `/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "Koona Pin.app"` and then `pluginkit -a "Koona Pin.app/Contents/PlugIns/Koona Pin Safari.appex"` do (`pluginkit -r` and `lsregister -u` undo it). This was checked with the build on macOS 27: registered that way, `pluginkit` lists `app.koona.pin.safari(<version>)` with the app as its parent bundle.
 
@@ -58,7 +60,7 @@ The project was generated once with `xcrun safari-web-extension-packager --macos
 
 ### How the native path works
 
-`runtime.sendNativeMessage` in Safari goes to `SafariWebExtensionHandler` (`src-tauri/macos/safari/Extension`), an `NSExtensionRequestHandling` class in the sandboxed `.appex`. On a background queue it writes `{"caller":"app.koona.pin.safari","message":<the message unchanged>}` as one line to `NSHomeDirectory()/capture.sock`, which inside the sandbox is `~/Library/Containers/app.koona.pin.safari/Data/capture.sock`, reads one line back (10 s, the app's `READ_TIMEOUT`) and returns it through `SFExtensionMessageKey`, completing the request exactly once. One message per connection; no fields of its own, no queue. When nobody listens and the message is `capture`, `search` or `show`, it opens the containing app (`Bundle.main.bundleURL` minus three components, only if its id is `app.koona.pin`) with `NSWorkspace.openApplication`, `activates = false`, `hides = true`, `addsToRecentItems = false`, the sandbox's equivalent of the host's `open -g -j`, and polls the socket until `START_WAIT` (10 s) runs out. `hello` never starts the app. Failures are the host's own: `app_unavailable` ("Koona Pin is not running or does not answer") and `invalid_request`.
+`runtime.sendNativeMessage` in Safari goes to `SafariWebExtensionHandler` (`src-tauri/macos/safari/Extension`), an `NSExtensionRequestHandling` class in the sandboxed `.appex`. On a background queue it writes `{"caller":"app.koona.pin.safari","message":<the message unchanged>}` as one line to `NSHomeDirectory()/capture.sock`, which inside the sandbox is `~/Library/Containers/app.koona.pin.safari/Data/capture.sock`, reads one line back (10 s, the app's `READ_TIMEOUT`) and returns it through `SFExtensionMessageKey`, completing the request exactly once. One message per connection; no fields of its own, no queue. When nobody listens and the message is `capture`, `search` or `show`, it opens the containing app (`Bundle.main.bundleURL` minus three components, only if that is an `.app` with the `.appex` in its `Contents/PlugIns`: the sandbox denies reading the app's `Info.plist` outside `/Applications`, so the id cannot be checked there) with `NSWorkspace.openApplication`, `activates = false`, `hides = true`, `addsToRecentItems = false`, the sandbox's equivalent of the host's `open -g -j`, and polls the socket until `START_WAIT` (10 s) runs out. `hello` never starts the app. Failures are the host's own: `app_unavailable` ("Koona Pin is not running or does not answer") and `invalid_request`.
 
 The app binds that socket next to the one of `koonapin-host` (`_CS_DARWIN_USER_DIR`), and only when `Contents/PlugIns/Koona Pin Safari.appex` exists in its own bundle.
 
@@ -78,11 +80,25 @@ A spike on macOS 27 with ad hoc signing tried each channel from a sandboxed prob
 
 **Admission.** The app checks the peer as on the other socket (same user), then its code: the spike took the peer's audit token (`LOCAL_PEERTOKEN`), `SecCodeCopyGuestWithAttributes` and `SecCodeCheckValidity` against the designated requirement of the `.appex` inside the app's own bundle. Ad hoc that requirement is the `.appex`'s `cdhash`: the right one is admitted, another is refused (`-67050`). After Developer ID signing the same code gets Apple's team requirement with no change, and the app can also pin `certificate leaf[subject.OU]` to our Team ID, so only an extension signed by us is admitted. The audit token is that of the process that connected ([forums 760972](https://developer.apple.com/forums/thread/760972)).
 
+### Manual acceptance
+
+Checked on 13 October 2026 on macOS 27.0.1 (Apple Silicon), Xcode 27.0, Safari 27, with `bun run build:macos:safari` from this branch and a scratch library through `launchctl setenv KOONAPIN_DATA_DIR`:
+
+| Criterion | Result |
+| --- | --- |
+| 2. Safari lists Koona Pin and it can be turned on | Yes, in the order above (allow unsigned extensions, then start the app). |
+| 3. A click saves the link with its title; a second click answers `existing`; the page message both times; nothing else sent | Yes: `example.com` saved once with source `safari` and its title. |
+| 4. With the app closed, a click starts it hidden and the link is saved | Yes, after a fix: the handler first checked the app's id by reading its `Info.plist`, which the sandbox denies outside `/Applications` (`deny(1) file-read-data`); it now checks the bundle layout. The app starts in the menu bar without a window. |
+| 5. With the app unreachable (process stopped), the link waits, survives a Safari restart, and a retry saves it once | Yes: `apple.com` waited across a Safari restart and was saved once after the app answered again. |
+| 6. Safari as connected after `hello`, the last save «from Safari» | Yes (`capture_connections` lists `safari`, extension 0.10.0, protocol 2). |
+| 7. Quick search, the button's menu, «Show that a page is already saved» | The menu's «Settings» works. Quick search works in a window: Safari's `action.openPopup` answers «Another popup is already open» with none open, so the shortcut and «Find a link» open `search.html` in a small window centred over the page's window; Enter opens a result in a new tab of the page's window, Shift Enter in the page's tab. «Show that a page is already saved» is hidden in Safari (docs/extension.md). |
+
+Also seen: after the unsigned extension was reinstalled under a running Safari, `storage.local.set` rejected small writes with «Exceeded storage quota» for a few minutes (about 400 bytes stored); the queue kept the link and a later retry delivered it once. The `lastSaved` note no longer fails a delivered link.
+
 ### Open points
 
-- Nothing here has run in a real Safari yet: loading the `.appex`, its sandbox container path, and criteria 2–7 of the issue are for the manual test on a Mac, against a `KOONAPIN_DATA_DIR` library.
-- Whether starting the app from the handler closes Safari's popover (reported in [forums 727599](https://developer.apple.com/forums/thread/727599)); saving with the button does not use the popover.
-- Whether macOS asks the ad hoc app in `/Applications` for access to the extension's container (the spike's shell had no Full Disk Access and logged no request). A Developer ID app of the same team should not be asked.
+- Whether macOS asks the ad hoc app in `/Applications` for access to the extension's container (tested only from the repository folder, where nothing asked). A Developer ID app of the same team should not be asked.
+
 ## Remaining work from the documents and GitHub
 
 Reviewed `doc/decisions.md` (Р-26 and Р-44), `doc/roadmap.md`, `doc/release-checklist.md`, the public `docs/building.md` and `docs/testing.md`, and GitHub Issues on 10 October 2026. `doc/` is a separate private notes repository, ignored by this repository; this PR keeps the review result in `docs/`.
