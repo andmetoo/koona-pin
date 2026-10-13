@@ -1,0 +1,26 @@
+{
+  "challenge": {
+    "nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+    "t": "challenge",
+    "time": 1760400000000
+  },
+  "description": "hello{sig}: Ed25519 over \"koona-sync relay v1\" || sub || 0x00 || nonce || device(16). base64 is standard with padding.",
+  "device": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+  "ed25519_seed_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+  "hello": {
+    "app": "0.13.0",
+    "device": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+    "key": "0EqyMnQrtKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzc=",
+    "name": "Studio Mac",
+    "sig": "GIqmpaDHsITW2xeNF2gHpdgRfO7LoHYDdppA/yY4pDRwwpZux2lUxljsd+pVVNlJBXc3Xs8UBjvrPgjJwtLGBA==",
+    "t": "hello"
+  },
+  "nonce_b64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "nonce_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "public_key_b64": "0EqyMnQrtKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzc=",
+  "public_key_hex": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+  "signature_b64": "GIqmpaDHsITW2xeNF2gHpdgRfO7LoHYDdppA/yY4pDRwwpZux2lUxljsd+pVVNlJBXc3Xs8UBjvrPgjJwtLGBA==",
+  "signature_hex": "188aa6a5a0c7b084d6db178d176807a5d8117ceecba07603769a40ff2638a43470c2966ec76954c658ec77ea5554d9490577375ecf14063beb3e08c9c2d2c604",
+  "signing_bytes_hex": "6b6f6f6e612d73796e632072656c617920763136663163326433652d346135622d346336642d386537662d39306131623263336434653500000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f0192f3a4b5c67d8e9f0123456789abcd",
+  "sub": "6f1c2d3e-4a5b-4c6d-8e7f-90a1b2c3d4e5"
+}

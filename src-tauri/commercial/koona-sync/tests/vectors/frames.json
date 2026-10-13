@@ -1,0 +1,44 @@
+{
+  "delivered": [
+    {
+      "body_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "frame_hex": "010192f3a4b5c67d8e9f0123456789abcd00000199e004447b000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "from": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+      "relay_ms": 1760400000123
+    }
+  ],
+  "description": "Device -> relay: 0x01 || to(16) || body; to is all-zero for the hub, all-0xFF for every active device. Relay -> device: 0x01 || from(16) || relay_ms(u64 BE) || body. A body starts ver(1)=1 || kind(1) || epoch(u32 BE) || session(16) || seq(u64 BE).",
+  "headers": [
+    {
+      "epoch": 7,
+      "header_hex": "010100000007a0a1a2a3a4a5a6a7a8a9aaabacadaeaf0000000000000102",
+      "kind": 1,
+      "seq": 258,
+      "session_hex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf"
+    },
+    {
+      "epoch": 0,
+      "header_hex": "0102000000005a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a0000000000000000",
+      "kind": 2,
+      "seq": 0,
+      "session_hex": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+    }
+  ],
+  "outgoing": [
+    {
+      "body_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "frame_hex": "0100000000000000000000000000000000000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "to": "hub"
+    },
+    {
+      "body_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "frame_hex": "01ffffffffffffffffffffffffffffffff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "to": "all"
+    },
+    {
+      "body_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "frame_hex": "010192f3a400007000800000000000b0b0000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021222324252627",
+      "to": "0192f3a4-0000-7000-8000-00000000b0b0"
+    }
+  ]
+}

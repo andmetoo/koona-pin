@@ -1,0 +1,64 @@
+{
+  "description": "A sync message is raw deflate (RFC 1951, no zlib header) of its JSON. Deflate output isn't canonical: check that payload_hex inflates to message, not that you produce the same bytes.",
+  "message": {
+    "covers": {
+      "0192f3a4-b5c6-7d8e-9f01-23456789abcd": 4
+    },
+    "groups": [
+      {
+        "entity": "bookmark",
+        "fields": [
+          {
+            "clock": {
+              "counter": 1,
+              "hlc": 115369574400000000,
+              "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+            },
+            "field": "url",
+            "value": "https://example.com/"
+          },
+          {
+            "clock": {
+              "counter": 2,
+              "hlc": 115369574400000000,
+              "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+            },
+            "field": "title",
+            "value": "Example"
+          }
+        ],
+        "uid": "0192f3a5-1111-7000-8000-000000000001"
+      },
+      {
+        "entity": "link",
+        "fields": [
+          {
+            "clock": {
+              "counter": 3,
+              "hlc": 115369574400000000,
+              "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+            },
+            "field": "0192f3a5-2222-7000-8000-000000000002",
+            "value": true
+          }
+        ],
+        "uid": "0192f3a5-1111-7000-8000-000000000001"
+      },
+      {
+        "entity": "tag",
+        "gone": {
+          "clock": {
+            "counter": 4,
+            "hlc": 115369574400000000,
+            "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+          },
+          "merged_into": "0192f3a5-2222-7000-8000-000000000002"
+        },
+        "uid": "0192f3a5-3333-7000-8000-000000000003"
+      }
+    ],
+    "last": true,
+    "t": "changes"
+  },
+  "payload_hex": "b592cb6ec4200c45ff857568decf7dbfa2aa2a429c8742424460d42ae2df6b26eaa46a67318b89170830be3ed762239a5484f76cee60251ee99434cb4aaab78dc0ac07fd85d95aca71626ac4b4191abc08c2326a6396d21083e64110d0c22dc111213e6e0710cdae75dd62a551021317260ce0a9d77a592bdf874f362d025eb89c7c4c7321f948aa8df482932a0cd3382bd33c497eb43da260110367074a42eb9467346f0aa0651b84348a9334cb8b92d5bc7192d2cc1a14aa59eb1d386850c02fa0d71de46486c8da7747711bb018e6670cf7561961dcaf8c0eb35a1938d767fcd7a766dd7f9b31c67dd8d8fd473983c33b9333b11e994075d07c0cb3968f4e12dd39910ba8d5813dd4f5da4bb055eff3b7df"
+}
