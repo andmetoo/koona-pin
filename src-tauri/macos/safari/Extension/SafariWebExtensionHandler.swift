@@ -23,11 +23,15 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     /// The host's `open -g -j` from the sandbox: Koona Pin.app around this extension
-    /// (Contents/PlugIns/<this>.appex), hidden, not activated. Only our own app is opened.
+    /// (Contents/PlugIns/<this>.appex), hidden, not activated. Only our own app is opened: the
+    /// layout is checked by path, since the sandbox denies reading the app's Info.plist outside
+    /// /Applications (file-read-data, seen with a build in the repository).
     private static func startApp() -> Bool {
-        let app = Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        guard Bundle(url: app)?.bundleIdentifier == "app.koona.pin" else {
-            log.error("not inside Koona Pin.app: \(app.path, privacy: .public)")
+        let plugIns = Bundle.main.bundleURL.deletingLastPathComponent()
+        let contents = plugIns.deletingLastPathComponent()
+        let app = contents.deletingLastPathComponent()
+        guard plugIns.lastPathComponent == "PlugIns", contents.lastPathComponent == "Contents", app.pathExtension == "app" else {
+            log.error("not inside an app bundle: \(app.path, privacy: .public)")
             return false
         }
         let configuration = NSWorkspace.OpenConfiguration()
