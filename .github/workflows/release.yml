@@ -12,7 +12,8 @@ name: Release
 # The update key (TAURI_SIGNING_PRIVATE_KEY and its password) is a secret of the environment «release»,
 # which opens to tags v* only: draft and finalize declare it, nothing else in the repository can read it.
 #     finalize the draft's files signed for the updater where they are not yet, latest.json, the AUR's
-#              PKGBUILD and .SRCINFO, release.json signed (build-release-data.mjs); the release published
+#              PKGBUILD and .SRCINFO, release.json signed (build-release-data.mjs, which also signs the
+#              macOS DMG for the site: no updater entry); the release published
 #     deploy   the release data to koona.app over SSH (unit «app» of koona-deploy, andmetoo/koona-site):
 #              the server checks every signature against the update key's public half before it serves
 #              anything, and the site's pages read release.json at request time. Skipped with a warning
@@ -291,6 +292,16 @@ jobs:
             # Its .sig of an earlier finalize stays behind: the installer may have been uploaded again since.
             mv "release/download/$installer" "release/publish/windows/$version/"
           fi
+          # The macOS DMG, a download of the site (no updater on macOS): build-release-data.mjs takes it from
+          # here into release.json's files.macos and signs it. A draft without it publishes without macOS.
+          # Its .sig of an earlier finalize stays behind: build-release-data.mjs signs this DMG anew.
+          dmg="koonapin-${version}-macos-arm64.dmg"
+          if [ -f "release/download/$dmg" ]; then
+            mkdir -p "release/publish/macos/$version/arm64"
+            mv "release/download/$dmg" "release/publish/macos/$version/arm64/"
+          else
+            echo "::warning::The draft has no $dmg: release.json goes without macOS"
+          fi
       - name: Update signatures, latest.json
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -300,6 +311,8 @@ jobs:
       - name: PKGBUILD and .SRCINFO of the AUR
         run: bun run build:aur
       # What koona.app/pin shows of the release, signed with the update key: koona-deploy refuses it unsigned.
+      # The DMG goes into the updates folder with its .sig here. SHA256SUMS.txt (build-latest.mjs) does not
+      # list it: release.json carries its sha256, and the release has SHA256SUMS-macos.txt.
       - name: release.json
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -316,6 +329,8 @@ jobs:
           cp "release/publish/aur/$version/PKGBUILD" upload/koonapin-bin.PKGBUILD
           cp "release/publish/aur/$version/.SRCINFO" upload/koonapin-bin.SRCINFO
           if [ "$ONLY" != linux ]; then cp "$updates/koonapin_${version}_x64-setup.exe.sig" upload/; fi
+          dmg="koonapin-${version}-macos-arm64.dmg"
+          if [ -f "$updates/$dmg.sig" ]; then cp "$updates/$dmg.sig" upload/; fi
           ls -l upload
           gh release upload "$TAG" upload/* --clobber
           gh release edit "$TAG" --draft=false --latest
@@ -324,16 +339,18 @@ jobs:
             echo
             echo "Next: the deploy job serves it on koona.app; the AUR files to aur.archlinux.org/koonapin-bin.git by hand."
           } >> "$GITHUB_STEP_SUMMARY"
-      # The bundle of the unit «app», flat: release.json and latest.json with their signatures' files, every
-      # package latest.json names with its .sig, SHA256SUMS.txt. An artifact, so that the deploy job can be
-      # rerun alone once the release is published (finalize itself takes drafts only).
+      # The bundle of the unit «app», flat and exactly these (koona-deploy refuses a missing or an extra
+      # file): release.json with its .sig, latest.json, SHA256SUMS.txt, and every file release.json lists
+      # with its .sig — the packages latest.json names (build-release-data.mjs checked that) and the macOS
+      # DMG when there is one. An artifact, so that the deploy job can be rerun alone once the release is
+      # published (finalize itself takes drafts only).
       - name: The release data for koona.app
         run: |
           set -euo pipefail
           updates="release/publish/updates/${TAG#v}"
           files=(release.json release.json.sig latest.json SHA256SUMS.txt)
           while IFS= read -r name; do files+=("$name" "$name.sig"); done \
-            < <(jq -r '[.platforms[].url | sub(".*/"; "")] | unique[]' "$updates/latest.json")
+            < <(jq -r '.files | to_entries[] | select(.key != "sums") | .value.name' "$updates/release.json")
           mkdir -p deploy
           for f in "${files[@]}"; do
             test -f "$updates/$f" || { echo "::error::$f is not in $updates"; exit 1; }
