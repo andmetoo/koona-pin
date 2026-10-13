@@ -63,11 +63,14 @@ try {
 
   const db = new DatabaseSync(path.join(data, "koonapin.db"));
   db.exec("PRAGMA busy_timeout = 5000");
-  assert.deepEqual({ ...db.prepare("SELECT title, source FROM bookmarks").get() }, { title: "Smoke", source: "chrome" });
+  // By its address: a new library gets its starter links (NP-117) once the interface has loaded, before
+  // or after the capture, so the capture is not the only bookmark.
+  const captured = db.prepare("SELECT title, source FROM bookmarks WHERE url = ?");
+  assert.deepEqual({ ...captured.get(first.url) }, { title: "Smoke", source: "chrome" });
   // A replay after deletion does not bring the bookmark back.
-  db.exec("DELETE FROM bookmarks");
+  db.prepare("DELETE FROM bookmarks WHERE url = ?").run(first.url);
   assert.deepEqual((await send(first)).reply, saved.reply);
-  assert.equal(db.prepare("SELECT count(*) AS n FROM bookmarks").get().n, 0);
+  assert.equal(captured.get(first.url), undefined);
 
   // Firefox passes the manifest path and the add-on id.
   const firefox = await send(hello("firefox"), { args: [path.join(data, "app.koona.pin.firefox.json"), "pin@koona.app"] });
