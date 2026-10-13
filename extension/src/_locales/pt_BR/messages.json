@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "Pesquise nos seus links" },
   "searchFilters": { "message": "Onde pesquisar" },
   "searchKeys": { "message": "↑↓ · ↵ abrir · Shift ↵ aqui · Ctrl C copiar" },
+  "searchKeysMac": { "message": "↑↓ · ↵ abrir · ⇧↵ aqui · ⌘C copiar" },
   "searchOpenApp": { "message": "Abrir o Koona Pin" },
   "searchAll": { "message": "Todos" },
   "searchInbox": { "message": "Caixa de entrada" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "Ele abre na bandeja do sistema quando você salva uma página. Até lá, os links esperam aqui."
   },
+  "statusClosedTextMac": {
+    "message": "Ele abre na barra de menus quando você salva uma página. Até lá, os links esperam aqui."
+  },
   "statusUpdate": { "message": "Atualize a extensão" },
   "statusUpdateText": {
     "message": "Esta extensão ($MINE$) não corresponde ao Koona Pin $APP$. Atualize-a na página de extensões do navegador — até lá, os links esperam aqui.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "Os links ficam no navegador até o Koona Pin confirmá-los. Se o aplicativo estiver fechado, salvar uma página o abre na bandeja do sistema."
+  },
+  "optionsFooterMac": {
+    "message": "Os links ficam no navegador até o Koona Pin confirmá-los. Se o aplicativo estiver fechado, salvar uma página o abre na barra de menus."
   },
   "languageCode": { "message": "pt-BR" },
   "siteUrl": { "message": "https://koona.app/pin/pt-br/" }

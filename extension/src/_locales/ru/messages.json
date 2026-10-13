@@ -8,6 +8,7 @@
   "searchPlaceholder": { "message": "Поиск по ссылкам" },
   "searchFilters": { "message": "Где искать" },
   "searchKeys": { "message": "↑↓ · ↵ открыть · Shift ↵ здесь · Ctrl C копия" },
+  "searchKeysMac": { "message": "↑↓ · ↵ открыть · ⇧↵ здесь · ⌘C копия" },
   "searchOpenApp": { "message": "Открыть Koona Pin" },
   "searchAll": { "message": "Все" },
   "searchInbox": { "message": "Входящие" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "Он запустится в трее, когда вы сохраните страницу. До тех пор ссылки ждут здесь."
   },
+  "statusClosedTextMac": {
+    "message": "Он запустится в строке меню, когда вы сохраните страницу. До тех пор ссылки ждут здесь."
+  },
   "statusUpdate": { "message": "Обновите расширение" },
   "statusUpdateText": {
     "message": "Это расширение ($MINE$) не подходит к Koona Pin $APP$. Обновите его на странице расширений браузера — до тех пор ссылки ждут здесь.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "Ссылки хранятся в браузере, пока Koona Pin не подтвердит их. Если приложение закрыто, сохранение страницы запустит его в трее."
+  },
+  "optionsFooterMac": {
+    "message": "Ссылки хранятся в браузере, пока Koona Pin не подтвердит их. Если приложение закрыто, сохранение страницы запустит его в строке меню."
   },
   "languageCode": { "message": "ru" },
   "siteUrl": { "message": "https://koona.app/pin/ru/" }

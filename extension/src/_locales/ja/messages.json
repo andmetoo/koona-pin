@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "リンクを検索" },
   "searchFilters": { "message": "検索する場所" },
   "searchKeys": { "message": "↑↓ · ↵ 開く · Shift ↵ このタブで · Ctrl C コピー" },
+  "searchKeysMac": { "message": "↑↓ · ↵ 開く · ⇧↵ このタブで · ⌘C コピー" },
   "searchOpenApp": { "message": "Koona Pin を開く" },
   "searchAll": { "message": "すべて" },
   "searchInbox": { "message": "インボックス" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "ページを保存すると通知領域で起動します。それまでリンクはここで待機します。"
   },
+  "statusClosedTextMac": {
+    "message": "ページを保存するとメニューバーで起動します。それまでリンクはここで待機します。"
+  },
   "statusUpdate": { "message": "拡張機能を更新してください" },
   "statusUpdateText": {
     "message": "この拡張機能（$MINE$）は Koona Pin $APP$ と合っていません。ブラウザーの拡張機能ページで更新してください。それまでリンクはここで待機します。",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "リンクは Koona Pin が受け取りを確認するまでブラウザーに残ります。アプリが閉じていても、ページを保存すると通知領域で起動します。"
+  },
+  "optionsFooterMac": {
+    "message": "リンクは Koona Pin が受け取りを確認するまでブラウザーに残ります。アプリが閉じていても、ページを保存するとメニューバーで起動します。"
   },
   "languageCode": { "message": "ja" },
   "siteUrl": { "message": "https://koona.app/pin/ja/" }

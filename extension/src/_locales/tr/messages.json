@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "Bağlantılarınızda arayın" },
   "searchFilters": { "message": "Nerede aransın" },
   "searchKeys": { "message": "↑↓ · ↵ aç · Shift ↵ burada · Ctrl C kopyala" },
+  "searchKeysMac": { "message": "↑↓ · ↵ aç · ⇧↵ burada · ⌘C kopyala" },
   "searchOpenApp": { "message": "Koona Pin'i aç" },
   "searchAll": { "message": "Tümü" },
   "searchInbox": { "message": "Gelen kutusu" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "Bir sayfa kaydettiğinizde sistem tepsisinde başlar. O zamana kadar bağlantılar burada bekler."
   },
+  "statusClosedTextMac": {
+    "message": "Bir sayfa kaydettiğinizde menü çubuğunda başlar. O zamana kadar bağlantılar burada bekler."
+  },
   "statusUpdate": { "message": "Uzantıyı güncelleyin" },
   "statusUpdateText": {
     "message": "Bu uzantı ($MINE$) Koona Pin $APP$ ile uyumlu değil. Tarayıcının uzantılar sayfasında güncelleyin — o zamana kadar bağlantılar burada bekler.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "Bağlantılar Koona Pin onaylayana kadar tarayıcıda kalır. Uygulama kapalıysa bir sayfayı kaydetmek onu sistem tepsisinde başlatır."
+  },
+  "optionsFooterMac": {
+    "message": "Bağlantılar Koona Pin onaylayana kadar tarayıcıda kalır. Uygulama kapalıysa bir sayfayı kaydetmek onu menü çubuğunda başlatır."
   },
   "languageCode": { "message": "tr" },
   "siteUrl": { "message": "https://koona.app/pin/tr/" }

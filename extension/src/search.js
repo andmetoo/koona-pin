@@ -15,8 +15,15 @@ const filters = get("filters");
 const dark = matchMedia("(prefers-color-scheme: dark)");
 const state = { filter: { kind: "all" }, items: [], selected: 0, counts: null, more: false, turn: 0, copied: false };
 // Known long before the host answers (NP-054): a missing app is calm on Linux.
+// A Mac names its keys ⇧ and ⌘ (the copy below takes either Ctrl or ⌘).
 let linux = false;
-void systemName().then((os) => (linux = os === "linux"));
+let mac = false;
+const keysText = () => (mac ? t("searchKeysMac") : t("searchKeys"));
+void systemName().then((os) => {
+  linux = os === "linux";
+  mac = os === "mac";
+  if (mac) get("keys").textContent = keysText();
+});
 
 function translate() {
   // The language of the catalog the text comes from: a zh-TW browser reads English (NP-090).
@@ -261,11 +268,11 @@ document.addEventListener("keydown", async (event) => {
   } else if (event.key === "Escape") {
     window.close();
   } else if ((event.ctrlKey || event.metaKey) && event.code === "KeyC" && item && query.selectionStart === query.selectionEnd) {
-    // Ctrl C copies the chosen link unless text in the field is selected.
+    // Ctrl C (⌘C on a Mac) copies the chosen link unless text in the field is selected.
     event.preventDefault();
     await navigator.clipboard.writeText(item.url);
     get("keys").textContent = t("searchCopied");
-    setTimeout(() => (get("keys").textContent = t("searchKeys")), 1500);
+    setTimeout(() => (get("keys").textContent = keysText()), 1500);
   }
 });
 dark.addEventListener("change", render);

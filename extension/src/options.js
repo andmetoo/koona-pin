@@ -12,6 +12,13 @@ function translate() {
     element.textContent = t(element.dataset.i18n);
   get("version").textContent = t("extensionVersion", VERSION);
 }
+// On a Mac the app lives in the menu bar, not a tray: the texts that say where
+// it starts have a Mac version.
+let mac = false;
+void systemName().then((os) => {
+  mac = os === "mac";
+  if (mac) document.querySelector('[data-i18n="optionsFooter"]').textContent = t("optionsFooterMac");
+});
 async function message(payload) {
   const result = await ext.runtime.sendMessage(payload);
   if (result?.error) throw new Error(result.error);
@@ -74,7 +81,7 @@ function renderStatus({ reply, lastSaved }, linux = false) {
   status.dataset.state = state;
   const older = appIsOlder(reply);
   const [head, text] = {
-    closed: [t("statusClosed"), t("statusClosedText")],
+    closed: [t("statusClosed"), mac ? t("statusClosedTextMac") : t("statusClosedText")],
     update: older
       ? [t("statusUpdateApp"), t("statusUpdateAppText", reply?.version ?? "?", VERSION)]
       : [t("statusUpdate"), t("statusUpdateText", VERSION, reply?.version ?? "?")],

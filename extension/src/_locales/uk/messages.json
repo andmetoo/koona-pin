@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "Пошук у ваших посиланнях" },
   "searchFilters": { "message": "Де шукати" },
   "searchKeys": { "message": "↑↓ · ↵ відкрити · Shift ↵ тут · Ctrl C копіювати" },
+  "searchKeysMac": { "message": "↑↓ · ↵ відкрити · ⇧↵ тут · ⌘C копіювати" },
   "searchOpenApp": { "message": "Відкрити Koona Pin" },
   "searchAll": { "message": "Усі" },
   "searchInbox": { "message": "Вхідні" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "Він запуститься в системному лотку, коли ви збережете сторінку. До того посилання чекають тут."
   },
+  "statusClosedTextMac": {
+    "message": "Він запуститься в рядку меню, коли ви збережете сторінку. До того посилання чекають тут."
+  },
   "statusUpdate": { "message": "Оновіть розширення" },
   "statusUpdateText": {
     "message": "Це розширення ($MINE$) не підходить до Koona Pin $APP$. Оновіть його на сторінці розширень браузера — до того посилання чекають тут.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "Посилання залишаються в браузері, доки Koona Pin їх не підтвердить. Якщо застосунок закритий, збереження сторінки запустить його в системному лотку."
+  },
+  "optionsFooterMac": {
+    "message": "Посилання залишаються в браузері, доки Koona Pin їх не підтвердить. Якщо застосунок закритий, збереження сторінки запустить його в рядку меню."
   },
   "languageCode": { "message": "uk" },
   "siteUrl": { "message": "https://koona.app/pin/uk/" }
