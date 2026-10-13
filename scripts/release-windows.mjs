@@ -6,6 +6,8 @@
 //   bun run release:windows -- --no-build    uploads the installer already in release/publish/windows/<version>/
 //                                            (when it was built from the tag's commit)
 //   bun run release:windows -- --no-finalize uploads, and leaves finalize to: gh workflow run release.yml --ref v<version> -f tag=v<version>
+//   bun run release:windows -- --redraft     a release published by hand before finalize (no latest.json on
+//                                            it) goes back to a draft first; finalize publishes it again
 // HEAD must be the commit of the tag v<version> (bun run release:tag made it): git switch --detach v<version>.
 // The installer goes up as koonapin_<version>_x64-setup.exe (GitHub would turn Tauri's «Koona Pin_» into
 // «Koona.Pin_»; build-latest.mjs and the site use the same name) with SHA256SUMS-windows.txt. When the
@@ -29,6 +31,7 @@ const out = (cmd, ...args) => run(cmd, args).stdout?.trim() ?? "";
 if (process.platform !== "win32") fail("The release installer is built and signed on Windows (Certum SimplySign): run this there.");
 const noBuild = process.argv.includes("--no-build");
 const noFinalize = process.argv.includes("--no-finalize");
+const redraft = process.argv.includes("--redraft");
 
 let version;
 try {
@@ -77,9 +80,24 @@ await copyFile(path.join(folder, installer), path.join(staging, name));
 await writeFile(path.join(staging, "SHA256SUMS-windows.txt"), sums.replaceAll(installer, name));
 await writeFile(path.join(staging, "notes.md"), releaseNotes(version));
 
-const view = run("gh", ["release", "view", tag, "--json", "isDraft"]);
+const view = run("gh", ["release", "view", tag, "--json", "isDraft,assets"]);
 if (view.status === 0) {
-  if (!JSON.parse(view.stdout).isDraft) fail(`The release ${tag} is published already: a new installer needs a new version.`);
+  const release = JSON.parse(view.stdout);
+  // Finalize publishes the release; one published by hand before it has no latest.json, no installer and
+  // nothing on koona.app. It goes back to a draft (its files and tag stay) and the release goes on.
+  const finalized = release.assets.some((a) => a.name === "latest.json");
+  if (!release.isDraft && finalized) fail(`The release ${tag} is published already: a new installer needs a new version.`);
+  if (!release.isDraft) {
+    if (!redraft) {
+      fail(
+        `The release ${tag} was published before finalize: it has no latest.json, and koona.app does not serve it yet.\n` +
+          `Finalize publishes it. Back to a draft, then on: bun run release:windows -- --redraft${noBuild ? " --no-build" : ""}`,
+      );
+    }
+    console.log(`\n== ${tag} was published before finalize: back to a draft`);
+    const back = run("gh", ["release", "edit", tag, "--draft=true"], { stdio: "inherit" });
+    if (back.status !== 0) fail(`gh release edit ${tag} --draft=true failed`);
+  }
 } else {
   console.log(`\nNo release ${tag} yet: a draft with the changelog's notes.`);
   const created = run("gh", ["release", "create", tag, "--draft", "--verify-tag", "--title", `Koona Pin ${version}`, "--notes-file", path.join(staging, "notes.md")], {
