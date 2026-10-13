@@ -226,6 +226,9 @@ jobs:
   deb:
     name: .deb, Debian 13
     needs: [images, build, test]
+    # Outside a release the package and distribution jobs do not fail the workflow: they show their
+    # result, and ci.yml's summary check «CI» does not wait on them. A release (release.yml) stops on any.
+    continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container:
@@ -281,6 +284,7 @@ jobs:
   rpm:
     name: .rpm, Fedora 44
     needs: [images, build]
+    continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container:
@@ -327,6 +331,7 @@ jobs:
   ubuntu:
     name: Ubuntu 26.04
     needs: [images, build, deb]
+    continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -372,6 +377,7 @@ jobs:
   arch:
     name: Arch Linux (AUR)
     needs: [images, build, deb]
+    continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -418,6 +424,7 @@ jobs:
   webkitgtk:
     name: WebKitGTK ${{ matrix.name }}
     needs: [images, build]
+    continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -458,6 +465,7 @@ jobs:
   packages:
     name: Linux packages
     needs: [build, deb, rpm]
+    continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
