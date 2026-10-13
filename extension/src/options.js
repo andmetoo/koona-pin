@@ -46,7 +46,8 @@ function savedAt(iso) {
  * browser may be a sandbox that keeps an installed app out. Forbidden (NP-113)
  * is the missing card with «Check again»: the app is installed, so a download
  * does not help. In Safari the extension lives inside the app (NP-119): a
- * failing handler is no missing app, so it says the app didn't answer.
+ * handler that is missing or failing is no missing app (a download would not
+ * help), so it says the app didn't answer.
  */
 function renderStatus({ reply, lastSaved }, linux = false, safari = false) {
   const status = get("status");
@@ -61,7 +62,7 @@ function renderStatus({ reply, lastSaved }, linux = false, safari = false) {
     status.append(row);
     return;
   }
-  const failed = safari && reply?.code === "host_failed";
+  const failed = safari && ["host_missing", "host_failed"].includes(reply?.code);
   const missing = ["host_missing", "host_failed"].includes(reply?.code) && !failed;
   const state =
     reply?.code === "incompatible_protocol"
