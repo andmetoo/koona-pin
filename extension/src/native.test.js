@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appIsOlder, browserName, failure, talk } from "./native.js";
+import { appIsOlder, browserName, failure, shownShortcut, talk } from "./native.js";
 import { HOST, PROTOCOL, VERSION } from "./version.js";
 
 describe("native messaging", () => {
@@ -16,6 +16,14 @@ describe("native messaging", () => {
     expect(browserName(safari)).toBe("safari");
     expect(browserName({ ...safari, location: { protocol: "chrome-extension:" } })).toBe("chrome");
     expect(browserName({ browser: { runtime: { getBrowserInfo() {} } }, location: { protocol: "moz-extension:" } })).toBe("firefox");
+  });
+
+  it("shows Safari's shortcut with Mac keys, the others' as given (NP-119)", () => {
+    expect(shownShortcut("Alt+Shift+D", "safari")).toBe("⌥⇧D");
+    expect(shownShortcut("", "safari")).toBe("");
+    expect(shownShortcut("Alt+Shift+D", "chrome")).toBe("Alt+Shift+D");
+    expect(shownShortcut("⌥⇧D", "chrome")).toBe("⌥⇧D");
+    expect(shownShortcut("Alt+Shift+D", "firefox")).toBe("Alt+Shift+D");
   });
 
   it("sends the protocol, version and host name with every message", async () => {

@@ -1,5 +1,5 @@
 import { ext, systemName, t, textLanguage } from "./ext.js";
-import { appIsOlder, browserName } from "./native.js";
+import { appIsOlder, browserName, shownShortcut } from "./native.js";
 import { shortcutFrom } from "./search-model.js";
 import { VERSION } from "./version.js";
 const get = (id) => document.getElementById(id);
@@ -198,7 +198,7 @@ async function shortcutSection() {
   const change = get("shortcut-change");
   const note = get("shortcut-note");
   const show = async () => {
-    const shortcut = (await ext.commands.getAll()).find((c) => c.name === SEARCH_COMMAND)?.shortcut ?? "";
+    const shortcut = shownShortcut((await ext.commands.getAll()).find((c) => c.name === SEARCH_COMMAND)?.shortcut ?? "");
     keys.replaceChildren(...(shortcut ? shortcut.split("+").map((key) => element("kbd", "", key)) : [element("span", "meta", t("shortcutNone"))]));
   };
   await show();

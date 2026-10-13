@@ -234,10 +234,18 @@ function select(index) {
   query.setAttribute("aria-activedescendant", `item-${index}`);
 }
 
+/**
+ * The page the search was opened from when it has a window of its own
+ * (Safari, NP-119); a popup has none: its links go to the active tab.
+ */
+const from = new URLSearchParams(location.search);
+const fromTab = Number(from.get("tab")) || null;
+const fromWindow = Number(from.get("window")) || null;
 /** Enter opens in a new tab, Shift Enter in this one; the popup closes. */
 async function open(item, here) {
-  if (here) await ext.tabs.update({ url: item.url });
-  else await ext.tabs.create({ url: item.url });
+  if (here && fromTab) await ext.tabs.update(fromTab, { url: item.url });
+  else if (here) await ext.tabs.update({ url: item.url });
+  else await ext.tabs.create(fromWindow ? { url: item.url, windowId: fromWindow } : { url: item.url });
   window.close();
 }
 async function showApp() {

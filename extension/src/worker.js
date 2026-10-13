@@ -1,5 +1,5 @@
 import { ext, t, textLanguage } from "./ext.js";
-import { browserName, failure, talk } from "./native.js";
+import { browserName, failure, shownShortcut, talk } from "./native.js";
 import { createQueue } from "./queue.js";
 import { onMenuClicked, registerMenu } from "./menu.js";
 import { GLYPHS, MARKS, BADGES, PRESS, TONES, drawIcon, frames, parseMark, parseMascot, rest, showMessage } from "./feedback.js";
@@ -97,7 +97,10 @@ const queue = createQueue({
       title: item.title,
     });
     if (!reply.ok) return { ok: false, code: reply.code, ...failure(reply) };
-    await ext.storage.local.set({ lastSaved: new Date().toISOString() });
+    // Only a note for the settings page: the app has the link, so a failed
+    // write (Safari's transient «Exceeded storage quota» right after a
+    // reinstall, NP-119) must not show it as undelivered.
+    await ext.storage.local.set({ lastSaved: new Date().toISOString() }).catch(() => {});
     return { ok: true, bookmark_id: reply.bookmark_id, outcome: reply.outcome };
   },
 });
@@ -214,7 +217,25 @@ async function captureTab(tab) {
 // menu give it the search popup for one opening. Firefox opens a popup only
 // inside the handler of the person's action, so nothing is awaited before it.
 const SEARCH_COMMAND = "quick-search";
+// Safari has action.openPopup, but it answers «Another popup is already open»
+// with none open (Safari 27, NP-119): the search opens in a small window
+// instead, centred over the page's window near its top and told which tab to
+// open links in, since its own tab is not the page. A second press brings back
+// the window already open.
+const SEARCH_WIDTH = 420;
+let searchWindow = null;
+async function openSearchWindow() {
+  if (searchWindow !== null && (await ext.windows.update(searchWindow, { focused: true }).then(() => true, () => false))) return true;
+  const [tab] = await ext.tabs.query({ active: true, lastFocusedWindow: true });
+  const from = tab ? `?tab=${tab.id}&window=${tab.windowId}` : "";
+  const page = tab ? await ext.windows.get(tab.windowId).catch(() => null) : null;
+  const place = page ? { left: Math.round(page.left + (page.width - SEARCH_WIDTH) / 2), top: page.top + 80 } : {};
+  const created = await ext.windows.create({ url: ext.runtime.getURL(`search.html${from}`), type: "popup", width: SEARCH_WIDTH, height: 560, ...place });
+  searchWindow = created?.id ?? null;
+  return true;
+}
 function openSearch() {
+  if (browserName() === "safari") return openSearchWindow().catch(() => false);
   const set = ext.action.setPopup({ popup: "search.html" });
   const opened = ext.action.openPopup();
   return Promise.allSettled([set, opened]).then(async ([, result]) => {
@@ -225,7 +246,7 @@ function openSearch() {
 /** The shortcut the browser has for the search now; the person may have changed it. */
 async function searchShortcut() {
   const commands = (await ext.commands?.getAll?.().catch(() => [])) ?? [];
-  return commands.find((command) => command.name === SEARCH_COMMAND)?.shortcut ?? "";
+  return shownShortcut(commands.find((command) => command.name === SEARCH_COMMAND)?.shortcut ?? "");
 }
 // Chrome and Edge call it contextMenus; Firefox and Safari, menus.
 const menus = ext.menus ?? ext.contextMenus;

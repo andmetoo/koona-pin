@@ -14,6 +14,16 @@ export function browserName(scope = globalThis) {
 }
 
 /**
+ * A command's shortcut as a Mac shows it. Chrome on a Mac already gives «⌥⇧D»;
+ * Safari gives the manifest's «Alt+Shift+D» (NP-119), which no Mac key says.
+ */
+const macKeys = { Alt: "⌥", Shift: "⇧", Ctrl: "⌃", MacCtrl: "⌃", Command: "⌘" };
+export function shownShortcut(shortcut, browser = browserName()) {
+  if (browser !== "safari" || !shortcut) return shortcut;
+  return shortcut.split("+").map((key) => macKeys[key] ?? key).join("");
+}
+
+/**
  * The browser's own errors when it cannot start the host. Chrome and Edge:
  * «Specified native messaging host not found.» (no key, manifest or exe);
  * Firefox: «No such native application …» (NP-014), also for an add-on the
