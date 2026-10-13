@@ -5,3 +5,5 @@
 //! clock wins field by field, so they end in one state whatever the order of delivery. The relay
 //! between devices only forwards frames this crate encrypts. No Tauri here: the phone apps wrap
 //! the same code later.
+
+pub mod model;
