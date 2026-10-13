@@ -33,11 +33,12 @@ const OPTIONAL = [
   "APPLE_CERTIFICATE", "APPLE_CERTIFICATE_PASSWORD", "APPLE_SIGNING_IDENTITY", "APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_PRIVATE_KEY",
   "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET",
   "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS",
+  "AUR_SSH_KEY", "AUR_KNOWN_HOSTS",
 ];
 
 /** Secrets of an environment instead of the repository's. */
 const ENVIRONMENT = Object.fromEntries(
-  ["TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET", "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS"].map((name) => [name, "release"]),
+  ["TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET", "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS", "AUR_SSH_KEY", "AUR_KNOWN_HOSTS"].map((name) => [name, "release"]),
 );
 
 const isFile = (value) => !value.includes("\n") && existsSync(value) && statSync(value).isFile();
