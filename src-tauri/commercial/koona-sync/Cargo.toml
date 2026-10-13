@@ -1,0 +1,23 @@
+[package]
+name = "koona-sync"
+version = "0.1.0"
+description = "Koona Pin sync engine"
+license-file = "../../../LICENSE-COMMERCIAL.md"
+edition = "2021"
+publish = false
+
+[dependencies]
+# The same rusqlite as the app: one bundled SQLite links into the binary.
+rusqlite = { version = "0.32", features = ["bundled", "functions"] }
+# X25519, Ed25519, HKDF and ChaCha20-Poly1305; already in the tree through rustls and the app.
+ring = "0.17"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1", features = ["v4", "v7"] }
+base64 = "0.22"
+# Frame bodies are deflated JSON; already in the tree through the app.
+flate2 = "1.1"
+
+[dev-dependencies]
+# Convergence: random edits on several replicas, delivered in random order, end in one state.
+proptest = "1"
