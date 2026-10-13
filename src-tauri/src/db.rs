@@ -26,7 +26,7 @@ pub struct Bookmark {
     pub triaged_at: Option<String>,
     /// When the bookmark went to the trash; none outside it (NP-022).
     pub deleted_at: Option<String>,
-    /// Where it was saved from: `app`, `chrome`, `edge`, `firefox`,
+    /// Where it was saved from: `app`, `chrome`, `edge`, `firefox`, `safari`,
     /// `extension`, `import`, `mcp`; none for links of unknown origin. Triage shows it (NP-025).
     pub source: Option<String>,
     /// The assistant that saved it over MCP (NP-091), as triage names it:
@@ -140,6 +140,8 @@ pub enum Source {
     Import,
     /// An AI assistant over MCP (NP-091, schema 8).
     Mcp,
+    /// The Safari extension on macOS (NP-119, schema 9).
+    Safari,
 }
 
 impl Source {
@@ -152,6 +154,7 @@ impl Source {
             Source::Extension => "extension",
             Source::Import => "import",
             Source::Mcp => "mcp",
+            Source::Safari => "safari",
         }
     }
 }

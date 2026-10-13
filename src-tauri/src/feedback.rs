@@ -246,6 +246,7 @@ fn browser_name(browser: crate::browsers::Browser) -> &'static str {
         crate::browsers::Browser::Chrome => "Chrome",
         crate::browsers::Browser::Edge => "Edge",
         crate::browsers::Browser::Firefox => "Firefox",
+        crate::browsers::Browser::Safari => "Safari",
     }
 }
 

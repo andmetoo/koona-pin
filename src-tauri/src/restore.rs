@@ -105,7 +105,7 @@ fn time(value: &str) -> Option<String> {
     DateTime::parse_from_rfc3339(value.trim()).ok().map(|t| db::stamp(t.into()))
 }
 
-const SOURCES: [&str; 8] = ["app", "chrome", "edge", "firefox", "extension", "bookmarklet", "import", "mcp"];
+const SOURCES: [&str; 9] = ["app", "chrome", "edge", "firefox", "extension", "bookmarklet", "import", "mcp", "safari"];
 
 /// Reads and checks the whole copy; nothing in the library is touched. Times
 /// come back in the library's format.

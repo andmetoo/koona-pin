@@ -28,6 +28,9 @@ pub enum Browser {
     Chrome,
     Edge,
     Firefox,
+    /// The Safari web extension inside the macOS app (NP-119); it has no
+    /// native host and reaches the app through the app's own handler.
+    Safari,
 }
 
 impl Browser {
@@ -36,6 +39,7 @@ impl Browser {
             "chrome" => Some(Browser::Chrome),
             "edge" => Some(Browser::Edge),
             "firefox" => Some(Browser::Firefox),
+            "safari" => Some(Browser::Safari),
             _ => None,
         }
     }
@@ -45,6 +49,7 @@ impl Browser {
             Browser::Chrome => Source::Chrome,
             Browser::Edge => Source::Edge,
             Browser::Firefox => Source::Firefox,
+            Browser::Safari => Source::Safari,
         }
     }
 }
@@ -158,7 +163,7 @@ pub struct BrowserStatus {
 #[ts(export)]
 pub struct CaptureStatus {
     pub state: CaptureState,
-    /// Every browser that ever wrote, in the order Chrome, Edge, Firefox.
+    /// Every browser that ever wrote, in the order Chrome, Edge, Firefox, Safari.
     pub browsers: Vec<BrowserStatus>,
     pub last_capture: Option<LastCapture>,
     /// Whole days since the last message from any extension; only when lost.
@@ -259,6 +264,15 @@ mod tests {
     }
     fn now() -> DateTime<Utc> {
         "2026-10-03T12:00:00Z".parse().unwrap()
+    }
+
+    #[test]
+    fn browsers_are_parsed_by_the_extensions_name() {
+        assert_eq!(Browser::parse("safari"), Some(Browser::Safari));
+        assert_eq!(Browser::Safari.source(), Source::Safari);
+        assert_eq!(Browser::Safari.source().as_str(), "safari");
+        assert_eq!(Browser::parse("Safari"), None);
+        assert_eq!(Browser::parse("opera"), None);
     }
 
     #[test]

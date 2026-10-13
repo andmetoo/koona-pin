@@ -1047,4 +1047,33 @@ mod tests {
         );
         assert_eq!(bad.reply["code"], "invalid_request");
     }
+
+    /// Safari (NP-119): its extension says hello and saves like the others,
+    /// with its own source; the app records it as connected and as the
+    /// browser of the last save.
+    #[test]
+    fn safari_says_hello_and_saves_as_safari() {
+        let c = database();
+        let mut connections = Connections::default();
+        let hello = handle(
+            &c,
+            &mut connections,
+            &envelope(json!({ "type": "hello", "protocol": PROTOCOL, "version": "0.9.0", "browser": "safari" })),
+            now(),
+        );
+        assert_eq!(hello.reply["ok"], true);
+        assert!(hello.contact);
+        let status = browsers::status(&Connections::load(&c), None, now());
+        assert_eq!(status.state, browsers::CaptureState::Connected);
+        assert_eq!(status.browsers[0].browser, Browser::Safari);
+        let saved = handle(&c, &mut connections, &envelope(capture("s1", "https://www.apple.com/safari/", "safari")), now());
+        assert_eq!(saved.reply["outcome"], "created");
+        assert!(saved.contact);
+        let source: String = c
+            .query_row("SELECT source FROM bookmarks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(source, "safari");
+        let status = browsers::status(&connections, None, now());
+        assert_eq!(status.last_capture.unwrap().browser, Browser::Safari);
+    }
 }

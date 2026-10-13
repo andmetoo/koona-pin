@@ -92,6 +92,7 @@ describe("triage", () => {
     expect(savedDay(new Date(2026, 9, 3, 23, 50).toISOString(), now)).toBe("yesterday");
     expect(savedDay(new Date(2026, 9, 1, 12, 0).toISOString(), now)).toBe("earlier");
     expect(browserName("firefox")).toBe("Firefox");
+    expect(browserName("safari")).toBe("Safari");
     expect(browserName("app")).toBeNull();
     expect(browserName(null)).toBeNull();
   });

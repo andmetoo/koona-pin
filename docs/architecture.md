@@ -53,7 +53,7 @@ Until the library is open, database commands are refused and the capture channel
 
 ### Schema and migrations
 
-- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 8); the file is marked with `application_id = 0x4E50494E` ("NPIN").
+- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 9); the file is marked with `application_id = 0x4E50494E` ("NPIN").
 - All pending steps and the new `user_version` run in one transaction. Before migrating an existing library the app writes a copy `backups/koonapin.before-vN.db` with `VACUUM INTO`; the last two are kept. If the copy fails the migration does not start; if a step fails the transaction rolls back and the screen points to the copy.
 - A released step is never edited; a change is a new step. A step that rebuilds a table must turn foreign keys off itself before the transaction.
 - Main tables: `bookmarks`, `collections`, `tags`, `bookmark_tags`, `capture_receipts`, `app_settings`, `tombstones`, `duplicates_dismissed`, `link_checks`. Records have a UUIDv7 `uid` beside the integer `id`; times are UTC strings with milliseconds (`YYYY-MM-DDTHH:MM:SS.sssZ`).

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import i18next from "i18next";
 import en from "../locales/en.json";
 import ru from "../locales/ru.json";
-import { CaptureStatus } from "../types";
+import { Browser, CaptureStatus } from "../types";
 
 // The app's i18n module touches the document; tests use the same catalogs directly.
 const i18n = i18next.createInstance();
@@ -10,6 +10,7 @@ await i18n.init({ resources: { en: { translation: en }, ru: { translation: ru } 
 import {
   appIsOlder,
   captureReport,
+  incompatible,
   connectTabs,
   connectedNames,
   installSteps,
@@ -32,7 +33,7 @@ const base: CaptureStatus = {
   protocol: 2,
   system: "windows",
 };
-const seen = (browser: "chrome" | "edge" | "firefox", recent = true, protocol = 2) => ({
+const seen = (browser: Browser, recent = true, protocol = 2) => ({
   browser,
   last_seen: "2026-10-03T09:00:00.000Z",
   extension_version: "0.5.0",
@@ -66,6 +67,26 @@ describe("browser status", () => {
     expect(preferredBrowser(status)).toBe("chrome");
     expect(preferredBrowser({ ...status, last_capture: { at: "2026-10-03T09:00:00.000Z", browser: "firefox" } })).toBe("firefox");
     expect(preferredBrowser(null)).toBe("chrome");
+  });
+
+  it("shows Safari as connected and as the browser of the last save on macOS only (NP-119)", async () => {
+    await i18n.changeLanguage("en");
+    const t = i18n.t.bind(i18n);
+    const at = new Date(2026, 9, 3, 11, 48).toISOString();
+    const mac = { ...base, system: "macos" as const, state: "connected" as const, browsers: [seen("chrome"), seen("safari")] };
+    expect(connectedNames(mac)).toBe("Chrome, Safari");
+    expect(lastSaved({ ...mac, last_capture: { at, browser: "safari" } }, t, "en", new Date(2026, 9, 3, 18, 0))).toMatch(/from Safari$/);
+    expect(connectedNames({ ...mac, system: "windows" })).toBe("Chrome");
+    expect(connectedNames({ ...mac, system: "linux" })).toBe("Chrome");
+    // An old Safari extension asks for an update on macOS; elsewhere nobody can act on it.
+    const old = { ...mac, state: "incompatible" as const, browsers: [seen("safari", true, 1)] };
+    expect(incompatible(old)?.browser).toBe("safari");
+    expect(incompatible({ ...old, system: "windows" })).toBeUndefined();
+    // «Connect browser» has no Safari tab: it opens on another browser.
+    expect(connectTabs(mac)).not.toContain("safari");
+    expect(preferredBrowser({ ...mac, last_capture: { at, browser: "safari" } })).toBe("chrome");
+    expect(preferredBrowser({ ...mac, browsers: [seen("safari"), seen("firefox")] })).toBe("firefox");
+    expect(captureReport(mac, "0.11.3")).toContain("Safari: extension 0.5.0, protocol 2");
   });
 
   it("says when and where the last page was saved", async () => {
