@@ -9,8 +9,9 @@ The extension saves the current tab to Koona Pin with one click and offers a qui
 | Chrome | 120 | service worker |
 | Edge | 120 | service worker (same package as Chrome) |
 | Firefox | 140 (release and ESR 140) | event page (`background.scripts`, ES module) |
+| Safari (macOS) | 18 (macOS 15); **local build only** | non-persistent background page (`background.scripts`, ES module) |
 
-Chromium on Linux works like Chrome. Browsers in a sandbox that blocks native messaging (Flatpak browsers, Chromium from Snap) cannot reach the app; Firefox from Snap can, through the WebExtensions portal.
+Safari has no store listing yet: the extension is built with Xcode into the test `Koona Pin.app` and loaded with "Allow unsigned extensions" ([Safari](#safari)). Chromium on Linux works like Chrome. Browsers in a sandbox that blocks native messaging (Flatpak browsers, Chromium from Snap) cannot reach the app; Firefox from Snap can, through the WebExtensions portal.
 
 ## Where people install it
 
@@ -36,7 +37,7 @@ The end-to-end architecture, the protocol messages and the local channel are in 
 
 ### Permissions
 
-`activeTab`, `scripting`, `storage`, `alarms`, `nativeMessaging`, plus `contextMenus` (Chrome, Edge) or `menus` (Firefox) for the button's menu. `tabs` is optional and requested only when the person turns on "Show that a page is already saved". There are no host permissions, no persistent content scripts and no remote code; the extension pages' CSP is `script-src 'self'; object-src 'none'`.
+`activeTab`, `scripting`, `storage`, `alarms`, `nativeMessaging`, plus `contextMenus` (Chrome, Edge) or `menus` (Firefox, Safari) for the button's menu. `tabs` is optional and requested only when the person turns on "Show that a page is already saved". There are no host permissions, no persistent content scripts and no remote code; the extension pages' CSP is `script-src 'self'; object-src 'none'`.
 
 ### Quick search
 
@@ -54,7 +55,7 @@ bun run extension:build
 
 Results (folders defined in [`scripts/lib/paths.mjs`](../scripts/lib/paths.mjs)):
 
-- `release/dev/chrome`, `release/dev/edge`, `release/dev/firefox` — unpacked builds. Rebuilding empties and refills the same folders, so a loaded extension keeps its path; press Reload on the extensions page afterwards.
+- `release/dev/chrome`, `release/dev/edge`, `release/dev/firefox`, `release/dev/safari` — unpacked builds. The Safari folder is the web part of the Safari app extension, which the Xcode build copies in; Safari has no store package. Rebuilding empties and refills the same folders, so a loaded extension keeps its path; press Reload on the extensions page afterwards.
 - `release/publish/chrome/<version>/koonapin-chrome.zip` and `release/publish/edge/<version>/koonapin-edge.zip` — store packages. ZIPs have sorted names and fixed timestamps, so the same source gives the same bytes.
 
 The extension version lives only in `extension/src/version.js` (with the protocol number and host name); the build writes it into every manifest. Tests (`*.test.js`) are not packed.
@@ -64,8 +65,37 @@ Loading:
 - **Chrome:** `chrome://extensions` → Developer mode → Load unpacked → `release/dev/chrome`.
 - **Edge:** `edge://extensions` → Developer mode → Load unpacked → `release/dev/edge`.
 - **Firefox:** `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `release/dev/firefox/manifest.json`. Firefox removes it when it closes.
+- **Safari:** not loaded from the folder; it is built into the test `Koona Pin.app` ([macos-test.md](macos-test.md)).
 
 The unpacked Chrome and Edge builds carry the public key in `extension/dev-key.txt` as the manifest `key`, so their ID is the same on every machine: `iibgiagcbediajombmkohanobgicbepn`. There is no private key. Store packages are built without `key`; the stores assign their own IDs. The Firefox ID is always `pin@koona.app`.
+
+## Safari
+
+Safari builds from the same `extension/src` with its own manifest (`manifest("safari")` in `scripts/build-extension.mjs`): no development `key`, no `minimum_chrome_version`, no `gecko` block; `browser_specific_settings.safari.strict_min_version` is 18.0, the Safari of macOS 15. It is a local build only (NP-119): there is no Apple Developer account yet, so nothing is signed, notarized or published. `browserName()` reports `safari` from the extension's own scheme, `safari-web-extension:`, since Safari has neither `runtime.getBrowserInfo` nor `navigator.userAgentData`.
+
+What each API does in Safari, from MDN's browser-compat-data, Apple's documentation and WebKit's source; still to be confirmed on a real Mac (docs/macos-test.md):
+
+| API | In Safari |
+| --- | --- |
+| Background | `background.scripts` with `type: module` and `persistent: false`. Manifest V3 background pages are non-persistent in Safari, which has run `scripts` since Safari 14; its service workers were reported killed for good on iOS 17. `worker.js` already runs as Firefox's event page, so Safari takes the same path. |
+| `alarms`, `storage.local`, `storage.session` | Supported (session storage since Safari 16.4). |
+| `scripting` with `activeTab` | `executeScript` with `func` and `args` since Safari 15.4, injection results since 17. A click on the button grants the tab, as in Chrome. |
+| `menus` on the button (context `action`) | Supported since Safari 15.4 in Manifest V3; `contextMenus` is an alias. Safari's button has no "Options" item, so the menu adds "Settings", as in Firefox. |
+| `quick-search` command | `Alt+Shift+D` is Option+Shift+D. Safari has no `commands.update`, `commands.onChanged` or shortcuts page, so the options page shows the shortcut without "Change". |
+| One-time search popup | `action.setPopup` and `action.openPopup` (Safari 16). Whether Safari opens the popup from the command and the menu handler is still to be checked. |
+| Optional `tabs`, `permissions.request` | Supported, granted without a prompt. |
+| `options_ui` | Always opens in a tab; Safari → Settings → Extensions → Koona Pin → Settings. |
+| `_locales`, `i18n` | Supported, the same catalogs. |
+| `action.setIcon` with drawn frames | `imageData` since Safari 15.4; the frames are drawn on `OffscreenCanvas` (Safari 16.4) and passed as `ImageData`. |
+| `nativeMessaging` | `runtime.sendNativeMessage` goes to the containing app (below). |
+
+Known limitations:
+
+- **"Show that a page is already saved"** is not offered: Safari gives a tab's URL and title only on websites the person has allowed the extension, whatever the `tabs` permission says (`WebExtensionTab::extensionHasPermission` in WebKit). With `activeTab` alone the extension never learns which page a tab shows, so the options page hides the switch.
+- **Quick search shortcut** cannot be changed: Safari has no API or page for extension shortcuts.
+- **Quick search popup** from the shortcut and the button's menu depends on `action.openPopup`, available since Safari 16; until it is checked on a Mac it may not open there. Saving with the button is not affected.
+
+**The native path.** Safari has no `app.koona.pin.json` and no `koonapin-host`. `runtime.sendNativeMessage` ignores the host name and goes to `SafariWebExtensionHandler` in the app extension inside `Koona Pin.app/Contents/PlugIns/`, which forwards the message unchanged, in the host's envelope, to the running app (the channel: [macos-test.md](macos-test.md)). The extension's queue stays the only queue. WebKit's own errors are mapped in `native.js`: "Native messaging is not supported" (no app extension to load) is `host_missing`; a canceled, crashed or failing handler and "Couldn't communicate with a helper application" are `host_failed`. A Safari user never reads about a host: a missing app extension says that Koona Pin isn't installed or is damaged, a failing one that Koona Pin didn't answer.
 
 ## Native host registration
 

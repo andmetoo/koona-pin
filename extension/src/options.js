@@ -45,9 +45,10 @@ function savedAt(iso) {
  * cards. On Linux a missing app is «unreachable» — a calm card (sheet 40): the
  * browser may be a sandbox that keeps an installed app out. Forbidden (NP-113)
  * is the missing card with «Check again»: the app is installed, so a download
- * does not help.
+ * does not help. In Safari the extension lives inside the app (NP-119): a
+ * failing handler is no missing app, so it says the app didn't answer.
  */
-function renderStatus({ reply, lastSaved }, linux = false) {
+function renderStatus({ reply, lastSaved }, linux = false, safari = false) {
   const status = get("status");
   status.replaceChildren();
   if (reply?.ok) {
@@ -60,17 +61,20 @@ function renderStatus({ reply, lastSaved }, linux = false) {
     status.append(row);
     return;
   }
-  const missing = ["host_missing", "host_failed"].includes(reply?.code);
+  const failed = safari && reply?.code === "host_failed";
+  const missing = ["host_missing", "host_failed"].includes(reply?.code) && !failed;
   const state =
     reply?.code === "incompatible_protocol"
       ? "update"
       : reply?.code === "host_forbidden"
         ? "forbidden"
-        : missing
-          ? linux
-            ? "unreachable"
-            : "missing"
-          : "closed";
+        : failed
+          ? "failed"
+          : missing
+            ? linux
+              ? "unreachable"
+              : "missing"
+            : "closed";
   status.dataset.state = state;
   const older = appIsOlder(reply);
   const [head, text] = {
@@ -81,6 +85,7 @@ function renderStatus({ reply, lastSaved }, linux = false) {
     missing: [t("statusMissing"), t("statusMissingText")],
     forbidden: [t("statusForbidden"), t("statusForbiddenText")],
     unreachable: [t("statusSandbox"), t("statusSandboxText")],
+    failed: [t("searchUnavailable"), t("searchUnavailableText")],
   }[state];
   const card = element("div", "state");
   const top = element("div", "head");
@@ -99,7 +104,7 @@ function renderStatus({ reply, lastSaved }, linux = false) {
 }
 async function refreshStatus() {
   try {
-    renderStatus(await message({ type: "status" }), (await systemName()) === "linux");
+    renderStatus(await message({ type: "status" }), (await systemName()) === "linux", browserName() === "safari");
   } catch (error) {
     get("message").textContent = error.message;
   }
@@ -164,6 +169,10 @@ async function feedbackSwitches() {
   // «Show that a page is already saved» (NP-083): off by default; it needs the
   // optional tabs permission, asked for right in the click (Р-41).
   const known = get("feedback-known");
+  // Safari gives a tab's URL only on sites the person allowed the extension,
+  // whatever `tabs` says (WebExtensionTab::extensionHasPermission): with
+  // `activeTab` alone the worker never learns the page, so no switch (NP-119).
+  if (browserName() === "safari") return known.closest("label").remove();
   const tabs = { permissions: ["tabs"] };
   known.checked = feedback?.known === true && (await ext.permissions.contains(tabs));
   known.addEventListener("change", async () => {
@@ -178,7 +187,8 @@ async function feedbackSwitches() {
 }
 /**
  * «Keyboard shortcut» (NP-082, sheet 37). Chrome and Edge let only their own
- * page change an extension's shortcut; Firefox lets the extension do it.
+ * page change an extension's shortcut; Firefox lets the extension do it;
+ * Safari has neither (no commands.update, no shortcuts page, NP-119).
  */
 const SEARCH_COMMAND = "quick-search";
 async function shortcutSection() {
@@ -191,6 +201,7 @@ async function shortcutSection() {
     keys.replaceChildren(...(shortcut ? shortcut.split("+").map((key) => element("kbd", "", key)) : [element("span", "meta", t("shortcutNone"))]));
   };
   await show();
+  if (browser === "safari") return change.remove();
   if (browser !== "firefox") {
     const name = browser === "edge" ? "Edge" : "Chrome";
     change.textContent = t("shortcutChangeIn", name);
