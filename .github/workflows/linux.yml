@@ -5,21 +5,23 @@ name: Linux
 # those very binaries on its own distribution. Every job runs in a prebuilt image of scripts/linux/images/
 # («images» builds and pushes the ones whose inputs changed): the jobs install nothing.
 #   ci.yml        pull requests and main, `secrets: inherit`
-#   release.yml   a version tag, `release: true`: every job counts; release.yml signs the packages for the
-#                 updater itself, in the environment «release» that holds the key (never this workflow)
+#   release.yml   a version tag, `release: true`: compile and pack only — the tests, the WebKitGTK and the
+#                 distribution checks are skipped, release.yml's verify requires the commit's CI on main to
+#                 have passed them; release.yml signs the packages for the updater itself, in the
+#                 environment «release» that holds the key (never this workflow)
 #   Actions → Linux → Run workflow, by hand
 # The callers set the concurrency. The caller must let «images» have `packages: write`.
 on:
   workflow_call:
     inputs:
       release:
-        description: Release build — the feedback address is required and every package job counts
+        description: Release build — the feedback address is required; compile and pack only, no tests
         type: boolean
         default: false
   workflow_dispatch:
     inputs:
       release:
-        description: Release build — the feedback address is required and every package job counts
+        description: Release build — the feedback address is required; compile and pack only, no tests
         type: boolean
         default: false
 
@@ -146,6 +148,7 @@ jobs:
   test:
     name: Tests (Void)
     needs: images
+    if: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     container:
@@ -197,6 +200,7 @@ jobs:
   ui:
     name: Playwright UI
     needs: images
+    if: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
@@ -227,6 +231,7 @@ jobs:
   deb:
     name: .deb, Debian 13
     needs: [images, build, test]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.release || needs.test.result == 'success') }}
     # Outside a release the package and distribution jobs do not fail the workflow: they show their
     # result, and ci.yml's summary check «CI» does not wait on them. A release (release.yml) stops on any.
     continue-on-error: ${{ !inputs.release }}
@@ -248,12 +253,14 @@ jobs:
           name: tauri-driver
           path: dist-tools/
       - uses: actions/download-artifact@v7
+        if: ${{ !inputs.release }}
         with:
           name: linux-debug
           path: src-tauri/target/debug/
       # Artifacts arrive as root and without the executable bit.
       - run: |
-          chmod +x dist-linux/bin/* dist-linux/*.AppImage dist-tools/tauri-driver src-tauri/target/debug/koonapin src-tauri/target/debug/koonapin-host
+          chmod +x dist-linux/bin/* dist-linux/*.AppImage dist-tools/tauri-driver
+          if [ -d src-tauri/target/debug ]; then chmod +x src-tauri/target/debug/koonapin src-tauri/target/debug/koonapin-host; fi
           chown -R dev "$GITHUB_WORKSPACE"
       - name: Pack the .deb as «dev»
         run: su dev -s /bin/bash -c "bun scripts/build-linux-packages.mjs --stage deb"
@@ -263,20 +270,27 @@ jobs:
           path: dist-linux/koonapin_*_amd64.deb
           if-no-files-found: error
       - name: The tray library out of the image (the package brings it)
+        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh prepare
       - name: The AppImage without a package as «dev»
+        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-appimage.sh"
       - name: lintian, desktop-file-validate, appstreamcli; install the package
+        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh install
       - name: Start the program as «dev»
+        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
       - name: Native tests on WebKitGTK as «dev»
+        if: ${{ !inputs.release }}
         # The tests of both displays take seconds; a hang ends here, not at the job's limit.
         timeout-minutes: 5
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       - name: Registration with Debian's browsers, Chrome and Edge, extension smoke as «dev»
+        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"
       - name: Install again and remove the package
+        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh remove
 
   # The .rpm (the rpm stage, from Tauri's .deb, so it runs beside «deb»): rpmbuild, the DEB→RPM mark, rpmlint;
@@ -314,24 +328,31 @@ jobs:
           path: dist-linux/koonapin-*.x86_64.rpm
           if-no-files-found: error
       - name: The AppImage without a package as «dev»
+        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-appimage.sh"
       - name: Install the package, rpmlint
+        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh install
       - name: Start the program as «dev»
+        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
       - name: Native tests on WebKitGTK as «dev»
+        if: ${{ !inputs.release }}
         # The tests of both displays take seconds; a hang ends here, not at the job's limit.
         timeout-minutes: 5
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       - name: Fedora's Firefox and Chromium with the package as «dev»
+        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"
       - name: Install again and remove the package
+        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh remove
 
   # The .deb of «deb» on the newest Ubuntu: the AppImage, installed with apt, started, WebKitGTK tests, removed.
   ubuntu:
     name: Ubuntu 26.04
     needs: [images, build, deb]
+    if: ${{ !inputs.release }}
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -378,6 +399,7 @@ jobs:
   arch:
     name: Arch Linux (AUR)
     needs: [images, build, deb]
+    if: ${{ !inputs.release }}
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -425,6 +447,7 @@ jobs:
   webkitgtk:
     name: WebKitGTK ${{ matrix.name }}
     needs: [images, build]
+    if: ${{ !inputs.release }}
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
