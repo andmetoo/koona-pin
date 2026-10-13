@@ -19,6 +19,8 @@ name: Release
 #              the server checks every signature against the update key's public half before it serves
 #              anything, and the site's pages read release.json at request time. Skipped with a warning
 #              while DEPLOY_HOST is not set. A failed deploy is rerun alone: gh run rerun <run> --failed.
+#     aur      the release's PKGBUILD and .SRCINFO pushed to aur.archlinux.org/koonapin-bin.git
+#              (AUR_SSH_KEY of the maintainer's AUR account); skipped with a warning without the key
 # The Windows installer is not built here: Tauri signs the exes inside it with Certum while it builds,
 # and Certum signs only on the owner's computer (SimplySign).
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('Finalize {0}', inputs.tag) || format('Release {0}', github.ref_name) }}
@@ -433,3 +435,54 @@ jobs:
             -o UserKnownHostsFile="$known" "deploy@$DEPLOY_HOST" app "$TAG"
           rm -f "$key"
           echo "Deployed $TAG to koona.app: https://koona.app/pin/updates/latest.json" >> "$GITHUB_STEP_SUMMARY"
+
+  # The AUR package koonapin-bin (NP-101): the PKGBUILD and .SRCINFO finalize attached to the release,
+  # pushed to aur.archlinux.org/koonapin-bin.git. AUR_SSH_KEY is the private key of the maintainer's AUR
+  # account (an SSH key added in that account's settings), AUR_KNOWN_HOSTS the line of
+  # `ssh-keyscan -t ed25519 aur.archlinux.org`; both secrets of the environment «release». Without the key
+  # the job warns and the files stay on the release for a push by hand.
+  aur:
+    name: AUR
+    needs: finalize
+    if: github.event_name == 'workflow_dispatch'
+    environment: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: koonapin-bin to the AUR
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+          AUR_KNOWN_HOSTS: ${{ secrets.AUR_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [ -z "$AUR_SSH_KEY" ]; then
+            echo "::warning::AUR_SSH_KEY is not in the environment «release»: koonapin-bin.PKGBUILD and .SRCINFO of $TAG wait on the release for a push by hand."
+            exit 0
+          fi
+          [ -n "$AUR_KNOWN_HOSTS" ] || { echo "::error::AUR_SSH_KEY is set, AUR_KNOWN_HOSTS is not"; exit 1; }
+          key="$RUNNER_TEMP/aur_key"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$AUR_SSH_KEY" > "$key"
+          printf '%s\n' "$AUR_KNOWN_HOSTS" > "$RUNNER_TEMP/aur_known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/aur_known_hosts"
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p koonapin-bin.PKGBUILD -p koonapin-bin.SRCINFO --dir files
+          # An empty repository the first time: the first push creates the package in the account.
+          git clone -q ssh://aur@aur.archlinux.org/koonapin-bin.git aur
+          cp files/koonapin-bin.PKGBUILD aur/PKGBUILD
+          cp files/koonapin-bin.SRCINFO aur/.SRCINFO
+          cd aur
+          git config user.name "Koona"
+          git config user.email "support@koona.app"
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "koonapin-bin already has the PKGBUILD of $TAG"
+          else
+            git commit -q -m "koonapin-bin ${TAG#v}"
+            git push -q origin HEAD:master
+            echo "koonapin-bin ${TAG#v} on the AUR: https://aur.archlinux.org/packages/koonapin-bin" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          rm -f "$key"
