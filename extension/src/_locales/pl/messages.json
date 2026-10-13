@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "Szukaj w swoich linkach" },
   "searchFilters": { "message": "Gdzie szukać" },
   "searchKeys": { "message": "↑↓ · ↵ otwórz · Shift ↵ tutaj · Ctrl C kopiuj" },
+  "searchKeysMac": { "message": "↑↓ · ↵ otwórz · ⇧↵ tutaj · ⌘C kopiuj" },
   "searchOpenApp": { "message": "Otwórz Koona Pin" },
   "searchAll": { "message": "Wszystko" },
   "searchInbox": { "message": "Skrzynka odbiorcza" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "Uruchomi się w zasobniku systemowym, gdy zapiszesz stronę. Do tego czasu linki czekają tutaj."
   },
+  "statusClosedTextMac": {
+    "message": "Uruchomi się na pasku menu, gdy zapiszesz stronę. Do tego czasu linki czekają tutaj."
+  },
   "statusUpdate": { "message": "Zaktualizuj rozszerzenie" },
   "statusUpdateText": {
     "message": "To rozszerzenie ($MINE$) nie pasuje do Koona Pin $APP$. Zaktualizuj je na stronie rozszerzeń przeglądarki — do tego czasu linki czekają tutaj.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "Linki zostają w przeglądarce, dopóki Koona Pin ich nie potwierdzi. Jeśli aplikacja jest zamknięta, zapisanie strony uruchomi ją w zasobniku systemowym."
+  },
+  "optionsFooterMac": {
+    "message": "Linki zostają w przeglądarce, dopóki Koona Pin ich nie potwierdzi. Jeśli aplikacja jest zamknięta, zapisanie strony uruchomi ją na pasku menu."
   },
   "languageCode": { "message": "pl" },
   "siteUrl": { "message": "https://koona.app/pin/pl/" }

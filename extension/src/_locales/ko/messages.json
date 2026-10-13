@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "내 링크 검색" },
   "searchFilters": { "message": "검색할 곳" },
   "searchKeys": { "message": "↑↓ · ↵ 열기 · Shift ↵ 이 탭에서 · Ctrl C 복사" },
+  "searchKeysMac": { "message": "↑↓ · ↵ 열기 · ⇧↵ 이 탭에서 · ⌘C 복사" },
   "searchOpenApp": { "message": "Koona Pin 열기" },
   "searchAll": { "message": "전체" },
   "searchInbox": { "message": "받은함" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "페이지를 저장하면 알림 영역에서 시작됩니다. 그때까지 링크는 여기에서 기다립니다."
   },
+  "statusClosedTextMac": {
+    "message": "페이지를 저장하면 메뉴 막대에서 시작됩니다. 그때까지 링크는 여기에서 기다립니다."
+  },
   "statusUpdate": { "message": "확장 프로그램을 업데이트하세요" },
   "statusUpdateText": {
     "message": "이 확장 프로그램($MINE$)은 Koona Pin $APP$과(와) 맞지 않습니다. 브라우저의 확장 프로그램 페이지에서 업데이트하세요. 그때까지 링크는 여기에서 기다립니다.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "링크는 Koona Pin이 받았다고 확인할 때까지 브라우저에 남습니다. 앱이 닫혀 있으면 페이지를 저장할 때 알림 영역에서 시작됩니다."
+  },
+  "optionsFooterMac": {
+    "message": "링크는 Koona Pin이 받았다고 확인할 때까지 브라우저에 남습니다. 앱이 닫혀 있으면 페이지를 저장할 때 메뉴 막대에서 시작됩니다."
   },
   "languageCode": { "message": "ko" },
   "siteUrl": { "message": "https://koona.app/pin/ko/" }

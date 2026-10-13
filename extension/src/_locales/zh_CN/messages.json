@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "搜索你的链接" },
   "searchFilters": { "message": "搜索范围" },
   "searchKeys": { "message": "↑↓ · ↵ 打开 · Shift ↵ 在此打开 · Ctrl C 复制" },
+  "searchKeysMac": { "message": "↑↓ · ↵ 打开 · ⇧↵ 在此打开 · ⌘C 复制" },
   "searchOpenApp": { "message": "打开 Koona Pin" },
   "searchAll": { "message": "全部" },
   "searchInbox": { "message": "收件箱" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "保存页面时它会在系统托盘中启动。在此之前，链接会在这里等待。"
   },
+  "statusClosedTextMac": {
+    "message": "保存页面时它会在菜单栏中启动。在此之前，链接会在这里等待。"
+  },
   "statusUpdate": { "message": "请更新扩展" },
   "statusUpdateText": {
     "message": "此扩展（$MINE$）与 Koona Pin $APP$ 不匹配。请在浏览器的扩展页面中更新它 — 在此之前，链接会在这里等待。",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "链接会留在浏览器中，直到 Koona Pin 确认收到。如果应用未运行，保存页面会让它在系统托盘中启动。"
+  },
+  "optionsFooterMac": {
+    "message": "链接会留在浏览器中，直到 Koona Pin 确认收到。如果应用未运行，保存页面会让它在菜单栏中启动。"
   },
   "languageCode": { "message": "zh-CN" },
   "siteUrl": { "message": "https://koona.app/pin/zh-cn/" }

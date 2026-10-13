@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "Претражите своје линкове" },
   "searchFilters": { "message": "Где тражити" },
   "searchKeys": { "message": "↑↓ · ↵ отвори · Shift ↵ овде · Ctrl C копирај" },
+  "searchKeysMac": { "message": "↑↓ · ↵ отвори · ⇧↵ овде · ⌘C копирај" },
   "searchOpenApp": { "message": "Отвори Koona Pin" },
   "searchAll": { "message": "Све" },
   "searchInbox": { "message": "Пријемно сандуче" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "Покреће се у области обавештења кад сачувате страницу. Линкови дотле чекају овде."
   },
+  "statusClosedTextMac": {
+    "message": "Покреће се на траци менија кад сачувате страницу. Линкови дотле чекају овде."
+  },
   "statusUpdate": { "message": "Ажурирајте проширење" },
   "statusUpdateText": {
     "message": "Ово проширење ($MINE$) не одговара програму Koona Pin $APP$. Ажурирајте га на страници проширења у прегледачу — линкови дотле чекају овде.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "Линкови остају у прегледачу док их Koona Pin не потврди. Ако је апликација затворена, чување странице је покреће у области обавештења."
+  },
+  "optionsFooterMac": {
+    "message": "Линкови остају у прегледачу док их Koona Pin не потврди. Ако је апликација затворена, чување странице је покреће на траци менија."
   },
   "languageCode": { "message": "sr" },
   "siteUrl": { "message": "https://koona.app/pin/sr/" }

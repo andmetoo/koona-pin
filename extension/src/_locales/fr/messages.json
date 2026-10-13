@@ -9,6 +9,7 @@
   "searchPlaceholder": { "message": "Rechercher dans vos liens" },
   "searchFilters": { "message": "Où chercher" },
   "searchKeys": { "message": "↑↓ · ↵ ouvrir · Maj ↵ ici · Ctrl C copier" },
+  "searchKeysMac": { "message": "↑↓ · ↵ ouvrir · ⇧↵ ici · ⌘C copier" },
   "searchOpenApp": { "message": "Ouvrir Koona Pin" },
   "searchAll": { "message": "Tout" },
   "searchInbox": { "message": "Boîte de réception" },
@@ -170,6 +171,9 @@
   "statusClosedText": {
     "message": "Il démarre dans la zone de notification quand vous enregistrez une page. D’ici là, les liens attendent ici."
   },
+  "statusClosedTextMac": {
+    "message": "Il démarre dans la barre des menus quand vous enregistrez une page. D’ici là, les liens attendent ici."
+  },
   "statusUpdate": { "message": "Mettez à jour l’extension" },
   "statusUpdateText": {
     "message": "Cette extension ($MINE$) ne correspond pas à Koona Pin $APP$. Mettez-la à jour depuis la page des extensions du navigateur — d’ici là, les liens attendent ici.",
@@ -211,6 +215,9 @@
   },
   "optionsFooter": {
     "message": "Les liens restent dans le navigateur jusqu’à ce que Koona Pin les confirme. Si l’application est fermée, enregistrer une page la démarre dans la zone de notification."
+  },
+  "optionsFooterMac": {
+    "message": "Les liens restent dans le navigateur jusqu’à ce que Koona Pin les confirme. Si l’application est fermée, enregistrer une page la démarre dans la barre des menus."
   },
   "languageCode": { "message": "fr" },
   "siteUrl": { "message": "https://koona.app/pin/fr/" }
