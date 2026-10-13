@@ -1,0 +1,208 @@
+name: Extension
+
+# A release of the browser extension, ext-v<version> (docs/extension.md):
+#   push of the tag ext-v<version> (bun run extension:tag)
+#     the tag names VERSION of extension/src/version.js, its commit is on main
+#     the previous state: updates.json and every XPI it lists, from the newest published ext-v* release
+#     Firefox signed on AMO (unlisted, NP-018), its entry added to updates.json; extension.json of the newest
+#     updates.json and extension.json signed with the update key (the XPIs are Mozilla's, checked by hash)
+#     the Chrome and Edge ZIPs (uploaded to the stores by hand)
+#     the GitHub Release ext-v<version>, not latest: «latest» stays with the app's v* releases
+#     the deploy: the Firefox folder over SSH to koona-deploy, unit «firefox», which checks the signatures
+#   workflow_dispatch from the tag (--ref ext-v<version>): the same; `first` lets it start without any
+#   ext-v* release (scripts/seed-firefox-release.mjs made the first one, so it is not needed today).
+# A rerun of a tag whose release exists signs nothing: it takes that release's files and deploys them again.
+# The AMO key, the update key and the deploy key are secrets of the environment «release», which opens to
+# tags only (Settings → Environments: v* and ext-v*).
+run-name: ${{ format('Extension {0}', inputs.tag || github.ref_name) }}
+
+on:
+  push:
+    tags: ['ext-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release's tag, ext-v<version>
+        required: true
+        type: string
+      first:
+        description: No ext-v* release yet; start with an empty updates.json
+        type: boolean
+        default: false
+
+# One run per tag at a time; a release run is never cancelled halfway (AMO may be signing).
+concurrency:
+  group: extension-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  FIRST: ${{ github.event_name == 'workflow_dispatch' && inputs.first }}
+
+jobs:
+  release:
+    name: Sign, release, deploy
+    runs-on: ubuntu-latest
+    # AMO's automatic review of an unlisted add-on: sign-firefox.mjs waits up to 30 minutes.
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Full history: the tag's commit must be on origin/main.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Started from main the environment would not have let it in; started from another tag it would run
+      # that tag's workflow and scripts.
+      - name: Started from its own tag
+        run: |
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            echo "::error::Start it from the tag: gh workflow run extension.yml --ref $TAG -f tag=$TAG (this run: $GITHUB_REF)"
+            exit 1
+          fi
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun scripts/extension-tag.mjs --verify "$TAG"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-linux-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-linux-
+      # web-ext signs on AMO, the Tauri CLI signs for the server.
+      - run: bun install --frozen-lockfile
+
+      # Into firefox/: what the server will serve. Never an empty start by accident: a version missing from
+      # updates.json leaves every Firefox that has it without updates.
+      - name: The previous release's files
+        id: state
+        run: |
+          set -euo pipefail
+          mkdir firefox
+          if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [ "$draft" = true ]; then
+              echo "::error::$TAG is a draft release: publish it (gh release edit $TAG --draft=false --latest=false) or delete it, then run again"
+              exit 1
+            fi
+            echo "::notice::$TAG is released already: its files are deployed again, nothing is signed"
+            gh release download "$TAG" --dir firefox --pattern 'updates.json' --pattern 'updates.json.sig' \
+              --pattern 'extension.json' --pattern 'extension.json.sig' --pattern 'koonapin-firefox-*.xpi'
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "released=false" >> "$GITHUB_OUTPUT"
+          # The highest published ext-v* by version, not by date.
+          previous="$(gh release list --exclude-drafts --limit 200 --json tagName --jq '
+            [.[].tagName | select(test("^ext-v[0-9]+\\.[0-9]+\\.[0-9]+$"))]
+            | sort_by(ltrimstr("ext-v") | split(".") | map(tonumber)) | last // empty')"
+          if [ -n "$previous" ]; then
+            echo "Previous state: $previous"
+            gh release download "$previous" --dir firefox --pattern 'updates.json' --pattern 'koonapin-firefox-*.xpi'
+            test -f firefox/updates.json || { echo "::error::$previous has no updates.json"; exit 1; }
+            echo "first=false" >> "$GITHUB_OUTPUT"
+          elif [ "$FIRST" = true ]; then
+            echo "::warning::No ext-v* release: updates.json starts empty (first: true)"
+            echo "first=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::No published ext-v* release to take updates.json and the XPIs from: bun run extension:seed once, or run this from the tag with first: true"
+            exit 1
+          fi
+          ls -l firefox
+
+      - name: Sign Firefox on AMO
+        if: steps.state.outputs.released != 'true'
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.WEB_EXT_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.WEB_EXT_API_SECRET }}
+          FIRST_START: ${{ steps.state.outputs.first }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::error::WEB_EXT_API_KEY and WEB_EXT_API_SECRET are not in the environment «release»"
+            exit 1
+          fi
+          if [ "$FIRST_START" = true ]; then
+            bun run extension:sign:firefox -- --dir firefox --first
+          else
+            bun run extension:sign:firefox -- --dir firefox
+          fi
+
+      # The same checks as the server's: links, hashes, no unlisted XPI; extension.json names this version.
+      - name: extension.json
+        if: steps.state.outputs.released != 'true'
+        run: |
+          set -euo pipefail
+          bun scripts/build-extension-data.mjs --dir firefox
+          newest="$(jq -r .version firefox/extension.json)"
+          if [ "$newest" != "${TAG#ext-v}" ]; then
+            echo "::error::extension.json names $newest, not ${TAG#ext-v}"
+            exit 1
+          fi
+
+      # The server takes these two only with the update key's signature (the trusted comment names the file).
+      - name: Sign updates.json and extension.json
+        if: steps.state.outputs.released != 'true'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not in the environment «release»: bun run ci:secrets"
+            exit 1
+          fi
+          for f in updates.json extension.json; do
+            bunx tauri signer sign "firefox/$f" > /dev/null
+            test -s "firefox/$f.sig"
+          done
+
+      # The store packages of the same source; the stores take them by hand (docs/extension.md).
+      - name: Chrome and Edge ZIPs
+        if: steps.state.outputs.released != 'true'
+        run: bun run extension:build
+
+      # Asset names without spaces or a leading dot, which GitHub would change.
+      - name: The release, not latest
+        if: steps.state.outputs.released != 'true'
+        run: |
+          set -euo pipefail
+          version="${TAG#ext-v}"
+          mkdir upload
+          cp firefox/updates.json firefox/updates.json.sig firefox/extension.json firefox/extension.json.sig firefox/*.xpi upload/
+          cp "release/publish/chrome/$version/koonapin-chrome.zip" "upload/koonapin-chrome-$version.zip"
+          cp "release/publish/edge/$version/koonapin-edge.zip" "upload/koonapin-edge-$version.zip"
+          ls -l upload
+          # gh uploads the files into a draft and publishes it after the last one: no half-made release.
+          gh release create "$TAG" --verify-tag --latest=false \
+            --title "Koona Pin browser extension $version" --notes "Koona Pin browser extension $version" upload/*
+          echo "Released $TAG: $(gh release view "$TAG" --json url --jq .url). Chrome and Edge ZIPs: upload to the stores by hand." >> "$GITHUB_STEP_SUMMARY"
+
+      # koona-deploy (koona-site server/): a forced command, the bundle on stdin, flat. It checks every .sig
+      # against the update key pinned on the server and every XPI against updates.json, then switches.
+      - name: Deploy to koona.app/pin/firefox
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "::warning::DEPLOY_HOST is not in the environment «release»: $TAG is released, not deployed"
+            echo "Not deployed: DEPLOY_HOST is not set." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          key="$RUNNER_TEMP/deploy_key"
+          known="$RUNNER_TEMP/known_hosts"
+          trap 'rm -f "$key" "$known"' EXIT
+          (umask 077; printf '%s\n' "$DEPLOY_SSH_KEY" > "$key"; printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$known")
+          cd firefox
+          tar -cf - updates.json updates.json.sig extension.json extension.json.sig *.xpi \
+            | ssh -i "$key" -o UserKnownHostsFile="$known" -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o BatchMode=yes \
+                "deploy@$DEPLOY_HOST" firefox "$TAG"
+          echo "Deployed $TAG to https://koona.app/pin/firefox/" >> "$GITHUB_STEP_SUMMARY"

@@ -1,11 +1,12 @@
 // Screenshots of the real app for koona.app/pin (NP-079): the debug build with WebView2
 // and SQLite in a data folder of its own, a sample library restored from JSON, previews from
-// site/shots/previews (Unsplash licence, site/shots/previews/CREDITS.md), Chrome connected.
+// scripts/shots/previews (Unsplash licence, scripts/shots/previews/CREDITS.md), Chrome connected.
 //
 //   bun run site:shots   (builds the debug app with its interface embedded first, scripts/build-test-app.mjs)
 //
-// Writes site/src/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280).
-// The link previews (og-<lang>.jpg) are drawn, not shot: scripts/og-images.mjs. Quit your own Koona Pin first:
+// Writes release/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280).
+// The site lives in andmetoo/koona-site: the shots go there by a commit, every few versions. The link
+// previews (og-<lang>.jpg) are drawn there, not shot. Quit your own Koona Pin first:
 // only one instance runs per user.
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
@@ -15,12 +16,12 @@ import path from "node:path";
 import { appBinary, assertNoOtherApp, hello, hostMessage, pipeReady, testPipe } from "./lib/native-host.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
-const previews = path.join(root, "site", "shots", "previews");
-const out = path.join(root, "site", "src", "shots");
+const previews = path.join(root, "scripts", "shots", "previews");
+const out = path.join(root, "release", "shots");
 const VIEW = { width: 1280, height: 800 };
 const PREVIEW_HOST = "previews.koona.test";
 
-const library = JSON.parse(await readFile(path.join(root, "site", "shots", "library.json"), "utf8"));
+const library = JSON.parse(await readFile(path.join(root, "scripts", "shots", "library.json"), "utf8"));
 
 /** Library copy in the app's JSON format (export.rs, restore.rs). */
 function copyOf(lang, base) {

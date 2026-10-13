@@ -3,7 +3,7 @@
 //   bun run version:bump               prints the number of each place; fails when they differ
 //   bun run version:bump 0.12.0        writes 0.12.0 to package.json, src-tauri/Cargo.toml, the koonapin
 //                                      package of src-tauri/Cargo.lock and src-tauri/tauri.conf.json, and
-//                                      starts site/content/changelog/0.12.0.md when it is not there
+//                                      starts changelog/0.12.0.md when it is not there
 //   bun run version:bump 0.12.0 --dry-run  says what it would change, writes nothing
 // Each file is edited where the number stands, by text: their formatting and the rest of Cargo.lock
 // stay as they are, so the diff is four lines and a new file.
@@ -40,7 +40,7 @@ export async function version() {
   return [...distinct][0];
 }
 
-const changelog = (v) => path.join(root, "site", "content", "changelog", `${v}.md`);
+const changelog = (v) => path.join(root, "changelog", `${v}.md`);
 
 if (import.meta.main) {
   const dryRun = process.argv.includes("--dry-run");

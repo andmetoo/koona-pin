@@ -110,4 +110,4 @@ console.log(`\n== Finalize: gh workflow run release.yml --ref ${tag} -f tag=${ta
 // From the tag, not main: the update key lives in the environment «release», open to tags v* only.
 const started = run("gh", ["workflow", "run", "release.yml", "--ref", tag, "-f", `tag=${tag}`], { stdio: "inherit" });
 if (started.status !== 0) fail(`Not started. Later: gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
-console.log(`\nFinalize is running (gh run list --workflow release.yml). When the release is published: bun run release:site -- -Server user@host`);
+console.log(`\nFinalize is running (gh run list --workflow release.yml): it publishes the release and deploys its data to koona.app (bun run release shows where it stands).`);

@@ -76,7 +76,7 @@ This writes unpacked extensions to `release/dev/chrome`, `release/dev/edge` and 
 | Linux `.deb`, `.rpm` and AppImage | `bun run build:linux` | `release/publish/linux/<version>/` with `SHA256SUMS.txt` |
 | AUR `PKGBUILD` and `.SRCINFO` | `bun run build:aur` | `release/publish/aur/<version>/` |
 | Extension store packages | `bun run extension:build` | `release/publish/chrome/<version>/`, `release/publish/edge/<version>/` |
-| Site | `bun run site:build` | `release/publish/site/` |
+| Updater feed and release data | `bun run build:latest`, `bun run build:release-data` | `release/publish/updates/<version>/`: packages with `.sig`, `latest.json`, `SHA256SUMS.txt`, `release.json` |
 
 Notes:
 
@@ -89,22 +89,24 @@ Notes:
 
 Official releases are signed (Windows code signing, the update key and Firefox add-on signing); none of that is needed for local builds. An unsigned Windows installer works but triggers a SmartScreen warning. `bun run build:windows` (the same as `build:installer -- --sign`) makes the signed installer in `release/publish/windows/<version>/`; it needs `SIGN_CERT_SHA1`, `signtool` and Certum SimplySign Desktop signed in, so it runs only on the maintainer's Windows computer.
 
-**The version and its changelog go together.** The PR that bumps the app's version (`package.json`, `src-tauri/Cargo.toml`, the `koonapin` package in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`) also adds `site/content/changelog/<version>.md`: a `date` in the front matter and a few lines in plain English about what changed for people, the way the earlier files read. `bun run version:bump <x.y.z>` writes the number to the four places and starts the changelog file; `bun run release:tag` refuses to tag without it, the release's notes are taken from it, the site's changelog page lists it, and the update dialog shows it as «What's new».
+**The version and its changelog go together.** The PR that bumps the app's version (`package.json`, `src-tauri/Cargo.toml`, the `koonapin` package in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`) also adds `changelog/<version>.md`: a `date` in the front matter and a few lines in plain English about what changed for people, the way the earlier files read. `bun run version:bump <x.y.z>` writes the number to the four places and starts the changelog file; `bun run release:tag` refuses to tag without it, the release's notes are taken from it, `release.json` carries it to the site's changelog page, and the update dialog shows it as «What's new».
 
 ## Releases
 
-A release is the tag `v<version>` on a commit of `main`, a GitHub Release built from it, and the site serving it. `bun run release` shows where the release of this checkout's version stands and the next step; it changes nothing.
+A release is the tag `v<version>` on a commit of `main`, a GitHub Release built from it, and its data deployed to koona.app. `bun run release` shows where the release of this checkout's version stands and the next step; it changes nothing.
 
-1. `bun run version:bump 0.12.0` in a branch, write `site/content/changelog/0.12.0.md`, open the pull request and merge it.
+1. `bun run version:bump 0.12.0` in a branch, write `changelog/0.12.0.md`, open the pull request and merge it.
 2. `bun run release:tag` on `main` (equal to `origin/main`, nothing uncommitted): checks the version and the changelog, then creates and pushes `v0.12.0`. `-- --dry-run` only checks.
 3. The tag starts `.github/workflows/release.yml`. It checks the tag again, runs the whole Linux pipeline with `release: true` (the packages signed for the updater), builds macOS for Apple Silicon (`build:macos`), and puts it all in a **draft** GitHub Release whose notes come from the changelog file.
 4. On the Windows computer, `git switch --detach v0.12.0`, then `bun run release:windows`: builds and signs the installer, uploads it to the draft as `koonapin_<version>_x64-setup.exe` with `SHA256SUMS-windows.txt`, and starts `release.yml`'s finalize from the tag (`gh workflow run release.yml --ref v0.12.0 -f tag=v0.12.0`: the environment holding the update key lets in tags only). `-- --no-build` uploads an installer already built from the tag's commit; `-- --no-finalize` leaves finalize for later.
-5. Finalize signs the installer for the updater, writes `latest.json` (`build:latest`) and the AUR's `PKGBUILD` and `.SRCINFO` (`build:aur`), attaches them and publishes the release. Run by hand with `only: linux`, it publishes without a new Windows installer.
-6. `bun run release:site -- -Server user@host` downloads the published packages, their `.sig` and `latest.json` into `release/publish/updates/<version>/` and deploys the site with `scripts/deploy-site.ps1`: updates come from the site, not from GitHub (Р-60). The AUR files are pushed to `aur.archlinux.org/koonapin-bin.git` by hand.
+5. Finalize signs the installer for the updater, writes `latest.json` (`build:latest`), the AUR's `PKGBUILD` and `.SRCINFO` (`build:aur`) and `release.json` signed with the update key (`scripts/build-release-data.mjs`), attaches them and publishes the release. Run by hand with `only: linux`, it publishes without a new Windows installer.
+6. Its job «Deploy to koona.app» streams the release data (`release.json`, `latest.json`, the packages with their `.sig`, `SHA256SUMS.txt`) over SSH to the server's `koona-deploy` (`ssh deploy@<host> app v0.12.0`), which checks every signature against the update key's public half before it serves them: updates come from koona.app, not from GitHub (Р-60). Without `DEPLOY_HOST` it is skipped with a warning; a failed deploy reruns alone (`gh run rerun <run> --failed`). The AUR files are pushed to `aur.archlinux.org/koonapin-bin.git` by hand.
+
+The site itself (the pages of koona.app and koona.app/pin, its Caddy configuration and the server's `koona-deploy`) lives in its own repository, `andmetoo/koona-site`, and is released from there. Its release-dependent pages (the landing's download block, `/pin/downloads/`, `/pin/changelog/`) read `release.json` at request time, so a new app release needs no site build. The addresses this repository relies on (`ORIGIN`, `BASE`, the site's languages) are in `scripts/lib/site.mjs`.
 
 **Why the Windows installer is built on the maintainer's computer.** Tauri signs while it bundles: first `koonapin.exe`, `koonapin-host.exe`, `koonapin-mcp.exe` and the uninstaller, then it packs them into the NSIS installer. Signing a finished `setup.exe` afterwards would leave the programs inside it unsigned, and NSIS cannot be repacked without rebuilding. Certum signs only through SimplySign on that computer, so the release installer is built there, and the Windows job of `ci.yml` runs only the Rust tests.
 
-The GitHub release has, for version `<v>`: `koonapin_<v>_amd64.deb`, `koonapin-<v>-1.x86_64.rpm`, `koonapin-<v>-x86_64.AppImage` with their `.sig`, `koonapin-<v>-macos-arm64.zip` and `.dmg`, `koonapin_<v>_x64-setup.exe` with its `.sig`, `SHA256SUMS-linux.txt`, `SHA256SUMS-macos.txt`, `SHA256SUMS-windows.txt`, `SHA256SUMS.txt` and `latest.json` of the updates, `koonapin-bin.PKGBUILD` and `koonapin-bin.SRCINFO`.
+The GitHub release has, for version `<v>`: `koonapin_<v>_amd64.deb`, `koonapin-<v>-1.x86_64.rpm`, `koonapin-<v>-x86_64.AppImage` with their `.sig`, `koonapin-<v>-macos-arm64.zip` and `.dmg`, `koonapin_<v>_x64-setup.exe` with its `.sig`, `SHA256SUMS-linux.txt`, `SHA256SUMS-macos.txt`, `SHA256SUMS-windows.txt`, `SHA256SUMS.txt`, `latest.json` and `release.json` with its `.sig` of the updates, `koonapin-bin.PKGBUILD` and `koonapin-bin.SRCINFO`.
 
 ### Repository secrets
 

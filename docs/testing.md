@@ -1,6 +1,6 @@
 # Testing
 
-`.github/workflows/ci.yml` runs on every pull request, every push to `main` and by hand. A pull request runs what its files can break: only `docs/`, `site/` and Markdown, nothing; scripts, tests and the Linux pipeline, the Linux jobs; the app, its dependencies, toolchains or `ci.yml` itself, everything. Pushes to `main` run everything. `main` requires two checks: `CLA` and `CI`, a summary job that is green when no job that ran failed. The package and distribution jobs (.deb, .rpm, Ubuntu, Arch, WebKitGTK, the packages artifact) show their result but do not count for `CI`, while `release.yml` publishes nothing unless all of them pass. Run the checks locally before you push. It has three parts:
+`.github/workflows/ci.yml` runs on every pull request, every push to `main` and by hand. A pull request runs what its files can break: only `docs/`, `changelog/` and Markdown, nothing; scripts, tests and the Linux pipeline, the Linux jobs; the app, its dependencies, toolchains or `ci.yml` itself, everything. Pushes to `main` run everything. `main` requires two checks: `CLA` and `CI`, a summary job that is green when no job that ran failed. The package and distribution jobs (.deb, .rpm, Ubuntu, Arch, WebKitGTK, the packages artifact) show their result but do not count for `CI`, while `release.yml` publishes nothing unless all of them pass. Run the checks locally before you push. It has three parts:
 
 - **Linux**, the main platform: the reusable workflow `.github/workflows/linux.yml` runs every main test (Rust tests, bindings, build, Vitest, extension lint, Playwright UI without `@visual`) and checks the packages on each distribution. See [Linux](#linux-compile-once-test-everywhere).
 - **Windows** (`windows-2025`): the Rust tests, for what differs on Windows (paths, the native host's registry, the single-instance pipe). The installer is not built in CI: the signed one is built on the maintainer's computer (`bun run release:windows`).
@@ -172,11 +172,7 @@ The second script opens each library with the built app and prints whether it op
 
 ## Site
 
-```powershell
-bun run site:check
-```
-
-Builds the site and checks every page in every language at several widths and both themes: no horizontal scroll or truncated labels, no requests to other domains, no console errors or broken images, working internal links, the feedback form against a fake endpoint.
+The site lives in `andmetoo/koona-site` and is checked there (every page in every language, with and without release data). Here, `bun scripts/build-release-data.mjs --no-sign --updates <folder>` checks a release folder and writes its `release.json` without the update key.
 
 ## Known flaky or limited areas
 

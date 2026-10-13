@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
-// The system fonts for Chinese, Japanese and Korean after Inter (NP-090) are written in four
-// places that share no code: the app, the extension's pages, its message on a web page and the
-// site. They must name the same fonts in the same order.
+// The system fonts for Chinese, Japanese and Korean after Inter (NP-090) are written in three
+// places that share no code: the app, the extension's pages and its message on a web page. They
+// must name the same fonts in the same order. The site (andmetoo/koona-site) keeps its own copy.
 const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
 /** The font names of a family list, without Inter and the generic families. */
 const names = (list: string) =>
@@ -29,9 +29,6 @@ describe("CJK font stacks", () => {
   });
   it("are the same in the extension's pages", () => {
     expect(stacks(read("extension/src/languages.css"), "font-family")).toEqual(app);
-  });
-  it("are the same on the site", () => {
-    expect(stacks(read("site/src/site.css"), "--font")).toEqual(app);
   });
   it("are the same in the extension's message on a page", () => {
     const source = read("extension/src/feedback.js");

@@ -12,7 +12,11 @@ name: Release
 # The update key (TAURI_SIGNING_PRIVATE_KEY and its password) is a secret of the environment «release»,
 # which opens to tags v* only: draft and finalize declare it, nothing else in the repository can read it.
 #     finalize the draft's files signed for the updater where they are not yet, latest.json, the AUR's
-#              PKGBUILD and .SRCINFO; the release published. The site takes it: bun run release:site.
+#              PKGBUILD and .SRCINFO, release.json signed (build-release-data.mjs); the release published
+#     deploy   the release data to koona.app over SSH (unit «app» of koona-deploy, andmetoo/koona-site):
+#              the server checks every signature against the update key's public half before it serves
+#              anything, and the site's pages read release.json at request time. Skipped with a warning
+#              while DEPLOY_HOST is not set. A failed deploy is rerun alone: gh run rerun <run> --failed.
 # The Windows installer is not built here: Tauri signs the exes inside it with Certum while it builds,
 # and Certum signs only on the owner's computer (SimplySign).
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('Finalize {0}', inputs.tag) || format('Release {0}', github.ref_name) }}
@@ -295,6 +299,12 @@ jobs:
           if [ "$ONLY" = linux ]; then bun run build:latest -- --only linux; else bun run build:latest; fi
       - name: PKGBUILD and .SRCINFO of the AUR
         run: bun run build:aur
+      # What koona.app/pin shows of the release, signed with the update key: koona-deploy refuses it unsigned.
+      - name: release.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun scripts/build-release-data.mjs --version "${TAG#v}"
       # Asset names without a leading dot or spaces, which GitHub would change.
       - name: Into the release, published
         run: |
@@ -302,7 +312,7 @@ jobs:
           version="${TAG#v}"
           updates="release/publish/updates/$version"
           mkdir -p upload
-          cp "$updates/latest.json" "$updates/SHA256SUMS.txt" upload/
+          cp "$updates/latest.json" "$updates/SHA256SUMS.txt" "$updates/release.json" "$updates/release.json.sig" upload/
           cp "release/publish/aur/$version/PKGBUILD" upload/koonapin-bin.PKGBUILD
           cp "release/publish/aur/$version/.SRCINFO" upload/koonapin-bin.SRCINFO
           if [ "$ONLY" != linux ]; then cp "$updates/koonapin_${version}_x64-setup.exe.sig" upload/; fi
@@ -312,5 +322,71 @@ jobs:
           {
             echo "Published $TAG: $(gh release view "$TAG" --json url --jq .url)"
             echo
-            echo "Next: bun run release:site -- -Server user@host; the AUR files to aur.archlinux.org/koonapin-bin.git by hand."
+            echo "Next: the deploy job serves it on koona.app; the AUR files to aur.archlinux.org/koonapin-bin.git by hand."
           } >> "$GITHUB_STEP_SUMMARY"
+      # The bundle of the unit «app», flat: release.json and latest.json with their signatures' files, every
+      # package latest.json names with its .sig, SHA256SUMS.txt. An artifact, so that the deploy job can be
+      # rerun alone once the release is published (finalize itself takes drafts only).
+      - name: The release data for koona.app
+        run: |
+          set -euo pipefail
+          updates="release/publish/updates/${TAG#v}"
+          files=(release.json release.json.sig latest.json SHA256SUMS.txt)
+          while IFS= read -r name; do files+=("$name" "$name.sig"); done \
+            < <(jq -r '[.platforms[].url | sub(".*/"; "")] | unique[]' "$updates/latest.json")
+          mkdir -p deploy
+          for f in "${files[@]}"; do
+            test -f "$updates/$f" || { echo "::error::$f is not in $updates"; exit 1; }
+            cp "$updates/$f" deploy/
+          done
+          ls -l deploy
+      - uses: actions/upload-artifact@v7
+        with:
+          name: koonapin-release-data
+          path: deploy/
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to koona.app
+    needs: finalize
+    if: github.event_name == 'workflow_dispatch'
+    # DEPLOY_SSH_KEY, DEPLOY_HOST and DEPLOY_KNOWN_HOSTS are secrets of the environment «release» (tags v*
+    # only). The key opens nothing but koona-deploy on the server (command= in its authorized_keys).
+    environment: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: koonapin-release-data
+          path: deploy
+      # `ssh deploy@<host> app <tag> < bundle.tar`: the server verifies the bundle (signatures against its
+      # pinned update.pub, versions, addresses, hashes), then switches its data atomically; no reload.
+      - name: The release data to the server
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "::warning::DEPLOY_HOST is not in the environment «release»: koona.app is not set up for deploys yet, $TAG is published but not served (andmetoo/koona-site server/README.md)."
+            echo "Not deployed: DEPLOY_HOST is not set." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "::error::DEPLOY_HOST is set, DEPLOY_SSH_KEY or DEPLOY_KNOWN_HOSTS is not (environment «release»)"
+            exit 1
+          fi
+          key="$RUNNER_TEMP/deploy_key"
+          known="$RUNNER_TEMP/known_hosts"
+          install -m 600 /dev/null "$key"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$known"
+          cd deploy
+          tar -cf - -- * | ssh -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known" "deploy@$DEPLOY_HOST" app "$TAG"
+          rm -f "$key"
+          echo "Deployed $TAG to koona.app: https://koona.app/pin/updates/latest.json" >> "$GITHUB_STEP_SUMMARY"

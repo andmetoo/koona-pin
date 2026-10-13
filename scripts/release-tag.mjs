@@ -4,7 +4,7 @@
 //   bun run release:tag -- --dry-run         the checks and the tag's message, nothing created
 //   bun scripts/release-tag.mjs --verify v0.12.0   release.yml's «verify»: the tag fits the commit it names
 // Before the tag: the branch is main, equal to origin/main, nothing uncommitted; the version is the same in
-// its four places (scripts/version.mjs); site/content/changelog/<version>.md passes entry(); the tag is
+// its four places (scripts/version.mjs); changelog/<version>.md passes entry(); the tag is
 // not there yet, here or on origin. The tag's message is the changelog's list (lib/release-notes.mjs).
 import { spawnSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";

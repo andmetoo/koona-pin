@@ -4,7 +4,7 @@ Koona Pin is open core. Copyright © 2026 Radik Ilin. This file says which licen
 
 ## Community code: GNU GPL 3.0 only
 
-Unless an applicable notice says otherwise, the source code here — the app (`src`, `src-tauri`), the browser extension (`extension`), the website (`site`), the scripts, tests and documentation — is licensed under the [GNU General Public License, version 3 only](LICENSE) (`GPL-3.0-only`). Later versions of the GPL are not automatically included.
+Unless an applicable notice says otherwise, the source code here — the app (`src`, `src-tauri`), the browser extension (`extension`), the scripts, tests and documentation — is licensed under the [GNU General Public License, version 3 only](LICENSE) (`GPL-3.0-only`). Later versions of the GPL are not automatically included.
 
 You may use, study, modify, share and sell the community code. When you distribute a work covered by the GPL, you must comply with its requirements, including licensing the covered work under the GPL, preserving notices and providing the corresponding source as the GPL requires. Independent works merely distributed alongside it do not automatically become GPL-licensed. Running a modified program privately, or letting people use it over a network without conveying a copy, does not by itself require you to publish its source. The license text controls; this is a summary.
 
@@ -28,7 +28,7 @@ The GPL grants rights to the covered code, not permission to present a fork as a
 
 - `design/` — brand sources, mascot and design files;
 - `src-tauri/icons/`, `extension/src/icons/`, `scripts/platform-probe/mobile-app/src-tauri/icons/`, `app-icon.svg`;
-- `site/src/brand/`, `site/src/shots/`, `extension/store/` (images);
+- `docs/shots/`, `extension/store/` (images);
 - any drawing of the mascot, including one written as code.
 
 A publicly distributed modified product must use its own name and artwork. Local development, contribution forks, truthful references and redistribution of unmodified official community releases have the permissions described in [TRADEMARKS.md](TRADEMARKS.md). Keep legal notices and required attribution even when rebranding.
@@ -37,7 +37,7 @@ A publicly distributed modified product must use its own name and artwork. Local
 
 Some files are someone else's work under their own terms and are not relicensed here:
 
-- `site/shots/previews/` — photos from Unsplash under the [Unsplash License](https://unsplash.com/license), authors in `CREDITS.md` there;
+- `scripts/shots/previews/` — photos from Unsplash under the [Unsplash License](https://unsplash.com/license), authors in `CREDITS.md` there;
 - dependencies installed by Bun (packages from npm) and Cargo — under their own licenses and accompanying notices. The website's [licenses page](https://koona.app/pin/licenses) credits selected components and assets; it is not a complete dependency inventory. Distributors must preserve the notices and meet the source and other requirements of the components they ship.
 
 ## Contributions

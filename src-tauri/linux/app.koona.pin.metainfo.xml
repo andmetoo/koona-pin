@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- What software centres show for the packages (NP-055). scripts/build-linux-packages.mjs fills in the
-     release; the texts are the site's (site/src/locales), the screenshots are served by koona.app/pin. -->
+     release; the texts are the site's (andmetoo/koona-site), the screenshots are served by koona.app/pin. -->
 <component type="desktop-application">
   <id>app.koona.pin</id>
   <metadata_license>CC0-1.0</metadata_license>
