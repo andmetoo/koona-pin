@@ -197,7 +197,9 @@ jobs:
           echo "Draft $TAG: $(gh release view "$TAG" --json url --jq .url). Next, on Windows: bun run release:windows" >> "$GITHUB_STEP_SUMMARY"
 
   finalize:
-    name: Finalize ${{ inputs.tag }}
+    # The run's title names the tag (run-name); a tag push skips this job, and an expression of inputs
+    # would show unexpanded there.
+    name: Finalize
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
