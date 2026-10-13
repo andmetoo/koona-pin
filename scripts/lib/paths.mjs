@@ -17,6 +17,7 @@
 //     chrome-edge/<version>/  extension with the store id            bun run extension:build (CHROME_STORE_PUBLIC_KEY)
 //   release/dev/       this machine
 //     chrome/, edge/, firefox/  unpacked, development id («Load unpacked», tests)   bun run extension:build
+//     safari/              the web part of the Safari app extension (NP-119)          bun run extension:build
 //
 // Tools keep their own working folders and nothing is taken from them by hand: src-tauri/target
 // (Cargo and Tauri: debug and release EXEs, NSIS intermediates) and dist/ (Vite, the app's interface).

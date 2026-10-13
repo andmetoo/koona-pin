@@ -227,10 +227,12 @@ async function searchShortcut() {
   const commands = (await ext.commands?.getAll?.().catch(() => [])) ?? [];
   return commands.find((command) => command.name === SEARCH_COMMAND)?.shortcut ?? "";
 }
-// Chrome and Edge call it contextMenus; Firefox, menus.
+// Chrome and Edge call it contextMenus; Firefox and Safari, menus.
 const menus = ext.menus ?? ext.contextMenus;
+// Only Chrome and Edge put «Options» on the button themselves (NP-119).
+const ownSettings = ["firefox", "safari"].includes(browserName());
 async function refreshMenu() {
-  await registerMenu(menus, { settings: browserName() === "firefox", shortcut: await searchShortcut() }).catch(console.error);
+  await registerMenu(menus, { settings: ownSettings, shortcut: await searchShortcut() }).catch(console.error);
 }
 ext.action.onClicked.addListener(captureTab);
 ext.commands?.onCommand.addListener((name) => {
