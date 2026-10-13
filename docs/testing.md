@@ -96,7 +96,7 @@ Each builds the extension, loads the unpacked build into a fresh profile and tal
 
 ## Linux: compile once, test everywhere
 
-`.github/workflows/linux.yml` is called by `ci.yml` and by `release.yml` (with `release: true`), and starts by hand through **Actions → Linux → Run workflow**. The binaries are compiled once, on Void Linux with glibc, and every package job packs and checks those very binaries on its own distribution.
+`.github/workflows/linux.yml` is called by `ci.yml` and by `release.yml` (with `release: true`, which only compiles and packs: the release requires the commit's CI on `main` to be green instead of testing again), and starts by hand through **Actions → Linux → Run workflow**. The binaries are compiled once, on Void Linux with glibc, and every package job packs and checks those very binaries on its own distribution.
 
 | Job | Image | What it checks |
 | --- | --- | --- |

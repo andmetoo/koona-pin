@@ -3,7 +3,8 @@ name: Release
 # A release of v<version> (scripts/release.mjs shows where one stands):
 #   push of the tag v<version> (bun run release:tag)
 #     verify   the tag names the version of its four places, the changelog has it, the commit is on main
-#     linux    linux.yml with release: true — every package check counts
+#     verify   also waits for the commit's CI on main («CI» of ci.yml) and requires it green
+#     linux    linux.yml with release: true — compile and pack only; the tests ran in that CI
 #     macos    bun run build:macos: the .app in a ZIP and a .dmg (Apple signing only with its secrets)
 #     draft    the Linux packages signed for the updater, a draft GitHub Release with the changelog's notes
 #              and these files
@@ -51,10 +52,14 @@ env:
 
 jobs:
   verify:
-    name: Tag, version, changelog
+    name: Tag, version, changelog, CI
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # The CI of main may still be running when the tag comes right after the merge.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: read
     steps:
       # Full history: verify checks that the tag's commit is on origin/main.
       - uses: actions/checkout@v7
@@ -64,6 +69,27 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun scripts/release-tag.mjs --verify "$TAG"
+      # The release does not run the tests again (linux.yml with release: true only packs): the tag's
+      # commit must have passed the full CI of main, the summary check «CI» of ci.yml. It waits for a CI
+      # still running, and refuses a commit whose CI failed or never ran.
+      - name: The commit passed CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse "$TAG^{commit}")
+          for _ in $(seq 110); do
+            state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?check_name=CI&filter=latest" \
+              --jq '[.check_runs[] | select(.app.slug == "github-actions")] | max_by(.started_at) | if . == null then "" else "\(.status) \(.conclusion)" end' 2> /dev/null || true)
+            case "$state" in
+              "completed success") echo "CI of ${sha:0:7}: success"; exit 0 ;;
+              completed*) echo "::error::CI of ${sha:0:7} is «${state#completed }»: a release is made of a commit that passed CI"; exit 1 ;;
+            esac
+            echo "CI of ${sha:0:7}: ${state:-not started yet}; waiting"
+            sleep 30
+          done
+          echo "::error::No finished CI for ${sha:0:7} after 55 minutes: rerun CI on main, then this run"
+          exit 1
 
   linux:
     name: Linux
