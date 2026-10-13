@@ -4,9 +4,9 @@ A desktop bookmark library. Save the page you are on from Chrome, Edge or Firefo
 
 Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
-![Koona Pin with eight bookmarks in a grid: previews, sites and titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox](site/src/shots/app-en-light-grid-1280.webp)
+![Koona Pin with eight bookmarks in a grid: previews, sites and titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox](docs/shots/app-en-light-grid-1280.webp)
 
-![The same library in the dark theme as a list grouped by date, with tags, collections and dates](site/src/shots/app-en-dark-list-1280.webp)
+![The same library in the dark theme as a list grouped by date, with tags, collections and dates](docs/shots/app-en-dark-list-1280.webp)
 
 ## What it does
 
@@ -89,12 +89,11 @@ bun run test:ui          # Playwright tests of the interface
 bun run test:native      # Playwright tests of the real app window (Windows, WebView2)
 bun run test:extension   # the extension end to end against the app
 bun run extension:lint   # web-ext lint of the Firefox build
-bun run site:check       # build and check the website
 ```
 
 Before the Playwright tests run `bunx --bun playwright install chromium` once. Native and extension tests use their own temporary libraries and browser profiles, not yours; close a running Koona Pin first. The full list of checks and their requirements is in [docs/testing.md](docs/testing.md).
 
-Build output that leaves the repository (installers, packages, extension builds, the site) goes to `release/`, which Git ignores. `bun run clean` removes what tests leave behind.
+Build output that leaves the repository (installers, packages, extension builds, release data) goes to `release/`, which Git ignores. `bun run clean` removes what tests leave behind.
 
 ## Repository layout
 
@@ -103,9 +102,9 @@ Build output that leaves the repository (installers, packages, extension builds,
 | [`src/`](src) | The app interface: React 19, TypeScript, Tailwind CSS, interface strings in `src/locales` |
 | [`src-tauri/`](src-tauri) | The Rust core: SQLite library, capture from the browser, import and export, backups, updates |
 | [`extension/`](extension) | The browser extension for Chrome, Edge and Firefox (`extension/src`) and store assets |
-| [`site/`](site) | The website [koona.app/pin](https://koona.app/pin/), built with Astro; changelog in `site/content/changelog` |
+| [`changelog/`](changelog) | What changed in each version: the release notes, the update dialog and the site's changelog page. The website [koona.app/pin](https://koona.app/pin/) itself lives in its own repository |
 | [`supabase/`](supabase) | The backend that receives feedback sent from the app and the website |
-| [`scripts/`](scripts) | Build, packaging, test and site scripts run by `bun run` |
+| [`scripts/`](scripts) | Build, packaging, release and test scripts run by `bun run` |
 | [`tests/`](tests) | Playwright tests of the interface and the native app, WebKitGTK tests for Linux, and fixtures |
 | [`docs/`](docs) | Documentation: architecture, building, testing, the extension, translating, design and decisions |
 

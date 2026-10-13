@@ -16,7 +16,7 @@ AI assistant ──────MCP over stdio─────▶ koonapin-mcp ─
 | Native messaging host | `src-tauri/src/bin/koonapin-host.rs` | A small separate binary without Tauri, installed next to the app. The browser starts it for each message; it forwards the message to the running app and returns the answer. It shares only `pipe_name.rs` with the app, and `channel_client.rs` with the MCP server. |
 | MCP server | `src-tauri/src/bin/koonapin-mcp.rs` | The server an AI assistant (Claude Desktop, Claude Code, Cursor and others) starts and speaks MCP with over stdio, built on the official Rust SDK `rmcp`. Like the host it does not link the app: it passes each tool call over the same channel and starts a closed app in the tray. See [AI assistants](#ai-assistants-mcp). |
 | Browser extension | `extension/src` | One Manifest V3 source for Chrome, Edge and Firefox. Saves the current tab, keeps a queue, offers a quick search popup. See [extension.md](extension.md). |
-| Site | `site/` | The static site at koona.app/pin, built with Astro. It also serves the update feed (see [Updater](#updater)). |
+| Release data | `changelog/`, `scripts/build-latest.mjs`, `scripts/build-release-data.mjs` | The changelog, the update feed and `release.json`, deployed to koona.app by the release workflow. The site itself lives in `andmetoo/koona-site`; `scripts/lib/site.mjs` holds the addresses the app relies on. |
 
 The app is single-instance (`tauri-plugin-single-instance`). The window is created hidden and shown at start; a start with `--autostart` (sign-in, or the host starting a closed app) stays in the tray.
 
@@ -116,7 +116,7 @@ An AI assistant on this computer can search the library and, if the person allow
 - The feed is `https://koona.app/pin/updates/latest.json` (`src-tauri/tauri.conf.json`). The app checks 10 s after start and then once a day, through the system proxy. Development builds check only on request.
 - Packages are verified with the minisign public key in `tauri.conf.json`, with `requireSignedVersion`: a signature is bound to its version, so an old signed package cannot be offered under a new number.
 - Windows runs the NSIS installer in passive mode and exits. Linux installs the `.deb` or `.rpm` through `pkexec` from a folder only this user can enter, then restarts; an AppImage replaces its own file. A copy installed from the AUR does not check for updates (`channel.rs`).
-- `bun run build:latest` signs packages and writes `latest.json`; `bun run site:build` publishes the newest version with the site.
+- `bun run build:latest` signs packages and writes `latest.json`; release.yml's finalize adds `release.json` and deploys them to koona.app, whose server checks every signature against the same public key.
 
 ## Security boundaries
 

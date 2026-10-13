@@ -8,7 +8,7 @@ Koona Pin's interface, its browser extension and the landing page of its site ar
 | --- | --- | --- |
 | App | `src/locales/<code>.json` | i18next catalogs; `en.json` is the source. Set up in `src/i18n/index.ts`. |
 | Extension | `extension/src/_locales/<code>/messages.json` | Chrome's codes (`pt_BR`, `zh_CN`); no separate Serbian Latin. Follows the browser's language. |
-| Site | `site/src/locales/<code>.mjs` | Only the landing pages are translated; downloads, changelog and other pages are English. |
+| Site | `pin/src/locales/<code>.mjs` in the site's repository (`andmetoo/koona-site`) | Only the landing pages are translated; downloads, changelog and other pages are English. |
 | Windows installer | `src-tauri/nsis/<Language>.nsh` | Listed in `src-tauri/tauri.conf.json`. |
 
 Rust holds no user-facing text. Errors reach the interface as codes and are worded in `src/locales` under `errors.code.*`, `errors.detail.*` and `errors.reason.*`. The tray menu gets its labels from the interface.
@@ -33,11 +33,11 @@ Keep placeholders such as `{{name}}` and `{{count}}` exactly as in English.
 1. Create `src/locales/<code>.json` with all keys of `en.json` and `language.name`, the language's name in itself. Use a BCP 47 code, with a script or region only when it distinguishes variants (`sr-Latn`, `pt-BR`).
 2. Provide every plural form the language needs (see above).
 3. Add `extension/src/_locales/<Chrome code>/messages.json` and the code to the list in `extension/src/locales.test.js`. The extension name must fit 75 characters and the description 132 (store limits; tested).
-4. Fonts: Inter covers Latin, Latin Extended and Cyrillic. For other alphabets that Inter has, add the subset in `scripts/build-extension.mjs`, `options.css` and `search.css`. For scripts Inter lacks (Chinese, Japanese, Korean), the app falls back to the system font chosen by `:lang()` in `src/styles/app.css`; `src/styles/fonts.test.ts` keeps the app, extension and site font lists equal.
-5. Site: add `site/src/locales/<code>.mjs` and a line for it in both lists in `site/src/locales/index.mjs`. `bun run site:check` compares its keys with English.
+4. Fonts: Inter covers Latin, Latin Extended and Cyrillic. For other alphabets that Inter has, add the subset in `scripts/build-extension.mjs`, `options.css` and `search.css`. For scripts Inter lacks (Chinese, Japanese, Korean), the app falls back to the system font chosen by `:lang()` in `src/styles/app.css`; `src/styles/fonts.test.ts` keeps the app and extension font lists equal; the site keeps its own copy.
+5. Site: the landing page is translated in the site's repository (`andmetoo/koona-site`); once it has the language, add it to `languages` in `scripts/lib/site.mjs`, which the app's links to the site are tested against.
 6. Installer: an NSIS language file in `src-tauri/nsis` and entries in `tauri.conf.json`.
 7. Add the terms to the glossary below.
-8. Check: `bun run test`, `bun run test:ui -- --grep @languages` (no truncated labels at 800×550 and 1600×800, sidebar rows fit), `bun run extension:lint`, `bun run site:check`.
+8. Check: `bun run test`, `bun run test:ui -- --grep @languages` (no truncated labels at 800×550 and 1600×800, sidebar rows fit), `bun run extension:lint`.
 
 ## Length
 

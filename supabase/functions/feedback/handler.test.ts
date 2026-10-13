@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handle, MAX_BODY, notification, parse, senderAddress, sitePage, TRAP, type Deps, type Row } from "./handler.ts";
-import { languages } from "../../../site/src/content.mjs";
+import { languages } from "../../../scripts/lib/site.mjs";
 
 const URL = "https://project.supabase.co/functions/v1/feedback";
 

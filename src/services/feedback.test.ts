@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
-import { languages } from "../../site/src/content.mjs";
+import { languages } from "../../scripts/lib/site.mjs";
 import { licensesUrl, privacyUrl } from "./feedback";
 
 const appLanguages = readdirSync(new URL("../locales/", import.meta.url)).map((f) => f.replace(/\.json$/, ""));

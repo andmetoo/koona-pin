@@ -70,7 +70,7 @@ Bun installs dependencies and runs every script, Vite, Vitest, Playwright and th
 
 ## Updates served from the project's site
 
-The updater reads `latest.json` from koona.app and downloads packages from the same site. The update feed must be reachable without signing in anywhere, and keeping it with the site keeps one place to publish. Packages are signed with a separate update key and the signature is bound to the version. The updater is driven from Rust only; the interface has no permission to download or install. Updates install only after the person agrees. A rollback is not offered because an older build cannot open a newer schema; a bad release is fixed by the next one.
+The updater reads `latest.json` from koona.app and downloads packages from the same site. The update feed must be reachable without signing in anywhere, and keeping it with the site keeps one place to publish. The release workflow deploys this release data (`latest.json`, the packages, `release.json`) itself, apart from the site's pages: the server accepts only files signed with the update key, so only a tag's run can change what the updater offers. Packages are signed with a separate update key and the signature is bound to the version. The updater is driven from Rust only; the interface has no permission to download or install. Updates install only after the person agrees. A rollback is not offered because an older build cannot open a newer schema; a bad release is fixed by the next one.
 
 ## English as source, locales as plain files
 
@@ -86,4 +86,4 @@ Linux binaries are compiled once, on Void Linux with glibc 2.41, the same floor 
 
 ## A static site with no scripts
 
-The site is built with Astro into static files. The built pages carry no JavaScript of their own; the build fails if a `<script>` appears. It serves the update feed and the Firefox update manifest alongside the pages.
+The site (its own repository, `andmetoo/koona-site`) is built with Astro into static files. The built pages carry no JavaScript of their own. The few pages that show the current release (downloads, changelog, the landing's download block) are filled at request time by the web server's templates from the deployed `release.json`, so a release needs no site build and the browser runs nothing. The update feed and the Firefox update manifest are served alongside the pages.

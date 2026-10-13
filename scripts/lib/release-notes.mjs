@@ -1,10 +1,10 @@
-// The notes of a release, from site/content/changelog/<version>.md through entry(): one source for the
+// The notes of a release, from changelog/<version>.md through entry(): one source for the
 // tag's message (release-tag.mjs), the GitHub Release (release.yml, release-windows.mjs) and the update
 // dialog (`notes` of latest.json, build-latest.mjs), so the three never say different things.
 //   bun scripts/lib/release-notes.mjs <version>          markdown, for gh release --notes-file
 //   bun scripts/lib/release-notes.mjs <version> --text   plain text, for git tag -F
-import { entry } from "../../site/src/changelog.mjs";
-import { SITE } from "../../site/src/content.mjs";
+import { entry } from "./changelog.mjs";
+import { SITE } from "./site.mjs";
 
 /** The changes as «- » lines: markdown, and what latest.json carries as `notes`. */
 export const changeList = (version) =>

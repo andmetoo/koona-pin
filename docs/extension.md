@@ -18,7 +18,7 @@ Chromium on Linux works like Chrome. Browsers in a sandbox that blocks native me
 - **Edge:** [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/ocdkndgdeagephdnlmofffbapdifhkho).
 - **Firefox:** the signed add-on on the [downloads page](https://koona.app/pin/downloads/#extension), outside the public add-on listing.
 
-The stores update their copies themselves; Firefox checks `https://koona.app/pin/firefox/updates.json` about once a day.
+The stores update their copies themselves; Firefox checks `https://koona.app/pin/firefox/updates.json` about once a day (see [Releasing](#releasing)).
 
 The app's "Connect a browser" dialog opens these pages: `installSources` in `src/services/capture.ts` gives each browser its page, the button's name, the install step and the update hint. A browser without an entry falls back to the developer-mode steps. The site builds its links from `chromeStoreId` and `edgeStoreId` in `scripts/build-extension.mjs`, and a test in `src-tauri/src/native_host.rs` checks those ids and the app's URLs against `STORE_EXTENSION_IDS`.
 
@@ -87,9 +87,34 @@ So the unpacked development extension talks to a development build of the app, n
 ## Store builds
 
 - **Chrome Web Store and Edge Add-ons:** upload the ZIPs from `release/publish/chrome/<version>/` and `release/publish/edge/<version>/`. Listing texts, permission justifications, images and the privacy text are in `extension/store`. With `CHROME_STORE_PUBLIC_KEY` set, `extension:build` also writes `release/test/chrome-edge/<version>/koonapin-chrome-store-id.zip`, the same extension with the store's ID, for testing against a release build before the store publishes it. It cannot be uploaded (stores refuse a manifest with `key`).
-- **Firefox:** distributed as a signed XPI outside the public add-on listing, with `update_url` pointing to `https://koona.app/pin/firefox/updates.json`, published with the site. Signing is done by the maintainer.
+- **Firefox:** distributed as a signed XPI outside the public add-on listing, with `update_url` pointing to `https://koona.app/pin/firefox/updates.json`. AMO signs it, from CI (below).
 
 Any change under `extension/src` must raise `VERSION` in `extension/src/version.js`: a store or signing service accepts each version number once.
+
+## Releasing
+
+A release is the tag `ext-v<version>`; `.github/workflows/extension.yml` does the rest. Nothing is signed or deployed from a working copy.
+
+1. Raise `VERSION` in `extension/src/version.js` in a pull request, merge it.
+2. On an up-to-date `main`: `bun run extension:tag` (`-- --dry-run` checks only). It checks that the branch is `main` and equal to `origin/main`, nothing is uncommitted, the tag is new and above every `ext-v*` tag, then pushes `ext-v<version>`.
+3. The workflow, in the environment «release»:
+   - checks that the tag names `VERSION` and its commit is on `main` (`scripts/extension-tag.mjs --verify`);
+   - downloads `updates.json` and every XPI it lists from the highest published `ext-v*` release. With no such release it stops: old versions are never dropped silently (a Firefox on a version missing from `updates.json` never hears of an update). `workflow_dispatch` with `first: true` from the tag starts empty;
+   - signs on AMO (`bun run extension:sign:firefox -- --dir firefox`, unlisted, with `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET`); the script refuses a folder whose XPIs do not match `updates.json`, a version signed already and a version below the newest, before AMO is asked;
+   - writes `extension.json` (`scripts/build-extension-data.mjs`: the newest XPI's name, size and SHA-256; the site's pages read it) after the same checks the server makes;
+   - signs `updates.json` and `extension.json` with the app's update key (`tauri signer sign`); the XPIs are Mozilla's signed packages, tied to `updates.json` by their hashes;
+   - builds the Chrome and Edge ZIPs;
+   - creates the GitHub Release `ext-v<version>`, not marked latest (the app's `v*` releases keep that), with every XPI, `updates.json(.sig)`, `extension.json(.sig)` and the two ZIPs;
+   - streams the Firefox files over SSH to `koona-deploy firefox ext-v<version>` on the server (koona-site `server/`), which checks the signatures against the update key pinned there and serves them at `https://koona.app/pin/firefox/`. Without `DEPLOY_HOST` the step warns and skips.
+4. Upload the two ZIPs from the release to the Chrome Web Store and Edge Add-ons by hand.
+
+A rerun of a tag whose release exists signs nothing: it deploys that release's files again. If AMO signed the version but the run failed before the release, AMO will not sign that number again: download the signed XPI from the AMO Developer Hub, or raise `VERSION` and tag again.
+
+**Secrets** (environment «release», which must open to tags `v*` and `ext-v*`): `WEB_EXT_API_KEY`, `WEB_EXT_API_SECRET` (AMO → Developer Hub → Manage API Keys), `TAURI_SIGNING_PRIVATE_KEY` and its password (there already), `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`.
+
+**Once:** the versions signed before this workflow (0.8.0 to 0.9.2, in `release/publish/firefox/` on the maintainer's computer) go into the release `ext-v0.9.2` once, with `bun run extension:seed` (`scripts/seed-firefox-release.mjs`; `-- --dry-run` shows what it would do). It checks the hashes, signs with the local update key from `.env`, creates the release as a draft with its files and then publishes it; publishing creates the tag, whose run of the workflow only deploys it.
+
+`bun run extension:sign:firefox` still runs locally into `release/publish/firefox/` (or `-- --dir <folder>`), but what it signs reaches no one and uses up that version number on AMO: release through the tag.
 
 ## Checks
 

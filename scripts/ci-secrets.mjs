@@ -3,8 +3,8 @@
 //   bun scripts/ci-secrets.mjs --dry-run    only says which it would set and which are missing
 // The value goes to gh on its standard input, not on the command line. TAURI_SIGNING_PRIVATE_KEY may
 // name the key's file (as Tauri accepts it): the file's contents go up then, and _PATH works the same way.
-// The update key goes to the environment «release» (open to tags v* only, release.yml), not to the
-// repository: no pull request, branch or run on main can read it.
+// The update key, the AMO keys and the deploy key go to the environment «release» (open to tags v* and
+// ext-v* only), not to the repository: no pull request, branch or run on main can read them.
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -26,11 +26,19 @@ const REQUIRED = [
   "TAURI_SIGNING_PRIVATE_KEY",
   "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
 ];
-// macOS signing and notarization (release.yml), once there is a Developer ID.
-const OPTIONAL = ["APPLE_CERTIFICATE", "APPLE_CERTIFICATE_PASSWORD", "APPLE_SIGNING_IDENTITY", "APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_PRIVATE_KEY"];
+// macOS signing and notarization (release.yml), once there is a Developer ID; the Firefox add-on's AMO
+// keys (extension.yml); the deploy to koona.app (andmetoo/koona-site server/README.md): the private key of
+// this repository's deploy user key, the host and its known_hosts line.
+const OPTIONAL = [
+  "APPLE_CERTIFICATE", "APPLE_CERTIFICATE_PASSWORD", "APPLE_SIGNING_IDENTITY", "APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_PRIVATE_KEY",
+  "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET",
+  "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS",
+];
 
 /** Secrets of an environment instead of the repository's. */
-const ENVIRONMENT = { TAURI_SIGNING_PRIVATE_KEY: "release", TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "release" };
+const ENVIRONMENT = Object.fromEntries(
+  ["TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET", "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS"].map((name) => [name, "release"]),
+);
 
 const isFile = (value) => !value.includes("\n") && existsSync(value) && statSync(value).isFile();
 function value(name) {

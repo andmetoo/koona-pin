@@ -12,6 +12,7 @@ import { appendFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises
 import path from "node:path";
 import { buildExtension } from "./build-extension.mjs";
 import { assertNoOtherApp, hostBinary, startedSince, testPipe } from "./lib/native-host.mjs";
+import { release } from "./lib/paths.mjs";
 
 assertNoOtherApp();
 
@@ -201,8 +202,10 @@ async function shots(lang) {
       </style><img class="back" src="data:image/png;base64,${plain.toString("base64")}"><img class="pop" src="data:image/png;base64,${popup.toString("base64")}">`);
     await page.screenshot({ path: path.join(out, lang, "2-search-1280x800.png") });
 
-    // 3 · The app's library: the site's screenshot of the real app (scripts/site-screenshots.mjs).
-    const shot = path.resolve(`site/src/shots/app-${existsSync(path.resolve(`site/src/shots/app-${lang}-light-grid-1280.webp`)) ? lang : "en"}-light-grid-1280.webp`);
+    // 3 · The app's library: the screenshot of the real app (bun run site:shots writes release/shots/).
+    const shots = path.join(release, "shots");
+    if (!existsSync(path.join(shots, "app-en-light-grid-1280.webp"))) throw new Error(`${shots} has no screenshots: bun run site:shots first`);
+    const shot = path.join(shots, `app-${existsSync(path.join(shots, `app-${lang}-light-grid-1280.webp`)) ? lang : "en"}-light-grid-1280.webp`);
     await page.setContent(`<style>body{margin:0}</style><img src="data:image/webp;base64,${(await readFile(shot)).toString("base64")}" width="1280" height="800">`);
     await page.locator("img").evaluate((img) => img.decode());
     await page.screenshot({ path: path.join(out, lang, "3-library-1280x800.png") });

@@ -36,7 +36,7 @@ NP-088. Отзыв из приложения и форма на koona.app/pin п
    ```
    KOONAPIN_FEEDBACK_URL=https://<ref>.supabase.co/functions/v1/feedback
    ```
-   Его читают сборки приложения (`src-tauri/build.rs`: `bun run tauri build`, `bun run tauri dev`, `cargo build`; установщик — `bun run build:installer`) и сборка сайта (`site/src/content.mjs`: `bun run site:check`, `scripts/deploy-site.ps1`). Переменная окружения с тем же именем важнее файла. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
+   Его читают сборки приложения (`src-tauri/build.rs`: `bun run tauri build`, `bun run tauri dev`, `cargo build`; установщик — `bun run build:installer`) и сборка сайта (в его репозитории, `andmetoo/koona-site`). Переменная окружения с тем же именем важнее файла. Без адреса приложение отвечает «сервер не ответил», а сайт собирается без формы, и «Поддержка» ведёт на GitHub.
 
 ## Проверить
 

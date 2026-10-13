@@ -223,7 +223,7 @@ fn offer_of(update: &Update) -> UpdateStatus {
 }
 
 /// The `notes` of latest.json, one change per line (build-latest.mjs writes them from
-/// site/content/changelog/<version>.md); list markers and empty lines go.
+/// changelog/<version>.md); list markers and empty lines go.
 fn notes_of(body: &str) -> Vec<String> {
     body.lines()
         .map(|line| line.trim().trim_start_matches(['-', '*', '•']).trim())

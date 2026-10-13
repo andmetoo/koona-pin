@@ -7,7 +7,7 @@ name: CI
 # Playwright UI, and checks the packages on every distribution. Windows and macOS check only what is
 # their own: the Rust tests on that system and the packaging.
 #
-# A pull request runs what its files can break («changes»): only docs and the site, nothing; scripts,
+# A pull request runs what its files can break («changes»): only docs and the changelog, nothing; scripts,
 # tests and the Linux pipeline, Linux; the app, its dependencies and toolchains, or this file, everything.
 # Pushes to main and runs by hand run everything. «CI» sums the jobs up: it is the one check main
 # requires (with CLA), green when no job that ran failed. The package and distribution jobs of linux.yml
@@ -56,7 +56,7 @@ jobs:
           while IFS= read -r file; do
             echo "$file"
             case "$file" in
-              docs/* | site/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
+              docs/* | changelog/* | design/* | *.md | LICENSE* | .github/workflows/cla.yml | .github/workflows/release.yml) ;;
               src/* | src-tauri/* | package.json | bun.lock | .bun-version | rust-toolchain.toml | .cargo/* | \
                 vite.config.ts | tsconfig*.json | index.html | .github/workflows/ci.yml)
                 linux=true native=true ;;

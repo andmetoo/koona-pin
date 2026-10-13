@@ -16,19 +16,20 @@
 // the space of a release asset into a dot, and the site serves the name latest.json gives, so one
 // name without spaces holds everywhere (release-windows.mjs uploads it so).
 //
-// The site serves that folder (Р-60): the packages at https://koona.app/pin/downloads/<version>/,
-// latest.json at https://koona.app/pin/updates/latest.json, where the app reads it
-// (bun run site:build takes the newest version). The AUR package is not in it: pacman updates it (Р-55).
-// `notes` are the changes of site/content/changelog/<version>.md, one per line: the update dialog lists
+// koona.app serves that folder (Р-60): the packages at https://koona.app/pin/downloads/<version>/,
+// latest.json at https://koona.app/pin/updates/latest.json, where the app reads it. release.yml's
+// finalize deploys it with release.json (build-release-data.mjs). The AUR package is not in it: pacman
+// updates it (Р-55).
+// `notes` are the changes of changelog/<version>.md, one per line: the update dialog lists
 // them (NP-040); without that file there is no release.
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { changeList } from "./lib/release-notes.mjs";
-import { SITE } from "../site/src/content.mjs";
+import { SITE } from "./lib/site.mjs";
 import { publish, root, test } from "./lib/paths.mjs";
+import { hasUpdateKey, signFile } from "./lib/sign.mjs";
 
 const dotenv = path.join(root, ".env");
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
@@ -101,7 +102,7 @@ if (only !== "windows") {
 
 const fresh = new Set();
 for (const [, folder, file] of packages) if (await freshSignature(folder, file)) fresh.add(file);
-if (fresh.size < packages.length && !process.env.TAURI_SIGNING_PRIVATE_KEY && !process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) {
+if (fresh.size < packages.length && !hasUpdateKey()) {
   console.error("The update key is not set: TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH (NP-042, .env.example).");
   process.exit(1);
 }
@@ -110,7 +111,6 @@ const out = path.join(publish.updates, version);
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 
-const tauri = path.join(root, "node_modules", "@tauri-apps", "cli", "tauri.js");
 const platforms = {};
 const sums = [];
 for (const [targets, folder, file] of packages) {
@@ -120,13 +120,9 @@ for (const [targets, folder, file] of packages) {
     await take(targets, folder, file, name);
     continue;
   }
-  const signed = spawnSync(process.execPath, [tauri, "signer", "sign", "--app-version", version, path.join(folder, file)], {
-    cwd: root,
-    stdio: ["inherit", "ignore", "inherit"],
-  });
-  if (signed.status !== 0) {
+  if (!signFile(path.join(folder, file), { version })) {
     console.error(`Signing ${file} failed (the key or its password).`);
-    process.exit(signed.status ?? 1);
+    process.exit(1);
   }
   console.log(`signed ${path.relative(root, path.join(folder, file))}`);
   await take(targets, folder, file, name);
