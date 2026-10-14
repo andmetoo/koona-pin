@@ -90,21 +90,69 @@ impl Identity {
             fs::create_dir_all(folder)?;
         }
         let stored = Stored { v: 1, device: self.device, key: STANDARD.encode(&self.pkcs8), name: self.name.clone() };
-        let text = serde_json::to_string_pretty(&stored).map_err(io::Error::other)?;
-        let temporary = path.with_extension("json.tmp");
-        let _ = fs::remove_file(&temporary);
-        let mut options = fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
+        write_private(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
+    }
+}
+
+/// `text` in `path` through a temporary file, readable by this user only.
+fn write_private(path: &Path, text: &str) -> io::Result<()> {
+    if let Some(folder) = path.parent() {
+        fs::create_dir_all(folder)?;
+    }
+    let temporary = path.with_extension("json.tmp");
+    let _ = fs::remove_file(&temporary);
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&temporary)?;
+    file.write_all(text.as_bytes())?;
+    file.sync_all()?;
+    drop(file);
+    fs::rename(&temporary, path)
+}
+
+/// The library key of the account and its epoch, in `sync-key.json` beside `sync-device.json`
+/// rather than in the library: every copy of the library (the daily backups, the backups to a
+/// cloud folder) would carry it, and it opens what the relay passes on until the next rotation.
+/// It belongs to this device's place on the account, like the device key.
+pub const KEY_FILE: &str = "sync-key.json";
+
+#[derive(Serialize, Deserialize)]
+struct StoredKey {
+    v: u32,
+    epoch: u32,
+    key: String,
+}
+
+/// The key kept in `path`; none when there is no file. A file that doesn't read is an error: the
+/// session would otherwise ask for a new key and drop what it could still read.
+pub fn load_key(path: &Path) -> io::Result<Option<(u32, koona_sync::crypto::LibraryKey)>> {
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let stored: StoredKey = serde_json::from_str(&text).map_err(io::Error::other)?;
+    let bytes = STANDARD.decode(stored.key).map_err(io::Error::other)?;
+    let key = bytes.try_into().map_err(|_| io::Error::other("the library key is not 32 bytes"))?;
+    Ok(Some((stored.epoch, key)))
+}
+
+/// Keeps `key` in `path`, or removes the file when there is none (a removed device forgets it).
+pub fn save_key(path: &Path, key: Option<&(u32, koona_sync::crypto::LibraryKey)>) -> io::Result<()> {
+    match key {
+        Some((epoch, key)) => {
+            let stored = StoredKey { v: 1, epoch: *epoch, key: STANDARD.encode(key) };
+            write_private(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
         }
-        let mut file = options.open(&temporary)?;
-        file.write_all(text.as_bytes())?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&temporary, path)
+        None => match fs::remove_file(path) {
+            Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
+            _ => Ok(()),
+        },
     }
 }
 

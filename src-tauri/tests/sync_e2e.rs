@@ -372,6 +372,8 @@ struct Device {
     pkcs8: Vec<u8>,
     db: Arc<DbState>,
     replica: Uuid,
+    /// The library key beside the library, as the app keeps it beside the identity.
+    key_file: PathBuf,
     log: Arc<Mutex<Vec<Event>>>,
     run: Option<Run>,
 }
@@ -385,6 +387,7 @@ impl Device {
     /// `enable_sync` does).
     fn new(name: &'static str, conn: Connection) -> Device {
         let replica = worker::prepare_library(&conn).unwrap();
+        let key_file = Path::new(conn.path().expect("a library on disk")).with_file_name("sync-key.json");
         let rng = SystemRandom::new();
         Device {
             name,
@@ -392,6 +395,7 @@ impl Device {
             pkcs8: koona_sync::crypto::generate_device_key(&rng).unwrap(),
             db: Arc::new(DbState::new(conn)),
             replica,
+            key_file,
             log: Arc::new(Mutex::new(Vec::new())),
             run: None,
         }
@@ -409,7 +413,7 @@ impl Device {
         let key = koona_sync::crypto::device_key(&self.pkcs8).unwrap();
         let config = Config::new(self.id, key, keys.sub.clone(), self.name.to_string(), "0.12.0".to_string());
         let session = Session::new(config, Box::new(SystemRandom::new()));
-        let library = DbLibrary::new(self.db.clone(), self.replica, Arc::new(AtomicBool::new(false)));
+        let library = DbLibrary::new(self.db.clone(), self.replica, Arc::new(AtomicBool::new(false))).with_key_file(self.key_file.clone());
         let credentials: CredentialSource = {
             let keys = keys.clone();
             Arc::new(move |_refresh| {
@@ -549,9 +553,21 @@ impl Device {
         self.with(|conn| conn.query_row("SELECT id FROM collections WHERE name = ?1", [name], |r| r.get(0))).unwrap()
     }
 
+    /// A value the session keeps. The library key and its epoch are in the key file, never in the
+    /// library (its copies would carry them): checked here on every read.
     fn meta(&self, key: &str) -> Option<String> {
-        self.with(|conn| {
+        let in_library: Option<String> = self.with(|conn| {
             conn.query_row("SELECT CAST(value AS TEXT) FROM sync_meta WHERE key = ?1", [key], |r| r.get(0)).optional().unwrap()
+        });
+        if key != "library_key" && key != "key_epoch" {
+            return in_library;
+        }
+        assert_eq!(in_library, None, "{}: the {key} is in the library", self.name);
+        let text = std::fs::read_to_string(&self.key_file).ok()?;
+        let stored: serde_json::Value = serde_json::from_str(&text).unwrap();
+        Some(match key {
+            "key_epoch" => stored["epoch"].to_string(),
+            _ => stored["key"].as_str().unwrap().to_string(),
         })
     }
 

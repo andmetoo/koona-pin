@@ -396,6 +396,8 @@ pub struct Model {
     /// This device, left out of the devices added.
     pub me: Option<Uuid>,
     pub peers: Peers,
+    /// «Join…» chosen, the new key not in yet.
+    pub rejoining: bool,
     /// When each device's facts were last handed to be written (`KEEP_SYNC_EVERY`).
     peers_written: BTreeMap<Uuid, DateTime<Utc>>,
     /// This device's clock minus the relay's, from the last `challenge`.
@@ -647,6 +649,13 @@ impl Model {
             Effect::ClockOffset(offset) => self.clock_offset_ms = Some(offset),
             Effect::KeyEpoch(epoch) => {
                 self.note(now, format!("key epoch {epoch:?}"));
+                // Joined again after a start over: the new account's key is in, its first transfer
+                // is the library arriving (frame 07), not a sync like the ones before.
+                if self.rejoining && epoch.is_some() && epoch != self.epoch {
+                    self.rejoining = false;
+                    self.last_sync_at = None;
+                    out.push(Reaction::Synced);
+                }
                 self.epoch = epoch;
             }
             Effect::UpdateFrom(device) => {
@@ -1049,6 +1058,22 @@ mod tests {
         model.on_event(hub_change(HubChangeEvent::Asked { device: laptop, name: "Laptop".into() }), at(6));
         model.restart();
         assert_eq!(model.status(&ctx(&me)).hub_change, None, "a new client asks nothing yet");
+    }
+
+    #[test]
+    fn joining_again_forgets_the_last_sync_once_the_new_key_is_in() {
+        let mut model = Model { last_sync_at: Some(at(1)), epoch: Some(2), ..Model::default() };
+        let epoch = |model: &mut Model, e| model.on_event(Event::Session(Effect::KeyEpoch(Some(e))), at(5));
+        // A rotation of the same account keeps it.
+        assert!(epoch(&mut model, 3).is_empty());
+        assert_eq!(model.last_sync_at, Some(at(1)));
+        // «Join…»: kept while the pairing is under way (it may be rejected)…
+        model.rejoining = true;
+        assert!(epoch(&mut model, 3).is_empty(), "the same key, still held");
+        assert_eq!(model.last_sync_at, Some(at(1)));
+        // …forgotten when the new account's key comes.
+        assert_eq!(epoch(&mut model, 4), vec![Reaction::Synced]);
+        assert_eq!((model.last_sync_at, model.rejoining), (None, false));
     }
 
     #[test]

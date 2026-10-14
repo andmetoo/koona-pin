@@ -260,8 +260,17 @@ export function App() {
   }, []);
   // Sync between a Supporter's computers (commercial/sync, sheet 46).
   useEffect(() => {
-    void api.getSyncStatus().then(setSync).catch(() => {});
-    return api.onSyncStatus(setSync);
+    // An event newer than the first answer wins: the answer, late, would put an older state back.
+    let heard = false;
+    const stop = api.onSyncStatus((status) => {
+      heard = true;
+      setSync(status);
+    });
+    void api
+      .getSyncStatus()
+      .then((status) => heard || setSync(status))
+      .catch(() => {});
+    return stop;
   }, []);
   // A computer to approve, or a request to hand the main computer over, opens the Sync dialog by
   // itself on the main computer, once per prompt, when no other dialog is in the way.
@@ -269,7 +278,8 @@ export function App() {
   const promptShown = useRef<string | null>(null);
   useEffect(() => {
     if (!prompt || prompt === promptShown.current) return;
-    if (surface !== null && surface !== "plan" && surface !== "sync") return;
+    // Another dialog open (a purchase among them) is finished first.
+    if (surface !== null && surface !== "sync") return;
     promptShown.current = prompt;
     setSurface("sync");
   }, [prompt, surface]);

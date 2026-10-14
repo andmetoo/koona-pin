@@ -73,6 +73,8 @@ struct Stored {
 pub struct SyncState {
     path: PathBuf,
     identity_path: PathBuf,
+    /// The library key, beside the identity (`identity::KEY_FILE`).
+    key_path: PathBuf,
     notices_path: PathBuf,
     /// Held while `sync-notices.json` is written, so writes land in order.
     notices_file: Mutex<()>,
@@ -112,6 +114,7 @@ impl SyncState {
         SyncState {
             path,
             identity_path: folder.join(identity::FILE),
+            key_path: folder.join(identity::KEY_FILE),
             notices_path,
             notices_file: Mutex::new(()),
             peers_path,
@@ -416,7 +419,7 @@ async fn supervise(app: &AppHandle) -> Duration {
                 model.restart();
                 model.me = Some(identity.device);
             }
-            *run = Some(worker::spawn(app, worker::Start { url, db, replica, identity, sub, generation }));
+            *run = Some(worker::spawn(app, worker::Start { url, key_file: state.key_path.clone(), db, replica, identity, sub, generation }));
         }
     }
     state.emit(app);
@@ -620,10 +623,9 @@ async fn running(state: &SyncState) -> Option<koona_sync::net::Handle> {
 pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
     act(&app, Action::JoinAgain)?;
     let state = app.state::<SyncState>();
-    // The account is a new one to this device: its first transfer is the library arriving (frame
-    // 07), not a sync like the ones before.
-    lock(&state.model).last_sync_at = None;
-    state.keep_last_sync();
+    // Its last sync is forgotten once the new key is in (the model, on the epoch), not now: a
+    // pairing rejected leaves it as it was.
+    lock(&state.model).rejoining = true;
     state.change_notices(|n| n.joined())?;
     Ok(state.emit(&app))
 }
