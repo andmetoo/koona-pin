@@ -53,6 +53,7 @@ import {
   PlanInterval,
   CheckoutState,
   BackupFolder,
+  SyncStatus,
   Tag,
   TrayLabels,
   Undo,
@@ -298,5 +299,23 @@ const desktop = {
   chooseBackupFolder: (title: string) => call<BackupFolder>("choose_backup_folder", { title }),
   stopBackupFolder: () => call<BackupFolder>("stop_backup_folder"),
   openBackupFolder: () => call<void>("open_backup_folder"),
+  // Sync between a Supporter's computers (commercial/sync, NP-059); every command answers the new status.
+  getSyncStatus: () => call<SyncStatus>("get_sync_status"),
+  onSyncStatus: (callback: (status: SyncStatus) => void) => subscription("sync-status", callback),
+  /** The first device becomes the hub; another one waits to be paired from it. Empty name: the computer's. */
+  enableSync: (name?: string) => call<SyncStatus>("enable_sync", { name: name ?? null }),
+  /** Stops syncing here; the library and the device's place on the account stay. */
+  disableSync: () => call<SyncStatus>("disable_sync"),
+  /** On the hub, after the person compared the six digits. */
+  approveDevice: (device: string) => call<SyncStatus>("approve_device", { device }),
+  rejectDevice: (device: string) => call<SyncStatus>("reject_device", { device }),
+  /** On the hub: the device is removed and the library key rotated. */
+  removeDevice: (device: string) => call<SyncStatus>("remove_device", { device }),
+  makeHub: (device: string) => call<SyncStatus>("make_hub", { device }),
+  renameDevice: (device: string, name: string) => call<SyncStatus>("rename_device", { device, name }),
+  /** A full exchange now; on a device waiting to be paired, the offer again. */
+  syncNow: () => call<SyncStatus>("sync_now"),
+  /** Diagnostics for support: states and ids, no library content. */
+  copySyncReport: () => call<string>("copy_sync_report"),
 };
 export const api = isTauri() ? desktop : demo;

@@ -112,6 +112,8 @@ pub fn run() {
             // needs both states managed.
             billing::start(app.handle());
             commercial::backup_folder::start(app.handle());
+            // After billing: it waits for the plan and the library, woken by their events.
+            commercial::sync::start(app.handle());
             library_state::start(app.handle().clone());
             let handle = app.handle().clone();
             std::thread::spawn(move || capture_channel::register_host(&handle, &channel_state));
@@ -227,6 +229,16 @@ pub fn run() {
             commercial::backup_folder::choose_backup_folder,
             commercial::backup_folder::stop_backup_folder,
             commercial::backup_folder::open_backup_folder,
+            commercial::sync::get_sync_status,
+            commercial::sync::enable_sync,
+            commercial::sync::disable_sync,
+            commercial::sync::approve_device,
+            commercial::sync::reject_device,
+            commercial::sync::remove_device,
+            commercial::sync::make_hub,
+            commercial::sync::rename_device,
+            commercial::sync::sync_now,
+            commercial::sync::copy_sync_report,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])
