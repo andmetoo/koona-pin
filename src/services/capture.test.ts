@@ -82,10 +82,15 @@ describe("browser status", () => {
     const old = { ...mac, state: "incompatible" as const, browsers: [seen("safari", true, 1)] };
     expect(incompatible(old)?.browser).toBe("safari");
     expect(incompatible({ ...old, system: "windows" })).toBeUndefined();
-    // «Connect browser» has no Safari tab: it opens on another browser.
-    expect(connectTabs(mac)).not.toContain("safari");
-    expect(preferredBrowser({ ...mac, last_capture: { at, browser: "safari" } })).toBe("chrome");
-    expect(preferredBrowser({ ...mac, browsers: [seen("safari"), seen("firefox")] })).toBe("firefox");
+    // «Connect browser» on macOS: Safari first, its extension inside the app; elsewhere no Safari tab.
+    expect(connectTabs(mac)).toEqual(["safari", "chrome", "edge", "chromium", "firefox"]);
+    expect(connectTabs({ ...mac, system: "linux" })).not.toContain("safari");
+    expect(connectTabs({ ...mac, system: "windows" })).not.toContain("safari");
+    expect(preferredBrowser({ ...mac, browsers: [], last_capture: null })).toBe("safari");
+    expect(preferredBrowser({ ...mac, last_capture: { at, browser: "safari" } })).toBe("safari");
+    expect(preferredBrowser({ ...mac, last_capture: null, browsers: [seen("firefox")] })).toBe("firefox");
+    expect(preferredBrowser({ ...mac, system: "windows", last_capture: { at, browser: "safari" } })).toBe("chrome");
+    expect(installSteps("safari")).toEqual({ url: null, store: null, install: "connect.install_safari", update: "connect.update_safari" });
     expect(captureReport(mac, "0.11.3")).toContain("Safari: extension 0.5.0, protocol 2");
   });
 
@@ -144,7 +149,7 @@ describe("browser status", () => {
   it("gives Chromium a tab of its own on Linux, with Chrome's steps (NP-054)", () => {
     expect(connectTabs({ ...base, system: "windows" })).toEqual(["chrome", "edge", "firefox"]);
     expect(connectTabs({ ...base, system: "linux" })).toEqual(["chrome", "edge", "chromium", "firefox"]);
-    expect(connectTabs({ ...base, system: "macos" })).toEqual(["chrome", "edge", "chromium", "firefox"]);
+    expect(connectTabs({ ...base, system: "macos" })).toEqual(["safari", "chrome", "edge", "chromium", "firefox"]);
     expect(tabBrowser("chromium")).toBe("chrome");
     expect(installSteps(tabBrowser("chromium"))).toEqual(installSteps("chrome"));
   });

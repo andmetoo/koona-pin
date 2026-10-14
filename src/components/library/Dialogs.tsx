@@ -758,6 +758,7 @@ export function ConnectDialog({
   const [tab, setTab] = useState<ConnectTab>(() => preferredBrowser(capture));
   // Linux (sheet 40, NP-054): a Chromium tab, Firefox from Snap, the sandboxed browsers.
   const linux = capture?.system === "linux";
+  const mac = capture?.system === "macos";
   const [tray, setTray] = useState(true);
   useEffect(() => {
     if (linux) void api.getDesktop().then((desktop) => setTray(desktop.tray)).catch(() => {});
@@ -771,9 +772,11 @@ export function ConnectDialog({
   const panel = (shown: ConnectTab) => {
     const browser = tabBrowser(shown);
     const install = installSteps(browser);
+    // Safari's extension is already inside the app (NP-119): turned on and allowed in Safari's settings.
+    const safari = browser === "safari";
     const steps = [
       {
-        title: t("connect.installTitle"),
+        title: t(safari ? "connect.enableTitle" : "connect.installTitle"),
         text: t(install.install),
         action: install.url ? (
           <Button className="mt-2" onClick={() => onOpen(install.url)}>
@@ -781,9 +784,9 @@ export function ConnectDialog({
           </Button>
         ) : null,
       },
-      { title: t("connect.pinTitle"), text: t(`connect.pin_${browser}`), action: null },
-      // Without a tray the closed app starts «in the background» (NP-096).
-      { title: t("connect.saveTitle"), text: t(tray ? "connect.save" : "connect.save_background"), action: null },
+      { title: t(safari ? "connect.allowTitle" : "connect.pinTitle"), text: t(`connect.pin_${browser}`), action: null },
+      // Without a tray the closed app starts «in the background» (NP-096); on a Mac it starts in the menu bar.
+      { title: t("connect.saveTitle"), text: t(mac ? "connect.save_menubar" : tray ? "connect.save" : "connect.save_background"), action: null },
     ];
     return (
       <>
