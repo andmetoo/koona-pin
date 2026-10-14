@@ -276,7 +276,8 @@ Authorization, X-Koona-Lease, X-Koona-Proto: as in section 2.1
 ```
 
 Checked like a connection (same order and conditions); a failure answers HTTP 426 for 4004, 401
-for 4001 and 403 for 4002, with a JSON body `{"code": 4001, "reason": "..."}`. Success: HTTP 200
+for 4001 and 403 for 4002, with a JSON body `{"code": 4001, "reason": "..."}`; a rate-limited
+request gets 429 with code 4008, and a failure on the relay's side 500 or 503 (code 1011 or 1013). Success: HTTP 200
 with
 
 ```json

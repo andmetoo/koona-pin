@@ -645,7 +645,7 @@ pub async fn get_sync_account(app: AppHandle) -> Result<SyncAccount, CommandErro
             continue;
         }
         let body = response.text().await.map_err(billing::offline)?;
-        return account_answer(status, &body);
+        return account_answer(status, &body, app.state::<SyncState>().shown_identity().device);
     }
 }
 
@@ -678,12 +678,14 @@ struct AccountAnswer {
 
 #[derive(Deserialize)]
 struct AccountHub {
+    id: Uuid,
     name: String,
 }
 
 /// The relay's answer to `GET /v1/account` as the command's: its refusals as the connection's
-/// close codes would be shown (426 for 4004, 401 for 4001, 403 for 4002).
-pub fn account_answer(status: u16, body: &str) -> Result<SyncAccount, CommandError> {
+/// close codes would be shown (426 for 4004, 401 for 4001, 403 for 4002). A hub that is this
+/// device `me` (a former main computer turning sync on again) is no other main to join.
+pub fn account_answer(status: u16, body: &str, me: Uuid) -> Result<SyncAccount, CommandError> {
     // `{"code": 4002, "reason": "not_in_beta"}`, for the log.
     let reason = || {
         serde_json::from_str::<serde_json::Value>(body)
@@ -693,7 +695,7 @@ pub fn account_answer(status: u16, body: &str) -> Result<SyncAccount, CommandErr
     };
     match status {
         200 => serde_json::from_str::<AccountAnswer>(body)
-            .map(|answer| SyncAccount { main_name: answer.hub.map(|hub| hub.name) })
+            .map(|answer| SyncAccount { main_name: answer.hub.filter(|hub| hub.id != me).map(|hub| hub.name) })
             .map_err(|e| CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("The sync service answered {e}"))),
         401 => Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::SignedOut, "The sync service refused the sign-in")),
         403 => Err(CommandError::detailed(
@@ -858,11 +860,15 @@ mod tests {
     #[test]
     fn the_relay_answer_about_the_account_is_mapped_like_its_close_codes() {
         let id = "0192f3a4-b5c6-7d8e-9f01-23456789abcd";
-        let hub = account_answer(200, &format!(r#"{{"hub": {{"id": "{id}", "name": "Home iMac"}}}}"#)).unwrap();
+        let me = Uuid::from_u128(7);
+        let hub = account_answer(200, &format!(r#"{{"hub": {{"id": "{id}", "name": "Home iMac"}}}}"#), me).unwrap();
         assert_eq!(hub.main_name.as_deref(), Some("Home iMac"));
-        assert_eq!(account_answer(200, r#"{"hub": null}"#).unwrap().main_name, None);
-        assert_eq!(account_answer(200, "<html>").unwrap_err().code, ErrorCode::Network);
-        let refused = |status| account_answer(status, r#"{"code": 4002, "reason": "not_in_beta"}"#).unwrap_err();
+        // This computer was the main one and turns sync on again: nobody else to join.
+        let itself = account_answer(200, &format!(r#"{{"hub": {{"id": "{me}", "name": "Home iMac"}}}}"#), me).unwrap();
+        assert_eq!(itself.main_name, None);
+        assert_eq!(account_answer(200, r#"{"hub": null}"#, me).unwrap().main_name, None);
+        assert_eq!(account_answer(200, "<html>", me).unwrap_err().code, ErrorCode::Network);
+        let refused = |status| account_answer(status, r#"{"code": 4002, "reason": "not_in_beta"}"#, me).unwrap_err();
         assert_eq!(refused(401).detail, Some(ErrorDetail::SignedOut));
         let plan = refused(403);
         assert_eq!((plan.code, plan.detail), (ErrorCode::InvalidRequest, Some(ErrorDetail::NotSupporter)));
