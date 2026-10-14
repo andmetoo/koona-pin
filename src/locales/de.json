@@ -1170,8 +1170,9 @@
     },
     "setup": {
       "lead": "Dieser Computer wird der Hauptcomputer: Nur er fügt Ihre anderen Computer hinzu und entfernt sie. Änderungen werden zwischen allen synchronisiert, ob Hauptcomputer oder nicht.",
+      "leadJoin": "{{name}} ist Ihr Hauptcomputer. Schalten Sie die Synchronisierung hier ein und bestätigen Sie dann den Code auf {{name}}. Die Lesezeichen dieses Computers bleiben und werden zusammengeführt.",
+      "leadNeutral": "Ist die Synchronisierung noch nirgends an, wird dieser Computer der Hauptcomputer und fügt die anderen hinzu. Schon woanders an? Dann bestätigt der Hauptcomputer diesen mit einem Code.",
       "name": "Name dieses Computers",
-      "joinHint": "Synchronisierung schon auf einem anderen Computer an? Der bleibt Hauptcomputer und bestätigt diesen Computer mit einem Code.",
       "privacyTitle": "Verschlüsselt, bevor es Ihre Computer verlässt.",
       "privacyText": "Der Server von Koona reicht es nur zwischen Ihren Geräten weiter und speichert nichts aus Ihrer Bibliothek.",
       "turnOn": "Synchronisierung einschalten"
@@ -1187,6 +1188,13 @@
     "online": "Online",
     "lastSeen": "Zuletzt online {{when}}",
     "neverSeen": "Noch nicht online",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "online",
+      "lastSeen": "zuletzt online {{when}}",
+      "pending": "wartet auf Bestätigung",
+      "never": "noch nicht online"
+    },
     "pendingDevice": "Wartet auf Bestätigung",
     "onlineStatus": "Online",
     "offlineStatus": "Offline",
@@ -1202,6 +1210,7 @@
     "banner": {
       "synced": "Synchronisiert {{when}}",
       "notSynced": "Noch nicht synchronisiert",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "{{name}}, der Hauptcomputer, ist offline. Er holt alles nach, sobald er wieder da ist.",
       "connecting": "Verbindung wird hergestellt…",
       "connectingBody": "Änderungen warten auf diesem Computer, bis er verbunden ist.",
@@ -1219,8 +1228,10 @@
       "review": "Prüfen",
       "clock": "Die Uhr dieses Computers geht falsch",
       "clockBody": "Stellen Sie die richtige Zeit ein, um weiter zu synchronisieren.",
+      "clockBy": "Die Uhr dieses Computers geht {{amount}} falsch",
       "update": "Aktualisieren Sie Koona Pin, um weiter zu synchronisieren",
       "updateBody": "Einer Ihrer anderen Computer hat eine neuere Version.",
+      "updateFrom": "{{name}} hat eine neuere Version.",
       "updateAction": "Aktualisieren",
       "planEnds": "Die Synchronisierung endet am {{date}}",
       "planEndsBody": "Dann endet Supporter. Ihre Bibliothek bleibt hier.",
@@ -1323,11 +1334,29 @@
     "detailsDialog": {
       "title": "Details zur Synchronisierung",
       "state": "Status",
-      "lastSync": "Letzte Synchronisierung",
-      "never": "Nie",
+      "phase": {
+        "off": "Aus",
+        "unavailable": "Nicht verfügbar",
+        "connecting": "Verbindet",
+        "pending": "Wartet auf Bestätigung",
+        "online": "Online",
+        "syncing": "Synchronisiert",
+        "paused": "Pausiert"
+      },
+      "stateSynced": "{{state}} · synchronisiert {{when}}",
+      "stateNever": "{{state}} · noch nicht synchronisiert",
       "main": "Hauptcomputer",
       "this": "Dieser Computer",
-      "computers": "Ihre Computer",
+      "clock": "Uhr",
+      "clockValue": "{{offset}} gegenüber dem Server",
+      "key": "Schlüssel",
+      "generation": "Generation {{epoch}}",
+      "unknown": "Noch nicht bekannt",
+      "computers": "Was jeder Computer hat",
+      "upTo": "bis {{when}}",
+      "nothingYet": "noch nichts",
+      "offline": "{{detail}} · offline",
+      "yesterday": "gestern {{time}}",
       "note": "Der Bericht enthält nur Status und IDs — keine Lesezeichen, keine Namen.",
       "copy": "Bericht kopieren"
     }

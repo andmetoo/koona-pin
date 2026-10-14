@@ -1244,8 +1244,9 @@
     },
     "setup": {
       "lead": "Este ordenador pasa a ser el principal: solo él añade y quita tus otros ordenadores. Los cambios se sincronizan entre todos, sean principales o no.",
+      "leadJoin": "{{name}} es tu ordenador principal. Activa la sincronización aquí y confirma el código en {{name}}. Los marcadores de este ordenador se quedan y se combinan.",
+      "leadNeutral": "Si la sincronización no está activa en ningún sitio, este ordenador pasa a ser el principal y añade los demás. ¿Ya está activa en otro? El principal aprueba este con un código.",
       "name": "Nombre de este ordenador",
-      "joinHint": "¿Ya tienes la sincronización activada en otro ordenador? Ese sigue siendo el principal y aprueba este ordenador con un código.",
       "privacyTitle": "Cifrada en tus ordenadores antes de salir de ellos.",
       "privacyText": "El servidor de Koona solo la transmite entre tus dispositivos y no guarda nada de tu biblioteca.",
       "turnOn": "Activar la sincronización"
@@ -1261,6 +1262,13 @@
     "online": "Conectado",
     "lastSeen": "Conectado por última vez {{when}}",
     "neverSeen": "Aún no se ha conectado",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "conectado",
+      "lastSeen": "conectado por última vez {{when}}",
+      "pending": "esperando aprobación",
+      "never": "aún no se ha conectado"
+    },
     "pendingDevice": "Esperando aprobación",
     "onlineStatus": "Conectado",
     "offlineStatus": "Sin conexión",
@@ -1276,6 +1284,7 @@
     "banner": {
       "synced": "Sincronizada {{when}}",
       "notSynced": "Aún sin sincronizar",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "{{name}}, el ordenador principal, está sin conexión. Se pondrá al día cuando vuelva.",
       "connecting": "Conectando…",
       "connectingBody": "Los cambios esperan en este ordenador hasta que se conecte.",
@@ -1293,8 +1302,10 @@
       "review": "Revisar",
       "clock": "El reloj de este ordenador no está en hora",
       "clockBody": "Pon la hora correcta para seguir sincronizando.",
+      "clockBy": "El reloj de este ordenador va {{amount}} desfasado",
       "update": "Actualiza Koona Pin para seguir sincronizando",
       "updateBody": "Otro de tus ordenadores tiene una versión más reciente.",
+      "updateFrom": "{{name}} tiene una versión más reciente.",
       "updateAction": "Actualizar",
       "planEnds": "La sincronización se detiene el {{date}}",
       "planEndsBody": "Ese día termina Supporter. Tu biblioteca se queda aquí.",
@@ -1398,11 +1409,29 @@
     "detailsDialog": {
       "title": "Detalles de la sincronización",
       "state": "Estado",
-      "lastSync": "Última sincronización",
-      "never": "Nunca",
+      "phase": {
+        "off": "Desactivada",
+        "unavailable": "No disponible",
+        "connecting": "Conectando",
+        "pending": "Esperando aprobación",
+        "online": "Conectado",
+        "syncing": "Sincronizando",
+        "paused": "En pausa"
+      },
+      "stateSynced": "{{state}} · sincronizado {{when}}",
+      "stateNever": "{{state}} · aún sin sincronizar",
       "main": "Ordenador principal",
       "this": "Este ordenador",
-      "computers": "Tus ordenadores",
+      "clock": "Reloj",
+      "clockValue": "{{offset}} respecto al servidor",
+      "key": "Clave de cifrado",
+      "generation": "Generación {{epoch}}",
+      "unknown": "Aún no se sabe",
+      "computers": "Lo que tiene cada ordenador",
+      "upTo": "hasta {{when}}",
+      "nothingYet": "nada aún",
+      "offline": "{{detail}} · desconectado",
+      "yesterday": "ayer {{time}}",
       "note": "El informe solo contiene estados e identificadores — ni marcadores ni nombres.",
       "copy": "Copiar informe"
     }

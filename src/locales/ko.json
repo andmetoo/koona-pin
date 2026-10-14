@@ -1096,8 +1096,9 @@
     },
     "setup": {
       "lead": "이 컴퓨터가 메인 컴퓨터가 되며, 다른 컴퓨터의 추가와 제거는 이 컴퓨터에서만 합니다. 변경 내용은 메인 여부와 관계없이 모든 컴퓨터 사이에서 동기화됩니다.",
+      "leadJoin": "메인 컴퓨터는 {{name}}입니다. 여기서 동기화를 켠 다음 {{name}}에서 코드를 확인하세요. 이 컴퓨터의 북마크는 그대로 남아 합쳐집니다.",
+      "leadNeutral": "아직 어디에서도 동기화가 켜져 있지 않다면 이 컴퓨터가 메인이 되어 다른 컴퓨터를 추가합니다. 이미 다른 곳에서 켜져 있나요? 메인 컴퓨터가 코드로 이 컴퓨터를 승인합니다.",
       "name": "이 컴퓨터의 이름",
-      "joinHint": "다른 컴퓨터에서 이미 동기화를 켰나요? 그 컴퓨터가 메인 컴퓨터로 남고 코드로 이 컴퓨터를 승인합니다.",
       "privacyTitle": "컴퓨터를 떠나기 전에 컴퓨터에서 암호화됩니다.",
       "privacyText": "Koona 서버는 기기 사이에서 전달만 할 뿐 라이브러리를 전혀 보관하지 않습니다.",
       "turnOn": "동기화 켜기"
@@ -1113,6 +1114,13 @@
     "online": "온라인",
     "lastSeen": "마지막 접속: {{when}}",
     "neverSeen": "아직 온라인이 아님",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "온라인",
+      "lastSeen": "마지막 접속: {{when}}",
+      "pending": "승인 대기 중",
+      "never": "아직 온라인이 아님"
+    },
     "pendingDevice": "승인 대기 중",
     "onlineStatus": "온라인",
     "offlineStatus": "오프라인",
@@ -1128,6 +1136,7 @@
     "banner": {
       "synced": "{{when}} 동기화됨",
       "notSynced": "아직 동기화되지 않음",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "메인 컴퓨터 {{name}}이(가) 오프라인입니다. 다시 연결되면 따라잡습니다.",
       "connecting": "연결 중…",
       "connectingBody": "연결될 때까지 변경 내용은 이 컴퓨터에서 기다립니다.",
@@ -1145,8 +1154,10 @@
       "review": "확인",
       "clock": "이 컴퓨터의 시계가 맞지 않습니다",
       "clockBody": "동기화를 계속하려면 시간을 올바르게 맞추세요.",
+      "clockBy": "이 컴퓨터의 시계가 {{amount}} 차이 납니다",
       "update": "동기화를 계속하려면 Koona Pin을 업데이트하세요",
       "updateBody": "다른 컴퓨터에 더 새로운 버전이 있습니다.",
+      "updateFrom": "{{name}}에 더 새로운 버전이 있습니다.",
       "updateAction": "업데이트",
       "planEnds": "{{date}}에 동기화가 중지됩니다",
       "planEndsBody": "그날 Supporter가 끝납니다. 라이브러리는 여기에 남습니다.",
@@ -1248,11 +1259,29 @@
     "detailsDialog": {
       "title": "동기화 세부 정보",
       "state": "상태",
-      "lastSync": "마지막 동기화",
-      "never": "없음",
+      "phase": {
+        "off": "꺼짐",
+        "unavailable": "사용할 수 없음",
+        "connecting": "연결 중",
+        "pending": "승인 대기 중",
+        "online": "온라인",
+        "syncing": "동기화 중",
+        "paused": "일시 중지됨"
+      },
+      "stateSynced": "{{state}} · {{when}} 동기화됨",
+      "stateNever": "{{state}} · 아직 동기화 안 됨",
       "main": "메인 컴퓨터",
       "this": "이 컴퓨터",
-      "computers": "내 컴퓨터",
+      "clock": "시계",
+      "clockValue": "서버 기준 {{offset}}",
+      "key": "암호화 키",
+      "generation": "{{epoch}}세대",
+      "unknown": "아직 알 수 없음",
+      "computers": "컴퓨터별 상태",
+      "upTo": "{{when}}까지",
+      "nothingYet": "아직 없음",
+      "offline": "{{detail}} · 오프라인",
+      "yesterday": "어제 {{time}}",
       "note": "보고서에는 상태와 ID만 담깁니다. 북마크나 이름은 없습니다.",
       "copy": "보고서 복사"
     }

@@ -1,8 +1,8 @@
 // Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Monitor, RefreshCw, TriangleAlert } from "lucide-react";
+import { Check, Monitor, RefreshCw, Smartphone, Tablet, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { Plan, SyncDevice, SyncStatus } from "../../types";
+import type { Plan, SyncAccount, SyncDevice, SyncStatus } from "../../types";
 import { api } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { Icon } from "../icons";
@@ -11,14 +11,15 @@ import { Button } from "../ui/Button";
 import { Dot, Field } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 import {
-  ago,
+  deviceDetail,
+  deviceKind,
   hubDevice,
   hubName,
   otherDevices,
   overviewBanners,
   problemBanner,
   spacedCode,
-  syncSummary,
+  syncDetails,
   syncView,
   type SyncAction,
   type SyncBanner,
@@ -189,7 +190,9 @@ export function SyncDialog({
         <div className="flex flex-col" data-sync-view="mainAsked">
           <p className="text-sm leading-[18px]">{t("sync.hubChange.lead", { hub: status.device.name })}</p>
           <div className="mt-4">
-            <DeviceRow device={peer ?? { id: asking.peer, name: asking.peer_name, online: true, is_hub: false, status: "active", last_seen: null }} />
+            <DeviceRow
+              device={peer ?? { id: asking.peer, name: asking.peer_name, online: true, is_hub: false, status: "active", last_seen: null, platform: null, app: null, last_sync_at: null }}
+            />
           </div>
           <p className="mt-2 text-xs leading-4 text-muted">{t("sync.hubChange.hint")}</p>
           <ErrorNote text={error} />
@@ -412,23 +415,14 @@ function BannerView({ banner, busy, onAction }: { banner: SyncBanner; busy: bool
   );
 }
 
-/** «Online», «Last seen 3 hours ago», «Waiting for approval». */
-function useSeen() {
-  const { t, i18n } = useTranslation();
-  return (device: SyncDevice) =>
-    device.status === "pending"
-      ? t("sync.pendingDevice")
-      : device.online
-        ? t("sync.online")
-        : device.last_seen
-          ? t("sync.lastSeen", { when: ago(device.last_seen, t, i18n.language) })
-          : t("sync.neverSeen");
-}
+const DEVICE_ICON = { computer: Monitor, phone: Smartphone, tablet: Tablet } as const;
 
-/** A computer: icon, name, the Main badge, when it was seen, its dot and a visible button (no menu). */
+/**
+ * A computer: icon, name, the Main badge, its system and when it was seen («Windows · online»), its
+ * dot and a visible button (no menu). Whether a computer is a laptop is not known: a monitor for all.
+ */
 function DeviceRow({ device, detail, action, highlight = false, name }: { device: SyncDevice; detail?: string; action?: ReactNode; highlight?: boolean; name?: ReactNode }) {
-  const { t } = useTranslation();
-  const seen = useSeen();
+  const { t, i18n } = useTranslation();
   const dot = device.status === "pending" ? "var(--np-amber)" : device.online ? "var(--np-accent)" : "var(--np-faint)";
   return (
     <div
@@ -436,13 +430,13 @@ function DeviceRow({ device, detail, action, highlight = false, name }: { device
       data-highlight={highlight || undefined}
       className={`flex min-h-11 items-center gap-3 rounded-md py-1.5 ${highlight ? "-mx-2 bg-accent-soft px-2" : ""}`}
     >
-      <Icon icon={Monitor} className="shrink-0 text-icon" />
+      <Icon icon={DEVICE_ICON[deviceKind(device.platform)]} className="shrink-0 text-icon" />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
           {name ?? <span className="truncate text-sm font-medium">{device.name}</span>}
           {device.is_hub && <span className="shrink-0 rounded-full bg-accent-soft px-2 py-px text-2xs font-medium text-accent">{t("sync.main")}</span>}
         </span>
-        <span className="block truncate text-xs leading-4 text-muted">{detail ?? seen(device)}</span>
+        <span className="block truncate text-xs leading-4 text-muted">{detail ?? deviceDetail(device, t, i18n.language)}</span>
       </span>
       <span role="img" aria-label={device.online ? t("sync.onlineStatus") : t("sync.offlineStatus")} className="flex shrink-0">
         <Dot color={dot} />
@@ -454,7 +448,7 @@ function DeviceRow({ device, detail, action, highlight = false, name }: { device
 
 /** This computer with «Rename…», which turns its name into a field. */
 function ThisComputer({ status, version, busy, onRename }: { status: SyncStatus; version: string; busy: boolean; onRename: (name: string) => Promise<SyncStatus | null> }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [editing, setEditing] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const save = async () => {
@@ -468,7 +462,7 @@ function ThisComputer({ status, version, busy, onRename }: { status: SyncStatus;
   return (
     <DeviceRow
       device={status.device}
-      detail={version ? t("sync.version", { version }) : undefined}
+      detail={deviceDetail(status.device, t, i18n.language, { version }) || undefined}
       name={
         editing !== null ? (
           <input
@@ -508,7 +502,11 @@ function ThisComputer({ status, version, busy, onRename }: { status: SyncStatus;
   );
 }
 
-/** The first turn-on on this computer (frame 02): its name and what the server sees. */
+/**
+ * The first turn-on on this computer: its name and what the server sees. The account is asked first:
+ * without a main computer this one becomes it (frame 02), with one this one joins it (frame 14).
+ * Until the answer, and when it cannot come (offline, signed out), the lead says both.
+ */
 function SetupDialog({
   status,
   busy,
@@ -524,6 +522,30 @@ function SetupDialog({
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(status.device.name);
+  // undefined while asking; null when the account could not be asked.
+  const [account, setAccount] = useState<SyncAccount | null | undefined>(status.available ? undefined : null);
+  useEffect(() => {
+    if (!status.available) return;
+    let live = true;
+    api
+      .getSyncAccount()
+      .then((answer) => live && setAccount(answer))
+      .catch(() => live && setAccount(null));
+    return () => {
+      live = false;
+    };
+  }, [status.available]);
+  const main = account?.main_name ?? null;
+  const known = account === undefined ? "loading" : account === null ? "unknown" : main ? "join" : "main";
+  // Every lead the answer may bring takes the same cell, the shown one visible: the tallest sets the
+  // height, so the answer moves nothing (the dialog is centred). Until a name comes, this computer's
+  // stands in for the main one's.
+  const leads = [
+    { key: "main", text: t("sync.setup.lead") },
+    { key: "join", text: t("sync.setup.leadJoin", { name: main ?? status.device.name }) },
+    { key: "unknown", text: t("sync.setup.leadNeutral") },
+  ];
+  const shownLead = known === "loading" ? "unknown" : known;
   return (
     <Dialog title={t("sync.title")} onClose={onClose} width={480}>
       <form
@@ -534,9 +556,26 @@ function SetupDialog({
           onTurnOn(name.trim());
         }}
       >
-        <p className="text-sm leading-[18px]">{t("sync.setup.lead")}</p>
+        <div className="grid text-sm leading-[18px]">
+          {leads.map((lead) =>
+            lead.key === shownLead ? (
+              <p
+                key={lead.key}
+                data-sync-account={known}
+                aria-busy={known === "loading" || undefined}
+                className={`[grid-area:1/1] transition-opacity duration-150 ${known === "loading" ? "opacity-50" : ""}`}
+              >
+                {lead.text}
+              </p>
+            ) : (
+              <p key={lead.key} aria-hidden className="invisible [grid-area:1/1]">
+                {lead.text}
+              </p>
+            ),
+          )}
+        </div>
         <div className="mt-4">
-          <Field label={t("sync.setup.name")} hint={t("sync.setup.joinHint")}>
+          <Field label={t("sync.setup.name")}>
             {(id, describedBy) => (
               <input id={id} aria-describedby={describedBy} autoFocus maxLength={64} value={name} placeholder={status.device.name} onChange={(e) => setName(e.target.value)} className="field" />
             )}
@@ -560,21 +599,14 @@ function SetupDialog({
   );
 }
 
-/** «Sync details» (frame 09): what support asks about, and the report to copy. */
+/** «Sync details» (frame 09): what support asks about, what each other computer has, and the report to copy. */
 function DetailsDialog({ status, onCopy, onClose }: { status: SyncStatus; onCopy: (text: string) => void; onClose: () => void }) {
   const { t, i18n } = useTranslation();
-  const seen = useSeen();
   const [error, setError] = useState<string | null>(null);
-  const summary = syncSummary(status, t, i18n.language, "settings");
-  const hub = hubDevice(status);
-  const id = status.device.id;
-  const shortId = id.length > 12 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id;
-  const lastSync = status.last_sync_at
-    ? new Date(status.last_sync_at).toLocaleString(i18n.language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-    : t("sync.detailsDialog.never");
-  const row = (key: string, value: string) => (
-    <div key={key} className="grid grid-cols-[150px_minmax(0,1fr)] gap-2 text-xs leading-4">
-      <dt className="text-muted">{key}</dt>
+  const details = syncDetails(status, t, i18n.language);
+  const row = (key: string, label: string, value: string) => (
+    <div key={key} data-sync-detail={key} className="grid grid-cols-[150px_minmax(0,1fr)] gap-2 text-xs leading-4">
+      <dt className="text-muted [overflow-wrap:anywhere]">{label}</dt>
       <dd className="font-medium [overflow-wrap:anywhere]">{value}</dd>
     </div>
   );
@@ -583,14 +615,19 @@ function DetailsDialog({ status, onCopy, onClose }: { status: SyncStatus; onCopy
       <div className="flex min-h-0 flex-col" data-sync-view="details">
         <div className="-m-1 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
           <dl className="flex flex-col gap-2">
-            {row(t("sync.detailsDialog.state"), summary?.text ?? status.phase.state)}
-            {row(t("sync.detailsDialog.lastSync"), lastSync)}
-            {row(t("sync.detailsDialog.main"), hub?.name ?? "—")}
-            {row(t("sync.detailsDialog.this"), `${status.device.name} · ${shortId}`)}
+            {row("state", t("sync.detailsDialog.state"), details.state)}
+            {row("main", t("sync.detailsDialog.main"), details.main)}
+            {row("this", t("sync.detailsDialog.this"), details.device)}
+            {row("clock", t("sync.detailsDialog.clock"), details.clock)}
+            {row("key", t("sync.detailsDialog.key"), details.key)}
           </dl>
-          <hr className="my-3 border-divider" />
-          <h3 className="text-2xs font-semibold text-subtle uppercase">{t("sync.detailsDialog.computers")}</h3>
-          <dl className="mt-2 flex flex-col gap-2">{otherDevices(status).map((d) => row(d.name, seen(d)))}</dl>
+          {details.computers.length > 0 && (
+            <>
+              <hr className="my-3 border-divider" />
+              <h3 className="text-2xs font-semibold text-subtle uppercase">{t("sync.detailsDialog.computers")}</h3>
+              <dl className="mt-2 flex flex-col gap-2">{details.computers.map((d) => row(`device:${d.id}`, d.name, d.value))}</dl>
+            </>
+          )}
           <p className="mt-3 text-xs leading-4 text-muted">{t("sync.detailsDialog.note")}</p>
           <ErrorNote text={error} />
         </div>

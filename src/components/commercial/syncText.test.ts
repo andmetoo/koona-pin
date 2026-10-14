@@ -2,7 +2,25 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../../i18n";
 import type { PausedReason, SyncDevice, SyncProblem, SyncStatus, UnavailableReason } from "../../types";
-import { ago, noticeBanner, overviewBanners, planEndsBanner, PROBLEMS, spacedCode, statusBanner, syncPrompt, syncSummary, syncView } from "./syncText";
+import {
+  ago,
+  clockAmount,
+  clockOffset,
+  detailTime,
+  deviceDetail,
+  deviceKind,
+  noticeBanner,
+  overviewBanners,
+  planEndsBanner,
+  platformName,
+  PROBLEMS,
+  spacedCode,
+  statusBanner,
+  syncDetails,
+  syncPrompt,
+  syncSummary,
+  syncView,
+} from "./syncText";
 
 const t = i18n.getFixedT("en");
 // Records, so a reason or a problem added to the contract fails to compile here until it has words.
@@ -27,6 +45,9 @@ const device = (id: string, name: string, extra: Partial<SyncDevice> = {}): Sync
   is_hub: false,
   status: "active",
   last_seen: Date.now(),
+  platform: null,
+  app: null,
+  last_sync_at: null,
   ...extra,
 });
 const hub = device("hub", "Home iMac", { is_hub: true });
@@ -44,6 +65,10 @@ const base: SyncStatus = {
   error: null,
   hub_change: null,
   notices: [],
+  bookmarks: null,
+  clock_offset_ms: null,
+  update_from: null,
+  epoch: null,
 };
 /** Words, not a key that i18next gave back for want of them. */
 const worded = (text: string | undefined) => {
@@ -135,5 +160,95 @@ describe("sync texts (sheet 46)", () => {
     expect(ago(now - 3 * 3_600_000, t, "en", now)).toBe("3 hours ago");
     expect(ago(now - 2 * 86_400_000, t, "en", now)).toBe("2 days ago");
     expect(spacedCode("482913")).toBe("482 913");
+  });
+
+  it("names the system and the version of each computer, and falls back without them (frame 03)", () => {
+    const now = Date.UTC(2026, 9, 14, 12);
+    expect(platformName("macos")).toBe("macOS");
+    expect(platformName("Windows")).toBe("Windows");
+    expect(platformName("freebsd")).toBe("freebsd");
+    expect(platformName(null)).toBeNull();
+    expect(deviceKind("linux")).toBe("computer");
+    expect(deviceKind("android")).toBe("phone");
+    expect(deviceKind(null)).toBe("computer");
+    const mac = device("me", "Home iMac", { platform: "macos", app: "0.13.0" });
+    expect(deviceDetail(mac, t, "en", { version: "0.12.0" }, now)).toBe("macOS · Koona Pin 0.13.0");
+    expect(deviceDetail({ ...mac, app: null }, t, "en", { version: "0.12.0" }, now)).toBe("macOS · Koona Pin 0.12.0");
+    expect(deviceDetail({ ...mac, platform: null, app: null }, t, "en", { version: "0.12.0" }, now)).toBe("Koona Pin 0.12.0");
+    expect(deviceDetail({ ...mac, app: null }, t, "en", { version: "" }, now)).toBe("macOS");
+    expect(deviceDetail(device("w", "Office laptop", { platform: "windows" }), t, "en", null, now)).toBe("Windows · online");
+    const away = device("l", "Studio PC", { platform: "linux", online: false, last_seen: now - 3 * 3_600_000 });
+    expect(deviceDetail(away, t, "en", null, now)).toBe("Linux · last seen 3 hours ago");
+    expect(deviceDetail({ ...away, platform: null }, t, "en", null, now)).toBe("Last seen 3 hours ago");
+    expect(deviceDetail(device("p", "New one", { status: "pending", platform: "linux" }), t, "en", null, now)).toBe("Linux · waiting for approval");
+  });
+
+  it("counts the bookmarks in the synced banner when the library is open (frame 03)", () => {
+    const three = { ...base, devices: [hub, laptop, device("pc", "Studio PC")], bookmarks: 12480 };
+    expect(statusBanner(three, t, "en")).toMatchObject({ id: "online", title: "Synced just now", body: "3 computers · 12,480 bookmarks" });
+    expect(statusBanner({ ...three, bookmarks: 1 }, t, "en").body).toBe("3 computers · 1 bookmark");
+    expect(statusBanner({ ...three, bookmarks: null }, t, "en").body).toBe("3 computers");
+  });
+
+  it("says how far the clock is off and who has the newer version (frame 11)", () => {
+    expect(clockAmount(7 * 60_000 + 12_000, "en")).toBe("7 min");
+    expect(clockAmount(-7 * 60_000, "en")).toBe("7 min");
+    expect(clockAmount(45_000, "en")).toBe("45 sec");
+    expect(clockAmount(3 * 3_600_000 + 60_000, "en")).toBe("3 hr");
+    expect(clockAmount(3 * 86_400_000, "en")).toBe("3 days");
+    const skew = { ...base, phase: { state: "paused" as const, reason: "clock_skew" as const } };
+    expect(statusBanner({ ...skew, clock_offset_ms: 7 * 60_000 + 12_000 }, t, "en")).toMatchObject({
+      id: "paused:clock_skew",
+      title: "This computer's clock is 7 min off",
+      body: "Set the right time to keep syncing.",
+    });
+    expect(statusBanner({ ...skew, clock_offset_ms: -2 * 3_600_000 }, t, "en").title).toBe("This computer's clock is 2 hr off");
+    expect(statusBanner(skew, t, "en").title).toBe("This computer's clock is off");
+    const update = { ...base, phase: { state: "paused" as const, reason: "update_needed" as const } };
+    expect(statusBanner({ ...update, update_from: "hub" }, t, "en")).toMatchObject({ title: "Update Koona Pin to keep syncing", body: "Home iMac has a newer version." });
+    expect(statusBanner({ ...update, update_from: "gone" }, t, "en").body).toBe("Another of your computers has a newer version.");
+    expect(statusBanner(update, t, "en").body).toBe("Another of your computers has a newer version.");
+  });
+
+  it("fills Sync details: the clock, the key's generation and what each computer has (frame 09)", () => {
+    const now = new Date(2026, 9, 14, 15, 0).getTime();
+    const at = (h: number, m: number, daysBack = 0) => new Date(2026, 9, 14 - daysBack, h, m).toISOString();
+    expect(clockOffset(400, "en")).toBe("+0.4 sec");
+    expect(clockOffset(-1200, "en")).toBe("-1.2 sec");
+    expect(clockOffset(0, "en")).toBe("0 sec");
+    expect(clockOffset(42_400, "en")).toBe("+42 sec");
+    expect(clockOffset(3 * 3_600_000, "en")).toBe("+3 hr");
+    expect(clockOffset(-7 * 60_000, "en")).toBe("-7 min");
+    expect(detailTime(at(14, 2), t, "en", now)).toBe("2:02 PM");
+    expect(detailTime(at(18, 40, 1), t, "en", now)).toBe("yesterday 6:40 PM");
+    const status: SyncStatus = {
+      ...base,
+      device: { ...laptop, id: "7f3a0000-0000-0000-0000-00000000c21e" },
+      last_sync_at: at(14, 2),
+      clock_offset_ms: 400,
+      epoch: 2,
+      devices: [
+        { ...hub, last_sync_at: at(14, 2) },
+        { ...laptop, id: "7f3a0000-0000-0000-0000-00000000c21e" },
+        device("pc", "Studio PC", { online: false, last_sync_at: at(18, 40, 1) }),
+        device("new", "New PC", { online: false }),
+      ],
+    };
+    const details = syncDetails(status, t, "en", now);
+    expect(details).toMatchObject({
+      state: "Online · synced 2:02 PM",
+      main: "Home iMac",
+      device: "Office laptop · 7f3a…c21e",
+      clock: "+0.4 sec against the server",
+      key: "Generation 2",
+    });
+    expect(details.computers.map((d) => `${d.name}: ${d.value}`)).toEqual([
+      "Home iMac: up to 2:02 PM",
+      "Studio PC: up to yesterday 6:40 PM · offline",
+      "New PC: nothing yet · offline",
+    ]);
+    const unknown = syncDetails({ ...status, last_sync_at: null, clock_offset_ms: null, epoch: null }, t, "en", now);
+    expect(unknown).toMatchObject({ state: "Online · not synced yet", clock: "Not known yet", key: "Not known yet" });
+    expect(syncDetails({ ...status, phase: { state: "paused", reason: "clock_skew" } }, t, "en", now).state).toBe("Paused · check your clock · synced 2:02 PM");
   });
 });
