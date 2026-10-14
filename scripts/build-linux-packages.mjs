@@ -513,7 +513,7 @@ async function inDocker() {
     "koona-build-cargo-registry": "/usr/local/cargo/registry",
     "koona-build-bun-cache": "/var/cache/koona-bun",
   };
-  const settings = ["KOONAPIN_FEEDBACK_URL", "SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "PADDLE_ENVIRONMENT"].filter((name) => process.env[name]);
+  const settings = ["KOONAPIN_FEEDBACK_URL", "KOONAPIN_SYNC_URL", "SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "PADDLE_ENVIRONMENT"].filter((name) => process.env[name]);
   const stage = (role, volumes, command) => {
     console.log(`\n== ${role}: ${command}`);
     // A new volume belongs to root; the stage runs as «dev» (uid 1001), as in the CI. su may reset PATH,
