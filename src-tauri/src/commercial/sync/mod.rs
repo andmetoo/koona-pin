@@ -25,7 +25,7 @@ use identity::Identity;
 use koona_sync::net::{Event, Stop};
 use koona_sync::session::Action;
 use serde::{Deserialize, Serialize};
-use status::{Context, Model, Notices, Reaction, SyncAccount, SyncProblem, SyncStatus};
+use status::{Context, Model, Notices, Peers, Reaction, SyncAccount, SyncProblem, SyncStatus};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -40,6 +40,8 @@ pub use status::{PairingPrompt, PairingRole, PausedReason, SyncDevice, SyncDevic
 pub const EVENT: &str = "sync-status";
 const FILE: &str = "sync.json";
 const NOTICES_FILE: &str = "sync-notices.json";
+/// What is known of the other devices from syncing with them (`status::Peers`).
+const PEERS_FILE: &str = "sync-devices.json";
 /// How long `start_over` waits for a client it had to start.
 const START_WAIT: Duration = Duration::from_secs(10);
 /// The supervisor looks again this often without being woken: a plan that ran out offline, a
@@ -74,6 +76,12 @@ pub struct SyncState {
     notices_path: PathBuf,
     /// Held while `sync-notices.json` is written, so writes land in order.
     notices_file: Mutex<()>,
+    peers_path: PathBuf,
+    /// Held while `sync-devices.json` is written.
+    peers_file: Mutex<()>,
+    /// The live bookmarks last counted, with the connection's writes and the file's version then
+    /// (`bookmarks_key`): counted again only once either moved.
+    bookmarks: Mutex<Option<((u64, i64), u64)>>,
     stored: Mutex<Stored>,
     /// This device; `saved` once it is in its file. Shown before sync is ever turned on without
     /// writing anything.
@@ -99,11 +107,16 @@ impl SyncState {
         let mut model = Model::default();
         model.last_sync_at = stored.last_sync_at;
         model.notices = fs::read_to_string(&notices_path).ok().and_then(|t| serde_json::from_str::<Notices>(&t).ok()).unwrap_or_default();
+        let peers_path = folder.join(PEERS_FILE);
+        model.peers = fs::read_to_string(&peers_path).ok().and_then(|t| serde_json::from_str::<Peers>(&t).ok()).unwrap_or_default();
         SyncState {
             path,
             identity_path: folder.join(identity::FILE),
             notices_path,
             notices_file: Mutex::new(()),
+            peers_path,
+            peers_file: Mutex::new(()),
+            bookmarks: Mutex::new(None),
             stored: Mutex::new(stored),
             identity: Mutex::new(None),
             model: Mutex::new(model),
@@ -198,6 +211,38 @@ impl SyncState {
         fs::rename(&temporary, &self.notices_path).map_err(CommandError::internal)
     }
 
+    /// Writes what is known of the other devices, through a temporary file.
+    fn keep_peers(&self) -> Result<(), CommandError> {
+        let _one = lock(&self.peers_file);
+        let peers = lock(&self.model).peers.clone();
+        if let Some(folder) = self.peers_path.parent() {
+            fs::create_dir_all(folder).map_err(CommandError::internal)?;
+        }
+        let temporary = self.peers_path.with_extension("json.tmp");
+        fs::write(&temporary, serde_json::to_string_pretty(&peers).map_err(CommandError::internal)?).map_err(CommandError::internal)?;
+        fs::rename(&temporary, &self.peers_path).map_err(CommandError::internal)
+    }
+
+    /// Live bookmarks in the open library, counted again only after a write: the count is shown
+    /// with every status, many a second while syncing. Never waits for the library: one busy
+    /// shows the last count.
+    fn bookmarks(&self, app: &AppHandle) -> Option<u64> {
+        let db = app.try_state::<Arc<DbState>>()?;
+        let mut cached = lock(&self.bookmarks);
+        let Ok(conn) = db.conn.try_lock() else {
+            return cached.map(|(_, count)| count);
+        };
+        let key = bookmarks_key(&conn).ok()?;
+        if let Some((at, count)) = *cached {
+            if at == key {
+                return Some(count);
+            }
+        }
+        let count = live_bookmarks(&conn).ok()?;
+        *cached = Some((key, count));
+        Some(count)
+    }
+
     /// Changes the notices and keeps them if they changed.
     fn change_notices(&self, change: impl FnOnce(&mut Notices) -> bool) -> Result<(), CommandError> {
         let changed = change(&mut lock(&self.model).notices);
@@ -234,6 +279,8 @@ impl SyncState {
             plan: billing::has_plan(app),
             library_ready: self.library_ready.load(Ordering::SeqCst),
             identity,
+            app: app.package_info().version.to_string(),
+            bookmarks: self.bookmarks(app),
         }
     }
 
@@ -284,6 +331,9 @@ pub fn start(app: &AppHandle) {
                         model.stop = None;
                     }
                 }
+            } else if let Some(state) = handle.try_state::<SyncState>() {
+                // Another library, or one restored over this: its own count.
+                *lock(&state.bookmarks) = None;
             }
             wake(&handle);
         });
@@ -382,6 +432,17 @@ pub fn need_sync(service: bool, plan: bool) -> Result<(), CommandError> {
         return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::NotSupporter, "Sync is for Supporters"));
     }
     Ok(())
+}
+
+/// What the bookmark count was taken at: this connection's writes and the file's version, which
+/// moves when another process (the MCP server) commits.
+fn bookmarks_key(conn: &rusqlite::Connection) -> rusqlite::Result<(u64, i64)> {
+    Ok((conn.total_changes(), conn.query_row("PRAGMA data_version", [], |r| r.get(0))?))
+}
+
+/// Bookmarks not in the trash.
+fn live_bookmarks(conn: &rusqlite::Connection) -> rusqlite::Result<u64> {
+    conn.query_row("SELECT COUNT(*) FROM bookmarks WHERE deleted_at IS NULL", [], |r| r.get::<_, i64>(0)).map(|n| n.max(0) as u64)
 }
 
 fn device_id(text: &str) -> Result<Uuid, CommandError> {
@@ -558,15 +619,96 @@ pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
     Ok(if joined { state.emit(&app) } else { status })
 }
 
-/// The notice of that id goes; one already gone is no error.
 /// Before turning sync on: asks the relay whether the account already has a main computer, without
 /// registering this one. Fails like the connection would (no plan, signed out, offline).
 #[tauri::command]
 pub async fn get_sync_account(app: AppHandle) -> Result<SyncAccount, CommandError> {
-    let _ = app;
-    Err(CommandError::invalid("Not built yet"))
+    let url = sync_url();
+    need_sync(url.is_some(), billing::has_plan(&app))?;
+    let url = url.as_deref().and_then(account_url).ok_or_else(|| CommandError::internal("The sync service's address is not ws:// or wss://"))?;
+    let client = billing::client(&app)?;
+    // A token the relay refuses is refreshed once, as the connection does after 4001.
+    let mut refresh = false;
+    loop {
+        let (token, lease) = billing::sync_credentials(&app, refresh).await.ok_or_else(signed_out)?;
+        let response = client
+            .get(&url)
+            .bearer_auth(token)
+            .header("X-Koona-Lease", lease)
+            .header("X-Koona-Proto", koona_sync::protocol::PROTO.to_string())
+            .send()
+            .await
+            .map_err(billing::offline)?;
+        let status = response.status().as_u16();
+        if status == 401 && !refresh {
+            refresh = true;
+            continue;
+        }
+        let body = response.text().await.map_err(billing::offline)?;
+        return account_answer(status, &body);
+    }
 }
 
+fn signed_out() -> CommandError {
+    CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::SignedOut, "Not signed in")
+}
+
+/// `GET /v1/account` beside the relay's socket (`PROTOCOL.md` 2.7): `wss://host/v1/sync` asks
+/// `https://host/v1/account`, `ws://` asks `http://`, under the same path prefix if any.
+pub fn account_url(sync_url: &str) -> Option<String> {
+    let mut url = url::Url::parse(sync_url.trim()).ok()?;
+    let scheme = match url.scheme() {
+        "wss" => "https",
+        "ws" => "http",
+        _ => return None,
+    };
+    url.set_scheme(scheme).ok()?;
+    let path = url.path().trim_end_matches('/');
+    let prefix = path.strip_suffix("/v1/sync").unwrap_or("").to_string();
+    url.set_path(&format!("{prefix}/v1/account"));
+    url.set_query(None);
+    url.set_fragment(None);
+    Some(url.to_string())
+}
+
+#[derive(Deserialize)]
+struct AccountAnswer {
+    hub: Option<AccountHub>,
+}
+
+#[derive(Deserialize)]
+struct AccountHub {
+    name: String,
+}
+
+/// The relay's answer to `GET /v1/account` as the command's: its refusals as the connection's
+/// close codes would be shown (426 for 4004, 401 for 4001, 403 for 4002).
+pub fn account_answer(status: u16, body: &str) -> Result<SyncAccount, CommandError> {
+    // `{"code": 4002, "reason": "not_in_beta"}`, for the log.
+    let reason = || {
+        serde_json::from_str::<serde_json::Value>(body)
+            .ok()
+            .and_then(|v| v.get("reason").and_then(|r| r.as_str()).map(str::to_string))
+            .unwrap_or_default()
+    };
+    match status {
+        200 => serde_json::from_str::<AccountAnswer>(body)
+            .map(|answer| SyncAccount { main_name: answer.hub.map(|hub| hub.name) })
+            .map_err(|e| CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("The sync service answered {e}"))),
+        401 => Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::SignedOut, "The sync service refused the sign-in")),
+        403 => Err(CommandError::detailed(
+            ErrorCode::InvalidRequest,
+            ErrorDetail::NotSupporter,
+            format!("The sync service says the plan has no sync: {}", reason()),
+        )),
+        // No detail of its own yet: the message says it for the log.
+        426 => Err(CommandError::invalid("The sync service needs a newer Koona Pin: update the app")),
+        429 => Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "The sync service asks to wait")),
+        other => Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("The sync service answered {other}"))),
+    }
+}
+
+/// The notice of that id goes; one already gone is no error.
 #[tauri::command]
 pub fn dismiss_sync_notice(app: AppHandle, id: String) -> Result<SyncStatus, CommandError> {
     let state = app.state::<SyncState>();
@@ -703,6 +845,72 @@ mod tests {
     }
 
     #[test]
+    fn the_account_is_asked_beside_the_relay_socket() {
+        assert_eq!(account_url("wss://sync.koonapin.com/v1/sync").as_deref(), Some("https://sync.koonapin.com/v1/account"));
+        assert_eq!(account_url("ws://127.0.0.1:8787/v1/sync").as_deref(), Some("http://127.0.0.1:8787/v1/account"));
+        assert_eq!(account_url(" wss://example.com/relay/v1/sync/ ").as_deref(), Some("https://example.com/relay/v1/account"));
+        assert_eq!(account_url("wss://example.com/v1/sync?x=1#y").as_deref(), Some("https://example.com/v1/account"));
+        assert_eq!(account_url("wss://example.com").as_deref(), Some("https://example.com/v1/account"));
+        assert_eq!(account_url("https://example.com/v1/sync"), None);
+        assert_eq!(account_url("not a url"), None);
+    }
+
+    #[test]
+    fn the_relay_answer_about_the_account_is_mapped_like_its_close_codes() {
+        let id = "0192f3a4-b5c6-7d8e-9f01-23456789abcd";
+        let hub = account_answer(200, &format!(r#"{{"hub": {{"id": "{id}", "name": "Home iMac"}}}}"#)).unwrap();
+        assert_eq!(hub.main_name.as_deref(), Some("Home iMac"));
+        assert_eq!(account_answer(200, r#"{"hub": null}"#).unwrap().main_name, None);
+        assert_eq!(account_answer(200, "<html>").unwrap_err().code, ErrorCode::Network);
+        let refused = |status| account_answer(status, r#"{"code": 4002, "reason": "not_in_beta"}"#).unwrap_err();
+        assert_eq!(refused(401).detail, Some(ErrorDetail::SignedOut));
+        let plan = refused(403);
+        assert_eq!((plan.code, plan.detail), (ErrorCode::InvalidRequest, Some(ErrorDetail::NotSupporter)));
+        assert!(plan.message.contains("not_in_beta"));
+        let old = refused(426);
+        assert_eq!((old.code, old.detail), (ErrorCode::InvalidRequest, None));
+        assert!(old.message.contains("update"));
+        assert_eq!((refused(429).code, refused(429).detail), (ErrorCode::Network, Some(ErrorDetail::TooManyMessages)));
+        assert_eq!((refused(502).code, refused(502).detail), (ErrorCode::Network, Some(ErrorDetail::ServiceFailed)));
+    }
+
+    #[test]
+    fn the_bookmark_count_leaves_the_trash_out_and_moves_with_writes() {
+        let conn = worker::tests::library();
+        let add = |url: &str| {
+            crate::db::insert_or_update_bookmark(&conn, url, "x", None, None, None, "example.com", None, None, crate::db::Source::App).unwrap().id
+        };
+        let before = bookmarks_key(&conn).unwrap();
+        add("https://example.com/1");
+        add("https://example.com/2");
+        let trashed = add("https://example.com/3");
+        crate::db::trash_bookmark(&conn, trashed).unwrap();
+        assert_eq!(live_bookmarks(&conn).unwrap(), 2);
+        assert_ne!(bookmarks_key(&conn).unwrap(), before, "a write moves the key");
+        let after = bookmarks_key(&conn).unwrap();
+        assert_eq!(bookmarks_key(&conn).unwrap(), after, "reading doesn't");
+    }
+
+    #[test]
+    fn what_is_known_of_other_devices_is_kept_across_restarts() {
+        let folder = std::env::temp_dir().join(format!("koonapin-sync-peers-{}", Uuid::new_v4().simple()));
+        let state = SyncState::load(folder.clone());
+        let laptop = Uuid::new_v4();
+        let reactions = state.on_event(Event::Session(koona_sync::session::Effect::PeerHello {
+            device: laptop,
+            platform: "linux".into(),
+            app: "0.13.0".into(),
+        }));
+        assert_eq!(reactions, vec![Reaction::Peers]);
+        state.keep_peers().unwrap();
+        assert!(!folder.join("sync-devices.json.tmp").exists());
+        let again = SyncState::load(folder.clone());
+        let facts = lock(&again.model).peers.devices.get(&laptop).cloned().unwrap();
+        assert_eq!((facts.platform.as_deref(), facts.app.as_deref()), (Some("linux"), Some("0.13.0")));
+        let _ = fs::remove_dir_all(folder);
+    }
+
+    #[test]
     fn the_report_names_states_and_ids_only() {
         let me = Identity::new("Studio Mac");
         let mut model = Model::default();
@@ -720,7 +928,7 @@ mod tests {
             }),
             Utc::now(),
         );
-        let context = Context { enabled: true, service: true, plan: true, library_ready: true, identity: &me };
+        let context = Context { enabled: true, service: true, plan: true, library_ready: true, identity: &me, app: "0.13.0".into(), bookmarks: None };
         let text = report(&model.status(&context), "0.13.0", true, &model);
         assert!(text.contains(&me.device.to_string()));
         assert!(text.contains("app: 0.13.0"));

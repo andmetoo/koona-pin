@@ -58,8 +58,10 @@ pub struct Config {
     /// The account: the JWT's `sub`, signed into the relay `hello`.
     pub sub: String,
     pub name: String,
-    /// The app version, for the relay's directory.
+    /// The app version, for the relay's directory and the sync `hello`.
     pub app: String,
+    /// This build's platform for the sync `hello` ([`protocol::platform`]).
+    pub platform: String,
     /// The library schema version, `hello.schema`.
     pub schema: u32,
     /// JSON bytes per engine chunk; each deflates to well under a batch.
@@ -70,7 +72,17 @@ pub struct Config {
 
 impl Config {
     pub fn new(device: Uuid, device_key: Ed25519KeyPair, sub: String, name: String, app: String) -> Config {
-        Config { device, device_key, sub, name, app, schema: SCHEMA, chunk_bytes: 2 << 20, hold_groups: HOLD_GROUPS }
+        Config {
+            device,
+            device_key,
+            sub,
+            name,
+            app,
+            platform: protocol::platform().to_string(),
+            schema: SCHEMA,
+            chunk_bytes: 2 << 20,
+            hold_groups: HOLD_GROUPS,
+        }
     }
 }
 
@@ -200,6 +212,18 @@ pub enum Effect {
     Devices { devices: Vec<DeviceInfo>, online: Vec<Uuid>, hub: Option<Uuid> },
     Error(SessionError),
     Dropped { from: Uuid, reason: DropReason },
+    /// A peer's sync `hello`: what it runs, as it says.
+    PeerHello { device: Uuid, platform: String, app: String },
+    /// A transfer with the peer finished: an answer or a push from it applied up to its `last`
+    /// batch, or one of this device's acknowledged.
+    Synced { peer: Uuid },
+    /// This device's clock minus the relay's, ms, from the relay's `challenge`.
+    ClockOffset(i64),
+    /// The newest library key this device holds is now of this epoch (none: no key).
+    KeyEpoch(Option<u32>),
+    /// The peer whose newer protocol or schema pauses this device for an update; none once no
+    /// peer does.
+    UpdateFrom(Option<Uuid>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -377,6 +401,9 @@ pub struct Session {
     /// The person chose to join again: a `welcome` that would hold doesn't.
     joining: bool,
     phase: Option<Phase>,
+    /// The key epoch and the newer peer last reported ([`Effect::KeyEpoch`], [`Effect::UpdateFrom`]).
+    shown_epoch: Option<Option<u32>>,
+    shown_update_from: Option<Uuid>,
     now: u64,
 }
 
@@ -398,6 +425,12 @@ pub fn device_name(name: &str) -> String {
 
 fn code_text(code: u32) -> String {
     format!("{code:06}")
+}
+
+/// `local - relay`, ms, saturating.
+fn clock_offset(local: u64, relay: u64) -> i64 {
+    let offset = i128::from(local) - i128::from(relay);
+    offset.clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64
 }
 
 impl Session {
@@ -434,6 +467,8 @@ impl Session {
             held: false,
             joining: false,
             phase: None,
+            shown_epoch: None,
+            shown_update_from: None,
             now: 0,
         }
     }
@@ -541,7 +576,22 @@ impl Session {
         }
     }
 
+    /// The peer that pauses this device for an update, if a peer does.
+    pub fn update_from(&self) -> Option<Uuid> {
+        self.peers.iter().find(|(_, p)| p.pause == Some(PeerPause::UpdateNeeded)).map(|(id, _)| *id)
+    }
+
     fn update_phase(&mut self) {
+        let epoch = self.newest_epoch();
+        if self.shown_epoch != Some(epoch) {
+            self.shown_epoch = Some(epoch);
+            self.fx.push(Effect::KeyEpoch(epoch));
+        }
+        let from = self.update_from();
+        if self.shown_update_from != from {
+            self.shown_update_from = from;
+            self.fx.push(Effect::UpdateFrom(from));
+        }
         let phase = self.compute_phase();
         if self.phase != Some(phase) {
             self.phase = Some(phase);
@@ -605,7 +655,14 @@ impl Session {
             Ok(v) => v,
             Err(e) => return self.lib_error(e),
         };
-        let hello = SyncMessage::Hello { proto: PROTO, schema: self.cfg.schema, vector, hub: self.is_hub() };
+        let hello = SyncMessage::Hello {
+            proto: PROTO,
+            schema: self.cfg.schema,
+            vector,
+            hub: self.is_hub(),
+            platform: self.cfg.platform.clone(),
+            app: protocol::hello_app(&self.cfg.app),
+        };
         if self.send_sync(Address::Device(to), &hello) {
             self.peers.entry(to).or_default().said_hello = true;
         }
@@ -1023,6 +1080,7 @@ impl Session {
                     return;
                 }
                 self.check_skew(lib, time);
+                self.fx.push(Effect::ClockOffset(clock_offset(self.now, time)));
                 let sig = crypto::sign_relay_hello(&self.cfg.device_key, &self.cfg.sub, &nonce.0, self.cfg.device);
                 self.send_text(Control::Hello {
                     device: self.cfg.device,
@@ -1677,7 +1735,9 @@ impl Session {
 
     fn on_sync(&mut self, lib: &mut dyn Library, from: Uuid, message: SyncMessage) {
         match message {
-            SyncMessage::Hello { schema, vector, .. } => {
+            SyncMessage::Hello { schema, vector, platform, app, .. } => {
+                // Told even when it can't sync: a newer peer names the version to update to.
+                self.fx.push(Effect::PeerHello { device: from, platform, app });
                 if self.skewed {
                     self.send_sync(Address::Device(from), &SyncMessage::Error { code: ErrorCode::ClockSkew });
                     return;
@@ -1722,7 +1782,9 @@ impl Session {
                 let peer = self.peers.entry(from).or_default();
                 peer.known.merge(&vector);
                 peer.ack_since = None;
-                if peer.dirty {
+                let dirty = peer.dirty;
+                self.fx.push(Effect::Synced { peer: from });
+                if dirty {
                     self.push_all(lib);
                 }
             }
@@ -1811,6 +1873,7 @@ impl Session {
             Err(e) => return self.lib_error(e),
         };
         self.send_sync(Address::Device(from), &SyncMessage::Ack { vector: vector.clone() });
+        self.fx.push(Effect::Synced { peer: from });
         let gap = incoming.seen.iter().any(|(replica, counter)| vector.get(replica) < *counter);
         let peer = self.peers.entry(from).or_default();
         if !merged || gap {

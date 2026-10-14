@@ -566,7 +566,7 @@ fn need_service() -> Result<Service, CommandError> {
     service().ok_or_else(|| CommandError::new(ErrorCode::InvalidRequest, "This build does not sell Supporter"))
 }
 
-fn client(app: &AppHandle) -> Result<reqwest::Client, CommandError> {
+pub(crate) fn client(app: &AppHandle) -> Result<reqwest::Client, CommandError> {
     reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(15))
@@ -575,7 +575,7 @@ fn client(app: &AppHandle) -> Result<reqwest::Client, CommandError> {
         .map_err(CommandError::internal)
 }
 
-fn offline(error: reqwest::Error) -> CommandError {
+pub(crate) fn offline(error: reqwest::Error) -> CommandError {
     let detail = if error.is_connect() { ErrorDetail::NoConnection } else { ErrorDetail::ServiceFailed };
     CommandError::detailed(ErrorCode::Network, detail, error.without_url().to_string())
 }
