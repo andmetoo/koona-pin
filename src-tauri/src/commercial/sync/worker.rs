@@ -85,8 +85,10 @@ impl Library for DbLibrary {
         self.with(|conn| Library::delta(conn, since, cursor, max_bytes, max_chunks))
     }
 
+    // Through the app's apply, which writes the search rows and sort keys once per batch instead
+    // of the triggers doing it on every write (a 100k snapshot: 36 s → about 20 s).
     fn apply(&mut self, groups: &[Group]) -> koona_sync::Result<Applied> {
-        self.with(|conn| Library::apply(conn, groups))
+        self.with(|conn| crate::sync_library::apply(conn, groups))
     }
 
     fn merge_vector(&mut self, covers: &Vector) -> koona_sync::Result<()> {
