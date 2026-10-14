@@ -1,7 +1,7 @@
 // Builds Koona Pin for macOS (#56) on a Mac or the macOS Actions runner; <arch> is this machine's
 // (arm64 on Apple Silicon, x64 on Intel). Folders: scripts/lib/paths.mjs.
-//   bun scripts/build-macos.mjs          release: --features public-release, `Koona Pin.app` in a ZIP and a .dmg,
-//                                        both with README.txt (src-tauri/macos/README.txt) next to the app →
+//   bun scripts/build-macos.mjs          release: --features public-release, `Koona Pin.app` in a ZIP and a .dmg
+//                                        (dmgbuild, src-tauri/macos/dmg) →
 //                                        release/publish/macos/<version>/<arch>/ with SHA256SUMS.txt
 //   bun scripts/build-macos.mjs --test   experimental test .app without public-release, never published →
 //                                        release/test/macos/<version>/<arch>/
@@ -11,12 +11,12 @@
 // already set in the environment wins. The release build needs KOONAPIN_FEEDBACK_URL (feedback.rs).
 // Apple signing is optional: with APPLE_SIGNING_IDENTITY (a Developer ID Application identity in the
 // keychain) Tauri signs, and with APPLE_API_ISSUER/APPLE_API_KEY/APPLE_API_KEY_PATH or
-// APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID it also notarizes and staples the app. Without them the
-// bundle is signed ad hoc and Gatekeeper needs the Mac owner's approval (NP-051).
+// APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID it also notarizes and staples the app, and this script the DMG.
+// Without them the bundle is signed ad hoc and Gatekeeper needs the Mac owner's approval (NP-051).
+// The DMG needs Python 3.10 or later for dmgbuild (see dmgbuild() below).
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { publish, root, test } from "./lib/paths.mjs";
 
@@ -33,14 +33,6 @@ const bundleDir = path.join(root, "src-tauri", "target", "release", "bundle");
 const app = "Koona Pin.app";
 const git = (...args) => spawnSync("git", args, { cwd: root, encoding: "utf8" }).stdout.trim();
 const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
-/** Unmounts a disk image; a Finder or Spotlight still holding it gets a moment, then a forced detach. */
-function detach(mount) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    if (spawnSync("hdiutil", ["detach", mount], { stdio: "inherit" }).status === 0) return;
-    spawnSync("sleep", ["2"]);
-  }
-  run("hdiutil", ["detach", "-force", mount]);
-}
 
 /**
  * The Safari app extension (src-tauri/macos/safari, NP-119) into Contents/PlugIns of the app at `bundle`.
@@ -137,61 +129,71 @@ if (!identity) console.warn("APPLE_SIGNING_IDENTITY is not set: an unsigned (ad 
 else if (!notarize) console.warn("No notarization credentials (APPLE_API_* or APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID): signed, not notarized.");
 
 // A bundle left from an earlier build must not pass for this one.
-const dmgDir = path.join(bundleDir, "dmg");
-const dmgsOfThisVersion = () => (existsSync(dmgDir) ? readdirSync(dmgDir).filter((file) => file.endsWith(".dmg") && file.includes(`_${version}_`)) : []);
-for (const old of dmgsOfThisVersion()) rmSync(path.join(dmgDir, old));
 rmSync(path.join(bundleDir, "macos", app), { recursive: true, force: true });
 
 // Bundle settings live in tauri.macos-release.conf.json, not tauri.macos.conf.json, which Tauri
 // merges into every macOS build including `cargo test` and dev. Without an identity "-" seals the
 // bundle ad hoc (the linker alone signs only the executable); Tauri never notarizes an ad hoc one.
-const args = ["run", "tauri", "build", "--features", "public-release", "--bundles", "app,dmg",
+// Tauri makes the app only: its DMG gets a styled window only from Finder by AppleScript, which a
+// CI runner (and a Terminal without Automation access) skips, so dmgbuild makes the image below.
+const args = ["run", "tauri", "build", "--features", "public-release", "--bundles", "app",
   "--config", "src-tauri/tauri.macos-release.conf.json"];
 if (!identity) args.push("--config", JSON.stringify({ bundle: { macOS: { signingIdentity: "-" } } }));
 run("bun", args);
 
-const [dmg] = dmgsOfThisVersion();
-if (!dmg) throw new Error(`No .dmg for ${version} in ${dmgDir}`);
+/**
+ * dmgbuild (src-tauri/macos/dmg/requirements.txt, pinned by hash) in a virtual environment under
+ * src-tauri/target, made again when the requirements change. It needs Python 3.10 or later; macOS's
+ * own python3 is 3.9, so a newer one comes from PYTHON, mise, Homebrew or python.org.
+ */
+function dmgbuild() {
+  const requirements = path.join(root, "src-tauri", "macos", "dmg", "requirements.txt");
+  const venv = path.join(root, "src-tauri", "target", "dmgbuild");
+  const stamp = path.join(venv, "requirements.sha256");
+  const bin = path.join(venv, "bin", "dmgbuild");
+  if (existsSync(bin) && existsSync(stamp) && readFileSync(stamp, "utf8") === sha256(requirements)) return bin;
+  const candidates = [env.PYTHON, ...["3.14", "3.13", "3.12", "3.11", "3.10"].map((v) => `python${v}`), "python3"].filter(Boolean);
+  const python = candidates.find((candidate) =>
+    spawnSync(candidate, ["-c", "import sys; sys.exit(sys.version_info < (3, 10))"], { stdio: "ignore" }).status === 0);
+  if (!python) throw new Error("dmgbuild needs Python 3.10 or later: `mise use -g python@3.13` (or Homebrew), or PYTHON=<path>");
+  rmSync(venv, { recursive: true, force: true });
+  run(python, ["-m", "venv", venv]);
+  run(path.join(venv, "bin", "pip"), ["install", "--quiet", "--disable-pip-version-check", "--require-hashes",
+    "--only-binary", ":all:", "-r", requirements]);
+  writeFileSync(stamp, sha256(requirements));
+  return bin;
+}
+
+/** notarytool's credentials: the App Store Connect API key, else the Apple ID (as Tauri picks them). */
+const notaryCredentials = () => env.APPLE_API_KEY_PATH
+  ? ["--key", env.APPLE_API_KEY_PATH, "--key-id", env.APPLE_API_KEY, "--issuer", env.APPLE_API_ISSUER]
+  : ["--apple-id", env.APPLE_ID, "--password", env.APPLE_PASSWORD, "--team-id", env.APPLE_TEAM_ID];
+/** Notarizes a file and staples the ticket to it; Apple's log when it is not accepted. */
+function notarizeAndStaple(file) {
+  const result = JSON.parse(execFileSync("xcrun", ["notarytool", "submit", file, "--wait", "--output-format", "json",
+    ...notaryCredentials()], { encoding: "utf8" }));
+  if (result.status !== "Accepted") {
+    spawnSync("xcrun", ["notarytool", "log", result.id, ...notaryCredentials()], { stdio: "inherit" });
+    throw new Error(`Notarization of ${path.basename(file)}: ${result.status} (${result.id})`);
+  }
+  console.log(`Notarized ${path.basename(file)} (${result.id})`);
+  run("xcrun", ["stapler", "staple", file]);
+}
+
 const output = publish.macos(version, arch);
 rmSync(output, { recursive: true, force: true });
 mkdirSync(output, { recursive: true });
 const base = `koonapin-${version}-macos-${arch}`;
-// README.txt for people (src-tauri/macos/README.txt): what the app is, how to open a build without a
-// Developer ID past Gatekeeper, where updates come from. It goes next to Koona Pin.app in both.
-const readme = path.join(root, "src-tauri", "macos", "README.txt");
-const work = mkdtempSync(path.join(tmpdir(), "koonapin-macos-"));
-try {
-  // The ZIP: Koona Pin.app and README.txt at its top. ditto keeps the bundle's metadata and signature,
-  // both when copying the app and when archiving the folder's contents (no --keepParent: no folder level).
-  const zipRoot = path.join(work, "zip");
-  mkdirSync(zipRoot);
-  run("ditto", [path.join(bundleDir, "macos", app), path.join(zipRoot, app)]);
-  cpSync(readme, path.join(zipRoot, "README.txt"));
-  run("ditto", ["-c", "-k", "--sequesterRsrc", zipRoot, path.join(output, `${base}.zip`)]);
-
-  // The DMG: Tauri's, read-write, README.txt added, compressed again. Tauri's .DS_Store (window size,
-  // background, the positions of the app and the Applications link) stays as it is, since only a file
-  // is added; README.txt has no position of its own there, so Finder places it in the window by itself.
-  const rw = path.join(work, "rw.dmg");
-  const mount = path.join(work, "mount");
-  mkdirSync(mount);
-  run("hdiutil", ["convert", path.join(dmgDir, dmg), "-format", "UDRW", "-o", rw]);
-  // A few spare megabytes: Tauri sizes its image to the app, the README needs room of its own.
-  run("hdiutil", ["resize", "-size", `${Math.ceil(statSync(rw).size / 1048576) + 4}m`, rw]);
-  run("hdiutil", ["attach", rw, "-nobrowse", "-noverify", "-noautoopen", "-mountpoint", mount]);
-  try {
-    cpSync(readme, path.join(mount, "README.txt"));
-  } finally {
-    detach(mount);
-  }
-  run("hdiutil", ["convert", rw, "-format", "UDZO", "-imagekey", "zlib-level=9", "-o", path.join(output, `${base}.dmg`)]);
-} finally {
-  rmSync(work, { recursive: true, force: true });
-}
-// The content changed, so a signature Tauri gave the image is gone: sign it again with the same identity.
-// The app inside keeps its own signature (and notarization ticket, when notarized). Notarizing the DMG
-// itself (notarytool submit, stapler staple) is a separate step, not done here yet (NP-051).
-if (identity) run("codesign", ["--force", "--sign", identity, "--timestamp", path.join(output, `${base}.dmg`)]);
+const built = path.join(bundleDir, "macos", app);
+const dmg = path.join(output, `${base}.dmg`);
+// The ZIP: Koona Pin.app at its top. ditto keeps the bundle's metadata, signature and stapled ticket.
+run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", built, path.join(output, `${base}.zip`)]);
+// The DMG: the app, a link to Applications, the window and volume icon of src-tauri/macos/dmg.
+const dmgSettings = path.join(root, "src-tauri", "macos", "dmg");
+run(dmgbuild(), ["-s", path.join(dmgSettings, "settings.py"), "-D", `app=${built}`, "-D", `here=${dmgSettings}`, "Koona Pin", dmg]);
+// The image is signed, then notarized and stapled itself: Gatekeeper checks a downloaded DMG before the app inside.
+if (identity) run("codesign", ["--force", "--sign", identity, "--timestamp", dmg]);
+if (notarize) notarizeAndStaple(dmg);
 const files = [`${base}.zip`, `${base}.dmg`];
 const sums = files.map((file) => `${sha256(path.join(output, file))}  ${file}`);
 const dirty = git("status", "--porcelain", "--untracked-files=no") ? " with uncommitted changes" : "";
