@@ -38,6 +38,8 @@ pub const MAX_CLOCK_SKEW_MS: u64 = 5 * 60 * 1000;
 pub const HEADER_LEN: usize = 1 + 1 + 4 + 16 + 8;
 /// The Poly1305 tag at the end of a sealed body.
 pub const TAG_LEN: usize = 16;
+/// The most characters of the sync `hello`'s `platform` and `app`.
+pub const MAX_HELLO_TEXT: usize = 32;
 
 /// WebSocket close codes the relay uses.
 pub mod close {
@@ -473,8 +475,9 @@ pub struct RosterEntry {
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum SyncMessage {
     /// First message both ways on a new session. `schema` is the library schema version;
-    /// `hub` says whether the sender is the hub.
-    Hello { proto: u32, schema: u32, vector: Vector, hub: bool },
+    /// `hub` says whether the sender is the hub; `platform` ([`platform`]) and `app` (its
+    /// version) are shown to the person and trusted for nothing else.
+    Hello { proto: u32, schema: u32, vector: Vector, hub: bool, platform: String, app: String },
     /// Send me what isn't covered by this vector.
     Pull { vector: Vector },
     /// One batch of an answer to `pull` (or an unasked push). The receiver merges `covers` into
@@ -508,6 +511,37 @@ pub enum PairMessage {
     RekeyAccept { eph: B64<32>, sig: B64<64> },
     RekeyKey { epoch: u32, sealed: B64<48> },
     Error { code: ErrorCode },
+}
+
+/// This build's `hello.platform`: `macos`, `windows`, `linux`, or the system's own lowercase word
+/// (`std::env::consts::OS`) elsewhere.
+pub fn platform() -> &'static str {
+    match std::env::consts::OS {
+        "macos" => "macos",
+        "windows" => "windows",
+        "linux" => "linux",
+        other if platform_word(other) => other,
+        _ => "other",
+    }
+}
+
+/// A `hello.platform`: one lowercase word of ASCII letters and digits, a letter first, at most
+/// [`MAX_HELLO_TEXT`] characters.
+pub fn platform_word(text: &str) -> bool {
+    text.len() <= MAX_HELLO_TEXT
+        && text.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
+        && text.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+}
+
+/// A `hello.app`: at most [`MAX_HELLO_TEXT`] characters, none of them a control character.
+pub fn app_text(text: &str) -> bool {
+    text.chars().count() <= MAX_HELLO_TEXT && !text.chars().any(char::is_control)
+}
+
+/// An app version as `hello.app` carries it: control characters left out, cut to
+/// [`MAX_HELLO_TEXT`] characters.
+pub fn hello_app(version: &str) -> String {
+    version.chars().filter(|c| !c.is_control()).take(MAX_HELLO_TEXT).collect()
 }
 
 /// Raw deflate (no zlib header) of the JSON; the bytes are not canonical, only what they inflate
@@ -550,7 +584,7 @@ impl SyncMessage {
         let value = inflate_json(payload)?;
         let (tag, object) = tagged(&value)?;
         match tag {
-            "hello" => keys(object, &["t", "proto", "schema", "vector", "hub"], "hello")?,
+            "hello" => keys(object, &["t", "proto", "schema", "vector", "hub", "platform", "app"], "hello")?,
             "pull" | "ack" => keys(object, &["t", "vector"], tag)?,
             "changes" => {
                 keys(object, &["t", "groups", "covers", "last"], "changes")?;
@@ -571,7 +605,17 @@ impl SyncMessage {
             "error" => keys(object, &["t", "code"], "error")?,
             other => return Err(Error::UnknownMessage(other.to_string())),
         }
-        from_value(value)
+        let message = from_value(value)?;
+        if let SyncMessage::Hello { platform, app, .. } = &message {
+            // The wrong shape is a broken peer, not a newer one.
+            if !platform_word(platform) {
+                return Err(Error::Malformed(format!("hello.platform {platform:?}")));
+            }
+            if !app_text(app) {
+                return Err(Error::Malformed(format!("hello.app {app:?}")));
+            }
+        }
+        Ok(message)
     }
 
     /// Splits `groups` into `changes` batches that each deflate under `MAX_PAYLOAD`, in order,
@@ -830,6 +874,52 @@ mod tests {
         // An unknown error code still decodes: codes may grow without forcing updates.
         let error = SyncMessage::decode(&deflate(&json!({"t": "error", "code": "later"}))).unwrap();
         assert_eq!(error, SyncMessage::Error { code: ErrorCode::Unknown });
+    }
+
+    #[test]
+    fn hello_names_the_platform_and_app_in_a_checked_shape() {
+        let hello = |platform: &str, app: &str| SyncMessage::Hello {
+            proto: 1,
+            schema: 10,
+            vector: Vector::default(),
+            hub: false,
+            platform: platform.into(),
+            app: app.into(),
+        };
+        let fine = hello("macos", "0.13.0");
+        assert_eq!(SyncMessage::decode(&fine.encode().unwrap()).unwrap(), fine);
+        let longest = hello("freebsd", &"9".repeat(MAX_HELLO_TEXT));
+        assert_eq!(SyncMessage::decode(&longest.encode().unwrap()).unwrap(), longest);
+        for wrong in [
+            hello("", "0.13.0"),
+            hello("macOS", "0.13.0"),
+            hello("mac os", "0.13.0"),
+            hello("9front", "0.13.0"),
+            hello(&"a".repeat(MAX_HELLO_TEXT + 1), "0.13.0"),
+            hello("linux", &"9".repeat(MAX_HELLO_TEXT + 1)),
+            hello("linux", "0.13\n"),
+        ] {
+            let error = SyncMessage::decode(&wrong.encode().unwrap()).unwrap_err();
+            assert!(matches!(error, Error::Malformed(_)), "{wrong:?}: {error}");
+        }
+        // Both are required: a hello without them is broken, not newer.
+        let missing = deflate(&json!({"t": "hello", "proto": 1, "schema": 10, "vector": {}, "hub": false}));
+        assert!(matches!(SyncMessage::decode(&missing), Err(Error::Malformed(_))));
+        let extra = deflate(&json!({"t": "hello", "proto": 1, "schema": 10, "vector": {}, "hub": false,
+                                    "platform": "linux", "app": "1", "arch": "arm64"}));
+        assert!(SyncMessage::decode(&extra).unwrap_err().update_needed());
+    }
+
+    #[test]
+    fn this_build_names_its_platform_and_cuts_its_version() {
+        assert!(platform_word(platform()));
+        if cfg!(target_os = "macos") {
+            assert_eq!(platform(), "macos");
+        }
+        assert_eq!(hello_app("0.13.0"), "0.13.0");
+        assert_eq!(hello_app("0.13\n.0"), "0.13.0");
+        assert_eq!(hello_app(&"1".repeat(40)).chars().count(), MAX_HELLO_TEXT);
+        assert!(app_text(&hello_app(&"é".repeat(40))));
     }
 
     #[test]

@@ -289,6 +289,11 @@ async fn pump(
                         eprintln!("Sync cannot keep its notices: {}", error.message);
                     }
                 }
+                Reaction::Peers => {
+                    if let Err(error) = state.keep_peers() {
+                        eprintln!("Sync cannot keep what it knows of the other devices: {}", error.message);
+                    }
+                }
             }
         }
         if abandoned.load(Ordering::SeqCst) {

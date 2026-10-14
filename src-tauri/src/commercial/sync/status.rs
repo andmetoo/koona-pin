@@ -14,7 +14,7 @@ use koona_sync::session::{
 };
 use koona_sync::Applied;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -156,6 +156,49 @@ impl Notices {
         let before = self.list.len();
         self.list.retain(|n| !matches!(n, SyncNotice::StartedOver { .. }));
         self.list.len() != before
+    }
+}
+
+/// What this device learned of another by syncing with it: its `hello` and when a transfer with
+/// it last finished.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PeerFacts {
+    #[serde(default)]
+    pub platform: Option<String>,
+    #[serde(default)]
+    pub app: Option<String>,
+    #[serde(default)]
+    pub last_sync_at: Option<DateTime<Utc>>,
+}
+
+/// The other devices' facts, kept across restarts (`sync-devices.json`) so a device offline
+/// still shows them. Not in the library: the relay's directory isn't either.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Peers {
+    #[serde(default)]
+    pub devices: BTreeMap<Uuid, PeerFacts>,
+}
+
+impl Peers {
+    /// Whether the facts changed.
+    fn hello(&mut self, device: Uuid, platform: String, app: String) -> bool {
+        let facts = self.devices.entry(device).or_default();
+        let (platform, app) = (Some(platform), Some(app));
+        let changed = facts.platform != platform || facts.app != app;
+        facts.platform = platform;
+        facts.app = app;
+        changed
+    }
+
+    fn synced(&mut self, device: Uuid, at: DateTime<Utc>) {
+        self.devices.entry(device).or_default().last_sync_at = Some(at);
+    }
+
+    /// Only the devices of the directory not removed are kept. Whether any went.
+    fn keep_only(&mut self, devices: &[DeviceInfo]) -> bool {
+        let before = self.devices.len();
+        self.devices.retain(|id, _| devices.iter().any(|d| d.id == *id && d.status != DeviceStatus::Revoked));
+        self.devices.len() != before
     }
 }
 
@@ -312,6 +355,8 @@ pub enum Reaction {
     Synced,
     /// The notices changed: they are kept.
     Notices,
+    /// What is known of the other devices changed: it is kept.
+    Peers,
 }
 
 /// The facts the status depends on besides the events.
@@ -321,6 +366,10 @@ pub struct Context<'a> {
     pub plan: bool,
     pub library_ready: bool,
     pub identity: &'a Identity,
+    /// This build's version, as its `hello` says it.
+    pub app: String,
+    /// Live bookmarks in the open library.
+    pub bookmarks: Option<u64>,
 }
 
 /// Lines kept for `copy_sync_report`.
@@ -343,6 +392,13 @@ pub struct Model {
     pub notices: Notices,
     /// This device, left out of the devices added.
     pub me: Option<Uuid>,
+    pub peers: Peers,
+    /// This device's clock minus the relay's, from the last `challenge`.
+    clock_offset_ms: Option<i64>,
+    /// The peer that pauses the session for an update.
+    update_from: Option<Uuid>,
+    /// Of the newest library key the session holds.
+    epoch: Option<u32>,
     log: VecDeque<String>,
 }
 
@@ -441,6 +497,7 @@ impl Model {
         self.pairing = None;
         self.hub_change = None;
         self.online.clear();
+        self.update_from = None;
     }
 
     fn hub_online(&self) -> bool {
@@ -485,6 +542,9 @@ impl Model {
                 let hub_was_online = self.hub_online();
                 if self.notice_added(&devices, hub, now) {
                     out.push(Reaction::Notices);
+                }
+                if self.peers.keep_only(&devices) {
+                    out.push(Reaction::Peers);
                 }
                 self.devices = devices;
                 self.online = online;
@@ -562,6 +622,28 @@ impl Model {
                 }
             }
             Effect::Dropped { from, reason } => self.note(now, format!("dropped a frame from {from}: {reason:?}")),
+            Effect::PeerHello { device, platform, app } => {
+                if Some(device) != self.me && self.peers.hello(device, platform, app) {
+                    out.push(Reaction::Peers);
+                }
+            }
+            Effect::Synced { peer } => {
+                if Some(peer) != self.me {
+                    self.peers.synced(peer, now);
+                    out.push(Reaction::Peers);
+                }
+            }
+            Effect::ClockOffset(offset) => self.clock_offset_ms = Some(offset),
+            Effect::KeyEpoch(epoch) => {
+                self.note(now, format!("key epoch {epoch:?}"));
+                self.epoch = epoch;
+            }
+            Effect::UpdateFrom(device) => {
+                if let Some(device) = device {
+                    self.note(now, format!("update needed for {device}"));
+                }
+                self.update_from = device;
+            }
             Effect::SendText(_) | Effect::SendBinary(_) => {}
         }
     }
@@ -621,6 +703,7 @@ impl Model {
     }
 
     fn device(&self, info: &DeviceInfo) -> SyncDevice {
+        let facts = self.peers.devices.get(&info.id).cloned().unwrap_or_default();
         SyncDevice {
             id: info.id.to_string(),
             name: info.name.clone(),
@@ -628,9 +711,9 @@ impl Model {
             is_hub: self.hub == Some(info.id),
             status: device_status(info.status),
             last_seen: Some(info.last_seen),
-            platform: None,
-            app: None,
-            last_sync_at: None,
+            platform: facts.platform,
+            app: facts.app,
+            last_sync_at: facts.last_sync_at,
         }
     }
 
@@ -638,7 +721,14 @@ impl Model {
         let me = ctx.identity.device;
         let phase = self.phase_shown(ctx);
         let connected = matches!(phase, SyncPhase::Online | SyncPhase::Pending | SyncPhase::Syncing { .. });
-        let device = match self.devices.iter().find(|d| d.id == me) {
+        // This device says what it runs itself.
+        let own = |device: SyncDevice| SyncDevice {
+            platform: Some(koona_sync::protocol::platform().to_string()),
+            app: Some(koona_sync::protocol::hello_app(&ctx.app)),
+            last_sync_at: self.last_sync_at,
+            ..device
+        };
+        let device = own(match self.devices.iter().find(|d| d.id == me) {
             Some(info) => SyncDevice { online: connected, ..self.device(info) },
             None => SyncDevice {
                 id: me.to_string(),
@@ -651,6 +741,15 @@ impl Model {
                 app: None,
                 last_sync_at: None,
             },
+        });
+        // Only a peer's newer version pauses with a name; the relay's 4004 has none.
+        let update_from = match (phase, self.phase) {
+            (SyncPhase::Paused { reason: PausedReason::UpdateNeeded }, Some(Phase::Paused { reason: PauseReason::UpdateNeeded }))
+                if self.stop.is_none() =>
+            {
+                self.update_from.map(|d| d.to_string())
+            }
+            _ => None,
         };
         let devices = self
             .devices
@@ -671,10 +770,10 @@ impl Model {
             error: if ctx.enabled { self.error } else { None },
             hub_change: if ctx.enabled { self.hub_change.clone() } else { None },
             notices: if ctx.enabled { self.notices.list.clone() } else { Vec::new() },
-            bookmarks: None,
-            clock_offset_ms: None,
-            update_from: None,
-            epoch: None,
+            bookmarks: ctx.bookmarks,
+            clock_offset_ms: self.clock_offset_ms,
+            update_from,
+            epoch: self.epoch,
         }
     }
 }
@@ -694,7 +793,7 @@ mod tests {
     }
 
     fn ctx(identity: &Identity) -> Context<'_> {
-        Context { enabled: true, service: true, plan: true, library_ready: true, identity }
+        Context { enabled: true, service: true, plan: true, library_ready: true, identity, app: "0.13.0".into(), bookmarks: Some(42) }
     }
 
     fn at(s: u64) -> DateTime<Utc> {
@@ -763,6 +862,72 @@ mod tests {
         let applied = Applied { bookmark_ids: vec![1, 2], structure_changed: false, deferred: 0 };
         assert_eq!(model.on_event(Event::Session(Effect::LibraryChanged(applied.clone())), at(5)), vec![Reaction::Applied(applied)]);
         assert_eq!(model.last_sync_at, Some(at(5)));
+    }
+
+    #[test]
+    fn devices_show_what_they_run_and_when_they_last_synced_even_offline() {
+        let me = Identity::new("Studio Mac");
+        let (laptop, old) = (uid(2), uid(3));
+        let mut model = Model { me: Some(me.device), ..Model::default() };
+        let directory = |online: Vec<Uuid>, old_status| {
+            Event::Session(Effect::Devices {
+                devices: vec![
+                    info(me.device, "Studio Mac", DeviceStatus::Active),
+                    info(laptop, "Laptop", DeviceStatus::Active),
+                    info(old, "Old phone", old_status),
+                ],
+                online,
+                hub: Some(me.device),
+            })
+        };
+        model.on_event(directory(vec![me.device, laptop], DeviceStatus::Active), at(0));
+        let hello = |device, app: &str| Event::Session(Effect::PeerHello { device, platform: "windows".into(), app: app.into() });
+        assert_eq!(model.on_event(hello(laptop, "0.13.0"), at(1)), vec![Reaction::Peers]);
+        assert!(model.on_event(hello(laptop, "0.13.0"), at(2)).is_empty(), "the same hello keeps nothing new");
+        model.on_event(hello(old, "0.12.0"), at(2));
+        assert_eq!(model.on_event(Event::Session(Effect::Synced { peer: laptop }), at(3)), vec![Reaction::Peers]);
+        model.last_sync_at = Some(at(3));
+
+        let shown = model.status(&ctx(&me));
+        let other = shown.devices.iter().find(|d| d.id == laptop.to_string()).unwrap();
+        assert_eq!((other.platform.as_deref(), other.app.as_deref(), other.last_sync_at), (Some("windows"), Some("0.13.0"), Some(at(3))));
+        assert_eq!(shown.device.platform.as_deref(), Some(koona_sync::protocol::platform()), "this device's own");
+        assert_eq!((shown.device.app.as_deref(), shown.device.last_sync_at), (Some("0.13.0"), Some(at(3))));
+        assert_eq!(shown.bookmarks, Some(42));
+
+        // Kept across a restart: the laptop offline still shows them.
+        let kept: Peers = serde_json::from_str(&serde_json::to_string(&model.peers).unwrap()).unwrap();
+        let mut again = Model { me: Some(me.device), peers: kept, ..Model::default() };
+        again.on_event(directory(vec![me.device], DeviceStatus::Active), at(4));
+        let other = again.status(&ctx(&me)).devices.into_iter().find(|d| d.id == laptop.to_string()).unwrap();
+        assert!(!other.online);
+        assert_eq!((other.app.as_deref(), other.last_sync_at), (Some("0.13.0"), Some(at(3))));
+
+        // A removed device is forgotten.
+        assert!(again.on_event(directory(vec![me.device], DeviceStatus::Revoked), at(5)).contains(&Reaction::Peers));
+        assert!(!again.peers.devices.contains_key(&old));
+    }
+
+    #[test]
+    fn the_clock_the_key_and_the_newer_peer_are_shown() {
+        let me = Identity::new("Laptop");
+        let hub = uid(9);
+        let mut model = Model::default();
+        assert_eq!((model.status(&ctx(&me)).clock_offset_ms, model.status(&ctx(&me)).epoch), (None, None));
+        model.on_event(Event::Session(Effect::ClockOffset(-1_250)), at(0));
+        model.on_event(Event::Session(Effect::KeyEpoch(Some(3))), at(0));
+        let shown = model.status(&ctx(&me));
+        assert_eq!((shown.clock_offset_ms, shown.epoch), (Some(-1_250), Some(3)));
+
+        model.on_event(Event::Session(Effect::UpdateFrom(Some(hub))), at(1));
+        model.on_event(Event::Session(Effect::Status(Phase::Paused { reason: PauseReason::UpdateNeeded })), at(1));
+        assert_eq!(model.status(&ctx(&me)).update_from, Some(hub.to_string()));
+        model.on_event(Event::Session(Effect::Status(Phase::Online)), at(2));
+        assert_eq!(model.status(&ctx(&me)).update_from, None, "only while paused for it");
+        // The relay's 4004 names nobody.
+        model.on_event(Event::Stopped(Stop::UpdateNeeded), at(3));
+        assert_eq!(model.status(&ctx(&me)).phase, SyncPhase::Paused { reason: PausedReason::UpdateNeeded });
+        assert_eq!(model.status(&ctx(&me)).update_from, None);
     }
 
     #[test]

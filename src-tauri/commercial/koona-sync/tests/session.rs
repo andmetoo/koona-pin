@@ -921,7 +921,14 @@ fn a_peer_on_a_newer_schema_pauses_without_an_error() {
     let (epoch, key) = load_meta(w.lib(a)).unwrap().key.unwrap();
     let (ida, idb) = (w.devices[a].id, w.devices[b].id);
     let mut sealer = Sealer::new(key, epoch, ida, &SystemRandom::new()).unwrap();
-    let hello = protocol::SyncMessage::Hello { proto: 1, schema: 11, vector: Vector::default(), hub: true };
+    let hello = protocol::SyncMessage::Hello {
+        proto: 1,
+        schema: 11,
+        vector: Vector::default(),
+        hub: true,
+        platform: "windows".into(),
+        app: "0.14.0".into(),
+    };
     let body = sealer.seal(Address::Device(idb), &hello.encode().unwrap());
     let frame = protocol::encode_delivered(ida, w.relay.now, &body).unwrap();
     let errors = |w: &World| w.devices[a].events.iter().filter(|e| matches!(e, Effect::Error(_))).count();
@@ -930,6 +937,57 @@ fn a_peer_on_a_newer_schema_pauses_without_an_error() {
     w.run();
     assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::UpdateNeeded });
     assert_eq!(errors(&w), before, "the newer peer is fine and is told nothing");
+    assert_eq!(w.devices[b].session.update_from(), Some(ida));
+    let events = &w.devices[b].events;
+    assert!(events.contains(&Effect::UpdateFrom(Some(ida))), "the interface names the newer peer");
+    let told = events.iter().rev().find_map(|e| match e {
+        Effect::PeerHello { device, platform, app } if *device == ida => Some((platform.clone(), app.clone())),
+        _ => None,
+    });
+    assert_eq!(told, Some(("windows".to_string(), "0.14.0".to_string())), "and the version it runs");
+
+    // It goes offline: nothing pauses this device any more.
+    w.drop_link(a);
+    w.run();
+    assert_eq!(w.devices[b].session.update_from(), None);
+    assert_eq!(w.devices[b].events.iter().rev().find(|e| matches!(e, Effect::UpdateFrom(_))), Some(&Effect::UpdateFrom(None)));
+}
+
+#[test]
+fn peers_say_what_they_run_and_each_finished_transfer_is_told() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    fill(w.lib(a), 5, "a");
+    w.connect(a);
+    w.run();
+    assert!(w.devices[a].events.contains(&Effect::KeyEpoch(Some(0))), "the hub's first key");
+    w.pair(b, a);
+    w.run();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    let platform = protocol::platform().to_string();
+    let hello_from = |w: &World, i: usize, from: Uuid| {
+        w.devices[i].events.iter().any(|e| matches!(e, Effect::PeerHello { device, platform: p, app } if *device == from && *p == platform && app == "0.13.0"))
+    };
+    assert!(hello_from(&w, a, idb) && hello_from(&w, b, ida));
+    assert!(w.devices[b].events.contains(&Effect::KeyEpoch(Some(0))), "the paired device holds the key");
+    let synced = |w: &World, i: usize, peer: Uuid| w.devices[i].events.iter().filter(|e| **e == Effect::Synced { peer }).count();
+    assert!(synced(&w, a, idb) > 0 && synced(&w, b, ida) > 0, "both directions finished");
+
+    // A push and its ack: both ends tell again.
+    let (before_a, before_b) = (synced(&w, a, idb), synced(&w, b, ida));
+    fill(w.lib(b), 2, "b");
+    w.act(b, Action::LocalChange);
+    w.run();
+    assert!(synced(&w, a, idb) > before_a, "the hub applied the push");
+    assert!(synced(&w, b, ida) > before_b, "the laptop's push was acknowledged");
+
+    // The offset of this device's clock from the relay's, from each challenge.
+    w.drop_link(b);
+    w.devices[b].offset = 1_500;
+    w.connect(b);
+    w.run();
+    assert_eq!(w.devices[b].events.iter().rev().find(|e| matches!(e, Effect::ClockOffset(_))), Some(&Effect::ClockOffset(1_500)));
 }
 
 /// Three devices with `a` the hub, every one paired.
