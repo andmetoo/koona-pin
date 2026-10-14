@@ -68,6 +68,9 @@ struct Stored {
     enabled: bool,
     #[serde(default)]
     last_sync_at: Option<DateTime<Utc>>,
+    /// «Join…» chosen and the new key not in yet: kept across a restart (`Model::rejoining`).
+    #[serde(default)]
+    rejoining: bool,
 }
 
 pub struct SyncState {
@@ -108,6 +111,7 @@ impl SyncState {
         let notices_path = folder.join(NOTICES_FILE);
         let mut model = Model::default();
         model.last_sync_at = stored.last_sync_at;
+        model.rejoining = stored.rejoining;
         model.notices = fs::read_to_string(&notices_path).ok().and_then(|t| serde_json::from_str::<Notices>(&t).ok()).unwrap_or_default();
         let peers_path = folder.join(PEERS_FILE);
         model.peers = fs::read_to_string(&peers_path).ok().and_then(|t| serde_json::from_str::<Peers>(&t).ok()).unwrap_or_default();
@@ -198,8 +202,14 @@ impl SyncState {
     }
 
     fn keep_last_sync(&self) {
-        let at = lock(&self.model).last_sync_at;
-        let _ = self.update(|s| s.last_sync_at = at);
+        let (at, rejoining) = {
+            let model = lock(&self.model);
+            (model.last_sync_at, model.rejoining)
+        };
+        let _ = self.update(|s| {
+            s.last_sync_at = at;
+            s.rejoining = rejoining;
+        });
     }
 
     /// Writes the notices as the model has them now, through a temporary file.
@@ -626,6 +636,7 @@ pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
     // Its last sync is forgotten once the new key is in (the model, on the epoch), not now: a
     // pairing rejected leaves it as it was.
     lock(&state.model).rejoining = true;
+    state.keep_last_sync();
     state.change_notices(|n| n.joined())?;
     Ok(state.emit(&app))
 }

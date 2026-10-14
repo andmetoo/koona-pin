@@ -651,7 +651,8 @@ impl Model {
                 self.note(now, format!("key epoch {epoch:?}"));
                 // Joined again after a start over: the new account's key is in, its first transfer
                 // is the library arriving (frame 07), not a sync like the ones before.
-                if self.rejoining && epoch.is_some() && epoch != self.epoch {
+                // The first epoch a new client tells (after a restart) is the key it holds, not a new one.
+                if self.rejoining && self.epoch.is_some() && epoch.is_some() && epoch != self.epoch {
                     self.rejoining = false;
                     self.last_sync_at = None;
                     out.push(Reaction::Synced);
@@ -1074,6 +1075,13 @@ mod tests {
         // …forgotten when the new account's key comes.
         assert_eq!(epoch(&mut model, 4), vec![Reaction::Synced]);
         assert_eq!((model.last_sync_at, model.rejoining), (None, false));
+
+        // After a restart (the flag kept in sync.json) the client first tells the key it holds.
+        let mut model = Model { last_sync_at: Some(at(1)), rejoining: true, ..Model::default() };
+        assert!(epoch(&mut model, 3).is_empty(), "the old key, told again");
+        assert_eq!(model.last_sync_at, Some(at(1)));
+        assert_eq!(epoch(&mut model, 4), vec![Reaction::Synced]);
+        assert_eq!(model.last_sync_at, None);
     }
 
     #[test]

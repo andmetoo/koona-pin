@@ -49,9 +49,9 @@ pub struct DbLibrary {
     db: Arc<DbState>,
     replica: Uuid,
     abandoned: Arc<AtomicBool>,
-    /// Where the library key is kept instead of the library (`identity::KEY_FILE`); none keeps it
-    /// in `sync_meta`, as the engine does by itself.
-    key_file: Option<PathBuf>,
+    /// Where the library key is kept instead of the library (`identity::KEY_FILE`), and the
+    /// account it is of; none keeps it in `sync_meta`, as the engine does by itself.
+    key_file: Option<(PathBuf, String)>,
 }
 
 impl DbLibrary {
@@ -59,9 +59,9 @@ impl DbLibrary {
         DbLibrary { db, replica, abandoned, key_file: None }
     }
 
-    /// The library key in `path`, out of the library and so out of its copies.
-    pub fn with_key_file(mut self, path: PathBuf) -> DbLibrary {
-        self.key_file = Some(path);
+    /// The library key of `account` in `path`, out of the library and so out of its copies.
+    pub fn with_key_file(mut self, path: PathBuf, account: String) -> DbLibrary {
+        self.key_file = Some((path, account));
         self
     }
 
@@ -106,19 +106,24 @@ impl Library for DbLibrary {
     }
 
     fn load_meta(&mut self) -> koona_sync::Result<Meta> {
-        let Some(path) = self.key_file.clone() else {
+        let Some((path, account)) = self.key_file.clone() else {
             return self.with(|conn| Library::load_meta(conn));
         };
         self.with(|conn| {
             let mut meta = Library::load_meta(conn)?;
-            let kept = super::identity::load_key(&path).map_err(key_error)?;
+            let kept = super::identity::load_key(&path, &account).map_err(key_error)?;
             // A library from before the key file has it in `sync_meta`: it moves out, once.
             if let Some(old) = meta.key.take() {
                 if kept.is_none() {
-                    super::identity::save_key(&path, Some(&old)).map_err(key_error)?;
+                    super::identity::save_key(&path, &account, Some(&old)).map_err(key_error)?;
                 }
                 Library::store_meta(conn, &Meta { key: None, ..meta.clone() })?;
                 meta.key = kept.or(Some(old));
+            } else if kept.is_some() && meta.hub.is_none() && meta.roster.is_none() {
+                // The library forgot its sync (another copy opened in its place): the key goes
+                // with the hub and the roster that vouched for it, as it did in `sync_meta`. The
+                // session never keeps a key without a hub.
+                super::identity::save_key(&path, &account, None).map_err(key_error)?;
             } else {
                 meta.key = kept;
             }
@@ -127,11 +132,11 @@ impl Library for DbLibrary {
     }
 
     fn store_meta(&mut self, meta: &Meta) -> koona_sync::Result<()> {
-        let Some(path) = self.key_file.clone() else {
+        let Some((path, account)) = self.key_file.clone() else {
             return self.with(|conn| Library::store_meta(conn, meta));
         };
         self.with(|conn| {
-            super::identity::save_key(&path, meta.key.as_ref()).map_err(key_error)?;
+            super::identity::save_key(&path, &account, meta.key.as_ref()).map_err(key_error)?;
             Library::store_meta(conn, &Meta { key: None, ..meta.clone() })
         })
     }
@@ -273,7 +278,7 @@ pub fn spawn(app: &AppHandle, start: Start) -> Running {
     let Start { url, key_file, db, replica, identity, sub, generation } = start;
     let abandoned = Arc::new(AtomicBool::new(false));
     let done = Arc::new(AtomicBool::new(false));
-    let library = DbLibrary::new(db.clone(), replica, abandoned.clone()).with_key_file(key_file);
+    let library = DbLibrary::new(db.clone(), replica, abandoned.clone()).with_key_file(key_file, sub.clone());
     let config = Config::new(identity.device, identity.key_pair(), sub.clone(), identity.name.clone(), app.package_info().version.to_string());
     let session = Session::new(config, Box::new(ring::rand::SystemRandom::new()));
     let credentials: CredentialSource = {
@@ -434,12 +439,12 @@ pub mod tests {
         koona_sync::library::store_meta(&conn, &Meta { key: Some((3, [7; 32])), ..Meta::default() }).unwrap();
         assert_eq!(in_library(&conn), 1);
         let db = state(conn);
-        let mut lib = DbLibrary::new(db.clone(), replica, Arc::new(AtomicBool::new(false))).with_key_file(path.clone());
+        let mut lib = DbLibrary::new(db.clone(), replica, Arc::new(AtomicBool::new(false))).with_key_file(path.clone(), "account-1".into());
 
         // Read once, it moves to the file and leaves the library.
         assert_eq!(lib.load_meta().unwrap().key, Some((3, [7; 32])));
         assert_eq!(in_library(&db.conn.lock().unwrap()), 0);
-        assert_eq!(super::super::identity::load_key(&path).unwrap(), Some((3, [7; 32])));
+        assert_eq!(super::super::identity::load_key(&path, "account-1").unwrap(), Some((3, [7; 32])));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -453,7 +458,24 @@ pub mod tests {
         let meta = lib.load_meta().unwrap();
         assert_eq!((meta.key, meta.hub), (Some((4, [9; 32])), Some(hub)));
 
+        // Another account signed in here doesn't get it.
+        let mut other = DbLibrary::new(db.clone(), replica, Arc::new(AtomicBool::new(false))).with_key_file(path.clone(), "account-2".into());
+        assert_eq!(other.load_meta().unwrap().key, None);
+        assert!(path.exists(), "still the first account's");
+
+        // A file that doesn't read is set aside: the key is asked for again, sync goes on.
+        std::fs::write(&path, "{\"v\": 1, \"epoch\": 4, \"key\": \"cut sho").unwrap();
+        assert_eq!(lib.load_meta().unwrap().key, None);
+        assert!(!path.exists() && path.with_extension("json.damaged").exists());
+
+        // The library forgot its sync (another copy opened in its place): the key goes too.
+        lib.store_meta(&Meta { key: Some((4, [9; 32])), hub: Some(hub), roster: None }).unwrap();
+        koona_sync::library::store_meta(&db.conn.lock().unwrap(), &Meta::default()).unwrap();
+        assert_eq!(lib.load_meta().unwrap().key, None);
+        assert!(!path.exists());
+
         // Removed from the account: the key is forgotten, the file goes.
+        lib.store_meta(&Meta { key: Some((5, [1; 32])), hub: Some(hub), roster: None }).unwrap();
         lib.store_meta(&Meta { key: None, hub: Some(hub), roster: None }).unwrap();
         assert!(!path.exists());
         assert_eq!(lib.load_meta().unwrap().key, None);

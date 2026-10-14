@@ -124,29 +124,44 @@ pub const KEY_FILE: &str = "sync-key.json";
 #[derive(Serialize, Deserialize)]
 struct StoredKey {
     v: u32,
+    /// The account (`sub`) the key is of: another account signed in here doesn't get it.
+    #[serde(default)]
+    account: Option<String>,
     epoch: u32,
     key: String,
 }
 
-/// The key kept in `path`; none when there is no file. A file that doesn't read is an error: the
-/// session would otherwise ask for a new key and drop what it could still read.
-pub fn load_key(path: &Path) -> io::Result<Option<(u32, koona_sync::crypto::LibraryKey)>> {
+/// The key of `account` kept in `path`; none when there is no file or it is another account's.
+/// A file that doesn't read (cut short, edited) is set aside as `json.damaged`, as the identity
+/// is: without a key the device asks the main computer for it again, instead of failing for good.
+/// A file that can't be opened at all is an error, tried again later.
+pub fn load_key(path: &Path, account: &str) -> io::Result<Option<(u32, koona_sync::crypto::LibraryKey)>> {
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e),
     };
-    let stored: StoredKey = serde_json::from_str(&text).map_err(io::Error::other)?;
-    let bytes = STANDARD.decode(stored.key).map_err(io::Error::other)?;
-    let key = bytes.try_into().map_err(|_| io::Error::other("the library key is not 32 bytes"))?;
-    Ok(Some((stored.epoch, key)))
+    let parsed = serde_json::from_str::<StoredKey>(&text).ok().and_then(|stored| {
+        let key: koona_sync::crypto::LibraryKey = STANDARD.decode(&stored.key).ok()?.try_into().ok()?;
+        Some((stored.account, stored.epoch, key))
+    });
+    match parsed {
+        // A file from before the account was written down holds this account's key.
+        Some((owner, epoch, key)) => Ok((owner.is_none() || owner.as_deref() == Some(account)).then_some((epoch, key))),
+        None => {
+            eprintln!("Sync's library key file doesn't read; it is set aside and the key asked for again");
+            let _ = fs::rename(path, damaged_path(path));
+            Ok(None)
+        }
+    }
 }
 
-/// Keeps `key` in `path`, or removes the file when there is none (a removed device forgets it).
-pub fn save_key(path: &Path, key: Option<&(u32, koona_sync::crypto::LibraryKey)>) -> io::Result<()> {
+/// Keeps `account`'s `key` in `path`, or removes the file when there is none (a removed device
+/// forgets it).
+pub fn save_key(path: &Path, account: &str, key: Option<&(u32, koona_sync::crypto::LibraryKey)>) -> io::Result<()> {
     match key {
         Some((epoch, key)) => {
-            let stored = StoredKey { v: 1, epoch: *epoch, key: STANDARD.encode(key) };
+            let stored = StoredKey { v: 1, account: Some(account.to_string()), epoch: *epoch, key: STANDARD.encode(key) };
             write_private(path, &serde_json::to_string_pretty(&stored).map_err(io::Error::other)?)
         }
         None => match fs::remove_file(path) {
