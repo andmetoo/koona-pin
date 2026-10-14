@@ -1,3 +1,4 @@
+import type { ReaderPage } from "../bindings/ReaderPage";
 import {
   AddedLink,
   BackupCopy,
@@ -404,6 +405,27 @@ function demoBecomeHub(status: SyncStatus, others: (d: SyncDevice) => SyncDevice
 const noServer = () => {
   if (storedSupporter() === "no_server") throw new CommandError("network", "No connection", "no_connection");
 };
+
+const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+/** A page for the reading sheet of the preview (NP-123): long enough to scroll, about its own title. */
+function demoArticle(b: Bookmark): string {
+  const title = escapeHtml(b.title || b.domain);
+  const about = escapeHtml(b.description ?? "");
+  const picture = b.image_url?.startsWith("https:") ? `<figure><img src="${escapeHtml(b.image_url)}" alt=""></figure>` : "";
+  const paragraphs = [
+    `${title} is the page this bookmark was saved from. ${about}`,
+    "A page in a browser comes with everything around the text: menus, banners, a cookie notice, the next article and the one after it. The reading sheet keeps the words and the pictures that belong to them, set in one column at a size that is easy to follow.",
+    "The text is taken from the page when you open it. Nothing runs from the site itself: no scripts, no frames, no forms. Links still work and open in your browser, so a reference is one click away.",
+    `If something looks wrong, the button at the top opens ${escapeHtml(b.domain)} in the browser as the site meant it. The bookmark stays where it was, with its collection, tags and notes.`,
+    "Press the arrow keys to move between the selected bookmarks without closing the sheet, and Esc to go back to the list where you left it.",
+    "Long articles keep their place: scroll half way, close the sheet, and the next time it opens it starts where you stopped. An article you have read to the end is marked as read.",
+    `That is all there is to ${title}. The rest of the page — the parts that are not the article — stayed on the site.`,
+  ];
+  return `<!doctype html><html lang="en"><head><title>${title}</title></head><body><main><article><h1>${title}</h1>${picture}${paragraphs
+    .map((text, i) => (i === 3 ? `<h2>Opening it in the browser</h2><p>${text}</p>` : `<p>${text}</p>`))
+    .join("")}</article></main></body></html>`;
+}
 
 /** Capture speaks of the system the preview pretends to run on (NP-054). */
 // A desktop with the system's own frame is a Mac's.
@@ -1254,6 +1276,12 @@ export const demo = {
   },
   async openUrl(url: string) {
     window.open(url, "_blank", "noopener,noreferrer");
+  },
+  /** The preview reads no web page: a bookmark's article is written from its own title and description. */
+  async fetchReaderPage(url: string): Promise<ReaderPage> {
+    const b = bookmarks.find((item) => item.url === url);
+    if (!b) return { kind: "failed" };
+    return { kind: "page", url, status: 200, charset: "utf-8", html: demoArticle(b), truncated: false };
   },
   onBookmarkChanged(fn: (change: BookmarkChange) => void) {
     listeners.add(fn);

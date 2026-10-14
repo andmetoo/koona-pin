@@ -2,6 +2,15 @@ import { test, expect } from "@playwright/test";
 // Safari uses Option-Tab for all controls; ordinary Tab follows its text-field preference.
 const tabKey = (browserName: string, backwards = false) =>
   `${process.platform === "darwin" && browserName === "webkit" ? "Alt+" : ""}${backwards ? "Shift+" : ""}Tab`;
+type Page = import("@playwright/test").Page;
+type Locator = import("@playwright/test").Locator;
+/** Where a plain click on a card or row selects it (NP-123): a card's title, a row's collection — no link, no button. */
+const selectSpot = (card: Locator) => card.locator("[data-collection], h2:not(:has(a))").first();
+/** The card or row of a bookmark, by its exact title. */
+const bookmarkNamed = (page: Page, title: string) =>
+  page.locator("article[data-bookmark-id]").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+/** A click on a card or row: alone it selects only it, with Ctrl it toggles, with Shift it adds the range. */
+const clickCard = (card: Locator, modifiers?: ("ControlOrMeta" | "Shift")[]) => selectSpot(card).click({ modifiers });
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
@@ -1187,7 +1196,7 @@ test("a changed bookmark joins an open search by the search rules", async ({ pag
   await expect(page.getByText("1 of 6")).toBeVisible();
 });
 
-test("list rows: date groups over all pages, hover actions, the checkbox selects", async ({ page }) => {
+test("list rows: date groups over all pages, hover actions, a click selects (NP-123)", async ({ page }) => {
   await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
   await largeLibrary(page);
   await page.getByRole("button", { name: "List", exact: true }).click();
@@ -1196,10 +1205,13 @@ test("list rows: date groups over all pages, hover actions, the checkbox selects
 
   const row = page.locator('[data-bookmark-id="250"]');
   const bar = page.getByRole("toolbar", { name: "Selected bookmarks" });
+  // No checkbox any more, and no column for it: the thumbnail starts the row.
   await row.hover();
-  const checkbox = row.getByRole("checkbox");
-  await checkbox.click();
-  await expect(checkbox).toHaveAttribute("aria-checked", "true");
+  await expect(row.getByRole("checkbox")).toHaveCount(0);
+  const rowBox = (await row.boundingBox())!;
+  const thumb = (await row.locator("[data-preview]").boundingBox())!;
+  expect(thumb.x - rowBox.x).toBeLessThan(10);
+  await clickCard(row);
   await expect(row).toHaveAttribute("data-selected", "true");
   await expect(bar.getByRole("status")).toHaveText("1 selected");
   // A changed bookmark stays selected.
@@ -1377,16 +1389,26 @@ for (const view of ["Grid", "List"])
     const bar = page.getByRole("toolbar", { name: "Selected bookmarks" });
     const count = bar.getByRole("status");
     const selected = page.locator("[data-selected]");
-    const title = (id: number) => page.locator(`[data-bookmark-id="${id}"]`).getByRole("button", { name: `Entry ${id}`, exact: true });
+    const card = (id: number) => page.locator(`[data-bookmark-id="${id}"]`);
 
-    // Newest first: 250, 249, 248…
-    await title(250).click({ modifiers: ["ControlOrMeta"] });
+    // Newest first: 250, 249, 248… A click selects one, the next click another instead (NP-123).
+    await clickCard(card(248));
     await expect(count).toHaveText("1 selected");
-    await title(247).click({ modifiers: ["Shift"] });
+    await clickCard(card(250));
+    await expect(count).toHaveText("1 selected");
+    await expect(card(250)).toHaveAttribute("data-selected", "true");
+    await expect(card(248)).not.toHaveAttribute("data-selected");
+    await clickCard(card(247), ["Shift"]);
     await expect(count).toHaveText("4 selected");
-    await title(249).click({ modifiers: ["ControlOrMeta"] });
+    await clickCard(card(249), ["ControlOrMeta"]);
     await expect(count).toHaveText("3 selected");
     await expect(selected).toHaveCount(3);
+    // A plain click on one of several leaves it alone.
+    await clickCard(card(248));
+    await expect(count).toHaveText("1 selected");
+    await clickCard(card(250), ["ControlOrMeta"]);
+    await clickCard(card(249), ["ControlOrMeta"]);
+    await expect(count).toHaveText("3 selected");
     expect(popups).toHaveLength(0);
     await expect(bar.getByRole("button", { name: "Trash", exact: true })).toBeEnabled();
     await page.keyboard.press("Escape");
@@ -1419,7 +1441,7 @@ for (const view of ["Grid", "List"])
     await expect(count).toHaveText("1 selected");
     await page.mouse.up();
     await expect(count).toHaveText("1 selected");
-    await title(240).click({ modifiers: ["ControlOrMeta"] });
+    await clickCard(card(240), ["ControlOrMeta"]);
     await expect(count).toHaveText("2 selected");
 
     // A click on an empty place clears it.
@@ -1473,7 +1495,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   // Esc in the field clears the query first and keeps the selection.
   await search.press("Escape");
   await expect(search).toHaveValue("");
-  await expect(page.getByText("Shift / Ctrl — add to selection", { exact: false })).toBeVisible();
+  await expect(page.getByText("Ctrl+click — add", { exact: false })).toBeVisible();
 
   // Another section clears it.
   await page.getByRole("button", { name: /^Favorites/ }).click();
@@ -1487,9 +1509,9 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   await expect(bar).toHaveCount(0);
 });
 
-/** Ctrl+click on the titles of these demo cards. */
+/** Ctrl+click on these demo cards. */
 async function selectCards(page: import("@playwright/test").Page, titles: string[]) {
-  for (const title of titles) await page.getByRole("button", { name: title, exact: true }).click({ modifiers: ["ControlOrMeta"] });
+  for (const title of titles) await clickCard(bookmarkNamed(page, title), ["ControlOrMeta"]);
   await expect(page.getByRole("toolbar", { name: "Selected bookmarks" }).getByRole("status")).toHaveText(`${titles.length} selected`);
 }
 const notice = (page: import("@playwright/test").Page, text: string | RegExp) =>
@@ -1734,7 +1756,8 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   const sidebar = page.getByRole("complementary", { name: "Library" });
   const three = ["The architecture of silence", "Typography is a voice", "Interfaces that stay out of the way"];
   await selectCards(page, three);
-  await expect(page.getByText("or drag the selection onto a collection or tag on the left")).toBeVisible();
+  // Sheet S3: with several selected the hint is about reading them and the clicks.
+  await expect(page.getByText("Space — read the last clicked, ↑ ↓ — the other selected", { exact: false })).toBeVisible();
   const opened: string[] = [];
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
@@ -1961,14 +1984,16 @@ test("editor: empty title is marked, tags are chips, Ctrl Enter saves, Cancel ke
   await expect(row.getByRole("button", { name: "principles", exact: true })).toHaveCount(0);
 
   await row.hover();
-  await row.getByRole("button", { name: /^Open:/ }).first().focus();
+  // The card itself takes focus (NP-123); Shift F10 opens its menu.
+  await row.focus();
   await page.keyboard.press("Shift+F10");
   await page.getByRole("menuitem", { name: "Edit…" }).click();
   await page.getByLabel("Title", { exact: true }).fill("Won't be saved");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(row).toContainText("Ten principles");
   await row.hover();
-  await row.getByRole("button", { name: /^Open:/ }).first().focus();
+  // The card itself takes focus (NP-123); Shift F10 opens its menu.
+  await row.focus();
   await page.keyboard.press("Shift+F10");
   await page.getByRole("menuitem", { name: "Edit…" }).click();
   // No confirmation: the bookmark goes to the trash and the editor closes.
@@ -2782,7 +2807,7 @@ test("dialogs open with focus on their field, not on «×»; the editor drawer t
   await page.keyboard.press("Escape");
   // The narrow window shows the editor as a drawer over the content.
   await page.setViewportSize({ width: 800, height: 550 });
-  await page.locator("[data-bookmark-id]").first().getByRole("button", { name: /^Open:/ }).first().focus();
+  await page.locator("[data-bookmark-id]").first().focus();
   await page.keyboard.press("Shift+F10");
   await page.getByRole("menuitem", { name: "Edit…" }).click();
   await expect(page.locator("dialog[open][data-drawer]").getByRole("textbox", { name: "Title" })).toBeFocused();

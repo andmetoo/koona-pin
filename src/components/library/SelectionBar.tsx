@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowUpFromLine, BookOpen, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { ArrowUpFromLine, BookOpen, BookOpenText, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, ExportFormat, Tag } from "../../types";
 import { Icon } from "../icons";
@@ -10,6 +10,8 @@ import { TagField } from "./Fields";
 
 /** What the bar asks App to do with the selection (NP-029). */
 export interface SelectionActions {
+  /** The reading sheet for the last one clicked (NP-123): «Read · Space». */
+  read: () => void;
   move: (collectionId: number | null) => void;
   /** «Новая коллекция из выбранного…»: the name field in the sidebar (Р-27). */
   newCollection: () => void;
@@ -86,7 +88,8 @@ export function SelectionBar({
   ];
   /** `name` — the full name when the label on the bar is shorter. */
   /** `bare`: the icon alone, named by its hint, as in a narrow window. */
-  type Action = { id: string; icon: LucideIcon; label: string; name?: string; keys?: string; filled?: boolean; bare?: boolean; popover?: Popover["id"]; run: (button: HTMLElement) => void };
+  /** `primary`: the accent pill with its key inside (sheet S2), «Read · Space». */
+  type Action = { id: string; icon?: LucideIcon; label: string; name?: string; keys?: string; filled?: boolean; bare?: boolean; primary?: boolean; popover?: Popover["id"]; run: (button: HTMLElement) => void };
   const toggle = (id: Popover["id"]) => (button: HTMLElement) => {
     if (popover?.id === id) return setPopover(null);
     if (id === "tag") setPopover({ id, left: button.getBoundingClientRect().left - bar.current!.getBoundingClientRect().left, trigger: button });
@@ -99,6 +102,8 @@ export function SelectionBar({
         { id: "delete", icon: Trash2, label: t("trash.deleteForever"), keys: "Del", run: actions.deleteForever },
       ]
     : [
+        // First on the bar (sheet S2); in a narrow window the book icon, named by its hint.
+        { id: "read", icon: compact ? BookOpenText : undefined, label: t("selection.read"), keys: "Space", primary: true, run: actions.read },
         { id: "move", icon: Folder, label: t("selection.move"), popover: "move", run: toggle("move") },
         { id: "tag", icon: TagIcon, label: t("selection.tag"), popover: "tag", run: toggle("tag") },
         allStarred
@@ -117,7 +122,7 @@ export function SelectionBar({
     ? t("drag.keys")
     : hidden
     ? t(narrowed ? "selection.hiddenBySearch" : "selection.hiddenElsewhere", { count: hidden, total: count })
-    : t(trash ? "selection.keysTrash" : "selection.keys");
+    : t(trash ? "selection.keysTrash" : count > 1 ? "selection.keysMany" : "selection.keys");
   return (
     <div className="flex w-full flex-col items-center gap-2">
       <div
@@ -135,6 +140,22 @@ export function SelectionBar({
         {list.map((action) => {
           const open = !!action.popover && popover?.id === action.popover;
           const bare = compact || action.bare;
+          if (action.primary && !compact)
+            return (
+              <button
+                key={action.id}
+                type="button"
+                disabled={busy}
+                aria-keyshortcuts={action.keys}
+                onClick={(e) => action.run(e.currentTarget)}
+                className="mr-1 flex h-8 shrink-0 items-center gap-2 rounded-lg bg-accent pr-1.5 pl-3 font-semibold text-on-accent transition-[filter] duration-150 hover:brightness-110 disabled:opacity-45"
+              >
+                {action.label}
+                <kbd aria-hidden className="rounded-xs bg-black/15 px-1.5 py-px font-sans text-2xs font-medium">
+                  {action.keys}
+                </kbd>
+              </button>
+            );
           return (
             // The same wrapper with or without a hint: «В избранное» becoming
             // «Из избранного» must not remount the focused button.
@@ -156,7 +177,7 @@ export function SelectionBar({
                 onClick={(e) => action.run(e.currentTarget)}
                 className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 transition-colors duration-150 hover:bg-white/10 hover:text-white disabled:text-white/45 disabled:hover:bg-transparent ${open ? "bg-white/10 text-white" : ""} ${bare ? "w-8 justify-center px-0" : ""}`}
               >
-                <Icon icon={action.icon} size={15} fill={action.filled ? "currentColor" : "none"} />
+                {action.icon && <Icon icon={action.icon} size={15} fill={action.filled ? "currentColor" : "none"} />}
                 {!bare && action.label}
               </button>
             </Hint>

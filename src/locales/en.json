@@ -151,7 +151,11 @@
     "addTag": "Add tag…",
     "refresh": "Refresh preview",
     "delete": "Move to trash",
-    "select": "Select: {{title}}",
+    "openShort": "Open",
+    "openInBrowserOf": "Open in browser: {{title}}",
+    "read": "Read",
+    "readOf": "Read here: {{title}}",
+    "selected": "Selected",
     "filterDomain": "Only bookmarks from {{domain}}"
   },
   "selection": {
@@ -174,7 +178,11 @@
     "tagLabel": "Tag for the selected bookmarks",
     "tagPlaceholder": "Tag, then Enter",
     "tagSuggestions": "Tags in the library",
-    "keys": "Shift / Ctrl — add to selection  ·  Ctrl+A — select all  ·  or drag the selection onto a collection or tag on the left",
+    "read": "Read",
+    "keys": "Space — read here  ·  Enter or double-click — open the link  ·  Ctrl+click — add  ·  Shift+click — range  ·  Esc — clear",
+    "keysMany": "Space — read the last clicked, ↑ ↓ — the other selected  ·  Ctrl+click — add  ·  Shift+click — range  ·  Esc — clear",
+    "announce": "{{title}}: selected",
+    "unannounce": "{{title}}: not selected",
     "keysTrash": "Ctrl+A — select all  ·  Del — delete forever  ·  Esc — clear selection",
     "hiddenBySearch_one": "{{count}} of the {{total}} selected is hidden by the search — actions include it  ·  Esc — clear selection",
     "hiddenBySearch_other": "{{count}} of the {{total}} selected are hidden by the search — actions include them  ·  Esc — clear selection",
@@ -802,6 +810,23 @@
     "bannerLabel": "New bookmarks",
     "sort": "Sort",
     "hide": "Hide until new bookmarks arrive"
+  },
+  "reader": {
+    "back": "Back to {{section}}",
+    "openInBrowser": "Open in browser",
+    "minutes": "{{count}} min read",
+    "position": "{{current}} of {{total}}",
+    "loading": "Loading the article…",
+    "failure": {
+      "title": "This page can’t be shown here",
+      "refused": "The address leads into a private network, so it was not opened.",
+      "timeout": "The site took too long to answer.",
+      "network": "The site could not be reached.",
+      "status": "The site answered with error {{status}} — it may let only browsers in.",
+      "notHtml": "This link is a file, not a web page.",
+      "links": "The page is mostly links, not an article.",
+      "empty": "No article was found on the page — it may be drawn by scripts."
+    }
   },
   "library": {
     "loading": "Loading the library",

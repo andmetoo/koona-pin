@@ -145,7 +145,11 @@
     "addTag": "添加标签…",
     "refresh": "刷新预览",
     "delete": "移到回收站",
-    "select": "选择：{{title}}",
+    "openShort": "打开",
+    "openInBrowserOf": "在浏览器中打开：{{title}}",
+    "read": "阅读",
+    "readOf": "在此阅读：{{title}}",
+    "selected": "已选中",
     "filterDomain": "只看来自 {{domain}} 的书签"
   },
   "selection": {
@@ -167,7 +171,11 @@
     "tagLabel": "所选书签的标签",
     "tagPlaceholder": "输入标签后按 Enter",
     "tagSuggestions": "资料库中的标签",
-    "keys": "Shift / Ctrl — 加入选择  ·  Ctrl+A — 全选  ·  或把所选内容拖到左侧的合集或标签上",
+    "read": "阅读",
+    "keys": "空格 — 在此阅读  ·  Enter 或双击 — 打开链接  ·  Ctrl+单击 — 添加  ·  Shift+单击 — 范围  ·  Esc — 取消",
+    "keysMany": "空格 — 阅读最后单击的，↑ ↓ — 其他已选  ·  Ctrl+单击 — 添加  ·  Shift+单击 — 范围  ·  Esc — 取消",
+    "announce": "{{title}}：已选中",
+    "unannounce": "{{title}}：已取消选中",
     "keysTrash": "Ctrl+A — 全选  ·  Del — 永久删除  ·  Esc — 取消选择",
     "hiddenBySearch_other": "已选的 {{total}} 个中有 {{count}} 个被搜索隐藏 — 操作也会作用于它们  ·  Esc — 取消选择",
     "hiddenElsewhere_other": "已选的 {{total}} 个中有 {{count}} 个不在此分区 — 操作也会作用于它们  ·  Esc — 取消选择"
@@ -745,6 +753,23 @@
     "bannerLabel": "新书签",
     "sort": "整理",
     "hide": "隐藏，直到有新书签"
+  },
+  "reader": {
+    "back": "返回{{section}}",
+    "openInBrowser": "在浏览器中打开",
+    "minutes": "约 {{count}} 分钟读完",
+    "position": "{{current}} / {{total}}",
+    "loading": "正在加载文章…",
+    "failure": {
+      "title": "此页面无法在这里显示",
+      "refused": "该地址指向私有网络，因此没有打开。",
+      "timeout": "网站响应时间过长。",
+      "network": "无法连接到网站。",
+      "status": "网站返回了错误 {{status}}，可能只允许浏览器访问。",
+      "notHtml": "此链接是文件，不是网页。",
+      "links": "此页面大多是链接，不是文章。",
+      "empty": "页面上没有找到文章，可能是由脚本绘制的。"
+    }
   },
   "library": {
     "loading": "正在加载资料库",

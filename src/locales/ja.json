@@ -145,7 +145,11 @@
     "addTag": "タグを追加…",
     "refresh": "プレビューを更新",
     "delete": "ゴミ箱に移動",
-    "select": "選択：{{title}}",
+    "openShort": "開く",
+    "openInBrowserOf": "ブラウザで開く: {{title}}",
+    "read": "読む",
+    "readOf": "ここで読む: {{title}}",
+    "selected": "選択中",
     "filterDomain": "{{domain}} のブックマークだけを表示"
   },
   "selection": {
@@ -167,7 +171,11 @@
     "tagLabel": "選択したブックマークのタグ",
     "tagPlaceholder": "タグを入力して Enter",
     "tagSuggestions": "ライブラリのタグ",
-    "keys": "Shift / Ctrl — 選択に追加  ·  Ctrl+A — すべて選択  ·  または選択項目を左のコレクションやタグにドラッグ",
+    "read": "読む",
+    "keys": "Space — ここで読む  ·  Enter またはダブルクリック — リンクを開く  ·  Ctrl+クリック — 追加  ·  Shift+クリック — 範囲  ·  Esc — 解除",
+    "keysMany": "Space — 最後にクリックしたものを読む、↑ ↓ — ほかの選択  ·  Ctrl+クリック — 追加  ·  Shift+クリック — 範囲  ·  Esc — 解除",
+    "announce": "{{title}}: 選択",
+    "unannounce": "{{title}}: 選択解除",
     "keysTrash": "Ctrl+A — すべて選択  ·  Del — 完全に削除  ·  Esc — 選択を解除",
     "hiddenBySearch_other": "選択した {{total}} 件のうち {{count}} 件は検索で非表示です。操作はそれらにも適用されます  ·  Esc — 選択を解除",
     "hiddenElsewhere_other": "選択した {{total}} 件のうち {{count}} 件はこのセクションにありません。操作はそれらにも適用されます  ·  Esc — 選択を解除"
@@ -745,6 +753,23 @@
     "bannerLabel": "新しいブックマーク",
     "sort": "整理",
     "hide": "新しいブックマークが届くまで隠す"
+  },
+  "reader": {
+    "back": "{{section}} に戻る",
+    "openInBrowser": "ブラウザで開く",
+    "minutes": "{{count}} 分で読めます",
+    "position": "{{current}} / {{total}}",
+    "loading": "記事を読み込み中…",
+    "failure": {
+      "title": "このページはここでは表示できません",
+      "refused": "プライベートネットワーク内のアドレスのため、開きませんでした。",
+      "timeout": "サイトの応答に時間がかかりすぎました。",
+      "network": "サイトに接続できませんでした。",
+      "status": "サイトがエラー {{status}} を返しました。ブラウザ以外を受け付けないのかもしれません。",
+      "notHtml": "このリンクはファイルで、ウェブページではありません。",
+      "links": "このページはほとんどがリンクで、記事ではありません。",
+      "empty": "ページに記事が見つかりません。スクリプトで描画されているのかもしれません。"
+    }
   },
   "library": {
     "loading": "ライブラリを読み込んでいます",

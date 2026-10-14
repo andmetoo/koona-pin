@@ -1,5 +1,5 @@
 import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { BookCheck, BookOpen, Check, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
+import { ArrowUpRight, BookCheck, BookOpen, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
@@ -29,8 +29,17 @@ export interface BookmarkActions {
   domain: (domain: string) => void;
   /** «Обновить превью»: the page read again for its picture and icon (NP-087). */
   refresh: (bookmark: Bookmark) => void;
-  /** The checkbox or `Ctrl`+click toggles; `Shift` adds the range from the last one (NP-028). */
-  select: (bookmark: Bookmark, range: boolean) => void;
+  /**
+   * A click selects this one alone, `Ctrl`+click toggles it, `Shift`+click adds
+   * the range from the last one clicked (NP-028, NP-123).
+   */
+  select: (bookmark: Bookmark, how: "only" | "toggle" | "range") => void;
+  /** The reading sheet over the list (NP-123): «Read» of the shutter, `Space` on a card. */
+  readHere: (bookmark: Bookmark) => void;
+  /** Double-click, `Enter` and the links of a row: where «Open links» says (Р-69, point 5). */
+  follow: (bookmark: Bookmark) => void;
+  /** «Open links» is «In browser»: the links of a row carry ↗. */
+  linksToBrowser: boolean;
 }
 
 /** The domain under a card or in a row: a click filters the library by that site. */
@@ -294,66 +303,89 @@ export function Preview({ b, live = false, small = false }: { b: Bookmark; live?
   return pending ? <span data-preview-pending className="cover-pending" /> : <Cover b={b} live={live} small={small} />;
 }
 
-/**
- * The selection checkbox of frames 01 and 02, shown on hover and focus. A
- * selected card is marked by the ring around its preview, a row by its
- * background (frame 04), not by the checkbox.
- */
-function SelectBox({
-  b,
-  selected,
-  actions,
-  className,
-  idle,
-}: {
-  b: Bookmark;
-  selected: boolean;
-  actions: BookmarkActions;
-  className: string;
-  /** Border and fill while not selected. */
-  idle: string;
-}) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={selected}
-      aria-label={t("card.select", { title: b.title || b.url })}
-      onClick={(e) => actions.select(b, e.shiftKey)}
-      className={`flex items-center justify-center border transition-colors duration-150 ${selected ? "border-accent bg-accent text-on-accent" : idle} ${className}`}
-    >
-      {selected && <Icon icon={Check} size={12} strokeWidth={2.5} absoluteStrokeWidth />}
-    </button>
-  );
-}
+/** What a click inside a card or row acts on by itself, rather than selecting it. */
+const OWN_CLICK = "button, a, input, textarea, select, [data-menu]";
 
 /**
- * `Ctrl`+click and `Shift`+click anywhere on a card or row select instead of
- * opening, before the buttons inside see the click.
+ * The card or row as one control (NP-123, Р-69 point 4): a click selects it,
+ * `Ctrl`+click and `Shift`+click add to the selection — the last two even on a
+ * link or a button, before they see the click. Double-click and `Enter` open it
+ * as «Open links» says, `Space` reads it in the sheet. Focus rings it in ink
+ * (`app.css`), apart from the accent of the selection; a selected one says so
+ * to a screen reader through `aria-describedby`, and the list announces the
+ * change (`BookmarkList`).
  */
-function selectionClicks(b: Bookmark, actions: BookmarkActions) {
+function cardControl(b: Bookmark, actions: BookmarkActions, selected: boolean) {
+  const own = (e: { target: EventTarget }) => !!(e.target as HTMLElement).closest(OWN_CLICK);
   return {
+    tabIndex: 0,
+    "aria-label": b.title || b.url,
+    "aria-describedby": selected ? SELECTED_NOTE : undefined,
     onClickCapture: (e: MouseEvent) => {
       if (!(e.ctrlKey || e.metaKey || e.shiftKey)) return;
       // The menu lives inside the card but is not part of it.
       if ((e.target as HTMLElement).closest("[data-menu]")) return;
       e.preventDefault();
       e.stopPropagation();
-      actions.select(b, e.shiftKey);
+      actions.select(b, e.shiftKey ? "range" : "toggle");
     },
-    // Shift would otherwise select the text between the two clicks.
+    onClick: (e: MouseEvent) => {
+      if (e.defaultPrevented || own(e)) return;
+      actions.select(b, "only");
+    },
+    onDoubleClick: (e: MouseEvent) => {
+      if (own(e) || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      window.getSelection()?.removeAllRanges();
+      actions.follow(b);
+    },
+    // Shift would otherwise select the text between the two clicks, a double-click a word.
     onMouseDown: (e: MouseEvent) => {
-      if (e.shiftKey) e.preventDefault();
+      if (e.shiftKey || e.detail > 1) e.preventDefault();
+    },
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.target !== e.currentTarget || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        actions.follow(b);
+      } else if (e.key === " ") {
+        e.preventDefault();
+        // The trash has no reading, as its shutter has no «Read».
+        if (!e.repeat && !b.deleted_at) actions.readHere(b);
+      }
     },
   };
+}
+
+/** The id of the one hidden «Selected» every selected card points at (rendered by `BookmarkList`). */
+export const SELECTED_NOTE = "bookmark-selected-note";
+
+/**
+ * The link areas of a row (sheet S1): an anchor for what it is — a screen
+ * reader names it a link — that never lets the webview follow it.
+ */
+function RowLink({ b, actions, className, label, children }: { b: Bookmark; actions: BookmarkActions; className: string; label?: string; children: ReactNode }) {
+  return (
+    <a
+      href={b.url}
+      aria-label={label}
+      draggable={false}
+      onClick={(e) => {
+        e.preventDefault();
+        actions.follow(b);
+      }}
+      // A middle click would open the page inside the app's own window.
+      onAuxClick={(e) => e.preventDefault()}
+      className={`cursor-pointer ${className}`}
+    >
+      {children}
+    </a>
+  );
 }
 
 /** Shown while the card or row is hovered, focused or has its menu open. */
 const revealed = (group: "card" | "row", open: boolean) =>
   `transition-opacity duration-150 ${group === "card" ? "group-hover/card:opacity-100 group-focus-within/card:opacity-100" : "group-hover/row:opacity-100 group-focus-within/row:opacity-100"} ${open ? "opacity-100" : "opacity-0"}`;
 
-const previewButton = "flex size-7 items-center justify-center bg-card/95 text-ink transition-colors duration-150 hover:bg-card";
 
 /** Height of a card below its preview: 10 + domain 15 + 10 + two title lines 38 (frame 01). */
 export const CARD_TEXT_HEIGHT = 73;
@@ -375,42 +407,56 @@ export const BookmarkCard = memo(function BookmarkCard({
 }) {
   const { t } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
+  const control = cardControl(b, actions, selected);
   return (
     <article
       data-bookmark-id={b.id}
       data-selected={selected || undefined}
-      className="group/card flex min-w-0 flex-col gap-2.5"
+      data-menu-open={menu.open || undefined}
+      className="group/card @container/card flex min-w-0 flex-col gap-2.5 rounded-xl"
       onContextMenu={menu.onContextMenu}
-      onKeyDown={menu.onKeyDown}
-      {...selectionClicks(b, actions)}
+      {...control}
+      onKeyDown={(e) => {
+        menu.onKeyDown(e);
+        if (!e.defaultPrevented) control.onKeyDown(e);
+      }}
     >
       {/* Selected: a 2.5 px accent ring 4 px around the preview, radius 14 (frame 04); the image is not tinted. */}
-      <div className={`relative rounded-xl ${selected ? "outline-[length:2.5px] outline-offset-4 outline-accent outline-solid" : ""}`}>
-        <button
-          type="button"
-          data-preview
-          onClick={() => actions.open(b.url)}
-          aria-label={t("card.open", { title: b.title })}
-          className="block aspect-[16/10] w-full overflow-hidden rounded-xl bg-hover"
-        >
+      {/* It clips the shutter waiting above the cover; the ring of the selection is its own outline, not clipped. */}
+      <div className={`relative overflow-hidden rounded-xl ${selected ?"outline-[length:2.5px] outline-offset-4 outline-accent outline-solid" : ""}`}>
+        <div data-preview className="block aspect-[16/10] w-full overflow-hidden rounded-xl bg-hover">
           <Preview b={b} live />
-        </button>
-        <div className={`absolute top-2.5 left-2.5 flex ${revealed("card", menu.open)}`}>
-          <SelectBox b={b} selected={selected} actions={actions} className="size-[22px] rounded-sm" idle="border-subtle bg-card/90" />
         </div>
-        <div className={`absolute top-2.5 right-2 flex gap-1 ${revealed("card", menu.open)}`}>
-          {/* Frame 25: in the trash «Восстановить»; the heart lives in the domain line (NP-086). */}
-          {b.deleted_at && (
-            <button
-              type="button"
-              onClick={() => actions.restore(b)}
-              className={`${previewButton} w-auto gap-1.5 rounded-lg px-2 text-xs font-medium`}
-            >
+        {/* Sheet S4: the link of a card is on its shutter; the rest of the card selects. */}
+        <div data-shutter className="shutter">
+          <button
+            type="button"
+            aria-label={t("card.openInBrowserOf", { title: b.title || b.url })}
+            onClick={() => actions.open(b.url)}
+            className="shutter-button shutter-open"
+          >
+            <Icon icon={ArrowUpRight} size={13} />
+            {t("card.openShort")}
+          </button>
+          {b.deleted_at ? (
+            // Frame 25: in the trash «Восстановить» instead of reading.
+            <button type="button" onClick={() => actions.restore(b)} className="shutter-button shutter-read">
               <Icon icon={RotateCcw} size={13} />
               {t("trash.restore")}
             </button>
+          ) : (
+            <button
+              type="button"
+              aria-label={t("card.readOf", { title: b.title || b.url })}
+              aria-keyshortcuts="Space"
+              onClick={() => actions.readHere(b)}
+              className="shutter-button shutter-read"
+            >
+              {t("card.read")}
+              <kbd aria-hidden>Space</kbd>
+            </button>
           )}
-          {menu.trigger(`${previewButton} rounded-xl`)}
+          {menu.trigger("shutter-button shutter-read w-[30px] flex-none")}
         </div>
       </div>
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
@@ -419,10 +465,8 @@ export const BookmarkCard = memo(function BookmarkCard({
         {b.deleted_at ? <DaysLeft deletedAt={b.deleted_at} /> : <FavoriteButton b={b} actions={actions} t={t} className="-my-[4.5px] -mr-[5.5px]" />}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
-      <h2 className="line-clamp-2 h-[38px] text-md font-medium">
-        <button type="button" onClick={() => actions.open(b.url)} title={b.title} className="text-left hover:text-accent">
-          {b.title || b.url}
-        </button>
+      <h2 className="line-clamp-2 h-[38px] text-md font-medium" title={b.title}>
+        {b.title || b.url}
       </h2>
       {menu.menu}
     </article>
@@ -474,34 +518,42 @@ export const BookmarkRow = memo(function BookmarkRow({
   const move = useAnchoredMenu(t("card.moveTo"), () => moveEntries(b, collections, actions, t));
   const open = menu.open || move.open;
   const collection = collections.find((c) => c.id === b.collection_id);
-  // Selected: the soft accent background (frame 05) instead of the hover one.
-  const background = selected ? "bg-accent-soft" : `hover:bg-panel ${open ? "bg-panel" : ""}`;
+  const control = cardControl(b, actions, selected);
+  // Selected (sheet S2): the accent border and the soft accent background instead of the hover one.
+  const background = selected ? "border-accent bg-accent-soft" : `border-transparent hover:bg-panel ${open ? "bg-panel" : ""}`;
   return (
     <article
       data-bookmark-id={b.id}
       data-selected={selected || undefined}
       onContextMenu={menu.onContextMenu}
-      onKeyDown={menu.onKeyDown}
-      {...selectionClicks(b, actions)}
-      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl py-2 pr-3 pl-2 transition-colors duration-150 ${background} ${compact ? "grid-cols-[18px_64px_minmax(0,1fr)_120px_24px_96px]" : "grid-cols-[18px_64px_minmax(0,1fr)_170px_120px_24px_96px]"}`}
+      {...control}
+      onKeyDown={(e) => {
+        menu.onKeyDown(e);
+        if (!e.defaultPrevented) control.onKeyDown(e);
+      }}
+      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl border py-[7px] pr-[11px] pl-[7px] transition-colors duration-150 ${background} ${compact ? "grid-cols-[64px_minmax(0,1fr)_120px_24px_96px]" : "grid-cols-[64px_minmax(0,1fr)_170px_120px_24px_96px]"}`}
     >
-      <div className={`flex ${revealed("row", open)}`}>
-        <SelectBox b={b} selected={selected} actions={actions} className="size-[18px] rounded-xs" idle="border-faint bg-card" />
-      </div>
-      <button
-        type="button"
-        data-preview
-        onClick={() => actions.open(b.url)}
-        aria-label={t("card.open", { title: b.title })}
-        className="h-11 w-16 overflow-hidden rounded-sm bg-hover"
-      >
-        <Preview b={b} small />
-      </button>
+      {/* Sheet S1: the thumbnail and the title are the link; the rest of the row selects. */}
+      <RowLink b={b} actions={actions} label={t("card.open", { title: b.title || b.url })} className="h-11 w-16 overflow-hidden rounded-sm bg-hover">
+        <span data-preview className="block size-full">
+          <Preview b={b} small />
+        </span>
+      </RowLink>
       <div className="flex min-w-0 flex-col gap-[3px]">
-        <h2 className="flex min-w-0 items-center gap-1.5 text-md font-medium">
-          <button type="button" onClick={() => actions.open(b.url)} title={b.title} className="truncate text-left hover:text-accent">
-            {b.title || b.url}
-          </button>
+        <h2 className="flex min-w-0 items-center text-md font-medium">
+          <RowLink b={b} actions={actions} className="group/link flex min-w-0 items-center gap-1 hover:underline hover:underline-offset-2 focus-visible:underline">
+            <span className="truncate" title={b.title}>
+              {b.title || b.url}
+            </span>
+            {actions.linksToBrowser && (
+              <Icon
+                icon={ArrowUpRight}
+                size={13}
+                aria-hidden
+                className="shrink-0 text-subtle opacity-0 transition-opacity duration-150 group-hover/link:opacity-100 group-focus-visible/link:opacity-100"
+              />
+            )}
+          </RowLink>
         </h2>
         <p className="flex min-w-0 items-center gap-1.5 text-xs">
           <SiteMark b={b} size={12} />

@@ -157,7 +157,11 @@
     "addTag": "Adicionar tag…",
     "refresh": "Atualizar prévia",
     "delete": "Mover para a lixeira",
-    "select": "Selecionar: {{title}}",
+    "openShort": "Abrir",
+    "openInBrowserOf": "Abrir no navegador: {{title}}",
+    "read": "Ler",
+    "readOf": "Ler aqui: {{title}}",
+    "selected": "Selecionado",
     "filterDomain": "Só marcadores de {{domain}}"
   },
   "selection": {
@@ -181,7 +185,11 @@
     "tagLabel": "Tag para os marcadores selecionados",
     "tagPlaceholder": "Tag e Enter",
     "tagSuggestions": "Tags da biblioteca",
-    "keys": "Shift / Ctrl — adicionar à seleção  ·  Ctrl+A — selecionar tudo  ·  ou arraste a seleção para uma coleção ou tag à esquerda",
+    "read": "Ler",
+    "keys": "Espaço — ler aqui  ·  Enter ou clique duplo — abrir o link  ·  Ctrl+clique — adicionar  ·  Shift+clique — intervalo  ·  Esc — desmarcar",
+    "keysMany": "Espaço — ler o último clicado, ↑ ↓ — os outros selecionados  ·  Ctrl+clique — adicionar  ·  Shift+clique — intervalo  ·  Esc — desmarcar",
+    "announce": "{{title}}: selecionado",
+    "unannounce": "{{title}}: não selecionado",
     "keysTrash": "Ctrl+A — selecionar tudo  ·  Del — excluir permanentemente  ·  Esc — limpar seleção",
     "hiddenBySearch_one": "{{count}} dos {{total}} selecionados está oculto pela pesquisa — as ações o incluem  ·  Esc — limpar seleção",
     "hiddenBySearch_many": "{{count}} dos {{total}} selecionados estão ocultos pela pesquisa — as ações os incluem  ·  Esc — limpar seleção",
@@ -859,6 +867,23 @@
     "bannerLabel": "Marcadores novos",
     "sort": "Organizar",
     "hide": "Ocultar até chegarem marcadores novos"
+  },
+  "reader": {
+    "back": "Voltar para {{section}}",
+    "openInBrowser": "Abrir no navegador",
+    "minutes": "{{count}} min de leitura",
+    "position": "{{current}} de {{total}}",
+    "loading": "Carregando o artigo…",
+    "failure": {
+      "title": "Esta página não pode ser mostrada aqui",
+      "refused": "O endereço leva a uma rede privada, por isso não foi aberto.",
+      "timeout": "O site demorou demais para responder.",
+      "network": "Não foi possível acessar o site.",
+      "status": "O site respondeu com o erro {{status}} — talvez só aceite navegadores.",
+      "notHtml": "Este link é um arquivo, não uma página da web.",
+      "links": "A página é quase só links, não um artigo.",
+      "empty": "Nenhum artigo foi encontrado na página — talvez ela seja desenhada por scripts."
+    }
   },
   "library": {
     "loading": "Carregando a biblioteca",

@@ -3,12 +3,11 @@
 // page's scripts never run and nothing it names is loaded, the article is taken out
 // by Defuddle, and DOMPurify cleans it before anything reaches a live DOM.
 //
-// No UI: the reader (NP-122) calls `readArticle` and shows `article.html`, or the
-// failure card with «Open in browser».
-import { invoke } from "@tauri-apps/api/core";
+// The article view (`components/reader/ArticleView.tsx`, NP-123) calls `cachedArticle`
+// and shows `article.html`, or the failure card with «Open in browser».
 import Defuddle from "defuddle";
 import DOMPurify from "dompurify";
-import type { ReaderPage } from "../bindings/ReaderPage";
+import { api } from "./api";
 
 export interface Article {
   /** Where the page ended up, after redirects and a `<meta refresh>`. */
@@ -58,7 +57,7 @@ export const READER_MAX_LINK_DENSITY = 0.5;
 
 /** Fetches `url` and extracts its article. Called when the person opens it. */
 export async function readArticle(url: string): Promise<ReadResult> {
-  const page = await invoke<ReaderPage>("fetch_reader_page", { url });
+  const page = await api.fetchReaderPage(url);
   switch (page.kind) {
     case "page":
       return extractArticle(page.html, page.url);
@@ -74,6 +73,37 @@ export async function readArticle(url: string): Promise<ReadResult> {
       return { ok: false, failure: { reason: "network" } };
   }
 }
+
+/** Articles read in this session, by address: going back with ↑ shows one at once. */
+const articles = new Map<string, Promise<ReadResult>>();
+const KEPT_ARTICLES = 20;
+
+/**
+ * `readArticle`, once per address while the app runs. A timeout, a lost
+ * connection or a thrown error is not kept: the next open asks again.
+ */
+export function cachedArticle(url: string): Promise<ReadResult> {
+  const known = articles.get(url);
+  if (known) return known;
+  const forget = () => articles.get(url) === result && articles.delete(url);
+  const result = readArticle(url).then(
+    (read) => {
+      if (!read.ok && (read.failure.reason === "timeout" || read.failure.reason === "network")) forget();
+      return read;
+    },
+    (error: unknown) => {
+      forget();
+      throw error;
+    },
+  );
+  articles.set(url, result);
+  // The oldest goes first: a Map keeps the order of insertion.
+  if (articles.size > KEPT_ARTICLES) articles.delete(articles.keys().next().value!);
+  return result;
+}
+
+/** Minutes to read at 230 words a minute, at least one. */
+export const readingMinutes = (words: number) => Math.max(1, Math.round(words / 230));
 
 /** The article of a fetched page, or why there is none. `url` is the page's final address. */
 export function extractArticle(html: string, url: string): ReadResult {

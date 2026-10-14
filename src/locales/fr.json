@@ -157,7 +157,11 @@
     "addTag": "Ajouter une étiquette…",
     "refresh": "Actualiser l’aperçu",
     "delete": "Mettre à la corbeille",
-    "select": "Sélectionner : {{title}}",
+    "openShort": "Ouvrir",
+    "openInBrowserOf": "Ouvrir dans le navigateur : {{title}}",
+    "read": "Lire",
+    "readOf": "Lire ici : {{title}}",
+    "selected": "Sélectionné",
     "filterDomain": "Seulement les signets de {{domain}}"
   },
   "selection": {
@@ -181,7 +185,11 @@
     "tagLabel": "Étiquette pour les signets sélectionnés",
     "tagPlaceholder": "Étiquette, puis Entrée",
     "tagSuggestions": "Étiquettes de la bibliothèque",
-    "keys": "Maj / Ctrl — ajouter à la sélection  ·  Ctrl+A — tout sélectionner  ·  ou glissez la sélection sur une collection ou une étiquette à gauche",
+    "read": "Lire",
+    "keys": "Espace — lire ici  ·  Entrée ou double-clic — ouvrir le lien  ·  Ctrl+clic — ajouter  ·  Maj+clic — plage  ·  Échap — désélectionner",
+    "keysMany": "Espace — lire le dernier cliqué, ↑ ↓ — les autres sélectionnés  ·  Ctrl+clic — ajouter  ·  Maj+clic — plage  ·  Échap — désélectionner",
+    "announce": "{{title}} : sélectionné",
+    "unannounce": "{{title}} : non sélectionné",
     "keysTrash": "Ctrl+A — tout sélectionner  ·  Suppr — supprimer définitivement  ·  Échap — effacer la sélection",
     "hiddenBySearch_one": "{{count}} des {{total}} sélectionnés est masqué par la recherche — les actions l’incluent  ·  Échap — effacer la sélection",
     "hiddenBySearch_many": "{{count}} des {{total}} sélectionnés sont masqués par la recherche — les actions les incluent  ·  Échap — effacer la sélection",
@@ -859,6 +867,23 @@
     "bannerLabel": "Nouveaux signets",
     "sort": "Trier",
     "hide": "Masquer jusqu’à l’arrivée de nouveaux signets"
+  },
+  "reader": {
+    "back": "Retour à {{section}}",
+    "openInBrowser": "Ouvrir dans le navigateur",
+    "minutes": "{{count}} min de lecture",
+    "position": "{{current}} sur {{total}}",
+    "loading": "Chargement de l’article…",
+    "failure": {
+      "title": "Cette page ne peut pas s’afficher ici",
+      "refused": "L’adresse mène à un réseau privé, elle n’a donc pas été ouverte.",
+      "timeout": "Le site a mis trop de temps à répondre.",
+      "network": "Le site est injoignable.",
+      "status": "Le site a répondu par l’erreur {{status}} — il n’accepte peut-être que les navigateurs.",
+      "notHtml": "Ce lien est un fichier, pas une page web.",
+      "links": "La page est surtout faite de liens, pas d’un article.",
+      "empty": "Aucun article trouvé sur la page — il est peut-être dessiné par des scripts."
+    }
   },
   "library": {
     "loading": "Chargement de la bibliothèque",

@@ -157,7 +157,11 @@
     "addTag": "Aggiungi tag…",
     "refresh": "Aggiorna l’anteprima",
     "delete": "Sposta nel cestino",
-    "select": "Seleziona: {{title}}",
+    "openShort": "Apri",
+    "openInBrowserOf": "Apri nel browser: {{title}}",
+    "read": "Leggi",
+    "readOf": "Leggi qui: {{title}}",
+    "selected": "Selezionato",
     "filterDomain": "Solo i segnalibri di {{domain}}"
   },
   "selection": {
@@ -181,7 +185,11 @@
     "tagLabel": "Tag per i segnalibri selezionati",
     "tagPlaceholder": "Tag, poi Invio",
     "tagSuggestions": "Tag della libreria",
-    "keys": "Maiusc / Ctrl — aggiungi alla selezione  ·  Ctrl+A — seleziona tutto  ·  oppure trascina la selezione su una raccolta o un tag a sinistra",
+    "read": "Leggi",
+    "keys": "Spazio — leggi qui  ·  Invio o doppio clic — apri il link  ·  Ctrl+clic — aggiungi  ·  Maiusc+clic — intervallo  ·  Esc — deseleziona",
+    "keysMany": "Spazio — leggi l’ultimo cliccato, ↑ ↓ — gli altri selezionati  ·  Ctrl+clic — aggiungi  ·  Maiusc+clic — intervallo  ·  Esc — deseleziona",
+    "announce": "{{title}}: selezionato",
+    "unannounce": "{{title}}: non selezionato",
     "keysTrash": "Ctrl+A — seleziona tutto  ·  Canc — elimina definitivamente  ·  Esc — annulla la selezione",
     "hiddenBySearch_one": "{{count}} dei {{total}} selezionati è nascosto dalla ricerca: le azioni lo includono  ·  Esc — annulla la selezione",
     "hiddenBySearch_many": "{{count}} dei {{total}} selezionati sono nascosti dalla ricerca: le azioni li includono  ·  Esc — annulla la selezione",
@@ -859,6 +867,23 @@
     "bannerLabel": "Nuovi segnalibri",
     "sort": "Smista",
     "hide": "Nascondi finché non arrivano nuovi segnalibri"
+  },
+  "reader": {
+    "back": "Torna a {{section}}",
+    "openInBrowser": "Apri nel browser",
+    "minutes": "{{count}} min di lettura",
+    "position": "{{current}} di {{total}}",
+    "loading": "Caricamento dell’articolo…",
+    "failure": {
+      "title": "Questa pagina non si può mostrare qui",
+      "refused": "L’indirizzo porta a una rete privata, quindi non è stato aperto.",
+      "timeout": "Il sito ha impiegato troppo a rispondere.",
+      "network": "Il sito non è raggiungibile.",
+      "status": "Il sito ha risposto con l’errore {{status}}: forse accetta solo i browser.",
+      "notHtml": "Questo link è un file, non una pagina web.",
+      "links": "La pagina è fatta soprattutto di link, non di un articolo.",
+      "empty": "Nessun articolo trovato nella pagina: forse lo disegnano gli script."
+    }
   },
   "library": {
     "loading": "Caricamento della libreria",
