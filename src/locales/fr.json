@@ -1240,6 +1240,9 @@
       "plan": "En pause · Supporter n’est pas actif",
       "startedOver": "En pause · réinitialisée sur un autre ordinateur",
       "stopped": "En pause · ouvrez « Gérer » pour savoir pourquoi",
+      "removed": "Arrêtée · cet ordinateur a été retiré",
+      "signedOut": "En pause · reconnectez-vous",
+      "deviceLimit": "En pause · trop d’ordinateurs",
       "problem": "Action requise · ouvrez « Gérer »"
     },
     "setup": {

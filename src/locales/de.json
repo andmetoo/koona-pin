@@ -1166,6 +1166,9 @@
       "plan": "Pausiert · Supporter ist nicht aktiv",
       "startedOver": "Pausiert · auf einem anderen Computer neu begonnen",
       "stopped": "Pausiert · den Grund sehen Sie unter „Verwalten“",
+      "removed": "Beendet · dieser Computer wurde entfernt",
+      "signedOut": "Pausiert · melden Sie sich erneut an",
+      "deviceLimit": "Pausiert · zu viele Computer",
       "problem": "Braucht Ihre Aufmerksamkeit · „Verwalten“ öffnen"
     },
     "setup": {

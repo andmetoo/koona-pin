@@ -293,6 +293,8 @@ export function SyncDialog({
   // The overview: this computer, the others, and what sync is doing (frames 03, 04).
   const banners = overviewBanners(status, plan, t, i18n.language);
   const others = otherDevices(status);
+  // Removed from the account: only «Add again» (its banner) leads back, so no Rename or Sync now.
+  const removed = status.phase.state === "paused" && status.phase.reason === "revoked";
   // Handing the main computer over needs this one in the account and connected.
   const running = status.phase.state === "online" || status.phase.state === "syncing";
   return (
@@ -305,7 +307,7 @@ export function SyncDialog({
             ))}
           </div>
           <h3 className="mt-4 text-2xs font-semibold text-subtle uppercase">{t("sync.thisComputer")}</h3>
-          <ThisComputer status={status} version={version} busy={busy} onRename={(name) => run(() => api.renameDevice(status.device.id, name))} />
+          <ThisComputer status={status} version={version} busy={busy} removed={removed} onRename={(name) => run(() => api.renameDevice(status.device.id, name))} />
           {!status.is_hub && running && (
             <div className="flex items-center gap-3 pl-7">
               <Button variant="outline" disabled={busy || status.hub_change?.role === "asking"} onClick={() => void makeMain()}>
@@ -360,9 +362,11 @@ export function SyncDialog({
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="lg" disabled={busy || status.phase.state === "syncing"} onClick={() => void run(api.syncNow)}>
-              {t("sync.syncNow")}
-            </Button>
+            {!removed && (
+              <Button variant="outline" size="lg" disabled={busy || status.phase.state === "syncing"} onClick={() => void run(api.syncNow)}>
+                {t("sync.syncNow")}
+              </Button>
+            )}
             <Button ref={doneRef} variant="outline" size="lg" autoFocus onClick={onClose}>
               {t("sync.done")}
             </Button>
@@ -456,7 +460,20 @@ function DeviceRow({ device, detail, action, highlight = false, name }: { device
 }
 
 /** This computer with «Rename…», which turns its name into a field. */
-function ThisComputer({ status, version, busy, onRename }: { status: SyncStatus; version: string; busy: boolean; onRename: (name: string) => Promise<SyncStatus | null> }) {
+function ThisComputer({
+  status,
+  version,
+  busy,
+  removed,
+  onRename,
+}: {
+  status: SyncStatus;
+  version: string;
+  busy: boolean;
+  /** Removed from the account: no name to change there; «Add again» is the way back. */
+  removed: boolean;
+  onRename: (name: string) => Promise<SyncStatus | null>;
+}) {
   const { t, i18n } = useTranslation();
   const [editing, setEditing] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -497,7 +514,7 @@ function ThisComputer({ status, version, busy, onRename }: { status: SyncStatus;
         ) : undefined
       }
       action={
-        editing !== null ? (
+        removed ? null : editing !== null ? (
           <Button variant="outline" disabled={busy || !editing.trim()} onClick={() => void save()}>
             {t("sync.save")}
           </Button>

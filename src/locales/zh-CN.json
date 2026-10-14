@@ -1092,6 +1092,9 @@
       "plan": "已暂停 · Supporter 未生效",
       "startedOver": "已暂停 · 同步已在另一台电脑上重新开始",
       "stopped": "已暂停 · 打开“管理”查看原因",
+      "removed": "已停止 · 此电脑已被移除",
+      "signedOut": "已暂停 · 请重新登录",
+      "deviceLimit": "已暂停 · 电脑太多",
       "problem": "需要你处理 · 打开“管理”"
     },
     "setup": {

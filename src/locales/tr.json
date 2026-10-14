@@ -1166,6 +1166,9 @@
       "plan": "Duraklatıldı · Supporter etkin değil",
       "startedOver": "Duraklatıldı · eşitleme başka bir bilgisayarda baştan başlatıldı",
       "stopped": "Duraklatıldı · nedenini görmek için Yönet'i açın",
+      "removed": "Durduruldu · bu bilgisayar kaldırıldı",
+      "signedOut": "Duraklatıldı · yeniden oturum açın",
+      "deviceLimit": "Duraklatıldı · çok fazla bilgisayar",
       "problem": "İlgilenmeniz gerekiyor · Yönet'i açın"
     },
     "setup": {

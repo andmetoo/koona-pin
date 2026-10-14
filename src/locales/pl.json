@@ -1314,6 +1314,9 @@
       "plan": "Wstrzymana · Supporter nie jest aktywny",
       "startedOver": "Wstrzymana · synchronizację zaczęto od nowa na innym komputerze",
       "stopped": "Wstrzymana · otwórz Zarządzaj, aby zobaczyć dlaczego",
+      "removed": "Zatrzymana · ten komputer został usunięty",
+      "signedOut": "Wstrzymana · zaloguj się ponownie",
+      "deviceLimit": "Wstrzymana · za dużo komputerów",
       "problem": "Wymaga uwagi · otwórz Zarządzaj"
     },
     "setup": {

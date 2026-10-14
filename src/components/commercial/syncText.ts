@@ -174,7 +174,16 @@ export function syncSummary(status: SyncStatus, t: TFunction, language: string, 
     case "unavailable":
       return { tone: "warn", text: t(phase.reason === "not_supporter" ? "sync.short.plan" : "sync.short.stopped") };
     case "paused": {
-      const key = { offline: "offline", clock_skew: "clock", update_needed: "update", started_over: "startedOver", plan: "plan" } as const;
+      const key = {
+        offline: "offline",
+        clock_skew: "clock",
+        update_needed: "update",
+        started_over: "startedOver",
+        plan: "plan",
+        revoked: "removed",
+        signed_out: "signedOut",
+        device_limit: "deviceLimit",
+      } as const;
       const short = key[phase.reason as keyof typeof key];
       return { tone: "warn", text: t(`sync.short.${short ?? "stopped"}`) };
     }

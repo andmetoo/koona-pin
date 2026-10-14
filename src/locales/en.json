@@ -1166,6 +1166,9 @@
       "plan": "Paused · Supporter isn't active",
       "startedOver": "Paused · sync was started over on another computer",
       "stopped": "Paused · open Manage to see why",
+      "removed": "Stopped · this computer was removed",
+      "signedOut": "Paused · sign in again",
+      "deviceLimit": "Paused · too many computers",
       "problem": "Needs your attention · open Manage"
     },
     "setup": {

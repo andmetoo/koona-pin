@@ -1240,6 +1240,9 @@
       "plan": "Pausada · o Supporter não está ativo",
       "startedOver": "Pausada · a sincronização recomeçou em outro computador",
       "stopped": "Pausada · abra Gerenciar para ver o motivo",
+      "removed": "Parada · este computador foi removido",
+      "signedOut": "Pausada · entre novamente",
+      "deviceLimit": "Pausada · computadores demais",
       "problem": "Precisa da sua atenção · abra Gerenciar"
     },
     "setup": {

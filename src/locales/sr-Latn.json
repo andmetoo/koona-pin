@@ -1242,6 +1242,9 @@
       "plan": "Pauzirana · Supporter nije aktivan",
       "startedOver": "Pauzirana · sinhronizacija je pokrenuta iznova na drugom računaru",
       "stopped": "Pauzirana · otvorite „Upravljaj“ da vidite zašto",
+      "removed": "Zaustavljena · ovaj računar je uklonjen",
+      "signedOut": "Pauzirana · prijavite se ponovo",
+      "deviceLimit": "Pauzirana · previše računara",
       "problem": "Potrebna je vaša pažnja · otvorite „Upravljaj“"
     },
     "setup": {

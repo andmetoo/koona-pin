@@ -1240,6 +1240,9 @@
       "plan": "In pausa · Supporter non è attivo",
       "startedOver": "In pausa · la sincronizzazione è ricominciata da un altro computer",
       "stopped": "In pausa · apri Gestisci per sapere perché",
+      "removed": "Interrotta · questo computer è stato rimosso",
+      "signedOut": "In pausa · accedi di nuovo",
+      "deviceLimit": "In pausa · troppi computer",
       "problem": "Serve la tua attenzione · apri Gestisci"
     },
     "setup": {

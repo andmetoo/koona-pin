@@ -1240,6 +1240,9 @@
       "plan": "En pausa · Supporter no está activo",
       "startedOver": "En pausa · se empezó de nuevo en otro ordenador",
       "stopped": "En pausa · abre «Gestionar» para ver por qué",
+      "removed": "Detenida · este ordenador se quitó",
+      "signedOut": "En pausa · vuelve a iniciar sesión",
+      "deviceLimit": "En pausa · demasiados ordenadores",
       "problem": "Requiere tu atención · abre «Gestionar»"
     },
     "setup": {
