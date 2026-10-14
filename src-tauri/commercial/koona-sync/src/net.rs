@@ -97,6 +97,9 @@ pub enum Stop {
 pub enum Event {
     /// Every session effect except the frames to send.
     Session(Effect),
+    /// The connection ended (or never opened), with the relay's close code and reason when it
+    /// sent one: for the sync report.
+    Closed { code: Option<u16>, reason: Option<String> },
     /// The next attempt is in this long.
     Retrying(Duration),
     Stopped(Stop),
@@ -347,6 +350,7 @@ async fn run<L: Library + Send + 'static>(
                 (None, None)
             }
         };
+        let _ = events.send(Event::Closed { code, reason: reason.clone() });
         report(feed(&core, Owned::Closed(code, reason.clone())).await.0, &events);
         match code {
             Some(close::AUTH) if refresh => break Stop::Auth,
