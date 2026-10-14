@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { countWords, extractArticle, linkDensity, MIN_WORDS, sanitize, sharesTitle, SHORT_WORDS, verdict } from "./reader";
+import { countWords, extractArticle, linkDensity, READER_MIN_WORDS, sanitize, sharesTitle, READER_SHORT_WORDS, verdict } from "./reader";
 
 const fixture = (name: string) => readFileSync(join(__dirname, "fixtures", "reader", name), "utf8");
 const dom = (html: string) => new DOMParser().parseFromString(html, "text/html").body;
@@ -31,7 +31,7 @@ describe("extractArticle", () => {
     const result = extractArticle(fixture("readme.html"), "https://github.com/example/web");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.article.words).toBeGreaterThanOrEqual(MIN_WORDS);
+    expect(result.article.words).toBeGreaterThanOrEqual(READER_MIN_WORDS);
     expect(result.article.words).toBeLessThan(200);
     expect(dom(result.article.html).textContent).toContain("A high productivity web framework");
   });
@@ -59,14 +59,14 @@ describe("verdict", () => {
   it("shows an article with enough words and few links", () => {
     expect(verdict({ words: 69, linkDensity: 0.02 })).toBeNull();
     expect(verdict({ words: 0, linkDensity: 0 })).toEqual({ reason: "empty" });
-    expect(verdict({ words: MIN_WORDS - 1, linkDensity: 0 })).toEqual({ reason: "too_short", words: MIN_WORDS - 1 });
+    expect(verdict({ words: READER_MIN_WORDS - 1, linkDensity: 0 })).toEqual({ reason: "too_short", words: READER_MIN_WORDS - 1 });
     expect(verdict({ words: 228, linkDensity: 0.69 })).toEqual({ reason: "links", words: 228, linkDensity: 0.69 });
   });
 
   it("turns away a short extract about something else", () => {
     expect(verdict({ words: 113, linkDensity: 0.08, onTopic: false })).toEqual({ reason: "off_topic", words: 113 });
     expect(verdict({ words: 113, linkDensity: 0.08, onTopic: true })).toBeNull();
-    expect(verdict({ words: SHORT_WORDS, linkDensity: 0.08, onTopic: false })).toBeNull();
+    expect(verdict({ words: READER_SHORT_WORDS, linkDensity: 0.08, onTopic: false })).toBeNull();
   });
 
   it("finds the title's words in the text", () => {
