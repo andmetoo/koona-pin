@@ -151,7 +151,11 @@
     "addTag": "Etiket ekle…",
     "refresh": "Önizlemeyi yenile",
     "delete": "Çöp kutusuna taşı",
-    "select": "Seç: {{title}}",
+    "openShort": "Aç",
+    "openInBrowserOf": "Tarayıcıda aç: {{title}}",
+    "read": "Oku",
+    "readOf": "Burada oku: {{title}}",
+    "selected": "Seçili",
     "filterDomain": "Yalnızca {{domain}} yer işaretleri"
   },
   "selection": {
@@ -174,7 +178,11 @@
     "tagLabel": "Seçili yer işaretleri için etiket",
     "tagPlaceholder": "Etiket, sonra Enter",
     "tagSuggestions": "Kitaplıktaki etiketler",
-    "keys": "Shift / Ctrl — seçime ekle  ·  Ctrl+A — tümünü seç  ·  ya da seçimi soldaki bir koleksiyona veya etikete sürükleyin",
+    "read": "Oku",
+    "keys": "Boşluk — burada oku  ·  Enter veya çift tık — bağlantıyı aç  ·  Ctrl+tık — ekle  ·  Shift+tık — aralık  ·  Esc — kaldır",
+    "keysMany": "Boşluk — son tıklananı oku, ↑ ↓ — diğer seçililer  ·  Ctrl+tık — ekle  ·  Shift+tık — aralık  ·  Esc — kaldır",
+    "announce": "{{title}}: seçildi",
+    "unannounce": "{{title}}: seçim kaldırıldı",
     "keysTrash": "Ctrl+A — tümünü seç  ·  Del — kalıcı olarak sil  ·  Esc — seçimi temizle",
     "hiddenBySearch_one": "Seçili {{total}} öğeden {{count}} tanesi aramada gizli — işlemler onu da kapsar  ·  Esc — seçimi temizle",
     "hiddenBySearch_other": "Seçili {{total}} öğeden {{count}} tanesi aramada gizli — işlemler onları da kapsar  ·  Esc — seçimi temizle",
@@ -802,6 +810,23 @@
     "bannerLabel": "Yeni yer işaretleri",
     "sort": "Düzenle",
     "hide": "Yeni yer işaretleri gelene kadar gizle"
+  },
+  "reader": {
+    "back": "{{section}} bölümüne dön",
+    "openInBrowser": "Tarayıcıda aç",
+    "minutes": "{{count}} dk okuma",
+    "position": "{{current}} / {{total}}",
+    "loading": "Makale yükleniyor…",
+    "failure": {
+      "title": "Bu sayfa burada gösterilemiyor",
+      "refused": "Adres özel bir ağa çıkıyor, bu yüzden açılmadı.",
+      "timeout": "Site çok uzun süre yanıt vermedi.",
+      "network": "Siteye ulaşılamadı.",
+      "status": "Site {{status}} hatasıyla yanıt verdi; yalnızca tarayıcıları kabul ediyor olabilir.",
+      "notHtml": "Bu bağlantı bir web sayfası değil, bir dosya.",
+      "links": "Sayfa bir makale değil, çoğunlukla bağlantı.",
+      "empty": "Sayfada makale bulunamadı; betiklerle çiziliyor olabilir."
+    }
   },
   "library": {
     "loading": "Kitaplık yükleniyor",

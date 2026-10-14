@@ -7,7 +7,7 @@ import { composing } from "./services/ime";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
-import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
+import { applyTheme, isDark, preference, savePreference, storedOpenLinks, storedTheme, storedValue, Theme } from "./services/preferences";
 import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, Plan, SupporterStatus, SyncStatus, UpdateStatus, ViewMode } from "./types";
 import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
@@ -27,6 +27,7 @@ import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
+import { ReadingSheet } from "./components/reader/ReadingSheet";
 import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
@@ -118,6 +119,14 @@ export function App() {
   /** The loaded order, for `Shift`+click ranges. */
   const loadedRef = useRef(library.bookmarks);
   loadedRef.current = library.bookmarks;
+  /** «Open links» (Р-69, point 5); its control comes with Settings in NP-124. */
+  const [linkTarget] = useState(storedOpenLinks);
+  const linkTargetRef = useRef(linkTarget);
+  linkTargetRef.current = linkTarget;
+  /** The reading sheet over the list (NP-123): what `↑`/`↓` go through and which one shows. */
+  const [sheet, setSheet] = useState<{ ids: number[]; index: number } | null>(null);
+  /** What a screen reader hears when a click changes the selection (NP-123). */
+  const [announcement, setAnnouncement] = useState("");
   const [editing, setEditing] = useState<Bookmark | null>(null);
   const editingRef = useRef(editing);
   editingRef.current = editing;
@@ -243,6 +252,14 @@ export function App() {
         if (key === "r" && plain && !typing && !filters.onlyTrash && selectionRef.current.ids.size && !e.repeat && !bulkBusyRef.current) {
           e.preventDefault();
           selectionActionsRef.current.reading(!filters.onlyReading);
+        }
+        // Space: the reading sheet for the last one clicked of the selection (NP-123). A
+        // focused card reads itself; a focused button presses itself. Triage keeps Space
+        // for the browser: it is a layer, so this never runs there.
+        const own = e.target instanceof HTMLElement && e.target.closest("button, a, [data-bookmark-id], [role=menuitem]");
+        if (e.key === " " && plain && !e.shiftKey && !typing && !own && !e.repeat && !filters.onlyTrash && selectionRef.current.ids.size) {
+          e.preventDefault();
+          readSelectionRef.current();
         }
       }
     };
@@ -516,6 +533,7 @@ export function App() {
     );
   };
   const selectionActions: SelectionActions = {
+    read: () => readSelection(),
     move: (collectionId) => runBulk({ action: "move", collection_id: collectionId }),
     // The strip of a narrow window has no room for the field: the dialog asks instead.
     newCollection: () => {
@@ -563,9 +581,32 @@ export function App() {
       .bulkUpdate([b.id], change)
       .then(({ command }) => say(readingNotice(t, change), false, undoing(command)))
       .catch((err) => say(describeError(err), true));
+  const open = (url: string) => void api.openUrl(url).catch((err) => say(describeError(err), true));
+  /**
+   * The reading sheet for `b` (NP-123, Р-69 point 6). A selected one opens with
+   * the rest of the loaded selection in list order for `↑`/`↓`; another one alone.
+   */
+  const readHere = (b: Bookmark) => {
+    const selected = selectionRef.current.ids;
+    const ids = selected.has(b.id) ? loadedRef.current.filter((item) => selected.has(item.id)).map((item) => item.id) : [b.id];
+    if (selected.has(b.id)) selectionRef.current.setLast(b.id);
+    setSheet({ ids, index: Math.max(0, ids.indexOf(b.id)) });
+  };
+  const readHereRef = useRef(readHere);
+  readHereRef.current = readHere;
+  /** `Space` and «Read» of the bar: the last one clicked of the selection, or its first loaded one. */
+  const readSelection = () => {
+    const ids = selectionRef.current.ids;
+    const last = selectionRef.current.last();
+    const loaded = loadedRef.current;
+    const b = loaded.find((item) => item.id === last && ids.has(item.id)) ?? loaded.find((item) => ids.has(item.id));
+    if (b) readHere(b);
+  };
+  const readSelectionRef = useRef(readSelection);
+  readSelectionRef.current = readSelection;
   const actions: BookmarkActions = useMemo(
     () => ({
-      open: (url) => void api.openUrl(url).catch((err) => say(describeError(err), true)),
+      open,
       copy: (url) => void copy(url),
       edit: (b) => {
         editorFocus.current = document.activeElement as HTMLElement;
@@ -618,10 +659,21 @@ export function App() {
             ),
           )
           .catch((err) => say(describeError(err), true)),
-      select: (b, range) =>
-        range ? selectionRef.current.range(b.id, loadedRef.current.map((item) => item.id)) : selectionRef.current.toggle(b.id),
+      select: (b, how) => {
+        const selection = selectionRef.current;
+        if (how === "only") selection.only(b.id);
+        else if (how === "range") selection.range(b.id, loadedRef.current.map((item) => item.id));
+        else selection.toggle(b.id);
+        // The ids are set at once; the hook's own state follows on the next render.
+        const title = b.title || b.url;
+        const now = how === "toggle" ? !selection.ids.has(b.id) : true;
+        setAnnouncement(t(now ? "selection.announce" : "selection.unannounce", { title }));
+      },
+      readHere: (b) => readHereRef.current(b),
+      follow: (b) => (linkTargetRef.current === "reader" ? readHereRef.current(b) : open(b.url)),
+      linksToBrowser: linkTarget === "browser",
     }),
-    [library.collections, t],
+    [library.collections, t, linkTarget],
   );
   const closeEditor = () => {
     editHooks.current = null;
@@ -642,6 +694,13 @@ export function App() {
           : collection
           ? collection.name
           : t("nav.all");
+  /** The sheet's bookmarks as the list has them now: a heart set in the sheet shows there too. */
+  const sheetBookmarks = sheet ? sheet.ids.flatMap((id) => library.bookmarks.find((b) => b.id === id) ?? []) : [];
+  // Every bookmark of the sheet left the list (deleted elsewhere, another section): the sheet goes with them.
+  const sheetEmpty = !!sheet && sheetBookmarks.length === 0;
+  useEffect(() => {
+    if (sheetEmpty) setSheet(null);
+  }, [sheetEmpty]);
   const sectionCount = filters.onlyTrash
     ? counts.trash
     : filters.onlyInbox
@@ -1447,6 +1506,25 @@ export function App() {
         />
       )}
 
+      {sheet && page === "library" && !triage && sheetBookmarks.length > 0 && (
+        <ReadingSheet
+          bookmarks={sheetBookmarks}
+          index={Math.min(sheet.index, sheetBookmarks.length - 1)}
+          section={section}
+          onIndex={(index) => {
+            setSheet({ ...sheet, index });
+            const b = sheetBookmarks[index];
+            if (selectionRef.current.ids.has(b.id)) selectionRef.current.setLast(b.id);
+          }}
+          onOpen={open}
+          onFavorite={actions.favorite}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {/* NP-123: a click that selects or unselects is said, not only shown; not a status, so notices stay apart. */}
+      <p aria-live="polite" data-announcer className="sr-only">
+        {announcement}
+      </p>
       {!selecting && toast}
     </div>
   );

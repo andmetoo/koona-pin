@@ -3,12 +3,11 @@
 // page's scripts never run and nothing it names is loaded, the article is taken out
 // by Defuddle, and DOMPurify cleans it before anything reaches a live DOM.
 //
-// No UI: the reader (NP-122) calls `readArticle` and shows `article.html`, or the
-// failure card with «Open in browser».
-import { invoke } from "@tauri-apps/api/core";
+// The article view (`components/reader/ArticleView.tsx`, NP-123) calls `cachedArticle`
+// and shows `article.html`, or the failure card with «Open in browser».
 import Defuddle from "defuddle";
 import DOMPurify from "dompurify";
-import type { ReaderPage } from "../bindings/ReaderPage";
+import { api } from "./api";
 
 export interface Article {
   /** Where the page ended up, after redirects and a `<meta refresh>`. */
@@ -52,13 +51,13 @@ export type ReadFailure =
 export type ReadResult = { ok: true; article: Article } | { ok: false; failure: ReadFailure };
 
 /** Fewer words than this is not an article. Short READMEs (revel: 69) still are. */
-export const MIN_WORDS = 50;
+export const READER_MIN_WORDS = 50;
 /** A page where more than this share of the text is links is a list, not an article. */
-export const MAX_LINK_DENSITY = 0.5;
+export const READER_MAX_LINK_DENSITY = 0.5;
 
 /** Fetches `url` and extracts its article. Called when the person opens it. */
 export async function readArticle(url: string): Promise<ReadResult> {
-  const page = await invoke<ReaderPage>("fetch_reader_page", { url });
+  const page = await api.fetchReaderPage(url);
   switch (page.kind) {
     case "page":
       return extractArticle(page.html, page.url);
@@ -75,6 +74,37 @@ export async function readArticle(url: string): Promise<ReadResult> {
   }
 }
 
+/** Articles read in this session, by address: going back with ↑ shows one at once. */
+const articles = new Map<string, Promise<ReadResult>>();
+const KEPT_ARTICLES = 20;
+
+/**
+ * `readArticle`, once per address while the app runs. A timeout, a lost
+ * connection or a thrown error is not kept: the next open asks again.
+ */
+export function cachedArticle(url: string): Promise<ReadResult> {
+  const known = articles.get(url);
+  if (known) return known;
+  const forget = () => articles.get(url) === result && articles.delete(url);
+  const result = readArticle(url).then(
+    (read) => {
+      if (!read.ok && (read.failure.reason === "timeout" || read.failure.reason === "network")) forget();
+      return read;
+    },
+    (error: unknown) => {
+      forget();
+      throw error;
+    },
+  );
+  articles.set(url, result);
+  // The oldest goes first: a Map keeps the order of insertion.
+  if (articles.size > KEPT_ARTICLES) articles.delete(articles.keys().next().value!);
+  return result;
+}
+
+/** Minutes to read at 230 words a minute, at least one. */
+export const readingMinutes = (words: number) => Math.max(1, Math.round(words / 230));
+
 /** The article of a fetched page, or why there is none. `url` is the page's final address. */
 export function extractArticle(html: string, url: string): ReadResult {
   const article = articleOf(html, url);
@@ -84,16 +114,16 @@ export function extractArticle(html: string, url: string): ReadResult {
 }
 
 /** Below this many words an extract must share a word with the title to count. */
-export const SHORT_WORDS = 200;
+export const READER_SHORT_WORDS = 200;
 
 /** The rule that decides whether an extracted article is shown (tuned on the 50-link sample). */
 export function verdict({ words, linkDensity, onTopic = true }: Pick<Article, "words" | "linkDensity"> & { onTopic?: boolean }): ReadFailure | null {
   if (words === 0) return { reason: "empty" };
-  if (words < MIN_WORDS) return { reason: "too_short", words };
-  if (linkDensity > MAX_LINK_DENSITY) return { reason: "links", words, linkDensity };
+  if (words < READER_MIN_WORDS) return { reason: "too_short", words };
+  if (linkDensity > READER_MAX_LINK_DENSITY) return { reason: "links", words, linkDensity };
   // A short extract about something else is a side block, not the article (DigitalOcean's
   // tutorial lives in script data; Defuddle finds only the «Become a contributor» cards).
-  if (words < SHORT_WORDS && !onTopic) return { reason: "off_topic", words };
+  if (words < READER_SHORT_WORDS && !onTopic) return { reason: "off_topic", words };
   return null;
 }
 

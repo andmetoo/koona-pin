@@ -159,7 +159,11 @@
     "addTag": "Dodaj oznaku…",
     "refresh": "Osveži pregled",
     "delete": "Premesti u otpad",
-    "select": "Izaberi: {{title}}",
+    "openShort": "Otvori",
+    "openInBrowserOf": "Otvori u pregledaču: {{title}}",
+    "read": "Čitaj",
+    "readOf": "Čitaj ovde: {{title}}",
+    "selected": "Izabrano",
     "filterDomain": "Samo obeleživači sa {{domain}}"
   },
   "selection": {
@@ -183,7 +187,11 @@
     "tagLabel": "Oznaka za izabrane obeleživače",
     "tagPlaceholder": "Oznaka, pa Enter",
     "tagSuggestions": "Oznake u biblioteci",
-    "keys": "Shift / Ctrl — dodaj u izbor  ·  Ctrl+A — izaberi sve  ·  ili prevucite izbor na kolekciju ili oznaku levo",
+    "read": "Čitaj",
+    "keys": "Razmak — čitaj ovde  ·  Enter ili dvoklik — otvori vezu  ·  Ctrl+klik — dodaj  ·  Shift+klik — opseg  ·  Esc — poništi",
+    "keysMany": "Razmak — čitaj poslednji kliknuti, ↑ ↓ — ostali izabrani  ·  Ctrl+klik — dodaj  ·  Shift+klik — opseg  ·  Esc — poništi",
+    "announce": "{{title}}: izabrano",
+    "unannounce": "{{title}}: nije izabrano",
     "keysTrash": "Ctrl+A — izaberi sve  ·  Del — trajno obriši  ·  Esc — poništi izbor",
     "hiddenBySearch_one": "{{count}} od {{total}} izabranih sakriva pretraga — radnje ga obuhvataju  ·  Esc — poništi izbor",
     "hiddenBySearch_few": "{{count}} od {{total}} izabranih sakriva pretraga — radnje ih obuhvataju  ·  Esc — poništi izbor",
@@ -861,6 +869,23 @@
     "bannerLabel": "Novi obeleživači",
     "sort": "Razvrstaj",
     "hide": "Sakrij dok ne stignu novi obeleživači"
+  },
+  "reader": {
+    "back": "Nazad: {{section}}",
+    "openInBrowser": "Otvori u pregledaču",
+    "minutes": "{{count}} min čitanja",
+    "position": "{{current}} od {{total}}",
+    "loading": "Učitavanje članka…",
+    "failure": {
+      "title": "Ova stranica ne može da se prikaže ovde",
+      "refused": "Adresa vodi u privatnu mrežu, pa nije otvorena.",
+      "timeout": "Sajt je predugo odgovarao.",
+      "network": "Sajt nije dostupan.",
+      "status": "Sajt je odgovorio greškom {{status}} — možda pušta samo pregledače.",
+      "notHtml": "Ova veza je datoteka, a ne veb-stranica.",
+      "links": "Stranica je uglavnom veze, a ne članak.",
+      "empty": "Na stranici nije pronađen članak — možda ga crtaju skripte."
+    }
   },
   "library": {
     "loading": "Učitava se biblioteka",

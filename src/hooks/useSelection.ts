@@ -51,6 +51,19 @@ export function useSelection(filters: FilterState, active: boolean) {
     },
     [update],
   );
+  /** A plain click (NP-123): this one alone. */
+  const only = useCallback(
+    (id: number) => {
+      anchor.current = id;
+      if (idsRef.current.size !== 1 || !idsRef.current.has(id)) update(new Set([id]));
+    },
+    [update],
+  );
+  /** The last one clicked, toggled or read: what `Space` reads (Р-69, point 6). */
+  const last = useCallback(() => anchor.current, []);
+  const setLast = useCallback((id: number) => {
+    anchor.current = id;
+  }, []);
   /** From the anchor to `id` in list order, added to the selection. */
   const range = useCallback(
     (id: number, order: readonly number[]) => {
@@ -158,5 +171,5 @@ export function useSelection(filters: FilterState, active: boolean) {
     if (matching) for (const id of ids) if (!matching.has(id)) count++;
     return count;
   }, [ids, matching]);
-  return { ids, hidden, allStarred, update, clear, toggle, range, selectAll };
+  return { ids, hidden, allStarred, update, clear, only, toggle, range, selectAll, last, setLast };
 }

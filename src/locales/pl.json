@@ -163,7 +163,11 @@
     "addTag": "Dodaj tag…",
     "refresh": "Odśwież podgląd",
     "delete": "Przenieś do kosza",
-    "select": "Zaznacz: {{title}}",
+    "openShort": "Otwórz",
+    "openInBrowserOf": "Otwórz w przeglądarce: {{title}}",
+    "read": "Czytaj",
+    "readOf": "Czytaj tutaj: {{title}}",
+    "selected": "Zaznaczona",
     "filterDomain": "Tylko zakładki z {{domain}}"
   },
   "selection": {
@@ -188,7 +192,11 @@
     "tagLabel": "Tag dla zaznaczonych zakładek",
     "tagPlaceholder": "Tag, potem Enter",
     "tagSuggestions": "Tagi w bibliotece",
-    "keys": "Shift / Ctrl — dodaj do zaznaczenia  ·  Ctrl+A — zaznacz wszystko  ·  albo przeciągnij zaznaczenie na kolekcję lub tag po lewej",
+    "read": "Czytaj",
+    "keys": "Spacja — czytaj tutaj  ·  Enter lub dwuklik — otwórz link  ·  Ctrl+klik — dodaj  ·  Shift+klik — zakres  ·  Esc — odznacz",
+    "keysMany": "Spacja — czytaj ostatnio klikniętą, ↑ ↓ — pozostałe zaznaczone  ·  Ctrl+klik — dodaj  ·  Shift+klik — zakres  ·  Esc — odznacz",
+    "announce": "{{title}}: zaznaczona",
+    "unannounce": "{{title}}: odznaczona",
     "keysTrash": "Ctrl+A — zaznacz wszystko  ·  Del — usuń na zawsze  ·  Esc — wyczyść zaznaczenie",
     "hiddenBySearch_one": "{{count}} z {{total}} zaznaczonych jest ukryta przez wyszukiwanie — działania ją obejmują  ·  Esc — wyczyść zaznaczenie",
     "hiddenBySearch_few": "{{count}} z {{total}} zaznaczonych są ukryte przez wyszukiwanie — działania je obejmują  ·  Esc — wyczyść zaznaczenie",
@@ -916,6 +924,23 @@
     "bannerLabel": "Nowe zakładki",
     "sort": "Uporządkuj",
     "hide": "Ukryj do czasu nowych zakładek"
+  },
+  "reader": {
+    "back": "Wróć do: {{section}}",
+    "openInBrowser": "Otwórz w przeglądarce",
+    "minutes": "{{count}} min czytania",
+    "position": "{{current}} z {{total}}",
+    "loading": "Wczytywanie artykułu…",
+    "failure": {
+      "title": "Tej strony nie da się tu pokazać",
+      "refused": "Adres prowadzi do sieci prywatnej, więc nie został otwarty.",
+      "timeout": "Strona zbyt długo nie odpowiadała.",
+      "network": "Nie udało się połączyć ze stroną.",
+      "status": "Strona odpowiedziała błędem {{status}} — może wpuszcza tylko przeglądarki.",
+      "notHtml": "Ten link to plik, a nie strona internetowa.",
+      "links": "Strona to głównie linki, a nie artykuł.",
+      "empty": "Na stronie nie znaleziono artykułu — może rysują go skrypty."
+    }
   },
   "library": {
     "loading": "Wczytywanie biblioteki",

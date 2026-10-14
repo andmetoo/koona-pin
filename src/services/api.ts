@@ -60,6 +60,7 @@ import {
   Undo,
   UpdateStatus,
 } from "../types";
+import type { ReaderPage } from "../bindings/ReaderPage";
 import { demo } from "./demo";
 import { toCommandError } from "./errors";
 
@@ -203,6 +204,8 @@ const desktop = {
   restoreLibrary: (content: string, mode: RestoreMode) =>
     call<RestoreOutcome>("restore_library", { content, mode }),
   openUrl: (url: string) => call<void>("open_url_external", { url }),
+  /** The page of an article, under the metadata request's guard (NP-120); `readArticle` extracts it. */
+  fetchReaderPage: (url: string) => call<ReaderPage>("fetch_reader_page", { url }),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
   /** Many changes at once: a bulk action or an undo of one (NP-029). */

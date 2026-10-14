@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Bookmark, Collection, ViewMode } from "../../types";
 import { DateGroup, groupOf } from "../../services/dateGroups";
 import { listTime } from "../../services/library";
-import { BookmarkActions, BookmarkCard, BookmarkRow, CARD_TEXT_HEIGHT, ROW_HEIGHT } from "./Bookmarks";
+import { BookmarkActions, BookmarkCard, BookmarkRow, CARD_TEXT_HEIGHT, ROW_HEIGHT, SELECTED_NOTE } from "./Bookmarks";
 
 /** Grid of frames 01 and 16: gaps 24 and 28 px, cards at least 240 px (190 px in a narrow window). */
 const GAP_X = 24;
@@ -23,8 +23,8 @@ const SCROLL_EDGE = 48;
 const SCROLL_MAX = 40;
 /** Where a press does not start a frame: controls, menus. */
 const INTERACTIVE = "button, a, input, textarea, select, [data-menu]";
-/** Where a press on a selected bookmark does not start a drag: its checkbox, heart (NP-086), menus, fields. */
-const NOT_DRAG = "[role=checkbox], [data-favorite], [aria-haspopup], [data-menu], input, textarea, select";
+/** Where a press on a selected bookmark does not start a drag: its shutter (NP-123), heart (NP-086), menus, fields. */
+const NOT_DRAG = "[data-shutter], [data-favorite], [aria-haspopup], [data-menu], input, textarea, select";
 
 type Rect = { left: number; top: number; right: number; bottom: number };
 type Geometry = {
@@ -306,6 +306,10 @@ export function BookmarkList({
 
   return (
     <div ref={box} data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined}>
+      {/* What a selected card or row adds to its name for a screen reader (NP-123). */}
+      <span id={SELECTED_NOTE} hidden>
+        {t("card.selected")}
+      </span>
       <div ref={inner} className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {frame && (
           // Frame 04: accent fill 4 %, border accent 80 %.

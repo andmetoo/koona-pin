@@ -47,6 +47,12 @@
   --np-amber: #b59a45;
   --np-amber-soft: #f3ecd6;
   --np-on-amber-soft: #6b5a23;
+  /* The reading sheet (NP-123, frame A): the White theme of reading, a page a shade warmer than the card. */
+  --np-sheet: #fbf8f2;
+  --np-sheet-ink: #2b2a26;
+  --np-sheet-line: #e9e5dc;
+  /* A focused card or row: the ink, never the accent of the selection (Р-69, point 4). */
+  --np-focus: #2e302b;
 }
 
 [data-theme="dark"] {
@@ -91,6 +97,10 @@
   --np-amber: #e8b866;
   --np-amber-soft: #3a3124;
   --np-on-amber-soft: #f2d9a6;
+  --np-sheet: #262622;
+  --np-sheet-ink: #e4e0d4;
+  --np-sheet-line: #35352f;
+  --np-focus: #e9e6dc;
 }
 
 /* The Supporter heart (NP-066, sheet 45) takes the colour of the season, set on <html> as
@@ -195,6 +205,9 @@
   --color-on-amber-soft: var(--np-on-amber-soft);
   --color-season: var(--np-season);
   --color-season-soft: var(--np-season-soft);
+  --color-sheet: var(--np-sheet);
+  --color-sheet-ink: var(--np-sheet-ink);
+  --color-sheet-line: var(--np-sheet-line);
 }
 
 @theme {
@@ -248,6 +261,14 @@
     }
     100% {
       box-shadow: 0 0 8px var(--np-update-glow);
+    }
+  }
+  /* The reading sheet rises from below (frame A). */
+  --animate-sheet: sheet 200ms var(--ease-standard);
+  @keyframes sheet {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
     }
   }
   --animate-spin: spin 0.9s linear infinite;
@@ -513,7 +534,214 @@
   }
 }
 
+/* Selection without a checkbox (NP-123, Р-69 points 4–5). A focused card or row
+   is ringed in ink around all of it; a selected one keeps the accent ring of its
+   preview (grid) or its border and soft fill (list), so the two never look alike. */
+@layer components {
+  [data-bookmark-id]:focus-visible {
+    outline: 2px solid var(--np-focus);
+    outline-offset: 4px;
+  }
+  /* The shutter of a grid card (sheet S4): 64 px from the top of the cover, 90 % dark,
+     slides in over 140 ms on hover and when the keyboard is anywhere in the card. */
+  .shutter {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    background: rgb(20 21 18 / 0.9);
+    border-radius: 10px 10px 0 0;
+    transform: translateY(-100%);
+    transition: transform 140ms var(--ease-standard);
+  }
+  [data-bookmark-id]:hover .shutter,
+  [data-bookmark-id]:focus-visible .shutter,
+  [data-bookmark-id]:has(:focus-visible) .shutter,
+  [data-bookmark-id][data-menu-open] .shutter {
+    transform: none;
+  }
+  /* The drag of the selection shows the stack, not the shutter of the card under it. */
+  [data-dragging] .shutter {
+    transform: translateY(-100%);
+  }
+  .shutter-button {
+    display: flex;
+    height: 30px;
+    min-width: 0;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 140ms, color 140ms;
+  }
+  .shutter-open {
+    background: #fffefa;
+    color: #2e302b;
+  }
+  .shutter-open:hover {
+    background: #ffffff;
+  }
+  .shutter-read {
+    border: 1px solid rgb(255 255 255 / 0.35);
+    color: #f2efe6;
+  }
+  .shutter-read:hover {
+    background: rgb(255 255 255 / 0.12);
+  }
+  .shutter-read kbd {
+    border-radius: 4px;
+    background: rgb(255 255 255 / 0.14);
+    padding: 1px 5px;
+    font: inherit;
+    font-size: 11px;
+    color: rgb(255 255 255 / 0.75);
+  }
+  /* A narrow card keeps the words and drops the key. */
+  @container card (width < 230px) {
+    .shutter-read kbd {
+      display: none;
+    }
+  }
+}
+
+/* The article of the reading sheet (frame A) and of the reading mode (NP-122): one
+   column of a serif text. Literata is the face of the mockups; until it ships with the
+   app (NP-124) the system serif stands in. */
+@layer components {
+  .reader-article {
+    --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
+    color: var(--np-sheet-ink);
+    overflow-wrap: break-word;
+  }
+  .reader-meta {
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--np-meta);
+  }
+  .reader-title {
+    margin: 16px 0 24px;
+    font-family: var(--reader-serif);
+    font-size: 34px;
+    line-height: 42px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .reader-body {
+    font-family: var(--reader-serif);
+    font-size: 18px;
+    line-height: 30px;
+  }
+  .reader-body > :first-child {
+    margin-top: 0;
+  }
+  .reader-body :is(p, ul, ol, blockquote, pre, figure, table, hr) {
+    margin: 0 0 18px;
+  }
+  .reader-body :is(h1, h2, h3, h4, h5, h6) {
+    margin: 32px 0 12px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .reader-body h1,
+  .reader-body h2 {
+    font-size: 24px;
+  }
+  .reader-body h3 {
+    font-size: 20px;
+  }
+  .reader-body :is(h4, h5, h6) {
+    font-size: 18px;
+  }
+  .reader-body :is(ul, ol) {
+    padding-left: 1.4em;
+  }
+  .reader-body ul {
+    list-style: disc;
+  }
+  .reader-body ol {
+    list-style: decimal;
+  }
+  .reader-body li + li {
+    margin-top: 6px;
+  }
+  .reader-body a[href] {
+    color: var(--np-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+    cursor: pointer;
+  }
+  .reader-body img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    border-radius: 10px;
+  }
+  .reader-body figcaption {
+    margin-top: 8px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--np-meta);
+  }
+  .reader-body blockquote {
+    border-left: 3px solid var(--np-sheet-line);
+    padding-left: 18px;
+    color: var(--np-icon);
+  }
+  .reader-body :is(pre, code) {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 14px;
+  }
+  .reader-body code {
+    border-radius: 4px;
+    background: var(--np-secondary);
+    padding: 1px 4px;
+  }
+  .reader-body pre {
+    overflow-x: auto;
+    border-radius: 10px;
+    background: var(--np-secondary);
+    padding: 14px 16px;
+    line-height: 22px;
+  }
+  .reader-body pre code {
+    background: none;
+    padding: 0;
+  }
+  .reader-body table {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 15px;
+    line-height: 22px;
+  }
+  .reader-body :is(th, td) {
+    border: 1px solid var(--np-sheet-line);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .reader-body hr {
+    border: 0;
+    border-top: 1px solid var(--np-sheet-line);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  /* The shutter appears without sliding (sheet S4). */
+  .shutter {
+    transition: none;
+  }
   *,
   ::before,
   ::after {

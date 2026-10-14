@@ -240,6 +240,11 @@ for (const code of codes) {
       await page.locator("[data-bookmark-id]").first().click({ modifiers: ["ControlOrMeta"] });
       await page.locator("[data-bookmark-id]").nth(1).click({ modifiers: ["ControlOrMeta"] });
       await shot("selection");
+      // The bar keeps its 740 px (NP-123 put «Read · Space» first): its buttons fit inside, «×» too.
+      const bar = page.getByRole("toolbar", { name: t("selection.label") });
+      const barBox = (await bar.boundingBox())!;
+      const clearBox = (await bar.getByRole("button", { name: t("selection.clear") }).boundingBox())!;
+      if (clearBox.x + clearBox.width > barBox.x + barBox.width - 7) found["selection"].push("the selection bar overflows");
       await page.keyboard.press("Escape");
 
       await page.getByRole("button", { name: t("toolbar.add") }).first().click();
