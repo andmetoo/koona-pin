@@ -380,6 +380,13 @@ impl Session {
         self.hub
     }
 
+    /// The account's devices with a connection open, this one included (at least 1): they share
+    /// the relay's rate limits.
+    pub fn devices_online(&self) -> usize {
+        let others = self.online.iter().filter(|d| **d != self.cfg.device).count();
+        others + 1
+    }
+
     /// The relay's epoch and the newest library key epoch this device holds.
     pub fn epochs(&self) -> (u32, Option<u32>) {
         (self.relay_epoch, self.keys.keys().next_back().copied())

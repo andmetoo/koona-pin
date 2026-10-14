@@ -205,8 +205,11 @@ byte on the wire.
 - **Rate limits** are token buckets per account over every inbound message, text and binary,
   `hello` included: a burst of 20 then 20 messages/s, and a burst of 32 MiB then 32 MiB/min. Only
   the connection that crosses a limit is closed with 4008. A client paces what it sends below
-  these (the reference client: about 15 messages/s and 24 MiB/min, shared by all its
-  connections) so a first sync never trips 4008, and backs off at least 30 s after one.
+  these so a first sync never trips 4008, and backs off at least 30 s after one. The message
+  bucket is the account's, and a pairing or a reconnect alone is about 20 messages from two
+  devices in a few milliseconds, so the reference client paces messages for the whole account:
+  about 15 messages/s with a burst of 15, split evenly among the devices online (`welcome.online`
+  and `presence`). Bytes it paces at 24 MiB/min per device: two large transfers at once are rare.
 - **Device limit**: an account has at most 50 devices. Registering one more closes with 4008 and
   reason `device_limit`; no retry cures that, so a client stops and reports it.
 - **Values**: device names are at most 128 UTF-16 code units; ids are lowercase hyphenated UUIDs;
