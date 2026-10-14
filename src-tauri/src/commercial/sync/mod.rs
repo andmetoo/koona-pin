@@ -390,7 +390,7 @@ async fn supervise(app: &AppHandle) -> Duration {
         return RECHECK;
     };
     // The account, from its token: the relay `hello` signs it.
-    let sub = billing::sync_credentials(app, false).await.and_then(|(token, _)| worker::jwt_sub(&token));
+    let sub = billing::sync_credentials(app, false).await.ok().flatten().and_then(|(token, _)| worker::jwt_sub(&token));
     let Some(sub) = sub else {
         // Signed out (the plan check stops the client then), or the token wants a refresh and the
         // account service is away: a running client goes on with what it has, and a start waits.
@@ -618,14 +618,14 @@ async fn running(state: &SyncState) -> Option<koona_sync::net::Handle> {
 /// its bookmarks merge back.
 #[tauri::command]
 pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
-    let status = act(&app, Action::JoinAgain)?;
+    act(&app, Action::JoinAgain)?;
     let state = app.state::<SyncState>();
-    let mut joined = false;
-    state.change_notices(|n| {
-        joined = n.joined();
-        joined
-    })?;
-    Ok(if joined { state.emit(&app) } else { status })
+    // The account is a new one to this device: its first transfer is the library arriving (frame
+    // 07), not a sync like the ones before.
+    lock(&state.model).last_sync_at = None;
+    state.keep_last_sync();
+    state.change_notices(|n| n.joined())?;
+    Ok(state.emit(&app))
 }
 
 /// Before turning sync on: asks the relay whether the account already has a main computer, without
@@ -639,7 +639,8 @@ pub async fn get_sync_account(app: AppHandle) -> Result<SyncAccount, CommandErro
     // A token the relay refuses is refreshed once, as the connection does after 4001.
     let mut refresh = false;
     loop {
-        let (token, lease) = billing::sync_credentials(&app, refresh).await.ok_or_else(signed_out)?;
+        // Offline or the account service away is that error, not being signed out.
+        let (token, lease) = billing::sync_credentials(&app, refresh).await?.ok_or_else(signed_out)?;
         let response = client
             .get(&url)
             .bearer_auth(token)

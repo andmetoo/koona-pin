@@ -117,16 +117,17 @@ export function SyncDialog({
   };
   // The main computer turns out offline only when the relay answers, after the command: the
   // request's status leads to starting over, as an offline main computer does from the start.
+  const askingRole = status.hub_change?.role ?? null;
   useEffect(() => {
     if (!asked) return;
     if (status.error === "hub_offline") {
       setAsked(false);
       setOpened({ kind: "startOver" });
     } else if (status.error) setAsked(false);
-    else if (status.hub_change?.role === "asking") sawAsking.current = true;
+    else if (askingRole === "asking") sawAsking.current = true;
     // The request was under way and ended (allowed, or given up): nothing more to wait for.
     else if (sawAsking.current) setAsked(false);
-  }, [asked, status.error, status.hub_change]);
+  }, [asked, status.error, askingRole]);
   const act = (banner: SyncBanner) => {
     const kind: SyncAction | undefined = banner.action?.kind;
     if (kind === "retry") void run(api.syncNow);

@@ -688,13 +688,18 @@ async fn fresh_token(app: &AppHandle, force: bool) -> Result<Option<String>, Com
 
 /// What the sync relay checks before it lets a device in (NP-059, commercial/sync): a fresh
 /// access token and base64 of the signed lease as stored. `refresh` after the relay refused the
-/// token. None when signed out, without a lease, or when the token could not be refreshed now.
-pub(crate) async fn sync_credentials(app: &AppHandle, refresh: bool) -> Option<(String, String)> {
+/// token. None when signed out or without a lease; an error when the token could not be refreshed
+/// now (offline, the account service away), which is not being signed out.
+pub(crate) async fn sync_credentials(app: &AppHandle, refresh: bool) -> Result<Option<(String, String)>, CommandError> {
     use base64::Engine;
-    let token = fresh_token(app, refresh).await.ok()??;
-    let lease = app.state::<Billing>().get().lease?;
-    let json = serde_json::to_string(&lease).ok()?;
-    Some((token, base64::engine::general_purpose::STANDARD.encode(json)))
+    let Some(token) = fresh_token(app, refresh).await? else {
+        return Ok(None);
+    };
+    let Some(lease) = app.state::<Billing>().get().lease else {
+        return Ok(None);
+    };
+    let json = serde_json::to_string(&lease).map_err(CommandError::internal)?;
+    Ok(Some((token, base64::engine::general_purpose::STANDARD.encode(json))))
 }
 
 /// Asks for the plan of the signed-in account; marks the check failed when the server is away.

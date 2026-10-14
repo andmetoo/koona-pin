@@ -179,6 +179,9 @@ pub struct Peers {
     pub devices: BTreeMap<Uuid, PeerFacts>,
 }
 
+/// How often a transfer's time alone is written to `sync-devices.json`.
+const KEEP_SYNC_EVERY: chrono::TimeDelta = chrono::TimeDelta::minutes(1);
+
 impl Peers {
     /// Whether the facts changed.
     fn hello(&mut self, device: Uuid, platform: String, app: String) -> bool {
@@ -393,6 +396,8 @@ pub struct Model {
     /// This device, left out of the devices added.
     pub me: Option<Uuid>,
     pub peers: Peers,
+    /// When each device's facts were last handed to be written (`KEEP_SYNC_EVERY`).
+    peers_written: BTreeMap<Uuid, DateTime<Utc>>,
     /// This device's clock minus the relay's, from the last `challenge`.
     clock_offset_ms: Option<i64>,
     /// The peer that pauses the session for an update.
@@ -630,7 +635,13 @@ impl Model {
             Effect::Synced { peer } => {
                 if Some(peer) != self.me {
                     self.peers.synced(peer, now);
-                    out.push(Reaction::Peers);
+                    // The time shown moves every transfer; the file, while someone edits and
+                    // changes go out every second, at most once a minute per device.
+                    let written = self.peers_written.get(&peer);
+                    if written.is_none_or(|&at| now - at >= KEEP_SYNC_EVERY) {
+                        self.peers_written.insert(peer, now);
+                        out.push(Reaction::Peers);
+                    }
                 }
             }
             Effect::ClockOffset(offset) => self.clock_offset_ms = Some(offset),
@@ -1038,6 +1049,19 @@ mod tests {
         model.on_event(hub_change(HubChangeEvent::Asked { device: laptop, name: "Laptop".into() }), at(6));
         model.restart();
         assert_eq!(model.status(&ctx(&me)).hub_change, None, "a new client asks nothing yet");
+    }
+
+    #[test]
+    fn the_time_of_each_transfer_is_shown_at_once_and_written_once_a_minute() {
+        let me = Identity::new("Studio Mac");
+        let laptop = uid(2);
+        let mut model = Model { me: Some(me.device), ..Model::default() };
+        let synced = |model: &mut Model, s| model.on_event(Event::Session(Effect::Synced { peer: laptop }), at(s));
+        assert_eq!(synced(&mut model, 0), vec![Reaction::Peers], "the first one is kept");
+        assert!(synced(&mut model, 30).is_empty(), "a minute hasn't passed");
+        assert_eq!(model.peers.devices[&laptop].last_sync_at, Some(at(30)), "yet the time shown moved");
+        assert!(synced(&mut model, 59).is_empty());
+        assert_eq!(synced(&mut model, 60), vec![Reaction::Peers], "a minute after the last one written");
     }
 
     #[test]

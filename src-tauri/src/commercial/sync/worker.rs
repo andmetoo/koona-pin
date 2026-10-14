@@ -243,13 +243,14 @@ pub fn spawn(app: &AppHandle, start: Start) -> Running {
             let (app, sub) = (app.clone(), sub.clone());
             Box::pin(async move {
                 match billing::sync_credentials(&app, refresh).await {
-                    Some((token, lease)) if jwt_sub(&token).as_deref() == Some(sub.as_str()) => Ok(Credentials { token, lease }),
-                    Some(_) => {
+                    Ok(Some((token, lease))) if jwt_sub(&token).as_deref() == Some(sub.as_str()) => Ok(Credentials { token, lease }),
+                    Ok(Some(_)) => {
                         // Another account signed in: a client for it replaces this one.
                         super::wake(&app);
                         Err("the account changed".to_string())
                     }
-                    None => Err("no account credentials".to_string()),
+                    Ok(None) => Err("no account credentials".to_string()),
+                    Err(error) => Err(format!("the account service: {}", error.message)),
                 }
             })
         })
