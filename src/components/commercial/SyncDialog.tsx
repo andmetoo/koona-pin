@@ -74,6 +74,7 @@ export function SyncDialog({
   const [version, setVersion] = useState("");
   // «Review» of a computer added: its row is marked until the dialog closes.
   const [reviewed, setReviewed] = useState<string | null>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
   }, []);
@@ -121,6 +122,8 @@ export function SyncDialog({
     else if (kind === "review" && banner.notice) {
       const notice = status.notices.find((n) => n.id === banner.notice);
       if (notice?.kind === "device_added") setReviewed(notice.device);
+      // The banner and its button go: focus stays in the footer, not on the dialog itself.
+      doneRef.current?.focus();
       void run(() => api.dismissSyncNotice(banner.notice!));
     }
   };
@@ -295,7 +298,7 @@ export function SyncDialog({
   return (
     <Dialog key="overview" title={t("sync.title")} onClose={onClose} width={480}>
       <div className="flex min-h-0 flex-col" data-sync-view="overview" data-sync-hub={status.is_hub || undefined}>
-        <div className="-m-1 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
+        <div className="-m-1 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-1">
           <div className="flex flex-col gap-2">
             {banners.map((banner) => (
               <BannerView key={banner.id} banner={banner} busy={busy} onAction={act} />
@@ -345,19 +348,25 @@ export function SyncDialog({
           )}
           <ErrorNote text={error} />
         </div>
-        <footer className="mt-5 flex items-center gap-2 border-t border-divider pt-4">
-          <button type="button" onClick={() => setOpened({ kind: "details" })} className="text-sm font-medium text-muted hover:text-ink">
-            {t("sync.details")}
-          </button>
-          <button type="button" disabled={busy} onClick={() => void run(api.disableSync)} className="ml-3 mr-auto text-sm font-medium text-muted hover:text-ink">
-            {t("sync.turnOff")}
-          </button>
-          <Button variant="outline" size="lg" disabled={busy || status.phase.state === "syncing"} onClick={() => void run(api.syncNow)}>
-            {t("sync.syncNow")}
-          </Button>
-          <Button variant="outline" size="lg" autoFocus onClick={onClose}>
-            {t("sync.done")}
-          </Button>
+        {/* Long labels (Russian, German) don't fit one line of 480 px: then the buttons take a
+            line of their own, right-aligned, and no label breaks. */}
+        <footer className="mt-5 flex flex-wrap items-center justify-end gap-x-2 gap-y-3 border-t border-divider pt-4">
+          <div className="mr-auto flex items-center gap-5">
+            <button type="button" onClick={() => setOpened({ kind: "details" })} className="text-sm font-medium whitespace-nowrap text-muted hover:text-ink">
+              {t("sync.details")}
+            </button>
+            <button type="button" disabled={busy} onClick={() => void run(api.disableSync)} className="text-sm font-medium whitespace-nowrap text-muted hover:text-ink">
+              {t("sync.turnOff")}
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="lg" disabled={busy || status.phase.state === "syncing"} onClick={() => void run(api.syncNow)}>
+              {t("sync.syncNow")}
+            </Button>
+            <Button ref={doneRef} variant="outline" size="lg" autoFocus onClick={onClose}>
+              {t("sync.done")}
+            </Button>
+          </div>
         </footer>
       </div>
     </Dialog>
@@ -428,7 +437,7 @@ function DeviceRow({ device, detail, action, highlight = false, name }: { device
     <div
       data-sync-device={device.name}
       data-highlight={highlight || undefined}
-      className={`flex min-h-11 items-center gap-3 rounded-md py-1.5 ${highlight ? "-mx-2 bg-accent-soft px-2" : ""}`}
+      className={`flex min-h-11 items-center gap-3 rounded-md py-1.5 ${highlight ? "-mx-1 bg-accent-soft px-1" : ""}`}
     >
       <Icon icon={DEVICE_ICON[deviceKind(device.platform)]} className="shrink-0 text-icon" />
       <span className="min-w-0 flex-1">
@@ -613,7 +622,7 @@ function DetailsDialog({ status, onCopy, onClose }: { status: SyncStatus; onCopy
   return (
     <Dialog title={t("sync.detailsDialog.title")} onClose={onClose} width={480}>
       <div className="flex min-h-0 flex-col" data-sync-view="details">
-        <div className="-m-1 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
+        <div className="-m-1 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-1">
           <dl className="flex flex-col gap-2">
             {row("state", t("sync.detailsDialog.state"), details.state)}
             {row("main", t("sync.detailsDialog.main"), details.main)}
