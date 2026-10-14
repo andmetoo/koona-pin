@@ -22,6 +22,7 @@ playwright-report/
 *.pem
 *.pfx
 *.p12
+*.p8
 # Supabase CLI state of the linked project (supabase link, supabase/README.md)
 supabase/.temp/
 

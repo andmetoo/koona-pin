@@ -107,6 +107,9 @@ jobs:
   macos:
     name: macOS 15 / arm64
     needs: verify
+    # The Developer ID certificate and the App Store Connect key are secrets of the environment release,
+    # which opens to tags v* only: no pull request, branch or run on main can read them.
+    environment: release
     runs-on: macos-15
     timeout-minutes: 45
     env:

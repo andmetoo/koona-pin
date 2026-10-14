@@ -178,12 +178,20 @@ function dmgbuild() {
 const notaryCredentials = () => env.APPLE_API_KEY_PATH
   ? ["--key", env.APPLE_API_KEY_PATH, "--key-id", env.APPLE_API_KEY, "--issuer", env.APPLE_API_ISSUER]
   : ["--apple-id", env.APPLE_ID, "--password", env.APPLE_PASSWORD, "--team-id", env.APPLE_TEAM_ID];
+/**
+ * notarytool with the credentials. A failure names the subcommand and its exit status only: Node's own
+ * error would print the whole command line, credentials included, into the terminal or the CI log.
+ */
+function notarytool(args, options = {}) {
+  const result = spawnSync("xcrun", ["notarytool", ...args, ...notaryCredentials()], { encoding: "utf8", ...options });
+  if (result.status !== 0) throw new Error(`notarytool ${args[0]} failed with status ${result.status}${result.stderr ? `: ${result.stderr.trim()}` : ""}`);
+  return result.stdout;
+}
 /** Notarizes `file` (a DMG, or a ZIP of an app) and staples the ticket to `target`; Apple's log when it is not accepted. */
 function notarizeAndStaple(file, target = file) {
-  const result = JSON.parse(execFileSync("xcrun", ["notarytool", "submit", file, "--wait", "--output-format", "json",
-    ...notaryCredentials()], { encoding: "utf8" }));
+  const result = JSON.parse(notarytool(["submit", file, "--wait", "--output-format", "json"]));
   if (result.status !== "Accepted") {
-    spawnSync("xcrun", ["notarytool", "log", result.id, ...notaryCredentials()], { stdio: "inherit" });
+    try { notarytool(["log", result.id], { stdio: ["ignore", "inherit", "pipe"] }); } catch (error) { console.error(error.message); }
     throw new Error(`Notarization of ${path.basename(file)}: ${result.status} (${result.id})`);
   }
   console.log(`Notarized ${path.basename(file)} (${result.id})`);
