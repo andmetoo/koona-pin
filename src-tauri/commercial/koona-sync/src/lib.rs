@@ -18,6 +18,11 @@ mod hlc;
 pub mod model;
 pub mod crypto;
 pub mod protocol;
+// The device side of the protocol: the session (task B of sync v1) and its socket.
+pub mod library;
+#[cfg(feature = "net")]
+pub mod net;
+pub mod session;
 mod store;
 mod unique;
 

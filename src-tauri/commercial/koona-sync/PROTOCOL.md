@@ -194,6 +194,41 @@ Relay -> device:
 
 Vector: `frames.json`.
 
+### 2.5 Relay behaviour (clarifications)
+
+What the relay (koona-services) does where the sections above leave room. None of it changes a
+byte on the wire.
+
+- **Header checks** run in this order: `X-Koona-Proto` (missing or not an integer: 4004), the
+  token (4001), the lease (4002), the beta allowlist (4002 with reason `not_in_beta`). A client
+  always sends `X-Koona-Proto: 1`.
+- **Rate limits** are token buckets per account over every inbound message, text and binary,
+  `hello` included: a burst of 20 then 20 messages/s, and a burst of 32 MiB then 32 MiB/min. Only
+  the connection that crosses a limit is closed with 4008. A client paces what it sends below
+  these (the reference client: about 15 messages/s and 24 MiB/min, shared by all its
+  connections) so a first sync never trips 4008, and backs off at least 30 s after one.
+- **Device limit**: an account has at most 50 devices. Registering one more closes with 4008 and
+  reason `device_limit`; no retry cures that, so a client stops and reports it.
+- **Values**: device names are at most 128 UTF-16 code units; ids are lowercase hyphenated UUIDs;
+  keys and signatures are strict base64 of exactly 32 and 64 bytes; `epoch` is a u32. The `name`
+  of a known device's `hello` is ignored: only `rename` changes a name.
+- **Order after `hello`**: `welcome`; then, for a newly registered device, the `device` notice to
+  every connection (pending ones included); then `presence`. Registering the account's first
+  device sends no `account` notice: `welcome` carries the hub and epoch. In `welcome.devices`
+  the connecting device's `last_seen` is the value from before this connection.
+- **Handshake strictness**: any message before `welcome` other than one `hello` closes with 4001;
+  a second `hello` after `welcome` is answered with `error{code: "bad_message"}`.
+- **Replacement** (4009): the new socket gets `presence{online: true}`; `presence{online: false}`
+  is only sent when a device's last socket closes.
+- **No-op requests** (`set_hub` to the current hub, `rename` to the same name) succeed and are
+  broadcast like any other.
+- **Keepalive**: a text `{"t": "ping"}` is answered with `{"t": "pong"}` by the relay's runtime;
+  it keeps the connection open without waking the account's object.
+- **Routing**: only the hub's kind-2 frames reach a pending device; any other frame to a pending
+  device (from another device, or kind 1) is `undeliverable`. Pairing therefore needs the hub
+  online. A frame a device addresses to itself is echoed back to it. The hub alias while there is
+  no hub is `undeliverable`. A text frame over 64 KiB is answered with `bad_message`.
+
 ## 3. Device and device
 
 ### 3.1 Body
@@ -297,7 +332,9 @@ speak 1. If a peer's `schema` is greater than its own, a device pauses with that
 `covers` MUST only name counters the receiver holds once it has applied the answer: for an answer
 to `pull`, the sender's vector at the time it read the changes; for a push, `{}` unless the
 receiver's last `ack` plus the pushed changes already cover the sender's vector. A receiver that
-sees a gap pulls.
+sees a gap pulls. A device MAY instead push to each sync peer directly, a delta since what that
+peer is known to hold (its `hello`, `pull`, `ack` or a merged `covers`), with that delta's exact
+`covers`; the reference session does so.
 5. `presence` of a device coming online triggers a `hello` from the hub to it.
 
 ### 3.5 Clocks
