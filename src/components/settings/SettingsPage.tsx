@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, UpdateStatus } from "../../types";
+import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
+import { useSyncSettingsLine } from "../commercial/SyncRows";
 import { api, isTauri } from "../../services/api";
 import {
   appIsOlder,
@@ -42,7 +43,18 @@ export function SettingsPage({
   onUpdate,
   onCheckUpdates,
   dataVersion,
+  supporter,
+  sync,
+  onSync,
+  onSupporter,
 }: {
+  /** Supporter and its sync (sheet 46): the «Sync» row of Data. */
+  supporter: SupporterStatus | null;
+  sync: SyncStatus | null;
+  /** «Set up…» / «Manage…»: the Sync dialog. */
+  onSync: () => void;
+  /** «Learn more» without Supporter: the Supporter dialog. */
+  onSupporter: () => void;
   theme: Theme;
   onTheme: (theme: Theme) => void;
   settings: AppSettings | null;
@@ -69,6 +81,10 @@ export function SettingsPage({
 }) {
   const { t, i18n } = useTranslation();
   const desktop = isTauri();
+  // Sync (sheet 46, frame 10): only in a build that sells Supporter and has a relay.
+  const syncShown = !!supporter?.available && !!sync?.available;
+  const hasPlan = !!supporter?.plan;
+  const syncLine = useSyncSettingsLine(sync);
   const [language, setLanguageSetting] = useState<LanguageSetting>(storedLanguage);
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const [data, setData] = useState<DataSummary | null>(null);
@@ -205,6 +221,22 @@ export function SettingsPage({
       <AssistantsSection onConnect={onConnectAssistant} onNotice={onNotice} />
 
       <Section title={t("settings.data")}>
+        {syncShown && syncLine && hasPlan && (
+          <div data-sync-settings="supporter">
+            <Row title={t("sync.title")} description={syncLine.description}>
+              <Button onClick={onSync}>{syncLine.button}</Button>
+            </Row>
+          </div>
+        )}
+        {syncShown && !hasPlan && (
+          <div data-sync-settings="free">
+            <Row title={<span className="text-muted">{t("sync.withSupporter")}</span>} description="">
+              <button type="button" onClick={onSupporter} className="px-1 text-sm font-medium text-accent hover:underline">
+                {t("sync.learnMore")}
+              </button>
+            </Row>
+          </div>
+        )}
         <Row title={t("settings.folder")} description={data?.library_folder ?? ""}>
           <Button disabled={!desktop} onClick={() => void attempt("folder", () => api.revealLibraryPlace("data"))}>
             {t("common.open")}
@@ -523,7 +555,7 @@ function Row({
   danger = false,
 }: {
   title: ReactNode;
-  description: string;
+  description: ReactNode;
   children: ReactNode;
   danger?: boolean;
 }) {

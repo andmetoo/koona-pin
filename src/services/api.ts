@@ -311,7 +311,17 @@ const desktop = {
   rejectDevice: (device: string) => call<SyncStatus>("reject_device", { device }),
   /** On the hub: the device is removed and the library key rotated. */
   removeDevice: (device: string) => call<SyncStatus>("remove_device", { device }),
-  makeHub: (device: string) => call<SyncStatus>("make_hub", { device }),
+  /** «Make this the main computer»: the main computer is asked; offline, this fails with `hub_offline`. */
+  requestMain: () => call<SyncStatus>("request_main"),
+  /** On the main computer: Allow hands it over to the asking computer, Deny keeps it. */
+  answerMainRequest: (allow: boolean) => call<SyncStatus>("answer_main_request", { allow }),
+  /** «Start over from this computer», step one: a code to the account's email, which comes back to show. */
+  sendStartOverCode: () => call<string>("send_start_over_code"),
+  /** Step two: this computer becomes the main one with a new key; every other one is disconnected. */
+  startOver: (code: string) => call<SyncStatus>("start_over", { code }),
+  /** «Join…» after sync was started over elsewhere: paired with the new main computer, bookmarks merged back. */
+  joinSyncAgain: () => call<SyncStatus>("join_sync_again"),
+  dismissSyncNotice: (id: string) => call<SyncStatus>("dismiss_sync_notice", { id }),
   renameDevice: (device: string, name: string) => call<SyncStatus>("rename_device", { device, name }),
   /** A full exchange now; on a device waiting to be paired, the offer again. */
   syncNow: () => call<SyncStatus>("sync_now"),

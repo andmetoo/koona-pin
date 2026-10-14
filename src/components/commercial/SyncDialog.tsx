@@ -1,0 +1,720 @@
+// Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Check, Monitor, RefreshCw, TriangleAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { Plan, SyncDevice, SyncStatus } from "../../types";
+import { api } from "../../services/api";
+import { describeError } from "../../services/errors";
+import { Icon } from "../icons";
+import { ConfirmDialog } from "../library/Dialogs";
+import { Button } from "../ui/Button";
+import { Dot, Field } from "../ui/Controls";
+import { Dialog } from "../ui/Dialog";
+import {
+  ago,
+  hubDevice,
+  hubName,
+  otherDevices,
+  overviewBanners,
+  problemBanner,
+  spacedCode,
+  syncSummary,
+  syncView,
+  type SyncAction,
+  type SyncBanner,
+  type SyncTone,
+} from "./syncText";
+
+/** A screen the person opened from the overview, over what the status asks for. */
+type Opened = { kind: "details" } | { kind: "remove"; device: SyncDevice } | { kind: "startOver" };
+
+const TONE_COLOR: Record<SyncTone, string> = { ok: "var(--np-accent)", warn: "var(--np-amber)", sync: "var(--np-update)" };
+const BANNER_CLASS: Record<SyncTone, { box: string; icon: string; action: string }> = {
+  ok: { box: "bg-accent-soft text-ink", icon: "text-accent", action: "text-accent" },
+  warn: { box: "bg-amber-soft text-on-amber-soft", icon: "text-amber", action: "text-amber" },
+  sync: { box: "bg-update-soft text-on-update-soft", icon: "text-update", action: "text-update" },
+};
+
+/**
+ * «Sync» (NP-059, NP-063, sheet 46): the first turn-on, the overview of this computer and the
+ * others, and the screens sync asks for by itself — a computer to approve on the main one (05), the
+ * wait on a new one (06), the library arriving (07), a request to hand the main computer over (12).
+ * Each screen is a dialog of its own size, as in the mockups; the overview opens Details (09),
+ * Remove (08) and Start over (13).
+ */
+export function SyncDialog({
+  status,
+  plan,
+  onStatus,
+  onClose,
+  onCopy,
+  onUpdate,
+  onRenew,
+  onSignIn,
+}: {
+  status: SyncStatus;
+  /** Supporter's plan here: «Sync stops on…» when it ends soon. */
+  plan: Plan | null;
+  /** Every command answers the new status. */
+  onStatus: (status: SyncStatus) => void;
+  onClose: () => void;
+  onCopy: (text: string) => void;
+  /** «Update»: the app's update dialog. */
+  onUpdate: () => void;
+  /** «Renew…»: the Supporter dialog. */
+  onRenew: () => void;
+  /** «Sign in…»: the Supporter sign-in. */
+  onSignIn: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const [opened, setOpened] = useState<Opened | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState("");
+  // «Review» of a computer added: its row is marked until the dialog closes.
+  const [reviewed, setReviewed] = useState<string | null>(null);
+  useEffect(() => {
+    void api.getVersion().then(setVersion).catch(() => {});
+  }, []);
+
+  /** Runs a command; its status is shown, a failure stays in the dialog. Returns whether it worked. */
+  const run = async (action: () => Promise<SyncStatus | void>): Promise<SyncStatus | null> => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await action();
+      if (next) onStatus(next);
+      return next ?? status;
+    } catch (err) {
+      setError(describeError(err));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const back = () => {
+    setError(null);
+    setOpened(null);
+  };
+
+  const hub = hubDevice(status);
+  // «Make this the main computer»: asked of the main one while it is online; away, starting over by
+  // email is the way, and so is a request that finds it offline.
+  const makeMain = async () => {
+    if (!hub?.online) {
+      setOpened({ kind: "startOver" });
+      return;
+    }
+    const next = await run(api.requestMain);
+    if (next?.error === "hub_offline") setOpened({ kind: "startOver" });
+  };
+  const act = (banner: SyncBanner) => {
+    const kind: SyncAction | undefined = banner.action?.kind;
+    if (kind === "retry") void run(api.syncNow);
+    else if (kind === "update") onUpdate();
+    else if (kind === "renew") onRenew();
+    else if (kind === "signIn") onSignIn();
+    else if (kind === "join") void run(api.joinSyncAgain);
+    else if (kind === "addAgain") void run(() => api.enableSync(status.device.name));
+    else if (kind === "startOver") setOpened({ kind: "startOver" });
+    else if (kind === "review" && banner.notice) {
+      const notice = status.notices.find((n) => n.id === banner.notice);
+      if (notice?.kind === "device_added") setReviewed(notice.device);
+      void run(() => api.dismissSyncNotice(banner.notice!));
+    }
+  };
+
+  const view = syncView(status);
+  // A screen opened from the overview gives way to one sync asks for: a code to compare comes first.
+  const shown = opened && (view === "overview" || (opened.kind === "details" && view !== "pairHub" && view !== "mainAsked")) ? opened : null;
+  // Leaving the screen the person opened when sync takes over.
+  useEffect(() => {
+    if (opened && !shown) setOpened(null);
+  }, [opened, shown]);
+
+  if (shown?.kind === "remove")
+    return (
+      <ConfirmDialog
+        key="remove"
+        title={t("sync.removeTitle", { name: shown.device.name })}
+        text={t("sync.removeText")}
+        confirm={t("sync.removeConfirm")}
+        onClose={back}
+        onConfirm={async () => {
+          onStatus(await api.removeDevice(shown.device.id));
+          back();
+        }}
+      />
+    );
+  if (shown?.kind === "details") return <DetailsDialog key="details" status={status} onCopy={onCopy} onClose={back} />;
+  if (shown?.kind === "startOver")
+    return (
+      <StartOverDialog
+        key="startOver"
+        status={status}
+        onStatus={onStatus}
+        onClose={back}
+      />
+    );
+
+  if (view === "setup") return <SetupDialog key="setup" status={status} busy={busy} error={error} onClose={onClose} onTurnOn={(name) => void run(() => api.enableSync(name))} />;
+
+  if (view === "pairHub" && status.pairing?.code) {
+    const pairing = status.pairing;
+    return (
+      <Dialog key="pairHub" title={t("sync.pair.joinTitle", { name: pairing.peer_name })} onClose={onClose} width={480}>
+        <div className="flex flex-col" data-sync-view="pairHub">
+          <p className="text-sm leading-[18px]">{t("sync.pair.joinLead", { name: pairing.peer_name })}</p>
+          <CodeBox code={pairing.code!} label={t("sync.pair.code")} />
+          <p className="mt-3 text-xs leading-4 text-muted">{t("sync.pair.joinHint")}</p>
+          <ErrorNote text={error} />
+          <Footer>
+            <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(() => api.rejectDevice(pairing.peer))}>
+              {t("sync.pair.reject")}
+            </Button>
+            <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={() => void run(() => api.approveDevice(pairing.peer))}>
+              {t("sync.pair.match")}
+            </Button>
+          </Footer>
+        </div>
+      </Dialog>
+    );
+  }
+
+  if (view === "mainAsked" && status.hub_change) {
+    const asking = status.hub_change;
+    const peer = status.devices.find((d) => d.id === asking.peer);
+    return (
+      <Dialog key="mainAsked" title={t("sync.hubChange.title", { name: asking.peer_name })} onClose={onClose} width={480}>
+        <div className="flex flex-col" data-sync-view="mainAsked">
+          <p className="text-sm leading-[18px]">{t("sync.hubChange.lead", { hub: status.device.name })}</p>
+          <div className="mt-4">
+            <DeviceRow device={peer ?? { id: asking.peer, name: asking.peer_name, online: true, is_hub: false, status: "active", last_seen: null }} />
+          </div>
+          <p className="mt-2 text-xs leading-4 text-muted">{t("sync.hubChange.hint")}</p>
+          <ErrorNote text={error} />
+          <Footer>
+            <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(() => api.answerMainRequest(false))}>
+              {t("sync.hubChange.deny")}
+            </Button>
+            <Button variant="primary" size="lg" autoFocus disabled={busy} onClick={() => void run(() => api.answerMainRequest(true))}>
+              {t("sync.hubChange.allow")}
+            </Button>
+          </Footer>
+        </div>
+      </Dialog>
+    );
+  }
+
+  if (view === "waiting") {
+    const name = hubName(status, t);
+    const code = status.pairing?.role === "asking" ? status.pairing.code : null;
+    const away = status.error === "hub_offline" || (hub ? !hub.online : false);
+    const problem = status.error && status.error !== "hub_offline" ? problemBanner(status.error, status, t) : null;
+    return (
+      <Dialog key="waiting" title={t("sync.pair.waitTitle", { name })} onClose={onClose} width={480}>
+        <div className="flex flex-col" data-sync-view="waiting">
+          <p className="text-sm leading-[18px]">{t("sync.pair.waitLead", { name })}</p>
+          {code ? (
+            <CodeBox code={code} label={t("sync.pair.code")} />
+          ) : (
+            <div className="mt-4 flex h-[76px] items-center justify-center gap-2.5 rounded-[10px] border border-border bg-panel text-sm text-muted">
+              <Spinner />
+              {t("sync.pair.waitNoCode", { name })}
+            </div>
+          )}
+          <p className="mt-3 flex gap-2 text-xs leading-4 text-muted">
+            <Icon icon={RefreshCw} className="mt-px shrink-0 text-update" />
+            {away ? t("sync.pair.waitOffline", { name }) : t("sync.pair.waitHint")}
+          </p>
+          {problem && (
+            <div className="mt-3">
+              <BannerView banner={problem} busy={busy} onAction={act} />
+            </div>
+          )}
+          <ErrorNote text={error} />
+          <Footer>
+            <Button
+              variant="outline"
+              size="lg"
+              autoFocus
+              disabled={busy}
+              onClick={() =>
+                void run(api.disableSync).then((next) => {
+                  if (next) onClose();
+                })
+              }
+            >
+              {t("common.cancel")}
+            </Button>
+          </Footer>
+        </div>
+      </Dialog>
+    );
+  }
+
+  if (view === "receiving" && status.phase.state === "syncing") {
+    const { done, total } = status.phase;
+    const share = total > 0 ? Math.min(1, done / total) : 0;
+    return (
+      <Dialog key="receiving" title={t("sync.title")} onClose={onClose} width={480}>
+        <div className="flex flex-col" data-sync-view="receiving">
+          <p className="text-sm font-medium">{t("sync.receive.lead", { name: hubName(status, t) })}</p>
+          <div
+            role="progressbar"
+            aria-label={t("sync.receive.lead", { name: hubName(status, t) })}
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-valuenow={done}
+            className="mt-3 h-1 overflow-hidden rounded-full bg-update-soft dark:bg-update-track"
+          >
+            <span className="block h-full rounded-full bg-update transition-[width] duration-300" style={{ width: `${share * 100}%` }} />
+          </div>
+          <p className="mt-2 text-xs leading-4 text-muted">
+            {t("sync.receive.count", { done: done.toLocaleString(i18n.language), total: total.toLocaleString(i18n.language) })}
+          </p>
+          <p className="mt-2 text-xs leading-4 text-muted">{t("sync.receive.hint")}</p>
+          <Footer>
+            <Button variant="outline" size="lg" autoFocus onClick={onClose}>
+              {t("sync.receive.hide")}
+            </Button>
+          </Footer>
+        </div>
+      </Dialog>
+    );
+  }
+
+  // The overview: this computer, the others, and what sync is doing (frames 03, 04).
+  const banners = overviewBanners(status, plan, t, i18n.language);
+  const others = otherDevices(status);
+  // Handing the main computer over needs this one in the account and connected.
+  const running = status.phase.state === "online" || status.phase.state === "syncing";
+  return (
+    <Dialog key="overview" title={t("sync.title")} onClose={onClose} width={480}>
+      <div className="flex min-h-0 flex-col" data-sync-view="overview" data-sync-hub={status.is_hub || undefined}>
+        <div className="-m-1 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
+          <div className="flex flex-col gap-2">
+            {banners.map((banner) => (
+              <BannerView key={banner.id} banner={banner} busy={busy} onAction={act} />
+            ))}
+          </div>
+          <h3 className="mt-4 text-2xs font-semibold text-subtle uppercase">{t("sync.thisComputer")}</h3>
+          <ThisComputer status={status} version={version} busy={busy} onRename={(name) => run(() => api.renameDevice(status.device.id, name))} />
+          {!status.is_hub && running && (
+            <div className="flex items-center gap-3 pl-7">
+              <Button variant="outline" disabled={busy || status.hub_change?.role === "asking"} onClick={() => void makeMain()}>
+                {t("sync.makeMain")}
+              </Button>
+              {hub && !hub.online && <span className="text-xs leading-4 text-muted">{t("sync.makeMainOffline")}</span>}
+            </div>
+          )}
+          {others.length > 0 && (
+            <>
+              <h3 className="mt-4 text-2xs font-semibold text-subtle uppercase">{t("sync.otherComputers")}</h3>
+              <ul className="flex flex-col">
+                {others.map((device, i) => (
+                  <li key={device.id} className={i > 0 ? "ml-7 border-t border-divider" : ""}>
+                    <div className={i > 0 ? "-ml-7" : ""}>
+                      <DeviceRow
+                        device={device}
+                        highlight={device.id === reviewed}
+                        action={
+                          status.is_hub ? (
+                            <Button variant="outline" disabled={busy} onClick={() => setOpened({ kind: "remove", device })}>
+                              {t("sync.remove")}
+                            </Button>
+                          ) : null
+                        }
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {status.is_hub ? (
+            <div className="mt-4 rounded-lg border border-dashed border-border px-3 py-2.5">
+              <p className="text-sm font-medium">{t("sync.addTitle")}</p>
+              <p className="mt-0.5 text-xs leading-4 text-muted">{t("sync.addHint")}</p>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs leading-4 text-muted">{t("sync.onlyMain")}</p>
+          )}
+          <ErrorNote text={error} />
+        </div>
+        <footer className="mt-5 flex items-center gap-2 border-t border-divider pt-4">
+          <button type="button" onClick={() => setOpened({ kind: "details" })} className="text-sm font-medium text-muted hover:text-ink">
+            {t("sync.details")}
+          </button>
+          <button type="button" disabled={busy} onClick={() => void run(api.disableSync)} className="ml-3 mr-auto text-sm font-medium text-muted hover:text-ink">
+            {t("sync.turnOff")}
+          </button>
+          <Button variant="outline" size="lg" disabled={busy || status.phase.state === "syncing"} onClick={() => void run(api.syncNow)}>
+            {t("sync.syncNow")}
+          </Button>
+          <Button variant="outline" size="lg" autoFocus onClick={onClose}>
+            {t("sync.done")}
+          </Button>
+        </footer>
+      </div>
+    </Dialog>
+  );
+}
+
+/** At the bottom of a screen, under a line (sheet 46). */
+function Footer({ children }: { children: ReactNode }) {
+  return <footer className="mt-5 flex items-center justify-end gap-2 border-t border-divider pt-4">{children}</footer>;
+}
+
+function ErrorNote({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2.5 text-xs leading-[17px] text-on-danger-soft">
+      {text}
+    </p>
+  );
+}
+
+function Spinner() {
+  return <span aria-hidden className="size-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-line border-t-update dark:border-border dark:border-t-update" />;
+}
+
+/** The six digits both computers show, 40 px (frames 05, 06). */
+function CodeBox({ code, label }: { code: string; label: string }) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      data-sync-code
+      className="mt-4 flex h-[76px] items-center justify-center rounded-[10px] border border-border bg-panel text-[40px] leading-[48px] font-semibold tracking-[2px] tabular-nums"
+    >
+      {spacedCode(code)}
+    </div>
+  );
+}
+
+/** One banner of the overview (frame 11): tone, title, a line and the one thing to do about it. */
+function BannerView({ banner, busy, onAction }: { banner: SyncBanner; busy: boolean; onAction: (banner: SyncBanner) => void }) {
+  const tone = BANNER_CLASS[banner.tone];
+  return (
+    <div role="status" data-sync-banner={banner.id} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ${tone.box}`}>
+      <Icon icon={banner.tone === "warn" ? TriangleAlert : banner.tone === "ok" ? Check : RefreshCw} className={`shrink-0 self-start ${tone.icon}`} />
+      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+        <span className="block text-sm leading-[18px] font-medium">{banner.title}</span>
+        {banner.body && <span className="block text-xs leading-4">{banner.body}</span>}
+      </span>
+      {banner.action && (
+        <button type="button" disabled={busy} onClick={() => onAction(banner)} className={`shrink-0 text-sm font-medium hover:underline ${tone.action}`}>
+          {banner.action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** «Online», «Last seen 3 hours ago», «Waiting for approval». */
+function useSeen() {
+  const { t, i18n } = useTranslation();
+  return (device: SyncDevice) =>
+    device.status === "pending"
+      ? t("sync.pendingDevice")
+      : device.online
+        ? t("sync.online")
+        : device.last_seen
+          ? t("sync.lastSeen", { when: ago(device.last_seen, t, i18n.language) })
+          : t("sync.neverSeen");
+}
+
+/** A computer: icon, name, the Main badge, when it was seen, its dot and a visible button (no menu). */
+function DeviceRow({ device, detail, action, highlight = false, name }: { device: SyncDevice; detail?: string; action?: ReactNode; highlight?: boolean; name?: ReactNode }) {
+  const { t } = useTranslation();
+  const seen = useSeen();
+  const dot = device.status === "pending" ? "var(--np-amber)" : device.online ? "var(--np-accent)" : "var(--np-faint)";
+  return (
+    <div
+      data-sync-device={device.name}
+      data-highlight={highlight || undefined}
+      className={`flex min-h-11 items-center gap-3 rounded-md py-1.5 ${highlight ? "-mx-2 bg-accent-soft px-2" : ""}`}
+    >
+      <Icon icon={Monitor} className="shrink-0 text-icon" />
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-center gap-2">
+          {name ?? <span className="truncate text-sm font-medium">{device.name}</span>}
+          {device.is_hub && <span className="shrink-0 rounded-full bg-accent-soft px-2 py-px text-2xs font-medium text-accent">{t("sync.main")}</span>}
+        </span>
+        <span className="block truncate text-xs leading-4 text-muted">{detail ?? seen(device)}</span>
+      </span>
+      <span role="img" aria-label={device.online ? t("sync.onlineStatus") : t("sync.offlineStatus")} className="flex shrink-0">
+        <Dot color={dot} />
+      </span>
+      {action}
+    </div>
+  );
+}
+
+/** This computer with «Rename…», which turns its name into a field. */
+function ThisComputer({ status, version, busy, onRename }: { status: SyncStatus; version: string; busy: boolean; onRename: (name: string) => Promise<SyncStatus | null> }) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const save = async () => {
+    const name = editing?.trim();
+    if (!name || name === status.device.name) {
+      setEditing(null);
+      return;
+    }
+    if (await onRename(name)) setEditing(null);
+  };
+  return (
+    <DeviceRow
+      device={status.device}
+      detail={version ? t("sync.version", { version }) : undefined}
+      name={
+        editing !== null ? (
+          <input
+            ref={input}
+            autoFocus
+            aria-label={t("sync.renameLabel", { name: status.device.name })}
+            value={editing}
+            maxLength={64}
+            onChange={(e) => setEditing(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void save();
+              } else if (e.key === "Escape") {
+                // The field gives up, not the dialog.
+                e.preventDefault();
+                e.stopPropagation();
+                setEditing(null);
+              }
+            }}
+            className="field h-7 min-w-0 flex-1 py-0.5"
+          />
+        ) : undefined
+      }
+      action={
+        editing !== null ? (
+          <Button variant="outline" disabled={busy || !editing.trim()} onClick={() => void save()}>
+            {t("sync.save")}
+          </Button>
+        ) : (
+          <Button variant="outline" disabled={busy} onClick={() => setEditing(status.device.name)}>
+            {t("sync.rename")}
+          </Button>
+        )
+      }
+    />
+  );
+}
+
+/** The first turn-on on this computer (frame 02): its name and what the server sees. */
+function SetupDialog({
+  status,
+  busy,
+  error,
+  onClose,
+  onTurnOn,
+}: {
+  status: SyncStatus;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onTurnOn: (name: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(status.device.name);
+  return (
+    <Dialog title={t("sync.title")} onClose={onClose} width={480}>
+      <form
+        className="flex flex-col"
+        data-sync-view="setup"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onTurnOn(name.trim());
+        }}
+      >
+        <p className="text-sm leading-[18px]">{t("sync.setup.lead")}</p>
+        <div className="mt-4">
+          <Field label={t("sync.setup.name")} hint={t("sync.setup.joinHint")}>
+            {(id, describedBy) => (
+              <input id={id} aria-describedby={describedBy} autoFocus maxLength={64} value={name} placeholder={status.device.name} onChange={(e) => setName(e.target.value)} className="field" />
+            )}
+          </Field>
+        </div>
+        <div className="mt-4 rounded-lg bg-panel px-3 py-2.5 text-xs leading-4">
+          <p className="font-medium">{t("sync.setup.privacyTitle")}</p>
+          <p className="mt-1 text-muted">{t("sync.setup.privacyText")}</p>
+        </div>
+        <ErrorNote text={error} />
+        <Footer>
+          <Button variant="outline" size="lg" type="button" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" size="lg" type="submit" disabled={busy || !status.available}>
+            {t("sync.setup.turnOn")}
+          </Button>
+        </Footer>
+      </form>
+    </Dialog>
+  );
+}
+
+/** «Sync details» (frame 09): what support asks about, and the report to copy. */
+function DetailsDialog({ status, onCopy, onClose }: { status: SyncStatus; onCopy: (text: string) => void; onClose: () => void }) {
+  const { t, i18n } = useTranslation();
+  const seen = useSeen();
+  const [error, setError] = useState<string | null>(null);
+  const summary = syncSummary(status, t, i18n.language, "settings");
+  const hub = hubDevice(status);
+  const id = status.device.id;
+  const shortId = id.length > 12 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id;
+  const lastSync = status.last_sync_at
+    ? new Date(status.last_sync_at).toLocaleString(i18n.language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    : t("sync.detailsDialog.never");
+  const row = (key: string, value: string) => (
+    <div key={key} className="grid grid-cols-[150px_minmax(0,1fr)] gap-2 text-xs leading-4">
+      <dt className="text-muted">{key}</dt>
+      <dd className="font-medium [overflow-wrap:anywhere]">{value}</dd>
+    </div>
+  );
+  return (
+    <Dialog title={t("sync.detailsDialog.title")} onClose={onClose} width={480}>
+      <div className="flex min-h-0 flex-col" data-sync-view="details">
+        <div className="-m-1 flex min-h-0 flex-1 flex-col overflow-y-auto p-1">
+          <dl className="flex flex-col gap-2">
+            {row(t("sync.detailsDialog.state"), summary?.text ?? status.phase.state)}
+            {row(t("sync.detailsDialog.lastSync"), lastSync)}
+            {row(t("sync.detailsDialog.main"), hub?.name ?? "—")}
+            {row(t("sync.detailsDialog.this"), `${status.device.name} · ${shortId}`)}
+          </dl>
+          <hr className="my-3 border-divider" />
+          <h3 className="text-2xs font-semibold text-subtle uppercase">{t("sync.detailsDialog.computers")}</h3>
+          <dl className="mt-2 flex flex-col gap-2">{otherDevices(status).map((d) => row(d.name, seen(d)))}</dl>
+          <p className="mt-3 text-xs leading-4 text-muted">{t("sync.detailsDialog.note")}</p>
+          <ErrorNote text={error} />
+        </div>
+        <Footer>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() =>
+              void api
+                .copySyncReport()
+                .then(onCopy)
+                .catch((err) => setError(describeError(err)))
+            }
+          >
+            {t("sync.detailsDialog.copy")}
+          </Button>
+          <Button variant="outline" size="lg" autoFocus onClick={onClose}>
+            {t("sync.done")}
+          </Button>
+        </Footer>
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * «Start over from this computer?» (frame 13): the main computer is away. The code goes to the
+ * account's email as the dialog opens; with it this computer becomes the main one.
+ */
+function StartOverDialog({ status, onStatus, onClose }: { status: SyncStatus; onStatus: (status: SyncStatus) => void; onClose: () => void }) {
+  const { t } = useTranslation();
+  const [email, setEmail] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setEmail(await api.sendStartOverCode());
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sent = useRef(false);
+  useEffect(() => {
+    if (sent.current) return;
+    sent.current = true;
+    void send();
+  }, []);
+  const confirm = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.startOver(code.replace(/\D/g, ""));
+      onStatus(next);
+      if (next.error === "stale_sign_in") setError(`${t("sync.problem.stale_sign_in")}. ${t("sync.problem.stale_sign_inBody")}`);
+      else onClose();
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const hub = hubDevice(status);
+  const hubLabel = hub?.name ?? t("sync.pair.mainComputer");
+  const days = hub?.last_seen ? Math.floor((Date.now() - hub.last_seen) / 86_400_000) : 0;
+  const lead =
+    days >= 1
+      ? t("sync.startOver.leadDays", { count: days, hub: hubLabel, name: status.device.name })
+      : t("sync.startOver.lead", { hub: hubLabel, name: status.device.name });
+  return (
+    <Dialog title={t("sync.startOver.title")} onClose={onClose} width={480}>
+      <form
+        className="flex flex-col"
+        data-sync-view="startOver"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void confirm();
+        }}
+      >
+        <p className="text-sm leading-[18px]">{lead}</p>
+        <div className="mt-4 rounded-lg bg-panel px-3 py-2.5 text-xs leading-4">
+          <p className="font-medium">{t("sync.startOver.keepTitle")}</p>
+          <p className="mt-1 text-muted">{t("sync.startOver.keepText")}</p>
+        </div>
+        <div className="mt-4">
+          <Field label={email ? t("sync.startOver.code", { email }) : t("sync.startOver.codeSending")} hint={!email && busy ? t("sync.startOver.sending") : undefined}>
+            {(id, describedBy) => (
+              <input
+                id={id}
+                aria-describedby={describedBy}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                maxLength={7}
+                style={{ width: 180 }}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                className="field text-[15px] font-medium tracking-[2px]"
+              />
+            )}
+          </Field>
+        </div>
+        <p className="mt-2 text-xs">
+          <button type="button" disabled={busy} onClick={() => void send()} className="font-medium text-accent hover:underline">
+            {t("sync.startOver.resend")}
+          </button>
+        </p>
+        <ErrorNote text={error} />
+        <Footer>
+          <Button variant="outline" size="lg" type="button" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" size="lg" type="submit" disabled={busy || code.replace(/\D/g, "").length < 6}>
+            {t("sync.startOver.confirm")}
+          </Button>
+        </Footer>
+      </form>
+    </Dialog>
+  );
+}
+
+/** The colour of a summary's dot: green synced, ochre waiting, blue under way. */
+export const toneColor = (tone: SyncTone) => TONE_COLOR[tone];

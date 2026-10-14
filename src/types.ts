@@ -94,6 +94,9 @@ export type { PairingPrompt } from "./bindings/PairingPrompt";
 export type { PairingRole } from "./bindings/PairingRole";
 export type { PausedReason } from "./bindings/PausedReason";
 export type { UnavailableReason } from "./bindings/UnavailableReason";
+export type { HubChangePrompt } from "./bindings/HubChangePrompt";
+export type { HubChangeRole } from "./bindings/HubChangeRole";
+export type { SyncNotice } from "./bindings/SyncNotice";
 
 export type ViewMode = "grid" | "list";
 
