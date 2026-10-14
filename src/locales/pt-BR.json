@@ -997,7 +997,8 @@
       "no_connection_or_system_proxy": "sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema",
       "not_supporter": "nenhum Supporter tem este e-mail",
       "wrong_code": "o código não funcionou",
-      "signed_out": "sua sessão foi encerrada"
+      "signed_out": "sua sessão foi encerrada",
+      "update_needed": "a sincronização precisa de uma versão mais recente do Koona Pin"
     },
     "code": {
       "not_found": "Não existe mais — talvez tenha sido excluído nesse meio-tempo.",
@@ -1028,7 +1029,8 @@
       "no_connection_or_system_proxy": "Não foi possível enviar: sem conexão com a internet, ou esta rede precisa do proxy das configurações do sistema, que o aplicativo não lê — ele usa só as variáveis https_proxy e http_proxy. Seu texto foi mantido — tente de novo ou copie e envie de outro jeito, por exemplo no GitHub.",
       "not_supporter": "Nenhum Supporter tem este e-mail. Use o e-mail do pagamento.",
       "wrong_code": "O código não funcionou. Confira ou peça um novo.",
-      "signed_out": "Sua sessão foi encerrada. Abra “Apoiar” e escolha “Já sou Supporter” para entrar de novo."
+      "signed_out": "Sua sessão foi encerrada. Abra “Apoiar” e escolha “Já sou Supporter” para entrar de novo.",
+      "update_needed": "A sincronização precisa de uma versão mais recente do Koona Pin. Atualize o aplicativo e tente de novo."
     }
   },
   "tray": {

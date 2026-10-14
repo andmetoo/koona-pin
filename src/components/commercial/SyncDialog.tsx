@@ -4,7 +4,7 @@ import { Check, Monitor, RefreshCw, Smartphone, Tablet, TriangleAlert } from "lu
 import { useTranslation } from "react-i18next";
 import type { Plan, SyncAccount, SyncDevice, SyncStatus } from "../../types";
 import { api } from "../../services/api";
-import { describeError } from "../../services/errors";
+import { describeError, toCommandError } from "../../services/errors";
 import { Icon } from "../icons";
 import { ConfirmDialog } from "../library/Dialogs";
 import { Button } from "../ui/Button";
@@ -75,6 +75,8 @@ export function SyncDialog({
   // «Review» of a computer added: its row is marked until the dialog closes.
   const [reviewed, setReviewed] = useState<string | null>(null);
   const doneRef = useRef<HTMLButtonElement>(null);
+  // «Make this the main computer» sent, its answer not in yet.
+  const [asked, setAsked] = useState(false);
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
   }, []);
@@ -107,9 +109,17 @@ export function SyncDialog({
       setOpened({ kind: "startOver" });
       return;
     }
-    const next = await run(api.requestMain);
-    if (next?.error === "hub_offline") setOpened({ kind: "startOver" });
+    if (await run(api.requestMain)) setAsked(true);
   };
+  // The main computer turns out offline only when the relay answers, after the command: the
+  // request's status leads to starting over, as an offline main computer does from the start.
+  useEffect(() => {
+    if (!asked) return;
+    if (status.error === "hub_offline") {
+      setAsked(false);
+      setOpened({ kind: "startOver" });
+    } else if (status.error || (status.hub_change === null && status.is_hub)) setAsked(false);
+  }, [asked, status.error, status.hub_change, status.is_hub]);
   const act = (banner: SyncBanner) => {
     const kind: SyncAction | undefined = banner.action?.kind;
     if (kind === "retry") void run(api.syncNow);
@@ -550,13 +560,19 @@ function SetupDialog({
   const [name, setName] = useState(status.device.name);
   // undefined while asking; null when the account could not be asked.
   const [account, setAccount] = useState<SyncAccount | null | undefined>(status.available ? undefined : null);
+  // The one failure of asking worth telling before «Turn on sync»: this app is too old for the relay.
+  const [outdated, setOutdated] = useState<string | null>(null);
   useEffect(() => {
     if (!status.available) return;
     let live = true;
     api
       .getSyncAccount()
       .then((answer) => live && setAccount(answer))
-      .catch(() => live && setAccount(null));
+      .catch((err) => {
+        if (!live) return;
+        setAccount(null);
+        if (toCommandError(err).detail === "update_needed") setOutdated(describeError(err));
+      });
     return () => {
       live = false;
     };
@@ -611,7 +627,7 @@ function SetupDialog({
           <p className="font-medium">{t("sync.setup.privacyTitle")}</p>
           <p className="mt-1 text-muted">{t("sync.setup.privacyText")}</p>
         </div>
-        <ErrorNote text={error} />
+        <ErrorNote text={error ?? outdated} />
         <Footer>
           <Button variant="outline" size="lg" type="button" onClick={onClose}>
             {t("common.cancel")}
@@ -683,6 +699,9 @@ function DetailsDialog({ status, onCopy, onClose }: { status: SyncStatus; onCopy
  * «Start over from this computer?» (frame 13): the main computer is away. The code goes to the
  * account's email as the dialog opens; with it this computer becomes the main one.
  */
+/** How long the start-over dialog waits for the relay's answer before it gives way. */
+const START_OVER_WAIT_MS = 20_000;
+
 function StartOverDialog({ status, onStatus, onClose }: { status: SyncStatus; onStatus: (status: SyncStatus) => void; onClose: () => void }) {
   const { t } = useTranslation();
   const [email, setEmail] = useState<string | null>(null);
@@ -710,16 +729,32 @@ function StartOverDialog({ status, onStatus, onClose }: { status: SyncStatus; on
     setBusy(true);
     setError(null);
     try {
-      const next = await api.startOver(code.replace(/\D/g, ""));
-      onStatus(next);
-      if (next.error === "stale_sign_in") setError(`${t("sync.problem.stale_sign_in")}. ${t("sync.problem.stale_sign_inBody")}`);
-      else onClose();
+      onStatus(await api.startOver(code.replace(/\D/g, "")));
+      // The relay answers later, in the status: this computer becomes the main one, or the sign-in
+      // was too old (the effect below).
+      setWaiting(true);
     } catch (err) {
       setError(describeError(err));
-    } finally {
       setBusy(false);
     }
   };
+  const [waiting, setWaiting] = useState(false);
+  useEffect(() => {
+    if (!waiting) return;
+    if (status.error === "stale_sign_in") {
+      setWaiting(false);
+      setBusy(false);
+      // The code is spent: a new one is needed.
+      setCode("");
+      setError(`${t("sync.problem.stale_sign_in")}. ${t("sync.problem.stale_sign_inBody")}`);
+    } else if (status.is_hub) onClose();
+  }, [waiting, status.error, status.is_hub, onClose, t]);
+  // No answer in time (offline): the dialog gives way; the overview tells what sync is doing.
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setTimeout(onClose, START_OVER_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [waiting, onClose]);
   const hub = hubDevice(status);
   const hubLabel = hub?.name ?? t("sync.pair.mainComputer");
   const days = hub?.last_seen ? Math.floor((Date.now() - hub.last_seen) / 86_400_000) : 0;

@@ -656,7 +656,7 @@ impl Model {
         let active: BTreeSet<Uuid> =
             devices.iter().filter(|d| d.status == DeviceStatus::Active && Some(d.id) != self.me).map(|d| d.id).collect();
         let mut changed = false;
-        if let Some(known) = self.notices.known.as_ref().filter(|_| hub.is_none() || hub != self.me) {
+        if let Some(known) = self.notices.known.as_ref().filter(|_| self.me.is_none() || hub != self.me) {
             let by_name = hub.and_then(|hub| devices.iter().find(|d| d.id == hub)).map(|d| d.name.clone());
             let added: Vec<&DeviceInfo> = devices.iter().filter(|d| active.contains(&d.id) && !known.contains(&d.id)).collect();
             for device in added {

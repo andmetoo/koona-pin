@@ -137,6 +137,13 @@ test("Sync: another computer, the main one away for days — make this the main 
   await code.fill("000000");
   await startOver.getByRole("button", { name: "Start over" }).click();
   await expect(startOver.getByRole("alert")).toContainText("This code didn't work.");
+  // The relay refuses a sign-in too old after the command returned: the dialog waits for it, says
+  // so and asks for a new code.
+  await code.fill("111111");
+  await startOver.getByRole("button", { name: "Start over" }).click();
+  await expect(startOver.getByRole("alert")).toBeVisible();
+  await expect(startOver.getByRole("alert")).not.toContainText("This code didn't work.");
+  await expect(code).toHaveValue("");
   await code.fill("482913");
   await startOver.getByRole("button", { name: "Start over" }).click();
   const overview = page.getByRole("dialog", { name: "Sync" });

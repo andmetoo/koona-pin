@@ -572,7 +572,7 @@ pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, Comm
     if !state.stored().enabled {
         return Err(CommandError::invalid("Sync is off"));
     }
-    let token = billing::sign_in_again(&app, &code).await?;
+    // The client first: the code works once, and is not spent on a client that can't send it.
     let handle = match state.handle() {
         Some(handle) => handle,
         None => {
@@ -583,6 +583,7 @@ pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, Comm
             running(&state).await.ok_or_else(|| CommandError::invalid("Sync is not running"))?
         }
     };
+    let token = billing::sign_in_again(&app, &code).await?;
     lock(&state.model).error = None;
     // The session sends it once the relay welcomed it, now if it already did.
     if !handle.act(Action::StartOver { token }) {
@@ -703,8 +704,7 @@ pub fn account_answer(status: u16, body: &str, me: Uuid) -> Result<SyncAccount, 
             ErrorDetail::NotSupporter,
             format!("The sync service says the plan has no sync: {}", reason()),
         )),
-        // No detail of its own yet: the message says it for the log.
-        426 => Err(CommandError::invalid("The sync service needs a newer Koona Pin: update the app")),
+        426 => Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::UpdateNeeded, "The sync service needs a newer Koona Pin")),
         429 => Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::TooManyMessages, "The sync service asks to wait")),
         other => Err(CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("The sync service answered {other}"))),
     }
@@ -874,8 +874,7 @@ mod tests {
         assert_eq!((plan.code, plan.detail), (ErrorCode::InvalidRequest, Some(ErrorDetail::NotSupporter)));
         assert!(plan.message.contains("not_in_beta"));
         let old = refused(426);
-        assert_eq!((old.code, old.detail), (ErrorCode::InvalidRequest, None));
-        assert!(old.message.contains("update"));
+        assert_eq!((old.code, old.detail), (ErrorCode::InvalidRequest, Some(ErrorDetail::UpdateNeeded)));
         assert_eq!((refused(429).code, refused(429).detail), (ErrorCode::Network, Some(ErrorDetail::TooManyMessages)));
         assert_eq!((refused(502).code, refused(502).detail), (ErrorCode::Network, Some(ErrorDetail::ServiceFailed)));
     }

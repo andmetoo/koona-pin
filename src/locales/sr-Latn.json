@@ -999,7 +999,8 @@
       "no_connection_or_system_proxy": "nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema",
       "not_supporter": "nema Supporter-a sa ovom adresom",
       "wrong_code": "kod nije prošao",
-      "signed_out": "odjavljeni ste"
+      "signed_out": "odjavljeni ste",
+      "update_needed": "za sinhronizaciju je potrebna novija verzija Koona Pin"
     },
     "code": {
       "not_found": "Više ne postoji — možda je u međuvremenu obrisano.",
@@ -1030,7 +1031,8 @@
       "no_connection_or_system_proxy": "Slanje nije uspelo: nema internet veze ili ovoj mreži treba proksi iz podešavanja sistema, koja aplikacija ne čita — koristi samo promenljive https_proxy i http_proxy. Vaš tekst je sačuvan — pokušajte ponovo ili ga kopirajte i pošaljite na drugi način, na primer na GitHub-u.",
       "not_supporter": "Nema Supporter-a sa ovom adresom. Unesite adresu iz plaćanja.",
       "wrong_code": "Kod nije prošao. Proverite ga ili zatražite novi.",
-      "signed_out": "Odjavljeni ste. Otvorite „Podrži“ i izaberite „Već sam Supporter“ da biste se ponovo prijavili."
+      "signed_out": "Odjavljeni ste. Otvorite „Podrži“ i izaberite „Već sam Supporter“ da biste se ponovo prijavili.",
+      "update_needed": "Za sinhronizaciju je potrebna novija verzija Koona Pin. Ažurirajte aplikaciju i pokušajte ponovo."
     }
   },
   "tray": {

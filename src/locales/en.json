@@ -939,7 +939,8 @@
       "no_connection_or_system_proxy": "no internet connection, or this network needs the proxy from the system settings",
       "not_supporter": "no Supporter has this email",
       "wrong_code": "the code didn't work",
-      "signed_out": "you were signed out"
+      "signed_out": "you were signed out",
+      "update_needed": "sync needs a newer Koona Pin"
     },
     "code": {
       "not_found": "It no longer exists — it may have been deleted meanwhile.",
@@ -970,7 +971,8 @@
       "no_connection_or_system_proxy": "Couldn't send: no internet connection, or this network needs the proxy from the system settings, which the app can't read — it uses only the https_proxy and http_proxy variables. Your text is kept — try again, or copy it and send it another way, for example on GitHub.",
       "not_supporter": "No Supporter has this email. Use the email from your payment.",
       "wrong_code": "This code didn't work. Check it or send a new one.",
-      "signed_out": "You were signed out. Open Support and choose «I'm already a Supporter» to sign in again."
+      "signed_out": "You were signed out. Open Support and choose «I'm already a Supporter» to sign in again.",
+      "update_needed": "Sync needs a newer Koona Pin. Update the app, then try again."
     }
   },
   "tray": {

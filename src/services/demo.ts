@@ -1718,13 +1718,20 @@ export const demo = {
     noServer();
     return currentDemoSupporter().email ?? "anna@example.com";
   },
-  /** Any code but 000000 works, as for signing in. */
+  /**
+   * Any code but 000000 works, as for signing in; 111111 stands for a sign-in the relay finds too
+   * old. As in the app, the relay's answer comes after the command, in the status.
+   */
   async startOver(code: string): Promise<SyncStatus> {
     await syncPause();
-    if (code.replace(/\D/g, "") === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
-    // Every other computer is disconnected: they join again with «Join…».
-    setDemoSync(demoBecomeHub(currentDemoSync(), (d) => ({ ...d, online: false })));
-    return currentDemoSync();
+    const digits = code.replace(/\D/g, "");
+    if (digits === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
+    setTimeout(() => {
+      if (digits === "111111") setDemoSync({ ...currentDemoSync(), error: "stale_sign_in" });
+      // Every other computer is disconnected: they join again with «Join…».
+      else setDemoSync(demoBecomeHub(currentDemoSync(), (d) => ({ ...d, online: false })));
+    }, 600);
+    return { ...currentDemoSync(), error: null };
   },
   async joinSyncAgain(): Promise<SyncStatus> {
     needSyncRunning();

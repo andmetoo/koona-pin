@@ -1055,7 +1055,8 @@
       "no_connection_or_system_proxy": "brak połączenia z internetem albo ta sieć wymaga serwera proxy z ustawień systemu",
       "not_supporter": "żaden Supporter nie ma tego adresu",
       "wrong_code": "kod nie zadziałał",
-      "signed_out": "wylogowano cię"
+      "signed_out": "wylogowano cię",
+      "update_needed": "synchronizacja wymaga nowszej wersji Koona Pin"
     },
     "code": {
       "not_found": "To już nie istnieje — mogło zostać usunięte w międzyczasie.",
@@ -1086,7 +1087,8 @@
       "no_connection_or_system_proxy": "Nie udało się wysłać: brak połączenia z internetem albo ta sieć wymaga serwera proxy z ustawień systemu, których aplikacja nie odczytuje — korzysta tylko ze zmiennych https_proxy i http_proxy. Twój tekst został zachowany — spróbuj ponownie albo skopiuj go i wyślij inaczej, na przykład na GitHubie.",
       "not_supporter": "Żaden Supporter nie ma tego adresu. Użyj adresu z płatności.",
       "wrong_code": "Kod nie zadziałał. Sprawdź go albo poproś o nowy.",
-      "signed_out": "Wylogowano cię. Otwórz „Wesprzyj” i wybierz „Już jestem Supporterem”, aby zalogować się ponownie."
+      "signed_out": "Wylogowano cię. Otwórz „Wesprzyj” i wybierz „Już jestem Supporterem”, aby zalogować się ponownie.",
+      "update_needed": "Synchronizacja wymaga nowszej wersji Koona Pin. Zaktualizuj aplikację i spróbuj ponownie."
     }
   },
   "tray": {

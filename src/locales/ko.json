@@ -881,7 +881,8 @@
       "no_connection_or_system_proxy": "인터넷에 연결되어 있지 않거나 이 네트워크에 시스템 설정의 프록시가 필요합니다",
       "not_supporter": "이 이메일을 쓰는 Supporter가 없습니다",
       "wrong_code": "코드가 맞지 않습니다",
-      "signed_out": "로그아웃되었습니다"
+      "signed_out": "로그아웃되었습니다",
+      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다"
     },
     "code": {
       "not_found": "더 이상 존재하지 않습니다. 그사이 삭제되었을 수 있습니다.",
@@ -912,7 +913,8 @@
       "no_connection_or_system_proxy": "보낼 수 없습니다: 인터넷에 연결되어 있지 않거나, 이 네트워크에는 앱이 읽지 않는 시스템 설정의 프록시가 필요합니다. 앱은 https_proxy와 http_proxy 변수만 사용합니다. 작성한 내용은 남아 있습니다. 다시 시도하거나, 복사해서 GitHub 등 다른 방법으로 보내세요.",
       "not_supporter": "이 이메일을 쓰는 Supporter가 없습니다. 결제한 이메일을 사용하세요.",
       "wrong_code": "코드가 맞지 않습니다. 확인하거나 새 코드를 받으세요.",
-      "signed_out": "로그아웃되었습니다. '후원하기'를 열고 '이미 Supporter입니다'를 선택해 다시 로그인하세요."
+      "signed_out": "로그아웃되었습니다. '후원하기'를 열고 '이미 Supporter입니다'를 선택해 다시 로그인하세요.",
+      "update_needed": "동기화하려면 최신 버전의 Koona Pin이 필요합니다. 앱을 업데이트한 다음 다시 시도하세요."
     }
   },
   "tray": {

@@ -997,7 +997,8 @@
       "no_connection_or_system_proxy": "pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système",
       "not_supporter": "aucun Supporter n’a cette adresse",
       "wrong_code": "le code n’a pas fonctionné",
-      "signed_out": "vous avez été déconnecté"
+      "signed_out": "vous avez été déconnecté",
+      "update_needed": "la synchronisation nécessite une version plus récente de Koona Pin"
     },
     "code": {
       "not_found": "Cela n’existe plus — peut-être supprimé entre-temps.",
@@ -1028,7 +1029,8 @@
       "no_connection_or_system_proxy": "Envoi impossible : pas de connexion Internet, ou ce réseau a besoin du proxy des paramètres système, que l’application ne lit pas — elle n’utilise que les variables https_proxy et http_proxy. Votre texte est conservé — réessayez, ou copiez-le et envoyez-le autrement, par exemple sur GitHub.",
       "not_supporter": "Aucun Supporter n’a cette adresse. Utilisez celle de votre paiement.",
       "wrong_code": "Ce code n’a pas fonctionné. Vérifiez-le ou demandez-en un nouveau.",
-      "signed_out": "Vous avez été déconnecté. Ouvrez « Soutenir » et choisissez « Je suis déjà Supporter » pour vous reconnecter."
+      "signed_out": "Vous avez été déconnecté. Ouvrez « Soutenir » et choisissez « Je suis déjà Supporter » pour vous reconnecter.",
+      "update_needed": "La synchronisation nécessite une version plus récente de Koona Pin. Mettez l’application à jour, puis réessayez."
     }
   },
   "tray": {

@@ -881,7 +881,8 @@
       "no_connection_or_system_proxy": "没有网络连接，或此网络需要使用系统设置中的代理",
       "not_supporter": "没有使用此邮箱的 Supporter",
       "wrong_code": "验证码无效",
-      "signed_out": "你已退出登录"
+      "signed_out": "你已退出登录",
+      "update_needed": "同步需要更新版本的 Koona Pin"
     },
     "code": {
       "not_found": "它已不存在 — 可能在此期间被删除了。",
@@ -912,7 +913,8 @@
       "no_connection_or_system_proxy": "无法发送：没有网络连接，或此网络需要系统设置中的代理，而应用不读取这些设置 — 它只使用 https_proxy 和 http_proxy 变量。你的文字已保留 — 请重试，或复制后通过其他方式发送，例如在 GitHub 上。",
       "not_supporter": "没有使用此邮箱的 Supporter。请使用付款时的邮箱。",
       "wrong_code": "验证码无效。请检查或重新获取。",
-      "signed_out": "你已退出登录。请打开“支持”并选择“我已是 Supporter”重新登录。"
+      "signed_out": "你已退出登录。请打开“支持”并选择“我已是 Supporter”重新登录。",
+      "update_needed": "同步需要更新版本的 Koona Pin。请更新应用后重试。"
     }
   },
   "tray": {

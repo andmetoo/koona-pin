@@ -939,7 +939,8 @@
       "no_connection_or_system_proxy": "internet bağlantısı yok ya da bu ağ sistem ayarlarındaki proxy sunucusunu gerektiriyor",
       "not_supporter": "bu e-postaya sahip bir Supporter yok",
       "wrong_code": "kod işe yaramadı",
-      "signed_out": "oturumunuz kapandı"
+      "signed_out": "oturumunuz kapandı",
+      "update_needed": "eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor"
     },
     "code": {
       "not_found": "Artık yok — bu arada silinmiş olabilir.",
@@ -970,7 +971,8 @@
       "no_connection_or_system_proxy": "Gönderilemedi: internet bağlantısı yok ya da bu ağ, uygulamanın okumadığı sistem ayarlarındaki proxy sunucusunu gerektiriyor — uygulama yalnızca https_proxy ve http_proxy değişkenlerini kullanır. Metniniz duruyor — yeniden deneyin ya da kopyalayıp başka bir yolla, örneğin GitHub'da gönderin.",
       "not_supporter": "Bu e-postaya sahip bir Supporter yok. Ödemedeki e-postayı kullanın.",
       "wrong_code": "Kod işe yaramadı. Kontrol edin ya da yenisini isteyin.",
-      "signed_out": "Oturumunuz kapandı. Yeniden giriş yapmak için \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin."
+      "signed_out": "Oturumunuz kapandı. Yeniden giriş yapmak için \"Destekleyin\"i açıp \"Zaten Supporter'ım\"ı seçin.",
+      "update_needed": "Eşitleme için Koona Pin'in daha yeni bir sürümü gerekiyor. Uygulamayı güncelleyip yeniden deneyin."
     }
   },
   "tray": {

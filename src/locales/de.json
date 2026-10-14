@@ -939,7 +939,8 @@
       "no_connection_or_system_proxy": "keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen",
       "not_supporter": "kein Supporter hat diese E-Mail",
       "wrong_code": "der Code hat nicht funktioniert",
-      "signed_out": "Sie wurden abgemeldet"
+      "signed_out": "Sie wurden abgemeldet",
+      "update_needed": "die Synchronisierung braucht eine neuere Version von Koona Pin"
     },
     "code": {
       "not_found": "Es existiert nicht mehr — vielleicht wurde es inzwischen gelöscht.",
@@ -970,7 +971,8 @@
       "no_connection_or_system_proxy": "Senden fehlgeschlagen: keine Internetverbindung, oder dieses Netzwerk braucht den Proxy aus den Systemeinstellungen, die die App nicht liest — sie nutzt nur die Variablen https_proxy und http_proxy. Ihr Text bleibt erhalten — versuchen Sie es erneut oder kopieren Sie ihn und senden Sie ihn auf anderem Weg, zum Beispiel über GitHub.",
       "not_supporter": "Kein Supporter hat diese E-Mail. Nutzen Sie die E-Mail Ihrer Zahlung.",
       "wrong_code": "Der Code hat nicht funktioniert. Prüfen Sie ihn oder fordern Sie einen neuen an.",
-      "signed_out": "Sie wurden abgemeldet. Öffnen Sie „Unterstützen“ und wählen Sie „Ich bin schon Supporter“, um sich erneut anzumelden."
+      "signed_out": "Sie wurden abgemeldet. Öffnen Sie „Unterstützen“ und wählen Sie „Ich bin schon Supporter“, um sich erneut anzumelden.",
+      "update_needed": "Für die Synchronisierung ist eine neuere Version von Koona Pin nötig. Aktualisieren Sie die App und versuchen Sie es erneut."
     }
   },
   "tray": {
