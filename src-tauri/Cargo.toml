@@ -66,6 +66,9 @@ flate2 = "1.1"
 # through rustls; base64 through Tauri.
 ring = "0.17"
 base64 = "0.22"
+# Sync (Р-68, NP-059): the engine and its relay client, under the commercial license
+# (`commercial/koona-sync`); the app's glue is `src/commercial/sync`.
+koona-sync = { path = "commercial/koona-sync", features = ["net"] }
 
 [dev-dependencies]
 # Already in the tree through Tauri: a test recomputes the development

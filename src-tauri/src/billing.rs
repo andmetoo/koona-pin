@@ -645,13 +645,18 @@ fn session_of(value: &Value) -> Option<Session> {
 /// A fresh access token, refreshed when it has less than a minute left; None when the
 /// account was signed out elsewhere (the refresh token no longer works).
 async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
+    fresh_token(app, false).await
+}
+
+/// `force`: refreshed whatever its time left, for a token a server refused (the sync relay's 4001).
+async fn fresh_token(app: &AppHandle, force: bool) -> Result<Option<String>, CommandError> {
     let billing = app.state::<Billing>();
     // The session is read under the lock: a refresh that just finished is used, not repeated.
     let _one = billing.refreshing.lock().await;
     let Some(session) = billing.get().session else {
         return Ok(None);
     };
-    if session.expires_at - 60 > Utc::now().timestamp() {
+    if !force && session.expires_at - 60 > Utc::now().timestamp() {
         return Ok(Some(session.access_token));
     }
     let (status, value) = auth(app, "token?grant_type=refresh_token", json!({ "refresh_token": session.refresh_token })).await?;
@@ -679,6 +684,17 @@ async fn access_token(app: &AppHandle) -> Result<Option<String>, CommandError> {
         }
     })?;
     Ok(kept.then_some(token))
+}
+
+/// What the sync relay checks before it lets a device in (NP-059, commercial/sync): a fresh
+/// access token and base64 of the signed lease as stored. `refresh` after the relay refused the
+/// token. None when signed out, without a lease, or when the token could not be refreshed now.
+pub(crate) async fn sync_credentials(app: &AppHandle, refresh: bool) -> Option<(String, String)> {
+    use base64::Engine;
+    let token = fresh_token(app, refresh).await.ok()??;
+    let lease = app.state::<Billing>().get().lease?;
+    let json = serde_json::to_string(&lease).ok()?;
+    Some((token, base64::engine::general_purpose::STANDARD.encode(json)))
 }
 
 /// Asks for the plan of the signed-in account; marks the check failed when the server is away.
