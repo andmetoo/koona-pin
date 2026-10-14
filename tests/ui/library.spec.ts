@@ -2151,6 +2151,28 @@ test("Linux without a tray: round window buttons, Chromium, Firefox from Snap an
   await expect(page.getByRole("button", { name: "Quit", exact: true })).toBeVisible();
 });
 
+test("macOS: Safari first in «Connect browser», turned on in Safari's settings; the menu bar, not a tray (NP-119)", async ({ page }) => {
+  await page.evaluate(() =>
+    localStorage.setItem("koonapin.demo.desktop", JSON.stringify({ native_frame: true, linux: false, left: [], right: [], tray: true, appimage: false })),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "No browser yet" }).click();
+  const dialog = page.getByRole("dialog", { name: "Connect browser" });
+  const shown = dialog.locator("[data-tab-panel][data-active]");
+  await expect(dialog.getByRole("radio")).toHaveText(["Safari", "Chrome", "Edge", "Chromium", "Firefox"]);
+  await expect(dialog.getByRole("radio", { name: "Safari" })).toBeChecked();
+  // Nothing to install: the extension is inside the app.
+  await expect(shown).toContainText("Turn on the extension");
+  await expect(shown).toContainText("In Safari, open Settings → Extensions and turn on Koona Pin.");
+  await expect(shown).toContainText("Allow it on websites");
+  await expect(shown.getByRole("button")).toHaveCount(0);
+  await expect(shown).toContainText("it starts in the menu bar and saves the link");
+  await expect(shown).toContainText("The extension updates with Koona Pin");
+  await dialog.getByRole("radio", { name: "Chrome" }).click();
+  await expect(shown).toContainText("Open the Koona Pin page in the Chrome Web Store");
+  await expect(shown).toContainText("it starts in the menu bar and saves the link");
+});
+
 test("app update: a row only with a new version, the dialog on demand, the download, cancel, a failure in ochre, Settings (NP-038)", async ({ page }) => {
   // Up to date: no row, Settings say so.
   await expect(page.locator("button[data-update]")).toHaveCount(0);

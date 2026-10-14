@@ -12,18 +12,24 @@ export const shownBrowsers = (status: CaptureStatus | null): BrowserStatus[] =>
 /**
  * A tab of «Connect browser»: on Linux (Р-45) and macOS (NP-050) Chromium has
  * its own, with the steps of Chrome — the same store, `chrome://extensions`
- * and toolbar. Safari has none until its way of installing is known (NP-119).
+ * and toolbar. On macOS Safari comes first: its extension is inside the app
+ * (NP-119), so its steps turn it on in Safari's settings instead of installing it.
  */
-export type TabBrowser = Exclude<Browser, "safari">;
+export type TabBrowser = Browser;
 export type ConnectTab = TabBrowser | "chromium";
 export const connectTabName: Record<ConnectTab, string> = {
   chrome: browserName.chrome,
   edge: browserName.edge,
   firefox: browserName.firefox,
+  safari: browserName.safari,
   chromium: "Chromium",
 };
 export const connectTabs = (status: CaptureStatus | null): ConnectTab[] =>
-  status?.system === "linux" || status?.system === "macos" ? ["chrome", "edge", "chromium", "firefox"] : ["chrome", "edge", "firefox"];
+  status?.system === "macos"
+    ? ["safari", "chrome", "edge", "chromium", "firefox"]
+    : status?.system === "linux"
+      ? ["chrome", "edge", "chromium", "firefox"]
+      : ["chrome", "edge", "firefox"];
 /** The browser whose texts a tab shows. */
 export const tabBrowser = (tab: ConnectTab): TabBrowser => (tab === "chromium" ? "chrome" : tab);
 
@@ -137,10 +143,11 @@ export function installSteps(browser: TabBrowser, sources = installSources) {
   );
 }
 
-/** The browser to show first in the connect dialog: the last one that saved, if it has a tab. */
+/** The browser to show first in the connect dialog: the last one that saved, if it has a tab; else the first tab. */
 export function preferredBrowser(status: CaptureStatus | null): TabBrowser {
-  const tab = (browser?: Browser) => (browser === "safari" ? undefined : browser);
-  return tab(status?.last_capture?.browser) ?? tab(status?.browsers.find((b) => b.recent && b.browser !== "safari")?.browser) ?? "chrome";
+  const tabs = connectTabs(status);
+  const tab = (browser?: Browser) => (browser && tabs.includes(browser) ? browser : undefined);
+  return tab(status?.last_capture?.browser) ?? tab(status?.browsers.find((b) => b.recent && tabs.includes(b.browser))?.browser) ?? (tabs[0] as TabBrowser);
 }
 
 /** What «Скопировать отчёт» puts on the clipboard. */

@@ -406,7 +406,11 @@ const noServer = () => {
 };
 
 /** Capture speaks of the system the preview pretends to run on (NP-054). */
-const demoCapture = (): CaptureStatus => ({ ...demoCaptureStatus, system: storedDesktop()?.linux ? "linux" : "windows" });
+// A desktop with the system's own frame is a Mac's.
+const demoCapture = (): CaptureStatus => ({
+  ...demoCaptureStatus,
+  system: storedDesktop()?.linux ? "linux" : storedDesktop()?.native_frame ? "macos" : "windows",
+});
 const key = DEMO_STORAGE_KEY;
 const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString();
 // The texts follow the interface's language when the library is created; a saved
