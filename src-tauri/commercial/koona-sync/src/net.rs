@@ -365,6 +365,9 @@ async fn run<L: Library + Send + 'static>(
             Some(close::RATE_LIMITED) if reason.as_deref() == Some(DEVICE_LIMIT) => break Stop::DeviceLimit,
             Some(close::RATE_LIMITED) => wait = wait.max(cfg.rate_limited_backoff),
             Some(close::REPLACED) => break Stop::Replaced,
+            // Started over (2.6): the device that did it comes back as the hub at once; another
+            // one comes back as well, to learn from `welcome` who did it, and holds there.
+            Some(close::STARTED_OVER) => wait = cfg.min_backoff,
             _ => {}
         }
         let delay = jitter(wait);

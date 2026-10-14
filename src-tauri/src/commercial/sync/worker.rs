@@ -284,6 +284,11 @@ async fn pump(
                     handle.act(Action::StartPairing);
                 }
                 Reaction::Synced => state.keep_last_sync(),
+                Reaction::Notices => {
+                    if let Err(error) = state.keep_notices() {
+                        eprintln!("Sync cannot keep its notices: {}", error.message);
+                    }
+                }
             }
         }
         if abandoned.load(Ordering::SeqCst) {

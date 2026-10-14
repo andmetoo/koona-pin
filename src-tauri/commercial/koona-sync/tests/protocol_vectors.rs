@@ -201,6 +201,7 @@ fn control() {
                 ],
                 online: vec![hub, device],
                 time: 1_760_400_000_000,
+                started_over: None,
             },
             Control::Presence { device: hub, online: false },
             Control::Device { device: info(device, "Laptop", key, DeviceStatus::Active) },

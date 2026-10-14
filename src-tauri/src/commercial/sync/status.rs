@@ -9,10 +9,12 @@ use super::identity::Identity;
 use chrono::{DateTime, Utc};
 use koona_sync::net::{Event, Stop};
 use koona_sync::protocol::{DeviceInfo, DeviceStatus, ErrorCode};
-use koona_sync::session::{Effect, PairingEvent, PairingFailure, PauseReason, Phase, Role, SessionError};
+use koona_sync::session::{
+    Effect, HubChangeEvent, HubChangeFailure, PairingEvent, PairingFailure, PauseReason, Phase, Role, SessionError,
+};
 use koona_sync::Applied;
-use serde::Serialize;
-use std::collections::VecDeque;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeSet, VecDeque};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -65,7 +67,7 @@ pub enum HubChangeRole {
     Hub,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 #[ts(export)]
 pub enum SyncNotice {
@@ -87,6 +89,54 @@ pub enum SyncNotice {
         #[ts(type = "string")]
         at: DateTime<Utc>,
     },
+}
+
+impl SyncNotice {
+    pub fn id(&self) -> &str {
+        match self {
+            SyncNotice::DeviceAdded { id, .. } | SyncNotice::StartedOver { id, .. } => id,
+        }
+    }
+}
+
+/// The notices most kept; older ones go.
+pub const MAX_NOTICES: usize = 20;
+
+/// The notices and what they are found from, kept across restarts (`sync-notices.json`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Notices {
+    /// Newest first.
+    #[serde(default)]
+    pub list: Vec<SyncNotice>,
+    /// The other devices active in the directory last seen; none until the first one after sync
+    /// was turned on, which adds no notice.
+    #[serde(default)]
+    pub known: Option<BTreeSet<Uuid>>,
+    /// The epoch of the latest start over told about, so it is told once.
+    #[serde(default)]
+    pub started_over_epoch: Option<u32>,
+}
+
+impl Notices {
+    fn add(&mut self, notice: SyncNotice) {
+        self.list.retain(|n| n.id() != notice.id());
+        self.list.insert(0, notice);
+        self.list.truncate(MAX_NOTICES);
+    }
+
+    /// Whether a notice of that id was there.
+    pub fn dismiss(&mut self, id: &str) -> bool {
+        let before = self.list.len();
+        self.list.retain(|n| n.id() != id);
+        self.list.len() != before
+    }
+
+    /// The person chose «Join…»: the start over is dealt with.
+    pub fn joined(&mut self) -> bool {
+        let before = self.list.len();
+        self.list.retain(|n| !matches!(n, SyncNotice::StartedOver { .. }));
+        self.list.len() != before
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
@@ -232,6 +282,8 @@ pub enum Reaction {
     StartPairing,
     /// A transfer finished: `last_sync_at` moved, worth keeping.
     Synced,
+    /// The notices changed: they are kept.
+    Notices,
 }
 
 /// The facts the status depends on besides the events.
@@ -259,6 +311,10 @@ pub struct Model {
     /// Why the last pairing failed: only one that failed for want of the hub is tried again
     /// by itself when the hub comes online; a rejection or a timeout waits for the person.
     last_failure: Option<PairingFailure>,
+    pub hub_change: Option<HubChangePrompt>,
+    pub notices: Notices,
+    /// This device, left out of the devices added.
+    pub me: Option<Uuid>,
     log: VecDeque<String>,
 }
 
@@ -271,6 +327,19 @@ fn pairing_problem(reason: PairingFailure) -> SyncProblem {
     }
 }
 
+fn hub_change_problem(reason: HubChangeFailure) -> SyncProblem {
+    match reason {
+        // As with pairing, a hub busy with another device is a no for now.
+        HubChangeFailure::Denied | HubChangeFailure::Busy => SyncProblem::HubChangeDenied,
+        HubChangeFailure::Timeout => SyncProblem::HubChangeTimeout,
+        HubChangeFailure::Unavailable => SyncProblem::HubOffline,
+    }
+}
+
+fn time_of(ms: u64, now: DateTime<Utc>) -> DateTime<Utc> {
+    i64::try_from(ms).ok().and_then(DateTime::from_timestamp_millis).unwrap_or(now)
+}
+
 /// Relay error codes (`PROTOCOL.md` 2.3); any other text in `SessionError::Relay` is the
 /// client's own failure to connect, which the phase shows as offline.
 fn relay_refused(code: &str) -> bool {
@@ -280,6 +349,7 @@ fn relay_refused(code: &str) -> bool {
 
 fn problem_of(error: &SessionError) -> Option<SyncProblem> {
     Some(match error {
+        SessionError::Relay(code) if code == koona_sync::protocol::relay_error::STALE_SIGN_IN => SyncProblem::StaleSignIn,
         SessionError::Relay(code) if relay_refused(code) => SyncProblem::RelayRefused,
         SessionError::Relay(_) => return None,
         SessionError::Library(_) => SyncProblem::LibraryFailed,
@@ -308,6 +378,7 @@ fn paused(reason: PauseReason) -> PausedReason {
         PauseReason::Plan => PausedReason::Plan,
         PauseReason::DeviceLimit => PausedReason::DeviceLimit,
         PauseReason::Offline => PausedReason::Offline,
+        PauseReason::StartedOver => PausedReason::StartedOver,
     }
 }
 
@@ -340,6 +411,7 @@ impl Model {
         self.phase = None;
         self.stop = None;
         self.pairing = None;
+        self.hub_change = None;
         self.online.clear();
     }
 
@@ -359,6 +431,7 @@ impl Model {
                 self.note(now, format!("stopped: {stop:?}"));
                 self.phase = None;
                 self.pairing = None;
+                self.hub_change = None;
                 self.online.clear();
                 self.stop = (stop != Stop::Shutdown).then_some(stop);
             }
@@ -382,6 +455,9 @@ impl Model {
             }
             Effect::Devices { devices, online, hub } => {
                 let hub_was_online = self.hub_online();
+                if self.notice_added(&devices, hub, now) {
+                    out.push(Reaction::Notices);
+                }
                 self.devices = devices;
                 self.online = online;
                 self.hub = hub;
@@ -418,6 +494,35 @@ impl Model {
                     self.error = Some(pairing_problem(reason));
                 }
             },
+            Effect::HubChange(event) => match event {
+                HubChangeEvent::Waiting { hub, hub_name } => {
+                    self.note(now, "hub change: waiting for the hub".into());
+                    self.error = None;
+                    self.hub_change = Some(HubChangePrompt { role: HubChangeRole::Asking, peer: hub.to_string(), peer_name: hub_name });
+                }
+                HubChangeEvent::Asked { device, name } => {
+                    self.note(now, format!("hub change: asked by {device}"));
+                    self.hub_change = Some(HubChangePrompt { role: HubChangeRole::Hub, peer: device.to_string(), peer_name: name });
+                }
+                HubChangeEvent::Settled { peer } => {
+                    self.note(now, format!("hub change: settled with {peer}"));
+                    self.hub_change = None;
+                }
+                HubChangeEvent::Failed { peer, reason } => {
+                    self.note(now, format!("hub change: failed with {peer}: {reason:?}"));
+                    self.hub_change = None;
+                    self.error = Some(hub_change_problem(reason));
+                }
+            },
+            Effect::StartedOver { by, by_name, at, epoch } => {
+                self.note(now, format!("started over by {by} to epoch {epoch}"));
+                if self.notices.started_over_epoch.is_none_or(|e| epoch > e) {
+                    self.notices.started_over_epoch = Some(epoch);
+                    let at = time_of(at, now);
+                    self.notices.add(SyncNotice::StartedOver { id: format!("started-over-{epoch}"), by: by.to_string(), by_name, at });
+                    out.push(Reaction::Notices);
+                }
+            }
             Effect::LibraryChanged(applied) => {
                 self.last_sync_at = Some(now);
                 out.push(Reaction::Applied(applied));
@@ -431,6 +536,34 @@ impl Model {
             Effect::Dropped { from, reason } => self.note(now, format!("dropped a frame from {from}: {reason:?}")),
             Effect::SendText(_) | Effect::SendBinary(_) => {}
         }
+    }
+
+    /// Devices that became active since the directory was last seen (a `device` notice, or a
+    /// `welcome` after a restart) are told about, but neither this one nor the ones of the first
+    /// directory after sync was turned on. Whether the notices changed.
+    fn notice_added(&mut self, devices: &[DeviceInfo], hub: Option<Uuid>, now: DateTime<Utc>) -> bool {
+        let active: BTreeSet<Uuid> =
+            devices.iter().filter(|d| d.status == DeviceStatus::Active && Some(d.id) != self.me).map(|d| d.id).collect();
+        let mut changed = false;
+        if let Some(known) = &self.notices.known {
+            let by_name = hub.and_then(|hub| devices.iter().find(|d| d.id == hub)).map(|d| d.name.clone());
+            let added: Vec<&DeviceInfo> = devices.iter().filter(|d| active.contains(&d.id) && !known.contains(&d.id)).collect();
+            for device in added {
+                self.notices.add(SyncNotice::DeviceAdded {
+                    id: format!("device-added-{}", device.id),
+                    device: device.id.to_string(),
+                    name: device.name.clone(),
+                    by_name: by_name.clone(),
+                    at: now,
+                });
+                changed = true;
+            }
+        }
+        if self.notices.known.as_ref() != Some(&active) {
+            self.notices.known = Some(active);
+            changed = true;
+        }
+        changed
     }
 
     fn phase_shown(&self, ctx: &Context<'_>) -> SyncPhase {
@@ -502,8 +635,8 @@ impl Model {
             pairing: if ctx.enabled { self.pairing.clone() } else { None },
             last_sync_at: self.last_sync_at,
             error: if ctx.enabled { self.error } else { None },
-            hub_change: None,
-            notices: Vec::new(),
+            hub_change: if ctx.enabled { self.hub_change.clone() } else { None },
+            notices: if ctx.enabled { self.notices.list.clone() } else { Vec::new() },
         }
     }
 }
@@ -659,5 +792,121 @@ mod tests {
         assert_eq!(model.status(&ctx(&me)).error, Some(SyncProblem::LibraryFailed));
         let off = Context { enabled: false, ..ctx(&me) };
         assert_eq!(model.status(&off).error, None, "nothing to say with sync off");
+        model.on_event(Event::Session(Effect::Error(SessionError::Relay("stale_sign_in".into()))), at(3));
+        assert_eq!(model.status(&ctx(&me)).error, Some(SyncProblem::StaleSignIn));
+    }
+
+    fn hub_change(event: HubChangeEvent) -> Event {
+        Event::Session(Effect::HubChange(event))
+    }
+
+    #[test]
+    fn a_hub_change_is_shown_on_both_sides_until_it_settles() {
+        let me = Identity::new("Laptop");
+        let hub = uid(9);
+        let mut model = Model::default();
+        model.on_event(hub_change(HubChangeEvent::Waiting { hub, hub_name: "Studio Mac".into() }), at(0));
+        let prompt = model.status(&ctx(&me)).hub_change.unwrap();
+        assert_eq!((prompt.role, prompt.peer, prompt.peer_name), (HubChangeRole::Asking, hub.to_string(), "Studio Mac".to_string()));
+        model.on_event(hub_change(HubChangeEvent::Failed { peer: hub, reason: HubChangeFailure::Denied }), at(1));
+        assert_eq!(model.status(&ctx(&me)).hub_change, None);
+        assert_eq!(model.status(&ctx(&me)).error, Some(SyncProblem::HubChangeDenied));
+        model.on_event(hub_change(HubChangeEvent::Waiting { hub, hub_name: "Studio Mac".into() }), at(2));
+        assert_eq!(model.status(&ctx(&me)).error, None, "asking again clears the last answer");
+        for (reason, problem) in [
+            (HubChangeFailure::Timeout, SyncProblem::HubChangeTimeout),
+            (HubChangeFailure::Unavailable, SyncProblem::HubOffline),
+            (HubChangeFailure::Busy, SyncProblem::HubChangeDenied),
+        ] {
+            model.on_event(hub_change(HubChangeEvent::Failed { peer: hub, reason }), at(3));
+            assert_eq!(model.status(&ctx(&me)).error, Some(problem));
+        }
+
+        // On the hub: the question, then nothing once answered.
+        let laptop = uid(2);
+        model.on_event(hub_change(HubChangeEvent::Asked { device: laptop, name: "Laptop".into() }), at(4));
+        let prompt = model.status(&ctx(&me)).hub_change.unwrap();
+        assert_eq!((prompt.role, prompt.peer_name.as_str()), (HubChangeRole::Hub, "Laptop"));
+        let off = Context { enabled: false, ..ctx(&me) };
+        assert_eq!(model.status(&off).hub_change, None);
+        model.on_event(hub_change(HubChangeEvent::Settled { peer: laptop }), at(5));
+        assert_eq!(model.status(&ctx(&me)).hub_change, None);
+        model.on_event(hub_change(HubChangeEvent::Asked { device: laptop, name: "Laptop".into() }), at(6));
+        model.restart();
+        assert_eq!(model.status(&ctx(&me)).hub_change, None, "a new client asks nothing yet");
+    }
+
+    #[test]
+    fn devices_added_are_told_but_not_this_one_nor_the_first_directory() {
+        let me = Identity::new("Studio Mac");
+        let (laptop, phone) = (uid(2), uid(3));
+        let mut model = Model { me: Some(me.device), ..Model::default() };
+        let devices = |list: Vec<DeviceInfo>| Event::Session(Effect::Devices { devices: list, online: vec![me.device], hub: Some(me.device) });
+        let mine = info(me.device, "Studio Mac", DeviceStatus::Active);
+
+        // The first directory after sync was turned on.
+        let reactions = model.on_event(devices(vec![mine.clone(), info(laptop, "Laptop", DeviceStatus::Active)]), at(0));
+        assert_eq!(reactions, vec![Reaction::Notices], "what is known is kept");
+        assert!(model.status(&ctx(&me)).notices.is_empty());
+
+        // A pending device is not added yet; approved, it is.
+        model.on_event(devices(vec![mine.clone(), info(laptop, "Laptop", DeviceStatus::Active), info(phone, "Phone", DeviceStatus::Pending)]), at(1));
+        assert!(model.status(&ctx(&me)).notices.is_empty());
+        let reactions = model.on_event(devices(vec![mine.clone(), info(laptop, "Laptop", DeviceStatus::Active), info(phone, "Phone", DeviceStatus::Active)]), at(2));
+        assert_eq!(reactions, vec![Reaction::Notices]);
+        let notices = model.status(&ctx(&me)).notices;
+        assert_eq!(
+            notices,
+            vec![SyncNotice::DeviceAdded {
+                id: format!("device-added-{phone}"),
+                device: phone.to_string(),
+                name: "Phone".into(),
+                by_name: Some("Studio Mac".into()),
+                at: at(2),
+            }]
+        );
+        // The same directory again tells nothing.
+        assert!(model.on_event(devices(vec![mine.clone(), info(laptop, "Laptop", DeviceStatus::Active), info(phone, "Phone", DeviceStatus::Active)]), at(3)).is_empty());
+
+        // Kept across a restart; dismissed by id.
+        let kept: Notices = serde_json::from_str(&serde_json::to_string(&model.notices).unwrap()).unwrap();
+        assert_eq!(kept, model.notices);
+        let mut again = Model { me: Some(me.device), notices: kept, ..Model::default() };
+        assert!(again.notices.dismiss(&format!("device-added-{phone}")));
+        assert!(!again.notices.dismiss("device-added-none"));
+        assert!(again.status(&ctx(&me)).notices.is_empty());
+
+        // Never more than the most kept, newest first.
+        for n in 0..(MAX_NOTICES as u128 + 5) {
+            again.notices.add(SyncNotice::DeviceAdded { id: format!("n{n}"), device: uid(100 + n).to_string(), name: "x".into(), by_name: None, at: at(9) });
+        }
+        assert_eq!(again.notices.list.len(), MAX_NOTICES);
+        assert_eq!(again.notices.list[0].id(), format!("n{}", MAX_NOTICES + 4));
+    }
+
+    #[test]
+    fn a_start_over_elsewhere_is_told_once_and_shown_as_a_pause() {
+        let me = Identity::new("Laptop");
+        let phone = uid(3);
+        let mut model = Model { me: Some(me.device), ..Model::default() };
+        let started = |epoch| Event::Session(Effect::StartedOver { by: phone, by_name: Some("Phone".into()), at: 1_760_400_005_000, epoch });
+        assert_eq!(model.on_event(started(4), at(0)), vec![Reaction::Notices]);
+        assert!(model.on_event(started(4), at(1)).is_empty(), "the same start over, seen again after a restart");
+        model.on_event(Event::Session(Effect::Status(Phase::Paused { reason: PauseReason::StartedOver })), at(1));
+        let shown = model.status(&ctx(&me));
+        assert_eq!(shown.phase, SyncPhase::Paused { reason: PausedReason::StartedOver });
+        assert_eq!(
+            shown.notices,
+            vec![SyncNotice::StartedOver {
+                id: "started-over-4".into(),
+                by: phone.to_string(),
+                by_name: Some("Phone".into()),
+                at: DateTime::from_timestamp(1_760_400_005, 0).unwrap(),
+            }]
+        );
+        assert!(model.on_event(Event::Session(Effect::Status(Phase::Paused { reason: PauseReason::StartedOver })), at(2)).is_empty(), "no pairing offer while held");
+        assert!(model.notices.joined());
+        assert!(model.status(&ctx(&me)).notices.is_empty());
+        assert_eq!(model.on_event(started(5), at(3)), vec![Reaction::Notices], "a later start over is told again");
     }
 }

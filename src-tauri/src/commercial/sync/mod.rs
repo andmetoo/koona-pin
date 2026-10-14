@@ -10,7 +10,7 @@
 //!
 //! `sync.json` next to the library keeps whether sync is on and when it last synced. Turning sync
 //! off keeps the library a replica and the device registered: turning it on again goes on where
-//! it stopped.
+//! it stopped. `sync-notices.json` keeps the notices until the person dismisses them.
 
 pub mod identity;
 pub mod status;
@@ -25,7 +25,7 @@ use identity::Identity;
 use koona_sync::net::{Event, Stop};
 use koona_sync::session::Action;
 use serde::{Deserialize, Serialize};
-use status::{Context, Model, Reaction, SyncProblem, SyncStatus};
+use status::{Context, Model, Notices, Reaction, SyncProblem, SyncStatus};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -39,6 +39,9 @@ pub use status::{PairingPrompt, PairingRole, PausedReason, SyncDevice, SyncDevic
 
 pub const EVENT: &str = "sync-status";
 const FILE: &str = "sync.json";
+const NOTICES_FILE: &str = "sync-notices.json";
+/// How long `start_over` waits for a client it had to start.
+const START_WAIT: Duration = Duration::from_secs(10);
 /// The supervisor looks again this often without being woken: a plan that ran out offline, a
 /// start that found no token.
 const RECHECK: Duration = Duration::from_secs(5 * 60);
@@ -68,6 +71,9 @@ struct Stored {
 pub struct SyncState {
     path: PathBuf,
     identity_path: PathBuf,
+    notices_path: PathBuf,
+    /// Held while `sync-notices.json` is written, so writes land in order.
+    notices_file: Mutex<()>,
     stored: Mutex<Stored>,
     /// This device; `saved` once it is in its file. Shown before sync is ever turned on without
     /// writing anything.
@@ -89,11 +95,15 @@ impl SyncState {
     fn load(folder: PathBuf) -> SyncState {
         let path = folder.join(FILE);
         let stored: Stored = fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();
+        let notices_path = folder.join(NOTICES_FILE);
         let mut model = Model::default();
         model.last_sync_at = stored.last_sync_at;
+        model.notices = fs::read_to_string(&notices_path).ok().and_then(|t| serde_json::from_str::<Notices>(&t).ok()).unwrap_or_default();
         SyncState {
             path,
             identity_path: folder.join(identity::FILE),
+            notices_path,
+            notices_file: Mutex::new(()),
             stored: Mutex::new(stored),
             identity: Mutex::new(None),
             model: Mutex::new(model),
@@ -174,6 +184,27 @@ impl SyncState {
     fn keep_last_sync(&self) {
         let at = lock(&self.model).last_sync_at;
         let _ = self.update(|s| s.last_sync_at = at);
+    }
+
+    /// Writes the notices as the model has them now, through a temporary file.
+    fn keep_notices(&self) -> Result<(), CommandError> {
+        let _one = lock(&self.notices_file);
+        let notices = lock(&self.model).notices.clone();
+        if let Some(folder) = self.notices_path.parent() {
+            fs::create_dir_all(folder).map_err(CommandError::internal)?;
+        }
+        let temporary = self.notices_path.with_extension("json.tmp");
+        fs::write(&temporary, serde_json::to_string_pretty(&notices).map_err(CommandError::internal)?).map_err(CommandError::internal)?;
+        fs::rename(&temporary, &self.notices_path).map_err(CommandError::internal)
+    }
+
+    /// Changes the notices and keeps them if they changed.
+    fn change_notices(&self, change: impl FnOnce(&mut Notices) -> bool) -> Result<(), CommandError> {
+        let changed = change(&mut lock(&self.model).notices);
+        if changed {
+            self.keep_notices()?;
+        }
+        Ok(())
     }
 
     /// The client of `generation` found another library in place of its own.
@@ -330,7 +361,11 @@ async fn supervise(app: &AppHandle) -> Duration {
             // The old client stops as it is dropped.
             *run = None;
             let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
-            lock(&state.model).restart();
+            {
+                let mut model = lock(&state.model);
+                model.restart();
+                model.me = Some(identity.device);
+            }
             *run = Some(worker::spawn(app, worker::Start { url, db, replica, identity, sub, generation }));
         }
     }
@@ -408,6 +443,8 @@ pub async fn enable_sync(app: AppHandle, name: Option<String>) -> Result<SyncSta
     .await
     .map_err(CommandError::internal)??;
     state.update(|s| s.enabled = true)?;
+    // The first directory after turning sync on tells of no device added.
+    state.change_notices(|n| n.known.take().is_some())?;
     state.clear_stop();
     wake(&app);
     Ok(state.emit(&app))
@@ -449,45 +486,84 @@ pub fn remove_device(app: AppHandle, device: String) -> Result<SyncStatus, Comma
 /// hub makes this fail with `HubOffline`; the person may then start over from here.
 #[tauri::command]
 pub fn request_main(app: AppHandle) -> Result<SyncStatus, CommandError> {
-    let _ = app;
-    Err(CommandError::invalid("Not built yet"))
+    act(&app, Action::RequestHub)
 }
 
 /// On the hub: the answer to `request_main`. Allow hands the hub over to the asking device.
 #[tauri::command]
 pub fn answer_main_request(app: AppHandle, allow: bool) -> Result<SyncStatus, CommandError> {
-    let _ = (app, allow);
-    Err(CommandError::invalid("Not built yet"))
+    act(&app, Action::AnswerHubRequest { allow })
 }
 
 /// «Start over from this computer», step one: a code is emailed to the account's address,
 /// which is returned for the dialog to show.
 #[tauri::command]
 pub async fn send_start_over_code(app: AppHandle) -> Result<String, CommandError> {
-    let _ = app;
-    Err(CommandError::invalid("Not built yet"))
+    billing::send_code_to_signed_in(&app).await
 }
 
 /// Step two: the code signs in afresh and the relay starts the account over from this device:
-/// every other device is disconnected, this one becomes the main computer with a new key.
+/// every other device is disconnected, this one becomes the main computer with a new key. A
+/// sign-in too old for the relay comes back as `StaleSignIn` in the status.
 #[tauri::command]
 pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, CommandError> {
-    let _ = (app, code);
-    Err(CommandError::invalid("Not built yet"))
+    let state = app.state::<SyncState>();
+    if !state.stored().enabled {
+        return Err(CommandError::invalid("Sync is off"));
+    }
+    let token = billing::sign_in_again(&app, &code).await?;
+    let handle = match state.handle() {
+        Some(handle) => handle,
+        None => {
+            // A client stopped (removed, replaced, the plan): started again to send it.
+            forget_revoked(&state)?;
+            state.clear_stop();
+            wake(&app);
+            running(&state).await.ok_or_else(|| CommandError::invalid("Sync is not running"))?
+        }
+    };
+    lock(&state.model).error = None;
+    // The session sends it once the relay welcomed it, now if it already did.
+    if !handle.act(Action::StartOver { token }) {
+        return Err(CommandError::invalid("Sync is not running"));
+    }
+    Ok(state.emit(&app))
+}
+
+/// The client once the supervisor started one, within `START_WAIT`.
+async fn running(state: &SyncState) -> Option<koona_sync::net::Handle> {
+    let until = std::time::Instant::now() + START_WAIT;
+    loop {
+        if let Some(handle) = state.handle() {
+            return Some(handle);
+        }
+        if std::time::Instant::now() >= until {
+            return None;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 }
 
 /// «Join…» after sync was started over elsewhere: pairs this device with the new main computer;
 /// its bookmarks merge back.
 #[tauri::command]
 pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
-    let _ = app;
-    Err(CommandError::invalid("Not built yet"))
+    let status = act(&app, Action::JoinAgain)?;
+    let state = app.state::<SyncState>();
+    let mut joined = false;
+    state.change_notices(|n| {
+        joined = n.joined();
+        joined
+    })?;
+    Ok(if joined { state.emit(&app) } else { status })
 }
 
+/// The notice of that id goes; one already gone is no error.
 #[tauri::command]
 pub fn dismiss_sync_notice(app: AppHandle, id: String) -> Result<SyncStatus, CommandError> {
-    let _ = (app, id);
-    Err(CommandError::invalid("Not built yet"))
+    let state = app.state::<SyncState>();
+    state.change_notices(|n| n.dismiss(&id))?;
+    Ok(state.emit(&app))
 }
 
 /// Any active device renames any device; this one's name is kept here too, for its next `hello`.
@@ -555,6 +631,8 @@ fn report(status: &SyncStatus, version: &str, enabled: bool, model: &Model) -> S
         format!("last sync: {}", status.last_sync_at.map_or("never".to_string(), |t| t.to_rfc3339())),
         format!("error: {:?}", status.error),
         format!("pairing: {:?}", status.pairing.as_ref().map(|p| p.role)),
+        format!("hub change: {:?}", status.hub_change.as_ref().map(|h| h.role)),
+        format!("notices: {}", status.notices.len()),
         format!("devices: {}", status.devices.len()),
     ];
     for device in &status.devices {
@@ -598,6 +676,21 @@ mod tests {
         assert_eq!(again.shown_identity().device, shown.device);
         state.update(|s| s.enabled = true).unwrap();
         assert!(SyncState::load(folder.clone()).stored().enabled);
+        let _ = fs::remove_dir_all(folder);
+    }
+
+    #[test]
+    fn notices_are_kept_across_restarts_until_dismissed() {
+        let folder = std::env::temp_dir().join(format!("koonapin-sync-notices-{}", Uuid::new_v4().simple()));
+        let state = SyncState::load(folder.clone());
+        let notice = status::SyncNotice::StartedOver { id: "started-over-4".into(), by: Uuid::new_v4().to_string(), by_name: None, at: Utc::now() };
+        lock(&state.model).notices.list.push(notice.clone());
+        state.keep_notices().unwrap();
+        assert!(!folder.join("sync-notices.json.tmp").exists());
+        let again = SyncState::load(folder.clone());
+        assert_eq!(lock(&again.model).notices.list, vec![notice]);
+        again.change_notices(|n| n.dismiss("started-over-4")).unwrap();
+        assert!(lock(&SyncState::load(folder.clone()).model).notices.list.is_empty());
         let _ = fs::remove_dir_all(folder);
     }
 

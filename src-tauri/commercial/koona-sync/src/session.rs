@@ -12,8 +12,8 @@ use crate::crypto::{self, CryptoError, Ephemeral, Exchange, LibraryKey, Party, R
 use crate::library::{Library, Meta, Roster, SCHEMA};
 use crate::model::{Group, Vector};
 use crate::protocol::{
-    self, close, Address, Control, DeviceInfo, DeviceStatus, ErrorCode, Header, Kind, PairMessage, RosterEntry,
-    SyncMessage, B64, MAX_PAYLOAD, PROTO,
+    self, close, relay_error, Address, Control, DeviceInfo, DeviceStatus, ErrorCode, Header, Kind, PairMessage,
+    RosterEntry, StartedOver, SyncMessage, B64, MAX_PAYLOAD, PROTO,
 };
 use crate::{Applied, Cursor};
 use ring::rand::SecureRandom;
@@ -23,6 +23,8 @@ use uuid::Uuid;
 
 /// A pairing not approved by then is abandoned by both sides.
 pub const PAIRING_TIMEOUT_MS: u64 = 5 * 60 * 1000;
+/// A `hub_request` not answered by then is given up on both sides (4.4).
+pub const HUB_REQUEST_TIMEOUT_MS: u64 = 5 * 60 * 1000;
 /// How long the key of the previous epoch still opens frames after a rotation.
 pub const OLD_KEY_MS: u64 = 60 * 1000;
 /// An answer whose `ack` doesn't come by then counts as lost; a later change is pushed again.
@@ -85,6 +87,9 @@ pub enum PauseReason {
     /// The account has the most devices the relay allows (4008 `device_limit`).
     DeviceLimit,
     Offline,
+    /// The account was started over from another device (2.6): nothing is offered to its new
+    /// hub until the person joins again ([`Action::JoinAgain`]).
+    StartedOver,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +132,30 @@ pub enum PairingEvent {
     Failed { peer: Uuid, reason: PairingFailure },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HubChangeFailure {
+    /// The person on the hub denied it.
+    Denied,
+    /// No answer within [`HUB_REQUEST_TIMEOUT_MS`].
+    Timeout,
+    /// The hub is not online, or went away before it answered.
+    Unavailable,
+    /// The hub is answering another device's request.
+    Busy,
+}
+
+/// A change of the hub (4.4), on the device that asks and on the hub.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HubChangeEvent {
+    /// This device asked: "Waiting for <hub_name>".
+    Waiting { hub: Uuid, hub_name: String },
+    /// On the hub: "Make <name> the main computer?" with Allow / Deny.
+    Asked { device: Uuid, name: String },
+    /// Over without a failure: this device became the hub, or the hub answered or forgot it.
+    Settled { peer: Uuid },
+    Failed { peer: Uuid, reason: HubChangeFailure },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionError {
     /// The relay refused a request (`relay_error`).
@@ -161,6 +190,10 @@ pub enum Effect {
     SendBinary(Vec<u8>),
     Status(Phase),
     Pairing(PairingEvent),
+    HubChange(HubChangeEvent),
+    /// The account was started over from `by` (named `by_name` in the new directory) at `at`,
+    /// to `epoch`: this device holds until the person joins again.
+    StartedOver { by: Uuid, by_name: Option<String>, at: u64, epoch: u32 },
     /// Remote changes were written: the interface reads these again.
     LibraryChanged(Applied),
     /// The relay's directory as last seen.
@@ -176,7 +209,15 @@ pub enum Action {
     /// On the hub, after the person compared the digits.
     ApprovePairing { device: Uuid },
     RejectPairing { device: Uuid },
-    MakeHub { device: Uuid },
+    /// On an active device other than the hub: ask the hub to hand over to this one (4.4).
+    RequestHub,
+    /// On the hub: the person's answer to the `hub_request` shown.
+    AnswerHubRequest { allow: bool },
+    /// Start the account over from this device (2.6), with the access token of a sign-in by
+    /// email code just now; sent once the relay welcomed this device.
+    StartOver { token: String },
+    /// After the account was started over elsewhere: pair with its new hub, keeping the library.
+    JoinAgain,
     /// On the hub: revoke the device and rotate the library key.
     RemoveDevice { device: Uuid },
     Rename { device: Uuid, name: String },
@@ -322,6 +363,19 @@ pub struct Session {
     rekey: Option<Rekeying>,
     /// The device just approved: the roster goes out once the relay reports it active.
     roster_for: Option<Uuid>,
+    /// The `hub_request` this device sent: to which hub, and when.
+    hub_asking: Option<(Uuid, u64)>,
+    /// On the hub: the device whose `hub_request` the person is asked about, and since when.
+    hub_asked: Option<(Uuid, u64)>,
+    /// `start_over` to send once the relay welcomes this device.
+    start_over_token: Option<String>,
+    /// `start_over` went out: the 4005 that follows is this device's own.
+    starting_over: bool,
+    /// The account was started over elsewhere: held until the person joins again. Kept across
+    /// connections, unlike the rest of the relay's state.
+    held: bool,
+    /// The person chose to join again: a `welcome` that would hold doesn't.
+    joining: bool,
     phase: Option<Phase>,
     now: u64,
 }
@@ -373,6 +427,12 @@ impl Session {
             hosting: None,
             rekey: None,
             roster_for: None,
+            hub_asking: None,
+            hub_asked: None,
+            start_over_token: None,
+            starting_over: false,
+            held: false,
+            joining: false,
             phase: None,
             now: 0,
         }
@@ -443,6 +503,9 @@ impl Session {
     fn compute_phase(&self) -> Phase {
         if let Some(reason) = self.stop {
             return Phase::Paused { reason };
+        }
+        if self.held {
+            return Phase::Paused { reason: PauseReason::StartedOver };
         }
         match self.link {
             Link::Down => return Phase::Paused { reason: PauseReason::Offline },
@@ -801,6 +864,17 @@ impl Session {
         self.hosting = None;
         self.rekey = None;
         self.roster_for = None;
+        // The other side's state of a hub change is lost with either connection.
+        if let Some((hub, _)) = self.hub_asking.take() {
+            self.hub_change(HubChangeEvent::Failed { peer: hub, reason: HubChangeFailure::Unavailable });
+        }
+        if let Some((device, _)) = self.hub_asked.take() {
+            self.hub_change(HubChangeEvent::Settled { peer: device });
+        }
+    }
+
+    fn hub_change(&mut self, event: HubChangeEvent) {
+        self.fx.push(Effect::HubChange(event));
     }
 
     fn on_connected(&mut self, lib: &mut dyn Library) {
@@ -831,6 +905,14 @@ impl Session {
             (Some(close::PLAN), _) => self.stop = Some(PauseReason::Plan),
             (Some(close::PROTO_TOO_OLD), _) => self.stop = Some(PauseReason::UpdateNeeded),
             (Some(close::RATE_LIMITED), Some(DEVICE_LIMIT)) => self.stop = Some(PauseReason::DeviceLimit),
+            (Some(close::STARTED_OVER), _) => {
+                // This device's own start over reconnects as the new hub (2.6 step 5); another
+                // one's holds a device that took part in sync until the person joins again.
+                let own = std::mem::take(&mut self.starting_over);
+                if !own && !self.joining && self.meta.key.is_some() {
+                    self.held = true;
+                }
+            }
             _ => {}
         }
     }
@@ -881,6 +963,19 @@ impl Session {
                 let device = h.device;
                 self.hosting = None;
                 self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Timeout }));
+            }
+        }
+        if let Some((hub, started)) = self.hub_asking {
+            if now >= started + HUB_REQUEST_TIMEOUT_MS {
+                self.hub_asking = None;
+                self.hub_change(HubChangeEvent::Failed { peer: hub, reason: HubChangeFailure::Timeout });
+            }
+        }
+        if let Some((device, started)) = self.hub_asked {
+            if now >= started + HUB_REQUEST_TIMEOUT_MS {
+                // The asking device gave up by now.
+                self.hub_asked = None;
+                self.hub_change(HubChangeEvent::Settled { peer: device });
             }
         }
         if self.rekey.as_ref().is_some_and(|r| now >= r.started + REKEY_RETRY_MS) {
@@ -937,7 +1032,7 @@ impl Session {
                     sig: B64(sig),
                 });
             }
-            Control::Welcome { status, hub, epoch, devices, online, time } => {
+            Control::Welcome { status, hub, epoch, devices, online, time, started_over } => {
                 if self.link != Link::Open {
                     return;
                 }
@@ -945,19 +1040,66 @@ impl Session {
                 self.status = Some(status);
                 self.devices = devices.into_iter().map(|d| (d.id, d)).collect();
                 self.online = online.into_iter().collect();
+                self.starting_over = false;
+                self.held = false;
+                if status == DeviceStatus::Active {
+                    self.joining = false;
+                }
                 self.check_skew(lib, time);
+                if let Some(started_over) = started_over {
+                    self.on_started_over(lib, started_over, status, hub, epoch);
+                }
                 self.set_account(lib, hub, epoch, true);
                 // After the hub is known: the interface asks to pair once the hub is online.
                 self.emit_devices();
+                if let Some(token) = self.start_over_token.take() {
+                    self.send_start_over(token);
+                }
             }
             Control::Presence { device, online } => self.on_presence(lib, device, online),
             Control::Device { device } => self.on_device(lib, device),
             Control::Account { hub, epoch } => self.set_account(lib, hub, epoch, false),
-            Control::Error { code } => self.error(SessionError::Relay(code)),
+            Control::Error { code } => {
+                if code == relay_error::STALE_SIGN_IN {
+                    // Nothing changed on the relay: no 4005 follows.
+                    self.starting_over = false;
+                }
+                self.error(SessionError::Relay(code))
+            }
             Control::Undeliverable { to } => self.on_undeliverable(to),
             // Requests go the other way.
             _ => {}
         }
+    }
+
+    /// `welcome.started_over` (2.6 step 5).
+    fn on_started_over(&mut self, lib: &mut dyn Library, started_over: StartedOver, status: DeviceStatus, hub: Uuid, epoch: u32) {
+        let me = self.cfg.device;
+        if started_over.by == me {
+            if status == DeviceStatus::Active && hub == me && self.newest_epoch().is_none_or(|e| e < started_over.epoch) {
+                // The new hub's first welcome: a new library key at the relay's epoch, and a
+                // roster of this device alone (the others pair again).
+                self.keys.clear();
+                self.meta.roster = None;
+                self.relay_epoch = epoch;
+                let key = self.generate_key();
+                self.add_key(lib, epoch, key);
+            }
+            return;
+        }
+        // A device that held a key of an epoch before the start over took part in sync: it
+        // shows who started over and offers nothing until the person joins again.
+        let behind = self.meta.key.is_some_and(|(e, _)| e < started_over.epoch);
+        if status == DeviceStatus::Pending && behind && !self.joining {
+            self.held = true;
+            let by_name = self.devices.get(&started_over.by).map(|d| d.name.clone());
+            self.fx.push(Effect::StartedOver { by: started_over.by, by_name, at: started_over.at, epoch: started_over.epoch });
+        }
+    }
+
+    fn send_start_over(&mut self, token: String) {
+        self.starting_over = true;
+        self.send_text(Control::StartOver { token });
     }
 
     fn emit_devices(&mut self) {
@@ -974,6 +1116,17 @@ impl Session {
         let hub_changed = self.hub != Some(hub);
         self.relay_epoch = epoch;
         self.hub = Some(hub);
+        if hub_changed {
+            // A hub change under way is over: this device is the hub now, or someone else is.
+            if let Some((asked, _)) = self.hub_asking.take() {
+                self.hub_change(HubChangeEvent::Settled { peer: asked });
+            }
+            if hub != me {
+                if let Some((device, _)) = self.hub_asked.take() {
+                    self.hub_change(HubChangeEvent::Settled { peer: device });
+                }
+            }
+        }
         if hub_changed || welcome {
             if hub != me && self.pinned_key(hub).is_none() && self.meta.roster.is_some() {
                 // Sync bodies are sealed whoever routes them; only trust (rekeys) needs the pin.
@@ -1067,6 +1220,15 @@ impl Session {
             self.asking = None;
             self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Unavailable }));
         }
+        if !online && self.hub_asking.is_some_and(|(hub, _)| hub == device) {
+            // The hub forgot the request with its connection.
+            self.hub_asking = None;
+            self.hub_change(HubChangeEvent::Failed { peer: device, reason: HubChangeFailure::Unavailable });
+        }
+        if !online && self.hub_asked.is_some_and(|(asking, _)| asking == device) {
+            self.hub_asked = None;
+            self.hub_change(HubChangeEvent::Settled { peer: device });
+        }
         if Some(device) == self.hub && !self.is_hub() {
             if online {
                 self.maybe_rekey();
@@ -1091,6 +1253,7 @@ impl Session {
                 DeviceStatus::Revoked => self.forget(lib),
                 DeviceStatus::Active if self.status != Some(DeviceStatus::Active) => {
                     self.status = Some(DeviceStatus::Active);
+                    self.joining = false;
                     self.refresh_sealer();
                     self.maybe_rekey();
                     self.start_sessions(lib);
@@ -1124,6 +1287,11 @@ impl Session {
             let hub = self.asking.take().map(|a| a.hub).unwrap_or(to);
             self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Unavailable }));
         }
+        if self.hub_asking.is_some_and(|(hub, _)| hub == to || to.is_nil()) {
+            // 4.4 step 1: the hub is offline; the person may start over instead.
+            let hub = self.hub_asking.take().map_or(to, |(hub, _)| hub);
+            self.hub_change(HubChangeEvent::Failed { peer: hub, reason: HubChangeFailure::Unavailable });
+        }
     }
 
     // --- Actions ---
@@ -1141,11 +1309,25 @@ impl Session {
                     self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Rejected }));
                 }
             }
-            Action::MakeHub { device } => {
-                if !self.is_active() || self.link != Link::Ready {
-                    return self.error(SessionError::NotAllowed("only an active device may choose the hub"));
+            Action::RequestHub => self.request_hub(),
+            Action::AnswerHubRequest { allow } => self.answer_hub_request(allow),
+            Action::StartOver { token } => {
+                if self.stop == Some(PauseReason::Revoked) {
+                    return self.error(SessionError::NotAllowed("a removed device can't start over"));
                 }
-                self.send_text(Control::SetHub { device });
+                self.held = false;
+                if self.link == Link::Ready {
+                    self.send_start_over(token);
+                } else {
+                    self.start_over_token = Some(token);
+                }
+            }
+            Action::JoinAgain => {
+                self.held = false;
+                self.joining = true;
+                if self.link == Link::Ready && self.status == Some(DeviceStatus::Pending) {
+                    self.start_pairing();
+                }
             }
             Action::RemoveDevice { device } => {
                 if !self.is_hub() || self.link != Link::Ready {
@@ -1181,11 +1363,82 @@ impl Session {
         }
     }
 
+    // --- Changing the hub (4.4) ---
+
+    fn request_hub(&mut self) {
+        if !self.is_active() || self.link != Link::Ready || self.is_hub() || self.sealer_epoch.is_none() {
+            return self.error(SessionError::NotAllowed("only an active device other than the hub asks to be the hub"));
+        }
+        let Some(hub) = self.hub else { return };
+        let hub_name = self.devices.get(&hub).map(|d| d.name.clone()).unwrap_or_default();
+        if self.hub_asking.is_some_and(|(h, _)| h == hub) {
+            // One request at a time; the hub answers the first.
+            return self.hub_change(HubChangeEvent::Waiting { hub, hub_name });
+        }
+        if !self.online.contains(&hub) {
+            return self.hub_change(HubChangeEvent::Failed { peer: hub, reason: HubChangeFailure::Unavailable });
+        }
+        // To the hub's id rather than the alias: a kind-1 body is sealed to the address it is
+        // sent to, and the receiver opens it as addressed to itself (3.2).
+        if !self.send_sync(Address::Device(hub), &SyncMessage::HubRequest) {
+            return;
+        }
+        self.hub_asking = Some((hub, self.now));
+        self.hub_change(HubChangeEvent::Waiting { hub, hub_name });
+    }
+
+    fn on_hub_request(&mut self, from: Uuid) {
+        let active = self.devices.get(&from).is_some_and(|d| d.status == DeviceStatus::Active);
+        if !self.is_hub() || !self.is_active() || !active {
+            return self.dropped(from, DropReason::Unexpected);
+        }
+        if self.hub_asked.is_some_and(|(asking, _)| asking != from) {
+            self.send_sync(Address::Device(from), &SyncMessage::Error { code: ErrorCode::Busy });
+            return;
+        }
+        // The same device asking again sees the same question.
+        self.hub_asked = Some((from, self.now));
+        let name = self.devices.get(&from).map(|d| d.name.clone()).unwrap_or_default();
+        self.hub_change(HubChangeEvent::Asked { device: from, name });
+    }
+
+    fn answer_hub_request(&mut self, allow: bool) {
+        if !self.is_hub() || self.link != Link::Ready {
+            return self.error(SessionError::NotAllowed("only the hub hands over"));
+        }
+        let Some((device, _)) = self.hub_asked.take() else {
+            return self.error(SessionError::NotAllowed("no request to answer"));
+        };
+        if allow {
+            // The relay's `account` makes it the hub; the answer only ends its wait.
+            self.send_text(Control::SetHub { device });
+        }
+        self.send_sync(Address::Device(device), &SyncMessage::HubAnswer { allow });
+        self.hub_change(HubChangeEvent::Settled { peer: device });
+    }
+
+    fn on_hub_answer(&mut self, from: Uuid, allow: bool) {
+        if self.hub_asking.is_none_or(|(hub, _)| hub != from) {
+            return self.dropped(from, DropReason::Unexpected);
+        }
+        if !allow {
+            self.hub_asking = None;
+            self.hub_change(HubChangeEvent::Failed { peer: from, reason: HubChangeFailure::Denied });
+        } else if self.is_hub() {
+            // The relay's `account` came first.
+            self.hub_asking = None;
+            self.hub_change(HubChangeEvent::Settled { peer: from });
+        }
+    }
+
     // --- Pairing, the new device ---
 
     fn start_pairing(&mut self) {
         if self.link != Link::Ready || self.status != Some(DeviceStatus::Pending) {
             return self.error(SessionError::NotAllowed("only a pending device pairs"));
+        }
+        if self.held {
+            return self.error(SessionError::NotAllowed("the account was started over: join again first"));
         }
         let Some(hub) = self.hub else { return };
         let Some(info) = self.devices.get(&hub).cloned() else { return };
@@ -1474,6 +1727,12 @@ impl Session {
                 }
             }
             SyncMessage::Roster { hub, devices } => self.on_roster(lib, from, hub, devices),
+            SyncMessage::HubRequest => self.on_hub_request(from),
+            SyncMessage::HubAnswer { allow } => self.on_hub_answer(from, allow),
+            SyncMessage::Error { code: ErrorCode::Busy } if self.hub_asking.is_some_and(|(hub, _)| hub == from) => {
+                self.hub_asking = None;
+                self.hub_change(HubChangeEvent::Failed { peer: from, reason: HubChangeFailure::Busy });
+            }
             SyncMessage::Error { code } => {
                 let peer = self.peers.entry(from).or_default();
                 peer.paused_at = self.now;

@@ -907,7 +907,38 @@ pub async fn send_sign_in_code(app: AppHandle, email: String) -> Result<(), Comm
     if !crate::feedback::email_shape(&email) {
         return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::InvalidEmail, "The email address does not look right"));
     }
-    let (status, value) = auth(&app, "otp", json!({ "email": email, "create_user": false })).await?;
+    email_code(&app, &email).await
+}
+
+/// The email of the account signed in here.
+pub(crate) fn signed_in_email(app: &AppHandle) -> Option<String> {
+    app.state::<Billing>().get().session.map(|s| s.email)
+}
+
+fn signed_out() -> CommandError {
+    CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::SignedOut, "Not signed in")
+}
+
+/// Sync's «Start over» (commercial/sync, `PROTOCOL.md` 2.6): a code to the email of the account
+/// signed in here, which is returned.
+pub(crate) async fn send_code_to_signed_in(app: &AppHandle) -> Result<String, CommandError> {
+    let email = signed_in_email(app).ok_or_else(signed_out)?;
+    email_code(app, &email).await?;
+    Ok(email)
+}
+
+/// Then the code signs this account in afresh, kept as `verify_sign_in_code` keeps a sign-in;
+/// returns the new access token, which proves to the relay a sign-in by email code just now.
+pub(crate) async fn sign_in_again(app: &AppHandle, code: &str) -> Result<String, CommandError> {
+    let email = signed_in_email(app).ok_or_else(signed_out)?;
+    let session = verified_session(app, &email, code).await?;
+    let token = session.access_token.clone();
+    app.state::<Billing>().update(app, |s| keep_session(s, session))?;
+    Ok(token)
+}
+
+async fn email_code(app: &AppHandle, email: &str) -> Result<(), CommandError> {
+    let (status, value) = auth(app, "otp", json!({ "email": email, "create_user": false })).await?;
     if status.is_success() {
         return Ok(());
     }
@@ -923,24 +954,36 @@ pub async fn send_sign_in_code(app: AppHandle, email: String) -> Result<(), Comm
     })
 }
 
-/// «Sign in»: the code from the email becomes a session and the plan.
-#[tauri::command]
-pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) -> Result<SupporterStatus, CommandError> {
+/// Supabase `verify` of a code from the email: the digits typed, whatever else came with them.
+fn verify_body(email: &str, code: &str) -> Value {
     let code: String = code.chars().filter(char::is_ascii_digit).collect();
-    let (status, value) = auth(&app, "verify", json!({ "type": "email", "email": email.trim(), "token": code })).await?;
+    json!({ "type": "email", "email": email.trim(), "token": code })
+}
+
+async fn verified_session(app: &AppHandle, email: &str, code: &str) -> Result<Session, CommandError> {
+    let (status, value) = auth(app, "verify", verify_body(email, code)).await?;
     if let Some(error) = verify_refused(status) {
         return Err(error);
     }
-    let session = session_of(&value).ok_or_else(|| refused("auth verify", status))?;
+    session_of(&value).ok_or_else(|| refused("auth verify", status))
+}
+
+/// A new sign-in in `account.json`.
+fn keep_session(s: &mut Stored, session: Session) {
+    s.session = Some(session);
+    // A plan kept here counts only if it is this account's.
+    let kept = s.lease.take();
+    s.keep_lease(kept, &plan_key());
+    s.checked_at = None;
+    s.awaiting_sign_in = false;
+}
+
+/// «Sign in»: the code from the email becomes a session and the plan.
+#[tauri::command]
+pub async fn verify_sign_in_code(app: AppHandle, email: String, code: String) -> Result<SupporterStatus, CommandError> {
+    let session = verified_session(&app, &email, &code).await?;
     let billing = app.state::<Billing>();
-    billing.update(&app, |s| {
-        s.session = Some(session);
-        // A plan kept here counts only if it is this account's.
-        let kept = s.lease.take();
-        s.keep_lease(kept, &plan_key());
-        s.checked_at = None;
-        s.awaiting_sign_in = false;
-    })?;
+    billing.update(&app, |s| keep_session(s, session))?;
     // Signed in whatever the plan check says: when it fails, the status says the plan is not known
     // yet (`plan_unknown`) and the background asks again within the hour.
     match check(&app, false).await {
@@ -1193,6 +1236,26 @@ mod tests {
         let billing = json!({ "access_token": "a", "refresh_token": "r", "expires_at": 1, "email": "b@example.com" });
         assert_eq!(session_of(&billing).unwrap().expires_at, 1);
         assert!(session_of(&json!({ "access_token": "a" })).is_none());
+    }
+
+    #[test]
+    fn a_code_is_verified_by_its_digits_for_the_email_given() {
+        assert_eq!(
+            verify_body(" anna@example.com ", "123 45-6"),
+            json!({ "type": "email", "email": "anna@example.com", "token": "123456" })
+        );
+    }
+
+    #[test]
+    fn a_new_sign_in_replaces_the_session_and_asks_for_the_plan_again() {
+        let mut stored = supporter("2026-11-12T00:00:00Z");
+        stored.checked_at = Some(at("2026-10-12T00:00:00Z"));
+        stored.awaiting_sign_in = true;
+        let fresh = Session { access_token: "new".into(), refresh_token: "r2".into(), expires_at: 9, email: "anna@example.com".into() };
+        keep_session(&mut stored, fresh);
+        assert_eq!(stored.session.as_ref().map(|s| s.access_token.as_str()), Some("new"));
+        assert_eq!(stored.checked_at, None);
+        assert!(!stored.awaiting_sign_in);
     }
 
     #[test]
