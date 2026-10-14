@@ -68,12 +68,24 @@ pub fn allowed_url(url: &Url, allow: fn(IpAddr) -> bool) -> bool {
     }
 }
 
+/// A name that resolves to no allowed address: the request is refused, not failed.
+#[derive(Debug)]
+pub struct NotPublic(pub String);
+
+impl std::fmt::Display for NotPublic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} resolves to no public address", self.0)
+    }
+}
+
+impl std::error::Error for NotPublic {}
+
 /// Resolves a hostname and keeps only allowed addresses; none left is an error.
 pub async fn resolve(host: &str, allow: fn(IpAddr) -> bool) -> std::io::Result<Vec<SocketAddr>> {
     let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host, 0)).await?.collect();
     let allowed: Vec<SocketAddr> = addresses.iter().copied().filter(|a| allow(a.ip())).collect();
     if allowed.is_empty() {
-        return Err(std::io::Error::other(format!("{host} resolves to no public address")));
+        return Err(std::io::Error::other(NotPublic(host.to_string())));
     }
     Ok(allowed)
 }

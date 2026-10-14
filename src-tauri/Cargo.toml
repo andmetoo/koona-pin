@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "1.2.2"
+version = "1.2.3"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
@@ -41,6 +41,8 @@ uuid = { version = "1", features = ["v4", "v7"] }
 # link check refuse any proxy (`no_proxy`) so their address check cannot be bypassed.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "system-proxy"] }
 scraper = "0.20"
+# A fetched page in its own encoding: windows-1251, Shift_JIS (NP-120). The WHATWG encodings.
+encoding_rs = "0.8"
 tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2.5"

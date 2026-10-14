@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- A made-up blog post shaped like a Hugo or WordPress page: menu, banner, article, share buttons, comments. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Don't be afraid of makefiles · Example Blog</title>
+<meta name="author" content="Rosa Example">
+<meta property="og:title" content="Don't be afraid of makefiles">
+<meta property="og:site_name" content="Example Blog">
+<meta property="article:published_time" content="2024-05-02T10:00:00Z">
+<link rel="stylesheet" href="/css/site.css">
+<script>window.analytics = { track() {} };</script>
+</head>
+<body>
+<div class="cookie-banner" id="cookie-consent"><p>We use cookies to improve your experience.</p><button>Accept all cookies</button></div>
+<header class="site-header">
+  <a href="/" class="logo">Example Blog</a>
+  <nav><ul><li><a href="/">Home</a></li><li><a href="/archive/">Archive</a></li><li><a href="/about/">About</a></li><li><a href="/tags/">Tags</a></li></ul></nav>
+</header>
+<main>
+<article class="post">
+  <header>
+    <h1 class="post-title">Don't be afraid of makefiles</h1>
+    <p class="post-meta">By <span class="author">Rosa Example</span> · <time datetime="2024-05-02">May 2, 2024</time></p>
+  </header>
+  <div class="post-content">
+    <p>Every Go project I start ends up with the same handful of commands: build the binary, run the tests, check the formatting, and package a release. For a long time I kept them in a text file and copied them into the terminal. That works until the day you forget a flag and ship a debug build to production.</p>
+    <p>A makefile is a list of rules. Each rule has a target, the files it depends on, and the commands that produce it. Make looks at the timestamps of the files and runs only what is out of date, which is exactly what a build tool should do. Even when you do not care about timestamps, a makefile is a convenient place to keep the commands of a project, documented and versioned with the code.</p>
+    <figure><img src="/images/make.png" alt="A dependency graph of make targets" width="800" height="400"><figcaption>Targets depend on files and on other targets.</figcaption></figure>
+    <h2>The smallest useful makefile</h2>
+    <p>Start with two targets. The first one is the default: running <code>make</code> without arguments builds the project. The second one runs the tests with the race detector, which you should be doing anyway.</p>
+<pre><code class="language-makefile">build:
+	go build ./...
+
+test:
+	go test -race ./...
+</code></pre>
+    <p>Note the tab at the start of each command. Make insists on it, and a space instead of a tab is the most common error people meet in their first makefile. Most editors can show tabs and spaces differently, which helps.</p>
+    <h2>Variables and phony targets</h2>
+    <p>Targets like <code>build</code> and <code>test</code> are not files. If a file called <code>test</code> ever appears in the folder, make will think the target is up to date and do nothing. Declare such targets as phony so make always runs them. Variables keep repeated values in one place: the name of the binary, the version taken from git, the flags passed to the linker.</p>
+    <p>With these two features you can write a makefile that builds a versioned binary, runs the linters, and cleans the output folder. I wrote about how the version gets into the binary in <a href="/2024/04/go-modules/">the post about Go modules</a>, and the official manual of <a href="https://www.gnu.org/software/make/manual/">GNU make</a> covers everything else in more detail than you will ever need.</p>
+    <h2>When not to use make</h2>
+    <p>Make is not the right tool on Windows without a Unix shell, and it is not a package manager. If your project needs to download dependencies, let the language's own tools do it and call them from make. Keep the rules short, keep the commands readable, and your makefile will outlive several generations of build tools.</p>
+  </div>
+  <div class="share"><a href="https://twitter.example/share">Share on Twitter</a> <a href="https://facebook.example/share">Share on Facebook</a></div>
+</article>
+<section class="newsletter"><h3>Subscribe to the newsletter</h3><form action="/subscribe"><input type="email" name="email"><button>Subscribe</button></form></section>
+<section id="comments"><h3>Comments</h3><form action="/comment"><textarea name="comment"></textarea><button>Post</button></form></section>
+</main>
+<footer class="site-footer"><p>© 2024 Example Blog</p><ul><li><a href="/privacy/">Privacy</a></li><li><a href="/rss.xml">RSS</a></li></ul></footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

@@ -38,6 +38,7 @@ A publicly distributed modified product must use its own name and artwork. Local
 Some files are someone else's work under their own terms and are not relicensed here:
 
 - `scripts/shots/previews/` — photos from Unsplash under the [Unsplash License](https://unsplash.com/license), authors in `CREDITS.md` there;
+- reading mode's extraction bundles [Defuddle](https://github.com/kepano/defuddle) (MIT, © Steph Ango) and [DOMPurify](https://github.com/cure53/DOMPurify) (`MPL-2.0 OR Apache-2.0`, used under Apache-2.0, © Cure53 and contributors) into the app's interface; both keep their licenses and notices;
 - dependencies installed by Bun (packages from npm) and Cargo — under their own licenses and accompanying notices. The website's [licenses page](https://koona.app/pin/licenses) credits selected components and assets; it is not a complete dependency inventory. Distributors must preserve the notices and meet the source and other requirements of the components they ship.
 
 ## Contributions
