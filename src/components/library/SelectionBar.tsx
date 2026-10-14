@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowUpFromLine, BookOpen, BookOpenText, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, ExportFormat, Tag } from "../../types";
@@ -37,6 +37,11 @@ type Popover = { id: "move" | "export"; anchor: DOMRect; trigger: HTMLElement } 
  * names go to hints and the hint row hides (Р-27). While an action runs the
  * buttons wait: a second click would not repeat it. A second click on the
  * button of an open menu or tag field closes it.
+ *
+ * NP-123 puts «Read · Space» first (sheet S2). Where the words of a language
+ * do not fit the 740 px, the bar tightens step by step: the icons beside
+ * words go (S2 has words only), then the key of «Read», then the words, as in
+ * a narrow window.
  */
 export function SelectionBar({
   count,
@@ -73,9 +78,20 @@ export function SelectionBar({
   /** The selection is being dragged (NP-030): the hint row says how to drop or cancel. */
   dragging?: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [popover, setPopover] = useState<Popover | null>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const clear = useRef<HTMLButtonElement>(null);
+  /** 0 — as drawn; 1 — no icons beside words; 2 — and no key on «Read»; 3 — icons only. */
+  const [tight, setTight] = useState(0);
+  const words = `${i18n.language}|${trash}|${allStarred}|${inReading}|${compact}|${String(count).length}`;
+  useLayoutEffect(() => setTight(0), [words]);
+  useLayoutEffect(() => {
+    const element = bar.current;
+    // By «×», the last thing on the bar: the hints, there but unseen, reach past its edge anyway.
+    const end = clear.current?.getBoundingClientRect().right ?? 0;
+    if (element && !compact && tight < 3 && end > element.getBoundingClientRect().right - 7) setTight(tight + 1);
+  });
   const exportEntries: MenuEntry[] = [
     { id: "html", icon: ArrowUpFromLine, label: t("more.exportHtml"), onSelect: () => actions.export("html") },
     { id: "json", icon: FileText, label: t("more.exportJson"), onSelect: () => actions.export("json") },
@@ -103,7 +119,7 @@ export function SelectionBar({
       ]
     : [
         // First on the bar (sheet S2); in a narrow window the book icon, named by its hint.
-        { id: "read", icon: compact ? BookOpenText : undefined, label: t("selection.read"), keys: "Space", primary: true, run: actions.read },
+        { id: "read", icon: BookOpenText, label: t("selection.read"), keys: "Space", primary: true, run: actions.read },
         { id: "move", icon: Folder, label: t("selection.move"), popover: "move", run: toggle("move") },
         { id: "tag", icon: TagIcon, label: t("selection.tag"), popover: "tag", run: toggle("tag") },
         allStarred
@@ -139,8 +155,8 @@ export function SelectionBar({
         <span aria-hidden className="mx-1.5 h-[22px] w-px shrink-0 bg-[#4a4b44] dark:bg-[#55554c]" />
         {list.map((action) => {
           const open = !!action.popover && popover?.id === action.popover;
-          const bare = compact || action.bare;
-          if (action.primary && !compact)
+          const bare = compact || tight >= 3 || action.bare;
+          if (action.primary && !compact && tight < 3)
             return (
               <button
                 key={action.id}
@@ -151,9 +167,11 @@ export function SelectionBar({
                 className="mr-1 flex h-8 shrink-0 items-center gap-2 rounded-lg bg-accent pr-1.5 pl-3 font-semibold text-on-accent transition-[filter] duration-150 hover:brightness-110 disabled:opacity-45"
               >
                 {action.label}
-                <kbd aria-hidden className="rounded-xs bg-black/15 px-1.5 py-px font-sans text-2xs font-medium">
-                  {action.keys}
-                </kbd>
+                {tight < 2 && (
+                  <kbd aria-hidden className="rounded-xs bg-black/15 px-1.5 py-px font-sans text-2xs font-medium">
+                    {action.keys}
+                  </kbd>
+                )}
               </button>
             );
           return (
@@ -177,7 +195,7 @@ export function SelectionBar({
                 onClick={(e) => action.run(e.currentTarget)}
                 className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 transition-colors duration-150 hover:bg-white/10 hover:text-white disabled:text-white/45 disabled:hover:bg-transparent ${open ? "bg-white/10 text-white" : ""} ${bare ? "w-8 justify-center px-0" : ""}`}
               >
-                {action.icon && <Icon icon={action.icon} size={15} fill={action.filled ? "currentColor" : "none"} />}
+                {action.icon && (bare || tight < 1) && <Icon icon={action.icon} size={15} fill={action.filled ? "currentColor" : "none"} />}
                 {!bare && action.label}
               </button>
             </Hint>
@@ -186,6 +204,7 @@ export function SelectionBar({
         <span className="min-w-2 flex-1" />
         <Hint label={t("selection.clear")} keys="Esc" side="top">
           <button
+            ref={clear}
             type="button"
             aria-label={t("selection.clear")}
             onClick={onClear}

@@ -221,6 +221,9 @@ test("the links of a row: title and thumbnail with ↗; double-click and Enter f
   await row.focus();
   await page.keyboard.press("Enter");
   expect(await opened(page)).toHaveLength(4);
+  // A double-click on the title opens the page once, not twice.
+  await title.dblclick();
+  expect(await opened(page)).toHaveLength(5);
   // In the grid as well.
   await page.getByRole("button", { name: "Grid", exact: true }).click();
   await spot(card(page, TITLES[3])).dblclick();
@@ -366,11 +369,14 @@ test("the sheet: a page that cannot be read offers the browser; progress is save
   await expect.poll(saved).toEqual([0.3]);
   await scrollTo(0.5);
   await scrollTo(0.6);
+  // The scroll is handled (the bar shows it) before the clock moves.
+  await expect(s.locator("[data-reading-progress]")).toHaveAttribute("style", "width: 60%;");
   expect(await saved()).toEqual([0.3]);
   await page.clock.runFor(2100);
   await expect.poll(saved).toEqual([0.3, 0.6]);
   // Back up: not unread.
   await scrollTo(0.2);
+  await expect(s.locator("[data-reading-progress]")).toHaveAttribute("style", "width: 20%;");
   expect(await saved()).toEqual([0.3, 0.6]);
   // The end, within two seconds of the last write: it waits for the close.
   await scrollTo(1);

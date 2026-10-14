@@ -696,6 +696,11 @@ export function App() {
           : t("nav.all");
   /** The sheet's bookmarks as the list has them now: a heart set in the sheet shows there too. */
   const sheetBookmarks = sheet ? sheet.ids.flatMap((id) => library.bookmarks.find((b) => b.id === id) ?? []) : [];
+  // Every bookmark of the sheet left the list (deleted elsewhere, another section): the sheet goes with them.
+  const sheetEmpty = !!sheet && sheetBookmarks.length === 0;
+  useEffect(() => {
+    if (sheetEmpty) setSheet(null);
+  }, [sheetEmpty]);
   const sectionCount = filters.onlyTrash
     ? counts.trash
     : filters.onlyInbox

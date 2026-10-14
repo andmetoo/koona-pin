@@ -312,8 +312,8 @@ const OWN_CLICK = "button, a, input, textarea, select, [data-menu]";
  * link or a button, before they see the click. Double-click and `Enter` open it
  * as «Open links» says, `Space` reads it in the sheet. Focus rings it in ink
  * (`app.css`), apart from the accent of the selection; a selected one says so
- * to a screen reader through `aria-describedby`, and the list announces the
- * change (`BookmarkList`).
+ * to a screen reader through `aria-describedby`, and App's live region says
+ * the change.
  */
 function cardControl(b: Bookmark, actions: BookmarkActions, selected: boolean) {
   const own = (e: { target: EventTarget }) => !!(e.target as HTMLElement).closest(OWN_CLICK);
@@ -371,7 +371,8 @@ function RowLink({ b, actions, className, label, children }: { b: Bookmark; acti
       draggable={false}
       onClick={(e) => {
         e.preventDefault();
-        actions.follow(b);
+        // The second click of a double-click would open the page twice.
+        if (e.detail < 2) actions.follow(b);
       }}
       // A middle click would open the page inside the app's own window.
       onAuxClick={(e) => e.preventDefault()}
@@ -432,7 +433,7 @@ export const BookmarkCard = memo(function BookmarkCard({
           <button
             type="button"
             aria-label={t("card.openInBrowserOf", { title: b.title || b.url })}
-            onClick={() => actions.open(b.url)}
+            onClick={(e) => e.detail < 2 && actions.open(b.url)}
             className="shutter-button shutter-open"
           >
             <Icon icon={ArrowUpRight} size={13} />
