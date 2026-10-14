@@ -12,7 +12,7 @@ use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
 use chrono::Utc;
 use koona_sync::net::{self, ClientConfig, CredentialSource, Credentials, Event, Handle, Stop};
-use koona_sync::session::{Action, Config, Effect, PairingEvent, Role, Session};
+use koona_sync::session::{Action, Config, Effect, HubChangeEvent, HubChangeFailure, PairingEvent, PauseReason, Phase, Role, Session, SessionError};
 use koonapin_lib::commercial::sync::status::{Model, Reaction};
 use koonapin_lib::commercial::sync::worker::{self, DbLibrary};
 use koonapin_lib::db::{self, BookmarkQuery, DbState, Purge, Source};
@@ -48,36 +48,30 @@ fn since_start(at: Instant) -> (f64, Instant) {
 
 // ── Credentials ──────────────────────────────────────────────────────────────
 
-struct Keys {
+/// The key that signs the tokens: one for the whole run (both tests share the JWKS server and the
+/// relay's JWKS cache), each test an account of its own.
+struct Signer {
     rng: SystemRandom,
     es: EcdsaKeyPair,
     kid: String,
-    plan: Ed25519KeyPair,
-    issuer: String,
-    sub: String,
-    email: String,
 }
 
-impl Keys {
-    fn new(jwks_port: u16) -> Keys {
+static SIGNER: std::sync::OnceLock<Signer> = std::sync::OnceLock::new();
+
+/// The run's signer; the first call starts the JWKS server on `jwks_port`.
+fn signer(jwks_port: u16) -> &'static Signer {
+    SIGNER.get_or_init(|| {
         let rng = SystemRandom::new();
         let pkcs8 = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &rng).unwrap();
         let es = EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, pkcs8.as_ref(), &rng).unwrap();
-        let plan = Ed25519KeyPair::from_seed_unchecked(&PLAN_SEED).unwrap();
-        assert_eq!(STANDARD.encode(plan.public_key().as_ref()), PLAN_PUBLIC);
-        let sub = Uuid::new_v4().to_string();
-        Keys {
-            rng,
-            es,
-            // A new kid every run: the relay fetches the JWKS again for a kid it doesn't know.
-            kid: format!("e2e-{}", Uuid::new_v4().simple()),
-            plan,
-            issuer: format!("http://127.0.0.1:{jwks_port}/auth/v1"),
-            email: format!("e2e-{}@example.com", &sub[..8]),
-            sub,
-        }
-    }
+        // A new kid every run: the relay fetches the JWKS again for a kid it doesn't know.
+        let signer = Signer { rng, es, kid: format!("e2e-{}", Uuid::new_v4().simple()) };
+        serve_jwks(jwks_port, signer.jwks());
+        signer
+    })
+}
 
+impl Signer {
     fn jwks(&self) -> String {
         // An uncompressed P-256 point: 0x04 || x || y.
         let point = self.es.public_key().as_ref();
@@ -87,15 +81,51 @@ impl Keys {
         }]})
         .to_string()
     }
+}
+
+/// One account: a `sub` and an email of its own, its tokens signed by the run's signer.
+struct Keys {
+    signer: &'static Signer,
+    plan: Ed25519KeyPair,
+    issuer: String,
+    sub: String,
+    email: String,
+}
+
+impl Keys {
+    fn new(jwks_port: u16) -> Keys {
+        let plan = Ed25519KeyPair::from_seed_unchecked(&PLAN_SEED).unwrap();
+        assert_eq!(STANDARD.encode(plan.public_key().as_ref()), PLAN_PUBLIC);
+        let sub = Uuid::new_v4().to_string();
+        Keys {
+            signer: signer(jwks_port),
+            plan,
+            issuer: format!("http://127.0.0.1:{jwks_port}/auth/v1"),
+            email: format!("e2e-{}@example.com", &sub[..8]),
+            sub,
+        }
+    }
 
     fn token(&self) -> String {
-        let header = serde_json::json!({"alg": "ES256", "kid": self.kid, "typ": "JWT"});
-        let claims = serde_json::json!({
+        self.sign(serde_json::json!({
             "iss": self.issuer, "aud": "authenticated", "sub": self.sub, "email": self.email,
             "exp": Utc::now().timestamp() + 3600,
-        });
+        }))
+    }
+
+    /// The token of a sign-in by email code at `at` (Unix seconds), as Supabase's `verify` gives
+    /// it: what `start_over` sends (PROTOCOL.md 2.6).
+    fn sign_in(&self, at: i64) -> String {
+        self.sign(serde_json::json!({
+            "iss": self.issuer, "aud": "authenticated", "sub": self.sub, "email": self.email,
+            "exp": Utc::now().timestamp() + 3600, "amr": [{"method": "otp", "timestamp": at}],
+        }))
+    }
+
+    fn sign(&self, claims: serde_json::Value) -> String {
+        let header = serde_json::json!({"alg": "ES256", "kid": self.signer.kid, "typ": "JWT"});
         let signed = format!("{}.{}", URL_SAFE_NO_PAD.encode(header.to_string()), URL_SAFE_NO_PAD.encode(claims.to_string()));
-        let sig = self.es.sign(&self.rng, signed.as_bytes()).unwrap();
+        let sig = self.signer.es.sign(&self.signer.rng, signed.as_bytes()).unwrap();
         format!("{signed}.{}", URL_SAFE_NO_PAD.encode(sig.as_ref()))
     }
 
@@ -113,20 +143,22 @@ impl Keys {
     }
 }
 
-/// The JWKS for the relay: every request gets it.
-async fn serve_jwks(port: u16, body: String) -> JoinHandle<()> {
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
-        .await
-        .unwrap_or_else(|e| panic!("the JWKS server needs 127.0.0.1:{port}: {e}"));
-    tokio::spawn(async move {
-        loop {
-            let Ok((mut stream, _)) = listener.accept().await else { return };
+/// The JWKS for the relay: every request gets it. On threads of its own, so it outlives the
+/// runtime of the test that started it.
+fn serve_jwks(port: u16, body: String) {
+    use std::io::{Read, Write};
+    let listener =
+        std::net::TcpListener::bind(("127.0.0.1", port)).unwrap_or_else(|e| panic!("the JWKS server needs 127.0.0.1:{port}: {e}"));
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut stream) = stream else { continue };
             let body = body.clone();
-            tokio::spawn(async move {
+            std::thread::spawn(move || {
+                let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
                 let mut request = Vec::new();
                 let mut buf = [0u8; 1024];
                 while !request.windows(4).any(|w| w == b"\r\n\r\n") {
-                    match stream.read(&mut buf).await {
+                    match stream.read(&mut buf) {
                         Ok(0) | Err(_) => return,
                         Ok(n) => request.extend_from_slice(&buf[..n]),
                     }
@@ -135,11 +167,11 @@ async fn serve_jwks(port: u16, body: String) -> JoinHandle<()> {
                     "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                     body.len()
                 );
-                let _ = stream.write_all(response.as_bytes()).await;
-                let _ = stream.shutdown().await;
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.shutdown(std::net::Shutdown::Write);
             });
         }
-    })
+    });
 }
 
 // ── Counting what reaches the relay ──────────────────────────────────────────
@@ -431,12 +463,18 @@ impl Device {
     }
 
     /// The first event from `from` on that `find` picks.
-    async fn wait<T>(&self, from: usize, what: &str, mut find: impl FnMut(&Event) -> Option<T>) -> T {
+    async fn wait<T>(&self, from: usize, what: &str, find: impl FnMut(&Event) -> Option<T>) -> T {
+        self.wait_at(from, what, find).await.1
+    }
+
+    /// As `wait`, with the place of the event in the log: the next wait can start after it.
+    async fn wait_at<T>(&self, from: usize, what: &str, mut find: impl FnMut(&Event) -> Option<T>) -> (usize, T) {
         let started = Instant::now();
         loop {
             {
                 let log = self.log.lock().unwrap();
-                if let Some(found) = log[from.min(log.len())..].iter().find_map(&mut find) {
+                let from = from.min(log.len());
+                if let Some(found) = log[from..].iter().enumerate().find_map(|(i, e)| find(e).map(|t| (from + i + 1, t))) {
                     return found;
                 }
             }
@@ -446,6 +484,33 @@ impl Device {
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
+    }
+
+    /// Whether any event from `from` on is one `find` picks.
+    fn saw(&self, from: usize, find: impl FnMut(&Event) -> bool) -> bool {
+        let log = self.log.lock().unwrap();
+        log[from.min(log.len())..].iter().any(find)
+    }
+
+    /// The device's latest phase.
+    fn phase(&self) -> Option<Phase> {
+        let log = self.log.lock().unwrap();
+        log.iter().rev().find_map(|e| if let Event::Session(Effect::Status(p)) = e { Some(*p) } else { None })
+    }
+
+    async fn wait_phase(&self, from: usize, phase: Phase) -> usize {
+        self.wait_at(from, &format!("{phase:?}"), |e| matches!(e, Event::Session(Effect::Status(p)) if *p == phase).then_some(()))
+            .await
+            .0
+    }
+
+    async fn wait_hub_change(&self, from: usize, what: &str, find: impl Fn(&HubChangeEvent) -> bool) -> usize {
+        self.wait_at(from, what, |e| matches!(e, Event::Session(Effect::HubChange(h)) if find(h)).then_some(())).await.0
+    }
+
+    /// The pinned roster, as `sync_meta` keeps it.
+    fn roster(&self) -> Option<koona_sync::library::Roster> {
+        self.with(|conn| koona_sync::library::load_meta(conn).unwrap().roster)
     }
 
     fn print_log(&self, last: usize) {
@@ -601,6 +666,12 @@ async fn converge(meter: &Meter, what: &str, devices: &[&Device]) -> Duration {
 async fn pair(hub: &Device, new: &mut Device, keys: &Arc<Keys>, url: &str) -> String {
     let (hub_mark, new_mark) = (hub.mark(), new.mark());
     new.start(keys, url);
+    confirm_pairing(hub, new, hub_mark, new_mark).await
+}
+
+/// The pairing of a pending device that is offering itself (after `start`, or `JoinAgain`):
+/// the same six digits on both screens, the hub approves.
+async fn confirm_pairing(hub: &Device, new: &Device, hub_mark: usize, new_mark: usize) -> String {
     let new_id = new.id;
     let asking = new
         .wait(new_mark, "pairing code on the new device", |e| match e {
@@ -685,25 +756,77 @@ fn many(conn: &Connection, count: usize) {
 
 // ── The scenario ─────────────────────────────────────────────────────────────
 
+/// One upgrade with a token and no lease: the relay verifies the token (fetching the JWKS for
+/// the run's new kid) and refuses for the lease, before any account is touched. Without it,
+/// two first connections at once race the relay's refetch of the JWKS, and the one that comes
+/// while the other's fetch is under way is closed with 4001 `token_kid`.
+async fn warm_up(relay: &str, keys: &Keys) {
+    let rest = relay.strip_prefix("ws://").expect("a ws:// relay");
+    let (authority, path) = rest.split_once('/').map_or((rest, "/".to_string()), |(a, p)| (a, format!("/{p}")));
+    let request = format!(
+        "GET {path} HTTP/1.1\r\nHost: {authority}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\
+         Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\
+         Authorization: Bearer {}\r\nX-Koona-Proto: 1\r\n\r\n",
+        keys.token()
+    );
+    let probe = async {
+        let mut stream = tokio::net::TcpStream::connect(authority).await.ok()?;
+        stream.write_all(request.as_bytes()).await.ok()?;
+        let mut response = Vec::new();
+        let mut buf = [0u8; 1024];
+        while !response.windows(4).any(|w| w == b"\r\n\r\n") {
+            let n = stream.read(&mut buf).await.ok()?;
+            if n == 0 {
+                break;
+            }
+            response.extend_from_slice(&buf[..n]);
+        }
+        Some(String::from_utf8_lossy(&response).lines().next().unwrap_or_default().to_string())
+    };
+    let status = tokio::time::timeout(Duration::from_secs(10), probe).await.ok().flatten();
+    eprintln!("[e2e] the relay checked the run's token: {status:?}");
+}
+
+/// A test's account, its meter in front of the relay, and the folder of its libraries.
+struct Setup {
+    meter: Meter,
+    url: String,
+    keys: Arc<Keys>,
+    folder: PathBuf,
+}
+
+impl Setup {
+    async fn new() -> Setup {
+        let relay = std::env::var("KOONAPIN_E2E_RELAY").unwrap_or_else(|_| DEFAULT_RELAY.to_string());
+        // The devices dial the meter, which passes everything on to the relay.
+        since_start(Instant::now());
+        let meter = Meter::start(&relay).await;
+        let url = meter.url.clone();
+        let jwks_port = std::env::var("KOONAPIN_E2E_JWKS_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_JWKS_PORT);
+        let keys = Arc::new(Keys::new(jwks_port));
+        // The tests start together; the relay learns the run's kid once, before any device dials.
+        static WARM: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
+        WARM.get_or_init(|| warm_up(&relay, &keys)).await;
+        let folder: PathBuf = std::env::temp_dir().join(format!("koonapin-e2e-{}", Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&folder).unwrap();
+        eprintln!("[e2e] relay {relay} through {url}, account {}, libraries in {}", keys.sub, folder.display());
+        Setup { meter, url, keys, folder }
+    }
+
+    /// The path of a device's library.
+    fn place(&self, name: &str) -> PathBuf {
+        let dir = self.folder.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join("koonapin.db")
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[ignore = "needs the relay running locally: see commercial/koona-sync/E2E.md"]
 async fn three_devices_sync_through_the_local_relay() {
-    let relay = std::env::var("KOONAPIN_E2E_RELAY").unwrap_or_else(|_| DEFAULT_RELAY.to_string());
-    // The devices dial the meter, which passes everything on to the relay.
-    since_start(Instant::now());
-    let meter = Meter::start(&relay).await;
-    let url = meter.url.clone();
-    let jwks_port = std::env::var("KOONAPIN_E2E_JWKS_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_JWKS_PORT);
-    let keys = Arc::new(Keys::new(jwks_port));
-    let jwks = serve_jwks(jwks_port, keys.jwks()).await;
-    let folder: PathBuf = std::env::temp_dir().join(format!("koonapin-e2e-{}", Uuid::new_v4().simple()));
-    std::fs::create_dir_all(&folder).unwrap();
-    let place = |name: &str| {
-        let dir = folder.join(name);
-        std::fs::create_dir_all(&dir).unwrap();
-        dir.join("koonapin.db")
-    };
-    eprintln!("[e2e] relay {relay} through {url}, account {}, libraries in {}", keys.sub, folder.display());
+    let setup = Setup::new().await;
+    let (meter, url, keys, folder) = (&setup.meter, setup.url.clone(), setup.keys.clone(), setup.folder.clone());
+    let place = |name: &str| setup.place(name);
 
     // ── 1. A turns sync on and becomes the hub; B and C pair and merge ───────
     let mut a = Device::new("Studio Mac", library_a(&place("a")));
@@ -875,7 +998,6 @@ async fn three_devices_sync_through_the_local_relay() {
     a.stop().await;
     b.stop().await;
     d.stop().await;
-    jwks.abort();
     let trace = std::env::temp_dir().join("koonapin-e2e-trace.txt");
     meter.write_trace(&trace);
     eprintln!("[e2e] what the devices sent: {}", trace.display());
@@ -893,4 +1015,218 @@ async fn three_devices_sync_through_the_local_relay() {
     assert!(pings > 0, "the keepalive went out");
     drop((a, b, c, d));
     let _ = std::fs::remove_dir_all(&folder);
+}
+
+// ── Changing the hub and starting over ───────────────────────────────────────
+
+/// The person on another device asks to be the main computer: denied, then allowed; with the hub
+/// gone, starting over from another device, the others held until they join again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "needs the relay running locally: see commercial/koona-sync/E2E.md"]
+async fn the_hub_hands_over_and_the_account_starts_over() {
+    let setup = Setup::new().await;
+    let (meter, url, keys) = (&setup.meter, setup.url.clone(), setup.keys.clone());
+    let mut a = Device::new("Desk Mac", library_a(&setup.place("a")));
+    let b_urls = ["https://example.com/notes", "https://hand.example/b1", "https://hand.example/b2"];
+    let c_urls = ["https://example.com/notes", "https://hand.example/c1", "https://hand.example/c2"];
+    let mut b = Device::new("Travel Laptop", library_other(&setup.place("b"), &b_urls, &["Reading"], &["from-b"]));
+    let mut c = Device::new("Home PC", library_other(&setup.place("c"), &c_urls, &["Travel"], &["from-c"]));
+    let mut d = Device::new("Spare Mac", test_libraries::fresh(&setup.place("d")));
+    for device in [&a, &b, &c, &d] {
+        eprintln!("[e2e] {} is {}", device.name, device.id);
+    }
+    let a_mark = a.mark();
+    a.start(&keys, &url);
+    a.wait_phase(a_mark, Phase::Online).await;
+    pair(&a, &mut b, &keys, &url).await;
+    pair(&a, &mut c, &keys, &url).await;
+    pair(&a, &mut d, &keys, &url).await;
+    converge(meter, "four devices merged", &[&a, &b, &c, &d]).await;
+
+    // ── 6. B asks to be the hub: A denies, then allows ──────────────────────
+    let handover = Instant::now();
+    let (am, bm) = (a.mark(), b.mark());
+    b.act(Action::RequestHub);
+    b.wait_hub_change(bm, "the wait for the hub's answer", |h| matches!(h, HubChangeEvent::Waiting { hub, hub_name } if *hub == a.id && hub_name == a.name))
+        .await;
+    a.wait_hub_change(am, "the question on the hub", |h| matches!(h, HubChangeEvent::Asked { device, name } if *device == b.id && name == b.name))
+        .await;
+    a.act(Action::AnswerHubRequest { allow: false });
+    b.wait_hub_change(bm, "denied", |h| *h == HubChangeEvent::Failed { peer: a.id, reason: HubChangeFailure::Denied }).await;
+    a.wait_hub_change(am, "settled on the hub", |h| *h == HubChangeEvent::Settled { peer: b.id }).await;
+    // Give a stray `account` a moment to show.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    for device in [&a, &b, &c, &d] {
+        assert_eq!(device.meta("hub"), Some(a.id.to_string()), "{}: A is still the hub", device.name);
+        assert!(
+            !device.saw(am.min(bm), |e| matches!(e, Event::Session(Effect::Devices { hub: Some(h), .. }) if *h != a.id)),
+            "{}: no other hub announced",
+            device.name
+        );
+    }
+
+    let marks: Vec<usize> = [&a, &b, &c, &d].iter().map(|x| x.mark()).collect();
+    b.act(Action::RequestHub);
+    a.wait_hub_change(marks[0], "the question again", |h| matches!(h, HubChangeEvent::Asked { device, .. } if *device == b.id)).await;
+    a.act(Action::AnswerHubRequest { allow: true });
+    b.wait_hub_change(marks[1], "settled on the new hub", |h| *h == HubChangeEvent::Settled { peer: a.id }).await;
+    for (device, mark) in [&a, &b, &c, &d].iter().zip(&marks) {
+        device
+            .wait(*mark, "the relay's new hub", |e| matches!(e, Event::Session(Effect::Devices { hub: Some(h), .. }) if *h == b.id).then_some(()))
+            .await;
+    }
+    // B's roster reaches the others, naming every device.
+    let started = Instant::now();
+    loop {
+        let rosters: Vec<_> = [&a, &c, &d].iter().map(|x| (x.roster(), x.meta("hub"))).collect();
+        let done = rosters.iter().all(|(roster, hub)| {
+            roster.as_ref().is_some_and(|r| r.hub == b.id && [a.id, b.id, c.id, d.id].iter().all(|id| r.key_of(*id).is_some()))
+                && hub.as_deref() == Some(&*b.id.to_string())
+        });
+        if done {
+            break;
+        }
+        assert!(started.elapsed() < CONVERGE, "the new hub's roster never arrived: {rosters:?}");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(b.roster().is_some_and(|r| r.hub == b.id), "B pinned its own roster");
+    eprintln!("[e2e] the hub handed over to B in {:.2} s", handover.elapsed().as_secs_f64());
+    a.with(|conn| db::update_bookmark(conn, id(conn, "https://hand.example/c1"), Some("Edited on A under the new hub".into()), None, None, None, None))
+        .unwrap();
+    c.with(|conn| db::create_collection(conn, "After the handover", None, None)).unwrap();
+    d.with(|conn| db::update_bookmark(conn, id(conn, "https://hand.example/b1"), None, None, None, None, Some(vec!["handover".into()])))
+        .unwrap();
+    converge(meter, "edits under the new hub", &[&a, &b, &c, &d]).await;
+
+    // The hub away: a request ends at once as unavailable.
+    let (cm, am) = (c.mark(), a.mark());
+    b.stop().await;
+    for (device, mark) in [(&c, cm), (&a, am)] {
+        device
+            .wait(mark, "B offline", |e| matches!(e, Event::Session(Effect::Devices { online, .. }) if !online.contains(&b.id)).then_some(()))
+            .await;
+    }
+    let cm = c.mark();
+    c.act(Action::RequestHub);
+    c.wait_hub_change(cm, "unavailable", |h| *h == HubChangeEvent::Failed { peer: b.id, reason: HubChangeFailure::Unavailable }).await;
+
+    // ── 7. With the hub gone, C starts over ─────────────────────────────────
+    let epoch: u32 = c.meta("key_epoch").unwrap().parse().unwrap();
+    let old_key = c.meta("library_key").unwrap();
+    let marks: Vec<usize> = [&a, &c, &d].iter().map(|x| x.mark()).collect();
+    // A sign-in an hour old is refused, and nothing changes.
+    c.act(Action::StartOver { token: keys.sign_in(Utc::now().timestamp() - 3600) });
+    c.wait(marks[1], "stale_sign_in", |e| {
+        matches!(e, Event::Session(Effect::Error(SessionError::Relay(code))) if code == "stale_sign_in").then_some(())
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    for (device, mark) in [&a, &c, &d].iter().zip(&marks) {
+        assert!(!device.saw(*mark, |e| matches!(e, Event::Closed { .. })), "{}: no connection closed", device.name);
+        assert_eq!(device.meta("key_epoch"), Some(epoch.to_string()), "{}: the epoch", device.name);
+        assert_eq!(device.meta("hub"), Some(b.id.to_string()), "{}: the hub", device.name);
+    }
+    assert_eq!(c.meta("library_key"), Some(old_key.clone()));
+
+    let start_over = Instant::now();
+    let b_before = b.dump();
+    c.act(Action::StartOver { token: keys.sign_in(Utc::now().timestamp()) });
+    let after_close = c.wait_at(marks[1], "4005 on C", |e| matches!(e, Event::Closed { code: Some(4005), .. }).then_some(())).await.0;
+    c.wait_phase(after_close, Phase::Online).await;
+    let started = Instant::now();
+    while c.meta("key_epoch") != Some((epoch + 1).to_string()) {
+        assert!(started.elapsed() < CONVERGE, "C never took the new epoch: {:?}", c.meta("key_epoch"));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(c.meta("hub"), Some(c.id.to_string()), "C is the hub");
+    assert_ne!(c.meta("library_key"), Some(old_key.clone()), "C made a new library key");
+    let roster = c.roster().unwrap();
+    assert_eq!((roster.hub, roster.devices.len()), (c.id, 1), "C's roster names C alone");
+    eprintln!("[e2e] C started over in {:.2} s", start_over.elapsed().as_secs_f64());
+
+    // A and D were disconnected too; they come back pending and hold, offering nothing.
+    let c_codes = c.mark();
+    for (device, mark) in [(&a, marks[0]), (&d, marks[2])] {
+        let after = device.wait_at(mark, "4005", |e| matches!(e, Event::Closed { code: Some(4005), .. }).then_some(())).await.0;
+        let (by, by_name, at_epoch) = device
+            .wait(after, "the start over shown", |e| match e {
+                Event::Session(Effect::StartedOver { by, by_name, epoch, .. }) => Some((*by, by_name.clone(), *epoch)),
+                _ => None,
+            })
+            .await;
+        assert_eq!((by, by_name.as_deref(), at_epoch), (c.id, Some(c.name), epoch + 1), "{}: who started over", device.name);
+        device.wait_phase(after, Phase::Paused { reason: PauseReason::StartedOver }).await;
+    }
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    let pairing_on_c = |from: usize| c.saw(from, |e| matches!(e, Event::Session(Effect::Pairing(PairingEvent::Code { .. }))));
+    assert!(!pairing_on_c(c_codes), "no pairing offer reached the new hub");
+    for device in [&a, &d] {
+        assert_eq!(device.phase(), Some(Phase::Paused { reason: PauseReason::StartedOver }), "{}: held", device.name);
+        assert_eq!(device.meta("key_epoch"), Some(epoch.to_string()), "{}: still the old key", device.name);
+    }
+
+    // Edits on both sides meanwhile; A joins again, pairs with C, and its library merges back.
+    a.with(|conn| db::update_bookmark(conn, id(conn, "https://hand.example/b2"), Some("Edited on A while held".into()), None, None, None, None))
+        .unwrap();
+    c.with(|conn| db::create_collection(conn, "Started over", None, None)).unwrap();
+    let d_held = d.dump();
+    let (cm, am) = (c.mark(), a.mark());
+    a.act(Action::JoinAgain);
+    let code = confirm_pairing(&c, &a, cm, am).await;
+    eprintln!("[e2e] A joined again with code {code}");
+    converge(meter, "A merged back into the new hub", &[&a, &c]).await;
+    assert_eq!(a.meta("key_epoch"), Some((epoch + 1).to_string()), "A holds the new key");
+    assert_eq!(a.meta("library_key"), c.meta("library_key"));
+    assert_eq!(a.meta("hub"), Some(c.id.to_string()));
+    for device in [&a, &c] {
+        assert_unique(device);
+        assert_eq!(device.search("held").len(), 1, "{}: A's edit while held", device.name);
+        assert!(device.collection_order().iter().any(|n| n == "Started over"), "{}: C's edit after the start over", device.name);
+    }
+    let roster = a.roster().unwrap();
+    assert!(roster.hub == c.id && roster.key_of(a.id).is_some() && roster.key_of(c.id).is_some(), "A pinned C's roster");
+    assert_eq!(d.dump(), d_held, "nothing reached D, held");
+    assert_eq!(d.phase(), Some(Phase::Paused { reason: PauseReason::StartedOver }));
+
+    // The old hub comes back: held too, its library as it left it.
+    let (bm, cm) = (b.mark(), c.mark());
+    b.start(&keys, &url);
+    b.wait(bm, "the start over shown on B", |e| matches!(e, Event::Session(Effect::StartedOver { by, .. }) if *by == c.id).then_some(()))
+        .await;
+    b.wait_phase(bm, Phase::Paused { reason: PauseReason::StartedOver }).await;
+    a.with(|conn| db::update_bookmark(conn, id(conn, "https://hand.example/c2"), Some("After B came back".into()), None, None, None, None))
+        .unwrap();
+    converge(meter, "A and C with the old hub held", &[&a, &c]).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    assert!(!pairing_on_c(cm), "the old hub offered nothing");
+    assert_eq!(b.phase(), Some(Phase::Paused { reason: PauseReason::StartedOver }), "B held");
+    assert_eq!(b.dump(), b_before, "nothing reached the old hub");
+    assert_eq!(b.meta("key_epoch"), Some(epoch.to_string()));
+
+    let closes: Vec<(&str, Vec<(Option<u16>, Option<String>)>)> = [&a, &b, &c, &d].iter().map(|x| (x.name, x.closes())).collect();
+    let trouble: Vec<(&str, Vec<String>)> = [&a, &b, &c, &d].iter().map(|x| (x.name, x.trouble())).collect();
+    eprintln!("[e2e] errors and drops: {trouble:#?}");
+    for device in [&mut a, &mut b, &mut c, &mut d] {
+        device.stop().await;
+    }
+    let trace = std::env::temp_dir().join("koonapin-e2e-trace-hub.txt");
+    meter.write_trace(&trace);
+    eprintln!("[e2e] what the devices sent: {}", trace.display());
+    eprintln!("[e2e] connections closed: {closes:?}");
+    // Every device online at the start over was closed with 4005; nothing else closed.
+    let started_over = || vec![(Some(4005), Some("started_over".to_string()))];
+    let expected = vec![("Desk Mac", started_over()), ("Travel Laptop", vec![]), ("Home PC", started_over()), ("Spare Mac", started_over())];
+    assert_eq!(closes, expected);
+    // Nothing refused but C's stale sign-in; frames dropped only for an epoch not held yet.
+    for (name, trouble) in &trouble {
+        let unexpected: Vec<&String> = trouble
+            .iter()
+            .filter(|t| !t.contains("reason: UnknownEpoch") && !(*name == "Home PC" && t.contains("Relay(\"stale_sign_in\")")))
+            .collect();
+        assert!(unexpected.is_empty(), "{name}: {unexpected:#?}");
+    }
+    let stale: usize = trouble.iter().map(|(_, t)| t.iter().filter(|t| t.contains("stale_sign_in")).count()).sum();
+    assert_eq!(stale, 1, "one stale sign-in, refused");
+    drop((a, b, c, d));
+    let _ = std::fs::remove_dir_all(&setup.folder);
 }
