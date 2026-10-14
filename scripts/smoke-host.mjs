@@ -11,6 +11,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { assertNoOtherApp, capture, hello, hostMessage, pipePath, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
+import { registerLibraryFunctions } from "./lib/library-functions.mjs";
 
 assertNoOtherApp();
 
@@ -63,6 +64,7 @@ try {
 
   const db = new DatabaseSync(path.join(data, "koonapin.db"));
   db.exec("PRAGMA busy_timeout = 5000");
+  registerLibraryFunctions(db);
   // By its address: a new library gets its starter links (NP-117) once the interface has loaded, before
   // or after the capture, so the capture is not the only bookmark.
   const captured = db.prepare("SELECT title, source FROM bookmarks WHERE url = ?");
