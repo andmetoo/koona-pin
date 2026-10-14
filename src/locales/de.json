@@ -1288,7 +1288,9 @@
       "hub_change_timeout": "{{name}} hat nicht geantwortet",
       "hub_change_timeoutBody": "Innerhalb von fünf Minuten kam keine Antwort. Versuchen Sie es erneut, während {{name}} eingeschaltet ist.",
       "stale_sign_in": "Der Code ist abgelaufen",
-      "stale_sign_inBody": "Fordern Sie einen neuen Code an und geben Sie ihn innerhalb von zehn Minuten ein."
+      "stale_sign_inBody": "Fordern Sie einen neuen Code an und geben Sie ihn innerhalb von zehn Minuten ein.",
+      "key_lost": "Dieser Computer hat seinen Synchronisierungsschlüssel verloren",
+      "key_lostBody": "Die Schlüsseldatei war beschädigt. Neues kommt erst an, wenn {{name}} online ist und den Schlüssel erneut sendet."
     },
     "pair": {
       "joinTitle": "{{name}} möchte beitreten",

@@ -1362,7 +1362,9 @@
       "hub_change_timeout": "{{name}} não respondeu",
       "hub_change_timeoutBody": "Ninguém respondeu em cinco minutos. Tente de novo enquanto {{name}} estiver ligado.",
       "stale_sign_in": "O código expirou",
-      "stale_sign_inBody": "Envie um novo código e digite-o em até dez minutos."
+      "stale_sign_inBody": "Envie um novo código e digite-o em até dez minutos.",
+      "key_lost": "Este computador perdeu a chave de sincronização",
+      "key_lostBody": "O arquivo da chave estava danificado. Nada novo chega até que {{name}} esteja online e envie a chave de novo."
     },
     "pair": {
       "joinTitle": "{{name}} quer participar",

@@ -1214,7 +1214,9 @@
       "hub_change_timeout": "{{name}} 没有响应",
       "hub_change_timeoutBody": "五分钟内无人响应。请在 {{name}} 开机时重试。",
       "stale_sign_in": "验证码已过期",
-      "stale_sign_inBody": "请发送新的验证码，并在十分钟内输入。"
+      "stale_sign_inBody": "请发送新的验证码，并在十分钟内输入。",
+      "key_lost": "此电脑丢失了同步密钥",
+      "key_lostBody": "密钥文件已损坏。在 {{name}} 联网并重新发送密钥之前，不会收到新的更改。"
     },
     "pair": {
       "joinTitle": "{{name}} 想要加入",

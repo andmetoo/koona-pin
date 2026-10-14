@@ -217,6 +217,7 @@ export const PROBLEMS: readonly SyncProblem[] = [
   "hub_change_denied",
   "hub_change_timeout",
   "stale_sign_in",
+  "key_lost",
 ];
 /** What the person can do about a problem, from the banner. */
 const PROBLEM_ACTIONS: Partial<Record<SyncProblem, SyncAction>> = {

@@ -52,11 +52,18 @@ pub struct DbLibrary {
     /// Where the library key is kept instead of the library (`identity::KEY_FILE`), and the
     /// account it is of; none keeps it in `sync_meta`, as the engine does by itself.
     key_file: Option<(PathBuf, String)>,
+    /// Raised when the key file didn't read and was set aside, for the status to say so.
+    key_lost: Arc<AtomicBool>,
 }
 
 impl DbLibrary {
     pub fn new(db: Arc<DbState>, replica: Uuid, abandoned: Arc<AtomicBool>) -> DbLibrary {
-        DbLibrary { db, replica, abandoned, key_file: None }
+        DbLibrary { db, replica, abandoned, key_file: None, key_lost: Arc::new(AtomicBool::new(false)) }
+    }
+
+    /// The flag raised when the key file was set aside.
+    pub fn key_lost(&self) -> Arc<AtomicBool> {
+        self.key_lost.clone()
     }
 
     /// The library key of `account` in `path`, out of the library and so out of its copies.
@@ -109,9 +116,14 @@ impl Library for DbLibrary {
         let Some((path, account)) = self.key_file.clone() else {
             return self.with(|conn| Library::load_meta(conn));
         };
+        let key_lost = self.key_lost.clone();
         self.with(|conn| {
             let mut meta = Library::load_meta(conn)?;
-            let kept = super::identity::load_key(&path, &account).map_err(key_error)?;
+            let loaded = super::identity::load_key(&path, &account).map_err(key_error)?;
+            if loaded.set_aside {
+                key_lost.store(true, Ordering::SeqCst);
+            }
+            let kept = loaded.key;
             // A library from before the key file has it in `sync_meta`: it moves out, once.
             if let Some(old) = meta.key.take() {
                 if kept.is_none() {
@@ -279,6 +291,7 @@ pub fn spawn(app: &AppHandle, start: Start) -> Running {
     let abandoned = Arc::new(AtomicBool::new(false));
     let done = Arc::new(AtomicBool::new(false));
     let library = DbLibrary::new(db.clone(), replica, abandoned.clone()).with_key_file(key_file, sub.clone());
+    let key_lost = library.key_lost();
     let config = Config::new(identity.device, identity.key_pair(), sub.clone(), identity.name.clone(), app.package_info().version.to_string());
     let session = Session::new(config, Box::new(ring::rand::SystemRandom::new()));
     let credentials: CredentialSource = {
@@ -301,7 +314,7 @@ pub fn spawn(app: &AppHandle, start: Start) -> Running {
     };
     let (handle, events, work) = net::client(ClientConfig::new(url), session, library, credentials);
     tauri::async_runtime::spawn(work);
-    tauri::async_runtime::spawn(pump(app.clone(), events, handle.clone(), db.clone(), generation, abandoned.clone(), done.clone()));
+    tauri::async_runtime::spawn(pump(app.clone(), events, handle.clone(), db.clone(), generation, abandoned.clone(), key_lost, done.clone()));
     tauri::async_runtime::spawn(watch(db, handle.clone(), done.clone()));
     Running { handle, sub, replica, generation, abandoned, done }
 }
@@ -313,6 +326,7 @@ async fn pump(
     db: Arc<DbState>,
     generation: u64,
     abandoned: Arc<AtomicBool>,
+    key_lost: Arc<AtomicBool>,
     done: Arc<AtomicBool>,
 ) {
     while let Some(event) = events.recv().await {
@@ -340,6 +354,9 @@ async fn pump(
                     }
                 }
             }
+        }
+        if key_lost.swap(false, Ordering::SeqCst) {
+            state.key_lost(&app);
         }
         if abandoned.load(Ordering::SeqCst) {
             state.library_replaced(generation);
@@ -444,7 +461,7 @@ pub mod tests {
         // Read once, it moves to the file and leaves the library.
         assert_eq!(lib.load_meta().unwrap().key, Some((3, [7; 32])));
         assert_eq!(in_library(&db.conn.lock().unwrap()), 0);
-        assert_eq!(super::super::identity::load_key(&path, "account-1").unwrap(), Some((3, [7; 32])));
+        assert_eq!(super::super::identity::load_key(&path, "account-1").unwrap().key, Some((3, [7; 32])));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -460,8 +477,8 @@ pub mod tests {
 
         // A file from before the account was written down is bound to the account that reads it.
         std::fs::write(&path, format!("{{\"v\": 1, \"epoch\": 4, \"key\": \"{}\"}}", base64::engine::general_purpose::STANDARD.encode([9u8; 32]))).unwrap();
-        assert_eq!(super::super::identity::load_key(&path, "account-1").unwrap(), Some((4, [9; 32])));
-        assert_eq!(super::super::identity::load_key(&path, "account-2").unwrap(), None, "now the first account's");
+        assert_eq!(super::super::identity::load_key(&path, "account-1").unwrap().key, Some((4, [9; 32])));
+        assert_eq!(super::super::identity::load_key(&path, "account-2").unwrap().key, None, "now the first account's");
 
         // Another account signed in here doesn't get it.
         let mut other = DbLibrary::new(db.clone(), replica, Arc::new(AtomicBool::new(false))).with_key_file(path.clone(), "account-2".into());
@@ -472,6 +489,7 @@ pub mod tests {
         std::fs::write(&path, "{\"v\": 1, \"epoch\": 4, \"key\": \"cut sho").unwrap();
         assert_eq!(lib.load_meta().unwrap().key, None);
         assert!(!path.exists() && path.with_extension("json.damaged").exists());
+        assert!(lib.key_lost().swap(false, Ordering::SeqCst), "the status is told");
 
         // The library forgot its sync (another copy opened in its place): the key goes too.
         lib.store_meta(&Meta { key: Some((4, [9; 32])), hub: Some(hub), roster: None }).unwrap();

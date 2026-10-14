@@ -1436,7 +1436,9 @@
       "hub_change_timeout": "{{name}} nie odpowiedział",
       "hub_change_timeoutBody": "Nikt nie odpowiedział w ciągu pięciu minut. Spróbuj ponownie, gdy {{name}} będzie włączony.",
       "stale_sign_in": "Kod wygasł",
-      "stale_sign_inBody": "Wyślij nowy kod i wpisz go w ciągu dziesięciu minut."
+      "stale_sign_inBody": "Wyślij nowy kod i wpisz go w ciągu dziesięciu minut.",
+      "key_lost": "Ten komputer utracił klucz synchronizacji",
+      "key_lostBody": "Plik klucza był uszkodzony. Nic nowego nie dotrze, dopóki {{name}} nie będzie online i nie wyśle klucza ponownie."
     },
     "pair": {
       "joinTitle": "{{name}} chce dołączyć",

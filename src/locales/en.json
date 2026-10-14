@@ -1288,7 +1288,9 @@
       "hub_change_timeout": "{{name}} didn't answer",
       "hub_change_timeoutBody": "Nobody answered within five minutes. Try again while {{name}} is on.",
       "stale_sign_in": "The code has expired",
-      "stale_sign_inBody": "Send a new code and enter it within ten minutes."
+      "stale_sign_inBody": "Send a new code and enter it within ten minutes.",
+      "key_lost": "This computer lost its sync key",
+      "key_lostBody": "Its key file was damaged. Nothing new arrives until {{name}} is online and sends the key again."
     },
     "pair": {
       "joinTitle": "{{name}} wants to join",

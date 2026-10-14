@@ -1214,7 +1214,9 @@
       "hub_change_timeout": "{{name}}에서 응답하지 않았습니다",
       "hub_change_timeoutBody": "5분 안에 아무도 응답하지 않았습니다. {{name}}이(가) 켜져 있을 때 다시 시도하세요.",
       "stale_sign_in": "코드가 만료되었습니다",
-      "stale_sign_inBody": "새 코드를 보내고 10분 안에 입력하세요."
+      "stale_sign_inBody": "새 코드를 보내고 10분 안에 입력하세요.",
+      "key_lost": "이 컴퓨터의 동기화 키가 사라졌습니다",
+      "key_lostBody": "키 파일이 손상되었습니다. {{name}}이(가) 온라인이 되어 키를 다시 보낼 때까지 새로운 변경 사항이 오지 않습니다."
     },
     "pair": {
       "joinTitle": "{{name}}에서 참여하려고 합니다",

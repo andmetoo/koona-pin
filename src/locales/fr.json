@@ -1362,7 +1362,9 @@
       "hub_change_timeout": "{{name}} n’a pas répondu",
       "hub_change_timeoutBody": "Personne n’a répondu en cinq minutes. Réessayez pendant que {{name}} est allumé.",
       "stale_sign_in": "Le code a expiré",
-      "stale_sign_inBody": "Envoyez un nouveau code et saisissez-le dans les dix minutes."
+      "stale_sign_inBody": "Envoyez un nouveau code et saisissez-le dans les dix minutes.",
+      "key_lost": "Cet ordinateur a perdu sa clé de synchronisation",
+      "key_lostBody": "Son fichier de clé était endommagé. Rien de nouveau n’arrive tant que {{name}} n’est pas en ligne pour renvoyer la clé."
     },
     "pair": {
       "joinTitle": "{{name}} veut rejoindre la synchronisation",

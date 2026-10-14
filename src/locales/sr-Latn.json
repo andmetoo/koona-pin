@@ -1364,7 +1364,9 @@
       "hub_change_timeout": "{{name}} ne odgovara",
       "hub_change_timeoutBody": "Niko nije odgovorio za pet minuta. Pokušajte ponovo dok je {{name}} na mreži.",
       "stale_sign_in": "Kod je istekao",
-      "stale_sign_inBody": "Zatražite novi kod i unesite ga u roku od deset minuta."
+      "stale_sign_inBody": "Zatražite novi kod i unesite ga u roku od deset minuta.",
+      "key_lost": "Ovaj računar je izgubio ključ za sinhronizaciju",
+      "key_lostBody": "Datoteka ključa je oštećena. Ništa novo neće stići dok {{name}} ne bude na mreži i ponovo pošalje ključ."
     },
     "pair": {
       "joinTitle": "{{name}} traži da se poveže",

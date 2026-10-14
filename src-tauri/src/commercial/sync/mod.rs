@@ -265,6 +265,16 @@ impl SyncState {
         Ok(())
     }
 
+    /// The key file was set aside: shown until a key comes again.
+    fn key_lost(&self, app: &AppHandle) {
+        {
+            let mut model = lock(&self.model);
+            model.note(Utc::now(), "key file set aside: waiting for the key".into());
+            model.error = Some(SyncProblem::KeyLost);
+        }
+        self.emit(app);
+    }
+
     /// The client of `generation` found another library in place of its own.
     fn library_replaced(&self, generation: u64) {
         let mut run = lock(&self.run);

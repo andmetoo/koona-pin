@@ -131,14 +131,23 @@ struct StoredKey {
     key: String,
 }
 
+/// What `load_key` found.
+#[derive(Debug, PartialEq, Eq)]
+pub struct LoadedKey {
+    pub key: Option<(u32, koona_sync::crypto::LibraryKey)>,
+    /// The file didn't read and was set aside: the key is lost until the main computer sends it.
+    pub set_aside: bool,
+}
+
 /// The key of `account` kept in `path`; none when there is no file or it is another account's.
 /// A file that doesn't read (cut short, edited) is set aside as `json.damaged`, as the identity
 /// is: without a key the device asks the main computer for it again, instead of failing for good.
 /// A file that can't be opened at all is an error, tried again later.
-pub fn load_key(path: &Path, account: &str) -> io::Result<Option<(u32, koona_sync::crypto::LibraryKey)>> {
+pub fn load_key(path: &Path, account: &str) -> io::Result<LoadedKey> {
+    let found = |key| Ok(LoadedKey { key, set_aside: false });
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return found(None),
         Err(e) => return Err(e),
     };
     let parsed = serde_json::from_str::<StoredKey>(&text).ok().and_then(|stored| {
@@ -146,17 +155,20 @@ pub fn load_key(path: &Path, account: &str) -> io::Result<Option<(u32, koona_syn
         Some((stored.account, stored.epoch, key))
     });
     match parsed {
-        Some((Some(owner), epoch, key)) => Ok((owner == account).then_some((epoch, key))),
+        Some((Some(owner), epoch, key)) => found((owner == account).then_some((epoch, key))),
         // A file from before the account was written down: the account signed in now is the one
-        // that wrote it, and from now on the file says so.
+        // that wrote it, and from now on the file says so. A write that fails now leaves it to
+        // the next store: the key read fine.
         Some((None, epoch, key)) => {
-            save_key(path, account, Some(&(epoch, key)))?;
-            Ok(Some((epoch, key)))
+            if let Err(error) = save_key(path, account, Some(&(epoch, key))) {
+                eprintln!("Sync could not write the account into its key file yet: {error}");
+            }
+            found(Some((epoch, key)))
         }
         None => {
             eprintln!("Sync's library key file doesn't read; it is set aside and the key asked for again");
             let _ = fs::rename(path, damaged_path(path));
-            Ok(None)
+            Ok(LoadedKey { key: None, set_aside: true })
         }
     }
 }

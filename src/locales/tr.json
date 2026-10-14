@@ -1288,7 +1288,9 @@
       "hub_change_timeout": "{{name}} yanıt vermedi",
       "hub_change_timeoutBody": "Beş dakika içinde kimse yanıt vermedi. {{name}} açıkken yeniden deneyin.",
       "stale_sign_in": "Kodun süresi doldu",
-      "stale_sign_inBody": "Yeni bir kod gönderin ve on dakika içinde girin."
+      "stale_sign_inBody": "Yeni bir kod gönderin ve on dakika içinde girin.",
+      "key_lost": "Bu bilgisayar eşitleme anahtarını kaybetti",
+      "key_lostBody": "Anahtar dosyası bozuktu. {{name}} çevrimiçi olup anahtarı yeniden gönderene kadar yeni bir şey gelmez."
     },
     "pair": {
       "joinTitle": "{{name}} katılmak istiyor",

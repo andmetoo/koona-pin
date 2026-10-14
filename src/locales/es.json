@@ -1362,7 +1362,9 @@
       "hub_change_timeout": "{{name}} no respondió",
       "hub_change_timeoutBody": "Nadie respondió en cinco minutos. Vuelve a intentarlo mientras {{name}} esté encendido.",
       "stale_sign_in": "El código ha caducado",
-      "stale_sign_inBody": "Pide un código nuevo y escríbelo en menos de diez minutos."
+      "stale_sign_inBody": "Pide un código nuevo y escríbelo en menos de diez minutos.",
+      "key_lost": "Este ordenador ha perdido su clave de sincronización",
+      "key_lostBody": "El archivo de la clave estaba dañado. No llegará nada nuevo hasta que {{name}} esté en línea y la envíe de nuevo."
     },
     "pair": {
       "joinTitle": "{{name}} quiere unirse",

@@ -345,6 +345,9 @@ pub enum SyncProblem {
     HubChangeTimeout,
     /// Starting over needs a sign-in by email code within the last ten minutes.
     StaleSignIn,
+    /// This computer's key file didn't read and was set aside: it waits for the main computer to
+    /// send the key again, and reads nothing new until then.
+    KeyLost,
 }
 
 /// What the worker does after an event, besides showing the new status.
@@ -488,7 +491,7 @@ fn stopped(stop: &Stop) -> Option<PausedReason> {
 }
 
 impl Model {
-    fn note(&mut self, now: DateTime<Utc>, line: String) {
+    pub fn note(&mut self, now: DateTime<Utc>, line: String) {
         if self.log.len() == LOG_LINES {
             self.log.pop_front();
         }
@@ -662,6 +665,9 @@ impl Model {
             Effect::ClockOffset(offset) => self.clock_offset_ms = Some(offset),
             Effect::KeyEpoch(epoch) => {
                 self.note(now, format!("key epoch {epoch:?}"));
+                if epoch.is_some() && self.error == Some(SyncProblem::KeyLost) {
+                    self.error = None;
+                }
                 // Joined again after a start over: the new account's key is in, its first transfer
                 // is the library arriving (frame 07), not a sync like the ones before.
                 // The first epoch a new client tells (after a restart) is the key it holds, not a new one.
