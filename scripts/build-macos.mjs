@@ -2,7 +2,8 @@
 // (arm64 on Apple Silicon, x64 on Intel). Folders: scripts/lib/paths.mjs.
 //   bun scripts/build-macos.mjs          release: --features public-release, `Koona Pin.app` in a ZIP and a .dmg
 //                                        (dmgbuild, src-tauri/macos/dmg), with the Safari extension when it is
-//                                        signed with a Developer ID →
+//                                        signed with a Developer ID, and then also the app in a .app.tar.gz
+//                                        for the updater (release.yml signs it with the update key) →
 //                                        release/publish/macos/<version>/<arch>/ with SHA256SUMS.txt
 //   bun scripts/build-macos.mjs --test   experimental test .app without public-release, never published →
 //                                        release/test/macos/<version>/<arch>/
@@ -215,13 +216,19 @@ if (notarize) {
 }
 // The ZIP: Koona Pin.app at its top. ditto keeps the bundle's metadata, signature and stapled ticket.
 run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", built, path.join(output, `${base}.zip`)]);
+// The updater's package (NP-051): the finished app in a gzipped tar with «Koona Pin.app» at its top, as
+// the plugin unpacks it; no extended attributes or AppleDouble files, which the app does not need (its
+// signature is in its files). Only a Developer ID build has one: an update must not install an ad hoc app.
+const update = `${base}.app.tar.gz`;
+if (identity) run("tar", ["--no-xattrs", "--no-mac-metadata", "-czf", path.join(output, update), "-C", path.dirname(built), app],
+  { env: { ...env, COPYFILE_DISABLE: "1" } });
 // The DMG: the app, a link to Applications, the window and volume icon of src-tauri/macos/dmg.
 const dmgSettings = path.join(root, "src-tauri", "macos", "dmg");
 run(dmgbuild(), ["-s", path.join(dmgSettings, "settings.py"), "-D", `app=${built}`, "-D", `here=${dmgSettings}`, "Koona Pin", dmg]);
 // The image is signed, then notarized and stapled itself: Gatekeeper checks a downloaded DMG before the app inside.
 if (identity) run("codesign", ["--force", "--sign", identity, "--timestamp", dmg]);
 if (notarize) notarizeAndStaple(dmg);
-const files = [`${base}.zip`, `${base}.dmg`];
+const files = [`${base}.zip`, `${base}.dmg`, ...(identity ? [update] : [])];
 const sums = files.map((file) => `${sha256(path.join(output, file))}  ${file}`);
 const dirty = git("status", "--porcelain", "--untracked-files=no") ? " with uncommitted changes" : "";
 const signature = identity ? `signed with Developer ID, ${notarize ? "notarized" : "not notarized"}, with Safari` : "unsigned (ad hoc), not notarized, without Safari";

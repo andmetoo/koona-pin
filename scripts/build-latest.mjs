@@ -1,5 +1,6 @@
 // Signs the packages of a release for the built-in updater and writes latest.json (NP-038, NP-102, Р-60):
-//   bun run build:latest                 every package of this version: the Windows installer, the .deb, .rpm and AppImage
+//   bun run build:latest                 every package of this version: the Windows installer, the .deb, .rpm and AppImage,
+//                                        and the Mac's .app.tar.gz when release/publish/macos/<version>/arm64/ has it
 //   bun run build:latest -- --only linux  only the Linux packages (a Linux-only release: Windows keeps the last one)
 //   bun run build:latest -- --only windows
 //   bun run build:latest -- --unsigned-windows  the installer without Certum, from release/test (test releases only)
@@ -98,6 +99,16 @@ if (only !== "windows") {
     [["linux-x86_64-rpm"], publish.linux(version), rpm],
     [["linux-x86_64-appimage"], publish.linux(version), appimage],
   );
+}
+
+// macOS (NP-051): the app in a .app.tar.gz (build-macos.mjs), under macos-aarch64, the key Koona Pin 1.2.2
+// and later read. 1.2.1 and earlier read darwin-aarch64 and cannot install on a Mac, so they get nothing.
+// Optional: a release without it (an unsigned macOS build makes none) leaves the Macs where they are.
+{
+  const mac = publish.macos(version, "arm64");
+  const [update] = await find(mac, (f) => f === `koonapin-${version}-macos-arm64.app.tar.gz`);
+  if (update) packages.push([["macos-aarch64"], mac, update]);
+  else console.warn(`No koonapin-${version}-macos-arm64.app.tar.gz in ${path.relative(root, mac)}: latest.json without macOS`);
 }
 
 const fresh = new Set();

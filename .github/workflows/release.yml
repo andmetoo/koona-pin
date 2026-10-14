@@ -5,7 +5,8 @@ name: Release
 #     verify   the tag names the version of its four places, the changelog has it, the commit is on main
 #     verify   also waits for the commit's CI on main («CI» of ci.yml) and requires it green
 #     linux    linux.yml with release: true — compile and pack only; the tests ran in that CI
-#     macos    bun run build:macos: the .app in a ZIP and a .dmg (Apple signing only with its secrets)
+#     macos    bun run build:macos: the .app in a ZIP and a .dmg, and with a Developer ID the .app.tar.gz of the
+#              updater (Apple signing only with its secrets)
 #     draft    the Linux packages signed for the updater, a draft GitHub Release with the changelog's notes
 #              and these files
 #   workflow_dispatch from the tag, --ref v<version> (bun run release:windows starts it after uploading the
@@ -14,7 +15,7 @@ name: Release
 # which opens to tags v* only: draft and finalize declare it, nothing else in the repository can read it.
 #     finalize the draft's files signed for the updater where they are not yet, latest.json, the AUR's
 #              PKGBUILD and .SRCINFO, release.json signed (build-release-data.mjs, which also signs the
-#              macOS DMG for the site: no updater entry); the release published
+#              macOS DMG for the site, the Mac's .app.tar.gz as macos-aarch64); the release published
 #     deploy   the release data to koona.app over SSH (unit «app» of koona-deploy, andmetoo/koona-site):
 #              the server checks every signature against the update key's public half before it serves
 #              anything, and the site's pages read release.json at request time. Skipped with a warning
@@ -209,9 +210,13 @@ jobs:
         with:
           name: koonapin-linux-x86_64
           path: dist/linux
+      - uses: actions/download-artifact@v7
+        with:
+          name: koonapin-macos-arm64
+          path: dist/macos
       # The Tauri CLI signs (tauri signer sign), bound to the version (requireSignedVersion).
       - run: bun install --frozen-lockfile
-      - name: Sign the Linux packages for the updater
+      - name: Sign the Linux packages and the Mac's for the updater
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -226,10 +231,14 @@ jobs:
             bunx tauri signer sign --app-version "$version" "dist/linux/$f"
             test -s "dist/linux/$f.sig"
           done
-      - uses: actions/download-artifact@v7
-        with:
-          name: koonapin-macos-arm64
-          path: dist/macos
+          # The Mac's .app.tar.gz (NP-051), made by a build with a Developer ID only.
+          mac="dist/macos/koonapin-${version}-macos-arm64.app.tar.gz"
+          if [ -f "$mac" ]; then
+            bunx tauri signer sign --app-version "$version" "$mac"
+            test -s "$mac.sig"
+          else
+            echo "::warning::No $(basename "$mac"): the Macs get no update from this release"
+          fi
       # One SHA256SUMS per system on the release: the Windows one comes from release:windows.
       - name: Files for the release
         run: |
@@ -244,6 +253,9 @@ jobs:
           done
           cp dist/linux/SHA256SUMS.txt upload/SHA256SUMS-linux.txt
           cp dist/macos/*.zip dist/macos/*.dmg upload/
+          for g in dist/macos/*.app.tar.gz dist/macos/*.app.tar.gz.sig; do
+            if [ -f "$g" ]; then cp "$g" upload/; fi
+          done
           cp dist/macos/SHA256SUMS.txt upload/SHA256SUMS-macos.txt
           ls -l upload
           bun scripts/lib/release-notes.mjs "$version" > notes.md
@@ -330,15 +342,25 @@ jobs:
             # Its .sig of an earlier finalize stays behind: the installer may have been uploaded again since.
             mv "release/download/$installer" "release/publish/windows/$version/"
           fi
-          # The macOS DMG, a download of the site (no updater on macOS): build-release-data.mjs takes it from
-          # here into release.json's files.macos and signs it. A draft without it publishes without macOS.
+          # The macOS DMG, a download of the site: build-release-data.mjs takes it from here into release.json's
+          # files.macos and signs it. A draft without it publishes without macOS.
           # Its .sig of an earlier finalize stays behind: build-release-data.mjs signs this DMG anew.
+          mac="release/publish/macos/$version/arm64"
           dmg="koonapin-${version}-macos-arm64.dmg"
           if [ -f "release/download/$dmg" ]; then
-            mkdir -p "release/publish/macos/$version/arm64"
-            mv "release/download/$dmg" "release/publish/macos/$version/arm64/"
+            mkdir -p "$mac"
+            mv "release/download/$dmg" "$mac/"
           else
             echo "::warning::The draft has no $dmg: release.json goes without macOS"
+          fi
+          # The Mac's update (NP-051) with the .sig the draft made: build-latest.mjs puts it into latest.json.
+          update="koonapin-${version}-macos-arm64.app.tar.gz"
+          if [ -f "release/download/$update" ] && [ -f "release/download/$update.sig" ]; then
+            mkdir -p "$mac"
+            mv "release/download/$update" "release/download/$update.sig" "$mac/"
+            touch "$mac/$update.sig"
+          else
+            echo "::warning::The draft has no $update with its .sig: latest.json goes without macOS"
           fi
       - name: Update signatures, latest.json
         env:

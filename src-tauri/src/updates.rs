@@ -5,7 +5,8 @@
 //! checked against the key in `tauri.conf.json`, bound to the announced version
 //! (`requireSignedVersion`). Windows runs the NSIS installer of the release, passive, which starts
 //! the app again; Linux installs the .deb or .rpm through pkexec — polkit asks for the password —
-//! and the app restarts. The AUR package is updated by pacman (Р-55): it never checks.
+//! and the app restarts; macOS swaps the app bundle for the one in the release's .app.tar.gz (NP-051)
+//! and restarts. The AUR package is updated by pacman (Р-55): it never checks.
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -124,6 +125,10 @@ fn updater(app: &AppHandle) -> Result<tauri_plugin_updater::Updater, tauri_plugi
     let mut builder = app.updater_builder().timeout(Duration::from_secs(30));
     // A test server and key for development builds only: a release reads latest.json of the
     // releases and trusts only the key in tauri.conf.json.
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.target(mac_target());
+    }
     #[cfg(debug_assertions)]
     {
         if let Ok(endpoint) = std::env::var("KOONAPIN_UPDATE_ENDPOINT") {
@@ -134,6 +139,14 @@ fn updater(app: &AppHandle) -> Result<tauri_plugin_updater::Updater, tauri_plugi
         }
     }
     builder.build()
+}
+
+/// The key of latest.json's `platforms` a Mac reads: `macos-<arch>`, not the plugin's own `darwin-<arch>`.
+/// Koona Pin 1.2.1 and earlier read that one and cannot install on macOS, so they never see the Mac's
+/// package; they stay «up to date» until the person downloads a newer version from the site.
+#[cfg(any(target_os = "macos", test))]
+fn mac_target() -> String {
+    format!("macos-{}", std::env::consts::ARCH)
 }
 
 /// One check. While a download or an installation runs nothing is checked; an update already
@@ -382,7 +395,23 @@ async fn install(app: &AppHandle, update: &Update, bytes: Vec<u8>) -> Result<(),
     app.restart()
 }
 
-#[cfg(not(any(windows, target_os = "linux")))]
+/// macOS: the plugin unpacks the .app.tar.gz (the notarized app as build-macos.mjs made it) next to
+/// the app and swaps the two bundles in one step; where the folder is not the person's to write, macOS
+/// asks for an administrator's password. Then the app restarts into the new bundle.
+#[cfg(target_os = "macos")]
+async fn install(app: &AppHandle, update: &Update, bytes: Vec<u8>) -> Result<(), UpdateProblem> {
+    let update = update.clone();
+    tauri::async_runtime::spawn_blocking(move || update.install(bytes))
+        .await
+        .map_err(|_| UpdateProblem::Failed)?
+        .map_err(|error| {
+            eprintln!("Koona Pin: the app was not replaced: {error}");
+            UpdateProblem::InstallFailed
+        })?;
+    app.restart()
+}
+
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 async fn install(_app: &AppHandle, _update: &Update, _bytes: Vec<u8>) -> Result<(), UpdateProblem> {
     Err(UpdateProblem::Failed)
 }
@@ -514,6 +543,13 @@ mod tests {
         let key = updater["pubkey"].as_str().unwrap();
         let decoded = String::from_utf8(base64::Engine::decode(&base64::engine::general_purpose::STANDARD, key).unwrap()).unwrap();
         assert!(decoded.starts_with("untrusted comment: minisign public key"), "{decoded}");
+    }
+
+    #[test]
+    fn a_mac_reads_its_own_key_which_earlier_versions_do_not() {
+        // build-latest.mjs writes the Mac's package under this key; the plugin's default is darwin-<arch>.
+        assert_eq!(mac_target(), format!("macos-{}", std::env::consts::ARCH));
+        assert!(!mac_target().starts_with("darwin"));
     }
 
     #[cfg(target_os = "linux")]

@@ -7,18 +7,20 @@
 // latest.json, SHA256SUMS.txt) and changelog/, and writes release.json and release.json.sig into the same
 // folder. The macOS disk image, when release/publish/macos/<version>/arm64/ (--macos) has
 // koonapin-<version>-macos-arm64.dmg, is copied into that folder and signed there with the update key,
-// bound to the version like the packages: the app has no macOS updater, so latest.json does not name it,
-// but koona-deploy wants a .sig of every file release.json lists. SHA256SUMS.txt (build-latest.mjs) does
+// bound to the version like the packages: latest.json does not name the DMG (the Mac's updater takes the
+// .app.tar.gz), but koona-deploy wants a .sig of every file release.json lists. SHA256SUMS.txt (build-latest.mjs) does
 // not list the DMG either; release.json carries its sha256, and the release has SHA256SUMS-macos.txt. release.yml's finalize runs it after build:latest, uploads both to the release and deploys the
 // folder to koona.app (unit «app» of koona-deploy, andmetoo/koona-site), which checks the same things
 // again against the update key's public half before it serves anything.
 //
 // release.json, schema 1 (the site's templates read exactly these fields; a change is a new schema):
 //   { "schema": 1, "version", "date" (YYYY-MM-DD), "published" (ISO, latest.json's pub_date),
-//     "files": { windows?, deb?, rpm?, appimage?, macos?, sums: { "name", "size", "sha256" } },
+//     "files": { windows?, deb?, rpm?, appimage?, macosUpdate?, macos?, sums: { "name", "size", "sha256" } },
 //     "changelog": [ { "version", "date", "changes": [...] } ]  every version up to this one, newest first }
 // A file's address is /pin/downloads/<version>/<name>. `windows` is absent from a Linux-only release,
-// `macos` (koonapin-<version>-macos-arm64.dmg) from a release without the DMG.
+// `macos` (koonapin-<version>-macos-arm64.dmg) from a release without the DMG. `macosUpdate`
+// (koonapin-<version>-macos-arm64.app.tar.gz, NP-051) is the Mac's package of latest.json: the site's pages
+// do not show it, but it is in release.json so that koona-deploy serves it next to the others.
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, readFile, rm, stat, writeFile } from "node:fs/promises";
@@ -70,7 +72,8 @@ if (!names.size) fail(`${where}/latest.json names no package`);
 
 /** release.json's key of a package, by the names build-latest.mjs publishes. */
 const kind = (name) =>
-  name.endsWith("-setup.exe") ? "windows" : name.endsWith(".deb") ? "deb" : name.endsWith(".rpm") ? "rpm" : name.endsWith(".AppImage") ? "appimage" : null;
+  name.endsWith("-setup.exe") ? "windows" : name.endsWith(".deb") ? "deb" : name.endsWith(".rpm") ? "rpm" : name.endsWith(".AppImage") ? "appimage"
+    : name.endsWith(".app.tar.gz") ? "macosUpdate" : null;
 
 // SHA256SUMS.txt is offered for download next to the packages: it must say what release.json says.
 if (!existsSync(path.join(folder, "SHA256SUMS.txt"))) fail(`${where}/SHA256SUMS.txt is missing: bun run build:latest`);
@@ -82,12 +85,12 @@ const sums = Object.fromEntries(
     .map(([hash, name]) => [name, hash]),
 );
 
-// In the order of the schema: windows, deb, rpm, appimage, macos, sums.
-const order = ["windows", "deb", "rpm", "appimage"];
+// In the order of the schema: windows, deb, rpm, appimage, macosUpdate, macos, sums.
+const order = ["windows", "deb", "rpm", "appimage", "macosUpdate"];
 const files = {};
 for (const name of [...names].sort((a, b) => order.indexOf(kind(a)) - order.indexOf(kind(b)))) {
   const key = kind(name);
-  if (!key) fail(`latest.json: ${name} is no package release.json knows (windows, deb, rpm, appimage)`);
+  if (!key) fail(`latest.json: ${name} is no package release.json knows (windows, deb, rpm, appimage, macosUpdate)`);
   if (files[key]) fail(`latest.json: two ${key} packages, ${files[key].name} and ${name}`);
   files[key] = await described(name);
   if (sums[name] !== files[key].sha256) fail(`SHA256SUMS.txt: ${name} ${sums[name] ? `is listed as ${sums[name]}, the file is ${files[key].sha256}` : "is not listed"}`);
