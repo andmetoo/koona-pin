@@ -162,6 +162,7 @@ jobs:
       - name: Release build, ZIP and DMG
         env:
           KOONAPIN_FEEDBACK_URL: ${{ secrets.KOONAPIN_FEEDBACK_URL }}
+          KOONAPIN_SYNC_URL: ${{ secrets.KOONAPIN_SYNC_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           PADDLE_ENVIRONMENT: ${{ secrets.PADDLE_ENVIRONMENT }}

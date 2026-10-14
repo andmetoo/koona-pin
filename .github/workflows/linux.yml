@@ -122,9 +122,11 @@ jobs:
           echo "rustc: $(rustc --version), bun: $(bun --version)"
       - name: bun install
         run: su dev -s /bin/bash -c "bun install --frozen-lockfile"
-      # Without the Supabase pair billing::service() turns Supporter off silently (src-tauri/build.rs).
+      # Without the Supabase pair billing::service() turns Supporter off silently (src-tauri/build.rs);
+      # without KOONAPIN_SYNC_URL the build has no sync (commercial/sync).
       - name: Release build as «dev»
         env:
+          KOONAPIN_SYNC_URL: ${{ secrets.KOONAPIN_SYNC_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
           PADDLE_ENVIRONMENT: ${{ secrets.PADDLE_ENVIRONMENT }}
