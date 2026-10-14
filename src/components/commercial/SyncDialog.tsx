@@ -1,5 +1,5 @@
 // Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Monitor, RefreshCw, Smartphone, Tablet, TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Plan, SyncAccount, SyncDevice, SyncStatus } from "../../types";
@@ -77,6 +77,8 @@ export function SyncDialog({
   const doneRef = useRef<HTMLButtonElement>(null);
   // «Make this the main computer» sent, its answer not in yet.
   const [asked, setAsked] = useState(false);
+  // The session shows the request a moment after the command: whether it was seen under way yet.
+  const sawAsking = useRef(false);
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
   }, []);
@@ -96,10 +98,11 @@ export function SyncDialog({
       setBusy(false);
     }
   };
-  const back = () => {
+  // Stable: the screens it closes wait on it in effects (the start-over timeout).
+  const back = useCallback(() => {
     setError(null);
     setOpened(null);
-  };
+  }, []);
 
   const hub = hubDevice(status);
   // «Make this the main computer»: asked of the main one while it is online; away, starting over by
@@ -109,6 +112,7 @@ export function SyncDialog({
       setOpened({ kind: "startOver" });
       return;
     }
+    sawAsking.current = false;
     if (await run(api.requestMain)) setAsked(true);
   };
   // The main computer turns out offline only when the relay answers, after the command: the
@@ -118,8 +122,11 @@ export function SyncDialog({
     if (status.error === "hub_offline") {
       setAsked(false);
       setOpened({ kind: "startOver" });
-    } else if (status.error || (status.hub_change === null && status.is_hub)) setAsked(false);
-  }, [asked, status.error, status.hub_change, status.is_hub]);
+    } else if (status.error) setAsked(false);
+    else if (status.hub_change?.role === "asking") sawAsking.current = true;
+    // The request was under way and ended (allowed, or given up): nothing more to wait for.
+    else if (sawAsking.current) setAsked(false);
+  }, [asked, status.error, status.hub_change]);
   const act = (banner: SyncBanner) => {
     const kind: SyncAction | undefined = banner.action?.kind;
     if (kind === "retry") void run(api.syncNow);
@@ -632,7 +639,7 @@ function SetupDialog({
           <Button variant="outline" size="lg" type="button" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button variant="primary" size="lg" type="submit" disabled={busy || !status.available}>
+          <Button variant="primary" size="lg" type="submit" disabled={busy || !status.available || outdated !== null}>
             {t("sync.setup.turnOn")}
           </Button>
         </Footer>
@@ -749,12 +756,15 @@ function StartOverDialog({ status, onStatus, onClose }: { status: SyncStatus; on
       setError(`${t("sync.problem.stale_sign_in")}. ${t("sync.problem.stale_sign_inBody")}`);
     } else if (status.is_hub) onClose();
   }, [waiting, status.error, status.is_hub, onClose, t]);
-  // No answer in time (offline): the dialog gives way; the overview tells what sync is doing.
+  // No answer in time (offline): the dialog gives way; the overview tells what sync is doing. The
+  // timer starts once, whatever renders the status brings meanwhile.
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     if (!waiting) return;
-    const timer = setTimeout(onClose, START_OVER_WAIT_MS);
+    const timer = setTimeout(() => close.current(), START_OVER_WAIT_MS);
     return () => clearTimeout(timer);
-  }, [waiting, onClose]);
+  }, [waiting]);
   const hub = hubDevice(status);
   const hubLabel = hub?.name ?? t("sync.pair.mainComputer");
   const days = hub?.last_seen ? Math.floor((Date.now() - hub.last_seen) / 86_400_000) : 0;

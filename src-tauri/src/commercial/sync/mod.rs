@@ -572,18 +572,26 @@ pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, Comm
     if !state.stored().enabled {
         return Err(CommandError::invalid("Sync is off"));
     }
-    // The client first: the code works once, and is not spent on a client that can't send it.
-    let handle = match state.handle() {
-        Some(handle) => handle,
+    let (handle, token) = match state.handle() {
+        // Running: the code is checked only now, so it isn't spent on a client that can't send it.
+        Some(handle) => (handle, billing::sign_in_again(&app, &code).await?),
         None => {
-            // A client stopped (removed, replaced, the plan): started again to send it.
+            // Stopped. Starting over can't cure another process on this device, the plan or an
+            // old app: those stops stay, and no code is spent.
+            let stop = lock(&state.model).stop.clone();
+            if !matches!(stop, None | Some(Stop::Revoked | Stop::Auth | Stop::Shutdown)) {
+                return Err(CommandError::invalid("Sync is paused for a reason starting over doesn't change"));
+            }
+            // The code before anything changes: a wrong one leaves the stop and the identity.
+            let token = billing::sign_in_again(&app, &code).await?;
+            // A removed device comes back as a new one (its old id stays refused), started to send it.
             forget_revoked(&state)?;
             state.clear_stop();
             wake(&app);
-            running(&state).await.ok_or_else(|| CommandError::invalid("Sync is not running"))?
+            let handle = running(&state).await.ok_or_else(|| CommandError::invalid("Sync is not running"))?;
+            (handle, token)
         }
     };
-    let token = billing::sign_in_again(&app, &code).await?;
     lock(&state.model).error = None;
     // The session sends it once the relay welcomed it, now if it already did.
     if !handle.act(Action::StartOver { token }) {
