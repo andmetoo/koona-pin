@@ -8,7 +8,7 @@ import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, Plan, SupporterStatus, UpdateStatus, ViewMode } from "./types";
+import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, Plan, SupporterStatus, SyncStatus, UpdateStatus, ViewMode } from "./types";
 import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
@@ -40,9 +40,11 @@ import { LinkCheckPage } from "./components/library/LinkCheckPage";
 import { mergedNotice } from "./services/duplicates";
 import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
+import { SyncDialog } from "./components/commercial/SyncDialog";
+import { syncPrompt } from "./components/commercial/syncText";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | null;
+type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -136,6 +138,7 @@ export function App() {
   const [update, setUpdate] = useState<UpdateStatus | null>(null);
   /** Supporter (NP-066, sheet 45): the plan as kept; no request behind it. */
   const [supporter, setSupporter] = useState<SupporterStatus | null>(null);
+  const [sync, setSync] = useState<SyncStatus | null>(null);
   /** The Supporter badge's heart in the colour of the season; a perk the dialog turns off. */
   const [badge, setBadge] = useState(() => preference("supporterBadge", ["on", "off"], "on") === "on");
   // A check that finds the plan gone (cancelled, refunded) closes its dialogs for good, so nothing
@@ -255,6 +258,21 @@ export function App() {
     void api.getSupporterStatus().then(setSupporter).catch(() => {});
     return api.onSupporterStatus(setSupporter);
   }, []);
+  // Sync between a Supporter's computers (commercial/sync, sheet 46).
+  useEffect(() => {
+    void api.getSyncStatus().then(setSync).catch(() => {});
+    return api.onSyncStatus(setSync);
+  }, []);
+  // A computer to approve, or a request to hand the main computer over, opens the Sync dialog by
+  // itself on the main computer, once per prompt, when no other dialog is in the way.
+  const prompt = syncPrompt(sync);
+  const promptShown = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prompt || prompt === promptShown.current) return;
+    if (surface !== null && surface !== "plan" && surface !== "sync") return;
+    promptShown.current = prompt;
+    setSurface("sync");
+  }, [prompt, surface]);
   // The dialog follows the update; when no version is in play any more (cancelled into a recheck,
   // or the preview «restarted»), it goes.
   useEffect(() => {
@@ -898,6 +916,10 @@ export function App() {
                     onUpdate={() => setSurface("update")}
                     onCheckUpdates={async () => setUpdate(await api.checkForUpdates())}
                     dataVersion={dataVersion}
+                    supporter={supporter}
+                    sync={sync}
+                    onSync={() => setSurface("sync")}
+                    onSupporter={() => setSurface("supporter")}
                   />
                 </div>
               </>
@@ -1298,6 +1320,26 @@ export function App() {
             setUpgradeFrom(supporter.plan);
             setSurface("upgrade");
           }}
+          sync={sync}
+          onSync={() => setSurface("sync")}
+        />
+      )}
+      {surface === "sync" && sync && (
+        <SyncDialog
+          status={sync}
+          plan={supporter?.plan ?? null}
+          onStatus={setSync}
+          onClose={() => setSurface(null)}
+          onCopy={(text) => void copy(text)}
+          onUpdate={() => {
+            // No version on offer yet: Settings → Updates, where it is checked for.
+            if (offer(update)) return setSurface("update");
+            setSurface(null);
+            setTriage(null);
+            setPage("settings");
+          }}
+          onRenew={() => setSurface(supporter?.plan ? "plan" : "supporter")}
+          onSignIn={() => setSurface("signIn")}
         />
       )}
       {/* Supporter → 5 years from a subscription (sheet 45): the plans dialog with the five years only,

@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
+import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
 import { savePreference, storedValue } from "../services/preferences";
 import { copyTime } from "./BackupRestoreDialog";
+import { SyncPerkRow } from "./commercial/SyncRows";
 import { Icon } from "./icons";
 import { Button, IconButton } from "./ui/Button";
 import { Field, StatePanels, Switch } from "./ui/Controls";
@@ -814,8 +815,14 @@ export function PlanDialog({
   onBadge,
   onClose,
   onUpgrade,
+  sync,
+  onSync,
 }: {
   supporter: SupporterStatus;
+  /** Sync between the Supporter's computers: its row in place of «Soon» (sheet 46). */
+  sync: SyncStatus | null;
+  /** «Set up…» and «Manage…»: the Sync dialog instead of this one. */
+  onSync: () => void;
   /** The heart of the badge in the colour of the season; off, the row stays plain. */
   badge: boolean;
   onBadge: (shown: boolean) => void;
@@ -944,13 +951,15 @@ export function PlanDialog({
                 </span>
                 {perk === "backups" && plan ? (
                   <FolderRow onError={setError} />
+                ) : perk === "sync" ? (
+                  <SyncPerkRow status={sync} onOpen={onSync} />
                 ) : (
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium">{t(`supporter.perk.${perk}`)}</span>
                     <span className="block text-xs leading-[17px] text-muted">{t(`supporter.perk.${perk}Hint`)}</span>
                   </span>
                 )}
-                {perk === "backups" && plan ? null : perk === "badge" ? (
+                {(perk === "backups" && plan) || perk === "sync" ? null : perk === "badge" ? (
                   <Switch label={t("supporter.perk.badge")} checked={badge} onChange={onBadge} />
                 ) : (
                   <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-2xs font-medium text-subtle">{t("supporter.soon")}</span>

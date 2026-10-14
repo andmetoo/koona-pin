@@ -2238,8 +2238,9 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   await expect(plan.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
   await expect(plan).toContainText("anna@example.com");
   await expect(plan).toContainText("Renews on");
-  // Sync and early builds are still to come; backups to a folder work already.
-  await expect(plan.getByText("Soon")).toHaveCount(2);
+  // Early builds are still to come; sync (tests/ui/sync.spec.ts) and backups to a folder work already.
+  await expect(plan.getByText("Soon")).toHaveCount(1);
+  await expect(plan.getByRole("button", { name: "Set up…" })).toBeVisible();
   await expect(plan.getByRole("button", { name: "Choose folder…" })).toBeVisible();
   // The badge is a perk: turned off, the row keeps a plain heart and still opens the dialog.
   const badge = plan.getByRole("switch", { name: "Supporter badge" });
