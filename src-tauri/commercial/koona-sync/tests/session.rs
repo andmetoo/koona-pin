@@ -11,10 +11,11 @@ use koona_sync::crypto::{self, Sealer};
 use koona_sync::library::{load_meta, Library};
 use koona_sync::model::Vector;
 use koona_sync::protocol::{
-    self, close, Address, Control, DeviceInfo, DeviceStatus, Header, Kind, PairMessage, B64,
+    self, close, Address, Control, DeviceInfo, DeviceStatus, Header, Kind, PairMessage, StartedOver, B64,
 };
 use koona_sync::session::{
-    Action, Config, DropReason, Effect, Input, PairingEvent, PairingFailure, Phase, PauseReason, Role, Session,
+    Action, Config, DropReason, Effect, HubChangeEvent, HubChangeFailure, Input, PairingEvent, PairingFailure, Phase,
+    PauseReason, Role, Session, SessionError, HUB_REQUEST_TIMEOUT_MS,
 };
 use ring::rand::SystemRandom;
 use rusqlite::types::Value;
@@ -24,6 +25,8 @@ use uuid::Uuid;
 
 const SUB: &str = "account-1";
 const START: u64 = 1_760_400_000_000;
+/// The token of a sign-in by email code just now; any other is stale to the fake relay.
+const FRESH_SIGN_IN: &str = "fresh-sign-in";
 
 enum Msg {
     Text(String),
@@ -48,6 +51,7 @@ struct Relay {
     /// Frames delivered, for tests that replay one: (from, to, frame).
     log: Vec<(Uuid, Uuid, Vec<u8>)>,
     errors: Vec<String>,
+    started_over: Option<StartedOver>,
 }
 
 impl Relay {
@@ -138,6 +142,7 @@ impl Relay {
                 devices: self.devices.values().cloned().collect(),
                 online: self.online(),
                 time: self.now,
+                started_over: self.started_over,
             };
             // welcome, then the `device` notice of a new registration, then presence.
             self.send(conn, &welcome);
@@ -153,6 +158,24 @@ impl Relay {
             relay.errors.push(code.to_string());
             relay.send(conn, &Control::Error { code: code.into() })
         };
+        if let Control::StartOver { token } = &message {
+            if token != FRESH_SIGN_IN {
+                return refuse(self, "stale_sign_in");
+            }
+            // 2.6 steps 3 and 4.
+            self.devices.retain(|id, d| *id == me || d.status == DeviceStatus::Revoked);
+            if let Some(d) = self.devices.get_mut(&me) {
+                d.status = DeviceStatus::Active;
+            }
+            self.hub = Some(me);
+            self.epoch += 1;
+            self.started_over = Some(StartedOver { by: me, at: self.now, epoch: self.epoch });
+            let conns: Vec<usize> = self.conns.keys().copied().collect();
+            for c in conns {
+                self.close(c, close::STARTED_OVER);
+            }
+            return;
+        }
         if status != DeviceStatus::Active {
             return refuse(self, "forbidden");
         }
@@ -186,13 +209,18 @@ impl Relay {
                     _ => refuse(self, "unknown_device"),
                 }
             }
-            Control::SetHub { device } => match self.devices.get(&device) {
-                Some(d) if d.status == DeviceStatus::Active => {
-                    self.hub = Some(device);
-                    self.notify(&Control::Account { hub: device, epoch: self.epoch });
+            Control::SetHub { device } => {
+                if !is_hub {
+                    return refuse(self, "forbidden");
                 }
-                _ => refuse(self, "unknown_device"),
-            },
+                match self.devices.get(&device) {
+                    Some(d) if d.status == DeviceStatus::Active => {
+                        self.hub = Some(device);
+                        self.notify(&Control::Account { hub: device, epoch: self.epoch });
+                    }
+                    _ => refuse(self, "unknown_device"),
+                }
+            }
             Control::Epoch { epoch } => {
                 if !is_hub {
                     return refuse(self, "forbidden");
@@ -422,6 +450,31 @@ impl World {
                 _ => None,
             })
             .collect()
+    }
+
+    fn hub_events(&self, i: usize) -> Vec<HubChangeEvent> {
+        self.devices[i]
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                Effect::HubChange(event) => Some(event.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn last_hub_event(&self, i: usize) -> Option<HubChangeEvent> {
+        self.hub_events(i).pop()
+    }
+
+    /// Device `asking` asks the hub `hub` to hand over and the person on the hub answers.
+    fn hand_over(&mut self, asking: usize, hub: usize, allow: bool) {
+        self.act(asking, Action::RequestHub);
+        self.run();
+        let id = self.devices[asking].id;
+        assert!(matches!(self.last_hub_event(hub), Some(HubChangeEvent::Asked { device, .. }) if device == id));
+        self.act(hub, Action::AnswerHubRequest { allow });
+        self.run();
     }
 
     fn dropped(&self, i: usize, reason: DropReason) -> usize {
@@ -717,9 +770,7 @@ fn a_removed_device_is_cut_off_by_a_new_key() {
     assert_eq!(w.phase(c), Phase::Paused { reason: PauseReason::Revoked });
 
     // A new hub takes over from the roster and serves a rekey later.
-    let device = w.devices[b].id;
-    w.act(a, Action::MakeHub { device });
-    w.run();
+    w.hand_over(b, a, true);
     assert!(w.devices[b].session.is_hub());
     fill(w.lib(a), 2, "under b");
     w.act(a, Action::LocalChange);
@@ -879,4 +930,194 @@ fn a_peer_on_a_newer_schema_pauses_without_an_error() {
     w.run();
     assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::UpdateNeeded });
     assert_eq!(errors(&w), before, "the newer peer is fine and is told nothing");
+}
+
+/// Three devices with `a` the hub, every one paired.
+fn three() -> (World, usize, usize, usize) {
+    let mut w = World::new();
+    let a = w.add("Studio Mac", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    let c = w.add("Phone", 3, 64 << 10);
+    fill(w.lib(a), 10, "a");
+    w.connect(a);
+    w.run();
+    w.pair(b, a);
+    w.pair(c, a);
+    w.run();
+    (w, a, b, c)
+}
+
+#[test]
+fn the_hub_hands_over_only_when_its_person_allows() {
+    let (mut w, a, b, c) = three();
+    let (ida, idb, idc) = (w.devices[a].id, w.devices[b].id, w.devices[c].id);
+
+    // Denied: nothing changes.
+    w.hand_over(b, a, false);
+    assert_eq!(w.last_hub_event(b), Some(HubChangeEvent::Failed { peer: ida, reason: HubChangeFailure::Denied }));
+    assert_eq!(w.last_hub_event(a), Some(HubChangeEvent::Settled { peer: idb }));
+    assert!(w.devices[a].session.is_hub());
+    assert!(w.relay.errors.is_empty(), "{:?}", w.relay.errors);
+    assert!(matches!(w.hub_events(b)[0], HubChangeEvent::Waiting { hub, ref hub_name } if hub == ida && hub_name == "Studio Mac"));
+    assert!(
+        matches!(&w.hub_events(a)[0], HubChangeEvent::Asked { device, name } if *device == idb && name == "Laptop"),
+        "the hub asks its person, naming the device"
+    );
+
+    // Allowed: `b` is the hub and sends its roster to the others.
+    w.hand_over(b, a, true);
+    assert_eq!(w.last_hub_event(b), Some(HubChangeEvent::Settled { peer: ida }));
+    for i in [a, b, c] {
+        assert_eq!(w.devices[i].session.hub(), Some(idb));
+    }
+    let roster = load_meta(w.lib(c)).unwrap().roster.unwrap();
+    assert_eq!(roster.hub, idb, "the new hub's roster reached the others");
+    for id in [ida, idb, idc] {
+        assert!(roster.key_of(id).is_some());
+    }
+    assert!(w.relay.errors.is_empty(), "{:?}", w.relay.errors);
+    fill(w.lib(c), 3, "c");
+    w.act(c, Action::LocalChange);
+    w.run();
+    w.assert_converged(&[a, b, c]);
+
+    // Only the hub hands over now: the old one has no request to answer.
+    w.act(a, Action::AnswerHubRequest { allow: true });
+    assert!(matches!(w.devices[a].events.last(), Some(Effect::Error(SessionError::NotAllowed(_)))));
+}
+
+#[test]
+fn a_second_request_while_the_hub_asks_is_busy() {
+    let (mut w, a, b, c) = three();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    w.act(b, Action::RequestHub);
+    w.run();
+    w.act(c, Action::RequestHub);
+    w.run();
+    assert_eq!(w.last_hub_event(c), Some(HubChangeEvent::Failed { peer: ida, reason: HubChangeFailure::Busy }));
+    let asked: Vec<_> = w.hub_events(a).into_iter().filter(|e| matches!(e, HubChangeEvent::Asked { .. })).collect();
+    assert_eq!(asked.len(), 1, "the hub shows the first request only");
+    // Asking again is the same request.
+    w.act(b, Action::RequestHub);
+    w.run();
+    assert!(matches!(w.last_hub_event(b), Some(HubChangeEvent::Waiting { .. })));
+    w.act(a, Action::AnswerHubRequest { allow: true });
+    w.run();
+    assert_eq!(w.devices[c].session.hub(), Some(idb));
+}
+
+#[test]
+fn an_offline_or_silent_hub_ends_the_request() {
+    let (mut w, a, b, c) = three();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+
+    // No answer in five minutes: both sides give up.
+    w.act(b, Action::RequestHub);
+    w.run();
+    w.tick(HUB_REQUEST_TIMEOUT_MS - 1000);
+    assert!(matches!(w.last_hub_event(b), Some(HubChangeEvent::Waiting { .. })));
+    w.tick(1000);
+    assert_eq!(w.last_hub_event(b), Some(HubChangeEvent::Failed { peer: ida, reason: HubChangeFailure::Timeout }));
+    assert_eq!(w.last_hub_event(a), Some(HubChangeEvent::Settled { peer: idb }));
+    assert!(w.devices[a].session.is_hub());
+
+    // The relay can't deliver the request: the hub is offline.
+    w.relay.conns.remove(&a);
+    w.devices[a].connected = false;
+    w.act(c, Action::RequestHub);
+    w.run();
+    assert_eq!(w.last_hub_event(c), Some(HubChangeEvent::Failed { peer: ida, reason: HubChangeFailure::Unavailable }));
+
+    // The hub known to be offline: refused at once.
+    w.relay.notify(&Control::Presence { device: ida, online: false });
+    w.run();
+    w.act(b, Action::RequestHub);
+    assert_eq!(w.last_hub_event(b), Some(HubChangeEvent::Failed { peer: ida, reason: HubChangeFailure::Unavailable }));
+}
+
+fn started_over(w: &World, i: usize) -> Vec<(Uuid, Option<String>, u32)> {
+    w.devices[i]
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            Effect::StartedOver { by, by_name, epoch, .. } => Some((*by, by_name.clone(), *epoch)),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn starting_over_makes_this_device_the_hub_with_a_new_key_and_holds_the_others() {
+    let (mut w, a, b, c) = three();
+    let idc = w.devices[c].id;
+    fill(w.lib(b), 4, "b");
+    w.act(b, Action::LocalChange);
+    w.run();
+    w.assert_converged(&[a, b, c]);
+    let (old_epoch, old_key) = load_meta(w.lib(c)).unwrap().key.unwrap();
+
+    // A sign-in that is not fresh changes nothing.
+    w.act(c, Action::StartOver { token: "an-old-token".into() });
+    w.run();
+    assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Error(SessionError::Relay(code)) if code == "stale_sign_in")));
+    assert_eq!(w.phase(a), Phase::Online);
+
+    // `b` is offline meanwhile; `c` asks while its own link is down too, and it goes once welcomed.
+    w.drop_link(b);
+    w.drop_link(c);
+    w.run();
+    w.act(c, Action::StartOver { token: FRESH_SIGN_IN.into() });
+    w.connect(c);
+    w.run();
+    assert_eq!(w.phase(a), Phase::Paused { reason: PauseReason::StartedOver }, "the hub was disconnected (4005)");
+    assert_eq!(w.phase(c), Phase::Paused { reason: PauseReason::Offline });
+
+    // The device that started over comes back as the hub, alone, with a new key.
+    w.connect(c);
+    w.run();
+    assert_eq!(w.phase(c), Phase::Online);
+    assert!(w.devices[c].session.is_hub());
+    assert_eq!(w.devices[c].session.epochs(), (old_epoch + 1, Some(old_epoch + 1)));
+    let meta = load_meta(w.lib(c)).unwrap();
+    assert_ne!(meta.key.unwrap().1, old_key);
+    assert_eq!(meta.roster.unwrap().devices.len(), 1, "the roster names the new hub alone");
+    assert!(started_over(&w, c).is_empty());
+
+    // The others come back pending and hold: no offer goes to the new hub.
+    let codes_on_c = w.codes(c).len();
+    w.connect(a);
+    w.connect(b);
+    w.run();
+    for i in [a, b] {
+        assert_eq!(w.phase(i), Phase::Paused { reason: PauseReason::StartedOver });
+        assert_eq!(started_over(&w, i), vec![(idc, Some("Phone".to_string()), old_epoch + 1)]);
+    }
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(w.codes(c).len(), codes_on_c, "nothing is offered until the person joins");
+    // Held across reconnects.
+    w.drop_link(b);
+    w.connect(b);
+    w.run();
+    assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::StartedOver });
+
+    // Joining pairs with the new hub; the libraries merge back.
+    fill(w.lib(a), 2, "a2");
+    for i in [a, b] {
+        w.act(i, Action::JoinAgain);
+        w.run();
+        let (asking, hosting) = (w.codes(i), w.codes(c));
+        assert_eq!(asking.last().unwrap().0, Role::Asking);
+        assert_eq!(asking.last().unwrap().1, hosting.last().unwrap().1);
+        let device = w.devices[i].id;
+        w.act(c, Action::ApprovePairing { device });
+        w.run();
+        assert_eq!(w.phase(i), Phase::Online);
+    }
+    w.act(c, Action::SyncNow);
+    w.run();
+    w.assert_converged(&[a, b, c]);
+    assert_eq!(count(w.lib(c)), 16);
+    assert_eq!(load_meta(w.lib(a)).unwrap().key, load_meta(w.lib(c)).unwrap().key);
+    assert_eq!(load_meta(w.lib(c)).unwrap().roster.unwrap().devices.len(), 3);
 }

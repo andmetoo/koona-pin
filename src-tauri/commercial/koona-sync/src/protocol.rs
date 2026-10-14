@@ -45,6 +45,8 @@ pub mod close {
     pub const PLAN: u16 = 4002;
     pub const REVOKED: u16 = 4003;
     pub const PROTO_TOO_OLD: u16 = 4004;
+    /// The account was started over (`PROTOCOL.md` 2.6), by another device or by this one.
+    pub const STARTED_OVER: u16 = 4005;
     pub const RATE_LIMITED: u16 = 4008;
     pub const REPLACED: u16 = 4009;
 }
@@ -61,6 +63,8 @@ pub mod relay_error {
     pub const UNKNOWN_DEVICE: &str = "unknown_device";
     /// `epoch{epoch}` not greater than the current one.
     pub const BAD_EPOCH: &str = "bad_epoch";
+    /// `start_over` without a sign-in by email code in the last ten minutes.
+    pub const STALE_SIGN_IN: &str = "stale_sign_in";
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -170,6 +174,17 @@ pub struct DeviceInfo {
     pub last_seen: u64,
 }
 
+/// The latest start over of the account (`welcome.started_over`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StartedOver {
+    /// The device that started it over, the hub since.
+    pub by: Uuid,
+    /// ms since the Unix epoch.
+    pub at: u64,
+    /// The epoch the relay set then.
+    pub epoch: u32,
+}
+
 /// Text frames between a device and the relay. Unknown fields are ignored, so the relay can grow
 /// them; an unknown `t` decodes to `Error::UnknownMessage`, which a device ignores.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -187,6 +202,9 @@ pub enum Control {
         devices: Vec<DeviceInfo>,
         online: Vec<Uuid>,
         time: u64,
+        /// Once the account was started over (2.6).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        started_over: Option<StartedOver>,
     },
     /// Relay -> devices: a device's connection opened or closed.
     Presence { device: Uuid, online: bool },
@@ -198,19 +216,23 @@ pub enum Control {
     Approve { device: Uuid },
     /// Hub -> relay.
     Revoke { device: Uuid },
-    /// Active device -> relay: another active device (or itself) becomes the hub.
+    /// Hub -> relay: another active device becomes the hub, once the person on the hub allowed
+    /// its `hub_request` (4.4).
     SetHub { device: Uuid },
     /// Active device -> relay.
     Rename { device: Uuid, name: String },
     /// Hub -> relay: the library key was rotated; greater than the current epoch.
     Epoch { epoch: u32 },
+    /// Active or pending device -> relay: start the account over from this device (2.6). `token`
+    /// is an access token of a sign-in by email code at most ten minutes old.
+    StartOver { token: String },
     /// Relay -> device: the last control message was refused (`relay_error`).
     Error { code: String },
     /// Relay -> device: a data frame to `to` (as addressed) found nobody online to take it.
     Undeliverable { to: Uuid },
 }
 
-const CONTROL_TAGS: [&str; 13] = [
+const CONTROL_TAGS: [&str; 14] = [
     "challenge",
     "hello",
     "welcome",
@@ -222,6 +244,7 @@ const CONTROL_TAGS: [&str; 13] = [
     "set_hub",
     "rename",
     "epoch",
+    "start_over",
     "error",
     "undeliverable",
 ];
@@ -431,6 +454,8 @@ pub enum ErrorCode {
     Rejected,
     /// Pairing: a signature didn't verify against the expected key.
     BadSignature,
+    /// The hub is already answering another `hub_request`.
+    Busy,
     /// A code from a newer build.
     #[serde(other)]
     Unknown,
@@ -460,6 +485,10 @@ pub enum SyncMessage {
     /// Hub -> devices: the active devices' keys, so a device trusts a new hub or a rekey only
     /// from a key someone holding the library key vouched for, never from the relay alone.
     Roster { hub: Uuid, devices: Vec<RosterEntry> },
+    /// Active device -> hub: "make me the main computer" (4.4).
+    HubRequest,
+    /// Hub -> the asking device: what the person on the hub chose.
+    HubAnswer { allow: bool },
     Error { code: ErrorCode },
 }
 
@@ -537,6 +566,8 @@ impl SyncMessage {
                     }
                 }
             }
+            "hub_request" => keys(object, &["t"], "hub_request")?,
+            "hub_answer" => keys(object, &["t", "allow"], "hub_answer")?,
             "error" => keys(object, &["t", "code"], "error")?,
             other => return Err(Error::UnknownMessage(other.to_string())),
         }
@@ -742,6 +773,34 @@ mod tests {
         assert_eq!(SyncMessage::decode(&message.encode().unwrap()).unwrap(), message);
         let error = SyncMessage::Error { code: ErrorCode::ClockSkew };
         assert_eq!(SyncMessage::decode(&error.encode().unwrap()).unwrap(), error);
+        for message in [SyncMessage::HubRequest, SyncMessage::HubAnswer { allow: true }, SyncMessage::Error { code: ErrorCode::Busy }] {
+            assert_eq!(SyncMessage::decode(&message.encode().unwrap()).unwrap(), message);
+        }
+        assert_eq!(inflate_json(&SyncMessage::HubRequest.encode().unwrap()).unwrap(), json!({"t": "hub_request"}));
+        let busy = SyncMessage::Error { code: ErrorCode::Busy };
+        assert_eq!(inflate_json(&busy.encode().unwrap()).unwrap(), json!({"t": "error", "code": "busy"}));
+        let extra = deflate(&json!({"t": "hub_answer", "allow": true, "why": "later"}));
+        assert!(SyncMessage::decode(&extra).unwrap_err().update_needed());
+    }
+
+    #[test]
+    fn a_welcome_names_the_latest_start_over_only_once_there_was_one() {
+        let welcome = |started_over| Control::Welcome {
+            status: DeviceStatus::Pending,
+            hub: id(1),
+            epoch: 4,
+            devices: Vec::new(),
+            online: Vec::new(),
+            time: 5,
+            started_over,
+        };
+        assert!(!encode_control(&welcome(None)).contains("started_over"));
+        let text = r#"{"t":"welcome","status":"pending","hub":"01010101-0101-0101-0101-010101010101","epoch":4,
+            "devices":[],"online":[],"time":5,"started_over":{"by":"01010101-0101-0101-0101-010101010101","at":3,"epoch":4}}"#;
+        assert_eq!(decode_control(text).unwrap(), welcome(Some(StartedOver { by: id(1), at: 3, epoch: 4 })));
+        let start = Control::StartOver { token: "jwt".into() };
+        assert_eq!(encode_control(&start), r#"{"t":"start_over","token":"jwt"}"#);
+        assert_eq!(decode_control(&encode_control(&start)).unwrap(), start);
     }
 
     #[test]
