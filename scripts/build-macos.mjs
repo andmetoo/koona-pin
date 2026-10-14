@@ -1,7 +1,8 @@
 // Builds Koona Pin for macOS (#56) on a Mac or the macOS Actions runner; <arch> is this machine's
 // (arm64 on Apple Silicon, x64 on Intel). Folders: scripts/lib/paths.mjs.
 //   bun scripts/build-macos.mjs          release: --features public-release, `Koona Pin.app` in a ZIP and a .dmg
-//                                        (dmgbuild, src-tauri/macos/dmg) →
+//                                        (dmgbuild, src-tauri/macos/dmg), with the Safari extension when it is
+//                                        signed with a Developer ID →
 //                                        release/publish/macos/<version>/<arch>/ with SHA256SUMS.txt
 //   bun scripts/build-macos.mjs --test   experimental test .app without public-release, never published →
 //                                        release/test/macos/<version>/<arch>/
@@ -10,9 +11,11 @@
 // Settings come from the environment or from .env in the repository root (.env.example); a variable
 // already set in the environment wins. The release build needs KOONAPIN_FEEDBACK_URL (feedback.rs).
 // Apple signing is optional: with APPLE_SIGNING_IDENTITY (a Developer ID Application identity in the
-// keychain) Tauri signs, and with APPLE_API_ISSUER/APPLE_API_KEY/APPLE_API_KEY_PATH or
-// APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID it also notarizes and staples the app, and this script the DMG.
-// Without them the bundle is signed ad hoc and Gatekeeper needs the Mac owner's approval (NP-051).
+// keychain) Tauri signs the app, this script adds the Safari extension and signs it and the app again,
+// and with APPLE_API_ISSUER/APPLE_API_KEY/APPLE_API_KEY_PATH or APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID it
+// notarizes and staples the app and the DMG. Without them the bundle is signed ad hoc, has no Safari
+// extension (Safari loads an ad hoc one only with «Allow unsigned extensions»), and Gatekeeper needs the
+// Mac owner's approval (NP-051).
 // The DMG needs Python 3.10 or later for dmgbuild (see dmgbuild() below).
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -22,9 +25,9 @@ import { publish, root, test } from "./lib/paths.mjs";
 
 if (process.platform !== "darwin") throw new Error("Build this on a Mac or the macOS Actions runner");
 const testBuild = process.argv.includes("--test");
-// Release builds leave Safari out until there is a Developer ID to sign it with (NP-119).
+// A test build has Safari with --safari; a release build whenever it has a Developer ID (NP-119).
 const safari = process.argv.includes("--safari");
-if (safari && !testBuild) throw new Error("--safari is a test build only: bun run build:macos:safari");
+if (safari && !testBuild) throw new Error("--safari is for a test build: a release build has Safari whenever APPLE_SIGNING_IDENTITY is set");
 // The version of the bundle is the one in tauri.conf.json, as for the other platforms' builds.
 const version = JSON.parse(readFileSync(path.join(root, "src-tauri", "tauri.conf.json"), "utf8")).version;
 const arch = process.arch;
@@ -37,9 +40,12 @@ const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest(
 /**
  * The Safari app extension (src-tauri/macos/safari, NP-119) into Contents/PlugIns of the app at `bundle`.
  * Xcode signs to run locally (no team, no profile); the .appex is signed again with its own entitlements,
- * the sandbox only, then the app around it, ad hoc and without --deep, keeping what Tauri gave the app.
+ * the sandbox only, then the app around it, without --deep, keeping what Tauri gave the app. `identity`
+ * is a Developer ID (with a secure timestamp, as notarization requires) or "-", ad hoc. No provisioning
+ * profile either way: the sandbox is the extension's only entitlement.
  */
-function embedSafari(bundle) {
+function embedSafari(bundle, identity = "-") {
+  const sign = ["--force", "--sign", identity, ...(identity === "-" ? [] : ["--timestamp"])];
   const project = path.join(root, "src-tauri", "macos", "safari");
   const work = path.join(root, "src-tauri", "target", "safari");
   // The handler's envelope and socket exchange, without Safari (Tests/RelayCheck.swift).
@@ -59,14 +65,14 @@ function embedSafari(bundle) {
   rmSync(appex, { recursive: true, force: true });
   mkdirSync(path.dirname(appex), { recursive: true });
   run("ditto", [built, appex]);
-  run("codesign", ["--force", "--sign", "-", "--options", "runtime",
+  run("codesign", [...sign, "--options", "runtime",
     "--entitlements", path.join(project, "Extension", "KoonaPinSafari.entitlements"), appex]);
   // Inside out, never --deep, which would sign the .appex again without its entitlements. The app keeps the
-  // entitlements and flags it had (none in a test build today; a Tauri setting may add some).
+  // entitlements and flags it had (none today, the hardened runtime in a release; a Tauri setting may add some).
   const entitlements = () => execFileSync("codesign", ["-d", "--entitlements", "-", "--xml", bundle],
     { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   const before = entitlements();
-  run("codesign", ["--force", "--sign", "-", "--preserve-metadata=entitlements,flags,runtime", bundle]);
+  run("codesign", [...sign, "--preserve-metadata=entitlements,flags,runtime", bundle]);
   if (entitlements() !== before) throw new Error(`Signing ${app} again changed its entitlements`);
   run("codesign", ["--verify", "--strict", "--deep", "--verbose=2", bundle]);
 }
@@ -111,7 +117,7 @@ if (testBuild) {
   process.exit(0);
 }
 
-// Cargo (option_env! in feedback.rs) and Tauri's signing and notarization inherit these.
+// Cargo (option_env! in feedback.rs) and Tauri's signing inherit these.
 const dotenv = path.join(root, ".env");
 if (existsSync(dotenv)) process.loadEnvFile(dotenv);
 const env = process.env;
@@ -125,7 +131,7 @@ for (const name of Object.keys(env)) if (name.startsWith("APPLE_") && !env[name]
 const identity = env.APPLE_SIGNING_IDENTITY;
 const notarize = Boolean(identity) && Boolean(
   (env.APPLE_API_ISSUER && env.APPLE_API_KEY && env.APPLE_API_KEY_PATH) || (env.APPLE_ID && env.APPLE_PASSWORD && env.APPLE_TEAM_ID));
-if (!identity) console.warn("APPLE_SIGNING_IDENTITY is not set: an unsigned (ad hoc) build; Gatekeeper needs the Mac owner's approval.");
+if (!identity) console.warn("APPLE_SIGNING_IDENTITY is not set: an unsigned (ad hoc) build without Safari; Gatekeeper needs the Mac owner's approval.");
 else if (!notarize) console.warn("No notarization credentials (APPLE_API_* or APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID): signed, not notarized.");
 
 // A bundle left from an earlier build must not pass for this one.
@@ -139,7 +145,11 @@ rmSync(path.join(bundleDir, "macos", app), { recursive: true, force: true });
 const args = ["run", "tauri", "build", "--features", "public-release", "--bundles", "app",
   "--config", "src-tauri/tauri.macos-release.conf.json"];
 if (!identity) args.push("--config", JSON.stringify({ bundle: { macOS: { signingIdentity: "-" } } }));
-run("bun", args);
+// Tauri signs but does not notarize: the Safari extension goes in after it, and that seals the app again,
+// so this script notarizes the finished app itself. Without these variables Tauri skips notarization.
+const notaryVars = new Set(["APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_KEY_PATH", "APPLE_ID", "APPLE_PASSWORD", "APPLE_TEAM_ID"]);
+if (identity) run("bun", ["run", "extension:build"]);
+run("bun", args, { env: Object.fromEntries(Object.entries(env).filter(([name]) => !notaryVars.has(name))) });
 
 /**
  * dmgbuild (src-tauri/macos/dmg/requirements.txt, pinned by hash) in a virtual environment under
@@ -168,8 +178,8 @@ function dmgbuild() {
 const notaryCredentials = () => env.APPLE_API_KEY_PATH
   ? ["--key", env.APPLE_API_KEY_PATH, "--key-id", env.APPLE_API_KEY, "--issuer", env.APPLE_API_ISSUER]
   : ["--apple-id", env.APPLE_ID, "--password", env.APPLE_PASSWORD, "--team-id", env.APPLE_TEAM_ID];
-/** Notarizes a file and staples the ticket to it; Apple's log when it is not accepted. */
-function notarizeAndStaple(file) {
+/** Notarizes `file` (a DMG, or a ZIP of an app) and staples the ticket to `target`; Apple's log when it is not accepted. */
+function notarizeAndStaple(file, target = file) {
   const result = JSON.parse(execFileSync("xcrun", ["notarytool", "submit", file, "--wait", "--output-format", "json",
     ...notaryCredentials()], { encoding: "utf8" }));
   if (result.status !== "Accepted") {
@@ -177,7 +187,7 @@ function notarizeAndStaple(file) {
     throw new Error(`Notarization of ${path.basename(file)}: ${result.status} (${result.id})`);
   }
   console.log(`Notarized ${path.basename(file)} (${result.id})`);
-  run("xcrun", ["stapler", "staple", file]);
+  run("xcrun", ["stapler", "staple", target]);
 }
 
 const output = publish.macos(version, arch);
@@ -186,6 +196,15 @@ mkdirSync(output, { recursive: true });
 const base = `koonapin-${version}-macos-${arch}`;
 const built = path.join(bundleDir, "macos", app);
 const dmg = path.join(output, `${base}.dmg`);
+// Safari, signed with the app's Developer ID; then the app is notarized as a ZIP and the ticket stapled to it.
+if (identity) embedSafari(built, identity);
+if (notarize) {
+  const submission = path.join(root, "src-tauri", "target", "notarize", `${base}.zip`);
+  rmSync(path.dirname(submission), { recursive: true, force: true });
+  mkdirSync(path.dirname(submission), { recursive: true });
+  run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", built, submission]);
+  notarizeAndStaple(submission, built);
+}
 // The ZIP: Koona Pin.app at its top. ditto keeps the bundle's metadata, signature and stapled ticket.
 run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", built, path.join(output, `${base}.zip`)]);
 // The DMG: the app, a link to Applications, the window and volume icon of src-tauri/macos/dmg.
@@ -197,7 +216,7 @@ if (notarize) notarizeAndStaple(dmg);
 const files = [`${base}.zip`, `${base}.dmg`];
 const sums = files.map((file) => `${sha256(path.join(output, file))}  ${file}`);
 const dirty = git("status", "--porcelain", "--untracked-files=no") ? " with uncommitted changes" : "";
-const signature = identity ? `signed with Developer ID, ${notarize ? "notarized" : "not notarized"}` : "unsigned (ad hoc), not notarized";
+const signature = identity ? `signed with Developer ID, ${notarize ? "notarized" : "not notarized"}, with Safari` : "unsigned (ad hoc), not notarized, without Safari";
 writeFileSync(path.join(output, "SHA256SUMS.txt"),
   `${sums.join("\n")}\n\n${signature}; commit ${git("rev-parse", "--short", "HEAD")}${dirty}; built ${new Date().toISOString()}\n`);
 console.log(`\n${sums.map((line) => line.replace(/^\S+ {2}/, `${path.relative(root, output)}/`)).join("\n")}\n${identity ? signature : "UNSIGNED (ad hoc): Gatekeeper needs the Mac owner's approval"}`);

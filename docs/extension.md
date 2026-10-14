@@ -9,7 +9,7 @@ The extension saves the current tab to Koona Pin with one click and offers a qui
 | Chrome | 120 | service worker |
 | Edge | 120 | service worker (same package as Chrome) |
 | Firefox | 140 (release and ESR 140) | event page (`background.scripts`, ES module) |
-| Safari (macOS) | 18 (macOS 15); **local build only** | non-persistent background page (`background.scripts`, ES module) |
+| Safari (macOS) | 18 (macOS 15); inside `Koona Pin.app`, release builds signed with a Developer ID | non-persistent background page (`background.scripts`, ES module) |
 
 Safari has no store listing yet: the extension is built with Xcode into the test `Koona Pin.app` and loaded with "Allow unsigned extensions" ([Safari](#safari)). Chromium on Linux works like Chrome. Browsers in a sandbox that blocks native messaging (Flatpak browsers, Chromium from Snap) cannot reach the app; Firefox from Snap can, through the WebExtensions portal.
 
@@ -71,7 +71,7 @@ The unpacked Chrome and Edge builds carry the public key in `extension/dev-key.t
 
 ## Safari
 
-Safari builds from the same `extension/src` with its own manifest (`manifest("safari")` in `scripts/build-extension.mjs`): no development `key`, no `minimum_chrome_version`, no `gecko` block; `browser_specific_settings.safari.strict_min_version` is 18.0, the Safari of macOS 15. It is a local build only (NP-119): there is no Apple Developer account yet, so nothing is signed, notarized or published. `browserName()` reports `safari` from the extension's own scheme, `safari-web-extension:`, since Safari has neither `runtime.getBrowserInfo` nor `navigator.userAgentData`.
+Safari builds from the same `extension/src` with its own manifest (`manifest("safari")` in `scripts/build-extension.mjs`): no development `key`, no `minimum_chrome_version`, no `gecko` block; `browser_specific_settings.safari.strict_min_version` is 18.0, the Safari of macOS 15. It ships inside `Koona Pin.app` (NP-119): a release build signed with a Developer ID embeds it, signs it with the same Developer ID and notarizes the app with it ([macos-test.md](macos-test.md#in-a-release-build)); Safari has no store or file of its own for it outside the App Store. `browserName()` reports `safari` from the extension's own scheme, `safari-web-extension:`, since Safari has neither `runtime.getBrowserInfo` nor `navigator.userAgentData`.
 
 What each API does in Safari, from MDN's browser-compat-data, Apple's documentation and WebKit's source; still to be confirmed on a real Mac (docs/macos-test.md):
 
