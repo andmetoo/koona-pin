@@ -63,6 +63,21 @@ export async function talk(message, runtime = ext.runtime) {
   }
 }
 
+/**
+ * The capture message for a queued link. `reading` (NP-125) goes only with
+ * «Save to Reading»: the host and the Safari relay pass the message on as it
+ * is, and an app before NP-125 saves the link without it.
+ */
+export function captureMessage(item) {
+  return {
+    type: "capture",
+    request_id: item.request_id,
+    url: item.url,
+    title: item.title,
+    ...(item.reading ? { reading: true } : {}),
+  };
+}
+
 /** The app is older than the extension when it answers with a lower protocol. */
 export const appIsOlder = (reply) => (reply?.protocol ?? PROTOCOL) < PROTOCOL;
 

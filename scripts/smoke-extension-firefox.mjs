@@ -170,8 +170,14 @@ async function run(body, arg = null) {
   if (exceptionDetails) throw new Error(exceptionDetails.text);
   return JSON.parse(result.value);
 }
-const capture = (url, title) =>
-  run("const bg = await browser.runtime.getBackgroundPage(); await bg.__captureForTest(arg); return true;", { url, title });
+// `reading`: «Save to Reading» (NP-125), the handler of its menu items and shortcut.
+const capture = (url, title, reading = false) =>
+  run(
+    "const bg = await browser.runtime.getBackgroundPage(); await bg.__captureForTest(arg.tab, { reading: arg.reading }); return true;",
+    { tab: { url, title }, reading },
+  );
+const placed = (url) =>
+  rows(`SELECT reading_at IS NOT NULL AS reading, triaged_at IS NULL AS inbox FROM bookmarks WHERE url = '${url}'`);
 const waiting = () => run('return (await browser.storage.local.get("captureQueue")).captureQueue || [];');
 const status = () => run('return document.getElementById("status").dataset.state;');
 const reload = () => run("setTimeout(() => location.reload(), 0); return true;");
@@ -220,14 +226,22 @@ try {
   assert.equal((await waiting()).length, 0);
   assert.deepEqual(rows("SELECT title FROM bookmarks"), [{ title: "Настоящий Firefox" }]);
 
+  // «Save to Reading» on the saved page (NP-125): only added to Reading, still in the inbox, no duplicate.
+  await capture("https://example.invalid/firefox-capture", "Заголовок дубликата", true);
+  assert.equal((await waiting()).length, 0);
+  assert.deepEqual(placed("https://example.invalid/firefox-capture"), [{ reading: 1, inbox: 1 }]);
+  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 1);
+
   // The library cannot open: the link stays in the queue.
   apps.stop();
   await until(async () => !(await pipeReady(pipe)), "app stopped");
   await moveLibrary(library, `${library}.kept`);
   await writeFile(library, "not a database");
-  await capture("https://example.invalid/library-failed", "Ждёт в очереди");
+  // Saved to Reading (NP-125): the flag waits in the queue with the link.
+  await capture("https://example.invalid/library-failed", "Ждёт в очереди", true);
   const queued = await waiting();
   assert.equal(queued.length, 1);
+  assert.equal(queued[0].reading, true);
   assert.match(queued[0].error, /didn't answer|не ответил/);
   // NP-080: the event page draws the clock into the icon; the title is set only after setIcon succeeds.
   assert.match(await run("return browser.action.getTitle({});"), /waiting to be sent|ожидают передачи/);
@@ -242,8 +256,10 @@ try {
   await until(async () => (await waiting()).length === 0, "delivery by the alarm", 150000);
   const retryS = Math.round((performance.now() - retried) / 1000);
   assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 2);
+  // Saved to Reading while the app was away: in Reading and in the inbox once it is back.
+  assert.deepEqual(placed("https://example.invalid/library-failed"), [{ reading: 1, inbox: 1 }]);
   const receipts = rows("SELECT request_id, outcome FROM capture_receipts");
-  assert.equal(receipts.length, 3);
+  assert.equal(receipts.length, 4);
   assert.ok(receipts.some((r) => r.request_id === firstId && r.outcome === "created"));
   assert.ok(receipts.some((r) => r.request_id === queued[0].request_id && r.outcome === "created"));
 
@@ -278,7 +294,7 @@ try {
   assert.deepEqual([...new Set(rows("SELECT source FROM bookmarks").map((r) => r.source))], ["firefox"]);
   console.log(`Firefox ${capabilities.browserVersion} (${flavor}); cold capture ${coldMs} ms; alarm delivered the queued link in ${retryS} s`);
   console.log(
-    `PASS Firefox ${flavor}: native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, delivery by the alarm, host not registered, foreign id, send now, browser record, the queue clock drawn into the icon`,
+    `PASS Firefox ${flavor}: native host, hello without starting the app, capture starts the app, duplicate, Save to Reading, queue when the library fails, delivery by the alarm, host not registered, foreign id, send now, browser record, the queue clock drawn into the icon`,
   );
 } catch (error) {
   // Firefox prints what the native host writes to stderr.

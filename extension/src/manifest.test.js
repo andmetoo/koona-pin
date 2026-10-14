@@ -29,4 +29,18 @@ describe("manifests", () => {
     expect(manifest("firefox").background).toEqual({ scripts: ["worker.js"], type: "module" });
     expect(manifest("firefox").browser_specific_settings).toHaveProperty("gecko");
   });
+
+  it("gives every browser the Save to Reading shortcut, apart from the search's (NP-125)", () => {
+    for (const browser of [...browsers, ...localBrowsers]) {
+      const { commands } = manifest(browser);
+      expect(commands["save-to-reading"], browser).toEqual({
+        suggested_key: { default: "Alt+Shift+R" },
+        description: "__MSG_commandReading__",
+      });
+      const keys = Object.values(commands).map((command) => command.suggested_key.default);
+      expect(new Set(keys).size, browser).toBe(keys.length);
+      // Chrome takes at most four suggested shortcuts.
+      expect(keys.length, browser).toBeLessThanOrEqual(4);
+    }
+  });
 });

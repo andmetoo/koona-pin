@@ -79,3 +79,38 @@ describe("persistent capture queue", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("Save to Reading in the queue (NP-125)", () => {
+  it("keeps the flag while the app is away and sends it on the next delivery", async () => {
+    const sent = [];
+    const { queue, storage } = setup(async () => ({ ok: false, permanent: false, error: "closed" }));
+    const item = await queue.enqueue("https://example.com/a", "A", 3, { reading: true });
+    expect(item.reading).toBe(true);
+    await queue.flush();
+    expect((await queue.list())[0]).toMatchObject({ request_id: item.request_id, reading: true, error: "closed" });
+    // A new worker, as after a browser restart, reads the same flag.
+    const next = createQueue({
+      storage,
+      send: async (row) => (sent.push(row), { ok: true, bookmark_id: 7, outcome: "created", reading: true }),
+    });
+    const [delivered] = await next.flush();
+    expect(sent.map((row) => [row.request_id, row.reading])).toEqual([[item.request_id, true]]);
+    expect(delivered.reading).toBe(true);
+    expect(await next.list()).toEqual([]);
+  });
+
+  it("a plain save has no flag; Save to Reading on a waiting link turns it into a new request", async () => {
+    const { queue } = setup(async () => ({ ok: false, permanent: false, error: "closed" }));
+    const plain = await queue.enqueue("https://example.com/a", "A");
+    expect(plain).not.toHaveProperty("reading");
+    const reading = await queue.enqueue("https://example.com/a", "", 5, { reading: true });
+    expect(reading.reading).toBe(true);
+    expect(reading.request_id).not.toBe(plain.request_id);
+    expect(reading.title).toBe("A");
+    expect(reading.created_at).toBe(plain.created_at);
+    expect(await queue.list()).toEqual([reading]);
+    // Saved again either way: the waiting request stays as it is.
+    expect(await queue.enqueue("https://example.com/a", "A")).toEqual(reading);
+    expect(await queue.enqueue("https://example.com/a", "A", 5, { reading: true })).toEqual(reading);
+  });
+});

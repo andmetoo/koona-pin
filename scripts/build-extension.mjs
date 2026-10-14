@@ -66,6 +66,8 @@ export function manifest(browser, { dev = false, key } = {}) {
     // Quick search (NP-082, Р-40). Ctrl+Shift+D is the browsers' own «bookmark all tabs».
     commands: {
       "quick-search": { suggested_key: { default: "Alt+Shift+D" }, description: "__MSG_commandSearch__" },
+      // «Save to Reading» (NP-125); R as in the app. No browser has Alt+Shift+R.
+      "save-to-reading": { suggested_key: { default: "Alt+Shift+R" }, description: "__MSG_commandReading__" },
     },
     icons,
     options_ui: { page: "options.html", open_in_tab: true },

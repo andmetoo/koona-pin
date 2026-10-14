@@ -787,6 +787,7 @@ mod tests {
                 title: Some("Captured".into()),
                 collection_id: None,
                 tags: None,
+                reading: false,
             },
             db::Source::Chrome,
         )
