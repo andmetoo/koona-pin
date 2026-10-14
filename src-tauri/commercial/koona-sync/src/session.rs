@@ -365,6 +365,9 @@ pub struct Session {
     roster_for: Option<Uuid>,
     /// The `hub_request` this device sent: to which hub, and when.
     hub_asking: Option<(Uuid, u64)>,
+    /// The hub that handed over to this device: its `hub_answer{allow: true}` follows the
+    /// relay's `account` (it sends `set_hub` first) and is expected, not a drop.
+    handed_over_by: Option<Uuid>,
     /// On the hub: the device whose `hub_request` the person is asked about, and since when.
     hub_asked: Option<(Uuid, u64)>,
     /// `start_over` to send once the relay welcomes this device.
@@ -428,6 +431,7 @@ impl Session {
             rekey: None,
             roster_for: None,
             hub_asking: None,
+            handed_over_by: None,
             hub_asked: None,
             start_over_token: None,
             starting_over: false,
@@ -864,6 +868,7 @@ impl Session {
         self.hosting = None;
         self.rekey = None;
         self.roster_for = None;
+        self.handed_over_by = None;
         // The other side's state of a hub change is lost with either connection.
         if let Some((hub, _)) = self.hub_asking.take() {
             self.hub_change(HubChangeEvent::Failed { peer: hub, reason: HubChangeFailure::Unavailable });
@@ -1119,6 +1124,9 @@ impl Session {
         if hub_changed {
             // A hub change under way is over: this device is the hub now, or someone else is.
             if let Some((asked, _)) = self.hub_asking.take() {
+                if hub == me {
+                    self.handed_over_by = Some(asked);
+                }
                 self.hub_change(HubChangeEvent::Settled { peer: asked });
             }
             if hub != me {
@@ -1418,6 +1426,11 @@ impl Session {
     }
 
     fn on_hub_answer(&mut self, from: Uuid, allow: bool) {
+        if allow && self.handed_over_by == Some(from) {
+            // The relay's `account` came first and settled it.
+            self.handed_over_by = None;
+            return;
+        }
         if self.hub_asking.is_none_or(|(hub, _)| hub != from) {
             return self.dropped(from, DropReason::Unexpected);
         }

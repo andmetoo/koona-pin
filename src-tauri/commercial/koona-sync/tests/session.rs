@@ -967,6 +967,9 @@ fn the_hub_hands_over_only_when_its_person_allows() {
     // Allowed: `b` is the hub and sends its roster to the others.
     w.hand_over(b, a, true);
     assert_eq!(w.last_hub_event(b), Some(HubChangeEvent::Settled { peer: ida }));
+    // The relay's `account` comes before the hub's answer (set_hub goes first); the answer
+    // that follows is expected, not a drop.
+    assert_eq!(w.dropped(b, DropReason::Unexpected), 0, "{:?}", w.devices[b].events);
     for i in [a, b, c] {
         assert_eq!(w.devices[i].session.hub(), Some(idb));
     }
