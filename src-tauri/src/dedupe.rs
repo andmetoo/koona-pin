@@ -156,6 +156,15 @@ fn member(conn: &Connection, id: i64) -> Result<(Bookmark, String)> {
 /// bookmark gone, in the trash or no longer of the same address fails the
 /// whole call with `not_found`: nothing is written. Returns every bookmark
 /// changed, for the journal and the events.
+///
+/// With sync on (Р-68) each of these is an ordinary edit: the main bookmark's
+/// fields and tags that change, the others' move to the trash, so every
+/// device shows the same merge with the others in its trash, and Ctrl Z
+/// works as without sync. They are not tombstones `merged_into` the main
+/// one: the engine means by that a record with the same address, folds the
+/// later fields of the merged one into the survivor (the others' trash time
+/// and address would win there) and is final, while this merge is undone by
+/// a restore from the trash. Emptying the trash later purges them as any.
 pub fn merge(conn: &Connection, groups: &[MergeGroup]) -> Result<Vec<Bookmark>> {
     let tx = conn.unchecked_transaction()?;
     let now = db::now();
@@ -208,8 +217,7 @@ pub fn merge(conn: &Connection, groups: &[MergeGroup]) -> Result<Vec<Bookmark>> 
                  created_at = ?5, updated_at = ?6, revision = revision + 1 WHERE id = ?7",
             params![notes, favorite, collection, triaged, created, now, main.id],
         )?;
-        tx.execute("DELETE FROM bookmark_tags WHERE bookmark_id = ?1", [main.id])?;
-        db::link_tags(&tx, main.id, &tags, &now)?;
+        db::set_tags(&tx, main.id, &tags, &now)?;
         for other in &others {
             db::trash_bookmark(&tx, other.id)?;
         }

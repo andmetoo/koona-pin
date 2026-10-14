@@ -175,8 +175,7 @@ impl Change {
             rusqlite::params_from_iter(values),
         )?;
         if b.tags != a.tags {
-            conn.execute("DELETE FROM bookmark_tags WHERE bookmark_id=?1", [self.id])?;
-            db::link_tags(conn, self.id, &b.tags, &now)?;
+            db::set_tags(conn, self.id, &b.tags, &now)?;
         }
         Ok(())
     }

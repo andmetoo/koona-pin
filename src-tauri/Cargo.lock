@@ -2320,6 +2320,7 @@ dependencies = [
  "gtk",
  "icu_collator",
  "icu_locale_core",
+ "koona-sync",
  "libc",
  "reqwest 0.12.28",
  "ring",

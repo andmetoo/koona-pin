@@ -29,6 +29,14 @@ pub use store::{merge_vector, vector, Chunk, Cursor, Delta};
 /// Schema 10: the tables and triggers of sync, for the app's migration.
 pub const SCHEMA_10: &str = include_str!("schema10.sql");
 
+/// [`SCHEMA_10`] in two parts: the tables and columns, then the triggers that record changes. A
+/// migration that fills the new columns does it between the two, so the filling records nothing
+/// and needs none of the engine's functions.
+pub fn schema_10_parts() -> (&'static str, &'static str) {
+    let at = SCHEMA_10.find("\n-- Capture.").expect("schema10.sql has its capture section");
+    SCHEMA_10.split_at(at)
+}
+
 #[derive(Debug)]
 pub enum Error {
     Sql(rusqlite::Error),

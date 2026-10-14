@@ -66,6 +66,9 @@ flate2 = "1.1"
 # through rustls; base64 through Tauri.
 ring = "0.17"
 base64 = "0.22"
+# The sync engine (Р-68): schema 10 and its triggers, called from the GPL code
+# like the other commercial modules.
+koona-sync = { path = "commercial/koona-sync" }
 
 [dev-dependencies]
 # Already in the tree through Tauri: a test recomputes the development

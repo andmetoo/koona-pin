@@ -410,6 +410,9 @@ fn prepare(source: &Path, backups: &Path) -> Result<PathBuf, String> {
         backups: work.join(backup::FOLDER),
     })
     .map_err(|failure| format!("{}: {}", failure.code, failure.detail))?;
+    // A copy is not the replica it was made from (Р-68): it comes in with
+    // sync off, and `restore_into` makes a library with sync on a new one.
+    crate::sync_library::forget(&opened.conn).map_err(|e| e.to_string())?;
     drop_local_pictures(&opened.conn).map_err(|e| e.to_string())?;
     // Without a WAL the file holds everything the backup API reads.
     opened
@@ -492,6 +495,8 @@ pub fn restore_into(
     let prepared = prepare(source, &paths.backups).map_err(RestoreFailure::Failed)?;
     let result = (|| {
         let previous = save_current(conn, paths).map_err(RestoreFailure::Backup)?;
+        // A damaged library may not tell; it restores with sync off then.
+        let kept = crate::sync_library::keep(conn).ok().flatten();
         // A damaged library is read-only; the restored one is not.
         let read_only: bool = conn
             .pragma_query_value(None, "query_only", |r| r.get(0))
@@ -506,6 +511,19 @@ pub fn restore_into(
         // The copy's keys may be in another language (NP-114); registering a
         // function only fails for a wrong name or argument count.
         let _ = crate::sorting::apply_stored_language(conn);
+        // The engine's state on this connection was the old library's.
+        let _ = crate::sync_library::register(conn);
+        if let Some(kept) = kept {
+            // The restore is done; without this the library stays with sync off.
+            let carried = conn.unchecked_transaction().map_err(koona_sync::Error::from).and_then(|tx| {
+                crate::sync_library::after_restore(&tx, kept, &previous)?;
+                tx.commit().map_err(koona_sync::Error::from)
+            });
+            if let Err(error) = carried {
+                eprintln!("Sync stays off after the restore: {error}");
+                let _ = crate::sync_library::register(conn);
+            }
+        }
         Ok(Restored { bookmarks, previous })
     })();
     discard(&prepared);
@@ -563,7 +581,12 @@ fn checked_connection(paths: &Paths) -> Result<Result<Connection, String>, Strin
     conn.busy_timeout(BUSY_TIMEOUT).map_err(|e| e.to_string())?;
     Ok(match quick_check(&conn).map_err(|e| e.to_string())? {
         Some(problem) => Err(problem),
-        None => Ok(conn),
+        // It only reads, but has the functions every connection has: a query
+        // of `db` may name them, and so may the triggers of schema 10.
+        None => {
+            let _ = db::register_functions(&conn);
+            Ok(conn)
+        }
     })
 }
 
@@ -826,6 +849,70 @@ mod tests {
         // The next start opens the restored library as it is.
         let reopened = open(&paths).unwrap().conn;
         assert_eq!(bookmarks(&reopened), in_copy + 1);
+    }
+
+    /// With sync on (Р-68) the restored library is a new replica with the
+    /// settings it had; bookmarks it had that the copy lacks wait in the
+    /// trash instead of disappearing on the other devices; everything in it
+    /// is recorded anew, nothing as a purge.
+    #[test]
+    fn a_restore_with_sync_on_purges_nothing_elsewhere() {
+        let paths = library("restore-synced");
+        build(&paths, 50);
+        let mut conn = open(&paths).unwrap().conn;
+        let old = uuid::Uuid::from_u128(7);
+        crate::sync_library::turn_on(&conn, old).unwrap();
+        conn.execute("INSERT INTO sync_meta (key, value) VALUES ('library_key', 'k1'), ('hub', 'h1')", []).unwrap();
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        let in_copy = bookmarks(&conn);
+        // After the copy: a new bookmark with a tag, one purged.
+        let after = capture(&conn, "https://example.com/after-the-copy", "after");
+        db::update_bookmark(&conn, after.bookmark_id, None, Some("note".into()), None, None, Some(vec!["kept".into()])).unwrap();
+        db::trash_bookmark(&conn, 2).unwrap();
+        db::purge_trash(&conn, db::Purge::One(2)).unwrap();
+
+        restore_into(&mut conn, &paths, &copy).unwrap();
+        let replica = koona_sync::replica(&conn).unwrap().expect("sync stays on");
+        assert_ne!(replica, old, "a new replica");
+        let meta: Vec<(String, String)> = conn
+            .prepare("SELECT key, value FROM sync_meta WHERE key IN ('library_key', 'hub') ORDER BY key")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(meta, [("hub".into(), "h1".into()), ("library_key".into(), "k1".into())]);
+        assert_eq!(bookmarks(&conn), in_copy, "the copy's bookmarks, the purged one back");
+        let kept = db::get_bookmark_by_id(&conn, conn.query_row("SELECT id FROM bookmarks WHERE url = 'https://example.com/after-the-copy'", [], |r| r.get(0)).unwrap()).unwrap();
+        assert!(kept.deleted_at.is_some(), "in the trash");
+        assert_eq!((kept.notes.as_deref(), kept.tags.unwrap()), (Some("note"), vec!["kept".to_string()]));
+        let one = |sql: &str| conn.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(one("SELECT count(*) FROM sync_origins"), 1, "it holds nothing of anyone");
+        assert_eq!(one("SELECT count(*) FROM sync_clock WHERE entity = 2 AND field = -1"), one("SELECT count(*) FROM bookmarks"));
+        assert_eq!(one("SELECT count(*) FROM tombstones WHERE hlc IS NULL"), 0);
+        assert_eq!(one("SELECT count(*) FROM tombstones"), 0, "no purge from the restore");
+        // The connection records with the new replica.
+        let next = capture(&conn, "https://example.com/next", "next");
+        assert_eq!(one(&format!("SELECT count(*) FROM sync_clock WHERE entity = 2 AND row = {} AND origin = (SELECT id FROM sync_origins)", next.bookmark_id)), 1);
+    }
+
+    /// A copy comes in with sync off when the library had it off, even if the
+    /// copy was made from a library with sync on: it is not that replica.
+    #[test]
+    fn a_copy_of_a_synced_library_restores_with_sync_off() {
+        let paths = library("restore-copy-synced");
+        build(&paths, 20);
+        let mut conn = open(&paths).unwrap().conn;
+        crate::sync_library::turn_on(&conn, uuid::Uuid::from_u128(7)).unwrap();
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        crate::sync_library::forget(&conn).unwrap();
+        restore_into(&mut conn, &paths, &copy).unwrap();
+        assert!(!crate::sync_library::is_on(&conn));
+        let clocks: i64 = conn.query_row("SELECT count(*) FROM sync_clock", [], |r| r.get(0)).unwrap();
+        assert_eq!(clocks, 0);
+        capture(&conn, "https://example.com/next", "next");
+        let clocks: i64 = conn.query_row("SELECT count(*) FROM sync_clock", [], |r| r.get(0)).unwrap();
+        assert_eq!(clocks, 0, "nothing is recorded");
     }
 
     #[test]
