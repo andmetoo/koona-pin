@@ -163,7 +163,13 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
 }
 
 fn collections(conn: &Connection) -> rusqlite::Result<Vec<JsonCollection>> {
-    conn.prepare("SELECT uid, name, color, icon, created_at, position FROM collections ORDER BY name COLLATE NOCASE, id")?
+    // The place is the rank among the collections ordered by hand: the key
+    // itself (schema 10) means nothing outside the library.
+    conn.prepare(
+        "SELECT uid, name, color, icon, created_at,
+             CASE WHEN position_key IS NOT NULL THEN rank() OVER (PARTITION BY position_key IS NULL ORDER BY position_key, id) - 1 END
+         FROM collections ORDER BY name COLLATE NOCASE, id",
+    )?
         .query_map([], |r| {
             Ok(JsonCollection {
                 uid: r.get(0)?,

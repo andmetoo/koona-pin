@@ -1,0 +1,81 @@
+{
+  "description": "Control messages (text frames), one JSON object each, tagged by \"t\". Receivers ignore unknown fields.",
+  "messages": [
+    {
+      "devices": [
+        {
+          "id": "0192f3a4-0000-7000-8000-00000000b0b0",
+          "key": "oJql9HpnWYAv+VX43C0qFKXJnSO+l/hkEn/5ODRVpPA=",
+          "last_seen": 1760399000000,
+          "name": "Studio Mac",
+          "status": "active"
+        },
+        {
+          "id": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+          "key": "0EqyMnQrtKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzc=",
+          "last_seen": 1760399000000,
+          "name": "Laptop",
+          "status": "pending"
+        }
+      ],
+      "epoch": 3,
+      "hub": "0192f3a4-0000-7000-8000-00000000b0b0",
+      "online": [
+        "0192f3a4-0000-7000-8000-00000000b0b0",
+        "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+      ],
+      "status": "pending",
+      "t": "welcome",
+      "time": 1760400000000
+    },
+    {
+      "device": "0192f3a4-0000-7000-8000-00000000b0b0",
+      "online": false,
+      "t": "presence"
+    },
+    {
+      "device": {
+        "id": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+        "key": "0EqyMnQrtKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzc=",
+        "last_seen": 1760399000000,
+        "name": "Laptop",
+        "status": "active"
+      },
+      "t": "device"
+    },
+    {
+      "epoch": 4,
+      "hub": "0192f3a4-0000-7000-8000-00000000b0b0",
+      "t": "account"
+    },
+    {
+      "device": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+      "t": "approve"
+    },
+    {
+      "device": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+      "t": "revoke"
+    },
+    {
+      "device": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+      "t": "set_hub"
+    },
+    {
+      "device": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+      "name": "Work laptop",
+      "t": "rename"
+    },
+    {
+      "epoch": 4,
+      "t": "epoch"
+    },
+    {
+      "code": "forbidden",
+      "t": "error"
+    },
+    {
+      "t": "undeliverable",
+      "to": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
+}

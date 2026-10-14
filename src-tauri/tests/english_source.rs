@@ -146,9 +146,11 @@ fn cyrillic(text: &str) -> bool {
 
 #[test]
 fn the_app_has_no_russian_strings() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    // The app and the commercial crates beside it (the sync engine, Р-68).
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
-    sources(&root, &mut files);
+    sources(&root.join("src"), &mut files);
+    sources(&root.join("commercial"), &mut files);
     assert!(files.len() > 10, "the sources are where they were");
     let mut russian = Vec::new();
     for file in files {

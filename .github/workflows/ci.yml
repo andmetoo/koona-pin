@@ -109,7 +109,7 @@ jobs:
       # does not open its CDP port (docs/testing.md), they run on the owner's computer.
       - name: Rust tests
         working-directory: src-tauri
-        run: cargo test --locked
+        run: cargo test --locked --workspace
 
   # macOS checks for #56: what only macOS compiles — the Rust tests and the app bundle. No artifacts, no
   # Apple credentials (release.yml builds the macOS release).
@@ -154,7 +154,7 @@ jobs:
             sudo ifconfig lo0 alias "127.0.0.$suffix" up
           done
       - name: Rust tests
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+        run: cargo test --locked --workspace --manifest-path src-tauri/Cargo.toml
       # The app bundle alone, so a packaging problem shows here; Tauri's beforeBuildCommand runs the
       # TypeScript and Vite build first. Nothing is zipped or uploaded.
       - name: TypeScript, Vite and the app bundle

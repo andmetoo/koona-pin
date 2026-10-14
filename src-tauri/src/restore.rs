@@ -105,7 +105,11 @@ fn time(value: &str) -> Option<String> {
     DateTime::parse_from_rfc3339(value.trim()).ok().map(|t| db::stamp(t.into()))
 }
 
-const SOURCES: [&str; 9] = ["app", "chrome", "edge", "firefox", "extension", "bookmarklet", "import", "mcp", "safari"];
+/// A source the copy may carry. Any short name passes, not only the ones this
+/// version knows: a newer app, or another device through sync (schema 10,
+/// Р-68), may have saved from a place this one has no name for, and the
+/// interface shows an unknown source as it is.
+const MAX_SOURCE: usize = 64;
 
 /// Reads and checks the whole copy; nothing in the library is touched. Times
 /// come back in the library's format.
@@ -187,7 +191,7 @@ pub fn check(text: &str) -> Result<JsonLibrary, RestoreProblem> {
             }
         }
         if let Some(source) = &b.source {
-            if !SOURCES.contains(&source.as_str()) {
+            if source.trim().is_empty() || source.chars().count() > MAX_SOURCE {
                 return Err(damaged(CopyItem::Bookmark, at, Damage::BadSource, source));
             }
         }
@@ -214,6 +218,13 @@ pub enum RestoreError {
     Backup(String),
     Database(rusqlite::Error),
 }
+fn sync_error(error: koona_sync::Error) -> RestoreError {
+    match error {
+        koona_sync::Error::Sql(e) => RestoreError::Database(e),
+        other => RestoreError::Database(rusqlite::Error::UserFunctionError(other.to_string().into())),
+    }
+}
+
 impl From<rusqlite::Error> for RestoreError {
     fn from(e: rusqlite::Error) -> Self {
         RestoreError::Database(e)
@@ -235,12 +246,37 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
     let tx = conn.unchecked_transaction()?;
     let now = db::now();
     let mut summary = RestoreSummary {
-        backup: backup.and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())),
+        backup: backup.as_ref().and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned())),
         ..Default::default()
+    };
+    // With sync on, a replace removes nothing on the other devices (Р-68):
+    // its writes are recorded by `sync_library::after_restore`, not as purges.
+    let kept = match mode {
+        RestoreMode::Replace => crate::sync_library::keep(&tx)?,
+        RestoreMode::Merge => None,
+    };
+    let applying = match kept {
+        Some(_) => Some(koona_sync::Applying::new(&tx).map_err(sync_error)?),
+        None => None,
     };
     if mode == RestoreMode::Replace {
         tx.execute_batch("DELETE FROM bookmark_tags; DELETE FROM bookmarks; DELETE FROM tags; DELETE FROM collections;")?;
     }
+    // A replace brings the copy's sidebar order back (NP-114): its places
+    // become keys in the same order (schema 10). A merge adds the new
+    // collections after the library's own, by name.
+    let mut placed: Vec<(i64, usize)> = library
+        .collections
+        .iter()
+        .enumerate()
+        .filter_map(|(i, c)| c.position.filter(|_| mode == RestoreMode::Replace).map(|p| (p, i)))
+        .collect();
+    placed.sort();
+    let mut position_keys: HashMap<usize, String> = placed
+        .iter()
+        .map(|(_, i)| *i)
+        .zip(crate::position_keys::spread(None, None, placed.len()))
+        .collect();
 
     // Collections: the same uid, else the same name (case aside), else a new one with the copy's uid.
     let mut by_name: HashMap<String, i64> = tx
@@ -248,17 +284,14 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
         .query_map([], |r| Ok((db::fold(&r.get::<_, String>(1)?), r.get(0)?)))?
         .collect::<rusqlite::Result<_>>()?;
     let mut collection_ids = HashMap::new();
-    for c in &library.collections {
+    for (index, c) in library.collections.iter().enumerate() {
         let found = tx.query_row("SELECT id FROM collections WHERE uid = ?1", [&c.uid], |r| r.get::<_, i64>(0)).optional()?;
         let id = match found.or_else(|| by_name.get(&db::fold(&c.name)).copied()) {
             Some(id) => id,
             None => {
-                // A replace brings the copy's sidebar order back (NP-114); a
-                // merge adds the new collections after the library's own.
-                let position = c.position.filter(|_| mode == RestoreMode::Replace);
                 tx.execute(
-                    "INSERT INTO collections (uid, name, color, icon, created_at, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![c.uid, c.name, c.color, c.icon, c.created_at, position],
+                    "INSERT INTO collections (uid, name, color, icon, created_at, position_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![c.uid, c.name, c.color, c.icon, c.created_at, position_keys.remove(&index)],
                 )?;
                 summary.collections.push(c.name.clone());
                 let id = tx.last_insert_rowid();
@@ -323,6 +356,10 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
     }
     let tags_after: i64 = tx.query_row("SELECT count(*) FROM tags", [], |r| r.get(0))?;
     summary.tags = u32::try_from(tags_after - if mode == RestoreMode::Replace { 0 } else { tags_before }).unwrap_or(0);
+    drop(applying);
+    if let (Some(kept), Some(previous)) = (kept, &backup) {
+        crate::sync_library::after_restore(&tx, kept, previous).map_err(sync_error)?;
+    }
     tx.commit()?;
     Ok(summary)
 }
@@ -470,12 +507,16 @@ mod tests {
             (with(&|v| v["bookmarks"][1]["created_at"] = "вчера".into()), damaged(CopyItem::Bookmark, 2, Damage::BadDate, "вчера")),
             (with(&|v| v["bookmarks"][0]["collection"] = "nowhere".into()), damaged(CopyItem::Bookmark, 1, Damage::UnknownCollection, "nowhere")),
             (with(&|v| v["bookmarks"][1]["uid"] = v["bookmarks"][0]["uid"].clone()), damaged(CopyItem::Bookmark, 2, Damage::RepeatedUid, good["bookmarks"][0]["uid"].as_str().unwrap())),
-            (with(&|v| v["bookmarks"][0]["source"] = "phone".into()), damaged(CopyItem::Bookmark, 1, Damage::BadSource, "phone")),
+            (with(&|v| v["bookmarks"][0]["source"] = " ".into()), damaged(CopyItem::Bookmark, 1, Damage::BadSource, " ")),
+            (with(&|v| v["bookmarks"][0]["source"] = "x".repeat(65).into()), damaged(CopyItem::Bookmark, 1, Damage::BadSource, &"x".repeat(65))),
             (with(&|v| v["collections"][0]["name"] = " ".into()), damaged(CopyItem::Collection, 1, Damage::MissingName, "")),
         ];
         for (text, expected) in cases {
             assert_eq!(check(&text).unwrap_err(), expected, "{text:.80}");
         }
+        // A source this version doesn't know, from a newer app or another device, is kept.
+        let phone = check(&with(&|v| v["bookmarks"][0]["source"] = "phone".into())).unwrap();
+        assert_eq!(phone.bookmarks[0].source.as_deref(), Some("phone"));
         // Missing fields are a damaged structure, with serde's account of where.
         let broken = with(&|v| {
             v["bookmarks"][0].as_object_mut().unwrap().remove("title");

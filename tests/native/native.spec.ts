@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import net from "node:net";
 import { assertNoOtherApp, capture, hello, hostMessage, pipeReady, testPipe } from "../../scripts/lib/native-host.mjs";
+import { registerLibraryFunctions } from "../../scripts/lib/library-functions.mjs";
 
 // The test apps are single-instance too: a running Koona Pin would take them over.
 test.beforeAll(() => assertNoOtherApp());
@@ -596,9 +597,9 @@ test("damaged library is detected in the background and not written", async ({
     first.processHandle.kill();
   }
   const db = new DatabaseSync(file);
-  // The triggers of schema 7 call the app's sort key functions (NP-114): without them SQLite
-  // refuses the insert. Empty keys are enough here.
-  for (const name of ["np_sort_key", "np_site_key"]) db.function(name, (_text: string) => null);
+  // The triggers call the app's functions (sort keys, search, sync): without them SQLite refuses
+  // the insert.
+  registerLibraryFunctions(db);
   const insert = db.prepare(
     "INSERT INTO bookmarks (uid,url,title,domain,created_at,updated_at) VALUES (?,?,?,?,?,?)",
   );
@@ -1338,6 +1339,7 @@ test("trash survives a restart, empties itself at start, deletes for good on req
     await app.browser.close().catch(() => {});
     const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
     const edit = new DatabaseSync(path.join(data, "koonapin.db"));
+    registerLibraryFunctions(edit);
     edit.prepare("UPDATE bookmarks SET deleted_at = ? WHERE url = ?").run(ago(40), "https://trash.invalid/old");
     edit.prepare("UPDATE bookmarks SET deleted_at = ? WHERE url = ?").run(ago(10), "https://trash.invalid/recent");
     edit

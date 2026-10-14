@@ -52,6 +52,9 @@ import {
   PlanInterval,
   CheckoutState,
   BackupFolder,
+  SyncAccount,
+  SyncDevice,
+  SyncStatus,
 } from "../types";
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
@@ -147,7 +150,7 @@ function demoPlan(kind: string | null): SupporterStatus["plan"] {
   // `offline_until` as the server signs it: 30 days ahead, never past the period and a week.
   const plan = { also_renews: false };
   if (kind === "supporter") return { ...plan, status: "active", interval: "year", valid_until: inDays(365), renews_at: inDays(365), offline_until: inDays(30) };
-  if (kind === "canceling") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(200), renews_at: null, offline_until: inDays(30) };
+  if (kind === "canceling") return { ...plan, status: "canceling", interval: "year", valid_until: inDays(20), renews_at: null, offline_until: inDays(30) };
   if (kind === "past_due") return { ...plan, status: "past_due", interval: "month", valid_until: inDays(20), renews_at: inDays(20), offline_until: inDays(27) };
   if (kind === "offline") return { ...plan, status: "active", interval: "year", valid_until: inDays(-2), renews_at: inDays(-2), offline_until: inDays(5) };
   // Supporter · 5 years, paid once; `five_years_renewing` while a subscription still renews too.
@@ -198,6 +201,205 @@ function currentDemoFolder(): BackupFolder {
 function setDemoFolder(folder: BackupFolder) {
   demoFolder = folder;
   folderListeners.forEach((fn) => fn(folder));
+}
+
+/**
+ * Sync (commercial/sync, NP-059, NP-063, sheet 46): `koonapin.demo.sync` is the state the preview
+ * starts in, so every screen can be seen without a relay. The account's computers are Home iMac (the
+ * main one), Office laptop and Studio PC.
+ *
+ * - `off` (the default): sync never turned on here and the account has no main computer; «Set up…»
+ *   makes this the main computer of one (frame 02).
+ * - `off_join`: sync off here, the account's main computer is Home iMac (frame 14); «Turn on sync»
+ *   waits for it with the code (frame 06).
+ * - `on`: this is Home iMac, the main computer of three (frame 03).
+ * - `other`: this is Office laptop; Home iMac, the main one, is offline (frame 04). `start_over`: it
+ *   has been offline for 12 days (frame 13 from «Make this the main computer»).
+ * - `pairing`: Office laptop wants to join, the code on the main computer (frame 05).
+ * - `pending`: this new computer waits for Home iMac, the code shown (frame 06); `rejected`: the
+ *   main computer declined it.
+ * - `receiving`: the first sync brings the library here (frame 07).
+ * - `main_asked`: on Home iMac, Office laptop asks to become the main computer (frame 12);
+ *   `asking_main`: Office laptop waits for that answer.
+ * - Banners (frame 11): `offline`, `others_offline`, `added`, `skew`, `update`, `started_over`,
+ *   `revoked`, `signed_out`, `syncing`. «Sync stops on…» is `on` with `koonapin.demo.supporter` = `canceling`.
+ */
+export const DEMO_SYNC_KEY = "koonapin.demo.sync";
+const syncListeners = new Set<(status: SyncStatus) => void>();
+let demoSync: SyncStatus | null = null;
+const THIS_DEVICE = "0f8e2c1a-5b7d-4e39-9a61-3c2d4b5e6f70";
+const HUB_DEVICE = "6a1b9c2d-3e4f-4a5b-8c6d-7e8f9a0b1c2d";
+const LAPTOP_DEVICE = "c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f";
+const STUDIO_DEVICE = "9e8d7c6b-5a49-4382-b716-0f1e2d3c4b5a";
+const minutesAgo = (minutes: number) => Date.now() - minutes * 60_000;
+const isoMinutesAgo = (minutes: number) => new Date(minutesAgo(minutes)).toISOString();
+function demoDevice(id: string, name: string, extra: Partial<SyncDevice> = {}): SyncDevice {
+  return { id, name, online: false, is_hub: false, status: "active", last_seen: minutesAgo(90), platform: null, app: null, last_sync_at: null, ...extra };
+}
+const DEMO_BOOKMARKS = 12480;
+/** What Home iMac, Office laptop and Studio PC say of themselves in their `hello`. */
+const IMAC = { platform: "macos", app: "0.13.0" } as const;
+const LAPTOP = { platform: "windows", app: "0.13.0" } as const;
+const STUDIO = { platform: "linux", app: "0.12.0" } as const;
+function demoSyncState(kind: string | null): SyncStatus {
+  // On Home iMac, the main computer.
+  const hub = demoDevice(THIS_DEVICE, "Home iMac", { ...IMAC, online: true, is_hub: true, last_seen: minutesAgo(0), last_sync_at: isoMinutesAgo(0) });
+  const laptop = demoDevice(LAPTOP_DEVICE, "Office laptop", { ...LAPTOP, online: true, last_seen: minutesAgo(2), last_sync_at: isoMinutesAgo(2) });
+  const studio = demoDevice(STUDIO_DEVICE, "Studio PC", { ...STUDIO, last_seen: minutesAgo(180), last_sync_at: isoMinutesAgo(26 * 60) });
+  const on: SyncStatus = {
+    enabled: true,
+    available: true,
+    phase: { state: "online" },
+    is_hub: true,
+    hub: THIS_DEVICE,
+    device: hub,
+    devices: [hub, laptop, studio],
+    pairing: null,
+    last_sync_at: isoMinutesAgo(0),
+    error: null,
+    hub_change: null,
+    notices: [],
+    bookmarks: DEMO_BOOKMARKS,
+    clock_offset_ms: 400,
+    update_from: null,
+    epoch: 2,
+  };
+  // On Office laptop, another computer; Home iMac is the main one, away `hubAway` minutes.
+  const other = (hubAway: number | null): SyncStatus => {
+    const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, last_seen: minutesAgo(0), last_sync_at: isoMinutesAgo(0) });
+    const main = demoDevice(
+      HUB_DEVICE,
+      "Home iMac",
+      hubAway === null
+        ? { ...IMAC, online: true, is_hub: true, last_seen: minutesAgo(1), last_sync_at: isoMinutesAgo(1) }
+        : { ...IMAC, is_hub: true, last_seen: minutesAgo(hubAway), last_sync_at: isoMinutesAgo(hubAway) },
+    );
+    const pc = demoDevice(STUDIO_DEVICE, "Studio PC", { ...STUDIO, online: true, last_seen: minutesAgo(1), last_sync_at: isoMinutesAgo(1) });
+    return { ...on, is_hub: false, hub: HUB_DEVICE, device: me, devices: [main, me, pc] };
+  };
+  switch (kind) {
+    case "on":
+      return on;
+    case "other":
+      return other(2 * 24 * 60);
+    case "start_over":
+      return other(12 * 24 * 60);
+    case "pairing": {
+      const fresh = demoDevice(LAPTOP_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
+      return { ...on, devices: [hub, studio, fresh], pairing: { role: "hub", peer: LAPTOP_DEVICE, peer_name: "Office laptop", code: "482913" } };
+    }
+    case "pending":
+    case "rejected": {
+      const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
+      const main = demoDevice(HUB_DEVICE, "Home iMac", { online: true, is_hub: true, last_seen: minutesAgo(0) });
+      return {
+        ...on,
+        phase: { state: "pending" },
+        is_hub: false,
+        hub: HUB_DEVICE,
+        device: me,
+        devices: [main, me],
+        pairing: kind === "pending" ? { role: "asking", peer: HUB_DEVICE, peer_name: "Home iMac", code: "482913" } : null,
+        last_sync_at: null,
+        error: kind === "rejected" ? "pairing_rejected" : null,
+        epoch: null,
+      };
+    }
+    case "receiving":
+      return { ...other(null), phase: { state: "syncing", done: 4210, total: DEMO_BOOKMARKS }, last_sync_at: null };
+    case "syncing":
+      return { ...on, phase: { state: "syncing", done: 38, total: 120 } };
+    case "main_asked":
+      return { ...on, hub_change: { role: "hub", peer: LAPTOP_DEVICE, peer_name: "Office laptop" } };
+    case "asking_main":
+      return { ...other(null), hub_change: { role: "asking", peer: HUB_DEVICE, peer_name: "Home iMac" } };
+    case "offline":
+      return { ...on, phase: { state: "paused", reason: "offline" }, devices: [hub, { ...laptop, online: false }, studio], last_sync_at: isoMinutesAgo(40) };
+    case "others_offline":
+      return { ...on, devices: [hub, { ...laptop, online: false, last_seen: minutesAgo(25) }, studio], last_sync_at: isoMinutesAgo(25) };
+    case "added":
+      return {
+        ...other(null),
+        notices: [{ kind: "device_added", id: "notice-added", device: STUDIO_DEVICE, name: "Studio PC", by_name: "Home iMac", at: isoMinutesAgo(0) }],
+      };
+    case "skew":
+      return { ...on, phase: { state: "paused", reason: "clock_skew" }, last_sync_at: isoMinutesAgo(60), clock_offset_ms: 7 * 60_000 + 12_000 };
+    case "update": {
+      // Office laptop runs an older version than Home iMac, which said so.
+      const base = other(null);
+      const old = { ...base.device, app: "0.12.0" };
+      return {
+        ...base,
+        phase: { state: "paused", reason: "update_needed" },
+        device: old,
+        devices: base.devices.map((d) => (d.id === old.id ? old : d)),
+        last_sync_at: isoMinutesAgo(60),
+        update_from: HUB_DEVICE,
+      };
+    }
+    case "revoked":
+      return { ...other(null), phase: { state: "paused", reason: "revoked" } };
+    case "signed_out":
+      return { ...on, phase: { state: "paused", reason: "signed_out" } };
+    case "started_over": {
+      const base = other(null);
+      return {
+        ...base,
+        phase: { state: "paused", reason: "started_over" },
+        hub: STUDIO_DEVICE,
+        devices: base.devices.map((d) => ({ ...d, is_hub: d.id === STUDIO_DEVICE })),
+        notices: [{ kind: "started_over", id: "notice-started-over", by: STUDIO_DEVICE, by_name: "Studio PC", at: isoMinutesAgo(30) }],
+      };
+    }
+  }
+  const alone = demoDevice(THIS_DEVICE, kind === "off_join" ? "Office laptop" : "Home iMac", { status: "unregistered", last_seen: null });
+  return { ...on, enabled: false, phase: { state: "off" }, is_hub: false, hub: null, device: alone, devices: [], last_sync_at: null, clock_offset_ms: null, epoch: null };
+}
+/**
+ * What the relay says of the account before this computer turns sync on: `off_join` has Home iMac;
+ * a computer that turned sync off keeps its account's main computer, unless that was itself.
+ */
+function demoSyncAccount(): SyncAccount {
+  const status = currentDemoSync();
+  if (status.devices.length === 0) return { main_name: demoSwitch(DEMO_SYNC_KEY) === "off_join" ? "Home iMac" : null };
+  const hub = status.devices.find((d) => d.is_hub && d.id !== status.device.id);
+  return { main_name: hub?.name ?? null };
+}
+function currentDemoSync(): SyncStatus {
+  demoSync ??= demoSyncState(demoSwitch(DEMO_SYNC_KEY));
+  return demoSync;
+}
+function setDemoSync(status: SyncStatus) {
+  demoSync = status;
+  syncListeners.forEach((fn) => fn(status));
+}
+const syncPause = () => new Promise((resolve) => setTimeout(resolve, 300));
+function needSyncRunning() {
+  if (!currentDemoSync().enabled) throw new CommandError("invalid_request", "Sync is not running");
+}
+function changeDemoDevices(change: (devices: SyncDevice[]) => SyncDevice[]): SyncStatus {
+  const status = currentDemoSync();
+  const devices = change(status.devices);
+  const device = devices.find((d) => d.id === status.device.id) ?? status.device;
+  const hub = devices.find((d) => d.is_hub)?.id ?? status.hub;
+  setDemoSync({ ...status, devices, device, hub, is_hub: hub === status.device.id, error: null });
+  return currentDemoSync();
+}
+/** This computer becomes the main one; `others` is what happens to the rest. */
+function demoBecomeHub(status: SyncStatus, others: (d: SyncDevice) => SyncDevice = (d) => d): SyncStatus {
+  const devices = status.devices.map((d) => (d.id === status.device.id ? { ...d, is_hub: true, online: true } : others({ ...d, is_hub: false })));
+  const device = devices.find((d) => d.id === status.device.id)!;
+  return {
+    ...status,
+    devices,
+    device,
+    hub: device.id,
+    is_hub: true,
+    phase: { state: "online" },
+    error: null,
+    hub_change: null,
+    last_sync_at: new Date().toISOString(),
+  };
 }
 const noServer = () => {
   if (storedSupporter() === "no_server") throw new CommandError("network", "No connection", "no_connection");
@@ -1427,6 +1629,151 @@ export const demo = {
     return currentDemoFolder();
   },
   async openBackupFolder() {},
+  async getSyncStatus(): Promise<SyncStatus> {
+    return currentDemoSync();
+  },
+  onSyncStatus(fn: (status: SyncStatus) => void) {
+    syncListeners.add(fn);
+    return () => void syncListeners.delete(fn);
+  },
+  /** Fails as the relay would: no server, the plan's check offline (`koonapin.demo.supporter` = `offline`), no plan. */
+  async getSyncAccount(): Promise<SyncAccount> {
+    noServer();
+    await syncPause();
+    if (currentDemoSupporter().check_failed) throw new CommandError("network", "No connection", "no_connection");
+    if (!currentDemoSupporter().plan) throw new CommandError("invalid_request", "Sync is for Supporters", "not_supporter");
+    return demoSyncAccount();
+  },
+  /** An account without a main computer: this one becomes the hub of one; with one, this one waits for it. */
+  async enableSync(name?: string): Promise<SyncStatus> {
+    if (!currentDemoSupporter().plan) throw new CommandError("invalid_request", "Sync is for Supporters", "not_supporter");
+    await syncPause();
+    const named = name?.trim() || currentDemoSync().device.name;
+    const main = demoSyncAccount().main_name;
+    if (main) {
+      const waiting = demoSyncState("pending");
+      const me = { ...waiting.device, name: named };
+      const devices = waiting.devices.map((d) => (d.id === me.id ? me : d.is_hub ? { ...d, name: main } : d));
+      setDemoSync({ ...waiting, device: me, devices, pairing: { role: "asking", peer: HUB_DEVICE, peer_name: main, code: "482913" } });
+      return currentDemoSync();
+    }
+    const me = demoDevice(THIS_DEVICE, named, { ...IMAC, online: true, is_hub: true, last_seen: Date.now(), last_sync_at: new Date().toISOString() });
+    setDemoSync({ ...demoSyncState("on"), device: me, devices: [me], last_sync_at: new Date().toISOString() });
+    return currentDemoSync();
+  },
+  async disableSync(): Promise<SyncStatus> {
+    await syncPause();
+    const status = currentDemoSync();
+    setDemoSync({ ...status, enabled: false, phase: { state: "off" }, pairing: null, error: null, hub_change: null });
+    return currentDemoSync();
+  },
+  async approveDevice(device: string): Promise<SyncStatus> {
+    needSyncRunning();
+    await syncPause();
+    const status = changeDemoDevices((devices) => devices.map((d) => (d.id === device ? { ...d, status: "active" } : d)));
+    setDemoSync({ ...status, pairing: null });
+    return currentDemoSync();
+  },
+  async rejectDevice(device: string): Promise<SyncStatus> {
+    needSyncRunning();
+    await syncPause();
+    const status = changeDemoDevices((devices) => devices.filter((d) => d.id !== device));
+    setDemoSync({ ...status, pairing: null });
+    return currentDemoSync();
+  },
+  async removeDevice(device: string): Promise<SyncStatus> {
+    needSyncRunning();
+    await syncPause();
+    return changeDemoDevices((devices) => devices.filter((d) => d.id !== device));
+  },
+  /** The main computer offline: `hub_offline`, and the dialog offers to start over. Online, it is asked. */
+  async requestMain(): Promise<SyncStatus> {
+    needSyncRunning();
+    await syncPause();
+    const status = currentDemoSync();
+    const hub = status.devices.find((d) => d.is_hub);
+    if (!hub?.online) {
+      setDemoSync({ ...status, error: "hub_offline" });
+      return currentDemoSync();
+    }
+    setDemoSync({ ...status, error: null, hub_change: { role: "asking", peer: hub.id, peer_name: hub.name } });
+    return currentDemoSync();
+  },
+  async answerMainRequest(allow: boolean): Promise<SyncStatus> {
+    needSyncRunning();
+    await syncPause();
+    const status = currentDemoSync();
+    const peer = status.hub_change?.role === "hub" ? status.hub_change.peer : null;
+    if (!peer) throw new CommandError("invalid_request", "Nothing was asked");
+    if (!allow) {
+      setDemoSync({ ...status, hub_change: null });
+      return currentDemoSync();
+    }
+    const devices = status.devices.map((d) => ({ ...d, is_hub: d.id === peer }));
+    setDemoSync({ ...status, devices, device: devices.find((d) => d.id === status.device.id)!, hub: peer, is_hub: false, hub_change: null });
+    return currentDemoSync();
+  },
+  async sendStartOverCode(): Promise<string> {
+    await syncPause();
+    noServer();
+    return currentDemoSupporter().email ?? "anna@example.com";
+  },
+  /**
+   * Any code but 000000 works, as for signing in; 111111 stands for a sign-in the relay finds too
+   * old. As in the app, the relay's answer comes after the command, in the status.
+   */
+  async startOver(code: string): Promise<SyncStatus> {
+    await syncPause();
+    const digits = code.replace(/\D/g, "");
+    if (digits === "000000") throw new CommandError("invalid_request", "The code did not work", "wrong_code");
+    setTimeout(() => {
+      if (digits === "111111") setDemoSync({ ...currentDemoSync(), error: "stale_sign_in" });
+      // Every other computer is disconnected: they join again with «Join…».
+      else setDemoSync(demoBecomeHub(currentDemoSync(), (d) => ({ ...d, online: false })));
+    }, 600);
+    return { ...currentDemoSync(), error: null };
+  },
+  async joinSyncAgain(): Promise<SyncStatus> {
+    needSyncRunning();
+    await syncPause();
+    const status = currentDemoSync();
+    const hub = status.devices.find((d) => d.is_hub);
+    setDemoSync({
+      ...status,
+      phase: { state: "pending" },
+      notices: status.notices.filter((n) => n.kind !== "started_over"),
+      pairing: hub ? { role: "asking", peer: hub.id, peer_name: hub.name, code: "305118" } : null,
+      error: null,
+    });
+    return currentDemoSync();
+  },
+  async dismissSyncNotice(id: string): Promise<SyncStatus> {
+    const status = currentDemoSync();
+    setDemoSync({ ...status, notices: status.notices.filter((n) => n.id !== id) });
+    return currentDemoSync();
+  },
+  async renameDevice(device: string, name: string): Promise<SyncStatus> {
+    if (!name.trim()) throw new CommandError("invalid_request", "A device needs a name");
+    await syncPause();
+    return changeDemoDevices((devices) => devices.map((d) => (d.id === device ? { ...d, name: name.trim() } : d)));
+  },
+  /** A short transfer, then online again; a pause or a problem is tried again and clears. */
+  async syncNow(): Promise<SyncStatus> {
+    needSyncRunning();
+    const status = currentDemoSync();
+    if (status.phase.state === "pending") {
+      setDemoSync({ ...status, error: null });
+      return currentDemoSync();
+    }
+    setDemoSync({ ...status, phase: { state: "syncing", done: 0, total: 12 }, error: null });
+    await syncPause();
+    setDemoSync({ ...currentDemoSync(), phase: { state: "online" }, last_sync_at: new Date().toISOString() });
+    return currentDemoSync();
+  },
+  async copySyncReport(): Promise<string> {
+    const status = currentDemoSync();
+    return ["Koona Pin sync report", "app: preview", `phase: ${JSON.stringify(status.phase)}`, `device: ${status.device.id}`, `devices: ${status.devices.length}`].join("\n");
+  },
   async signOutSupporter(): Promise<SupporterStatus> {
     setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();

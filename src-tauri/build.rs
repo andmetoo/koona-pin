@@ -8,6 +8,8 @@ fn main() {
     forward_from_dotenv("KOONAPIN_ACCOUNT_URL", "SUPABASE_URL");
     forward_from_dotenv("KOONAPIN_ACCOUNT_KEY", "SUPABASE_PUBLISHABLE_KEY");
     forward_from_dotenv("KOONAPIN_PADDLE_ENV", "PADDLE_ENVIRONMENT");
+    // Sync (Р-68, commercial/sync): the relay, `wss://…/v1/sync`.
+    forward_from_dotenv("KOONAPIN_SYNC_URL", "KOONAPIN_SYNC_URL");
     collation_version();
     tauri_build::build()
 }

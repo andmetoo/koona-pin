@@ -12,6 +12,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import readline from "node:readline";
 import { assertNoOtherApp, appBinary, capture, hostMessage, startedSince, testPipe } from "./lib/native-host.mjs";
+import { registerLibraryFunctions } from "./lib/library-functions.mjs";
 
 assertNoOtherApp();
 
@@ -125,6 +126,7 @@ try {
   assert.doesNotMatch(JSON.stringify(off), /sqlite\.org/, "nothing is read while off");
 
   const db = new DatabaseSync(path.join(data, "koonapin.db"));
+  registerLibraryFunctions(db);
   db.exec("PRAGMA busy_timeout = 5000");
   const access = (value) => db.prepare("INSERT INTO app_settings (key, value) VALUES ('mcp_access', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(value);
   access("read");

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
+import { Check, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus } from "../types";
+import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
 import { api } from "../services/api";
 import { describeError, toCommandError } from "../services/errors";
 import { savePreference, storedValue } from "../services/preferences";
 import { copyTime } from "./BackupRestoreDialog";
+import { SyncPerkRow } from "./commercial/SyncRows";
 import { Icon } from "./icons";
 import { Button, IconButton } from "./ui/Button";
 import { Field, StatePanels, Switch } from "./ui/Controls";
@@ -83,7 +84,7 @@ function useSupporterPrices(ask: "always" | "if_unknown" | "never" = "always") {
   }, []);
   return { prices, failed };
 }
-const PERKS = ["sync", "backups", "badge", "early"] as const;
+const PERKS = ["sync", "backups", "badge"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
 
@@ -274,7 +275,9 @@ export function SupporterDialog({
       ) : (
         <p className="mt-3 text-xs leading-[17px] text-muted">{t("supporter.paddleHint")}</p>
       )}
-      <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+      {/* pt-11, not pt-5: the 24 px of the perk line that went (early builds) stay above the footer,
+          so this step, the tallest, keeps the one height of the purchase flow (NP-118). */}
+      <footer className="mt-auto flex items-center justify-end gap-2 pt-11">
         {/* Paid on another computer: the email of the payment and its code (sheet 45). */}
         <button type="button" onClick={onSignIn} className="mr-auto text-sm font-medium text-accent hover:underline">
           {t("plan.already")}
@@ -801,7 +804,7 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
   );
 }
 
-const PERK_ICONS = { sync: RefreshCw, backups: Folder, early: FlaskConical } as const;
+const PERK_ICONS = { sync: RefreshCw, backups: Folder } as const;
 
 /**
  * «Supporter» (NP-066, sheet 45), opened by the badge in the sidebar: the plan, its state on one
@@ -814,8 +817,14 @@ export function PlanDialog({
   onBadge,
   onClose,
   onUpgrade,
+  sync,
+  onSync,
 }: {
   supporter: SupporterStatus;
+  /** Sync between the Supporter's computers: its row in place of «Soon» (sheet 46). */
+  sync: SyncStatus | null;
+  /** «Set up…» and «Manage…»: the Sync dialog instead of this one. */
+  onSync: () => void;
   /** The heart of the badge in the colour of the season; off, the row stays plain. */
   badge: boolean;
   onBadge: (shown: boolean) => void;
@@ -935,7 +944,7 @@ export function PlanDialog({
         <hr className="my-4 border-divider" />
         <h3 className="text-2xs font-semibold text-subtle uppercase">{t("supporter.perksTitle")}</h3>
         <ul className="mt-2.5 flex flex-col gap-4">
-          {(["sync", "backups", "badge", "early"] as const).map((perk) => {
+          {PERKS.map((perk) => {
             const PerkIcon = perk === "badge" ? null : PERK_ICONS[perk];
             return (
               <li key={perk} className="flex items-center gap-3">
@@ -944,13 +953,15 @@ export function PlanDialog({
                 </span>
                 {perk === "backups" && plan ? (
                   <FolderRow onError={setError} />
+                ) : perk === "sync" ? (
+                  <SyncPerkRow status={sync} onOpen={onSync} />
                 ) : (
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium">{t(`supporter.perk.${perk}`)}</span>
                     <span className="block text-xs leading-[17px] text-muted">{t(`supporter.perk.${perk}Hint`)}</span>
                   </span>
                 )}
-                {perk === "backups" && plan ? null : perk === "badge" ? (
+                {(perk === "backups" && plan) || perk === "sync" ? null : perk === "badge" ? (
                   <Switch label={t("supporter.perk.badge")} checked={badge} onChange={onBadge} />
                 ) : (
                   <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-2xs font-medium text-subtle">{t("supporter.soon")}</span>

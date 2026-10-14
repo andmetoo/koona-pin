@@ -1,0 +1,37 @@
+[package]
+name = "koona-sync"
+version = "0.1.0"
+description = "Koona Pin sync engine"
+license-file = "../../../LICENSE-COMMERCIAL.md"
+edition = "2021"
+publish = false
+
+[dependencies]
+# The same rusqlite as the app: one bundled SQLite links into the binary.
+rusqlite = { version = "0.32", features = ["bundled", "functions"] }
+# X25519, Ed25519, HKDF and ChaCha20-Poly1305; already in the tree through rustls and the app.
+ring = "0.17"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
+base64 = "0.22"
+# Frame bodies are deflated JSON; already in the tree through the app.
+flate2 = "1.1"
+# The relay client (`net`): the same tokio and rustls (ring only) as the app; the TLS config is
+# built here, so rustls never needs a default provider.
+tokio = { version = "1", optional = true, default-features = false, features = ["rt", "macros", "time", "sync", "net"] }
+tokio-tungstenite = { version = "0.30", optional = true, default-features = false, features = ["connect", "__rustls-tls"] }
+rustls = { version = "0.23", optional = true, default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = { version = "1", optional = true }
+futures-util = { version = "0.3", optional = true, default-features = false, features = ["sink", "std"] }
+
+[features]
+net = ["dep:tokio", "dep:tokio-tungstenite", "dep:rustls", "dep:webpki-roots", "dep:futures-util"]
+
+[dev-dependencies]
+# Convergence: random edits on several replicas, delivered in random order, end in one state.
+proptest = "1"
+# The relay client's test runs a local WebSocket server.
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "net"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "handshake"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }

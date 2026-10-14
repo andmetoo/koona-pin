@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "0.12.0"
+version = "1.1.2"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
@@ -10,6 +10,11 @@ default-run = "koonapin"
 [lib]
 name = "koonapin_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# The sync engine (Р-68) is its own crate under the commercial license, without Tauri, so the
+# phone apps can wrap it later. One SQLite links: both crates use rusqlite 0.32.
+[workspace]
+members = [".", "commercial/koona-sync"]
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
@@ -61,6 +66,10 @@ flate2 = "1.1"
 # through rustls; base64 through Tauri.
 ring = "0.17"
 base64 = "0.22"
+# Sync (Р-68, NP-059): the engine and its relay client, under the commercial license
+# (`commercial/koona-sync`). Schema 10 and its triggers are called from the GPL code like the
+# other commercial modules; the app's glue is `src/commercial/sync`.
+koona-sync = { path = "commercial/koona-sync", features = ["net"] }
 
 [dev-dependencies]
 # Already in the tree through Tauri: a test recomputes the development

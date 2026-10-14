@@ -11,13 +11,13 @@
 //! dropping a parent table with them on deletes the children.
 
 use crate::backup;
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use rusqlite_migration::{HookResult, Migrations, M};
 use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -290,6 +290,119 @@ fn allow_safari(tx: &Transaction) -> HookResult {
     )
 }
 
+/// Schema 10 (Р-68): sync. The engine's tables and triggers come from
+/// `koona_sync::SCHEMA_10` (commercial); sync stays off in every library
+/// until the person turns it on, and nothing is recorded until then. The
+/// step also:
+///
+/// - gives the collections ordered by hand a fractional key of their place
+///   (`position_key`, [`position_keys`]), in the order the sidebar shows;
+///   a library never ordered keeps none and goes on by name;
+/// - lets `bookmarks.source` hold any text ([`any_source`]);
+/// - makes the search and sort triggers of schemas 2 and 7 wait while a
+///   connection defers them (`np_index_now`, `db::IndexDeferred`): a batch
+///   from another device writes each search row once, not once per tag.
+///
+/// [`position_keys`]: crate::position_keys
+const SCHEMA_10_INDEX: &str = "
+DROP TRIGGER bookmarks_search_insert;
+CREATE TRIGGER bookmarks_search_insert AFTER INSERT ON bookmarks WHEN np_index_now(new.id) BEGIN
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = new.id;
+END;
+DROP TRIGGER bookmarks_search_update;
+CREATE TRIGGER bookmarks_search_update
+AFTER UPDATE OF title, url, domain, description, notes ON bookmarks WHEN np_index_now(new.id) BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = old.id;
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = new.id;
+END;
+DROP TRIGGER bookmarks_search_delete;
+CREATE TRIGGER bookmarks_search_delete AFTER DELETE ON bookmarks WHEN np_index_now(old.id) BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = old.id;
+END;
+DROP TRIGGER bookmarks_search_tag_link;
+CREATE TRIGGER bookmarks_search_tag_link AFTER INSERT ON bookmark_tags WHEN np_index_now(new.bookmark_id) BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = new.bookmark_id;
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = new.bookmark_id;
+END;
+-- Also runs for links removed by a cascade; a deleted bookmark has no source row.
+DROP TRIGGER bookmarks_search_tag_unlink;
+CREATE TRIGGER bookmarks_search_tag_unlink AFTER DELETE ON bookmark_tags WHEN np_index_now(old.bookmark_id) BEGIN
+    DELETE FROM bookmarks_search WHERE rowid = old.bookmark_id;
+    INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+    SELECT * FROM bookmarks_search_source WHERE id = old.bookmark_id;
+END;
+DROP TRIGGER bookmarks_sort_insert;
+CREATE TRIGGER bookmarks_sort_insert AFTER INSERT ON bookmarks WHEN np_index_now(new.id) BEGIN
+    UPDATE bookmarks SET title_key = np_sort_key(new.title), site_key = np_site_key(new.domain)
+    WHERE id = new.id;
+END;
+DROP TRIGGER bookmarks_sort_update;
+CREATE TRIGGER bookmarks_sort_update AFTER UPDATE OF title, domain ON bookmarks WHEN np_index_now(new.id) BEGIN
+    UPDATE bookmarks SET title_key = np_sort_key(new.title), site_key = np_site_key(new.domain)
+    WHERE id = new.id;
+END;
+";
+
+/// See [`SCHEMA_10_INDEX`]. The keys are written between the engine's tables
+/// and its triggers, so writing them records nothing and needs none of the
+/// engine's functions (`validate()` runs without them).
+fn sync_schema(tx: &Transaction) -> HookResult {
+    let (tables, triggers) = koona_sync::schema_10_parts();
+    // First: the statements after it make SQLite read the edited schema
+    // text. Done last, a library in memory had no `bookmarks` table for its
+    // next statement.
+    any_source(tx)?;
+    tx.execute_batch(tables)?;
+    position_keys(tx)?;
+    tx.execute_batch(triggers)?;
+    tx.execute_batch(SCHEMA_10_INDEX)?;
+    Ok(())
+}
+
+/// The places of schema 7 as keys, in the sidebar's order: by place, then
+/// the collections never moved by name in the language of the sort keys.
+/// When none was ever moved, none gets a key: they keep following the
+/// interface's language.
+fn position_keys(tx: &Transaction) -> HookResult {
+    let mut collections: Vec<(i64, Option<i64>, String)> = tx
+        .prepare("SELECT id, position, name FROM collections")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    if collections.iter().all(|(_, position, _)| position.is_none()) {
+        return Ok(());
+    }
+    let language: Option<String> = tx
+        .query_row("SELECT value FROM app_settings WHERE key = 'sort_language'", [], |r| r.get(0))
+        .optional()?;
+    let collator = crate::sorting::collator(language.as_deref().unwrap_or(crate::sorting::DEFAULT_LANGUAGE));
+    collections.sort_by_cached_key(|(id, position, name)| {
+        (position.is_none(), *position, crate::sorting::key(&collator, name), *id)
+    });
+    let keys = crate::position_keys::spread(None, None, collections.len());
+    let mut write = tx.prepare("UPDATE collections SET position_key = ?1 WHERE id = ?2")?;
+    for ((id, _, _), key) in collections.iter().zip(keys) {
+        write.execute(params![key, id])?;
+    }
+    Ok(())
+}
+
+/// The check on `bookmarks.source` takes any text: a device of a newer
+/// version may save from a place this one does not know, and sync passes it
+/// on as it is (Р-68). Refused, the value would fail every batch that brings
+/// it. The app itself still writes only its own sources (`db::Source`); the
+/// interface shows an unknown one as no place in particular.
+fn any_source(tx: &Transaction) -> HookResult {
+    widen_sources(
+        tx,
+        "CHECK (source IN ('app','chrome','edge','firefox','extension','bookmarklet','import','mcp','safari'))",
+        "CHECK (typeof(source) IN ('text','null'))",
+        "the bookmarks table is not the one schema 9 made",
+    )
+}
+
 /// Replaces `old`, which must occur once, with `new` in the schema text of
 /// `bookmarks`: see [`allow_mcp`] for why this is safe.
 fn widen_sources(tx: &Transaction, old: &str, new: &str, refused: &str) -> HookResult {
@@ -359,6 +472,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up(SCHEMA_7),
         M::up_with_hook(SCHEMA_8, allow_mcp),
         M::up_with_hook(SCHEMA_9, allow_safari),
+        M::up_with_hook("", sync_schema),
     ]
 }
 
@@ -601,7 +715,8 @@ mod tests {
         let rows_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
         let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name <> 'bookmarks' ORDER BY name");
         let objects_before = objects(&conn);
-        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        let to_9 = Migrations::new(steps().into_iter().take(9).collect());
+        migrate_with(&to_9, 9, &mut conn, Some(&folder.join("backups"))).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 9);
         assert!(folder.join("backups/koonapin.before-v9.db").exists());
         assert_eq!(objects(&conn), objects_before, "no trigger, index or view changed");
@@ -620,6 +735,141 @@ mod tests {
             [],
         )
         .unwrap();
+    }
+
+    /// A library of schema 9 as the release left it, filled by `fill`, then
+    /// migrated to 10: every row, index and trigger of 9 stays (but the
+    /// search and sort triggers, which only gain a WHEN), sync is off and
+    /// records nothing, the copy before-v10 is there.
+    fn schema_10_on(name: &str, fill: impl FnOnce(&Connection)) -> Connection {
+        let folder = folder(name);
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 9);
+        fill(&conn);
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        let data = |conn: &Connection| {
+            ["bookmarks", "tags", "bookmark_tags", "app_settings", "link_checks"]
+                .iter()
+                .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
+                .collect::<Vec<_>>()
+        };
+        // Two tables gain columns at the end.
+        let collections = |conn: &Connection| {
+            [rows(conn, "SELECT * FROM collections ORDER BY id"), rows(conn, "SELECT * FROM tombstones ORDER BY rowid")].concat()
+        };
+        // The sidebar's order as schema 9 read it, and as it is read now.
+        let order_9 = |conn: &Connection| rows(conn, "SELECT name FROM collections ORDER BY position IS NULL, position, np_sort_key(name), id");
+        let order = |conn: &Connection| db::get_collections(conn).unwrap().into_iter().map(|c| format!("{:?}", c.name)).collect::<Vec<_>>();
+        let objects = |conn: &Connection| {
+            let changed = "name IN ('bookmarks', 'collections', 'tombstones') OR (type = 'trigger' AND name LIKE 'bookmarks_%')";
+            [
+                rows(conn, &format!("SELECT type, name, sql FROM sqlite_schema WHERE NOT ({changed}) ORDER BY name")),
+                rows(conn, &format!("SELECT type, name FROM sqlite_schema WHERE {changed} ORDER BY name")),
+            ]
+            .concat()
+        };
+        let found = |conn: &Connection| db::get_bookmarks(conn, &db::BookmarkQuery { search: Some("заметка".into()), ..Default::default() }).unwrap().total;
+        let (data_before, collections_before, order_before, objects_before, found_before) =
+            (data(&conn), collections(&conn), order_9(&conn), objects(&conn), found(&conn));
+
+        let started = std::time::Instant::now();
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        println!("{name}: copied and migrated in {:?}", started.elapsed());
+        assert_eq!(user_version(&conn).unwrap(), 10);
+        assert!(folder.join("backups/koonapin.before-v10.db").exists());
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        assert!(rows(&conn, "PRAGMA foreign_key_check").is_empty());
+        assert_eq!(data(&conn), data_before, "every row as it was");
+        let after = collections(&conn);
+        assert_eq!(after.len(), collections_before.len());
+        assert!(after.iter().zip(&collections_before).all(|(a, b)| a.starts_with(b.as_str())), "the collections and tombstones, and their new columns");
+        assert_eq!(order(&conn), order_before, "the sidebar's order");
+        let objects_after = objects(&conn);
+        assert!(objects_before.iter().all(|o| objects_after.contains(o)), "no index, view or table of schema 9 lost");
+        assert_eq!(found(&conn), found_before, "the search finds what it found");
+        // Sync is off: nothing is recorded, nothing stamped.
+        assert!(!crate::sync_library::is_on(&conn));
+        for table in ["sync_meta", "sync_origins", "sync_vector", "sync_clock"] {
+            assert_eq!(rows(&conn, &format!("SELECT count(*) FROM {table}")), ["Integer(0)"], "{table}");
+        }
+        db::insert_or_update_bookmark(&conn, "https://example.com/after-10", "After", None, None, None, "example.com", None, Some(&["new".into()]), db::Source::App).unwrap();
+        assert_eq!(rows(&conn, "SELECT count(*) FROM sync_clock"), ["Integer(0)"]);
+        assert_eq!(rows(&conn, "SELECT count(*) FROM tombstones WHERE hlc IS NOT NULL"), ["Integer(0)"]);
+        conn
+    }
+
+    #[test]
+    fn schema_10_adds_sync_to_a_new_library() {
+        let conn = schema_10_on("schema-10-fresh", |_| {});
+        // Never ordered by hand: no keys, the collections go by name.
+        assert_eq!(rows(&conn, "SELECT count(*) FROM collections WHERE position_key IS NOT NULL"), ["Integer(0)"]);
+    }
+
+    #[test]
+    fn schema_10_keeps_the_sample_rows_and_the_order_given() {
+        let conn = schema_10_on("schema-10-sample", |conn| {
+            fixtures::sample_rows(conn);
+            conn.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES ('gone', 'bookmark', 'x', 'x')", []).unwrap();
+            // One collection moved to the top; the others follow by name.
+            conn.execute("UPDATE collections SET position = 0 WHERE name = 'Development'", []).unwrap();
+        });
+        let names = db::get_collections(&conn).unwrap().into_iter().map(|c| (c.name, c.position)).collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            [("Development".to_string(), Some(0)), ("Articles / To read".into(), Some(1)), ("Design & UI".into(), Some(2))]
+        );
+        // A new one goes last, a move writes one key.
+        let new = db::create_collection(&conn, "Aardvark", None, None).unwrap();
+        assert_eq!(new.position, Some(3));
+        let ids: Vec<i64> = db::get_collections(&conn).unwrap().iter().map(|c| c.id).collect();
+        let keys = |conn: &Connection| rows(conn, "SELECT position_key FROM collections ORDER BY id");
+        let before = keys(&conn);
+        db::reorder_collections(&conn, &[ids[3], ids[0], ids[1], ids[2]]).unwrap();
+        let after = keys(&conn);
+        assert_eq!(before.iter().zip(&after).filter(|(a, b)| a != b).count(), 1);
+        assert_eq!(db::get_collections(&conn).unwrap()[0].name, "Aardvark");
+        // A source this build does not know, from a newer device.
+        conn.execute("UPDATE bookmarks SET source = 'watch' WHERE id = 1", []).unwrap();
+        assert_eq!(db::get_bookmark_by_id(&conn, 1).unwrap().source.as_deref(), Some("watch"));
+    }
+
+    #[test]
+    fn schema_10_keeps_a_generated_library() {
+        schema_10_on("schema-10-generated", |conn| fixtures::generated(conn, 2_000, 10));
+    }
+
+    /// The same on 100 000 bookmarks: `cargo test --release schema_10_on_a_hundred -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn schema_10_on_a_hundred_thousand_bookmarks() {
+        let started = std::time::Instant::now();
+        schema_10_on("schema-10-100k", |conn| fixtures::generated(conn, 100_000, 10));
+        println!("built, migrated and checked in {:?}", started.elapsed());
+    }
+
+    /// The schema 9 the engine's tests build on (`koona-sync/tests/schema.sql`)
+    /// is the one these steps make.
+    #[test]
+    fn the_engine_tests_schema_9_as_the_app_makes_it() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        Migrations::new(steps().into_iter().take(9).collect()).to_latest(&mut conn).unwrap();
+        let made: String = conn
+            .prepare(
+                "SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL AND name <> 'sqlite_sequence'
+                     AND name NOT IN ('bookmarks_search_data', 'bookmarks_search_idx', 'bookmarks_search_docsize', 'bookmarks_search_config')
+                 ORDER BY rowid",
+            )
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|sql| format!("{};\n", sql.unwrap()))
+            .collect();
+        let file = include_str!("../commercial/koona-sync/tests/schema.sql");
+        let schema: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
+        assert_eq!(made, schema);
     }
 
     #[test]

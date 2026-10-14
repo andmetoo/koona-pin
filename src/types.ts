@@ -85,6 +85,19 @@ export type { PlanInterval } from "./bindings/PlanInterval";
 export type { PlanStatus } from "./bindings/PlanStatus";
 export type { CheckoutState } from "./bindings/CheckoutState";
 export type { BackupFolder } from "./bindings/BackupFolder";
+export type { SyncStatus } from "./bindings/SyncStatus";
+export type { SyncAccount } from "./bindings/SyncAccount";
+export type { SyncPhase } from "./bindings/SyncPhase";
+export type { SyncDevice } from "./bindings/SyncDevice";
+export type { SyncDeviceStatus } from "./bindings/SyncDeviceStatus";
+export type { SyncProblem } from "./bindings/SyncProblem";
+export type { PairingPrompt } from "./bindings/PairingPrompt";
+export type { PairingRole } from "./bindings/PairingRole";
+export type { PausedReason } from "./bindings/PausedReason";
+export type { UnavailableReason } from "./bindings/UnavailableReason";
+export type { HubChangePrompt } from "./bindings/HubChangePrompt";
+export type { HubChangeRole } from "./bindings/HubChangeRole";
+export type { SyncNotice } from "./bindings/SyncNotice";
 
 export type ViewMode = "grid" | "list";
 

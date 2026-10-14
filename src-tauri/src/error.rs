@@ -73,6 +73,8 @@ pub enum ErrorDetail {
     WrongCode,
     /// The account was signed out elsewhere: sign in again.
     SignedOut,
+    /// The sync service needs a newer Koona Pin (its 426, close 4004).
+    UpdateNeeded,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

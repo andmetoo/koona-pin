@@ -53,6 +53,8 @@ import {
   PlanInterval,
   CheckoutState,
   BackupFolder,
+  SyncAccount,
+  SyncStatus,
   Tag,
   TrayLabels,
   Undo,
@@ -298,5 +300,35 @@ const desktop = {
   chooseBackupFolder: (title: string) => call<BackupFolder>("choose_backup_folder", { title }),
   stopBackupFolder: () => call<BackupFolder>("stop_backup_folder"),
   openBackupFolder: () => call<void>("open_backup_folder"),
+  // Sync between a Supporter's computers (commercial/sync, NP-059); every command answers the new status.
+  getSyncStatus: () => call<SyncStatus>("get_sync_status"),
+  /** Before the first turn-on: whether the account has a main computer already; fails like the connection. */
+  getSyncAccount: () => call<SyncAccount>("get_sync_account"),
+  onSyncStatus: (callback: (status: SyncStatus) => void) => subscription("sync-status", callback),
+  /** The first device becomes the hub; another one waits to be paired from it. Empty name: the computer's. */
+  enableSync: (name?: string) => call<SyncStatus>("enable_sync", { name: name ?? null }),
+  /** Stops syncing here; the library and the device's place on the account stay. */
+  disableSync: () => call<SyncStatus>("disable_sync"),
+  /** On the hub, after the person compared the six digits. */
+  approveDevice: (device: string) => call<SyncStatus>("approve_device", { device }),
+  rejectDevice: (device: string) => call<SyncStatus>("reject_device", { device }),
+  /** On the hub: the device is removed and the library key rotated. */
+  removeDevice: (device: string) => call<SyncStatus>("remove_device", { device }),
+  /** «Make this the main computer»: the main computer is asked; offline, this fails with `hub_offline`. */
+  requestMain: () => call<SyncStatus>("request_main"),
+  /** On the main computer: Allow hands it over to the asking computer, Deny keeps it. */
+  answerMainRequest: (allow: boolean) => call<SyncStatus>("answer_main_request", { allow }),
+  /** «Start over from this computer», step one: a code to the account's email, which comes back to show. */
+  sendStartOverCode: () => call<string>("send_start_over_code"),
+  /** Step two: this computer becomes the main one with a new key; every other one is disconnected. */
+  startOver: (code: string) => call<SyncStatus>("start_over", { code }),
+  /** «Join…» after sync was started over elsewhere: paired with the new main computer, bookmarks merged back. */
+  joinSyncAgain: () => call<SyncStatus>("join_sync_again"),
+  dismissSyncNotice: (id: string) => call<SyncStatus>("dismiss_sync_notice", { id }),
+  renameDevice: (device: string, name: string) => call<SyncStatus>("rename_device", { device, name }),
+  /** A full exchange now; on a device waiting to be paired, the offer again. */
+  syncNow: () => call<SyncStatus>("sync_now"),
+  /** Diagnostics for support: states and ids, no library content. */
+  copySyncReport: () => call<string>("copy_sync_report"),
 };
 export const api = isTauri() ? desktop : demo;

@@ -270,6 +270,29 @@ pub(crate) fn link_tags(
     Ok(())
 }
 
+/// The tags of a bookmark become `tags`: only the links that differ are
+/// written, so a tag kept is no change for sync (Р-68) and the search row is
+/// written once per link added or taken off, not for every tag again.
+pub(crate) fn set_tags(conn: &Connection, bookmark_id: i64, tags: &[String], now: &str) -> Result<()> {
+    let mut wanted = Vec::new();
+    for tag_name in tags {
+        let clean = tag_name.trim().to_lowercase();
+        if !clean.is_empty() {
+            wanted.push(tag_id(conn, &clean, now)?);
+        }
+    }
+    conn.execute(
+        "DELETE FROM bookmark_tags WHERE bookmark_id = ?1 AND tag_id NOT IN (SELECT value FROM json_each(?2))",
+        params![bookmark_id, id_list(&wanted)?],
+    )?;
+    conn.execute(
+        "INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT ?1, value FROM json_each(?2) WHERE true
+         ON CONFLICT DO NOTHING",
+        params![bookmark_id, id_list(&wanted)?],
+    )?;
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn insert_or_update_bookmark(
     conn: &Connection,
@@ -533,10 +556,115 @@ pub fn register_functions(conn: &Connection) -> Result<()> {
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         |ctx| Ok(crate::dedupe::url_key(&ctx.get::<String>(0)?)),
     )?;
+    // `np_domain(url)`: the domain the app stores with an address; the sync
+    // engine writes it with the addresses it receives (Р-68).
+    conn.create_scalar_function(
+        "np_domain",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| Ok(crate::metadata::extract_domain(&ctx.get::<String>(0)?)),
+    )?;
+    register_index_deferral(conn)?;
+    // The triggers of schema 10 call the engine's functions on every write,
+    // sync on or off.
+    crate::sync_library::register(conn)?;
     // `np_sort_key` and `np_site_key` (NP-114): the triggers of schema 7 write
     // the sort keys with them. English until `library::open` applies the
     // language of the stored keys.
     crate::sorting::register(conn, crate::sorting::DEFAULT_LANGUAGE)
+}
+
+/// `np_index_now(id)`, in the WHEN of the search and sort triggers (schema
+/// 10): true, so they run, unless this connection defers them; then the
+/// bookmark is noted and [`IndexDeferred::finish`] writes its search row and
+/// sort keys once. A snapshot from another device writes each bookmark, then
+/// every tag of it: with the triggers its search row was written for each.
+/// `np_index_control` turns deferral on and hands over the noted ids.
+fn register_index_deferral(conn: &Connection) -> Result<()> {
+    use rusqlite::functions::FunctionFlags;
+    use std::collections::BTreeSet;
+    use std::sync::Arc;
+    let noted: Arc<Mutex<Option<BTreeSet<i64>>>> = Arc::default();
+    let state = noted.clone();
+    // Called from triggers, so innocuous; it touches nothing but this state.
+    conn.create_scalar_function(
+        "np_index_now",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_INNOCUOUS,
+        move |ctx| {
+            let id: i64 = ctx.get(0)?;
+            let mut noted = state.lock().map_err(|e| rusqlite::Error::UserFunctionError(e.to_string().into()))?;
+            Ok(match noted.as_mut() {
+                Some(ids) => {
+                    ids.insert(id);
+                    false
+                }
+                None => true,
+            })
+        },
+    )?;
+    // Only from `IndexDeferred`, never from a trigger or a view.
+    conn.create_scalar_function(
+        "np_index_control",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DIRECTONLY,
+        move |ctx| {
+            let defer: bool = ctx.get(0)?;
+            let mut noted = noted.lock().map_err(|e| rusqlite::Error::UserFunctionError(e.to_string().into()))?;
+            let ids: Vec<i64> = noted.take().unwrap_or_default().into_iter().collect();
+            if defer {
+                *noted = Some(Default::default());
+            }
+            serde_json::to_string(&ids).map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))
+        },
+    )
+}
+
+/// While it lives the search and sort triggers wait on this connection (see
+/// [`register_index_deferral`]); [`IndexDeferred::finish`] writes what they
+/// would have, in the caller's transaction. Dropped without it, the triggers
+/// run again and the noted bookmarks are forgotten: the caller rolls back.
+pub struct IndexDeferred<'c>(&'c Connection, bool);
+
+impl<'c> IndexDeferred<'c> {
+    pub fn new(conn: &'c Connection) -> Result<IndexDeferred<'c>> {
+        conn.query_row("SELECT np_index_control(1)", [], |_| Ok(()))?;
+        Ok(IndexDeferred(conn, true))
+    }
+
+    /// The search rows and sort keys of every bookmark written meanwhile, as
+    /// the triggers write them. Returns how many.
+    pub fn finish(mut self) -> Result<usize> {
+        self.1 = false;
+        let ids: String = self.0.query_row("SELECT np_index_control(0)", [], |r| r.get(0))?;
+        reindex(self.0, &ids)
+    }
+}
+
+impl Drop for IndexDeferred<'_> {
+    fn drop(&mut self) {
+        if self.1 {
+            let _ = self.0.query_row("SELECT np_index_control(0)", [], |_| Ok(()));
+        }
+    }
+}
+
+/// `ids` as a JSON array; a bookmark gone loses its search row.
+fn reindex(conn: &Connection, ids: &str) -> Result<usize> {
+    conn.execute(
+        "DELETE FROM bookmarks_search WHERE rowid IN (SELECT value FROM json_each(?1))",
+        [ids],
+    )?;
+    conn.execute(
+        "INSERT INTO bookmarks_search (rowid, title, url, domain, description, notes, tags)
+         SELECT * FROM bookmarks_search_source WHERE id IN (SELECT value FROM json_each(?1))",
+        [ids],
+    )?;
+    conn.execute(
+        "UPDATE bookmarks SET title_key = np_sort_key(title), site_key = np_site_key(domain)
+         WHERE id IN (SELECT value FROM json_each(?1))",
+        [ids],
+    )
 }
 
 /// The query as words: each must appear somewhere in the bookmark, in any
@@ -912,12 +1040,7 @@ pub fn update_bookmark(
     }
 
     if let Some(tag_list) = tags {
-        // clear old tags
-        conn.execute(
-            "DELETE FROM bookmark_tags WHERE bookmark_id = ?1",
-            params![id],
-        )?;
-        link_tags(conn, id, &tag_list, &now)?;
+        set_tags(conn, id, &tag_list, &now)?;
     }
 
     // Any decision about a bookmark sorts it: it leaves the inbox (NP-021).
@@ -1236,16 +1359,19 @@ pub fn purge_trash(conn: &Connection, which: Purge) -> Result<Vec<(i64, i64)>> {
 }
 
 /// In the sidebar's order (NP-114): where the person put them, then those
-/// never moved by name in the language of the sort keys.
+/// never moved by name in the language of the sort keys. The place is a
+/// fractional key since schema 10 (Р-68); `position` is the collection's
+/// rank among the placed ones, as the interface sorts them.
 pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
     let mut stmt = conn.prepare(
-        "SELECT c.id, c.name, c.color, c.icon, c.created_at, COUNT(b.id) as count, c.position
+        "SELECT c.id, c.name, c.color, c.icon, c.created_at, COUNT(b.id) as count, c.position_key IS NOT NULL
          FROM collections c
          LEFT JOIN bookmarks b ON c.id = b.collection_id AND b.deleted_at IS NULL
          GROUP BY c.id
-         ORDER BY c.position IS NULL, c.position, np_sort_key(c.name), c.id",
+         ORDER BY c.position_key IS NULL, c.position_key, np_sort_key(c.name), c.id",
     )?;
 
+    let mut placed = 0;
     let rows = stmt.query_map([], |row| {
         Ok(Collection {
             id: row.get(0)?,
@@ -1254,28 +1380,41 @@ pub fn get_collections(conn: &Connection) -> Result<Vec<Collection>> {
             icon: row.get(3)?,
             created_at: row.get(4)?,
             count: Some(row.get(5)?),
-            position: row.get(6)?,
+            position: row.get::<_, bool>(6)?.then_some(0),
         })
     })?;
 
     let mut cols = Vec::new();
     for r in rows {
-        cols.push(r?);
+        let mut collection = r?;
+        if collection.position.is_some() {
+            collection.position = Some(placed);
+            placed += 1;
+        }
+        cols.push(collection);
     }
     Ok(cols)
 }
 
 /// The sidebar's order after a move (NP-114): `ids` from first to last, the
-/// interface sends all of them. One left out keeps the position it had (a
+/// interface sends all of them. One left out keeps the place it had (a
 /// collection made meanwhile has none and stays at the end); unknown ids
-/// change nothing. One transaction, only the positions that change are written.
+/// change nothing. Only the keys that must change are written: a move writes
+/// the moved collection's key between its neighbours (Р-68), the first move
+/// in a library gives every listed collection one. One transaction.
 pub fn reorder_collections(conn: &Connection, ids: &[i64]) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
+    let keys: std::collections::HashMap<i64, Option<String>> = tx
+        .prepare("SELECT id, position_key FROM collections")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_>>()?;
+    let mut seen = std::collections::HashSet::new();
+    let listed: Vec<i64> = ids.iter().copied().filter(|id| keys.contains_key(id) && seen.insert(*id)).collect();
+    let current: Vec<Option<&str>> = listed.iter().map(|id| keys[id].as_deref()).collect();
     {
-        let mut place =
-            tx.prepare("UPDATE collections SET position = ?1 WHERE id = ?2 AND position IS NOT ?1")?;
-        for (position, id) in ids.iter().enumerate() {
-            place.execute(params![position as i64, id])?;
+        let mut place = tx.prepare("UPDATE collections SET position_key = ?1 WHERE id = ?2")?;
+        for (at, key) in crate::position_keys::reorder(&current) {
+            place.execute(params![key, listed[at]])?;
         }
     }
     tx.commit()
@@ -1288,9 +1427,21 @@ pub fn create_collection(
     icon: Option<&str>,
 ) -> Result<Collection> {
     let now = now();
+    // After the moved ones: a new collection appears at the end (NP-114). In
+    // a library never ordered by hand it has no key and goes by its name.
+    let (last, placed): (Option<String>, i64) = conn.query_row(
+        "SELECT max(position_key), count(position_key) FROM collections",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    let key = last.map(|last| match crate::position_keys::valid(&last) {
+        true => crate::position_keys::between(Some(&last), None),
+        // Another device's key of another form: still after it.
+        false => format!("{last}V"),
+    });
     conn.execute(
-        "INSERT INTO collections (uid, name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![new_uid(), name, color, icon, now],
+        "INSERT INTO collections (uid, name, color, icon, created_at, position_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![new_uid(), name, color, icon, now, key],
     )?;
     let id = conn.last_insert_rowid();
     Ok(Collection {
@@ -1300,8 +1451,7 @@ pub fn create_collection(
         icon: icon.map(|s| s.to_string()),
         count: Some(0),
         created_at: now,
-        // After the moved ones: a new collection appears at the end (NP-114).
-        position: None,
+        position: key.map(|_| placed),
     })
 }
 

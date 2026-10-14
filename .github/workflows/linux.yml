@@ -172,7 +172,7 @@ jobs:
       # The tests regenerate src/bindings (ts-rs, NP-007): Linux must produce what was committed. Compared
       # with a copy taken before the tests.
       - name: Rust tests
-        run: su dev -s /bin/bash -c "rm -rf /tmp/bindings-before && cp -r src/bindings /tmp/bindings-before && cd src-tauri && cargo test --locked"
+        run: su dev -s /bin/bash -c "rm -rf /tmp/bindings-before && cp -r src/bindings /tmp/bindings-before && cd src-tauri && cargo test --locked --workspace"
       - name: Generated IPC types match the repository
         run: |
           diff -r --strip-trailing-cr /tmp/bindings-before src/bindings

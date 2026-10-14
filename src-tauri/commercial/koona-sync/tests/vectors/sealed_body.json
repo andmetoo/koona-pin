@@ -1,0 +1,20 @@
+{
+  "aad_hex": "010100000003c0c1c2c3c4c5c6c7c8c9cacbcccdcecf00000000000000050192f3a4b5c67d8e9f0123456789abcd0192f3a400007000800000000000b0b0",
+  "body_hex": "010100000003c0c1c2c3c4c5c6c7c8c9cacbcccdcecf0000000000000005e729035611e5e66dddb77a2df6c1919d30eb9842f39aa34f927c6cb16319b629251ad5d20eac42ff483b19da62874660014365b99ccabd6e41100a2f54b8d2f7aeb8cc3f2b4779cc5aaf8dc5d54d4a",
+  "description": "Kind-1 body: header || ChaCha20-Poly1305(payload) || tag. key = HKDF-SHA256(ikm = library key, salt = session, info = \"koona-sync frame v1\" || epoch(u32 BE) || from(16)); nonce = 0x00000000 || seq(u64 BE); AAD = header || from(16) || to(16) with to as addressed.",
+  "epoch": 3,
+  "from": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
+  "library_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+  "message": {
+    "t": "pull",
+    "vector": {
+      "0192f3a4-b5c6-7d8e-9f01-23456789abcd": 12
+    }
+  },
+  "nonce_hex": "000000000000000000000005",
+  "payload_hex": "0540c909c02010ec65de59f0bebad1555f424230f988bdcbc244c2f38d810b7fe379bf480b4246d57536542c3bf235348a5d4852da58e743cc852b92547b1f",
+  "seq": 5,
+  "session_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecf",
+  "session_key_hex": "5ec5ef5139fbc1003a3f8e7e8e77786744cc000457af85247e736e917152cd11",
+  "to": "0192f3a4-0000-7000-8000-00000000b0b0"
+}

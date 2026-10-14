@@ -26,11 +26,13 @@ pub mod migrations;
 pub mod native_host;
 pub mod net_guard;
 pub mod pipe_name;
+pub mod position_keys;
 pub mod quick_search;
 pub mod restore;
 #[cfg(target_os = "macos")]
 pub mod safari_socket;
 pub mod sorting;
+pub mod sync_library;
 #[doc(hidden)]
 pub mod test_libraries;
 pub mod trash;
@@ -112,6 +114,8 @@ pub fn run() {
             // needs both states managed.
             billing::start(app.handle());
             commercial::backup_folder::start(app.handle());
+            // After billing: it waits for the plan and the library, woken by their events.
+            commercial::sync::start(app.handle());
             library_state::start(app.handle().clone());
             let handle = app.handle().clone();
             std::thread::spawn(move || capture_channel::register_host(&handle, &channel_state));
@@ -227,6 +231,22 @@ pub fn run() {
             commercial::backup_folder::choose_backup_folder,
             commercial::backup_folder::stop_backup_folder,
             commercial::backup_folder::open_backup_folder,
+            commercial::sync::get_sync_status,
+            commercial::sync::enable_sync,
+            commercial::sync::disable_sync,
+            commercial::sync::approve_device,
+            commercial::sync::reject_device,
+            commercial::sync::remove_device,
+            commercial::sync::request_main,
+            commercial::sync::answer_main_request,
+            commercial::sync::send_start_over_code,
+            commercial::sync::start_over,
+            commercial::sync::join_sync_again,
+            commercial::sync::dismiss_sync_notice,
+            commercial::sync::get_sync_account,
+            commercial::sync::rename_device,
+            commercial::sync::sync_now,
+            commercial::sync::copy_sync_report,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])
