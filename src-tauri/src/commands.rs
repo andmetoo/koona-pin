@@ -106,6 +106,10 @@ pub enum BulkChange {
     Favorite { favorite: bool },
     Trash,
     Restore,
+    /// Into Reading, or out of it (NP-121).
+    Reading { reading: bool },
+    /// Marked read, or unread.
+    Read { read: bool },
     /// «Новая коллекция из выбранного»: created and filled in one go.
     NewCollection { name: String },
 }
@@ -142,6 +146,10 @@ pub async fn bulk_update(
         BulkChange::Favorite { favorite } => (Action::Favorite, Ok(db::Bulk::Favorite(favorite))),
         BulkChange::Trash => (Action::Trash, Ok(db::Bulk::Trash)),
         BulkChange::Restore => (Action::Restore, Ok(db::Bulk::Restore)),
+        BulkChange::Reading { reading: true } => (Action::ToReading, Ok(db::Bulk::Reading(true))),
+        BulkChange::Reading { reading: false } => (Action::FromReading, Ok(db::Bulk::Reading(false))),
+        BulkChange::Read { read: true } => (Action::Read, Ok(db::Bulk::Read(true))),
+        BulkChange::Read { read: false } => (Action::Unread, Ok(db::Bulk::Read(false))),
         BulkChange::NewCollection { name } if name.trim().is_empty() => {
             return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyCollectionName, "Enter a collection name"))
         }
@@ -171,6 +179,20 @@ pub async fn bulk_update(
     .map_err(CommandError::internal)??;
     capture::emit_many(&app, &changed);
     Ok(done)
+}
+
+/// How far an article was read, 0 to 1, from the reader (NP-122): at 1 it is
+/// read. Not a command of the journal: reading is no change to undo.
+#[tauri::command]
+pub async fn set_reading_progress(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    id: i64,
+    progress: f64,
+) -> Result<Bookmark, CommandError> {
+    let bookmark = blocking(&state, move |conn| crate::reading::set_progress(conn, id, progress).map_err(text)).await?;
+    capture::emit(&app, ChangeKind::Updated, &bookmark);
+    Ok(bookmark)
 }
 
 /// Whether every selected bookmark has a star: «В избранное» or «Из избранного».
@@ -530,6 +552,7 @@ pub async fn get_counts(state: State<'_, Arc<DbState>>) -> Result<LibraryCounts,
         let mut counts = db::get_counts(conn).map_err(text)?;
         counts.duplicates = dedupe::count(conn).map_err(text)?;
         counts.links = linkcheck::count(conn).map_err(text)?;
+        (counts.reading, counts.reading_unread) = crate::reading::counts(conn).map_err(text)?;
         Ok(counts)
     })
     .await

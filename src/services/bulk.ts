@@ -22,7 +22,18 @@ export function bulkNotice(t: TFunction, change: BulkChange, count: number, name
       return t("bulk.trashed", { count });
     case "restore":
       return t("bulk.restored", { count });
+    case "reading":
+      return t(change.reading ? "bulk.toReading" : "bulk.fromReading", { count });
+    case "read":
+      return t(change.read ? "bulk.markedRead" : "bulk.markedUnread", { count });
   }
+}
+
+/** The notice after a Reading action on one bookmark from its menu (NP-121). */
+export function readingNotice(t: TFunction, change: BulkChange): string {
+  if (change.action === "reading") return t(change.reading ? "notice.toReading" : "notice.fromReading");
+  if (change.action === "read") return t(change.read ? "notice.markedRead" : "notice.markedUnread");
+  return "";
 }
 
 /** «Не удалось переместить 4 закладки в «Работа»: библиотека занята. Ничего не изменено.» */
@@ -43,5 +54,9 @@ export function bulkFailure(t: TFunction, change: BulkChange, count: number, err
       return t("bulk.failed.trash", { count, reason });
     case "restore":
       return t("bulk.failed.restore", { count, reason });
+    case "reading":
+      return t(change.reading ? "bulk.failed.toReading" : "bulk.failed.fromReading", { count, reason });
+    case "read":
+      return t(change.read ? "bulk.failed.markRead" : "bulk.failed.markUnread", { count, reason });
   }
 }

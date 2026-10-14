@@ -21,6 +21,14 @@ export function daysLeft(deletedAt: string, now = Date.now()): number {
 export const listTime = (b: Pick<Bookmark, "created_at" | "deleted_at">) => b.deleted_at ?? b.created_at;
 
 /**
+ * The place of a bookmark in Reading (NP-121), as `db::READING_AT`: newest
+ * first, the unread ones by when they were added above the read ones by when
+ * they were read.
+ */
+export const readingPlace = (b: Pick<Bookmark, "reading_at" | "read_at">) =>
+  b.read_at ? `0${b.read_at}` : `1${b.reading_at ?? ""}`;
+
+/**
  * The exact filters: trash, inbox, favorites, collection, domain, tag. Whether search words
  * match is decided by the database (`get_bookmarks` with `id`), so the
  * interface keeps no second copy of the search rules.
@@ -33,6 +41,7 @@ export function matchesFilters(
     !!filters.onlyTrash !== (b.deleted_at !== null) ||
     (filters.onlyInbox && b.triaged_at !== null) ||
     (filters.onlyFavorites && !b.is_favorite) ||
+    (filters.onlyReading && !b.reading_at) ||
     (filters.collectionId != null &&
       b.collection_id !== filters.collectionId) ||
     (filters.domain && b.domain !== filters.domain) ||
@@ -60,7 +69,7 @@ export function matchesBookmark(
  * How the list is ordered (NP-114): the chosen order and the interface's
  * language. The trash keeps its own order, newest deletion first.
  */
-export type ListOrder = { sort: BookmarkSort; language: string };
+export type ListOrder = { sort: BookmarkSort; language: string; reading?: boolean };
 export const NEWEST: ListOrder = { sort: "newest", language: "en" };
 export const SORTS: BookmarkSort[] = ["newest", "oldest", "title", "site"];
 /** The order a list is read in: the trash keeps its own. */
@@ -71,15 +80,18 @@ export const byTime = (sort: BookmarkSort) => sort === "newest" || sort === "old
 /** What «Site A–Z» compares: the domain without `www.`, as `sorting::site` in Rust. */
 export const siteOf = (domain: string) => domain.replace(/^www\./i, "");
 
-type Sortable = Pick<Bookmark, "created_at" | "deleted_at" | "id" | "title" | "domain" | "title_key" | "site_key">;
+type Sortable = Pick<
+  Bookmark,
+  "created_at" | "deleted_at" | "id" | "title" | "domain" | "title_key" | "site_key" | "reading_at" | "read_at"
+>;
 /**
  * A place in the order. `key` is the database's sort key in hex, which
  * compares as text exactly as the database orders (desktop); without it — the
  * demo — `text` is compared by the language's collator, as the keys are made.
  */
 type Placed = { at: string; id: number; key?: string | null; text?: string };
-const placed = (b: Sortable, sort: BookmarkSort): Placed => ({
-  at: listTime(b),
+const placed = (b: Sortable, { sort, reading }: ListOrder): Placed => ({
+  at: reading ? readingPlace(b) : listTime(b),
   id: b.id,
   key: sort === "title" ? b.title_key : sort === "site" ? b.site_key : undefined,
   text: sort === "title" ? b.title : sort === "site" ? siteOf(b.domain) : undefined,
@@ -121,7 +133,7 @@ function comparePlaced(a: Placed, b: Placed, order: ListOrder): number {
 }
 
 export function compareBookmarks(a: Sortable, b: Sortable, order: ListOrder = NEWEST): number {
-  return comparePlaced(placed(a, order.sort), placed(b, order.sort), order);
+  return comparePlaced(placed(a, order), placed(b, order), order);
 }
 
 /**
@@ -131,7 +143,7 @@ export function compareBookmarks(a: Sortable, b: Sortable, order: ListOrder = NE
  */
 export function isAfter(b: Sortable, cursor: PageCursor | null, order: ListOrder = NEWEST): boolean {
   if (cursor === null) return false;
-  const row = placed(b, order.sort);
+  const row = placed(b, order);
   const keyed = !!row.key;
   const mark: Placed = { at: cursor.at, id: cursor.id, key: keyed ? cursor.key : null, text: keyed ? undefined : (cursor.key ?? "") };
   return comparePlaced(row, mark, order) > 0;
@@ -139,7 +151,7 @@ export function isAfter(b: Sortable, cursor: PageCursor | null, order: ListOrder
 
 /** The cursor after `b`: in the orders by title and by site, with its key (the demo: its text). */
 export function cursorAt(b: Sortable, order: ListOrder): PageCursor {
-  const row = placed(b, order.sort);
+  const row = placed(b, order);
   const key = row.key ?? row.text;
   return key === undefined ? { at: row.at, id: row.id } : { at: row.at, id: row.id, key };
 }

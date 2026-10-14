@@ -20,6 +20,7 @@ pub(crate) const LINK: i64 = 3;
 /// Places in [`BOOKMARK_FIELDS`] with their own conversion.
 pub(crate) const FAVORITE: usize = 6;
 pub(crate) const COLLECTION: usize = 7;
+pub(crate) const PROGRESS: usize = 14;
 /// The unique field of every record: the address, the name.
 pub(crate) const UNIQUE: usize = 0;
 
@@ -72,9 +73,12 @@ pub(crate) const BOOKMARKS: Table = Table {
         "source",
         "source_name",
         "created_at",
+        "reading_at",
+        "reading_progress",
+        "read_at",
     ],
     fields: &BOOKMARK_FIELDS,
-    required: &[0, 1, FAVORITE, 12],
+    required: &[0, 1, FAVORITE, 12, PROGRESS],
 };
 pub(crate) const RECORDS: [&Table; 3] = [&COLLECTIONS, &TAGS, &BOOKMARKS];
 
@@ -266,6 +270,8 @@ pub(crate) fn to_json(conn: &Connection, t: &Table, field: usize, value: &Value)
         Value::Integer(i) if t.is_bookmarks() && field == COLLECTION => {
             uid_of(conn, &COLLECTIONS, *i)?.map_or(Json::Null, |u| Json::String(u.to_string()))
         }
+        // Progress is a fraction on the wire, also when an integer was stored.
+        Value::Integer(i) if t.is_bookmarks() && field == PROGRESS => Json::from(*i as f64),
         Value::Integer(i) => Json::from(*i),
         Value::Real(f) => serde_json::Number::from_f64(*f).map_or(Json::Null, Json::Number),
         Value::Text(s) => Json::String(s.clone()),

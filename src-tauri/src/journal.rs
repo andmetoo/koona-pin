@@ -46,6 +46,16 @@ pub enum Action {
     Merge,
     /// «Заменить адрес» after a link check (NP-036).
     Replace,
+    /// Into the Reading list (NP-121).
+    #[serde(rename = "to_reading")]
+    ToReading,
+    /// Out of the Reading list.
+    #[serde(rename = "from_reading")]
+    FromReading,
+    /// Marked read by hand.
+    Read,
+    /// Marked unread.
+    Unread,
 }
 
 /// What `undo` did.
@@ -83,6 +93,11 @@ struct Fields {
     deleted_at: Option<String>,
     /// When it was saved: merging duplicates keeps the earliest (NP-035).
     created_at: String,
+    /// Reading (NP-121): sending, taking out, marking read or unread.
+    reading_at: Option<String>,
+    read_at: Option<String>,
+    /// The progress as bits, so the fields compare exactly.
+    reading_progress: u64,
 }
 
 impl From<&Bookmark> for Fields {
@@ -99,6 +114,9 @@ impl From<&Bookmark> for Fields {
             triaged_at: b.triaged_at.clone(),
             deleted_at: b.deleted_at.clone(),
             created_at: b.created_at.clone(),
+            reading_at: b.reading_at.clone(),
+            read_at: b.read_at.clone(),
+            reading_progress: b.reading_progress.to_bits(),
         }
     }
 }
@@ -122,13 +140,19 @@ impl Change {
             && (b.triaged_at == a.triaged_at || now.triaged_at == a.triaged_at)
             && (b.deleted_at == a.deleted_at || now.deleted_at == a.deleted_at)
             && (b.created_at == a.created_at || now.created_at == a.created_at)
+            && (b.reading_at == a.reading_at || now.reading_at == a.reading_at)
+            && (b.read_at == a.read_at || now.read_at == a.read_at)
+            && (b.reading_progress == a.reading_progress || now.reading_progress == a.reading_progress)
+            && (b.reading_at == a.reading_at || now.reading_at == a.reading_at)
+            && (b.read_at == a.read_at || now.read_at == a.read_at)
+            && (b.reading_progress == a.reading_progress || now.reading_progress == a.reading_progress)
     }
 
     /// Writes back the fields the command changed, in place of what it wrote.
     fn rewind(&self, conn: &Connection) -> Result<()> {
         let (b, a) = (&self.before, &self.after);
         let moved = b.url != a.url;
-        let fields: [(&str, bool, Value); 10] = [
+        let fields: [(&str, bool, Value); 13] = [
             ("url", moved, b.url.clone().into()),
             ("url_key", moved, crate::dedupe::url_key(&b.url).into()),
             ("domain", moved, crate::metadata::extract_domain(&b.url).into()),
@@ -158,6 +182,13 @@ impl Change {
                 "created_at",
                 b.created_at != a.created_at,
                 b.created_at.clone().into(),
+            ),
+            ("reading_at", b.reading_at != a.reading_at, b.reading_at.clone().into()),
+            ("read_at", b.read_at != a.read_at, b.read_at.clone().into()),
+            (
+                "reading_progress",
+                b.reading_progress != a.reading_progress,
+                f64::from_bits(b.reading_progress).into(),
             ),
         ];
         let now = db::now();

@@ -88,6 +88,7 @@ const toQuery = (
   only_favorites: filters.onlyFavorites ?? false,
   only_inbox: filters.onlyInbox ?? false,
   only_trash: filters.onlyTrash ?? false,
+  only_reading: filters.onlyReading ?? false,
   ...page,
 });
 /** Every command rejects with a `CommandError` carrying a machine code. */
@@ -152,6 +153,8 @@ const desktop = {
     call<Undo>("undo", { command: command ?? null }),
   /** One action on every selected bookmark: one transaction, one command to undo (NP-029). */
   bulkUpdate: (ids: number[], change: BulkChange) => call<BulkChanged>("bulk_update", { ids, change }),
+  /** How far an article was read, 0 to 1 (NP-121, for the reader): at 1 it is read. No undo. */
+  setReadingProgress: (id: number, progress: number) => call<Bookmark>("set_reading_progress", { id, progress }),
   /** Every selected bookmark has a star: the bar offers «Из избранного». */
   allFavorite: (ids: number[]) => call<boolean>("all_favorite", { ids }),
   /** The id, and so the colour, the next collection gets. */

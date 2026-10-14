@@ -168,6 +168,18 @@ fn maintain(app: &AppHandle, library: &Library, db: &DbState, moved_aside: Optio
             Ok(_) => {}
             Err(error) => eprintln!("Emptying the trash failed, will try again: {error}"),
         }
+        // Read a week ago or earlier: out of Reading (NP-121), as quietly.
+        let read = match db.conn.lock() {
+            Ok(conn) => crate::reading::tidy(&conn, chrono::Utc::now()),
+            Err(_) => Ok(Vec::new()),
+        };
+        match read {
+            Ok(ids) if !ids.is_empty() => {
+                let _ = app.emit("library-invalidated", ());
+            }
+            Ok(_) => {}
+            Err(error) => eprintln!("Tidying Reading failed, will try again: {error}"),
+        }
         check = false;
         thread::sleep(MAINTENANCE_PERIOD);
     }

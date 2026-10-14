@@ -59,7 +59,7 @@ pub enum Entity {
 
 /// The synced fields of each entity, by the names on the wire. Everything else in the library
 /// (local ids, revisions, sort keys, `domain`, `url_key`, link checks) is derived or local.
-pub const BOOKMARK_FIELDS: [&str; 13] = [
+pub const BOOKMARK_FIELDS: [&str; 16] = [
     "url",
     "title",
     "description",
@@ -74,13 +74,19 @@ pub const BOOKMARK_FIELDS: [&str; 13] = [
     "source",
     "source_name",
     "created_at",
+    // Reading (schema 11, Р-69): when it was put in Reading or null, how far it was read (a
+    // number from 0 to 1), when it was read or null.
+    "reading_at",
+    "reading_progress",
+    "read_at",
 ];
 /// `position` is a fractional order key (a string), so moving one collection writes only its own.
 pub const COLLECTION_FIELDS: [&str; 4] = ["name", "color", "icon", "position"];
 pub const TAG_FIELDS: [&str; 1] = ["name"];
 
 /// One field's value as last written. Values are JSON: strings or null for text and times
-/// (`YYYY-MM-DDTHH:MM:SS.sssZ`), booleans for `is_favorite` and links.
+/// (`YYYY-MM-DDTHH:MM:SS.sssZ`), booleans for `is_favorite` and links, a number for
+/// `reading_progress`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FieldChange {
     pub field: String,

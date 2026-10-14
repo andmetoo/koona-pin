@@ -23,4 +23,16 @@ source_name?: string,
  * The sort keys of the title and of the site in hex (NP-114): compared
  * as text, they order rows as «Title A–Z» and «Site A–Z» do.
  */
-title_key?: string, site_key?: string, };
+title_key?: string, site_key?: string, 
+/**
+ * In the Reading list since then (NP-121); none outside it.
+ */
+reading_at: string | null, 
+/**
+ * How far the article was read, 0 to 1; the reader keeps it (NP-122).
+ */
+reading_progress: number, 
+/**
+ * When it was read to the end or marked read; none while unread.
+ */
+read_at: string | null, };

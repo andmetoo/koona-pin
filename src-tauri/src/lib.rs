@@ -30,6 +30,7 @@ pub mod pipe_name;
 pub mod position_keys;
 pub mod quick_search;
 pub mod reader;
+pub mod reading;
 pub mod restore;
 #[cfg(target_os = "macos")]
 pub mod safari_socket;
@@ -157,6 +158,7 @@ pub fn run() {
             commands::restore_bookmark,
             commands::undo,
             commands::bulk_update,
+            commands::set_reading_progress,
             commands::all_favorite,
             commands::next_collection_id,
             commands::delete_forever,

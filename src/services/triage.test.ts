@@ -20,6 +20,9 @@ const bookmark = (id: number, fields: Partial<Bookmark> = {}): Bookmark => ({
   triaged_at: null,
   deleted_at: null,
   source: "chrome",
+  reading_at: null,
+  reading_progress: 0,
+  read_at: null,
   ...fields,
 });
 

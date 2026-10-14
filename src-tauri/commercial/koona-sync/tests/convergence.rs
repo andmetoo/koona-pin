@@ -39,6 +39,12 @@ enum Op {
     /// A new address; refused, as in the app, when another bookmark has it.
     Address { pick: u16, url: usize },
     Rename { pick: u16, name: usize },
+    /// Into Reading (unread, from the start) or out of it (Р-69).
+    Reading { pick: u16 },
+    /// Read so far; at 1 it is read.
+    Progress { pick: u16, tenths: u8 },
+    /// Marked read, or unread again.
+    Read { pick: u16 },
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +80,9 @@ fn op() -> impl Strategy<Value = Op> {
         1 => pick.prop_map(|pick| Op::DeleteCollection { pick }),
         1 => (pick, 0..URLS).prop_map(|(pick, url)| Op::Address { pick, url }),
         1 => (pick, 0..COLLECTION_NAMES.len()).prop_map(|(pick, name)| Op::Rename { pick, name }),
+        2 => pick.prop_map(|pick| Op::Reading { pick }),
+        2 => (pick, 0u8..=10).prop_map(|(pick, tenths)| Op::Progress { pick, tenths }),
+        1 => pick.prop_map(|pick| Op::Read { pick }),
     ]
 }
 
@@ -200,6 +209,41 @@ fn edit(conn: &Connection, op: &Op, serial: &mut u64) {
         Op::DeleteCollection { pick: p } => {
             if let Some(id) = pick(conn, "SELECT id FROM collections ORDER BY id", *p) {
                 delete_collection(conn, id);
+            }
+        }
+        // The writes of `reading.rs`: several fields in one statement.
+        Op::Reading { pick } => {
+            if let Some(id) = bookmark(*pick) {
+                conn.execute(
+                    "UPDATE bookmarks SET reading_at = CASE WHEN reading_at IS NULL THEN ?2 END,
+                         read_at = CASE WHEN reading_at IS NULL THEN NULL ELSE read_at END,
+                         reading_progress = CASE WHEN reading_at IS NULL AND read_at IS NOT NULL THEN 0 ELSE reading_progress END
+                     WHERE id = ?1",
+                    rusqlite::params![id, now(conn)],
+                )
+                .unwrap();
+            }
+        }
+        Op::Progress { pick, tenths } => {
+            if let Some(id) = bookmark(*pick) {
+                conn.execute(
+                    "UPDATE bookmarks SET reading_progress = ?2,
+                         read_at = CASE WHEN ?2 >= 1 THEN COALESCE(read_at, ?3) ELSE read_at END
+                     WHERE id = ?1",
+                    rusqlite::params![id, f64::from(*tenths) / 10.0, now(conn)],
+                )
+                .unwrap();
+            }
+        }
+        Op::Read { pick } => {
+            if let Some(id) = bookmark(*pick) {
+                conn.execute(
+                    "UPDATE bookmarks SET read_at = CASE WHEN read_at IS NULL THEN ?2 END,
+                         reading_progress = CASE WHEN read_at IS NULL THEN 1 ELSE 0 END
+                     WHERE id = ?1",
+                    rusqlite::params![id, now(conn)],
+                )
+                .unwrap();
             }
         }
     }

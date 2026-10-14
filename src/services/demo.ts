@@ -59,7 +59,7 @@ import {
 import type { PageRequest } from "./api";
 import { demoLibrary, posterOf } from "./demoData";
 import { parseBookmarksFile } from "./bookmarksFile";
-import { cursorAt, isAfter, listTime, matchesBookmark, orderOf, sortBookmarks } from "./library";
+import { cursorAt, isAfter, ListOrder, listTime, matchesBookmark, orderOf, sortBookmarks } from "./library";
 import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
@@ -417,6 +417,8 @@ const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString(
 // library keeps its own after a switch. Until the first change nothing is saved,
 // so a reload creates it again in the current language.
 const sample = demoLibrary(resolveLanguage(storedLanguage()));
+/** Sample bookmarks in Reading (NP-121): unread, the second one half read. */
+const READING = [0, 2, 3];
 let initial = {
   bookmarks: sample.bookmarks.map((b, i): Bookmark => ({
     id: b.id,
@@ -437,6 +439,9 @@ let initial = {
     deleted_at: null,
     // Waiting ones came from a browser; triage says which (NP-025).
     source: b.inbox ? (i % 2 ? "firefox" : "chrome") : "import",
+    reading_at: READING.includes(i) ? stamp(READING.indexOf(i)) : null,
+    reading_progress: i === READING[1] ? 0.4 : 0,
+    read_at: null,
   })),
   collections: sample.collections.map((name, i): Collection => ({
     id: i + 1,
@@ -453,8 +458,14 @@ try {
 } catch {
   /* Recover a corrupted preview only; never accesses the desktop DB. */
 }
-// Saved before NP-025, without source.
-let bookmarks: Bookmark[] = initial.bookmarks.map((b) => ({ ...b, source: b.source ?? null }));
+// Saved before NP-025, without source; before NP-121, without Reading.
+let bookmarks: Bookmark[] = initial.bookmarks.map((b) => ({
+  ...b,
+  source: b.source ?? null,
+  reading_at: b.reading_at ?? null,
+  reading_progress: b.reading_progress ?? 0,
+  read_at: b.read_at ?? null,
+}));
 let collections: Collection[] = initial.collections;
 /** The highest collection id handed out: like AUTOINCREMENT, a deleted one is not reused. */
 let lastCollection = 0;
@@ -474,7 +485,22 @@ function change(previous: Bookmark, fields: Partial<Bookmark>): Bookmark {
 /** The command journal of `journal.rs`: this session only, the last 100, undone field by field. */
 const JOURNAL_LIMIT = 100;
 // `url` and `domain`: «Заменить адрес» (NP-036).
-const FIELDS = ["url", "domain", "title", "notes", "is_favorite", "collection_id", "tags", "triaged_at", "deleted_at", "created_at"] as const;
+// Reading (NP-121): sending, taking out, marking read.
+const FIELDS = [
+  "url",
+  "domain",
+  "title",
+  "notes",
+  "is_favorite",
+  "collection_id",
+  "tags",
+  "triaged_at",
+  "deleted_at",
+  "created_at",
+  "reading_at",
+  "reading_progress",
+  "read_at",
+] as const;
 type Fields = Pick<Bookmark, (typeof FIELDS)[number]>;
 type Command = { id: number; action: CommandAction; changes: { id: number; before: Fields; after: Fields }[] };
 let journal: Command[] = [];
@@ -550,6 +576,14 @@ function bulkFields(b: Bookmark, change: BulkChange, collectionId: number | null
       return { deleted_at: now };
     case "restore":
       return { deleted_at: null };
+    // Reading is no decision: the inbox keeps a bookmark sent from it.
+    case "reading":
+      if (change.reading)
+        return b.reading_at ? null : { reading_at: now, read_at: null, reading_progress: b.read_at ? 0 : b.reading_progress };
+      return b.reading_at ? { reading_at: null } : null;
+    case "read":
+      if (change.read) return b.read_at ? null : { read_at: now, reading_progress: 1 };
+      return b.read_at || b.reading_progress > 0 ? { read_at: null, reading_progress: 0 } : null;
   }
 }
 /** A JSON copy as the demo reads it: the format, the version, the lists and every address (`restore.rs` checks more). */
@@ -557,6 +591,7 @@ type CopyBookmark = {
   uid: string; url: string; title: string; description?: string | null; notes?: string | null; domain?: string;
   image_url?: string | null; favicon_url?: string | null; is_favorite?: boolean; collection?: string | null; tags?: string[];
   source?: Bookmark["source"]; created_at: string; updated_at: string; triaged_at?: string | null; deleted_at?: string | null;
+  reading_at?: string | null; reading_progress?: number; read_at?: string | null;
 };
 type Copy = {
   exported_at: string;
@@ -707,13 +742,20 @@ function linkProgress(state: LinkCheckState, written: boolean) {
   for (const fn of linkListeners) fn(progress);
 }
 
+/** The order a list is read in, as `db::BookmarkQuery::order`: the trash and Reading keep their own. */
+const listOrder = (filters: Partial<FilterState>, sort: BookmarkSort): ListOrder => ({
+  sort: orderOf(sort, !!filters.onlyTrash || !!filters.onlyReading),
+  language: i18n.language,
+  reading: !!filters.onlyReading,
+});
+
 export const demo = {
   async getBookmarks(
     filters: Partial<FilterState> = {},
     page: PageRequest = {},
   ): Promise<BookmarkPage> {
     // The preview has no sort keys: titles and sites compare by the language's collator.
-    const order = { sort: orderOf(page.sort ?? "newest", !!filters.onlyTrash), language: i18n.language };
+    const order = listOrder(filters, page.sort ?? "newest");
     const found = sortBookmarks(
       bookmarks.filter(
         (b) =>
@@ -743,7 +785,7 @@ export const demo = {
     };
   },
   async getBookmarkIds(filters: Partial<FilterState> = {}, sort: BookmarkSort = "newest"): Promise<number[]> {
-    const order = { sort: orderOf(sort, !!filters.onlyTrash), language: i18n.language };
+    const order = listOrder(filters, sort);
     return sortBookmarks(bookmarks.filter((b) => matchesBookmark(b, filters)), order).map((b) => b.id);
   },
   async rebuildSearchIndex() {
@@ -785,6 +827,8 @@ export const demo = {
       trash: bookmarks.length - live().length,
       duplicates: groupsOf(bookmarks, dismissed).length,
       links: linksToDecide(),
+      reading: live().filter((b) => b.reading_at).length,
+      reading_unread: live().filter((b) => b.reading_at && !b.read_at).length,
     };
   },
   async addBookmark(
@@ -824,6 +868,9 @@ export const demo = {
       collection_id: data.collectionId ?? null,
       tags: data.tags ?? [],
       is_favorite: false,
+      reading_at: null,
+      reading_progress: 0,
+      read_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       revision: 1,
@@ -944,10 +991,31 @@ export const demo = {
       return next;
     });
     persist();
-    const action: CommandAction = bulk.action === "new_collection" ? "move" : bulk.action;
+    const action: CommandAction =
+      bulk.action === "new_collection"
+        ? "move"
+        : bulk.action === "reading"
+          ? bulk.reading
+            ? "to_reading"
+            : "from_reading"
+          : bulk.action === "read"
+            ? bulk.read
+              ? "read"
+              : "unread"
+            : bulk.action;
     const command = remember(action, steps);
     emitMany("updated", changed);
     return { count, changed: changed.length, command, collection: created && { ...created, count } };
+  },
+  /** `reading::set_progress`: no command of the journal; at 1 it is read. */
+  async setReadingProgress(id: number, progress: number): Promise<Bookmark> {
+    const b = bookmarks.find((item) => item.id === id);
+    if (!b) throw new CommandError("not_found", "Query returned no rows");
+    const p = Number.isNaN(progress) ? 0 : Math.min(1, Math.max(0, progress));
+    if (b.deleted_at || (b.reading_progress === p && (p < 1 || b.read_at))) return b;
+    const next = change(b, { reading_progress: p, read_at: p >= 1 ? (b.read_at ?? new Date().toISOString()) : b.read_at });
+    emit("updated", next);
+    return next;
   },
   async allFavorite(ids: number[]): Promise<boolean> {
     const chosen = new Set(ids);
@@ -1057,6 +1125,9 @@ export const demo = {
           collection_id: collectionId,
           tags: link.tags,
           is_favorite: false,
+          reading_at: null,
+          reading_progress: 0,
+          read_at: null,
           created_at: link.addedAt ?? now,
           updated_at: now,
           revision: 1,
@@ -1151,6 +1222,9 @@ export const demo = {
           image_url: b.image_url ?? null,
           favicon_url: b.favicon_url ?? null,
           notes: b.notes ?? null,
+          reading_at: b.reading_at ?? null,
+          reading_progress: Math.min(1, Math.max(0, b.reading_progress ?? 0)),
+          read_at: b.read_at ?? null,
           domain: b.domain || new URL(b.url).hostname,
           collection_id: b.collection ? (collectionOf.get(b.collection) ?? null) : null,
           tags: b.tags ?? [],

@@ -16,6 +16,11 @@ only_inbox: boolean,
  */
 only_trash: boolean, 
 /**
+ * The Reading list (NP-121) in its own order: unread newest added
+ * first, then the read ones, newest read first. Ignores `sort`.
+ */
+only_reading: boolean, 
+/**
  * Only this bookmark: whether a changed one still belongs to the list.
  */
 id?: number, 

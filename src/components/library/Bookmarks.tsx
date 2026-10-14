@@ -1,5 +1,5 @@
 import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
+import { BookCheck, BookOpen, Check, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
@@ -14,6 +14,10 @@ export interface BookmarkActions {
   copy: (url: string) => void;
   edit: (bookmark: Bookmark) => void;
   favorite: (bookmark: Bookmark) => void;
+  /** Into Reading or out of it, with an undo in the notice (NP-121). */
+  reading: (bookmark: Bookmark) => void;
+  /** Marked read or unread by hand. */
+  read: (bookmark: Bookmark) => void;
   move: (bookmark: Bookmark, collectionId: number | null) => void;
   /** To the trash, with an undo in the notice (NP-022). */
   trash: (bookmark: Bookmark) => void;
@@ -96,6 +100,17 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
       keys: "F",
       onSelect: () => actions.favorite(b),
     },
+    {
+      id: "reading",
+      icon: BookOpen,
+      label: b.reading_at ? t("card.fromReading") : t("card.toReading"),
+      keys: "R",
+      onSelect: () => actions.reading(b),
+    },
+    // Read or not matters in Reading, and for an article read once.
+    ...(b.reading_at || b.read_at
+      ? [{ id: "read", icon: BookCheck, label: b.read_at ? t("card.markUnread") : t("card.markRead"), onSelect: () => actions.read(b) }]
+      : []),
     { id: "move", icon: Folder, label: t("card.moveTo"), submenu: moveEntries(b, collections, actions, t) },
     { id: "tag", icon: TagIcon, label: t("card.addTag"), keys: "T", disabled: true, disabledHint: soon },
     "separator",

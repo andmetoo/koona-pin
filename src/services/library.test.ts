@@ -26,6 +26,9 @@ const b: Bookmark = {
   notes: null,
   domain: "example.com",
   is_favorite: false,
+  reading_at: null,
+  reading_progress: 0,
+  read_at: null,
   collection_id: 2,
   created_at: "2026-10-01",
   updated_at: "2026-10-01",
@@ -169,6 +172,23 @@ describe("the orders of NP-114", () => {
     expect(orderOf("title", true)).toBe("newest");
     expect(orderOf("title", false)).toBe("title");
     expect(SORTS.filter(byTime)).toEqual(["newest", "oldest"]);
+  });
+
+  it("orders Reading as the database does: unread newest added first, then the read ones", () => {
+    const reading: ListOrder = { sort: "newest", language: "en", reading: true };
+    const item = (id: number, added: string, read: string | null = null): Bookmark => ({ ...b, id, reading_at: added, read_at: read });
+    const list = [item(1, "2026-10-01"), item(2, "2026-10-05", "2026-10-06"), item(3, "2026-10-03"), item(4, "2026-09-01", "2026-10-08")];
+    const ids = (rows: Bookmark[]) => rows.map((r) => r.id);
+    expect(ids(sortBookmarks(list, reading))).toEqual([3, 1, 4, 2]);
+    expect(matchesFilters(item(5, "2026-10-01"), { onlyReading: true })).toBe(true);
+    expect(matchesFilters(b, { onlyReading: true })).toBe(false);
+    // A page cursor after the last unread one: the read ones lie beyond it.
+    const cursor = cursorAt(list[0], reading);
+    expect(cursor).toEqual({ at: "12026-10-01", id: 1 });
+    expect(isAfter(list[1], cursor, reading)).toBe(true);
+    expect(isAfter(list[2], cursor, reading)).toBe(false);
+    // Marked read, it moves to the bottom.
+    expect(ids(mergeBookmark(sortBookmarks(list, reading), item(3, "2026-10-03", "2026-10-09"), reading))).toEqual([1, 3, 4, 2]);
   });
 
   it("puts moved collections first in their places, the others by name", () => {

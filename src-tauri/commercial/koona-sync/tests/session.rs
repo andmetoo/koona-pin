@@ -923,7 +923,7 @@ fn a_peer_on_a_newer_schema_pauses_without_an_error() {
     let mut sealer = Sealer::new(key, epoch, ida, &SystemRandom::new()).unwrap();
     let hello = protocol::SyncMessage::Hello {
         proto: 1,
-        schema: 11,
+        schema: koona_sync::library::SCHEMA + 1,
         vector: Vector::default(),
         hub: true,
         platform: "windows".into(),

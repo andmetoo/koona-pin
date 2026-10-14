@@ -3,4 +3,4 @@
 /**
  * What the selection bar asks for (NP-029, Р-27).
  */
-export type BulkChange = { "action": "move", collection_id: number | null, } | { "action": "tag", name: string, } | { "action": "favorite", favorite: boolean, } | { "action": "trash" } | { "action": "restore" } | { "action": "new_collection", name: string, };
+export type BulkChange = { "action": "move", collection_id: number | null, } | { "action": "tag", name: string, } | { "action": "favorite", favorite: boolean, } | { "action": "trash" } | { "action": "restore" } | { "action": "reading", reading: boolean, } | { "action": "read", read: boolean, } | { "action": "new_collection", name: string, };

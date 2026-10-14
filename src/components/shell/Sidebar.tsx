@@ -1,5 +1,5 @@
 import { KeyboardEvent, PointerEvent, ReactNode, useRef, useState } from "react";
-import { CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
+import { BookOpen, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
@@ -41,6 +41,8 @@ export interface SidebarProps {
   onTrash: () => void;
   onAll: () => void;
   onFavorites: () => void;
+  /** The Reading list (NP-121, sheet R0). */
+  onReading: () => void;
   onCollection: (id: number) => void;
   onTag: (name: string) => void;
   onSettings: () => void;
@@ -90,8 +92,10 @@ export function Sidebar(props: SidebarProps) {
   const links = counts.links > 0 || linksOpen;
   const inbox = library && filters.onlyInbox;
   const trash = library && filters.onlyTrash;
-  const all = library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash;
+  const all =
+    library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash && !filters.onlyReading;
   const favorites = library && filters.onlyFavorites;
+  const reading = library && filters.onlyReading;
   const status = { color: statusColor(capture), label: statusLabel(capture, t) };
   const update = offer(props.update);
   const { dropping } = props;
@@ -174,6 +178,9 @@ export function Sidebar(props: SidebarProps) {
         </StripButton>
         <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites}>
           <Icon icon={Heart} />
+        </StripButton>
+        <StripButton label={t("nav.reading")} active={reading} onClick={props.onReading}>
+          <Icon icon={BookOpen} />
         </StripButton>
         <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash} drop={trashDrop && { ...trashDrop, danger: true }}>
           <Icon icon={Trash2} />
@@ -273,6 +280,13 @@ export function Sidebar(props: SidebarProps) {
           count={counts.favorites}
           active={favorites}
           onClick={props.onFavorites}
+        />
+        <NavRow
+          icon={<Icon icon={BookOpen} />}
+          label={t("nav.reading")}
+          count={counts.reading_unread}
+          active={reading}
+          onClick={props.onReading}
         />
         <NavRow
           icon={<Icon icon={Trash2} />}

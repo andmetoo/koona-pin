@@ -34,6 +34,9 @@ pub use store::{merge_vector, vector, Chunk, Cursor, Delta};
 /// Schema 10: the tables and triggers of sync, for the app's migration.
 pub const SCHEMA_10: &str = include_str!("schema10.sql");
 
+/// Schema 11: the capture of the Reading fields, run after the app adds their columns.
+pub const SCHEMA_11: &str = include_str!("schema11.sql");
+
 /// [`SCHEMA_10`] in two parts: the tables and columns, then the triggers that record changes. A
 /// migration that fills the new columns does it between the two, so the filling records nothing
 /// and needs none of the engine's functions.

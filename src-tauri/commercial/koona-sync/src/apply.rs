@@ -11,7 +11,7 @@
 
 use crate::capture::{self, Applying};
 use crate::model::{Clock, Entity, FieldChange, Gone, Group};
-use crate::store::{self, Origins, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FAVORITE, LINK, TAGS, UNIQUE};
+use crate::store::{self, Origins, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FAVORITE, LINK, PROGRESS, TAGS, UNIQUE};
 use crate::Result;
 use rusqlite::types::Value;
 use rusqlite::{params, Connection};
@@ -200,6 +200,12 @@ impl<'c> Ctx<'c> {
             return Ok(match value.as_bool() {
                 Some(b) => Incoming::Value(Value::Integer(b as i64)),
                 None => Incoming::Invalid,
+            });
+        }
+        if t.code == BOOKMARKS.code && field == PROGRESS {
+            return Ok(match value.as_f64() {
+                Some(p) if (0.0..=1.0).contains(&p) => Incoming::Value(Value::Real(p)),
+                _ => Incoming::Invalid,
             });
         }
         let Some(text) = value.as_str() else {
