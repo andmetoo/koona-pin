@@ -344,24 +344,26 @@ fn pairing() {
         let asking = Party { device: asking_id, key: crypto::public_key(&asking_pair), eph: asking_eph.public() };
         let hub = Party { device: hub_id, key: crypto::public_key(&hub_pair), eph: hub_eph.public() };
         let shared = asking_eph.agree(&hub.eph).unwrap();
-        let offer = crypto::offer_bytes(Exchange::Pair, &asking, hub_id);
+        let commit = crypto::commitment(&asking, hub_id);
+        let offer = crypto::offer_bytes(Exchange::Pair, asking_id, &asking.key, hub_id, &commit);
         let offer_sig = crypto::sign(&asking_pair, &offer);
         let t = crypto::transcript(Exchange::Pair, &asking, &hub);
-        let accept = crypto::accept_bytes(Exchange::Pair, &t);
+        let accept = crypto::pair_accept_bytes(asking_id, &asking.key, &commit, &hub);
         let accept_sig = crypto::sign(&hub_pair, &accept);
         let key = crypto::exchange_key(Exchange::Pair, &shared, &t);
         let library: [u8; 32] = std::array::from_fn(|i| 0x40 + i as u8);
         let epoch = 3;
         let sealed = crypto::seal_library_key(&key, epoch, asking_id, &library);
 
-        let rekey_offer = crypto::offer_bytes(Exchange::Rekey, &asking, hub_id);
+        let rekey_offer = crypto::offer_bytes(Exchange::Rekey, asking_id, &asking.key, hub_id, &asking.eph);
         let rekey_t = crypto::transcript(Exchange::Rekey, &asking, &hub);
         let rekey_key = crypto::exchange_key(Exchange::Rekey, &shared, &rekey_t);
         let rekey_sealed = crypto::seal_library_key(&rekey_key, epoch + 1, asking_id, &library);
 
         let messages = [
-            PairMessage::PairOffer { device: asking_id, eph: B64(asking.eph), key: B64(asking.key), sig: B64(offer_sig) },
+            PairMessage::PairOffer { device: asking_id, commit: B64(commit), key: B64(asking.key), sig: B64(offer_sig) },
             PairMessage::PairAccept { eph: B64(hub.eph), sig: B64(accept_sig) },
+            PairMessage::PairReveal { eph: B64(asking.eph) },
             PairMessage::PairKey { epoch, sealed: B64(sealed) },
         ];
         let party = |p: &Party, seed: &[u8; 32], x: &str| json!({
@@ -372,11 +374,12 @@ fn pairing() {
             "x25519_public_hex": hex(&p.eph),
         });
         json!({
-            "description": "Pairing: X25519 keys are RFC 7748 section 6.1 (Alice = device asking, Bob = hub). transcript = SHA-256(label || asking.device || asking.ed25519 || asking.x25519 || hub.device || hub.ed25519 || hub.x25519); code = u32 BE of HKDF-SHA256(ikm = shared, salt = transcript, info = \"koona-sync pair code\", 4 bytes) mod 10^6; exchange key = HKDF(shared, transcript, \"koona-sync pair key\" or \"koona-sync rekey key\", 32 bytes); sealed = ChaCha20-Poly1305(key, nonce = 12 zero bytes, AAD = \"koona-sync library key v1\" || epoch(u32 BE) || asking.device(16)).",
+            "description": "Pairing: X25519 keys are RFC 7748 section 6.1 (Alice = device asking, Bob = hub). commit = SHA-256(\"koona-sync pair commit v2\" || asking.device || hub.device || asking.ed25519 || asking.x25519); pair offer_bytes = label || asking.device || hub.device || commit || asking.ed25519 (a rekey's carries asking.x25519 in place of commit); pair accept_bytes = label || asking.device || asking.ed25519 || commit || hub.device || hub.ed25519 || hub.x25519; transcript = SHA-256(label || asking.device || asking.ed25519 || asking.x25519 || hub.device || hub.ed25519 || hub.x25519 || commit (pairing only)); code = u32 BE of HKDF-SHA256(ikm = shared, salt = transcript, info = \"koona-sync pair code\", 4 bytes) mod 10^6; exchange key = HKDF(shared, transcript, \"koona-sync pair key\" or \"koona-sync rekey key\", 32 bytes); sealed = ChaCha20-Poly1305(key, nonce = 12 zero bytes, AAD = \"koona-sync library key v1\" || epoch(u32 BE) || asking.device(16)).",
             "asking": party(&asking, &SEED, ASKING_X25519),
             "hub": party(&hub, &HUB_SEED, HUB_X25519),
             "shared_hex": hex(&shared),
             "pair": {
+                "commit_hex": hex(&commit),
                 "offer_bytes_hex": hex(&offer),
                 "offer_sig_hex": hex(&offer_sig),
                 "transcript_hex": hex(&t),
@@ -414,12 +417,14 @@ fn pairing() {
     assert_eq!(hex(&shared), v["shared_hex"]);
 
     let p = &v["pair"];
-    let offer = crypto::offer_bytes(Exchange::Pair, &asking, hub.device);
+    let commit = crypto::commitment(&asking, hub.device);
+    assert_eq!(hex(&commit), p["commit_hex"]);
+    let offer = crypto::offer_bytes(Exchange::Pair, asking.device, &asking.key, hub.device, &commit);
     assert_eq!(hex(&offer), p["offer_bytes_hex"]);
     assert_eq!(hex(&crypto::sign(&asking_pair, &offer)), p["offer_sig_hex"]);
     let t = crypto::transcript(Exchange::Pair, &asking, &hub);
     assert_eq!(hex(&t), p["transcript_hex"]);
-    let accept = crypto::accept_bytes(Exchange::Pair, &t);
+    let accept = crypto::pair_accept_bytes(asking.device, &asking.key, &commit, &hub);
     assert_eq!(hex(&accept), p["accept_bytes_hex"]);
     assert_eq!(hex(&crypto::sign(&hub_pair, &accept)), p["accept_sig_hex"]);
     assert_eq!(format!("{:06}", crypto::pair_code(&shared, &t)), p["code"]);
@@ -432,7 +437,8 @@ fn pairing() {
     assert_eq!(crypto::open_library_key(&key, epoch, asking.device, &sealed), Ok(library));
 
     let r = &v["rekey"];
-    assert_eq!(hex(&crypto::offer_bytes(Exchange::Rekey, &asking, hub.device)), r["offer_bytes_hex"]);
+    let rekey_offer = crypto::offer_bytes(Exchange::Rekey, asking.device, &asking.key, hub.device, &asking.eph);
+    assert_eq!(hex(&rekey_offer), r["offer_bytes_hex"]);
     let rekey_t = crypto::transcript(Exchange::Rekey, &asking, &hub);
     assert_eq!(hex(&rekey_t), r["transcript_hex"]);
     let rekey_key = crypto::exchange_key(Exchange::Rekey, &shared, &rekey_t);
@@ -447,8 +453,14 @@ fn pairing() {
         let decoded = PairMessage::decode(&encoder.finish().unwrap()).unwrap();
         assert_eq!(&serde_json::to_value(&decoded).unwrap(), message);
         match decoded {
-            PairMessage::PairOffer { sig, .. } => {
+            PairMessage::PairOffer { commit: wire, sig, .. } => {
+                assert_eq!(wire.0, commit);
                 assert_eq!(crypto::verify(&asking.key, &offer, &sig.0), Ok(()));
+            }
+            // The hub checks the reveal against the commitment before it shows a code.
+            PairMessage::PairReveal { eph } => {
+                assert_eq!(eph.0, asking.eph);
+                assert_eq!(crypto::commitment(&Party { eph: eph.0, ..asking }, hub.device), commit);
             }
             PairMessage::PairAccept { sig, .. } => {
                 assert_eq!(crypto::verify(&hub.key, &accept, &sig.0), Ok(()));

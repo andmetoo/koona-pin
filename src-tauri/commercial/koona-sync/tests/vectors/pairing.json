@@ -6,7 +6,7 @@
     "x25519_private_hex": "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
     "x25519_public_hex": "8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a"
   },
-  "description": "Pairing: X25519 keys are RFC 7748 section 6.1 (Alice = device asking, Bob = hub). transcript = SHA-256(label || asking.device || asking.ed25519 || asking.x25519 || hub.device || hub.ed25519 || hub.x25519); code = u32 BE of HKDF-SHA256(ikm = shared, salt = transcript, info = \"koona-sync pair code\", 4 bytes) mod 10^6; exchange key = HKDF(shared, transcript, \"koona-sync pair key\" or \"koona-sync rekey key\", 32 bytes); sealed = ChaCha20-Poly1305(key, nonce = 12 zero bytes, AAD = \"koona-sync library key v1\" || epoch(u32 BE) || asking.device(16)).",
+  "description": "Pairing: X25519 keys are RFC 7748 section 6.1 (Alice = device asking, Bob = hub). commit = SHA-256(\"koona-sync pair commit v2\" || asking.device || hub.device || asking.ed25519 || asking.x25519); pair offer_bytes = label || asking.device || hub.device || commit || asking.ed25519 (a rekey's carries asking.x25519 in place of commit); pair accept_bytes = label || asking.device || asking.ed25519 || commit || hub.device || hub.ed25519 || hub.x25519; transcript = SHA-256(label || asking.device || asking.ed25519 || asking.x25519 || hub.device || hub.ed25519 || hub.x25519 || commit (pairing only)); code = u32 BE of HKDF-SHA256(ikm = shared, salt = transcript, info = \"koona-sync pair code\", 4 bytes) mod 10^6; exchange key = HKDF(shared, transcript, \"koona-sync pair key\" or \"koona-sync rekey key\", 32 bytes); sealed = ChaCha20-Poly1305(key, nonce = 12 zero bytes, AAD = \"koona-sync library key v1\" || epoch(u32 BE) || asking.device(16)).",
   "hub": {
     "device": "0192f3a4-0000-7000-8000-00000000b0b0",
     "ed25519_public_hex": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
@@ -16,34 +16,39 @@
   },
   "messages": [
     {
+      "commit": "r78Fmlfvz2yT8COmhyhVgwmazw0wr3TX3ex+LYA1YRI=",
       "device": "0192f3a4-b5c6-7d8e-9f01-23456789abcd",
-      "eph": "hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=",
       "key": "0EqyMnQrtKs6E2i9RhXk5tAiSrcaAWuvhSCjMsl3hzc=",
-      "sig": "EtrQT2wy9Guy98/ybW97dmRR/Mti7m3PaGLnTmBJHteMwmShTDUdVedWGOCVyBCL7ZL6HxEwhWavYTwFpWG+CQ==",
+      "sig": "8Cv7K5Eb8agde0+cd4K5SCzidEmURE5uQAck26Yrt/o+QgBo92OV9rO+JEv77Yy1+DzfbV4AaCKOd990wPV4Aw==",
       "t": "pair_offer"
     },
     {
       "eph": "3p7bfXt9wbTTW2HC7OQ1Nz+DQ8hbeGdNrfx+FG+IK08=",
-      "sig": "RMQ4627sR7P9WXLkscQTU7iBKAoIcD5qhF4JJMapNIClsnDnBRa+Iy6HlWg2ekdM7o2dcP+t+aKR9b3sbM/fBQ==",
+      "sig": "pK+3adetSe1CilD8oRTeeEuXe8tHbz2jyLeIKDvkdBDzIUtyS76W8YMciMzna/Etl1RonJxOw0E9Gx3DVzUiAw==",
       "t": "pair_accept"
     },
     {
+      "eph": "hSDwCYkwp1R0i33ctD73Wg2/Og0mOBr066SpjqqbTmo=",
+      "t": "pair_reveal"
+    },
+    {
       "epoch": 3,
-      "sealed": "NzG3g4iULfJeaBfubcqqxdNBtbmigQNyVGNtvECOOcIgSaZUPMHzdg1BamqFGNAK",
+      "sealed": "5vtxlXus4xiSvgHn8Re/ywkOOMdT45Nvt2euRb8RBcjXJ5bBBLcdswTy1vSxKx43",
       "t": "pair_key"
     }
   ],
   "pair": {
-    "accept_bytes_hex": "6b6f6f6e612d73796e632070616972206163636570742076311ede9f2378bbb30848d92279687046dd9e7697a7321a2d00b28a376702fa84b1",
-    "accept_sig_hex": "44c438eb6eec47b3fd5972e4b1c41353b881280a08703e6a845e0924c6a93480a5b270e70516be232e879568367a474cee8d9d70ffadf9a291f5bdec6ccfdf05",
-    "code": "705844",
+    "accept_bytes_hex": "6b6f6f6e612d73796e632070616972206163636570742076320192f3a4b5c67d8e9f0123456789abcdd04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737afbf059a57efcf6c93f023a687285583099acf0d30af74d7ddec7e2d803561120192f3a400007000800000000000b0b0a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f",
+    "accept_sig_hex": "a4afb769d7ad49ed428a50fca114de784b977bcb476f3da3c8b788283be47410f3214b724bbe96f1831c88cce76bf12d9754689c9c4ec3413d1b1dc357352203",
+    "code": "761157",
+    "commit_hex": "afbf059a57efcf6c93f023a687285583099acf0d30af74d7ddec7e2d80356112",
     "epoch": 3,
-    "key_hex": "ad4a3b087796b3eb26c1256a86cb78d5d45369c55a6a177c878e07a788255ce3",
+    "key_hex": "6951d7ffd4a32342aee714fd9b93c44736733ea56d71efc91331b8d1698d86d6",
     "library_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
-    "offer_bytes_hex": "6b6f6f6e612d73796e632070616972206f666665722076310192f3a4b5c67d8e9f0123456789abcd0192f3a400007000800000000000b0b08520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6ad04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
-    "offer_sig_hex": "12dad04f6c32f46bb2f7cff26d6f7b766451fccb62ee6dcf6862e74e60491ed78cc264a14c351d55e75618e095c8108bed92fa1f11308566af613c05a561be09",
-    "sealed_hex": "3731b78388942df25e6817ee6dcaaac5d341b5b9a281037254636dbc408e39c22049a6543cc1f3760d416a6a8518d00a",
-    "transcript_hex": "1ede9f2378bbb30848d92279687046dd9e7697a7321a2d00b28a376702fa84b1"
+    "offer_bytes_hex": "6b6f6f6e612d73796e632070616972206f666665722076320192f3a4b5c67d8e9f0123456789abcd0192f3a400007000800000000000b0b0afbf059a57efcf6c93f023a687285583099acf0d30af74d7ddec7e2d80356112d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+    "offer_sig_hex": "f02bfb2b911bf1a81d7b4f9c7782b9482ce2744994444e6e400724dba62bb7fa3e420068f76395f6b3be244bfbed8cb5f83cdf6d5e0068228e77df74c0f57803",
+    "sealed_hex": "e6fb71957bace31892be01e7f117bfcb090e38c753e3936fb767ae45bf1105c8d72796c104b71db304f2d6f4b12b1e37",
+    "transcript_hex": "07c3f6dc8a447b1a80e66f97956f061c3199faf0cd5ca1e30d24317fb5d70d06"
   },
   "rekey": {
     "epoch": 4,

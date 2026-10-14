@@ -338,6 +338,8 @@ struct Asking {
     hub_key: [u8; 32],
     hub_name: String,
     party: Party,
+    /// What the offer committed to; `party.eph` is revealed only after the hub's `pair_accept`.
+    commit: [u8; 32],
     eph: Option<Ephemeral>,
     exchange_key: Option<[u8; 32]>,
     started: u64,
@@ -347,7 +349,12 @@ struct Asking {
 struct Hosting {
     device: Uuid,
     key: [u8; 32],
-    exchange_key: [u8; 32],
+    commit: [u8; 32],
+    /// Its own X25519 key, sent in `pair_accept`; spent when the reveal arrives.
+    eph: Option<Ephemeral>,
+    hub_eph: [u8; 32],
+    /// Once the reveal matched the commitment and the code is shown.
+    exchange_key: Option<[u8; 32]>,
     started: u64,
 }
 
@@ -1525,13 +1532,17 @@ impl Session {
         }
         let eph = Ephemeral::generate(self.rng.as_ref()).unwrap_or_else(|_| rng_failed());
         let party = Party { device: self.cfg.device, key: self.public, eph: eph.public() };
-        let sig = crypto::sign(&self.cfg.device_key, &crypto::offer_bytes(Exchange::Pair, &party, hub));
-        self.send_pair(hub, &PairMessage::PairOffer { device: party.device, eph: B64(party.eph), key: B64(party.key), sig: B64(sig) });
+        // 4.2: commit to the X25519 key now, reveal it once the hub has sent its own.
+        let commit = crypto::commitment(&party, hub);
+        let offer = crypto::offer_bytes(Exchange::Pair, party.device, &party.key, hub, &commit);
+        let sig = crypto::sign(&self.cfg.device_key, &offer);
+        self.send_pair(hub, &PairMessage::PairOffer { device: party.device, commit: B64(commit), key: B64(party.key), sig: B64(sig) });
         self.asking = Some(Asking {
             hub,
             hub_key: info.key.0,
             hub_name: info.name.clone(),
             party,
+            commit,
             eph: Some(eph),
             exchange_key: None,
             started: self.now,
@@ -1541,11 +1552,11 @@ impl Session {
 
     // --- Pairing, the hub ---
 
-    fn on_pair_offer(&mut self, from: Uuid, header: &Header, device: Uuid, eph: [u8; 32], key: [u8; 32], sig: [u8; 64]) {
+    fn on_pair_offer(&mut self, from: Uuid, header: &Header, device: Uuid, commit: [u8; 32], key: [u8; 32], sig: [u8; 64]) {
         let me = self.cfg.device;
         let listed = self.devices.get(&from).is_some_and(|d| d.status == DeviceStatus::Pending && d.key.0 == key);
-        let asking = Party { device, key, eph };
-        if device != from || !listed || crypto::verify(&key, &crypto::offer_bytes(Exchange::Pair, &asking, me), &sig).is_err() {
+        let offer = crypto::offer_bytes(Exchange::Pair, device, &key, me, &commit);
+        if device != from || !listed || crypto::verify(&key, &offer, &sig).is_err() {
             self.dropped(from, DropReason::BadSignature);
             return self.send_pair(from, &PairMessage::Error { code: ErrorCode::BadSignature });
         }
@@ -1556,32 +1567,63 @@ impl Session {
             // One pairing at a time.
             return self.send_pair(from, &PairMessage::Error { code: ErrorCode::Rejected });
         }
+        // The hub's key is fixed and signed before it sees the device's: it can't pick one to
+        // steer the code, and the device can't either, being bound by `commit`.
         let mine = Ephemeral::generate(self.rng.as_ref()).unwrap_or_else(|_| rng_failed());
         let hub = Party { device: me, key: self.public, eph: mine.public() };
-        let transcript = crypto::transcript(Exchange::Pair, &asking, &hub);
-        let accept = crypto::sign(&self.cfg.device_key, &crypto::accept_bytes(Exchange::Pair, &transcript));
-        let Ok(shared) = mine.agree(&eph) else {
-            return self.send_pair(from, &PairMessage::Error { code: ErrorCode::BadSignature });
-        };
+        let accept = crypto::sign(&self.cfg.device_key, &crypto::pair_accept_bytes(device, &key, &commit, &hub));
         self.send_pair(from, &PairMessage::PairAccept { eph: B64(hub.eph), sig: B64(accept) });
-        let code = crypto::pair_code(&shared, &transcript);
         self.hosting = Some(Hosting {
             device: from,
             key,
-            exchange_key: crypto::exchange_key(Exchange::Pair, &shared, &transcript),
+            commit,
+            eph: Some(mine),
+            hub_eph: hub.eph,
+            exchange_key: None,
             started: self.now,
         });
+    }
+
+    fn on_pair_reveal(&mut self, from: Uuid, header: &Header, eph: [u8; 32]) {
+        let Some(hosting) = self.hosting.as_ref().filter(|h| h.device == from && h.eph.is_some()) else {
+            return self.dropped(from, DropReason::Unexpected);
+        };
+        let me = self.cfg.device;
+        let asking = Party { device: from, key: hosting.key, eph };
+        if crypto::commitment(&asking, me) != hosting.commit {
+            // Not the key the offer committed to: someone chose it after seeing ours.
+            self.hosting = None;
+            self.dropped(from, DropReason::BadSignature);
+            self.send_pair(from, &PairMessage::Error { code: ErrorCode::BadSignature });
+            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::BadSignature }));
+            return;
+        }
+        if !self.fresh(from, header) {
+            return;
+        }
+        let hosting = self.hosting.as_mut().expect("checked above");
+        let hub = Party { device: me, key: self.public, eph: hosting.hub_eph };
+        let transcript = crypto::transcript(Exchange::Pair, &asking, &hub);
+        let Ok(shared) = hosting.eph.take().expect("checked above").agree(&eph) else {
+            self.hosting = None;
+            self.send_pair(from, &PairMessage::Error { code: ErrorCode::BadSignature });
+            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::BadSignature }));
+            return;
+        };
+        hosting.exchange_key = Some(crypto::exchange_key(Exchange::Pair, &shared, &transcript));
+        let code = crypto::pair_code(&shared, &transcript);
         let peer_name = self.devices.get(&from).map(|d| d.name.clone()).unwrap_or_default();
         self.fx.push(Effect::Pairing(PairingEvent::Code { role: Role::Hub, peer: from, peer_name, code: code_text(code) }));
     }
 
     fn approve(&mut self, lib: &mut dyn Library, device: Uuid) {
-        if !self.hosting.as_ref().is_some_and(|h| h.device == device) {
+        if !self.hosting.as_ref().is_some_and(|h| h.device == device && h.exchange_key.is_some()) {
             return self.error(SessionError::NotAllowed("no pairing with that device"));
         }
         let (Some(epoch), Some(hosting)) = (self.sealer_epoch, self.hosting.take()) else { return };
+        let exchange_key = hosting.exchange_key.expect("checked above");
         let library = self.keys[&epoch].0;
-        let sealed = crypto::seal_library_key(&hosting.exchange_key, epoch, device, &library);
+        let sealed = crypto::seal_library_key(&exchange_key, epoch, device, &library);
         self.send_pair(device, &PairMessage::PairKey { epoch, sealed: B64(sealed) });
         self.send_text(Control::Approve { device });
         if let Some(roster) = self.meta.roster.as_mut() {
@@ -1611,7 +1653,8 @@ impl Session {
         };
         let eph = Ephemeral::generate(self.rng.as_ref()).unwrap_or_else(|_| rng_failed());
         let party = Party { device: self.cfg.device, key: self.public, eph: eph.public() };
-        let sig = crypto::sign(&self.cfg.device_key, &crypto::offer_bytes(Exchange::Rekey, &party, hub));
+        let offer = crypto::offer_bytes(Exchange::Rekey, party.device, &party.key, hub, &party.eph);
+        let sig = crypto::sign(&self.cfg.device_key, &offer);
         self.send_pair(hub, &PairMessage::RekeyOffer { device: party.device, eph: B64(party.eph), sig: B64(sig) });
         self.rekey = Some(Rekeying { hub, hub_key, party, eph: Some(eph), exchange_key: None, started: self.now });
     }
@@ -1623,7 +1666,7 @@ impl Session {
         let ok = match pinned {
             Some(key) if device == from && active => {
                 let asking = Party { device, key, eph };
-                crypto::verify(&key, &crypto::offer_bytes(Exchange::Rekey, &asking, me), &sig).is_ok()
+                crypto::verify(&key, &crypto::offer_bytes(Exchange::Rekey, asking.device, &asking.key, me, &asking.eph), &sig).is_ok()
             }
             _ => false,
         };
@@ -1639,7 +1682,7 @@ impl Session {
         let mine = Ephemeral::generate(self.rng.as_ref()).unwrap_or_else(|_| rng_failed());
         let hub = Party { device: me, key: self.public, eph: mine.public() };
         let transcript = crypto::transcript(Exchange::Rekey, &asking, &hub);
-        let accept = crypto::sign(&self.cfg.device_key, &crypto::accept_bytes(Exchange::Rekey, &transcript));
+        let accept = crypto::sign(&self.cfg.device_key, &crypto::rekey_accept_bytes(&transcript));
         let Ok(shared) = mine.agree(&eph) else {
             return self.send_pair(from, &PairMessage::Error { code: ErrorCode::BadSignature });
         };
@@ -1920,18 +1963,24 @@ impl Session {
         let message = match PairMessage::decode(payload) {
             Ok(m) => m,
             Err(e) if e.update_needed() => return self.peer_is_newer(from, true),
+            Err(protocol::Error::Outdated(_)) => {
+                // The sender is the one to update; nothing pauses here.
+                self.dropped(from, DropReason::Malformed);
+                return self.send_pair(from, &PairMessage::Error { code: ErrorCode::UpdateNeeded });
+            }
             Err(_) => return self.dropped(from, DropReason::Malformed),
         };
         match message {
-            PairMessage::PairOffer { device, eph, key, sig } => self.on_pair_offer(from, &header, device, eph.0, key.0, sig.0),
+            PairMessage::PairOffer { device, commit, key, sig } => self.on_pair_offer(from, &header, device, commit.0, key.0, sig.0),
+            PairMessage::PairReveal { eph } => self.on_pair_reveal(from, &header, eph.0),
             PairMessage::RekeyOffer { device, eph, sig } => self.on_rekey_offer(from, &header, device, eph.0, sig.0),
             PairMessage::PairAccept { eph, sig } => {
                 let Some(asking) = self.asking.as_mut().filter(|a| a.hub == from && a.eph.is_some()) else {
                     return self.dropped(from, DropReason::Unexpected);
                 };
                 let hub = Party { device: from, key: asking.hub_key, eph: eph.0 };
-                let transcript = crypto::transcript(Exchange::Pair, &asking.party, &hub);
-                if crypto::verify(&asking.hub_key, &crypto::accept_bytes(Exchange::Pair, &transcript), &sig.0).is_err() {
+                let accept = crypto::pair_accept_bytes(asking.party.device, &asking.party.key, &asking.commit, &hub);
+                if crypto::verify(&asking.hub_key, &accept, &sig.0).is_err() {
                     self.asking = None;
                     self.dropped(from, DropReason::BadSignature);
                     self.send_pair(from, &PairMessage::Error { code: ErrorCode::BadSignature });
@@ -1941,7 +1990,11 @@ impl Session {
                 if !self.fresh(from, &header) {
                     return;
                 }
+                // 4.2 step 4: reveal only now, and show the code only after revealing.
+                let reveal = self.asking.as_ref().expect("checked above").party.eph;
+                self.send_pair(from, &PairMessage::PairReveal { eph: B64(reveal) });
                 let asking = self.asking.as_mut().expect("checked above");
+                let transcript = crypto::transcript(Exchange::Pair, &asking.party, &hub);
                 let Ok(shared) = asking.eph.take().expect("checked above").agree(&eph.0) else {
                     self.asking = None;
                     self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::BadSignature }));
@@ -1966,7 +2019,7 @@ impl Session {
                     return;
                 }
                 let asking = self.asking.take().expect("checked above");
-                // 4.2 step 6: the hub's key from the transcript is the first pin.
+                // 4.2 step 7: the hub's key from the transcript is the first pin.
                 let mut roster = Roster { hub: from, devices: Vec::new() };
                 roster.set(from, asking.hub_key);
                 roster.set(self.cfg.device, self.public);
@@ -1985,7 +2038,7 @@ impl Session {
                 let hub = Party { device: from, key: rekey.hub_key, eph: eph.0 };
                 let transcript = crypto::transcript(Exchange::Rekey, &rekey.party, &hub);
                 if Some(from) != self.hub
-                    || crypto::verify(&rekey.hub_key, &crypto::accept_bytes(Exchange::Rekey, &transcript), &sig.0).is_err()
+                    || crypto::verify(&rekey.hub_key, &crypto::rekey_accept_bytes(&transcript), &sig.0).is_err()
                 {
                     self.rekey = None;
                     return self.dropped(from, DropReason::BadSignature);

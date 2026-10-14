@@ -18,7 +18,7 @@ use std::io::{Read, Write};
 use uuid::Uuid;
 
 /// The protocol version a device sends in `X-Koona-Proto` and in the sync `hello`.
-pub const PROTO: u32 = 1;
+pub const PROTO: u32 = 2;
 /// The first byte of every device-to-device body.
 pub const BODY_VERSION: u8 = 1;
 /// The first byte of every binary WebSocket message.
@@ -89,6 +89,9 @@ pub enum Error {
     UnknownMessage(String),
     /// A field, an entity or a synced field name this build doesn't know.
     UnknownField(String),
+    /// A message only an older build sends, which this build no longer accepts (a v1
+    /// `pair_offer`): the sender updates, not the receiver.
+    Outdated(String),
 }
 
 impl Error {
@@ -117,6 +120,7 @@ impl fmt::Display for Error {
             Error::UnknownKind(k) => write!(f, "unknown body kind {k}"),
             Error::UnknownMessage(t) => write!(f, "unknown message {t:?}"),
             Error::UnknownField(name) => write!(f, "unknown field {name:?}"),
+            Error::Outdated(t) => write!(f, "outdated message {t:?}"),
         }
     }
 }
@@ -500,10 +504,13 @@ pub enum SyncMessage {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum PairMessage {
-    /// New device -> hub. `eph` is X25519, `key` the new device's Ed25519 key.
-    PairOffer { device: Uuid, eph: B64<32>, key: B64<32>, sig: B64<64> },
+    /// New device -> hub. `commit` is the commitment to its X25519 key (`crypto::commitment`),
+    /// `key` its Ed25519 key.
+    PairOffer { device: Uuid, commit: B64<32>, key: B64<32>, sig: B64<64> },
     /// Hub -> new device.
     PairAccept { eph: B64<32>, sig: B64<64> },
+    /// New device -> hub, after `pair_accept`: the X25519 key it committed to.
+    PairReveal { eph: B64<32> },
     /// Hub -> new device, after the person confirmed the code on the hub.
     PairKey { epoch: u32, sealed: B64<48> },
     /// A device without the current epoch's key -> hub.
@@ -666,7 +673,10 @@ impl PairMessage {
         let value = inflate_json(payload)?;
         let (tag, object) = tagged(&value)?;
         let allowed: &[&str] = match tag {
-            "pair_offer" => &["t", "device", "eph", "key", "sig"],
+            // v1 sent its X25519 key in the offer, with no commitment (4.2).
+            "pair_offer" if object.contains_key("eph") => return Err(Error::Outdated(tag.to_string())),
+            "pair_offer" => &["t", "device", "commit", "key", "sig"],
+            "pair_reveal" => &["t", "eph"],
             "rekey_offer" => &["t", "device", "eph", "sig"],
             "pair_accept" | "rekey_accept" => &["t", "eph", "sig"],
             "pair_key" | "rekey_key" => &["t", "epoch", "sealed"],
@@ -970,8 +980,14 @@ mod tests {
 
     #[test]
     fn pairing_messages_round_trip() {
-        let offer = PairMessage::PairOffer { device: id(1), eph: B64([2; 32]), key: B64([3; 32]), sig: B64([4; 64]) };
+        let offer = PairMessage::PairOffer { device: id(1), commit: B64([2; 32]), key: B64([3; 32]), sig: B64([4; 64]) };
         assert_eq!(PairMessage::decode(&offer.encode().unwrap()).unwrap(), offer);
+        let reveal = PairMessage::PairReveal { eph: B64([5; 32]) };
+        assert_eq!(PairMessage::decode(&reveal.encode().unwrap()).unwrap(), reveal);
+        // A v1 offer is an older peer's, not a newer one's.
+        let v1 = deflate(&json!({"t": "pair_offer", "device": id(1), "eph": B64([2; 32]), "key": B64([3; 32]), "sig": B64([4; 64])}));
+        let err = PairMessage::decode(&v1).unwrap_err();
+        assert!(matches!(err, Error::Outdated(_)) && !err.update_needed());
         let extra = deflate(&json!({"t": "pair_key", "epoch": 1, "sealed": "", "hint": 1}));
         assert!(PairMessage::decode(&extra).unwrap_err().update_needed());
         let short = deflate(&json!({"t": "pair_accept", "eph": "AAAA", "sig": "AAAA"}));

@@ -1,9 +1,9 @@
 <!-- Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`). -->
 
-# Koona Pin sync protocol, version 1
+# Koona Pin sync protocol, version 2
 
 This document is the contract between Koona Pin devices and the sync relay, and between devices.
-`proto = 1`. The Rust implementation is `src/protocol.rs` (shapes) and `src/crypto.rs` (keys);
+`proto = 2`. The Rust implementation is `src/protocol.rs` (shapes) and `src/crypto.rs` (keys);
 `tests/vectors/*.json` are normative test vectors, checked by `tests/protocol_vectors.rs`.
 Where this text and a vector disagree, the vector wins and this text is a bug.
 
@@ -44,7 +44,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 GET /v1/sync  (WebSocket upgrade, TLS only)
 Authorization: Bearer <Supabase access token (JWT)>
 X-Koona-Lease: <base64 of the lease JSON {"payload": ..., "signature": ...}>
-X-Koona-Proto: 1
+X-Koona-Proto: 2
 ```
 
 The relay verifies before upgrading, or closes right after:
@@ -206,7 +206,7 @@ byte on the wire.
 
 - **Header checks** run in this order: `X-Koona-Proto` (missing or not an integer: 4004), the
   token (4001), the lease (4002), the beta allowlist (4002 with reason `not_in_beta`). A client
-  always sends `X-Koona-Proto: 1`.
+  always sends `X-Koona-Proto` with its `proto` (2); the relay serves 1 and up.
 - **Rate limits** are token buckets per account over every inbound message, text and binary,
   `hello` included: a burst of 20 then 20 messages/s, and a burst of 32 MiB then 32 MiB/min. Only
   the connection that crosses a limit is closed with 4008. A client paces what it sends below
@@ -377,7 +377,9 @@ A receiver MUST accept an `error` with a code it doesn't know (treat it as a gen
 codes can grow without forcing updates.
 
 **Versions.** `hello.proto` is the highest protocol version the sender speaks; v1 devices only
-speak 1. If a peer's `schema` is greater than its own, a device pauses with that peer and reports
+speak 1. Version 2 changed pairing only (section 4.2: a commitment before the reveal); kind-1
+messages, `hello` and rekeying are the same in both, so v1 and v2 devices sync and rekey with
+each other. If a peer's `schema` is greater than its own, a device pauses with that peer and reports
 `update_needed`; it doesn't send `error` for it, since the peer is fine.
 
 ### 3.4 A session
@@ -427,15 +429,19 @@ and `eph` (X25519 public, 32), and `label` set by the exchange:
 
 | | Pairing | Rekeying |
 |-|---------|----------|
-| `offer_label` | `"koona-sync pair offer v1"` | `"koona-sync rekey offer v1"` |
-| `transcript_label` | `"koona-sync pair v1"` | `"koona-sync rekey v1"` |
-| `accept_label` | `"koona-sync pair accept v1"` | `"koona-sync rekey accept v1"` |
+| `offer_label` | `"koona-sync pair offer v2"` | `"koona-sync rekey offer v1"` |
+| `transcript_label` | `"koona-sync pair v2"` | `"koona-sync rekey v1"` |
+| `accept_label` | `"koona-sync pair accept v2"` | `"koona-sync rekey accept v1"` |
 | `key_info` | `"koona-sync pair key"` | `"koona-sync rekey key"` |
 
 ```
-offer_bytes  = offer_label || A.device || H.device || A.eph || A.ed
-transcript   = SHA-256(transcript_label || A.device || A.ed || A.eph || H.device || H.ed || H.eph)
-accept_bytes = accept_label || transcript
+commit       = SHA-256("koona-sync pair commit v2" || A.device || H.device || A.ed || A.eph)   (pairing)
+offer_bytes  = offer_label || A.device || H.device || commit || A.ed      (pairing)
+             = offer_label || A.device || H.device || A.eph || A.ed       (rekeying)
+transcript   = SHA-256(transcript_label || A.device || A.ed || A.eph || H.device || H.ed || H.eph
+                       || commit)                                          (commit: pairing only)
+accept_bytes = accept_label || A.device || A.ed || commit || H.device || H.ed || H.eph   (pairing)
+             = accept_label || transcript                                  (rekeying)
 shared       = X25519(own eph private, peer eph public)          (all-zero result: abort)
 code         = u32(HKDF(ikm = shared, salt = transcript, info = "koona-sync pair code", L = 4)) mod 1,000,000
 exchange_key = HKDF(ikm = shared, salt = transcript, info = key_info, L = 32)
@@ -450,22 +456,40 @@ The code is shown as six digits with leading zeros. The zero nonce is safe becau
 
 1. The new device connects, gets `welcome{status: "pending"}` and the hub's id and key from it, and
    shows "Confirm on <hub name>".
-2. A -> hub: `{"t": "pair_offer", "device": A.device, "eph": A.eph, "key": A.ed, "sig": Ed25519_A(offer_bytes)}`.
+2. A -> hub: `{"t": "pair_offer", "device": A.device, "commit": commit, "key": A.ed, "sig": Ed25519_A(offer_bytes)}`.
+   `A.eph` stays with A for now.
 3. The hub checks that `device` equals the frame's `from`, that the directory lists it as `pending`
-   with key `key`, and `sig`. It generates `H.eph`, computes `transcript`, and answers
-   H -> A: `{"t": "pair_accept", "eph": H.eph, "sig": Ed25519_H(accept_bytes)}`.
-4. A checks `sig` against the hub key from `welcome`. Both compute `shared` and the code and show
-   it, the hub with the new device's name and Approve / Reject.
-5. The person compares the digits. On Approve, H -> A:
+   with key `key`, and `sig`. It generates `H.eph` and answers
+   H -> A: `{"t": "pair_accept", "eph": H.eph, "sig": Ed25519_H(accept_bytes)}`. It shows nothing
+   yet.
+4. A checks `sig` against the hub key from `welcome`, then reveals
+   A -> hub: `{"t": "pair_reveal", "eph": A.eph}`, and only then computes `shared` and the code and
+   shows it.
+5. The hub checks that `commit` recomputed with the revealed `A.eph` equals the offer's. If not, it
+   abandons the pairing, answers `{"t": "error", "code": "bad_signature"}` and shows no code.
+   Otherwise it computes `shared` and the code and shows it with the new device's name and
+   Approve / Reject.
+6. The person compares the digits. On Approve, H -> A:
    `{"t": "pair_key", "epoch": <current epoch>, "sealed": "<base64, 48 bytes>"}`; then the hub
    sends `approve{device}` to the relay and a `roster` (section 4.4). On Reject or a mismatch, H ->
    A: `{"t": "error", "code": "rejected"}`, and the hub sends `revoke{device}`.
-6. A opens `sealed` and stores the library key with its epoch. It pins the hub's key from the
+7. A opens `sealed` and stores the library key with its epoch. It pins the hub's key from the
    transcript. Once the relay reports it `active` it starts a sync session (section 3.4).
 
 A relay that substitutes either `eph` or either Ed25519 key makes the two transcripts differ, so
-the two screens show different digits (with probability 1 - 10^-6). The person MUST be told to
-compare the digits, not just press Approve.
+the two screens show different digits. On a first pairing A has the hub's Ed25519 key only from
+the relay, so a relay can play the hub toward A and A toward the hub; the commitment is what keeps
+it to one guess. Each side's X25519 key is fixed before it sees the other's: A's by `commit`
+before `pair_accept`, the hub's by its signed `pair_accept` before `pair_reveal`. Without it, a
+relay holding `A.eph` could try about 10^6 keys of its own offline until A's code equals the one
+the hub shows. With it, the two codes match by chance only (probability 10^-6 per attempt), and a
+failed attempt is visible to the person. The person MUST be told to compare the digits, not just
+press Approve.
+
+A v2 hub answers a v1 `pair_offer` (one with `eph` and no `commit`) with
+`{"t": "error", "code": "update_needed"}`: the asking device is the one to update, so the hub does
+not pause. A v1 hub sees `commit` as an unknown field and answers `update_needed` too. Pairing
+therefore needs both devices on v2; there is no fallback to the v1 exchange.
 
 A pending device sends at most one offer at a time; the hub handles one pairing at a time and
 answers others with `error{code: "rejected"}`. A pairing that isn't approved within 5 minutes is
@@ -519,7 +543,7 @@ hub's pinned key. A device that becomes hub through `set_hub` sends a fresh rost
 
 | Name | Value |
 |------|-------|
-| `proto` | 1 |
+| `proto` | 2 |
 | Body version | 1 |
 | Body, max | 1 MiB (1,048,576 bytes) |
 | Deflated payload, max | 900 KiB (921,600 bytes) |
@@ -543,7 +567,7 @@ hub Ed25519 seed `22` x32, X25519 keys from RFC 7748 section 6.1.
 | `control.json` | Every other control message as JSON | yes |
 | `sealed_body.json` | Session key, nonce, AAD and a sealed `pull` body | no |
 | `changes.json` | A `changes` message and a deflated encoding of it | no |
-| `pairing.json` | Pairing and rekey: transcript, signatures, code, exchange keys, sealed library key, messages | no |
+| `pairing.json` | Pairing and rekey: commitment, transcript, signatures, code, exchange keys, sealed library key, messages | no |
 
 `KOONA_WRITE_VECTORS=1 cargo test -p koona-sync --test protocol_vectors` regenerates them; any diff
 is a protocol change and needs a new `proto`.

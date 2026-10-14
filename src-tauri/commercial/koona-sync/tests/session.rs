@@ -7,7 +7,7 @@
 mod common;
 
 use common::*;
-use koona_sync::crypto::{self, Sealer};
+use koona_sync::crypto::{self, Ephemeral, Sealer};
 use koona_sync::library::{load_meta, Library};
 use koona_sync::model::Vector;
 use koona_sync::protocol::{
@@ -691,6 +691,69 @@ fn a_rejected_or_tampered_pairing_gets_no_key() {
     )));
     assert!(w.codes(c).is_empty(), "no code is shown for a forged answer");
     assert!(load_meta(w.lib(c)).unwrap().key.is_none());
+}
+
+#[test]
+fn a_reveal_other_than_the_committed_key_is_refused() {
+    // A relay playing the hub would choose its key after seeing the device's, to grind the
+    // codes into matching. With the commitment it sees only `commit` before `pair_accept`, and a
+    // device key swapped afterwards in `pair_reveal` doesn't match it: the hub shows no code.
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Victim", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    let relays_key = Ephemeral::generate(&SystemRandom::new()).unwrap().public();
+    w.relay.tamper = Some(Box::new(move |_, _, body: &mut Vec<u8>| {
+        if body[1] == Kind::Pairing as u8 {
+            if let Ok(PairMessage::PairReveal { .. }) = PairMessage::decode(&body[protocol::HEADER_LEN..]) {
+                let mut forged = body[..protocol::HEADER_LEN].to_vec();
+                forged.extend(PairMessage::PairReveal { eph: B64(relays_key) }.encode().unwrap());
+                *body = forged;
+            }
+        }
+        1
+    }));
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert!(w.codes(a).is_empty(), "the hub shows no code for a key the offer didn't commit to");
+    assert!(w.devices[a].events.iter().any(|e| matches!(
+        e,
+        Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::BadSignature, .. })
+    )));
+    assert_eq!(w.dropped(a, DropReason::BadSignature), 1);
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_none());
+}
+
+#[test]
+fn a_v1_offer_is_told_to_update_and_the_hub_does_not_pause() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Old", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    // What a v1 build sends: its X25519 key in the clear, no commitment.
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    let offer = serde_json::json!({"t": "pair_offer", "device": idb, "eph": B64([7; 32]), "key": B64([8; 32]), "sig": B64([9; 64])});
+    let header = Header { kind: Kind::Pairing, epoch: 0, session: [3; 16], seq: 0 };
+    let mut body = header.encode().to_vec();
+    body.extend(protocol::encode_payload(&offer).unwrap());
+    let frame = protocol::encode_delivered(idb, w.relay.now, &body).unwrap();
+    w.feed(a, Input::Binary(&frame));
+    w.run();
+    assert!(w.codes(a).is_empty());
+    assert_ne!(w.phase(a), Phase::Paused { reason: PauseReason::UpdateNeeded });
+    assert!(w.devices[b].events.iter().any(|e| matches!(
+        e,
+        Effect::Error(koona_sync::session::SessionError::Peer { device, code: protocol::ErrorCode::UpdateNeeded }) if *device == ida
+    )));
 }
 
 #[test]
