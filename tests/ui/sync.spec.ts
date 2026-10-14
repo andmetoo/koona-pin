@@ -37,13 +37,17 @@ test("Sync: the perk of the Supporter dialog turns sync on; this computer become
   await perk.getByRole("button", { name: "Set up…" }).click();
   const setup = page.getByRole("dialog", { name: "Sync" });
   await expect(setup.locator("[data-sync-view]")).toHaveAttribute("data-sync-view", "setup");
-  await expect(setup).toContainText("This computer becomes the main one");
+  // The account has no main computer yet: this one becomes it.
+  await expect(setup.locator("[data-sync-account]")).toHaveAttribute("data-sync-account", "main");
+  await expect(setup.locator("[data-sync-account]")).toContainText("This computer becomes the main one");
+  await expect(setup).not.toContainText("Sync already on at another computer?");
   await expect(setup).toContainText("Encrypted on your computers before it leaves them.");
   await setup.getByLabel("This computer's name").fill("Desk iMac");
   await setup.getByRole("button", { name: "Turn on sync" }).click();
   await expect(setup.locator("[data-sync-view]")).toHaveAttribute("data-sync-view", "overview");
   await expect(setup.locator('[data-sync-device="Desk iMac"]')).toContainText("Main");
   await expect(setup.locator('[data-sync-banner="online"]')).toContainText("Synced just now");
+  await expect(setup.locator('[data-sync-device="Desk iMac"]')).toContainText("macOS · Koona Pin");
   await expect(setup).toContainText("Add a computer");
   await setup.getByRole("button", { name: "Done" }).click();
   await page.locator("[data-plan-row]").click();
@@ -77,8 +81,11 @@ test("Sync: on the main computer — rename this one, remove another after a con
   await start(page, "on");
   const dialog = await openSync(page);
   await expect(dialog.locator("[data-sync-hub]")).toBeVisible();
-  await expect(dialog.locator('[data-sync-device="Office laptop"]')).toContainText("Online");
-  await expect(dialog.locator('[data-sync-device="Studio PC"]')).toContainText("Last seen 3 hours ago");
+  await expect(dialog.locator('[data-sync-banner="online"]')).toContainText("Synced just now");
+  await expect(dialog.locator('[data-sync-banner="online"]')).toContainText("3 computers · 12,480 bookmarks");
+  await expect(dialog.locator('[data-sync-device="Home iMac"]')).toContainText("macOS · Koona Pin 0.13.0");
+  await expect(dialog.locator('[data-sync-device="Office laptop"]')).toContainText("Windows · online");
+  await expect(dialog.locator('[data-sync-device="Studio PC"]')).toContainText("Linux · last seen 3 hours ago");
   // No menus: the buttons are on the rows.
   await dialog.locator('[data-sync-device="Home iMac"]').getByRole("button", { name: "Rename…" }).click();
   await dialog.getByLabel("New name of Home iMac").fill("Home Mac mini");
@@ -98,7 +105,15 @@ test("Sync: on the main computer — rename this one, remove another after a con
   await overview.getByRole("button", { name: "Details" }).click();
   const details = page.getByRole("dialog", { name: "Sync details" });
   await expect(details).toContainText("Main computer");
-  await expect(details).toContainText("Home Mac mini · 0f8e…6f70");
+  await expect(details.locator('[data-sync-detail="state"]')).toContainText(/Online · synced \d/);
+  await expect(details.locator('[data-sync-detail="this"]')).toContainText("Home Mac mini · 0f8e…6f70");
+  await expect(details.locator('[data-sync-detail="clock"]')).toContainText("+0.4 sec against the server");
+  await expect(details.locator('[data-sync-detail="key"]')).toContainText("Encryption key");
+  await expect(details.locator('[data-sync-detail="key"]')).toContainText("Generation 2");
+  await expect(details).toContainText("What each computer has");
+  await expect(details.locator("[data-sync-detail^='device:']")).toHaveCount(1);
+  await expect(details.locator("[data-sync-detail^='device:']")).toContainText(/Office laptop\s*up to \d/);
+  await expect(details).not.toContainText("Last sync");
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await details.getByRole("button", { name: "Copy report" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Copied" })).toBeVisible();
@@ -136,7 +151,7 @@ test("Sync: the main computer approves a new one by its code; the new one waits 
   await expect(join.locator("[data-sync-code]")).toHaveText("482 913");
   await join.getByRole("button", { name: "Codes match" }).click();
   const overview = page.getByRole("dialog", { name: "Sync" });
-  await expect(overview.locator('[data-sync-device="Office laptop"]')).toContainText("Online");
+  await expect(overview.locator('[data-sync-device="Office laptop"]')).toContainText("Windows · online");
   // Closed, it does not come back for the same request.
   await overview.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -193,7 +208,7 @@ test("Sync: every banner says what happened and what to do (frame 11)", async ({
     ["offline", "paused:offline", "Offline", null],
     ["others_offline", "online:others_offline", "Your other computers are offline", null],
     ["added", "notice:device_added", "Studio PC was added", "Review"],
-    ["skew", "paused:clock_skew", "This computer's clock is off", "Try again"],
+    ["skew", "paused:clock_skew", "This computer's clock is 7 min off", "Try again"],
     ["update", "paused:update_needed", "Update Koona Pin to keep syncing", "Update"],
     ["started_over", "notice:started_over", "Sync was started over from Studio PC", "Join…"],
     ["revoked", "paused:revoked", "This computer was removed from sync", "Add again"],
@@ -207,9 +222,14 @@ test("Sync: every banner says what happened and what to do (frame 11)", async ({
     if (action) await expect(banner.getByRole("button", { name: action }), state).toBeVisible();
     else await expect(banner.getByRole("button"), state).toHaveCount(0);
   }
+  // The newer version is named by the computer that has it.
+  await start(page, "update");
+  let dialog = await openSync(page);
+  await expect(dialog.locator('[data-sync-banner="paused:update_needed"]')).toContainText("Home iMac has a newer version.");
+  await expect(dialog.locator('[data-sync-device="Office laptop"]')).toContainText("Windows · Koona Pin 0.12.0");
   // «Review» marks the computer added and the notice goes.
   await start(page, "added");
-  let dialog = await openSync(page);
+  dialog = await openSync(page);
   await dialog.locator('[data-sync-banner="notice:device_added"]').getByRole("button", { name: "Review" }).click();
   await expect(dialog.locator('[data-sync-banner="notice:device_added"]')).toHaveCount(0);
   await expect(dialog.locator('[data-sync-device="Studio PC"]')).toHaveAttribute("data-highlight", "true");
@@ -222,4 +242,53 @@ test("Sync: every banner says what happened and what to do (frame 11)", async ({
   await start(page, "on", "canceling");
   dialog = await openSync(page);
   await expect(dialog.locator('[data-sync-banner="plan_ends"]')).toContainText("Sync stops on");
+});
+
+test("Sync: on a second computer the first screen names the main one; turning on waits for it (frames 14, 06)", async ({ page }) => {
+  await start(page, "off_join");
+  const setup = await openSync(page);
+  await expect(setup.locator("[data-sync-view]")).toHaveAttribute("data-sync-view", "setup");
+  await expect(setup.locator("[data-sync-account]")).toHaveAttribute("data-sync-account", "join");
+  await expect(setup.locator("[data-sync-account]")).toHaveText(
+    "Home iMac is your main computer. Turn on sync here, then confirm the code on Home iMac. Bookmarks on this computer stay and merge in.",
+  );
+  await expect(setup.getByText(/^This computer becomes the main one/)).toBeHidden();
+  await expect(setup.getByLabel("This computer's name")).toHaveValue("Office laptop");
+  await setup.getByRole("button", { name: "Turn on sync" }).click();
+  const waiting = page.getByRole("dialog", { name: "Waiting for Home iMac" });
+  await expect(waiting.locator("[data-sync-code]")).toHaveText("482 913");
+  // Cancelled, the account still has its main computer.
+  await waiting.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const again = await openSync(page);
+  await expect(again.locator("[data-sync-account]")).toHaveAttribute("data-sync-account", "join");
+});
+
+test("Sync: the first screen keeps both possibilities while asking, and when the account can't be asked (frame 02)", async ({ page }) => {
+  await start(page, null, "offline");
+  const setup = await openSync(page);
+  const lead = setup.locator("[data-sync-account]");
+  await expect(lead).toHaveAttribute("data-sync-account", "unknown");
+  await expect(lead).toContainText("The main computer approves this one with a code.");
+  await expect(setup.getByRole("button", { name: "Turn on sync" })).toBeEnabled();
+
+  // While the answer is on its way the lead is neutral and keeps its place.
+  await start(page, "off_join");
+  await page.evaluate(async () => {
+    // A relay that takes its time: the answer waits for release().
+    const { api } = await import("/src/services/api.ts");
+    const ask = api.getSyncAccount.bind(api);
+    const w = window as unknown as { release: () => void };
+    api.getSyncAccount = () => new Promise((resolve) => (w.release = () => resolve(ask())));
+  });
+  const open = await openSync(page);
+  const asking = open.locator("[data-sync-account]");
+  await expect(asking).toHaveAttribute("data-sync-account", "loading");
+  await expect(asking).toContainText("The main computer approves this one with a code.");
+  await open.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
+  const before = await open.getByLabel("This computer's name").boundingBox();
+  await page.evaluate(() => (window as unknown as { release: () => void }).release());
+  await expect(asking).toHaveAttribute("data-sync-account", "join");
+  const after = await open.getByLabel("This computer's name").boundingBox();
+  expect(after?.y).toBe(before?.y);
 });

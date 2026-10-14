@@ -86,6 +86,7 @@ export type { PlanStatus } from "./bindings/PlanStatus";
 export type { CheckoutState } from "./bindings/CheckoutState";
 export type { BackupFolder } from "./bindings/BackupFolder";
 export type { SyncStatus } from "./bindings/SyncStatus";
+export type { SyncAccount } from "./bindings/SyncAccount";
 export type { SyncPhase } from "./bindings/SyncPhase";
 export type { SyncDevice } from "./bindings/SyncDevice";
 export type { SyncDeviceStatus } from "./bindings/SyncDeviceStatus";

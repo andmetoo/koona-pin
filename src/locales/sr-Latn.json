@@ -1246,8 +1246,9 @@
     },
     "setup": {
       "lead": "Ovaj računar postaje glavni: samo on dodaje i uklanja vaše ostale računare. Izmene se sinhronizuju između svih — i glavnog i ostalih.",
+      "leadJoin": "{{name}} je vaš glavni računar. Uključite sinhronizaciju ovde, pa potvrdite kod na {{name}}. Obeleživači sa ovog računara ostaju i spajaju se.",
+      "leadNeutral": "Ako sinhronizacija još nigde nije uključena, ovaj računar postaje glavni i dodaje ostale. Već je uključena? Glavni računar odobrava ovaj kodom.",
       "name": "Naziv ovog računara",
-      "joinHint": "Sinhronizacija je već uključena na drugom računaru? Taj računar ostaje glavni i odobrava ovaj računar kodom.",
       "privacyTitle": "Šifruje se na vašim računarima pre nego što ih napusti.",
       "privacyText": "Server Koona samo prenosi podatke između vaših uređaja i ništa iz biblioteke ne čuva.",
       "turnOn": "Uključi sinhronizaciju"
@@ -1263,6 +1264,13 @@
     "online": "Na mreži",
     "lastSeen": "Poslednji put na mreži {{when}}",
     "neverSeen": "Još nije bio na mreži",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "na mreži",
+      "lastSeen": "poslednji put na mreži {{when}}",
+      "pending": "čeka odobrenje",
+      "never": "još nije bio na mreži"
+    },
     "pendingDevice": "Čeka odobrenje",
     "onlineStatus": "Na mreži",
     "offlineStatus": "Van mreže",
@@ -1278,6 +1286,7 @@
     "banner": {
       "synced": "Sinhronizovano {{when}}",
       "notSynced": "Još nije sinhronizovano",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "Glavni računar {{name}} je van mreže. Dobiće izmene kad se vrati.",
       "connecting": "Povezivanje…",
       "connectingBody": "Izmene čekaju na ovom računaru dok se ne poveže.",
@@ -1295,8 +1304,10 @@
       "review": "Pregledaj",
       "clock": "Sat na ovom računaru nije tačan",
       "clockBody": "Podesite tačno vreme da bi se sinhronizacija nastavila.",
+      "clockBy": "Sat na ovom računaru odstupa {{amount}}",
       "update": "Ažurirajte Koona Pin da bi se sinhronizacija nastavila",
       "updateBody": "Neki od vaših drugih računara ima noviju verziju.",
+      "updateFrom": "{{name}} ima noviju verziju.",
       "updateAction": "Ažuriraj",
       "planEnds": "Sinhronizacija prestaje {{date}}",
       "planEndsBody": "Tada ističe Supporter. Biblioteka ostaje ovde.",
@@ -1400,11 +1411,29 @@
     "detailsDialog": {
       "title": "Detalji sinhronizacije",
       "state": "Stanje",
-      "lastSync": "Poslednja sinhronizacija",
-      "never": "Nikad",
+      "phase": {
+        "off": "Isključeno",
+        "unavailable": "Nedostupno",
+        "connecting": "Povezivanje",
+        "pending": "Čeka odobrenje",
+        "online": "Na mreži",
+        "syncing": "Sinhronizacija",
+        "paused": "Pauzirano"
+      },
+      "stateSynced": "{{state}} · sinhronizovano {{when}}",
+      "stateNever": "{{state}} · još nije sinhronizovano",
       "main": "Glavni računar",
       "this": "Ovaj računar",
-      "computers": "Vaši računari",
+      "clock": "Sat",
+      "clockValue": "{{offset}} u odnosu na server",
+      "key": "Ključ za šifrovanje",
+      "generation": "Generacija {{epoch}}",
+      "unknown": "Još nije poznato",
+      "computers": "Šta ima svaki računar",
+      "upTo": "do {{when}}",
+      "nothingYet": "još ništa",
+      "offline": "{{detail}} · van mreže",
+      "yesterday": "juče {{time}}",
       "note": "Izveštaj sadrži samo stanja i identifikatore — bez obeleživača i naziva.",
       "copy": "Kopiraj izveštaj"
     }

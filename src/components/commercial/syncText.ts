@@ -33,6 +33,108 @@ export function ago(ms: number, t: TFunction, language: string, now = Date.now()
   return format.format(-Math.round(seconds / 86_400), "day");
 }
 
+/** The system a device said it runs: «macOS», «Windows», «Linux», another word as it came; none unknown. */
+export function platformName(platform: string | null | undefined): string | null {
+  const word = platform?.trim();
+  if (!word) return null;
+  return { macos: "macOS", windows: "Windows", linux: "Linux" }[word.toLowerCase()] ?? word;
+}
+
+/** What kind of device it is, for its icon: a phone or a tablet if it says so, else a computer. */
+export function deviceKind(platform: string | null | undefined): "computer" | "phone" | "tablet" {
+  const word = platform?.trim().toLowerCase();
+  if (word === "ios" || word === "android") return "phone";
+  if (word === "ipados") return "tablet";
+  return "computer";
+}
+
+/**
+ * The line under a computer's name. This one: «macOS · Koona Pin 0.13.0» (its version, else the
+ * running app's); another: «Windows · online», «Linux · last seen 3 hours ago». Without a platform,
+ * as before: «Koona Pin 0.13.0», «Online», «Last seen 3 hours ago».
+ */
+export function deviceDetail(device: SyncDevice, t: TFunction, language: string, own: { version?: string } | null = null, now = Date.now()): string {
+  const platform = platformName(device.platform);
+  if (own) {
+    const version = device.app || own.version;
+    const app = version ? t("sync.version", { version }) : "";
+    if (!platform) return app;
+    return app ? t("sync.platformDetail", { platform, detail: app }) : platform;
+  }
+  if (!platform) return seenText(device, t, language, false, now);
+  return t("sync.platformDetail", { platform, detail: seenText(device, t, language, true, now) });
+}
+
+/** «Online», «Last seen 3 hours ago», «Waiting for approval»; `inLine` after a platform, lower case. */
+export function seenText(device: SyncDevice, t: TFunction, language: string, inLine = false, now = Date.now()): string {
+  const key = inLine ? "sync.inLine" : "sync";
+  if (device.status === "pending") return t(inLine ? "sync.inLine.pending" : "sync.pendingDevice");
+  if (device.online) return t(`${key}.online`);
+  if (device.last_seen) return t(`${key}.lastSeen`, { when: ago(device.last_seen, t, language, now) });
+  return t(inLine ? "sync.inLine.never" : "sync.neverSeen");
+}
+
+/** A clock's offset in the largest unit that reads well: under 90 s in seconds, then minutes, hours, days. */
+function clockUnit(ms: number): { value: number; unit: "second" | "minute" | "hour" | "day" } {
+  const seconds = ms / 1000;
+  const size = Math.abs(seconds);
+  if (size < 90) return { value: seconds, unit: "second" };
+  if (size < 90 * 60) return { value: Math.round(seconds / 60), unit: "minute" };
+  if (size < 36 * 3600) return { value: Math.round(seconds / 3600), unit: "hour" };
+  return { value: Math.round(seconds / 86_400), unit: "day" };
+}
+
+/** How far off a clock is, without its sign: «45 sec», «7 min», «3 hr», «2 days» (the language's short units). */
+export function clockAmount(ms: number, language: string): string {
+  const { value, unit } = clockUnit(ms);
+  const size = unit === "second" ? Math.max(1, Math.round(Math.abs(value))) : Math.abs(value);
+  return new Intl.NumberFormat(language, { style: "unit", unit, unitDisplay: "short" }).format(size);
+}
+
+/** The offset of Details, signed: «+0.4 sec», «-7 min»; to a tenth below ten seconds. */
+export function clockOffset(ms: number, language: string): string {
+  const { value, unit } = clockUnit(ms);
+  const shown = unit !== "second" ? value : Math.abs(value) < 10 ? Math.round(value * 10) / 10 : Math.round(value);
+  return new Intl.NumberFormat(language, { style: "unit", unit, unitDisplay: "short", maximumFractionDigits: 1, signDisplay: "exceptZero" }).format(shown);
+}
+
+/** A moment of Details: «14:02» today, «yesterday 18:40», else «12 Oct, 18:40». */
+export function detailTime(iso: string, t: TFunction, language: string, now = Date.now()): string {
+  const at = new Date(iso);
+  const time = at.toLocaleTimeString(language, { hour: "numeric", minute: "2-digit" });
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((day(new Date(now)) - day(at)) / 86_400_000);
+  if (days <= 0) return time;
+  if (days === 1) return t("sync.detailsDialog.yesterday", { time });
+  return at.toLocaleString(language, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+
+/** «Sync details» (frame 09): the rows above, and what each other computer has. */
+export function syncDetails(status: SyncStatus, t: TFunction, language: string, now = Date.now()) {
+  const phase = status.phase;
+  const word =
+    phase.state === "paused" || phase.state === "unavailable"
+      ? (syncSummary(status, t, language, "settings")?.text ?? t(`sync.detailsDialog.phase.${phase.state}`))
+      : t(`sync.detailsDialog.phase.${phase.state}`);
+  const state = status.last_sync_at
+    ? t("sync.detailsDialog.stateSynced", { state: word, when: detailTime(status.last_sync_at, t, language, now) })
+    : t("sync.detailsDialog.stateNever", { state: word });
+  const id = status.device.id;
+  const shortId = id.length > 12 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id;
+  const unknown = t("sync.detailsDialog.unknown");
+  return {
+    state,
+    main: hubDevice(status)?.name ?? "—",
+    device: `${status.device.name} · ${shortId}`,
+    clock: status.clock_offset_ms === null ? unknown : t("sync.detailsDialog.clockValue", { offset: clockOffset(status.clock_offset_ms, language) }),
+    key: status.epoch === null ? unknown : t("sync.detailsDialog.generation", { epoch: status.epoch }),
+    computers: otherDevices(status).map((d) => {
+      const has = d.last_sync_at ? t("sync.detailsDialog.upTo", { when: detailTime(d.last_sync_at, t, language, now) }) : t("sync.detailsDialog.nothingYet");
+      return { id: d.id, name: d.name, value: d.online ? has : t("sync.detailsDialog.offline", { detail: has }) };
+    }),
+  };
+}
+
 /** Six digits as both screens show them: «482 913». */
 export const spacedCode = (code: string) => code.replace(/\D/g, "").replace(/^(\d{3})(\d{3})$/, "$1 $2");
 
@@ -177,9 +279,16 @@ export function statusBanner(status: SyncStatus, t: TFunction, language: string)
         case "offline":
           return b("paused:offline", "sync", "offline");
         case "clock_skew":
+          // «This computer's clock is 7 min off» once the relay's time is known.
+          if (status.clock_offset_ms !== null && Math.abs(status.clock_offset_ms) >= 500)
+            return banner("paused:clock_skew", "warn", t("sync.banner.clockBy", { amount: clockAmount(status.clock_offset_ms, language) }), t("sync.banner.clockBody"), "retry", t);
           return b("paused:clock_skew", "warn", "clock", "retry");
-        case "update_needed":
+        case "update_needed": {
+          // «Home iMac has a newer version.» when a computer said so, not the relay.
+          const from = status.update_from ? status.devices.find((d) => d.id === status.update_from) : undefined;
+          if (from) return banner("paused:update_needed", "warn", t("sync.banner.update"), t("sync.banner.updateFrom", { name: from.name }), "update", t);
           return b("paused:update_needed", "warn", "update", "update");
+        }
         case "revoked":
           return b("paused:revoked", "warn", "revoked", "addAgain");
         case "plan":
@@ -224,7 +333,9 @@ export function statusBanner(status: SyncStatus, t: TFunction, language: string)
   const hub = hubDevice(status);
   // Another computer, the main one away: the others still sync with each other.
   if (!status.is_hub && hub && !hub.online) return banner("online:main_offline", "ok", title, t("sync.banner.mainOffline", { name: hub.name }));
-  return banner("online", "ok", title, computers(status, t));
+  // «3 computers · 12,480 bookmarks» while the library is open.
+  const body = status.bookmarks === null ? computers(status, t) : t("sync.banner.syncedBody", { computers: computers(status, t), bookmarks: t("restore.bookmarks", { count: status.bookmarks }) });
+  return banner("online", "ok", title, body);
 }
 
 /** A notice until the person dismisses it: a computer added, sync started over elsewhere. */

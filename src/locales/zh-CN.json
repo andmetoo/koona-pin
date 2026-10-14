@@ -1096,8 +1096,9 @@
     },
     "setup": {
       "lead": "此电脑将成为主电脑：只有它能添加和移除你的其他电脑。无论是否为主电脑，所有电脑之间都会同步更改。",
+      "leadJoin": "{{name}} 是你的主电脑。在这里开启同步，然后在 {{name}} 上确认验证码。此电脑上的书签会保留并合并。",
+      "leadNeutral": "如果还没有任何电脑开启同步，此电脑将成为主电脑并添加其他电脑。已在别处开启？主电脑会用验证码批准此电脑。",
       "name": "此电脑的名称",
-      "joinHint": "已在另一台电脑上开启同步？那台电脑仍是主电脑，并会通过验证码批准此电脑。",
       "privacyTitle": "数据离开你的电脑前就已在电脑上加密。",
       "privacyText": "Koona 的服务器只在你的设备之间传递数据，不保留你资料库的任何内容。",
       "turnOn": "开启同步"
@@ -1113,6 +1114,13 @@
     "online": "在线",
     "lastSeen": "上次在线：{{when}}",
     "neverSeen": "尚未上线",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "在线",
+      "lastSeen": "上次在线：{{when}}",
+      "pending": "等待批准",
+      "never": "尚未上线"
+    },
     "pendingDevice": "等待批准",
     "onlineStatus": "在线",
     "offlineStatus": "离线",
@@ -1128,6 +1136,7 @@
     "banner": {
       "synced": "{{when}}已同步",
       "notSynced": "尚未同步",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "主电脑 {{name}} 处于离线状态。它恢复在线后会自动同步。",
       "connecting": "正在连接…",
       "connectingBody": "连接之前，更改会保留在此电脑上。",
@@ -1145,8 +1154,10 @@
       "review": "查看",
       "clock": "此电脑的时钟不准",
       "clockBody": "请设置正确的时间以继续同步。",
+      "clockBy": "此电脑的时钟偏差 {{amount}}",
       "update": "请更新 Koona Pin 以继续同步",
       "updateBody": "你的另一台电脑使用的是更新的版本。",
+      "updateFrom": "{{name}} 上有更新的版本。",
       "updateAction": "更新",
       "planEnds": "同步将于 {{date}} 停止",
       "planEndsBody": "Supporter 届时到期。你的资料库会保留在这里。",
@@ -1248,11 +1259,29 @@
     "detailsDialog": {
       "title": "同步详细信息",
       "state": "状态",
-      "lastSync": "上次同步",
-      "never": "从未",
+      "phase": {
+        "off": "已关闭",
+        "unavailable": "不可用",
+        "connecting": "正在连接",
+        "pending": "等待批准",
+        "online": "在线",
+        "syncing": "正在同步",
+        "paused": "已暂停"
+      },
+      "stateSynced": "{{state}} · {{when}}已同步",
+      "stateNever": "{{state}} · 尚未同步",
       "main": "主电脑",
       "this": "此电脑",
-      "computers": "你的电脑",
+      "clock": "时钟",
+      "clockValue": "与服务器相差 {{offset}}",
+      "key": "加密密钥",
+      "generation": "第 {{epoch}} 代",
+      "unknown": "尚不清楚",
+      "computers": "每台电脑的同步进度",
+      "upTo": "截至 {{when}}",
+      "nothingYet": "尚无内容",
+      "offline": "{{detail}} · 离线",
+      "yesterday": "昨天 {{time}}",
       "note": "报告只包含状态和 ID — 不含书签，也不含名称。",
       "copy": "复制报告"
     }

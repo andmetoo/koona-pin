@@ -52,6 +52,7 @@ import {
   PlanInterval,
   CheckoutState,
   BackupFolder,
+  SyncAccount,
   SyncDevice,
   SyncStatus,
 } from "../types";
@@ -207,7 +208,10 @@ function setDemoFolder(folder: BackupFolder) {
  * starts in, so every screen can be seen without a relay. The account's computers are Home iMac (the
  * main one), Office laptop and Studio PC.
  *
- * - `off` (the default): sync never turned on here; «Set up…» makes this the main computer of one.
+ * - `off` (the default): sync never turned on here and the account has no main computer; «Set up…»
+ *   makes this the main computer of one (frame 02).
+ * - `off_join`: sync off here, the account's main computer is Home iMac (frame 14); «Turn on sync»
+ *   waits for it with the code (frame 06).
  * - `on`: this is Home iMac, the main computer of three (frame 03).
  * - `other`: this is Office laptop; Home iMac, the main one, is offline (frame 04). `start_over`: it
  *   has been offline for 12 days (frame 13 from «Make this the main computer»).
@@ -230,13 +234,18 @@ const STUDIO_DEVICE = "9e8d7c6b-5a49-4382-b716-0f1e2d3c4b5a";
 const minutesAgo = (minutes: number) => Date.now() - minutes * 60_000;
 const isoMinutesAgo = (minutes: number) => new Date(minutesAgo(minutes)).toISOString();
 function demoDevice(id: string, name: string, extra: Partial<SyncDevice> = {}): SyncDevice {
-  return { id, name, online: false, is_hub: false, status: "active", last_seen: minutesAgo(90), ...extra };
+  return { id, name, online: false, is_hub: false, status: "active", last_seen: minutesAgo(90), platform: null, app: null, last_sync_at: null, ...extra };
 }
+const DEMO_BOOKMARKS = 12480;
+/** What Home iMac, Office laptop and Studio PC say of themselves in their `hello`. */
+const IMAC = { platform: "macos", app: "0.13.0" } as const;
+const LAPTOP = { platform: "windows", app: "0.13.0" } as const;
+const STUDIO = { platform: "linux", app: "0.12.0" } as const;
 function demoSyncState(kind: string | null): SyncStatus {
   // On Home iMac, the main computer.
-  const hub = demoDevice(THIS_DEVICE, "Home iMac", { online: true, is_hub: true, last_seen: minutesAgo(0) });
-  const laptop = demoDevice(LAPTOP_DEVICE, "Office laptop", { online: true, last_seen: minutesAgo(2) });
-  const studio = demoDevice(STUDIO_DEVICE, "Studio PC", { last_seen: minutesAgo(180) });
+  const hub = demoDevice(THIS_DEVICE, "Home iMac", { ...IMAC, online: true, is_hub: true, last_seen: minutesAgo(0), last_sync_at: isoMinutesAgo(0) });
+  const laptop = demoDevice(LAPTOP_DEVICE, "Office laptop", { ...LAPTOP, online: true, last_seen: minutesAgo(2), last_sync_at: isoMinutesAgo(2) });
+  const studio = demoDevice(STUDIO_DEVICE, "Studio PC", { ...STUDIO, last_seen: minutesAgo(180), last_sync_at: isoMinutesAgo(26 * 60) });
   const on: SyncStatus = {
     enabled: true,
     available: true,
@@ -250,16 +259,22 @@ function demoSyncState(kind: string | null): SyncStatus {
     error: null,
     hub_change: null,
     notices: [],
+    bookmarks: DEMO_BOOKMARKS,
+    clock_offset_ms: 400,
+    update_from: null,
+    epoch: 2,
   };
   // On Office laptop, another computer; Home iMac is the main one, away `hubAway` minutes.
   const other = (hubAway: number | null): SyncStatus => {
-    const me = demoDevice(THIS_DEVICE, "Office laptop", { online: true, last_seen: minutesAgo(0) });
+    const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, last_seen: minutesAgo(0), last_sync_at: isoMinutesAgo(0) });
     const main = demoDevice(
       HUB_DEVICE,
       "Home iMac",
-      hubAway === null ? { online: true, is_hub: true, last_seen: minutesAgo(1) } : { is_hub: true, last_seen: minutesAgo(hubAway) },
+      hubAway === null
+        ? { ...IMAC, online: true, is_hub: true, last_seen: minutesAgo(1), last_sync_at: isoMinutesAgo(1) }
+        : { ...IMAC, is_hub: true, last_seen: minutesAgo(hubAway), last_sync_at: isoMinutesAgo(hubAway) },
     );
-    const pc = demoDevice(STUDIO_DEVICE, "Studio PC", { online: true, last_seen: minutesAgo(1) });
+    const pc = demoDevice(STUDIO_DEVICE, "Studio PC", { ...STUDIO, online: true, last_seen: minutesAgo(1), last_sync_at: isoMinutesAgo(1) });
     return { ...on, is_hub: false, hub: HUB_DEVICE, device: me, devices: [main, me, pc] };
   };
   switch (kind) {
@@ -270,12 +285,12 @@ function demoSyncState(kind: string | null): SyncStatus {
     case "start_over":
       return other(12 * 24 * 60);
     case "pairing": {
-      const fresh = demoDevice(LAPTOP_DEVICE, "Office laptop", { online: true, status: "pending", last_seen: minutesAgo(0) });
+      const fresh = demoDevice(LAPTOP_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
       return { ...on, devices: [hub, studio, fresh], pairing: { role: "hub", peer: LAPTOP_DEVICE, peer_name: "Office laptop", code: "482913" } };
     }
     case "pending":
     case "rejected": {
-      const me = demoDevice(THIS_DEVICE, "Office laptop", { online: true, status: "pending", last_seen: minutesAgo(0) });
+      const me = demoDevice(THIS_DEVICE, "Office laptop", { ...LAPTOP, online: true, status: "pending", last_seen: minutesAgo(0) });
       const main = demoDevice(HUB_DEVICE, "Home iMac", { online: true, is_hub: true, last_seen: minutesAgo(0) });
       return {
         ...on,
@@ -287,10 +302,11 @@ function demoSyncState(kind: string | null): SyncStatus {
         pairing: kind === "pending" ? { role: "asking", peer: HUB_DEVICE, peer_name: "Home iMac", code: "482913" } : null,
         last_sync_at: null,
         error: kind === "rejected" ? "pairing_rejected" : null,
+        epoch: null,
       };
     }
     case "receiving":
-      return { ...other(null), phase: { state: "syncing", done: 4210, total: 12480 }, last_sync_at: null };
+      return { ...other(null), phase: { state: "syncing", done: 4210, total: DEMO_BOOKMARKS }, last_sync_at: null };
     case "syncing":
       return { ...on, phase: { state: "syncing", done: 38, total: 120 } };
     case "main_asked":
@@ -307,9 +323,20 @@ function demoSyncState(kind: string | null): SyncStatus {
         notices: [{ kind: "device_added", id: "notice-added", device: STUDIO_DEVICE, name: "Studio PC", by_name: "Home iMac", at: isoMinutesAgo(0) }],
       };
     case "skew":
-      return { ...on, phase: { state: "paused", reason: "clock_skew" }, last_sync_at: isoMinutesAgo(60) };
-    case "update":
-      return { ...on, phase: { state: "paused", reason: "update_needed" }, last_sync_at: isoMinutesAgo(60) };
+      return { ...on, phase: { state: "paused", reason: "clock_skew" }, last_sync_at: isoMinutesAgo(60), clock_offset_ms: 7 * 60_000 + 12_000 };
+    case "update": {
+      // Office laptop runs an older version than Home iMac, which said so.
+      const base = other(null);
+      const old = { ...base.device, app: "0.12.0" };
+      return {
+        ...base,
+        phase: { state: "paused", reason: "update_needed" },
+        device: old,
+        devices: base.devices.map((d) => (d.id === old.id ? old : d)),
+        last_sync_at: isoMinutesAgo(60),
+        update_from: HUB_DEVICE,
+      };
+    }
     case "revoked":
       return { ...other(null), phase: { state: "paused", reason: "revoked" } };
     case "signed_out":
@@ -325,8 +352,18 @@ function demoSyncState(kind: string | null): SyncStatus {
       };
     }
   }
-  const alone = demoDevice(THIS_DEVICE, "Home iMac", { status: "unregistered", last_seen: null });
-  return { ...on, enabled: false, phase: { state: "off" }, is_hub: false, hub: null, device: alone, devices: [], last_sync_at: null };
+  const alone = demoDevice(THIS_DEVICE, kind === "off_join" ? "Office laptop" : "Home iMac", { status: "unregistered", last_seen: null });
+  return { ...on, enabled: false, phase: { state: "off" }, is_hub: false, hub: null, device: alone, devices: [], last_sync_at: null, clock_offset_ms: null, epoch: null };
+}
+/**
+ * What the relay says of the account before this computer turns sync on: `off_join` has Home iMac;
+ * a computer that turned sync off keeps its account's main computer, unless that was itself.
+ */
+function demoSyncAccount(): SyncAccount {
+  const status = currentDemoSync();
+  if (status.devices.length === 0) return { main_name: demoSwitch(DEMO_SYNC_KEY) === "off_join" ? "Home iMac" : null };
+  const hub = status.devices.find((d) => d.is_hub && d.id !== status.device.id);
+  return { main_name: hub?.name ?? null };
 }
 function currentDemoSync(): SyncStatus {
   demoSync ??= demoSyncState(demoSwitch(DEMO_SYNC_KEY));
@@ -1599,12 +1636,28 @@ export const demo = {
     syncListeners.add(fn);
     return () => void syncListeners.delete(fn);
   },
-  /** The preview's account has no other device: this one becomes the hub of one. */
+  /** Fails as the relay would: no server, the plan's check offline (`koonapin.demo.supporter` = `offline`), no plan. */
+  async getSyncAccount(): Promise<SyncAccount> {
+    noServer();
+    await syncPause();
+    if (currentDemoSupporter().check_failed) throw new CommandError("network", "No connection", "no_connection");
+    if (!currentDemoSupporter().plan) throw new CommandError("invalid_request", "Sync is for Supporters", "not_supporter");
+    return demoSyncAccount();
+  },
+  /** An account without a main computer: this one becomes the hub of one; with one, this one waits for it. */
   async enableSync(name?: string): Promise<SyncStatus> {
     if (!currentDemoSupporter().plan) throw new CommandError("invalid_request", "Sync is for Supporters", "not_supporter");
     await syncPause();
     const named = name?.trim() || currentDemoSync().device.name;
-    const me = demoDevice(THIS_DEVICE, named, { online: true, is_hub: true, last_seen: Date.now() });
+    const main = demoSyncAccount().main_name;
+    if (main) {
+      const waiting = demoSyncState("pending");
+      const me = { ...waiting.device, name: named };
+      const devices = waiting.devices.map((d) => (d.id === me.id ? me : d.is_hub ? { ...d, name: main } : d));
+      setDemoSync({ ...waiting, device: me, devices, pairing: { role: "asking", peer: HUB_DEVICE, peer_name: main, code: "482913" } });
+      return currentDemoSync();
+    }
+    const me = demoDevice(THIS_DEVICE, named, { ...IMAC, online: true, is_hub: true, last_seen: Date.now(), last_sync_at: new Date().toISOString() });
     setDemoSync({ ...demoSyncState("on"), device: me, devices: [me], last_sync_at: new Date().toISOString() });
     return currentDemoSync();
   },

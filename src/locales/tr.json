@@ -1170,8 +1170,9 @@
     },
     "setup": {
       "lead": "Bu bilgisayar ana bilgisayar olur: diğer bilgisayarlarınızı yalnızca o ekler ve kaldırır. Değişiklikler, ana olsun olmasın hepsi arasında eşitlenir.",
+      "leadJoin": "Ana bilgisayarınız {{name}}. Eşitlemeyi burada açın, sonra kodu {{name}} üzerinde onaylayın. Bu bilgisayardaki yer imleri kalır ve birleştirilir.",
+      "leadNeutral": "Eşitleme henüz hiçbir yerde açık değilse bu bilgisayar ana bilgisayar olur ve diğerlerini ekler. Başka yerde açık mı? Ana bilgisayar bunu bir kodla onaylar.",
       "name": "Bu bilgisayarın adı",
-      "joinHint": "Eşitleme başka bir bilgisayarda zaten açık mı? Ana bilgisayar o kalır ve bu bilgisayarı bir kodla onaylar.",
       "privacyTitle": "Bilgisayarlarınızdan çıkmadan önce şifrelenir.",
       "privacyText": "Koona sunucusu verileri yalnızca cihazlarınız arasında iletir ve kitaplığınızdan hiçbir şey saklamaz.",
       "turnOn": "Eşitlemeyi aç"
@@ -1187,6 +1188,13 @@
     "online": "Çevrimiçi",
     "lastSeen": "Son görülme: {{when}}",
     "neverSeen": "Henüz çevrimiçi olmadı",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "çevrimiçi",
+      "lastSeen": "son görülme {{when}}",
+      "pending": "onay bekliyor",
+      "never": "henüz çevrimiçi olmadı"
+    },
     "pendingDevice": "Onay bekliyor",
     "onlineStatus": "Çevrimiçi",
     "offlineStatus": "Çevrimdışı",
@@ -1202,6 +1210,7 @@
     "banner": {
       "synced": "{{when}} eşitlendi",
       "notSynced": "Henüz eşitlenmedi",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "Ana bilgisayar {{name}} çevrimdışı. Geri geldiğinde eksikleri tamamlar.",
       "connecting": "Bağlanıyor…",
       "connectingBody": "Değişiklikler, bağlantı kurulana kadar bu bilgisayarda bekler.",
@@ -1219,8 +1228,10 @@
       "review": "İncele",
       "clock": "Bu bilgisayarın saati yanlış",
       "clockBody": "Eşitlemeye devam etmek için doğru saati ayarlayın.",
+      "clockBy": "Bu bilgisayarın saati {{amount}} kaymış",
       "update": "Eşitlemeye devam etmek için Koona Pin'i güncelleyin",
       "updateBody": "Bilgisayarlarınızdan birinde daha yeni bir sürüm var.",
+      "updateFrom": "{{name}} daha yeni bir sürüm kullanıyor.",
       "updateAction": "Güncelle",
       "planEnds": "Eşitleme {{date}} tarihinde durur",
       "planEndsBody": "Supporter o gün sona erer. Kitaplığınız burada kalır.",
@@ -1323,11 +1334,29 @@
     "detailsDialog": {
       "title": "Eşitleme ayrıntıları",
       "state": "Durum",
-      "lastSync": "Son eşitleme",
-      "never": "Hiç",
+      "phase": {
+        "off": "Kapalı",
+        "unavailable": "Kullanılamıyor",
+        "connecting": "Bağlanıyor",
+        "pending": "Onay bekliyor",
+        "online": "Çevrimiçi",
+        "syncing": "Eşitleniyor",
+        "paused": "Duraklatıldı"
+      },
+      "stateSynced": "{{state}} · {{when}} eşitlendi",
+      "stateNever": "{{state}} · henüz eşitlenmedi",
       "main": "Ana bilgisayar",
       "this": "Bu bilgisayar",
-      "computers": "Bilgisayarlarınız",
+      "clock": "Saat",
+      "clockValue": "Sunucuya göre {{offset}}",
+      "key": "Şifreleme anahtarı",
+      "generation": "{{epoch}}. nesil",
+      "unknown": "Henüz bilinmiyor",
+      "computers": "Her bilgisayarda ne var",
+      "upTo": "{{when}} itibarıyla",
+      "nothingYet": "henüz bir şey yok",
+      "offline": "{{detail}} · çevrimdışı",
+      "yesterday": "dün {{time}}",
       "note": "Raporda yalnızca durumlar ve kimlikler var — yer işareti yok, ad yok.",
       "copy": "Raporu kopyala"
     }

@@ -1318,8 +1318,9 @@
     },
     "setup": {
       "lead": "Ten komputer zostanie głównym: tylko on dodaje i usuwa pozostałe komputery. Zmiany synchronizują się między wszystkimi, głównym czy nie.",
+      "leadJoin": "{{name}} to twój główny komputer. Włącz synchronizację tutaj, a potem potwierdź kod na {{name}}. Zakładki z tego komputera zostaną i połączą się.",
+      "leadNeutral": "Jeśli synchronizacja nie jest jeszcze nigdzie włączona, ten komputer zostanie głównym i doda pozostałe. Już włączona gdzie indziej? Główny komputer zatwierdzi ten kodem.",
       "name": "Nazwa tego komputera",
-      "joinHint": "Synchronizacja jest już włączona na innym komputerze? Tamten pozostaje głównym i zatwierdzi ten komputer kodem.",
       "privacyTitle": "Szyfrowana na twoich komputerach, zanim je opuści.",
       "privacyText": "Serwer Koona tylko przekazuje dane między twoimi urządzeniami i nie przechowuje niczego z twojej biblioteki.",
       "turnOn": "Włącz synchronizację"
@@ -1335,6 +1336,13 @@
     "online": "Online",
     "lastSeen": "Ostatnio online {{when}}",
     "neverSeen": "Jeszcze nie był online",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "online",
+      "lastSeen": "ostatnio online {{when}}",
+      "pending": "czeka na zatwierdzenie",
+      "never": "jeszcze nie był online"
+    },
     "pendingDevice": "Czeka na zatwierdzenie",
     "onlineStatus": "Online",
     "offlineStatus": "Offline",
@@ -1350,6 +1358,7 @@
     "banner": {
       "synced": "Zsynchronizowano {{when}}",
       "notSynced": "Jeszcze nie zsynchronizowano",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "{{name}}, komputer główny, jest offline. Nadrobi zaległości, gdy wróci.",
       "connecting": "Łączenie…",
       "connectingBody": "Zmiany czekają na tym komputerze, aż się połączy.",
@@ -1367,8 +1376,10 @@
       "review": "Sprawdź",
       "clock": "Zegar tego komputera jest źle ustawiony",
       "clockBody": "Ustaw właściwą godzinę, aby dalej synchronizować.",
+      "clockBy": "Zegar tego komputera spieszy się lub spóźnia o {{amount}}",
       "update": "Zaktualizuj Koona Pin, aby dalej synchronizować",
       "updateBody": "Inny z twoich komputerów ma nowszą wersję.",
+      "updateFrom": "{{name}} ma nowszą wersję.",
       "updateAction": "Zaktualizuj",
       "planEnds": "Synchronizacja zatrzyma się {{date}}",
       "planEndsBody": "Wtedy kończy się Supporter. Biblioteka zostaje tutaj.",
@@ -1473,11 +1484,29 @@
     "detailsDialog": {
       "title": "Szczegóły synchronizacji",
       "state": "Stan",
-      "lastSync": "Ostatnia synchronizacja",
-      "never": "Nigdy",
+      "phase": {
+        "off": "Wyłączona",
+        "unavailable": "Niedostępna",
+        "connecting": "Łączenie",
+        "pending": "Czeka na zatwierdzenie",
+        "online": "Online",
+        "syncing": "Synchronizacja",
+        "paused": "Wstrzymana"
+      },
+      "stateSynced": "{{state}} · zsynchronizowano {{when}}",
+      "stateNever": "{{state}} · jeszcze nie zsynchronizowano",
       "main": "Komputer główny",
       "this": "Ten komputer",
-      "computers": "Twoje komputery",
+      "clock": "Zegar",
+      "clockValue": "{{offset}} względem serwera",
+      "key": "Klucz szyfrowania",
+      "generation": "Generacja {{epoch}}",
+      "unknown": "Jeszcze nieznane",
+      "computers": "Co ma każdy komputer",
+      "upTo": "do {{when}}",
+      "nothingYet": "jeszcze nic",
+      "offline": "{{detail}} · offline",
+      "yesterday": "wczoraj {{time}}",
       "note": "Raport zawiera tylko stany i identyfikatory — bez zakładek i nazw.",
       "copy": "Kopiuj raport"
     }

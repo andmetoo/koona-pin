@@ -1170,8 +1170,9 @@
     },
     "setup": {
       "lead": "This computer becomes the main one: only it adds and removes your other computers. Changes sync between all of them, main or not.",
+      "leadJoin": "{{name}} is your main computer. Turn on sync here, then confirm the code on {{name}}. Bookmarks on this computer stay and merge in.",
+      "leadNeutral": "With sync on nowhere yet, this computer becomes the main one and adds your others. Already on elsewhere? The main computer approves this one with a code.",
       "name": "This computer's name",
-      "joinHint": "Sync already on at another computer? That one stays the main one and approves this computer with a code.",
       "privacyTitle": "Encrypted on your computers before it leaves them.",
       "privacyText": "Koona's server only passes it between your devices and keeps nothing of your library.",
       "turnOn": "Turn on sync"
@@ -1187,6 +1188,13 @@
     "online": "Online",
     "lastSeen": "Last seen {{when}}",
     "neverSeen": "Not online yet",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "online",
+      "lastSeen": "last seen {{when}}",
+      "pending": "waiting for approval",
+      "never": "not online yet"
+    },
     "pendingDevice": "Waiting for approval",
     "onlineStatus": "Online",
     "offlineStatus": "Offline",
@@ -1202,6 +1210,7 @@
     "banner": {
       "synced": "Synced {{when}}",
       "notSynced": "Not synced yet",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "{{name}}, the main computer, is offline. It catches up when it's back.",
       "connecting": "Connecting…",
       "connectingBody": "Changes wait on this computer until it connects.",
@@ -1219,8 +1228,10 @@
       "review": "Review",
       "clock": "This computer's clock is off",
       "clockBody": "Set the right time to keep syncing.",
+      "clockBy": "This computer's clock is {{amount}} off",
       "update": "Update Koona Pin to keep syncing",
       "updateBody": "Another of your computers has a newer version.",
+      "updateFrom": "{{name}} has a newer version.",
       "updateAction": "Update",
       "planEnds": "Sync stops on {{date}}",
       "planEndsBody": "Supporter ends then. Your library stays here.",
@@ -1323,11 +1334,29 @@
     "detailsDialog": {
       "title": "Sync details",
       "state": "State",
-      "lastSync": "Last sync",
-      "never": "Never",
+      "phase": {
+        "off": "Off",
+        "unavailable": "Unavailable",
+        "connecting": "Connecting",
+        "pending": "Waiting for approval",
+        "online": "Online",
+        "syncing": "Syncing",
+        "paused": "Paused"
+      },
+      "stateSynced": "{{state}} · synced {{when}}",
+      "stateNever": "{{state}} · not synced yet",
       "main": "Main computer",
       "this": "This computer",
-      "computers": "Your computers",
+      "clock": "Clock",
+      "clockValue": "{{offset}} against the server",
+      "key": "Encryption key",
+      "generation": "Generation {{epoch}}",
+      "unknown": "Not known yet",
+      "computers": "What each computer has",
+      "upTo": "up to {{when}}",
+      "nothingYet": "nothing yet",
+      "offline": "{{detail}} · offline",
+      "yesterday": "yesterday {{time}}",
       "note": "The report has states and ids only — no bookmarks, no names.",
       "copy": "Copy report"
     }

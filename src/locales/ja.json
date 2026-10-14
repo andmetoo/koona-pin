@@ -1096,8 +1096,9 @@
     },
     "setup": {
       "lead": "このコンピューターがメインのコンピューターになり、ほかのコンピューターの追加と削除はここだけで行います。変更はメインかどうかに関係なく、すべてのコンピューター間で同期されます。",
+      "leadJoin": "メインのコンピューターは {{name}} です。ここで同期をオンにしてから、{{name}} でコードを確認してください。このコンピューターのブックマークは残り、統合されます。",
+      "leadNeutral": "まだどこでも同期がオンでなければ、このコンピューターがメインになり、ほかを追加します。すでにほかでオンなら、メインのコンピューターがコードでこのコンピューターを承認します。",
       "name": "このコンピューターの名前",
-      "joinHint": "別のコンピューターで同期がすでにオンですか？そちらがメインのままで、コードを使ってこのコンピューターを承認します。",
       "privacyTitle": "コンピューターから送られる前に暗号化されます。",
       "privacyText": "Koona のサーバーはデバイス間で受け渡すだけで、ライブラリは何も保存しません。",
       "turnOn": "同期をオンにする"
@@ -1113,6 +1114,13 @@
     "online": "オンライン",
     "lastSeen": "最終オンライン：{{when}}",
     "neverSeen": "まだオンラインになっていません",
+    "platformDetail": "{{platform}} · {{detail}}",
+    "inLine": {
+      "online": "オンライン",
+      "lastSeen": "最終オンライン：{{when}}",
+      "pending": "承認待ち",
+      "never": "まだオンラインになっていません"
+    },
     "pendingDevice": "承認待ち",
     "onlineStatus": "オンライン",
     "offlineStatus": "オフライン",
@@ -1128,6 +1136,7 @@
     "banner": {
       "synced": "{{when}} に同期しました",
       "notSynced": "まだ同期していません",
+      "syncedBody": "{{computers}} · {{bookmarks}}",
       "mainOffline": "メインのコンピューター {{name}} はオフラインです。戻ると追いつきます。",
       "connecting": "接続中…",
       "connectingBody": "接続するまで、変更はこのコンピューターで待機します。",
@@ -1145,8 +1154,10 @@
       "review": "確認",
       "clock": "このコンピューターの時計がずれています",
       "clockBody": "同期を続けるには正しい時刻に設定してください。",
+      "clockBy": "このコンピューターの時計が {{amount}} ずれています",
       "update": "同期を続けるには Koona Pin を更新してください",
       "updateBody": "ほかのコンピューターに新しいバージョンがあります。",
+      "updateFrom": "{{name}} に新しいバージョンがあります。",
       "updateAction": "更新",
       "planEnds": "{{date}} に同期が止まります",
       "planEndsBody": "その日に Supporter が終了します。ライブラリはここに残ります。",
@@ -1248,11 +1259,29 @@
     "detailsDialog": {
       "title": "同期の詳細",
       "state": "状態",
-      "lastSync": "最終同期",
-      "never": "なし",
+      "phase": {
+        "off": "オフ",
+        "unavailable": "利用不可",
+        "connecting": "接続中",
+        "pending": "承認待ち",
+        "online": "オンライン",
+        "syncing": "同期中",
+        "paused": "一時停止中"
+      },
+      "stateSynced": "{{state}} · {{when}} に同期",
+      "stateNever": "{{state}} · まだ同期していません",
       "main": "メインのコンピューター",
       "this": "このコンピューター",
-      "computers": "あなたのコンピューター",
+      "clock": "時計",
+      "clockValue": "サーバーとの差 {{offset}}",
+      "key": "暗号化キー",
+      "generation": "第 {{epoch}} 世代",
+      "unknown": "まだ不明",
+      "computers": "各コンピューターの状態",
+      "upTo": "{{when}} まで",
+      "nothingYet": "まだありません",
+      "offline": "{{detail}} · オフライン",
+      "yesterday": "昨日 {{time}}",
       "note": "レポートには状態と ID だけが含まれます。ブックマークや名前は含まれません。",
       "copy": "レポートをコピー"
     }

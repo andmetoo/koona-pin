@@ -53,6 +53,7 @@ import {
   PlanInterval,
   CheckoutState,
   BackupFolder,
+  SyncAccount,
   SyncStatus,
   Tag,
   TrayLabels,
@@ -301,6 +302,8 @@ const desktop = {
   openBackupFolder: () => call<void>("open_backup_folder"),
   // Sync between a Supporter's computers (commercial/sync, NP-059); every command answers the new status.
   getSyncStatus: () => call<SyncStatus>("get_sync_status"),
+  /** Before the first turn-on: whether the account has a main computer already; fails like the connection. */
+  getSyncAccount: () => call<SyncAccount>("get_sync_account"),
   onSyncStatus: (callback: (status: SyncStatus) => void) => subscription("sync-status", callback),
   /** The first device becomes the hub; another one waits to be paired from it. Empty name: the computer's. */
   enableSync: (name?: string) => call<SyncStatus>("enable_sync", { name: name ?? null }),
