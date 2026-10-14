@@ -146,8 +146,13 @@ pub fn load_key(path: &Path, account: &str) -> io::Result<Option<(u32, koona_syn
         Some((stored.account, stored.epoch, key))
     });
     match parsed {
-        // A file from before the account was written down holds this account's key.
-        Some((owner, epoch, key)) => Ok((owner.is_none() || owner.as_deref() == Some(account)).then_some((epoch, key))),
+        Some((Some(owner), epoch, key)) => Ok((owner == account).then_some((epoch, key))),
+        // A file from before the account was written down: the account signed in now is the one
+        // that wrote it, and from now on the file says so.
+        Some((None, epoch, key)) => {
+            save_key(path, account, Some(&(epoch, key)))?;
+            Ok(Some((epoch, key)))
+        }
         None => {
             eprintln!("Sync's library key file doesn't read; it is set aside and the key asked for again");
             let _ = fs::rename(path, damaged_path(path));

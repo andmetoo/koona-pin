@@ -458,6 +458,11 @@ pub mod tests {
         let meta = lib.load_meta().unwrap();
         assert_eq!((meta.key, meta.hub), (Some((4, [9; 32])), Some(hub)));
 
+        // A file from before the account was written down is bound to the account that reads it.
+        std::fs::write(&path, format!("{{\"v\": 1, \"epoch\": 4, \"key\": \"{}\"}}", base64::engine::general_purpose::STANDARD.encode([9u8; 32]))).unwrap();
+        assert_eq!(super::super::identity::load_key(&path, "account-1").unwrap(), Some((4, [9; 32])));
+        assert_eq!(super::super::identity::load_key(&path, "account-2").unwrap(), None, "now the first account's");
+
         // Another account signed in here doesn't get it.
         let mut other = DbLibrary::new(db.clone(), replica, Arc::new(AtomicBool::new(false))).with_key_file(path.clone(), "account-2".into());
         assert_eq!(other.load_meta().unwrap().key, None);

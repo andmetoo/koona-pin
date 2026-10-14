@@ -398,6 +398,8 @@ pub struct Model {
     pub peers: Peers,
     /// «Join…» chosen, the new key not in yet.
     pub rejoining: bool,
+    /// When `last_sync_at` was last handed to be written (`KEEP_SYNC_EVERY`).
+    last_sync_written: Option<DateTime<Utc>>,
     /// When each device's facts were last handed to be written (`KEEP_SYNC_EVERY`).
     peers_written: BTreeMap<Uuid, DateTime<Utc>>,
     /// This device's clock minus the relay's, from the last `challenge`.
@@ -542,7 +544,12 @@ impl Model {
                 }
                 if matches!(was, Some(Phase::Syncing { .. })) && phase == Phase::Online {
                     self.last_sync_at = Some(now);
-                    out.push(Reaction::Synced);
+                    // Shown at once; written to sync.json at most once a minute, as changes go out
+                    // about every second while someone edits.
+                    if self.last_sync_written.is_none_or(|at| now - at >= KEEP_SYNC_EVERY) {
+                        self.last_sync_written = Some(now);
+                        out.push(Reaction::Synced);
+                    }
                 }
             }
             Effect::Devices { devices, online, hub } => {
@@ -587,6 +594,12 @@ impl Model {
                     self.pairing = None;
                     self.last_failure = Some(reason);
                     self.error = Some(pairing_problem(reason));
+                    // «Join…» refused (not just the main computer away, which is tried again): no new
+                    // key is coming, and a later rotation must not count as one.
+                    if self.rejoining && reason != PairingFailure::Unavailable {
+                        self.rejoining = false;
+                        out.push(Reaction::Synced);
+                    }
                 }
             },
             Effect::HubChange(event) => match event {
@@ -1082,6 +1095,30 @@ mod tests {
         assert_eq!(model.last_sync_at, Some(at(1)));
         assert_eq!(epoch(&mut model, 4), vec![Reaction::Synced]);
         assert_eq!(model.last_sync_at, None);
+
+        // A «Join…» refused ends there: a later rotation is not the new account's key.
+        let hub = uid(9);
+        let failed = |model: &mut Model, reason| model.on_event(Event::Session(Effect::Pairing(PairingEvent::Failed { peer: hub, reason })), at(6));
+        let mut model = Model { last_sync_at: Some(at(1)), epoch: Some(2), rejoining: true, ..Model::default() };
+        assert!(failed(&mut model, PairingFailure::Unavailable).is_empty(), "the main computer away: tried again");
+        assert!(model.rejoining);
+        assert_eq!(failed(&mut model, PairingFailure::Rejected), vec![Reaction::Synced], "kept as ended");
+        assert!(!model.rejoining);
+        assert!(epoch(&mut model, 3).is_empty());
+        assert_eq!(model.last_sync_at, Some(at(1)));
+    }
+
+    #[test]
+    fn the_last_sync_is_shown_at_once_and_written_once_a_minute() {
+        let mut model = Model::default();
+        let transfer = |model: &mut Model, s| {
+            model.on_event(Event::Session(Effect::Status(Phase::Syncing { done: 0, total: 1 })), at(s));
+            model.on_event(Event::Session(Effect::Status(Phase::Online)), at(s))
+        };
+        assert_eq!(transfer(&mut model, 0), vec![Reaction::Synced]);
+        assert!(transfer(&mut model, 30).is_empty());
+        assert_eq!(model.last_sync_at, Some(at(30)), "shown at once");
+        assert_eq!(transfer(&mut model, 60), vec![Reaction::Synced]);
     }
 
     #[test]

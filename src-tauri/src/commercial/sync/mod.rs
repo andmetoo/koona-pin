@@ -516,7 +516,11 @@ pub async fn enable_sync(app: AppHandle, name: Option<String>) -> Result<SyncSta
     })
     .await
     .map_err(CommandError::internal)??;
-    state.update(|s| s.enabled = true)?;
+    state.update(|s| {
+        s.enabled = true;
+        s.rejoining = false;
+    })?;
+    lock(&state.model).rejoining = false;
     // The first directory after turning sync on tells of no device added.
     state.change_notices(|n| n.known.take().is_some())?;
     state.clear_stop();
@@ -528,12 +532,17 @@ pub async fn enable_sync(app: AppHandle, name: Option<String>) -> Result<SyncSta
 #[tauri::command]
 pub fn disable_sync(app: AppHandle) -> Result<SyncStatus, CommandError> {
     let state = app.state::<SyncState>();
-    state.update(|s| s.enabled = false)?;
+    // A «Join…» under way ends with sync off: no new key is coming.
+    state.update(|s| {
+        s.enabled = false;
+        s.rejoining = false;
+    })?;
     lock(&state.run).take();
     {
         let mut model = lock(&state.model);
         model.restart();
         model.error = None;
+        model.rejoining = false;
     }
     wake(&app);
     Ok(state.emit(&app))
