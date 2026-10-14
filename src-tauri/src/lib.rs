@@ -5,6 +5,7 @@ pub mod billing;
 pub mod commercial;
 pub mod browsers;
 pub mod capture;
+pub mod charset;
 pub mod capture_channel;
 pub mod channel;
 pub mod commands;
@@ -28,6 +29,7 @@ pub mod net_guard;
 pub mod pipe_name;
 pub mod position_keys;
 pub mod quick_search;
+pub mod reader;
 pub mod restore;
 #[cfg(target_os = "macos")]
 pub mod safari_socket;
@@ -174,6 +176,7 @@ pub fn run() {
             commands::suggest_collection,
             commands::get_counts,
             commands::open_url_external,
+            reader::fetch_reader_page,
             commands::import_html_bookmarks,
             commands::export_library,
             commands::reveal_export,

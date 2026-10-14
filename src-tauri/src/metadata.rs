@@ -1,4 +1,4 @@
-use crate::net_guard;
+use crate::{charset, net_guard};
 use reqwest::redirect;
 use scraper::{Html, Selector};
 use std::net::IpAddr;
@@ -80,12 +80,7 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
     let Ok(start) = Url::parse(target_url) else {
         return meta;
     };
-    let local = !net_guard::allowed_url(&start, limits.allow)
-        || match start.host_str() {
-            Some(host) if start.domain().is_some() => net_guard::resolve(host, limits.allow).await.is_err(),
-            _ => false,
-        };
-    if local {
+    if is_local(&start, limits.allow).await {
         // A local page keeps its address only; Google is not told its name.
         meta.favicon_url = None;
         return meta;
@@ -93,9 +88,90 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
     let Ok(_permit) = PARALLEL.acquire().await else {
         return meta;
     };
+    let Ok(client) = client(limits) else {
+        return meta;
+    };
+    let Ok(page) = fetch_page(&client, &start, limits).await else {
+        return meta;
+    };
+    if !page.is_success() || !page.html {
+        return meta;
+    }
+    let (html, _) = charset::decode(&page.body, page.content_type.as_deref());
+    read_page(&html, &page.url, &mut meta);
+    meta
+}
 
+/// A page fetched under [`Limits`]: its status and final address, and the
+/// body of a 2xx HTML answer (NP-019, the reader's fetch in NP-120).
+pub struct Fetched {
+    pub status: u16,
+    /// After the redirects.
+    pub url: Url,
+    pub content_type: Option<String>,
+    /// HTML, or a type not given.
+    pub html: bool,
+    /// Read for a 2xx HTML answer only, up to `max_body`.
+    pub body: Vec<u8>,
+    /// The page was longer than `max_body`.
+    pub truncated: bool,
+}
+
+impl Fetched {
+    pub fn is_success(&self) -> bool {
+        (200..300).contains(&self.status)
+    }
+}
+
+/// Why a page could not be fetched.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FetchError {
+    /// The address, or one it redirects to, is not a public one: nothing was sent there.
+    Refused,
+    Timeout,
+    /// No connection, a TLS failure, too many redirects, a broken answer.
+    Failed,
+}
+
+/// A redirect the guard refused (NP-120): told apart from a network failure.
+#[derive(Debug)]
+struct LocalRedirect;
+
+impl std::fmt::Display for LocalRedirect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("redirect to a local address")
+    }
+}
+
+impl std::error::Error for LocalRedirect {}
+
+/// An address the app must not request: not HTTP(S), a local name or IP, or a
+/// name that resolves to no allowed address.
+pub async fn is_local(url: &Url, allow: fn(IpAddr) -> bool) -> bool {
+    check_address(url, allow).await.is_err()
+}
+
+/// Whether `url` may be requested: refused for a local address or a name of one,
+/// failed for a name that does not resolve at all (a dead domain).
+pub async fn check_address(url: &Url, allow: fn(IpAddr) -> bool) -> Result<(), FetchError> {
+    if !net_guard::allowed_url(url, allow) {
+        return Err(FetchError::Refused);
+    }
+    match url.host_str() {
+        Some(host) if url.domain().is_some() => match net_guard::resolve(host, allow).await {
+            Ok(_) => Ok(()),
+            Err(e) if e.get_ref().is_some_and(|inner| inner.is::<net_guard::NotPublic>()) => Err(FetchError::Refused),
+            Err(_) => Err(FetchError::Failed),
+        },
+        _ => Ok(()),
+    }
+}
+
+/// The client every page request goes through: the guard resolves names,
+/// checks each redirect, and no proxy or Referer is used.
+pub fn client(limits: &Limits) -> reqwest::Result<reqwest::Client> {
     let (allow, max_redirects) = (limits.allow, limits.max_redirects);
-    let client = reqwest::Client::builder()
+    reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)
         // A proxy would resolve names where the guard cannot see them.
@@ -105,7 +181,7 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
             if attempt.previous().len() > max_redirects {
                 attempt.error("too many redirects")
             } else if !net_guard::allowed_url(attempt.url(), allow) {
-                attempt.error("redirect to a local address")
+                attempt.error(LocalRedirect)
             } else {
                 attempt.follow()
             }
@@ -113,44 +189,66 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
         // Otherwise each redirect tells the next site the previous address, query and all.
         .referer(false)
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 KoonaPin/0.1")
-        .build();
+        .build()
+}
 
-    let client = match client {
-        Ok(c) => c,
-        Err(_) => return meta,
-    };
-
-    let mut response = match client.get(start).send().await {
-        Ok(r) => r,
-        Err(_) => return meta,
-    };
-    let is_html = response
+/// One request through [`client`]. The caller has checked the address with
+/// [`is_local`]; an IP literal is checked here again, names when they resolve.
+pub async fn fetch_page(client: &reqwest::Client, url: &Url, limits: &Limits) -> Result<Fetched, FetchError> {
+    if !net_guard::allowed_url(url, limits.allow) {
+        return Err(FetchError::Refused);
+    }
+    let mut response = client.get(url.clone()).send().await.map_err(|e| failure(&e))?;
+    let content_type = response
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .map(|v| {
-            let v = v.to_ascii_lowercase();
-            v.starts_with("text/html") || v.starts_with("application/xhtml+xml")
-        })
-        .unwrap_or(true);
-    if !response.status().is_success() || !is_html {
-        return meta;
+        .map(str::to_string);
+    let html = content_type.as_deref().is_none_or(|v| {
+        let v = v.trim_start().to_ascii_lowercase();
+        v.starts_with("text/html") || v.starts_with("application/xhtml+xml")
+    });
+    let mut page = Fetched {
+        status: response.status().as_u16(),
+        url: response.url().clone(),
+        content_type,
+        html,
+        body: Vec::new(),
+        truncated: false,
+    };
+    if !page.is_success() || !page.html {
+        return Ok(page);
     }
-
-    let final_url = response.url().clone();
-    let mut body = Vec::new();
     // Read up to the limit and stop: the rest of a huge page is not needed.
-    while body.len() < limits.max_body {
+    while page.body.len() <= limits.max_body {
         match response.chunk().await {
-            Ok(Some(chunk)) => body.extend_from_slice(&chunk),
+            Ok(Some(chunk)) => page.body.extend_from_slice(&chunk),
             Ok(None) => break,
-            Err(_) if !body.is_empty() => break,
-            Err(_) => return meta,
+            Err(_) if !page.body.is_empty() => break,
+            Err(e) => return Err(failure(&e)),
         }
     }
-    body.truncate(limits.max_body);
-    read_page(&String::from_utf8_lossy(&body), &final_url, &mut meta);
-    meta
+    if page.body.len() > limits.max_body {
+        page.body.truncate(limits.max_body);
+        page.truncated = true;
+    }
+    Ok(page)
+}
+
+fn failure(error: &reqwest::Error) -> FetchError {
+    if error.is_timeout() {
+        return FetchError::Timeout;
+    }
+    // The redirect policy's and the resolver's refusals sit somewhere down the chain.
+    let mut source: Option<&(dyn std::error::Error + 'static)> = Some(error);
+    while let Some(e) = source {
+        let inner = e.downcast_ref::<std::io::Error>().and_then(|io| io.get_ref()).map(|inner| inner as &(dyn std::error::Error + 'static));
+        if e.is::<LocalRedirect>() || e.is::<net_guard::NotPublic>() || inner.is_some_and(|i| i.is::<net_guard::NotPublic>()) {
+            return FetchError::Refused;
+        }
+        source = e.source();
+    }
+    FetchError::Failed
 }
 
 /// The first non-empty value of `attr` among the elements `selector` matches.
@@ -502,6 +600,21 @@ mod tests {
         let padding = "x".repeat(200 * 1024);
         let (port, _) = server("127.0.0.1", move |_| html(&format!("<html><body>{padding}<title>Late</title></body></html>")));
         assert_eq!(fetch_with(&format!("http://127.0.0.1:{port}/"), &TEST).await.title, None);
+    }
+
+    #[tokio::test]
+    async fn a_title_in_windows_1251_is_not_garbled() {
+        // life-prog.ru names its encoding in a <meta>, not in the header (NP-120).
+        let page = encoding_rs::WINDOWS_1251
+            .encode(r#"<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1251"><title>Персистентность — Life-Prog</title></head></html>"#)
+            .0
+            .into_owned();
+        let (port, _) = server("127.0.0.1", move |_| {
+            let mut reply = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", page.len()).into_bytes();
+            reply.extend_from_slice(&page);
+            reply
+        });
+        assert_eq!(fetch_with(&format!("http://127.0.0.1:{port}/"), &TEST).await.title.as_deref(), Some("Персистентность — Life-Prog"));
     }
 
     #[tokio::test]

