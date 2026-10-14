@@ -291,11 +291,17 @@ impl World {
     }
 
     fn add(&mut self, name: &str, replica: u8, chunk_bytes: usize) -> usize {
+        // Each chunk applied as it comes, so a broken link leaves part of a snapshot to check.
+        self.add_holding(name, replica, chunk_bytes, 1)
+    }
+
+    fn add_holding(&mut self, name: &str, replica: u8, chunk_bytes: usize, hold_groups: usize) -> usize {
         let rng = SystemRandom::new();
         let pair = crypto::device_key(&crypto::generate_device_key(&rng).unwrap()).unwrap();
         let id = Uuid::new_v4();
         let mut cfg = Config::new(id, pair, SUB.into(), name.into(), "0.13.0".into());
         cfg.chunk_bytes = chunk_bytes;
+        cfg.hold_groups = hold_groups;
         let lib = library(replica_id(replica));
         koona_sync::set_wall_clock(&lib, Some(START)).unwrap();
         self.devices.push(Device {
@@ -533,6 +539,27 @@ fn the_first_device_is_the_hub_and_a_new_one_pairs_and_gets_the_library() {
     w.run();
     w.assert_converged(&[a, b]);
     assert_eq!(count(w.lib(a)), 306);
+}
+
+#[test]
+fn a_snapshot_in_many_chunks_is_applied_once_at_its_end() {
+    let mut w = World::new();
+    let a = w.add("Studio Mac", 1, 4 << 10);
+    let b = w.add_holding("Laptop", 2, 4 << 10, koona_sync::session::HOLD_GROUPS);
+    fill(w.lib(a), 300, "a");
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(count(w.lib(b)), 300);
+    w.assert_converged(&[a, b]);
+    let changed = w.devices[b].events.iter().filter(|e| matches!(e, Effect::LibraryChanged(_))).count();
+    assert_eq!(changed, 1, "the chunks were held and applied in one transaction");
 }
 
 /// The interface asks to pair when the device turns pending and again when it sees the hub

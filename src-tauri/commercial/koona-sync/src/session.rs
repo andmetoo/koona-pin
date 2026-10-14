@@ -34,6 +34,12 @@ pub const REKEY_RETRY_MS: u64 = 30 * 1000;
 pub const SKEW_RETRY_MS: u64 = 60 * 1000;
 /// Pulls in a row after an answer that left something out (deferred changes or a gap).
 const MAX_REPULLS: u32 = 3;
+/// Received groups held before one transaction applies them ([`Config::hold_groups`]): every
+/// commit writes the index pages it touched again, so a 100 000-bookmark snapshot took 27 s
+/// applied chunk by chunk and 12.5 s held like this (`sync_library::Receiving` in the app).
+/// About 27 MB of JSON; a small push (one chunk, `last`) is applied at once. Held groups lost
+/// with the connection come again: the vector is merged only after the last chunk.
+pub const HOLD_GROUPS: usize = 20_000;
 /// The close reason of a 4008 that no waiting cures: the account has too many devices.
 pub const DEVICE_LIMIT: &str = "device_limit";
 /// The relay keeps at most this many UTF-16 code units of a device name.
@@ -56,11 +62,13 @@ pub struct Config {
     pub schema: u32,
     /// JSON bytes per engine chunk; each deflates to well under a batch.
     pub chunk_bytes: usize,
+    /// Groups received before they are applied, unless the answer ends first ([`HOLD_GROUPS`]).
+    pub hold_groups: usize,
 }
 
 impl Config {
     pub fn new(device: Uuid, device_key: Ed25519KeyPair, sub: String, name: String, app: String) -> Config {
-        Config { device, device_key, sub, name, app, schema: SCHEMA, chunk_bytes: 2 << 20 }
+        Config { device, device_key, sub, name, app, schema: SCHEMA, chunk_bytes: 2 << 20, hold_groups: HOLD_GROUPS }
     }
 }
 
@@ -224,6 +232,8 @@ struct Incoming {
     broken: bool,
     /// The highest counter per replica among the changes received, to see a gap.
     seen: BTreeMap<Uuid, u64>,
+    /// Groups received and not applied yet ([`HOLD_GROUPS`]).
+    held: Vec<Group>,
 }
 
 /// An answer (or a push) going out to a peer, read from the library a page at a time.
@@ -1499,6 +1509,11 @@ impl Session {
             }
         }
         incoming.done += groups.len() as u64;
+        incoming.held.extend(groups);
+        if !last && incoming.held.len() < self.cfg.hold_groups {
+            return;
+        }
+        let groups = std::mem::take(&mut incoming.held);
         let mut changed = false;
         if !groups.is_empty() {
             match lib.apply(&groups) {
