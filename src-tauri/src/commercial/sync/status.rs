@@ -650,12 +650,13 @@ impl Model {
 
     /// Devices that became active since the directory was last seen (a `device` notice, or a
     /// `welcome` after a restart) are told about, but neither this one nor the ones of the first
-    /// directory after sync was turned on. Whether the notices changed.
+    /// directory after sync was turned on; nor on the hub, whose person just approved them.
+    /// Whether the notices changed.
     fn notice_added(&mut self, devices: &[DeviceInfo], hub: Option<Uuid>, now: DateTime<Utc>) -> bool {
         let active: BTreeSet<Uuid> =
             devices.iter().filter(|d| d.status == DeviceStatus::Active && Some(d.id) != self.me).map(|d| d.id).collect();
         let mut changed = false;
-        if let Some(known) = &self.notices.known {
+        if let Some(known) = self.notices.known.as_ref().filter(|_| hub.is_none() || hub != self.me) {
             let by_name = hub.and_then(|hub| devices.iter().find(|d| d.id == hub)).map(|d| d.name.clone());
             let added: Vec<&DeviceInfo> = devices.iter().filter(|d| active.contains(&d.id) && !known.contains(&d.id)).collect();
             for device in added {
@@ -1044,7 +1045,7 @@ mod tests {
         let me = Identity::new("Studio Mac");
         let (laptop, phone) = (uid(2), uid(3));
         let mut model = Model { me: Some(me.device), ..Model::default() };
-        let devices = |list: Vec<DeviceInfo>| Event::Session(Effect::Devices { devices: list, online: vec![me.device], hub: Some(me.device) });
+        let devices = |list: Vec<DeviceInfo>| Event::Session(Effect::Devices { devices: list, online: vec![me.device], hub: Some(laptop) });
         let mine = info(me.device, "Studio Mac", DeviceStatus::Active);
 
         // The first directory after sync was turned on.
@@ -1064,12 +1065,19 @@ mod tests {
                 id: format!("device-added-{phone}"),
                 device: phone.to_string(),
                 name: "Phone".into(),
-                by_name: Some("Studio Mac".into()),
+                by_name: Some("Laptop".into()),
                 at: at(2),
             }]
         );
         // The same directory again tells nothing.
         assert!(model.on_event(devices(vec![mine.clone(), info(laptop, "Laptop", DeviceStatus::Active), info(phone, "Phone", DeviceStatus::Active)]), at(3)).is_empty());
+
+        // On the hub nobody is told: its person just approved the device.
+        let on_hub = |list: Vec<DeviceInfo>| Event::Session(Effect::Devices { devices: list, online: vec![me.device], hub: Some(me.device) });
+        let tablet = uid(4);
+        model.on_event(on_hub(vec![mine.clone(), info(laptop, "Laptop", DeviceStatus::Active), info(phone, "Phone", DeviceStatus::Active), info(tablet, "Tablet", DeviceStatus::Active)]), at(4));
+        assert_eq!(model.status(&ctx(&me)).notices.len(), 1, "only the phone, approved elsewhere");
+        assert!(model.notices.known.as_ref().unwrap().contains(&tablet), "yet known, so it isn't told later");
 
         // Kept across a restart; dismissed by id.
         let kept: Notices = serde_json::from_str(&serde_json::to_string(&model.notices).unwrap()).unwrap();
