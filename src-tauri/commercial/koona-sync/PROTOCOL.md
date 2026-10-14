@@ -67,7 +67,7 @@ Browsers can't set headers on a WebSocket; v1 clients are native apps and MUST u
 | 4002 | No valid lease / plan without sync | Stop; show the plan state |
 | 4003 | This device is revoked | Stop for good; forget the library key |
 | 4004 | Protocol too old | Stop; ask the person to update |
-| 4005 | The account was started over (section 2.6), by another device or by this one | Reconnect: the device that started over at once, the others when the person chooses «Join» |
+| 4005 | The account was started over (section 2.6), by another device or by this one | Reconnect after the shortest backoff; `welcome.started_over` says by whom |
 | 4008 | Rate limited | Retry after backoff (at least 30 s) |
 | 4009 | Replaced: the same device id connected again | Don't reconnect from this connection |
 
@@ -254,11 +254,13 @@ pending device may then start the account over, proving it holds the account's e
 4. It closes every connection of the account, the sender's included, with **4005** and reason
    `started_over`.
 5. The sender generates a new random library key for the new epoch before it reconnects; its
-   `welcome` then lists it alone as the active hub. Each other device reconnects when the person
-   chooses «Join»: its id is unknown again, so it registers as `pending` and pairs with the new hub
-   (section 4.2), keeping its library; the first sync merges it back. Until then a device that sees
-   4005, or a `welcome` with `status: "pending"` and a `started_over.epoch` greater than the epoch
-   whose key it holds, shows that sync was started over from `started_over.by`.
+   `welcome` then lists it alone as the active hub. Each other device reconnects too (4005 alone
+   doesn't say who started over): its id is unknown again, so it registers as `pending`. A device
+   whose `welcome` has `status: "pending"` and a `started_over.epoch` greater than the epoch whose
+   key it holds shows that sync was started over from `started_over.by` and sends no pairing offer
+   until the person chooses «Join»; then it pairs with the new hub (section 4.2), keeping its
+   library, and the first sync merges it back. Meanwhile the new hub lists it as pending. A device
+   that was offline during the start over ends up the same way when it next connects.
 
 The new hub's key is pinned by the pairing, as for any new device. Nothing about devices that
 don't reconnect is kept beyond the revoked entries.
@@ -481,8 +483,9 @@ hub's pinned key. A device that becomes hub through `set_hub` sends a fresh rost
 
 **Changing the hub.** Only the hub hands over, and only when the person on it allows it:
 
-1. The device that wants to be the hub sends kind-1 `hub_request` to the hub (to all zero). If the
-   relay answers `undeliverable`, the hub is offline: the person is told, and may start over
+1. The device that wants to be the hub sends kind-1 `hub_request` to the hub's device id (not the
+   all-zero alias: kind-1 bodies are sealed to their receiver, section 3.2). If the relay answers
+   `undeliverable`, the hub is offline: the person is told, and may start over
    (section 2.6) instead.
 2. The hub asks its person «Make <name> the main computer?». On Allow it sends `set_hub{device}` to
    the relay and then `hub_answer{allow: true}`; on Deny, `hub_answer{allow: false}`. It answers one
