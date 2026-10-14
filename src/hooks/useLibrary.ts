@@ -68,6 +68,8 @@ export function useLibrary(
     trash: 0,
     duplicates: 0,
     links: 0,
+    reading: 0,
+    reading_unread: 0,
   });
   const [loading, setLoading] = useState(true);
   /** This open made the starter set: the library is new (NP-117). */
@@ -78,8 +80,13 @@ export function useLibrary(
   filtersRef.current = filters;
   const sortRef = useRef(sort);
   sortRef.current = sort;
-  /** The order the current list is read in: the trash keeps its own. */
-  const order = (): ListOrder => ({ sort: orderOf(sortRef.current, filtersRef.current.onlyTrash), language: i18n.language });
+  /** The order the current list is read in: the trash and Reading keep their own. */
+  const order = (): ListOrder => {
+    const { onlyTrash, onlyReading } = filtersRef.current;
+    return { sort: orderOf(sortRef.current, onlyTrash || onlyReading), language: i18n.language, reading: onlyReading };
+  };
+  /** Date groups only in the orders by time (NP-114), and not in Reading. */
+  const grouped = () => byTime(order().sort) && !filtersRef.current.onlyReading;
   /** Grows with every first-page request; a page of an older list is dropped. */
   const seq = useRef(0);
   const eventVersion = useRef(0);
@@ -150,9 +157,8 @@ export function useLibrary(
     setLoading(true);
     try {
       const since = dayStarts();
-      // Date groups only in the orders by time (NP-114).
       const page = await api.getBookmarks(filtersRef.current, {
-        since: byTime(order().sort) ? since : undefined,
+        since: grouped() ? since : undefined,
         sort: sortRef.current,
       });
       if (alive.current && id === seq.current) {
@@ -226,7 +232,7 @@ export function useLibrary(
       const id = ++totalSeq.current;
       const list = seq.current;
       try {
-        const since = byTime(order().sort) ? startsRef.current : undefined;
+        const since = grouped() ? startsRef.current : undefined;
         const page = await api.getBookmarks(filtersRef.current, { limit: 1, since, sort: sortRef.current });
         if (alive.current && id === totalSeq.current && list === seq.current) {
           setTotal(page.total ?? 0);
@@ -298,6 +304,7 @@ export function useLibrary(
     filters.onlyFavorites,
     filters.onlyInbox,
     filters.onlyTrash,
+    filters.onlyReading,
     sort,
     refresh,
   ]);

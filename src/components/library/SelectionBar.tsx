@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowUpFromLine, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { ArrowUpFromLine, BookOpen, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, ExportFormat, Tag } from "../../types";
 import { Icon } from "../icons";
@@ -15,6 +15,8 @@ export interface SelectionActions {
   newCollection: () => void;
   tag: (name: string) => void;
   favorite: (favorite: boolean) => void;
+  /** Into Reading, or out of it (NP-121). */
+  reading: (reading: boolean) => void;
   export: (format: ExportFormat) => void;
   trash: () => void;
   restore: () => void;
@@ -41,6 +43,7 @@ export function SelectionBar({
   compact,
   trash,
   allStarred,
+  inReading = false,
   busy,
   collections,
   tags,
@@ -58,6 +61,8 @@ export function SelectionBar({
   trash: boolean;
   /** Every selected bookmark has a heart: the button takes it off. */
   allStarred: boolean;
+  /** The bar is in Reading: its button takes the selection out (NP-121). */
+  inReading?: boolean;
   busy: boolean;
   collections: Collection[];
   tags: Tag[];
@@ -80,7 +85,8 @@ export function SelectionBar({
     { id: "new", icon: Plus, label: t("selection.newCollection"), onSelect: actions.newCollection },
   ];
   /** `name` — the full name when the label on the bar is shorter. */
-  type Action = { id: string; icon: LucideIcon; label: string; name?: string; keys?: string; filled?: boolean; popover?: Popover["id"]; run: (button: HTMLElement) => void };
+  /** `bare`: the icon alone, named by its hint, as in a narrow window. */
+  type Action = { id: string; icon: LucideIcon; label: string; name?: string; keys?: string; filled?: boolean; bare?: boolean; popover?: Popover["id"]; run: (button: HTMLElement) => void };
   const toggle = (id: Popover["id"]) => (button: HTMLElement) => {
     if (popover?.id === id) return setPopover(null);
     if (id === "tag") setPopover({ id, left: button.getBoundingClientRect().left - bar.current!.getBoundingClientRect().left, trigger: button });
@@ -99,6 +105,11 @@ export function SelectionBar({
           ? // Sheet 31: a filled heart and «Из избранного», which keeps the bar 740 px wide; the name says it whole.
             { id: "favorite", icon: Heart, filled: true, label: t("selection.unfavorite"), name: t("selection.unfavoriteName"), run: () => actions.favorite(false) }
           : { id: "favorite", icon: Heart, label: t("selection.favorite"), run: () => actions.favorite(true) },
+        // No room for a word on a bar 740 px wide: the icon, named in full by its hint. With it
+        // the buttons keep 8 px a side and 6 px to their words, the divider 6 px, so the bar is no fuller than before (NP-121).
+        inReading
+          ? { id: "reading", icon: BookOpen, bare: true, label: t("selection.fromReading"), keys: "R", run: () => actions.reading(false) }
+          : { id: "reading", icon: BookOpen, bare: true, label: t("selection.toReading"), keys: "R", run: () => actions.reading(true) },
         { id: "export", icon: ArrowUpFromLine, label: t("selection.export"), popover: "export", run: toggle("export") },
         { id: "trash", icon: Trash2, label: t("selection.trash"), keys: "Del", run: actions.trash },
       ];
@@ -120,9 +131,10 @@ export function SelectionBar({
           <span className="rounded-sm bg-accent px-2 py-0.5 font-bold text-on-accent">{count}</span>{" "}
           <span className="font-medium">{t("selection.selected", { count })}</span>
         </span>
-        <span aria-hidden className="mx-3 h-[22px] w-px shrink-0 bg-[#4a4b44] dark:bg-[#55554c]" />
+        <span aria-hidden className="mx-1.5 h-[22px] w-px shrink-0 bg-[#4a4b44] dark:bg-[#55554c]" />
         {list.map((action) => {
           const open = !!action.popover && popover?.id === action.popover;
+          const bare = compact || action.bare;
           return (
             // The same wrapper with or without a hint: «В избранное» becoming
             // «Из избранного» must not remount the focused button.
@@ -131,21 +143,21 @@ export function SelectionBar({
               label={action.name ?? action.label}
               keys={action.keys}
               side="top"
-              show={compact || !!action.keys || !!action.name}
+              show={bare || !!action.keys || !!action.name}
             >
               <button
                 type="button"
                 disabled={busy}
-                aria-label={compact ? (action.name ?? action.label) : action.name}
+                aria-label={bare ? (action.name ?? action.label) : action.name}
                 aria-haspopup={action.popover === "move" || action.popover === "export" ? "menu" : undefined}
                 aria-expanded={action.popover ? open : undefined}
                 // The tag field closes on blur: pressing its own button must not blur it first.
                 onMouseDown={(e) => open && action.popover === "tag" && e.preventDefault()}
                 onClick={(e) => action.run(e.currentTarget)}
-                className={`flex h-8 shrink-0 items-center gap-[7px] rounded-lg px-2.5 transition-colors duration-150 hover:bg-white/10 hover:text-white disabled:text-white/45 disabled:hover:bg-transparent ${open ? "bg-white/10 text-white" : ""} ${compact ? "w-8 justify-center px-0" : ""}`}
+                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 transition-colors duration-150 hover:bg-white/10 hover:text-white disabled:text-white/45 disabled:hover:bg-transparent ${open ? "bg-white/10 text-white" : ""} ${bare ? "w-8 justify-center px-0" : ""}`}
               >
                 <Icon icon={action.icon} size={15} fill={action.filled ? "currentColor" : "none"} />
-                {!compact && action.label}
+                {!bare && action.label}
               </button>
             </Hint>
           );

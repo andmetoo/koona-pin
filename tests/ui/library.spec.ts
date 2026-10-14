@@ -46,7 +46,8 @@ test("card menu moves a bookmark to a collection with the keyboard", async ({ pa
   await page.locator('[data-bookmark-id="2"]').hover();
   await page.getByRole("button", { name: /^Actions: The architecture/ }).click();
   await expect(page.getByRole("menuitem").first()).toBeFocused();
-  for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowDown");
+  // Open, Copy, Edit, Favorite, Send to Reading (NP-121), then Move.
+  for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: "Move to collection" })).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await page.getByRole("menuitem", { name: "Development" }).click();
@@ -1582,6 +1583,83 @@ test("bulk actions: move, tag and star as one action each, undone whole; Del to 
   await page.keyboard.press("ControlOrMeta+z");
   await expect(notice(page, "Back from Trash: 3 bookmarks")).toBeVisible();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+});
+
+test("reading: the sidebar counts the unread, R sends the selection and takes it out in Reading, the menu marks read, Ctrl Z undoes, a restart keeps it (NP-121)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const sidebar = page.getByRole("navigation", { name: "Sections" });
+  const reading = sidebar.getByRole("button", { name: /^Reading/ });
+  const cards = page.locator("[data-bookmark-id]");
+  const titles = () => cards.locator("h2").allTextContents();
+  // The sample library has three to read; the row sits under Favorites.
+  await expect(reading).toHaveText(/Reading\s*3/);
+  const rows = await sidebar.getByRole("button").allTextContents();
+  expect(rows.findIndex((r) => r.startsWith("Reading"))).toBe(rows.findIndex((r) => r.startsWith("Favorites")) + 1);
+  await reading.click();
+  await expect(cards).toHaveCount(3);
+  // Newest added first, whatever order the library is in.
+  expect(await titles()).toEqual(["Ten principles for good design", "Typography is a voice", "Interfaces that stay out of the way"]);
+  await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toContainText("Reading");
+
+  // R in the library sends the selection; Ctrl Z takes it back whole.
+  await sidebar.getByRole("button", { name: /^All bookmarks/ }).click();
+  await selectCards(page, ["Noticing the everyday", "Notes on attention"]);
+  await page.keyboard.press("r");
+  await expect(notice(page, "2 bookmarks sent to Reading")).toBeVisible();
+  await expect(reading).toHaveText(/Reading\s*5/);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(notice(page, "Undone for 2 bookmarks")).toBeVisible();
+  await expect(reading).toHaveText(/Reading\s*3/);
+  // The bar does the same, its button named in full.
+  await page.getByRole("toolbar", { name: "Selected bookmarks" }).getByRole("button", { name: "Send to Reading" }).click();
+  await expect(reading).toHaveText(/Reading\s*5/);
+  await page.keyboard.press("Escape");
+
+  // The newest sent come first; in Reading, R takes the selection out.
+  await reading.click();
+  await expect(cards).toHaveCount(5);
+  expect((await titles()).slice(2)).toEqual(["Ten principles for good design", "Typography is a voice", "Interfaces that stay out of the way"]);
+  await selectCards(page, ["Typography is a voice"]);
+  await page.keyboard.press("r");
+  await expect(notice(page, "1 bookmark removed from Reading")).toBeVisible();
+  await expect(cards).toHaveCount(4);
+  await expect(reading).toHaveText(/Reading\s*4/);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(cards).toHaveCount(5);
+  await page.keyboard.press("Escape");
+
+  // «Mark as read» in the card menu: the unread count drops, the card goes to the bottom.
+  await page.locator('[data-bookmark-id="1"]').hover();
+  await page.getByRole("button", { name: "Actions: Ten principles for good design" }).click();
+  await expect(page.getByRole("menuitem", { name: "Remove from Reading R" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Mark as read" }).click();
+  await expect(notice(page, "Marked as read")).toBeVisible();
+  await expect(reading).toHaveText(/Reading\s*4/);
+  await expect.poll(async () => (await titles()).at(-1)).toBe("Ten principles for good design");
+  await page.screenshot({ path: "test-results/reading-1440.png" });
+
+  // The state outlives a restart.
+  await page.reload();
+  await expect(reading).toHaveText(/Reading\s*4/);
+  await reading.click();
+  await expect(cards).toHaveCount(5);
+  // «Remove from Reading» from the menu, undone from its notice.
+  await page.locator('[data-bookmark-id="1"]').hover();
+  await page.getByRole("button", { name: "Actions: Ten principles for good design" }).click();
+  await page.getByRole("menuitem", { name: "Mark as unread" }).click();
+  await expect(reading).toHaveText(/Reading\s*5/);
+  await page.locator('[data-bookmark-id="1"]').hover();
+  await page.getByRole("button", { name: "Actions: Ten principles for good design" }).click();
+  await page.getByRole("menuitem", { name: /^Remove from Reading/ }).click();
+  await expect(cards).toHaveCount(4);
+  await notice(page, "Removed from Reading").getByRole("button", { name: /Undo/ }).click();
+  await expect(cards).toHaveCount(5);
+  // Nothing in the trash is listed or counted.
+  await page.locator('[data-bookmark-id="1"]').hover();
+  await page.getByRole("button", { name: "Actions: Ten principles for good design" }).click();
+  await page.getByRole("menuitem", { name: /^Move to trash/ }).click();
+  await expect(cards).toHaveCount(4);
+  await expect(reading).toHaveText(/Reading\s*4/);
 });
 
 test("bulk actions: a new collection from the selection, export of the selected, the trash restores and deletes for good", async ({ page }) => {

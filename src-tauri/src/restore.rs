@@ -180,7 +180,7 @@ pub fn check(text: &str) -> Result<JsonLibrary, RestoreProblem> {
         let bad_date = |value: &str| damaged(CopyItem::Bookmark, at, Damage::BadDate, value);
         b.created_at = time(&b.created_at).ok_or_else(|| bad_date(&b.created_at))?;
         b.updated_at = time(&b.updated_at).ok_or_else(|| bad_date(&b.updated_at))?;
-        for optional in [&mut b.triaged_at, &mut b.deleted_at] {
+        for optional in [&mut b.triaged_at, &mut b.deleted_at, &mut b.reading_at, &mut b.read_at] {
             if let Some(value) = optional.as_mut() {
                 *value = time(value).ok_or_else(|| bad_date(value))?;
             }
@@ -195,6 +195,8 @@ pub fn check(text: &str) -> Result<JsonLibrary, RestoreProblem> {
                 return Err(damaged(CopyItem::Bookmark, at, Damage::BadSource, source));
             }
         }
+        // A progress out of 0–1 is a hand-edited copy: the nearest end.
+        b.reading_progress = b.reading_progress.clamp(0.0, 1.0);
         let mut seen = HashSet::new();
         b.tags = b.tags.iter().map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty() && seen.insert(t.clone())).collect();
     }
@@ -322,8 +324,9 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
             continue;
         }
         tx.execute(
-            "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key, source_name)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key, source_name,
+                 reading_at, reading_progress, read_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
             params![
                 b.uid,
                 b.url,
@@ -342,6 +345,9 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
                 b.deleted_at,
                 crate::dedupe::url_key(&b.url),
                 b.source_name,
+                b.reading_at,
+                b.reading_progress,
+                b.read_at,
             ],
         )?;
         if !b.tags.is_empty() {
@@ -412,6 +418,45 @@ mod tests {
         // Search finds restored bookmarks by their tags.
         let found = db::get_bookmarks(&target, &db::BookmarkQuery { search: Some("async".into()), ..Default::default() }).unwrap();
         assert_eq!(found.items[0].url, "https://tokio.rs/");
+    }
+
+    /// Reading (NP-121): what is in the list, how far each was read and
+    /// whether it was come back from a copy, in the list's order.
+    #[test]
+    fn reading_progress_and_read_state_survive_export_and_import() {
+        let source = library();
+        let id = |url: &str| source.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get::<_, i64>(0)).unwrap();
+        let (tokio, github) = (id("https://tokio.rs/"), id("https://github.com/"));
+        db::apply_bulk(&source, &[tokio, github], &db::Bulk::Reading(true)).unwrap();
+        crate::reading::set_progress(&source, tokio, 0.35).unwrap();
+        crate::reading::set_progress(&source, github, 1.0).unwrap();
+        // Read once, out of Reading since: the state stays with the bookmark.
+        let out = id("https://m.example.com/");
+        db::apply_bulk(&source, &[out], &db::Bulk::Read(true)).unwrap();
+        let reading = |c: &Connection| {
+            db::get_bookmarks(c, &db::BookmarkQuery { only_reading: true, ..Default::default() })
+                .unwrap()
+                .items
+                .into_iter()
+                .map(|b| (b.url, b.reading_at, b.reading_progress, b.read_at))
+                .collect::<Vec<_>>()
+        };
+        let before = reading(&source);
+        assert_eq!(before.iter().map(|r| (r.0.as_str(), r.2, r.3.is_some())).collect::<Vec<_>>(), [("https://tokio.rs/", 0.35, false), ("https://github.com/", 1.0, true)]);
+        let text = copy_of(&source);
+        let target = database();
+        restore(&target, &check(&text).unwrap(), RestoreMode::Replace, &folder()).unwrap();
+        assert_eq!(reading(&target), before);
+        assert_eq!(crate::reading::counts(&target).unwrap(), (2, 1));
+        let kept = db::get_bookmarks(&target, &db::BookmarkQuery { search: Some("m.example.com".into()), ..Default::default() }).unwrap().items.remove(0);
+        assert_eq!((kept.reading_at, kept.reading_progress, kept.read_at.is_some()), (None, 1.0, true));
+        assert_eq!(everything(&target), text, "the same copy again");
+        // A copy without Reading (made before it) reads as out of Reading and unread.
+        let plain = copy_of(&library());
+        assert!(!plain.contains("reading"), "no Reading fields when nothing is in Reading");
+        let mut edited: serde_json::Value = serde_json::from_str(&text).unwrap();
+        edited["bookmarks"][0]["reading_progress"] = serde_json::json!(4);
+        assert_eq!(check(&edited.to_string()).unwrap().bookmarks[0].reading_progress, 1.0);
     }
 
     #[test]

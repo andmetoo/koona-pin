@@ -42,6 +42,12 @@ pub struct Bookmark {
     #[ts(optional)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub site_key: Option<String>,
+    /// In the Reading list since then (NP-121); none outside it.
+    pub reading_at: Option<String>,
+    /// How far the article was read, 0 to 1; the reader keeps it (NP-122).
+    pub reading_progress: f64,
+    /// When it was read to the end or marked read; none while unread.
+    pub read_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -179,6 +185,11 @@ pub struct LibraryCounts {
     /// Links a check found broken or moved (NP-036): «Проверка ссылок N».
     /// Counted by the command too: schemas before 6 have no results.
     pub links: i64,
+    /// Bookmarks in Reading (NP-121), read ones included: the section's
+    /// header. Counted by the command too: schemas before 11 have no Reading.
+    pub reading: i64,
+    /// Of them, the unread ones: «Reading N» in the sidebar.
+    pub reading_unread: i64,
 }
 
 /// The trash is counted apart, every other count leaves it out. Each count
@@ -207,6 +218,8 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 trash: r.get(5)?,
                 duplicates: 0,
                 links: 0,
+                reading: 0,
+                reading_unread: 0,
             })
         },
     )
@@ -333,7 +346,7 @@ pub fn insert_or_update_bookmark(
 }
 
 /// The columns [`bookmark_row`] reads, in its order.
-const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key), source_name";
+const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key), source_name, reading_at, reading_progress, read_at";
 
 pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut stmt = conn.prepare(&format!("SELECT {BOOKMARK_COLUMNS} FROM bookmarks WHERE id = ?1"))?;
@@ -392,6 +405,10 @@ pub struct BookmarkQuery {
     /// Every other query leaves the trash out.
     #[serde(default)]
     pub only_trash: bool,
+    /// The Reading list (NP-121) in its own order: unread newest added
+    /// first, then the read ones, newest read first. Ignores `sort`.
+    #[serde(default)]
+    pub only_reading: bool,
     /// Only this bookmark: whether a changed one still belongs to the list.
     #[ts(optional)]
     pub id: Option<i64>,
@@ -413,17 +430,31 @@ pub struct BookmarkQuery {
 }
 
 impl BookmarkQuery {
-    /// The order the query reads in: the trash keeps its own.
+    /// The order the query reads in: the trash and Reading keep their own.
     pub fn order(&self) -> BookmarkSort {
-        match self.only_trash {
+        match self.only_trash || self.only_reading {
             true => BookmarkSort::Newest,
             false => self.sort.unwrap_or_default(),
         }
     }
 }
 
-/// A position in the list's order: `at` is when the bookmark was saved, or
-/// deleted in the trash; `key` is its title or site key in hex in the orders
+/// The place of a bookmark in Reading as one text that sorts newest first:
+/// unread ones by when they were added (`1…`), above the read ones by when
+/// they were read (`0…`). The owner chose newest first (NP-121).
+const READING_AT: &str = "CASE WHEN b.read_at IS NULL THEN '1' || b.reading_at ELSE '0' || b.read_at END";
+
+/// [`READING_AT`] of a bookmark read from the list, for the next page's cursor.
+fn reading_place(b: &Bookmark) -> Option<String> {
+    let added = b.reading_at.as_ref()?;
+    Some(match &b.read_at {
+        None => format!("1{added}"),
+        Some(read) => format!("0{read}"),
+    })
+}
+
+/// A position in the list's order: `at` is when the bookmark was saved,
+/// deleted in the trash, or its place in Reading; `key` is its title or site key in hex in the orders
 /// by title and by site (NP-114).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -712,17 +743,25 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         title_key: Some(row.get::<_, String>(16)?).filter(|k| !k.is_empty()),
         site_key: Some(row.get::<_, String>(17)?).filter(|k| !k.is_empty()),
         source_name: row.get(18)?,
+        reading_at: row.get(19)?,
+        reading_progress: row.get(20)?,
+        read_at: row.get(21)?,
     })
 }
 
 /// The `WHERE` of a query over `bookmarks b`, its values, and the column the
-/// list is ordered by: when a bookmark was saved, or deleted in the trash.
+/// list is ordered by: when a bookmark was saved, deleted in the trash, or its
+/// place in Reading ([`READING_AT`]).
 fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::types::Value>) {
     use rusqlite::types::Value;
     let (mut filter, at) = match query.only_trash {
         true => (
             String::from(" WHERE b.deleted_at IS NOT NULL"),
             "b.deleted_at",
+        ),
+        false if query.only_reading => (
+            String::from(" WHERE b.deleted_at IS NULL AND b.reading_at IS NOT NULL"),
+            READING_AT,
         ),
         false => (String::from(" WHERE b.deleted_at IS NULL"), "b.created_at"),
     };
@@ -945,11 +984,9 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
     let next = (items.len() > limit as usize).then(|| {
         items.truncate(limit as usize);
         let last = &items[items.len() - 1];
+        let reading = query.only_reading.then(|| reading_place(last)).flatten();
         PageCursor {
-            at: last
-                .deleted_at
-                .clone()
-                .unwrap_or_else(|| last.created_at.clone()),
+            at: reading.or_else(|| last.deleted_at.clone()).unwrap_or_else(|| last.created_at.clone()),
             id: last.id,
             key: match order {
                 BookmarkSort::Title => last.title_key.clone(),
@@ -1186,6 +1223,11 @@ pub enum Bulk {
     Favorite(bool),
     Trash,
     Restore,
+    /// Into Reading or out of it (NP-121). Sent again, a read one starts
+    /// over unread; taken out, it keeps its progress and read state.
+    Reading(bool),
+    /// Marked read (progress 1) or unread (from the start).
+    Read(bool),
 }
 
 /// `ids` as the JSON array `json_each` reads.
@@ -1283,6 +1325,19 @@ fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize, Vec<Bo
         // A bookmark keeps everything in the trash, as a single one does (Р-21).
         Bulk::Trash => ("?2 IS NULL", "deleted_at=?3".to_string(), Value::Null),
         Bulk::Restore => ("?2 IS NULL", "deleted_at=NULL".to_string(), Value::Null),
+        // Reading is no decision: the inbox keeps a bookmark sent from it.
+        Bulk::Reading(true) => (
+            "?2 IS NULL AND reading_at IS NULL",
+            "reading_at=?3, read_at=NULL, reading_progress=CASE WHEN read_at IS NULL THEN reading_progress ELSE 0 END".to_string(),
+            Value::Null,
+        ),
+        Bulk::Reading(false) => ("?2 IS NULL AND reading_at IS NOT NULL", "reading_at=NULL".to_string(), Value::Null),
+        Bulk::Read(true) => ("?2 IS NULL AND read_at IS NULL", "read_at=?3, reading_progress=1".to_string(), Value::Null),
+        Bulk::Read(false) => (
+            "?2 IS NULL AND (read_at IS NOT NULL OR reading_progress > 0)",
+            "read_at=NULL, reading_progress=0".to_string(),
+            Value::Null,
+        ),
     };
     let changing: Vec<i64> = conn
         .prepare(&format!(

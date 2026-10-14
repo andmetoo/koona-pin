@@ -55,7 +55,7 @@ pub struct JsonTag {
     pub created_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonBookmark {
     pub uid: String,
     pub url: String,
@@ -81,9 +81,21 @@ pub struct JsonBookmark {
     pub triaged_at: Option<String>,
     /// Set: in the trash since then.
     pub deleted_at: Option<String>,
+    /// Reading (NP-121): in the list since then, how far read, read when.
+    /// Left out when none, so a copy without Reading reads as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reading_at: Option<String>,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub reading_progress: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read_at: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+fn is_zero(progress: &f64) -> bool {
+    *progress == 0.0
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JsonLibrary {
     pub format: String,
     pub version: u32,
@@ -134,7 +146,8 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
     };
     let mut statement = conn.prepare(&format!(
         "SELECT b.id, b.uid, b.url, b.title, b.description, b.notes, b.domain, b.image_url, b.favicon_url, b.is_favorite,
-                c.uid, b.source, b.created_at, b.updated_at, b.triaged_at, b.deleted_at, b.source_name
+                c.uid, b.source, b.created_at, b.updated_at, b.triaged_at, b.deleted_at, b.source_name,
+                b.reading_at, b.reading_progress, b.read_at
          FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id {filter}
          ORDER BY b.created_at DESC, b.id DESC"
     ))?;
@@ -157,6 +170,9 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
             triaged_at: r.get(14)?,
             deleted_at: r.get(15)?,
             source_name: r.get(16)?,
+            reading_at: r.get(17)?,
+            reading_progress: r.get(18)?,
+            read_at: r.get(19)?,
         })
     })?;
     rows.collect()

@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 10;
+pub const SCHEMA_VERSION: i64 = 11;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -362,6 +362,26 @@ fn sync_schema(tx: &Transaction) -> HookResult {
     Ok(())
 }
 
+/// Schema 11 (NP-121, Р-69): the Reading list. A bookmark is in Reading
+/// since `reading_at` (none: not in it); `reading_progress` is how far it was
+/// read, 0 to 1; `read_at` is when it was read (none: unread). Progress and
+/// read state belong to the bookmark, not to the list: the reader keeps them
+/// for an article opened from any section. The partial index holds only the
+/// few bookmarks in Reading, for its page and its count of unread ones.
+/// The hook gives the sync capture trigger the three fields
+/// (`koona_sync::SCHEMA_11`, commercial).
+pub(crate) const SCHEMA_11: &str = "ALTER TABLE bookmarks ADD COLUMN reading_at TEXT;
+ALTER TABLE bookmarks ADD COLUMN reading_progress REAL NOT NULL DEFAULT 0 CHECK (reading_progress BETWEEN 0 AND 1);
+ALTER TABLE bookmarks ADD COLUMN read_at TEXT;
+CREATE INDEX idx_bookmarks_reading ON bookmarks(reading_at, read_at, id, deleted_at)
+    WHERE reading_at IS NOT NULL AND deleted_at IS NULL;
+";
+
+fn sync_reading(tx: &Transaction) -> HookResult {
+    tx.execute_batch(koona_sync::SCHEMA_11)?;
+    Ok(())
+}
+
 /// The places of schema 7 as keys, in the sidebar's order: by place, then
 /// the collections never moved by name in the language of the sort keys.
 /// When none was ever moved, none gets a key: they keep following the
@@ -473,6 +493,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up_with_hook(SCHEMA_8, allow_mcp),
         M::up_with_hook(SCHEMA_9, allow_safari),
         M::up_with_hook("", sync_schema),
+        M::up_with_hook(SCHEMA_11, sync_reading),
     ]
 }
 
@@ -770,12 +791,14 @@ mod tests {
             ]
             .concat()
         };
-        let found = |conn: &Connection| db::get_bookmarks(conn, &db::BookmarkQuery { search: Some("заметка".into()), ..Default::default() }).unwrap().total;
+        // The search as `db` makes it; `db` itself reads the columns of schema 11.
+        let found = |conn: &Connection| rows(conn, "SELECT count(*) FROM bookmarks b WHERE b.deleted_at IS NULL AND b.id IN (SELECT rowid FROM bookmarks_search WHERE bookmarks_search MATCH '\"заметка\"')");
         let (data_before, collections_before, order_before, objects_before, found_before) =
             (data(&conn), collections(&conn), order_9(&conn), objects(&conn), found(&conn));
 
         let started = std::time::Instant::now();
-        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        let to_10 = Migrations::new(steps().into_iter().take(10).collect());
+        migrate_with(&to_10, 10, &mut conn, Some(&folder.join("backups"))).unwrap();
         println!("{name}: copied and migrated in {:?}", started.elapsed());
         assert_eq!(user_version(&conn).unwrap(), 10);
         assert!(folder.join("backups/koonapin.before-v10.db").exists());
@@ -795,6 +818,8 @@ mod tests {
         for table in ["sync_meta", "sync_origins", "sync_vector", "sync_clock"] {
             assert_eq!(rows(&conn, &format!("SELECT count(*) FROM {table}")), ["Integer(0)"], "{table}");
         }
+        // On to the newest schema, for what follows and for the callers.
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
         db::insert_or_update_bookmark(&conn, "https://example.com/after-10", "After", None, None, None, "example.com", None, Some(&["new".into()]), db::Source::App).unwrap();
         assert_eq!(rows(&conn, "SELECT count(*) FROM sync_clock"), ["Integer(0)"]);
         assert_eq!(rows(&conn, "SELECT count(*) FROM tombstones WHERE hlc IS NOT NULL"), ["Integer(0)"]);
@@ -848,6 +873,76 @@ mod tests {
         let started = std::time::Instant::now();
         schema_10_on("schema-10-100k", |conn| fixtures::generated(conn, 100_000, 10));
         println!("built, migrated and checked in {:?}", started.elapsed());
+    }
+
+    /// Schema 11 (NP-121): a library of schema 10 with data keeps every row
+    /// and object (but the capture trigger, which gains the Reading fields);
+    /// nothing is in Reading, nothing read; the copy before-v11 is there; with
+    /// sync on, sending to Reading, progress and reading are recorded field by
+    /// field, and the list reads its index.
+    #[test]
+    fn schema_11_adds_reading_and_keeps_everything_else() {
+        let folder = folder("schema-11");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 10);
+        fixtures::generated(&conn, 2_000, 11);
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name NOT IN ('bookmarks', 'sync_bookmarks_update') ORDER BY name");
+        let other = |conn: &Connection| {
+            ["collections", "tags", "bookmark_tags", "app_settings", "tombstones"]
+                .iter()
+                .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
+                .collect::<Vec<_>>()
+        };
+        let bookmarks_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
+        let (objects_before, other_before) = (objects(&conn), other(&conn));
+
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 11);
+        assert!(folder.join("backups/koonapin.before-v11.db").exists());
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        let mut objects_after = objects(&conn);
+        objects_after.retain(|o| !o.contains("idx_bookmarks_reading"));
+        assert_eq!(objects_after, objects_before, "no other index, view, table or trigger changed");
+        assert_eq!(other(&conn), other_before);
+        let bookmarks_after = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
+        assert_eq!(bookmarks_after.len(), bookmarks_before.len());
+        assert!(
+            bookmarks_after.iter().zip(&bookmarks_before).all(|(a, b)| *a == format!("{b} | Null | Real(0.0) | Null")),
+            "every row, out of Reading and unread: {}",
+            bookmarks_after[0]
+        );
+        assert!(conn.execute("UPDATE bookmarks SET reading_progress = 1.5 WHERE id = 1", []).is_err(), "progress is 0 to 1");
+
+        // Sync on: each Reading field is a change of its own.
+        koona_sync::attach(&conn, uuid::Uuid::new_v4()).unwrap();
+        let clocks = |conn: &Connection| rows(conn, "SELECT field FROM sync_clock WHERE entity = 2 AND row = 1 ORDER BY field");
+        conn.execute("UPDATE bookmarks SET reading_at = '2026-10-14T10:00:00.000Z' WHERE id = 1", []).unwrap();
+        assert_eq!(clocks(&conn), ["Integer(13)"]);
+        conn.execute("UPDATE bookmarks SET reading_progress = 1, read_at = '2026-10-14T11:00:00.000Z' WHERE id = 1", []).unwrap();
+        assert_eq!(clocks(&conn), ["Integer(13)", "Integer(14)", "Integer(15)"]);
+
+        // The page of Reading as `db` reads it: the few rows from the index, then sorted.
+        let page = format!(
+            "SELECT b.id FROM bookmarks b WHERE b.deleted_at IS NULL AND b.reading_at IS NOT NULL ORDER BY {} DESC, b.id DESC LIMIT 101",
+            "CASE WHEN b.read_at IS NULL THEN '1' || b.reading_at ELSE '0' || b.read_at END"
+        );
+        let plan = rows(&conn, &format!("EXPLAIN QUERY PLAN {page}"));
+        assert!(plan.iter().any(|step| step.contains("idx_bookmarks_reading")), "{plan:?}");
+        let plan = rows(&conn, "EXPLAIN QUERY PLAN SELECT count(*) FROM bookmarks b WHERE b.deleted_at IS NULL AND b.reading_at IS NOT NULL AND b.read_at IS NULL");
+        assert!(plan.iter().any(|step| step.contains("COVERING INDEX idx_bookmarks_reading")), "{plan:?}");
+    }
+
+    /// The columns of schema 11 the engine's tests add (`koona-sync/tests/schema11.sql`)
+    /// are the ones this step adds.
+    #[test]
+    fn the_engine_tests_schema_11_as_the_app_makes_it() {
+        let file = include_str!("../commercial/koona-sync/tests/schema11.sql");
+        let columns: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
+        assert_eq!(columns, SCHEMA_11);
     }
 
     /// The schema 9 the engine's tests build on (`koona-sync/tests/schema.sql`)

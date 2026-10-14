@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, ChevronDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { composing } from "./services/ime";
 import { undoNotice } from "./services/undo";
-import { bulkFailure, bulkNotice } from "./services/bulk";
+import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedTheme, storedValue, Theme } from "./services/preferences";
 import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, Plan, SupporterStatus, SyncStatus, UpdateStatus, ViewMode } from "./types";
@@ -54,15 +54,14 @@ type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant"
 type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void } | null;
 /** Columns of the CSV, titled in the interface's language (NP-032). */
 const CSV_COLUMNS = ["title", "url", "domain", "collection", "tags", "notes", "favorite", "inbox", "saved"] as const;
-type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash">>;
+type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading">>;
+/** Every section off: what `navigate` starts from. */
+const noSection = { collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false };
 const initialFilters: FilterState = {
   search: "",
-  collectionId: null,
   tag: null,
   domain: null,
-  onlyFavorites: false,
-  onlyInbox: false,
-  onlyTrash: false,
+  ...noSection,
 };
 const NOTICE_MS = 3000;
 const UNDO_MS = 8000;
@@ -239,11 +238,17 @@ export function App() {
           if (filters.onlyTrash) selectionActionsRef.current.deleteForever();
           else selectionActionsRef.current.trash();
         }
+        // R: the selection into Reading, or out of it in Reading itself (NP-121).
+        const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+        if (key === "r" && plain && !typing && !filters.onlyTrash && selectionRef.current.ids.size && !e.repeat && !bulkBusyRef.current) {
+          e.preventDefault();
+          selectionActionsRef.current.reading(!filters.onlyReading);
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [wide, editing, triage, page, filters.onlyTrash]);
+  }, [wide, editing, triage, page, filters.onlyTrash, filters.onlyReading]);
   // The first close without a tray explains that the app keeps running (NP-096).
   useEffect(() => api.onCloseToBackground(() => setSurface("background")), []);
   useEffect(() => {
@@ -375,9 +380,8 @@ export function App() {
     scrollRef.current?.scrollTo({ top: 0 });
     setFilters((prev) => ({ ...prev, ...partial }));
   };
-  /** One section at a time: All, Inbox, Favorites, Trash or a collection. */
-  const navigate = (section: Section = {}) =>
-    changeFilters({ collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, ...section, tag: null, domain: null });
+  /** One section at a time: All, Inbox, Favorites, Reading, Trash or a collection. */
+  const navigate = (section: Section = {}) => changeFilters({ ...noSection, ...section, tag: null, domain: null });
   const openInbox = () => navigate({ onlyInbox: true });
   /** «Разобрать»: triage over the whole inbox; the sidebar shows «Входящие» meanwhile. */
   const openTriage = () => {
@@ -525,6 +529,7 @@ export function App() {
     },
     tag: (name) => runBulk({ action: "tag", name }),
     favorite: (favorite) => runBulk({ action: "favorite", favorite }),
+    reading: (reading) => runBulk({ action: "reading", reading }),
     export: (format) => exportLibrary(format, [...selection.ids]),
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
@@ -553,6 +558,11 @@ export function App() {
       say(t("notice.copyFailed"), true);
     }
   };
+  const readingChange = (b: Bookmark, change: BulkChange) =>
+    void api
+      .bulkUpdate([b.id], change)
+      .then(({ command }) => say(readingNotice(t, change), false, undoing(command)))
+      .catch((err) => say(describeError(err), true));
   const actions: BookmarkActions = useMemo(
     () => ({
       open: (url) => void api.openUrl(url).catch((err) => say(describeError(err), true)),
@@ -562,6 +572,9 @@ export function App() {
         setEditing(b);
       },
       favorite: (b) => void api.updateBookmark(b.id, { is_favorite: !b.is_favorite }).catch((err) => say(describeError(err), true)),
+      // Reading (NP-121): one bookmark through the bulk command, undone the same way.
+      reading: (b) => readingChange(b, { action: "reading", reading: !b.reading_at }),
+      read: (b) => readingChange(b, { action: "read", read: !b.read_at }),
       move: (b, collectionId) =>
         void api
           .updateBookmark(b.id, { collection_id: collectionId })
@@ -624,7 +637,9 @@ export function App() {
       ? t("nav.inbox")
       : filters.onlyFavorites
         ? t("nav.favorites")
-        : collection
+        : filters.onlyReading
+          ? t("nav.reading")
+          : collection
           ? collection.name
           : t("nav.all");
   const sectionCount = filters.onlyTrash
@@ -633,7 +648,9 @@ export function App() {
       ? counts.inbox
       : filters.onlyFavorites
         ? counts.favorites
-        : collection
+        : filters.onlyReading
+          ? counts.reading
+          : collection
           ? (collection.count ?? 0)
           : counts.total;
   // Hidden until a bookmark newer than the remembered one arrives (NP-020).
@@ -676,7 +693,7 @@ export function App() {
     if (narrowed) {
       // Frame 09: what was searched and where, the whole library one click away.
       const query = filters.search.trim();
-      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox || filters.onlyTrash;
+      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox || filters.onlyTrash || filters.onlyReading;
       const title = query
         ? inSection
           ? t("empty.noResultsInFor", { section, query })
@@ -691,7 +708,7 @@ export function App() {
         actions: (
           <>
             {inSection && (
-              <Button variant="primary" onClick={() => changeFilters({ collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false })}>
+              <Button variant="primary" onClick={() => changeFilters(noSection)}>
                 {t("empty.searchEverywhere")}
               </Button>
             )}
@@ -711,6 +728,7 @@ export function App() {
     if (filters.onlyInbox) return { icon: InboxTray, title: t("empty.inbox"), text: t("empty.inboxHint"), actions: null };
     if (filters.onlyFavorites)
       return { icon: Heart, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
+    if (filters.onlyReading) return { icon: BookOpen, title: t("empty.reading"), text: t("empty.readingHint"), actions: null };
     if (collection)
       return {
         icon: Plus,
@@ -782,7 +800,7 @@ export function App() {
       compact={compact}
       scrollRef={scrollRef}
       dateGroups={library.dateGroups}
-      grouped={filters.onlyTrash || byTime(sort)}
+      grouped={!filters.onlyReading && (filters.onlyTrash || byTime(sort))}
       hasMore={library.hasMore}
       loadingMore={library.loadingMore}
       onMore={library.loadMore}
@@ -867,6 +885,7 @@ export function App() {
         onInbox={openInbox}
         onAll={() => navigate()}
         onFavorites={() => navigate({ onlyFavorites: true })}
+        onReading={() => navigate({ onlyReading: true })}
         onTrash={() => navigate({ onlyTrash: true })}
         onCollection={(id) => navigate({ collectionId: id })}
         onTag={(name) => changeFilters({ tag: filters.tag === name ? null : name })}
@@ -984,7 +1003,7 @@ export function App() {
                     narrow={narrow}
                     search={filters.search}
                     view={view}
-                    sort={filters.onlyTrash ? null : sort}
+                    sort={filters.onlyTrash || filters.onlyReading ? null : sort}
                     onSearch={(search) => changeFilters({ search })}
                     onView={setView}
                     onSort={setSort}
@@ -1175,6 +1194,7 @@ export function App() {
                       compact={compact}
                       trash={filters.onlyTrash}
                       allStarred={selection.allStarred}
+                      inReading={filters.onlyReading}
                       busy={bulkBusy}
                       collections={library.collections}
                       tags={library.tags}

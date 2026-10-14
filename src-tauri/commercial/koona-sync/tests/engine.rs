@@ -191,3 +191,46 @@ fn a_chunk_carries_covers_only_at_the_end() {
     let expected: Vec<_> = chunks[2..].iter().flat_map(|c| c.groups.clone()).collect();
     assert_eq!(rest, expected);
 }
+
+/// Reading (schema 11, Р-69): a bookmark sent to Reading reaches the other device with its
+/// progress and read state; each field keeps its own clock, so reading on one device and taking
+/// it out of Reading on the other both hold.
+#[test]
+fn reading_progress_and_read_state_travel_field_by_field() {
+    let a = library(replica_id(1));
+    let b = library(replica_id(2));
+    let id = add_bookmark(&a, uid(10), "https://example.com/article", "Article").unwrap();
+    set_bookmark(&a, id, "reading_at", Value::Text("2026-10-14T10:00:00.000Z".into()));
+    set_bookmark(&a, id, "reading_progress", Value::Real(0.25));
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM sync_clock WHERE entity = 2"), 3, "a clock per field changed");
+    sync(&a, &b, 1 << 20);
+    let id_b = one::<i64>(&b, "SELECT id FROM bookmarks");
+    let state = |conn: &rusqlite::Connection| -> (Option<String>, f64, Option<String>) {
+        conn.query_row("SELECT reading_at, reading_progress, read_at FROM bookmarks", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+    };
+    assert_eq!(state(&b), (Some("2026-10-14T10:00:00.000Z".into()), 0.25, None));
+
+    // Read to the end on A; meanwhile B takes it out of Reading.
+    set_bookmark(&a, id, "reading_progress", Value::Real(1.0));
+    set_bookmark(&a, id, "read_at", Value::Text("2026-10-14T11:00:00.000Z".into()));
+    set_bookmark(&b, id_b, "reading_at", Value::Null);
+    sync(&a, &b, 1 << 20);
+    sync(&b, &a, 1 << 20);
+    assert_eq!(state(&a), (None, 1.0, Some("2026-10-14T11:00:00.000Z".into())));
+    assert_eq!(state(&a), state(&b));
+    assert_eq!(dump(&a), dump(&b));
+
+    // A progress outside 0–1 from a broken peer is ignored.
+    let mut chunks = koona_sync::delta_all(&a, &Vector::default(), 1 << 20).unwrap();
+    let group = chunks[0].groups.iter_mut().find(|g| g.entity == Entity::Bookmark).unwrap();
+    let progress = group.fields.iter_mut().find(|f| f.field == "reading_progress").unwrap();
+    assert_eq!(progress.value, serde_json::json!(1.0));
+    progress.value = serde_json::json!(7);
+    progress.clock.hlc = koona_sync::model::Hlc(u64::MAX >> 1);
+    let c = library(replica_id(3));
+    let applied = koona_sync::apply(&c, &chunks[0].groups).unwrap();
+    assert_eq!(applied.deferred, 1, "a new record without a valid progress waits");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM bookmarks"), 0);
+    check_invariants(&c);
+}

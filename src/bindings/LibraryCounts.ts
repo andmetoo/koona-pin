@@ -27,4 +27,13 @@ duplicates: number,
  * Links a check found broken or moved (NP-036): «Проверка ссылок N».
  * Counted by the command too: schemas before 6 have no results.
  */
-links: number, };
+links: number, 
+/**
+ * Bookmarks in Reading (NP-121), read ones included: the section's
+ * header. Counted by the command too: schemas before 11 have no Reading.
+ */
+reading: number, 
+/**
+ * Of them, the unread ones: «Reading N» in the sidebar.
+ */
+reading_unread: number, };

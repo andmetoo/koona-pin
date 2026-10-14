@@ -324,6 +324,7 @@ impl Call<'_> {
                 tag: a.tag.map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty()),
                 only_inbox: a.filter == Filter::Inbox,
                 only_favorites: a.filter == Filter::Favorites,
+                only_reading: a.filter == Filter::Reading,
                 limit: Some(a.limit.unwrap_or(DEFAULT_RESULTS).clamp(1, MAX_RESULTS)),
                 after,
                 ..Default::default()
@@ -587,6 +588,8 @@ fn summary(b: &Bookmark, collections: &HashMap<i64, String>) -> Value {
         "favorite": b.is_favorite,
         "inbox": b.triaged_at.is_none(),
         "saved_at": b.created_at,
+        "in_reading": b.reading_at.is_some(),
+        "read": b.read_at.is_some(),
     })
 }
 
@@ -670,6 +673,29 @@ mod tests {
         assert_eq!(Access::ReadAndAdd.as_str(), "read_and_add");
         assert_eq!(Access::parse("off"), Some(Access::Off));
         assert_eq!(Access::parse("write"), None);
+    }
+
+    /// The Reading list (NP-121) as a filter of the search, in its own order;
+    /// nothing reaches Reading through MCP.
+    #[test]
+    fn search_filters_by_the_reading_list() {
+        let conn = library();
+        let mut journal = Journal::default();
+        set_access(&conn, Access::ReadAndAdd).unwrap();
+        let first = saved(&conn, "https://example.com/first", "First article");
+        let second = saved(&conn, "https://example.com/second", "Second article");
+        saved(&conn, "https://example.com/other", "Not to read");
+        db::apply_bulk(&conn, &[first], &db::Bulk::Reading(true)).unwrap();
+        db::apply_bulk(&conn, &[second], &db::Bulk::Reading(true)).unwrap();
+        db::apply_bulk(&conn, &[first], &db::Bulk::Read(true)).unwrap();
+
+        let found = call(&conn, &mut journal, tools::SEARCH, json!({ "filter": "reading" }));
+        let items = result(&found)["bookmarks"].as_array().unwrap().clone();
+        let shown: Vec<_> = items.iter().map(|b| (b["title"].clone(), b["in_reading"].clone(), b["read"].clone())).collect();
+        assert_eq!(shown, [(json!("Second article"), json!(true), json!(false)), (json!("First article"), json!(true), json!(true))]);
+        let narrowed = call(&conn, &mut journal, tools::SEARCH, json!({ "filter": "reading", "query": "second" }));
+        assert_eq!(result(&narrowed)["total"], 1);
+        assert!(!tools::TOOLS.iter().any(|t| t.name.contains("reading")), "no tool adds to Reading");
     }
 
     #[test]

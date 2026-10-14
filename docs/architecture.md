@@ -53,17 +53,17 @@ Until the library is open, database commands are refused and the capture channel
 
 ### Schema and migrations
 
-- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 9); the file is marked with `application_id = 0x4E50494E` ("NPIN").
+- `src-tauri/src/migrations.rs` holds the schema steps, applied with [rusqlite_migration](https://crates.io/crates/rusqlite_migration). The schema number is `PRAGMA user_version` (currently 11); the file is marked with `application_id = 0x4E50494E` ("NPIN").
 - All pending steps and the new `user_version` run in one transaction. Before migrating an existing library the app writes a copy `backups/koonapin.before-vN.db` with `VACUUM INTO`; the last two are kept. If the copy fails the migration does not start; if a step fails the transaction rolls back and the screen points to the copy.
 - A released step is never edited; a change is a new step. A step that rebuilds a table must turn foreign keys off itself before the transaction.
 - Main tables: `bookmarks`, `collections`, `tags`, `bookmark_tags`, `capture_receipts`, `app_settings`, `tombstones`, `duplicates_dismissed`, `link_checks`. Records have a UUIDv7 `uid` beside the integer `id`; times are UTC strings with milliseconds (`YYYY-MM-DDTHH:MM:SS.sssZ`).
-- The inbox and the trash are flags, not places: `triaged_at IS NULL` means "in the inbox", `deleted_at IS NOT NULL` means "in the trash". Every query, counter and index filters on them. Purging the trash after 30 days (`trash.rs`) leaves a row in `tombstones`.
+- The inbox and the trash are flags, not places: `triaged_at IS NULL` means "in the inbox", `deleted_at IS NOT NULL` means "in the trash". Every query, counter and index filters on them. Purging the trash after 30 days (`trash.rs`) leaves a row in `tombstones`. Reading is a flag too (`reading_at IS NOT NULL`, schema 11), next to the bookmark's own `reading_progress` (0–1) and `read_at`; `reading.rs` keeps the reader's progress and takes read bookmarks out of Reading a week after they were read (setting `reading_keep_days`).
 - Search (`bookmarks_search`) is an FTS5 index with the `trigram` tokenizer and no stored text (`content=''`), kept in step by triggers in the same transaction as each write. Words of one or two characters, which trigrams cannot find, are checked by a connection function `np_contains`. Settings → Data can rebuild the index.
 - Sorting by title and site uses collation keys (`title_key`, `site_key`) written by triggers through connection functions backed by ICU4X (`sorting.rs`). The interface tells the database its language with `set_sort_language`; a change of language rewrites the keys in one transaction.
 
 ### Undo journal
 
-`journal.rs` keeps the last 100 commands (and at most 50 000 changed bookmarks) in memory, for the current run only. Edits, moves, tags, trash and restore record the fields before and after. `undo` restores only the fields that still hold what the command wrote; anything changed since makes the undo a `conflict` instead of silently overwriting it.
+`journal.rs` keeps the last 100 commands (and at most 50 000 changed bookmarks) in memory, for the current run only. Edits, moves, tags, trash and restore, sending to and taking out of Reading and marking read record the fields before and after. `undo` restores only the fields that still hold what the command wrote; anything changed since makes the undo a `conflict` instead of silently overwriting it.
 
 ## Capture
 

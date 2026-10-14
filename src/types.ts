@@ -111,4 +111,6 @@ export interface FilterState {
   onlyInbox: boolean;
   /** The «Trash» section (NP-022); every other section leaves the trash out. */
   onlyTrash: boolean;
+  /** The «Reading» section (NP-121) in its own order: unread newest first, then the read ones. */
+  onlyReading: boolean;
 }

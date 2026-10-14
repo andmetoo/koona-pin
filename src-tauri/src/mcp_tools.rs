@@ -79,7 +79,7 @@ pub const TOOLS: [Spec; 8] = [
     Spec {
         name: SEARCH,
         title: "Search bookmarks",
-        description: "Search the person's Koona Pin library by words in the title, address, description, notes or tags, optionally within a collection, a tag, Inbox or favorites. An empty query lists the latest saved. Returns at most 50 bookmarks with their address, collection and tags; pass next_cursor back as cursor for more.",
+        description: "Search the person's Koona Pin library by words in the title, address, description, notes or tags, optionally within a collection, a tag, Inbox, favorites or the Reading list (what the person means to read, unread first). An empty query lists the latest saved. Returns at most 50 bookmarks with their address, collection and tags; pass next_cursor back as cursor for more.",
         writes: false,
         idempotent: true,
     },
@@ -150,6 +150,8 @@ pub enum Filter {
     Inbox,
     /// Only the starred ones.
     Favorites,
+    /// Only the Reading list: unread newest added first, then the read ones.
+    Reading,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
