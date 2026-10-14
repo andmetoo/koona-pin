@@ -107,6 +107,9 @@ jobs:
   macos:
     name: macOS 15 / arm64
     needs: verify
+    # The Developer ID certificate and the App Store Connect key are secrets of the environment release,
+    # which opens to tags v* only: no pull request, branch or run on main can read them.
+    environment: release
     runs-on: macos-15
     timeout-minutes: 45
     env:
@@ -135,6 +138,11 @@ jobs:
           workspaces: src-tauri
           key: macos-release-arm64
       - run: bun install --frozen-lockfile
+      # dmgbuild, which makes the DMG (build-macos.mjs), needs Python 3.10 or later.
+      - uses: actions/setup-python@v7
+        id: python
+        with:
+          python-version: '3.13'
       # The Developer ID certificate into a keychain of this run, when the secrets are there (later,
       # NP-051); without them build-macos.mjs makes an ad hoc signed build and says so.
       - name: Apple certificate into a temporary keychain
@@ -169,6 +177,7 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          PYTHON: ${{ steps.python.outputs.python-path }}
         run: bun run build:macos
       # verify made sure the tag is v<version>. A path without a wildcard: the artifact holds the files only.
       - id: version

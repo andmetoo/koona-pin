@@ -1,8 +1,11 @@
 // The repository secrets of the CI and of releases (docs/building.md) from .env, by gh:
 //   bun scripts/ci-secrets.mjs              sets each one .env has; prints the names, never the values
 //   bun scripts/ci-secrets.mjs --dry-run    only says which it would set and which are missing
+//   bun scripts/ci-secrets.mjs APPLE_       only the secrets whose names start with one of the arguments
 // The value goes to gh on its standard input, not on the command line. TAURI_SIGNING_PRIVATE_KEY may
 // name the key's file (as Tauri accepts it): the file's contents go up then, and _PATH works the same way.
+// APPLE_CERTIFICATE comes from the .p12 at APPLE_CERTIFICATE_PATH (as base64) and APPLE_API_PRIVATE_KEY from
+// the .p8 at APPLE_API_KEY_PATH (its text), so neither is ever copied into .env, a terminal or a log.
 // The update key, the AMO keys and the deploy key go to the environment «release» (open to tags v* and
 // ext-v* only), not to the repository: no pull request, branch or run on main can read them.
 import { spawnSync } from "node:child_process";
@@ -17,6 +20,8 @@ if (!existsSync(dotenv)) {
 }
 process.loadEnvFile(dotenv);
 const dryRun = process.argv.includes("--dry-run");
+const only = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+const wanted = (name) => !only.length || only.some((prefix) => name.startsWith(prefix));
 
 const REQUIRED = [
   "KOONAPIN_FEEDBACK_URL",
@@ -38,7 +43,9 @@ const OPTIONAL = [
 
 /** Secrets of an environment instead of the repository's. */
 const ENVIRONMENT = Object.fromEntries(
-  ["TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET", "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS", "AUR_SSH_KEY", "AUR_KNOWN_HOSTS"].map((name) => [name, "release"]),
+  ["TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+    "APPLE_CERTIFICATE", "APPLE_CERTIFICATE_PASSWORD", "APPLE_SIGNING_IDENTITY", "APPLE_API_ISSUER", "APPLE_API_KEY", "APPLE_API_PRIVATE_KEY",
+    "WEB_EXT_API_KEY", "WEB_EXT_API_SECRET", "DEPLOY_SSH_KEY", "DEPLOY_HOST", "DEPLOY_KNOWN_HOSTS", "AUR_SSH_KEY", "AUR_KNOWN_HOSTS"].map((name) => [name, "release"]),
 );
 
 const isFile = (value) => !value.includes("\n") && existsSync(value) && statSync(value).isFile();
@@ -48,11 +55,17 @@ function value(name) {
     if (key && isFile(path.resolve(root, key))) return readFileSync(path.resolve(root, key), "utf8").trim();
     return key;
   }
+  const file = { APPLE_CERTIFICATE: "APPLE_CERTIFICATE_PATH", APPLE_API_PRIVATE_KEY: "APPLE_API_KEY_PATH" }[name];
+  if (!process.env[name] && file && process.env[file]) {
+    const at = path.resolve(root, process.env[file]);
+    if (!isFile(at)) throw new Error(`${file} names no file`);
+    return name === "APPLE_CERTIFICATE" ? readFileSync(at).toString("base64") : readFileSync(at, "utf8").trim();
+  }
   return process.env[name];
 }
 
 const missing = [];
-for (const name of [...REQUIRED, ...OPTIONAL]) {
+for (const name of [...REQUIRED, ...OPTIONAL].filter(wanted)) {
   const secret = value(name);
   if (!secret) {
     if (REQUIRED.includes(name)) missing.push(name);
