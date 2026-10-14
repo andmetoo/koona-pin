@@ -6,4 +6,17 @@ export type SyncDevice = { id: string, name: string, online: boolean, is_hub: bo
  * When it last connected or disconnected, ms since the Unix epoch; none before the relay
  * listed it.
  */
-last_seen: number | null, };
+last_seen: number | null, 
+/**
+ * `macos`, `windows`, `linux` or another word, as it said in its last sync `hello`; none
+ * before this device has synced with it once.
+ */
+platform: string | null, 
+/**
+ * Its Koona Pin version, from the same `hello`.
+ */
+app: string | null, 
+/**
+ * When a transfer with it last finished, either direction.
+ */
+last_sync_at: string | null, };

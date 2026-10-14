@@ -243,6 +243,7 @@ pub fn run() {
             commercial::sync::start_over,
             commercial::sync::join_sync_again,
             commercial::sync::dismiss_sync_notice,
+            commercial::sync::get_sync_account,
             commercial::sync::rename_device,
             commercial::sync::sync_now,
             commercial::sync::copy_sync_report,

@@ -25,7 +25,7 @@ use identity::Identity;
 use koona_sync::net::{Event, Stop};
 use koona_sync::session::Action;
 use serde::{Deserialize, Serialize};
-use status::{Context, Model, Notices, Reaction, SyncProblem, SyncStatus};
+use status::{Context, Model, Notices, Reaction, SyncAccount, SyncProblem, SyncStatus};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -559,6 +559,14 @@ pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
 }
 
 /// The notice of that id goes; one already gone is no error.
+/// Before turning sync on: asks the relay whether the account already has a main computer, without
+/// registering this one. Fails like the connection would (no plan, signed out, offline).
+#[tauri::command]
+pub async fn get_sync_account(app: AppHandle) -> Result<SyncAccount, CommandError> {
+    let _ = app;
+    Err(CommandError::invalid("Not built yet"))
+}
+
 #[tauri::command]
 pub fn dismiss_sync_notice(app: AppHandle, id: String) -> Result<SyncStatus, CommandError> {
     let state = app.state::<SyncState>();

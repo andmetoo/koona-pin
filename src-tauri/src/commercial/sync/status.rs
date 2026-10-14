@@ -46,6 +46,26 @@ pub struct SyncStatus {
     /// Things the person should hear about until they dismiss them, newest first: a computer
     /// added to the account, sync started over from another computer.
     pub notices: Vec<SyncNotice>,
+    /// Live bookmarks in this library (the trash aside); none while it isn't open.
+    #[ts(type = "number | null")]
+    pub bookmarks: Option<u64>,
+    /// This computer's clock minus the relay's, ms, from the last `challenge`; none before one.
+    #[ts(type = "number | null")]
+    pub clock_offset_ms: Option<i64>,
+    /// While paused for `update_needed`: the device that runs a newer version, if a peer (not the
+    /// relay) said so.
+    pub update_from: Option<String>,
+    /// Generation of the library key this device holds.
+    pub epoch: Option<u32>,
+}
+
+/// Answer of `get_sync_account`: what the relay knows of the account before this computer turns
+/// sync on, so the first screen can say whether it becomes the main computer or joins one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct SyncAccount {
+    /// The main computer's name; none when no computer of the account syncs yet.
+    pub main_name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -208,6 +228,14 @@ pub struct SyncDevice {
     /// listed it.
     #[ts(type = "number | null")]
     pub last_seen: Option<u64>,
+    /// `macos`, `windows`, `linux` or another word, as it said in its last sync `hello`; none
+    /// before this device has synced with it once.
+    pub platform: Option<String>,
+    /// Its Koona Pin version, from the same `hello`.
+    pub app: Option<String>,
+    /// When a transfer with it last finished, either direction.
+    #[ts(type = "string | null")]
+    pub last_sync_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
@@ -600,6 +628,9 @@ impl Model {
             is_hub: self.hub == Some(info.id),
             status: device_status(info.status),
             last_seen: Some(info.last_seen),
+            platform: None,
+            app: None,
+            last_sync_at: None,
         }
     }
 
@@ -616,6 +647,9 @@ impl Model {
                 is_hub: false,
                 status: SyncDeviceStatus::Unregistered,
                 last_seen: None,
+                platform: None,
+                app: None,
+                last_sync_at: None,
             },
         };
         let devices = self
@@ -637,6 +671,10 @@ impl Model {
             error: if ctx.enabled { self.error } else { None },
             hub_change: if ctx.enabled { self.hub_change.clone() } else { None },
             notices: if ctx.enabled { self.notices.list.clone() } else { Vec::new() },
+            bookmarks: None,
+            clock_offset_ms: None,
+            update_from: None,
+            epoch: None,
         }
     }
 }

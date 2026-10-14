@@ -265,6 +265,27 @@ pending device may then start the account over, proving it holds the account's e
 The new hub's key is pinned by the pairing, as for any new device. Nothing about devices that
 don't reconnect is kept beyond the revoked entries.
 
+### 2.7 Asking about the account
+
+Before a device turns sync on, it asks whether the account already has a hub, so the person reads
+"this computer becomes the main one" or "join <name>" — without registering the device:
+
+```
+GET /v1/account
+Authorization, X-Koona-Lease, X-Koona-Proto: as in section 2.1
+```
+
+Checked like a connection (same order and conditions); a failure answers HTTP 426 for 4004, 401
+for 4001 and 403 for 4002, with a JSON body `{"code": 4001, "reason": "..."}`. Success: HTTP 200
+with
+
+```json
+{"hub": {"id": "<uuid>", "name": "Home iMac"}}
+```
+
+or `{"hub": null}` when the account has no active device. Nothing is stored, and the request counts
+against the account's message bucket like a control message.
+
 ## 3. Device and device
 
 ### 3.1 Body
@@ -322,7 +343,7 @@ Kind-1 messages:
 
 | `t` | Fields | Meaning |
 |-----|--------|---------|
-| `hello` | `proto` (int), `schema` (int), `vector` (Vector), `hub` (bool) | First message both ways in a session. `schema` is the library schema version; `hub` says whether the sender is the hub |
+| `hello` | `proto` (int), `schema` (int), `vector` (Vector), `hub` (bool), `platform` (string), `app` (string) | First message both ways in a session. `schema` is the library schema version; `hub` says whether the sender is the hub; `platform` is `macos`, `windows`, `linux` or another lowercase word and `app` the sender's version, at most 32 characters each, shown to the person and not otherwise trusted. They travel sealed, so the relay never learns them |
 | `pull` | `vector` | "Send me every change not covered by this vector" |
 | `changes` | `groups` ([Group]), `covers` (Vector), `last` (bool) | One batch of an answer, or an unasked push |
 | `ack` | `vector` | The receiver's vector after it applied a `last` batch |

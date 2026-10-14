@@ -47,4 +47,21 @@ hub_change: HubChangePrompt | null,
  * Things the person should hear about until they dismiss them, newest first: a computer
  * added to the account, sync started over from another computer.
  */
-notices: Array<SyncNotice>, };
+notices: Array<SyncNotice>, 
+/**
+ * Live bookmarks in this library (the trash aside); none while it isn't open.
+ */
+bookmarks: number | null, 
+/**
+ * This computer's clock minus the relay's, ms, from the last `challenge`; none before one.
+ */
+clock_offset_ms: number | null, 
+/**
+ * While paused for `update_needed`: the device that runs a newer version, if a peer (not the
+ * relay) said so.
+ */
+update_from: string | null, 
+/**
+ * Generation of the library key this device holds.
+ */
+epoch: number | null, };
