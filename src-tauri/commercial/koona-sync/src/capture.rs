@@ -97,6 +97,11 @@ fn install(conn: &Connection, state: State) -> Result<()> {
                 "applying" if value > 0 => s.applying += 1,
                 "applying" => s.applying = s.applying.saturating_sub(1),
                 "observe" => s.hlc.observe(value.max(0) as u64),
+                // Another replica on the same connection: its counters start anew.
+                "origin" => {
+                    s.origin = value;
+                    s.counter = 0;
+                }
                 "wall" => s.wall = (value >= 0).then_some(value as u64),
                 _ => return Err(rusqlite::Error::InvalidParameterName(key)),
             }
@@ -154,6 +159,13 @@ pub fn attach(conn: &Connection, replica: Uuid) -> Result<()> {
     conn.execute("INSERT OR IGNORE INTO sync_origins (origin) VALUES (?1)", [replica.to_string()])?;
     let origin = self_origin(conn)?.ok_or(Error::NotAttached)?;
     conn.execute("INSERT OR IGNORE INTO sync_vector (origin, counter) VALUES (?1, 0)", [origin])?;
+    // On a connection that has the functions, only their state changes:
+    // SQLite refuses to replace a function while any statement of the
+    // connection runs, and one may in the caller's transaction (the app saw
+    // it after writing its FTS5 index).
+    if control(conn, "origin", origin).is_ok() {
+        return control(conn, "capture", 1);
+    }
     install(conn, State { capture: true, origin, ..State::default() })
 }
 

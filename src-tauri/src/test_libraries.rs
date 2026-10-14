@@ -129,7 +129,19 @@ pub fn fresh_at(path: &Path, schema: i64) -> Connection {
         .unwrap();
     // A new library names its first collections when the interface opens it (NP-085).
     let names = ["Development", "Design & UI", "Articles / To read"].map(String::from);
-    crate::db::create_starter_collections(&conn, &names).unwrap();
+    if schema >= 10 {
+        crate::db::create_starter_collections(&conn, &names).unwrap();
+    } else {
+        // As the builds of that schema made them: no place in the sidebar.
+        for (name, (color, icon)) in names.iter().zip([("#6366f1", "code"), ("#ec4899", "palette"), ("#10b981", "book-open")]) {
+            conn.execute(
+                "INSERT INTO collections (uid, name, color, icon, created_at) VALUES (?1, ?2, ?3, ?4, '')",
+                params![name, name, color, icon],
+            )
+            .unwrap();
+        }
+        conn.execute("DELETE FROM app_settings WHERE key = 'starter_collections'", []).unwrap();
+    }
     let mut random = Random(1);
     let created = epoch();
     for id in 1..=3 {

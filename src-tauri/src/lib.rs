@@ -26,11 +26,13 @@ pub mod migrations;
 pub mod native_host;
 pub mod net_guard;
 pub mod pipe_name;
+pub mod position_keys;
 pub mod quick_search;
 pub mod restore;
 #[cfg(target_os = "macos")]
 pub mod safari_socket;
 pub mod sorting;
+pub mod sync_library;
 #[doc(hidden)]
 pub mod test_libraries;
 pub mod trash;

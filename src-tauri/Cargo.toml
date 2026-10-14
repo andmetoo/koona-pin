@@ -67,7 +67,8 @@ flate2 = "1.1"
 ring = "0.17"
 base64 = "0.22"
 # Sync (Р-68, NP-059): the engine and its relay client, under the commercial license
-# (`commercial/koona-sync`); the app's glue is `src/commercial/sync`.
+# (`commercial/koona-sync`). Schema 10 and its triggers are called from the GPL code like the
+# other commercial modules; the app's glue is `src/commercial/sync`.
 koona-sync = { path = "commercial/koona-sync", features = ["net"] }
 
 [dev-dependencies]
