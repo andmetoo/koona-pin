@@ -105,7 +105,11 @@ fn time(value: &str) -> Option<String> {
     DateTime::parse_from_rfc3339(value.trim()).ok().map(|t| db::stamp(t.into()))
 }
 
-const SOURCES: [&str; 9] = ["app", "chrome", "edge", "firefox", "extension", "bookmarklet", "import", "mcp", "safari"];
+/// A source the copy may carry. Any short name passes, not only the ones this
+/// version knows: a newer app, or another device through sync (schema 10,
+/// Р-68), may have saved from a place this one has no name for, and the
+/// interface shows an unknown source as it is.
+const MAX_SOURCE: usize = 64;
 
 /// Reads and checks the whole copy; nothing in the library is touched. Times
 /// come back in the library's format.
@@ -187,7 +191,7 @@ pub fn check(text: &str) -> Result<JsonLibrary, RestoreProblem> {
             }
         }
         if let Some(source) = &b.source {
-            if !SOURCES.contains(&source.as_str()) {
+            if source.trim().is_empty() || source.chars().count() > MAX_SOURCE {
                 return Err(damaged(CopyItem::Bookmark, at, Damage::BadSource, source));
             }
         }
@@ -503,12 +507,16 @@ mod tests {
             (with(&|v| v["bookmarks"][1]["created_at"] = "вчера".into()), damaged(CopyItem::Bookmark, 2, Damage::BadDate, "вчера")),
             (with(&|v| v["bookmarks"][0]["collection"] = "nowhere".into()), damaged(CopyItem::Bookmark, 1, Damage::UnknownCollection, "nowhere")),
             (with(&|v| v["bookmarks"][1]["uid"] = v["bookmarks"][0]["uid"].clone()), damaged(CopyItem::Bookmark, 2, Damage::RepeatedUid, good["bookmarks"][0]["uid"].as_str().unwrap())),
-            (with(&|v| v["bookmarks"][0]["source"] = "phone".into()), damaged(CopyItem::Bookmark, 1, Damage::BadSource, "phone")),
+            (with(&|v| v["bookmarks"][0]["source"] = " ".into()), damaged(CopyItem::Bookmark, 1, Damage::BadSource, " ")),
+            (with(&|v| v["bookmarks"][0]["source"] = "x".repeat(65).into()), damaged(CopyItem::Bookmark, 1, Damage::BadSource, &"x".repeat(65))),
             (with(&|v| v["collections"][0]["name"] = " ".into()), damaged(CopyItem::Collection, 1, Damage::MissingName, "")),
         ];
         for (text, expected) in cases {
             assert_eq!(check(&text).unwrap_err(), expected, "{text:.80}");
         }
+        // A source this version doesn't know, from a newer app or another device, is kept.
+        let phone = check(&with(&|v| v["bookmarks"][0]["source"] = "phone".into())).unwrap();
+        assert_eq!(phone.bookmarks[0].source.as_deref(), Some("phone"));
         // Missing fields are a damaged structure, with serde's account of where.
         let broken = with(&|v| {
             v["bookmarks"][0].as_object_mut().unwrap().remove("title");
