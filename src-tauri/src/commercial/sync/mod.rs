@@ -445,9 +445,49 @@ pub fn remove_device(app: AppHandle, device: String) -> Result<SyncStatus, Comma
     act(&app, Action::RemoveDevice { device: device_id(&device)? })
 }
 
+/// «Make main» on a device that isn't the hub: asks the hub, which shows Allow / Deny. An offline
+/// hub makes this fail with `HubOffline`; the person may then start over from here.
 #[tauri::command]
-pub fn make_hub(app: AppHandle, device: String) -> Result<SyncStatus, CommandError> {
-    act(&app, Action::MakeHub { device: device_id(&device)? })
+pub fn request_main(app: AppHandle) -> Result<SyncStatus, CommandError> {
+    let _ = app;
+    Err(CommandError::invalid("Not built yet"))
+}
+
+/// On the hub: the answer to `request_main`. Allow hands the hub over to the asking device.
+#[tauri::command]
+pub fn answer_main_request(app: AppHandle, allow: bool) -> Result<SyncStatus, CommandError> {
+    let _ = (app, allow);
+    Err(CommandError::invalid("Not built yet"))
+}
+
+/// «Start over from this computer», step one: a code is emailed to the account's address,
+/// which is returned for the dialog to show.
+#[tauri::command]
+pub async fn send_start_over_code(app: AppHandle) -> Result<String, CommandError> {
+    let _ = app;
+    Err(CommandError::invalid("Not built yet"))
+}
+
+/// Step two: the code signs in afresh and the relay starts the account over from this device:
+/// every other device is disconnected, this one becomes the main computer with a new key.
+#[tauri::command]
+pub async fn start_over(app: AppHandle, code: String) -> Result<SyncStatus, CommandError> {
+    let _ = (app, code);
+    Err(CommandError::invalid("Not built yet"))
+}
+
+/// «Join…» after sync was started over elsewhere: pairs this device with the new main computer;
+/// its bookmarks merge back.
+#[tauri::command]
+pub fn join_sync_again(app: AppHandle) -> Result<SyncStatus, CommandError> {
+    let _ = app;
+    Err(CommandError::invalid("Not built yet"))
+}
+
+#[tauri::command]
+pub fn dismiss_sync_notice(app: AppHandle, id: String) -> Result<SyncStatus, CommandError> {
+    let _ = (app, id);
+    Err(CommandError::invalid("Not built yet"))
 }
 
 /// Any active device renames any device; this one's name is kept here too, for its next `hello`.

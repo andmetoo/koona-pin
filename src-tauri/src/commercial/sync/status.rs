@@ -38,6 +38,55 @@ pub struct SyncStatus {
     pub last_sync_at: Option<DateTime<Utc>>,
     /// The last thing that went wrong, until the next action of the person or a success.
     pub error: Option<SyncProblem>,
+    /// A change of the main computer under way: on the asking device «Waiting for <hub>», on the
+    /// hub «Make <peer> the main computer?» with Allow / Deny.
+    pub hub_change: Option<HubChangePrompt>,
+    /// Things the person should hear about until they dismiss them, newest first: a computer
+    /// added to the account, sync started over from another computer.
+    pub notices: Vec<SyncNotice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct HubChangePrompt {
+    pub role: HubChangeRole,
+    /// The other device: the hub on the asking device, the asking device on the hub.
+    pub peer: String,
+    pub peer_name: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum HubChangeRole {
+    /// This device asked to become the main computer.
+    Asking,
+    /// This is the main computer, asked to hand over.
+    Hub,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(export)]
+pub enum SyncNotice {
+    /// `name` joined the account, approved on `by_name` (the hub then) at `at`.
+    DeviceAdded {
+        /// Stable id of the notice, for `dismiss_sync_notice`.
+        id: String,
+        device: String,
+        name: String,
+        by_name: Option<String>,
+        #[ts(type = "string")]
+        at: DateTime<Utc>,
+    },
+    /// `by_name` started sync over: this device was disconnected and joins again with «Join…».
+    StartedOver {
+        id: String,
+        by: String,
+        by_name: Option<String>,
+        #[ts(type = "string")]
+        at: DateTime<Utc>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
@@ -92,6 +141,9 @@ pub enum PausedReason {
     Replaced,
     /// The relay refused the account's sign-in even after a refresh: sign in again.
     SignedOut,
+    /// Sync was started over from another computer: this one joins again with «Join…»
+    /// (`join_sync_again`), which pairs it with the new main computer.
+    StartedOver,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -163,6 +215,12 @@ pub enum SyncProblem {
     LibraryFailed,
     /// The library was replaced (a restore of another copy): sync stopped for it.
     LibraryReplaced,
+    /// The main computer denied the request to become the main one.
+    HubChangeDenied,
+    /// The main computer did not answer within five minutes.
+    HubChangeTimeout,
+    /// Starting over needs a sign-in by email code within the last ten minutes.
+    StaleSignIn,
 }
 
 /// What the worker does after an event, besides showing the new status.
@@ -444,6 +502,8 @@ impl Model {
             pairing: if ctx.enabled { self.pairing.clone() } else { None },
             last_sync_at: self.last_sync_at,
             error: if ctx.enabled { self.error } else { None },
+            hub_change: None,
+            notices: Vec::new(),
         }
     }
 }

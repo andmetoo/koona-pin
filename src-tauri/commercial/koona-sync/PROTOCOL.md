@@ -67,6 +67,7 @@ Browsers can't set headers on a WebSocket; v1 clients are native apps and MUST u
 | 4002 | No valid lease / plan without sync | Stop; show the plan state |
 | 4003 | This device is revoked | Stop for good; forget the library key |
 | 4004 | Protocol too old | Stop; ask the person to update |
+| 4005 | The account was started over (section 2.6), by another device or by this one | Reconnect: the device that started over at once, the others when the person chooses «Join» |
 | 4008 | Rate limited | Retry after backoff (at least 30 s) |
 | 4009 | Replaced: the same device id connected again | Don't reconnect from this connection |
 
@@ -118,12 +119,14 @@ doesn't know; the relay answers one with `error{code: "bad_message"}`.
    {"t": "welcome", "status": "pending|active", "hub": "<uuid>", "epoch": 3,
     "devices": [{"id": "<uuid>", "name": "...", "key": "<base64>",
                  "status": "pending|active|revoked", "last_seen": 1760399000000}],
-    "online": ["<uuid>"], "time": 1760400000000}
+    "online": ["<uuid>"], "time": 1760400000000,
+    "started_over": {"by": "<uuid>", "at": 1760399500000, "epoch": 4}}
    ```
 
    `status` is this device's own. `devices` is the whole directory, revoked devices included.
    `last_seen` is when that device last connected or disconnected. `online` lists devices with an
-   open connection, this one included.
+   open connection, this one included. `started_over` is present once the account has been
+   started over (section 2.6) and describes the latest time.
 
 A device sends nothing else before `welcome`.
 
@@ -142,9 +145,10 @@ The relay sends these to every connected device of the account, the cause includ
 |---------|--------------|--------|
 | `{"t": "approve", "device": id}` | hub | A `pending` device becomes `active` |
 | `{"t": "revoke", "device": id}` | hub | Any other device becomes `revoked`; its connection is closed with 4003 |
-| `{"t": "set_hub", "device": id}` | any active device | An `active` device becomes the hub |
+| `{"t": "set_hub", "device": id}` | hub | An `active` device becomes the hub. The hub sends it only after it allowed a `hub_request` (section 4.4) |
 | `{"t": "rename", "device": id, "name": "..."}` | any active device | Renames a non-revoked device |
 | `{"t": "epoch", "epoch": n}` | hub | Sets the epoch; `n` MUST be greater than the current one |
+| `{"t": "start_over", "token": jwt}` | any active or pending device | Starts the account over from the sender (section 2.6) |
 
 A request that succeeds is answered only by the notice it causes. A refused one is answered with
 `{"t": "error", "code": "..."}`:
@@ -156,6 +160,7 @@ A request that succeeds is answered only by the notice it causes. A refused one 
 | `forbidden` | The sender may not do this (not the hub; still pending) |
 | `unknown_device` | The device is not on the account or is in the wrong state (e.g. approving an active device, revoking the hub, making a pending device the hub) |
 | `bad_epoch` | `epoch` not greater than the current one |
+| `stale_sign_in` | `start_over` without a sign-in by email code in the last 10 minutes |
 
 Pending devices may send no requests. The hub cannot revoke itself; it hands over with `set_hub`
 first.
@@ -232,6 +237,32 @@ byte on the wire.
   online. A frame a device addresses to itself is echoed back to it. The hub alias while there is
   no hub is `undeliverable`. A text frame over 64 KiB is answered with `bad_message`.
 
+### 2.6 Starting over
+
+When the hub is lost (sold, broken, stolen) nobody can add or remove devices. Any active or
+pending device may then start the account over, proving it holds the account's email:
+
+1. The device has the person sign in again with a code from the email (Supabase `verify`, type
+   `email`) and sends `{"t": "start_over", "token": "<the new access token>"}`.
+2. The relay verifies `token` as in section 2.1, checks that its `sub` is the connection's, and
+   that its `amr` claim lists a method `otp` (or `email`, `magiclink`) whose `timestamp` is at most
+   600 s old. Otherwise: `error{code: "stale_sign_in"}` and nothing changes. A revoked device can't
+   send it (it never gets past `hello`).
+3. The relay removes every other `active` and `pending` device from the directory (revoked ones
+   stay revoked), makes the sender `active` and the hub, sets the epoch to the current one + 1, and
+   stores `started_over = {by: sender, at: now, epoch}`.
+4. It closes every connection of the account, the sender's included, with **4005** and reason
+   `started_over`.
+5. The sender generates a new random library key for the new epoch before it reconnects; its
+   `welcome` then lists it alone as the active hub. Each other device reconnects when the person
+   chooses «Join»: its id is unknown again, so it registers as `pending` and pairs with the new hub
+   (section 4.2), keeping its library; the first sync merges it back. Until then a device that sees
+   4005, or a `welcome` with `status: "pending"` and a `started_over.epoch` greater than the epoch
+   whose key it holds, shows that sync was started over from `started_over.by`.
+
+The new hub's key is pinned by the pairing, as for any new device. Nothing about devices that
+don't reconnect is kept beyond the revoked entries.
+
 ## 3. Device and device
 
 ### 3.1 Body
@@ -294,6 +325,8 @@ Kind-1 messages:
 | `changes` | `groups` ([Group]), `covers` (Vector), `last` (bool) | One batch of an answer, or an unasked push |
 | `ack` | `vector` | The receiver's vector after it applied a `last` batch |
 | `roster` | `hub` (uuid), `devices` ([{`id`, `key`}]) | Hub -> devices: the active devices' Ed25519 keys (section 4.4) |
+| `hub_request` | none | Active device -> hub: "make me the main computer" (section 4.4) |
+| `hub_answer` | `allow` (bool) | Hub -> the asking device |
 | `error` | `code` | See below |
 
 `Group` and `Vector` are the JSON shapes of `src/model.rs`: a Vector is an object from replica
@@ -314,7 +347,8 @@ sync with that peer, does not advance its vector, and asks the person to update.
 the unknown part would let `covers` mark a change as held that was never stored. A wrong type or a
 missing field is a broken peer, not a newer one: the body is dropped.
 
-`error` codes: `update_needed`; `clock_skew` (section 3.6); `rejected` and `bad_signature` (pairing).
+`error` codes: `update_needed`; `clock_skew` (section 3.6); `rejected` and `bad_signature` (pairing);
+`busy` (the hub is already answering another `hub_request`).
 A receiver MUST accept an `error` with a code it doesn't know (treat it as a generic failure), so
 codes can grow without forcing updates.
 
@@ -445,6 +479,17 @@ keys in the latest roster it received from the hub. A device accepts `set_hub` (
 toward a device in its pinned roster, and accepts `rekey_accept` only when signed by the current
 hub's pinned key. A device that becomes hub through `set_hub` sends a fresh roster.
 
+**Changing the hub.** Only the hub hands over, and only when the person on it allows it:
+
+1. The device that wants to be the hub sends kind-1 `hub_request` to the hub (to all zero). If the
+   relay answers `undeliverable`, the hub is offline: the person is told, and may start over
+   (section 2.6) instead.
+2. The hub asks its person «Make <name> the main computer?». On Allow it sends `set_hub{device}` to
+   the relay and then `hub_answer{allow: true}`; on Deny, `hub_answer{allow: false}`. It answers one
+   request at a time; another gets `error{code: "busy"}`.
+3. The asking device gives up after 5 minutes without an answer. It becomes the hub when the relay
+   announces `account{hub: <it>}`, and then sends its roster.
+
 ## 5. Limits and constants
 
 | Name | Value |
@@ -458,6 +503,8 @@ hub's pinned key. A device that becomes hub through `set_hub` sends a fresh rost
 | `hello` deadline after `challenge` | 10 s |
 | Clock skew threshold | 5 min |
 | Pairing timeout | 5 min |
+| Hub request timeout | 5 min |
+| Start over: sign-in age, max | 10 min |
 
 ## 6. Test vectors
 
