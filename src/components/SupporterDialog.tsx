@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, FlaskConical, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
+import { Check, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
@@ -84,7 +84,7 @@ function useSupporterPrices(ask: "always" | "if_unknown" | "never" = "always") {
   }, []);
   return { prices, failed };
 }
-const PERKS = ["sync", "backups", "badge", "early"] as const;
+const PERKS = ["sync", "backups", "badge"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
 
@@ -275,7 +275,9 @@ export function SupporterDialog({
       ) : (
         <p className="mt-3 text-xs leading-[17px] text-muted">{t("supporter.paddleHint")}</p>
       )}
-      <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
+      {/* pt-11, not pt-5: the 24 px of the perk line that went (early builds) stay above the footer,
+          so this step, the tallest, keeps the one height of the purchase flow (NP-118). */}
+      <footer className="mt-auto flex items-center justify-end gap-2 pt-11">
         {/* Paid on another computer: the email of the payment and its code (sheet 45). */}
         <button type="button" onClick={onSignIn} className="mr-auto text-sm font-medium text-accent hover:underline">
           {t("plan.already")}
@@ -802,7 +804,7 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
   );
 }
 
-const PERK_ICONS = { sync: RefreshCw, backups: Folder, early: FlaskConical } as const;
+const PERK_ICONS = { sync: RefreshCw, backups: Folder } as const;
 
 /**
  * «Supporter» (NP-066, sheet 45), opened by the badge in the sidebar: the plan, its state on one
@@ -942,7 +944,7 @@ export function PlanDialog({
         <hr className="my-4 border-divider" />
         <h3 className="text-2xs font-semibold text-subtle uppercase">{t("supporter.perksTitle")}</h3>
         <ul className="mt-2.5 flex flex-col gap-4">
-          {(["sync", "backups", "badge", "early"] as const).map((perk) => {
+          {PERKS.map((perk) => {
             const PerkIcon = perk === "badge" ? null : PERK_ICONS[perk];
             return (
               <li key={perk} className="flex items-center gap-3">

@@ -1124,8 +1124,7 @@
     "perks": {
       "sync": "Sincronização entre seus computadores — fase inicial, desde o primeiro dia",
       "backups": "Backups automáticos na pasta que você escolher, como o Dropbox",
-      "badge": "Um selo de Supporter no app",
-      "early": "Versões antecipadas antes de todos"
+      "badge": "Um selo de Supporter no app"
     },
     "plan": "Plano",
     "yearly": "Anual",
@@ -1187,9 +1186,7 @@
       "backups": "Backups automáticos em uma pasta",
       "backupsHint": "Na pasta que você escolher, como Dropbox ou Google Drive",
       "badge": "Selo de Supporter",
-      "badgeHint": "O coração da barra lateral, na cor da estação",
-      "early": "Versões antecipadas",
-      "earlyHint": "Versões novas um pouco antes de todos"
+      "badgeHint": "O coração da barra lateral, na cor da estação"
     },
     "folder": {
       "hint": "Como Dropbox ou Google Drive",

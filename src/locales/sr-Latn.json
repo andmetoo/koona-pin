@@ -1126,8 +1126,7 @@
     "perks": {
       "sync": "Sinhronizaciju između računara — rana faza, od prvog dana",
       "backups": "Automatske kopije u fasciklu po izboru, na primer Dropbox",
-      "badge": "Oznaku Supporter u aplikaciji",
-      "early": "Rane verzije pre svih"
+      "badge": "Oznaku Supporter u aplikaciji"
     },
     "plan": "Plan",
     "yearly": "Godišnje",
@@ -1189,9 +1188,7 @@
       "backups": "Automatske kopije u fasciklu",
       "backupsHint": "U fasciklu po izboru, na primer Dropbox ili Google Disk",
       "badge": "Oznaka Supporter",
-      "badgeHint": "Srce u bočnoj traci, u boji godišnjeg doba",
-      "early": "Rane verzije",
-      "earlyHint": "Nove verzije malo pre svih"
+      "badgeHint": "Srce u bočnoj traci, u boji godišnjeg doba"
     },
     "folder": {
       "hint": "Na primer Dropbox ili Google Disk",

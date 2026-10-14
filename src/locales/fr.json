@@ -1124,8 +1124,7 @@
     "perks": {
       "sync": "La synchronisation entre vos ordinateurs — phase précoce, dès le premier jour",
       "backups": "Des sauvegardes automatiques dans le dossier de votre choix, comme Dropbox",
-      "badge": "Un badge Supporter dans l’app",
-      "early": "Les versions préliminaires avant tout le monde"
+      "badge": "Un badge Supporter dans l’app"
     },
     "plan": "Formule",
     "yearly": "Annuel",
@@ -1187,9 +1186,7 @@
       "backups": "Sauvegardes automatiques dans un dossier",
       "backupsHint": "Dans le dossier de votre choix, comme Dropbox ou Google Drive",
       "badge": "Badge Supporter",
-      "badgeHint": "Le cœur de la barre latérale, à la couleur de la saison",
-      "early": "Versions préliminaires",
-      "earlyHint": "Les nouvelles versions un peu avant tout le monde"
+      "badgeHint": "Le cœur de la barre latérale, à la couleur de la saison"
     },
     "folder": {
       "hint": "Comme Dropbox ou Google Drive",

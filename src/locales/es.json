@@ -1124,8 +1124,7 @@
     "perks": {
       "sync": "Sincronización entre tus ordenadores — fase inicial, desde el primer día",
       "backups": "Copias automáticas en la carpeta que elijas, como Dropbox",
-      "badge": "Una insignia de Supporter en la app",
-      "early": "Versiones tempranas antes que nadie"
+      "badge": "Una insignia de Supporter en la app"
     },
     "plan": "Plan",
     "yearly": "Anual",
@@ -1187,9 +1186,7 @@
       "backups": "Copias automáticas en una carpeta",
       "backupsHint": "En la carpeta que elijas, como Dropbox o Google Drive",
       "badge": "Insignia de Supporter",
-      "badgeHint": "El corazón de la barra lateral, del color de la estación",
-      "early": "Versiones tempranas",
-      "earlyHint": "Versiones nuevas un poco antes que nadie"
+      "badgeHint": "El corazón de la barra lateral, del color de la estación"
     },
     "folder": {
       "hint": "Como Dropbox o Google Drive",

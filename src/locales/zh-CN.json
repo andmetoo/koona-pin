@@ -978,8 +978,7 @@
     "perks": {
       "sync": "多台电脑之间同步——早期阶段，从第一天起",
       "backups": "自动备份到你选择的文件夹，例如 Dropbox",
-      "badge": "应用内的 Supporter 徽章",
-      "early": "抢先体验预览版本"
+      "badge": "应用内的 Supporter 徽章"
     },
     "plan": "方案",
     "yearly": "按年",
@@ -1041,9 +1040,7 @@
       "backups": "自动备份到文件夹",
       "backupsHint": "备份到你选择的文件夹，例如 Dropbox 或 Google 云端硬盘",
       "badge": "Supporter 徽章",
-      "badgeHint": "侧边栏中的心形，随季节变色",
-      "early": "抢先版本",
-      "earlyHint": "比其他人稍早获得新版本"
+      "badgeHint": "侧边栏中的心形，随季节变色"
     },
     "folder": {
       "hint": "例如 Dropbox 或 Google 云端硬盘",

@@ -32,8 +32,8 @@ test("Sync: the perk of the Supporter dialog turns sync on; this computer become
   const perk = plan.locator("li", { hasText: "Sync between your computers" });
   await expect(perk.locator("[data-sync-perk]")).toHaveAttribute("data-sync-perk", "off");
   await expect(perk).toContainText("Koona's server keeps none of your library");
-  // Only the early builds are still to come.
-  await expect(plan.getByText("Soon")).toHaveCount(1);
+  // Every perk works already: none of them says «Soon».
+  await expect(plan.getByText("Soon")).toHaveCount(0);
   await perk.getByRole("button", { name: "Set up…" }).click();
   const setup = page.getByRole("dialog", { name: "Sync" });
   await expect(setup.locator("[data-sync-view]")).toHaveAttribute("data-sync-view", "setup");

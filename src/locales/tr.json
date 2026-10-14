@@ -1051,8 +1051,7 @@
     "perks": {
       "sync": "Bilgisayarlarınız arasında eşitleme — erken aşama, ilk günden",
       "backups": "Seçtiğiniz klasöre otomatik yedekler, örneğin Dropbox",
-      "badge": "Uygulamada Supporter rozeti",
-      "early": "Erken sürümler herkesten önce"
+      "badge": "Uygulamada Supporter rozeti"
     },
     "plan": "Plan",
     "yearly": "Yıllık",
@@ -1114,9 +1113,7 @@
       "backups": "Bir klasöre otomatik yedekler",
       "backupsHint": "Seçtiğiniz klasöre, örneğin Dropbox veya Google Drive",
       "badge": "Supporter rozeti",
-      "badgeHint": "Kenar çubuğundaki kalp, mevsimin renginde",
-      "early": "Erken sürümler",
-      "earlyHint": "Yeni sürümler herkesten biraz önce"
+      "badgeHint": "Kenar çubuğundaki kalp, mevsimin renginde"
     },
     "folder": {
       "hint": "Örneğin Dropbox veya Google Drive",

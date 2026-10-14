@@ -1197,8 +1197,7 @@
     "perks": {
       "sync": "Synchronizację między komputerami — wczesny etap, od pierwszego dnia",
       "backups": "Automatyczne kopie do wybranego folderu, np. Dropbox",
-      "badge": "Odznakę Supporter w aplikacji",
-      "early": "Wczesne wersje przed innymi"
+      "badge": "Odznakę Supporter w aplikacji"
     },
     "plan": "Plan",
     "yearly": "Rocznie",
@@ -1260,9 +1259,7 @@
       "backups": "Automatyczne kopie do folderu",
       "backupsHint": "Do wybranego folderu, np. Dropbox albo Dysk Google",
       "badge": "Odznaka Supporter",
-      "badgeHint": "Serce w panelu bocznym, w kolorze pory roku",
-      "early": "Wczesne wersje",
-      "earlyHint": "Nowe wersje trochę wcześniej niż inni"
+      "badgeHint": "Serce w panelu bocznym, w kolorze pory roku"
     },
     "folder": {
       "hint": "Np. Dropbox albo Dysk Google",

@@ -978,8 +978,7 @@
     "perks": {
       "sync": "コンピューター間の同期 — 初期段階、初日から",
       "backups": "Dropbox など好きなフォルダーへの自動バックアップ",
-      "badge": "アプリ内の Supporter バッジ",
-      "early": "誰よりも早いプレビュー版"
+      "badge": "アプリ内の Supporter バッジ"
     },
     "plan": "プラン",
     "yearly": "年額",
@@ -1041,9 +1040,7 @@
       "backups": "フォルダーへの自動バックアップ",
       "backupsHint": "Dropbox や Google ドライブなど好きなフォルダーへ",
       "badge": "Supporter バッジ",
-      "badgeHint": "サイドバーのハート、季節の色で",
-      "early": "早期ビルド",
-      "earlyHint": "新しいバージョンを少し早く"
+      "badgeHint": "サイドバーのハート、季節の色で"
     },
     "folder": {
       "hint": "Dropbox や Google ドライブなど",

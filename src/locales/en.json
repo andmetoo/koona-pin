@@ -1051,8 +1051,7 @@
     "perks": {
       "sync": "Sync between your computers — early stage, from day one",
       "backups": "Automatic backups to a folder of your choice, like Dropbox",
-      "badge": "A Supporter badge in the app",
-      "early": "Early builds before everyone else"
+      "badge": "A Supporter badge in the app"
     },
     "plan": "Plan",
     "yearly": "Yearly",
@@ -1114,9 +1113,7 @@
       "backups": "Automatic backups to a folder",
       "backupsHint": "To a folder you choose, like Dropbox or Google Drive",
       "badge": "Supporter badge",
-      "badgeHint": "The heart in the sidebar, in the colour of the season",
-      "early": "Early builds",
-      "earlyHint": "New versions a little before everyone else"
+      "badgeHint": "The heart in the sidebar, in the colour of the season"
     },
     "folder": {
       "hint": "Like Dropbox or Google Drive",
