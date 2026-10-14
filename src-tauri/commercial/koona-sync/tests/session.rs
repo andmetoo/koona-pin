@@ -535,6 +535,37 @@ fn the_first_device_is_the_hub_and_a_new_one_pairs_and_gets_the_library() {
     assert_eq!(count(w.lib(a)), 306);
 }
 
+/// The interface asks to pair when the device turns pending and again when it sees the hub
+/// online, which can both come from one `welcome` (found by the end-to-end test): one offer
+/// goes, and the pairing completes.
+#[test]
+fn asking_twice_sends_one_offer() {
+    let mut w = World::new();
+    let a = w.add("Studio Mac", 1, 4 << 10);
+    let b = w.add("Laptop", 2, 4 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let hub = w.devices[a].id;
+    let devices = w.devices[b].events.iter().find_map(|e| match e {
+        Effect::Devices { hub, .. } => Some(*hub),
+        _ => None,
+    });
+    assert_eq!(devices, Some(Some(hub)), "the first directory a new device shows names the hub");
+    w.act(b, Action::StartPairing);
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert_eq!(w.codes(a).len(), 1, "the hub got one offer");
+    assert_eq!(w.codes(b).len(), 1);
+    assert_eq!(w.codes(a)[0].1, w.codes(b)[0].1);
+    assert_eq!(w.dropped(b, DropReason::BadSignature), 0);
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert_eq!(w.phase(b), Phase::Online);
+}
+
 #[test]
 fn a_rejected_or_tampered_pairing_gets_no_key() {
     let mut w = World::new();

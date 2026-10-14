@@ -299,8 +299,9 @@ async fn pump(
     done.store(true, Ordering::SeqCst);
 }
 
-/// Pushes local changes: see the module's comment.
-async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>) {
+/// Pushes local changes: see the module's comment. Until `done`; public for the end-to-end test
+/// (`tests/sync_e2e.rs`), which runs clients without Tauri.
+pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>) {
     let mut last: Option<i64> = None;
     let mut waiting: Option<(Instant, Instant)> = None;
     loop {

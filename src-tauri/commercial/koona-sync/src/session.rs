@@ -380,6 +380,13 @@ impl Session {
         self.hub
     }
 
+    /// The account's devices with a connection open, this one included (at least 1): they share
+    /// the relay's rate limits.
+    pub fn devices_online(&self) -> usize {
+        let others = self.online.iter().filter(|d| **d != self.cfg.device).count();
+        others + 1
+    }
+
     /// The relay's epoch and the newest library key epoch this device holds.
     pub fn epochs(&self) -> (u32, Option<u32>) {
         (self.relay_epoch, self.keys.keys().next_back().copied())
@@ -929,8 +936,9 @@ impl Session {
                 self.devices = devices.into_iter().map(|d| (d.id, d)).collect();
                 self.online = online.into_iter().collect();
                 self.check_skew(lib, time);
-                self.emit_devices();
                 self.set_account(lib, hub, epoch, true);
+                // After the hub is known: the interface asks to pair once the hub is online.
+                self.emit_devices();
             }
             Control::Presence { device, online } => self.on_presence(lib, device, online),
             Control::Device { device } => self.on_device(lib, device),
@@ -1042,6 +1050,11 @@ impl Session {
         self.emit_devices();
         if self.hosting.as_ref().is_some_and(|h| h.device == device) && !online {
             self.hosting = None;
+            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Unavailable }));
+        }
+        if self.asking.as_ref().is_some_and(|a| a.hub == device) && !online {
+            // The hub forgot the offer with its connection: a new one goes when it is back.
+            self.asking = None;
             self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Unavailable }));
         }
         if Some(device) == self.hub && !self.is_hub() {
@@ -1166,6 +1179,12 @@ impl Session {
         }
         let Some(hub) = self.hub else { return };
         let Some(info) = self.devices.get(&hub).cloned() else { return };
+        if self.asking.as_ref().is_some_and(|a| a.hub == hub) {
+            // One offer at a time (4.2): a second one would replace the first on the hub, and
+            // the hub's answer to the first would no longer verify here.
+            self.fx.push(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: info.name }));
+            return;
+        }
         if !self.online.contains(&hub) {
             self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Unavailable }));
             return;

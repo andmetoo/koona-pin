@@ -292,6 +292,10 @@ impl Model {
     pub fn on_event(&mut self, event: Event, now: DateTime<Utc>) -> Vec<Reaction> {
         let mut out = Vec::new();
         match event {
+            Event::Closed { code, reason } => {
+                let code = code.map_or("none".to_string(), |c| c.to_string());
+                self.note(now, format!("closed: {code} {}", reason.as_deref().unwrap_or("")));
+            }
             Event::Retrying(delay) => self.note(now, format!("retrying in {} s", delay.as_secs())),
             Event::Stopped(stop) => {
                 self.note(now, format!("stopped: {stop:?}"));

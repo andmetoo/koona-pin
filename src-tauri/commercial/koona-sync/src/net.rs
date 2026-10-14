@@ -49,8 +49,10 @@ pub struct ClientConfig {
     /// Text `ping` keepalive; the relay answers `pong`.
     pub ping_every: Duration,
     pub tick_every: Duration,
-    /// The pace of everything sent, kept under the relay's account-wide buckets (20 msg/s with a
-    /// burst of 20, 32 MiB/min with a burst of 32 MiB) with room for the other devices.
+    /// The pace of what is sent, kept under the relay's account-wide buckets (20 msg/s with a
+    /// burst of 20, 32 MiB/min with a burst of 32 MiB). Messages are paced for the whole account:
+    /// each device takes an even share by the number of devices online, since a pairing or a
+    /// reconnect is a burst of about 20 messages from two devices at once. Bytes are per device.
     pub messages_per_second: f64,
     pub message_burst: f64,
     pub bytes_per_minute: f64,
@@ -95,6 +97,9 @@ pub enum Stop {
 pub enum Event {
     /// Every session effect except the frames to send.
     Session(Effect),
+    /// The connection ended (or never opened), with the relay's close code and reason when it
+    /// sent one: for the sync report.
+    Closed { code: Option<u16>, reason: Option<String> },
     /// The next attempt is in this long.
     Retrying(Duration),
     Stopped(Stop),
@@ -155,8 +160,9 @@ fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
-/// Feeds one input; returns the effects and whether answers are waiting to go out.
-async fn feed<L: Library + Send + 'static>(core: &Arc<Mutex<Core<L>>>, input: Owned) -> (Vec<Effect>, bool) {
+/// Feeds one input; returns the effects, whether answers are waiting to go out, and how many of
+/// the account's devices are online.
+async fn feed<L: Library + Send + 'static>(core: &Arc<Mutex<Core<L>>>, input: Owned) -> (Vec<Effect>, bool, usize) {
     let core = core.clone();
     tokio::task::spawn_blocking(move || {
         let mut guard = core.lock().unwrap_or_else(|e| e.into_inner());
@@ -172,10 +178,10 @@ async fn feed<L: Library + Send + 'static>(core: &Arc<Mutex<Core<L>>>, input: Ow
             Owned::Tick => session.handle(library, now, Input::Tick),
             Owned::Pump => session.handle(library, now, Input::Pump),
         };
-        (effects, session.wants_pump())
+        (effects, session.wants_pump(), session.devices_online())
     })
     .await
-    .unwrap_or_default()
+    .unwrap_or_else(|_| (Vec::new(), false, 1))
 }
 
 /// A client-side token bucket over messages and bytes, kept across reconnects: the relay's
@@ -185,18 +191,37 @@ struct Pace {
     bytes: f64,
     at: Instant,
     cfg: ClientConfig,
+    /// The account's devices online: this one's share of the message pace is one of them.
+    devices: usize,
 }
 
 impl Pace {
     fn new(cfg: &ClientConfig) -> Pace {
-        Pace { messages: cfg.message_burst, bytes: cfg.byte_burst, at: Instant::now(), cfg: cfg.clone() }
+        Pace { messages: cfg.message_burst, bytes: cfg.byte_burst, at: Instant::now(), cfg: cfg.clone(), devices: 1 }
+    }
+
+    fn message_rate(&self) -> f64 {
+        self.cfg.messages_per_second / self.devices as f64
+    }
+
+    /// At least one message, or nothing would ever go.
+    fn message_burst(&self) -> f64 {
+        (self.cfg.message_burst / self.devices as f64).max(1.0)
+    }
+
+    fn set_devices(&mut self, devices: usize) {
+        if devices.max(1) != self.devices {
+            self.refill();
+            self.devices = devices.max(1);
+            self.messages = self.messages.min(self.message_burst());
+        }
     }
 
     fn refill(&mut self) {
         let now = Instant::now();
         let secs = now.duration_since(self.at).as_secs_f64();
         self.at = now;
-        self.messages = (self.messages + secs * self.cfg.messages_per_second).min(self.cfg.message_burst);
+        self.messages = (self.messages + secs * self.message_rate()).min(self.message_burst());
         self.bytes = (self.bytes + secs * self.cfg.bytes_per_minute / 60.0).min(self.cfg.byte_burst);
     }
 
@@ -209,7 +234,7 @@ impl Pace {
                 self.bytes -= len;
                 return;
             }
-            let for_messages = (1.0 - self.messages).max(0.0) / self.cfg.messages_per_second;
+            let for_messages = (1.0 - self.messages).max(0.0) / self.message_rate();
             let for_bytes = (len - self.bytes).max(0.0) / (self.cfg.bytes_per_minute / 60.0);
             tokio::time::sleep(Duration::from_secs_f64(for_messages.max(for_bytes).max(0.001))).await;
         }
@@ -325,6 +350,7 @@ async fn run<L: Library + Send + 'static>(
                 (None, None)
             }
         };
+        let _ = events.send(Event::Closed { code, reason: reason.clone() });
         report(feed(&core, Owned::Closed(code, reason.clone())).await.0, &events);
         match code {
             Some(close::AUTH) if refresh => break Stop::Auth,
@@ -376,7 +402,8 @@ where
 {
     let (mut sink, mut stream) = socket.split();
     let mut online = false;
-    let (effects, mut pumping) = feed(core, Owned::Connected).await;
+    let (effects, mut pumping, devices) = feed(core, Owned::Connected).await;
+    pace.set_devices(devices);
     if !deliver(effects, &mut sink, pace, events, &mut online).await {
         return Ended::Closed(None, None);
     }
@@ -412,8 +439,9 @@ where
             }
             _ = std::future::ready(()), if pumping => Owned::Pump,
         };
-        let (effects, wants) = feed(core, input).await;
+        let (effects, wants, devices) = feed(core, input).await;
         pumping = wants;
+        pace.set_devices(devices);
         if !deliver(effects, &mut sink, pace, events, &mut online).await {
             return Ended::Closed(None, None);
         }
@@ -422,5 +450,23 @@ where
             *backoff = cfg.min_backoff;
             *refresh = false;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_message_pace_is_shared_by_the_devices_online() {
+        let mut pace = Pace::new(&ClientConfig::new("ws://127.0.0.1/v1/sync"));
+        assert_eq!((pace.message_rate(), pace.message_burst()), (15.0, 15.0));
+        pace.set_devices(3);
+        assert_eq!((pace.message_rate(), pace.message_burst()), (5.0, 5.0));
+        assert!(pace.messages <= 5.0, "a full bucket shrinks to the share");
+        pace.set_devices(40);
+        assert_eq!(pace.message_burst(), 1.0, "at least one message goes");
+        pace.set_devices(0);
+        assert_eq!(pace.message_rate(), 15.0, "alone when nobody is known to be online");
     }
 }
