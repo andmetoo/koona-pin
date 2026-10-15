@@ -358,6 +358,65 @@ test("states: loading, can't extract (Next, Mark as read), no connection (Try ag
   await expect(mode(page)).toHaveCount(0);
 });
 
+/** The card's actions sit on one row, nothing cut off at its end. */
+async function oneRow(page: Page) {
+  const row = mode(page).locator("[data-reader-failure=failed] [data-reader-actions]");
+  const boxes = await row.locator("button").evaluateAll((buttons) => buttons.map((b) => b.getBoundingClientRect().top));
+  expect(new Set(boxes).size).toBe(1);
+  expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  return boxes.length;
+}
+
+test("«Remove» on the card and ⌫ anywhere take the article out of Reading and go on; Ctrl Z brings it back (#319)", async ({ page }) => {
+  await boot(page);
+  const list = await readingList(page);
+  const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
+  await stubPages(page, "403", list[0].url);
+  await readButton(page).click();
+  const card = mode(page).locator("[data-reader-failure=failed]");
+  await expect(card).toBeVisible();
+  // Open in browser, Next, Mark as read, Remove: one row.
+  expect(await oneRow(page)).toBe(4);
+  const remove = card.getByRole("button", { name: "Remove from Reading" });
+  await expect(remove).toHaveText(mac ? "Remove⌫" : "RemoveDel");
+  await expect(remove).toHaveAttribute("aria-keyshortcuts", "Backspace Delete");
+  await expect(queue(page)).toContainText(mac ? "⌫ — remove from Reading" : "Del — remove from Reading");
+
+  await remove.click();
+  await expect(heading(page)).toHaveText(list[1].title);
+  await expect(queue(page)).not.toContainText(list[0].title);
+  await expect(page.getByText("Removed from Reading").first()).toBeVisible();
+  // Undone from the mode itself.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(queue(page)).toContainText(list[0].title);
+  await expect.poll(async () => (await readingList(page)).map((b) => b.id)).toContain(list[0].id);
+
+  // ⌫ from the article, Del from the queue: out, and on to the next.
+  await expect(mode(page).locator("[data-reader-scroll]")).toBeFocused();
+  await page.keyboard.press("Backspace");
+  await expect(heading(page)).toHaveText(list[2].title);
+  await expect.poll(async () => (await readingList(page)).map((b) => b.id)).not.toContain(list[1].id);
+  await page.keyboard.press("Escape");
+  await expect(current(page)).toBeFocused();
+  // The last of Reading: the one before it is read, the queue keeps focus.
+  await page.keyboard.press("Delete");
+  await expect(current(page)).toContainText(list[0].title);
+  await expect(current(page)).toBeFocused();
+  await expect.poll(async () => (await readingList(page)).map((b) => b.id)).not.toContain(list[2].id);
+});
+
+test("the card's actions stay on one row in a narrow window and a long language (#319)", async ({ page }) => {
+  await boot(page, { width: 800, height: 550, language: "de" });
+  const list = await readingList(page);
+  await stubPages(page, "403", list[0].url);
+  await readButton(page).click();
+  const card = mode(page).locator("[data-reader-failure=failed]");
+  await expect(card).toBeVisible();
+  expect(await oneRow(page)).toBe(4);
+  // Words or, where they do not fit, the icon: named in full either way.
+  await expect(card.getByRole("button", { name: text(catalog("de"), "card.fromReading") })).toBeVisible();
+});
+
 test("reduced motion: a fade instead of the circle; a narrow window keeps the queue behind «Queue» (NP-122)", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await boot(page, { width: 800, height: 550 });

@@ -5,6 +5,7 @@ import { Bookmark, Collection, DuplicateGroup, MergeGroup, Merged } from "../../
 import { api } from "../../services/api";
 import { collectionColor } from "../../services/collections";
 import { mergedFields } from "../../services/duplicates";
+import { shortcut } from "../../services/keys";
 import { CommandError, describeError } from "../../services/errors";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
@@ -187,7 +188,7 @@ export function DuplicatesPage({
       {confirming && groups && (
         <ConfirmDialog
           title={t("duplicates.confirmTitle", { count: groups.length })}
-          text={t("duplicates.confirmText", { from: total, to: groups.length, trashed: total - groups.length })}
+          text={t("duplicates.confirmText", { from: total, to: groups.length, trashed: total - groups.length, undo: shortcut("Z") })}
           confirm={t("duplicates.confirm")}
           onClose={() => setConfirming(false)}
           onConfirm={async () => {

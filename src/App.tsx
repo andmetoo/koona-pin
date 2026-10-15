@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { composing } from "./services/ime";
-import { isArrow } from "./services/keys";
+import { isArrow, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
@@ -240,9 +240,11 @@ export function App() {
       // the bookmark there could change under the form.
       const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]");
       // Triage takes `Z` and Ctrl Z back for its own decisions.
+      const above = editing || triage || document.querySelector("dialog[open], [data-menu]");
       // The reading mode is a layer too: the library under it keeps its selection and keys.
-      const layer = editing || triage || reading || document.querySelector("dialog[open], [data-menu]");
-      if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && !typing && !layer) {
+      // Ctrl Z still works there (#319): «Remove from Reading» is taken back from the mode.
+      const layer = above || reading;
+      if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && !typing && !above) {
         e.preventDefault();
         undoRef.current();
       }
@@ -932,7 +934,7 @@ export function App() {
         notice.undo ? (
           <button type="button" onClick={notice.undo} className="flex items-center gap-2 font-semibold text-[#8fd0ae]">
             {t("notice.undo")}
-            <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">Ctrl Z</kbd>
+            <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">{shortcut("Z")}</kbd>
           </button>
         ) : notice.show ? (
           <button type="button" onClick={notice.show} className="font-semibold text-[#8fd0ae]">
@@ -1303,16 +1305,15 @@ export function App() {
                   {content}
                 </div>
                 {selecting && (
-                  // Frames 04 and 27: the bar 42 px above the bottom, its hints under it, notices above it.
+                  // Frames 04 and 27: the bar 24 px above the bottom, a message under it when there is one, notices above it.
                   <div
-                    className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-2 px-4 *:pointer-events-auto ${compact ? "bottom-6" : "bottom-[18px]"}`}
+                    className="pointer-events-none absolute inset-x-0 bottom-6 z-30 flex flex-col items-center gap-2 px-4 *:pointer-events-auto"
                   >
                     {!reading && toast}
                     <SelectionBar
                       count={selection.ids.size}
                       hidden={selection.hidden}
                       narrowed={narrowed}
-                      compact={compact}
                       trash={filters.onlyTrash}
                       allStarred={selection.allStarred}
                       inReading={filters.onlyReading}
@@ -1601,6 +1602,7 @@ export function App() {
           }}
           onOpen={open}
           onMarkRead={(b) => readingChange(b, { action: "read", read: true })}
+          onRemove={(b) => readingChange(b, { action: "reading", reading: false })}
           onClose={closeReading}
           look={readerLook.look}
           aa={{

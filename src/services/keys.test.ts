@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
-import { arrowTarget, isMac } from "./keys";
+import { arrowTarget, deleteKey, isMac, shortcut } from "./keys";
 
 describe("the platform's modifier (#319)", () => {
   it("is ⌘ on a Mac, Ctrl elsewhere", () => {
@@ -9,18 +9,24 @@ describe("the platform's modifier (#319)", () => {
     expect(isMac("Win32")).toBe(false);
     expect(isMac("Linux x86_64")).toBe(false);
   });
-  it("fills the hints of the selection in every language", () => {
-    const en = i18n.getFixedT("en");
-    expect(en("selection.keys", { mod: "⌘" })).toContain("⌘+click — add");
-    expect(en("selection.keysTrash", { mod: "⌘" })).toMatch(/^⌘\+A — select all/);
+  it("writes a shortcut as the platform does: ⌘K on a Mac, the language's Ctrl elsewhere", async () => {
+    expect(shortcut("K", true)).toBe("⌘K");
+    expect(shortcut("K", false)).toBe("Ctrl K");
+    expect(deleteKey(true)).toBe("⌫");
+    expect(deleteKey(false)).toBe("Del");
+    const language = i18n.language;
+    await i18n.changeLanguage("de");
+    expect(shortcut("Z", false)).toBe("Strg Z");
+    expect(shortcut("Z", true)).toBe("⌘Z");
+    await i18n.changeLanguage(language);
+  });
+  it("no string of any language names Ctrl itself: the shortcut comes in as {{undo}} or {{quit}}", () => {
     for (const language of Object.keys(i18n.options.resources ?? {})) {
       const t = i18n.getFixedT(language);
-      for (const key of ["selection.keys", "selection.keysMany", "selection.keysTrash"] as const) {
-        const text = t(key, { mod: "⌘" });
-        expect(text, `${language} ${key}`).toContain("⌘");
-        expect(text, `${language} ${key}`).not.toMatch(/Ctrl|Strg/);
-      }
-      expect(t("selection.mod"), language).toMatch(/^(Ctrl|Strg)$/);
+      expect(t("common.ctrl"), language).toMatch(/^(Ctrl|Strg)$/);
+      expect(t("backup.confirmText", { count: 2, copy: "2", when: "", undo: "⌘Z" }), language).toContain("⌘Z");
+      expect(t("background.hint", { quit: "⌘Q" }), language).toContain("⌘Q");
+      expect(t("readingMode.keysRemove", { key: "⌫" }), language).toMatch(/^⌫ /);
     }
   });
 });

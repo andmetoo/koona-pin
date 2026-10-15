@@ -5,6 +5,7 @@ import { CheckedLink, Collection, LinkCheckProgress, LinkCheckReport } from "../
 import { api } from "../../services/api";
 import { bulkFailure, bulkNotice } from "../../services/bulk";
 import { collectionColor } from "../../services/collections";
+import { shortcut } from "../../services/keys";
 import { describeError } from "../../services/errors";
 import { checkedWhen, etaText, finishedLine, FIRST_ROWS, replacedNotice, resultLabel } from "../../services/linkcheck";
 import { Icon } from "../icons";
@@ -258,7 +259,7 @@ export function LinkCheckPage({
                       ))}
                     </ul>
                     <footer className="flex items-start gap-4 px-4 py-2.5 text-xs">
-                      <p className="min-w-0 flex-1 text-muted">{t(`links.footer_${g}`)}</p>
+                      <p className="min-w-0 flex-1 text-muted">{t(`links.footer_${g}`, { undo: shortcut("Z") })}</p>
                       {links.length > FIRST_ROWS && (
                         <button
                           type="button"

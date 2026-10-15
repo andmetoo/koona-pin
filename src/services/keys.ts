@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+
 /**
  * Whether the app runs on a Mac (or an iPad), from the webview's platform: ⌘
  * stands where Ctrl does elsewhere. Known at once, without asking Rust.
@@ -5,6 +7,19 @@
 export function isMac(platform = typeof navigator === "undefined" ? "" : navigator.platform || navigator.userAgent): boolean {
   return /Mac|iPhone|iPad/.test(platform);
 }
+
+/**
+ * A shortcut with the platform's modifier as the app shows it (#319): «⌘K» on
+ * a Mac, «Ctrl K» elsewhere («Strg K» in German). The one place that writes
+ * it: hints, menus, notices and the strings that name a shortcut
+ * (`{{undo}}`, `{{quit}}`) all take it from here.
+ */
+export function shortcut(key: string, mac = isMac()): string {
+  return mac ? `⌘${key}` : `${i18n.t("common.ctrl")} ${key}`;
+}
+
+/** The key that deletes, as a Mac's keyboard and others' name it: ⌫ or Del. */
+export const deleteKey = (mac = isMac()) => (mac ? "⌫" : "Del");
 
 /** The arrows that move the selection of the library. */
 export type Arrow = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronRight, LucideIcon } from "lucide-react";
 import { Icon } from "../icons";
+import { isMac, shortcut } from "../../services/keys";
 
 export interface MenuItem {
   id: string;
@@ -129,9 +130,12 @@ export function Menu({
           if (item?.submenu && !item.disabled) setOpen({ id: item.id, rect: all[index].getBoundingClientRect() });
         } else {
           // The keys shown on the right select their item; Enter stays with the focused one.
-          const pressed = `${e.ctrlKey ? "Ctrl " : ""}${e.key === "Delete" ? "Del" : e.key.length === 1 ? e.key.toUpperCase() : e.key}`;
+          // With the platform's modifier the key is written as the item shows it: ⌘C on a Mac, Ctrl C elsewhere (#319).
+          const key = e.key === "Delete" ? "Del" : e.key.length === 1 ? e.key.toUpperCase() : e.key;
+          const mod = isMac() ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+          const pressed = mod ? shortcut(key) : e.ctrlKey || e.metaKey ? null : key;
           const own = (e.target as Element).closest("[role=menu]") === ref.current;
-          const match = own && pressed !== "Enter" && items.findIndex((item) => item.keys === pressed && !item.disabled);
+          const match = own && pressed !== null && pressed !== "Enter" && items.findIndex((item) => item.keys === pressed && !item.disabled);
           if (match === false || match < 0) return;
           select(items[match], all[match]);
         }

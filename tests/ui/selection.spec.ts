@@ -47,6 +47,25 @@ const toList = async (page: Page) => {
   await expect(page.locator("[data-view=list]")).toBeVisible();
 };
 
+test("the bar is icons at every width, each named with its key by its hint; no line of keys under it (#319)", async ({ page }) => {
+  await spot(card(page, TITLES[0])).click();
+  await expect(bar(page).getByRole("status")).toHaveText("1 selected");
+  const buttons = bar(page).getByRole("button");
+  const names = ["Read", "Move to…", "Tag", "Favorite", "Send to Reading", "Export", "Trash", "Clear selection"];
+  await expect(buttons).toHaveCount(names.length);
+  for (const [i, name] of names.entries()) {
+    const button = buttons.nth(i);
+    await expect(button).toHaveAccessibleName(name);
+    // Only the icon on the bar: the words are in the hint.
+    await expect(button).toHaveText("");
+  }
+  await expect(buttons.nth(0)).toHaveAttribute("aria-keyshortcuts", "Space");
+  await expect(buttons.nth(6)).toHaveAttribute("aria-keyshortcuts", "Delete");
+  await expect(buttons.nth(7)).toHaveAttribute("aria-keyshortcuts", "Escape");
+  await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText("TrashDel");
+  await expect(page.getByText(/click — add/)).toHaveCount(0);
+});
+
 test("a click selects and never opens; focus and selection look different and are announced (NP-123)", async ({ page }) => {
   const popups: unknown[] = [];
   page.on("popup", (popup) => popups.push(popup));
@@ -185,7 +204,6 @@ test("arrows move the selection between cards and rows; a focused selected card 
   await search.focus();
   await page.keyboard.press("ArrowDown");
   await expect(rows.nth(0)).toHaveAttribute("data-selected", "true");
-  await expect(page.getByText(/(Ctrl|⌘)\+click — add/)).toBeVisible();
 });
 
 test("the shutter of a card: hover slides it in, keyboard focus shows it, Tab walks Open and Read (NP-123)", async ({ page }) => {
@@ -335,9 +353,9 @@ test("Space reads the selection in a sheet over the list; ↑/↓ go through it,
   await spot(card(page, TITLES[3])).click({ modifiers: ["ControlOrMeta"] });
   await spot(card(page, TITLES[1])).click({ modifiers: ["ControlOrMeta"] });
   await expect(bar(page).getByRole("status")).toHaveText("3 selected");
-  // «Read · Space» comes first on the bar; the hint explains the clicks.
-  await expect(bar(page).getByRole("button").first()).toHaveText("ReadSpace");
-  await expect(page.getByText("Space — read the last clicked, ↑ ↓ — the other selected", { exact: false })).toBeVisible();
+  // «Read · Space» comes first on the bar: the book, named with its key by its hint.
+  await expect(bar(page).getByRole("button").first()).toHaveAccessibleName("Read");
+  await expect(bar(page).getByRole("button").first()).toHaveAttribute("aria-keyshortcuts", "Space");
 
   await page.mouse.move(5, 895);
   await page.keyboard.press(" ");

@@ -1,8 +1,9 @@
-import { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, BookOpen, ChevronDown, Menu as MenuIcon } from "lucide-react";
+import { createContext, KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, BookOpen, BookX, Check, ChevronDown, LucideIcon, Menu as MenuIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark } from "../../types";
 import { composing } from "../../services/ime";
+import { deleteKey } from "../../services/keys";
 import { cachedArticle, knownMinutes } from "../../services/reader";
 import { useReadingList } from "../../hooks/useReadingList";
 import { useReadingProgress } from "../../hooks/useReadingProgress";
@@ -49,7 +50,9 @@ const keyIs = (e: KeyboardEvent, letter: string) => e.code === `Key${letter.toUp
  * (issue #319): the queue is one stop, its arrows pick the article to read, and
  * the article takes the arrows, Space and Page Down for scrolling; the toolbar
  * comes after the article. An article that cannot be shown leaves a
- * card with the browser, the next one and «Mark as read», never an empty column.
+ * card with the browser, the next one, «Mark as read» and «Remove», never an
+ * empty column. `⌫` or `Del` takes the current article out of Reading and goes
+ * on as `J` does (#319); Ctrl Z, which App keeps, brings it back.
  */
 export function ReadingMode({
   narrow,
@@ -59,6 +62,7 @@ export function ReadingMode({
   section,
   onOpen,
   onMarkRead,
+  onRemove,
   onClose,
   look,
   aa,
@@ -81,6 +85,8 @@ export function ReadingMode({
   section: SectionQueue;
   onOpen: (url: string) => void;
   onMarkRead: (bookmark: Bookmark) => void;
+  /** Out of Reading, with «Undo» in the notice; the bookmark stays in the library. */
+  onRemove: (bookmark: Bookmark) => void;
   /** The mode folded back: the library takes over. */
   onClose: () => void;
 }) {
@@ -224,8 +230,24 @@ export function ReadingMode({
     requestAnimationFrame(focus);
   };
 
-  const latest = useRef({ current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving });
-  latest.current = { current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving };
+  /** Taken out of Reading and still in the queue until Reading is read again (a quarter second). */
+  const removed = useRef(new Set<number>());
+  useEffect(() => removed.current.clear(), [live]);
+  /** Out of Reading, then on as «Next» goes; the last one leaves its place to the one before. */
+  const remove = (b: Bookmark, focus: "article" | "queue" = "article") => {
+    onRemove(b);
+    if (!items) return;
+    // Reading's queue loses it: the next one still there, else the one before, the focus going with it.
+    // A section's queue keeps it, so on as J goes.
+    if (source === "reading") removed.current.add(b.id);
+    const stays = (item: Bookmark) => !removed.current.has(item.id);
+    const at = items.findIndex((item) => item.id === b.id);
+    const to = items.slice(at + 1).find(stays) ?? (source === "reading" ? items.slice(0, Math.max(0, at)).reverse().find(stays) : undefined);
+    if (to) show(to.id, focus);
+  };
+
+  const latest = useRef({ current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving, remove });
+  latest.current = { current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving, remove };
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const s = latest.current;
@@ -253,6 +275,10 @@ export function ReadingMode({
       } else if (keyIs(e, "o") && s.current) {
         e.preventDefault();
         s.onOpen(s.current.url);
+      } else if ((e.key === "Backspace" || e.key === "Delete") && !e.shiftKey && s.current?.reading_at) {
+        // ⌫ on a Mac's keyboard, Del elsewhere: the current article out of Reading (#319).
+        e.preventDefault();
+        s.remove(s.current, focus);
       }
     };
     window.addEventListener("keydown", handler);
@@ -360,17 +386,25 @@ export function ReadingMode({
                         </Button>
                       )}
                       {!current.read_at && (
-                        <Button
-                          variant="ghost"
-                          size="lg"
+                        <Quiet
+                          icon={Check}
+                          label={t("readingMode.markRead")}
                           onClick={() => {
                             onMarkRead(current);
                             if (next) show(next.id);
                           }}
-                          className="text-read-text"
-                        >
-                          {t("readingMode.markRead")}
-                        </Button>
+                        />
+                      )}
+                      {/* Quiet, not red: Ctrl Z takes it back, and the bookmark stays in the library. */}
+                      {current.reading_at && (
+                        <Quiet
+                          icon={BookX}
+                          label={t("readingMode.remove")}
+                          name={t("card.fromReading")}
+                          keys={deleteKey()}
+                          keyshortcuts="Backspace Delete"
+                          onClick={() => remove(current)}
+                        />
                       )}
                     </>
                   )}
@@ -491,8 +525,34 @@ function ProgressLine({ bookmark, status, scroller }: { bookmark: Bookmark; stat
   );
 }
 
-/** The card of frames B5 and B6, where the article would be. */
+/** The card's actions do not fit one row in words: the quiet ones show their icons. */
+const IconsOnly = createContext(false);
+
+/**
+ * The card of frames B5 and B6, where the article would be. Its actions stay
+ * in one row (#319): where the words do not fit, the quiet ones become icons
+ * named by their hints, measured again when the card changes width.
+ */
 function Card({ title, text, offline, children }: { title: string; text: string; offline: boolean; children: ReactNode }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [icons, setIcons] = useState(false);
+  useEffect(() => setIcons(false), [title, text]);
+  useEffect(() => {
+    const element = row.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    let width = element.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth === width) return;
+      width = element.clientWidth;
+      setIcons(false);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (element && !icons && element.scrollWidth > element.clientWidth) setIcons(true);
+  });
   return (
     <div
       data-reader-failure={offline ? "offline" : "failed"}
@@ -501,8 +561,35 @@ function Card({ title, text, offline, children }: { title: string; text: string;
     >
       <h2 className="read-serif text-[22px] leading-[28px] font-semibold text-read-ink">{title}</h2>
       <p className="mt-2 text-sm leading-[21px] text-read-text/80">{text}</p>
-      <div className={`flex flex-wrap items-center gap-2.5 ${offline ? "mt-5" : "mt-8"}`}>{children}</div>
+      <div ref={row} data-reader-actions className={`flex items-center gap-2.5 ${offline ? "mt-5" : "mt-8"}`}>
+        <IconsOnly.Provider value={icons}>{children}</IconsOnly.Provider>
+      </div>
     </div>
+  );
+}
+
+/**
+ * A quiet action of the card, as «Mark as read» is drawn: its words and key,
+ * or, in a row too narrow for them, its icon with words and key in the hint.
+ * `name`, when given, is the whole name the short label stands for.
+ */
+function Quiet({ icon, label, name, keys, keyshortcuts, onClick }: { icon: LucideIcon; label: string; name?: string; keys?: string; keyshortcuts?: string; onClick: () => void }) {
+  const icons = useContext(IconsOnly);
+  return (
+    <Hint label={name ?? label} keys={icons ? keys : undefined} show={icons || !!name}>
+      <Button
+        variant="ghost"
+        size="lg"
+        aria-label={icons ? (name ?? label) : name}
+        aria-keyshortcuts={keyshortcuts}
+        onClick={onClick}
+        // Without a border a quiet button needs less room around its words: the four fit 560 px in English.
+        className={`text-read-text ${icons ? "w-[34px] !px-0" : "!px-2.5"}`}
+      >
+        {icons ? <Icon icon={icon} size={15} /> : label}
+        {!icons && keys && <Kbd className="bg-transparent text-read-muted">{keys}</Kbd>}
+      </Button>
+    </Hint>
   );
 }
 
@@ -678,6 +765,8 @@ const Queue = function Queue({
         <span className="whitespace-nowrap">{t("readingMode.keysEsc")}</span>
         <span aria-hidden>·</span>
         <span className="whitespace-nowrap">{t("readingMode.keysTab")}</span>
+        <span aria-hidden>·</span>
+        <span className="whitespace-nowrap">{t("readingMode.keysRemove", { key: deleteKey() })}</span>
       </p>
     </div>
   );

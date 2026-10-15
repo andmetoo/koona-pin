@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { coverOf, monogram, pendingFor, VIEW } from "../../services/cover";
+import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
 import { Icon } from "../icons";
 import { Menu, MenuEntry } from "../ui/Menu";
@@ -93,13 +94,13 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
       { id: "restore", icon: RotateCcw, label: t("trash.restore"), onSelect: () => actions.restore(b) },
       "separator",
       { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
-      { id: "copy", icon: Copy, label: t("card.copyLink"), keys: "Ctrl C", onSelect: () => actions.copy(b.url) },
+      { id: "copy", icon: Copy, label: t("card.copyLink"), keys: shortcut("C"), onSelect: () => actions.copy(b.url) },
       "separator",
       { id: "delete", icon: Trash2, label: t("trash.deleteForever"), keys: "Del", onSelect: () => actions.deleteForever(b) },
     ];
   return [
     { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
-    { id: "copy", icon: Copy, label: t("card.copyLink"), keys: "Ctrl C", onSelect: () => actions.copy(b.url) },
+    { id: "copy", icon: Copy, label: t("card.copyLink"), keys: shortcut("C"), onSelect: () => actions.copy(b.url) },
     { id: "edit", icon: Pencil, label: t("card.edit"), keys: "E", onSelect: () => actions.edit(b) },
     "separator",
     {

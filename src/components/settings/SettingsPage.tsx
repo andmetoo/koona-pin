@@ -17,6 +17,7 @@ import {
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
 import { GITHUB_ISSUES_URL, licensesUrl } from "../../services/feedback";
+import { shortcut } from "../../services/keys";
 import { changelogUrl, offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
 import { OpenLinks, Theme } from "../../services/preferences";
@@ -199,7 +200,7 @@ export function SettingsPage({
         </Row>
         {/* On every system (NP-096): without a tray it is the way out of the app. */}
         <Row title={t("settings.quit")} description={t("settings.quitHint")}>
-          <Kbd>Ctrl Q</Kbd>
+          <Kbd>{shortcut("Q")}</Kbd>
           <Button disabled={!desktop} onClick={() => void attempt("quit", api.quitApp)}>
             {t("settings.quitButton")}
           </Button>
@@ -540,7 +541,7 @@ function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onN
       </div>
       {on && (
         <>
-          <Row title={t("assistants.access")} description={t(access === "read" ? "assistants.readHint" : "assistants.addHint")}>
+          <Row title={t("assistants.access")} description={t(access === "read" ? "assistants.readHint" : "assistants.addHint", { undo: shortcut("Z") })}>
             <Segmented<McpAccess>
               label={t("assistants.access")}
               value={access}

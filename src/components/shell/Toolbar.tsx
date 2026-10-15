@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { composing } from "../../services/ime";
+import { shortcut } from "../../services/keys";
 import { BookmarkSort, ExportFormat, ViewMode } from "../../types";
 import { SORTS } from "../../services/library";
 import { Icon } from "../icons";
@@ -131,7 +132,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           className="field h-9 pr-12 pl-[35px]"
         />
         {/* Esc also takes back a character the IME is composing: the field is not empty then either. */}
-        <Kbd className="pointer-events-none absolute right-2">{(composed ?? props.search) ? "Esc" : "Ctrl K"}</Kbd>
+        <Kbd className="pointer-events-none absolute right-2">{(composed ?? props.search) ? "Esc" : shortcut("K")}</Kbd>
       </label>
       {sort && (
         <Hint label={t("toolbar.sortHint", { order: sortName })} show={!sortMenu}>

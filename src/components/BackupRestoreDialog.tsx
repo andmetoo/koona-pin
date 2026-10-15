@@ -5,6 +5,7 @@ import { TFunction } from "i18next";
 import { BackupCopy, BackupRestoreOutcome, BackupSource, CopyProblem } from "../types";
 import { api } from "../services/api";
 import { describeError } from "../services/errors";
+import { shortcut } from "../services/keys";
 import { Icon } from "./icons";
 import { Button } from "./ui/Button";
 import { StatePanels } from "./ui/Controls";
@@ -201,7 +202,7 @@ export function BackupRestoreDialog({
       <p className="text-sm text-muted [overflow-wrap:anywhere]">
         {current === undefined
           ? t("backup.confirmClosed", { copy: t("backup.bookmarks", { count: copy.bookmarks ?? 0 }) })
-          : t("backup.confirmText", { count: current, copy: number(copy.bookmarks ?? 0), when })}
+          : t("backup.confirmText", { count: current, copy: number(copy.bookmarks ?? 0), when, undo: shortcut("Z") })}
       </p>
       <Footer>
         <Button variant="outline" size="lg" autoFocus disabled={busy} onClick={() => setConfirming(false)}>
