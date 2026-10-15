@@ -3,9 +3,8 @@
 //! as text. Extraction and cleaning happen there (`src/services/reader.ts`):
 //! Defuddle needs a DOM.
 use crate::charset;
-use crate::metadata::{self, FetchError, Fetched, Limits};
+use crate::metadata::{self, refresh_target, FetchError, Fetched, Limits};
 use crate::net_guard;
-use scraper::{Html, Selector};
 use serde::Serialize;
 use std::time::Duration;
 use ts_rs::TS;
@@ -20,10 +19,6 @@ pub const LIMITS: Limits = Limits {
     max_body: 5 * 1024 * 1024,
     max_redirects: 5,
 };
-
-/// A `<meta http-equiv="refresh">` that waits longer than this reloads a page
-/// that has its content already (news front pages); it is not a redirect.
-const REFRESH_WAIT: f64 = 10.0;
 
 /// The answer of [`fetch_article_page`].
 #[derive(Debug, Serialize, TS)]
@@ -128,42 +123,6 @@ fn failed(error: FetchError) -> ReaderPage {
         FetchError::Timeout => ReaderPage::Timeout,
         FetchError::Failed => ReaderPage::Failed,
     }
-}
-
-/// Where `<meta http-equiv="refresh" content="0; url=…">` sends the reader, if
-/// it is a redirect: a target given, soon enough.
-pub fn refresh_target(html: &str, base: &Url) -> Option<Url> {
-    let document = Html::parse_document(html);
-    let selector = Selector::parse("meta[http-equiv][content]").ok()?;
-    let content = document
-        .select(&selector)
-        .find(|el| el.value().attr("http-equiv").is_some_and(|v| v.trim().eq_ignore_ascii_case("refresh")))?
-        .value()
-        .attr("content")?;
-    // `5; url=next.html`, `0;URL='next.html'`, `0, next.html`: the standard's forms.
-    let content = content.trim();
-    let digits = content.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(content.len());
-    let wait: f64 = content[..digits].parse().ok()?;
-    if wait > REFRESH_WAIT {
-        return None;
-    }
-    let rest = content[digits..].trim_start().trim_start_matches([';', ',']).trim_start();
-    let rest = match rest.get(..3) {
-        Some(prefix) if prefix.eq_ignore_ascii_case("url") => {
-            let after = rest[3..].trim_start();
-            after.strip_prefix('=').map(str::trim_start).unwrap_or(rest)
-        }
-        _ => rest,
-    };
-    let target = match rest.chars().next() {
-        Some(quote @ ('"' | '\'')) => rest[1..].split(quote).next().unwrap_or(""),
-        _ => rest,
-    }
-    .trim();
-    if target.is_empty() {
-        return None;
-    }
-    base.join(target).ok().filter(|url| matches!(url.scheme(), "http" | "https"))
 }
 
 #[cfg(test)]
