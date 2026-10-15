@@ -591,6 +591,24 @@
     outline: 2px solid var(--np-focus);
     outline-offset: 4px;
   }
+  /* Selected in the grid: a 2.5 px accent ring 4 px around the preview (frame 04). */
+  [data-bookmark-id][data-selected] [data-ring] {
+    outline: 2.5px solid var(--np-accent);
+    outline-offset: 4px;
+  }
+  /* Focused and selected (#319): one ring, never the ink one beside the accent one.
+     The card's ring goes around all of it in accent, which marks the focused one
+     among the selected; the row's border thickens to 2 px in place. */
+  [data-view="grid"] [data-bookmark-id][data-selected]:focus-visible {
+    outline: 2.5px solid var(--np-accent);
+  }
+  [data-bookmark-id][data-selected]:focus-visible [data-ring] {
+    outline: none;
+  }
+  [data-view="list"] [data-bookmark-id][data-selected]:focus-visible {
+    outline-color: var(--np-accent);
+    outline-offset: -1px;
+  }
   /* The shutter of a grid card (sheet S4): 64 px from the top of the cover, 90 % dark,
      slides in over 140 ms on hover and when the keyboard is anywhere in the card. */
   .shutter {

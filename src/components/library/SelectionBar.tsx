@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowUpFromLine, BookOpen, BookOpenText, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { isMac } from "../../services/keys";
 import { Collection, ExportFormat, Tag } from "../../types";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
@@ -138,7 +139,8 @@ export function SelectionBar({
     ? t("drag.keys")
     : hidden
     ? t(narrowed ? "selection.hiddenBySearch" : "selection.hiddenElsewhere", { count: hidden, total: count })
-    : t(trash ? "selection.keysTrash" : count > 1 ? "selection.keysMany" : "selection.keys");
+    : // ⌘+click and ⌘+A on a Mac, the language's Ctrl elsewhere (#319).
+      t(trash ? "selection.keysTrash" : count > 1 ? "selection.keysMany" : "selection.keys", { mod: isMac() ? "⌘" : t("selection.mod") });
   return (
     <div className="flex w-full flex-col items-center gap-2">
       <div
