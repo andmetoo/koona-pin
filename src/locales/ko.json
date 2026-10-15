@@ -813,6 +813,7 @@
     "waiting": "연결 대기 중",
     "keys": "J / K — 다음, 이전",
     "keysEsc": "Esc — 대기열",
+    "keysTab": "Tab — 대기열, 글",
     "failedTitle": "이 페이지는 읽기 모드에서 보여 줄 수 없습니다",
     "failedTail": "브라우저에서는 잘 열리며, 대기열은 그대로 남습니다.",
     "next": "다음",

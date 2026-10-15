@@ -813,6 +813,7 @@
     "waiting": "等待网络",
     "keys": "J / K — 下一篇、上一篇",
     "keysEsc": "Esc — 队列",
+    "keysTab": "Tab — 队列、文章",
     "failedTitle": "此页面无法在阅读模式中显示",
     "failedTail": "在浏览器中可以正常打开，队列会留在这里。",
     "next": "下一篇",

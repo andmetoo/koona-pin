@@ -927,6 +927,7 @@
     "waiting": "en attente de connexion",
     "keys": "J / K — suivant, précédent",
     "keysEsc": "Échap — file",
+    "keysTab": "Tab — file, article",
     "failedTitle": "Impossible d’afficher cette page en mode lecture",
     "failedTail": "Elle s’ouvre normalement dans votre navigateur, et la file reste ici.",
     "next": "Suivant",

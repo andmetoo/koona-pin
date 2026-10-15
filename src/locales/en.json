@@ -870,6 +870,7 @@
     "waiting": "waiting for connection",
     "keys": "J / K — next, previous",
     "keysEsc": "Esc — queue",
+    "keysTab": "Tab — queue, article",
     "failedTitle": "Can’t show this page in reading mode",
     "failedTail": "It opens fine in your browser, and the queue stays here.",
     "next": "Next",
