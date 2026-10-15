@@ -1085,7 +1085,7 @@
     "testPayments": "测试付款",
     "intro": "Koona Pin 依然免费：资料库、浏览器按钮、搜索、备份和 AI 助手。Supporter 支持项目持续发展，并获得：",
     "perks": {
-      "sync": "多台电脑之间同步，包括稍后读和阅读进度",
+      "sync": "每台电脑上的资料库，包括稍后读和阅读进度",
       "backups": "自动备份到你选择的文件夹，例如 Dropbox",
       "reading": "纸张和棕褐阅读主题",
       "badge": "应用内的 Supporter 徽章"
@@ -1148,7 +1148,7 @@
       "reading": "阅读主题",
       "readingHint": "阅读模式 Aa 面板中的纸张和棕褐",
       "sync": "同步，包括稍后读",
-      "syncHint": "早期阶段——将随更新推出",
+      "syncHint": "每台电脑上的资料库、稍后读和阅读进度",
       "backups": "自动备份到文件夹",
       "backupsHint": "备份到你选择的文件夹，例如 Dropbox 或 Google 云端硬盘",
       "badge": "Supporter 徽章",
