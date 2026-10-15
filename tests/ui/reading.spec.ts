@@ -194,6 +194,32 @@ test("the queue: read ones dimmed at the bottom, the switch reads the section, t
   await expect(current(page)).toBeVisible();
 });
 
+test("only the next article is read ahead, once the current one is on the page (NP-122)", async ({ page }) => {
+  await boot(page);
+  await fillReading(page);
+  const list = await readingList(page);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { fetched: string[] };
+    w.fetched = [];
+    const original = api.fetchReaderPage;
+    api.fetchReaderPage = async (url: string) => (w.fetched.push(url), original(url));
+  });
+  const fetched = () => page.evaluate(() => (window as unknown as { fetched: string[] }).fetched);
+  await readButton(page).click();
+  await expect(mode(page).locator(".reader-body")).toBeVisible();
+  await expect.poll(fetched).toEqual([list[0].url, list[1].url]);
+  // J shows the article read ahead at once, and reads the one after it.
+  await page.keyboard.press("j");
+  await expect(mode(page).locator(".reader-body")).toBeVisible();
+  await expect.poll(fetched).toEqual([list[0].url, list[1].url, list[2].url]);
+  // Leaving reads nothing more.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(mode(page)).toHaveCount(0);
+  expect(await fetched()).toHaveLength(3);
+});
+
 test("states: loading, can't extract (Next, Mark as read), no connection (Try again, back online), Reading empty (NP-122)", async ({ page, context }) => {
   await boot(page);
   const list = await readingList(page);
@@ -356,8 +382,13 @@ for (const language of ["en", "de", "ru"]) {
         // B3: an article a quarter read.
         await read();
         await expect(mode(page).locator(".reader-body")).toBeVisible();
-        await mode(page).locator("[data-reader-scroll]").evaluate((el) => el.scrollTo({ top: (el.scrollHeight - el.clientHeight) * 0.25 }));
-        await expect(mode(page).locator("[data-reading-progress]")).not.toHaveAttribute("style", "width: 0%;");
+        // The line follows scrolling once the article settled where reading stopped: scroll until it does.
+        await expect
+          .poll(async () => {
+            await mode(page).locator("[data-reader-scroll]").evaluate((el) => el.scrollTo({ top: (el.scrollHeight - el.clientHeight) * 0.25 + Math.random() }));
+            return mode(page).locator("[data-reading-progress]").getAttribute("style");
+          })
+          .not.toBe("width: 0%;");
         await shot("B3");
         if (width === 800) {
           await mode(page).getByRole("button", { name: new RegExp(`^${t("readingMode.queueButton").split("{{")[0]}`) }).click();

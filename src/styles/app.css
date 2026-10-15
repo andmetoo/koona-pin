@@ -47,23 +47,23 @@
   --np-amber: #b59a45;
   --np-amber-soft: #f3ecd6;
   --np-on-amber-soft: #6b5a23;
-  /* The reading sheet (NP-123, frame A): the White theme of reading, a page a shade warmer than the card. */
-  --np-sheet: #fbf8f2;
-  --np-sheet-ink: #2b2a26;
-  --np-sheet-line: #e9e5dc;
-  /* The reading mode (NP-122, frames B1–B9): the page, the queue beside it, its current
-     item, lines and words. NP-124 turns these into the themes of the Aa panel. */
-  --np-read: #f4eee2;
-  --np-read-queue: #eee7d9;
-  --np-read-current: #f8f3ea;
-  --np-read-card: #f8f4ec;
-  --np-read-edge: #e2d9c7;
-  --np-read-track: #e8e0d0;
-  --np-read-border: #ddd4c2;
+  /* Reading (Р-69, owner 2026-10-15): one set of tokens for the sheet (NP-123) and the reading
+     mode (NP-122) — the page, the queue beside it, its current item, lines and words. This is the
+     free White theme (B8's swatch: #fff, ink #22231f); NP-124 remaps the set per theme of Aa. */
+  --np-read: #ffffff;
+  --np-read-queue: #f6f6f4;
+  --np-read-current: #ffffff;
+  --np-read-card: #fafaf9;
+  --np-read-edge: #e8e8e4;
+  --np-read-track: #ececea;
+  --np-read-border: #dededa;
   --np-read-ink: #22231f;
   --np-read-text: #2e302b;
-  --np-read-muted: #8a887e;
-  --np-read-dim: #a8a396;
+  --np-read-muted: #85857e;
+  --np-read-dim: #adada6;
+  --np-sheet: var(--np-read);
+  --np-sheet-ink: var(--np-read-ink);
+  --np-sheet-line: var(--np-read-border);
   /* A focused card or row: the ink, never the accent of the selection (Р-69, point 4). */
   --np-focus: #2e302b;
 }
@@ -110,20 +110,21 @@
   --np-amber: #e8b866;
   --np-amber-soft: #3a3124;
   --np-on-amber-soft: #f2d9a6;
-  --np-sheet: #262622;
-  --np-sheet-ink: #e4e0d4;
-  --np-sheet-line: #35352f;
-  --np-read: #1e1c19;
-  --np-read-queue: #262420;
-  --np-read-current: #2c2924;
-  --np-read-card: #262420;
-  --np-read-edge: #35312a;
-  --np-read-track: #35312a;
-  --np-read-border: #3d3930;
-  --np-read-ink: #ece6da;
-  --np-read-text: #e9e6dc;
-  --np-read-muted: #8c8a7f;
-  --np-read-dim: #625e55;
+  /* The free Dark theme of reading (B8's swatch: #1e1d1a, ink #e8e2d6). */
+  --np-read: #1e1d1a;
+  --np-read-queue: #252421;
+  --np-read-current: #2c2b27;
+  --np-read-card: #252421;
+  --np-read-edge: #33322e;
+  --np-read-track: #33322e;
+  --np-read-border: #3d3c37;
+  --np-read-ink: #e8e2d6;
+  --np-read-text: #dfdad0;
+  --np-read-muted: #8c8a83;
+  --np-read-dim: #615f59;
+  --np-sheet: var(--np-read);
+  --np-sheet-ink: var(--np-read-ink);
+  --np-sheet-line: var(--np-read-border);
   --np-focus: #e9e6dc;
 }
 
@@ -776,9 +777,6 @@
    of 640 px (frame B3), the serif of the queue's titles, the running line while a page loads. */
 @layer components {
   .reading-mode {
-    --np-sheet: var(--np-read);
-    --np-sheet-ink: var(--np-read-ink);
-    --np-sheet-line: var(--np-read-border);
     --np-meta: var(--np-read-muted);
     /* Buttons, the skeleton and hovers of the app in the mode's paper. */
     --np-ink: var(--np-read-text);

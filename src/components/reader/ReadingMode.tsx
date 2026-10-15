@@ -3,7 +3,7 @@ import { ArrowUpRight, BookOpen, ChevronDown, Menu as MenuIcon } from "lucide-re
 import { useTranslation } from "react-i18next";
 import { Bookmark } from "../../types";
 import { composing } from "../../services/ime";
-import { knownMinutes } from "../../services/reader";
+import { cachedArticle, knownMinutes } from "../../services/reader";
 import { useReadingList } from "../../hooks/useReadingList";
 import { useReadingProgress } from "../../hooks/useReadingProgress";
 import { Icon } from "../icons";
@@ -133,6 +133,13 @@ export function ReadingMode({
     if (online && failed && (failed.reason === "network" || failed.reason === "timeout")) setAttempt((n) => n + 1);
     // Only the change of the connection, not every failure.
   }, [online]);
+
+  // The next article is read ahead once the current one has settled, so `J` shows it at once
+  // (owner, 2026-10-15): only the next one, never the whole queue, and only while the mode is open.
+  const settled = currentStatus !== null && currentStatus.kind !== "loading";
+  useEffect(() => {
+    if (settled && next && online) void cachedArticle(next.url).catch(() => {});
+  }, [settled, next?.url, online]);
 
   const show = useCallback((id: number, focus: "article" | "queue" = "article") => {
     setCurrentId(id);
