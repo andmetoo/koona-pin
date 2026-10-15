@@ -927,6 +927,7 @@
     "waiting": "in attesa di connessione",
     "keys": "J / K — successivo, precedente",
     "keysEsc": "Esc — coda",
+    "keysTab": "Tab — coda, articolo",
     "failedTitle": "Questa pagina non si può mostrare in modalità lettura",
     "failedTail": "Nel browser si apre senza problemi, e la coda resta qui.",
     "next": "Successivo",

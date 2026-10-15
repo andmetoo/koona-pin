@@ -941,6 +941,7 @@
     "waiting": "čeka vezu",
     "keys": "J / K — sledeći, prethodni",
     "keysEsc": "Esc — red",
+    "keysTab": "Tab — red, članak",
     "failedTitle": "Ova stranica ne može da se prikaže u režimu čitanja",
     "failedTail": "U pregledaču se otvara normalno, a red ostaje ovde.",
     "next": "Dalje",

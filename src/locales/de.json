@@ -870,6 +870,7 @@
     "waiting": "wartet auf Verbindung",
     "keys": "J / K — weiter, zurück",
     "keysEsc": "Esc — Liste",
+    "keysTab": "Tab — Liste, Artikel",
     "failedTitle": "Diese Seite lässt sich im Lesemodus nicht zeigen",
     "failedTail": "Im Browser öffnet sie sich normal, und die Liste bleibt hier.",
     "next": "Weiter",

@@ -45,7 +45,10 @@ const keyIs = (e: KeyboardEvent, letter: string) => e.code === `Key${letter.toUp
  * progress line. It drops from the toolbar's «Read» as a circle in the mode's
  * colour and folds back into it. `J`/`K` go through the queue, `O` opens the
  * page in the browser, `Esc` goes to the queue and from there to the library,
- * which waits underneath as it was. An article that cannot be shown leaves a
+ * which waits underneath as it was. `Tab` goes between the queue and the article
+ * (issue #319): the queue is one stop, its arrows pick the article to read, and
+ * the article takes the arrows, Space and Page Down for scrolling; the toolbar
+ * comes after the article. An article that cannot be shown leaves a
  * card with the browser, the next one and «Mark as read», never an empty column.
  */
 export function ReadingMode({
@@ -209,7 +212,7 @@ export function ReadingMode({
     cancelAnimationFrame(articleFocus.current);
     const focus = () => {
       const list = queueRef.current;
-      (list?.querySelector<HTMLElement>("[aria-current=true]") ?? list?.querySelector<HTMLElement>("[data-queue-item], button"))?.focus();
+      (list?.querySelector<HTMLElement>("[aria-selected=true]") ?? list?.querySelector<HTMLElement>("[data-queue-item], button"))?.focus();
     };
     if (queueRef.current) return focus();
     setQueueOpen(true);
@@ -270,6 +273,13 @@ export function ReadingMode({
         lastIndex.current = 0;
       }}
       onPick={(id) => show(id)}
+      onMove={(id) => show(id, "queue")}
+      onArticle={() => {
+        // Tab from the queue: the article, also from the narrow window's queue, which closes.
+        setQueueOpen(false);
+        cancelAnimationFrame(articleFocus.current);
+        scroller.current?.focus({ preventScroll: true });
+      }}
     />
   );
   const empty = items !== null && items.length === 0;
@@ -292,57 +302,21 @@ export function ReadingMode({
         {current && (
           <ProgressLine key={current.id} bookmark={current} status={currentStatus} scroller={scroller} />
         )}
-        <div className={`flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
-          {narrow && !empty && (
-            <Button
-              variant="outline"
-              size="lg"
-              aria-expanded={queueOpen}
-              onClick={() => (queueOpen ? setQueueOpen(false) : focusQueue())}
-              className="text-read-text"
-            >
-              <Icon icon={MenuIcon} size={14} />
-              {t("readingMode.queueButton", { count: unread.length })}
-            </Button>
-          )}
-          <span className="flex-1" />
-          {/* The Aa panel (NP-124, frame B8): size, column, theme, font. */}
-          <AaButton choice={aa.choice} look={look} unlocked={aa.unlocked} narrow={narrow} onChoice={aa.onChoice} onLocked={aa.onLocked} onSupporter={aa.onSupporter} />
-          {current &&
-            (narrow ? (
-              <Hint label={t("reader.openInBrowser")}>
-                <button
-                  type="button"
-                  aria-label={t("reader.openInBrowser")}
-                  onClick={() => onOpen(current.url)}
-                  className="flex size-[34px] items-center justify-center rounded-lg border border-read-border text-read-text transition-colors duration-150 hover:bg-read-track"
-                >
-                  <Icon icon={ArrowUpRight} size={15} />
-                </button>
-              </Hint>
-            ) : (
-              <Button variant="outline" size="lg" onClick={() => onOpen(current.url)} className="rounded-lg text-read-text">
-                {t("reader.openInBrowser")}
-                <Icon icon={ArrowUpRight} size={13} />
-              </Button>
-            ))}
-          {/* The toolbar's «Read» in the same place and size, pressed (owner, 2026-10-15): opening
-              the mode moves nothing under the pointer; in a narrow window the book alone with its hint. */}
-          <Hint label={t("readingMode.read")} show={narrow}>
-            <Button
-              variant="outline"
-              size="lg"
-              aria-pressed
-              aria-label={narrow ? t("readingMode.read") : undefined}
-              onClick={leave}
-              className={`rounded-lg bg-read-track text-ink ${narrow ? "w-[34px] !px-0" : "ml-6"}`}
-            >
-              <Icon icon={BookOpen} size={15} className="shrink-0" />
-              {!narrow && t("readingMode.read")}
-            </Button>
-          </Hint>
-        </div>
-        <div ref={scroller} tabIndex={-1} data-reader-scroll className={`min-h-0 flex-1 overflow-y-auto outline-none ${narrow ? "px-6 pt-3.5" : "px-8 pt-7"} pb-24`}>
+        {/* A stop for Tab with a ring of its own: the arrows, Space and Page Down scroll it. */}
+        <div
+          ref={scroller}
+          tabIndex={0}
+          role={current ? "region" : undefined}
+          aria-label={current ? current.title || current.url : undefined}
+          data-reader-scroll
+          onKeyDown={(e) => {
+            // Shift+Tab from the article: the queue when it is on screen, past the window's own buttons.
+            if (e.key !== "Tab" || !e.shiftKey || e.target !== e.currentTarget || !queueRef.current) return;
+            e.preventDefault();
+            focusQueue();
+          }}
+          className={`min-h-0 flex-1 overflow-y-auto outline-offset-[-2px] ${narrow ? "px-6 pt-3.5" : "px-8 pt-7"} pb-24`}
+        >
           {current ? (
             <ArticleView
               key={current.id}
@@ -413,6 +387,58 @@ export function ReadingMode({
             )
           )}
         </div>
+        {/* After the article in the document, above it on screen: Tab goes from the queue straight
+            to the article (issue #319), then on through its links to these buttons. */}
+        <div className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
+          {narrow && !empty && (
+            <Button
+              variant="outline"
+              size="lg"
+              aria-expanded={queueOpen}
+              onClick={() => (queueOpen ? setQueueOpen(false) : focusQueue())}
+              className="text-read-text"
+            >
+              <Icon icon={MenuIcon} size={14} />
+              {t("readingMode.queueButton", { count: unread.length })}
+            </Button>
+          )}
+          <span className="flex-1" />
+          {/* The Aa panel (NP-124, frame B8): size, column, theme, font. */}
+          <AaButton choice={aa.choice} look={look} unlocked={aa.unlocked} narrow={narrow} onChoice={aa.onChoice} onLocked={aa.onLocked} onSupporter={aa.onSupporter} />
+          {current &&
+            (narrow ? (
+              <Hint label={t("reader.openInBrowser")}>
+                <button
+                  type="button"
+                  aria-label={t("reader.openInBrowser")}
+                  onClick={() => onOpen(current.url)}
+                  className="flex size-[34px] items-center justify-center rounded-lg border border-read-border text-read-text transition-colors duration-150 hover:bg-read-track"
+                >
+                  <Icon icon={ArrowUpRight} size={15} />
+                </button>
+              </Hint>
+            ) : (
+              <Button variant="outline" size="lg" onClick={() => onOpen(current.url)} className="rounded-lg text-read-text">
+                {t("reader.openInBrowser")}
+                <Icon icon={ArrowUpRight} size={13} />
+              </Button>
+            ))}
+          {/* The toolbar's «Read» in the same place and size, pressed (owner, 2026-10-15): opening
+              the mode moves nothing under the pointer; in a narrow window the book alone with its hint. */}
+          <Hint label={t("readingMode.read")} show={narrow}>
+            <Button
+              variant="outline"
+              size="lg"
+              aria-pressed
+              aria-label={narrow ? t("readingMode.read") : undefined}
+              onClick={leave}
+              className={`rounded-lg bg-read-track text-ink ${narrow ? "w-[34px] !px-0" : "ml-6"}`}
+            >
+              <Icon icon={BookOpen} size={15} className="shrink-0" />
+              {!narrow && t("readingMode.read")}
+            </Button>
+          </Hint>
+        </div>
         </div>
       </div>
       {narrow && queueOpen && (
@@ -478,7 +504,9 @@ function Card({ title, text, offline, children }: { title: string; text: string;
 /**
  * The queue (frame B3): what reads next, a switch between Reading and the
  * library's section, each item with its site, minutes and progress, the read
- * ones dimmed. `↑`/`↓` move between items, `Enter` reads one.
+ * ones dimmed. A list box with one stop for Tab (the current item): `↑`/`↓`,
+ * `Home`/`End` pick the article and show it while the queue keeps focus;
+ * `Enter` reads it and `Tab` goes to the article (issue #319).
  */
 const Queue = function Queue({
   ref,
@@ -491,6 +519,8 @@ const Queue = function Queue({
   section,
   onSource,
   onPick,
+  onMove,
+  onArticle,
 }: {
   ref: RefObject<HTMLDivElement | null>;
   items: Bookmark[] | null;
@@ -501,7 +531,12 @@ const Queue = function Queue({
   source: ReadingSource;
   section: SectionQueue;
   onSource: (source: ReadingSource) => void;
+  /** Read it: the article takes focus. */
   onPick: (id: number) => void;
+  /** Show it: the queue keeps focus. */
+  onMove: (id: number) => void;
+  /** Tab from the queue's item: the article takes focus. */
+  onArticle: () => void;
 }) {
   const { t } = useTranslation();
   const switcher = useRef<HTMLButtonElement>(null);
@@ -524,14 +559,23 @@ const Queue = function Queue({
           .join(" · ");
 
   const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Tab") {
+      if (e.shiftKey || !(e.target as HTMLElement).closest("[data-queue-item]")) return;
+      e.preventDefault();
+      return onArticle();
+    }
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
-    const buttons = [...(ref.current?.querySelectorAll<HTMLElement>("[data-queue-item]") ?? [])];
-    const at = buttons.indexOf(document.activeElement as HTMLElement);
+    if (!items) return;
+    const at = items.findIndex((b) => String(b.id) === (e.target as HTMLElement).dataset.queueItem);
     if (at < 0) return;
     e.preventDefault();
-    const to = e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : at + (e.key === "ArrowDown" ? 1 : -1);
-    buttons[Math.max(0, Math.min(buttons.length - 1, to))]?.focus();
+    const to = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : at + (e.key === "ArrowDown" ? 1 : -1);
+    const item = items[Math.max(0, Math.min(items.length - 1, to))];
+    if (item.id !== items[at].id) onMove(item.id);
   };
+  /** The one item Tab stops at: the current one, or the first. */
+  const stop = items?.some((b) => b.id === current?.id) ? current!.id : items?.[0]?.id;
 
   return (
     <div ref={ref} data-reading-queue className="flex h-full w-[320px] shrink-0 flex-col border-r border-read-edge bg-read-queue">
@@ -571,7 +615,7 @@ const Queue = function Queue({
           ]}
         />
       )}
-      <ol className="min-h-0 flex-1 overflow-y-auto" aria-label={name} onKeyDown={onKeyDown}>
+      <ol role="listbox" className="min-h-0 flex-1 overflow-y-auto" aria-label={name} onKeyDown={onKeyDown}>
         {items?.map((b) => {
           const isCurrent = b.id === current?.id;
           const minutesOf = knownMinutes(b.url);
@@ -594,12 +638,14 @@ const Queue = function Queue({
             .filter(Boolean)
             .join(" · ");
           return (
-            <li key={b.id}>
+            <li key={b.id} role="none">
               <button
                 type="button"
+                role="option"
+                tabIndex={b.id === stop ? 0 : -1}
                 data-queue-item={b.id}
                 data-read={b.read_at ? "true" : undefined}
-                aria-current={isCurrent || undefined}
+                aria-selected={isCurrent}
                 onClick={() => onPick(b.id)}
                 className={`relative flex w-full flex-col px-6 pt-3.5 text-left outline-offset-[-2px] transition-colors duration-150 ${isCurrent ? "h-20 bg-read-current" : "h-[72px] hover:bg-read-current/60"} ${b.read_at ? "text-read-dim" : ""}`}
               >
@@ -625,6 +671,8 @@ const Queue = function Queue({
         <span className="whitespace-nowrap">{t("readingMode.keys")}</span>
         <span aria-hidden>·</span>
         <span className="whitespace-nowrap">{t("readingMode.keysEsc")}</span>
+        <span aria-hidden>·</span>
+        <span className="whitespace-nowrap">{t("readingMode.keysTab")}</span>
       </p>
     </div>
   );

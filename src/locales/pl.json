@@ -984,6 +984,7 @@
     "waiting": "czeka na połączenie",
     "keys": "J / K — następny, poprzedni",
     "keysEsc": "Esc — kolejka",
+    "keysTab": "Tab — kolejka, artykuł",
     "failedTitle": "Tej strony nie da się pokazać w trybie czytania",
     "failedTail": "W przeglądarce otwiera się normalnie, a kolejka zostaje tutaj.",
     "next": "Dalej",

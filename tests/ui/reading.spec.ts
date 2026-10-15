@@ -10,7 +10,7 @@ const text = (c: Catalog, key: string) => key.split(".").reduce<string | Catalog
 
 const mode = (page: Page) => page.locator("[data-reading-mode]");
 const queue = (page: Page) => mode(page).locator("[data-reading-queue]");
-const current = (page: Page) => queue(page).locator("[aria-current=true]");
+const current = (page: Page) => queue(page).locator("[aria-selected=true]");
 const heading = (page: Page) => mode(page).locator(".reader-title");
 /** The toolbar's «Read»; the selection bar has one of its own. */
 const readButton = (page: Page) => page.locator("button[data-read-mode]");
@@ -156,6 +156,71 @@ test("keyboard only: open, J/K through the queue, O, the queue with arrows, leav
   await expect(current(page)).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(mode(page)).toHaveCount(0);
+});
+
+test("Tab goes between the queue and the article; arrows in the queue pick the article (#319)", async ({ page }) => {
+  await boot(page);
+  await fillReading(page);
+  const list = await readingList(page);
+  await readButton(page).click();
+  const article = mode(page).locator("[data-reader-scroll]");
+  await expect(heading(page)).toHaveText(list[0].title);
+  await expect(article).toBeFocused();
+  await expect(queue(page)).toContainText("Tab — queue, article");
+
+  // Shift+Tab: the queue, at the current item; the queue is a list box with one stop for Tab.
+  await page.keyboard.press("Shift+Tab");
+  await expect(current(page)).toBeFocused();
+  await expect(queue(page).getByRole("listbox")).toBeVisible();
+  await expect(queue(page).locator("[data-queue-item][tabindex='0']")).toHaveCount(1);
+  // ↓ reads the next one at once, the queue keeps focus.
+  await page.keyboard.press("ArrowDown");
+  await expect(heading(page)).toHaveText(list[1].title);
+  await expect(current(page)).toContainText(list[1].title);
+  await expect(current(page)).toBeFocused();
+  await expect(queue(page).locator("[data-queue-item][tabindex='0']")).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(heading(page)).toHaveText(list[0].title);
+  await page.keyboard.press("End");
+  await expect(heading(page)).toHaveText(list[list.length - 1].title);
+  await page.keyboard.press("Home");
+  await expect(heading(page)).toHaveText(list[0].title);
+
+  // Tab: the article, past the toolbar; its arrows scroll and pick nothing.
+  await page.keyboard.press("Tab");
+  await expect(article).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(heading(page)).toHaveText(list[0].title);
+  // The ring of the region.
+  expect(await article.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("solid");
+  // J and Esc as before.
+  await page.keyboard.press("j");
+  await expect(heading(page)).toHaveText(list[1].title);
+  await page.keyboard.press("Escape");
+  await expect(current(page)).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(mode(page)).toHaveCount(0);
+});
+
+test("a narrow window: Tab does not reach the hidden queue; Tab from the open queue goes to the article (#319)", async ({ page }) => {
+  await boot(page, { width: 800, height: 550 });
+  const list = await readingList(page);
+  await readButton(page).click();
+  const article = mode(page).locator("[data-reader-scroll]");
+  await expect(article).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(queue(page)).toHaveCount(0);
+  await article.focus();
+  // Esc shows the queue; ↓ reads the next one behind it and the queue stays.
+  await page.keyboard.press("Escape");
+  await expect(current(page)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(heading(page)).toHaveText(list[1].title);
+  await expect(current(page)).toBeFocused();
+  // Tab: the queue closes, the article takes focus.
+  await page.keyboard.press("Tab");
+  await expect(queue(page)).toHaveCount(0);
+  await expect(article).toBeFocused();
 });
 
 test("the queue: read ones dimmed at the bottom, the switch reads the section, the end marks read (NP-122)", async ({ page }) => {
