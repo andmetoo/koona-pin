@@ -60,10 +60,61 @@ test("the bar is icons at every width, each named with its key by its hint; no l
     await expect(button).toHaveText("");
   }
   await expect(buttons.nth(0)).toHaveAttribute("aria-keyshortcuts", "Space");
-  await expect(buttons.nth(6)).toHaveAttribute("aria-keyshortcuts", "Delete");
+  const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
+  await expect(buttons.nth(6)).toHaveAttribute("aria-keyshortcuts", mac ? "Backspace Meta+Backspace Delete" : "Delete");
   await expect(buttons.nth(7)).toHaveAttribute("aria-keyshortcuts", "Escape");
-  await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText("TrashDel");
+  await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText(mac ? "Trash⌫" : "TrashDel");
   await expect(page.getByText(/click — add/)).toHaveCount(0);
+});
+
+test("on a Mac ⌫ and ⌘⌫ trash the selection and, in the trash, delete it forever; fields, dialogs and the sheet keep ⌫ (#297)", async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "platform", { get: () => "MacIntel" }));
+  await page.reload();
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards).toHaveCount(6);
+  await spot(card(page, TITLES[0])).click();
+  const trash = bar(page).getByRole("button", { name: "Trash" });
+  await expect(trash).toHaveAttribute("aria-keyshortcuts", "Backspace Meta+Backspace Delete");
+  await trash.hover();
+  await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText("Trash⌫");
+  await page.mouse.move(5, 895);
+
+  // A field's ⌫ is the field's.
+  const search = page.getByRole("textbox", { name: "Search the library" });
+  await search.focus();
+  await page.keyboard.type("x");
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Meta+Backspace");
+  await expect(search).toHaveValue("");
+  await search.blur();
+  await expect(cards).toHaveCount(6);
+  // The sheet is a layer: ⌫ there leaves the selection alone.
+  await page.keyboard.press(" ");
+  await expect(sheet(page)).toBeVisible();
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Escape");
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(cards).toHaveCount(6);
+
+  // ⌫ and Finder's ⌘⌫: to the trash.
+  await page.keyboard.press("Backspace");
+  await expect(card(page, TITLES[0])).toHaveCount(0);
+  await spot(card(page, TITLES[1])).click();
+  await page.keyboard.press("Meta+Backspace");
+  await expect(card(page, TITLES[1])).toHaveCount(0);
+  await expect(cards).toHaveCount(4);
+
+  // In the trash, the dialog to delete for good; ⌫ in the dialog doesn't open another.
+  await page.getByRole("button", { name: /^Trash/ }).click();
+  await expect(cards).toHaveCount(2);
+  await spot(card(page, TITLES[0])).click();
+  await page.keyboard.press("Backspace");
+  const dialog = page.getByRole("dialog", { name: "Delete forever?" });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Backspace");
+  await expect(page.getByRole("dialog", { name: "Delete forever?" })).toHaveCount(1);
+  await dialog.getByRole("button", { name: "Delete forever" }).click();
+  await expect(cards).toHaveCount(1);
 });
 
 test("a click selects and never opens; focus and selection look different and are announced (NP-123)", async ({ page }) => {

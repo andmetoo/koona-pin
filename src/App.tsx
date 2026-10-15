@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { composing } from "./services/ime";
-import { isArrow, shortcut } from "./services/keys";
+import { isArrow, isDeleteKey, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
@@ -258,7 +258,8 @@ export function App() {
         }
         if (e.key === "Escape" && selectionRef.current.ids.size) selectionRef.current.clear();
         // Del: the selection to the trash, or, in the trash, the dialog to delete it for good (NP-029).
-        if (e.key === "Delete" && !typing && selectionRef.current.ids.size && !e.repeat && !bulkBusyRef.current) {
+        // On a Mac ⌫ and ⌘⌫ too (#297).
+        if (isDeleteKey(e) && !typing && selectionRef.current.ids.size && !e.repeat && !bulkBusyRef.current) {
           e.preventDefault();
           if (filters.onlyTrash) selectionActionsRef.current.deleteForever();
           else selectionActionsRef.current.trash();

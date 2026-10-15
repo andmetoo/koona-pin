@@ -5,6 +5,7 @@ import { Collection, ExportFormat, Tag } from "../../types";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
+import { deleteKey, deleteKeyshortcuts } from "../../services/keys";
 import { collectionEntries } from "./Bookmarks";
 import { TagField } from "./Fields";
 
@@ -97,7 +98,7 @@ export function SelectionBar({
     ? [
         { id: "restore", icon: RotateCcw, label: t("trash.restore"), run: actions.restore },
         { id: "export", icon: ArrowUpFromLine, label: t("selection.export"), popover: "export", run: toggle("export") },
-        { id: "delete", icon: Trash2, label: t("trash.deleteForever"), keys: "Del", run: actions.deleteForever },
+        { id: "delete", icon: Trash2, label: t("trash.deleteForever"), keys: deleteKey(), run: actions.deleteForever },
       ]
     : [
         // First on the bar (sheet S2): the book, «Read · Space» by its hint.
@@ -112,7 +113,7 @@ export function SelectionBar({
           ? { id: "reading", icon: BookOpen, label: t("selection.fromReading"), keys: "R", run: () => actions.reading(false) }
           : { id: "reading", icon: BookOpen, label: t("selection.toReading"), keys: "R", run: () => actions.reading(true) },
         { id: "export", icon: ArrowUpFromLine, label: t("selection.export"), popover: "export", run: toggle("export") },
-        { id: "trash", icon: Trash2, label: t("selection.trash"), keys: "Del", run: actions.trash },
+        { id: "trash", icon: Trash2, label: t("selection.trash"), keys: deleteKey(), run: actions.trash },
       ];
   // The keys are in the hints of the buttons (#319): the row under the bar says only what the bar can't.
   const message = dragging
@@ -209,4 +210,4 @@ export function SelectionBar({
 }
 
 /** A key of a hint as `aria-keyshortcuts` names it. */
-const keyshortcuts = (keys?: string) => (keys === "Del" ? "Delete" : keys);
+const keyshortcuts = (keys?: string) => (keys === deleteKey() ? deleteKeyshortcuts() : keys);

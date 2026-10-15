@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import i18n from "../i18n";
-import { arrowTarget, deleteKey, isMac, shortcut } from "./keys";
+import { arrowTarget, deleteKey, isDeleteKey, isMac, shortcut } from "./keys";
 
 describe("the platform's modifier (#319)", () => {
   it("is ⌘ on a Mac, Ctrl elsewhere", () => {
@@ -9,6 +9,17 @@ describe("the platform's modifier (#319)", () => {
     expect(isMac("Win32")).toBe(false);
     expect(isMac("Linux x86_64")).toBe(false);
   });
+  it("deletes with Del everywhere, and with ⌫ and ⌘⌫ on a Mac (#297)", () => {
+    const key = (key: string, mods: Partial<KeyboardEvent> = {}) => ({ key, metaKey: false, ctrlKey: false, altKey: false, ...mods });
+    expect(isDeleteKey(key("Delete"), false)).toBe(true);
+    expect(isDeleteKey(key("Delete"), true)).toBe(true);
+    expect(isDeleteKey(key("Backspace"), false)).toBe(false);
+    expect(isDeleteKey(key("Backspace"), true)).toBe(true);
+    expect(isDeleteKey(key("Backspace", { metaKey: true }), true)).toBe(true);
+    expect(isDeleteKey(key("Backspace", { altKey: true }), true)).toBe(false);
+    expect(isDeleteKey(key("Backspace", { ctrlKey: true }), true)).toBe(false);
+  });
+
   it("writes a shortcut as the platform does: ⌘K on a Mac, the language's Ctrl elsewhere", async () => {
     expect(shortcut("K", true)).toBe("⌘K");
     expect(shortcut("K", false)).toBe("Ctrl K");
