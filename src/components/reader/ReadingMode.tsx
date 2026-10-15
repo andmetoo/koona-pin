@@ -163,7 +163,12 @@ export function ReadingMode({
   const show = useCallback((id: number, focus: "article" | "queue" = "article") => {
     setCurrentId(id);
     setAttempt(0);
-    if (focus === "queue") queueRef.current?.querySelector<HTMLElement>(`[data-queue-item="${id}"]`)?.focus();
+    if (focus === "queue") {
+      const item = queueRef.current?.querySelector<HTMLElement>(`[data-queue-item="${id}"]`);
+      item?.focus({ preventScroll: true });
+      // WebKit's focus() does not bring a row of the queue's own scroller into view (#319).
+      item?.scrollIntoView({ block: "nearest" });
+    }
     else if (focus === "article") {
       setQueueOpen(false);
       cancelAnimationFrame(articleFocus.current);
