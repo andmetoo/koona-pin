@@ -649,6 +649,14 @@
   "settings": {
     "assistants": "Assistentes de IA",
     "general": "Geral",
+    "reading": "Leitura",
+    "openLinks": "Abrir links",
+    "openLinksHint": "O que fazem um clique no título, um clique duplo e Enter. A persiana sobre a capa sempre oferece os dois.",
+    "openLinksBrowser": "No navegador",
+    "openLinksReader": "No modo de leitura",
+    "markRead": "Marcar como lido ao chegar ao fim",
+    "markReadHint": "Links lidos descem para o fim de Para ler e saem de lá após uma semana.",
+    "sendToReadingHint": "R num favorito selecionado; o menu da extensão também salva lá.",
     "language": "Idioma",
     "languageHint": "O inglês é a origem: textos sem tradução aparecem em inglês",
     "languageSystem": "Sistema — {{name}}",
@@ -885,6 +893,20 @@
       "links": "A página é quase só links, não um artigo.",
       "empty": "Nenhum artigo foi encontrado na página — talvez ela seja desenhada por scripts."
     }
+  },
+  "readerAa": {
+    "label": "Texto e tema",
+    "size": "Tamanho do texto",
+    "sizeValue": "{{size}} px",
+    "column": "Coluna",
+    "columns": { "narrow": "Estreita", "medium": "Média", "wide": "Larga" },
+    "theme": "Tema",
+    "themes": { "white": "Branco", "dark": "Escuro", "paper": "Papel", "sepia": "Sépia" },
+    "font": "Fonte",
+    "fonts": { "serif": "Serifa", "sans": "Sans", "book": "Livro", "legible": "Legível" },
+    "supporterHint": "Papel, Sépia e mais fontes —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, com Supporter"
   },
   "readingMode": {
     "label": "Modo leitura",
@@ -1227,6 +1249,7 @@
     "perks": {
       "sync": "Sincronização entre seus computadores — fase inicial, desde o primeiro dia",
       "backups": "Backups automáticos na pasta que você escolher, como o Dropbox",
+      "reading": "Temas de leitura Papel e Sépia e mais fontes",
       "badge": "Um selo de Supporter no app"
     },
     "plan": "Plano",
@@ -1284,6 +1307,8 @@
     "pastDue": "A renovação não foi concluída — atualize o cartão",
     "unchecked": "Não foi possível verificar o plano — ele continua ativo até {{date}}",
     "perk": {
+      "reading": "Temas e fontes de leitura",
+      "readingHint": "Papel, Sépia e mais fontes no painel Aa do modo de leitura",
       "sync": "Sincronização entre seus computadores",
       "syncHint": "Fase inicial — chega com uma atualização",
       "backups": "Backups automáticos em uma pasta",

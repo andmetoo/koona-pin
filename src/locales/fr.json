@@ -649,6 +649,14 @@
   "settings": {
     "assistants": "Assistants IA",
     "general": "Général",
+    "reading": "Lecture",
+    "openLinks": "Ouvrir les liens",
+    "openLinksHint": "Ce que font un clic sur un titre, un double-clic et Entrée. Le volet sur une couverture propose toujours les deux.",
+    "openLinksBrowser": "Dans le navigateur",
+    "openLinksReader": "En mode lecture",
+    "markRead": "Marquer comme lu à la fin",
+    "markReadHint": "Les liens lus descendent en bas d’À lire et en sortent au bout d’une semaine.",
+    "sendToReadingHint": "R sur un favori sélectionné ; le menu de l’extension y enregistre aussi.",
     "language": "Langue",
     "languageHint": "L’anglais est la source : les textes non traduits s’affichent en anglais",
     "languageSystem": "Système — {{name}}",
@@ -885,6 +893,20 @@
       "links": "La page est surtout faite de liens, pas d’un article.",
       "empty": "Aucun article trouvé sur la page — il est peut-être dessiné par des scripts."
     }
+  },
+  "readerAa": {
+    "label": "Texte et thème",
+    "size": "Taille du texte",
+    "sizeValue": "{{size}} px",
+    "column": "Colonne",
+    "columns": { "narrow": "Étroite", "medium": "Moyenne", "wide": "Large" },
+    "theme": "Thème",
+    "themes": { "white": "Blanc", "dark": "Sombre", "paper": "Papier", "sepia": "Sépia" },
+    "font": "Police",
+    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Livre", "legible": "Lisible" },
+    "supporterHint": "Papier, Sépia et d’autres polices —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, avec Supporter"
   },
   "readingMode": {
     "label": "Mode lecture",
@@ -1227,6 +1249,7 @@
     "perks": {
       "sync": "La synchronisation entre vos ordinateurs — phase précoce, dès le premier jour",
       "backups": "Des sauvegardes automatiques dans le dossier de votre choix, comme Dropbox",
+      "reading": "Les thèmes de lecture Papier et Sépia et d’autres polices",
       "badge": "Un badge Supporter dans l’app"
     },
     "plan": "Formule",
@@ -1284,6 +1307,8 @@
     "pastDue": "Le renouvellement n’est pas passé — mettez à jour la carte",
     "unchecked": "Formule non vérifiée — elle reste active jusqu’au {{date}}",
     "perk": {
+      "reading": "Thèmes et polices de lecture",
+      "readingHint": "Papier, Sépia et d’autres polices dans le panneau Aa du mode lecture",
       "sync": "La synchronisation entre vos ordinateurs",
       "syncHint": "Phase précoce — arrive avec une mise à jour",
       "backups": "Sauvegardes automatiques dans un dossier",

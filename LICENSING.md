@@ -39,6 +39,7 @@ Some files are someone else's work under their own terms and are not relicensed 
 
 - `scripts/shots/previews/` — photos from Unsplash under the [Unsplash License](https://unsplash.com/license), authors in `CREDITS.md` there;
 - reading mode's extraction bundles [Defuddle](https://github.com/kepano/defuddle) (MIT, © Steph Ango) and [DOMPurify](https://github.com/cure53/DOMPurify) (`MPL-2.0 OR Apache-2.0`, used under Apache-2.0, © Cure53 and contributors) into the app's interface; both keep their licenses and notices;
+- fonts bundled with the interface — [Inter](https://github.com/rsms/inter) (© The Inter Project Authors), and for reading [Literata](https://github.com/googlefonts/literata) (© The Literata Project Authors), [Source Serif 4](https://github.com/adobe-fonts/source-serif) (© Adobe) and [Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next) (© The Atkinson Hyperlegible Next Project Authors), installed from Fontsource — are under the [SIL Open Font License 1.1](https://openfontlicense.org) and are not relicensed by the GPL or the commercial license, including where code under the commercial license loads them;
 - dependencies installed by Bun (packages from npm) and Cargo — under their own licenses and accompanying notices. The website's [licenses page](https://koona.app/pin/licenses) credits selected components and assets; it is not a complete dependency inventory. Distributors must preserve the notices and meet the source and other requirements of the components they ship.
 
 ## Contributions

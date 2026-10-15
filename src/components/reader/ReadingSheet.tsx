@@ -5,6 +5,7 @@ import { Bookmark } from "../../types";
 import { useReadingProgress } from "../../hooks/useReadingProgress";
 import { Icon } from "../icons";
 import { Kbd } from "../ui/Hint";
+import { ReaderLook, readerStyle } from "../../services/readerLook";
 import { ArticleView } from "./ArticleView";
 
 /**
@@ -21,7 +22,10 @@ export function ReadingSheet({
   onOpen,
   onFavorite,
   onClose,
+  look,
 }: {
+  /** The theme, font and size of the Aa panel (NP-124): the sheet reads as the mode does. */
+  look: ReaderLook;
   /** What `↑`/`↓` go through: the selected in list order, or the one bookmark. */
   bookmarks: Bookmark[];
   index: number;
@@ -85,7 +89,9 @@ export function ReadingSheet({
       ref={dialog}
       aria-label={b.title || b.url}
       data-reading-sheet
-      className="reading-sheet fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent p-0"
+      data-reader-look={look.theme}
+      style={readerStyle(look)}
+      className="reading-sheet reading-look fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent p-0"
       onCancel={(e) => {
         e.preventDefault();
         latest.current.onClose();

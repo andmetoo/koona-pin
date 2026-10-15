@@ -561,6 +561,14 @@
   "settings": {
     "assistants": "AI アシスタント",
     "general": "全般",
+    "reading": "読書",
+    "openLinks": "リンクを開く",
+    "openLinksHint": "タイトルのクリック、ダブルクリック、Enter の動作です。カバーのシャッターには常に両方があります。",
+    "openLinksBrowser": "ブラウザで",
+    "openLinksReader": "読書モードで",
+    "markRead": "最後まで読んだら既読にする",
+    "markReadHint": "読んだリンクは「あとで読む」の下に移り、1 週間後に外れます。",
+    "sendToReadingHint": "選択したブックマークで R。拡張機能のメニューからも保存できます。",
     "language": "言語",
     "languageHint": "英語が原文です。翻訳されていない文字列は英語で表示されます",
     "languageSystem": "システム — {{name}}",
@@ -771,6 +779,20 @@
       "links": "このページはほとんどがリンクで、記事ではありません。",
       "empty": "ページに記事が見つかりません。スクリプトで描画されているのかもしれません。"
     }
+  },
+  "readerAa": {
+    "label": "文字とテーマ",
+    "size": "文字サイズ",
+    "sizeValue": "{{size}} px",
+    "column": "列幅",
+    "columns": { "narrow": "狭い", "medium": "標準", "wide": "広い" },
+    "theme": "テーマ",
+    "themes": { "white": "ホワイト", "dark": "ダーク", "paper": "ペーパー", "sepia": "セピア" },
+    "font": "フォント",
+    "fonts": { "serif": "セリフ", "sans": "サンセリフ", "book": "ブック", "legible": "読みやすい" },
+    "supporterHint": "ペーパー、セピア、その他のフォント —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}（Supporter）"
   },
   "readingMode": {
     "label": "リーディングモード",
@@ -1065,6 +1087,7 @@
     "perks": {
       "sync": "コンピューター間の同期 — 初期段階、初日から",
       "backups": "Dropbox など好きなフォルダーへの自動バックアップ",
+      "reading": "読書テーマのペーパーとセピア、その他のフォント",
       "badge": "アプリ内の Supporter バッジ"
     },
     "plan": "プラン",
@@ -1122,6 +1145,8 @@
     "pastDue": "更新に失敗しました — カードを更新してください",
     "unchecked": "プランを確認できませんでした — {{date}} まで有効です",
     "perk": {
+      "reading": "読書テーマとフォント",
+      "readingHint": "読書モードの Aa パネルでペーパー、セピア、その他のフォント",
       "sync": "コンピューター間の同期",
       "syncHint": "初期段階 — アップデートで登場",
       "backups": "フォルダーへの自動バックアップ",

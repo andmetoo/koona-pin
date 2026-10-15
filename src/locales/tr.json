@@ -605,6 +605,14 @@
   "settings": {
     "assistants": "Yapay zekâ asistanları",
     "general": "Genel",
+    "reading": "Okuma",
+    "openLinks": "Bağlantıları aç",
+    "openLinksHint": "Başlığa tıklamanın, çift tıklamanın ve Enter’ın ne yaptığı. Kapaktaki perde her zaman ikisini de sunar.",
+    "openLinksBrowser": "Tarayıcıda",
+    "openLinksReader": "Okuma modunda",
+    "markRead": "Sonunda okundu olarak işaretle",
+    "markReadHint": "Okunan bağlantılar Okuma listesinin altına iner ve bir hafta sonra listeden çıkar.",
+    "sendToReadingHint": "Seçili yer iminde R; uzantının menüsü de oraya kaydeder.",
     "language": "Dil",
     "languageHint": "Kaynak dil İngilizcedir: çevrilmemiş metinler İngilizce görünür",
     "languageSystem": "Sistem — {{name}}",
@@ -828,6 +836,20 @@
       "links": "Sayfa bir makale değil, çoğunlukla bağlantı.",
       "empty": "Sayfada makale bulunamadı; betiklerle çiziliyor olabilir."
     }
+  },
+  "readerAa": {
+    "label": "Metin ve tema",
+    "size": "Metin boyutu",
+    "sizeValue": "{{size}} px",
+    "column": "Sütun",
+    "columns": { "narrow": "Dar", "medium": "Orta", "wide": "Geniş" },
+    "theme": "Tema",
+    "themes": { "white": "Beyaz", "dark": "Koyu", "paper": "Kâğıt", "sepia": "Sepya" },
+    "font": "Yazı tipi",
+    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Kitap", "legible": "Okunaklı" },
+    "supporterHint": "Kâğıt, Sepya ve daha fazla yazı tipi —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, Supporter ile"
   },
   "readingMode": {
     "label": "Okuma modu",
@@ -1146,6 +1168,7 @@
     "perks": {
       "sync": "Bilgisayarlarınız arasında eşitleme — erken aşama, ilk günden",
       "backups": "Seçtiğiniz klasöre otomatik yedekler, örneğin Dropbox",
+      "reading": "Kâğıt ve Sepya okuma temaları ve daha fazla yazı tipi",
       "badge": "Uygulamada Supporter rozeti"
     },
     "plan": "Plan",
@@ -1203,6 +1226,8 @@
     "pastDue": "Yenileme alınamadı — kartınızı güncelleyin",
     "unchecked": "Plan kontrol edilemedi — {{date}} tarihine kadar geçerli",
     "perk": {
+      "reading": "Okuma temaları ve yazı tipleri",
+      "readingHint": "Okuma modunun Aa panelinde Kâğıt, Sepya ve daha fazla yazı tipi",
       "sync": "Bilgisayarlarınız arasında eşitleme",
       "syncHint": "Erken aşama — bir güncellemeyle gelecek",
       "backups": "Bir klasöre otomatik yedekler",

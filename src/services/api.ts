@@ -214,6 +214,7 @@ const desktop = {
   onLibraryInvalidated:(callback: () => void) =>
     subscription("library-invalidated", callback),
   getAppSettings: () => call<AppSettings>("get_app_settings"),
+  setReadingMarkAtEnd: (enabled: boolean) => call<void>("set_reading_mark_at_end", { enabled }),
   setCloseToTray: (enabled: boolean) =>
     call<void>("set_close_to_tray", { enabled }),
   getCaptureStatus: () => call<CaptureStatus>("get_capture_status"),

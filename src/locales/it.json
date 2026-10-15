@@ -649,6 +649,14 @@
   "settings": {
     "assistants": "Assistenti IA",
     "general": "Generali",
+    "reading": "Lettura",
+    "openLinks": "Apri i link",
+    "openLinksHint": "Cosa fanno un clic su un titolo, un doppio clic e Invio. La tendina su una copertina offre sempre entrambi.",
+    "openLinksBrowser": "Nel browser",
+    "openLinksReader": "In modalità lettura",
+    "markRead": "Segna come letto alla fine",
+    "markReadHint": "I link letti scendono in fondo a Da leggere e ne escono dopo una settimana.",
+    "sendToReadingHint": "R su un segnalibro selezionato; anche il menu dell’estensione salva lì.",
     "language": "Lingua",
     "languageHint": "L’inglese è la lingua di origine: i testi non tradotti compaiono in inglese",
     "languageSystem": "Sistema — {{name}}",
@@ -885,6 +893,20 @@
       "links": "La pagina è fatta soprattutto di link, non di un articolo.",
       "empty": "Nessun articolo trovato nella pagina: forse lo disegnano gli script."
     }
+  },
+  "readerAa": {
+    "label": "Testo e tema",
+    "size": "Dimensione del testo",
+    "sizeValue": "{{size}} px",
+    "column": "Colonna",
+    "columns": { "narrow": "Stretta", "medium": "Media", "wide": "Larga" },
+    "theme": "Tema",
+    "themes": { "white": "Bianco", "dark": "Scuro", "paper": "Carta", "sepia": "Seppia" },
+    "font": "Carattere",
+    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Libro", "legible": "Leggibile" },
+    "supporterHint": "Carta, Seppia e altri caratteri —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, con Supporter"
   },
   "readingMode": {
     "label": "Modalità lettura",
@@ -1227,6 +1249,7 @@
     "perks": {
       "sync": "Sincronizzazione tra i tuoi computer — fase iniziale, dal primo giorno",
       "backups": "Backup automatici in una cartella a tua scelta, come Dropbox",
+      "reading": "I temi di lettura Carta e Seppia e altri caratteri",
       "badge": "Un badge Supporter nell’app"
     },
     "plan": "Piano",
@@ -1284,6 +1307,8 @@
     "pastDue": "Il rinnovo non è andato a buon fine — aggiorna la carta",
     "unchecked": "Impossibile verificare il piano — resta attivo fino al {{date}}",
     "perk": {
+      "reading": "Temi e caratteri di lettura",
+      "readingHint": "Carta, Seppia e altri caratteri nel pannello Aa della modalità lettura",
       "sync": "Sincronizzazione tra i tuoi computer",
       "syncHint": "Fase iniziale — arriva con un aggiornamento",
       "backups": "Backup automatici in una cartella",

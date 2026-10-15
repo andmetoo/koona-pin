@@ -19,7 +19,7 @@ import { describeError } from "../../services/errors";
 import { GITHUB_ISSUES_URL, licensesUrl } from "../../services/feedback";
 import { changelogUrl, offer, percent } from "../../services/update";
 import { languages, LanguageSetting, setLanguage, storedLanguage, systemLanguage } from "../../i18n";
-import { Theme } from "../../services/preferences";
+import { OpenLinks, Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
 import { Dot, Segmented, Switch } from "../ui/Controls";
 import { Kbd } from "../ui/Hint";
@@ -47,7 +47,12 @@ export function SettingsPage({
   sync,
   onSync,
   onSupporter,
+  openLinks,
+  onOpenLinks,
 }: {
+  /** «Open links» (Р-69, point 5, frame B10): what a title, a double-click and Enter do. */
+  openLinks: OpenLinks;
+  onOpenLinks: (target: OpenLinks) => void;
   /** Supporter and its sync (sheet 46): the «Sync» row of Data. */
   supporter: SupporterStatus | null;
   sync: SyncStatus | null;
@@ -198,6 +203,39 @@ export function SettingsPage({
           <Button disabled={!desktop} onClick={() => void attempt("quit", api.quitApp)}>
             {t("settings.quitButton")}
           </Button>
+        </Row>
+      </Section>
+
+      {/* Reading (NP-124, frame B10): how links open, «read» at the end, the R key. */}
+      <Section title={t("settings.reading")}>
+        <div data-settings-reading="links">
+          <Row title={t("settings.openLinks")} description={t("settings.openLinksHint")}>
+            <Segmented<OpenLinks>
+              label={t("settings.openLinks")}
+              value={openLinks}
+              onChange={onOpenLinks}
+              options={[
+                { value: "browser", label: t("settings.openLinksBrowser") },
+                { value: "reader", label: t("settings.openLinksReader") },
+              ]}
+            />
+          </Row>
+        </div>
+        <Row title={t("settings.markRead")} description={t("settings.markReadHint")}>
+          <Switch
+            label={t("settings.markRead")}
+            checked={settings?.reading_mark_at_end ?? true}
+            disabled={!settings || busy("markRead")}
+            onChange={(enabled) =>
+              void attempt("markRead", async () => {
+                await api.setReadingMarkAtEnd(enabled);
+                if (settings) onSettings({ ...settings, reading_mark_at_end: enabled });
+              })
+            }
+          />
+        </Row>
+        <Row title={t("card.toReading")} description={t("settings.sendToReadingHint")}>
+          <Kbd>R</Kbd>
         </Row>
       </Section>
 

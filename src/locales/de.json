@@ -605,6 +605,14 @@
   "settings": {
     "assistants": "KI-Assistenten",
     "general": "Allgemein",
+    "reading": "Lesen",
+    "openLinks": "Links öffnen",
+    "openLinksHint": "Was ein Klick auf einen Titel, ein Doppelklick und die Eingabetaste tun. Die Leiste auf einem Titelbild bietet immer beides.",
+    "openLinksBrowser": "Im Browser",
+    "openLinksReader": "Im Lesemodus",
+    "markRead": "Am Ende als gelesen markieren",
+    "markReadHint": "Gelesene Links rutschen in der Leseliste nach unten und verlassen sie nach einer Woche.",
+    "sendToReadingHint": "R auf einem ausgewählten Lesezeichen; auch das Menü der Browsererweiterung speichert dorthin.",
     "language": "Sprache",
     "languageHint": "Englisch ist die Quelle: Nicht übersetzte Texte erscheinen auf Englisch",
     "languageSystem": "System — {{name}}",
@@ -828,6 +836,20 @@
       "links": "Die Seite besteht vor allem aus Links, nicht aus einem Artikel.",
       "empty": "Auf der Seite wurde kein Artikel gefunden — vielleicht zeichnen ihn Skripte."
     }
+  },
+  "readerAa": {
+    "label": "Text und Design",
+    "size": "Textgröße",
+    "sizeValue": "{{size}} px",
+    "column": "Spalte",
+    "columns": { "narrow": "Schmal", "medium": "Mittel", "wide": "Breit" },
+    "theme": "Design",
+    "themes": { "white": "Weiß", "dark": "Dunkel", "paper": "Papier", "sepia": "Sepia" },
+    "font": "Schrift",
+    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Buch", "legible": "Klar" },
+    "supporterHint": "Papier, Sepia und weitere Schriften —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, mit Supporter"
   },
   "readingMode": {
     "label": "Lesemodus",
@@ -1146,6 +1168,7 @@
     "perks": {
       "sync": "Synchronisierung zwischen Ihren Computern — frühe Phase, ab dem ersten Tag",
       "backups": "Automatische Sicherungen in einen Ordner Ihrer Wahl, etwa Dropbox",
+      "reading": "Die Lesedesigns Papier und Sepia und weitere Schriften",
       "badge": "Ein Supporter-Abzeichen in der App"
     },
     "plan": "Tarif",
@@ -1203,6 +1226,8 @@
     "pastDue": "Die Verlängerung ist fehlgeschlagen — aktualisieren Sie die Karte",
     "unchecked": "Tarif nicht geprüft — er gilt bis {{date}}",
     "perk": {
+      "reading": "Lesedesigns und Schriften",
+      "readingHint": "Papier, Sepia und weitere Schriften im Aa-Menü des Lesemodus",
       "sync": "Synchronisierung zwischen Ihren Computern",
       "syncHint": "Frühe Phase — kommt mit einem Update",
       "backups": "Automatische Sicherungen in einen Ordner",

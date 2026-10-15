@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
+import { BookOpen, Check, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
@@ -84,7 +84,8 @@ function useSupporterPrices(ask: "always" | "if_unknown" | "never" = "always") {
   }, []);
   return { prices, failed };
 }
-const PERKS = ["sync", "backups", "badge"] as const;
+/** What Supporter gives; «reading» is the themes and fonts of the Aa panel (NP-124). */
+const PERKS = ["sync", "backups", "reading", "badge"] as const;
 /** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
 export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
 
@@ -275,9 +276,9 @@ export function SupporterDialog({
       ) : (
         <p className="mt-3 text-xs leading-[17px] text-muted">{t("supporter.paddleHint")}</p>
       )}
-      {/* pt-11, not pt-5: the 24 px of the perk line that went (early builds) stay above the footer,
-          so this step, the tallest, keeps the one height of the purchase flow (NP-118). */}
-      <footer className="mt-auto flex items-center justify-end gap-2 pt-11">
+      {/* pt-5: the line of reading themes (NP-124) took the 24 px kept for the perk line that went in
+          early builds, so this step, the tallest, keeps the one height of the purchase flow (NP-118). */}
+      <footer className="mt-auto flex items-center justify-end gap-2 pt-5">
         {/* Paid on another computer: the email of the payment and its code (sheet 45). */}
         <button type="button" onClick={onSignIn} className="mr-auto text-sm font-medium text-accent hover:underline">
           {t("plan.already")}
@@ -804,7 +805,7 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
   );
 }
 
-const PERK_ICONS = { sync: RefreshCw, backups: Folder } as const;
+const PERK_ICONS = { sync: RefreshCw, backups: Folder, reading: BookOpen } as const;
 
 /**
  * «Supporter» (NP-066, sheet 45), opened by the badge in the sidebar: the plan, its state on one
@@ -961,7 +962,7 @@ export function PlanDialog({
                     <span className="block text-xs leading-[17px] text-muted">{t(`supporter.perk.${perk}Hint`)}</span>
                   </span>
                 )}
-                {(perk === "backups" && plan) || perk === "sync" ? null : perk === "badge" ? (
+                {(perk === "backups" && plan) || perk === "sync" || perk === "reading" ? null : perk === "badge" ? (
                   <Switch label={t("supporter.perk.badge")} checked={badge} onChange={onBadge} />
                 ) : (
                   <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-2xs font-medium text-subtle">{t("supporter.soon")}</span>

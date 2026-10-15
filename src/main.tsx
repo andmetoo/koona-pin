@@ -8,6 +8,9 @@ import { api } from "./services/api";
 import { blockBrowserChrome } from "./services/browserChrome";
 import { applyTheme, isDark, storedTheme } from "./services/preferences";
 import { applySeason } from "./services/season";
+// Supporter's reading themes and fonts (commercial, NP-124): the only import of them. Without this
+// line the community build shows them locked in the Aa panel (readerLook.ts).
+import "./components/commercial/readerThemes";
 
 // Before the first paint, so a dark theme does not flash light.
 applyTheme(isDark(storedTheme(), matchMedia("(prefers-color-scheme: dark)").matches));

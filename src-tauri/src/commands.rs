@@ -941,13 +941,24 @@ pub async fn import_html_bookmarks(
 #[ts(export)]
 pub struct AppSettings {
     pub close_to_tray: bool,
+    /// «Mark as read at the end» of Settings → Reading (NP-124); on by default.
+    pub reading_mark_at_end: bool,
 }
 #[tauri::command]
 pub async fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSettings, CommandError> {
     blocking(&state, |conn| {
         Ok(AppSettings {
             close_to_tray: db::setting(conn, "close_to_tray").map_err(text)? == "true",
+            reading_mark_at_end: crate::reading::mark_at_end(conn),
         })
+    })
+    .await
+}
+/// «Mark as read at the end» (NP-124): whether the reader's end of an article marks it read.
+#[tauri::command]
+pub async fn set_reading_mark_at_end(state: State<'_, Arc<DbState>>, enabled: bool) -> Result<(), CommandError> {
+    blocking(&state, move |conn| {
+        db::set_setting(conn, crate::reading::MARK_AT_END_SETTING, if enabled { "true" } else { "false" }).map_err(text)
     })
     .await
 }
