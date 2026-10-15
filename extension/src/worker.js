@@ -205,7 +205,8 @@ async function captureTab(tab, { reading = false } = {}) {
     }
     else {
       const waiting = (await queue.list()).find((row) => row.request_id === item.request_id);
-      state = waiting?.blocked ? "failed" : "queued";
+      // Not delivered and not on disk either: it waits only while the worker lives.
+      state = waiting?.blocked || !queue.stored() ? "failed" : "queued";
       error = waiting?.error;
       code = waiting?.code;
     }

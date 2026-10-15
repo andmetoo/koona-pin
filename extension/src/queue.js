@@ -13,14 +13,27 @@ export function createQueue({
     chain = result.catch(() => {});
     return result;
   };
+  // Safari can refuse even a tiny write with «Exceeded storage quota» (NP-119,
+  // #315). The link must not depend on it: a write that fails leaves the queue
+  // in memory, which delivery uses until a later write succeeds. Only a link
+  // that is neither delivered nor stored is lost, when the worker unloads.
+  let unsaved = null;
   const read = async () =>
-    (await storage.get("captureQueue")).captureQueue || [];
+    unsaved ?? ((await storage.get("captureQueue")).captureQueue || []);
   const write = async (queue) => {
-    await storage.set({ captureQueue: queue });
+    try {
+      await storage.set({ captureQueue: queue });
+      unsaved = null;
+    } catch (error) {
+      console.warn("Capture queue kept in memory:", error?.message ?? error);
+      unsaved = queue;
+    }
     await changed(queue);
   };
   return {
     list: () => exclusive(read),
+    /** Whether the queue on disk is behind the one in memory. */
+    stored: () => unsaved === null,
     // `reading`: «Save to Reading» (NP-125); the flag waits in the queue with
     // the link, so a link saved while the app was closed still lands there.
     enqueue: (url, title, tabId, { reading = false } = {}) =>

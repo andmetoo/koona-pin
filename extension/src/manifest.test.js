@@ -13,7 +13,7 @@ describe("manifests", () => {
     expect(safari.version).toBe(VERSION);
     expect(safari.manifest_version).toBe(3);
     expect(safari.background).toEqual({ scripts: ["worker.js"], type: "module", persistent: false });
-    expect(safari.permissions).toEqual(["activeTab", "scripting", "storage", "alarms", "nativeMessaging", "menus"]);
+    expect(safari.permissions).toEqual(["activeTab", "scripting", "storage", "alarms", "nativeMessaging", "menus", "unlimitedStorage"]);
     expect(safari.optional_permissions).toEqual(["tabs"]);
     expect(safari.commands["quick-search"].suggested_key).toEqual({ default: "Alt+Shift+D" });
     expect(safari.options_ui).toEqual({ page: "options.html", open_in_tab: true });
