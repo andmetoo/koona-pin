@@ -206,7 +206,8 @@ byte on the wire.
 
 - **Header checks** run in this order: `X-Koona-Proto` (missing or not an integer: 4004), the
   token (4001), the lease (4002), the beta allowlist (4002 with reason `not_in_beta`). A client
-  always sends `X-Koona-Proto` with its `proto` (2); the relay serves 1 and up.
+  always sends `X-Koona-Proto` with its `proto` (2); the relay serves 2 and up, so a v1 client,
+  whose pairing has no commitment (4.2), is told to update.
 - **Rate limits** are token buckets per account over every inbound message, text and binary,
   `hello` included: a burst of 20 then 20 messages/s, and a burst of 32 MiB then 32 MiB/min. Only
   the connection that crosses a limit is closed with 4008. A client paces what it sends below
@@ -519,7 +520,8 @@ A v2 hub answers a v1 `pair_offer` (one with `eph` and no `commit`) with
 not pause. A v1 hub sees `commit` as an unknown field and pauses for an update itself, but its
 `error` goes out sealed (kind 1), which the relay doesn't deliver to a pending device: a v2 device
 asking a v1 hub hears nothing and gives up after the pairing timeout. Pairing therefore needs both
-devices on v2, the hub updated first; there is no fallback to the v1 exchange.
+devices on v2, the hub updated first; there is no fallback to the v1 exchange. The reference
+relay serves only v2 and up (2.5), so with it a v1 device doesn't connect at all.
 
 A pending device sends at most one offer at a time; the hub handles one pairing at a time and
 answers others with `error{code: "rejected"}`. A pairing that isn't approved within 5 minutes is
