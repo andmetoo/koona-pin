@@ -988,6 +988,117 @@ fn asking_again_withdraws_the_code_on_the_hub() {
 }
 
 #[test]
+fn a_hub_answers_only_a_few_offers_that_are_not_approved() {
+    // A relay posing as new devices can abort each attempt after seeing the hub's answer (it
+    // can compute the hub's code before revealing) and try again: the hub answers at most
+    // MAX_PAIRING_ATTEMPTS offers in five minutes, and warns its person.
+    use koona_sync::session::{MAX_PAIRING_ATTEMPTS, PAIRING_TIMEOUT_MS, REVEAL_TIMEOUT_MS};
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let asking: Vec<usize> = (0..=MAX_PAIRING_ATTEMPTS as u8).map(|n| w.add("New", 2 + n, 64 << 10)).collect();
+    w.connect(a);
+    w.run();
+    for &i in &asking {
+        w.connect(i);
+    }
+    w.run();
+    // No reveal reaches the hub, and nothing it answers reaches a device but `pair_accept`.
+    let ida = w.devices[a].id;
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        match PairMessage::decode(&body[protocol::HEADER_LEN..]) {
+            Ok(PairMessage::PairReveal { .. }) => 0,
+            Ok(PairMessage::Error { .. }) if from == ida => 0,
+            _ => 1,
+        }
+    }));
+    let accepts = |w: &World| w.devices[a].sent.iter().filter(|(_, f)| matches!(sent_pairing(f), Some(PairMessage::PairAccept { .. }))).count();
+    for &i in &asking[..MAX_PAIRING_ATTEMPTS] {
+        w.act(i, Action::StartPairing);
+        w.run();
+        w.relay.now += REVEAL_TIMEOUT_MS;
+    }
+    assert_eq!(accepts(&w), MAX_PAIRING_ATTEMPTS);
+    assert!(failures(&w, a).is_empty());
+
+    // One more, still within five minutes of the first (the third device went away, so the hub
+    // isn't busy): refused, and the person is warned.
+    let last = asking[MAX_PAIRING_ATTEMPTS];
+    w.relay.now -= REVEAL_TIMEOUT_MS;
+    w.drop_link(asking[MAX_PAIRING_ATTEMPTS - 1]);
+    w.run();
+    w.act(last, Action::StartPairing);
+    w.run();
+    assert_eq!(accepts(&w), MAX_PAIRING_ATTEMPTS, "not answered");
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature]);
+
+    // Once the first attempt is five minutes old, the hub answers again.
+    w.relay.tamper = None;
+    w.relay.now = START + PAIRING_TIMEOUT_MS;
+    w.tick(0);
+    // (The refusal didn't reach it: it comes back to ask anew.)
+    w.drop_link(last);
+    w.connect(last);
+    w.run();
+    w.act(last, Action::StartPairing);
+    w.run();
+    assert_eq!(accepts(&w), MAX_PAIRING_ATTEMPTS + 1);
+    let device = w.devices[last].id;
+    assert_eq!(w.codes(last).last().unwrap().1, w.codes(a).last().unwrap().1);
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert!(load_meta(w.lib(last)).unwrap().key.is_some());
+}
+
+#[test]
+fn a_device_asks_only_a_few_times_however_often_it_is_told_to() {
+    // A relay posing as the hub can forge `expired` (pairing errors aren't signed) to make the
+    // device offer again with a new key, and so a new code, until one matches the hub's: the
+    // device offers at most MAX_PAIRING_ATTEMPTS times in five minutes.
+    use koona_sync::session::MAX_PAIRING_ATTEMPTS;
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        let reveal = from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. }));
+        usize::from(!reveal)
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+    for n in 0..MAX_PAIRING_ATTEMPTS as u64 {
+        let header = Header { kind: Kind::Pairing, epoch: 0, session: [0xEE; 16], seq: n };
+        let mut body = header.encode().to_vec();
+        body.extend(PairMessage::Error { code: protocol::ErrorCode::Expired }.encode().unwrap());
+        w.feed(b, Input::Binary(&protocol::encode_delivered(ida, w.relay.now, &body).unwrap()));
+        w.run();
+    }
+    assert_eq!(offers(&w, b), MAX_PAIRING_ATTEMPTS);
+    assert_eq!(failures(&w, b), vec![PairingFailure::BadSignature], "it stops and warns");
+    assert_eq!(errors(&w, b), 0);
+    // The hub saw the same device offer again before revealing, which an honest one never does.
+    assert!(failures(&w, a).iter().all(|f| *f == PairingFailure::BadSignature) && !failures(&w, a).is_empty());
+}
+
+#[test]
+fn approved_pairings_dont_count_against_the_next_device() {
+    use koona_sync::session::MAX_PAIRING_ATTEMPTS;
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    w.connect(a);
+    w.run();
+    // More devices than the cap, one after another at once: each one approved.
+    for n in 0..=MAX_PAIRING_ATTEMPTS as u8 {
+        let i = w.add("New", 2 + n, 64 << 10);
+        w.pair(i, a);
+    }
+    assert!(failures(&w, a).is_empty());
+}
+
+#[test]
 fn a_v1_offer_is_told_to_update_and_the_hub_does_not_pause() {
     let mut w = World::new();
     let a = w.add("Hub", 1, 64 << 10);

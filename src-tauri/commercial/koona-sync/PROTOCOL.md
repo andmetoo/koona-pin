@@ -492,14 +492,27 @@ The code is shown as six digits with leading zeros. The zero nonce is safe becau
 
 A relay that substitutes either `eph` or either Ed25519 key makes the two transcripts differ, so
 the two screens show different digits. On a first pairing A has the hub's Ed25519 key only from
-the relay, so a relay can play the hub toward A and A toward the hub; the commitment is what keeps
-it to one guess. Each side's X25519 key is fixed before it sees the other's: A's by `commit`
-before `pair_accept`, the hub's by its signed `pair_accept` before `pair_reveal`. Without it, a
-relay holding `A.eph` could try about 10^6 keys of its own offline until A's code equals the one
-the hub shows. With it, the two codes match by chance only (probability 10^-6 per attempt), and a
-failed attempt is visible to the person: the digits differ, or the hub shows no code and both
-sides are warned that someone is in between. The person MUST be told to compare the digits, not just
-press Approve.
+the relay, so a relay can play the hub toward A and A toward the hub. Each side's X25519 key is
+fixed before it sees the other's: A's by `commit` before `pair_accept`, the hub's by its signed
+`pair_accept` before `pair_reveal`. Without that, a relay holding `A.eph` could try about 10^6
+keys of its own offline until A's code equals the one the hub shows. With it, each attempt
+matches by chance only (probability 10^-6).
+
+Attempts still have to be counted. The side that reveals last learns its code before revealing:
+a relay posing as A can compute the hub's code from `pair_accept`, and abort and offer again
+unseen until it matches; posing as the hub, it can forge `expired` (pairing errors are not
+signed) to make A offer again with a new code. So:
+
+- A hub answers at most 3 `pair_offer`s, from all devices together, in any 5 minutes, an offer it
+  approved not counted. Past that it answers `error{code: "rejected"}` and warns its person that
+  someone may be in between. It also warns when a device offers again before revealing, which an
+  honest device never does.
+- A device sends at most 3 `pair_offer`s in any 5 minutes, re-offers after `expired` and after
+  the hub came back online included. Past that it stops and warns its person.
+
+A relay in between therefore gets at most 3 chances in 10^6 per 5 minutes, and each failed attempt
+is visible: the digits differ, the hub shows no code, or a warning. The person MUST be told to
+compare the digits, not just press Approve.
 
 A v2 hub answers a v1 `pair_offer` (one with `eph` and no `commit`) with
 `{"t": "error", "code": "update_needed"}`: the asking device is the one to update, so the hub does
@@ -570,6 +583,7 @@ hub's pinned key. A device that becomes hub through `set_hub` sends a fresh rost
 | Clock skew threshold | 5 min |
 | Pairing timeout | 5 min |
 | Pairing reveal timeout (hub) | 2 min |
+| Pairing attempts per 5 min (each side) | 3 |
 | Hub request timeout | 5 min |
 | Start over: sign-in age, max | 10 min |
 

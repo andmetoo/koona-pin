@@ -23,6 +23,11 @@ use uuid::Uuid;
 
 /// A pairing not approved by then is abandoned by both sides.
 pub const PAIRING_TIMEOUT_MS: u64 = 5 * 60 * 1000;
+/// At most this many pairing attempts in any [`PAIRING_TIMEOUT_MS`]: offers a device sends, and
+/// offers a hub answers (all devices together, an approved pairing not counted). Each attempt
+/// gives a relay in between one chance in 10^6 that the two codes match; without a cap it could
+/// abort and retry unseen until they did (4.2).
+pub const MAX_PAIRING_ATTEMPTS: usize = 3;
 /// A pairing offer whose `pair_reveal` doesn't come by then frees the hub for others, and the
 /// device is told. The reveal follows `pair_accept` at once, and until it comes the hub shows
 /// nothing to Reject (4.2); this leaves room for a client backing off 30 s after a 4008.
@@ -431,6 +436,11 @@ pub struct Session {
     /// The key epoch and the newer peer last reported ([`Effect::KeyEpoch`], [`Effect::UpdateFrom`]).
     shown_epoch: Option<Option<u32>>,
     shown_update_from: Option<Uuid>,
+    /// Pairing attempts within the last [`PAIRING_TIMEOUT_MS`] ([`MAX_PAIRING_ATTEMPTS`]): when
+    /// each went out, and on the hub to which device. Kept across connections.
+    attempts: VecDeque<(u64, Option<Uuid>)>,
+    /// On the hub: until when the person was already warned about too many attempts.
+    attempts_warned_until: u64,
     now: u64,
 }
 
@@ -490,6 +500,8 @@ impl Session {
             hub_asking: None,
             handed_over_by: None,
             hub_asked: None,
+            attempts: VecDeque::new(),
+            attempts_warned_until: 0,
             start_over_token: None,
             starting_over: false,
             held: false,
@@ -1553,6 +1565,12 @@ impl Session {
             self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Unavailable }));
             return;
         }
+        if !self.attempt(None) {
+            // Offers that keep ending before a code is approved: something keeps cutting them
+            // short, and each new one would give it another chance at matching codes.
+            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::BadSignature }));
+            return;
+        }
         let eph = Ephemeral::generate(self.rng.as_ref()).unwrap_or_else(|_| rng_failed());
         let party = Party { device: self.cfg.device, key: self.public, eph: eph.public() };
         // 4.2: commit to the X25519 key now, reveal it once the hub has sent its own.
@@ -1571,6 +1589,18 @@ impl Session {
             started: self.now,
         });
         self.fx.push(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: info.name }));
+    }
+
+    /// Counts one pairing attempt (`device`: the one a hub answers), unless
+    /// [`MAX_PAIRING_ATTEMPTS`] were made in the last [`PAIRING_TIMEOUT_MS`].
+    fn attempt(&mut self, device: Option<Uuid>) -> bool {
+        let now = self.now;
+        self.attempts.retain(|(at, _)| now < at + PAIRING_TIMEOUT_MS);
+        if self.attempts.len() >= MAX_PAIRING_ATTEMPTS {
+            return false;
+        }
+        self.attempts.push_back((now, device));
+        true
     }
 
     /// After `expired`: a new offer to the hub, keeping the time the first one started, so the
@@ -1605,6 +1635,15 @@ impl Session {
             // One pairing at a time.
             return self.send_pair(from, &PairMessage::Error { code: ErrorCode::Rejected });
         }
+        if !self.attempt(Some(from)) {
+            // Too many offers answered and not approved: whoever sends them may be trying codes
+            // until one matches. The person is warned (once a while), the offer refused.
+            if self.attempts_warned_until <= now {
+                self.attempts_warned_until = now + PAIRING_TIMEOUT_MS;
+                self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::BadSignature }));
+            }
+            return self.send_pair(from, &PairMessage::Error { code: ErrorCode::Rejected });
+        }
         match &self.hosting {
             Some(old) if old.exchange_key.is_some() => {
                 // The device asks again (it gave up waiting): its old code no longer means anything.
@@ -1612,7 +1651,10 @@ impl Session {
             }
             // Another device's offer that was never revealed: it is told, as on a tick.
             Some(old) if old.device != from => self.abandon_unrevealed(),
-            _ => {}
+            // The same device offers again before revealing: an honest one never does (it
+            // reveals at once, and a reconnect ends the old offer first). The person is warned.
+            Some(_) => self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::BadSignature })),
+            None => {}
         }
         // The hub's key is fixed and signed before it sees the device's: it can't pick one to
         // steer the code, and the device can't either, being bound by `commit`.
@@ -1693,6 +1735,8 @@ impl Session {
         }
         self.store_meta(lib);
         self.roster_for = Some(device);
+        // The person approved it: no longer an attempt to count against the next device.
+        self.attempts.retain(|(_, d)| *d != Some(device));
         self.fx.push(Effect::Pairing(PairingEvent::Paired { peer: device }));
     }
 
@@ -2089,6 +2133,7 @@ impl Session {
                 self.meta.hub = Some(from);
                 self.keys.clear();
                 self.add_key(lib, epoch, library);
+                self.attempts.clear();
                 self.fx.push(Effect::Pairing(PairingEvent::Paired { peer: from }));
                 self.start_sessions(lib);
             }
