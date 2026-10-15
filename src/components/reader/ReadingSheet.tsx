@@ -1,66 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { ArrowUpRight, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark } from "../../types";
-import { api } from "../../services/api";
+import { useReadingProgress } from "../../hooks/useReadingProgress";
 import { Icon } from "../icons";
 import { Kbd } from "../ui/Hint";
 import { ArticleView } from "./ArticleView";
-
-/** Every write of the progress is a change to sync (NP-121): at most this often while scrolling. */
-const SAVE_EVERY = 2000;
-/** Smaller moves are not worth a write. */
-const SAVE_STEP = 0.01;
-
-/**
- * How far the article is read, 0–1, written through `set_reading_progress` at
- * most every two seconds and once more when the bookmark changes or the sheet
- * closes. Only forward: scrolling back to look at something does not unread it.
- */
-function useReadingProgress(bookmark: Bookmark, scroller: React.RefObject<HTMLDivElement | null>, ready: boolean) {
-  const [progress, setProgress] = useState(bookmark.reading_progress);
-  const state = useRef({ id: bookmark.id, saved: bookmark.reading_progress, reached: bookmark.reading_progress, at: 0, timer: 0 });
-
-  const save = useCallback(() => {
-    const s = state.current;
-    window.clearTimeout(s.timer);
-    s.timer = 0;
-    if (s.reached - s.saved < SAVE_STEP && !(s.reached >= 1 && s.saved < 1)) return;
-    s.saved = s.reached;
-    s.at = Date.now();
-    void api.setReadingProgress(s.id, s.reached).catch(() => {});
-  }, []);
-
-  // Another bookmark: the last one keeps what was read of it.
-  useLayoutEffect(() => {
-    state.current = { id: bookmark.id, saved: bookmark.reading_progress, reached: bookmark.reading_progress, at: 0, timer: 0 };
-    setProgress(bookmark.reading_progress);
-    return save;
-    // The bookmark's own progress changes with every write; only another id starts anew.
-  }, [bookmark.id, save]);
-
-  useEffect(() => {
-    const element = scroller.current;
-    if (!element || !ready) return;
-    const onScroll = () => {
-      const room = element.scrollHeight - element.clientHeight;
-      if (room <= 0) return;
-      // The last pixels count as the end: a rounding scroll position never quite reaches it.
-      const now = Math.min(1, element.scrollTop >= room - 2 ? 1 : element.scrollTop / room);
-      setProgress(now);
-      const s = state.current;
-      if (now <= s.reached) return;
-      s.reached = now;
-      const wait = s.at + SAVE_EVERY - Date.now();
-      if (wait <= 0) save();
-      else if (!s.timer) s.timer = window.setTimeout(save, wait);
-    };
-    element.addEventListener("scroll", onScroll, { passive: true });
-    return () => element.removeEventListener("scroll", onScroll);
-  }, [scroller, ready, save]);
-
-  return progress;
-}
 
 /**
  * Reading over the list (Р-69 variant A, frame A): a sheet 760 px wide over

@@ -51,6 +51,19 @@
   --np-sheet: #fbf8f2;
   --np-sheet-ink: #2b2a26;
   --np-sheet-line: #e9e5dc;
+  /* The reading mode (NP-122, frames B1–B9): the page, the queue beside it, its current
+     item, lines and words. NP-124 turns these into the themes of the Aa panel. */
+  --np-read: #f4eee2;
+  --np-read-queue: #eee7d9;
+  --np-read-current: #f8f3ea;
+  --np-read-card: #f8f4ec;
+  --np-read-edge: #e2d9c7;
+  --np-read-track: #e8e0d0;
+  --np-read-border: #ddd4c2;
+  --np-read-ink: #22231f;
+  --np-read-text: #2e302b;
+  --np-read-muted: #8a887e;
+  --np-read-dim: #a8a396;
   /* A focused card or row: the ink, never the accent of the selection (Р-69, point 4). */
   --np-focus: #2e302b;
 }
@@ -100,6 +113,17 @@
   --np-sheet: #262622;
   --np-sheet-ink: #e4e0d4;
   --np-sheet-line: #35352f;
+  --np-read: #1e1c19;
+  --np-read-queue: #262420;
+  --np-read-current: #2c2924;
+  --np-read-card: #262420;
+  --np-read-edge: #35312a;
+  --np-read-track: #35312a;
+  --np-read-border: #3d3930;
+  --np-read-ink: #ece6da;
+  --np-read-text: #e9e6dc;
+  --np-read-muted: #8c8a7f;
+  --np-read-dim: #625e55;
   --np-focus: #e9e6dc;
 }
 
@@ -208,6 +232,17 @@
   --color-sheet: var(--np-sheet);
   --color-sheet-ink: var(--np-sheet-ink);
   --color-sheet-line: var(--np-sheet-line);
+  --color-read: var(--np-read);
+  --color-read-queue: var(--np-read-queue);
+  --color-read-current: var(--np-read-current);
+  --color-read-card: var(--np-read-card);
+  --color-read-edge: var(--np-read-edge);
+  --color-read-track: var(--np-read-track);
+  --color-read-border: var(--np-read-border);
+  --color-read-ink: var(--np-read-ink);
+  --color-read-text: var(--np-read-text);
+  --color-read-muted: var(--np-read-muted);
+  --color-read-dim: var(--np-read-dim);
 }
 
 @theme {
@@ -734,6 +769,44 @@
   .reader-body hr {
     border: 0;
     border-top: 1px solid var(--np-sheet-line);
+  }
+}
+
+/* The reading mode (NP-122): the article of the sheet in the colours of the mode, a column
+   of 640 px (frame B3), the serif of the queue's titles, the running line while a page loads. */
+@layer components {
+  .reading-mode {
+    --np-sheet: var(--np-read);
+    --np-sheet-ink: var(--np-read-ink);
+    --np-sheet-line: var(--np-read-border);
+    --np-meta: var(--np-read-muted);
+    /* Buttons, the skeleton and hovers of the app in the mode's paper. */
+    --np-ink: var(--np-read-text);
+    --np-icon: var(--np-read-text);
+    --np-muted: var(--np-read-muted);
+    --np-border: var(--np-read-border);
+    --np-hover: var(--np-read-track);
+    --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
+  }
+  .reading-mode .reader-article {
+    max-width: 640px;
+  }
+  .reading-mode .reader-meta {
+    font-weight: 400;
+  }
+  .read-serif {
+    font-family: var(--reader-serif);
+  }
+  .read-running {
+    animation: read-running 1.1s var(--ease-standard) infinite;
+  }
+  @keyframes read-running {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(400%);
+    }
   }
 }
 

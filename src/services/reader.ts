@@ -89,6 +89,7 @@ export function cachedArticle(url: string): Promise<ReadResult> {
   const result = readArticle(url).then(
     (read) => {
       if (!read.ok && (read.failure.reason === "timeout" || read.failure.reason === "network")) forget();
+      else if (read.ok && articles.get(url) === result) words.set(url, read.article.words);
       return read;
     },
     (error: unknown) => {
@@ -101,6 +102,18 @@ export function cachedArticle(url: string): Promise<ReadResult> {
   if (articles.size > KEPT_ARTICLES) articles.delete(articles.keys().next().value!);
   return result;
 }
+
+/** Words of the articles read in this session, kept longer than the articles: a number per address. */
+const words = new Map<string, number>();
+
+/**
+ * Minutes of an article already read in this session; `null` before that. The
+ * reading mode's queue shows them without asking any site for its page.
+ */
+export const knownMinutes = (url: string) => {
+  const count = words.get(url);
+  return count === undefined ? null : readingMinutes(count);
+};
 
 /** Minutes to read at 230 words a minute, at least one. */
 export const readingMinutes = (words: number) => Math.max(1, Math.round(words / 230));
