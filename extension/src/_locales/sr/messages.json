@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Линк је копиран" },
   "shortcutHeading": { "message": "Пречица на тастатури" },
   "shortcutText": { "message": "Отвара претрагу ваше библиотеке." },
+  "readingShortcutText": { "message": "Чува отворену страницу у „За читање”." },
   "shortcutNone": { "message": "Нема пречице" },
   "shortcutChangeIn": {
     "message": "Промени у $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Погледајте подешавања проширења" },
   "menuReadingPage": { "message": "Сачувај страницу у „За читање”" },
   "menuReadingLink": { "message": "Сачувај везу у „За читање”" },
+  "menuReadingLinkNamed": { "message": "Сачувај везу у „За читање” у Koona Pin" },
   "commandReading": { "message": "Сачувај страницу у „За читање” у Koona Pin" },
   "badgeReading": { "message": "У „За читање” у Koona Pin" },
   "messageReadingTitle": { "message": "Сачувано у „За читање”" },

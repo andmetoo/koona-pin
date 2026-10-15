@@ -30,6 +30,15 @@ describe("toolbar button menu", () => {
     expect(await registerMenu(undefined)).toBe(false);
   });
 
+  it("names the app in Safari, which shows the items without the extension's icon (#319)", async () => {
+    const safari = menus();
+    await registerMenu(safari, { settings: true, named: true, shortcut: "⌥⇧D", readingShortcut: "⌥⇧R" });
+    expect(safari.create.mock.calls.slice(2)).toEqual([
+      [{ id: READING_PAGE_ID, title: "commandReading (⌥⇧R)", contexts: ["page", "selection"], documentUrlPatterns: WEB }],
+      [{ id: READING_LINK_ID, title: "menuReadingLinkNamed", contexts: ["link"], targetUrlPatterns: WEB }],
+    ]);
+  });
+
   it("opens what its own item names", () => {
     const openOptions = vi.fn();
     const openSearch = vi.fn();

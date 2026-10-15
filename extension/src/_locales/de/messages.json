@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Link kopiert" },
   "shortcutHeading": { "message": "Tastenkürzel" },
   "shortcutText": { "message": "Öffnet die Suche in Ihrer Bibliothek." },
+  "readingShortcutText": { "message": "Speichert die geöffnete Seite in der Leseliste." },
   "shortcutNone": { "message": "Kein Tastenkürzel" },
   "shortcutChangeIn": {
     "message": "In $BROWSER$ ändern",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Siehe Einstellungen der Erweiterung" },
   "menuReadingPage": { "message": "Seite in der Leseliste speichern" },
   "menuReadingLink": { "message": "Link in der Leseliste speichern" },
+  "menuReadingLinkNamed": { "message": "Link in der Leseliste von Koona Pin speichern" },
   "commandReading": { "message": "Seite in der Leseliste von Koona Pin speichern" },
   "badgeReading": { "message": "In der Leseliste von Koona Pin" },
   "messageReadingTitle": { "message": "In der Leseliste gespeichert" },

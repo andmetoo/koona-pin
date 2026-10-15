@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Bağlantı kopyalandı" },
   "shortcutHeading": { "message": "Klavye kısayolu" },
   "shortcutText": { "message": "Kitaplığınızda aramayı açar." },
+  "readingShortcutText": { "message": "Açık sayfayı okuma listesine kaydeder." },
   "shortcutNone": { "message": "Kısayol yok" },
   "shortcutChangeIn": {
     "message": "$BROWSER$ içinde değiştir",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Uzantı ayarlarına bakın" },
   "menuReadingPage": { "message": "Sayfayı okuma listesine kaydet" },
   "menuReadingLink": { "message": "Bağlantıyı okuma listesine kaydet" },
+  "menuReadingLinkNamed": { "message": "Bağlantıyı Koona Pin okuma listesine kaydet" },
   "commandReading": { "message": "Sayfayı Koona Pin okuma listesine kaydet" },
   "badgeReading": { "message": "Koona Pin okuma listesinde" },
   "messageReadingTitle": { "message": "Okuma listesine kaydedildi" },

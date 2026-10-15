@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Link copiato" },
   "shortcutHeading": { "message": "Scorciatoia da tastiera" },
   "shortcutText": { "message": "Apre la ricerca nella tua libreria." },
+  "readingShortcutText": { "message": "Salva la pagina aperta in Da leggere." },
   "shortcutNone": { "message": "Nessuna scorciatoia" },
   "shortcutChangeIn": {
     "message": "Cambia in $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Vedi le impostazioni dell’estensione" },
   "menuReadingPage": { "message": "Salva pagina in Da leggere" },
   "menuReadingLink": { "message": "Salva link in Da leggere" },
+  "menuReadingLinkNamed": { "message": "Salva link in Da leggere di Koona Pin" },
   "commandReading": { "message": "Salva pagina in Da leggere di Koona Pin" },
   "badgeReading": { "message": "In Da leggere di Koona Pin" },
   "messageReadingTitle": { "message": "Salvato in Da leggere" },

@@ -57,6 +57,7 @@
   "searchCopied": { "message": "链接已复制" },
   "shortcutHeading": { "message": "快捷键" },
   "shortcutText": { "message": "打开资料库搜索。" },
+  "readingShortcutText": { "message": "将当前页面存入稍后读。" },
   "shortcutNone": { "message": "无快捷键" },
   "shortcutChangeIn": {
     "message": "在 $BROWSER$ 中更改",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "请查看扩展设置" },
   "menuReadingPage": { "message": "将页面存入稍后读" },
   "menuReadingLink": { "message": "将链接存入稍后读" },
+  "menuReadingLinkNamed": { "message": "将链接存入 Koona Pin 的稍后读" },
   "commandReading": { "message": "将页面存入 Koona Pin 的稍后读" },
   "badgeReading": { "message": "已在 Koona Pin 的稍后读中" },
   "messageReadingTitle": { "message": "已存入稍后读" },

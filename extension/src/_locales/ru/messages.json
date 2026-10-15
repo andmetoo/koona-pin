@@ -56,6 +56,7 @@
   "searchCopied": { "message": "Ссылка скопирована" },
   "shortcutHeading": { "message": "Сочетание клавиш" },
   "shortcutText": { "message": "Открывает поиск по библиотеке." },
+  "readingShortcutText": { "message": "Сохраняет открытую страницу в «Почитать»." },
   "shortcutNone": { "message": "Не задано" },
   "shortcutChangeIn": {
     "message": "Изменить в $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Причина — в настройках" },
   "menuReadingPage": { "message": "Сохранить страницу в «Почитать»" },
   "menuReadingLink": { "message": "Сохранить ссылку в «Почитать»" },
+  "menuReadingLinkNamed": { "message": "Сохранить ссылку в «Почитать» Koona Pin" },
   "commandReading": { "message": "Сохранить страницу в «Почитать» Koona Pin" },
   "badgeReading": { "message": "В «Почитать» Koona Pin" },
   "messageReadingTitle": { "message": "Сохранено в «Почитать»" },

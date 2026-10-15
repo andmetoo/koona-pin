@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Посилання скопійовано" },
   "shortcutHeading": { "message": "Сполучення клавіш" },
   "shortcutText": { "message": "Відкриває пошук у вашій бібліотеці." },
+  "readingShortcutText": { "message": "Зберігає відкриту сторінку в «Почитати»." },
   "shortcutNone": { "message": "Без сполучення" },
   "shortcutChangeIn": {
     "message": "Змінити в $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Дивіться налаштування розширення" },
   "menuReadingPage": { "message": "Зберегти сторінку в «Почитати»" },
   "menuReadingLink": { "message": "Зберегти посилання в «Почитати»" },
+  "menuReadingLinkNamed": { "message": "Зберегти посилання в «Почитати» Koona Pin" },
   "commandReading": { "message": "Зберегти сторінку в «Почитати» Koona Pin" },
   "badgeReading": { "message": "У «Почитати» Koona Pin" },
   "messageReadingTitle": { "message": "Збережено в «Почитати»" },

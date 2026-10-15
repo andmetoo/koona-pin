@@ -194,18 +194,22 @@ async function feedbackSwitches() {
   });
 }
 /**
- * «Keyboard shortcut» (NP-082, sheet 37). Chrome and Edge let only their own
- * page change an extension's shortcut; Firefox lets the extension do it;
- * Safari has neither (no commands.update, no shortcuts page, NP-119).
+ * «Keyboard shortcut» (NP-082, sheet 37): «Find a link» and «Save page to
+ * Reading» (NP-125, #319), with one note under both. Chrome and Edge let only
+ * their own page change an extension's shortcut; Firefox lets the extension
+ * do it; Safari has neither (no commands.update, no shortcuts page, NP-119).
  */
 const SEARCH_COMMAND = "quick-search";
-async function shortcutSection() {
-  const browser = browserName();
-  const keys = get("shortcut");
-  const change = get("shortcut-change");
+const READING_COMMAND = "save-to-reading";
+function shortcutSection() {
   const note = get("shortcut-note");
+  void shortcutRow(SEARCH_COMMAND, get("shortcut"), get("shortcut-change"), note);
+  void shortcutRow(READING_COMMAND, get("reading-shortcut"), get("reading-shortcut-change"), note);
+}
+async function shortcutRow(command, keys, change, note) {
+  const browser = browserName();
   const show = async () => {
-    const shortcut = shownShortcut((await ext.commands.getAll()).find((c) => c.name === SEARCH_COMMAND)?.shortcut ?? "");
+    const shortcut = shownShortcut((await ext.commands.getAll()).find((c) => c.name === command)?.shortcut ?? "");
     keys.replaceChildren(...(shortcut ? shortcut.split("+").map((key) => element("kbd", "", key)) : [element("span", "meta", t("shortcutNone"))]));
   };
   await show();
@@ -241,7 +245,7 @@ async function shortcutSection() {
       return;
     }
     try {
-      await ext.commands.update({ name: SEARCH_COMMAND, shortcut });
+      await ext.commands.update({ name: command, shortcut });
       stop(t("shortcutSaved"));
       await show();
     } catch {
@@ -258,7 +262,7 @@ ext.storage.onChanged.addListener((changes) => {
 });
 translate();
 void feedbackSwitches();
-void shortcutSection();
+shortcutSection();
 void saveMotion();
 void refreshQueue();
 void refreshStatus();
