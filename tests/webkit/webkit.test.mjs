@@ -101,7 +101,8 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
     await (await page.role("button", "Close window")).click();
     // A container has no StatusNotifierWatcher: the first close says the app keeps running (Р-52).
     await page.role("dialog", "Koona Pin keeps running");
-    await (await page.role("button", "Hide window")).click();
+    // From inside the page: the window hides under WebDriver's click, which then may never answer.
+    await (await page.role("button", "Hide window")).press();
     await waitFor(() => isVisible(page), (v) => v === false, { what: "the window to hide" });
     const second = spawn(app, [], { env, stdio: "ignore" });
     const code = await new Promise((resolve, reject) => {
