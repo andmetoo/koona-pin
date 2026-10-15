@@ -1247,7 +1247,7 @@
     "testPayments": "Pagamenti di prova",
     "intro": "Koona Pin resta gratuito: la libreria, il pulsante del browser, la ricerca, i backup e gli assistenti IA. I Supporter mandano avanti il progetto e ricevono:",
     "perks": {
-      "sync": "Sincronizzazione tra i tuoi computer — fase iniziale, dal primo giorno",
+      "sync": "Sincronizzazione tra i tuoi computer, con Da leggere e i progressi di lettura",
       "backups": "Backup automatici in una cartella a tua scelta, come Dropbox",
       "reading": "I temi di lettura Carta e Seppia",
       "badge": "Un badge Supporter nell’app"
@@ -1309,7 +1309,7 @@
     "perk": {
       "reading": "Temi di lettura",
       "readingHint": "Carta e Seppia nel pannello Aa della modalità lettura",
-      "sync": "Sincronizzazione tra i tuoi computer",
+      "sync": "Sincronizzazione, Da leggere incluso",
       "syncHint": "Fase iniziale — arriva con un aggiornamento",
       "backups": "Backup automatici in una cartella",
       "backupsHint": "Nella cartella che scegli, come Dropbox o Google Drive",

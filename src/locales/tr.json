@@ -1166,7 +1166,7 @@
     "testPayments": "Test ödemeleri",
     "intro": "Koona Pin ücretsiz kalır: kütüphane, tarayıcı düğmesi, arama, yedekler ve yapay zekâ asistanları. Supporter'lar projeyi sürdürür ve şunları alır:",
     "perks": {
-      "sync": "Bilgisayarlarınız arasında eşitleme — erken aşama, ilk günden",
+      "sync": "Bilgisayarlarınız arasında eşitleme, okuma listesi ve ilerleme dahil",
       "backups": "Seçtiğiniz klasöre otomatik yedekler, örneğin Dropbox",
       "reading": "Kâğıt ve Sepya okuma temaları",
       "badge": "Uygulamada Supporter rozeti"
@@ -1228,7 +1228,7 @@
     "perk": {
       "reading": "Okuma temaları",
       "readingHint": "Okuma modunun Aa panelinde Kâğıt ve Sepya",
-      "sync": "Bilgisayarlarınız arasında eşitleme",
+      "sync": "Eşitleme, okuma listesi dahil",
       "syncHint": "Erken aşama — bir güncellemeyle gelecek",
       "backups": "Bir klasöre otomatik yedekler",
       "backupsHint": "Seçtiğiniz klasöre, örneğin Dropbox veya Google Drive",

@@ -21,7 +21,7 @@ async function start(page: Page, sync: string | null, supporter: string | null =
 async function openSync(page: Page) {
   await page.locator("[data-plan-row]").click();
   const plan = page.getByRole("dialog", { name: "Supporter" });
-  await plan.locator("li", { hasText: "Sync between your computers" }).getByRole("button").click();
+  await plan.locator("li", { hasText: "Sync, Reading included" }).getByRole("button").click();
   return page.getByRole("dialog");
 }
 
@@ -29,7 +29,7 @@ test("Sync: the perk of the Supporter dialog turns sync on; this computer become
   await start(page, null);
   await page.locator("[data-plan-row]").click();
   const plan = page.getByRole("dialog", { name: "Supporter" });
-  const perk = plan.locator("li", { hasText: "Sync between your computers" });
+  const perk = plan.locator("li", { hasText: "Sync, Reading included" });
   await expect(perk.locator("[data-sync-perk]")).toHaveAttribute("data-sync-perk", "off");
   await expect(perk).toContainText("Koona's server keeps none of your library");
   // Every perk works already: none of them says «Soon».

@@ -1328,7 +1328,7 @@
     "testPayments": "Płatności testowe",
     "intro": "Koona Pin pozostaje darmowa: biblioteka, przycisk w przeglądarce, wyszukiwanie, kopie i asystenci AI. Supporterzy utrzymują projekt i dostają:",
     "perks": {
-      "sync": "Synchronizację między komputerami — wczesny etap, od pierwszego dnia",
+      "sync": "Synchronizację między komputerami, razem z Do przeczytania i postępem czytania",
       "backups": "Automatyczne kopie do wybranego folderu, np. Dropbox",
       "reading": "Motywy czytania Papier i Sepia",
       "badge": "Odznakę Supporter w aplikacji"
@@ -1390,7 +1390,7 @@
     "perk": {
       "reading": "Motywy czytania",
       "readingHint": "Papier i Sepia w panelu Aa trybu czytania",
-      "sync": "Synchronizacja między komputerami",
+      "sync": "Synchronizacja razem z Do przeczytania",
       "syncHint": "Wczesny etap — przyjdzie z aktualizacją",
       "backups": "Automatyczne kopie do folderu",
       "backupsHint": "Do wybranego folderu, np. Dropbox albo Dysk Google",
