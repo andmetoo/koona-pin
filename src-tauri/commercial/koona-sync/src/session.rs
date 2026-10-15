@@ -147,6 +147,8 @@ pub enum PairingEvent {
     Paired { peer: Uuid },
     /// On the hub: the device asked again, so the code shown for it is void; hide it.
     Withdrawn { peer: Uuid },
+    /// On the hub with `BadSignature`, a warning for a pairing that goes on waiting: a reveal
+    /// came that didn't match the offer (4.2).
     Failed { peer: Uuid, reason: PairingFailure },
 }
 
@@ -361,6 +363,8 @@ struct Hosting {
     hub_eph: [u8; 32],
     /// Once the reveal matched the commitment and the code is shown.
     exchange_key: Option<[u8; 32]>,
+    /// A reveal that didn't match the commitment came: someone is in between.
+    tampered: bool,
     started: u64,
 }
 
@@ -1569,6 +1573,19 @@ impl Session {
         self.fx.push(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: info.name }));
     }
 
+    /// After `expired`: a new offer to the hub, keeping the time the first one started, so the
+    /// whole pairing still ends by [`PAIRING_TIMEOUT_MS`].
+    fn offer_again(&mut self, started: u64) {
+        if self.now >= started + PAIRING_TIMEOUT_MS {
+            let Some(hub) = self.hub else { return };
+            return self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: hub, reason: PairingFailure::Timeout }));
+        }
+        self.start_pairing();
+        if let Some(asking) = self.asking.as_mut() {
+            asking.started = started;
+        }
+    }
+
     // --- Pairing, the hub ---
 
     fn on_pair_offer(&mut self, from: Uuid, header: &Header, device: Uuid, commit: [u8; 32], key: [u8; 32], sig: [u8; 64]) {
@@ -1610,15 +1627,18 @@ impl Session {
             eph: Some(mine),
             hub_eph: hub.eph,
             exchange_key: None,
+            tampered: false,
             started: self.now,
         });
     }
 
     /// Gives up an offer whose reveal didn't come in time. Nothing was shown here; the device is
-    /// told it may ask again, so it stops showing a code nobody can approve.
+    /// told it may ask again, so it stops showing a code nobody can approve, or that its reveal
+    /// was tampered with on the way.
     fn abandon_unrevealed(&mut self) {
         if let Some(h) = self.hosting.take() {
-            self.send_pair(h.device, &PairMessage::Error { code: ErrorCode::Expired });
+            let code = if h.tampered { ErrorCode::BadSignature } else { ErrorCode::Expired };
+            self.send_pair(h.device, &PairMessage::Error { code });
         }
     }
 
@@ -1631,8 +1651,14 @@ impl Session {
         if crypto::commitment(&asking, me) != hosting.commit {
             // Not the key the offer committed to: a forgery, or a replay from an earlier attempt.
             // Dropped without ending this one (only the committed key can ever match); if the
-            // real reveal never comes, the reveal timeout ends it.
-            return self.dropped(from, DropReason::BadSignature);
+            // real reveal never comes, the reveal timeout ends it. Either way someone is in
+            // between: the hub's person is warned once, and the device when it is given up.
+            self.dropped(from, DropReason::BadSignature);
+            let hosting = self.hosting.as_mut().expect("checked above");
+            if !std::mem::replace(&mut hosting.tampered, true) {
+                self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::BadSignature }));
+            }
+            return;
         }
         if !self.fresh(from, header) {
             return;
@@ -2114,26 +2140,32 @@ impl Session {
                 if !self.fresh(from, &header) {
                     return;
                 }
-                if self.asking.as_ref().is_some_and(|a| a.hub == from) {
-                    self.asking = None;
-                    let reason = match code {
-                        ErrorCode::BadSignature => PairingFailure::BadSignature,
-                        // The hub gave up waiting, as this device's own timeout would.
-                        ErrorCode::Expired => PairingFailure::Timeout,
-                        _ => PairingFailure::Rejected,
-                    };
-                    self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason }));
-                    if code == ErrorCode::Expired {
-                        // Not the peer's fault: the failure above says all there is.
-                        return;
-                    }
-                } else if self.rekey.as_ref().is_some_and(|r| r.hub == from) {
-                    self.rekey = None;
-                }
                 if code == ErrorCode::UpdateNeeded {
                     if let Some(peer) = self.peers.get_mut(&from) {
                         peer.pause = Some(PeerPause::Outdated);
                     }
+                }
+                if let Some(asking) = self.asking.take_if(|a| a.hub == from) {
+                    if code == ErrorCode::Expired {
+                        // The hub stopped waiting for our reveal; nobody declined. Ask again,
+                        // within the time this device gives the whole pairing.
+                        return self.offer_again(asking.started);
+                    }
+                    let reason = match code {
+                        ErrorCode::BadSignature => PairingFailure::BadSignature,
+                        _ => PairingFailure::Rejected,
+                    };
+                    self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason }));
+                    // The failure says what went wrong; a peer error after it would replace it on
+                    // the screen. `update_needed` still pauses (above) and is reported.
+                    if code != ErrorCode::UpdateNeeded {
+                        return;
+                    }
+                } else if code == ErrorCode::Expired {
+                    // For an offer this device already gave up on.
+                    return self.dropped(from, DropReason::Unexpected);
+                } else if self.rekey.as_ref().is_some_and(|r| r.hub == from) {
+                    self.rekey = None;
                 }
                 self.error(SessionError::Peer { device: from, code });
             }

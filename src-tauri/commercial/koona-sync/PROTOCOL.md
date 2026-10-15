@@ -376,7 +376,9 @@ declined on the hub, or the hub is pairing another device; final for that attemp
 `bad_signature` (pairing or rekeying) and `expired` (pairing: the hub stopped waiting for the
 reveal; nobody declined and the device may ask again), all section 4; `busy` (the hub is already
 answering another `hub_request`).
-A receiver MUST accept an `error` with a code it doesn't know (treat it as a generic failure), so
+A pairing `error` ends the device's attempt and says why (`expired` aside, see 4.2); the reference
+client shows that reason and no separate peer error. A receiver MUST accept an `error` with a code
+it doesn't know (treat it as a generic failure), so
 codes can grow without forcing updates.
 
 **Versions.** `hello.proto` is the highest protocol version the sender speaks; v1 devices only
@@ -471,11 +473,13 @@ The code is shown as six digits with leading zeros. The zero nonce is safe becau
 5. The hub checks that `commit` recomputed with the revealed `A.eph` equals the offer's, then
    computes `shared` and the code and shows it with the new device's name and Approve / Reject.
    A reveal that doesn't match is a forgery or a replay of an earlier attempt: the hub drops it
-   and keeps waiting, since only the committed key can ever match, and shows nothing for it.
-   Until a matching reveal comes the hub shows nothing. An offer whose reveal doesn't come within
-   2 minutes (longer than a client's backoff after 4008), whether on a timer or when another
-   device's offer comes, no longer holds the hub: the hub answers `error{code: "expired"}`, which
-   the device treats as a timeout, and serves the next offer. If the asking device goes offline
+   and keeps waiting, since only the committed key can ever match, and warns its person that
+   someone is in between. Until a matching reveal comes the hub shows no code. An offer whose
+   reveal doesn't come within 2 minutes (longer than a client's backoff after 4008), whether on a
+   timer or when another device's offer comes, no longer holds the hub: the hub answers
+   `error{code: "bad_signature"}` if a reveal that didn't match came, `error{code: "expired"}`
+   otherwise, and serves the next offer. On `expired` the device offers again by itself (a new
+   `eph`), within the 5 minutes it gives the whole pairing. If the asking device goes offline
    before its reveal, the hub drops the offer without telling its person anything, since nothing
    was shown. If the same device offers again after its code was shown, the hub withdraws that
    code and starts over with the new offer.
@@ -493,8 +497,8 @@ it to one guess. Each side's X25519 key is fixed before it sees the other's: A's
 before `pair_accept`, the hub's by its signed `pair_accept` before `pair_reveal`. Without it, a
 relay holding `A.eph` could try about 10^6 keys of its own offline until A's code equals the one
 the hub shows. With it, the two codes match by chance only (probability 10^-6 per attempt), and a
-failed attempt is visible to the person: either the digits differ, or the hub shows no code at
-all. The person MUST be told to compare the digits, not just
+failed attempt is visible to the person: the digits differ, or the hub shows no code and both
+sides are warned that someone is in between. The person MUST be told to compare the digits, not just
 press Approve.
 
 A v2 hub answers a v1 `pair_offer` (one with `eph` and no `commit`) with

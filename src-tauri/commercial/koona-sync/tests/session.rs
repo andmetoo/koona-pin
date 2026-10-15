@@ -674,6 +674,7 @@ fn a_rejected_or_tampered_pairing_gets_no_key() {
     )));
     assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::Revoked });
     assert!(load_meta(w.lib(b)).unwrap().key.is_none());
+    assert_eq!(errors(&w, b), 0, "nothing replaces «declined» on its screen");
 
     // The relay swaps the hub's X25519 key in `pair_accept`: the hub's signature no longer holds.
     w.relay.tamper = Some(Box::new(|_, _, body: &mut Vec<u8>| {
@@ -695,6 +696,7 @@ fn a_rejected_or_tampered_pairing_gets_no_key() {
         Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::BadSignature, .. })
     )));
     assert!(w.codes(c).is_empty(), "no code is shown for a forged answer");
+    assert_eq!(errors(&w, c), 0);
     assert!(load_meta(w.lib(c)).unwrap().key.is_none());
 }
 
@@ -725,16 +727,40 @@ fn a_reveal_other_than_the_committed_key_is_refused() {
     w.run();
     assert!(w.codes(a).is_empty(), "the hub shows no code for a key the offer didn't commit to");
     assert_eq!(w.dropped(a, DropReason::BadSignature), 1);
-    // The real reveal never comes: the hub gives up and the device stops showing its code.
+    // The hub's person is warned that someone is in between.
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature]);
+    // The real reveal never comes: the hub gives up, and the device learns why, not just that
+    // time ran out, with nothing on its screen in place of it.
     w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
-    assert!(w.devices[b].events.iter().any(|e| matches!(
-        e,
-        Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Timeout, .. })
-    )));
+    assert_eq!(failures(&w, b), vec![PairingFailure::BadSignature]);
+    assert_eq!(errors(&w, b), 0);
     let device = w.devices[b].id;
     w.act(a, Action::ApprovePairing { device });
     w.run();
     assert!(load_meta(w.lib(b)).unwrap().key.is_none());
+}
+
+/// The reasons of the pairing failures device `i` reported.
+fn failures(w: &World, i: usize) -> Vec<PairingFailure> {
+    w.devices[i]
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            Effect::Pairing(PairingEvent::Failed { reason, .. }) => Some(*reason),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Errors device `i` reported besides its pairing failures: each would replace on the screen
+/// what the failure says.
+fn errors(w: &World, i: usize) -> usize {
+    w.devices[i].events.iter().filter(|e| matches!(e, Effect::Error(_))).count()
+}
+
+/// How many pairing offers device `i` sent.
+fn offers(w: &World, i: usize) -> usize {
+    w.devices[i].sent.iter().filter(|(_, f)| matches!(sent_pairing(f), Some(PairMessage::PairOffer { .. }))).count()
 }
 
 /// The pairing message in a frame a device sent, if it is one.
@@ -774,11 +800,17 @@ fn each_side_shows_its_code_only_after_the_reveal() {
     w.act(c, Action::StartPairing);
     w.run();
     assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
+    // The hub gives up waiting and says so (`expired`): nobody declined, so the laptop asks
+    // again by itself, without a failure or an error on its screen.
     w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
-    // The laptop is told, as a timeout and not a refusal, so it stops showing a code nobody can
-    // approve and reports no error from its peer.
-    assert!(w.devices[b].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Timeout, .. }))));
-    assert!(!w.devices[b].events.iter().any(|e| matches!(e, Effect::Error(_))));
+    assert_eq!(offers(&w, b), 2);
+    assert!(failures(&w, b).is_empty());
+    assert_eq!(errors(&w, b), 0);
+    // Only within the time it gives the whole pairing: then it times out, once.
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    assert_eq!(failures(&w, b), vec![PairingFailure::Timeout]);
+    assert_eq!(errors(&w, b), 0, "a late `expired` doesn't show as a peer error");
     w.act(c, Action::StartPairing);
     w.run();
     let (on_phone, on_hub) = (w.codes(c), w.codes(a));
@@ -813,11 +845,12 @@ fn an_offer_taking_over_an_unrevealed_one_tells_the_first_device() {
     w.relay.now += koona_sync::session::REVEAL_TIMEOUT_MS;
     w.act(c, Action::StartPairing);
     w.run();
-    let timed_out = |w: &World, i: usize| {
-        w.devices[i].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Timeout, .. })))
-    };
-    assert!(timed_out(&w, b), "the laptop is told, as a timeout");
-    assert!(!timed_out(&w, c));
+    // The laptop is told (`expired`) and asks again, but the hub is now the phone's: that answer
+    // is final, and it says so with nothing replacing it on the screen.
+    assert_eq!(offers(&w, b), 2);
+    assert_eq!(failures(&w, b), vec![PairingFailure::Rejected]);
+    assert_eq!(errors(&w, b), 0);
+    assert!(failures(&w, c).is_empty());
     let (on_phone, on_hub) = (w.codes(c), w.codes(a));
     assert_eq!(on_hub.len(), 1);
     assert_eq!(on_phone[0].1, on_hub[0].1);
@@ -859,7 +892,8 @@ fn a_replayed_reveal_does_not_end_the_pairing() {
     w.feed(a, Input::Binary(&protocol::encode_delivered(idb, delivered.relay_ms, &replayed).unwrap()));
     w.run();
     assert_eq!(w.dropped(a, DropReason::BadSignature), 1);
-    assert!(!w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { .. }))));
+    // The hub's person is warned, but the pairing goes on.
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature]);
 
     let reveal = held.borrow_mut().take().unwrap();
     w.feed(a, Input::Binary(&protocol::encode_delivered(idb, w.relay.now, &reveal).unwrap()));
@@ -913,7 +947,7 @@ fn a_reveal_from_an_earlier_connection_does_not_end_the_pairing() {
     };
     deliver(&mut w, &reveals[0]);
     assert!(w.codes(a).is_empty());
-    assert!(!w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { .. }))));
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature], "warned; the pairing goes on");
     deliver(&mut w, &reveals[1]);
     assert_eq!(w.codes(a).len(), 1);
     assert_eq!(w.codes(a)[0].1, w.codes(b).last().unwrap().1);

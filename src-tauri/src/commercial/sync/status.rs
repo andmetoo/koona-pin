@@ -1136,6 +1136,25 @@ mod tests {
     }
 
     #[test]
+    fn the_hub_giving_up_on_a_reveal_keeps_the_join_going() {
+        // What the session emits when the hub answers `expired`: no failure, a new offer
+        // (`waiting`) in place of the code it showed.
+        let me = Identity::new("Laptop");
+        let hub = uid(9);
+        let mut model = Model { rejoining: true, ..Model::default() };
+        let waiting = || Event::Session(Effect::Pairing(PairingEvent::Waiting { hub, hub_name: "Studio Mac".into() }));
+        model.on_event(waiting(), at(0));
+        model.on_event(
+            Event::Session(Effect::Pairing(PairingEvent::Code { role: Role::Asking, peer: hub, peer_name: "Studio Mac".into(), code: "042917".into() })),
+            at(1),
+        );
+        assert!(model.on_event(waiting(), at(2)).is_empty());
+        assert!(model.rejoining, "still joining");
+        let shown = model.status(&ctx(&me));
+        assert_eq!((shown.error, shown.pairing.unwrap().code), (None, None));
+    }
+
+    #[test]
     fn the_last_sync_is_shown_at_once_and_written_once_a_minute() {
         let mut model = Model::default();
         let transfer = |model: &mut Model, s| {
