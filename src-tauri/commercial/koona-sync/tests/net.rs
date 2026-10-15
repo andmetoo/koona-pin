@@ -91,6 +91,7 @@ async fn the_client_retries_a_refused_token_once_and_stops_on_the_plan() {
     assert_eq!(stop, Stop::Plan(Some("not_in_beta".into())));
     assert_eq!(*refreshes.lock().unwrap(), vec![false, true], "the token is refreshed after 4001");
     let seen = seen.lock().unwrap().clone();
-    assert_eq!(seen[..4], ["authorization: Bearer jwt", "x-koona-lease: bGVhc2U=", "x-koona-proto: 1", "hello"]);
+    let proto = format!("x-koona-proto: {}", protocol::PROTO);
+    assert_eq!(seen[..4], ["authorization: Bearer jwt", "x-koona-lease: bGVhc2U=", proto.as_str(), "hello"]);
     server.await.unwrap();
 }
