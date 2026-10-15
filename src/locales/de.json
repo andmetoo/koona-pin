@@ -846,8 +846,8 @@
     "theme": "Design",
     "themes": { "white": "Weiß", "dark": "Dunkel", "paper": "Papier", "sepia": "Sepia" },
     "font": "Schrift",
-    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Buch", "legible": "Klar" },
-    "supporterHint": "Papier, Sepia und weitere Schriften —",
+    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "supporterHint": "Papier und Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, mit Supporter"
   },
@@ -1168,7 +1168,7 @@
     "perks": {
       "sync": "Synchronisierung zwischen Ihren Computern — frühe Phase, ab dem ersten Tag",
       "backups": "Automatische Sicherungen in einen Ordner Ihrer Wahl, etwa Dropbox",
-      "reading": "Die Lesedesigns Papier und Sepia und weitere Schriften",
+      "reading": "Die Lesedesigns Papier und Sepia",
       "badge": "Ein Supporter-Abzeichen in der App"
     },
     "plan": "Tarif",
@@ -1226,8 +1226,8 @@
     "pastDue": "Die Verlängerung ist fehlgeschlagen — aktualisieren Sie die Karte",
     "unchecked": "Tarif nicht geprüft — er gilt bis {{date}}",
     "perk": {
-      "reading": "Lesedesigns und Schriften",
-      "readingHint": "Papier, Sepia und weitere Schriften im Aa-Menü des Lesemodus",
+      "reading": "Lesedesigns",
+      "readingHint": "Papier und Sepia im Aa-Menü des Lesemodus",
       "sync": "Synchronisierung zwischen Ihren Computern",
       "syncHint": "Frühe Phase — kommt mit einem Update",
       "backups": "Automatische Sicherungen in einen Ordner",

@@ -960,8 +960,8 @@
     "theme": "Motyw",
     "themes": { "white": "Biały", "dark": "Ciemny", "paper": "Papier", "sepia": "Sepia" },
     "font": "Czcionka",
-    "fonts": { "serif": "Szeryf", "sans": "Sans", "book": "Książka", "legible": "Czytelna" },
-    "supporterHint": "Papier, Sepia i więcej czcionek —",
+    "fonts": { "serif": "Szeryf", "sans": "Sans" },
+    "supporterHint": "Papier i Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, z Supporter"
   },
@@ -1330,7 +1330,7 @@
     "perks": {
       "sync": "Synchronizację między komputerami — wczesny etap, od pierwszego dnia",
       "backups": "Automatyczne kopie do wybranego folderu, np. Dropbox",
-      "reading": "Motywy czytania Papier i Sepia oraz więcej czcionek",
+      "reading": "Motywy czytania Papier i Sepia",
       "badge": "Odznakę Supporter w aplikacji"
     },
     "plan": "Plan",
@@ -1388,8 +1388,8 @@
     "pastDue": "Odnowienie nie przeszło — zaktualizuj kartę",
     "unchecked": "Nie udało się sprawdzić planu — działa do {{date}}",
     "perk": {
-      "reading": "Motywy i czcionki do czytania",
-      "readingHint": "Papier, Sepia i więcej czcionek w panelu Aa trybu czytania",
+      "reading": "Motywy czytania",
+      "readingHint": "Papier i Sepia w panelu Aa trybu czytania",
       "sync": "Synchronizacja między komputerami",
       "syncHint": "Wczesny etap — przyjdzie z aktualizacją",
       "backups": "Automatyczne kopie do folderu",

@@ -903,8 +903,8 @@
     "theme": "Tema",
     "themes": { "white": "Blanco", "dark": "Oscuro", "paper": "Papel", "sepia": "Sepia" },
     "font": "Fuente",
-    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Libro", "legible": "Legible" },
-    "supporterHint": "Papel, Sepia y más fuentes —",
+    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "supporterHint": "Papel y Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, con Supporter"
   },
@@ -1249,7 +1249,7 @@
     "perks": {
       "sync": "Sincronización entre tus ordenadores — fase inicial, desde el primer día",
       "backups": "Copias automáticas en la carpeta que elijas, como Dropbox",
-      "reading": "Temas de lectura Papel y Sepia y más fuentes",
+      "reading": "Temas de lectura Papel y Sepia",
       "badge": "Una insignia de Supporter en la app"
     },
     "plan": "Plan",
@@ -1307,8 +1307,8 @@
     "pastDue": "La renovación no se completó — actualiza la tarjeta",
     "unchecked": "No se pudo comprobar el plan — sigue activo hasta el {{date}}",
     "perk": {
-      "reading": "Temas y fuentes de lectura",
-      "readingHint": "Papel, Sepia y más fuentes en el panel Aa del modo lectura",
+      "reading": "Temas de lectura",
+      "readingHint": "Papel y Sepia en el panel Aa del modo lectura",
       "sync": "Sincronización entre tus ordenadores",
       "syncHint": "Fase inicial — llegará con una actualización",
       "backups": "Copias automáticas en una carpeta",

@@ -846,8 +846,8 @@
     "theme": "Theme",
     "themes": { "white": "White", "dark": "Dark", "paper": "Paper", "sepia": "Sepia" },
     "font": "Font",
-    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Book", "legible": "Legible" },
-    "supporterHint": "Paper, Sepia and more fonts —",
+    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "supporterHint": "Paper and Sepia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, with Supporter"
   },
@@ -1168,7 +1168,7 @@
     "perks": {
       "sync": "Sync between your computers — early stage, from day one",
       "backups": "Automatic backups to a folder of your choice, like Dropbox",
-      "reading": "Paper and Sepia themes and more fonts for reading",
+      "reading": "Paper and Sepia themes for reading",
       "badge": "A Supporter badge in the app"
     },
     "plan": "Plan",
@@ -1226,8 +1226,8 @@
     "pastDue": "The renewal didn't go through — update the card",
     "unchecked": "Couldn't check the plan — it stays on until {{date}}",
     "perk": {
-      "reading": "Reading themes and fonts",
-      "readingHint": "Paper, Sepia and more fonts in the Aa panel of reading mode",
+      "reading": "Reading themes",
+      "readingHint": "Paper and Sepia in the Aa panel of reading mode",
       "sync": "Sync between your computers",
       "syncHint": "Early stage — arrives in an update",
       "backups": "Automatic backups to a folder",

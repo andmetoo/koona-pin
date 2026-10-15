@@ -903,8 +903,8 @@
     "theme": "Thème",
     "themes": { "white": "Blanc", "dark": "Sombre", "paper": "Papier", "sepia": "Sépia" },
     "font": "Police",
-    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Livre", "legible": "Lisible" },
-    "supporterHint": "Papier, Sépia et d’autres polices —",
+    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "supporterHint": "Papier et Sépia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, avec Supporter"
   },
@@ -1249,7 +1249,7 @@
     "perks": {
       "sync": "La synchronisation entre vos ordinateurs — phase précoce, dès le premier jour",
       "backups": "Des sauvegardes automatiques dans le dossier de votre choix, comme Dropbox",
-      "reading": "Les thèmes de lecture Papier et Sépia et d’autres polices",
+      "reading": "Les thèmes de lecture Papier et Sépia",
       "badge": "Un badge Supporter dans l’app"
     },
     "plan": "Formule",
@@ -1307,8 +1307,8 @@
     "pastDue": "Le renouvellement n’est pas passé — mettez à jour la carte",
     "unchecked": "Formule non vérifiée — elle reste active jusqu’au {{date}}",
     "perk": {
-      "reading": "Thèmes et polices de lecture",
-      "readingHint": "Papier, Sépia et d’autres polices dans le panneau Aa du mode lecture",
+      "reading": "Thèmes de lecture",
+      "readingHint": "Papier et Sépia dans le panneau Aa du mode lecture",
       "sync": "La synchronisation entre vos ordinateurs",
       "syncHint": "Phase précoce — arrive avec une mise à jour",
       "backups": "Sauvegardes automatiques dans un dossier",

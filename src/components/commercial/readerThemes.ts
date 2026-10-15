@@ -1,11 +1,8 @@
 // Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 //
-// Supporter's looks of reading (NP-124, Р-69 points 7 and 9, frame B8): the Paper and Sepia
-// palettes and the extra fonts. The Aa panel, its lock and the plan check are community code
-// (src/services/readerLook.ts); this module only registers what it unlocks. The font files keep
-// their own license (SIL OFL 1.1) and are not relicensed by this notice.
-import "@fontsource-variable/source-serif-4";
-import "@fontsource-variable/atkinson-hyperlegible-next";
+// Supporter's reading themes (NP-124, Р-69 points 7 and 9, frame B8): the Paper and Sepia palettes.
+// The Aa panel, its lock and the plan check are community code (src/services/readerLook.ts); this
+// module only registers what it unlocks. No paid fonts (owner, 2026-10-15).
 import { registerSupporterLook, type SupporterLook } from "../../services/readerLook";
 
 export const supporterLook: SupporterLook = {
@@ -27,7 +24,7 @@ export const supporterLook: SupporterLook = {
       well: "#eee7d9",
       raised: "#fffefa",
     },
-    // B8's swatch (#efe1c6); its ink is a shade darker than the swatch's #5b4636, which is 6.9:1.
+    // B8's swatch (#efe1c6). Its ink #5b4636 is 6.85:1 there; darkened just enough for 7:1 (owner).
     sepia: {
       read: "#efe1c6",
       queue: "#e8d8b9",
@@ -36,18 +33,14 @@ export const supporterLook: SupporterLook = {
       edge: "#dccaa6",
       track: "#e2d1b0",
       border: "#d6c39e",
-      ink: "#43301f",
-      text: "#4a3828",
+      ink: "#594435",
+      text: "#594435",
       muted: "#7d6a55",
       dim: "#a8957a",
       panel: "#f5ead5",
       well: "#e6d5b4",
       raised: "#fbf3e3",
     },
-  },
-  fonts: {
-    book: '"Source Serif 4 Variable", "Source Serif 4", Georgia, serif',
-    legible: '"Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", var(--np-font)',
   },
 };
 

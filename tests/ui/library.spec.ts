@@ -2341,7 +2341,8 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   await row.click();
   const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
   await expect(plans).toContainText("Test payments");
-  await expect(plans.getByRole("listitem")).toHaveCount(3);
+  // Sync, backups to a folder, the reading themes (NP-124), the badge.
+  await expect(plans.getByRole("listitem")).toHaveCount(4);
   // The yearly plan is chosen first; whole prices without cents.
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toHaveAttribute("aria-checked", "true");
   await expect(plans.getByRole("radio", { name: /Yearly/ })).toContainText("$20 a year");
@@ -2363,9 +2364,9 @@ test("Supporter: nothing in a build that does not sell it; the row, the plan, th
   await expect(plan.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
   await expect(plan).toContainText("anna@example.com");
   await expect(plan).toContainText("Renews on");
-  // Every perk works already: sync (tests/ui/sync.spec.ts), backups to a folder and the badge.
+  // Every perk works already: sync (tests/ui/sync.spec.ts), backups to a folder, the reading themes and the badge.
   await expect(plan.getByText("Soon")).toHaveCount(0);
-  await expect(plan.getByRole("listitem")).toHaveCount(3);
+  await expect(plan.getByRole("listitem")).toHaveCount(4);
   await expect(plan.getByRole("button", { name: "Set up…" })).toBeVisible();
   await expect(plan.getByRole("button", { name: "Choose folder…" })).toBeVisible();
   // The badge is a perk: turned off, the row keeps a plain heart and still opens the dialog.

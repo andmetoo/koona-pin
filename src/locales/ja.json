@@ -789,8 +789,8 @@
     "theme": "テーマ",
     "themes": { "white": "ホワイト", "dark": "ダーク", "paper": "ペーパー", "sepia": "セピア" },
     "font": "フォント",
-    "fonts": { "serif": "セリフ", "sans": "サンセリフ", "book": "ブック", "legible": "読みやすい" },
-    "supporterHint": "ペーパー、セピア、その他のフォント —",
+    "fonts": { "serif": "セリフ", "sans": "サンセリフ" },
+    "supporterHint": "ペーパーとセピア —",
     "supporterLink": "Supporter",
     "locked": "{{name}}（Supporter）"
   },
@@ -1087,7 +1087,7 @@
     "perks": {
       "sync": "コンピューター間の同期 — 初期段階、初日から",
       "backups": "Dropbox など好きなフォルダーへの自動バックアップ",
-      "reading": "読書テーマのペーパーとセピア、その他のフォント",
+      "reading": "読書テーマのペーパーとセピア",
       "badge": "アプリ内の Supporter バッジ"
     },
     "plan": "プラン",
@@ -1145,8 +1145,8 @@
     "pastDue": "更新に失敗しました — カードを更新してください",
     "unchecked": "プランを確認できませんでした — {{date}} まで有効です",
     "perk": {
-      "reading": "読書テーマとフォント",
-      "readingHint": "読書モードの Aa パネルでペーパー、セピア、その他のフォント",
+      "reading": "読書テーマ",
+      "readingHint": "読書モードの Aa パネルでペーパーとセピア",
       "sync": "コンピューター間の同期",
       "syncHint": "初期段階 — アップデートで登場",
       "backups": "フォルダーへの自動バックアップ",

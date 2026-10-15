@@ -916,11 +916,9 @@
     "font": "Font",
     "fonts": {
       "serif": "Antikva",
-      "sans": "Grotesk",
-      "book": "Knjiga",
-      "legible": "Čitljiv"
+      "sans": "Grotesk"
     },
-    "supporterHint": "Papir, Sepija i još fontova —",
+    "supporterHint": "Papir i Sepija —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, uz Supporter"
   },
@@ -1265,7 +1263,7 @@
     "perks": {
       "sync": "Sinhronizaciju između računara — rana faza, od prvog dana",
       "backups": "Automatske kopije u fasciklu po izboru, na primer Dropbox",
-      "reading": "Teme za čitanje Papir i Sepija i još fontova",
+      "reading": "Teme za čitanje Papir i Sepija",
       "badge": "Oznaku Supporter u aplikaciji"
     },
     "plan": "Plan",
@@ -1323,8 +1321,8 @@
     "pastDue": "Obnova nije prošla — ažurirajte karticu",
     "unchecked": "Plan nije proveren — važi do {{date}}",
     "perk": {
-      "reading": "Teme i fontovi za čitanje",
-      "readingHint": "Papir, Sepija i još fontova u panelu Aa režima čitanja",
+      "reading": "Teme za čitanje",
+      "readingHint": "Papir i Sepija u panelu Aa režima čitanja",
       "sync": "Sinhronizacija između računara",
       "syncHint": "Rana faza — stiže sa ažuriranjem",
       "backups": "Automatske kopije u fasciklu",

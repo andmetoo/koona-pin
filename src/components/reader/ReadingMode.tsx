@@ -30,9 +30,9 @@ export interface SectionQueue {
   onMore: () => void;
 }
 
-/** The drop spreads over 320 ms (Р-69 point 1 said ≈ 200; the owner asked for a little slower,
- *  2026-10-15); with reduced motion the mode fades in 150 ms. */
-const DROP_MS = 320;
+/** The drop spreads over 260 ms (Р-69 point 1 said ≈ 200; the owner asked for a little slower,
+ *  2026-10-15, then not as slow as 320); with reduced motion the mode fades in 150 ms. */
+const DROP_MS = 260;
 const FADE_MS = 150;
 /** Close to the end of a section's loaded bookmarks the next page is asked for. */
 const MORE_AHEAD = 3;
@@ -66,7 +66,7 @@ export function ReadingMode({
     choice: ReaderChoice;
     unlocked: boolean;
     onChoice: (choice: ReaderChoice) => void;
-    onLocked: (wish: Partial<Pick<ReaderChoice, "theme" | "font">>) => void;
+    onLocked: (wish: Pick<ReaderChoice, "theme">) => void;
     onSupporter: () => void;
   };
   narrow: boolean;
@@ -83,6 +83,8 @@ export function ReadingMode({
 }) {
   const { t } = useTranslation();
   const layer = useRef<HTMLDivElement>(null);
+  /** The article's focus waiting for the next frame: a key that moves focus first cancels it. */
+  const articleFocus = useRef(0);
   const queueRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [source, setSource] = useState<ReadingSource>(section.reading ? "section" : initialSource);
@@ -161,7 +163,8 @@ export function ReadingMode({
     if (focus === "queue") queueRef.current?.querySelector<HTMLElement>(`[data-queue-item="${id}"]`)?.focus();
     else if (focus === "article") {
       setQueueOpen(false);
-      requestAnimationFrame(() => scroller.current?.focus({ preventScroll: true }));
+      cancelAnimationFrame(articleFocus.current);
+      articleFocus.current = requestAnimationFrame(() => scroller.current?.focus({ preventScroll: true }));
     }
   }, []);
 
@@ -202,6 +205,8 @@ export function ReadingMode({
 
   // At once when the queue is on screen, so the next key already lands in it; a narrow window opens it first.
   const focusQueue = () => {
+    // Esc right after J/K: the article must not take focus back a frame later.
+    cancelAnimationFrame(articleFocus.current);
     const focus = () => {
       const list = queueRef.current;
       (list?.querySelector<HTMLElement>("[aria-current=true]") ?? list?.querySelector<HTMLElement>("[data-queue-item], button"))?.focus();
@@ -287,7 +292,7 @@ export function ReadingMode({
         {current && (
           <ProgressLine key={current.id} bookmark={current} status={currentStatus} scroller={scroller} />
         )}
-        <div className={`flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] px-4 pt-4" : "h-[68px] px-[30px] pt-[17px]"}`}>
+        <div className={`flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
           {narrow && !empty && (
             <Button
               variant="outline"
@@ -321,16 +326,16 @@ export function ReadingMode({
                 <Icon icon={ArrowUpRight} size={13} />
               </Button>
             ))}
-          {/* The toolbar's «Read», pressed (owner, 2026-10-15): the same book and word, in a narrow
-              window the book alone with its hint. */}
+          {/* The toolbar's «Read» in the same place and size, pressed (owner, 2026-10-15): opening
+              the mode moves nothing under the pointer; in a narrow window the book alone with its hint. */}
           <Hint label={t("readingMode.read")} show={narrow}>
             <Button
-              variant="primary"
+              variant="outline"
               size="lg"
               aria-pressed
               aria-label={narrow ? t("readingMode.read") : undefined}
               onClick={leave}
-              className={`rounded-lg ${narrow ? "w-[34px] !px-0" : "ml-6"}`}
+              className={`rounded-lg bg-read-track text-ink ${narrow ? "w-[34px] !px-0" : "ml-6"}`}
             >
               <Icon icon={BookOpen} size={15} className="shrink-0" />
               {!narrow && t("readingMode.read")}

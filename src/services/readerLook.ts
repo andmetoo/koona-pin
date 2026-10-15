@@ -6,9 +6,10 @@ import { preference, savePreference, storedValue } from "./preferences";
  * How reading looks (NP-124, Р-69 points 7 and 9, frame B8): the theme, the
  * size of the text, the width of the column and the font of the Aa panel, kept
  * per computer. White and Dark are free and follow the app's theme until one is
- * chosen. Paper, Sepia and the extra fonts are Supporter's: their palettes and
- * faces are commercial code (`src/components/commercial/readerThemes.ts`) that
- * registers itself here. Without it — a community build — they stay locked.
+ * chosen. Paper and Sepia are Supporter's: their palettes are commercial code
+ * (`src/components/commercial/readerThemes.ts`) that registers itself here.
+ * Without it — a community build — they stay locked. Both fonts, Serif (Literata)
+ * and Sans (Inter), are free (owner, 2026-10-15: no paid fonts yet).
  */
 
 /** One set of `--np-read-*` values: the page, the queue, lines and words (src/styles/app.css). */
@@ -38,9 +39,8 @@ export const FREE_THEMES: readonly FreeTheme[] = ["white", "dark"];
 export const SUPPORTER_THEMES = ["paper", "sepia"] as const;
 export type ReaderTheme = FreeTheme | (typeof SUPPORTER_THEMES)[number];
 
-export const FREE_FONTS = ["serif", "sans"] as const;
-export const SUPPORTER_FONTS = ["book", "legible"] as const;
-export type ReaderFont = (typeof FREE_FONTS)[number] | (typeof SUPPORTER_FONTS)[number];
+export const FONTS = ["serif", "sans"] as const;
+export type ReaderFont = (typeof FONTS)[number];
 
 export type ReaderColumn = "narrow" | "medium" | "wide";
 export const COLUMNS: readonly ReaderColumn[] = ["narrow", "medium", "wide"];
@@ -87,18 +87,17 @@ export const FREE_PALETTES: Record<FreeTheme, ReaderPalette> = {
   },
 };
 
-/** The faces of the free fonts; Literata and Inter ship with the app (OFL). */
-const FREE_FONT_STACKS: Record<(typeof FREE_FONTS)[number], string> = {
+/** The faces of the fonts; Literata and Inter ship with the app (OFL). */
+const FONT_STACKS: Record<ReaderFont, string> = {
   serif: '"Literata Variable", Literata, Georgia, "Times New Roman", serif',
   sans: 'var(--np-font)',
 };
 
-/** What a Supporter build adds: palettes and font stacks by id. */
+/** What a Supporter build adds: the palettes of its themes by id. */
 export interface SupporterLook {
   themes: Partial<Record<(typeof SUPPORTER_THEMES)[number], ReaderPalette>>;
-  fonts: Partial<Record<(typeof SUPPORTER_FONTS)[number], string>>;
 }
-let supporterLook: SupporterLook = { themes: {}, fonts: {} };
+let supporterLook: SupporterLook = { themes: {} };
 
 /** Called once by the commercial module; a community build never calls it. */
 export function registerSupporterLook(look: SupporterLook) {
@@ -107,12 +106,12 @@ export function registerSupporterLook(look: SupporterLook) {
 
 /** For tests: the build without the commercial module. */
 export function clearSupporterLook() {
-  supporterLook = { themes: {}, fonts: {} };
+  supporterLook = { themes: {} };
 }
 
 /**
  * The plan check (Р-64, point 6): like the backup folder, the app opens Supporter's
- * looks by the state of the plan it keeps, no request behind it. A plan that ended
+ * themes by the state of the plan it keeps, no request behind it. A plan that ended
  * locks them again; the choice stays and comes back with a new plan.
  */
 export function supporterUnlocked(supporter: SupporterStatus | null | undefined): boolean {
@@ -120,16 +119,11 @@ export function supporterUnlocked(supporter: SupporterStatus | null | undefined)
 }
 
 const isSupporterTheme = (theme: ReaderTheme) => (SUPPORTER_THEMES as readonly string[]).includes(theme);
-const isSupporterFont = (font: ReaderFont) => (SUPPORTER_FONTS as readonly string[]).includes(font);
 
-/** A Supporter's item is locked without the plan, and always in a build without its code. */
+/** A Supporter's theme is locked without the plan, and always in a build without its code. */
 export function themeLocked(theme: ReaderTheme, unlocked: boolean): boolean {
   if (!isSupporterTheme(theme)) return false;
   return !unlocked || !supporterLook.themes[theme as (typeof SUPPORTER_THEMES)[number]];
-}
-export function fontLocked(font: ReaderFont, unlocked: boolean): boolean {
-  if (!isSupporterFont(font)) return false;
-  return !unlocked || !supporterLook.fonts[font as (typeof SUPPORTER_FONTS)[number]];
 }
 
 /** The palette of a theme when it can be shown; a Supporter's from the commercial module. */
@@ -155,7 +149,7 @@ export function storedReaderChoice(): ReaderChoice {
   const size = Number(storedValue(SIZE_KEY));
   return {
     theme: preference<ReaderChoice["theme"]>(THEME_KEY, ["auto", ...FREE_THEMES, ...SUPPORTER_THEMES], "auto"),
-    font: preference<ReaderFont>(FONT_KEY, [...FREE_FONTS, ...SUPPORTER_FONTS], "serif"),
+    font: preference<ReaderFont>(FONT_KEY, [...FONTS], "serif"),
     size: (SIZES as readonly number[]).includes(size) ? size : DEFAULT_SIZE,
     column: preference<ReaderColumn>(COLUMN_KEY, [...COLUMNS], "medium"),
   };
@@ -168,7 +162,7 @@ export function saveReaderChoice(choice: ReaderChoice) {
   savePreference(COLUMN_KEY, choice.column);
 }
 
-/** What reading shows now: a locked or missing choice falls back to the free one. */
+/** What reading shows now: a locked or missing theme falls back to the free one. */
 export interface ReaderLook {
   theme: ReaderTheme;
   palette: ReaderPalette;
@@ -185,13 +179,11 @@ export function resolveReaderLook(choice: ReaderChoice, { appDark, unlocked }: {
   const fallback: FreeTheme = appDark ? "dark" : "white";
   const wanted = choice.theme === "auto" ? fallback : choice.theme;
   const theme = themeLocked(wanted, unlocked) ? fallback : wanted;
-  const font = fontLocked(choice.font, unlocked) ? "serif" : choice.font;
-  const fontStack = isSupporterFont(font) ? supporterLook.fonts[font as (typeof SUPPORTER_FONTS)[number]]! : FREE_FONT_STACKS[font as (typeof FREE_FONTS)[number]];
   return {
     theme,
     palette: paletteOf(theme)!,
-    font,
-    fontStack,
+    font: choice.font,
+    fontStack: FONT_STACKS[choice.font],
     size: choice.size,
     lineHeight: Math.round((choice.size * 5) / 3),
     column: choice.column,

@@ -789,8 +789,8 @@
     "theme": "主题",
     "themes": { "white": "白色", "dark": "深色", "paper": "纸张", "sepia": "棕褐" },
     "font": "字体",
-    "fonts": { "serif": "衬线", "sans": "无衬线", "book": "书籍", "legible": "易读" },
-    "supporterHint": "纸张、棕褐和更多字体 —",
+    "fonts": { "serif": "衬线", "sans": "无衬线" },
+    "supporterHint": "纸张和棕褐 —",
     "supporterLink": "Supporter",
     "locked": "{{name}}，Supporter 可用"
   },
@@ -1087,7 +1087,7 @@
     "perks": {
       "sync": "多台电脑之间同步——早期阶段，从第一天起",
       "backups": "自动备份到你选择的文件夹，例如 Dropbox",
-      "reading": "纸张和棕褐阅读主题以及更多字体",
+      "reading": "纸张和棕褐阅读主题",
       "badge": "应用内的 Supporter 徽章"
     },
     "plan": "方案",
@@ -1145,8 +1145,8 @@
     "pastDue": "续订扣款失败——请更新银行卡",
     "unchecked": "无法检查方案——有效期至 {{date}}",
     "perk": {
-      "reading": "阅读主题和字体",
-      "readingHint": "阅读模式 Aa 面板中的纸张、棕褐和更多字体",
+      "reading": "阅读主题",
+      "readingHint": "阅读模式 Aa 面板中的纸张和棕褐",
       "sync": "多台电脑之间同步",
       "syncHint": "早期阶段——将随更新推出",
       "backups": "自动备份到文件夹",

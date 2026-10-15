@@ -903,8 +903,8 @@
     "theme": "Tema",
     "themes": { "white": "Branco", "dark": "Escuro", "paper": "Papel", "sepia": "Sépia" },
     "font": "Fonte",
-    "fonts": { "serif": "Serifa", "sans": "Sans", "book": "Livro", "legible": "Legível" },
-    "supporterHint": "Papel, Sépia e mais fontes —",
+    "fonts": { "serif": "Serifa", "sans": "Sans" },
+    "supporterHint": "Papel e Sépia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, com Supporter"
   },
@@ -1249,7 +1249,7 @@
     "perks": {
       "sync": "Sincronização entre seus computadores — fase inicial, desde o primeiro dia",
       "backups": "Backups automáticos na pasta que você escolher, como o Dropbox",
-      "reading": "Temas de leitura Papel e Sépia e mais fontes",
+      "reading": "Temas de leitura Papel e Sépia",
       "badge": "Um selo de Supporter no app"
     },
     "plan": "Plano",
@@ -1307,8 +1307,8 @@
     "pastDue": "A renovação não foi concluída — atualize o cartão",
     "unchecked": "Não foi possível verificar o plano — ele continua ativo até {{date}}",
     "perk": {
-      "reading": "Temas e fontes de leitura",
-      "readingHint": "Papel, Sépia e mais fontes no painel Aa do modo de leitura",
+      "reading": "Temas de leitura",
+      "readingHint": "Papel e Sépia no painel Aa do modo de leitura",
       "sync": "Sincronização entre seus computadores",
       "syncHint": "Fase inicial — chega com uma atualização",
       "backups": "Backups automáticos em uma pasta",

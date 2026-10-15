@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupporterStatus } from "../types";
 import { ReaderChoice, resolveReaderLook, saveReaderChoice, storedReaderChoice, supporterUnlocked } from "../services/readerLook";
 
-/** A locked theme or font picked in the Aa panel, waiting for the plan. */
-export type ReaderWish = Partial<Pick<ReaderChoice, "theme" | "font">>;
+/** A locked theme picked in the Aa panel, waiting for the plan. */
+export type ReaderWish = Pick<ReaderChoice, "theme">;
 
 /**
  * The Aa panel's choice (NP-124), kept per computer, and the look it gives now:
- * the app's theme for `auto`, the plan for Supporter's themes and fonts. A locked
- * item picked while there is no plan waits here, the current look unchanged, and
+ * the app's theme for `auto`, the plan for Supporter's themes. A locked
+ * theme picked while there is no plan waits here, the current look unchanged, and
  * becomes the choice as soon as the plan arrives.
  */
 export function useReaderLook(supporter: SupporterStatus | null, appDark: boolean) {

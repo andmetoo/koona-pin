@@ -789,8 +789,8 @@
     "theme": "테마",
     "themes": { "white": "화이트", "dark": "다크", "paper": "페이퍼", "sepia": "세피아" },
     "font": "글꼴",
-    "fonts": { "serif": "세리프", "sans": "산세리프", "book": "북", "legible": "가독성" },
-    "supporterHint": "페이퍼, 세피아와 더 많은 글꼴 —",
+    "fonts": { "serif": "세리프", "sans": "산세리프" },
+    "supporterHint": "페이퍼와 세피아 —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, Supporter 전용"
   },
@@ -1087,7 +1087,7 @@
     "perks": {
       "sync": "컴퓨터 간 동기화 — 초기 단계, 첫날부터",
       "backups": "Dropbox 같은 원하는 폴더로 자동 백업",
-      "reading": "읽기 테마 페이퍼와 세피아, 더 많은 글꼴",
+      "reading": "읽기 테마 페이퍼와 세피아",
       "badge": "앱 안의 Supporter 배지"
     },
     "plan": "요금제",
@@ -1145,8 +1145,8 @@
     "pastDue": "갱신 결제에 실패했습니다 — 카드를 업데이트하세요",
     "unchecked": "요금제를 확인하지 못했습니다 — {{date}}까지 유지됩니다",
     "perk": {
-      "reading": "읽기 테마와 글꼴",
-      "readingHint": "읽기 모드의 Aa 패널에서 페이퍼, 세피아와 더 많은 글꼴",
+      "reading": "읽기 테마",
+      "readingHint": "읽기 모드의 Aa 패널에서 페이퍼와 세피아",
       "sync": "컴퓨터 간 동기화",
       "syncHint": "초기 단계 — 업데이트로 제공",
       "backups": "폴더로 자동 백업",

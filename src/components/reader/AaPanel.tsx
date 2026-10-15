@@ -3,9 +3,8 @@ import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   COLUMNS,
-  FREE_FONTS,
+  FONTS,
   FREE_THEMES,
-  fontLocked,
   paletteOf,
   ReaderChoice,
   ReaderColumn,
@@ -13,7 +12,6 @@ import {
   ReaderLook,
   ReaderTheme,
   SIZES,
-  SUPPORTER_FONTS,
   SUPPORTER_THEMES,
   themeLocked,
 } from "../../services/readerLook";
@@ -21,8 +19,8 @@ import { Hint } from "../ui/Hint";
 
 /**
  * «Aa» in the reading mode's top bar and its panel (NP-124, frame B8): text
- * size, column width, theme and font. White and Dark are free; Paper, Sepia and
- * the extra fonts carry a lock without Supporter, and a locked one opens the
+ * size, column width, theme and font (Serif or Sans). White and Dark are free;
+ * Paper and Sepia carry a lock without Supporter, and a locked one opens the
  * Supporter dialog — chosen, it applies as soon as the plan arrives. Everything
  * is in the colours of the reading theme.
  */
@@ -40,8 +38,8 @@ export function AaButton({
   unlocked: boolean;
   narrow: boolean;
   onChoice: (choice: ReaderChoice) => void;
-  /** A locked theme or font: it waits for the plan, and the Supporter dialog opens. */
-  onLocked: (wish: Partial<Pick<ReaderChoice, "theme" | "font">>) => void;
+  /** A locked theme: it waits for the plan, and the Supporter dialog opens. */
+  onLocked: (wish: Pick<ReaderChoice, "theme">) => void;
   onSupporter: () => void;
 }) {
   const { t } = useTranslation();
@@ -78,12 +76,11 @@ export function AaButton({
 
   const sizeIndex = Math.max(0, SIZES.indexOf(choice.size as (typeof SIZES)[number]));
   const pickTheme = (theme: ReaderTheme) => (themeLocked(theme, unlocked) ? onLocked({ theme }) : onChoice({ ...choice, theme }));
-  const pickFont = (font: ReaderFont) => (fontLocked(font, unlocked) ? onLocked({ font }) : onChoice({ ...choice, font }));
-  const anyLocked = [...SUPPORTER_THEMES].some((theme) => themeLocked(theme, unlocked)) || [...SUPPORTER_FONTS].some((font) => fontLocked(font, unlocked));
+  const anyLocked = SUPPORTER_THEMES.some((theme) => themeLocked(theme, unlocked));
 
   return (
     <div className="relative">
-      <Hint label={t("readerAa.label")}>
+      <Hint label={t("readerAa.label")} show={!open}>
         <button
           ref={button}
           type="button"
@@ -162,15 +159,9 @@ export function AaButton({
           <Label className="mt-4">{t("readerAa.font")}</Label>
           <Segments<ReaderFont>
             label={t("readerAa.font")}
-            value={look.font}
-            options={[...FREE_FONTS, ...SUPPORTER_FONTS].map((font) => ({
-              value: font,
-              label: t(`readerAa.fonts.${font}`),
-              locked: fontLocked(font, unlocked),
-              lockedLabel: t("readerAa.locked", { name: t(`readerAa.fonts.${font}`) }),
-              font: font === "sans" || font === "legible" ? "sans" : "serif",
-            }))}
-            onChange={pickFont}
+            value={choice.font}
+            options={FONTS.map((font) => ({ value: font, label: t(`readerAa.fonts.${font}`), font }))}
+            onChange={(font) => onChoice({ ...choice, font })}
           />
         </div>
       )}

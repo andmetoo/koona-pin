@@ -903,8 +903,8 @@
     "theme": "Tema",
     "themes": { "white": "Bianco", "dark": "Scuro", "paper": "Carta", "sepia": "Seppia" },
     "font": "Carattere",
-    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Libro", "legible": "Leggibile" },
-    "supporterHint": "Carta, Seppia e altri caratteri —",
+    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "supporterHint": "Carta e Seppia —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, con Supporter"
   },
@@ -1249,7 +1249,7 @@
     "perks": {
       "sync": "Sincronizzazione tra i tuoi computer — fase iniziale, dal primo giorno",
       "backups": "Backup automatici in una cartella a tua scelta, come Dropbox",
-      "reading": "I temi di lettura Carta e Seppia e altri caratteri",
+      "reading": "I temi di lettura Carta e Seppia",
       "badge": "Un badge Supporter nell’app"
     },
     "plan": "Piano",
@@ -1307,8 +1307,8 @@
     "pastDue": "Il rinnovo non è andato a buon fine — aggiorna la carta",
     "unchecked": "Impossibile verificare il piano — resta attivo fino al {{date}}",
     "perk": {
-      "reading": "Temi e caratteri di lettura",
-      "readingHint": "Carta, Seppia e altri caratteri nel pannello Aa della modalità lettura",
+      "reading": "Temi di lettura",
+      "readingHint": "Carta e Seppia nel pannello Aa della modalità lettura",
       "sync": "Sincronizzazione tra i tuoi computer",
       "syncHint": "Fase iniziale — arriva con un aggiornamento",
       "backups": "Backup automatici in una cartella",

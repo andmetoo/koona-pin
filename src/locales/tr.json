@@ -846,8 +846,8 @@
     "theme": "Tema",
     "themes": { "white": "Beyaz", "dark": "Koyu", "paper": "Kâğıt", "sepia": "Sepya" },
     "font": "Yazı tipi",
-    "fonts": { "serif": "Serif", "sans": "Sans", "book": "Kitap", "legible": "Okunaklı" },
-    "supporterHint": "Kâğıt, Sepya ve daha fazla yazı tipi —",
+    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "supporterHint": "Kâğıt ve Sepya —",
     "supporterLink": "Supporter",
     "locked": "{{name}}, Supporter ile"
   },
@@ -1168,7 +1168,7 @@
     "perks": {
       "sync": "Bilgisayarlarınız arasında eşitleme — erken aşama, ilk günden",
       "backups": "Seçtiğiniz klasöre otomatik yedekler, örneğin Dropbox",
-      "reading": "Kâğıt ve Sepya okuma temaları ve daha fazla yazı tipi",
+      "reading": "Kâğıt ve Sepya okuma temaları",
       "badge": "Uygulamada Supporter rozeti"
     },
     "plan": "Plan",
@@ -1226,8 +1226,8 @@
     "pastDue": "Yenileme alınamadı — kartınızı güncelleyin",
     "unchecked": "Plan kontrol edilemedi — {{date}} tarihine kadar geçerli",
     "perk": {
-      "reading": "Okuma temaları ve yazı tipleri",
-      "readingHint": "Okuma modunun Aa panelinde Kâğıt, Sepya ve daha fazla yazı tipi",
+      "reading": "Okuma temaları",
+      "readingHint": "Okuma modunun Aa panelinde Kâğıt ve Sepya",
       "sync": "Bilgisayarlarınız arasında eşitleme",
       "syncHint": "Erken aşama — bir güncellemeyle gelecek",
       "backups": "Bir klasöre otomatik yedekler",

@@ -7,7 +7,6 @@ import {
   clearSupporterLook,
   contrast,
   FREE_PALETTES,
-  fontLocked,
   ReaderChoice,
   readerStyle,
   registerSupporterLook,
@@ -42,16 +41,12 @@ describe("the plan check (Р-64, point 6: the plan the app keeps, like the backu
     expect(supporterUnlocked(null)).toBe(false);
     expect(supporterUnlocked(undefined)).toBe(false);
   });
-  test("Paper, Sepia and the extra fonts are locked without it, White, Dark, Serif and Sans never", () => {
+  test("Paper and Sepia are locked without it, White and Dark never; no paid fonts (owner, 2026-10-15)", () => {
     for (const unlocked of [false, true]) {
       expect(themeLocked("white", unlocked)).toBe(false);
       expect(themeLocked("dark", unlocked)).toBe(false);
-      expect(fontLocked("serif", unlocked)).toBe(false);
-      expect(fontLocked("sans", unlocked)).toBe(false);
       expect(themeLocked("paper", unlocked)).toBe(!unlocked);
       expect(themeLocked("sepia", unlocked)).toBe(!unlocked);
-      expect(fontLocked("book", unlocked)).toBe(!unlocked);
-      expect(fontLocked("legible", unlocked)).toBe(!unlocked);
     }
   });
 });
@@ -66,13 +61,13 @@ describe("resolution of the look", () => {
     expect(resolveReaderLook(choice({ theme: "dark" }), { appDark: false, unlocked: false }).theme).toBe("dark");
   });
   test("a locked choice shows the free one, and applies at once when the plan arrives", () => {
-    const paper = choice({ theme: "paper", font: "book" });
+    const paper = choice({ theme: "paper", font: "sans" });
     const free = resolveReaderLook(paper, { appDark: true, unlocked: false });
-    expect([free.theme, free.font]).toEqual(["dark", "serif"]);
+    expect([free.theme, free.font]).toEqual(["dark", "sans"]);
     const paid = resolveReaderLook(paper, { appDark: true, unlocked: true });
-    expect([paid.theme, paid.font]).toEqual(["paper", "book"]);
+    expect(paid.theme).toBe("paper");
     expect(paid.palette.read).toBe("#f4eee2");
-    expect(paid.fontStack).toContain("Source Serif 4");
+    expect(resolveReaderLook(choice(), { appDark: false, unlocked: false }).fontStack).toMatch(/^"Literata Variable"/);
   });
   test("size, line and column", () => {
     const look = resolveReaderLook(choice({ size: 24, column: "wide" }), { appDark: false, unlocked: false });
@@ -101,12 +96,11 @@ describe("kept per computer", () => {
 
 describe("a community build without the commercial module (Р-66)", () => {
   beforeEach(() => clearSupporterLook());
-  test("Paper, Sepia and the extra fonts stay locked even with a plan; White and Dark work", () => {
+  test("Paper and Sepia stay locked even with a plan; White, Dark and both fonts work", () => {
     for (const unlocked of [false, true]) {
       expect(themeLocked("paper", unlocked)).toBe(true);
-      expect(fontLocked("legible", unlocked)).toBe(true);
-      const look = resolveReaderLook(choice({ theme: "sepia", font: "legible" }), { appDark: false, unlocked });
-      expect([look.theme, look.font, look.palette]).toEqual(["white", "serif", FREE_PALETTES.white]);
+      const look = resolveReaderLook(choice({ theme: "sepia", font: "sans" }), { appDark: false, unlocked });
+      expect([look.theme, look.font, look.palette]).toEqual(["white", "sans", FREE_PALETTES.white]);
     }
   });
   test("no community code imports the commercial reading themes but the one line in main.tsx", () => {
@@ -138,6 +132,11 @@ describe("contrast of body text (acceptance 3: at least 7:1 in every theme)", ()
   test.each(table)("$theme: ink $ink on $page is $body:1, text $text is $ui:1", ({ body, ui }) => {
     expect(body).toBeGreaterThanOrEqual(7);
     expect(ui).toBeGreaterThanOrEqual(7);
+  });
+  test("Sepia before and after: B8's ink #5b4636 is under 7:1, the shipped one just over", () => {
+    expect(contrast("#5b4636", "#efe1c6")).toBeLessThan(7);
+    expect(contrast(supporterLook.themes.sepia!.ink, "#efe1c6")).toBeGreaterThanOrEqual(7);
+    expect(contrast(supporterLook.themes.sepia!.ink, "#efe1c6")).toBeLessThan(7.1);
   });
   test("the formula itself: black on white is 21:1, a colour on itself 1:1", () => {
     expect(contrast("#000000", "#ffffff")).toBeCloseTo(21, 5);

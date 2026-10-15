@@ -51,7 +51,7 @@ The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`, set bef
 
 ## Typography
 
-Inter (variable, from `@fontsource-variable/inter`, SIL OFL 1.1) is bundled, so no network is needed. Reading (NP-124) bundles Literata, its default serif, and for Supporter's extra fonts Source Serif 4 and Atkinson Hyperlegible Next — all variable, from Fontsource, SIL OFL 1.1. Chinese, Japanese and Korean fall back to the system font of the interface language, chosen with `:lang()` on `<html>`; no CJK font is bundled.
+Inter (variable, from `@fontsource-variable/inter`, SIL OFL 1.1) is bundled, so no network is needed. Reading (NP-124) bundles Literata (variable, from Fontsource, SIL OFL 1.1), the serif of the Aa panel; its sans is Inter. Chinese, Japanese and Korean fall back to the system font of the interface language, chosen with `:lang()` on `<html>`; no CJK font is bundled.
 
 Text sizes replace Tailwind's scale:
 
