@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — bağlantıyı kaydet" },
   "extensionDescription": {
-    "message": "Herhangi bir sayfayı tek tıkla bilgisayarınızdaki Koona Pin uygulamasına kaydedin, kayıtlı bağlantıları tarayıcıda arayın."
+    "message": "Sayfaları tek tıkla bilgisayarınızdaki Koona Pin uygulamasına kaydedin, makaleleri okuma listesine gönderin, bağlantılarda arayın."
   },
   "menuOptions": { "message": "Ayarlar ve sıra" },
   "menuSearch": { "message": "Bağlantı bul" },

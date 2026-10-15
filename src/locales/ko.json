@@ -1085,7 +1085,7 @@
     "testPayments": "테스트 결제",
     "intro": "Koona Pin은 계속 무료입니다: 라이브러리, 브라우저 버튼, 검색, 백업, AI 어시스턴트. Supporter는 프로젝트를 이어 가게 하고 다음을 받습니다:",
     "perks": {
-      "sync": "컴퓨터 간 동기화 — 초기 단계, 첫날부터",
+      "sync": "모든 컴퓨터에서 같은 라이브러리, 읽을거리와 읽기 진행 상황 포함",
       "backups": "Dropbox 같은 원하는 폴더로 자동 백업",
       "reading": "읽기 테마 페이퍼와 세피아",
       "badge": "앱 안의 Supporter 배지"
@@ -1147,8 +1147,8 @@
     "perk": {
       "reading": "읽기 테마",
       "readingHint": "읽기 모드의 Aa 패널에서 페이퍼와 세피아",
-      "sync": "컴퓨터 간 동기화",
-      "syncHint": "초기 단계 — 업데이트로 제공",
+      "sync": "동기화, 읽을거리 포함",
+      "syncHint": "모든 컴퓨터에서 라이브러리, 읽을거리, 읽기 진행 상황",
       "backups": "폴더로 자동 백업",
       "backupsHint": "Dropbox나 Google 드라이브 같은 원하는 폴더로",
       "badge": "Supporter 배지",

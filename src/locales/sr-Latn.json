@@ -1261,7 +1261,7 @@
     "testPayments": "Test-plaćanja",
     "intro": "Koona Pin ostaje besplatan: biblioteka, dugme u pregledaču, pretraga, kopije i II asistenti. Supporter podržava projekat i dobija:",
     "perks": {
-      "sync": "Sinhronizaciju između računara — rana faza, od prvog dana",
+      "sync": "Biblioteku na svakom računaru, sa „Za čitanje” i napretkom",
       "backups": "Automatske kopije u fasciklu po izboru, na primer Dropbox",
       "reading": "Teme za čitanje Papir i Sepija",
       "badge": "Oznaku Supporter u aplikaciji"
@@ -1323,8 +1323,8 @@
     "perk": {
       "reading": "Teme za čitanje",
       "readingHint": "Papir i Sepija u panelu Aa režima čitanja",
-      "sync": "Sinhronizacija između računara",
-      "syncHint": "Rana faza — stiže sa ažuriranjem",
+      "sync": "Sinhronizacija, zajedno sa „Za čitanje”",
+      "syncHint": "Biblioteka i napredak čitanja na svakom računaru",
       "backups": "Automatske kopije u fasciklu",
       "backupsHint": "U fasciklu po izboru, na primer Dropbox ili Google Disk",
       "badge": "Oznaka Supporter",

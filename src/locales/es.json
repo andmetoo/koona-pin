@@ -1247,7 +1247,7 @@
     "testPayments": "Pagos de prueba",
     "intro": "Koona Pin sigue siendo gratis: la biblioteca, el botón del navegador, la búsqueda, las copias y los asistentes de IA. Quienes la apoyan mantienen el proyecto y reciben:",
     "perks": {
-      "sync": "Sincronización entre tus ordenadores — fase inicial, desde el primer día",
+      "sync": "Tu biblioteca en cada ordenador, con Para leer y el progreso de lectura",
       "backups": "Copias automáticas en la carpeta que elijas, como Dropbox",
       "reading": "Temas de lectura Papel y Sepia",
       "badge": "Una insignia de Supporter en la app"
@@ -1309,8 +1309,8 @@
     "perk": {
       "reading": "Temas de lectura",
       "readingHint": "Papel y Sepia en el panel Aa del modo lectura",
-      "sync": "Sincronización entre tus ordenadores",
-      "syncHint": "Fase inicial — llegará con una actualización",
+      "sync": "Sincronización, Para leer incluido",
+      "syncHint": "Biblioteca, Para leer y progreso en cada ordenador",
       "backups": "Copias automáticas en una carpeta",
       "backupsHint": "En la carpeta que elijas, como Dropbox o Google Drive",
       "badge": "Insignia de Supporter",
