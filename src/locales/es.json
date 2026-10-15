@@ -649,6 +649,14 @@
   "settings": {
     "assistants": "Asistentes de IA",
     "general": "General",
+    "reading": "Lectura",
+    "openLinks": "Abrir enlaces",
+    "openLinksHint": "Qué hacen un clic en un título, un doble clic e Intro. La persiana sobre una portada siempre ofrece ambas opciones.",
+    "openLinksBrowser": "En el navegador",
+    "openLinksReader": "En modo lectura",
+    "markRead": "Marcar como leído al final",
+    "markReadHint": "Los enlaces leídos bajan al final de Para leer y salen de ahí tras una semana.",
+    "sendToReadingHint": "R sobre un marcador seleccionado; el menú de la extensión también guarda ahí.",
     "language": "Idioma",
     "languageHint": "El inglés es el original: los textos sin traducir se muestran en inglés",
     "languageSystem": "Sistema — {{name}}",
@@ -885,6 +893,20 @@
       "links": "La página es sobre todo enlaces, no un artículo.",
       "empty": "No se encontró ningún artículo en la página; quizá lo dibujan scripts."
     }
+  },
+  "readerAa": {
+    "label": "Texto y tema",
+    "size": "Tamaño del texto",
+    "sizeValue": "{{size}} px",
+    "column": "Columna",
+    "columns": { "narrow": "Estrecha", "medium": "Media", "wide": "Ancha" },
+    "theme": "Tema",
+    "themes": { "white": "Blanco", "dark": "Oscuro", "paper": "Papel", "sepia": "Sepia" },
+    "font": "Fuente",
+    "fonts": { "serif": "Serif", "sans": "Sans" },
+    "supporterHint": "Papel y Sepia —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, con Supporter"
   },
   "readingMode": {
     "label": "Modo lectura",
@@ -1227,6 +1249,7 @@
     "perks": {
       "sync": "Sincronización entre tus ordenadores — fase inicial, desde el primer día",
       "backups": "Copias automáticas en la carpeta que elijas, como Dropbox",
+      "reading": "Temas de lectura Papel y Sepia",
       "badge": "Una insignia de Supporter en la app"
     },
     "plan": "Plan",
@@ -1284,6 +1307,8 @@
     "pastDue": "La renovación no se completó — actualiza la tarjeta",
     "unchecked": "No se pudo comprobar el plan — sigue activo hasta el {{date}}",
     "perk": {
+      "reading": "Temas de lectura",
+      "readingHint": "Papel y Sepia en el panel Aa del modo lectura",
       "sync": "Sincronización entre tus ordenadores",
       "syncHint": "Fase inicial — llegará con una actualización",
       "backups": "Copias automáticas en una carpeta",

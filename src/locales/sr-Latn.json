@@ -651,6 +651,14 @@
   "settings": {
     "assistants": "AI asistenti",
     "general": "Opšte",
+    "reading": "Čitanje",
+    "openLinks": "Otvaranje veza",
+    "openLinksHint": "Šta rade klik na naslov, dvostruki klik i Enter. Zavesa na naslovnoj slici uvek nudi oba.",
+    "openLinksBrowser": "U pregledaču",
+    "openLinksReader": "U režimu čitanja",
+    "markRead": "Označi kao pročitano na kraju",
+    "markReadHint": "Pročitane veze idu na dno liste „Za čitanje” i napuštaju je posle nedelju dana.",
+    "sendToReadingHint": "R na izabranom obeleživaču; meni proširenja takođe čuva tamo.",
     "language": "Jezik",
     "languageHint": "Engleski je izvor: neprevedeni tekstovi prikazuju se na engleskom",
     "languageSystem": "Kao u sistemu — {{name}}",
@@ -887,6 +895,32 @@
       "links": "Stranica je uglavnom veze, a ne članak.",
       "empty": "Na stranici nije pronađen članak — možda ga crtaju skripte."
     }
+  },
+  "readerAa": {
+    "label": "Tekst i tema",
+    "size": "Veličina teksta",
+    "sizeValue": "{{size}} px",
+    "column": "Kolona",
+    "columns": {
+      "narrow": "Uska",
+      "medium": "Srednja",
+      "wide": "Široka"
+    },
+    "theme": "Tema",
+    "themes": {
+      "white": "Bela",
+      "dark": "Tamna",
+      "paper": "Papir",
+      "sepia": "Sepija"
+    },
+    "font": "Font",
+    "fonts": {
+      "serif": "Antikva",
+      "sans": "Grotesk"
+    },
+    "supporterHint": "Papir i Sepija —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, uz Supporter"
   },
   "readingMode": {
     "label": "Režim čitanja",
@@ -1229,6 +1263,7 @@
     "perks": {
       "sync": "Sinhronizaciju između računara — rana faza, od prvog dana",
       "backups": "Automatske kopije u fasciklu po izboru, na primer Dropbox",
+      "reading": "Teme za čitanje Papir i Sepija",
       "badge": "Oznaku Supporter u aplikaciji"
     },
     "plan": "Plan",
@@ -1286,6 +1321,8 @@
     "pastDue": "Obnova nije prošla — ažurirajte karticu",
     "unchecked": "Plan nije proveren — važi do {{date}}",
     "perk": {
+      "reading": "Teme za čitanje",
+      "readingHint": "Papir i Sepija u panelu Aa režima čitanja",
       "sync": "Sinhronizacija između računara",
       "syncHint": "Rana faza — stiže sa ažuriranjem",
       "backups": "Automatske kopije u fasciklu",

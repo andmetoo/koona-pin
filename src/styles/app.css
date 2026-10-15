@@ -2,6 +2,8 @@
    live here once and switch with data-theme on <html> (Р-5). */
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
+/* The serif of reading (NP-124, B8): Literata, SIL OFL 1.1. */
+@import "@fontsource-variable/literata";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -49,7 +51,8 @@
   --np-on-amber-soft: #6b5a23;
   /* Reading (Р-69, owner 2026-10-15): one set of tokens for the sheet (NP-123) and the reading
      mode (NP-122) — the page, the queue beside it, its current item, lines and words. This is the
-     free White theme (B8's swatch: #fff, ink #22231f); NP-124 remaps the set per theme of Aa. */
+     free White theme (B8's swatch: #fff, ink #22231f). The Aa panel (NP-124) sets the whole set on the
+     mode or the sheet for the theme chosen (src/services/readerLook.ts keeps the same values). */
   --np-read: #ffffff;
   --np-read-queue: #f6f6f4;
   --np-read-current: #ffffff;
@@ -61,6 +64,10 @@
   --np-read-text: #2e302b;
   --np-read-muted: #85857e;
   --np-read-dim: #adada6;
+  /* The Aa panel (B8): its card, the trough of its segments and the chosen segment. */
+  --np-read-panel: #ffffff;
+  --np-read-well: #f1f1ee;
+  --np-read-raised: #ffffff;
   --np-sheet: var(--np-read);
   --np-sheet-ink: var(--np-read-ink);
   --np-sheet-line: var(--np-read-border);
@@ -122,6 +129,9 @@
   --np-read-text: #dfdad0;
   --np-read-muted: #8c8a83;
   --np-read-dim: #615f59;
+  --np-read-panel: #292824;
+  --np-read-well: #1e1d1a;
+  --np-read-raised: #34332e;
   --np-sheet: var(--np-read);
   --np-sheet-ink: var(--np-read-ink);
   --np-sheet-line: var(--np-read-border);
@@ -244,6 +254,9 @@
   --color-read-text: var(--np-read-text);
   --color-read-muted: var(--np-read-muted);
   --color-read-dim: var(--np-read-dim);
+  --color-read-panel: var(--np-read-panel);
+  --color-read-well: var(--np-read-well);
+  --color-read-raised: var(--np-read-raised);
 }
 
 @theme {
@@ -649,8 +662,8 @@
 }
 
 /* The article of the reading sheet (frame A) and of the reading mode (NP-122): one
-   column of a serif text. Literata is the face of the mockups; until it ships with the
-   app (NP-124) the system serif stands in. */
+   column of Literata by default. The Aa panel (NP-124) sets the font, size, line and width as
+   --reader-font, --reader-size, --reader-line and --reader-width (src/services/readerLook.ts). */
 @layer components {
   .reader-article {
     --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
@@ -665,7 +678,7 @@
   }
   .reader-title {
     margin: 16px 0 24px;
-    font-family: var(--reader-serif);
+    font-family: var(--reader-font, var(--reader-serif));
     font-size: 34px;
     line-height: 42px;
     font-weight: 600;
@@ -674,15 +687,15 @@
   /* The dek (frame B3): the page's description under the title, when the text does not open with it. */
   .reader-dek {
     margin: -8px 0 24px;
-    font-family: var(--reader-serif);
+    font-family: var(--reader-font, var(--reader-serif));
     font-size: 19px;
     line-height: 28px;
     color: color-mix(in srgb, var(--np-sheet-ink) 72%, transparent);
   }
   .reader-body {
-    font-family: var(--reader-serif);
-    font-size: 18px;
-    line-height: 30px;
+    font-family: var(--reader-font, var(--reader-serif));
+    font-size: var(--reader-size, 18px);
+    line-height: var(--reader-line, 30px);
   }
   .reader-body > :first-child {
     margin-top: 0;
@@ -784,18 +797,25 @@
 /* The reading mode (NP-122): the article of the sheet in the colours of the mode, a column
    of 640 px (frame B3), the serif of the queue's titles, the running line while a page loads. */
 @layer components {
-  .reading-mode {
+  /* The mode and the sheet (`reading-look`) in the reading theme of Aa (NP-124), whatever the
+     app's: its accent comes with the look (readerStyle), these follow its tokens. */
+  .reading-mode,
+  .reading-look {
     --np-meta: var(--np-read-muted);
     /* Buttons, the skeleton and hovers of the app in the mode's paper. */
     --np-ink: var(--np-read-text);
     --np-icon: var(--np-read-text);
     --np-muted: var(--np-read-muted);
+    --np-subtle: var(--np-read-muted);
     --np-border: var(--np-read-border);
     --np-hover: var(--np-read-track);
+    --np-secondary: var(--np-read-well);
+    --np-focus: var(--np-read-ink);
     --reader-serif: "Literata Variable", Literata, Georgia, "Times New Roman", serif;
   }
-  .reading-mode .reader-article {
-    max-width: 640px;
+  /* The column of the mode: the Aa panel's width (560, 640, 760); the sheet keeps its 600. */
+  .reading-mode {
+    --reader-column: var(--reader-width, 640px);
   }
   .reading-mode .reader-meta {
     font-weight: 400;

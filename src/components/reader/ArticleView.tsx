@@ -140,7 +140,7 @@ export function ArticleView({
     );
 
   return (
-    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} className="reader-article mx-auto w-full max-w-[600px]">
+    <article lang={article?.language ?? undefined} aria-busy={!article || undefined} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
       <p className="reader-meta">
         {[article?.site ?? domain, article && t("reader.minutes", { count: readingMinutes(article.words) }), saved && t("reader.saved", { date: savedOn(saved, i18n.language) })]
           .filter(Boolean)

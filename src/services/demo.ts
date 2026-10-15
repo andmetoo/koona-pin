@@ -136,6 +136,15 @@ let demoDownload: number | null = null;
  * `five_years`, `five_years_renewing` are the states of the plan dialog; `no_server` makes every request fail. Without the key the build sells nothing, as a release.
  */
 export const DEMO_SUPPORTER_KEY = "koonapin.demo.supporter";
+/** «Mark as read at the end» (NP-124): "false" turns it off, as app_settings does. */
+const DEMO_MARK_AT_END_KEY = "koonapin.demo.readingMarkAtEnd";
+const demoMarkAtEnd = () => {
+  try {
+    return localStorage.getItem(DEMO_MARK_AT_END_KEY) !== "false";
+  } catch {
+    return true;
+  }
+};
 /** A demo switch from localStorage; none where storage cannot be read. */
 function demoSwitch(key: string): string | null {
   try {
@@ -1029,13 +1038,14 @@ export const demo = {
     emitMany("updated", changed);
     return { count, changed: changed.length, command, collection: created && { ...created, count } };
   },
-  /** `reading::set_progress`: no command of the journal; at 1 it is read. */
+  /** `reading::set_progress`: no command of the journal; at 1 it is read, unless «Mark as read at the end» is off. */
   async setReadingProgress(id: number, progress: number): Promise<Bookmark> {
     const b = bookmarks.find((item) => item.id === id);
     if (!b) throw new CommandError("not_found", "Query returned no rows");
     const p = Number.isNaN(progress) ? 0 : Math.min(1, Math.max(0, progress));
-    if (b.deleted_at || (b.reading_progress === p && (p < 1 || b.read_at))) return b;
-    const next = change(b, { reading_progress: p, read_at: p >= 1 ? (b.read_at ?? new Date().toISOString()) : b.read_at });
+    const marks = demoMarkAtEnd();
+    if (b.deleted_at || (b.reading_progress === p && (p < 1 || b.read_at || !marks))) return b;
+    const next = change(b, { reading_progress: p, read_at: p >= 1 && marks ? (b.read_at ?? new Date().toISOString()) : b.read_at });
     emit("updated", next);
     return next;
   },
@@ -1302,7 +1312,11 @@ export const demo = {
     };
   },
   async getAppSettings() {
-    return { close_to_tray: true };
+    return { close_to_tray: true, reading_mark_at_end: demoMarkAtEnd() };
+  },
+  /** set_reading_mark_at_end (NP-124): kept across reloads, as app_settings is. */
+  async setReadingMarkAtEnd(enabled: boolean) {
+    localStorage.setItem(DEMO_MARK_AT_END_KEY, enabled ? "true" : "false");
   },
   async setCloseToTray(_enabled: boolean) {
     /* Desktop-only setting. */

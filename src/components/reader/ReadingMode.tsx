@@ -11,6 +11,8 @@ import { Button } from "../ui/Button";
 import { Hint, Kbd } from "../ui/Hint";
 import { Menu } from "../ui/Menu";
 import { WindowBar } from "../ui/WindowBar";
+import { ReaderChoice, ReaderLook, readerStyle } from "../../services/readerLook";
+import { AaButton } from "./AaPanel";
 import { ArticleStatus, ArticleView, failureText } from "./ArticleView";
 
 /** What the queue reads: Reading (the default) or the section the library shows. */
@@ -28,8 +30,9 @@ export interface SectionQueue {
   onMore: () => void;
 }
 
-/** The drop spreads over ≈ 200 ms (Р-69, point 1); with reduced motion the mode fades in 150 ms. */
-const DROP_MS = 200;
+/** The drop spreads over 260 ms (Р-69 point 1 said ≈ 200; the owner asked for a little slower,
+ *  2026-10-15, then not as slow as 320); with reduced motion the mode fades in 150 ms. */
+const DROP_MS = 260;
 const FADE_MS = 150;
 /** Close to the end of a section's loaded bookmarks the next page is asked for. */
 const MORE_AHEAD = 3;
@@ -54,7 +57,18 @@ export function ReadingMode({
   onOpen,
   onMarkRead,
   onClose,
+  look,
+  aa,
 }: {
+  /** How reading looks (NP-124): the theme, font, size and column of the Aa panel. */
+  look: ReaderLook;
+  aa: {
+    choice: ReaderChoice;
+    unlocked: boolean;
+    onChoice: (choice: ReaderChoice) => void;
+    onLocked: (wish: Pick<ReaderChoice, "theme">) => void;
+    onSupporter: () => void;
+  };
   narrow: boolean;
   /** Where the drop starts and folds back: the centre of the toolbar's «Read». */
   origin: () => { x: number; y: number } | null;
@@ -69,6 +83,8 @@ export function ReadingMode({
 }) {
   const { t } = useTranslation();
   const layer = useRef<HTMLDivElement>(null);
+  /** The article's focus waiting for the next frame: a key that moves focus first cancels it. */
+  const articleFocus = useRef(0);
   const queueRef = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const [source, setSource] = useState<ReadingSource>(section.reading ? "section" : initialSource);
@@ -147,7 +163,8 @@ export function ReadingMode({
     if (focus === "queue") queueRef.current?.querySelector<HTMLElement>(`[data-queue-item="${id}"]`)?.focus();
     else if (focus === "article") {
       setQueueOpen(false);
-      requestAnimationFrame(() => scroller.current?.focus({ preventScroll: true }));
+      cancelAnimationFrame(articleFocus.current);
+      articleFocus.current = requestAnimationFrame(() => scroller.current?.focus({ preventScroll: true }));
     }
   }, []);
 
@@ -188,6 +205,8 @@ export function ReadingMode({
 
   // At once when the queue is on screen, so the next key already lands in it; a narrow window opens it first.
   const focusQueue = () => {
+    // Esc right after J/K: the article must not take focus back a frame later.
+    cancelAnimationFrame(articleFocus.current);
     const focus = () => {
       const list = queueRef.current;
       (list?.querySelector<HTMLElement>("[aria-current=true]") ?? list?.querySelector<HTMLElement>("[data-queue-item], button"))?.focus();
@@ -261,6 +280,8 @@ export function ReadingMode({
       data-reading-mode
       role="region"
       aria-label={t("readingMode.label")}
+      data-reader-look={look.theme}
+      style={readerStyle(look)}
       className="reading-mode fixed inset-0 z-40 flex bg-read text-read-text"
     >
       {!narrow && queue}
@@ -271,7 +292,7 @@ export function ReadingMode({
         {current && (
           <ProgressLine key={current.id} bookmark={current} status={currentStatus} scroller={scroller} />
         )}
-        <div className={`flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] px-4 pt-4" : "h-[68px] px-[30px] pt-[17px]"}`}>
+        <div className={`flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
           {narrow && !empty && (
             <Button
               variant="outline"
@@ -285,8 +306,8 @@ export function ReadingMode({
             </Button>
           )}
           <span className="flex-1" />
-          {/* The Aa panel (themes, size, fonts) comes with NP-124. */}
-          <span data-reader-aa hidden />
+          {/* The Aa panel (NP-124, frame B8): size, column, theme, font. */}
+          <AaButton choice={aa.choice} look={look} unlocked={aa.unlocked} narrow={narrow} onChoice={aa.onChoice} onLocked={aa.onLocked} onSupporter={aa.onSupporter} />
           {current &&
             (narrow ? (
               <Hint label={t("reader.openInBrowser")}>
@@ -305,10 +326,21 @@ export function ReadingMode({
                 <Icon icon={ArrowUpRight} size={13} />
               </Button>
             ))}
-          <Button variant="primary" size="lg" aria-pressed onClick={leave} className={`rounded-lg ${narrow ? "min-w-[88px]" : "ml-6"}`}>
-            {!narrow && <Icon icon={BookOpen} size={15} />}
-            {t("readingMode.read")}
-          </Button>
+          {/* The toolbar's «Read» in the same place and size, pressed (owner, 2026-10-15): opening
+              the mode moves nothing under the pointer; in a narrow window the book alone with its hint. */}
+          <Hint label={t("readingMode.read")} show={narrow}>
+            <Button
+              variant="outline"
+              size="lg"
+              aria-pressed
+              aria-label={narrow ? t("readingMode.read") : undefined}
+              onClick={leave}
+              className={`rounded-lg bg-read-track text-ink ${narrow ? "w-[34px] !px-0" : "ml-6"}`}
+            >
+              <Icon icon={BookOpen} size={15} className="shrink-0" />
+              {!narrow && t("readingMode.read")}
+            </Button>
+          </Hint>
         </div>
         <div ref={scroller} tabIndex={-1} data-reader-scroll className={`min-h-0 flex-1 overflow-y-auto outline-none ${narrow ? "px-6 pt-3.5" : "px-8 pt-7"} pb-24`}>
           {current ? (

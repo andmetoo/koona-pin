@@ -561,6 +561,14 @@
   "settings": {
     "assistants": "AI 助手",
     "general": "常规",
+    "reading": "阅读",
+    "openLinks": "打开链接",
+    "openLinksHint": "点击标题、双击和按 Enter 时的操作。封面上的遮帘始终提供两种方式。",
+    "openLinksBrowser": "在浏览器中",
+    "openLinksReader": "在阅读模式中",
+    "markRead": "读到末尾时标为已读",
+    "markReadHint": "已读链接移到稍后读的底部，一周后移出。",
+    "sendToReadingHint": "选中书签后按 R；浏览器扩展的菜单也能保存到这里。",
     "language": "语言",
     "languageHint": "英语是原文：未翻译的文字会显示英语",
     "languageSystem": "跟随系统 — {{name}}",
@@ -771,6 +779,20 @@
       "links": "此页面大多是链接，不是文章。",
       "empty": "页面上没有找到文章，可能是由脚本绘制的。"
     }
+  },
+  "readerAa": {
+    "label": "文字与主题",
+    "size": "文字大小",
+    "sizeValue": "{{size}} px",
+    "column": "栏宽",
+    "columns": { "narrow": "窄", "medium": "中", "wide": "宽" },
+    "theme": "主题",
+    "themes": { "white": "白色", "dark": "深色", "paper": "纸张", "sepia": "棕褐" },
+    "font": "字体",
+    "fonts": { "serif": "衬线", "sans": "无衬线" },
+    "supporterHint": "纸张和棕褐 —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}，Supporter 可用"
   },
   "readingMode": {
     "label": "阅读模式",
@@ -1065,6 +1087,7 @@
     "perks": {
       "sync": "多台电脑之间同步——早期阶段，从第一天起",
       "backups": "自动备份到你选择的文件夹，例如 Dropbox",
+      "reading": "纸张和棕褐阅读主题",
       "badge": "应用内的 Supporter 徽章"
     },
     "plan": "方案",
@@ -1122,6 +1145,8 @@
     "pastDue": "续订扣款失败——请更新银行卡",
     "unchecked": "无法检查方案——有效期至 {{date}}",
     "perk": {
+      "reading": "阅读主题",
+      "readingHint": "阅读模式 Aa 面板中的纸张和棕褐",
       "sync": "多台电脑之间同步",
       "syncHint": "早期阶段——将随更新推出",
       "backups": "自动备份到文件夹",

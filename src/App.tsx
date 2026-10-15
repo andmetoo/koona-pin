@@ -13,6 +13,7 @@ import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { useSelectionDrag } from "./hooks/useSelectionDrag";
+import { useReaderLook } from "./hooks/useReaderLook";
 import { ClipIcon, Icon, InboxTray } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
@@ -120,8 +121,8 @@ export function App() {
   /** The loaded order, for `Shift`+click ranges. */
   const loadedRef = useRef(library.bookmarks);
   loadedRef.current = library.bookmarks;
-  /** «Open links» (Р-69, point 5); its control comes with Settings in NP-124. */
-  const [linkTarget] = useState(storedOpenLinks);
+  /** «Open links» (Р-69, point 5), set in Settings → General → Reading (NP-124). */
+  const [linkTarget, setLinkTarget] = useState(storedOpenLinks);
   const linkTargetRef = useRef(linkTarget);
   linkTargetRef.current = linkTarget;
   /** The reading sheet over the list (NP-123): what `↑`/`↓` go through and which one shows. */
@@ -177,6 +178,8 @@ export function App() {
   /** The editor opened from triage: its save and «В корзину» are triage decisions. */
   const editHooks = useRef<EditHooks | null>(null);
   const dark = isDark(theme, systemDark);
+  /** How reading looks (NP-124): the Aa panel's choice, the app's theme and the plan. */
+  const readerLook = useReaderLook(supporter, dark);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
   const sayAlert = useCallback((text: string) => setNotice({ text, alert: true }), []);
   /**
@@ -1039,6 +1042,11 @@ export function App() {
                     sync={sync}
                     onSync={() => setSurface("sync")}
                     onSupporter={() => setSurface("supporter")}
+                    openLinks={linkTarget}
+                    onOpenLinks={(target) => {
+                      setLinkTarget(target);
+                      savePreference("openLinks", target);
+                    }}
                   />
                 </div>
               </>
@@ -1553,6 +1561,7 @@ export function App() {
           onOpen={open}
           onFavorite={actions.favorite}
           onClose={() => setSheet(null)}
+          look={readerLook.look}
         />
       )}
       {reading && (
@@ -1572,6 +1581,17 @@ export function App() {
           onOpen={open}
           onMarkRead={(b) => readingChange(b, { action: "read", read: true })}
           onClose={closeReading}
+          look={readerLook.look}
+          aa={{
+            choice: readerLook.choice,
+            unlocked: readerLook.unlocked,
+            onChoice: readerLook.setChoice,
+            onLocked: (wish) => {
+              readerLook.wish(wish);
+              setSurface("supporter");
+            },
+            onSupporter: () => setSurface("supporter"),
+          }}
         />
       )}
       {/* NP-123: a click that selects or unselects is said, not only shown; not a status, so notices stay apart. */}

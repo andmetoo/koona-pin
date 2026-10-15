@@ -186,6 +186,7 @@ pub fn run() {
             commands::restore_library,
             commands::get_app_settings,
             commands::set_close_to_tray,
+            commands::set_reading_mark_at_end,
             commands::get_capture_status,
             commands::repair_capture,
             commands::get_library_status,

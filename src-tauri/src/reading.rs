@@ -37,20 +37,31 @@ pub fn counts(conn: &Connection) -> Result<(i64, i64)> {
 }
 
 /// The reader's position in an article, 0 to 1 (out of range is clamped).
-/// At 1 the bookmark is read, from then on; a smaller value later keeps it
-/// read, as rereading does. A position that changes nothing writes nothing,
-/// so a quiet scroll records no change for sync. The trash is left alone.
+/// At 1 the bookmark is read, from then on, unless «Mark as read at the end»
+/// ([`MARK_AT_END_SETTING`]) is off; a smaller value later keeps it read, as
+/// rereading does. A position that changes nothing writes nothing, so a quiet
+/// scroll records no change for sync. The trash is left alone.
 pub fn set_progress(conn: &Connection, id: i64, progress: f64) -> Result<Bookmark> {
     let progress = if progress.is_nan() { 0.0 } else { progress.clamp(0.0, 1.0) };
+    let marks = mark_at_end(conn);
     conn.execute(
         "UPDATE bookmarks SET reading_progress = ?2,
-             read_at = CASE WHEN ?2 >= 1 THEN COALESCE(read_at, ?3) ELSE read_at END,
+             read_at = CASE WHEN ?2 >= 1 AND ?4 THEN COALESCE(read_at, ?3) ELSE read_at END,
              updated_at = ?3, revision = revision + 1
          WHERE id = ?1 AND deleted_at IS NULL
-             AND (reading_progress IS NOT ?2 OR (?2 >= 1 AND read_at IS NULL))",
-        params![id, progress, db::now()],
+             AND (reading_progress IS NOT ?2 OR (?2 >= 1 AND ?4 AND read_at IS NULL))",
+        params![id, progress, db::now(), marks],
     )?;
     db::get_bookmark_by_id(conn, id)
+}
+
+/// `app_settings` key of «Mark as read at the end» (NP-124, Settings → Reading):
+/// `false` turns it off; anything else, or nothing, leaves it on.
+pub const MARK_AT_END_SETTING: &str = "reading_mark_at_end";
+
+/// Whether reaching the end of an article marks it read; on by default.
+pub fn mark_at_end(conn: &Connection) -> bool {
+    db::setting(conn, MARK_AT_END_SETTING).map_or(true, |v| v != "false")
 }
 
 /// How many days a read bookmark stays in Reading.
@@ -177,6 +188,23 @@ mod tests {
         // The trash is left alone.
         db::trash_bookmark(&conn, id).unwrap();
         assert_eq!(set_progress(&conn, id, 0.9).unwrap().reading_progress, 0.0);
+    }
+
+    #[test]
+    fn the_end_does_not_mark_read_with_the_setting_off() {
+        let conn = library();
+        let id = add(&conn, "article");
+        apply_bulk(&conn, &[id], &Bulk::Reading(true)).unwrap();
+        assert!(mark_at_end(&conn), "on by default");
+        db::set_setting(&conn, MARK_AT_END_SETTING, "false").unwrap();
+        let b = set_progress(&conn, id, 1.0).unwrap();
+        assert_eq!((b.reading_progress, b.read_at.is_none()), (1.0, true));
+        let revision = b.revision;
+        assert_eq!(set_progress(&conn, id, 1.0).unwrap().revision, revision, "nothing to write at the end again");
+        assert_eq!(unread(&conn).unwrap(), 1);
+        // Back on: the next time the end is reached it is read.
+        db::set_setting(&conn, MARK_AT_END_SETTING, "true").unwrap();
+        assert!(set_progress(&conn, id, 1.0).unwrap().read_at.is_some());
     }
 
     #[test]

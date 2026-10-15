@@ -693,6 +693,14 @@
   "settings": {
     "assistants": "Asystenci AI",
     "general": "Ogólne",
+    "reading": "Czytanie",
+    "openLinks": "Otwieranie linków",
+    "openLinksHint": "Co robi kliknięcie tytułu, dwuklik i Enter. Roleta na okładce zawsze oferuje oba sposoby.",
+    "openLinksBrowser": "W przeglądarce",
+    "openLinksReader": "W trybie czytania",
+    "markRead": "Oznacz jako przeczytane na końcu",
+    "markReadHint": "Przeczytane linki trafiają na dół listy Do przeczytania i znikają z niej po tygodniu.",
+    "sendToReadingHint": "R na zaznaczonej zakładce; menu rozszerzenia też tam zapisuje.",
     "language": "Język",
     "languageHint": "Angielski jest językiem źródłowym: nieprzetłumaczone teksty są po angielsku",
     "languageSystem": "Jak w systemie — {{name}}",
@@ -942,6 +950,20 @@
       "links": "Strona to głównie linki, a nie artykuł.",
       "empty": "Na stronie nie znaleziono artykułu — może rysują go skrypty."
     }
+  },
+  "readerAa": {
+    "label": "Tekst i motyw",
+    "size": "Rozmiar tekstu",
+    "sizeValue": "{{size}} px",
+    "column": "Kolumna",
+    "columns": { "narrow": "Wąska", "medium": "Średnia", "wide": "Szeroka" },
+    "theme": "Motyw",
+    "themes": { "white": "Biały", "dark": "Ciemny", "paper": "Papier", "sepia": "Sepia" },
+    "font": "Czcionka",
+    "fonts": { "serif": "Szeryf", "sans": "Sans" },
+    "supporterHint": "Papier i Sepia —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, z Supporter"
   },
   "readingMode": {
     "label": "Tryb czytania",
@@ -1308,6 +1330,7 @@
     "perks": {
       "sync": "Synchronizację między komputerami — wczesny etap, od pierwszego dnia",
       "backups": "Automatyczne kopie do wybranego folderu, np. Dropbox",
+      "reading": "Motywy czytania Papier i Sepia",
       "badge": "Odznakę Supporter w aplikacji"
     },
     "plan": "Plan",
@@ -1365,6 +1388,8 @@
     "pastDue": "Odnowienie nie przeszło — zaktualizuj kartę",
     "unchecked": "Nie udało się sprawdzić planu — działa do {{date}}",
     "perk": {
+      "reading": "Motywy czytania",
+      "readingHint": "Papier i Sepia w panelu Aa trybu czytania",
       "sync": "Synchronizacja między komputerami",
       "syncHint": "Wczesny etap — przyjdzie z aktualizacją",
       "backups": "Automatyczne kopie do folderu",

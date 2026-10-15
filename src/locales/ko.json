@@ -561,6 +561,14 @@
   "settings": {
     "assistants": "AI 어시스턴트",
     "general": "일반",
+    "reading": "읽기",
+    "openLinks": "링크 열기",
+    "openLinksHint": "제목 클릭, 더블클릭, Enter 키의 동작입니다. 표지의 셔터에는 항상 둘 다 있습니다.",
+    "openLinksBrowser": "브라우저에서",
+    "openLinksReader": "읽기 모드에서",
+    "markRead": "끝까지 읽으면 읽음으로 표시",
+    "markReadHint": "읽은 링크는 읽을거리 맨 아래로 내려가고 일주일 뒤 빠집니다.",
+    "sendToReadingHint": "선택한 북마크에서 R. 확장 프로그램 메뉴로도 저장할 수 있습니다.",
     "language": "언어",
     "languageHint": "영어가 원문입니다. 번역되지 않은 문구는 영어로 표시됩니다",
     "languageSystem": "시스템 — {{name}}",
@@ -771,6 +779,20 @@
       "links": "이 페이지는 글이 아니라 대부분 링크입니다.",
       "empty": "페이지에서 글을 찾지 못했습니다. 스크립트로 그려지는 페이지일 수 있습니다."
     }
+  },
+  "readerAa": {
+    "label": "글자와 테마",
+    "size": "글자 크기",
+    "sizeValue": "{{size}} px",
+    "column": "단 너비",
+    "columns": { "narrow": "좁게", "medium": "보통", "wide": "넓게" },
+    "theme": "테마",
+    "themes": { "white": "화이트", "dark": "다크", "paper": "페이퍼", "sepia": "세피아" },
+    "font": "글꼴",
+    "fonts": { "serif": "세리프", "sans": "산세리프" },
+    "supporterHint": "페이퍼와 세피아 —",
+    "supporterLink": "Supporter",
+    "locked": "{{name}}, Supporter 전용"
   },
   "readingMode": {
     "label": "읽기 모드",
@@ -1065,6 +1087,7 @@
     "perks": {
       "sync": "컴퓨터 간 동기화 — 초기 단계, 첫날부터",
       "backups": "Dropbox 같은 원하는 폴더로 자동 백업",
+      "reading": "읽기 테마 페이퍼와 세피아",
       "badge": "앱 안의 Supporter 배지"
     },
     "plan": "요금제",
@@ -1122,6 +1145,8 @@
     "pastDue": "갱신 결제에 실패했습니다 — 카드를 업데이트하세요",
     "unchecked": "요금제를 확인하지 못했습니다 — {{date}}까지 유지됩니다",
     "perk": {
+      "reading": "읽기 테마",
+      "readingHint": "읽기 모드의 Aa 패널에서 페이퍼와 세피아",
       "sync": "컴퓨터 간 동기화",
       "syncHint": "초기 단계 — 업데이트로 제공",
       "backups": "폴더로 자동 백업",
