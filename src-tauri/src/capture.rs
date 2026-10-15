@@ -15,6 +15,10 @@ pub struct CaptureRequest {
     pub title: Option<String>,
     pub collection_id: Option<i64>,
     pub tags: Option<Vec<String>>,
+    /// «Save to Reading» in the extension (NP-125): the link also goes to
+    /// Reading. Inbox rules do not change: a new link waits there as well.
+    #[serde(default)]
+    pub reading: bool,
 }
 #[derive(Debug, Serialize)]
 pub struct CaptureResult {
@@ -29,6 +33,12 @@ pub struct CaptureResult {
     /// 0.3 and older know only `created` and `existing`.
     #[serde(skip)]
     pub restored: bool,
+    /// Asked for Reading and in Reading now (NP-125), as the reply says.
+    #[serde(skip)]
+    pub reading: bool,
+    /// This save put an existing link in Reading: the interface hears of it.
+    #[serde(skip)]
+    pub reading_changed: bool,
 }
 /// `code` and `status` are the HTTP v1 contract and do not change; IPC gets
 /// the finer `ipc` code (NP-007).
@@ -120,6 +130,7 @@ pub fn save_by_assistant(
         title,
         collection_id: None,
         tags: None,
+        reading: false,
     };
     let tx = conn
         .unchecked_transaction()
@@ -172,15 +183,21 @@ fn save_in(
                     detail: None,
                 });
             }
+            // The same request again (a reply lost on the way): answered from
+            // the receipt, Reading as it is now. A link taken out of Reading
+            // since is not put back.
             let bookmark = db::get_bookmark_by_id(tx, bookmark_id)
                 .optional()
                 .map_err(CaptureError::database)?;
+            let reading = request.reading && bookmark.as_ref().is_some_and(|b| b.reading_at.is_some());
             return Ok(CaptureResult {
                 bookmark_id,
                 outcome,
                 bookmark,
                 newly_created: false,
                 restored: false,
+                reading,
+                reading_changed: false,
             });
         }
     }
@@ -196,6 +213,7 @@ fn save_in(
         // An import never comes here: it leaves the trash alone (`import.rs`).
         // Saved again: back from the trash with its fields, waiting in the inbox.
         let bookmark = db::restore_bookmark(tx, id, true).map_err(CaptureError::database)?;
+        let (bookmark, reading_changed) = to_reading(tx, request, bookmark)?;
         if let Some(request_id) = &request.request_id {
             tx.execute(
                 "INSERT INTO capture_receipts (request_id,url,bookmark_id,outcome) VALUES (?1,?2,?3,'created')",
@@ -206,9 +224,11 @@ fn save_in(
         return Ok(CaptureResult {
             bookmark_id: id,
             outcome: "created".into(),
+            reading: request.reading && bookmark.reading_at.is_some(),
             bookmark: Some(bookmark),
             newly_created: false,
             restored: true,
+            reading_changed,
         });
     }
     let newly_created = existing.is_none();
@@ -230,6 +250,7 @@ fn save_in(
         source,
     )
     .map_err(CaptureError::database)?;
+    let (bookmark, reading_changed) = to_reading(tx, request, bookmark)?;
     let outcome = if newly_created { "created" } else { "existing" }.to_owned();
     if let Some(id) = &request.request_id {
         tx.execute("INSERT INTO capture_receipts (request_id,url,bookmark_id,outcome) VALUES (?1,?2,?3,?4)",params![id,url,bookmark.id,outcome]).map_err(CaptureError::database)?;
@@ -237,9 +258,26 @@ fn save_in(
     Ok(CaptureResult {
         bookmark_id: bookmark.id,
         outcome,
+        reading: request.reading && bookmark.reading_at.is_some(),
         bookmark: Some(bookmark),
         newly_created,
         restored: false,
+        reading_changed,
+    })
+}
+
+/// «Save to Reading» (NP-125): as «Send to Reading» in the app
+/// (`Bulk::Reading`), inside the capture's transaction and without the undo
+/// journal, as a capture has none. A link already in Reading keeps its place
+/// and its progress. Returns the bookmark as it is now, and whether it changed.
+fn to_reading(tx: &Connection, request: &CaptureRequest, bookmark: Bookmark) -> Result<(Bookmark, bool), CaptureError> {
+    if !request.reading {
+        return Ok((bookmark, false));
+    }
+    let (_, mut changed) = db::bulk_in(tx, &[bookmark.id], &db::Bulk::Reading(true)).map_err(CaptureError::database)?;
+    Ok(match changed.pop() {
+        Some(sent) => (sent, true),
+        None => (bookmark, false),
     })
 }
 
@@ -322,6 +360,10 @@ pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) 
         return;
     }
     if !result.newly_created {
+        // Saved again to Reading (NP-125): the list and its number move.
+        if result.reading_changed {
+            emit(app, ChangeKind::Updated, &bookmark);
+        }
         return;
     }
     emit(app, ChangeKind::Created, &bookmark);
@@ -354,6 +396,7 @@ mod tests {
             title: Some("Original".into()),
             collection_id: None,
             tags: Some(vec!["one".into()]),
+            reading: false,
         }
     }
     #[test]

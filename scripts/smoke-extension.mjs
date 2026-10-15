@@ -152,8 +152,14 @@ async function startBrowser() {
   }
   return built.devId;
 }
-const capture = (url, title, id) =>
-  worker.evaluate(async ({ url, title, id }) => globalThis.__captureForTest({ url, title, id }), { url, title, id });
+// `reading`: «Save to Reading» (NP-125), the handler of its menu items and shortcut.
+const capture = (url, title, id, reading = false) =>
+  worker.evaluate(
+    async ({ url, title, id, reading }) => globalThis.__captureForTest({ url, title, id }, { reading }),
+    { url, title, id, reading },
+  );
+const placed = (url) =>
+  rows(`SELECT reading_at IS NOT NULL AS reading, triaged_at IS NULL AS inbox FROM bookmarks WHERE url = '${url}'`);
 const waiting = () => worker.evaluate(async () => (await chrome.storage.local.get("captureQueue")).captureQueue || []);
 function rows(sql) {
   const db = new DatabaseSync(library, { readOnly: true });
@@ -199,14 +205,21 @@ try {
   assert.equal((await waiting()).length, 0);
   assert.deepEqual(rows("SELECT title FROM bookmarks"), [{ title: `Настоящий ${target.name}` }]);
 
+  // «Save to Reading» on the saved page (NP-125): only added to Reading, still in the inbox, no duplicate.
+  assert.equal(await capture("https://example.invalid/extension-capture", "Заголовок дубликата", undefined, true), "existing");
+  assert.deepEqual(placed("https://example.invalid/extension-capture"), [{ reading: 1, inbox: 1 }]);
+  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 1);
+
   // The library cannot open: the link stays in the queue.
   apps.stop();
   await until(async () => !(await pipeReady(pipe)), "app stopped");
   await moveLibrary(library, `${library}.kept`);
   await writeFile(library, "not a database");
-  assert.equal(await capture("https://example.invalid/library-failed", "Ждёт в очереди"), "queued");
+  // Saved to Reading (NP-125): the flag waits in the queue with the link.
+  assert.equal(await capture("https://example.invalid/library-failed", "Ждёт в очереди", undefined, true), "queued");
   const queued = await waiting();
   assert.equal(queued.length, 1);
+  assert.equal(queued[0].reading, true);
   assert.match(queued[0].error, /не ответил/);
   // Every tab shows the clock while a link waits; the title follows a successful setIcon.
   assert.match(await worker.evaluate(() => chrome.action.getTitle({})), /ожидают передачи 1/);
@@ -218,6 +231,7 @@ try {
   apps.stop();
   id = await startBrowser();
   assert.equal((await waiting())[0].request_id, queued[0].request_id, `Request survives ${target.name} restart`);
+  assert.equal((await waiting())[0].reading, true, `The Reading flag survives ${target.name} restart`);
 
   // The library is back: the delivery alarm (once a minute) brings the link
   // without anyone pressing a button. The startup delivery may have started
@@ -230,9 +244,11 @@ try {
   await until(async () => (await waiting()).length === 0, "delivery by the alarm", 150000);
   const retryS = Math.round((performance.now() - retried) / 1000);
   assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 2);
-  // Receipts: the first capture, the duplicate (existing) and the queued one.
+  // Saved to Reading while the app was away: in Reading and in the inbox once it is back.
+  assert.deepEqual(placed("https://example.invalid/library-failed"), [{ reading: 1, inbox: 1 }]);
+  // Receipts: the first capture, the duplicate (existing), Save to Reading on it and the queued one.
   const receipts = rows("SELECT request_id, outcome FROM capture_receipts");
-  assert.equal(receipts.length, 3);
+  assert.equal(receipts.length, 4);
   assert.ok(receipts.some((r) => r.request_id === firstId && r.outcome === "created"));
   assert.ok(receipts.some((r) => r.request_id === queued[0].request_id && r.outcome === "created"));
 
@@ -397,7 +413,7 @@ try {
   console.log(`${target.name}: ${userAgent.match(/(Edg|Chrome)\/[\d.]+/g)?.join(" ")}; ${notes.join("; ") || "extension loaded over CDP"}`);
   console.log(`cold capture (app started by the host) ${coldMs} ms; alarm delivered the queued link in ${retryS} s`);
   console.log(
-    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record, save feedback on the button and the page, already saved before a click, quick search`,
+    `PASS ${target.name}: built MV3 package, native host, hello without starting the app, capture starts the app, duplicate, Save to Reading, queue when the library fails, browser restart, delivery by the alarm, host not registered, foreign id, send now, browser record, save feedback on the button and the page, already saved before a click, quick search`,
   );
 } finally {
   await browser?.close().catch(() => {});

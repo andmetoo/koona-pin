@@ -281,6 +281,7 @@ pub async fn add_bookmark(
         title,
         collection_id,
         tags: Some(tags),
+        reading: false,
     };
     let saved = blocking(&state, move |conn| {
         capture::save(conn, &request, Source::App).map_err(CommandError::from)

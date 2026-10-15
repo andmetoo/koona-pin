@@ -618,7 +618,7 @@ mod tests {
         handled.reply["error"].as_str().unwrap_or_else(|| panic!("no error in {}", handled.reply)).to_owned()
     }
     fn saved(conn: &Connection, url: &str, title: &str) -> i64 {
-        let request = capture::CaptureRequest { request_id: None, url: url.into(), title: Some(title.into()), collection_id: None, tags: None };
+        let request = capture::CaptureRequest { request_id: None, url: url.into(), title: Some(title.into()), collection_id: None, tags: None, reading: false };
         capture::save(conn, &request, db::Source::Chrome).unwrap().bookmark_id
     }
 

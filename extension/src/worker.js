@@ -1,5 +1,5 @@
 import { ext, t, textLanguage } from "./ext.js";
-import { browserName, failure, shownShortcut, talk } from "./native.js";
+import { browserName, captureMessage, failure, shownShortcut, talk } from "./native.js";
 import { createQueue } from "./queue.js";
 import { onMenuClicked, registerMenu } from "./menu.js";
 import { GLYPHS, MARKS, BADGES, PRESS, TONES, drawIcon, frames, parseMark, parseMascot, rest, showMessage } from "./feedback.js";
@@ -71,8 +71,10 @@ async function forgetTab(tabId) {
 }
 
 const outcomeState = (result) => (result.outcome === "existing" ? "existing" : "saved");
-const stateTitle = (state, error) =>
-  ({ saved: t("badgeSaved"), existing: t("badgeExisting"), queued: error || t("badgeWaiting"), failed: error || t("errorSaveFailed") })[state];
+const stateTitle = (state, error, reading = false) =>
+  reading && (state === "saved" || state === "existing")
+    ? t("badgeReading")
+    : ({ saved: t("badgeSaved"), existing: t("badgeExisting"), queued: error || t("badgeWaiting"), failed: error || t("errorSaveFailed") })[state];
 
 async function updateStatus(queue) {
   if (queue.length) {
@@ -90,18 +92,14 @@ const queue = createQueue({
   storage: ext.storage.local,
   changed: updateStatus,
   send: async (item) => {
-    const reply = await talk({
-      type: "capture",
-      request_id: item.request_id,
-      url: item.url,
-      title: item.title,
-    });
+    const reply = await talk(captureMessage(item));
     if (!reply.ok) return { ok: false, code: reply.code, ...failure(reply) };
     // Only a note for the settings page: the app has the link, so a failed
     // write (Safari's transient «Exceeded storage quota» right after a
     // reinstall, NP-119) must not show it as undelivered.
     await ext.storage.local.set({ lastSaved: new Date().toISOString() }).catch(() => {});
-    return { ok: true, bookmark_id: reply.bookmark_id, outcome: reply.outcome };
+    // `reading`: the app put it in Reading; an app before NP-125 does not say so.
+    return { ok: true, bookmark_id: reply.bookmark_id, outcome: reply.outcome, reading: reply.reading === true };
   },
 });
 
@@ -117,7 +115,7 @@ async function deliver() {
     if (!Number.isInteger(tabId)) continue;
     await forgetTab(tabId);
     const state = outcomeState(result);
-    await paint(rest(state), stateTitle(state), tabId);
+    await paint(rest(state), stateTitle(state, undefined, result.reading === true), tabId);
   }
   return results;
 }
@@ -139,13 +137,19 @@ async function initialize() {
 }
 
 /** The message on the page; browser pages refuse scripts, then the button alone answers. */
-async function tell(tab, state) {
+async function tell(tab, state, reading) {
   const text = {
     saved: [t("messageSavedTitle"), t("messageSavedText")],
     existing: [t("messageExistingTitle"), t("messageExistingText")],
     queued: [t("messageQueuedTitle"), t("messageQueuedText")],
     failed: [t("messageFailedTitle"), t("messageFailedText")],
   }[state];
+  // «Save to Reading» (NP-125): what the app confirmed, or what will happen.
+  const readingText = {
+    saved: [t("messageReadingTitle"), t("messageReadingText")],
+    existing: [t("messageReadingExistingTitle"), t("messageExistingText")],
+    queued: [t("messageQueuedTitle"), t("messageReadingQueuedText")],
+  }[reading ? state : ""];
   try {
     const { mascot } = await art();
     const [injection] = await ext.scripting.executeScript({
@@ -154,9 +158,9 @@ async function tell(tab, state) {
       args: [
         {
           state,
-          title: text[0],
-          text: text[1],
-          label: stateTitle(state),
+          title: (readingText ?? text)[0],
+          text: (readingText ?? text)[1],
+          label: stateTitle(state, undefined, reading),
           mascot,
           glyph: GLYPHS[BADGES[MARKS[state]].glyph],
           tones: TONES[state],
@@ -172,7 +176,11 @@ async function tell(tab, state) {
   }
 }
 
-async function captureTab(tab) {
+/**
+ * Saves the tab's page, or a link from its menu. `reading`: «Save to Reading»
+ * (NP-125) — the app also puts it in Reading; Inbox rules stay as they are.
+ */
+async function captureTab(tab, { reading = false } = {}) {
   const prefs = await preferences();
   const tabId = tab.id;
   // The answer belongs to the clicked tab; every tab's icon shows only the queue.
@@ -183,12 +191,16 @@ async function captureTab(tab) {
   let error;
   let code;
   let item;
+  // Shown as Reading only when the app confirmed it: an older app saves the
+  // link without it.
+  let inReading = reading;
   try {
-    item = await queue.enqueue(tab.url || "", tab.title, tabId);
+    item = await queue.enqueue(tab.url || "", tab.title, tabId, { reading });
     const results = await deliver();
     const saved = results.find((result) => result.request_id === item.request_id);
     if (saved) {
       state = outcomeState(saved);
+      inReading = reading && saved.reading === true;
       known.set(tab.url, { saved: true, at: Date.now() });
     }
     else {
@@ -208,8 +220,8 @@ async function captureTab(tab) {
   // Without the app, or with an app that refuses this extension, nothing will
   // ever be delivered: the settings page says why.
   const opensSettings = code === "host_missing" || code === "host_forbidden";
-  if (onTab && prefs.message && !opensSettings && /^https?:/.test(tab.url || "")) void tell(tab, state);
-  if (onTab) await play(state, stateTitle(state, error), tabId, prefs.animate);
+  if (onTab && prefs.message && !opensSettings && /^https?:/.test(tab.url || "")) void tell(tab, state, inReading);
+  if (onTab) await play(state, stateTitle(state, error, inReading), tabId, prefs.animate);
   if (opensSettings) await ext.runtime.openOptionsPage();
   return state;
 }
@@ -243,24 +255,40 @@ function openSearch() {
     return result.status === "fulfilled";
   });
 }
-/** The shortcut the browser has for the search now; the person may have changed it. */
-async function searchShortcut() {
+// «Save to Reading» (NP-125). Alt+Shift+R: R sends to Reading in the app;
+// Chrome, Edge, Firefox and Safari have nothing of their own on it.
+const READING_COMMAND = "save-to-reading";
+/** The shortcuts the browser has now, by command; the person may have changed them. */
+async function shortcuts() {
   const commands = (await ext.commands?.getAll?.().catch(() => [])) ?? [];
-  return shownShortcut(commands.find((command) => command.name === SEARCH_COMMAND)?.shortcut ?? "");
+  const of = (name) => shownShortcut(commands.find((command) => command.name === name)?.shortcut ?? "");
+  return { shortcut: of(SEARCH_COMMAND), readingShortcut: of(READING_COMMAND) };
 }
+/**
+ * The shortcut saves the active tab: Chrome, Edge and Firefox pass it with
+ * the command and grant activeTab for it; Safari is asked for it.
+ */
+async function saveActiveToReading(tab) {
+  const [active] = tab ? [tab] : await ext.tabs.query({ active: true, lastFocusedWindow: true });
+  if (active) await captureTab(active, { reading: true });
+}
+const saveToReading = (target) => captureTab(target, { reading: true });
 // Chrome and Edge call it contextMenus; Firefox and Safari, menus.
 const menus = ext.menus ?? ext.contextMenus;
 // Only Chrome and Edge put «Options» on the button themselves (NP-119).
 const ownSettings = ["firefox", "safari"].includes(browserName());
 async function refreshMenu() {
-  await registerMenu(menus, { settings: ownSettings, shortcut: await searchShortcut() }).catch(console.error);
+  await registerMenu(menus, { settings: ownSettings, ...(await shortcuts()) }).catch(console.error);
 }
 ext.action.onClicked.addListener(captureTab);
-ext.commands?.onCommand.addListener((name) => {
+ext.commands?.onCommand.addListener((name, tab) => {
   if (name === SEARCH_COMMAND) void openSearch();
+  if (name === READING_COMMAND) void saveActiveToReading(tab);
 });
 ext.commands?.onChanged?.addListener(() => void refreshMenu());
-menus?.onClicked.addListener((info) => onMenuClicked(info, { openOptions: () => ext.runtime.openOptionsPage(), openSearch }));
+menus?.onClicked.addListener((info, tab) =>
+  onMenuClicked(info, tab, { openOptions: () => ext.runtime.openOptionsPage(), openSearch, saveToReading }),
+);
 // «Show that a page is already saved» (NP-083, Р-41): with the optional tabs
 // permission the worker sees each loaded page and asks the app. A closed app
 // is not started for it (the host starts it only for what the person asked):

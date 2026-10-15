@@ -51,6 +51,15 @@ enum RelayCheck {
         check(code(Relay.answer(nil, start: { true })) == "invalid_request", "invalid_request")
         check(Relay.starts(message) && Relay.starts(["type": "search"]) && Relay.starts(["type": "show"])
               && !Relay.starts(["type": "hello"]), "what starts the app")
+        // «Save to Reading» (NP-125): the flag goes to the app as it came, and saving to Reading starts the app.
+        var reading = message
+        reading["reading"] = true
+        let readingLine = try! JSONSerialization.jsonObject(with: Relay.envelope(reading)!) as! [String: Any]
+        let readingMessage = readingLine["message"] as! [String: Any]
+        check(readingMessage["reading"] as? Bool == true && NSDictionary(dictionary: readingMessage).isEqual(to: reading),
+              "the Reading flag unchanged")
+        check(String(decoding: Relay.envelope(reading)!, as: UTF8.self).contains(#""reading":true"#), "the flag as JSON true")
+        check(Relay.starts(reading), "Save to Reading starts the app")
 
         // Nobody listens: a hello does not start the app, a capture asks once and gives up when it cannot.
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("relay-\(getpid())")

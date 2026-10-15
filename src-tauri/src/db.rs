@@ -1282,7 +1282,7 @@ pub fn bulk_into_new_collection(
     Ok((Collection { count: Some(count as i64), ..collection }, count, changed))
 }
 
-fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize, Vec<Bookmark>)> {
+pub(crate) fn bulk_in(conn: &Connection, ids: &[i64], bulk: &Bulk) -> Result<(usize, Vec<Bookmark>)> {
     use rusqlite::types::Value;
     let now = now();
     let all = id_list(ids)?;

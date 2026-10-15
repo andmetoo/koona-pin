@@ -27,7 +27,7 @@ The app's "Connect a browser" dialog opens these pages: `installSources` in `src
 
 1. A click on the toolbar button (`worker.js`) takes the tab's URL and title. Nothing else is sent: no tags, collection or page content. The app accepts only HTTP and HTTPS URLs.
 2. The link goes into the extension's queue in `storage.local` first, with a `request_id` (`queue.js`). The queue survives browser restarts and the service worker being stopped.
-3. `native.js` sends `{ type: "capture", protocol, version, browser, request_id, url, title }` with `runtime.sendNativeMessage("app.koona.pin", …)`. The browser starts the native host `koonapin-host`, which forwards the message to the app and starts the app in the tray if it is closed.
+3. `native.js` sends `{ type: "capture", protocol, version, browser, request_id, url, title }`, plus `reading: true` for [Save to Reading](#save-to-reading), with `runtime.sendNativeMessage("app.koona.pin", …)`. The browser starts the native host `koonapin-host`, which forwards the message to the app and starts the app in the tray if it is closed.
 4. The app saves the link in one transaction and answers `created` or `existing` with the bookmark ID. Only a well-formed confirmation removes the item from the queue.
 5. On failure the item stays queued and is retried about once a minute (`alarms`), at browser start and on the next capture. Only `invalid_request` and `request_id_conflict` stop retries for an item. If the host is missing or the app does not accept this extension, the extension opens its options page, which explains the state.
 
@@ -37,7 +37,15 @@ The end-to-end architecture, the protocol messages and the local channel are in 
 
 ### Permissions
 
-`activeTab`, `scripting`, `storage`, `alarms`, `nativeMessaging`, plus `contextMenus` (Chrome, Edge) or `menus` (Firefox, Safari) for the button's menu. `tabs` is optional and requested only when the person turns on "Show that a page is already saved". There are no host permissions, no persistent content scripts and no remote code; the extension pages' CSP is `script-src 'self'; object-src 'none'`.
+`activeTab`, `scripting`, `storage`, `alarms`, `nativeMessaging`, plus `contextMenus` (Chrome, Edge) or `menus` (Firefox, Safari) for the button's menu and Save to Reading in the page's menu. `tabs` is optional and requested only when the person turns on "Show that a page is already saved". There are no host permissions, no persistent content scripts and no remote code; the extension pages' CSP is `script-src 'self'; object-src 'none'`.
+
+### Save to Reading
+
+The page's own menu has «Save page to Reading» (on the page or a selection, http and https pages only) and «Save link to Reading» (on a link), and `Alt+Shift+R` (the `save-to-reading` command; Option+Shift+R on a Mac) saves the active tab the same way. The link goes through the same queue with `reading: true` kept on the item, so a link saved while the app is closed lands in Reading when it starts; saving to Reading a link already waiting in the queue gives it a new `request_id` with the flag. The app saves it as any capture (a new link still waits in the Inbox) and also puts it in Reading as «Send to Reading» does; an already saved link is only added to Reading, a link already there keeps its place and progress. The reply carries `reading: true`, and the message on the page says «Saved to Reading» or «Added to Reading». An app before 1.5.0 ignores the field and saves the link to the Inbox only; the extension then shows the usual message. The protocol stays 2.
+
+- **Chrome, Edge:** the menu gives no link text, so a link is named by its site until the app reads the page's title.
+- **Firefox:** the link's text is its title.
+- **Safari:** `commands.onCommand` may come without the tab; the active tab is asked for. The relay passes the flag unchanged (`Tests/RelayCheck.swift`).
 
 ### Quick search
 
@@ -81,6 +89,8 @@ What each API does in Safari, from MDN's browser-compat-data, Apple's documentat
 | `alarms`, `storage.local`, `storage.session` | Supported (session storage since Safari 16.4). |
 | `scripting` with `activeTab` | `executeScript` with `func` and `args` since Safari 15.4, injection results since 17. A click on the button grants the tab, as in Chrome. |
 | `menus` on the button (context `action`) | Supported since Safari 15.4 in Manifest V3; `contextMenus` is an alias. Safari's button has no "Options" item, so the menu adds "Settings", as in Firefox. |
+| `menus` on the page (contexts `page`, `selection`, `link`) | Save to Reading; `documentUrlPatterns` and `targetUrlPatterns` keep it to http and https. Not yet checked on a Mac. |
+| `save-to-reading` command | `Alt+Shift+R` is Option+Shift+R; the active tab is asked for when the command comes without it. Not yet checked on a Mac. |
 | `quick-search` command | `Alt+Shift+D` is Option+Shift+D. Safari has no `commands.update`, `commands.onChanged` or shortcuts page, so the options page shows the shortcut without "Change". |
 | One-time search popup | Not used in Safari: `action.openPopup` exists but answers «Another popup is already open» with none open (checked in Safari on macOS 27). `search.html` opens in a 420-pixel `windows.create({ type: "popup" })` window centred over the page's window instead, with `?tab=&window=` so its links go to the page's tab and window. |
 | Optional `tabs`, `permissions.request` | Supported, granted without a prompt. |
@@ -149,4 +159,4 @@ A rerun of a tag whose release exists signs nothing: it deploys that release's f
 
 ## Checks
 
-`bun run test` covers the queue, messages, menu and locales; the smoke tests in [testing.md](testing.md#extension-smoke-tests) run the built extension against the real host in Chrome for Testing, Chrome, Edge and Firefox; `bun run extension:lint` runs `web-ext lint`.
+`bun run test` covers the queue, messages, menu (with Save to Reading) and locales; the smoke tests in [testing.md](testing.md#extension-smoke-tests) run the built extension against the real host in Chrome for Testing, Chrome, Edge and Firefox; `bun run extension:lint` runs `web-ext lint`.

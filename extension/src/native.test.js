@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appIsOlder, browserName, failure, shownShortcut, talk } from "./native.js";
+import { appIsOlder, browserName, captureMessage, failure, shownShortcut, talk } from "./native.js";
 import { HOST, PROTOCOL, VERSION } from "./version.js";
 
 describe("native messaging", () => {
@@ -74,5 +74,25 @@ describe("native messaging", () => {
     expect(failure({ code: "request_id_conflict" }).permanent).toBe(true);
     expect(appIsOlder({ code: "incompatible_protocol", protocol: PROTOCOL - 1 })).toBe(true);
     expect(appIsOlder({ code: "incompatible_protocol", protocol: PROTOCOL + 1 })).toBe(false);
+  });
+});
+
+describe("capture message (NP-125)", () => {
+  const item = { request_id: "r1", url: "https://example.com/", title: "Example", tabId: 4, created_at: "x", error: null, blocked: false };
+  it("says what a plain save always said", () => {
+    expect(captureMessage(item)).toEqual({ type: "capture", request_id: "r1", url: "https://example.com/", title: "Example" });
+  });
+  it("carries the Reading flag, and only that, for Save to Reading", async () => {
+    expect(captureMessage({ ...item, reading: true })).toEqual({
+      type: "capture",
+      request_id: "r1",
+      url: "https://example.com/",
+      title: "Example",
+      reading: true,
+    });
+    let sent;
+    const runtime = { sendNativeMessage: async (host, message) => ((sent = message), { ok: true }) };
+    await talk(captureMessage({ ...item, reading: true }), runtime);
+    expect(sent).toMatchObject({ type: "capture", reading: true, protocol: PROTOCOL, version: VERSION });
   });
 });
