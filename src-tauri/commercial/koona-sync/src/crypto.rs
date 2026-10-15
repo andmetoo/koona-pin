@@ -22,6 +22,7 @@ pub type LibraryKey = [u8; 32];
 pub const RELAY_HELLO_LABEL: &[u8] = b"koona-sync relay v1";
 pub const FRAME_INFO: &[u8] = b"koona-sync frame v1";
 pub const PAIR_CODE_INFO: &[u8] = b"koona-sync pair code";
+pub const PAIR_COMMIT_LABEL: &[u8] = b"koona-sync pair commit v2";
 pub const LIBRARY_KEY_AAD: &[u8] = b"koona-sync library key v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -277,21 +278,21 @@ pub enum Exchange {
 impl Exchange {
     fn transcript_label(self) -> &'static [u8] {
         match self {
-            Exchange::Pair => b"koona-sync pair v1",
+            Exchange::Pair => b"koona-sync pair v2",
             Exchange::Rekey => b"koona-sync rekey v1",
         }
     }
 
     fn offer_label(self) -> &'static [u8] {
         match self {
-            Exchange::Pair => b"koona-sync pair offer v1",
+            Exchange::Pair => b"koona-sync pair offer v2",
             Exchange::Rekey => b"koona-sync rekey offer v1",
         }
     }
 
     fn accept_label(self) -> &'static [u8] {
         match self {
-            Exchange::Pair => b"koona-sync pair accept v1",
+            Exchange::Pair => b"koona-sync pair accept v2",
             Exchange::Rekey => b"koona-sync rekey accept v1",
         }
     }
@@ -342,14 +343,28 @@ impl Ephemeral {
     }
 }
 
-/// What the device asking for the key signs: everything it knows before the hub answers.
-pub fn offer_bytes(exchange: Exchange, asking: &Party, hub: Uuid) -> Vec<u8> {
-    [exchange.offer_label(), asking.device.as_bytes(), hub.as_bytes(), &asking.eph, &asking.key].concat()
+/// What the device asking for the key commits to in a pairing before it sees the hub's `eph`,
+/// and reveals after: neither side can choose its ephemeral key knowing the other's, so a relay
+/// playing the hub can't grind keys until the two codes match.
+pub fn commitment(asking: &Party, hub: Uuid) -> [u8; 32] {
+    let bytes = [PAIR_COMMIT_LABEL, asking.device.as_bytes(), hub.as_bytes(), &asking.key, &asking.eph].concat();
+    digest::digest(&SHA256, &bytes).as_ref().try_into().expect("SHA-256 is 32 bytes")
+}
+
+/// What the device asking for the key signs: everything it knows before the hub answers. `sent`
+/// is what the offer carries: `eph` in a rekey, the [`commitment`] to it in a pairing.
+pub fn offer_bytes(exchange: Exchange, device: Uuid, key: &[u8; 32], hub: Uuid, sent: &[u8; 32]) -> Vec<u8> {
+    [exchange.offer_label(), device.as_bytes(), hub.as_bytes(), sent, key].concat()
 }
 
 /// SHA-256 over both parties: the code and the key depend on every public value, so a relay
-/// that swaps one gets different digits on the two screens.
+/// that swaps one gets different digits on the two screens. A pairing's also covers the
+/// commitment.
 pub fn transcript(exchange: Exchange, asking: &Party, hub: &Party) -> [u8; 32] {
+    let commit = match exchange {
+        Exchange::Pair => commitment(asking, hub.device).to_vec(),
+        Exchange::Rekey => Vec::new(),
+    };
     let bytes = [
         exchange.transcript_label(),
         asking.device.as_bytes(),
@@ -358,14 +373,21 @@ pub fn transcript(exchange: Exchange, asking: &Party, hub: &Party) -> [u8; 32] {
         hub.device.as_bytes(),
         &hub.key,
         &hub.eph,
+        &commit,
     ]
     .concat();
     digest::digest(&SHA256, &bytes).as_ref().try_into().expect("SHA-256 is 32 bytes")
 }
 
-/// What the hub signs: the whole transcript.
-pub fn accept_bytes(exchange: Exchange, transcript: &[u8; 32]) -> Vec<u8> {
-    [exchange.accept_label(), transcript].concat()
+/// What the hub signs in a pairing: everything public so far. It hasn't seen the asking
+/// device's `eph` yet, only the commitment to it.
+pub fn pair_accept_bytes(device: Uuid, key: &[u8; 32], commit: &[u8; 32], hub: &Party) -> Vec<u8> {
+    [Exchange::Pair.accept_label(), device.as_bytes(), key, commit, hub.device.as_bytes(), &hub.key, &hub.eph].concat()
+}
+
+/// What the hub signs in a rekey: the whole transcript.
+pub fn rekey_accept_bytes(transcript: &[u8; 32]) -> Vec<u8> {
+    [Exchange::Rekey.accept_label(), transcript].concat()
 }
 
 /// Six digits both screens show; leading zeros kept (`format!("{:06}")`).
@@ -497,12 +519,14 @@ mod tests {
         let rng = SystemRandom::new();
         let (asking, hub) = (side(id(1), &rng), side(id(2), &rng));
 
-        let offer_sig = sign(&asking.pair, &offer_bytes(Exchange::Pair, &asking.party, hub.party.device));
-        assert_eq!(verify(&asking.party.key, &offer_bytes(Exchange::Pair, &asking.party, id(2)), &offer_sig), Ok(()));
+        let (a, h) = (asking.party, hub.party);
+        let commit = commitment(&a, h.device);
+        let offer_sig = sign(&asking.pair, &offer_bytes(Exchange::Pair, a.device, &a.key, h.device, &commit));
+        assert_eq!(verify(&a.key, &offer_bytes(Exchange::Pair, a.device, &a.key, id(2), &commit), &offer_sig), Ok(()));
 
-        let t = transcript(Exchange::Pair, &asking.party, &hub.party);
-        let accept_sig = sign(&hub.pair, &accept_bytes(Exchange::Pair, &t));
-        assert_eq!(verify(&hub.party.key, &accept_bytes(Exchange::Pair, &t), &accept_sig), Ok(()));
+        let accept_sig = sign(&hub.pair, &pair_accept_bytes(a.device, &a.key, &commit, &h));
+        assert_eq!(verify(&h.key, &pair_accept_bytes(a.device, &a.key, &commit, &h), &accept_sig), Ok(()));
+        let t = transcript(Exchange::Pair, &a, &h);
 
         let (asking_party, hub_party) = (asking.party, hub.party);
         let shared_asking = asking.eph.agree(&hub_party.eph).unwrap();
@@ -542,6 +566,19 @@ mod tests {
         let honest = transcript(Exchange::Pair, &asking.party, &hub.party);
         let swapped = transcript(Exchange::Pair, &asking.party, &Party { eph: [4; 32], ..hub.party });
         assert_ne!(pair_code(&shared, &honest), pair_code(&shared, &swapped));
+    }
+
+    #[test]
+    fn the_commitment_binds_every_value_of_the_asking_side() {
+        let a = Party { device: id(1), key: [2; 32], eph: [3; 32] };
+        let commit = commitment(&a, id(9));
+        assert_ne!(commit, commitment(&Party { eph: [4; 32], ..a }, id(9)));
+        assert_ne!(commit, commitment(&Party { key: [4; 32], ..a }, id(9)));
+        assert_ne!(commit, commitment(&Party { device: id(4), ..a }, id(9)));
+        assert_ne!(commit, commitment(&a, id(8)));
+        // The transcript covers it, so a pairing transcript is never a rekey one.
+        let h = Party { device: id(9), key: [5; 32], eph: [6; 32] };
+        assert_ne!(transcript(Exchange::Pair, &a, &h), transcript(Exchange::Rekey, &a, &h));
     }
 
     #[test]

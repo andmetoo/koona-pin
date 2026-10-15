@@ -7,7 +7,7 @@
 mod common;
 
 use common::*;
-use koona_sync::crypto::{self, Sealer};
+use koona_sync::crypto::{self, Ephemeral, Sealer};
 use koona_sync::library::{load_meta, Library};
 use koona_sync::model::Vector;
 use koona_sync::protocol::{
@@ -306,6 +306,8 @@ struct Device {
     /// Added to the relay's clock for this device's own.
     offset: i64,
     events: Vec<Effect>,
+    /// Each binary frame sent, with how many events came before it.
+    sent: Vec<(usize, Vec<u8>)>,
 }
 
 struct World {
@@ -339,6 +341,7 @@ impl World {
             connected: false,
             offset: 0,
             events: Vec::new(),
+            sent: Vec::new(),
         });
         self.devices.len() - 1
     }
@@ -370,6 +373,8 @@ impl World {
                     }
                 }
                 Effect::SendBinary(frame) => {
+                    let before = self.devices[i].events.len();
+                    self.devices[i].sent.push((before, frame.clone()));
                     if self.devices[i].connected {
                         self.relay.binary(i, &frame)
                     }
@@ -669,6 +674,7 @@ fn a_rejected_or_tampered_pairing_gets_no_key() {
     )));
     assert_eq!(w.phase(b), Phase::Paused { reason: PauseReason::Revoked });
     assert!(load_meta(w.lib(b)).unwrap().key.is_none());
+    assert_eq!(errors(&w, b), 0, "nothing replaces «declined» on its screen");
 
     // The relay swaps the hub's X25519 key in `pair_accept`: the hub's signature no longer holds.
     w.relay.tamper = Some(Box::new(|_, _, body: &mut Vec<u8>| {
@@ -690,7 +696,432 @@ fn a_rejected_or_tampered_pairing_gets_no_key() {
         Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::BadSignature, .. })
     )));
     assert!(w.codes(c).is_empty(), "no code is shown for a forged answer");
+    assert_eq!(errors(&w, c), 0);
     assert!(load_meta(w.lib(c)).unwrap().key.is_none());
+}
+
+#[test]
+fn a_reveal_other_than_the_committed_key_is_refused() {
+    // A relay playing the hub would choose its key after seeing the device's, to grind the
+    // codes into matching. With the commitment it sees only `commit` before `pair_accept`, and a
+    // device key swapped afterwards in `pair_reveal` doesn't match it: the hub shows no code.
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Victim", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    let relays_key = Ephemeral::generate(&SystemRandom::new()).unwrap().public();
+    w.relay.tamper = Some(Box::new(move |_, _, body: &mut Vec<u8>| {
+        if body[1] == Kind::Pairing as u8 {
+            if let Ok(PairMessage::PairReveal { .. }) = PairMessage::decode(&body[protocol::HEADER_LEN..]) {
+                let mut forged = body[..protocol::HEADER_LEN].to_vec();
+                forged.extend(PairMessage::PairReveal { eph: B64(relays_key) }.encode().unwrap());
+                *body = forged;
+            }
+        }
+        1
+    }));
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert!(w.codes(a).is_empty(), "the hub shows no code for a key the offer didn't commit to");
+    assert_eq!(w.dropped(a, DropReason::BadSignature), 1);
+    // The hub's person is warned that someone is in between.
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature]);
+    // The real reveal never comes: the hub gives up, and the device learns why, not just that
+    // time ran out, with nothing on its screen in place of it.
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    assert_eq!(failures(&w, b), vec![PairingFailure::BadSignature]);
+    assert_eq!(errors(&w, b), 0);
+    let device = w.devices[b].id;
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_none());
+}
+
+/// The reasons of the pairing failures device `i` reported.
+fn failures(w: &World, i: usize) -> Vec<PairingFailure> {
+    w.devices[i]
+        .events
+        .iter()
+        .filter_map(|e| match e {
+            Effect::Pairing(PairingEvent::Failed { reason, .. }) => Some(*reason),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Errors device `i` reported besides its pairing failures: each would replace on the screen
+/// what the failure says.
+fn errors(w: &World, i: usize) -> usize {
+    w.devices[i].events.iter().filter(|e| matches!(e, Effect::Error(_))).count()
+}
+
+/// How many pairing offers device `i` sent.
+fn offers(w: &World, i: usize) -> usize {
+    w.devices[i].sent.iter().filter(|(_, f)| matches!(sent_pairing(f), Some(PairMessage::PairOffer { .. }))).count()
+}
+
+/// The pairing message in a frame a device sent, if it is one.
+fn sent_pairing(frame: &[u8]) -> Option<PairMessage> {
+    let (_, body) = protocol::decode_outgoing(frame).ok()?;
+    (body[1] == Kind::Pairing as u8).then(|| PairMessage::decode(&body[protocol::HEADER_LEN..]).ok())?
+}
+
+#[test]
+fn each_side_shows_its_code_only_after_the_reveal() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    let c = w.add("Phone", 3, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.connect(c);
+    w.run();
+    let idb = w.devices[b].id;
+    // The relay holds back the laptop's reveal.
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        let reveal = from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. }));
+        usize::from(!reveal)
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+
+    // The laptop sent its reveal before it showed its code; the hub, without it, shows nothing.
+    let (before_reveal, _) = w.devices[b].sent.iter().find(|(_, f)| matches!(sent_pairing(f), Some(PairMessage::PairReveal { .. }))).unwrap().clone();
+    let shown = w.devices[b].events.iter().position(|e| matches!(e, Effect::Pairing(PairingEvent::Code { .. }))).unwrap();
+    assert!(shown >= before_reveal, "the code came after the reveal");
+    assert_eq!(w.codes(b).len(), 1);
+    assert!(w.codes(a).is_empty(), "no code on the hub before the reveal");
+
+    // The silent offer holds the hub for a while, then no longer.
+    w.act(c, Action::StartPairing);
+    w.run();
+    assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
+    // The hub gives up waiting and says so (`expired`): nobody declined, so the laptop asks
+    // again by itself, without a failure or an error on its screen.
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    assert_eq!(offers(&w, b), 2);
+    assert!(failures(&w, b).is_empty());
+    assert_eq!(errors(&w, b), 0);
+    // Only within the time it gives the whole pairing: then it times out, once.
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    assert_eq!(failures(&w, b), vec![PairingFailure::Timeout]);
+    assert_eq!(errors(&w, b), 0, "a late `expired` doesn't show as a peer error");
+    w.act(c, Action::StartPairing);
+    w.run();
+    let (on_phone, on_hub) = (w.codes(c), w.codes(a));
+    assert_eq!(on_hub.len(), 1, "the hub showed a code for the phone only");
+    assert_eq!(on_phone.last().unwrap().1, on_hub[0].1);
+    let phone = w.devices[c].id;
+    w.act(a, Action::ApprovePairing { device: phone });
+    w.run();
+    assert!(load_meta(w.lib(c)).unwrap().key.is_some());
+}
+
+#[test]
+fn an_offer_taking_over_an_unrevealed_one_tells_the_first_device() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    let c = w.add("Phone", 3, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.connect(c);
+    w.run();
+    let (idb, idc) = (w.devices[b].id, w.devices[c].id);
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        let reveal = from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. }));
+        usize::from(!reveal)
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+
+    // Past the reveal timeout, before the hub's tick: the phone's offer takes the hub over.
+    w.relay.now += koona_sync::session::REVEAL_TIMEOUT_MS;
+    w.act(c, Action::StartPairing);
+    w.run();
+    // The laptop is told (`expired`) and asks again, but the hub is now the phone's: that answer
+    // is final, and it says so with nothing replacing it on the screen.
+    assert_eq!(offers(&w, b), 2);
+    assert_eq!(failures(&w, b), vec![PairingFailure::Rejected]);
+    assert_eq!(errors(&w, b), 0);
+    assert!(failures(&w, c).is_empty());
+    let (on_phone, on_hub) = (w.codes(c), w.codes(a));
+    assert_eq!(on_hub.len(), 1);
+    assert_eq!(on_phone[0].1, on_hub[0].1);
+    w.act(a, Action::ApprovePairing { device: idc });
+    w.run();
+    assert!(load_meta(w.lib(c)).unwrap().key.is_some());
+}
+
+#[test]
+fn a_replayed_reveal_does_not_end_the_pairing() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    // The relay holds the laptop's reveal back for now.
+    let held = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let hold = held.clone();
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        if from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. })) {
+            *hold.borrow_mut() = Some(body.clone());
+            return 0;
+        }
+        1
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert!(w.codes(a).is_empty());
+
+    // Under the offer's header (an old `seq`), a reveal with another key: dropped, and the hub
+    // keeps waiting for the real one.
+    let offer = w.relay.log.iter().find(|(from, to, _)| *from == idb && *to == ida).unwrap().2.clone();
+    let delivered = protocol::decode_delivered(&offer).unwrap();
+    let mut replayed = delivered.body[..protocol::HEADER_LEN].to_vec();
+    replayed.extend(PairMessage::PairReveal { eph: B64([9; 32]) }.encode().unwrap());
+    w.feed(a, Input::Binary(&protocol::encode_delivered(idb, delivered.relay_ms, &replayed).unwrap()));
+    w.run();
+    assert_eq!(w.dropped(a, DropReason::BadSignature), 1);
+    // The hub's person is warned, but the pairing goes on.
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature]);
+
+    let reveal = held.borrow_mut().take().unwrap();
+    w.feed(a, Input::Binary(&protocol::encode_delivered(idb, w.relay.now, &reveal).unwrap()));
+    w.run();
+    assert_eq!(w.codes(a).len(), 1);
+    assert_eq!(w.codes(a)[0].1, w.codes(b)[0].1);
+    w.act(a, Action::ApprovePairing { device: idb });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_some(), "the pairing went through");
+}
+
+#[test]
+fn a_reveal_from_an_earlier_connection_does_not_end_the_pairing() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let idb = w.devices[b].id;
+    // The relay keeps every reveal of the laptop's for itself.
+    let held = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let hold = held.clone();
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        if from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. })) {
+            hold.borrow_mut().push(body.clone());
+            return 0;
+        }
+        1
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+
+    // The laptop drops off before its reveal: the hub had shown nothing, and says nothing.
+    w.drop_link(b);
+    w.run();
+    assert!(!w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(_))), "nothing on the hub's screen");
+
+    // It comes back and asks again; the relay then replays the first connection's reveal.
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let reveals = held.borrow().clone();
+    assert_eq!(reveals.len(), 2);
+    let deliver = |w: &mut World, body: &[u8]| {
+        let frame = protocol::encode_delivered(idb, w.relay.now, body).unwrap();
+        w.feed(a, Input::Binary(&frame));
+        w.run();
+    };
+    deliver(&mut w, &reveals[0]);
+    assert!(w.codes(a).is_empty());
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature], "warned; the pairing goes on");
+    deliver(&mut w, &reveals[1]);
+    assert_eq!(w.codes(a).len(), 1);
+    assert_eq!(w.codes(a)[0].1, w.codes(b).last().unwrap().1);
+    w.act(a, Action::ApprovePairing { device: idb });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_some(), "the second attempt went through");
+}
+
+#[test]
+fn asking_again_withdraws_the_code_on_the_hub() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let first = w.codes(a);
+    assert_eq!(first.len(), 1);
+
+    // The laptop gives up waiting a moment before the hub does, and asks again.
+    w.relay.now += koona_sync::session::PAIRING_TIMEOUT_MS;
+    koona_sync::set_wall_clock(&w.devices[b].lib, Some(w.local_now(b))).unwrap();
+    w.feed(b, Input::Tick);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let idb = w.devices[b].id;
+    assert!(w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Withdrawn { peer }) if *peer == idb)));
+    let (on_laptop, on_hub) = (w.codes(b), w.codes(a));
+    assert_eq!(on_hub.len(), 2, "a new code for the new offer");
+    assert_eq!(on_laptop.last().unwrap().1, on_hub[1].1);
+    w.act(a, Action::ApprovePairing { device: idb });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_some());
+}
+
+#[test]
+fn a_hub_answers_only_a_few_offers_that_are_not_approved() {
+    // A relay posing as new devices can abort each attempt after seeing the hub's answer (it
+    // can compute the hub's code before revealing) and try again: the hub answers at most
+    // MAX_PAIRING_ATTEMPTS offers in five minutes, and warns its person.
+    use koona_sync::session::{MAX_PAIRING_ATTEMPTS, PAIRING_TIMEOUT_MS, REVEAL_TIMEOUT_MS};
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let asking: Vec<usize> = (0..=MAX_PAIRING_ATTEMPTS as u8).map(|n| w.add("New", 2 + n, 64 << 10)).collect();
+    w.connect(a);
+    w.run();
+    for &i in &asking {
+        w.connect(i);
+    }
+    w.run();
+    // No reveal reaches the hub, and nothing it answers reaches a device but `pair_accept`.
+    let ida = w.devices[a].id;
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        match PairMessage::decode(&body[protocol::HEADER_LEN..]) {
+            Ok(PairMessage::PairReveal { .. }) => 0,
+            Ok(PairMessage::Error { .. }) if from == ida => 0,
+            _ => 1,
+        }
+    }));
+    let accepts = |w: &World| w.devices[a].sent.iter().filter(|(_, f)| matches!(sent_pairing(f), Some(PairMessage::PairAccept { .. }))).count();
+    for &i in &asking[..MAX_PAIRING_ATTEMPTS] {
+        w.act(i, Action::StartPairing);
+        w.run();
+        w.relay.now += REVEAL_TIMEOUT_MS;
+    }
+    assert_eq!(accepts(&w), MAX_PAIRING_ATTEMPTS);
+    assert!(failures(&w, a).is_empty());
+
+    // One more, still within five minutes of the first (the third device went away, so the hub
+    // isn't busy): refused, and the person is warned.
+    let last = asking[MAX_PAIRING_ATTEMPTS];
+    w.relay.now -= REVEAL_TIMEOUT_MS;
+    w.drop_link(asking[MAX_PAIRING_ATTEMPTS - 1]);
+    w.run();
+    w.act(last, Action::StartPairing);
+    w.run();
+    assert_eq!(accepts(&w), MAX_PAIRING_ATTEMPTS, "not answered");
+    assert_eq!(failures(&w, a), vec![PairingFailure::BadSignature]);
+
+    // Once the first attempt is five minutes old, the hub answers again.
+    w.relay.tamper = None;
+    w.relay.now = START + PAIRING_TIMEOUT_MS;
+    w.tick(0);
+    // (The refusal didn't reach it: it comes back to ask anew.)
+    w.drop_link(last);
+    w.connect(last);
+    w.run();
+    w.act(last, Action::StartPairing);
+    w.run();
+    assert_eq!(accepts(&w), MAX_PAIRING_ATTEMPTS + 1);
+    let device = w.devices[last].id;
+    assert_eq!(w.codes(last).last().unwrap().1, w.codes(a).last().unwrap().1);
+    w.act(a, Action::ApprovePairing { device });
+    w.run();
+    assert!(load_meta(w.lib(last)).unwrap().key.is_some());
+}
+
+#[test]
+fn a_device_asks_only_a_few_times_however_often_it_is_told_to() {
+    // A relay posing as the hub can forge `expired` (pairing errors aren't signed) to make the
+    // device offer again with a new key, and so a new code, until one matches the hub's: the
+    // device offers at most MAX_PAIRING_ATTEMPTS times in five minutes.
+    use koona_sync::session::MAX_PAIRING_ATTEMPTS;
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        let reveal = from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. }));
+        usize::from(!reveal)
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+    for n in 0..MAX_PAIRING_ATTEMPTS as u64 {
+        let header = Header { kind: Kind::Pairing, epoch: 0, session: [0xEE; 16], seq: n };
+        let mut body = header.encode().to_vec();
+        body.extend(PairMessage::Error { code: protocol::ErrorCode::Expired }.encode().unwrap());
+        w.feed(b, Input::Binary(&protocol::encode_delivered(ida, w.relay.now, &body).unwrap()));
+        w.run();
+    }
+    assert_eq!(offers(&w, b), MAX_PAIRING_ATTEMPTS);
+    assert_eq!(failures(&w, b), vec![PairingFailure::BadSignature], "it stops and warns");
+    assert_eq!(errors(&w, b), 0);
+    // The hub saw the same device offer again before revealing, which an honest one never does.
+    assert!(failures(&w, a).iter().all(|f| *f == PairingFailure::BadSignature) && !failures(&w, a).is_empty());
+}
+
+#[test]
+fn approved_pairings_dont_count_against_the_next_device() {
+    use koona_sync::session::MAX_PAIRING_ATTEMPTS;
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    w.connect(a);
+    w.run();
+    // More devices than the cap, one after another at once: each one approved.
+    for n in 0..=MAX_PAIRING_ATTEMPTS as u8 {
+        let i = w.add("New", 2 + n, 64 << 10);
+        w.pair(i, a);
+    }
+    assert!(failures(&w, a).is_empty());
+}
+
+#[test]
+fn a_v1_offer_is_told_to_update_and_the_hub_does_not_pause() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Old", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    // What a v1 build sends: its X25519 key in the clear, no commitment.
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    let offer = serde_json::json!({"t": "pair_offer", "device": idb, "eph": B64([7; 32]), "key": B64([8; 32]), "sig": B64([9; 64])});
+    let header = Header { kind: Kind::Pairing, epoch: 0, session: [3; 16], seq: 0 };
+    let mut body = header.encode().to_vec();
+    body.extend(protocol::encode_payload(&offer).unwrap());
+    let frame = protocol::encode_delivered(idb, w.relay.now, &body).unwrap();
+    w.feed(a, Input::Binary(&frame));
+    w.run();
+    assert!(w.codes(a).is_empty());
+    assert_ne!(w.phase(a), Phase::Paused { reason: PauseReason::UpdateNeeded });
+    assert!(w.devices[b].events.iter().any(|e| matches!(
+        e,
+        Effect::Error(koona_sync::session::SessionError::Peer { device, code: protocol::ErrorCode::UpdateNeeded }) if *device == ida
+    )));
 }
 
 #[test]
