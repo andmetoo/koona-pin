@@ -21,6 +21,16 @@ export function shortcut(key: string, mac = isMac()): string {
 /** The key that deletes, as a Mac's keyboard and others' name it: ⌫ or Del. */
 export const deleteKey = (mac = isMac()) => (mac ? "⌫" : "Del");
 
+/**
+ * Whether a key press deletes: Del everywhere; on a Mac also ⌫, which is
+ * where its keyboard has it (Del is fn ⌫), and Finder's ⌘⌫ (#297).
+ */
+export const isDeleteKey = (e: Pick<KeyboardEvent, "key" | "metaKey" | "ctrlKey" | "altKey">, mac = isMac()) =>
+  e.key === "Delete" || (mac && e.key === "Backspace" && !e.ctrlKey && !e.altKey);
+
+/** The delete keys as `aria-keyshortcuts` names them. */
+export const deleteKeyshortcuts = (mac = isMac()) => (mac ? "Backspace Meta+Backspace Delete" : "Delete");
+
 /** The arrows that move the selection of the library. */
 export type Arrow = "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown";
 
