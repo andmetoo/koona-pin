@@ -252,6 +252,12 @@ pub struct ReplayGuard {
 }
 
 impl ReplayGuard {
+    /// Whether `accept` would refuse this body, without recording it: for a body that failed to
+    /// authenticate, to tell a replay from a forgery.
+    pub fn replayed(&self, from: Uuid, header: &Header) -> bool {
+        self.last.get(&(from, header.session)).is_some_and(|&last| header.seq <= last)
+    }
+
     /// Call only for a body that opened, so a forger can't push the window ahead.
     pub fn accept(&mut self, from: Uuid, header: &Header) -> Result<(), CryptoError> {
         match self.last.get(&(from, header.session)) {

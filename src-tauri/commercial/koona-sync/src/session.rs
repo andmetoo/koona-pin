@@ -23,6 +23,9 @@ use uuid::Uuid;
 
 /// A pairing not approved by then is abandoned by both sides.
 pub const PAIRING_TIMEOUT_MS: u64 = 5 * 60 * 1000;
+/// A pairing offer whose `pair_reveal` doesn't come by then frees the hub for others. The reveal
+/// follows `pair_accept` at once, and until it comes the hub shows nothing to Reject (4.2).
+pub const REVEAL_TIMEOUT_MS: u64 = 30 * 1000;
 /// A `hub_request` not answered by then is given up on both sides (4.4).
 pub const HUB_REQUEST_TIMEOUT_MS: u64 = 5 * 60 * 1000;
 /// How long the key of the previous epoch still opens frames after a rotation.
@@ -141,6 +144,8 @@ pub enum PairingEvent {
     Code { role: Role, peer: Uuid, peer_name: String, code: String },
     /// The new device holds the library key; on the hub, the device was approved.
     Paired { peer: Uuid },
+    /// On the hub: the device asked again, so the code shown for it is void; hide it.
+    Withdrawn { peer: Uuid },
     Failed { peer: Uuid, reason: PairingFailure },
 }
 
@@ -356,6 +361,13 @@ struct Hosting {
     /// Once the reveal matched the commitment and the code is shown.
     exchange_key: Option<[u8; 32]>,
     started: u64,
+}
+
+impl Hosting {
+    /// Still waiting for `pair_reveal` after [`REVEAL_TIMEOUT_MS`]: no longer holds the hub.
+    fn awaits_reveal_past(&self, now: u64) -> bool {
+        self.exchange_key.is_none() && now >= self.started + REVEAL_TIMEOUT_MS
+    }
 }
 
 /// A device without the current key asking the hub for it.
@@ -1028,7 +1040,10 @@ impl Session {
             }
         }
         if let Some(h) = &self.hosting {
-            if now >= h.started + PAIRING_TIMEOUT_MS {
+            if h.awaits_reveal_past(now) {
+                // Nothing was shown for it: drop it quietly.
+                self.hosting = None;
+            } else if now >= h.started + PAIRING_TIMEOUT_MS {
                 let device = h.device;
                 self.hosting = None;
                 self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Timeout }));
@@ -1563,9 +1578,15 @@ impl Session {
         if !self.fresh(from, header) {
             return;
         }
-        if !self.is_hub() || self.hosting.as_ref().is_some_and(|h| h.device != from) || self.sealer_epoch.is_none() {
+        let now = self.now;
+        let busy = self.hosting.as_ref().is_some_and(|h| h.device != from && !h.awaits_reveal_past(now));
+        if !self.is_hub() || busy || self.sealer_epoch.is_none() {
             // One pairing at a time.
             return self.send_pair(from, &PairMessage::Error { code: ErrorCode::Rejected });
+        }
+        if let Some(old) = self.hosting.take().filter(|h| h.exchange_key.is_some()) {
+            // The device asks again (it restarted): its old code no longer means anything.
+            self.fx.push(Effect::Pairing(PairingEvent::Withdrawn { peer: old.device }));
         }
         // The hub's key is fixed and signed before it sees the device's: it can't pick one to
         // steer the code, and the device can't either, being bound by `commit`.
@@ -1591,6 +1612,10 @@ impl Session {
         let me = self.cfg.device;
         let asking = Party { device: from, key: hosting.key, eph };
         if crypto::commitment(&asking, me) != hosting.commit {
+            // A replayed reveal from an earlier attempt is dropped before it can end this one.
+            if self.guard.replayed(from, header) {
+                return self.dropped(from, DropReason::Replayed);
+            }
             // Not the key the offer committed to: someone chose it after seeing ours.
             self.hosting = None;
             self.dropped(from, DropReason::BadSignature);

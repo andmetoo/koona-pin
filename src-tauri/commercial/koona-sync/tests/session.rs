@@ -306,6 +306,8 @@ struct Device {
     /// Added to the relay's clock for this device's own.
     offset: i64,
     events: Vec<Effect>,
+    /// Each binary frame sent, with how many events came before it.
+    sent: Vec<(usize, Vec<u8>)>,
 }
 
 struct World {
@@ -339,6 +341,7 @@ impl World {
             connected: false,
             offset: 0,
             events: Vec::new(),
+            sent: Vec::new(),
         });
         self.devices.len() - 1
     }
@@ -370,6 +373,8 @@ impl World {
                     }
                 }
                 Effect::SendBinary(frame) => {
+                    let before = self.devices[i].events.len();
+                    self.devices[i].sent.push((before, frame.clone()));
                     if self.devices[i].connected {
                         self.relay.binary(i, &frame)
                     }
@@ -728,6 +733,100 @@ fn a_reveal_other_than_the_committed_key_is_refused() {
     w.act(a, Action::ApprovePairing { device });
     w.run();
     assert!(load_meta(w.lib(b)).unwrap().key.is_none());
+}
+
+/// The pairing message in a frame a device sent, if it is one.
+fn sent_pairing(frame: &[u8]) -> Option<PairMessage> {
+    let (_, body) = protocol::decode_outgoing(frame).ok()?;
+    (body[1] == Kind::Pairing as u8).then(|| PairMessage::decode(&body[protocol::HEADER_LEN..]).ok())?
+}
+
+#[test]
+fn each_side_shows_its_code_only_after_the_reveal() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    let c = w.add("Phone", 3, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.connect(c);
+    w.run();
+    let idb = w.devices[b].id;
+    // The relay holds back the laptop's reveal.
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        let reveal = from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. }));
+        usize::from(!reveal)
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+
+    // The laptop sent its reveal before it showed its code; the hub, without it, shows nothing.
+    let (before_reveal, _) = w.devices[b].sent.iter().find(|(_, f)| matches!(sent_pairing(f), Some(PairMessage::PairReveal { .. }))).unwrap().clone();
+    let shown = w.devices[b].events.iter().position(|e| matches!(e, Effect::Pairing(PairingEvent::Code { .. }))).unwrap();
+    assert!(shown >= before_reveal, "the code came after the reveal");
+    assert_eq!(w.codes(b).len(), 1);
+    assert!(w.codes(a).is_empty(), "no code on the hub before the reveal");
+
+    // The silent offer holds the hub for a while, then no longer.
+    w.act(c, Action::StartPairing);
+    w.run();
+    assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    w.act(c, Action::StartPairing);
+    w.run();
+    let (on_phone, on_hub) = (w.codes(c), w.codes(a));
+    assert_eq!(on_hub.len(), 1, "the hub showed a code for the phone only");
+    assert_eq!(on_phone.last().unwrap().1, on_hub[0].1);
+    let phone = w.devices[c].id;
+    w.act(a, Action::ApprovePairing { device: phone });
+    w.run();
+    assert!(load_meta(w.lib(c)).unwrap().key.is_some());
+}
+
+#[test]
+fn a_replayed_reveal_does_not_end_the_pairing() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let (ida, idb) = (w.devices[a].id, w.devices[b].id);
+    // The relay holds the laptop's reveal back for now.
+    let held = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let hold = held.clone();
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        if from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. })) {
+            *hold.borrow_mut() = Some(body.clone());
+            return 0;
+        }
+        1
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+    assert!(w.codes(a).is_empty());
+
+    // Under the offer's header (an old `seq`), a reveal with another key is a replay: dropped,
+    // and the hub keeps waiting for the real one.
+    let offer = w.relay.log.iter().find(|(from, to, _)| *from == idb && *to == ida).unwrap().2.clone();
+    let delivered = protocol::decode_delivered(&offer).unwrap();
+    let mut replayed = delivered.body[..protocol::HEADER_LEN].to_vec();
+    replayed.extend(PairMessage::PairReveal { eph: B64([9; 32]) }.encode().unwrap());
+    w.feed(a, Input::Binary(&protocol::encode_delivered(idb, delivered.relay_ms, &replayed).unwrap()));
+    w.run();
+    assert_eq!(w.dropped(a, DropReason::Replayed), 1);
+    assert!(!w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { .. }))));
+
+    let reveal = held.borrow_mut().take().unwrap();
+    w.feed(a, Input::Binary(&protocol::encode_delivered(idb, w.relay.now, &reveal).unwrap()));
+    w.run();
+    assert_eq!(w.codes(a).len(), 1);
+    assert_eq!(w.codes(a)[0].1, w.codes(b)[0].1);
+    w.act(a, Action::ApprovePairing { device: idb });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_some(), "the pairing went through");
 }
 
 #[test]

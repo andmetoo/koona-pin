@@ -592,6 +592,12 @@ impl Model {
                     self.error = None;
                     self.last_failure = None;
                 }
+                PairingEvent::Withdrawn { peer } => {
+                    self.note(now, format!("pairing: {peer} asked again"));
+                    if self.pairing.as_ref().is_some_and(|p| p.peer == peer.to_string()) {
+                        self.pairing = None;
+                    }
+                }
                 PairingEvent::Failed { peer, reason } => {
                     self.note(now, format!("pairing: failed with {peer}: {reason:?}"));
                     self.pairing = None;
@@ -969,6 +975,21 @@ mod tests {
         model.on_event(Event::Stopped(Stop::UpdateNeeded), at(3));
         assert_eq!(model.status(&ctx(&me)).phase, SyncPhase::Paused { reason: PausedReason::UpdateNeeded });
         assert_eq!(model.status(&ctx(&me)).update_from, None);
+    }
+
+    #[test]
+    fn a_withdrawn_code_leaves_the_hub_screen() {
+        let me = Identity::new("Studio Mac");
+        let (laptop, phone) = (uid(2), uid(3));
+        let mut model = Model::default();
+        let code = |peer| Event::Session(Effect::Pairing(PairingEvent::Code { role: Role::Hub, peer, peer_name: "Laptop".into(), code: "042917".into() }));
+        model.on_event(code(laptop), at(0));
+        // Another device's withdrawal leaves this prompt alone.
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Withdrawn { peer: phone })), at(1));
+        assert!(model.status(&ctx(&me)).pairing.is_some());
+        model.on_event(Event::Session(Effect::Pairing(PairingEvent::Withdrawn { peer: laptop })), at(2));
+        assert_eq!(model.status(&ctx(&me)).pairing, None);
+        assert_eq!(model.status(&ctx(&me)).error, None);
     }
 
     #[test]

@@ -469,6 +469,11 @@ The code is shown as six digits with leading zeros. The zero nonce is safe becau
    abandons the pairing, answers `{"t": "error", "code": "bad_signature"}` and shows no code.
    Otherwise it computes `shared` and the code and shows it with the new device's name and
    Approve / Reject.
+   Until the reveal comes the hub shows nothing, so an offer without a reveal holds the hub for
+   at most 30 seconds; after that another device's offer is served. A reveal that doesn't match and
+   whose `seq` is at or below the last accepted one (section 3.1) is a replay: it is dropped and
+   doesn't end the pairing. If the same device offers again after its code was shown, the hub
+   withdraws that code and starts over with the new offer.
 6. The person compares the digits. On Approve, H -> A:
    `{"t": "pair_key", "epoch": <current epoch>, "sealed": "<base64, 48 bytes>"}`; then the hub
    sends `approve{device}` to the relay and a `roster` (section 4.4). On Reject or a mismatch, H ->
@@ -488,8 +493,10 @@ press Approve.
 
 A v2 hub answers a v1 `pair_offer` (one with `eph` and no `commit`) with
 `{"t": "error", "code": "update_needed"}`: the asking device is the one to update, so the hub does
-not pause. A v1 hub sees `commit` as an unknown field and answers `update_needed` too. Pairing
-therefore needs both devices on v2; there is no fallback to the v1 exchange.
+not pause. A v1 hub sees `commit` as an unknown field and pauses for an update itself, but its
+`error` goes out sealed (kind 1), which the relay doesn't deliver to a pending device: a v2 device
+asking a v1 hub hears nothing and gives up after the pairing timeout. Pairing therefore needs both
+devices on v2, the hub updated first; there is no fallback to the v1 exchange.
 
 A pending device sends at most one offer at a time; the hub handles one pairing at a time and
 answers others with `error{code: "rejected"}`. A pairing that isn't approved within 5 minutes is
@@ -552,6 +559,7 @@ hub's pinned key. A device that becomes hub through `set_hub` sends a fresh rost
 | `hello` deadline after `challenge` | 10 s |
 | Clock skew threshold | 5 min |
 | Pairing timeout | 5 min |
+| Pairing reveal timeout (hub) | 30 s |
 | Hub request timeout | 5 min |
 | Start over: sign-in age, max | 10 min |
 
