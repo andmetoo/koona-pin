@@ -929,6 +929,7 @@
     "back": "Назад: {{section}}",
     "openInBrowser": "Открыть в браузере",
     "minutes": "{{count}} мин чтения",
+    "saved": "сохранено {{date}}",
     "position": "{{current}} из {{total}}",
     "loading": "Загружаем статью…",
     "failure": {

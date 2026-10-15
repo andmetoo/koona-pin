@@ -929,6 +929,7 @@
     "back": "Wróć do: {{section}}",
     "openInBrowser": "Otwórz w przeglądarce",
     "minutes": "{{count}} min czytania",
+    "saved": "zapisano {{date}}",
     "position": "{{current}} z {{total}}",
     "loading": "Wczytywanie artykułu…",
     "failure": {

@@ -408,13 +408,13 @@ const noServer = () => {
 
 const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
-/** A page for the reading sheet of the preview (NP-123): long enough to scroll, about its own title. */
+/** A page for the reading sheet of the preview (NP-123): long enough to scroll, about its own title; the description is its dek (NP-122). */
 function demoArticle(b: Bookmark): string {
   const title = escapeHtml(b.title || b.domain);
   const about = escapeHtml(b.description ?? "");
   const picture = b.image_url?.startsWith("https:") ? `<figure><img src="${escapeHtml(b.image_url)}" alt=""></figure>` : "";
   const paragraphs = [
-    `${title} is the page this bookmark was saved from. ${about}`,
+    `${title} is the page this bookmark was saved from.`,
     "A page in a browser comes with everything around the text: menus, banners, a cookie notice, the next article and the one after it. The reading sheet keeps the words and the pictures that belong to them, set in one column at a size that is easy to follow.",
     "The text is taken from the page when you open it. Nothing runs from the site itself: no scripts, no frames, no forms. Links still work and open in your browser, so a reference is one click away.",
     `If something looks wrong, the button at the top opens ${escapeHtml(b.domain)} in the browser as the site meant it. The bookmark stays where it was, with its collection, tags and notes.`,
@@ -422,7 +422,7 @@ function demoArticle(b: Bookmark): string {
     "Long articles keep their place: scroll half way, close the sheet, and the next time it opens it starts where you stopped. An article you have read to the end is marked as read.",
     `That is all there is to ${title}. The rest of the page — the parts that are not the article — stayed on the site.`,
   ];
-  return `<!doctype html><html lang="en"><head><title>${title}</title></head><body><main><article><h1>${title}</h1>${picture}${paragraphs
+  return `<!doctype html><html lang="en"><head><title>${title}</title>${about ? `<meta name="description" content="${about}">` : ""}</head><body><main><article><h1>${title}</h1>${picture}${paragraphs
     .map((text, i) => (i === 3 ? `<h2>Opening it in the browser</h2><p>${text}</p>` : `<p>${text}</p>`))
     .join("")}</article></main></body></html>`;
 }

@@ -929,6 +929,7 @@
     "back": "Назад: {{section}}",
     "openInBrowser": "Відкрити в браузері",
     "minutes": "{{count}} хв читання",
+    "saved": "збережено {{date}}",
     "position": "{{current}} з {{total}}",
     "loading": "Завантажуємо статтю…",
     "failure": {

@@ -758,6 +758,7 @@
     "back": "{{section}}(으)로 돌아가기",
     "openInBrowser": "브라우저에서 열기",
     "minutes": "{{count}}분 분량",
+    "saved": "{{date}}에 저장",
     "position": "{{current}} / {{total}}",
     "loading": "글을 불러오는 중…",
     "failure": {

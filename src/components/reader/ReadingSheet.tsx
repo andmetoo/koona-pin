@@ -133,7 +133,7 @@ export function ReadingSheet({
           </button>
         </header>
         <div ref={scroller} tabIndex={-1} data-reader-scroll className="min-h-0 flex-1 overflow-y-auto px-6 pt-10 pb-24 outline-none">
-          <ArticleView key={b.id} url={b.url} title={b.title || b.url} domain={b.domain} onOpen={onOpen} onReady={restore} />
+          <ArticleView key={b.id} url={b.url} title={b.title || b.url} domain={b.domain} saved={b.created_at} onOpen={onOpen} onReady={restore} />
         </div>
       </div>
     </dialog>

@@ -758,6 +758,7 @@
     "back": "返回{{section}}",
     "openInBrowser": "在浏览器中打开",
     "minutes": "约 {{count}} 分钟读完",
+    "saved": "保存于 {{date}}",
     "position": "{{current}} / {{total}}",
     "loading": "正在加载文章…",
     "failure": {

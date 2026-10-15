@@ -815,6 +815,7 @@
     "back": "{{section}} bölümüne dön",
     "openInBrowser": "Tarayıcıda aç",
     "minutes": "{{count}} dk okuma",
+    "saved": "{{date}} tarihinde kaydedildi",
     "position": "{{current}} / {{total}}",
     "loading": "Makale yükleniyor…",
     "failure": {

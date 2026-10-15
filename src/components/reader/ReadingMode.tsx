@@ -317,6 +317,7 @@ export function ReadingMode({
               url={current.url}
               title={current.title || current.url}
               domain={current.domain}
+              saved={current.created_at}
               attempt={attempt}
               onOpen={onOpen}
               onStatus={(next) => setStatus({ id: current.id, status: next })}

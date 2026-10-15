@@ -815,6 +815,7 @@
     "back": "Zurück zu {{section}}",
     "openInBrowser": "Im Browser öffnen",
     "minutes": "{{count}} Min. Lesezeit",
+    "saved": "gespeichert am {{date}}",
     "position": "{{current}} von {{total}}",
     "loading": "Artikel wird geladen…",
     "failure": {

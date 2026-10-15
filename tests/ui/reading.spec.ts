@@ -260,8 +260,9 @@ test("states: loading, can't extract (Next, Mark as read), no connection (Try ag
   // pages read above stay in this one's memory.
   await page.reload();
   await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
-  await context.setOffline(true);
+  // Stubbed while online: offline, the page could not load the module it imports.
   await stubPages(page, "offline", list[0].url);
+  await context.setOffline(true);
   await readButton(page).click();
   await expect(heading(page)).toHaveCount(0);
   const offline = mode(page).locator("[data-reader-failure=offline]");
@@ -382,6 +383,8 @@ for (const language of ["en", "de", "ru"]) {
         // B3: an article a quarter read.
         await read();
         await expect(mode(page).locator(".reader-body")).toBeVisible();
+        // B3 from its top (meta line, title, dek), then a quarter read with the line moving.
+        await shot("B3");
         // The line follows scrolling once the article settled where reading stopped: scroll until it does.
         await expect
           .poll(async () => {
@@ -389,7 +392,7 @@ for (const language of ["en", "de", "ru"]) {
             return mode(page).locator("[data-reading-progress]").getAttribute("style");
           })
           .not.toBe("width: 0%;");
-        await shot("B3");
+        await shot("B3-scrolled");
         if (width === 800) {
           await mode(page).getByRole("button", { name: new RegExp(`^${t("readingMode.queueButton").split("{{")[0]}`) }).click();
           await shot("B9-queue");
@@ -412,8 +415,8 @@ for (const language of ["en", "de", "ru"]) {
         await leave();
         // B6 no connection.
         await fresh();
-        await context.setOffline(true);
         await stubPages(page, "offline", list[0].url);
+        await context.setOffline(true);
         await read();
         await expect(mode(page).locator("[data-reader-failure=offline]")).toBeVisible();
         await shot("B6");

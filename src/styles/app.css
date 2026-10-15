@@ -671,6 +671,14 @@
     font-weight: 600;
     letter-spacing: -0.01em;
   }
+  /* The dek (frame B3): the page's description under the title, when the text does not open with it. */
+  .reader-dek {
+    margin: -8px 0 24px;
+    font-family: var(--reader-serif);
+    font-size: 19px;
+    line-height: 28px;
+    color: color-mix(in srgb, var(--np-sheet-ink) 72%, transparent);
+  }
   .reader-body {
     font-family: var(--reader-serif);
     font-size: 18px;

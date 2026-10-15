@@ -815,6 +815,7 @@
     "back": "Back to {{section}}",
     "openInBrowser": "Open in browser",
     "minutes": "{{count}} min read",
+    "saved": "saved {{date}}",
     "position": "{{current}} of {{total}}",
     "loading": "Loading the article…",
     "failure": {

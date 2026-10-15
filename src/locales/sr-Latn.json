@@ -874,6 +874,7 @@
     "back": "Nazad: {{section}}",
     "openInBrowser": "Otvori u pregledaču",
     "minutes": "{{count}} min čitanja",
+    "saved": "sačuvano {{date}}",
     "position": "{{current}} od {{total}}",
     "loading": "Učitavanje članka…",
     "failure": {

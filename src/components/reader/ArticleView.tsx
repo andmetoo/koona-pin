@@ -1,4 +1,4 @@
-import { MouseEvent, ReactNode, useEffect, useState } from "react";
+import { Fragment, MouseEvent, ReactNode, useEffect, useState } from "react";
 import { ArrowUpRight, FileX } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -30,6 +30,13 @@ function useArticle(url: string, attempt: number) {
 }
 
 export type ArticleStatus = { kind: "loading" } | { kind: "article"; article: Article } | { kind: "failed"; failure: ReadFailure | null };
+
+/** «Oct 3», with the year when it is not this one. */
+const savedOn = (iso: string, language: string) => {
+  const date = new Date(iso);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(language, { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) });
+};
 
 /** Why the page is not shown, in the person's words; `null` — an error the app did not expect. */
 export function failureText(failure: ReadFailure | null, t: TFunction) {
@@ -72,6 +79,7 @@ export function ArticleView({
   failure,
   onStatus,
   attempt = 0,
+  saved,
 }: {
   url: string;
   /** The bookmark's title: shown while the article loads and when there is none. */
@@ -87,8 +95,10 @@ export function ArticleView({
   onStatus?: (status: ArticleStatus) => void;
   /** Bumped by the caller to read the page again («Try again», back online). */
   attempt?: number;
+  /** When the bookmark was saved: «saved Oct 3» in the meta line (frame B3). */
+  saved?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const state = useArticle(url, attempt);
   const article = state.kind === "article" ? state.article : null;
   useEffect(() => {
@@ -132,15 +142,17 @@ export function ArticleView({
   return (
     <article lang={article?.language ?? undefined} aria-busy={!article || undefined} className="reader-article mx-auto w-full max-w-[600px]">
       <p className="reader-meta">
-        {article?.site ?? domain}
-        {article && (
-          <>
-            <span aria-hidden> · </span>
-            {t("reader.minutes", { count: readingMinutes(article.words) })}
-          </>
-        )}
+        {[article?.site ?? domain, article && t("reader.minutes", { count: readingMinutes(article.words) }), saved && t("reader.saved", { date: savedOn(saved, i18n.language) })]
+          .filter(Boolean)
+          .map((part, i) => (
+            <Fragment key={i}>
+              {i > 0 && <span aria-hidden> · </span>}
+              {part}
+            </Fragment>
+          ))}
       </p>
       <h1 className="reader-title">{article?.title ?? title}</h1>
+      {article?.description && <p className="reader-dek">{article.description}</p>}
       {article ? (
         <div className="reader-body" onClick={follow} dangerouslySetInnerHTML={{ __html: article.html }} />
       ) : (

@@ -758,6 +758,7 @@
     "back": "{{section}} に戻る",
     "openInBrowser": "ブラウザで開く",
     "minutes": "{{count}} 分で読めます",
+    "saved": "{{date}} に保存",
     "position": "{{current}} / {{total}}",
     "loading": "記事を読み込み中…",
     "failure": {
