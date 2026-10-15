@@ -10,6 +10,8 @@ import { t } from "./ext.js";
  * The page's own menu has «Save to Reading» (NP-125, Р-69): on the page (or a
  * selection on it) for the page, on a link for the link. Browsers show the
  * page item only where no link, image or selection is under the pointer.
+ * Safari shows its items flat, without the extension's icon or name, next to
+ * its own Reading List: there they name the app (#319).
  */
 export const MENU_ID = "koonapin-options";
 export const SEARCH_ID = "koonapin-search";
@@ -20,18 +22,23 @@ const WEB = ["http://*/*", "https://*/*"];
 const titled = (title, shortcut) => (shortcut ? `${title} (${shortcut})` : title);
 
 /** Menus outlive an event page, not an update: build the items afresh. */
-export async function registerMenu(menus, { settings = false, shortcut = "", readingShortcut = "" } = {}) {
+export async function registerMenu(menus, { settings = false, named = false, shortcut = "", readingShortcut = "" } = {}) {
   if (!menus) return false;
   await menus.removeAll();
   menus.create({ id: SEARCH_ID, title: titled(t("menuSearch"), shortcut), contexts: ["action"] });
   if (settings) menus.create({ id: MENU_ID, title: t("menuOptions"), contexts: ["action"] });
   menus.create({
     id: READING_PAGE_ID,
-    title: titled(t("menuReadingPage"), readingShortcut),
+    title: titled(named ? t("commandReading") : t("menuReadingPage"), readingShortcut),
     contexts: ["page", "selection"],
     documentUrlPatterns: WEB,
   });
-  menus.create({ id: READING_LINK_ID, title: t("menuReadingLink"), contexts: ["link"], targetUrlPatterns: WEB });
+  menus.create({
+    id: READING_LINK_ID,
+    title: named ? t("menuReadingLinkNamed") : t("menuReadingLink"),
+    contexts: ["link"],
+    targetUrlPatterns: WEB,
+  });
   return true;
 }
 

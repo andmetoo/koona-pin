@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { coverOf, monogram, pendingFor, VIEW } from "../../services/cover";
+import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
 import { Icon } from "../icons";
 import { Menu, MenuEntry } from "../ui/Menu";
@@ -93,13 +94,13 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
       { id: "restore", icon: RotateCcw, label: t("trash.restore"), onSelect: () => actions.restore(b) },
       "separator",
       { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
-      { id: "copy", icon: Copy, label: t("card.copyLink"), keys: "Ctrl C", onSelect: () => actions.copy(b.url) },
+      { id: "copy", icon: Copy, label: t("card.copyLink"), keys: shortcut("C"), onSelect: () => actions.copy(b.url) },
       "separator",
       { id: "delete", icon: Trash2, label: t("trash.deleteForever"), keys: "Del", onSelect: () => actions.deleteForever(b) },
     ];
   return [
     { id: "open", icon: ExternalLink, label: t("card.openInBrowser"), keys: "Enter", onSelect: () => actions.open(b.url) },
-    { id: "copy", icon: Copy, label: t("card.copyLink"), keys: "Ctrl C", onSelect: () => actions.copy(b.url) },
+    { id: "copy", icon: Copy, label: t("card.copyLink"), keys: shortcut("C"), onSelect: () => actions.copy(b.url) },
     { id: "edit", icon: Pencil, label: t("card.edit"), keys: "E", onSelect: () => actions.edit(b) },
     "separator",
     {
@@ -422,9 +423,9 @@ export const BookmarkCard = memo(function BookmarkCard({
         if (!e.defaultPrevented) control.onKeyDown(e);
       }}
     >
-      {/* Selected: a 2.5 px accent ring 4 px around the preview, radius 14 (frame 04); the image is not tinted. */}
+      {/* Selected: a 2.5 px accent ring 4 px around the preview, radius 14 (frame 04, `app.css`); the image is not tinted. */}
       {/* It clips the shutter waiting above the cover; the ring of the selection is its own outline, not clipped. */}
-      <div className={`relative overflow-hidden rounded-xl ${selected ?"outline-[length:2.5px] outline-offset-4 outline-accent outline-solid" : ""}`}>
+      <div data-ring className="relative overflow-hidden rounded-xl">
         <div data-preview className="block aspect-[16/10] w-full overflow-hidden rounded-xl bg-hover">
           <Preview b={b} live />
         </div>

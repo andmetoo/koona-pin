@@ -6,6 +6,7 @@ import { CaptureStatus, Collection, ImportProgress, ImportSummary, RestoreMode, 
 import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
+import { shortcut } from "../../services/keys";
 import {
   ConnectTab,
   connectTabName,
@@ -539,7 +540,7 @@ export function RestoreDialog({
   const confirmPanel = () => (
     <>
       <p className="text-sm text-muted [overflow-wrap:anywhere]">
-        {t("restore.confirmText", { count: preview?.current ?? 0, copy: number(preview?.bookmarks ?? 0) })}
+        {t("restore.confirmText", { count: preview?.current ?? 0, copy: number(preview?.bookmarks ?? 0), undo: shortcut("Z") })}
       </p>
       <Footer>
         <Button variant="outline" size="lg" autoFocus disabled={busy} onClick={() => setConfirming(false)}>
@@ -720,7 +721,7 @@ export function BackgroundDialog({ onClose }: { onClose: () => void }) {
     <Dialog title={t("background.title")} onClose={() => !busy && onClose()} width={440}>
       <div className="flex flex-col gap-4">
         <p className="text-sm leading-[18px] text-muted">{t("background.text")}</p>
-        <p className="rounded-lg bg-panel px-3 py-2.5 text-xs leading-[17px] text-muted dark:bg-hover">{t("background.hint")}</p>
+        <p className="rounded-lg bg-panel px-3 py-2.5 text-xs leading-[17px] text-muted dark:bg-hover">{t("background.hint", { quit: shortcut("Q") })}</p>
         <Failure error={error} reserve />
         <Footer>
           <Button variant="outline" disabled={busy} onClick={() => void run(api.quitApp)}>

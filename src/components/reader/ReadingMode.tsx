@@ -1,8 +1,9 @@
-import { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, BookOpen, ChevronDown, Menu as MenuIcon } from "lucide-react";
+import { createContext, KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, BookOpen, BookX, Check, ChevronDown, LucideIcon, Menu as MenuIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark } from "../../types";
 import { composing } from "../../services/ime";
+import { deleteKey } from "../../services/keys";
 import { cachedArticle, knownMinutes } from "../../services/reader";
 import { useReadingList } from "../../hooks/useReadingList";
 import { useReadingProgress } from "../../hooks/useReadingProgress";
@@ -45,8 +46,13 @@ const keyIs = (e: KeyboardEvent, letter: string) => e.code === `Key${letter.toUp
  * progress line. It drops from the toolbar's «Read» as a circle in the mode's
  * colour and folds back into it. `J`/`K` go through the queue, `O` opens the
  * page in the browser, `Esc` goes to the queue and from there to the library,
- * which waits underneath as it was. An article that cannot be shown leaves a
- * card with the browser, the next one and «Mark as read», never an empty column.
+ * which waits underneath as it was. `Tab` goes between the queue and the article
+ * (issue #319): the queue is one stop, its arrows pick the article to read, and
+ * the article takes the arrows, Space and Page Down for scrolling; the toolbar
+ * comes after the article. An article that cannot be shown leaves a
+ * card with the browser, the next one, «Mark as read» and «Remove», never an
+ * empty column. `⌫` or `Del` takes the current article out of Reading and goes
+ * on as `J` does (#319); Ctrl Z, which App keeps, brings it back.
  */
 export function ReadingMode({
   narrow,
@@ -56,6 +62,7 @@ export function ReadingMode({
   section,
   onOpen,
   onMarkRead,
+  onRemove,
   onClose,
   look,
   aa,
@@ -78,6 +85,8 @@ export function ReadingMode({
   section: SectionQueue;
   onOpen: (url: string) => void;
   onMarkRead: (bookmark: Bookmark) => void;
+  /** Out of Reading, with «Undo» in the notice; the bookmark stays in the library. */
+  onRemove: (bookmark: Bookmark) => void;
   /** The mode folded back: the library takes over. */
   onClose: () => void;
 }) {
@@ -160,7 +169,12 @@ export function ReadingMode({
   const show = useCallback((id: number, focus: "article" | "queue" = "article") => {
     setCurrentId(id);
     setAttempt(0);
-    if (focus === "queue") queueRef.current?.querySelector<HTMLElement>(`[data-queue-item="${id}"]`)?.focus();
+    if (focus === "queue") {
+      const item = queueRef.current?.querySelector<HTMLElement>(`[data-queue-item="${id}"]`);
+      item?.focus({ preventScroll: true });
+      // WebKit's focus() does not bring a row of the queue's own scroller into view (#319).
+      item?.scrollIntoView({ block: "nearest" });
+    }
     else if (focus === "article") {
       setQueueOpen(false);
       cancelAnimationFrame(articleFocus.current);
@@ -209,15 +223,31 @@ export function ReadingMode({
     cancelAnimationFrame(articleFocus.current);
     const focus = () => {
       const list = queueRef.current;
-      (list?.querySelector<HTMLElement>("[aria-current=true]") ?? list?.querySelector<HTMLElement>("[data-queue-item], button"))?.focus();
+      (list?.querySelector<HTMLElement>("[aria-selected=true]") ?? list?.querySelector<HTMLElement>("[data-queue-item], button"))?.focus();
     };
     if (queueRef.current) return focus();
     setQueueOpen(true);
     requestAnimationFrame(focus);
   };
 
-  const latest = useRef({ current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving });
-  latest.current = { current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving };
+  /** Taken out of Reading and still in the queue until Reading is read again (a quarter second). */
+  const removed = useRef(new Set<number>());
+  useEffect(() => removed.current.clear(), [live]);
+  /** Out of Reading, then on as «Next» goes; the last one leaves its place to the one before. */
+  const remove = (b: Bookmark, focus: "article" | "queue" = "article") => {
+    onRemove(b);
+    if (!items) return;
+    // Reading's queue loses it: the next one still there, else the one before, the focus going with it.
+    // A section's queue keeps it, so on as J goes.
+    if (source === "reading") removed.current.add(b.id);
+    const stays = (item: Bookmark) => !removed.current.has(item.id);
+    const at = items.findIndex((item) => item.id === b.id);
+    const to = items.slice(at + 1).find(stays) ?? (source === "reading" ? items.slice(0, Math.max(0, at)).reverse().find(stays) : undefined);
+    if (to) show(to.id, focus);
+  };
+
+  const latest = useRef({ current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving, remove });
+  latest.current = { current, next, previous, leave, focusQueue, show, queueOpen, onOpen, leaving, remove };
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const s = latest.current;
@@ -245,6 +275,10 @@ export function ReadingMode({
       } else if (keyIs(e, "o") && s.current) {
         e.preventDefault();
         s.onOpen(s.current.url);
+      } else if ((e.key === "Backspace" || e.key === "Delete") && !e.shiftKey && s.current?.reading_at) {
+        // ⌫ on a Mac's keyboard, Del elsewhere: the current article out of Reading (#319).
+        e.preventDefault();
+        s.remove(s.current, focus);
       }
     };
     window.addEventListener("keydown", handler);
@@ -270,6 +304,13 @@ export function ReadingMode({
         lastIndex.current = 0;
       }}
       onPick={(id) => show(id)}
+      onMove={(id) => show(id, "queue")}
+      onArticle={() => {
+        // Tab from the queue: the article, also from the narrow window's queue, which closes.
+        setQueueOpen(false);
+        cancelAnimationFrame(articleFocus.current);
+        scroller.current?.focus({ preventScroll: true });
+      }}
     />
   );
   const empty = items !== null && items.length === 0;
@@ -292,7 +333,102 @@ export function ReadingMode({
         {current && (
           <ProgressLine key={current.id} bookmark={current} status={currentStatus} scroller={scroller} />
         )}
-        <div className={`flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
+        {/* A stop for Tab with a ring of its own: the arrows, Space and Page Down scroll it. */}
+        <div
+          ref={scroller}
+          tabIndex={0}
+          role={current ? "region" : undefined}
+          aria-label={current ? current.title || current.url : undefined}
+          data-reader-scroll
+          onKeyDown={(e) => {
+            // Shift+Tab from the article: the queue when it is on screen, past the window's own buttons.
+            if (e.key !== "Tab" || !e.shiftKey || e.target !== e.currentTarget || !queueRef.current) return;
+            e.preventDefault();
+            focusQueue();
+          }}
+          className={`min-h-0 flex-1 overflow-y-auto outline-offset-[-2px] ${narrow ? "px-6 pt-3.5" : "px-8 pt-7"} pb-24`}
+        >
+          {current ? (
+            <ArticleView
+              key={current.id}
+              url={current.url}
+              title={current.title || current.url}
+              domain={current.domain}
+              saved={current.created_at}
+              attempt={attempt}
+              onOpen={onOpen}
+              onStatus={(next) => setStatus({ id: current.id, status: next })}
+              onReady={() => restore(scroller, current)}
+              failure={(failure) => (
+                <Card
+                  title={offline ? t("readingMode.offlineTitle") : t("readingMode.failedTitle")}
+                  text={
+                    offline
+                      ? t("readingMode.offlineText", { site: current.domain })
+                      : `${failureText(failure, t)} ${t("readingMode.failedTail")}`
+                  }
+                  offline={offline}
+                >
+                  {offline ? (
+                    <Button variant="primary" size="lg" onClick={() => setAttempt((n) => n + 1)}>
+                      {t("common.retry")}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button variant="primary" size="lg" onClick={() => onOpen(current.url)}>
+                        {t("reader.openInBrowser")}
+                        <Icon icon={ArrowUpRight} size={13} />
+                      </Button>
+                      {next && (
+                        <Button variant="outline" size="lg" onClick={() => show(next.id)} className="bg-read text-read-text">
+                          {t("readingMode.next")}
+                          <Kbd className="bg-transparent text-read-muted">J</Kbd>
+                        </Button>
+                      )}
+                      {!current.read_at && (
+                        <Quiet
+                          icon={Check}
+                          label={t("readingMode.markRead")}
+                          onClick={() => {
+                            onMarkRead(current);
+                            if (next) show(next.id);
+                          }}
+                        />
+                      )}
+                      {/* Quiet, not red: Ctrl Z takes it back, and the bookmark stays in the library. */}
+                      {current.reading_at && (
+                        <Quiet
+                          icon={BookX}
+                          label={t("readingMode.remove")}
+                          name={t("card.fromReading")}
+                          keys={deleteKey()}
+                          keyshortcuts="Backspace Delete"
+                          onClick={() => remove(current)}
+                        />
+                      )}
+                    </>
+                  )}
+                </Card>
+              )}
+            />
+          ) : (
+            empty && (
+              <div data-reading-empty className="mx-auto flex max-w-[400px] flex-col items-center pt-[calc(18vh)] text-center">
+                <Icon icon={BookOpen} size={32} strokeWidth={1.25} className="text-read-muted" />
+                <h2 className="read-serif mt-6 text-[30px] leading-[38px] font-semibold text-read-ink">
+                  {source === "reading" ? t("readingMode.empty") : t("readingMode.emptySection", { section: section.name })}
+                </h2>
+                {source === "reading" && <p className="mt-3 text-sm text-read-text/80">{t("readingMode.emptyHint")}</p>}
+                <Button variant="outline" size="lg" onClick={leave} className="mt-5 bg-read-card text-read-text">
+                  {t("readingMode.back")}
+                </Button>
+              </div>
+            )
+          )}
+        </div>
+        {/* After the article in the document, above it on screen: Tab goes from the queue straight
+            to the article (issue #319), then on through its links to these buttons. */}
+        <div className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
           {narrow && !empty && (
             <Button
               variant="outline"
@@ -342,77 +478,6 @@ export function ReadingMode({
             </Button>
           </Hint>
         </div>
-        <div ref={scroller} tabIndex={-1} data-reader-scroll className={`min-h-0 flex-1 overflow-y-auto outline-none ${narrow ? "px-6 pt-3.5" : "px-8 pt-7"} pb-24`}>
-          {current ? (
-            <ArticleView
-              key={current.id}
-              url={current.url}
-              title={current.title || current.url}
-              domain={current.domain}
-              saved={current.created_at}
-              attempt={attempt}
-              onOpen={onOpen}
-              onStatus={(next) => setStatus({ id: current.id, status: next })}
-              onReady={() => restore(scroller, current)}
-              failure={(failure) => (
-                <Card
-                  title={offline ? t("readingMode.offlineTitle") : t("readingMode.failedTitle")}
-                  text={
-                    offline
-                      ? t("readingMode.offlineText", { site: current.domain })
-                      : `${failureText(failure, t)} ${t("readingMode.failedTail")}`
-                  }
-                  offline={offline}
-                >
-                  {offline ? (
-                    <Button variant="primary" size="lg" onClick={() => setAttempt((n) => n + 1)}>
-                      {t("common.retry")}
-                    </Button>
-                  ) : (
-                    <>
-                      <Button variant="primary" size="lg" onClick={() => onOpen(current.url)}>
-                        {t("reader.openInBrowser")}
-                        <Icon icon={ArrowUpRight} size={13} />
-                      </Button>
-                      {next && (
-                        <Button variant="outline" size="lg" onClick={() => show(next.id)} className="bg-read text-read-text">
-                          {t("readingMode.next")}
-                          <Kbd className="bg-transparent text-read-muted">J</Kbd>
-                        </Button>
-                      )}
-                      {!current.read_at && (
-                        <Button
-                          variant="ghost"
-                          size="lg"
-                          onClick={() => {
-                            onMarkRead(current);
-                            if (next) show(next.id);
-                          }}
-                          className="text-read-text"
-                        >
-                          {t("readingMode.markRead")}
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </Card>
-              )}
-            />
-          ) : (
-            empty && (
-              <div data-reading-empty className="mx-auto flex max-w-[400px] flex-col items-center pt-[calc(18vh)] text-center">
-                <Icon icon={BookOpen} size={32} strokeWidth={1.25} className="text-read-muted" />
-                <h2 className="read-serif mt-6 text-[30px] leading-[38px] font-semibold text-read-ink">
-                  {source === "reading" ? t("readingMode.empty") : t("readingMode.emptySection", { section: section.name })}
-                </h2>
-                {source === "reading" && <p className="mt-3 text-sm text-read-text/80">{t("readingMode.emptyHint")}</p>}
-                <Button variant="outline" size="lg" onClick={leave} className="mt-5 bg-read-card text-read-text">
-                  {t("readingMode.back")}
-                </Button>
-              </div>
-            )
-          )}
-        </div>
         </div>
       </div>
       {narrow && queueOpen && (
@@ -460,8 +525,34 @@ function ProgressLine({ bookmark, status, scroller }: { bookmark: Bookmark; stat
   );
 }
 
-/** The card of frames B5 and B6, where the article would be. */
+/** The card's actions do not fit one row in words: the quiet ones show their icons. */
+const IconsOnly = createContext(false);
+
+/**
+ * The card of frames B5 and B6, where the article would be. Its actions stay
+ * in one row (#319): where the words do not fit, the quiet ones become icons
+ * named by their hints, measured again when the card changes width.
+ */
 function Card({ title, text, offline, children }: { title: string; text: string; offline: boolean; children: ReactNode }) {
+  const row = useRef<HTMLDivElement>(null);
+  const [icons, setIcons] = useState(false);
+  useEffect(() => setIcons(false), [title, text]);
+  useEffect(() => {
+    const element = row.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    let width = element.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth === width) return;
+      width = element.clientWidth;
+      setIcons(false);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (element && !icons && element.scrollWidth > element.clientWidth) setIcons(true);
+  });
   return (
     <div
       data-reader-failure={offline ? "offline" : "failed"}
@@ -470,15 +561,44 @@ function Card({ title, text, offline, children }: { title: string; text: string;
     >
       <h2 className="read-serif text-[22px] leading-[28px] font-semibold text-read-ink">{title}</h2>
       <p className="mt-2 text-sm leading-[21px] text-read-text/80">{text}</p>
-      <div className={`flex flex-wrap items-center gap-2.5 ${offline ? "mt-5" : "mt-8"}`}>{children}</div>
+      <div ref={row} data-reader-actions className={`flex items-center gap-2.5 ${offline ? "mt-5" : "mt-8"}`}>
+        <IconsOnly.Provider value={icons}>{children}</IconsOnly.Provider>
+      </div>
     </div>
+  );
+}
+
+/**
+ * A quiet action of the card, as «Mark as read» is drawn: its words and key,
+ * or, in a row too narrow for them, its icon with words and key in the hint.
+ * `name`, when given, is the whole name the short label stands for.
+ */
+function Quiet({ icon, label, name, keys, keyshortcuts, onClick }: { icon: LucideIcon; label: string; name?: string; keys?: string; keyshortcuts?: string; onClick: () => void }) {
+  const icons = useContext(IconsOnly);
+  return (
+    <Hint label={name ?? label} keys={icons ? keys : undefined} show={icons || !!name}>
+      <Button
+        variant="ghost"
+        size="lg"
+        aria-label={icons ? (name ?? label) : name}
+        aria-keyshortcuts={keyshortcuts}
+        onClick={onClick}
+        // Without a border a quiet button needs less room around its words: the four fit 560 px in English.
+        className={`text-read-text ${icons ? "w-[34px] !px-0" : "!px-2.5"}`}
+      >
+        {icons ? <Icon icon={icon} size={15} /> : label}
+        {!icons && keys && <Kbd className="bg-transparent text-read-muted">{keys}</Kbd>}
+      </Button>
+    </Hint>
   );
 }
 
 /**
  * The queue (frame B3): what reads next, a switch between Reading and the
  * library's section, each item with its site, minutes and progress, the read
- * ones dimmed. `↑`/`↓` move between items, `Enter` reads one.
+ * ones dimmed. A list box with one stop for Tab (the current item): `↑`/`↓`,
+ * `Home`/`End` pick the article and show it while the queue keeps focus;
+ * `Enter` reads it and `Tab` goes to the article (issue #319).
  */
 const Queue = function Queue({
   ref,
@@ -491,6 +611,8 @@ const Queue = function Queue({
   section,
   onSource,
   onPick,
+  onMove,
+  onArticle,
 }: {
   ref: RefObject<HTMLDivElement | null>;
   items: Bookmark[] | null;
@@ -501,7 +623,12 @@ const Queue = function Queue({
   source: ReadingSource;
   section: SectionQueue;
   onSource: (source: ReadingSource) => void;
+  /** Read it: the article takes focus. */
   onPick: (id: number) => void;
+  /** Show it: the queue keeps focus. */
+  onMove: (id: number) => void;
+  /** Tab from the queue's item: the article takes focus. */
+  onArticle: () => void;
 }) {
   const { t } = useTranslation();
   const switcher = useRef<HTMLButtonElement>(null);
@@ -524,14 +651,23 @@ const Queue = function Queue({
           .join(" · ");
 
   const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Tab") {
+      if (e.shiftKey || !(e.target as HTMLElement).closest("[data-queue-item]")) return;
+      e.preventDefault();
+      return onArticle();
+    }
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return;
-    const buttons = [...(ref.current?.querySelectorAll<HTMLElement>("[data-queue-item]") ?? [])];
-    const at = buttons.indexOf(document.activeElement as HTMLElement);
+    if (!items) return;
+    const at = items.findIndex((b) => String(b.id) === (e.target as HTMLElement).dataset.queueItem);
     if (at < 0) return;
     e.preventDefault();
-    const to = e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : at + (e.key === "ArrowDown" ? 1 : -1);
-    buttons[Math.max(0, Math.min(buttons.length - 1, to))]?.focus();
+    const to = e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : at + (e.key === "ArrowDown" ? 1 : -1);
+    const item = items[Math.max(0, Math.min(items.length - 1, to))];
+    if (item.id !== items[at].id) onMove(item.id);
   };
+  /** The one item Tab stops at: the current one, or the first. */
+  const stop = items?.some((b) => b.id === current?.id) ? current!.id : items?.[0]?.id;
 
   return (
     <div ref={ref} data-reading-queue className="flex h-full w-[320px] shrink-0 flex-col border-r border-read-edge bg-read-queue">
@@ -571,7 +707,7 @@ const Queue = function Queue({
           ]}
         />
       )}
-      <ol className="min-h-0 flex-1 overflow-y-auto" aria-label={name} onKeyDown={onKeyDown}>
+      <ol role="listbox" className="min-h-0 flex-1 overflow-y-auto" aria-label={name} onKeyDown={onKeyDown}>
         {items?.map((b) => {
           const isCurrent = b.id === current?.id;
           const minutesOf = knownMinutes(b.url);
@@ -594,12 +730,14 @@ const Queue = function Queue({
             .filter(Boolean)
             .join(" · ");
           return (
-            <li key={b.id}>
+            <li key={b.id} role="none">
               <button
                 type="button"
+                role="option"
+                tabIndex={b.id === stop ? 0 : -1}
                 data-queue-item={b.id}
                 data-read={b.read_at ? "true" : undefined}
-                aria-current={isCurrent || undefined}
+                aria-selected={isCurrent}
                 onClick={() => onPick(b.id)}
                 className={`relative flex w-full flex-col px-6 pt-3.5 text-left outline-offset-[-2px] transition-colors duration-150 ${isCurrent ? "h-20 bg-read-current" : "h-[72px] hover:bg-read-current/60"} ${b.read_at ? "text-read-dim" : ""}`}
               >
@@ -625,6 +763,10 @@ const Queue = function Queue({
         <span className="whitespace-nowrap">{t("readingMode.keys")}</span>
         <span aria-hidden>·</span>
         <span className="whitespace-nowrap">{t("readingMode.keysEsc")}</span>
+        <span aria-hidden>·</span>
+        <span className="whitespace-nowrap">{t("readingMode.keysTab")}</span>
+        <span aria-hidden>·</span>
+        <span className="whitespace-nowrap">{t("readingMode.keysRemove", { key: deleteKey() })}</span>
       </p>
     </div>
   );

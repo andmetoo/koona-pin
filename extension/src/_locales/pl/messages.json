@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Link skopiowany" },
   "shortcutHeading": { "message": "Skrót klawiszowy" },
   "shortcutText": { "message": "Otwiera wyszukiwanie w twojej bibliotece." },
+  "readingShortcutText": { "message": "Zapisuje otwartą stronę w „Do przeczytania”." },
   "shortcutNone": { "message": "Brak skrótu" },
   "shortcutChangeIn": {
     "message": "Zmień w $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Zajrzyj do ustawień rozszerzenia" },
   "menuReadingPage": { "message": "Zapisz stronę w „Do przeczytania”" },
   "menuReadingLink": { "message": "Zapisz link w „Do przeczytania”" },
+  "menuReadingLinkNamed": { "message": "Zapisz link w „Do przeczytania” w Koona Pin" },
   "commandReading": { "message": "Zapisz stronę w „Do przeczytania” w Koona Pin" },
   "badgeReading": { "message": "W „Do przeczytania” w Koona Pin" },
   "messageReadingTitle": { "message": "Zapisano w „Do przeczytania”" },

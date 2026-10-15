@@ -47,6 +47,25 @@ const toList = async (page: Page) => {
   await expect(page.locator("[data-view=list]")).toBeVisible();
 };
 
+test("the bar is icons at every width, each named with its key by its hint; no line of keys under it (#319)", async ({ page }) => {
+  await spot(card(page, TITLES[0])).click();
+  await expect(bar(page).getByRole("status")).toHaveText("1 selected");
+  const buttons = bar(page).getByRole("button");
+  const names = ["Read", "Move to…", "Tag", "Favorite", "Send to Reading", "Export", "Trash", "Clear selection"];
+  await expect(buttons).toHaveCount(names.length);
+  for (const [i, name] of names.entries()) {
+    const button = buttons.nth(i);
+    await expect(button).toHaveAccessibleName(name);
+    // Only the icon on the bar: the words are in the hint.
+    await expect(button).toHaveText("");
+  }
+  await expect(buttons.nth(0)).toHaveAttribute("aria-keyshortcuts", "Space");
+  await expect(buttons.nth(6)).toHaveAttribute("aria-keyshortcuts", "Delete");
+  await expect(buttons.nth(7)).toHaveAttribute("aria-keyshortcuts", "Escape");
+  await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText("TrashDel");
+  await expect(page.getByText(/click — add/)).toHaveCount(0);
+});
+
 test("a click selects and never opens; focus and selection look different and are announced (NP-123)", async ({ page }) => {
   const popups: unknown[] = [];
   page.on("popup", (popup) => popups.push(popup));
@@ -121,6 +140,70 @@ test("a click selects and never opens; focus and selection look different and ar
   await expect(card(page, TITLES[0])).toHaveAttribute("data-selected", "true");
   expect(await opened(page)).toEqual([]);
   await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+});
+
+test("arrows move the selection between cards and rows; a focused selected card has one ring (#319)", async ({ page }) => {
+  const cards = page.locator("article[data-bookmark-id]");
+  const selected = page.locator("article[data-bookmark-id][data-selected]");
+  const columns = await page.locator("[data-view=grid] .grid").first().evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+  expect(columns).toBeGreaterThan(1);
+  expect(columns).toBeLessThan(6);
+
+  await spot(cards.nth(0)).click();
+  await page.keyboard.press("ArrowRight");
+  await expect(selected).toHaveCount(1);
+  await expect(cards.nth(1)).toHaveAttribute("data-selected", "true");
+  await expect(cards.nth(1)).toBeFocused();
+  // One ring: the accent one around the whole card, none around its cover.
+  await expect(cards.nth(1)).toHaveCSS("outline-color", "rgb(47, 107, 79)");
+  await expect(cards.nth(1).locator("[data-ring]")).toHaveCSS("outline-style", "none");
+  await expect(announcer(page)).toHaveText(/: selected$/);
+  await page.keyboard.press("ArrowLeft");
+  await expect(cards.nth(0)).toHaveAttribute("data-selected", "true");
+  await page.keyboard.press("ArrowLeft");
+  await expect(cards.nth(0)).toHaveAttribute("data-selected", "true");
+  // ↓ a row down, ↑ back.
+  await page.keyboard.press("ArrowDown");
+  await expect(cards.nth(columns)).toHaveAttribute("data-selected", "true");
+  await expect(selected).toHaveCount(1);
+  await page.keyboard.press("ArrowUp");
+  await expect(cards.nth(0)).toHaveAttribute("data-selected", "true");
+  // Shift adds the range, as Shift+click does.
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect(selected).toHaveCount(3);
+  await expect(bar(page).getByRole("status")).toHaveText("3 selected");
+  // Space still reads, Esc still clears.
+  await page.keyboard.press(" ");
+  await expect(sheet(page)).toBeVisible();
+  // The sheet keeps its arrows: the selection under it does not move.
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Escape");
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(selected).toHaveCount(3);
+  await page.keyboard.press("Escape");
+  await expect(selected).toHaveCount(0);
+
+  // The list: ↓ ↑ by a row; ← → do nothing there.
+  await toList(page);
+  const rows = page.locator("article[data-bookmark-id]");
+  await spot(rows.nth(0)).click();
+  await page.keyboard.press("ArrowDown");
+  await expect(rows.nth(1)).toHaveAttribute("data-selected", "true");
+  await expect(rows.nth(1)).toBeFocused();
+  // The selected border thickened in place, no ink ring beside it.
+  await expect(rows.nth(1)).toHaveCSS("outline-color", "rgb(47, 107, 79)");
+  await expect(rows.nth(1)).toHaveCSS("outline-offset", "-1px");
+  await page.keyboard.press("ArrowRight");
+  await expect(rows.nth(1)).toHaveAttribute("data-selected", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(rows.nth(0)).toHaveAttribute("data-selected", "true");
+
+  // A text field keeps its arrows.
+  const search = page.getByRole("textbox", { name: "Search the library" });
+  await search.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(rows.nth(0)).toHaveAttribute("data-selected", "true");
 });
 
 test("the shutter of a card: hover slides it in, keyboard focus shows it, Tab walks Open and Read (NP-123)", async ({ page }) => {
@@ -270,9 +353,9 @@ test("Space reads the selection in a sheet over the list; ↑/↓ go through it,
   await spot(card(page, TITLES[3])).click({ modifiers: ["ControlOrMeta"] });
   await spot(card(page, TITLES[1])).click({ modifiers: ["ControlOrMeta"] });
   await expect(bar(page).getByRole("status")).toHaveText("3 selected");
-  // «Read · Space» comes first on the bar; the hint explains the clicks.
-  await expect(bar(page).getByRole("button").first()).toHaveText("ReadSpace");
-  await expect(page.getByText("Space — read the last clicked, ↑ ↓ — the other selected", { exact: false })).toBeVisible();
+  // «Read · Space» comes first on the bar: the book, named with its key by its hint.
+  await expect(bar(page).getByRole("button").first()).toHaveAccessibleName("Read");
+  await expect(bar(page).getByRole("button").first()).toHaveAttribute("aria-keyshortcuts", "Space");
 
   await page.mouse.move(5, 895);
   await page.keyboard.press(" ");

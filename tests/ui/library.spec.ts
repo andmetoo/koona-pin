@@ -1495,7 +1495,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   // Esc in the field clears the query first and keeps the selection.
   await search.press("Escape");
   await expect(search).toHaveValue("");
-  await expect(page.getByText("Ctrl+click — add", { exact: false })).toBeVisible();
+  await expect(page.getByText(/hidden by the search/)).toHaveCount(0);
 
   // Another section clears it.
   await page.getByRole("button", { name: /^Favorites/ }).click();
@@ -1756,8 +1756,8 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   const sidebar = page.getByRole("complementary", { name: "Library" });
   const three = ["The architecture of silence", "Typography is a voice", "Interfaces that stay out of the way"];
   await selectCards(page, three);
-  // Sheet S3: with several selected the hint is about reading them and the clicks.
-  await expect(page.getByText("Space — read the last clicked, ↑ ↓ — the other selected", { exact: false })).toBeVisible();
+  // Sheet S3: the bar counts them; its keys are in the hints of its buttons (#319).
+  await expect(bar.getByRole("status")).toHaveText("3 selected");
   const opened: string[] = [];
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
@@ -2881,7 +2881,7 @@ test("AI assistants: off by default, read only or read and add, the dialog for e
   await expect(section).toContainText("Search and read bookmarks, collections and tags; nothing changes");
   await section.getByRole("radio", { name: "Read and add" }).click();
   await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read_and_add");
-  await expect(section).toContainText("Ctrl Z undoes each change; nothing is deleted");
+  await expect(section).toContainText(/(Ctrl Z|⌘Z) undoes each change; nothing is deleted/);
 
   await section.getByRole("button", { name: "How to connect…" }).click();
   const dialog = page.getByRole("dialog", { name: "Connect an AI assistant" });

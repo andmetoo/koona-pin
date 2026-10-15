@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Link copied" },
   "shortcutHeading": { "message": "Keyboard shortcut" },
   "shortcutText": { "message": "Opens the search over your library." },
+  "readingShortcutText": { "message": "Saves the open page to Reading." },
   "shortcutNone": { "message": "No shortcut" },
   "shortcutChangeIn": {
     "message": "Change in $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "See the extension settings" },
   "menuReadingPage": { "message": "Save page to Reading" },
   "menuReadingLink": { "message": "Save link to Reading" },
+  "menuReadingLinkNamed": { "message": "Save link to Reading in Koona Pin" },
   "commandReading": { "message": "Save page to Reading in Koona Pin" },
   "badgeReading": { "message": "In Reading in Koona Pin" },
   "messageReadingTitle": { "message": "Saved to Reading" },

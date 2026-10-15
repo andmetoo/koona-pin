@@ -57,6 +57,7 @@
   "searchCopied": { "message": "リンクをコピーしました" },
   "shortcutHeading": { "message": "キーボード ショートカット" },
   "shortcutText": { "message": "ライブラリの検索を開きます。" },
+  "readingShortcutText": { "message": "開いているページを「あとで読む」に保存します。" },
   "shortcutNone": { "message": "ショートカットなし" },
   "shortcutChangeIn": {
     "message": "$BROWSER$ で変更",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "拡張機能の設定を確認してください" },
   "menuReadingPage": { "message": "ページを「あとで読む」に保存" },
   "menuReadingLink": { "message": "リンクを「あとで読む」に保存" },
+  "menuReadingLinkNamed": { "message": "Koona Pin の「あとで読む」にリンクを保存" },
   "commandReading": { "message": "Koona Pin の「あとで読む」にページを保存" },
   "badgeReading": { "message": "Koona Pin の「あとで読む」にあります" },
   "messageReadingTitle": { "message": "「あとで読む」に保存しました" },

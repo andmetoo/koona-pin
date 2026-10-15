@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Lien copié" },
   "shortcutHeading": { "message": "Raccourci clavier" },
   "shortcutText": { "message": "Ouvre la recherche dans votre bibliothèque." },
+  "readingShortcutText": { "message": "Enregistre la page ouverte dans « À lire »." },
   "shortcutNone": { "message": "Aucun raccourci" },
   "shortcutChangeIn": {
     "message": "Modifier dans $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Voir les paramètres de l’extension" },
   "menuReadingPage": { "message": "Enregistrer la page dans « À lire »" },
   "menuReadingLink": { "message": "Enregistrer le lien dans « À lire »" },
+  "menuReadingLinkNamed": { "message": "Enregistrer le lien dans « À lire » de Koona Pin" },
   "commandReading": { "message": "Enregistrer la page dans « À lire » de Koona Pin" },
   "badgeReading": { "message": "Dans « À lire » de Koona Pin" },
   "messageReadingTitle": { "message": "Enregistré dans « À lire »" },

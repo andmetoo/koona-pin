@@ -278,8 +278,10 @@ const saveToReading = (target) => captureTab(target, { reading: true });
 const menus = ext.menus ?? ext.contextMenus;
 // Only Chrome and Edge put «Options» on the button themselves (NP-119).
 const ownSettings = ["firefox", "safari"].includes(browserName());
+// Only Safari shows the items without the extension's name (#319).
+const named = browserName() === "safari";
 async function refreshMenu() {
-  await registerMenu(menus, { settings: ownSettings, ...(await shortcuts()) }).catch(console.error);
+  await registerMenu(menus, { settings: ownSettings, named, ...(await shortcuts()) }).catch(console.error);
 }
 ext.action.onClicked.addListener(captureTab);
 ext.commands?.onCommand.addListener((name, tab) => {

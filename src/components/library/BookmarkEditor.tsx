@@ -3,6 +3,7 @@ import { AlertCircle, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { describeError } from "../../services/errors";
+import { shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Controls";
@@ -163,7 +164,7 @@ export function BookmarkEditor({
           {saving ? t("editor.saving") : error ? t("editor.saveAgain") : t("editor.save")}
           {!saving && (
             <span aria-hidden>
-              <Kbd className="bg-white/15 text-on-accent">Ctrl ↵</Kbd>
+              <Kbd className="bg-white/15 text-on-accent">{shortcut("↵")}</Kbd>
             </span>
           )}
         </Button>

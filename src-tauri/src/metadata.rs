@@ -98,8 +98,60 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
         return meta;
     }
     let (html, _) = charset::decode(&page.body, page.content_type.as_deref());
+    // One `<meta refresh>` is followed like a redirect, as the reader does
+    // (NP-120): «Redirecting...» is not the title of the page it leads to.
+    // When the target cannot be read, the redirect page is what there is.
+    if let Some(next) = refresh_target(&html, &page.url).filter(|next| *next != page.url) {
+        if let Ok(next) = fetch_page(&client, &next, limits).await {
+            if next.is_success() && next.html {
+                let (html, _) = charset::decode(&next.body, next.content_type.as_deref());
+                read_page(&html, &next.url, &mut meta);
+                return meta;
+            }
+        }
+    }
     read_page(&html, &page.url, &mut meta);
     meta
+}
+
+/// A `<meta http-equiv="refresh">` that waits longer than this reloads a page
+/// that has its content already (news front pages); it is not a redirect.
+const REFRESH_WAIT: f64 = 10.0;
+
+/// Where `<meta http-equiv="refresh" content="0; url=…">` sends the page, if
+/// it is a redirect: a target given, soon enough.
+pub fn refresh_target(html: &str, base: &Url) -> Option<Url> {
+    let document = Html::parse_document(html);
+    let selector = Selector::parse("meta[http-equiv][content]").ok()?;
+    let content = document
+        .select(&selector)
+        .find(|el| el.value().attr("http-equiv").is_some_and(|v| v.trim().eq_ignore_ascii_case("refresh")))?
+        .value()
+        .attr("content")?;
+    // `5; url=next.html`, `0;URL='next.html'`, `0, next.html`: the standard's forms.
+    let content = content.trim();
+    let digits = content.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(content.len());
+    let wait: f64 = content[..digits].parse().ok()?;
+    if wait > REFRESH_WAIT {
+        return None;
+    }
+    let rest = content[digits..].trim_start().trim_start_matches([';', ',']).trim_start();
+    let rest = match rest.get(..3) {
+        Some(prefix) if prefix.eq_ignore_ascii_case("url") => {
+            let after = rest[3..].trim_start();
+            after.strip_prefix('=').map(str::trim_start).unwrap_or(rest)
+        }
+        _ => rest,
+    };
+    let target = match rest.chars().next() {
+        Some(quote @ ('"' | '\'')) => rest[1..].split(quote).next().unwrap_or(""),
+        _ => rest,
+    }
+    .trim();
+    if target.is_empty() {
+        return None;
+    }
+    base.join(target).ok().filter(|url| matches!(url.scheme(), "http" | "https"))
 }
 
 /// A page fetched under [`Limits`]: its status and final address, and the
@@ -593,6 +645,45 @@ mod tests {
         assert!(asked.starts_with("get /landing "), "{asked}");
         assert!(!asked.contains("referer"), "{asked}");
         assert!(!asked.contains("synthetic"), "{asked}");
+    }
+
+    #[tokio::test]
+    async fn a_meta_refresh_gives_the_target_page() {
+        // Comprehensive Rust's welcome.html: «Redirecting...» is not the title (#319).
+        let (target, _) = server("127.0.0.1", |_| {
+            html(r#"<head><title>Welcome - Comprehensive Rust</title><meta name="description" content="A course"><meta property="og:image" content="/cover.png"><link rel="icon" sizes="64x64" href="/icon.png"></head>"#)
+        });
+        let (start, _) = server("127.0.0.1", move |_| {
+            html(&format!(r#"<html><head><title>Redirecting...</title><meta http-equiv="refresh" content="0; url=http://127.0.0.1:{target}/index.html"></head></html>"#))
+        });
+        let meta = fetch_with(&format!("http://127.0.0.1:{start}/welcome.html"), &TEST).await;
+        assert_eq!(meta.title.as_deref(), Some("Welcome - Comprehensive Rust"));
+        assert_eq!(meta.description.as_deref(), Some("A course"));
+        assert_eq!(meta.image_url, Some(format!("http://127.0.0.1:{target}/cover.png")));
+        assert_eq!(meta.favicon_url, Some(format!("http://127.0.0.1:{target}/icon.png")));
+        assert_eq!(meta.domain, "127.0.0.1", "the saved address stays");
+        // Only one: a second refresh is the page the title comes from.
+        let (twice, _) = server("127.0.0.1", move |_| {
+            html(&format!(r#"<title>Second</title><meta http-equiv="refresh" content="0; url=http://127.0.0.1:{start}/">"#))
+        });
+        let (first, _) = server("127.0.0.1", move |_| html(&format!(r#"<title>First</title><meta http-equiv="refresh" content="0; url=http://127.0.0.1:{twice}/">"#)));
+        assert_eq!(fetch_with(&format!("http://127.0.0.1:{first}/"), &TEST).await.title.as_deref(), Some("Second"));
+        // A refresh that waits long is a reload, not a redirect.
+        let (reload, _) = server("127.0.0.1", move |_| html(&format!(r#"<title>News</title><meta http-equiv="refresh" content="300; url=http://127.0.0.1:{target}/">"#)));
+        assert_eq!(fetch_with(&format!("http://127.0.0.1:{reload}/"), &TEST).await.title.as_deref(), Some("News"));
+    }
+
+    #[tokio::test]
+    async fn a_meta_refresh_to_the_local_network_is_not_followed() {
+        let (inside, hits) = server("127.0.0.2", |_| html("<title>Inside</title>"));
+        for host in ["127.0.0.2", "localhost"] {
+            let (refresh, _) = server("127.0.0.1", move |_| {
+                html(&format!(r#"<title>Redirecting...</title><meta http-equiv="refresh" content="0; url=http://{host}:{inside}/">"#))
+            });
+            // The redirect page is what there is.
+            assert_eq!(fetch_with(&format!("http://127.0.0.1:{refresh}/"), &TEST).await.title.as_deref(), Some("Redirecting..."));
+        }
+        assert_eq!(hits.load(Ordering::SeqCst), 0, "the local address got no request");
     }
 
     #[tokio::test]

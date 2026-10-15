@@ -57,6 +57,7 @@
   "searchCopied": { "message": "링크를 복사했습니다" },
   "shortcutHeading": { "message": "바로 가기 키" },
   "shortcutText": { "message": "라이브러리 검색을 엽니다." },
+  "readingShortcutText": { "message": "열려 있는 페이지를 읽을거리에 저장합니다." },
   "shortcutNone": { "message": "바로 가기 키 없음" },
   "shortcutChangeIn": {
     "message": "$BROWSER$에서 변경",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "확장 프로그램 설정을 확인하세요" },
   "menuReadingPage": { "message": "페이지를 읽을거리에 저장" },
   "menuReadingLink": { "message": "링크를 읽을거리에 저장" },
+  "menuReadingLinkNamed": { "message": "Koona Pin 읽을거리에 링크 저장" },
   "commandReading": { "message": "Koona Pin 읽을거리에 페이지 저장" },
   "badgeReading": { "message": "Koona Pin 읽을거리에 있음" },
   "messageReadingTitle": { "message": "읽을거리에 저장했습니다" },

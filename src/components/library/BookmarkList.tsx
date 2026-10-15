@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection, ViewMode } from "../../types";
 import { DateGroup, groupOf } from "../../services/dateGroups";
+import { Arrow, arrowTarget } from "../../services/keys";
 import { listTime } from "../../services/library";
 import { BookmarkActions, BookmarkCard, BookmarkRow, CARD_TEXT_HEIGHT, ROW_HEIGHT, SELECTED_NOTE } from "./Bookmarks";
 
@@ -13,6 +14,15 @@ const MIN_CARD = { wide: 240, narrow: 190 };
 /** List of frame 02: group header 31 px, rows 60 px, 2 px between them. */
 const HEADER_HEIGHT = 31;
 const LIST_GAP = 2;
+
+/** What the selection bar and its hints cover at the bottom of the list (the scroll area's bottom padding). */
+const SELECTION_BAR = 120;
+
+/**
+ * An arrow from the bookmark `from` (none: from nowhere): the bookmark it
+ * reaches, scrolled into view and focused, or `null` at the edge.
+ */
+export type Arrows = (key: Arrow, from: number | null) => Bookmark | null;
 
 type ListEntry = { kind: "header"; group: DateGroup; size: number } | { kind: "row"; bookmark: Bookmark };
 
@@ -220,6 +230,7 @@ export function BookmarkList({
   onClearSelection,
   onDragStart,
   dragging,
+  arrowsRef,
 }: {
   view: ViewMode;
   bookmarks: Bookmark[];
@@ -242,6 +253,8 @@ export function BookmarkList({
   onDragStart?: (e: PointerEvent, id: number) => void;
   /** The selection is being dragged: the selected fade to 45 % (frame 05). */
   dragging: boolean;
+  /** Filled with `arrows`: App calls it for the arrow keys of the library (#319). */
+  arrowsRef: RefObject<Arrows | null>;
 }) {
   const { t } = useTranslation();
   const box = useRef<HTMLDivElement>(null);
@@ -281,6 +294,8 @@ export function BookmarkList({
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollRef.current,
+    // The selection bar covers the bottom of the list: a card reached by an arrow stops above it.
+    scrollPaddingEnd: selected.size ? SELECTION_BAR : 0,
     estimateSize: (index) =>
       grid ? cardHeight + GAP_Y : (entries[index]?.kind === "header" ? HEADER_HEIGHT : ROW_HEIGHT) + LIST_GAP,
     getItemKey: (index) => {
@@ -296,6 +311,29 @@ export function BookmarkList({
   const geometry = useRef<Geometry>(null!);
   geometry.current = { grid, bookmarks, entries, columns, cardWidth, cardHeight, width };
   const frame = useSelectionFrame(scrollRef, inner, geometry, selected, onSelect, onClearSelection, onDragStart);
+
+  /** The card or row an arrow chose, focused once the virtualizer has drawn it. */
+  const focusing = useRef<number | null>(null);
+  arrowsRef.current = (key, from) => {
+    const g = geometry.current;
+    const index = from === null ? -1 : g.bookmarks.findIndex((b) => b.id === from);
+    const next = arrowTarget(index, key, g.bookmarks.length, g.grid ? g.columns : 1);
+    if (next === null) return null;
+    const b = g.bookmarks[next];
+    const row = g.grid ? Math.floor(next / g.columns) : g.entries.findIndex((entry) => entry.kind === "row" && entry.bookmark.id === b.id);
+    // A row header above the first of a group comes into view with it.
+    virtualizer.scrollToIndex(!g.grid && row > 0 && g.entries[row - 1].kind === "header" && key === "ArrowUp" ? row - 1 : row, { align: "auto" });
+    focusing.current = b.id;
+    return b;
+  };
+  useEffect(() => () => void (arrowsRef.current = null), [arrowsRef]);
+  useEffect(() => {
+    const id = focusing.current;
+    const element = id === null ? null : inner.current?.querySelector<HTMLElement>(`[data-bookmark-id="${id}"]`);
+    if (!element) return;
+    focusing.current = null;
+    element.focus({ preventScroll: true });
+  });
 
   const items = virtualizer.getVirtualItems();
   const last = items.at(-1)?.index ?? -1;

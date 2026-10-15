@@ -57,6 +57,7 @@
   "searchCopied": { "message": "Link copiado" },
   "shortcutHeading": { "message": "Atalho de teclado" },
   "shortcutText": { "message": "Abre a pesquisa na sua biblioteca." },
+  "readingShortcutText": { "message": "Salva a página aberta em Para ler." },
   "shortcutNone": { "message": "Sem atalho" },
   "shortcutChangeIn": {
     "message": "Alterar no $BROWSER$",
@@ -128,6 +129,7 @@
   "messageFailedText": { "message": "Veja as configurações da extensão" },
   "menuReadingPage": { "message": "Salvar página em Para ler" },
   "menuReadingLink": { "message": "Salvar link em Para ler" },
+  "menuReadingLinkNamed": { "message": "Salvar link em Para ler do Koona Pin" },
   "commandReading": { "message": "Salvar página em Para ler do Koona Pin" },
   "badgeReading": { "message": "Em Para ler do Koona Pin" },
   "messageReadingTitle": { "message": "Salvo em Para ler" },

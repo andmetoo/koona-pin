@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { composing } from "./services/ime";
+import { isArrow, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
@@ -23,7 +24,7 @@ import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
 import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
-import { BookmarkList } from "./components/library/BookmarkList";
+import { Arrows, BookmarkList } from "./components/library/BookmarkList";
 import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
@@ -118,6 +119,8 @@ export function App() {
   const selection = useSelection(filters, page === "library" && !triage);
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
+  /** The arrows of the grid and the list (#319), filled by `BookmarkList` while it is shown. */
+  const arrowsRef = useRef<Arrows | null>(null);
   /** The loaded order, for `Shift`+click ranges. */
   const loadedRef = useRef(library.bookmarks);
   loadedRef.current = library.bookmarks;
@@ -237,9 +240,11 @@ export function App() {
       // the bookmark there could change under the form.
       const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]");
       // Triage takes `Z` and Ctrl Z back for its own decisions.
+      const above = editing || triage || document.querySelector("dialog[open], [data-menu]");
       // The reading mode is a layer too: the library under it keeps its selection and keys.
-      const layer = editing || triage || reading || document.querySelector("dialog[open], [data-menu]");
-      if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && !typing && !layer) {
+      // Ctrl Z still works there (#319): «Remove from Reading» is taken back from the mode.
+      const layer = above || reading;
+      if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && !typing && !above) {
         e.preventDefault();
         undoRef.current();
       }
@@ -271,6 +276,20 @@ export function App() {
         if (e.key === " " && plain && !e.shiftKey && !typing && !own && !e.repeat && !filters.onlyTrash && selectionRef.current.ids.size) {
           e.preventDefault();
           readSelectionRef.current();
+        }
+        // Arrows move the selection between cards and rows (#319), Shift adds the range
+        // as Shift+click does. Only from the list or from nowhere: the sidebar, the toolbar
+        // and fields keep their arrows; the reading sheet and menus are layers.
+        const target = e.target instanceof HTMLElement ? e.target : null;
+        const fromList = !target || target === document.body || !!target.closest("[data-view]");
+        if (isArrow(e.key) && fromList && !e.ctrlKey && !e.metaKey && !e.altKey && !typing && !e.defaultPrevented && arrowsRef.current) {
+          e.preventDefault();
+          // From the focused card, else the last one clicked of the selection.
+          const card = target?.closest<HTMLElement>("[data-bookmark-id]");
+          const last = selectionRef.current.last();
+          const from = card ? Number(card.dataset.bookmarkId) : last !== null && selectionRef.current.ids.has(last) ? last : null;
+          const b = arrowsRef.current(e.key, from);
+          if (b) actionsRef.current.select(b, e.shiftKey && from !== null ? "range" : "only");
         }
       }
     };
@@ -707,6 +726,9 @@ export function App() {
     }),
     [library.collections, t, linkTarget],
   );
+  /** For the arrows of the key handler, which is set up before `actions`. */
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
   const closeEditor = () => {
     editHooks.current = null;
     setEditing(null);
@@ -901,6 +923,7 @@ export function App() {
       // In the trash the selection is not dragged; while an action runs, nothing starts.
       onDragStart={filters.onlyTrash || bulkBusy ? undefined : startDrag}
       dragging={!!dragging}
+      arrowsRef={arrowsRef}
     />
   );
   const toast = notice ? (
@@ -911,7 +934,7 @@ export function App() {
         notice.undo ? (
           <button type="button" onClick={notice.undo} className="flex items-center gap-2 font-semibold text-[#8fd0ae]">
             {t("notice.undo")}
-            <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">Ctrl Z</kbd>
+            <kbd className="rounded-xs bg-white/15 px-1.5 font-sans text-2xs font-normal text-white/80">{shortcut("Z")}</kbd>
           </button>
         ) : notice.show ? (
           <button type="button" onClick={notice.show} className="font-semibold text-[#8fd0ae]">
@@ -1282,16 +1305,15 @@ export function App() {
                   {content}
                 </div>
                 {selecting && (
-                  // Frames 04 and 27: the bar 42 px above the bottom, its hints under it, notices above it.
+                  // Frames 04 and 27: the bar 24 px above the bottom, a message under it when there is one, notices above it.
                   <div
-                    className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-2 px-4 *:pointer-events-auto ${compact ? "bottom-6" : "bottom-[18px]"}`}
+                    className="pointer-events-none absolute inset-x-0 bottom-6 z-30 flex flex-col items-center gap-2 px-4 *:pointer-events-auto"
                   >
                     {!reading && toast}
                     <SelectionBar
                       count={selection.ids.size}
                       hidden={selection.hidden}
                       narrowed={narrowed}
-                      compact={compact}
                       trash={filters.onlyTrash}
                       allStarred={selection.allStarred}
                       inReading={filters.onlyReading}
@@ -1580,6 +1602,7 @@ export function App() {
           }}
           onOpen={open}
           onMarkRead={(b) => readingChange(b, { action: "read", read: true })}
+          onRemove={(b) => readingChange(b, { action: "reading", reading: false })}
           onClose={closeReading}
           look={readerLook.look}
           aa={{
