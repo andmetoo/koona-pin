@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { countWords, extractArticle, linkDensity, READER_MIN_WORDS, sanitize, sharesTitle, READER_SHORT_WORDS, verdict } from "./reader";
+import { countWords, dekOf, extractArticle, linkDensity, READER_MIN_WORDS, sanitize, sharesTitle, READER_SHORT_WORDS, verdict } from "./reader";
 
 const fixture = (name: string) => readFileSync(join(__dirname, "fixtures", "reader", name), "utf8");
 const dom = (html: string) => new DOMParser().parseFromString(html, "text/html").body;
@@ -161,5 +161,24 @@ describe("counting", () => {
   it("measures how much of the text is links", () => {
     expect(linkDensity(dom(`<p>one two <a href="#">three four</a></p>`))).toBeCloseTo(9 / 15);
     expect(linkDensity(dom("<p></p>"))).toBe(0);
+  });
+});
+
+describe("dek", () => {
+  const body = (html: string) => new DOMParser().parseFromString(html, "text/html").body;
+  const text = body("<p>Most secure elements are sold as black boxes. You trust the vendor, and nobody can check.</p><p>Second.</p>");
+  it("keeps a description the text does not open with", () => {
+    expect(dekOf("Why a secure element you can inspect matters, and what changes when the files are public.", text)).toBe(
+      "Why a secure element you can inspect matters, and what changes when the files are public.",
+    );
+  });
+  it("drops one that repeats the first paragraph, whole or cut short", () => {
+    expect(dekOf("Most secure elements are sold as black boxes. You trust the vendor, and nobody can check.", text)).toBeNull();
+    expect(dekOf("Most secure elements are sold as black boxes. You trust the…", text)).toBeNull();
+    expect(dekOf("  most SECURE elements are sold as black   boxes — you trust the vendor  ", text)).toBeNull();
+  });
+  it("drops none or a stub", () => {
+    expect(dekOf(undefined, text)).toBeNull();
+    expect(dekOf("Blog", text)).toBeNull();
   });
 });

@@ -18,6 +18,8 @@ export interface Article {
   /** The site's own name, if it gives one. */
   site: string | null;
   published: string | null;
+  /** The dek under the title: the page's description, unless the text opens with it. */
+  description: string | null;
   /** BCP 47, as the page declares it. */
   language: string | null;
   /** Clean HTML: no scripts, frames, forms, styles or handlers; https pictures only. */
@@ -89,6 +91,7 @@ export function cachedArticle(url: string): Promise<ReadResult> {
   const result = readArticle(url).then(
     (read) => {
       if (!read.ok && (read.failure.reason === "timeout" || read.failure.reason === "network")) forget();
+      else if (read.ok && articles.get(url) === result) words.set(url, read.article.words);
       return read;
     },
     (error: unknown) => {
@@ -101,6 +104,18 @@ export function cachedArticle(url: string): Promise<ReadResult> {
   if (articles.size > KEPT_ARTICLES) articles.delete(articles.keys().next().value!);
   return result;
 }
+
+/** Words of the articles read in this session, kept longer than the articles: a number per address. */
+const words = new Map<string, number>();
+
+/**
+ * Minutes of an article already read in this session; `null` before that. The
+ * reading mode's queue shows them without asking any site for its page.
+ */
+export const knownMinutes = (url: string) => {
+  const count = words.get(url);
+  return count === undefined ? null : readingMinutes(count);
+};
 
 /** Minutes to read at 230 words a minute, at least one. */
 export const readingMinutes = (words: number) => Math.max(1, Math.round(words / 230));
@@ -170,12 +185,31 @@ export function articleOf(html: string, url: string): Article | null {
     author: authorOf(result.author),
     site: result.site?.trim() || null,
     published: result.published?.trim() || null,
+    description: dekOf(result.description, counted),
     language,
     html: clean,
     words: countWords(counted.textContent ?? "", language),
     linkDensity: linkDensity(counted),
     onTopic: sharesTitle(title, counted.textContent ?? ""),
   };
+}
+
+/** A description with fewer letters than this is no dek. */
+const DEK_MIN = 20;
+
+/**
+ * The page's description as a dek, or `null` when it only repeats the start of
+ * the article: many sites copy the first paragraph into it, or cut it short.
+ */
+export function dekOf(description: string | undefined, body: Element): string | null {
+  const dek = description?.replace(/\s+/g, " ").trim() ?? "";
+  if (dek.length < DEK_MIN) return null;
+  const letters = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const first = body.querySelector("p")?.textContent ?? body.textContent ?? "";
+  const start = letters(first).slice(0, 600);
+  // Cut with «…» or a few words less: compare the first 60 letters only.
+  const head = letters(dek.replace(/(\.\.\.|…)$/, "")).slice(0, 60);
+  return head && start.includes(head) ? null : dek;
 }
 
 const refuseFetch: typeof globalThis.fetch = () => Promise.reject(new Error("The reader makes no requests of its own"));

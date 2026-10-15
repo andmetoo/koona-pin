@@ -28,6 +28,7 @@ import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
 import { EditHooks, Triage } from "./components/library/Triage";
 import { ReadingSheet } from "./components/reader/ReadingSheet";
+import { ReadingMode, ReadingSource } from "./components/reader/ReadingMode";
 import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
@@ -125,6 +126,12 @@ export function App() {
   linkTargetRef.current = linkTarget;
   /** The reading sheet over the list (NP-123): what `↑`/`↓` go through and which one shows. */
   const [sheet, setSheet] = useState<{ ids: number[]; index: number } | null>(null);
+  /** The reading mode (NP-122): what its queue reads and which bookmark it starts with. */
+  const [reading, setReading] = useState<{ source: ReadingSource; start: number | null } | null>(null);
+  /** The toolbar's «Read»: the drop starts there and folds back into it. */
+  const readButton = useRef<HTMLButtonElement>(null);
+  /** What had focus before the mode: it gets it back. */
+  const readingFocus = useRef<HTMLElement | null>(null);
   /** What a screen reader hears when a click changes the selection (NP-123). */
   const [announcement, setAnnouncement] = useState("");
   const [editing, setEditing] = useState<Bookmark | null>(null);
@@ -203,7 +210,7 @@ export function App() {
       // Keys an IME uses to build a character are not shortcuts (NP-090).
       if (composing(e)) return;
       const key = e.key.toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && key === "k") {
+      if ((e.ctrlKey || e.metaKey) && key === "k" && !reading) {
         e.preventDefault();
         setPage("library");
         setTriage(null);
@@ -227,7 +234,8 @@ export function App() {
       // the bookmark there could change under the form.
       const typing = e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]");
       // Triage takes `Z` and Ctrl Z back for its own decisions.
-      const layer = editing || triage || document.querySelector("dialog[open], [data-menu]");
+      // The reading mode is a layer too: the library under it keeps its selection and keys.
+      const layer = editing || triage || reading || document.querySelector("dialog[open], [data-menu]");
       if ((e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey && !typing && !layer) {
         e.preventDefault();
         undoRef.current();
@@ -265,7 +273,7 @@ export function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [wide, editing, triage, page, filters.onlyTrash, filters.onlyReading]);
+  }, [wide, editing, triage, page, filters.onlyTrash, filters.onlyReading, reading]);
   // The first close without a tray explains that the app keeps running (NP-096).
   useEffect(() => api.onCloseToBackground(() => setSurface("background")), []);
   useEffect(() => {
@@ -604,6 +612,27 @@ export function App() {
   };
   const readSelectionRef = useRef(readSelection);
   readSelectionRef.current = readSelection;
+  /**
+   * The reading mode (NP-122): «Read» opens Reading at its first unread
+   * bookmark; a link followed «in reading mode» (Р-69, point 5) opens the
+   * section at that bookmark. The library stays underneath as it was.
+   */
+  const openReading = (start: number | null = null) => {
+    readingFocus.current = document.activeElement as HTMLElement | null;
+    setSheet(null);
+    setReading({ source: start === null ? "reading" : "section", start });
+  };
+  const openReadingRef = useRef(openReading);
+  openReadingRef.current = openReading;
+  const readingOrigin = useCallback(() => {
+    const rect = readButton.current?.getBoundingClientRect();
+    return rect && rect.width ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
+  }, []);
+  const closeReading = useCallback(() => {
+    setReading(null);
+    // Back where the person was: the toolbar's «Read» or the card a link was followed from.
+    requestAnimationFrame(() => (readingFocus.current?.isConnected ? readingFocus.current : readButton.current)?.focus({ preventScroll: true }));
+  }, []);
   const actions: BookmarkActions = useMemo(
     () => ({
       open,
@@ -670,7 +699,7 @@ export function App() {
         setAnnouncement(t(now ? "selection.announce" : "selection.unannounce", { title }));
       },
       readHere: (b) => readHereRef.current(b),
-      follow: (b) => (linkTargetRef.current === "reader" ? readHereRef.current(b) : open(b.url)),
+      follow: (b) => (linkTargetRef.current === "reader" ? openReadingRef.current(b.id) : open(b.url)),
       linksToBrowser: linkTarget === "browser",
     }),
     [library.collections, t, linkTarget],
@@ -926,6 +955,8 @@ export function App() {
   const padding = narrow ? "px-6" : "px-8";
   return (
     <div className="flex h-full bg-bg text-ink">
+      {/* Under the reading mode the library waits as it was (scroll, selection) and takes no focus. */}
+      <div className="contents" inert={!!reading}>
       <Sidebar
         narrow={narrow}
         filters={filters}
@@ -1074,6 +1105,8 @@ export function App() {
                     links={library.counts.links}
                     onLinks={openLinks}
                     onAdd={() => setSurface("add")}
+                    onRead={() => openReading()}
+                    readRef={readButton}
                   />
                   {capture?.state === "failing" && (
                     <Banner
@@ -1245,7 +1278,7 @@ export function App() {
                   <div
                     className={`pointer-events-none absolute inset-x-0 z-30 flex flex-col items-center gap-2 px-4 *:pointer-events-auto ${compact ? "bottom-6" : "bottom-[18px]"}`}
                   >
-                    {toast}
+                    {!reading && toast}
                     <SelectionBar
                       count={selection.ids.size}
                       hidden={selection.hidden}
@@ -1288,6 +1321,7 @@ export function App() {
             </aside>
           )}
         </div>
+      </div>
       </div>
 
       {editing && !wide && (
@@ -1521,11 +1555,30 @@ export function App() {
           onClose={() => setSheet(null)}
         />
       )}
+      {reading && (
+        <ReadingMode
+          narrow={narrow}
+          origin={readingOrigin}
+          source={reading.source}
+          start={reading.start}
+          section={{
+            name: section,
+            reading: filters.onlyReading,
+            available: !filters.onlyTrash,
+            items: library.bookmarks,
+            hasMore: library.hasMore,
+            onMore: library.loadMore,
+          }}
+          onOpen={open}
+          onMarkRead={(b) => readingChange(b, { action: "read", read: true })}
+          onClose={closeReading}
+        />
+      )}
       {/* NP-123: a click that selects or unselects is said, not only shown; not a status, so notices stay apart. */}
       <p aria-live="polite" data-announcer className="sr-only">
         {announcement}
       </p>
-      {!selecting && toast}
+      {(!selecting || reading) && toast}
     </div>
   );
 }

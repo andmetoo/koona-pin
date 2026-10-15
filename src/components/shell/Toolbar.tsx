@@ -1,5 +1,6 @@
 import { forwardRef, useRef, useState } from "react";
 import {
+  BookOpen,
   ArrowDownToLine,
   ArrowDownWideNarrow,
   ArrowUpFromLine,
@@ -50,6 +51,9 @@ export interface ToolbarProps {
   links: number;
   onLinks: () => void;
   onAdd: () => void;
+  /** «Read» in the right corner (Р-69, frame R0): the reading mode drops from it. */
+  onRead: () => void;
+  readRef?: React.Ref<HTMLButtonElement>;
 }
 
 /** One row 36 px (frame 01): title and count, search, order, view, «⋯», «Add». */
@@ -85,7 +89,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
     </Hint>
   );
   return (
-    <div className="@container flex h-9 items-center gap-2.5">
+    <div className={`@container flex h-9 items-center ${props.narrow ? "gap-1.5" : "gap-2.5"}`}>
       {/* The title takes the free room; when the row runs short the search field gives way
           first, so much faster that the title loses not even a pixel, down to 120 px (NP-089: «Todos os marcadores» at
           800 px), and only then is the title cut. The buttons never shrink. */}
@@ -218,6 +222,21 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
         <Icon icon={Plus} size={14} strokeWidth={2} absoluteStrokeWidth />
         {t("toolbar.addShort")}
       </Button>
+      {/* In a narrow window the word gives way to the book; the hint names it. */}
+      <Hint label={t("readingMode.read")} show={props.narrow}>
+        <Button
+          ref={props.readRef}
+          variant="outline"
+          size="lg"
+          data-read-mode
+          onClick={props.onRead}
+          aria-label={props.narrow ? t("readingMode.read") : undefined}
+          className={`rounded-lg text-ink ${props.narrow ? "w-[34px] !px-0" : ""}`}
+        >
+          <Icon icon={BookOpen} size={15} className="shrink-0" />
+          {!props.narrow && t("readingMode.read")}
+        </Button>
+      </Hint>
     </div>
   );
 });

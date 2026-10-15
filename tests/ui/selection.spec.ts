@@ -237,18 +237,25 @@ test("the links of a row: title and thumbnail with ↗; double-click and Enter f
     (window as unknown as { opened: string[] }).opened = [];
     api.openUrl = async (url: string) => void (window as unknown as { opened: string[] }).opened.push(url);
   });
+  // NP-122: «in reading mode» is the mode itself, at that bookmark; Esc twice comes back.
+  const article = page.locator("[data-reading-mode] .reader-title");
+  const leave = async () => {
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-reading-mode]")).toHaveCount(0);
+  };
   await spot(card(page, TITLES[3])).dblclick();
-  await expect(sheet(page).getByRole("heading", { level: 1 })).toHaveText(TITLES[3]);
-  await page.keyboard.press("Escape");
+  await expect(article).toHaveText(TITLES[3]);
+  await leave();
   await card(page, TITLES[3]).focus();
   await page.keyboard.press("Enter");
-  await expect(sheet(page).getByRole("heading", { level: 1 })).toHaveText(TITLES[3]);
-  await page.keyboard.press("Escape");
+  await expect(article).toHaveText(TITLES[3]);
+  await leave();
   await toList(page);
   await expect(card(page, TITLES[1]).getByRole("link", { name: TITLES[1], exact: true }).locator("svg")).toHaveCount(0);
   await card(page, TITLES[1]).getByRole("link", { name: TITLES[1], exact: true }).click();
-  await expect(sheet(page).getByRole("heading", { level: 1 })).toHaveText(TITLES[1]);
-  await page.keyboard.press("Escape");
+  await expect(article).toHaveText(TITLES[1]);
+  await leave();
   // «↗ Open» of the shutter is always the browser.
   await page.getByRole("button", { name: "Grid", exact: true }).click();
   await card(page, TITLES[3]).locator("[data-preview]").hover();
