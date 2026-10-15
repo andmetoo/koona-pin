@@ -63,6 +63,10 @@ enum Message {
         url: String,
         #[serde(default)]
         title: Option<String>,
+        /// «Save to Reading» (NP-125). Absent from a plain save and from
+        /// extensions before 0.11: the protocol stays 2.
+        #[serde(default)]
+        reading: bool,
     },
     /// The quick search of the extension's popup (NP-082).
     Search {
@@ -195,6 +199,7 @@ pub fn handle(
             request_id,
             url,
             title,
+            reading,
             ..
         } => {
             let request = CaptureRequest {
@@ -203,6 +208,7 @@ pub fn handle(
                 title,
                 collection_id: None,
                 tags: None,
+                reading,
             };
             let source = browser.map_or(Source::Extension, Browser::source);
             match capture::save(conn, &request, source) {
@@ -218,6 +224,10 @@ pub fn handle(
                     // Back from the trash: older extensions see a plain `created`.
                     if saved.restored {
                         reply["restored"] = json!(true);
+                    }
+                    // In Reading now, as asked: the extension says «Saved to Reading».
+                    if saved.reading {
+                        reply["reading"] = json!(true);
                     }
                     Handled {
                         reply,
@@ -1113,6 +1123,150 @@ mod tests {
         assert_eq!(saved.reply["code"], "database_error");
         // The record stays in memory.
         assert_eq!(browsers::status(&connections, None, now()).state, browsers::CaptureState::Connected);
+    }
+
+    /// «Save to Reading» (NP-125): a capture with the flag.
+    fn to_reading(id: &str, url: &str) -> Value {
+        let mut message = capture(id, url, "firefox");
+        message["reading"] = json!(true);
+        message
+    }
+    /// (in Reading, unread, waiting in the inbox) of the bookmark at `url`.
+    fn placed(c: &Connection, url: &str) -> (bool, bool, bool) {
+        c.query_row(
+            "SELECT reading_at IS NOT NULL, read_at IS NULL, triaged_at IS NULL FROM bookmarks WHERE url = ?1",
+            [url],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn a_page_saved_to_reading_lands_in_reading_and_still_waits_in_the_inbox() {
+        let c = database();
+        let mut connections = Connections::default();
+        let saved = handle(&c, &mut connections, &envelope(to_reading("r1", "https://example.com/article")), now());
+        assert_eq!(saved.reply["ok"], true);
+        assert_eq!(saved.reply["outcome"], "created");
+        assert_eq!(saved.reply["reading"], true);
+        let result = saved.saved.unwrap();
+        assert!(result.newly_created && result.reading);
+        // The interface gets the bookmark already in Reading, and the metadata
+        // request after it still matches its revision.
+        let bookmark = result.bookmark.unwrap();
+        assert!(bookmark.reading_at.is_some());
+        assert_eq!(bookmark.revision, db::get_bookmark_by_id(&c, bookmark.id).unwrap().revision);
+        assert_eq!(placed(&c, "https://example.com/article"), (true, true, true));
+        let counts = db::get_counts(&c).unwrap();
+        assert_eq!((counts.total, counts.inbox, crate::reading::counts(&c).unwrap()), (1, 1, (1, 1)));
+        // A plain save says nothing of Reading and puts nothing there.
+        let plain = handle(&c, &mut connections, &envelope(capture("r2", "https://example.com/plain", "chrome")), now());
+        assert!(plain.reply.get("reading").is_none());
+        assert_eq!(placed(&c, "https://example.com/plain"), (false, true, true));
+    }
+
+    #[test]
+    fn an_already_saved_page_is_only_added_to_reading_where_it_is() {
+        let c = database();
+        let mut connections = Connections::default();
+        // One sorted out of the inbox, one still waiting there.
+        let sorted = handle(&c, &mut connections, &envelope(capture("r1", "https://example.com/sorted", "chrome")), now());
+        let sorted_id = sorted.reply["bookmark_id"].as_i64().unwrap();
+        db::apply_bulk(&c, &[sorted_id], &db::Bulk::Favorite(true)).unwrap();
+        handle(&c, &mut connections, &envelope(capture("r2", "https://example.com/waiting", "chrome")), now());
+        let before: (String, Option<String>) = c
+            .query_row("SELECT title, triaged_at FROM bookmarks WHERE id = ?1", [sorted_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+
+        let again = handle(&c, &mut connections, &envelope(to_reading("r3", "https://example.com/sorted")), now());
+        assert_eq!((again.reply["outcome"].as_str(), again.reply["reading"].as_bool()), (Some("existing"), Some(true)));
+        assert_eq!(again.reply["bookmark_id"], sorted_id);
+        let result = again.saved.unwrap();
+        assert!(!result.newly_created && result.reading_changed, "the interface hears of it");
+        let waiting = handle(&c, &mut connections, &envelope(to_reading("r4", "https://example.com/waiting")), now());
+        assert_eq!(waiting.reply["outcome"], "existing");
+        // No duplicate; the sorted one stays sorted with its title, the other waits in the inbox.
+        assert_eq!(db::get_counts(&c).unwrap().total, 2);
+        assert_eq!(placed(&c, "https://example.com/sorted"), (true, true, false));
+        assert_eq!(placed(&c, "https://example.com/waiting"), (true, true, true));
+        let after: (String, Option<String>) = c
+            .query_row("SELECT title, triaged_at FROM bookmarks WHERE id = ?1", [sorted_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!(after, before);
+
+        // Already in Reading: its place and progress stay, nothing is written.
+        let at: String = c.query_row("SELECT reading_at FROM bookmarks WHERE id = ?1", [sorted_id], |r| r.get(0)).unwrap();
+        crate::reading::set_progress(&c, sorted_id, 0.4).unwrap();
+        let revision = db::get_bookmark_by_id(&c, sorted_id).unwrap().revision;
+        let third = handle(&c, &mut connections, &envelope(to_reading("r5", "https://example.com/sorted")), now());
+        assert_eq!(third.reply["reading"], true);
+        assert!(!third.saved.unwrap().reading_changed);
+        let now_there = db::get_bookmark_by_id(&c, sorted_id).unwrap();
+        assert_eq!((now_there.reading_at.as_deref(), now_there.reading_progress, now_there.revision), (Some(at.as_str()), 0.4, revision));
+
+        // A read one, saved to Reading again, starts over unread, as «Send to Reading» does.
+        crate::reading::set_progress(&c, sorted_id, 1.0).unwrap();
+        db::apply_bulk(&c, &[sorted_id], &db::Bulk::Reading(false)).unwrap();
+        handle(&c, &mut connections, &envelope(to_reading("r6", "https://example.com/sorted")), now());
+        assert_eq!(placed(&c, "https://example.com/sorted"), (true, true, false));
+    }
+
+    #[test]
+    fn a_page_saved_to_reading_from_the_trash_comes_back_to_the_inbox_and_reading() {
+        let c = database();
+        let mut connections = Connections::default();
+        let first = handle(&c, &mut connections, &envelope(capture("r1", "https://example.com/", "edge")), now());
+        db::trash_bookmark(&c, first.reply["bookmark_id"].as_i64().unwrap()).unwrap();
+        let back = handle(&c, &mut connections, &envelope(to_reading("r2", "https://example.com/")), now());
+        assert_eq!(
+            (back.reply["outcome"].as_str(), back.reply["restored"].as_bool(), back.reply["reading"].as_bool()),
+            (Some("created"), Some(true), Some(true))
+        );
+        assert_eq!(placed(&c, "https://example.com/"), (true, true, true));
+        assert!(back.saved.unwrap().bookmark.unwrap().reading_at.is_some());
+    }
+
+    /// The extension keeps a link saved to Reading in its queue while the app
+    /// is closed (extension/src/queue.js) and sends the same line when the app
+    /// starts: the library opened afresh puts it in Reading. A reply lost on
+    /// the way is answered from the receipt and does not put back a link taken
+    /// out of Reading since.
+    #[test]
+    fn a_page_saved_to_reading_while_the_app_was_closed_lands_in_reading_on_start() {
+        let dir = std::env::temp_dir().join(format!("koonapin-np125-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("koonapin.db");
+        let open = || {
+            let mut c = Connection::open(&path).unwrap();
+            crate::db::register_functions(&c).unwrap();
+            c.pragma_update(None, "foreign_keys", true).unwrap();
+            crate::migrations::migrate(&mut c, None).unwrap();
+            c
+        };
+        // The library as the app left it when it closed.
+        let c = open();
+        handle(&c, &mut Connections::default(), &envelope(capture("r0", "https://example.com/known", "firefox")), now());
+        drop(c);
+        // The queued message, word for word as the host writes it to the pipe.
+        let queued = json!({ "type": "capture", "protocol": PROTOCOL, "version": "0.11.0", "browser": "firefox",
+                             "request_id": "queued-1", "url": "https://example.com/later", "title": "Later", "reading": true });
+        let line = format!("{}\n", json!({ "caller": "pin@koona.app", "message": queued }));
+        let c = open();
+        let mut connections = Connections::load(&c);
+        let delivered = handle(&c, &mut connections, &parse(line.as_bytes()).unwrap(), now());
+        assert_eq!((delivered.reply["outcome"].as_str(), delivered.reply["reading"].as_bool()), (Some("created"), Some(true)));
+        assert_eq!(placed(&c, "https://example.com/later"), (true, true, true));
+        // The reply was lost; meanwhile the person took it out of Reading.
+        let id = delivered.reply["bookmark_id"].as_i64().unwrap();
+        db::apply_bulk(&c, &[id], &db::Bulk::Reading(false)).unwrap();
+        let replay = handle(&c, &mut connections, &parse(line.as_bytes()).unwrap(), now());
+        assert_eq!(replay.reply["bookmark_id"], id);
+        assert!(replay.reply.get("reading").is_none());
+        assert_eq!(placed(&c, "https://example.com/later"), (false, true, true));
+        assert_eq!(db::get_counts(&c).unwrap().total, 2);
+        drop(c);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

@@ -178,7 +178,7 @@ mod tests {
         let conn = library();
         let saved = |url: &str| lookup(&conn, url).unwrap()["saved"].as_bool().unwrap();
         let click = |url: &str| {
-            let request = crate::capture::CaptureRequest { request_id: None, url: url.into(), title: None, collection_id: None, tags: None };
+            let request = crate::capture::CaptureRequest { request_id: None, url: url.into(), title: None, collection_id: None, tags: None, reading: false };
             crate::capture::save(&conn, &request, db::Source::Extension).unwrap().outcome
         };
         let page = "https://www.example.com/page/?utm_source=x";

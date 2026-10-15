@@ -112,7 +112,8 @@ test("Sync: on the main computer — rename this one, remove another after a con
   await expect(details.locator('[data-sync-detail="key"]')).toContainText("Generation 2");
   await expect(details).toContainText("What each computer has");
   await expect(details.locator("[data-sync-detail^='device:']")).toHaveCount(1);
-  await expect(details.locator("[data-sync-detail^='device:']")).toContainText(/Office laptop\s*up to \d/);
+  // Its last sync was 2 minutes ago: just after midnight that is «yesterday 11:59 PM».
+  await expect(details.locator("[data-sync-detail^='device:']")).toContainText(/Office laptop\s*up to (\d|yesterday \d)/);
   await expect(details).not.toContainText("Last sync");
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await details.getByRole("button", { name: "Copy report" }).click();

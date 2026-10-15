@@ -21,7 +21,9 @@ export function createQueue({
   };
   return {
     list: () => exclusive(read),
-    enqueue: (url, title, tabId) =>
+    // `reading`: «Save to Reading» (NP-125); the flag waits in the queue with
+    // the link, so a link saved while the app was closed still lands there.
+    enqueue: (url, title, tabId, { reading = false } = {}) =>
       exclusive(async () => {
         let parsed;
         try {
@@ -33,17 +35,24 @@ export function createQueue({
           throw new Error(t("errorUnsupportedScheme"));
         const queue = await read();
         const existing = queue.find((item) => item.url === url);
-        if (existing) return existing;
+        if (existing && (existing.reading || !reading)) return existing;
+        // Waiting without the flag and now saved to Reading: a new request, so
+        // a receipt the app may already hold for the old one does not answer it.
         const item = {
           request_id: id(),
           url,
-          title: title || parsed.hostname,
+          title: title || existing?.title || parsed.hostname,
           tabId,
-          created_at: new Date().toISOString(),
+          created_at: existing?.created_at ?? new Date().toISOString(),
           error: null,
           blocked: false,
+          ...(reading ? { reading: true } : {}),
         };
-        await write([...queue, item]);
+        await write(
+          existing
+            ? queue.map((row) => (row.request_id === existing.request_id ? item : row))
+            : [...queue, item],
+        );
         return item;
       }),
     remove: (requestId) =>
