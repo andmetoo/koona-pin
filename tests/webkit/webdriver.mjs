@@ -75,6 +75,9 @@ async function call(base, method, path, body) {
     headers: { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(30_000),
+  }).catch((error) => {
+    // A bare TimeoutError does not say which command went unanswered.
+    throw error.name === "TimeoutError" ? new Error(`WebDriver ${method} ${path}: no answer in 30 s`) : error;
   });
   const { value } = await response.json();
   if (!response.ok) throw new Error(`WebDriver ${method} ${path}: ${value?.error}: ${value?.message}`);
@@ -192,6 +195,16 @@ export class Element {
 
   click() {
     return this.session.cmd("POST", `/element/${this.id}/click`, {});
+  }
+
+  /**
+   * A click from inside the page, for a button that hides the window. WebDriver's click answers only
+   * once WebKit has acknowledged its mouse events, and WebKit holds that until the page's next
+   * rendering update; a hidden window renders nothing, so when the app hides it first the click never
+   * answers. A script's answer waits for no rendering.
+   */
+  press() {
+    return this.session.script("arguments[0].click()", { [W3C_ELEMENT]: this.id });
   }
 
   /**
