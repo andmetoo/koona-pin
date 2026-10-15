@@ -30,7 +30,7 @@ Safari: расширение для Safari приходит внутри при�
 Koona Pin is a desktop bookmark library. This extension adds one button to your browser: click it on any page, and the page goes to the Koona Pin app on your computer.
 
 • One click saves the page's address and title. A short note in the corner of the page confirms it.
-• Save to Reading: right-click a page or a link and choose "Save page to Reading" or "Save link to Reading", or press Alt+Shift+R. The article goes to the app's Reading list, to read later in reading mode, and to Inbox.
+• Save to Reading: right-click a page or a link and choose "Save page to Reading" or "Save link to Reading", or press Alt+Shift+R. The article goes to the app's Reading list and Inbox, to read later in reading mode.
 • If Koona Pin is closed, saving a page starts it in the tray.
 • Alt+Shift+D searches your saved links right from the browser.
 • Optionally, the button shows when the page you are on is already saved.
@@ -46,7 +46,7 @@ It talks only to that app on the same computer, through the browser's native mes
 Koona Pin — библиотека закладок для компьютера. Расширение добавляет в браузер одну кнопку: нажмите её на любой странице, и страница попадёт в приложение Koona Pin на вашем компьютере.
 
 • Одно нажатие сохраняет адрес и заголовок страницы. Короткое сообщение в углу страницы подтверждает это.
-• Отложить почитать: щёлкните правой кнопкой по странице или ссылке и выберите «Сохранить страницу в „Почитать“» или «Сохранить ссылку в „Почитать“», либо нажмите Alt+Shift+R. Статья попадёт в список «Почитать» в приложении, чтобы прочитать её позже в режиме чтения, и во «Входящие».
+• Отложить почитать: щёлкните правой кнопкой по странице или ссылке и выберите «Сохранить страницу в „Почитать“» или «Сохранить ссылку в „Почитать“», либо нажмите Alt+Shift+R. Статья попадёт в «Почитать» и во «Входящие» приложения, чтобы прочитать её позже в режиме чтения.
 • Если Koona Pin закрыт, сохранение запустит его в трее.
 • Alt+Shift+D ищет по сохранённым ссылкам прямо в браузере.
 • По желанию кнопка показывает, что открытая страница уже сохранена.
