@@ -469,11 +469,15 @@ The code is shown as six digits with leading zeros. The zero nonce is safe becau
    abandons the pairing, answers `{"t": "error", "code": "bad_signature"}` and shows no code.
    Otherwise it computes `shared` and the code and shows it with the new device's name and
    Approve / Reject.
-   Until the reveal comes the hub shows nothing, so an offer without a reveal holds the hub for
-   at most 30 seconds; after that another device's offer is served. A reveal that doesn't match and
-   whose `seq` is at or below the last accepted one (section 3.1) is a replay: it is dropped and
-   doesn't end the pairing. If the same device offers again after its code was shown, the hub
-   withdraws that code and starts over with the new offer.
+   Until the reveal comes the hub shows nothing. The reveal MUST come in the same sender
+   `session` (section 3.1) as the offer; one from another session, or one that doesn't match and
+   whose `seq` is at or below the last accepted, is a replay of an earlier attempt: it is dropped
+   and doesn't end this one. An offer whose reveal doesn't come within 2 minutes (longer than a
+   client's backoff after 4008) no longer holds the hub: the hub answers `error{code: "rejected"}`
+   and serves the next offer. If the asking device goes offline before its reveal, the hub drops
+   the offer without telling its person anything, since nothing was shown. If the same device
+   offers again after its code was shown, the hub withdraws that code and starts over with the
+   new offer.
 6. The person compares the digits. On Approve, H -> A:
    `{"t": "pair_key", "epoch": <current epoch>, "sealed": "<base64, 48 bytes>"}`; then the hub
    sends `approve{device}` to the relay and a `roster` (section 4.4). On Reject or a mismatch, H ->
@@ -559,7 +563,7 @@ hub's pinned key. A device that becomes hub through `set_hub` sends a fresh rost
 | `hello` deadline after `challenge` | 10 s |
 | Clock skew threshold | 5 min |
 | Pairing timeout | 5 min |
-| Pairing reveal timeout (hub) | 30 s |
+| Pairing reveal timeout (hub) | 2 min |
 | Hub request timeout | 5 min |
 | Start over: sign-in age, max | 10 min |
 

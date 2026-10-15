@@ -773,6 +773,8 @@ fn each_side_shows_its_code_only_after_the_reveal() {
     w.run();
     assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
     w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    // The laptop is told, so it stops showing a code nobody can approve.
+    assert!(w.devices[b].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
     w.act(c, Action::StartPairing);
     w.run();
     let (on_phone, on_hub) = (w.codes(c), w.codes(a));
@@ -827,6 +829,88 @@ fn a_replayed_reveal_does_not_end_the_pairing() {
     w.act(a, Action::ApprovePairing { device: idb });
     w.run();
     assert!(load_meta(w.lib(b)).unwrap().key.is_some(), "the pairing went through");
+}
+
+#[test]
+fn a_reveal_from_an_earlier_connection_does_not_end_the_pairing() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    let idb = w.devices[b].id;
+    // The relay keeps every reveal of the laptop's for itself.
+    let held = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let hold = held.clone();
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        if from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. })) {
+            hold.borrow_mut().push(body.clone());
+            return 0;
+        }
+        1
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+
+    // The laptop drops off before its reveal: the hub had shown nothing, and says nothing.
+    w.drop_link(b);
+    w.run();
+    assert!(!w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(_))), "nothing on the hub's screen");
+
+    // It comes back and asks again; the relay then replays the first connection's reveal.
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let reveals = held.borrow().clone();
+    assert_eq!(reveals.len(), 2);
+    let deliver = |w: &mut World, body: &[u8]| {
+        let frame = protocol::encode_delivered(idb, w.relay.now, body).unwrap();
+        w.feed(a, Input::Binary(&frame));
+        w.run();
+    };
+    deliver(&mut w, &reveals[0]);
+    assert!(w.codes(a).is_empty());
+    assert!(!w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { .. }))));
+    deliver(&mut w, &reveals[1]);
+    assert_eq!(w.codes(a).len(), 1);
+    assert_eq!(w.codes(a)[0].1, w.codes(b).last().unwrap().1);
+    w.act(a, Action::ApprovePairing { device: idb });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_some(), "the second attempt went through");
+}
+
+#[test]
+fn asking_again_withdraws_the_code_on_the_hub() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let first = w.codes(a);
+    assert_eq!(first.len(), 1);
+
+    // The laptop gives up waiting a moment before the hub does, and asks again.
+    w.relay.now += koona_sync::session::PAIRING_TIMEOUT_MS;
+    koona_sync::set_wall_clock(&w.devices[b].lib, Some(w.local_now(b))).unwrap();
+    w.feed(b, Input::Tick);
+    w.run();
+    w.act(b, Action::StartPairing);
+    w.run();
+    let idb = w.devices[b].id;
+    assert!(w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Withdrawn { peer }) if *peer == idb)));
+    let (on_laptop, on_hub) = (w.codes(b), w.codes(a));
+    assert_eq!(on_hub.len(), 2, "a new code for the new offer");
+    assert_eq!(on_laptop.last().unwrap().1, on_hub[1].1);
+    w.act(a, Action::ApprovePairing { device: idb });
+    w.run();
+    assert!(load_meta(w.lib(b)).unwrap().key.is_some());
 }
 
 #[test]

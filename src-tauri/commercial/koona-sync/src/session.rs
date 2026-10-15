@@ -23,9 +23,10 @@ use uuid::Uuid;
 
 /// A pairing not approved by then is abandoned by both sides.
 pub const PAIRING_TIMEOUT_MS: u64 = 5 * 60 * 1000;
-/// A pairing offer whose `pair_reveal` doesn't come by then frees the hub for others. The reveal
-/// follows `pair_accept` at once, and until it comes the hub shows nothing to Reject (4.2).
-pub const REVEAL_TIMEOUT_MS: u64 = 30 * 1000;
+/// A pairing offer whose `pair_reveal` doesn't come by then frees the hub for others, and the
+/// device is told. The reveal follows `pair_accept` at once, and until it comes the hub shows
+/// nothing to Reject (4.2); this leaves room for a client backing off 30 s after a 4008.
+pub const REVEAL_TIMEOUT_MS: u64 = 2 * 60 * 1000;
 /// A `hub_request` not answered by then is given up on both sides (4.4).
 pub const HUB_REQUEST_TIMEOUT_MS: u64 = 5 * 60 * 1000;
 /// How long the key of the previous epoch still opens frames after a rotation.
@@ -360,6 +361,8 @@ struct Hosting {
     hub_eph: [u8; 32],
     /// Once the reveal matched the commitment and the code is shown.
     exchange_key: Option<[u8; 32]>,
+    /// The sender session of the offer: the reveal comes in the same one.
+    session: [u8; 16],
     started: u64,
 }
 
@@ -1041,8 +1044,10 @@ impl Session {
         }
         if let Some(h) = &self.hosting {
             if h.awaits_reveal_past(now) {
-                // Nothing was shown for it: drop it quietly.
+                // Nothing was shown for it here; the device stops showing its code.
+                let device = h.device;
                 self.hosting = None;
+                self.send_pair(device, &PairMessage::Error { code: ErrorCode::Rejected });
             } else if now >= h.started + PAIRING_TIMEOUT_MS {
                 let device = h.device;
                 self.hosting = None;
@@ -1299,9 +1304,13 @@ impl Session {
             self.peers.remove(&device);
         }
         self.emit_devices();
-        if self.hosting.as_ref().is_some_and(|h| h.device == device) && !online {
+        if let Some(h) = self.hosting.as_ref().filter(|h| h.device == device && !online) {
+            // Before the reveal nothing was shown here, so there is nothing to take back.
+            let shown = h.exchange_key.is_some();
             self.hosting = None;
-            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Unavailable }));
+            if shown {
+                self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: device, reason: PairingFailure::Unavailable }));
+            }
         }
         if self.asking.as_ref().is_some_and(|a| a.hub == device) && !online {
             // The hub forgot the offer with its connection: a new one goes when it is back.
@@ -1584,9 +1593,14 @@ impl Session {
             // One pairing at a time.
             return self.send_pair(from, &PairMessage::Error { code: ErrorCode::Rejected });
         }
-        if let Some(old) = self.hosting.take().filter(|h| h.exchange_key.is_some()) {
-            // The device asks again (it restarted): its old code no longer means anything.
-            self.fx.push(Effect::Pairing(PairingEvent::Withdrawn { peer: old.device }));
+        if let Some(old) = self.hosting.take() {
+            if old.exchange_key.is_some() {
+                // The device asks again (it gave up waiting): its old code no longer means anything.
+                self.fx.push(Effect::Pairing(PairingEvent::Withdrawn { peer: old.device }));
+            } else if old.device != from {
+                // Another device's offer that was never revealed: it is told, as on a tick.
+                self.send_pair(old.device, &PairMessage::Error { code: ErrorCode::Rejected });
+            }
         }
         // The hub's key is fixed and signed before it sees the device's: it can't pick one to
         // steer the code, and the device can't either, being bound by `commit`.
@@ -1601,12 +1615,15 @@ impl Session {
             eph: Some(mine),
             hub_eph: hub.eph,
             exchange_key: None,
+            session: header.session,
             started: self.now,
         });
     }
 
     fn on_pair_reveal(&mut self, from: Uuid, header: &Header, eph: [u8; 32]) {
-        let Some(hosting) = self.hosting.as_ref().filter(|h| h.device == from && h.eph.is_some()) else {
+        // A reveal from another sender session (an earlier connection) belongs to an earlier
+        // offer: dropped, without ending this one.
+        let Some(hosting) = self.hosting.as_ref().filter(|h| h.device == from && h.eph.is_some() && h.session == header.session) else {
             return self.dropped(from, DropReason::Unexpected);
         };
         let me = self.cfg.device;
