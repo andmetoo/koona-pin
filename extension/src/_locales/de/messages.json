@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — Link speichern" },
   "extensionDescription": {
-    "message": "Speichert jede Seite mit einem Klick in der Koona-Pin-App auf Ihrem Computer und durchsucht gespeicherte Links im Browser."
+    "message": "Speichert jede Seite mit einem Klick in der Koona-Pin-App auf Ihrem Computer, legt Artikel auf die Leseliste und durchsucht Links."
   },
   "menuOptions": { "message": "Einstellungen und Warteschlange" },
   "menuSearch": { "message": "Link finden" },

@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — save link" },
   "extensionDescription": {
-    "message": "Save any page to the Koona Pin app on your computer in one click, and search your saved links from the browser."
+    "message": "Save any page to the Koona Pin app on your computer in one click, send articles to Reading, and search your saved links."
   },
   "menuOptions": { "message": "Settings and queue" },
   "menuSearch": { "message": "Find a link" },
