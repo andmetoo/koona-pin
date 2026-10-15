@@ -422,9 +422,9 @@ export const BookmarkCard = memo(function BookmarkCard({
         if (!e.defaultPrevented) control.onKeyDown(e);
       }}
     >
-      {/* Selected: a 2.5 px accent ring 4 px around the preview, radius 14 (frame 04); the image is not tinted. */}
+      {/* Selected: a 2.5 px accent ring 4 px around the preview, radius 14 (frame 04, `app.css`); the image is not tinted. */}
       {/* It clips the shutter waiting above the cover; the ring of the selection is its own outline, not clipped. */}
-      <div className={`relative overflow-hidden rounded-xl ${selected ?"outline-[length:2.5px] outline-offset-4 outline-accent outline-solid" : ""}`}>
+      <div data-ring className="relative overflow-hidden rounded-xl">
         <div data-preview className="block aspect-[16/10] w-full overflow-hidden rounded-xl bg-hover">
           <Preview b={b} live />
         </div>

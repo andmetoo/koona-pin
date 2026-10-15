@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError } from "./services/errors";
 import { composing } from "./services/ime";
+import { isArrow } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
@@ -23,7 +24,7 @@ import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
 import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
-import { BookmarkList } from "./components/library/BookmarkList";
+import { Arrows, BookmarkList } from "./components/library/BookmarkList";
 import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
 import { SelectionActions, SelectionBar } from "./components/library/SelectionBar";
@@ -118,6 +119,8 @@ export function App() {
   const selection = useSelection(filters, page === "library" && !triage);
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
+  /** The arrows of the grid and the list (#319), filled by `BookmarkList` while it is shown. */
+  const arrowsRef = useRef<Arrows | null>(null);
   /** The loaded order, for `Shift`+click ranges. */
   const loadedRef = useRef(library.bookmarks);
   loadedRef.current = library.bookmarks;
@@ -271,6 +274,20 @@ export function App() {
         if (e.key === " " && plain && !e.shiftKey && !typing && !own && !e.repeat && !filters.onlyTrash && selectionRef.current.ids.size) {
           e.preventDefault();
           readSelectionRef.current();
+        }
+        // Arrows move the selection between cards and rows (#319), Shift adds the range
+        // as Shift+click does. Only from the list or from nowhere: the sidebar, the toolbar
+        // and fields keep their arrows; the reading sheet and menus are layers.
+        const target = e.target instanceof HTMLElement ? e.target : null;
+        const fromList = !target || target === document.body || !!target.closest("[data-view]");
+        if (isArrow(e.key) && fromList && !e.ctrlKey && !e.metaKey && !e.altKey && !typing && !e.defaultPrevented && arrowsRef.current) {
+          e.preventDefault();
+          // From the focused card, else the last one clicked of the selection.
+          const card = target?.closest<HTMLElement>("[data-bookmark-id]");
+          const last = selectionRef.current.last();
+          const from = card ? Number(card.dataset.bookmarkId) : last !== null && selectionRef.current.ids.has(last) ? last : null;
+          const b = arrowsRef.current(e.key, from);
+          if (b) actionsRef.current.select(b, e.shiftKey && from !== null ? "range" : "only");
         }
       }
     };
@@ -707,6 +724,9 @@ export function App() {
     }),
     [library.collections, t, linkTarget],
   );
+  /** For the arrows of the key handler, which is set up before `actions`. */
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
   const closeEditor = () => {
     editHooks.current = null;
     setEditing(null);
@@ -901,6 +921,7 @@ export function App() {
       // In the trash the selection is not dragged; while an action runs, nothing starts.
       onDragStart={filters.onlyTrash || bulkBusy ? undefined : startDrag}
       dragging={!!dragging}
+      arrowsRef={arrowsRef}
     />
   );
   const toast = notice ? (

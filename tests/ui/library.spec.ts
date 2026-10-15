@@ -1495,7 +1495,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   // Esc in the field clears the query first and keeps the selection.
   await search.press("Escape");
   await expect(search).toHaveValue("");
-  await expect(page.getByText("Ctrl+click — add", { exact: false })).toBeVisible();
+  await expect(page.getByText(/(Ctrl|⌘)\+click — add/)).toBeVisible();
 
   // Another section clears it.
   await page.getByRole("button", { name: /^Favorites/ }).click();
