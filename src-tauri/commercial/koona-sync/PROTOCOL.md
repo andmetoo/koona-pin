@@ -371,8 +371,11 @@ sync with that peer, does not advance its vector, and asks the person to update.
 the unknown part would let `covers` mark a change as held that was never stored. A wrong type or a
 missing field is a broken peer, not a newer one: the body is dropped.
 
-`error` codes: `update_needed`; `clock_skew` (section 3.6); `rejected` and `bad_signature` (pairing);
-`busy` (the hub is already answering another `hub_request`).
+`error` codes: `update_needed`; `clock_skew` (section 3.6); `rejected` (pairing: the person
+declined on the hub, or the hub is pairing another device; final for that attempt),
+`bad_signature` (pairing or rekeying) and `expired` (pairing: the hub stopped waiting for the
+reveal; nobody declined and the device may ask again), all section 4; `busy` (the hub is already
+answering another `hub_request`).
 A receiver MUST accept an `error` with a code it doesn't know (treat it as a generic failure), so
 codes can grow without forcing updates.
 
@@ -465,19 +468,17 @@ The code is shown as six digits with leading zeros. The zero nonce is safe becau
 4. A checks `sig` against the hub key from `welcome`, then reveals
    A -> hub: `{"t": "pair_reveal", "eph": A.eph}`, and only then computes `shared` and the code and
    shows it.
-5. The hub checks that `commit` recomputed with the revealed `A.eph` equals the offer's. If not, it
-   abandons the pairing, answers `{"t": "error", "code": "bad_signature"}` and shows no code.
-   Otherwise it computes `shared` and the code and shows it with the new device's name and
-   Approve / Reject.
-   Until the reveal comes the hub shows nothing. The reveal MUST come in the same sender
-   `session` (section 3.1) as the offer; one from another session, or one that doesn't match and
-   whose `seq` is at or below the last accepted, is a replay of an earlier attempt: it is dropped
-   and doesn't end this one. An offer whose reveal doesn't come within 2 minutes (longer than a
-   client's backoff after 4008) no longer holds the hub: the hub answers `error{code: "rejected"}`
-   and serves the next offer. If the asking device goes offline before its reveal, the hub drops
-   the offer without telling its person anything, since nothing was shown. If the same device
-   offers again after its code was shown, the hub withdraws that code and starts over with the
-   new offer.
+5. The hub checks that `commit` recomputed with the revealed `A.eph` equals the offer's, then
+   computes `shared` and the code and shows it with the new device's name and Approve / Reject.
+   A reveal that doesn't match is a forgery or a replay of an earlier attempt: the hub drops it
+   and keeps waiting, since only the committed key can ever match, and shows nothing for it.
+   Until a matching reveal comes the hub shows nothing. An offer whose reveal doesn't come within
+   2 minutes (longer than a client's backoff after 4008), whether on a timer or when another
+   device's offer comes, no longer holds the hub: the hub answers `error{code: "expired"}`, which
+   the device treats as a timeout, and serves the next offer. If the asking device goes offline
+   before its reveal, the hub drops the offer without telling its person anything, since nothing
+   was shown. If the same device offers again after its code was shown, the hub withdraws that
+   code and starts over with the new offer.
 6. The person compares the digits. On Approve, H -> A:
    `{"t": "pair_key", "epoch": <current epoch>, "sealed": "<base64, 48 bytes>"}`; then the hub
    sends `approve{device}` to the relay and a `roster` (section 4.4). On Reject or a mismatch, H ->
@@ -492,7 +493,8 @@ it to one guess. Each side's X25519 key is fixed before it sees the other's: A's
 before `pair_accept`, the hub's by its signed `pair_accept` before `pair_reveal`. Without it, a
 relay holding `A.eph` could try about 10^6 keys of its own offline until A's code equals the one
 the hub shows. With it, the two codes match by chance only (probability 10^-6 per attempt), and a
-failed attempt is visible to the person. The person MUST be told to compare the digits, not just
+failed attempt is visible to the person: either the digits differ, or the hub shows no code at
+all. The person MUST be told to compare the digits, not just
 press Approve.
 
 A v2 hub answers a v1 `pair_offer` (one with `eph` and no `commit`) with

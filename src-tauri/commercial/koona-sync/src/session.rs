@@ -361,8 +361,6 @@ struct Hosting {
     hub_eph: [u8; 32],
     /// Once the reveal matched the commitment and the code is shown.
     exchange_key: Option<[u8; 32]>,
-    /// The sender session of the offer: the reveal comes in the same one.
-    session: [u8; 16],
     started: u64,
 }
 
@@ -1044,10 +1042,7 @@ impl Session {
         }
         if let Some(h) = &self.hosting {
             if h.awaits_reveal_past(now) {
-                // Nothing was shown for it here; the device stops showing its code.
-                let device = h.device;
-                self.hosting = None;
-                self.send_pair(device, &PairMessage::Error { code: ErrorCode::Rejected });
+                self.abandon_unrevealed();
             } else if now >= h.started + PAIRING_TIMEOUT_MS {
                 let device = h.device;
                 self.hosting = None;
@@ -1593,14 +1588,14 @@ impl Session {
             // One pairing at a time.
             return self.send_pair(from, &PairMessage::Error { code: ErrorCode::Rejected });
         }
-        if let Some(old) = self.hosting.take() {
-            if old.exchange_key.is_some() {
+        match &self.hosting {
+            Some(old) if old.exchange_key.is_some() => {
                 // The device asks again (it gave up waiting): its old code no longer means anything.
                 self.fx.push(Effect::Pairing(PairingEvent::Withdrawn { peer: old.device }));
-            } else if old.device != from {
-                // Another device's offer that was never revealed: it is told, as on a tick.
-                self.send_pair(old.device, &PairMessage::Error { code: ErrorCode::Rejected });
             }
+            // Another device's offer that was never revealed: it is told, as on a tick.
+            Some(old) if old.device != from => self.abandon_unrevealed(),
+            _ => {}
         }
         // The hub's key is fixed and signed before it sees the device's: it can't pick one to
         // steer the code, and the device can't either, being bound by `commit`.
@@ -1615,30 +1610,29 @@ impl Session {
             eph: Some(mine),
             hub_eph: hub.eph,
             exchange_key: None,
-            session: header.session,
             started: self.now,
         });
     }
 
+    /// Gives up an offer whose reveal didn't come in time. Nothing was shown here; the device is
+    /// told it may ask again, so it stops showing a code nobody can approve.
+    fn abandon_unrevealed(&mut self) {
+        if let Some(h) = self.hosting.take() {
+            self.send_pair(h.device, &PairMessage::Error { code: ErrorCode::Expired });
+        }
+    }
+
     fn on_pair_reveal(&mut self, from: Uuid, header: &Header, eph: [u8; 32]) {
-        // A reveal from another sender session (an earlier connection) belongs to an earlier
-        // offer: dropped, without ending this one.
-        let Some(hosting) = self.hosting.as_ref().filter(|h| h.device == from && h.eph.is_some() && h.session == header.session) else {
+        let Some(hosting) = self.hosting.as_ref().filter(|h| h.device == from && h.eph.is_some()) else {
             return self.dropped(from, DropReason::Unexpected);
         };
         let me = self.cfg.device;
         let asking = Party { device: from, key: hosting.key, eph };
         if crypto::commitment(&asking, me) != hosting.commit {
-            // A replayed reveal from an earlier attempt is dropped before it can end this one.
-            if self.guard.replayed(from, header) {
-                return self.dropped(from, DropReason::Replayed);
-            }
-            // Not the key the offer committed to: someone chose it after seeing ours.
-            self.hosting = None;
-            self.dropped(from, DropReason::BadSignature);
-            self.send_pair(from, &PairMessage::Error { code: ErrorCode::BadSignature });
-            self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason: PairingFailure::BadSignature }));
-            return;
+            // Not the key the offer committed to: a forgery, or a replay from an earlier attempt.
+            // Dropped without ending this one (only the committed key can ever match); if the
+            // real reveal never comes, the reveal timeout ends it.
+            return self.dropped(from, DropReason::BadSignature);
         }
         if !self.fresh(from, header) {
             return;
@@ -2124,9 +2118,15 @@ impl Session {
                     self.asking = None;
                     let reason = match code {
                         ErrorCode::BadSignature => PairingFailure::BadSignature,
+                        // The hub gave up waiting, as this device's own timeout would.
+                        ErrorCode::Expired => PairingFailure::Timeout,
                         _ => PairingFailure::Rejected,
                     };
                     self.fx.push(Effect::Pairing(PairingEvent::Failed { peer: from, reason }));
+                    if code == ErrorCode::Expired {
+                        // Not the peer's fault: the failure above says all there is.
+                        return;
+                    }
                 } else if self.rekey.as_ref().is_some_and(|r| r.hub == from) {
                     self.rekey = None;
                 }

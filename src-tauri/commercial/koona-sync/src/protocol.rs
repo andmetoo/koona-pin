@@ -456,10 +456,14 @@ pub enum ErrorCode {
     UpdateNeeded,
     /// The receiver's clock is more than five minutes from the relay's.
     ClockSkew,
-    /// Pairing: the person declined the code on the hub, or it didn't match.
+    /// Pairing: the person declined the code on the hub, or the hub is pairing another device.
+    /// Final for this attempt.
     Rejected,
     /// Pairing: a signature didn't verify against the expected key.
     BadSignature,
+    /// Pairing: the hub stopped waiting for this device's `pair_reveal` (4.2). Nobody declined:
+    /// the device may ask again. A build that doesn't know it reads it as a generic failure.
+    Expired,
     /// The hub is already answering another `hub_request`.
     Busy,
     /// A code from a newer build.

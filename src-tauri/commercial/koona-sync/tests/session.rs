@@ -724,11 +724,13 @@ fn a_reveal_other_than_the_committed_key_is_refused() {
     w.act(b, Action::StartPairing);
     w.run();
     assert!(w.codes(a).is_empty(), "the hub shows no code for a key the offer didn't commit to");
-    assert!(w.devices[a].events.iter().any(|e| matches!(
-        e,
-        Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::BadSignature, .. })
-    )));
     assert_eq!(w.dropped(a, DropReason::BadSignature), 1);
+    // The real reveal never comes: the hub gives up and the device stops showing its code.
+    w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
+    assert!(w.devices[b].events.iter().any(|e| matches!(
+        e,
+        Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Timeout, .. })
+    )));
     let device = w.devices[b].id;
     w.act(a, Action::ApprovePairing { device });
     w.run();
@@ -773,8 +775,10 @@ fn each_side_shows_its_code_only_after_the_reveal() {
     w.run();
     assert!(w.devices[c].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
     w.tick(koona_sync::session::REVEAL_TIMEOUT_MS);
-    // The laptop is told, so it stops showing a code nobody can approve.
-    assert!(w.devices[b].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Rejected, .. }))));
+    // The laptop is told, as a timeout and not a refusal, so it stops showing a code nobody can
+    // approve and reports no error from its peer.
+    assert!(w.devices[b].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Timeout, .. }))));
+    assert!(!w.devices[b].events.iter().any(|e| matches!(e, Effect::Error(_))));
     w.act(c, Action::StartPairing);
     w.run();
     let (on_phone, on_hub) = (w.codes(c), w.codes(a));
@@ -782,6 +786,42 @@ fn each_side_shows_its_code_only_after_the_reveal() {
     assert_eq!(on_phone.last().unwrap().1, on_hub[0].1);
     let phone = w.devices[c].id;
     w.act(a, Action::ApprovePairing { device: phone });
+    w.run();
+    assert!(load_meta(w.lib(c)).unwrap().key.is_some());
+}
+
+#[test]
+fn an_offer_taking_over_an_unrevealed_one_tells_the_first_device() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let b = w.add("Laptop", 2, 64 << 10);
+    let c = w.add("Phone", 3, 64 << 10);
+    w.connect(a);
+    w.run();
+    w.connect(b);
+    w.connect(c);
+    w.run();
+    let (idb, idc) = (w.devices[b].id, w.devices[c].id);
+    w.relay.tamper = Some(Box::new(move |from, _, body: &mut Vec<u8>| {
+        let reveal = from == idb && matches!(PairMessage::decode(&body[protocol::HEADER_LEN..]), Ok(PairMessage::PairReveal { .. }));
+        usize::from(!reveal)
+    }));
+    w.act(b, Action::StartPairing);
+    w.run();
+
+    // Past the reveal timeout, before the hub's tick: the phone's offer takes the hub over.
+    w.relay.now += koona_sync::session::REVEAL_TIMEOUT_MS;
+    w.act(c, Action::StartPairing);
+    w.run();
+    let timed_out = |w: &World, i: usize| {
+        w.devices[i].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { reason: PairingFailure::Timeout, .. })))
+    };
+    assert!(timed_out(&w, b), "the laptop is told, as a timeout");
+    assert!(!timed_out(&w, c));
+    let (on_phone, on_hub) = (w.codes(c), w.codes(a));
+    assert_eq!(on_hub.len(), 1);
+    assert_eq!(on_phone[0].1, on_hub[0].1);
+    w.act(a, Action::ApprovePairing { device: idc });
     w.run();
     assert!(load_meta(w.lib(c)).unwrap().key.is_some());
 }
@@ -810,15 +850,15 @@ fn a_replayed_reveal_does_not_end_the_pairing() {
     w.run();
     assert!(w.codes(a).is_empty());
 
-    // Under the offer's header (an old `seq`), a reveal with another key is a replay: dropped,
-    // and the hub keeps waiting for the real one.
+    // Under the offer's header (an old `seq`), a reveal with another key: dropped, and the hub
+    // keeps waiting for the real one.
     let offer = w.relay.log.iter().find(|(from, to, _)| *from == idb && *to == ida).unwrap().2.clone();
     let delivered = protocol::decode_delivered(&offer).unwrap();
     let mut replayed = delivered.body[..protocol::HEADER_LEN].to_vec();
     replayed.extend(PairMessage::PairReveal { eph: B64([9; 32]) }.encode().unwrap());
     w.feed(a, Input::Binary(&protocol::encode_delivered(idb, delivered.relay_ms, &replayed).unwrap()));
     w.run();
-    assert_eq!(w.dropped(a, DropReason::Replayed), 1);
+    assert_eq!(w.dropped(a, DropReason::BadSignature), 1);
     assert!(!w.devices[a].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Failed { .. }))));
 
     let reveal = held.borrow_mut().take().unwrap();
