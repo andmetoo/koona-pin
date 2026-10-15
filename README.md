@@ -1,25 +1,32 @@
 # Koona Pin
 
-A desktop bookmark library. Save the page you are on from Chrome, Edge or Firefox with one button; the link lands in the app and stays on your computer.
+A desktop bookmark library for Windows, macOS and Linux. Save the page you are on from Chrome, Edge, Firefox or Safari with one button; the link lands in the app and stays on your computer. Read it later in reading mode, without menus or banners.
 
 Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
 ![Koona Pin with eight bookmarks in a grid: previews, sites and titles, collections and tags in the sidebar, two new bookmarks waiting in Inbox](docs/shots/app-en-light-grid-1280.webp)
+
+![Reading mode: the Reading queue on the left with read articles dimmed, an article in one serif column on the right](docs/shots/app-en-light-reading-1280.webp)
 
 ![The same library in the dark theme as a list grouped by date, with tags, collections and dates](docs/shots/app-en-dark-list-1280.webp)
 
 ## What it does
 
 - **One-button capture.** The browser extension saves the current page to Koona Pin, even when the app window is closed. New links arrive in Inbox.
+- **Reading mode.** Press **Read** and saved articles open in one calm column, one after another with J and K. When a page can't be shown as an article, it offers the browser instead.
+- **A Reading list without a limit.** Send links there with R, from the card menu, or with «Save to Reading» in the extension (right-click a page or a link, or Alt+Shift+R). Reading remembers where you stopped.
 - **Inbox you can clear from the keyboard.** Keep, file or toss each new link with one key.
 - **Collections, tags and favorites** to group links the way you think about them.
-- **Search** across titles, sites and tags as you type; Ctrl K opens it from anywhere.
-- **Grid and list views**, a light and a dark theme.
+- **Search** across titles, sites and tags as you type; Ctrl K (⌘K on a Mac) opens it from anywhere.
+- **Grid and list views**, a light and a dark theme. A click selects; the arrow keys move the selection.
 - **Trash** keeps deleted links for 30 days, so you can restore them.
 - **Import and export.** Import the bookmarks file your browser exports; export to HTML, JSON or CSV.
+- **AI assistants.** Claude and other assistants on your computer can search your links and, if you allow it, save new ones, through MCP ([how it works](docs/architecture.md#ai-assistants-mcp)).
 - **Works offline.** The library is a file on your disk with automatic backups.
 - **Updates** are checked once a day and installed only when you agree.
 - **15 interface languages** (see [Translations](#translations)).
+
+Koona Pin is free, and everything above stays free. **Supporter**, an optional subscription, funds the project and adds sync between your computers (your library, the Reading list and where you stopped reading), automatic backups to a folder you choose, and the Paper and Sepia reading themes. See [pricing](https://koona.app/pin/pricing/).
 
 ## Download
 
@@ -28,23 +35,23 @@ Get the current version from **[koona.app/pin/downloads](https://koona.app/pin/d
 | Platform | Package | Notes |
 | --- | --- | --- |
 | Windows 11, 64-bit | Installer (`-setup.exe`) | No administrator rights needed |
+| macOS 15 or later, Apple Silicon | `.dmg` | Signed and notarized; the Safari extension comes inside the app |
 | Ubuntu 26.04, Debian 13 | `.deb` | `sudo apt install ./<file>.deb` |
 | Fedora 44 | `.rpm` | `sudo dnf install ./<file>.rpm` |
 | Other Linux distributions | AppImage | Runs without installing |
 
-Linux builds are 64-bit (x86_64) and target GNOME or KDE Plasma on Wayland. macOS and an Arch Linux (AUR) package are not available yet.
-
-Windows may warn that it protected your PC, because the app is new: choose **More info**, then **Run anyway**.
+Linux builds are 64-bit (x86_64) and target GNOME or KDE Plasma on Wayland. An Arch Linux (AUR) package is not available yet.
 
 ## Browser extension
 
-The extension works in Chrome or Edge 120+ and Firefox 140+ (including ESR 140). Install the app first; the extension talks only to Koona Pin on the same computer.
+The extension works in Chrome or Edge 120+, Firefox 140+ (including ESR 140) and Safari 18.4+. Install the app first; the extension talks only to Koona Pin on the same computer.
 
 - **Chrome:** [Koona Pin in the Chrome Web Store](https://chromewebstore.google.com/detail/dedcgklilbgbieabgpklellnaccpjhpc).
 - **Edge:** [Koona Pin in Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/ocdkndgdeagephdnlmofffbapdifhkho).
 - **Firefox:** "Add to Firefox" on the [downloads page](https://koona.app/pin/downloads/#extension).
+- **Safari:** comes with the Mac app; turn it on in Safari → Settings → Extensions.
 
-All three browsers are built from one source in [`extension/src`](extension/src).
+Every browser is built from one source in [`extension/src`](extension/src).
 
 ## Privacy and where your data lives
 
@@ -53,11 +60,12 @@ Your library is a SQLite file on your computer:
 | OS | Library file |
 | --- | --- |
 | Windows | `%APPDATA%\Koona\Pin\koonapin.db` |
+| macOS | `~/Library/Application Support/Koona/Pin/koonapin.db` |
 | Linux | `~/.local/share/Koona/Pin/koonapin.db` (or `$XDG_DATA_HOME/Koona/Pin/`) |
 
 Automatic backups go to a `backups` folder next to it. Uninstalling the Linux package keeps the library.
 
-The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. With Supporter, the optional subscription, it also asks the Koona server about your plan: while a purchase waits for its payment, once a day in the last days of a paid period, and when you sign in or out. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it; a Supporter purchase sends them the email you paid with. Details: [privacy policy](https://koona.app/pin/privacy).
+The app sends no analytics, telemetry or crash reports. It connects to the network only to read the title and preview of a link you save from that link's website, to ask Google's favicon service for missing site icons, and to ask koona.app once a day whether a new version is out. Reading mode requests the page you open from its website, and the next article in the queue ahead of time while reading mode is open. With Supporter, the optional subscription, it also asks the Koona server about your plan: while a purchase waits for its payment, once a day in the last days of a paid period, when you sign in or out, and, while sync is on, for a sign-in token for the sync relay. Sync carries your library between your computers through that relay, end-to-end encrypted with a key only your computers have, so the relay can't read it. The extension reads only the address and title of the tab you save. Feedback reaches the developer only if you choose to send it; a Supporter purchase sends them the email you paid with. Details: [privacy policy](https://koona.app/pin/privacy).
 
 ## Building from source
 
@@ -101,7 +109,7 @@ Build output that leaves the repository (installers, packages, extension builds,
 | --- | --- |
 | [`src/`](src) | The app interface: React 19, TypeScript, Tailwind CSS, interface strings in `src/locales` |
 | [`src-tauri/`](src-tauri) | The Rust core: SQLite library, capture from the browser, import and export, backups, updates |
-| [`extension/`](extension) | The browser extension for Chrome, Edge and Firefox (`extension/src`) and store assets |
+| [`extension/`](extension) | The browser extension for Chrome, Edge, Firefox and Safari (`extension/src`) and store assets |
 | [`changelog/`](changelog) | What changed in each version: the release notes, the update dialog and the site's changelog page. The website [koona.app/pin](https://koona.app/pin/) itself lives in its own repository |
 | [`supabase/`](supabase) | The backend that receives feedback sent from the app and the website |
 | [`scripts/`](scripts) | Build, packaging, release and test scripts run by `bun run` |
