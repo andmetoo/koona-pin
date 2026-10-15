@@ -97,7 +97,7 @@ Checked on 13 October 2026 on macOS 27.0.1 (Apple Silicon), Xcode 27.0, Safari 2
 | 6. Safari as connected after `hello`, the last save «from Safari» | Yes (`capture_connections` lists `safari`, extension 0.10.0, protocol 2). |
 | 7. Quick search, the button's menu, «Show that a page is already saved» | The menu's «Settings» works. Quick search works in a window: Safari's `action.openPopup` answers «Another popup is already open» with none open, so the shortcut and «Find a link» open `search.html` in a small window centred over the page's window; Enter opens a result in a new tab of the page's window, Shift Enter in the page's tab. «Show that a page is already saved» is hidden in Safari (docs/extension.md). |
 
-Also seen: after the unsigned extension was reinstalled under a running Safari, `storage.local.set` rejected small writes with «Exceeded storage quota» for a few minutes (about 400 bytes stored); the queue kept the link and a later retry delivered it once. The `lastSaved` note no longer fails a delivered link.
+Also seen: `storage.local.set` rejects small writes with «Exceeded storage quota» (about 700 bytes stored), first after the unsigned extension was reinstalled under a running Safari, and on 15 October 2026 (macOS 27.0.1, Safari 27, notarized build) again after a few saves, while the same writes from the background page's console succeeded. From extension 0.11.1 the Safari manifest asks for `unlimitedStorage`, so WebKit skips its quota check, and a refused write no longer fails a save: the queue keeps the link in memory and delivers it; only a link neither delivered nor stored is reported as failed (#315).
 
 ### Open points
 

@@ -80,6 +80,46 @@ describe("persistent capture queue", () => {
   });
 });
 
+describe("a storage that refuses writes (Safari, #315)", () => {
+  const refusing = () => {
+    let saved;
+    return {
+      get: async () => ({ captureQueue: saved }),
+      set: async () => {
+        throw new Error("Invalid call to browser.storage.local.set(). Exceeded storage quota.");
+      },
+    };
+  };
+
+  it("still delivers a link the storage refused", async () => {
+    const sent = [];
+    const queue = createQueue({
+      storage: refusing(),
+      send: async (item) => (sent.push(item.url), { ok: true, bookmark_id: 7, outcome: "created" }),
+    });
+    await queue.enqueue("https://example.com/a", "A", 1);
+    const results = await queue.flush();
+    expect(sent).toEqual(["https://example.com/a"]);
+    expect(results).toHaveLength(1);
+    expect(await queue.list()).toEqual([]);
+  });
+
+  it("keeps an undelivered link in memory and says it is not stored", async () => {
+    let up = false;
+    const queue = createQueue({
+      storage: refusing(),
+      send: async () => (up ? { ok: true, bookmark_id: 7, outcome: "created" } : { ok: false, permanent: false, error: "away" }),
+    });
+    await queue.enqueue("https://example.com/a", "A", 1);
+    await queue.flush();
+    expect((await queue.list()).map((item) => item.url)).toEqual(["https://example.com/a"]);
+    expect(queue.stored()).toBe(false);
+    up = true;
+    expect(await queue.flush()).toHaveLength(1);
+    expect(await queue.list()).toEqual([]);
+  });
+});
+
 describe("Save to Reading in the queue (NP-125)", () => {
   it("keeps the flag while the app is away and sends it on the next delivery", async () => {
     const sent = [];

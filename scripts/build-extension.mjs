@@ -101,7 +101,9 @@ export function manifest(browser, { dev = false, key } = {}) {
       ...common,
       // The button's menu, with the settings item as in Firefox (worker.js);
       // Safari names it `menus` and keeps `contextMenus` as an alias.
-      permissions: [...common.permissions, "menus"],
+      // unlimitedStorage: WebKit then skips its quota check, which refused
+      // writes of a few hundred bytes with «Exceeded storage quota» (#315).
+      permissions: [...common.permissions, "menus", "unlimitedStorage"],
       // In Manifest V3 Safari runs a background page as non-persistent, and it
       // has run `scripts` since Safari 14; its service worker was reported
       // killed for good on iOS 17 (developer.apple.com/forums/thread/758346).
