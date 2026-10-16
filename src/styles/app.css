@@ -2829,6 +2829,13 @@
   -webkit-backdrop-filter: blur(20px) saturate(170%);
   backdrop-filter: blur(20px) saturate(170%);
 }
+/* WebKitGTK with software rendering draws an empty window under a backdrop this wide (CI's Arch
+   smoke, 2026-10-16): on Linux the bar is near-solid instead. */
+:root[data-linux] .toolbar-glass::before {
+  background: color-mix(in srgb, var(--glass-bg) 96%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
 .sidebar-scroll::-webkit-scrollbar {
   display: none;
 }

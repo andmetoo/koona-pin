@@ -1424,7 +1424,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   await search.press("ControlOrMeta+a");
   await expect(bar).toHaveCount(0);
   await search.fill("");
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
+  await clickEmpty(page);
 
   const started = Date.now();
   await page.keyboard.press("ControlOrMeta+a");
@@ -1446,7 +1446,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   await page.getByRole("button", { name: /^Favorites/ }).click();
   await expect(bar).toHaveCount(0);
   // Ctrl A there adds that section only; Esc in the empty field clears it.
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
+  await clickEmpty(page);
   await page.keyboard.press("ControlOrMeta+a");
   await expect(bar.getByRole("status")).toHaveText("3 selected");
   await search.focus();
@@ -1648,7 +1648,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   // In the trash the bar offers to restore, export and delete for good.
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
+  await clickEmpty(page);
   await page.keyboard.press("ControlOrMeta+a");
   await expect(bar.getByRole("status")).toHaveText("2 selected");
   await expect(bar.getByRole("button", { name: "Move to…" })).toHaveCount(0);
@@ -1662,7 +1662,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   await selectCards(page, ["Ten principles for good design", "Noticing the everyday"]);
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
+  await clickEmpty(page);
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("Delete");
   const dialog = page.getByRole("dialog", { name: "Delete forever?" });
@@ -1682,6 +1682,12 @@ async function dragOver(page: import("@playwright/test").Page, from: import("@pl
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 10 });
 }
 const dropHint = (page: import("@playwright/test").Page) => page.locator("[data-drop-hint]");
+/** A click on the list's empty margin, just below the glass toolbar laid over its top. */
+async function clickEmpty(page: import("@playwright/test").Page) {
+  const list = page.locator('[data-scroll="main"]');
+  const top = await list.evaluate((e) => parseFloat(getComputedStyle(e).paddingTop));
+  await list.click({ position: { x: 5, y: top - 3 } });
+}
 
 test("drag: the selection onto a collection, a tag and the trash; the hint names the action and Ctrl Z takes it back", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1843,7 +1849,7 @@ test("drag in a narrow window: collection dots and the trash of the strip are ta
 
   // In the trash a press on a selected card does not lift it.
   await strip.getByRole("button", { name: "Trash", exact: true }).click();
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
+  await clickEmpty(page);
   await page.keyboard.press("ControlOrMeta+a");
   await dragOver(page, page.locator("[data-bookmark-id][data-selected] [data-preview]").first(), strip.getByRole("button", { name: "Development", exact: true }));
   await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
