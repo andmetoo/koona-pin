@@ -2662,7 +2662,9 @@
   .side-fold[data-folded] {
     grid-template-rows: 0fr;
   }
+  /* min-width 0: a grid item is as wide as its longest name otherwise, and the rows ran past the sidebar (2.1.2). */
   .side-fold > * {
+    min-width: 0;
     min-height: 0;
     overflow: hidden;
   }
@@ -2847,6 +2849,16 @@
 :root[data-linux] .sidebar-scroll {
   -webkit-mask-image: none;
   mask-image: none;
+}
+/* A name longer than its row fades out over the last 24 px instead of ending in an ellipsis
+   (2.1.2); data-clipped is set only when it does not fit, so a name that fits keeps its last letters. */
+.fade-end {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.fade-end[data-clipped] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 .sidebar-scroll::-webkit-scrollbar {
   display: none;
