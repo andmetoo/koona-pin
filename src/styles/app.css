@@ -675,13 +675,18 @@
    glass (below), a selected row keeps its accent border and soft fill, so focus and
    selection never look alike. */
 @layer components {
-  [data-bookmark-id]:focus-visible {
+  /* After a press the browser's own focus-visible would light up on any key, Esc too: the ring
+     waits for a key that moves focus (`services/inputMode.ts`). */
+  :root:not([data-input="pointer"]) [data-bookmark-id]:focus-visible {
     outline: 2px solid var(--np-focus);
     outline-offset: 4px;
   }
+  :root[data-input="pointer"] [data-bookmark-id]:focus-visible {
+    outline: none;
+  }
   /* Focused and selected (#319): one ring. The card keeps the ink ring around all of
      it over its glass; the row's border thickens to 2 px in place. */
-  [data-view="list"] [data-bookmark-id][data-selected]:focus-visible {
+  :root:not([data-input="pointer"]) [data-view="list"] [data-bookmark-id][data-selected]:focus-visible {
     outline-color: var(--np-accent);
     outline-offset: -1px;
   }
@@ -814,8 +819,8 @@
   }
   :is(
       [data-bookmark-id]:hover,
-      [data-bookmark-id]:focus-visible,
-      [data-bookmark-id]:has(:focus-visible),
+      :root:not([data-input="pointer"]) [data-bookmark-id]:focus-visible,
+      :root:not([data-input="pointer"]) [data-bookmark-id]:has(:focus-visible),
       [data-bookmark-id][data-menu-open]
     )
     .card-action {
@@ -828,8 +833,8 @@
   }
   :is(
       [data-bookmark-id]:hover,
-      [data-bookmark-id]:focus-visible,
-      [data-bookmark-id]:has(:focus-visible),
+      :root:not([data-input="pointer"]) [data-bookmark-id]:focus-visible,
+      :root:not([data-input="pointer"]) [data-bookmark-id]:has(:focus-visible),
       [data-bookmark-id][data-menu-open]
     )
     .card-scrim {
@@ -837,8 +842,8 @@
   }
   :is(
       [data-bookmark-id]:hover,
-      [data-bookmark-id]:focus-visible,
-      [data-bookmark-id]:has(:focus-visible),
+      :root:not([data-input="pointer"]) [data-bookmark-id]:focus-visible,
+      :root:not([data-input="pointer"]) [data-bookmark-id]:has(:focus-visible),
       [data-bookmark-id][data-menu-open]
     )
     .card-action:active {
