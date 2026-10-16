@@ -26,7 +26,7 @@ import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
 import { AppNotification } from "./components/shell/NotificationCenter";
 import { Toolbar } from "./components/shell/Toolbar";
-import { BookmarkActions } from "./components/library/Bookmarks";
+import { BookmarkActions, Preview } from "./components/library/Bookmarks";
 import { Arrows, BookmarkList } from "./components/library/BookmarkList";
 import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
@@ -995,6 +995,21 @@ export function App() {
       text: problemBanner(capture, t),
       action: { label: t("browser.details"), run: () => setPage("settings") },
     });
+  // What waits in the inbox, said once for the notification centre and the Inbox section's pill.
+  const inboxLine = [
+    counts.inbox_imported >= counts.inbox
+      ? t("notifications.inboxFromImport")
+      : counts.inbox_imported > 0
+        ? t("notifications.inboxImported", { count: counts.inbox_imported })
+        : "",
+    counts.inbox > QUICK_INBOX
+      ? t("notifications.inboxMany")
+      : counts.inbox === 1
+        ? t("notifications.inboxTextOne")
+        : t("notifications.inboxText"),
+  ]
+    .filter(Boolean)
+    .join(" ");
   if (counts.inbox > 0 && !inboxHidden)
     notifications.push({
       // A newer bookmark makes it a new notification, unread again.
@@ -1002,20 +1017,7 @@ export function App() {
       kind: "inbox",
       icon: InboxTray,
       title: t("notifications.inboxTitle", { count: counts.inbox }),
-      text: [
-        counts.inbox_imported >= counts.inbox
-          ? t("notifications.inboxFromImport")
-          : counts.inbox_imported > 0
-            ? t("notifications.inboxImported", { count: counts.inbox_imported })
-            : "",
-        counts.inbox > QUICK_INBOX
-          ? t("notifications.inboxMany")
-          : counts.inbox === 1
-            ? t("notifications.inboxTextOne")
-            : t("notifications.inboxText"),
-      ]
-        .filter(Boolean)
-        .join(" "),
+      text: inboxLine,
       at: counts.inbox_newest,
       thumbs: inboxThumbs,
       action: { label: t("inbox.sort"), run: openTriage },
@@ -1466,26 +1468,27 @@ export function App() {
                     </Banner>
                   )}
                   {inboxBanner && (
-                    <Banner
-                      tone="accent"
-                      label={t("inbox.bannerLabel")}
-                      icon={<Icon icon={InboxTray} size={18} />}
-                      action={
-                        <Button variant="primary" onClick={openTriage}>
-                          {t("inbox.sort")}
-                          <Icon icon={ChevronRight} size={13} />
-                        </Button>
-                      }
-                    >
-                      {narrow
-                        ? t("inbox.bannerShort", { count: counts.inbox })
-                        : counts.inbox_imported > 0
-                          ? // Frame 24: after an import into the inbox the banner counts everything.
-                            t("inbox.bannerImported", { count: counts.inbox, imported: counts.inbox_imported })
-                          : counts.inbox > QUICK_INBOX
-                          ? t("inbox.bannerMany", { count: counts.inbox })
-                          : t("inbox.banner", { count: counts.inbox })}
-                    </Banner>
+                    // The Inbox section's way into triage (2026-10-16): a raised pill, not a banner across the
+                    // page; it cannot be hidden here and goes when the inbox is empty. Elsewhere the bell tells.
+                    <section aria-label={t("inbox.bannerLabel")} className="inbox-pill">
+                      {inboxThumbs.length > 0 && (
+                        <span className="nt-thumbs" aria-hidden>
+                          {inboxThumbs.slice(0, 3).map((b) => (
+                            <span key={b.id} className="nt-thumb">
+                              <Preview b={b} small />
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      <p className="inbox-pill-text">
+                        <b>{t("notifications.inboxTitle", { count: counts.inbox })}</b>
+                        <span>{inboxLine}</span>
+                      </p>
+                      <button type="button" onClick={openTriage} className="inbox-pill-sort">
+                        {t("inbox.sort")}
+                        <Icon icon={ChevronRight} size={13} />
+                      </button>
+                    </section>
                   )}
                   {filters.onlyTrash && counts.trash > 0 && (
                     // Frame 25: how long the trash keeps things, what restoring brings back, and emptying it.

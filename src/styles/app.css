@@ -2641,3 +2641,58 @@
     transition: none;
   }
 }
+
+/* The Inbox section's pill (2026-10-16): the newest three as a fan, how many and from where, and Sort.
+   Raised like a card, as wide as it needs; the second line wraps rather than being cut. */
+@layer components {
+  .inbox-pill {
+    display: flex;
+    width: fit-content;
+    max-width: 100%;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 8px 8px 12px;
+    border-radius: 14px;
+    background: var(--np-raised);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.05),
+      0 12px 32px -14px rgb(0 0 0 / 0.22),
+      0 0 0 1px var(--np-raised-edge);
+  }
+  .inbox-pill .nt-thumb {
+    box-shadow: 0 0 0 2px var(--np-raised);
+  }
+  .inbox-pill-text {
+    display: grid;
+    min-width: 0;
+    margin: 0;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--np-muted);
+  }
+  .inbox-pill-text b {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--np-ink);
+  }
+  .inbox-pill-sort {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px 0 14px;
+    border-radius: 10px;
+    background: var(--np-ink-btn);
+    color: var(--np-on-ink-btn);
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.18),
+      inset 0 1px 0 rgb(255 255 255 / 0.12);
+    transition: background-color 140ms var(--ease-standard);
+  }
+  .inbox-pill-sort:hover {
+    background: var(--np-ink-btn-hover);
+  }
+}
