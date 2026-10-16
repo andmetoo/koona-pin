@@ -12,6 +12,7 @@ import { statusColor, statusLabel } from "../../services/capture";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
 import { SearchField } from "./SearchField";
+import { AppNotification, NotificationCenter } from "./NotificationCenter";
 
 export interface SidebarProps {
   narrow: boolean;
@@ -68,6 +69,9 @@ export interface SidebarProps {
    * `target` is the one under the pointer.
    */
   dropping?: { target: DropTarget | null } | null;
+  /** The notification centre's bell (2026-10-16): right of the wordmark, under the spirit in the strip. */
+  notifications: AppNotification[];
+  onClearNotifications: () => void;
 }
 
 export interface NewCollectionField {
@@ -170,8 +174,11 @@ export function Sidebar(props: SidebarProps) {
   if (narrow)
     return (
       <aside className="flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
-        <div className="mb-3 text-accent" data-tauri-drag-region>
+        <div className="mb-2 text-accent" data-tauri-drag-region>
           <Mascot size={30} className="pointer-events-none" />
+        </div>
+        <div className="mb-2">
+          <NotificationCenter items={props.notifications} place="right" onClearAll={props.onClearNotifications} />
         </div>
         <StripButton
           label={counts.inbox > 0 ? t("nav.inboxWaiting", { count: counts.inbox }) : t("nav.inbox")}
@@ -274,11 +281,12 @@ export function Sidebar(props: SidebarProps) {
       aria-label={t("sidebar.label")}
       data-drop-scroll
     >
-      <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-2.5 text-accent" data-tauri-drag-region>
+      <div className="flex items-center gap-2.5 pt-1.5 pr-0 pb-2.5 pl-2 text-accent" data-tauri-drag-region>
         <Mascot className="pointer-events-none" />
-        <span className="text-lg font-semibold" data-tauri-drag-region>
+        <span className="min-w-0 flex-1 text-lg font-semibold" data-tauri-drag-region>
           koona pin
         </span>
+        <NotificationCenter items={props.notifications} place="below" onClearAll={props.onClearNotifications} />
       </div>
       <SearchField
         ref={props.searchRef}

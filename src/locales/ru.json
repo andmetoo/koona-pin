@@ -1701,5 +1701,29 @@
       "note": "В отчёте только состояния и идентификаторы — без закладок и имён.",
       "copy": "Копировать отчёт"
     }
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "bellUnread_one": "Уведомления: {{count}} новое",
+    "bellUnread_few": "Уведомления: {{count}} новых",
+    "bellUnread_many": "Уведомления: {{count}} новых",
+    "bellUnread_other": "Уведомления: {{count}} нового",
+    "bellProblem": "Уведомления: есть проблема",
+    "clearAll": "Очистить всё",
+    "empty": "Ничего нового",
+    "emptyHint": "Здесь появятся новые закладки и проблемы с сохранением.",
+    "unread": "Не прочитано",
+    "inboxTitle_one": "{{count}} новая во входящих",
+    "inboxTitle_few": "{{count}} новые во входящих",
+    "inboxTitle_many": "{{count}} новых во входящих",
+    "inboxTitle_other": "{{count}} новой во входящих",
+    "inboxText": "Оставить, разложить или выбросить займёт около минуты.",
+    "inboxTextOne": "Оставить, разложить или выбросить займёт пару секунд.",
+    "inboxMany": "Оставить, разложить или выбросить — по одной.",
+    "inboxImported_one": "Из них {{count}} из импорта.",
+    "inboxImported_few": "Из них {{count}} из импорта.",
+    "inboxImported_many": "Из них {{count}} из импорта.",
+    "inboxImported_other": "Из них {{count}} из импорта.",
+    "inboxFromImport": "Из импорта."
   }
 }

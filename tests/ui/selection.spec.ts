@@ -556,7 +556,8 @@ test("triage keeps Space for the browser (NP-123)", async ({ page }) => {
     (window as unknown as { opened: string[] }).opened = [];
     window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
   });
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(page.locator("[data-triage-card]")).toBeVisible();
   await page.keyboard.press("Space");
   expect(await opened(page)).toHaveLength(1);

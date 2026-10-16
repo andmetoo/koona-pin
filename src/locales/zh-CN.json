@@ -1443,5 +1443,20 @@
       "note": "报告只包含状态和 ID — 不含书签，也不含名称。",
       "copy": "复制报告"
     }
+  },
+  "notifications": {
+    "title": "通知",
+    "bellUnread_other": "通知，{{count}} 条新通知",
+    "bellProblem": "通知，有一个问题",
+    "clearAll": "全部清除",
+    "empty": "没有新消息",
+    "emptyHint": "新书签和保存问题会显示在这里。",
+    "unread": "未读",
+    "inboxTitle_other": "收件箱有 {{count}} 个新书签",
+    "inboxText": "保留、归档或删除，大约只需一分钟。",
+    "inboxTextOne": "保留、归档或删除，只需片刻。",
+    "inboxMany": "逐个保留、归档或删除。",
+    "inboxImported_other": "其中 {{count}} 个来自导入。",
+    "inboxFromImport": "来自导入。"
   }
 }

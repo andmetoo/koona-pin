@@ -1701,5 +1701,29 @@
       "note": "Raport zawiera tylko stany i identyfikatory — bez zakładek i nazw.",
       "copy": "Kopiuj raport"
     }
+  },
+  "notifications": {
+    "title": "Powiadomienia",
+    "bellUnread_one": "Powiadomienia: {{count}} nowe",
+    "bellUnread_few": "Powiadomienia: {{count}} nowe",
+    "bellUnread_many": "Powiadomienia: {{count}} nowych",
+    "bellUnread_other": "Powiadomienia: {{count}} nowego",
+    "bellProblem": "Powiadomienia: wystąpił problem",
+    "clearAll": "Wyczyść wszystko",
+    "empty": "Nic nowego",
+    "emptyHint": "Tu pojawią się nowe zakładki i problemy z zapisywaniem.",
+    "unread": "Nieprzeczytane",
+    "inboxTitle_one": "{{count}} nowa w skrzynce odbiorczej",
+    "inboxTitle_few": "{{count}} nowe w skrzynce odbiorczej",
+    "inboxTitle_many": "{{count}} nowych w skrzynce odbiorczej",
+    "inboxTitle_other": "{{count}} nowej w skrzynce odbiorczej",
+    "inboxText": "Zostawienie, odłożenie albo wyrzucenie zajmie około minuty.",
+    "inboxTextOne": "Zostawienie, odłożenie albo wyrzucenie zajmie chwilę.",
+    "inboxMany": "Zostawiaj, odkładaj albo wyrzucaj po jednej.",
+    "inboxImported_one": "{{count}} z nich z importu.",
+    "inboxImported_few": "{{count}} z nich z importu.",
+    "inboxImported_many": "{{count}} z nich z importu.",
+    "inboxImported_other": "{{count}} z nich z importu.",
+    "inboxFromImport": "Z importu."
   }
 }

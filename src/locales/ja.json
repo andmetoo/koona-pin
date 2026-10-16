@@ -1443,5 +1443,20 @@
       "note": "レポートには状態と ID だけが含まれます。ブックマークや名前は含まれません。",
       "copy": "レポートをコピー"
     }
+  },
+  "notifications": {
+    "title": "通知",
+    "bellUnread_other": "通知（新着 {{count}} 件）",
+    "bellProblem": "通知（問題があります）",
+    "clearAll": "すべて消去",
+    "empty": "新着はありません",
+    "emptyHint": "新しいブックマークや保存の問題はここに表示されます。",
+    "unread": "未読",
+    "inboxTitle_other": "インボックスに新着 {{count}} 件",
+    "inboxText": "残す、振り分ける、捨てるのに 1 分ほどです。",
+    "inboxTextOne": "残す、振り分ける、捨てるのはすぐです。",
+    "inboxMany": "1 件ずつ、残す、振り分ける、捨てるを選べます。",
+    "inboxImported_other": "うち {{count}} 件はインポートから。",
+    "inboxFromImport": "インポートからです。"
   }
 }

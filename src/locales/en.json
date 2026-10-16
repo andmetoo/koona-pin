@@ -1529,5 +1529,23 @@
       "note": "The report has states and ids only — no bookmarks, no names.",
       "copy": "Copy report"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bellUnread_one": "Notifications, {{count}} new",
+    "bellUnread_other": "Notifications, {{count}} new",
+    "bellProblem": "Notifications, there is a problem",
+    "clearAll": "Clear all",
+    "empty": "Nothing new",
+    "emptyHint": "New bookmarks and problems with saving will show up here.",
+    "unread": "Unread",
+    "inboxTitle_one": "{{count}} new in Inbox",
+    "inboxTitle_other": "{{count}} new in Inbox",
+    "inboxText": "Keeping, filing or tossing them takes about a minute.",
+    "inboxTextOne": "Keeping, filing or tossing it takes a moment.",
+    "inboxMany": "Keep, file or toss them one at a time.",
+    "inboxImported_one": "{{count}} of them from the import.",
+    "inboxImported_other": "{{count}} of them from the import.",
+    "inboxFromImport": "From the import."
   }
 }

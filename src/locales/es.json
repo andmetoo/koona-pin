@@ -1615,5 +1615,26 @@
       "note": "El informe solo contiene estados e identificadores — ni marcadores ni nombres.",
       "copy": "Copiar informe"
     }
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "bellUnread_one": "Notificaciones: {{count}} nueva",
+    "bellUnread_many": "Notificaciones: {{count}} nuevas",
+    "bellUnread_other": "Notificaciones: {{count}} nuevas",
+    "bellProblem": "Notificaciones: hay un problema",
+    "clearAll": "Borrar todo",
+    "empty": "Nada nuevo",
+    "emptyHint": "Aquí aparecerán los marcadores nuevos y los problemas al guardar.",
+    "unread": "No leída",
+    "inboxTitle_one": "{{count}} nuevo en la bandeja de entrada",
+    "inboxTitle_many": "{{count}} nuevos en la bandeja de entrada",
+    "inboxTitle_other": "{{count}} nuevos en la bandeja de entrada",
+    "inboxText": "Conservarlos, archivarlos o tirarlos lleva un minuto.",
+    "inboxTextOne": "Conservarlo, archivarlo o tirarlo lleva un momento.",
+    "inboxMany": "Conservarlos, archivarlos o tirarlos de uno en uno.",
+    "inboxImported_one": "{{count}} de ellos de la importación.",
+    "inboxImported_many": "{{count}} de ellos de la importación.",
+    "inboxImported_other": "{{count}} de ellos de la importación.",
+    "inboxFromImport": "De la importación."
   }
 }

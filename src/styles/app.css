@@ -1852,10 +1852,342 @@
   .sort-half::before,
   .sort-behind {
     transition: none;
+
+/* The notification centre (2026-10-16, banner variant D): a bell in the sidebar's header, or
+   under the spirit in the narrow strip, with a badge of the unread; a glass popover of the
+   notifications, each with a rounded icon tile, its title and time, its text, an action row and
+   a × on hover. The glass is the card at 80 % over a blur of the library. */
+:root {
+  --np-notify-glass: color-mix(in oklab, var(--np-card) 80%, transparent);
+  --np-notify-shadow: 0 24px 60px -18px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.06);
+}
+[data-theme="dark"] {
+  --np-notify-glass: color-mix(in oklab, var(--np-card) 82%, transparent);
+  --np-notify-shadow: 0 24px 60px -18px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.3);
+}
+@layer components {
+  .notify-bell {
+    position: relative;
+    display: grid;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border-radius: 9px;
+    color: var(--np-icon);
+    background: var(--np-raised);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.025),
+      inset 0 0 0 1px var(--np-raised-edge);
+    transition:
+      background-color 150ms,
+      color 150ms;
+  }
+  .notify-bell:hover,
+  .notify-bell[aria-expanded="true"] {
+    background: var(--np-hover);
+    color: var(--np-ink);
+  }
+  /* In the strip the bell is one of its buttons: flat until hovered. */
+  .notify-bell-strip {
+    width: 36px;
+    height: 32px;
+    background: transparent;
+    box-shadow: none;
+  }
+  .notify-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    display: grid;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    place-items: center;
+    border-radius: 9px;
+    background: var(--np-accent);
+    color: var(--np-on-accent);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 0 0 2px var(--np-panel);
+  }
+  .notify-bell-strip .notify-badge {
+    top: -1px;
+    right: -1px;
+  }
+  .notify-badge-problem {
+    background: var(--np-amber);
+    color: #ffffff;
+  }
+  [data-theme="dark"] .notify-badge-problem {
+    color: #1d1a14;
+  }
+  /* A problem already seen keeps a small amber dot: it is still there. */
+  .notify-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--np-amber);
+    box-shadow: 0 0 0 2px var(--np-panel);
+  }
+
+  .notify-center {
+    position: fixed;
+    z-index: 45;
+    width: min(368px, calc(100vw - 16px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px;
+    border-radius: 18px;
+    color: var(--np-ink);
+    background: var(--np-notify-glass);
+    -webkit-backdrop-filter: blur(26px) saturate(170%);
+    backdrop-filter: blur(26px) saturate(170%);
+    box-shadow:
+      var(--np-notify-shadow),
+      inset 0 0 0 1px var(--np-hairline);
+    animation: notify-pop 220ms var(--spring);
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      background: var(--np-card);
+    }
+  }
+  .notify-center:focus-visible {
+    outline: none;
+  }
+  @keyframes notify-pop {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.97);
+    }
+  }
+  .notify-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 8px 8px;
+  }
+  .notify-head h2 {
+    margin: 0;
+    font-size: 14px;
+    line-height: 19px;
+    font-weight: 650;
+  }
+  .notify-head button {
+    padding: 2px 6px;
+    border-radius: 6px;
+    color: var(--np-subtle);
+    font-size: 12px;
+    line-height: 16px;
+    transition:
+      background-color 150ms,
+      color 150ms;
+  }
+  .notify-head button:hover {
+    color: var(--np-ink);
+    background: var(--np-hover);
+  }
+  .notify-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .nt {
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 4px 12px;
+    padding: 12px;
+    border-radius: 12px;
+    transition: background-color 150ms;
+  }
+  .nt:hover {
+    background: var(--np-hover);
+  }
+  .nt-icon {
+    grid-row: span 3;
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--np-well);
+    color: var(--np-icon);
+  }
+  .nt-inbox .nt-icon {
+    background: var(--np-accent-soft);
+    color: var(--np-accent);
+  }
+  .nt-problem .nt-icon {
+    background: var(--np-amber-soft);
+    color: var(--np-amber);
+  }
+  .nt-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+    padding-right: 22px;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .nt-title time {
+    margin-left: auto;
+    color: var(--np-subtle);
+    font-size: 11.5px;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  .nt-text {
+    margin: 0;
+    color: var(--np-muted);
+    font-size: 12.5px;
+    line-height: 17px;
+    overflow-wrap: break-word;
+  }
+  .nt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .nt-button {
+    display: inline-flex;
+    height: 28px;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 7px;
+    color: var(--np-ink);
+    background: var(--np-raised);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.025),
+      inset 0 0 0 1px var(--np-raised-edge);
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition:
+      background-color 150ms,
+      filter 150ms;
+  }
+  .nt-button:hover {
+    background: var(--np-secondary-hover);
+  }
+  .nt-button-primary {
+    color: var(--np-on-accent);
+    background: var(--np-accent);
+    font-weight: 600;
+    box-shadow: var(--shadow-primary);
+  }
+  .nt-button-primary:hover {
+    background: var(--np-accent);
+    filter: brightness(0.94);
+  }
+  /* The newest waiting bookmarks: three small covers fanned over each other. */
+  .nt-thumbs {
+    display: flex;
+    flex: none;
+    margin-right: 4px;
+  }
+  .nt-thumb {
+    position: relative;
+    width: 34px;
+    height: 24px;
+    margin-left: -10px;
+    overflow: hidden;
+    border-radius: 6px;
+    background: var(--np-well);
+    box-shadow: 0 0 0 2px var(--np-card);
+  }
+  .nt-thumb:first-child {
+    margin-left: 0;
+  }
+  .nt-thumb .cover-tile,
+  .nt-thumb .cover-name {
+    display: none;
+  }
+  .nt-x {
+    position: absolute;
+    top: 10px;
+    right: 8px;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    border-radius: 7px;
+    color: var(--np-subtle);
+    opacity: 0;
+    transition:
+      opacity 150ms,
+      background-color 150ms,
+      color 150ms;
+  }
+  .nt:hover .nt-x,
+  .nt:focus-within .nt-x {
+    opacity: 1;
+  }
+  .nt-x:hover {
+    background: var(--np-well);
+    color: var(--np-ink);
+  }
+  .nt-unread {
+    position: absolute;
+    top: 22px;
+    left: 4px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--np-accent);
+  }
+  .nt-problem .nt-unread {
+    background: var(--np-amber);
+  }
+  .notify-empty {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    padding: 18px 16px 22px;
+    text-align: center;
+  }
+  .notify-empty-icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 6px;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--np-well);
+    color: var(--np-subtle);
+  }
+  .notify-empty-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .notify-empty-text {
+    margin: 0;
+    max-width: 260px;
+    color: var(--np-muted);
+    font-size: 12.5px;
+    line-height: 17px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The notification centre appears in place. */
+  .notify-center {
+    animation: none;
+  }
   /* The corner buttons, the check and the selected preview change without moving. */
   .card-action,
   .card-check,

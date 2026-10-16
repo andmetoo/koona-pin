@@ -1615,5 +1615,26 @@
       "note": "O relatório tem só estados e IDs — nenhum marcador, nenhum nome.",
       "copy": "Copiar relatório"
     }
+  },
+  "notifications": {
+    "title": "Notificações",
+    "bellUnread_one": "Notificações: {{count}} nova",
+    "bellUnread_many": "Notificações: {{count}} novas",
+    "bellUnread_other": "Notificações: {{count}} novas",
+    "bellProblem": "Notificações: há um problema",
+    "clearAll": "Limpar tudo",
+    "empty": "Nada de novo",
+    "emptyHint": "Marcadores novos e problemas ao salvar aparecerão aqui.",
+    "unread": "Não lida",
+    "inboxTitle_one": "{{count}} novo na caixa de entrada",
+    "inboxTitle_many": "{{count}} novos na caixa de entrada",
+    "inboxTitle_other": "{{count}} novos na caixa de entrada",
+    "inboxText": "Manter, guardar ou jogar fora leva cerca de um minuto.",
+    "inboxTextOne": "Manter, guardar ou jogar fora leva um instante.",
+    "inboxMany": "Manter, guardar ou jogar fora, um de cada vez.",
+    "inboxImported_one": "{{count}} deles da importação.",
+    "inboxImported_many": "{{count}} deles da importação.",
+    "inboxImported_other": "{{count}} deles da importação.",
+    "inboxFromImport": "Da importação."
   }
 }

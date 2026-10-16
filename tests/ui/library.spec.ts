@@ -141,19 +141,27 @@ test("incoming capture preserves reading position until explicitly revealed", as
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(0);
 });
-test("inbox: new links wait there until a decision, the banner hides until a newer one", async ({ page }) => {
+test("inbox: new links wait there until a decision, the notification hides until a newer one", async ({ page }) => {
   const inbox = (count: number) => page.getByRole("button", { name: `Inbox ${count}`, exact: true });
   const banner = page.getByRole("region", { name: "New bookmarks" });
+  const bell = page.locator("[data-notification-bell]");
+  const centre = page.getByRole("dialog", { name: "Notifications" });
+  const waiting = centre.locator('[data-notification="inbox"]');
   const cards = page.locator("[data-bookmark-id]");
   const capture = (url: string) =>
     page.evaluate(async (url) => {
       const { api } = await import("/src/services/api.ts");
       await api.addBookmark({ url, title: "From the browser" });
     }, url);
-  // All bookmarks include the inbox; the banner leads there.
+  // All bookmarks include the inbox; no banner over the list, the bell tells about it.
   await expect(inbox(2)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/All bookmarks\s*6/);
-  await expect(banner).toContainText("2 new bookmarks are waiting — keeping, filing or tossing them takes about a minute");
+  await expect(banner).toHaveCount(0);
+  await expect(bell).toHaveAccessibleName("Notifications, 1 new");
+  await bell.click();
+  await expect(waiting).toContainText("2 new in Inbox");
+  await expect(waiting).toContainText("Keeping, filing or tossing them takes about a minute.");
+  await page.keyboard.press("Escape");
   await inbox(2).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Inbox\s*2/);
   await expect(cards).toHaveCount(2);
@@ -178,21 +186,29 @@ test("inbox: new links wait there until a decision, the banner hides until a new
 
   // Hidden until a bookmark newer than the ones waiting arrives, also after a restart.
   await page.getByRole("button", { name: "All bookmarks" }).click();
-  await banner.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
-  await expect(banner).toHaveCount(0);
+  await bell.click();
+  await waiting.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
+  await expect(waiting).toHaveCount(0);
+  await expect(centre).toContainText("Nothing new");
+  await page.keyboard.press("Escape");
   await page.reload();
   await expect(cards).toHaveCount(7);
-  await expect(banner).toHaveCount(0);
+  await expect(bell).toHaveAccessibleName("Notifications");
   await expect(inbox(2)).toBeVisible();
   await capture("https://example.com/newer");
-  await expect(banner).toContainText("3 new bookmarks are waiting");
+  await expect(bell).toHaveAccessibleName("Notifications, 1 new");
+  await bell.click();
+  await expect(waiting).toContainText("3 new in Inbox");
+  await page.keyboard.press("Escape");
 
-  // Nothing left: no banner, no badge, the empty inbox.
+  // Nothing left: no notification, no badge, the empty inbox.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     for (const b of (await api.getBookmarks({ onlyInbox: true })).items) await api.updateBookmark(b.id, { notes: "Decided" });
   });
-  await expect(banner).toHaveCount(0);
+  await bell.click();
+  await expect(waiting).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Inbox", exact: true }).click();
   await expect(page.getByRole("heading", { name: "All sorted" })).toBeVisible();
 });
@@ -410,7 +426,8 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
     (window as unknown as { opened: string[] }).opened = [];
     window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
   });
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(heading).toHaveText(/Sort inbox\s*1 of 5/);
   await expect(title).toHaveText("Third new");
   await expect(page.locator("[data-triage-card]")).toContainText(/example\.com\s*·\s*added by hand today at \d/);
@@ -501,7 +518,8 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
     }
     return (await api.addBookmark({ url: "https://example.org/new", title: "One more example" })).bookmark.id;
   });
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(page.locator("[data-triage-card] h2")).toHaveText("One more example");
   const offered = page.locator("[data-suggested]");
   const chips = page.locator("[data-keys] button");
@@ -550,7 +568,8 @@ test("triage: the decisions keep their words at any width, a longer label goes c
       const { default: i18n } = await import("/src/i18n/index.ts");
       await i18n.changeLanguage(code);
     }, code);
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(page.locator("[data-triage-card]")).toBeVisible();
   for (const [code, words] of [
     ["en", "Move to trash"],

@@ -1629,5 +1629,26 @@
       "note": "Izveštaj sadrži samo stanja i identifikatore — bez obeleživača i naziva.",
       "copy": "Kopiraj izveštaj"
     }
+  },
+  "notifications": {
+    "title": "Obaveštenja",
+    "bellUnread_one": "Obaveštenja: {{count}} novo",
+    "bellUnread_few": "Obaveštenja: {{count}} nova",
+    "bellUnread_other": "Obaveštenja: {{count}} novih",
+    "bellProblem": "Obaveštenja: postoji problem",
+    "clearAll": "Očisti sve",
+    "empty": "Ništa novo",
+    "emptyHint": "Ovde će se pojaviti novi obeleživači i problemi sa čuvanjem.",
+    "unread": "Nepročitano",
+    "inboxTitle_one": "{{count}} novi u prijemnom sandučetu",
+    "inboxTitle_few": "{{count}} nova u prijemnom sandučetu",
+    "inboxTitle_other": "{{count}} novih u prijemnom sandučetu",
+    "inboxText": "Da ih zadržite, razvrstate ili bacite treba oko minut.",
+    "inboxTextOne": "Da ga zadržite, razvrstate ili bacite treba trenutak.",
+    "inboxMany": "Zadržite, razvrstajte ili bacite jedan po jedan.",
+    "inboxImported_one": "{{count}} od njih iz uvoza.",
+    "inboxImported_few": "{{count}} od njih iz uvoza.",
+    "inboxImported_other": "{{count}} od njih iz uvoza.",
+    "inboxFromImport": "Iz uvoza."
   }
 }
