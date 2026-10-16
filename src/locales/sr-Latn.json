@@ -49,6 +49,8 @@
     "tag": "Dodaj oznaku „{{tag}}“ za {{count}}",
     "trash": "Premesti {{count}} u otpad",
     "new": "Nova kolekcija od {{count}}",
+    "favorites": "Dodaj {{count}} u „Omiljeno“",
+    "reading": "Pošalji {{count}} u „Za čitanje“",
     "nowhere": "Spustite na kolekciju, oznaku ili otpad",
     "keys": "Pustite iznad kolekcije, oznake ili otpada  ·  Esc — otkaži prevlačenje"
   },

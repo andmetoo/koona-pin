@@ -45,8 +45,10 @@
     "tag": "Add tag “{{tag}}” to {{count}}",
     "trash": "Move {{count}} to Trash",
     "new": "New collection from {{count}}",
-    "nowhere": "Drop on a collection, a tag or Trash",
-    "keys": "Release over a collection, a tag or Trash  ·  Esc — cancel the drag"
+    "favorites": "Add {{count}} to Favorites",
+    "reading": "Send {{count}} to Reading",
+    "nowhere": "Drop on a collection, a tag, Favorites, Reading or Trash",
+    "keys": "Release over a collection, a tag, Favorites, Reading or Trash  ·  Esc — cancel the drag"
   },
   "nav": {
     "inbox": "Inbox",

@@ -47,6 +47,8 @@
     "tag": "Ajouter l’étiquette « {{tag}} » à {{count}}",
     "trash": "Mettre {{count}} à la corbeille",
     "new": "Nouvelle collection avec {{count}}",
+    "favorites": "Ajouter {{count}} aux Favoris",
+    "reading": "Envoyer {{count}} vers À lire",
     "nowhere": "Déposez sur une collection, une étiquette ou la corbeille",
     "keys": "Relâchez sur une collection, une étiquette ou la corbeille  ·  Échap — annuler le glisser"
   },

@@ -47,6 +47,8 @@
     "tag": "Añadir la etiqueta «{{tag}}» a {{count}}",
     "trash": "Mover {{count}} a la papelera",
     "new": "Nueva colección con {{count}}",
+    "favorites": "Añadir {{count}} a Favoritos",
+    "reading": "Enviar {{count}} a Para leer",
     "nowhere": "Suelta sobre una colección, una etiqueta o la papelera",
     "keys": "Suelta sobre una colección, una etiqueta o la papelera  ·  Esc — cancelar el arrastre"
   },

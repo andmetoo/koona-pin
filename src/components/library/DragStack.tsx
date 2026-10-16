@@ -1,5 +1,5 @@
 import { RefObject, useLayoutEffect } from "react";
-import { Folder, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
+import { BookOpen, Folder, Heart, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection } from "../../types";
 import { dropHint } from "../../services/drag";
@@ -7,7 +7,7 @@ import { SelectionDrag } from "../../hooks/useSelectionDrag";
 import { Icon } from "../icons";
 import { Preview } from "./Bookmarks";
 
-const icons = { collection: Folder, tag: TagIcon, trash: Trash2, new: Plus };
+const icons = { collection: Folder, tag: TagIcon, trash: Trash2, new: Plus, favorites: Heart, reading: BookOpen };
 
 /**
  * The stack under the pointer (frame 05, sheet 32): the bookmark the drag
