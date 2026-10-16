@@ -165,10 +165,10 @@
     "readOf": "Leggi qui: {{title}}",
     "selected": "Selezionato",
     "filterDomain": "Solo i segnalibri di {{domain}}",
-    "saveOffline": "Save for offline",
-    "removeOffline": "Remove offline copy",
-    "saveOfflineShort": "Save offline",
-    "savedOffline": "Saved offline"
+    "saveOffline": "Salva per offline",
+    "removeOffline": "Rimuovi copia offline",
+    "saveOfflineShort": "Salva offline",
+    "savedOffline": "Salvato offline"
   },
   "selection": {
     "label": "Segnalibri selezionati",
@@ -733,26 +733,26 @@
     "githubHint": "Segnalazioni pubbliche in koona-pin",
     "licenses": "Licenze",
     "licensesHint": "Font, icone e librerie con cui è fatto Koona Pin",
-    "offline": "Offline copies",
-    "offlineStats": "Saved for offline — {{articles}} · {{size}}",
-    "offlineArticles_one": "{{count}} article",
-    "offlineArticles_many": "{{count}} articles",
-    "offlineArticles_other": "{{count}} articles",
-    "offlineHint": "Only on this computer: not synced, not in exports.",
-    "showFolder": "Show folder",
-    "saveOffline": "Save articles I open in Reading",
-    "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
-    "removeCopies": "Remove all copies",
-    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
-    "removeCopiesButton": "Remove…",
-    "removeCopiesTitle": "Remove all offline copies?",
-    "removeCopiesText_one": "{{count}} saved article will be deleted from this computer. The bookmark stays.",
-    "removeCopiesText_many": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
-    "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
-    "removeCopiesConfirm": "Remove copies",
-    "copiesRemoved_one": "{{count}} offline copy removed",
-    "copiesRemoved_many": "{{count}} offline copies removed",
-    "copiesRemoved_other": "{{count}} offline copies removed"
+    "offline": "Copie offline",
+    "offlineStats": "Salvati per offline — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} articolo",
+    "offlineArticles_many": "{{count}} di articoli",
+    "offlineArticles_other": "{{count}} articoli",
+    "offlineHint": "Solo su questo computer: non sincronizzate, non esportate.",
+    "showFolder": "Mostra cartella",
+    "saveOffline": "Salva gli articoli che apro da Da leggere",
+    "saveOfflineHint": "Ogni articolo di Da leggere aperto in modalità lettura tiene qui una copia.",
+    "removeCopies": "Rimuovi tutte le copie",
+    "removeCopiesHint": "I segnalibri restano; vengono rimosse solo le copie offline.",
+    "removeCopiesButton": "Rimuovi…",
+    "removeCopiesTitle": "Rimuovere tutte le copie offline?",
+    "removeCopiesText_one": "{{count}} articolo salvato verrà eliminato da questo computer. Il segnalibro resta.",
+    "removeCopiesText_many": "{{count}} di articoli salvati verranno eliminati da questo computer. I segnalibri restano.",
+    "removeCopiesText_other": "{{count}} articoli salvati verranno eliminati da questo computer. I segnalibri restano.",
+    "removeCopiesConfirm": "Rimuovi copie",
+    "copiesRemoved_one": "{{count}} copia offline rimossa",
+    "copiesRemoved_many": "{{count}} di copie offline rimosse",
+    "copiesRemoved_other": "{{count}} copie offline rimosse"
   },
   "notice": {
     "previewRefreshed": "Anteprima aggiornata",
@@ -880,8 +880,8 @@
     "inboxHint": "I nuovi segnalibri dal browser e dalle importazioni arrivano qui e aspettano una decisione.",
     "trash": "Il cestino è vuoto",
     "trashHint": "I segnalibri eliminati restano qui 30 giorni, poi spariscono per sempre.",
-    "offline": "No offline copies yet",
-    "offlineHint": "Choose «Save for offline» in a bookmark’s menu, or «Save offline» in reading mode. Copies stay on this computer."
+    "offline": "Ancora nessuna copia offline",
+    "offlineHint": "Scegli «Salva per offline» nel menu di un segnalibro, o «Salva offline» in modalità lettura. Le copie restano su questo computer."
   },
   "inbox": {
     "banner_one": "{{count}} nuovo segnalibro in attesa: tenerlo, archiviarlo o buttarlo richiede un attimo",
@@ -917,19 +917,19 @@
       "links": "La pagina è fatta soprattutto di link, non di un articolo.",
       "empty": "Nessun articolo trovato nella pagina: forse lo disegnano gli script."
     },
-    "offlineCopy": "offline copy",
-    "offlineBanner": "No connection — reading the offline copy saved {{date}}",
-    "tryLive": "Try live page"
+    "offlineCopy": "copia offline",
+    "offlineBanner": "Nessuna connessione — stai leggendo la copia salvata il {{date}}",
+    "tryLive": "Prova la pagina online"
   },
   "offline": {
-    "save": "Save offline",
-    "saved": "Saved offline",
-    "saving": "Saving…",
-    "update": "Update copy",
-    "remove": "Remove copy",
-    "savedNotice": "Saved for offline",
-    "removedNotice": "Offline copy removed",
-    "failed": "Couldn’t save for offline: {{reason}}"
+    "save": "Salva offline",
+    "saved": "Salvato offline",
+    "saving": "Salvataggio…",
+    "update": "Aggiorna copia",
+    "remove": "Rimuovi copia",
+    "savedNotice": "Salvato per offline",
+    "removedNotice": "Copia offline rimossa",
+    "failed": "Impossibile salvare offline: {{reason}}"
   },
   "readerAa": {
     "label": "Testo e tema",

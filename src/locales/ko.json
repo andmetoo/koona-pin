@@ -55,7 +55,7 @@
     "duplicates": "중복 항목",
     "links": "링크 검사",
     "settings": "설정",
-    "offline": "Offline"
+    "offline": "오프라인"
   },
   "browser": {
     "ready": "브라우저 연결됨",
@@ -153,10 +153,10 @@
     "readOf": "여기서 읽기: {{title}}",
     "selected": "선택됨",
     "filterDomain": "{{domain}}의 북마크만 보기",
-    "saveOffline": "Save for offline",
-    "removeOffline": "Remove offline copy",
-    "saveOfflineShort": "Save offline",
-    "savedOffline": "Saved offline"
+    "saveOffline": "오프라인용으로 저장",
+    "removeOffline": "오프라인 사본 삭제",
+    "saveOfflineShort": "오프라인 저장",
+    "savedOffline": "오프라인 저장됨"
   },
   "selection": {
     "label": "선택한 북마크",
@@ -641,20 +641,20 @@
     "githubHint": "koona-pin의 공개 보고",
     "licenses": "라이선스",
     "licensesHint": "Koona Pin에 쓰인 글꼴, 아이콘, 라이브러리",
-    "offline": "Offline copies",
-    "offlineStats": "Saved for offline — {{articles}} · {{size}}",
-    "offlineArticles_other": "{{count}} articles",
-    "offlineHint": "Only on this computer: not synced, not in exports.",
-    "showFolder": "Show folder",
-    "saveOffline": "Save articles I open in Reading",
-    "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
-    "removeCopies": "Remove all copies",
-    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
-    "removeCopiesButton": "Remove…",
-    "removeCopiesTitle": "Remove all offline copies?",
-    "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
-    "removeCopiesConfirm": "Remove copies",
-    "copiesRemoved_other": "{{count}} offline copies removed"
+    "offline": "오프라인 사본",
+    "offlineStats": "오프라인용으로 저장됨 — {{articles}} · {{size}}",
+    "offlineArticles_other": "글 {{count}}개",
+    "offlineHint": "이 컴퓨터에만 있으며 동기화되거나 내보내지지 않습니다.",
+    "showFolder": "폴더 보기",
+    "saveOffline": "읽을거리에서 연 글 저장",
+    "saveOfflineHint": "읽을거리의 글을 읽기 모드로 열 때마다 여기에 사본이 남습니다.",
+    "removeCopies": "모든 사본 삭제",
+    "removeCopiesHint": "북마크는 남고 오프라인 사본만 삭제됩니다.",
+    "removeCopiesButton": "삭제…",
+    "removeCopiesTitle": "모든 오프라인 사본을 삭제할까요?",
+    "removeCopiesText_other": "저장된 글 {{count}}개가 이 컴퓨터에서 삭제됩니다. 북마크는 남습니다.",
+    "removeCopiesConfirm": "사본 삭제",
+    "copiesRemoved_other": "오프라인 사본 {{count}}개를 삭제했습니다"
   },
   "notice": {
     "previewRefreshed": "미리 보기를 새로 고쳤습니다",
@@ -768,8 +768,8 @@
     "inboxHint": "브라우저와 가져오기에서 온 새 북마크가 여기에 도착해 결정을 기다립니다.",
     "trash": "휴지통이 비어 있습니다",
     "trashHint": "삭제한 북마크는 30일 동안 여기에 남았다가 영구 삭제됩니다.",
-    "offline": "No offline copies yet",
-    "offlineHint": "Choose «Save for offline» in a bookmark’s menu, or «Save offline» in reading mode. Copies stay on this computer."
+    "offline": "아직 오프라인 사본이 없습니다",
+    "offlineHint": "북마크 메뉴에서 ‘오프라인용으로 저장’을, 읽기 모드에서 ‘오프라인 저장’을 선택하세요. 사본은 이 컴퓨터에 남습니다."
   },
   "inbox": {
     "banner_other": "새 북마크 {{count}}개가 기다리고 있습니다 — 유지, 분류, 삭제하는 데 1분 정도 걸립니다",
@@ -797,19 +797,19 @@
       "links": "이 페이지는 글이 아니라 대부분 링크입니다.",
       "empty": "페이지에서 글을 찾지 못했습니다. 스크립트로 그려지는 페이지일 수 있습니다."
     },
-    "offlineCopy": "offline copy",
-    "offlineBanner": "No connection — reading the offline copy saved {{date}}",
-    "tryLive": "Try live page"
+    "offlineCopy": "오프라인 사본",
+    "offlineBanner": "연결 없음 — {{date}}에 저장한 오프라인 사본을 읽는 중",
+    "tryLive": "실제 페이지 시도"
   },
   "offline": {
-    "save": "Save offline",
-    "saved": "Saved offline",
-    "saving": "Saving…",
-    "update": "Update copy",
-    "remove": "Remove copy",
-    "savedNotice": "Saved for offline",
-    "removedNotice": "Offline copy removed",
-    "failed": "Couldn’t save for offline: {{reason}}"
+    "save": "오프라인 저장",
+    "saved": "오프라인 저장됨",
+    "saving": "저장 중…",
+    "update": "사본 업데이트",
+    "remove": "사본 삭제",
+    "savedNotice": "오프라인용으로 저장했습니다",
+    "removedNotice": "오프라인 사본을 삭제했습니다",
+    "failed": "오프라인용으로 저장하지 못했습니다: {{reason}}"
   },
   "readerAa": {
     "label": "글자와 테마",

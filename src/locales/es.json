@@ -61,7 +61,7 @@
     "duplicates": "Duplicados",
     "links": "Comprobación de enlaces",
     "settings": "Configuración",
-    "offline": "Offline"
+    "offline": "Sin conexión"
   },
   "browser": {
     "ready": "Conectado",
@@ -165,10 +165,10 @@
     "readOf": "Leer aquí: {{title}}",
     "selected": "Seleccionado",
     "filterDomain": "Solo marcadores de {{domain}}",
-    "saveOffline": "Save for offline",
-    "removeOffline": "Remove offline copy",
-    "saveOfflineShort": "Save offline",
-    "savedOffline": "Saved offline"
+    "saveOffline": "Guardar para leer sin conexión",
+    "removeOffline": "Quitar copia sin conexión",
+    "saveOfflineShort": "Guardar sin conexión",
+    "savedOffline": "Guardado sin conexión"
   },
   "selection": {
     "label": "Marcadores seleccionados",
@@ -733,26 +733,26 @@
     "githubHint": "Informes públicos en koona-pin",
     "licenses": "Licencias",
     "licensesHint": "Fuentes, iconos y bibliotecas con los que está hecho Koona Pin",
-    "offline": "Offline copies",
-    "offlineStats": "Saved for offline — {{articles}} · {{size}}",
-    "offlineArticles_one": "{{count}} article",
-    "offlineArticles_many": "{{count}} articles",
-    "offlineArticles_other": "{{count}} articles",
-    "offlineHint": "Only on this computer: not synced, not in exports.",
-    "showFolder": "Show folder",
-    "saveOffline": "Save articles I open in Reading",
-    "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
-    "removeCopies": "Remove all copies",
-    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
-    "removeCopiesButton": "Remove…",
-    "removeCopiesTitle": "Remove all offline copies?",
-    "removeCopiesText_one": "{{count}} saved article will be deleted from this computer. The bookmark stays.",
-    "removeCopiesText_many": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
-    "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
-    "removeCopiesConfirm": "Remove copies",
-    "copiesRemoved_one": "{{count}} offline copy removed",
-    "copiesRemoved_many": "{{count}} offline copies removed",
-    "copiesRemoved_other": "{{count}} offline copies removed"
+    "offline": "Copias sin conexión",
+    "offlineStats": "Guardado sin conexión — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} artículo",
+    "offlineArticles_many": "{{count}} de artículos",
+    "offlineArticles_other": "{{count}} artículos",
+    "offlineHint": "Solo en este ordenador: no se sincroniza ni se exporta.",
+    "showFolder": "Mostrar carpeta",
+    "saveOffline": "Guardar los artículos que abro desde Para leer",
+    "saveOfflineHint": "Cada artículo de Para leer que abras en modo lectura guarda aquí una copia.",
+    "removeCopies": "Quitar todas las copias",
+    "removeCopiesHint": "Los marcadores se quedan; solo se borran sus copias sin conexión.",
+    "removeCopiesButton": "Quitar…",
+    "removeCopiesTitle": "¿Quitar todas las copias sin conexión?",
+    "removeCopiesText_one": "Se borrará {{count}} artículo guardado de este ordenador. El marcador se queda.",
+    "removeCopiesText_many": "Se borrarán {{count}} de artículos guardados de este ordenador. Los marcadores se quedan.",
+    "removeCopiesText_other": "Se borrarán {{count}} artículos guardados de este ordenador. Los marcadores se quedan.",
+    "removeCopiesConfirm": "Quitar copias",
+    "copiesRemoved_one": "{{count}} copia sin conexión quitada",
+    "copiesRemoved_many": "{{count}} de copias sin conexión quitadas",
+    "copiesRemoved_other": "{{count}} copias sin conexión quitadas"
   },
   "notice": {
     "previewRefreshed": "Vista previa actualizada",
@@ -880,8 +880,8 @@
     "inboxHint": "Los marcadores nuevos del navegador y de las importaciones llegan aquí y esperan una decisión.",
     "trash": "La papelera está vacía",
     "trashHint": "Los marcadores eliminados se quedan aquí 30 días y después desaparecen para siempre.",
-    "offline": "No offline copies yet",
-    "offlineHint": "Choose «Save for offline» in a bookmark’s menu, or «Save offline» in reading mode. Copies stay on this computer."
+    "offline": "Aún no hay copias sin conexión",
+    "offlineHint": "Elige «Guardar para leer sin conexión» en el menú de un marcador o «Guardar sin conexión» en modo lectura. Las copias se quedan en este ordenador."
   },
   "inbox": {
     "banner_one": "{{count}} marcador nuevo en espera: conservarlo, archivarlo o tirarlo lleva un momento",
@@ -917,19 +917,19 @@
       "links": "La página es sobre todo enlaces, no un artículo.",
       "empty": "No se encontró ningún artículo en la página; quizá lo dibujan scripts."
     },
-    "offlineCopy": "offline copy",
-    "offlineBanner": "No connection — reading the offline copy saved {{date}}",
-    "tryLive": "Try live page"
+    "offlineCopy": "copia sin conexión",
+    "offlineBanner": "Sin conexión — lees la copia guardada el {{date}}",
+    "tryLive": "Probar la página en línea"
   },
   "offline": {
-    "save": "Save offline",
-    "saved": "Saved offline",
-    "saving": "Saving…",
-    "update": "Update copy",
-    "remove": "Remove copy",
-    "savedNotice": "Saved for offline",
-    "removedNotice": "Offline copy removed",
-    "failed": "Couldn’t save for offline: {{reason}}"
+    "save": "Guardar sin conexión",
+    "saved": "Guardado sin conexión",
+    "saving": "Guardando…",
+    "update": "Actualizar copia",
+    "remove": "Quitar copia",
+    "savedNotice": "Guardado para leer sin conexión",
+    "removedNotice": "Copia sin conexión quitada",
+    "failed": "No se pudo guardar sin conexión: {{reason}}"
   },
   "readerAa": {
     "label": "Texto y tema",
