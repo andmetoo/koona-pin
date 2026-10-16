@@ -521,6 +521,19 @@ pub fn clear_move(conn: &Connection, feed_uid: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// A name to show for feeds not fetched yet (an OPML file's); the first fetch
+/// replaces it with the feed's own title, and one already fetched keeps its own.
+pub fn name_feeds(conn: &Connection, named: &[(String, String)]) -> rusqlite::Result<()> {
+    let mut write = conn.prepare(
+        "INSERT INTO feed_state (feed_uid, title) VALUES (?1, ?2)
+         ON CONFLICT (feed_uid) DO UPDATE SET title = COALESCE(title, excluded.title)",
+    )?;
+    for (uid, title) in named {
+        write.execute(params![uid, title])?;
+    }
+    Ok(())
+}
+
 /// The feed's own title from its last fetch.
 pub fn feed_title(conn: &Connection, feed_uid: &str) -> rusqlite::Result<Option<String>> {
     Ok(conn
@@ -1107,6 +1120,18 @@ mod tests {
             "a new address that breaks in turn is failing, not moved"
         );
         assert_eq!(health(Some("offline"), Some("https://new.example.com/feed"), 0, None, Some(NOW), now), FeedHealth::Offline);
+    }
+
+    /// An OPML name shows until the first fetch, which brings the feed's own (NP-131).
+    #[test]
+    fn a_files_name_shows_until_the_feed_names_itself() {
+        let conn = open_in_memory().unwrap();
+        name_feeds(&conn, &[("a".into(), "From the file".into())]).unwrap();
+        assert_eq!(feed_title(&conn, "a").unwrap().as_deref(), Some("From the file"));
+        store_fetch(&conn, "a", &document(vec![item("1", None)]), NOW).unwrap();
+        assert_eq!(feed_title(&conn, "a").unwrap().as_deref(), Some("Example"), "the feed's own title wins");
+        name_feeds(&conn, &[("a".into(), "Again from a file".into())]).unwrap();
+        assert_eq!(feed_title(&conn, "a").unwrap().as_deref(), Some("Example"), "a fetched name is kept");
     }
 
     #[test]

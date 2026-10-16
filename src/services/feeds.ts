@@ -6,6 +6,7 @@ import type {
   FeedArticle,
   FeedDestination,
   FeedItemPage,
+  FeedSave,
   FeedItemQuery,
   FeedPreview,
   FeedsChanged,
@@ -14,7 +15,6 @@ import type {
   OpmlExport,
   OpmlImport,
   SavePlace,
-  Bookmark,
 } from "../types";
 import { api } from "./api";
 import { toCommandError } from "./errors";
@@ -63,7 +63,7 @@ export const setFeedItemsRead = (ids: number[], read: boolean): Promise<void> =>
 /** `feedUid` null: every feed; `upTo`: only posts fetched by then. How many were marked. */
 export const markFeedRead = (feedUid: string | null, upTo: string | null = null): Promise<number> =>
   api.markFeedRead(feedUid, upTo);
-export const saveFeedItem = (id: number, place: SavePlace, favorite = false): Promise<Bookmark> =>
+export const saveFeedItem = (id: number, place: SavePlace, favorite = false): Promise<FeedSave> =>
   api.saveFeedItem(id, place, favorite);
 /** `feedUid` null: every feed. */
 export const refreshFeeds = (feedUid: string | null = null): Promise<void> => api.refreshFeeds(feedUid);

@@ -29,12 +29,21 @@ export function useFeeds() {
 }
 
 const PAGE = 50;
+/** How long typing settles before the search asks. */
+const SEARCH_MS = 250;
 
 /**
  * The posts of one feed or of all (NP-132), newest first, a page at a time. Every change of
  * the feeds (`changed`) reads the loaded range again, so read marks and saves show at once.
  */
-export function useFeedItems(feedUid: string | null, search: string, changed: unknown) {
+export function useFeedItems(feedUid: string | null, typed: string, changed: unknown) {
+  // The search waits for typing to settle: a query per keystroke would reload the list each time.
+  const [search, setSearch] = useState(typed);
+  useEffect(() => {
+    if (!typed) return setSearch("");
+    const timer = window.setTimeout(() => setSearch(typed), SEARCH_MS);
+    return () => window.clearTimeout(timer);
+  }, [typed]);
   const key = `${feedUid ?? ""}\n${search}`;
   const [state, setState] = useState<{ key: string; items: FeedItem[]; next: string | null; loaded: boolean }>({
     key,
@@ -44,10 +53,12 @@ export function useFeedItems(feedUid: string | null, search: string, changed: un
   });
   const loaded = useRef(PAGE);
   const loadingMore = useRef(false);
-  // A saved post's bookmark trashed or deleted (Undo, the library) changes its «· saved».
+  // A saved post's bookmark trashed or deleted (Undo, the library) changes its «· saved»;
+  // with no saved post in the list, a change elsewhere in the library changes nothing here.
   const [bookmarks, setBookmarks] = useState(0);
+  const anySaved = useRef(false);
   useEffect(() => {
-    const bump = () => setBookmarks((n) => n + 1);
+    const bump = () => anySaved.current && setBookmarks((n) => n + 1);
     const offs = [api.onBookmarkChanged(bump), api.onBookmarksChanged(bump)];
     return () => offs.forEach((off) => off());
   }, []);
@@ -65,6 +76,7 @@ export function useFeedItems(feedUid: string | null, search: string, changed: un
     };
   }, [key, changed, bookmarks]);
   const current = state.key === key ? state : { key, items: [], next: null, loaded: false };
+  anySaved.current = current.items.some((item) => item.bookmark_id !== null);
   const loadMore = useCallback(() => {
     if (!current.next || loadingMore.current) return;
     loadingMore.current = true;

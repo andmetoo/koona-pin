@@ -253,6 +253,8 @@ async fn after_feeds(app: &AppHandle, db: &Arc<DbState>, applied: &Applied) {
                     }
                 }
                 feeds::emit_changed(&app, list);
+                // A feed followed on another computer is fetched here now, not at the next tick.
+                feeds::schedule::fetch_soon(&app, None);
             }
             Err(error) => eprintln!("Reading the feeds after sync failed: {error}"),
         }

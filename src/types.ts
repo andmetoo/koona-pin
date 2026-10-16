@@ -114,6 +114,7 @@ export type { FeedDestination } from "./bindings/FeedDestination";
 export type { FeedHealth } from "./bindings/FeedHealth";
 export type { FeedItem } from "./bindings/FeedItem";
 export type { FeedItemPage } from "./bindings/FeedItemPage";
+export type { FeedSave } from "./bindings/FeedSave";
 export type { FeedItemQuery } from "./bindings/FeedItemQuery";
 export type { FeedPreview } from "./bindings/FeedPreview";
 export type { FeedsChanged } from "./bindings/FeedsChanged";

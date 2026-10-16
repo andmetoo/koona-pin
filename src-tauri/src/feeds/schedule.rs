@@ -571,6 +571,36 @@ pub async fn refresh(app: &AppHandle, mode: Mode) -> Result<Report, CommandError
     Ok(report)
 }
 
+/// A fetch without waiting for the next tick (NP-129): a feed just followed or
+/// moved (`Some`, fetched now), or what an import or sync brought (`None`: what
+/// is due, which a feed never fetched always is). In the background.
+pub fn fetch_soon(app: &AppHandle, feed_uid: Option<String>) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let mode = match feed_uid {
+            Some(uid) => Mode::Now { feed_uid: Some(uid) },
+            None => Mode::Tick,
+        };
+        if let Err(error) = refresh(&app, mode).await {
+            eprintln!("Fetching new feeds failed: {}", error.message);
+        }
+    });
+}
+
+/// A shorter interval takes effect now, not after each feed's old wait: a
+/// feed due later than `interval` from now is due then. Failing and paused
+/// feeds keep their backoff. How many were brought forward.
+pub fn shorten_waits(conn: &Connection, now: DateTime<Utc>, interval: u32) -> rusqlite::Result<usize> {
+    if interval == 0 {
+        return Ok(0);
+    }
+    let until = db::stamp(now + base_interval(interval));
+    conn.execute(
+        "UPDATE feed_state SET next_fetch_at = ?1 WHERE next_fetch_at > ?1 AND failures = 0 AND last_error IS NULL",
+        [until],
+    )
+}
+
 /// Every subscription with the cache's counts and health (NP-131's
 /// `merge_state`): the library read and let go, then the cache.
 fn feeds_with_state(db: &DbState, cache: &FeedCache) -> Result<Vec<Feed>, CommandError> {
@@ -689,6 +719,21 @@ mod tests {
         assert_eq!(minutes(now, next_after_pause(now, 60, 7200, 0.0)), 120);
         assert_eq!(minutes(now, next_after_pause(now, 60, 60, 0.0)), 60);
         assert_eq!(minutes(now, next_after_pause(now, 60, u64::MAX, 0.0)), 1440);
+    }
+
+    /// A shorter interval holds at once; failing feeds keep their backoff (NP-129).
+    #[test]
+    fn a_shorter_interval_brings_the_waits_forward() {
+        let conn = cache::open_in_memory().unwrap();
+        let now = clock(NOW);
+        let far = db::stamp(now + TimeDelta::hours(12));
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at) VALUES ('ok', ?1)", [&far]).unwrap();
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at, failures, last_error) VALUES ('bad', ?1, 3, 'timeout')", [&far]).unwrap();
+        assert_eq!(shorten_waits(&conn, now, 30).unwrap(), 1);
+        let next = |uid: &str| -> String { conn.query_row("SELECT next_fetch_at FROM feed_state WHERE feed_uid = ?1", [uid], |r| r.get(0)).unwrap() };
+        assert_eq!(next("ok"), db::stamp(now + TimeDelta::minutes(30)));
+        assert_eq!(next("bad"), far, "backoff stays");
+        assert_eq!(shorten_waits(&conn, now, 0).unwrap(), 0, "«Only when I refresh» brings nothing forward");
     }
 
     #[test]

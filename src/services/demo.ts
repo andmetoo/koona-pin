@@ -70,6 +70,7 @@ import {
   FeedHealth,
   FeedItem,
   FeedItemPage,
+  FeedSave,
   FeedItemQuery,
   FeedPreview,
   FeedsChanged,
@@ -2505,7 +2506,7 @@ export const demo = {
     return marked;
   },
   /** S, R and F: an ordinary bookmark from the feed, as `save.rs` makes it; a saved post's own bookmark gets R and F. */
-  async saveFeedItem(id: number, place: SavePlace, favorite: boolean): Promise<Bookmark> {
+  async saveFeedItem(id: number, place: SavePlace, favorite: boolean): Promise<FeedSave> {
     const state = feedsState();
     const item = state.items.find((i) => i.id === id);
     if (!item) throw new CommandError("not_found", "Query returned no rows");
@@ -2513,6 +2514,7 @@ export const demo = {
     const now = new Date().toISOString();
     const own = savedBookmark(item);
     let saved: Bookmark;
+    let created = false;
     if (own) {
       const fields: Partial<Bookmark> = {
         ...(favorite && !own.is_favorite ? { is_favorite: true } : {}),
@@ -2524,6 +2526,7 @@ export const demo = {
       const added = await demo.addBookmark({ url: item.url, title: item.title });
       saved = added.bookmark;
       if (!added.existing && !added.restored) {
+        created = true;
         const feed = demoFeedList().find((f) => f.uid === item.feed_uid);
         saved = change(saved, {
           description: item.excerpt,
@@ -2540,7 +2543,8 @@ export const demo = {
     item.bookmark_id = saved.id;
     item.read_at ??= now;
     feedsChanged();
-    return saved;
+    // The demo keeps no journal: nothing to undo but a bookmark it made.
+    return { bookmark: saved, created, command: null };
   },
   /** A short check of the feeds asked for: progress, then everything fetched just now. */
   async refreshFeeds(feedUid: string | null): Promise<void> {

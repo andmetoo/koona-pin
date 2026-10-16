@@ -84,8 +84,9 @@ export function useFeedActions({
         () => onNotice(t("feeds.notice.destination", { name: feedName(feed), place: t(`feeds.destinations.${destination}`) })),
         failed,
       ),
+    // Up to the newest post the sidebar knew of: one a check brought since stays new.
     markRead: (feed) =>
-      void markFeedRead(feed?.uid ?? null).then(
+      void markFeedRead(feed?.uid ?? null, feed?.newest_at ?? null).then(
         (count) => onNotice(count ? t("feeds.notice.markedRead", { count }) : t("feeds.notice.allRead")),
         failed,
       ),
