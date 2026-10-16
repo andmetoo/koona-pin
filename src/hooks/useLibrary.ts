@@ -5,6 +5,7 @@ import { describeError } from "../services/errors";
 import {
   byTime,
   isAfter,
+  isNews,
   ListOrder,
   listTime,
   matchesFilters,
@@ -70,6 +71,7 @@ export function useLibrary(
     links: 0,
     reading: 0,
     reading_unread: 0,
+    offline: 0,
   });
   const [loading, setLoading] = useState(true);
   /** This open made the starter set: the library is new (NP-117). */
@@ -305,6 +307,7 @@ export function useLibrary(
     filters.onlyInbox,
     filters.onlyTrash,
     filters.onlyReading,
+    filters.onlyOffline,
     sort,
     refresh,
   ]);
@@ -371,7 +374,8 @@ export function useLibrary(
       if (catalog) catalogSoon();
     };
     const off = api.onBookmarkChanged((change) => {
-      if ((revisions.current.get(change.id) ?? 0) >= change.revision) return;
+      const shown = bookmarksRef.current.find((row) => row.id === change.id) ?? pendingRef.current[change.id];
+      if (!isNews(change, revisions.current.get(change.id), shown)) return;
       revisions.current.set(change.id, change.revision);
       eventVersion.current++;
       const b = change.bookmark;

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
+import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
 import { useSyncSettingsLine } from "../commercial/SyncRows";
 import { api, isTauri } from "../../services/api";
 import {
@@ -24,6 +24,7 @@ import { OpenLinks, Theme } from "../../services/preferences";
 import { Button } from "../ui/Button";
 import { Dot, Segmented, Switch } from "../ui/Controls";
 import { Kbd } from "../ui/Hint";
+import { ConfirmDialog } from "../library/Dialogs";
 
 /** Settings in the main area (frame «14 · Настройки»), column 680 px. */
 export function SettingsPage({
@@ -94,6 +95,9 @@ export function SettingsPage({
   const [language, setLanguageSetting] = useState<LanguageSetting>(storedLanguage);
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const [data, setData] = useState<DataSummary | null>(null);
+  /** Offline copies (NP-126): how many and how much, read again as the library changes. */
+  const [offline, setOffline] = useState<OfflineStats | null>(null);
+  const [removingCopies, setRemovingCopies] = useState(false);
   const [version, setVersion] = useState("");
   const [system, setSystem] = useState<Desktop | null>(null);
   // Without a tray (NP-096) the app keeps running «in the background», not «in the tray».
@@ -104,6 +108,12 @@ export function SettingsPage({
 
   useEffect(() => {
     void api.getDataSummary().then(setData).catch(() => {});
+  }, [dataVersion]);
+  useEffect(() => {
+    const read = () => void api.offlineStats().then(setOffline).catch(() => {});
+    read();
+    const offs = [api.onBookmarkChanged(read), api.onBookmarksChanged(read), api.onLibraryInvalidated(read)];
+    return () => offs.forEach((off) => off());
   }, [dataVersion]);
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
@@ -239,6 +249,52 @@ export function SettingsPage({
           <Kbd>R</Kbd>
         </Row>
       </Section>
+
+      {/* Offline copies (NP-126, frame O5): only on this computer, free for everyone. */}
+      <Section title={t("settings.offline")}>
+        <div data-settings-offline="stats">
+          <Row
+            title={t("settings.offlineStats", { articles: t("settings.offlineArticles", { count: offline?.count ?? 0 }), size: size(offline?.bytes ?? 0) })}
+            description={t("settings.offlineHint")}
+          >
+            <Button disabled={!desktop} onClick={() => void attempt("offlineFolder", api.revealOfflineFolder)}>
+              {t("settings.showFolder")}
+            </Button>
+          </Row>
+        </div>
+        <Row title={t("settings.saveOffline")} description={t("settings.saveOfflineHint")}>
+          <Switch
+            label={t("settings.saveOffline")}
+            checked={settings?.reading_save_offline ?? false}
+            disabled={!settings || busy("saveOffline")}
+            onChange={(enabled) =>
+              void attempt("saveOffline", async () => {
+                await api.setReadingSaveOffline(enabled);
+                if (settings) onSettings({ ...settings, reading_save_offline: enabled });
+              })
+            }
+          />
+        </Row>
+        <Row title={t("settings.removeCopies")} description={t("settings.removeCopiesHint")}>
+          <Button disabled={!offline?.count} onClick={() => setRemovingCopies(true)}>
+            {t("settings.removeCopiesButton")}
+          </Button>
+        </Row>
+      </Section>
+      {removingCopies && (
+        <ConfirmDialog
+          title={t("settings.removeCopiesTitle")}
+          text={t("settings.removeCopiesText", { count: offline?.count ?? 0 })}
+          confirm={t("settings.removeCopiesConfirm")}
+          onClose={() => setRemovingCopies(false)}
+          onConfirm={async () => {
+            const count = await api.removeAllOfflineCopies();
+            setRemovingCopies(false);
+            setOffline(await api.offlineStats());
+            onNotice(t("settings.copiesRemoved", { count }));
+          }}
+        />
+      )}
 
       <UpdatesSection
         version={version}

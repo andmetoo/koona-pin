@@ -54,7 +54,8 @@
     "trash": "ゴミ箱",
     "duplicates": "重複",
     "links": "リンクチェック",
-    "settings": "設定"
+    "settings": "設定",
+    "offline": "オフライン"
   },
   "browser": {
     "ready": "ブラウザーに接続済み",
@@ -151,7 +152,11 @@
     "read": "読む",
     "readOf": "ここで読む: {{title}}",
     "selected": "選択中",
-    "filterDomain": "{{domain}} のブックマークだけを表示"
+    "filterDomain": "{{domain}} のブックマークだけを表示",
+    "saveOffline": "オフライン用に保存",
+    "removeOffline": "オフラインコピーを削除",
+    "saveOfflineShort": "オフライン保存",
+    "savedOffline": "オフライン保存済み"
   },
   "selection": {
     "label": "選択したブックマーク",
@@ -635,7 +640,21 @@
     "github": "GitHub の Issues",
     "githubHint": "koona-pin の公開レポート",
     "licenses": "ライセンス",
-    "licensesHint": "Koona Pin に使われているフォント、アイコン、ライブラリ"
+    "licensesHint": "Koona Pin に使われているフォント、アイコン、ライブラリ",
+    "offline": "オフラインコピー",
+    "offlineStats": "オフライン用に保存 — {{articles}} · {{size}}",
+    "offlineArticles_other": "{{count}} 件の記事",
+    "offlineHint": "このコンピュータのみ：同期もエクスポートもされません。",
+    "showFolder": "フォルダを表示",
+    "saveOffline": "あとで読むから開いた記事を保存",
+    "saveOfflineHint": "あとで読むの記事を読書モードで開くと、ここにコピーが残ります。",
+    "removeCopies": "すべてのコピーを削除",
+    "removeCopiesHint": "ブックマークは残り、オフラインコピーだけが削除されます。",
+    "removeCopiesButton": "削除…",
+    "removeCopiesTitle": "すべてのオフラインコピーを削除しますか？",
+    "removeCopiesText_other": "保存した {{count}} 件の記事がこのコンピュータから削除されます。ブックマークは残ります。",
+    "removeCopiesConfirm": "コピーを削除",
+    "copiesRemoved_other": "オフラインコピーを {{count}} 件削除しました"
   },
   "notice": {
     "previewRefreshed": "プレビューを更新しました",
@@ -748,7 +767,9 @@
     "inbox": "すべて整理済み",
     "inboxHint": "ブラウザーやインポートからの新しいブックマークはここに届き、判断を待ちます。",
     "trash": "ゴミ箱は空です",
-    "trashHint": "削除したブックマークはここに 30 日間残り、その後完全に削除されます。"
+    "trashHint": "削除したブックマークはここに 30 日間残り、その後完全に削除されます。",
+    "offline": "オフラインコピーはまだありません",
+    "offlineHint": "ブックマークのメニューで「オフライン用に保存」、または読書モードで「オフライン保存」を選びます。コピーはこのコンピュータに残ります。"
   },
   "inbox": {
     "banner_other": "{{count}} 件の新しいブックマークが待っています — 残す、振り分ける、捨てるのに 1 分ほどです",
@@ -775,7 +796,20 @@
       "notHtml": "このリンクはファイルで、ウェブページではありません。",
       "links": "このページはほとんどがリンクで、記事ではありません。",
       "empty": "ページに記事が見つかりません。スクリプトで描画されているのかもしれません。"
-    }
+    },
+    "offlineCopy": "オフラインコピー",
+    "offlineBanner": "接続がありません — {{date}} に保存したオフラインコピーを表示中",
+    "tryLive": "最新のページを試す"
+  },
+  "offline": {
+    "save": "オフライン保存",
+    "saved": "オフライン保存済み",
+    "saving": "保存中…",
+    "update": "コピーを更新",
+    "remove": "コピーを削除",
+    "savedNotice": "オフライン用に保存しました",
+    "removedNotice": "オフラインコピーを削除しました",
+    "failed": "オフライン用に保存できませんでした：{{reason}}"
   },
   "readerAa": {
     "label": "文字とテーマ",

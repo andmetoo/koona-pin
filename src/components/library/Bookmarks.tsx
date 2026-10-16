@@ -1,5 +1,5 @@
 import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, BookCheck, BookOpen, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
+import { ArrowUpRight, BookCheck, BookOpen, CircleArrowDown, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
@@ -7,7 +7,7 @@ import { collectionColor } from "../../services/collections";
 import { coverOf, monogram, pendingFor, VIEW } from "../../services/cover";
 import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
-import { Icon } from "../icons";
+import { Icon, OfflineIcon } from "../icons";
 import { Menu, MenuEntry } from "../ui/Menu";
 
 export interface BookmarkActions {
@@ -19,6 +19,8 @@ export interface BookmarkActions {
   reading: (bookmark: Bookmark) => void;
   /** Marked read or unread by hand. */
   read: (bookmark: Bookmark) => void;
+  /** «Save for offline», or «Remove offline copy» when it has one (NP-126). */
+  offline: (bookmark: Bookmark) => void;
   move: (bookmark: Bookmark, collectionId: number | null) => void;
   /** To the trash, with an undo in the notice (NP-022). */
   trash: (bookmark: Bookmark) => void;
@@ -87,7 +89,7 @@ const moveEntries = (b: Bookmark, collections: Collection[], actions: BookmarkAc
   collectionEntries(collections, (collectionId) => actions.move(b, collectionId), t, b.collection_id);
 
 /** Menu «⋯» of a bookmark (frame «15 · Меню карточки»); in the trash, restore, open and delete for good (frame 25). */
-function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {
+export function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkActions, t: TFunction): MenuEntry[] {
   const soon = t("common.soon");
   if (b.deleted_at)
     return [
@@ -121,6 +123,14 @@ function menuEntries(b: Bookmark, collections: Collection[], actions: BookmarkAc
     ...(b.reading_at || b.read_at
       ? [{ id: "read", icon: BookCheck, label: b.read_at ? t("card.markUnread") : t("card.markRead"), onSelect: () => actions.read(b) }]
       : []),
+    // Frame O2: the article kept on this computer, or its copy removed (NP-126).
+    {
+      id: "offline",
+      icon: CircleArrowDown,
+      label: b.offline_at ? t("card.removeOffline") : t("card.saveOffline"),
+      keys: "O",
+      onSelect: () => actions.offline(b),
+    },
     { id: "move", icon: Folder, label: t("card.moveTo"), submenu: moveEntries(b, collections, actions, t) },
     { id: "tag", icon: TagIcon, label: t("card.addTag"), keys: "T", disabled: true, disabledHint: soon },
     "separator",
@@ -158,6 +168,33 @@ function FavoriteButton({ b, actions, t, className = "" }: { b: Bookmark; action
       className={`flex size-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150 ${b.is_favorite ? "text-accent" : "text-faint hover:text-icon"} ${className}`}
     >
       <Icon icon={Heart} size={13} className={b.is_favorite ? "fill-accent" : ""} />
+    </button>
+  );
+}
+
+/**
+ * Left of the heart (NP-126, frame O1): a bookmark with an offline copy carries
+ * the filled marker in the accent, as a favorite carries its heart; one without
+ * offers «Save offline» as an outline icon while the card or row is hovered or
+ * focused. The copy is removed from the menu, never by a stray click here.
+ */
+function OfflineMark({ b, actions, t, group, open, className = "" }: { b: Bookmark; actions: BookmarkActions; t: TFunction; group: "card" | "row"; open: boolean; className?: string }) {
+  if (b.offline_at)
+    return (
+      <span data-offline-marker role="img" aria-label={t("card.savedOffline")} title={t("card.savedOffline")} className={`flex size-6 shrink-0 items-center justify-center text-accent ${className}`}>
+        <OfflineIcon filled size={13} />
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      data-offline-save
+      aria-label={t("card.saveOfflineShort")}
+      title={t("card.saveOfflineShort")}
+      onClick={() => actions.offline(b)}
+      className={`flex size-6 shrink-0 items-center justify-center rounded-md text-faint transition-colors duration-150 hover:text-icon ${revealed(group, open)} ${className}`}
+    >
+      <OfflineIcon size={13} />
     </button>
   );
 }
@@ -464,7 +501,14 @@ export const BookmarkCard = memo(function BookmarkCard({
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
         <SiteMark b={b} />
         <DomainButton b={b} actions={actions} className="min-w-0 flex-1" />
-        {b.deleted_at ? <DaysLeft deletedAt={b.deleted_at} /> : <FavoriteButton b={b} actions={actions} t={t} className="-my-[4.5px] -mr-[5.5px]" />}
+        {b.deleted_at ? (
+          <DaysLeft deletedAt={b.deleted_at} />
+        ) : (
+          <>
+            <OfflineMark b={b} actions={actions} t={t} group="card" open={menu.open} className="-my-[4.5px] -mr-1.5" />
+            <FavoriteButton b={b} actions={actions} t={t} className="-my-[4.5px] -mr-[5.5px]" />
+          </>
+        )}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
       <h2 className="line-clamp-2 h-[38px] text-md font-medium" title={b.title}>
@@ -533,7 +577,7 @@ export const BookmarkRow = memo(function BookmarkRow({
         menu.onKeyDown(e);
         if (!e.defaultPrevented) control.onKeyDown(e);
       }}
-      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl border py-[7px] pr-[11px] pl-[7px] transition-colors duration-150 ${background} ${compact ? "grid-cols-[64px_minmax(0,1fr)_120px_24px_96px]" : "grid-cols-[64px_minmax(0,1fr)_170px_120px_24px_96px]"}`}
+      className={`group/row grid h-[60px] items-center gap-3.5 rounded-xl border py-[7px] pr-[11px] pl-[7px] transition-colors duration-150 ${background} ${compact ? "grid-cols-[64px_minmax(0,1fr)_120px_48px_96px]" : "grid-cols-[64px_minmax(0,1fr)_170px_120px_48px_96px]"}`}
     >
       {/* Sheet S1: the thumbnail and the title are the link; the rest of the row selects. */}
       <RowLink b={b} actions={actions} label={t("card.open", { title: b.title || b.url })} className="h-11 w-16 overflow-hidden rounded-sm bg-hover">
@@ -587,8 +631,16 @@ export const BookmarkRow = memo(function BookmarkRow({
         {collection && <span className="size-[7px] shrink-0 rounded-full" style={{ background: collectionColor(collection.id) }} />}
         <span className="truncate">{collection?.name ?? t("card.noCollection")}</span>
       </span>
-      {/* Its own column, so the hearts stand in a line as in the grid (NP-086, variant A); none in the trash. */}
-      {b.deleted_at ? <span /> : <FavoriteButton b={b} actions={actions} t={t} />}
+      {/* Its own column, so the hearts stand in a line as in the grid (NP-086, variant A); none in the trash.
+          The offline marker shares it, left of the heart (NP-126). */}
+      {b.deleted_at ? (
+        <span />
+      ) : (
+        <span className="flex items-center justify-end">
+          <OfflineMark b={b} actions={actions} t={t} group="row" open={open} />
+          <FavoriteButton b={b} actions={actions} t={t} />
+        </span>
+      )}
       <div className="relative flex h-[27px] items-center justify-end">
         {b.deleted_at ? (
           <DaysLeft deletedAt={b.deleted_at} className={`transition-opacity duration-150 group-focus-within/row:opacity-0 group-hover/row:opacity-0 ${open ? "opacity-0" : ""}`} />

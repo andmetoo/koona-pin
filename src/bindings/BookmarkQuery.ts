@@ -21,6 +21,10 @@ only_trash: boolean,
  */
 only_reading: boolean, 
 /**
+ * Only bookmarks with an offline copy (NP-126), in the order chosen.
+ */
+only_offline: boolean, 
+/**
  * Only this bookmark: whether a changed one still belongs to the list.
  */
 id?: number, 

@@ -206,5 +206,7 @@ export function Menu({
         })()}
     </div>
   );
-  return nested ? menu : createPortal(menu, document.body);
+  // Opened from a modal dialog (the reading sheet's «Saved offline», NP-126), it lives in that
+  // dialog: the top layer would cover anything in the body.
+  return nested ? menu : createPortal(menu, trigger?.closest<HTMLElement>("dialog[open]") ?? document.body);
 }

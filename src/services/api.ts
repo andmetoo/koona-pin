@@ -42,6 +42,10 @@ import {
   McpAccess,
   McpSetup,
   McpStatus,
+  OfflineArticle,
+  OfflineCopy,
+  OfflineCopyContent,
+  OfflineStats,
   Replaced,
   PickedCopy,
   SaveCopyOutcome,
@@ -90,6 +94,7 @@ const toQuery = (
   only_inbox: filters.onlyInbox ?? false,
   only_trash: filters.onlyTrash ?? false,
   only_reading: filters.onlyReading ?? false,
+  only_offline: filters.onlyOffline ?? false,
   ...page,
 });
 /** Every command rejects with a `CommandError` carrying a machine code. */
@@ -206,6 +211,17 @@ const desktop = {
   openUrl: (url: string) => call<void>("open_url_external", { url }),
   /** The page of an article, under the metadata request's guard (NP-120); `readArticle` extracts it. */
   fetchReaderPage: (url: string) => call<ReaderPage>("fetch_reader_page", { url }),
+  // Offline copies of articles (NP-126): only on this computer, never synced or exported.
+  /** The article reading mode extracted, with its pictures downloaded next to it; replaces an older copy. */
+  saveOfflineCopy: (bookmarkId: number, article: OfflineArticle) => call<OfflineCopy>("save_offline_copy", { bookmarkId, article }),
+  /** The copy with its pictures as `data:` addresses; none when there is no copy. */
+  getOfflineCopy: (bookmarkId: number) => call<OfflineCopyContent | null>("get_offline_copy", { bookmarkId }),
+  removeOfflineCopy: (bookmarkId: number) => call<void>("remove_offline_copy", { bookmarkId }),
+  /** «Remove all copies»: how many went. */
+  removeAllOfflineCopies: () => call<number>("remove_all_offline_copies"),
+  offlineStats: () => call<OfflineStats>("offline_stats"),
+  /** The copies' folder in Finder or Explorer, made if missing. */
+  revealOfflineFolder: () => call<void>("reveal_offline_folder"),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
   /** Many changes at once: a bulk action or an undo of one (NP-029). */
@@ -215,6 +231,8 @@ const desktop = {
     subscription("library-invalidated", callback),
   getAppSettings: () => call<AppSettings>("get_app_settings"),
   setReadingMarkAtEnd: (enabled: boolean) => call<void>("set_reading_mark_at_end", { enabled }),
+  /** «Save articles I open in Reading» (NP-126). */
+  setReadingSaveOffline: (enabled: boolean) => call<void>("set_reading_save_offline", { enabled }),
   setCloseToTray: (enabled: boolean) =>
     call<void>("set_close_to_tray", { enabled }),
   getCaptureStatus: () => call<CaptureStatus>("get_capture_status"),

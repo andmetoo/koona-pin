@@ -1,10 +1,11 @@
 import { createContext, KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, BookOpen, BookX, Check, ChevronDown, LucideIcon, Menu as MenuIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Bookmark } from "../../types";
+import { Bookmark, OfflineCopy } from "../../types";
+import { api } from "../../services/api";
 import { composing } from "../../services/ime";
 import { deleteKey } from "../../services/keys";
-import { cachedArticle, knownMinutes } from "../../services/reader";
+import { Article, cachedArticle, knownMinutes } from "../../services/reader";
 import { useReadingList } from "../../hooks/useReadingList";
 import { useReadingProgress } from "../../hooks/useReadingProgress";
 import { Icon } from "../icons";
@@ -14,7 +15,8 @@ import { Menu } from "../ui/Menu";
 import { WindowBar } from "../ui/WindowBar";
 import { ReaderChoice, ReaderLook, readerStyle } from "../../services/readerLook";
 import { AaButton } from "./AaPanel";
-import { ArticleStatus, ArticleView, failureText } from "./ArticleView";
+import { ArticleStatus, ArticleView, failureText, OfflineBanner } from "./ArticleView";
+import { OfflineButton, useOfflineCopies } from "./OfflineButton";
 
 /** What the queue reads: Reading (the default) or the section the library shows. */
 export type ReadingSource = "reading" | "section";
@@ -52,7 +54,9 @@ const keyIs = (e: KeyboardEvent, letter: string) => e.code === `Key${letter.toUp
  * comes after the article. An article that cannot be shown leaves a
  * card with the browser, the next one, «Mark as read» and «Remove», never an
  * empty column. `⌫` or `Del` takes the current article out of Reading and goes
- * on as `J` does (#319); Ctrl Z, which App keeps, brings it back.
+ * on as `J` does (#319); Ctrl Z, which App keeps, brings it back. «Save offline»
+ * keeps the article on this computer (NP-126): a bookmark with a copy opens from
+ * it, and without a connection a line under the bar says so.
  */
 export function ReadingMode({
   narrow,
@@ -64,6 +68,8 @@ export function ReadingMode({
   onMarkRead,
   onRemove,
   onClose,
+  onSaveOffline,
+  onRemoveOffline,
   look,
   aa,
 }: {
@@ -89,6 +95,9 @@ export function ReadingMode({
   onRemove: (bookmark: Bookmark) => void;
   /** The mode folded back: the library takes over. */
   onClose: () => void;
+  /** An offline copy of the article on screen, or of the page read now when there is none (NP-126); `quiet`: no notice. */
+  onSaveOffline: (bookmark: Bookmark, article?: Article, quiet?: boolean) => Promise<OfflineCopy | null>;
+  onRemoveOffline: (bookmark: Bookmark) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const layer = useRef<HTMLDivElement>(null);
@@ -108,6 +117,13 @@ export function ReadingMode({
   const [queueOpen, setQueueOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
+  /** «Try live page»: the page itself, not the offline copy, until another article shows. */
+  const [livePage, setLivePage] = useState(false);
+  /** «Save articles I open in Reading» of Settings → Reading. */
+  const [autoSave, setAutoSave] = useState(false);
+  useEffect(() => {
+    void api.getAppSettings().then((settings) => setAutoSave(settings.reading_save_offline), () => {});
+  }, []);
 
   const items = useMemo(() => {
     if (!live || !order) return null;
@@ -161,14 +177,35 @@ export function ReadingMode({
 
   // The next article is read ahead once the current one has settled, so `J` shows it at once
   // (owner, 2026-10-15): only the next one, never the whole queue, and only while the mode is open.
+  // One with an offline copy opens from it: nothing to read ahead.
   const settled = currentStatus !== null && currentStatus.kind !== "loading";
   useEffect(() => {
-    if (settled && next && online) void cachedArticle(next.url).catch(() => {});
-  }, [settled, next?.url, online]);
+    if (settled && next && !next.offline_at && online) void cachedArticle(next.url).catch(() => {});
+  }, [settled, next?.url, next?.offline_at, online]);
+
+  const { offlineAt, saving, save: saveCopy, remove: removeCopy } = useOfflineCopies({
+    onSave: onSaveOffline,
+    onRemove: onRemoveOffline,
+    reset: live,
+    onUpdated: () => {
+      setLivePage(false);
+      setAttempt((n) => n + 1);
+    },
+  });
+  // «Save articles I open in Reading»: an article of Reading read from its page keeps a copy, once.
+  const autoSaved = useRef(new Set<number>());
+  const shownArticle = currentStatus?.kind === "article" ? currentStatus : null;
+  useEffect(() => {
+    if (!autoSave || !current || !shownArticle || shownArticle.offlineAt || !current.reading_at || offlineAt(current)) return;
+    if (autoSaved.current.has(current.id)) return;
+    autoSaved.current.add(current.id);
+    void saveCopy(current, shownArticle.article, true);
+  }, [autoSave, current?.id, shownArticle]);
 
   const show = useCallback((id: number, focus: "article" | "queue" = "article") => {
     setCurrentId(id);
     setAttempt(0);
+    setLivePage(false);
     if (focus === "queue") {
       const item = queueRef.current?.querySelector<HTMLElement>(`[data-queue-item="${id}"]`);
       item?.focus({ preventScroll: true });
@@ -301,6 +338,7 @@ export function ReadingMode({
         setSource(next);
         setOrder(null);
         setCurrentId(null);
+        setLivePage(false);
         lastIndex.current = 0;
       }}
       onPick={(id) => show(id)}
@@ -355,6 +393,9 @@ export function ReadingMode({
               title={current.title || current.url}
               domain={current.domain}
               saved={current.created_at}
+              bookmarkId={current.id}
+              offlineAt={offlineAt(current)}
+              live={livePage}
               attempt={attempt}
               onOpen={onOpen}
               onStatus={(next) => setStatus({ id: current.id, status: next })}
@@ -442,6 +483,18 @@ export function ReadingMode({
             </Button>
           )}
           <span className="flex-1" />
+          {/* «Save offline» left of Aa (NP-126, frames O3 and O4). */}
+          {current && (
+            <OfflineButton
+              saved={!!offlineAt(current)}
+              busy={saving === current.id}
+              narrow={narrow}
+              disabled={currentStatus?.kind !== "article"}
+              onSave={() => currentStatus?.kind === "article" && void saveCopy(current, currentStatus.article)}
+              onUpdate={() => void saveCopy(current)}
+              onRemove={() => void removeCopy(current)}
+            />
+          )}
           {/* The Aa panel (NP-124, frame B8): size, column, theme, font. */}
           <AaButton choice={aa.choice} look={look} unlocked={aa.unlocked} narrow={narrow} onChoice={aa.onChoice} onLocked={aa.onLocked} onSupporter={aa.onSupporter} />
           {current &&
@@ -478,6 +531,17 @@ export function ReadingMode({
             </Button>
           </Hint>
         </div>
+        {/* Under the bar (frame O4): no connection, and the offline copy is what shows. */}
+        {!online && shownArticle?.offlineAt && (
+          <OfflineBanner
+            savedAt={offlineAt(current!) ?? shownArticle.offlineAt}
+            className="order-first"
+            onLive={() => {
+              setLivePage(true);
+              setAttempt((n) => n + 1);
+            }}
+          />
+        )}
         </div>
       </div>
       {narrow && queueOpen && (

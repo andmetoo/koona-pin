@@ -57,7 +57,8 @@
     "trash": "Çöp kutusu",
     "duplicates": "Yinelenenler",
     "links": "Bağlantı denetimi",
-    "settings": "Ayarlar"
+    "settings": "Ayarlar",
+    "offline": "Çevrimdışı"
   },
   "browser": {
     "ready": "Tarayıcı bağlı",
@@ -157,7 +158,11 @@
     "read": "Oku",
     "readOf": "Burada oku: {{title}}",
     "selected": "Seçili",
-    "filterDomain": "Yalnızca {{domain}} yer işaretleri"
+    "filterDomain": "Yalnızca {{domain}} yer işaretleri",
+    "saveOffline": "Çevrimdışı okumak için kaydet",
+    "removeOffline": "Çevrimdışı kopyayı kaldır",
+    "saveOfflineShort": "Çevrimdışı kaydet",
+    "savedOffline": "Çevrimdışı kaydedildi"
   },
   "selection": {
     "label": "Seçili yer işaretleri",
@@ -681,7 +686,24 @@
     "github": "GitHub'daki bildirimler",
     "githubHint": "koona-pin içindeki herkese açık bildirimler",
     "licenses": "Lisanslar",
-    "licensesHint": "Koona Pin'in yapıldığı yazı tipleri, simgeler ve kitaplıklar"
+    "licensesHint": "Koona Pin'in yapıldığı yazı tipleri, simgeler ve kitaplıklar",
+    "offline": "Çevrimdışı kopyalar",
+    "offlineStats": "Çevrimdışı kaydedildi — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} makale",
+    "offlineArticles_other": "{{count}} makale",
+    "offlineHint": "Yalnızca bu bilgisayarda: eşitlenmez, dışa aktarılmaz.",
+    "showFolder": "Klasörü göster",
+    "saveOffline": "Okuma listesinden açtığım makaleleri kaydet",
+    "saveOfflineHint": "Okuma listesinden okuma modunda açtığınız her makalenin kopyası burada kalır.",
+    "removeCopies": "Tüm kopyaları kaldır",
+    "removeCopiesHint": "Yer işaretleri kalır; yalnızca çevrimdışı kopyaları silinir.",
+    "removeCopiesButton": "Kaldır…",
+    "removeCopiesTitle": "Tüm çevrimdışı kopyalar kaldırılsın mı?",
+    "removeCopiesText_one": "Kaydedilmiş {{count}} makale bu bilgisayardan silinecek. Yer işareti kalır.",
+    "removeCopiesText_other": "Kaydedilmiş {{count}} makale bu bilgisayardan silinecek. Yer işaretleri kalır.",
+    "removeCopiesConfirm": "Kopyaları kaldır",
+    "copiesRemoved_one": "{{count}} çevrimdışı kopya kaldırıldı",
+    "copiesRemoved_other": "{{count}} çevrimdışı kopya kaldırıldı"
   },
   "notice": {
     "previewRefreshed": "Önizleme yenilendi",
@@ -801,7 +823,9 @@
     "inbox": "Her şey düzenlendi",
     "inboxHint": "Tarayıcıdan ve içe aktarmalardan gelen yeni yer işaretleri buraya düşer ve bir karar bekler.",
     "trash": "Çöp kutusu boş",
-    "trashHint": "Silinen yer işaretleri burada 30 gün kalır, sonra kalıcı olarak gider."
+    "trashHint": "Silinen yer işaretleri burada 30 gün kalır, sonra kalıcı olarak gider.",
+    "offline": "Henüz çevrimdışı kopya yok",
+    "offlineHint": "Bir yer işaretinin menüsünde “Çevrimdışı okumak için kaydet”i ya da okuma modunda “Çevrimdışı kaydet”i seçin. Kopyalar bu bilgisayarda kalır."
   },
   "inbox": {
     "banner_one": "{{count}} yeni yer işareti bekliyor — tutmak, yerleştirmek ya da atmak bir an sürer",
@@ -832,7 +856,20 @@
       "notHtml": "Bu bağlantı bir web sayfası değil, bir dosya.",
       "links": "Sayfa bir makale değil, çoğunlukla bağlantı.",
       "empty": "Sayfada makale bulunamadı; betiklerle çiziliyor olabilir."
-    }
+    },
+    "offlineCopy": "çevrimdışı kopya",
+    "offlineBanner": "Bağlantı yok — {{date}} tarihinde kaydedilen çevrimdışı kopyayı okuyorsunuz",
+    "tryLive": "Canlı sayfayı dene"
+  },
+  "offline": {
+    "save": "Çevrimdışı kaydet",
+    "saved": "Çevrimdışı kaydedildi",
+    "saving": "Kaydediliyor…",
+    "update": "Kopyayı güncelle",
+    "remove": "Kopyayı kaldır",
+    "savedNotice": "Çevrimdışı okumak için kaydedildi",
+    "removedNotice": "Çevrimdışı kopya kaldırıldı",
+    "failed": "Çevrimdışı kaydedilemedi: {{reason}}"
   },
   "readerAa": {
     "label": "Metin ve tema",

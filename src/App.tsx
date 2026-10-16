@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
-import { describeError } from "./services/errors";
+import { describeError, reasonOf } from "./services/errors";
 import { composing } from "./services/ime";
 import { isArrow, isDeleteKey, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedOpenLinks, storedTheme, storedValue, Theme } from "./services/preferences";
-import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, Plan, SupporterStatus, SyncStatus, UpdateStatus, ViewMode } from "./types";
+import { AppSettings, BackupCopy, Bookmark, BookmarkSort, BulkChange, CaptureStatus, Collection, CsvColumns, ExportFormat, FilterState, LibraryStatus, OfflineCopy, Plan, SupporterStatus, SyncStatus, UpdateStatus, ViewMode } from "./types";
+import { Article, saveOffline } from "./services/reader";
 import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
@@ -31,6 +32,7 @@ import { SelectionActions, SelectionBar } from "./components/library/SelectionBa
 import { EditHooks, Triage } from "./components/library/Triage";
 import { ReadingSheet } from "./components/reader/ReadingSheet";
 import { ReadingMode, ReadingSource } from "./components/reader/ReadingMode";
+import { failureText } from "./components/reader/ArticleView";
 import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
@@ -58,9 +60,9 @@ type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant"
 type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void } | null;
 /** Columns of the CSV, titled in the interface's language (NP-032). */
 const CSV_COLUMNS = ["title", "url", "domain", "collection", "tags", "notes", "favorite", "inbox", "saved"] as const;
-type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading">>;
+type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "onlyOffline">>;
 /** Every section off: what `navigate` starts from. */
-const noSection = { collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false };
+const noSection = { collectionId: null, onlyFavorites: false, onlyInbox: false, onlyTrash: false, onlyReading: false, onlyOffline: false };
 const initialFilters: FilterState = {
   search: "",
   tag: null,
@@ -614,6 +616,40 @@ export function App() {
       .catch((err) => say(describeError(err), true));
   const open = (url: string) => void api.openUrl(url).catch((err) => say(describeError(err), true));
   /**
+   * An offline copy (NP-126): of the article on screen, or of the page read now
+   * («Save for offline» of the list); a page that cannot be read says why, as the
+   * reader does. `quiet`: «Save articles I open in Reading» saves without a notice.
+   */
+  const saveOfflineCopy = async (b: Bookmark, article?: Article, quiet = false): Promise<OfflineCopy | null> => {
+    try {
+      const saved = await saveOffline(b, article);
+      if (!saved.ok) {
+        say(t("offline.failed", { reason: failureText(saved.failure, t) }), true);
+        return null;
+      }
+      if (!quiet) say(t("offline.savedNotice"));
+      return saved.copy;
+    } catch (err) {
+      // A bookmark deleted meanwhile, an article too large to keep: said as the reason.
+      say(t("offline.failed", { reason: reasonOf(err, t) }), true);
+      return null;
+    }
+  };
+  /** At once, without a dialog: the bookmark stays, only its copy goes. */
+  const removeOfflineCopy = (b: Bookmark) =>
+    api.removeOfflineCopy(b.id).then(
+      () => {
+        say(t("offline.removedNotice"));
+        return true;
+      },
+      (err) => {
+        say(describeError(err), true);
+        return false;
+      },
+    );
+  const offlineRef = useRef({ save: saveOfflineCopy, remove: removeOfflineCopy });
+  offlineRef.current = { save: saveOfflineCopy, remove: removeOfflineCopy };
+  /**
    * The reading sheet for `b` (NP-123, Р-69 point 6). A selected one opens with
    * the rest of the loaded selection in list order for `↑`/`↓`; another one alone.
    */
@@ -668,6 +704,7 @@ export function App() {
       // Reading (NP-121): one bookmark through the bulk command, undone the same way.
       reading: (b) => readingChange(b, { action: "reading", reading: !b.reading_at }),
       read: (b) => readingChange(b, { action: "read", read: !b.read_at }),
+      offline: (b) => void (b.offline_at ? offlineRef.current.remove(b) : offlineRef.current.save(b)),
       move: (b, collectionId) =>
         void api
           .updateBookmark(b.id, { collection_id: collectionId })
@@ -746,7 +783,9 @@ export function App() {
         ? t("nav.favorites")
         : filters.onlyReading
           ? t("nav.reading")
-          : collection
+          : filters.onlyOffline
+            ? t("nav.offline")
+            : collection
           ? collection.name
           : t("nav.all");
   /** The sheet's bookmarks as the list has them now: a heart set in the sheet shows there too. */
@@ -764,7 +803,9 @@ export function App() {
         ? counts.favorites
         : filters.onlyReading
           ? counts.reading
-          : collection
+          : filters.onlyOffline
+            ? counts.offline
+            : collection
           ? (collection.count ?? 0)
           : counts.total;
   // Hidden until a bookmark newer than the remembered one arrives (NP-020).
@@ -807,7 +848,7 @@ export function App() {
     if (narrowed) {
       // Frame 09: what was searched and where, the whole library one click away.
       const query = filters.search.trim();
-      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox || filters.onlyTrash || filters.onlyReading;
+      const inSection = !!collection || filters.onlyFavorites || filters.onlyInbox || filters.onlyTrash || filters.onlyReading || filters.onlyOffline;
       const title = query
         ? inSection
           ? t("empty.noResultsInFor", { section, query })
@@ -843,6 +884,7 @@ export function App() {
     if (filters.onlyFavorites)
       return { icon: Heart, title: t("empty.noFavorites"), text: t("empty.noFavoritesHint"), actions: null };
     if (filters.onlyReading) return { icon: BookOpen, title: t("empty.reading"), text: t("empty.readingHint"), actions: null };
+    if (filters.onlyOffline) return { icon: CircleArrowDown, title: t("empty.offline"), text: t("empty.offlineHint"), actions: null };
     if (collection)
       return {
         icon: Plus,
@@ -1003,6 +1045,7 @@ export function App() {
         onAll={() => navigate()}
         onFavorites={() => navigate({ onlyFavorites: true })}
         onReading={() => navigate({ onlyReading: true })}
+        onOffline={() => navigate({ onlyOffline: true })}
         onTrash={() => navigate({ onlyTrash: true })}
         onCollection={(id) => navigate({ collectionId: id })}
         onTag={(name) => changeFilters({ tag: filters.tag === name ? null : name })}
@@ -1584,6 +1627,8 @@ export function App() {
           onOpen={open}
           onFavorite={actions.favorite}
           onClose={() => setSheet(null)}
+          onSaveOffline={saveOfflineCopy}
+          onRemoveOffline={removeOfflineCopy}
           look={readerLook.look}
         />
       )}
@@ -1605,6 +1650,8 @@ export function App() {
           onMarkRead={(b) => readingChange(b, { action: "read", read: true })}
           onRemove={(b) => readingChange(b, { action: "reading", reading: false })}
           onClose={closeReading}
+          onSaveOffline={saveOfflineCopy}
+          onRemoveOffline={removeOfflineCopy}
           look={readerLook.look}
           aa={{
             choice: readerLook.choice,

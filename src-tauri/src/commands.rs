@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode, ErrorDetail},
-    backup, dedupe, export, feedback, import, linkcheck, mcp, metadata, restore,
+    backup, dedupe, export, feedback, import, linkcheck, mcp, metadata, offline, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -554,6 +554,7 @@ pub async fn get_counts(state: State<'_, Arc<DbState>>) -> Result<LibraryCounts,
         counts.duplicates = dedupe::count(conn).map_err(text)?;
         counts.links = linkcheck::count(conn).map_err(text)?;
         (counts.reading, counts.reading_unread) = crate::reading::counts(conn).map_err(text)?;
+        counts.offline = offline::count(conn).map_err(text)?;
         Ok(counts)
     })
     .await
@@ -881,6 +882,8 @@ pub async fn restore_library(
                     journal.clear();
                     // Still under the lock: a link check writes nothing into the new library.
                     handle.state::<linkcheck::Checker>().abandon();
+                    // The replaced bookmarks' copies.
+                    let _ = offline::sweep(&conn);
                 }
                 Ok(RestoreOutcome::Restored { summary })
             }
@@ -943,6 +946,8 @@ pub struct AppSettings {
     pub close_to_tray: bool,
     /// «Mark as read at the end» of Settings → Reading (NP-124); on by default.
     pub reading_mark_at_end: bool,
+    /// «Save articles I open in Reading» (NP-126); off by default.
+    pub reading_save_offline: bool,
 }
 #[tauri::command]
 pub async fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSettings, CommandError> {
@@ -950,9 +955,85 @@ pub async fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSetti
         Ok(AppSettings {
             close_to_tray: db::setting(conn, "close_to_tray").map_err(text)? == "true",
             reading_mark_at_end: crate::reading::mark_at_end(conn),
+            reading_save_offline: offline::save_on_open(conn),
         })
     })
     .await
+}
+/// «Save articles I open in Reading» (NP-126): the reader saves a copy of
+/// what it opened from Reading.
+#[tauri::command]
+pub async fn set_reading_save_offline(state: State<'_, Arc<DbState>>, enabled: bool) -> Result<(), CommandError> {
+    blocking(&state, move |conn| {
+        db::set_setting(conn, offline::SAVE_SETTING, if enabled { "true" } else { "false" }).map_err(text)
+    })
+    .await
+}
+
+/// Saves the article the reader extracted as the bookmark's offline copy
+/// (NP-126), replacing the one it had. Pictures are fetched without the
+/// library lock; the list hears of the copy as of any other change.
+#[tauri::command]
+pub async fn save_offline_copy(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    bookmark_id: i64,
+    article: offline::OfflineArticle,
+) -> Result<offline::OfflineCopy, CommandError> {
+    let root = blocking(&state, move |conn| offline::start(conn, bookmark_id)).await?;
+    let staged = offline::stage(&root, bookmark_id, &article, &offline::LIMITS, &offline::CAPS).await?;
+    let (copy, bookmark) = blocking(&state, move |conn| offline::finish(conn, &root, bookmark_id, &article, staged)).await?;
+    capture::emit(&app, ChangeKind::Updated, &bookmark);
+    Ok(copy)
+}
+/// The bookmark's copy to read, pictures inline; none without one.
+#[tauri::command]
+pub async fn get_offline_copy(
+    state: State<'_, Arc<DbState>>,
+    bookmark_id: i64,
+) -> Result<Option<offline::OfflineCopyContent>, CommandError> {
+    let files = blocking(&state, move |conn| match offline::root(conn) {
+        Some(root) => offline::read(conn, &root, bookmark_id).map_err(text),
+        None => Ok(None),
+    })
+    .await?;
+    // Encoding the pictures needs no lock.
+    Ok(files.and_then(offline::content))
+}
+#[tauri::command]
+pub async fn remove_offline_copy(app: AppHandle, state: State<'_, Arc<DbState>>, bookmark_id: i64) -> Result<(), CommandError> {
+    let bookmark = blocking(&state, move |conn| {
+        let root = offline::root(conn).ok_or_else(|| CommandError::internal("the library has no folder"))?;
+        offline::remove(conn, &root, bookmark_id).map_err(text)?;
+        Ok(db::get_bookmark_by_id(conn, bookmark_id).ok())
+    })
+    .await?;
+    if let Some(bookmark) = bookmark {
+        capture::emit(&app, ChangeKind::Updated, &bookmark);
+    }
+    Ok(())
+}
+/// «Remove all copies» of Settings → Reading: how many there were.
+#[tauri::command]
+pub async fn remove_all_offline_copies(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<u32, CommandError> {
+    let removed = blocking(&state, |conn| {
+        let root = offline::root(conn).ok_or_else(|| CommandError::internal("the library has no folder"))?;
+        offline::remove_all(conn, &root).map_err(text)
+    })
+    .await?;
+    let _ = app.emit("library-invalidated", ());
+    Ok(removed as u32)
+}
+#[tauri::command]
+pub async fn offline_stats(state: State<'_, Arc<DbState>>) -> Result<offline::OfflineStats, CommandError> {
+    blocking(&state, |conn| offline::stats(conn).map_err(text)).await
+}
+/// «Show folder»: the folder of copies, made if there is none yet.
+#[tauri::command]
+pub async fn reveal_offline_folder(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<(), CommandError> {
+    let root = blocking(&state, |conn| offline::root(conn).ok_or_else(|| CommandError::internal("the library has no folder"))).await?;
+    std::fs::create_dir_all(&root).map_err(CommandError::internal)?;
+    app.opener().open_path(root.to_string_lossy(), None::<&str>).map_err(CommandError::internal)
 }
 /// «Mark as read at the end» (NP-124): whether the reader's end of an article marks it read.
 #[tauri::command]
@@ -1322,6 +1403,8 @@ pub async fn restore_backup(
                 // Still under the lock: a link check writes nothing into the new library.
                 handle.state::<linkcheck::Checker>().abandon();
                 db.reload_settings(&conn);
+                // Copies the restored library has no rows for, and rows of copies since removed.
+                let _ = offline::sweep(&conn);
             }
             Ok::<_, CommandError>(result)
         }

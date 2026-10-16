@@ -4,6 +4,7 @@ import {
   cursorAt,
   daysLeft,
   isAfter,
+  isNews,
   ListOrder,
   matchesBookmark,
   matchesFilters,
@@ -29,6 +30,7 @@ const b: Bookmark = {
   reading_at: null,
   reading_progress: 0,
   read_at: null,
+  offline_at: null,
   collection_id: 2,
   created_at: "2026-10-01",
   updated_at: "2026-10-01",
@@ -182,6 +184,9 @@ describe("the orders of NP-114", () => {
     expect(ids(sortBookmarks(list, reading))).toEqual([3, 1, 4, 2]);
     expect(matchesFilters(item(5, "2026-10-01"), { onlyReading: true })).toBe(true);
     expect(matchesFilters(b, { onlyReading: true })).toBe(false);
+    // «Offline» (NP-126): only those with a copy.
+    expect(matchesFilters({ ...b, offline_at: "2026-10-03" }, { onlyOffline: true })).toBe(true);
+    expect(matchesFilters(b, { onlyOffline: true })).toBe(false);
     // A page cursor after the last unread one: the read ones lie beyond it.
     const cursor = cursorAt(list[0], reading);
     expect(cursor).toEqual({ at: "12026-10-01", id: 1 });
@@ -189,6 +194,19 @@ describe("the orders of NP-114", () => {
     expect(isAfter(list[2], cursor, reading)).toBe(false);
     // Marked read, it moves to the bottom.
     expect(ids(mergeBookmark(sortBookmarks(list, reading), item(3, "2026-10-03", "2026-10-09"), reading))).toEqual([1, 3, 4, 2]);
+  });
+
+  it("takes a copy saved or removed as news without a new revision (NP-126)", () => {
+    const saved = { ...b, offline_at: "2026-10-03" };
+    const change = (bookmark: Bookmark) => ({ kind: "updated" as const, id: bookmark.id, revision: bookmark.revision, bookmark });
+    expect(isNews(change(saved), 1, b)).toBe(true);
+    expect(isNews(change(b), 1, saved)).toBe(true);
+    expect(isNews(change(b), 1, b)).toBe(false);
+    // Not loaded: a copy may bring it into «Offline»; an older revision never counts.
+    expect(isNews(change(saved), 1, undefined)).toBe(true);
+    expect(isNews(change(b), 1, undefined)).toBe(false);
+    expect(isNews(change(saved), 2, b)).toBe(false);
+    expect(isNews(change({ ...b, revision: 2 }), 1, b)).toBe(true);
   });
 
   it("puts moved collections first in their places, the others by name", () => {

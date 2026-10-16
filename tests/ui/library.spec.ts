@@ -55,8 +55,8 @@ test("card menu moves a bookmark to a collection with the keyboard", async ({ pa
   await page.locator('[data-bookmark-id="2"]').hover();
   await page.getByRole("button", { name: /^Actions: The architecture/ }).click();
   await expect(page.getByRole("menuitem").first()).toBeFocused();
-  // Open, Copy, Edit, Favorite, Send to Reading (NP-121), then Move.
-  for (let i = 0; i < 5; i++) await page.keyboard.press("ArrowDown");
+  // Open, Copy, Edit, Favorite, Send to Reading (NP-121), Save for offline (NP-126), then Move.
+  for (let i = 0; i < 6; i++) await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("menuitem", { name: "Move to collection" })).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await page.getByRole("menuitem", { name: "Development" }).click();
@@ -2091,6 +2091,9 @@ test("the heart: one per card and row, seen without hover, one click, Ctrl Z, ke
   await page.keyboard.press(" ");
   await expect(heart(6)).toHaveAttribute("aria-pressed", "false");
   await page.locator('[data-bookmark-id="6"]').getByRole("button", { name: "Only bookmarks from are.na" }).focus();
+  // «Save offline» stands left of the heart (NP-126): Tab passes it first.
+  await page.keyboard.press(tabKey(browserName));
+  await expect(page.locator('[data-bookmark-id="6"] [data-offline-save]')).toBeFocused();
   await page.keyboard.press(tabKey(browserName));
   await expect(heart(6)).toBeFocused();
 

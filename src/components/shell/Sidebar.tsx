@@ -1,5 +1,5 @@
 import { KeyboardEvent, PointerEvent, ReactNode, useRef, useState } from "react";
-import { BookOpen, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
+import { BookOpen, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
@@ -43,6 +43,8 @@ export interface SidebarProps {
   onFavorites: () => void;
   /** The Reading list (NP-121, sheet R0). */
   onReading: () => void;
+  /** Bookmarks with an offline copy (NP-126, frame O1): under Reading. */
+  onOffline: () => void;
   onCollection: (id: number) => void;
   onTag: (name: string) => void;
   onSettings: () => void;
@@ -93,9 +95,12 @@ export function Sidebar(props: SidebarProps) {
   const inbox = library && filters.onlyInbox;
   const trash = library && filters.onlyTrash;
   const all =
-    library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash && !filters.onlyReading;
+    library && !filters.collectionId && !filters.onlyFavorites && !filters.onlyInbox && !filters.onlyTrash && !filters.onlyReading && !filters.onlyOffline;
   const favorites = library && filters.onlyFavorites;
   const reading = library && filters.onlyReading;
+  const offlineOpen = library && filters.onlyOffline;
+  /** Shown while there are copies, or while the section is open. */
+  const offline = counts.offline > 0 || offlineOpen;
   const status = { color: statusColor(capture), label: statusLabel(capture, t) };
   const update = offer(props.update);
   const { dropping } = props;
@@ -182,6 +187,11 @@ export function Sidebar(props: SidebarProps) {
         <StripButton label={t("nav.reading")} active={reading} onClick={props.onReading}>
           <Icon icon={BookOpen} />
         </StripButton>
+        {offline && (
+          <StripButton label={t("nav.offline")} active={offlineOpen} onClick={props.onOffline}>
+            <Icon icon={CircleArrowDown} />
+          </StripButton>
+        )}
         <StripButton label={t("nav.trash")} active={trash} onClick={props.onTrash} drop={trashDrop && { ...trashDrop, danger: true }}>
           <Icon icon={Trash2} />
         </StripButton>
@@ -288,6 +298,9 @@ export function Sidebar(props: SidebarProps) {
           active={reading}
           onClick={props.onReading}
         />
+        {offline && (
+          <NavRow icon={<Icon icon={CircleArrowDown} />} label={t("nav.offline")} count={counts.offline} active={offlineOpen} onClick={props.onOffline} />
+        )}
         <NavRow
           icon={<Icon icon={Trash2} />}
           label={t("nav.trash")}

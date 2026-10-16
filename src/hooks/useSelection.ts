@@ -5,7 +5,7 @@ import { BookmarkChange, FilterState } from "../types";
 const NONE: ReadonlySet<number> = new Set();
 
 /** What the section is: changing it clears the selection, search, tag and site do not (Р-27). */
-const sectionOf = (f: FilterState) => `${f.collectionId}|${f.onlyFavorites}|${f.onlyInbox}|${f.onlyTrash}|${f.onlyReading}`;
+const sectionOf = (f: FilterState) => `${f.collectionId}|${f.onlyFavorites}|${f.onlyInbox}|${f.onlyTrash}|${f.onlyReading}|${f.onlyOffline}`;
 
 /**
  * Selected bookmarks by id, not by DOM elements (NP-028): the list is

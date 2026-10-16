@@ -54,7 +54,8 @@
     "trash": "回收站",
     "duplicates": "重复项",
     "links": "链接检查",
-    "settings": "设置"
+    "settings": "设置",
+    "offline": "离线"
   },
   "browser": {
     "ready": "浏览器已连接",
@@ -151,7 +152,11 @@
     "read": "阅读",
     "readOf": "在此阅读：{{title}}",
     "selected": "已选中",
-    "filterDomain": "只看来自 {{domain}} 的书签"
+    "filterDomain": "只看来自 {{domain}} 的书签",
+    "saveOffline": "保存以便离线阅读",
+    "removeOffline": "删除离线副本",
+    "saveOfflineShort": "离线保存",
+    "savedOffline": "已离线保存"
   },
   "selection": {
     "label": "所选书签",
@@ -635,7 +640,21 @@
     "github": "GitHub 上的问题",
     "githubHint": "koona-pin 中的公开报告",
     "licenses": "许可证",
-    "licensesHint": "Koona Pin 使用的字体、图标和库"
+    "licensesHint": "Koona Pin 使用的字体、图标和库",
+    "offline": "离线副本",
+    "offlineStats": "已离线保存 — {{articles}} · {{size}}",
+    "offlineArticles_other": "{{count}} 篇文章",
+    "offlineHint": "仅保存在这台电脑上：不同步，也不包含在导出中。",
+    "showFolder": "显示文件夹",
+    "saveOffline": "保存我从稍后读打开的文章",
+    "saveOfflineHint": "在阅读模式中打开的每篇稍后读文章都会在这里保留副本。",
+    "removeCopies": "删除所有副本",
+    "removeCopiesHint": "书签会保留，只删除它们的离线副本。",
+    "removeCopiesButton": "删除…",
+    "removeCopiesTitle": "删除所有离线副本？",
+    "removeCopiesText_other": "将从这台电脑删除 {{count}} 篇已保存的文章。书签会保留。",
+    "removeCopiesConfirm": "删除副本",
+    "copiesRemoved_other": "已删除 {{count}} 个离线副本"
   },
   "notice": {
     "previewRefreshed": "预览已刷新",
@@ -748,7 +767,9 @@
     "inbox": "全部整理完毕",
     "inboxHint": "从浏览器保存和导入的新书签会来到这里，等待你处理。",
     "trash": "回收站是空的",
-    "trashHint": "已删除的书签会在这里保留 30 天，之后将被永久删除。"
+    "trashHint": "已删除的书签会在这里保留 30 天，之后将被永久删除。",
+    "offline": "还没有离线副本",
+    "offlineHint": "在书签菜单中选择“保存以便离线阅读”，或在阅读模式中选择“离线保存”。副本保留在这台电脑上。"
   },
   "inbox": {
     "banner_other": "{{count}} 个新书签正在等待 — 保留、归档或删除，大约只需一分钟",
@@ -775,7 +796,20 @@
       "notHtml": "此链接是文件，不是网页。",
       "links": "此页面大多是链接，不是文章。",
       "empty": "页面上没有找到文章，可能是由脚本绘制的。"
-    }
+    },
+    "offlineCopy": "离线副本",
+    "offlineBanner": "无网络连接 — 正在阅读 {{date}} 保存的离线副本",
+    "tryLive": "尝试在线页面"
+  },
+  "offline": {
+    "save": "离线保存",
+    "saved": "已离线保存",
+    "saving": "正在保存…",
+    "update": "更新副本",
+    "remove": "删除副本",
+    "savedNotice": "已保存以便离线阅读",
+    "removedNotice": "已删除离线副本",
+    "failed": "无法离线保存：{{reason}}"
   },
   "readerAa": {
     "label": "文字与主题",

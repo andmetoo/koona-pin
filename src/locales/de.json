@@ -57,7 +57,8 @@
     "trash": "Papierkorb",
     "duplicates": "Duplikate",
     "links": "Linkprüfung",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "Browser verbunden",
@@ -157,7 +158,11 @@
     "read": "Lesen",
     "readOf": "Hier lesen: {{title}}",
     "selected": "Ausgewählt",
-    "filterDomain": "Nur Lesezeichen von {{domain}}"
+    "filterDomain": "Nur Lesezeichen von {{domain}}",
+    "saveOffline": "Für offline speichern",
+    "removeOffline": "Offline-Kopie entfernen",
+    "saveOfflineShort": "Offline speichern",
+    "savedOffline": "Offline gespeichert"
   },
   "selection": {
     "label": "Ausgewählte Lesezeichen",
@@ -681,7 +686,24 @@
     "github": "Issues auf GitHub",
     "githubHint": "Öffentliche Meldungen in koona-pin",
     "licenses": "Lizenzen",
-    "licensesHint": "Schriften, Symbole und Bibliotheken, aus denen Koona Pin besteht"
+    "licensesHint": "Schriften, Symbole und Bibliotheken, aus denen Koona Pin besteht",
+    "offline": "Offline-Kopien",
+    "offlineStats": "Für offline gespeichert — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} Artikel",
+    "offlineArticles_other": "{{count}} Artikel",
+    "offlineHint": "Nur auf diesem Computer: nicht synchronisiert, nicht im Export.",
+    "showFolder": "Ordner zeigen",
+    "saveOffline": "Artikel speichern, die ich aus der Leseliste öffne",
+    "saveOfflineHint": "Jeder Artikel der Leseliste, den Sie im Lesemodus öffnen, behält hier eine Kopie.",
+    "removeCopies": "Alle Kopien entfernen",
+    "removeCopiesHint": "Die Lesezeichen bleiben; nur ihre Offline-Kopien werden gelöscht.",
+    "removeCopiesButton": "Entfernen…",
+    "removeCopiesTitle": "Alle Offline-Kopien entfernen?",
+    "removeCopiesText_one": "{{count}} gespeicherter Artikel wird von diesem Computer gelöscht. Das Lesezeichen bleibt.",
+    "removeCopiesText_other": "{{count}} gespeicherte Artikel werden von diesem Computer gelöscht. Die Lesezeichen bleiben.",
+    "removeCopiesConfirm": "Kopien entfernen",
+    "copiesRemoved_one": "{{count}} Offline-Kopie entfernt",
+    "copiesRemoved_other": "{{count}} Offline-Kopien entfernt"
   },
   "notice": {
     "previewRefreshed": "Vorschau aktualisiert",
@@ -801,7 +823,9 @@
     "inbox": "Alles sortiert",
     "inboxHint": "Neue Lesezeichen aus dem Browser und aus Importen landen hier und warten auf eine Entscheidung.",
     "trash": "Der Papierkorb ist leer",
-    "trashHint": "Gelöschte Lesezeichen bleiben 30 Tage hier, danach sind sie endgültig weg."
+    "trashHint": "Gelöschte Lesezeichen bleiben 30 Tage hier, danach sind sie endgültig weg.",
+    "offline": "Noch keine Offline-Kopien",
+    "offlineHint": "Wählen Sie „Für offline speichern“ im Menü eines Lesezeichens oder „Offline speichern“ im Lesemodus. Kopien bleiben auf diesem Computer."
   },
   "inbox": {
     "banner_one": "{{count}} neues Lesezeichen wartet — behalten, einsortieren oder wegwerfen dauert einen Moment",
@@ -832,7 +856,20 @@
       "notHtml": "Dieser Link ist eine Datei, keine Webseite.",
       "links": "Die Seite besteht vor allem aus Links, nicht aus einem Artikel.",
       "empty": "Auf der Seite wurde kein Artikel gefunden — vielleicht zeichnen ihn Skripte."
-    }
+    },
+    "offlineCopy": "Offline-Kopie",
+    "offlineBanner": "Keine Verbindung — Sie lesen die Offline-Kopie vom {{date}}",
+    "tryLive": "Live-Seite versuchen"
+  },
+  "offline": {
+    "save": "Offline speichern",
+    "saved": "Offline gespeichert",
+    "saving": "Wird gespeichert…",
+    "update": "Kopie aktualisieren",
+    "remove": "Kopie entfernen",
+    "savedNotice": "Für offline gespeichert",
+    "removedNotice": "Offline-Kopie entfernt",
+    "failed": "Konnte nicht für offline speichern: {{reason}}"
   },
   "readerAa": {
     "label": "Text und Design",
