@@ -175,7 +175,15 @@ export function FeedsPage({
       // «Undo» of a bookmark this save made takes it away; of a link brought back from the
       // Trash, or one moved to Reading or Favorites, it is the journal's; else there is none.
       const undo = result.created && !topped ? () => onUnsave(saved.id) : command !== null ? onUndo(command) : undefined;
-      const text = kind === "reading" ? t("notice.toReading") : kind === "favorite" ? t("feeds.notice.favorited") : t("add.savedTo", { place: t("import.library") });
+      // A link that was in the library already, live, stays where it is: the notice says so.
+      const there = !result.created && result.command === null && !topped;
+      const text = there
+        ? t("feeds.notice.alreadySaved")
+        : kind === "reading"
+          ? t("notice.toReading")
+          : kind === "favorite"
+            ? t("feeds.notice.favorited")
+            : t("add.savedTo", { place: t("import.library") });
       onNotice({ text, undo, glass: result.created });
     } catch (err) {
       failed(err);

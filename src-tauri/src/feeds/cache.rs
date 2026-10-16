@@ -71,6 +71,8 @@ CREATE TABLE feed_seen (
 ",
     // v2: the feed's own `<ttl>`, kept so a 304 is scheduled as the last 200 was (NP-129).
     "ALTER TABLE feed_state ADD COLUMN ttl_minutes INTEGER;",
+    // v3: its `Cache-Control: max-age`, for the same: an interval made shorter keeps to it (NP-129).
+    "ALTER TABLE feed_state ADD COLUMN max_age_secs INTEGER;",
 ];
 
 /// The newest cache version this build makes.
@@ -532,6 +534,18 @@ pub fn name_feeds(conn: &Connection, named: &[(String, String)]) -> rusqlite::Re
         write.execute(params![uid, title])?;
     }
     Ok(())
+}
+
+/// Whether any of `uids` has never been tried here: no fetch state at all.
+/// After sync, only such a feed (followed on another computer) needs a fetch
+/// at once (NP-130); one that was tried and failed keeps its own schedule.
+pub fn any_untried(conn: &Connection, uids: &[String]) -> rusqlite::Result<bool> {
+    let uids = serde_json::to_string(uids).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM json_each(?1) WHERE value NOT IN (SELECT feed_uid FROM feed_state))",
+        [uids],
+        |r| r.get(0),
+    )
 }
 
 /// The feed's own title from its last fetch.
@@ -1120,6 +1134,16 @@ mod tests {
             "a new address that breaks in turn is failing, not moved"
         );
         assert_eq!(health(Some("offline"), Some("https://new.example.com/feed"), 0, None, Some(NOW), now), FeedHealth::Offline);
+    }
+
+    /// Only a feed with no fetch state at all is new here: a failing one keeps its schedule (NP-130).
+    #[test]
+    fn a_feed_never_tried_is_told_from_one_that_failed() {
+        let conn = open_in_memory().unwrap();
+        conn.execute("INSERT INTO feed_state (feed_uid, failures, last_error) VALUES ('dead', 3, 'offline')", []).unwrap();
+        assert!(!any_untried(&conn, &["dead".into()]).unwrap());
+        assert!(any_untried(&conn, &["dead".into(), "synced".into()]).unwrap());
+        assert!(!any_untried(&conn, &[]).unwrap());
     }
 
     /// An OPML name shows until the first fetch, which brings the feed's own (NP-131).

@@ -21,8 +21,10 @@ pub struct Outline {
     /// The feed's own name as the file has it: `title` (unless it is just the
     /// address), else `text`; none when the file names it by its address only.
     pub title: Option<String>,
-    /// The person's own name: a `text` that differs from `title`. Readers write
-    /// the feed's name in both; Koona Pin writes a rename in `text` (NP-131).
+    /// The person's own name: Koona Pin's export marks a rename with its own
+    /// attribute (`koonaName`, which other readers ignore). Other readers'
+    /// `text` and `title` are both the feed's name as they show it, often not
+    /// the same words, so neither is taken for a rename (NP-131).
     pub name: Option<String>,
     pub url: String,
 }
@@ -58,7 +60,7 @@ pub fn parse(text: &str) -> Result<Vec<Outline>, CommandError> {
     loop {
         match reader.read_event() {
             Ok(Event::Start(e) | Event::Empty(e)) if e.local_name().as_ref().eq_ignore_ascii_case("outline") => {
-                let (mut url, mut title, mut words) = (None, None, None);
+                let (mut url, mut title, mut words, mut renamed) = (None, None, None, None);
                 for attr in e.attributes().with_checks(false).flatten() {
                     let Ok(value) = attr.normalized_value(XmlVersion::Implicit1_0) else {
                         continue;
@@ -68,12 +70,13 @@ pub fn parse(text: &str) -> Result<Vec<Outline>, CommandError> {
                         "xmlurl" => url = Some(value),
                         "title" => title = Some(value),
                         "text" => words = Some(value),
+                        "koonaname" => renamed = Some(value),
                         _ => {}
                     }
                 }
                 if let Some(url) = url.filter(|u| !u.is_empty()) {
                     let (title, words) = (title.filter(|t| !t.is_empty()), words.filter(|t| !t.is_empty()));
-                    let name = words.clone().filter(|w| title.as_ref().is_some_and(|t| t != w));
+                    let name = renamed.filter(|n| !n.is_empty());
                     let title = title.filter(|t| *t != url).or(words);
                     found.push(Outline { title, name, url });
                 }
@@ -117,11 +120,10 @@ pub fn read(path: &std::path::Path) -> Result<String, CommandError> {
 /// `progress(done, total)` is called per outline.
 ///
 /// A file's names are mostly not the person's: readers write the feed's own
-/// title there, or the address. Only a `text` that differs from the `title`
-/// is a rename (Koona Pin's own export writes them so) and becomes the
-/// feed's name; otherwise the file's name is only shown until the first
-/// fetch (`Imported::named`), not kept as a synced name that would hide the
-/// feed's own title for good.
+/// title there, or the address. Only a rename Koona Pin's export marked
+/// (`koonaName`) becomes the feed's name; otherwise the file's name is only
+/// shown until the first fetch (`Imported::named`), not kept as a synced
+/// name that would hide the feed's own title for good.
 pub fn import(
     conn: &Connection,
     outlines: &[Outline],
@@ -170,9 +172,10 @@ fn skip_reason(raw: &str) -> OpmlSkipReason {
 pub struct Exported {
     /// `text`: the person's name, else the feed's own, else the address.
     pub name: String,
-    /// `title`: the feed's own, else the address. A `text` that differs from
-    /// it is read back as a rename (NP-131).
+    /// `title`: the feed's own, else the address.
     pub title: String,
+    /// `koonaName`: the person's own name, read back as a rename (NP-131).
+    pub renamed: Option<String>,
     pub url: String,
     pub site_url: Option<String>,
 }
@@ -198,6 +201,9 @@ pub fn write(feeds: &[Exported], created: chrono::DateTime<chrono::Utc>) -> std:
                 if let Some(site) = &feed.site_url {
                     outline = outline.with_attribute(("htmlUrl", site.as_str()));
                 }
+                if let Some(renamed) = &feed.renamed {
+                    outline = outline.with_attribute(("koonaName", renamed.as_str()));
+                }
                 outline.write_empty()?;
             }
             Ok(())
@@ -216,6 +222,7 @@ pub fn exported(feeds: &[super::Feed]) -> Vec<Exported> {
         .map(|feed| Exported {
             name: feed.title.clone().or_else(|| feed.feed_title.clone()).unwrap_or_else(|| feed.url.clone()),
             title: feed.feed_title.clone().unwrap_or_else(|| feed.url.clone()),
+            renamed: feed.title.clone(),
             url: feed.url.clone(),
             site_url: feed.site_url.clone(),
         })
@@ -331,6 +338,22 @@ mod tests {
         let urls: Vec<String> = feeds::feeds(&other).unwrap().into_iter().map(|f| f.url).collect();
         assert_eq!(urls.len(), 2);
         assert!(urls.contains(&"https://a.example.com/feed".to_string()) && urls.contains(&"https://b.example.com/rss".to_string()));
+    }
+
+    /// Another reader's text and title are the feed's name in two forms, not a
+    /// rename; only Koona Pin's `koonaName` is one (NP-131).
+    #[test]
+    fn only_a_marked_rename_is_the_persons_name() {
+        let outlines = parse(
+            r#"<opml version="2.0"><body>
+                <outline text="The Verge" title="The Verge - All Posts" xmlUrl="https://v.example.com/rss"/>
+                <outline text="Ars" title="Ars Technica" koonaName="Ars" xmlUrl="https://a.example.com/feed"/>
+            </body></opml>"#,
+        )
+        .unwrap();
+        assert_eq!(outlines[0].name, None);
+        assert_eq!(outlines[0].title.as_deref(), Some("The Verge - All Posts"));
+        assert_eq!(outlines[1].name.as_deref(), Some("Ars"));
     }
 
     #[test]
