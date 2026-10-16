@@ -113,6 +113,7 @@
     "searchShort": "Szukaj…",
     "view": "Widok biblioteki",
     "grid": "Siatka",
+    "denseGrid": "Zwarta siatka",
     "list": "Lista",
     "sortBy": "Sortuj według",
     "sortHint": "Sortowanie: {{order}}",

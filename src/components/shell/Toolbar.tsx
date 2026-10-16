@@ -9,6 +9,7 @@ import {
   FileJson,
   FileSpreadsheet,
   FileText,
+  Grid3x3,
   LayoutGrid,
   List,
   MoreHorizontal,
@@ -71,6 +72,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   // `@min-[60rem]` classes below): the longest name and the longest title of a
   // section fit there in every language. Narrower, and in a narrow window, it
   // is an icon and the hint names the order.
+  // Three views since the compact grid: a narrow window gives each a little less, so the title keeps its room.
   const viewButton = (mode: ViewMode, label: string, glyph: typeof List) => (
     <Hint label={label}>
       <button
@@ -78,7 +80,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
         aria-label={label}
         aria-pressed={props.view === mode}
         onClick={() => props.onView(mode)}
-        className={`flex h-7 w-[30px] items-center justify-center rounded-[7px] transition-[background-color,color,box-shadow] duration-150 ${props.view === mode ? "bg-raised text-ink shadow-segment" : "text-subtle hover:text-ink"}`}
+        className={`flex h-7 ${props.narrow ? "w-[27px]" : "w-[30px]"} items-center justify-center rounded-[7px] transition-[background-color,color,box-shadow] duration-150 ${props.view === mode ? "bg-raised text-ink shadow-segment" : "text-subtle hover:text-ink"}`}
       >
         <Icon icon={glyph} />
       </button>
@@ -87,7 +89,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   return (
     <div className={`@container flex h-9 items-center ${props.narrow ? "gap-1.5" : "gap-2.5"}`}>
       {/* The title takes the free room; when the row runs short the search field gives way
-          first, so much faster that the title loses not even a pixel, down to 120 px (NP-089: «Todos os marcadores» at
+          first, so much faster that the title loses not even a pixel, down to 110 px (NP-089: «Todos os marcadores» at
           800 px), and only then is the title cut. The buttons never shrink. */}
       <h1 className="flex min-w-0 flex-auto items-baseline gap-2">
         <span className="truncate text-2xl font-semibold">{props.title}</span>
@@ -105,7 +107,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           search={props.search}
           onSearch={props.onSearch}
           placeholder={t("toolbar.searchShort")}
-          className="ml-auto w-[200px] min-w-[120px] shrink-[100000]"
+          className="ml-auto w-[200px] min-w-[110px] shrink-[100000]"
         />
       )}
       {sort && (
@@ -150,6 +152,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
       )}
       <div role="group" aria-label={t("toolbar.view")} className="flex shrink-0 gap-0.5 rounded-[10px] bg-well p-[3px]">
         {viewButton("grid", t("toolbar.grid"), LayoutGrid)}
+        {viewButton("dense", t("toolbar.denseGrid"), Grid3x3)}
         {viewButton("list", t("toolbar.list"), List)}
       </div>
       <Hint label={t("toolbar.more")}>

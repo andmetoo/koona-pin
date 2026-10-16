@@ -99,7 +99,8 @@ export type { HubChangePrompt } from "./bindings/HubChangePrompt";
 export type { HubChangeRole } from "./bindings/HubChangeRole";
 export type { SyncNotice } from "./bindings/SyncNotice";
 
-export type ViewMode = "grid" | "list";
+/** The grid, the compact grid (smaller cards, two columns even in a narrow window) and the list. */
+export type ViewMode = "grid" | "dense" | "list";
 
 export interface FilterState {
   search: string;

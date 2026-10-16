@@ -98,6 +98,7 @@
     "searchShort": "搜索…",
     "view": "资料库视图",
     "grid": "网格",
+    "denseGrid": "紧凑网格",
     "list": "列表",
     "sortBy": "排序方式",
     "sortHint": "排序：{{order}}",

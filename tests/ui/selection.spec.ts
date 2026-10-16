@@ -562,3 +562,27 @@ test("triage keeps Space for the browser (NP-123)", async ({ page }) => {
   expect(await opened(page)).toHaveLength(1);
   await expect(sheet(page)).toHaveCount(0);
 });
+
+/** Cards in the first row of the grid: the same top as the first card. */
+async function firstRow(page: Page) {
+  const tops = await page.locator("[data-bookmark-id]").evaluateAll((cards) => cards.map((c) => Math.round(c.getBoundingClientRect().top)));
+  return tops.filter((top) => top === tops[0]).length;
+}
+
+test("the compact grid: smaller cards, more of them in a row, two even in a narrow window; the choice is kept", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await expect.poll(() => firstRow(page)).toBe(3);
+  await page.getByRole("button", { name: "Compact grid", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Compact grid", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => firstRow(page)).toBe(4);
+  // Two lines of 13 px for the title, the corner buttons a size smaller.
+  const card = page.locator("[data-bookmark-id]").first();
+  await expect(card.locator("h2")).toHaveCSS("font-size", "13px");
+  await card.locator("[data-ring]").hover();
+  await expect(card.locator(".card-action").first()).toHaveCSS("width", "28px");
+
+  await page.setViewportSize({ width: 420, height: 800 });
+  await expect.poll(() => firstRow(page)).toBe(2);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Compact grid", exact: true })).toHaveAttribute("aria-pressed", "true");
+});

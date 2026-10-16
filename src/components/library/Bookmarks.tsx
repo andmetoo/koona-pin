@@ -428,6 +428,8 @@ function haloOf(b: Bookmark) {
 
 /** Height of a card below its preview: 10 + domain 15 + 10 + two title lines 38 (frame 01). */
 export const CARD_TEXT_HEIGHT = 73;
+/** The same in the compact grid: 8 + domain 15 + 8 + two title lines 34. */
+export const DENSE_TEXT_HEIGHT = 65;
 
 /**
  * Grid card: preview 16:10, site and domain, title in two lines (frame 01).
@@ -438,11 +440,14 @@ export const BookmarkCard = memo(function BookmarkCard({
   collections,
   actions,
   selected,
+  dense = false,
 }: {
   bookmark: Bookmark;
   collections: Collection[];
   actions: BookmarkActions;
   selected: boolean;
+  /** In the compact grid: smaller words, the same parts (`DENSE_TEXT_HEIGHT`). */
+  dense?: boolean;
 }) {
   const { t } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
@@ -453,7 +458,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       data-bookmark-id={b.id}
       data-selected={selected || undefined}
       data-menu-open={menu.open || undefined}
-      className="group/card @container/card flex min-w-0 flex-col gap-2.5 rounded-[14px]"
+      className={`group/card @container/card flex min-w-0 flex-col rounded-[14px] ${dense ? "gap-2" : "gap-2.5"}`}
       onContextMenu={menu.onContextMenu}
       {...control}
       onKeyDown={(e) => {
@@ -516,7 +521,7 @@ export const BookmarkCard = memo(function BookmarkCard({
         {b.deleted_at ? <DaysLeft deletedAt={b.deleted_at} /> : <FavoriteButton b={b} actions={actions} t={t} className="-my-[4.5px] -mr-[5.5px]" />}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
-      <h2 className="line-clamp-2 h-[38px] text-md font-medium" title={b.title}>
+      <h2 className={`line-clamp-2 font-medium ${dense ? "h-[34px] text-[13px] leading-[17px]" : "h-[38px] text-md"}`} title={b.title}>
         {b.title || b.url}
       </h2>
       {menu.menu}

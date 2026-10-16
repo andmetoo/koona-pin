@@ -98,6 +98,7 @@
     "searchShort": "検索…",
     "view": "ライブラリの表示",
     "grid": "グリッド",
+    "denseGrid": "コンパクトなグリッド",
     "list": "リスト",
     "sortBy": "並べ替え",
     "sortHint": "並べ替え：{{order}}",

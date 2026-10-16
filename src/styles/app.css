@@ -797,6 +797,18 @@
   .card-actions > :nth-child(3) .card-action {
     transition-delay: 60ms, 60ms, 0ms;
   }
+  /* The compact grid: the three buttons a size smaller, closer to the corner. */
+  @container card (width < 200px) {
+    .card-actions {
+      top: 7px;
+      right: 7px;
+      gap: 4px;
+    }
+    .card-action {
+      width: 28px;
+      height: 28px;
+    }
+  }
   .card-action:hover {
     background: var(--np-glass-raised);
   }
@@ -962,7 +974,7 @@
   .cover-poster {
     display: none;
   }
-  @container (min-width: 200px) and (max-aspect-ratio: 12 / 5) {
+  @container (min-width: 120px) and (max-aspect-ratio: 12 / 5) {
     .cover-pattern,
     .cover-tile,
     .cover-name {
@@ -1022,6 +1034,23 @@
       line-height: 1;
       white-space: nowrap;
       pointer-events: none;
+    }
+  }
+  /* A card of the compact grid: the chip a step smaller, no room for the domain beside it. */
+  @container (min-width: 120px) and (max-width: 199.98px) and (max-aspect-ratio: 12 / 5) {
+    .cover-chip {
+      left: 10px;
+      top: 9px;
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      font-size: 10.5px;
+    }
+    .cover-domain {
+      display: none;
+    }
+    .cover-poster {
+      left: 10px;
     }
   }
 }

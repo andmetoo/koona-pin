@@ -96,7 +96,7 @@ export function App() {
   const systemDark = useMedia("(prefers-color-scheme: dark)");
   const narrow = useMedia(NARROW);
   const wide = useMedia(WIDE);
-  const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "list"], "grid"));
+  const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "dense", "list"], "grid"));
   /** The order of every list but the trash, kept like the view (NP-114). */
   const [sort, setSort] = useState<BookmarkSort>(() => preference("sort", SORTS, "newest"));
   const [filters, setFilters] = useState(initialFilters);
@@ -879,10 +879,10 @@ export function App() {
   const content = library.bookmarks.length === 0 ? (
     library.loading ? (
       slowLoading ? (
-        <div role="status" aria-label={t("library.loading")} className={view === "grid" ? gridClass(narrow) : "flex flex-col gap-0.5"}>
+        <div role="status" aria-label={t("library.loading")} className={view === "list" ? "flex flex-col gap-0.5" : gridClass(narrow, view === "dense")}>
           {Array.from({ length: 8 }, (_, i) =>
-            view === "grid" ? (
-              <div key={i} className="flex flex-col gap-2.5">
+            view !== "list" ? (
+              <div key={i} className={`flex flex-col ${view === "dense" ? "gap-2" : "gap-2.5"}`}>
                 <div className="aspect-[16/10] rounded-xl bg-hover" />
                 <div className="h-3 w-1/2 rounded-xs bg-hover" />
                 <div className="h-3.5 w-4/5 rounded-xs bg-hover" />
@@ -1630,6 +1630,7 @@ export function App() {
   );
 }
 
-function gridClass(narrow: boolean) {
+function gridClass(narrow: boolean, dense: boolean) {
+  if (dense) return `grid gap-x-4 gap-y-[22px] ${narrow ? "grid-cols-[repeat(auto-fill,minmax(136px,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(172px,1fr))]"}`;
   return `grid gap-x-6 gap-y-7 ${narrow ? "grid-cols-[repeat(auto-fill,minmax(190px,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(240px,1fr))]"}`;
 }

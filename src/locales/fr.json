@@ -108,6 +108,7 @@
     "searchShort": "Rechercher…",
     "view": "Affichage de la bibliothèque",
     "grid": "Grille",
+    "denseGrid": "Grille compacte",
     "list": "Liste",
     "sortBy": "Trier par",
     "sortHint": "Tri : {{order}}",
