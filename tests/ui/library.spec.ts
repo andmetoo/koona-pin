@@ -618,7 +618,9 @@ test("triage: the capsule decides by click, the undo toast says what Z takes bac
   const title = page.locator("[data-triage-card] h2");
   const capsule = page.locator("[data-fit]");
   const last = page.locator("[data-undo-toast]");
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  // Since the notification centre, the library's way into triage is the bell.
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(heading).toHaveText(/1 of 2/);
   const first = await title.textContent();
   // One card behind this one; the heart is a toggle.
