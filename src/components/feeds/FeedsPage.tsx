@@ -32,8 +32,15 @@ export interface FeedNotice {
  * and the article sheet beside it; in a narrow window one at a time. Its keys are its own window
  * listener with App's layer check: ↑/↓ J/K, Space or Enter, S R F O U, ⇧A and ⌘R.
  */
-/** When the newest of these posts arrived, as the cache stamps it; none for an empty list. */
-const newestFetched = (items: FeedItem[]) => items.reduce<string | null>((max, i) => (max === null || i.fetched_at > max ? i.fetched_at : max), null);
+/**
+ * When the newest post of the feed shown (or of all feeds) arrived, as the page last
+ * heard: «Mark all read» stops there. From the feeds, not the list, which a search
+ * narrows and paging cuts short.
+ */
+const newestOf = (feeds: Feed[], feedUid: string | null) =>
+  feeds
+    .filter((f) => feedUid === null || f.uid === feedUid)
+    .reduce<string | null>((max, f) => (f.newest_at && (max === null || f.newest_at > max) ? f.newest_at : max), null);
 
 export function FeedsPage({
   feeds,
@@ -177,9 +184,9 @@ export function FeedsPage({
   const toggleRead = () => {
     if (selected) void setFeedItemsRead([selected.id], !selected.read).catch(failed);
   };
-  // Up to the newest post the person has in the list: one a check brought since stays new.
+  // Up to the newest post the page knew of: one a check brought since stays new.
   const markAll = () =>
-    void markFeedRead(feedUid, newestFetched(items)).then(
+    void markFeedRead(feedUid, newestOf(feeds, feedUid)).then(
       (count) => onNotice({ text: count ? t("feeds.notice.markedRead", { count }) : t("feeds.notice.allRead") }),
       failed,
     );

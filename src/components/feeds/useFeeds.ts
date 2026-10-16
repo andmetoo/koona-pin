@@ -76,7 +76,9 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
     };
   }, [key, changed, bookmarks]);
   const current = state.key === key ? state : { key, items: [], next: null, loaded: false };
-  anySaved.current = current.items.some((item) => item.bookmark_id !== null);
+  useEffect(() => {
+    anySaved.current = state.items.some((item) => item.bookmark_id !== null);
+  }, [state.items]);
   const loadMore = useCallback(() => {
     if (!current.next || loadingMore.current) return;
     loadingMore.current = true;

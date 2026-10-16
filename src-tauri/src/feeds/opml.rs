@@ -18,8 +18,12 @@ pub const MAX_BYTES: u64 = 5 * 1024 * 1024;
 /// A feed an OPML file names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Outline {
-    /// `title`, else `text`; none when the file names it by its address only.
+    /// The feed's own name as the file has it: `title` (unless it is just the
+    /// address), else `text`; none when the file names it by its address only.
     pub title: Option<String>,
+    /// The person's own name: a `text` that differs from `title`. Readers write
+    /// the feed's name in both; Koona Pin writes a rename in `text` (NP-131).
+    pub name: Option<String>,
     pub url: String,
 }
 
@@ -68,8 +72,10 @@ pub fn parse(text: &str) -> Result<Vec<Outline>, CommandError> {
                     }
                 }
                 if let Some(url) = url.filter(|u| !u.is_empty()) {
-                    let title = title.filter(|t| !t.is_empty()).or(words.filter(|t| !t.is_empty()));
-                    found.push(Outline { title, url });
+                    let (title, words) = (title.filter(|t| !t.is_empty()), words.filter(|t| !t.is_empty()));
+                    let name = words.clone().filter(|w| title.as_ref().is_some_and(|t| t != w));
+                    let title = title.filter(|t| *t != url).or(words);
+                    found.push(Outline { title, name, url });
                 }
             }
             Ok(Event::Eof) => break,
@@ -110,10 +116,12 @@ pub fn read(path: &std::path::Path) -> Result<String, CommandError> {
 /// fetches are the refresh loop's, which spreads them (NP-129).
 /// `progress(done, total)` is called per outline.
 ///
-/// The file's names are not the person's: a reader writes the feed's own
-/// title there, or the address. So no subscription gets a name of its own
-/// (a synced field that would hide the feed's title for good); the file's
-/// name is only shown until the first fetch (`Imported::named`).
+/// A file's names are mostly not the person's: readers write the feed's own
+/// title there, or the address. Only a `text` that differs from the `title`
+/// is a rename (Koona Pin's own export writes them so) and becomes the
+/// feed's name; otherwise the file's name is only shown until the first
+/// fetch (`Imported::named`), not kept as a synced name that would hide the
+/// feed's own title for good.
 pub fn import(
     conn: &Connection,
     outlines: &[Outline],
@@ -130,7 +138,7 @@ pub fn import(
                 if followed {
                     report.existing += 1;
                 } else {
-                    let feed = super::subscribe(&tx, &url, None, FeedDestination::Feeds)?;
+                    let feed = super::subscribe(&tx, &url, outline.name.clone(), FeedDestination::Feeds)?;
                     if let Some(title) = &outline.title {
                         named.push((feed.uid, title.clone()));
                     }
@@ -160,7 +168,10 @@ fn skip_reason(raw: &str) -> OpmlSkipReason {
 /// A subscription as exported.
 #[derive(Debug, Clone)]
 pub struct Exported {
-    /// The person's name, else the feed's own, else the address.
+    /// `text`: the person's name, else the feed's own, else the address.
+    pub name: String,
+    /// `title`: the feed's own, else the address. A `text` that differs from
+    /// it is read back as a rename (NP-131).
     pub title: String,
     pub url: String,
     pub site_url: Option<String>,
@@ -180,7 +191,7 @@ pub fn write(feeds: &[Exported], created: chrono::DateTime<chrono::Utc>) -> std:
             for feed in feeds {
                 let mut outline = w.create_element("outline").with_attributes([
                     ("type", "rss"),
-                    ("text", feed.title.as_str()),
+                    ("text", feed.name.as_str()),
                     ("title", feed.title.as_str()),
                     ("xmlUrl", feed.url.as_str()),
                 ]);
@@ -203,7 +214,8 @@ pub fn exported(feeds: &[super::Feed]) -> Vec<Exported> {
     feeds
         .iter()
         .map(|feed| Exported {
-            title: feed.title.clone().or_else(|| feed.feed_title.clone()).unwrap_or_else(|| feed.url.clone()),
+            name: feed.title.clone().or_else(|| feed.feed_title.clone()).unwrap_or_else(|| feed.url.clone()),
+            title: feed.feed_title.clone().unwrap_or_else(|| feed.url.clone()),
             url: feed.url.clone(),
             site_url: feed.site_url.clone(),
         })
@@ -306,13 +318,16 @@ mod tests {
         assert_eq!(
             back,
             [
-                Outline { title: Some("Café & Co".into()), url: "https://a.example.com/feed".into() },
-                Outline { title: Some("B's own <title>".into()), url: "https://b.example.com/rss".into() },
+                Outline { title: Some("Café & Co".into()), name: Some("Café & Co".into()), url: "https://a.example.com/feed".into() },
+                Outline { title: Some("B's own <title>".into()), name: None, url: "https://b.example.com/rss".into() },
             ]
         );
         let other = library_in(&folder.join("other"));
         let report = import(&other, &back, |_, _| {}).unwrap().report;
         assert_eq!((report.added, report.existing, report.skipped.len()), (2, 0, 0));
+        let names: Vec<(String, Option<String>)> = feeds::feeds(&other).unwrap().into_iter().map(|f| (f.url, f.title)).collect();
+        assert!(names.contains(&("https://a.example.com/feed".into(), Some("Café & Co".into()))), "a rename survives the round trip");
+        assert!(names.contains(&("https://b.example.com/rss".into(), None)), "the feed's own name is not pinned");
         let urls: Vec<String> = feeds::feeds(&other).unwrap().into_iter().map(|f| f.url).collect();
         assert_eq!(urls.len(), 2);
         assert!(urls.contains(&"https://a.example.com/feed".to_string()) && urls.contains(&"https://b.example.com/rss".to_string()));

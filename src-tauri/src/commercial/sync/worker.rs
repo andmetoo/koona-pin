@@ -252,9 +252,13 @@ async fn after_feeds(app: &AppHandle, db: &Arc<DbState>, applied: &Applied) {
                         let _ = feeds::cache::merge_state(&conn, &mut list, chrono::Utc::now());
                     }
                 }
+                // A feed followed on another computer, never fetched here, is fetched now,
+                // not at the next tick; a rename or a new destination asks for nothing.
+                let new_here = list.iter().any(|feed| feed.fetched_at.is_none());
                 feeds::emit_changed(&app, list);
-                // A feed followed on another computer is fetched here now, not at the next tick.
-                feeds::schedule::fetch_soon(&app, None);
+                if new_here {
+                    feeds::schedule::fetch_soon(&app, None);
+                }
             }
             Err(error) => eprintln!("Reading the feeds after sync failed: {error}"),
         }

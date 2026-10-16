@@ -588,17 +588,32 @@ pub fn fetch_soon(app: &AppHandle, feed_uid: Option<String>) {
 }
 
 /// A shorter interval takes effect now, not after each feed's old wait: a
-/// feed due later than `interval` from now is due then. Failing and paused
-/// feeds keep their backoff. How many were brought forward.
+/// feed due later than it would be with the new interval is due then, as
+/// [`next_after_success`] would set it from now: its own `<ttl>` and the
+/// quiet rule still count, each with its own jitter, so they don't all come
+/// due at once. Failing and paused feeds keep their backoff. How many moved.
 pub fn shorten_waits(conn: &Connection, now: DateTime<Utc>, interval: u32) -> rusqlite::Result<usize> {
+    shorten_waits_with(conn, now, interval, jitter)
+}
+
+fn shorten_waits_with(conn: &Connection, now: DateTime<Utc>, interval: u32, mut jitter: impl FnMut() -> f64) -> rusqlite::Result<usize> {
     if interval == 0 {
         return Ok(0);
     }
-    let until = db::stamp(now + base_interval(interval));
-    conn.execute(
-        "UPDATE feed_state SET next_fetch_at = ?1 WHERE next_fetch_at > ?1 AND failures = 0 AND last_error IS NULL",
-        [until],
-    )
+    let waiting: Vec<(String, Option<String>, Option<u32>)> = conn
+        .prepare("SELECT feed_uid, next_fetch_at, ttl_minutes FROM feed_state WHERE failures = 0 AND last_error IS NULL")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut moved = 0;
+    for (uid, next, ttl) in waiting {
+        let Some(next) = time(next) else { continue };
+        let sooner = next_after_success(now, interval, ttl, None, last_post(conn, &uid), jitter());
+        if sooner < next {
+            conn.execute("UPDATE feed_state SET next_fetch_at = ?1 WHERE feed_uid = ?2", params![db::stamp(sooner), uid])?;
+            moved += 1;
+        }
+    }
+    Ok(moved)
 }
 
 /// Every subscription with the cache's counts and health (NP-131's
@@ -721,17 +736,26 @@ mod tests {
         assert_eq!(minutes(now, next_after_pause(now, 60, u64::MAX, 0.0)), 1440);
     }
 
-    /// A shorter interval holds at once; failing feeds keep their backoff (NP-129).
+    /// A shorter interval holds at once, each feed with its own jitter and
+    /// `<ttl>`; failing feeds keep their backoff (NP-129).
     #[test]
     fn a_shorter_interval_brings_the_waits_forward() {
         let conn = cache::open_in_memory().unwrap();
         let now = clock(NOW);
         let far = db::stamp(now + TimeDelta::hours(12));
-        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at) VALUES ('ok', ?1)", [&far]).unwrap();
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at) VALUES ('a', ?1), ('b', ?1)", [&far]).unwrap();
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at, ttl_minutes) VALUES ('slow', ?1, 180)", [&far]).unwrap();
         conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at, failures, last_error) VALUES ('bad', ?1, 3, 'timeout')", [&far]).unwrap();
-        assert_eq!(shorten_waits(&conn, now, 30).unwrap(), 1);
+        let mut jitters = [-1.0, 1.0, 0.0].into_iter();
+        assert_eq!(shorten_waits_with(&conn, now, 30, || jitters.next().unwrap_or(0.0)).unwrap(), 3);
         let next = |uid: &str| -> String { conn.query_row("SELECT next_fetch_at FROM feed_state WHERE feed_uid = ?1", [uid], |r| r.get(0)).unwrap() };
-        assert_eq!(next("ok"), db::stamp(now + TimeDelta::minutes(30)));
+        let (a, b) = (next("a"), next("b"));
+        assert_ne!(a, b, "each its own jitter: not all due at once");
+        for at in [&a, &b] {
+            let minutes = (clock(at) - now).num_minutes();
+            assert!((27..=33).contains(&minutes), "{minutes}");
+        }
+        assert_eq!((clock(&next("slow")) - now).num_minutes(), 180, "its <ttl> still counts");
         assert_eq!(next("bad"), far, "backoff stays");
         assert_eq!(shorten_waits(&conn, now, 0).unwrap(), 0, "«Only when I refresh» brings nothing forward");
     }
