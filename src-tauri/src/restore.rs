@@ -177,6 +177,7 @@ pub fn check(text: &str) -> Result<JsonLibrary, RestoreProblem> {
                 *picture = None;
             }
         }
+        b.site_name = b.site_name.as_deref().and_then(crate::metadata::tidy_site_name);
         let bad_date = |value: &str| damaged(CopyItem::Bookmark, at, Damage::BadDate, value);
         b.created_at = time(&b.created_at).ok_or_else(|| bad_date(&b.created_at))?;
         b.updated_at = time(&b.updated_at).ok_or_else(|| bad_date(&b.updated_at))?;
@@ -325,8 +326,8 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
         }
         tx.execute(
             "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key, source_name,
-                 reading_at, reading_progress, read_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+                 reading_at, reading_progress, read_at, site_name)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 b.uid,
                 b.url,
@@ -348,6 +349,7 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
                 b.reading_at,
                 b.reading_progress,
                 b.read_at,
+                b.site_name,
             ],
         )?;
         if !b.tags.is_empty() {
@@ -457,6 +459,31 @@ mod tests {
         let mut edited: serde_json::Value = serde_json::from_str(&text).unwrap();
         edited["bookmarks"][0]["reading_progress"] = serde_json::json!(4);
         assert_eq!(check(&edited.to_string()).unwrap().bookmarks[0].reading_progress, 1.0);
+    }
+
+    /// The site's name survives a copy; a copy from before site names reads
+    /// as none, and a name in a copy is tidied like one read from a page.
+    #[test]
+    fn the_site_name_survives_export_and_import() {
+        let source = library();
+        source.execute("UPDATE bookmarks SET site_name = 'Tokio' WHERE url = 'https://tokio.rs/'", []).unwrap();
+        let text = copy_of(&source);
+        assert_eq!(text.matches("\"site_name\"").count(), 1, "left out where there is none");
+        let target = database();
+        restore(&target, &check(&text).unwrap(), RestoreMode::Replace, &folder()).unwrap();
+        let name = |c: &Connection| c.query_row("SELECT site_name FROM bookmarks WHERE url = 'https://tokio.rs/'", [], |r| r.get::<_, Option<String>>(0)).unwrap();
+        assert_eq!(name(&target).as_deref(), Some("Tokio"));
+        assert_eq!(everything(&target), text, "the same copy again");
+        assert!(!copy_of(&library()).contains("site_name"), "a copy without names reads as before");
+        let mut edited: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let tokio = edited["bookmarks"].as_array().unwrap().iter().position(|b| b["url"] == "https://tokio.rs/").unwrap();
+        edited["bookmarks"][0]["site_name"] = serde_json::json!("   ");
+        edited["bookmarks"][tokio]["site_name"] = serde_json::json!("  Tokio\n Docs ");
+        let checked = check(&edited.to_string()).unwrap();
+        assert_eq!(checked.bookmarks[tokio].site_name.as_deref(), Some("Tokio Docs"));
+        if tokio != 0 {
+            assert_eq!(checked.bookmarks[0].site_name, None);
+        }
     }
 
     #[test]

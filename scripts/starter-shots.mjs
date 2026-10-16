@@ -50,7 +50,7 @@ for (const theme of ["light", "dark"]) {
         const at = new Date(now - i * 1000).toISOString();
         return {
           ...sample, id: i + 1, url, domain: new URL(url).hostname.replace(/^www\./, ""), title, description,
-          notes: null, image_url: null, favicon_url: null, tags: [], is_favorite: false, collection_id: null,
+          notes: null, image_url: null, favicon_url: null, site_name: null, tags: [], is_favorite: false, collection_id: null,
           created_at: at, updated_at: at, triaged_at: null, deleted_at: null, source: "app", revision: 1,
         };
       });

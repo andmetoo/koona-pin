@@ -35,7 +35,7 @@ function copyOf(lang, base) {
     t.forEach((name) => tags.set(name, { uid: `site-tag-${name}`, name, created_at: day(20) }));
     return {
       uid: `site-bookmark-${i}`, url: b.url, title: b.title[lang], description: null, notes: null,
-      domain: new URL(b.url).hostname.replace(/^www\./, ""), image_url: `${base}/${b.preview}`, favicon_url: null,
+      domain: new URL(b.url).hostname.replace(/^www\./, ""), image_url: `${base}/${b.preview}`, favicon_url: null, site_name: null,
       is_favorite: b.favorite, collection: `site-collection-${b.collection}`, tags: t,
       source: b.inbox ? "chrome" : "import", created_at: day(i), updated_at: day(i),
       triaged_at: b.inbox ? null : day(i), deleted_at: null,

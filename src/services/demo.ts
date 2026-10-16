@@ -448,6 +448,13 @@ const stamp = (i: number) => new Date(Date.UTC(2026, 9, 2 - i, 12)).toISOString(
 // library keeps its own after a switch. Until the first change nothing is saved,
 // so a reload creates it again in the current language.
 const sample = demoLibrary(resolveLanguage(storedLanguage()));
+/** The names the sample sites give themselves (`og:site_name`); none for some, whose cover shows the domain. */
+const SITE_NAMES: Record<string, string> = {
+  "vitsoe.com": "Vitsœ",
+  "archdaily.com": "ArchDaily",
+  "linear.app": "Linear",
+  "unsplash.com": "Unsplash",
+};
 /** Sample bookmarks in Reading (NP-121): unread, the second one half read. */
 const READING = [0, 2, 3];
 let initial = {
@@ -458,6 +465,7 @@ let initial = {
     description: b.description ?? null,
     image_url: posterOf(b),
     favicon_url: null,
+    site_name: SITE_NAMES[b.domain] ?? null,
     domain: b.domain,
     notes: b.notes || null,
     is_favorite: b.favorite,
@@ -620,7 +628,7 @@ function bulkFields(b: Bookmark, change: BulkChange, collectionId: number | null
 /** A JSON copy as the demo reads it: the format, the version, the lists and every address (`restore.rs` checks more). */
 type CopyBookmark = {
   uid: string; url: string; title: string; description?: string | null; notes?: string | null; domain?: string;
-  image_url?: string | null; favicon_url?: string | null; is_favorite?: boolean; collection?: string | null; tags?: string[];
+  image_url?: string | null; favicon_url?: string | null; site_name?: string | null; is_favorite?: boolean; collection?: string | null; tags?: string[];
   source?: Bookmark["source"]; created_at: string; updated_at: string; triaged_at?: string | null; deleted_at?: string | null;
   reading_at?: string | null; reading_progress?: number; read_at?: string | null;
 };
@@ -894,6 +902,7 @@ export const demo = {
       description: null,
       image_url: null,
       favicon_url: null,
+      site_name: null,
       notes: null,
       domain: url.hostname.replace(/^www\./, ""),
       collection_id: data.collectionId ?? null,
@@ -1152,6 +1161,7 @@ export const demo = {
           description: null,
           image_url: null,
           favicon_url: null,
+          site_name: null,
           notes: null,
           domain: url.hostname.replace(/^www\./, ""),
           collection_id: collectionId,
@@ -1253,6 +1263,7 @@ export const demo = {
           description: b.description ?? null,
           image_url: b.image_url ?? null,
           favicon_url: b.favicon_url ?? null,
+          site_name: b.site_name ?? null,
           notes: b.notes ?? null,
           reading_at: b.reading_at ?? null,
           reading_progress: Math.min(1, Math.max(0, b.reading_progress ?? 0)),

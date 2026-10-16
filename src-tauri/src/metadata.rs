@@ -12,6 +12,8 @@ pub struct PageMetadata {
     pub description: Option<String>,
     pub image_url: Option<String>,
     pub favicon_url: Option<String>,
+    /// The site's own name ("Serious Eats"): og:site_name and its kin.
+    pub site_name: Option<String>,
     pub domain: String,
 }
 
@@ -346,6 +348,38 @@ fn json_ld_image(value: &serde_json::Value) -> Option<String> {
     }
 }
 
+/// The longest site name kept; longer ones are a slogan or a title.
+const SITE_NAME_MAX: usize = 60;
+
+/// A site's name as the cover prints it: whitespace collapsed, not empty,
+/// not too long. Also for names that come from a copy (`restore.rs`).
+pub fn tidy_site_name(raw: &str) -> Option<String> {
+    let name = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    if name.is_empty() {
+        return None;
+    }
+    Some(if name.chars().count() > SITE_NAME_MAX {
+        let cut: String = name.chars().take(SITE_NAME_MAX).collect();
+        format!("{}…", cut.trim_end())
+    } else {
+        name
+    })
+}
+
+/// [`tidy_site_name`], and not the domain itself, which the card shows
+/// without it.
+fn site_name(raw: &str, base: &Url, domain: &str) -> Option<String> {
+    let name = tidy_site_name(raw)?;
+    let bare = |host: &str| host.trim_start_matches("www.").to_lowercase();
+    let lower = name.to_lowercase();
+    let is_domain = [Some(domain), base.host_str()]
+        .into_iter()
+        .flatten()
+        .filter(|host| !host.is_empty())
+        .any(|host| bare(host) == bare(&lower));
+    (!is_domain).then_some(name)
+}
+
 /// How big an icon declares itself: `sizes` (its largest), or what its kind
 /// usually is. The largest wins: covers show icons at 32–56 px (NP-087).
 fn icon_size(rel: &str, sizes: Option<&str>, href: &str) -> u32 {
@@ -381,6 +415,10 @@ pub fn read_page(html: &str, base: &Url, meta: &mut PageMetadata) {
         "meta[property='og:description'], meta[name='description'], meta[name='twitter:description']",
         "content",
     );
+
+    meta.site_name = ["meta[property='og:site_name']", "meta[name='application-name']", "meta[name='apple-mobile-web-app-title']"]
+        .iter()
+        .find_map(|selector| first_attr(&document, selector, "content").and_then(|raw| site_name(&raw, base, &meta.domain)));
 
     // The picture, from the most deliberate source to the least: the page's
     // own preview tags, then what schema.org markup names, then a large image
@@ -521,6 +559,33 @@ mod tests {
         assert_eq!(read(r#"<link rel="icon" sizes="32x32" href="/32.png">"#), "https://example.org/32.png");
         assert_eq!(read(r#"<link rel="apple-touch-icon" href="/touch.png">"#), "https://example.org/touch.png");
         assert_eq!(read(""), google);
+    }
+
+    #[test]
+    fn the_site_name_comes_from_og_site_name_then_its_kin() {
+        let name = |head: &str| page(head, "").site_name;
+        assert_eq!(name(r#"<meta property="og:site_name" content="Serious Eats"><meta name="application-name" content="SE">"#).as_deref(), Some("Serious Eats"));
+        assert_eq!(name(r#"<meta name="application-name" content="The Verge"><meta name="apple-mobile-web-app-title" content="Verge">"#).as_deref(), Some("The Verge"));
+        assert_eq!(name(r#"<meta name="apple-mobile-web-app-title" content="Condé Nast Traveler">"#).as_deref(), Some("Condé Nast Traveler"));
+        assert_eq!(name(r#"<meta property="og:site_name" content="  "><meta name="application-name" content="Next">"#).as_deref(), Some("Next"), "an empty one is skipped");
+        assert_eq!(name(""), None);
+    }
+
+    #[test]
+    fn the_site_name_is_tidied_and_not_the_domain() {
+        let name = |head: &str| page(head, "").site_name;
+        assert_eq!(name("<meta property=\"og:site_name\" content=\"  The\n  Verge \">").as_deref(), Some("The Verge"));
+        let long = "A".repeat(80);
+        let kept = name(&format!(r#"<meta property="og:site_name" content="{long}">"#)).unwrap();
+        assert_eq!(kept.chars().count(), SITE_NAME_MAX + 1, "{kept}");
+        assert!(kept.ends_with('…'));
+        // The card shows the domain when there is no name; the same twice is not kept.
+        assert_eq!(name(r#"<meta property="og:site_name" content="Example.org">"#), None);
+        assert_eq!(name(r#"<meta property="og:site_name" content="www.example.org">"#), None);
+        let mut meta = PageMetadata { domain: "theverge.com".into(), ..Default::default() };
+        read_page(r#"<meta property="og:site_name" content="TheVerge.com">"#, &Url::parse("https://www.theverge.com/").unwrap(), &mut meta);
+        assert_eq!(meta.site_name, None);
+        assert_eq!(name(r#"<meta property="og:site_name" content="example.org blog">"#).as_deref(), Some("example.org blog"));
     }
 
     #[test]

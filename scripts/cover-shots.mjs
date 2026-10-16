@@ -44,7 +44,7 @@ for (const lang of ["en", "ru"])
           const local = domain.startsWith("192.");
           return {
             ...demo[0], id: 100 + i, url, domain, title: lang === "ru" ? ru : en, description: null, image_url: null,
-            favicon_url: local ? null : `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+            favicon_url: local ? null : `https://www.google.com/s2/favicons?domain=${domain}&sz=128`, site_name: null,
             tags: [], is_favorite: i === 1, collection_id: null, created_at: at, updated_at: at,
             // Two wait in the inbox: triage shows a cover at 280 px.
             triaged_at: i === 3 || i === 0 ? null : at, source: "chrome",

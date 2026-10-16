@@ -73,7 +73,7 @@ Until the library is open, database commands are refused and the capture channel
 2. The browser starts `koonapin-host` and writes the message to its stdin (32-bit native-endian length + UTF-8 JSON, at most 1 MiB).
 3. The host forwards one JSON line `{ "caller": …, "message": … }` to the app over a local channel and writes the answer back. If the app is not running and the message is an action of the person (`capture`, `search`, `show`), the host starts `koonapin --autostart` detached and waits up to 10 s for the channel; otherwise it answers `app_unavailable`. `hello` and `lookup` never start the app.
 4. The app (`capture.rs`) validates the URL (HTTP or HTTPS with a host, at most 8192 characters), and inserts the bookmark, its receipt and its tags in one transaction. With `reading: true` (Save to Reading, NP-125) the same transaction also puts the bookmark in Reading, as «Send to Reading» does, and the answer says `reading: true`. The answer is sent after commit: `created` or `existing`. A repeated `request_id` returns the stored receipt, so a lost answer never creates a duplicate.
-5. Metadata (title, description, preview image, icon) is fetched afterwards, outside the transaction (`metadata.rs`). It is applied only if the bookmark's revision has not changed, so a title the person typed in the meantime wins.
+5. Metadata (title, description, preview image, icon, and the site's own name from `og:site_name`, `application-name` or `apple-mobile-web-app-title`, kept only when it is not just the domain) is fetched afterwards, outside the transaction (`metadata.rs`). It is applied only if the bookmark's revision has not changed, so a title the person typed in the meantime wins.
 
 ### The local channel
 

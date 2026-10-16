@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 11;
+pub const SCHEMA_VERSION: i64 = 12;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -382,6 +382,18 @@ fn sync_reading(tx: &Transaction) -> HookResult {
     Ok(())
 }
 
+/// Schema 12: the site's own name (`og:site_name` and its kin, `metadata.rs`)
+/// for the card's cover; none until a save or «Refresh preview» reads it. The
+/// hook gives the sync capture trigger the field (`koona_sync::SCHEMA_12`,
+/// commercial).
+pub(crate) const SCHEMA_12: &str = "ALTER TABLE bookmarks ADD COLUMN site_name TEXT;
+";
+
+fn sync_site_name(tx: &Transaction) -> HookResult {
+    tx.execute_batch(koona_sync::SCHEMA_12)?;
+    Ok(())
+}
+
 /// The places of schema 7 as keys, in the sidebar's order: by place, then
 /// the collections never moved by name in the language of the sort keys.
 /// When none was ever moved, none gets a key: they keep following the
@@ -494,6 +506,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up_with_hook(SCHEMA_9, allow_safari),
         M::up_with_hook("", sync_schema),
         M::up_with_hook(SCHEMA_11, sync_reading),
+        M::up_with_hook(SCHEMA_12, sync_site_name),
     ]
 }
 
@@ -899,7 +912,8 @@ mod tests {
         let bookmarks_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
         let (objects_before, other_before) = (objects(&conn), other(&conn));
 
-        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        let to_11 = Migrations::new(steps().into_iter().take(11).collect());
+        migrate_with(&to_11, 11, &mut conn, Some(&folder.join("backups"))).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 11);
         assert!(folder.join("backups/koonapin.before-v11.db").exists());
         let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
@@ -934,6 +948,59 @@ mod tests {
         assert!(plan.iter().any(|step| step.contains("idx_bookmarks_reading")), "{plan:?}");
         let plan = rows(&conn, "EXPLAIN QUERY PLAN SELECT count(*) FROM bookmarks b WHERE b.deleted_at IS NULL AND b.reading_at IS NOT NULL AND b.read_at IS NULL");
         assert!(plan.iter().any(|step| step.contains("COVERING INDEX idx_bookmarks_reading")), "{plan:?}");
+    }
+
+    /// Schema 12: a library of schema 11 with data keeps every row and object
+    /// (but the capture trigger, which gains the field); no bookmark has a
+    /// site name yet; the copy before-v12 is there; with sync on, a name read
+    /// later is a change of its own (field 16).
+    #[test]
+    fn schema_12_adds_the_site_name_and_keeps_everything_else() {
+        let folder = folder("schema-12");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 11);
+        fixtures::generated(&conn, 2_000, 12);
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name NOT IN ('bookmarks', 'sync_bookmarks_update') ORDER BY name");
+        let other = |conn: &Connection| {
+            ["collections", "tags", "bookmark_tags", "app_settings", "tombstones"]
+                .iter()
+                .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
+                .collect::<Vec<_>>()
+        };
+        let bookmarks_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
+        let (objects_before, other_before) = (objects(&conn), other(&conn));
+
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 12);
+        assert!(folder.join("backups/koonapin.before-v12.db").exists());
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        assert_eq!(objects(&conn), objects_before, "no index, view, table or other trigger changed");
+        assert_eq!(other(&conn), other_before);
+        let bookmarks_after = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
+        assert_eq!(bookmarks_after.len(), bookmarks_before.len());
+        assert!(
+            bookmarks_after.iter().zip(&bookmarks_before).all(|(a, b)| *a == format!("{b} | Null")),
+            "every row, without a site name: {}",
+            bookmarks_after[0]
+        );
+
+        koona_sync::attach(&conn, uuid::Uuid::new_v4()).unwrap();
+        let clocks = |conn: &Connection| rows(conn, "SELECT field FROM sync_clock WHERE entity = 2 AND row = 1 ORDER BY field");
+        conn.execute("UPDATE bookmarks SET site_name = 'Serious Eats' WHERE id = 1", []).unwrap();
+        assert_eq!(clocks(&conn), ["Integer(16)"]);
+    }
+
+    /// The column of schema 12 the engine's tests add (`koona-sync/tests/schema12.sql`)
+    /// is the one this step adds.
+    #[test]
+    fn the_engine_tests_schema_12_as_the_app_makes_it() {
+        let file = include_str!("../commercial/koona-sync/tests/schema12.sql");
+        let columns: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
+        assert_eq!(columns, SCHEMA_12);
     }
 
     /// The columns of schema 11 the engine's tests add (`koona-sync/tests/schema11.sql`)

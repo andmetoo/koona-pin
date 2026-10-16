@@ -736,7 +736,7 @@ test("restore from JSON through IPC: a refused copy changes nothing, a replace l
         collections: [{ uid: "c1", name: "From the copy", color: null, icon: null, created_at: at }],
         tags: [],
         bookmarks: [
-          { uid: "b1", url: "https://copy.example/1", title: "First", description: null, notes: "a note", domain: "copy.example", image_url: null, favicon_url: null,
+          { uid: "b1", url: "https://copy.example/1", title: "First", description: null, notes: "a note", domain: "copy.example", image_url: null, favicon_url: null, site_name: null,
             is_favorite: true, collection: "c1", tags: ["copy"], source: "chrome", created_at: at, updated_at: at, triaged_at: null, deleted_at: null },
         ],
       };

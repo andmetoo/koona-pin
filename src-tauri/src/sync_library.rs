@@ -167,7 +167,8 @@ fn trash_missing(conn: &Connection, previous: &Path) -> rusqlite::Result<usize> 
     let mut statement = old.prepare(
         "SELECT b.uid, b.url, b.title, b.description, b.image_url, b.favicon_url, b.domain, b.notes, b.is_favorite,
                 c.uid, b.source, b.created_at, b.triaged_at, b.source_name,
-                (SELECT json_group_array(t.name) FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id WHERE bt.bookmark_id = b.id)
+                (SELECT json_group_array(t.name) FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id WHERE bt.bookmark_id = b.id),
+                b.site_name
          FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id
          WHERE b.deleted_at IS NULL ORDER BY b.id",
     )?;
@@ -193,8 +194,8 @@ fn trash_missing(conn: &Connection, previous: &Path) -> rusqlite::Result<usize> 
         };
         conn.execute(
             "INSERT INTO bookmarks (uid, url, title, description, image_url, favicon_url, domain, notes, is_favorite,
-                 collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key, source_name)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?13, ?15, ?16)",
+                 collection_id, source, created_at, updated_at, triaged_at, deleted_at, url_key, source_name, site_name)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?13, ?15, ?16, ?17)",
             params![
                 uid,
                 url,
@@ -212,6 +213,7 @@ fn trash_missing(conn: &Connection, previous: &Path) -> rusqlite::Result<usize> 
                 r.get::<_, Option<String>>(12)?,
                 crate::dedupe::url_key(&url),
                 r.get::<_, Option<String>>(13)?,
+                r.get::<_, Option<String>>(15)?,
             ],
         )?;
         let tags: Vec<String> = serde_json::from_str(&r.get::<_, String>(14)?).unwrap_or_default();
@@ -356,11 +358,12 @@ mod tests {
             description: Some("About".into()),
             image_url: Some("https://example.com/i.png".into()),
             favicon_url: Some("https://example.com/f.ico".into()),
+            site_name: Some("Example".into()),
             domain: "example.com".into(),
         };
         let revision = db::get_bookmark_by_id(&conn, b.id).unwrap().revision;
         let enriched = clocks(&conn, |conn| drop(db::enrich_bookmark(conn, b.id, revision, &meta).unwrap()));
-        assert_eq!(enriched, set([(BOOKMARK, b.id, 1), (BOOKMARK, b.id, 2), (BOOKMARK, b.id, 3), (BOOKMARK, b.id, 4)]));
+        assert_eq!(enriched, set([(BOOKMARK, b.id, 1), (BOOKMARK, b.id, 2), (BOOKMARK, b.id, 3), (BOOKMARK, b.id, 4), (BOOKMARK, b.id, 16)]));
         let fresh = crate::metadata::PageMetadata { image_url: Some("https://example.com/j.png".into()), ..meta };
         let refreshed = clocks(&conn, |conn| drop(db::refresh_preview(conn, b.id, &fresh).unwrap()));
         assert_eq!(refreshed, set([(BOOKMARK, b.id, 3)]));

@@ -234,3 +234,23 @@ fn reading_progress_and_read_state_travel_field_by_field() {
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM bookmarks"), 0);
     check_invariants(&c);
 }
+
+/// The site's name (schema 12): a field of its own, recorded and carried like the icon; a name
+/// cleared on one device is cleared on the other.
+#[test]
+fn the_site_name_travels_as_a_field_of_its_own() {
+    let a = library(replica_id(1));
+    let b = library(replica_id(2));
+    let id = add_bookmark(&a, uid(10), "https://example.com/recipe", "Recipe").unwrap();
+    set_bookmark(&a, id, "site_name", Value::Text("Serious Eats".into()));
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM sync_clock WHERE entity = 2 AND field = 16"), 1);
+    sync(&a, &b, 1 << 20);
+    assert_eq!(one::<Option<String>>(&b, "SELECT site_name FROM bookmarks"), Some("Serious Eats".into()));
+
+    let id_b = one::<i64>(&b, "SELECT id FROM bookmarks");
+    set_bookmark(&b, id_b, "site_name", Value::Null);
+    sync(&b, &a, 1 << 20);
+    assert_eq!(one::<Option<String>>(&a, "SELECT site_name FROM bookmarks"), None);
+    assert_eq!(dump(&a), dump(&b));
+    check_invariants(&a);
+}

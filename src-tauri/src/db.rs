@@ -14,6 +14,10 @@ pub struct Bookmark {
     pub description: Option<String>,
     pub image_url: Option<String>,
     pub favicon_url: Option<String>,
+    /// The site's own name from the page («Serious Eats»): `og:site_name`
+    /// and its kin; none when the page names none or names its domain.
+    #[serde(default)]
+    pub site_name: Option<String>,
     pub domain: String,
     pub notes: Option<String>,
     pub is_favorite: bool,
@@ -346,7 +350,7 @@ pub fn insert_or_update_bookmark(
 }
 
 /// The columns [`bookmark_row`] reads, in its order.
-const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key), source_name, reading_at, reading_progress, read_at";
+const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key), source_name, reading_at, reading_progress, read_at, site_name";
 
 pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut stmt = conn.prepare(&format!("SELECT {BOOKMARK_COLUMNS} FROM bookmarks WHERE id = ?1"))?;
@@ -746,6 +750,7 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         reading_at: row.get(19)?,
         reading_progress: row.get(20)?,
         read_at: row.get(21)?,
+        site_name: row.get(22)?,
     })
 }
 
@@ -1162,8 +1167,9 @@ pub fn enrich_bookmark(
     let changed = conn.execute("UPDATE bookmarks SET
         title=CASE WHEN revision=?1 THEN COALESCE(?2,title) ELSE title END,
         description=COALESCE(?3,description),image_url=COALESCE(?4,image_url),favicon_url=COALESCE(?5,favicon_url),
+        site_name=COALESCE(?8,site_name),
         revision=revision+1,updated_at=?6 WHERE id=?7",
-        params![initial_revision,meta.title,meta.description,meta.image_url,meta.favicon_url,now(),id])?;
+        params![initial_revision,meta.title,meta.description,meta.image_url,meta.favicon_url,now(),id,meta.site_name])?;
     if changed == 0 {
         Ok(None)
     } else {
@@ -1171,18 +1177,20 @@ pub fn enrich_bookmark(
     }
 }
 
-/// «Обновить превью» (NP-087): the picture and icon of the page, read again.
-/// A new one replaces the old, what was not found keeps what there was. Title
+/// «Обновить превью» (NP-087): the picture, icon and site name of the page,
+/// read again. A new one replaces the old, what was not found keeps what
+/// there was; a bookmark saved before site names were read gets one here. Title
 /// and description fill in only where empty: the person may have edited them.
 /// The trash is left alone.
 pub fn refresh_preview(conn: &Connection, id: i64, meta: &crate::metadata::PageMetadata) -> Result<Bookmark> {
     conn.execute(
         "UPDATE bookmarks SET image_url=COALESCE(?1,image_url), favicon_url=COALESCE(?2,favicon_url),
+            site_name=COALESCE(?7,site_name),
             description=COALESCE(NULLIF(description,''),?3),
             title=CASE WHEN title='' OR title=url THEN COALESCE(?4,title) ELSE title END,
             revision=revision+1, updated_at=?5
          WHERE id=?6 AND deleted_at IS NULL",
-        params![meta.image_url, meta.favicon_url, meta.description, meta.title, now(), id],
+        params![meta.image_url, meta.favicon_url, meta.description, meta.title, now(), id, meta.site_name],
     )?;
     get_bookmark_by_id(conn, id)
 }
@@ -2191,6 +2199,7 @@ mod tests {
             description: Some("From the page".into()),
             image_url: Some("https://example.org/og.jpg".into()),
             favicon_url: Some("https://example.org/touch.png".into()),
+            site_name: Some("Example Journal".into()),
             domain: "example.org".into(),
         };
         let refreshed = refresh_preview(&conn, imported.id, &meta).unwrap();
@@ -2199,6 +2208,7 @@ mod tests {
         assert_eq!(refreshed.description.as_deref(), Some("From the page"));
         assert_eq!(refreshed.image_url.as_deref(), Some("https://example.org/og.jpg"));
         assert_eq!(refreshed.favicon_url.as_deref(), Some("https://example.org/touch.png"));
+        assert_eq!(refreshed.site_name.as_deref(), Some("Example Journal"), "an old bookmark gets the site's name");
         assert!(refreshed.revision > imported.revision);
         // Edited words stay; a picture not found again stays too.
         update_bookmark(&conn, imported.id, Some("Mine".into()), None, None, None, None).unwrap();
@@ -2207,6 +2217,9 @@ mod tests {
         let again = refresh_preview(&conn, imported.id, &none).unwrap();
         assert_eq!((again.title.as_str(), again.description.as_deref()), ("Mine", Some("My words")));
         assert_eq!(again.image_url.as_deref(), Some("https://example.org/og.jpg"));
+        assert_eq!(again.site_name.as_deref(), Some("Example Journal"), "a name not found again stays");
+        let renamed = crate::metadata::PageMetadata { site_name: Some("Example Weekly".into()), ..Default::default() };
+        assert_eq!(refresh_preview(&conn, imported.id, &renamed).unwrap().site_name.as_deref(), Some("Example Weekly"));
         // The trash is left alone.
         trash_bookmark(&conn, imported.id).unwrap();
         let trashed = refresh_preview(&conn, imported.id, &meta).unwrap();
@@ -2462,6 +2475,7 @@ mod tests {
             description: Some("Описание страницы".into()),
             image_url: None,
             favicon_url: None,
+            site_name: None,
             domain: "example.com".into(),
         };
         let revision = get_bookmark_by_id(&conn, b.id).unwrap().revision;
