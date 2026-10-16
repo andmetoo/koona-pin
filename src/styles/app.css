@@ -2810,7 +2810,7 @@
 }
 /* The library's toolbar and the reading bar (2026-10-16) are glass over what scrolls, as Safari's
    toolbar is: the page's colour at 78 % over a blur, so a card or a line passing under shows
-   faintly, and a narrow soft edge below it, like the sidebar's footer. The glass is a pseudo-element:
+   faintly, and it ends with a clean edge. The glass is a pseudo-element:
    a backdrop-filter on the bar itself would hold the fixed menus that open from it. */
 .toolbar-glass {
   --glass-bg: var(--np-bg);
@@ -2822,18 +2822,12 @@
 .toolbar-glass::before {
   content: "";
   position: absolute;
-  inset: 0 0 -10px;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--glass-bg) 78%, transparent) calc(100% - 10px),
-    transparent
-  );
+  background: color-mix(in srgb, var(--glass-bg) 78%, transparent);
   -webkit-backdrop-filter: blur(20px) saturate(170%);
   backdrop-filter: blur(20px) saturate(170%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
 }
 .sidebar-scroll::-webkit-scrollbar {
   display: none;
