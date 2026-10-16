@@ -150,6 +150,8 @@ export function App() {
   /** The reading mode (NP-122): what its queue reads and which bookmark it starts with. */
   const [reading, setReading] = useState<{ source: ReadingSource; start: number | null } | null>(null);
   const readingRef = useRef(reading);
+  /** The reading mode covers the window: the library under it is hidden (its scrollbars with it). */
+  const [readingCovers, setReadingCovers] = useState(false);
   readingRef.current = reading;
   /** The toolbar's «Read»: the drop starts there and folds back into it. */
   const readButton = useRef<HTMLButtonElement>(null);
@@ -857,6 +859,7 @@ export function App() {
   }, []);
   const closeReading = useCallback(() => {
     setReading(null);
+    setReadingCovers(false);
     // Back where the person was: the toolbar's «Read» or the card a link was followed from.
     requestAnimationFrame(() => (readingFocus.current?.isConnected ? readingFocus.current : readButton.current)?.focus({ preventScroll: true }));
   }, []);
@@ -1400,8 +1403,9 @@ export function App() {
   const padding = narrow ? "px-6" : "px-8";
   return (
     <div className="flex h-full bg-bg text-ink">
-      {/* Under the reading mode the library waits as it was (scroll, selection) and takes no focus. */}
-      <div className="contents" inert={!!reading}>
+      {/* Under the reading mode the library waits as it was (scroll, selection) and takes no focus;
+          once the mode covers the window it is hidden too, or WKWebView paints its scrollbars on top. */}
+      <div className={`contents ${reading && readingCovers ? "invisible" : ""}`} inert={!!reading}>
       <Sidebar
         narrow={narrow}
         filters={filters}
@@ -2024,6 +2028,7 @@ export function App() {
           onMarkRead={(b) => readingChange(b, { action: "read", read: true })}
           onRemove={(b) => readingChange(b, { action: "reading", reading: false })}
           onClose={closeReading}
+          onCovers={setReadingCovers}
           onSaveOffline={saveOfflineCopy}
           onRemoveOffline={removeOfflineCopy}
           look={readerLook.look}

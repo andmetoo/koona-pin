@@ -98,11 +98,14 @@ test("«Read» drops the mode at the first unread of Reading; Esc twice returns 
   await expect(heading(page)).toHaveText(list.find((b) => !b.read)!.title);
   // The library underneath takes no focus.
   expect(await page.evaluate(() => !!document.querySelector("main")?.closest("[inert]"))).toBe(true);
+  // Once the drop is over the library is hidden: WKWebView paints a scroller's bar above a fixed layer.
+  await expect(scroll).toHaveCSS("visibility", "hidden");
 
   await page.keyboard.press("Escape");
   await expect(current(page)).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(mode(page)).toHaveCount(0);
+  await expect(scroll).toHaveCSS("visibility", "visible");
   await expect(readButton(page)).toBeFocused();
   await expect(card).toHaveAttribute("data-selected", "true");
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(top);
