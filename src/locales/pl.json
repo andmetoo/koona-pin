@@ -49,6 +49,8 @@
     "tag": "Dodaj tag „{{tag}}” do {{count}}",
     "trash": "Przenieś {{count}} do kosza",
     "new": "Nowa kolekcja z {{count}}",
+    "favorites": "Dodaj {{count}} do: Ulubione",
+    "reading": "Wyślij {{count}} do: Do przeczytania",
     "nowhere": "Upuść na kolekcję, tag lub kosz",
     "keys": "Puść nad kolekcją, tagiem lub koszem  ·  Esc — anuluj przeciąganie"
   },

@@ -194,6 +194,8 @@ export function Sidebar(props: SidebarProps) {
   const drop = (target: DropTarget): Drop | undefined =>
     dropping ? { attr: dropAttribute(target), hot: sameDrop(dropping.target, target) } : undefined;
   const trashDrop = drop({ kind: "trash" });
+  const favoritesDrop = drop({ kind: "favorites" });
+  const readingDrop = drop({ kind: "reading" });
   const folds = useFolds(!!dropping);
   const collectionsId = useId();
   const tagsId = useId();
@@ -296,10 +298,10 @@ export function Sidebar(props: SidebarProps) {
         <StripButton label={t("nav.all")} active={all} onClick={props.onAll}>
           <Icon icon={ClipIcon} />
         </StripButton>
-        <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites}>
+        <StripButton label={t("nav.favorites")} active={favorites} onClick={props.onFavorites} drop={favoritesDrop}>
           <Icon icon={Heart} />
         </StripButton>
-        <StripButton label={t("nav.reading")} active={reading} onClick={props.onReading}>
+        <StripButton label={t("nav.reading")} active={reading} onClick={props.onReading} drop={readingDrop}>
           <Icon icon={BookOpen} />
         </StripButton>
         {offline && (
@@ -431,6 +433,7 @@ export function Sidebar(props: SidebarProps) {
           count={counts.favorites}
           active={favorites}
           onClick={props.onFavorites}
+          drop={favoritesDrop}
         />
         <NavRow
           icon={<Icon icon={BookOpen} />}
@@ -438,6 +441,7 @@ export function Sidebar(props: SidebarProps) {
           count={counts.reading_unread}
           active={reading}
           onClick={props.onReading}
+          drop={readingDrop}
         />
         {offline && (
           <NavRow icon={<Icon icon={CircleArrowDown} />} label={t("nav.offline")} count={counts.offline} active={offlineOpen} onClick={props.onOffline} />

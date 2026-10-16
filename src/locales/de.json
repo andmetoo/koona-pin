@@ -45,6 +45,8 @@
     "tag": "Tag „{{tag}}“ zu {{count}} hinzufügen",
     "trash": "{{count}} in den Papierkorb",
     "new": "Neue Sammlung aus {{count}}",
+    "favorites": "{{count}} zu „Favoriten“ hinzufügen",
+    "reading": "{{count}} zu „Leseliste“ senden",
     "nowhere": "Auf einer Sammlung, einem Tag oder dem Papierkorb ablegen",
     "keys": "Über einer Sammlung, einem Tag oder dem Papierkorb loslassen  ·  Esc — Ziehen abbrechen"
   },
