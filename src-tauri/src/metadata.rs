@@ -57,7 +57,34 @@ impl Limits {
 static PARALLEL: Semaphore = Semaphore::const_new(4);
 
 pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
-    let mut meta = fetch_with(target_url, &Limits::PUBLIC).await;
+    fetch_metadata_read(target_url).await.0
+}
+
+/// How reading a page for its metadata went: «Обновить превью» for many
+/// bookmarks counts the pages it could not open and tells a dead connection
+/// from a dead site.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reading {
+    /// The page answered with HTML and was read.
+    Read,
+    /// On this computer or the local network, or not a web address: not requested.
+    Local,
+    /// It answered, but not with a page: an error status or another type.
+    NoPage,
+    /// No answer; see [`FetchError`].
+    Failed(FetchError),
+}
+
+impl Reading {
+    /// No connection or no answer in time: what a dead network looks like.
+    pub fn network(self) -> bool {
+        matches!(self, Reading::Failed(FetchError::Failed | FetchError::Timeout))
+    }
+}
+
+/// [`fetch_metadata`], and how the read went.
+pub async fn fetch_metadata_read(target_url: &str) -> (PageMetadata, Reading) {
+    let (mut meta, reading) = fetch_read(target_url, &Limits::PUBLIC).await;
     // The WebView loads these itself: they get the same check, with DNS.
     for field in [&mut meta.image_url, &mut meta.favicon_url] {
         if let Some(url) = field.as_deref() {
@@ -66,10 +93,15 @@ pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
             }
         }
     }
-    meta
+    (meta, reading)
 }
 
 pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
+    fetch_read(target_url, limits).await.0
+}
+
+/// [`fetch_with`], and how the read went.
+pub async fn fetch_read(target_url: &str, limits: &Limits) -> (PageMetadata, Reading) {
     let domain = extract_domain(target_url);
     let mut meta = PageMetadata {
         domain: domain.clone(),
@@ -80,24 +112,25 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
         ..Default::default()
     };
     let Ok(start) = Url::parse(target_url) else {
-        return meta;
+        return (meta, Reading::Local);
     };
     if is_local(&start, limits.allow).await {
         // A local page keeps its address only; Google is not told its name.
         meta.favicon_url = None;
-        return meta;
+        return (meta, Reading::Local);
     }
     let Ok(_permit) = PARALLEL.acquire().await else {
-        return meta;
+        return (meta, Reading::Failed(FetchError::Failed));
     };
     let Ok(client) = client(limits) else {
-        return meta;
+        return (meta, Reading::Failed(FetchError::Failed));
     };
-    let Ok(page) = fetch_page(&client, &start, limits).await else {
-        return meta;
+    let page = match fetch_page(&client, &start, limits).await {
+        Ok(page) => page,
+        Err(e) => return (meta, Reading::Failed(e)),
     };
     if !page.is_success() || !page.html {
-        return meta;
+        return (meta, Reading::NoPage);
     }
     let (html, _) = charset::decode(&page.body, page.content_type.as_deref());
     // One `<meta refresh>` is followed like a redirect, as the reader does
@@ -108,12 +141,12 @@ pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
             if next.is_success() && next.html {
                 let (html, _) = charset::decode(&next.body, next.content_type.as_deref());
                 read_page(&html, &next.url, &mut meta);
-                return meta;
+                return (meta, Reading::Read);
             }
         }
     }
     read_page(&html, &page.url, &mut meta);
-    meta
+    (meta, Reading::Read)
 }
 
 /// A `<meta http-equiv="refresh">` that waits longer than this reloads a page
@@ -810,5 +843,19 @@ mod tests {
         }
         assert_eq!(meta.image_url, None);
         assert_eq!(meta.favicon_url, None);
+    }
+
+    #[tokio::test]
+    async fn a_read_tells_a_page_an_error_and_no_connection_apart() {
+        let (port, _) = server("127.0.0.1", |_| html("<title>Page</title>"));
+        let (meta, reading) = fetch_read(&format!("http://127.0.0.1:{port}/"), &TEST).await;
+        assert_eq!((meta.title.as_deref(), reading), (Some("Page"), Reading::Read));
+        let (port, _) = server("127.0.0.1", |_| b"HTTP/1.1 404 X\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec());
+        assert_eq!(fetch_read(&format!("http://127.0.0.1:{port}/"), &TEST).await.1, Reading::NoPage);
+        // A port nobody listens on: what a dead connection looks like.
+        let closed = TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port();
+        let reading = fetch_read(&format!("http://127.0.0.1:{closed}/"), &TEST).await.1;
+        assert!(reading.network(), "{reading:?}");
+        assert_eq!(fetch_read("http://192.168.1.1/", &TEST).await.1, Reading::Local);
     }
 }

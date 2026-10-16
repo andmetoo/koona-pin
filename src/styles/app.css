@@ -2061,7 +2061,25 @@
     line-height: 17px;
     overflow-wrap: break-word;
   }
+  /* A task under way (refreshing previews): a thin bar under its text. */
+  .nt-progress {
+    grid-column: 2;
+    display: block;
+    height: 4px;
+    margin-top: 6px;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--np-well);
+  }
+  .nt-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--np-accent);
+    transition: width 200ms ease-out;
+  }
   .nt-actions {
+    grid-column: 2;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

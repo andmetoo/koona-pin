@@ -132,6 +132,12 @@ export function ImportDialog({
                   : t("import.nothingNew")}
               </p>
               {created.length > 0 && <p className="mt-0.5 text-xs text-muted">{created.join(" · ")}</p>}
+              {/* The new bookmarks' pages are read in the background (refresh.rs), with progress in the notification centre. */}
+              {report.added > 0 && (
+                <p data-import-fetching className="mt-0.5 text-xs text-muted">
+                  {t("import.fetching")}
+                </p>
+              )}
             </div>
           </div>
           <div className="border-y border-divider">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError, reasonOf } from "./services/errors";
@@ -17,6 +17,7 @@ import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { useSelectionDrag } from "./hooks/useSelectionDrag";
 import { useReaderLook } from "./hooks/useReaderLook";
+import { usePreviewRefresh } from "./hooks/usePreviewRefresh";
 import { ClipIcon, Icon, InboxTray } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
@@ -197,6 +198,10 @@ export function App() {
   /** How reading looks (NP-124): the Aa panel's choice, the app's theme and the plan. */
   const readerLook = useReaderLook(supporter, dark);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
+  /** «Refresh previews» for many bookmarks: Settings → Data, the selection bar, the notification centre. */
+  const previews = usePreviewRefresh();
+  const handingOffRef = useRef(previews.handingOff);
+  handingOffRef.current = previews.handingOff;
   const sayAlert = useCallback((text: string) => setNotice({ text, alert: true }), []);
   /**
    * Ctrl Z takes back the last command, «Отменить» in a notice its own
@@ -465,7 +470,8 @@ export function App() {
         window.clearTimeout(timer);
         timer = 0;
         void libraryRef.current.refreshCatalog();
-        if (progress.state === "idle" && pageRef.current !== "links")
+        // A check of the pages a refresh of previews could not open reports in the notification centre.
+        if (progress.state === "idle" && pageRef.current !== "links" && !handingOffRef.current())
           void api.getCounts().then((counts) => {
             if (counts.links > 0)
               setNotice({ text: t("links.finished", { count: counts.links }), alert: false, long: true, show: () => openLinksRef.current() });
@@ -689,6 +695,17 @@ export function App() {
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
     deleteForever: () => setPurging({ selected: [...selection.ids] }),
+    refresh: () => {
+      const before = previews.run;
+      previews.start({ ids: [...selection.ids] }).then(
+        (run) =>
+          // Only one run at a time: one under way goes on, and says where it is.
+          before?.state === "running" && run.started_at === before.started_at
+            ? say(t("notice.previewsAlready", { done: run.done, total: run.total }))
+            : say(t("notice.previewsStarted")),
+        (err) => say(describeError(err), true),
+      );
+    },
   };
   const selectionActionsRef = useRef(selectionActions);
   selectionActionsRef.current = selectionActions;
@@ -1036,9 +1053,62 @@ export function App() {
       action: { label: t("importOffer.action"), run: () => setSurface("import") },
       dismiss: { label: t("importOffer.hide"), run: endImportOffer },
     });
+  const refreshRun = previews.run;
+  if (refreshRun && previews.running)
+    notifications.push({
+      key: `previews:${refreshRun.started_at}:running`,
+      kind: "task",
+      icon: RefreshCw,
+      title: t("notifications.refreshRunning", { done: refreshRun.done, total: refreshRun.total }),
+      text: t("notifications.refreshRunningText"),
+      progress: refreshRun.total ? refreshRun.done / refreshRun.total : 0,
+      // Unread once it ends, under the key of its result.
+      quiet: true,
+      action: { label: t("notifications.refreshStop"), run: () => void previews.stop(), stay: true },
+    });
+  else if (refreshRun && previews.resultShown)
+    notifications.push({
+      key: `previews:${refreshRun.started_at}:${refreshRun.state}`,
+      kind: "task",
+      icon: refreshRun.state === "offline" ? WifiOff : RefreshCw,
+      title: t(
+        refreshRun.state === "offline"
+          ? "notifications.refreshOffline"
+          : refreshRun.state === "stopped"
+            ? "notifications.refreshStopped"
+            : "notifications.refreshDone",
+      ),
+      text:
+        refreshRun.state === "offline"
+          ? t("notifications.refreshOfflineText", { done: refreshRun.done, total: refreshRun.total })
+          : t(refreshRun.check_ids.length ? "notifications.refreshResultChecking" : "notifications.refreshResult", {
+              updated: refreshRun.updated,
+              unchanged: refreshRun.unchanged,
+              failed: refreshRun.failed,
+            }),
+      dismiss: { label: t("notifications.refreshHide"), run: previews.dismiss },
+    });
+  const handedOff = previews.handedOff;
+  if (handedOff)
+    notifications.push({
+      key: `previews:${handedOff.key}:links`,
+      kind: "task",
+      icon: Link,
+      title: handedOff.gone + handedOff.moved ? t("links.finished", { count: handedOff.gone + handedOff.moved }) : t("links.allOpenTitle"),
+      text: [
+        handedOff.gone ? t("notifications.linksCount", { label: t("links.group_gone"), count: handedOff.gone }) : "",
+        handedOff.moved ? t("notifications.linksCount", { label: t("links.group_moved"), count: handedOff.moved }) : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      action: handedOff.gone + handedOff.moved ? { label: t("notifications.linksShow"), run: openLinks } : undefined,
+      dismiss: { label: t("notifications.refreshHide"), run: previews.dismissHandedOff },
+    });
   const clearNotifications = () => {
     if (counts.inbox > 0) hideBanner();
     if (importOffer) endImportOffer();
+    if (previews.resultShown) previews.dismiss();
+    previews.dismissHandedOff();
   };
   const searching = filters.search.trim() !== "";
   /** Search, tag or site narrow the section: the header shows «N из M». */
@@ -1358,6 +1428,9 @@ export function App() {
                     sync={sync}
                     onSync={() => setSurface("sync")}
                     onSupporter={() => setSurface("supporter")}
+                    previews={previews.run}
+                    onRefreshPreviews={(scope) => void previews.start({ scope }).catch((err) => say(describeError(err), true))}
+                    onStopPreviews={() => void previews.stop()}
                     openLinks={linkTarget}
                     onOpenLinks={(target) => {
                       setLinkTarget(target);
