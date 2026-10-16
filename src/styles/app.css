@@ -397,6 +397,17 @@
     font-size: 13px;
     line-height: 18px;
     -webkit-font-smoothing: antialiased;
+    /* A desktop app: buttons, headings, labels and cards are not text to select. What is read
+       (the article) and what is typed opt back in, as does `select-text` for a line to copy. */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable="false"]),
+  .reader-article {
+    -webkit-user-select: text;
+    user-select: text;
   }
   /* Korean breaks lines between words, as Latin does, not between any two
      syllables; a word longer than its box still wraps. Japanese keeps its
@@ -2760,4 +2771,32 @@
   .inbox-pill-sort:hover {
     background: var(--np-ink-btn-hover);
   }
+}
+
+/* The sidebar's middle (2026-10-16): Feeds, Collections and Tags scroll without a scrollbar,
+   fade in under the fixed sections and sink under the footer's glass. */
+.sidebar-scroll {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent, #000 14px);
+}
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+.sidebar-foot {
+  position: sticky;
+  bottom: 0;
+  isolation: isolate;
+  padding-top: 28px;
+}
+.sidebar-foot::before {
+  content: "";
+  position: absolute;
+  inset: 0 -12px;
+  z-index: -1;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--np-panel) 94%, transparent) 28px);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
+  mask-image: linear-gradient(to bottom, transparent, #000 28px);
 }

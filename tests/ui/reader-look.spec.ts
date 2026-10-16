@@ -182,12 +182,12 @@ test("Settings → Reading: «Open links» changes what the title, double-click 
     await expect(mode(page)).toHaveCount(0);
   };
 
-  // The default and «In browser»: the gestures open the browser.
+  // Reading is the default (2026-10-16); «In browser»: the gestures open the browser.
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const section = page.locator("[data-settings-reading=links]");
-  await expect(page.getByRole("radiogroup", { name: "Open links" }).getByRole("radio", { name: "In browser" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("radiogroup", { name: "Open links" }).getByRole("radio", { name: "In reading mode" })).toHaveAttribute("aria-checked", "true");
   await expect(section).toContainText("What a click on a title, a double-click and Enter do.");
-  await page.getByRole("button", { name: /^All bookmarks/ }).click();
+  await setting("In browser");
   await spot(card(TITLES[3])).dblclick();
   expect((await opened(page)).at(-1)).toBe(await urlOf(card(TITLES[3])));
   await card(TITLES[3]).focus();

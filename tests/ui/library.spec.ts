@@ -1724,6 +1724,8 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   // With Feeds above Collections (NP-132) the last tag sits below a 900 px window: the sidebar scrolls to it.
   await last.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const box = (await last.boundingBox())!;
+  // Come in from the library at the tag's height: crossing the top edge of the list would scroll it.
+  await page.mouse.move(box.x + 400, box.y + box.height / 2);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
   await expect(dropHint(page)).toHaveText(`Add tag “${tag}” to 3`);
   await page.screenshot({ path: "test-results/drag-tag-1440.png" });

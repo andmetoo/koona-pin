@@ -387,15 +387,11 @@ export function Sidebar(props: SidebarProps) {
       </aside>
     );
 
-  // The scrollbar's 8 px are kept for it always and taken from the right padding: with the
-  // Feeds section the list scrolls more often, and a scrollbar that came and went would cut
-  // long labels («Skrzynka odbiorcza») where it is not an overlay, as in WebKitGTK (NP-132).
+  // The logo, «New link» and the sections stay put; Feeds, Collections and Tags scroll under the
+  // footer's glass (2026-10-16). No scrollbar: one that came and went cut long labels in WebKitGTK
+  // (NP-132), and WKWebView flashed it over the reading mode as the mode opened.
   return (
-    <aside
-      className="flex w-[232px] shrink-0 flex-col gap-0.5 overflow-y-auto bg-panel py-3.5 pr-1 pl-3 [scrollbar-gutter:stable]"
-      aria-label={t("sidebar.label")}
-      data-drop-scroll
-    >
+    <aside className="flex w-[232px] shrink-0 flex-col gap-0.5 bg-panel pt-3.5 pr-3 pl-3" aria-label={t("sidebar.label")}>
       <div className="flex items-center gap-2.5 pt-1.5 pr-0 pb-2.5 pl-2 text-accent" data-tauri-drag-region>
         <Mascot className="pointer-events-none" />
         <span className="min-w-0 flex-1 text-lg font-semibold" data-tauri-drag-region>
@@ -460,6 +456,7 @@ export function Sidebar(props: SidebarProps) {
         {links && <NavRow icon={<Icon icon={Unlink} />} label={t("nav.links")} count={counts.links} active={linksOpen} onClick={props.onLinks} />}
       </nav>
 
+      <div className="sidebar-scroll -mx-3 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3" data-drop-scroll>
       {/* Feeds (NP-132): above Collections, folding like them; folded, the unread count. */}
       <div ref={folds.header("feeds")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
         <SectionHeader label={t("feeds.title")} count={unread} folded={feedsFolded} controls={feedsId} onToggle={() => folds.toggle("feeds")} />
@@ -682,7 +679,7 @@ export function Sidebar(props: SidebarProps) {
         </>
       )}
 
-      <div className="flex-1" />
+      <div className="sidebar-foot mt-auto flex flex-col gap-0.5 pb-3.5">
       {update && <UpdateRow update={update} percent={percent(props.update)} onClick={props.onUpdate} />}
       {props.plan && <PlanRow plan={props.plan} badge={props.badge} onClick={props.plan === "free" ? props.onSupport : props.onPlan} />}
       <NavRow
@@ -695,6 +692,8 @@ export function Sidebar(props: SidebarProps) {
         danger={capture?.state === "failing"}
       />
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
+      </div>
+      </div>
     </aside>
   );
 }
