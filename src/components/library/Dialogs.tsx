@@ -569,7 +569,7 @@ export function RestoreDialog({
     return (
       <>
         <p className="text-sm text-muted">{t("restore.lead")}</p>
-        <label className="flex cursor-default items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm hover:bg-hover focus-within:outline-2 focus-within:outline-accent">
+        <label className="flex cursor-default items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm hover:bg-secondary-hover focus-within:outline-2 focus-within:outline-accent">
           <Icon icon={FileText} className="shrink-0 text-icon" />
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className={`truncate ${picked ? "font-medium" : "text-muted"}`} title={picked?.name}>

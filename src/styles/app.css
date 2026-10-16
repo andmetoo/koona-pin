@@ -23,6 +23,17 @@
   --np-divider: #efede6;
   --np-hover: #ece9e2;
   --np-secondary: #f2f1ec;
+  --np-secondary-hover: #ece9e2;
+  /* A trough (the view switch, the toolbar's search), what is raised in it or in the sidebar (the
+     active row, the chosen segment) with its edge, and the hairline around a picture (2026-10-16). */
+  --np-well: #edebe4;
+  --np-raised: #fffefa;
+  --np-raised-edge: rgb(46 48 43 / 0.07);
+  --np-hairline: rgb(46 48 43 / 0.07);
+  --np-shadow-1: 0 1px 2px rgb(46 48 43 / 0.06);
+  /* The menu's glass: the card at 82 % over a blur of what is under it. */
+  --np-glass: rgb(255 254 250 / 0.82);
+  --np-glass-shadow: 0 18px 50px -12px rgb(0 0 0 / 0.28), 0 2px 6px rgb(0 0 0 / 0.06);
   --np-accent: #2f6b4f;
   --np-on-accent: #ffffff;
   --np-accent-soft: #e2eee6;
@@ -77,45 +88,58 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --np-bg: #22221f;
-  --np-panel: #1c1c19;
-  --np-card: #2b2b26;
-  --np-ink: #e9e6dc;
-  --np-icon: #a4a296;
-  --np-muted: #a4a296;
-  --np-meta: #8c8a7f;
-  --np-subtle: #8c8a7f;
-  --np-faint: #6a695f;
-  --np-line: #2b2b26;
-  --np-border: #3d3d35;
-  --np-divider: #33332d;
-  --np-hover: #33332d;
-  /* On the dark card --panel is darker than the page and looks like a hole. */
-  --np-secondary: #33332d;
+  /* Deep (owner 2026-10-16): a near-black ground, surfaces lifted from it in steps of light, and
+     edges, lines and hovers as white at a few per cent, so they read on the page, the panel and the
+     card alike. What is laid over another colour or mixed stays opaque. */
+  --np-bg: #161615;
+  --np-panel: #101010;
+  --np-card: #1d1d1b;
+  --np-ink: #ecebe6;
+  --np-icon: #a3a29a;
+  --np-muted: #a3a29a;
+  --np-meta: #7f7e77;
+  --np-subtle: #7d7c75;
+  --np-faint: #55544f;
+  --np-line: rgb(255 255 255 / 0.06);
+  --np-border: rgb(255 255 255 / 0.08);
+  --np-divider: rgb(255 255 255 / 0.06);
+  --np-hover: rgb(255 255 255 / 0.05);
+  --np-thumb: rgb(255 255 255 / 0.12);
+  /* On the dark card --panel is darker than the page and looks like a hole. Opaque: a hover
+     over it lightens it (Button), it does not replace it. */
+  --np-secondary: #272725;
+  --np-secondary-hover: #30302d;
+  --np-well: rgb(255 255 255 / 0.045);
+  --np-raised: #262624;
+  --np-raised-edge: rgb(255 255 255 / 0.07);
+  --np-hairline: rgb(255 255 255 / 0.07);
+  --np-shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
+  --np-glass: rgb(29 29 27 / 0.8);
+  --np-glass-shadow: 0 18px 50px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
   --np-accent: #8fd0ae;
-  --np-on-accent: #1c1c19;
-  --np-accent-soft: #25352c;
+  --np-on-accent: #141413;
+  --np-accent-soft: #20302a;
   --np-on-accent-soft: #8fd0ae;
   --np-accent-muted: #6fa58a;
-  --np-suggested: #3e6b55;
+  --np-suggested: #3a6450;
   --np-danger: #e99797;
-  --np-danger-soft: #3a2826;
-  --np-on-danger-soft: #e99797;
-  --np-toast: #3d3d35;
-  --np-scrim: rgb(0 0 0 / 0.5);
+  --np-danger-soft: #33211f;
+  --np-on-danger-soft: #eda5a5;
+  --np-toast: #30302d;
+  --np-scrim: rgb(0 0 0 / 0.55);
   --np-terracotta: #d99272;
   --np-green: #7db096;
   --np-blue: #8aa3d0;
   --np-ochre: #d4b862;
   --np-lilac: #b096cc;
   --np-update: #8aa3d0;
-  --np-update-soft: #262e3d;
+  --np-update-soft: #1f2636;
   --np-on-update-soft: #afc1e3;
-  --np-update-track: #3a4660;
+  --np-update-track: #34405a;
   --np-update-glow: rgb(138 163 208 / 0.27);
   /* The ochre of the collections turns olive on the dark panel: a warm amber instead. */
   --np-amber: #e8b866;
-  --np-amber-soft: #3a3124;
+  --np-amber-soft: #322a1e;
   --np-on-amber-soft: #f2d9a6;
   /* The free Dark theme of reading (B8's swatch: #1e1d1a, ink #e8e2d6). */
   --np-read: #1e1d1a;
@@ -135,7 +159,7 @@
   --np-sheet: var(--np-read);
   --np-sheet-ink: var(--np-read-ink);
   --np-sheet-line: var(--np-read-border);
-  --np-focus: #e9e6dc;
+  --np-focus: #ecebe6;
 }
 
 /* The Supporter heart (NP-066, sheet 45) takes the colour of the season, set on <html> as
@@ -215,6 +239,11 @@
   --color-divider: var(--np-divider);
   --color-hover: var(--np-hover);
   --color-secondary: var(--np-secondary);
+  --color-secondary-hover: var(--np-secondary-hover);
+  --color-well: var(--np-well);
+  --color-raised: var(--np-raised);
+  --color-raised-edge: var(--np-raised-edge);
+  --color-hairline: var(--np-hairline);
   --color-accent: var(--np-accent);
   --color-on-accent: var(--np-on-accent);
   --color-accent-soft: var(--np-accent-soft);
@@ -290,6 +319,12 @@
   --shadow-*: initial;
   --shadow-active: 0 1px 2px rgb(0 0 0 / 0.08);
   --shadow-menu: 0 8px 24px rgb(0 0 0 / 0.14);
+  /* The active row and the chosen segment: raised, with a 1 px edge. */
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.05), 0 0 0 1px var(--np-raised-edge);
+  --shadow-segment: 0 1px 2px rgb(0 0 0 / 0.08), 0 0 0 1px var(--np-raised-edge);
+  /* A toolbar button's faint lift; the primary one also catches light on its top edge. */
+  --shadow-button: 0 1px 1px rgb(0 0 0 / 0.025);
+  --shadow-primary: 0 1px 2px rgb(0 0 0 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.14);
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --animate-appear: appear 200ms var(--ease-standard);
@@ -385,7 +420,8 @@
     height: 8px;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--np-border);
+    /* The dark border is white at 8 %: too faint for a thumb, which has its own. */
+    background: var(--np-thumb, var(--np-border));
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-track {
@@ -427,6 +463,57 @@
   }
   &:disabled {
     color: var(--np-subtle);
+  }
+}
+
+/* The search (2026-10-16): a card field under the logo of the sidebar; in the toolbar of a narrow
+   window, where the sidebar is a strip, a soft well (`data-well`). Focused, both turn to the card
+   with an accent edge and a 4 px halo. The key in a chip of its own sits on the right. */
+@utility search {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--np-line);
+  border-radius: 10px;
+  background: var(--np-card);
+  box-shadow: var(--np-shadow-1);
+  color: var(--np-ink);
+  padding: 0 12px 0 35px;
+  font-size: 13px;
+  line-height: 18px;
+  transition-property: background-color, border-color, box-shadow;
+  transition-duration: 160ms;
+  &::placeholder {
+    color: var(--np-subtle);
+  }
+  &[data-well]:not(:focus-visible) {
+    border-color: transparent;
+    background: var(--np-well);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.035);
+  }
+  &[data-well]:not(:focus-visible):hover {
+    border-color: var(--np-line);
+  }
+  &:focus-visible {
+    background: var(--np-card);
+    border-color: color-mix(in oklab, var(--np-accent) 55%, var(--np-border));
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--np-accent) 20%, transparent),
+      0 1px 2px rgb(0 0 0 / 0.04);
+  }
+}
+
+/* The glass of a menu (2026-10-16): the card at 82 % over a blur of what lies under it, saturated
+   so a cover behind keeps its colour without its detail; a hairline inside and a deep soft shadow.
+   Where the blur is not drawn the card is opaque, so the text never sits on a sharp picture. */
+@utility menu-glass {
+  background: var(--np-glass);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  box-shadow:
+    var(--np-glass-shadow),
+    inset 0 0 0 1px var(--np-line);
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--np-card);
   }
 }
 

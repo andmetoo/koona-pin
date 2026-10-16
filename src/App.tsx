@@ -986,6 +986,9 @@ export function App() {
       <div className="contents" inert={!!reading}>
       <Sidebar
         narrow={narrow}
+        search={filters.search}
+        onSearch={(search) => changeFilters({ search })}
+        searchRef={searchRef}
         filters={filters}
         settingsOpen={page === "settings"}
         duplicatesOpen={page === "duplicates"}

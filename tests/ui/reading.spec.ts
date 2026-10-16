@@ -119,9 +119,9 @@ test("keyboard only: open, J/K through the queue, O, the queue with arrows, leav
   await boot(page);
   await fillReading(page);
   const list = await readingList(page);
-  // Tab from the search field to «Read».
+  // Tab from the search field, under the logo of the sidebar, through the sidebar to «Read».
   await page.keyboard.press("Control+K");
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 60; i++) {
     if (await readButton(page).evaluate((el) => el === document.activeElement)) break;
     await page.keyboard.press("Tab");
   }

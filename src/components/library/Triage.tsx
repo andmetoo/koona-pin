@@ -549,7 +549,7 @@ export function Triage({
                         aria-pressed={current.collection_id === c.id}
                         aria-describedby={offered ? whyId : undefined}
                         data-suggested={offered || undefined}
-                        className={`flex h-7 items-center gap-2 rounded-lg pr-2.5 pl-1.5 text-sm transition-colors duration-150 aria-pressed:outline aria-pressed:outline-accent ${offered ? "border border-suggested bg-accent-soft pl-[5px]" : "bg-secondary hover:bg-hover"}`}
+                        className={`flex h-7 items-center gap-2 rounded-lg pr-2.5 pl-1.5 text-sm transition-colors duration-150 aria-pressed:outline aria-pressed:outline-accent ${offered ? "border border-suggested bg-accent-soft pl-[5px]" : "bg-secondary hover:bg-secondary-hover"}`}
                       >
                         <KeyChip className={`h-[18px] min-w-[18px] bg-card text-2xs ${offered ? "text-accent" : "text-muted"}`}>{i + 1}</KeyChip>
                         <span className="size-[7px] rounded-full" style={{ background: collectionColor(c.id) }} />
@@ -620,7 +620,7 @@ export function Triage({
                       <button
                         type="button"
                         onClick={() => void undo()}
-                        className="flex h-9 w-[184px] items-center justify-center gap-2 rounded-lg bg-secondary text-sm font-medium transition-colors duration-150 hover:bg-hover"
+                        className="flex h-9 w-[184px] items-center justify-center gap-2 rounded-lg bg-secondary text-sm font-medium transition-colors duration-150 hover:bg-secondary-hover"
                       >
                         {t("triage.undoLast")}
                         <span aria-hidden className="rounded-xs bg-card px-1.5 text-2xs text-meta">
