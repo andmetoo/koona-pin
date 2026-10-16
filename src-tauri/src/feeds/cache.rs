@@ -315,3 +315,24 @@ mod tests {
         assert_eq!(left, 0);
     }
 }
+
+/// What [`store_fetch`] did: the ids of posts new to the cache, newest first.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Stored {
+    pub new_ids: Vec<i64>,
+}
+
+/// Stores a fetched document (NP-129 calls it, NP-131 fills it): the feed's
+/// own title, site, icon and description into `feed_state`, and its posts
+/// into `feed_items` by `(feed_uid, key)`, keeping read marks and saves,
+/// skipping keys in `feed_seen`, with the first-load rule (plan §3.2). The
+/// fetch state columns (validators, times, failures) are the fetch's own to
+/// write. Until NP-131: stores nothing.
+pub fn store_fetch(
+    _conn: &Connection,
+    _feed_uid: &str,
+    _feed: &super::parse::ParsedFeed,
+    _now: &str,
+) -> rusqlite::Result<Stored> {
+    Ok(Stored::default())
+}

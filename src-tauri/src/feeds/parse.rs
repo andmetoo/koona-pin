@@ -5,6 +5,42 @@
 //! Empty until NP-129, but for the test that pins feed-rs on the app's
 //! toolchain (NP-128). NP-129 adds its fixture tests beside it.
 
+/// A fetched document as the cache stores it: the contract between the
+/// fetch (NP-129, which makes it) and the cache (NP-131, which stores it).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ParsedFeed {
+    pub title: Option<String>,
+    /// The site's home page, for «Open site» and the icon.
+    pub site_url: Option<String>,
+    pub icon_url: Option<String>,
+    pub description: Option<String>,
+    /// RSS `<ttl>`, in minutes; the schedule may wait longer, never shorter.
+    pub ttl_minutes: Option<u32>,
+    /// In document order, at most 500.
+    pub items: Vec<ParsedItem>,
+}
+
+/// One post of a [`ParsedFeed`]. Times are the library's UTC strings (`db::stamp`).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ParsedItem {
+    /// guid / atom:id / JSON id, else the link, else feed-rs's hash: unique in its feed.
+    pub key: String,
+    /// Absolute http(s), or none.
+    pub url: Option<String>,
+    /// Plain text, entities decoded, at most 300 characters; never empty
+    /// (a title-less post takes the start of its text).
+    pub title: String,
+    pub author: Option<String>,
+    /// Plain text, at most 600 characters, for the list's three lines.
+    pub excerpt: String,
+    /// Raw HTML with absolute `src` and `href`, at most 512 KB; sanitised at render.
+    pub content_html: Option<String>,
+    /// The content looks like the whole article (about 150 words or more).
+    pub full: bool,
+    pub thumbnail_url: Option<String>,
+    pub published_at: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use feed_rs::model::FeedType;
