@@ -19,6 +19,7 @@ use super::SyncState;
 use crate::billing;
 use crate::capture;
 use crate::db::{self, DbState};
+use crate::feeds;
 use base64::Engine;
 use koona_sync::library::{DeltaPage, Library, Meta};
 use koona_sync::model::{Group, Vector};
@@ -212,10 +213,51 @@ pub fn refresh_for(applied: &Applied) -> Refresh {
     }
 }
 
+/// The feeds a batch took away that the library doesn't follow any more: their posts in the
+/// cache go. A uid can be gone and back in one batch only in theory; the library decides.
+pub fn feeds_to_forget(conn: &Connection, applied: &Applied) -> rusqlite::Result<Vec<String>> {
+    let mut gone = Vec::new();
+    for uid in &applied.feeds_gone {
+        let uid = uid.to_string();
+        let followed: bool = conn.query_row("SELECT EXISTS (SELECT 1 FROM feeds WHERE uid = ?1)", [&uid], |r| r.get(0))?;
+        if !followed {
+            gone.push(uid);
+        }
+    }
+    Ok(gone)
+}
+
+/// Feeds followed, changed or left on another device (NP-130): the posts of the ones gone leave
+/// the cache, and the Feeds page reads the list again. A new feed's first fetch is the refresh
+/// loop's (NP-129), which reads the library's feeds on its own.
+async fn after_feeds(app: &AppHandle, db: &Arc<DbState>, applied: &Applied) {
+    if !applied.feeds_changed && applied.feeds_gone.is_empty() {
+        return;
+    }
+    let (app, db, applied) = (app.clone(), db.clone(), applied.clone());
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        let read = {
+            let Ok(conn) = db.conn.lock() else { return };
+            feeds_to_forget(&conn, &applied).and_then(|gone| Ok((gone, feeds::feeds(&conn)?)))
+        };
+        match read {
+            Ok((gone, list)) => {
+                for uid in gone {
+                    feeds::cache::forget_feed(&app, &uid);
+                }
+                feeds::emit_changed(&app, list);
+            }
+            Err(error) => eprintln!("Reading the feeds after sync failed: {error}"),
+        }
+    })
+    .await;
+}
+
 /// Remote changes as the interface's events: the changed bookmarks with their revisions, which
-/// the engine bumps, as a bulk action sends them; everything again for a new collection or tag,
-/// a big batch, or bookmarks that are gone (their last revision is not known).
+/// the engine bumps, as a bulk action sends them; everything again for a new collection, tag or
+/// feed, a big batch, or bookmarks that are gone (their last revision is not known).
 async fn after_applied(app: &AppHandle, db: &Arc<DbState>, applied: &Applied) {
+    after_feeds(app, db, applied).await;
     let ids = match refresh_for(applied) {
         Refresh::Nothing => return,
         Refresh::Everything => {
@@ -598,13 +640,51 @@ pub mod tests {
 
     #[test]
     fn few_remote_changes_are_events_and_many_read_everything_again() {
-        let few = Applied { bookmark_ids: vec![4, 5], structure_changed: false, deferred: 0 };
+        let few = Applied { bookmark_ids: vec![4, 5], ..Applied::default() };
         assert_eq!(refresh_for(&few), Refresh::Bookmarks(vec![4, 5]));
-        let many = Applied { bookmark_ids: (0..=MAX_EVENT_IDS as i64).collect(), structure_changed: false, deferred: 0 };
+        let many = Applied { bookmark_ids: (0..=MAX_EVENT_IDS as i64).collect(), ..Applied::default() };
         assert_eq!(refresh_for(&many), Refresh::Everything);
-        let sidebar = Applied { bookmark_ids: vec![], structure_changed: true, deferred: 0 };
+        let sidebar = Applied { structure_changed: true, ..Applied::default() };
         assert_eq!(refresh_for(&sidebar), Refresh::Everything);
         assert_eq!(refresh_for(&Applied::default()), Refresh::Nothing);
+    }
+
+    /// A feed from another device is structure: `library-invalidated`, and the posts of the
+    /// feeds that went leave the cache, those still followed stay (NP-130).
+    #[test]
+    fn a_feed_from_another_device_reads_everything_and_forgets_the_gone() {
+        let a = library();
+        crate::sync_library::turn_on(&a, Uuid::from_u128(1)).unwrap();
+        let url = |s: &str| url::Url::parse(s).unwrap();
+        let kept = feeds::subscribe(&a, &url("https://example.com/feed.xml"), None, feeds::FeedDestination::Inbox).unwrap();
+        let left = feeds::subscribe(&a, &url("https://example.org/rss"), None, feeds::FeedDestination::Feeds).unwrap();
+        let b = library();
+        crate::sync_library::turn_on(&b, Uuid::from_u128(2)).unwrap();
+        let send = |from: &Connection, to: &Connection| {
+            let since = koona_sync::vector(to).unwrap();
+            let mut applied = Applied::default();
+            for chunk in koona_sync::delta_all(from, &since, 1 << 20).unwrap() {
+                let got = crate::sync_library::apply(to, &chunk.groups).unwrap();
+                applied.structure_changed |= got.structure_changed;
+                applied.feeds_changed |= got.feeds_changed;
+                applied.feeds_gone.extend(got.feeds_gone);
+                koona_sync::merge_vector(to, &chunk.covers).unwrap();
+            }
+            applied
+        };
+        let applied = send(&a, &b);
+        assert!(applied.feeds_changed);
+        assert_eq!(refresh_for(&applied), Refresh::Everything);
+        assert_eq!(feeds::feeds(&b).unwrap().len(), 2);
+        assert_eq!(feeds::feed(&b, &kept.uid).unwrap().destination, feeds::FeedDestination::Inbox);
+
+        feeds::unsubscribe(&a, &left.uid).unwrap();
+        let applied = send(&a, &b);
+        assert_eq!(applied.feeds_gone, [Uuid::parse_str(&left.uid).unwrap()]);
+        assert_eq!(feeds_to_forget(&b, &applied).unwrap(), [left.uid.clone()]);
+        // One still followed is never forgotten.
+        let back = Applied { feeds_gone: vec![Uuid::parse_str(&kept.uid).unwrap()], ..Applied::default() };
+        assert!(feeds_to_forget(&b, &back).unwrap().is_empty());
     }
 
     #[test]

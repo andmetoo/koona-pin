@@ -906,7 +906,7 @@ mod tests {
         assert_eq!(model.status(&ctx(&me)).phase, SyncPhase::Syncing { done: 3, total: 10 });
         assert_eq!(model.on_event(Event::Session(Effect::Status(Phase::Online)), at(2)), vec![Reaction::Synced]);
         assert_eq!(model.last_sync_at, Some(at(2)));
-        let applied = Applied { bookmark_ids: vec![1, 2], structure_changed: false, deferred: 0 };
+        let applied = Applied { bookmark_ids: vec![1, 2], ..Applied::default() };
         assert_eq!(model.on_event(Event::Session(Effect::LibraryChanged(applied.clone())), at(5)), vec![Reaction::Applied(applied)]);
         assert_eq!(model.last_sync_at, Some(at(5)));
     }
