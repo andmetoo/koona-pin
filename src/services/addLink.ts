@@ -1,5 +1,5 @@
 // Adding a link by hand (2026-10-16): the sheet's field, ⌘V in the library and a link dropped on the window.
-import { Bookmark } from "../types";
+import { Bookmark, PageMetadata } from "../types";
 
 /** Where a link saved by hand goes: sorted into the library, waiting in the inbox, or sorted and in Reading. */
 export type Destination = "library" | "inbox" | "reading";
@@ -86,6 +86,20 @@ export function draftBookmark(url: URL): Bookmark {
     triaged_at: now,
     deleted_at: null,
     source: "app",
+  };
+}
+
+/**
+ * The stand-in with what the page said of itself (NP-133): its real title, picture and
+ * icon, from the sheet's one request to it, before anything is saved.
+ */
+export function previewedBookmark(url: URL, page: Pick<PageMetadata, "title" | "image_url" | "favicon_url" | "site_name">): Bookmark {
+  return {
+    ...draftBookmark(url),
+    title: page.title?.trim() ?? "",
+    image_url: page.image_url,
+    favicon_url: page.favicon_url,
+    site_name: page.site_name,
   };
 }
 

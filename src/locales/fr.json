@@ -140,7 +140,8 @@
     "exportCsv": "CSV pour les tableurs",
     "cleanUp": "Faire le ménage",
     "duplicates": "Doublons",
-    "links": "Vérification des liens"
+    "links": "Vérification des liens",
+    "importFeeds": "Importer des flux (OPML)…"
   },
   "card": {
     "open": "Ouvrir : {{title}}",
@@ -242,7 +243,30 @@
     "removed": "Lien retiré",
     "dropTitle": "Déposez pour enregistrer le lien",
     "dropHint": "Il va dans {{place}} ; avec Shift, dans la boîte de réception",
-    "dropHintInbox": "Il va dans la boîte de réception"
+    "dropHintInbox": "Il va dans la boîte de réception",
+    "feedHas": "{{site}} a un flux",
+    "feedToggle": "Suivre {{site}}",
+    "feedOffHint": "Suivez-le pour recevoir les nouveaux articles dans Flux",
+    "feedLooking": "Vérification du flux…",
+    "feedPerDay_one": "Environ {{count}} nouvel article par jour",
+    "feedPerDay_many": "Environ {{count}} nouveaux articles par jour",
+    "feedPerDay_other": "Environ {{count}} nouveaux articles par jour",
+    "feedPerWeek_one": "Environ {{count}} nouvel article par semaine",
+    "feedPerWeek_many": "Environ {{count}} nouveaux articles par semaine",
+    "feedPerWeek_other": "Environ {{count}} nouveaux articles par semaine",
+    "feedLast": "le dernier {{when}}",
+    "feedUnreadable": "Ce flux est illisible",
+    "feedFollowed": "Vous suivez ce site",
+    "feedShow": "Afficher",
+    "feedDestination": "Les nouveaux articles vont dans",
+    "feedDestFeeds": "Flux seulement",
+    "feedDestInbox": "Les trier comme la Boîte de réception",
+    "feedDestNotify": "Me prévenir aussi",
+    "feedChoose": "Quel flux",
+    "feedSaveFollow": "Enregistrer et suivre",
+    "feedFollowTitle": "Suivre {{title}}",
+    "feedFollow": "Suivre",
+    "feedFollowing": "Abonnement…"
   },
   "import": {
     "title": "Importer des signets",
@@ -296,7 +320,22 @@
     "moreSkipped": "et {{count}} autres",
     "openInbox": "Ouvrir la boîte de réception",
     "done": "Terminé",
-    "failed": "Échec de l’importation. {{reason}} Rien n’a été ajouté — la bibliothèque est telle qu’elle était."
+    "failed": "Échec de l’importation. {{reason}} Rien n’a été ajouté — la bibliothèque est telle qu’elle était.",
+    "titleFeeds": "Importer des flux",
+    "leadFeeds": "Exportez vos flux depuis un autre lecteur au format OPML et choisissez le fichier. Les flux déjà suivis restent tels quels.",
+    "fileFeeds": "Fichier de flux .opml",
+    "opmlFeeds_one": "{{count, number}} flux",
+    "opmlFeeds_many": "{{count, number}} flux",
+    "opmlFeeds_other": "{{count, number}} flux",
+    "opmlRule": "Les nouveaux articles vont dans Flux. Les dossiers du fichier ne sont pas gardés : les flux n’en ont pas.",
+    "opmlEmpty": "Ce fichier ne contient aucun flux. Exportez-les depuis votre lecteur au format OPML.",
+    "opmlAdded_one": "{{count, number}} nouveau flux suivi",
+    "opmlAdded_many": "{{count, number}} nouveaux flux suivis",
+    "opmlAdded_other": "{{count, number}} nouveaux flux suivis",
+    "opmlNothingNew": "Aucun nouveau flux",
+    "opmlExisting": "Déjà suivis — laissés tels quels",
+    "opmlReason_invalid_url": "Adresse non valide",
+    "opmlReason_refused": "Sur cet ordinateur ou le réseau local"
   },
   "export": {
     "saved_one": "{{count, number}} signet enregistré dans {{name}}",
@@ -1650,6 +1689,19 @@
     "inboxImported_one": "Dont {{count}} de l’importation.",
     "inboxImported_many": "Dont {{count}} de l’importation.",
     "inboxImported_other": "Dont {{count}} de l’importation.",
-    "inboxFromImport": "Depuis l’importation."
+    "inboxFromImport": "Depuis l’importation.",
+    "feedsTitle_one": "{{count}} nouvel article",
+    "feedsTitle_many": "{{count}} nouveaux articles",
+    "feedsTitle_other": "{{count}} nouveaux articles",
+    "feedsFromOne": "de {{a}}",
+    "feedsFromTwo": "de {{a}} et {{b}}",
+    "feedsFromMore_one": "de {{a}}, {{b}} et {{count}} autre",
+    "feedsFromMore_many": "de {{a}}, {{b}} et {{count}} autres",
+    "feedsFromMore_other": "de {{a}}, {{b}} et {{count}} autres",
+    "feedsRead": "Lire",
+    "feedsFailing": "{{name}} ne se met plus à jour",
+    "feedsFailingText": "Son flux ne répond plus depuis une semaine. Le site l’a peut-être déplacé ou arrêté.",
+    "feedsShow": "Afficher",
+    "feedsUnfollow": "Ne plus suivre"
   }
 }

@@ -1,11 +1,12 @@
 import { ChangeEvent, ReactNode, useEffect, useState } from "react";
-import { CircleCheck, FileText, Folder, Link } from "lucide-react";
+import { CircleCheck, FileText, Folder, Link, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
-import { CaptureStatus, ImportProgress, ImportSummary, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
+import { CaptureStatus, ImportProgress, ImportSummary, OpmlImport, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
 import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
+import { importOpml } from "../../services/feeds";
 import { shortcut } from "../../services/keys";
 import {
   ConnectTab,
@@ -73,38 +74,105 @@ export const Scrolling = ({ children }: { children: ReactNode }) => (
   <div className="-m-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-1">{children}</div>
 );
 
-/** Frame 28: the file and where to put it, progress, the report, an error with nothing changed. */
+/** An OPML file (NP-133): by its name, or an `<opml>` root in a file named otherwise. */
+export const isOpml = (name: string, content: string) => /\.(opml|xml)$/i.test(name) || /^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<opml[\s>]/i.test(content);
+/** How many feeds an OPML file lists: every outline with an `xmlUrl`, folders or not (plan §7.1). */
+export const opmlFeedCount = (content: string) => content.match(/<outline\b[^>]*\bxmlUrl\s*=/gi)?.length ?? 0;
+
+/**
+ * Frame 28: the file and where to put it, progress, the report, an error with nothing changed.
+ * An OPML file follows its feeds instead (NP-133): no place to choose, its own report.
+ */
 export function ImportDialog({
+  kind = "bookmarks",
   onImport,
   onOpenInbox,
   onClose,
 }: {
+  /** «Import feeds (OPML)…» opens it for feeds; either way it takes both kinds of file. */
+  kind?: "bookmarks" | "feeds";
   onImport: (content: string, toInbox: boolean) => Promise<ImportSummary>;
   onOpenInbox: () => void;
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [file, setFile] = useState<{ name: string; content: string; preview: ParsedFile } | null>(null);
+  const [file, setFile] = useState<{ name: string; content: string; preview: ParsedFile; feeds: number | null } | null>(null);
+  const [feedReport, setFeedReport] = useState<OpmlImport | null>(null);
   const [toInbox, setToInbox] = useState(false);
   const [running, setRunning] = useState<ImportProgress | null>(null);
   const [report, setReport] = useState<ImportSummary | null>(null);
   const [error, setError] = useState("");
   const [showSkipped, setShowSkipped] = useState(false);
   useEffect(() => api.onImportProgress((progress) => setRunning((current) => current && progress)), []);
-  const empty = !!file && file.preview.links.length === 0 && file.preview.skipped.length === 0;
+  const feeds = file ? file.feeds !== null : kind === "feeds";
+  const empty = !!file && (file.feeds !== null ? file.feeds === 0 : file.preview.links.length === 0 && file.preview.skipped.length === 0);
   const start = async () => {
     if (!file) return;
     setError("");
-    setRunning({ done: 0, total: file.preview.links.length });
+    setRunning({ done: 0, total: file.feeds ?? file.preview.links.length });
     try {
-      setReport(await onImport(file.content, toInbox));
+      // The app reads the file itself (plan §7.1); the preview ignores the path.
+      if (file.feeds !== null) setFeedReport(await importOpml(file.name));
+      else setReport(await onImport(file.content, toInbox));
     } catch (err) {
       setError(describeError(err));
     } finally {
       setRunning(null);
     }
   };
-  const state = report ? "report" : running && file ? "running" : "choose";
+  const state = report || feedReport ? "report" : running && file ? "running" : "choose";
+
+  const feedReportPanel = (report: OpmlImport) => {
+    const row = (label: string, count: number) => (
+      <div className="flex items-center justify-between gap-3 border-t border-divider py-2 text-sm first:border-t-0">
+        <span>{label}</span>
+        <span className="font-medium tabular-nums">{count.toLocaleString(i18n.language)}</span>
+      </div>
+    );
+    return (
+      <>
+        <Scrolling>
+          <div className="flex gap-2.5">
+            <Icon icon={CircleCheck} size={18} className="mt-px shrink-0 text-accent" />
+            <p role="status" className="text-md font-semibold">
+              {report.added > 0 ? t("import.opmlAdded", { count: report.added }) : t("import.opmlNothingNew")}
+            </p>
+          </div>
+          <div className="border-y border-divider">
+            {row(t("import.added"), report.added)}
+            {row(t("import.opmlExisting"), report.existing)}
+            {row(t("import.skipped"), report.skipped.length)}
+            {report.skipped.length > 0 && (
+              <div className="flex flex-col gap-1.5 pb-3 pl-4 text-xs text-muted">
+                <button
+                  type="button"
+                  aria-expanded={showSkipped}
+                  onClick={() => setShowSkipped(!showSkipped)}
+                  className="mt-1.5 self-start font-medium text-accent hover:underline"
+                >
+                  {showSkipped ? t("import.hideSkipped") : t("import.showSkipped")}
+                </button>
+                {showSkipped && (
+                  <ul className="rounded-lg bg-secondary px-3 py-2 text-subtle">
+                    {report.skipped.map((s, i) => (
+                      <li key={i} className="truncate" title={`${s.url} — ${t(`import.opmlReason_${s.reason}`)}`}>
+                        {s.title || s.url} — {t(`import.opmlReason_${s.reason}`)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </Scrolling>
+        <Footer>
+          <Button variant="primary" size="lg" autoFocus onClick={onClose}>
+            {t("import.done")}
+          </Button>
+        </Footer>
+      </>
+    );
+  };
 
   const reportPanel = (report: ImportSummary) => {
     const skipped = report.not_web + report.invalid + report.repeated;
@@ -216,30 +284,32 @@ export function ImportDialog({
   const choosePanel = (sizing: boolean) => {
     const picked = sizing ? null : file;
     const failed = !sizing && !!error;
-    const summary = picked && [
+    const summary = picked && (picked.feeds !== null ? t("import.opmlFeeds", { count: picked.feeds }) : [
       t("import.links", { count: picked.preview.links.length }),
       picked.preview.folders > 0 ? t("import.inFolders", { count: picked.preview.folders }) : "",
-    ].filter(Boolean).join(" ");
+    ].filter(Boolean).join(" "));
     return (
       <>
-        <p className="text-sm text-muted">{t("import.lead")}</p>
+        <p className="text-sm text-muted">{t(feeds ? "import.leadFeeds" : "import.lead")}</p>
         {failed && picked ? (
           <div className="flex items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm">
             <Icon icon={FileText} className="shrink-0 text-icon" />
             <span className="min-w-0 flex-1 truncate font-medium">{picked.name}</span>
-            <span className="shrink-0 text-xs text-subtle">{t("import.links", { count: picked.preview.links.length })}</span>
+            <span className="shrink-0 text-xs text-subtle">
+              {picked.feeds !== null ? t("import.opmlFeeds", { count: picked.feeds }) : t("import.links", { count: picked.preview.links.length })}
+            </span>
           </div>
         ) : (
           <label className="flex cursor-default flex-col items-center gap-1 rounded-xl border border-dashed border-border px-4 py-4 text-center text-sm hover:bg-panel focus-within:outline-2 focus-within:outline-accent">
             <Icon icon={FileText} size={22} className="mb-1.5 text-icon" />
             <span className={`max-w-full truncate ${picked ? "font-medium" : "text-muted"}`} title={picked?.name}>
-              {picked?.name ?? t("import.file")}
+              {picked?.name ?? t(feeds ? "import.fileFeeds" : "import.file")}
             </span>
             <span className="max-w-full truncate text-xs text-subtle">{picked ? `${summary} · ${t("import.another")}` : " "}</span>
             {!sizing && (
               <input
                 type="file"
-                accept=".html,.htm"
+                accept={feeds ? ".opml,.xml,.html,.htm" : ".html,.htm,.opml,.xml"}
                 className="sr-only"
                 onChange={(e) => {
                   const chosen = e.target.files?.[0];
@@ -248,7 +318,13 @@ export function ImportDialog({
                       .text()
                       .then((content) => {
                         setError("");
-                        setFile({ name: chosen.name, content, preview: parseBookmarksFile(content) });
+                        const opml = isOpml(chosen.name, content);
+                        setFile({
+                          name: chosen.name,
+                          content,
+                          preview: opml ? { links: [], skipped: [], folders: 0 } : parseBookmarksFile(content),
+                          feeds: opml ? opmlFeedCount(content) : null,
+                        });
                       })
                       .catch((err) => setError(describeError(err)));
                 }}
@@ -257,8 +333,14 @@ export function ImportDialog({
           </label>
         )}
         {/* A file without links, like an error, leaves nothing to choose a place for. */}
-        {!sizing && empty && <Failure error={t("import.empty")} />}
-        {!failed && !(empty && !sizing) && (
+        {!sizing && empty && <Failure error={t(feeds ? "import.opmlEmpty" : "import.empty")} />}
+        {!failed && !(empty && !sizing) && feeds && (
+          <div className="flex gap-2.5 rounded-xl bg-secondary p-3 text-xs text-icon">
+            <Icon icon={Rss} className="shrink-0" />
+            <p>{t("import.opmlRule")}</p>
+          </div>
+        )}
+        {!failed && !(empty && !sizing) && !feeds && (
           <>
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-muted">{t("import.destination")}</span>
@@ -295,11 +377,15 @@ export function ImportDialog({
   };
 
   return (
-    <Dialog title={t(state === "report" ? "import.finished" : "import.title")} onClose={onClose} locked={state === "running"}>
+    <Dialog
+      title={t(state === "report" ? "import.finished" : feeds ? "import.titleFeeds" : "import.title")}
+      onClose={onClose}
+      locked={state === "running"}
+    >
       <StatePanels value={state} states={["choose", "running", "report"] as const}>
         {(shown, sizing) =>
           shown === "report"
-            ? report && !sizing && reportPanel(report)
+            ? !sizing && (feedReport ? feedReportPanel(feedReport) : report && reportPanel(report))
             : shown === "running"
               ? runningPanel(sizing ? " " : (file?.name ?? ""), sizing || !running ? { done: 0, total: 0 } : running)
               : choosePanel(sizing)
