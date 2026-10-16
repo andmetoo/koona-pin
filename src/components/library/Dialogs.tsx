@@ -111,8 +111,8 @@ export function ImportDialog({
     setError("");
     setRunning({ done: 0, total: file.feeds ?? file.preview.links.length });
     try {
-      // The app reads the file itself (plan §7.1); the preview ignores the path.
-      if (file.feeds !== null) setFeedReport(await importOpml(file.name));
+      // The text goes to the core, as for bookmarks: a picked file has no path it could open.
+      if (file.feeds !== null) setFeedReport(await importOpml(file.content));
       else setReport(await onImport(file.content, toInbox));
     } catch (err) {
       setError(describeError(err));
