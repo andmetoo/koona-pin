@@ -9,7 +9,7 @@
 //! Each fetch writes the fetch state columns of `feed_state` itself (the
 //! validators, times, failures, `last_error`, `moved_to`); the document goes
 //! to [`cache::store_fetch`], then, for a feed that sorts into the Inbox, to
-//! [`save::after_fetch`]. Locks: the library, then the cache, never both
+//! [`save::after_fetch_in_app`]. Locks: the library, then the cache, never both
 //! across a network wait.
 
 use super::{
@@ -344,6 +344,10 @@ fn host_of(feed: &Feed) -> String {
     url::Url::parse(&feed.url).ok().and_then(|u| u.host_str().map(str::to_string)).unwrap_or_default()
 }
 
+/// What a run does with a feed's new posts once stored: in the app,
+/// `save::after_fetch_in_app`, which announces what it saved into the Inbox.
+pub type Inbox = Arc<dyn Fn(&Arc<DbState>, &FeedCache, &Feed, &[i64]) -> Result<usize, CommandError> + Send + Sync>;
+
 /// Fetches `jobs`, 4 at once and one per host 1 s apart, and stores each
 /// answer as it comes. `progress(done, total)` after each.
 pub async fn run(
@@ -352,6 +356,7 @@ pub async fn run(
     jobs: Vec<Job>,
     interval: u32,
     limits: &'static Limits,
+    inbox: Inbox,
     progress: impl Fn(u32, u32),
 ) -> Report {
     let total = jobs.len() as u32;
@@ -404,8 +409,8 @@ pub async fn run(
         if failure.is_some_and(Failure::is_connection) {
             unreachable.push((job, failure.unwrap_or(Failure::Connection)));
         } else {
-            let (db, cache) = (db.clone(), cache.clone());
-            let stored = tokio::task::spawn_blocking(move || store(&db, &cache, &job, fetched, interval, Utc::now())).await;
+            let (db, cache, inbox) = (db.clone(), cache.clone(), inbox.clone());
+            let stored = tokio::task::spawn_blocking(move || store(&db, &cache, &inbox, &job, fetched, interval, Utc::now())).await;
             match stored {
                 Ok(Ok(new)) => report.new_posts += new,
                 Ok(Err(error)) => eprintln!("Storing a feed's fetch failed: {}", error.message),
@@ -442,7 +447,15 @@ pub async fn run(
 /// One answer into the cache: the document through NP-131's `store_fetch`,
 /// the fetch state here, then the Inbox for a feed that sorts into it. How
 /// many posts were new.
-fn store(db: &DbState, cache: &FeedCache, job: &Job, fetched: Fetch, interval: u32, now: DateTime<Utc>) -> Result<usize, CommandError> {
+fn store(
+    db: &Arc<DbState>,
+    cache: &FeedCache,
+    inbox: &Inbox,
+    job: &Job,
+    fetched: Fetch,
+    interval: u32,
+    now: DateTime<Utc>,
+) -> Result<usize, CommandError> {
     let uid = job.feed.uid.as_str();
     let state = job.state.clone().unwrap_or_default();
     let moved_to = {
@@ -491,7 +504,7 @@ fn store(db: &DbState, cache: &FeedCache, job: &Job, fetched: Fetch, interval: u
     };
     // The cache's lock is let go first: `after_fetch` takes the library's, then the cache's.
     if job.feed.destination == FeedDestination::Inbox && !new_ids.is_empty() {
-        save::after_fetch(db, cache, &job.feed, &new_ids)?;
+        inbox(db, cache, &job.feed, &new_ids)?;
     }
     Ok(new_ids.len())
 }
@@ -531,19 +544,47 @@ pub async fn refresh(app: &AppHandle, mode: Mode) -> Result<Report, CommandError
         }
     };
     emit(true, 0);
-    let report = run(db.clone(), cache, jobs, interval, &Limits::FEED, |done, _| emit(done < total, done)).await;
+    let saver = app.clone();
+    let inbox: Inbox = Arc::new(move |db, cache, feed, new_ids| save::after_fetch_in_app(&saver, db, cache, feed, new_ids));
+    let report = run(db.clone(), cache.clone(), jobs, interval, &Limits::FEED, inbox, |done, _| emit(done < total, done)).await;
     emit(false, total);
     if tell {
-        let list = tokio::task::spawn_blocking(move || db.conn.lock().ok().map(|conn| super::feeds(&conn)))
-            .await
-            .ok()
-            .flatten();
-        if let Some(Ok(list)) = list {
+        if let Ok(Ok(list)) = tokio::task::spawn_blocking(move || feeds_with_state(&db, &cache)).await {
             super::emit_changed(app, list);
         }
     }
     Ok(report)
 }
+
+/// Every subscription with the cache's counts and health (NP-131's
+/// `merge_state`): the library read and let go, then the cache.
+fn feeds_with_state(db: &DbState, cache: &FeedCache) -> Result<Vec<Feed>, CommandError> {
+    let mut list = {
+        let conn = db.conn.lock().map_err(|_| CommandError::internal("the library lock"))?;
+        super::feeds(&conn)?
+    };
+    let conn = cache.conn.lock().map_err(|_| CommandError::internal("the feed cache lock"))?;
+    cache::merge_state(&conn, &mut list, Utc::now())?;
+    Ok(list)
+}
+
+/// The daily sweep of the cache (NP-131's `sweep`; the start's runs in
+/// `cache::start`): the followed uids read and the library let go, then the cache.
+fn sweep(app: &AppHandle) -> Result<(), CommandError> {
+    let (Some(db), Some(cache)) = (app.try_state::<Arc<DbState>>(), app.try_state::<Arc<FeedCache>>()) else {
+        return Ok(());
+    };
+    let known = {
+        let conn = db.conn.lock().map_err(|_| CommandError::internal("the library lock"))?;
+        cache::known_uids(&conn)?
+    };
+    let conn = cache.conn.lock().map_err(|_| CommandError::internal("the feed cache lock"))?;
+    cache::sweep(&conn, &known, Utc::now())?;
+    Ok(())
+}
+
+/// How often the cache is swept while the app runs.
+const SWEEP_EVERY: TimeDelta = TimeDelta::hours(24);
 
 /// Starts the loop; called once from `setup`. It waits for the library.
 pub fn start(app: &AppHandle) {
@@ -552,6 +593,7 @@ pub fn start(app: &AppHandle) {
         tokio::time::sleep(FIRST_PASS).await;
         let mut last_tick: Option<DateTime<Utc>> = None;
         let mut last_look = Utc::now();
+        let mut last_sweep = Utc::now();
         loop {
             let now = Utc::now();
             if is_wake(last_look, now) {
@@ -563,6 +605,14 @@ pub fn start(app: &AppHandle) {
                     eprintln!("Checking feeds failed: {}", error.message);
                 }
                 last_tick = Some(Utc::now());
+            }
+            // The start's sweep ran in `cache::start`; then one a day.
+            if Utc::now() - last_sweep >= SWEEP_EVERY {
+                let swept = app.clone();
+                match tokio::task::spawn_blocking(move || sweep(&swept)).await {
+                    Ok(Err(error)) => eprintln!("Sweeping the feed cache failed: {}", error.message),
+                    _ => last_sweep = Utc::now(),
+                }
             }
             last_look = Utc::now();
             tokio::time::sleep(LOOK).await;
@@ -706,7 +756,8 @@ mod tests {
 
     async fn tick(db: &Arc<DbState>, cache: &Arc<FeedCache>, mode: Mode) -> Report {
         let (jobs, interval) = read_plan(db, cache, &mode, Utc::now()).unwrap();
-        run(db.clone(), cache.clone(), jobs, interval, &TEST, |_, _| {}).await
+        let inbox: Inbox = Arc::new(|db, cache, feed, ids| save::after_fetch(db, cache, feed, ids));
+        run(db.clone(), cache.clone(), jobs, interval, &TEST, inbox, |_, _| {}).await
     }
 
     fn row(cache: &FeedCache, uid: &str) -> (Option<String>, u32, Option<String>, Option<String>) {
@@ -736,6 +787,10 @@ mod tests {
         let (etag, failures, error, next) = row(&cache, &feed.uid);
         assert_eq!((etag.as_deref(), failures, error), (Some("\"v7\""), 0, None));
         assert!(next.unwrap() > db::now(), "next check is in the future");
+        let posts: i64 = cache.conn.lock().unwrap().query_row("SELECT count(*) FROM feed_items", [], |r| r.get(0)).unwrap();
+        assert_eq!(posts, 1, "the document went to the cache");
+        let listed = feeds_with_state(&db, &cache).unwrap();
+        assert_eq!((listed[0].feed_title.as_deref(), &listed[0].health), (Some("Run"), &feeds::FeedHealth::Ok));
         // Not due again in this tick; ↻ fetches now and sends the validator.
         assert_eq!(tick(&db, &cache, Mode::Tick).await.total, 0);
         assert_eq!(tick(&db, &cache, Mode::Now { feed_uid: None }).await.total, 1);
@@ -759,6 +814,7 @@ mod tests {
             let next = clock(&next.unwrap());
             assert!((next - Utc::now()).num_minutes() <= 5, "tried again in 5 minutes");
         }
+        assert!(feeds_with_state(&db, &cache).unwrap().iter().all(|f| f.health == feeds::FeedHealth::Offline), "the header says offline");
 
         // One feed answering: the unreachable one is a failure of its own.
         let (port, _) = server(|_, _| answer("200 OK", "Content-Type: application/rss+xml\r\n", &rss("Up")));

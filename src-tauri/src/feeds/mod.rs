@@ -280,10 +280,6 @@ pub struct FeedsRefresh {
     pub total: u32,
 }
 
-fn not_implemented(command: &str) -> CommandError {
-    CommandError::new(ErrorCode::NotImplemented, format!("{command} is not implemented yet"))
-}
-
 /// «Check for new posts» of Settings → Feeds, in minutes; 0: only when the person refreshes.
 pub fn refresh_minutes(conn: &Connection) -> u32 {
     db::setting(conn, REFRESH_SETTING)
