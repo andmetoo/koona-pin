@@ -70,6 +70,14 @@ pub fn parse(text: &str) -> Result<Vec<Outline>, CommandError> {
     Ok(found)
 }
 
+/// The text the interface read from the picked file, at most [`MAX_BYTES`].
+pub fn checked(text: &str) -> Result<&str, CommandError> {
+    if text.len() as u64 > MAX_BYTES {
+        return Err(CommandError::invalid("An OPML file is at most 5 MB"));
+    }
+    Ok(text)
+}
+
 /// Reads the file, at most [`MAX_BYTES`].
 pub fn read(path: &std::path::Path) -> Result<String, CommandError> {
     let size = std::fs::metadata(path).map_err(CommandError::internal)?.len();

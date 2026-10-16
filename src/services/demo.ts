@@ -72,6 +72,7 @@ import {
   FeedsChanged,
   FeedsRefresh,
   LinkPreview,
+  OpmlExport,
   OpmlImport,
   SavePlace,
 } from "../types";
@@ -2348,8 +2349,8 @@ export const demo = {
     feedsChanged();
   },
   /** The preview reads no file: it pretends the file held the sample feeds, two new ones and a local one. */
-  async importOpml(path: string): Promise<OpmlImport> {
-    void path;
+  async importOpml(content: string): Promise<OpmlImport> {
+    void content;
     const state = feedsState();
     const listed = [...DEMO_FEEDS.map((f) => f.url), "https://notes.example.org/atom.xml", "https://links.example.net/feed.json"];
     const added = listed.filter((url) => !state.feeds.some((f) => f.url === url));
@@ -2363,9 +2364,8 @@ export const demo = {
       skipped: [{ title: "Router status", url: "http://192.168.1.1/status.rss", reason: "refused" }],
     };
   },
-  async exportOpml(path: string): Promise<number> {
-    void path;
-    return feedsState().feeds.length;
+  async exportOpml(): Promise<OpmlExport> {
+    return { outcome: "saved", file_name: "koona-pin-feeds.opml", count: feedsState().feeds.length };
   },
   async setFeedsRefreshMinutes(minutes: number): Promise<void> {
     if (minutes !== 0 && (minutes < 5 || minutes > 24 * 60))

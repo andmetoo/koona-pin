@@ -31,6 +31,7 @@ import {
   FeedsRefresh,
   FilterState,
   LinkPreview,
+  OpmlExport,
   OpmlImport,
   SavePlace,
   CsvColumns,
@@ -392,9 +393,9 @@ const desktop = {
   /** One feed, or all of them with null, now; progress comes through onFeedsRefresh. */
   refreshFeeds: (feedUid: string | null) => call<void>("refresh_feeds", { feedUid }),
   clearFeedCache: () => call<void>("clear_feed_cache"),
-  importOpml: (path: string) => call<OpmlImport>("import_opml", { path }),
+  importOpml: (content: string) => call<OpmlImport>("import_opml", { content }),
   /** How many feeds were written. */
-  exportOpml: (path: string) => call<number>("export_opml", { path }),
+  exportOpml: () => call<OpmlExport>("export_opml"),
   /** «Check for new posts»: minutes, 0 only on refresh. */
   setFeedsRefreshMinutes: (minutes: number) => call<void>("set_feeds_refresh_minutes", { minutes }),
   onFeedsChanged: (callback: (change: FeedsChanged) => void) => subscription("feeds-changed", callback),

@@ -11,6 +11,7 @@ import type {
   FeedsChanged,
   FeedsRefresh,
   LinkPreview,
+  OpmlExport,
   OpmlImport,
   SavePlace,
   Bookmark,
@@ -53,8 +54,8 @@ export const saveFeedItem = (id: number, place: SavePlace, favorite = false): Pr
 /** `feedUid` null: every feed. */
 export const refreshFeeds = (feedUid: string | null = null): Promise<void> => api.refreshFeeds(feedUid);
 export const clearFeedCache = (): Promise<void> => api.clearFeedCache();
-export const importOpml = (path: string): Promise<OpmlImport> => api.importOpml(path);
-export const exportOpml = (path: string): Promise<number> => api.exportOpml(path);
+export const importOpml = (content: string): Promise<OpmlImport> => api.importOpml(content);
+export const exportOpml = (): Promise<OpmlExport> => api.exportOpml();
 /** Minutes between checks; 0 only on refresh. */
 export const setFeedsRefreshMinutes = (minutes: number): Promise<void> => api.setFeedsRefreshMinutes(minutes);
 
