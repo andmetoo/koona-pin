@@ -108,7 +108,7 @@ export function App() {
   const systemDark = useMedia("(prefers-color-scheme: dark)");
   const narrow = useMedia(NARROW);
   const wide = useMedia(WIDE);
-  const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "dense", "list"], "grid"));
+  const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "dense", "list"], "dense"));
   /** The order of every list but the trash, kept like the view (NP-114). */
   const [sort, setSort] = useState<BookmarkSort>(() => preference("sort", SORTS, "newest"));
   const [filters, setFilters] = useState(initialFilters);

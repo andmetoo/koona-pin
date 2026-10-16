@@ -56,7 +56,7 @@ export function Dialog({
       className={
         drawer
           ? "fixed inset-y-0 right-0 left-auto m-0 h-full max-h-full w-[380px] max-w-full animate-appear border-l border-border bg-card p-0 text-ink shadow-menu"
-          : "m-auto max-w-[calc(100vw-32px)] animate-appear flex-col rounded-2xl border border-border bg-card p-0 text-ink shadow-menu open:flex"
+          : "app-dialog m-auto max-w-[calc(100vw-32px)] flex-col p-0 text-ink open:flex"
       }
       onCancel={(e) => {
         e.preventDefault();

@@ -2261,7 +2261,26 @@
       inset 0 0 0 1px var(--np-line);
     animation: add-sheet-in 260ms var(--spring);
   }
-  .add-sheet::backdrop {
+  /* Every dialog opens as «New link» does (2026-10-16): the same glass, spring and blurred scrim,
+     in the middle of the window. */
+  .app-dialog {
+    border: 0;
+    border-radius: 20px;
+    background: color-mix(in oklab, var(--np-card) 90%, transparent);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    box-shadow:
+      0 30px 70px -20px rgb(0 0 0 / 0.42),
+      0 2px 6px rgb(0 0 0 / 0.06),
+      inset 0 0 0 1px var(--np-line);
+    animation: add-sheet-in 260ms var(--spring);
+  }
+  .add-sheet:focus-visible,
+  .app-dialog:focus-visible {
+    outline: none;
+  }
+  .add-sheet::backdrop,
+  .app-dialog::backdrop {
     background: color-mix(in oklab, var(--np-bg) 40%, transparent);
     -webkit-backdrop-filter: blur(3px);
     backdrop-filter: blur(3px);
@@ -2664,6 +2683,8 @@
   .card-landing,
   .drop-veil-ring,
   .add-sheet,
+  .app-dialog,
+  .app-dialog::backdrop,
   .glass-toast {
     animation: none;
   }

@@ -266,7 +266,9 @@ export function Sidebar(props: SidebarProps) {
     return (
       <aside className="flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
         <div className="mb-2 text-accent" data-tauri-drag-region>
-          <Mascot size={30} className="pointer-events-none" />
+          <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="flex">
+            <Mascot size={30} className="pointer-events-none" />
+          </button>
         </div>
         <div className="mb-2">
           <NotificationCenter items={props.notifications} place="right" onClearAll={props.onClearNotifications} />
@@ -393,10 +395,12 @@ export function Sidebar(props: SidebarProps) {
   return (
     <aside className="flex w-[232px] shrink-0 flex-col gap-0.5 bg-panel pt-3.5 pr-3 pl-3" aria-label={t("sidebar.label")}>
       <div className="flex items-center gap-2.5 pt-1.5 pr-0 pb-2.5 pl-2 text-accent" data-tauri-drag-region>
-        <Mascot className="pointer-events-none" />
-        <span className="min-w-0 flex-1 text-lg font-semibold" data-tauri-drag-region>
-          koona pin
-        </span>
+        {/* The logo goes home, to All bookmarks (2026-10-16); the keyboard has the row below. */}
+        <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="flex min-w-0 items-center gap-2.5">
+          <Mascot className="pointer-events-none" />
+          <span className="truncate text-lg font-semibold">koona pin</span>
+        </button>
+        <span className="flex-1 self-stretch" data-tauri-drag-region />
         <NotificationCenter items={props.notifications} place="below" onClearAll={props.onClearNotifications} />
       </div>
       <button
