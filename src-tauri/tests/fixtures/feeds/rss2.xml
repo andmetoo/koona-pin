@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic, written for the tests (NP-128). -->
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Example Kitchen</title>
+    <link>https://kitchen.example.com/</link>
+    <description>Recipes tested twice.</description>
+    <item>
+      <title>Crisp roast potatoes</title>
+      <link>https://kitchen.example.com/posts/roast-potatoes</link>
+      <guid isPermaLink="false">kitchen-0002</guid>
+      <dc:creator>Ann Example</dc:creator>
+      <pubDate>Thu, 15 Oct 2026 09:12:00 +0000</pubDate>
+      <description><![CDATA[<p>Parboil, <em>rough up</em>, then roast hot.</p>]]></description>
+    </item>
+    <item>
+      <title>A loaf without kneading</title>
+      <link>https://kitchen.example.com/posts/no-knead</link>
+      <guid>https://kitchen.example.com/posts/no-knead</guid>
+      <pubDate>Mon, 12 Oct 2026 18:00:00 +0000</pubDate>
+      <description>Time does the work.</description>
+    </item>
+  </channel>
+</rss>

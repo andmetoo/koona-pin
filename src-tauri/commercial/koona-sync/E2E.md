@@ -44,7 +44,9 @@ the relay (`koona-services`, `workers/sync`) running locally. It is `#[ignore]`d
    show the same six digits, A approves. Every library ends with every address and name once.
 2. Edits on each device (title, tags, move, trash, restore, purge, new collection, reorder) converge
    on all three: the synced state by uid is identical, the search finds a synced title, the
-   sidebar's order is the same.
+   sidebar's order is the same. Then feeds (NP-130): A and B follow the same address at once, C
+   another; each device ends with one feed per address. C renames one and changes where its posts
+   go while A leaves the other: all three agree.
 3. A goes away; B and C sync without it; A, edited meanwhile, comes back and catches up.
 4. A removes C: C stops with `Revoked` and forgets the key, B gets the new key, later edits reach B
    and not C.

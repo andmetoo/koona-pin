@@ -106,6 +106,25 @@ export type { UnavailableReason } from "./bindings/UnavailableReason";
 export type { HubChangePrompt } from "./bindings/HubChangePrompt";
 export type { HubChangeRole } from "./bindings/HubChangeRole";
 export type { SyncNotice } from "./bindings/SyncNotice";
+// Feeds (NP-128).
+export type { Feed } from "./bindings/Feed";
+export type { FeedArticle } from "./bindings/FeedArticle";
+export type { FeedCandidate } from "./bindings/FeedCandidate";
+export type { FeedDestination } from "./bindings/FeedDestination";
+export type { FeedHealth } from "./bindings/FeedHealth";
+export type { FeedItem } from "./bindings/FeedItem";
+export type { FeedItemPage } from "./bindings/FeedItemPage";
+export type { FeedItemQuery } from "./bindings/FeedItemQuery";
+export type { FeedPreview } from "./bindings/FeedPreview";
+export type { FeedsChanged } from "./bindings/FeedsChanged";
+export type { FeedsRefresh } from "./bindings/FeedsRefresh";
+export type { LinkPreview } from "./bindings/LinkPreview";
+export type { OpmlExport } from "./bindings/OpmlExport";
+export type { OpmlImport } from "./bindings/OpmlImport";
+export type { OpmlSkip } from "./bindings/OpmlSkip";
+export type { OpmlSkipReason } from "./bindings/OpmlSkipReason";
+export type { PageMetadata } from "./bindings/PageMetadata";
+export type { SavePlace } from "./bindings/SavePlace";
 
 /** The grid, the compact grid (smaller cards, two columns even in a narrow window) and the list. */
 export type ViewMode = "grid" | "dense" | "list";

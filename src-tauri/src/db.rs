@@ -154,6 +154,9 @@ pub enum Source {
     Mcp,
     /// The Safari extension on macOS (NP-119, schema 9).
     Safari,
+    /// A post saved from a followed feed (NP-128); the check has taken any
+    /// text since schema 10, so it needs no step of its own.
+    Feed,
 }
 
 impl Source {
@@ -167,6 +170,7 @@ impl Source {
             Source::Import => "import",
             Source::Mcp => "mcp",
             Source::Safari => "safari",
+            Source::Feed => "feed",
         }
     }
 }

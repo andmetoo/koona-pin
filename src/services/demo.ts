@@ -63,9 +63,25 @@ import {
   SyncAccount,
   SyncDevice,
   SyncStatus,
+  Feed,
+  FeedArticle,
+  FeedCandidate,
+  FeedDestination,
+  FeedHealth,
+  FeedItem,
+  FeedItemPage,
+  FeedItemQuery,
+  FeedPreview,
+  FeedsChanged,
+  FeedsRefresh,
+  LinkPreview,
+  OpmlExport,
+  OpmlImport,
+  SavePlace,
 } from "../types";
 import type { PageRequest } from "./api";
-import { demoLibrary, posterOf } from "./demoData";
+import { demoLibrary, poster, posterOf } from "./demoData";
+import { DEMO_FEEDS, DEMO_POSTS, isFull, pictureOf, postHtml, postUrl } from "./demoFeeds";
 import { parseBookmarksFile } from "./bookmarksFile";
 import { cursorAt, isAfter, ListOrder, listTime, matchesBookmark, orderOf, sortBookmarks } from "./library";
 import { suggestFrom } from "./triage";
@@ -907,6 +923,253 @@ const listOrder = (filters: Partial<FilterState>, sort: BookmarkSort): ListOrder
   reading: !!filters.onlyReading,
 });
 
+// feeds — the preview's feeds (NP-128): the five subscriptions and twenty posts of demoFeeds.ts,
+// kept in localStorage like the sample library. Later feeds tasks add here only.
+/**
+ * `koonapin.demo.feeds`: `empty` follows nothing, `offline` has the last check find no connection,
+ * `failing` has Ars Technica not updating for nine days. Without the key every feed is fine.
+ */
+export const DEMO_FEEDS_KEY = "koonapin.demo.feeds";
+const DEMO_FEEDS_STATE_KEY = "koonapin.demo.feeds.v1";
+const DEMO_FEEDS_REFRESH_KEY = "koonapin.demo.feedsRefreshMinutes";
+interface DemoFeedRow {
+  uid: string;
+  url: string;
+  title: string | null;
+  destination: FeedDestination;
+}
+interface DemoItemRow {
+  id: number;
+  feed_uid: string;
+  url: string | null;
+  title: string;
+  author: string | null;
+  excerpt: string;
+  thumbnail_url: string | null;
+  published_at: string;
+  fetched_at: string;
+  read_at: string | null;
+  /** The bookmark the post was saved as, as the cache's `bookmark_uid`. */
+  bookmark_id: number | null;
+  html: string;
+  full: boolean;
+}
+interface DemoFeedsState {
+  feeds: DemoFeedRow[];
+  items: DemoItemRow[];
+  fetched_at: string;
+}
+const hoursBefore = (hours: number, from = Date.now()) => new Date(from - hours * 3_600_000).toISOString();
+/** The posts as a first fetch leaves them: those older than 7 days already read (plan §3.2). */
+function demoFeedItems(fetchedAt: string): DemoItemRow[] {
+  return DEMO_POSTS.map((post) => {
+    const feed = DEMO_FEEDS.find((f) => f.uid === post.feed)!;
+    return {
+      id: post.id,
+      feed_uid: post.feed,
+      url: postUrl(feed, post),
+      title: post.title,
+      author: post.author,
+      excerpt: post.excerpt,
+      thumbnail_url: pictureOf(post),
+      published_at: hoursBefore(post.hoursAgo),
+      fetched_at: fetchedAt,
+      read_at: post.read || post.hoursAgo > 7 * 24 ? fetchedAt : null,
+      bookmark_id: null,
+      html: postHtml(post),
+      full: isFull(post),
+    };
+  });
+}
+function initialFeedsState(): DemoFeedsState {
+  const fetchedAt = hoursBefore(2 / 60);
+  if (demoSwitch(DEMO_FEEDS_KEY) === "empty") return { feeds: [], items: [], fetched_at: fetchedAt };
+  return {
+    feeds: DEMO_FEEDS.map((f) => ({ uid: f.uid, url: f.url, title: null, destination: f.destination })),
+    items: demoFeedItems(fetchedAt),
+    fetched_at: fetchedAt,
+  };
+}
+let demoFeedsState: DemoFeedsState | null = null;
+function feedsState(): DemoFeedsState {
+  if (!demoFeedsState) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DEMO_FEEDS_STATE_KEY) || "null") as DemoFeedsState | null;
+      demoFeedsState = saved?.feeds && saved?.items ? saved : initialFeedsState();
+    } catch {
+      demoFeedsState = initialFeedsState();
+    }
+  }
+  return demoFeedsState;
+}
+const feedListeners = new Set<(change: FeedsChanged) => void>();
+const feedRefreshListeners = new Set<(progress: FeedsRefresh) => void>();
+/** The feed's own title and site, as the cache would know them after a fetch. */
+function demoFeedSite(url: string): { title: string; site: string } {
+  const known = DEMO_FEEDS.find((f) => f.url === url);
+  if (known) return { title: known.feedTitle, site: known.siteUrl };
+  const extra = DEMO_SITES.find((s) => s.feeds.some((f) => f.url === url));
+  const feed = extra?.feeds.find((f) => f.url === url);
+  if (extra && feed) return { title: feed.title, site: extra.site };
+  const parsed = new URL(url);
+  return { title: parsed.hostname.replace(/^www\./, ""), site: `${parsed.origin}/` };
+}
+function demoFeedHealth(uid: string): FeedHealth {
+  const state = demoSwitch(DEMO_FEEDS_KEY);
+  if (state === "offline") return { state: "offline" };
+  if (state === "failing" && uid === "demo-feed-ars") return { state: "failing", since: hoursBefore(9 * 24), reason: "timeout" };
+  return { state: "ok" };
+}
+function demoFeedList(): Feed[] {
+  const { feeds, items, fetched_at } = feedsState();
+  return feeds.map((row) => {
+    const posts = items.filter((item) => item.feed_uid === row.uid);
+    const site = demoFeedSite(row.url);
+    return {
+      uid: row.uid,
+      url: row.url,
+      title: row.title,
+      feed_title: site.title,
+      site_url: site.site,
+      icon_url: null,
+      destination: row.destination,
+      unread: posts.filter((item) => !item.read_at).length,
+      total: posts.length,
+      fetched_at: posts.length ? fetched_at : null,
+      // The demo's posts all came in the one fetch.
+      newest_at: posts.length ? fetched_at : null,
+      health: demoFeedHealth(row.uid),
+    };
+  });
+}
+/** Stored, then `feeds-changed` with every subscription, as the app emits it. */
+function feedsChanged() {
+  try {
+    localStorage.setItem(DEMO_FEEDS_STATE_KEY, JSON.stringify(feedsState()));
+  } catch {
+    /* The preview keeps its feeds for this session only. */
+  }
+  const feeds = demoFeedList();
+  for (const fn of feedListeners) fn({ feeds });
+}
+function demoFeedUrl(raw: string): URL {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    throw new CommandError("invalid_request", "Not a valid link", "invalid_url");
+  }
+  if (!["http:", "https:"].includes(url.protocol))
+    throw new CommandError("invalid_request", "Only HTTP and HTTPS feeds are followed", "unsupported_url");
+  if (/^(localhost|127\.|10\.|192\.168\.)|\.local$/.test(url.hostname))
+    throw new CommandError("invalid_request", "Feeds on this computer or the local network are not followed", "unsupported_url");
+  return url;
+}
+/** The post's bookmark while it is out of the trash. */
+const savedBookmark = (item: DemoItemRow) =>
+  item.bookmark_id === null ? undefined : bookmarks.find((b) => b.id === item.bookmark_id && !b.deleted_at);
+const feedItemOf = (item: DemoItemRow): FeedItem => ({
+  id: item.id,
+  feed_uid: item.feed_uid,
+  url: item.url,
+  title: item.title,
+  author: item.author,
+  excerpt: item.excerpt,
+  thumbnail_url: item.thumbnail_url,
+  published_at: item.published_at,
+  fetched_at: item.fetched_at,
+  read: item.read_at !== null,
+  bookmark_id: savedBookmark(item)?.id ?? null,
+  full: item.full,
+});
+/** `FeedItemPage::next`: `published_at|id` of the last post of a page. */
+const feedCursor = (item: DemoItemRow) => `${item.published_at}|${item.id}`;
+/** Listed after the cursor, newest first. */
+function afterCursor(item: DemoItemRow, cursor: string): boolean {
+  const at = cursor.lastIndexOf("|");
+  const [published, id] = [cursor.slice(0, at), Number(cursor.slice(at + 1))];
+  return item.published_at < published || (item.published_at === published && item.id < id);
+}
+const newestFirst = (a: DemoItemRow, b: DemoItemRow) =>
+  b.published_at.localeCompare(a.published_at) || b.id - a.id;
+const isFeedAddress = (url: URL) => /(\/(feed|rss|atom)(\.xml|\.json)?\/?|\.xml|\.rss|feed\.json)$/i.test(url.pathname);
+/**
+ * Sites the preview doesn't follow (NP-133), for «Follow» in «New link»: one with a feed,
+ * one with posts and comments, one whose feed can't be read. Their pages have a title and a picture.
+ */
+interface DemoSite {
+  site: string;
+  name: string;
+  picture: [string, string, string];
+  feeds: { url: string; title: string }[];
+  unreadable?: boolean;
+  perDay: number;
+  /** The posts a first fetch brings. */
+  posts: { title: string; excerpt: string; hoursAgo: number }[];
+}
+const DEMO_SITES: DemoSite[] = [
+  {
+    site: "https://fieldnotes.example.com/",
+    name: "Field Notes",
+    picture: ["#55705a", "#1f2d22", "Notes"],
+    feeds: [{ url: "https://fieldnotes.example.com/feed.xml", title: "Field Notes" }],
+    perDay: 4.2,
+    posts: [
+      { title: "Walking the old railway line in late autumn", excerpt: "Twelve miles of cinder path, two viaducts and a tea room that is open on Sundays only.", hoursAgo: 2 },
+      { title: "A notebook that survives the rain", excerpt: "Pencil, waxed covers and a rubber band: the field kit that has not changed in forty years.", hoursAgo: 7 },
+    ],
+  },
+  {
+    site: "https://smallbatch.example.com/",
+    name: "Small Batch",
+    picture: ["#a0523d", "#4a2018", "Batch"],
+    feeds: [
+      { url: "https://smallbatch.example.com/posts.rss", title: "Small Batch" },
+      { url: "https://smallbatch.example.com/comments.rss", title: "Small Batch — comments" },
+    ],
+    perDay: 0.4,
+    posts: [{ title: "Marmalade with the whole fruit", excerpt: "Boil the oranges whole first, then chop: less work, a softer peel.", hoursAgo: 30 }],
+  },
+  {
+    site: "https://quiet.example.com/",
+    name: "Quiet Corner",
+    picture: ["#6a6f8a", "#272a3a", "Quiet"],
+    feeds: [{ url: "https://quiet.example.com/rss", title: "Quiet Corner" }],
+    unreadable: true,
+    perDay: 1,
+    posts: [],
+  },
+];
+const demoSiteOf = (url: URL) => DEMO_SITES.find((s) => new URL(s.site).hostname === url.hostname);
+/** A page's title as its `<title>` would read: the site's name, or the last part of the path. */
+function demoPageTitle(site: DemoSite, url: URL): string {
+  const last = url.pathname.split("/").filter(Boolean).pop();
+  if (!last) return site.name;
+  const words = decodeURIComponent(last).replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+/** The posts of a demo site's feed, as its first fetch leaves them. */
+function demoSitePosts(uid: string, url: string, startId: number): DemoItemRow[] {
+  const site = DEMO_SITES.find((s) => s.feeds.some((f) => f.url === url));
+  const fetchedAt = new Date().toISOString();
+  return (site?.posts ?? []).map((post, i) => ({
+    id: startId + i,
+    feed_uid: uid,
+    url: `${site!.site}demo/${post.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    title: post.title,
+    author: null,
+    excerpt: post.excerpt,
+    thumbnail_url: i === 0 ? poster(site!.picture) : null,
+    published_at: hoursBefore(post.hoursAgo),
+    fetched_at: fetchedAt,
+    read_at: null,
+    bookmark_id: null,
+    html: `<p>${post.excerpt}</p>`,
+    full: false,
+  }));
+}
+// end feeds
+
 export const demo = {
   async getBookmarks(
     filters: Partial<FilterState> = {},
@@ -1453,7 +1716,13 @@ export const demo = {
     };
   },
   async getAppSettings() {
-    return { close_to_tray: true, reading_mark_at_end: demoMarkAtEnd(), reading_save_offline: demoSwitch(DEMO_SAVE_OFFLINE_KEY) === "true" };
+    return {
+      close_to_tray: true,
+      reading_mark_at_end: demoMarkAtEnd(),
+      reading_save_offline: demoSwitch(DEMO_SAVE_OFFLINE_KEY) === "true",
+      // feeds (NP-128): an hour unless chosen.
+      feeds_refresh_minutes: Number(demoSwitch(DEMO_FEEDS_REFRESH_KEY) ?? 60),
+    };
   },
   async setReadingSaveOffline(enabled: boolean) {
     localStorage.setItem(DEMO_SAVE_OFFLINE_KEY, enabled ? "true" : "false");
@@ -2107,4 +2376,229 @@ export const demo = {
     setDemoSupporter({ ...currentDemoSupporter(), email: null, plan: null, check_failed: false, awaiting_sign_in: false });
     return currentDemoSupporter();
   },
+  // feeds — the same methods as the desktop's (NP-128), over demoFeeds.ts. Later feeds tasks add here only.
+  async listFeeds(): Promise<Feed[]> {
+    return demoFeedList();
+  },
+  async subscribeFeed(url: string, title: string | null, destination: FeedDestination): Promise<Feed> {
+    const address = demoFeedUrl(url).href;
+    const state = feedsState();
+    if (!state.feeds.some((f) => f.url === address)) {
+      const known = DEMO_FEEDS.find((f) => f.url === address);
+      const uid = known?.uid ?? `demo-feed-${Date.now()}`;
+      state.feeds.push({ uid, url: address, title: title?.trim() || null, destination });
+      // A sample feed followed again comes back with its posts, as a first fetch would bring them.
+      if (known && !state.items.some((item) => item.feed_uid === uid))
+        state.items.push(...demoFeedItems(new Date().toISOString()).filter((item) => item.feed_uid === uid));
+      // A demo site's feed brings its posts, as the first fetch would (NP-133).
+      if (!known) state.items.push(...demoSitePosts(uid, address, Math.max(0, ...state.items.map((item) => item.id)) + 1));
+      feedsChanged();
+    }
+    return demoFeedList().find((f) => f.url === address)!;
+  },
+  async updateFeed(uid: string, title: string | null, destination: FeedDestination | null): Promise<Feed> {
+    const row = feedsState().feeds.find((f) => f.uid === uid);
+    if (!row) throw new CommandError("not_found", "Query returned no rows");
+    if (title !== null) row.title = title.trim() || null;
+    if (destination !== null) row.destination = destination;
+    feedsChanged();
+    return demoFeedList().find((f) => f.uid === uid)!;
+  },
+  /** The demo's feeds never move. */
+  async acceptFeedMove(uid: string): Promise<Feed> {
+    void uid;
+    throw new CommandError("invalid_request", "This feed has not moved");
+  },
+  async unsubscribeFeed(uid: string): Promise<void> {
+    const state = feedsState();
+    if (!state.feeds.some((f) => f.uid === uid)) throw new CommandError("not_found", "Query returned no rows");
+    state.feeds = state.feeds.filter((f) => f.uid !== uid);
+    state.items = state.items.filter((item) => item.feed_uid !== uid);
+    feedsChanged();
+  },
+  /** A sample site names its feed; an address that looks like a feed is one. The preview reads no page. */
+  async previewLink(url: string): Promise<LinkPreview> {
+    const address = demoFeedUrl(url);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const domain = address.hostname.replace(/^www\./, "");
+    const site = DEMO_FEEDS.find((f) => new URL(f.siteUrl).hostname.replace(/^www\./, "") === domain);
+    const extra = demoSiteOf(address);
+    const isFeed = DEMO_FEEDS.some((f) => f.url === address.href) || isFeedAddress(address);
+    const feeds: FeedCandidate[] = isFeed
+      ? [{ url: address.href, title: site?.feedTitle ?? extra?.feeds.find((f) => f.url === address.href)?.title ?? null, kind: address.pathname.endsWith(".json") ? "json" : "rss" }]
+      : site
+        ? [{ url: site.url, title: site.feedTitle, kind: "rss" }]
+        : (extra?.feeds.map((f) => ({ url: f.url, title: f.title, kind: "rss" })) ?? []);
+    const subscribed = feeds.length ? feedsState().feeds.find((f) => f.url === feeds[0].url) : undefined;
+    return {
+      url: address.href,
+      metadata: {
+        title: site?.feedTitle ?? (extra && !isFeed ? demoPageTitle(extra, address) : null),
+        description: null,
+        image_url: extra && !isFeed ? poster(extra.picture) : null,
+        favicon_url: null,
+        site_name: site?.feedTitle ?? extra?.name ?? null,
+        domain,
+      },
+      feeds,
+      is_feed: isFeed,
+      subscribed_uid: subscribed?.uid ?? null,
+    };
+  },
+  async previewFeed(url: string): Promise<FeedPreview> {
+    const address = demoFeedUrl(url).href;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const known = DEMO_FEEDS.find((f) => f.url === address);
+    const site = demoFeedSite(address);
+    const extra = DEMO_SITES.find((s) => s.feeds.some((f) => f.url === address));
+    if (extra?.unreadable) throw new CommandError("network", "The feed could not be read");
+    if (extra) return { title: site.title, site_url: extra.site, icon_url: null, posts_per_day: extra.perDay, last_post_at: hoursBefore(extra.posts[0]?.hoursAgo ?? 3) };
+    if (!known) return { title: site.title, site_url: site.site, icon_url: null, posts_per_day: 2.5, last_post_at: hoursBefore(3) };
+    const posts = DEMO_POSTS.filter((p) => p.feed === known.uid);
+    const days = Math.max(1, Math.max(...posts.map((p) => p.hoursAgo)) / 24);
+    return {
+      title: known.feedTitle,
+      site_url: known.siteUrl,
+      icon_url: null,
+      posts_per_day: Math.round((posts.length / days) * 10) / 10,
+      last_post_at: hoursBefore(Math.min(...posts.map((p) => p.hoursAgo))),
+    };
+  },
+  async listFeedItems(query: FeedItemQuery): Promise<FeedItemPage> {
+    const state = feedsState();
+    const followed = new Set(state.feeds.map((f) => f.uid));
+    const search = query.search?.trim().toLowerCase();
+    const found = state.items
+      .filter(
+        (item) =>
+          followed.has(item.feed_uid) &&
+          (!query.feed_uid || item.feed_uid === query.feed_uid) &&
+          (!query.unread_only || !item.read_at) &&
+          (!search || item.title.toLowerCase().includes(search) || item.excerpt.toLowerCase().includes(search)),
+      )
+      .sort(newestFirst);
+    const start = query.after ? found.findIndex((item) => afterCursor(item, query.after!)) : 0;
+    const limit = query.limit || 50;
+    const page = start < 0 ? [] : found.slice(start, start + limit);
+    const more = start >= 0 && start + limit < found.length;
+    return { items: page.map(feedItemOf), next: more ? feedCursor(page[page.length - 1]) : null };
+  },
+  async getFeedArticle(id: number): Promise<FeedArticle> {
+    const item = feedsState().items.find((i) => i.id === id);
+    if (!item) throw new CommandError("not_found", "Query returned no rows");
+    return { id, url: item.url, title: item.title, author: item.author, published_at: item.published_at, html: item.html, full: item.full };
+  },
+  async setFeedItemsRead(ids: number[], read: boolean): Promise<void> {
+    const now = new Date().toISOString();
+    for (const item of feedsState().items) if (ids.includes(item.id)) item.read_at = read ? (item.read_at ?? now) : null;
+    feedsChanged();
+  },
+  async markFeedRead(feedUid: string | null, upTo: string | null): Promise<number> {
+    const now = new Date().toISOString();
+    let marked = 0;
+    for (const item of feedsState().items) {
+      if (item.read_at || (feedUid && item.feed_uid !== feedUid) || (upTo && item.fetched_at > upTo)) continue;
+      item.read_at = now;
+      marked += 1;
+    }
+    feedsChanged();
+    return marked;
+  },
+  /** S, R and F: an ordinary bookmark from the feed, as `save.rs` makes it; a saved post's own bookmark gets R and F. */
+  async saveFeedItem(id: number, place: SavePlace, favorite: boolean): Promise<Bookmark> {
+    const state = feedsState();
+    const item = state.items.find((i) => i.id === id);
+    if (!item) throw new CommandError("not_found", "Query returned no rows");
+    if (!item.url) throw new CommandError("invalid_request", "The post has no link", "invalid_url");
+    const now = new Date().toISOString();
+    const own = savedBookmark(item);
+    let saved: Bookmark;
+    if (own) {
+      const fields: Partial<Bookmark> = {
+        ...(favorite && !own.is_favorite ? { is_favorite: true } : {}),
+        ...(place === "reading" && !own.reading_at ? { reading_at: now } : {}),
+      };
+      saved = Object.keys(fields).length ? change(own, fields) : own;
+      if (saved !== own) emit("updated", saved);
+    } else {
+      const added = await demo.addBookmark({ url: item.url, title: item.title });
+      saved = added.bookmark;
+      if (!added.existing && !added.restored) {
+        const feed = demoFeedList().find((f) => f.uid === item.feed_uid);
+        saved = change(saved, {
+          description: item.excerpt,
+          image_url: item.thumbnail_url,
+          source: "feed",
+          source_name: feed?.title ?? feed?.feed_title ?? undefined,
+          is_favorite: favorite,
+          triaged_at: place === "library" ? now : null,
+          reading_at: place === "reading" ? now : null,
+        });
+        emit("updated", saved);
+      }
+    }
+    item.bookmark_id = saved.id;
+    item.read_at ??= now;
+    feedsChanged();
+    return saved;
+  },
+  /** A short check of the feeds asked for: progress, then everything fetched just now. */
+  async refreshFeeds(feedUid: string | null): Promise<void> {
+    const state = feedsState();
+    const total = feedUid ? 1 : state.feeds.length;
+    for (const fn of feedRefreshListeners) fn({ running: true, done: 0, total });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (demoSwitch(DEMO_FEEDS_KEY) !== "offline") state.fetched_at = new Date().toISOString();
+    for (const fn of feedRefreshListeners) fn({ running: false, done: total, total });
+    feedsChanged();
+  },
+  /** The posts come back as a first fetch brings them; read marks and saved links are forgotten. */
+  async clearFeedCache(): Promise<void> {
+    const state = feedsState();
+    const followed = new Set(state.feeds.map((f) => f.uid));
+    state.fetched_at = new Date().toISOString();
+    state.items = demoFeedItems(state.fetched_at).filter((item) => followed.has(item.feed_uid));
+    feedsChanged();
+  },
+  /** The preview reads no file: it pretends the file held the sample feeds, two new ones and a local one. */
+  async importOpml(content: string): Promise<OpmlImport> {
+    void content;
+    const state = feedsState();
+    const listed = [...DEMO_FEEDS.map((f) => f.url), "https://notes.example.org/atom.xml", "https://links.example.net/feed.json"];
+    const added = listed.filter((url) => !state.feeds.some((f) => f.url === url));
+    for (const url of added) {
+      const known = DEMO_FEEDS.find((f) => f.url === url);
+      await demo.subscribeFeed(url, null, known?.destination ?? "feeds");
+    }
+    return {
+      added: added.length,
+      existing: listed.length - added.length,
+      skipped: [{ title: "Router status", url: "http://192.168.1.1/status.rss", reason: "refused" }],
+    };
+  },
+  async exportOpml(): Promise<OpmlExport> {
+    return { outcome: "saved", file_name: "koona-pin-feeds.opml", count: feedsState().feeds.length };
+  },
+  async setFeedsRefreshMinutes(minutes: number): Promise<void> {
+    if (minutes !== 0 && (minutes < 5 || minutes > 24 * 60))
+      throw new CommandError("invalid_request", "Check feeds every 5 minutes to once a day, or only on refresh");
+    try {
+      localStorage.setItem(DEMO_FEEDS_REFRESH_KEY, String(minutes));
+    } catch {
+      /* Kept for this session only. */
+    }
+  },
+  onFeedsChanged(fn: (change: FeedsChanged) => void) {
+    feedListeners.add(fn);
+    return () => {
+      feedListeners.delete(fn);
+    };
+  },
+  onFeedsRefresh(fn: (progress: FeedsRefresh) => void) {
+    feedRefreshListeners.add(fn);
+    return () => {
+      feedRefreshListeners.delete(fn);
+    };
+  },
+  // end feeds
 };

@@ -13,7 +13,7 @@
 
 use crate::apply::Ctx;
 use crate::model::{Clock, FieldChange};
-use crate::store::{self, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, LINK, TAGS, UNIQUE};
+use crate::store::{self, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FEEDS, LINK, TAGS, UNIQUE};
 use crate::Result;
 use rusqlite::params;
 use rusqlite::types::Value;
@@ -131,6 +131,11 @@ impl Ctx<'_> {
                      WHERE collection_id = ?1",
                 )?
                 .execute(params![loser, survivor, self.now])?;
+        } else if t.code == FEEDS.code {
+            // Nothing refers to a feed in the library: its posts live in each device's cache,
+            // keyed by uid, and the loser's go with it (NP-130).
+        } else {
+            return Err(crate::Error::Damaged(format!("no merge for {}", t.kind)));
         }
         Ok(unique)
     }
@@ -217,10 +222,17 @@ impl Ctx<'_> {
             store::clocks(self.conn, LINK, other)?.into_keys().map(|tag| (other, tag)).collect()
         } else if t.code == TAGS.code {
             self.link_clocks_of_tag(other)?.into_iter().map(|(bookmark, _)| (bookmark, other)).collect()
-        } else {
+        } else if t.code == COLLECTIONS.code {
             // The bookmarks in the old collection are now in the arriving one: a move of ours.
             self.restamp_members(other)?;
             Vec::new()
+        } else if t.code == FEEDS.code {
+            // Nothing in the library refers to a feed; its old uid is gone on this device, and
+            // so are the posts the cache kept under it (NP-130).
+            self.feeds_gone.push(theirs);
+            Vec::new()
+        } else {
+            return Err(crate::Error::Damaged(format!("no merge for {}", t.kind)));
         };
         for (bookmark, tag) in links {
             if store::has_link(self.conn, bookmark, tag)? {

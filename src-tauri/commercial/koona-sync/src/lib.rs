@@ -40,6 +40,10 @@ pub const SCHEMA_11: &str = include_str!("schema11.sql");
 /// Schema 13: the capture of `site_name`, run after the app adds its column.
 pub const SCHEMA_13: &str = include_str!("schema13.sql");
 
+/// Schema 14: the capture of the feeds (`feeds` table, entity 4), run after the app makes the
+/// table (NP-130).
+pub const SCHEMA_14: &str = include_str!("schema14.sql");
+
 /// [`SCHEMA_10`] in two parts: the tables and columns, then the triggers that record changes. A
 /// migration that fills the new columns does it between the two, so the filling records nothing
 /// and needs none of the engine's functions.

@@ -186,6 +186,8 @@ fn client(limits: &Limits) -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)
+        // Built with reqwest's `gzip` for feeds (NP-128); the check stays as it was.
+        .gzip(false)
         // A proxy would resolve names where the guard cannot see them.
         .no_proxy()
         .dns_resolver(net_guard::resolver(limits.allow))

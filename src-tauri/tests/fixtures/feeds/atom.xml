@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic, written for the tests (NP-128). -->
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Notes</title>
+  <id>urn:uuid:5d2a0c2e-0d1b-4c6e-9a51-2f3c4b5a6d7e</id>
+  <updated>2026-10-16T08:00:00Z</updated>
+  <link rel="alternate" href="https://notes.example.org/"/>
+  <link rel="self" href="https://notes.example.org/atom.xml"/>
+  <entry>
+    <title>Small tools, sharp edges</title>
+    <id>tag:notes.example.org,2026:small-tools</id>
+    <link rel="alternate" href="https://notes.example.org/2026/small-tools"/>
+    <author><name>Ben Example</name></author>
+    <published>2026-10-16T07:30:00Z</published>
+    <updated>2026-10-16T08:00:00Z</updated>
+    <summary>Why the little programs last.</summary>
+    <content type="html">&lt;p&gt;Why the &lt;b&gt;little&lt;/b&gt; programs last.&lt;/p&gt;</content>
+  </entry>
+</feed>

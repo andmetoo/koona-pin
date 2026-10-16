@@ -369,7 +369,8 @@ pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) 
     emit(app, ChangeKind::Created, &bookmark);
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let meta = metadata::fetch_metadata(&bookmark.url).await;
+        // A link previewed in «New link» in the last 10 minutes is not read again (NP-129).
+        let meta = crate::feeds::discover::metadata_for_save(&bookmark.url).await;
         let updated = state.conn.lock().map_err(|_| ()).and_then(|conn| {
             db::enrich_bookmark(&conn, bookmark.id, bookmark.revision, &meta).map_err(|_| ())
         });

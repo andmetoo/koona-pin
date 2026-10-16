@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic, written for the tests (NP-129): RSS 1.0 (RDF). -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel rdf:about="https://journal.example.org/">
+    <title>Example Journal</title>
+    <link>https://journal.example.org/</link>
+    <description>Published now and then.</description>
+    <items>
+      <rdf:Seq>
+        <rdf:li rdf:resource="https://journal.example.org/2026/10/one"/>
+        <rdf:li rdf:resource="https://journal.example.org/2026/10/two"/>
+      </rdf:Seq>
+    </items>
+  </channel>
+  <item rdf:about="https://journal.example.org/2026/10/one">
+    <title>Issue one</title>
+    <link>https://journal.example.org/2026/10/one</link>
+    <description>The first issue.</description>
+    <dc:date>2026-10-02T10:00:00Z</dc:date>
+  </item>
+  <item rdf:about="https://journal.example.org/2026/10/two">
+    <title>Issue two</title>
+    <link>https://journal.example.org/2026/10/two</link>
+    <description>The second issue.</description>
+    <dc:date>2026-10-09T10:00:00Z</dc:date>
+  </item>
+</rdf:RDF>

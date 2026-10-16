@@ -142,6 +142,9 @@ test("incoming capture preserves reading position until explicitly revealed", as
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(0);
 });
 test("inbox: new links wait there until a decision, the notification hides until a newer one", async ({ page }) => {
+  // No feeds here: Serious Eats would add its own notification to the bell (NP-133).
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.feeds", "empty"));
+  await page.reload();
   const inbox = (count: number) => page.getByRole("button", { name: `Inbox ${count}`, exact: true });
   const banner = page.getByRole("region", { name: "New bookmarks" });
   const bell = page.locator("[data-notification-bell]");
@@ -1867,6 +1870,8 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toHaveCount(0);
   const last = tags.last();
   const tag = (await last.textContent())!;
+  // With Feeds above Collections (NP-132) the last tag sits below a 900 px window: the sidebar scrolls to it.
+  await last.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const box = (await last.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
   await expect(dropHint(page)).toHaveText(`Add tag “${tag}” to 3`);
@@ -1876,6 +1881,7 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toBeVisible();
 
   // «Trash»: no confirmation, the selected leave and the bar closes; Ctrl Z brings them back.
+  await sidebar.evaluate((element) => element.scrollTo({ top: 0 }));
   await dragOver(page, preview, sidebar.getByRole("button", { name: /^Trash/ }));
   await expect(dropHint(page)).toHaveText("Move 3 to Trash");
   await page.screenshot({ path: "test-results/drag-trash-1440.png" });

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic, written for the tests (NP-129). Shaped like a code host's releases feed: Atom,
+     the author's avatar as a media:thumbnail directly in each entry (feed-rs/feed-rs#296). -->
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">
+  <id>tag:code.example.com,2008:https://code.example.com/tool/releases</id>
+  <link type="text/html" rel="alternate" href="https://code.example.com/tool/releases"/>
+  <link type="application/atom+xml" rel="self" href="https://code.example.com/tool/releases.atom"/>
+  <title>Release notes from tool</title>
+  <updated>2026-10-14T12:00:00Z</updated>
+  <entry>
+    <id>tag:code.example.com,2008:Repository/1/v2.1.0</id>
+    <updated>2026-10-14T12:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://code.example.com/tool/releases/tag/v2.1.0"/>
+    <title>v2.1.0</title>
+    <content type="html">&lt;h2&gt;Changes&lt;/h2&gt;&lt;ul&gt;&lt;li&gt;Faster start&lt;/li&gt;&lt;/ul&gt;</content>
+    <author>
+      <name>example-maintainer</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.example.com/u/42?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:code.example.com,2008:Repository/1/v2.0.0</id>
+    <updated>2026-10-01T12:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://code.example.com/tool/releases/tag/v2.0.0"/>
+    <title>v2.0.0</title>
+    <content type="html">&lt;p&gt;The big one.&lt;/p&gt;</content>
+    <author>
+      <name>example-maintainer</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.example.com/u/42?s=60&amp;v=4"/>
+  </entry>
+</feed>

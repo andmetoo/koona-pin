@@ -1,0 +1,22 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Example Links",
+  "home_page_url": "https://links.example.net/",
+  "feed_url": "https://links.example.net/feed.json",
+  "items": [
+    {
+      "id": "links-0042",
+      "url": "https://links.example.net/2026/10/maps",
+      "title": "Maps drawn by hand",
+      "content_html": "<p>A collection of maps drawn by hand.</p>",
+      "date_published": "2026-10-14T12:00:00Z",
+      "authors": [{ "name": "Cy Example" }]
+    },
+    {
+      "id": "links-0041",
+      "url": "https://links.example.net/2026/10/quiet",
+      "content_text": "A post without a title.",
+      "date_published": "2026-10-13T12:00:00Z"
+    }
+  ]
+}

@@ -7,6 +7,8 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => {
     localStorage.removeItem("koonapin.demo.v4");
     localStorage.setItem("koonapin.importBanner", "show");
+    // No feeds: Serious Eats would add its own notification to the bell (NP-133).
+    localStorage.setItem("koonapin.demo.feeds", "empty");
   });
   await page.reload();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);

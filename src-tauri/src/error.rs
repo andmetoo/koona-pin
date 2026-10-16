@@ -28,6 +28,9 @@ pub enum ErrorCode {
     Internal,
     /// A request to a service on the internet failed: feedback (NP-088).
     Network,
+    /// The command exists, its work does not yet: the feeds contract is
+    /// fixed before the tasks that fill it (NP-128).
+    NotImplemented,
 }
 
 /// What exactly went wrong, when people are told more than the code says.

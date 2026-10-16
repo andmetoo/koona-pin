@@ -254,3 +254,132 @@ fn the_site_name_travels_as_a_field_of_its_own() {
     assert_eq!(dump(&a), dump(&b));
     check_invariants(&a);
 }
+
+fn feed_row(conn: &rusqlite::Connection) -> (String, String, Option<String>, String) {
+    conn.query_row("SELECT uid, url, title, destination FROM feeds", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+        .unwrap()
+}
+
+/// Feeds (schema 14, NP-130): following, renaming, moving where posts go and leaving reach the
+/// other device; only the three synced fields are recorded, and a place this build doesn't know
+/// travels as it came.
+#[test]
+fn a_feed_is_followed_changed_and_left_on_both_devices() {
+    let a = library(replica_id(1));
+    let b = library(replica_id(2));
+    let id = follow(&a, uid(10), "https://example.com/feed.xml", None, "feeds").unwrap();
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM sync_clock WHERE entity = 4"), 1, "one clock for a new feed");
+    // Local columns record nothing.
+    a.execute("UPDATE feeds SET updated_at = 'x', created_at = 'y' WHERE id = ?1", [id]).unwrap();
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM sync_clock WHERE entity = 4"), 1);
+    let chunks = koona_sync::delta_all(&a, &Vector::default(), 1 << 20).unwrap();
+    let group = &chunks[0].groups[0];
+    assert_eq!(group.entity, Entity::Feed);
+    let names: Vec<&str> = group.fields.iter().map(|f| f.field.as_str()).collect();
+    assert_eq!(names, ["url", "title", "destination"], "no time travels");
+
+    let applied = koona_sync::apply(&b, &chunks[0].groups).unwrap();
+    assert!(applied.feeds_changed && applied.structure_changed && applied.bookmark_ids.is_empty());
+    koona_sync::merge_vector(&b, &chunks[0].covers).unwrap();
+    assert_eq!(feed_row(&b), (uid(10).to_string(), "https://example.com/feed.xml".into(), None, "feeds".into()));
+    assert_eq!(one::<String>(&b, "SELECT created_at FROM feeds"), one::<String>(&b, "SELECT updated_at FROM feeds"));
+
+    // Renamed on B while A sends its posts somewhere a newer build knows.
+    let id_b = one::<i64>(&b, "SELECT id FROM feeds");
+    set_feed(&b, id_b, "title", Value::Text("Example".into()));
+    set_feed(&a, id, "destination", Value::Text("someday".into()));
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM sync_clock WHERE entity = 4 AND field = 2"), 1);
+    sync(&a, &b, 1 << 20);
+    sync(&b, &a, 1 << 20);
+    let expected = (uid(10).to_string(), "https://example.com/feed.xml".into(), Some("Example".into()), "someday".into());
+    assert_eq!(feed_row(&a), expected);
+    assert_eq!(dump(&a), dump(&b));
+
+    // Left on A: a tombstone of kind `feed`, and gone on B, with its posts.
+    unfollow(&a, id);
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM sync_clock WHERE entity = 4"), 0);
+    assert_eq!(one::<String>(&a, "SELECT kind FROM tombstones"), "feed");
+    set_feed(&b, id_b, "title", Value::Text("Renamed meanwhile".into()));
+    let chunks = koona_sync::delta_all(&a, &vector(&b), 1 << 20).unwrap();
+    let applied = koona_sync::apply(&b, &chunks[0].groups).unwrap();
+    assert_eq!(applied.feeds_gone, [uid(10)]);
+    koona_sync::merge_vector(&b, &chunks[0].covers).unwrap();
+    assert_eq!(one::<i64>(&b, "SELECT count(*) FROM feeds"), 0);
+    // The rename that crossed the unfollow doesn't bring it back.
+    sync(&b, &a, 1 << 20);
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM feeds"), 0);
+    assert_eq!(dump(&a), dump(&b));
+    check_invariants(&a);
+    check_invariants(&b);
+}
+
+/// One address followed on two devices becomes one feed, the smaller uid, both ways a merge can
+/// happen: the arriving feed takes over the one here, or merges into it. Nothing else in the
+/// library is touched, also a collection with the same local id (NP-130).
+#[test]
+fn one_feed_address_on_two_devices_becomes_one_feed() {
+    let a = library(replica_id(1));
+    let b = library(replica_id(2));
+    let url = "https://example.com/feed.xml";
+    follow(&a, uid(20), url, Some("from a"), "inbox").unwrap();
+    // On B the feed has id 1, as a collection with a bookmark in it does.
+    let fb = follow(&b, uid(30), url, None, "notify").unwrap();
+    let c = add_collection(&b, uid(5), "Reading").unwrap();
+    let bm = add_bookmark(&b, uid(6), "https://example.com/a", "A").unwrap();
+    set_bookmark(&b, bm, "collection_id", Value::Integer(c));
+    assert_eq!((fb, c), (1, 1));
+    let bookmark_clocks = |conn: &rusqlite::Connection| ids(conn, "SELECT counter FROM sync_clock WHERE entity = 2 ORDER BY field");
+
+    // B gets A's feed, whose uid is smaller: B's row takes it, its own uid is gone here.
+    let before = bookmark_clocks(&b);
+    let chunks = koona_sync::delta_all(&a, &vector(&b), 1 << 20).unwrap();
+    let applied = koona_sync::apply(&b, &chunks[0].groups).unwrap();
+    assert_eq!(applied.feeds_gone, [uid(30)]);
+    assert!(applied.bookmark_ids.is_empty(), "no bookmark moved");
+    assert_eq!(bookmark_clocks(&b), before);
+    koona_sync::merge_vector(&b, &chunks[0].covers).unwrap();
+    assert_eq!(one::<String>(&b, "SELECT uid FROM feeds"), uid(20).to_string());
+
+    // A third device followed it too, with a larger uid: it merges into A's.
+    let c3 = library(replica_id(3));
+    follow(&c3, uid(40), url, None, "feeds").unwrap();
+    let chunks = koona_sync::delta_all(&c3, &vector(&a), 1 << 20).unwrap();
+    let applied = koona_sync::apply(&a, &chunks[0].groups).unwrap();
+    assert!(applied.feeds_gone.is_empty(), "A keeps its feed");
+    koona_sync::merge_vector(&a, &chunks[0].covers).unwrap();
+    for _ in 0..2 {
+        for (from, to) in [(&a, &b), (&b, &a), (&a, &c3), (&c3, &a)] {
+            sync(from, to, 1 << 20);
+        }
+    }
+    assert_eq!(dump(&a), dump(&b));
+    assert_eq!(dump(&a), dump(&c3));
+    assert_eq!(one::<i64>(&c3, "SELECT count(*) FROM feeds"), 1);
+    assert_eq!(one::<String>(&c3, "SELECT uid FROM feeds"), uid(20).to_string(), "the smaller uid survives");
+    assert_eq!(one::<i64>(&a, "SELECT count(*) FROM tombstones WHERE kind = 'feed' AND merged_into IS NOT NULL"), 2);
+    for conn in [&a, &b, &c3] {
+        check_invariants(conn);
+    }
+}
+
+/// The delta sends feeds after everything else, records before tombstones, and a feed that
+/// doesn't hold every field waits (NP-130).
+#[test]
+fn feeds_come_last_and_wait_for_every_field() {
+    let a = library(replica_id(1));
+    follow(&a, uid(10), "https://example.com/feed.xml", None, "feeds").unwrap();
+    let gone = follow(&a, uid(11), "https://example.org/rss", None, "feeds").unwrap();
+    unfollow(&a, gone);
+    add_bookmark(&a, uid(12), "https://example.com/a", "A").unwrap();
+    let chunks = koona_sync::delta_all(&a, &Vector::default(), 1 << 20).unwrap();
+    let order: Vec<(Entity, bool)> = chunks.iter().flat_map(|c| &c.groups).map(|g| (g.entity, g.gone.is_some())).collect();
+    assert_eq!(order, [(Entity::Bookmark, false), (Entity::Feed, false), (Entity::Feed, true)]);
+
+    let mut groups: Vec<_> = chunks.into_iter().flat_map(|c| c.groups).collect();
+    groups[1].fields.retain(|f| f.field != "destination");
+    let b = library(replica_id(2));
+    let applied = koona_sync::apply(&b, &groups).unwrap();
+    assert_eq!(applied.deferred, 1);
+    assert_eq!(one::<i64>(&b, "SELECT count(*) FROM feeds"), 0);
+    check_invariants(&b);
+}

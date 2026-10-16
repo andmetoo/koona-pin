@@ -570,6 +570,8 @@ pub(crate) fn client(app: &AppHandle) -> Result<reqwest::Client, CommandError> {
     reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(5))
         .timeout(Duration::from_secs(15))
+        // Built with reqwest's `gzip` for feeds (NP-128); this request stays as it was.
+        .gzip(false)
         .user_agent(format!("KoonaPin/{}", app.package_info().version))
         .build()
         .map_err(CommandError::internal)
