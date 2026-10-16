@@ -13,9 +13,9 @@ COPY scripts/linux/deps.sh scripts/linux/bun.sh /ci/scripts/linux/
 # The Tauri prerequisites (deps.sh), what actions/checkout and the stages need besides them: git, strip and
 # objdump (binutils, check-glibc.sh), mksquashfs for the AppImage, useradd (shadow) and su (util-linux),
 # which the minimal base may lack, diff (diffutils: the «test» job compares src/bindings), find (findutils:
-# linuxdeploy's GTK plugin for the AppImage); Bun of .bun-version.
+# linuxdeploy's GTK plugin for the AppImage), tar and compression tools for the Rust cache; Bun of .bun-version.
 RUN bash /ci/scripts/linux/deps.sh \
- && xbps-install -y git xz unzip ca-certificates binutils squashfs-tools shadow util-linux diffutils findutils \
+ && xbps-install -y git tar gzip zstd xz unzip ca-certificates binutils squashfs-tools shadow util-linux diffutils findutils \
  && bash /ci/scripts/linux/bun.sh \
  && rm -rf /var/cache/xbps/*
 

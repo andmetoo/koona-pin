@@ -226,16 +226,45 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
-  # The .deb (bun run build:linux's deb stage): Tauri's .deb repacked, Depends by dpkg-shlibdeps, checked by
-  # lintian (NP-055); then on Debian 13 the AppImage before any package (NP-116), the package installed,
-  # started, the native tests on WebKitGTK (NP-095), the development registration and the package with
-  # Chromium, Chrome, Edge and Firefox, the extension smoke (NP-100, NP-054), installed again and removed.
+  # Pack the .deb as soon as the release binaries are ready. Debian, Ubuntu and Arch then test the same
+  # artifact in parallel; packaging does not need the development build or Debian's browser tests.
+  deb-package:
+    name: Pack .deb
+    needs: [images, build]
+    continue-on-error: ${{ !inputs.release }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: ${{ needs.images.outputs.debian }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: linux-compile
+          path: dist-linux/
+      - run: |
+          chmod +x dist-linux/bin/*
+          chown -R dev "$GITHUB_WORKSPACE"
+      - name: Pack the .deb as «dev»
+        run: su dev -s /bin/bash -c "bun scripts/build-linux-packages.mjs --stage deb"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-deb
+          path: dist-linux/koonapin_*_amd64.deb
+          if-no-files-found: error
+
+  # On Debian 13: lintian (NP-055), the AppImage before any package (NP-116), the installed package,
+  # native WebKitGTK tests (NP-095), development registration and extension smoke (NP-100, NP-054),
+  # reinstall and removal. Only these tests need the development build from «test».
   deb:
     name: .deb, Debian 13
-    needs: [images, build, test]
-    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.release || needs.test.result == 'success') }}
-    # Outside a release the package and distribution jobs do not fail the workflow: they show their
-    # result, and ci.yml's summary check «CI» does not wait on them. A release (release.yml) stops on any.
+    needs: [images, build, test, deb-package]
+    if: ${{ !inputs.release }}
+    # These tests are advisory in CI, but the summary still waits for the whole Linux workflow.
+    # Releases skip the tests and require the packaging jobs to succeed.
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -252,50 +281,39 @@ jobs:
           path: dist-linux/
       - uses: actions/download-artifact@v7
         with:
+          name: linux-deb
+          path: dist-linux/
+      - uses: actions/download-artifact@v7
+        with:
           name: tauri-driver
           path: dist-tools/
       - uses: actions/download-artifact@v7
-        if: ${{ !inputs.release }}
         with:
           name: linux-debug
           path: src-tauri/target/debug/
       # Artifacts arrive as root and without the executable bit.
       - run: |
           chmod +x dist-linux/bin/* dist-linux/*.AppImage dist-tools/tauri-driver
-          if [ -d src-tauri/target/debug ]; then chmod +x src-tauri/target/debug/koonapin src-tauri/target/debug/koonapin-host; fi
+          chmod +x src-tauri/target/debug/koonapin src-tauri/target/debug/koonapin-host
           chown -R dev "$GITHUB_WORKSPACE"
-      - name: Pack the .deb as «dev»
-        run: su dev -s /bin/bash -c "bun scripts/build-linux-packages.mjs --stage deb"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: linux-deb
-          path: dist-linux/koonapin_*_amd64.deb
-          if-no-files-found: error
       - name: The tray library out of the image (the package brings it)
-        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh prepare
       - name: The AppImage without a package as «dev»
-        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-appimage.sh"
       - name: lintian, desktop-file-validate, appstreamcli; install the package
-        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh install
       - name: Start the program as «dev»
-        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-smoke.sh"
       - name: Native tests on WebKitGTK as «dev»
-        if: ${{ !inputs.release }}
         # The tests of both displays take seconds; a hang ends here, not at the job's limit.
         timeout-minutes: 5
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-webkit.sh"
       - name: Registration with Debian's browsers, Chrome and Edge, extension smoke as «dev»
-        if: ${{ !inputs.release }}
         run: su dev -s /bin/bash -c "bash scripts/linux/ci-browsers.sh"
       - name: Install again and remove the package
-        if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh remove
 
-  # The .rpm (the rpm stage, from Tauri's .deb, so it runs beside «deb»): rpmbuild, the DEB→RPM mark, rpmlint;
+  # The .rpm (the rpm stage, from Tauri's .deb, so it runs beside «deb-package»): rpmbuild, the DEB→RPM mark, rpmlint;
   # on Fedora the AppImage, the package with dnf, started, WebKitGTK tests, Fedora's Firefox — which reads only
   # /usr/lib64/mozilla, the one place the .rpm differs (Р-53) — and Chromium, removed.
   rpm:
@@ -350,10 +368,10 @@ jobs:
         if: ${{ !inputs.release }}
         run: bash scripts/linux/ci-package.sh remove
 
-  # The .deb of «deb» on the newest Ubuntu: the AppImage, installed with apt, started, WebKitGTK tests, removed.
+  # The .deb of «deb-package» on the newest Ubuntu, alongside Debian: AppImage, apt, WebKitGTK tests, removal.
   ubuntu:
     name: Ubuntu 26.04
-    needs: [images, build, deb]
+    needs: [images, build, deb-package]
     if: ${{ !inputs.release }}
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
@@ -396,11 +414,11 @@ jobs:
         run: bash scripts/linux/ci-package.sh remove
 
   # Arch: the AppImage with no WebKitGTK 4.1 on the system (NP-116), then koonapin-bin built by makepkg from
-  # the AUR's PKGBUILD for the .deb of «deb» (build-aur.mjs, namcap, NP-101), started, WebKitGTK tests, Arch's
+  # the AUR's PKGBUILD for the .deb of «deb-package» (build-aur.mjs, namcap, NP-101), started, WebKitGTK tests, Arch's
   # Chromium and Firefox, removed.
   arch:
     name: Arch Linux (AUR)
-    needs: [images, build, deb]
+    needs: [images, build, deb-package]
     if: ${{ !inputs.release }}
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
@@ -487,10 +505,10 @@ jobs:
   # release.yml signs for the updater and publishes, and `bun run build:linux -- --from-ci` downloads.
   packages:
     name: Linux packages
-    needs: [build, deb, rpm]
-    # Its own condition: the default, success(), looks at every job up the chain, and in a release the test
-    # job behind «deb» is skipped, which skipped this one too (v0.12.0: no koonapin-linux-x86_64 artifact).
-    if: ${{ !cancelled() && needs.build.result == 'success' && needs.deb.result == 'success' && needs.rpm.result == 'success' }}
+    needs: [build, deb-package, deb, rpm]
+    # Keep Debian's test completion gate in CI. A release skips «deb», so explicitly allow that case
+    # while still requiring every package build to succeed (success() alone would skip the artifact).
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.deb-package.result == 'success' && (inputs.release || needs.deb.result == 'success') && needs.rpm.result == 'success' }}
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
