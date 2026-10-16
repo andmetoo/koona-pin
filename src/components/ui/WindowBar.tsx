@@ -25,8 +25,6 @@ export function WindowBar() {
         .getDesktop()
         .then((next) => {
           linux.current = next.linux;
-          // WebKitGTK without a GPU leaves the window blank under the toolbar's wide glass: no blur there (app.css).
-          if (next.linux) document.documentElement.dataset.linux = "";
           if (alive) setDesktop(next);
         })
         .catch(() => {});

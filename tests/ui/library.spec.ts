@@ -1648,7 +1648,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   // In the trash the bar offers to restore, export and delete for good.
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
-  await clickEmpty(page);
+  await clickEmpty(page, "Trash");
   await page.keyboard.press("ControlOrMeta+a");
   await expect(bar.getByRole("status")).toHaveText("2 selected");
   await expect(bar.getByRole("button", { name: "Move to…" })).toHaveCount(0);
@@ -1662,7 +1662,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   await selectCards(page, ["Ten principles for good design", "Noticing the everyday"]);
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
-  await clickEmpty(page);
+  await clickEmpty(page, "Trash");
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("Delete");
   const dialog = page.getByRole("dialog", { name: "Delete forever?" });
@@ -1683,10 +1683,22 @@ async function dragOver(page: import("@playwright/test").Page, from: import("@pl
 }
 const dropHint = (page: import("@playwright/test").Page) => page.locator("[data-drop-hint]");
 /** A click on the list's empty margin, just below the glass toolbar laid over its top. */
-async function clickEmpty(page: import("@playwright/test").Page) {
-  const list = page.locator('[data-scroll="main"]');
-  const top = await list.evaluate((e) => parseFloat(getComputedStyle(e).paddingTop));
-  await list.click({ position: { x: 5, y: top - 3 } });
+async function clickEmpty(page: import("@playwright/test").Page, section?: string) {
+  // A section just opened: its toolbar (the trash's note) first, or the old one is measured.
+  if (section) await expect(page.locator(".toolbar-glass h1")).toHaveText(new RegExp(`^${section}`));
+  // The list's room follows the toolbar a frame later (the trash adds its note): wait until the point
+  // just under the toolbar is the list itself, then click there, at that point measured now.
+  const spot = () =>
+    page.evaluate(() => {
+      const list = document.querySelector<HTMLElement>('[data-scroll="main"]')!;
+      const head = document.querySelector<HTMLElement>(".toolbar-glass")!.getBoundingClientRect();
+      const x = list.getBoundingClientRect().left + 5;
+      const y = head.bottom + 3;
+      return document.elementFromPoint(x, y) === list ? { x, y } : null;
+    });
+  await expect.poll(spot).not.toBeNull();
+  const { x, y } = (await spot())!;
+  await page.mouse.click(x, y);
 }
 
 test("drag: the selection onto a collection, a tag and the trash; the hint names the action and Ctrl Z takes it back", async ({ page }) => {
@@ -1730,7 +1742,12 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   const last = tags.last();
   const tag = (await last.textContent())!;
   // With Feeds above Collections (NP-132) the last tag sits below a 900 px window: the sidebar scrolls to it.
-  await last.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  // To the end of the sidebar's middle: the last tag sits over the footer, in the edge that scrolls
+  // while dragging, and a list that can still scroll would move under the pointer.
+  await last.evaluate((element) => {
+    const middle = element.closest<HTMLElement>("[data-drop-scroll]")!;
+    middle.scrollTop = middle.scrollHeight;
+  });
   const box = (await last.boundingBox())!;
   // Come in from the library at the tag's height: crossing the top edge of the list would scroll it.
   await page.mouse.move(box.x + 400, box.y + box.height / 2);
@@ -1849,7 +1866,7 @@ test("drag in a narrow window: collection dots and the trash of the strip are ta
 
   // In the trash a press on a selected card does not lift it.
   await strip.getByRole("button", { name: "Trash", exact: true }).click();
-  await clickEmpty(page);
+  await clickEmpty(page, "Trash");
   await page.keyboard.press("ControlOrMeta+a");
   await dragOver(page, page.locator("[data-bookmark-id][data-selected] [data-preview]").first(), strip.getByRole("button", { name: "Development", exact: true }));
   await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
