@@ -180,6 +180,19 @@ fn maintain(app: &AppHandle, library: &Library, db: &DbState, moved_aside: Optio
             Ok(_) => {}
             Err(error) => eprintln!("Tidying Reading failed, will try again: {error}"),
         }
+        // Offline copies and their rows agree (NP-126): a purge synced from
+        // another device leaves a folder, a folder removed by hand leaves a row.
+        let swept = match db.conn.lock() {
+            Ok(conn) => crate::offline::sweep(&conn),
+            Err(_) => Ok(0),
+        };
+        match swept {
+            Ok(rows) if rows > 0 => {
+                let _ = app.emit("library-invalidated", ());
+            }
+            Ok(_) => {}
+            Err(error) => eprintln!("Sweeping offline copies failed, will try again: {error}"),
+        }
         check = false;
         thread::sleep(MAINTENANCE_PERIOD);
     }
