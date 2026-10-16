@@ -3,10 +3,12 @@
 // page's scripts never run and nothing it names is loaded, the article is taken out
 // by Defuddle, and DOMPurify cleans it before anything reaches a live DOM.
 //
-// The article view (`components/reader/ArticleView.tsx`, NP-123) calls `cachedArticle`
-// and shows `article.html`, or the failure card with «Open in browser».
+// The article view (`components/reader/ArticleView.tsx`, NP-123) calls `openArticle`
+// and shows `article.html`, or the failure card with «Open in browser». A bookmark
+// with an offline copy (NP-126) opens from it, with no request to the site.
 import Defuddle from "defuddle";
 import DOMPurify from "dompurify";
+import type { Bookmark, OfflineArticle, OfflineCopy, OfflineCopyContent } from "../types";
 import { api } from "./api";
 
 export interface Article {
@@ -103,6 +105,83 @@ export function cachedArticle(url: string): Promise<ReadResult> {
   // The oldest goes first: a Map keeps the order of insertion.
   if (articles.size > KEPT_ARTICLES) articles.delete(articles.keys().next().value!);
   return result;
+}
+
+/** What the reader shows: the article, and when it came from the offline copy, when that was saved. */
+export type OpenResult = { ok: true; article: Article; offlineAt: string | null } | { ok: false; failure: ReadFailure };
+
+/**
+ * The article of a bookmark (NP-126): its offline copy when it has one, at once
+ * and without asking the site; the page otherwise, or when `live` asks for it
+ * («Try live page»). A copy that cannot be read is not fatal: the page is asked
+ * for; a live page that cannot be read leaves the copy on screen.
+ */
+export async function openArticle(b: Pick<Bookmark, "id" | "url" | "offline_at">, live = false): Promise<OpenResult> {
+  if (b.offline_at && !live) return (await copyOf(b)) ?? page(await cachedArticle(b.url));
+  if (!b.offline_at) return page(await cachedArticle(b.url));
+  const read = await cachedArticle(b.url).catch((error: unknown) => ({ ok: false as const, error }));
+  if (read.ok) return page(read);
+  const copy = await copyOf(b);
+  if (copy) return copy;
+  if ("error" in read) throw read.error;
+  return read;
+}
+
+const page = (read: ReadResult): OpenResult => (read.ok ? { ok: true, article: read.article, offlineAt: null } : read);
+
+/** The bookmark's copy as an article; none when it is gone or cannot be read. */
+async function copyOf(b: Pick<Bookmark, "id" | "url">): Promise<OpenResult | null> {
+  const content = await api.getOfflineCopy(b.id).catch(() => null);
+  if (!content) return null;
+  words.set(b.url, content.article.words);
+  return { ok: true, article: articleFromCopy(content), offlineAt: content.copy.saved_at };
+}
+
+/** A saved copy as the reader shows it: its HTML cleaned again by the same `sanitize`. */
+export function articleFromCopy({ article }: OfflineCopyContent): Article {
+  return {
+    url: article.url,
+    title: article.title,
+    author: article.author,
+    site: article.site,
+    published: article.published,
+    description: article.description,
+    language: article.language,
+    html: sanitize(article.html),
+    words: article.words,
+    // The copy passed the rule when it was saved.
+    linkDensity: 0,
+    onTopic: true,
+  };
+}
+
+/** What is kept of an article on this computer: what reading mode extracted, nothing more. */
+export const toOfflineArticle = ({ url, title, author, site, published, description, language, html, words }: Article): OfflineArticle => ({
+  url,
+  title,
+  author,
+  site,
+  published,
+  description,
+  language,
+  html,
+  words,
+});
+
+export type SaveResult = { ok: true; copy: OfflineCopy } | { ok: false; failure: ReadFailure };
+
+/**
+ * «Save offline»: the article already on screen when there is one (no second
+ * request), else the page read now («Save for offline» of the list, «Update copy»).
+ */
+export async function saveOffline(b: Pick<Bookmark, "id" | "url">, article?: Article): Promise<SaveResult> {
+  let shown = article;
+  if (!shown) {
+    const read = await readArticle(b.url);
+    if (!read.ok) return read;
+    shown = read.article;
+  }
+  return { ok: true, copy: await api.saveOfflineCopy(b.id, toOfflineArticle(shown)) };
 }
 
 /** Words of the articles read in this session, kept longer than the articles: a number per address. */
@@ -305,9 +384,17 @@ const FORBID_TAGS = [
   "video", "audio", "source", "track", "canvas", "dialog", "slot", "svg", "math",
 ];
 
+/** The pictures an offline copy keeps inline (NP-126): the formats it saves, never SVG. */
+const DATA_IMAGE = /^data:image\/(png|jpeg|gif|webp|avif)[;,]/i;
+
 /** The last step before the article may reach a document. */
 export function sanitize(html: string): string {
   const purify = DOMPurify(window);
+  // DOMPurify lets any `data:` through on a picture's src: only the copy's own formats stay, and only there.
+  purify.addHook("uponSanitizeAttribute", (node, data) => {
+    if (!/^\s*data:/i.test(data.attrValue)) return;
+    if (!(node.nodeName === "IMG" && data.attrName === "src" && DATA_IMAGE.test(data.attrValue.trim()))) data.keepAttr = false;
+  });
   return purify.sanitize(html, {
     USE_PROFILES: { html: true },
     FORBID_TAGS,

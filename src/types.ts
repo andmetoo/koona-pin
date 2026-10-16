@@ -20,6 +20,10 @@ export type { Damage } from "./bindings/Damage";
 export type { SkipReason } from "./bindings/SkipReason";
 export type { SkippedLink } from "./bindings/SkippedLink";
 export type { Bookmark } from "./bindings/Bookmark";
+export type { OfflineArticle } from "./bindings/OfflineArticle";
+export type { OfflineCopy } from "./bindings/OfflineCopy";
+export type { OfflineCopyContent } from "./bindings/OfflineCopyContent";
+export type { OfflineStats } from "./bindings/OfflineStats";
 export type { BookmarkChange } from "./bindings/BookmarkChange";
 export type { BookmarkPage } from "./bindings/BookmarkPage";
 export type { BookmarkPatch } from "./bindings/BookmarkPatch";
@@ -113,4 +117,6 @@ export interface FilterState {
   onlyTrash: boolean;
   /** The «Reading» section (NP-121) in its own order: unread newest first, then the read ones. */
   onlyReading: boolean;
+  /** The «Offline» section (NP-126): bookmarks with an offline copy on this computer. */
+  onlyOffline: boolean;
 }

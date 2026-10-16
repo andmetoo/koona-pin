@@ -1,18 +1,21 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUpRight, Heart } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Bookmark } from "../../types";
+import { Bookmark, OfflineCopy } from "../../types";
+import { Article } from "../../services/reader";
 import { useReadingProgress } from "../../hooks/useReadingProgress";
 import { Icon } from "../icons";
 import { Kbd } from "../ui/Hint";
 import { ReaderLook, readerStyle } from "../../services/readerLook";
-import { ArticleView } from "./ArticleView";
+import { ArticleStatus, ArticleView, OfflineBanner } from "./ArticleView";
+import { OfflineButton, useOfflineCopies } from "./OfflineButton";
 
 /**
  * Reading over the list (Р-69 variant A, frame A): a sheet 760 px wide over
  * the dimmed library with the article of the selected bookmark. `↑`/`↓` go
  * through the selection, `Esc` or a click beside it closes it; focus returns
- * to where it was. «Open in browser» and the heart act on the bookmark shown.
+ * to where it was. «Open in browser» and the heart act on the bookmark shown;
+ * «Save offline» keeps its article on this computer (NP-126).
  */
 export function ReadingSheet({
   bookmarks,
@@ -22,6 +25,8 @@ export function ReadingSheet({
   onOpen,
   onFavorite,
   onClose,
+  onSaveOffline,
+  onRemoveOffline,
   look,
 }: {
   /** The theme, font and size of the Aa panel (NP-124): the sheet reads as the mode does. */
@@ -35,6 +40,9 @@ export function ReadingSheet({
   onOpen: (url: string) => void;
   onFavorite: (bookmark: Bookmark) => void;
   onClose: () => void;
+  /** As the reading mode's (NP-126). */
+  onSaveOffline: (bookmark: Bookmark, article?: Article, quiet?: boolean) => Promise<OfflineCopy | null>;
+  onRemoveOffline: (bookmark: Bookmark) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -42,6 +50,31 @@ export function ReadingSheet({
   const b = bookmarks[index];
   const [ready, setReady] = useState<number | null>(null);
   const progress = useReadingProgress(b, scroller, ready === b.id);
+  const [status, setStatus] = useState<{ id: number; status: ArticleStatus } | null>(null);
+  const shownStatus = status?.id === b.id ? status.status : null;
+  const [attempt, setAttempt] = useState(0);
+  /** «Try live page»: the page itself, not the offline copy, until another bookmark shows. */
+  const [livePage, setLivePage] = useState(false);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  const offline = useOfflineCopies({
+    onSave: onSaveOffline,
+    onRemove: onRemoveOffline,
+    // The list makes a new array each time: what counts is the copies it carries.
+    reset: bookmarks.map((item) => `${item.id}:${item.offline_at}`).join(),
+    onUpdated: () => {
+      setLivePage(false);
+      setAttempt((n) => n + 1);
+    },
+  });
   const latest = useRef({ index, count: bookmarks.length, onIndex, onClose });
   latest.current = { index, count: bookmarks.length, onIndex, onClose };
 
@@ -65,6 +98,7 @@ export function ReadingSheet({
   // Each bookmark starts at its top; the article, once loaded, where reading stopped.
   useLayoutEffect(() => {
     setReady(null);
+    setLivePage(false);
     scroller.current?.scrollTo({ top: 0 });
   }, [b.id]);
 
@@ -120,6 +154,16 @@ export function ReadingSheet({
             </span>
           )}
           <span className="flex-1" />
+          <OfflineButton
+            saved={!!offline.offlineAt(b)}
+            busy={offline.saving === b.id}
+            narrow
+            disabled={shownStatus?.kind !== "article"}
+            onSave={() => shownStatus?.kind === "article" && void offline.save(b, shownStatus.article)}
+            onUpdate={() => void offline.save(b)}
+            onRemove={() => void offline.remove(b)}
+            className="!size-8 border-border"
+          />
           <button
             type="button"
             onClick={() => onOpen(b.url)}
@@ -138,8 +182,30 @@ export function ReadingSheet({
             <Icon icon={Heart} size={16} className={b.is_favorite ? "fill-accent" : ""} />
           </button>
         </header>
+        {!online && shownStatus?.kind === "article" && shownStatus.offlineAt && (
+          <OfflineBanner
+            savedAt={offline.offlineAt(b) ?? shownStatus.offlineAt}
+            onLive={() => {
+              setLivePage(true);
+              setAttempt((n) => n + 1);
+            }}
+          />
+        )}
         <div ref={scroller} tabIndex={-1} data-reader-scroll className="min-h-0 flex-1 overflow-y-auto px-6 pt-10 pb-24 outline-none">
-          <ArticleView key={b.id} url={b.url} title={b.title || b.url} domain={b.domain} saved={b.created_at} onOpen={onOpen} onReady={restore} />
+          <ArticleView
+            key={b.id}
+            url={b.url}
+            title={b.title || b.url}
+            domain={b.domain}
+            saved={b.created_at}
+            bookmarkId={b.id}
+            offlineAt={offline.offlineAt(b)}
+            live={livePage}
+            attempt={attempt}
+            onOpen={onOpen}
+            onReady={restore}
+            onStatus={(next) => setStatus({ id: b.id, status: next })}
+          />
         </div>
       </div>
     </dialog>

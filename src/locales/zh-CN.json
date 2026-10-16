@@ -54,7 +54,8 @@
     "trash": "回收站",
     "duplicates": "重复项",
     "links": "链接检查",
-    "settings": "设置"
+    "settings": "设置",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "浏览器已连接",
@@ -151,7 +152,11 @@
     "read": "阅读",
     "readOf": "在此阅读：{{title}}",
     "selected": "已选中",
-    "filterDomain": "只看来自 {{domain}} 的书签"
+    "filterDomain": "只看来自 {{domain}} 的书签",
+    "saveOffline": "Save for offline",
+    "removeOffline": "Remove offline copy",
+    "saveOfflineShort": "Save offline",
+    "savedOffline": "Saved offline"
   },
   "selection": {
     "label": "所选书签",
@@ -635,7 +640,21 @@
     "github": "GitHub 上的问题",
     "githubHint": "koona-pin 中的公开报告",
     "licenses": "许可证",
-    "licensesHint": "Koona Pin 使用的字体、图标和库"
+    "licensesHint": "Koona Pin 使用的字体、图标和库",
+    "offline": "Offline copies",
+    "offlineStats": "Saved for offline — {{articles}} · {{size}}",
+    "offlineArticles_other": "{{count}} articles",
+    "offlineHint": "Only on this computer: not synced, not in exports.",
+    "showFolder": "Show folder",
+    "saveOffline": "Save articles I open in Reading",
+    "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
+    "removeCopies": "Remove all copies",
+    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
+    "removeCopiesButton": "Remove…",
+    "removeCopiesTitle": "Remove all offline copies?",
+    "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
+    "removeCopiesConfirm": "Remove copies",
+    "copiesRemoved_other": "{{count}} offline copies removed"
   },
   "notice": {
     "previewRefreshed": "预览已刷新",
@@ -748,7 +767,9 @@
     "inbox": "全部整理完毕",
     "inboxHint": "从浏览器保存和导入的新书签会来到这里，等待你处理。",
     "trash": "回收站是空的",
-    "trashHint": "已删除的书签会在这里保留 30 天，之后将被永久删除。"
+    "trashHint": "已删除的书签会在这里保留 30 天，之后将被永久删除。",
+    "offline": "No offline copies yet",
+    "offlineHint": "Choose «Save for offline» in a bookmark’s menu, or «Save offline» in reading mode. Copies stay on this computer."
   },
   "inbox": {
     "banner_other": "{{count}} 个新书签正在等待 — 保留、归档或删除，大约只需一分钟",
@@ -775,7 +796,20 @@
       "notHtml": "此链接是文件，不是网页。",
       "links": "此页面大多是链接，不是文章。",
       "empty": "页面上没有找到文章，可能是由脚本绘制的。"
-    }
+    },
+    "offlineCopy": "offline copy",
+    "offlineBanner": "No connection — reading the offline copy saved {{date}}",
+    "tryLive": "Try live page"
+  },
+  "offline": {
+    "save": "Save offline",
+    "saved": "Saved offline",
+    "saving": "Saving…",
+    "update": "Update copy",
+    "remove": "Remove copy",
+    "savedNotice": "Saved for offline",
+    "removedNotice": "Offline copy removed",
+    "failed": "Couldn’t save for offline: {{reason}}"
   },
   "readerAa": {
     "label": "文字与主题",

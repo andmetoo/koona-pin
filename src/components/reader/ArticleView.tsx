@@ -1,38 +1,53 @@
-import { Fragment, MouseEvent, ReactNode, useEffect, useState } from "react";
-import { ArrowUpRight, FileX } from "lucide-react";
+import { Fragment, MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { ArrowUpRight, FileX, WifiOff } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Article, cachedArticle, ReadFailure, readingMinutes } from "../../services/reader";
+import { Article, openArticle, ReadFailure, readingMinutes } from "../../services/reader";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 
-type State = { url: string } & ({ kind: "loading" } | { kind: "article"; article: Article } | { kind: "failed"; failure: ReadFailure | null });
+type State = { url: string } & (
+  | { kind: "loading" }
+  /** `offlineAt`: the article is the offline copy saved then (NP-126). */
+  | { kind: "article"; article: Article; offlineAt: string | null }
+  | { kind: "failed"; failure: ReadFailure | null }
+);
 
 /**
- * The article of `url`, read once per address (`cachedArticle`); a newer address wins over an older answer.
+ * The article of `url` (`openArticle`): the bookmark's offline copy when it has one,
+ * else the page read once per address; a newer address wins over an older answer.
  * A new `attempt` asks again: a timeout or a lost connection is not kept in the cache.
+ * The copy is looked for as the bookmark was when it opened: saving one later keeps
+ * the article on screen.
  */
-function useArticle(url: string, attempt: number) {
+function useArticle(url: string, attempt: number, bookmarkId: number | undefined, offlineAt: string | null, live: boolean) {
   const [state, setState] = useState<State>({ url, kind: "loading" });
+  const copy = useRef(offlineAt);
+  copy.current = offlineAt;
   useEffect(() => {
     let current = true;
     setState({ url, kind: "loading" });
-    cachedArticle(url).then(
-      (read) => current && setState(read.ok ? { url, kind: "article", article: read.article } : { url, kind: "failed", failure: read.failure }),
+    openArticle({ id: bookmarkId ?? 0, url, offline_at: bookmarkId === undefined ? null : copy.current }, live).then(
+      (read) =>
+        current &&
+        setState(read.ok ? { url, kind: "article", article: read.article, offlineAt: read.offlineAt } : { url, kind: "failed", failure: read.failure }),
       () => current && setState({ url, kind: "failed", failure: null }),
     );
     return () => {
       current = false;
     };
-  }, [url, attempt]);
+  }, [url, attempt, bookmarkId, live]);
   // Until the effect runs for a new address, the old article must not show under the new title.
   return state.url === url ? state : ({ url, kind: "loading" } as const);
 }
 
-export type ArticleStatus = { kind: "loading" } | { kind: "article"; article: Article } | { kind: "failed"; failure: ReadFailure | null };
+export type ArticleStatus =
+  | { kind: "loading" }
+  | { kind: "article"; article: Article; offlineAt: string | null }
+  | { kind: "failed"; failure: ReadFailure | null };
 
 /** «Oct 3», with the year when it is not this one. */
-const savedOn = (iso: string, language: string) => {
+export const savedOn = (iso: string, language: string) => {
   const date = new Date(iso);
   const sameYear = date.getFullYear() === new Date().getFullYear();
   return date.toLocaleDateString(language, { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) });
@@ -80,6 +95,9 @@ export function ArticleView({
   onStatus,
   attempt = 0,
   saved,
+  bookmarkId,
+  offlineAt = null,
+  live = false,
 }: {
   url: string;
   /** The bookmark's title: shown while the article loads and when there is none. */
@@ -97,9 +115,15 @@ export function ArticleView({
   attempt?: number;
   /** When the bookmark was saved: «saved Oct 3» in the meta line (frame B3). */
   saved?: string;
+  /** The bookmark: with `offlineAt`, its offline copy opens instead of the page (NP-126). */
+  bookmarkId?: number;
+  /** When its offline copy was saved; none without one. */
+  offlineAt?: string | null;
+  /** The page itself even when there is a copy («Try live page»). */
+  live?: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const state = useArticle(url, attempt);
+  const state = useArticle(url, attempt, bookmarkId, offlineAt, live);
   const article = state.kind === "article" ? state.article : null;
   useEffect(() => {
     if (article) onReady?.(article);
@@ -109,6 +133,8 @@ export function ArticleView({
     onStatus?.(state);
     // Once per state, not per render of the caller.
   }, [state.kind, state.kind === "article" ? state.article : state.kind === "failed" ? state.failure : null]);
+  // The copy on screen, while the bookmark still has one: «offline copy · saved Oct 3».
+  const copySaved = state.kind === "article" && state.offlineAt && offlineAt ? offlineAt : null;
 
   if (state.kind === "failed" && failure) return failure(state.failure);
 
@@ -142,7 +168,12 @@ export function ArticleView({
   return (
     <article lang={article?.language ?? undefined} aria-busy={!article || undefined} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
       <p className="reader-meta">
-        {[article?.site ?? domain, article && t("reader.minutes", { count: readingMinutes(article.words) }), saved && t("reader.saved", { date: savedOn(saved, i18n.language) })]
+        {[
+          article?.site ?? domain,
+          article && t("reader.minutes", { count: readingMinutes(article.words) }),
+          copySaved && t("reader.offlineCopy"),
+          copySaved ? t("reader.saved", { date: savedOn(copySaved, i18n.language) }) : saved && t("reader.saved", { date: savedOn(saved, i18n.language) }),
+        ]
           .filter(Boolean)
           .map((part, i) => (
             <Fragment key={i}>
@@ -163,5 +194,24 @@ export function ArticleView({
         </div>
       )}
     </article>
+  );
+}
+
+/**
+ * The line under the reader's bar when there is no connection and the offline
+ * copy is on screen (frame O4): «No connection — reading the offline copy saved
+ * Oct 3 · Try live page».
+ */
+export function OfflineBanner({ savedAt, onLive, className = "" }: { savedAt: string; onLive: () => void; className?: string }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <div data-offline-banner role="status" className={`flex shrink-0 items-center justify-center gap-2 border-b border-read-border bg-read-queue px-6 py-2 text-xs text-read-text ${className}`}>
+      <Icon icon={WifiOff} size={13} className="shrink-0 text-read-muted" />
+      <span className="min-w-0 truncate">{t("reader.offlineBanner", { date: savedOn(savedAt, i18n.language) })}</span>
+      <span aria-hidden className="text-read-muted">·</span>
+      <button type="button" onClick={onLive} className="shrink-0 font-medium text-read-ink underline-offset-2 hover:underline">
+        {t("reader.tryLive")}
+      </button>
+    </div>
   );
 }

@@ -60,7 +60,8 @@
     "trash": "Отпад",
     "duplicates": "Дупликати",
     "links": "Провера линкова",
-    "settings": "Подешавања"
+    "settings": "Подешавања",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "Прегледач повезан",
@@ -163,7 +164,11 @@
     "read": "Читај",
     "readOf": "Читај овде: {{title}}",
     "selected": "Изабрано",
-    "filterDomain": "Само обележивачи са {{domain}}"
+    "filterDomain": "Само обележивачи са {{domain}}",
+    "saveOffline": "Save for offline",
+    "removeOffline": "Remove offline copy",
+    "saveOfflineShort": "Save offline",
+    "savedOffline": "Saved offline"
   },
   "selection": {
     "label": "Изабрани обележивачи",
@@ -727,7 +732,27 @@
     "github": "Пријаве на GitHub-у",
     "githubHint": "Јавне пријаве у koona-pin",
     "licenses": "Лиценце",
-    "licensesHint": "Фонтови, иконе и библиотеке од којих је направљен Koona Pin"
+    "licensesHint": "Фонтови, иконе и библиотеке од којих је направљен Koona Pin",
+    "offline": "Offline copies",
+    "offlineStats": "Saved for offline — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} article",
+    "offlineArticles_few": "{{count}} articles",
+    "offlineArticles_other": "{{count}} articles",
+    "offlineHint": "Only on this computer: not synced, not in exports.",
+    "showFolder": "Show folder",
+    "saveOffline": "Save articles I open in Reading",
+    "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
+    "removeCopies": "Remove all copies",
+    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
+    "removeCopiesButton": "Remove…",
+    "removeCopiesTitle": "Remove all offline copies?",
+    "removeCopiesText_one": "{{count}} saved article will be deleted from this computer. The bookmark stays.",
+    "removeCopiesText_few": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
+    "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
+    "removeCopiesConfirm": "Remove copies",
+    "copiesRemoved_one": "{{count}} offline copy removed",
+    "copiesRemoved_few": "{{count}} offline copies removed",
+    "copiesRemoved_other": "{{count}} offline copies removed"
   },
   "notice": {
     "previewRefreshed": "Преглед је освежен",
@@ -854,7 +879,9 @@
     "inbox": "Све је разврстано",
     "inboxHint": "Нови обележивачи из прегледача и увоза стижу овде и чекају одлуку.",
     "trash": "Отпад је празан",
-    "trashHint": "Обрисани обележивачи остају овде 30 дана, а затим нестају заувек."
+    "trashHint": "Обрисани обележивачи остају овде 30 дана, а затим нестају заувек.",
+    "offline": "No offline copies yet",
+    "offlineHint": "Choose «Save for offline» in a bookmark’s menu, or «Save offline» in reading mode. Copies stay on this computer."
   },
   "inbox": {
     "banner_one": "{{count}} нови обележивач чека — да га задржите, разврстате или баците треба тренутак",
@@ -889,7 +916,20 @@
       "notHtml": "Ова веза је датотека, а не веб-страница.",
       "links": "Страница је углавном везе, а не чланак.",
       "empty": "На страници није пронађен чланак — можда га цртају скрипте."
-    }
+    },
+    "offlineCopy": "offline copy",
+    "offlineBanner": "No connection — reading the offline copy saved {{date}}",
+    "tryLive": "Try live page"
+  },
+  "offline": {
+    "save": "Save offline",
+    "saved": "Saved offline",
+    "saving": "Saving…",
+    "update": "Update copy",
+    "remove": "Remove copy",
+    "savedNotice": "Saved for offline",
+    "removedNotice": "Offline copy removed",
+    "failed": "Couldn’t save for offline: {{reason}}"
   },
   "readerAa": {
     "label": "Текст и тема",

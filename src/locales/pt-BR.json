@@ -60,7 +60,8 @@
     "trash": "Lixeira",
     "duplicates": "Duplicatas",
     "links": "Verificação de links",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "Conectado",
@@ -163,7 +164,11 @@
     "read": "Ler",
     "readOf": "Ler aqui: {{title}}",
     "selected": "Selecionado",
-    "filterDomain": "Só marcadores de {{domain}}"
+    "filterDomain": "Só marcadores de {{domain}}",
+    "saveOffline": "Save for offline",
+    "removeOffline": "Remove offline copy",
+    "saveOfflineShort": "Save offline",
+    "savedOffline": "Saved offline"
   },
   "selection": {
     "label": "Marcadores selecionados",
@@ -727,7 +732,27 @@
     "github": "Issues no GitHub",
     "githubHint": "Relatos públicos em koona-pin",
     "licenses": "Licenças",
-    "licensesHint": "Fontes, ícones e bibliotecas com que o Koona Pin é feito"
+    "licensesHint": "Fontes, ícones e bibliotecas com que o Koona Pin é feito",
+    "offline": "Offline copies",
+    "offlineStats": "Saved for offline — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} article",
+    "offlineArticles_many": "{{count}} articles",
+    "offlineArticles_other": "{{count}} articles",
+    "offlineHint": "Only on this computer: not synced, not in exports.",
+    "showFolder": "Show folder",
+    "saveOffline": "Save articles I open in Reading",
+    "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
+    "removeCopies": "Remove all copies",
+    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
+    "removeCopiesButton": "Remove…",
+    "removeCopiesTitle": "Remove all offline copies?",
+    "removeCopiesText_one": "{{count}} saved article will be deleted from this computer. The bookmark stays.",
+    "removeCopiesText_many": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
+    "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
+    "removeCopiesConfirm": "Remove copies",
+    "copiesRemoved_one": "{{count}} offline copy removed",
+    "copiesRemoved_many": "{{count}} offline copies removed",
+    "copiesRemoved_other": "{{count}} offline copies removed"
   },
   "notice": {
     "previewRefreshed": "Prévia atualizada",
@@ -854,7 +879,9 @@
     "inbox": "Tudo organizado",
     "inboxHint": "Os novos marcadores do navegador e das importações chegam aqui e esperam uma decisão.",
     "trash": "A lixeira está vazia",
-    "trashHint": "Os marcadores excluídos ficam aqui por 30 dias e depois somem de vez."
+    "trashHint": "Os marcadores excluídos ficam aqui por 30 dias e depois somem de vez.",
+    "offline": "No offline copies yet",
+    "offlineHint": "Choose «Save for offline» in a bookmark’s menu, or «Save offline» in reading mode. Copies stay on this computer."
   },
   "inbox": {
     "banner_one": "{{count}} marcador novo aguardando — manter, guardar ou jogar fora leva um instante",
@@ -889,7 +916,20 @@
       "notHtml": "Este link é um arquivo, não uma página da web.",
       "links": "A página é quase só links, não um artigo.",
       "empty": "Nenhum artigo foi encontrado na página — talvez ela seja desenhada por scripts."
-    }
+    },
+    "offlineCopy": "offline copy",
+    "offlineBanner": "No connection — reading the offline copy saved {{date}}",
+    "tryLive": "Try live page"
+  },
+  "offline": {
+    "save": "Save offline",
+    "saved": "Saved offline",
+    "saving": "Saving…",
+    "update": "Update copy",
+    "remove": "Remove copy",
+    "savedNotice": "Saved for offline",
+    "removedNotice": "Offline copy removed",
+    "failed": "Couldn’t save for offline: {{reason}}"
   },
   "readerAa": {
     "label": "Texto e tema",
