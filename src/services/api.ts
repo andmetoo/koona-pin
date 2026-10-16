@@ -21,7 +21,18 @@ import {
   DataSummary,
   Desktop,
   DomainCount,
+  Feed,
+  FeedArticle,
+  FeedDestination,
+  FeedItemPage,
+  FeedItemQuery,
+  FeedPreview,
+  FeedsChanged,
+  FeedsRefresh,
   FilterState,
+  LinkPreview,
+  OpmlImport,
+  SavePlace,
   CsvColumns,
   ExportFormat,
   ExportOutcome,
@@ -355,5 +366,39 @@ const desktop = {
   syncNow: () => call<SyncStatus>("sync_now"),
   /** Diagnostics for support: states and ids, no library content. */
   copySyncReport: () => call<string>("copy_sync_report"),
+  // feeds — RSS, Atom and JSON Feed (NP-128, src-tauri/src/feeds). Later feeds tasks add here only.
+  // Until NP-129 and NP-131 land, every command but the first four rejects with `not_implemented`.
+  /** Every subscription with its counts and health. */
+  listFeeds: () => call<Feed[]>("list_feeds"),
+  /** Follows a feed address; one already followed answers its subscription. */
+  subscribeFeed: (url: string, title: string | null, destination: FeedDestination) =>
+    call<Feed>("subscribe_feed", { url, title, destination }),
+  /** Rename (an empty title goes back to the feed's own) and «Where new posts go»; null keeps. */
+  updateFeed: (uid: string, title: string | null, destination: FeedDestination | null) =>
+    call<Feed>("update_feed", { uid, title, destination }),
+  unsubscribeFeed: (uid: string) => call<void>("unsubscribe_feed", { uid }),
+  /** «New link»: the pasted page's head, its metadata and the feeds it names; one request. */
+  previewLink: (url: string) => call<LinkPreview>("preview_link", { url }),
+  /** The feed itself, only once the «Follow» toggle is on. */
+  previewFeed: (url: string) => call<FeedPreview>("preview_feed", { url }),
+  listFeedItems: (query: FeedItemQuery) => call<FeedItemPage>("list_feed_items", { query }),
+  getFeedArticle: (id: number) => call<FeedArticle>("get_feed_article", { id }),
+  setFeedItemsRead: (ids: number[], read: boolean) => call<void>("set_feed_items_read", { ids, read }),
+  /** One feed, or all of them with null, up to a fetch time; how many were marked. */
+  markFeedRead: (feedUid: string | null, upTo: string | null) => call<number>("mark_feed_read", { feedUid, upTo }),
+  /** S, R and F: the post as an ordinary bookmark, through the journal. */
+  saveFeedItem: (id: number, place: SavePlace, favorite: boolean) =>
+    call<Bookmark>("save_feed_item", { id, place, favorite }),
+  /** One feed, or all of them with null, now; progress comes through onFeedsRefresh. */
+  refreshFeeds: (feedUid: string | null) => call<void>("refresh_feeds", { feedUid }),
+  clearFeedCache: () => call<void>("clear_feed_cache"),
+  importOpml: (path: string) => call<OpmlImport>("import_opml", { path }),
+  /** How many feeds were written. */
+  exportOpml: (path: string) => call<number>("export_opml", { path }),
+  /** «Check for new posts»: minutes, 0 only on refresh. */
+  setFeedsRefreshMinutes: (minutes: number) => call<void>("set_feeds_refresh_minutes", { minutes }),
+  onFeedsChanged: (callback: (change: FeedsChanged) => void) => subscription("feeds-changed", callback),
+  onFeedsRefresh: (callback: (progress: FeedsRefresh) => void) => subscription("feeds-refresh", callback),
+  // end feeds
 };
 export const api = isTauri() ? desktop : demo;
