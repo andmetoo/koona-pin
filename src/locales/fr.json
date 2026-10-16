@@ -1606,5 +1606,26 @@
       "note": "Le rapport ne contient que des états et des identifiants — aucun signet, aucun nom.",
       "copy": "Copier le rapport"
     }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bellUnread_one": "Notifications : {{count}} nouvelle",
+    "bellUnread_many": "Notifications : {{count}} nouvelles",
+    "bellUnread_other": "Notifications : {{count}} nouvelles",
+    "bellProblem": "Notifications : il y a un problème",
+    "clearAll": "Tout effacer",
+    "empty": "Rien de nouveau",
+    "emptyHint": "Les nouveaux signets et les problèmes d’enregistrement apparaîtront ici.",
+    "unread": "Non lue",
+    "inboxTitle_one": "{{count}} nouveau dans la boîte de réception",
+    "inboxTitle_many": "{{count}} nouveaux dans la boîte de réception",
+    "inboxTitle_other": "{{count}} nouveaux dans la boîte de réception",
+    "inboxText": "Les garder, les ranger ou les jeter prend environ une minute.",
+    "inboxTextOne": "Le garder, le ranger ou le jeter prend un instant.",
+    "inboxMany": "Les garder, les ranger ou les jeter un par un.",
+    "inboxImported_one": "Dont {{count}} de l’importation.",
+    "inboxImported_many": "Dont {{count}} de l’importation.",
+    "inboxImported_other": "Dont {{count}} de l’importation.",
+    "inboxFromImport": "Depuis l’importation."
   }
 }

@@ -1692,5 +1692,29 @@
       "note": "У звіті лише стани й ідентифікатори — без закладок і назв.",
       "copy": "Копіювати звіт"
     }
+  },
+  "notifications": {
+    "title": "Сповіщення",
+    "bellUnread_one": "Сповіщення: {{count}} нове",
+    "bellUnread_few": "Сповіщення: {{count}} нові",
+    "bellUnread_many": "Сповіщення: {{count}} нових",
+    "bellUnread_other": "Сповіщення: {{count}} нового",
+    "bellProblem": "Сповіщення: є проблема",
+    "clearAll": "Очистити все",
+    "empty": "Нічого нового",
+    "emptyHint": "Тут з'являться нові закладки й проблеми зі збереженням.",
+    "unread": "Не прочитано",
+    "inboxTitle_one": "{{count}} нова у вхідних",
+    "inboxTitle_few": "{{count}} нові у вхідних",
+    "inboxTitle_many": "{{count}} нових у вхідних",
+    "inboxTitle_other": "{{count}} нової у вхідних",
+    "inboxText": "Залишити, розкласти чи викинути їх займе близько хвилини.",
+    "inboxTextOne": "Залишити, розкласти чи викинути її займе мить.",
+    "inboxMany": "Залишити, розкласти чи викинути — по одній.",
+    "inboxImported_one": "{{count}} з них з імпорту.",
+    "inboxImported_few": "{{count}} з них з імпорту.",
+    "inboxImported_many": "{{count}} з них з імпорту.",
+    "inboxImported_other": "{{count}} з них з імпорту.",
+    "inboxFromImport": "З імпорту."
   }
 }

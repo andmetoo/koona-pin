@@ -1606,5 +1606,26 @@
       "note": "Il rapporto contiene solo stati e identificativi — niente segnalibri, niente nomi.",
       "copy": "Copia rapporto"
     }
+  },
+  "notifications": {
+    "title": "Notifiche",
+    "bellUnread_one": "Notifiche: {{count}} nuova",
+    "bellUnread_many": "Notifiche: {{count}} nuove",
+    "bellUnread_other": "Notifiche: {{count}} nuove",
+    "bellProblem": "Notifiche: c’è un problema",
+    "clearAll": "Cancella tutto",
+    "empty": "Niente di nuovo",
+    "emptyHint": "Qui compariranno i nuovi segnalibri e i problemi di salvataggio.",
+    "unread": "Non letta",
+    "inboxTitle_one": "{{count}} nuovo in arrivo",
+    "inboxTitle_many": "{{count}} nuovi in arrivo",
+    "inboxTitle_other": "{{count}} nuovi in arrivo",
+    "inboxText": "Tenerli, archiviarli o buttarli richiede circa un minuto.",
+    "inboxTextOne": "Tenerlo, archiviarlo o buttarlo richiede un attimo.",
+    "inboxMany": "Tenerli, archiviarli o buttarli uno alla volta.",
+    "inboxImported_one": "{{count}} dall’importazione.",
+    "inboxImported_many": "{{count}} dall’importazione.",
+    "inboxImported_other": "{{count}} dall’importazione.",
+    "inboxFromImport": "Dall’importazione."
   }
 }

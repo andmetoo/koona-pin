@@ -1520,5 +1520,23 @@
       "note": "Raporda yalnızca durumlar ve kimlikler var — yer işareti yok, ad yok.",
       "copy": "Raporu kopyala"
     }
+  },
+  "notifications": {
+    "title": "Bildirimler",
+    "bellUnread_one": "Bildirimler, {{count}} yeni",
+    "bellUnread_other": "Bildirimler, {{count}} yeni",
+    "bellProblem": "Bildirimler, bir sorun var",
+    "clearAll": "Tümünü temizle",
+    "empty": "Yeni bir şey yok",
+    "emptyHint": "Yeni yer işaretleri ve kaydetme sorunları burada görünür.",
+    "unread": "Okunmadı",
+    "inboxTitle_one": "Gelen kutusunda {{count}} yeni",
+    "inboxTitle_other": "Gelen kutusunda {{count}} yeni",
+    "inboxText": "Tutmak, yerleştirmek ya da atmak yaklaşık bir dakika sürer.",
+    "inboxTextOne": "Tutmak, yerleştirmek ya da atmak bir an sürer.",
+    "inboxMany": "Tek tek tutun, yerleştirin ya da atın.",
+    "inboxImported_one": "{{count}} tanesi içe aktarmadan.",
+    "inboxImported_other": "{{count}} tanesi içe aktarmadan.",
+    "inboxFromImport": "İçe aktarmadan."
   }
 }

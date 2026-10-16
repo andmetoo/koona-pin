@@ -1520,5 +1520,23 @@
       "note": "Der Bericht enthält nur Status und IDs — keine Lesezeichen, keine Namen.",
       "copy": "Bericht kopieren"
     }
+  },
+  "notifications": {
+    "title": "Mitteilungen",
+    "bellUnread_one": "Mitteilungen, {{count}} neu",
+    "bellUnread_other": "Mitteilungen, {{count}} neu",
+    "bellProblem": "Mitteilungen, es gibt ein Problem",
+    "clearAll": "Alle entfernen",
+    "empty": "Nichts Neues",
+    "emptyHint": "Neue Lesezeichen und Probleme beim Speichern erscheinen hier.",
+    "unread": "Ungelesen",
+    "inboxTitle_one": "{{count}} neues im Eingang",
+    "inboxTitle_other": "{{count}} neue im Eingang",
+    "inboxText": "Behalten, einsortieren oder wegwerfen dauert etwa eine Minute.",
+    "inboxTextOne": "Behalten, einsortieren oder wegwerfen dauert einen Moment.",
+    "inboxMany": "Einzeln behalten, einsortieren oder wegwerfen.",
+    "inboxImported_one": "{{count}} davon aus dem Import.",
+    "inboxImported_other": "{{count}} davon aus dem Import.",
+    "inboxFromImport": "Aus dem Import."
   }
 }

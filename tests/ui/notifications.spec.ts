@@ -1,0 +1,126 @@
+import { test, expect, type Page } from "@playwright/test";
+
+// The notification centre (2026-10-16): the inbox waiting, the import offer and a browser that
+// can't send bookmarks wait behind the bell in the sidebar instead of banners over the library.
+const open = async (page: Page, setup: Record<string, string> = {}) => {
+  await page.goto("/");
+  await page.evaluate((setup) => {
+    localStorage.removeItem("koonapin.demo.v4");
+    for (const [key, value] of Object.entries(setup)) localStorage.setItem(`koonapin.${key}`, value);
+  }, setup);
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+};
+const bell = (page: Page) => page.locator("[data-notification-bell]");
+const centre = (page: Page) => page.getByRole("dialog", { name: "Notifications" });
+
+test("the badge counts the unread; opening reads them, a newer bookmark is unread again", async ({ page }) => {
+  await open(page, { importBanner: "show" });
+  await expect(bell(page).locator(".notify-badge")).toHaveText("2");
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 2 new");
+  await bell(page).click();
+  await expect(bell(page)).toHaveAttribute("aria-expanded", "true");
+  // Both carry their unread dot while this opening lasts; focus is on the first action.
+  await expect(centre(page).locator(".nt-unread")).toHaveCount(2);
+  await expect(centre(page).getByRole("button", { name: "Sort", exact: true })).toBeFocused();
+  // Arrows walk through the buttons, Tab stays inside.
+  await page.keyboard.press("ArrowDown");
+  await expect(centre(page).getByRole("button", { name: "Hide until new bookmarks arrive" })).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(centre(page).getByRole("button", { name: "Sort", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(centre(page)).toHaveCount(0);
+  await expect(bell(page)).toBeFocused();
+  // Read now, also after a restart.
+  await expect(bell(page).locator(".notify-badge")).toHaveCount(0);
+  await expect(bell(page)).toHaveAccessibleName("Notifications");
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+  await expect(bell(page)).toHaveAccessibleName("Notifications");
+  await bell(page).click();
+  await expect(centre(page).locator(".nt-unread")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  // A newer bookmark makes the inbox notification unread again; the offer stays read.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    await api.addBookmark({ url: "https://example.com/newer", title: "Newer" });
+  });
+  await expect(bell(page).locator(".notify-badge")).toHaveText("1");
+  await bell(page).click();
+  await expect(centre(page).locator('[data-notification="inbox"]')).toContainText("3 new in Inbox");
+  await expect(centre(page).locator('[data-notification="inbox"] .nt-unread')).toHaveCount(1);
+  await expect(centre(page).locator('[data-notification="offer"] .nt-unread')).toHaveCount(0);
+});
+
+test("a click outside closes the centre; the bell toggles it", async ({ page }) => {
+  await open(page);
+  await bell(page).click();
+  await expect(centre(page)).toBeVisible();
+  await bell(page).click();
+  await expect(centre(page)).toHaveCount(0);
+  await bell(page).click();
+  await expect(centre(page)).toBeVisible();
+  await page.mouse.click(1100, 700);
+  await expect(centre(page)).toHaveCount(0);
+  // Esc in the centre closes only the centre: a selection stays.
+  await page.locator('[data-bookmark-id="1"]').click({ modifiers: ["ControlOrMeta"] });
+  await bell(page).click();
+  await page.keyboard.press("Escape");
+  await expect(centre(page)).toHaveCount(0);
+  await expect(page.getByRole("toolbar", { name: /selected/i })).toBeVisible();
+});
+
+test("Sort in the centre opens triage over the inbox", async ({ page }) => {
+  await open(page);
+  await bell(page).click();
+  await centre(page).getByRole("button", { name: "Sort", exact: true }).click();
+  await expect(centre(page)).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Sort inbox\s*1 of 2/);
+});
+
+test("Clear all hides what can be hidden; the empty centre says so", async ({ page }) => {
+  await open(page, { importBanner: "show" });
+  await bell(page).click();
+  await centre(page).getByRole("button", { name: "Clear all" }).click();
+  await expect(centre(page).locator("[data-notification]")).toHaveCount(0);
+  await expect(centre(page)).toContainText("Nothing new");
+  await expect(centre(page).getByRole("button", { name: "Clear all" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+  await bell(page).click();
+  await expect(centre(page)).toContainText("Nothing new");
+});
+
+test("a browser that can't send bookmarks is a problem: amber, Details, no ×", async ({ page }) => {
+  await open(page, { "demo.capture": "failing" });
+  await expect(bell(page).locator(".notify-badge")).toHaveText("2");
+  await expect(bell(page).locator(".notify-badge")).toHaveClass(/notify-badge-problem/);
+  await bell(page).click();
+  const problem = centre(page).locator('[data-notification="problem"]');
+  await expect(problem).toContainText("Capture isn't working");
+  await expect(problem).toContainText("The browser can't send bookmarks: Koona Pin couldn't open its capture channel.");
+  await expect(problem.locator(".nt-x")).toHaveCount(0);
+  // Clear all leaves it.
+  await centre(page).getByRole("button", { name: "Clear all" }).click();
+  await expect(problem).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  // Read, it keeps an amber dot: it is still there.
+  await expect(bell(page).locator(".notify-badge")).toHaveCount(0);
+  await expect(bell(page).locator(".notify-dot")).toBeVisible();
+  await expect(bell(page)).toHaveAccessibleName("Notifications, there is a problem");
+  await bell(page).click();
+  await problem.getByRole("button", { name: "Details" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Settings");
+});
+
+test("the narrow strip has the bell under the spirit; the centre opens beside the strip", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 550 });
+  await open(page, { importBanner: "show" });
+  const box = (await bell(page).boundingBox())!;
+  expect(box.x + box.width).toBeLessThan(56);
+  await bell(page).click();
+  const panel = (await centre(page).boundingBox())!;
+  expect(panel.x).toBeGreaterThanOrEqual(56);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(800);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(550);
+});

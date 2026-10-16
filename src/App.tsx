@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError, reasonOf } from "./services/errors";
@@ -19,10 +19,11 @@ import { useReaderLook } from "./hooks/useReaderLook";
 import { ClipIcon, Icon, InboxTray } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
-import { Hint, Kbd } from "./components/ui/Hint";
+import { Kbd } from "./components/ui/Hint";
 import { Dialog } from "./components/ui/Dialog";
 import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
+import { AppNotification } from "./components/shell/NotificationCenter";
 import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
 import { Arrows, BookmarkList } from "./components/library/BookmarkList";
@@ -482,6 +483,19 @@ export function App() {
     setImportOffer(false);
     savePreference("importBanner", "done");
   };
+  /** The newest three waiting bookmarks, fanned in the inbox notification. */
+  const [inboxThumbs, setInboxThumbs] = useState<Bookmark[]>([]);
+  useEffect(() => {
+    if (!library.counts.inbox) return setInboxThumbs([]);
+    let current = true;
+    api
+      .getBookmarks({ onlyInbox: true }, { limit: 3 })
+      .then((page) => current && setInboxThumbs(page.items))
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [library.counts.inbox, library.counts.inbox_newest]);
   /**
    * Menu «⋯» → Export (NP-032, frame 29): the Save dialog, then «… сохранено
    * в … · Показать» for 8 seconds, or an alert with the reason and
@@ -808,13 +822,62 @@ export function App() {
             : collection
           ? (collection.count ?? 0)
           : counts.total;
-  // Hidden until a bookmark newer than the remembered one arrives (NP-020).
-  // In the inbox itself it always leads to triage (NP-025), there is no other
-  // way in; the trash is about what was thrown away (frame 25).
-  const inboxBanner =
-    counts.inbox > 0 &&
-    !filters.onlyTrash &&
-    (filters.onlyInbox || !(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden));
+  // The inbox notification is hidden until a bookmark newer than the remembered one arrives (NP-020).
+  const inboxHidden = !!(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden);
+  // In the inbox itself the banner stays on the page, never hidden: it leads to triage (NP-025).
+  const inboxBanner = counts.inbox > 0 && filters.onlyInbox;
+  // The notification centre (2026-10-16): the inbox waiting, the import offer and a browser
+  // that can't send bookmarks, behind the bell in the sidebar instead of banners over the list.
+  const notifications: AppNotification[] = [];
+  if (capture?.state === "failing")
+    notifications.push({
+      key: `capture:${capture.problem ?? "channel"}`,
+      kind: "problem",
+      icon: TriangleAlert,
+      title: t("browser.failing"),
+      text: problemBanner(capture, t),
+      action: { label: t("browser.details"), run: () => setPage("settings") },
+    });
+  if (counts.inbox > 0 && !inboxHidden)
+    notifications.push({
+      // A newer bookmark makes it a new notification, unread again.
+      key: `inbox:${counts.inbox_newest ?? counts.inbox}`,
+      kind: "inbox",
+      icon: InboxTray,
+      title: t("notifications.inboxTitle", { count: counts.inbox }),
+      text: [
+        counts.inbox_imported >= counts.inbox
+          ? t("notifications.inboxFromImport")
+          : counts.inbox_imported > 0
+            ? t("notifications.inboxImported", { count: counts.inbox_imported })
+            : "",
+        counts.inbox > QUICK_INBOX
+          ? t("notifications.inboxMany")
+          : counts.inbox === 1
+            ? t("notifications.inboxTextOne")
+            : t("notifications.inboxText"),
+      ]
+        .filter(Boolean)
+        .join(" "),
+      at: counts.inbox_newest,
+      thumbs: inboxThumbs,
+      action: { label: t("inbox.sort"), run: openTriage },
+      dismiss: { label: t("inbox.hide"), run: hideBanner },
+    });
+  if (importOffer)
+    notifications.push({
+      key: "importOffer",
+      kind: "offer",
+      icon: Import,
+      title: t("importOffer.label"),
+      text: t("importOffer.text"),
+      action: { label: t("importOffer.action"), run: () => setSurface("import") },
+      dismiss: { label: t("importOffer.hide"), run: endImportOffer },
+    });
+  const clearNotifications = () => {
+    if (counts.inbox > 0) hideBanner();
+    if (importOffer) endImportOffer();
+  };
   const searching = filters.search.trim() !== "";
   /** Search, tag or site narrow the section: the header shows «N из M». */
   const narrowed = searching || !!filters.tag || !!filters.domain;
@@ -1078,6 +1141,8 @@ export function App() {
             : null
         }
         dropping={dragging && { target: dragging.target }}
+        notifications={notifications}
+        onClearNotifications={clearNotifications}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1186,17 +1251,6 @@ export function App() {
                     onRead={() => openReading()}
                     readRef={readButton}
                   />
-                  {capture?.state === "failing" && (
-                    <Banner
-                      action={
-                        <Button variant="onDanger" onClick={() => setPage("settings")}>
-                          {t("browser.details")}
-                        </Button>
-                      }
-                    >
-                      {problemBanner(capture, t)}
-                    </Banner>
-                  )}
                   {damaged && (
                     <Banner
                       action={
@@ -1232,56 +1286,16 @@ export function App() {
                       {library.error}
                     </Banner>
                   )}
-                  {importOffer && !filters.onlyTrash && (
-                    <Banner
-                      tone="quiet"
-                      label={t("importOffer.label")}
-                      icon={<Icon icon={Import} size={18} />}
-                      action={
-                        <span className="flex shrink-0 items-center gap-3">
-                          <Button variant="outline" className="bg-surface text-ink" onClick={() => setSurface("import")}>
-                            {t("importOffer.action")}
-                          </Button>
-                          <Hint label={t("importOffer.hide")}>
-                            <button
-                              type="button"
-                              aria-label={t("importOffer.hide")}
-                              onClick={endImportOffer}
-                              className="flex size-6 items-center justify-center rounded-md text-icon transition-colors duration-150 hover:text-ink"
-                            >
-                              <Icon icon={X} size={14} />
-                            </button>
-                          </Hint>
-                        </span>
-                      }
-                    >
-                      {t("importOffer.text")}
-                    </Banner>
-                  )}
                   {inboxBanner && (
                     <Banner
                       tone="accent"
                       label={t("inbox.bannerLabel")}
                       icon={<Icon icon={InboxTray} size={18} />}
                       action={
-                        <span className="flex shrink-0 items-center gap-3">
-                          <Button variant="primary" onClick={openTriage}>
-                            {t("inbox.sort")}
-                            <Icon icon={ChevronRight} size={13} />
-                          </Button>
-                          {!filters.onlyInbox && (
-                          <Hint label={t("inbox.hide")}>
-                            <button
-                              type="button"
-                              aria-label={t("inbox.hide")}
-                              onClick={hideBanner}
-                              className="flex size-6 items-center justify-center rounded-md text-accent-muted transition-colors duration-150 hover:text-on-accent-soft"
-                            >
-                              <Icon icon={X} size={14} />
-                            </button>
-                          </Hint>
-                          )}
-                        </span>
+                        <Button variant="primary" onClick={openTriage}>
+                          {t("inbox.sort")}
+                          <Icon icon={ChevronRight} size={13} />
+                        </Button>
                       }
                     >
                       {narrow
