@@ -16,7 +16,7 @@ import {
   statusLabel,
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
-import { clearFeedCache, exportOpml, importOpml, setFeedsRefreshMinutes } from "../../services/feeds";
+import { clearFeedCache, setFeedsRefreshMinutes } from "../../services/feeds";
 import { GITHUB_ISSUES_URL, licensesUrl } from "../../services/feedback";
 import { shortcut } from "../../services/keys";
 import { changelogUrl, offer, percent } from "../../services/update";
@@ -52,7 +52,13 @@ export function SettingsPage({
   onSupporter,
   openLinks,
   onOpenLinks,
+  onImportFeeds,
+  onExportFeeds,
 }: {
+  /** «Import feeds (OPML)…»: the import dialog for feeds (NP-133). */
+  onImportFeeds: () => void;
+  /** «Export feeds (OPML)…»: the Save dialog and its notice are the caller's. */
+  onExportFeeds: () => Promise<unknown>;
   /** «Open links» (Р-69, point 5, frame B10): what a title, a double-click and Enter do. */
   openLinks: OpenLinks;
   onOpenLinks: (target: OpenLinks) => void;
@@ -274,25 +280,11 @@ export function SettingsPage({
         <Row title={t("feeds.settings.opml")} description={t("feeds.settings.opmlHint")}>
           <Button
             disabled={busy("opmlExport")}
-            onClick={() =>
-              void attempt("opmlExport", async () => {
-                // The desktop asks where to save; the path is chosen there (NP-129).
-                const count = await exportOpml("");
-                onNotice(t("feeds.notice.exported", { count }));
-              })
-            }
+            onClick={() => void attempt("opmlExport", async () => void (await onExportFeeds()))}
           >
             {t("feeds.settings.export")}
           </Button>
-          <Button
-            disabled={busy("opmlImport")}
-            onClick={() =>
-              void attempt("opmlImport", async () => {
-                const report = await importOpml("");
-                onNotice(t("feeds.notice.imported", { added: report.added, existing: report.existing, skipped: report.skipped.length }));
-              })
-            }
-          >
+          <Button onClick={onImportFeeds}>
             {t("feeds.settings.import")}
           </Button>
         </Row>

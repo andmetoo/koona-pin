@@ -128,7 +128,8 @@
     "exportCsv": "スプレッドシート用 CSV",
     "cleanUp": "整理",
     "duplicates": "重複",
-    "links": "リンクチェック"
+    "links": "リンクチェック",
+    "importFeeds": "フィードを読み込む (OPML)…"
   },
   "card": {
     "open": "開く：{{title}}",
@@ -224,7 +225,26 @@
     "removed": "リンクを削除しました",
     "dropTitle": "ドロップしてリンクを保存",
     "dropHint": "{{place}}に入ります。Shiftを押すとインボックスへ",
-    "dropHintInbox": "インボックスに入ります"
+    "dropHintInbox": "インボックスに入ります",
+    "feedHas": "{{site}} にはフィードがあります",
+    "feedToggle": "{{site}} をフォロー",
+    "feedOffHint": "フォローすると新しい投稿がフィードに届きます",
+    "feedLooking": "フィードを確認しています…",
+    "feedPerDay_other": "1日に約 {{count}} 件の新しい投稿",
+    "feedPerWeek_other": "1週間に約 {{count}} 件の新しい投稿",
+    "feedLast": "最新は{{when}}",
+    "feedUnreadable": "このフィードは読み込めません",
+    "feedFollowed": "このサイトをフォローしています",
+    "feedShow": "表示",
+    "feedDestination": "新しい投稿の行き先",
+    "feedDestFeeds": "フィードのみ",
+    "feedDestInbox": "インボックスのように整理",
+    "feedDestNotify": "通知もする",
+    "feedChoose": "フィードを選ぶ",
+    "feedSaveFollow": "保存してフォロー",
+    "feedFollowTitle": "{{title}} をフォロー",
+    "feedFollow": "フォロー",
+    "feedFollowing": "フォローしています…"
   },
   "import": {
     "title": "ブックマークをインポート",
@@ -264,7 +284,18 @@
     "moreSkipped": "ほか {{count}} 件",
     "openInbox": "インボックスを開く",
     "done": "完了",
-    "failed": "インポートできませんでした。{{reason}} 何も追加されておらず、ライブラリは元のままです。"
+    "failed": "インポートできませんでした。{{reason}} 何も追加されておらず、ライブラリは元のままです。",
+    "titleFeeds": "フィードの読み込み",
+    "leadFeeds": "ほかのリーダーからフィードを OPML で書き出し、そのファイルを選んでください。すでにフォローしているフィードはそのままです。",
+    "fileFeeds": "フィードファイル .opml",
+    "opmlFeeds_other": "{{count, number}} 件のフィード",
+    "opmlRule": "新しい投稿はフィードに届きます。ファイルのフォルダーは引き継がれません。フィードにフォルダーはありません。",
+    "opmlEmpty": "このファイルにはフィードがありません。リーダーから OPML で書き出してください。",
+    "opmlAdded_other": "新しいフィード {{count, number}} 件をフォローしました",
+    "opmlNothingNew": "新しいフィードはありません",
+    "opmlExisting": "フォロー済み — そのまま",
+    "opmlReason_invalid_url": "有効なアドレスではありません",
+    "opmlReason_refused": "このコンピューターまたはローカルネットワーク上"
   },
   "export": {
     "saved_other": "{{count, number}} 件のブックマークを {{name}} に保存しました",
@@ -1472,7 +1503,16 @@
     "inboxTextOne": "残す、振り分ける、捨てるのはすぐです。",
     "inboxMany": "1 件ずつ、残す、振り分ける、捨てるを選べます。",
     "inboxImported_other": "うち {{count}} 件はインポートから。",
-    "inboxFromImport": "インポートからです。"
+    "inboxFromImport": "インポートからです。",
+    "feedsTitle_other": "新しい投稿 {{count}} 件",
+    "feedsFromOne": "{{a}} から",
+    "feedsFromTwo": "{{a}} と {{b}} から",
+    "feedsFromMore_other": "{{a}}、{{b}} ほか {{count}} 件から",
+    "feedsRead": "読む",
+    "feedsFailing": "{{name}} が更新されていません",
+    "feedsFailingText": "フィードが1週間応答していません。サイトがフィードを移動したか、終了した可能性があります。",
+    "feedsShow": "表示",
+    "feedsUnfollow": "フォローをやめる"
   },
   "feeds": {
     "title": "フィード",
@@ -1547,7 +1587,7 @@
       "unfavorited": "お気に入りから外しました",
       "unfollowed": "{{name}} のフォローをやめました",
       "destination": "{{name}}: {{place}}",
-      "exported": "書き出したフィード: {{count}}",
+      "exported": "書き出したフィード: {{count}} · {{name}}",
       "imported": "フォロー: {{added}} · 既存: {{existing}} · スキップ: {{skipped}}",
       "cacheCleared": "フィードのキャッシュを消去しました。再確認します"
     },

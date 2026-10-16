@@ -134,7 +134,8 @@
     "exportCsv": "CSV for spreadsheets",
     "cleanUp": "Clean up",
     "duplicates": "Duplicates",
-    "links": "Link check"
+    "links": "Link check",
+    "importFeeds": "Import feeds (OPML)…"
   },
   "card": {
     "open": "Open: {{title}}",
@@ -233,7 +234,28 @@
     "removed": "Link removed",
     "dropTitle": "Drop to save the link",
     "dropHint": "It goes to {{place}}; hold Shift to send it to Inbox",
-    "dropHintInbox": "It goes to Inbox"
+    "dropHintInbox": "It goes to Inbox",
+    "feedHas": "{{site}} has a feed",
+    "feedToggle": "Follow {{site}}",
+    "feedOffHint": "Follow it to get new posts in Feeds",
+    "feedLooking": "Checking the feed…",
+    "feedPerDay_one": "About {{count}} new post a day",
+    "feedPerDay_other": "About {{count}} new posts a day",
+    "feedPerWeek_one": "About {{count}} new post a week",
+    "feedPerWeek_other": "About {{count}} new posts a week",
+    "feedLast": "last one {{when}}",
+    "feedUnreadable": "This feed can’t be read",
+    "feedFollowed": "You follow this site",
+    "feedShow": "Show",
+    "feedDestination": "New posts go to",
+    "feedDestFeeds": "Feeds only",
+    "feedDestInbox": "Sort them like Inbox",
+    "feedDestNotify": "Also notify me",
+    "feedChoose": "Which feed",
+    "feedSaveFollow": "Save and follow",
+    "feedFollowTitle": "Follow {{title}}",
+    "feedFollow": "Follow",
+    "feedFollowing": "Following…"
   },
   "import": {
     "title": "Import bookmarks",
@@ -280,7 +302,20 @@
     "moreSkipped": "and {{count}} more",
     "openInbox": "Open Inbox",
     "done": "Done",
-    "failed": "Couldn't import. {{reason}} Nothing was added — the library is as it was."
+    "failed": "Couldn't import. {{reason}} Nothing was added — the library is as it was.",
+    "titleFeeds": "Import feeds",
+    "leadFeeds": "Export your feeds from another reader as OPML and pick the file. Feeds you already follow stay as they are.",
+    "fileFeeds": "Feeds file .opml",
+    "opmlFeeds_one": "{{count, number}} feed",
+    "opmlFeeds_other": "{{count, number}} feeds",
+    "opmlRule": "New posts go to Feeds. Folders of the file are not kept: feeds have none.",
+    "opmlEmpty": "This file has no feeds. Export them from your reader as OPML.",
+    "opmlAdded_one": "Following {{count, number}} new feed",
+    "opmlAdded_other": "Following {{count, number}} new feeds",
+    "opmlNothingNew": "No new feeds",
+    "opmlExisting": "Already followed — left as they were",
+    "opmlReason_invalid_url": "Not a valid address",
+    "opmlReason_refused": "On this computer or the local network"
   },
   "export": {
     "saved_one": "{{count, number}} bookmark saved to {{name}}",
@@ -1561,7 +1596,18 @@
     "inboxMany": "Keep, file or toss them one at a time.",
     "inboxImported_one": "{{count}} of them from the import.",
     "inboxImported_other": "{{count}} of them from the import.",
-    "inboxFromImport": "From the import."
+    "inboxFromImport": "From the import.",
+    "feedsTitle_one": "{{count}} new post",
+    "feedsTitle_other": "{{count}} new posts",
+    "feedsFromOne": "from {{a}}",
+    "feedsFromTwo": "from {{a}} and {{b}}",
+    "feedsFromMore_one": "from {{a}}, {{b}} and {{count}} more",
+    "feedsFromMore_other": "from {{a}}, {{b}} and {{count}} more",
+    "feedsRead": "Read",
+    "feedsFailing": "{{name}} isn’t updating",
+    "feedsFailingText": "Its feed hasn’t answered for a week. The site may have moved the feed or stopped it.",
+    "feedsShow": "Show",
+    "feedsUnfollow": "Unfollow"
   },
   "feeds": {
     "title": "Feeds",
@@ -1636,7 +1682,7 @@
       "unfavorited": "Removed from Favorites",
       "unfollowed": "Unfollowed {{name}}",
       "destination": "{{name}}: {{place}}",
-      "exported": "Feeds exported: {{count}}",
+      "exported": "Feeds exported: {{count}} · {{name}}",
       "imported": "Followed: {{added}} · already followed: {{existing}} · skipped: {{skipped}}",
       "cacheCleared": "Feed cache cleared, checking again"
     },

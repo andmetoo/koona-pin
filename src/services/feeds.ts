@@ -11,6 +11,7 @@ import type {
   FeedsChanged,
   FeedsRefresh,
   LinkPreview,
+  OpmlExport,
   OpmlImport,
   SavePlace,
   Bookmark,
@@ -35,7 +36,19 @@ export const isNotImplemented = (error: unknown) => toCommandError(error).code =
 export const listFeeds = (): Promise<Feed[]> => api.listFeeds();
 /** `title` null: the feed's own; an address already followed answers its subscription. */
 export const subscribeFeed = (url: string, title: string | null, destination: FeedDestination): Promise<Feed> =>
-  api.subscribeFeed(url, title, destination);
+  api.subscribeFeed(url, title, destination).catch((err: unknown) => {
+    for (const fn of followFailures) fn(err);
+    throw err;
+  });
+const followFailures = new Set<(error: unknown) => void>();
+/**
+ * Every failed follow, also the one «New link» runs after it closed (NP-132): the app says it
+ * when no sheet is there to. The caller still gets the rejection.
+ */
+export function onFollowFailed(callback: (error: unknown) => void): () => void {
+  followFailures.add(callback);
+  return () => void followFailures.delete(callback);
+}
 /** Null keeps a field; an empty title goes back to the feed's own. */
 export const updateFeed = (uid: string, title: string | null, destination: FeedDestination | null): Promise<Feed> =>
   api.updateFeed(uid, title, destination);
@@ -53,8 +66,8 @@ export const saveFeedItem = (id: number, place: SavePlace, favorite = false): Pr
 /** `feedUid` null: every feed. */
 export const refreshFeeds = (feedUid: string | null = null): Promise<void> => api.refreshFeeds(feedUid);
 export const clearFeedCache = (): Promise<void> => api.clearFeedCache();
-export const importOpml = (path: string): Promise<OpmlImport> => api.importOpml(path);
-export const exportOpml = (path: string): Promise<number> => api.exportOpml(path);
+export const importOpml = (content: string): Promise<OpmlImport> => api.importOpml(content);
+export const exportOpml = (): Promise<OpmlExport> => api.exportOpml();
 /** Minutes between checks; 0 only on refresh. */
 export const setFeedsRefreshMinutes = (minutes: number): Promise<void> => api.setFeedsRefreshMinutes(minutes);
 

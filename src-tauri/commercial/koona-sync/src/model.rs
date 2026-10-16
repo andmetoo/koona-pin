@@ -55,6 +55,9 @@ pub enum Entity {
     /// A bookmark's tag: the group's `uid` is the bookmark's, each field is a tag's uid and its
     /// value says whether the bookmark carries that tag.
     Link,
+    /// A feed the person follows (schema 14, NP-130). The subscription only: posts, read marks
+    /// and fetch state stay on each device.
+    Feed,
 }
 
 /// The synced fields of each entity, by the names on the wire. Everything else in the library
@@ -85,6 +88,10 @@ pub const BOOKMARK_FIELDS: [&str; 17] = [
 /// `position` is a fractional order key (a string), so moving one collection writes only its own.
 pub const COLLECTION_FIELDS: [&str; 4] = ["name", "color", "icon", "position"];
 pub const TAG_FIELDS: [&str; 1] = ["name"];
+/// `url` is the unique field, so two devices that follow the same address merge into one feed
+/// (NP-130). `destination` is text the receiver keeps as it came, also a place it does not know.
+/// No `created_at`: each device fills its own, as for collections.
+pub const FEED_FIELDS: [&str; 3] = ["url", "title", "destination"];
 
 /// One field's value as last written. Values are JSON: strings or null for text and times
 /// (`YYYY-MM-DDTHH:MM:SS.sssZ`), booleans for `is_favorite` and links, a number for

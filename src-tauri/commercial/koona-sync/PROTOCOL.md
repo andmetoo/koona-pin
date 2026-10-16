@@ -358,6 +358,23 @@ Kind-1 messages:
 UUID to the highest counter held; a Group is `{entity, uid, fields?: [{field, value, clock}],
 gone?: {clock, merged_into}}` with `clock = {hlc, replica, counter}`. Vector: `changes.json`.
 
+The entities and their synced field names (`src/model.rs`):
+
+| `entity` | Fields | Since schema |
+|----------|--------|--------------|
+| `collection` | `name`, `color`, `icon`, `position` | 10 |
+| `tag` | `name` | 10 |
+| `bookmark` | `url`, `title`, `description`, `image_url`, `favicon_url`, `notes`, `is_favorite`, `collection` (a collection's uid or null), `triaged_at`, `deleted_at`, `source`, `source_name`, `created_at`; `reading_at`, `reading_progress`, `read_at`; `site_name` | 10; 11; 13 |
+| `link` | a tag's uid, value `true`/`false`; the group's `uid` is the bookmark's | 10 |
+| `feed` | `url`, `title`, `destination` | 14 |
+
+The first field of a record is unique among live records of its entity (an address, a name): two
+records that meet with the same value merge, the smaller uid survives and the other gets a `gone`
+with `merged_into`. A `feed` is the subscription only: its posts, read marks and fetch state never
+travel. `destination` is any string; a receiver keeps one it doesn't know as it came. A `feed`
+group reaches a schema-13 peer as an unknown `entity`; that peer has already paused at the newer
+`hello` (Versions, below).
+
 **Batches.** An answer is one or more `changes` messages in order; every batch carries the same
 `covers` and only the final one has `last: true`. The receiver applies each batch as it arrives
 but merges `covers` into its vector only after applying the `last` batch, then sends `ack`. A

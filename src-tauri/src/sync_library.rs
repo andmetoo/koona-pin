@@ -149,7 +149,8 @@ pub fn after_restore(conn: &Connection, kept: Kept, previous: &Path) -> koona_sy
     // A record the restore brought back is no longer purged here. Another
     // device that purged it keeps it purged: a purge is final (SPIKE.md).
     conn.execute(
-        "DELETE FROM tombstones WHERE uid IN (SELECT uid FROM bookmarks UNION ALL SELECT uid FROM collections UNION ALL SELECT uid FROM tags)",
+        "DELETE FROM tombstones WHERE uid IN (SELECT uid FROM bookmarks UNION ALL SELECT uid FROM collections
+             UNION ALL SELECT uid FROM tags UNION ALL SELECT uid FROM feeds)",
         [],
     )?;
     koona_sync::attach(conn, uuid::Uuid::new_v4())?;
@@ -511,6 +512,59 @@ mod tests {
         // Search finds the bookmark kept in the trash by its tag; the others by theirs.
         let search = db::BookmarkQuery { search: Some("one".into()), ..Default::default() };
         assert_eq!(db::get_bookmarks(&conn, &search).unwrap().total, Some(1));
+    }
+
+    /// Feeds (NP-130) through a restore and through sync turned off and on:
+    /// a feed the copy brings back is no longer left, and every feed is
+    /// recorded anew, once, so another device gets them all.
+    #[test]
+    fn feeds_stay_whole_across_a_restore_and_sync_off_and_on() {
+        let conn = synced(1);
+        let url = |s: &str| url::Url::parse(s).unwrap();
+        let kept = crate::feeds::subscribe(&conn, &url("https://example.com/feed.xml"), None, crate::feeds::FeedDestination::Inbox).unwrap();
+        let left = crate::feeds::subscribe(&conn, &url("https://example.org/rss"), Some("Org".into()), crate::feeds::FeedDestination::Feeds).unwrap();
+        let (_, tombstones) = recorded(&conn, |conn| crate::feeds::unsubscribe(conn, &left.uid).unwrap());
+        assert_eq!(tombstones, BTreeSet::from([(format!("feed {}", left.uid), None)]));
+        let one = |conn: &Connection, sql: &str| conn.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+
+        // The copy put back over it still follows the one left since.
+        let saved = keep(&conn).unwrap().expect("sync is on");
+        {
+            let _applying = koona_sync::Applying::new(&conn).unwrap();
+            conn.execute(
+                "INSERT INTO feeds (uid, url, title, destination, created_at, updated_at) VALUES (?1, ?2, 'Org', 'feeds', 'x', 'x')",
+                rusqlite::params![left.uid, left.url],
+            )
+            .unwrap();
+        }
+        after_restore(&conn, saved, Path::new("/nonexistent/koonapin.db")).unwrap();
+        assert_eq!(one(&conn, "SELECT count(*) FROM tombstones WHERE kind = 'feed'"), 0, "back, so not left");
+        assert_eq!(one(&conn, "SELECT count(*) FROM sync_clock WHERE entity = 4 AND field = -1"), 2);
+
+        // Off and on again: recorded once more, and a new device gets both.
+        forget(&conn).unwrap();
+        assert_eq!(one(&conn, "SELECT count(*) FROM sync_clock"), 0);
+        turn_on(&conn, uuid::Uuid::from_u128(3)).unwrap();
+        assert_eq!(one(&conn, "SELECT count(*) FROM sync_clock WHERE entity = 4"), 2);
+        let other = synced(4);
+        for chunk in koona_sync::delta_all(&conn, &koona_sync::vector(&other).unwrap(), 1 << 20).unwrap() {
+            assert_eq!(apply(&other, &chunk.groups).unwrap().deferred, 0);
+            koona_sync::merge_vector(&other, &chunk.covers).unwrap();
+        }
+        let feeds = |conn: &Connection| -> Vec<(String, String, Option<String>)> {
+            crate::feeds::feeds(conn).unwrap().into_iter().map(|f| (f.uid, f.url, f.title)).collect()
+        };
+        assert_eq!(feeds(&other), feeds(&conn));
+        assert_eq!(crate::feeds::feed(&other, &kept.uid).unwrap().destination, crate::feeds::FeedDestination::Inbox);
+    }
+
+    /// The table of schema 14 the engine's tests make (`koona-sync/tests/schema14.sql`) is the
+    /// one the app's step makes (NP-130).
+    #[test]
+    fn the_engine_tests_schema_14_as_the_app_makes_it() {
+        let file = include_str!("../commercial/koona-sync/tests/schema14.sql");
+        let table: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
+        assert_eq!(table.trim(), crate::migrations::SCHEMA_14.trim());
     }
 
     fn on_disk(name: &str) -> std::path::PathBuf {

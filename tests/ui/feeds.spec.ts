@@ -190,15 +190,27 @@ test("the strip of a narrow window has one Feeds button, with a dot for new post
   await expect(page.locator("[data-feed-list]")).toBeVisible();
 });
 
-test("Settings → Feeds imports OPML and sets how often to check", async ({ page }) => {
+test("Settings → Feeds: how often to check, OPML import and export", async ({ page }) => {
   await open(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("radio", { name: "3 hr" }).click();
   await expect(page.getByRole("radio", { name: "3 hr" })).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => localStorage.getItem("koonapin.demo.feedsRefreshMinutes"))).toBe("180");
+  // Import… opens the import dialog for feeds, as More → «Import feeds (OPML)…» does.
   await page.getByRole("button", { name: "Import…" }).click();
-  await expect(page.getByText("Followed: 2 · already followed: 5 · skipped: 1")).toBeVisible();
+  const dialog = page.locator("dialog[open]");
+  await dialog.locator("input[type=file]").setInputFiles({
+    name: "feeds.opml",
+    mimeType: "text/x-opml",
+    buffer: Buffer.from('<opml version="2.0"><body><outline text="Notes" xmlUrl="https://notes.example.org/atom.xml"/></body></opml>'),
+  });
+  await page.getByRole("dialog", { name: "Import feeds" }).getByRole("button", { name: "Import", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Import finished" })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(section(page).locator("[data-feed-row]")).toHaveCount(7);
+  // Export… is the desktop's Save dialog: the preview answers without one.
+  await page.getByRole("button", { name: "Export…" }).click();
+  await expect(page.getByText(/^Feeds exported: \d+ · /)).toBeVisible();
 });
 
 test("a post's own scripts, frames and handlers never reach the sheet", async ({ page }) => {

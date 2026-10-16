@@ -326,12 +326,18 @@ impl World {
     }
 
     fn add_holding(&mut self, name: &str, replica: u8, chunk_bytes: usize, hold_groups: usize) -> usize {
+        self.add_with(name, replica, |cfg| {
+            cfg.chunk_bytes = chunk_bytes;
+            cfg.hold_groups = hold_groups;
+        })
+    }
+
+    fn add_with(&mut self, name: &str, replica: u8, configure: impl FnOnce(&mut Config)) -> usize {
         let rng = SystemRandom::new();
         let pair = crypto::device_key(&crypto::generate_device_key(&rng).unwrap()).unwrap();
         let id = Uuid::new_v4();
         let mut cfg = Config::new(id, pair, SUB.into(), name.into(), "0.13.0".into());
-        cfg.chunk_bytes = chunk_bytes;
-        cfg.hold_groups = hold_groups;
+        configure(&mut cfg);
         let lib = library(replica_id(replica));
         koona_sync::set_wall_clock(&lib, Some(START)).unwrap();
         self.devices.push(Device {
@@ -488,6 +494,12 @@ impl World {
 
     /// Pairs device `i` through the hub `hub`, comparing the digits on both screens.
     fn pair(&mut self, i: usize, hub: usize) {
+        self.pair_only(i, hub);
+        assert_eq!(self.phase(i), Phase::Online);
+    }
+
+    /// [`World::pair`] without the first sync: a device that pauses right away.
+    fn pair_only(&mut self, i: usize, hub: usize) {
         self.connect(i);
         self.run();
         assert_eq!(self.phase(i), Phase::Pending);
@@ -502,7 +514,6 @@ impl World {
         self.act(hub, Action::ApprovePairing { device });
         self.run();
         assert!(self.devices[i].events.iter().any(|e| matches!(e, Effect::Pairing(PairingEvent::Paired { .. }))));
-        assert_eq!(self.phase(i), Phase::Online);
     }
 
     fn lib(&self, i: usize) -> &Connection {
@@ -1382,6 +1393,38 @@ fn a_peer_on_a_newer_schema_pauses_without_an_error() {
     w.run();
     assert_eq!(w.devices[b].session.update_from(), None);
     assert_eq!(w.devices[b].events.iter().rev().find(|e| matches!(e, Effect::UpdateFrom(_))), Some(&Effect::UpdateFrom(None)));
+}
+
+/// Feeds (schema 14, NP-130) against a build of schema 13, which knows no `feed` entity: it
+/// pauses with the newer peer at its `hello`, before any feed group could reach it, takes none
+/// of its changes, and its vector stays where it was. Nothing is lost on either side.
+#[test]
+fn a_schema_13_peer_pauses_for_feeds_and_its_vector_stays() {
+    let mut w = World::new();
+    let a = w.add("Hub", 1, 64 << 10);
+    let old = w.add_with("Old laptop", 2, |cfg| cfg.schema = 13);
+    assert_eq!(koona_sync::library::SCHEMA, 14);
+    follow(w.lib(a), Uuid::new_v4(), "https://example.com/feed.xml", None, "inbox").unwrap();
+    fill(w.lib(a), 2, "a");
+    w.connect(a);
+    w.run();
+    w.pair_only(old, a);
+    w.run();
+    assert_eq!(w.phase(old), Phase::Paused { reason: PauseReason::UpdateNeeded });
+    assert_eq!(w.devices[old].session.update_from(), Some(w.devices[a].id), "the person is told which computer");
+    let before = vector(w.lib(old));
+    assert_eq!(before.get(&replica_id(1)), 0, "nothing of the hub is held");
+
+    // A feed group pushed later is not taken either.
+    follow(w.lib(a), Uuid::new_v4(), "https://example.org/rss", None, "feeds").unwrap();
+    w.act(a, Action::LocalChange);
+    w.run();
+    w.act(old, Action::SyncNow);
+    w.run();
+    assert_eq!(vector(w.lib(old)), before);
+    assert_eq!(one::<i64>(w.lib(old), "SELECT count(*) FROM feeds"), 0);
+    assert_eq!(count(w.lib(old)), 0);
+    assert_eq!(w.phase(old), Phase::Paused { reason: PauseReason::UpdateNeeded });
 }
 
 #[test]

@@ -134,7 +134,8 @@
     "exportCsv": "Tablolar için CSV",
     "cleanUp": "Toparla",
     "duplicates": "Yinelenenler",
-    "links": "Bağlantı denetimi"
+    "links": "Bağlantı denetimi",
+    "importFeeds": "Akışları içe aktar (OPML)…"
   },
   "card": {
     "open": "Aç: {{title}}",
@@ -233,7 +234,28 @@
     "removed": "Bağlantı kaldırıldı",
     "dropTitle": "Bağlantıyı kaydetmek için bırakın",
     "dropHint": "Şuraya gider: {{place}}; Shift ile Gelen kutusuna",
-    "dropHintInbox": "Gelen kutusuna gider"
+    "dropHintInbox": "Gelen kutusuna gider",
+    "feedHas": "{{site}} sitesinin bir akışı var",
+    "feedToggle": "{{site}} takip et",
+    "feedOffHint": "Yeni yazıları Akışlar’da görmek için takip edin",
+    "feedLooking": "Akış kontrol ediliyor…",
+    "feedPerDay_one": "Günde yaklaşık {{count}} yeni yazı",
+    "feedPerDay_other": "Günde yaklaşık {{count}} yeni yazı",
+    "feedPerWeek_one": "Haftada yaklaşık {{count}} yeni yazı",
+    "feedPerWeek_other": "Haftada yaklaşık {{count}} yeni yazı",
+    "feedLast": "sonuncusu {{when}}",
+    "feedUnreadable": "Bu akış okunamıyor",
+    "feedFollowed": "Bu siteyi takip ediyorsunuz",
+    "feedShow": "Göster",
+    "feedDestination": "Yeni yazılar şuraya gider",
+    "feedDestFeeds": "Yalnızca Akışlar",
+    "feedDestInbox": "Gelen kutusu gibi ayıkla",
+    "feedDestNotify": "Bana da bildir",
+    "feedChoose": "Hangi akış",
+    "feedSaveFollow": "Kaydet ve takip et",
+    "feedFollowTitle": "{{title}} takip et",
+    "feedFollow": "Takip et",
+    "feedFollowing": "Takip ediliyor…"
   },
   "import": {
     "title": "Yer işaretlerini içe aktar",
@@ -280,7 +302,20 @@
     "moreSkipped": "ve {{count}} tane daha",
     "openInbox": "Gelen kutusunu aç",
     "done": "Tamam",
-    "failed": "İçe aktarılamadı. {{reason}} Hiçbir şey eklenmedi — kitaplık olduğu gibi."
+    "failed": "İçe aktarılamadı. {{reason}} Hiçbir şey eklenmedi — kitaplık olduğu gibi.",
+    "titleFeeds": "Akışları içe aktar",
+    "leadFeeds": "Akışlarınızı başka bir okuyucudan OPML olarak dışa aktarın ve dosyayı seçin. Zaten takip ettiğiniz akışlar olduğu gibi kalır.",
+    "fileFeeds": "Akış dosyası .opml",
+    "opmlFeeds_one": "{{count, number}} akış",
+    "opmlFeeds_other": "{{count, number}} akış",
+    "opmlRule": "Yeni yazılar Akışlar’a gider. Dosyadaki klasörler korunmaz: akışların klasörü yoktur.",
+    "opmlEmpty": "Bu dosyada akış yok. Akışları okuyucunuzdan OPML olarak dışa aktarın.",
+    "opmlAdded_one": "{{count, number}} yeni akış takip ediliyor",
+    "opmlAdded_other": "{{count, number}} yeni akış takip ediliyor",
+    "opmlNothingNew": "Yeni akış yok",
+    "opmlExisting": "Zaten takip ediliyor — olduğu gibi bırakıldı",
+    "opmlReason_invalid_url": "Geçerli bir adres değil",
+    "opmlReason_refused": "Bu bilgisayarda veya yerel ağda"
   },
   "export": {
     "saved_one": "{{count, number}} yer işareti {{name}} dosyasına kaydedildi",
@@ -1561,7 +1596,18 @@
     "inboxMany": "Tek tek tutun, yerleştirin ya da atın.",
     "inboxImported_one": "{{count}} tanesi içe aktarmadan.",
     "inboxImported_other": "{{count}} tanesi içe aktarmadan.",
-    "inboxFromImport": "İçe aktarmadan."
+    "inboxFromImport": "İçe aktarmadan.",
+    "feedsTitle_one": "{{count}} yeni yazı",
+    "feedsTitle_other": "{{count}} yeni yazı",
+    "feedsFromOne": "{{a}} kaynağından",
+    "feedsFromTwo": "{{a}} ve {{b}} kaynağından",
+    "feedsFromMore_one": "{{a}}, {{b}} ve {{count}} kaynaktan daha",
+    "feedsFromMore_other": "{{a}}, {{b}} ve {{count}} kaynaktan daha",
+    "feedsRead": "Oku",
+    "feedsFailing": "{{name}} güncellenmiyor",
+    "feedsFailingText": "Akışı bir haftadır yanıt vermiyor. Site akışı taşımış ya da kapatmış olabilir.",
+    "feedsShow": "Göster",
+    "feedsUnfollow": "Takibi bırak"
   },
   "feeds": {
     "title": "Akışlar",
@@ -1636,7 +1682,7 @@
       "unfavorited": "Favorilerden çıkarıldı",
       "unfollowed": "Takip bırakıldı: {{name}}",
       "destination": "{{name}}: {{place}}",
-      "exported": "Dışa aktarılan akış: {{count}}",
+      "exported": "Dışa aktarılan akış: {{count}} · {{name}}",
       "imported": "Takip edilen: {{added}} · zaten vardı: {{existing}} · atlanan: {{skipped}}",
       "cacheCleared": "Akış önbelleği temizlendi, yeniden denetleniyor"
     },

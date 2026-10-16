@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Written by hand for the tests (NP-131): the shapes other readers export. -->
+<opml version="1.0">
+  <head>
+    <title>Subscriptions from another reader</title>
+  </head>
+  <body>
+    <outline text="News" title="News">
+      <outline type="rss" text="Example Kitchen" title="Example Kitchen" xmlUrl="https://kitchen.example.com/feed" htmlUrl="https://kitchen.example.com/"/>
+      <outline text="Deeper">
+        <outline type="rss" text="Notes &amp; Tools" xmlUrl="https://notes.example.org/atom.xml"/>
+      </outline>
+    </outline>
+    <outline text="No type, title only" title="Links Weekly" xmlUrl="https://links.example.net/feed.json"/>
+    <outline type="rss" text="Text only" xmlUrl="https://text.example.com/rss"/>
+    <outline type="rss" text="Home server" xmlUrl="http://192.168.1.20/feed.xml"/>
+    <outline type="rss" text="This computer" xmlUrl="http://localhost:8080/rss"/>
+    <outline type="rss" text="Not the web" xmlUrl="ftp://files.example.com/feed.xml"/>
+    <outline type="rss" text="Example Kitchen again" xmlUrl="https://kitchen.example.com/feed"/>
+    <outline type="link" text="A plain link, no feed" url="https://example.com/"/>
+  </body>
+</opml>
