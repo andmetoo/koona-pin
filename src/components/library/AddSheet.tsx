@@ -417,7 +417,12 @@ export function AddSheet({
               placeholder={t("add.placeholder")}
               value={text}
               onPaste={() => {
+                // The paste's own input comes in this task; a paste that changed nothing
+                // must not leave the next typed character counted as one.
                 pasting.current = true;
+                window.setTimeout(() => {
+                  pasting.current = false;
+                });
               }}
               onChange={(e) => change(e.target.value)}
               autoComplete="off"

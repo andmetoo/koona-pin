@@ -247,12 +247,20 @@ async fn after_feeds(app: &AppHandle, db: &Arc<DbState>, applied: &Applied) {
                 }
                 // The interface takes the list as it comes: counts, titles and health
                 // from the cache with it, or every feed would read as empty (NP-130).
+                // A feed followed on another computer, never tried here, is fetched now,
+                // not at the next tick; a rename or a new destination asks for nothing.
+                let mut new_here = false;
                 if let Some(cache) = app.try_state::<Arc<feeds::cache::FeedCache>>() {
                     if let Ok(conn) = cache.conn.lock() {
                         let _ = feeds::cache::merge_state(&conn, &mut list, chrono::Utc::now());
+                        let uids: Vec<String> = list.iter().map(|feed| feed.uid.clone()).collect();
+                        new_here = feeds::cache::any_untried(&conn, &uids).unwrap_or(false);
                     }
                 }
                 feeds::emit_changed(&app, list);
+                if new_here {
+                    feeds::schedule::fetch_soon(&app, None);
+                }
             }
             Err(error) => eprintln!("Reading the feeds after sync failed: {error}"),
         }

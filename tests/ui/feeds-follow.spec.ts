@@ -35,8 +35,13 @@ const calls = (page: Page, name?: string) =>
   page.evaluate((name) => (window as unknown as { calls: string[] }).calls.filter((c) => !name || c.startsWith(`${name} `)), name);
 /** A link pasted whole: only such a link is asked for (a typed one passes through half-domains). */
 const paste = async (page: Page, link: string) => {
-  await field(page).dispatchEvent("paste");
-  await field(page).fill(link);
+  // As a browser pastes: the paste and its input in one task.
+  await field(page).evaluate((input: HTMLInputElement, text) => {
+    input.focus();
+    input.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }, link);
 };
 const open = async (page: Page, link: string) => {
   await page.getByRole("complementary").getByRole("button", { name: "New link", exact: true }).click();
@@ -75,6 +80,13 @@ test("a link typed by hand asks nothing; a pasted one asks once, and editing it 
   await paste(page, "fieldnotes.example.com/abc");
   await expect(offer(page)).toContainText("Field Notes has a feed");
   await field(page).press("Backspace");
+  await page.waitForTimeout(600);
+  expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"']);
+
+  // A paste that changes nothing leaves the next typed character a typed one.
+  await field(page).fill("fieldnotes.example.com/ab");
+  await paste(page, "fieldnotes.example.com/ab");
+  await field(page).press("x");
   await page.waitForTimeout(600);
   expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"']);
 });
