@@ -62,6 +62,14 @@ The undo journal lives in memory for the current run. An undo restores only the 
 
 Fetching a page's title and preview is a request the app makes because of data it did not choose. So those requests may reach only public addresses: names are resolved by a guarded resolver, every redirect is rechecked, no proxy is used, sizes and times are capped. A saved link cannot make the app touch a router, printer or dev server on the local network.
 
+## Feeds fetched by the app, kept apart from the library
+
+*Planned for 2.0.0.* The app fetches and parses RSS, Atom and JSON Feed itself, through the same network guard as metadata, with conditional requests and an honest User-Agent; no server sits in between. Parsing uses `feed-rs` (MIT), pinned to an exact version, with a thin layer of our own for the pictures and broken feeds it misses.
+
+Subscriptions are library data: a `feeds` table (schema 14) that is backed up and, with Supporter, synced. Posts are a cache: a separate `feeds.db` beside the library holds them, their read state and the fetch state, with no backups, export or sync. Unsaved posts expire after 30 days. Kept in the library, they would add tens of megabytes to every backup copy and queue every refresh behind the library's single writer. A post becomes an ordinary bookmark only when it is saved.
+
+*Revisit if* people want read state on all their computers, which would mean syncing posts, or if the cache grows well beyond what is expected.
+
 ## Bun instead of Node and npm
 
 Bun installs dependencies and runs every script, Vite, Vitest, Playwright and the Tauri CLI; Node.js is not needed on a developer machine or in CI. One runtime, one lock file (`bun.lock`), one version file (`.bun-version`). Bun does not load `.env` by itself here (`bunfig.toml`), so secrets reach only the scripts that read them, and dependency install scripts are not trusted.
