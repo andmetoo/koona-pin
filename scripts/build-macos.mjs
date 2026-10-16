@@ -196,7 +196,29 @@ function notarizeAndStaple(file, target = file) {
     throw new Error(`Notarization of ${path.basename(file)}: ${result.status} (${result.id})`);
   }
   console.log(`Notarized ${path.basename(file)} (${result.id})`);
-  run("xcrun", ["stapler", "staple", target]);
+  staple(target);
+}
+
+/** Tries of `stapler staple` and the wait before each next one. */
+const STAPLE_TRIES = 5;
+const STAPLE_WAIT_MS = 30_000;
+
+/**
+ * Staples the ticket, again after a pause when Apple's ticket service does not answer: right after
+ * notarization the ticket may not be served yet, and a dropped connection to CloudKit (-1005,
+ * stapler's error 68) failed the v2.0.0 build although Apple had accepted it.
+ */
+function staple(target) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      run("xcrun", ["stapler", "staple", target]);
+      return;
+    } catch (error) {
+      if (attempt >= STAPLE_TRIES) throw error;
+      console.warn(`stapler staple failed (try ${attempt} of ${STAPLE_TRIES}); again in ${STAPLE_WAIT_MS / 1000} s`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, STAPLE_WAIT_MS);
+    }
+  }
 }
 
 const output = publish.macos(version, arch);
