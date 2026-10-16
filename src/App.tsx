@@ -1581,8 +1581,8 @@ export function App() {
               />
             ) : (
               <>
-                {/* 13 + 7 px above the list: room for the selection ring of the first row. */}
-                <div className={`flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
+                {/* 1 + 19 px above the list: room for the selection ring of the first row, and the list goes under the glass of its top 18 px. */}
+                <div className={`flex flex-col gap-4 ${padding} pt-2 pb-px`}>
                   <Toolbar
                     ref={searchRef}
                     title={section}
@@ -1714,10 +1714,11 @@ export function App() {
                     </div>
                   )}
                 </div>
+                <div aria-hidden className="edge-glass" />
                 <div
                   ref={scrollRef}
                   data-scroll="main"
-                  className={`min-h-0 flex-1 overflow-y-auto ${padding} pt-[7px] ${selecting ? "pb-[120px]" : "pb-8"}`}
+                  className={`min-h-0 flex-1 scroll-pt-4 overflow-y-auto ${padding} pt-[19px] ${selecting ? "pb-[120px]" : "pb-8"}`}
                 >
                   {content}
                 </div>

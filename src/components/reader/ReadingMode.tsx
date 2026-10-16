@@ -378,6 +378,7 @@ export function ReadingMode({
         {current && (
           <ProgressLine key={current.id} bookmark={current} status={currentStatus} scroller={scroller} />
         )}
+        <div aria-hidden className="edge-glass" />
         {/* A stop for Tab with a ring of its own: the arrows, Space and Page Down scroll it. */}
         <div
           ref={scroller}
@@ -391,7 +392,7 @@ export function ReadingMode({
             e.preventDefault();
             focusQueue();
           }}
-          className={`min-h-0 flex-1 overflow-y-auto outline-offset-[-2px] ${narrow ? "px-6 pt-3.5" : "px-8 pt-7"} pb-24`}
+          className={`min-h-0 flex-1 scroll-pt-5 overflow-y-auto outline-offset-[-2px] ${narrow ? "px-6 pt-[18px]" : "px-8 pt-7"} pb-24`}
         >
           {current ? (
             <ArticleView
@@ -477,7 +478,7 @@ export function ReadingMode({
         {/* After the article in the document, above it on screen: Tab goes from the queue straight
             to the article (issue #319), then on through its links to these buttons. */}
         <div
-          className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "mac-lights-gap h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}
+          className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "mac-lights-gap h-[62px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}
           data-tauri-drag-region
         >
           {narrow && !empty && (
