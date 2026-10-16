@@ -99,6 +99,13 @@ export function AddSheet({
   const moreId = useId();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  /**
+   * The text as it came whole, by a paste or «Add it». Only such a link is asked for: a
+   * link typed by hand passes through half-domains on the way (`example.c`), and none of
+   * them should get a request (privacy policy: «the page you paste»).
+   */
+  const [pasted, setPasted] = useState<string | null>(null);
+  const pasting = useRef(false);
   const [destination, setDestination] = useState<Destination>(initialDestination);
   /** Undefined until the person picks: then the section's collection or the suggestion. */
   const [picked, setPicked] = useState<number | null | undefined>(undefined);
@@ -153,7 +160,7 @@ export function AddSheet({
 
   // The page itself and its feeds (NP-133): one request once the address settles, one more
   // to the feed only when «Follow» is turned on. Save reuses the answer: the app keeps it.
-  const linkPreview = useLinkPreview(url);
+  const linkPreview = useLinkPreview(pasted !== null && pasted === text ? url : null);
   const [follow, setFollow] = useState(false);
   const [chosen, setChosen] = useState(0);
   const [feedDestination, setFeedDestination] = useState<FeedDestination>("feeds");
@@ -182,6 +189,10 @@ export function AddSheet({
   const inbox = destination === "inbox";
 
   const change = (value: string) => {
+    if (pasting.current) {
+      pasting.current = false;
+      setPasted(value);
+    }
     setText(value);
     setError("");
     setSaved(null);
@@ -280,6 +291,7 @@ export function AddSheet({
         className="add-ink-btn h-[26px] rounded-lg px-2.5 text-xs"
         onClick={() => {
           change(clip);
+          setPasted(clip);
           field.current?.focus();
         }}
       >
@@ -404,6 +416,9 @@ export function AddSheet({
               aria-label={t("add.url")}
               placeholder={t("add.placeholder")}
               value={text}
+              onPaste={() => {
+                pasting.current = true;
+              }}
               onChange={(e) => change(e.target.value)}
               autoComplete="off"
               autoCapitalize="off"

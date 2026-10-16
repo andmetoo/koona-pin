@@ -1767,6 +1767,7 @@
       "rename": "Preimenuj…",
       "destination": "Gde idu nove objave",
       "markRead": "Označi sve kao pročitano",
+      "updateAddress": "Ažuriraj adresu",
       "copy": "Kopiraj adresu fida",
       "openSite": "Otvori sajt",
       "unfollow": "Prestani da pratiš…"
@@ -1793,7 +1794,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "Izvezeno fidova: {{count}} · {{name}}",
       "imported": "Praćeno: {{added}} · već praćeno: {{existing}} · preskočeno: {{skipped}}",
-      "cacheCleared": "Keš fidova je obrisan, proveravam ponovo"
+      "cacheCleared": "Keš fidova je obrisan, proveravam ponovo",
+      "addressUpdated": "{{name}} se sada čita sa nove adrese"
     },
     "settings": {
       "check": "Proveravaj nove objave",

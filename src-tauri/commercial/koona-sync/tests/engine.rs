@@ -335,7 +335,7 @@ fn one_feed_address_on_two_devices_becomes_one_feed() {
     let chunks = koona_sync::delta_all(&a, &vector(&b), 1 << 20).unwrap();
     let applied = koona_sync::apply(&b, &chunks[0].groups).unwrap();
     assert_eq!(applied.feeds_gone, [uid(30)]);
-    assert!(applied.bookmark_ids.is_empty(), "no bookmark moved: {:?}", applied.bookmark_ids);
+    assert!(applied.bookmark_ids.is_empty(), "no bookmark moved");
     assert_eq!(bookmark_clocks(&b), before);
     koona_sync::merge_vector(&b, &chunks[0].covers).unwrap();
     assert_eq!(one::<String>(&b, "SELECT uid FROM feeds"), uid(20).to_string());

@@ -41,7 +41,8 @@ function fromNames(names: string[], t: TFunction): string {
 
 /**
  * One `feeds` notification for the unread posts of the feeds that notify, newest batch
- * first; its key is the newest `fetched_at`, so each batch is a new, unread notification.
+ * first; its key is when the newest post arrived (`newest_at`), so each batch of new
+ * posts is a new, unread notification and a check that brings none is not.
  * Then a `problem` for each feed failing for a week, with «Show» and «Unfollow».
  */
 export function feedNotifications(
@@ -51,12 +52,14 @@ export function feedNotifications(
   now = Date.now(),
 ): AppNotification[] {
   const out: AppNotification[] = [];
+  // Keyed by when the newest post arrived, not by the last check: a check that brings
+  // nothing (a 304) must not make the notification unread again.
   const fresh = feeds
-    .filter((f) => f.destination === "notify" && f.unread > 0 && f.fetched_at)
-    .sort((a, b) => b.fetched_at!.localeCompare(a.fetched_at!) || b.unread - a.unread);
+    .filter((f) => f.destination === "notify" && f.unread > 0 && f.newest_at)
+    .sort((a, b) => b.newest_at!.localeCompare(a.newest_at!) || b.unread - a.unread);
   if (fresh.length) {
     const count = fresh.reduce((sum, f) => sum + f.unread, 0);
-    const newest = fresh[0].fetched_at!;
+    const newest = fresh[0].newest_at!;
     out.push({
       key: `feeds:${newest}`,
       kind: "feeds",

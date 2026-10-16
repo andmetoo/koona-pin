@@ -1848,6 +1848,7 @@
       "rename": "Zmień nazwę…",
       "destination": "Dokąd trafiają nowe wpisy",
       "markRead": "Oznacz wszystko jako przeczytane",
+      "updateAddress": "Zaktualizuj adres",
       "copy": "Kopiuj adres kanału",
       "openSite": "Otwórz stronę",
       "unfollow": "Przestań obserwować…"
@@ -1874,7 +1875,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "Wyeksportowano kanały: {{count}} · {{name}}",
       "imported": "Obserwowane: {{added}} · już były: {{existing}} · pominięte: {{skipped}}",
-      "cacheCleared": "Pamięć kanałów wyczyszczona, sprawdzam ponownie"
+      "cacheCleared": "Pamięć kanałów wyczyszczona, sprawdzam ponownie",
+      "addressUpdated": "{{name}} jest teraz pobierany z nowego adresu"
     },
     "settings": {
       "check": "Sprawdzaj nowe wpisy",

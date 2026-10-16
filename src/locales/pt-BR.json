@@ -1753,6 +1753,7 @@
       "rename": "Renomear…",
       "destination": "Para onde vão os posts novos",
       "markRead": "Marcar tudo como lido",
+      "updateAddress": "Atualizar o endereço",
       "copy": "Copiar endereço do feed",
       "openSite": "Abrir o site",
       "unfollow": "Deixar de seguir…"
@@ -1779,7 +1780,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "Feeds exportados: {{count}} · {{name}}",
       "imported": "Seguidos: {{added}} · já seguidos: {{existing}} · ignorados: {{skipped}}",
-      "cacheCleared": "Cache de feeds limpo, verificando de novo"
+      "cacheCleared": "Cache de feeds limpo, verificando de novo",
+      "addressUpdated": "{{name}} agora é lido no novo endereço"
     },
     "settings": {
       "check": "Buscar posts novos",

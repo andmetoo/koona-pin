@@ -53,6 +53,8 @@ export function onFollowFailed(callback: (error: unknown) => void): () => void {
 export const updateFeed = (uid: string, title: string | null, destination: FeedDestination | null): Promise<Feed> =>
   api.updateFeed(uid, title, destination);
 export const unsubscribeFeed = (uid: string): Promise<void> => api.unsubscribeFeed(uid);
+/** «Update the address» of a feed that moved: it is followed at its new address. */
+export const acceptFeedMove = (uid: string): Promise<Feed> => api.acceptFeedMove(uid);
 export const previewLink = (url: string): Promise<LinkPreview> => api.previewLink(url);
 export const previewFeed = (url: string): Promise<FeedPreview> => api.previewFeed(url);
 export const listFeedItems = (query: FeedItemQuery): Promise<FeedItemPage> => api.listFeedItems(query);

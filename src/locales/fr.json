@@ -1753,6 +1753,7 @@
       "rename": "Renommer…",
       "destination": "Où vont les nouveaux articles",
       "markRead": "Tout marquer comme lu",
+      "updateAddress": "Mettre à jour l’adresse",
       "copy": "Copier l'adresse du flux",
       "openSite": "Ouvrir le site",
       "unfollow": "Ne plus suivre…"
@@ -1779,7 +1780,8 @@
       "destination": "{{name}} : {{place}}",
       "exported": "Flux exportés : {{count}} · {{name}}",
       "imported": "Suivis : {{added}} · déjà suivis : {{existing}} · ignorés : {{skipped}}",
-      "cacheCleared": "Cache des flux vidé, nouvelle vérification"
+      "cacheCleared": "Cache des flux vidé, nouvelle vérification",
+      "addressUpdated": "{{name}} est désormais lu à sa nouvelle adresse"
     },
     "settings": {
       "check": "Chercher de nouveaux articles",

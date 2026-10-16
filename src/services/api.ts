@@ -378,6 +378,7 @@ const desktop = {
   updateFeed: (uid: string, title: string | null, destination: FeedDestination | null) =>
     call<Feed>("update_feed", { uid, title, destination }),
   unsubscribeFeed: (uid: string) => call<void>("unsubscribe_feed", { uid }),
+  acceptFeedMove: (uid: string) => call<Feed>("accept_feed_move", { uid }),
   /** «New link»: the pasted page's head, its metadata and the feeds it names; one request. */
   previewLink: (url: string) => call<LinkPreview>("preview_link", { url }),
   /** The feed itself, only once the «Follow» toggle is on. */

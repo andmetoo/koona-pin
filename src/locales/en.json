@@ -1658,6 +1658,7 @@
       "rename": "Rename…",
       "destination": "Where new posts go",
       "markRead": "Mark all read",
+      "updateAddress": "Update the address",
       "copy": "Copy feed address",
       "openSite": "Open site",
       "unfollow": "Unfollow…"
@@ -1684,7 +1685,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "Feeds exported: {{count}} · {{name}}",
       "imported": "Followed: {{added}} · already followed: {{existing}} · skipped: {{skipped}}",
-      "cacheCleared": "Feed cache cleared, checking again"
+      "cacheCleared": "Feed cache cleared, checking again",
+      "addressUpdated": "{{name}} now follows its new address"
     },
     "settings": {
       "check": "Check for new posts",

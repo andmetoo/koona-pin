@@ -944,6 +944,8 @@ function demoFeedList(): Feed[] {
       unread: posts.filter((item) => !item.read_at).length,
       total: posts.length,
       fetched_at: posts.length ? fetched_at : null,
+      // The demo's posts all came in the one fetch.
+      newest_at: posts.length ? fetched_at : null,
       health: demoFeedHealth(row.uid),
     };
   });
@@ -2280,6 +2282,11 @@ export const demo = {
     if (destination !== null) row.destination = destination;
     feedsChanged();
     return demoFeedList().find((f) => f.uid === uid)!;
+  },
+  /** The demo's feeds never move. */
+  async acceptFeedMove(uid: string): Promise<Feed> {
+    void uid;
+    throw new CommandError("invalid_request", "This feed has not moved");
   },
   async unsubscribeFeed(uid: string): Promise<void> {
     const state = feedsState();

@@ -183,10 +183,35 @@ pub fn save_feed_item(
 /// The subscription of a post with the cache's title; a post whose feed was
 /// unfollowed meanwhile still saves, named by its address.
 fn feed_of(library: &Connection, cache: &FeedCache, feed_uid: &str) -> Result<Feed, CommandError> {
-    let mut feed = super::feed(library, feed_uid)?;
+    let followed = super::feed(library, feed_uid).optional()?;
     // The library is held: the cache comes after it, as the lock order asks.
+    let conn = cache.conn.lock().map_err(CommandError::internal)?;
+    let mut feed = match followed {
+        Some(feed) => feed,
+        // Unfollowed while its post was open (sync, another window): the post still
+        // saves, named by what the cache knows of the feed.
+        None => {
+            let site: Option<String> = conn
+                .query_row("SELECT site_url FROM feed_state WHERE feed_uid = ?1", [feed_uid], |r| r.get(0))
+                .optional()?
+                .flatten();
+            Feed {
+                uid: feed_uid.to_string(),
+                url: site.clone().unwrap_or_default(),
+                title: None,
+                feed_title: None,
+                site_url: site,
+                icon_url: None,
+                destination: super::FeedDestination::Feeds,
+                unread: 0,
+                total: 0,
+                fetched_at: None,
+                newest_at: None,
+                health: super::FeedHealth::Ok,
+            }
+        }
+    };
     if feed.title.is_none() {
-        let conn = cache.conn.lock().map_err(CommandError::internal)?;
         feed.feed_title = cache::feed_title(&conn, feed_uid)?;
     }
     Ok(feed)
@@ -371,6 +396,19 @@ mod tests {
             let uid = self.link_back(id).0?;
             saved_ids(&self.library(), std::slice::from_ref(&uid)).unwrap().get(&uid).copied()
         }
+    }
+
+    /// A post whose feed was unfollowed while it was open still saves (sync or
+    /// another window took the subscription away first).
+    #[test]
+    fn a_post_of_a_feed_just_unfollowed_still_saves() {
+        let w = world(FeedDestination::Feeds);
+        let ids = w.fetch(vec![post("u", Some("https://example.com/u"), 1)]);
+        w.library().execute("DELETE FROM feeds WHERE uid = ?1", [&w.feed.uid]).unwrap();
+        let saved = save_feed_item(&w.db, &w.cache, ids[0], SavePlace::Library, false).unwrap();
+        assert_eq!(saved.bookmark.url, "https://example.com/u");
+        assert_eq!(saved.bookmark.source_name.as_deref(), Some("Ars Technica"), "named by the cache's title");
+        assert!(w.saved(ids[0]).is_some());
     }
 
     #[test]

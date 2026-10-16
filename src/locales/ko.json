@@ -1563,6 +1563,7 @@
       "rename": "이름 바꾸기…",
       "destination": "새 글이 갈 곳",
       "markRead": "모두 읽음으로 표시",
+      "updateAddress": "주소 업데이트",
       "copy": "피드 주소 복사",
       "openSite": "사이트 열기",
       "unfollow": "팔로우 취소…"
@@ -1589,7 +1590,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "내보낸 피드: {{count}} · {{name}}",
       "imported": "팔로우: {{added}} · 이미 팔로우: {{existing}} · 건너뜀: {{skipped}}",
-      "cacheCleared": "피드 캐시를 비웠습니다. 다시 확인합니다"
+      "cacheCleared": "피드 캐시를 비웠습니다. 다시 확인합니다",
+      "addressUpdated": "이제 {{name}}을(를) 새 주소에서 읽습니다"
     },
     "settings": {
       "check": "새 글 확인",

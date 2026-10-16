@@ -15,6 +15,7 @@ const feed = (over: Partial<Feed>): Feed => ({
   unread: 0,
   total: 10,
   fetched_at: "2026-10-16T11:00:00Z",
+  newest_at: "2026-10-16T11:00:00Z",
   health: { state: "ok" },
   ...over,
 });
@@ -25,10 +26,10 @@ const t = i18n.getFixedT("en");
 describe("feed notifications", () => {
   it("one notification for the feeds that notify: count, names, thumbnails, Read", () => {
     const feeds = [
-      feed({ uid: "ars", feed_title: "Ars Technica", site_url: "https://arstechnica.com/", unread: 7, fetched_at: "2026-10-16T11:58:00Z" }),
-      feed({ uid: "verge", feed_title: "The Verge", site_url: "https://www.theverge.com/", unread: 3, fetched_at: "2026-10-16T11:30:00Z" }),
-      feed({ uid: "eats", feed_title: "Serious Eats", unread: 1, fetched_at: "2026-10-16T09:00:00Z" }),
-      feed({ uid: "kottke", feed_title: "kottke.org", unread: 1, fetched_at: "2026-10-16T08:00:00Z" }),
+      feed({ uid: "ars", feed_title: "Ars Technica", site_url: "https://arstechnica.com/", unread: 7, newest_at: "2026-10-16T11:58:00Z" }),
+      feed({ uid: "verge", feed_title: "The Verge", site_url: "https://www.theverge.com/", unread: 3, newest_at: "2026-10-16T11:30:00Z" }),
+      feed({ uid: "eats", feed_title: "Serious Eats", unread: 1, newest_at: "2026-10-16T09:00:00Z" }),
+      feed({ uid: "kottke", feed_title: "kottke.org", unread: 1, newest_at: "2026-10-16T08:00:00Z" }),
       feed({ uid: "quiet", unread: 4, destination: "feeds" }),
       feed({ uid: "read", unread: 0 }),
     ];
@@ -49,10 +50,16 @@ describe("feed notifications", () => {
     expect(act.onRead).toHaveBeenCalledWith(["ars", "verge", "eats", "kottke"]);
   });
 
+  it("keeps its key when a check brings nothing new", () => {
+    const before = feedNotifications([feed({ unread: 2 })], actions(), t, now)[0];
+    const after = feedNotifications([feed({ unread: 2, fetched_at: "2026-10-16T11:59:00Z" })], actions(), t, now)[0];
+    expect(after.key).toBe(before.key);
+  });
+
   it("names one or two feeds in full; a new batch is a new key", () => {
     const one = feedNotifications([feed({ unread: 1 })], actions(), t, now)[0];
     expect([one.title, one.text]).toEqual(["1 new post", "from Example"]);
-    const two = feedNotifications([feed({ unread: 2 }), feed({ uid: "b", feed_title: "Other", unread: 1, fetched_at: "2026-10-16T11:50:00Z" })], actions(), t, now)[0];
+    const two = feedNotifications([feed({ unread: 2 }), feed({ uid: "b", feed_title: "Other", unread: 1, newest_at: "2026-10-16T11:50:00Z" })], actions(), t, now)[0];
     expect(two.text).toBe("from Other and Example");
     expect(two.key).not.toBe(one.key);
   });

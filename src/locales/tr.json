@@ -1658,6 +1658,7 @@
       "rename": "Yeniden adlandır…",
       "destination": "Yeni yazılar nereye gider",
       "markRead": "Tümünü okundu say",
+      "updateAddress": "Adresi güncelle",
       "copy": "Akış adresini kopyala",
       "openSite": "Siteyi aç",
       "unfollow": "Takibi bırak…"
@@ -1684,7 +1685,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "Dışa aktarılan akış: {{count}} · {{name}}",
       "imported": "Takip edilen: {{added}} · zaten vardı: {{existing}} · atlanan: {{skipped}}",
-      "cacheCleared": "Akış önbelleği temizlendi, yeniden denetleniyor"
+      "cacheCleared": "Akış önbelleği temizlendi, yeniden denetleniyor",
+      "addressUpdated": "{{name}} artık yeni adresinden okunuyor"
     },
     "settings": {
       "check": "Yeni yazıları denetle",

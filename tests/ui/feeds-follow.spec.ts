@@ -33,9 +33,14 @@ const field = (page: Page) => sheet(page).getByRole("textbox", { name: "Link" })
 const offer = (page: Page) => sheet(page).locator("[data-feed-offer]");
 const calls = (page: Page, name?: string) =>
   page.evaluate((name) => (window as unknown as { calls: string[] }).calls.filter((c) => !name || c.startsWith(`${name} `)), name);
+/** A link pasted whole: only such a link is asked for (a typed one passes through half-domains). */
+const paste = async (page: Page, link: string) => {
+  await field(page).dispatchEvent("paste");
+  await field(page).fill(link);
+};
 const open = async (page: Page, link: string) => {
   await page.getByRole("complementary").getByRole("button", { name: "New link", exact: true }).click();
-  await field(page).fill(link);
+  await paste(page, link);
 };
 
 test("a page with a feed: its real title, «Follow» off, and saving makes exactly one request", async ({ page }) => {
@@ -57,17 +62,21 @@ test("a page with a feed: its real title, «Follow» off, and saving makes exact
   expect(await calls(page, "subscribeFeed")).toEqual([]);
 });
 
-test("typing asks only once the address stops changing; going back to it asks nothing more", async ({ page }) => {
-  await open(page, "fieldnotes.example.com/a");
-  await field(page).pressSequentially("bc", { delay: 100 });
-  await expect(offer(page)).toContainText("Field Notes has a feed");
-  expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"']);
-  await field(page).press("Backspace");
-  await expect(sheet(page).locator("[data-add-preview=new]")).toContainText("Ab");
-  await field(page).pressSequentially("c");
-  await expect(sheet(page).locator("[data-add-preview=new]")).toContainText("Abc");
+test("a link typed by hand asks nothing; a pasted one asks once, and editing it asks no more", async ({ page }) => {
+  await page.getByRole("complementary").getByRole("button", { name: "New link", exact: true }).click();
+  await field(page).pressSequentially("fieldnotes.example.c", { delay: 30 });
   await page.waitForTimeout(600);
-  expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"', 'previewLink "https://fieldnotes.example.com/ab"']);
+  await field(page).pressSequentially("om/walking-the-old-railway", { delay: 30 });
+  await page.waitForTimeout(600);
+  expect(await calls(page, "previewLink")).toEqual([]);
+  await expect(offer(page)).toHaveCount(0);
+
+  await field(page).fill("");
+  await paste(page, "fieldnotes.example.com/abc");
+  await expect(offer(page)).toContainText("Field Notes has a feed");
+  await field(page).press("Backspace");
+  await page.waitForTimeout(600);
+  expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"']);
 });
 
 test("«Save and follow» saves the bookmark, then follows the feed; its posts are there", async ({ page }) => {
@@ -123,7 +132,7 @@ test("a site already followed says so; a feed that can't be read falls back to �
   await expect(offer(page)).toContainText("You follow this site");
   await expect(sheet(page).getByRole("switch")).toHaveCount(0);
 
-  await field(page).fill("quiet.example.com");
+  await paste(page, "quiet.example.com");
   await sheet(page).getByRole("switch", { name: "Follow Quiet Corner" }).click();
   await expect(offer(page)).toContainText("This feed can’t be read");
   await expect(offer(page)).toHaveAttribute("data-feed-offer", "unreadable");

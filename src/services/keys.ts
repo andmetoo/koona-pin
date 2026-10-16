@@ -18,6 +18,13 @@ export function shortcut(key: string, mac = isMac()): string {
   return mac ? `⌘${key}` : `${i18n.t("common.ctrl")} ${key}`;
 }
 
+/**
+ * A letter shortcut by the key's place as well as its letter: J on a Russian
+ * layout types «о», and the key still means J (reading mode, the feeds page).
+ */
+export const keyIs = (e: Pick<KeyboardEvent, "code" | "key">, letter: string) =>
+  e.code === `Key${letter.toUpperCase()}` || e.key.toLowerCase() === letter;
+
 /** The key that deletes, as a Mac's keyboard and others' name it: ⌫ or Del. */
 export const deleteKey = (mac = isMac()) => (mac ? "⌫" : "Del");
 

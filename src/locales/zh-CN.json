@@ -1563,6 +1563,7 @@
       "rename": "重命名…",
       "destination": "新文章去向",
       "markRead": "全部标为已读",
+      "updateAddress": "更新地址",
       "copy": "复制订阅源地址",
       "openSite": "打开网站",
       "unfollow": "取消关注…"
@@ -1589,7 +1590,8 @@
       "destination": "{{name}}：{{place}}",
       "exported": "已导出订阅源：{{count}} · {{name}}",
       "imported": "已关注：{{added}} · 原已关注：{{existing}} · 已跳过：{{skipped}}",
-      "cacheCleared": "订阅源缓存已清除，正在重新检查"
+      "cacheCleared": "订阅源缓存已清除，正在重新检查",
+      "addressUpdated": "{{name}} 现在从新地址读取"
     },
     "settings": {
       "check": "检查新文章",

@@ -34,6 +34,7 @@ const feed = (patch: Partial<Feed> = {}): Feed => ({
   unread: 3,
   total: 5,
   fetched_at: hoursAgo(0.05),
+  newest_at: null,
   health: { state: "ok" },
   ...patch,
 });

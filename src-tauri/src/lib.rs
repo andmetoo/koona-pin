@@ -268,6 +268,7 @@ pub fn run() {
             feeds::subscribe_feed,
             feeds::update_feed,
             feeds::unsubscribe_feed,
+            feeds::accept_feed_move,
             feeds::preview_link,
             feeds::preview_feed,
             feeds::list_feed_items,

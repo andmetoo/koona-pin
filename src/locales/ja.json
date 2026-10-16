@@ -1563,6 +1563,7 @@
       "rename": "名前を変更…",
       "destination": "新しい投稿の行き先",
       "markRead": "すべて既読にする",
+      "updateAddress": "アドレスを更新",
       "copy": "フィードのアドレスをコピー",
       "openSite": "サイトを開く",
       "unfollow": "フォローをやめる…"
@@ -1589,7 +1590,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "書き出したフィード: {{count}} · {{name}}",
       "imported": "フォロー: {{added}} · 既存: {{existing}} · スキップ: {{skipped}}",
-      "cacheCleared": "フィードのキャッシュを消去しました。再確認します"
+      "cacheCleared": "フィードのキャッシュを消去しました。再確認します",
+      "addressUpdated": "{{name}} は新しいアドレスから読み込まれます"
     },
     "settings": {
       "check": "新しい投稿を確認",

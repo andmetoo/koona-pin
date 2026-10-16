@@ -1,10 +1,10 @@
 import { ReactNode, useState } from "react";
-import { BellRing, CheckCheck, Copy, ExternalLink, Inbox, Pencil, Rss, UserMinus } from "lucide-react";
+import { ArrowRightLeft, BellRing, CheckCheck, Copy, ExternalLink, Inbox, Pencil, Rss, UserMinus } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { Feed, FeedDestination } from "../../types";
 import { describeError } from "../../services/errors";
-import { feedName, markFeedRead, unsubscribeFeed, updateFeed } from "../../services/feeds";
+import { acceptFeedMove, feedName, markFeedRead, unsubscribeFeed, updateFeed } from "../../services/feeds";
 import { MenuEntry } from "../ui/Menu";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Controls";
@@ -16,6 +16,8 @@ export interface FeedActions {
   rename: (feed: Feed) => void;
   destination: (feed: Feed, destination: FeedDestination) => void;
   markRead: (feed: Feed | null) => void;
+  /** A feed whose fetches found it at a new address: follow it there (plan §4.3). */
+  updateAddress: (feed: Feed) => void;
   copy: (feed: Feed) => void;
   openSite: (feed: Feed) => void;
   unfollow: (feed: Feed) => void;
@@ -46,6 +48,9 @@ export function feedMenu(feed: Feed, t: TFunction, actions: FeedActions): MenuEn
     },
     { id: "markRead", label: t("feeds.menu.markRead"), icon: CheckCheck, disabled: feed.unread === 0, onSelect: () => actions.markRead(feed) },
     "separator",
+    ...(feed.health.state === "moved"
+      ? [{ id: "updateAddress", label: t("feeds.menu.updateAddress"), icon: ArrowRightLeft, onSelect: () => actions.updateAddress(feed) }]
+      : []),
     { id: "copy", label: t("feeds.menu.copy"), icon: Copy, onSelect: () => actions.copy(feed) },
     { id: "site", label: t("feeds.menu.openSite"), icon: ExternalLink, disabled: !feed.site_url, onSelect: () => actions.openSite(feed) },
     "separator",
@@ -84,6 +89,8 @@ export function useFeedActions({
         (count) => onNotice(count ? t("feeds.notice.markedRead", { count }) : t("feeds.notice.allRead")),
         failed,
       ),
+    updateAddress: (feed) =>
+      void acceptFeedMove(feed.uid).then(() => onNotice(t("feeds.notice.addressUpdated", { name: feedName(feed) })), failed),
     copy: (feed) => onCopy(feed.url),
     openSite: (feed) => feed.site_url && onOpen(feed.site_url),
     unfollow: setUnfollowing,

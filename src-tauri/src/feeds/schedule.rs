@@ -73,6 +73,8 @@ pub struct FetchState {
     pub failures: u32,
     pub failing_since: Option<DateTime<Utc>>,
     pub last_error: Option<String>,
+    /// The feed's `<ttl>` from its last document, for the 304s after it.
+    pub ttl_minutes: Option<u32>,
 }
 
 impl FetchState {
@@ -110,7 +112,10 @@ pub fn is_due(state: Option<&FetchState>, now: DateTime<Utc>, interval: u32, mod
             // Never fetched: the first fetch of a new subscription, whatever the interval.
             None => true,
             Some(state) if state.gone() => false,
-            Some(state) if interval == 0 && state.succeeded_at.is_some() => false,
+            // «Only when I refresh»: the first fetch is the one the loop makes. A feed
+            // that answered once, even with an error, waits for ↻; one never reached
+            // (offline) is tried again.
+            Some(state) if interval == 0 && (state.succeeded_at.is_some() || state.fetched_at.is_some()) => false,
             Some(state) => state.next_fetch_at.is_none_or(|next| next <= now),
         },
     }
@@ -218,7 +223,8 @@ fn time(raw: Option<String>) -> Option<DateTime<Utc>> {
 
 pub fn states(conn: &Connection) -> rusqlite::Result<HashMap<String, FetchState>> {
     conn.prepare(
-        "SELECT feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error
+        "SELECT feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error,
+            ttl_minutes
          FROM feed_state",
     )?
     .query_map([], |r| {
@@ -233,6 +239,7 @@ pub fn states(conn: &Connection) -> rusqlite::Result<HashMap<String, FetchState>
                 failures: r.get(6)?,
                 failing_since: time(r.get(7)?),
                 last_error: r.get(8)?,
+                ttl_minutes: r.get(9)?,
             },
         ))
     })?
@@ -247,15 +254,19 @@ fn write_success(
     now: DateTime<Utc>,
     next: DateTime<Utc>,
     moved_to: Option<&str>,
+    ttl: Option<Option<u32>>,
 ) -> rusqlite::Result<()> {
     let now = db::stamp(now);
+    // `ttl`: a document's own (possibly none), or `None` for a 304, which keeps the last.
+    let (write_ttl, ttl) = (ttl.is_some(), ttl.flatten());
     conn.execute(
-        "INSERT INTO feed_state (feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error, moved_to)
-         VALUES (?1, ?2, ?3, ?4, ?4, ?5, 0, NULL, NULL, ?6)
+        "INSERT INTO feed_state (feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error, moved_to, ttl_minutes)
+         VALUES (?1, ?2, ?3, ?4, ?4, ?5, 0, NULL, NULL, ?6, ?7)
          ON CONFLICT (feed_uid) DO UPDATE SET etag = excluded.etag, last_modified = excluded.last_modified,
              fetched_at = excluded.fetched_at, succeeded_at = excluded.succeeded_at, next_fetch_at = excluded.next_fetch_at,
-             failures = 0, failing_since = NULL, last_error = NULL, moved_to = excluded.moved_to",
-        params![uid, validators.etag, validators.last_modified, now, db::stamp(next), moved_to],
+             failures = 0, failing_since = NULL, last_error = NULL, moved_to = excluded.moved_to,
+             ttl_minutes = CASE WHEN ?8 THEN excluded.ttl_minutes ELSE ttl_minutes END",
+        params![uid, validators.etag, validators.last_modified, now, db::stamp(next), moved_to, ttl, write_ttl],
     )?;
     Ok(())
 }
@@ -481,12 +492,13 @@ fn store(
                     .max()
                     .or_else(|| last_post(&conn, uid));
                 let next = next_after_success(now, interval, feed.ttl_minutes, fetched.max_age, newest, jitter());
-                write_success(&conn, uid, &validators, now, next, moved_to.as_deref())?;
+                write_success(&conn, uid, &validators, now, next, moved_to.as_deref(), Some(feed.ttl_minutes))?;
                 stored.new_ids
             }
             Outcome::NotModified { validators } => {
-                let next = next_after_success(now, interval, None, fetched.max_age, last_post(&conn, uid), jitter());
-                write_success(&conn, uid, &validators, now, next, moved_to.as_deref())?;
+                // The feed asked for its `<ttl>` in the last document; a 304 keeps to it.
+                let next = next_after_success(now, interval, state.ttl_minutes, fetched.max_age, last_post(&conn, uid), jitter());
+                write_success(&conn, uid, &validators, now, next, moved_to.as_deref(), None)?;
                 Vec::new()
             }
             Outcome::Gone => {
@@ -694,6 +706,16 @@ mod tests {
         assert!(is_due(Some(&state(-1, None)), now, 60, &tick, "a"));
         assert!(!is_due(Some(&state(10, None)), now, 60, &tick, "a"));
         assert!(!is_due(Some(&state(-1, None)), now, 0, &tick, "a"), "manual: the loop leaves it");
+        let failed_once = FetchState {
+            fetched_at: Some(now - TimeDelta::hours(1)),
+            next_fetch_at: Some(now - TimeDelta::minutes(1)),
+            failures: 1,
+            last_error: Some("timeout".into()),
+            ..Default::default()
+        };
+        assert!(!is_due(Some(&failed_once), now, 0, &tick, "a"), "manual: a feed that failed waits for ↻ too");
+        let never_reached = FetchState { next_fetch_at: Some(now - TimeDelta::minutes(1)), last_error: Some("offline".into()), ..Default::default() };
+        assert!(is_due(Some(&never_reached), now, 0, &tick, "a"), "manual: a first fetch cut off by being offline is tried again");
         assert!(!is_due(Some(&state(-1, Some("gone"))), now, 60, &tick, "a"));
 
         let all = Mode::Now { feed_uid: None };
@@ -807,6 +829,27 @@ mod tests {
         assert_eq!(requests.len(), 2);
         assert!(requests[1].contains("if-none-match: \"v7\""), "{}", requests[1]);
         assert_eq!(row(&cache, &feed.uid).0.as_deref(), Some("\"v7\""), "a 304 keeps the validator");
+    }
+
+    /// A feed's `<ttl>` holds after a 304, which carries no document (NP-129).
+    #[tokio::test]
+    async fn a_304_keeps_to_the_feeds_ttl() {
+        let body = br#"<?xml version="1.0"?><rss version="2.0"><channel><title>Slow</title><ttl>180</ttl>
+<item><title>One</title><link>https://slow.example.com/1</link><guid>s1</guid></item></channel></rss>"#;
+        let (port, _) = server(move |request, _| {
+            if request.contains("if-none-match") {
+                answer("304 Not Modified", "", b"")
+            } else {
+                answer("200 OK", "Content-Type: application/rss+xml\r\nETag: \"t1\"\r\n", body)
+            }
+        });
+        let (db, cache) = (library(), cache());
+        let feed = follow(&db, &format!("http://127.0.0.1:{port}/feed"));
+        let minutes_ahead = |cache: &FeedCache| (clock(&row(cache, &feed.uid).3.unwrap()) - Utc::now()).num_minutes();
+        tick(&db, &cache, Mode::Tick).await;
+        assert!(minutes_ahead(&cache) >= 160, "the document's ttl: about 3 h, not the hour");
+        tick(&db, &cache, Mode::Now { feed_uid: None }).await;
+        assert!(minutes_ahead(&cache) >= 160, "and the 304 after it keeps to it");
     }
 
     #[tokio::test]

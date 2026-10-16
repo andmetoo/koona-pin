@@ -69,6 +69,8 @@ CREATE TABLE feed_seen (
     PRIMARY KEY (feed_uid, key)
 ) WITHOUT ROWID;
 ",
+    // v2: the feed's own `<ttl>`, kept so a 304 is scheduled as the last 200 was (NP-129).
+    "ALTER TABLE feed_state ADD COLUMN ttl_minutes INTEGER;",
 ];
 
 /// The newest cache version this build makes.
@@ -438,9 +440,9 @@ pub fn sweep(conn: &Connection, known: &[String], now: DateTime<Utc>) -> rusqlit
     Ok(Swept { expired, capped, unknown, vacuumed })
 }
 
-/// How fetching goes, from the fetch state NP-129 writes: gone and moved
-/// first, then a blocked feed (at once: waiting will not help), offline, and
-/// a feed failing for [`FAILING_DAYS`].
+/// How fetching goes, from the fetch state NP-129 writes: gone first, then a
+/// blocked feed (at once: waiting will not help), offline, a feed failing for
+/// [`FAILING_DAYS`], and last a feed that moved and still answers.
 pub fn health(
     last_error: Option<&str>,
     moved_to: Option<&str>,
@@ -452,7 +454,6 @@ pub fn health(
     let since = || failing_since.or(fetched_at).unwrap_or_default().to_string();
     match last_error {
         Some("gone") | Some("status:410") => return FeedHealth::Gone,
-        _ if moved_to.is_some() => return FeedHealth::Moved { to: moved_to.unwrap_or_default().into() },
         Some("blocked") => return FeedHealth::Failing { since: since(), reason: "blocked".into() },
         Some("offline") => return FeedHealth::Offline,
         _ => {}
@@ -460,8 +461,10 @@ pub fn health(
     let long = failing_since
         .and_then(stamp_of)
         .is_some_and(|since| now - since >= Span::days(FAILING_DAYS));
-    match last_error {
-        Some(reason) if failures > 0 && long => FeedHealth::Failing { since: since(), reason: reason.into() },
+    match (last_error, moved_to) {
+        // A new address that breaks in turn is a failing feed, not a moved one.
+        (Some(reason), _) if failures > 0 && long => FeedHealth::Failing { since: since(), reason: reason.into() },
+        (_, Some(to)) => FeedHealth::Moved { to: to.into() },
         _ => FeedHealth::Ok,
     }
 }
@@ -469,17 +472,19 @@ pub fn health(
 /// What the cache knows of each subscription, into `feeds`: title, site,
 /// icon, counts, the last fetch and health.
 pub fn merge_state(conn: &Connection, feeds: &mut [Feed], now: DateTime<Utc>) -> rusqlite::Result<()> {
-    let mut counts: HashMap<String, (u32, u32)> = conn
-        .prepare("SELECT feed_uid, count(*), count(*) FILTER (WHERE read_at IS NULL) FROM feed_items GROUP BY feed_uid")?
-        .query_map([], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?))))?
+    let mut counts: HashMap<String, (u32, u32, Option<String>)> = conn
+        .prepare(
+            "SELECT feed_uid, count(*), count(*) FILTER (WHERE read_at IS NULL), max(fetched_at) FROM feed_items GROUP BY feed_uid",
+        )?
+        .query_map([], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?, r.get(3)?))))?
         .collect::<rusqlite::Result<_>>()?;
     let mut state = conn.prepare(
         "SELECT title, site_url, icon_url, fetched_at, last_error, moved_to, failures, failing_since
          FROM feed_state WHERE feed_uid = ?1",
     )?;
     for feed in feeds.iter_mut() {
-        let (total, unread) = counts.remove(&feed.uid).unwrap_or_default();
-        (feed.total, feed.unread) = (total, unread);
+        let (total, unread, newest) = counts.remove(&feed.uid).unwrap_or_default();
+        (feed.total, feed.unread, feed.newest_at) = (total, unread, newest);
         let row = state
             .query_row([&feed.uid], |r| {
                 Ok((
@@ -499,6 +504,20 @@ pub fn merge_state(conn: &Connection, feeds: &mut [Feed], now: DateTime<Utc>) ->
             (feed.feed_title, feed.site_url, feed.icon_url, feed.fetched_at) = (title, site, icon, fetched);
         }
     }
+    Ok(())
+}
+
+/// Where a feed that moved lives now, if the fetches said so (NP-129).
+pub fn moved_to(conn: &Connection, feed_uid: &str) -> rusqlite::Result<Option<String>> {
+    Ok(conn
+        .query_row("SELECT moved_to FROM feed_state WHERE feed_uid = ?1", [feed_uid], |r| r.get(0))
+        .optional()?
+        .flatten())
+}
+
+/// The move was taken: the feed's address is the new one now.
+pub fn clear_move(conn: &Connection, feed_uid: &str) -> rusqlite::Result<()> {
+    conn.execute("UPDATE feed_state SET moved_to = NULL WHERE feed_uid = ?1", [feed_uid])?;
     Ok(())
 }
 
@@ -717,17 +736,34 @@ mod tests {
         .unwrap();
     }
 
+    /// A cache of version 1 (2.0.0 before the `<ttl>` column) is carried over, posts and all.
+    #[test]
+    fn a_version_1_cache_gains_the_ttl_and_keeps_its_posts() {
+        let folder = folder("feed-cache-v1");
+        {
+            let conn = Connection::open(folder.join(FILE)).unwrap();
+            conn.execute_batch(STEPS[0]).unwrap();
+            conn.pragma_update(None, "application_id", APPLICATION_ID).unwrap();
+            conn.pragma_update(None, "user_version", 1).unwrap();
+            post(&conn, "f", "1");
+        }
+        let opened = open(&folder).unwrap();
+        assert!(opened.moved_aside.is_none());
+        assert_eq!(count(&opened.conn), 1);
+        opened.conn.execute("INSERT INTO feed_state (feed_uid, ttl_minutes) VALUES ('f', 180)", []).unwrap();
+    }
+
     fn count(conn: &Connection) -> i64 {
         conn.query_row("SELECT count(*) FROM feed_items", [], |r| r.get(0)).unwrap()
     }
 
     #[test]
-    fn a_missing_cache_is_made_with_schema_1_and_kept() {
+    fn a_missing_cache_is_made_with_its_schema_and_kept() {
         let folder = folder("feed-cache-new");
         let opened = open(&folder).unwrap();
         assert!(opened.moved_aside.is_none());
         let conn = opened.conn;
-        assert_eq!(conn.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0)).unwrap(), 1);
+        assert_eq!(conn.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0)).unwrap(), VERSION);
         assert_eq!(conn.pragma_query_value(None, "application_id", |r| r.get::<_, i32>(0)).unwrap(), APPLICATION_ID);
         assert_eq!(
             tables(&conn),
@@ -850,6 +886,7 @@ mod tests {
             unread: 0,
             total: 0,
             fetched_at: None,
+            newest_at: None,
             health: FeedHealth::Ok,
         }
     }
@@ -1042,6 +1079,7 @@ mod tests {
         let a = &list[0];
         assert_eq!((a.feed_title.as_deref(), a.site_url.as_deref(), a.icon_url.as_deref()), (Some("Example"), Some("https://example.com/"), Some("https://example.com/i.png")));
         assert_eq!((a.total, a.unread, a.fetched_at.as_deref(), &a.health), (2, 1, Some(NOW), &FeedHealth::Ok));
+        assert_eq!(a.newest_at.as_deref(), Some(NOW), "when the newest post arrived, for the notification's key");
         assert_eq!((list[1].total, list[1].feed_title.clone(), &list[1].health), (0, None, &FeedHealth::Ok));
 
         let now = at(NOW);
@@ -1063,6 +1101,12 @@ mod tests {
             health(None, Some("https://new.example.com/feed"), 0, None, Some(NOW), now),
             FeedHealth::Moved { to: "https://new.example.com/feed".into() }
         );
+        assert_eq!(
+            health(Some("status:404"), Some("https://new.example.com/feed"), 9, Some(&week), Some(NOW), now),
+            FeedHealth::Failing { since: week.clone(), reason: "status:404".into() },
+            "a new address that breaks in turn is failing, not moved"
+        );
+        assert_eq!(health(Some("offline"), Some("https://new.example.com/feed"), 0, None, Some(NOW), now), FeedHealth::Offline);
     }
 
     #[test]

@@ -241,9 +241,16 @@ async fn after_feeds(app: &AppHandle, db: &Arc<DbState>, applied: &Applied) {
             feeds_to_forget(&conn, &applied).and_then(|gone| Ok((gone, feeds::feeds(&conn)?)))
         };
         match read {
-            Ok((gone, list)) => {
+            Ok((gone, mut list)) => {
                 for uid in gone {
                     feeds::cache::forget_feed(&app, &uid);
+                }
+                // The interface takes the list as it comes: counts, titles and health
+                // from the cache with it, or every feed would read as empty (NP-130).
+                if let Some(cache) = app.try_state::<Arc<feeds::cache::FeedCache>>() {
+                    if let Ok(conn) = cache.conn.lock() {
+                        let _ = feeds::cache::merge_state(&conn, &mut list, chrono::Utc::now());
+                    }
                 }
                 feeds::emit_changed(&app, list);
             }

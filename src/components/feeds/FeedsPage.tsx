@@ -5,6 +5,7 @@ import type { Bookmark, Feed, FeedItem } from "../../types";
 import { api } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { composing } from "../../services/ime";
+import { keyIs } from "../../services/keys";
 import { markFeedRead, refreshFeeds, saveFeedItem, setFeedItemsRead } from "../../services/feeds";
 import { headerLine, healthLine, listTitle } from "../../services/feedsView";
 import { ReaderLook } from "../../services/readerLook";
@@ -31,6 +32,9 @@ export interface FeedNotice {
  * and the article sheet beside it; in a narrow window one at a time. Its keys are its own window
  * listener with App's layer check: ↑/↓ J/K, Space or Enter, S R F O U, ⇧A and ⌘R.
  */
+/** A bookmark this save made: from a feed, a moment ago (a link saved before keeps its own source and age). */
+const madeJustNow = (bookmark: Bookmark) => bookmark.source === "feed" && Date.now() - Date.parse(bookmark.created_at) < 60_000;
+
 export function FeedsPage({
   feeds,
   refreshing,
@@ -146,11 +150,20 @@ export function FeedsPage({
         await loadBookmark();
         return onNotice({ text: t("feeds.notice.unfavorited"), undo: onUndo(command) });
       }
-      const fresh = item.bookmark_id === null;
       const saved = await saveFeedItem(item.id, kind === "reading" ? "reading" : "library", kind === "favorite");
-      setBookmark(saved);
+      // A link already in the library comes back as it was (saving never overwrites what
+      // the person set), so R and F still do what they say, as undoable bulk actions.
+      let command: number | null = null;
+      if (kind === "reading" && !saved.reading_at)
+        ({ command } = await api.bulkUpdate([saved.id], { action: "reading", reading: true }));
+      else if (kind === "favorite" && !saved.is_favorite)
+        ({ command } = await api.bulkUpdate([saved.id], { action: "favorite", favorite: true }));
+      // «Undo» takes away only a bookmark this save made, never one that was there before.
+      const fresh = item.bookmark_id === null && command === null && madeJustNow(saved);
+      if (command === null) setBookmark(saved);
+      else await loadBookmark();
       const text = kind === "reading" ? t("notice.toReading") : kind === "favorite" ? t("feeds.notice.favorited") : t("add.savedTo", { place: t("import.library") });
-      onNotice({ text, undo: fresh ? () => onUnsave(saved.id) : undefined, glass: fresh });
+      onNotice({ text, undo: fresh ? () => onUnsave(saved.id) : command !== null ? onUndo(command) : undefined, glass: fresh });
     } catch (err) {
       failed(err);
     }
@@ -174,9 +187,10 @@ export function FeedsPage({
       if (composing(e) || k.blocked || document.querySelector("dialog[open], [data-menu]")) return;
       const target = e.target instanceof HTMLElement ? e.target : null;
       const typing = !!target?.closest("input, textarea, select, [contenteditable=true]");
-      const key = e.key.toLowerCase();
+      // By the key's place too: J on a Russian layout types «о» (reading mode does the same).
+      const is = (letter: string) => keyIs(e, letter);
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && !e.shiftKey && !e.altKey && key === "r") {
+      if (mod && !e.shiftKey && !e.altKey && is("r")) {
         e.preventDefault();
         k.refresh();
         return;
@@ -189,19 +203,19 @@ export function FeedsPage({
         action();
       };
       if (e.shiftKey) {
-        if (key === "a") run(k.markAll);
+        if (is("a")) run(k.markAll);
         return;
       }
-      if (key === "j" || (e.key === "ArrowDown" && !inArticle)) run(() => k.move(1));
-      else if (key === "k" || (e.key === "ArrowUp" && !inArticle)) run(() => k.move(-1));
+      if (is("j") || (e.key === "ArrowDown" && !inArticle)) run(() => k.move(1));
+      else if (is("k") || (e.key === "ArrowUp" && !inArticle)) run(() => k.move(-1));
       else if ((e.key === " " || e.key === "Enter") && !inArticle && !own)
         run(() => (k.selected ? scroller.current?.focus({ preventScroll: true }) : k.items[0] && k.select(k.items[0], true)));
       else if (e.key === "Escape" && inArticle) run(k.back);
-      else if (key === "s" && !e.repeat) run(() => void k.save("library"));
-      else if (key === "r" && !e.repeat) run(() => void k.save("reading"));
-      else if (key === "f" && !e.repeat) run(() => void k.save("favorite"));
-      else if (key === "o" && k.selected?.url) run(() => k.onOpen(k.selected!.url!));
-      else if (key === "u" && !e.repeat) run(k.toggleRead);
+      else if (is("s") && !e.repeat) run(() => void k.save("library"));
+      else if (is("r") && !e.repeat) run(() => void k.save("reading"));
+      else if (is("f") && !e.repeat) run(() => void k.save("favorite"));
+      else if (is("o") && k.selected?.url) run(() => k.onOpen(k.selected!.url!));
+      else if (is("u") && !e.repeat) run(k.toggleRead);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);

@@ -125,6 +125,9 @@ pub struct Feed {
     pub unread: u32,
     pub total: u32,
     pub fetched_at: Option<String>,
+    /// From the cache: when its newest post arrived. It changes only with new
+    /// posts, so the notification of new posts keys on it (NP-133).
+    pub newest_at: Option<String>,
     pub health: FeedHealth,
 }
 
@@ -303,6 +306,7 @@ fn feed_of(row: &rusqlite::Row) -> rusqlite::Result<Feed> {
         unread: 0,
         total: 0,
         fetched_at: None,
+        newest_at: None,
         health: FeedHealth::Ok,
     })
 }
@@ -474,6 +478,43 @@ pub async fn unsubscribe_feed(
     cache::forget_feed(&app, &uid);
     changed(&app, &state).await;
     Ok(())
+}
+
+/// The feed's address becomes `to`, where its fetches found it moved (plan
+/// §4.3). The address is a synced field, so the app never changes it by itself.
+pub fn move_to(conn: &Connection, uid: &str, to: &str) -> Result<Feed, CommandError> {
+    let url = feed_url(to)?;
+    let taken: Option<String> = conn
+        .query_row("SELECT uid FROM feeds WHERE url = ?1 AND uid <> ?2", params![url.as_str(), uid], |r| r.get(0))
+        .optional()?;
+    if taken.is_some() {
+        return Err(CommandError::invalid("The new address is already followed"));
+    }
+    conn.execute(
+        "UPDATE feeds SET url = ?1, updated_at = ?2 WHERE uid = ?3 AND url IS NOT ?1",
+        params![url.as_str(), db::now(), uid],
+    )?;
+    Ok(feed(conn, uid)?)
+}
+
+/// «Update the address» of a feed that moved (NP-129, plan §4.3).
+#[tauri::command]
+pub async fn accept_feed_move(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    feed_cache: State<'_, Arc<cache::FeedCache>>,
+    uid: String,
+) -> Result<Feed, CommandError> {
+    let asked = uid.clone();
+    let to = cache::blocking(&feed_cache, move |conn| Ok(cache::moved_to(conn, &asked)?)).await?;
+    let Some(to) = to else {
+        return Err(CommandError::invalid("This feed has not moved"));
+    };
+    let moved = uid.clone();
+    let feed = blocking(&state, move |conn| move_to(conn, &moved, &to)).await?;
+    cache::blocking(&feed_cache, move |conn| Ok(cache::clear_move(conn, &uid)?)).await?;
+    changed(&app, &state).await;
+    Ok(feed)
 }
 
 /// A fetch that gave no preview, in the interface's words.
@@ -761,6 +802,17 @@ mod tests {
         update(&conn, "u", Some("Named".into()), None).unwrap();
         let stored: String = conn.query_row("SELECT destination FROM feeds WHERE uid = 'u'", [], |r| r.get(0)).unwrap();
         assert_eq!(stored, "digest");
+    }
+
+    #[test]
+    fn a_moved_feed_takes_its_new_address_once_asked() {
+        let conn = library();
+        let a = subscribe(&conn, &Url::parse("https://old.example.com/feed").unwrap(), None, FeedDestination::Feeds).unwrap();
+        let b = subscribe(&conn, &Url::parse("https://other.example.com/feed").unwrap(), None, FeedDestination::Feeds).unwrap();
+        let moved = move_to(&conn, &a.uid, "https://new.example.com/feed").unwrap();
+        assert_eq!((moved.uid, moved.url.as_str()), (a.uid.clone(), "https://new.example.com/feed"));
+        assert!(move_to(&conn, &a.uid, &b.url).is_err(), "an address already followed is not taken");
+        assert!(move_to(&conn, &a.uid, "http://192.168.1.1/feed").is_err(), "nor a local one");
     }
 
     #[test]

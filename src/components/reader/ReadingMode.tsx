@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Bookmark, OfflineCopy } from "../../types";
 import { api } from "../../services/api";
 import { composing } from "../../services/ime";
-import { deleteKey } from "../../services/keys";
+import { deleteKey, keyIs } from "../../services/keys";
 import { Article, cachedArticle, knownMinutes } from "../../services/reader";
 import { useReadingList } from "../../hooks/useReadingList";
 import { useReadingProgress } from "../../hooks/useReadingProgress";
@@ -40,7 +40,6 @@ const FADE_MS = 150;
 /** Close to the end of a section's loaded bookmarks the next page is asked for. */
 const MORE_AHEAD = 3;
 
-const keyIs = (e: KeyboardEvent, letter: string) => e.code === `Key${letter.toUpperCase()}` || e.key.toLowerCase() === letter;
 
 /**
  * The reading mode (NP-122, Р-69 point 1, frames B1–B9): the queue on the left,

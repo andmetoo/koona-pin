@@ -17,4 +17,9 @@ title: string | null,
 /**
  * From the cache: the feed's own title, site and icon. None before the first fetch.
  */
-feed_title: string | null, site_url: string | null, icon_url: string | null, destination: FeedDestination, unread: number, total: number, fetched_at: string | null, health: FeedHealth, };
+feed_title: string | null, site_url: string | null, icon_url: string | null, destination: FeedDestination, unread: number, total: number, fetched_at: string | null, 
+/**
+ * From the cache: when its newest post arrived. It changes only with new
+ * posts, so the notification of new posts keys on it (NP-133).
+ */
+newest_at: string | null, health: FeedHealth, };

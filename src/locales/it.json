@@ -1753,6 +1753,7 @@
       "rename": "Rinomina…",
       "destination": "Dove vanno i nuovi articoli",
       "markRead": "Segna tutto come letto",
+      "updateAddress": "Aggiorna l’indirizzo",
       "copy": "Copia indirizzo del feed",
       "openSite": "Apri il sito",
       "unfollow": "Smetti di seguire…"
@@ -1779,7 +1780,8 @@
       "destination": "{{name}}: {{place}}",
       "exported": "Feed esportati: {{count}} · {{name}}",
       "imported": "Seguiti: {{added}} · già seguiti: {{existing}} · saltati: {{skipped}}",
-      "cacheCleared": "Cache dei feed svuotata, ricontrollo"
+      "cacheCleared": "Cache dei feed svuotata, ricontrollo",
+      "addressUpdated": "{{name}} ora viene letto dal nuovo indirizzo"
     },
     "settings": {
       "check": "Cerca nuovi articoli",
