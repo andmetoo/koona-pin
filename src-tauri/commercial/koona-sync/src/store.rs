@@ -4,7 +4,8 @@
 //! field, the values as the wire carries them, and the delta a peer has not seen, in chunks.
 
 use crate::model::{
-    Clock, Entity, FieldChange, Gone, Group, Hlc, Vector, BOOKMARK_FIELDS, COLLECTION_FIELDS, TAG_FIELDS,
+    Clock, Entity, FieldChange, Gone, Group, Hlc, Vector, BOOKMARK_FIELDS, COLLECTION_FIELDS, FEED_FIELDS,
+    TAG_FIELDS,
 };
 use crate::Result;
 use rusqlite::types::Value;
@@ -81,7 +82,17 @@ pub(crate) const BOOKMARKS: Table = Table {
     fields: &BOOKMARK_FIELDS,
     required: &[0, 1, FAVORITE, 12, PROGRESS],
 };
-pub(crate) const RECORDS: [&Table; 3] = [&COLLECTIONS, &TAGS, &BOOKMARKS];
+/// Schema 14 (NP-130). Its `created_at` and `updated_at` are local: the engine fills them.
+pub(crate) const FEEDS: Table = Table {
+    entity: Entity::Feed,
+    code: 4,
+    name: "feeds",
+    kind: "feed",
+    columns: &["url", "title", "destination"],
+    fields: &FEED_FIELDS,
+    required: &[0, 2],
+};
+pub(crate) const RECORDS: [&Table; 4] = [&COLLECTIONS, &TAGS, &BOOKMARKS, &FEEDS];
 
 impl Table {
     pub fn of(entity: Entity) -> Option<&'static Table> {
@@ -89,6 +100,7 @@ impl Table {
             Entity::Collection => Some(&COLLECTIONS),
             Entity::Tag => Some(&TAGS),
             Entity::Bookmark => Some(&BOOKMARKS),
+            Entity::Feed => Some(&FEEDS),
             Entity::Link => None,
         }
     }
@@ -106,12 +118,16 @@ impl Table {
     }
 }
 
-fn entity_of(code: i64) -> Entity {
+/// The record entity of a table code. Every code is named: a new entity once fell through to
+/// `Link` here (NP-130).
+fn entity_of(code: i64) -> Result<Entity> {
     match code {
-        0 => Entity::Collection,
-        1 => Entity::Tag,
-        2 => Entity::Bookmark,
-        _ => Entity::Link,
+        0 => Ok(Entity::Collection),
+        1 => Ok(Entity::Tag),
+        2 => Ok(Entity::Bookmark),
+        3 => Ok(Entity::Link),
+        4 => Ok(Entity::Feed),
+        other => Err(crate::Error::Damaged(format!("entity {other}"))),
     }
 }
 
@@ -372,7 +388,7 @@ pub struct Chunk {
 }
 
 /// The changes a peer with vector `since` has not seen, in chunks of about `max_bytes` of JSON:
-/// per entity (collections, tags, bookmarks, links) the records, then the tombstones, so a
+/// per entity (collections, tags, bookmarks, links, feeds) the records, then the tombstones, so a
 /// reference reaches the receiver after what it refers to. The keys are found once from the
 /// `(origin, counter)` index; values and clocks are read when each chunk is made.
 pub struct Delta<'c> {
@@ -458,7 +474,7 @@ impl<'c> Delta<'c> {
             } else if phase as i64 / 2 == LINK {
                 self.link_group(&origins, key)?
             } else {
-                self.record_group(&origins, entity_of(phase as i64 / 2), key)?
+                self.record_group(&origins, entity_of(phase as i64 / 2)?, key)?
             };
             if let Some(group) = group {
                 bytes += serde_json::to_vec(&group).map(|v| v.len()).unwrap_or(0);
@@ -474,7 +490,7 @@ impl<'c> Delta<'c> {
     }
 
     fn record_group(&self, origins: &Origins, entity: Entity, row: i64) -> Result<Option<Group>> {
-        let t = Table::of(entity).expect("a record entity");
+        let t = Table::of(entity).ok_or_else(|| crate::Error::Damaged(format!("{entity:?} is not a record")))?;
         let Some((uid, values)) = raw_values(self.conn, t, row)? else {
             return Ok(None);
         };

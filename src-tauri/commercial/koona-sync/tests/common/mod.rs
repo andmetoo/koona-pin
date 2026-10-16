@@ -1,6 +1,6 @@
 //! Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 //!
-//! Libraries for the tests: schema 9 as the app makes it, schemas 10, 11 and 13 on top, the app's SQL
+//! Libraries for the tests: schema 9 as the app makes it, schemas 10, 11, 13 and 14 on top, the app's SQL
 //! functions stubbed, and the writes the app makes (`db.rs`) as plain SQL, so the triggers see
 //! what they see in the app.
 
@@ -17,6 +17,25 @@ pub const SCHEMA_9: &str = include_str!("../schema.sql");
 pub const APP_SCHEMA_11: &str = include_str!("../schema11.sql");
 /// The app's column of schema 13, before the engine's `SCHEMA_13`.
 pub const APP_SCHEMA_13: &str = include_str!("../schema13.sql");
+/// The app's table of schema 14, before the engine's `SCHEMA_14`.
+pub const APP_SCHEMA_14: &str = include_str!("../schema14.sql");
+
+/// The app's hook of schema 14 (`migrations::sync_feeds`): the tombstones take kind `feed`.
+fn widen_tombstones(conn: &Connection) {
+    let sql: String = one(conn, "SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'tombstones'");
+    let old = "CHECK (kind IN ('bookmark','collection','tag'))";
+    assert_eq!(sql.matches(old).count(), 1, "{sql}");
+    let version: i64 = conn.pragma_query_value(None, "schema_version", |r| r.get(0)).unwrap();
+    conn.pragma_update(None, "writable_schema", true).unwrap();
+    conn.execute(
+        "UPDATE sqlite_schema SET sql = ?1 WHERE type = 'table' AND name = 'tombstones'",
+        [sql.replace(old, "CHECK (kind IN ('bookmark','collection','tag','feed'))")],
+    )
+    .unwrap();
+    conn.pragma_update(None, "schema_version", version + 1).unwrap();
+    conn.pragma_update(None, "writable_schema", false).unwrap();
+    let _: i64 = one(conn, "SELECT count(*) FROM tombstones");
+}
 
 /// The app's functions as far as the triggers and the engine need them.
 pub fn stub_app_functions(conn: &Connection) {
@@ -55,7 +74,7 @@ pub fn domain(url: &str) -> String {
     rest.split(['/', '?', '#']).next().unwrap_or("").to_string()
 }
 
-/// A library at schema 13 with sync attached as `replica`, foreign keys on as in the app.
+/// A library at schema 14 with sync attached as `replica`, foreign keys on as in the app.
 pub fn library_at(path: Option<&std::path::Path>, replica: Uuid) -> Connection {
     let conn = match path {
         Some(path) => Connection::open(path).unwrap(),
@@ -70,6 +89,9 @@ pub fn library_at(path: Option<&std::path::Path>, replica: Uuid) -> Connection {
     conn.execute_batch(koona_sync::SCHEMA_11).unwrap();
     conn.execute_batch(APP_SCHEMA_13).unwrap();
     conn.execute_batch(koona_sync::SCHEMA_13).unwrap();
+    conn.execute_batch(APP_SCHEMA_14).unwrap();
+    widen_tombstones(&conn);
+    conn.execute_batch(koona_sync::SCHEMA_14).unwrap();
     koona_sync::attach(&conn, replica).unwrap();
     conn
 }
@@ -170,6 +192,42 @@ pub fn delete_collection(conn: &Connection, id: i64) {
     )
     .unwrap();
     tx.execute("DELETE FROM collections WHERE id = ?1", params![id]).unwrap();
+    tx.commit().unwrap();
+}
+
+/// `feeds::subscribe`: an address already followed keeps its subscription. Returns the new id.
+pub fn follow(conn: &Connection, uid: Uuid, url: &str, title: Option<&str>, destination: &str) -> Option<i64> {
+    let now = now(conn);
+    let n = conn
+        .execute(
+            "INSERT INTO feeds (uid, url, title, destination, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?5) ON CONFLICT (url) DO NOTHING",
+            params![uid.to_string(), url, title, destination, now],
+        )
+        .unwrap();
+    (n == 1).then(|| conn.last_insert_rowid())
+}
+
+/// `feeds::update`: an unchanged value is not written.
+pub fn set_feed(conn: &Connection, id: i64, column: &str, value: rusqlite::types::Value) {
+    conn.execute(
+        &format!("UPDATE feeds SET {column} = ?1, updated_at = ?3 WHERE id = ?2 AND {column} IS NOT ?1"),
+        params![value, id, now(conn)],
+    )
+    .unwrap();
+}
+
+/// `feeds::unsubscribe`.
+pub fn unfollow(conn: &Connection, id: i64) {
+    let tx = conn.unchecked_transaction().unwrap();
+    let now = now(&tx);
+    tx.execute(
+        "INSERT OR REPLACE INTO tombstones (uid, kind, deleted_at, purged_at)
+         SELECT uid, 'feed', ?1, ?1 FROM feeds WHERE id = ?2",
+        params![now, id],
+    )
+    .unwrap();
+    tx.execute("DELETE FROM feeds WHERE id = ?1", [id]).unwrap();
     tx.commit().unwrap();
 }
 
@@ -296,6 +354,10 @@ pub fn dump(conn: &Connection) -> Vec<String> {
          FROM bookmarks x ORDER BY x.uid",
         cols.join(", ")
     ));
+    let feed_fields = ["x.url", "x.title", "x.destination"];
+    let cols: Vec<String> =
+        feed_fields.iter().enumerate().map(|(i, c)| format!("{c}, {}", clock(4, &i.to_string()))).collect();
+    rows(format!("SELECT 'feed', x.uid, {} FROM feeds x ORDER BY x.uid", cols.join(", ")));
     rows("SELECT 'tombstone', t.uid, t.kind, t.merged_into, t.hlc, o.origin, t.counter
           FROM tombstones t LEFT JOIN sync_origins o ON o.id = t.origin ORDER BY t.uid"
         .to_string());
@@ -319,14 +381,16 @@ pub fn check_invariants(conn: &Connection) {
          OR (c.entity = 1 AND NOT EXISTS (SELECT 1 FROM tags WHERE id = c.row))
          OR (c.entity = 2 AND NOT EXISTS (SELECT 1 FROM bookmarks WHERE id = c.row))
          OR (c.entity = 3 AND (NOT EXISTS (SELECT 1 FROM bookmarks WHERE id = c.row)
-                               OR NOT EXISTS (SELECT 1 FROM tags WHERE id = c.field)))",
+                               OR NOT EXISTS (SELECT 1 FROM tags WHERE id = c.field)))
+         OR (c.entity = 4 AND NOT EXISTS (SELECT 1 FROM feeds WHERE id = c.row))
+         OR c.entity NOT BETWEEN 0 AND 4",
     );
     assert_eq!(stale, 0, "clocks of records that are gone");
     let live_gone: i64 = one(
         conn,
         "SELECT count(*) FROM tombstones t WHERE t.merged_into IS NULL AND (
             EXISTS (SELECT 1 FROM bookmarks WHERE uid = t.uid) OR EXISTS (SELECT 1 FROM collections WHERE uid = t.uid)
-            OR EXISTS (SELECT 1 FROM tags WHERE uid = t.uid))",
+            OR EXISTS (SELECT 1 FROM tags WHERE uid = t.uid) OR EXISTS (SELECT 1 FROM feeds WHERE uid = t.uid))",
     );
     assert_eq!(live_gone, 0, "a purged record is back");
 }
