@@ -38,6 +38,12 @@ async function emptyLibrary(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { name: "Your bookmarks will live here" })).toBeVisible({ timeout: 15000 });
 }
 
+/** The Inbox pill (#339) shows only inside the Inbox section: go there, then into triage. */
+async function sortInbox(page: import("@playwright/test").Page, waiting: number) {
+  await page.getByRole("button", { name: `Inbox ${waiting}`, exact: true }).click();
+  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+}
+
 test("real WebView2, SQLite, capture through the host, close-to-tray and single instance", async ({
   request,
 }) => {
@@ -122,10 +128,9 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
     // The capture tells the app about the browser; the status updates by itself.
     await expect(page.getByRole("button", { name: "Browser connected" })).toBeVisible();
-    // The capture waits in the inbox at once: badge, banner, section.
-    await expect(page.getByRole("button", { name: "Inbox 1", exact: true })).toBeVisible();
-    await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText("1 new bookmark is waiting");
+    // The capture waits in the inbox at once: badge, section, pill.
     await page.getByRole("button", { name: "Inbox 1", exact: true }).click();
+    await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText("1 new in Inbox");
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
     await expect(page.locator("[data-bookmark-id]")).toContainText("From the browser");
     await page.getByRole("button", { name: "All bookmarks" }).click();
@@ -712,7 +717,8 @@ test("import of the three browsers' files: folders into collections in SQLite, t
     // Edge's «работа» landed in Chrome's «Работа».
     expect(result.collections).toEqual(expect.arrayContaining(["Работа:4", "Чтение:1", "Design:2", "Recipes:2", "Reading:1"]));
     expect(result.counts).toMatchObject({ total: 18, inbox: 7, inbox_imported: 7 });
-    await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText("7 of them from the import");
+    await page.getByRole("button", { name: "Inbox 7", exact: true }).click();
+    await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText(/7 new in Inbox\s*From the import\./);
   } finally {
     await app.browser.close().catch(() => {});
     app.processHandle.kill();
@@ -1557,7 +1563,7 @@ test("triage: decisions reach SQLite at once, a restart midway loses nothing", a
         )
         .all();
     const heading = page.getByRole("heading", { level: 1 });
-    await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+    await sortInbox(page, 3);
     await expect(heading).toHaveText(/Sort inbox\s*1 of 3/);
     await expect(page.locator("[data-triage-card]")).toContainText("added by hand today at");
 
@@ -1586,7 +1592,7 @@ test("triage: decisions reach SQLite at once, a restart midway loses nothing", a
     app = await launch(request, env);
     page = app.page;
     await expect(page.getByRole("button", { name: "Inbox 2", exact: true })).toBeVisible({ timeout: 15000 });
-    await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+    await sortInbox(page, 2);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Sort inbox\s*1 of 2/);
     await expect(page.locator("[data-triage-card] h2")).toHaveText("Triage 4");
     await page.keyboard.press("ArrowRight");
@@ -1618,7 +1624,7 @@ test("triage suggests a collection by the site from SQLite and changes nothing u
     });
     const db = new DatabaseSync(path.join(data, "koonapin.db"), { readOnly: true });
     const row = () => db.prepare("SELECT collection_id IS NULL AS free, triaged_at IS NULL AS inbox FROM bookmarks WHERE id = ?").get(id);
-    await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+    await sortInbox(page, 1);
     const offered = page.locator("[data-suggested]");
     await expect(offered).toHaveText(/1\s*Articles \/ To read\s*suggested/);
     expect(row()).toEqual({ free: 1, inbox: 1 });
