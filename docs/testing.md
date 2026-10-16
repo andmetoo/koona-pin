@@ -1,6 +1,6 @@
 # Testing
 
-`.github/workflows/ci.yml` runs on every pull request, every push to `main` and by hand. A pull request runs what its files can break: only `docs/`, `changelog/` and Markdown, nothing; scripts, tests and the Linux pipeline, the Linux jobs; the app, its dependencies, toolchains or `ci.yml` itself, everything. Pushes to `main` run everything. `main` requires two checks: `CLA` and `CI`, a summary job that is green when no job that ran failed. The package and distribution jobs (.deb, .rpm, Ubuntu, Arch, WebKitGTK, the packages artifact) show their result but do not count for `CI`, while `release.yml` publishes nothing unless all of them pass. Run the checks locally before you push. It has three parts:
+`.github/workflows/ci.yml` runs on every pull request, every push to `main` and by hand. A pull request runs what its files can break: only `docs/`, `changelog/` and Markdown, nothing; scripts, tests and the Linux pipeline, the Linux jobs; the app, its dependencies, toolchains or `ci.yml` itself, everything. Pushes to `main` run everything. `main` requires two checks: `CLA` and `CI`, a summary job that waits for all three platforms and fails if a required job fails or is cancelled. The package and distribution jobs (.deb, .rpm, Ubuntu, Arch, WebKitGTK, the packages artifact) are advisory in CI: their failures do not fail the summary, but it still waits for them to finish. A release waits for that commit's `CI`, then compiles and packs without repeating the tests; its packaging jobs must succeed before a draft is prepared. Run the checks locally before you push. It has three parts:
 
 - **Linux**, the main platform: the reusable workflow `.github/workflows/linux.yml` runs every main test (Rust tests, bindings, build, Vitest, extension lint, Playwright UI without `@visual`) and checks the packages on each distribution. See [Linux](#linux-compile-once-test-everywhere).
 - **Windows** (`windows-2025`): the Rust tests, for what differs on Windows (paths, the native host's registry, the single-instance pipe). The installer is not built in CI: the signed one is built on the maintainer's computer (`bun run release:windows`).
@@ -104,14 +104,17 @@ Each builds the extension, loads the unpacked build into a fresh profile and tal
 | `build` | `void` | The release build (`build-linux-packages.mjs --stage compile`): stripped binaries, Tauri's raw `.deb` and the AppImage. `scripts/linux/check-glibc.sh` fails it if a binary needs a glibc newer than 2.41, the oldest of the matrix (Debian 13). |
 | `test` | `void` | The main tests: Rust tests, bindings unchanged, TypeScript and Vite build, Vitest, extension lint; then a development build for `deb`. |
 | `ui` | `ui` | Playwright UI without `@visual`, in Chromium. |
-| `deb` | `debian` | Packs the `.deb` (`--stage deb`), checks it with `lintian`, `desktop-file-validate`, `appstreamcli validate`; the AppImage, the installed package, the native WebKitGTK tests, host registration with Debian's Chromium and Firefox ESR, Chrome and Edge, the extension smoke test, reinstall and removal. |
-| `rpm` | `fedora` | Packs the `.rpm` (`--stage rpm`, from Tauri's `.deb`, beside `deb`), `rpmlint`; the AppImage, the package with `dnf`, the native WebKitGTK tests, Fedora's Firefox and Chromium, reinstall and removal. |
-| `ubuntu` | `ubuntu` | The `.deb` of `deb` on Ubuntu 26.04: the AppImage, the package with `apt`, the native WebKitGTK tests, reinstall and removal. |
+| `deb-package` | `debian` | Packs the `.deb` (`--stage deb`) from the release build and uploads `linux-deb`. Does not wait for the development build or distribution tests. |
+| `deb` | `debian` | Checks `linux-deb` with `lintian`, `desktop-file-validate`, `appstreamcli validate`; the AppImage, the installed package, the native WebKitGTK tests, host registration with Debian's Chromium and Firefox ESR, Chrome and Edge, the extension smoke test, reinstall and removal. Needs the development build from `test`; skipped in releases. |
+| `rpm` | `fedora` | Packs the `.rpm` (`--stage rpm`, from Tauri's raw `.deb`, beside `deb-package`), `rpmlint`; the AppImage, the package with `dnf`, the native WebKitGTK tests, Fedora's Firefox and Chromium, reinstall and removal. |
+| `ubuntu` | `ubuntu` | The `.deb` of `deb-package` on Ubuntu 26.04: the AppImage, the package with `apt`, the native WebKitGTK tests, reinstall and removal. |
 | `arch` | `arch` | The AUR package `koonapin-bin` built from the `.deb` with `makepkg`, `namcap`; the AppImage, the package, the native WebKitGTK tests, Arch's Firefox and Chromium, reinstall and removal. |
 | `webkitgtk` | `debian`, `ubuntu` | The interface in the distribution's WebKitGTK: key screens in every language and both themes, system theme and reduced motion. |
 | `packages` | — | The `.deb`, `.rpm`, AppImage and `SHA256SUMS.txt` in one artifact, `koonapin-linux-x86_64`; for a release also their update signatures (`.sig`). |
 
 Starting the program means: libraries resolve, start under X11 (Xvfb) and Wayland (Weston), a second instance hands over, the autostart entry, `test:host`, the window actually draws.
+
+Debian, Ubuntu and Arch test the same `.deb` in parallel after `deb-package` finishes. The combined packages artifact still waits for Debian's tests in CI; releases skip those tests. The release's CI wait, draft, local Windows signing and finalize sequence is described in [building.md](building.md#releases).
 
 ### CI images
 
@@ -124,6 +127,8 @@ bun scripts/linux/images.mjs ensure --push void  # and push it (docker login ghc
 ```
 
 `KOONAPIN_CI_REGISTRY` sets another registry.
+
+The Void image includes `tar`, `gzip` and `zstd` so `Swatinem/rust-cache` can save and restore its archives. Linux build and test caches are separate, saved on `main` and restored by pull requests and releases. After rebuilding the image, the first successful run on `main` populates the caches; subsequent runs can reuse them.
 
 ### Reproducing locally
 
