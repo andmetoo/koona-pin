@@ -26,6 +26,7 @@ pub mod metadata;
 pub mod migrations;
 pub mod native_host;
 pub mod net_guard;
+pub mod offline;
 pub mod pipe_name;
 pub mod position_keys;
 pub mod quick_search;
@@ -187,6 +188,13 @@ pub fn run() {
             commands::get_app_settings,
             commands::set_close_to_tray,
             commands::set_reading_mark_at_end,
+            commands::set_reading_save_offline,
+            commands::save_offline_copy,
+            commands::get_offline_copy,
+            commands::remove_offline_copy,
+            commands::remove_all_offline_copies,
+            commands::offline_stats,
+            commands::reveal_offline_folder,
             commands::get_capture_status,
             commands::repair_capture,
             commands::get_library_status,

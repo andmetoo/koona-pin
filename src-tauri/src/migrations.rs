@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 11;
+pub const SCHEMA_VERSION: i64 = 12;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -377,6 +377,23 @@ CREATE INDEX idx_bookmarks_reading ON bookmarks(reading_at, read_at, id, deleted
     WHERE reading_at IS NOT NULL AND deleted_at IS NULL;
 ";
 
+/// Schema 12 (NP-126): offline copies of articles. The copy itself is a
+/// folder beside the library (`offline.rs`); the row says that it is there
+/// and what it holds, so the list shows it and Settings sums it without
+/// reading the disk. Copies never leave the computer: the table has no
+/// sync triggers, no export reads it, and the journal does not record it.
+/// A hard delete of the bookmark takes the row with it.
+const SCHEMA_12: &str = "
+CREATE TABLE offline_copies (
+    bookmark_id INTEGER PRIMARY KEY REFERENCES bookmarks(id) ON DELETE CASCADE,
+    saved_at TEXT NOT NULL,
+    url TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    images INTEGER NOT NULL,
+    words INTEGER NOT NULL
+);
+";
+
 fn sync_reading(tx: &Transaction) -> HookResult {
     tx.execute_batch(koona_sync::SCHEMA_11)?;
     Ok(())
@@ -494,6 +511,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up_with_hook(SCHEMA_9, allow_safari),
         M::up_with_hook("", sync_schema),
         M::up_with_hook(SCHEMA_11, sync_reading),
+        M::up(SCHEMA_12),
     ]
 }
 
@@ -899,7 +917,8 @@ mod tests {
         let bookmarks_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
         let (objects_before, other_before) = (objects(&conn), other(&conn));
 
-        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        let to_11 = Migrations::new(steps().into_iter().take(11).collect());
+        migrate_with(&to_11, 11, &mut conn, Some(&folder.join("backups"))).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 11);
         assert!(folder.join("backups/koonapin.before-v11.db").exists());
         let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
@@ -934,6 +953,56 @@ mod tests {
         assert!(plan.iter().any(|step| step.contains("idx_bookmarks_reading")), "{plan:?}");
         let plan = rows(&conn, "EXPLAIN QUERY PLAN SELECT count(*) FROM bookmarks b WHERE b.deleted_at IS NULL AND b.reading_at IS NOT NULL AND b.read_at IS NULL");
         assert!(plan.iter().any(|step| step.contains("COVERING INDEX idx_bookmarks_reading")), "{plan:?}");
+    }
+
+    /// Schema 12 (NP-126): a library of schema 11 with data keeps every row
+    /// and object and gains the empty table of offline copies; the copy
+    /// before-v12 is there; with sync on, a copy records nothing; a hard
+    /// delete of the bookmark takes its row, a move to the trash does not.
+    #[test]
+    fn schema_12_adds_offline_copies_and_keeps_everything_else() {
+        let folder = folder("schema-12");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 11);
+        fixtures::generated(&conn, 2_000, 12);
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name <> 'offline_copies' ORDER BY name");
+        let data = |conn: &Connection| {
+            ["bookmarks", "collections", "tags", "bookmark_tags", "app_settings", "tombstones"]
+                .iter()
+                .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
+                .collect::<Vec<_>>()
+        };
+        let (objects_before, data_before) = (objects(&conn), data(&conn));
+
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 12);
+        assert!(folder.join("backups/koonapin.before-v12.db").exists());
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        assert_eq!(objects(&conn), objects_before, "no other index, view, table or trigger changed");
+        assert_eq!(data(&conn), data_before, "every row as it was");
+        assert_eq!(rows(&conn, "SELECT count(*) FROM offline_copies"), ["Integer(0)"]);
+
+        // Sync on: a copy is not a change to send.
+        koona_sync::attach(&conn, uuid::Uuid::new_v4()).unwrap();
+        let clocks = |conn: &Connection| rows(conn, "SELECT count(*) FROM sync_clock");
+        let before = clocks(&conn);
+        conn.execute(
+            "INSERT INTO offline_copies (bookmark_id, saved_at, url, bytes, images, words)
+             VALUES (1, '2026-10-16T10:00:00.000Z', 'https://example.com/', 10, 0, 2), (2, '2026-10-16T10:00:00.000Z', 'https://example.com/', 10, 0, 2)",
+            [],
+        )
+        .unwrap();
+        conn.execute("UPDATE offline_copies SET bytes = 20 WHERE bookmark_id = 1", []).unwrap();
+        assert_eq!(clocks(&conn), before);
+        assert!(conn.execute("INSERT INTO offline_copies VALUES (999999, 'x', 'x', 0, 0, 0)", []).is_err(), "only of a bookmark");
+        db::trash_bookmark(&conn, 1).unwrap();
+        db::trash_bookmark(&conn, 2).unwrap();
+        db::purge_trash(&conn, db::Purge::One(2)).unwrap();
+        assert_eq!(rows(&conn, "SELECT bookmark_id FROM offline_copies"), ["Integer(1)"]);
     }
 
     /// The columns of schema 11 the engine's tests add (`koona-sync/tests/schema11.sql`)
