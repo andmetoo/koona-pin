@@ -228,6 +228,9 @@ pub fn client(limits: &Limits) -> reqwest::Result<reqwest::Client> {
     reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)
+        // reqwest is built with `gzip` for feeds (NP-128): pages and articles stay uncompressed
+        // as before; only the feed client (NP-129) turns it on.
+        .gzip(false)
         // A proxy would resolve names where the guard cannot see them.
         .no_proxy()
         .dns_resolver(net_guard::resolver(allow))

@@ -129,6 +129,8 @@ pub async fn send(endpoint: &str, payload: &Payload, limits: Limits) -> Result<(
     let mut builder = reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)
+        // Built with reqwest's `gzip` for feeds (NP-128); this request stays as it was.
+        .gzip(false)
         .user_agent(format!("KoonaPin/{}", payload.app_version));
     // The system proxy, unlike metadata requests: the address is fixed, there is no
     // name to guard, and some networks reach the internet only through a proxy.
