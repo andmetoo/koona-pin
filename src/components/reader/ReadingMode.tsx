@@ -391,7 +391,7 @@ export function ReadingMode({
             e.preventDefault();
             focusQueue();
           }}
-          className={`min-h-0 flex-1 overflow-y-auto outline-offset-[-2px] ${narrow ? "px-6 pt-3.5" : "px-8 pt-7"} pb-24`}
+          className={`min-h-0 flex-1 overflow-y-auto outline-offset-[-2px] ${narrow ? "scroll-pt-[72px] px-6 pt-20" : "scroll-pt-[74px] px-8 pt-24"} pb-24`}
         >
           {current ? (
             <ArticleView
@@ -475,8 +475,12 @@ export function ReadingMode({
           )}
         </div>
         {/* After the article in the document, above it on screen: Tab goes from the queue straight
-            to the article (issue #319), then on through its links to these buttons. */}
-        <div className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
+            to the article (issue #319), then on through its links to these buttons. The bar is glass
+            laid over the article, which starts below it and scrolls under it (2026-10-16). */}
+        <div
+          className={`toolbar-glass absolute inset-x-0 top-0 z-[5] flex items-start gap-2 ${narrow ? "mac-lights-gap h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}
+          data-tauri-drag-region
+        >
           {narrow && !empty && (
             <Button
               variant="outline"
@@ -742,7 +746,7 @@ const Queue = function Queue({
 
   return (
     <div ref={ref} data-reading-queue className="flex h-full w-[320px] shrink-0 flex-col border-r border-read-edge bg-read-queue">
-      <div className="shrink-0 px-6 pt-[26px] pb-[17px]">
+      <div className="reading-queue-head shrink-0 px-6 pt-[26px] pb-[17px]" data-tauri-drag-region>
         <p className="text-2xs font-semibold tracking-[0.02em] text-read-muted uppercase">{t("readingMode.queue")}</p>
         {switchable ? (
           <button

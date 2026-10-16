@@ -88,7 +88,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
     </Hint>
   );
   return (
-    <div className={`@container flex h-9 items-center ${props.narrow ? "gap-1.5" : "gap-2.5"}`}>
+    <div className={`@container flex h-9 items-center ${props.narrow ? "gap-1.5" : "gap-2.5"}`} data-tauri-drag-region>
       {/* The title takes the free room; when the row runs short the search field gives way
           first, so much faster that the title loses not even a pixel, down to 104 px (NP-089: «Todos os marcadores» at
           800 px, with room for WebKitGTK drawing it a few pixels wider), and only then is the title cut. The buttons never shrink. */}

@@ -32,10 +32,10 @@ export const storedTheme = () => preference<Theme>("theme", ["light", "dark", "s
 /**
  * «Open links» (Р-69, point 5): where a double-click, `Enter` and a link of a list
  * row take a bookmark — the browser, or reading in the app. Its control is in
- * Settings (NP-124); until then the default.
+ * Settings (NP-124); reading by default (2026-10-16).
  */
 export type OpenLinks = "browser" | "reader";
-export const storedOpenLinks = () => preference<OpenLinks>("openLinks", ["browser", "reader"], "browser");
+export const storedOpenLinks = () => preference<OpenLinks>("openLinks", ["browser", "reader"], "reader");
 
 export const isDark =(theme: Theme, systemDark: boolean) => theme === "dark" || (theme === "system" && systemDark);
 

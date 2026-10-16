@@ -16,6 +16,7 @@ import { byTime, SORTS } from "./services/library";
 import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { useSelectionDrag } from "./hooks/useSelectionDrag";
+import { useHeight } from "./hooks/useHeight";
 import { useReaderLook } from "./hooks/useReaderLook";
 import { usePreviewRefresh } from "./hooks/usePreviewRefresh";
 import { ClipIcon, Icon, InboxTray } from "./components/icons";
@@ -108,7 +109,7 @@ export function App() {
   const systemDark = useMedia("(prefers-color-scheme: dark)");
   const narrow = useMedia(NARROW);
   const wide = useMedia(WIDE);
-  const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "dense", "list"], "grid"));
+  const [view, setView] = useState<ViewMode>(() => preference("view", ["grid", "dense", "list"], "dense"));
   /** The order of every list but the trash, kept like the view (NP-114). */
   const [sort, setSort] = useState<BookmarkSort>(() => preference("sort", SORTS, "newest"));
   const [filters, setFilters] = useState(initialFilters);
@@ -119,6 +120,8 @@ export function App() {
   const pageRef = useRef(page);
   pageRef.current = page;
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** The toolbar lies over the list as glass (2026-10-16): the list starts below it and scrolls under it. */
+  const [headRef, headHeight] = useHeight<HTMLDivElement>(60);
   const searchRef = useRef<HTMLInputElement>(null);
   const library = useLibrary(filters, sort, scrollRef);
   const libraryRef = useRef(library);
@@ -1581,8 +1584,8 @@ export function App() {
               />
             ) : (
               <>
-                {/* 13 + 7 px above the list: room for the selection ring of the first row. */}
-                <div className={`flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
+                {/* The toolbar is glass over the list (2026-10-16); 13 + 7 px under it: room for the selection ring of the first row. */}
+                <div ref={headRef} className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
                   <Toolbar
                     ref={searchRef}
                     title={section}
@@ -1717,7 +1720,8 @@ export function App() {
                 <div
                   ref={scrollRef}
                   data-scroll="main"
-                  className={`min-h-0 flex-1 overflow-y-auto ${padding} pt-[7px] ${selecting ? "pb-[120px]" : "pb-8"}`}
+                  style={{ paddingTop: headHeight + 7, scrollPaddingTop: headHeight + 8 }}
+                  className={`min-h-0 flex-1 overflow-y-auto ${padding} ${selecting ? "pb-[120px]" : "pb-8"}`}
                 >
                   {content}
                 </div>

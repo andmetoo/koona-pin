@@ -168,7 +168,7 @@ for (const width of [800, 1200])
     const scroller = page.locator('[data-scroll="main"]');
     await expect.poll(() => scroller.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
     await scroller.evaluate((e) => (e.scrollTop = 300));
-    if (width > 999) expect(await page.locator("aside").evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+    if (width > 999) expect(await page.locator("aside [data-drop-scroll]").evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
     await bell(page).click();
     await expect(centre(page)).toBeVisible();
     // In the top layer, where the browser has it.

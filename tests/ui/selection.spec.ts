@@ -14,7 +14,7 @@ const TITLES = [
 ];
 
 test.beforeEach(async ({ page }) => {
-  await openApp(page, { viewport: { width: 1440, height: 900 }, settings: { openLinks: null, view: "grid" }, cards: 6 });
+  await openApp(page, { viewport: { width: 1440, height: 900 }, settings: { openLinks: "browser", view: "grid" }, cards: 6 });
   await stubBrowser(page);
 });
 

@@ -397,6 +397,17 @@
     font-size: 13px;
     line-height: 18px;
     -webkit-font-smoothing: antialiased;
+    /* A desktop app: buttons, headings, labels and cards are not text to select. What is read
+       (the article) and what is typed opt back in, as does `select-text` for a line to copy. */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input,
+  textarea,
+  [contenteditable]:not([contenteditable="false"]),
+  .reader-article {
+    -webkit-user-select: text;
+    user-select: text;
   }
   /* Korean breaks lines between words, as Latin does, not between any two
      syllables; a word longer than its box still wraps. Japanese keeps its
@@ -2250,7 +2261,33 @@
       inset 0 0 0 1px var(--np-line);
     animation: add-sheet-in 260ms var(--spring);
   }
-  .add-sheet::backdrop {
+  /* Every dialog opens as «New link» does (2026-10-16): the same glass, spring and blurred scrim,
+     in the middle of the window. */
+  .app-dialog {
+    border: 0;
+    border-radius: 20px;
+    background: color-mix(in oklab, var(--np-card) 90%, transparent);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    box-shadow:
+      0 30px 70px -20px rgb(0 0 0 / 0.42),
+      0 2px 6px rgb(0 0 0 / 0.06),
+      inset 0 0 0 1px var(--np-line);
+    animation: app-dialog-in 260ms var(--spring);
+  }
+  /* The sheet's spring without its scale: a dialog keeps its size from the first frame. */
+  @keyframes app-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+  }
+  .add-sheet:focus-visible,
+  .app-dialog:focus-visible {
+    outline: none;
+  }
+  .add-sheet::backdrop,
+  .app-dialog::backdrop {
     background: color-mix(in oklab, var(--np-bg) 40%, transparent);
     -webkit-backdrop-filter: blur(3px);
     backdrop-filter: blur(3px);
@@ -2653,6 +2690,8 @@
   .card-landing,
   .drop-veil-ring,
   .add-sheet,
+  .app-dialog,
+  .app-dialog::backdrop,
   .glass-toast {
     animation: none;
   }
@@ -2760,4 +2799,83 @@
   .inbox-pill-sort:hover {
     background: var(--np-ink-btn-hover);
   }
+}
+
+/* The sidebar's middle (2026-10-16): Feeds, Collections and Tags scroll without a scrollbar,
+   fade in under the fixed sections and sink under the footer's glass. */
+.sidebar-scroll {
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent, #000 14px);
+}
+/* The library's toolbar and the reading bar (2026-10-16) are glass over what scrolls, as Safari's
+   toolbar is: the page's colour at 78 % over a blur, so a card or a line passing under shows
+   faintly, and it ends with a clean edge. The glass is a pseudo-element:
+   a backdrop-filter on the bar itself would hold the fixed menus that open from it. */
+.toolbar-glass {
+  --glass-bg: var(--np-bg);
+  isolation: isolate;
+}
+[data-reading-mode] .toolbar-glass {
+  --glass-bg: var(--np-read);
+}
+.toolbar-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--glass-bg) 78%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  backdrop-filter: blur(20px) saturate(170%);
+}
+/* WebKitGTK with software rendering draws an empty window under a backdrop this wide (CI's Arch
+   smoke, 2026-10-16): on Linux the bar is near-solid instead. */
+:root[data-linux] .toolbar-glass::before {
+  background: color-mix(in srgb, var(--glass-bg) 96%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
+}
+.sidebar-foot {
+  position: sticky;
+  bottom: 0;
+  isolation: isolate;
+  padding-top: 28px;
+}
+.sidebar-foot::before {
+  content: "";
+  position: absolute;
+  inset: 0 -12px;
+  z-index: -1;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--np-panel) 94%, transparent) 28px);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
+  mask-image: linear-gradient(to bottom, transparent, #000 28px);
+}
+
+/* macOS (2026-10-16): no title bar of its own colour; the traffic lights sit on the app at
+   (20, 21), centred on the toolbar's row, and what would fall under them makes room. */
+.mac-lights {
+  display: none;
+}
+:root[data-mac-frame] .mac-lights {
+  display: block;
+  flex-shrink: 0;
+  height: 24px;
+}
+:root[data-mac-frame] .sidebar-strip {
+  width: 88px;
+}
+:root[data-mac-frame] .reading-queue-head {
+  padding-top: 52px;
+}
+:root[data-mac-frame] .mac-lights-gap {
+  padding-left: 96px;
+}
+:root[data-mac-frame] .reading-sheet > div {
+  top: 44px;
 }
