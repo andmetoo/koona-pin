@@ -55,6 +55,15 @@ impl Limits {
         max_body: 2 * 1024 * 1024,
         max_redirects: 5,
     };
+
+    /// A feed document (NP-129, plan §4.3): a slower site, a larger body.
+    pub const FEED: Limits = Limits {
+        allow: net_guard::public_ip,
+        connect_timeout: Duration::from_secs(6),
+        timeout: Duration::from_secs(20),
+        max_body: 4 * 1024 * 1024,
+        max_redirects: 5,
+    };
 }
 
 /// At most this many pages are fetched at once, whatever was saved.
@@ -62,7 +71,13 @@ static PARALLEL: Semaphore = Semaphore::const_new(4);
 
 pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
     let mut meta = fetch_with(target_url, &Limits::PUBLIC).await;
-    // The WebView loads these itself: they get the same check, with DNS.
+    guard_pictures(&mut meta).await;
+    meta
+}
+
+/// The WebView loads the picture and the icon itself: they get the same
+/// check, with DNS. Also for the link preview of feeds (NP-129).
+pub async fn guard_pictures(meta: &mut PageMetadata) {
     for field in [&mut meta.image_url, &mut meta.favicon_url] {
         if let Some(url) = field.as_deref() {
             if !net_guard::public_resource(url).await {
@@ -70,19 +85,23 @@ pub async fn fetch_metadata(target_url: &str) -> PageMetadata {
             }
         }
     }
-    meta
 }
 
-pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
+/// What is known of a page before it is read: its domain and Google's icon.
+pub fn base_metadata(target_url: &str) -> PageMetadata {
     let domain = extract_domain(target_url);
-    let mut meta = PageMetadata {
+    PageMetadata {
         domain: domain.clone(),
         favicon_url: Some(format!(
             "https://www.google.com/s2/favicons?domain={}&sz=128",
             domain
         )),
         ..Default::default()
-    };
+    }
+}
+
+pub async fn fetch_with(target_url: &str, limits: &Limits) -> PageMetadata {
+    let mut meta = base_metadata(target_url);
     let Ok(start) = Url::parse(target_url) else {
         return meta;
     };
@@ -225,19 +244,26 @@ pub async fn check_address(url: &Url, allow: fn(IpAddr) -> bool) -> Result<(), F
     }
 }
 
+/// What every client shares: the guard resolves names, no proxy, no Referer.
+fn guarded(limits: &Limits) -> reqwest::ClientBuilder {
+    reqwest::Client::builder()
+        .connect_timeout(limits.connect_timeout)
+        .timeout(limits.timeout)
+        // A proxy would resolve names where the guard cannot see them.
+        .no_proxy()
+        .dns_resolver(net_guard::resolver(limits.allow))
+        // Otherwise each redirect tells the next site the previous address, query and all.
+        .referer(false)
+}
+
 /// The client every page request goes through: the guard resolves names,
 /// checks each redirect, and no proxy or Referer is used.
 pub fn client(limits: &Limits) -> reqwest::Result<reqwest::Client> {
     let (allow, max_redirects) = (limits.allow, limits.max_redirects);
-    reqwest::Client::builder()
-        .connect_timeout(limits.connect_timeout)
-        .timeout(limits.timeout)
+    guarded(limits)
         // reqwest is built with `gzip` for feeds (NP-128): pages and articles stay uncompressed
         // as before; only the feed client (NP-129) turns it on.
         .gzip(false)
-        // A proxy would resolve names where the guard cannot see them.
-        .no_proxy()
-        .dns_resolver(net_guard::resolver(allow))
         .redirect(redirect::Policy::custom(move |attempt| {
             if attempt.previous().len() > max_redirects {
                 attempt.error("too many redirects")
@@ -247,8 +273,6 @@ pub fn client(limits: &Limits) -> reqwest::Result<reqwest::Client> {
                 attempt.follow()
             }
         }))
-        // Otherwise each redirect tells the next site the previous address, query and all.
-        .referer(false)
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 KoonaPin/0.1")
         .build()
 }
@@ -280,20 +304,200 @@ pub async fn fetch_page(client: &reqwest::Client, url: &Url, limits: &Limits) ->
     if !page.is_success() || !page.html {
         return Ok(page);
     }
+    (page.body, page.truncated) = read_body(&mut response, limits.max_body, false).await?;
+    Ok(page)
+}
+
+/// The body up to `max` bytes, and whether there was more. With `head_only`,
+/// reading stops once `</head>` or `<body` has arrived (NP-129): the link
+/// preview needs the head, not a 2 MB page.
+async fn read_body(response: &mut reqwest::Response, max: usize, head_only: bool) -> Result<(Vec<u8>, bool), FetchError> {
+    let mut body = Vec::new();
     // Read up to the limit and stop: the rest of a huge page is not needed.
-    while page.body.len() <= limits.max_body {
+    while body.len() <= max {
+        let from = body.len().saturating_sub(7);
         match response.chunk().await {
-            Ok(Some(chunk)) => page.body.extend_from_slice(&chunk),
-            Ok(None) => break,
-            Err(_) if !page.body.is_empty() => break,
+            Ok(Some(chunk)) => body.extend_from_slice(&chunk),
+            Ok(None) => return Ok((body, false)),
+            Err(_) if !body.is_empty() => return Ok((body, false)),
             Err(e) => return Err(failure(&e)),
         }
+        if head_only && head_ends(&body[from..]) {
+            body.truncate(max);
+            return Ok((body, false));
+        }
     }
-    if page.body.len() > limits.max_body {
-        page.body.truncate(limits.max_body);
-        page.truncated = true;
+    body.truncate(max);
+    Ok((body, true))
+}
+
+/// The end of a page's head: `</head>`, or a `<body` of a page that never closes it.
+fn head_ends(bytes: &[u8]) -> bool {
+    bytes.windows(7).any(|w| w.eq_ignore_ascii_case(b"</head>"))
+        || bytes.windows(5).any(|w| w.eq_ignore_ascii_case(b"<body"))
+}
+
+/// A content type a feed is served as (NP-129): XML or JSON of any kind.
+pub fn feed_type(content_type: Option<&str>) -> bool {
+    content_type.is_some_and(|v| {
+        let v = v.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+        v.ends_with("/xml") || v.ends_with("+xml") || v.ends_with("/json") || v.ends_with("+json")
+    })
+}
+
+/// The pasted page for the link preview of «New link» (NP-129, plan §4.2):
+/// an HTML page is read only up to the end of its head; a feed answered
+/// instead (XML or JSON) is read up to `max_body` so it can be recognised.
+pub async fn fetch_head(client: &reqwest::Client, url: &Url, limits: &Limits) -> Result<Fetched, FetchError> {
+    if !net_guard::allowed_url(url, limits.allow) {
+        return Err(FetchError::Refused);
     }
+    let mut response = client.get(url.clone()).send().await.map_err(|e| failure(&e))?;
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
+    let html = content_type.as_deref().is_none_or(|v| {
+        let v = v.trim_start().to_ascii_lowercase();
+        v.starts_with("text/html") || v.starts_with("application/xhtml+xml")
+    });
+    let mut page = Fetched {
+        status: response.status().as_u16(),
+        url: response.url().clone(),
+        content_type,
+        html,
+        body: Vec::new(),
+        truncated: false,
+    };
+    if !page.is_success() || !(page.html || feed_type(page.content_type.as_deref())) {
+        return Ok(page);
+    }
+    (page.body, page.truncated) = read_body(&mut response, limits.max_body, page.html).await?;
     Ok(page)
+}
+
+/// The honest User-Agent of the feed client (NP-129, Р-71): who asks and where
+/// to read about it. Never a browser's.
+pub const FEED_USER_AGENT: &str = concat!("KoonaPin/", env!("CARGO_PKG_VERSION"), " (+https://koona.app/pin)");
+/// What a feed client accepts (plan §4.3).
+pub const FEED_ACCEPT: &str =
+    "application/rss+xml, application/atom+xml, application/feed+json;q=0.9, application/xml;q=0.8, */*;q=0.5";
+
+/// The client of feed requests (NP-129): the same guard, gzip on, the honest
+/// User-Agent, and redirects followed by [`fetch_bytes`] itself, so it knows
+/// whether each was permanent and checks each target before asking it.
+pub fn feed_client(limits: &Limits) -> reqwest::Result<reqwest::Client> {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert(reqwest::header::ACCEPT, reqwest::header::HeaderValue::from_static(FEED_ACCEPT));
+    guarded(limits)
+        .gzip(true)
+        .redirect(redirect::Policy::none())
+        .default_headers(headers)
+        .user_agent(FEED_USER_AGENT)
+        .build()
+}
+
+/// The validators of the last answer, sent back so an unchanged feed costs a 304.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Conditional {
+    pub etag: Option<String>,
+    pub last_modified: Option<String>,
+}
+
+/// Any answer of [`fetch_bytes`], with the headers a feed's schedule needs.
+#[derive(Debug, Clone)]
+pub struct FetchedBytes {
+    pub status: u16,
+    /// After the redirects.
+    pub url: Url,
+    pub content_type: Option<String>,
+    /// Read for a 2xx answer only, up to `max_body`, decompressed.
+    pub body: Vec<u8>,
+    /// The body was longer than `max_body`.
+    pub truncated: bool,
+    pub etag: Option<String>,
+    pub last_modified: Option<String>,
+    pub cache_control: Option<String>,
+    pub retry_after: Option<String>,
+    /// Redirected, and every redirect on the way was permanent (301, 308):
+    /// where the document lives now.
+    pub moved_to: Option<Url>,
+}
+
+impl FetchedBytes {
+    pub fn is_success(&self) -> bool {
+        (200..300).contains(&self.status)
+    }
+}
+
+/// One request of any content type through a client of [`feed_client`]
+/// (NP-129), redirects followed here: each target is checked with the guard
+/// before it is asked, and the whole exchange keeps to `limits.timeout`.
+pub async fn fetch_bytes(
+    client: &reqwest::Client,
+    url: &Url,
+    limits: &Limits,
+    conditional: &Conditional,
+) -> Result<FetchedBytes, FetchError> {
+    match tokio::time::timeout(limits.timeout, fetch_bytes_within(client, url, limits, conditional)).await {
+        Ok(result) => result,
+        Err(_) => Err(FetchError::Timeout),
+    }
+}
+
+async fn fetch_bytes_within(
+    client: &reqwest::Client,
+    url: &Url,
+    limits: &Limits,
+    conditional: &Conditional,
+) -> Result<FetchedBytes, FetchError> {
+    use reqwest::header;
+    let mut current = url.clone();
+    let mut permanent = true;
+    for _ in 0..=limits.max_redirects {
+        if !net_guard::allowed_url(&current, limits.allow) {
+            return Err(FetchError::Refused);
+        }
+        let mut request = client.get(current.clone());
+        if let Some(etag) = &conditional.etag {
+            request = request.header(header::IF_NONE_MATCH, etag);
+        }
+        if let Some(modified) = &conditional.last_modified {
+            request = request.header(header::IF_MODIFIED_SINCE, modified);
+        }
+        let mut response = request.send().await.map_err(|e| failure(&e))?;
+        let status = response.status();
+        let text = |name: header::HeaderName| {
+            response.headers().get(name).and_then(|v| v.to_str().ok()).map(|v| v.trim().to_string())
+        };
+        if status.is_redirection() && status != reqwest::StatusCode::NOT_MODIFIED {
+            let Some(next) = text(header::LOCATION).and_then(|to| current.join(&to).ok()) else {
+                return Err(FetchError::Failed);
+            };
+            permanent &= matches!(status.as_u16(), 301 | 308);
+            current = next;
+            continue;
+        }
+        let mut fetched = FetchedBytes {
+            status: status.as_u16(),
+            url: current.clone(),
+            content_type: text(header::CONTENT_TYPE),
+            body: Vec::new(),
+            truncated: false,
+            etag: text(header::ETAG),
+            last_modified: text(header::LAST_MODIFIED),
+            cache_control: text(header::CACHE_CONTROL),
+            retry_after: text(header::RETRY_AFTER),
+            moved_to: (permanent && current != *url).then(|| current.clone()),
+        };
+        if fetched.is_success() {
+            (fetched.body, fetched.truncated) = read_body(&mut response, limits.max_body, false).await?;
+        }
+        return Ok(fetched);
+    }
+    // More redirects than allowed.
+    Err(FetchError::Failed)
 }
 
 fn failure(error: &reqwest::Error) -> FetchError {
