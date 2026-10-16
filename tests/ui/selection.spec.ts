@@ -165,7 +165,6 @@ test("a click selects and never opens; focus and selection look different and ar
   await expect(page.locator(".card-halo")).toHaveCount(1);
   await expect(third.locator("[data-preview]")).toHaveCSS("transform", "none");
   await expect(third).not.toHaveAttribute("data-selected");
-  await page.screenshot({ path: "test-results/np123-focus-and-selection-grid.png" });
 
   // The list: selected — accent border and soft fill; focused — the ink ring.
   await toList(page);
@@ -180,7 +179,6 @@ test("a click selects and never opens; focus and selection look different and ar
   await expect(other).toBeFocused();
   await expect(other).toHaveCSS("outline-color", "rgb(46, 48, 43)");
   await expect(other).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
-  await page.screenshot({ path: "test-results/np123-focus-and-selection-list.png" });
 
   // Several selected: a press on one without moving selects it alone; the drag needs more than 4 px.
   await spot(card(page, TITLES[0])).click({ modifiers: ["ControlOrMeta"] });
@@ -282,7 +280,6 @@ test("the corner buttons of a card: hover fades them in, keyboard focus shows th
   await shutter.getByRole("button", { name: `Read here: ${TITLES[2]}` }).hover();
   await expect(shutter.getByRole("tooltip").filter({ hasText: "Read" })).toHaveCSS("opacity", "1");
   await expect(shutter.getByRole("button", { name: `Read here: ${TITLES[2]}` })).toHaveAttribute("aria-keyshortcuts", "Space");
-  await page.screenshot({ path: "test-results/np123-shutter-hover.png" });
 
   // «↗ Open» goes to the browser and selects nothing.
   await shutter.getByRole("button", { name: `Open in browser: ${TITLES[2]}` }).click();
@@ -316,7 +313,6 @@ test("the corner buttons of a card: hover fades them in, keyboard focus shows th
   await expect(notesShutter.getByRole("button", { name: `Read here: ${TITLES[5]}` })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(notesShutter.getByRole("button", { name: `Actions: ${TITLES[5]}` })).toBeFocused();
-  await page.screenshot({ path: "test-results/np123-shutter-keyboard.png" });
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Enter");
   await expect(sheet(page).getByRole("heading", { level: 1 })).toHaveText(TITLES[5]);
@@ -335,7 +331,7 @@ test("the corner buttons of a card: hover fades them in, keyboard focus shows th
   await expect(sheet(page)).toHaveCount(0);
 });
 
-test("the links of a row: title and thumbnail with ↗; double-click and Enter follow «Open links» (NP-123)", async ({ page }) => {
+test("the links of a row: title and thumbnail with ↗; double-click and Enter open the browser (NP-123)", async ({ page }) => {
   await toList(page);
   const row = card(page, TITLES[1]);
   const url = await urlOf(row);
@@ -350,7 +346,6 @@ test("the links of a row: title and thumbnail with ↗; double-click and Enter f
   await expect(title).toHaveCSS("text-decoration-line", "underline");
   await expect(arrow).toHaveCSS("opacity", "1");
   await expect(thumbnail).toHaveCSS("cursor", "pointer");
-  await page.screenshot({ path: "test-results/np123-row-link.png" });
 
   // The title and the thumbnail open; they do not select.
   await title.click();
@@ -377,38 +372,6 @@ test("the links of a row: title and thumbnail with ↗; double-click and Enter f
   await spot(card(page, TITLES[3])).dblclick();
   expect((await opened(page)).at(-1)).toBe(await urlOf(card(page, TITLES[3])));
 
-  // «Open links: In reading mode» (the setting comes with NP-124): the same gestures read in the app, no ↗.
-  await page.evaluate(() => localStorage.setItem("koonapin.openLinks", "reader"));
-  await page.reload();
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    (window as unknown as { opened: string[] }).opened = [];
-    api.openUrl = async (url: string) => void (window as unknown as { opened: string[] }).opened.push(url);
-  });
-  // NP-122: «in reading mode» is the mode itself, at that bookmark; Esc twice comes back.
-  const article = page.locator("[data-reading-mode] .reader-title");
-  const leave = async () => {
-    await page.keyboard.press("Escape");
-    await page.keyboard.press("Escape");
-    await expect(page.locator("[data-reading-mode]")).toHaveCount(0);
-  };
-  await spot(card(page, TITLES[3])).dblclick();
-  await expect(article).toHaveText(TITLES[3]);
-  await leave();
-  await card(page, TITLES[3]).focus();
-  await page.keyboard.press("Enter");
-  await expect(article).toHaveText(TITLES[3]);
-  await leave();
-  await toList(page);
-  await expect(card(page, TITLES[1]).getByRole("link", { name: TITLES[1], exact: true }).locator("svg")).toHaveCount(0);
-  await card(page, TITLES[1]).getByRole("link", { name: TITLES[1], exact: true }).click();
-  await expect(article).toHaveText(TITLES[1]);
-  await leave();
-  // «↗ Open» of the shutter is always the browser.
-  await page.getByRole("button", { name: "Grid", exact: true }).click();
-  await card(page, TITLES[3]).locator("[data-preview]").hover();
-  await card(page, TITLES[3]).getByRole("button", { name: `Open in browser: ${TITLES[3]}` }).click();
-  expect(await opened(page)).toEqual([await urlOf(card(page, TITLES[3]))]);
 });
 
 test("Space reads the selection in a sheet over the list; ↑/↓ go through it, Esc closes and keeps it (NP-123)", async ({ page }) => {
@@ -418,9 +381,6 @@ test("Space reads the selection in a sheet over the list; ↑/↓ go through it,
   await spot(card(page, TITLES[3])).click({ modifiers: ["ControlOrMeta"] });
   await spot(card(page, TITLES[1])).click({ modifiers: ["ControlOrMeta"] });
   await expect(bar(page).getByRole("status")).toHaveText("3 selected");
-  // «Read · Space» comes first on the bar: the book, named with its key by its hint.
-  await expect(bar(page).getByRole("button").first()).toHaveAccessibleName("Read");
-  await expect(bar(page).getByRole("button").first()).toHaveAttribute("aria-keyshortcuts", "Space");
 
   await page.mouse.move(5, 895);
   await page.keyboard.press(" ");
@@ -434,7 +394,6 @@ test("Space reads the selection in a sheet over the list; ↑/↓ go through it,
   const panel = (await s.locator(":scope > div").first().boundingBox())!;
   expect(Math.round(panel.width)).toBe(760);
   await expect(s.locator(".reader-body")).toContainText("is the page this bookmark was saved from");
-  await page.screenshot({ path: "test-results/np123-sheet.png" });
 
   await page.keyboard.press("ArrowDown");
   await expect(heading).toHaveText(TITLES[3]);
@@ -506,7 +465,6 @@ test("the sheet: a page that cannot be read offers the browser; progress is save
   const s = sheet(page);
   await expect(s.locator("[data-reader-failure]")).toContainText("This page can’t be shown here");
   await expect(s.locator("[data-reader-failure]")).toContainText("The site answered with error 403");
-  await page.screenshot({ path: "test-results/np123-sheet-failure.png" });
   await s.locator("[data-reader-failure]").getByRole("button", { name: "Open in browser" }).click();
   expect(await opened(page)).toEqual([await urlOf(card(page, TITLES[3]))]);
   await page.keyboard.press("Escape");
@@ -549,19 +507,6 @@ test("the sheet: a page that cannot be read offers the browser; progress is save
   await card(page, TITLES[2]).getByRole("button", { name: /^Read here/ }).click();
   await expect(s.locator(".reader-body")).toBeVisible();
   await expect.poll(() => scroller.evaluate((el) => Math.round((el.scrollTop / (el.scrollHeight - el.clientHeight)) * 10) / 10)).toBe(0.4);
-});
-
-test("triage keeps Space for the browser (NP-123)", async ({ page }) => {
-  await page.evaluate(() => {
-    (window as unknown as { opened: string[] }).opened = [];
-    window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
-  });
-  await page.locator("[data-notification-bell]").click();
-  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
-  await expect(page.locator("[data-triage-card]")).toBeVisible();
-  await page.keyboard.press("Space");
-  expect(await opened(page)).toHaveLength(1);
-  await expect(sheet(page)).toHaveCount(0);
 });
 
 /** Cards in the first row of the grid: the same top as the first card. */

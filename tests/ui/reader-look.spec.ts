@@ -50,7 +50,7 @@ async function openPanel(page: Page) {
 }
 const background = (l: Locator) => l.evaluate((el) => getComputedStyle(el).backgroundColor);
 
-test("free: Paper and Sepia locked, a lock opens Supporter and the plan applies it at once; the choice survives a restart (NP-124, acceptance 1)", async ({ page }) => {
+test("free: Paper and Sepia locked, a lock opens Supporter and the plan applies it at once; Sepia survives a restart over a dark app; a plan that ends locks it again (NP-124, acceptance 1)", async ({ page }) => {
   await boot(page);
   await openMode(page);
   // B8: «Aa» before «Open in browser», 34 px, in the reading theme.
@@ -69,7 +69,6 @@ test("free: Paper and Sepia locked, a lock opens Supporter and the plan applies 
   await expect(panel(page).getByRole("radiogroup", { name: "Font" }).getByRole("radio")).toHaveCount(2);
   await expect(panel(page).getByRole("radiogroup", { name: "Font" }).locator("[data-locked]")).toHaveCount(0);
   await expect(panel(page).locator("[data-reader-supporter]")).toHaveText("Paper and Sepia — Supporter");
-  await page.screenshot({ path: "test-results/np124-aa-free-white.png" });
 
   // A free theme applies at once, the drop and the page take its colour.
   await swatch(page, "dark").click();
@@ -92,6 +91,28 @@ test("free: Paper and Sepia locked, a lock opens Supporter and the plan applies 
   await expect(panel(page).locator("[data-locked]")).toHaveCount(0);
   await expect(panel(page).locator("[data-reader-supporter]")).toHaveCount(0);
   await expect(swatch(page, "paper")).toHaveAttribute("aria-checked", "true");
+
+  // With Supporter: Sepia applies and survives a restart, now over a dark app.
+  await swatch(page, "sepia").click();
+  await expect(mode(page)).toHaveAttribute("data-reader-look", "sepia");
+  expect(await background(mode(page))).toBe("rgb(239, 225, 198)");
+  await expect(mode(page).locator(".reader-body")).toHaveCSS("color", "rgb(89, 68, 53)");
+  await page.evaluate(() => {
+    localStorage.setItem("koonapin.demo.supporter", "supporter");
+    localStorage.setItem("koonapin.theme", "dark");
+  });
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+  await openMode(page);
+  await expect(mode(page)).toHaveAttribute("data-reader-look", "sepia");
+  // The plan ends: the free look of the app's theme, the choice kept for a new plan.
+  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+  await openMode(page);
+  await expect(mode(page)).toHaveAttribute("data-reader-look", "dark");
+  await openPanel(page);
+  await expect(swatch(page, "sepia")).toHaveAttribute("data-locked", "true");
 });
 
 test("free: a free theme, size, column and font survive a restart; Esc closes the panel, not the mode (NP-124)", async ({ page }) => {
@@ -139,31 +160,6 @@ test("free: a free theme, size, column and font survive a restart; Esc closes th
   const sheet = page.locator("dialog[data-reading-sheet]");
   await expect(sheet).toHaveAttribute("data-reader-look", "dark");
   await expect(sheet.locator(".reader-body")).toHaveCSS("font-size", "20px");
-});
-
-test("Supporter: no locks; Sepia survives a restart over a dark app; a plan that ends locks it again (NP-124, acceptance 1)", async ({ page }) => {
-  await boot(page, { plan: "supporter", theme: "dark" });
-  await openMode(page);
-  await openPanel(page);
-  await expect(mode(page)).toHaveAttribute("data-reader-look", "dark");
-  await expect(panel(page).locator("[data-locked]")).toHaveCount(0);
-  await expect(panel(page).locator("[data-reader-supporter]")).toHaveCount(0);
-  await swatch(page, "sepia").click();
-  await expect(mode(page)).toHaveAttribute("data-reader-look", "sepia");
-  expect(await background(mode(page))).toBe("rgb(239, 225, 198)");
-  await expect(mode(page).locator(".reader-body")).toHaveCSS("color", "rgb(89, 68, 53)");
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
-  await openMode(page);
-  await expect(mode(page)).toHaveAttribute("data-reader-look", "sepia");
-  // The plan ends: the free look of the app's theme, the choice kept for a new plan.
-  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
-  await openMode(page);
-  await expect(mode(page)).toHaveAttribute("data-reader-look", "dark");
-  await openPanel(page);
-  await expect(swatch(page, "sepia")).toHaveAttribute("data-locked", "true");
 });
 
 test("Settings → Reading: «Open links» changes what the title, double-click and Enter do, and nothing else (NP-124, acceptance 2)", async ({ page }) => {
@@ -231,6 +227,8 @@ test("Settings → Reading: «Open links» changes what the title, double-click 
   await expect(article).toHaveText(TITLES[3]);
   await leave();
   await page.getByRole("button", { name: "List", exact: true }).click();
+  // The row's title reads in the app: no ↗ by it.
+  await expect(card(TITLES[1]).getByRole("link", { name: TITLES[1], exact: true }).locator("svg")).toHaveCount(0);
   await card(TITLES[1]).getByRole("link", { name: TITLES[1], exact: true }).click();
   await expect(article).toHaveText(TITLES[1]);
   await leave();
@@ -273,13 +271,3 @@ test("Settings → Reading: «Mark as read at the end» off keeps an article rea
   });
   expect(readNow).not.toBeNull();
 });
-
-for (const [width, height] of [[1440, 900], [800, 550]] as const)
-  test(`«Read» stays where it was when the mode opens: same place, same size (owner, 2026-10-15) ${width}`, async ({ page }) => {
-    await boot(page, { width, height });
-    const toolbar = await page.locator("button[data-read-mode]").boundingBox();
-    await openMode(page);
-    const pressed = mode(page).getByRole("button", { name: "Read", exact: true });
-    await expect(pressed).toHaveAttribute("aria-pressed", "true");
-    expect(await pressed.boundingBox()).toEqual(toolbar);
-  });

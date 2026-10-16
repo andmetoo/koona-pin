@@ -1746,7 +1746,7 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await expect(page.locator("[data-dragging] [data-selected]").first()).toHaveCSS("opacity", "0.45");
   await expect(sidebar.getByText("New collection from selection")).toBeVisible();
   await expect(sidebar.getByText("Tags — drop on a tag to add it")).toBeVisible();
-  await expect(page.getByText("Release over a collection, a tag or Trash")).toBeVisible();
+  await expect(page.getByText("Release over a collection, a tag, Favorites, Reading or Trash")).toBeVisible();
   await page.screenshot({ path: "test-results/drag-collection-1440.png" });
   await page.mouse.up();
   await expect(notice(page, "3 bookmarks moved to «Development»")).toBeVisible();
@@ -1762,8 +1762,8 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   // Every tag is a target while dragging, the hidden ones too; the hint follows the pointer.
   const tags = sidebar.locator('[data-drop^="tag:"]');
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toBeVisible();
-  await dragOver(page, preview, sidebar.getByRole("button", { name: /^Favorites/ }));
-  await expect(dropHint(page)).toHaveText("Drop on a collection, a tag or Trash");
+  await dragOver(page, preview, sidebar.getByRole("button", { name: /^All bookmarks/ }));
+  await expect(dropHint(page)).toHaveText("Drop on a collection, a tag, Favorites, Reading or Trash");
   await expect(tags).toHaveCount(10);
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toHaveCount(0);
   const last = tags.last();
@@ -1789,6 +1789,32 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await page.keyboard.press("ControlOrMeta+z");
   await expect(notice(page, "Back from Trash: 3 bookmarks")).toBeVisible();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+});
+
+test("drag: the selection onto Favorites stars it, onto Reading sends it there; Ctrl Z takes each back", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const sidebar = page.getByRole("complementary", { name: "Library" });
+  const favorites = sidebar.getByRole("button", { name: /^Favorites/ });
+  const reading = sidebar.getByRole("button", { name: /^Reading/ });
+  const before = { favorites: (await favorites.textContent())!, reading: (await reading.textContent())! };
+  await selectCards(page, ["The architecture of silence", "Interfaces that stay out of the way"]);
+  const preview = page.locator("[data-bookmark-id][data-selected] [data-preview]").first();
+
+  await dragOver(page, preview, favorites);
+  await expect(dropHint(page)).toHaveText("Add 2 to Favorites");
+  await expect(favorites).toHaveAttribute("data-drop", "favorites");
+  await page.mouse.up();
+  await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
+  await expect(favorites).not.toHaveText(before.favorites);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(favorites).toHaveText(before.favorites);
+
+  await dragOver(page, preview, reading);
+  await expect(dropHint(page)).toHaveText("Send 2 to Reading");
+  await page.mouse.up();
+  await expect(reading).not.toHaveText(before.reading);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(reading).toHaveText(before.reading);
 });
 
 test("drag: Esc and a drop outside a target change nothing; an unselected card still starts the frame; a new collection asks for its name", async ({ page }) => {

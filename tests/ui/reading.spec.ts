@@ -90,12 +90,17 @@ test("«Read» drops the mode at the first unread of Reading; Esc twice returns 
   const top = await scroll.evaluate((el) => el.scrollTop);
   expect(top).toBeGreaterThan(0);
 
+  const toolbar = await readButton(page).boundingBox();
   await readButton(page).click();
   await expect(mode(page)).toBeVisible();
   // The drop: a circle from the button, not a fade.
   await expect(mode(page)).toHaveAttribute("data-drop", "circle");
   await expect(current(page)).toContainText(list.find((b) => !b.read)!.title);
   await expect(heading(page)).toHaveText(list.find((b) => !b.read)!.title);
+  // «Read» stays where it was: the mode's own, pressed, in the same place and size (owner, 2026-10-15).
+  const pressed = mode(page).getByRole("button", { name: "Read", exact: true });
+  await expect(pressed).toHaveAttribute("aria-pressed", "true");
+  expect(await pressed.boundingBox()).toEqual(toolbar);
   // The library underneath takes no focus.
   expect(await page.evaluate(() => !!document.querySelector("main")?.closest("[inert]"))).toBe(true);
   // Once the drop is over the library is hidden: WKWebView paints a scroller's bar above a fixed layer.
@@ -122,7 +127,7 @@ test("keyboard only: open, J/K through the queue, O, the queue with arrows, leav
   await boot(page);
   await fillReading(page);
   const list = await readingList(page);
-  // Tab from the search field, under the logo of the sidebar, through the sidebar to «Read».
+  // Tab from the search field in the toolbar to «Read».
   await page.keyboard.press("Control+K");
   for (let i = 0; i < 60; i++) {
     if (await readButton(page).evaluate((el) => el === document.activeElement)) break;
@@ -136,8 +141,10 @@ test("keyboard only: open, J/K through the queue, O, the queue with arrows, leav
   await page.keyboard.press("j");
   await expect(heading(page)).toHaveText(list[1].title);
   await expect(current(page)).toContainText(list[1].title);
-  // The Russian layout: the same key.
-  await page.keyboard.press("j");
+  // The Russian layout: J's key types «о», and it still means J.
+  await page.evaluate(() =>
+    document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "о", code: "KeyJ", bubbles: true, cancelable: true })),
+  );
   await expect(heading(page)).toHaveText(list[2].title);
   await page.keyboard.press("k");
   await expect(heading(page)).toHaveText(list[1].title);
@@ -203,27 +210,6 @@ test("Tab goes between the queue and the article; arrows in the queue pick the a
   await expect(current(page)).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(mode(page)).toHaveCount(0);
-});
-
-test("a narrow window: Tab does not reach the hidden queue; Tab from the open queue goes to the article (#319)", async ({ page }) => {
-  await boot(page, { width: 800, height: 550 });
-  const list = await readingList(page);
-  await readButton(page).click();
-  const article = mode(page).locator("[data-reader-scroll]");
-  await expect(article).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(queue(page)).toHaveCount(0);
-  await article.focus();
-  // Esc shows the queue; ↓ reads the next one behind it and the queue stays.
-  await page.keyboard.press("Escape");
-  await expect(current(page)).toBeFocused();
-  await page.keyboard.press("ArrowDown");
-  await expect(heading(page)).toHaveText(list[1].title);
-  await expect(current(page)).toBeFocused();
-  // Tab: the queue closes, the article takes focus.
-  await page.keyboard.press("Tab");
-  await expect(queue(page)).toHaveCount(0);
-  await expect(article).toBeFocused();
 });
 
 test("the queue: read ones dimmed at the bottom, the switch reads the section, the end marks read (NP-122)", async ({ page }) => {
@@ -422,146 +408,49 @@ test("the card's actions stay on one row in a narrow window and a long language 
   await expect(card.getByRole("button", { name: text(catalog("de"), "card.fromReading") })).toBeVisible();
 });
 
-test("reduced motion: a fade instead of the circle; a narrow window keeps the queue behind «Queue» (NP-122)", async ({ page }) => {
+test("a narrow window: the queue behind «Queue», Tab never reaches it hidden and leaves it open for the article; reduced motion fades (NP-122, #319)", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await boot(page, { width: 800, height: 550 });
   const list = await readingList(page);
+  const toolbar = await readButton(page).boundingBox();
   await readButton(page).click();
+  // Reduced motion: a fade instead of the circle.
   await expect(mode(page)).toHaveAttribute("data-drop", "fade");
+  // «Read» stays where it was, the book alone, in the same place and size (owner, 2026-10-15).
+  const pressed = mode(page).getByRole("button", { name: "Read", exact: true });
+  await expect(pressed).toHaveAttribute("aria-pressed", "true");
+  expect(await pressed.boundingBox()).toEqual(toolbar);
+  const article = mode(page).locator("[data-reader-scroll]");
+  await expect(article).toBeFocused();
   await expect(queue(page)).toHaveCount(0);
   const toggle = mode(page).getByRole("button", { name: `Queue · ${list.length}` });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  // Tab does not reach the hidden queue.
+  await page.keyboard.press("Shift+Tab");
+  await expect(queue(page)).toHaveCount(0);
   // The browser as an icon with its name.
   await mode(page).getByRole("button", { name: "Open in browser" }).click();
   expect(await opened(page)).toEqual([list[0].url]);
-  // Esc shows the queue, a second one leaves.
+  // Esc shows the queue; ↓ reads the next one behind it and the queue stays.
+  await page.keyboard.press("Escape");
+  await expect(current(page)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(heading(page)).toHaveText(list[1].title);
+  await expect(current(page)).toBeFocused();
+  // Tab: the queue closes, the article takes focus.
+  await page.keyboard.press("Tab");
+  await expect(queue(page)).toHaveCount(0);
+  await expect(article).toBeFocused();
+  // Enter in the queue closes it too.
   await page.keyboard.press("Escape");
   await expect(current(page)).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(queue(page)).toHaveCount(0);
-  await expect(heading(page)).toHaveText(list[1].title);
+  await expect(heading(page)).toHaveText(list[2].title);
+  // «Queue» opens it; Esc in the open queue leaves the mode.
   await toggle.click();
   await expect(queue(page)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(mode(page)).toHaveCount(0);
 });
-
-/**
- * Evidence for acceptance 2: every state in both themes, at 1440×900 and 800×550, in English,
- * German and Russian, beside its frame in the PR. Screenshots only; the assertions are above.
- */
-for (const language of ["en", "de", "ru"]) {
-  for (const theme of ["light", "dark"]) {
-    test(`evidence ${language} ${theme}`, { tag: "@evidence" }, async ({ page, context }) => {
-      test.setTimeout(120_000);
-      const t = (key: string) => text(catalog(language), key);
-      for (const [width, height] of [
-        [1440, 900],
-        [800, 550],
-      ]) {
-        const shot = async (state: string) => {
-          // The drop and the queue's fade have finished; the running line never does.
-          await page.waitForFunction(
-            () =>
-              !document
-                .querySelector("[data-reading-mode]")
-                ?.getAnimations({ subtree: true })
-                .some((a) => a.effect?.getTiming().iterations !== Infinity),
-          );
-          await page.screenshot({ path: `${process.env.READING_SHOTS ?? "test-results/np122"}/${language}-${theme}-${width}-${state}.png` });
-        };
-        await context.setOffline(false);
-        await boot(page, { width, height, theme, language });
-        await shot("R0");
-        await fillReading(page);
-        if (width === 1440) {
-          // B1 and B2: the drop held at 60 and 150 ms of its 200.
-          for (const [frame, at] of [
-            ["B1", 60],
-            ["B2", 150],
-          ] as const) {
-            await readButton(page).click();
-            await page.waitForFunction((at) => {
-              const drop = document.querySelector("[data-reading-mode]")?.getAnimations()[0];
-              if (!drop) return false;
-              drop.pause();
-              drop.currentTime = at;
-              return true;
-            }, at);
-            await page.screenshot({ path: `${process.env.READING_SHOTS ?? "test-results/np122"}/${language}-${theme}-${width}-${frame}.png` });
-            await page.evaluate(() => document.querySelector("[data-reading-mode]")?.getAnimations()[0]?.finish());
-            await page.keyboard.press("Escape");
-            await page.keyboard.press("Escape");
-            await expect(mode(page)).toHaveCount(0);
-          }
-        }
-        const list = await readingList(page);
-        const read = () => readButton(page).click();
-        const leave = async () => {
-          await page.keyboard.press("Escape");
-          await page.keyboard.press("Escape");
-          await expect(mode(page)).toHaveCount(0);
-        };
-        /** A new session for each state: the pages stubbed for the last one stay in the old one's memory. */
-        const fresh = async () => {
-          await page.reload();
-          await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
-          await page.evaluate(() => document.fonts.ready);
-        };
-        // B3: an article a quarter read.
-        await read();
-        await expect(mode(page).locator(".reader-body")).toBeVisible();
-        // B3 from its top (meta line, title, dek), then a quarter read with the line moving.
-        await shot("B3");
-        // The line follows scrolling once the article settled where reading stopped: scroll until it does.
-        await expect
-          .poll(async () => {
-            await mode(page).locator("[data-reader-scroll]").evaluate((el) => el.scrollTo({ top: (el.scrollHeight - el.clientHeight) * 0.25 + Math.random() }));
-            return mode(page).locator("[data-reading-progress]").getAttribute("style");
-          })
-          .not.toBe("width: 0%;");
-        await shot("B3-scrolled");
-        if (width === 800) {
-          await mode(page).getByRole("button", { name: new RegExp(`^${t("readingMode.queueButton").split("{{")[0]}`) }).click();
-          await shot("B9-queue");
-          await page.keyboard.press("Escape");
-          await expect(mode(page)).toHaveCount(0);
-        } else await leave();
-        // B4 loading.
-        await fresh();
-        await stubPages(page, "hang", list[0].url);
-        await read();
-        await expect(mode(page).locator("[data-reading-running]")).toBeVisible();
-        await shot("B4");
-        await leave();
-        // B5 can't extract.
-        await fresh();
-        await stubPages(page, "403", list[0].url);
-        await read();
-        await expect(mode(page).locator("[data-reader-failure=failed]")).toBeVisible();
-        await shot("B5");
-        await leave();
-        // B6 no connection.
-        await fresh();
-        await stubPages(page, "offline", list[0].url);
-        await context.setOffline(true);
-        await read();
-        await expect(mode(page).locator("[data-reader-failure=offline]")).toBeVisible();
-        await shot("B6");
-        await leave();
-        await context.setOffline(false);
-        // B7 Reading empty.
-        await page.evaluate(async () => {
-          const { api } = await import("/src/services/api.ts");
-          const ids = (await api.getBookmarks({ onlyReading: true })).items.map((b) => b.id);
-          await api.bulkUpdate(ids, { action: "reading", reading: false });
-        });
-        await read();
-        await expect(mode(page).locator("[data-reading-empty]")).toBeVisible();
-        await shot("B7");
-        await leave();
-      }
-    });
-  }
-}

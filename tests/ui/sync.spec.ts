@@ -152,7 +152,7 @@ test("Sync: another computer, the main one away for days — make this the main 
   await expect(overview.locator('[data-sync-device="Office laptop"]')).toContainText("Main");
 });
 
-test("Sync: the main computer approves a new one by its code; the new one waits and receives the library (frames 05, 06, 07)", async ({ page }) => {
+test("Sync: the main computer approves a new one by its code; the new one waits, is rejected and tries again, receives the library (frames 05, 06, 07)", async ({ page }) => {
   // The dialog opens by itself on the main computer.
   await start(page, "pairing");
   const join = page.getByRole("dialog", { name: "Office laptop wants to join" });
@@ -181,12 +181,11 @@ test("Sync: the main computer approves a new one by its code; the new one waits 
   await expect(receiving.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "4210");
   await receiving.getByRole("button", { name: "Hide" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-});
 
-test("Sync: a rejected computer tries again (frame 06)", async ({ page }) => {
+  // A rejected computer tries again.
   await start(page, "rejected");
-  const waiting = await openSync(page);
-  const banner = waiting.locator('[data-sync-banner="problem:pairing_rejected"]');
+  const rejected = await openSync(page);
+  const banner = rejected.locator('[data-sync-banner="problem:pairing_rejected"]');
   await expect(banner).toContainText("Home iMac didn't approve this computer");
   await banner.getByRole("button", { name: "Try again" }).click();
   await expect(banner).toHaveCount(0);
@@ -211,22 +210,23 @@ test("Sync: the main computer allows or denies handing over (frame 12)", async (
   await expect(asking.locator('[data-sync-banner="hub_change:asking"]')).toContainText("Waiting for Home iMac");
 });
 
-test("Sync: every banner says what happened and what to do (frame 11)", async ({ page }) => {
-  for (const [state, id, title, action] of [
-    ["offline", "paused:offline", "Offline", null],
-    ["others_offline", "online:others_offline", "Your other computers are offline", null],
-    ["added", "notice:device_added", "Studio PC was added", "Review"],
-    ["skew", "paused:clock_skew", "This computer's clock is 7 min off", "Try again"],
-    ["update", "paused:update_needed", "Update Koona Pin to keep syncing", "Update"],
-    ["started_over", "notice:started_over", "Sync was started over from Studio PC", "Join…"],
-    ["revoked", "paused:revoked", "This computer was removed from sync", "Add again"],
-    ["signed_out", "paused:signed_out", "Sign in again to keep syncing", "Sign in…"],
-    ["syncing", "syncing", "Syncing…", null],
+// The words of each banner are checked in src/components/commercial/syncText.test.ts.
+test("Sync: every state has its banner and the action it offers (frame 11)", async ({ page }) => {
+  for (const [state, id, action] of [
+    ["offline", "paused:offline", null],
+    ["others_offline", "online:others_offline", null],
+    ["added", "notice:device_added", "Review"],
+    ["skew", "paused:clock_skew", "Try again"],
+    ["update", "paused:update_needed", "Update"],
+    ["started_over", "notice:started_over", "Join…"],
+    ["revoked", "paused:revoked", "Add again"],
+    ["signed_out", "paused:signed_out", "Sign in…"],
+    ["syncing", "syncing", null],
   ] as const) {
     await start(page, state);
     const dialog = await openSync(page);
     const banner = dialog.locator(`[data-sync-banner="${id}"]`);
-    await expect(banner, state).toContainText(title);
+    await expect(banner, state).toBeVisible();
     if (action) await expect(banner.getByRole("button", { name: action }), state).toBeVisible();
     else await expect(banner.getByRole("button"), state).toHaveCount(0);
   }

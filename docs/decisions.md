@@ -64,7 +64,7 @@ Fetching a page's title and preview is a request the app makes because of data i
 
 ## Feeds fetched by the app, kept apart from the library
 
-*Planned for 2.0.0.* The app fetches and parses RSS, Atom and JSON Feed itself, through the same network guard as metadata, with conditional requests and an honest User-Agent; no server sits in between. Parsing uses `feed-rs` (MIT), pinned to an exact version, with a thin layer of our own for the pictures and broken feeds it misses.
+The app fetches and parses RSS, Atom and JSON Feed itself, through the same network guard as metadata, with conditional requests and an honest User-Agent; no server sits in between. Parsing uses `feed-rs` (MIT), pinned to an exact version, with a thin layer of our own for the pictures and broken feeds it misses.
 
 Subscriptions are library data: a `feeds` table (schema 14) that is backed up and, with Supporter, synced. Posts are a cache: a separate `feeds.db` beside the library holds them, their read state and the fetch state, with no backups, export or sync. Unsaved posts expire after 30 days. Kept in the library, they would add tens of megabytes to every backup copy and queue every refresh behind the library's single writer. A post becomes an ordinary bookmark only when it is saved.
 

@@ -43,6 +43,8 @@
     "tag": "为 {{count}} 个添加标签“{{tag}}”",
     "trash": "将 {{count}} 个移到回收站",
     "new": "用 {{count}} 个新建合集",
+    "favorites": "将 {{count}} 个加入星标",
+    "reading": "将 {{count}} 个加入稍后读",
     "nowhere": "拖到合集、标签或回收站上",
     "keys": "在合集、标签或回收站上松开  ·  Esc — 取消拖动"
   },

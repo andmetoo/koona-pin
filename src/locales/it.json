@@ -47,6 +47,8 @@
     "tag": "Aggiungi il tag «{{tag}}» a {{count}}",
     "trash": "Sposta {{count}} nel cestino",
     "new": "Nuova raccolta da {{count}}",
+    "favorites": "Aggiungi {{count}} a Preferiti",
+    "reading": "Invia {{count}} a Da leggere",
     "nowhere": "Rilascia su una raccolta, un tag o il cestino",
     "keys": "Rilascia su una raccolta, un tag o il cestino  ·  Esc — annulla il trascinamento"
   },

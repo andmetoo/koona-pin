@@ -47,6 +47,8 @@
     "tag": "Adicionar a tag “{{tag}}” a {{count}}",
     "trash": "Mover {{count}} para a lixeira",
     "new": "Nova coleção com {{count}}",
+    "favorites": "Adicionar {{count}} a Favoritos",
+    "reading": "Enviar {{count}} para Para ler",
     "nowhere": "Solte sobre uma coleção, uma tag ou a lixeira",
     "keys": "Solte sobre uma coleção, uma tag ou a lixeira  ·  Esc — cancelar o arraste"
   },

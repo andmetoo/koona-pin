@@ -756,6 +756,8 @@ export function App() {
     if (target.kind === "collection") run.move(target.id);
     else if (target.kind === "tag") run.tag(target.name);
     else if (target.kind === "trash") run.trash();
+    else if (target.kind === "favorites") run.favorite(true);
+    else if (target.kind === "reading") run.reading(true);
     else run.newCollection();
   });
   const dragging = selectionDrag.drag;
