@@ -1,4 +1,4 @@
-import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useRef, useState } from "react";
+import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -665,7 +665,7 @@ export function Sidebar(props: SidebarProps) {
                   aria-pressed={filters.tag === tag.name}
                   data-drop={target?.attr}
                   onClick={() => props.onTag(tag.name)}
-                  className={`rounded-sm px-1.5 py-0.5 text-2xs transition-colors duration-150 ${look}`}
+                  className={`max-w-full truncate rounded-sm px-1.5 py-0.5 text-2xs transition-colors duration-150 ${look}`}
                 >
                   {tag.name}
                 </button>
@@ -951,6 +951,27 @@ function NameField({ suggested, count, color, onCreate, onCancel }: NewCollectio
   );
 }
 
+/** A row's name: one longer than the row fades out at its end (2.1.2); one that fits is left whole. */
+function FadeLabel({ text }: { text: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [clipped, setClipped] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current!;
+    const measure = () => setClipped(el.scrollWidth > el.clientWidth);
+    measure();
+    // Inter arrives after the first paint, and a folded section opens to its width later.
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    document.fonts.ready.then(measure);
+    return () => watch.disconnect();
+  }, [text]);
+  return (
+    <span ref={ref} className="fade-end min-w-0 flex-1" data-clipped={clipped || undefined}>
+      {text}
+    </span>
+  );
+}
+
 function NavRow({
   icon,
   label,
@@ -1004,7 +1025,7 @@ function NavRow({
       className={`flex h-8 w-full shrink-0 items-center gap-2.5 rounded-[9px] px-2.5 text-left text-sm transition-[background-color,color,box-shadow] duration-150 ${look}`}
     >
       <span className={`flex shrink-0 ${hot ? (drop.danger ? "text-danger" : "") : active ? "text-accent" : "text-icon"}`}>{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <FadeLabel text={label} />
       {count !== undefined && (
         <span className={`text-xs font-normal ${hot ? (drop.danger ? "text-danger" : "text-accent-muted") : "text-subtle"}`}>{count}</span>
       )}

@@ -1429,7 +1429,7 @@ test("sort: titles by the keys in SQLite in the interface's language, the collec
     // A collection dragged to the top is stored there; the first collections of a new library
     // (NP-085) sort by name with the others until then.
     const collections = () => page.getByRole("navigation", { name: "Collections" }).locator("[data-collection]");
-    const names = () => collections().evaluateAll((rows) => rows.map((r) => r.querySelector("span.truncate")?.textContent));
+    const names = () => collections().evaluateAll((rows) => rows.map((r) => r.querySelector("span.fade-end")?.textContent));
     await expect.poll(names).toEqual(["Alpha", "Articles / To read", "Beta", "Design & UI", "Development", "Gamma"]);
     const gamma = (await collections().nth(5).boundingBox())!;
     const alpha = (await collections().nth(0).boundingBox())!;

@@ -15,7 +15,7 @@ async function cutLabels(page: Page) {
     for (const el of document.querySelectorAll<HTMLElement>("body *")) {
       if (el.closest("[data-bookmark-id], [data-user-text]") || !el.offsetParent || !el.textContent!.trim()) continue;
       const style = getComputedStyle(el);
-      const hides = style.textOverflow === "ellipsis" || style.webkitLineClamp !== "none";
+      const hides = style.textOverflow === "ellipsis" || style.webkitLineClamp !== "none" || el.classList.contains("fade-end");
       // scrollWidth is rounded: a text 0.4 px too wide gets its ellipsis but not a wider scrollWidth.
       const range = document.createRange();
       range.selectNodeContents(el);
@@ -52,7 +52,7 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
   };
   const room: Record<string, { width: number; font: string }> = {};
   for (const key of Object.keys(rows)) {
-    const label = page.locator("aside button span.truncate", { hasText: exactly(text(en, key)) }).first();
+    const label = page.locator("aside button span.fade-end", { hasText: exactly(text(en, key)) }).first();
     room[key] = await label.evaluate((el) => ({ width: el.clientWidth, font: getComputedStyle(el).font }));
   }
   for (const key of Object.keys(room)) room[key].width -= key === "browser.notConnected" ? LINUX_SPARE.status : LINUX_SPARE.row;

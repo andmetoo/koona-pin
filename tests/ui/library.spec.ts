@@ -1231,7 +1231,7 @@ test("collections: a drag puts one in another place, Esc and a drop outside chan
   await page.setViewportSize({ width: 1440, height: 900 });
   const sidebar = page.getByRole("complementary", { name: "Library" });
   const collections = sidebar.getByRole("navigation", { name: "Collections" });
-  const names = () => collections.locator("[data-collection]").evaluateAll((rows) => rows.map((r) => r.querySelector("span.truncate")?.textContent));
+  const names = () => collections.locator("[data-collection]").evaluateAll((rows) => rows.map((r) => r.querySelector("span.fade-end")?.textContent));
   const row = (name: string) => collections.locator("[data-collection]").filter({ hasText: name });
   // Never moved: by name.
   expect(await names()).toEqual(["Design", "Development", "Inspiration", "To read"]);
