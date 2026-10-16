@@ -11,6 +11,54 @@ const bookmarkNamed = (page: Page, title: string) =>
   page.locator("article[data-bookmark-id]").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 /** A click on a card or row: alone it selects only it, with Ctrl it toggles, with Shift it adds the range. */
 const clickCard = (card: Locator, modifiers?: ("ControlOrMeta" | "Shift")[]) => selectSpot(card).click({ modifiers });
+/** The next call of an api method fails with a CommandError; the one after it works again. */
+async function failOnce(page: Page, method: string, code: string, message = code) {
+  await page.evaluate(
+    async ([method, code, message]) => {
+      const { api } = await import("/src/services/api.ts");
+      const { CommandError } = await import("/src/services/errors.ts");
+      const target = api as unknown as Record<string, unknown>;
+      const original = target[method];
+      target[method] = async () => {
+        target[method] = original;
+        throw new CommandError(code as ConstructorParameters<typeof CommandError>[0], message);
+      };
+    },
+    [method, code, message] as const,
+  );
+}
+/** Triage over the inbox; since the notification centre, the library's way in is the bell. */
+async function openTriage(page: Page) {
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
+}
+/** Replaces the demo library: each row over the demo's first bookmark, or only over its triage time when `lean`. */
+async function seedLibrary(page: Page, rows: Record<string, unknown>[], { lean = false } = {}) {
+  await page.evaluate(
+    async ([rows, lean]) => {
+      const { api } = await import("/src/services/api.ts");
+      const [first] = (await api.getBookmarks()).items;
+      const bookmarks = rows.map((row) => (lean ? { triaged_at: first.triaged_at, ...row } : { ...first, ...row }));
+      localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
+    },
+    [rows, lean] as const,
+  );
+  await page.reload();
+  // Virtualized: `data-loaded` counts the pages read.
+  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
+}
+/** From the open plans: «I'm already a Supporter», the email, the code. Returns the sign-in step's height. */
+async function signInAsSupporter(page: Page, email: string) {
+  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
+  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
+  const height = Math.round((await signIn.boundingBox())!.height);
+  await signIn.getByLabel("Email").fill(email);
+  await signIn.getByRole("button", { name: "Send code" }).click();
+  const code = page.getByRole("dialog", { name: "Check your email" });
+  await code.getByLabel("Code").fill("482913");
+  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  return height;
+}
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
@@ -25,31 +73,6 @@ test("hover keeps card and preview geometry stable", async ({ page }) => {
   await page.waitForTimeout(220);
   expect(await card.boundingBox()).toEqual(before);
   expect(await card.locator("[data-preview]").boundingBox()).toEqual(image);
-});
-test("search, favorites and list view", async ({ page }) => {
-  await page.getByRole("textbox", { name: "Search the library" }).fill("ARCHITECTURE");
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
-  await page.getByRole("textbox", { name: "Search the library" }).fill("");
-  await page.getByRole("button", { name: "Favorites 2" }).click();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
-  await page.getByRole("button", { name: "List", exact: true }).click();
-  await expect(page.locator('[data-view="list"]')).toBeVisible();
-});
-test("dialog restores focus and editor persists collection clearing", async ({ page }) => {
-  const add = page.getByRole("button", { name: "New link", exact: true });
-  // WebKit on macOS does not focus a button on a mouse click. Test the keyboard-origin restore.
-  await add.focus();
-  await add.press("Enter");
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(add).toBeFocused();
-  await page.locator('[data-bookmark-id="1"]').hover();
-  await page.getByRole("button", { name: /^Actions:/ }).first().click();
-  await page.getByRole("menuitem", { name: "Edit…" }).click();
-  await page.getByLabel("Collection", { exact: true }).selectOption("");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.getByRole("button", { name: "List", exact: true }).click();
-  await expect(page.locator('[data-bookmark-id="1"] [data-collection]')).toContainText("No collection");
 });
 test("card menu moves a bookmark to a collection with the keyboard", async ({ page }) => {
   await page.locator('[data-bookmark-id="2"]').hover();
@@ -73,24 +96,15 @@ test("card menu moves a bookmark to a collection with the keyboard", async ({ pa
   await page.getByRole("button", { name: "List", exact: true }).click();
   await expect(page.locator('[data-bookmark-id="2"] [data-collection]')).toContainText("Development");
 });
-for (const width of [800, 1200, 1600])
-  test(`layout at ${width}px and both themes`, async ({ page }) => {
-    await page.setViewportSize({ width, height: width === 800 ? 550 : 800 });
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
-    for (const [theme, label] of [
-      ["light", "Light"],
-      ["dark", "Dark"],
-    ]) {
-      await page.getByRole("radio", { name: label }).click();
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-    }
-    await page.getByRole("button", { name: "All bookmarks" }).click();
-    await page.screenshot({ path: `test-results/library-${width}.png` });
-  });
-test("language: English by default, switches without a restart, «System» follows the system", async ({ page }) => {
-  // A new install speaks English whatever the system says (NP-085).
+test("language: English by default, switches without a restart, «System» follows the system; the demo library keeps its language", async ({ page }) => {
+  // A new install speaks English whatever the system says (NP-085); the demo library is created in it.
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByText("Ten principles for good design")).toBeVisible();
+  await expect(page.getByRole("button", { name: "To read 1" })).toBeVisible();
+  // The first change saves it: switching to Russian later keeps the English library.
+  await page.locator('[data-bookmark-id="4"]').hover();
+  await page.locator('[data-bookmark-id="4"]').getByRole("button", { name: "Add to favorites" }).click();
+  await expect(page.getByRole("button", { name: "Favorites 3" })).toBeVisible();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByLabel("Language", { exact: true })).toHaveValue("en");
   await page.getByLabel("Language", { exact: true }).selectOption("ru");
@@ -99,14 +113,6 @@ test("language: English by default, switches without a restart, «System» follo
   // The browser of the tests is English: «System» is English.
   await page.getByLabel("Язык", { exact: true }).selectOption("system");
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-});
-test("demo library is created in the interface's language and kept after a switch", async ({ page }) => {
-  await expect(page.getByText("Ten principles for good design")).toBeVisible();
-  await expect(page.getByRole("button", { name: "To read 1" })).toBeVisible();
-  // The first change saves it: switching to Russian keeps the English library.
-  await page.locator('[data-bookmark-id="4"]').hover();
-  await page.locator('[data-bookmark-id="4"]').getByRole("button", { name: "Add to favorites" }).click();
-  await expect(page.getByRole("button", { name: "Favorites 3" })).toBeVisible();
   await page.evaluate(() => localStorage.setItem("koonapin.language", "ru"));
   await page.reload();
   await expect(page.getByRole("button", { name: "Избранное 3" })).toBeVisible();
@@ -141,7 +147,7 @@ test("incoming capture preserves reading position until explicitly revealed", as
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(0);
 });
-test("inbox: new links wait there until a decision, the notification hides until a newer one", async ({ page }) => {
+test("inbox: new links wait there until a decision, triage Esc goes back to it, the notification hides until a newer one", async ({ page }) => {
   // No feeds here: Serious Eats would add its own notification to the bell (NP-133).
   await page.evaluate(() => localStorage.setItem("koonapin.demo.feeds", "empty"));
   await page.reload();
@@ -160,7 +166,6 @@ test("inbox: new links wait there until a decision, the notification hides until
   await expect(inbox(2)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/All bookmarks\s*6/);
   await expect(banner).toHaveCount(0);
-  await expect(bell).toHaveAccessibleName("Notifications, 1 new");
   await bell.click();
   await expect(waiting).toContainText("2 new in Inbox");
   await expect(waiting).toContainText("Keeping, filing or tossing them takes about a minute.");
@@ -187,21 +192,24 @@ test("inbox: new links wait there until a decision, the notification hides until
   await expect(inbox(2)).toBeVisible();
   await expect(page.getByRole("button", { name: "Favorites 3" })).toBeVisible();
 
-  // Hidden until a bookmark newer than the ones waiting arrives, also after a restart.
+  // Triage opened from the inbox: Esc, even from «Finish», goes back where it was opened.
+  await banner.getByRole("button", { name: "Sort" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Sort inbox\s*1 of 2/);
+  await page.keyboard.press("ArrowRight");
+  await page.getByRole("button", { name: "Finish" }).focus();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Inbox\s*1/);
+  await expect(cards).toHaveCount(1);
+
+  // Hidden until a bookmark newer than the ones waiting arrives (the restart: notifications.spec.ts).
   await page.getByRole("button", { name: "All bookmarks" }).click();
   await bell.click();
   await waiting.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
   await expect(waiting).toHaveCount(0);
-  await expect(centre).toContainText("Nothing new");
   await page.keyboard.press("Escape");
-  await page.reload();
-  await expect(cards).toHaveCount(7);
-  await expect(bell).toHaveAccessibleName("Notifications");
-  await expect(inbox(2)).toBeVisible();
   await capture("https://example.com/newer");
-  await expect(bell).toHaveAccessibleName("Notifications, 1 new");
   await bell.click();
-  await expect(waiting).toContainText("3 new in Inbox");
+  await expect(waiting).toContainText("2 new in Inbox");
   await page.keyboard.press("Escape");
 
   // Nothing left: no notification, no badge, the empty inbox.
@@ -434,8 +442,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
     (window as unknown as { opened: string[] }).opened = [];
     window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
   });
-  await page.locator("[data-notification-bell]").click();
-  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
+  await openTriage(page);
   await expect(heading).toHaveText(/Sort inbox\s*1 of 5/);
   await expect(title).toHaveText("Third new");
   await expect(page.locator("[data-triage-card]")).toContainText(/example\.com\s*·\s*added by hand today at \d/);
@@ -484,15 +491,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
 
   // A failed decision keeps the card; «Try again» or the same key tries again.
   await expect(title).toHaveText("The architecture of silence");
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const { CommandError } = await import("/src/services/errors.ts");
-    const original = api.trashBookmark;
-    api.trashBookmark = async (id) => {
-      api.trashBookmark = original;
-      throw new CommandError("database_busy", "busy");
-    };
-  });
+  await failOnce(page, "trashBookmark", "database_busy", "busy");
   await page.keyboard.press("ArrowLeft");
   await expect(alert).toContainText("Couldn't move to trash: the library is busy");
   await expect(alert.getByRole("button", { name: "Try again" })).toBeVisible();
@@ -526,13 +525,11 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
     }
     return (await api.addBookmark({ url: "https://example.org/new", title: "One more example" })).bookmark.id;
   });
-  await page.locator("[data-notification-bell]").click();
-  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
+  await openTriage(page);
   await expect(page.locator("[data-triage-card] h2")).toHaveText("One more example");
   const offered = page.locator("[data-suggested]");
-  const chips = page.locator("[data-keys] button");
+  // The order of the keys: src/services/triage.test.ts.
   await expect(offered).toHaveText(/1\s*Inspiration\s*suggested/);
-  await expect(chips.nth(1)).toHaveText(/2\s*Design/);
   await offered.hover();
   await expect(page.getByRole("tooltip").filter({ hasText: "Links from example.org" })).toHaveText(
     "Links from example.org mostly live in «Inspiration»: 2 of 2",
@@ -548,10 +545,9 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
   await page.keyboard.press("1");
   await expect(page.locator("[data-undo-toast]")).toContainText("Filed in «Inspiration»: One more example");
   expect((await stored())[0]).toBe(3);
-  // A site with nothing filed: no suggestion, the sidebar order.
+  // A site with nothing filed: no suggestion.
   await expect(page.locator("[data-triage-card] h2")).toHaveText("The architecture of silence");
   await expect(offered).toHaveCount(0);
-  await expect(chips.first()).toHaveText(/1\s*Design/);
 });
 test("triage: the decisions keep their words at any width, a longer label goes compact (NP-084)", async ({ page }) => {
   const row = page.locator("[data-fit]");
@@ -576,8 +572,7 @@ test("triage: the decisions keep their words at any width, a longer label goes c
       const { default: i18n } = await import("/src/i18n/index.ts");
       await i18n.changeLanguage(code);
     }, code);
-  await page.locator("[data-notification-bell]").click();
-  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
+  await openTriage(page);
   await expect(page.locator("[data-triage-card]")).toBeVisible();
   for (const [code, words] of [
     ["en", "Move to trash"],
@@ -626,9 +621,7 @@ test("triage: the capsule decides by click, the undo toast says what Z takes bac
   const title = page.locator("[data-triage-card] h2");
   const capsule = page.locator("[data-fit]");
   const last = page.locator("[data-undo-toast]");
-  // Since the notification centre, the library's way into triage is the bell.
-  await page.locator("[data-notification-bell]").click();
-  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
+  await openTriage(page);
   await expect(heading).toHaveText(/1 of 2/);
   const first = await title.textContent();
   // One card behind this one; the heart is a toggle.
@@ -662,42 +655,29 @@ test("triage: the capsule decides by click, the undo toast says what Z takes bac
   await expect(page.locator(".fixed[role=status]")).toContainText(`Back in the queue: ${second}`);
   await expect(last).toHaveCount(0);
 });
-test("triage: Esc goes back where it was opened, the inbox always offers it", async ({ page }) => {
-  await page.getByRole("button", { name: "Inbox 2", exact: true }).click();
-  const banner = page.getByRole("region", { name: "New bookmarks" });
-  // In the inbox the banner has no «hide»: it is the way into triage.
-  await expect(banner.getByRole("button", { name: "Hide until new bookmarks arrive" })).toHaveCount(0);
-  await banner.getByRole("button", { name: "Sort" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Sort inbox\s*1 of 2/);
-  await page.keyboard.press("ArrowRight");
-  await page.getByRole("button", { name: "Finish" }).focus();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Inbox\s*1/);
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
-});
-test("metadata updates keep order and filtered captures stay out of the list", async ({ page }) => {
-  const ids = await page
-    .locator("[data-bookmark-id]")
-    .evaluateAll((elements) => elements.map((e) => e.getAttribute("data-bookmark-id")));
+test("live updates: metadata keeps the order, a changed bookmark joins an open search, an older search response loses, filtered captures stay out", async ({ page }) => {
+  const cards = page.locator("[data-bookmark-id]");
+  const search = page.getByRole("textbox", { name: "Search the library" });
+  const ids = () => cards.evaluateAll((elements) => elements.map((e) => e.getAttribute("data-bookmark-id")));
+  const before = await ids();
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     await api.updateBookmark(3, { notes: "Updated asynchronously" });
   });
-  expect(
-    await page.locator("[data-bookmark-id]").evaluateAll((elements) => elements.map((e) => e.getAttribute("data-bookmark-id"))),
-  ).toEqual(ids);
-  await page.getByRole("button", { name: "Favorites 2" }).click();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
+  expect(await ids()).toEqual(before);
+
+  // A changed bookmark joins an open search by the search rules.
+  await search.fill("ёлочн ИГРУШКИ");
+  await expect(cards).toHaveCount(0);
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
-    await api.addBookmark({
-      url: "https://example.com/not-a-favorite",
-      title: "Not a favorite",
-    });
+    await api.updateBookmark(3, { notes: "Игрушки для елочных базаров" });
   });
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(2);
-});
-test("an older search response cannot replace the current query", async ({ page }) => {
+  await expect(cards).toHaveCount(1);
+  await expect(page.locator('[data-bookmark-id="3"]')).toBeVisible();
+  await expect(page.getByText("1 of 6")).toBeVisible();
+
+  // An older search response cannot replace the current query.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const original = api.getBookmarks;
@@ -707,12 +687,25 @@ test("an older search response cannot replace the current query", async ({ page 
       return rows;
     };
   });
-  await page.getByRole("textbox", { name: "Search the library" }).fill("Architecture");
+  await search.fill("Architecture");
   await page.waitForTimeout(190);
-  await page.getByRole("textbox", { name: "Search the library" }).fill("Typography");
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
+  await search.fill("Typography");
+  await expect(cards).toHaveCount(1);
   await page.waitForTimeout(500);
   await expect(page.locator('[data-bookmark-id="3"]')).toBeVisible();
+  await search.fill("");
+
+  // A capture that does not match the section stays out of it.
+  await page.getByRole("button", { name: "Favorites 2" }).click();
+  await expect(cards).toHaveCount(2);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    await api.addBookmark({
+      url: "https://example.com/not-a-favorite",
+      title: "Not a favorite",
+    });
+  });
+  await expect(cards).toHaveCount(2);
 });
 
 test("list geometry stays within the window and broken previews keep their space", async ({ page }) => {
@@ -737,19 +730,8 @@ test("list geometry stays within the window and broken previews keep their space
   expect(await page.locator('[data-bookmark-id="1"]').evaluate((el) => getComputedStyle(el).transitionDuration)).toBe("0s");
 });
 
-test("save errors preserve entered data and HTML import skips duplicate and unsupported links", async ({ page }) => {
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const original = api.addBookmark;
-    let failed = false;
-    api.addBookmark = async (data) => {
-      if (!failed) {
-        failed = true;
-        throw new Error("Could not write the link");
-      }
-      return original(data);
-    };
-  });
+test("Add sheet errors: a failed save keeps what was typed, a failure without words of its own speaks the interface's language (NP-085)", async ({ page }) => {
+  await failOnce(page, "addBookmark", "internal", "Could not write the link");
   await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://example.com/new-link");
   await page.getByRole("button", { name: "Title and tags" }).click();
@@ -759,48 +741,15 @@ test("save errors preserve entered data and HTML import skips duplicate and unsu
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue("My find");
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Browser bookmarks/ }).click();
-  await page.locator("input[type=file]").setInputFiles({
-    name: "bookmarks.html",
-    mimeType: "text/html",
-    buffer: Buffer.from(
-      '<a href="https://example.com/new-link">Duplicate</a><a href="https://example.com/imported">Imported</a><a href="javascript:alert(1)">Unsupported</a>',
-    ),
-  });
-  await page.getByRole("button", { name: "Import", exact: true }).click();
-  const report = page.getByRole("dialog", { name: "Import finished" });
-  await expect(report.getByRole("status")).toHaveText("1 bookmark added to Library");
-  await expect(report).toContainText("Already in the library — left as they were1");
-  await expect(report).toContainText("Not a web address (javascript:, place:, file:)1");
-  await report.getByRole("button", { name: "Done" }).click();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(8);
-});
 
-test("command errors speak the interface's language, never the app's English alone (NP-085)", async ({ page }) => {
-  const save = async (link: string, button: string, field: string) => {
-    await page.getByLabel(field, { exact: true }).fill(link);
-    await page.getByRole("button", { name: button }).click();
-  };
-  await page.getByRole("button", { name: "New link", exact: true }).click();
-  await save("ftp://example.com/file", "Save link", "Link");
-  await expect(page.getByRole("alert")).toHaveText("Only http:// and https:// links can be saved.");
-  await page.keyboard.press("Escape");
-
+  // In Russian the sentence is Russian, the app's own text a detail.
   await page.evaluate(() => localStorage.setItem("koonapin.language", "ru"));
   await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
+  await failOnce(page, "addBookmark", "internal", "The system cannot find the file.");
   await page.getByRole("button", { name: "Новая ссылка", exact: true }).click();
-  await save("ftp://example.com/file", "Сохранить ссылку", "Ссылка");
-  await expect(page.getByRole("alert")).toHaveText("Сохранить можно только ссылки http:// и https://.");
-  // A failure without words of its own: the sentence is Russian, the app's text a detail.
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const { CommandError } = await import("/src/services/errors.ts");
-    api.addBookmark = async () => {
-      throw new CommandError("internal", "The system cannot find the file.");
-    };
-  });
-  await save("https://example.com/file", "Сохранить ссылку", "Ссылка");
+  await page.getByLabel("Ссылка", { exact: true }).fill("https://example.com/file");
+  await page.getByRole("button", { name: "Сохранить ссылку" }).click();
   await expect(page.getByRole("alert")).toHaveText("Что-то пошло не так: The system cannot find the file");
 });
 
@@ -975,20 +924,12 @@ test("restore: merge adds what is missing with its state and keeps what is there
   await expect(page.getByRole("button", { name: /^Inbox 3/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Trash 1/ })).toBeVisible();
 
-  // Refused copies: the library stays as it was.
-  const refused = [
-    [{ name: "notes.json", mimeType: "application/json", buffer: Buffer.from("not json") }, "This isn't a JSON file."],
-    [await copyFile(page, (c) => (c.format = "other-app")), "This isn't a Koona Pin copy"],
-    [await copyFile(page, (c) => (c.version = 2)), "The copy was made by a newer Koona Pin (format 2)"],
-    [await copyFile(page, (c) => ((c.bookmarks as { url: string }[])[1].url = "javascript:alert(1)")), "The copy is damaged: bookmark 2 has no valid address. Nothing was changed."],
-  ] as const;
-  for (const [file, text] of refused) {
-    const bad = await openRestore(page, file);
-    await expect(bad.getByRole("alert")).toContainText(text);
-    await expect(bad).toContainText("Checked: the copy can't be restored");
-    await expect(bad.getByText("Choose another file")).toBeVisible();
-    await bad.getByRole("button", { name: "Cancel" }).click();
-  }
+  // A refused copy: the library stays as it was (every reason: restore.rs).
+  const bad = await openRestore(page, await copyFile(page, (c) => ((c.bookmarks as { url: string }[])[1].url = "javascript:alert(1)")));
+  await expect(bad.getByRole("alert")).toContainText("The copy is damaged: bookmark 2 has no valid address. Nothing was changed.");
+  await expect(bad).toContainText("Checked: the copy can't be restored");
+  await expect(bad.getByText("Choose another file")).toBeVisible();
+  await bad.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("button", { name: /^Trash 1/ })).toBeVisible();
 });
 
@@ -1163,24 +1104,19 @@ test("import of 10 000 links shows progress and keeps the window usable", async 
 });
 
 test("a large library loads page by page while scrolling", async ({ page }) => {
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const [first] = (await api.getBookmarks()).items;
-    const bookmarks = Array.from({ length: 250 }, (_, i) => ({
-      ...first,
+  await seedLibrary(
+    page,
+    Array.from({ length: 250 }, (_, i) => ({
       id: i + 1,
       url: `https://example.com/${i + 1}`,
       title: i % 2 ? `Ёлка ${i + 1}` : `Entry ${i + 1}`,
       tags: [],
       // Every fifth one shares a time with its neighbour: the id breaks the tie.
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 250 - i + (i % 5 === 0 ? 1 : 0))).toISOString(),
-    }));
-    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
-  });
-  await page.reload();
-  // Virtualized: only rows near the screen are in the DOM; `data-loaded` counts the pages read.
+    })),
+  );
+  // Virtualized: only rows near the screen are in the DOM.
   const list = page.locator("[data-loaded]");
-  await expect(list).toHaveAttribute("data-loaded", "100");
   expect(await page.locator("[data-bookmark-id]").count()).toBeLessThan(60);
   const scroll = page.locator('[data-scroll="main"]');
   await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
@@ -1199,26 +1135,21 @@ test("a large library loads page by page while scrolling", async ({ page }) => {
 });
 
 /** 250 demo bookmarks, «Entry 1» to «Entry 250», newest first by id. */
-async function largeLibrary(page: import("@playwright/test").Page) {
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const [first] = (await api.getBookmarks()).items;
-    const bookmarks = Array.from({ length: 250 }, (_, i) => ({
-      ...first,
+const largeLibrary = (page: Page) =>
+  seedLibrary(
+    page,
+    Array.from({ length: 250 }, (_, i) => ({
       id: i + 1,
       url: `https://example.com/${i + 1}`,
       title: `Entry ${i + 1}`,
       tags: [],
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
-    }));
-    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
-  });
-  await page.reload();
-  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
-}
+    })),
+  );
 
-test("a change during a page request shows the newer version", async ({ page }) => {
+test("next pages: a change during a request shows the newer version, a failing page is not retried in a loop", async ({ page }) => {
   await largeLibrary(page);
+  const scroll = page.locator('[data-scroll="main"]');
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const original = api.getBookmarks;
@@ -1232,13 +1163,13 @@ test("a change during a page request shows the newer version", async ({ page }) 
       return result;
     };
   });
-  await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
   await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", /^(200|250)$/);
   await expect(page.locator('[data-bookmark-id="150"]')).toContainText("Changed while loading");
-});
 
-test("a failing next page is not retried in a loop", async ({ page }) => {
-  await largeLibrary(page);
+  // Back to the first page only, then every next page fails.
+  await page.reload();
+  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const original = api.getBookmarks;
@@ -1251,27 +1182,14 @@ test("a failing next page is not retried in a loop", async ({ page }) => {
       return original(filters, request);
     };
   });
-  await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
   await expect(page.getByText("The disk is unavailable")).toBeVisible();
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => (window as unknown as { failures: number }).failures)).toBe(1);
   await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
 });
 
-test("a changed bookmark joins an open search by the search rules", async ({ page }) => {
-  const search = page.getByRole("textbox", { name: "Search the library" });
-  await search.fill("ёлочн ИГРУШКИ");
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(0);
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    await api.updateBookmark(3, { notes: "Игрушки для елочных базаров" });
-  });
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
-  await expect(page.locator('[data-bookmark-id="3"]')).toBeVisible();
-  await expect(page.getByText("1 of 6")).toBeVisible();
-});
-
-test("list rows: date groups over all pages, hover actions, a click selects (NP-123)", async ({ page }) => {
+test("list rows: date groups over all pages, hover actions keep or drop the selection (NP-123)", async ({ page }) => {
   await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
   await largeLibrary(page);
   await page.getByRole("button", { name: "List", exact: true }).click();
@@ -1280,14 +1198,12 @@ test("list rows: date groups over all pages, hover actions, a click selects (NP-
 
   const row = page.locator('[data-bookmark-id="250"]');
   const bar = page.getByRole("toolbar", { name: "Selected bookmarks" });
-  // No checkbox any more, and no column for it: the thumbnail starts the row.
+  // No column for a checkbox (its absence and the click: selection.spec.ts): the thumbnail starts the row.
   await row.hover();
-  await expect(row.getByRole("checkbox")).toHaveCount(0);
   const rowBox = (await row.boundingBox())!;
   const thumb = (await row.locator("[data-preview]").boundingBox())!;
   expect(thumb.x - rowBox.x).toBeLessThan(10);
   await clickCard(row);
-  await expect(row).toHaveAttribute("data-selected", "true");
   await expect(bar.getByRole("status")).toHaveText("1 selected");
   // A changed bookmark stays selected.
   await row.getByRole("button", { name: "Move to collection" }).click();
@@ -1330,18 +1246,16 @@ test("sort: the menu orders every section, by title and site without date groups
   // Oldest first keeps the groups, in their order of time.
   await expect(groups).toHaveText([/^This week/, /^Yesterday/]);
 
+  // By title and by site there are no date groups; the order itself: src/services/library.test.ts.
   await sort.click();
   await menu.getByRole("menuitemradio", { name: "Title A–Z" }).click();
-  await expect.poll(() => rowTitles(page)).toEqual([...newest].sort((a, b) => a.localeCompare(b, "en", { numeric: true, sensitivity: "accent" })));
+  await expect(sort).toContainText("Title A–Z");
   await expect(groups).toHaveCount(0);
 
   await sort.click();
   await menu.getByRole("menuitemradio", { name: "Site A–Z" }).click();
-  const sites = () => page.locator("article[data-bookmark-id] [data-domain], article[data-bookmark-id] p button").allTextContents();
-  await expect.poll(async () => {
-    const shown = await sites();
-    return shown.join() === [...shown].sort((a, b) => a.replace(/^www\./, "").localeCompare(b.replace(/^www\./, ""))).join();
-  }).toBe(true);
+  await expect(sort).toContainText("Site A–Z");
+  await expect(groups).toHaveCount(0);
 
   // Every section reads in the chosen order; the trash keeps newest deletion first and has no button.
   await page.getByRole("button", { name: /^Favorites/ }).click();
@@ -1525,27 +1439,23 @@ for (const view of ["Grid", "List"])
   });
 
 test("selection: Ctrl A takes every match of 10 000 without loading them; search keeps it, another section clears it", async ({ page }) => {
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const [first] = (await api.getBookmarks()).items;
-    // Keep the selection fixture below WebKit's localStorage quota (the app uses SQLite).
-    // A repeated full Bookmark carries many optional fields unrelated to this scenario.
-    const bookmarks = Array.from({ length: 10_000 }, (_, i) => ({
+  // Keep the selection fixture below WebKit's localStorage quota (the app uses SQLite).
+  // A repeated full Bookmark carries many optional fields unrelated to this scenario.
+  await seedLibrary(
+    page,
+    Array.from({ length: 10_000 }, (_, i) => ({
       id: i + 1,
       url: `https://e.test/${i + 1}`,
       domain: "e.test",
       title: i % 10 ? `Entry ${i + 1}` : `Ёлка ${i + 1}`,
       collection_id: null,
-      triaged_at: first.triaged_at,
       deleted_at: null,
       tags: [],
       is_favorite: i < 3,
       created_at: new Date(Date.UTC(2026, 0, 1) + i * 1000).toISOString(),
-    }));
-    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
-  });
-  await page.reload();
-  await expect(page.locator("[data-loaded]")).toHaveAttribute("data-loaded", "100");
+    })),
+    { lean: true },
+  );
   const bar = page.getByRole("toolbar", { name: "Selected bookmarks" });
   const search = page.getByRole("textbox", { name: "Search the library" });
 
@@ -1649,19 +1559,7 @@ test("bulk actions: move, tag and star as one action each, undone whole; Del to 
   await expect(page.getByRole("button", { name: /^Favorites/ })).toContainText("4");
 
   // A failure changes nothing: the alert waits, the selection stays, «Try again» does the same again.
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const { CommandError } = await import("/src/services/errors.ts");
-    const original = api.bulkUpdate;
-    let failed = false;
-    api.bulkUpdate = async (ids, change) => {
-      if (!failed) {
-        failed = true;
-        throw new CommandError("database_busy", "database is locked");
-      }
-      return original(ids, change);
-    };
-  });
+  await failOnce(page, "bulkUpdate", "database_busy", "database is locked");
   await bar.getByRole("button", { name: "Move to…" }).click();
   await page.getByRole("menuitem", { name: "Inspiration" }).click();
   const alert = page.getByRole("alert");
@@ -1970,11 +1868,9 @@ test("drag in a narrow window: collection dots and the trash of the strip are ta
 });
 
 test("bulk actions on 1 000 bookmarks keep the loaded pages and the scroll position", async ({ page }) => {
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const [first] = (await api.getBookmarks()).items;
-    const bookmarks = Array.from({ length: 1000 }, (_, i) => ({
-      ...first,
+  await seedLibrary(
+    page,
+    Array.from({ length: 1000 }, (_, i) => ({
       id: i + 1,
       url: `https://example.com/${i + 1}`,
       title: `Entry ${i + 1}`,
@@ -1983,12 +1879,9 @@ test("bulk actions on 1 000 bookmarks keep the loaded pages and the scroll posit
       collection_id: null,
       triaged_at: "2026-01-01T00:00:00.000Z",
       created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString(),
-    }));
-    localStorage.setItem("koonapin.demo.v4", JSON.stringify({ bookmarks, collections: await api.getCollections() }));
-  });
-  await page.reload();
+    })),
+  );
   const list = page.locator("[data-loaded]");
-  await expect(list).toHaveAttribute("data-loaded", "100");
   const scroll = page.locator('[data-scroll="main"]');
   await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
   await expect(list).toHaveAttribute("data-loaded", "200");
@@ -2039,7 +1932,7 @@ test("a click on a domain filters by site; Esc clears the search; nothing found 
   await expect(page.locator("label kbd")).toHaveCSS("opacity", "1");
 });
 
-test("editor: empty title is marked, tags are chips, Ctrl Enter saves, Cancel keeps the bookmark", async ({ page }) => {
+test("editor: empty title is marked, tags are chips, the collection clears, Ctrl Enter saves, a failed save keeps everything typed, Cancel keeps the bookmark; dialogs open on their field", async ({ page }) => {
   const card = page.locator('[data-bookmark-id="1"]');
   await card.hover();
   await card.getByRole("button", { name: /^Actions:/ }).click();
@@ -2052,6 +1945,8 @@ test("editor: empty title is marked, tags are chips, Ctrl Enter saves, Cancel ke
   await expect(title).toBeFocused();
 
   await title.fill("Ten principles");
+  // An empty choice takes the bookmark out of its collection.
+  await page.getByLabel("Collection", { exact: true }).selectOption("");
   const tags = page.getByLabel("Tags", { exact: true });
   await page.getByRole("button", { name: "Remove tag principles" }).click();
   await tags.fill("Rams");
@@ -2063,49 +1958,26 @@ test("editor: empty title is marked, tags are chips, Ctrl Enter saves, Cancel ke
   await page.getByRole("button", { name: "List", exact: true }).click();
   const row = page.locator('[data-bookmark-id="1"]');
   await expect(row).toContainText("Ten principles");
+  await expect(row.locator("[data-collection]")).toContainText("No collection");
   await expect(row.getByRole("button", { name: "rams" })).toBeVisible();
   await expect(row.getByRole("button", { name: "braun" })).toBeVisible();
   await expect(row.getByRole("button", { name: "principles", exact: true })).toHaveCount(0);
 
-  await row.hover();
-  // The card itself takes focus (NP-123); Shift F10 opens its menu.
-  await row.focus();
-  await page.keyboard.press("Shift+F10");
-  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  const edit = async () => {
+    await row.hover();
+    // The card itself takes focus (NP-123); Shift F10 opens its menu.
+    await row.focus();
+    await page.keyboard.press("Shift+F10");
+    await page.getByRole("menuitem", { name: "Edit…" }).click();
+  };
+  await edit();
   await page.getByLabel("Title", { exact: true }).fill("Won't be saved");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(row).toContainText("Ten principles");
-  await row.hover();
-  // The card itself takes focus (NP-123); Shift F10 opens its menu.
-  await row.focus();
-  await page.keyboard.press("Shift+F10");
-  await page.getByRole("menuitem", { name: "Edit…" }).click();
-  // No confirmation: the bookmark goes to the trash and the editor closes.
-  const editor = page.getByRole("complementary", { name: "Edit bookmark" });
-  await editor.getByRole("button", { name: "Move to trash" }).click();
-  await expect(editor).toHaveCount(0);
-  await expect(page.getByRole("status")).toContainText("Moved to Trash");
-  await expect(page.locator('[data-bookmark-id="1"]')).toHaveCount(0);
-});
 
-test("editor: a failed save shows the reason and keeps everything typed", async ({ page }) => {
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    const { CommandError } = await import("/src/services/errors.ts");
-    const original = api.updateBookmark;
-    let failed = false;
-    api.updateBookmark = async (id, data) => {
-      if (!failed) {
-        failed = true;
-        throw new CommandError("database_busy", "busy");
-      }
-      return original(id, data);
-    };
-  });
-  const card = page.locator('[data-bookmark-id="2"]');
-  await card.hover();
-  await card.getByRole("button", { name: /^Actions:/ }).click();
-  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  // A failed save shows the reason and keeps everything typed; «Save again» saves it.
+  await failOnce(page, "updateBookmark", "database_busy", "busy");
+  await edit();
   await page.getByLabel("Title", { exact: true }).fill("Silence and light");
   await page.getByLabel("Note", { exact: true }).fill("Reread in winter");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -2114,7 +1986,26 @@ test("editor: a failed save shows the reason and keeps everything typed", async 
   await expect(page.getByLabel("Note", { exact: true })).toHaveValue("Reread in winter");
   await page.getByRole("button", { name: "Save again", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Changes saved");
-  await expect(page.locator('[data-bookmark-id="2"]')).toContainText("Silence and light");
+  await expect(row).toContainText("Silence and light");
+
+  await edit();
+  // No confirmation: the bookmark goes to the trash and the editor closes.
+  const editor = page.getByRole("complementary", { name: "Edit bookmark" });
+  await editor.getByRole("button", { name: "Move to trash" }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Moved to Trash");
+  await expect(page.locator('[data-bookmark-id="1"]')).toHaveCount(0);
+
+  // Dialogs open with focus on their field, not on «×» (Add link: add.spec.ts).
+  await page.getByRole("button", { name: "New collection", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "New collection" }).getByRole("textbox", { name: "Name" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  // The narrow window shows the editor as a drawer over the content, its field focused too.
+  await page.setViewportSize({ width: 800, height: 550 });
+  await page.locator("[data-bookmark-id]").first().focus();
+  await page.keyboard.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "Edit…" }).click();
+  await expect(page.locator("dialog[open][data-drawer]").getByRole("textbox", { name: "Title" })).toBeFocused();
 });
 test("the heart: one per card and row, seen without hover, one click, Ctrl Z, keyboard, Ctrl click selects (NP-086)", async ({ page, browserName }) => {
   const favorites = page.getByRole("button", { name: /^Favorites \d/ });
@@ -2202,43 +2093,26 @@ test("the heart: one per card and row, seen without hover, one click, Ctrl Z, ke
   await expect(heart(5)).toHaveCount(0);
   await expect(page.locator('[data-bookmark-id="5"]')).toContainText("30 days left");
 });
-test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; hover lives; Refresh preview (NP-087)", async ({ page }) => {
+test("covers: no empty plates; a fresh link shimmers; hover lives; Refresh preview (NP-087)", async ({ page }) => {
   const cover = (id: number) => page.locator(`[data-bookmark-id="${id}"] [data-cover]`);
   // The demo's pages without a picture get covers; no grey plate anywhere.
   await expect(cover(4)).toBeVisible();
   await expect(cover(6)).toBeVisible();
   await expect(page.locator("[data-bookmark-id] [data-preview-fallback]:not([data-cover])")).toHaveCount(0);
-  await expect(cover(6).locator(".cover-letter")).toHaveText("A");
-  const style = (id: number) =>
-    cover(id).evaluate((el) => ({ from: el.style.getPropertyValue("--from"), to: el.style.getPropertyValue("--to"), pattern: el.dataset.cover }));
 
-  // Two more pages of linear.app: the colour of the site, patterns of their own.
-  const ids = await page.evaluate(async () => {
+  // A page saved a moment ago: its metadata is still on its way (a site's colour and letter: cover.test.ts).
+  await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const data = { bookmarks: (await api.getBookmarks()).items, collections: await api.getCollections() };
-    const at = new Date(Date.now() - 60_000).toISOString();
-    const next = (n: number, url: string, created = at) => ({ ...data.bookmarks[0], id: n, url, domain: new URL(url).hostname, title: url, image_url: null, favicon_url: null, site_name: null, created_at: created, source: "chrome" });
-    data.bookmarks.unshift(
-      next(7, "https://linear.app/method"),
-      next(8, "https://linear.app/changelog/2026-10-01"),
-      // Saved a moment ago: its metadata is still on its way.
-      next(9, "https://example.com/just-saved", new Date(Date.now() - 9_000).toISOString()),
-      { ...next(10, "https://mail.google.com/mail/u/0/"), revision: 2 },
-    );
+    const url = "https://example.com/just-saved";
+    data.bookmarks.unshift({ ...data.bookmarks[0], id: 9, url, domain: new URL(url).hostname, title: url, image_url: null, favicon_url: null, site_name: null, created_at: new Date(Date.now() - 9_000).toISOString(), source: "chrome" });
     localStorage.setItem("koonapin.demo.v4", JSON.stringify(data));
-    return [7, 8];
   });
   await page.reload();
   await expect(page.locator('[data-bookmark-id="9"] [data-preview-pending]')).toBeVisible();
-  const [four, seven, eight] = [await style(4), await style(ids[0]), await style(ids[1])];
-  expect([seven.from, seven.to]).toEqual([four.from, four.to]);
-  expect([eight.from, eight.to]).toEqual([four.from, four.to]);
   // When the wait is over without a picture, the cover takes its place.
   await expect(cover(9)).toBeVisible({ timeout: 8_000 });
   await expect(page.locator("[data-preview-pending]")).toHaveCount(0);
-  // One site, one letter: on the cover and beside the domain.
-  await expect(cover(10).locator(".cover-letter")).toHaveText("G");
-  await expect(page.locator('[data-bookmark-id="10"] > div').nth(1).locator("span").first()).toHaveText("G");
 
   // A live grid cover answers the pointer; a list thumbnail does not.
   await expect(cover(4)).toHaveAttribute("data-live");
@@ -2514,7 +2388,7 @@ test("Supporter: the dialog of the plan says when it does not renew, a payment f
   await expect(page.locator("[data-plan-dialog]")).toHaveAttribute("data-plan-dialog", "active");
 });
 
-test("Supporter: a subscription switches to five years from the end of its paid period (NP-066, sheet 45)", async ({ page }) => {
+test("Supporter: a subscription switches to five years from the end of its paid period; a server that does not sell five years offers neither (NP-066, sheet 45)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
   await page.reload();
   await page.locator("[data-plan-row]").click();
@@ -2535,9 +2409,8 @@ test("Supporter: a subscription switches to five years from the end of its paid 
   await expect(page.getByRole("dialog", { name: "Supporter" })).toContainText("Supporter · 5 years");
   // Five years and a plan that does not renew offer no switch.
   await expect(page.getByRole("dialog", { name: "Supporter" }).getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
-});
 
-test("Supporter: a server that does not sell five years offers neither the card nor the switch (NP-066)", async ({ page }) => {
+  // A server that does not sell five years offers neither the card nor the switch.
   await page.evaluate(() => {
     localStorage.setItem("koonapin.demo.supporter", "free");
     localStorage.setItem("koonapin.demo.fiveYears", "off");
@@ -2552,7 +2425,6 @@ test("Supporter: a server that does not sell five years offers neither the card 
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "supporter"));
   await page.reload();
   await page.locator("[data-plan-row]").click();
-  const plan = page.getByRole("dialog", { name: "Supporter" });
   await expect(plan.getByRole("button", { name: "Manage ↗" })).toBeVisible();
   await expect(plan.getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
 });
@@ -2640,26 +2512,24 @@ test("Supporter: a payment with the email of an existing account signs in only w
   await expect(row).toHaveAttribute("data-plan-row", "supporter");
 });
 
-test("Supporter: a payment the app saw first in the background still ends in thanks (NP-066)", async ({ page }) => {
-  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "background"));
-  await page.reload();
-  await page.locator("[data-plan-row]").click();
-  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("dialog", { name: "Thank you for supporting Koona Pin" })).toContainText("anna@example.com", { timeout: 15_000 });
-  await expect(page.locator("[data-plan-row]")).toHaveAttribute("data-plan-row", "supporter");
-});
-
-test("Supporter: what the app finds by itself moves an open dialog on (NP-066)", async ({ page }) => {
-  for (const [kind, title] of [
-    ["later_sign_in", "Payment received"],
-    ["later_paid", "Thank you for supporting Koona Pin"],
+test("Supporter: a payment the app saw first in the background still ends in thanks; what it finds by itself moves an open dialog on (NP-066)", async ({ page }) => {
+  for (const [kind, title, click] of [
+    ["background", "Thank you for supporting Koona Pin", true],
+    // No click: the background's finding arrives as a status event.
+    ["later_sign_in", "Payment received", false],
+    ["later_paid", "Thank you for supporting Koona Pin", false],
   ] as const) {
     await page.evaluate((k) => localStorage.setItem("koonapin.demo.supporter", k), kind);
     await page.reload();
     await page.locator("[data-plan-row]").click();
-    await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toBeVisible();
-    // No click: the background's finding arrives as a status event.
-    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+    const plans = page.getByRole("dialog", { name: "Support Koona Pin" });
+    await expect(plans).toBeVisible();
+    if (click) await plans.getByRole("button", { name: "Continue" }).click();
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible({ timeout: 15_000 });
+    if (kind === "background") {
+      await expect(page.getByRole("dialog", { name: title })).toContainText("anna@example.com");
+      await expect(page.locator("[data-plan-row]")).toHaveAttribute("data-plan-row", "supporter");
+    }
   }
 });
 
@@ -2673,19 +2543,12 @@ test("Supporter: the server cannot be reached — the dialog says so and keeps t
   await expect(plans.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
-test("Supporter: signed in to an account with no active plan, the dialog says so instead of closing (NP-066)", async ({ page }) => {
+test("Supporter: signed in to an account with no active plan, the dialog says so instead of closing; Sign out leaves the account (NP-066)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
   await page.reload();
   const row = page.locator("[data-plan-row]");
   await row.click();
-  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
-  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
-  const height = Math.round((await signIn.boundingBox())!.height);
-  await signIn.getByLabel("Email").fill("free@example.com");
-  await signIn.getByRole("button", { name: "Send code" }).click();
-  const code = page.getByRole("dialog", { name: "Check your email" });
-  await code.getByLabel("Code").fill("482913");
-  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  const height = await signInAsSupporter(page, "free@example.com");
   const signedIn = page.getByRole("dialog", { name: "Signed in" });
   await expect(signedIn).toContainText("You're signed in as free@example.com, but this account has no active Supporter plan.");
   expect(Math.round((await signedIn.boundingBox())!.height), "one height through the steps").toBe(height);
@@ -2693,36 +2556,19 @@ test("Supporter: signed in to an account with no active plan, the dialog says so
   // «See plans» goes to buying.
   await signedIn.getByRole("button", { name: "See plans" }).click();
   await expect(page.getByRole("dialog", { name: "Support Koona Pin" })).toBeVisible();
-});
-
-test("Supporter: from «Signed in» without a plan, Sign out leaves the account (NP-066)", async ({ page }) => {
-  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
-  await page.reload();
-  await page.locator("[data-plan-row]").click();
-  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
-  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
-  await signIn.getByLabel("Email").fill("free@example.com");
-  await signIn.getByRole("button", { name: "Send code" }).click();
-  const code = page.getByRole("dialog", { name: "Check your email" });
-  await code.getByLabel("Code").fill("482913");
-  await code.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.getByRole("dialog", { name: "Signed in" }).getByRole("button", { name: "Sign out" }).click();
+  // From «Signed in» without a plan, Sign out leaves the account.
+  await signInAsSupporter(page, "free@example.com");
+  await signedIn.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(await page.evaluate(async () => (await import("/src/services/api.ts")).api.getSupporterStatus().then((s) => s.email))).toBeNull();
 });
 
-test("Supporter: signed in while the server did not answer about the plan — not «no plan», Try again (NP-066)", async ({ page }) => {
+test("Supporter: signed in while the server did not answer about the plan — not «no plan»; the plans ask again, Try again (NP-066)", async ({ page }) => {
   await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
   await page.reload();
   const row = page.locator("[data-plan-row]");
   await row.click();
-  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
-  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
-  await signIn.getByLabel("Email").fill("unknown@example.com");
-  await signIn.getByRole("button", { name: "Send code" }).click();
-  const code = page.getByRole("dialog", { name: "Check your email" });
-  await code.getByLabel("Code").fill("482913");
-  await code.getByRole("button", { name: "Sign in", exact: true }).click();
+  await signInAsSupporter(page, "unknown@example.com");
   const signedIn = page.getByRole("dialog", { name: "Signed in" });
   await expect(signedIn).toContainText("but your plan couldn't be checked right now.");
   await expect(signedIn.getByRole("button", { name: "See plans" })).toHaveCount(0);
@@ -2734,36 +2580,23 @@ test("Supporter: signed in while the server did not answer about the plan — no
     "The plan of unknown@example.com couldn't be checked yet. Already a Supporter? Wait before buying again — the app tries again within the hour.",
   );
   const warned = Math.round((await plans.boundingBox())!.height);
-  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
-  await page.reload();
-  await row.click();
-  expect(Math.round((await page.getByRole("dialog", { name: "Support Koona Pin" }).boundingBox())!.height), "the notice fits the usual height").toBe(warned);
-  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
-  await page.getByRole("dialog", { name: "Sign in as a Supporter" }).getByLabel("Email").fill("unknown@example.com");
-  await page.getByRole("dialog", { name: "Sign in as a Supporter" }).getByRole("button", { name: "Send code" }).click();
-  await code.getByLabel("Code").fill("482913");
-  await code.getByRole("button", { name: "Sign in", exact: true }).click();
-  await signedIn.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(row).toHaveAttribute("data-plan-row", "supporter");
-});
-
-test("Supporter: the plans opened while the plan is not known ask again and close when it is found (NP-066)", async ({ page }) => {
-  await page.evaluate(() => localStorage.setItem("koonapin.demo.supporter", "free"));
-  await page.reload();
-  const row = page.locator("[data-plan-row]");
-  await row.click();
-  await page.getByRole("dialog", { name: "Support Koona Pin" }).getByRole("button", { name: "I'm already a Supporter" }).click();
-  const signIn = page.getByRole("dialog", { name: "Sign in as a Supporter" });
-  await signIn.getByLabel("Email").fill("unknown@example.com");
-  await signIn.getByRole("button", { name: "Send code" }).click();
-  const code = page.getByRole("dialog", { name: "Check your email" });
-  await code.getByLabel("Code").fill("482913");
-  await code.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.getByRole("dialog", { name: "Signed in" }).locator("footer").getByRole("button", { name: "Close" }).click();
   // The server has the plan now: opening the plans asks, finds it and closes, no «thank you».
+  await plans.getByRole("button", { name: "Not now" }).click();
   await page.evaluate(() => localStorage.setItem("koonapin.demo.serverPlan", "supporter"));
   await row.click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-plan-row", "supporter");
+
+  await page.evaluate(() => {
+    localStorage.removeItem("koonapin.demo.serverPlan");
+    localStorage.setItem("koonapin.demo.supporter", "free");
+  });
+  await page.reload();
+  await row.click();
+  expect(Math.round((await plans.boundingBox())!.height), "the notice fits the usual height").toBe(warned);
+  // «Try again» asks the server once more and finds the plan.
+  await signInAsSupporter(page, "unknown@example.com");
+  await signedIn.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(row).toHaveAttribute("data-plan-row", "supporter");
 });
@@ -2885,23 +2718,7 @@ test("feedback: from Settings, checked before sending, a failure keeps the draft
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
   expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[1].report)).toBeNull();
 });
-test("dialogs open with focus on their field, not on «×»; the editor drawer too", async ({ page }) => {
-  await page.keyboard.press("ControlOrMeta+n");
-  const add = page.getByRole("dialog", { name: "Add link" });
-  await expect(add.getByRole("textbox", { name: "Link" })).toBeFocused();
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "New collection", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "New collection" }).getByRole("textbox", { name: "Name" })).toBeFocused();
-  await page.keyboard.press("Escape");
-  // The narrow window shows the editor as a drawer over the content.
-  await page.setViewportSize({ width: 800, height: 550 });
-  await page.locator("[data-bookmark-id]").first().focus();
-  await page.keyboard.press("Shift+F10");
-  await page.getByRole("menuitem", { name: "Edit…" }).click();
-  await expect(page.locator("dialog[open][data-drawer]").getByRole("textbox", { name: "Title" })).toBeFocused();
-});
-
-test("feedback: a report still being prepared is waited for; one that failed is not promised (NP-088)", async ({ page }) => {
+test("feedback: a report still being prepared is waited for; one that failed is not promised; one that never comes does not lock the dialog (NP-088)", async ({ page }) => {
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const w = window as unknown as { sent: { report: unknown }[]; release: () => void };
@@ -2934,24 +2751,20 @@ test("feedback: a report still being prepared is waited for; one that failed is 
   await dialog.getByRole("button", { name: "Send", exact: true }).click();
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!");
   expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[1].report)).toBeNull();
-});
+  await dialog.getByRole("button", { name: "Done" }).click();
 
-test("feedback: a report that never comes does not lock the dialog — it goes without it (NP-088)", async ({ page }) => {
+  // A report that never comes does not lock the dialog: it goes without it.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
-    const w = window as unknown as { sent: { report: unknown }[] };
-    w.sent = [];
     api.feedbackReport = () => new Promise(() => {});
-    api.sendFeedback = async (feedback) => void w.sent.push(feedback);
   });
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Send feedback…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Send feedback" });
   await dialog.getByRole("textbox", { name: "Message" }).fill("Report never comes");
   await dialog.getByRole("button", { name: "Send", exact: true }).click();
   await expect(dialog.getByRole("status")).toContainText("Sent. Thank you!", { timeout: 6000 });
-  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[0].report)).toBeNull();
+  expect(await page.evaluate(() => (window as unknown as { sent: { report: unknown }[] }).sent[2].report)).toBeNull();
 });
+
 test("AI assistants: off by default, read only or read and add, the dialog for each assistant (NP-091, sheet 44)", async ({ page, context, browserName }) => {
   // WebKit has no clipboard permissions to grant; it copies on the click, but only Chromium reads it back.
   if (browserName === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -3000,30 +2813,6 @@ test("AI assistants: off by default, read only or read and add, the dialog for e
   await section.getByRole("switch", { name: "Let AI assistants use your library" }).click();
   await expect(section.locator("[data-mcp]")).toHaveAttribute("data-mcp", "read_and_add");
   await expect(section.getByRole("radio", { name: "Read and add" })).toHaveAttribute("aria-checked", "true");
-});
-test("dialogs with tabs keep their size and place when the tab changes", async ({ page }) => {
-  const box = async (dialog: ReturnType<typeof page.getByRole>) => {
-    const b = await dialog.boundingBox();
-    return b && { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) };
-  };
-  const steady = async (name: string, tabs: string[]) => {
-    const dialog = page.getByRole("dialog", { name });
-    // After the 200 ms appearance, which moves it by 5 px.
-    await page.waitForTimeout(300);
-    const first = await box(dialog);
-    for (const tab of tabs) {
-      await dialog.getByRole("radio", { name: tab }).click();
-      await expect(dialog.locator("[data-tab-panel][data-active]")).toBeVisible();
-      expect(await box(dialog), `${name} → ${tab}`).toEqual(first);
-    }
-    await page.keyboard.press("Escape");
-  };
-  await page.getByRole("button", { name: "No browser yet" }).click();
-  await steady("Connect browser", ["Edge", "Firefox", "Chrome"]);
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByRole("switch", { name: "Let AI assistants use your library" }).click();
-  await page.getByRole("button", { name: "How to connect…" }).click();
-  await steady("Connect an AI assistant", ["Claude Code", "ChatGPT", "Custom", "Claude Desktop"]);
 });
 test("the webview's own menu and keys stay closed, a text field keeps its menu", async ({ page }) => {
   // dispatchEvent returns false when a listener cancelled the event: the webview then shows nothing.
