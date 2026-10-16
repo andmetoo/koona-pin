@@ -233,7 +233,10 @@ export function App() {
         e.preventDefault();
         setPage("library");
         setTriage(null);
-        requestAnimationFrame(() => searchRef.current?.focus());
+        // The toolbar's field mounts with the library: wait a few frames for it when coming from elsewhere.
+        const focusSearch = (frames: number) =>
+          requestAnimationFrame(() => (searchRef.current ? searchRef.current.focus() : frames > 0 && focusSearch(frames - 1)));
+        focusSearch(5);
       }
       // Quits from the window on every system (NP-096): without a tray it is the way out.
       if ((e.ctrlKey || e.metaKey) && (key === "q" || e.code === "KeyQ") && !e.shiftKey && !e.altKey) {
@@ -1271,9 +1274,6 @@ export function App() {
       <div className="contents" inert={!!reading}>
       <Sidebar
         narrow={narrow}
-        search={filters.search}
-        onSearch={(search) => changeFilters({ search })}
-        searchRef={searchRef}
         filters={filters}
         settingsOpen={page === "settings"}
         duplicatesOpen={page === "duplicates"}
