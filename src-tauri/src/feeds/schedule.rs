@@ -173,10 +173,13 @@ pub fn next_after_pause(now: DateTime<Utc>, interval: u32, seconds: u64, jitter:
     now + asked.max(jittered(base_interval(interval), jitter))
 }
 
-/// A tick finding every fetch without any answer (none came back at all):
-/// the computer is offline, not the feeds broken (plan §4.5).
-pub fn tick_offline(failures: &[Option<Failure>]) -> bool {
-    !failures.is_empty() && failures.iter().all(|f| f.is_some_and(Failure::is_connection))
+/// A tick that tried at least two hosts and got no answer from any (each
+/// fetch, `(host, failure)`, failed below HTTP): the computer is offline, not
+/// the feeds broken (plan §4.5). One host alone is no evidence: a dead
+/// domain fails like any feed and backs off to «not updating» (NP-129).
+pub fn tick_offline(attempts: &[(String, Option<Failure>)]) -> bool {
+    let hosts: std::collections::HashSet<&str> = attempts.iter().map(|(host, _)| host.as_str()).collect();
+    hosts.len() >= 2 && attempts.iter().all(|(_, f)| f.is_some_and(Failure::is_connection))
 }
 
 /// A look at the clock this long after the one before: the computer slept.
@@ -405,7 +408,7 @@ pub async fn run(
             Outcome::Failed(failure) => Some(*failure),
             _ => None,
         };
-        failures.push(failure);
+        failures.push((host_of(&job.feed), failure));
         if failure.is_some_and(Failure::is_connection) {
             unreachable.push((job, failure.unwrap_or(Failure::Connection)));
         } else {
@@ -706,9 +709,15 @@ mod tests {
 
     #[test]
     fn a_tick_without_any_answer_is_offline() {
-        assert!(tick_offline(&[Some(Failure::Connection), Some(Failure::Timeout)]));
-        assert!(!tick_offline(&[Some(Failure::Connection), None]), "one feed answered");
-        assert!(!tick_offline(&[Some(Failure::Connection), Some(Failure::Status(500))]), "a site answered");
+        let at = |host: &str, failure: Option<Failure>| (host.to_string(), failure);
+        assert!(tick_offline(&[at("a.example", Some(Failure::Connection)), at("b.example", Some(Failure::Timeout))]));
+        assert!(!tick_offline(&[at("a.example", Some(Failure::Connection)), at("b.example", None)]), "one feed answered");
+        assert!(!tick_offline(&[at("a.example", Some(Failure::Connection)), at("b.example", Some(Failure::Status(500)))]), "a site answered");
+        assert!(!tick_offline(&[at("a.example", Some(Failure::Connection))]), "one host is no evidence");
+        assert!(
+            !tick_offline(&[at("a.example", Some(Failure::Connection)), at("a.example", Some(Failure::Timeout))]),
+            "nor two feeds on one host"
+        );
         assert!(!tick_offline(&[]));
     }
 
@@ -822,8 +831,30 @@ mod tests {
         let report = tick(&db, &cache, Mode::Now { feed_uid: None }).await;
         assert!(!report.offline);
         assert_eq!(row(&cache, &up.uid).1, 0);
-        let (_, failures, error, _) = row(&cache, &a.uid);
+        for dead in [&a.uid, &b.uid] {
+            let (_, failures, error, _) = row(&cache, dead);
+            assert_eq!((failures, error.as_deref()), (1, Some("connection")));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_lone_dead_host_fails_and_backs_off() {
+        let (db, cache) = (library(), cache());
+        let dead = follow(&db, "https://dead-domain.invalid/feed");
+        let report = tick(&db, &cache, Mode::Tick).await;
+        assert!(!report.offline, "one host is no evidence of being offline");
+        let (_, failures, error, next) = row(&cache, &dead.uid);
         assert_eq!((failures, error.as_deref()), (1, Some("connection")));
+        assert!((clock(&next.unwrap()) - Utc::now()).num_minutes() >= 100, "interval × 2, not 5 minutes");
+        tick(&db, &cache, Mode::Now { feed_uid: None }).await;
+        assert_eq!(row(&cache, &dead.uid).1, 2, "counted again");
+        let failing_since: Option<String> = cache
+            .conn
+            .lock()
+            .unwrap()
+            .query_row("SELECT failing_since FROM feed_state WHERE feed_uid = ?1", [&dead.uid], |r| r.get(0))
+            .unwrap();
+        assert!(failing_since.is_some());
     }
 
     #[tokio::test]
