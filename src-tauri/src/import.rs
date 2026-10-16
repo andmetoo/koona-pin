@@ -69,6 +69,10 @@ pub struct ImportSummary {
     pub collections: Vec<String>,
     /// Tags the import created.
     pub tags: u32,
+    /// The bookmarks it created: their previews are fetched next.
+    #[serde(skip)]
+    #[ts(skip)]
+    pub created: Vec<i64>,
 }
 
 /// The report lists this many skipped addresses; the counts cover all of them.
@@ -314,9 +318,11 @@ pub fn import(
                         crate::dedupe::url_key(&link.url),
                     ],
                 )?;
+                let id = tx.last_insert_rowid();
                 if !link.tags.is_empty() {
-                    db::link_tags(&tx, tx.last_insert_rowid(), &link.tags, &now)?;
+                    db::link_tags(&tx, id, &link.tags, &now)?;
                 }
+                summary.created.push(id);
                 summary.added += 1;
             }
         }
@@ -467,6 +473,9 @@ mod tests {
             (7, 0, 0, 2, 0, 1, 2)
         );
         assert_eq!(summary.collections, ["Работа", "Чтение"]);
+        // The ids of the new bookmarks, for the refresh of their previews.
+        let created: Vec<i64> = c.prepare("SELECT id FROM bookmarks ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(summary.created, created);
         assert_eq!(summary.skipped.len(), 3);
         let (collection, created_at, triaged_at, source): (Option<String>, String, Option<String>, String) = c
             .query_row(

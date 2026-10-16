@@ -1,4 +1,4 @@
-import { KeyboardEvent, PointerEvent, ReactNode, Ref, TransitionEvent, useEffect, useId, useRef, useState } from "react";
+import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useRef, useState } from "react";
 import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -14,15 +14,10 @@ import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
 import { Hint } from "../ui/Hint";
-import { SearchField } from "./SearchField";
 import { AppNotification, NotificationCenter } from "./NotificationCenter";
 
 export interface SidebarProps {
   narrow: boolean;
-  /** The library's search, under the logo of the full sidebar; the strip leaves it to the toolbar. */
-  search: string;
-  onSearch: (value: string) => void;
-  searchRef?: Ref<HTMLInputElement>;
   filters: FilterState;
   settingsOpen: boolean;
   /** The section «Дубликаты» is open (NP-035, sheet 34). */
@@ -391,13 +386,6 @@ export function Sidebar(props: SidebarProps) {
           {shortcut("N")}
         </kbd>
       </button>
-      <SearchField
-        ref={props.searchRef}
-        search={props.search}
-        onSearch={props.onSearch}
-        placeholder={t("toolbar.searchShort")}
-        className="mb-3 shrink-0"
-      />
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
         <NavRow
           icon={<Icon icon={InboxTray} />}

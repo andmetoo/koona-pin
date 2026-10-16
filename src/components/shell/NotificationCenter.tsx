@@ -6,6 +6,7 @@ import { Bookmark } from "../../types";
 import { savePreference, storedValue } from "../../services/preferences";
 import { Icon } from "../icons";
 import { Preview } from "../library/Bookmarks";
+import { recentTime } from "../../services/relativeTime";
 
 /**
  * One thing the app wants to tell (2026-10-16, banner variant D): the inbox waiting, the
@@ -15,8 +16,8 @@ import { Preview } from "../library/Bookmarks";
 export interface AppNotification {
   /** Read state is kept by this key: a new key is a new, unread notification. */
   key: string;
-  /** `problem` draws the icon and the bell's badge in amber. */
-  kind: "inbox" | "offer" | "problem";
+  /** `problem` draws the icon and the bell's badge in amber; `task` is work the app does in the background. */
+  kind: "inbox" | "offer" | "problem" | "task";
   icon: LucideIcon;
   title: string;
   text: string;
@@ -24,9 +25,14 @@ export interface AppNotification {
   at?: string | null;
   /** The newest bookmarks it is about, a fan of up to three. */
   thumbs?: Bookmark[];
-  action: { label: string; run: () => void };
+  /** `stay`: the centre stays open, as for «Stop» of a task under way. */
+  action?: { label: string; run: () => void; stay?: boolean };
   /** The ×; none for what can't be dismissed, such as a problem. */
   dismiss?: { label: string; run: () => void };
+  /** A task under way: its share done, 0 to 1, as a thin bar. */
+  progress?: number;
+  /** Never unread: a task under way is news only once it ends, under a new key. */
+  quiet?: boolean;
 }
 
 const SEEN = "notifications.seen";
@@ -40,18 +46,6 @@ function storedSeen(): Set<string> {
   } catch {
     return new Set();
   }
-}
-
-/** «now», «5 min. ago», «yesterday» in the interface's language; nothing for a bad date. */
-export function relativeTime(at: string, language: string, now = Date.now()): string | null {
-  const time = Date.parse(at);
-  if (Number.isNaN(time)) return null;
-  const seconds = Math.max(0, Math.round((now - time) / 1000));
-  const format = new Intl.RelativeTimeFormat(language, { numeric: "auto", style: "short" });
-  if (seconds < 60) return format.format(0, "second");
-  if (seconds < 3600) return format.format(-Math.floor(seconds / 60), "minute");
-  if (seconds < 86400) return format.format(-Math.floor(seconds / 3600), "hour");
-  return format.format(-Math.floor(seconds / 86400), "day");
 }
 
 /**
@@ -79,7 +73,7 @@ export function NotificationCenter({
   const id = useId();
   const heading = `${id}-title`;
 
-  const unread = items.filter((n) => !seen.has(n.key));
+  const unread = items.filter((n) => !n.quiet && !seen.has(n.key));
   const problem = items.some((n) => n.kind === "problem");
   const keys = items.map((n) => n.key).join("\n");
 
@@ -87,13 +81,23 @@ export function NotificationCenter({
   useEffect(() => {
     if (!open) return;
     const now = items.map((n) => n.key);
-    setFresh((before) => new Set([...before, ...now.filter((k) => !seen.has(k))]));
+    const loud = items.filter((n) => !n.quiet).map((n) => n.key);
+    setFresh((before) => new Set([...before, ...loud.filter((k) => !seen.has(k))]));
     if (now.every((k) => seen.has(k))) return;
     const next = new Set([...seen, ...now]);
     setSeen(next);
     // Only the keys of what is there: a dismissed or gone one needs no memory.
     savePreference(SEEN, JSON.stringify(now));
   }, [open, keys]);
+
+  // The panel goes to the top layer, above everything the page paints: in a narrow window it
+  // lies over the library, and WKWebView on macOS drew a scroll container's scrollbar across a
+  // panel that was only `position: fixed` with a z-index. Without the Popover API it stays that.
+  useLayoutEffect(() => {
+    const element = panel.current;
+    if (!open || !element || typeof element.showPopover !== "function") return;
+    if (!element.matches(":popover-open")) element.showPopover();
+  }, [open]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -226,6 +230,7 @@ export function NotificationCenter({
             role="dialog"
             aria-labelledby={heading}
             tabIndex={-1}
+            popover="manual"
             data-menu
             data-notification-center
             onKeyDown={keyDown}
@@ -256,7 +261,7 @@ export function NotificationCenter({
             {items.length ? (
               <ul className="notify-list">
                 {items.map((n, index) => {
-                  const time = n.at ? relativeTime(n.at, i18n.language) : null;
+                  const time = n.at ? recentTime(n.at, i18n.language) : null;
                   const title = `${id}-${n.key}`;
                   return (
                     <li key={n.key} className={`nt nt-${n.kind}`} aria-labelledby={title} data-notification={n.kind}>
@@ -272,7 +277,20 @@ export function NotificationCenter({
                         <span id={title}>{n.title}</span>
                         {time && <time dateTime={n.at!}>{time}</time>}
                       </p>
-                      <p className="nt-text">{n.text}</p>
+                      {n.text && <p className="nt-text">{n.text}</p>}
+                      {n.progress !== undefined && (
+                        <span
+                          className="nt-progress"
+                          role="progressbar"
+                          aria-labelledby={title}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-valuenow={Math.round(n.progress * 100)}
+                        >
+                          <span style={{ width: `${Math.min(100, Math.max(0, n.progress * 100))}%` }} />
+                        </span>
+                      )}
+                      {(n.action || !!n.thumbs?.length) && (
                       <div className="nt-actions">
                         {!!n.thumbs?.length && (
                           <span className="nt-thumbs" aria-hidden>
@@ -283,18 +301,21 @@ export function NotificationCenter({
                             ))}
                           </span>
                         )}
-                        <button
-                          type="button"
-                          data-notification-action
-                          className={`nt-button ${n.kind === "inbox" ? "nt-button-primary" : ""}`}
-                          onClick={() => {
-                            close(false);
-                            n.action.run();
-                          }}
-                        >
-                          {n.action.label}
-                        </button>
+                        {n.action && (
+                          <button
+                            type="button"
+                            data-notification-action
+                            className={`nt-button ${n.kind === "inbox" ? "nt-button-primary" : ""}`}
+                            onClick={() => {
+                              if (!n.action!.stay) close(false);
+                              n.action!.run();
+                            }}
+                          >
+                            {n.action.label}
+                          </button>
+                        )}
                       </div>
+                      )}
                       {n.dismiss && (
                         <button type="button" className="nt-x" aria-label={n.dismiss.label} title={n.dismiss.label} onClick={() => dismiss(n, index)}>
                           <Icon icon={X} size={13} />

@@ -124,3 +124,38 @@ test("the narrow strip has the bell under the spirit; the centre opens beside th
   expect(panel.x + panel.width).toBeLessThanOrEqual(800);
   expect(panel.y + panel.height).toBeLessThanOrEqual(550);
 });
+
+// Nothing the page paints may cross the open centre: in a narrow window WKWebView drew a scroll
+// container's scrollbar over it. Long, scrolling library and sidebar; the strip and the full sidebar.
+for (const width of [800, 1200])
+  test(`nothing paints over the open centre (${width} px, scrolling library and sidebar)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 600 });
+    await open(page, { importBanner: "show" });
+    await page.evaluate(async () => {
+      const { api } = await import("/src/services/api.ts");
+      for (let i = 0; i < 40; i++) await api.addBookmark({ url: `https://example.com/many/${i}`, title: `Bookmark ${i}` });
+      for (let i = 0; i < 30; i++) await api.createCollection(`Collection ${i}`);
+    });
+    await page.reload();
+    await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+    const scroller = page.locator('[data-scroll="main"]');
+    await expect.poll(() => scroller.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+    await scroller.evaluate((e) => (e.scrollTop = 300));
+    if (width > 999) expect(await page.locator("aside").evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+    await bell(page).click();
+    await expect(centre(page)).toBeVisible();
+    // In the top layer, where the browser has it.
+    expect(await centre(page).evaluate((e) => (typeof e.showPopover === "function" ? e.matches(":popover-open") : true))).toBe(true);
+    const outside = await centre(page).evaluate((panel) => {
+      const r = panel.getBoundingClientRect();
+      const misses: string[] = [];
+      // 18 px in: the rounded corners are not the panel's.
+      for (let x = r.left + 18; x <= r.right - 18; x += 4)
+        for (let y = r.top + 18; y <= r.bottom - 18; y += 8) {
+          const hit = document.elementFromPoint(x, y);
+          if (!hit || !panel.contains(hit)) misses.push(`${Math.round(x)},${Math.round(y)} ${hit?.tagName}`);
+        }
+      return misses;
+    });
+    expect(outside).toEqual([]);
+  });

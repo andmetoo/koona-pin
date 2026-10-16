@@ -39,6 +39,9 @@ import {
   LinkCheckProgress,
   LinkCheckReport,
   LinkCheckState,
+  PreviewCounts,
+  PreviewRefresh,
+  PreviewScope,
   LinkFailure,
   Replaced,
   StarterLibrary,
@@ -808,6 +811,95 @@ function linkProgress(state: LinkCheckState, written: boolean) {
   for (const fn of linkListeners) fn(progress);
 }
 
+/** «Refresh previews» for many (`refresh.rs`): the demo reads no pages, it walks the bookmarks with a pause. */
+const refreshListeners = new Set<(progress: PreviewRefresh) => void>();
+const refreshIdle: PreviewRefresh = { started_at: null, state: "idle", done: 0, total: 0, updated: 0, unchanged: 0, failed: 0, check_ids: [] };
+let refreshLast: PreviewRefresh = refreshIdle;
+let refreshRun: { timer: number; queue: number[]; seen: Set<number>; failed: number[]; streak: number } | null = null;
+/** The pause per bookmark; a test sets `koonapin.demo.refreshStep` to slow it down or speed it up. */
+function refreshStep(): number {
+  try {
+    return Number(localStorage.getItem("koonapin.demo.refreshStep")) || 120;
+  } catch {
+    return 120;
+  }
+}
+/** A test sets `koonapin.demo.offline` to see the run stop with «no network». */
+function demoOffline(): boolean {
+  try {
+    return localStorage.getItem("koonapin.demo.offline") === "1";
+  } catch {
+    return false;
+  }
+}
+const missingPreview = (b: Bookmark) => !b.image_url || !b.site_name;
+/** What the demo pretends the page gave: most give something new, some nothing, a few do not open. */
+function demoRefresh(url: string): "updated" | "unchanged" | "failed" {
+  const hash = [...url].reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) >>> 0, 11) % 8;
+  return hash === 0 ? "failed" : hash < 3 ? "unchanged" : "updated";
+}
+function refreshProgress(progress: PreviewRefresh) {
+  refreshLast = progress;
+  for (const fn of refreshListeners) fn(progress);
+}
+/**
+ * `refresh::start`: one run at a time. While one runs, its state; with `append` (an import) the
+ * new ones join it first. Pages it could not open go to the link check once it is done, after a
+ * check under way.
+ */
+function startDemoRefresh(ids: number[], append: boolean): PreviewRefresh {
+  if (refreshRun) {
+    if (append) {
+      const fresh = [...new Set(ids)].filter((id) => !refreshRun!.seen.has(id));
+      fresh.forEach((id) => refreshRun!.seen.add(id));
+      refreshRun.queue.push(...fresh);
+      if (fresh.length) refreshProgress({ ...refreshLast, total: refreshLast.total + fresh.length });
+    }
+    return refreshLast;
+  }
+  const queue = [...new Set(ids)];
+  const run = { timer: 0, queue, seen: new Set(queue), failed: [] as number[], streak: 0 };
+  refreshRun = run;
+  refreshProgress({ ...refreshIdle, started_at: new Date().toISOString(), state: "running", total: queue.length });
+  const finish = (state: PreviewRefresh["state"], last: PreviewRefresh) => {
+    window.clearInterval(run.timer);
+    refreshRun = null;
+    const check = state === "done" ? run.failed : [];
+    refreshProgress({ ...last, state, check_ids: check });
+    if (check.length) {
+      const handOff = () => (linkRun ? window.setTimeout(handOff, 200) : void demo.startLinkCheck(check, false));
+      handOff();
+    }
+  };
+  if (queue.length === 0) {
+    finish("done", refreshLast);
+    return refreshLast;
+  }
+  run.timer = window.setInterval(() => {
+    const id = run.queue.shift();
+    const b = live().find((item) => item.id === id);
+    const now = { ...refreshLast, done: refreshLast.done + 1 };
+    if (demoOffline()) {
+      run.streak++;
+      now.failed++;
+      if (run.streak >= 5) return finish("offline", { ...now, failed: now.failed - run.streak });
+    } else {
+      run.streak = 0;
+      const outcome = b ? demoRefresh(b.url) : "unchanged";
+      if (outcome === "updated") now.updated++;
+      else if (outcome === "unchanged") now.unchanged++;
+      else {
+        now.failed++;
+        if (id !== undefined) run.failed.push(id);
+      }
+      if (b && outcome === "updated") emit("updated", b);
+    }
+    if (run.queue.length === 0) return finish("done", now);
+    refreshProgress(now);
+  }, refreshStep());
+  return refreshLast;
+}
+
 /** The order a list is read in, as `db::BookmarkQuery::order`: the trash and Reading keep their own. */
 const listOrder = (filters: Partial<FilterState>, sort: BookmarkSort): ListOrder => ({
   sort: orderOf(sort, !!filters.onlyTrash || !!filters.onlyReading),
@@ -1224,6 +1316,8 @@ export const demo = {
     summary.tags = new Set(added.flatMap((b) => b.tags ?? []).filter((t) => !tagsBefore.has(t))).size;
     persist();
     invalidations.forEach((fn) => fn());
+    // The new bookmarks' pages are read in the background, joining a run under way.
+    if (added.length) startDemoRefresh(added.map((b) => b.id), true);
     return summary;
   },
   /**
@@ -1615,6 +1709,33 @@ export const demo = {
     linkListeners.add(fn);
     return () => {
       linkListeners.delete(fn);
+    };
+  },
+  async getPreviewRefresh(): Promise<PreviewRefresh> {
+    return refreshLast;
+  },
+  async getPreviewCounts(): Promise<PreviewCounts> {
+    const library = live();
+    return { missing: library.filter(missingPreview).length, all: library.length };
+  },
+  async startPreviewRefresh(target: { scope: PreviewScope } | { ids: number[] }): Promise<PreviewRefresh> {
+    const library = live();
+    const queue =
+      "ids" in target
+        ? target.ids.filter((id) => library.some((b) => b.id === id))
+        : library.filter((b) => target.scope === "all" || missingPreview(b)).sort((a, b) => b.id - a.id).map((b) => b.id);
+    return startDemoRefresh(queue, false);
+  },
+  async stopPreviewRefresh(): Promise<void> {
+    if (!refreshRun) return;
+    window.clearInterval(refreshRun.timer);
+    refreshRun = null;
+    refreshProgress({ ...refreshLast, state: "stopped" });
+  },
+  onPreviewRefresh(fn: (progress: PreviewRefresh) => void) {
+    refreshListeners.add(fn);
+    return () => {
+      refreshListeners.delete(fn);
     };
   },
   /** The demo reads no pages: the bookmark stays as it is. */

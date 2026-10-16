@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
+import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, PreviewCounts, PreviewRefresh, PreviewScope, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
 import { useSyncSettingsLine } from "../commercial/SyncRows";
 import { api, isTauri } from "../../services/api";
 import {
@@ -25,6 +25,7 @@ import { Button } from "../ui/Button";
 import { Dot, Segmented, Switch } from "../ui/Controls";
 import { Kbd } from "../ui/Hint";
 import { ConfirmDialog } from "../library/Dialogs";
+import { Menu } from "../ui/Menu";
 
 /** Settings in the main area (frame «14 · Настройки»), column 680 px. */
 export function SettingsPage({
@@ -51,7 +52,14 @@ export function SettingsPage({
   onSupporter,
   openLinks,
   onOpenLinks,
+  previews,
+  onRefreshPreviews,
+  onStopPreviews,
 }: {
+  /** «Refresh previews» of Data: the run of this session, if any. */
+  previews: PreviewRefresh | null;
+  onRefreshPreviews: (scope: PreviewScope) => void;
+  onStopPreviews: () => void;
   /** «Open links» (Р-69, point 5, frame B10): what a title, a double-click and Enter do. */
   openLinks: OpenLinks;
   onOpenLinks: (target: OpenLinks) => void;
@@ -377,6 +385,7 @@ export function SettingsPage({
             {busy("index") ? t("settings.rebuilding") : t("settings.rebuild")}
           </Button>
         </Row>
+        <PreviewsRow run={previews} onStart={onRefreshPreviews} onStop={onStopPreviews} />
       </Section>
       <p className="-mt-2.5 px-3 text-xs leading-[17px] text-muted">{t("settings.backupNote")}</p>
 
@@ -632,6 +641,68 @@ function moment(iso: string, language: string) {
     time: at.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" }),
     date: at.toLocaleDateString(language, { day: "numeric", month: "long" }),
   };
+}
+
+/**
+ * «Refresh previews» (Settings → Data): every page read again for its picture, icon and site
+ * name, as a bookmark's own «Refresh preview» does. «Refresh…» asks which: those without a
+ * picture or site name, the default, or all, each with its count. While a run is under way
+ * the row says how far it is, with «Stop».
+ */
+function PreviewsRow({ run, onStart, onStop }: { run: PreviewRefresh | null; onStart: (scope: PreviewScope) => void; onStop: () => void }) {
+  const { t } = useTranslation();
+  const [menu, setMenu] = useState<{ anchor: DOMRect; trigger: HTMLElement } | null>(null);
+  const [counts, setCounts] = useState<PreviewCounts | null>(null);
+  const read = () => void api.getPreviewCounts().then(setCounts).catch(() => {});
+  const running = run?.state === "running";
+  // A run ended: fewer may lack a picture now.
+  useEffect(read, [running]);
+  return (
+    <div data-settings-previews={running ? "running" : "idle"}>
+      <Row title={t("settings.refreshPreviews")} description={t("settings.refreshPreviewsHint")}>
+        {running ? (
+          <>
+            <span role="status" className="text-sm text-muted tabular-nums">
+              {t("settings.refreshProgress", { done: run.done, total: run.total })}
+            </span>
+            <Button onClick={onStop}>{t("settings.refreshStop")}</Button>
+          </>
+        ) : (
+          <Button
+            aria-haspopup="menu"
+            aria-expanded={!!menu}
+            onClick={(e) => {
+              if (menu) return setMenu(null);
+              read();
+              setMenu({ anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget });
+            }}
+          >
+            {t("settings.refreshButton")}
+          </Button>
+        )}
+      </Row>
+      {menu && !running && (
+        <Menu
+          label={t("settings.refreshChoice")}
+          anchor={menu.anchor}
+          trigger={menu.trigger}
+          width={340}
+          entries={[
+            { heading: t("settings.refreshChoice") },
+            {
+              id: "missing",
+              label: t("settings.refreshMissing"),
+              count: counts?.missing ?? "…",
+              disabled: counts?.missing === 0,
+              onSelect: () => onStart("missing"),
+            },
+            { id: "all", label: t("settings.refreshAll"), count: counts?.all ?? "…", disabled: counts?.all === 0, onSelect: () => onStart("all") },
+          ]}
+          onClose={() => setMenu(null)}
+        />
+      )}
+    </div>
+  );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

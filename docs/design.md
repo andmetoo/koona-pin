@@ -18,7 +18,7 @@ Tokens are CSS custom properties `--np-*`: light values on `:root`, dark values 
 | --- | --- | --- | --- |
 | `--np-bg` | Main area background | `#faf9f6` | `#161615` |
 | `--np-panel` | Sidebar; list row hover | `#f2f1ec` | `#101010` |
-| `--np-card` | Sidebar search, buttons, dialogs, triage card | `#fffefa` | `#1d1d1b` |
+| `--np-card` | The focused search, buttons, dialogs, triage card | `#fffefa` | `#1d1d1b` |
 | `--np-ink` | Main text | `#2e302b` | `#ecebe6` |
 | `--np-icon` | Icons | `#5f6057` | `#a3a29a` |
 | `--np-muted` | Descriptions, hints | `#74746a` | `#a3a29a` |
@@ -48,7 +48,7 @@ The dark theme is "deep": a near-black ground with surfaces lifted from it in st
 
 Shapes of the shell: sidebar rows 32 px with radius 9, the active one `bg-raised` with `shadow-raised` (a tiny shadow and the 1 px raised edge) and the accent icon; section headers tracked at 0.08em; tags as outlined chips (a 1 px line inside, filled on hover). Toolbar buttons have radius 9, a `line` border and `shadow-button`; the primary one adds `shadow-primary`, a light inset top edge. The grid/list switch is a segmented control: a `well` trough with the chosen segment `bg-raised shadow-segment`. Menus are glass (`menu-glass`): radius 13, the card at about 82 % over `backdrop-filter: blur(24px) saturate(170%)`, an inner hairline and a deep soft shadow, opaque where the blur is not drawn; items 30 px with radius 8.
 
-The search sits in the sidebar under the logo (`search`: 36 px, radius 10, the card with a 1 px line and `--np-shadow-1`); in a narrow window, where the sidebar is a strip, it is in the toolbar as a soft well (`search` with `data-well`). Focused, both take the card, an edge of accent mixed 55 % into the border and a 4 px halo of accent at 20 %. The shortcut sits in a chip of its own on the right and steps aside while the empty field is focused; with a query it reads Esc.
+The search is one field in the toolbar in every window, a soft well (`search` with `data-well`: 36 px, radius 10), 320 px wide, 200 px in a narrow window, and the first to give way when the row runs short; the sidebar keeps its room for «New link», feeds and collections. Focused, it takes the card, an edge of accent mixed 55 % into the border and a 4 px halo of accent at 20 %. The shortcut sits in a chip of its own on the right and steps aside while the empty field is focused; with a query it reads Esc.
 
 Rules of thumb:
 
@@ -96,7 +96,7 @@ Radii: `rounded-sm` 6, `rounded-md` 7, `rounded-lg` 8 px for controls; `rounded-
 
 ## Adding a link
 
-- «New link» is the first control of the sidebar, between the logo row and search: the ink button (`bg-ink-btn`), 36 px high, radius 10, full width, a plus, the label and `⌘N` / `Ctrl N` on the right. In the narrow strip it is a round 36 px ink «+» under the bell, named by its hint. The toolbar has no Add.
+- «New link» is the first control of the sidebar, under the logo row: the ink button (`bg-ink-btn`), 36 px high, radius 10, full width, a plus, the label and `⌘N` / `Ctrl N` on the right. In the narrow strip it is a round 36 px ink «+» under the bell, named by its hint. The toolbar has no Add.
 - The button and `⌘N` open a glass sheet (`AddSheet`, `.add-sheet`): 460 px, 72 px from the top, the card at 86 % over a 28 px blur, on a scrim of the background at 40 % with a 3 px blur. A 48 px field with the focus; under it one reserved 64 px slot for the hint, the clipboard's link (only when the system lets it be read without asking), the preview (shimmer while the library is asked about the site) or an error; chips for where it goes (Library, Inbox, Reading) and the collection, the suggested one chosen; title and tags behind «Title and tags»; `↵` / `Esc` hints, Cancel and the ink «Save link». Chosen chips get a 1.5 px ink ring.
 - `⌘V` in the library and a link dropped on the window save at once. A dragged link frosts the whole window (`.drop-veil`: the background at 70 %, 6 px blur, a 2 px ink edge, an ink circle that bobs). Files and the app's own drags never light it; Tauri's own drop handling is off (`dragDropEnabled: false`).
 - The saved card lands first with a 600 ms spring and an ink ring that fades over 1.6 s; the notice is a glass toast with a check: «Saved to Design · Undo». Without motion the card is simply there.
