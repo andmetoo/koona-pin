@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic, written for the tests (NP-129): Atom with xml:base and relative links. -->
+<feed xmlns="http://www.w3.org/2005/Atom" xml:base="https://press.example.com/blog/">
+  <title type="text">Example Press</title>
+  <id>tag:press.example.com,2026:blog</id>
+  <updated>2026-10-10T08:00:00Z</updated>
+  <link rel="alternate" href="./"/>
+  <link rel="self" href="/feeds/atom.xml"/>
+  <icon>icon.png</icon>
+  <entry xml:base="2026/">
+    <title>Ink that lasts</title>
+    <id>tag:press.example.com,2026:ink</id>
+    <link rel="alternate" href="ink"/>
+    <updated>2026-10-10T08:00:00Z</updated>
+    <content type="html">&lt;p&gt;&lt;img src="media/ink.jpg"&gt; Iron gall, mostly.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title type="html">Paper &amp;amp; thread</title>
+    <id>tag:press.example.com,2026:paper</id>
+    <link rel="alternate" href="2026/paper"/>
+    <published>2026-10-08T08:00:00Z</published>
+    <updated>2026-10-09T08:00:00Z</updated>
+    <content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>Sewn by <em>hand</em>.</p></div></content>
+  </entry>
+</feed>

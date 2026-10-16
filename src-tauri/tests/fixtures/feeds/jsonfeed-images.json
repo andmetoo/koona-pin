@@ -1,0 +1,41 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Example Photos",
+  "home_page_url": "https://photos.example.net/",
+  "feed_url": "https://photos.example.net/feed.json",
+  "favicon": "/favicon.png",
+  "_comment": "Synthetic, written for the tests (NP-129): JSON Feed 1.1 images, a numeric id, a title-less item.",
+  "items": [
+    {
+      "id": "photos-0003",
+      "url": "https://photos.example.net/2026/harbour",
+      "title": "Harbour at six",
+      "content_html": "<p>Low tide.</p>",
+      "image": "/img/harbour.jpg",
+      "banner_image": "/img/not-this.jpg",
+      "date_published": "2026-10-15T06:00:00Z"
+    },
+    {
+      "id": "photos-0002",
+      "url": "https://photos.example.net/2026/banner",
+      "title": "Only a banner",
+      "content_html": "<p>Wide.</p>",
+      "banner_image": "https://photos.example.net/img/banner.jpg",
+      "date_published": "2026-10-14T06:00:00Z"
+    },
+    {
+      "id": 7,
+      "url": "https://photos.example.net/2026/seven",
+      "title": "A numbered post",
+      "content_html": "<p>Seven.</p>",
+      "image": "img/seven.jpg",
+      "date_published": "2026-10-13T06:00:00Z"
+    },
+    {
+      "id": "photos-0001",
+      "url": "https://photos.example.net/2026/untitled",
+      "content_text": "A morning walk along the old sea wall, where the gulls sit in a row and the fishing boats come in one by one.\n\nSecond paragraph.",
+      "date_published": "2026-10-12T06:00:00Z"
+    }
+  ]
+}

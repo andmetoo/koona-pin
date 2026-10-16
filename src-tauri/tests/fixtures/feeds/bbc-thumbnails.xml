@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic, written for the tests (NP-129). Shaped like a large news site's feed: the only
+     picture of each item is a media:thumbnail directly in it, which feed-rs 3.0.0 drops
+     (feed-rs/feed-rs#296). -->
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title><![CDATA[Example News - Home]]></title>
+    <description><![CDATA[Example News - Home]]></description>
+    <link>https://news.example.co.uk/</link>
+    <image>
+      <url>https://news.example.co.uk/img/logo.gif</url>
+      <title>Example News - Home</title>
+      <link>https://news.example.co.uk/</link>
+    </image>
+    <atom:link href="https://news.example.co.uk/rss.xml" rel="self" type="application/rss+xml"/>
+    <ttl>15</ttl>
+    <item>
+      <title><![CDATA[Rain moves east overnight]]></title>
+      <description><![CDATA[Forecasters expect the band to clear by morning.]]></description>
+      <link>https://news.example.co.uk/weather/1?at=rss</link>
+      <guid isPermaLink="false">https://news.example.co.uk/weather/1#0</guid>
+      <pubDate>Fri, 16 Oct 2026 05:10:00 GMT</pubDate>
+      <media:thumbnail width="240" height="135" url="https://ichef.example.co.uk/240/one.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Ferry timetable changes]]></title>
+      <description><![CDATA[Winter sailings start next week.]]></description>
+      <link>https://news.example.co.uk/travel/2?at=rss</link>
+      <pubDate>Fri, 16 Oct 2026 04:40:00 GMT</pubDate>
+      <media:thumbnail width="240" height="135" url="https://ichef.example.co.uk/240/two.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Live: council meeting]]></title>
+      <description><![CDATA[Follow the debate as it happens.]]></description>
+      <link>https://news.example.co.uk/live/3?at=rss</link>
+      <guid isPermaLink="false">https://news.example.co.uk/live/3#0</guid>
+      <pubDate>Fri, 16 Oct 2026 04:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title><![CDATA[Harbour wall repaired]]></title>
+      <description><![CDATA[Work finished a month early.]]></description>
+      <link>https://news.example.co.uk/local/4?at=rss</link>
+      <guid isPermaLink="false">https://news.example.co.uk/local/4#0</guid>
+      <pubDate>Thu, 15 Oct 2026 21:00:00 GMT</pubDate>
+      <media:thumbnail width="240" height="135" url="https://ichef.example.co.uk/240/four.jpg"/>
+    </item>
+  </channel>
+</rss>

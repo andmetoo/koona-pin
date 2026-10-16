@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic, written for the tests (NP-129): an <rss> root without version (feed-rs/feed-rs#297). -->
+<rss>
+  <channel>
+    <title>Plain</title>
+    <link>https://plain.example.com/</link>
+    <description>No version given.</description>
+    <item>
+      <title>Still a feed</title>
+      <link>https://plain.example.com/still</link>
+      <guid>plain-1</guid>
+    </item>
+  </channel>
+</rss>

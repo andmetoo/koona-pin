@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic, written for the tests (NP-129): bare ampersands, which make the XML ill-formed. -->
+<rss version="2.0">
+  <channel>
+    <title>Salt & Pepper</title>
+    <link>https://plain.example.com/</link>
+    <description>Kitchen notes &amp; more.</description>
+    <item>
+      <title>Fish & chips</title>
+      <link>https://plain.example.com/p?a=1&b=2</link>
+      <guid>amp-1</guid>
+      <description>R&D of the batter &#8212; and <![CDATA[a & b]]> as is.</description>
+    </item>
+  </channel>
+</rss>

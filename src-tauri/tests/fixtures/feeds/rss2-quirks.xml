@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic, written for the tests (NP-129): RSS 2.0 without guids, relative links, a
+     double-escaped title, an enclosure, a missing date, a missing title, a tracking pixel. -->
+<rss version="2.0">
+  <channel>
+    <title>Example Garden</title>
+    <link>https://garden.example.com/</link>
+    <description>Notes from a small plot.</description>
+    <ttl>180</ttl>
+    <item>
+      <title>Compost in a week</title>
+      <link>/posts/compost</link>
+      <pubDate>Wed, 14 Oct 2026 07:00:00 +0000</pubDate>
+      <description><![CDATA[<p><img src="/img/heap.jpg" alt=""> Turn it often. <a href="worms">Worms</a>, <a href="https://other.example.org/x">elsewhere</a>, <a href="#notes">notes</a>.</p>]]></description>
+    </item>
+    <item>
+      <title>Beans &amp;amp; peas: a &amp;lt;b&amp;gt;bold&amp;lt;/b&amp;gt; start</title>
+      <link>https://garden.example.com/posts/beans</link>
+      <guid isPermaLink="false">garden-beans</guid>
+      <pubDate>Tue, 13 Oct 2026 07:00:00 +0000</pubDate>
+      <description>Sow them close.</description>
+    </item>
+    <item>
+      <title>Tomatoes, late</title>
+      <link>https://garden.example.com/posts/tomatoes</link>
+      <guid isPermaLink="false">garden-tomatoes</guid>
+      <pubDate>Mon, 12 Oct 2026 07:00:00 +0000</pubDate>
+      <description>Green ones ripen on the sill.</description>
+      <enclosure url="https://cdn.garden.example.com/tomato.jpg" type="image/jpeg" length="12345"/>
+    </item>
+    <item>
+      <title>A note without a date</title>
+      <link>https://garden.example.com/posts/undated</link>
+      <guid isPermaLink="false">garden-undated</guid>
+      <description>Whenever it was.</description>
+    </item>
+    <item>
+      <link>https://garden.example.com/posts/leaves</link>
+      <guid isPermaLink="false">garden-leaves</guid>
+      <pubDate>Sat, 10 Oct 2026 07:00:00 +0000</pubDate>
+      <description>Leaves fall and the beds want covering before the frost comes in, so the mulch goes on this weekend.</description>
+    </item>
+    <item>
+      <title>The long one</title>
+      <link>https://garden.example.com/posts/long</link>
+      <guid isPermaLink="false">garden-long</guid>
+      <pubDate>Fri, 09 Oct 2026 07:00:00 +0000</pubDate>
+      <description><![CDATA[<img src="/pixel.gif" width="1" height="1"><p><img src="/img/first.png"></p><p>Soil is the slow part of a garden and the part that pays back the longest. Every season the beds lose a little of what made them dark and loose, and every season something has to go back in. Leaves, grass, kitchen scraps, straw and old potting mix all have a place in the heap. The heap wants air and water in about the measure a wrung sponge holds, and it wants turning when it cools. A fork and ten minutes a week are enough for a small plot. In spring the finished compost goes on the beds an inch deep, and the worms carry it down. In autumn the beds get a cover of leaves or a sown crop of rye that holds the soil through the rain. None of this is fast, and none of it is hard. It is a habit more than a method, and the habit is the whole trick. Over a few years the difference shows in the colour of the soil, in how the spade goes in, and in how little the plants sulk in a dry week. That is the reason to keep at it, and the reason this post is long enough to count as the whole article rather than a teaser for one.</p>]]></description>
+    </item>
+  </channel>
+</rss>

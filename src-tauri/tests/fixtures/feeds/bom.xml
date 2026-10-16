@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic, written for the tests (NP-129): a UTF-8 byte order mark before the prolog. -->
+<rss version="2.0">
+  <channel>
+    <title>Byte Order</title>
+    <link>https://bom.example.com/</link>
+    <description>Marked.</description>
+    <item>
+      <title>Marked at the start</title>
+      <link>https://bom.example.com/marked</link>
+      <guid>bom-1</guid>
+      <description>Three bytes before the prolog.</description>
+    </item>
+  </channel>
+</rss>
