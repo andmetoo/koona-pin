@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 13;
+pub const SCHEMA_VERSION: i64 = 14;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -411,6 +411,47 @@ fn sync_site_name(tx: &Transaction) -> HookResult {
     Ok(())
 }
 
+/// Schema 14 (NP-128, Р-71): the feeds a person follows. Only the
+/// subscription lives in the library, so it is backed up, exported and
+/// synced; the feed's own title, icon, posts and fetch state live in the
+/// cache file beside it (`feeds/cache.rs`), so a fetch never writes the
+/// library. `url` is the feed document's address, `title` the person's own
+/// name for it (none: the feed's). `destination` takes any text for the
+/// reason `bookmarks.source` does ([`any_source`]): a newer device may sync
+/// a place this one does not know, and the app reads it as `feeds`.
+/// `created_at` is not a synced field: the engine fills it, as for collections.
+pub(crate) const SCHEMA_14: &str = "
+CREATE TABLE feeds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uid TEXT NOT NULL UNIQUE,
+    url TEXT NOT NULL UNIQUE,
+    title TEXT,
+    destination TEXT NOT NULL DEFAULT 'feeds' CHECK (typeof(destination) = 'text'),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+";
+
+/// See [`SCHEMA_14`]. An unsubscribe leaves a tombstone of kind `feed`,
+/// which the check of schema 1 refuses: it is widened the way [`allow_mcp`]
+/// widened the sources. Then the capture triggers of the feeds
+/// (`koona_sync::SCHEMA_14`, commercial).
+fn sync_feeds(tx: &Transaction) -> HookResult {
+    widen_check(
+        tx,
+        "tombstones",
+        "CHECK (kind IN ('bookmark','collection','tag'))",
+        "CHECK (kind IN ('bookmark','collection','tag','feed'))",
+        "the tombstones table is not the one schema 10 left",
+    )?;
+    // A statement after the edit makes SQLite read the new schema text inside
+    // the transaction; left last, a library in memory lost its tables (see
+    // [`sync_schema`]), and `koona_sync::SCHEMA_14` is empty until NP-130.
+    tx.query_row("SELECT count(*) FROM tombstones", [], |r| r.get::<_, i64>(0))?;
+    tx.execute_batch(koona_sync::SCHEMA_14)?;
+    Ok(())
+}
+
 /// The places of schema 7 as keys, in the sidebar's order: by place, then
 /// the collections never moved by name in the language of the sort keys.
 /// When none was ever moved, none gets a key: they keep following the
@@ -455,9 +496,14 @@ fn any_source(tx: &Transaction) -> HookResult {
 /// Replaces `old`, which must occur once, with `new` in the schema text of
 /// `bookmarks`: see [`allow_mcp`] for why this is safe.
 fn widen_sources(tx: &Transaction, old: &str, new: &str, refused: &str) -> HookResult {
+    widen_check(tx, "bookmarks", old, new, refused)
+}
+
+/// [`widen_sources`] for any table: `old` must occur once in its schema text.
+fn widen_check(tx: &Transaction, table: &str, old: &str, new: &str, refused: &str) -> HookResult {
     let sql: String = tx.query_row(
-        "SELECT sql FROM sqlite_schema WHERE type='table' AND name='bookmarks'",
-        [],
+        "SELECT sql FROM sqlite_schema WHERE type='table' AND name=?1",
+        [table],
         |r| r.get(0),
     )?;
     if sql.matches(old).count() != 1 {
@@ -466,8 +512,8 @@ fn widen_sources(tx: &Transaction, old: &str, new: &str, refused: &str) -> HookR
     let version: i64 = tx.pragma_query_value(None, "schema_version", |r| r.get(0))?;
     tx.pragma_update(None, "writable_schema", true)?;
     tx.execute(
-        "UPDATE sqlite_schema SET sql=?1 WHERE type='table' AND name='bookmarks'",
-        [sql.replace(old, new)],
+        "UPDATE sqlite_schema SET sql=?1 WHERE type='table' AND name=?2",
+        rusqlite::params![sql.replace(old, new), table],
     )?;
     tx.pragma_update(None, "schema_version", version + 1)?;
     tx.pragma_update(None, "writable_schema", false)?;
@@ -525,6 +571,7 @@ pub fn steps() -> Vec<M<'static>> {
         M::up_with_hook(SCHEMA_11, sync_reading),
         M::up(SCHEMA_12),
         M::up_with_hook(SCHEMA_13, sync_site_name),
+        M::up_with_hook(SCHEMA_14, sync_feeds),
     ]
 }
 
@@ -1044,7 +1091,8 @@ mod tests {
         let bookmarks_before = rows(&conn, "SELECT * FROM bookmarks ORDER BY id");
         let (objects_before, other_before) = (objects(&conn), other(&conn));
 
-        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        let to_13 = Migrations::new(steps().into_iter().take(13).collect());
+        migrate_with(&to_13, 13, &mut conn, Some(&folder.join("backups"))).unwrap();
         assert_eq!(user_version(&conn).unwrap(), 13);
         assert!(folder.join("backups/koonapin.before-v13.db").exists());
         let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
@@ -1063,6 +1111,92 @@ mod tests {
         let clocks = |conn: &Connection| rows(conn, "SELECT field FROM sync_clock WHERE entity = 2 AND row = 1 ORDER BY field");
         conn.execute("UPDATE bookmarks SET site_name = 'Serious Eats' WHERE id = 1", []).unwrap();
         assert_eq!(clocks(&conn), ["Integer(16)"]);
+    }
+
+    /// Schema 14 (NP-128): a library of schema 13 with data keeps every row
+    /// and object (but the tombstones' check, which takes `feed`) and gains
+    /// the empty table of feeds, in one step with the copy before-v14. A
+    /// subscription takes any destination text but no other type; an
+    /// unsubscribe leaves a `feed` tombstone, and the check still holds.
+    #[test]
+    fn schema_14_adds_feeds_and_keeps_everything_else() {
+        let folder = folder("schema-14");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 13);
+        fixtures::generated(&conn, 2_000, 14);
+        conn.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES ('gone', 'bookmark', 'x', 'x')", []).unwrap();
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        let tombstone = |conn: &Connection, kind: &str| {
+            conn.execute(
+                "INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES (?1, ?2, 'x', 'x')",
+                rusqlite::params![format!("uid-{kind}"), kind],
+            )
+        };
+        assert!(tombstone(&conn, "feed").is_err(), "schema 13 refuses feed");
+        let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE tbl_name NOT IN ('tombstones', 'feeds') AND name <> 'sqlite_sequence' ORDER BY name");
+        let data = |conn: &Connection| {
+            ["bookmarks", "collections", "tags", "bookmark_tags", "app_settings", "tombstones", "offline_copies"]
+                .iter()
+                .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
+                .collect::<Vec<_>>()
+        };
+        let (objects_before, data_before) = (objects(&conn), data(&conn));
+
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 14);
+        assert!(folder.join("backups/koonapin.before-v14.db").exists());
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        assert_eq!(objects(&conn), objects_before, "no other index, view, table or trigger changed");
+        assert_eq!(data(&conn), data_before, "every row as it was");
+        assert_eq!(rows(&conn, "SELECT count(*) FROM feeds"), ["Integer(0)"]);
+
+        tombstone(&conn, "feed").unwrap();
+        assert!(tombstone(&conn, "post").is_err(), "the check still holds");
+        let subscribe = |conn: &Connection, url: &str, destination: rusqlite::types::Value| {
+            conn.execute(
+                "INSERT INTO feeds (uid, url, destination, created_at, updated_at) VALUES (?1, ?1, ?2, 'x', 'x')",
+                rusqlite::params![url, destination],
+            )
+        };
+        subscribe(&conn, "https://example.com/feed", "watch-only".to_string().into()).unwrap();
+        assert!(subscribe(&conn, "https://example.com/other", vec![1u8].into()).is_err(), "destination is text, not a blob");
+        assert!(subscribe(&conn, "https://example.com/feed", "feeds".to_string().into()).is_err(), "one subscription per address");
+        conn.execute("INSERT INTO feeds (uid, url, created_at, updated_at) VALUES ('d', 'https://example.org/rss', 'x', 'x')", []).unwrap();
+        assert_eq!(rows(&conn, "SELECT destination FROM feeds WHERE uid = 'd'"), [r#""feeds""#]);
+        // A new connection reads the new schema text.
+        drop(conn);
+        let conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        conn.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES ('again', 'feed', 'x', 'x')", []).unwrap();
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+    }
+
+    /// A tombstones table other than the one schema 10 left is refused, and
+    /// the step rolls back whole.
+    #[test]
+    fn schema_14_refuses_a_foreign_tombstones_table() {
+        let folder = folder("schema-14-foreign");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 13);
+        conn.execute_batch(
+            "PRAGMA writable_schema = ON;
+             UPDATE sqlite_schema SET sql = replace(sql, '''tag''))', '''tag'',''note''))') WHERE name = 'tombstones';
+             PRAGMA writable_schema = OFF;",
+        )
+        .unwrap();
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
+        match migrate(&mut conn, Some(&folder.join("backups"))) {
+            Err(MigrationError::Failed { version: 14, error, .. }) => assert!(error.contains("tombstones"), "{error}"),
+            other => panic!("expected a refusal, got {other:?}"),
+        }
+        assert_eq!(user_version(&conn).unwrap(), 13);
+        assert!(!table_exists(&conn, "feeds").unwrap());
     }
 
     /// The column of schema 13 the engine's tests add (`koona-sync/tests/schema13.sql`)
