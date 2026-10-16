@@ -1852,6 +1852,8 @@
   .sort-half::before,
   .sort-behind {
     transition: none;
+  }
+}
 
 /* The notification centre (2026-10-16, banner variant D): a bell in the sidebar's header, or
    under the spirit in the narrow strip, with a badge of the unread; a glass popover of the
