@@ -71,33 +71,29 @@ test("Settings → Data: the choice with its counts, progress with Stop, the res
   await expect(centre(page).locator('[data-notification="task"]')).toHaveCount(0);
 });
 
-test("a whole run ends with its numbers; pages it couldn't open go to the link check, its result in the centre", async ({ page }) => {
-  await open(page, { "demo.refreshStep": "30" });
+test("a whole run ends with its numbers; a refresh's failures are link-checked, and «Show them» opens the Links page", async ({ page }) => {
+  await open(page, { "demo.refreshStep": "20" });
+  const refresh = () =>
+    page.evaluate(async () => {
+      const { api } = await import("/src/services/api.ts");
+      return api.getPreviewRefresh();
+    });
+  // A whole run of the sample library from Settings: every page of it opens.
   await settings(page);
   await row(page).getByRole("button", { name: "Refresh…" }).click();
   await page.getByRole("menuitem", { name: /All bookmarks/ }).click();
   await expect(row(page)).toHaveAttribute("data-settings-previews", "idle");
-  const state = await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    return api.getPreviewRefresh();
-  });
-  expect(state.state).toBe("done");
-  expect(state.updated + state.unchanged + state.failed).toBe(6);
+  const whole = await refresh();
+  expect(whole.state).toBe("done");
+  expect(whole.updated + whole.unchanged + whole.failed).toBe(6);
+  expect(whole.check_ids).toEqual([]);
   await bell(page).click();
   const result = centre(page).locator('[data-notification="task"]').first();
   await expect(result).toContainText("Previews refreshed");
-  if (state.check_ids.length) {
-    await expect(result).toContainText(`${state.failed} couldn't be opened — checking them`);
-    // The link check of exactly those, and its finding as a notification of its own.
-    await expect(centre(page).getByText(/Link check finished|All links open/)).toBeVisible();
-  } else {
-    await expect(result).toContainText(`Updated ${state.updated} · unchanged ${state.unchanged} · couldn't open 0`);
-  }
-});
+  await expect(result).toContainText(`Updated ${whole.updated} · unchanged ${whole.unchanged} · couldn't open 0`);
+  await page.keyboard.press("Escape");
 
-test("the hand-off: a refresh's failures are link-checked, and «Show them» opens the Links page", async ({ page }) => {
-  await open(page, { "demo.refreshStep": "20" });
-  // Pages that fail in the demo's refresh and do not open in its link check.
+  // The hand-off: pages that fail in the demo's refresh and do not open in its link check.
   const ids = await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     const { demoAnswer } = await import("/src/services/demo.ts");
@@ -118,7 +114,11 @@ test("the hand-off: a refresh's failures are link-checked, and «Show them» ope
       }),
     )
     .toBeGreaterThan(0);
+  const failing = await refresh();
+  expect(failing.check_ids.length).toBe(failing.failed);
   await bell(page).click();
+  await expect(centre(page).locator('[data-notification="task"]').first()).toContainText(`${failing.failed} couldn't be opened — checking them`);
+  // The link check of exactly those, and its finding as a notification of its own.
   const found = centre(page).locator("li", { hasText: "Link check finished" });
   await expect(found).toContainText(/Don't open: \d+/);
   await found.getByRole("button", { name: "Show them" }).click();

@@ -40,7 +40,7 @@ bun run test:ui
 
 - `@visual` — screenshot comparisons, see [Visual baselines](#visual-baselines).
 - `@languages` — every language at 800×550 and 1600×800: no truncated interface labels, sidebar rows fit, IME input.
-- `@chromium` — four IME scenarios use Chromium's CDP; exclude these when running WebKit. They remain covered by the full suite in CI (Chromium on Linux).
+- `@chromium` — the two IME tests use Chromium's CDP; exclude these when running WebKit. They remain covered by the full suite in CI (Chromium on Linux).
 
 Run a subset with `bun run test:ui -- --grep @languages` or `-- --grep-invert @visual`. Use `bunx` only with `--bun`; without it, `bunx` runs a package on Node if Node is installed.
 

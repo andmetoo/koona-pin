@@ -16,7 +16,7 @@ const open = async (page: Page, setup: Record<string, string> = {}) => {
 const bell = (page: Page) => page.locator("[data-notification-bell]");
 const centre = (page: Page) => page.getByRole("dialog", { name: "Notifications" });
 
-test("the badge counts the unread; opening reads them, a newer bookmark is unread again", async ({ page }) => {
+test("the badge counts the unread; opening reads them, a newer bookmark is unread again; the bell toggles the centre, a click outside closes it", async ({ page }) => {
   await open(page, { importBanner: "show" });
   await expect(bell(page).locator(".notify-badge")).toHaveText("2");
   await expect(bell(page)).toHaveAccessibleName("Notifications, 2 new");
@@ -52,12 +52,8 @@ test("the badge counts the unread; opening reads them, a newer bookmark is unrea
   await expect(centre(page).locator('[data-notification="inbox"]')).toContainText("3 new in Inbox");
   await expect(centre(page).locator('[data-notification="inbox"] .nt-unread')).toHaveCount(1);
   await expect(centre(page).locator('[data-notification="offer"] .nt-unread')).toHaveCount(0);
-});
 
-test("a click outside closes the centre; the bell toggles it", async ({ page }) => {
-  await open(page);
-  await bell(page).click();
-  await expect(centre(page)).toBeVisible();
+  // The bell toggles the centre; a click outside closes it.
   await bell(page).click();
   await expect(centre(page)).toHaveCount(0);
   await bell(page).click();
@@ -72,12 +68,59 @@ test("a click outside closes the centre; the bell toggles it", async ({ page }) 
   await expect(page.getByRole("toolbar", { name: /selected/i })).toBeVisible();
 });
 
-test("Sort in the centre opens triage over the inbox", async ({ page }) => {
+test("triage from the centre: Sort opens it over the inbox, says a starter link was added by Koona Pin, keeps Space for the browser", async ({ page }) => {
   await open(page);
+  // NP-117: the preview makes no starter set of its own; its marks go into localStorage.
+  const ids = await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    return (await api.getBookmarks({ onlyInbox: true } as never)).items.map((b) => b.id);
+  });
+  await page.evaluate((list) => localStorage.setItem("koonapin.demo.starter", JSON.stringify(list)), ids);
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+  // The browser is a list of addresses: nothing leaves the test.
+  await page.evaluate(async () => {
+    const w = window as unknown as { opened: string[] };
+    w.opened = [];
+    window.open = (url) => (w.opened.push(String(url)), null);
+    const { api } = await import("/src/services/api.ts");
+    api.openUrl = async (url: string) => void w.opened.push(url);
+  });
   await bell(page).click();
   await centre(page).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(centre(page)).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Sort inbox\s*1 of 2/);
+  await expect(page.locator("[data-triage-card]")).toContainText(/added by Koona Pin /);
+  // NP-123: Space in triage opens the browser, not the reading sheet.
+  await page.keyboard.press("Space");
+  expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toHaveLength(1);
+  await expect(page.locator("dialog[data-reading-sheet]")).toHaveCount(0);
+});
+
+test("the import offer opens the import and goes away for good with × (NP-117)", async ({ page }) => {
+  await open(page, { importBanner: "show" });
+  const offer = centre(page).locator('[data-notification="offer"]');
+  // No banner over the list: the offer waits in the notification centre, after the inbox.
+  await expect(page.getByRole("region", { name: "Import bookmarks" })).toHaveCount(0);
+  await expect(bell(page)).toHaveAccessibleName("Notifications, 2 new");
+  await bell(page).click();
+  await expect(offer).toContainText("Import bookmarks");
+  await expect(offer).toContainText("Bring your bookmarks from Chrome, Edge or Firefox");
+  const inbox = centre(page).locator('[data-notification="inbox"]');
+  expect((await inbox.boundingBox())!.y).toBeLessThan((await offer.boundingBox())!.y);
+  await offer.getByRole("button", { name: "Import bookmarks…" }).click();
+  await expect(centre(page)).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Import bookmarks" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await bell(page).click();
+  await offer.getByRole("button", { name: "Hide" }).click();
+  await expect(offer).toHaveCount(0);
+  await expect(inbox).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+  await bell(page).click();
+  await expect(inbox).toHaveCount(1);
+  await expect(offer).toHaveCount(0);
 });
 
 test("Clear all hides what can be hidden; the empty centre says so", async ({ page }) => {

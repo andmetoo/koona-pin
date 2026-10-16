@@ -93,34 +93,16 @@ test("sidebar rows fit in every language", { tag: "@languages" }, async ({ page 
 
 // An IME (Chinese, Japanese, Korean) builds a character over several keys: the list waits for
 // the finished one, and Esc inside the IME cancels the character, not the query (NP-090).
-test("search waits for the IME to finish a character", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
+test("search and the IME: the list waits for the finished character, Esc inside it keeps the query, a reset wins", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
   await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
   await page.goto("/");
   const cards = page.locator("[data-bookmark-id]");
   await expect(cards.first()).toBeVisible();
   const all = await cards.count();
   const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
-  await search.focus();
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Input.imeSetComposition", { text: "けんさく", selectionStart: 4, selectionEnd: 4 });
-  await expect(search).toHaveValue("けんさく");
-  // Longer than the list's own 150 ms wait: still the whole library.
-  await page.waitForTimeout(600);
-  await expect(cards).toHaveCount(all);
-  await expect(page.getByText(/Nothing matches/)).toHaveCount(0);
-  await cdp.send("Input.insertText", { text: "検索" });
-  await expect(search).toHaveValue("検索");
-  await expect(page.getByText("Nothing matches “検索”")).toBeVisible();
-});
 
-// Keys inside an IME are the IME's: Esc cancels the character, not the query. WebView2 sends them
-// as keyCode 229 or with isComposing; CDP's own key events carry neither, so they are dispatched.
-test("Esc inside an IME keeps the query", { tag: "@languages" }, async ({ page }) => {
-  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
-  await page.goto("/");
-  const cards = page.locator("[data-bookmark-id]");
-  await expect(cards.first()).toBeVisible();
-  const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
+  // Keys inside an IME are the IME's. WebView2 sends them as keyCode 229 or with isComposing; CDP's
+  // own key events carry neither, so they are dispatched.
   await search.fill("silence");
   await expect(cards).toHaveCount(1);
   for (const init of [{ isComposing: true }, { keyCode: 229 }]) {
@@ -137,60 +119,26 @@ test("Esc inside an IME keeps the query", { tag: "@languages" }, async ({ page }
   // A plain Esc still clears it.
   await search.press("Escape");
   await expect(search).toHaveValue("");
-});
+  await expect(cards).toHaveCount(all);
 
-// A comma ends a tag, the Chinese and Japanese ones too, also when the IME commits it: the
-// selection's tag field adds the text before it at once, never a tag with a comma in it.
-test("a comma from an IME ends the tag", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
-  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
-  await page.goto("/");
-  const cards = page.locator("[data-bookmark-id]");
-  await expect(cards.first()).toBeVisible();
-  await cards.first().click({ modifiers: ["ControlOrMeta"] });
-  await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
-  const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
-  await field.focus();
+  // A character being composed searches for nothing yet.
+  await search.focus();
   const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Input.imeSetComposition", { text: "设计，", selectionStart: 3, selectionEnd: 3 });
-  await expect(field).toHaveValue("设计，");
-  await cdp.send("Input.insertText", { text: "设计，" });
-  await expect(page.getByText("Tag «设计» added to 1 bookmark")).toBeVisible();
-});
+  await cdp.send("Input.imeSetComposition", { text: "けんさく", selectionStart: 4, selectionEnd: 4 });
+  await expect(search).toHaveValue("けんさく");
+  // Longer than the list's own 150 ms wait: still the whole library.
+  await page.waitForTimeout(600);
+  await expect(cards).toHaveCount(all);
+  await expect(page.getByText(/Nothing matches/)).toHaveCount(0);
+  await cdp.send("Input.insertText", { text: "検索" });
+  await expect(search).toHaveValue("検索");
+  await expect(page.getByText("Nothing matches “検索”")).toBeVisible();
 
-// A comma with nothing before it is a slip: the field stays open and empty, nothing is added.
-test("a lone comma keeps the tag field open", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
-  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
-  await page.goto("/");
-  const cards = page.locator("[data-bookmark-id]");
-  await expect(cards.first()).toBeVisible();
-  await cards.first().click({ modifiers: ["ControlOrMeta"] });
-  await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
-  const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
-  await field.focus();
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Input.imeSetComposition", { text: "，", selectionStart: 1, selectionEnd: 1 });
-  await cdp.send("Input.insertText", { text: "，" });
-  await expect(field).toBeVisible();
-  await expect(field).toHaveValue("");
-  await field.press(",");
-  await expect(field).toHaveValue("");
-  await field.pressSequentially("ux,");
-  await expect(page.getByText("Tag «ux» added to 1 bookmark")).toBeVisible();
-});
-
-// A query changed from outside while a character is composed wins: the end of the composition
-// does not bring the old text back.
-test("a reset during an IME composition stays", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
-  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
-  await page.goto("/");
-  const cards = page.locator("[data-bookmark-id]");
-  await expect(cards.first()).toBeVisible();
-  const all = await cards.count();
-  const search = page.getByRole("textbox", { name: text(catalog("en"), "toolbar.searchLabel") });
+  // A query changed from outside while a character is composed wins: the end of the composition
+  // does not bring the old text back.
   await search.fill("zzz");
   await page.getByRole("button", { name: text(catalog("en"), "empty.resetSearch") }).waitFor();
   await search.focus();
-  const cdp = await page.context().newCDPSession(page);
   await cdp.send("Input.imeSetComposition", { text: "けん", selectionStart: 2, selectionEnd: 2 });
   await expect(search).toHaveValue("zzzけん");
   // «Clear search» of the empty state, pressed without taking the focus from the field.
@@ -200,6 +148,36 @@ test("a reset during an IME composition stays", { tag: ["@languages", "@chromium
   await cdp.send("Input.insertText", { text: "" });
   await page.waitForTimeout(400);
   await expect(cards).toHaveCount(all);
+});
+
+// A comma ends a tag, the Chinese and Japanese ones too, also when the IME commits it: the
+// selection's tag field adds the text before it at once, never a tag with a comma in it.
+test("the tag field and commas: a lone one keeps it open, one from an IME ends the tag", { tag: ["@languages", "@chromium"] }, async ({ page }) => {
+  await page.addInitScript(() => localStorage.removeItem("koonapin.demo.v4"));
+  await page.goto("/");
+  const cards = page.locator("[data-bookmark-id]");
+  await expect(cards.first()).toBeVisible();
+  await cards.first().click({ modifiers: ["ControlOrMeta"] });
+  await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
+  const field = page.getByRole("combobox", { name: text(catalog("en"), "selection.tagLabel") });
+  await field.focus();
+  const cdp = await page.context().newCDPSession(page);
+  // A comma with nothing before it is a slip: the field stays open and empty, nothing is added.
+  await cdp.send("Input.imeSetComposition", { text: "，", selectionStart: 1, selectionEnd: 1 });
+  await cdp.send("Input.insertText", { text: "，" });
+  await expect(field).toBeVisible();
+  await expect(field).toHaveValue("");
+  await field.press(",");
+  await expect(field).toHaveValue("");
+  await field.pressSequentially("ux,");
+  await expect(page.getByText("Tag «ux» added to 1 bookmark")).toBeVisible();
+  // The IME's comma, while composed and when committed, in the field opened again.
+  await page.getByRole("button", { name: text(catalog("en"), "selection.tag"), exact: true }).click();
+  await field.focus();
+  await cdp.send("Input.imeSetComposition", { text: "设计，", selectionStart: 3, selectionEnd: 3 });
+  await expect(field).toHaveValue("设计，");
+  await cdp.send("Input.insertText", { text: "设计，" });
+  await expect(page.getByText("Tag «设计» added to 1 bookmark")).toBeVisible();
 });
 
 // Every language is checked for cut labels; German, Serbian, Japanese and Korean also leave
