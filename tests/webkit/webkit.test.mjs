@@ -85,8 +85,8 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
     assert.equal(reply.outcome, "created");
     await page.count("[data-bookmark-id]", 2);
     await page.role("button", "Browser connected");
-    // Both wait in the inbox: the link added by hand and the capture.
-    await page.role("button", "Inbox 2");
+    // Only the capture waits in the inbox: the link added by hand went to the library (Development).
+    await page.role("button", "Inbox 1");
   });
 
   it("searches through FTS5: case folds, every word", async () => {
