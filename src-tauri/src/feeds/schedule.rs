@@ -833,7 +833,9 @@ mod tests {
         assert_eq!(row(&cache, &up.uid).1, 0);
         for dead in [&a.uid, &b.uid] {
             let (_, failures, error, _) = row(&cache, dead);
-            assert_eq!((failures, error.as_deref()), (1, Some("connection")));
+            // Windows retries a refused connect until the timeout, so the closed port may time out.
+            assert_eq!(failures, 1);
+            assert!(matches!(error.as_deref(), Some("connection" | "timeout")), "{error:?}");
         }
     }
 
