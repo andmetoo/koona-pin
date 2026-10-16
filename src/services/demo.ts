@@ -76,7 +76,7 @@ import {
   SavePlace,
 } from "../types";
 import type { PageRequest } from "./api";
-import { demoLibrary, posterOf } from "./demoData";
+import { demoLibrary, poster, posterOf } from "./demoData";
 import { DEMO_FEEDS, DEMO_POSTS, isFull, pictureOf, postHtml, postUrl } from "./demoFeeds";
 import { parseBookmarksFile } from "./bookmarksFile";
 import { cursorAt, isAfter, ListOrder, listTime, matchesBookmark, orderOf, sortBookmarks } from "./library";
@@ -915,6 +915,9 @@ const feedRefreshListeners = new Set<(progress: FeedsRefresh) => void>();
 function demoFeedSite(url: string): { title: string; site: string } {
   const known = DEMO_FEEDS.find((f) => f.url === url);
   if (known) return { title: known.feedTitle, site: known.siteUrl };
+  const extra = DEMO_SITES.find((s) => s.feeds.some((f) => f.url === url));
+  const feed = extra?.feeds.find((f) => f.url === url);
+  if (extra && feed) return { title: feed.title, site: extra.site };
   const parsed = new URL(url);
   return { title: parsed.hostname.replace(/^www\./, ""), site: `${parsed.origin}/` };
 }
@@ -995,6 +998,81 @@ function afterCursor(item: DemoItemRow, cursor: string): boolean {
 const newestFirst = (a: DemoItemRow, b: DemoItemRow) =>
   b.published_at.localeCompare(a.published_at) || b.id - a.id;
 const isFeedAddress = (url: URL) => /(\/(feed|rss|atom)(\.xml|\.json)?\/?|\.xml|\.rss|feed\.json)$/i.test(url.pathname);
+/**
+ * Sites the preview doesn't follow (NP-133), for «Follow» in «New link»: one with a feed,
+ * one with posts and comments, one whose feed can't be read. Their pages have a title and a picture.
+ */
+interface DemoSite {
+  site: string;
+  name: string;
+  picture: [string, string, string];
+  feeds: { url: string; title: string }[];
+  unreadable?: boolean;
+  perDay: number;
+  /** The posts a first fetch brings. */
+  posts: { title: string; excerpt: string; hoursAgo: number }[];
+}
+const DEMO_SITES: DemoSite[] = [
+  {
+    site: "https://fieldnotes.example.com/",
+    name: "Field Notes",
+    picture: ["#55705a", "#1f2d22", "Notes"],
+    feeds: [{ url: "https://fieldnotes.example.com/feed.xml", title: "Field Notes" }],
+    perDay: 4.2,
+    posts: [
+      { title: "Walking the old railway line in late autumn", excerpt: "Twelve miles of cinder path, two viaducts and a tea room that is open on Sundays only.", hoursAgo: 2 },
+      { title: "A notebook that survives the rain", excerpt: "Pencil, waxed covers and a rubber band: the field kit that has not changed in forty years.", hoursAgo: 7 },
+    ],
+  },
+  {
+    site: "https://smallbatch.example.com/",
+    name: "Small Batch",
+    picture: ["#a0523d", "#4a2018", "Batch"],
+    feeds: [
+      { url: "https://smallbatch.example.com/posts.rss", title: "Small Batch" },
+      { url: "https://smallbatch.example.com/comments.rss", title: "Small Batch — comments" },
+    ],
+    perDay: 0.4,
+    posts: [{ title: "Marmalade with the whole fruit", excerpt: "Boil the oranges whole first, then chop: less work, a softer peel.", hoursAgo: 30 }],
+  },
+  {
+    site: "https://quiet.example.com/",
+    name: "Quiet Corner",
+    picture: ["#6a6f8a", "#272a3a", "Quiet"],
+    feeds: [{ url: "https://quiet.example.com/rss", title: "Quiet Corner" }],
+    unreadable: true,
+    perDay: 1,
+    posts: [],
+  },
+];
+const demoSiteOf = (url: URL) => DEMO_SITES.find((s) => new URL(s.site).hostname === url.hostname);
+/** A page's title as its `<title>` would read: the site's name, or the last part of the path. */
+function demoPageTitle(site: DemoSite, url: URL): string {
+  const last = url.pathname.split("/").filter(Boolean).pop();
+  if (!last) return site.name;
+  const words = decodeURIComponent(last).replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+/** The posts of a demo site's feed, as its first fetch leaves them. */
+function demoSitePosts(uid: string, url: string, startId: number): DemoItemRow[] {
+  const site = DEMO_SITES.find((s) => s.feeds.some((f) => f.url === url));
+  const fetchedAt = new Date().toISOString();
+  return (site?.posts ?? []).map((post, i) => ({
+    id: startId + i,
+    feed_uid: uid,
+    url: `${site!.site}demo/${post.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    title: post.title,
+    author: null,
+    excerpt: post.excerpt,
+    thumbnail_url: i === 0 ? poster(site!.picture) : null,
+    published_at: hoursBefore(post.hoursAgo),
+    fetched_at: fetchedAt,
+    read_at: null,
+    bookmark_id: null,
+    html: `<p>${post.excerpt}</p>`,
+    full: false,
+  }));
+}
 // end feeds
 
 export const demo = {
@@ -2188,6 +2266,8 @@ export const demo = {
       // A sample feed followed again comes back with its posts, as a first fetch would bring them.
       if (known && !state.items.some((item) => item.feed_uid === uid))
         state.items.push(...demoFeedItems(new Date().toISOString()).filter((item) => item.feed_uid === uid));
+      // A demo site's feed brings its posts, as the first fetch would (NP-133).
+      if (!known) state.items.push(...demoSitePosts(uid, address, Math.max(0, ...state.items.map((item) => item.id)) + 1));
       feedsChanged();
     }
     return demoFeedList().find((f) => f.url === address)!;
@@ -2213,21 +2293,22 @@ export const demo = {
     await new Promise((resolve) => setTimeout(resolve, 300));
     const domain = address.hostname.replace(/^www\./, "");
     const site = DEMO_FEEDS.find((f) => new URL(f.siteUrl).hostname.replace(/^www\./, "") === domain);
+    const extra = demoSiteOf(address);
     const isFeed = DEMO_FEEDS.some((f) => f.url === address.href) || isFeedAddress(address);
     const feeds: FeedCandidate[] = isFeed
-      ? [{ url: address.href, title: site?.feedTitle ?? null, kind: address.pathname.endsWith(".json") ? "json" : "rss" }]
+      ? [{ url: address.href, title: site?.feedTitle ?? extra?.feeds.find((f) => f.url === address.href)?.title ?? null, kind: address.pathname.endsWith(".json") ? "json" : "rss" }]
       : site
         ? [{ url: site.url, title: site.feedTitle, kind: "rss" }]
-        : [];
+        : (extra?.feeds.map((f) => ({ url: f.url, title: f.title, kind: "rss" })) ?? []);
     const subscribed = feeds.length ? feedsState().feeds.find((f) => f.url === feeds[0].url) : undefined;
     return {
       url: address.href,
       metadata: {
-        title: site?.feedTitle ?? null,
+        title: site?.feedTitle ?? (extra && !isFeed ? demoPageTitle(extra, address) : null),
         description: null,
-        image_url: null,
+        image_url: extra && !isFeed ? poster(extra.picture) : null,
         favicon_url: null,
-        site_name: site?.feedTitle ?? null,
+        site_name: site?.feedTitle ?? extra?.name ?? null,
         domain,
       },
       feeds,
@@ -2240,6 +2321,9 @@ export const demo = {
     await new Promise((resolve) => setTimeout(resolve, 400));
     const known = DEMO_FEEDS.find((f) => f.url === address);
     const site = demoFeedSite(address);
+    const extra = DEMO_SITES.find((s) => s.feeds.some((f) => f.url === address));
+    if (extra?.unreadable) throw new CommandError("network", "The feed could not be read");
+    if (extra) return { title: site.title, site_url: extra.site, icon_url: null, posts_per_day: extra.perDay, last_post_at: hoursBefore(extra.posts[0]?.hoursAgo ?? 3) };
     if (!known) return { title: site.title, site_url: site.site, icon_url: null, posts_per_day: 2.5, last_post_at: hoursBefore(3) };
     const posts = DEMO_POSTS.filter((p) => p.feed === known.uid);
     const days = Math.max(1, Math.max(...posts.map((p) => p.hoursAgo)) / 24);

@@ -128,7 +128,8 @@
     "exportCsv": "스프레드시트용 CSV",
     "cleanUp": "정리",
     "duplicates": "중복 항목",
-    "links": "링크 검사"
+    "links": "링크 검사",
+    "importFeeds": "피드 가져오기 (OPML)…"
   },
   "card": {
     "open": "열기: {{title}}",
@@ -224,7 +225,26 @@
     "removed": "링크를 지웠어요",
     "dropTitle": "놓으면 링크가 저장돼요",
     "dropHint": "{{place}}에 들어가요. Shift를 누르면 받은함으로",
-    "dropHintInbox": "받은함에 들어가요"
+    "dropHintInbox": "받은함에 들어가요",
+    "feedHas": "{{site}}에 피드가 있습니다",
+    "feedToggle": "{{site}} 팔로우",
+    "feedOffHint": "팔로우하면 새 글이 피드로 옵니다",
+    "feedLooking": "피드를 확인하는 중…",
+    "feedPerDay_other": "하루 약 {{count}}개의 새 글",
+    "feedPerWeek_other": "일주일에 약 {{count}}개의 새 글",
+    "feedLast": "마지막 글 {{when}}",
+    "feedUnreadable": "이 피드를 읽을 수 없습니다",
+    "feedFollowed": "이 사이트를 팔로우하고 있습니다",
+    "feedShow": "보기",
+    "feedDestination": "새 글 보낼 곳",
+    "feedDestFeeds": "피드만",
+    "feedDestInbox": "받은함처럼 정리",
+    "feedDestNotify": "알림도 받기",
+    "feedChoose": "피드 선택",
+    "feedSaveFollow": "저장하고 팔로우",
+    "feedFollowTitle": "{{title}} 팔로우",
+    "feedFollow": "팔로우",
+    "feedFollowing": "팔로우하는 중…"
   },
   "import": {
     "title": "북마크 가져오기",
@@ -264,7 +284,18 @@
     "moreSkipped": "외 {{count}}개",
     "openInbox": "받은함 열기",
     "done": "완료",
-    "failed": "가져올 수 없습니다. {{reason}} 아무것도 추가되지 않았으며 라이브러리는 그대로입니다."
+    "failed": "가져올 수 없습니다. {{reason}} 아무것도 추가되지 않았으며 라이브러리는 그대로입니다.",
+    "titleFeeds": "피드 가져오기",
+    "leadFeeds": "다른 리더에서 피드를 OPML로 내보낸 뒤 파일을 선택하세요. 이미 팔로우하는 피드는 그대로 둡니다.",
+    "fileFeeds": "피드 파일 .opml",
+    "opmlFeeds_other": "피드 {{count, number}}개",
+    "opmlRule": "새 글은 피드로 옵니다. 파일의 폴더는 유지되지 않습니다. 피드에는 폴더가 없습니다.",
+    "opmlEmpty": "이 파일에는 피드가 없습니다. 리더에서 OPML로 내보내세요.",
+    "opmlAdded_other": "새 피드 {{count, number}}개를 팔로우합니다",
+    "opmlNothingNew": "새 피드가 없습니다",
+    "opmlExisting": "이미 팔로우 중 — 그대로 둠",
+    "opmlReason_invalid_url": "올바른 주소가 아닙니다",
+    "opmlReason_refused": "이 컴퓨터 또는 로컬 네트워크"
   },
   "export": {
     "saved_other": "북마크 {{count, number}}개를 {{name}}에 저장했습니다",
@@ -1472,6 +1503,15 @@
     "inboxTextOne": "유지, 분류, 삭제는 금방 끝납니다.",
     "inboxMany": "하나씩 유지, 분류, 삭제할 수 있습니다.",
     "inboxImported_other": "그중 {{count}}개는 가져오기에서 왔습니다.",
-    "inboxFromImport": "가져오기에서 왔습니다."
+    "inboxFromImport": "가져오기에서 왔습니다.",
+    "feedsTitle_other": "새 글 {{count}}개",
+    "feedsFromOne": "{{a}}에서",
+    "feedsFromTwo": "{{a}}, {{b}}에서",
+    "feedsFromMore_other": "{{a}}, {{b}} 외 {{count}}곳에서",
+    "feedsRead": "읽기",
+    "feedsFailing": "{{name}}이(가) 업데이트되지 않습니다",
+    "feedsFailingText": "피드가 일주일째 응답하지 않습니다. 사이트에서 피드를 옮기거나 중단했을 수 있습니다.",
+    "feedsShow": "보기",
+    "feedsUnfollow": "팔로우 취소"
   }
 }

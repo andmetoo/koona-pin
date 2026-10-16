@@ -134,7 +134,8 @@
     "exportCsv": "CSV für Tabellen",
     "cleanUp": "Aufräumen",
     "duplicates": "Duplikate",
-    "links": "Linkprüfung"
+    "links": "Linkprüfung",
+    "importFeeds": "Feeds importieren (OPML)…"
   },
   "card": {
     "open": "Öffnen: {{title}}",
@@ -233,7 +234,28 @@
     "removed": "Link entfernt",
     "dropTitle": "Loslassen, um den Link zu speichern",
     "dropHint": "Er kommt in {{place}}; mit Shift in den Eingang",
-    "dropHintInbox": "Er kommt in den Eingang"
+    "dropHintInbox": "Er kommt in den Eingang",
+    "feedHas": "{{site}} hat einen Feed",
+    "feedToggle": "{{site}} folgen",
+    "feedOffHint": "Folgen, um neue Beiträge in Feeds zu bekommen",
+    "feedLooking": "Feed wird geprüft…",
+    "feedPerDay_one": "Etwa {{count}} neuer Beitrag am Tag",
+    "feedPerDay_other": "Etwa {{count}} neue Beiträge am Tag",
+    "feedPerWeek_one": "Etwa {{count}} neuer Beitrag pro Woche",
+    "feedPerWeek_other": "Etwa {{count}} neue Beiträge pro Woche",
+    "feedLast": "der letzte {{when}}",
+    "feedUnreadable": "Dieser Feed lässt sich nicht lesen",
+    "feedFollowed": "Du folgst dieser Website",
+    "feedShow": "Zeigen",
+    "feedDestination": "Neue Beiträge kommen nach",
+    "feedDestFeeds": "Nur Feeds",
+    "feedDestInbox": "Wie den Eingang sortieren",
+    "feedDestNotify": "Auch benachrichtigen",
+    "feedChoose": "Welcher Feed",
+    "feedSaveFollow": "Sichern und folgen",
+    "feedFollowTitle": "{{title}} folgen",
+    "feedFollow": "Folgen",
+    "feedFollowing": "Wird abonniert…"
   },
   "import": {
     "title": "Lesezeichen importieren",
@@ -280,7 +302,20 @@
     "moreSkipped": "und {{count}} weitere",
     "openInbox": "Eingang öffnen",
     "done": "Fertig",
-    "failed": "Import fehlgeschlagen. {{reason}} Nichts wurde hinzugefügt — die Bibliothek ist unverändert."
+    "failed": "Import fehlgeschlagen. {{reason}} Nichts wurde hinzugefügt — die Bibliothek ist unverändert.",
+    "titleFeeds": "Feeds importieren",
+    "leadFeeds": "Exportiere deine Feeds aus einem anderen Reader als OPML und wähle die Datei. Feeds, denen du schon folgst, bleiben, wie sie sind.",
+    "fileFeeds": "Feed-Datei .opml",
+    "opmlFeeds_one": "{{count, number}} Feed",
+    "opmlFeeds_other": "{{count, number}} Feeds",
+    "opmlRule": "Neue Beiträge kommen in Feeds. Ordner der Datei werden nicht übernommen: Feeds haben keine.",
+    "opmlEmpty": "Diese Datei enthält keine Feeds. Exportiere sie aus deinem Reader als OPML.",
+    "opmlAdded_one": "{{count, number}} neuem Feed gefolgt",
+    "opmlAdded_other": "{{count, number}} neuen Feeds gefolgt",
+    "opmlNothingNew": "Keine neuen Feeds",
+    "opmlExisting": "Schon abonniert — unverändert",
+    "opmlReason_invalid_url": "Keine gültige Adresse",
+    "opmlReason_refused": "Auf diesem Computer oder im lokalen Netz"
   },
   "export": {
     "saved_one": "{{count, number}} Lesezeichen in {{name}} gespeichert",
@@ -1561,6 +1596,17 @@
     "inboxMany": "Einzeln behalten, einsortieren oder wegwerfen.",
     "inboxImported_one": "{{count}} davon aus dem Import.",
     "inboxImported_other": "{{count}} davon aus dem Import.",
-    "inboxFromImport": "Aus dem Import."
+    "inboxFromImport": "Aus dem Import.",
+    "feedsTitle_one": "{{count}} neuer Beitrag",
+    "feedsTitle_other": "{{count}} neue Beiträge",
+    "feedsFromOne": "von {{a}}",
+    "feedsFromTwo": "von {{a}} und {{b}}",
+    "feedsFromMore_one": "von {{a}}, {{b}} und {{count}} weiteren",
+    "feedsFromMore_other": "von {{a}}, {{b}} und {{count}} weiteren",
+    "feedsRead": "Lesen",
+    "feedsFailing": "{{name}} wird nicht aktualisiert",
+    "feedsFailingText": "Der Feed antwortet seit einer Woche nicht. Vielleicht wurde er verschoben oder eingestellt.",
+    "feedsShow": "Zeigen",
+    "feedsUnfollow": "Nicht mehr folgen"
   }
 }
