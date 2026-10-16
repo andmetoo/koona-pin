@@ -131,7 +131,8 @@ function useSelectionFrame(
         animation = requestAnimationFrame(tick);
         const view = scroller.getBoundingClientRect();
         const below = pointer.y - (view.bottom - SCROLL_EDGE);
-        const above = view.top + SCROLL_EDGE - pointer.y;
+        // The visible top is below the glass toolbar laid over the list (its scroll padding).
+        const above = view.top + (parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0) + SCROLL_EDGE - pointer.y;
         if (below > 0) scroller.scrollTop += Math.min(SCROLL_MAX, Math.ceil(below / 3));
         else if (above > 0) scroller.scrollTop -= Math.min(SCROLL_MAX, Math.ceil(above / 3));
         const g = geometry.current;

@@ -2808,29 +2808,32 @@
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
   mask-image: linear-gradient(to bottom, transparent, #000 14px);
 }
-/* The library and the article (2026-10-16): what scrolls up goes under a glass at the top edge,
-   as it goes under the sidebar's footer — the page's colour thinning out over a blur. It lies over
-   the padding above the first row, so nothing at rest is touched. */
-.edge-glass {
-  --edge-bg: var(--np-bg);
-  position: relative;
-  z-index: 5;
-  height: 0;
-  pointer-events: none;
+/* The library's toolbar and the reading bar (2026-10-16) are glass over what scrolls, as Safari's
+   toolbar is: the page's colour at 78 % over a blur, so a card or a line passing under shows
+   faintly, and a narrow soft edge below it, like the sidebar's footer. The glass is a pseudo-element:
+   a backdrop-filter on the bar itself would hold the fixed menus that open from it. */
+.toolbar-glass {
+  --glass-bg: var(--np-bg);
+  isolation: isolate;
 }
-[data-reading-mode] .edge-glass {
-  --edge-bg: var(--np-read);
+[data-reading-mode] .toolbar-glass {
+  --glass-bg: var(--np-read);
 }
-.edge-glass::before {
+.toolbar-glass::before {
   content: "";
   position: absolute;
-  inset: 0 0 auto;
-  height: 18px;
-  background: linear-gradient(to bottom, var(--edge-bg), color-mix(in srgb, var(--edge-bg) 55%, transparent) 55%, transparent);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
-  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  inset: 0 0 -10px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--glass-bg) 78%, transparent) calc(100% - 10px),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
 }
 .sidebar-scroll::-webkit-scrollbar {
   display: none;

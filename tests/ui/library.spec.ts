@@ -1365,7 +1365,9 @@ for (const view of ["Grid", "List"])
     // pages load on the way and the frame keeps selecting rows that left the DOM.
     const scroll = page.locator('[data-scroll="main"]');
     const box = (await scroll.boundingBox())!;
-    await page.mouse.move(box.x + 10, box.y + 3);
+    // Below the glass toolbar laid over the top of the list.
+    const top = await scroll.evaluate((e) => parseFloat(getComputedStyle(e).paddingTop));
+    await page.mouse.move(box.x + 10, box.y + top + 3);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width - 60, box.y + 200, { steps: 5 });
     await page.mouse.move(box.x + box.width - 60, box.y + box.height + 150, { steps: 5 });
@@ -1381,9 +1383,9 @@ for (const view of ["Grid", "List"])
     await expect(count).toHaveText(`${framed} selected`);
 
     // A frame without a modifier replaces the selection, with Ctrl it adds.
-    await page.mouse.move(box.x + 10, box.y + 3);
+    await page.mouse.move(box.x + 10, box.y + top + 3);
     await page.mouse.down();
-    await page.mouse.move(box.x + 60, box.y + 60, { steps: 5 });
+    await page.mouse.move(box.x + 60, box.y + top + 60, { steps: 5 });
     // Selection updates on requestAnimationFrame; releasing immediately can cancel its tick.
     await expect(count).toHaveText("1 selected");
     await page.mouse.up();
@@ -1422,7 +1424,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   await search.press("ControlOrMeta+a");
   await expect(bar).toHaveCount(0);
   await search.fill("");
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
 
   const started = Date.now();
   await page.keyboard.press("ControlOrMeta+a");
@@ -1444,7 +1446,7 @@ test("selection: Ctrl A takes every match of 10 000 without loading them; search
   await page.getByRole("button", { name: /^Favorites/ }).click();
   await expect(bar).toHaveCount(0);
   // Ctrl A there adds that section only; Esc in the empty field clears it.
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
   await page.keyboard.press("ControlOrMeta+a");
   await expect(bar.getByRole("status")).toHaveText("3 selected");
   await search.focus();
@@ -1646,7 +1648,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   // In the trash the bar offers to restore, export and delete for good.
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
   await page.keyboard.press("ControlOrMeta+a");
   await expect(bar.getByRole("status")).toHaveText("2 selected");
   await expect(bar.getByRole("button", { name: "Move to…" })).toHaveCount(0);
@@ -1660,7 +1662,7 @@ test("bulk actions: a new collection from the selection, export of the selected,
   await selectCards(page, ["Ten principles for good design", "Noticing the everyday"]);
   await page.keyboard.press("Delete");
   await page.getByRole("button", { name: /^Trash/ }).click();
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("Delete");
   const dialog = page.getByRole("dialog", { name: "Delete forever?" });
@@ -1841,7 +1843,7 @@ test("drag in a narrow window: collection dots and the trash of the strip are ta
 
   // In the trash a press on a selected card does not lift it.
   await strip.getByRole("button", { name: "Trash", exact: true }).click();
-  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 5 } });
+  await page.locator('[data-scroll="main"]').click({ position: { x: 5, y: 120 } });
   await page.keyboard.press("ControlOrMeta+a");
   await dragOver(page, page.locator("[data-bookmark-id][data-selected] [data-preview]").first(), strip.getByRole("button", { name: "Development", exact: true }));
   await expect(page.locator("[data-drag-stack]")).toHaveCount(0);

@@ -378,7 +378,6 @@ export function ReadingMode({
         {current && (
           <ProgressLine key={current.id} bookmark={current} status={currentStatus} scroller={scroller} />
         )}
-        <div aria-hidden className="edge-glass" />
         {/* A stop for Tab with a ring of its own: the arrows, Space and Page Down scroll it. */}
         <div
           ref={scroller}
@@ -392,7 +391,7 @@ export function ReadingMode({
             e.preventDefault();
             focusQueue();
           }}
-          className={`min-h-0 flex-1 scroll-pt-5 overflow-y-auto outline-offset-[-2px] ${narrow ? "px-6 pt-[18px]" : "px-8 pt-7"} pb-24`}
+          className={`min-h-0 flex-1 overflow-y-auto outline-offset-[-2px] ${narrow ? "scroll-pt-[72px] px-6 pt-20" : "scroll-pt-[74px] px-8 pt-24"} pb-24`}
         >
           {current ? (
             <ArticleView
@@ -476,9 +475,10 @@ export function ReadingMode({
           )}
         </div>
         {/* After the article in the document, above it on screen: Tab goes from the queue straight
-            to the article (issue #319), then on through its links to these buttons. */}
+            to the article (issue #319), then on through its links to these buttons. The bar is glass
+            laid over the article, which starts below it and scrolls under it (2026-10-16). */}
         <div
-          className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "mac-lights-gap h-[62px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}
+          className={`toolbar-glass absolute inset-x-0 top-0 z-[5] flex items-start gap-2 ${narrow ? "mac-lights-gap h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}
           data-tauri-drag-region
         >
           {narrow && !empty && (
