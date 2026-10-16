@@ -1608,5 +1608,97 @@
     "feedsFailingText": "Its feed hasn’t answered for a week. The site may have moved the feed or stopped it.",
     "feedsShow": "Show",
     "feedsUnfollow": "Unfollow"
+  },
+  "feeds": {
+    "title": "Feeds",
+    "all": "All feeds",
+    "follow": "Follow a site…",
+    "followSite": "Follow a site",
+    "newCount": "{{count}} new",
+    "updated": "updated {{when}}",
+    "offline": "Offline",
+    "checking": "Checking for new posts…",
+    "notUpdating": "Not updating since {{date}}",
+    "blocked": "The site doesn't let the app in",
+    "gone": "The feed is gone from the site",
+    "moved": "The feed has moved to a new address",
+    "refresh": "Check for new posts",
+    "search": "Search posts",
+    "searchPlaceholder": "Titles and excerpts",
+    "clearSearch": "Clear search",
+    "unread": "Unread",
+    "saved": "saved",
+    "empty": "No posts yet. New ones appear after the next check.",
+    "noMatch": "No posts match «{{query}}»",
+    "article": "Article",
+    "pick": "Choose a post to read",
+    "pickHint": "J and K move through the list",
+    "back": "Back to the list",
+    "save": "Save",
+    "savedLabel": "Saved",
+    "readLater": "Read later",
+    "favorite": "Favorite",
+    "open": "Open in browser",
+    "todayAt": "Today at {{time}}",
+    "yesterdayAt": "Yesterday at {{time}}",
+    "dateAt": "{{date}} at {{time}}",
+    "loadFull": "Load the full article",
+    "loadingFull": "Loading the article…",
+    "none": {
+      "title": "Follow the sites you read",
+      "text": "Paste a site's address into New link and switch on Follow when it has a feed."
+    },
+    "destinations": {
+      "feeds": "Feeds only",
+      "inbox": "Sort them like Inbox",
+      "notify": "Also notify me"
+    },
+    "menu": {
+      "label": "{{name}}: more",
+      "rename": "Rename…",
+      "destination": "Where new posts go",
+      "markRead": "Mark all read",
+      "copy": "Copy feed address",
+      "openSite": "Open site",
+      "unfollow": "Unfollow…"
+    },
+    "rename": {
+      "title": "Rename feed",
+      "name": "Name",
+      "hint": "Empty: the feed's own name",
+      "save": "Rename"
+    },
+    "unfollow": {
+      "title": "Unfollow {{name}}?",
+      "text": "Its posts leave Feeds. Posts you saved stay in your library.",
+      "confirm": "Unfollow"
+    },
+    "notice": {
+      "markedRead": "Marked as read: {{count}}",
+      "allRead": "Everything is read",
+      "alreadySaved": "Already in your library",
+      "noLink": "This post has no link",
+      "favorited": "Added to Favorites",
+      "unfavorited": "Removed from Favorites",
+      "unfollowed": "Unfollowed {{name}}",
+      "destination": "{{name}}: {{place}}",
+      "exported": "Feeds exported: {{count}} · {{name}}",
+      "imported": "Followed: {{added}} · already followed: {{existing}} · skipped: {{skipped}}",
+      "cacheCleared": "Feed cache cleared, checking again"
+    },
+    "settings": {
+      "check": "Check for new posts",
+      "checkHint": "The app fetches feeds itself, straight from the sites.",
+      "manually": "Manually",
+      "keep": "Unsaved posts are kept for 30 days",
+      "keepHint": "Save a post to keep it as a bookmark.",
+      "opml": "Feeds file (OPML)",
+      "opmlHint": "Move your feeds to or from another reader.",
+      "export": "Export…",
+      "import": "Import…",
+      "clear": "Clear feed cache",
+      "clearHint": "Posts are fetched again. Saved ones stay in your library.",
+      "clearButton": "Clear"
+    }
   }
 }

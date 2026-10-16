@@ -49,11 +49,17 @@ import { LinkCheckPage } from "./components/library/LinkCheckPage";
 import { mergedNotice } from "./services/duplicates";
 import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
+import { FeedsPage } from "./components/feeds/FeedsPage";
+import { useFeeds } from "./components/feeds/useFeeds";
+import { useFeedActions } from "./components/feeds/FeedMenu";
+import { feedNotifications } from "./services/feedNotifications";
+import { exportOpml, onFollowFailed, unsubscribeFeed } from "./services/feeds";
+import { parsePlace } from "./services/feedsView";
 import { SyncDialog } from "./components/commercial/SyncDialog";
 import { syncPrompt } from "./components/commercial/syncText";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
+type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -105,7 +111,10 @@ export function App() {
   /** The order of every list but the trash, kept like the view (NP-114). */
   const [sort, setSort] = useState<BookmarkSort>(() => preference("sort", SORTS, "newest"));
   const [filters, setFilters] = useState(initialFilters);
-  const [page, setPage] = useState<"library" | "settings" | "duplicates" | "links">("library");
+  const [page, setPage] = useState<"library" | "settings" | "duplicates" | "links" | "feeds">("library");
+  /** The Feeds page (NP-132): the feed shown (null: All feeds) and the open post, remembered. */
+  const [feedPlace, setFeedPlace] = useState(() => parsePlace(storedValue("feeds.last")));
+  const { feeds, refreshing: feedsRefreshing } = useFeeds();
   const pageRef = useRef(page);
   pageRef.current = page;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -223,6 +232,17 @@ export function App() {
     savePreference("theme", theme);
   }, [theme, dark]);
   useEffect(() => savePreference("view", view), [view]);
+  useEffect(() => savePreference("feeds.last", JSON.stringify(feedPlace)), [feedPlace]);
+  // «New link» closes once the bookmark is saved and follows the site after (NP-133): a follow
+  // that fails then has no sheet to say so, so the app's own notice does.
+  const surfaceNow = useRef<Surface>(null);
+  surfaceNow.current = surface;
+  useEffect(() =>
+    onFollowFailed((err) => {
+      // Once the sheet's own closing has rendered: open, it shows the error itself.
+      window.setTimeout(() => surfaceNow.current !== "add" && setNotice({ text: describeError(err), alert: true }), 50);
+    }),
+  []);
   useEffect(() => savePreference("sort", sort), [sort]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -536,6 +556,13 @@ export function App() {
     setEditing(null);
     setPage("duplicates");
   };
+  /** The Feeds page (NP-132) on a feed, or on All feeds; another feed closes the open post. */
+  const openFeeds = (feedUid: string | null) => {
+    setTriage(null);
+    setEditing(null);
+    setPage("feeds");
+    setFeedPlace((place) => (place.feed === feedUid ? place : { feed: feedUid, item: null }));
+  };
   /** The section «Проверка ссылок» (NP-036): from the sidebar or the menu «⋯». */
   const openLinks = () => {
     setTriage(null);
@@ -620,6 +647,18 @@ export function App() {
    * Settings → «Save a copy…» (NP-034, sheet 33): like an export, «… · Show»
    * for 8 seconds, or an alert with the reason and «Retry».
    */
+  /** «Export feeds (OPML)…» (NP-132): the desktop's Save dialog, then the notice of «Save a copy…». */
+  const exportFeeds = () =>
+    exportOpml().then(
+      (result) =>
+        result.outcome === "saved" &&
+        setNotice({
+          text: t("feeds.notice.exported", { count: result.count, name: result.file_name }),
+          alert: false,
+          long: true,
+        }),
+      (err) => setNotice({ text: describeError(err), alert: true, retry: () => void exportFeeds() }),
+    );
   const saveBackupCopy = () =>
     api.saveBackupCopy().then(
       (result) => {
@@ -716,6 +755,14 @@ export function App() {
       .then(({ command }) => say(readingNotice(t, change), false, undoing(command)))
       .catch((err) => say(describeError(err), true));
   const open = (url: string) => void api.openUrl(url).catch((err) => say(describeError(err), true));
+  /** A feed's row menu in the sidebar and its dialogs (NP-132). */
+  const feedMenu = useFeedActions({
+    onNotice: (text, alert = false) => setNotice({ text, alert }),
+    onOpen: open,
+    onCopy: (text) => void copy(text),
+    onUnfollowed: (feed) => setFeedPlace((place) => (place.feed === feed.uid ? { feed: null, item: null } : place)),
+  });
+  const feedActions = feedMenu.actions;
   /**
    * An offline copy (NP-126): of the article on screen, or of the page read now
    * («Save for offline» of the list); a page that cannot be read says why, as the
@@ -1031,6 +1078,19 @@ export function App() {
       action: { label: t("importOffer.action"), run: () => setSurface("import") },
       dismiss: { label: t("importOffer.hide"), run: endImportOffer },
     });
+  // The feeds' own (NP-133): new posts of feeds that notify, feeds that stopped updating.
+  // «Read» opens All feeds: the page shows one feed or all of them, not a few (NP-132).
+  notifications.push(
+    ...feedNotifications(
+      feeds ?? [],
+      {
+        onRead: (uids) => openFeeds(uids.length === 1 ? uids[0] : null),
+        onShow: (uid) => openFeeds(uid),
+        onUnfollow: (uid) => void unsubscribeFeed(uid).catch((err) => say(describeError(err), true)),
+      },
+      t,
+    ),
+  );
   const clearNotifications = () => {
     if (counts.inbox > 0) hideBanner();
     if (importOffer) endImportOffer();
@@ -1322,6 +1382,11 @@ export function App() {
         dropping={dragging && { target: dragging.target }}
         notifications={notifications}
         onClearNotifications={clearNotifications}
+        feeds={feeds}
+        feedsOpen={page === "feeds"}
+        feedUid={feedPlace.feed}
+        onFeed={openFeeds}
+        feedActions={feedActions}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1356,6 +1421,8 @@ export function App() {
                     sync={sync}
                     onSync={() => setSurface("sync")}
                     onSupporter={() => setSurface("supporter")}
+                    onImportFeeds={() => setSurface("importFeeds")}
+                    onExportFeeds={exportFeeds}
                     openLinks={linkTarget}
                     onOpenLinks={(target) => {
                       setLinkTarget(target);
@@ -1364,6 +1431,33 @@ export function App() {
                   />
                 </div>
               </>
+            ) : page === "feeds" ? (
+              <FeedsPage
+                feeds={feeds ?? []}
+                refreshing={feedsRefreshing}
+                feedUid={feedPlace.feed}
+                itemId={feedPlace.item}
+                onFeed={openFeeds}
+                onItem={(item) => setFeedPlace((place) => ({ ...place, item }))}
+                narrow={narrow}
+                blocked={!!editing || surface !== null || !!reading || !!purging || !!deletingCollection}
+                look={readerLook.look}
+                aa={{
+                  choice: readerLook.choice,
+                  unlocked: readerLook.unlocked,
+                  onChoice: readerLook.setChoice,
+                  onLocked: (wish) => {
+                    readerLook.wish(wish);
+                    setSurface("supporter");
+                  },
+                  onSupporter: () => setSurface("supporter"),
+                }}
+                onOpen={open}
+                onNotice={({ text, alert = false, undo, glass = false }) => setNotice({ text, alert, undo, glass })}
+                onUnsave={(id) => unsave(id, false)}
+                onUndo={undoing}
+                onNewLink={() => setSurface("add")}
+              />
             ) : page === "duplicates" ? (
               <DuplicatesPage
                 collections={library.collections}
@@ -1421,6 +1515,7 @@ export function App() {
                     onView={setView}
                     onSort={setSort}
                     onImport={() => setSurface("import")}
+                    onImportFeeds={() => setSurface("importFeeds")}
                     onExport={exportLibrary}
                     onRestore={() => setSurface("restore")}
                     duplicates={library.counts.duplicates}
@@ -1610,6 +1705,10 @@ export function App() {
             editorFocus.current = null;
             setEditing(b);
           }}
+          onShowFeed={(uid) => {
+            setSurface(null);
+            openFeeds(uid);
+          }}
           onSave={async (link) => {
             const added = await saveLink(link);
             if (added.existing) return added.bookmark;
@@ -1618,8 +1717,9 @@ export function App() {
           }}
         />
       )}
-      {surface === "import" && (
+      {(surface === "import" || surface === "importFeeds") && (
         <ImportDialog
+          kind={surface === "importFeeds" ? "feeds" : "bookmarks"}
           onClose={() => setSurface(null)}
           onImport={async (content, toInbox) => {
             const summary = await api.importHtmlBookmarks(content, toInbox);
@@ -1863,6 +1963,7 @@ export function App() {
           }}
         />
       )}
+      {feedMenu.dialogs}
       {/* NP-123: a click that selects or unselects is said, not only shown; not a status, so notices stay apart. */}
       <p aria-live="polite" data-announcer className="sr-only">
         {announcement}

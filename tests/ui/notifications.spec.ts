@@ -6,6 +6,8 @@ const open = async (page: Page, setup: Record<string, string> = {}) => {
   await page.goto("/");
   await page.evaluate((setup) => {
     localStorage.removeItem("koonapin.demo.v4");
+    // The preview follows no feeds here: Serious Eats notifies of new posts (feeds-follow.spec.ts covers that).
+    localStorage.setItem("koonapin.demo.feeds", "empty");
     for (const [key, value] of Object.entries(setup)) localStorage.setItem(`koonapin.${key}`, value);
   }, setup);
   await page.reload();

@@ -36,7 +36,19 @@ export const isNotImplemented = (error: unknown) => toCommandError(error).code =
 export const listFeeds = (): Promise<Feed[]> => api.listFeeds();
 /** `title` null: the feed's own; an address already followed answers its subscription. */
 export const subscribeFeed = (url: string, title: string | null, destination: FeedDestination): Promise<Feed> =>
-  api.subscribeFeed(url, title, destination);
+  api.subscribeFeed(url, title, destination).catch((err: unknown) => {
+    for (const fn of followFailures) fn(err);
+    throw err;
+  });
+const followFailures = new Set<(error: unknown) => void>();
+/**
+ * Every failed follow, also the one «New link» runs after it closed (NP-132): the app says it
+ * when no sheet is there to. The caller still gets the rejection.
+ */
+export function onFollowFailed(callback: (error: unknown) => void): () => void {
+  followFailures.add(callback);
+  return () => void followFailures.delete(callback);
+}
 /** Null keeps a field; an empty title goes back to the feed's own. */
 export const updateFeed = (uid: string, title: string | null, destination: FeedDestination | null): Promise<Feed> =>
   api.updateFeed(uid, title, destination);

@@ -165,7 +165,8 @@ test("feeds that notify: «N new posts», their names and Read; a feed failing f
 test("More → «Import feeds (OPML)…» takes an OPML file and follows its feeds", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Import feeds (OPML)…" }).click();
-  const dialog = page.getByRole("dialog", { name: "Import bookmarks" });
+  // App opens it for feeds (NP-132): titled «Import feeds» from the start.
+  const dialog = page.getByRole("dialog", { name: "Import feeds" });
   await expect(dialog.locator("input[type=file]")).toHaveAttribute("accept", /\.opml,\.xml/);
   const opml = `<?xml version="1.0"?><opml version="2.0"><head><title>Reader</title></head><body>
     <outline text="Tech"><outline type="rss" text="Ars" xmlUrl="https://feeds.arstechnica.com/arstechnica/index"/>

@@ -1,8 +1,8 @@
 import { KeyboardEvent, PointerEvent, ReactNode, Ref, TransitionEvent, useEffect, useId, useRef, useState } from "react";
-import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
+import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
+import { CaptureStatus, Collection, Feed, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
 import { Offer, offer, percent } from "../../services/update";
 import { collectionColor } from "../../services/collections";
 import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
@@ -16,6 +16,11 @@ import { Dot } from "../ui/Controls";
 import { Hint } from "../ui/Hint";
 import { SearchField } from "./SearchField";
 import { AppNotification, NotificationCenter } from "./NotificationCenter";
+import { Menu } from "../ui/Menu";
+import { feedName } from "../../services/feeds";
+import { healthLine } from "../../services/feedsView";
+import { FeedIcon } from "../feeds/FeedIcon";
+import { FeedActions, feedMenu } from "../feeds/FeedMenu";
 
 export interface SidebarProps {
   narrow: boolean;
@@ -77,6 +82,14 @@ export interface SidebarProps {
   /** The notification centre's bell (2026-10-16): right of the wordmark, under the spirit in the strip. */
   notifications: AppNotification[];
   onClearNotifications: () => void;
+  /** The subscriptions (NP-132): the Feeds section above Collections; null until known. */
+  feeds: Feed[] | null;
+  /** The Feeds page is open, on `feedUid` (null: All feeds). */
+  feedsOpen: boolean;
+  feedUid: string | null;
+  onFeed: (uid: string | null) => void;
+  /** A feed's row menu: Rename, Where new posts go, Mark all read, Copy, Open site, Unfollow. */
+  feedActions: FeedActions;
 }
 
 export interface NewCollectionField {
@@ -96,8 +109,8 @@ const VISIBLE_TAGS = 6;
 /** Hovering a folded section's header this long while dragging the selection opens it. */
 const DRAG_OPEN_MS = 600;
 
-type Fold = "collections" | "tags";
-const FOLDS: Fold[] = ["collections", "tags"];
+type Fold = "feeds" | "collections" | "tags";
+const FOLDS: Fold[] = ["feeds", "collections", "tags"];
 const storedFolds = () => new Set(FOLDS.filter((name) => storedValue(`sidebar.${name}`) === "folded"));
 
 /**
@@ -159,12 +172,13 @@ function useFolds(dragging: boolean) {
 
 /** Sidebar 232 px (frame 01); a 56 px strip of icons in a narrow window (frame 16). */
 export function Sidebar(props: SidebarProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { filters, settingsOpen, counts, collections, tags, capture, narrow } = props;
   const [allTags, setAllTags] = useState(false);
   const duplicatesOpen = props.duplicatesOpen;
   const linksOpen = props.linksOpen;
-  const library = !settingsOpen && !duplicatesOpen && !linksOpen;
+  const feedsOpen = props.feedsOpen;
+  const library = !settingsOpen && !duplicatesOpen && !linksOpen && !feedsOpen;
   /** Shown while there are groups, or while the section is open. */
   const duplicates = counts.duplicates > 0 || duplicatesOpen;
   /** Shown while a check found links to decide on, or while the section is open. */
@@ -191,6 +205,12 @@ export function Sidebar(props: SidebarProps) {
   // The name field of «New collection from selection» is never hidden in a folded section.
   const collectionsFolded = folds.isFolded("collections") && !props.naming;
   const tagsFolded = folds.isFolded("tags");
+  const feedsId = useId();
+  const feedsFolded = folds.isFolded("feeds");
+  const feeds = props.feeds ?? [];
+  const unread = feeds.reduce((sum, f) => sum + f.unread, 0);
+  /** A feed's row menu, from its «…» or a right click. */
+  const [feedMenuAt, setFeedMenuAt] = useState<{ feed: Feed; anchor: DOMRect | { x: number; y: number }; trigger: Element | null } | null>(null);
 
   // The collections' order (NP-114, sheet 41): a drag of a row or of a dot,
   // or `Alt ↑` / `Alt ↓` on the focused one. A screen reader hears the place.
@@ -311,6 +331,13 @@ export function Sidebar(props: SidebarProps) {
             </span>
           </StripButton>
         )}
+        {/* Feeds (NP-132): one button, a dot while there is something new. */}
+        <StripButton label={unread > 0 ? `${t("feeds.title")}: ${t("feeds.newCount", { count: unread })}` : t("feeds.title")} active={feedsOpen} onClick={() => props.onFeed(props.feedUid)}>
+          <span className="relative" data-strip-feeds>
+            <Icon icon={Rss} />
+            {unread > 0 && <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full bg-ink" />}
+          </span>
+        </StripButton>
         <div className="my-2.5 h-px w-6 bg-line" />
         <div ref={list} className="flex flex-col items-center gap-0.5">
           {collections.map((c, i) => (
@@ -437,6 +464,100 @@ export function Sidebar(props: SidebarProps) {
         )}
         {links && <NavRow icon={<Icon icon={Unlink} />} label={t("nav.links")} count={counts.links} active={linksOpen} onClick={props.onLinks} />}
       </nav>
+
+      {/* Feeds (NP-132): above Collections, folding like them; folded, the unread count. */}
+      <div ref={folds.header("feeds")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
+        <SectionHeader label={t("feeds.title")} count={unread} folded={feedsFolded} controls={feedsId} onToggle={() => folds.toggle("feeds")} />
+        <button
+          type="button"
+          aria-label={t("feeds.followSite")}
+          title={t("feeds.followSite")}
+          onClick={props.onNewLink}
+          className="flex size-5 items-center justify-center rounded-sm text-subtle hover:bg-hover hover:text-ink"
+        >
+          <Icon icon={Plus} size={14} />
+        </button>
+      </div>
+      <Folding id={feedsId} folded={feedsFolded}>
+        <nav aria-label={t("feeds.title")} data-sidebar-feeds className="flex flex-col gap-0.5">
+          {props.feeds && feeds.length === 0 ? (
+            <button
+              type="button"
+              onClick={props.onNewLink}
+              className="flex h-8 items-center gap-2.5 rounded-[9px] px-2.5 text-left text-sm text-subtle transition-colors duration-150 hover:bg-hover hover:text-ink"
+            >
+              <Icon icon={Plus} size={14} className="mx-px shrink-0" />
+              <span className="truncate">{t("feeds.follow")}</span>
+            </button>
+          ) : (
+            props.feeds && (
+              <>
+                <NavRow
+                  icon={
+                    <span className="flex size-4 items-center justify-center rounded-[4.5px] bg-ink-btn text-on-ink-btn">
+                      <Icon icon={Rss} size={10} strokeWidth={2.5} />
+                    </span>
+                  }
+                  label={t("feeds.all")}
+                  active={feedsOpen && props.feedUid === null}
+                  onClick={() => props.onFeed(null)}
+                  trailing={<CountPill count={unread} current={feedsOpen && props.feedUid === null} />}
+                />
+                {feeds.map((feed) => {
+                  const problem = healthLine(feed, t, i18n.language);
+                  const current = feedsOpen && props.feedUid === feed.uid;
+                  return (
+                    <div
+                      key={feed.uid}
+                      data-feed-row={feed.uid}
+                      className="group relative"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setFeedMenuAt({ feed, anchor: { x: e.clientX, y: e.clientY }, trigger: null });
+                      }}
+                    >
+                      <NavRow
+                        icon={<FeedIcon feed={feed} size={16} />}
+                        label={feedName(feed)}
+                        title={problem ?? undefined}
+                        active={current}
+                        plain
+                        onClick={() => props.onFeed(feed.uid)}
+                        trailing={
+                          <>
+                            {problem && <span data-feed-problem role="img" aria-label={problem} className="size-1.5 shrink-0 rounded-full bg-amber" />}
+                            <CountPill count={feed.unread} current={current} />
+                          </>
+                        }
+                      />
+                      <button
+                        type="button"
+                        aria-label={t("feeds.menu.label", { name: feedName(feed) })}
+                        aria-haspopup="menu"
+                        onClick={(e) => setFeedMenuAt({ feed, anchor: e.currentTarget.getBoundingClientRect(), trigger: e.currentTarget })}
+                        className="absolute top-1.5 right-9 flex size-5 items-center justify-center rounded-xs text-faint opacity-0 group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
+                      >
+                        <Icon icon={MoreHorizontal} size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </>
+            )
+          )}
+        </nav>
+      </Folding>
+      {feedMenuAt && (
+        <Menu
+          entries={feedMenu(feedMenuAt.feed, t, props.feedActions)}
+          anchor={feedMenuAt.anchor}
+          align="start"
+          label={t("feeds.menu.label", { name: feedName(feedMenuAt.feed) })}
+          trigger={feedMenuAt.trigger}
+          width={232}
+          onClose={() => setFeedMenuAt(null)}
+        />
+      )}
 
       <div ref={folds.header("collections")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
         <SectionHeader
@@ -640,6 +761,18 @@ function Folding({ id, folded, children }: { id: string; folded: boolean; childr
     >
       <div>{children}</div>
     </div>
+  );
+}
+
+/** A feed's unread count (NP-132): a small well pill, ink on the current row, a quiet 0 when nothing is new. */
+function CountPill({ count, current }: { count: number; current: boolean }) {
+  if (count === 0) return <span className="w-[18px] text-right text-xs text-subtle">0</span>;
+  return (
+    <span
+      className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-2xs font-semibold tabular-nums ${current ? "bg-ink-btn text-on-ink-btn" : "bg-well text-ink"}`}
+    >
+      {count}
+    </span>
   );
 }
 

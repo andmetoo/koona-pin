@@ -1703,5 +1703,97 @@
     "feedsFailingText": "Il suo feed non risponde da una settimana. Forse il sito l’ha spostato o chiuso.",
     "feedsShow": "Mostra",
     "feedsUnfollow": "Non seguire più"
+  },
+  "feeds": {
+    "title": "Feed",
+    "all": "Tutti i feed",
+    "follow": "Segui un sito…",
+    "followSite": "Segui un sito",
+    "newCount": "{{count}} nuovi",
+    "updated": "aggiornato {{when}}",
+    "offline": "Offline",
+    "checking": "Cerco nuovi articoli…",
+    "notUpdating": "Non si aggiorna dal {{date}}",
+    "blocked": "Il sito non fa entrare l'app",
+    "gone": "Il feed è sparito dal sito",
+    "moved": "Il feed ha cambiato indirizzo",
+    "refresh": "Cerca nuovi articoli",
+    "search": "Cerca negli articoli",
+    "searchPlaceholder": "Titoli ed estratti",
+    "clearSearch": "Cancella ricerca",
+    "unread": "Non letto",
+    "saved": "salvato",
+    "empty": "Ancora nessun articolo. I nuovi arrivano al prossimo controllo.",
+    "noMatch": "Nessun articolo per «{{query}}»",
+    "article": "Articolo",
+    "pick": "Scegli un articolo",
+    "pickHint": "J e K scorrono la lista",
+    "back": "Torna alla lista",
+    "save": "Salva",
+    "savedLabel": "Salvato",
+    "readLater": "Leggi dopo",
+    "favorite": "Preferito",
+    "open": "Apri nel browser",
+    "todayAt": "Oggi alle {{time}}",
+    "yesterdayAt": "Ieri alle {{time}}",
+    "dateAt": "{{date}} alle {{time}}",
+    "loadFull": "Carica l'articolo completo",
+    "loadingFull": "Caricamento dell'articolo…",
+    "none": {
+      "title": "Segui i siti che leggi",
+      "text": "Incolla l'indirizzo di un sito in «Nuovo link» e attiva «Segui» se ha un feed."
+    },
+    "destinations": {
+      "feeds": "Solo nei Feed",
+      "inbox": "Smistali come la Posta in arrivo",
+      "notify": "Avvisami anche"
+    },
+    "menu": {
+      "label": "{{name}}: altro",
+      "rename": "Rinomina…",
+      "destination": "Dove vanno i nuovi articoli",
+      "markRead": "Segna tutto come letto",
+      "copy": "Copia indirizzo del feed",
+      "openSite": "Apri il sito",
+      "unfollow": "Smetti di seguire…"
+    },
+    "rename": {
+      "title": "Rinomina feed",
+      "name": "Nome",
+      "hint": "Vuoto: il nome proprio del feed",
+      "save": "Rinomina"
+    },
+    "unfollow": {
+      "title": "Smettere di seguire {{name}}?",
+      "text": "I suoi articoli escono dai Feed. Quelli salvati restano nella libreria.",
+      "confirm": "Smetti di seguire"
+    },
+    "notice": {
+      "markedRead": "Segnati come letti: {{count}}",
+      "allRead": "Tutto letto",
+      "alreadySaved": "Già nella libreria",
+      "noLink": "Questo articolo non ha un link",
+      "favorited": "Aggiunto ai Preferiti",
+      "unfavorited": "Tolto dai Preferiti",
+      "unfollowed": "Non segui più {{name}}",
+      "destination": "{{name}}: {{place}}",
+      "exported": "Feed esportati: {{count}} · {{name}}",
+      "imported": "Seguiti: {{added}} · già seguiti: {{existing}} · saltati: {{skipped}}",
+      "cacheCleared": "Cache dei feed svuotata, ricontrollo"
+    },
+    "settings": {
+      "check": "Cerca nuovi articoli",
+      "checkHint": "L'app scarica i feed da sola, direttamente dai siti.",
+      "manually": "A mano",
+      "keep": "Gli articoli non salvati restano 30 giorni",
+      "keepHint": "Salva un articolo per tenerlo come segnalibro.",
+      "opml": "File dei feed (OPML)",
+      "opmlHint": "Porta i tuoi feed da o verso un altro lettore.",
+      "export": "Esporta…",
+      "import": "Importa…",
+      "clear": "Svuota cache dei feed",
+      "clearHint": "Gli articoli vengono riscaricati. Quelli salvati restano nella libreria.",
+      "clearButton": "Svuota"
+    }
   }
 }

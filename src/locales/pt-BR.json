@@ -1703,5 +1703,97 @@
     "feedsFailingText": "O feed não responde há uma semana. O site pode ter mudado o feed de lugar ou encerrado.",
     "feedsShow": "Mostrar",
     "feedsUnfollow": "Deixar de seguir"
+  },
+  "feeds": {
+    "title": "Feeds",
+    "all": "Todos os feeds",
+    "follow": "Seguir um site…",
+    "followSite": "Seguir um site",
+    "newCount": "{{count}} novos",
+    "updated": "atualizado {{when}}",
+    "offline": "Sem conexão",
+    "checking": "Buscando posts novos…",
+    "notUpdating": "Sem atualizar desde {{date}}",
+    "blocked": "O site não deixa o app entrar",
+    "gone": "O feed sumiu do site",
+    "moved": "O feed mudou de endereço",
+    "refresh": "Buscar posts novos",
+    "search": "Pesquisar posts",
+    "searchPlaceholder": "Títulos e trechos",
+    "clearSearch": "Limpar pesquisa",
+    "unread": "Não lido",
+    "saved": "salvo",
+    "empty": "Ainda não há posts. Os novos chegam na próxima verificação.",
+    "noMatch": "Nenhum post para “{{query}}”",
+    "article": "Artigo",
+    "pick": "Escolha um post",
+    "pickHint": "J e K percorrem a lista",
+    "back": "Voltar à lista",
+    "save": "Salvar",
+    "savedLabel": "Salvo",
+    "readLater": "Ler depois",
+    "favorite": "Favorito",
+    "open": "Abrir no navegador",
+    "todayAt": "Hoje às {{time}}",
+    "yesterdayAt": "Ontem às {{time}}",
+    "dateAt": "{{date}} às {{time}}",
+    "loadFull": "Carregar o artigo completo",
+    "loadingFull": "Carregando o artigo…",
+    "none": {
+      "title": "Siga os sites que você lê",
+      "text": "Cole o endereço de um site em “Novo link” e ative “Seguir” se ele tiver feed."
+    },
+    "destinations": {
+      "feeds": "Só em Feeds",
+      "inbox": "Organizar como a Caixa de entrada",
+      "notify": "Também me avisar"
+    },
+    "menu": {
+      "label": "{{name}}: mais",
+      "rename": "Renomear…",
+      "destination": "Para onde vão os posts novos",
+      "markRead": "Marcar tudo como lido",
+      "copy": "Copiar endereço do feed",
+      "openSite": "Abrir o site",
+      "unfollow": "Deixar de seguir…"
+    },
+    "rename": {
+      "title": "Renomear feed",
+      "name": "Nome",
+      "hint": "Vazio: o nome do próprio feed",
+      "save": "Renomear"
+    },
+    "unfollow": {
+      "title": "Deixar de seguir {{name}}?",
+      "text": "Os posts dele saem de Feeds. Os salvos ficam na sua biblioteca.",
+      "confirm": "Deixar de seguir"
+    },
+    "notice": {
+      "markedRead": "Marcados como lidos: {{count}}",
+      "allRead": "Tudo lido",
+      "alreadySaved": "Já está na sua biblioteca",
+      "noLink": "Este post não tem link",
+      "favorited": "Adicionado aos Favoritos",
+      "unfavorited": "Removido dos Favoritos",
+      "unfollowed": "Você deixou de seguir {{name}}",
+      "destination": "{{name}}: {{place}}",
+      "exported": "Feeds exportados: {{count}} · {{name}}",
+      "imported": "Seguidos: {{added}} · já seguidos: {{existing}} · ignorados: {{skipped}}",
+      "cacheCleared": "Cache de feeds limpo, verificando de novo"
+    },
+    "settings": {
+      "check": "Buscar posts novos",
+      "checkHint": "O app baixa os feeds sozinho, direto dos sites.",
+      "manually": "Manualmente",
+      "keep": "Posts não salvos ficam por 30 dias",
+      "keepHint": "Salve um post para guardá-lo como favorito.",
+      "opml": "Arquivo de feeds (OPML)",
+      "opmlHint": "Leve seus feeds para outro leitor ou traga de lá.",
+      "export": "Exportar…",
+      "import": "Importar…",
+      "clear": "Limpar cache de feeds",
+      "clearHint": "Os posts são baixados de novo. Os salvos ficam na sua biblioteca.",
+      "clearButton": "Limpar"
+    }
   }
 }

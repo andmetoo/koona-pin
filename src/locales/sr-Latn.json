@@ -1717,5 +1717,97 @@
     "feedsFailingText": "Fid ne odgovara već nedelju dana. Sajt ga je možda premestio ili ugasio.",
     "feedsShow": "Prikaži",
     "feedsUnfollow": "Prestani da pratiš"
+  },
+  "feeds": {
+    "title": "Fidovi",
+    "all": "Svi fidovi",
+    "follow": "Prati sajt…",
+    "followSite": "Prati sajt",
+    "newCount": "Novih: {{count}}",
+    "updated": "ažurirano {{when}}",
+    "offline": "Nema veze",
+    "checking": "Proveravam nove objave…",
+    "notUpdating": "Ne ažurira se od {{date}}",
+    "blocked": "Sajt ne pušta aplikaciju",
+    "gone": "Fid je nestao sa sajta",
+    "moved": "Fid je prešao na novu adresu",
+    "refresh": "Proveri nove objave",
+    "search": "Pretraži objave",
+    "searchPlaceholder": "Naslovi i izvodi",
+    "clearSearch": "Obriši pretragu",
+    "unread": "Nepročitano",
+    "saved": "sačuvano",
+    "empty": "Još nema objava. Nove stižu posle sledeće provere.",
+    "noMatch": "Nema objava za „{{query}}“",
+    "article": "Članak",
+    "pick": "Izaberite objavu",
+    "pickHint": "J i K — kroz listu",
+    "back": "Nazad na listu",
+    "save": "Sačuvaj",
+    "savedLabel": "Sačuvano",
+    "readLater": "Čitaj kasnije",
+    "favorite": "Omiljeno",
+    "open": "Otvori u pregledaču",
+    "todayAt": "Danas u {{time}}",
+    "yesterdayAt": "Juče u {{time}}",
+    "dateAt": "{{date}} u {{time}}",
+    "loadFull": "Učitaj ceo članak",
+    "loadingFull": "Učitavam članak…",
+    "none": {
+      "title": "Pratite sajtove koje čitate",
+      "text": "Nalepite adresu sajta u „Novi link“ i uključite „Prati“ ako ima fid."
+    },
+    "destinations": {
+      "feeds": "Samo u Fidovima",
+      "inbox": "Razvrstavaj kao Prijemno",
+      "notify": "I obavesti me"
+    },
+    "menu": {
+      "label": "{{name}}: još",
+      "rename": "Preimenuj…",
+      "destination": "Gde idu nove objave",
+      "markRead": "Označi sve kao pročitano",
+      "copy": "Kopiraj adresu fida",
+      "openSite": "Otvori sajt",
+      "unfollow": "Prestani da pratiš…"
+    },
+    "rename": {
+      "title": "Preimenuj fid",
+      "name": "Naziv",
+      "hint": "Prazno — naziv samog fida",
+      "save": "Preimenuj"
+    },
+    "unfollow": {
+      "title": "Prestati da pratite {{name}}?",
+      "text": "Njegove objave nestaju iz Fidova. Sačuvane ostaju u biblioteci.",
+      "confirm": "Prestani da pratiš"
+    },
+    "notice": {
+      "markedRead": "Označeno kao pročitano: {{count}}",
+      "allRead": "Sve je pročitano",
+      "alreadySaved": "Već je u biblioteci",
+      "noLink": "Objava nema link",
+      "favorited": "Dodato u omiljeno",
+      "unfavorited": "Uklonjeno iz omiljenog",
+      "unfollowed": "Više ne pratite {{name}}",
+      "destination": "{{name}}: {{place}}",
+      "exported": "Izvezeno fidova: {{count}} · {{name}}",
+      "imported": "Praćeno: {{added}} · već praćeno: {{existing}} · preskočeno: {{skipped}}",
+      "cacheCleared": "Keš fidova je obrisan, proveravam ponovo"
+    },
+    "settings": {
+      "check": "Proveravaj nove objave",
+      "checkHint": "Aplikacija sama preuzima fidove, direktno sa sajtova.",
+      "manually": "Ručno",
+      "keep": "Nesačuvane objave se čuvaju 30 dana",
+      "keepHint": "Sačuvajte objavu da ostane obeleživač.",
+      "opml": "Datoteka fidova (OPML)",
+      "opmlHint": "Prenesite fidove iz drugog čitača ili u njega.",
+      "export": "Izvezi…",
+      "import": "Uvezi…",
+      "clear": "Obriši keš fidova",
+      "clearHint": "Objave se ponovo preuzimaju. Sačuvane ostaju u biblioteci.",
+      "clearButton": "Obriši"
+    }
   }
 }
