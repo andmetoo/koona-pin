@@ -261,3 +261,24 @@ for (const code of ["en", "de", "ru"]) {
     });
   }
 }
+
+test("dialogs with tabs keep their size and place when the tab changes", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+  const track = tracker(page);
+  const steady = async (name: string, tabs: string[]) => {
+    await track.open(name);
+    for (const tab of tabs) {
+      await track.dialog.getByRole("radio", { name: tab }).click();
+      await expect(track.dialog.locator("[data-tab-panel][data-active]")).toBeVisible();
+      await track.same(tab);
+    }
+    await page.keyboard.press("Escape");
+  };
+  await page.getByRole("button", { name: "No browser yet" }).click();
+  await steady("Connect browser", ["Edge", "Firefox", "Chrome"]);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("switch", { name: "Let AI assistants use your library" }).click();
+  await page.getByRole("button", { name: "How to connect…" }).click();
+  await steady("Connect an AI assistant", ["Claude Code", "ChatGPT", "Custom", "Claude Desktop"]);
+});
