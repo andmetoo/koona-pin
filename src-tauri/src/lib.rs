@@ -15,6 +15,7 @@ pub mod desktop;
 pub mod error;
 pub mod export;
 pub mod feedback;
+pub mod feeds;
 pub mod import;
 pub mod journal;
 pub mod library;
@@ -261,6 +262,22 @@ pub fn run() {
             commercial::sync::rename_device,
             commercial::sync::sync_now,
             commercial::sync::copy_sync_report,
+            feeds::list_feeds,
+            feeds::subscribe_feed,
+            feeds::update_feed,
+            feeds::unsubscribe_feed,
+            feeds::preview_link,
+            feeds::preview_feed,
+            feeds::list_feed_items,
+            feeds::get_feed_article,
+            feeds::set_feed_items_read,
+            feeds::mark_feed_read,
+            feeds::save_feed_item,
+            feeds::refresh_feeds,
+            feeds::clear_feed_cache,
+            feeds::import_opml,
+            feeds::export_opml,
+            feeds::set_feeds_refresh_minutes,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])

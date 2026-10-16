@@ -8,4 +8,9 @@ reading_mark_at_end: boolean,
 /**
  * «Save articles I open in Reading» (NP-126); off by default.
  */
-reading_save_offline: boolean, };
+reading_save_offline: boolean, 
+/**
+ * «Check for new posts» of Settings → Feeds (NP-128), in minutes; 60 by
+ * default, 0 only when the person refreshes.
+ */
+feeds_refresh_minutes: number, };

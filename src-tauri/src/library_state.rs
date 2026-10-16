@@ -100,6 +100,8 @@ pub fn start(app: AppHandle) {
                 crate::autostart::xdg::apply_default(&opened.conn);
                 let db = Arc::new(DbState::new(opened.conn));
                 app.manage(db.clone());
+                // The feed cache beside it (NP-128): its own file and lock.
+                crate::feeds::cache::start(&app, &library.paths.folder());
                 let channel = app.state::<Arc<ChannelState>>().inner().clone();
                 capture_channel::start(app.clone(), db.clone(), channel);
                 let moved_aside = opened

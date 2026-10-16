@@ -1,12 +1,16 @@
 use crate::{charset, net_guard};
 use reqwest::redirect;
 use scraper::{Html, Selector};
+use serde::Serialize;
 use std::net::IpAddr;
 use std::time::Duration;
 use tokio::sync::Semaphore;
 use url::Url;
 
-#[derive(Debug, Default, Clone)]
+/// What a page says about itself. Also the page half of the feeds' link preview
+/// (`feeds::LinkPreview`, NP-128), hence its binding.
+#[derive(Debug, Default, Clone, Serialize, ts_rs::TS)]
+#[ts(export)]
 pub struct PageMetadata {
     pub title: Option<String>,
     pub description: Option<String>,

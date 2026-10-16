@@ -23,7 +23,7 @@ use ts_rs::TS;
 /// Every database command runs here, off the main thread. Sync Tauri
 /// commands run on the main thread, so waiting for the database lock there
 /// (during an import, a copy or a capture) would freeze the window.
-async fn blocking<T: Send + 'static>(
+pub(crate) async fn blocking<T: Send + 'static>(
     state: &State<'_, Arc<DbState>>,
     work: impl FnOnce(&Connection) -> Result<T, CommandError> + Send + 'static,
 ) -> Result<T, CommandError> {
@@ -948,6 +948,9 @@ pub struct AppSettings {
     pub reading_mark_at_end: bool,
     /// «Save articles I open in Reading» (NP-126); off by default.
     pub reading_save_offline: bool,
+    /// «Check for new posts» of Settings → Feeds (NP-128), in minutes; 60 by
+    /// default, 0 only when the person refreshes.
+    pub feeds_refresh_minutes: u32,
 }
 #[tauri::command]
 pub async fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSettings, CommandError> {
@@ -956,6 +959,7 @@ pub async fn get_app_settings(state: State<'_, Arc<DbState>>) -> Result<AppSetti
             close_to_tray: db::setting(conn, "close_to_tray").map_err(text)? == "true",
             reading_mark_at_end: crate::reading::mark_at_end(conn),
             reading_save_offline: offline::save_on_open(conn),
+            feeds_refresh_minutes: crate::feeds::refresh_minutes(conn),
         })
     })
     .await
