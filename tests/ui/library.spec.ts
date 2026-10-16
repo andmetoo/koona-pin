@@ -1953,6 +1953,12 @@ test("a click on a domain filters by site; Esc clears the search; nothing found 
   await search.press("Escape");
   await expect(search).toHaveValue("");
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
+  // The first Esc clears, the field keeps the keys; the next one lets it go: it rests, its hint back.
+  await expect(search).toBeFocused();
+  await search.press("Escape");
+  await expect(search).not.toBeFocused();
+  await expect(page.locator("label kbd")).not.toHaveText("Esc");
+  await expect(page.locator("label kbd")).toHaveCSS("opacity", "1");
 });
 
 test("editor: empty title is marked, tags are chips, Ctrl Enter saves, Cancel keeps the bookmark", async ({ page }) => {

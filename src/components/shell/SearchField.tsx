@@ -42,11 +42,14 @@ export const SearchField = forwardRef<
         onKeyDown={(e) => {
           // Esc inside an IME cancels the character, not the query.
           if (composing(e)) return;
-          // Esc clears the query first (frame 09); an empty field lets it close layers.
+          // Esc clears the query first (frame 09). On an empty field it lets go: the field rests
+          // again (its hint back, no halo) and Esc goes on to close what is open behind it.
           if (e.key === "Escape" && search) {
             e.preventDefault();
             e.stopPropagation();
             onSearch("");
+          } else if (e.key === "Escape") {
+            e.currentTarget.blur();
           }
         }}
         aria-label={t("toolbar.searchLabel")}

@@ -586,3 +586,20 @@ test("the compact grid: smaller cards, more of them in a row, two even in a narr
   await page.reload();
   await expect(page.getByRole("button", { name: "Compact grid", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
+
+test("a click and Esc leave no ring of keyboard focus; an arrow brings it back", async ({ page }) => {
+  const cards = page.locator("[data-bookmark-id]");
+  await cards.nth(1).click({ position: { x: 20, y: 150 } });
+  await expect(cards.nth(1)).toHaveAttribute("data-selected", "true");
+  await page.keyboard.press("Escape");
+  await expect(cards.nth(1)).not.toHaveAttribute("data-selected");
+  await expect(cards.nth(1)).toBeFocused();
+  await expect(cards.nth(1)).toHaveCSS("outline-style", "none");
+  // The pointer leaves the card: its corner buttons go with it, focus does not bring them back.
+  await page.mouse.move(5, 5);
+  await expect(cards.nth(1).locator(".card-action").first()).toHaveCSS("opacity", "0");
+
+  await page.keyboard.press("ArrowRight");
+  await expect(cards.nth(2)).toBeFocused();
+  await expect(cards.nth(2)).toHaveCSS("outline-style", "solid");
+});
