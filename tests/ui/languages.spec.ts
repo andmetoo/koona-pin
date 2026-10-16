@@ -37,8 +37,8 @@ async function cutLabels(page: Page) {
   });
 }
 
-/** WebKitGTK draws a line 1–5 px wider than Windows (#183): the browser status keeps this much of its 144 px slot free (Р-52, п. 7). */
-const LINUX_SPARE = 8;
+/** WebKitGTK draws a line 1–5 px wider than Windows (#183): a menu row keeps this much of its width free, the browser status this much of its 144 px slot (Р-52, п. 7). */
+const LINUX_SPARE = { row: 7, status: 8 };
 
 // The sidebar shows one browser status of several, and the demo has only one of them: every row's
 // words in every language are measured against the row's room in the English layout.
