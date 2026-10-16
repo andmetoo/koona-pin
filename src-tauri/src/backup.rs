@@ -266,6 +266,7 @@ pub fn prune_auto_among(folder: &Path, ours: impl Fn(&str) -> bool) {
 }
 
 /// Whether a file name is one of the automatic copies.
+#[cfg(test)]
 pub fn is_auto(name: &str) -> bool {
     auto_stamp(name).is_some()
 }

@@ -1199,22 +1199,17 @@ mod tests {
         assert!(!table_exists(&conn, "feeds").unwrap());
     }
 
-    /// The column of schema 13 the engine's tests add (`koona-sync/tests/schema13.sql`)
-    /// is the one this step adds.
+    /// The columns of schemas 11 and 13 the engine's tests add (`koona-sync/tests/schema11.sql`,
+    /// `schema13.sql`) are the ones these steps add.
     #[test]
-    fn the_engine_tests_schema_13_as_the_app_makes_it() {
-        let file = include_str!("../commercial/koona-sync/tests/schema13.sql");
-        let columns: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
-        assert_eq!(columns, SCHEMA_13);
-    }
-
-    /// The columns of schema 11 the engine's tests add (`koona-sync/tests/schema11.sql`)
-    /// are the ones this step adds.
-    #[test]
-    fn the_engine_tests_schema_11_as_the_app_makes_it() {
-        let file = include_str!("../commercial/koona-sync/tests/schema11.sql");
-        let columns: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
-        assert_eq!(columns, SCHEMA_11);
+    fn the_engine_tests_schemas_11_and_13_as_the_app_makes_them() {
+        for (name, file, step) in [
+            ("schema11.sql", include_str!("../commercial/koona-sync/tests/schema11.sql"), SCHEMA_11),
+            ("schema13.sql", include_str!("../commercial/koona-sync/tests/schema13.sql"), SCHEMA_13),
+        ] {
+            let columns: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
+            assert_eq!(columns, step, "{name}");
+        }
     }
 
     /// The schema 9 the engine's tests build on (`koona-sync/tests/schema.sql`)

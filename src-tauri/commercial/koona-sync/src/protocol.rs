@@ -628,44 +628,6 @@ impl SyncMessage {
         }
         Ok(message)
     }
-
-    /// Splits `groups` into `changes` batches that each deflate under `MAX_PAYLOAD`, in order,
-    /// every batch with the same `covers` and only the final one `last`.
-    pub fn pack_changes(groups: Vec<Group>, covers: &Vector) -> Result<Vec<Vec<u8>>, Error> {
-        let mut out = Vec::new();
-        pack(groups, covers, &mut out)?;
-        if out.is_empty() {
-            out.push(SyncMessage::Changes { groups: Vec::new(), covers: covers.clone(), last: true });
-        }
-        if let Some(SyncMessage::Changes { last, .. }) = out.last_mut() {
-            *last = true;
-        }
-        out.iter().map(SyncMessage::encode).collect()
-    }
-}
-
-/// Halves a batch until it fits; deflate ratios vary too much to size batches up front.
-fn pack(groups: Vec<Group>, covers: &Vector, out: &mut Vec<SyncMessage>) -> Result<(), Error> {
-    if groups.is_empty() {
-        return Ok(());
-    }
-    let batch = SyncMessage::Changes { groups, covers: covers.clone(), last: false };
-    match batch.encode() {
-        Ok(_) => {
-            out.push(batch);
-            Ok(())
-        }
-        Err(Error::TooLarge) => {
-            let SyncMessage::Changes { mut groups, .. } = batch else { unreachable!() };
-            if groups.len() == 1 {
-                return Err(Error::TooLarge);
-            }
-            let tail = groups.split_off(groups.len() / 2);
-            pack(groups, covers, out)?;
-            pack(tail, covers, out)
-        }
-        Err(other) => Err(other),
-    }
 }
 
 impl PairMessage {
@@ -948,44 +910,6 @@ mod tests {
         assert!(bomb.len() < MAX_PAYLOAD);
         assert_eq!(inflate_json(&bomb), Err(Error::TooLarge));
         assert_eq!(inflate_json(b"\xff\xff\xff"), Err(Error::Inflate));
-    }
-
-    #[test]
-    fn large_answers_split_into_batches_that_fit() {
-        // Notes of random-looking text barely deflate, so 4000 of them need several batches.
-        let mut seed = 1u64;
-        let mut noise = || {
-            (0..400)
-                .map(|_| {
-                    seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
-                    char::from(b'!' + (seed >> 58) as u8)
-                })
-                .collect::<String>()
-        };
-        let groups: Vec<Group> = (0..4000u32)
-            .map(|n| Group {
-                entity: Entity::Bookmark,
-                uid: Uuid::from_u128(u128::from(n) + 1),
-                fields: vec![FieldChange {
-                    field: "notes".into(),
-                    value: json!(noise()),
-                    clock: Clock { hlc: Hlc::new(1, 0), replica: id(1), counter: u64::from(n) + 1 },
-                }],
-                gone: None,
-            })
-            .collect();
-        let covers = Vector::default();
-        let frames = SyncMessage::pack_changes(groups.clone(), &covers).unwrap();
-        assert!(frames.len() > 1);
-        let mut seen = Vec::new();
-        for (n, frame) in frames.iter().enumerate() {
-            assert!(frame.len() <= MAX_PAYLOAD);
-            let SyncMessage::Changes { groups, last, .. } = SyncMessage::decode(frame).unwrap() else { panic!() };
-            assert_eq!(last, n == frames.len() - 1);
-            seen.extend(groups);
-        }
-        assert_eq!(seen, groups);
-        assert_eq!(SyncMessage::pack_changes(Vec::new(), &covers).unwrap().len(), 1);
     }
 
     #[test]

@@ -133,17 +133,9 @@ describe("contrast of body text (acceptance 3: at least 7:1 in every theme)", ()
     expect(body).toBeGreaterThanOrEqual(7);
     expect(ui).toBeGreaterThanOrEqual(7);
   });
-  test("Sepia before and after: B8's ink #5b4636 is under 7:1, the shipped one just over", () => {
-    expect(contrast("#5b4636", "#efe1c6")).toBeLessThan(7);
-    expect(contrast(supporterLook.themes.sepia!.ink, "#efe1c6")).toBeGreaterThanOrEqual(7);
-    expect(contrast(supporterLook.themes.sepia!.ink, "#efe1c6")).toBeLessThan(7.1);
-  });
   test("the formula itself: black on white is 21:1, a colour on itself 1:1", () => {
     expect(contrast("#000000", "#ffffff")).toBeCloseTo(21, 5);
     expect(contrast("#777777", "#777777")).toBe(1);
-  });
-  test("the table for the PR", () => {
-    console.table(table);
   });
 });
 

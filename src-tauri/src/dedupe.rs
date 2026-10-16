@@ -273,40 +273,26 @@ mod tests {
 
     #[test]
     fn the_key_sets_aside_what_does_not_change_the_page() {
-        let page = Some("example.com/page".to_string());
-        for same in [
-            "https://example.com/page",
-            "https://example.com/page/",
-            "https://EXAMPLE.com/page",
-            "http://example.com/page",
-            "https://www.example.com/page",
-            "https://example.com:443/page",
-            "http://example.com:80/page",
-            "https://example.com/page#section",
-            "https://example.com/page?utm_source=newsletter&utm_medium=email",
-            "https://example.com/page?UTM_Campaign=x&fbclid=IwAR2&gclid=1&yclid=2&mc_eid=3&igshid=4",
-            "  https://example.com/page  ",
-        ] {
-            assert_eq!(url_key(same), page, "{same}");
+        // The same cases as duplicates.test.ts, so the demo groups as the app does.
+        let cases: serde_json::Value = serde_json::from_str(include_str!("../../tests/fixtures/url-keys.json")).unwrap();
+        let list = |name: &str| cases[name].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect::<Vec<_>>();
+        let page = cases["key"].as_str().map(String::from);
+        for same in list("same") {
+            assert_eq!(url_key(&same), page, "{same}");
         }
-        for different in [
-            "https://example.com/page?ref=twitter",
-            "https://example.com/Page",
-            "https://example.com/page/more",
-            "https://example.com:8080/page",
-            "https://www2.example.com/page",
-            "https://example.org/page",
-        ] {
-            assert_ne!(url_key(different), page, "{different}");
+        for different in list("different") {
+            assert_ne!(url_key(&different), page, "{different}");
         }
         // Other parameters stay and their order does not matter.
-        assert_eq!(url_key("https://x.io/?b=2&a=1&utm_x=1"), url_key("https://x.io?a=1&b=2"));
-        assert_eq!(url_key("https://x.io/?a=1&b=2").as_deref(), Some("x.io?a=1&b=2"));
-        assert_eq!(url_key("https://trezor.io/").as_deref(), Some("trezor.io"));
+        for pair in cases["equal"].as_array().unwrap() {
+            assert_eq!(url_key(pair[0].as_str().unwrap()), url_key(pair[1].as_str().unwrap()), "{pair}");
+        }
+        for (url, key) in cases["keys"].as_object().unwrap() {
+            assert_eq!(url_key(url).as_deref(), key.as_str(), "{url}");
+        }
         assert_eq!(url_key("https://пример.рф/статья").as_deref(), Some("xn--e1afmkfd.xn--p1ai/%D1%81%D1%82%D0%B0%D1%82%D1%8C%D1%8F"));
-        assert_eq!(url_key("https://пример.рф/статья"), url_key("http://WWW.ПРИМЕР.РФ/статья/"));
-        for none in ["javascript:void(0)", "file:///C:/a.html", "not a url", "ftp://example.com/x"] {
-            assert_eq!(url_key(none), None, "{none}");
+        for none in list("none") {
+            assert_eq!(url_key(&none), None, "{none}");
         }
     }
 
