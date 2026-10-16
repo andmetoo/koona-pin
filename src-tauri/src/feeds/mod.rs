@@ -42,7 +42,7 @@ use crate::{
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use ts_rs::TS;
 use url::Url;
 
@@ -466,18 +466,57 @@ pub async fn unsubscribe_feed(
     Ok(())
 }
 
+/// A fetch that gave no preview, in the interface's words.
+fn preview_error(error: crate::metadata::FetchError) -> CommandError {
+    use crate::metadata::FetchError;
+    match error {
+        FetchError::Refused => CommandError::detailed(
+            ErrorCode::InvalidRequest,
+            ErrorDetail::UnsupportedUrl,
+            "Pages on this computer or the local network are not requested",
+        ),
+        FetchError::Timeout => CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, "The site did not answer in time"),
+        FetchError::Failed => CommandError::detailed(ErrorCode::Network, ErrorDetail::NoConnection, "The page could not be read"),
+    }
+}
+
 /// The pasted page's head: its metadata and the feeds it names (NP-129).
+/// Kept 10 minutes, so Save does not read the page again.
 #[tauri::command]
-pub async fn preview_link(url: String) -> Result<LinkPreview, CommandError> {
-    let _ = url;
-    Err(not_implemented("preview_link"))
+pub async fn preview_link(app: AppHandle, url: String) -> Result<LinkPreview, CommandError> {
+    let now = std::time::Instant::now();
+    let mut preview = match discover::recall(&url, now) {
+        Some(kept) => kept,
+        None => {
+            let preview = discover::link(&url, &discover::LIMITS).await.map_err(preview_error)?;
+            discover::remember(&url, &preview, now);
+            preview
+        }
+    };
+    // Followed or not is read each time: it changes without a new request.
+    if let Some(state) = app.try_state::<Arc<DbState>>() {
+        let mut urls: Vec<String> = preview.feeds.first().map(|f| f.url.clone()).into_iter().collect();
+        urls.push(preview.url.clone());
+        preview.subscribed_uid = blocking(&state, move |conn| {
+            let urls: Vec<&str> = urls.iter().map(String::as_str).collect();
+            Ok(discover::subscribed(conn, &urls))
+        })
+        .await?;
+    }
+    Ok(preview)
 }
 
 /// The feed itself, once the «Follow» toggle is on (NP-129).
 #[tauri::command]
 pub async fn preview_feed(url: String) -> Result<FeedPreview, CommandError> {
-    let _ = url;
-    Err(not_implemented("preview_feed"))
+    let url = feed_url(&url)?;
+    discover::feed(&url, &crate::metadata::Limits::FEED).await.map_err(|failure| match failure {
+        fetch::Failure::Refused => preview_error(crate::metadata::FetchError::Refused),
+        fetch::Failure::Timeout => preview_error(crate::metadata::FetchError::Timeout),
+        fetch::Failure::Connection => preview_error(crate::metadata::FetchError::Failed),
+        fetch::Failure::Parse | fetch::Failure::TooLarge => CommandError::invalid("Not a feed the app can read"),
+        other => CommandError::detailed(ErrorCode::Network, ErrorDetail::ServiceFailed, format!("The feed could not be read ({})", other.reason())),
+    })
 }
 
 /// A page of posts (NP-131).
@@ -518,9 +557,8 @@ pub async fn save_feed_item(id: i64, place: SavePlace, favorite: bool) -> Result
 
 /// ↻ and ⌘R: one feed or all of them now (NP-129).
 #[tauri::command]
-pub async fn refresh_feeds(feed_uid: Option<String>) -> Result<(), CommandError> {
-    let _ = feed_uid;
-    Err(not_implemented("refresh_feeds"))
+pub async fn refresh_feeds(app: AppHandle, feed_uid: Option<String>) -> Result<(), CommandError> {
+    schedule::refresh(&app, schedule::Mode::Now { feed_uid }).await.map(|_| ())
 }
 
 /// «Clear feed cache»: the posts and fetch state go, and every feed is fetched again (NP-131).

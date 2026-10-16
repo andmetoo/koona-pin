@@ -130,6 +130,8 @@ pub fn run() {
             }
             tray::build(app)?;
             updates::start(app.handle());
+            // The feeds' refresh loop (NP-129): it waits for the library and the feed cache.
+            feeds::schedule::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
