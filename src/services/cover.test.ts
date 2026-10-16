@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverOf, hash, monogram, PALETTE, pendingFor, PENDING_MS } from "./cover";
+import { coverOf, hash, monogram, PALETTE, pendingFor, PENDING_MS, siteName } from "./cover";
 
 describe("covers of bookmarks without a picture (NP-087)", () => {
   it("are the same for the same address, on every start", () => {
@@ -62,5 +62,18 @@ describe("covers of bookmarks without a picture (NP-087)", () => {
     expect(pendingFor({ ...fresh, revision: 2 }, now), "the metadata came, with nothing").toBe(0);
     expect(pendingFor({ ...fresh, created_at: "2026-10-06T11:59:00.000Z" }, now)).toBe(0);
     expect(pendingFor({ ...fresh, created_at: "2026-10-06T12:05:00.000Z" }, now), "a clock ahead does not shimmer forever").toBe(0);
+  });
+
+  it("names a poster cover by the site's own name, else by the label of its domain", () => {
+    expect(siteName({ domain: "kottke.org" })).toBe("kottke");
+    expect(siteName({ domain: "bbc.co.uk" })).toBe("bbc");
+    expect(siteName({ domain: "www.theverge.com" })).toBe("theverge");
+    expect(siteName({ domain: "mail.google.com" })).toBe("google");
+    expect(siteName({ domain: "localhost" })).toBe("localhost");
+    expect(siteName({ domain: "kottke.org", site_name: "Kottke.org" })).toBe("Kottke.org");
+    expect(siteName({ domain: "kottke.org", site_name: "  " })).toBe("kottke");
+    expect(siteName({ domain: "kottke.org", site_name: null })).toBe("kottke");
+    expect(siteName({ domain: "192.168.1.1", title: " Router " })).toBe("Router");
+    expect(siteName({ domain: "192.168.1.1" })).toBe("192.168.1.1");
   });
 });

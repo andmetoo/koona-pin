@@ -343,7 +343,7 @@ export function BookmarkList({
   }, [hasMore, loadingMore, count, last, margin, onMore]);
 
   return (
-    <div ref={box} data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined}>
+    <div ref={box} data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined} data-has-selection={selected.size > 0 || undefined}>
       {/* What a selected card or row adds to its name for a screen reader (NP-123). */}
       <span id={SELECTED_NOTE} hidden>
         {t("card.selected")}

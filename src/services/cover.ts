@@ -120,16 +120,36 @@ export function coverOf(domain: string, url: string): Cover {
 /** Second-level labels that are not the site's name: «co» of «bbc.co.uk». */
 const GENERIC = new Set(["co", "com", "org", "net", "gov", "ac", "edu", "or", "ne", "go"]);
 
+const NUMERIC = /^[\d.:[\]]+$/;
+
+/** The label that names the site: «google» of «mail.google.com», «bbc» of «bbc.co.uk». */
+function siteLabel(domain: string): string {
+  const labels = domain.toLowerCase().replace(/^www\./, "").split(".").filter(Boolean);
+  let name = labels.length > 1 ? labels[labels.length - 2] : (labels[0] ?? "");
+  if (labels.length > 2 && GENERIC.has(name)) name = labels[labels.length - 3];
+  return name;
+}
+
 /**
  * The letter of a site without an icon: «G» for «mail.google.com», «B» for
  * «bbc.co.uk». An address by number says nothing: the page's title does.
  */
 export function monogram(domain: string, title = ""): string {
-  if (/^[\d.:[\]]+$/.test(domain)) return (Array.from(title.trim())[0] ?? "#").toLocaleUpperCase();
-  const labels = domain.toLowerCase().replace(/^www\./, "").split(".").filter(Boolean);
-  let name = labels.length > 1 ? labels[labels.length - 2] : (labels[0] ?? "");
-  if (labels.length > 2 && GENERIC.has(name)) name = labels[labels.length - 3];
-  return (Array.from(name)[0] ?? "?").toLocaleUpperCase();
+  if (NUMERIC.test(domain)) return (Array.from(title.trim())[0] ?? "#").toLocaleUpperCase();
+  return (Array.from(siteLabel(domain))[0] ?? "?").toLocaleUpperCase();
+}
+
+/**
+ * The name a poster cover writes large: the site's own name when the page
+ * gave one (og:site_name), else the label of the domain the monogram takes its
+ * letter from — «kottke» of «kottke.org», «bbc» of «bbc.co.uk». An address by
+ * number has the page's title instead.
+ */
+export function siteName(b: { domain: string; title?: string; site_name?: string | null }): string {
+  const own = b.site_name?.trim();
+  if (own) return own;
+  if (NUMERIC.test(b.domain)) return b.title?.trim() || b.domain;
+  return siteLabel(b.domain) || b.domain;
 }
 
 /**
