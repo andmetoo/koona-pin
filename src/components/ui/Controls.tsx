@@ -48,7 +48,7 @@ export function Switch({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-150 disabled:opacity-45 ${checked ? "bg-accent" : "bg-border"}`}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-150 disabled:opacity-45 ${checked ? "bg-accent" : "bg-border dark:bg-white/[14%]"}`}
     >
       <span
         className={`absolute top-0.5 left-0 size-4 rounded-full bg-white shadow-active transition-transform duration-150 ${checked ? "translate-x-[18px]" : "translate-x-0.5"}`}
