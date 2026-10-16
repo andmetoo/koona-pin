@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, TriangleAlert, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError, reasonOf } from "./services/errors";
 import { composing } from "./services/ime";
 import { isArrow, isDeleteKey, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
+import { carriesLink, destinationOf, linkFrom } from "./services/addLink";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedOpenLinks, storedTheme, storedValue, Theme } from "./services/preferences";
@@ -19,10 +20,11 @@ import { useReaderLook } from "./hooks/useReaderLook";
 import { ClipIcon, Icon, InboxTray } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
-import { Hint, Kbd } from "./components/ui/Hint";
+import { Kbd } from "./components/ui/Hint";
 import { Dialog } from "./components/ui/Dialog";
 import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
+import { AppNotification } from "./components/shell/NotificationCenter";
 import { Toolbar } from "./components/shell/Toolbar";
 import { BookmarkActions } from "./components/library/Bookmarks";
 import { Arrows, BookmarkList } from "./components/library/BookmarkList";
@@ -34,7 +36,8 @@ import { ReadingSheet } from "./components/reader/ReadingSheet";
 import { ReadingMode, ReadingSource } from "./components/reader/ReadingMode";
 import { failureText } from "./components/reader/ArticleView";
 import { AssistantDialog } from "./components/settings/AssistantDialog";
-import { AddLinkDialog, BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
+import { AddSheet, NewLink } from "./components/library/AddSheet";
+import { BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
@@ -57,7 +60,7 @@ type Surface = "add" | "import" | "restore" | "backup" | "connect" | "assistant"
  * 8 seconds with a close button (frame 21); `show` is «Показать» after an
  * export, 8 seconds (frame 29).
  */
-type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void } | null;
+type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void; glass?: boolean } | null;
 /** Columns of the CSV, titled in the interface's language (NP-032). */
 const CSV_COLUMNS = ["title", "url", "domain", "collection", "tags", "notes", "favorite", "inbox", "saved"] as const;
 type Section = Partial<Pick<FilterState, "collectionId" | "onlyFavorites" | "onlyInbox" | "onlyTrash" | "onlyReading" | "onlyOffline">>;
@@ -117,6 +120,8 @@ export function App() {
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(emptyDraft);
   /** Inbox triage (NP-025) and the filters to go back to when it ends. */
   const [triage, setTriage] = useState<FilterState | null>(null);
+  const triageRef = useRef(triage);
+  triageRef.current = triage;
   /** Selected bookmarks (NP-028): cleared by another section, settings or triage. */
   const selection = useSelection(filters, page === "library" && !triage);
   const selectionRef = useRef(selection);
@@ -134,6 +139,8 @@ export function App() {
   const [sheet, setSheet] = useState<{ ids: number[]; index: number } | null>(null);
   /** The reading mode (NP-122): what its queue reads and which bookmark it starts with. */
   const [reading, setReading] = useState<{ source: ReadingSource; start: number | null } | null>(null);
+  const readingRef = useRef(reading);
+  readingRef.current = reading;
   /** The toolbar's «Read»: the drop starts there and folds back into it. */
   const readButton = useRef<HTMLButtonElement>(null);
   /** What had focus before the mode: it gets it back. */
@@ -153,6 +160,10 @@ export function App() {
   /** «Новая коллекция из выбранного»: the name offered in the sidebar field and the colour the collection will get, while it is open. */
   const [naming, setNaming] = useState<{ suggested: string; color: string } | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  /** A link just saved by hand (2026-10-16): its card lands first with a spring. */
+  const [fresh, setFresh] = useState<number | null>(null);
+  /** A link dragged over the window: the veil, and whether Shift sends it to the inbox. */
+  const [veil, setVeil] = useState<{ inbox: boolean } | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   /** The app's own update (NP-038, sheet 42), checked by Rust; the version that runs and the system for the dialog. */
@@ -299,6 +310,83 @@ export function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [wide, editing, triage, page, filters.onlyTrash, filters.onlyReading, reading]);
+  // `⌘V` in the library with a link on the clipboard saves it at once (2026-10-16). The paste
+  // event carries the clipboard itself: no permission, nothing read before the person pastes.
+  // In a field, under a dialog, the editor or the reading mode the paste is theirs.
+  useEffect(() => {
+    const paste = (e: ClipboardEvent) => {
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable=true]") || quickBlocked()) return;
+      const data = e.clipboardData;
+      const url = linkFrom(data?.getData("text/uri-list"), true) ?? linkFrom(data?.getData("text/plain"));
+      if (!url) return;
+      e.preventDefault();
+      quickSaveRef.current(url);
+    };
+    document.addEventListener("paste", paste);
+    return () => document.removeEventListener("paste", paste);
+  }, []);
+  // A link dragged from a browser or another app frosts the window; dropped, it is saved, with
+  // Shift into the inbox (2026-10-16). Files and the app's own drags are left alone: the
+  // selection's drag is a pointer drag and never starts one of these.
+  useEffect(() => {
+    let depth = 0;
+    let accepting = false;
+    let own = false;
+    const start = () => (own = true);
+    const end = () => (own = false);
+    const enter = (e: DragEvent) => {
+      if (depth === 0) accepting = !own && carriesLink(e.dataTransfer?.types) && !quickBlocked();
+      if (!accepting) return;
+      depth++;
+      e.preventDefault();
+      setVeil({ inbox: e.shiftKey });
+    };
+    const over = (e: DragEvent) => {
+      if (!accepting) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+      setVeil((current) => (current?.inbox === e.shiftKey ? current : { inbox: e.shiftKey }));
+    };
+    const leave = () => {
+      if (!accepting) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) {
+        accepting = false;
+        setVeil(null);
+      }
+    };
+    const drop = (e: DragEvent) => {
+      if (!accepting) return;
+      e.preventDefault();
+      depth = 0;
+      accepting = false;
+      setVeil(null);
+      const data = e.dataTransfer;
+      const url = linkFrom(data?.getData("text/uri-list"), true) ?? linkFrom(data?.getData("text/plain"));
+      if (url) quickSaveRef.current(url, e.shiftKey);
+    };
+    window.addEventListener("dragstart", start);
+    window.addEventListener("dragend", end);
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragover", over);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragstart", start);
+      window.removeEventListener("dragend", end);
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("drop", drop);
+    };
+  }, []);
+  // The landing plays once; a later render of the card must not play it again.
+  useEffect(() => {
+    if (fresh === null) return;
+    const timer = window.setTimeout(() => setFresh(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [fresh]);
   // The first close without a tray explains that the app keeps running (NP-096).
   useEffect(() => api.onCloseToBackground(() => setSurface("background")), []);
   useEffect(() => {
@@ -482,6 +570,19 @@ export function App() {
     setImportOffer(false);
     savePreference("importBanner", "done");
   };
+  /** The newest three waiting bookmarks, fanned in the inbox notification. */
+  const [inboxThumbs, setInboxThumbs] = useState<Bookmark[]>([]);
+  useEffect(() => {
+    if (!library.counts.inbox) return setInboxThumbs([]);
+    let current = true;
+    api
+      .getBookmarks({ onlyInbox: true }, { limit: 3 })
+      .then((page) => current && setInboxThumbs(page.items))
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [library.counts.inbox, library.counts.inbox_newest]);
   /**
    * Menu «⋯» → Export (NP-032, frame 29): the Save dialog, then «… сохранено
    * в … · Показать» for 8 seconds, or an alert with the reason and
@@ -774,6 +875,76 @@ export function App() {
   };
 
   const collection = library.collections.find((c) => c.id === filters.collectionId);
+
+  /**
+   * A link saved by hand (2026-10-16): the sheet, `⌘V` in the library and a link
+   * dropped on the window. Every link arrives in the inbox; «Library» sorts it at
+   * once (into the chosen collection, if any), «Reading» sorts it and puts it in
+   * Reading. A link already there changes nothing. The card lands first and a
+   * glass notice says where it went, with «Undo».
+   */
+  const saveLink = async ({ url, title, collectionId, tags, destination }: NewLink) => {
+    const added = await api.addBookmark({ url, title, collectionId: destination === "inbox" ? null : collectionId, tags });
+    if (added.existing) return added;
+    const b = added.bookmark;
+    if (destination !== "inbox") await api.bulkUpdate([b.id], { action: "move", collection_id: collectionId ?? b.collection_id });
+    if (destination === "reading") await api.bulkUpdate([b.id], { action: "reading", reading: true });
+    scrollRef.current?.scrollTo({ top: 0 });
+    await library.refresh();
+    setFresh(b.id);
+    const into = destination === "library" ? library.collections.find((c) => c.id === (collectionId ?? b.collection_id)) : undefined;
+    const place = destination === "inbox" ? t("nav.inbox") : destination === "reading" ? t("nav.reading") : (into?.name ?? t("import.library"));
+    setNotice({
+      text: added.restored ? (destination === "inbox" ? t("notice.restoredLink") : t("add.restoredTo", { place })) : t("add.savedTo", { place }),
+      alert: false,
+      glass: true,
+      undo: () => unsave(b.id, added.restored),
+    });
+    return added;
+  };
+  /**
+   * «Undo» of a saved link: a new one is gone again, for good — it was never
+   * there; one that came back from the trash goes back to it.
+   */
+  const unsave = (id: number, restored: boolean) => {
+    setNotice(null);
+    setFresh(null);
+    void api
+      .trashBookmark(id)
+      .then(() => (restored ? undefined : api.deleteForever(id)))
+      .then(() => library.refresh())
+      .then(
+        () => setNotice({ text: t("add.removed"), alert: false, glass: true }),
+        (err) => say(describeError(err), true),
+      );
+  };
+  /** `⌘V` and a drop save at once, where the person is; `toInbox`: Shift held on the drop. */
+  const quickSave = (url: string, toInbox = false) => {
+    const destination = toInbox ? "inbox" : destinationOf(filters);
+    void saveLink({ url, collectionId: destination === "inbox" ? null : filters.collectionId, tags: [], destination }).then(
+      (added) =>
+        added.existing &&
+        setNotice({
+          text: t("notice.linkExisting"),
+          alert: false,
+          glass: true,
+          show: () => {
+            setNotice(null);
+            editorFocus.current = null;
+            setEditing(added.bookmark);
+          },
+        }),
+      (err) => say(describeError(err), true),
+    );
+  };
+  /** Where a drop saves without Shift, as the veil names it. */
+  const dropPlace =
+    destinationOf(filters) === "reading" ? t("nav.reading") : (library.collections.find((c) => c.id === filters.collectionId)?.name ?? t("import.library"));
+  const quickSaveRef = useRef(quickSave);
+  quickSaveRef.current = quickSave;
+  /** Whether `⌘V` and a drop may save now: the library on screen, nothing over it. */
+  const quickBlocked = () =>
+    pageRef.current !== "library" || !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
   const { counts } = library;
   const section = filters.onlyTrash
     ? t("nav.trash")
@@ -808,13 +979,62 @@ export function App() {
             : collection
           ? (collection.count ?? 0)
           : counts.total;
-  // Hidden until a bookmark newer than the remembered one arrives (NP-020).
-  // In the inbox itself it always leads to triage (NP-025), there is no other
-  // way in; the trash is about what was thrown away (frame 25).
-  const inboxBanner =
-    counts.inbox > 0 &&
-    !filters.onlyTrash &&
-    (filters.onlyInbox || !(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden));
+  // The inbox notification is hidden until a bookmark newer than the remembered one arrives (NP-020).
+  const inboxHidden = !!(bannerHidden && counts.inbox_newest && counts.inbox_newest <= bannerHidden);
+  // In the inbox itself the banner stays on the page, never hidden: it leads to triage (NP-025).
+  const inboxBanner = counts.inbox > 0 && filters.onlyInbox;
+  // The notification centre (2026-10-16): the inbox waiting, the import offer and a browser
+  // that can't send bookmarks, behind the bell in the sidebar instead of banners over the list.
+  const notifications: AppNotification[] = [];
+  if (capture?.state === "failing")
+    notifications.push({
+      key: `capture:${capture.problem ?? "channel"}`,
+      kind: "problem",
+      icon: TriangleAlert,
+      title: t("browser.failing"),
+      text: problemBanner(capture, t),
+      action: { label: t("browser.details"), run: () => setPage("settings") },
+    });
+  if (counts.inbox > 0 && !inboxHidden)
+    notifications.push({
+      // A newer bookmark makes it a new notification, unread again.
+      key: `inbox:${counts.inbox_newest ?? counts.inbox}`,
+      kind: "inbox",
+      icon: InboxTray,
+      title: t("notifications.inboxTitle", { count: counts.inbox }),
+      text: [
+        counts.inbox_imported >= counts.inbox
+          ? t("notifications.inboxFromImport")
+          : counts.inbox_imported > 0
+            ? t("notifications.inboxImported", { count: counts.inbox_imported })
+            : "",
+        counts.inbox > QUICK_INBOX
+          ? t("notifications.inboxMany")
+          : counts.inbox === 1
+            ? t("notifications.inboxTextOne")
+            : t("notifications.inboxText"),
+      ]
+        .filter(Boolean)
+        .join(" "),
+      at: counts.inbox_newest,
+      thumbs: inboxThumbs,
+      action: { label: t("inbox.sort"), run: openTriage },
+      dismiss: { label: t("inbox.hide"), run: hideBanner },
+    });
+  if (importOffer)
+    notifications.push({
+      key: "importOffer",
+      kind: "offer",
+      icon: Import,
+      title: t("importOffer.label"),
+      text: t("importOffer.text"),
+      action: { label: t("importOffer.action"), run: () => setSurface("import") },
+      dismiss: { label: t("importOffer.hide"), run: endImportOffer },
+    });
+  const clearNotifications = () => {
+    if (counts.inbox > 0) hideBanner();
+    if (importOffer) endImportOffer();
+  };
   const searching = filters.search.trim() !== "";
   /** Search, tag or site narrow the section: the header shows «N из M». */
   const narrowed = searching || !!filters.tag || !!filters.domain;
@@ -967,9 +1187,30 @@ export function App() {
       onDragStart={filters.onlyTrash || bulkBusy ? undefined : startDrag}
       dragging={!!dragging}
       arrowsRef={arrowsRef}
+      fresh={fresh}
     />
   );
-  const toast = notice ? (
+  const toast = notice?.glass ? (
+    <Toast
+      glass
+      docked={selecting}
+      action={
+        notice.undo ? (
+          <button type="button" onClick={notice.undo}>
+            {t("notice.undo")}
+          </button>
+        ) : (
+          notice.show && (
+            <button type="button" onClick={notice.show}>
+              {t("add.show")}
+            </button>
+          )
+        )
+      }
+    >
+      {notice.text}
+    </Toast>
+  ) : notice ? (
     <Toast
       docked={selecting}
       tone={notice.alert ? "alert" : "status"}
@@ -1061,6 +1302,7 @@ export function App() {
         onLinks={openLinks}
         onConnect={() => setSurface("connect")}
         onNewCollection={() => setSurface("collection")}
+        onNewLink={() => setSurface("add")}
         onDeleteCollection={setDeletingCollection}
         onReorderCollections={(ids) => void library.reorderCollections(ids).catch((err) => say(describeError(err), true))}
         naming={
@@ -1078,6 +1320,8 @@ export function App() {
             : null
         }
         dropping={dragging && { target: dragging.target }}
+        notifications={notifications}
+        onClearNotifications={clearNotifications}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1158,6 +1402,7 @@ export function App() {
                 }}
                 onFinish={finishTriage}
                 onLibrary={() => navigate()}
+                noticeUp={!!notice || !!movedAside}
               />
             ) : (
               <>
@@ -1182,21 +1427,9 @@ export function App() {
                     onDuplicates={openDuplicates}
                     links={library.counts.links}
                     onLinks={openLinks}
-                    onAdd={() => setSurface("add")}
                     onRead={() => openReading()}
                     readRef={readButton}
                   />
-                  {capture?.state === "failing" && (
-                    <Banner
-                      action={
-                        <Button variant="onDanger" onClick={() => setPage("settings")}>
-                          {t("browser.details")}
-                        </Button>
-                      }
-                    >
-                      {problemBanner(capture, t)}
-                    </Banner>
-                  )}
                   {damaged && (
                     <Banner
                       action={
@@ -1232,56 +1465,16 @@ export function App() {
                       {library.error}
                     </Banner>
                   )}
-                  {importOffer && !filters.onlyTrash && (
-                    <Banner
-                      tone="quiet"
-                      label={t("importOffer.label")}
-                      icon={<Icon icon={Import} size={18} />}
-                      action={
-                        <span className="flex shrink-0 items-center gap-3">
-                          <Button variant="outline" className="bg-surface text-ink" onClick={() => setSurface("import")}>
-                            {t("importOffer.action")}
-                          </Button>
-                          <Hint label={t("importOffer.hide")}>
-                            <button
-                              type="button"
-                              aria-label={t("importOffer.hide")}
-                              onClick={endImportOffer}
-                              className="flex size-6 items-center justify-center rounded-md text-icon transition-colors duration-150 hover:text-ink"
-                            >
-                              <Icon icon={X} size={14} />
-                            </button>
-                          </Hint>
-                        </span>
-                      }
-                    >
-                      {t("importOffer.text")}
-                    </Banner>
-                  )}
                   {inboxBanner && (
                     <Banner
                       tone="accent"
                       label={t("inbox.bannerLabel")}
                       icon={<Icon icon={InboxTray} size={18} />}
                       action={
-                        <span className="flex shrink-0 items-center gap-3">
-                          <Button variant="primary" onClick={openTriage}>
-                            {t("inbox.sort")}
-                            <Icon icon={ChevronRight} size={13} />
-                          </Button>
-                          {!filters.onlyInbox && (
-                          <Hint label={t("inbox.hide")}>
-                            <button
-                              type="button"
-                              aria-label={t("inbox.hide")}
-                              onClick={hideBanner}
-                              className="flex size-6 items-center justify-center rounded-md text-accent-muted transition-colors duration-150 hover:text-on-accent-soft"
-                            >
-                              <Icon icon={X} size={14} />
-                            </button>
-                          </Hint>
-                          )}
-                        </span>
+                        <Button variant="primary" onClick={openTriage}>
+                          {t("inbox.sort")}
+                          <Icon icon={ChevronRight} size={13} />
+                        </Button>
                       }
                     >
                       {narrow
@@ -1407,19 +1600,21 @@ export function App() {
         </Dialog>
       )}
       {surface === "add" && (
-        <AddLinkDialog
+        <AddSheet
           collections={library.collections}
+          destination={destinationOf(filters)}
           collectionId={filters.collectionId}
           onClose={() => setSurface(null)}
-          onAdd={async (data) => {
-            const added = await api.addBookmark(data);
-            // A link already there changed nothing: the list stays where it was read.
-            if (!added.existing) {
-              scrollRef.current?.scrollTo({ top: 0 });
-              await library.refresh();
-            }
+          onShow={(b) => {
             setSurface(null);
-            say(added.restored ? t("notice.restoredLink") : added.existing ? t("notice.linkExisting") : t("notice.linkSaved"));
+            editorFocus.current = null;
+            setEditing(b);
+          }}
+          onSave={async (link) => {
+            const added = await saveLink(link);
+            if (added.existing) return added.bookmark;
+            setSurface(null);
+            return null;
           }}
         />
       )}
@@ -1673,6 +1868,19 @@ export function App() {
         {announcement}
       </p>
       {(!selecting || reading) && toast}
+      {veil && (
+        <div className="drop-veil" data-drop-veil={veil.inbox ? "inbox" : "library"} aria-hidden>
+          <div>
+            <span className="drop-veil-ring">
+              <Icon icon={Plus} size={26} strokeWidth={2} />
+            </span>
+            <b className="block text-lg font-bold tracking-[-0.01em]">{t("add.dropTitle")}</b>
+            <span className="mt-1 block text-sm text-muted">
+              {veil.inbox || destinationOf(filters) === "inbox" ? t("add.dropHintInbox") : t("add.dropHint", { place: dropPlace })}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

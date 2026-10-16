@@ -42,7 +42,7 @@ Tokens are CSS custom properties `--np-*`: light values on `:root`, dark values 
 | `--np-danger-soft` | Error banner | `#f6e4e1` | `#33211f` |
 | `--np-toast` | Notices, key hints | `#2e302b` | `#30302d` |
 
-Also in the file: `--np-divider`, `--np-accent-muted`, `--np-suggested`, `--np-on-danger-soft`, `--np-scrim` (overlay behind dialogs and the editor in a narrow window), the five collection colours (`--np-terracotta`, `--np-green`, `--np-blue`, `--np-ochre`, `--np-lilac`), the update row in collection blue (`--np-update*`), a warm amber for update problems (`--np-amber*`), the menu's glass (`--np-menu-glass`, `--np-menu-shadow`), the field shadow `--np-shadow-1` and the dark scrollbar thumb `--np-thumb`. The `--np-read-*` tokens belong to the reading themes the user picks and do not follow the app's dark theme.
+Also in the file: `--np-divider`, `--np-accent-muted`, `--np-suggested`, `--np-on-danger-soft`, `--np-scrim` (overlay behind dialogs and the editor in a narrow window), the five collection colours (`--np-terracotta`, `--np-green`, `--np-blue`, `--np-ochre`, `--np-lilac`; coral, teal, indigo, amber and violet since 2026-10-16), the ink button of the end of triage (`--np-ink-btn`, `--np-on-ink-btn`, `--np-ink-btn-hover`), the update row in collection blue (`--np-update*`), a warm amber for update problems (`--np-amber*`), the menu's glass (`--np-menu-glass`, `--np-menu-shadow`), the field shadow `--np-shadow-1` and the dark scrollbar thumb `--np-thumb`. The `--np-read-*` tokens belong to the reading themes the user picks and do not follow the app's dark theme.
 
 The dark theme is "deep": a near-black ground with surfaces lifted from it in steps of light (panel below the page, card and raised above it). Edges, lines, hovers and wells are white at a few per cent, so one value reads on the panel, the page and the card alike. Whatever is laid over another colour as a solid (secondary surfaces and their hover, toasts, soft tints, collection colours) stays opaque.
 
@@ -93,6 +93,17 @@ Radii: `rounded-sm` 6, `rounded-md` 7, `rounded-lg` 8 px for controls; `rounded-
 - Animate named properties, never `transition: all`. Under `prefers-reduced-motion: reduce` durations drop to zero globally.
 - Space for previews, titles and metadata is reserved; late metadata never shifts the layout.
 - Focus is always visible: a 2 px accent ring with a 2 px gap (`:focus-visible`); fields use the `field` utility (1 px border, accent border and 3 px halo on focus). Escape closes a layer and returns focus.
+
+## Adding a link
+
+- «New link» is the first control of the sidebar, between the logo row and search: the ink button (`bg-ink-btn`), 36 px high, radius 10, full width, a plus, the label and `⌘N` / `Ctrl N` on the right. In the narrow strip it is a round 36 px ink «+» under the bell, named by its hint. The toolbar has no Add.
+- The button and `⌘N` open a glass sheet (`AddSheet`, `.add-sheet`): 460 px, 72 px from the top, the card at 86 % over a 28 px blur, on a scrim of the background at 40 % with a 3 px blur. A 48 px field with the focus; under it one reserved 64 px slot for the hint, the clipboard's link (only when the system lets it be read without asking), the preview (shimmer while the library is asked about the site) or an error; chips for where it goes (Library, Inbox, Reading) and the collection, the suggested one chosen; title and tags behind «Title and tags»; `↵` / `Esc` hints, Cancel and the ink «Save link». Chosen chips get a 1.5 px ink ring.
+- `⌘V` in the library and a link dropped on the window save at once. A dragged link frosts the whole window (`.drop-veil`: the background at 70 %, 6 px blur, a 2 px ink edge, an ink circle that bobs). Files and the app's own drags never light it; Tauri's own drop handling is off (`dragDropEnabled: false`).
+- The saved card lands first with a 600 ms spring and an ink ring that fades over 1.6 s; the notice is a glass toast with a check: «Saved to Design · Undo». Without motion the card is simply there.
+
+## Sidebar sections
+
+- «Collections» and «Tags» fold from their header, a button with `aria-expanded`: the height eases over 240 ms, a 12 px chevron turns, a folded header shows the count («Collections 4»). Each section remembers its state. The collections' «+» opens a folded section first. While the selection is dragged, 600 ms over a folded header opens it for that drag.
 
 ## Where things live
 

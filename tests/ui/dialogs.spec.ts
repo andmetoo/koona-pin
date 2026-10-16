@@ -147,7 +147,7 @@ for (const code of ["en", "de", "ru"]) {
       await page.keyboard.press("Escape");
 
       // Add link and New collection keep the line of an error.
-      await page.getByRole("button", { name: t("toolbar.add") }).first().click();
+      await page.getByRole("button", { name: t("sidebar.newLink") }).first().click();
       await track.open("add link");
       await dialog.getByRole("textbox").first().fill("ftp://example.com/file");
       await button("add.save").click();

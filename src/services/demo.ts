@@ -68,6 +68,7 @@ import { cursorAt, isAfter, ListOrder, listTime, matchesBookmark, orderOf, sortB
 import { suggestFrom } from "./triage";
 import { groupsOf, mergedFields } from "./duplicates";
 import { CommandError } from "./errors";
+import { storedValue } from "./preferences";
 import { emailShape, length, MAX_MESSAGE } from "./feedback";
 import i18n, { resolveLanguage, storedLanguage } from "../i18n";
 
@@ -444,8 +445,10 @@ function demoArticle(b: Bookmark): string {
 
 /** Capture speaks of the system the preview pretends to run on (NP-054). */
 // A desktop with the system's own frame is a Mac's.
+// `koonapin.demo.capture` = `failing`: the capture channel would not open, as the notification centre shows it.
 const demoCapture = (): CaptureStatus => ({
   ...demoCaptureStatus,
+  ...(storedValue("demo.capture") === "failing" ? { state: "failing" as const, problem: "channel" as const } : {}),
   system: storedDesktop()?.linux ? "linux" : storedDesktop()?.native_frame ? "macos" : "windows",
 });
 const key = DEMO_STORAGE_KEY;

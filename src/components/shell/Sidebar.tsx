@@ -1,5 +1,5 @@
-import { KeyboardEvent, PointerEvent, ReactNode, Ref, useRef, useState } from "react";
-import { BookOpen, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
+import { KeyboardEvent, PointerEvent, ReactNode, Ref, TransitionEvent, useEffect, useId, useRef, useState } from "react";
+import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
@@ -9,9 +9,13 @@ import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { moveCollection } from "../../services/library";
 import { useCollectionReorder } from "../../hooks/useCollectionReorder";
 import { statusColor, statusLabel } from "../../services/capture";
+import { shortcut } from "../../services/keys";
+import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
+import { Hint } from "../ui/Hint";
 import { SearchField } from "./SearchField";
+import { AppNotification, NotificationCenter } from "./NotificationCenter";
 
 export interface SidebarProps {
   narrow: boolean;
@@ -57,6 +61,8 @@ export interface SidebarProps {
   onLinks: () => void;
   onConnect: () => void;
   onNewCollection: () => void;
+  /** «New link» (2026-10-16): the ink button under the logo, a round «+» in the strip; `⌘N` too. */
+  onNewLink: () => void;
   onDeleteCollection: (collection: Collection) => void;
   /** Every collection's id in the new order, after a drag or `Alt ↑` / `Alt ↓` (NP-114, sheet 41). */
   onReorderCollections: (ids: number[]) => void;
@@ -68,6 +74,9 @@ export interface SidebarProps {
    * `target` is the one under the pointer.
    */
   dropping?: { target: DropTarget | null } | null;
+  /** The notification centre's bell (2026-10-16): right of the wordmark, under the spirit in the strip. */
+  notifications: AppNotification[];
+  onClearNotifications: () => void;
 }
 
 export interface NewCollectionField {
@@ -84,6 +93,69 @@ export interface NewCollectionField {
 }
 
 const VISIBLE_TAGS = 6;
+/** Hovering a folded section's header this long while dragging the selection opens it. */
+const DRAG_OPEN_MS = 600;
+
+type Fold = "collections" | "tags";
+const FOLDS: Fold[] = ["collections", "tags"];
+const storedFolds = () => new Set(FOLDS.filter((name) => storedValue(`sidebar.${name}`) === "folded"));
+
+/**
+ * The folded sections of the sidebar (2026-10-16), each remembered. While the
+ * selection is dragged, hovering a folded header opens it for that drag.
+ */
+function useFolds(dragging: boolean) {
+  const [folded, setFolded] = useState(storedFolds);
+  const [opened, setOpened] = useState<Set<Fold>>(new Set());
+  const headers = useRef<Partial<Record<Fold, HTMLElement | null>>>({});
+  const set = (name: Fold, fold: boolean) => {
+    savePreference(`sidebar.${name}`, fold ? "folded" : "open");
+    setFolded((current) => {
+      const next = new Set(current);
+      if (fold) next.add(name);
+      else next.delete(name);
+      return next;
+    });
+  };
+  useEffect(() => {
+    if (!dragging) return setOpened(new Set());
+    let over: Fold | null = null;
+    let timer = 0;
+    const move = (e: globalThis.PointerEvent) => {
+      const under = FOLDS.find((name) => {
+        const box = headers.current[name]?.getBoundingClientRect();
+        return box && e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom;
+      }) ?? null;
+      if (under === over) return;
+      over = under;
+      window.clearTimeout(timer);
+      if (under) timer = window.setTimeout(() => setOpened((current) => new Set(current).add(under)), DRAG_OPEN_MS);
+    };
+    window.addEventListener("pointermove", move);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.clearTimeout(timer);
+    };
+  }, [dragging]);
+  const isFolded = (name: Fold) => folded.has(name) && !opened.has(name);
+  return {
+    isFolded,
+    toggle: (name: Fold) => {
+      const fold = !isFolded(name);
+      if (fold)
+        setOpened((current) => {
+          const next = new Set(current);
+          next.delete(name);
+          return next;
+        });
+      set(name, fold);
+    },
+    open: (name: Fold) => set(name, false),
+    header: (name: Fold) => (element: HTMLElement | null) => {
+      headers.current[name] = element;
+    },
+  };
+}
 
 /** Sidebar 232 px (frame 01); a 56 px strip of icons in a narrow window (frame 16). */
 export function Sidebar(props: SidebarProps) {
@@ -113,6 +185,12 @@ export function Sidebar(props: SidebarProps) {
   const drop = (target: DropTarget): Drop | undefined =>
     dropping ? { attr: dropAttribute(target), hot: sameDrop(dropping.target, target) } : undefined;
   const trashDrop = drop({ kind: "trash" });
+  const folds = useFolds(!!dropping);
+  const collectionsId = useId();
+  const tagsId = useId();
+  // The name field of «New collection from selection» is never hidden in a folded section.
+  const collectionsFolded = folds.isFolded("collections") && !props.naming;
+  const tagsFolded = folds.isFolded("tags");
 
   // The collections' order (NP-114, sheet 41): a drag of a row or of a dot,
   // or `Alt ↑` / `Alt ↓` on the focused one. A screen reader hears the place.
@@ -170,8 +248,25 @@ export function Sidebar(props: SidebarProps) {
   if (narrow)
     return (
       <aside className="flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
-        <div className="mb-3 text-accent" data-tauri-drag-region>
+        <div className="mb-2 text-accent" data-tauri-drag-region>
           <Mascot size={30} className="pointer-events-none" />
+        </div>
+        <div className="mb-2">
+          <NotificationCenter items={props.notifications} place="right" onClearAll={props.onClearNotifications} />
+        </div>
+        <div className="mb-2">
+          <Hint label={t("sidebar.newLink")} keys={shortcut("N")} side="right">
+            <button
+              type="button"
+              aria-label={t("sidebar.newLink")}
+              aria-keyshortcuts="Control+N Meta+N"
+              data-new-link
+              onClick={props.onNewLink}
+              className="flex size-9 items-center justify-center rounded-full bg-ink-btn text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.2),inset_0_1px_0_rgb(255_255_255/0.12)] transition-colors duration-150 hover:bg-ink-btn-hover"
+            >
+              <Icon icon={Plus} size={17} strokeWidth={2} />
+            </button>
+          </Hint>
         </div>
         <StripButton
           label={counts.inbox > 0 ? t("nav.inboxWaiting", { count: counts.inbox }) : t("nav.inbox")}
@@ -274,12 +369,28 @@ export function Sidebar(props: SidebarProps) {
       aria-label={t("sidebar.label")}
       data-drop-scroll
     >
-      <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-2.5 text-accent" data-tauri-drag-region>
+      <div className="flex items-center gap-2.5 pt-1.5 pr-0 pb-2.5 pl-2 text-accent" data-tauri-drag-region>
         <Mascot className="pointer-events-none" />
-        <span className="text-lg font-semibold" data-tauri-drag-region>
+        <span className="min-w-0 flex-1 text-lg font-semibold" data-tauri-drag-region>
           koona pin
         </span>
+        <NotificationCenter items={props.notifications} place="below" onClearAll={props.onClearNotifications} />
       </div>
+      <button
+        type="button"
+        aria-keyshortcuts="Control+N Meta+N"
+        data-new-link
+        onClick={props.onNewLink}
+        className="mb-2.5 flex h-9 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] bg-ink-btn pr-2 pl-3 text-left text-sm font-semibold text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.18),inset_0_1px_0_rgb(255_255_255/0.1)] transition-colors duration-150 hover:bg-ink-btn-hover"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon icon={Plus} size={15} strokeWidth={2} className="shrink-0" />
+          <span className="truncate">{t("sidebar.newLink")}</span>
+        </span>
+        <kbd aria-hidden className="shrink-0 font-sans text-2xs font-semibold opacity-60">
+          {shortcut("N")}
+        </kbd>
+      </button>
       <SearchField
         ref={props.searchRef}
         search={props.search}
@@ -327,18 +438,29 @@ export function Sidebar(props: SidebarProps) {
         {links && <NavRow icon={<Icon icon={Unlink} />} label={t("nav.links")} count={counts.links} active={linksOpen} onClick={props.onLinks} />}
       </nav>
 
-      <div className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
-        <h2 className="flex-1 text-2xs font-semibold tracking-[0.08em] text-subtle uppercase">{t("sidebar.collections")}</h2>
+      <div ref={folds.header("collections")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
+        <SectionHeader
+          label={t("sidebar.collections")}
+          count={collections.length}
+          folded={collectionsFolded}
+          controls={collectionsId}
+          onToggle={() => folds.toggle("collections")}
+        />
         <button
           type="button"
           aria-label={t("sidebar.newCollection")}
           title={t("sidebar.newCollection")}
-          onClick={props.onNewCollection}
+          onClick={() => {
+            // A new collection's place is in the open section.
+            if (collectionsFolded) folds.open("collections");
+            props.onNewCollection();
+          }}
           className="flex size-5 items-center justify-center rounded-sm text-subtle hover:bg-hover hover:text-ink"
         >
           <Icon icon={Plus} size={14} />
         </button>
       </div>
+      <Folding id={collectionsId} folded={collectionsFolded}>
       <nav aria-label={t("sidebar.collections")} className="flex flex-col gap-0.5">
         {collections.length === 0 && !props.naming && <p className="px-2.5 py-1 text-xs text-subtle">{t("sidebar.noCollections")}</p>}
         <div ref={list} className="flex flex-col gap-0.5">
@@ -391,12 +513,21 @@ export function Sidebar(props: SidebarProps) {
         {dropping && <NewCollectionTarget hot={sameDrop(dropping.target, { kind: "new" })} />}
         {props.naming && <NameField key={props.naming.suggested} {...props.naming} />}
       </nav>
+      </Folding>
 
       {tags.length > 0 && (
         <>
-          <h2 className={`pt-[22px] pr-2 pb-1.5 pl-2.5 text-2xs font-semibold text-subtle ${dropping ? "" : "tracking-[0.08em] uppercase"}`}>
-            {dropping ? t("sidebar.tagsDrop") : t("sidebar.tags")}
-          </h2>
+          <div ref={folds.header("tags")} className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
+            <SectionHeader
+              label={dropping && !tagsFolded ? t("sidebar.tagsDrop") : t("sidebar.tags")}
+              plain={!!dropping && !tagsFolded}
+              count={tags.length}
+              folded={tagsFolded}
+              controls={tagsId}
+              onToggle={() => folds.toggle("tags")}
+            />
+          </div>
+          <Folding id={tagsId} folded={tagsFolded}>
           <div className="flex flex-wrap gap-1.5 px-2 py-2">
             {/* While dragging every tag is a target, not only the first six (sheet 32). */}
             {(allTags || dropping ? tags : tags.slice(0, VISIBLE_TAGS)).map((tag) => {
@@ -431,6 +562,7 @@ export function Sidebar(props: SidebarProps) {
               </button>
             )}
           </div>
+          </Folding>
         </>
       )}
 
@@ -448,6 +580,66 @@ export function Sidebar(props: SidebarProps) {
       />
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
     </aside>
+  );
+}
+
+/**
+ * The header of a section that folds (2026-10-16): a button with the section's
+ * name, its count while folded, and a chevron that turns.
+ */
+function SectionHeader({
+  label,
+  count,
+  folded,
+  controls,
+  onToggle,
+  plain = false,
+}: {
+  label: string;
+  count: number;
+  folded: boolean;
+  controls: string;
+  onToggle: () => void;
+  /** «Tags — drop on a tag to add it» while dragging: a sentence, not a capitalised label. */
+  plain?: boolean;
+}) {
+  return (
+    <h2 className="flex min-w-0 flex-1">
+      <button
+        type="button"
+        aria-expanded={!folded}
+        aria-controls={controls}
+        onClick={onToggle}
+        className={`-my-1 -ml-1.5 flex min-w-0 items-center gap-1 rounded-sm py-1 pr-1 pl-1.5 text-left text-2xs font-semibold text-subtle transition-colors duration-150 hover:text-ink ${plain ? "" : "tracking-[0.08em] uppercase"}`}
+      >
+        <span>{label}</span>
+        {folded && <span className="font-medium tracking-normal text-faint tabular-nums">{count}</span>}
+        <Icon icon={ChevronDown} size={12} strokeWidth={2} className="side-fold-chevron shrink-0 text-faint" />
+      </button>
+    </h2>
+  );
+}
+
+/** A section's content that folds to nothing; folded, it takes no focus. */
+function Folding({ id, folded, children }: { id: string; folded: boolean; children: ReactNode }) {
+  // Open and still, the content may draw outside its box (rings, hints); while it moves it is clipped.
+  const [settled, setSettled] = useState(!folded);
+  useEffect(() => {
+    if (folded) return setSettled(false);
+    // Without motion no transition ends.
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) setSettled(true);
+  }, [folded]);
+  return (
+    <div
+      id={id}
+      className="side-fold"
+      data-folded={folded || undefined}
+      data-settled={settled || undefined}
+      inert={folded}
+      onTransitionEnd={(e: TransitionEvent) => e.target === e.currentTarget && !folded && setSettled(true)}
+    >
+      <div>{children}</div>
+    </div>
   );
 }
 

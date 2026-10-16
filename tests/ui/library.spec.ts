@@ -36,7 +36,7 @@ test("search, favorites and list view", async ({ page }) => {
   await expect(page.locator('[data-view="list"]')).toBeVisible();
 });
 test("dialog restores focus and editor persists collection clearing", async ({ page }) => {
-  const add = page.getByRole("button", { name: "Add link", exact: true });
+  const add = page.getByRole("button", { name: "New link", exact: true });
   // WebKit on macOS does not focus a button on a mouse click. Test the keyboard-origin restore.
   await add.focus();
   await add.press("Enter");
@@ -141,19 +141,27 @@ test("incoming capture preserves reading position until explicitly revealed", as
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(7);
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(0);
 });
-test("inbox: new links wait there until a decision, the banner hides until a newer one", async ({ page }) => {
+test("inbox: new links wait there until a decision, the notification hides until a newer one", async ({ page }) => {
   const inbox = (count: number) => page.getByRole("button", { name: `Inbox ${count}`, exact: true });
   const banner = page.getByRole("region", { name: "New bookmarks" });
+  const bell = page.locator("[data-notification-bell]");
+  const centre = page.getByRole("dialog", { name: "Notifications" });
+  const waiting = centre.locator('[data-notification="inbox"]');
   const cards = page.locator("[data-bookmark-id]");
   const capture = (url: string) =>
     page.evaluate(async (url) => {
       const { api } = await import("/src/services/api.ts");
       await api.addBookmark({ url, title: "From the browser" });
     }, url);
-  // All bookmarks include the inbox; the banner leads there.
+  // All bookmarks include the inbox; no banner over the list, the bell tells about it.
   await expect(inbox(2)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/All bookmarks\s*6/);
-  await expect(banner).toContainText("2 new bookmarks are waiting — keeping, filing or tossing them takes about a minute");
+  await expect(banner).toHaveCount(0);
+  await expect(bell).toHaveAccessibleName("Notifications, 1 new");
+  await bell.click();
+  await expect(waiting).toContainText("2 new in Inbox");
+  await expect(waiting).toContainText("Keeping, filing or tossing them takes about a minute.");
+  await page.keyboard.press("Escape");
   await inbox(2).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Inbox\s*2/);
   await expect(cards).toHaveCount(2);
@@ -178,21 +186,29 @@ test("inbox: new links wait there until a decision, the banner hides until a new
 
   // Hidden until a bookmark newer than the ones waiting arrives, also after a restart.
   await page.getByRole("button", { name: "All bookmarks" }).click();
-  await banner.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
-  await expect(banner).toHaveCount(0);
+  await bell.click();
+  await waiting.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
+  await expect(waiting).toHaveCount(0);
+  await expect(centre).toContainText("Nothing new");
+  await page.keyboard.press("Escape");
   await page.reload();
   await expect(cards).toHaveCount(7);
-  await expect(banner).toHaveCount(0);
+  await expect(bell).toHaveAccessibleName("Notifications");
   await expect(inbox(2)).toBeVisible();
   await capture("https://example.com/newer");
-  await expect(banner).toContainText("3 new bookmarks are waiting");
+  await expect(bell).toHaveAccessibleName("Notifications, 1 new");
+  await bell.click();
+  await expect(waiting).toContainText("3 new in Inbox");
+  await page.keyboard.press("Escape");
 
-  // Nothing left: no banner, no badge, the empty inbox.
+  // Nothing left: no notification, no badge, the empty inbox.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     for (const b of (await api.getBookmarks({ onlyInbox: true })).items) await api.updateBookmark(b.id, { notes: "Decided" });
   });
-  await expect(banner).toHaveCount(0);
+  await bell.click();
+  await expect(waiting).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Inbox", exact: true }).click();
   await expect(page.getByRole("heading", { name: "All sorted" })).toBeVisible();
 });
@@ -245,18 +261,22 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await expect(row).toContainText("Design");
   await expect(row.getByRole("button", { name: "principles", exact: true })).toBeVisible();
 
-  // Added again by hand: back from the trash, waiting in the inbox.
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  // Added again by hand into the inbox: back from the trash, waiting there.
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://type.today/en");
+  await page.getByRole("dialog").getByRole("button", { name: "Inbox", exact: true }).click();
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(toast).toContainText("Back from Trash, waiting in Inbox");
   await expect(nav("Trash 0")).toBeVisible();
   await expect(nav("Inbox 3")).toBeVisible();
-  // Added once more: it is in the library already, and the notice says nothing changed.
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  // Added once more: the sheet knows it is in the library already, and saving changes nothing.
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://type.today/en");
+  const sheet = page.getByRole("dialog", { name: "Add link" });
+  await expect(sheet.locator("[data-add-preview=existing]")).toContainText("Already in your library");
   await page.getByRole("button", { name: "Save link" }).click();
-  await expect(toast).toContainText("This link is already in the library; nothing changed");
+  await expect(sheet.locator("[data-add-preview=existing]")).toContainText("Typography is a voice");
+  await page.keyboard.press("Escape");
   await expect(nav("Inbox 3")).toBeVisible();
 
   // An import leaves a link in the trash where it is and says so.
@@ -363,8 +383,9 @@ test("undo: Ctrl Z takes actions back one by one, a decision returns to the inbo
   // Saved again from the trash meanwhile: «to the trash» is not undone over it.
   await card(3).click({ button: "right" });
   await page.getByRole("menuitem", { name: "Move to trash" }).click();
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://type.today/en");
+  await page.getByRole("dialog").getByRole("button", { name: "Inbox", exact: true }).click();
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(toast).toContainText("Back from Trash, waiting in Inbox");
   await page.keyboard.press("ControlOrMeta+z");
@@ -390,6 +411,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   const title = page.locator("[data-triage-card] h2");
   const toast = page.locator(".fixed[role=status]");
   const alert = page.locator(".fixed[role=alert]");
+  const last = page.locator("[data-undo-toast]");
   const add = (url: string, title: string) =>
     page.evaluate(
       async ([url, title]) => {
@@ -409,11 +431,14 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
     (window as unknown as { opened: string[] }).opened = [];
     window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
   });
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(heading).toHaveText(/Sort inbox\s*1 of 5/);
   await expect(title).toHaveText("Third new");
   await expect(page.locator("[data-triage-card]")).toContainText(/example\.com\s*·\s*added by hand today at \d/);
-  await expect(page.getByText("Up next")).toBeVisible();
+  // The next two wait behind the card; nothing decided yet, no undo toast.
+  await expect(page.locator(".sort-behind")).toHaveCount(2);
+  await expect(last).toHaveCount(0);
 
   // F and T stay on the card; Space opens the page.
   await page.keyboard.press("f");
@@ -422,7 +447,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.getByRole("textbox", { name: "New tag" }).fill("Urgent");
   await page.keyboard.press("Enter");
   await expect(toast).toContainText("Tag «urgent» added");
-  await expect(page.locator("[data-triage-card] ~ div").getByText("#urgent")).toBeVisible();
+  await expect(page.locator("[data-keys]").getByText("#urgent")).toBeVisible();
   await page.keyboard.press("Space");
   expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual(["https://example.com/c"]);
   await expect(heading).toHaveText(/1 of 5/);
@@ -430,9 +455,11 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   // A number files and moves on; ← to the trash; Z brings it back to the card.
   await page.keyboard.press("2");
   await expect(heading).toHaveText(/2 of 5/);
-  await expect(page.getByRole("listitem").filter({ hasText: "Third new" })).toContainText("→ Development");
+  await expect(last).toHaveText(/Filed in «Development»:\s*Third new\s*Undo/);
   await page.keyboard.press("ArrowLeft");
   await expect(nav("Trash 1")).toBeVisible();
+  await expect(last).toContainText("Moved to trash: Second new");
+  await expect(last).toContainText("Trash keeps deleted items for 30 days");
   await page.keyboard.press("z");
   await expect(toast).toContainText("Back in the queue: Second new");
   await expect(title).toHaveText("Second new");
@@ -446,7 +473,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.getByLabel("Title", { exact: true }).fill("First, corrected");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(heading).toHaveText(/4 of 5/);
-  await expect(page.getByRole("listitem").filter({ hasText: "First, corrected" })).toContainText("kept");
+  await expect(last).toContainText("Saved: First, corrected");
 
   // A link saved during triage joins the end.
   await add("https://example.com/d", "Came during triage");
@@ -475,7 +502,8 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
-  await expect(page.getByText("6 bookmarks decided: 4 kept, 1 filed into collections, 1 moved to trash.")).toBeVisible();
+  await expect(page.getByText("6 bookmarks decided.")).toBeVisible();
+  await expect(page.locator(".sort-stat")).toHaveText([/4\s*kept/, /1\s*filed/, /1\s*in trash/]);
   await expect(nav("Inbox")).toBeVisible();
   await page.keyboard.press("z");
   await expect(title).toHaveText("Came during triage");
@@ -495,7 +523,8 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
     }
     return (await api.addBookmark({ url: "https://example.org/new", title: "One more example" })).bookmark.id;
   });
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(page.locator("[data-triage-card] h2")).toHaveText("One more example");
   const offered = page.locator("[data-suggested]");
   const chips = page.locator("[data-keys] button");
@@ -514,7 +543,7 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
     }, newId);
   expect(await stored()).toEqual([null, null]);
   await page.keyboard.press("1");
-  await expect(page.getByRole("listitem").filter({ hasText: "One more example" })).toContainText("→ Inspiration");
+  await expect(page.locator("[data-undo-toast]")).toContainText("Filed in «Inspiration»: One more example");
   expect((await stored())[0]).toBe(3);
   // A site with nothing filed: no suggestion, the sidebar order.
   await expect(page.locator("[data-triage-card] h2")).toHaveText("The architecture of silence");
@@ -524,7 +553,7 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
 test("triage: the decisions keep their words at any width, a longer label goes compact (NP-084)", async ({ page }) => {
   const row = page.locator("[data-fit]");
   const label = row.locator("[data-label]");
-  /** The row inside its column, the words whole, no sideways scroll. */
+  /** The capsule inside its column, the words whole, no sideways scroll. */
   const fits = () =>
     row.evaluate((el) => {
       const box = el.getBoundingClientRect();
@@ -544,37 +573,37 @@ test("triage: the decisions keep their words at any width, a longer label goes c
       const { default: i18n } = await import("/src/i18n/index.ts");
       await i18n.changeLanguage(code);
     }, code);
-  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
   await expect(page.locator("[data-triage-card]")).toBeVisible();
-  // 1160 px is the reported window: 1740 px at 150 %, the «Только что» column beside the card.
   for (const [code, words] of [
     ["en", "Move to trash"],
     ["ru", "В корзину"],
+    ["de", "In den Papierkorb"],
   ]) {
     await language(code);
-    for (const width of [800, 1100, 1160, 1600]) {
+    for (const width of [800, 1100, 1600]) {
       await page.setViewportSize({ width, height: width === 800 ? 550 : 800 });
       await expect(label, `${code} ${width}`).toHaveText(words);
       await expect(row).toHaveAttribute("data-fit", "0");
       await expect.poll(fits, { message: `${code} ${width}` }).toEqual({ inside: true, overflow: false, words: true });
     }
   }
-  // A label half as long again: Keep and the heart stay in the row, the keys go first, then the words.
+  // A label twice as long: Keep and the heart stay in the capsule, the trash half keeps its arrow and icon.
   await page.evaluate(async () => {
     const { default: i18n } = await import("/src/i18n/index.ts");
     i18n.addResource("en", "translation", "triage.trash", "Move this one to the trash");
   });
   await language("en");
-  for (const width of [800, 1100, 1160, 1600]) {
-    await page.setViewportSize({ width, height: width === 800 ? 550 : 800 });
-    await expect(row.getByRole("button", { name: "Move this one to the trash" })).toBeVisible();
-    await expect.poll(fits, { message: `long ${width}` }).toEqual({ inside: true, overflow: false, words: true });
-  }
   await page.setViewportSize({ width: 1600, height: 800 });
   await expect(row).toHaveAttribute("data-fit", "0");
-  await page.setViewportSize({ width: 1160, height: 800 });
+  await expect(label).toHaveText("Move this one to the trash");
+  // A narrow window gives up the trash words first; a wider one brings them back.
+  await page.setViewportSize({ width: 640, height: 550 });
   await expect(row).not.toHaveAttribute("data-fit", "0");
-  // A wider window brings the words back.
+  await expect(row.getByRole("button", { name: "Move this one to the trash" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Keep" })).toBeVisible();
+  await expect.poll(fits, { message: "narrow" }).toEqual({ inside: true, overflow: false, words: true });
   await page.setViewportSize({ width: 1600, height: 800 });
   await expect(row).toHaveAttribute("data-fit", "0");
   await expect(label).toHaveText("Move this one to the trash");
@@ -583,11 +612,52 @@ test("triage: the decisions keep their words at any width, a longer label goes c
   await page.setViewportSize({ width: 1160, height: 800 });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/1 of 2/);
   await page.keyboard.press("f");
-  await expect(row.getByRole("button", { name: "Remove from favorites" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Remove from favorites" })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/2 of 2/);
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
+});
+test("triage: the capsule decides by click, the undo toast says what Z takes back", async ({ page }) => {
+  const heading = page.getByRole("heading", { level: 1 });
+  const title = page.locator("[data-triage-card] h2");
+  const capsule = page.locator("[data-fit]");
+  const last = page.locator("[data-undo-toast]");
+  // Since the notification centre, the library's way into triage is the bell.
+  await page.locator("[data-notification-bell]").click();
+  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
+  await expect(heading).toHaveText(/1 of 2/);
+  const first = await title.textContent();
+  // One card behind this one; the heart is a toggle.
+  await expect(page.locator(".sort-behind")).toHaveCount(1);
+  await capsule.getByRole("button", { name: "Add to favorites" }).click();
+  await expect(capsule.getByRole("button", { name: "Remove from favorites" })).toHaveAttribute("aria-pressed", "true");
+  await expect(last).toContainText("Added to favorites");
+  // Keep by click: the card goes, the toast names it; «Undo» brings it back.
+  await capsule.getByRole("button", { name: "Keep" }).click();
+  await expect(heading).toHaveText(/2 of 2/);
+  await expect(page.locator(".sort-behind")).toHaveCount(0);
+  await expect(last).toHaveText(new RegExp(`Kept:\\s*${first}\\s*Undo\\s*Z`));
+  await last.getByRole("button", { name: /Undo/ }).click();
+  await expect(page.locator(".fixed[role=status]")).toContainText(`Back in the queue: ${first}`);
+  // The app's notice is at the bottom: the toast steps aside for it.
+  await expect(last).toHaveCount(0);
+  await expect(title).toHaveText(first!);
+  await expect(heading).toHaveText(/1 of 2/);
+  // Enter keeps too; the trash half says how long the trash keeps it.
+  await page.locator("body").press("Enter");
+  await expect(heading).toHaveText(/2 of 2/);
+  await expect(last).toContainText(`Kept: ${first}`);
+  const second = await title.textContent();
+  await capsule.getByRole("button", { name: "Move to trash" }).click();
+  await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
+  await expect(page.locator(".sort-stat")).toHaveText([/1\s*kept/, /0\s*filed/, /1\s*in trash/]);
+  // At the end the toast gives way to «Undo last decision».
+  await expect(last).toHaveCount(0);
+  await page.getByRole("button", { name: /Undo last decision/ }).click();
+  await expect(title).toHaveText(second!);
+  await expect(page.locator(".fixed[role=status]")).toContainText(`Back in the queue: ${second}`);
+  await expect(last).toHaveCount(0);
 });
 test("triage: Esc goes back where it was opened, the inbox always offers it", async ({ page }) => {
   await page.getByRole("button", { name: "Inbox 2", exact: true }).click();
@@ -677,8 +747,9 @@ test("save errors preserve entered data and HTML import skips duplicate and unsu
       return original(data);
     };
   });
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://example.com/new-link");
+  await page.getByRole("button", { name: "Title and tags" }).click();
   await page.getByLabel("Title", { exact: true }).fill("My find");
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(page.getByRole("alert")).toContainText("Could not write the link");
@@ -708,14 +779,14 @@ test("command errors speak the interface's language, never the app's English alo
     await page.getByLabel(field, { exact: true }).fill(link);
     await page.getByRole("button", { name: button }).click();
   };
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await save("ftp://example.com/file", "Save link", "Link");
   await expect(page.getByRole("alert")).toHaveText("Only http:// and https:// links can be saved.");
   await page.keyboard.press("Escape");
 
   await page.evaluate(() => localStorage.setItem("koonapin.language", "ru"));
   await page.reload();
-  await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
+  await page.getByRole("button", { name: "Новая ссылка", exact: true }).click();
   await save("ftp://example.com/file", "Сохранить ссылку", "Ссылка");
   await expect(page.getByRole("alert")).toHaveText("Сохранить можно только ссылки http:// и https://.");
   // A failure without words of its own: the sentence is Russian, the app's text a detail.
@@ -966,7 +1037,7 @@ test("backup: the settings explain copies, the dialog lists them, asks with the 
 
 test("duplicates: the section groups the same page, the main one is chosen, merge keeps everything and Ctrl Z takes it back", async ({ page }) => {
   const add = async (url: string) => {
-    await page.getByRole("button", { name: "Add link", exact: true }).click();
+    await page.getByRole("button", { name: "New link", exact: true }).click();
     await page.getByLabel("Link", { exact: true }).fill(url);
     await page.getByRole("button", { name: "Save link" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -1026,7 +1097,7 @@ test("duplicates: the section groups the same page, the main one is chosen, merg
 
 test("link check: the person starts it, results come in groups, replace and trash are undone with Ctrl Z", async ({ page }) => {
   const add = async (url: string) => {
-    await page.getByRole("button", { name: "Add link", exact: true }).click();
+    await page.getByRole("button", { name: "New link", exact: true }).click();
     await page.getByLabel("Link", { exact: true }).fill(url);
     await page.getByRole("button", { name: "Save link" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -2191,7 +2262,7 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
   // A link added in the demo waits a moment, as the app would, then shows its cover.
   // At the top of the list: further down a new link waits behind «New bookmarks».
   await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: 0 }));
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://example.net/added");
   await page.getByRole("button", { name: "Save link" }).click();
   const added = page.locator("[data-bookmark-id]", { hasText: "example.net" });

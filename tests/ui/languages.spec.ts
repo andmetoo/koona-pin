@@ -218,6 +218,8 @@ for (const code of codes) {
       await page.addInitScript((language) => {
         localStorage.removeItem("koonapin.demo.v4");
         localStorage.setItem("koonapin.language", language);
+        localStorage.setItem("koonapin.importBanner", "show");
+        localStorage.setItem("koonapin.demo.capture", "failing");
       }, code);
       await page.clock.setFixedTime(new Date(2026, 9, 3, 12, 0));
       await page.goto("/");
@@ -234,6 +236,14 @@ for (const code of codes) {
       };
 
       await shot("grid");
+      // The notification centre: the bell in the sidebar's header or the strip, its popover in the window.
+      await page.locator("[data-notification-bell]").click();
+      const centre = page.getByRole("dialog", { name: t("notifications.title") });
+      await expect(centre.getByText(exactly(t("inbox.sort")))).toBeVisible();
+      await shot("notifications");
+      const centreBox = (await centre.boundingBox())!;
+      if (centreBox.x + centreBox.width > width || centreBox.y + centreBox.height > height) found["notifications"].push("the centre leaves the window");
+      await page.keyboard.press("Escape");
       await page.getByRole("button", { name: t("toolbar.list"), exact: true }).click();
       await shot("list");
 
@@ -247,7 +257,7 @@ for (const code of codes) {
       if (clearBox.x + clearBox.width > barBox.x + barBox.width - 7) found["selection"].push("the selection bar overflows");
       await page.keyboard.press("Escape");
 
-      await page.getByRole("button", { name: t("toolbar.add") }).first().click();
+      await page.getByRole("button", { name: t("sidebar.newLink") }).first().click();
       await shot("add-dialog");
       await page.keyboard.press("Escape");
 

@@ -478,6 +478,7 @@ export const BookmarkCard = memo(function BookmarkCard({
   actions,
   selected,
   dense = false,
+  fresh = false,
 }: {
   bookmark: Bookmark;
   collections: Collection[];
@@ -485,6 +486,8 @@ export const BookmarkCard = memo(function BookmarkCard({
   selected: boolean;
   /** In the compact grid: smaller words, the same parts (`DENSE_TEXT_HEIGHT`). */
   dense?: boolean;
+  /** Just saved by hand: it lands with a short spring and a fading ink ring (`app.css`). */
+  fresh?: boolean;
 }) {
   const { t } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
@@ -495,6 +498,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       data-bookmark-id={b.id}
       data-selected={selected || undefined}
       data-menu-open={menu.open || undefined}
+      data-fresh={fresh || undefined}
       className={`group/card @container/card flex min-w-0 flex-col rounded-[14px] ${dense ? "gap-2" : "gap-2.5"}`}
       onContextMenu={menu.onContextMenu}
       {...control}
@@ -515,6 +519,7 @@ export const BookmarkCard = memo(function BookmarkCard({
           <Icon icon={Check} size={13} strokeWidth={2.75} absoluteStrokeWidth={false} />
         </span>
         <span aria-hidden className="card-scrim" />
+        {fresh && <span aria-hidden className="card-landing" />}
         {/* Sheet S4: the link of a card is on its buttons; the rest of the card selects. Words in hints. */}
         <div data-shutter className="card-actions">
           <Hint label={t("card.openInBrowser")}>
@@ -605,6 +610,7 @@ export const BookmarkRow = memo(function BookmarkRow({
   actions,
   compact,
   selected,
+  fresh = false,
 }: {
   bookmark: Bookmark;
   collections: Collection[];
@@ -612,6 +618,8 @@ export const BookmarkRow = memo(function BookmarkRow({
   /** Narrow window or docked editor: tags give way first (frame 16). */
   compact: boolean;
   selected: boolean;
+  /** Just saved by hand: it lands with a short spring. */
+  fresh?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
@@ -625,6 +633,8 @@ export const BookmarkRow = memo(function BookmarkRow({
     <article
       data-bookmark-id={b.id}
       data-selected={selected || undefined}
+      data-fresh={fresh || undefined}
+      data-bookmark-row
       onContextMenu={menu.onContextMenu}
       {...control}
       onKeyDown={(e) => {

@@ -465,7 +465,8 @@ async function screens(code, width, height, theme) {
     await shot("selection");
     await engine.key("Escape");
     await engine.run("settle");
-    await engine.run("click", t("toolbar.add"));
+    // «New link» (2026-10-16) in the sidebar, or the round «+» of the strip; its name may end in the ⌘N hint.
+    await engine.run("click", t("sidebar.newLink"), false);
     await shot("add-dialog");
     await engine.key("Escape");
     await engine.run("settle");

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { CircleAlert } from "lucide-react";
+import { Check, CircleAlert } from "lucide-react";
 import { Icon } from "../icons";
 
 /** Dark notice 44 px at the bottom centre (frame «12 · Ошибки»). */
@@ -8,13 +8,24 @@ export function Toast({
   action,
   tone = "status",
   docked = false,
+  glass = false,
 }: {
   children: ReactNode;
   action?: ReactNode;
   tone?: "status" | "alert";
   /** In the column above the selection bar instead of the bottom of the window (frame 27). */
   docked?: boolean;
+  /** Glass with a check (2026-10-16): «Saved to Design · Undo» after a link is added. */
+  glass?: boolean;
 }) {
+  if (glass)
+    return (
+      <div role={tone} data-glass-toast data-docked={docked || undefined} className={`glass-toast ${docked ? "max-w-full" : "fixed"}`}>
+        <Icon icon={Check} size={15} strokeWidth={2.25} className="shrink-0 text-accent" />
+        <span className="min-w-0">{children}</span>
+        {action}
+      </div>
+    );
   return (
     <div
       role={tone}

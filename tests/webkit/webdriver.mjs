@@ -94,9 +94,12 @@ const label = (el) =>
   (el.getAttribute("aria-labelledby") ?? "").split(" ").filter(Boolean).map(text).join(" ") ||
   norm(el.labels?.[0]?.textContent);
 // Text of the descendants with a space between elements, as an accessible name reads «Inbox» and its badge.
+// Text under aria-hidden is not part of the name (the «⌘N» on «New link»), as in a browser and Playwright.
 const content = (el) => {
   const parts = [];
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => (node.parentElement?.closest("[aria-hidden=true]") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
   while (walker.nextNode()) parts.push(walker.currentNode.data);
   return norm(parts.join(" "));
 };

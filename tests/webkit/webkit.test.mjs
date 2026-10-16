@@ -65,10 +65,11 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
   });
 
   it("adds a link by hand into SQLite", async () => {
-    await (await page.role("button", "Add link")).click();
+    await (await page.role("button", "New link")).click();
     await (await page.label("Link")).fill("https://example.invalid/native-ui");
+    await (await page.role("button", "Title and tags")).click();
     await (await page.label("Title")).fill("SQLite check");
-    await (await page.label("Collection")).select("Development");
+    await (await page.role("button", "Development")).click();
     await (await page.role("button", "Save link")).click();
     await page.count("[data-bookmark-id]", 1);
     assert.equal((await page.invoke("get_counts")).total, 1);
@@ -84,8 +85,8 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
     assert.equal(reply.outcome, "created");
     await page.count("[data-bookmark-id]", 2);
     await page.role("button", "Browser connected");
-    // Both wait in the inbox: the link added by hand and the capture.
-    await page.role("button", "Inbox 2");
+    // Only the capture waits in the inbox: the link added by hand went to the library (Development).
+    await page.role("button", "Inbox 1");
   });
 
   it("searches through FTS5: case folds, every word", async () => {

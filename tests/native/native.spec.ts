@@ -90,16 +90,15 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
       .poll(() => page.evaluate(async () => (await window.__TAURI_INTERNALS__.invoke("get_collections")).map((c: { name: string }) => c.name)))
       .toEqual(["Articles / To read", "Design & UI", "Development"]);
     await page
-      .getByRole("button", { name: "Add link", exact: true })
+      .getByRole("button", { name: "New link", exact: true })
       .first()
       .click();
     await page
       .getByLabel("Link", { exact: true })
       .fill("https://example.invalid/native-ui");
+    await page.getByRole("button", { name: "Title and tags" }).click();
     await page.getByLabel("Title", { exact: true }).fill("SQLite check");
-    await page
-      .getByLabel("Collection", { exact: true })
-      .selectOption({ label: "Development" });
+    await page.getByRole("dialog").getByRole("button", { name: "Development", exact: true }).click();
     await page.getByRole("button", { name: "Save link" }).click();
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);
     await page.locator("[data-bookmark-id]").hover();
@@ -111,7 +110,7 @@ test("real WebView2, SQLite, capture through the host, close-to-tray and single 
     await expect(page.locator("[data-bookmark-id] [data-collection]")).toContainText(
       "No collection",
     );
-    // The link added by hand waited in the inbox; saving it in the editor sorted it.
+    // «Library» in the sheet sorted the link at once: nothing waits in the inbox.
     await expect(page.getByRole("button", { name: "Inbox", exact: true })).toBeVisible();
     // Nothing has written yet: the browser is not connected.
     await expect(page.getByRole("button", { name: "No browser yet" })).toBeVisible();
@@ -263,7 +262,7 @@ test("a capture pipe held by another program is reported while the library stays
     // The library worked all along.
     await page.getByRole("button", { name: "All bookmarks" }).click();
     await emptyLibrary(page);
-    await page.getByRole("button", { name: "Add link", exact: true }).first().click();
+    await page.getByRole("button", { name: "New link", exact: true }).first().click();
     await page.getByLabel("Link", { exact: true }).fill("https://example.invalid/while-held");
     await page.getByRole("button", { name: "Save link" }).click();
     await expect(page.locator("[data-bookmark-id]")).toHaveCount(1);

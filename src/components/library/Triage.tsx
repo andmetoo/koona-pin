@@ -1,5 +1,5 @@
-import { ReactNode, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { Check, Folder, Heart, Trash2 } from "lucide-react";
+import { CSSProperties, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, CircleAlert, Heart, Sparkle, Tag, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../services/api";
 import { collectionColor } from "../../services/collections";
@@ -8,9 +8,7 @@ import { browserName, collectionKeys, nextWaiting, savedDay, Step, summary, wait
 import { short, undoNotice } from "../../services/undo";
 import { Bookmark, BookmarkPage, Changed, Collection, PageCursor, Suggestion } from "../../types";
 import { Icon } from "../icons";
-import { Banner } from "../ui/Notices";
-import { Button } from "../ui/Button";
-import { Hint, Kbd } from "../ui/Hint";
+import { Hint } from "../ui/Hint";
 import { BookmarkChanges } from "./BookmarkEditor";
 import { Preview, SiteMark } from "./Bookmarks";
 import { TagField } from "./Fields";
@@ -42,27 +40,37 @@ interface Queue {
   steps: Step[];
 }
 
+/** The card just decided, flying off: right when kept, left to the trash, down into a collection. */
+interface Leaving {
+  b: Bookmark;
+  way: "keep" | "trash" | "file";
+  n: number;
+}
+
 /** Collections 1–9: the first nine in sidebar order (frame 19, no suggestion until NP-026). */
 const KEYS = 9;
-/** «Дальше»: the next four, fading (frame 03). */
-const UP_NEXT = [1, 1, 0.6, 0.35];
-/** «Только что»: the last decisions. */
-const JUST_NOW = 5;
+/** Up to this many cards the header shows a dot for each; a longer queue gets a bar. */
+const DOTS = 12;
+/** The longest a leaving card stays, should its animation never end (a hidden window). */
+const LEAVE_MS = 400;
 
-/** A key on a button: `←`, `→`, `F`, the collection number. */
-function KeyChip({ children, className = "bg-secondary text-muted" }: { children: ReactNode; className?: string }) {
+/** Lucide's trash with its lid apart, so the lid can tilt on hover. */
+function TrashIcon() {
   return (
-    <span aria-hidden className={`flex h-5 min-w-5 items-center justify-center rounded-xs px-1.5 text-xs font-semibold ${className}`}>
-      {children}
-    </span>
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <g className="lid">
+        <path d="M3 6h18" />
+        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2" />
+      </g>
+    </svg>
   );
 }
 
 /**
- * How much of the decisions fits in the row (NP-084): 0 everything, 1 without
- * the `←` `→` keys, 2 the trash button as its icon alone. «Move to trash»
- * takes the width of its words and Keep the rest; a longer label or a narrower
- * row gives up the keys first, then the words.
+ * How much of the decision capsule fits (NP-084): 0 everything, 1 the trash
+ * half as its arrow and icon, 2 Keep too. A longer label or a narrower window
+ * gives up the trash words first; a wider one brings them back.
  */
 function useFit(label: string) {
   const [fit, setFit] = useState(0);
@@ -78,8 +86,11 @@ function useFit(label: string) {
       if (fit > 0) return setFit(0);
     }
     const width = el.clientWidth;
-    if (el.scrollWidth > width && fit < 2) {
-      needs.current.widths[fit] = el.scrollWidth;
+    // The halves clip their sheen, so a word too long shows as a half wider inside than out.
+    const over = Math.max(el.scrollWidth - width, 0) + [...el.children].reduce((sum, half) => sum + Math.max(half.scrollWidth - half.clientWidth, 0), 0);
+    if (over > 0 && fit < 2) {
+      // Both halves grow alike: the row needs twice what one half lacks.
+      needs.current.widths[fit] = width + 2 * over;
       setFit(fit + 1);
     } else if (fit > 0 && needs.current.widths[fit - 1] <= width) setFit(fit - 1);
   };
@@ -89,7 +100,7 @@ function useFit(label: string) {
     observer.current?.disconnect();
     row.current = el;
     if (!el) return;
-    // The row for a narrower window, the buttons for their words.
+    // The row for a narrower window, the halves for their words.
     observer.current = new ResizeObserver(() => check.current());
     for (const node of [el, ...el.children]) observer.current.observe(node);
   }, []);
@@ -109,6 +120,7 @@ export function Triage({
   onEdit,
   onFinish,
   onLibrary,
+  noticeUp = false,
 }: {
   collections: Collection[];
   /** The editor, a dialog or a menu is open: the keys wait. */
@@ -120,6 +132,8 @@ export function Triage({
   onFinish: () => void;
   /** «В библиотеку» `Enter` at the end: All bookmarks. */
   onLibrary: () => void;
+  /** The app's own notice is at the bottom: the undo toast steps aside for it. */
+  noticeUp?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [queue, setQueue] = useState<Queue | null>(null);
@@ -236,7 +250,19 @@ export function Triage({
   const whyId = useId();
   const [fit, decisionsRef] = useFit(t("triage.trash"));
 
-  const record = (kind: Step["kind"], { bookmark, command }: Changed, advance: boolean, collectionId: number | null = null) =>
+  const [leaving, setLeaving] = useState<Leaving | null>(null);
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(() => setLeaving(null), LEAVE_MS);
+    return () => window.clearTimeout(timer);
+  }, [leaving]);
+  const record = (kind: Step["kind"], { bookmark, command }: Changed, advance: boolean, collectionId: number | null = null) => {
+    // The card on screen flies off the way it was decided; the next one springs in.
+    const shown = onScreen();
+    if (advance && shown) {
+      const way = kind === "trash" ? "trash" : collectionId !== null && collectionId !== shown.collection_id ? "file" : "keep";
+      setLeaving((last) => ({ b: shown, way, n: (last?.n ?? 0) + 1 }));
+    }
     update((q) => {
       const items = { ...q.items, [bookmark.id]: bookmark };
       const step: Step = { id: bookmark.id, title: bookmark.title || bookmark.url, kind, collectionId, command, advanced: advance };
@@ -247,6 +273,7 @@ export function Triage({
         position: advance ? nextWaiting(q.ids, items, q.position + 1) : q.position,
       };
     });
+  };
 
   /** Why a decision failed, short: «библиотека занята» (frame 20). */
   const reason = (err: unknown) => {
@@ -387,6 +414,8 @@ export function Triage({
     if (digit) return act(() => fileByKey(Number(digit[1])));
     switch (e.code) {
       case "ArrowRight":
+      case "Enter":
+      case "NumpadEnter":
         return act(() => void keep());
       case "ArrowLeft":
         return act(() => void trash());
@@ -408,8 +437,14 @@ export function Triage({
 
   if (loadError)
     return (
-      <div className="px-8 pt-2">
-        <Banner action={<Button variant="onDanger" onClick={() => void load()}>{t("common.retry")}</Button>}>{loadError}</Banner>
+      <div className="px-8 pt-6">
+        <div role="alert" className="sort-failed sort-col">
+          <Icon icon={CircleAlert} className="shrink-0 text-danger" />
+          <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{loadError}</span>
+          <button type="button" className="sort-btn" onClick={() => void load()}>
+            {t("common.retry")}
+          </button>
+        </div>
       </div>
     );
   if (!queue) return null;
@@ -417,7 +452,6 @@ export function Triage({
   const total = queue.ids.length;
   const number = Math.min(queue.position + 1, total);
   const waitingNext = queue.ids.slice(queue.position + 1).filter((id) => waiting(queue.items[id]));
-  const decided = queue.steps.filter((s) => s.advanced).reverse();
   const sum = summary(queue.steps);
   const saved = (b: Bookmark) => {
     const at = new Date(b.created_at);
@@ -439,269 +473,280 @@ export function Triage({
     return t("triage.saved", { when });
   };
 
+  /** The card itself: cover, where it came from, title and description. */
+  const card = (b: Bookmark, open?: () => void) => (
+    <>
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden
+        onClick={open}
+        // 16 : 8.4 as the prototype; a low window keeps the decisions on screen.
+        className="sort-cover max-h-[clamp(112px,calc(100dvh_-_470px),336px)]"
+      >
+        <Preview b={b} live />
+      </button>
+      <div className="flex flex-col gap-1.5 px-[22px] pt-4 pb-5">
+        {/* A long «saved … from …» moves to the next line rather than being cut (NP-089);
+            the dot stays with the site, so the moved line doesn't start with it. */}
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-meta">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <SiteMark b={b} />
+            <span className="min-w-0 truncate font-medium text-icon" data-user-text>{b.domain}</span>
+            <span className="shrink-0" aria-hidden>·</span>
+          </span>
+          <span>{saved(b)}</span>
+        </p>
+        <h2 className="line-clamp-2 text-xl leading-[26px] font-semibold tracking-[-0.012em] text-balance" title={b.title}>
+          {b.title || b.url}
+        </h2>
+        {b.description && <p className="line-clamp-2 text-md leading-[21px] text-muted">{b.description}</p>}
+      </div>
+    </>
+  );
+
+  /** What `Z` would take back, said in the toast. */
+  const last = queue.steps.at(-1);
+  const lastCollection = last?.kind === "move" || last?.kind === "edit" ? collections.find((c) => c.id === last.collectionId) : undefined;
+  const lastWhat = !last
+    ? ""
+    : last.kind === "keep"
+      ? t("triage.toastKept")
+      : last.kind === "trash"
+        ? t("triage.toastTrashed")
+        : last.kind === "move"
+          ? t("triage.toastFiled", { name: lastCollection?.name ?? "" })
+          : last.kind === "edit"
+            ? t("triage.toastSaved")
+            : last.kind === "favorite"
+              ? t(queue.items[last.id]?.is_favorite ? "triage.toastFavorite" : "triage.toastUnfavorite")
+              : t("triage.toastTagged");
+
   return (
-    <section aria-label={t("triage.title")} className="flex min-h-0 flex-1 flex-col">
-      <header className="px-8 pt-2">
-        <div className="flex h-9 items-center justify-between gap-4">
-          <h1 className="flex min-w-0 items-baseline gap-2 text-2xl font-semibold">
-            {t("triage.title")}
-            <span className="text-md font-normal text-subtle" aria-live="polite">
-              {t("triage.progress", { current: number, total })}
-            </span>
-            {queue.fresh > 0 && <span className="text-xs font-medium text-accent">{t("triage.fresh", { count: queue.fresh })}</span>}
-          </h1>
-          <button
-            type="button"
-            onClick={onFinish}
-            className="flex h-[33px] shrink-0 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium transition-colors duration-150 hover:bg-hover"
-          >
-            {t("triage.finish")}
-            <Kbd>Esc</Kbd>
-          </button>
-        </div>
-        <div className="mt-3.5 h-1 overflow-hidden rounded-xs bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done ? total : number} aria-label={t("triage.title")}>
-          <div className="h-full rounded-xs bg-accent transition-[width] duration-200" style={{ width: `${total ? ((done ? total : number) / total) * 100 : 100}%` }} />
-        </div>
-      </header>
-
-      <div className="@container min-h-0 flex-1 overflow-y-auto px-8 pt-8 pb-8">
-        <div className="mx-auto flex max-w-[1064px] gap-12">
-          <div className="min-w-0 max-w-[672px] flex-1">
-            {current ? (
-              <>
-                <article data-triage-card={current.id} className="overflow-hidden rounded-3xl border border-divider bg-card">
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-hidden
-                    onClick={() => onOpen(current.url)}
-                    // 280 px as in frame 03; a low window keeps the decisions on screen.
-                    className="block h-[clamp(140px,calc(100dvh_-_430px),280px)] w-full overflow-hidden bg-hover"
-                  >
-                    <Preview b={current} live />
-                  </button>
-                  <div className="flex flex-col gap-2 px-6 pt-5 pb-[22px]">
-                    {/* A long «saved … from …» moves to the next line rather than being cut (NP-089);
-                        the dot stays with the site, so the moved line doesn't start with it. */}
-                    <p className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-xs">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <SiteMark b={current} />
-                        <span className="min-w-0 truncate font-medium text-icon" data-user-text>{current.domain}</span>
-                        <span className="shrink-0 text-subtle" aria-hidden>·</span>
-                      </span>
-                      <span className="text-subtle">{saved(current)}</span>
-                    </p>
-                    <h2 className="line-clamp-2 text-xl leading-[26px] font-semibold" title={current.title}>
-                      {current.title || current.url}
-                    </h2>
-                    {current.description && <p className="line-clamp-2 text-md leading-5 text-muted">{current.description}</p>}
-                  </div>
-                </article>
-
-                {/* 210 : 342 as in frame 03 while the words fit; never narrower than them (NP-084). */}
-                <div
-                  ref={decisionsRef}
-                  data-fit={fit}
-                  className="mt-4 grid h-[52px] grid-cols-[minmax(max-content,210fr)_minmax(max-content,342fr)_96px] gap-3 text-md font-semibold whitespace-nowrap"
-                >
-                  <button
-                    type="button"
-                    aria-label={t("triage.trash")}
-                    onClick={() => void trash()}
-                    className="flex items-center justify-center gap-2.5 rounded-xl border border-border bg-card px-4 transition-colors duration-150 hover:bg-hover"
-                  >
-                    {fit < 1 && <KeyChip>←</KeyChip>}
-                    <Icon icon={Trash2} />
-                    {fit < 2 && <span data-label>{t("triage.trash")}</span>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void keep()}
-                    className="flex items-center justify-center gap-2.5 rounded-xl bg-accent px-4 text-on-accent transition-opacity duration-150 hover:opacity-90"
-                  >
-                    <Icon icon={Check} strokeWidth={2} />
-                    {t("triage.keep")}
-                    {fit < 1 && <KeyChip className="bg-white/20">→</KeyChip>}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={current.is_favorite ? t("card.unfavorite") : t("card.favorite")}
-                    aria-pressed={current.is_favorite}
-                    onClick={() => void favorite()}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card transition-colors duration-150 hover:bg-hover"
-                  >
-                    <Icon icon={Heart} className={current.is_favorite ? "fill-accent text-accent" : "text-icon"} />
-                    <KeyChip>F</KeyChip>
-                  </button>
+    <section aria-label={t("triage.title")} className="relative flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-8 pt-3 pb-24">
+        <div className="sort-col flex flex-col gap-[18px]">
+          <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
+            <h1 className="flex min-w-0 items-baseline gap-2 text-xl font-semibold tracking-[-0.015em]">
+              {t("triage.title")}
+              <span className="text-sm font-medium text-subtle tabular-nums" aria-live="polite">
+                {t("triage.progress", { current: number, total })}
+              </span>
+              {queue.fresh > 0 && <span className="text-xs font-medium text-accent">{t("triage.fresh", { count: queue.fresh })}</span>}
+            </h1>
+            <div role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done ? total : number} aria-label={t("triage.title")}>
+              {total <= DOTS ? (
+                <div className="sort-steps">
+                  {queue.ids.map((id, i) => (
+                    <i key={id} className={i < queue.position ? "ok" : i === queue.position ? "now" : ""} />
+                  ))}
                 </div>
+              ) : (
+                <div className="sort-bar">
+                  <span className="ok" style={{ width: `${(Math.min(queue.position, total) / total) * 100}%` }} />
+                  {!done && <span className="now" style={{ left: `${(queue.position / total) * 100}%`, width: `max(8px, ${100 / total}%)` }} />}
+                </div>
+              )}
+            </div>
+            <span className="flex-1" />
+            <button type="button" onClick={onFinish} className="sort-btn">
+              {t("triage.finish")}
+              <kbd className="sort-cap font-sans">Esc</kbd>
+            </button>
+          </header>
 
-                <p className="mt-[22px] text-xs text-subtle">{t("triage.fileHint")}</p>
-                <div data-keys className="mt-2 flex min-h-7 flex-wrap gap-2">
-                  {keysReady && keys.map((c, i) => {
-                    // Frame 03: the suggestion leads under key 1, its reason in the hint (NP-026).
-                    const offer = i === 0 && suggested?.collection_id === c.id ? suggested : null;
-                    const offered = !!offer;
-                    const chip = (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => void file(c)}
-                        aria-pressed={current.collection_id === c.id}
-                        aria-describedby={offered ? whyId : undefined}
-                        data-suggested={offered || undefined}
-                        className={`flex h-7 items-center gap-2 rounded-lg pr-2.5 pl-1.5 text-sm transition-colors duration-150 aria-pressed:outline aria-pressed:outline-accent ${offered ? "border border-suggested bg-accent-soft pl-[5px]" : "bg-secondary hover:bg-secondary-hover"}`}
-                      >
-                        <KeyChip className={`h-[18px] min-w-[18px] bg-card text-2xs ${offered ? "text-accent" : "text-muted"}`}>{i + 1}</KeyChip>
-                        <span className="size-[7px] rounded-full" style={{ background: collectionColor(c.id) }} />
-                        <span className={offered ? "font-medium text-on-accent-soft" : ""}>{c.name}</span>
-                        {offered && <span className="text-2xs text-accent-muted">{t("triage.suggested")}</span>}
-                      </button>
-                    );
-                    return offer ? (
-                      <Hint key={c.id} label={t("triage.suggestedWhy", { domain: current.domain, name: c.name, count: offer.count, filed: offer.filed })}>
-                        {chip}
-                        <span id={whyId} hidden>
-                          {t("triage.suggestedWhy", { domain: current.domain, name: c.name, count: offer.count, filed: offer.filed })}
-                        </span>
-                      </Hint>
-                    ) : (
-                      chip
-                    );
-                  })}
+          {current ? (
+            <>
+              <div className="sort-stack">
+                {waitingNext.length > 1 && <div className="sort-behind b2" aria-hidden />}
+                {waitingNext.length > 0 && <div className="sort-behind b1" aria-hidden />}
+                <article key={`card-${current.id}`} data-triage-card={current.id} className="sort-card in">
+                  {card(current, () => onOpen(current.url))}
+                </article>
+                {leaving && (
+                  <div
+                    key={`leaving-${leaving.n}`}
+                    aria-hidden
+                    className={`sort-card leaving ${leaving.way}`}
+                    onAnimationEnd={(e) => e.target === e.currentTarget && setLeaving(null)}
+                  >
+                    {card(leaving.b)}
+                  </div>
+                )}
+              </div>
+
+              {/* One capsule: «← Move to trash | Keep →» and the heart; words go before the row overflows (NP-084). */}
+              <div ref={decisionsRef} data-fit={fit} className="sort-seg">
+                <button type="button" aria-label={t("triage.trash")} onClick={() => void trash()} className="sort-half trash">
+                  <Icon icon={ArrowLeft} size={18} className="arrow" />
+                  <TrashIcon />
+                  {fit < 1 && <span data-label>{t("triage.trash")}</span>}
+                </button>
+                <span className="sort-mid" aria-hidden />
+                <button type="button" aria-label={t("triage.keep")} onClick={() => void keep()} className="sort-half keep">
+                  <Icon icon={Check} strokeWidth={2} />
+                  {fit < 2 && <span>{t("triage.keep")}</span>}
+                  <Icon icon={ArrowRight} size={18} className="arrow" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={current.is_favorite ? t("card.unfavorite") : t("card.favorite")}
+                  aria-pressed={current.is_favorite}
+                  aria-keyshortcuts="F"
+                  onClick={() => void favorite()}
+                  className="sort-fav"
+                >
+                  <Icon icon={Heart} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                <p className="sort-lbl">{t("triage.fileHint")}</p>
+                <div data-keys className="flex min-h-[34px] flex-wrap gap-2">
+                  {keysReady &&
+                    keys.map((c, i) => {
+                      // The suggestion leads under key 1, its reason in the hint (NP-026).
+                      const offer = i === 0 && suggested?.collection_id === c.id ? suggested : null;
+                      const why = offer
+                        ? t("triage.suggestedWhy", { domain: current.domain, name: c.name, count: offer.count, filed: offer.filed })
+                        : "";
+                      const chip = (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => void file(c)}
+                          aria-pressed={current.collection_id === c.id}
+                          aria-describedby={offer ? whyId : undefined}
+                          data-suggested={offer ? true : undefined}
+                          className={`sort-chip ${offer ? "sug" : ""}`}
+                          style={{ "--sugc": collectionColor(c.id) } as CSSProperties}
+                        >
+                          <span className="num">{i + 1}</span>
+                          <span className="dot" style={{ background: collectionColor(c.id) }} />
+                          <span data-user-text>{c.name}</span>
+                          {offer && (
+                            <span className="why">
+                              <Icon icon={Sparkle} size={12} />
+                              {t("triage.suggested")}
+                            </span>
+                          )}
+                        </button>
+                      );
+                      return offer ? (
+                        <Hint key={c.id} label={why}>
+                          {chip}
+                          <span id={whyId} hidden>
+                            {why}
+                          </span>
+                        </Hint>
+                      ) : (
+                        chip
+                      );
+                    })}
                   {tagging ? (
                     <TagField
                       label={t("triage.tagLabel")}
                       placeholder={t("triage.tagPlaceholder")}
-                      inputClassName="field h-7 w-[180px] rounded-lg px-2.5 text-sm"
+                      inputClassName="field h-[34px] w-[180px] rounded-full px-3.5 text-sm"
                       onAdd={(name) => (setTagging(false), void tag(name))}
                       onClose={() => setTagging(false)}
                     />
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setTagging(true)}
-                      className="flex h-7 items-center gap-2 rounded-lg border border-border pr-2.5 pl-[7px] text-sm text-muted transition-colors duration-150 hover:bg-hover"
-                    >
-                      <KeyChip className="h-[18px] min-w-[18px] bg-secondary text-2xs text-muted">T</KeyChip>
+                    <button type="button" onClick={() => setTagging(true)} className="sort-chip ghost">
+                      <span className="num">T</span>
+                      <Icon icon={Tag} size={14} />
                       {t("triage.tag")}
                     </button>
                   )}
                   {(current.tags ?? []).map((name) => (
-                    <span key={name} className="flex h-7 items-center rounded-lg px-1.5 text-xs text-subtle">
+                    <span key={name} className="sort-tag" data-user-text>
                       #{name}
                     </span>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-faint">{t("triage.keys")}</p>
-              </>
-            ) : (
-              done && (
-                // Frame 23: what was decided, back to the library or undo the last.
-                <div className="mx-auto flex max-w-[480px] flex-col items-center pt-[108px] text-center">
-                  <span className="flex size-14 items-center justify-center rounded-full bg-secondary text-accent">
-                    <Icon icon={Check} size={20} strokeWidth={1.75} />
-                  </span>
-                  <h2 className="mt-5 text-xl font-semibold">{t("triage.done")}</h2>
-                  <p className="mt-2 text-sm text-muted">
-                    {sum.count > 0 ? t("triage.summary", { count: sum.count, kept: sum.kept, filed: sum.filed, trashed: sum.trashed }) : t("triage.nothingDecided")}
-                  </p>
-                  <div className="mt-6 flex flex-wrap justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={onLibrary}
-                      className="flex h-9 w-[184px] items-center justify-center gap-2 rounded-lg bg-accent text-sm font-semibold text-on-accent transition-opacity duration-150 hover:opacity-90"
-                    >
-                      {t("triage.toLibrary")}
-                      <span aria-hidden className="rounded-xs bg-white/20 px-1.5 text-2xs font-normal">
-                        Enter
-                      </span>
-                    </button>
-                    {queue.steps.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => void undo()}
-                        className="flex h-9 w-[184px] items-center justify-center gap-2 rounded-lg bg-secondary text-sm font-medium transition-colors duration-150 hover:bg-secondary-hover"
-                      >
-                        {t("triage.undoLast")}
-                        <span aria-hidden className="rounded-xs bg-card px-1.5 text-2xs text-meta">
-                          Z
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                  <p className="mt-5 text-xs text-subtle">{t("triage.doneHint")}</p>
-                </div>
-              )
-            )}
-          </div>
+              </div>
 
-          <aside className="hidden w-[344px] shrink-0 flex-col gap-1.5 @min-[816px]:flex">
-            {!done && waitingNext.length > 0 && (
-              <>
-                <h3 className="mb-1.5 flex items-baseline gap-2 px-1 text-xs font-semibold">
-                  {t("triage.upNext")}
-                  <span className="font-normal text-subtle">{waitingNext.length}</span>
-                </h3>
-                <ul className="flex flex-col gap-1.5">
-                  {waitingNext.slice(0, UP_NEXT.length).map((id, i) => {
-                    const b = queue.items[id];
-                    return (
-                      <li key={id} style={{ opacity: UP_NEXT[i] }} className="flex h-[46px] items-center gap-3 px-1">
-                        <span className="h-[34px] w-12 shrink-0 overflow-hidden rounded-[5px] bg-hover">
-                          <Preview b={b} small />
-                        </span>
-                        <span className="flex min-w-0 flex-col" data-user-text>
-                          <span className="truncate text-sm font-medium">{b.title || b.url}</span>
-                          <span className="truncate text-2xs text-subtle">{b.domain}</span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <div className="my-1.5 h-px bg-line" />
-              </>
-            )}
-            <div className="flex h-[31px] items-center justify-between px-1">
-              <h3 className="text-xs font-semibold">{t("triage.justNow")}</h3>
-              {queue.steps.length > 0 && (
-                <button type="button" onClick={() => void undo()} className="flex items-center gap-1.5 rounded-xs text-xs font-medium text-accent hover:underline">
-                  {t("triage.undo")}
-                  <span aria-hidden>Z</span>
-                </button>
-              )}
-            </div>
-            <ul className="flex flex-col gap-1.5">
-              {decided.slice(0, JUST_NOW).map((step, i) => {
-                const collection = step.kind === "trash" ? undefined : collections.find((c) => c.id === step.collectionId);
-                return (
-                  <li key={`${step.id}-${decided.length - i}`} className="flex h-[27px] items-center gap-2.5 px-1.5 text-sm">
-                    {step.kind === "trash" ? (
-                      <Icon icon={Trash2} size={14} className="shrink-0 text-subtle" />
-                    ) : collection ? (
-                      <Icon icon={Folder} size={14} className="shrink-0" style={{ color: collectionColor(collection.id) }} />
-                    ) : (
-                      <Icon icon={Check} size={14} strokeWidth={1.75} className="shrink-0 text-[var(--np-green)]" />
-                    )}
-                    <span className={`min-w-0 flex-1 truncate text-muted ${step.kind === "trash" ? "line-through" : ""}`} data-user-text>
-                      {step.title}
-                    </span>
-                    <span
-                      className={`shrink-0 text-2xs ${step.kind === "trash" ? "text-meta" : collection ? "" : "text-[var(--np-green)]"}`}
-                      style={collection ? { color: collectionColor(collection.id) } : undefined}
-                    >
-                      {step.kind === "trash" ? t("triage.trashed") : collection ? `→ ${collection.name}` : t("triage.kept")}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="mt-1.5 rounded-xl bg-secondary px-3.5 py-3 text-xs">
-              <p className="font-medium text-icon">{t("triage.trashNote")}</p>
-              <p className="mt-1 text-subtle">{t("triage.trashNoteHint")}</p>
-            </div>
-          </aside>
+              <p className="sort-keys">
+                {(
+                  [
+                    ["Z", t("triage.keyUndo")],
+                    ["Space", t("triage.keyOpen")],
+                    ["E", t("triage.keyEdit")],
+                    ["F", t("triage.keyFavorite")],
+                  ] as const
+                ).map(([key, what]) => (
+                  <span key={key}>
+                    <kbd className="sort-cap font-sans">{key}</kbd>
+                    {what}
+                  </span>
+                ))}
+              </p>
+            </>
+          ) : (
+            done && (
+              // The end: what was decided, back to the library or undo the last.
+              <div className="sort-done">
+                <span className="sort-ring" aria-hidden>
+                  <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </span>
+                <h2 className="mt-1.5 text-[26px] leading-8 font-bold tracking-[-0.02em]">{t("triage.done")}</h2>
+                <p className="text-md text-muted">{sum.count > 0 ? t("triage.decided", { count: sum.count }) : t("triage.nothingDecided")}</p>
+                <div className="sort-stats">
+                  {(
+                    [
+                      [sum.kept, t("triage.statKept")],
+                      [sum.filed, t("triage.statFiled")],
+                      [sum.trashed, t("triage.statTrashed")],
+                    ] as const
+                  ).map(([n, what]) => (
+                    <div key={what} className="sort-stat">
+                      <b>{n}</b>
+                      <span>{what}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2.5 flex flex-wrap justify-center gap-2">
+                  <button type="button" onClick={onLibrary} className="sort-btn ink">
+                    {t("triage.toLibrary")}
+                    <kbd className="sort-cap font-sans">Enter</kbd>
+                  </button>
+                  {queue.steps.length > 0 && (
+                    <button type="button" onClick={() => void undo()} className="sort-btn">
+                      <Icon icon={Undo2} />
+                      {t("triage.undoLast")}
+                      <kbd className="sort-cap font-sans">Z</kbd>
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-subtle">{t("triage.doneHint")}</p>
+              </div>
+            )
+          )}
         </div>
       </div>
+
+      {/* The last decision and «Undo Z»; it steps aside while the app has a notice there. */}
+      {last && !done && !noticeUp && (
+        <div key={`toast-${queue.steps.length}`} role="status" data-undo-toast className="sort-toast">
+          <span className="what">
+            <span className="line">
+              <span className="shrink-0">{t("triage.toastWhat", { what: lastWhat })}</span>
+              {" "}
+              <span className="title" data-user-text>
+                {queue.items[last.id]?.title || last.title}
+              </span>
+            </span>
+            {last.kind === "trash" && <span className="note">{t("triage.trashNote")}</span>}
+          </span>
+          <button type="button" onClick={() => void undo()}>
+            <Icon icon={Undo2} />
+            {t("triage.undo")}
+            <kbd className="sort-cap font-sans">Z</kbd>
+          </button>
+        </div>
+      )}
     </section>
   );
 }
