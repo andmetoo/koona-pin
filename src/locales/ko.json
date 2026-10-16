@@ -1473,5 +1473,97 @@
     "inboxMany": "하나씩 유지, 분류, 삭제할 수 있습니다.",
     "inboxImported_other": "그중 {{count}}개는 가져오기에서 왔습니다.",
     "inboxFromImport": "가져오기에서 왔습니다."
+  },
+  "feeds": {
+    "title": "피드",
+    "all": "모든 피드",
+    "follow": "사이트 팔로우…",
+    "followSite": "사이트 팔로우",
+    "newCount": "새 글 {{count}}",
+    "updated": "업데이트: {{when}}",
+    "offline": "오프라인",
+    "checking": "새 글 확인 중…",
+    "notUpdating": "{{date}} 이후 업데이트 없음",
+    "blocked": "사이트가 앱 접근을 막고 있습니다",
+    "gone": "피드가 사이트에서 사라졌습니다",
+    "moved": "피드 주소가 바뀌었습니다",
+    "refresh": "새 글 확인",
+    "search": "글 검색",
+    "searchPlaceholder": "제목과 요약",
+    "clearSearch": "검색 지우기",
+    "unread": "읽지 않음",
+    "saved": "저장됨",
+    "empty": "아직 글이 없습니다. 다음 확인 때 새 글이 들어옵니다.",
+    "noMatch": "검색 결과 없음: {{query}}",
+    "article": "기사",
+    "pick": "읽을 글을 고르세요",
+    "pickHint": "J와 K로 목록 이동",
+    "back": "목록으로 돌아가기",
+    "save": "저장",
+    "savedLabel": "저장됨",
+    "readLater": "나중에 읽기",
+    "favorite": "즐겨찾기",
+    "open": "브라우저에서 열기",
+    "todayAt": "오늘 {{time}}",
+    "yesterdayAt": "어제 {{time}}",
+    "dateAt": "{{date}} {{time}}",
+    "loadFull": "기사 전체 불러오기",
+    "loadingFull": "기사를 불러오는 중…",
+    "none": {
+      "title": "읽는 사이트를 팔로우하세요",
+      "text": "사이트 주소를 ‘새 링크’에 붙여넣고, 피드가 있으면 ‘팔로우’를 켜세요."
+    },
+    "destinations": {
+      "feeds": "피드에만",
+      "inbox": "받은함처럼 정리",
+      "notify": "알림도 받기"
+    },
+    "menu": {
+      "label": "{{name}}: 더 보기",
+      "rename": "이름 바꾸기…",
+      "destination": "새 글이 갈 곳",
+      "markRead": "모두 읽음으로 표시",
+      "copy": "피드 주소 복사",
+      "openSite": "사이트 열기",
+      "unfollow": "팔로우 취소…"
+    },
+    "rename": {
+      "title": "피드 이름 바꾸기",
+      "name": "이름",
+      "hint": "비워 두면 피드의 원래 이름",
+      "save": "바꾸기"
+    },
+    "unfollow": {
+      "title": "팔로우 취소: {{name}}",
+      "text": "글이 피드에서 사라집니다. 저장한 글은 라이브러리에 남습니다.",
+      "confirm": "팔로우 취소"
+    },
+    "notice": {
+      "markedRead": "읽음으로 표시: {{count}}",
+      "allRead": "모두 읽었습니다",
+      "alreadySaved": "이미 라이브러리에 있습니다",
+      "noLink": "이 글에는 링크가 없습니다",
+      "favorited": "즐겨찾기에 추가됨",
+      "unfavorited": "즐겨찾기에서 제거됨",
+      "unfollowed": "팔로우 취소됨: {{name}}",
+      "destination": "{{name}}: {{place}}",
+      "exported": "내보낸 피드: {{count}}",
+      "imported": "팔로우: {{added}} · 이미 팔로우: {{existing}} · 건너뜀: {{skipped}}",
+      "cacheCleared": "피드 캐시를 비웠습니다. 다시 확인합니다"
+    },
+    "settings": {
+      "check": "새 글 확인",
+      "checkHint": "앱이 사이트에서 직접 피드를 가져옵니다.",
+      "manually": "수동",
+      "keep": "저장하지 않은 글은 30일 동안 보관됩니다",
+      "keepHint": "글을 저장하면 북마크로 남습니다.",
+      "opml": "피드 파일 (OPML)",
+      "opmlHint": "다른 리더와 피드를 주고받으세요.",
+      "export": "내보내기…",
+      "import": "가져오기…",
+      "clear": "피드 캐시 비우기",
+      "clearHint": "글을 다시 가져옵니다. 저장한 글은 라이브러리에 남습니다.",
+      "clearButton": "비우기"
+    }
   }
 }

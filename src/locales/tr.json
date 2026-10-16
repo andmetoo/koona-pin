@@ -1562,5 +1562,97 @@
     "inboxImported_one": "{{count}} tanesi içe aktarmadan.",
     "inboxImported_other": "{{count}} tanesi içe aktarmadan.",
     "inboxFromImport": "İçe aktarmadan."
+  },
+  "feeds": {
+    "title": "Akışlar",
+    "all": "Tüm akışlar",
+    "follow": "Bir siteyi takip et…",
+    "followSite": "Bir siteyi takip et",
+    "newCount": "{{count}} yeni",
+    "updated": "güncellendi: {{when}}",
+    "offline": "Çevrimdışı",
+    "checking": "Yeni yazılar denetleniyor…",
+    "notUpdating": "{{date}} tarihinden beri güncellenmiyor",
+    "blocked": "Site uygulamayı içeri almıyor",
+    "gone": "Akış siteden kaldırılmış",
+    "moved": "Akış yeni bir adrese taşınmış",
+    "refresh": "Yeni yazıları denetle",
+    "search": "Yazılarda ara",
+    "searchPlaceholder": "Başlıklar ve özetler",
+    "clearSearch": "Aramayı temizle",
+    "unread": "Okunmadı",
+    "saved": "kaydedildi",
+    "empty": "Henüz yazı yok. Yeniler bir sonraki denetimde gelir.",
+    "noMatch": "«{{query}}» ile eşleşen yazı yok",
+    "article": "Makale",
+    "pick": "Okumak için bir yazı seçin",
+    "pickHint": "J ve K listede gezinir",
+    "back": "Listeye dön",
+    "save": "Kaydet",
+    "savedLabel": "Kaydedildi",
+    "readLater": "Sonra oku",
+    "favorite": "Favori",
+    "open": "Tarayıcıda aç",
+    "todayAt": "Bugün {{time}}",
+    "yesterdayAt": "Dün {{time}}",
+    "dateAt": "{{date}} {{time}}",
+    "loadFull": "Makalenin tamamını yükle",
+    "loadingFull": "Makale yükleniyor…",
+    "none": {
+      "title": "Okuduğunuz siteleri takip edin",
+      "text": "Bir sitenin adresini «Yeni bağlantı»ya yapıştırın; akışı varsa «Takip et»i açın."
+    },
+    "destinations": {
+      "feeds": "Yalnızca Akışlar",
+      "inbox": "Gelen Kutusu gibi ayıkla",
+      "notify": "Bana da bildir"
+    },
+    "menu": {
+      "label": "{{name}}: daha fazla",
+      "rename": "Yeniden adlandır…",
+      "destination": "Yeni yazılar nereye gider",
+      "markRead": "Tümünü okundu say",
+      "copy": "Akış adresini kopyala",
+      "openSite": "Siteyi aç",
+      "unfollow": "Takibi bırak…"
+    },
+    "rename": {
+      "title": "Akışı yeniden adlandır",
+      "name": "Ad",
+      "hint": "Boş: akışın kendi adı",
+      "save": "Yeniden adlandır"
+    },
+    "unfollow": {
+      "title": "{{name}} takibi bırakılsın mı?",
+      "text": "Yazıları Akışlar'dan çıkar. Kaydettikleriniz kitaplıkta kalır.",
+      "confirm": "Takibi bırak"
+    },
+    "notice": {
+      "markedRead": "Okundu sayıldı: {{count}}",
+      "allRead": "Hepsi okundu",
+      "alreadySaved": "Zaten kitaplığınızda",
+      "noLink": "Bu yazının bağlantısı yok",
+      "favorited": "Favorilere eklendi",
+      "unfavorited": "Favorilerden çıkarıldı",
+      "unfollowed": "Takip bırakıldı: {{name}}",
+      "destination": "{{name}}: {{place}}",
+      "exported": "Dışa aktarılan akış: {{count}}",
+      "imported": "Takip edilen: {{added}} · zaten vardı: {{existing}} · atlanan: {{skipped}}",
+      "cacheCleared": "Akış önbelleği temizlendi, yeniden denetleniyor"
+    },
+    "settings": {
+      "check": "Yeni yazıları denetle",
+      "checkHint": "Uygulama akışları doğrudan sitelerden kendisi alır.",
+      "manually": "Elle",
+      "keep": "Kaydedilmemiş yazılar 30 gün tutulur",
+      "keepHint": "Bir yazıyı yer imi olarak tutmak için kaydedin.",
+      "opml": "Akış dosyası (OPML)",
+      "opmlHint": "Akışlarınızı başka bir okuyucuya taşıyın ya da oradan alın.",
+      "export": "Dışa aktar…",
+      "import": "İçe aktar…",
+      "clear": "Akış önbelleğini temizle",
+      "clearHint": "Yazılar yeniden indirilir. Kaydedilenler kitaplıkta kalır.",
+      "clearButton": "Temizle"
+    }
   }
 }

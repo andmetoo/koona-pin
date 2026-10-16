@@ -16,6 +16,7 @@ import {
   statusLabel,
 } from "../../services/capture";
 import { describeError } from "../../services/errors";
+import { clearFeedCache, exportOpml, importOpml, setFeedsRefreshMinutes } from "../../services/feeds";
 import { GITHUB_ISSUES_URL, licensesUrl } from "../../services/feedback";
 import { shortcut } from "../../services/keys";
 import { changelogUrl, offer, percent } from "../../services/update";
@@ -247,6 +248,66 @@ export function SettingsPage({
         </Row>
         <Row title={t("card.toReading")} description={t("settings.sendToReadingHint")}>
           <Kbd>R</Kbd>
+        </Row>
+      </Section>
+
+      {/* Feeds (NP-132): how often to check, how long posts stay, OPML and the cache. */}
+      <Section title={t("feeds.title")}>
+        <div data-settings-feeds="check">
+          <Row title={t("feeds.settings.check")} description={t("feeds.settings.checkHint")}>
+            <Segmented
+              label={t("feeds.settings.check")}
+              value={String(settings?.feeds_refresh_minutes ?? 60)}
+              options={FEED_CHECKS.map((minutes) => ({ value: String(minutes), label: checkLabel(minutes, t, i18n.language) }))}
+              onChange={(value) =>
+                void attempt("feedsCheck", async () => {
+                  await setFeedsRefreshMinutes(Number(value));
+                  if (settings) onSettings({ ...settings, feeds_refresh_minutes: Number(value) });
+                })
+              }
+            />
+          </Row>
+        </div>
+        <Row title={t("feeds.settings.keep")} description={t("feeds.settings.keepHint")}>
+          {null}
+        </Row>
+        <Row title={t("feeds.settings.opml")} description={t("feeds.settings.opmlHint")}>
+          <Button
+            disabled={busy("opmlExport")}
+            onClick={() =>
+              void attempt("opmlExport", async () => {
+                // The desktop asks where to save; the path is chosen there (NP-129).
+                const count = await exportOpml("");
+                onNotice(t("feeds.notice.exported", { count }));
+              })
+            }
+          >
+            {t("feeds.settings.export")}
+          </Button>
+          <Button
+            disabled={busy("opmlImport")}
+            onClick={() =>
+              void attempt("opmlImport", async () => {
+                const report = await importOpml("");
+                onNotice(t("feeds.notice.imported", { added: report.added, existing: report.existing, skipped: report.skipped.length }));
+              })
+            }
+          >
+            {t("feeds.settings.import")}
+          </Button>
+        </Row>
+        <Row title={t("feeds.settings.clear")} description={t("feeds.settings.clearHint")}>
+          <Button
+            disabled={busy("feedCache")}
+            onClick={() =>
+              void attempt("feedCache", async () => {
+                await clearFeedCache();
+                onNotice(t("feeds.notice.cacheCleared"));
+              })
+            }
+          >
+            {t("feeds.settings.clearButton")}
+          </Button>
         </Row>
       </Section>
 
@@ -632,6 +693,14 @@ function moment(iso: string, language: string) {
     time: at.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" }),
     date: at.toLocaleDateString(language, { day: "numeric", month: "long" }),
   };
+}
+
+/** «Check for new posts» (NP-132): minutes, 0 only on refresh. */
+const FEED_CHECKS = [30, 60, 180, 720, 0];
+function checkLabel(minutes: number, t: TFunction, language: string): string {
+  if (minutes === 0) return t("feeds.settings.manually");
+  const hours = minutes >= 60;
+  return new Intl.NumberFormat(language, { style: "unit", unit: hours ? "hour" : "minute", unitDisplay: "short" }).format(hours ? minutes / 60 : minutes);
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

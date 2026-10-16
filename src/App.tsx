@@ -49,6 +49,11 @@ import { LinkCheckPage } from "./components/library/LinkCheckPage";
 import { mergedNotice } from "./services/duplicates";
 import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
+import { FeedsPage } from "./components/feeds/FeedsPage";
+import { useFeeds } from "./components/feeds/useFeeds";
+import { useFeedActions } from "./components/feeds/FeedMenu";
+import { feedNotifications } from "./services/feedNotifications";
+import { parsePlace } from "./services/feedsView";
 import { SyncDialog } from "./components/commercial/SyncDialog";
 import { syncPrompt } from "./components/commercial/syncText";
 
@@ -105,7 +110,10 @@ export function App() {
   /** The order of every list but the trash, kept like the view (NP-114). */
   const [sort, setSort] = useState<BookmarkSort>(() => preference("sort", SORTS, "newest"));
   const [filters, setFilters] = useState(initialFilters);
-  const [page, setPage] = useState<"library" | "settings" | "duplicates" | "links">("library");
+  const [page, setPage] = useState<"library" | "settings" | "duplicates" | "links" | "feeds">("library");
+  /** The Feeds page (NP-132): the feed shown (null: All feeds) and the open post, remembered. */
+  const [feedPlace, setFeedPlace] = useState(() => parsePlace(storedValue("feeds.last")));
+  const { feeds, refreshing: feedsRefreshing } = useFeeds();
   const pageRef = useRef(page);
   pageRef.current = page;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -223,6 +231,7 @@ export function App() {
     savePreference("theme", theme);
   }, [theme, dark]);
   useEffect(() => savePreference("view", view), [view]);
+  useEffect(() => savePreference("feeds.last", JSON.stringify(feedPlace)), [feedPlace]);
   useEffect(() => savePreference("sort", sort), [sort]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -536,6 +545,13 @@ export function App() {
     setEditing(null);
     setPage("duplicates");
   };
+  /** The Feeds page (NP-132) on a feed, or on All feeds; another feed closes the open post. */
+  const openFeeds = (feedUid: string | null) => {
+    setTriage(null);
+    setEditing(null);
+    setPage("feeds");
+    setFeedPlace((place) => (place.feed === feedUid ? place : { feed: feedUid, item: null }));
+  };
   /** The section «Проверка ссылок» (NP-036): from the sidebar or the menu «⋯». */
   const openLinks = () => {
     setTriage(null);
@@ -716,6 +732,14 @@ export function App() {
       .then(({ command }) => say(readingNotice(t, change), false, undoing(command)))
       .catch((err) => say(describeError(err), true));
   const open = (url: string) => void api.openUrl(url).catch((err) => say(describeError(err), true));
+  /** A feed's row menu in the sidebar and its dialogs (NP-132). */
+  const feedMenu = useFeedActions({
+    onNotice: (text, alert = false) => setNotice({ text, alert }),
+    onOpen: open,
+    onCopy: (text) => void copy(text),
+    onUnfollowed: (feed) => setFeedPlace((place) => (place.feed === feed.uid ? { feed: null, item: null } : place)),
+  });
+  const feedActions = feedMenu.actions;
   /**
    * An offline copy (NP-126): of the article on screen, or of the page read now
    * («Save for offline» of the list); a page that cannot be read says why, as the
@@ -1031,6 +1055,8 @@ export function App() {
       action: { label: t("importOffer.action"), run: () => setSurface("import") },
       dismiss: { label: t("importOffer.hide"), run: endImportOffer },
     });
+  // The feeds' own (NP-133): new posts of feeds that notify, feeds that stopped updating.
+  notifications.push(...feedNotifications(feeds ?? [], { openFeeds, unfollow: feedActions.unfollow }));
   const clearNotifications = () => {
     if (counts.inbox > 0) hideBanner();
     if (importOffer) endImportOffer();
@@ -1322,6 +1348,11 @@ export function App() {
         dropping={dragging && { target: dragging.target }}
         notifications={notifications}
         onClearNotifications={clearNotifications}
+        feeds={feeds}
+        feedsOpen={page === "feeds"}
+        feedUid={feedPlace.feed}
+        onFeed={openFeeds}
+        feedActions={feedActions}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1364,6 +1395,33 @@ export function App() {
                   />
                 </div>
               </>
+            ) : page === "feeds" ? (
+              <FeedsPage
+                feeds={feeds ?? []}
+                refreshing={feedsRefreshing}
+                feedUid={feedPlace.feed}
+                itemId={feedPlace.item}
+                onFeed={openFeeds}
+                onItem={(item) => setFeedPlace((place) => ({ ...place, item }))}
+                narrow={narrow}
+                blocked={!!editing || surface !== null || !!reading || !!purging || !!deletingCollection}
+                look={readerLook.look}
+                aa={{
+                  choice: readerLook.choice,
+                  unlocked: readerLook.unlocked,
+                  onChoice: readerLook.setChoice,
+                  onLocked: (wish) => {
+                    readerLook.wish(wish);
+                    setSurface("supporter");
+                  },
+                  onSupporter: () => setSurface("supporter"),
+                }}
+                onOpen={open}
+                onNotice={({ text, alert = false, undo, glass = false }) => setNotice({ text, alert, undo, glass })}
+                onUnsave={(id) => unsave(id, false)}
+                onUndo={undoing}
+                onNewLink={() => setSurface("add")}
+              />
             ) : page === "duplicates" ? (
               <DuplicatesPage
                 collections={library.collections}
@@ -1863,6 +1921,7 @@ export function App() {
           }}
         />
       )}
+      {feedMenu.dialogs}
       {/* NP-123: a click that selects or unselects is said, not only shown; not a status, so notices stay apart. */}
       <p aria-live="polite" data-announcer className="sr-only">
         {announcement}

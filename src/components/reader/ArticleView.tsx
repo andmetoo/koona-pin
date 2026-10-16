@@ -20,11 +20,13 @@ type State = { url: string } & (
  * The copy is looked for as the bookmark was when it opened: saving one later keeps
  * the article on screen.
  */
-function useArticle(url: string, attempt: number, bookmarkId: number | undefined, offlineAt: string | null, live: boolean) {
+function useArticle(url: string, attempt: number, bookmarkId: number | undefined, offlineAt: string | null, live: boolean, given?: Article) {
   const [state, setState] = useState<State>({ url, kind: "loading" });
   const copy = useRef(offlineAt);
   copy.current = offlineAt;
   useEffect(() => {
+    // An article the caller already has (a feed's cached post, NP-132) is never fetched.
+    if (given) return;
     let current = true;
     setState({ url, kind: "loading" });
     openArticle({ id: bookmarkId ?? 0, url, offline_at: bookmarkId === undefined ? null : copy.current }, live).then(
@@ -36,7 +38,8 @@ function useArticle(url: string, attempt: number, bookmarkId: number | undefined
     return () => {
       current = false;
     };
-  }, [url, attempt, bookmarkId, live]);
+  }, [url, attempt, bookmarkId, live, !!given]);
+  if (given) return { url, kind: "article", article: given, offlineAt: null } as const;
   // Until the effect runs for a new address, the old article must not show under the new title.
   return state.url === url ? state : ({ url, kind: "loading" } as const);
 }
@@ -98,6 +101,11 @@ export function ArticleView({
   bookmarkId,
   offlineAt = null,
   live = false,
+  article: given,
+  onLoadFull,
+  header,
+  byline,
+  lead,
 }: {
   url: string;
   /** The bookmark's title: shown while the article loads and when there is none. */
@@ -121,9 +129,23 @@ export function ArticleView({
   offlineAt?: string | null;
   /** The page itself even when there is a copy («Try live page»). */
   live?: boolean;
+  /** The article itself, already sanitised (a feed's cached post, NP-132): nothing is fetched. */
+  article?: Article;
+  /**
+   * «Load the full article» under a summary-only post (NP-132): the caller reads the page on
+   * this click only; a rejection's message is shown under the button.
+   */
+  onLoadFull?: () => Promise<void>;
+  /** In place of the meta line above the title: the feed's chip. */
+  header?: ReactNode;
+  /** Under the title: «Today at 9:12 · author · 4 min read». */
+  byline?: ReactNode;
+  /** Between the title and the body: the post's picture and its caption. */
+  lead?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
-  const state = useArticle(url, attempt, bookmarkId, offlineAt, live);
+  const state = useArticle(url, attempt, bookmarkId, offlineAt, live, given);
+  const [full, setFull] = useState<{ busy: boolean; failure: string | null }>({ busy: false, failure: null });
   const article = state.kind === "article" ? state.article : null;
   useEffect(() => {
     if (article) onReady?.(article);
@@ -167,6 +189,7 @@ export function ArticleView({
 
   return (
     <article lang={article?.language ?? undefined} aria-busy={!article || undefined} className="reader-article mx-auto w-full max-w-[var(--reader-column,600px)]">
+      {header ?? (
       <p className="reader-meta">
         {[
           article?.site ?? domain,
@@ -182,8 +205,11 @@ export function ArticleView({
             </Fragment>
           ))}
       </p>
+      )}
       <h1 className="reader-title">{article?.title ?? title}</h1>
+      {byline}
       {article?.description && <p className="reader-dek">{article.description}</p>}
+      {lead}
       {article ? (
         <div className="reader-body" onClick={follow} dangerouslySetInnerHTML={{ __html: article.html }} />
       ) : (
@@ -191,6 +217,23 @@ export function ArticleView({
           {[100, 96, 88, 100, 72].map((width, i) => (
             <span key={i} className="h-4 animate-pulse rounded-xs bg-hover" style={{ width: `${width}%` }} />
           ))}
+        </div>
+      )}
+      {article && onLoadFull && (
+        <div data-load-full className="mt-2 flex flex-col items-start gap-2">
+          <Button
+            disabled={full.busy}
+            onClick={() => {
+              setFull({ busy: true, failure: null });
+              onLoadFull().then(
+                () => setFull({ busy: false, failure: null }),
+                (err: unknown) => setFull({ busy: false, failure: err instanceof Error ? err.message : String(err) }),
+              );
+            }}
+          >
+            {full.busy ? t("feeds.loadingFull") : t("feeds.loadFull")}
+          </Button>
+          {full.failure && <p role="status" className="text-sm text-muted">{full.failure}</p>}
         </div>
       )}
     </article>

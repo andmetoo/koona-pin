@@ -1651,5 +1651,97 @@
     "inboxImported_many": "Dont {{count}} de l’importation.",
     "inboxImported_other": "Dont {{count}} de l’importation.",
     "inboxFromImport": "Depuis l’importation."
+  },
+  "feeds": {
+    "title": "Flux",
+    "all": "Tous les flux",
+    "follow": "Suivre un site…",
+    "followSite": "Suivre un site",
+    "newCount": "{{count}} nouveaux",
+    "updated": "mis à jour {{when}}",
+    "offline": "Hors ligne",
+    "checking": "Recherche de nouveaux articles…",
+    "notUpdating": "Pas de mise à jour depuis le {{date}}",
+    "blocked": "Le site refuse l'app",
+    "gone": "Le flux a disparu du site",
+    "moved": "Le flux a changé d'adresse",
+    "refresh": "Chercher de nouveaux articles",
+    "search": "Rechercher dans les articles",
+    "searchPlaceholder": "Titres et extraits",
+    "clearSearch": "Effacer la recherche",
+    "unread": "Non lu",
+    "saved": "enregistré",
+    "empty": "Aucun article pour l'instant. Les nouveaux arrivent à la prochaine vérification.",
+    "noMatch": "Aucun article pour « {{query}} »",
+    "article": "Article",
+    "pick": "Choisissez un article",
+    "pickHint": "J et K parcourent la liste",
+    "back": "Retour à la liste",
+    "save": "Enregistrer",
+    "savedLabel": "Enregistré",
+    "readLater": "Lire plus tard",
+    "favorite": "Favori",
+    "open": "Ouvrir dans le navigateur",
+    "todayAt": "Aujourd'hui à {{time}}",
+    "yesterdayAt": "Hier à {{time}}",
+    "dateAt": "{{date}} à {{time}}",
+    "loadFull": "Charger l'article complet",
+    "loadingFull": "Chargement de l'article…",
+    "none": {
+      "title": "Suivez les sites que vous lisez",
+      "text": "Collez l'adresse d'un site dans « Nouveau lien » et activez « Suivre » s'il a un flux."
+    },
+    "destinations": {
+      "feeds": "Dans Flux seulement",
+      "inbox": "Les trier comme la boîte de réception",
+      "notify": "Me prévenir aussi"
+    },
+    "menu": {
+      "label": "{{name}} : plus",
+      "rename": "Renommer…",
+      "destination": "Où vont les nouveaux articles",
+      "markRead": "Tout marquer comme lu",
+      "copy": "Copier l'adresse du flux",
+      "openSite": "Ouvrir le site",
+      "unfollow": "Ne plus suivre…"
+    },
+    "rename": {
+      "title": "Renommer le flux",
+      "name": "Nom",
+      "hint": "Vide : le nom du flux lui-même",
+      "save": "Renommer"
+    },
+    "unfollow": {
+      "title": "Ne plus suivre {{name}} ?",
+      "text": "Ses articles quittent Flux. Ceux enregistrés restent dans votre bibliothèque.",
+      "confirm": "Ne plus suivre"
+    },
+    "notice": {
+      "markedRead": "Marqués comme lus : {{count}}",
+      "allRead": "Tout est lu",
+      "alreadySaved": "Déjà dans votre bibliothèque",
+      "noLink": "Cet article n'a pas de lien",
+      "favorited": "Ajouté aux favoris",
+      "unfavorited": "Retiré des favoris",
+      "unfollowed": "Vous ne suivez plus {{name}}",
+      "destination": "{{name}} : {{place}}",
+      "exported": "Flux exportés : {{count}}",
+      "imported": "Suivis : {{added}} · déjà suivis : {{existing}} · ignorés : {{skipped}}",
+      "cacheCleared": "Cache des flux vidé, nouvelle vérification"
+    },
+    "settings": {
+      "check": "Chercher de nouveaux articles",
+      "checkHint": "L'app récupère les flux elle-même, directement sur les sites.",
+      "manually": "Manuellement",
+      "keep": "Les articles non enregistrés sont gardés 30 jours",
+      "keepHint": "Enregistrez un article pour le garder en signet.",
+      "opml": "Fichier de flux (OPML)",
+      "opmlHint": "Transférez vos flux vers ou depuis un autre lecteur.",
+      "export": "Exporter…",
+      "import": "Importer…",
+      "clear": "Vider le cache des flux",
+      "clearHint": "Les articles sont récupérés à nouveau. Ceux enregistrés restent dans votre bibliothèque.",
+      "clearButton": "Vider"
+    }
   }
 }

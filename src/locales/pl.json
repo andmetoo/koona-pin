@@ -1740,5 +1740,97 @@
     "inboxImported_many": "{{count}} z nich z importu.",
     "inboxImported_other": "{{count}} z nich z importu.",
     "inboxFromImport": "Z importu."
+  },
+  "feeds": {
+    "title": "Kanały",
+    "all": "Wszystkie kanały",
+    "follow": "Obserwuj stronę…",
+    "followSite": "Obserwuj stronę",
+    "newCount": "Nowe: {{count}}",
+    "updated": "zaktualizowano {{when}}",
+    "offline": "Offline",
+    "checking": "Sprawdzam nowe wpisy…",
+    "notUpdating": "Bez aktualizacji od {{date}}",
+    "blocked": "Strona nie wpuszcza aplikacji",
+    "gone": "Kanał zniknął ze strony",
+    "moved": "Kanał zmienił adres",
+    "refresh": "Sprawdź nowe wpisy",
+    "search": "Szukaj we wpisach",
+    "searchPlaceholder": "Tytuły i fragmenty",
+    "clearSearch": "Wyczyść wyszukiwanie",
+    "unread": "Nieprzeczytane",
+    "saved": "zapisany",
+    "empty": "Na razie brak wpisów. Nowe pojawią się po następnym sprawdzeniu.",
+    "noMatch": "Brak wpisów dla „{{query}}”",
+    "article": "Artykuł",
+    "pick": "Wybierz wpis",
+    "pickHint": "J i K przechodzą po liście",
+    "back": "Wróć do listy",
+    "save": "Zapisz",
+    "savedLabel": "Zapisany",
+    "readLater": "Przeczytaj później",
+    "favorite": "Ulubione",
+    "open": "Otwórz w przeglądarce",
+    "todayAt": "Dziś o {{time}}",
+    "yesterdayAt": "Wczoraj o {{time}}",
+    "dateAt": "{{date}} o {{time}}",
+    "loadFull": "Wczytaj cały artykuł",
+    "loadingFull": "Wczytuję artykuł…",
+    "none": {
+      "title": "Obserwuj strony, które czytasz",
+      "text": "Wklej adres strony w „Nowy link” i włącz „Obserwuj”, jeśli ma kanał."
+    },
+    "destinations": {
+      "feeds": "Tylko w Kanałach",
+      "inbox": "Sortuj jak Skrzynkę",
+      "notify": "Także powiadamiaj"
+    },
+    "menu": {
+      "label": "{{name}}: więcej",
+      "rename": "Zmień nazwę…",
+      "destination": "Dokąd trafiają nowe wpisy",
+      "markRead": "Oznacz wszystko jako przeczytane",
+      "copy": "Kopiuj adres kanału",
+      "openSite": "Otwórz stronę",
+      "unfollow": "Przestań obserwować…"
+    },
+    "rename": {
+      "title": "Zmień nazwę kanału",
+      "name": "Nazwa",
+      "hint": "Puste: własna nazwa kanału",
+      "save": "Zmień nazwę"
+    },
+    "unfollow": {
+      "title": "Przestać obserwować {{name}}?",
+      "text": "Jego wpisy znikną z Kanałów. Zapisane zostaną w bibliotece.",
+      "confirm": "Przestań obserwować"
+    },
+    "notice": {
+      "markedRead": "Oznaczono jako przeczytane: {{count}}",
+      "allRead": "Wszystko przeczytane",
+      "alreadySaved": "Już jest w bibliotece",
+      "noLink": "Ten wpis nie ma linku",
+      "favorited": "Dodano do ulubionych",
+      "unfavorited": "Usunięto z ulubionych",
+      "unfollowed": "Nie obserwujesz już {{name}}",
+      "destination": "{{name}}: {{place}}",
+      "exported": "Wyeksportowano kanały: {{count}}",
+      "imported": "Obserwowane: {{added}} · już były: {{existing}} · pominięte: {{skipped}}",
+      "cacheCleared": "Pamięć kanałów wyczyszczona, sprawdzam ponownie"
+    },
+    "settings": {
+      "check": "Sprawdzaj nowe wpisy",
+      "checkHint": "Aplikacja sama pobiera kanały, prosto ze stron.",
+      "manually": "Ręcznie",
+      "keep": "Niezapisane wpisy są przechowywane 30 dni",
+      "keepHint": "Zapisz wpis, aby został jako zakładka.",
+      "opml": "Plik kanałów (OPML)",
+      "opmlHint": "Przenieś kanały do innego czytnika lub z niego.",
+      "export": "Eksportuj…",
+      "import": "Importuj…",
+      "clear": "Wyczyść pamięć kanałów",
+      "clearHint": "Wpisy zostaną pobrane ponownie. Zapisane zostaną w bibliotece.",
+      "clearButton": "Wyczyść"
+    }
   }
 }

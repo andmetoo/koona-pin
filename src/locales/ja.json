@@ -1473,5 +1473,97 @@
     "inboxMany": "1 件ずつ、残す、振り分ける、捨てるを選べます。",
     "inboxImported_other": "うち {{count}} 件はインポートから。",
     "inboxFromImport": "インポートからです。"
+  },
+  "feeds": {
+    "title": "フィード",
+    "all": "すべてのフィード",
+    "follow": "サイトをフォロー…",
+    "followSite": "サイトをフォロー",
+    "newCount": "新着 {{count}}",
+    "updated": "{{when}}に更新",
+    "offline": "オフライン",
+    "checking": "新しい投稿を確認中…",
+    "notUpdating": "{{date}}から更新なし",
+    "blocked": "サイトがアプリを受け付けません",
+    "gone": "フィードがサイトから消えました",
+    "moved": "フィードが新しいアドレスに移動しました",
+    "refresh": "新しい投稿を確認",
+    "search": "投稿を検索",
+    "searchPlaceholder": "タイトルと抜粋",
+    "clearSearch": "検索をクリア",
+    "unread": "未読",
+    "saved": "保存済み",
+    "empty": "まだ投稿はありません。次の確認で新しい投稿が届きます。",
+    "noMatch": "「{{query}}」に一致する投稿はありません",
+    "article": "記事",
+    "pick": "読む投稿を選んでください",
+    "pickHint": "J と K でリストを移動",
+    "back": "リストに戻る",
+    "save": "保存",
+    "savedLabel": "保存済み",
+    "readLater": "あとで読む",
+    "favorite": "お気に入り",
+    "open": "ブラウザで開く",
+    "todayAt": "今日 {{time}}",
+    "yesterdayAt": "昨日 {{time}}",
+    "dateAt": "{{date}} {{time}}",
+    "loadFull": "記事全体を読み込む",
+    "loadingFull": "記事を読み込み中…",
+    "none": {
+      "title": "読んでいるサイトをフォローしましょう",
+      "text": "「新しいリンク」にサイトのアドレスを貼り付け、フィードがあれば「フォロー」をオンにします。"
+    },
+    "destinations": {
+      "feeds": "フィードのみ",
+      "inbox": "受信箱のように整理",
+      "notify": "通知も受け取る"
+    },
+    "menu": {
+      "label": "{{name}}: その他",
+      "rename": "名前を変更…",
+      "destination": "新しい投稿の行き先",
+      "markRead": "すべて既読にする",
+      "copy": "フィードのアドレスをコピー",
+      "openSite": "サイトを開く",
+      "unfollow": "フォローをやめる…"
+    },
+    "rename": {
+      "title": "フィード名を変更",
+      "name": "名前",
+      "hint": "空欄: フィード本来の名前",
+      "save": "変更"
+    },
+    "unfollow": {
+      "title": "{{name}} のフォローをやめますか？",
+      "text": "投稿はフィードから消えます。保存した投稿はライブラリに残ります。",
+      "confirm": "フォローをやめる"
+    },
+    "notice": {
+      "markedRead": "既読にした数: {{count}}",
+      "allRead": "すべて既読です",
+      "alreadySaved": "すでにライブラリにあります",
+      "noLink": "この投稿にはリンクがありません",
+      "favorited": "お気に入りに追加しました",
+      "unfavorited": "お気に入りから外しました",
+      "unfollowed": "{{name}} のフォローをやめました",
+      "destination": "{{name}}: {{place}}",
+      "exported": "書き出したフィード: {{count}}",
+      "imported": "フォロー: {{added}} · 既存: {{existing}} · スキップ: {{skipped}}",
+      "cacheCleared": "フィードのキャッシュを消去しました。再確認します"
+    },
+    "settings": {
+      "check": "新しい投稿を確認",
+      "checkHint": "アプリがサイトから直接フィードを取得します。",
+      "manually": "手動",
+      "keep": "未保存の投稿は30日間保持されます",
+      "keepHint": "投稿を保存するとブックマークとして残ります。",
+      "opml": "フィードファイル (OPML)",
+      "opmlHint": "ほかのリーダーとフィードをやり取りできます。",
+      "export": "書き出す…",
+      "import": "読み込む…",
+      "clear": "フィードのキャッシュを消去",
+      "clearHint": "投稿は再取得されます。保存した投稿はライブラリに残ります。",
+      "clearButton": "消去"
+    }
   }
 }
