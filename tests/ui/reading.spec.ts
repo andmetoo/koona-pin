@@ -1,12 +1,8 @@
 import { test, expect, Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { catalog, openApp, opened, stubBrowser, text } from "../fixtures/app";
 
 // NP-122 (Р-69, point 1, frames R0, B1–B9): the reading mode drops from «Read», reads the queue
 // one article after another and folds back into the library at the same place.
-
-type Catalog = { [key: string]: string | Catalog };
-const catalog = (code: string): Catalog => JSON.parse(readFileSync(`src/locales/${code}.json`, "utf8"));
-const text = (c: Catalog, key: string) => key.split(".").reduce<string | Catalog>((node, part) => (node as Catalog)[part], c) as string;
 
 const mode = (page: Page) => page.locator("[data-reading-mode]");
 const queue = (page: Page) => mode(page).locator("[data-reading-queue]");
@@ -14,33 +10,14 @@ const current = (page: Page) => queue(page).locator("[aria-selected=true]");
 const heading = (page: Page) => mode(page).locator(".reader-title");
 /** The toolbar's «Read»; the selection bar has one of its own. */
 const readButton = (page: Page) => page.locator("button[data-read-mode]");
-const opened = (page: Page) => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
 
 async function boot(
   page: Page,
   { width = 1440, height = 900, theme = "light", language = "en", view = "grid" }: { width?: number; height?: number; theme?: string; language?: string; view?: string } = {},
 ) {
-  await page.setViewportSize({ width, height });
-  await page.goto("/");
-  await page.evaluate(
-    ({ theme, language, view }) => {
-      localStorage.removeItem("koonapin.demo.v4");
-      localStorage.removeItem("koonapin.openLinks");
-      localStorage.setItem("koonapin.theme", theme);
-      localStorage.setItem("koonapin.language", language);
-      localStorage.setItem("koonapin.view", view);
-    },
-    { theme, language, view },
-  );
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+  await openApp(page, { viewport: { width, height }, settings: { openLinks: null, theme, language, view } });
   await page.evaluate(() => document.fonts.ready);
-  // The browser is a list of addresses: nothing leaves the test.
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    (window as unknown as { opened: string[] }).opened = [];
-    api.openUrl = async (url: string) => void (window as unknown as { opened: string[] }).opened.push(url);
-  });
+  await stubBrowser(page);
 }
 
 /** Reading as in the mockups: more to read, two already read at the bottom. */

@@ -1,16 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
-import { readdirSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const locales = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "src", "locales");
+import { readdirSync } from "node:fs";
+import { type Catalog, catalog, locales, text } from "../fixtures/app";
 
 // Key screens in the longest language and in Serbian (NP-089): snapshots to look at,
 // not baselines, and a check that no interface label is cut off.
-type Catalog = { [key: string]: string | Catalog };
-const catalog = (code: string): Catalog =>
-  JSON.parse(readFileSync(path.join(locales, `${code}.json`), "utf8"));
-const text = (c: Catalog, key: string) => key.split(".").reduce<string | Catalog>((node, k) => (node as Catalog)[k], c) as string;
 /** A label as a whole-text pattern: «(», «+», «?» in it are letters. */
 const exactly = (label: string, whole = true) =>
   new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}${whole ? "$" : ""}`);

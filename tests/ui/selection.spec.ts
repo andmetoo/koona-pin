@@ -1,4 +1,5 @@
 import { test, expect, Page, Locator } from "@playwright/test";
+import { openApp, opened, stubBrowser } from "../fixtures/app";
 
 // NP-123 (Р-69, points 4–6): a click selects, the link lives in the title and thumbnail of a row
 // and on the corner buttons of a card, Space reads the selection in a sheet over the list.
@@ -13,24 +14,10 @@ const TITLES = [
 ];
 
 test.beforeEach(async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-  await page.evaluate(() => {
-    localStorage.removeItem("koonapin.demo.v4");
-    localStorage.removeItem("koonapin.openLinks");
-    localStorage.setItem("koonapin.view", "grid");
-  });
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
-  // The browser is a list of addresses: nothing leaves the test.
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    (window as unknown as { opened: string[] }).opened = [];
-    api.openUrl = async (url: string) => void (window as unknown as { opened: string[] }).opened.push(url);
-  });
+  await openApp(page, { viewport: { width: 1440, height: 900 }, settings: { openLinks: null, view: "grid" }, cards: 6 });
+  await stubBrowser(page);
 });
 
-const opened = (page: Page) => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
 const urlOf = (card: Locator) => card.evaluate(async (el) => {
   const { api } = await import("/src/services/api.ts");
   return (await api.getBookmarks()).items.find((b) => b.id === Number((el as HTMLElement).dataset.bookmarkId))!.url;

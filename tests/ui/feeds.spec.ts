@@ -1,17 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { openApp, opened, stubBrowser } from "../fixtures/app";
 
 // The Feeds page (NP-132) on the preview's five sample feeds (NP-128): the sidebar section, the
 // list column, the article sheet and its keys. `koonapin.demo.feeds` switches the preview to no
 // feeds (`empty`), no connection (`offline`) or Ars Technica not updating (`failing`).
-const open = async (page: Page, setup: Record<string, string> = {}) => {
-  await page.goto("/");
-  await page.evaluate((setup) => {
-    localStorage.clear();
-    for (const [key, value] of Object.entries(setup)) localStorage.setItem(key, value);
-  }, setup);
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
-};
+const open = (page: Page, settings: Record<string, string> = {}) => openApp(page, { clear: true, settings });
 const section = (page: Page) => page.getByRole("navigation", { name: "Feeds" });
 /** A row of the section: «All feeds», or the feed's own button (not its «…»). */
 const row = (page: Page, name: string) =>
@@ -70,10 +63,7 @@ test("J and K move through the posts; a post opened is read after a second, U ta
 
 test("S, R, F and O work from the keys and the toolbar", async ({ page }) => {
   await open(page);
-  await page.evaluate(() => {
-    (window as unknown as { opened: string[] }).opened = [];
-    window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
-  });
+  await stubBrowser(page);
   await openFeeds(page);
   await posts(page).nth(2).click();
   await expect(sheet(page).getByRole("heading", { level: 1 })).toHaveText("Weeknight braised beans that taste like they took all day");
@@ -97,8 +87,7 @@ test("S, R, F and O work from the keys and the toolbar", async ({ page }) => {
   await expect(posts(page).nth(3).locator("[data-feed-saved]")).toBeVisible();
   await page.keyboard.press("o");
   await sheet(page).getByRole("button", { name: "Open in browser" }).click();
-  const opened = await page.evaluate(() => (window as unknown as { opened: string[] }).opened);
-  expect(opened).toEqual([expect.stringContaining("kottke.org/demo/"), expect.stringContaining("kottke.org/demo/")]);
+  expect(await opened(page)).toEqual([expect.stringContaining("kottke.org/demo/"), expect.stringContaining("kottke.org/demo/")]);
 });
 
 test("a post saved by S goes again with Undo", async ({ page }) => {
@@ -160,17 +149,17 @@ test("rename and where new posts go, from the row menu", async ({ page }) => {
 });
 
 test("offline, failing and no feeds", async ({ page }) => {
-  await open(page, { "koonapin.demo.feeds": "offline" });
+  await open(page, { "demo.feeds": "offline" });
   await openFeeds(page);
   await expect(page.locator("[data-feed-status]")).toHaveText(/^Offline · updated/);
 
-  await open(page, { "koonapin.demo.feeds": "failing" });
+  await open(page, { "demo.feeds": "failing" });
   await expect(row(page, "Ars Technica").locator("[data-feed-problem]")).toBeVisible();
   await expect(row(page, "Ars Technica")).toHaveAttribute("title", /^Not updating since /);
   await row(page, "Ars Technica").click();
   await expect(page.locator("[data-feed-status]")).toHaveText(/^Not updating since /);
 
-  await open(page, { "koonapin.demo.feeds": "empty" });
+  await open(page, { "demo.feeds": "empty" });
   await expect(section(page).getByRole("button", { name: "Follow a site…" })).toBeVisible();
   await section(page).getByRole("button", { name: "Follow a site…" }).click();
   await expect(page.locator("dialog[open]")).toBeVisible();
