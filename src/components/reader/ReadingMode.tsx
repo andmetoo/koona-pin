@@ -68,6 +68,7 @@ export function ReadingMode({
   onMarkRead,
   onRemove,
   onClose,
+  onCovers,
   onSaveOffline,
   onRemoveOffline,
   look,
@@ -95,6 +96,12 @@ export function ReadingMode({
   onRemove: (bookmark: Bookmark) => void;
   /** The mode folded back: the library takes over. */
   onClose: () => void;
+  /**
+   * The mode covers the whole window (after the drop in) or no longer does (as it folds
+   * back): the library under it may stop painting. WKWebView on macOS draws a scroll
+   * container's scrollbar above any fixed layer, whatever its z-index.
+   */
+  onCovers?: (covers: boolean) => void;
   /** An offline copy of the article on screen, or of the page read now when there is none (NP-126); `quiet`: no notice. */
   onSaveOffline: (bookmark: Bookmark, article?: Article, quiet?: boolean) => Promise<OfflineCopy | null>;
   onRemoveOffline: (bookmark: Bookmark) => Promise<boolean>;
@@ -245,14 +252,15 @@ export function ReadingMode({
     [origin],
   );
   useLayoutEffect(() => {
-    drop("in");
+    drop("in", () => onCovers?.(true));
     scroller.current?.focus({ preventScroll: true });
   }, []);
   const leave = useCallback(() => {
     if (leaving) return;
     setLeaving(true);
+    onCovers?.(false);
     drop("out", onClose);
-  }, [leaving, drop, onClose]);
+  }, [leaving, drop, onClose, onCovers]);
 
   // At once when the queue is on screen, so the next key already lands in it; a narrow window opens it first.
   const focusQueue = () => {
