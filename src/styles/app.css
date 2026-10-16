@@ -2273,7 +2273,14 @@
       0 30px 70px -20px rgb(0 0 0 / 0.42),
       0 2px 6px rgb(0 0 0 / 0.06),
       inset 0 0 0 1px var(--np-line);
-    animation: add-sheet-in 260ms var(--spring);
+    animation: app-dialog-in 260ms var(--spring);
+  }
+  /* The sheet's spring without its scale: a dialog keeps its size from the first frame. */
+  @keyframes app-dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
   }
   .add-sheet:focus-visible,
   .app-dialog:focus-visible {
@@ -2823,23 +2830,23 @@
 }
 
 /* macOS (2026-10-16): no title bar of its own colour; the traffic lights sit on the app at
-   (18, 20), centred on the toolbar's row, and what would fall under them makes room. */
+   (20, 21), centred on the toolbar's row, and what would fall under them makes room. */
 .mac-lights {
   display: none;
 }
 :root[data-mac-frame] .mac-lights {
   display: block;
   flex-shrink: 0;
-  height: 22px;
+  height: 24px;
 }
 :root[data-mac-frame] .sidebar-strip {
-  width: 80px;
+  width: 88px;
 }
 :root[data-mac-frame] .reading-queue-head {
   padding-top: 52px;
 }
 :root[data-mac-frame] .mac-lights-gap {
-  padding-left: 88px;
+  padding-left: 96px;
 }
 :root[data-mac-frame] .reading-sheet > div {
   top: 44px;

@@ -267,7 +267,7 @@ export function Sidebar(props: SidebarProps) {
       <aside className="sidebar-strip flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
         <div className="mac-lights self-stretch" data-tauri-drag-region />
         <div className="mb-2 text-accent" data-tauri-drag-region>
-          <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="flex">
+          <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="block">
             <Mascot size={30} className="pointer-events-none" />
           </button>
         </div>
