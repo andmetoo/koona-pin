@@ -2,7 +2,7 @@
   "description": "A sync message is raw deflate (RFC 1951, no zlib header) of its JSON. Deflate output isn't canonical: check that payload_hex inflates to message, not that you produce the same bytes.",
   "message": {
     "covers": {
-      "0192f3a4-b5c6-7d8e-9f01-23456789abcd": 4
+      "0192f3a4-b5c6-7d8e-9f01-23456789abcd": 7
     },
     "groups": [
       {
@@ -55,10 +55,55 @@
           "merged_into": "0192f3a5-2222-7000-8000-000000000002"
         },
         "uid": "0192f3a5-3333-7000-8000-000000000003"
+      },
+      {
+        "entity": "feed",
+        "fields": [
+          {
+            "clock": {
+              "counter": 5,
+              "hlc": 115369574400000000,
+              "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+            },
+            "field": "url",
+            "value": "https://example.com/feed.xml"
+          },
+          {
+            "clock": {
+              "counter": 5,
+              "hlc": 115369574400000000,
+              "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+            },
+            "field": "title",
+            "value": null
+          },
+          {
+            "clock": {
+              "counter": 6,
+              "hlc": 115369574400000000,
+              "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+            },
+            "field": "destination",
+            "value": "inbox"
+          }
+        ],
+        "uid": "0192f3a5-4444-7000-8000-000000000004"
+      },
+      {
+        "entity": "feed",
+        "gone": {
+          "clock": {
+            "counter": 7,
+            "hlc": 115369574400000000,
+            "replica": "0192f3a4-b5c6-7d8e-9f01-23456789abcd"
+          },
+          "merged_into": null
+        },
+        "uid": "0192f3a5-5555-7000-8000-000000000005"
       }
     ],
     "last": true,
     "t": "changes"
   },
-  "payload_hex": "b592cb6ec4200c45ff857568decf7dbfa2aa2a429c8742424460d42ae2df6b26eaa46a67318b89170830be3ed762239a5484f76cee60251ee99434cb4aaab78dc0ac07fd85d95aca71626ac4b4191abc08c2326a6396d21083e64110d0c22dc111213e6e0710cdae75dd62a551021317260ce0a9d77a592bdf874f362d025eb89c7c4c7321f948aa8df482932a0cd3382bd33c497eb43da260110367074a42eb9467346f0aa0651b84348a9334cb8b92d5bc7192d2cc1a14aa59eb1d386850c02fa0d71de46486c8da7747711bb018e6670cf7561961dcaf8c0eb35a1938d767fcd7a766dd7f9b31c67dd8d8fd473983c33b9333b11e994075d07c0cb3968f4e12dd39910ba8d5813dd4f5da4bb055eff3b7df"
+  "payload_hex": "bd545b6e833010bc8bbf21e16508fcf714555519b3102bc646c644a922eede75a2863441555485cc0702d63b9ed95dfb482c2908df32d5404f3cd2183d743d29de8f049415f60ba3a5d6bb96991d860751e18f20cca33a66d40f117e160481bf718f6042888b6b01b23a739d5e31733012037b2607c0afadb55d5facd770606d2761c575bbc630979aef4871245bc9491186344e739a25c90fb7470c745270364949fc92f2d4cfaa0df8791d847e142734cd36392b79e528f5a02c18641b476f928306255c097a3b0b595843348e1f4ec5a5c052a86714f7921921e633a3c9ac35032ceb33bef56959736f3346cc8b8ddd3c6a054ede923a93d1232d9806aa4fa1ac7eb492e32f6f3540756f2e41cce727ff3d206ea3d5a1950b0f29fdeba0a841ca576e5f416f8562566875551da14a7d58b80ce9ed0ccff79922e6fb4c5f34c4d9ed10bb1ea178b7640fa677db3ec4796292acb7e72b62fc06"
 }

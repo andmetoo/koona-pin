@@ -6,7 +6,7 @@
 //! A record costs one clock, not one per field (`ROW`).
 
 use crate::capture;
-use crate::store::{BOOKMARKS, COLLECTIONS, LINK, ROW, TAGS};
+use crate::store::{BOOKMARKS, COLLECTIONS, FEEDS, LINK, ROW, TAGS};
 use crate::Result;
 use rusqlite::Connection;
 
@@ -28,7 +28,16 @@ pub fn baseline(conn: &Connection) -> Result<()> {
 }
 
 fn stamp_all(conn: &Connection) -> Result<()> {
-    for t in [&COLLECTIONS, &TAGS, &BOOKMARKS] {
+    // Feeds too (NP-130); a library before schema 14 has none to stamp.
+    for t in [&COLLECTIONS, &TAGS, &BOOKMARKS, &FEEDS] {
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?1)",
+            [t.name],
+            |r| r.get(0),
+        )?;
+        if !exists {
+            continue;
+        }
         conn.execute("DELETE FROM sync_clock WHERE entity = ?1", [t.code])?;
         conn.execute(
             &format!(
