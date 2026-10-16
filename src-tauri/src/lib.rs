@@ -33,6 +33,7 @@ pub mod position_keys;
 pub mod quick_search;
 pub mod reader;
 pub mod reading;
+pub mod refresh;
 pub mod restore;
 #[cfg(target_os = "macos")]
 pub mod safari_socket;
@@ -111,6 +112,7 @@ pub fn run() {
         .manage(commands::LastExport::default())
         .manage(commands::PickedBackup::default())
         .manage(linkcheck::Checker::default())
+        .manage(refresh::Refresher::default())
         .manage(Arc::new(library_state::Library::new(
             library::Paths::from_env(),
         )))
@@ -220,6 +222,10 @@ pub fn run() {
             commands::get_link_check,
             commands::start_link_check,
             commands::stop_link_check,
+            commands::get_preview_refresh,
+            commands::get_preview_counts,
+            commands::start_preview_refresh,
+            commands::stop_preview_refresh,
             commands::replace_addresses,
             commands::rebuild_search_index,
             commands::feedback_report,

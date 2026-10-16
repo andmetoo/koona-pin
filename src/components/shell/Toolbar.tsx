@@ -100,17 +100,15 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           </span>
         )}
       </h1>
-      {/* In a wide window the search is in the sidebar, under the logo; here the strip has no room for it. */}
-      {props.narrow && (
-        <SearchField
-          ref={searchRef}
-          well
-          search={props.search}
-          onSearch={props.onSearch}
-          placeholder={t("toolbar.searchShort")}
-          className="ml-auto w-[200px] min-w-[104px] shrink-[100000]"
-        />
-      )}
+      {/* One search in every window (2026-10-16): the sidebar keeps its room for «New link», feeds and collections. */}
+      <SearchField
+        ref={searchRef}
+        well
+        search={props.search}
+        onSearch={props.onSearch}
+        placeholder={t("toolbar.searchShort")}
+        className={`ml-auto min-w-[104px] shrink-[100000] ${props.narrow ? "w-[200px]" : "w-[320px]"}`}
+      />
       {sort && (
         <Hint label={t("toolbar.sortHint", { order: sortName })} show={!sortMenu}>
           <button

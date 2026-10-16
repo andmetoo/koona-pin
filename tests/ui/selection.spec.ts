@@ -51,7 +51,7 @@ test("the bar is icons at every width, each named with its key by its hint; no l
   await spot(card(page, TITLES[0])).click();
   await expect(bar(page).getByRole("status")).toHaveText("1 selected");
   const buttons = bar(page).getByRole("button");
-  const names = ["Read", "Move to…", "Tag", "Favorite", "Send to Reading", "Export", "Trash", "Clear selection"];
+  const names = ["Read", "Move to…", "Tag", "Favorite", "Send to Reading", "Refresh previews", "Export", "Trash", "Clear selection"];
   await expect(buttons).toHaveCount(names.length);
   for (const [i, name] of names.entries()) {
     const button = buttons.nth(i);
@@ -61,8 +61,8 @@ test("the bar is icons at every width, each named with its key by its hint; no l
   }
   await expect(buttons.nth(0)).toHaveAttribute("aria-keyshortcuts", "Space");
   const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
-  await expect(buttons.nth(6)).toHaveAttribute("aria-keyshortcuts", mac ? "Backspace Meta+Backspace Delete" : "Delete");
-  await expect(buttons.nth(7)).toHaveAttribute("aria-keyshortcuts", "Escape");
+  await expect(buttons.nth(7)).toHaveAttribute("aria-keyshortcuts", mac ? "Backspace Meta+Backspace Delete" : "Delete");
+  await expect(buttons.nth(8)).toHaveAttribute("aria-keyshortcuts", "Escape");
   await expect(bar(page).getByRole("tooltip").filter({ hasText: "Trash" })).toHaveText(mac ? "Trash⌫" : "TrashDel");
   await expect(page.getByText(/click — add/)).toHaveCount(0);
 });

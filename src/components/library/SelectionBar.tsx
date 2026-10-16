@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowUpFromLine, BookOpen, BookOpenText, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { ArrowUpFromLine, BookOpen, BookOpenText, FileSpreadsheet, FileText, Folder, LucideIcon, Plus, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, ExportFormat, Tag } from "../../types";
 import { Icon } from "../icons";
@@ -21,6 +21,8 @@ export interface SelectionActions {
   /** Into Reading, or out of it (NP-121). */
   reading: (reading: boolean) => void;
   export: (format: ExportFormat) => void;
+  /** «Refresh previews»: their pages read again in the background, as Settings → Data does. */
+  refresh: () => void;
   trash: () => void;
   restore: () => void;
   /** After the dialog of frame 26; no undo. */
@@ -33,7 +35,7 @@ type Popover = { id: "move" | "export"; anchor: DOMRect; trigger: HTMLElement } 
 /**
  * The dark bar 52 px high at the bottom of the content (frames 04 and 27,
  * sheet 31): «N выбрано · Read · В коллекцию… · Тег · В избранное · Reading ·
- * Экспорт · В корзину · ✕». In the trash it offers «Восстановить · Экспорт ·
+ * Обновить превью · Экспорт · В корзину · ✕». In the trash it offers «Восстановить · Экспорт ·
  * Удалить навсегда…». One bar at every width (#319): the count, then icons,
  * each named with its key by its hint, as frame 27 draws it in a narrow
  * window. Under it, only when there is one, a message: selected bookmarks the
@@ -112,6 +114,7 @@ export function SelectionBar({
         inReading
           ? { id: "reading", icon: BookOpen, label: t("selection.fromReading"), keys: "R", run: () => actions.reading(false) }
           : { id: "reading", icon: BookOpen, label: t("selection.toReading"), keys: "R", run: () => actions.reading(true) },
+        { id: "refresh", icon: RefreshCw, label: t("selection.refresh"), run: actions.refresh },
         { id: "export", icon: ArrowUpFromLine, label: t("selection.export"), popover: "export", run: toggle("export") },
         { id: "trash", icon: Trash2, label: t("selection.trash"), keys: deleteKey(), run: actions.trash },
       ];

@@ -1,4 +1,4 @@
-import { KeyboardEvent, PointerEvent, ReactNode, Ref, TransitionEvent, useEffect, useId, useRef, useState } from "react";
+import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useRef, useState } from "react";
 import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,6 @@ import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
 import { Hint } from "../ui/Hint";
-import { SearchField } from "./SearchField";
 import { AppNotification, NotificationCenter } from "./NotificationCenter";
 import { Menu } from "../ui/Menu";
 import { feedName } from "../../services/feeds";
@@ -24,10 +23,6 @@ import { FeedActions, feedMenu } from "../feeds/FeedMenu";
 
 export interface SidebarProps {
   narrow: boolean;
-  /** The library's search, under the logo of the full sidebar; the strip leaves it to the toolbar. */
-  search: string;
-  onSearch: (value: string) => void;
-  searchRef?: Ref<HTMLInputElement>;
   filters: FilterState;
   settingsOpen: boolean;
   /** The section «Дубликаты» is open (NP-035, sheet 34). */
@@ -390,9 +385,12 @@ export function Sidebar(props: SidebarProps) {
       </aside>
     );
 
+  // The scrollbar's 8 px are kept for it always and taken from the right padding: with the
+  // Feeds section the list scrolls more often, and a scrollbar that came and went would cut
+  // long labels («Skrzynka odbiorcza») where it is not an overlay, as in WebKitGTK (NP-132).
   return (
     <aside
-      className="flex w-[232px] shrink-0 flex-col gap-0.5 overflow-y-auto bg-panel px-3 py-3.5"
+      className="flex w-[232px] shrink-0 flex-col gap-0.5 overflow-y-auto bg-panel py-3.5 pr-1 pl-3 [scrollbar-gutter:stable]"
       aria-label={t("sidebar.label")}
       data-drop-scroll
     >
@@ -418,13 +416,6 @@ export function Sidebar(props: SidebarProps) {
           {shortcut("N")}
         </kbd>
       </button>
-      <SearchField
-        ref={props.searchRef}
-        search={props.search}
-        onSearch={props.onSearch}
-        placeholder={t("toolbar.searchShort")}
-        className="mb-3 shrink-0"
-      />
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
         <NavRow
           icon={<Icon icon={InboxTray} />}

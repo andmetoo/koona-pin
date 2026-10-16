@@ -11,7 +11,7 @@ import { headerLine, healthLine, listTitle } from "../../services/feedsView";
 import { ReaderLook } from "../../services/readerLook";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
-import { relativeTime } from "../shell/NotificationCenter";
+import { relativeTime } from "../../services/relativeTime";
 import { useFeedItems } from "./useFeeds";
 import { FeedList, FeedListHandle } from "./FeedList";
 import { AaProps, FeedArticleSheet } from "./FeedArticle";

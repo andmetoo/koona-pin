@@ -51,6 +51,9 @@ import {
   Merged,
   LinkCheckProgress,
   LinkCheckReport,
+  PreviewCounts,
+  PreviewRefresh,
+  PreviewScope,
   McpAccess,
   McpSetup,
   McpStatus,
@@ -293,6 +296,16 @@ const desktop = {
   /** «Заменить адрес»: one journal command for all of them. */
   replaceAddresses: (ids: number[]) => call<Replaced>("replace_addresses", { ids }),
   onLinkCheck: (callback: (progress: LinkCheckProgress) => void) => subscription("link-check", callback),
+  /** «Refresh previews» for many bookmarks: the run of this session, picked up after a reload. */
+  getPreviewRefresh: () => call<PreviewRefresh>("get_preview_refresh"),
+  /** The counts of the choice in Settings → Data. */
+  getPreviewCounts: () => call<PreviewCounts>("get_preview_counts"),
+  /** A scope, or the selected ids; in the background, reported by onPreviewRefresh. While one runs, its state. */
+  startPreviewRefresh: (target: { scope: PreviewScope } | { ids: number[] }) =>
+    call<PreviewRefresh>("start_preview_refresh", "ids" in target ? { ids: target.ids, scope: null } : { scope: target.scope, ids: null }),
+  /** The pages under way finish; no other starts. */
+  stopPreviewRefresh: () => call<void>("stop_preview_refresh"),
+  onPreviewRefresh: (callback: (progress: PreviewRefresh) => void) => subscription("preview-refresh", callback),
   /** The report «Show report» shows and «Attach report» sends (NP-088). */
   feedbackReport: (language: string) => call<string>("feedback_report", { language }),
   /** «Send»: the one request to the feedback service; nothing goes out before it (NP-088). */

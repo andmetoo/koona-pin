@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, Search, Trash2, TriangleAlert, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError, reasonOf } from "./services/errors";
@@ -17,6 +17,7 @@ import { useLibrary } from "./hooks/useLibrary";
 import { useSelection } from "./hooks/useSelection";
 import { useSelectionDrag } from "./hooks/useSelectionDrag";
 import { useReaderLook } from "./hooks/useReaderLook";
+import { usePreviewRefresh } from "./hooks/usePreviewRefresh";
 import { ClipIcon, Icon, InboxTray } from "./components/icons";
 import { Button } from "./components/ui/Button";
 import { Banner, Toast } from "./components/ui/Notices";
@@ -26,7 +27,7 @@ import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
 import { AppNotification } from "./components/shell/NotificationCenter";
 import { Toolbar } from "./components/shell/Toolbar";
-import { BookmarkActions } from "./components/library/Bookmarks";
+import { BookmarkActions, Preview } from "./components/library/Bookmarks";
 import { Arrows, BookmarkList } from "./components/library/BookmarkList";
 import { DragStack } from "./components/library/DragStack";
 import { BookmarkEditor } from "./components/library/BookmarkEditor";
@@ -206,6 +207,10 @@ export function App() {
   /** How reading looks (NP-124): the Aa panel's choice, the app's theme and the plan. */
   const readerLook = useReaderLook(supporter, dark);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
+  /** «Refresh previews» for many bookmarks: Settings → Data, the selection bar, the notification centre. */
+  const previews = usePreviewRefresh();
+  const handingOffRef = useRef(previews.handingOff);
+  handingOffRef.current = previews.handingOff;
   const sayAlert = useCallback((text: string) => setNotice({ text, alert: true }), []);
   /**
    * Ctrl Z takes back the last command, «Отменить» in a notice its own
@@ -253,7 +258,10 @@ export function App() {
         e.preventDefault();
         setPage("library");
         setTriage(null);
-        requestAnimationFrame(() => searchRef.current?.focus());
+        // The toolbar's field mounts with the library: wait a few frames for it when coming from elsewhere.
+        const focusSearch = (frames: number) =>
+          requestAnimationFrame(() => (searchRef.current ? searchRef.current.focus() : frames > 0 && focusSearch(frames - 1)));
+        focusSearch(5);
       }
       // Quits from the window on every system (NP-096): without a tray it is the way out.
       if ((e.ctrlKey || e.metaKey) && (key === "q" || e.code === "KeyQ") && !e.shiftKey && !e.altKey) {
@@ -482,7 +490,8 @@ export function App() {
         window.clearTimeout(timer);
         timer = 0;
         void libraryRef.current.refreshCatalog();
-        if (progress.state === "idle" && pageRef.current !== "links")
+        // A check of the pages a refresh of previews could not open reports in the notification centre.
+        if (progress.state === "idle" && pageRef.current !== "links" && !handingOffRef.current())
           void api.getCounts().then((counts) => {
             if (counts.links > 0)
               setNotice({ text: t("links.finished", { count: counts.links }), alert: false, long: true, show: () => openLinksRef.current() });
@@ -725,6 +734,17 @@ export function App() {
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
     deleteForever: () => setPurging({ selected: [...selection.ids] }),
+    refresh: () => {
+      const before = previews.run;
+      previews.start({ ids: [...selection.ids] }).then(
+        (run) =>
+          // Only one run at a time: one under way goes on, and says where it is.
+          before?.state === "running" && run.started_at === before.started_at
+            ? say(t("notice.previewsAlready", { done: run.done, total: run.total }))
+            : say(t("notice.previewsStarted")),
+        (err) => say(describeError(err), true),
+      );
+    },
   };
   const selectionActionsRef = useRef(selectionActions);
   selectionActionsRef.current = selectionActions;
@@ -1042,6 +1062,21 @@ export function App() {
       text: problemBanner(capture, t),
       action: { label: t("browser.details"), run: () => setPage("settings") },
     });
+  // What waits in the inbox, said once for the notification centre and the Inbox section's pill.
+  const inboxLine = [
+    counts.inbox_imported >= counts.inbox
+      ? t("notifications.inboxFromImport")
+      : counts.inbox_imported > 0
+        ? t("notifications.inboxImported", { count: counts.inbox_imported })
+        : "",
+    counts.inbox > QUICK_INBOX
+      ? t("notifications.inboxMany")
+      : counts.inbox === 1
+        ? t("notifications.inboxTextOne")
+        : t("notifications.inboxText"),
+  ]
+    .filter(Boolean)
+    .join(" ");
   if (counts.inbox > 0 && !inboxHidden)
     notifications.push({
       // A newer bookmark makes it a new notification, unread again.
@@ -1049,20 +1084,7 @@ export function App() {
       kind: "inbox",
       icon: InboxTray,
       title: t("notifications.inboxTitle", { count: counts.inbox }),
-      text: [
-        counts.inbox_imported >= counts.inbox
-          ? t("notifications.inboxFromImport")
-          : counts.inbox_imported > 0
-            ? t("notifications.inboxImported", { count: counts.inbox_imported })
-            : "",
-        counts.inbox > QUICK_INBOX
-          ? t("notifications.inboxMany")
-          : counts.inbox === 1
-            ? t("notifications.inboxTextOne")
-            : t("notifications.inboxText"),
-      ]
-        .filter(Boolean)
-        .join(" "),
+      text: inboxLine,
       at: counts.inbox_newest,
       thumbs: inboxThumbs,
       action: { label: t("inbox.sort"), run: openTriage },
@@ -1091,9 +1113,62 @@ export function App() {
       t,
     ),
   );
+  const refreshRun = previews.run;
+  if (refreshRun && previews.running)
+    notifications.push({
+      key: `previews:${refreshRun.started_at}:running`,
+      kind: "task",
+      icon: RefreshCw,
+      title: t("notifications.refreshRunning", { done: refreshRun.done, total: refreshRun.total }),
+      text: t("notifications.refreshRunningText"),
+      progress: refreshRun.total ? refreshRun.done / refreshRun.total : 0,
+      // Unread once it ends, under the key of its result.
+      quiet: true,
+      action: { label: t("notifications.refreshStop"), run: () => void previews.stop(), stay: true },
+    });
+  else if (refreshRun && previews.resultShown)
+    notifications.push({
+      key: `previews:${refreshRun.started_at}:${refreshRun.state}`,
+      kind: "task",
+      icon: refreshRun.state === "offline" ? WifiOff : RefreshCw,
+      title: t(
+        refreshRun.state === "offline"
+          ? "notifications.refreshOffline"
+          : refreshRun.state === "stopped"
+            ? "notifications.refreshStopped"
+            : "notifications.refreshDone",
+      ),
+      text:
+        refreshRun.state === "offline"
+          ? t("notifications.refreshOfflineText", { done: refreshRun.done, total: refreshRun.total })
+          : t(refreshRun.check_ids.length ? "notifications.refreshResultChecking" : "notifications.refreshResult", {
+              updated: refreshRun.updated,
+              unchanged: refreshRun.unchanged,
+              failed: refreshRun.failed,
+            }),
+      dismiss: { label: t("notifications.refreshHide"), run: previews.dismiss },
+    });
+  const handedOff = previews.handedOff;
+  if (handedOff)
+    notifications.push({
+      key: `previews:${handedOff.key}:links`,
+      kind: "task",
+      icon: Link,
+      title: handedOff.gone + handedOff.moved ? t("links.finished", { count: handedOff.gone + handedOff.moved }) : t("links.allOpenTitle"),
+      text: [
+        handedOff.gone ? t("notifications.linksCount", { label: t("links.group_gone"), count: handedOff.gone }) : "",
+        handedOff.moved ? t("notifications.linksCount", { label: t("links.group_moved"), count: handedOff.moved }) : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      action: handedOff.gone + handedOff.moved ? { label: t("notifications.linksShow"), run: openLinks } : undefined,
+      dismiss: { label: t("notifications.refreshHide"), run: previews.dismissHandedOff },
+    });
   const clearNotifications = () => {
     if (counts.inbox > 0) hideBanner();
     if (importOffer) endImportOffer();
+    if (previews.resultShown) previews.dismiss();
+    previews.dismissHandedOff();
   };
   const searching = filters.search.trim() !== "";
   /** Search, tag or site narrow the section: the header shows «N из M». */
@@ -1329,9 +1404,6 @@ export function App() {
       <div className="contents" inert={!!reading}>
       <Sidebar
         narrow={narrow}
-        search={filters.search}
-        onSearch={(search) => changeFilters({ search })}
-        searchRef={searchRef}
         filters={filters}
         settingsOpen={page === "settings"}
         duplicatesOpen={page === "duplicates"}
@@ -1423,6 +1495,9 @@ export function App() {
                     onSupporter={() => setSurface("supporter")}
                     onImportFeeds={() => setSurface("importFeeds")}
                     onExportFeeds={exportFeeds}
+                    previews={previews.run}
+                    onRefreshPreviews={(scope) => void previews.start({ scope }).catch((err) => say(describeError(err), true))}
+                    onStopPreviews={() => void previews.stop()}
                     openLinks={linkTarget}
                     onOpenLinks={(target) => {
                       setLinkTarget(target);
@@ -1561,26 +1636,27 @@ export function App() {
                     </Banner>
                   )}
                   {inboxBanner && (
-                    <Banner
-                      tone="accent"
-                      label={t("inbox.bannerLabel")}
-                      icon={<Icon icon={InboxTray} size={18} />}
-                      action={
-                        <Button variant="primary" onClick={openTriage}>
-                          {t("inbox.sort")}
-                          <Icon icon={ChevronRight} size={13} />
-                        </Button>
-                      }
-                    >
-                      {narrow
-                        ? t("inbox.bannerShort", { count: counts.inbox })
-                        : counts.inbox_imported > 0
-                          ? // Frame 24: after an import into the inbox the banner counts everything.
-                            t("inbox.bannerImported", { count: counts.inbox, imported: counts.inbox_imported })
-                          : counts.inbox > QUICK_INBOX
-                          ? t("inbox.bannerMany", { count: counts.inbox })
-                          : t("inbox.banner", { count: counts.inbox })}
-                    </Banner>
+                    // The Inbox section's way into triage (2026-10-16): a raised pill, not a banner across the
+                    // page; it cannot be hidden here and goes when the inbox is empty. Elsewhere the bell tells.
+                    <section aria-label={t("inbox.bannerLabel")} className="inbox-pill">
+                      {inboxThumbs.length > 0 && (
+                        <span className="nt-thumbs" aria-hidden>
+                          {inboxThumbs.slice(0, 3).map((b) => (
+                            <span key={b.id} className="nt-thumb">
+                              <Preview b={b} small />
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      <p className="inbox-pill-text">
+                        <b>{t("notifications.inboxTitle", { count: counts.inbox })}</b>
+                        <span>{inboxLine}</span>
+                      </p>
+                      <button type="button" onClick={openTriage} className="inbox-pill-sort">
+                        {t("inbox.sort")}
+                        <Icon icon={ChevronRight} size={13} />
+                      </button>
+                    </section>
                   )}
                   {filters.onlyTrash && counts.trash > 0 && (
                     // Frame 25: how long the trash keeps things, what restoring brings back, and emptying it.

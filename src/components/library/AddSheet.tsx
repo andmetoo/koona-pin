@@ -11,7 +11,7 @@ import { suggestFrom } from "../../services/triage";
 import { Destination, domainOf, draftBookmark, linkFrom, previewedBookmark, samePage, typedLink, webLink } from "../../services/addLink";
 import { subscribeFeed } from "../../services/feeds";
 import { FeedOffer, feedOffer, feedRate, primaryAction, useFeedPreview, useLinkPreview } from "../../services/linkPreview";
-import { relativeTime } from "../shell/NotificationCenter";
+import { relativeTime } from "../../services/relativeTime";
 import { Icon } from "../icons";
 import { Dot, Switch } from "../ui/Controls";
 import { Preview } from "./Bookmarks";

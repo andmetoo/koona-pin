@@ -27,7 +27,9 @@ const actions = () => ({
   openSite: vi.fn(),
   unfollow: vi.fn(),
 });
-const ids = (entries: ReturnType<typeof feedMenu>) => entries.map((e) => (e === "separator" ? "—" : e.id));
+type Entry = ReturnType<typeof feedMenu>[number];
+const item = (e: Entry) => (e !== "separator" && "id" in e ? e : null);
+const ids = (entries: Entry[]) => entries.map((e) => item(e)?.id ?? "—");
 
 describe("feedMenu (NP-129)", () => {
   const t = i18n.getFixedT("en");
@@ -35,9 +37,9 @@ describe("feedMenu (NP-129)", () => {
     expect(ids(feedMenu(feed(), t, actions()))).not.toContain("updateAddress");
     const moved = feed({ health: { state: "moved", to: "https://new.example.com/feed" } });
     const act = actions();
-    const entry = feedMenu(moved, t, act).find((e) => e !== "separator" && e.id === "updateAddress");
-    expect(entry && entry !== "separator" && entry.label).toBe("Update the address");
-    if (entry && entry !== "separator") entry.onSelect?.();
+    const entry = feedMenu(moved, t, act).map(item).find((e) => e?.id === "updateAddress");
+    expect(entry?.label).toBe("Update the address");
+    entry?.onSelect?.();
     expect(act.updateAddress).toHaveBeenCalledWith(moved);
   });
 });

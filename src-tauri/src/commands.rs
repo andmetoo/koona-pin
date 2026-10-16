@@ -7,7 +7,7 @@ use crate::{
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode, ErrorDetail},
-    backup, dedupe, export, feedback, import, linkcheck, mcp, metadata, offline, restore,
+    backup, dedupe, export, feedback, import, linkcheck, mcp, metadata, offline, refresh, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
@@ -661,6 +661,47 @@ pub fn stop_link_check(checker: State<'_, linkcheck::Checker>) {
     checker.stop();
 }
 
+/// «Обновить превью» for many bookmarks: the run of this session, so the
+/// interface picks it up after a reload.
+#[tauri::command]
+pub fn get_preview_refresh(refresher: State<'_, refresh::Refresher>) -> refresh::PreviewRefresh {
+    refresher.state()
+}
+
+/// The counts of the choice in Settings: without a picture or site name, and all.
+#[tauri::command]
+pub async fn get_preview_counts(state: State<'_, Arc<DbState>>) -> Result<refresh::Counts, CommandError> {
+    blocking(&state, |conn| refresh::counts(conn).map_err(text)).await
+}
+
+/// Reads the pages of `scope`, or of the bookmarks `ids`, again in the
+/// background and reports through `preview-refresh`. While a run is under
+/// way, returns its state and starts nothing.
+#[tauri::command]
+pub async fn start_preview_refresh(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    scope: Option<refresh::Scope>,
+    ids: Option<Vec<i64>>,
+) -> Result<refresh::PreviewRefresh, CommandError> {
+    let target = match (ids, scope) {
+        (Some(ids), _) => refresh::Target::Ids(ids),
+        (None, Some(scope)) => refresh::Target::Scope(scope),
+        (None, None) => return Err(CommandError::new(ErrorCode::InvalidRequest, "Choose the bookmarks to refresh")),
+    };
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || refresh::start(app, state, target, false))
+        .await
+        .map_err(CommandError::internal)?
+        .map_err(|e| CommandError::new(ErrorCode::DatabaseError, e))
+}
+
+/// «Остановить»: the pages under way finish, no other starts.
+#[tauri::command]
+pub fn stop_preview_refresh(refresher: State<'_, refresh::Refresher>) {
+    refresher.stop();
+}
+
 /// What «Заменить адрес» and «Заменить все» did.
 #[derive(Serialize, TS)]
 #[ts(export)]
@@ -880,8 +921,9 @@ pub async fn restore_library(
             Ok(summary) => {
                 if mode == restore::RestoreMode::Replace {
                     journal.clear();
-                    // Still under the lock: a link check writes nothing into the new library.
+                    // Still under the lock: a link check or a refresh of previews writes nothing into the new library.
                     handle.state::<linkcheck::Checker>().abandon();
+                    handle.state::<refresh::Refresher>().abandon();
                     // The replaced bookmarks' copies.
                     let _ = offline::sweep(&conn);
                 }
@@ -938,6 +980,12 @@ pub async fn import_html_bookmarks(
     })
     .await?;
     let _ = app.emit("library-invalidated", ());
+    // The new bookmarks have only their addresses: their pages are read for
+    // pictures, icons and site names in the background, joining a run under way.
+    if !summary.created.is_empty() {
+        let (state, ids) = (state.inner().clone(), summary.created.clone());
+        let _ = tauri::async_runtime::spawn_blocking(move || refresh::start(app, state, refresh::Target::Ids(ids), true)).await;
+    }
     Ok(summary)
 }
 #[derive(Serialize, TS)]
@@ -1404,8 +1452,9 @@ pub async fn restore_backup(
             if result.is_ok() {
                 // Its commands point at bookmarks of the replaced library.
                 journal.clear();
-                // Still under the lock: a link check writes nothing into the new library.
+                // Still under the lock: a link check or a refresh of previews writes nothing into the new library.
                 handle.state::<linkcheck::Checker>().abandon();
+                handle.state::<refresh::Refresher>().abandon();
                 db.reload_settings(&conn);
                 // Copies the restored library has no rows for, and rows of copies since removed.
                 let _ = offline::sweep(&conn);

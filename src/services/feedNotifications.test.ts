@@ -45,8 +45,8 @@ describe("feed notifications", () => {
     });
     expect(n.thumbs?.map((b) => b.domain)).toEqual(["arstechnica.com", "theverge.com", "example.com"]);
     expect(new Set(n.thumbs?.map((b) => b.id)).size).toBe(3);
-    expect(n.action.label).toBe("Read");
-    n.action.run();
+    expect(n.action!.label).toBe("Read");
+    n.action!.run();
     expect(act.onRead).toHaveBeenCalledWith(["ars", "verge", "eats", "kottke"]);
   });
 
@@ -83,9 +83,9 @@ describe("feed notifications", () => {
     const [n] = list;
     expect(n).toMatchObject({ kind: "problem", title: "Ars Technica isn’t updating", key: "feed-failing:ars:2026-10-07T12:00:00Z" });
     expect(n.dismiss).toBeUndefined();
-    n.action.run();
+    n.action!.run();
     n.secondary!.run();
-    expect([n.action.label, n.secondary!.label]).toEqual(["Show", "Unfollow"]);
+    expect([n.action!.label, n.secondary!.label]).toEqual(["Show", "Unfollow"]);
     expect(act.onShow).toHaveBeenCalledWith("ars");
     expect(act.onUnfollow).toHaveBeenCalledWith("ars");
   });

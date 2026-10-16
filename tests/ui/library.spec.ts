@@ -852,7 +852,8 @@ test("import into the inbox: the banner counts the import; an error changes noth
   await expect(report.getByRole("status")).toHaveText("7 bookmarks added to Inbox");
   await report.getByRole("button", { name: "Open Inbox" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Inbox");
-  await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText("9 new bookmarks are waiting — 7 of them from the import");
+  await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText("9 new in Inbox");
+  await expect(page.getByRole("region", { name: "New bookmarks" })).toContainText("7 of them from the import.");
 
   // The library is busy: the dialog keeps the file and offers to try again.
   await page.evaluate(async () => {
