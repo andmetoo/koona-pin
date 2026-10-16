@@ -2821,3 +2821,26 @@
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
   mask-image: linear-gradient(to bottom, transparent, #000 28px);
 }
+
+/* macOS (2026-10-16): no title bar of its own colour; the traffic lights sit on the app at
+   (18, 20), centred on the toolbar's row, and what would fall under them makes room. */
+.mac-lights {
+  display: none;
+}
+:root[data-mac-frame] .mac-lights {
+  display: block;
+  flex-shrink: 0;
+  height: 22px;
+}
+:root[data-mac-frame] .sidebar-strip {
+  width: 80px;
+}
+:root[data-mac-frame] .reading-queue-head {
+  padding-top: 52px;
+}
+:root[data-mac-frame] .mac-lights-gap {
+  padding-left: 88px;
+}
+:root[data-mac-frame] .reading-sheet > div {
+  top: 44px;
+}

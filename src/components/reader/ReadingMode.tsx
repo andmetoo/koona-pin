@@ -476,7 +476,10 @@ export function ReadingMode({
         </div>
         {/* After the article in the document, above it on screen: Tab goes from the queue straight
             to the article (issue #319), then on through its links to these buttons. */}
-        <div className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}>
+        <div
+          className={`order-first flex shrink-0 items-start gap-2 ${narrow ? "mac-lights-gap h-[66px] pt-[9px] pr-6 pl-4" : "h-[68px] pt-[9px] pr-8 pl-[30px]"}`}
+          data-tauri-drag-region
+        >
           {narrow && !empty && (
             <Button
               variant="outline"
@@ -742,7 +745,7 @@ const Queue = function Queue({
 
   return (
     <div ref={ref} data-reading-queue className="flex h-full w-[320px] shrink-0 flex-col border-r border-read-edge bg-read-queue">
-      <div className="shrink-0 px-6 pt-[26px] pb-[17px]">
+      <div className="reading-queue-head shrink-0 px-6 pt-[26px] pb-[17px]" data-tauri-drag-region>
         <p className="text-2xs font-semibold tracking-[0.02em] text-read-muted uppercase">{t("readingMode.queue")}</p>
         {switchable ? (
           <button

@@ -10,7 +10,8 @@ import { Icon } from "../icons";
  * In a frameless window this strip drags it and holds the window
  * buttons. Windows keeps its own three; on Linux the buttons follow the
  * system's layout and are round (sheet 40, NP-053). The library frames in
- * Lunacy do not draw window controls. macOS uses its real system title bar.
+ * Lunacy do not draw window controls. macOS draws its real traffic lights over
+ * the app, its title bar hidden; the app's own rows drag the window there.
  */
 export function WindowBar() {
   const { t } = useTranslation();
@@ -53,6 +54,9 @@ export function WindowBar() {
   }, []);
   useEffect(() => {
     if (!desktop?.native_frame || !isTauri()) return;
+    // The title bar is an overlay (2026-10-16): the traffic lights sit on the app, which keeps
+    // room for them where they fall (app.css, «data-mac-frame»).
+    document.documentElement.dataset.macFrame = "";
     const appWindow = getCurrentWindow();
     const syncTheme = () => {
       const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";

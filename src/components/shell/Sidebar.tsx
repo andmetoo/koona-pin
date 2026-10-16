@@ -264,7 +264,8 @@ export function Sidebar(props: SidebarProps) {
 
   if (narrow)
     return (
-      <aside className="flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
+      <aside className="sidebar-strip flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
+        <div className="mac-lights self-stretch" data-tauri-drag-region />
         <div className="mb-2 text-accent" data-tauri-drag-region>
           <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="flex">
             <Mascot size={30} className="pointer-events-none" />
@@ -394,6 +395,7 @@ export function Sidebar(props: SidebarProps) {
   // (NP-132), and WKWebView flashed it over the reading mode as the mode opened.
   return (
     <aside className="flex w-[232px] shrink-0 flex-col gap-0.5 bg-panel pt-3.5 pr-3 pl-3" aria-label={t("sidebar.label")}>
+      <div className="mac-lights" data-tauri-drag-region />
       <div className="flex items-center gap-2.5 pt-1.5 pr-0 pb-2.5 pl-2 text-accent" data-tauri-drag-region>
         {/* The logo goes home, to All bookmarks (2026-10-16); the keyboard has the row below. */}
         <button type="button" tabIndex={-1} aria-label="koona pin" onClick={props.onAll} className="flex min-w-0 items-center gap-2.5">
