@@ -40,4 +40,8 @@ reading_progress: number,
 /**
  * When it was read to the end or marked read; none while unread.
  */
-read_at: string | null, };
+read_at: string | null, 
+/**
+ * When its offline copy was saved (NP-126); none without one.
+ */
+offline_at: string | null, };

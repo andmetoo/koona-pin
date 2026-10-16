@@ -57,7 +57,8 @@
     "trash": "Trash",
     "duplicates": "Duplicates",
     "links": "Link check",
-    "settings": "Settings"
+    "settings": "Settings",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "Browser connected",
@@ -158,7 +159,11 @@
     "read": "Read",
     "readOf": "Read here: {{title}}",
     "selected": "Selected",
-    "filterDomain": "Only bookmarks from {{domain}}"
+    "filterDomain": "Only bookmarks from {{domain}}",
+    "saveOffline": "Save for offline",
+    "removeOffline": "Remove offline copy",
+    "saveOfflineShort": "Save offline",
+    "savedOffline": "Saved offline"
   },
   "selection": {
     "label": "Selected bookmarks",
@@ -682,7 +687,24 @@
     "github": "Issues on GitHub",
     "githubHint": "Public reports in koona-pin",
     "licenses": "Licenses",
-    "licensesHint": "Fonts, icons and libraries Koona Pin is built with"
+    "licensesHint": "Fonts, icons and libraries Koona Pin is built with",
+    "offline": "Offline copies",
+    "offlineStats": "Saved for offline — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} article",
+    "offlineArticles_other": "{{count}} articles",
+    "offlineHint": "Only on this computer: not synced, not in exports.",
+    "showFolder": "Show folder",
+    "saveOffline": "Save articles I open in Reading",
+    "saveOfflineHint": "Each article from Reading you open in reading mode keeps a copy here.",
+    "removeCopies": "Remove all copies",
+    "removeCopiesHint": "The bookmarks stay; only their offline copies go.",
+    "removeCopiesButton": "Remove…",
+    "removeCopiesTitle": "Remove all offline copies?",
+    "removeCopiesText_one": "{{count}} saved article will be deleted from this computer. The bookmark stays.",
+    "removeCopiesText_other": "{{count}} saved articles will be deleted from this computer. The bookmarks stay.",
+    "removeCopiesConfirm": "Remove copies",
+    "copiesRemoved_one": "{{count}} offline copy removed",
+    "copiesRemoved_other": "{{count}} offline copies removed"
   },
   "notice": {
     "previewRefreshed": "Preview refreshed",
@@ -802,7 +824,9 @@
     "inbox": "All sorted",
     "inboxHint": "New bookmarks from the browser and imports land here and wait for a decision.",
     "trash": "Trash is empty",
-    "trashHint": "Deleted bookmarks stay here for 30 days, then they're gone for good."
+    "trashHint": "Deleted bookmarks stay here for 30 days, then they're gone for good.",
+    "offline": "No offline copies yet",
+    "offlineHint": "Choose «Save for offline» in a bookmark’s menu, or «Save offline» in reading mode. Copies stay on this computer."
   },
   "inbox": {
     "banner_one": "{{count}} new bookmark is waiting — keeping, filing or tossing it takes a moment",
@@ -833,7 +857,20 @@
       "notHtml": "This link is a file, not a web page.",
       "links": "The page is mostly links, not an article.",
       "empty": "No article was found on the page — it may be drawn by scripts."
-    }
+    },
+    "offlineCopy": "offline copy",
+    "offlineBanner": "No connection — reading the offline copy saved {{date}}",
+    "tryLive": "Try live page"
+  },
+  "offline": {
+    "save": "Save offline",
+    "saved": "Saved offline",
+    "saving": "Saving…",
+    "update": "Update copy",
+    "remove": "Remove copy",
+    "savedNotice": "Saved for offline",
+    "removedNotice": "Offline copy removed",
+    "failed": "Couldn’t save for offline: {{reason}}"
   },
   "readerAa": {
     "label": "Text and theme",
@@ -1167,7 +1204,7 @@
     "testPayments": "Test payments",
     "intro": "Koona Pin stays free: the library, the browser button, search, backups and AI assistants. Supporters keep it going and get:",
     "perks": {
-      "sync": "Sync between your computers — early stage, from day one",
+      "sync": "Your library on every computer, Reading and progress included",
       "backups": "Automatic backups to a folder of your choice, like Dropbox",
       "reading": "Paper and Sepia themes for reading",
       "badge": "A Supporter badge in the app"
@@ -1229,8 +1266,8 @@
     "perk": {
       "reading": "Reading themes",
       "readingHint": "Paper and Sepia in the Aa panel of reading mode",
-      "sync": "Sync between your computers",
-      "syncHint": "Early stage — arrives in an update",
+      "sync": "Sync, Reading included",
+      "syncHint": "Your library, Reading and progress on every computer",
       "backups": "Automatic backups to a folder",
       "backupsHint": "To a folder you choose, like Dropbox or Google Drive",
       "badge": "Supporter badge",

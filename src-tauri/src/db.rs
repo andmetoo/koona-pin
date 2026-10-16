@@ -52,6 +52,8 @@ pub struct Bookmark {
     pub reading_progress: f64,
     /// When it was read to the end or marked read; none while unread.
     pub read_at: Option<String>,
+    /// When its offline copy was saved (NP-126); none without one.
+    pub offline_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -194,6 +196,9 @@ pub struct LibraryCounts {
     pub reading: i64,
     /// Of them, the unread ones: «Reading N» in the sidebar.
     pub reading_unread: i64,
+    /// Bookmarks outside the trash with an offline copy (NP-126): «Offline N».
+    /// Counted by the command too: schemas before 12 have no copies.
+    pub offline: i64,
 }
 
 /// The trash is counted apart, every other count leaves it out. Each count
@@ -224,6 +229,7 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                 links: 0,
                 reading: 0,
                 reading_unread: 0,
+                offline: 0,
             })
         },
     )
@@ -349,8 +355,10 @@ pub fn insert_or_update_bookmark(
     get_bookmark_by_id(conn, bookmark_id)
 }
 
-/// The columns [`bookmark_row`] reads, in its order.
-const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key), source_name, reading_at, reading_progress, read_at, site_name";
+/// The columns [`bookmark_row`] reads, in its order. The offline copy is a
+/// rowid lookup per row read (NP-126); `id` in it is the bookmark's, as
+/// `offline_copies` has none, so the list works with and without the alias `b`.
+const BOOKMARK_COLUMNS: &str = "id, url, title, description, image_url, favicon_url, domain, notes, is_favorite, collection_id, created_at, updated_at, revision, triaged_at, deleted_at, source, hex(title_key), hex(site_key), source_name, reading_at, reading_progress, read_at, (SELECT o.saved_at FROM offline_copies o WHERE o.bookmark_id = id), site_name";
 
 pub fn get_bookmark_by_id(conn: &Connection, id: i64) -> Result<Bookmark> {
     let mut stmt = conn.prepare(&format!("SELECT {BOOKMARK_COLUMNS} FROM bookmarks WHERE id = ?1"))?;
@@ -413,6 +421,9 @@ pub struct BookmarkQuery {
     /// first, then the read ones, newest read first. Ignores `sort`.
     #[serde(default)]
     pub only_reading: bool,
+    /// Only bookmarks with an offline copy (NP-126), in the order chosen.
+    #[serde(default)]
+    pub only_offline: bool,
     /// Only this bookmark: whether a changed one still belongs to the list.
     #[ts(optional)]
     pub id: Option<i64>,
@@ -750,7 +761,8 @@ fn bookmark_row(row: &rusqlite::Row) -> Result<Bookmark> {
         reading_at: row.get(19)?,
         reading_progress: row.get(20)?,
         read_at: row.get(21)?,
-        site_name: row.get(22)?,
+        offline_at: row.get(22)?,
+        site_name: row.get(23)?,
     })
 }
 
@@ -776,6 +788,10 @@ fn query_filter(query: &BookmarkQuery) -> (String, &'static str, Vec<rusqlite::t
     }
     if query.only_inbox {
         filter.push_str(" AND b.triaged_at IS NULL");
+    }
+    if query.only_offline {
+        // The few copies first, not a lookup on every row.
+        filter.push_str(" AND b.id IN (SELECT bookmark_id FROM offline_copies)");
     }
     if let Some(id) = query.id {
         filter.push_str(" AND b.id = ?");
@@ -1418,6 +1434,8 @@ pub fn purge_trash(conn: &Connection, which: Purge) -> Result<Vec<(i64, i64)>> {
         [&value],
     )?;
     tx.commit()?;
+    // The rows went with the bookmarks; their folders go after the commit.
+    crate::offline::forget(conn, gone.iter().map(|g| g.0));
     Ok(gone)
 }
 

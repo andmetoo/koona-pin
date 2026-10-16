@@ -54,7 +54,8 @@
     "trash": "휴지통",
     "duplicates": "중복 항목",
     "links": "링크 검사",
-    "settings": "설정"
+    "settings": "설정",
+    "offline": "오프라인"
   },
   "browser": {
     "ready": "브라우저 연결됨",
@@ -152,7 +153,11 @@
     "read": "읽기",
     "readOf": "여기서 읽기: {{title}}",
     "selected": "선택됨",
-    "filterDomain": "{{domain}}의 북마크만 보기"
+    "filterDomain": "{{domain}}의 북마크만 보기",
+    "saveOffline": "오프라인용으로 저장",
+    "removeOffline": "오프라인 사본 삭제",
+    "saveOfflineShort": "오프라인 저장",
+    "savedOffline": "오프라인 저장됨"
   },
   "selection": {
     "label": "선택한 북마크",
@@ -636,7 +641,21 @@
     "github": "GitHub 이슈",
     "githubHint": "koona-pin의 공개 보고",
     "licenses": "라이선스",
-    "licensesHint": "Koona Pin에 쓰인 글꼴, 아이콘, 라이브러리"
+    "licensesHint": "Koona Pin에 쓰인 글꼴, 아이콘, 라이브러리",
+    "offline": "오프라인 사본",
+    "offlineStats": "오프라인용으로 저장됨 — {{articles}} · {{size}}",
+    "offlineArticles_other": "글 {{count}}개",
+    "offlineHint": "이 컴퓨터에만 있으며 동기화되거나 내보내지지 않습니다.",
+    "showFolder": "폴더 보기",
+    "saveOffline": "읽을거리에서 연 글 저장",
+    "saveOfflineHint": "읽을거리의 글을 읽기 모드로 열 때마다 여기에 사본이 남습니다.",
+    "removeCopies": "모든 사본 삭제",
+    "removeCopiesHint": "북마크는 남고 오프라인 사본만 삭제됩니다.",
+    "removeCopiesButton": "삭제…",
+    "removeCopiesTitle": "모든 오프라인 사본을 삭제할까요?",
+    "removeCopiesText_other": "저장된 글 {{count}}개가 이 컴퓨터에서 삭제됩니다. 북마크는 남습니다.",
+    "removeCopiesConfirm": "사본 삭제",
+    "copiesRemoved_other": "오프라인 사본 {{count}}개를 삭제했습니다"
   },
   "notice": {
     "previewRefreshed": "미리 보기를 새로 고쳤습니다",
@@ -749,7 +768,9 @@
     "inbox": "모두 정리했습니다",
     "inboxHint": "브라우저와 가져오기에서 온 새 북마크가 여기에 도착해 결정을 기다립니다.",
     "trash": "휴지통이 비어 있습니다",
-    "trashHint": "삭제한 북마크는 30일 동안 여기에 남았다가 영구 삭제됩니다."
+    "trashHint": "삭제한 북마크는 30일 동안 여기에 남았다가 영구 삭제됩니다.",
+    "offline": "아직 오프라인 사본이 없습니다",
+    "offlineHint": "북마크 메뉴에서 ‘오프라인용으로 저장’을, 읽기 모드에서 ‘오프라인 저장’을 선택하세요. 사본은 이 컴퓨터에 남습니다."
   },
   "inbox": {
     "banner_other": "새 북마크 {{count}}개가 기다리고 있습니다 — 유지, 분류, 삭제하는 데 1분 정도 걸립니다",
@@ -776,7 +797,20 @@
       "notHtml": "이 링크는 웹 페이지가 아니라 파일입니다.",
       "links": "이 페이지는 글이 아니라 대부분 링크입니다.",
       "empty": "페이지에서 글을 찾지 못했습니다. 스크립트로 그려지는 페이지일 수 있습니다."
-    }
+    },
+    "offlineCopy": "오프라인 사본",
+    "offlineBanner": "연결 없음 — {{date}}에 저장한 오프라인 사본을 읽는 중",
+    "tryLive": "실제 페이지 시도"
+  },
+  "offline": {
+    "save": "오프라인 저장",
+    "saved": "오프라인 저장됨",
+    "saving": "저장 중…",
+    "update": "사본 업데이트",
+    "remove": "사본 삭제",
+    "savedNotice": "오프라인용으로 저장했습니다",
+    "removedNotice": "오프라인 사본을 삭제했습니다",
+    "failed": "오프라인용으로 저장하지 못했습니다: {{reason}}"
   },
   "readerAa": {
     "label": "글자와 테마",
@@ -1086,7 +1120,7 @@
     "testPayments": "테스트 결제",
     "intro": "Koona Pin은 계속 무료입니다: 라이브러리, 브라우저 버튼, 검색, 백업, AI 어시스턴트. Supporter는 프로젝트를 이어 가게 하고 다음을 받습니다:",
     "perks": {
-      "sync": "컴퓨터 간 동기화 — 초기 단계, 첫날부터",
+      "sync": "모든 컴퓨터에서 같은 라이브러리, 읽을거리와 읽기 진행 상황 포함",
       "backups": "Dropbox 같은 원하는 폴더로 자동 백업",
       "reading": "읽기 테마 페이퍼와 세피아",
       "badge": "앱 안의 Supporter 배지"
@@ -1148,8 +1182,8 @@
     "perk": {
       "reading": "읽기 테마",
       "readingHint": "읽기 모드의 Aa 패널에서 페이퍼와 세피아",
-      "sync": "컴퓨터 간 동기화",
-      "syncHint": "초기 단계 — 업데이트로 제공",
+      "sync": "동기화, 읽을거리 포함",
+      "syncHint": "모든 컴퓨터에서 라이브러리, 읽을거리, 읽기 진행 상황",
       "backups": "폴더로 자동 백업",
       "backupsHint": "Dropbox나 Google 드라이브 같은 원하는 폴더로",
       "badge": "Supporter 배지",

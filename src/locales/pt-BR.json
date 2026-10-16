@@ -60,7 +60,8 @@
     "trash": "Lixeira",
     "duplicates": "Duplicatas",
     "links": "Verificação de links",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "Conectado",
@@ -164,7 +165,11 @@
     "read": "Ler",
     "readOf": "Ler aqui: {{title}}",
     "selected": "Selecionado",
-    "filterDomain": "Só marcadores de {{domain}}"
+    "filterDomain": "Só marcadores de {{domain}}",
+    "saveOffline": "Salvar para ler offline",
+    "removeOffline": "Remover cópia offline",
+    "saveOfflineShort": "Salvar offline",
+    "savedOffline": "Salvo offline"
   },
   "selection": {
     "label": "Marcadores selecionados",
@@ -728,7 +733,27 @@
     "github": "Issues no GitHub",
     "githubHint": "Relatos públicos em koona-pin",
     "licenses": "Licenças",
-    "licensesHint": "Fontes, ícones e bibliotecas com que o Koona Pin é feito"
+    "licensesHint": "Fontes, ícones e bibliotecas com que o Koona Pin é feito",
+    "offline": "Cópias offline",
+    "offlineStats": "Salvos para offline — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} artigo",
+    "offlineArticles_many": "{{count}} de artigos",
+    "offlineArticles_other": "{{count}} artigos",
+    "offlineHint": "Só neste computador: sem sincronização e fora das exportações.",
+    "showFolder": "Mostrar pasta",
+    "saveOffline": "Salvar os artigos que abro de Para ler",
+    "saveOfflineHint": "Cada artigo de Para ler aberto no modo de leitura guarda uma cópia aqui.",
+    "removeCopies": "Remover todas as cópias",
+    "removeCopiesHint": "Os marcadores ficam; só as cópias offline são apagadas.",
+    "removeCopiesButton": "Remover…",
+    "removeCopiesTitle": "Remover todas as cópias offline?",
+    "removeCopiesText_one": "{{count}} artigo salvo será apagado deste computador. O marcador fica.",
+    "removeCopiesText_many": "{{count}} de artigos salvos serão apagados deste computador. Os marcadores ficam.",
+    "removeCopiesText_other": "{{count}} artigos salvos serão apagados deste computador. Os marcadores ficam.",
+    "removeCopiesConfirm": "Remover cópias",
+    "copiesRemoved_one": "{{count}} cópia offline removida",
+    "copiesRemoved_many": "{{count}} de cópias offline removidas",
+    "copiesRemoved_other": "{{count}} cópias offline removidas"
   },
   "notice": {
     "previewRefreshed": "Prévia atualizada",
@@ -855,7 +880,9 @@
     "inbox": "Tudo organizado",
     "inboxHint": "Os novos marcadores do navegador e das importações chegam aqui e esperam uma decisão.",
     "trash": "A lixeira está vazia",
-    "trashHint": "Os marcadores excluídos ficam aqui por 30 dias e depois somem de vez."
+    "trashHint": "Os marcadores excluídos ficam aqui por 30 dias e depois somem de vez.",
+    "offline": "Nenhuma cópia offline ainda",
+    "offlineHint": "Escolha “Salvar para ler offline” no menu de um marcador ou “Salvar offline” no modo de leitura. As cópias ficam neste computador."
   },
   "inbox": {
     "banner_one": "{{count}} marcador novo aguardando — manter, guardar ou jogar fora leva um instante",
@@ -890,7 +917,20 @@
       "notHtml": "Este link é um arquivo, não uma página da web.",
       "links": "A página é quase só links, não um artigo.",
       "empty": "Nenhum artigo foi encontrado na página — talvez ela seja desenhada por scripts."
-    }
+    },
+    "offlineCopy": "cópia offline",
+    "offlineBanner": "Sem conexão — lendo a cópia offline salva em {{date}}",
+    "tryLive": "Tentar a página online"
+  },
+  "offline": {
+    "save": "Salvar offline",
+    "saved": "Salvo offline",
+    "saving": "Salvando…",
+    "update": "Atualizar cópia",
+    "remove": "Remover cópia",
+    "savedNotice": "Salvo para ler offline",
+    "removedNotice": "Cópia offline removida",
+    "failed": "Não foi possível salvar offline: {{reason}}"
   },
   "readerAa": {
     "label": "Texto e tema",
@@ -1248,7 +1288,7 @@
     "testPayments": "Pagamentos de teste",
     "intro": "O Koona Pin continua gratuito: a biblioteca, o botão do navegador, a busca, os backups e os assistentes de IA. Quem apoia mantém o projeto e recebe:",
     "perks": {
-      "sync": "Sincronização entre seus computadores — fase inicial, desde o primeiro dia",
+      "sync": "Sua biblioteca em cada computador, com Para ler e o progresso de leitura",
       "backups": "Backups automáticos na pasta que você escolher, como o Dropbox",
       "reading": "Temas de leitura Papel e Sépia",
       "badge": "Um selo de Supporter no app"
@@ -1310,8 +1350,8 @@
     "perk": {
       "reading": "Temas de leitura",
       "readingHint": "Papel e Sépia no painel Aa do modo de leitura",
-      "sync": "Sincronização entre seus computadores",
-      "syncHint": "Fase inicial — chega com uma atualização",
+      "sync": "Sincronização, Para ler incluído",
+      "syncHint": "Biblioteca, Para ler e progresso em cada computador",
       "backups": "Backups automáticos em uma pasta",
       "backupsHint": "Na pasta que você escolher, como Dropbox ou Google Drive",
       "badge": "Selo de Supporter",

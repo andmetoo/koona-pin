@@ -60,7 +60,8 @@
     "trash": "Cestino",
     "duplicates": "Duplicati",
     "links": "Controllo dei link",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "Browser collegato",
@@ -164,7 +165,11 @@
     "read": "Leggi",
     "readOf": "Leggi qui: {{title}}",
     "selected": "Selezionato",
-    "filterDomain": "Solo i segnalibri di {{domain}}"
+    "filterDomain": "Solo i segnalibri di {{domain}}",
+    "saveOffline": "Salva per offline",
+    "removeOffline": "Rimuovi copia offline",
+    "saveOfflineShort": "Salva offline",
+    "savedOffline": "Salvato offline"
   },
   "selection": {
     "label": "Segnalibri selezionati",
@@ -728,7 +733,27 @@
     "github": "Segnalazioni su GitHub",
     "githubHint": "Segnalazioni pubbliche in koona-pin",
     "licenses": "Licenze",
-    "licensesHint": "Font, icone e librerie con cui è fatto Koona Pin"
+    "licensesHint": "Font, icone e librerie con cui è fatto Koona Pin",
+    "offline": "Copie offline",
+    "offlineStats": "Salvati per offline — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} articolo",
+    "offlineArticles_many": "{{count}} di articoli",
+    "offlineArticles_other": "{{count}} articoli",
+    "offlineHint": "Solo su questo computer: non sincronizzate, non esportate.",
+    "showFolder": "Mostra cartella",
+    "saveOffline": "Salva gli articoli che apro da Da leggere",
+    "saveOfflineHint": "Ogni articolo di Da leggere aperto in modalità lettura tiene qui una copia.",
+    "removeCopies": "Rimuovi tutte le copie",
+    "removeCopiesHint": "I segnalibri restano; vengono rimosse solo le copie offline.",
+    "removeCopiesButton": "Rimuovi…",
+    "removeCopiesTitle": "Rimuovere tutte le copie offline?",
+    "removeCopiesText_one": "{{count}} articolo salvato verrà eliminato da questo computer. Il segnalibro resta.",
+    "removeCopiesText_many": "{{count}} di articoli salvati verranno eliminati da questo computer. I segnalibri restano.",
+    "removeCopiesText_other": "{{count}} articoli salvati verranno eliminati da questo computer. I segnalibri restano.",
+    "removeCopiesConfirm": "Rimuovi copie",
+    "copiesRemoved_one": "{{count}} copia offline rimossa",
+    "copiesRemoved_many": "{{count}} di copie offline rimosse",
+    "copiesRemoved_other": "{{count}} copie offline rimosse"
   },
   "notice": {
     "previewRefreshed": "Anteprima aggiornata",
@@ -855,7 +880,9 @@
     "inbox": "Tutto smistato",
     "inboxHint": "I nuovi segnalibri dal browser e dalle importazioni arrivano qui e aspettano una decisione.",
     "trash": "Il cestino è vuoto",
-    "trashHint": "I segnalibri eliminati restano qui 30 giorni, poi spariscono per sempre."
+    "trashHint": "I segnalibri eliminati restano qui 30 giorni, poi spariscono per sempre.",
+    "offline": "Ancora nessuna copia offline",
+    "offlineHint": "Scegli «Salva per offline» nel menu di un segnalibro, o «Salva offline» in modalità lettura. Le copie restano su questo computer."
   },
   "inbox": {
     "banner_one": "{{count}} nuovo segnalibro in attesa: tenerlo, archiviarlo o buttarlo richiede un attimo",
@@ -890,7 +917,20 @@
       "notHtml": "Questo link è un file, non una pagina web.",
       "links": "La pagina è fatta soprattutto di link, non di un articolo.",
       "empty": "Nessun articolo trovato nella pagina: forse lo disegnano gli script."
-    }
+    },
+    "offlineCopy": "copia offline",
+    "offlineBanner": "Nessuna connessione — stai leggendo la copia salvata il {{date}}",
+    "tryLive": "Prova la pagina online"
+  },
+  "offline": {
+    "save": "Salva offline",
+    "saved": "Salvato offline",
+    "saving": "Salvataggio…",
+    "update": "Aggiorna copia",
+    "remove": "Rimuovi copia",
+    "savedNotice": "Salvato per offline",
+    "removedNotice": "Copia offline rimossa",
+    "failed": "Impossibile salvare offline: {{reason}}"
   },
   "readerAa": {
     "label": "Testo e tema",
@@ -1248,7 +1288,7 @@
     "testPayments": "Pagamenti di prova",
     "intro": "Koona Pin resta gratuito: la libreria, il pulsante del browser, la ricerca, i backup e gli assistenti IA. I Supporter mandano avanti il progetto e ricevono:",
     "perks": {
-      "sync": "Sincronizzazione tra i tuoi computer — fase iniziale, dal primo giorno",
+      "sync": "La tua libreria su ogni computer, con Da leggere e i progressi di lettura",
       "backups": "Backup automatici in una cartella a tua scelta, come Dropbox",
       "reading": "I temi di lettura Carta e Seppia",
       "badge": "Un badge Supporter nell’app"
@@ -1310,8 +1350,8 @@
     "perk": {
       "reading": "Temi di lettura",
       "readingHint": "Carta e Seppia nel pannello Aa della modalità lettura",
-      "sync": "Sincronizzazione tra i tuoi computer",
-      "syncHint": "Fase iniziale — arriva con un aggiornamento",
+      "sync": "Sincronizzazione, Da leggere incluso",
+      "syncHint": "Libreria, Da leggere e progressi su ogni computer",
       "backups": "Backup automatici in una cartella",
       "backupsHint": "Nella cartella che scegli, come Dropbox o Google Drive",
       "badge": "Badge Supporter",

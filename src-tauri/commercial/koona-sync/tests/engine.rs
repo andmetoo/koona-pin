@@ -235,7 +235,7 @@ fn reading_progress_and_read_state_travel_field_by_field() {
     check_invariants(&c);
 }
 
-/// The site's name (schema 12): a field of its own, recorded and carried like the icon; a name
+/// The site's name (schema 13): a field of its own, recorded and carried like the icon; a name
 /// cleared on one device is cleared on the other.
 #[test]
 fn the_site_name_travels_as_a_field_of_its_own() {

@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkSort, Collection, FilterState, PageCursor } from "../types";
+import { Bookmark, BookmarkChange, BookmarkSort, Collection, FilterState, PageCursor } from "../types";
 
 /** Lower case, «ё» as «е»: the demo's stand-in for the search index. */
 export function foldText(text: string): string {
@@ -42,6 +42,7 @@ export function matchesFilters(
     (filters.onlyInbox && b.triaged_at !== null) ||
     (filters.onlyFavorites && !b.is_favorite) ||
     (filters.onlyReading && !b.reading_at) ||
+    (filters.onlyOffline && !b.offline_at) ||
     (filters.collectionId != null &&
       b.collection_id !== filters.collectionId) ||
     (filters.domain && b.domain !== filters.domain) ||
@@ -199,6 +200,18 @@ export function moveCollection(collections: Pick<Collection, "id">[], from: numb
 
 export function sortBookmarks(bookmarks: Bookmark[], order: ListOrder = NEWEST): Bookmark[] {
   return [...bookmarks].sort((a, b) => compareBookmarks(a, b, order));
+}
+
+/**
+ * Whether a change event is news for the list. A newer revision always is; an
+ * offline copy saved or removed (NP-126) changes `offline_at` without a new
+ * revision, so the same revision counts when it carries another `offline_at`
+ * than the row shown — or a copy, for a row not loaded (the «Offline» section).
+ */
+export function isNews(change: BookmarkChange, known: number | undefined, shown: Bookmark | undefined): boolean {
+  if ((known ?? 0) < change.revision) return true;
+  if ((known ?? 0) > change.revision || !change.bookmark) return false;
+  return shown ? shown.offline_at !== change.bookmark.offline_at : change.bookmark.offline_at !== null;
 }
 
 /**

@@ -60,7 +60,8 @@
     "trash": "Corbeille",
     "duplicates": "Doublons",
     "links": "Vérification des liens",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "offline": "Hors ligne"
   },
   "browser": {
     "ready": "Navigateur connecté",
@@ -164,7 +165,11 @@
     "read": "Lire",
     "readOf": "Lire ici : {{title}}",
     "selected": "Sélectionné",
-    "filterDomain": "Seulement les signets de {{domain}}"
+    "filterDomain": "Seulement les signets de {{domain}}",
+    "saveOffline": "Enregistrer pour hors ligne",
+    "removeOffline": "Supprimer la copie hors ligne",
+    "saveOfflineShort": "Enregistrer hors ligne",
+    "savedOffline": "Enregistré hors ligne"
   },
   "selection": {
     "label": "Signets sélectionnés",
@@ -728,7 +733,27 @@
     "github": "Tickets sur GitHub",
     "githubHint": "Signalements publics dans koona-pin",
     "licenses": "Licences",
-    "licensesHint": "Polices, icônes et bibliothèques qui composent Koona Pin"
+    "licensesHint": "Polices, icônes et bibliothèques qui composent Koona Pin",
+    "offline": "Copies hors ligne",
+    "offlineStats": "Enregistré hors ligne — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} article",
+    "offlineArticles_many": "{{count}} d’articles",
+    "offlineArticles_other": "{{count}} articles",
+    "offlineHint": "Uniquement sur cet ordinateur : ni synchronisé, ni exporté.",
+    "showFolder": "Afficher le dossier",
+    "saveOffline": "Enregistrer les articles que j’ouvre depuis À lire",
+    "saveOfflineHint": "Chaque article d’À lire ouvert en mode lecture garde ici une copie.",
+    "removeCopies": "Supprimer toutes les copies",
+    "removeCopiesHint": "Les signets restent ; seules leurs copies hors ligne sont supprimées.",
+    "removeCopiesButton": "Supprimer…",
+    "removeCopiesTitle": "Supprimer toutes les copies hors ligne ?",
+    "removeCopiesText_one": "{{count}} article enregistré sera supprimé de cet ordinateur. Le signet reste.",
+    "removeCopiesText_many": "{{count}} d’articles enregistrés seront supprimés de cet ordinateur. Les signets restent.",
+    "removeCopiesText_other": "{{count}} articles enregistrés seront supprimés de cet ordinateur. Les signets restent.",
+    "removeCopiesConfirm": "Supprimer les copies",
+    "copiesRemoved_one": "{{count}} copie hors ligne supprimée",
+    "copiesRemoved_many": "{{count}} de copies hors ligne supprimées",
+    "copiesRemoved_other": "{{count}} copies hors ligne supprimées"
   },
   "notice": {
     "previewRefreshed": "Aperçu actualisé",
@@ -855,7 +880,9 @@
     "inbox": "Tout est trié",
     "inboxHint": "Les nouveaux signets du navigateur et des importations arrivent ici et attendent une décision.",
     "trash": "La corbeille est vide",
-    "trashHint": "Les signets supprimés restent ici 30 jours, puis disparaissent définitivement."
+    "trashHint": "Les signets supprimés restent ici 30 jours, puis disparaissent définitivement.",
+    "offline": "Pas encore de copies hors ligne",
+    "offlineHint": "Choisissez « Enregistrer pour hors ligne » dans le menu d’un signet, ou « Enregistrer hors ligne » en mode lecture. Les copies restent sur cet ordinateur."
   },
   "inbox": {
     "banner_one": "{{count}} nouveau signet attend — le garder, le ranger ou le jeter prend un instant",
@@ -890,7 +917,20 @@
       "notHtml": "Ce lien est un fichier, pas une page web.",
       "links": "La page est surtout faite de liens, pas d’un article.",
       "empty": "Aucun article trouvé sur la page — il est peut-être dessiné par des scripts."
-    }
+    },
+    "offlineCopy": "copie hors ligne",
+    "offlineBanner": "Pas de connexion — lecture de la copie enregistrée le {{date}}",
+    "tryLive": "Essayer la page en ligne"
+  },
+  "offline": {
+    "save": "Enregistrer hors ligne",
+    "saved": "Enregistré hors ligne",
+    "saving": "Enregistrement…",
+    "update": "Mettre à jour la copie",
+    "remove": "Supprimer la copie",
+    "savedNotice": "Enregistré pour hors ligne",
+    "removedNotice": "Copie hors ligne supprimée",
+    "failed": "Impossible d’enregistrer hors ligne : {{reason}}"
   },
   "readerAa": {
     "label": "Texte et thème",
@@ -1248,7 +1288,7 @@
     "testPayments": "Paiements de test",
     "intro": "Koona Pin reste gratuit : la bibliothèque, le bouton du navigateur, la recherche, les sauvegardes et les assistants IA. Les Supporters font vivre le projet et reçoivent :",
     "perks": {
-      "sync": "La synchronisation entre vos ordinateurs — phase précoce, dès le premier jour",
+      "sync": "Votre bibliothèque sur chaque ordinateur, À lire et la progression compris",
       "backups": "Des sauvegardes automatiques dans le dossier de votre choix, comme Dropbox",
       "reading": "Les thèmes de lecture Papier et Sépia",
       "badge": "Un badge Supporter dans l’app"
@@ -1310,8 +1350,8 @@
     "perk": {
       "reading": "Thèmes de lecture",
       "readingHint": "Papier et Sépia dans le panneau Aa du mode lecture",
-      "sync": "La synchronisation entre vos ordinateurs",
-      "syncHint": "Phase précoce — arrive avec une mise à jour",
+      "sync": "Synchronisation, À lire compris",
+      "syncHint": "Bibliothèque, À lire et progression sur chaque ordinateur",
       "backups": "Sauvegardes automatiques dans un dossier",
       "backupsHint": "Dans le dossier de votre choix, comme Dropbox ou Google Drive",
       "badge": "Badge Supporter",

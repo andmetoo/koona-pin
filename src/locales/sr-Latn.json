@@ -62,7 +62,8 @@
     "trash": "Otpad",
     "duplicates": "Duplikati",
     "links": "Provera linkova",
-    "settings": "Podešavanja"
+    "settings": "Podešavanja",
+    "offline": "Van mreže"
   },
   "browser": {
     "ready": "Pregledač povezan",
@@ -166,7 +167,11 @@
     "read": "Čitaj",
     "readOf": "Čitaj ovde: {{title}}",
     "selected": "Izabrano",
-    "filterDomain": "Samo obeleživači sa {{domain}}"
+    "filterDomain": "Samo obeleživači sa {{domain}}",
+    "saveOffline": "Sačuvaj za čitanje van mreže",
+    "removeOffline": "Ukloni kopiju van mreže",
+    "saveOfflineShort": "Sačuvaj van mreže",
+    "savedOffline": "Sačuvano van mreže"
   },
   "selection": {
     "label": "Izabrani obeleživači",
@@ -730,7 +735,27 @@
     "github": "Prijave na GitHub-u",
     "githubHint": "Javne prijave u koona-pin",
     "licenses": "Licence",
-    "licensesHint": "Fontovi, ikone i biblioteke od kojih je napravljen Koona Pin"
+    "licensesHint": "Fontovi, ikone i biblioteke od kojih je napravljen Koona Pin",
+    "offline": "Kopije van mreže",
+    "offlineStats": "Sačuvano van mreže — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} članak",
+    "offlineArticles_few": "{{count}} članka",
+    "offlineArticles_other": "{{count}} članaka",
+    "offlineHint": "Samo na ovom računaru: ne sinhronizuju se i ne ulaze u izvoz.",
+    "showFolder": "Prikaži fasciklu",
+    "saveOffline": "Čuvaj članke koje otvorim iz „Za čitanje“",
+    "saveOfflineHint": "Svaki članak iz „Za čitanje“ otvoren u režimu čitanja ostavlja ovde kopiju.",
+    "removeCopies": "Ukloni sve kopije",
+    "removeCopiesHint": "Obeleživači ostaju; brišu se samo njihove kopije van mreže.",
+    "removeCopiesButton": "Ukloni…",
+    "removeCopiesTitle": "Ukloniti sve kopije van mreže?",
+    "removeCopiesText_one": "{{count}} sačuvan članak biće obrisan sa ovog računara. Obeleživač ostaje.",
+    "removeCopiesText_few": "{{count}} sačuvana članka biće obrisana sa ovog računara. Obeleživači ostaju.",
+    "removeCopiesText_other": "{{count}} sačuvanih članaka biće obrisano sa ovog računara. Obeleživači ostaju.",
+    "removeCopiesConfirm": "Ukloni kopije",
+    "copiesRemoved_one": "Uklonjena {{count}} kopija van mreže",
+    "copiesRemoved_few": "Uklonjene {{count}} kopije van mreže",
+    "copiesRemoved_other": "Uklonjeno {{count}} kopija van mreže"
   },
   "notice": {
     "previewRefreshed": "Pregled je osvežen",
@@ -857,7 +882,9 @@
     "inbox": "Sve je razvrstano",
     "inboxHint": "Novi obeleživači iz pregledača i uvoza stižu ovde i čekaju odluku.",
     "trash": "Otpad je prazan",
-    "trashHint": "Obrisani obeleživači ostaju ovde 30 dana, a zatim nestaju zauvek."
+    "trashHint": "Obrisani obeleživači ostaju ovde 30 dana, a zatim nestaju zauvek.",
+    "offline": "Još nema kopija van mreže",
+    "offlineHint": "Izaberite „Sačuvaj za čitanje van mreže“ u meniju obeleživača ili „Sačuvaj van mreže“ u režimu čitanja. Kopije ostaju na ovom računaru."
   },
   "inbox": {
     "banner_one": "{{count}} novi obeleživač čeka — da ga zadržite, razvrstate ili bacite treba trenutak",
@@ -892,7 +919,20 @@
       "notHtml": "Ova veza je datoteka, a ne veb-stranica.",
       "links": "Stranica je uglavnom veze, a ne članak.",
       "empty": "Na stranici nije pronađen članak — možda ga crtaju skripte."
-    }
+    },
+    "offlineCopy": "kopija van mreže",
+    "offlineBanner": "Nema veze — čitate kopiju sačuvanu {{date}}",
+    "tryLive": "Pokušaj stranicu uživo"
+  },
+  "offline": {
+    "save": "Sačuvaj van mreže",
+    "saved": "Sačuvano van mreže",
+    "saving": "Čuvanje…",
+    "update": "Osveži kopiju",
+    "remove": "Ukloni kopiju",
+    "savedNotice": "Sačuvano za čitanje van mreže",
+    "removedNotice": "Kopija van mreže uklonjena",
+    "failed": "Nije uspelo čuvanje van mreže: {{reason}}"
   },
   "readerAa": {
     "label": "Tekst i tema",
@@ -1262,7 +1302,7 @@
     "testPayments": "Test-plaćanja",
     "intro": "Koona Pin ostaje besplatan: biblioteka, dugme u pregledaču, pretraga, kopije i II asistenti. Supporter podržava projekat i dobija:",
     "perks": {
-      "sync": "Sinhronizaciju između računara — rana faza, od prvog dana",
+      "sync": "Biblioteku na svakom računaru, sa „Za čitanje” i napretkom",
       "backups": "Automatske kopije u fasciklu po izboru, na primer Dropbox",
       "reading": "Teme za čitanje Papir i Sepija",
       "badge": "Oznaku Supporter u aplikaciji"
@@ -1324,8 +1364,8 @@
     "perk": {
       "reading": "Teme za čitanje",
       "readingHint": "Papir i Sepija u panelu Aa režima čitanja",
-      "sync": "Sinhronizacija između računara",
-      "syncHint": "Rana faza — stiže sa ažuriranjem",
+      "sync": "Sinhronizacija, zajedno sa „Za čitanje”",
+      "syncHint": "Biblioteka i napredak čitanja na svakom računaru",
       "backups": "Automatske kopije u fasciklu",
       "backupsHint": "U fasciklu po izboru, na primer Dropbox ili Google Disk",
       "badge": "Oznaka Supporter",

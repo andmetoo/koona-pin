@@ -1,4 +1,4 @@
-import { createLucideIcon, type LucideIcon, type LucideProps } from "lucide-react";
+import { CircleArrowDown, createLucideIcon, type LucideIcon, type LucideProps } from "lucide-react";
 import spiritGreen from "../../design/brand/pin-spirit-flat/pin-spirit.svg";
 import spiritMint from "../../design/brand/pin-spirit-flat/pin-spirit-mint.svg";
 
@@ -37,4 +37,13 @@ export function Mascot({ size = 36, className = "" }: { size?: number; className
 /** A Lucide icon drawn by the guideline rules. */
 export function Icon({ icon: Glyph, size = 16, ...rest }: { icon: LucideIcon } & LucideProps) {
   return <Glyph size={size} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" {...rest} />;
+}
+
+/**
+ * «Offline» (NP-126): Lucide's circle-arrow-down. `filled`, the marker of a
+ * saved copy: the disc in the current colour, the arrow cut out of it in
+ * `cut` (the accent's own ink by default; the reader passes its button's colour).
+ */
+export function OfflineIcon({ filled = false, size = 16, cut = "[&_path]:stroke-on-accent", className = "" }: { filled?: boolean; size?: number; cut?: string; className?: string }) {
+  return <Icon icon={CircleArrowDown} size={size} className={filled ? `fill-current ${cut} ${className}` : className} />;
 }

@@ -1,6 +1,6 @@
 //! Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 //!
-//! Libraries for the tests: schema 9 as the app makes it, schemas 10 to 12 on top, the app's SQL
+//! Libraries for the tests: schema 9 as the app makes it, schemas 10, 11 and 13 on top, the app's SQL
 //! functions stubbed, and the writes the app makes (`db.rs`) as plain SQL, so the triggers see
 //! what they see in the app.
 
@@ -15,8 +15,8 @@ use uuid::Uuid;
 pub const SCHEMA_9: &str = include_str!("../schema.sql");
 /// The app's columns of schema 11, before the engine's `SCHEMA_11`.
 pub const APP_SCHEMA_11: &str = include_str!("../schema11.sql");
-/// The app's column of schema 12, before the engine's `SCHEMA_12`.
-pub const APP_SCHEMA_12: &str = include_str!("../schema12.sql");
+/// The app's column of schema 13, before the engine's `SCHEMA_13`.
+pub const APP_SCHEMA_13: &str = include_str!("../schema13.sql");
 
 /// The app's functions as far as the triggers and the engine need them.
 pub fn stub_app_functions(conn: &Connection) {
@@ -55,7 +55,7 @@ pub fn domain(url: &str) -> String {
     rest.split(['/', '?', '#']).next().unwrap_or("").to_string()
 }
 
-/// A library at schema 12 with sync attached as `replica`, foreign keys on as in the app.
+/// A library at schema 13 with sync attached as `replica`, foreign keys on as in the app.
 pub fn library_at(path: Option<&std::path::Path>, replica: Uuid) -> Connection {
     let conn = match path {
         Some(path) => Connection::open(path).unwrap(),
@@ -68,8 +68,8 @@ pub fn library_at(path: Option<&std::path::Path>, replica: Uuid) -> Connection {
     conn.execute_batch(koona_sync::SCHEMA_10).unwrap();
     conn.execute_batch(APP_SCHEMA_11).unwrap();
     conn.execute_batch(koona_sync::SCHEMA_11).unwrap();
-    conn.execute_batch(APP_SCHEMA_12).unwrap();
-    conn.execute_batch(koona_sync::SCHEMA_12).unwrap();
+    conn.execute_batch(APP_SCHEMA_13).unwrap();
+    conn.execute_batch(koona_sync::SCHEMA_13).unwrap();
     koona_sync::attach(&conn, replica).unwrap();
     conn
 }

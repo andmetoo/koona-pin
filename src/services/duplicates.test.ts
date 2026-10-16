@@ -44,7 +44,7 @@ describe("urlKey", () => {
 const bookmark = (id: number, url: string, created: string, more: Partial<Bookmark> = {}): Bookmark => ({
   id, url, title: url, description: null, image_url: null, favicon_url: null, site_name: null, domain: "example.com", notes: null,
   is_favorite: false, collection_id: null, tags: [], created_at: created, updated_at: created, revision: 1,
-  triaged_at: created, deleted_at: null, source: null, reading_at: null, reading_progress: 0, read_at: null, ...more,
+  triaged_at: created, deleted_at: null, source: null, reading_at: null, reading_progress: 0, read_at: null, offline_at: null, ...more,
 });
 
 describe("groupsOf and mergedFields", () => {

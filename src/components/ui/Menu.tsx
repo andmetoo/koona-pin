@@ -206,7 +206,10 @@ export function Menu({
         })()}
     </div>
   );
-  // A submenu too goes to <body>: inside the glass of its parent it would be cut to the parent's
+  // Every menu goes to the top: a submenu inside the glass of its parent would be cut to the parent's
   // backdrop (a backdrop-filter starts a backdrop root) and placed from it, not from the window.
-  return createPortal(menu, document.body);
+  // Opened from a modal dialog (the reading sheet's «Saved offline», NP-126), it lives in that
+  // dialog: the top layer would cover anything in the body. A submenu follows its parent there.
+  const dialog = nested ? document.querySelector<HTMLElement>("dialog[open]") : trigger?.closest<HTMLElement>("dialog[open]");
+  return createPortal(menu, dialog ?? document.body);
 }

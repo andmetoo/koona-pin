@@ -36,4 +36,9 @@ reading: number,
 /**
  * Of them, the unread ones: «Reading N» in the sidebar.
  */
-reading_unread: number, };
+reading_unread: number, 
+/**
+ * Bookmarks outside the trash with an offline copy (NP-126): «Offline N».
+ * Counted by the command too: schemas before 12 have no copies.
+ */
+offline: number, };

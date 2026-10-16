@@ -4,4 +4,8 @@ export type AppSettings = { close_to_tray: boolean,
 /**
  * «Mark as read at the end» of Settings → Reading (NP-124); on by default.
  */
-reading_mark_at_end: boolean, };
+reading_mark_at_end: boolean, 
+/**
+ * «Save articles I open in Reading» (NP-126); off by default.
+ */
+reading_save_offline: boolean, };

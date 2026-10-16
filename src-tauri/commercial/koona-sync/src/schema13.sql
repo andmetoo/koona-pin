@@ -1,6 +1,6 @@
 -- Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 --
--- Schema 12: the site's name (`site_name`) is synced like the picture and the icon. The app's
+-- Schema 13: the site's name (`site_name`) is synced like the picture and the icon. The app's
 -- migration adds the column and then runs this text: the capture trigger of schema 11 gets the
 -- field, place 16 of `BOOKMARK_FIELDS`.
 DROP TRIGGER sync_bookmarks_update;

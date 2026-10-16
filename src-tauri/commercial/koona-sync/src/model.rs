@@ -79,7 +79,7 @@ pub const BOOKMARK_FIELDS: [&str; 17] = [
     "reading_at",
     "reading_progress",
     "read_at",
-    // The site's own name from the page (schema 12), derived like the picture and the icon.
+    // The site's own name from the page (schema 13), derived like the picture and the icon.
     "site_name",
 ];
 /// `position` is a fractional order key (a string), so moving one collection writes only its own.

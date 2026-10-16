@@ -2,7 +2,9 @@
 
 Материалы для публикации (NP-017, NP-046). Пакеты — `release/publish/chrome/<версия>/koonapin-chrome.zip` и `release/publish/edge/<версия>/koonapin-edge.zip` из `bun run extension:build` (без поля `key`). Картинки пересобирает `bun scripts/store-assets.mjs` (Koona Pin закрыт): настоящее расширение с тестовым приложением через настоящий host.
 
-Обновлено 9 октября 2026 года для расширения 0.9.2: тексты без «no account, no cloud» (платная синхронизация может потребовать аккаунт — решение владельца), краткое описание исправлено (закрытое приложение запускается, а не ждёт очереди), четыре скриншота вместо одного.
+Обновлено 15 октября 2026 года для расширения 0.11.3 (приложение 1.7.1): краткое и подробное описания называют «Save to Reading» (меню страницы и ссылки, Alt+Shift+R; ссылка попадает в «Почитать» и во «Входящие»), приложение — для Windows, macOS и Linux; обоснование `contextMenus` покрывает пункты на страницах и ссылках; таблица разрешений сверена с манифестами из `scripts/build-extension.mjs`; в инструкциях для проверяющих — шаг про Save to Reading, строки про SmartScreen больше нет (установщик подписан Certum). Тексты 9 октября (0.9.2) — без «no account, no cloud»: платная синхронизация может потребовать аккаунт, решение владельца.
+
+Safari: расширение для Safari приходит внутри приложения для Mac, в каталогах его нет; эта карточка — только Chrome Web Store, Edge Add-ons и AMO.
 
 | Поле | Chrome Web Store | Edge Add-ons |
 |---|---|---|
@@ -28,12 +30,13 @@
 Koona Pin is a desktop bookmark library. This extension adds one button to your browser: click it on any page, and the page goes to the Koona Pin app on your computer.
 
 • One click saves the page's address and title. A short note in the corner of the page confirms it.
+• Save to Reading: right-click a page or a link and choose "Save page to Reading" or "Save link to Reading", or press Alt+Shift+R. The article goes to the app's Reading list and Inbox, to read later in reading mode.
 • If Koona Pin is closed, saving a page starts it in the tray.
 • Alt+Shift+D searches your saved links right from the browser.
 • Optionally, the button shows when the page you are on is already saved.
 • If the app can't take a link at the moment, the link waits in the browser and is sent again by itself.
 
-The extension works with the free Koona Pin desktop app for Windows and Linux: https://koona.app/pin/
+The extension works with the free Koona Pin desktop app for Windows, macOS and Linux: https://koona.app/pin/
 It talks only to that app on the same computer, through the browser's native messaging. It makes no network requests and sends nothing to the developer.
 ```
 
@@ -43,12 +46,13 @@ It talks only to that app on the same computer, through the browser's native mes
 Koona Pin — библиотека закладок для компьютера. Расширение добавляет в браузер одну кнопку: нажмите её на любой странице, и страница попадёт в приложение Koona Pin на вашем компьютере.
 
 • Одно нажатие сохраняет адрес и заголовок страницы. Короткое сообщение в углу страницы подтверждает это.
+• Отложить почитать: щёлкните правой кнопкой по странице или ссылке и выберите «Сохранить страницу в „Почитать“» или «Сохранить ссылку в „Почитать“», либо нажмите Alt+Shift+R. Статья попадёт в «Почитать» и во «Входящие» приложения, чтобы прочитать её позже в режиме чтения.
 • Если Koona Pin закрыт, сохранение запустит его в трее.
 • Alt+Shift+D ищет по сохранённым ссылкам прямо в браузере.
 • По желанию кнопка показывает, что открытая страница уже сохранена.
 • Если приложение сейчас не может принять ссылку, она ждёт в браузере и уходит повторно сама.
 
-Расширение работает вместе с бесплатным приложением Koona Pin для Windows и Linux: https://koona.app/pin/
+Расширение работает вместе с бесплатным приложением Koona Pin для Windows, macOS и Linux: https://koona.app/pin/
 Оно обращается только к этому приложению на том же компьютере через Native Messaging браузера. Сетевых запросов оно не делает и разработчику ничего не отправляет.
 ```
 
@@ -57,20 +61,22 @@ Koona Pin — библиотека закладок для компьютера.
 **Single purpose**
 
 ```text
-Save the current page (its address and title) to the Koona Pin desktop app on the same computer with one click, and search the links saved there.
+Save the current page or a link (its address and title) to the Koona Pin desktop app on the same computer, to its Inbox or its Reading list, and search the links saved there.
 ```
 
 **Permission justification**
 
 | Разрешение | Текст |
 |---|---|
-| `activeTab` | `When the user clicks the toolbar button, the extension reads the address and title of that tab to save it. It reads no other tabs and no page content.` |
-| `scripting` | `Right after the user clicks the toolbar button, the extension shows a short note in the corner of that tab: saved, already saved, waiting for the app, or not saved. It runs only on the clicked tab, through activeTab, reads nothing from the page, and the note can be turned off in the extension settings.` |
+| `activeTab` | `When the user clicks the toolbar button, chooses «Save page to Reading» in the page's right-click menu, or presses Alt+Shift+R, the extension reads the address and title of that tab to save it. It reads no other tabs and no page content.` |
+| `scripting` | `Right after the user saves a page (the toolbar button, the right-click menu or Alt+Shift+R), the extension shows a short note in the corner of that tab: saved, saved to Reading, already saved, waiting for the app, or not saved. It runs only on that tab, through activeTab, reads nothing from the page, and the note can be turned off in the extension settings.` |
 | `tabs` (optional) | `Optional, requested only when the user turns on «Show that a page is already saved» in the extension settings. The extension then checks the address of each page the user opens against the user's own Koona Pin library on the same computer, through native messaging, and marks the button. Turning the setting off removes the permission. Nothing is sent anywhere else.` |
-| `contextMenus` | `Adds «Find a link» to the right-click menu of the extension's toolbar button. It opens the extension's search over the user's own Koona Pin library. No other menus are changed.` |
+| `contextMenus` | `Adds «Find a link» to the right-click menu of the extension's toolbar button, «Save page to Reading» to the right-click menu of web pages, and «Save link to Reading» to the right-click menu of links. The first opens the extension's search over the user's own Koona Pin library; the other two save that page or link to the Reading list of the Koona Pin app on the same computer. No other menus are changed.` |
 | `nativeMessaging` | `The saved link is delivered to the Koona Pin desktop app on the same computer through native messaging. The app's installer or package registers the native host; the extension talks to nothing else.` |
-| `storage` | `Links wait in local extension storage until the app confirms them, so nothing is lost while the app is unavailable. Also keeps the time of the last save shown on the settings page.` |
+| `storage` | `Links wait in local extension storage until the app confirms them, so nothing is lost while the app is unavailable. Also keeps the extension's settings and the time of the last save shown on the settings page.` |
 | `alarms` | `Retries delivery of waiting links once a minute, and tells the app twice a day that the browser is still connected.` |
+
+Это все разрешения манифестов Chrome и Edge (`scripts/build-extension.mjs`): `activeTab`, `scripting`, `storage`, `alarms`, `nativeMessaging`, `contextMenus` и необязательное `tabs`; сочетания Alt+Shift+D и Alt+Shift+R — `commands`, разрешения не требуют. В Firefox вместо `contextMenus` — `menus` (те же пункты и ещё «Настройки» в меню кнопки) и `data_collection_permissions: none`. `unlimitedStorage` есть только в манифесте Safari (#315), в каталожных пакетах его нет.
 
 **Remote code:** `No, I am not using remote code.`
 
@@ -84,19 +90,20 @@ Chrome Web Store: «Test instructions» на вкладке Privacy (учётн�
 Koona Pin is a companion extension for the Koona Pin desktop app. It saves the current page to the app's local library on the same computer through native messaging. No account or sign-in is needed, and the extension makes no network requests.
 
 To test it with the app (Windows 11, x64):
-1. Download and run the installer from https://koona.app/pin/downloads/ ("Download for Windows"). It installs per user, without administrator rights, and registers the native messaging host for Chrome and Edge. Windows SmartScreen may warn that the app is new: choose "More info" → "Run anyway".
+1. Download and run the installer from https://koona.app/pin/downloads/ ("Download for Windows"). It installs per user, without administrator rights, and registers the native messaging host for Chrome and Edge.
 2. Install this extension and pin its toolbar button.
 3. Open any web page, for example https://example.com, and click the Koona Pin button. The button animates and a short note appears in the corner of the page: "Saved to Koona Pin". The page appears in the app's Inbox. If the app was closed, it starts in the system tray.
 4. Click the button again on the same page: the note says the page is already saved, and no duplicate is created.
-5. Alt+Shift+D (or "Find a link" in the button's right-click menu) opens a popup that searches the same local library.
-6. Right-click the button → Options: the settings page shows that the extension is connected to the app.
+5. Open another page, right-click it and choose "Save page to Reading" (or press Alt+Shift+R). The note says "Saved to Reading", and the page appears in the app's Reading list and in Inbox. Right-clicking a link offers "Save link to Reading" for the linked page.
+6. Alt+Shift+D (or "Find a link" in the button's right-click menu) opens a popup that searches the same local library.
+7. Right-click the button → Options: the settings page shows that the extension is connected to the app.
 
 Without the app, clicking the button keeps the link in a local queue, and the settings page says that Koona Pin isn't installed, with a download link. This is expected.
 
-Permissions: activeTab and scripting are used only on the tab where the button is clicked, to read its address and title and to show the note. tabs is optional and requested only if the user turns on "Show that a page is already saved". nativeMessaging talks only to the Koona Pin app on the same computer.
+Permissions: activeTab and scripting are used only on the tab the user saves (the button, the page's right-click menu or Alt+Shift+R), to read its address and title and to show the note. contextMenus adds "Find a link" to the button's menu and "Save page to Reading" / "Save link to Reading" to the menus of pages and links. tabs is optional and requested only if the user turns on "Show that a page is already saved". nativeMessaging talks only to the Koona Pin app on the same computer.
 ```
 
-Строку про SmartScreen убрать, когда установщик будет подписан Certum (NP-041).
+Строки про SmartScreen больше нет: установщик релиза подписан Certum (NP-041, `scripts/release-windows.mjs`).
 
 ## Firefox (AMO)
 

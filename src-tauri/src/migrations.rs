@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 /// The newest schema this build understands. A library with a larger
 /// `user_version` is not opened at all.
-pub const SCHEMA_VERSION: i64 = 12;
+pub const SCHEMA_VERSION: i64 = 13;
 /// "NPIN" in the database header; a file without it is not a library of
 /// this schema line (Р-10, point 11).
 pub const APPLICATION_ID: i32 = 0x4E50_494E;
@@ -377,20 +377,37 @@ CREATE INDEX idx_bookmarks_reading ON bookmarks(reading_at, read_at, id, deleted
     WHERE reading_at IS NOT NULL AND deleted_at IS NULL;
 ";
 
+/// Schema 12 (NP-126): offline copies of articles. The copy itself is a
+/// folder beside the library (`offline.rs`); the row says that it is there
+/// and what it holds, so the list shows it and Settings sums it without
+/// reading the disk. Copies never leave the computer: the table has no
+/// sync triggers, no export reads it, and the journal does not record it.
+/// A hard delete of the bookmark takes the row with it.
+const SCHEMA_12: &str = "
+CREATE TABLE offline_copies (
+    bookmark_id INTEGER PRIMARY KEY REFERENCES bookmarks(id) ON DELETE CASCADE,
+    saved_at TEXT NOT NULL,
+    url TEXT NOT NULL,
+    bytes INTEGER NOT NULL,
+    images INTEGER NOT NULL,
+    words INTEGER NOT NULL
+);
+";
+
 fn sync_reading(tx: &Transaction) -> HookResult {
     tx.execute_batch(koona_sync::SCHEMA_11)?;
     Ok(())
 }
 
-/// Schema 12: the site's own name (`og:site_name` and its kin, `metadata.rs`)
+/// Schema 13: the site's own name (`og:site_name` and its kin, `metadata.rs`)
 /// for the card's cover; none until a save or «Refresh preview» reads it. The
-/// hook gives the sync capture trigger the field (`koona_sync::SCHEMA_12`,
+/// hook gives the sync capture trigger the field (`koona_sync::SCHEMA_13`,
 /// commercial).
-pub(crate) const SCHEMA_12: &str = "ALTER TABLE bookmarks ADD COLUMN site_name TEXT;
+pub(crate) const SCHEMA_13: &str = "ALTER TABLE bookmarks ADD COLUMN site_name TEXT;
 ";
 
 fn sync_site_name(tx: &Transaction) -> HookResult {
-    tx.execute_batch(koona_sync::SCHEMA_12)?;
+    tx.execute_batch(koona_sync::SCHEMA_13)?;
     Ok(())
 }
 
@@ -506,7 +523,8 @@ pub fn steps() -> Vec<M<'static>> {
         M::up_with_hook(SCHEMA_9, allow_safari),
         M::up_with_hook("", sync_schema),
         M::up_with_hook(SCHEMA_11, sync_reading),
-        M::up_with_hook(SCHEMA_12, sync_site_name),
+        M::up(SCHEMA_12),
+        M::up_with_hook(SCHEMA_13, sync_site_name),
     ]
 }
 
@@ -950,12 +968,12 @@ mod tests {
         assert!(plan.iter().any(|step| step.contains("COVERING INDEX idx_bookmarks_reading")), "{plan:?}");
     }
 
-    /// Schema 12: a library of schema 11 with data keeps every row and object
-    /// (but the capture trigger, which gains the field); no bookmark has a
-    /// site name yet; the copy before-v12 is there; with sync on, a name read
-    /// later is a change of its own (field 16).
+    /// Schema 12 (NP-126): a library of schema 11 with data keeps every row
+    /// and object and gains the empty table of offline copies; the copy
+    /// before-v12 is there; with sync on, a copy records nothing; a hard
+    /// delete of the bookmark takes its row, a move to the trash does not.
     #[test]
-    fn schema_12_adds_the_site_name_and_keeps_everything_else() {
+    fn schema_12_adds_offline_copies_and_keeps_everything_else() {
         let folder = folder("schema-12");
         let path = folder.join("koonapin.db");
         let conn = fixtures::fresh_at(&path, 11);
@@ -963,9 +981,62 @@ mod tests {
         fixtures::finish(conn);
         let mut conn = Connection::open(&path).unwrap();
         library::configure(&conn).unwrap();
+        let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name <> 'offline_copies' ORDER BY name");
+        let data = |conn: &Connection| {
+            ["bookmarks", "collections", "tags", "bookmark_tags", "app_settings", "tombstones"]
+                .iter()
+                .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
+                .collect::<Vec<_>>()
+        };
+        let (objects_before, data_before) = (objects(&conn), data(&conn));
+
+        let to_12 = Migrations::new(steps().into_iter().take(12).collect());
+        migrate_with(&to_12, 12, &mut conn, Some(&folder.join("backups"))).unwrap();
+        assert_eq!(user_version(&conn).unwrap(), 12);
+        assert!(folder.join("backups/koonapin.before-v12.db").exists());
+        let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
+        assert_eq!(check, "ok");
+        assert_eq!(objects(&conn), objects_before, "no other index, view, table or trigger changed");
+        assert_eq!(data(&conn), data_before, "every row as it was");
+        assert_eq!(rows(&conn, "SELECT count(*) FROM offline_copies"), ["Integer(0)"]);
+
+        // Sync on: a copy is not a change to send.
+        koona_sync::attach(&conn, uuid::Uuid::new_v4()).unwrap();
+        let clocks = |conn: &Connection| rows(conn, "SELECT count(*) FROM sync_clock");
+        let before = clocks(&conn);
+        conn.execute(
+            "INSERT INTO offline_copies (bookmark_id, saved_at, url, bytes, images, words)
+             VALUES (1, '2026-10-16T10:00:00.000Z', 'https://example.com/', 10, 0, 2), (2, '2026-10-16T10:00:00.000Z', 'https://example.com/', 10, 0, 2)",
+            [],
+        )
+        .unwrap();
+        conn.execute("UPDATE offline_copies SET bytes = 20 WHERE bookmark_id = 1", []).unwrap();
+        assert_eq!(clocks(&conn), before);
+        assert!(conn.execute("INSERT INTO offline_copies VALUES (999999, 'x', 'x', 0, 0, 0)", []).is_err(), "only of a bookmark");
+        // The app's own calls read the newest schema (the site name of schema 13).
+        migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
+        db::trash_bookmark(&conn, 1).unwrap();
+        db::trash_bookmark(&conn, 2).unwrap();
+        db::purge_trash(&conn, db::Purge::One(2)).unwrap();
+        assert_eq!(rows(&conn, "SELECT bookmark_id FROM offline_copies"), ["Integer(1)"]);
+    }
+
+    /// Schema 13: a library of schema 12 with data keeps every row and object
+    /// (but the capture trigger, which gains the field); no bookmark has a
+    /// site name yet; the copy before-v13 is there; with sync on, a name read
+    /// later is a change of its own (field 16).
+    #[test]
+    fn schema_13_adds_the_site_name_and_keeps_everything_else() {
+        let folder = folder("schema-13");
+        let path = folder.join("koonapin.db");
+        let conn = fixtures::fresh_at(&path, 12);
+        fixtures::generated(&conn, 2_000, 13);
+        fixtures::finish(conn);
+        let mut conn = Connection::open(&path).unwrap();
+        library::configure(&conn).unwrap();
         let objects = |conn: &Connection| rows(conn, "SELECT type, name, sql FROM sqlite_schema WHERE name NOT IN ('bookmarks', 'sync_bookmarks_update') ORDER BY name");
         let other = |conn: &Connection| {
-            ["collections", "tags", "bookmark_tags", "app_settings", "tombstones"]
+            ["collections", "tags", "bookmark_tags", "app_settings", "tombstones", "offline_copies"]
                 .iter()
                 .flat_map(|t| rows(conn, &format!("SELECT * FROM {t} ORDER BY rowid")))
                 .collect::<Vec<_>>()
@@ -974,8 +1045,8 @@ mod tests {
         let (objects_before, other_before) = (objects(&conn), other(&conn));
 
         migrate(&mut conn, Some(&folder.join("backups"))).unwrap();
-        assert_eq!(user_version(&conn).unwrap(), 12);
-        assert!(folder.join("backups/koonapin.before-v12.db").exists());
+        assert_eq!(user_version(&conn).unwrap(), 13);
+        assert!(folder.join("backups/koonapin.before-v13.db").exists());
         let check: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).unwrap();
         assert_eq!(check, "ok");
         assert_eq!(objects(&conn), objects_before, "no index, view, table or other trigger changed");
@@ -994,13 +1065,13 @@ mod tests {
         assert_eq!(clocks(&conn), ["Integer(16)"]);
     }
 
-    /// The column of schema 12 the engine's tests add (`koona-sync/tests/schema12.sql`)
+    /// The column of schema 13 the engine's tests add (`koona-sync/tests/schema13.sql`)
     /// is the one this step adds.
     #[test]
-    fn the_engine_tests_schema_12_as_the_app_makes_it() {
-        let file = include_str!("../commercial/koona-sync/tests/schema12.sql");
+    fn the_engine_tests_schema_13_as_the_app_makes_it() {
+        let file = include_str!("../commercial/koona-sync/tests/schema13.sql");
         let columns: String = file.lines().skip_while(|l| l.starts_with("--")).map(|l| format!("{l}\n")).collect();
-        assert_eq!(columns, SCHEMA_12);
+        assert_eq!(columns, SCHEMA_13);
     }
 
     /// The columns of schema 11 the engine's tests add (`koona-sync/tests/schema11.sql`)

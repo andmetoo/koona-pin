@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — salvar link" },
   "extensionDescription": {
-    "message": "Salve qualquer página no app Koona Pin do seu computador com um clique e busque seus links salvos no navegador."
+    "message": "Salve qualquer página no app Koona Pin do seu computador com um clique, envie artigos para Para ler e busque seus links salvos."
   },
   "menuOptions": { "message": "Configurações e fila" },
   "menuSearch": { "message": "Encontrar um link" },

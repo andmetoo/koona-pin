@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — リンクを保存" },
   "extensionDescription": {
-    "message": "ワンクリックでページをこのコンピューターの Koona Pin アプリに保存。保存したリンクをブラウザーから検索できます。"
+    "message": "ワンクリックでページをこのコンピューターの Koona Pin アプリに保存。記事を「あとで読む」に送り、保存したリンクをブラウザーから検索できます。"
   },
   "menuOptions": { "message": "設定とキュー" },
   "menuSearch": { "message": "リンクを探す" },

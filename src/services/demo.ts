@@ -48,6 +48,10 @@ import {
   McpAccess,
   McpSetup,
   McpStatus,
+  OfflineArticle,
+  OfflineCopy,
+  OfflineCopyContent,
+  OfflineStats,
   SupporterStatus,
   SupporterPrices,
   PlanInterval,
@@ -145,6 +149,8 @@ const demoMarkAtEnd = () => {
     return true;
   }
 };
+/** «Save articles I open in Reading» (NP-126): "true" turns it on; off by default, as app_settings has it. */
+const DEMO_SAVE_OFFLINE_KEY = "koonapin.demo.readingSaveOffline";
 /** A demo switch from localStorage; none where storage cannot be read. */
 function demoSwitch(key: string): string | null {
   try {
@@ -481,6 +487,7 @@ let initial = {
     reading_at: READING.includes(i) ? stamp(READING.indexOf(i)) : null,
     reading_progress: i === READING[1] ? 0.4 : 0,
     read_at: null,
+    offline_at: null,
   })),
   collections: sample.collections.map((name, i): Collection => ({
     id: i + 1,
@@ -504,6 +511,8 @@ let bookmarks: Bookmark[] = initial.bookmarks.map((b) => ({
   reading_at: b.reading_at ?? null,
   reading_progress: b.reading_progress ?? 0,
   read_at: b.read_at ?? null,
+  // The preview keeps offline copies in memory only (NP-126): none survive a reload.
+  offline_at: null,
 }));
 let collections: Collection[] = initial.collections;
 /** The highest collection id handed out: like AUTOINCREMENT, a deleted one is not reused. */
@@ -511,6 +520,21 @@ let lastCollection = 0;
 const nextCollection = () => {
   lastCollection = Math.max(lastCollection, ...collections.map((c) => c.id)) + 1;
   return lastCollection;
+};
+/** Offline copies of the preview (NP-126), by bookmark: this session only, never in localStorage. */
+const copies = new Map<number, OfflineCopyContent>();
+/** `offline_at` follows the copy, as the database's join does: no new revision, no command of the journal. */
+function setOffline(b: Bookmark, offlineAt: string | null): Bookmark {
+  const next = { ...b, offline_at: offlineAt };
+  bookmarks = bookmarks.map((item) => (item.id === b.id ? next : item));
+  persist();
+  emit("updated", next);
+  return next;
+}
+/** A bookmark deleted for good takes its copy with it, as the desktop app's sweep does. */
+const sweepCopies = () => {
+  const kept = new Set(bookmarks.map((b) => b.id));
+  for (const id of copies.keys()) if (!kept.has(id)) copies.delete(id);
 };
 /** Everything outside the trash: what the library, its counts and catalogs show. */
 const live = () => bookmarks.filter((b) => !b.deleted_at);
@@ -868,6 +892,7 @@ export const demo = {
       links: linksToDecide(),
       reading: live().filter((b) => b.reading_at).length,
       reading_unread: live().filter((b) => b.reading_at && !b.read_at).length,
+      offline: live().filter((b) => b.offline_at).length,
     };
   },
   async addBookmark(
@@ -911,6 +936,7 @@ export const demo = {
       reading_at: null,
       reading_progress: 0,
       read_at: null,
+      offline_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       revision: 1,
@@ -1071,6 +1097,7 @@ export const demo = {
     const chosen = new Set(ids);
     const gone = bookmarks.filter((b) => chosen.has(b.id) && b.deleted_at);
     bookmarks = bookmarks.filter((b) => !gone.includes(b));
+    sweepCopies();
     persist();
     emitMany("deleted", gone.map((b) => ({ ...b, revision: (b.revision ?? 1) + 1 })));
     return gone.length;
@@ -1080,12 +1107,14 @@ export const demo = {
     const b = bookmarks.find((item) => item.id === id && item.deleted_at);
     if (!b) throw new CommandError("not_found", "This bookmark is not in the trash", "not_in_trash");
     bookmarks = bookmarks.filter((item) => item.id !== id);
+    sweepCopies();
     persist();
     emit("deleted", { ...b, revision: (b.revision ?? 1) + 1 });
   },
   async emptyTrash() {
     const gone = bookmarks.length - live().length;
     bookmarks = live();
+    sweepCopies();
     persist();
     invalidations.forEach((fn) => fn());
     return gone;
@@ -1170,6 +1199,7 @@ export const demo = {
           reading_at: null,
           reading_progress: 0,
           read_at: null,
+          offline_at: null,
           created_at: link.addedAt ?? now,
           updated_at: now,
           revision: 1,
@@ -1234,6 +1264,7 @@ export const demo = {
     if (mode === "replace") {
       bookmarks = [];
       collections = [];
+      sweepCopies();
     }
     const summary: RestoreSummary = { added: 0, in_inbox: 0, in_trash: 0, existing: 0, collections: [], tags: 0, backup: mode === "replace" ? "koona-pin.before-restore.db" : null };
     const tagsBefore = new Set(bookmarks.flatMap((b) => b.tags ?? []));
@@ -1268,6 +1299,8 @@ export const demo = {
           reading_at: b.reading_at ?? null,
           reading_progress: Math.min(1, Math.max(0, b.reading_progress ?? 0)),
           read_at: b.read_at ?? null,
+          // Copies are never in a backup (NP-126).
+          offline_at: null,
           domain: b.domain || new URL(b.url).hostname,
           collection_id: b.collection ? (collectionOf.get(b.collection) ?? null) : null,
           tags: b.tags ?? [],
@@ -1323,7 +1356,48 @@ export const demo = {
     };
   },
   async getAppSettings() {
-    return { close_to_tray: true, reading_mark_at_end: demoMarkAtEnd() };
+    return { close_to_tray: true, reading_mark_at_end: demoMarkAtEnd(), reading_save_offline: demoSwitch(DEMO_SAVE_OFFLINE_KEY) === "true" };
+  },
+  async setReadingSaveOffline(enabled: boolean) {
+    localStorage.setItem(DEMO_SAVE_OFFLINE_KEY, enabled ? "true" : "false");
+  },
+  /** `save_offline_copy`: the article as the reader extracted it; the preview downloads no pictures. */
+  async saveOfflineCopy(bookmarkId: number, article: OfflineArticle): Promise<OfflineCopy> {
+    const b = bookmarks.find((item) => item.id === bookmarkId);
+    if (!b) throw new CommandError("not_found", "The bookmark is gone", "bookmark_gone");
+    const copy: OfflineCopy = {
+      bookmark_id: bookmarkId,
+      saved_at: new Date().toISOString(),
+      url: article.url,
+      bytes: new TextEncoder().encode(article.html).length,
+      images: (article.html.match(/<img\b/gi) ?? []).length,
+      words: article.words,
+    };
+    copies.set(bookmarkId, { copy, article });
+    setOffline(b, copy.saved_at);
+    return copy;
+  },
+  async getOfflineCopy(bookmarkId: number): Promise<OfflineCopyContent | null> {
+    return copies.get(bookmarkId) ?? null;
+  },
+  async removeOfflineCopy(bookmarkId: number) {
+    copies.delete(bookmarkId);
+    const b = bookmarks.find((item) => item.id === bookmarkId);
+    if (b?.offline_at) setOffline(b, null);
+  },
+  async removeAllOfflineCopies(): Promise<number> {
+    const count = copies.size;
+    copies.clear();
+    bookmarks = bookmarks.map((b) => (b.offline_at ? { ...b, offline_at: null } : b));
+    persist();
+    invalidations.forEach((fn) => fn());
+    return count;
+  },
+  async offlineStats(): Promise<OfflineStats> {
+    return { count: copies.size, bytes: [...copies.values()].reduce((sum, { copy }) => sum + copy.bytes, 0) };
+  },
+  async revealOfflineFolder() {
+    /* Desktop-only: the preview keeps its copies in memory. */
   },
   /** set_reading_mark_at_end (NP-124): kept across reloads, as app_settings is. */
   async setReadingMarkAtEnd(enabled: boolean) {

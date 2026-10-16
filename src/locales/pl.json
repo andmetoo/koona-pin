@@ -63,7 +63,8 @@
     "trash": "Kosz",
     "duplicates": "Duplikaty",
     "links": "Sprawdzanie linków",
-    "settings": "Ustawienia"
+    "settings": "Ustawienia",
+    "offline": "Offline"
   },
   "browser": {
     "ready": "Połączono",
@@ -170,7 +171,11 @@
     "read": "Czytaj",
     "readOf": "Czytaj tutaj: {{title}}",
     "selected": "Zaznaczona",
-    "filterDomain": "Tylko zakładki z {{domain}}"
+    "filterDomain": "Tylko zakładki z {{domain}}",
+    "saveOffline": "Zapisz do czytania offline",
+    "removeOffline": "Usuń kopię offline",
+    "saveOfflineShort": "Zapisz offline",
+    "savedOffline": "Zapisano offline"
   },
   "selection": {
     "label": "Zaznaczone zakładki",
@@ -774,7 +779,30 @@
     "github": "Zgłoszenia na GitHubie",
     "githubHint": "Publiczne zgłoszenia w koona-pin",
     "licenses": "Licencje",
-    "licensesHint": "Czcionki, ikony i biblioteki, z których zbudowano Koona Pin"
+    "licensesHint": "Czcionki, ikony i biblioteki, z których zbudowano Koona Pin",
+    "offline": "Kopie offline",
+    "offlineStats": "Zapisane offline — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} artykuł",
+    "offlineArticles_few": "{{count}} artykuły",
+    "offlineArticles_many": "{{count}} artykułów",
+    "offlineArticles_other": "{{count}} artykułu",
+    "offlineHint": "Tylko na tym komputerze: bez synchronizacji i eksportu.",
+    "showFolder": "Pokaż folder",
+    "saveOffline": "Zapisuj artykuły otwierane z listy Do przeczytania",
+    "saveOfflineHint": "Każdy artykuł z Do przeczytania otwarty w trybie czytania zostawia tu kopię.",
+    "removeCopies": "Usuń wszystkie kopie",
+    "removeCopiesHint": "Zakładki zostają; usuwane są tylko ich kopie offline.",
+    "removeCopiesButton": "Usuń…",
+    "removeCopiesTitle": "Usunąć wszystkie kopie offline?",
+    "removeCopiesText_one": "{{count}} zapisany artykuł zostanie usunięty z tego komputera. Zakładka zostaje.",
+    "removeCopiesText_few": "{{count}} zapisane artykuły zostaną usunięte z tego komputera. Zakładki zostają.",
+    "removeCopiesText_many": "{{count}} zapisanych artykułów zostanie usuniętych z tego komputera. Zakładki zostają.",
+    "removeCopiesText_other": "{{count}} zapisanego artykułu zostanie usunięte z tego komputera. Zakładki zostają.",
+    "removeCopiesConfirm": "Usuń kopie",
+    "copiesRemoved_one": "Usunięto {{count}} kopię offline",
+    "copiesRemoved_few": "Usunięto {{count}} kopie offline",
+    "copiesRemoved_many": "Usunięto {{count}} kopii offline",
+    "copiesRemoved_other": "Usunięto {{count}} kopii offline"
   },
   "notice": {
     "previewRefreshed": "Podgląd odświeżony",
@@ -908,7 +936,9 @@
     "inbox": "Wszystko uporządkowane",
     "inboxHint": "Nowe zakładki z przeglądarki i importu trafiają tutaj i czekają na decyzję.",
     "trash": "Kosz jest pusty",
-    "trashHint": "Usunięte zakładki zostają tu 30 dni, potem znikają na zawsze."
+    "trashHint": "Usunięte zakładki zostają tu 30 dni, potem znikają na zawsze.",
+    "offline": "Brak kopii offline",
+    "offlineHint": "Wybierz „Zapisz do czytania offline” w menu zakładki albo „Zapisz offline” w trybie czytania. Kopie zostają na tym komputerze."
   },
   "inbox": {
     "banner_one": "Czeka {{count}} nowa zakładka — zostawienie, odłożenie albo wyrzucenie zajmie chwilę",
@@ -947,7 +977,20 @@
       "notHtml": "Ten link to plik, a nie strona internetowa.",
       "links": "Strona to głównie linki, a nie artykuł.",
       "empty": "Na stronie nie znaleziono artykułu — może rysują go skrypty."
-    }
+    },
+    "offlineCopy": "kopia offline",
+    "offlineBanner": "Brak połączenia — czytasz kopię offline zapisaną {{date}}",
+    "tryLive": "Spróbuj strony online"
+  },
+  "offline": {
+    "save": "Zapisz offline",
+    "saved": "Zapisano offline",
+    "saving": "Zapisywanie…",
+    "update": "Odśwież kopię",
+    "remove": "Usuń kopię",
+    "savedNotice": "Zapisano do czytania offline",
+    "removedNotice": "Usunięto kopię offline",
+    "failed": "Nie udało się zapisać offline: {{reason}}"
   },
   "readerAa": {
     "label": "Tekst i motyw",
@@ -1329,7 +1372,7 @@
     "testPayments": "Płatności testowe",
     "intro": "Koona Pin pozostaje darmowa: biblioteka, przycisk w przeglądarce, wyszukiwanie, kopie i asystenci AI. Supporterzy utrzymują projekt i dostają:",
     "perks": {
-      "sync": "Synchronizację między komputerami — wczesny etap, od pierwszego dnia",
+      "sync": "Twoją bibliotekę na każdym komputerze, razem z Do przeczytania i postępem",
       "backups": "Automatyczne kopie do wybranego folderu, np. Dropbox",
       "reading": "Motywy czytania Papier i Sepia",
       "badge": "Odznakę Supporter w aplikacji"
@@ -1391,8 +1434,8 @@
     "perk": {
       "reading": "Motywy czytania",
       "readingHint": "Papier i Sepia w panelu Aa trybu czytania",
-      "sync": "Synchronizacja między komputerami",
-      "syncHint": "Wczesny etap — przyjdzie z aktualizacją",
+      "sync": "Synchronizacja razem z Do przeczytania",
+      "syncHint": "Biblioteka i postęp czytania na każdym komputerze",
       "backups": "Automatyczne kopie do folderu",
       "backupsHint": "Do wybranego folderu, np. Dropbox albo Dysk Google",
       "badge": "Odznaka Supporter",

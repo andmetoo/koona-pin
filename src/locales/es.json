@@ -60,7 +60,8 @@
     "trash": "Papelera",
     "duplicates": "Duplicados",
     "links": "Comprobación de enlaces",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "offline": "Sin conexión"
   },
   "browser": {
     "ready": "Conectado",
@@ -164,7 +165,11 @@
     "read": "Leer",
     "readOf": "Leer aquí: {{title}}",
     "selected": "Seleccionado",
-    "filterDomain": "Solo marcadores de {{domain}}"
+    "filterDomain": "Solo marcadores de {{domain}}",
+    "saveOffline": "Guardar para leer sin conexión",
+    "removeOffline": "Quitar copia sin conexión",
+    "saveOfflineShort": "Guardar sin conexión",
+    "savedOffline": "Guardado sin conexión"
   },
   "selection": {
     "label": "Marcadores seleccionados",
@@ -728,7 +733,27 @@
     "github": "Incidencias en GitHub",
     "githubHint": "Informes públicos en koona-pin",
     "licenses": "Licencias",
-    "licensesHint": "Fuentes, iconos y bibliotecas con los que está hecho Koona Pin"
+    "licensesHint": "Fuentes, iconos y bibliotecas con los que está hecho Koona Pin",
+    "offline": "Copias sin conexión",
+    "offlineStats": "Guardado sin conexión — {{articles}} · {{size}}",
+    "offlineArticles_one": "{{count}} artículo",
+    "offlineArticles_many": "{{count}} de artículos",
+    "offlineArticles_other": "{{count}} artículos",
+    "offlineHint": "Solo en este ordenador: no se sincroniza ni se exporta.",
+    "showFolder": "Mostrar carpeta",
+    "saveOffline": "Guardar los artículos que abro desde Para leer",
+    "saveOfflineHint": "Cada artículo de Para leer que abras en modo lectura guarda aquí una copia.",
+    "removeCopies": "Quitar todas las copias",
+    "removeCopiesHint": "Los marcadores se quedan; solo se borran sus copias sin conexión.",
+    "removeCopiesButton": "Quitar…",
+    "removeCopiesTitle": "¿Quitar todas las copias sin conexión?",
+    "removeCopiesText_one": "Se borrará {{count}} artículo guardado de este ordenador. El marcador se queda.",
+    "removeCopiesText_many": "Se borrarán {{count}} de artículos guardados de este ordenador. Los marcadores se quedan.",
+    "removeCopiesText_other": "Se borrarán {{count}} artículos guardados de este ordenador. Los marcadores se quedan.",
+    "removeCopiesConfirm": "Quitar copias",
+    "copiesRemoved_one": "{{count}} copia sin conexión quitada",
+    "copiesRemoved_many": "{{count}} de copias sin conexión quitadas",
+    "copiesRemoved_other": "{{count}} copias sin conexión quitadas"
   },
   "notice": {
     "previewRefreshed": "Vista previa actualizada",
@@ -855,7 +880,9 @@
     "inbox": "Todo ordenado",
     "inboxHint": "Los marcadores nuevos del navegador y de las importaciones llegan aquí y esperan una decisión.",
     "trash": "La papelera está vacía",
-    "trashHint": "Los marcadores eliminados se quedan aquí 30 días y después desaparecen para siempre."
+    "trashHint": "Los marcadores eliminados se quedan aquí 30 días y después desaparecen para siempre.",
+    "offline": "Aún no hay copias sin conexión",
+    "offlineHint": "Elige «Guardar para leer sin conexión» en el menú de un marcador o «Guardar sin conexión» en modo lectura. Las copias se quedan en este ordenador."
   },
   "inbox": {
     "banner_one": "{{count}} marcador nuevo en espera: conservarlo, archivarlo o tirarlo lleva un momento",
@@ -890,7 +917,20 @@
       "notHtml": "Este enlace es un archivo, no una página web.",
       "links": "La página es sobre todo enlaces, no un artículo.",
       "empty": "No se encontró ningún artículo en la página; quizá lo dibujan scripts."
-    }
+    },
+    "offlineCopy": "copia sin conexión",
+    "offlineBanner": "Sin conexión — lees la copia guardada el {{date}}",
+    "tryLive": "Probar la página en línea"
+  },
+  "offline": {
+    "save": "Guardar sin conexión",
+    "saved": "Guardado sin conexión",
+    "saving": "Guardando…",
+    "update": "Actualizar copia",
+    "remove": "Quitar copia",
+    "savedNotice": "Guardado para leer sin conexión",
+    "removedNotice": "Copia sin conexión quitada",
+    "failed": "No se pudo guardar sin conexión: {{reason}}"
   },
   "readerAa": {
     "label": "Texto y tema",
@@ -1248,7 +1288,7 @@
     "testPayments": "Pagos de prueba",
     "intro": "Koona Pin sigue siendo gratis: la biblioteca, el botón del navegador, la búsqueda, las copias y los asistentes de IA. Quienes la apoyan mantienen el proyecto y reciben:",
     "perks": {
-      "sync": "Sincronización entre tus ordenadores — fase inicial, desde el primer día",
+      "sync": "Tu biblioteca en cada ordenador, con Para leer y el progreso de lectura",
       "backups": "Copias automáticas en la carpeta que elijas, como Dropbox",
       "reading": "Temas de lectura Papel y Sepia",
       "badge": "Una insignia de Supporter en la app"
@@ -1310,8 +1350,8 @@
     "perk": {
       "reading": "Temas de lectura",
       "readingHint": "Papel y Sepia en el panel Aa del modo lectura",
-      "sync": "Sincronización entre tus ordenadores",
-      "syncHint": "Fase inicial — llegará con una actualización",
+      "sync": "Sincronización, Para leer incluido",
+      "syncHint": "Biblioteca, Para leer y progreso en cada ordenador",
       "backups": "Copias automáticas en una carpeta",
       "backupsHint": "En la carpeta que elijas, como Dropbox o Google Drive",
       "badge": "Insignia de Supporter",

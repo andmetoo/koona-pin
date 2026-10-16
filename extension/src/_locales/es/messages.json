@@ -1,7 +1,7 @@
 {
   "extensionName": { "message": "Koona Pin — guardar enlace" },
   "extensionDescription": {
-    "message": "Guarda cualquier página en la app Koona Pin de tu ordenador con un clic y busca tus enlaces guardados desde el navegador."
+    "message": "Guarda cualquier página en la app Koona Pin de tu ordenador con un clic, envía artículos a Para leer y busca tus enlaces guardados."
   },
   "menuOptions": { "message": "Configuración y cola" },
   "menuSearch": { "message": "Buscar un enlace" },
