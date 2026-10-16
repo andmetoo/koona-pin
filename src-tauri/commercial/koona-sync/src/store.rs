@@ -76,6 +76,7 @@ pub(crate) const BOOKMARKS: Table = Table {
         "reading_at",
         "reading_progress",
         "read_at",
+        "site_name",
     ],
     fields: &BOOKMARK_FIELDS,
     required: &[0, 1, FAVORITE, 12, PROGRESS],

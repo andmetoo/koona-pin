@@ -24,6 +24,7 @@ const b: Bookmark = {
   description: null,
   image_url: null,
   favicon_url: null,
+  site_name: null,
   notes: null,
   domain: "example.com",
   is_favorite: false,

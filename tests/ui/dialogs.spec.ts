@@ -16,7 +16,7 @@ const fixture = path.join(here, "..", "fixtures", "bookmarks", "chrome.html");
 function copyFile(format = "koona-pin") {
   const at = "2026-09-01T10:00:00.000Z";
   const bookmark = (uid: string, url: string) => ({
-    uid, url, title: uid, description: null, notes: null, domain: new URL(url).hostname, image_url: null, favicon_url: null,
+    uid, url, title: uid, description: null, notes: null, domain: new URL(url).hostname, image_url: null, favicon_url: null, site_name: null,
     is_favorite: false, collection: null, tags: [], source: "import", created_at: at, updated_at: at, triaged_at: at, deleted_at: null,
   });
   const copy = {

@@ -111,6 +111,7 @@
     "searchShort": "Pretraga…",
     "view": "Prikaz biblioteke",
     "grid": "Mreža",
+    "denseGrid": "Kompaktna mreža",
     "list": "Lista",
     "sortBy": "Redosled",
     "sortHint": "Redosled: {{order}}",

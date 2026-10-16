@@ -59,7 +59,7 @@ pub enum Entity {
 
 /// The synced fields of each entity, by the names on the wire. Everything else in the library
 /// (local ids, revisions, sort keys, `domain`, `url_key`, link checks) is derived or local.
-pub const BOOKMARK_FIELDS: [&str; 16] = [
+pub const BOOKMARK_FIELDS: [&str; 17] = [
     "url",
     "title",
     "description",
@@ -79,6 +79,8 @@ pub const BOOKMARK_FIELDS: [&str; 16] = [
     "reading_at",
     "reading_progress",
     "read_at",
+    // The site's own name from the page (schema 13), derived like the picture and the icon.
+    "site_name",
 ];
 /// `position` is a fractional order key (a string), so moving one collection writes only its own.
 pub const COLLECTION_FIELDS: [&str; 4] = ["name", "color", "icon", "position"];

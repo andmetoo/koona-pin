@@ -104,6 +104,7 @@
     "searchShort": "Ara…",
     "view": "Kitaplık görünümü",
     "grid": "Izgara",
+    "denseGrid": "Kompakt ızgara",
     "list": "Liste",
     "sortBy": "Sıralama",
     "sortHint": "Sıralama: {{order}}",

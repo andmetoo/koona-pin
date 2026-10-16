@@ -151,7 +151,7 @@ Containers have no real desktop: no GNOME, KDE or Hyprland session, tray, portal
 
 `tests/ui/visual.spec.ts` compares screenshots with the baselines in `tests/ui/visual.spec.ts-snapshots` (both themes, grid and list, three window sizes). The test pins the date to 3 October 2026, because date groups and short dates depend on it.
 
-They are checked only locally: font antialiasing differs between machines and even between runs on the same machine after updates, so CI runs `--grep-invert "@visual"`. Update baselines only after looking at the difference:
+They are checked only locally: font antialiasing differs between machines and even between runs on the same machine after updates, so CI runs `--grep-invert "@visual"`. The committed baselines are recorded on macOS (`*-darwin.png`); Playwright keys them by platform, so on Windows or Linux the first run writes that platform's own set and fails until you record it. Update baselines only after looking at the difference:
 
 ```powershell
 bun run test:ui -- --grep "@visual" --update-snapshots=all

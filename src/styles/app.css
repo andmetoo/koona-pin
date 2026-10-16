@@ -23,6 +23,17 @@
   --np-divider: #efede6;
   --np-hover: #ece9e2;
   --np-secondary: #f2f1ec;
+  --np-secondary-hover: #ece9e2;
+  /* A trough (the view switch, the toolbar's search), what is raised in it or in the sidebar (the
+     active row, the chosen segment) with its edge, and the hairline around a picture (2026-10-16). */
+  --np-well: #edebe4;
+  --np-raised: #fffefa;
+  --np-raised-edge: rgb(46 48 43 / 0.07);
+  --np-hairline: rgb(46 48 43 / 0.07);
+  --np-shadow-1: 0 1px 2px rgb(46 48 43 / 0.06);
+  /* The menu's glass: the card at 82 % over a blur of what is under it. */
+  --np-menu-glass: rgb(255 254 250 / 0.82);
+  --np-menu-shadow: 0 18px 50px -12px rgb(0 0 0 / 0.28), 0 2px 6px rgb(0 0 0 / 0.06);
   --np-accent: #2f6b4f;
   --np-on-accent: #ffffff;
   --np-accent-soft: #e2eee6;
@@ -77,45 +88,58 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --np-bg: #22221f;
-  --np-panel: #1c1c19;
-  --np-card: #2b2b26;
-  --np-ink: #e9e6dc;
-  --np-icon: #a4a296;
-  --np-muted: #a4a296;
-  --np-meta: #8c8a7f;
-  --np-subtle: #8c8a7f;
-  --np-faint: #6a695f;
-  --np-line: #2b2b26;
-  --np-border: #3d3d35;
-  --np-divider: #33332d;
-  --np-hover: #33332d;
-  /* On the dark card --panel is darker than the page and looks like a hole. */
-  --np-secondary: #33332d;
+  /* Deep (owner 2026-10-16): a near-black ground, surfaces lifted from it in steps of light, and
+     edges, lines and hovers as white at a few per cent, so they read on the page, the panel and the
+     card alike. What is laid over another colour or mixed stays opaque. */
+  --np-bg: #161615;
+  --np-panel: #101010;
+  --np-card: #1d1d1b;
+  --np-ink: #ecebe6;
+  --np-icon: #a3a29a;
+  --np-muted: #a3a29a;
+  --np-meta: #7f7e77;
+  --np-subtle: #7d7c75;
+  --np-faint: #55544f;
+  --np-line: rgb(255 255 255 / 0.06);
+  --np-border: rgb(255 255 255 / 0.08);
+  --np-divider: rgb(255 255 255 / 0.06);
+  --np-hover: rgb(255 255 255 / 0.05);
+  --np-thumb: rgb(255 255 255 / 0.12);
+  /* On the dark card --panel is darker than the page and looks like a hole. Opaque: a hover
+     over it lightens it (Button), it does not replace it. */
+  --np-secondary: #272725;
+  --np-secondary-hover: #30302d;
+  --np-well: rgb(255 255 255 / 0.045);
+  --np-raised: #262624;
+  --np-raised-edge: rgb(255 255 255 / 0.07);
+  --np-hairline: rgb(255 255 255 / 0.07);
+  --np-shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
+  --np-menu-glass: rgb(29 29 27 / 0.86);
+  --np-menu-shadow: 0 18px 50px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
   --np-accent: #8fd0ae;
-  --np-on-accent: #1c1c19;
-  --np-accent-soft: #25352c;
+  --np-on-accent: #141413;
+  --np-accent-soft: #20302a;
   --np-on-accent-soft: #8fd0ae;
   --np-accent-muted: #6fa58a;
-  --np-suggested: #3e6b55;
+  --np-suggested: #3a6450;
   --np-danger: #e99797;
-  --np-danger-soft: #3a2826;
-  --np-on-danger-soft: #e99797;
-  --np-toast: #3d3d35;
-  --np-scrim: rgb(0 0 0 / 0.5);
+  --np-danger-soft: #33211f;
+  --np-on-danger-soft: #eda5a5;
+  --np-toast: #30302d;
+  --np-scrim: rgb(0 0 0 / 0.55);
   --np-terracotta: #d99272;
   --np-green: #7db096;
   --np-blue: #8aa3d0;
   --np-ochre: #d4b862;
   --np-lilac: #b096cc;
   --np-update: #8aa3d0;
-  --np-update-soft: #262e3d;
+  --np-update-soft: #1f2636;
   --np-on-update-soft: #afc1e3;
-  --np-update-track: #3a4660;
+  --np-update-track: #34405a;
   --np-update-glow: rgb(138 163 208 / 0.27);
   /* The ochre of the collections turns olive on the dark panel: a warm amber instead. */
   --np-amber: #e8b866;
-  --np-amber-soft: #3a3124;
+  --np-amber-soft: #322a1e;
   --np-on-amber-soft: #f2d9a6;
   /* The free Dark theme of reading (B8's swatch: #1e1d1a, ink #e8e2d6). */
   --np-read: #1e1d1a;
@@ -135,7 +159,7 @@
   --np-sheet: var(--np-read);
   --np-sheet-ink: var(--np-read-ink);
   --np-sheet-line: var(--np-read-border);
-  --np-focus: #e9e6dc;
+  --np-focus: #ecebe6;
 }
 
 /* The Supporter heart (NP-066, sheet 45) takes the colour of the season, set on <html> as
@@ -215,6 +239,11 @@
   --color-divider: var(--np-divider);
   --color-hover: var(--np-hover);
   --color-secondary: var(--np-secondary);
+  --color-secondary-hover: var(--np-secondary-hover);
+  --color-well: var(--np-well);
+  --color-raised: var(--np-raised);
+  --color-raised-edge: var(--np-raised-edge);
+  --color-hairline: var(--np-hairline);
   --color-accent: var(--np-accent);
   --color-on-accent: var(--np-on-accent);
   --color-accent-soft: var(--np-accent-soft);
@@ -290,6 +319,12 @@
   --shadow-*: initial;
   --shadow-active: 0 1px 2px rgb(0 0 0 / 0.08);
   --shadow-menu: 0 8px 24px rgb(0 0 0 / 0.14);
+  /* The active row and the chosen segment: raised, with a 1 px edge. */
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.05), 0 0 0 1px var(--np-raised-edge);
+  --shadow-segment: 0 1px 2px rgb(0 0 0 / 0.08), 0 0 0 1px var(--np-raised-edge);
+  /* A toolbar button's faint lift; the primary one also catches light on its top edge. */
+  --shadow-button: 0 1px 1px rgb(0 0 0 / 0.025);
+  --shadow-primary: 0 1px 2px rgb(0 0 0 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.14);
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --animate-appear: appear 200ms var(--ease-standard);
@@ -385,7 +420,8 @@
     height: 8px;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--np-border);
+    /* The dark border is white at 8 %: too faint for a thumb, which has its own. */
+    background: var(--np-thumb, var(--np-border));
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-track {
@@ -427,6 +463,57 @@
   }
   &:disabled {
     color: var(--np-subtle);
+  }
+}
+
+/* The search (2026-10-16): a card field under the logo of the sidebar; in the toolbar of a narrow
+   window, where the sidebar is a strip, a soft well (`data-well`). Focused, both turn to the card
+   with an accent edge and a 4 px halo. The key in a chip of its own sits on the right. */
+@utility search {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--np-line);
+  border-radius: 10px;
+  background: var(--np-card);
+  box-shadow: var(--np-shadow-1);
+  color: var(--np-ink);
+  padding: 0 12px 0 35px;
+  font-size: 13px;
+  line-height: 18px;
+  transition-property: background-color, border-color, box-shadow;
+  transition-duration: 160ms;
+  &::placeholder {
+    color: var(--np-subtle);
+  }
+  &[data-well]:not(:focus-visible) {
+    border-color: transparent;
+    background: var(--np-well);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.035);
+  }
+  &[data-well]:not(:focus-visible):hover {
+    border-color: var(--np-line);
+  }
+  &:focus-visible {
+    background: var(--np-card);
+    border-color: color-mix(in oklab, var(--np-accent) 55%, var(--np-border));
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--np-accent) 20%, transparent),
+      0 1px 2px rgb(0 0 0 / 0.04);
+  }
+}
+
+/* The glass of a menu (2026-10-16): the card at 82 % over a blur of what lies under it, saturated
+   so a cover behind keeps its colour without its detail; a hairline inside and a deep soft shadow.
+   Where the blur is not drawn the card is opaque, so the text never sits on a sharp picture. */
+@utility menu-glass {
+  background: var(--np-menu-glass);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  box-shadow:
+    var(--np-menu-shadow),
+    inset 0 0 0 1px var(--np-line);
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--np-card);
   }
 }
 
@@ -584,97 +671,386 @@
 }
 
 /* Selection without a checkbox (NP-123, Р-69 points 4–5). A focused card or row
-   is ringed in ink around all of it; a selected one keeps the accent ring of its
-   preview (grid) or its border and soft fill (list), so the two never look alike. */
+   is ringed in ink around all of it; a selected card sinks its preview into frosted
+   glass (below), a selected row keeps its accent border and soft fill, so focus and
+   selection never look alike. */
 @layer components {
   [data-bookmark-id]:focus-visible {
     outline: 2px solid var(--np-focus);
     outline-offset: 4px;
   }
-  /* Selected in the grid: a 2.5 px accent ring 4 px around the preview (frame 04). */
-  [data-bookmark-id][data-selected] [data-ring] {
-    outline: 2.5px solid var(--np-accent);
-    outline-offset: 4px;
-  }
-  /* Focused and selected (#319): one ring, never the ink one beside the accent one.
-     The card's ring goes around all of it in accent, which marks the focused one
-     among the selected; the row's border thickens to 2 px in place. */
-  [data-view="grid"] [data-bookmark-id][data-selected]:focus-visible {
-    outline: 2.5px solid var(--np-accent);
-  }
-  [data-bookmark-id][data-selected]:focus-visible [data-ring] {
-    outline: none;
-  }
+  /* Focused and selected (#319): one ring. The card keeps the ink ring around all of
+     it over its glass; the row's border thickens to 2 px in place. */
   [data-view="list"] [data-bookmark-id][data-selected]:focus-visible {
     outline-color: var(--np-accent);
     outline-offset: -1px;
   }
-  /* The shutter of a grid card (sheet S4): 64 px from the top of the cover, 90 % dark,
-     slides in over 140 ms on hover and when the keyboard is anywhere in the card. */
-  .shutter {
+}
+
+/* The materials of a grid card: glass for its corner buttons and its check, the frost
+   of a selection, the spring it settles with, the hairline over the preview. */
+:root {
+  --np-glass-bg: rgb(255 255 255 / 0.6);
+  --np-glass-raised: rgb(255 255 255 / 0.95);
+  --np-glass-edge: rgb(255 255 255 / 0.75);
+  --np-glass-line: rgb(20 22 18 / 0.06);
+  --np-glass-ink: #22241f;
+  --np-glass-shadow: 0 12px 32px -10px rgb(0 0 0 / 0.32), 0 1px 3px rgb(0 0 0 / 0.08);
+  --np-glass-scrim: rgb(0 0 0 / 0.2);
+  --np-frost: rgb(255 255 255 / 0.42);
+  --np-frost-edge: rgb(255 255 255 / 0.55);
+  --np-chk-glass: rgb(255 255 255 / 0.82);
+  --np-card-hairline: rgb(46 48 43 / 0.07);
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+[data-theme="dark"] {
+  --np-glass-bg: rgb(30 30 27 / 0.5);
+  --np-glass-raised: rgb(255 255 255 / 0.16);
+  --np-glass-edge: rgb(255 255 255 / 0.14);
+  --np-glass-line: rgb(255 255 255 / 0.06);
+  --np-glass-ink: #f3f1ea;
+  --np-glass-shadow: 0 12px 32px -10px rgb(0 0 0 / 0.6), 0 1px 3px rgb(0 0 0 / 0.3);
+  --np-glass-scrim: rgb(0 0 0 / 0.32);
+  --np-frost: rgb(20 20 18 / 0.38);
+  --np-frost-edge: rgb(255 255 255 / 0.14);
+  --np-chk-glass: rgb(30 30 27 / 0.72);
+  --np-card-hairline: rgb(255 255 255 / 0.07);
+}
+
+/* A grid card (frame 01, redesigned): the preview in a ring of radius 14 with a hairline;
+   on hover three glass buttons in its top-right corner; selected, the preview sinks into
+   a frosted copy of its own picture and a glass check marks it. */
+@layer components {
+  .card-ring {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 14px;
+  }
+  .card-ring::after {
+    content: "";
     position: absolute;
-    inset: 0 0 auto;
-    height: 64px;
+    inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px var(--np-card-hairline);
+    pointer-events: none;
+  }
+  .card-preview {
+    position: relative;
+    z-index: 1;
+    display: block;
+    aspect-ratio: 16 / 10;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--np-hover);
+    transition:
+      transform 380ms var(--spring),
+      border-radius 300ms var(--ease-standard),
+      box-shadow 300ms var(--ease-standard);
+  }
+
+  /* Hover, keyboard focus within, an open menu: the corner buttons fade in, one after another. */
+  .card-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(200deg, var(--np-glass-scrim), transparent 45%);
+    opacity: 0;
+    transition: opacity 200ms var(--ease-standard);
+  }
+  .card-actions {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    z-index: 5;
     display: flex;
-    align-items: center;
     gap: 6px;
-    padding: 0 10px;
-    background: rgb(20 21 18 / 0.9);
-    border-radius: 10px 10px 0 0;
-    transform: translateY(-100%);
-    transition: transform 140ms var(--ease-standard);
   }
-  [data-bookmark-id]:hover .shutter,
-  [data-bookmark-id]:focus-visible .shutter,
-  [data-bookmark-id]:has(:focus-visible) .shutter,
-  [data-bookmark-id][data-menu-open] .shutter {
-    transform: none;
-  }
-  /* The drag of the selection shows the stack, not the shutter of the card under it. */
-  [data-dragging] .shutter {
-    transform: translateY(-100%);
-  }
-  .shutter-button {
+  .card-action {
     display: flex;
-    height: 30px;
-    min-width: 0;
-    flex: 1 1 0;
+    width: 32px;
+    height: 32px;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
+    border-radius: 9999px;
+    color: var(--np-glass-ink);
+    background: var(--np-glass-bg);
+    box-shadow:
+      var(--np-glass-shadow),
+      inset 0 1px 0 var(--np-glass-edge),
+      inset 0 0 0 1px var(--np-glass-line);
     cursor: pointer;
-    transition: background-color 140ms, color 140ms;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px) scale(0.9);
+    transition:
+      opacity 180ms var(--ease-standard),
+      transform 220ms var(--ease-standard),
+      background-color 140ms;
   }
-  .shutter-open {
-    background: #fffefa;
-    color: #2e302b;
+  .card-actions > :nth-child(2) .card-action {
+    transition-delay: 30ms, 30ms, 0ms;
   }
-  .shutter-open:hover {
-    background: #ffffff;
+  .card-actions > :nth-child(3) .card-action {
+    transition-delay: 60ms, 60ms, 0ms;
   }
-  .shutter-read {
-    border: 1px solid rgb(255 255 255 / 0.35);
-    color: #f2efe6;
+  /* The compact grid: the three buttons a size smaller, closer to the corner. */
+  @container card (width < 200px) {
+    .card-actions {
+      top: 7px;
+      right: 7px;
+      gap: 4px;
+    }
+    .card-action {
+      width: 28px;
+      height: 28px;
+    }
   }
-  .shutter-read:hover {
-    background: rgb(255 255 255 / 0.12);
+  .card-action:hover {
+    background: var(--np-glass-raised);
   }
-  .shutter-read kbd {
-    border-radius: 4px;
-    background: rgb(255 255 255 / 0.14);
-    padding: 1px 5px;
-    font: inherit;
-    font-size: 11px;
-    color: rgb(255 255 255 / 0.75);
+  :is(
+      [data-bookmark-id]:hover,
+      [data-bookmark-id]:focus-visible,
+      [data-bookmark-id]:has(:focus-visible),
+      [data-bookmark-id][data-menu-open]
+    )
+    .card-action {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    /* Only on a card that shows them: thousands of hidden blurs would cost the scroll. */
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
-  /* A narrow card keeps the words and drops the key. */
-  @container card (width < 230px) {
-    .shutter-read kbd {
+  :is(
+      [data-bookmark-id]:hover,
+      [data-bookmark-id]:focus-visible,
+      [data-bookmark-id]:has(:focus-visible),
+      [data-bookmark-id][data-menu-open]
+    )
+    .card-scrim {
+    opacity: 1;
+  }
+  :is(
+      [data-bookmark-id]:hover,
+      [data-bookmark-id]:focus-visible,
+      [data-bookmark-id]:has(:focus-visible),
+      [data-bookmark-id][data-menu-open]
+    )
+    .card-action:active {
+    transform: scale(0.94);
+    transition-duration: 80ms;
+  }
+  /* The drag of the selection shows the stack, not the buttons of the card under it. */
+  [data-dragging] .card-actions,
+  [data-dragging] .card-scrim {
+    visibility: hidden;
+  }
+
+  /* Selected: a blurred, frosted copy of the picture behind it; the preview springs to 90 %. */
+  .card-halo {
+    position: absolute;
+    inset: -24px;
+    z-index: 0;
+    background-position: center;
+    background-size: cover;
+    filter: blur(18px) saturate(1.6) brightness(1.06);
+    opacity: 0;
+    transform: scale(1.04);
+    transition:
+      opacity 260ms var(--ease-standard),
+      transform 420ms var(--ease-standard);
+  }
+  .card-halo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--np-frost);
+  }
+  [data-selected] .card-halo {
+    opacity: 1;
+    transform: none;
+    animation: card-halo-in 260ms var(--ease-standard);
+  }
+  @keyframes card-halo-in {
+    from {
+      opacity: 0;
+      transform: scale(1.04);
+    }
+  }
+  [data-selected] .card-preview {
+    transform: scale(0.9);
+    border-radius: 9px;
+    box-shadow:
+      0 6px 18px -6px rgb(0 0 0 / 0.35),
+      0 0 0 1px rgb(255 255 255 / 0.25);
+  }
+  .card-frost {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 160ms var(--ease-standard);
+  }
+  [data-selected] .card-frost {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 0 1px var(--np-frost-edge),
+      inset 0 1px 0 1px var(--np-frost-edge),
+      inset 0 3px 10px rgb(0 0 0 / 0.08);
+  }
+  .card-check {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    z-index: 4;
+    display: flex;
+    width: 22px;
+    height: 22px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    color: var(--np-accent);
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity 160ms var(--ease-standard),
+      transform 220ms var(--ease-standard);
+  }
+  .card-check svg {
+    opacity: 0;
+  }
+  [data-selected] .card-check {
+    left: 7%;
+    top: 9%;
+    width: 24px;
+    height: 24px;
+    opacity: 1;
+    transform: none;
+    background: var(--np-chk-glass);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    box-shadow:
+      0 4px 12px -2px rgb(0 0 0 / 0.25),
+      inset 0 0 0 1px var(--np-frost-edge);
+    transition:
+      opacity 160ms var(--ease-standard),
+      transform 420ms var(--spring);
+  }
+  [data-selected] .card-check svg {
+    opacity: 1;
+  }
+  /* Something is selected: an unselected card under the pointer shows the empty circle it would fill. */
+  [data-has-selection] [data-bookmark-id]:not([data-selected]):hover .card-check {
+    opacity: 1;
+    transform: none;
+    background: rgb(0 0 0 / 0.14);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow:
+      inset 0 0 0 1.5px rgb(255 255 255 / 0.95),
+      0 1px 4px rgb(0 0 0 / 0.2);
+  }
+  /* The check takes the corner of the poster's icon. */
+  [data-selected] .cover-chip,
+  [data-has-selection] [data-bookmark-id]:hover .cover-chip {
+    opacity: 0;
+  }
+}
+
+/* The poster of a large cover (a grid card, the triage card): the site's gradient, its
+   icon in a glass chip and its domain at the top, its name huge at the bottom, cropped by
+   the edge. Rendered beside the tile; the cover's own size picks one (container query). */
+@layer components {
+  .cover-chip,
+  .cover-domain,
+  .cover-poster {
+    display: none;
+  }
+  @container (min-width: 120px) and (max-aspect-ratio: 12 / 5) {
+    .cover-pattern,
+    .cover-tile,
+    .cover-name {
       display: none;
+    }
+    .cover-chip {
+      position: absolute;
+      left: 14px;
+      top: 13px;
+      display: flex;
+      width: 22px;
+      height: 22px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      background: rgb(255 255 255 / 0.22);
+      box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 750;
+      line-height: 1;
+      transition: opacity 140ms var(--ease-standard);
+    }
+    .cover-chip img {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      object-fit: contain;
+    }
+    .cover-domain {
+      position: absolute;
+      left: 44px;
+      right: 14px;
+      top: 16px;
+      display: block;
+      overflow: hidden;
+      color: rgb(255 255 255 / 0.85);
+      text-align: left;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 16px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cover-poster {
+      position: absolute;
+      left: 14px;
+      bottom: -0.17em;
+      display: block;
+      color: rgb(255 255 255 / 0.92);
+      /* 30 % of the width; a wide, low cover keeps the letters inside its height. */
+      font-size: min(30cqw, 54cqh);
+      font-weight: 800;
+      letter-spacing: -0.055em;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+  }
+  /* A card of the compact grid: the chip a step smaller, no room for the domain beside it. */
+  @container (min-width: 120px) and (max-width: 199.98px) and (max-aspect-ratio: 12 / 5) {
+    .cover-chip {
+      left: 10px;
+      top: 9px;
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      font-size: 10.5px;
+    }
+    .cover-domain {
+      display: none;
+    }
+    .cover-poster {
+      left: 10px;
     }
   }
 }
@@ -855,8 +1231,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* The shutter appears without sliding (sheet S4). */
-  .shutter {
+  /* The corner buttons, the check and the selected preview change without moving. */
+  .card-action,
+  .card-check,
+  .card-preview,
+  .card-halo {
     transition: none;
   }
   *,

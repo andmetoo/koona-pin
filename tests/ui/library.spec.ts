@@ -854,7 +854,7 @@ async function copyFile(page: import("@playwright/test").Page, edit: (copy: Reco
   });
   const at = "2026-09-01T10:00:00.000Z";
   const bookmark = (uid: string, url: string, title: string, more: Record<string, unknown> = {}) => ({
-    uid, url, title, description: null, notes: null, domain: new URL(url).hostname, image_url: null, favicon_url: null,
+    uid, url, title, description: null, notes: null, domain: new URL(url).hostname, image_url: null, favicon_url: null, site_name: null,
     is_favorite: false, collection: null, tags: [], source: "import", created_at: at, updated_at: at, triaged_at: at, deleted_at: null, ...more,
   });
   const copy: Record<string, unknown> = {
@@ -2133,7 +2133,7 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
     const { api } = await import("/src/services/api.ts");
     const data = { bookmarks: (await api.getBookmarks()).items, collections: await api.getCollections() };
     const at = new Date(Date.now() - 60_000).toISOString();
-    const next = (n: number, url: string, created = at) => ({ ...data.bookmarks[0], id: n, url, domain: new URL(url).hostname, title: url, image_url: null, favicon_url: null, created_at: created, source: "chrome" });
+    const next = (n: number, url: string, created = at) => ({ ...data.bookmarks[0], id: n, url, domain: new URL(url).hostname, title: url, image_url: null, favicon_url: null, site_name: null, created_at: created, source: "chrome" });
     data.bookmarks.unshift(
       next(7, "https://linear.app/method"),
       next(8, "https://linear.app/changelog/2026-10-01"),

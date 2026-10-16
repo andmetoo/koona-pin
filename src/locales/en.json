@@ -104,6 +104,7 @@
     "searchShort": "Search…",
     "view": "Library view",
     "grid": "Grid",
+    "denseGrid": "Compact grid",
     "list": "List",
     "sortBy": "Sort by",
     "sortHint": "Sort: {{order}}",

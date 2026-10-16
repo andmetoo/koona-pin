@@ -65,6 +65,10 @@ pub struct JsonBookmark {
     pub domain: String,
     pub image_url: Option<String>,
     pub favicon_url: Option<String>,
+    /// The site's own name from the page; left out when none, so a copy
+    /// from before site names reads as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_name: Option<String>,
     pub is_favorite: bool,
     /// The `uid` of its collection.
     pub collection: Option<String>,
@@ -147,7 +151,7 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
     let mut statement = conn.prepare(&format!(
         "SELECT b.id, b.uid, b.url, b.title, b.description, b.notes, b.domain, b.image_url, b.favicon_url, b.is_favorite,
                 c.uid, b.source, b.created_at, b.updated_at, b.triaged_at, b.deleted_at, b.source_name,
-                b.reading_at, b.reading_progress, b.read_at
+                b.reading_at, b.reading_progress, b.read_at, b.site_name
          FROM bookmarks b LEFT JOIN collections c ON c.id = b.collection_id {filter}
          ORDER BY b.created_at DESC, b.id DESC"
     ))?;
@@ -173,6 +177,7 @@ fn bookmarks(conn: &Connection, scope: Scope, with_trash: bool) -> rusqlite::Res
             reading_at: r.get(17)?,
             reading_progress: r.get(18)?,
             read_at: r.get(19)?,
+            site_name: r.get(20)?,
         })
     })?;
     rows.collect()

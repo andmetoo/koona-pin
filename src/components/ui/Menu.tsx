@@ -115,7 +115,7 @@ export function Menu({
       role="menu"
       aria-label={label}
       style={{ left: position.left, top: position.top, width }}
-      className={`fixed z-50 rounded-xl ${nested ? "" : "animate-appear"} border border-border bg-card p-1.5 text-sm text-ink shadow-menu`}
+      className={`menu-glass fixed z-50 rounded-[13px] ${nested ? "" : "animate-appear"} p-1.5 text-sm text-ink`}
       onKeyDown={(e) => {
         const all = buttons();
         const index = all.indexOf(document.activeElement as HTMLButtonElement);
@@ -145,9 +145,9 @@ export function Menu({
     >
       {entries.map((entry, i) =>
         entry === "separator" ? (
-          <div key={`s${i}`} role="separator" className="mx-1.5 my-1 h-px bg-line" />
+          <div key={`s${i}`} role="separator" className="mx-[9px] my-[5px] h-px bg-line" />
         ) : !isItem(entry) ? (
-          <div key={`h${i}`} className="px-2.5 pt-1.5 pb-1 text-2xs font-semibold uppercase text-subtle">
+          <div key={`h${i}`} className="px-[9px] pt-1.5 pb-1 text-2xs font-semibold tracking-[0.08em] uppercase text-subtle">
             {entry.heading}
           </div>
         ) : (
@@ -166,7 +166,7 @@ export function Menu({
               if (entry.submenu && !entry.disabled) setOpen({ id: entry.id, rect: e.currentTarget.getBoundingClientRect() });
               else if (open) setOpen(null);
             }}
-            className={`flex min-h-8 w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left outline-none transition-colors duration-100 focus-visible:bg-hover hover:bg-hover ${entry.disabled ? "text-subtle" : ""}`}
+            className={`flex min-h-[30px] w-full items-center gap-2.5 rounded-lg px-[9px] py-1.5 text-left outline-none transition-colors duration-100 focus-visible:bg-hover hover:bg-hover ${entry.disabled ? "text-subtle" : ""}`}
           >
             {entry.dot ? (
               <span className="flex size-4 items-center justify-center">
@@ -206,7 +206,10 @@ export function Menu({
         })()}
     </div>
   );
+  // Every menu goes to the top: a submenu inside the glass of its parent would be cut to the parent's
+  // backdrop (a backdrop-filter starts a backdrop root) and placed from it, not from the window.
   // Opened from a modal dialog (the reading sheet's «Saved offline», NP-126), it lives in that
-  // dialog: the top layer would cover anything in the body.
-  return nested ? menu : createPortal(menu, trigger?.closest<HTMLElement>("dialog[open]") ?? document.body);
+  // dialog: the top layer would cover anything in the body. A submenu follows its parent there.
+  const dialog = nested ? document.querySelector<HTMLElement>("dialog[open]") : trigger?.closest<HTMLElement>("dialog[open]");
+  return createPortal(menu, dialog ?? document.body);
 }

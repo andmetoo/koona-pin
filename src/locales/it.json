@@ -109,6 +109,7 @@
     "searchShort": "Cerca…",
     "view": "Vista della libreria",
     "grid": "Griglia",
+    "denseGrid": "Griglia compatta",
     "list": "Elenco",
     "sortBy": "Ordina per",
     "sortHint": "Ordine: {{order}}",

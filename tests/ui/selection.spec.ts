@@ -1,7 +1,7 @@
 import { test, expect, Page, Locator } from "@playwright/test";
 
 // NP-123 (Р-69, points 4–6): a click selects, the link lives in the title and thumbnail of a row
-// and on the shutter of a card, Space reads the selection in a sheet over the list.
+// and on the corner buttons of a card, Space reads the selection in a sheet over the list.
 
 const TITLES = [
   "Ten principles for good design",
@@ -146,7 +146,7 @@ test("a click selects and never opens; focus and selection look different and ar
   await spot(silence).click({ modifiers: ["ControlOrMeta"] });
   await expect(announcer(page)).toHaveText(`${TITLES[1]}: not selected`);
 
-  // Focus from the keyboard: an ink ring around the whole card; the selection: the accent ring of the cover.
+  // Focus from the keyboard: an ink ring around the whole card; the selection: the preview sunk into glass, a check.
   const third = card(page, TITLES[3]);
   await third.focus();
   await page.keyboard.press("Tab");
@@ -155,11 +155,15 @@ test("a click selects and never opens; focus and selection look different and ar
   await expect(third).toHaveCSS("outline-style", "solid");
   await expect(third).toHaveCSS("outline-color", "rgb(46, 48, 43)");
   await expect(third).toHaveCSS("outline-offset", "4px");
-  const ring = voice.locator("[data-preview]").locator("..");
-  await expect(ring).toHaveCSS("outline-color", "rgb(47, 107, 79)");
-  // 2.5 px, drawn as whole pixels at a scale of 1.
-  await expect(ring).toHaveCSS("outline-width", /^2(\.5)?px$/);
+  const ring = voice.locator("[data-ring]");
+  await expect(ring).toHaveCSS("outline-style", "none");
+  await expect(voice.locator("[data-preview]")).toHaveCSS("transform", "matrix(0.9, 0, 0, 0.9, 0, 0)");
+  await expect(voice.locator(".card-halo")).toHaveCSS("opacity", "1");
+  await expect(voice.locator(".card-check")).toHaveCSS("opacity", "1");
   await expect(voice).toHaveCSS("outline-style", "none");
+  // The copy behind exists only for the selected: thousands of cards keep no blur.
+  await expect(page.locator(".card-halo")).toHaveCount(1);
+  await expect(third.locator("[data-preview]")).toHaveCSS("transform", "none");
   await expect(third).not.toHaveAttribute("data-selected");
   await page.screenshot({ path: "test-results/np123-focus-and-selection-grid.png" });
 
@@ -205,8 +209,8 @@ test("arrows move the selection between cards and rows; a focused selected card 
   await expect(selected).toHaveCount(1);
   await expect(cards.nth(1)).toHaveAttribute("data-selected", "true");
   await expect(cards.nth(1)).toBeFocused();
-  // One ring: the accent one around the whole card, none around its cover.
-  await expect(cards.nth(1)).toHaveCSS("outline-color", "rgb(47, 107, 79)");
+  // One ring: the ink one of focus around the whole card, none around its cover; the glass says selected.
+  await expect(cards.nth(1)).toHaveCSS("outline-color", "rgb(46, 48, 43)");
   await expect(cards.nth(1).locator("[data-ring]")).toHaveCSS("outline-style", "none");
   await expect(announcer(page)).toHaveText(/: selected$/);
   await page.keyboard.press("ArrowLeft");
@@ -257,18 +261,27 @@ test("arrows move the selection between cards and rows; a focused selected card 
   await expect(rows.nth(0)).toHaveAttribute("data-selected", "true");
 });
 
-test("the shutter of a card: hover slides it in, keyboard focus shows it, Tab walks Open and Read (NP-123)", async ({ page }) => {
+test("the corner buttons of a card: hover fades them in, keyboard focus shows them, Tab walks Open and Read (NP-123)", async ({ page }) => {
   const voice = card(page, TITLES[2]);
   const shutter = voice.locator("[data-shutter]");
-  // Waiting above the cover, 64 px tall, 90 % dark, 140 ms.
-  await expect(shutter).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, -64)");
-  await expect(shutter).toHaveCSS("height", "64px");
-  await expect(shutter).toHaveCSS("background-color", "rgba(20, 21, 18, 0.9)");
-  await expect(shutter).toHaveCSS("transition-duration", "0.14s");
-  await expect(shutter.getByRole("button", { name: `Open in browser: ${TITLES[2]}` })).not.toBeInViewport({ ratio: 0.5 });
+  const openButton = shutter.getByRole("button", { name: `Open in browser: ${TITLES[2]}` });
+  // Three round glass buttons in the top-right corner of the cover, hidden until the card is hovered.
+  await expect(shutter.locator(".card-action")).toHaveCount(3);
+  await expect(openButton).toHaveCSS("opacity", "0");
+  await expect(openButton).toHaveCSS("pointer-events", "none");
+  await expect(openButton).toHaveCSS("width", "32px");
+  await expect(openButton).toHaveCSS("border-radius", "9999px");
+  const cover = (await voice.locator("[data-preview]").boundingBox())!;
   await voice.locator("[data-preview]").hover();
-  await expect(shutter).toHaveCSS("transform", "none");
-  await expect(shutter.getByRole("button", { name: `Open in browser: ${TITLES[2]}` })).toHaveCSS("cursor", "pointer");
+  await expect(openButton).toHaveCSS("opacity", "1");
+  await expect(openButton).toHaveCSS("cursor", "pointer");
+  const more = (await shutter.getByRole("button", { name: `Actions: ${TITLES[2]}` }).boundingBox())!;
+  expect(Math.round(cover.x + cover.width - (more.x + more.width))).toBe(9);
+  expect(Math.round(more.y - cover.y)).toBe(9);
+  // Words live in hints: «Read» with its key.
+  await shutter.getByRole("button", { name: `Read here: ${TITLES[2]}` }).hover();
+  await expect(shutter.getByRole("tooltip").filter({ hasText: "Read" })).toHaveCSS("opacity", "1");
+  await expect(shutter.getByRole("button", { name: `Read here: ${TITLES[2]}` })).toHaveAttribute("aria-keyshortcuts", "Space");
   await page.screenshot({ path: "test-results/np123-shutter-hover.png" });
 
   // «↗ Open» goes to the browser and selects nothing.
@@ -290,14 +303,15 @@ test("the shutter of a card: hover slides it in, keyboard focus shows it, Tab wa
   await card(page, TITLES[4]).focus();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Shift+Tab");
-  await expect(notesShutter).not.toHaveCSS("transform", "none");
+  const notesOpen = notesShutter.getByRole("button", { name: `Open in browser: ${TITLES[5]}` });
+  await expect(notesOpen).toHaveCSS("opacity", "0");
   await card(page, TITLES[4]).locator("button").last().focus();
   await page.keyboard.press("Tab");
   await expect(notes).toBeFocused();
-  await expect(notesShutter).toHaveCSS("transform", "none");
+  await expect(notesOpen).toHaveCSS("opacity", "1");
   await page.keyboard.press("Tab");
-  await expect(notesShutter.getByRole("button", { name: `Open in browser: ${TITLES[5]}` })).toBeFocused();
-  await expect(notesShutter).toHaveCSS("transform", "none");
+  await expect(notesOpen).toBeFocused();
+  await expect(notesOpen).toHaveCSS("opacity", "1");
   await page.keyboard.press("Tab");
   await expect(notesShutter.getByRole("button", { name: `Read here: ${TITLES[5]}` })).toBeFocused();
   await page.keyboard.press("Tab");
@@ -547,4 +561,28 @@ test("triage keeps Space for the browser (NP-123)", async ({ page }) => {
   await page.keyboard.press("Space");
   expect(await opened(page)).toHaveLength(1);
   await expect(sheet(page)).toHaveCount(0);
+});
+
+/** Cards in the first row of the grid: the same top as the first card. */
+async function firstRow(page: Page) {
+  const tops = await page.locator("[data-bookmark-id]").evaluateAll((cards) => cards.map((c) => Math.round(c.getBoundingClientRect().top)));
+  return tops.filter((top) => top === tops[0]).length;
+}
+
+test("the compact grid: smaller cards, more of them in a row, two even in a narrow window; the choice is kept", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await expect.poll(() => firstRow(page)).toBe(3);
+  await page.getByRole("button", { name: "Compact grid", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Compact grid", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => firstRow(page)).toBe(4);
+  // Two lines of 13 px for the title, the corner buttons a size smaller.
+  const card = page.locator("[data-bookmark-id]").first();
+  await expect(card.locator("h2")).toHaveCSS("font-size", "13px");
+  await card.locator("[data-ring]").hover();
+  await expect(card.locator(".card-action").first()).toHaveCSS("width", "28px");
+
+  await page.setViewportSize({ width: 420, height: 800 });
+  await expect.poll(() => firstRow(page)).toBe(2);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Compact grid", exact: true })).toHaveAttribute("aria-pressed", "true");
 });

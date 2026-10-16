@@ -5,12 +5,12 @@ import { Bookmark, Collection, ViewMode } from "../../types";
 import { DateGroup, groupOf } from "../../services/dateGroups";
 import { Arrow, arrowTarget } from "../../services/keys";
 import { listTime } from "../../services/library";
-import { BookmarkActions, BookmarkCard, BookmarkRow, CARD_TEXT_HEIGHT, ROW_HEIGHT, SELECTED_NOTE } from "./Bookmarks";
+import { BookmarkActions, BookmarkCard, BookmarkRow, CARD_TEXT_HEIGHT, DENSE_TEXT_HEIGHT, ROW_HEIGHT, SELECTED_NOTE } from "./Bookmarks";
 
 /** Grid of frames 01 and 16: gaps 24 and 28 px, cards at least 240 px (190 px in a narrow window). */
-const GAP_X = 24;
-const GAP_Y = 28;
-const MIN_CARD = { wide: 240, narrow: 190 };
+const GRID = { gapX: 24, gapY: 28, wide: 240, narrow: 190, text: CARD_TEXT_HEIGHT };
+/** The compact grid: gaps 16 and 22, cards at least 172 px (136 px in a narrow window, two columns down to ~300 px). */
+const DENSE = { gapX: 16, gapY: 22, wide: 172, narrow: 136, text: DENSE_TEXT_HEIGHT };
 /** List of frame 02: group header 31 px, rows 60 px, 2 px between them. */
 const HEADER_HEIGHT = 31;
 const LIST_GAP = 2;
@@ -44,6 +44,8 @@ type Geometry = {
   columns: number;
   cardWidth: number;
   cardHeight: number;
+  gapX: number;
+  gapY: number;
   width: number;
 };
 
@@ -54,8 +56,8 @@ type Geometry = {
 function framed(g: Geometry, r: Rect): number[] {
   const hits: number[] = [];
   if (g.grid) {
-    const rowStep = g.cardHeight + GAP_Y;
-    const columnStep = g.cardWidth + GAP_X;
+    const rowStep = g.cardHeight + g.gapY;
+    const columnStep = g.cardWidth + g.gapX;
     for (let row = Math.max(0, Math.floor(r.top / rowStep)); row <= Math.floor(r.bottom / rowStep); row++) {
       const y = row * rowStep;
       if (y >= r.bottom || y + g.cardHeight <= r.top) continue;
@@ -261,10 +263,12 @@ export function BookmarkList({
   const inner = useRef<HTMLDivElement>(null);
   const width = useWidth(box);
 
-  const minCard = narrow ? MIN_CARD.narrow : MIN_CARD.wide;
-  const columns = Math.max(1, Math.floor((width + GAP_X) / (minCard + GAP_X)));
-  const cardWidth = (width - GAP_X * (columns - 1)) / columns;
-  const cardHeight = Math.round((cardWidth * 10) / 16) + CARD_TEXT_HEIGHT;
+  const dense = view === "dense";
+  const { gapX, gapY, text, ...min } = dense ? DENSE : GRID;
+  const minCard = narrow ? min.narrow : min.wide;
+  const columns = Math.max(1, Math.floor((width + gapX) / (minCard + gapX)));
+  const cardWidth = (width - gapX * (columns - 1)) / columns;
+  const cardHeight = Math.round((cardWidth * 10) / 16) + text;
 
   const entries = useMemo<ListEntry[]>(() => {
     if (view !== "list") return [];
@@ -289,7 +293,7 @@ export function BookmarkList({
     return result;
   }, [view, bookmarks, dateGroups, grouped]);
 
-  const grid = view === "grid";
+  const grid = view !== "list";
   const count = grid ? Math.ceil(bookmarks.length / columns) : entries.length;
   const virtualizer = useVirtualizer({
     count,
@@ -297,7 +301,7 @@ export function BookmarkList({
     // The selection bar covers the bottom of the list: a card reached by an arrow stops above it.
     scrollPaddingEnd: selected.size ? SELECTION_BAR : 0,
     estimateSize: (index) =>
-      grid ? cardHeight + GAP_Y : (entries[index]?.kind === "header" ? HEADER_HEIGHT : ROW_HEIGHT) + LIST_GAP,
+      grid ? cardHeight + gapY : (entries[index]?.kind === "header" ? HEADER_HEIGHT : ROW_HEIGHT) + LIST_GAP,
     getItemKey: (index) => {
       if (grid) return `r${index}`;
       const entry = entries[index];
@@ -309,7 +313,7 @@ export function BookmarkList({
   useEffect(() => virtualizer.measure(), [virtualizer, grid, cardHeight, entries]);
 
   const geometry = useRef<Geometry>(null!);
-  geometry.current = { grid, bookmarks, entries, columns, cardWidth, cardHeight, width };
+  geometry.current = { grid, bookmarks, entries, columns, cardWidth, cardHeight, gapX, gapY, width };
   const frame = useSelectionFrame(scrollRef, inner, geometry, selected, onSelect, onClearSelection, onDragStart);
 
   /** The card or row an arrow chose, focused once the virtualizer has drawn it. */
@@ -343,7 +347,7 @@ export function BookmarkList({
   }, [hasMore, loadingMore, count, last, margin, onMore]);
 
   return (
-    <div ref={box} data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined}>
+    <div ref={box} data-view={view} data-loaded={bookmarks.length} data-dragging={dragging || undefined} data-has-selection={selected.size > 0 || undefined}>
       {/* What a selected card or row adds to its name for a screen reader (NP-123). */}
       <span id={SELECTED_NOTE} hidden>
         {t("card.selected")}
@@ -366,10 +370,10 @@ export function BookmarkList({
               <div
                 key={item.key}
                 className="absolute top-0 left-0 grid w-full"
-                style={{ ...style, height: cardHeight, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, columnGap: GAP_X }}
+                style={{ ...style, height: cardHeight, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, columnGap: gapX }}
               >
                 {row.map((b) => (
-                  <BookmarkCard key={b.id} bookmark={b} collections={collections} actions={actions} selected={selected.has(b.id)} />
+                  <BookmarkCard key={b.id} bookmark={b} collections={collections} actions={actions} selected={selected.has(b.id)} dense={dense} />
                 ))}
               </div>
             );

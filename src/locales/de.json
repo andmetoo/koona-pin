@@ -104,6 +104,7 @@
     "searchShort": "Suchen…",
     "view": "Ansicht der Bibliothek",
     "grid": "Raster",
+    "denseGrid": "Kompaktes Raster",
     "list": "Liste",
     "sortBy": "Sortieren nach",
     "sortHint": "Sortierung: {{order}}",

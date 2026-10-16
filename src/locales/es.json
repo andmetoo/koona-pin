@@ -109,6 +109,7 @@
     "searchShort": "Buscar…",
     "view": "Vista de la biblioteca",
     "grid": "Cuadrícula",
+    "denseGrid": "Cuadrícula compacta",
     "list": "Lista",
     "sortBy": "Ordenar por",
     "sortHint": "Orden: {{order}}",

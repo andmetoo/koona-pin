@@ -1,4 +1,4 @@
-import { KeyboardEvent, PointerEvent, ReactNode, useRef, useState } from "react";
+import { KeyboardEvent, PointerEvent, ReactNode, Ref, useRef, useState } from "react";
 import { BookOpen, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, Plus, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -11,9 +11,14 @@ import { useCollectionReorder } from "../../hooks/useCollectionReorder";
 import { statusColor, statusLabel } from "../../services/capture";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
+import { SearchField } from "./SearchField";
 
 export interface SidebarProps {
   narrow: boolean;
+  /** The library's search, under the logo of the full sidebar; the strip leaves it to the toolbar. */
+  search: string;
+  onSearch: (value: string) => void;
+  searchRef?: Ref<HTMLInputElement>;
   filters: FilterState;
   settingsOpen: boolean;
   /** The section «Дубликаты» is open (NP-035, sheet 34). */
@@ -269,12 +274,19 @@ export function Sidebar(props: SidebarProps) {
       aria-label={t("sidebar.label")}
       data-drop-scroll
     >
-      <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-[18px] text-accent" data-tauri-drag-region>
+      <div className="flex items-center gap-2.5 px-2 pt-1.5 pb-2.5 text-accent" data-tauri-drag-region>
         <Mascot className="pointer-events-none" />
         <span className="text-lg font-semibold" data-tauri-drag-region>
           koona pin
         </span>
       </div>
+      <SearchField
+        ref={props.searchRef}
+        search={props.search}
+        onSearch={props.onSearch}
+        placeholder={t("toolbar.searchShort")}
+        className="mb-3 shrink-0"
+      />
       <nav aria-label={t("sidebar.sections")} className="flex flex-col gap-0.5">
         <NavRow
           icon={<Icon icon={InboxTray} />}
@@ -316,7 +328,7 @@ export function Sidebar(props: SidebarProps) {
       </nav>
 
       <div className="flex items-center pt-[22px] pr-2 pb-1.5 pl-2.5">
-        <h2 className="flex-1 text-2xs font-semibold text-subtle uppercase">{t("sidebar.collections")}</h2>
+        <h2 className="flex-1 text-2xs font-semibold tracking-[0.08em] text-subtle uppercase">{t("sidebar.collections")}</h2>
         <button
           type="button"
           aria-label={t("sidebar.newCollection")}
@@ -366,7 +378,7 @@ export function Sidebar(props: SidebarProps) {
                 aria-label={t("sidebar.deleteCollection", { name: c.name })}
                 title={t("sidebar.deleteCollection", { name: c.name })}
                 onClick={() => props.onDeleteCollection(c)}
-                className="absolute top-[7px] right-8 flex size-4 items-center justify-center rounded-xs text-faint opacity-0 group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
+                className="absolute top-2 right-8 flex size-4 items-center justify-center rounded-xs text-faint opacity-0 group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
               >
                 <Icon icon={X} size={12} />
               </button>
@@ -382,7 +394,7 @@ export function Sidebar(props: SidebarProps) {
 
       {tags.length > 0 && (
         <>
-          <h2 className={`pt-[22px] pr-2 pb-1.5 pl-2.5 text-2xs font-semibold text-subtle ${dropping ? "" : "uppercase"}`}>
+          <h2 className={`pt-[22px] pr-2 pb-1.5 pl-2.5 text-2xs font-semibold text-subtle ${dropping ? "" : "tracking-[0.08em] uppercase"}`}>
             {dropping ? t("sidebar.tagsDrop") : t("sidebar.tags")}
           </h2>
           <div className="flex flex-wrap gap-1.5 px-2 py-2">
@@ -395,7 +407,7 @@ export function Sidebar(props: SidebarProps) {
                   : "text-muted outline-1 -outline-offset-1 outline-faint outline-dashed"
                 : filters.tag === tag.name
                   ? "bg-accent-soft text-on-accent-soft"
-                  : "bg-line text-muted hover:text-ink";
+                  : "text-muted shadow-[inset_0_0_0_1px_var(--np-line)] hover:bg-hover hover:text-ink";
               return (
                 <button
                   key={tag.id}
@@ -469,7 +481,7 @@ function UpdateRow({ update, percent, onClick }: { update: Offer; percent: numbe
       onClick={onClick}
       title={updateLabel(t, update)}
       data-update={update.state}
-      className={`relative flex h-[30px] w-full shrink-0 items-center gap-2.5 overflow-hidden rounded-md px-2.5 text-left text-sm font-semibold ${
+      className={`relative flex h-8 w-full shrink-0 items-center gap-2.5 overflow-hidden rounded-[9px] px-2.5 text-left text-sm font-semibold ${
         failed
           ? "bg-amber-soft text-on-amber-soft hover:brightness-[0.97]"
           : `bg-update-soft text-on-update-soft hover:brightness-[0.97] ${update.state === "available" ? "animate-update-pulse shadow-[0_0_8px_var(--np-update-glow)]" : ""}`
@@ -508,7 +520,7 @@ function PlanRow({ plan, badge, onClick }: { plan: "free" | "supporter"; badge: 
       title={free ? t("supporter.rowHint") : t("supporter.badge")}
       data-plan-row={plan}
       {...(free ? { "data-free-version": true } : {})}
-      className="flex h-[30px] w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-icon transition-colors duration-150 hover:bg-hover"
+      className="flex h-8 w-full shrink-0 items-center gap-2.5 rounded-[9px] px-2.5 text-left text-sm text-icon transition-colors duration-150 hover:bg-hover"
     >
       <span className={`flex shrink-0 ${free || filled ? "text-season" : ""}`}>
         <Heart size={16} strokeWidth={1.5} fill={filled ? "currentColor" : "none"} aria-hidden />
@@ -578,7 +590,7 @@ function NameField({ suggested, count, color, onCreate, onCancel }: NewCollectio
   return (
     <div className="flex flex-col gap-1 pb-1">
       <form
-        className="flex h-[30px] items-center gap-2.5 rounded-md border-[1.5px] border-accent bg-card pr-2.5 pl-1.5 shadow-[0_0_0_3px_color-mix(in_srgb,var(--np-accent)_25%,transparent)]"
+        className="flex h-8 items-center gap-2.5 rounded-[9px] border-[1.5px] border-accent bg-card pr-2.5 pl-1.5 shadow-[0_0_0_3px_color-mix(in_srgb,var(--np-accent)_25%,transparent)]"
         onSubmit={(e) => {
           e.preventDefault();
           finish(true);
@@ -652,7 +664,7 @@ function NavRow({
   const hot = drop?.hot;
   const look = hot
     ? `${dropLook(drop)} ${plain ? "" : "font-medium"}`
-    : `${active ? "bg-card font-semibold shadow-active" : `${plain ? "" : "font-medium"} hover:bg-hover`} ${danger ? "text-danger" : "text-ink"}`;
+    : `${active ? "bg-raised font-semibold shadow-raised" : `${plain ? "" : "font-medium"} hover:bg-hover`} ${danger ? "text-danger" : "text-ink"}`;
   return (
     <button
       type="button"
@@ -664,7 +676,7 @@ function NavRow({
       data-collection={collection || undefined}
       title={title}
       data-drop={drop?.attr}
-      className={`flex h-[30px] w-full shrink-0 items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-[background-color,color] duration-150 ${look}`}
+      className={`flex h-8 w-full shrink-0 items-center gap-2.5 rounded-[9px] px-2.5 text-left text-sm transition-[background-color,color,box-shadow] duration-150 ${look}`}
     >
       <span className={`flex shrink-0 ${hot ? (drop.danger ? "text-danger" : "") : active ? "text-accent" : "text-icon"}`}>{icon}</span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -705,7 +717,7 @@ function StripButton({
   const look = drop?.hot
     ? `${dropLook(drop)} ${drop.danger ? "text-danger" : "text-icon"}`
     : active
-      ? "bg-card text-accent shadow-active"
+      ? "bg-raised text-accent shadow-raised"
       : "text-icon hover:bg-hover";
   return (
     <button
@@ -719,7 +731,7 @@ function StripButton({
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       data-drop={drop?.attr}
-      className={`flex h-8 w-9 items-center justify-center rounded-md transition-[background-color,color] duration-150 ${look}`}
+      className={`flex h-8 w-9 items-center justify-center rounded-[9px] transition-[background-color,color,box-shadow] duration-150 ${look}`}
     >
       {children}
     </button>

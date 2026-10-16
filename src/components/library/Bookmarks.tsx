@@ -1,13 +1,14 @@
 import { CSSProperties, memo, MouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, BookCheck, BookOpen, CircleArrowDown, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
+import { ArrowUpRight, BookCheck, BookOpen, Check, CircleArrowDown, Copy, ExternalLink, MoreHorizontal, Pencil, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, Folder } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
-import { coverOf, monogram, pendingFor, VIEW } from "../../services/cover";
+import { coverOf, monogram, pendingFor, siteName, VIEW } from "../../services/cover";
 import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
 import { Icon, OfflineIcon } from "../icons";
+import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
 
 export interface BookmarkActions {
@@ -268,13 +269,14 @@ function releasePointer(e: React.PointerEvent<HTMLElement>) {
 }
 
 /**
- * The cover of a bookmark without a picture (NP-087, Р-43): the site's
- * gradient, a pattern of the page, the site's icon on a tile and, when there
- * is room, its name. A small icon would blur when enlarged: the tile shows
- * the site's letter and the icon at its own size beside it. `live` covers —
- * grid cards and triage — answer the pointer: a slow drift of the
- * gradient, the tile leaning towards the pointer. Sizes follow the preview
- * (container units in `app.css`), so one cover serves 64×44 and 280 px.
+ * The cover of a bookmark without a picture (NP-087, Р-43). Small ones — rows,
+ * stacks, the editor — show the site's gradient, a pattern of the page and the
+ * site's icon on a tile; a small icon would blur when enlarged, so the tile
+ * shows the site's letter and the icon at its own size beside it. Large ones —
+ * grid cards and triage — are a poster: the gradient, the icon in a glass chip
+ * with the domain, the site's name huge at the bottom, cropped by the edge.
+ * Both are rendered and the cover's own size picks one (`app.css`), so one
+ * cover serves 64×44 and 280 px. `live` covers drift their gradient on hover.
  */
 function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean }) {
   const cover = useMemo(() => coverOf(b.domain, b.url), [b.domain, b.url]);
@@ -315,6 +317,15 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
         {(icon === "small" || icon === "none") && <span className="cover-letter">{monogram(b.domain, b.title)}</span>}
       </span>
       <span className="cover-name">{b.domain}</span>
+      {!small && (
+        <>
+          <span className="cover-chip">
+            {icon === "large" ? <img src={b.favicon_url!} alt="" /> : icon !== "loading" && monogram(b.domain, b.title)}
+          </span>
+          <span className="cover-domain">{b.domain}</span>
+          <span className="cover-poster">{siteName(b)}</span>
+        </>
+      )}
     </span>
   );
 }
@@ -426,8 +437,36 @@ const revealed = (group: "card" | "row", open: boolean) =>
   `transition-opacity duration-150 ${group === "card" ? "group-hover/card:opacity-100 group-focus-within/card:opacity-100" : "group-hover/row:opacity-100 group-focus-within/row:opacity-100"} ${open ? "opacity-100" : "opacity-0"}`;
 
 
+/**
+ * True while `on`, and for `ms` after it turns off: the blurred copy behind a
+ * selected preview exists only for the selected cards, and fades out before it goes.
+ */
+function useLinger(on: boolean, ms: number) {
+  const [shown, setShown] = useState(on);
+  useEffect(() => {
+    if (on) return setShown(true);
+    const timer = window.setTimeout(() => setShown(false), ms);
+    return () => window.clearTimeout(timer);
+  }, [on, ms]);
+  return on || shown;
+}
+const HALO_FADE_MS = 300;
+
+/**
+ * The copy behind a selected preview: its picture over its cover's gradient, so a
+ * picture that fails still leaves the colour. The same address as the preview's
+ * image: the browser's cache answers, nothing is downloaded again.
+ */
+function haloOf(b: Bookmark) {
+  const cover = coverOf(b.domain, b.url);
+  const gradient = `linear-gradient(${cover.angle}deg, ${cover.from}, ${cover.to})`;
+  return b.image_url ? `url(${JSON.stringify(b.image_url)}), ${gradient}` : gradient;
+}
+
 /** Height of a card below its preview: 10 + domain 15 + 10 + two title lines 38 (frame 01). */
 export const CARD_TEXT_HEIGHT = 73;
+/** The same in the compact grid: 8 + domain 15 + 8 + two title lines 34. */
+export const DENSE_TEXT_HEIGHT = 65;
 
 /**
  * Grid card: preview 16:10, site and domain, title in two lines (frame 01).
@@ -438,21 +477,25 @@ export const BookmarkCard = memo(function BookmarkCard({
   collections,
   actions,
   selected,
+  dense = false,
 }: {
   bookmark: Bookmark;
   collections: Collection[];
   actions: BookmarkActions;
   selected: boolean;
+  /** In the compact grid: smaller words, the same parts (`DENSE_TEXT_HEIGHT`). */
+  dense?: boolean;
 }) {
   const { t } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
   const control = cardControl(b, actions, selected);
+  const halo = useLinger(selected, HALO_FADE_MS);
   return (
     <article
       data-bookmark-id={b.id}
       data-selected={selected || undefined}
       data-menu-open={menu.open || undefined}
-      className="group/card @container/card flex min-w-0 flex-col gap-2.5 rounded-xl"
+      className={`group/card @container/card flex min-w-0 flex-col rounded-[14px] ${dense ? "gap-2" : "gap-2.5"}`}
       onContextMenu={menu.onContextMenu}
       {...control}
       onKeyDown={(e) => {
@@ -460,42 +503,53 @@ export const BookmarkCard = memo(function BookmarkCard({
         if (!e.defaultPrevented) control.onKeyDown(e);
       }}
     >
-      {/* Selected: a 2.5 px accent ring 4 px around the preview, radius 14 (frame 04, `app.css`); the image is not tinted. */}
-      {/* It clips the shutter waiting above the cover; the ring of the selection is its own outline, not clipped. */}
-      <div data-ring className="relative overflow-hidden rounded-xl">
-        <div data-preview className="block aspect-[16/10] w-full overflow-hidden rounded-xl bg-hover">
+      {/* The preview in its ring (`app.css`, «grid card»): selected, it sinks into a frosted
+          copy of its picture and a glass check marks it; hovered, glass buttons in its corner. */}
+      <div data-ring className="card-ring">
+        {halo && <span aria-hidden className="card-halo" style={{ backgroundImage: haloOf(b) }} />}
+        <div data-preview className="card-preview">
           <Preview b={b} live />
         </div>
-        {/* Sheet S4: the link of a card is on its shutter; the rest of the card selects. */}
-        <div data-shutter className="shutter">
-          <button
-            type="button"
-            aria-label={t("card.openInBrowserOf", { title: b.title || b.url })}
-            onClick={(e) => e.detail < 2 && actions.open(b.url)}
-            className="shutter-button shutter-open"
-          >
-            <Icon icon={ArrowUpRight} size={13} />
-            {t("card.openShort")}
-          </button>
-          {b.deleted_at ? (
-            // Frame 25: in the trash «Восстановить» instead of reading.
-            <button type="button" onClick={() => actions.restore(b)} className="shutter-button shutter-read">
-              <Icon icon={RotateCcw} size={13} />
-              {t("trash.restore")}
-            </button>
-          ) : (
+        <span aria-hidden className="card-frost" />
+        <span aria-hidden className="card-check">
+          <Icon icon={Check} size={13} strokeWidth={2.75} absoluteStrokeWidth={false} />
+        </span>
+        <span aria-hidden className="card-scrim" />
+        {/* Sheet S4: the link of a card is on its buttons; the rest of the card selects. Words in hints. */}
+        <div data-shutter className="card-actions">
+          <Hint label={t("card.openInBrowser")}>
             <button
               type="button"
-              aria-label={t("card.readOf", { title: b.title || b.url })}
-              aria-keyshortcuts="Space"
-              onClick={() => actions.readHere(b)}
-              className="shutter-button shutter-read"
+              aria-label={t("card.openInBrowserOf", { title: b.title || b.url })}
+              onClick={(e) => e.detail < 2 && actions.open(b.url)}
+              className="card-action"
             >
-              {t("card.read")}
-              <kbd aria-hidden>Space</kbd>
+              <Icon icon={ArrowUpRight} size={15} />
             </button>
+          </Hint>
+          {b.deleted_at ? (
+            // Frame 25: in the trash «Восстановить» instead of reading.
+            <Hint label={t("trash.restore")}>
+              <button type="button" aria-label={t("trash.restore")} onClick={() => actions.restore(b)} className="card-action">
+                <Icon icon={RotateCcw} size={15} />
+              </button>
+            </Hint>
+          ) : (
+            <Hint label={t("card.read")} keys="Space">
+              <button
+                type="button"
+                aria-label={t("card.readOf", { title: b.title || b.url })}
+                aria-keyshortcuts="Space"
+                onClick={() => actions.readHere(b)}
+                className="card-action"
+              >
+                <Icon icon={BookOpen} size={15} />
+              </button>
+            </Hint>
           )}
-          {menu.trigger("shutter-button shutter-read w-[30px] flex-none")}
+          <Hint label={t("toolbar.more")} align="end" show={!menu.open}>
+            {menu.trigger("card-action")}
+          </Hint>
         </div>
       </div>
       <div className="flex h-[15px] items-center gap-1.5 text-xs text-meta">
@@ -511,7 +565,7 @@ export const BookmarkCard = memo(function BookmarkCard({
         )}
       </div>
       {/* Two lines are reserved, so a title arriving with metadata moves nothing. */}
-      <h2 className="line-clamp-2 h-[38px] text-md font-medium" title={b.title}>
+      <h2 className={`line-clamp-2 font-medium ${dense ? "h-[34px] text-[13px] leading-[17px]" : "h-[38px] text-md"}`} title={b.title}>
         {b.title || b.url}
       </h2>
       {menu.menu}

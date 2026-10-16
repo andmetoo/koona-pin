@@ -9,6 +9,7 @@ const bookmark = (id: number, fields: Partial<Bookmark> = {}): Bookmark => ({
   description: null,
   image_url: null,
   favicon_url: null,
+  site_name: null,
   domain: "example.com",
   notes: null,
   is_favorite: false,

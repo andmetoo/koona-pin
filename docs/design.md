@@ -16,28 +16,39 @@ Tokens are CSS custom properties `--np-*`: light values on `:root`, dark values 
 
 | Token | Role | Light | Dark |
 | --- | --- | --- | --- |
-| `--np-bg` | Main area background | `#faf9f6` | `#22221f` |
-| `--np-panel` | Sidebar; list row hover | `#f2f1ec` | `#1c1c19` |
-| `--np-card` | Search field, active item, menus, triage card | `#fffefa` | `#2b2b26` |
-| `--np-ink` | Main text | `#2e302b` | `#e9e6dc` |
-| `--np-icon` | Icons | `#5f6057` | `#a4a296` |
-| `--np-muted` | Descriptions, hints | `#74746a` | `#a4a296` |
-| `--np-meta` | Domain and metadata | `#8a897f` | `#8c8a7f` |
-| `--np-subtle` | Counters, dates | `#9a998e` | `#8c8a7f` |
-| `--np-faint` | Placeholders, separators, empty checkbox | `#b8b6ab` | `#6a695f` |
-| `--np-line` | Tag chips, dividers, progress track | `#e8e6df` | `#2b2b26` |
-| `--np-border` | Field and menu borders | `#e4e2da` | `#3d3d35` |
-| `--np-hover` | Button hover, open menu | `#ece9e2` | `#33332d` |
-| `--np-secondary` | Secondary button, key chips | `#f2f1ec` | `#33332d` |
+| `--np-bg` | Main area background | `#faf9f6` | `#161615` |
+| `--np-panel` | Sidebar; list row hover | `#f2f1ec` | `#101010` |
+| `--np-card` | Sidebar search, buttons, dialogs, triage card | `#fffefa` | `#1d1d1b` |
+| `--np-ink` | Main text | `#2e302b` | `#ecebe6` |
+| `--np-icon` | Icons | `#5f6057` | `#a3a29a` |
+| `--np-muted` | Descriptions, hints | `#74746a` | `#a3a29a` |
+| `--np-meta` | Domain and metadata | `#8a897f` | `#7f7e77` |
+| `--np-subtle` | Counters, dates | `#9a998e` | `#7d7c75` |
+| `--np-faint` | Placeholders, separators, empty checkbox | `#b8b6ab` | `#55544f` |
+| `--np-line` | Tag chip outlines, dividers, toolbar button edges, progress track | `#e8e6df` | `rgb(255 255 255 / 0.06)` |
+| `--np-border` | Field borders | `#e4e2da` | `rgb(255 255 255 / 0.08)` |
+| `--np-hover` | Row and button hover, open menu | `#ece9e2` | `rgb(255 255 255 / 0.05)` |
+| `--np-secondary` | Secondary button, key chips | `#f2f1ec` | `#272725` |
+| `--np-secondary-hover` | Hover of a secondary surface | `#ece9e2` | `#30302d` |
+| `--np-well` | A trough: the view switch, the toolbar search | `#edebe4` | `rgb(255 255 255 / 0.045)` |
+| `--np-raised` | What sits raised: the active row, the chosen segment | `#fffefa` | `#262624` |
+| `--np-raised-edge` | Its 1 px edge | `rgb(46 48 43 / 0.07)` | `rgb(255 255 255 / 0.07)` |
+| `--np-hairline` | The hairline around a picture | `rgb(46 48 43 / 0.07)` | `rgb(255 255 255 / 0.07)` |
 | `--np-accent` | Primary button, badge, active icon, focus ring | `#2f6b4f` | `#8fd0ae` |
-| `--np-on-accent` | Text on accent | `#ffffff` | `#1c1c19` |
-| `--np-accent-soft` | Inbox banner, selected row, drop target | `#e2eee6` | `#25352c` |
+| `--np-on-accent` | Text on accent | `#ffffff` | `#141413` |
+| `--np-accent-soft` | Inbox banner, selected row, drop target | `#e2eee6` | `#20302a` |
 | `--np-on-accent-soft` | Text on soft accent | `#1f4a36` | `#8fd0ae` |
 | `--np-danger` | Errors only | `#af3838` | `#e99797` |
-| `--np-danger-soft` | Error banner | `#f6e4e1` | `#3a2826` |
-| `--np-toast` | Notices, key hints | `#2e302b` | `#3d3d35` |
+| `--np-danger-soft` | Error banner | `#f6e4e1` | `#33211f` |
+| `--np-toast` | Notices, key hints | `#2e302b` | `#30302d` |
 
-Also in the file: `--np-divider`, `--np-accent-muted`, `--np-suggested`, `--np-on-danger-soft`, `--np-scrim` (overlay behind the editor in a narrow window), the five collection colours (`--np-terracotta`, `--np-green`, `--np-blue`, `--np-ochre`, `--np-lilac`), the update row in collection blue (`--np-update*`) and a warm amber for update problems (`--np-amber*`).
+Also in the file: `--np-divider`, `--np-accent-muted`, `--np-suggested`, `--np-on-danger-soft`, `--np-scrim` (overlay behind dialogs and the editor in a narrow window), the five collection colours (`--np-terracotta`, `--np-green`, `--np-blue`, `--np-ochre`, `--np-lilac`), the update row in collection blue (`--np-update*`), a warm amber for update problems (`--np-amber*`), the menu's glass (`--np-menu-glass`, `--np-menu-shadow`), the field shadow `--np-shadow-1` and the dark scrollbar thumb `--np-thumb`. The `--np-read-*` tokens belong to the reading themes the user picks and do not follow the app's dark theme.
+
+The dark theme is "deep": a near-black ground with surfaces lifted from it in steps of light (panel below the page, card and raised above it). Edges, lines, hovers and wells are white at a few per cent, so one value reads on the panel, the page and the card alike. Whatever is laid over another colour as a solid (secondary surfaces and their hover, toasts, soft tints, collection colours) stays opaque.
+
+Shapes of the shell: sidebar rows 32 px with radius 9, the active one `bg-raised` with `shadow-raised` (a tiny shadow and the 1 px raised edge) and the accent icon; section headers tracked at 0.08em; tags as outlined chips (a 1 px line inside, filled on hover). Toolbar buttons have radius 9, a `line` border and `shadow-button`; the primary one adds `shadow-primary`, a light inset top edge. The grid/list switch is a segmented control: a `well` trough with the chosen segment `bg-raised shadow-segment`. Menus are glass (`menu-glass`): radius 13, the card at about 82 % over `backdrop-filter: blur(24px) saturate(170%)`, an inner hairline and a deep soft shadow, opaque where the blur is not drawn; items 30 px with radius 8.
+
+The search sits in the sidebar under the logo (`search`: 36 px, radius 10, the card with a 1 px line and `--np-shadow-1`); in a narrow window, where the sidebar is a strip, it is in the toolbar as a soft well (`search` with `data-well`). Focused, both take the card, an edge of accent mixed 55 % into the border and a 4 px halo of accent at 20 %. The shortcut sits in a chip of its own on the right and steps aside while the empty field is focused; with a query it reads Esc.
 
 Rules of thumb:
 

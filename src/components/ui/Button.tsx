@@ -5,7 +5,7 @@ type Size = "md" | "lg";
 
 const variants: Record<Variant, string> = {
   primary: "bg-accent text-on-accent font-semibold hover:brightness-[0.94]",
-  secondary: "bg-secondary text-ink hover:bg-hover",
+  secondary: "bg-secondary text-ink hover:bg-secondary-hover",
   outline: "border border-border text-icon hover:bg-hover hover:text-ink",
   ghost: "text-muted hover:bg-hover hover:text-ink",
   onDanger: "bg-card text-on-danger-soft hover:brightness-[0.97]",

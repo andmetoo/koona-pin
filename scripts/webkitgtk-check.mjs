@@ -188,7 +188,7 @@ if (count) {
     return {
       id: i + 1, url: "https://site" + (i % 300) + ".example/" + i, domain: "site" + (i % 300) + ".example",
       title: words[i % 8] + " " + words[(i * 3) % 8] + " " + i, description: words[(i * 5) % 8] + " — " + words[(i * 7) % 8],
-      image_url: i % 7 === 0 ? null : "/app-icon.svg?v=" + (i % 6), favicon_url: null, notes: null,
+      image_url: i % 7 === 0 ? null : "/app-icon.svg?v=" + (i % 6), favicon_url: null, site_name: null, notes: null,
       is_favorite: i % 11 === 0, collection_id: null, tags: [words[i % 8].toLowerCase()],
       created_at: at, updated_at: at, revision: 1, triaged_at: at, deleted_at: null, source: "import",
     };
