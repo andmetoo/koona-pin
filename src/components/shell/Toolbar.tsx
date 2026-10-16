@@ -80,7 +80,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
         aria-label={label}
         aria-pressed={props.view === mode}
         onClick={() => props.onView(mode)}
-        className={`flex h-7 ${props.narrow ? "w-[27px]" : "w-[30px]"} items-center justify-center rounded-[7px] transition-[background-color,color,box-shadow] duration-150 ${props.view === mode ? "bg-raised text-ink shadow-segment" : "text-subtle hover:text-ink"}`}
+        className={`flex h-7 ${props.narrow ? "w-[26px]" : "w-[30px]"} items-center justify-center rounded-[7px] transition-[background-color,color,box-shadow] duration-150 ${props.view === mode ? "bg-raised text-ink shadow-segment" : "text-subtle hover:text-ink"}`}
       >
         <Icon icon={glyph} />
       </button>
@@ -89,8 +89,8 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
   return (
     <div className={`@container flex h-9 items-center ${props.narrow ? "gap-1.5" : "gap-2.5"}`}>
       {/* The title takes the free room; when the row runs short the search field gives way
-          first, so much faster that the title loses not even a pixel, down to 110 px (NP-089: «Todos os marcadores» at
-          800 px), and only then is the title cut. The buttons never shrink. */}
+          first, so much faster that the title loses not even a pixel, down to 104 px (NP-089: «Todos os marcadores» at
+          800 px, with room for WebKitGTK drawing it a few pixels wider), and only then is the title cut. The buttons never shrink. */}
       <h1 className="flex min-w-0 flex-auto items-baseline gap-2">
         <span className="truncate text-2xl font-semibold">{props.title}</span>
         {props.count !== undefined && (
@@ -107,7 +107,7 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           search={props.search}
           onSearch={props.onSearch}
           placeholder={t("toolbar.searchShort")}
-          className="ml-auto w-[200px] min-w-[110px] shrink-[100000]"
+          className="ml-auto w-[200px] min-w-[104px] shrink-[100000]"
         />
       )}
       {sort && (
