@@ -41,8 +41,8 @@ pub const SCHEMA_11: &str = include_str!("schema11.sql");
 pub const SCHEMA_13: &str = include_str!("schema13.sql");
 
 /// Schema 14: the capture of the feeds (`feeds` table, entity 4), run after the app makes the
-/// table. Empty until NP-130 adds the entity and fills it.
-pub const SCHEMA_14: &str = "";
+/// table (NP-130).
+pub const SCHEMA_14: &str = include_str!("schema14.sql");
 
 /// [`SCHEMA_10`] in two parts: the tables and columns, then the triggers that record changes. A
 /// migration that fills the new columns does it between the two, so the filling records nothing

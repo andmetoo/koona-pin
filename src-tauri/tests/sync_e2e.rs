@@ -16,6 +16,7 @@ use koona_sync::session::{Action, Config, Effect, HubChangeEvent, HubChangeFailu
 use koonapin_lib::commercial::sync::status::{Model, Reaction};
 use koonapin_lib::commercial::sync::worker::{self, DbLibrary};
 use koonapin_lib::db::{self, BookmarkQuery, DbState, Purge, Source};
+use koonapin_lib::feeds;
 use koonapin_lib::{library, test_libraries};
 use ring::rand::SystemRandom;
 use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING};
@@ -623,6 +624,7 @@ fn dump(conn: &Connection) -> Vec<String> {
                                                       WHERE bt.bookmark_id = b.id ORDER BY t.name))
          FROM bookmarks b ORDER BY b.uid",
     );
+    rows("SELECT 'feed', uid, url, title, destination FROM feeds ORDER BY uid");
     rows("SELECT 'tombstone', uid, kind, merged_into FROM tombstones ORDER BY uid");
     out
 }
@@ -915,6 +917,27 @@ async fn three_devices_sync_through_the_local_relay() {
     a.with(|conn| db::reorder_collections(conn, &order)).unwrap();
     converge(&meter, "edits, round 2", &[&a, &b, &c]).await;
     eprintln!("[e2e] both rounds of edits converged in {:.2} s", edits.elapsed().as_secs_f64());
+
+    // ── 2b. Feeds (NP-130): followed on two devices at once, renamed, moved, left ──
+    let feed_url = |s: &str| url::Url::parse(s).unwrap();
+    let (news, blog) = ("https://news.example/feed.xml", "https://blog.example/atom.xml");
+    a.with(|conn| feeds::subscribe(conn, &feed_url(news), None, feeds::FeedDestination::Feeds)).unwrap();
+    b.with(|conn| feeds::subscribe(conn, &feed_url(news), Some("News on B".into()), feeds::FeedDestination::Inbox)).unwrap();
+    let left = c.with(|conn| feeds::subscribe(conn, &feed_url(blog), None, feeds::FeedDestination::Notify)).unwrap();
+    converge(&meter, "feeds followed", &[&a, &b, &c]).await;
+    for device in [&a, &b, &c] {
+        let urls = device.with(|conn| column(conn, "SELECT url FROM feeds ORDER BY url"));
+        assert_eq!(urls, [blog, news], "{}: one feed per address", device.name);
+    }
+    let news_uid = a.with(|conn| conn.query_row("SELECT uid FROM feeds WHERE url = ?1", [news], |r| r.get::<_, String>(0))).unwrap();
+    c.with(|conn| feeds::update(conn, &news_uid, Some("The news".into()), Some(feeds::FeedDestination::Notify))).unwrap();
+    a.with(|conn| feeds::unsubscribe(conn, &left.uid)).unwrap();
+    converge(&meter, "feeds changed and left", &[&a, &b, &c]).await;
+    for device in [&a, &b, &c] {
+        let list = device.with(|conn| feeds::feeds(conn)).unwrap();
+        assert_eq!(list.len(), 1, "{}: the left feed is gone", device.name);
+        assert_eq!((list[0].title.as_deref(), list[0].destination), (Some("The news"), feeds::FeedDestination::Notify), "{}", device.name);
+    }
     let order = a.collection_order();
     for device in [&a, &b, &c] {
         assert_unique(device);

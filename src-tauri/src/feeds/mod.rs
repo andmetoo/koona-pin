@@ -414,14 +414,28 @@ pub fn emit_changed(app: &AppHandle, feeds: Vec<Feed>) {
 }
 
 async fn changed(app: &AppHandle, state: &State<'_, Arc<DbState>>) {
-    if let Ok(list) = blocking(state, |conn| feeds(conn).map_err(CommandError::from)).await {
+    if let Ok(list) = all_feeds(app, state).await {
         emit_changed(app, list);
     }
 }
 
+/// Every subscription with what the cache knows of it (NP-131): the library
+/// is read and let go, then the cache. Without a cache, as the library has them.
+async fn all_feeds(app: &AppHandle, state: &State<'_, Arc<DbState>>) -> Result<Vec<Feed>, CommandError> {
+    let mut list = blocking(state, |conn| feeds(conn).map_err(CommandError::from)).await?;
+    let Some(feed_cache) = app.try_state::<Arc<cache::FeedCache>>() else {
+        return Ok(list);
+    };
+    cache::blocking(&feed_cache, move |conn| {
+        cache::merge_state(conn, &mut list, chrono::Utc::now())?;
+        Ok(list)
+    })
+    .await
+}
+
 #[tauri::command]
-pub async fn list_feeds(state: State<'_, Arc<DbState>>) -> Result<Vec<Feed>, CommandError> {
-    blocking(&state, |conn| feeds(conn).map_err(CommandError::from)).await
+pub async fn list_feeds(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<Vec<Feed>, CommandError> {
+    all_feeds(&app, &state).await
 }
 
 /// Follows a feed; its first fetch comes from the refresh loop (NP-129).
@@ -521,38 +535,92 @@ pub async fn preview_feed(url: String) -> Result<FeedPreview, CommandError> {
 
 /// A page of posts (NP-131).
 #[tauri::command]
-pub async fn list_feed_items(query: FeedItemQuery) -> Result<FeedItemPage, CommandError> {
-    let _ = query;
-    Err(not_implemented("list_feed_items"))
+pub async fn list_feed_items(
+    state: State<'_, Arc<DbState>>,
+    feed_cache: State<'_, Arc<cache::FeedCache>>,
+    query: FeedItemQuery,
+) -> Result<FeedItemPage, CommandError> {
+    let (rows, next) = cache::blocking(&feed_cache, move |conn| Ok(cache::list_items(conn, &query)?)).await?;
+    // «Saved» is one lookup of the page's bookmarks, out of the Trash (plan §3.2).
+    let uids: Vec<String> = rows.iter().filter_map(|(_, uid)| uid.clone()).collect();
+    let saved = blocking(&state, move |conn| Ok(save::saved_ids(conn, &uids)?)).await?;
+    let items = rows
+        .into_iter()
+        .map(|(mut item, uid)| {
+            item.bookmark_id = uid.and_then(|uid| saved.get(&uid).copied());
+            item
+        })
+        .collect();
+    Ok(FeedItemPage { items, next })
 }
 
 /// One post to read (NP-131).
 #[tauri::command]
-pub async fn get_feed_article(id: i64) -> Result<FeedArticle, CommandError> {
-    let _ = id;
-    Err(not_implemented("get_feed_article"))
+pub async fn get_feed_article(feed_cache: State<'_, Arc<cache::FeedCache>>, id: i64) -> Result<FeedArticle, CommandError> {
+    cache::blocking(&feed_cache, move |conn| Ok(cache::article(conn, id)?)).await
 }
 
 /// Marks posts read or unread (NP-131).
 #[tauri::command]
-pub async fn set_feed_items_read(ids: Vec<i64>, read: bool) -> Result<(), CommandError> {
-    let _ = (ids, read);
-    Err(not_implemented("set_feed_items_read"))
+pub async fn set_feed_items_read(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    feed_cache: State<'_, Arc<cache::FeedCache>>,
+    ids: Vec<i64>,
+    read: bool,
+) -> Result<(), CommandError> {
+    let marked = cache::blocking(&feed_cache, move |conn| Ok(cache::set_read(conn, &ids, read, &db::now())?)).await?;
+    if marked > 0 {
+        changed(&app, &state).await;
+    }
+    Ok(())
 }
 
 /// «Mark all read» of one feed (none: all feeds), up to a fetch time so a
 /// post that arrived meanwhile stays new; how many were marked (NP-131).
 #[tauri::command]
-pub async fn mark_feed_read(feed_uid: Option<String>, up_to: Option<String>) -> Result<u32, CommandError> {
-    let _ = (feed_uid, up_to);
-    Err(not_implemented("mark_feed_read"))
+pub async fn mark_feed_read(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    feed_cache: State<'_, Arc<cache::FeedCache>>,
+    feed_uid: Option<String>,
+    up_to: Option<String>,
+) -> Result<u32, CommandError> {
+    let marked = cache::blocking(&feed_cache, move |conn| {
+        Ok(cache::mark_all_read(conn, feed_uid.as_deref(), up_to.as_deref(), &db::now())?)
+    })
+    .await?;
+    if marked > 0 {
+        changed(&app, &state).await;
+    }
+    Ok(marked as u32)
 }
 
-/// S, R and F: the post as an ordinary bookmark, through the journal (NP-131).
+/// S, R and F: the post as an ordinary bookmark, through the journal (NP-131);
+/// ⌘Z (`undo` with no command) takes the last one back. A link already in
+/// the library is answered as it is.
 #[tauri::command]
-pub async fn save_feed_item(id: i64, place: SavePlace, favorite: bool) -> Result<Bookmark, CommandError> {
-    let _ = (id, place, favorite);
-    Err(not_implemented("save_feed_item"))
+pub async fn save_feed_item(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    feed_cache: State<'_, Arc<cache::FeedCache>>,
+    id: i64,
+    place: SavePlace,
+    favorite: bool,
+) -> Result<Bookmark, CommandError> {
+    let (db, feed_cache) = (state.inner().clone(), feed_cache.inner().clone());
+    let library = db.clone();
+    let saved = tauri::async_runtime::spawn_blocking(move || save::save_feed_item(&library, &feed_cache, id, place, favorite))
+        .await
+        .map_err(CommandError::internal)??;
+    if saved.created {
+        save::announce(&app, db, saved.bookmark.clone());
+    } else if saved.restored {
+        // Back from the Trash it arrives like a new one; its metadata is there.
+        crate::capture::emit(&app, crate::capture::ChangeKind::Created, &saved.bookmark);
+    }
+    changed(&app, &state).await;
+    Ok(saved.bookmark)
 }
 
 /// ↻ and ⌘R: one feed or all of them now (NP-129).
@@ -563,22 +631,48 @@ pub async fn refresh_feeds(app: AppHandle, feed_uid: Option<String>) -> Result<(
 
 /// «Clear feed cache»: the posts and fetch state go, and every feed is fetched again (NP-131).
 #[tauri::command]
-pub async fn clear_feed_cache() -> Result<(), CommandError> {
-    Err(not_implemented("clear_feed_cache"))
+pub async fn clear_feed_cache(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    feed_cache: State<'_, Arc<cache::FeedCache>>,
+) -> Result<(), CommandError> {
+    cache::blocking(&feed_cache, |conn| Ok(cache::clear(conn)?)).await?;
+    changed(&app, &state).await;
+    Ok(())
 }
 
 /// Follows the feeds of an OPML file (NP-131).
 #[tauri::command]
-pub async fn import_opml(path: String) -> Result<OpmlImport, CommandError> {
-    let _ = path;
-    Err(not_implemented("import_opml"))
+pub async fn import_opml(app: AppHandle, state: State<'_, Arc<DbState>>, path: String) -> Result<OpmlImport, CommandError> {
+    // Reading needs no database, so the library stays available meanwhile.
+    let outlines = tauri::async_runtime::spawn_blocking(move || {
+        opml::read(std::path::Path::new(&path)).and_then(|text| opml::parse(&text))
+    })
+    .await
+    .map_err(CommandError::internal)??;
+    let progress = app.clone();
+    let report = blocking(&state, move |conn| {
+        Ok(opml::import(conn, &outlines, |done, total| {
+            let _ = progress.emit(
+                "import-progress",
+                crate::commands::ImportProgress { done: done as u32, total: total as u32 },
+            );
+        })?)
+    })
+    .await?;
+    changed(&app, &state).await;
+    Ok(report)
 }
 
 /// Writes every subscription as OPML 2.0; how many (NP-131).
 #[tauri::command]
-pub async fn export_opml(path: String) -> Result<u32, CommandError> {
-    let _ = path;
-    Err(not_implemented("export_opml"))
+pub async fn export_opml(app: AppHandle, state: State<'_, Arc<DbState>>, path: String) -> Result<u32, CommandError> {
+    let list = opml::exported(&all_feeds(&app, &state).await?);
+    let count = list.len() as u32;
+    tauri::async_runtime::spawn_blocking(move || opml::save(std::path::Path::new(&path), &list))
+        .await
+        .map_err(CommandError::internal)??;
+    Ok(count)
 }
 
 /// «Check for new posts» of Settings → Feeds: 0 (only on refresh) or 5 minutes to a day.

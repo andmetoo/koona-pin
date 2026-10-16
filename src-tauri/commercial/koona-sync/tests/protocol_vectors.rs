@@ -231,7 +231,7 @@ fn sample_changes() -> SyncMessage {
     let bookmark = Uuid::parse_str("0192f3a5-1111-7000-8000-000000000001").unwrap();
     let tag = Uuid::parse_str("0192f3a5-2222-7000-8000-000000000002").unwrap();
     let mut covers = Vector::default();
-    covers.0.insert(replica, 4);
+    covers.0.insert(replica, 7);
     SyncMessage::Changes {
         groups: vec![
             Group {
@@ -254,6 +254,23 @@ fn sample_changes() -> SyncMessage {
                 uid: Uuid::parse_str("0192f3a5-3333-7000-8000-000000000003").unwrap(),
                 fields: Vec::new(),
                 gone: Some(Gone { clock: clock(4), merged_into: Some(tag) }),
+            },
+            // A feed (schema 14, NP-130): `title` null is the feed's own name.
+            Group {
+                entity: Entity::Feed,
+                uid: Uuid::parse_str("0192f3a5-4444-7000-8000-000000000004").unwrap(),
+                fields: vec![
+                    FieldChange { field: "url".into(), value: json!("https://example.com/feed.xml"), clock: clock(5) },
+                    FieldChange { field: "title".into(), value: json!(null), clock: clock(5) },
+                    FieldChange { field: "destination".into(), value: json!("inbox"), clock: clock(6) },
+                ],
+                gone: None,
+            },
+            Group {
+                entity: Entity::Feed,
+                uid: Uuid::parse_str("0192f3a5-5555-7000-8000-000000000005").unwrap(),
+                fields: Vec::new(),
+                gone: Some(Gone { clock: clock(7), merged_into: None }),
             },
         ],
         covers,

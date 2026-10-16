@@ -1,7 +1,7 @@
 //! Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 //!
-//! Convergence: three or four replicas make random edits from small pools of addresses, names
-//! and tags (so they collide, also when an address or a name is changed), and sync between random pairs with chunks duplicated, reordered
+//! Convergence: three or four replicas make random edits from small pools of addresses, names,
+//! tags and feeds (so they collide, also when an address or a name is changed), and sync between random pairs with chunks duplicated, reordered
 //! and cut off, sometimes while the sender keeps editing. Then every pair syncs cleanly until
 //! nothing changes: every library must hold the same records with the same clocks, and the same
 //! vector. No step may fail (a UNIQUE violation would), and no library may ever hold a link or a
@@ -21,6 +21,10 @@ use uuid::Uuid;
 const URLS: usize = 6;
 const COLLECTION_NAMES: [&str; 3] = ["Reading", "Work", "Later"];
 const TAG_NAMES: [&str; 4] = ["rust", "sqlite", "news", "music"];
+/// Few feed addresses, so two replicas follow the same one (NP-130).
+const FEED_URLS: usize = 3;
+/// `later` stands for a place a newer build knows: it travels as it is.
+const DESTINATIONS: [&str; 4] = ["feeds", "inbox", "notify", "later"];
 
 #[derive(Debug, Clone)]
 enum Op {
@@ -45,6 +49,14 @@ enum Op {
     Progress { pick: u16, tenths: u8 },
     /// Marked read, or unread again.
     Read { pick: u16 },
+    /// Follows a feed; an address already followed here is left as it is (NP-130).
+    Follow { url: usize, title: Option<u8>, destination: usize, uid: u128 },
+    /// The person's name for a feed, or none.
+    FeedTitle { pick: u16, title: Option<u8> },
+    Destination { pick: u16, destination: usize },
+    Unfollow { pick: u16 },
+    /// A feed moved to another address; refused when another feed has it.
+    FeedAddress { pick: u16, url: usize },
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +95,12 @@ fn op() -> impl Strategy<Value = Op> {
         2 => pick.prop_map(|pick| Op::Reading { pick }),
         2 => (pick, 0u8..=10).prop_map(|(pick, tenths)| Op::Progress { pick, tenths }),
         1 => pick.prop_map(|pick| Op::Read { pick }),
+        3 => (0..FEED_URLS, prop::option::of(0u8..3), 0..DESTINATIONS.len(), any::<u128>())
+            .prop_map(|(url, title, destination, uid)| Op::Follow { url, title, destination, uid }),
+        1 => (pick, prop::option::of(0u8..3)).prop_map(|(pick, title)| Op::FeedTitle { pick, title }),
+        1 => (pick, 0..DESTINATIONS.len()).prop_map(|(pick, destination)| Op::Destination { pick, destination }),
+        1 => pick.prop_map(|pick| Op::Unfollow { pick }),
+        1 => (pick, 0..FEED_URLS).prop_map(|(pick, url)| Op::FeedAddress { pick, url }),
     ]
 }
 
@@ -121,9 +139,39 @@ fn uid_from(n: u128, serial: &mut u64) -> Uuid {
     Uuid::from_u128((n >> 64) << 64 | u128::from(*serial))
 }
 
+fn feed_url(n: usize) -> String {
+    format!("https://site{n}.example/feed.xml")
+}
+
 fn edit(conn: &Connection, op: &Op, serial: &mut u64) {
     let bookmark = |n| pick(conn, "SELECT id FROM bookmarks ORDER BY id", n);
+    let feed = |n| pick(conn, "SELECT id FROM feeds ORDER BY id", n);
     match op {
+        Op::Follow { url, title, destination, uid } => {
+            let title = title.map(|t| format!("feed {t}"));
+            follow(conn, uid_from(*uid, serial), &feed_url(*url), title.as_deref(), DESTINATIONS[*destination]);
+        }
+        Op::FeedTitle { pick, title } => {
+            if let Some(id) = feed(*pick) {
+                set_feed(conn, id, "title", title.map_or(Value::Null, |t| Value::Text(format!("feed {t}"))));
+            }
+        }
+        Op::Destination { pick, destination } => {
+            if let Some(id) = feed(*pick) {
+                set_feed(conn, id, "destination", Value::Text(DESTINATIONS[*destination].into()));
+            }
+        }
+        Op::Unfollow { pick } => {
+            if let Some(id) = feed(*pick) {
+                unfollow(conn, id);
+            }
+        }
+        Op::FeedAddress { pick, url } => {
+            if let Some(id) = feed(*pick) {
+                conn.execute("UPDATE OR IGNORE feeds SET url = ?1 WHERE id = ?2", rusqlite::params![feed_url(*url), id])
+                    .unwrap();
+            }
+        }
         Op::Add { url, title, uid } => {
             add_bookmark(conn, uid_from(*uid, serial), &format!("https://site{url}.example/page"), &format!("title {title}"));
         }
@@ -353,13 +401,15 @@ fn run(replica_count: usize, steps: &[Step]) -> Result<(), TestCaseError> {
         // What a case exercised, to see that the pools collide: merges, purges, what is left.
         let c = &replicas[0].conn;
         eprintln!(
-            "stats merged={} purged={} bookmarks={} collections={} tags={} links={} rounds={rounds}",
+            "stats merged={} purged={} bookmarks={} collections={} tags={} links={} feeds={} feeds_merged={} rounds={rounds}",
             one::<i64>(c, "SELECT count(*) FROM tombstones WHERE merged_into IS NOT NULL"),
             one::<i64>(c, "SELECT count(*) FROM tombstones WHERE merged_into IS NULL"),
             one::<i64>(c, "SELECT count(*) FROM bookmarks"),
             one::<i64>(c, "SELECT count(*) FROM collections"),
             one::<i64>(c, "SELECT count(*) FROM tags"),
             one::<i64>(c, "SELECT count(*) FROM bookmark_tags"),
+            one::<i64>(c, "SELECT count(*) FROM feeds"),
+            one::<i64>(c, "SELECT count(*) FROM tombstones WHERE kind = 'feed' AND merged_into IS NOT NULL"),
         );
     }
     let first = dump(&replicas[0].conn);

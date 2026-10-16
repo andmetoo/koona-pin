@@ -1,9 +1,9 @@
 //! Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 //!
 //! Applying changes from another replica: field by field, the later clock wins and its clock is
-//! kept with the value. One savepoint per batch; collections first, then tags, bookmarks and the
-//! tags of bookmarks, each with its records before its tombstones, so whatever a change refers to
-//! is already there.
+//! kept with the value. One savepoint per batch; collections first, then tags, bookmarks, the
+//! tags of bookmarks and feeds, each with its records before its tombstones, so whatever a change
+//! refers to is already there.
 //!
 //! A change the receiver cannot place yet (a record it does not have and that arrives without
 //! every field, a reference to a record it has never seen) is left out and counted in
@@ -11,7 +11,9 @@
 
 use crate::capture::{self, Applying};
 use crate::model::{Clock, Entity, FieldChange, Gone, Group};
-use crate::store::{self, Origins, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FAVORITE, LINK, PROGRESS, TAGS, UNIQUE};
+use crate::store::{
+    self, Origins, Stored, Table, BOOKMARKS, COLLECTION, COLLECTIONS, FAVORITE, FEEDS, LINK, PROGRESS, TAGS, UNIQUE,
+};
 use crate::Result;
 use rusqlite::types::Value;
 use rusqlite::{params, Connection};
@@ -24,10 +26,15 @@ use uuid::Uuid;
 pub struct Applied {
     /// Local ids of the bookmarks written, created or removed.
     pub bookmark_ids: Vec<i64>,
-    /// Collections or tags changed: the sidebar reads them again.
+    /// Collections, tags or feeds changed: the sidebar reads them again.
     pub structure_changed: bool,
     /// Changes left for a later delivery; while any are, the batch's `covers` must not be merged.
     pub deferred: usize,
+    /// A feed was followed, changed or left (NP-130).
+    pub feeds_changed: bool,
+    /// The uids of feeds no longer here: unfollowed, merged into another one with the same
+    /// address, or renamed to the uid of an arriving one. Their posts on this device go.
+    pub feeds_gone: Vec<Uuid>,
 }
 
 /// Applies a batch of groups in one savepoint, with capture off.
@@ -58,22 +65,13 @@ fn run(conn: &Connection, groups: &[Group]) -> Result<Applied> {
         capture::observe(conn, latest)?;
     }
     for entity in [Entity::Collection, Entity::Tag, Entity::Bookmark] {
-        let t = Table::of(entity).expect("a record entity");
-        for g in groups.iter().filter(|g| g.entity == entity && !g.fields.is_empty()) {
-            ctx.record(t, g.uid, &g.fields)?;
-        }
-        let gone: Vec<&Group> = groups.iter().filter(|g| g.entity == entity && g.gone.is_some()).collect();
-        for g in &gone {
-            ctx.store_gone(t, g.uid, g.gone.as_ref().expect("filtered"))?;
-        }
-        // Settled after every tombstone of the batch is in, so a chain of merges resolves whole.
-        for g in &gone {
-            ctx.settle(t, g.uid)?;
-        }
+        ctx.records(groups, entity)?;
     }
     for g in groups.iter().filter(|g| g.entity == Entity::Link) {
         ctx.links(g.uid, &g.fields)?;
     }
+    // Feeds refer to nothing, so they come last (NP-130).
+    ctx.records(groups, Entity::Feed)?;
     capture::persist(conn)?;
     Ok(ctx.finish())
 }
@@ -107,17 +105,35 @@ pub(crate) struct Ctx<'c> {
     pub bookmarks: BTreeSet<i64>,
     pub structure: bool,
     pub deferred: usize,
+    pub feeds: bool,
+    pub feeds_gone: Vec<Uuid>,
 }
 
 impl<'c> Ctx<'c> {
     fn new(conn: &'c Connection) -> Result<Ctx<'c>> {
         capture::origin_of_self(conn)?;
         let now: String = conn.query_row("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now')", [], |r| r.get(0))?;
-        Ok(Ctx { conn, origins: Origins::load(conn)?, now, bookmarks: BTreeSet::new(), structure: false, deferred: 0 })
+        Ok(Ctx {
+            conn,
+            origins: Origins::load(conn)?,
+            now,
+            bookmarks: BTreeSet::new(),
+            structure: false,
+            deferred: 0,
+            feeds: false,
+            feeds_gone: Vec::new(),
+        })
     }
 
     fn finish(self) -> Applied {
-        Applied { bookmark_ids: self.bookmarks.into_iter().collect(), structure_changed: self.structure, deferred: self.deferred }
+        let feeds_gone: BTreeSet<Uuid> = self.feeds_gone.into_iter().collect();
+        Applied {
+            bookmark_ids: self.bookmarks.into_iter().collect(),
+            structure_changed: self.structure,
+            deferred: self.deferred,
+            feeds_changed: self.feeds,
+            feeds_gone: feeds_gone.into_iter().collect(),
+        }
     }
 
     pub fn touched(&mut self, t: &Table, id: i64) {
@@ -125,7 +141,25 @@ impl<'c> Ctx<'c> {
             self.bookmarks.insert(id);
         } else {
             self.structure = true;
+            self.feeds |= t.code == FEEDS.code;
         }
+    }
+
+    /// The records of one entity in a batch, then its tombstones.
+    fn records(&mut self, groups: &[Group], entity: Entity) -> Result<()> {
+        let t = Table::of(entity).expect("a record entity");
+        for g in groups.iter().filter(|g| g.entity == entity && !g.fields.is_empty()) {
+            self.record(t, g.uid, &g.fields)?;
+        }
+        let gone: Vec<&Group> = groups.iter().filter(|g| g.entity == entity && g.gone.is_some()).collect();
+        for g in &gone {
+            self.store_gone(t, g.uid, g.gone.as_ref().expect("filtered"))?;
+        }
+        // Settled after every tombstone of the batch is in, so a chain of merges resolves whole.
+        for g in &gone {
+            self.settle(t, g.uid)?;
+        }
+        Ok(())
     }
 
     /// A clock from the wire, stored with the replica's number.
@@ -183,6 +217,9 @@ impl<'c> Ctx<'c> {
             } else {
                 format!("UPDATE bookmarks SET {column} = ?1, revision = revision + 1, updated_at = ?3 WHERE id = ?2")
             };
+            self.conn.prepare_cached(&sql)?.execute(params![value, id, self.now])?;
+        } else if t.code == FEEDS.code {
+            let sql = format!("UPDATE feeds SET {column} = ?1, updated_at = ?3 WHERE id = ?2");
             self.conn.prepare_cached(&sql)?.execute(params![value, id, self.now])?;
         } else {
             let sql = format!("UPDATE {} SET {column} = ?1 WHERE id = ?2", t.name);
@@ -330,6 +367,10 @@ impl<'c> Ctx<'c> {
         if t.code == BOOKMARKS.code {
             columns.extend(["domain", "url_key", "updated_at"]);
             placeholders.extend(["np_domain(?2)".into(), "np_url_key(?2)".into(), format!("?{now}")]);
+        } else if t.code == FEEDS.code {
+            // A feed has no synced time: both are this device's (NP-130).
+            columns.extend(["created_at", "updated_at"]);
+            placeholders.extend([format!("?{now}"), format!("?{now}")]);
         } else {
             columns.push("created_at");
             placeholders.push(format!("?{now}"));
@@ -391,6 +432,11 @@ impl<'c> Ctx<'c> {
 
     /// Deletes a record here without a tombstone of this replica: the one that came says it all.
     pub fn remove(&mut self, t: &Table, id: i64) -> Result<()> {
+        if t.code == FEEDS.code {
+            if let Some(uid) = store::uid_of(self.conn, t, id)? {
+                self.feeds_gone.push(uid);
+            }
+        }
         let sql = format!("DELETE FROM {} WHERE id = ?1", t.name);
         self.conn.prepare_cached(&sql)?.execute([id])?;
         self.touched(t, id);

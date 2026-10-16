@@ -4,7 +4,7 @@
 //! binary data frames, the header of a device-to-device body, and the deflated JSON messages
 //! inside it. Encoding and decoding only: no sockets, no keys (those are in `crypto`).
 
-use crate::model::{Group, Vector, BOOKMARK_FIELDS, COLLECTION_FIELDS, TAG_FIELDS};
+use crate::model::{Group, Vector, BOOKMARK_FIELDS, COLLECTION_FIELDS, FEED_FIELDS, TAG_FIELDS};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use flate2::read::DeflateDecoder;
@@ -723,6 +723,8 @@ fn check_group(group: &Value) -> Result<(), Error> {
         "bookmark" => Some(&BOOKMARK_FIELDS),
         "collection" => Some(&COLLECTION_FIELDS),
         "tag" => Some(&TAG_FIELDS),
+        // Schema 14 (NP-130); a schema-13 peer answers `update_needed` here.
+        "feed" => Some(&FEED_FIELDS),
         // A link's fields are tag uids.
         "link" => None,
         other => return Err(Error::UnknownField(format!("entity {other:?}"))),
@@ -877,6 +879,10 @@ mod tests {
             json!({"t": "changes", "covers": {}, "last": true,
                    "groups": [{"entity": "link", "uid": id(2),
                                "fields": [{"field": "not-a-uid", "value": true, "clock": clock}]}]}),
+            // A feed knows no time of its own (NP-130).
+            json!({"t": "changes", "covers": {}, "last": true,
+                   "groups": [{"entity": "feed", "uid": id(2),
+                               "fields": [{"field": "created_at", "value": "x", "clock": clock}]}]}),
         ];
         for case in cases {
             let error = SyncMessage::decode(&deflate(&case)).unwrap_err();
