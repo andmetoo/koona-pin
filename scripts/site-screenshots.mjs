@@ -74,7 +74,7 @@ async function until(check, what, ms = 30000) {
 }
 
 /** The window's page: the interface embedded in the binary (scripts/build-test-app.mjs). */
-const appPage = (p) => p.url().startsWith("http://tauri.localhost");
+const appPage = (p) => new URL(p.url()).origin === "http://tauri.localhost";
 
 async function shoot(lang, base, encoder) {
   const data = path.join(root, ".test-data", `site-shots-${lang}-${Date.now()}`);

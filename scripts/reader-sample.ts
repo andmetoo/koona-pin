@@ -34,7 +34,7 @@ main{max-width:680px;margin:0 auto;padding:40px 24px}h1{font:600 32px/1.2 system
 img{max-width:100%;height:auto}pre{overflow:auto;background:#f0eee8;padding:12px;font-size:14px}code{font-size:.9em}
 a{color:#2457c5}table{border-collapse:collapse}td,th{border:1px solid #ddd;padding:4px 8px}blockquote{border-left:3px solid #ddd;margin:0;padding-left:16px;color:#555}`;
 const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const cell = (s: unknown) => String(s ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ");
+const cell = (s: unknown) => String(s ?? "").replace(/[\\|]/g, "\\$&").replace(/\s+/g, " ");
 
 const browser = await chromium.launch({ channel: "msedge" });
 const context = await browser.newContext({ viewport: { width: 1000, height: 1300 } });

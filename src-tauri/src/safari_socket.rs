@@ -93,10 +93,16 @@ fn home() -> io::Result<PathBuf> {
             &mut found,
         )
     };
-    if status != 0 || found.is_null() || unsafe { (*found).pw_dir.is_null() } {
+    // On success `found` points at `record`, which is then filled in: read it there, not through
+    // the raw pointer.
+    if status != 0 || found.is_null() {
         return Err(io::Error::new(io::ErrorKind::NotFound, "the user has no home folder"));
     }
-    let dir = unsafe { CStr::from_ptr((*found).pw_dir) };
+    let record = unsafe { record.assume_init_ref() };
+    if record.pw_dir.is_null() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "the user has no home folder"));
+    }
+    let dir = unsafe { CStr::from_ptr(record.pw_dir) };
     Ok(PathBuf::from(OsStr::from_bytes(dir.to_bytes())))
 }
 
