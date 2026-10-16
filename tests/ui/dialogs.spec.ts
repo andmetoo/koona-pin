@@ -1,30 +1,17 @@
 import { test, expect, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { catalog, copyBookmark, failOnce, jsonCopy, text } from "../fixtures/app";
 
 // NP-118: a dialog has one height for its whole life. Each one is walked through its states in the
 // demo, in English, German and Russian, in the smallest and a wide window: its box stays the same.
 const here = path.dirname(fileURLToPath(import.meta.url));
-type Catalog = { [key: string]: string | Catalog };
-const catalog = (code: string): Catalog => JSON.parse(readFileSync(path.join(here, "..", "..", "src", "locales", `${code}.json`), "utf8"));
-const text = (c: Catalog, key: string) => key.split(".").reduce<string | Catalog>((node, k) => (node as Catalog)[k], c) as string;
 const starts = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
 const fixture = path.join(here, "..", "fixtures", "bookmarks", "chrome.html");
 
-/** A JSON copy as Export writes it. */
-function copyFile(format = "koona-pin") {
-  const at = "2026-09-01T10:00:00.000Z";
-  const bookmark = (uid: string, url: string) => ({
-    uid, url, title: uid, description: null, notes: null, domain: new URL(url).hostname, image_url: null, favicon_url: null, site_name: null,
-    is_favorite: false, collection: null, tags: [], source: "import", created_at: at, updated_at: at, triaged_at: at, deleted_at: null,
-  });
-  const copy = {
-    format, version: 1, exported_at: "2026-10-04T18:20:00.000Z", app_version: "0.1.0",
-    collections: [], tags: [], bookmarks: [bookmark("b1", "https://restored.example/one"), bookmark("b2", "https://restored.example/two")],
-  };
-  return { name: "koona-pin-2026-10-04.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) };
-}
+/** A JSON copy as Export writes it, of two bookmarks; `format` names another app's. */
+const copyFile = (format?: string) =>
+  jsonCopy({ format, bookmarks: [copyBookmark("b1", "https://restored.example/one", "b1"), copyBookmark("b2", "https://restored.example/two", "b2")] });
 
 /** The open dialog's box, which must not change from opening to closing. */
 function tracker(page: Page) {
@@ -215,17 +202,7 @@ for (const code of ["en", "de", "ru"]) {
       await expect(dialog.getByRole("textbox", { name: t("feedback.email") })).toHaveAttribute("aria-invalid", "true");
       await track.same("wrong address");
       await dialog.getByRole("textbox", { name: t("feedback.email") }).fill("");
-      await page.evaluate(async () => {
-        const { api } = await import("/src/services/api.ts");
-        const { CommandError } = await import("/src/services/errors.ts");
-        const send = api.sendFeedback.bind(api);
-        let failed = false;
-        api.sendFeedback = async (feedback) => {
-          if (failed) return send(feedback);
-          failed = true;
-          throw new CommandError("network", "offline", "no_connection");
-        };
-      });
+      await failOnce(page, "sendFeedback", "network", "offline", "no_connection");
       await button("feedback.send").click();
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("failed");

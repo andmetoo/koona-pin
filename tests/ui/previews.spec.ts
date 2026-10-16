@@ -1,18 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
+import { bell, centre, openApp } from "../fixtures/app";
 
 // «Refresh previews» for many bookmarks: Settings → Data, the selection bar, after an import; its
 // progress and result in the notification centre, and the link check of the pages it couldn't open.
-const open = async (page: Page, setup: Record<string, string> = {}) => {
-  await page.goto("/");
-  await page.evaluate((setup) => {
-    localStorage.removeItem("koonapin.demo.v4");
-    for (const [key, value] of Object.entries(setup)) localStorage.setItem(`koonapin.${key}`, value);
-  }, setup);
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
-};
-const bell = (page: Page) => page.locator("[data-notification-bell]");
-const centre = (page: Page) => page.getByRole("dialog", { name: "Notifications" });
 const row = (page: Page) => page.locator("[data-settings-previews]");
 const counts = (page: Page) =>
   page.evaluate(async () => {
@@ -25,7 +15,7 @@ const settings = async (page: Page) => {
 };
 
 test("Settings → Data: the choice with its counts, progress with Stop, the result in the centre", async ({ page }) => {
-  await open(page, { "demo.refreshStep": "400" });
+  await openApp(page, { settings: { "demo.refreshStep": "400" }, cards: 6 });
   const { missing, all } = await counts(page);
   expect(all).toBe(6);
   await settings(page);
@@ -72,7 +62,7 @@ test("Settings → Data: the choice with its counts, progress with Stop, the res
 });
 
 test("a whole run ends with its numbers; a refresh's failures are link-checked, and «Show them» opens the Links page", async ({ page }) => {
-  await open(page, { "demo.refreshStep": "20" });
+  await openApp(page, { settings: { "demo.refreshStep": "20" }, cards: 6 });
   const refresh = () =>
     page.evaluate(async () => {
       const { api } = await import("/src/services/api.ts");
@@ -126,7 +116,7 @@ test("a whole run ends with its numbers; a refresh's failures are link-checked, 
 });
 
 test("no network: the run stops as such and marks nothing as failed", async ({ page }) => {
-  await open(page, { "demo.refreshStep": "20", "demo.offline": "1" });
+  await openApp(page, { settings: { "demo.refreshStep": "20", "demo.offline": "1" }, cards: 6 });
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     for (let i = 0; i < 6; i++) await api.addBookmark({ url: `https://more${i}.example/`, title: `More ${i}` });
@@ -144,7 +134,7 @@ test("no network: the run stops as such and marks nothing as failed", async ({ p
 });
 
 test("the selection bar refreshes the selected; a second start says the run under way", async ({ page }) => {
-  await open(page, { "demo.refreshStep": "500" });
+  await openApp(page, { settings: { "demo.refreshStep": "500" }, cards: 6 });
   await page.locator('[data-bookmark-id="1"]').click({ modifiers: ["ControlOrMeta"] });
   await page.locator('[data-bookmark-id="2"]').click({ modifiers: ["ControlOrMeta"] });
   const bar = page.getByRole("toolbar", { name: "Selected bookmarks" });
@@ -166,7 +156,7 @@ test("the selection bar refreshes the selected; a second start says the run unde
 });
 
 test("an import refreshes the bookmarks it created, joining a run under way, and says so in its report", async ({ page }) => {
-  await open(page, { "demo.refreshStep": "300" });
+  await openApp(page, { settings: { "demo.refreshStep": "300" }, cards: 6 });
   // A run of the library under way: the import's bookmarks join it.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
@@ -192,7 +182,7 @@ test("an import refreshes the bookmarks it created, joining a run under way, and
 });
 
 test("an import with nothing new refreshes nothing", async ({ page }) => {
-  await open(page);
+  await openApp(page, { cards: 6 });
   // Nothing new from an import: no run starts.
   const state = await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");

@@ -1,22 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { openApp } from "../fixtures/app";
 
 // Sync between a Supporter's computers (NP-059, NP-063, sheet 46), in the demo: `koonapin.demo.sync`
 // starts the preview in a state of sync (src/services/demo.ts) so every screen is seen without a relay.
-async function start(page: Page, sync: string | null, supporter: string | null = "supporter") {
-  await page.goto("/");
-  await page.evaluate(
-    ([s, p]) => {
-      localStorage.removeItem("koonapin.demo.v4");
-      if (s) localStorage.setItem("koonapin.demo.sync", s);
-      else localStorage.removeItem("koonapin.demo.sync");
-      if (p) localStorage.setItem("koonapin.demo.supporter", p);
-      else localStorage.removeItem("koonapin.demo.supporter");
-    },
-    [sync, supporter],
-  );
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
-}
+const start = (page: Page, sync: string | null, supporter: string | null = "supporter") =>
+  openApp(page, { settings: { "demo.sync": sync, "demo.supporter": supporter }, cards: 6 });
 /** The Sync dialog from the perk of the Supporter dialog, as a person opens it. */
 async function openSync(page: Page) {
   await page.locator("[data-plan-row]").click();

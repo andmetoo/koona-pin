@@ -1,21 +1,15 @@
 import { test, expect, Page } from "@playwright/test";
+import { openApp } from "../fixtures/app";
 
 // NP-126 (frames O1–O5): an offline copy saved from the list, its marker left of the heart,
 // the «Offline» section, the copy opened in the reader with no request, and removed again.
 // The preview keeps copies in memory: nothing here reloads the page after saving.
 
 async function boot(page: Page) {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
-  await page.evaluate(() => {
-    localStorage.removeItem("koonapin.demo.v4");
-    localStorage.removeItem("koonapin.demo.readingSaveOffline");
-    localStorage.setItem("koonapin.theme", "light");
-    localStorage.setItem("koonapin.language", "en");
-    localStorage.setItem("koonapin.view", "list");
+  await openApp(page, {
+    viewport: { width: 1440, height: 900 },
+    settings: { "demo.readingSaveOffline": null, theme: "light", language: "en", view: "list" },
   });
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
   // Every page the reader asks for is counted: a copy opens without one.
   await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");

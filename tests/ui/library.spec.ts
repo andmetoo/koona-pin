@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { bell, centre, copiedAt, copyBookmark, failOnce, jsonCopy, openApp, openTriage, opened, stubBrowser } from "../fixtures/app";
 // Safari uses Option-Tab for all controls; ordinary Tab follows its text-field preference.
 const tabKey = (browserName: string, backwards = false) =>
   `${process.platform === "darwin" && browserName === "webkit" ? "Alt+" : ""}${backwards ? "Shift+" : ""}Tab`;
@@ -11,27 +12,6 @@ const bookmarkNamed = (page: Page, title: string) =>
   page.locator("article[data-bookmark-id]").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
 /** A click on a card or row: alone it selects only it, with Ctrl it toggles, with Shift it adds the range. */
 const clickCard = (card: Locator, modifiers?: ("ControlOrMeta" | "Shift")[]) => selectSpot(card).click({ modifiers });
-/** The next call of an api method fails with a CommandError; the one after it works again. */
-async function failOnce(page: Page, method: string, code: string, message = code) {
-  await page.evaluate(
-    async ([method, code, message]) => {
-      const { api } = await import("/src/services/api.ts");
-      const { CommandError } = await import("/src/services/errors.ts");
-      const target = api as unknown as Record<string, unknown>;
-      const original = target[method];
-      target[method] = async () => {
-        target[method] = original;
-        throw new CommandError(code as ConstructorParameters<typeof CommandError>[0], message);
-      };
-    },
-    [method, code, message] as const,
-  );
-}
-/** Triage over the inbox; since the notification centre, the library's way in is the bell. */
-async function openTriage(page: Page) {
-  await page.locator("[data-notification-bell]").click();
-  await page.getByRole("dialog", { name: "Notifications" }).getByRole("button", { name: "Sort", exact: true }).click();
-}
 /** Replaces the demo library: each row over the demo's first bookmark, or only over its triage time when `lean`. */
 async function seedLibrary(page: Page, rows: Record<string, unknown>[], { lean = false } = {}) {
   await page.evaluate(
@@ -59,12 +39,7 @@ async function signInAsSupporter(page: Page, email: string) {
   await code.getByRole("button", { name: "Sign in", exact: true }).click();
   return height;
 }
-test.beforeEach(async ({ page }) => {
-  await page.goto("/");
-  await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
-});
+test.beforeEach(({ page }) => openApp(page, { cards: 6 }));
 test("hover keeps card and preview geometry stable", async ({ page }) => {
   const card = page.locator('[data-bookmark-id="1"]');
   const before = await card.boundingBox();
@@ -153,9 +128,7 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
   await page.reload();
   const inbox = (count: number) => page.getByRole("button", { name: `Inbox ${count}`, exact: true });
   const banner = page.getByRole("region", { name: "New bookmarks" });
-  const bell = page.locator("[data-notification-bell]");
-  const centre = page.getByRole("dialog", { name: "Notifications" });
-  const waiting = centre.locator('[data-notification="inbox"]');
+  const waiting = centre(page).locator('[data-notification="inbox"]');
   const cards = page.locator("[data-bookmark-id]");
   const capture = (url: string) =>
     page.evaluate(async (url) => {
@@ -166,7 +139,7 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
   await expect(inbox(2)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/All bookmarks\s*6/);
   await expect(banner).toHaveCount(0);
-  await bell.click();
+  await bell(page).click();
   await expect(waiting).toContainText("2 new in Inbox");
   await expect(waiting).toContainText("Keeping, filing or tossing them takes about a minute.");
   await page.keyboard.press("Escape");
@@ -203,12 +176,12 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
 
   // Hidden until a bookmark newer than the ones waiting arrives (the restart: notifications.spec.ts).
   await page.getByRole("button", { name: "All bookmarks" }).click();
-  await bell.click();
+  await bell(page).click();
   await waiting.getByRole("button", { name: "Hide until new bookmarks arrive" }).click();
   await expect(waiting).toHaveCount(0);
   await page.keyboard.press("Escape");
   await capture("https://example.com/newer");
-  await bell.click();
+  await bell(page).click();
   await expect(waiting).toContainText("2 new in Inbox");
   await page.keyboard.press("Escape");
 
@@ -217,7 +190,7 @@ test("inbox: new links wait there until a decision, triage Esc goes back to it, 
     const { api } = await import("/src/services/api.ts");
     for (const b of (await api.getBookmarks({ onlyInbox: true })).items) await api.updateBookmark(b.id, { notes: "Decided" });
   });
-  await bell.click();
+  await bell(page).click();
   await expect(waiting).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Inbox", exact: true }).click();
@@ -438,10 +411,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
     ["https://example.com/c", "Third new"],
   ])
     await add(url, name);
-  await page.evaluate(() => {
-    (window as unknown as { opened: string[] }).opened = [];
-    window.open = (url) => ((window as unknown as { opened: string[] }).opened.push(String(url)), null);
-  });
+  await stubBrowser(page);
   await openTriage(page);
   await expect(heading).toHaveText(/Sort inbox\s*1 of 5/);
   await expect(title).toHaveText("Third new");
@@ -459,7 +429,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await expect(toast).toContainText("Tag «urgent» added");
   await expect(page.locator("[data-keys]").getByText("#urgent")).toBeVisible();
   await page.keyboard.press("Space");
-  expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual(["https://example.com/c"]);
+  expect(await opened(page)).toEqual(["https://example.com/c"]);
   await expect(heading).toHaveText(/1 of 5/);
 
   // A number files and moves on; ← to the trash; Z brings it back to the card.
@@ -870,35 +840,23 @@ test("export: saved says how many and offers Show; cancelled says nothing; a fai
   await expect(toast).toContainText("5 bookmarks saved to koona-pin.csv");
 });
 
-/** A JSON copy as Export writes it: one bookmark the demo has, one waiting in the inbox, one in the trash. */
-async function copyFile(page: import("@playwright/test").Page, edit: (copy: Record<string, unknown>) => void = () => {}) {
+/** A JSON copy: one bookmark the demo has, one waiting in the inbox, one in the trash. */
+async function copyFile(page: import("@playwright/test").Page, edit?: (copy: Record<string, unknown>) => void) {
   const existing = await page.evaluate(async () => {
     const { api } = await import("/src/services/api.ts");
     return (await api.getBookmarks()).items[0].url;
   });
-  const at = "2026-09-01T10:00:00.000Z";
-  const bookmark = (uid: string, url: string, title: string, more: Record<string, unknown> = {}) => ({
-    uid, url, title, description: null, notes: null, domain: new URL(url).hostname, image_url: null, favicon_url: null, site_name: null,
-    is_favorite: false, collection: null, tags: [], source: "import", created_at: at, updated_at: at, triaged_at: at, deleted_at: null, ...more,
-  });
-  const copy: Record<string, unknown> = {
-    format: "koona-pin",
-    version: 1,
-    exported_at: "2026-10-04T18:20:00.000Z",
-    app_version: "0.1.0",
-    collections: [
-      { uid: "c1", name: "Restored", color: null, icon: null, created_at: at },
-      { uid: "c2", name: "One more", color: null, icon: null, created_at: at },
-    ],
-    tags: [{ uid: "t1", name: "from-the-copy", created_at: at }],
-    bookmarks: [
-      bookmark("b1", existing, "Already here"),
-      bookmark("b2", "https://restored.example/inbox", "Waiting to be sorted", { triaged_at: null, collection: "c1", tags: ["from-the-copy"] }),
-      bookmark("b3", "https://restored.example/trash", "Was in the trash", { deleted_at: at }),
-    ],
-  };
-  edit(copy);
-  return { name: "koona-pin-2026-10-04.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) };
+  const collections = [
+    { uid: "c1", name: "Restored", color: null, icon: null, created_at: copiedAt },
+    { uid: "c2", name: "One more", color: null, icon: null, created_at: copiedAt },
+  ];
+  const tags = [{ uid: "t1", name: "from-the-copy", created_at: copiedAt }];
+  const bookmarks = [
+    copyBookmark("b1", existing, "Already here"),
+    copyBookmark("b2", "https://restored.example/inbox", "Waiting to be sorted", { triaged_at: null, collection: "c1", tags: ["from-the-copy"] }),
+    copyBookmark("b3", "https://restored.example/trash", "Was in the trash", { deleted_at: copiedAt }),
+  ];
+  return jsonCopy({ collections, tags, bookmarks }, edit);
 }
 async function openRestore(page: import("@playwright/test").Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   await page.getByRole("button", { name: "More", exact: true }).click();
@@ -1731,12 +1689,7 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await selectCards(page, three);
   // Sheet S3: the bar counts them; its keys are in the hints of its buttons (#319).
   await expect(bar.getByRole("status")).toHaveText("3 selected");
-  const opened: string[] = [];
-  await page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    (window as unknown as { opened: string[] }).opened = [];
-    api.openUrl = async (url: string) => void (window as unknown as { opened: string[] }).opened.push(url);
-  });
+  await stubBrowser(page);
 
   // From the preview of a selected card onto «Development»: the stack, the targets, the hint.
   const preview = page.locator("[data-bookmark-id][data-selected] [data-preview]").first();
@@ -1753,7 +1706,7 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await expect(page.locator("[data-drag-stack]")).toHaveCount(0);
   await expect(sidebar.getByRole("button", { name: /^Development/ })).toContainText("3");
   // The drop did not open the card it started on, and the selection stays.
-  expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual(opened);
+  expect(await opened(page)).toEqual([]);
   await expect(bar.getByRole("status")).toHaveText("3 selected");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(notice(page, "Undone for 2 bookmarks")).toBeVisible();

@@ -1,4 +1,5 @@
 import { test, expect, Page, Locator } from "@playwright/test";
+import { openApp, opened, stubBrowser } from "../fixtures/app";
 
 // NP-124 (Р-69, points 5, 7 and 9, frames B8 and B10): the Aa panel of the reading mode — size,
 // column, theme, font — with Supporter's Paper and Sepia locked on a free plan (both fonts free), and
@@ -7,31 +8,9 @@ import { test, expect, Page, Locator } from "@playwright/test";
 const TITLES = ["Ten principles for good design", "The architecture of silence", "Typography is a voice", "Interfaces that stay out of the way"];
 
 async function boot(page: Page, { plan = "free", theme = "light", width = 1440, height = 900 }: { plan?: "free" | "supporter"; theme?: string; width?: number; height?: number } = {}) {
-  await page.setViewportSize({ width, height });
-  await page.goto("/");
-  await page.evaluate(
-    ({ plan, theme }) => {
-      for (const key of Object.keys(localStorage)) if (key.startsWith("koonapin.")) localStorage.removeItem(key);
-      localStorage.setItem("koonapin.demo.supporter", plan);
-      localStorage.setItem("koonapin.theme", theme);
-      localStorage.setItem("koonapin.language", "en");
-      localStorage.setItem("koonapin.view", "grid");
-    },
-    { plan, theme },
-  );
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+  await openApp(page, { viewport: { width, height }, clear: true, settings: { "demo.supporter": plan, theme, language: "en", view: "grid" } });
   await stubBrowser(page);
 }
-
-/** The browser is a list of addresses: nothing leaves the test. */
-const stubBrowser = (page: Page) =>
-  page.evaluate(async () => {
-    const { api } = await import("/src/services/api.ts");
-    (window as unknown as { opened: string[] }).opened = [];
-    api.openUrl = async (url: string) => void (window as unknown as { opened: string[] }).opened.push(url);
-  });
-const opened = (page: Page) => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
 
 const mode = (page: Page) => page.locator("[data-reading-mode]");
 const aa = (page: Page) => mode(page).locator("button[data-reader-aa]");

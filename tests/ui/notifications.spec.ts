@@ -1,20 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
+import { bell, centre, openApp, openTriage, opened, stubBrowser } from "../fixtures/app";
 
 // The notification centre (2026-10-16): the inbox waiting, the import offer and a browser that
 // can't send bookmarks wait behind the bell in the sidebar instead of banners over the library.
-const open = async (page: Page, setup: Record<string, string> = {}) => {
-  await page.goto("/");
-  await page.evaluate((setup) => {
-    localStorage.removeItem("koonapin.demo.v4");
-    // The preview follows no feeds here: Serious Eats notifies of new posts (feeds-follow.spec.ts covers that).
-    localStorage.setItem("koonapin.demo.feeds", "empty");
-    for (const [key, value] of Object.entries(setup)) localStorage.setItem(`koonapin.${key}`, value);
-  }, setup);
-  await page.reload();
-  await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
-};
-const bell = (page: Page) => page.locator("[data-notification-bell]");
-const centre = (page: Page) => page.getByRole("dialog", { name: "Notifications" });
+// The preview follows no feeds here: Serious Eats notifies of new posts (feeds-follow.spec.ts covers that).
+const open = (page: Page, settings: Record<string, string> = {}) => openApp(page, { settings: { "demo.feeds": "empty", ...settings }, cards: 6 });
 
 test("the badge counts the unread; opening reads them, a newer bookmark is unread again; the bell toggles the centre, a click outside closes it", async ({ page }) => {
   await open(page, { importBanner: "show" });
@@ -78,22 +68,14 @@ test("triage from the centre: Sort opens it over the inbox, says a starter link 
   await page.evaluate((list) => localStorage.setItem("koonapin.demo.starter", JSON.stringify(list)), ids);
   await page.reload();
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(6);
-  // The browser is a list of addresses: nothing leaves the test.
-  await page.evaluate(async () => {
-    const w = window as unknown as { opened: string[] };
-    w.opened = [];
-    window.open = (url) => (w.opened.push(String(url)), null);
-    const { api } = await import("/src/services/api.ts");
-    api.openUrl = async (url: string) => void w.opened.push(url);
-  });
-  await bell(page).click();
-  await centre(page).getByRole("button", { name: "Sort", exact: true }).click();
+  await stubBrowser(page);
+  await openTriage(page);
   await expect(centre(page)).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/Sort inbox\s*1 of 2/);
   await expect(page.locator("[data-triage-card]")).toContainText(/added by Koona Pin /);
   // NP-123: Space in triage opens the browser, not the reading sheet.
   await page.keyboard.press("Space");
-  expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toHaveLength(1);
+  expect(await opened(page)).toHaveLength(1);
   await expect(page.locator("dialog[data-reading-sheet]")).toHaveCount(0);
 });
 
