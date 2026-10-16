@@ -2,7 +2,7 @@ import { ChangeEvent, ReactNode, useEffect, useState } from "react";
 import { CircleCheck, FileText, Folder, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
-import { CaptureStatus, Collection, ImportProgress, ImportSummary, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
+import { CaptureStatus, ImportProgress, ImportSummary, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
 import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
@@ -23,7 +23,6 @@ import { Icon } from "../icons";
 import { Button, buttonClass } from "../ui/Button";
 import { Dot, Field, Segmented, StatePanels, TabPanels } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
-import { CollectionSelect, TagInput } from "./Fields";
 
 /** Runs an action, keeps the dialog and its input on failure. */
 function useAction() {
@@ -73,79 +72,6 @@ export const Footer = ({ children }: { children: ReactNode }) => <footer classNa
 export const Scrolling = ({ children }: { children: ReactNode }) => (
   <div className="-m-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-1">{children}</div>
 );
-
-export function AddLinkDialog({
-  collections,
-  collectionId,
-  onAdd,
-  onClose,
-}: {
-  collections: Collection[];
-  collectionId: number | null;
-  onAdd: (data: { url: string; title?: string; collectionId: number | null; tags: string[] }) => Promise<void>;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const { busy, error, setError, run } = useAction();
-  const [url, setUrl] = useState("");
-  const [title, setTitle] = useState("");
-  const [collection, setCollection] = useState(collectionId);
-  const [tags, setTags] = useState<string[]>([]);
-  return (
-    <Dialog title={t("add.title")} onClose={() => !busy && onClose()}>
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void run(() =>
-            onAdd({
-              url: url.trim(),
-              title: title.trim() || undefined,
-              collectionId: collection,
-              tags,
-            }),
-          );
-        }}
-      >
-        <p className="text-sm text-muted">{t("add.lead")}</p>
-        <Field label={t("add.url")}>
-          {(id) => (
-            <div className="flex flex-col gap-1.5">
-              <input id={id} autoFocus required type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" className="field" />
-              <button
-                type="button"
-                className="self-start text-xs text-muted hover:text-ink"
-                onClick={() => {
-                  void navigator.clipboard
-                    .readText()
-                    .then((text) => setUrl(text.trim()))
-                    .catch(() => setError(t("add.clipboardUnavailable")));
-                }}
-              >
-                {t("add.paste")}
-              </button>
-            </div>
-          )}
-        </Field>
-        <Field label={t("add.name")}>
-          {(id) => <input id={id} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("add.optional")} className="field" />}
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("editor.collection")}>
-            {(id) => <CollectionSelect id={id} value={collection} collections={collections} onChange={setCollection} />}
-          </Field>
-          <Field label={t("editor.tags")}>{(id) => <TagInput id={id} tags={tags} onChange={setTags} />}</Field>
-        </div>
-        <Failure error={error} reserve />
-        <Footer>
-          <Button variant="primary" size="lg" type="submit" disabled={busy}>
-            {busy ? t("add.saving") : t("add.save")}
-          </Button>
-        </Footer>
-      </form>
-    </Dialog>
-  );
-}
 
 /** Frame 28: the file and where to put it, progress, the report, an error with nothing changed. */
 export function ImportDialog({

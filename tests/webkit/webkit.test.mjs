@@ -65,10 +65,11 @@ describe(`WebKitGTK: ${app} under ${process.env.WAYLAND_DISPLAY ? "Wayland" : "X
   });
 
   it("adds a link by hand into SQLite", async () => {
-    await (await page.role("button", "Add link")).click();
+    await (await page.role("button", "New link")).click();
     await (await page.label("Link")).fill("https://example.invalid/native-ui");
+    await (await page.role("button", "Title and tags")).click();
     await (await page.label("Title")).fill("SQLite check");
-    await (await page.label("Collection")).select("Development");
+    await (await page.role("button", "Development")).click();
     await (await page.role("button", "Save link")).click();
     await page.count("[data-bookmark-id]", 1);
     assert.equal((await page.invoke("get_counts")).total, 1);

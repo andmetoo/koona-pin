@@ -94,6 +94,17 @@ Radii: `rounded-sm` 6, `rounded-md` 7, `rounded-lg` 8 px for controls; `rounded-
 - Space for previews, titles and metadata is reserved; late metadata never shifts the layout.
 - Focus is always visible: a 2 px accent ring with a 2 px gap (`:focus-visible`); fields use the `field` utility (1 px border, accent border and 3 px halo on focus). Escape closes a layer and returns focus.
 
+## Adding a link
+
+- «New link» is the first control of the sidebar, between the logo row and search: the ink button (`bg-ink-btn`), 36 px high, radius 10, full width, a plus, the label and `⌘N` / `Ctrl N` on the right. In the narrow strip it is a round 36 px ink «+» under the bell, named by its hint. The toolbar has no Add.
+- The button and `⌘N` open a glass sheet (`AddSheet`, `.add-sheet`): 460 px, 72 px from the top, the card at 86 % over a 28 px blur, on a scrim of the background at 40 % with a 3 px blur. A 48 px field with the focus; under it one reserved 64 px slot for the hint, the clipboard's link (only when the system lets it be read without asking), the preview (shimmer while the library is asked about the site) or an error; chips for where it goes (Library, Inbox, Reading) and the collection, the suggested one chosen; title and tags behind «Title and tags»; `↵` / `Esc` hints, Cancel and the ink «Save link». Chosen chips get a 1.5 px ink ring.
+- `⌘V` in the library and a link dropped on the window save at once. A dragged link frosts the whole window (`.drop-veil`: the background at 70 %, 6 px blur, a 2 px ink edge, an ink circle that bobs). Files and the app's own drags never light it; Tauri's own drop handling is off (`dragDropEnabled: false`).
+- The saved card lands first with a 600 ms spring and an ink ring that fades over 1.6 s; the notice is a glass toast with a check: «Saved to Design · Undo». Without motion the card is simply there.
+
+## Sidebar sections
+
+- «Collections» and «Tags» fold from their header, a button with `aria-expanded`: the height eases over 240 ms, a 12 px chevron turns, a folded header shows the count («Collections 4»). Each section remembers its state. The collections' «+» opens a folded section first. While the selection is dragged, 600 ms over a folded header opens it for that drag.
+
 ## Where things live
 
 - Tokens, theme, fonts, base styles, utilities: `src/styles/app.css`.

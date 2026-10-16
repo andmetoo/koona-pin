@@ -13,7 +13,6 @@ import {
   LayoutGrid,
   List,
   MoreHorizontal,
-  Plus,
   Unlink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -50,7 +49,6 @@ export interface ToolbarProps {
   /** Links a check found broken or moved (NP-036): the count of «Проверка ссылок» and the section. */
   links: number;
   onLinks: () => void;
-  onAdd: () => void;
   /** «Read» in the right corner (Р-69, frame R0): the reading mode drops from it. */
   onRead: () => void;
   readRef?: React.Ref<HTMLButtonElement>;
@@ -59,7 +57,7 @@ export interface ToolbarProps {
 /** The toolbar's outlined buttons: radius 9, a 1 px line and a faint lift (2026-10-16). */
 const toolButton = "rounded-[9px] border border-line shadow-button transition-colors duration-150 hover:bg-hover";
 
-/** One row 36 px (frame 01): title and count, search (a narrow window only), order, view, «⋯», «Add». */
+/** One row 36 px (frame 01): title and count, search (a narrow window only), order, view, «⋯», «Read»; adding is in the sidebar. */
 export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolbar(props, searchRef) {
   const { t } = useTranslation();
   const more = useRef<HTMLButtonElement>(null);
@@ -196,10 +194,6 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           ]}
         />
       )}
-      <Button variant="primary" size="lg" onClick={props.onAdd} aria-label={t("toolbar.add")} className="!rounded-[9px] shadow-primary">
-        <Icon icon={Plus} size={14} strokeWidth={2} absoluteStrokeWidth />
-        {t("toolbar.addShort")}
-      </Button>
       {/* In a narrow window the word gives way to the book; the hint names it. */}
       <Hint label={t("readingMode.read")} show={props.narrow}>
         <Button

@@ -2204,3 +2204,440 @@
     transition-duration: 0s !important;
   }
 }
+
+/* Adding a link (2026-10-16, variant C): «New link» in the sidebar opens a glass sheet near the
+   top of the window over a lightly blurred scrim; a link dragged over the window lights a frosted
+   veil; the saved card lands first with a short spring and a fading ink ring; a glass toast. */
+@layer components {
+  .add-sheet {
+    width: 460px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 100px);
+    margin: 72px auto auto;
+    padding: 0;
+    overflow: auto;
+    border: 0;
+    border-radius: 20px;
+    color: var(--np-ink);
+    background: color-mix(in oklab, var(--np-card) 86%, transparent);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    box-shadow:
+      0 30px 70px -20px rgb(0 0 0 / 0.42),
+      0 2px 6px rgb(0 0 0 / 0.06),
+      inset 0 0 0 1px var(--np-line);
+    animation: add-sheet-in 260ms var(--spring);
+  }
+  .add-sheet::backdrop {
+    background: color-mix(in oklab, var(--np-bg) 40%, transparent);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    animation: add-fade 200ms var(--ease-standard);
+  }
+  @keyframes add-sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.97);
+    }
+  }
+  @keyframes add-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  .add-sheet-body {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+  }
+  .add-big {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 48px;
+    padding: 0 8px 0 14px;
+    border-radius: 13px;
+    background: var(--np-card);
+    box-shadow: inset 0 0 0 1px var(--np-border);
+    transition: box-shadow 140ms var(--ease-standard);
+  }
+  .add-big:focus-within {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--np-ink) 35%, var(--np-border)),
+      0 0 0 4px color-mix(in oklab, var(--np-ink) 7%, transparent);
+  }
+  .add-big input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--np-ink);
+    font: inherit;
+    font-size: 15px;
+  }
+  .add-big input::placeholder {
+    color: var(--np-subtle);
+  }
+  .add-cap {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: var(--np-well);
+    color: var(--np-muted);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: inset 0 -1px 0 var(--np-hairline);
+  }
+  /* One height for every state under the field (NP-118): hint, clipboard, preview, error. */
+  .add-slot {
+    display: grid;
+    align-items: center;
+    min-height: 64px;
+    margin-top: 8px;
+  }
+  .add-note {
+    margin: 0;
+    padding: 0 8px;
+    color: var(--np-subtle);
+    font-size: 12.5px;
+  }
+  .add-note.is-warn {
+    color: var(--np-muted);
+  }
+  .add-note.is-error {
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: var(--np-danger-soft);
+    color: var(--np-on-danger-soft);
+    font-size: 13px;
+  }
+  .add-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px;
+    border-radius: 12px;
+  }
+  .add-thumb {
+    position: relative;
+    display: block;
+    flex: none;
+    width: 72px;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    border-radius: 8px;
+    background: var(--np-well);
+    box-shadow: 0 0 0 1px var(--np-hairline);
+  }
+  .add-shimmer {
+    display: block;
+    background: linear-gradient(100deg, var(--np-well) 30%, var(--np-hover) 50%, var(--np-well) 70%);
+    background-size: 200% 100%;
+    animation: add-shimmer 1.2s linear infinite;
+  }
+  @keyframes add-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+  .add-clip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 10px;
+    border-radius: 12px;
+    background: var(--np-well);
+    font-size: 12.5px;
+  }
+  .add-ink-btn {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--np-ink-btn);
+    color: var(--np-on-ink-btn);
+    transition: background-color 140ms var(--ease-standard);
+  }
+  .add-ink-btn:hover {
+    background: var(--np-ink-btn-hover);
+  }
+  .add-ink-btn:disabled {
+    opacity: 0.6;
+  }
+  .add-small-btn {
+    flex: none;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: inset 0 0 0 1px var(--np-border);
+  }
+  .add-small-btn:hover {
+    background: var(--np-hover);
+  }
+  .add-opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 10px 4px 4px;
+    border-top: 1px solid var(--np-line);
+  }
+  .add-opts-line {
+    width: 1px;
+    margin: 4px 2px;
+    background: var(--np-line);
+  }
+  .add-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 11px;
+    border-radius: 14px;
+    color: var(--np-muted);
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: inset 0 0 0 1px var(--np-border);
+    transition:
+      background-color 140ms var(--ease-standard),
+      color 140ms var(--ease-standard),
+      box-shadow 140ms var(--ease-standard);
+  }
+  .add-chip:hover:not(:disabled) {
+    color: var(--np-ink);
+    background: var(--np-card);
+  }
+  .add-chip.is-on {
+    color: var(--np-ink);
+    background: var(--np-card);
+    box-shadow: inset 0 0 0 1.5px var(--np-ink);
+  }
+  .add-chip:disabled {
+    opacity: 0.4;
+  }
+  .add-more {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    gap: 5px;
+    margin: 6px 0 0 4px;
+    padding: 3px 6px 3px 4px;
+    border-radius: 7px;
+    color: var(--np-muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .add-more:hover {
+    color: var(--np-ink);
+    background: var(--np-hover);
+  }
+  .add-more-chevron {
+    transform: rotate(-90deg);
+    transition: transform 200ms var(--ease-standard);
+  }
+  .add-more[aria-expanded="true"] .add-more-chevron {
+    transform: none;
+  }
+  .add-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 4px 2px;
+  }
+  .add-keys {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    color: var(--np-subtle);
+    font-size: 11.5px;
+  }
+  .add-keys > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .add-cancel {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    color: var(--np-muted);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .add-cancel:hover {
+    color: var(--np-ink);
+    background: var(--np-hover);
+  }
+
+  /* A link dragged over the window: the whole window frosts, an ink circle bobs in the middle. */
+  .drop-veil {
+    position: fixed;
+    inset: 10px;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    text-align: center;
+    pointer-events: none;
+    background: color-mix(in oklab, var(--np-bg) 70%, transparent);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    box-shadow: inset 0 0 0 2px var(--np-ink);
+    animation: add-fade 160ms var(--ease-standard);
+  }
+  .drop-veil-ring {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    background: var(--np-ink-btn);
+    color: var(--np-on-ink-btn);
+    animation: drop-bob 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes drop-bob {
+    to {
+      transform: translateY(-6px);
+    }
+  }
+
+  /* The card of a link just saved: it lands with a short spring, an ink ring fades from it. */
+  [data-fresh] .card-ring,
+  [data-fresh][data-bookmark-row] {
+    animation: card-land 600ms var(--spring);
+  }
+  .card-landing {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 2px var(--np-ink);
+    animation: card-landing 1.6s 400ms var(--ease-standard) forwards;
+  }
+  @keyframes card-land {
+    from {
+      opacity: 0;
+      transform: translateY(-14px) scale(0.92);
+    }
+  }
+  @keyframes card-landing {
+    to {
+      box-shadow: inset 0 0 0 2px transparent;
+    }
+  }
+
+  /* A notice in glass (2026-10-16): «Saved to Design · Undo» after a link is added. */
+  .glass-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 4px 6px 4px 14px;
+    border-radius: 12px;
+    color: var(--np-ink);
+    font-size: 13px;
+    background: var(--np-glass-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow:
+      var(--np-glass-shadow),
+      inset 0 1px 0 var(--np-glass-edge),
+      inset 0 0 0 1px var(--np-glass-line);
+    animation: glass-toast-in 300ms var(--spring);
+  }
+  .glass-toast:not([data-docked]) {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    z-index: 40;
+    max-width: calc(100vw - 32px);
+    transform: translateX(-50%);
+  }
+  .glass-toast button {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color 140ms var(--ease-standard);
+  }
+  .glass-toast button:hover {
+    background: var(--np-hover);
+  }
+  @keyframes glass-toast-in {
+    from {
+      opacity: 0;
+      translate: 0 10px;
+    }
+  }
+
+  /* «Collections» and «Tags» fold (2026-10-16): the height eases, the chevron turns. */
+  .side-fold {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 240ms var(--ease-standard);
+  }
+  .side-fold[data-folded] {
+    grid-template-rows: 0fr;
+  }
+  .side-fold > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+  /* Folded, the rows are gone once the height has eased away: no hover, no reader finds them. */
+  .side-fold[data-folded] > * {
+    visibility: hidden;
+    transition: visibility 0s 240ms;
+  }
+  /* Open and still: the rings of a focused row and the hints under it are not clipped. */
+  .side-fold[data-settled] > * {
+    overflow: visible;
+  }
+  .side-fold-chevron {
+    transition: transform 200ms var(--ease-standard);
+  }
+  [aria-expanded="false"] > .side-fold-chevron {
+    transform: rotate(-90deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* A link just saved is simply there; the sheet, the veil and the sections appear in place. */
+  [data-fresh] .card-ring,
+  [data-fresh][data-bookmark-row],
+  .card-landing,
+  .drop-veil-ring,
+  .add-sheet,
+  .glass-toast {
+    animation: none;
+  }
+  .card-landing {
+    display: none;
+  }
+  .side-fold {
+    transition: none;
+  }
+}

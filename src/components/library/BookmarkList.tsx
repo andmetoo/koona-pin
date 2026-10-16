@@ -233,6 +233,7 @@ export function BookmarkList({
   onDragStart,
   dragging,
   arrowsRef,
+  fresh = null,
 }: {
   view: ViewMode;
   bookmarks: Bookmark[];
@@ -257,6 +258,8 @@ export function BookmarkList({
   dragging: boolean;
   /** Filled with `arrows`: App calls it for the arrow keys of the library (#319). */
   arrowsRef: RefObject<Arrows | null>;
+  /** A link just saved (2026-10-16): its card lands with a spring and a fading ink ring. */
+  fresh?: number | null;
 }) {
   const { t } = useTranslation();
   const box = useRef<HTMLDivElement>(null);
@@ -373,7 +376,7 @@ export function BookmarkList({
                 style={{ ...style, height: cardHeight, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, columnGap: gapX }}
               >
                 {row.map((b) => (
-                  <BookmarkCard key={b.id} bookmark={b} collections={collections} actions={actions} selected={selected.has(b.id)} dense={dense} />
+                  <BookmarkCard key={b.id} bookmark={b} collections={collections} actions={actions} selected={selected.has(b.id)} dense={dense} fresh={b.id === fresh} />
                 ))}
               </div>
             );
@@ -394,6 +397,7 @@ export function BookmarkList({
                   actions={actions}
                   compact={compact}
                   selected={selected.has(entry.bookmark.id)}
+                  fresh={entry.bookmark.id === fresh}
                 />
               )}
             </div>

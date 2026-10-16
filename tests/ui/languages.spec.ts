@@ -257,7 +257,7 @@ for (const code of codes) {
       if (clearBox.x + clearBox.width > barBox.x + barBox.width - 7) found["selection"].push("the selection bar overflows");
       await page.keyboard.press("Escape");
 
-      await page.getByRole("button", { name: t("toolbar.add") }).first().click();
+      await page.getByRole("button", { name: t("sidebar.newLink") }).first().click();
       await shot("add-dialog");
       await page.keyboard.press("Escape");
 

@@ -36,7 +36,7 @@ test("search, favorites and list view", async ({ page }) => {
   await expect(page.locator('[data-view="list"]')).toBeVisible();
 });
 test("dialog restores focus and editor persists collection clearing", async ({ page }) => {
-  const add = page.getByRole("button", { name: "Add link", exact: true });
+  const add = page.getByRole("button", { name: "New link", exact: true });
   // WebKit on macOS does not focus a button on a mouse click. Test the keyboard-origin restore.
   await add.focus();
   await add.press("Enter");
@@ -261,18 +261,22 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
   await expect(row).toContainText("Design");
   await expect(row.getByRole("button", { name: "principles", exact: true })).toBeVisible();
 
-  // Added again by hand: back from the trash, waiting in the inbox.
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  // Added again by hand into the inbox: back from the trash, waiting there.
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://type.today/en");
+  await page.getByRole("dialog").getByRole("button", { name: "Inbox", exact: true }).click();
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(toast).toContainText("Back from Trash, waiting in Inbox");
   await expect(nav("Trash 0")).toBeVisible();
   await expect(nav("Inbox 3")).toBeVisible();
-  // Added once more: it is in the library already, and the notice says nothing changed.
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  // Added once more: the sheet knows it is in the library already, and saving changes nothing.
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://type.today/en");
+  const sheet = page.getByRole("dialog", { name: "Add link" });
+  await expect(sheet.locator("[data-add-preview=existing]")).toContainText("Already in your library");
   await page.getByRole("button", { name: "Save link" }).click();
-  await expect(toast).toContainText("This link is already in the library; nothing changed");
+  await expect(sheet.locator("[data-add-preview=existing]")).toContainText("Typography is a voice");
+  await page.keyboard.press("Escape");
   await expect(nav("Inbox 3")).toBeVisible();
 
   // An import leaves a link in the trash where it is and says so.
@@ -379,8 +383,9 @@ test("undo: Ctrl Z takes actions back one by one, a decision returns to the inbo
   // Saved again from the trash meanwhile: «to the trash» is not undone over it.
   await card(3).click({ button: "right" });
   await page.getByRole("menuitem", { name: "Move to trash" }).click();
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://type.today/en");
+  await page.getByRole("dialog").getByRole("button", { name: "Inbox", exact: true }).click();
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(toast).toContainText("Back from Trash, waiting in Inbox");
   await page.keyboard.press("ControlOrMeta+z");
@@ -742,8 +747,9 @@ test("save errors preserve entered data and HTML import skips duplicate and unsu
       return original(data);
     };
   });
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://example.com/new-link");
+  await page.getByRole("button", { name: "Title and tags" }).click();
   await page.getByLabel("Title", { exact: true }).fill("My find");
   await page.getByRole("button", { name: "Save link" }).click();
   await expect(page.getByRole("alert")).toContainText("Could not write the link");
@@ -773,14 +779,14 @@ test("command errors speak the interface's language, never the app's English alo
     await page.getByLabel(field, { exact: true }).fill(link);
     await page.getByRole("button", { name: button }).click();
   };
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await save("ftp://example.com/file", "Save link", "Link");
   await expect(page.getByRole("alert")).toHaveText("Only http:// and https:// links can be saved.");
   await page.keyboard.press("Escape");
 
   await page.evaluate(() => localStorage.setItem("koonapin.language", "ru"));
   await page.reload();
-  await page.getByRole("button", { name: "Добавить ссылку", exact: true }).click();
+  await page.getByRole("button", { name: "Новая ссылка", exact: true }).click();
   await save("ftp://example.com/file", "Сохранить ссылку", "Ссылка");
   await expect(page.getByRole("alert")).toHaveText("Сохранить можно только ссылки http:// и https://.");
   // A failure without words of its own: the sentence is Russian, the app's text a detail.
@@ -1031,7 +1037,7 @@ test("backup: the settings explain copies, the dialog lists them, asks with the 
 
 test("duplicates: the section groups the same page, the main one is chosen, merge keeps everything and Ctrl Z takes it back", async ({ page }) => {
   const add = async (url: string) => {
-    await page.getByRole("button", { name: "Add link", exact: true }).click();
+    await page.getByRole("button", { name: "New link", exact: true }).click();
     await page.getByLabel("Link", { exact: true }).fill(url);
     await page.getByRole("button", { name: "Save link" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -1091,7 +1097,7 @@ test("duplicates: the section groups the same page, the main one is chosen, merg
 
 test("link check: the person starts it, results come in groups, replace and trash are undone with Ctrl Z", async ({ page }) => {
   const add = async (url: string) => {
-    await page.getByRole("button", { name: "Add link", exact: true }).click();
+    await page.getByRole("button", { name: "New link", exact: true }).click();
     await page.getByLabel("Link", { exact: true }).fill(url);
     await page.getByRole("button", { name: "Save link" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -2256,7 +2262,7 @@ test("covers: no empty plates; a site keeps its colour; a fresh link shimmers; h
   // A link added in the demo waits a moment, as the app would, then shows its cover.
   // At the top of the list: further down a new link waits behind «New bookmarks».
   await page.locator('[data-scroll="main"]').evaluate((el) => el.scrollTo({ top: 0 }));
-  await page.getByRole("button", { name: "Add link", exact: true }).click();
+  await page.getByRole("button", { name: "New link", exact: true }).click();
   await page.getByLabel("Link", { exact: true }).fill("https://example.net/added");
   await page.getByRole("button", { name: "Save link" }).click();
   const added = page.locator("[data-bookmark-id]", { hasText: "example.net" });
