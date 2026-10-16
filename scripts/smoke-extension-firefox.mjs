@@ -160,10 +160,13 @@ const limit = setTimeout(() => {
 }, 10 * 60 * 1000);
 
 let session, page;
+/** `value` as a JavaScript literal: JSON with the characters that could end or break out of it escaped. */
+const literal = (value) =>
+  JSON.stringify(value).replace(/[<>\/\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
 /** Runs an async function body in the options page; returns its JSON result. */
 async function run(body, arg = null) {
   const { result, exceptionDetails } = await session.send("script.evaluate", {
-    expression: `(async (arg) => { ${body} })(${JSON.stringify(arg)}).then((r) => JSON.stringify(r ?? null))`,
+    expression: `(async (arg) => { ${body} })(${literal(arg)}).then((r) => JSON.stringify(r ?? null))`,
     target: { context: page },
     awaitPromise: true,
   });
