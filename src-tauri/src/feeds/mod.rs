@@ -450,6 +450,8 @@ pub async fn subscribe_feed(
     let url = feed_url(&url)?;
     let feed = blocking(&state, move |conn| subscribe(conn, &url, title, destination).map_err(CommandError::from)).await?;
     changed(&app, &state).await;
+    // Its posts now, not at the next tick: «Save and follow» opens on them.
+    schedule::fetch_soon(&app, Some(feed.uid.clone()));
     Ok(feed)
 }
 
@@ -514,6 +516,7 @@ pub async fn accept_feed_move(
     let feed = blocking(&state, move |conn| move_to(conn, &moved, &to)).await?;
     cache::blocking(&feed_cache, move |conn| Ok(cache::clear_move(conn, &uid)?)).await?;
     changed(&app, &state).await;
+    schedule::fetch_soon(&app, Some(feed.uid.clone()));
     Ok(feed)
 }
 
@@ -644,7 +647,7 @@ pub async fn save_feed_item(
     id: i64,
     place: SavePlace,
     favorite: bool,
-) -> Result<Bookmark, CommandError> {
+) -> Result<FeedSave, CommandError> {
     let (db, feed_cache) = (state.inner().clone(), feed_cache.inner().clone());
     let library = db.clone();
     let saved = tauri::async_runtime::spawn_blocking(move || save::save_feed_item(&library, &feed_cache, id, place, favorite))
@@ -657,7 +660,18 @@ pub async fn save_feed_item(
         crate::capture::emit(&app, crate::capture::ChangeKind::Created, &saved.bookmark);
     }
     changed(&app, &state).await;
-    Ok(saved.bookmark)
+    Ok(FeedSave { bookmark: saved.bookmark, created: saved.created, command: saved.command })
+}
+
+/// What S, R or F did: the bookmark, whether this save made it (its «Undo»
+/// takes it away), and its journal command (⌘Z or «Undo» of a link brought
+/// back from the Trash). None for a link that was there and stays as it was.
+#[derive(Debug, Serialize, TS)]
+#[ts(export)]
+pub struct FeedSave {
+    pub bookmark: Bookmark,
+    pub created: bool,
+    pub command: Option<i64>,
 }
 
 /// ↻ and ⌘R: one feed or all of them now (NP-129).
@@ -687,7 +701,7 @@ pub async fn import_opml(app: AppHandle, state: State<'_, Arc<DbState>>, content
         .await
         .map_err(CommandError::internal)??;
     let progress = app.clone();
-    let report = blocking(&state, move |conn| {
+    let imported = blocking(&state, move |conn| {
         Ok(opml::import(conn, &outlines, |done, total| {
             let _ = progress.emit(
                 "import-progress",
@@ -696,8 +710,13 @@ pub async fn import_opml(app: AppHandle, state: State<'_, Arc<DbState>>, content
         })?)
     })
     .await?;
+    if let Some(feed_cache) = app.try_state::<Arc<cache::FeedCache>>() {
+        let named = imported.named;
+        cache::blocking(&feed_cache, move |conn| Ok(cache::name_feeds(conn, &named)?)).await?;
+    }
     changed(&app, &state).await;
-    Ok(report)
+    schedule::fetch_soon(&app, None);
+    Ok(imported.report)
 }
 
 /// What «Export feeds (OPML)…» did.
@@ -738,14 +757,23 @@ pub async fn export_opml(app: AppHandle, state: State<'_, Arc<DbState>>) -> Resu
 
 /// «Check for new posts» of Settings → Feeds: 0 (only on refresh) or 5 minutes to a day.
 #[tauri::command]
-pub async fn set_feeds_refresh_minutes(state: State<'_, Arc<DbState>>, minutes: u32) -> Result<(), CommandError> {
+pub async fn set_feeds_refresh_minutes(
+    app: AppHandle,
+    state: State<'_, Arc<DbState>>,
+    minutes: u32,
+) -> Result<(), CommandError> {
     if minutes != 0 && !(5..=24 * 60).contains(&minutes) {
         return Err(CommandError::invalid("Check feeds every 5 minutes to once a day, or only on refresh"));
     }
     blocking(&state, move |conn| {
         db::set_setting(conn, REFRESH_SETTING, &minutes.to_string()).map_err(CommandError::from)
     })
-    .await
+    .await?;
+    // A shorter interval holds from now, not after the waits the longer one set.
+    if let Some(feed_cache) = app.try_state::<Arc<cache::FeedCache>>() {
+        cache::blocking(&feed_cache, move |conn| Ok(schedule::shorten_waits(conn, chrono::Utc::now(), minutes)?)).await?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

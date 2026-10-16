@@ -75,6 +75,8 @@ pub struct FetchState {
     pub last_error: Option<String>,
     /// The feed's `<ttl>` from its last document, for the 304s after it.
     pub ttl_minutes: Option<u32>,
+    /// Its `Cache-Control: max-age` from the last answer, in seconds.
+    pub max_age_secs: Option<u64>,
 }
 
 impl FetchState {
@@ -224,7 +226,7 @@ fn time(raw: Option<String>) -> Option<DateTime<Utc>> {
 pub fn states(conn: &Connection) -> rusqlite::Result<HashMap<String, FetchState>> {
     conn.prepare(
         "SELECT feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error,
-            ttl_minutes
+            ttl_minutes, max_age_secs
          FROM feed_state",
     )?
     .query_map([], |r| {
@@ -240,6 +242,7 @@ pub fn states(conn: &Connection) -> rusqlite::Result<HashMap<String, FetchState>
                 failing_since: time(r.get(7)?),
                 last_error: r.get(8)?,
                 ttl_minutes: r.get(9)?,
+                max_age_secs: r.get(10)?,
             },
         ))
     })?
@@ -255,18 +258,21 @@ fn write_success(
     next: DateTime<Utc>,
     moved_to: Option<&str>,
     ttl: Option<Option<u32>>,
+    max_age: Option<u64>,
 ) -> rusqlite::Result<()> {
     let now = db::stamp(now);
     // `ttl`: a document's own (possibly none), or `None` for a 304, which keeps the last.
+    // `max_age` comes with every answer, a 304 too: this one's.
     let (write_ttl, ttl) = (ttl.is_some(), ttl.flatten());
     conn.execute(
-        "INSERT INTO feed_state (feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error, moved_to, ttl_minutes)
-         VALUES (?1, ?2, ?3, ?4, ?4, ?5, 0, NULL, NULL, ?6, ?7)
+        "INSERT INTO feed_state (feed_uid, etag, last_modified, fetched_at, succeeded_at, next_fetch_at, failures, failing_since, last_error, moved_to, ttl_minutes, max_age_secs)
+         VALUES (?1, ?2, ?3, ?4, ?4, ?5, 0, NULL, NULL, ?6, ?7, ?9)
          ON CONFLICT (feed_uid) DO UPDATE SET etag = excluded.etag, last_modified = excluded.last_modified,
              fetched_at = excluded.fetched_at, succeeded_at = excluded.succeeded_at, next_fetch_at = excluded.next_fetch_at,
              failures = 0, failing_since = NULL, last_error = NULL, moved_to = excluded.moved_to,
-             ttl_minutes = CASE WHEN ?8 THEN excluded.ttl_minutes ELSE ttl_minutes END",
-        params![uid, validators.etag, validators.last_modified, now, db::stamp(next), moved_to, ttl, write_ttl],
+             ttl_minutes = CASE WHEN ?8 THEN excluded.ttl_minutes ELSE ttl_minutes END,
+             max_age_secs = excluded.max_age_secs",
+        params![uid, validators.etag, validators.last_modified, now, db::stamp(next), moved_to, ttl, write_ttl, max_age.map(|s| s as i64)],
     )?;
     Ok(())
 }
@@ -492,13 +498,13 @@ fn store(
                     .max()
                     .or_else(|| last_post(&conn, uid));
                 let next = next_after_success(now, interval, feed.ttl_minutes, fetched.max_age, newest, jitter());
-                write_success(&conn, uid, &validators, now, next, moved_to.as_deref(), Some(feed.ttl_minutes))?;
+                write_success(&conn, uid, &validators, now, next, moved_to.as_deref(), Some(feed.ttl_minutes), fetched.max_age)?;
                 stored.new_ids
             }
             Outcome::NotModified { validators } => {
                 // The feed asked for its `<ttl>` in the last document; a 304 keeps to it.
                 let next = next_after_success(now, interval, state.ttl_minutes, fetched.max_age, last_post(&conn, uid), jitter());
-                write_success(&conn, uid, &validators, now, next, moved_to.as_deref(), None)?;
+                write_success(&conn, uid, &validators, now, next, moved_to.as_deref(), None, fetched.max_age)?;
                 Vec::new()
             }
             Outcome::Gone => {
@@ -569,6 +575,55 @@ pub async fn refresh(app: &AppHandle, mode: Mode) -> Result<Report, CommandError
         }
     }
     Ok(report)
+}
+
+/// A fetch without waiting for the next tick (NP-129): a feed just followed or
+/// moved (`Some`, fetched now), or what an import or sync brought (`None`: what
+/// is due, which a feed never fetched always is). In the background.
+pub fn fetch_soon(app: &AppHandle, feed_uid: Option<String>) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let mode = match feed_uid {
+            Some(uid) => Mode::Now { feed_uid: Some(uid) },
+            None => Mode::Tick,
+        };
+        if let Err(error) = refresh(&app, mode).await {
+            eprintln!("Fetching new feeds failed: {}", error.message);
+        }
+    });
+}
+
+/// A shorter interval takes effect now, not after each feed's old wait: a
+/// feed due later than it would be with the new interval is due then, as
+/// [`next_after_success`] would set it from now: its own `<ttl>` and the
+/// quiet rule still count, each with its own jitter, so they don't all come
+/// due at once. Failing and paused feeds keep their backoff. How many moved.
+pub fn shorten_waits(conn: &Connection, now: DateTime<Utc>, interval: u32) -> rusqlite::Result<usize> {
+    shorten_waits_with(conn, now, interval, jitter)
+}
+
+fn shorten_waits_with(conn: &Connection, now: DateTime<Utc>, interval: u32, mut jitter: impl FnMut() -> f64) -> rusqlite::Result<usize> {
+    if interval == 0 {
+        return Ok(0);
+    }
+    let waiting: Vec<(String, Option<String>, Option<u32>, Option<i64>)> = conn
+        .prepare("SELECT feed_uid, next_fetch_at, ttl_minutes, max_age_secs FROM feed_state WHERE failures = 0 AND last_error IS NULL")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    // One commit for them all, not one per feed.
+    let tx = conn.unchecked_transaction()?;
+    let mut moved = 0;
+    for (uid, next, ttl, max_age) in waiting {
+        let Some(next) = time(next) else { continue };
+        let max_age = max_age.and_then(|s| u64::try_from(s).ok());
+        let sooner = next_after_success(now, interval, ttl, max_age, last_post(&tx, &uid), jitter());
+        if sooner < next {
+            tx.execute("UPDATE feed_state SET next_fetch_at = ?1 WHERE feed_uid = ?2", params![db::stamp(sooner), uid])?;
+            moved += 1;
+        }
+    }
+    tx.commit()?;
+    Ok(moved)
 }
 
 /// Every subscription with the cache's counts and health (NP-131's
@@ -689,6 +744,32 @@ mod tests {
         assert_eq!(minutes(now, next_after_pause(now, 60, 7200, 0.0)), 120);
         assert_eq!(minutes(now, next_after_pause(now, 60, 60, 0.0)), 60);
         assert_eq!(minutes(now, next_after_pause(now, 60, u64::MAX, 0.0)), 1440);
+    }
+
+    /// A shorter interval holds at once, each feed with its own jitter and
+    /// `<ttl>`; failing feeds keep their backoff (NP-129).
+    #[test]
+    fn a_shorter_interval_brings_the_waits_forward() {
+        let conn = cache::open_in_memory().unwrap();
+        let now = clock(NOW);
+        let far = db::stamp(now + TimeDelta::hours(12));
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at) VALUES ('a', ?1), ('b', ?1)", [&far]).unwrap();
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at, ttl_minutes) VALUES ('slow', ?1, 180)", [&far]).unwrap();
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at, max_age_secs) VALUES ('cached', ?1, 21600)", [&far]).unwrap();
+        conn.execute("INSERT INTO feed_state (feed_uid, next_fetch_at, failures, last_error) VALUES ('bad', ?1, 3, 'timeout')", [&far]).unwrap();
+        let mut jitters = [-1.0, 1.0, 0.0, 0.0].into_iter();
+        assert_eq!(shorten_waits_with(&conn, now, 30, || jitters.next().unwrap_or(0.0)).unwrap(), 4);
+        let next = |uid: &str| -> String { conn.query_row("SELECT next_fetch_at FROM feed_state WHERE feed_uid = ?1", [uid], |r| r.get(0)).unwrap() };
+        let (a, b) = (next("a"), next("b"));
+        assert_ne!(a, b, "each its own jitter: not all due at once");
+        for at in [&a, &b] {
+            let minutes = (clock(at) - now).num_minutes();
+            assert!((27..=33).contains(&minutes), "{minutes}");
+        }
+        assert_eq!((clock(&next("slow")) - now).num_minutes(), 180, "its <ttl> still counts");
+        assert_eq!((clock(&next("cached")) - now).num_minutes(), 360, "and its max-age");
+        assert_eq!(next("bad"), far, "backoff stays");
+        assert_eq!(shorten_waits(&conn, now, 0).unwrap(), 0, "«Only when I refresh» brings nothing forward");
     }
 
     #[test]

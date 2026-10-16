@@ -40,7 +40,8 @@ describe("the preview's feeds", () => {
 
   it("saves a post as a bookmark from the feed and marks it read", async () => {
     const [post] = (await demo.listFeedItems({ feed_uid: "demo-feed-eats", unread_only: true, limit: 1 })).items;
-    const bookmark = await demo.saveFeedItem(post.id, "reading", true);
+    const { bookmark, created } = await demo.saveFeedItem(post.id, "reading", true);
+    expect(created).toBe(true);
     expect(bookmark).toMatchObject({ source: "feed", source_name: "Serious Eats", is_favorite: true, url: post.url });
     expect(bookmark.reading_at).not.toBeNull();
     const [saved] = (await demo.listFeedItems({ feed_uid: "demo-feed-eats", unread_only: false, search: post.title, limit: 1 })).items;

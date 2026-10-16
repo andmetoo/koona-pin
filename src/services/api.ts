@@ -25,6 +25,7 @@ import {
   FeedArticle,
   FeedDestination,
   FeedItemPage,
+  FeedSave,
   FeedItemQuery,
   FeedPreview,
   FeedsChanged,
@@ -402,8 +403,8 @@ const desktop = {
   /** One feed, or all of them with null, up to a fetch time; how many were marked. */
   markFeedRead: (feedUid: string | null, upTo: string | null) => call<number>("mark_feed_read", { feedUid, upTo }),
   /** S, R and F: the post as an ordinary bookmark, through the journal. */
-  saveFeedItem: (id: number, place: SavePlace, favorite: boolean) =>
-    call<Bookmark>("save_feed_item", { id, place, favorite }),
+  saveFeedItem: (id: number, place: SavePlace, favorite: boolean): Promise<FeedSave> =>
+    call<FeedSave>("save_feed_item", { id, place, favorite }),
   /** One feed, or all of them with null, now; progress comes through onFeedsRefresh. */
   refreshFeeds: (feedUid: string | null) => call<void>("refresh_feeds", { feedUid }),
   clearFeedCache: () => call<void>("clear_feed_cache"),

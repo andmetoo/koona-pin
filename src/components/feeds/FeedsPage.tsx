@@ -32,8 +32,15 @@ export interface FeedNotice {
  * and the article sheet beside it; in a narrow window one at a time. Its keys are its own window
  * listener with App's layer check: ↑/↓ J/K, Space or Enter, S R F O U, ⇧A and ⌘R.
  */
-/** A bookmark this save made: from a feed, a moment ago (a link saved before keeps its own source and age). */
-const madeJustNow = (bookmark: Bookmark) => bookmark.source === "feed" && Date.now() - Date.parse(bookmark.created_at) < 60_000;
+/**
+ * When the newest post of the feed shown (or of all feeds) arrived, as the page last
+ * heard: «Mark all read» stops there. From the feeds, not the list, which a search
+ * narrows and paging cuts short.
+ */
+const newestOf = (feeds: Feed[], feedUid: string | null) =>
+  feeds
+    .filter((f) => feedUid === null || f.uid === feedUid)
+    .reduce<string | null>((max, f) => (f.newest_at && (max === null || f.newest_at > max) ? f.newest_at : max), null);
 
 export function FeedsPage({
   feeds,
@@ -150,20 +157,34 @@ export function FeedsPage({
         await loadBookmark();
         return onNotice({ text: t("feeds.notice.unfavorited"), undo: onUndo(command) });
       }
-      const saved = await saveFeedItem(item.id, kind === "reading" ? "reading" : "library", kind === "favorite");
+      const result = await saveFeedItem(item.id, kind === "reading" ? "reading" : "library", kind === "favorite");
+      const saved = result.bookmark;
       // A link already in the library comes back as it was (saving never overwrites what
       // the person set), so R and F still do what they say, as undoable bulk actions.
-      let command: number | null = null;
-      if (kind === "reading" && !saved.reading_at)
+      let command = result.command;
+      let topped = false;
+      if (kind === "reading" && !saved.reading_at) {
         ({ command } = await api.bulkUpdate([saved.id], { action: "reading", reading: true }));
-      else if (kind === "favorite" && !saved.is_favorite)
+        topped = true;
+      } else if (kind === "favorite" && !saved.is_favorite) {
         ({ command } = await api.bulkUpdate([saved.id], { action: "favorite", favorite: true }));
-      // «Undo» takes away only a bookmark this save made, never one that was there before.
-      const fresh = item.bookmark_id === null && command === null && madeJustNow(saved);
-      if (command === null) setBookmark(saved);
-      else await loadBookmark();
-      const text = kind === "reading" ? t("notice.toReading") : kind === "favorite" ? t("feeds.notice.favorited") : t("add.savedTo", { place: t("import.library") });
-      onNotice({ text, undo: fresh ? () => onUnsave(saved.id) : command !== null ? onUndo(command) : undefined, glass: fresh });
+        topped = true;
+      }
+      if (topped) await loadBookmark();
+      else setBookmark(saved);
+      // «Undo» of a bookmark this save made takes it away; of a link brought back from the
+      // Trash, or one moved to Reading or Favorites, it is the journal's; else there is none.
+      const undo = result.created && !topped ? () => onUnsave(saved.id) : command !== null ? onUndo(command) : undefined;
+      // A link that was in the library already, live, stays where it is: the notice says so.
+      const there = !result.created && result.command === null && !topped;
+      const text = there
+        ? t("feeds.notice.alreadySaved")
+        : kind === "reading"
+          ? t("notice.toReading")
+          : kind === "favorite"
+            ? t("feeds.notice.favorited")
+            : t("add.savedTo", { place: t("import.library") });
+      onNotice({ text, undo, glass: result.created });
     } catch (err) {
       failed(err);
     }
@@ -171,8 +192,9 @@ export function FeedsPage({
   const toggleRead = () => {
     if (selected) void setFeedItemsRead([selected.id], !selected.read).catch(failed);
   };
+  // Up to the newest post the page knew of: one a check brought since stays new.
   const markAll = () =>
-    void markFeedRead(feedUid).then(
+    void markFeedRead(feedUid, newestOf(feeds, feedUid)).then(
       (count) => onNotice({ text: count ? t("feeds.notice.markedRead", { count }) : t("feeds.notice.allRead") }),
       failed,
     );
