@@ -1,6 +1,5 @@
 import { CircleArrowDown, createLucideIcon, type LucideIcon, type LucideProps } from "lucide-react";
-import spiritGreen from "../../design/brand/pin-spirit-flat/pin-spirit.svg";
-import spiritMint from "../../design/brand/pin-spirit-flat/pin-spirit-mint.svg";
+import spiritMark from "../../design/brand/pin-spirit-flat/pin-spirit-micro.svg";
 
 // One outline set (docs/design.md): 16 px frame, 1.5 px stroke,
 // round caps. Icons follow Lucide geometry (ISC licence, lucide.dev).
@@ -21,16 +20,19 @@ export const InboxTray = createLucideIcon("InboxTray", [
 ]);
 
 /**
- * The Pin Spirit mascot as the app logo (NP-081, Р-36): green body on the light theme,
- * mint on the dark one. The one-colour mark is only for small OS and browser icons.
+ * The Pin Spirit as the app logo in the sidebar (NP-081, Р-36): its one-colour mark, the
+ * silhouette of the app icon, painted in the accent through a mask, so it is green on the light
+ * theme and mint on the dark one. The owner chose it over the full-colour spirit with the card
+ * redesign (2026-10-16); the full spirit stays on the site, the store and the DMG.
  */
-export function Mascot({ size = 36, className = "" }: { size?: number; className?: string }) {
-  const width = Math.round((size * 880) / 916);
+export function Mascot({ size = 28, className = "" }: { size?: number; className?: string }) {
+  const mask = `url("${spiritMark}") center / contain no-repeat`;
   return (
-    <span className={`inline-flex shrink-0 ${className}`} style={{ width, height: size }} aria-hidden="true">
-      <img src={spiritGreen} width={width} height={size} alt="" draggable={false} className="dark:hidden" />
-      <img src={spiritMint} width={width} height={size} alt="" draggable={false} className="hidden dark:block" />
-    </span>
+    <span
+      className={`inline-block shrink-0 bg-accent ${className}`}
+      style={{ width: size, height: size, mask, WebkitMask: mask }}
+      aria-hidden="true"
+    />
   );
 }
 

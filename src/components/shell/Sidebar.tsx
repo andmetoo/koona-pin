@@ -171,7 +171,7 @@ export function Sidebar(props: SidebarProps) {
     return (
       <aside className="flex w-14 shrink-0 flex-col items-center gap-0.5 bg-panel py-3.5" aria-label={t("sidebar.label")}>
         <div className="mb-3 text-accent" data-tauri-drag-region>
-          <Mascot size={34} className="pointer-events-none" />
+          <Mascot size={30} className="pointer-events-none" />
         </div>
         <StripButton
           label={counts.inbox > 0 ? t("nav.inboxWaiting", { count: counts.inbox }) : t("nav.inbox")}
