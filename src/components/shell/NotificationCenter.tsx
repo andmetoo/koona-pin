@@ -15,8 +15,8 @@ import { Preview } from "../library/Bookmarks";
 export interface AppNotification {
   /** Read state is kept by this key: a new key is a new, unread notification. */
   key: string;
-  /** `problem` draws the icon and the bell's badge in amber. */
-  kind: "inbox" | "offer" | "problem";
+  /** `problem` draws the icon and the bell's badge in amber; `feeds` is new posts of feeds that notify (NP-133). */
+  kind: "inbox" | "offer" | "problem" | "feeds";
   icon: LucideIcon;
   title: string;
   text: string;
@@ -25,6 +25,8 @@ export interface AppNotification {
   /** The newest bookmarks it is about, a fan of up to three. */
   thumbs?: Bookmark[];
   action: { label: string; run: () => void };
+  /** A second, quieter action: «Unfollow» next to «Show» of a feed that isn't updating (NP-133). */
+  secondary?: { label: string; run: () => void };
   /** The ×; none for what can't be dismissed, such as a problem. */
   dismiss?: { label: string; run: () => void };
 }
@@ -265,7 +267,7 @@ export function NotificationCenter({
                           <span className="sr-only">{t("notifications.unread")}</span>
                         </span>
                       )}
-                      <span className="nt-icon">
+                      <span className={`nt-icon ${n.kind === "feeds" ? "bg-accent-soft text-accent" : ""}`}>
                         <Icon icon={n.icon} size={17} />
                       </span>
                       <p className="nt-title">
@@ -286,7 +288,7 @@ export function NotificationCenter({
                         <button
                           type="button"
                           data-notification-action
-                          className={`nt-button ${n.kind === "inbox" ? "nt-button-primary" : ""}`}
+                          className={`nt-button ${n.kind === "inbox" || n.kind === "feeds" ? "nt-button-primary" : ""}`}
                           onClick={() => {
                             close(false);
                             n.action.run();
@@ -294,6 +296,18 @@ export function NotificationCenter({
                         >
                           {n.action.label}
                         </button>
+                        {n.secondary && (
+                          <button
+                            type="button"
+                            className="nt-button"
+                            onClick={() => {
+                              close(false);
+                              n.secondary!.run();
+                            }}
+                          >
+                            {n.secondary.label}
+                          </button>
+                        )}
                       </div>
                       {n.dismiss && (
                         <button type="button" className="nt-x" aria-label={n.dismiss.label} title={n.dismiss.label} onClick={() => dismiss(n, index)}>
