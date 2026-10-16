@@ -1685,6 +1685,9 @@ const dropHint = (page: import("@playwright/test").Page) => page.locator("[data-
 /** A click on the list's empty margin, just below the glass toolbar laid over its top. */
 async function clickEmpty(page: import("@playwright/test").Page) {
   const list = page.locator('[data-scroll="main"]');
+  // The list's room follows the toolbar a frame later (the trash adds its note): wait for it.
+  const room = () => list.evaluate((e) => parseFloat(getComputedStyle(e).paddingTop) - document.querySelector<HTMLElement>(".toolbar-glass")!.offsetHeight);
+  await expect.poll(room).toBeGreaterThan(3);
   const top = await list.evaluate((e) => parseFloat(getComputedStyle(e).paddingTop));
   await list.click({ position: { x: 5, y: top - 3 } });
 }

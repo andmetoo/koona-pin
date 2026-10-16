@@ -17,6 +17,9 @@ import "./components/commercial/readerThemes";
 applyTheme(isDark(storedTheme(), matchMedia("(prefers-color-scheme: dark)").matches));
 // The Supporter heart takes the colour of the season (NP-066).
 applySeason();
+// Linux, before the first paint (2.1.1): WebKitGTK rendering in software at times leaves the whole
+// window blank under a backdrop blur or a mask, so the glass and fades stay off there (app.css).
+if (/\b(Linux|X11)\b/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent)) document.documentElement.dataset.linux = "";
 blockBrowserChrome(window);
 // A card's ring of keyboard focus only after a key that moves focus, not after a click and Esc.
 trackInputMode(window, document.documentElement);
