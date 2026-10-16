@@ -6,6 +6,7 @@ import { Bookmark } from "../../types";
 import { savePreference, storedValue } from "../../services/preferences";
 import { Icon } from "../icons";
 import { Preview } from "../library/Bookmarks";
+import { recentTime } from "../../services/relativeTime";
 
 /**
  * One thing the app wants to tell (2026-10-16, banner variant D): the inbox waiting, the
@@ -40,18 +41,6 @@ function storedSeen(): Set<string> {
   } catch {
     return new Set();
   }
-}
-
-/** «now», «5 min. ago», «yesterday» in the interface's language; nothing for a bad date. */
-export function relativeTime(at: string, language: string, now = Date.now()): string | null {
-  const time = Date.parse(at);
-  if (Number.isNaN(time)) return null;
-  const seconds = Math.max(0, Math.round((now - time) / 1000));
-  const format = new Intl.RelativeTimeFormat(language, { numeric: "auto", style: "short" });
-  if (seconds < 60) return format.format(0, "second");
-  if (seconds < 3600) return format.format(-Math.floor(seconds / 60), "minute");
-  if (seconds < 86400) return format.format(-Math.floor(seconds / 3600), "hour");
-  return format.format(-Math.floor(seconds / 86400), "day");
 }
 
 /**
@@ -94,6 +83,15 @@ export function NotificationCenter({
     // Only the keys of what is there: a dismissed or gone one needs no memory.
     savePreference(SEEN, JSON.stringify(now));
   }, [open, keys]);
+
+  // The panel goes to the top layer, above everything the page paints: in a narrow window it
+  // lies over the library, and WKWebView on macOS drew a scroll container's scrollbar across a
+  // panel that was only `position: fixed` with a z-index. Without the Popover API it stays that.
+  useLayoutEffect(() => {
+    const element = panel.current;
+    if (!open || !element || typeof element.showPopover !== "function") return;
+    if (!element.matches(":popover-open")) element.showPopover();
+  }, [open]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -226,6 +224,7 @@ export function NotificationCenter({
             role="dialog"
             aria-labelledby={heading}
             tabIndex={-1}
+            popover="manual"
             data-menu
             data-notification-center
             onKeyDown={keyDown}
@@ -256,7 +255,7 @@ export function NotificationCenter({
             {items.length ? (
               <ul className="notify-list">
                 {items.map((n, index) => {
-                  const time = n.at ? relativeTime(n.at, i18n.language) : null;
+                  const time = n.at ? recentTime(n.at, i18n.language) : null;
                   const title = `${id}-${n.key}`;
                   return (
                     <li key={n.key} className={`nt nt-${n.kind}`} aria-labelledby={title} data-notification={n.kind}>

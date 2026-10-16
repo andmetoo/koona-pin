@@ -1941,6 +1941,10 @@
   .notify-center {
     position: fixed;
     z-index: 45;
+    /* In the top layer as a popover (NotificationCenter): not the browser's centred box. */
+    inset: auto;
+    margin: 0;
+    border: 0;
     width: min(368px, calc(100vw - 16px));
     overflow-y: auto;
     overscroll-behavior: contain;
