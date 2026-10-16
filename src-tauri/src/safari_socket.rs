@@ -156,6 +156,7 @@ impl Admission {
     }
 
     /// A requirement in the language of `csreq`.
+    #[cfg(test)]
     pub fn from_text(text: &str) -> Result<Self, String> {
         let requirement = text.parse::<SecRequirement>().map_err(|e| failed("the requirement", e))?;
         Ok(Admission { requirement, text: text.into() })

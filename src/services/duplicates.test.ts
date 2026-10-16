@@ -1,38 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { Bookmark } from "../types";
 import { clutter, groupsOf, mergedFields, urlKey } from "./duplicates";
+import cases from "../../tests/fixtures/url-keys.json";
 
 /** The same cases as `dedupe::tests` in Rust: the demo groups as the app does. */
 describe("urlKey", () => {
   it("sets aside what does not change the page", () => {
-    for (const same of [
-      "https://example.com/page",
-      "https://example.com/page/",
-      "https://EXAMPLE.com/page",
-      "http://example.com/page",
-      "https://www.example.com/page",
-      "https://example.com:443/page",
-      "http://example.com:80/page",
-      "https://example.com/page#section",
-      "https://example.com/page?utm_source=newsletter&utm_medium=email",
-      "https://example.com/page?UTM_Campaign=x&fbclid=IwAR2&gclid=1&yclid=2&mc_eid=3&igshid=4",
-      "  https://example.com/page  ",
-    ])
-      expect(urlKey(same), same).toBe("example.com/page");
-    for (const different of [
-      "https://example.com/page?ref=twitter",
-      "https://example.com/Page",
-      "https://example.com/page/more",
-      "https://example.com:8080/page",
-      "https://www2.example.com/page",
-      "https://example.org/page",
-    ])
-      expect(urlKey(different), different).not.toBe("example.com/page");
-    expect(urlKey("https://x.io/?b=2&a=1&utm_x=1")).toBe(urlKey("https://x.io?a=1&b=2"));
-    expect(urlKey("https://x.io/?a=1&b=2")).toBe("x.io?a=1&b=2");
-    expect(urlKey("https://trezor.io/")).toBe("trezor.io");
-    expect(urlKey("https://пример.рф/статья")).toBe(urlKey("http://WWW.ПРИМЕР.РФ/статья/"));
-    for (const none of ["javascript:void(0)", "file:///C:/a.html", "not a url", "ftp://example.com/x"]) expect(urlKey(none), none).toBeNull();
+    for (const same of cases.same) expect(urlKey(same), same).toBe(cases.key);
+    for (const different of cases.different) expect(urlKey(different), different).not.toBe(cases.key);
+    for (const [a, b] of cases.equal) expect(urlKey(a), a).toBe(urlKey(b));
+    for (const [url, key] of Object.entries(cases.keys)) expect(urlKey(url)).toBe(key);
+    for (const none of cases.none) expect(urlKey(none), none).toBeNull();
   });
 
   it("measures clutter", () => {

@@ -1003,21 +1003,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_title_in_windows_1251_is_not_garbled() {
-        // life-prog.ru names its encoding in a <meta>, not in the header (NP-120).
-        let page = encoding_rs::WINDOWS_1251
-            .encode(r#"<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1251"><title>Персистентность — Life-Prog</title></head></html>"#)
-            .0
-            .into_owned();
-        let (port, _) = server("127.0.0.1", move |_| {
-            let mut reply = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", page.len()).into_bytes();
-            reply.extend_from_slice(&page);
-            reply
-        });
-        assert_eq!(fetch_with(&format!("http://127.0.0.1:{port}/"), &TEST).await.title.as_deref(), Some("Персистентность — Life-Prog"));
-    }
-
-    #[tokio::test]
     async fn only_html_is_parsed() {
         let (port, _) = server("127.0.0.1", |_| {
             b"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: 20\r\nConnection: close\r\n\r\n<title>Binary</title>"

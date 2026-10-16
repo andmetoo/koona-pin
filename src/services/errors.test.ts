@@ -30,15 +30,15 @@ describe("command errors", () => {
     expect(reasonOf(empty, i18n.getFixedT("ru"))).toBe("пустое название");
     await i18n.changeLanguage("en");
   });
-  it("has words for every detail and code in every language", () => {
+  // English is enough: locales.test.ts keeps every other language's keys in step with it.
+  it("has words for every detail and code", () => {
     const details = ["empty_tag", "empty_collection_name", "empty_title", "bookmark_gone", "not_in_trash", "invalid_url", "unsupported_url", "nothing_exported", "copy_gone", "library_opening", "empty_message", "message_too_long", "invalid_email", "no_connection", "service_failed", "too_many_messages", "proxy_failed", "no_connection_or_proxy", "no_connection_or_system_proxy"];
-    for (const language of Object.keys(i18n.options.resources ?? {}))
-      for (const key of [
-        ...details.flatMap((d) => [`errors.detail.${d}`, `errors.reason.${d}`]),
-        ...["not_found", "conflict", "invalid_request", "internal"].map((c) => `errors.code.${c}`),
-        "errors.reason.invalid_request",
-        "errors.reason.internal",
-      ])
-        expect(i18n.exists(key, { lng: language, fallbackLng: [] }), `${language}: ${key}`).toBe(true);
+    for (const key of [
+      ...details.flatMap((d) => [`errors.detail.${d}`, `errors.reason.${d}`]),
+      ...["not_found", "conflict", "invalid_request", "internal"].map((c) => `errors.code.${c}`),
+      "errors.reason.invalid_request",
+      "errors.reason.internal",
+    ])
+      expect(i18n.exists(key, { lng: "en", fallbackLng: [] }), key).toBe(true);
   });
 });

@@ -26,7 +26,11 @@ function usedKeys() {
 describe("extension messages", () => {
   it("speaks the languages of the app (NP-089)", () => {
     // Chrome's codes: pt_BR for pt-BR, zh_CN for zh-CN (NP-090); Serbian Latin has no code of its own.
-    expect(codes.sort()).toEqual(["de", "en", "es", "fr", "it", "ja", "ko", "pl", "pt_BR", "ru", "sr", "tr", "uk", "zh_CN"]);
+    const app = readdirSync(path.join(here, "../../src/locales"))
+      .map((file) => file.replace(/\.json$/, ""))
+      .filter((code) => code !== "sr-Latn")
+      .map((code) => code.replace("-", "_"));
+    expect(codes.sort()).toEqual(app.sort());
   });
   it.each(codes)("%s has the keys and placeholders of English", (code) => {
     const messages = catalog(code);

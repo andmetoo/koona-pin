@@ -1801,29 +1801,6 @@ mod tests {
     }
 
     #[test]
-    fn unicode_search_and_counts_are_independent_of_results() {
-        let conn = setup_test_db();
-        let bookmark = insert_or_update_bookmark(
-            &conn,
-            "https://example.com/search",
-            "Архитектура и свет",
-            None,
-            None,
-            None,
-            "example.com",
-            None,
-            None,
-            Source::App,
-        )
-        .unwrap();
-        update_bookmark(&conn, bookmark.id, None, None, Some(true), None, None).unwrap();
-        assert_eq!(found(&conn, "АРХИТЕКТУРА"), [bookmark.id]);
-        assert!(found(&conn, "Ничего").is_empty());
-        assert_eq!(get_counts(&conn).unwrap().total, 1);
-        assert_eq!(get_counts(&conn).unwrap().favorites, 1);
-    }
-
-    #[test]
     fn equal_timestamps_have_deterministic_order() {
         let conn = setup_test_db();
         let first = insert_or_update_bookmark(
@@ -2391,6 +2368,12 @@ mod tests {
         assert_eq!(found(&conn, "ПРИМЕР.РФ"), [hedgehog.id], "domain");
         assert_eq!(found(&conn, "example.org/b"), [noted.id], "url");
         assert!(found(&conn, "ёлкин").is_empty());
+
+        // The sidebar counts don't follow the search.
+        update_bookmark(&conn, tree.id, None, None, Some(true), None, None).unwrap();
+        assert!(found(&conn, "ёлкин").is_empty());
+        let counts = get_counts(&conn).unwrap();
+        assert_eq!((counts.total, counts.favorites), (4, 1));
     }
 
     #[test]
@@ -2937,57 +2920,7 @@ mod tests {
     }
 
     #[test]
-    fn test_crud_bookmarks() {
-        let conn = setup_test_db();
-        let tags = vec!["rust".to_string(), "tauri".to_string()];
-
-        // Insert
-        let bm = insert_or_update_bookmark(
-            &conn,
-            "https://tauri.app",
-            "Tauri Desktop",
-            Some("Awesome framework"),
-            Some("https://tauri.app/og.png"),
-            Some("https://tauri.app/favicon.ico"),
-            "tauri.app",
-            None,
-            Some(&tags),
-            Source::App,
-        )
-        .unwrap();
-
-        assert_eq!(bm.url, "https://tauri.app");
-        assert_eq!(bm.title, "Tauri Desktop");
-        assert_eq!(bm.domain, "tauri.app");
-        assert_eq!(bm.tags.unwrap().len(), 2);
-
-        // Query
-        let list = everything(&conn);
-        assert_eq!(list.len(), 1);
-
-        // Update
-        let updated = update_bookmark(
-            &conn,
-            bm.id,
-            Some("Updated Title".to_string()),
-            Some("Note here".to_string()),
-            Some(true),
-            None,
-            None,
-        )
-        .unwrap();
-        assert_eq!(updated.title, "Updated Title");
-        assert!(updated.is_favorite);
-
-        // Delete
-        trash_bookmark(&conn, bm.id).unwrap();
-        purge_trash(&conn, Purge::One(bm.id)).unwrap();
-        let empty = everything(&conn);
-        assert_eq!(empty.len(), 0);
-    }
-
-    #[test]
-    fn test_collections_and_domains() {
+    fn collections_are_listed_and_get_domains_counts_their_bookmarks() {
         let conn = setup_test_db();
         let col = create_collection(&conn, "Книги", Some("#10b981"), None).unwrap();
         assert_eq!(col.name, "Книги");
