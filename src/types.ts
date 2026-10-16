@@ -115,6 +115,7 @@ export type { FeedPreview } from "./bindings/FeedPreview";
 export type { FeedsChanged } from "./bindings/FeedsChanged";
 export type { FeedsRefresh } from "./bindings/FeedsRefresh";
 export type { LinkPreview } from "./bindings/LinkPreview";
+export type { OpmlExport } from "./bindings/OpmlExport";
 export type { OpmlImport } from "./bindings/OpmlImport";
 export type { OpmlSkip } from "./bindings/OpmlSkip";
 export type { OpmlSkipReason } from "./bindings/OpmlSkipReason";

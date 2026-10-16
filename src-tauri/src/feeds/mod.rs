@@ -637,15 +637,14 @@ pub async fn clear_feed_cache(
     Ok(())
 }
 
-/// Follows the feeds of an OPML file (NP-131).
+/// Follows the feeds of an OPML file (NP-131). The interface reads the file
+/// it was given and sends its text, as the bookmarks import does: a file
+/// picked in the webview has no path the core could open.
 #[tauri::command]
-pub async fn import_opml(app: AppHandle, state: State<'_, Arc<DbState>>, path: String) -> Result<OpmlImport, CommandError> {
-    // Reading needs no database, so the library stays available meanwhile.
-    let outlines = tauri::async_runtime::spawn_blocking(move || {
-        opml::read(std::path::Path::new(&path)).and_then(|text| opml::parse(&text))
-    })
-    .await
-    .map_err(CommandError::internal)??;
+pub async fn import_opml(app: AppHandle, state: State<'_, Arc<DbState>>, content: String) -> Result<OpmlImport, CommandError> {
+    let outlines = tauri::async_runtime::spawn_blocking(move || opml::checked(&content).and_then(opml::parse))
+        .await
+        .map_err(CommandError::internal)??;
     let progress = app.clone();
     let report = blocking(&state, move |conn| {
         Ok(opml::import(conn, &outlines, |done, total| {
@@ -660,15 +659,40 @@ pub async fn import_opml(app: AppHandle, state: State<'_, Arc<DbState>>, path: S
     Ok(report)
 }
 
-/// Writes every subscription as OPML 2.0; how many (NP-131).
+/// What «Export feeds (OPML)…» did.
+#[derive(Debug, Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum OpmlExport {
+    Cancelled,
+    Saved { file_name: String, count: u32 },
+}
+
+/// Writes every subscription as OPML 2.0 where the system Save dialog says
+/// (NP-131), as «Save a copy…» does.
 #[tauri::command]
-pub async fn export_opml(app: AppHandle, state: State<'_, Arc<DbState>>, path: String) -> Result<u32, CommandError> {
+pub async fn export_opml(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<OpmlExport, CommandError> {
+    use tauri::Manager;
+    use tauri_plugin_dialog::DialogExt;
     let list = opml::exported(&all_feeds(&app, &state).await?);
     let count = list.len() as u32;
-    tauri::async_runtime::spawn_blocking(move || opml::save(std::path::Path::new(&path), &list))
+    let name = format!("koona-pin-feeds-{}.opml", chrono::Local::now().format("%Y-%m-%d"));
+    let mut dialog = app.dialog().file().set_file_name(name).add_filter("OPML", &["opml", "xml"]);
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(picked) = picked else {
+        return Ok(OpmlExport::Cancelled);
+    };
+    let path = picked.into_path().map_err(CommandError::internal)?;
+    let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    tauri::async_runtime::spawn_blocking(move || opml::save(&path, &list))
         .await
         .map_err(CommandError::internal)??;
-    Ok(count)
+    Ok(OpmlExport::Saved { file_name, count })
 }
 
 /// «Check for new posts» of Settings → Feeds: 0 (only on refresh) or 5 minutes to a day.

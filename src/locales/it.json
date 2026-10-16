@@ -140,7 +140,8 @@
     "exportCsv": "CSV per i fogli di calcolo",
     "cleanUp": "Fai ordine",
     "duplicates": "Duplicati",
-    "links": "Controllo dei link"
+    "links": "Controllo dei link",
+    "importFeeds": "Importa feed (OPML)…"
   },
   "card": {
     "open": "Apri: {{title}}",
@@ -242,7 +243,30 @@
     "removed": "Link rimosso",
     "dropTitle": "Rilascia per salvare il link",
     "dropHint": "Va in {{place}}; con Shift va in In arrivo",
-    "dropHintInbox": "Va in In arrivo"
+    "dropHintInbox": "Va in In arrivo",
+    "feedHas": "{{site}} ha un feed",
+    "feedToggle": "Segui {{site}}",
+    "feedOffHint": "Seguilo per ricevere i nuovi articoli in Feed",
+    "feedLooking": "Controllo del feed…",
+    "feedPerDay_one": "Circa {{count}} nuovo articolo al giorno",
+    "feedPerDay_many": "Circa {{count}} nuovi articoli al giorno",
+    "feedPerDay_other": "Circa {{count}} nuovi articoli al giorno",
+    "feedPerWeek_one": "Circa {{count}} nuovo articolo a settimana",
+    "feedPerWeek_many": "Circa {{count}} nuovi articoli a settimana",
+    "feedPerWeek_other": "Circa {{count}} nuovi articoli a settimana",
+    "feedLast": "l’ultimo {{when}}",
+    "feedUnreadable": "Questo feed non si può leggere",
+    "feedFollowed": "Segui già questo sito",
+    "feedShow": "Mostra",
+    "feedDestination": "I nuovi articoli vanno in",
+    "feedDestFeeds": "Solo Feed",
+    "feedDestInbox": "Smistali come In arrivo",
+    "feedDestNotify": "Avvisami anche",
+    "feedChoose": "Quale feed",
+    "feedSaveFollow": "Salva e segui",
+    "feedFollowTitle": "Segui {{title}}",
+    "feedFollow": "Segui",
+    "feedFollowing": "Iscrizione…"
   },
   "import": {
     "title": "Importa segnalibri",
@@ -296,7 +320,22 @@
     "moreSkipped": "e altri {{count}}",
     "openInbox": "Apri In arrivo",
     "done": "Fatto",
-    "failed": "Importazione non riuscita. {{reason}} Non è stato aggiunto nulla: la libreria è com’era."
+    "failed": "Importazione non riuscita. {{reason}} Non è stato aggiunto nulla: la libreria è com’era.",
+    "titleFeeds": "Importa feed",
+    "leadFeeds": "Esporta i feed da un altro lettore in formato OPML e scegli il file. I feed che segui già restano come sono.",
+    "fileFeeds": "File dei feed .opml",
+    "opmlFeeds_one": "{{count, number}} feed",
+    "opmlFeeds_many": "{{count, number}} feed",
+    "opmlFeeds_other": "{{count, number}} feed",
+    "opmlRule": "I nuovi articoli vanno in Feed. Le cartelle del file non vengono tenute: i feed non ne hanno.",
+    "opmlEmpty": "Questo file non contiene feed. Esportali dal tuo lettore in formato OPML.",
+    "opmlAdded_one": "Ora segui {{count, number}} nuovo feed",
+    "opmlAdded_many": "Ora segui {{count, number}} nuovi feed",
+    "opmlAdded_other": "Ora segui {{count, number}} nuovi feed",
+    "opmlNothingNew": "Nessun nuovo feed",
+    "opmlExisting": "Già seguiti — lasciati come erano",
+    "opmlReason_invalid_url": "Indirizzo non valido",
+    "opmlReason_refused": "Su questo computer o nella rete locale"
   },
   "export": {
     "saved_one": "{{count, number}} segnalibro salvato in {{name}}",
@@ -1650,6 +1689,19 @@
     "inboxImported_one": "{{count}} dall’importazione.",
     "inboxImported_many": "{{count}} dall’importazione.",
     "inboxImported_other": "{{count}} dall’importazione.",
-    "inboxFromImport": "Dall’importazione."
+    "inboxFromImport": "Dall’importazione.",
+    "feedsTitle_one": "{{count}} nuovo articolo",
+    "feedsTitle_many": "{{count}} nuovi articoli",
+    "feedsTitle_other": "{{count}} nuovi articoli",
+    "feedsFromOne": "da {{a}}",
+    "feedsFromTwo": "da {{a}} e {{b}}",
+    "feedsFromMore_one": "da {{a}}, {{b}} e {{count}} altro",
+    "feedsFromMore_many": "da {{a}}, {{b}} e altri {{count}}",
+    "feedsFromMore_other": "da {{a}}, {{b}} e altri {{count}}",
+    "feedsRead": "Leggi",
+    "feedsFailing": "{{name}} non si aggiorna",
+    "feedsFailingText": "Il suo feed non risponde da una settimana. Forse il sito l’ha spostato o chiuso.",
+    "feedsShow": "Mostra",
+    "feedsUnfollow": "Non seguire più"
   }
 }

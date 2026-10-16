@@ -128,7 +128,8 @@
     "exportCsv": "CSV，用于电子表格",
     "cleanUp": "整理",
     "duplicates": "重复项",
-    "links": "链接检查"
+    "links": "链接检查",
+    "importFeeds": "导入订阅源 (OPML)…"
   },
   "card": {
     "open": "打开：{{title}}",
@@ -224,7 +225,26 @@
     "removed": "已移除链接",
     "dropTitle": "松开即可保存链接",
     "dropHint": "将保存到{{place}}；按住 Shift 则放入收件箱",
-    "dropHintInbox": "将放入收件箱"
+    "dropHintInbox": "将放入收件箱",
+    "feedHas": "{{site}} 有订阅源",
+    "feedToggle": "关注 {{site}}",
+    "feedOffHint": "关注后，新文章会出现在订阅源中",
+    "feedLooking": "正在检查订阅源…",
+    "feedPerDay_other": "每天约 {{count}} 篇新文章",
+    "feedPerWeek_other": "每周约 {{count}} 篇新文章",
+    "feedLast": "最近一篇 {{when}}",
+    "feedUnreadable": "无法读取此订阅源",
+    "feedFollowed": "你已关注此网站",
+    "feedShow": "显示",
+    "feedDestination": "新文章放到",
+    "feedDestFeeds": "仅订阅源",
+    "feedDestInbox": "像收件箱一样整理",
+    "feedDestNotify": "同时通知我",
+    "feedChoose": "选择订阅源",
+    "feedSaveFollow": "保存并关注",
+    "feedFollowTitle": "关注 {{title}}",
+    "feedFollow": "关注",
+    "feedFollowing": "正在关注…"
   },
   "import": {
     "title": "导入书签",
@@ -264,7 +284,18 @@
     "moreSkipped": "及另外 {{count}} 个",
     "openInbox": "打开收件箱",
     "done": "完成",
-    "failed": "无法导入。{{reason}} 未添加任何内容 — 资料库保持原样。"
+    "failed": "无法导入。{{reason}} 未添加任何内容 — 资料库保持原样。",
+    "titleFeeds": "导入订阅源",
+    "leadFeeds": "从其他阅读器将订阅源导出为 OPML，然后选择该文件。已关注的订阅源保持不变。",
+    "fileFeeds": "订阅源文件 .opml",
+    "opmlFeeds_other": "{{count, number}} 个订阅源",
+    "opmlRule": "新文章会出现在订阅源中。文件中的文件夹不会保留：订阅源没有文件夹。",
+    "opmlEmpty": "此文件中没有订阅源。请从阅读器将它们导出为 OPML。",
+    "opmlAdded_other": "已关注 {{count, number}} 个新订阅源",
+    "opmlNothingNew": "没有新的订阅源",
+    "opmlExisting": "已关注 — 保持不变",
+    "opmlReason_invalid_url": "不是有效的地址",
+    "opmlReason_refused": "在这台电脑或本地网络上"
   },
   "export": {
     "saved_other": "已将 {{count, number}} 个书签保存到 {{name}}",
@@ -1472,6 +1503,15 @@
     "inboxTextOne": "保留、归档或删除，只需片刻。",
     "inboxMany": "逐个保留、归档或删除。",
     "inboxImported_other": "其中 {{count}} 个来自导入。",
-    "inboxFromImport": "来自导入。"
+    "inboxFromImport": "来自导入。",
+    "feedsTitle_other": "{{count}} 篇新文章",
+    "feedsFromOne": "来自 {{a}}",
+    "feedsFromTwo": "来自 {{a}} 和 {{b}}",
+    "feedsFromMore_other": "来自 {{a}}、{{b}} 等 {{count}} 个订阅源",
+    "feedsRead": "阅读",
+    "feedsFailing": "{{name}} 没有更新",
+    "feedsFailingText": "它的订阅源已经一周没有响应。网站可能移动或停用了订阅源。",
+    "feedsShow": "显示",
+    "feedsUnfollow": "取消关注"
   }
 }

@@ -142,7 +142,8 @@
     "exportCsv": "CSV za tabele",
     "cleanUp": "Sređivanje",
     "duplicates": "Duplikati",
-    "links": "Provera linkova"
+    "links": "Provera linkova",
+    "importFeeds": "Uvezi fidove (OPML)…"
   },
   "card": {
     "open": "Otvori: {{title}}",
@@ -244,7 +245,30 @@
     "removed": "Link uklonjen",
     "dropTitle": "Pustite da sačuvate link",
     "dropHint": "Ide ovde: {{place}}; sa Shift u prijemno sanduče",
-    "dropHintInbox": "Ide u prijemno sanduče"
+    "dropHintInbox": "Ide u prijemno sanduče",
+    "feedHas": "{{site}} ima fid",
+    "feedToggle": "Prati {{site}}",
+    "feedOffHint": "Pratite ga da bi nove objave stizale u Fidove",
+    "feedLooking": "Proverava se fid…",
+    "feedPerDay_one": "Oko {{count}} nova objava dnevno",
+    "feedPerDay_few": "Oko {{count}} nove objave dnevno",
+    "feedPerDay_other": "Oko {{count}} novih objava dnevno",
+    "feedPerWeek_one": "Oko {{count}} nova objava nedeljno",
+    "feedPerWeek_few": "Oko {{count}} nove objave nedeljno",
+    "feedPerWeek_other": "Oko {{count}} novih objava nedeljno",
+    "feedLast": "poslednja {{when}}",
+    "feedUnreadable": "Ovaj fid ne može da se pročita",
+    "feedFollowed": "Pratite ovaj sajt",
+    "feedShow": "Prikaži",
+    "feedDestination": "Nove objave idu u",
+    "feedDestFeeds": "Samo Fidovi",
+    "feedDestInbox": "Sortiraj kao Prijemno sanduče",
+    "feedDestNotify": "I obavesti me",
+    "feedChoose": "Koji fid",
+    "feedSaveFollow": "Sačuvaj i prati",
+    "feedFollowTitle": "Prati {{title}}",
+    "feedFollow": "Prati",
+    "feedFollowing": "Praćenje…"
   },
   "import": {
     "title": "Uvoz obeleživača",
@@ -298,7 +322,22 @@
     "moreSkipped": "i još {{count}}",
     "openInbox": "Otvori prijemno sanduče",
     "done": "Gotovo",
-    "failed": "Uvoz nije uspeo. {{reason}} Ništa nije dodato — biblioteka je kakva je bila."
+    "failed": "Uvoz nije uspeo. {{reason}} Ništa nije dodato — biblioteka je kakva je bila.",
+    "titleFeeds": "Uvoz fidova",
+    "leadFeeds": "Izvezite fidove iz drugog čitača kao OPML i izaberite datoteku. Fidovi koje već pratite ostaju kakvi jesu.",
+    "fileFeeds": "Datoteka fidova .opml",
+    "opmlFeeds_one": "{{count, number}} fid",
+    "opmlFeeds_few": "{{count, number}} fida",
+    "opmlFeeds_other": "{{count, number}} fidova",
+    "opmlRule": "Nove objave idu u Fidove. Fascikle iz datoteke se ne čuvaju: fidovi ih nemaju.",
+    "opmlEmpty": "Ova datoteka nema fidova. Izvezite ih iz svog čitača kao OPML.",
+    "opmlAdded_one": "Pratite {{count, number}} novi fid",
+    "opmlAdded_few": "Pratite {{count, number}} nova fida",
+    "opmlAdded_other": "Pratite {{count, number}} novih fidova",
+    "opmlNothingNew": "Nema novih fidova",
+    "opmlExisting": "Već praćeni — ostavljeni kakvi jesu",
+    "opmlReason_invalid_url": "Nevažeća adresa",
+    "opmlReason_refused": "Na ovom računaru ili u lokalnoj mreži"
   },
   "export": {
     "saved_one": "{{count, number}} obeleživač sačuvan u {{name}}",
@@ -1664,6 +1703,19 @@
     "inboxImported_one": "{{count}} od njih iz uvoza.",
     "inboxImported_few": "{{count}} od njih iz uvoza.",
     "inboxImported_other": "{{count}} od njih iz uvoza.",
-    "inboxFromImport": "Iz uvoza."
+    "inboxFromImport": "Iz uvoza.",
+    "feedsTitle_one": "{{count}} nova objava",
+    "feedsTitle_few": "{{count}} nove objave",
+    "feedsTitle_other": "{{count}} novih objava",
+    "feedsFromOne": "sa {{a}}",
+    "feedsFromTwo": "sa {{a}} i {{b}}",
+    "feedsFromMore_one": "sa {{a}}, {{b}} i još {{count}}",
+    "feedsFromMore_few": "sa {{a}}, {{b}} i još {{count}}",
+    "feedsFromMore_other": "sa {{a}}, {{b}} i još {{count}}",
+    "feedsRead": "Čitaj",
+    "feedsFailing": "{{name}} se ne ažurira",
+    "feedsFailingText": "Fid ne odgovara već nedelju dana. Sajt ga je možda premestio ili ugasio.",
+    "feedsShow": "Prikaži",
+    "feedsUnfollow": "Prestani da pratiš"
   }
 }
