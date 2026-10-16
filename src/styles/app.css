@@ -45,11 +45,18 @@
   --np-on-danger-soft: #8f2c2c;
   --np-toast: #2e302b;
   --np-scrim: rgb(46 48 43 / 0.28);
-  --np-terracotta: #c9785a;
-  --np-green: #5b8a72;
-  --np-blue: #5c77a8;
-  --np-ochre: #b59a45;
-  --np-lilac: #8a6ba8;
+  /* Collection colours (owner 2026-10-16): coral, teal, indigo, amber, violet under the old
+     names. Clean and light, a touch deeper than the swatches so a 7 px dot holds on the page and
+     the panel (amber stays at ~2.3 : 1, its name is always beside it). */
+  --np-terracotta: #e8714f;
+  --np-green: #27997f;
+  --np-blue: #6b78ea;
+  --np-ochre: #e09a2e;
+  --np-lilac: #b06ad8;
+  /* The ink button: the end of triage, «Back to library» (near-black here, cream on the dark theme). */
+  --np-ink-btn: #24251f;
+  --np-on-ink-btn: #fbfaf6;
+  --np-ink-btn-hover: #383a33;
   /* The row «Update available» (NP-038, sheet 42): collection blue, apart from the green of the
      browser status; a failed update in ochre, never red. */
   --np-update: #5c77a8;
@@ -127,11 +134,15 @@
   --np-on-danger-soft: #eda5a5;
   --np-toast: #30302d;
   --np-scrim: rgb(0 0 0 / 0.55);
-  --np-terracotta: #d99272;
-  --np-green: #7db096;
-  --np-blue: #8aa3d0;
-  --np-ochre: #d4b862;
-  --np-lilac: #b096cc;
+  /* A step lighter and calmer for the near-black ground. */
+  --np-terracotta: #ef957b;
+  --np-green: #58c0aa;
+  --np-blue: #9099ef;
+  --np-ochre: #e9b763;
+  --np-lilac: #c490df;
+  --np-ink-btn: #ecebe6;
+  --np-on-ink-btn: #161615;
+  --np-ink-btn-hover: #ffffff;
   --np-update: #8aa3d0;
   --np-update-soft: #1f2636;
   --np-on-update-soft: #afc1e3;
@@ -260,6 +271,9 @@
   --color-blue: var(--np-blue);
   --color-ochre: var(--np-ochre);
   --color-lilac: var(--np-lilac);
+  --color-ink-btn: var(--np-ink-btn);
+  --color-on-ink-btn: var(--np-on-ink-btn);
+  --color-ink-btn-hover: var(--np-ink-btn-hover);
   --color-update: var(--np-update);
   --color-update-soft: var(--np-update-soft);
   --color-on-update-soft: var(--np-on-update-soft);
@@ -1232,6 +1246,612 @@
     to {
       transform: translateX(400%);
     }
+  }
+}
+
+/* ---------- The sort screen (inbox triage, redesign 2026-10-16) ----------
+   One column: the card on a stack of the next two, a glass capsule split into «← Move to trash |
+   Keep →» with the heart, the collections as capsules (the suggested one edged in its own colour),
+   light key caps and a glass undo toast. Decisions are neutral: colour belongs to collections. */
+:root {
+  --np-sort-card-shadow: 0 1px 2px rgb(46 48 43 / 0.05), 0 12px 32px -14px rgb(46 48 43 / 0.22);
+}
+[data-theme="dark"] {
+  --np-sort-card-shadow: 0 0 0 1px rgb(255 255 255 / 0.05), 0 16px 40px -16px rgb(0 0 0 / 0.7);
+}
+@layer components {
+  .sort-col {
+    width: min(640px, 100%);
+    margin-inline: auto;
+  }
+  /* A light key cap: `Esc`, `Z`, `Space`. */
+  .sort-cap {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    line-height: 1;
+    font-weight: 600;
+    color: var(--np-muted);
+    background: var(--np-well);
+    font-variant-numeric: tabular-nums;
+  }
+  /* A quiet button with a hairline edge: «Finish Esc», «Undo last decision Z», «Try again». */
+  .sort-btn {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 9px;
+    background: var(--np-card);
+    color: var(--np-ink);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: 0 1px 1px rgb(0 0 0 / 0.025), inset 0 0 0 1px var(--np-line);
+    transition: background-color 140ms var(--ease-standard);
+  }
+  .sort-btn:hover {
+    background: var(--np-hover);
+  }
+  .sort-btn.ink {
+    background: var(--np-ink-btn);
+    color: var(--np-on-ink-btn);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.18), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  }
+  .sort-btn.ink:hover {
+    background: var(--np-ink-btn-hover);
+  }
+  .sort-btn.ink .sort-cap {
+    color: inherit;
+    background: transparent;
+    box-shadow: inset 0 0 0 1px currentColor;
+    opacity: 0.6;
+  }
+
+  /* The steps in the header: a dot per card, the current one wider; a long queue gets a bar. */
+  .sort-steps {
+    display: flex;
+    gap: 4px;
+  }
+  .sort-steps i {
+    width: 18px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--np-well);
+    box-shadow: inset 0 0 0 1px var(--np-line);
+    transition:
+      background-color 240ms var(--ease-standard),
+      width 240ms var(--ease-standard);
+  }
+  .sort-steps i.ok {
+    background: var(--np-accent);
+    box-shadow: none;
+  }
+  .sort-steps i.now {
+    width: 30px;
+    background: color-mix(in oklab, var(--np-accent) 35%, var(--np-well));
+    box-shadow: none;
+  }
+  .sort-bar {
+    position: relative;
+    width: 132px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--np-well);
+    box-shadow: inset 0 0 0 1px var(--np-line);
+    overflow: hidden;
+  }
+  .sort-bar > .ok {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--np-accent);
+    transition: width 240ms var(--ease-standard);
+  }
+  .sort-bar > .now {
+    position: absolute;
+    inset-block: 0;
+    border-radius: 3px;
+    background: color-mix(in oklab, var(--np-accent) 35%, var(--np-well));
+    transition: left 240ms var(--ease-standard);
+  }
+
+  /* The stack: the card over the next two, scaled and dropped behind it. */
+  .sort-stack {
+    position: relative;
+    padding-bottom: 22px;
+  }
+  .sort-behind {
+    position: absolute;
+    inset: 0 0 22px;
+    border-radius: 22px;
+    background: var(--np-card);
+    box-shadow: var(--np-sort-card-shadow);
+    /* Scaled from the bottom edge: each one peeks out 11 px under the one above, whatever the card's height. */
+    transform-origin: 50% 100%;
+    transition:
+      transform 320ms var(--ease-standard),
+      opacity 320ms var(--ease-standard);
+  }
+  .sort-behind.b1 {
+    transform: translateY(11px) scale(0.955);
+    opacity: 0.85;
+  }
+  .sort-behind.b2 {
+    transform: translateY(22px) scale(0.91);
+    opacity: 0.55;
+  }
+  .sort-card {
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+    border-radius: 22px;
+    background: var(--np-card);
+    box-shadow: var(--np-sort-card-shadow);
+  }
+  .sort-card.in {
+    animation: sort-card-in 360ms var(--spring);
+  }
+  /* The card just decided, over the next one, on its way out. */
+  .sort-card.leaving {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 3;
+    pointer-events: none;
+    animation: 320ms var(--ease-standard) forwards;
+  }
+  .sort-card.leaving.keep {
+    animation-name: sort-out-keep;
+  }
+  .sort-card.leaving.trash {
+    animation-name: sort-out-trash;
+  }
+  .sort-card.leaving.file {
+    animation-name: sort-out-file;
+  }
+  @keyframes sort-card-in {
+    from {
+      transform: translateY(14px) scale(0.96);
+      opacity: 0.4;
+    }
+  }
+  @keyframes sort-out-keep {
+    to {
+      transform: translateX(46%) rotate(4deg);
+      opacity: 0;
+    }
+  }
+  @keyframes sort-out-trash {
+    to {
+      transform: translateX(-46%) rotate(-4deg);
+      opacity: 0;
+    }
+  }
+  @keyframes sort-out-file {
+    to {
+      transform: translateY(28%) scale(0.7);
+      opacity: 0;
+    }
+  }
+  .sort-cover {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 8.4;
+    overflow: hidden;
+    background: var(--np-hover);
+  }
+  .sort-cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 -1px 0 var(--np-hairline);
+    pointer-events: none;
+  }
+
+  /* The decision: one glass capsule split in two; a sheen runs from the middle to the side
+     pointed at, the arrow nudges outward, the trash lid tilts. */
+  .sort-seg {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr auto;
+    align-items: center;
+    height: 54px;
+    padding: 0 4px 0 0;
+    border-radius: 27px;
+    overflow: hidden;
+    white-space: nowrap;
+    background: var(--np-glass-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow:
+      var(--np-glass-shadow),
+      inset 0 1px 0 var(--np-glass-edge),
+      inset 0 0 0 1px var(--np-glass-line);
+  }
+  .sort-half {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 100%;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--np-muted);
+    transition: color 140ms var(--ease-standard);
+  }
+  .sort-half::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: 0;
+    transition:
+      opacity 220ms var(--ease-standard),
+      transform 320ms var(--ease-standard);
+  }
+  .sort-half.trash::before {
+    background: linear-gradient(270deg, transparent, var(--np-hover) 70%);
+    /* Grows from the middle outward (a scale, so nothing sticks out of the half to scroll). */
+    transform: scaleX(0.6);
+    transform-origin: 100% 50%;
+  }
+  /* The sheen fades out before the heart's column, so it never ends in a straight edge beside the round button. */
+  .sort-half.keep::before {
+    background: linear-gradient(90deg, transparent, var(--np-hover) 45%, var(--np-hover) 62%, transparent);
+    transform: scaleX(0.6);
+    transform-origin: 0 50%;
+  }
+  .sort-half:hover::before {
+    opacity: 1;
+    transform: none;
+  }
+  .sort-half:hover {
+    color: var(--np-ink);
+  }
+  .sort-half.keep {
+    color: var(--np-ink);
+    font-weight: 700;
+  }
+  .sort-half:active {
+    transform: scale(0.98);
+  }
+  .sort-half .arrow {
+    transition: transform 200ms var(--ease-standard);
+  }
+  .sort-half.trash:hover .arrow {
+    transform: translateX(-4px);
+  }
+  .sort-half.keep:hover .arrow {
+    transform: translateX(4px);
+  }
+  .sort-half .lid {
+    transform-origin: 18px 6px;
+    transition: transform 200ms var(--spring);
+  }
+  .sort-half:hover .lid {
+    transform: rotate(-14deg) translateY(-1px);
+  }
+  /* The capsule clips its halves: their ring goes inside. */
+  .sort-half:focus-visible,
+  .sort-fav:focus-visible {
+    outline-offset: -4px;
+    border-radius: 27px;
+  }
+  .sort-mid {
+    width: 1px;
+    height: 24px;
+    background: var(--np-line);
+  }
+  .sort-fav {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    color: var(--np-icon);
+    transition: background-color 140ms var(--ease-standard);
+  }
+  .sort-fav:hover {
+    background: var(--np-hover);
+    color: var(--np-ink);
+  }
+  .sort-fav[aria-pressed="true"] {
+    color: var(--np-ink);
+  }
+  .sort-fav[aria-pressed="true"] svg {
+    fill: currentColor;
+  }
+
+  /* «Or file it»: an uppercase label over capsules. */
+  .sort-lbl {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--np-subtle);
+  }
+  .sort-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px 0 12px;
+    border-radius: 17px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: inset 0 0 0 1px var(--np-border);
+    transition:
+      transform 140ms var(--ease-standard),
+      background-color 140ms,
+      box-shadow 140ms;
+  }
+  .sort-chip .num {
+    min-width: 7px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--np-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .sort-chip:hover .num {
+    color: var(--np-muted);
+  }
+  .sort-chip:hover {
+    background: var(--np-card);
+    box-shadow:
+      inset 0 0 0 1px var(--np-border),
+      0 4px 12px -6px rgb(0 0 0 / 0.18);
+  }
+  .sort-chip:active {
+    transform: scale(0.97);
+  }
+  /* The collection the bookmark is already in. */
+  .sort-chip[aria-pressed="true"] {
+    background: var(--np-card);
+    box-shadow: inset 0 0 0 1px var(--np-icon);
+  }
+  .sort-chip .dot {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+  }
+  /* The suggested collection: a 1 px edge in its own colour and a soft shadow of it. */
+  .sort-chip.sug {
+    background: var(--np-card);
+    box-shadow: none;
+    color: var(--np-ink);
+    filter: drop-shadow(0 6px 10px color-mix(in oklab, var(--sugc, var(--np-accent)) 22%, transparent));
+  }
+  .sort-chip.sug::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      115deg,
+      var(--sugc, var(--np-accent)),
+      color-mix(in oklab, var(--sugc, var(--np-accent)) 20%, var(--np-line)) 55%,
+      var(--sugc, var(--np-accent))
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+  }
+  .sort-chip .why {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--np-muted);
+  }
+  .sort-chip .why svg {
+    color: var(--sugc, var(--np-accent));
+  }
+  .sort-chip.ghost {
+    color: var(--np-subtle);
+    box-shadow: inset 0 0 0 1px var(--np-line);
+  }
+  .sort-chip.ghost:hover {
+    color: var(--np-ink);
+  }
+  .sort-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding: 0 4px;
+    font-size: 12px;
+    color: var(--np-subtle);
+  }
+  .sort-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--np-subtle);
+  }
+  .sort-keys > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* The last decision, with «Undo Z», in glass at the bottom. */
+  .sort-toast {
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    max-width: min(560px, calc(100% - 32px));
+    padding: 4px 6px 4px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--np-ink);
+    transform: translateX(-50%);
+    background: var(--np-glass-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow:
+      var(--np-glass-shadow),
+      inset 0 1px 0 var(--np-glass-edge),
+      inset 0 0 0 1px var(--np-glass-line);
+    animation: sort-toast-in 300ms var(--spring);
+  }
+  .sort-toast .what {
+    display: grid;
+    min-width: 0;
+    line-height: 17px;
+  }
+  .sort-toast .line {
+    display: flex;
+    min-width: 0;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .sort-toast .title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--np-muted);
+  }
+  .sort-toast .note {
+    font-size: 11.5px;
+    line-height: 15px;
+    color: var(--np-subtle);
+  }
+  .sort-toast button {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 8px 0 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color 140ms;
+  }
+  .sort-toast button:hover {
+    background: var(--np-hover);
+  }
+  @keyframes sort-toast-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 10px);
+    }
+  }
+
+  /* A load that failed: a quiet raised plate with the alert sign, not a red slab. */
+  .sort-failed {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 12px 12px 16px;
+    border-radius: 14px;
+    font-size: 13px;
+    background: var(--np-raised);
+    box-shadow:
+      var(--np-shadow-1),
+      0 0 0 1px var(--np-raised-edge);
+  }
+
+  /* The end: an ink ring that draws its check, neutral tiles, the ink button. */
+  .sort-done {
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    padding: 60px 0 40px;
+    text-align: center;
+    animation: sort-card-in 420ms var(--spring);
+  }
+  .sort-ring {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    color: var(--np-on-ink-btn);
+    background: var(--np-ink-btn);
+    box-shadow:
+      0 0 0 10px var(--np-well),
+      0 12px 30px -10px rgb(0 0 0 / 0.35);
+  }
+  .sort-ring svg {
+    stroke-dasharray: 30;
+    stroke-dashoffset: 30;
+    animation: sort-draw 500ms 180ms var(--ease-standard) forwards;
+  }
+  @keyframes sort-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .sort-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 120px));
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .sort-stat {
+    display: grid;
+    gap: 2px;
+    padding: 14px 12px;
+    border-radius: 14px;
+    background: var(--np-raised);
+    box-shadow:
+      var(--np-shadow-1),
+      0 0 0 1px var(--np-raised-edge);
+  }
+  .sort-stat b {
+    font-size: 26px;
+    line-height: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .sort-stat span {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--np-muted);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The check is there at once; nothing slides, springs or tilts. */
+  .sort-ring svg {
+    stroke-dashoffset: 0;
+  }
+  .sort-half .arrow,
+  .sort-half .lid,
+  .sort-half::before,
+  .sort-behind {
+    transition: none;
   }
 }
 

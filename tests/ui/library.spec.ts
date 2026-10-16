@@ -390,6 +390,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   const title = page.locator("[data-triage-card] h2");
   const toast = page.locator(".fixed[role=status]");
   const alert = page.locator(".fixed[role=alert]");
+  const last = page.locator("[data-undo-toast]");
   const add = (url: string, title: string) =>
     page.evaluate(
       async ([url, title]) => {
@@ -413,7 +414,9 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await expect(heading).toHaveText(/Sort inbox\s*1 of 5/);
   await expect(title).toHaveText("Third new");
   await expect(page.locator("[data-triage-card]")).toContainText(/example\.com\s*·\s*added by hand today at \d/);
-  await expect(page.getByText("Up next")).toBeVisible();
+  // The next two wait behind the card; nothing decided yet, no undo toast.
+  await expect(page.locator(".sort-behind")).toHaveCount(2);
+  await expect(last).toHaveCount(0);
 
   // F and T stay on the card; Space opens the page.
   await page.keyboard.press("f");
@@ -422,7 +425,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.getByRole("textbox", { name: "New tag" }).fill("Urgent");
   await page.keyboard.press("Enter");
   await expect(toast).toContainText("Tag «urgent» added");
-  await expect(page.locator("[data-triage-card] ~ div").getByText("#urgent")).toBeVisible();
+  await expect(page.locator("[data-keys]").getByText("#urgent")).toBeVisible();
   await page.keyboard.press("Space");
   expect(await page.evaluate(() => (window as unknown as { opened: string[] }).opened)).toEqual(["https://example.com/c"]);
   await expect(heading).toHaveText(/1 of 5/);
@@ -430,9 +433,11 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   // A number files and moves on; ← to the trash; Z brings it back to the card.
   await page.keyboard.press("2");
   await expect(heading).toHaveText(/2 of 5/);
-  await expect(page.getByRole("listitem").filter({ hasText: "Third new" })).toContainText("→ Development");
+  await expect(last).toHaveText(/Filed in «Development»:\s*Third new\s*Undo/);
   await page.keyboard.press("ArrowLeft");
   await expect(nav("Trash 1")).toBeVisible();
+  await expect(last).toContainText("Moved to trash: Second new");
+  await expect(last).toContainText("Trash keeps deleted items for 30 days");
   await page.keyboard.press("z");
   await expect(toast).toContainText("Back in the queue: Second new");
   await expect(title).toHaveText("Second new");
@@ -446,7 +451,7 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.getByLabel("Title", { exact: true }).fill("First, corrected");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(heading).toHaveText(/4 of 5/);
-  await expect(page.getByRole("listitem").filter({ hasText: "First, corrected" })).toContainText("kept");
+  await expect(last).toContainText("Saved: First, corrected");
 
   // A link saved during triage joins the end.
   await add("https://example.com/d", "Came during triage");
@@ -475,7 +480,8 @@ test("triage: every key, a failed decision, undo, a new link, the end and back t
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
-  await expect(page.getByText("6 bookmarks decided: 4 kept, 1 filed into collections, 1 moved to trash.")).toBeVisible();
+  await expect(page.getByText("6 bookmarks decided.")).toBeVisible();
+  await expect(page.locator(".sort-stat")).toHaveText([/4\s*kept/, /1\s*filed/, /1\s*in trash/]);
   await expect(nav("Inbox")).toBeVisible();
   await page.keyboard.press("z");
   await expect(title).toHaveText("Came during triage");
@@ -514,7 +520,7 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
     }, newId);
   expect(await stored()).toEqual([null, null]);
   await page.keyboard.press("1");
-  await expect(page.getByRole("listitem").filter({ hasText: "One more example" })).toContainText("→ Inspiration");
+  await expect(page.locator("[data-undo-toast]")).toContainText("Filed in «Inspiration»: One more example");
   expect((await stored())[0]).toBe(3);
   // A site with nothing filed: no suggestion, the sidebar order.
   await expect(page.locator("[data-triage-card] h2")).toHaveText("The architecture of silence");
@@ -524,7 +530,7 @@ test("triage: a collection is suggested by the site, explained, and nothing chan
 test("triage: the decisions keep their words at any width, a longer label goes compact (NP-084)", async ({ page }) => {
   const row = page.locator("[data-fit]");
   const label = row.locator("[data-label]");
-  /** The row inside its column, the words whole, no sideways scroll. */
+  /** The capsule inside its column, the words whole, no sideways scroll. */
   const fits = () =>
     row.evaluate((el) => {
       const box = el.getBoundingClientRect();
@@ -546,35 +552,34 @@ test("triage: the decisions keep their words at any width, a longer label goes c
     }, code);
   await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
   await expect(page.locator("[data-triage-card]")).toBeVisible();
-  // 1160 px is the reported window: 1740 px at 150 %, the «Только что» column beside the card.
   for (const [code, words] of [
     ["en", "Move to trash"],
     ["ru", "В корзину"],
+    ["de", "In den Papierkorb"],
   ]) {
     await language(code);
-    for (const width of [800, 1100, 1160, 1600]) {
+    for (const width of [800, 1100, 1600]) {
       await page.setViewportSize({ width, height: width === 800 ? 550 : 800 });
       await expect(label, `${code} ${width}`).toHaveText(words);
       await expect(row).toHaveAttribute("data-fit", "0");
       await expect.poll(fits, { message: `${code} ${width}` }).toEqual({ inside: true, overflow: false, words: true });
     }
   }
-  // A label half as long again: Keep and the heart stay in the row, the keys go first, then the words.
+  // A label twice as long: Keep and the heart stay in the capsule, the trash half keeps its arrow and icon.
   await page.evaluate(async () => {
     const { default: i18n } = await import("/src/i18n/index.ts");
     i18n.addResource("en", "translation", "triage.trash", "Move this one to the trash");
   });
   await language("en");
-  for (const width of [800, 1100, 1160, 1600]) {
-    await page.setViewportSize({ width, height: width === 800 ? 550 : 800 });
-    await expect(row.getByRole("button", { name: "Move this one to the trash" })).toBeVisible();
-    await expect.poll(fits, { message: `long ${width}` }).toEqual({ inside: true, overflow: false, words: true });
-  }
   await page.setViewportSize({ width: 1600, height: 800 });
   await expect(row).toHaveAttribute("data-fit", "0");
-  await page.setViewportSize({ width: 1160, height: 800 });
+  await expect(label).toHaveText("Move this one to the trash");
+  // A narrow window gives up the trash words first; a wider one brings them back.
+  await page.setViewportSize({ width: 640, height: 550 });
   await expect(row).not.toHaveAttribute("data-fit", "0");
-  // A wider window brings the words back.
+  await expect(row.getByRole("button", { name: "Move this one to the trash" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Keep" })).toBeVisible();
+  await expect.poll(fits, { message: "narrow" }).toEqual({ inside: true, overflow: false, words: true });
   await page.setViewportSize({ width: 1600, height: 800 });
   await expect(row).toHaveAttribute("data-fit", "0");
   await expect(label).toHaveText("Move this one to the trash");
@@ -583,11 +588,50 @@ test("triage: the decisions keep their words at any width, a longer label goes c
   await page.setViewportSize({ width: 1160, height: 800 });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/1 of 2/);
   await page.keyboard.press("f");
-  await expect(row.getByRole("button", { name: "Remove from favorites" })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Remove from favorites" })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/2 of 2/);
   await page.keyboard.press("ArrowLeft");
   await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
+});
+test("triage: the capsule decides by click, the undo toast says what Z takes back", async ({ page }) => {
+  const heading = page.getByRole("heading", { level: 1 });
+  const title = page.locator("[data-triage-card] h2");
+  const capsule = page.locator("[data-fit]");
+  const last = page.locator("[data-undo-toast]");
+  await page.getByRole("region", { name: "New bookmarks" }).getByRole("button", { name: "Sort" }).click();
+  await expect(heading).toHaveText(/1 of 2/);
+  const first = await title.textContent();
+  // One card behind this one; the heart is a toggle.
+  await expect(page.locator(".sort-behind")).toHaveCount(1);
+  await capsule.getByRole("button", { name: "Add to favorites" }).click();
+  await expect(capsule.getByRole("button", { name: "Remove from favorites" })).toHaveAttribute("aria-pressed", "true");
+  await expect(last).toContainText("Added to favorites");
+  // Keep by click: the card goes, the toast names it; «Undo» brings it back.
+  await capsule.getByRole("button", { name: "Keep" }).click();
+  await expect(heading).toHaveText(/2 of 2/);
+  await expect(page.locator(".sort-behind")).toHaveCount(0);
+  await expect(last).toHaveText(new RegExp(`Kept:\\s*${first}\\s*Undo\\s*Z`));
+  await last.getByRole("button", { name: /Undo/ }).click();
+  await expect(page.locator(".fixed[role=status]")).toContainText(`Back in the queue: ${first}`);
+  // The app's notice is at the bottom: the toast steps aside for it.
+  await expect(last).toHaveCount(0);
+  await expect(title).toHaveText(first!);
+  await expect(heading).toHaveText(/1 of 2/);
+  // Enter keeps too; the trash half says how long the trash keeps it.
+  await page.locator("body").press("Enter");
+  await expect(heading).toHaveText(/2 of 2/);
+  await expect(last).toContainText(`Kept: ${first}`);
+  const second = await title.textContent();
+  await capsule.getByRole("button", { name: "Move to trash" }).click();
+  await expect(page.getByRole("heading", { name: "Inbox sorted" })).toBeVisible();
+  await expect(page.locator(".sort-stat")).toHaveText([/1\s*kept/, /0\s*filed/, /1\s*in trash/]);
+  // At the end the toast gives way to «Undo last decision».
+  await expect(last).toHaveCount(0);
+  await page.getByRole("button", { name: /Undo last decision/ }).click();
+  await expect(title).toHaveText(second!);
+  await expect(page.locator(".fixed[role=status]")).toContainText(`Back in the queue: ${second}`);
+  await expect(last).toHaveCount(0);
 });
 test("triage: Esc goes back where it was opened, the inbox always offers it", async ({ page }) => {
   await page.getByRole("button", { name: "Inbox 2", exact: true }).click();

@@ -1158,6 +1158,7 @@ export function App() {
                 }}
                 onFinish={finishTriage}
                 onLibrary={() => navigate()}
+                noticeUp={!!notice || !!movedAside}
               />
             ) : (
               <>
