@@ -60,12 +60,15 @@ pub struct Saved {
     /// The bookmark's uid, for the cache's link back.
     pub uid: String,
     pub created: bool,
+    /// Brought back from the Trash by this save.
+    pub restored: bool,
     pub command: Option<i64>,
 }
 
 /// The library half of S, R and F (plan §4.6), in one transaction. A link
-/// already in the library, Trash included, is returned as it is: saving
-/// never overwrites what the person set.
+/// already in the library out of the Trash is returned as it is: saving
+/// never overwrites what the person set. One in the Trash comes back to the
+/// place asked, as a capture brings a link back from the Trash (NP-131).
 ///
 /// The journal undoes changes of bookmarks that exist (NP-024), and a save
 /// makes one; so the bookmark is made in the Trash first and the recorded
@@ -81,34 +84,55 @@ pub fn save_post(
 ) -> Result<Saved, CommandError> {
     let url = post.url.clone().ok_or_else(no_link)?;
     let tx = library.unchecked_transaction()?;
-    if let Some(id) = tx.query_row("SELECT id FROM bookmarks WHERE url = ?1", [&url], |r| r.get::<_, i64>(0)).optional()? {
-        let bookmark = db::get_bookmark_by_id(&tx, id)?;
-        let uid = uid_of(&tx, id)?;
-        return Ok(Saved { bookmark, uid, created: false, command: None });
-    }
-    let made = insert(&tx, post, &url, &feed_name(feed))?;
-    tx.execute("UPDATE bookmarks SET deleted_at = created_at WHERE id = ?1", [made.id])?;
+    let existing = tx
+        .query_row("SELECT id, deleted_at IS NOT NULL FROM bookmarks WHERE url = ?1", [&url], |r| {
+            Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?))
+        })
+        .optional()?;
+    let (id, created) = match existing {
+        Some((id, false)) => {
+            let bookmark = db::get_bookmark_by_id(&tx, id)?;
+            let uid = uid_of(&tx, id)?;
+            return Ok(Saved { bookmark, uid, created: false, restored: false, command: None });
+        }
+        Some((id, true)) => (id, false),
+        None => {
+            let made = insert(&tx, post, &url, &feed_name(feed))?;
+            tx.execute("UPDATE bookmarks SET deleted_at = created_at WHERE id = ?1", [made.id])?;
+            (made.id, true)
+        }
+    };
     let action = match (favorite, place) {
         (true, _) => Action::Favorite,
         (false, SavePlace::Library) => Action::Keep,
         (false, SavePlace::Reading) => Action::ToReading,
         (false, SavePlace::Inbox) => Action::Edit,
     };
-    let (mut bookmarks, command) = journal.record(&tx, action, &[made.id], |conn| {
+    // Out of the Trash to the place asked: the Inbox waits for a decision anew,
+    // a star or a Reading place it had stays.
+    let (mut bookmarks, command) = journal.record(&tx, action, &[id], |conn| {
         let now = db::now();
         conn.execute(
             "UPDATE bookmarks SET deleted_at = NULL,
-                triaged_at = CASE WHEN ?2 THEN ?4 ELSE triaged_at END,
-                reading_at = CASE WHEN ?3 THEN ?4 ELSE reading_at END,
-                is_favorite = ?5, updated_at = ?4, revision = revision + 1
+                triaged_at = CASE ?2 WHEN 'library' THEN ?4 WHEN 'inbox' THEN NULL ELSE triaged_at END,
+                reading_at = CASE WHEN ?3 THEN COALESCE(reading_at, ?4) ELSE reading_at END,
+                is_favorite = CASE WHEN ?5 THEN 1 ELSE is_favorite END, updated_at = ?4, revision = revision + 1
              WHERE id = ?1",
-            params![made.id, place == SavePlace::Library, place == SavePlace::Reading, now, favorite],
+            params![id, place_name(place), place == SavePlace::Reading, now, favorite],
         )?;
-        db::get_bookmark_by_id(conn, made.id).map(|b| vec![b])
+        db::get_bookmark_by_id(conn, id).map(|b| vec![b])
     })?;
-    let uid = uid_of(&tx, made.id)?;
+    let uid = uid_of(&tx, id)?;
     tx.commit()?;
-    Ok(Saved { bookmark: bookmarks.remove(0), uid, created: true, command })
+    Ok(Saved { bookmark: bookmarks.remove(0), uid, created, restored: !created, command })
+}
+
+fn place_name(place: SavePlace) -> &'static str {
+    match place {
+        SavePlace::Library => "library",
+        SavePlace::Reading => "reading",
+        SavePlace::Inbox => "inbox",
+    }
 }
 
 /// A new bookmark of the post, `source = 'feed'` and the feed's name.
@@ -391,7 +415,8 @@ mod tests {
         let mine = db::insert_or_update_bookmark(&w.library(), "https://example.com/a", "Mine", None, None, None, "example.com", None, None, Source::App).unwrap();
         let ids = w.fetch(vec![post("a", Some("https://example.com/a"), 1)]);
         let saved = save_feed_item(&w.db, &w.cache, ids[0], SavePlace::Library, true).unwrap();
-        assert!(!saved.created && saved.command.is_none());
+        assert!(!saved.created && !saved.restored && saved.command.is_none());
+        assert!(w.link_back(ids[0]).1, "read: shown saved like any save");
         let now = db::get_bookmark_by_id(&w.library(), mine.id).unwrap();
         assert_eq!(
             (now.title.as_str(), now.source.as_deref(), now.is_favorite, now.triaged_at.clone(), now.revision),
@@ -413,8 +438,46 @@ mod tests {
         assert_eq!(back.id, saved.bookmark.id);
         assert!(back.deleted_at.is_some() && back.reading_at.is_none() && !back.is_favorite, "back in the Trash, as it came");
         assert_eq!(w.saved(ids[0]), None, "the post shows unsaved again");
-        // Saved again: the link is in the Trash, and is answered as it is.
-        assert!(!save_feed_item(&w.db, &w.cache, ids[0], SavePlace::Library, false).unwrap().created);
+        // Saved again: out of the Trash to the place asked, and undoable again.
+        let again = save_feed_item(&w.db, &w.cache, ids[0], SavePlace::Library, false).unwrap();
+        assert!(!again.created && again.restored && again.command.is_some());
+        assert_eq!(again.bookmark.id, saved.bookmark.id);
+        assert!(again.bookmark.deleted_at.is_none() && again.bookmark.triaged_at.is_some());
+        assert_eq!(w.saved(ids[0]), Some(saved.bookmark.id));
+        let outcome = w.db.journal.lock().unwrap().undo(&w.library(), None).unwrap();
+        let Undo::Undone { bookmarks, .. } = outcome else {
+            panic!("not undone: {outcome:?}");
+        };
+        assert!(bookmarks[0].deleted_at.is_some() && bookmarks[0].triaged_at.is_none());
+    }
+
+    #[test]
+    fn a_link_trashed_earlier_comes_back_where_asked() {
+        let w = world(FeedDestination::Feeds);
+        let old = {
+            let library = w.library();
+            let old = db::insert_or_update_bookmark(&library, "https://example.com/a", "Mine", None, None, None, "example.com", None, Some(&["kept".to_string()]), Source::App).unwrap();
+            library.execute("UPDATE bookmarks SET triaged_at = '2026-01-01T00:00:00.000Z' WHERE id = ?1", [old.id]).unwrap();
+            db::trash_bookmark(&library, old.id).unwrap()
+        };
+        let ids = w.fetch(vec![post("a", Some("https://example.com/a"), 1), post("b", Some("https://example.com/b"), 2)]);
+        let saved = save_feed_item(&w.db, &w.cache, ids[0], SavePlace::Inbox, true).unwrap();
+        assert!(saved.restored && !saved.created && saved.command.is_some());
+        let b = &saved.bookmark;
+        assert_eq!(b.id, old.id);
+        assert!(b.deleted_at.is_none() && b.triaged_at.is_none() && b.is_favorite, "in the Inbox anew, starred");
+        assert_eq!((b.title.as_str(), b.source.as_deref(), b.tags.clone()), ("Mine", Some("app"), Some(vec!["kept".to_string()])));
+        assert_eq!(w.link_back(ids[0]).1, true);
+        assert_eq!(w.saved(ids[0]), Some(old.id));
+        // Reading: in Reading, its decision kept.
+        let other = {
+            let library = w.library();
+            let other = db::insert_or_update_bookmark(&library, "https://example.com/b", "B", None, None, None, "example.com", None, None, Source::App).unwrap();
+            db::trash_bookmark(&library, other.id).unwrap()
+        };
+        let b = save_feed_item(&w.db, &w.cache, ids[1], SavePlace::Reading, false).unwrap().bookmark;
+        assert_eq!(b.id, other.id);
+        assert!(b.deleted_at.is_none() && b.reading_at.is_some() && !b.is_favorite);
     }
 
     #[test]

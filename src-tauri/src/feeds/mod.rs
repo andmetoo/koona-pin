@@ -576,6 +576,9 @@ pub async fn save_feed_item(
         .map_err(CommandError::internal)??;
     if saved.created {
         save::announce(&app, db, saved.bookmark.clone());
+    } else if saved.restored {
+        // Back from the Trash it arrives like a new one; its metadata is there.
+        crate::capture::emit(&app, crate::capture::ChangeKind::Created, &saved.bookmark);
     }
     changed(&app, &state).await;
     Ok(saved.bookmark)
