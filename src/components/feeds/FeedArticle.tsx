@@ -12,6 +12,7 @@ import { Hint } from "../ui/Hint";
 import { AaButton } from "../reader/AaPanel";
 import { ArticleView, failureText } from "../reader/ArticleView";
 import { FeedIcon } from "./FeedIcon";
+import { SafeImage } from "../ui/SafeImage";
 
 export interface AaProps {
   choice: ReaderChoice;
@@ -203,7 +204,7 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
   );
   const lead = leadPicture ? (
     <figure className="feed-lead">
-      <img src={leadPicture} alt="" referrerPolicy="no-referrer" className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
+      <SafeImage src={leadPicture} alt="" referrerPolicy="no-referrer" className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
       {caption && <figcaption className="feed-caption">{caption}</figcaption>}
     </figure>
   ) : null;

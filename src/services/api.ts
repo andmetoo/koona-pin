@@ -225,6 +225,8 @@ const desktop = {
   restoreLibrary: (content: string, mode: RestoreMode) =>
     call<RestoreOutcome>("restore_library", { content, mode }),
   openUrl: (url: string) => call<void>("open_url_external", { url }),
+  /** Checks an external image/icon before the WebView loads it. */
+  checkPublicResource: (url: string) => call<boolean>("check_public_resource", { url }),
   /** The page of an article, under the metadata request's guard (NP-120); `readArticle` extracts it. */
   fetchReaderPage: (url: string) => call<ReaderPage>("fetch_reader_page", { url }),
   // Offline copies of articles (NP-126): only on this computer, never synced or exported.

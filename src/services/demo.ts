@@ -1698,6 +1698,9 @@ export const demo = {
     if (!b) return { kind: "failed" };
     return { kind: "page", url, status: 200, charset: "utf-8", html: demoArticle(b), truncated: false };
   },
+  async checkPublicResource(_url: string) {
+    return true;
+  },
   onBookmarkChanged(fn: (change: BookmarkChange) => void) {
     listeners.add(fn);
     return () => {

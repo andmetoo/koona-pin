@@ -9,6 +9,7 @@ import { shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { FeedIcon } from "./FeedIcon";
+import { usePublicImage } from "../../services/imageGuard";
 
 /** The frame's rhythm (NP-132): rows 158 apart, a day label 22 high. */
 export const ROW = 158;
@@ -242,7 +243,7 @@ function FeedItemRow({
   onKeyDown: (e: KeyboardEvent) => void;
 }) {
   const { t } = useTranslation();
-  const thumbnail = pictureUrl(item.thumbnail_url);
+  const thumbnail = usePublicImage(pictureUrl(item.thumbnail_url));
   const name = feed ? feedName(feed) : "";
   return (
     <div

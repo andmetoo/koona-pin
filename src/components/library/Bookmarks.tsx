@@ -10,6 +10,7 @@ import { daysLeft } from "../../services/library";
 import { Icon, OfflineIcon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
+import { usePublicImage } from "../../services/imageGuard";
 
 export interface BookmarkActions {
   open: (url: string) => void;
@@ -244,8 +245,9 @@ function useBookmarkMenu(b: Bookmark, collections: Collection[], actions: Bookma
 export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
   // The address that failed: a cached failure comes before any effect could reset a flag.
   const [failed, setFailed] = useState<string | null>(null);
-  return b.favicon_url && failed !== b.favicon_url ? (
-    <img src={b.favicon_url} alt="" width={size} height={size} className="shrink-0 rounded-[3px] object-contain" onError={() => setFailed(b.favicon_url)} />
+  const favicon = usePublicImage(b.favicon_url);
+  return favicon && failed !== favicon ? (
+    <img src={favicon} alt="" width={size} height={size} className="shrink-0 rounded-[3px] object-contain" onError={() => setFailed(favicon)} />
   ) : (
     <span
       style={{ width: size, height: size, fontSize: size * 0.64 }}
@@ -283,8 +285,9 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
   // Kept with the address it was learnt for: a cached icon loads before any
   // effect would run, so resetting in an effect would lose its answer.
   const [learnt, setLearnt] = useState<{ url: string; icon: "large" | "small" | "none" } | null>(null);
-  const icon = !b.favicon_url ? "none" : learnt?.url === b.favicon_url ? learnt.icon : "loading";
-  const setIcon = (value: "large" | "small" | "none") => b.favicon_url && setLearnt({ url: b.favicon_url, icon: value });
+  const favicon = usePublicImage(b.favicon_url);
+  const icon = !favicon ? "none" : learnt?.url === favicon ? learnt.icon : "loading";
+  const setIcon = (value: "large" | "small" | "none") => favicon && setLearnt({ url: favicon, icon: value });
   return (
     <span
       data-preview-fallback
@@ -305,9 +308,9 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
         </svg>
       )}
       <span className="cover-tile" data-icon={icon}>
-        {b.favicon_url && icon !== "none" && (
+        {favicon && icon !== "none" && (
           <img
-            src={b.favicon_url}
+            src={favicon}
             alt=""
             decoding="async"
             onLoad={(e) => setIcon(e.currentTarget.naturalWidth >= 32 ? "large" : "small")}
@@ -320,7 +323,7 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
       {!small && (
         <>
           <span className="cover-chip">
-            {icon === "large" ? <img src={b.favicon_url!} alt="" /> : icon !== "loading" && monogram(b.domain, b.title)}
+            {icon === "large" ? <img src={favicon!} alt="" /> : icon !== "loading" && monogram(b.domain, b.title)}
           </span>
           <span className="cover-domain">{b.domain}</span>
           <span className="cover-poster">{siteName(b)}</span>
@@ -338,8 +341,9 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
 export function Preview({ b, live = false, small = false }: { b: Bookmark; live?: boolean; small?: boolean }) {
   // The address that failed, not a flag: a cached failure comes before any effect.
   const [failed, setFailed] = useState<string | null>(null);
-  const broken = failed !== null && failed === b.image_url;
-  const setBroken = () => setFailed(b.image_url);
+  const image = usePublicImage(b.image_url);
+  const broken = failed !== null && failed === image;
+  const setBroken = () => setFailed(image);
   const [, recheck] = useState(0);
   const pending = pendingFor(b);
   useEffect(() => {
@@ -347,8 +351,8 @@ export function Preview({ b, live = false, small = false }: { b: Bookmark; live?
     const timer = window.setTimeout(() => recheck((n) => n + 1), pending);
     return () => window.clearTimeout(timer);
   }, [pending > 0, b.id]);
-  if (b.image_url && !broken)
-    return <img src={b.image_url} alt="" loading="lazy" decoding="async" className="size-full object-cover" onError={setBroken} />;
+  if (image && !broken)
+    return <img src={image} alt="" loading="lazy" decoding="async" className="size-full object-cover" onError={setBroken} />;
   return pending ? <span data-preview-pending className="cover-pending" /> : <Cover b={b} live={live} small={small} />;
 }
 
@@ -457,10 +461,10 @@ const HALO_FADE_MS = 300;
  * picture that fails still leaves the colour. The same address as the preview's
  * image: the browser's cache answers, nothing is downloaded again.
  */
-function haloOf(b: Bookmark) {
+function haloOf(b: Bookmark, image: string | null) {
   const cover = coverOf(b.domain, b.url);
   const gradient = `linear-gradient(${cover.angle}deg, ${cover.from}, ${cover.to})`;
-  return b.image_url ? `url(${JSON.stringify(b.image_url)}), ${gradient}` : gradient;
+  return image ? `url(${JSON.stringify(image)}), ${gradient}` : gradient;
 }
 
 /** Height of a card below its preview: 10 + domain 15 + 10 + two title lines 38 (frame 01). */
@@ -493,6 +497,7 @@ export const BookmarkCard = memo(function BookmarkCard({
   const menu = useBookmarkMenu(b, collections, actions);
   const control = cardControl(b, actions, selected);
   const halo = useLinger(selected, HALO_FADE_MS);
+  const image = usePublicImage(b.image_url);
   return (
     <article
       data-bookmark-id={b.id}
@@ -510,7 +515,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       {/* The preview in its ring (`app.css`, «grid card»): selected, it sinks into a frosted
           copy of its picture and a glass check marks it; hovered, glass buttons in its corner. */}
       <div data-ring className="card-ring">
-        {halo && <span aria-hidden className="card-halo" style={{ backgroundImage: haloOf(b) }} />}
+        {halo && <span aria-hidden className="card-halo" style={{ backgroundImage: haloOf(b, image) }} />}
         <div data-preview className="card-preview">
           <Preview b={b} live />
         </div>
