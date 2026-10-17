@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Plus, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedItem } from "../../types";
@@ -30,7 +30,8 @@ export interface FeedNotice {
 /**
  * The Feeds page (NP-132, Lunacy frame «RSS · Three columns · Light»): the list column 380 wide
  * and the article sheet beside it; in a narrow window one at a time. Its keys are its own window
- * listener with App's layer check: ↑/↓ J/K, Space or Enter, S R F O U, ⇧A and ⌘R.
+ * listener with App's layer check: ↑/↓ J/K, Space or Enter, S R F O U, E (the card over the list),
+ * ⇧A and ⌘R.
  */
 /**
  * When the newest post of the feed shown (or of all feeds) arrived, as the page last
@@ -84,6 +85,11 @@ export function FeedsPage({
   const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, searching ? search : "", feeds);
   const list = useRef<FeedListHandle>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const sheetEl = useRef<HTMLElement>(null);
+  const leavingEl = useRef<HTMLElement>(null);
+  // The card laid over the list (E), and the card of the post just left while it flies off.
+  const [expanded, setExpanded] = useState(false);
+  const [leaving, setLeaving] = useState<{ item: FeedItem; feed: Feed | undefined; bookmark: Bookmark | null; shift: number } | null>(null);
   const selected = useMemo(() => items.find((item) => item.id === itemId) ?? null, [items, itemId]);
   const feed = useMemo(() => (selected ? feeds.find((f) => f.uid === selected.feed_uid) : undefined), [feeds, selected]);
   const shownFeed = feedUid ? feeds.find((f) => f.uid === feedUid) : undefined;
@@ -131,12 +137,21 @@ export function FeedsPage({
     const next = items[index < 0 ? (step > 0 ? 0 : items.length - 1) : Math.min(items.length - 1, Math.max(0, index + step))];
     if (!next || next.id === itemId) return;
     const fromList = document.activeElement instanceof HTMLElement && !!document.activeElement.closest("[data-feed-list]");
+    // The card of the open post flies off and the next one takes its place: up when going on,
+    // from where its card peeked below the end when it did; down when going back.
+    const sheet = sheetEl.current;
+    if (selected && sheet && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const box = sheet.getBoundingClientRect();
+      const peek = sheet.querySelector("[data-feed-peek]")?.getBoundingClientRect();
+      const shift = step > 0 && peek && peek.top < box.bottom ? peek.top - box.top - 1 : (box.height + 24) * step;
+      setLeaving({ item: selected, feed, bookmark, shift });
+    }
     onItem(next.id);
     list.current?.reveal(next.id, fromList);
-    scroller.current?.scrollTo({ top: 0 });
   };
   const back = () => {
     if (narrow) onItem(null);
+    else if (expanded) setExpanded(false);
     else if (selected) list.current?.reveal(selected.id, true);
   };
 
@@ -200,8 +215,11 @@ export function FeedsPage({
     );
   const refresh = () => void refreshFeeds(feedUid).catch(failed);
 
-  const keys = useRef({ move, select, save, toggleRead, markAll, refresh, back, selected, items, onOpen, blocked });
-  keys.current = { move, select, save, toggleRead, markAll, refresh, back, selected, items, onOpen, blocked };
+  const expand = () => {
+    if (!narrow && selected) setExpanded(!expanded);
+  };
+  const keys = useRef({ move, select, save, toggleRead, markAll, refresh, back, expand, selected, items, onOpen, blocked });
+  keys.current = { move, select, save, toggleRead, markAll, refresh, back, expand, selected, items, onOpen, blocked };
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const k = keys.current;
@@ -238,6 +256,7 @@ export function FeedsPage({
       else if (is("f") && !e.repeat) run(() => void k.save("favorite"));
       else if (is("o") && k.selected?.url) run(() => k.onOpen(k.selected!.url!));
       else if (is("u") && !e.repeat) run(k.toggleRead);
+      else if (is("e") && !e.repeat) run(k.expand);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -268,9 +287,45 @@ export function FeedsPage({
 
   const showList = !narrow || !selected;
   const showSheet = !narrow || !!selected;
+  const index = selected ? items.indexOf(selected) : -1;
+  const next = index >= 0 ? (items[index + 1] ?? null) : null;
+  const wide = expanded && !narrow && !!selected;
+  const sheetProps = {
+    look,
+    aa,
+    narrow,
+    expanded: wide,
+    nextFeed: next ? feeds.find((f) => f.uid === next.feed_uid) : undefined,
+    onBack: back,
+    onExpand: expand,
+    onNext: () => move(1),
+    onSave: () => void save("library"),
+    onReading: () => void save("reading"),
+    onFavorite: () => void save("favorite"),
+    onOpen,
+    onFeed: (uid: string) => onFeed(uid),
+  };
+
+  // The swap: the card left flies up by where the next one peeked (or a whole card), the new one
+  // rises from there; reduced motion swaps at once.
+  useLayoutEffect(() => {
+    if (!leaving) return;
+    const old = leavingEl.current;
+    const now = sheetEl.current;
+    if (!old || !now) return setLeaving(null);
+    const timing: KeyframeAnimationOptions = { duration: 460, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
+    old.animate([{ transform: "none" }, { transform: `translateY(${-leaving.shift}px)` }], { ...timing, fill: "forwards" });
+    const rise = now.animate([{ transform: `translateY(${leaving.shift}px)` }, { transform: "none" }], timing);
+    rise.onfinish = () => setLeaving(null);
+    return () => rise.cancel();
+  }, [leaving]);
   return (
     <div data-feeds-page className="flex min-h-0 flex-1">
       {showList && (
+        <div
+          data-feed-slot
+          className={`flex min-h-0 overflow-hidden transition-[width] duration-300 ease-[var(--ease-standard)] motion-reduce:transition-none ${narrow ? "flex-1" : wide ? "w-0" : "w-[380px] shrink-0"}`}
+        >
         <FeedList
           feeds={feeds}
           items={items}
@@ -295,23 +350,38 @@ export function FeedsPage({
           empty={empty}
           narrow={narrow}
         />
+        </div>
       )}
       {showSheet && (
-        <FeedArticleSheet
-          item={selected}
-          feed={feed}
-          bookmark={bookmark}
-          look={look}
-          aa={aa}
-          narrow={narrow}
-          scrollerRef={scroller}
-          onBack={back}
-          onSave={() => void save("library")}
-          onReading={() => void save("reading")}
-          onFavorite={() => void save("favorite")}
-          onOpen={onOpen}
-          onFeed={(uid) => onFeed(uid)}
-        />
+        // One card per post, keyed by it: the card just left keeps its place in the text while it flies off.
+        <div data-feed-stage className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          {leaving && leaving.item.id !== selected?.id && (
+            <FeedArticleSheet
+              key={leaving.item.id}
+              {...sheetProps}
+              item={leaving.item}
+              feed={leaving.feed}
+              bookmark={leaving.bookmark}
+              next={selected}
+              nextFeed={feed}
+              sheetRef={leavingEl}
+              className="pointer-events-none absolute inset-0"
+            />
+          )}
+          {/* Over the card left: it rises with its own toolbar where that card's peek was. */}
+          <FeedArticleSheet
+            key={selected?.id ?? "none"}
+            {...sheetProps}
+            item={selected}
+            feed={feed}
+            bookmark={bookmark}
+            next={next}
+            onPrevious={index > 0 ? () => move(-1) : undefined}
+            scrollerRef={scroller}
+            sheetRef={sheetEl}
+            className="relative z-10"
+          />
+        </div>
       )}
     </div>
   );

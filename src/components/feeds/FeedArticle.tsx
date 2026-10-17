@@ -1,5 +1,5 @@
 import { ReactNode, Ref, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BookOpen, Check, Heart, Link, Plus, Rss } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, Check, Heart, Link, Maximize2, Minimize2, Plus, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Bookmark, Feed, FeedArticle as CachedPost, FeedItem } from "../../types";
 import { feedName, getFeedArticle } from "../../services/feeds";
@@ -22,11 +22,13 @@ export interface AaProps {
 }
 
 /**
- * The article sheet (NP-132): the sheet's colour filled to the window's edges (2.1.3; it was a raised
- * sheet inset 10 px with radius 18). ← on the left in a narrow window only; on the
- * right Save S, Read later R, Favorite F, a hairline, Open O and Aa — the reading look of the
- * Aa panel. The cached post renders through `ArticleView` with an `Article` built by
- * `sanitize()`; a summary-only post offers «Load the full article», read on that click only.
+ * The article sheet (NP-132, Lunacy «Feeds 2.2 · 1» and «· 5»): a card inset 10 px, radius 18, its
+ * bottom below the window's edge. On the left ← in a narrow window, else the expand button that
+ * lays the card over the list up to the sidebar; on the right Save S, Read later R, Favorite F,
+ * a hairline, Open O and Aa — the reading look of the Aa panel. The cached post renders through
+ * `ArticleView` with an `Article` built by `sanitize()`; a summary-only post offers «Load the full
+ * article», read on that click only. At the end «Next story» J, with the next post's card peeking
+ * below this one: going on flies this card up and that one into its place (FeedsPage).
  */
 export function FeedArticleSheet({
   item,
@@ -35,8 +37,16 @@ export function FeedArticleSheet({
   look,
   aa,
   narrow,
+  expanded,
+  next,
+  nextFeed,
   scrollerRef,
+  sheetRef,
+  className = "",
   onBack,
+  onExpand,
+  onNext,
+  onPrevious,
   onSave,
   onReading,
   onFavorite,
@@ -50,8 +60,19 @@ export function FeedArticleSheet({
   look: ReaderLook;
   aa: AaProps;
   narrow: boolean;
-  scrollerRef: Ref<HTMLDivElement>;
+  /** Laid over the list (wide window only). */
+  expanded: boolean;
+  /** The post after this one in the list: its card peeks below the end. */
+  next: FeedItem | null;
+  nextFeed: Feed | undefined;
+  scrollerRef?: Ref<HTMLDivElement>;
+  sheetRef?: Ref<HTMLElement>;
+  className?: string;
   onBack: () => void;
+  onExpand: () => void;
+  onNext: () => void;
+  /** Absent on the first post of the list. */
+  onPrevious?: () => void;
   onSave: () => void;
   onReading: () => void;
   onFavorite: () => void;
@@ -65,18 +86,25 @@ export function FeedArticleSheet({
   const favorite = !!bookmark?.is_favorite;
   return (
     <section
+      ref={sheetRef}
       aria-label={item ? item.title : t("feeds.article")}
       data-feed-article
       data-reader-look={look.theme}
       style={readerStyle(look)}
-      className="reading-look feed-sheet flex min-w-0 flex-1 flex-col overflow-hidden bg-sheet text-sheet-ink"
+      className={`reading-look feed-sheet mx-2.5 mt-2.5 -mb-6 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-sheet text-sheet-ink ${className}`}
     >
       <header className="feed-toolbar flex h-[76px] shrink-0 items-center gap-[3px] pr-3 pl-[19px]">
-        {/* ← only where the sheet stands in for the list; beside it Esc alone returns to the list (2.1.3). */}
-        {narrow && (
+        {/* ← where the sheet stands in for the list; beside it the card can spread over the list instead. */}
+        {narrow ? (
           <ToolButton label={t("feeds.back")} keys="Esc" onClick={onBack}>
             <Icon icon={ArrowLeft} size={16} />
           </ToolButton>
+        ) : (
+          item && (
+            <ToolButton label={expanded ? t("feeds.collapse") : t("feeds.expand")} keys="E" pressed={expanded} onClick={onExpand}>
+              <Icon icon={expanded ? Minimize2 : Maximize2} size={16} />
+            </ToolButton>
+          )
         )}
         <span className="flex-1" />
         {item && (
@@ -98,9 +126,17 @@ export function FeedArticleSheet({
           </>
         )}
       </header>
-      <div ref={scrollerRef} tabIndex={-1} data-feed-scroll className="feed-scroll min-h-0 flex-1 overflow-y-auto px-6 pt-1 pb-24 outline-none sm:px-16">
+      <div
+        ref={scrollerRef}
+        tabIndex={-1}
+        data-feed-scroll
+        className={`feed-scroll min-h-0 flex-1 overflow-y-auto px-6 pt-1 outline-none sm:px-16 ${item && next ? "" : "pb-24"}`}
+      >
         {item ? (
-          <Post key={item.id} item={item} feed={feed} onOpen={onOpen} onFeed={onFeed} />
+          <>
+            <Post key={item.id} item={item} feed={feed} onOpen={onOpen} onFeed={onFeed} />
+            {(next || onPrevious) && <EndOfPost item={next} feed={nextFeed} onNext={onNext} onPrevious={onPrevious} />}
+          </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 pb-16 text-center">
             <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-icon">
@@ -149,9 +185,9 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
     <button
       type="button"
       onClick={() => onFeed(feed.uid)}
-      className="feed-chip inline-flex h-7 max-w-full items-center gap-2 rounded-full border border-sheet-line pr-3 pl-1 text-sm font-semibold transition-colors duration-150 hover:bg-hover"
+      className="feed-chip inline-flex h-9 max-w-full items-center gap-2.5 rounded-full pr-4 pl-1.5 text-sm font-semibold"
     >
-      <FeedIcon feed={feed} size={20} round />
+      <FeedIcon feed={feed} size={24} round />
       <span className="truncate">{name}</span>
     </button>
   ) : null;
@@ -191,6 +227,75 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
             : undefined
         }
       />
+    </div>
+  );
+}
+
+/**
+ * The end of a post (Lunacy «Feeds 2.2 · 5»): «Previous story» K and «Next story» J, this card's
+ * round bottom, and the next post's card peeking below with its chip and title where the next
+ * sheet will show them.
+ */
+function EndOfPost({ item, feed, onNext, onPrevious }: { item: FeedItem | null; feed: Feed | undefined; onNext: () => void; onPrevious?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div data-feed-next>
+      <div className="flex flex-wrap justify-center gap-3 pt-12 pb-14">
+        {onPrevious && (
+          <Hint label={t("feeds.previous")} keys="K">
+            <button
+              type="button"
+              data-feed-previous
+              onClick={onPrevious}
+              className="flex h-12 items-center gap-2.5 rounded-full pr-2.5 pl-5 text-[15px] font-semibold text-sheet-ink shadow-[inset_0_0_0_1px_var(--np-sheet-line)] transition-colors duration-150 hover:bg-hover"
+            >
+              <Icon icon={ArrowUp} size={16} />
+              {t("feeds.previous")}
+              <kbd className="flex size-7 items-center justify-center rounded-lg bg-hover font-sans text-xs">K</kbd>
+            </button>
+          </Hint>
+        )}
+        {item && (
+          <Hint label={t("feeds.next")} keys="J">
+            <button
+              type="button"
+              onClick={onNext}
+              className="flex h-12 items-center gap-2.5 rounded-full bg-ink-btn pr-2.5 pl-6 text-[15px] font-semibold text-on-ink-btn shadow-[0_1px_2px_rgb(0_0_0/0.2),inset_0_1px_0_rgb(255_255_255/0.12)] transition-colors duration-150 hover:bg-ink-btn-hover"
+            >
+              {t("feeds.next")}
+              <Icon icon={ArrowDown} size={16} />
+              <kbd className="flex size-7 items-center justify-center rounded-lg bg-current/15 font-sans text-xs">J</kbd>
+            </button>
+          </Hint>
+        )}
+      </div>
+      {item && <Peek item={item} feed={feed} onNext={onNext} />}
+    </div>
+  );
+}
+
+/** The next post's card below this one: its top laid out as the next sheet's own. */
+function Peek({ item, feed, onNext }: { item: FeedItem; feed: Feed | undefined; onNext: () => void }) {
+  return (
+    // On the page's colour edge to edge: outside its round corners the page shows, not this card.
+    <div className="-mx-6 bg-bg sm:-mx-16">
+      <div aria-hidden className="feed-gap" />
+      <button type="button" tabIndex={-1} data-feed-peek onClick={onNext} className="feed-peek block w-full text-left">
+        <span aria-hidden className="block h-[76px]" />
+        <span className="block px-6 pt-1 pb-40 sm:px-16">
+          <span className="feed-article block">
+            <span className="reader-article mx-auto block w-full max-w-[var(--reader-column,600px)]">
+              {feed && (
+                <span className="feed-chip inline-flex h-9 max-w-full items-center gap-2.5 rounded-full pr-4 pl-1.5 text-sm font-semibold">
+                  <FeedIcon feed={feed} size={24} round />
+                  <span className="truncate">{feedName(feed)}</span>
+                </span>
+              )}
+              <span className="reader-title block">{item.title}</span>
+            </span>
+          </span>
+        </span>
+      </button>
     </div>
   );
 }

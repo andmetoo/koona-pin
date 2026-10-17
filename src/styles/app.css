@@ -2709,25 +2709,84 @@
    10 px with radius 18; its column 680 at the Aa panel's medium width; the title 34/40 with the
    meta line under it; the post's picture with the excerpt as an italic caption. */
 @layer components {
-  /* Flush with the window, no shadow: one hairline where it meets the list (2.1.3). */
-  .feed-sheet {
-    box-shadow: inset 1px 0 0 var(--np-raised-edge);
+  /* A card on the page, its bottom below the window's edge (Lunacy «Feeds 2.2 · 1»). No shadow along its sides: cut off by the page's edge and broken off at the gap between two
+     posts' cards, it read as a grey band. Its hairline is inside, under the text, so that gap covers
+     it and the cards float apart instead of sitting on two rails; the gap's own shadow lifts them. */
+  .feed-sheet::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px var(--np-raised-edge);
+    pointer-events: none;
+  }
+  .feed-sheet > * {
+    position: relative;
   }
   .feed-article {
     --reader-column: calc(var(--reader-width, 640px) + 40px);
   }
+  /* The source as a glass pill: the material of the grid cards' corner buttons. */
+  .feed-chip {
+    background: var(--np-glass-raised);
+    box-shadow: 0 6px 18px -8px rgb(0 0 0 / 0.22), 0 0 0 1px var(--np-glass-line), inset 0 1px 0 var(--np-glass-edge);
+    backdrop-filter: blur(16px) saturate(1.4);
+    transition: box-shadow 150ms;
+  }
+  .feed-chip:hover {
+    box-shadow: 0 8px 22px -8px rgb(0 0 0 / 0.3), 0 0 0 1px var(--np-glass-line), inset 0 1px 0 var(--np-glass-edge);
+  }
   .feed-article .reader-title {
     max-width: 600px;
-    margin: 14px 0 10px;
+    margin: 16px 0 10px;
     line-height: 40px;
   }
+  /* The date line stands apart from the text under it; the text a step smaller than reading mode's. */
   .feed-byline {
+    margin-bottom: 26px;
     font-size: 13px;
     line-height: 16px;
     color: var(--np-meta);
   }
+  .feed-article .reader-body {
+    font-size: calc(var(--reader-size, 18px) - 1px);
+    line-height: calc(var(--reader-line, 30px) - 2px);
+  }
+  /* The picture wider than the text, 40 px either side where the sheet has room. */
   .feed-lead {
-    margin: 14px 0;
+    margin: 0 0 18px;
+  }
+  @media (min-width: 640px) {
+    .feed-lead {
+      margin-inline: -40px;
+    }
+    .feed-lead .feed-caption {
+      margin-inline: 40px;
+    }
+  }
+  /* The end of a post: «Next story», then this card's round bottom over the page and the next
+     post's card peeking below, laid out as that card's own top so the swap lands in place. */
+  .feed-gap {
+    position: relative;
+    height: 34px;
+    background: var(--np-bg);
+  }
+  .feed-gap::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 18px;
+    border: 1px solid var(--np-raised-edge);
+    border-top: 0;
+    border-radius: 0 0 18px 18px;
+    background: var(--np-sheet);
+    box-shadow: 0 16px 26px -16px rgb(0 0 0 / 0.3);
+  }
+  .feed-peek {
+    border: 1px solid var(--np-raised-edge);
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+    background: var(--np-sheet);
   }
   .feed-caption {
     margin-top: 16px;
