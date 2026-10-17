@@ -2709,12 +2709,9 @@
    10 px with radius 18; its column 680 at the Aa panel's medium width; the title 34/40 with the
    meta line under it; the post's picture with the excerpt as an italic caption. */
 @layer components {
-  /* A card raised over the page, its bottom below the window's edge (Lunacy «Feeds 2.2 · 1»). */
-  .feed-sheet {
-    box-shadow: 0 18px 50px -24px rgb(0 0 0 / 0.35);
-  }
-  /* Its hairline inside, under the text: the gap between two posts' cards covers it, so the cards
-     float apart instead of sitting on two rails. */
+  /* A card on the page, its bottom below the window's edge (Lunacy «Feeds 2.2 · 1»). No shadow along its sides: cut off by the page's edge and broken off at the gap between two
+     posts' cards, it read as a grey band. Its hairline is inside, under the text, so that gap covers
+     it and the cards float apart instead of sitting on two rails; the gap's own shadow lifts them. */
   .feed-sheet::before {
     content: "";
     position: absolute;
