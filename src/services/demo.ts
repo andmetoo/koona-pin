@@ -1698,6 +1698,10 @@ export const demo = {
     if (!b) return { kind: "failed" };
     return { kind: "page", url, status: 200, charset: "utf-8", html: demoArticle(b), truncated: false };
   },
+  /** The preview resolves no names: its own pictures are `data:` posters, any web address passes. */
+  async checkPublicResource(_url: string): Promise<boolean | null> {
+    return true;
+  },
   onBookmarkChanged(fn: (change: BookmarkChange) => void) {
     listeners.add(fn);
     return () => {

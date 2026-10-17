@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { Feed, FeedItem } from "../../types";
 import { feedName } from "../../services/feeds";
 import { dayGroups, dayLabel, pictureUrl, postAge } from "../../services/feedsView";
+import { usePublicImage } from "../../services/imageGuard";
 import { shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
@@ -242,7 +243,7 @@ function FeedItemRow({
   onKeyDown: (e: KeyboardEvent) => void;
 }) {
   const { t } = useTranslation();
-  const thumbnail = pictureUrl(item.thumbnail_url);
+  const thumbnail = usePublicImage(pictureUrl(item.thumbnail_url));
   const name = feed ? feedName(feed) : "";
   return (
     <div
