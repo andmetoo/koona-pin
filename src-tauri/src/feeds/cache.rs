@@ -73,6 +73,14 @@ CREATE TABLE feed_seen (
     "ALTER TABLE feed_state ADD COLUMN ttl_minutes INTEGER;",
     // v3: its `Cache-Control: max-age`, for the same: an interval made shorter keeps to it (NP-129).
     "ALTER TABLE feed_state ADD COLUMN max_age_secs INTEGER;",
+    // v4: match the list's effective date, including posts without a published date.
+    // Counts must not read article bodies from the table on every read mark;
+    // the counts index also serves unread lookups, so the partial one goes.
+    "DROP INDEX feed_items_list;
+     DROP INDEX feed_items_unread;
+     CREATE INDEX feed_items_list ON feed_items (feed_uid, COALESCE(published_at, fetched_at) DESC, id DESC);
+     CREATE INDEX feed_items_all ON feed_items (COALESCE(published_at, fetched_at) DESC, id DESC);
+     CREATE INDEX feed_items_counts ON feed_items (feed_uid, read_at, fetched_at);",
 ];
 
 /// The newest cache version this build makes.
@@ -785,6 +793,56 @@ mod tests {
     }
 
     #[test]
+    fn v3_cache_migration_preserves_pages_articles_and_read_marks() {
+        let conn = Connection::open_in_memory().unwrap();
+        for step in &STEPS[..3] { conn.execute_batch(step).unwrap(); }
+        conn.pragma_update(None, "user_version", 3).unwrap();
+        for n in 0..12 {
+            conn.execute(
+                "INSERT INTO feed_items(feed_uid,key,title,content_html,published_at,fetched_at,read_at)
+                 VALUES(?1,?2,'Post','<p>Kept</p>',?3,'2026-10-16',?4)",
+                params![if n % 2 == 0 { "a" } else { "b" }, n.to_string(),
+                    (n % 3 != 0).then_some("2026-10-15"), (n % 4 == 0).then_some("2026-10-16")],
+            ).unwrap();
+        }
+        let pages = || {
+            [None, Some("a"), Some("b")].into_iter().map(|feed| {
+                let mut q = query(feed, 2);
+                let mut ids = Vec::new();
+                loop {
+                    let (items, next) = list_items(&conn, &q).unwrap();
+                    ids.extend(items.into_iter().map(|(item, _)| (item.id, item.read)));
+                    match next { Some(cursor) => q.after = Some(cursor), None => break }
+                }
+                ids
+            }).collect::<Vec<_>>()
+        };
+        let before = pages();
+        migrate(&conn).unwrap();
+        assert_eq!(before, pages());
+        assert_eq!(article(&conn, 1).unwrap().html, "<p>Kept</p>");
+        // Every shape the list asks for: first pages, later pages, unread only.
+        let after = format!("({SORT_AT} < '2026-10-16' OR ({SORT_AT} = '2026-10-16' AND id < 5))");
+        for filter in [
+            String::new(),
+            "WHERE feed_uid = 'a'".into(),
+            "WHERE read_at IS NULL".into(),
+            "WHERE feed_uid = 'a' AND read_at IS NULL".into(),
+            format!("WHERE {after}"),
+            format!("WHERE feed_uid = 'a' AND {after}"),
+            format!("WHERE feed_uid = 'a' AND read_at IS NULL AND {after}"),
+        ] {
+            let sql = format!("EXPLAIN QUERY PLAN SELECT {ITEM_COLUMNS} FROM feed_items {filter} ORDER BY {SORT_AT} DESC, id DESC LIMIT 50");
+            let plan: Vec<String> = conn.prepare(&sql).unwrap().query_map([], |r| r.get(3)).unwrap().collect::<Result<_, _>>().unwrap();
+            assert!(!plan.iter().any(|line| line.contains("TEMP B-TREE")), "{plan:?}");
+        }
+        let plan: Vec<String> = conn
+            .prepare("EXPLAIN QUERY PLAN SELECT feed_uid, count(*), count(*) FILTER (WHERE read_at IS NULL), max(fetched_at) FROM feed_items GROUP BY feed_uid")
+            .unwrap().query_map([], |r| r.get(3)).unwrap().collect::<Result<_, _>>().unwrap();
+        assert!(plan.iter().any(|line| line.contains("COVERING INDEX feed_items_counts")), "{plan:?}");
+    }
+
+    #[test]
     fn a_missing_cache_is_made_with_its_schema_and_kept() {
         let folder = folder("feed-cache-new");
         let opened = open(&folder).unwrap();
@@ -794,7 +852,7 @@ mod tests {
         assert_eq!(conn.pragma_query_value(None, "application_id", |r| r.get::<_, i32>(0)).unwrap(), APPLICATION_ID);
         assert_eq!(
             tables(&conn),
-            ["feed_items", "feed_items_list", "feed_items_unread", "feed_seen", "feed_state"]
+            ["feed_items", "feed_items_all", "feed_items_counts", "feed_items_list", "feed_seen", "feed_state"]
         );
         post(&conn, "f", "1");
         drop(conn);

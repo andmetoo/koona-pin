@@ -171,8 +171,11 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
   const cached = useMemo(() => (post ? articleOfPost(post, name) : null), [post, name]);
   const article = page ?? cached;
   const picture = pictureUrl(item.thumbnail_url);
-  const showPicture = !!picture && !!cached && !page && !startsWithPicture(cached.html);
-  const caption = showPicture && post ? captionOf(item.excerpt, post.html) : null;
+  // These checks parse a whole article into a temporary DOM. Read marks, feed
+  // counts and reader settings can rerender this post without changing its text.
+  const opensWithPicture = useMemo(() => !cached || startsWithPicture(cached.html), [cached]);
+  const leadPicture = page || opensWithPicture ? null : picture;
+  const caption = useMemo(() => (leadPicture && post ? captionOf(item.excerpt, post.html) : null), [leadPicture, post, item.excerpt]);
 
   if (failure)
     return (
@@ -198,9 +201,9 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
         .join(" · ")}
     </p>
   );
-  const lead = showPicture ? (
+  const lead = leadPicture ? (
     <figure className="feed-lead">
-      <img src={picture} alt="" referrerPolicy="no-referrer" className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
+      <img src={leadPicture} alt="" referrerPolicy="no-referrer" className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
       {caption && <figcaption className="feed-caption">{caption}</figcaption>}
     </figure>
   ) : null;
