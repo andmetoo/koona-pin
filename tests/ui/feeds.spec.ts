@@ -67,6 +67,8 @@ test("S, R, F and O work from the keys and the toolbar", async ({ page }) => {
   await openFeeds(page);
   await posts(page).nth(2).click();
   await expect(sheet(page).getByRole("heading", { level: 1 })).toHaveText("Weeknight braised beans that taste like they took all day");
+  // Beside the list there is nothing to go back to: no ← (2.1.3).
+  await expect(sheet(page).getByRole("button", { name: "Back to the list" })).toHaveCount(0);
   await page.keyboard.press("s");
   await expect(page.getByText("Saved to Library")).toBeVisible();
   await expect(sheet(page).getByRole("button", { name: "Saved", exact: true })).toHaveAttribute("aria-pressed", "true");

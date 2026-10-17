@@ -22,7 +22,8 @@ export interface AaProps {
 }
 
 /**
- * The article sheet (NP-132): a raised sheet inset 10 px with radius 18. ← on the left; on the
+ * The article sheet (NP-132): the sheet's colour filled to the window's edges (2.1.3; it was a raised
+ * sheet inset 10 px with radius 18). ← on the left in a narrow window only; on the
  * right Save S, Read later R, Favorite F, a hairline, Open O and Aa — the reading look of the
  * Aa panel. The cached post renders through `ArticleView` with an `Article` built by
  * `sanitize()`; a summary-only post offers «Load the full article», read on that click only.
@@ -68,12 +69,15 @@ export function FeedArticleSheet({
       data-feed-article
       data-reader-look={look.theme}
       style={readerStyle(look)}
-      className={`reading-look feed-sheet flex min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-sheet text-sheet-ink ${narrow ? "m-2.5" : "my-2.5 mr-2.5 ml-2.5"}`}
+      className="reading-look feed-sheet flex min-w-0 flex-1 flex-col overflow-hidden bg-sheet text-sheet-ink"
     >
       <header className="feed-toolbar flex h-[76px] shrink-0 items-center gap-[3px] pr-3 pl-[19px]">
-        <ToolButton label={t("feeds.back")} keys="Esc" onClick={onBack}>
-          <Icon icon={ArrowLeft} size={16} />
-        </ToolButton>
+        {/* ← only where the sheet stands in for the list; beside it Esc alone returns to the list (2.1.3). */}
+        {narrow && (
+          <ToolButton label={t("feeds.back")} keys="Esc" onClick={onBack}>
+            <Icon icon={ArrowLeft} size={16} />
+          </ToolButton>
+        )}
         <span className="flex-1" />
         {item && (
           <>
