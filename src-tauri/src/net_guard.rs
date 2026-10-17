@@ -99,22 +99,29 @@ pub fn public_url(raw: &str) -> bool {
 /// A URL the WebView may load as a preview or icon: allowed, and its host
 /// resolves to public addresses only.
 pub async fn public_resource(raw: &str) -> bool {
+    public_resource_answer(raw).await.unwrap_or(false)
+}
+
+/// [`public_resource`], with no answer (`None`) for a name that could not be
+/// looked up: offline or a failing resolver says nothing about the host, and
+/// the WebView asks again later instead of remembering a refusal.
+pub async fn public_resource_answer(raw: &str) -> Option<bool> {
     let Ok(url) = Url::parse(raw) else {
-        return false;
+        return Some(false);
     };
     if !allowed_url(&url, public_ip) {
-        return false;
+        return Some(false);
     }
     match url.host() {
         Some(Host::Domain(name)) => match tokio::net::lookup_host((name, 0)).await {
             // The WebView resolves the name itself: every address must be public.
             Ok(addresses) => {
                 let addresses: Vec<_> = addresses.collect();
-                !addresses.is_empty() && addresses.iter().all(|a| public_ip(a.ip()))
+                Some(!addresses.is_empty() && addresses.iter().all(|a| public_ip(a.ip())))
             }
-            Err(_) => false,
+            Err(_) => None,
         },
-        _ => true,
+        _ => Some(true),
     }
 }
 
@@ -224,5 +231,11 @@ mod tests {
         assert!(!public_resource("http://localhost/icon.png").await);
         assert!(!public_resource("http://127.0.0.1/icon.png").await);
         assert!(!public_resource("javascript:alert(1)").await);
+        // Refusals by the address itself are answers, not «could not tell».
+        assert_eq!(public_resource_answer("http://127.0.0.1/icon.png").await, Some(false));
+        assert_eq!(public_resource_answer("http://localhost/icon.png").await, Some(false));
+        assert_eq!(public_resource_answer("http://93.184.215.14/logo.png").await, Some(true));
+        // `.invalid` never resolves (RFC 6761): no answer, asked again later.
+        assert_eq!(public_resource_answer("https://pictures.invalid/a.png").await, None);
     }
 }

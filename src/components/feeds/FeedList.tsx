@@ -5,11 +5,11 @@ import { useTranslation } from "react-i18next";
 import type { Feed, FeedItem } from "../../types";
 import { feedName } from "../../services/feeds";
 import { dayGroups, dayLabel, pictureUrl, postAge } from "../../services/feedsView";
+import { usePublicImage } from "../../services/imageGuard";
 import { shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { FeedIcon } from "./FeedIcon";
-import { usePublicImage } from "../../services/imageGuard";
 
 /** The frame's rhythm (NP-132): rows 158 apart, a day label 22 high. */
 export const ROW = 158;

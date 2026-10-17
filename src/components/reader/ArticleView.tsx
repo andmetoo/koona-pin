@@ -3,7 +3,7 @@ import { ArrowUpRight, FileX, WifiOff } from "lucide-react";
 import { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Article, openArticle, ReadFailure, readingMinutes } from "../../services/reader";
-import { guardArticleImages } from "../../services/imageGuard";
+import { useGuardedHtml } from "../../services/imageGuard";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 
@@ -148,15 +148,8 @@ export function ArticleView({
   const state = useArticle(url, attempt, bookmarkId, offlineAt, live, given);
   const [full, setFull] = useState<{ busy: boolean; failure: string | null }>({ busy: false, failure: null });
   const article = state.kind === "article" ? state.article : null;
-  const [guardedArticle, setGuardedArticle] = useState<Article | null>(null);
-  useEffect(() => {
-    let alive = true;
-    setGuardedArticle(null);
-    if (article) void guardArticleImages(article).then((safe) => alive && setGuardedArticle(safe));
-    return () => {
-      alive = false;
-    };
-  }, [article]);
+  // The WebView requests what the body names: only pictures at checked public hosts.
+  const body = useGuardedHtml(article?.html ?? null);
   useEffect(() => {
     if (article) onReady?.(article);
     // Once per article, not per render of the caller.
@@ -221,7 +214,7 @@ export function ArticleView({
       {article?.description && <p className="reader-dek">{article.description}</p>}
       {lead}
       {article ? (
-        <div className="reader-body" onClick={follow} dangerouslySetInnerHTML={{ __html: guardedArticle?.html ?? "" }} />
+        <div className="reader-body" onClick={follow} dangerouslySetInnerHTML={{ __html: body }} />
       ) : (
         <div role="status" aria-label={t("reader.loading")} className="flex flex-col gap-3 pt-2">
           {[100, 96, 88, 100, 72].map((width, i) => (

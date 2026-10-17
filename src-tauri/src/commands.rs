@@ -779,17 +779,19 @@ pub fn open_url_external(app: AppHandle, url: String) -> Result<(), CommandError
         .map_err(CommandError::internal)
 }
 
-/// Whether an image or icon may be loaded directly by the WebView.
-///
-/// The WebView resolves these addresses itself, so the check is deliberately
-/// stricter than the native request guard: every address returned by DNS must
-/// be public. The frontend calls this before putting an external URL in `src`.
+/// Whether a picture or an icon may be loaded by the WebView itself
+/// (`imageGuard.ts`, before its address goes in a `src`). The WebView resolves
+/// the name on its own, so the check is stricter than the native requests'
+/// guard: every address the name resolves to must be public. `None` when the
+/// name could not be looked up in time: no answer, asked again later.
 #[tauri::command]
-pub async fn check_public_resource(url: String) -> bool {
-    tokio::time::timeout(std::time::Duration::from_secs(3), crate::net_guard::public_resource(&url))
+pub async fn check_public_resource(url: String) -> Option<bool> {
+    tokio::time::timeout(std::time::Duration::from_secs(3), crate::net_guard::public_resource_answer(&url))
         .await
-        .unwrap_or(false)
+        .ok()
+        .flatten()
 }
+
 /// What an export did (frame 29): nothing when the Save dialog was cancelled.
 #[derive(Serialize, TS)]
 #[serde(tag = "outcome", rename_all = "snake_case")]

@@ -5,12 +5,12 @@ import { useTranslation } from "react-i18next";
 import { Bookmark, Collection } from "../../types";
 import { collectionColor } from "../../services/collections";
 import { coverOf, monogram, pendingFor, siteName, VIEW } from "../../services/cover";
+import { usePublicImage } from "../../services/imageGuard";
 import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
 import { Icon, OfflineIcon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
-import { usePublicImage } from "../../services/imageGuard";
 
 export interface BookmarkActions {
   open: (url: string) => void;
