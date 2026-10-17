@@ -1741,6 +1741,11 @@ test("drag: the selection onto a collection, a tag and the trash; the hint names
   await expect(sidebar.getByRole("button", { name: /^\+ \d+ more/ })).toHaveCount(0);
   const last = tags.last();
   const tag = (await last.textContent())!;
+  // Off the sidebar first: «All bookmarks» is in its top edge, where the drag scrolls it up every
+  // frame, and would pull the list back down under the box measured below (the tag above it, on CI).
+  const library = (await page.locator('[data-scroll="main"]').boundingBox())!;
+  await page.mouse.move(library.x + library.width / 2, library.y + library.height / 2, { steps: 4 });
+  await expect(dropHint(page)).toHaveText("Drop on a collection, a tag, Favorites, Reading or Trash");
   // With Feeds above Collections (NP-132) the last tag sits below a 900 px window: the sidebar scrolls to it.
   // To the end of the sidebar's middle: the last tag sits over the footer, in the edge that scrolls
   // while dragging, and a list that can still scroll would move under the pointer.
