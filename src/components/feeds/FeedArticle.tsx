@@ -277,9 +277,10 @@ function EndOfPost({ item, feed, onNext, onPrevious }: { item: FeedItem | null; 
 /** The next post's card below this one: its top laid out as the next sheet's own. */
 function Peek({ item, feed, onNext }: { item: FeedItem; feed: Feed | undefined; onNext: () => void }) {
   return (
-    <>
-      <div aria-hidden className="feed-gap -mx-6 sm:-mx-16" />
-      <button type="button" tabIndex={-1} data-feed-peek onClick={onNext} className="feed-peek -mx-6 block w-[calc(100%+3rem)] text-left sm:-mx-16 sm:w-[calc(100%+8rem)]">
+    // On the page's colour edge to edge: outside its round corners the page shows, not this card.
+    <div className="-mx-6 bg-bg sm:-mx-16">
+      <div aria-hidden className="feed-gap" />
+      <button type="button" tabIndex={-1} data-feed-peek onClick={onNext} className="feed-peek block w-full text-left">
         <span aria-hidden className="block h-[76px]" />
         <span className="block px-6 pt-1 pb-40 sm:px-16">
           <span className="feed-article block">
@@ -295,7 +296,7 @@ function Peek({ item, feed, onNext }: { item: FeedItem; feed: Feed | undefined; 
           </span>
         </span>
       </button>
-    </>
+    </div>
   );
 }
 
