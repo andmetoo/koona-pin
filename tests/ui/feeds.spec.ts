@@ -181,6 +181,34 @@ test("the strip of a narrow window has one Feeds button, with a dot for new post
   await expect(page.locator("[data-feed-list]")).toBeVisible();
 });
 
+test("the card spreads over the list with E; at the end of a post Next story and Previous story move on and back", async ({ page }) => {
+  await open(page);
+  await openFeeds(page);
+  await posts(page).nth(1).click();
+  const slot = page.locator("[data-feed-slot]");
+  await expect(slot).toHaveCSS("width", "380px");
+  await sheet(page).getByRole("button", { name: "Expand" }).click();
+  await expect(slot).toHaveCSS("width", "0px");
+  await expect(sheet(page).getByRole("button", { name: "Show the list" })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("e");
+  await expect(slot).toHaveCSS("width", "380px");
+
+  // The end: the next post's card peeks below; Next story makes it the open one.
+  const title = (await posts(page).nth(2).locator("h3").textContent()) ?? "";
+  const end = sheet(page).locator("[data-feed-next]");
+  await end.scrollIntoViewIfNeeded();
+  await expect(sheet(page).locator("[data-feed-peek]")).toContainText(title.trim().slice(0, 20));
+  await end.getByRole("button", { name: "Next story" }).click();
+  await expect(sheet(page).last().getByRole("heading", { level: 1 })).toContainText(title.trim().slice(0, 20));
+  await expect(posts(page).nth(2)).toHaveAttribute("aria-selected", "true");
+  await sheet(page).last().locator("[data-feed-next]").scrollIntoViewIfNeeded();
+  await sheet(page).last().getByRole("button", { name: "Previous story" }).click();
+  await expect(posts(page).nth(1)).toHaveAttribute("aria-selected", "true");
+  // The first post has nothing before it.
+  await posts(page).first().click();
+  await expect(sheet(page).last().locator("[data-feed-previous]")).toHaveCount(0);
+});
+
 test("Settings → Feeds: how often to check, OPML import and export", async ({ page }) => {
   await open(page);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
