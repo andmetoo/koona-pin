@@ -2,7 +2,8 @@ import { expect, type Page } from "@playwright/test";
 
 // The phone in the browser demo (NP-072b): what the app's plugin and the koona-mobile bridge inject
 // on a phone, before the page's scripts — the platform with the phone's capabilities, a stub of the
-// Back bridge (src/platform/back.ts replaces its `back`) and the safe area as `--kp-inset-*`.
+// Back bridge (src/platform/back.ts replaces its `back`), the system's signals (src/platform/system.ts)
+// and the safe area as `--kp-inset-*`.
 
 /** A phone the size of the NP-070 frames, and a Galaxy Z Fold's inner screen. */
 export const PHONE = { width: 393, height: 852 };
@@ -23,6 +24,10 @@ export const phoneCapabilities = {
   purchase: "none",
 };
 
+/** What Android reports for the look (the bridge's `system()`): battery saver, low RAM, text scale. */
+export type SystemSignals = { powerSave: boolean; lowRam: boolean; textScale: number };
+const CALM: SystemSignals = { powerSave: false, lowRam: false, textScale: 1 };
+
 /** The frames' iPhone: a 54 status bar and a 34 home indicator. */
 const FRAME_INSETS = { top: 54, right: 0, bottom: 34, left: 0 };
 
@@ -39,6 +44,7 @@ export async function openPhone(
     insets = FRAME_INSETS,
     settings = {},
     capabilities = {},
+    system = CALM,
   }: {
     viewport?: { width: number; height: number };
     theme?: "light" | "dark";
@@ -46,14 +52,24 @@ export async function openPhone(
     settings?: Record<string, string>;
     /** Over the phone's: `{ purchase: "paddle" }` for the site's APK. */
     capabilities?: Partial<typeof phoneCapabilities>;
+    system?: SystemSignals;
   } = {},
 ) {
   await page.setViewportSize(viewport);
   await page.addInitScript(
-    ({ capabilities, insets, theme, settings }) => {
+    ({ capabilities, insets, theme, settings, system }) => {
       const w = window as unknown as Record<string, unknown>;
       w.__KOONA__ = { platform: "android", capabilities };
-      w.__KOONA_MOBILE__ = { back: () => false, claim: () => true };
+      let signals = system;
+      w.__KOONA_MOBILE__ = {
+        back: () => false,
+        claim: () => true,
+        system: () => ({ ...signals }),
+        systemChanged: (next: typeof system) => {
+          signals = next;
+          window.dispatchEvent(new Event("koona-system"));
+        },
+      };
       // As the Android bridge does once the page is there.
       document.addEventListener("DOMContentLoaded", () => {
         for (const [side, px] of Object.entries(insets)) document.documentElement.style.setProperty(`--kp-inset-${side}`, `${px}px`);
@@ -65,12 +81,16 @@ export async function openPhone(
       localStorage.setItem("koonapin.theme", theme);
       for (const [key, value] of Object.entries(settings)) localStorage.setItem(`koonapin.${key}`, value);
     },
-    { capabilities: { ...phoneCapabilities, ...capabilities }, insets, theme, settings },
+    { capabilities: { ...phoneCapabilities, ...capabilities }, insets, theme, settings, system },
   );
   await page.goto("/");
   await expect(page.locator("[data-phone]")).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
 }
+
+/** The system's signals change, as Android sends them (battery saver turned on, a new font size). */
+export const systemChanged = (page: Page, next: SystemSignals) =>
+  page.evaluate((next) => (window as unknown as { __KOONA_MOBILE__: { systemChanged: (n: SystemSignals) => void } }).__KOONA_MOBILE__.systemChanged(next), next);
 
 /** System Back as the bridge calls it: true when the page closed something. */
 export const systemBack = (page: Page) => page.evaluate(() => (window as unknown as { __KOONA_MOBILE__: { back: () => boolean } }).__KOONA_MOBILE__.back());

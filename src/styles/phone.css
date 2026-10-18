@@ -901,6 +901,35 @@
   line-height: 20px;
   color: var(--ph-meta);
 }
+/* At the accessibility text sizes (`data-text-large`, doc/mobile-design.md, Dynamic Type) a row's
+   value goes under its name, so the two never share a line too narrow for both; the icon, a toggle
+   and the chevron stay beside them. */
+.phone[data-text-large] .ph-shelf-row:has(> .ph-shelf-detail) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-auto-columns: auto;
+  row-gap: 2px;
+}
+.phone[data-text-large] .ph-shelf-row:has(> .ph-shelf-detail):not(:has(> .ph-shelf-icon)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.phone[data-text-large] .ph-shelf-row:has(> .ph-shelf-detail) > * {
+  grid-row: 1 / span 2;
+}
+.phone[data-text-large] .ph-shelf-row:has(> .ph-shelf-icon) > :is(.ph-shelf-text, .ph-shelf-detail) {
+  grid-column: 2;
+}
+.phone[data-text-large] .ph-shelf-row:not(:has(> .ph-shelf-icon)) > :is(.ph-shelf-text, .ph-shelf-detail) {
+  grid-column: 1;
+}
+.phone[data-text-large] .ph-shelf-row > .ph-shelf-text {
+  grid-row: 1;
+}
+.phone[data-text-large] .ph-shelf-row > .ph-shelf-detail {
+  grid-row: 2;
+  max-width: none;
+  white-space: normal;
+}
 
 /* ---------------------------------------------------------------- Progress */
 .phone .ph-progress {
@@ -1071,6 +1100,12 @@
   font-weight: 700;
   text-align: center;
   box-shadow: 0 0 0 2px var(--ph-paper);
+}
+/* The badge keeps its size at any system text size, as the pill keeps its height: the WebView's
+   text zoom multiplies both values back by --ph-text-scale (the shell's root). */
+.phone .ph-navpill .ph-badge {
+  font-size: calc(11px / var(--ph-text-scale, 1));
+  line-height: calc(20px / var(--ph-text-scale, 1));
 }
 /* A long press names the place: a small label above it. */
 .phone .ph-longpress-label {

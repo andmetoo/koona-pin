@@ -1,7 +1,7 @@
 [package]
 name = "tauri-plugin-koona-mobile"
 version = "0.1.0"
-description = "Koona Pin on phones: system Back, the iOS edge swipe, renderer loss and the system insets (NP-151)"
+description = "Koona Pin on phones: system Back, the iOS edge swipe, renderer loss, the system insets (NP-151), the look's signals and the haptics (NP-072b)"
 license = "GPL-3.0-only"
 edition = "2021"
 publish = false

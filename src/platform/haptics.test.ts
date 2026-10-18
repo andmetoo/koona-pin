@@ -13,16 +13,16 @@ describe("haptics", () => {
     capabilities.haptics = true;
   });
 
-  it("plays the plugin's commands", async () => {
+  it("asks the koona-mobile plugin for the system's own feedback, by name", async () => {
     await haptics.selection();
     await haptics.impactLight();
     await haptics.impactMedium();
     await haptics.success();
     expect(invoke.mock.calls).toEqual([
-      ["plugin:haptics|selection_feedback", undefined],
-      ["plugin:haptics|impact_feedback", { style: "light" }],
-      ["plugin:haptics|impact_feedback", { style: "medium" }],
-      ["plugin:haptics|notification_feedback", { type: "success" }],
+      ["plugin:koona-mobile|haptic", { kind: "selection" }],
+      ["plugin:koona-mobile|haptic", { kind: "impactLight" }],
+      ["plugin:koona-mobile|haptic", { kind: "impactMedium" }],
+      ["plugin:koona-mobile|haptic", { kind: "success" }],
     ]);
   });
 

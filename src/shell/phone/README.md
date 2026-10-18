@@ -22,6 +22,7 @@ The phone's own interface, "Paper & Glass" (`doc/mobile-design.md` in the notes,
 | `screens/BookmarkScreen.tsx` | FL1: a bookmark in the detail sheet (route `bookmark`, Fold only) | wave 2 |
 | `src/styles/phone.css` | Tokens and the kit's CSS | foundation |
 | `src/platform/haptics.ts`, `keyboard.ts` | Haptics, the on-screen keyboard | foundation |
+| `src/platform/system.ts` | The system's signals: battery saver, low RAM, the text scale | native |
 
 Replace a stub in place: keep its file name, its export and its props type (`hidden`, `route`, `{ props }`), and the shell picks it up. A screen's own CSS goes in a file next to it (`screens/LibraryScreen.css`, imported by the screen) with classes under `.phone` and a prefix of its own (`.phone .lib-…`). Strings go to `src/locales/en.json` under the screen's own group (`phone.library.*`, `phone.inbox.*`, …) and into every other locale, as for the desktop (`docs/translating.md`).
 
@@ -82,7 +83,7 @@ Say it through the app, as the desktop does: `app.say(text)`, `app.say(text, fal
 import { selection, impactLight, impactMedium, success } from "../../platform/haptics";
 ```
 
-`selection()` on a section or tab change (the stack does it for tabs), when pull-to-refresh arms and when a long-press menu opens; `impactLight()` when a triage swipe passes its threshold; `impactMedium()` when a decision lands; `success()` when the inbox is sorted. Without the `haptics` capability (desktop, browser demo) they do nothing; they never throw. Android plays them as vibration patterns that do not follow the system's touch-feedback setting (the plugin uses `Vibrator`, not `performHapticFeedback`).
+`selection()` on a section or tab change (the stack does it for tabs), when pull-to-refresh arms and when a long-press menu opens; `impactLight()` when a triage swipe passes its threshold; `impactMedium()` when a decision lands; `success()` when the inbox is sorted. Without the `haptics` capability (desktop, browser demo) they do nothing; they never throw. The koona-mobile plugin plays them as the system's own feedback (Android `performHapticFeedback` on the WebView, iOS UIKit's generators), so they are silent while the system's touch feedback is off.
 
 ## The kit (`ui/`)
 
@@ -108,7 +109,9 @@ import { selection, impactLight, impactMedium, success } from "../../platform/ha
 
 `src/styles/phone.css`: tokens `--ph-*` (light, and dark under `[data-theme="dark"]`), the type scale (`.ph-display`, `.ph-title1`, `.ph-title2`, `.ph-headline`, `.ph-row`, `.ph-body`, `.ph-callout`, `.ph-subhead`, `.ph-meta`, `.ph-caption`, `.ph-eyebrow`, `.ph-reading` in Literata), radii, spacing, elevation (`--ph-e1`, `--ph-e2`), the glass levels, the mesh background, the edge fades, collection colours (`--ph-coral` … or `collectionColor(id)`) and the season (`--ph-season`). Insets are `--safe-*` only. Glass (backdrop-filter) is for floating chrome, sheets and the snackbar, never for rows, cards or chips; cards are opaque paper with at most two glyphs; animate transform and opacity only; touch targets at least 48 (`.ph-hit`).
 
-The glass falls back to opaque paper under Reduce Transparency, without `backdrop-filter`, and with `data-glass="flat"` on the shell's root. **TODO:** set that flag for Android's battery saver and slow devices once the koona-mobile bridge reports them (no API yet).
+The glass falls back to opaque paper under Reduce Transparency, without `backdrop-filter`, and with `data-glass="flat"` on the shell's root, which the shell sets while Android's battery saver is on and on a low-RAM device (`useSystemSignals()` from `src/platform/system.ts`; the koona-mobile bridge reports both before the first render and battery saver again when it changes). iOS Low Power Mode is not reported yet.
+
+The system's font size (Android's font scale, up to 2.0) reaches the page as the WebView's text zoom, which the koona-mobile plugin keeps equal to it while the app runs: every `font-size` and `line-height` grows, boxes with a fixed height do not. The root carries the scale as `--ph-text-scale` (what must keep its size divides by it, as the nav pill's badge does) and `data-text-large` from the first accessibility size (1.6, `largeText()`), where a shelf row's value goes under its name and floating chrome with labels puts them under its icons (the spec; triage's decision pill does not yet). A screen with fixed heights checks itself at 1.3 and 2.0 (`adb shell settings put system font_scale 2.0`); the list measures the scale with `library/useTextScale.ts`.
 
 ## Dialogs the phone still shows
 
@@ -116,4 +119,4 @@ From shared code, opened by `app.surface` and the app's state (`PhoneDialogs.tsx
 
 ## Tests
 
-Vitest: `navigation/stack.test.ts`, `fold/savedLine.test.ts`, `ui/accountState.test.ts`, `src/platform/haptics.test.ts`, `src/platform/keyboard.test.ts`. Playwright: `tests/phone/` (project `phone` of `playwright.config.ts`) with `tests/phone/fixtures.ts` (`openPhone`, `systemBack`, 393×852 and the Fold's 1088×821); the Fold's own in `tests/phone/fold.spec.ts`.
+Vitest: `navigation/stack.test.ts`, `fold/savedLine.test.ts`, `ui/accountState.test.ts`, `src/platform/haptics.test.ts`, `src/platform/keyboard.test.ts`, `src/platform/system.test.ts`. Playwright: `tests/phone/` (project `phone` of `playwright.config.ts`) with `tests/phone/fixtures.ts` (`openPhone` with an optional `system` for the signals, `systemBack`, `systemChanged`, 393×852 and the Fold's 1088×821); the Fold's own in `tests/phone/fold.spec.ts`.

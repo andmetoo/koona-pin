@@ -1,8 +1,14 @@
 package app.koona.pin.mobile
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
+import android.content.ComponentCallbacks
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.res.Configuration
 import android.net.Uri
 import android.view.Gravity
 import android.widget.Button
@@ -10,7 +16,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.graphics.Bitmap
 import android.net.http.SslError
+import android.os.Build
 import android.os.Message
+import android.os.PowerManager
 import android.os.Process
 import android.util.Log
 import android.view.KeyEvent
@@ -29,10 +37,12 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import app.tauri.annotation.Command
+import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
@@ -40,10 +50,17 @@ import app.tauri.plugin.Plugin
 
 private const val TAG = "KoonaPin"
 
+/** A haptic of the page, by its name in src/platform/haptics.ts. */
+@InvokeArg
+class HapticArgs {
+  var kind: String = ""
+}
+
 /**
  * Koona Pin on Android (NP-151): system Back, renderer loss, the insets, and a screen asking to
- * update a WebView too old for the interface. The page side is the bridge script of this plugin
- * (`window.__KOONA_MOBILE__`); see the crate's lib.rs.
+ * update a WebView too old for the interface; for the page's look battery saver, a low-RAM device
+ * and the text scale, and haptics that follow the system's touch-feedback setting (NP-072b). The
+ * page side is the bridge script of this plugin (`window.__KOONA_MOBILE__`); see the crate's lib.rs.
  */
 @TauriPlugin
 class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
@@ -64,6 +81,45 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
   /** The system Backs still waiting for the page, claimed by it, or given up on. */
   private val backs = BackLedger()
 
+  /** The WebView the plugin was loaded into: haptics play on it, the signals go to its page. */
+  private var webView: WebView? = null
+
+  /**
+   * What the page's look follows, read on the main thread whenever it can have changed. The page
+   * reads it synchronously from its own thread as the bridge starts (`KoonaMobileAndroid.system`),
+   * so its first render already draws flat glass on battery saver.
+   */
+  @Volatile
+  private var signals = Signals(powerSave = false, lowRam = false, textScale = 1f)
+
+  private val lowRam: Boolean by lazy {
+    (activity.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice == true
+  }
+
+  /** Battery saver went on or off. */
+  private val powerSaveChanged = object : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+      webView?.let { readSignals(it) }
+    }
+  }
+
+  /**
+   * The system's font size may have changed. The activity keeps its WebView over that change (the
+   * manifest's `configChanges` names `fontScale`: a recreated activity would get a WebView without
+   * this plugin), so the plugin gives the WebView the new size itself.
+   */
+  private val configurationChanged = object : ComponentCallbacks {
+    override fun onConfigurationChanged(newConfig: Configuration) {
+      webView?.let { view ->
+        followFontScale(view, newConfig)
+        readSignals(view)
+      }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onLowMemory() {}
+  }
+
   /**
    * Whether the WebView runs the interface. The app asks once at its start, before it opens the
    * library: with an old WebView it starts nothing behind the update screen (lib.rs).
@@ -73,8 +129,22 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
     invoke.resolve(JSObject().put("supported", WebViewVersion.supported(found.major)))
   }
 
+  /**
+   * A haptic of the page (src/platform/haptics.ts) as the system's touch feedback on the WebView,
+   * which plays only while "Touch feedback" is on. An unknown name plays nothing; it never fails.
+   */
+  @Command
+  fun haptic(invoke: Invoke) {
+    val args = invoke.parseArgs(HapticArgs::class.java)
+    val constant = Haptics.constant(args.kind, Build.VERSION.SDK_INT)
+    val view = webView
+    if (constant != null && view != null) view.post { view.performHapticFeedback(constant) }
+    invoke.resolve()
+  }
+
   override fun load(webView: WebView) {
     val owner = activity as AppCompatActivity
+    this.webView = webView
     // The interface needs Chrome 111 (Tailwind 4); Android 10 may still carry a WebView far older
     // until Play updates it. Then a native screen asks for the update instead of a blank page. wry
     // sets the WebView as the content after the plugins load: replace it once that has happened.
@@ -86,7 +156,9 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
     // A page sees the interface only from its next load on. Tauri loads the plugins from wry's
     // webview-created hook, before the first page (wry posts its loadUrl); should a page be on its
     // way already, it is loaded again, or its Backs would all be refused (bridge.js `claim`).
-    webView.addJavascriptInterface(BackClaims(), "KoonaMobileAndroid")
+    followFontScale(webView, activity.resources.configuration)
+    readSignals(webView)
+    webView.addJavascriptInterface(PageCalls(), "KoonaMobileAndroid")
     val early = webView.url
     Log.d(TAG, "Plugin loaded; page: ${early ?: "not started"}")
     if (early != null) webView.reload()
@@ -107,6 +179,43 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
     }
     // wry sets its WebViewClient after the plugins load: wrap it once that has happened.
     webView.post { watchRenderer(webView) }
+    // A system broadcast reaches a receiver that is not exported.
+    ContextCompat.registerReceiver(
+      activity.applicationContext,
+      powerSaveChanged,
+      IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED),
+      ContextCompat.RECEIVER_NOT_EXPORTED,
+    )
+    activity.applicationContext.registerComponentCallbacks(configurationChanged)
+  }
+
+  override fun onDestroy() {
+    activity.applicationContext.unregisterReceiver(powerSaveChanged)
+    activity.applicationContext.unregisterComponentCallbacks(configurationChanged)
+    webView = null
+  }
+
+  /**
+   * The WebView's text zoom is the system's font scale (doc/mobile-design.md, Dynamic Type): it
+   * scales `font-size` and `line-height`, not boxes. Chromium sets it so only when it makes the
+   * WebView; this keeps it so while the app runs.
+   */
+  private fun followFontScale(webView: WebView, configuration: Configuration) {
+    val zoom = Signals.textZoom(configuration.fontScale)
+    if (webView.settings.textZoom != zoom) webView.settings.textZoom = zoom
+  }
+
+  /** Reads the signals again; when they changed, the page hears it (bridge.js `systemChanged`). */
+  private fun readSignals(webView: WebView) {
+    val power = activity.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    val now = Signals(power?.isPowerSaveMode == true, lowRam, Signals.textScale(webView.settings.textZoom))
+    if (now == signals) return
+    signals = now
+    sendSignals(webView)
+  }
+
+  private fun sendSignals(webView: WebView) {
+    webView.evaluateJavascript("window.__KOONA_MOBILE__ && window.__KOONA_MOBILE__.systemChanged(${signals.json()})", null)
   }
 
   /**
@@ -129,10 +238,15 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
     }
   }
 
-  /** The page's side of [back]: called from the page's thread, before it closes anything. */
-  private inner class BackClaims {
+  /** What the page calls synchronously, on its own thread. */
+  private inner class PageCalls {
+    /** The page's side of [back]: called before it closes anything. */
     @JavascriptInterface
     fun claimBack(id: Int): Boolean = backs.claim(id)
+
+    /** The signals as the bridge starts, before the page's first render. */
+    @JavascriptInterface
+    fun system(): String = signals.json()
   }
 
   /**
@@ -189,7 +303,10 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
   private fun watchRenderer(webView: WebView) {
     val client = webView.webViewClient
     if (client is RendererWatch) return
-    webView.webViewClient = RendererWatch(client, onLoaded = { sendInsets(webView) }, onGone = { restart(webView) })
+    webView.webViewClient = RendererWatch(client, onLoaded = {
+        sendInsets(webView)
+        sendSignals(webView)
+      }, onGone = { restart(webView) })
   }
 
   /**
