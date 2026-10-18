@@ -58,6 +58,8 @@ pub struct BundleModel {
     pub author_name: String,
     /// The name of the feeds' section, in the interface's language.
     pub feeds_section: String,
+    /// The word after a section of links named as the feeds' one: «Feeds · links».
+    pub links_word: String,
     pub sections: Vec<BundleSection>,
 }
 
@@ -115,16 +117,18 @@ pub fn build(
     let (mut seen_links, mut seen_feeds) = (HashSet::new(), HashSet::new());
     let (mut items, mut left) = (0u32, 0u32);
     let mut top: Vec<Item> = Vec::new();
-    let mut sections: Vec<Section> = Vec::new();
+    // Named sections in the model's order, merged by name once their names are final.
+    let mut named: Vec<(String, Vec<Item>)> = Vec::new();
+    let mut feed_items: Vec<Item> = Vec::new();
     for section in &model.sections {
         let name = match &section.origin {
             BundleOrigin::Links => None,
-            BundleOrigin::Feeds => Some(feeds_name.clone()),
+            BundleOrigin::Feeds => None,
             BundleOrigin::Collection { id } => {
                 let current: Option<String> = collection_name.query_row([id], |r| r.get(0)).optional()?;
                 Some(current.and_then(|n| format::line(&n, SECTION_LEN)).or_else(|| format::line(&section.name, SECTION_LEN)).unwrap_or_default())
             }
-            BundleOrigin::Tag { .. } => Some(format::line(&section.name, SECTION_LEN).unwrap_or_default()),
+            BundleOrigin::Tag { name } => Some(format::line(name, SECTION_LEN).or_else(|| format::line(&section.name, SECTION_LEN)).unwrap_or_default()),
         };
         let mut written = Vec::new();
         for item in &section.items {
@@ -161,15 +165,33 @@ pub fn build(
         }
         items += written.len() as u32;
         match name {
+            // Feeds are one section, written last whatever the model's order.
+            _ if section.origin == BundleOrigin::Feeds => feed_items.extend(written),
             None => top.extend(written),
             Some(_) if written.is_empty() => {}
             // A section without a name reads as the top level: so it is written.
             Some(name) if name.is_empty() => top.extend(written),
-            Some(name) => match sections.iter_mut().find(|s| s.name == name) {
-                Some(same) => same.items.extend(written),
-                None => sections.push(Section { name, items: written }),
-            },
+            Some(name) => named.push((name, written)),
         }
+    }
+    // A collection or a tag named as the feeds' section keeps its links apart from the feeds.
+    let apart = |name: String| -> String {
+        if feed_items.is_empty() || name.to_lowercase() != feeds_name.to_lowercase() {
+            return name;
+        }
+        let word = format::line(&model.links_word, SECTION_LEN).unwrap_or_else(|| "links".to_owned());
+        format::line(&format!("{name} · {word}"), SECTION_LEN).unwrap_or(name)
+    };
+    let mut sections: Vec<Section> = Vec::new();
+    for (name, written) in named {
+        let name = apart(name);
+        match sections.iter_mut().find(|s| s.name == name) {
+            Some(same) => same.items.extend(written),
+            None => sections.push(Section { name, items: written }),
+        }
+    }
+    if !feed_items.is_empty() {
+        sections.push(Section { name: feeds_name, items: feed_items });
     }
     if items as usize > MAX_ITEMS || sections.len() > MAX_SECTIONS {
         return Ok(Err(ListError::TooBig));
@@ -256,7 +278,7 @@ mod tests {
     }
 
     fn model(sections: Vec<BundleSection>) -> BundleModel {
-        BundleModel { title: "  Rust reading  ".into(), description: "Blogs and books.".into(), author_name: " Koona ".into(), feeds_section: "Feeds".into(), sections }
+        BundleModel { title: "  Rust reading  ".into(), description: "Blogs and books.".into(), author_name: " Koona ".into(), feeds_section: "Feeds".into(), links_word: "links".into(), sections }
     }
 
     fn section(name: &str, origin: BundleOrigin, items: Vec<BundleItem>) -> BundleSection {
@@ -438,9 +460,73 @@ mod tests {
     }
 
     #[test]
+    fn a_section_named_as_the_feeds_one_keeps_its_links_apart() {
+        let (c, rust) = library();
+        c.execute("UPDATE collections SET name = 'FEEDS' WHERE id = ?1", [rust]).unwrap();
+        let tokio = id_of(&c, "https://tokio.rs/");
+        let mut m = everything(&c, rust);
+        m.sections.push(section("feeds", BundleOrigin::Tag { name: "feeds".into() }, vec![bookmark(tokio), bookmark(id_of(&c, "https://doc.rust-lang.org/nomicon/"))]));
+        let value = json(&built(&c, &m).text);
+        // The tag's links were all in the collection already: it has none left.
+        assert_eq!(names(&value), ["FEEDS · links", "Feeds"]);
+        assert_eq!(value["sections"][1]["items"].as_array().unwrap().len(), 2, "only the feeds");
+        // Without feeds in the bundle the name stays as it is.
+        m.sections.retain(|s| s.origin != BundleOrigin::Feeds);
+        assert_eq!(names(&json(&built(&c, &m).text)), ["FEEDS"]);
+    }
+
+    #[test]
+    fn feeds_are_written_last_whatever_the_order() {
+        let (c, rust) = library();
+        let mut m = everything(&c, rust);
+        m.sections.reverse();
+        let value = json(&built(&c, &m).text);
+        assert_eq!(names(&value), ["Rust", "Feeds"]);
+        assert_eq!(value["items"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_tag_section_takes_the_tags_name() {
+        let (c, _) = library();
+        let tokio = id_of(&c, "https://tokio.rs/");
+        let m = model(vec![section("Runtime, as added", BundleOrigin::Tag { name: "runtime".into() }, vec![bookmark(tokio)])]);
+        assert_eq!(names(&json(&built(&c, &m).text)), ["runtime"]);
+        let blank = model(vec![section("runtime", BundleOrigin::Tag { name: "  ".into() }, vec![bookmark(tokio)])]);
+        assert_eq!(names(&json(&built(&c, &blank).text)), ["runtime"]);
+    }
+
+    #[test]
+    fn an_emptied_section_is_left_out_and_the_rest_stays() {
+        let (c, rust) = library();
+        crate::db::trash_bookmark(&c, id_of(&c, "https://tokio.rs/")).unwrap();
+        crate::db::trash_bookmark(&c, id_of(&c, "https://doc.rust-lang.org/nomicon/")).unwrap();
+        let mut m = everything(&c, rust);
+        m.sections.retain(|s| s.origin != BundleOrigin::Feeds);
+        let b = built(&c, &m);
+        assert_eq!((b.items, b.left), (1, 2));
+        let value = json(&b.text);
+        assert!(value.get("sections").is_none(), "{value}");
+        assert_eq!(value["items"][0]["url"], "https://this-week-in-rust.org/");
+        assert_eq!(parse(&b.text).unwrap().sections, 0);
+    }
+
+    #[test]
+    fn without_a_title_the_build_is_a_draft_save_refuses() {
+        let (c, rust) = library();
+        let mut m = everything(&c, rust);
+        m.title = "   ".into();
+        let b = built(&c, &m);
+        assert_eq!(b.items, 5);
+        let value = json(&b.text);
+        assert_eq!(value["title"], "");
+        assert!(value.get("id").is_none());
+        assert_eq!(parse(&b.text).err(), Some(ListError::NotAList));
+    }
+
+    #[test]
     fn the_model_reads_as_the_interface_sends_it() {
         let m: BundleModel = serde_json::from_value(serde_json::json!({
-            "title": "T", "description": "", "author_name": "", "feeds_section": "Feeds",
+            "title": "T", "description": "", "author_name": "", "feeds_section": "Feeds", "links_word": "links",
             "sections": [
                 { "name": "Links", "origin": { "kind": "links" }, "items": [{ "kind": "bookmark", "id": 1, "use_note": true }] },
                 { "name": "Dev", "origin": { "kind": "collection", "id": 4 }, "items": [] },
