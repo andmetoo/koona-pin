@@ -2,11 +2,8 @@
 Type=Application
 Name=Koona Pin
 GenericName=Bookmark library
-GenericName[ru]=Библиотека закладок
 Comment=Save pages from your browser in one click; they stay on your computer
-Comment[ru]=Сохраняйте страницы из браузера одной кнопкой — они остаются на вашем компьютере
 Keywords=bookmarks;links;pages;inbox;reading;feeds;rss;
-Keywords[ru]=закладки;ссылки;страницы;входящие;чтение;ленты;rss;
 Exec={{exec}}
 Icon={{icon}}
 Terminal=false
