@@ -160,7 +160,7 @@ test("⌘V in the library saves a link at once; Undo takes it away; text and fie
   await expect(nav(page, "Inbox 3")).toBeVisible();
 });
 
-test("a link dragged over the window frosts it; dropped, it is saved, with Shift into the inbox; files are left alone", async ({ page }) => {
+test("a link dragged over the window frosts it; dropped, it is saved, with Shift into the inbox; a file asks to be imported", async ({ page }) => {
   const drag = (type: "dragenter" | "dragover" | "dragleave" | "drop", init: { link?: string; file?: boolean; shift?: boolean } = {}) =>
     page.evaluate(
       ({ type, init }) => {
@@ -191,14 +191,58 @@ test("a link dragged over the window frosts it; dropped, it is saved, with Shift
   await expect(toast(page)).toContainText("Saved to Inbox");
   await expect(nav(page, "Inbox 3")).toBeVisible();
 
-  // Leaving the window takes the veil away; a file never lights it.
+  // Leaving the window takes the veil away; a file gets the import veil, not the link's (NP-139).
   await drag("dragenter", { link: "https://example.com/away" });
   await expect(veil).toBeVisible();
   await drag("dragleave");
   await expect(veil).toHaveCount(0);
   await drag("dragenter", { file: true });
+  await expect(veil).toHaveAttribute("data-drop-veil", "import");
+  await expect(veil).toContainText("This file can’t be imported");
+  await expect(veil).toContainText("Koona Pin imports .kpin lists, OPML and bookmarks files");
+  await drag("dragleave");
+  await expect(veil).toHaveCount(0);
+});
+
+test("a dropped file: a .kpin list waits for its dialog, OPML and bookmarks open their import, others are refused", async ({ page }) => {
+  const drop = (type: "dragenter" | "drop", name: string, text = "x") =>
+    page.evaluate(
+      ({ type, name, text }) => {
+        const data = new DataTransfer();
+        data.items.add(new File([text], name));
+        document.body.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
+      },
+      { type, name, text },
+    );
+  const veil = page.locator("[data-drop-veil]");
+  await drop("dragenter", "rust-blogs.kpin");
+  await expect(veil).toHaveAttribute("data-drop-veil", "import");
+  await expect(veil).toContainText("Drop to import");
+  await expect(veil).toContainText("rust-blogs.kpin · a list of links and feeds");
+  await expect(veil).toContainText("Also .opml feeds and bookmarks .html");
+  await drop("drop", "notes.txt");
+  await expect(veil).toHaveCount(0);
+  await expect(page.getByRole("alert").filter({ hasText: "Koona Pin imports .kpin lists, OPML and bookmarks files" })).toBeVisible();
+
+  const opml = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/><outline text="B" xmlUrl="https://example.org/b.xml"/></body></opml>';
+  await drop("dragenter", "feeds.opml", opml);
+  await expect(veil).toContainText("feeds.opml · feeds in OPML");
+  await drop("drop", "feeds.opml", opml);
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("feeds.opml");
+  await expect(dialog).toContainText("2 feeds");
+  // A file dragged over an open dialog is not taken.
+  await drop("dragenter", "other.opml", opml);
   await page.waitForTimeout(200);
   await expect(veil).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+
+  const bookmarks = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><A HREF="https://example.org/dropped">Dropped</A></DL>';
+  await drop("dragenter", "bookmarks.html", bookmarks);
+  await drop("drop", "bookmarks.html", bookmarks);
+  await expect(dialog).toContainText("bookmarks.html");
+  await expect(dialog).toContainText("1 link");
 });
 
 test("Collections and Tags fold, show their count, are remembered, and «+» opens the folded section", async ({ page }) => {
