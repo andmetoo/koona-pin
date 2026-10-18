@@ -278,7 +278,7 @@ pub async fn check_address(url: &Url, allow: fn(IpAddr) -> bool) -> Result<(), F
 }
 
 /// What every client shares: the guard resolves names, no proxy, no Referer.
-fn guarded(limits: &Limits) -> reqwest::ClientBuilder {
+pub(crate) fn guarded(limits: &Limits) -> reqwest::ClientBuilder {
     reqwest::Client::builder()
         .connect_timeout(limits.connect_timeout)
         .timeout(limits.timeout)

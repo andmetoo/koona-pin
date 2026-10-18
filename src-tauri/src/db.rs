@@ -163,6 +163,9 @@ pub enum Source {
     /// A post saved from a followed feed (NP-128); the check has taken any
     /// text since schema 10, so it needs no step of its own.
     Feed,
+    /// A link of a shared `.kpin` list (NP-137); `source_name` is the list's title.
+    /// It counts as imported in the Inbox banner, as a bookmarks file does.
+    List,
 }
 
 impl Source {
@@ -177,6 +180,7 @@ impl Source {
             Source::Mcp => "mcp",
             Source::Safari => "safari",
             Source::Feed => "feed",
+            Source::List => "list",
         }
     }
 }
@@ -192,6 +196,7 @@ pub struct LibraryCounts {
     /// comes back once a newer one arrives.
     pub inbox_newest: Option<String>,
     /// Of the waiting ones, those an import put there: «— 340 из импорта» (frame 24, NP-031).
+    /// A bookmarks file and a `.kpin` list both count (NP-137).
     pub inbox_imported: i64,
     /// Bookmarks in the trash (NP-022); none of the others count them.
     pub trash: i64,
@@ -223,7 +228,7 @@ pub fn get_counts(conn: &Connection) -> Result<LibraryCounts> {
                     (SELECT count(*) {live} AND is_favorite = 1),
                     (SELECT count(*) {inbox}),
                     (SELECT max(created_at) {inbox}),
-                    (SELECT count(*) {inbox} AND source = 'import'),
+                    (SELECT count(*) {inbox} AND source IN ('import', 'list')),
                     (SELECT count(*) FROM bookmarks WHERE deleted_at IS NOT NULL)"
         ),
         [],

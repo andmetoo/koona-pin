@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "2.3.1"
+version = "2.4.0"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
@@ -30,6 +30,9 @@ public-release = []
 tauri = { version = "2.1", features = ["tray-icon"] }
 tauri-plugin-opener = "2.0"
 tauri-plugin-single-instance = "2"
+# `koonapin://import?url=…` (NP-142): the scheme registered from `plugins.deep-link` by the bundler on
+# macOS and Windows. The links are read by open_requests.rs, not through the plugin's commands.
+tauri-plugin-deep-link = "2.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # `functions`: `np_fold` for search terms shorter than a trigram (NP-011).

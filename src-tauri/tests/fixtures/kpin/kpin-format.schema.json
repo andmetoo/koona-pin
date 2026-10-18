@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://koona.app/pin/schema/list-1.json",
+  "title": "Koona list (.kpin), version 1.x",
+  "description": "A shareable list of links and feeds for Koona Pin. Draft, see doc/kpin-lists.md. Readers accept any 1.x file: unknown fields are ignored and items of an unknown type are skipped and counted. A 2.x file is refused with «Update Koona Pin to open this list». The $id is where the schema will be published with the spec (phase 3); nothing is served there yet.",
+  "type": "object",
+  "required": [
+    "format",
+    "app",
+    "kind",
+    "version",
+    "title"
+  ],
+  "properties": {
+    "format": {
+      "const": "koona",
+      "description": "Permanent identifier shared by every Koona app."
+    },
+    "app": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "The app the payload is for. Koona Pin reads only \"pin\" and names the app for any other value."
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "What the file holds. Koona Pin 1.x knows \"list\"."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]{0,3})$",
+      "description": "MAJOR.MINOR of this app and kind. MAJOR changes break readers; MINOR only adds optional fields, which older readers skip and say so."
+    },
+    "generator": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "What wrote the file, for diagnostics only, e.g. \"Koona Pin 2.4.0\"."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+      "description": "Stable slug: the same list across updates."
+    },
+    "title": {
+      "$ref": "#/$defs/text",
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "author": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "url": {
+          "$ref": "#/$defs/httpUrl"
+        }
+      },
+      "additionalProperties": true
+    },
+    "license": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "SPDX identifier, e.g. CC0-1.0 or CC-BY-4.0."
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+      "description": "BCP 47 tag."
+    },
+    "updated": {
+      "type": "string",
+      "format": "date"
+    },
+    "homepage": {
+      "$ref": "#/$defs/httpUrl"
+    },
+    "sections": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "items"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/text",
+            "maxLength": 120
+          },
+          "items": {
+            "$ref": "#/$defs/items"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "items": {
+      "$ref": "#/$defs/items"
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "httpUrl": {
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^/?#\\s]+",
+      "description": "http or https with a host. Links to local addresses are allowed, as in HTML import; feed addresses and the one-click download go through net_guard, which refuses local and private addresses."
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/link"
+          },
+          {
+            "$ref": "#/$defs/feed"
+          },
+          {
+            "$ref": "#/$defs/unknown"
+          }
+        ]
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "type",
+        "url"
+      ],
+      "properties": {
+        "type": {
+          "const": "link"
+        },
+        "url": {
+          "$ref": "#/$defs/httpUrl"
+        },
+        "title": {
+          "$ref": "#/$defs/text",
+          "maxLength": 500
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/text",
+            "maxLength": 64
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "feed": {
+      "type": "object",
+      "required": [
+        "type",
+        "url"
+      ],
+      "properties": {
+        "type": {
+          "const": "feed"
+        },
+        "url": {
+          "$ref": "#/$defs/httpUrl"
+        },
+        "site": {
+          "$ref": "#/$defs/httpUrl"
+        },
+        "title": {
+          "$ref": "#/$defs/text",
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": true
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
+      "description": "Not empty and not only spaces."
+    },
+    "unknown": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "not": {
+            "enum": [
+              "link",
+              "feed"
+            ]
+          }
+        }
+      },
+      "description": "An item type from a newer 1.x: valid, skipped by this reader and counted in the preview."
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "items"
+      ]
+    },
+    {
+      "required": [
+        "sections"
+      ]
+    }
+  ]
+}

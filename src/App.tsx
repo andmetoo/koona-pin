@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
+import { ArrowDown, ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError, reasonOf } from "./services/errors";
@@ -7,6 +7,7 @@ import { composing } from "./services/ime";
 import { isArrow, isDeleteKey, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { carriesLink, destinationOf, linkFrom } from "./services/addLink";
+import { DraggedFile, draggedFile, openRequests, readDropped, receiveNativeOpens, refusedByName } from "./services/openRequests";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedOpenLinks, storedTheme, storedValue, Theme } from "./services/preferences";
@@ -40,6 +41,7 @@ import { failureText } from "./components/reader/ArticleView";
 import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddSheet, NewLink } from "./components/library/AddSheet";
 import { BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
+import { ListImportDialog } from "./components/ListImportDialog";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
@@ -52,6 +54,8 @@ import { mergedNotice } from "./services/duplicates";
 import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { FeedsPage } from "./components/feeds/FeedsPage";
+import { ShareListDialog } from "./components/library/ShareListDialog";
+import type { ListSource } from "./services/shareList";
 import { useFeeds } from "./components/feeds/useFeeds";
 import { useFeedActions } from "./components/feeds/FeedMenu";
 import { feedNotifications } from "./services/feedNotifications";
@@ -61,7 +65,7 @@ import { SyncDialog } from "./components/commercial/SyncDialog";
 import { syncPrompt } from "./components/commercial/syncText";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
+type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | "shareList" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -127,6 +131,12 @@ export function App() {
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
+  /** «Share as list…» (NP-140): where the list dialog was opened from. */
+  const [shareFrom, setShareFrom] = useState<ListSource[]>([]);
+  const shareList = (sources: ListSource[]) => {
+    setShareFrom(sources);
+    setSurface("shareList");
+  };
   /** The subscription «Switch to 5 years» was chosen for: the step says when it ends. */
   const [upgradeFrom, setUpgradeFrom] = useState<Plan | null>(null);
   // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
@@ -186,8 +196,10 @@ export function App() {
   const [notice, setNotice] = useState<Notice>(null);
   /** A link just saved by hand (2026-10-16): its card lands first with a spring. */
   const [fresh, setFresh] = useState<number | null>(null);
-  /** A link dragged over the window: the veil, and whether Shift sends it to the inbox. */
-  const [veil, setVeil] = useState<{ inbox: boolean } | null>(null);
+  /** A link dragged over the window: the veil, and whether Shift sends it to the inbox; or a file to import (NP-139). */
+  const [veil, setVeil] = useState<{ inbox: boolean; file?: DraggedFile } | null>(null);
+  /** An OPML or bookmarks file dropped on the window: the import dialog opens with it (NP-139). */
+  const [droppedFile, setDroppedFile] = useState<{ name: string; content: string; surface: "import" | "importFeeds" } | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   /** The app's own update (NP-038, sheet 42), checked by Rust; the version that runs and the system for the dialog. */
@@ -369,24 +381,35 @@ export function App() {
     return () => document.removeEventListener("paste", paste);
   }, []);
   // A link dragged from a browser or another app frosts the window; dropped, it is saved, with
-  // Shift into the inbox (2026-10-16). Files and the app's own drags are left alone: the
-  // selection's drag is a pointer drag and never starts one of these.
+  // Shift into the inbox (2026-10-16). The app's own drags are left alone: the selection's drag is
+  // a pointer drag and never starts one of these. A file asks to be imported (NP-139): a `.kpin`
+  // list, OPML or a bookmarks file; the webview must not open a dropped file itself, so a file
+  // drag is always taken. While something is open over the window (a dialog, a menu, triage,
+  // reading, the editor) it gets no veil and its drop is ignored.
   useEffect(() => {
     let depth = 0;
-    let accepting = false;
+    let accepting: "link" | "file" | null = null;
     let own = false;
     const start = () => (own = true);
     const end = () => (own = false);
     const enter = (e: DragEvent) => {
-      if (depth === 0) accepting = !own && carriesLink(e.dataTransfer?.types) && !quickBlocked();
+      if (depth === 0) {
+        const file = own ? null : draggedFile(e.dataTransfer);
+        accepting = file ? "file" : !own && carriesLink(e.dataTransfer?.types) && !quickBlocked() ? "link" : null;
+        if (accepting === "file") setVeil(importBlocked() ? null : { inbox: false, file: file! });
+      }
       if (!accepting) return;
       depth++;
       e.preventDefault();
-      setVeil({ inbox: e.shiftKey });
+      if (accepting === "link") setVeil({ inbox: e.shiftKey });
     };
     const over = (e: DragEvent) => {
       if (!accepting) return;
       e.preventDefault();
+      if (accepting === "file") {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = importBlocked() ? "none" : "copy";
+        return;
+      }
       if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
       setVeil((current) => (current?.inbox === e.shiftKey ? current : { inbox: e.shiftKey }));
     };
@@ -394,17 +417,24 @@ export function App() {
       if (!accepting) return;
       depth = Math.max(0, depth - 1);
       if (depth === 0) {
-        accepting = false;
+        accepting = null;
         setVeil(null);
       }
     };
     const drop = (e: DragEvent) => {
       if (!accepting) return;
       e.preventDefault();
+      const kind = accepting;
       depth = 0;
-      accepting = false;
+      accepting = null;
       setVeil(null);
       const data = e.dataTransfer;
+      if (kind === "file") {
+        if (!importBlocked()) dropFileRef.current(data?.files);
+        // Another list while one is open is refused: that is said, not dropped in silence.
+        else if (openRequests.current()) sayRef.current(t("add.dropImportBusy"), true);
+        return;
+      }
       const url = linkFrom(data?.getData("text/uri-list"), true) ?? linkFrom(data?.getData("text/plain"));
       if (url) quickSaveRef.current(url, e.shiftKey);
     };
@@ -423,6 +453,33 @@ export function App() {
       window.removeEventListener("drop", drop);
     };
   }, []);
+  // The lists Rust keeps (a `.kpin` opened with the app, a `koonapin://` link) wait in
+  // openRequests for the list dialog (NP-139, NP-142); one refused because another is open is said.
+  useEffect(() => receiveNativeOpens(() => sayRef.current(t("add.dropImportBusy"), true)), []);
+  // The list dialog (NP-138) takes the waiting request once nothing else is open over the window.
+  // A dialog opened over an idle one lets the request go, as its own close would; one that
+  // downloads or imports keeps its request and stays until it closes itself.
+  const listNow = () => ({ request: openRequests.current(), id: openRequests.id(), busy: openRequests.busy() });
+  const [list, setList] = useState(listNow);
+  useEffect(() => openRequests.subscribe(() => setList(listNow())), []);
+  const [listKept, setListKept] = useState<number | null>(null);
+  const listOpen = !!list.request && (surface === null || list.busy || listKept === list.id);
+  const listShown = useRef(false);
+  useEffect(() => {
+    if (surface !== null && listShown.current && listKept !== list.id) {
+      if (list.busy) setListKept(list.id);
+      else openRequests.done();
+    }
+    listShown.current = listOpen;
+  }, [surface, list, listKept, listOpen]);
+  // Rust brings the window forward for a list only when the interface has none (open_requests.rs).
+  const listPending = !!list.request;
+  useEffect(() => void api.setListOpen(listPending).catch(console.error), [listPending]);
+  // A dropped file belongs to the import dialog it opened: any other surface lets it go, so
+  // «Import…» opened later starts empty.
+  useEffect(() => {
+    if (droppedFile && droppedFile.surface !== surface) setDroppedFile(null);
+  }, [surface, droppedFile]);
   // The landing plays once; a later render of the card must not play it again.
   useEffect(() => {
     if (fresh === null) return;
@@ -430,7 +487,16 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [fresh]);
   // The first close without a tray explains that the app keeps running (NP-096).
-  useEffect(() => api.onCloseToBackground(() => setSurface("background")), []);
+  // A list dialog that downloads or imports holds it until the person closes the dialog, so the
+  // result is seen; an idle one is closed.
+  const [backgroundWaits, setBackgroundWaits] = useState<"now" | "list" | null>(null);
+  useEffect(() => api.onCloseToBackground(() => setBackgroundWaits(openRequests.busy() ? "list" : "now")), []);
+  useEffect(() => {
+    if (!backgroundWaits || (backgroundWaits === "list" && list.request)) return;
+    setBackgroundWaits(null);
+    openRequests.done();
+    setSurface("background");
+  }, [backgroundWaits, list.request]);
   useEffect(() => {
     const off = api.onUpdateStatus(setUpdate);
     void api.getUpdateStatus().then(setUpdate).catch(() => {});
@@ -463,11 +529,11 @@ export function App() {
   const promptShown = useRef<string | null>(null);
   useEffect(() => {
     if (!prompt || prompt === promptShown.current) return;
-    // Another dialog open (a purchase among them) is finished first.
-    if (surface !== null && surface !== "sync") return;
+    // Another dialog open (a purchase among them, a list waiting or being imported) is finished first.
+    if ((surface !== null && surface !== "sync") || list.request) return;
     promptShown.current = prompt;
     setSurface("sync");
-  }, [prompt, surface]);
+  }, [prompt, surface, list.request]);
   // The dialog follows the update; when no version is in play any more (cancelled into a recheck,
   // or the preview «restarted»), it goes.
   useEffect(() => {
@@ -745,6 +811,7 @@ export function App() {
     favorite: (favorite) => runBulk({ action: "favorite", favorite }),
     reading: (reading) => runBulk({ action: "reading", reading }),
     export: (format) => exportLibrary(format, [...selection.ids]),
+    shareList: () => shareList([{ kind: "bookmarks", ids: [...selection.ids] }]),
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
     deleteForever: () => setPurging({ selected: [...selection.ids] }),
@@ -1026,6 +1093,35 @@ export function App() {
     destinationOf(filters) === "reading" ? t("nav.reading") : (library.collections.find((c) => c.id === filters.collectionId)?.name ?? t("import.library"));
   const quickSaveRef = useRef(quickSave);
   quickSaveRef.current = quickSave;
+  /**
+   * A file dropped on the window, read: a `.kpin` list waits for the list dialog, OPML and
+   * bookmarks open their import dialog with it; or the person hears why it is not taken. Of
+   * several files the first is taken, and that is said.
+   */
+  const dropFile = (files: FileList | null | undefined) =>
+    void readDropped(files).then(
+      (read) => {
+        if (!read) return;
+        if (read === "unsupported") return say(t("add.dropImportOther"), true);
+        if (read === "tooBig") return say(t("add.dropImportTooBig"), true);
+        const { file, more } = read;
+        if (file.kind === "kpin") {
+          if (!openRequests.push({ ...file, kind: "kpin" })) return say(t("add.dropImportBusy"), true);
+        } else {
+          const target = file.kind === "opml" ? "importFeeds" : "import";
+          setDroppedFile({ name: file.name, content: file.text, surface: target });
+          setSurface(target);
+        }
+        if (more) say(t("add.dropImportOne", { name: file.name }));
+      },
+      (err) => say(describeError(err), true),
+    );
+  const dropFileRef = useRef(dropFile);
+  dropFileRef.current = dropFile;
+  const sayRef = useRef(say);
+  sayRef.current = say;
+  /** Whether a dropped file may be imported now: nothing over the window, on any page. */
+  const importBlocked = () => !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
   /** Whether `⌘V` and a drop may save now: the library on screen, nothing over it. */
   const quickBlocked = () =>
     pageRef.current !== "library" || !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
@@ -1480,6 +1576,7 @@ export function App() {
         feedUid={feedPlace.feed}
         onFeed={openFeeds}
         feedActions={feedActions}
+        onShareList={shareList}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1817,8 +1914,15 @@ export function App() {
       )}
       {(surface === "import" || surface === "importFeeds") && (
         <ImportDialog
+          // A new surface or a new dropped file is a new dialog: its first state is the file.
+          key={`${surface}:${droppedFile?.surface === surface ? droppedFile.name : ""}`}
           kind={surface === "importFeeds" ? "feeds" : "bookmarks"}
+          file={droppedFile?.surface === surface ? droppedFile : undefined}
           onClose={() => setSurface(null)}
+          onList={(file) => {
+            setSurface(null);
+            if (!openRequests.push({ kind: "kpin", ...file })) say(t("add.dropImportBusy"), true);
+          }}
           onImport={async (content, toInbox) => {
             const summary = await api.importHtmlBookmarks(content, toInbox);
             if (importOffer) endImportOffer();
@@ -1829,6 +1933,31 @@ export function App() {
             setSurface(null);
             openInbox();
           }}
+        />
+      )}
+      {listOpen && list.request && (
+        <ListImportDialog
+          key={list.id}
+          request={list.request}
+          onBusy={openRequests.setBusy}
+          collections={library.collections}
+          onClose={() => openRequests.done()}
+          onImported={async () => {
+            await Promise.all([library.refresh(), library.refreshCatalog()]);
+          }}
+          onShowCollection={(id) => {
+            openRequests.done();
+            setTriage(null);
+            setPage("library");
+            navigate({ collectionId: id });
+          }}
+          onCheckUpdates={() => {
+            // As «Update» of the sync dialog: the version on offer, or Settings → Updates.
+            if (offer(update)) return setSurface("update");
+            setTriage(null);
+            setPage("settings");
+          }}
+          onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
         />
       )}
       {surface === "restore" && (
@@ -1888,6 +2017,9 @@ export function App() {
         />
       )}
       {surface === "background" && <BackgroundDialog onClose={() => setSurface(null)} />}
+      {surface === "shareList" && (
+        <ShareListDialog start={shareFrom} collections={library.collections} feeds={feeds} onClose={() => setSurface(null)} onNotice={setNotice} />
+      )}
       {surface === "supporter" && (
         <SupporterDialog
           sandbox={!!supporter?.sandbox}
@@ -2068,7 +2200,26 @@ export function App() {
         {announcement}
       </p>
       {(!selecting || reading) && toast}
-      {veil && (
+      {veil?.file && (
+        <div className="drop-veil" data-drop-veil="import" aria-hidden>
+          <div className="max-w-[min(420px,80vw)]">
+            <span className="drop-veil-ring">
+              <Icon icon={ArrowDown} size={26} strokeWidth={2} />
+            </span>
+            {/* The name shows only where the webview tells it before the drop; the kind, where its type is known. */}
+            <b className="block text-lg font-bold tracking-[-0.01em]">{t(refusedByName(veil.file) ? "add.dropImportNot" : "add.dropImport")}</b>
+            <span className="mt-1 block text-sm text-muted [overflow-wrap:anywhere]">
+              {!veil.file.kind
+                ? t("add.dropImportOther")
+                : veil.file.name
+                  ? t(`add.dropImportNamed_${veil.file.kind}`, { name: veil.file.name })
+                  : t(`add.dropImport_${veil.file.kind}`)}
+            </span>
+            {veil.file.kind === "kpin" && <span className="mt-4 block text-xs text-muted">{t("add.dropImportAlso")}</span>}
+          </div>
+        </div>
+      )}
+      {veil && !veil.file && (
         <div className="drop-veil" data-drop-veil={veil.inbox ? "inbox" : "library"} aria-hidden>
           <div>
             <span className="drop-veil-ring">

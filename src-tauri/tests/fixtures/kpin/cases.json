@@ -1,0 +1,15 @@
+[
+  { "file": "valid.kpin", "schema_valid": true, "reader": "ready" },
+  { "file": "unknown-type.kpin", "schema_valid": true, "reader": "ready" },
+  { "file": "url-without-host.kpin", "schema_valid": false, "reader": "ready" },
+  { "file": "title-of-spaces.kpin", "schema_valid": false, "reader": "not_a_list" },
+  { "file": "repeated-tags.kpin", "schema_valid": false, "reader": "ready" },
+  { "file": "no-items.kpin", "schema_valid": false, "reader": "empty" },
+  { "file": "version-2.kpin", "schema_valid": false, "reader": "needs_newer_app" },
+  { "file": "ftp.kpin", "schema_valid": false, "reader": "ready" },
+  { "file": "other-app.kpin", "schema_valid": true, "reader": "other_app" },
+  { "file": "unknown-kind.kpin", "schema_valid": true, "reader": "needs_newer_app" },
+  { "file": "wrong-format.kpin", "schema_valid": false, "reader": "not_a_list" },
+  { "file": "cut-off.kpin", "schema_valid": false, "reader": "not_a_list" },
+  { "file": "repeats.kpin", "schema_valid": true, "reader": "ready" }
+]

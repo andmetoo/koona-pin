@@ -1,0 +1,8 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "2.0",
+  "title": "From the future",
+  "items": [{ "type": "link", "url": "https://example.com/" }]
+}

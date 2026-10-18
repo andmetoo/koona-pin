@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A shared list of links and feeds (NP-139): `*.kpin` opens in Koona Pin. Installed by the .deb and the
+     .rpm into /usr/share/mime/packages/koonapin.xml (scripts/build-linux-packages.mjs); shared-mime-info's
+     package trigger runs update-mime-database. The AppImage installs nothing. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/vnd.koona.list+json">
+    <comment>Koona Pin list</comment>
+    <sub-class-of type="application/json"/>
+    <glob pattern="*.kpin"/>
+  </mime-type>
+</mime-info>

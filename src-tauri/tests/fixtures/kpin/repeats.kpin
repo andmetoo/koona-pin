@@ -1,0 +1,23 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "Rust Blogs",
+  "sections": [
+    {
+      "name": "Books",
+      "items": [
+        { "type": "link", "url": "https://doc.rust-lang.org/book/", "title": "The Book", "tags": ["book"] }
+      ]
+    },
+    {
+      "name": "Learning",
+      "items": [
+        { "type": "link", "url": "https://www.doc.rust-lang.org/book?utm_source=list", "title": "Again", "tags": ["beginner"] },
+        { "type": "feed", "url": "https://blog.rust-lang.org/feed.xml" },
+        { "type": "feed", "url": "https://blog.rust-lang.org/feed.xml" }
+      ]
+    }
+  ]
+}

@@ -7,6 +7,9 @@ import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
 import { importOpml } from "../../services/feeds";
+import { fileKindOf, opmlRoot } from "../../services/openRequests";
+
+export { opmlRoot };
 import { shortcut } from "../../services/keys";
 import {
   ConnectTab,
@@ -77,22 +80,21 @@ export const Scrolling = ({ children }: { children: ReactNode }) => (
 /** An OPML file (NP-133): by its name, or an `<opml>` root in a file named otherwise. */
 export const isOpml = (name: string, content: string) => /\.(opml|xml)$/i.test(name) || opmlRoot(content);
 
-/**
- * The first element is `<opml>`, past the XML declaration, comments and white space. Walked
- * by hand: a pattern for «any number of comments» backtracks exponentially on hostile text.
- */
-export function opmlRoot(content: string) {
-  let rest = content.slice(0, 64 * 1024).trimStart();
-  for (;;) {
-    const [open, close] = rest.startsWith("<?") ? ["<?", "?>"] : rest.startsWith("<!--") ? ["<!--", "-->"] : [null, null];
-    if (!open || !close) return /^<opml[\s>]/i.test(rest);
-    const end = rest.indexOf(close, open.length);
-    if (end < 0) return false;
-    rest = rest.slice(end + close.length).trimStart();
-  }
-}
 /** How many feeds an OPML file lists: every outline with an `xmlUrl`, folders or not (plan §7.1). */
 export const opmlFeedCount = (content: string) => content.match(/<outline\b[^>]*\bxmlUrl\s*=/gi)?.length ?? 0;
+
+type ChosenFile = { name: string; content: string; preview: ParsedFile; feeds: number | null };
+
+/** A picked or dropped file as the dialog shows it: its feeds when it is OPML, else its links. */
+function chosenFile(name: string, content: string): ChosenFile {
+  const opml = isOpml(name, content);
+  return {
+    name,
+    content,
+    preview: opml ? { links: [], skipped: [], folders: 0 } : parseBookmarksFile(content),
+    feeds: opml ? opmlFeedCount(content) : null,
+  };
+}
 
 /**
  * Frame 28: the file and where to put it, progress, the report, an error with nothing changed.
@@ -100,18 +102,24 @@ export const opmlFeedCount = (content: string) => content.match(/<outline\b[^>]*
  */
 export function ImportDialog({
   kind = "bookmarks",
+  file: dropped,
   onImport,
   onOpenInbox,
   onClose,
+  onList,
 }: {
   /** «Import feeds (OPML)…» opens it for feeds; either way it takes both kinds of file. */
   kind?: "bookmarks" | "feeds";
+  /** A file dropped on the window (NP-139): the dialog opens with it chosen. */
+  file?: { name: string; content: string };
   onImport: (content: string, toInbox: boolean) => Promise<ImportSummary>;
   onOpenInbox: () => void;
   onClose: () => void;
+  /** A `.kpin` list picked here goes to the list dialog (NP-138). */
+  onList?: (file: { name: string; text: string }) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [file, setFile] = useState<{ name: string; content: string; preview: ParsedFile; feeds: number | null } | null>(null);
+  const [file, setFile] = useState<ChosenFile | null>(() => (dropped ? chosenFile(dropped.name, dropped.content) : null));
   const [feedReport, setFeedReport] = useState<OpmlImport | null>(null);
   const [toInbox, setToInbox] = useState(false);
   const [running, setRunning] = useState<ImportProgress | null>(null);
@@ -330,7 +338,7 @@ export function ImportDialog({
             {!sizing && (
               <input
                 type="file"
-                accept={feeds ? ".opml,.xml,.html,.htm" : ".html,.htm,.opml,.xml"}
+                accept={feeds ? ".opml,.xml,.html,.htm,.kpin" : ".html,.htm,.opml,.xml,.kpin"}
                 className="sr-only"
                 onChange={(e) => {
                   const chosen = e.target.files?.[0];
@@ -339,13 +347,8 @@ export function ImportDialog({
                       .text()
                       .then((content) => {
                         setError("");
-                        const opml = isOpml(chosen.name, content);
-                        setFile({
-                          name: chosen.name,
-                          content,
-                          preview: opml ? { links: [], skipped: [], folders: 0 } : parseBookmarksFile(content),
-                          feeds: opml ? opmlFeedCount(content) : null,
-                        });
+                        if (onList && fileKindOf(chosen.name) === "kpin") return onList({ name: chosen.name, text: content });
+                        setFile(chosenFile(chosen.name, content));
                       })
                       .catch((err) => setError(describeError(err)));
                 }}

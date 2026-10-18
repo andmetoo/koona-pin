@@ -466,6 +466,8 @@ export function Triage({
     if (browser) return t("triage.savedFrom", { when, browser });
     if (b.source === "app") return t("triage.addedByHand", { when });
     if (b.source === "import") return t("triage.imported", { when });
+    // A link of a shared `.kpin` list (NP-138): the list's title.
+    if (b.source === "list") return b.source_name ? t("triage.fromList", { when, name: b.source_name }) : t("triage.imported", { when });
     if (b.source === "extension") return t("triage.savedFromBrowser", { when });
     // An AI assistant over MCP (NP-091): «from Claude Code», as «from Chrome».
     if (b.source === "mcp")

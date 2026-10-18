@@ -37,6 +37,7 @@ cp -a %{tree}/. %{buildroot}/
 %{_datadir}/applications/koonapin.desktop
 %{_datadir}/icons/hicolor/*/apps/koonapin.png
 %{_datadir}/metainfo/app.koona.pin.metainfo.xml
+%{_datadir}/mime/packages/koonapin.xml
 %{_mandir}/man1/koonapin.1*
 %{_mandir}/man1/koonapin-host.1*
 %{_mandir}/man1/koonapin-mcp.1*
