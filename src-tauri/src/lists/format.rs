@@ -29,7 +29,10 @@ const ID_LEN: usize = 64;
 /// The schema's `httpUrl`.
 const URL_LEN: usize = 2_048;
 pub const TAG_LEN: usize = 64;
-const TAGS_PER_ITEM: usize = 20;
+/// Tags per link, the sections' names among them when they become tags.
+pub const TAGS_PER_ITEM: usize = 20;
+/// The schema's `maxItems` of `sections`; more is refused, as too many items are.
+pub const MAX_SECTIONS: usize = 200;
 
 const ENVELOPE_KEYS: &[&str] = &[
     "$schema", "format", "app", "kind", "version", "generator", "id", "title", "description", "author",
@@ -48,7 +51,8 @@ pub struct ListLink {
     pub url: String,
     pub title: Option<String>,
     pub description: Option<String>,
-    /// Lowercased, at most 64 characters each, without repeats.
+    /// Lowercased, at most 64 characters each, without repeats, at most
+    /// [`TAGS_PER_ITEM`] with those of its repeats.
     pub tags: Vec<String>,
     /// The names of the sections it is in, the first one first.
     pub sections: Vec<String>,
@@ -56,11 +60,15 @@ pub struct ListLink {
 
 impl ListLink {
     /// Its tags as the import gives them: the sections' names first when
-    /// `sections_as_tags`, then its own, without repeats.
+    /// `sections_as_tags`, then its own, without repeats, at most
+    /// [`TAGS_PER_ITEM`] in all.
     pub fn tags_with(&self, sections_as_tags: bool) -> Vec<String> {
         let mut tags: Vec<String> = Vec::new();
         let sections = self.sections.iter().filter(|_| sections_as_tags).filter_map(|s| tag(s));
         for name in sections.chain(self.tags.iter().cloned()) {
+            if tags.len() == TAGS_PER_ITEM {
+                break;
+            }
             if !tags.contains(&name) {
                 tags.push(name);
             }
@@ -88,7 +96,8 @@ pub struct ParsedList {
     pub sections: u32,
     pub links: Vec<ListLink>,
     pub feeds: Vec<ListFeed>,
-    /// Items whose address came earlier in the file: links by `url_key`, feeds by address.
+    /// Links and feeds whose address came earlier in the file, in one count:
+    /// links compared by `url_key`, feeds by their address.
     pub repeated: u32,
     pub not_web: u32,
     pub invalid: u32,
@@ -98,14 +107,14 @@ pub struct ParsedList {
     pub skipped_details: u32,
 }
 
-/// One line of text: control and bidi-override characters dropped, white
+/// One line of text: control and invisible characters dropped, white
 /// space collapsed, at most `max` characters. Empty: none.
 pub fn line(raw: &str, max: usize) -> Option<String> {
     let kept: String = raw
         .chars()
         .filter_map(|c| match c {
             c if c.is_whitespace() => Some(' '),
-            c if c.is_control() || is_bidi_control(c) => None,
+            c if c.is_control() || is_invisible(c) => None,
             c => Some(c),
         })
         .collect();
@@ -120,16 +129,21 @@ fn paragraph(raw: &str, max: usize) -> Option<String> {
     let kept: String = raw
         .replace("\r\n", "\n")
         .chars()
-        .filter(|&c| c == '\n' || !(c.is_control() || is_bidi_control(c)))
+        .filter(|&c| c == '\n' || !(c.is_control() || is_invisible(c)))
         .collect();
     let capped: String = kept.trim().chars().take(max).collect();
     let capped = capped.trim_end();
     (!capped.is_empty()).then(|| capped.to_owned())
 }
 
-/// Characters that reorder the text around them: a title could hide what it says.
-fn is_bidi_control(c: char) -> bool {
-    matches!(c, '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+/// Characters that are not seen but reorder or join the text around them
+/// (bidi marks and overrides, zero-width ones, a byte order mark anywhere):
+/// a title or a tag could hide what it says, or pass for another.
+fn is_invisible(c: char) -> bool {
+    matches!(
+        c,
+        '\u{061c}' | '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}' | '\u{2066}'..='\u{2069}' | '\u{feff}'
+    )
 }
 
 /// A tag as the library keeps it: one line, lowercased, at most 64 characters.
@@ -188,11 +202,24 @@ fn is_name(s: &str) -> bool {
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
-/// `MAJOR.MINOR`, both plain numbers.
-fn version(raw: &str) -> Option<(u32, u32)> {
-    let (major, minor) = raw.split_once('.')?;
-    let number = |s: &str| (!s.is_empty() && s.chars().all(|c| c.is_ascii_digit())).then(|| s.parse::<u32>().ok()).flatten();
-    Some((number(major)?, number(minor)?))
+/// A version this reader opens, `(1, MINOR)`, as the schema writes it:
+/// `^1\.(0|[1-9][0-9]{0,3})$`. Another MAJOR that looks like `N.M` (plain
+/// numbers without a leading zero) needs a newer reader; anything else is
+/// not a list.
+fn version(raw: &str) -> Result<(u32, u32), ListError> {
+    let number = |s: &str, digits: usize| {
+        let plain = !s.is_empty()
+            && s.len() <= digits
+            && s.chars().all(|c| c.is_ascii_digit())
+            && (s == "0" || !s.starts_with('0'));
+        plain.then(|| s.parse::<u32>().ok()).flatten()
+    };
+    let (major, minor) = raw.split_once('.').ok_or(ListError::NotAList)?;
+    match (number(major, 9), number(minor, 9)) {
+        (Some(READER_MAJOR), _) => number(minor, 4).map(|minor| (READER_MAJOR, minor)).ok_or(ListError::NotAList),
+        (Some(major), Some(_)) if major > READER_MAJOR => Err(ListError::NeedsNewerApp),
+        _ => Err(ListError::NotAList),
+    }
 }
 
 /// `[a-z0-9][a-z0-9-]{0,63}`, the list's slug.
@@ -246,13 +273,7 @@ pub fn parse(text: &str) -> Result<ParsedList, ListError> {
         return Err(ListError::NeedsNewerApp);
     }
     let raw_version = root.get("version").and_then(Value::as_str).ok_or(ListError::NotAList)?;
-    let (major, minor) = version(raw_version).ok_or(ListError::NotAList)?;
-    if major > READER_MAJOR {
-        return Err(ListError::NeedsNewerApp);
-    }
-    if major < READER_MAJOR {
-        return Err(ListError::NotAList);
-    }
+    let (major, minor) = version(raw_version)?;
     let newer = minor > READER_MINOR;
     let title = text_of(&root, "title", TITLE_LEN).ok_or(ListError::NotAList)?;
 
@@ -269,6 +290,9 @@ pub fn parse(text: &str) -> Result<ParsedList, ListError> {
             Some(_) => Err(ListError::NotAList),
         }
     };
+    if sections.len() > MAX_SECTIONS {
+        return Err(ListError::TooBig);
+    }
     let mut groups: Vec<(Option<String>, Vec<Value>)> = Vec::with_capacity(sections.len() + 1);
     for section in &sections {
         groups.push((text_of(section, "name", SECTION_LEN), items_of(section)?));
@@ -362,6 +386,9 @@ fn read_link(list: &mut ParsedList, seen: &mut HashMap<String, usize>, object: &
     if let Some(&first) = seen.get(&key) {
         let first = &mut list.links[first];
         for name in tags {
+            if first.tags.len() == TAGS_PER_ITEM {
+                break;
+            }
             if !first.tags.contains(&name) {
                 first.tags.push(name);
             }
@@ -646,5 +673,64 @@ mod tests {
         };
         assert_eq!(parse(&items(MAX_ITEMS)).unwrap().links.len(), MAX_ITEMS);
         assert_eq!(parse(&items(MAX_ITEMS + 1)), Err(ListError::TooBig));
+    }
+
+    #[test]
+    fn the_version_is_read_as_the_schema_writes_it() {
+        let with = |version: &str| parse(&fixture!("valid.kpin").replace("\"1.0\"", &format!("\"{version}\"")));
+        for ok in ["1.0", "1.1", "1.10", "1.9999"] {
+            assert_eq!(with(ok).unwrap().meta.version, ok);
+        }
+        // Another MAJOR's MINOR is its own business, as long as it is a plain number.
+        for newer in ["2.0", "3.15", "10.0", "2.123456"] {
+            assert_eq!(with(newer).map(|_| ()), Err(ListError::NeedsNewerApp), "{newer}");
+        }
+        for broken in ["1.01", "1.00", "1.10000", "01.0", "1.", ".1", "1.0.1", "2.x", "2.01", "1.-1", "1 .0", "02.0"] {
+            assert_eq!(with(broken).map(|_| ()), Err(ListError::NotAList), "{broken}");
+        }
+    }
+
+    #[test]
+    fn invisible_characters_are_dropped() {
+        let hidden = "a\u{061c}b\u{200b}c\u{200c}d\u{200d}e\u{2060}f\u{feff}g\u{202e}h\u{2066}i";
+        assert_eq!(line(hidden, 100).as_deref(), Some("abcdefghi"));
+        assert_eq!(tag("\u{200b}rust\u{feff}").as_deref(), Some("rust"));
+        assert_eq!(tag("\u{200b}\u{feff}"), None);
+        assert_eq!(paragraph("one\u{200d}\ntwo\u{061c}", 100).as_deref(), Some("one\ntwo"));
+    }
+
+    #[test]
+    fn repeats_cannot_grow_a_link_past_twenty_tags() {
+        let items: Vec<String> = (0..1_000)
+            .map(|i| {
+                let tags: Vec<String> = (0..20).map(|t| format!("\"t{i}-{t}\"")).collect();
+                format!(r#"{{"type":"link","url":"https://example.com/same","tags":[{}]}}"#, tags.join(","))
+            })
+            .collect();
+        let text = format!(
+            r#"{{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"T","sections":[{{"name":"One","items":[{}]}},{{"name":"Two","items":[{}]}}]}}"#,
+            items[..500].join(","),
+            items[500..].join(",")
+        );
+        let list = parse(&text).unwrap();
+        assert_eq!((list.links.len(), list.repeated), (1, 999));
+        let link = &list.links[0];
+        assert_eq!(link.tags.len(), TAGS_PER_ITEM);
+        assert_eq!(link.tags[0], "t0-0", "the first item's tags win");
+        // Sections first, then tags, 20 in all.
+        let tags = link.tags_with(true);
+        assert_eq!(tags.len(), TAGS_PER_ITEM);
+        assert_eq!(&tags[..3], ["one", "two", "t0-0"]);
+        assert_eq!(link.tags_with(false), link.tags);
+    }
+
+    #[test]
+    fn more_than_two_hundred_sections_is_too_big() {
+        let sections = |n: usize| {
+            let list: Vec<String> = (0..n).map(|i| format!(r#"{{"name":"S{i}","items":[{{"type":"link","url":"https://example.com/{i}"}}]}}"#)).collect();
+            format!(r#"{{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"T","sections":[{}]}}"#, list.join(","))
+        };
+        assert_eq!(parse(&sections(MAX_SECTIONS)).unwrap().sections as usize, MAX_SECTIONS);
+        assert_eq!(parse(&sections(MAX_SECTIONS + 1)), Err(ListError::TooBig));
     }
 }

@@ -110,7 +110,7 @@
       "type": "string",
       "maxLength": 2048,
       "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^/?#\\s]+",
-      "description": "http or https with a host; the reader also rejects local addresses (net_guard)."
+      "description": "http or https with a host. Links to local addresses are allowed, as in HTML import; feed addresses and the one-click download go through net_guard, which refuses local and private addresses."
     },
     "items": {
       "type": "array",

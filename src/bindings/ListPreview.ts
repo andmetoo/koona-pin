@@ -32,7 +32,8 @@ already_saved: number,
  */
 in_trash: number, 
 /**
- * The same address (`url_key`) earlier in the file: merged into the first.
+ * Links and feeds whose address came earlier in the file, in one count:
+ * a link's repeat (same `url_key`) is merged into the first.
  */
 repeated: number, not_web: number, invalid: number, feeds_followed: number, 
 /**

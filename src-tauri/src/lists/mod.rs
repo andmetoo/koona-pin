@@ -24,9 +24,6 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use ts_rs::TS;
 
-/// `bookmarks.source` of a link imported from a list; `source_name` is the list's title.
-pub const SOURCE: &str = "list";
-
 /// Why a text is not a list this app can import. Each is a state of the dialog (K3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ListError {
@@ -63,14 +60,23 @@ impl From<ListError> for CommandError {
     }
 }
 
-/// Reads a `.kpin` file for the entry points (a path from the system): at
-/// most 2 MB, checked before reading, and UTF-8.
+/// Reads a `.kpin` file for the entry points (a path from the system): a
+/// regular file (a link is followed to one), at most 2 MB and UTF-8. The
+/// size is checked before reading and again while reading, so a file that
+/// grows meanwhile, or a device that lies about its size, is cut off at
+/// 2 MB + 1 byte and refused.
 pub fn read_file(path: &std::path::Path) -> Result<String, ListError> {
-    let size = std::fs::metadata(path).map_err(|_| ListError::Unreadable)?.len();
-    if size > format::MAX_BYTES as u64 {
+    use std::io::Read;
+    let metadata = std::fs::metadata(path).map_err(|_| ListError::Unreadable)?;
+    if !metadata.is_file() {
+        return Err(ListError::Unreadable);
+    }
+    if metadata.len() > format::MAX_BYTES as u64 {
         return Err(ListError::TooBig);
     }
-    let bytes = std::fs::read(path).map_err(|_| ListError::Unreadable)?;
+    let file = std::fs::File::open(path).map_err(|_| ListError::Unreadable)?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(format::MAX_BYTES as u64 + 1).read_to_end(&mut bytes).map_err(|_| ListError::Unreadable)?;
     if bytes.len() > format::MAX_BYTES {
         return Err(ListError::TooBig);
     }
@@ -139,7 +145,8 @@ pub struct ListPreview {
     pub already_saved: u32,
     /// The same address is in the trash: it stays there.
     pub in_trash: u32,
-    /// The same address (`url_key`) earlier in the file: merged into the first.
+    /// Links and feeds whose address came earlier in the file, in one count:
+    /// a link's repeat (same `url_key`) is merged into the first.
     pub repeated: u32,
     pub not_web: u32,
     pub invalid: u32,
@@ -265,30 +272,61 @@ pub async fn import_list(
         })?)
     })
     .await?;
+    // The import is committed: from here on nothing turns it into an error.
+    // What fails is logged; the feeds' names and counts come with their first fetch.
     let _ = app.emit("library-invalidated", ());
     if applied.report.feeds_followed > 0 {
-        if let Some(feed_cache) = app.try_state::<Arc<cache::FeedCache>>() {
-            let named = applied.named;
-            cache::blocking(&feed_cache, move |conn| Ok(cache::name_feeds(conn, &named)?)).await?;
+        if let Err(error) = feeds_followed(&app, &state, applied.named).await {
+            eprintln!("The feeds of a list were followed, telling the interface failed: {}", error.message);
         }
-        let mut list = blocking(&state, |conn| Ok(feeds::feeds(conn)?)).await?;
-        if let Some(feed_cache) = app.try_state::<Arc<cache::FeedCache>>() {
-            list = cache::blocking(&feed_cache, move |conn| {
-                cache::merge_state(conn, &mut list, chrono::Utc::now())?;
-                Ok(list)
-            })
-            .await?;
-        }
-        feeds::emit_changed(&app, list);
         feeds::schedule::fetch_soon(&app, None);
     }
     // The new bookmarks have only their addresses and the list's words:
     // their pages are read for pictures and icons in the background.
     if !applied.created.is_empty() {
         let (state, ids) = (state.inner().clone(), applied.created);
-        let _ = tauri::async_runtime::spawn_blocking(move || refresh::start(app, state, refresh::Target::Ids(ids), true)).await;
+        match tauri::async_runtime::spawn_blocking(move || refresh::start(app, state, refresh::Target::Ids(ids), true)).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => eprintln!("The previews of a list's links were not started: {error}"),
+            Err(error) => eprintln!("The previews of a list's links were not started: {error}"),
+        }
     }
     Ok(applied.report)
+}
+
+/// After an import that followed feeds: the list's names for them go to the
+/// cache, shown until their first fetch, and the interface gets every
+/// subscription as `list_feeds` answers.
+async fn feeds_followed(
+    app: &AppHandle,
+    state: &State<'_, Arc<DbState>>,
+    named: Vec<(String, String)>,
+) -> Result<(), CommandError> {
+    let feed_cache = app.try_state::<Arc<cache::FeedCache>>();
+    if let Some(feed_cache) = &feed_cache {
+        if let Err(error) = cache::blocking(feed_cache, move |conn| Ok(cache::name_feeds(conn, &named)?)).await {
+            eprintln!("The names of a list's feeds were not kept: {}", error.message);
+        }
+    }
+    let list = blocking(state, |conn| Ok(feeds::feeds(conn)?)).await?;
+    let list = match &feed_cache {
+        Some(feed_cache) => {
+            let mut merged = list.clone();
+            match cache::blocking(feed_cache, move |conn| {
+                cache::merge_state(conn, &mut merged, chrono::Utc::now())?;
+                Ok(merged)
+            })
+            .await
+            {
+                Ok(merged) => merged,
+                // As the library has them: the cache adds only counts and health.
+                Err(_) => list,
+            }
+        }
+        None => list,
+    };
+    feeds::emit_changed(app, list);
+    Ok(())
 }
 
 #[cfg(test)]
@@ -319,6 +357,26 @@ pub(crate) mod tests {
         std::fs::write(&latin, [b'{', 0xe9, b'}']).unwrap();
         assert_eq!(read_file(&latin), Err(ListError::NotAList));
         assert_eq!(read_file(&dir.join("missing.kpin")), Err(ListError::Unreadable));
+        // Not a regular file: a folder named like a list.
+        let folder = dir.join("folder.kpin");
+        std::fs::create_dir(&folder).unwrap();
+        assert_eq!(read_file(&folder), Err(ListError::Unreadable));
+        // A link is followed to the file it names.
+        #[cfg(unix)]
+        {
+            let link = dir.join("link.kpin");
+            std::os::unix::fs::symlink(&good, &link).unwrap();
+            assert!(read_file(&link).is_ok());
+            let to_folder = dir.join("to-folder.kpin");
+            std::os::unix::fs::symlink(&folder, &to_folder).unwrap();
+            assert_eq!(read_file(&to_folder), Err(ListError::Unreadable));
+            // A FIFO is not a regular file: refused before anything blocks on it.
+            let fifo = dir.join("fifo.kpin");
+            let made = std::process::Command::new("mkfifo").arg(&fifo).status();
+            if made.is_ok_and(|s| s.success()) {
+                assert_eq!(read_file(&fifo), Err(ListError::Unreadable));
+            }
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

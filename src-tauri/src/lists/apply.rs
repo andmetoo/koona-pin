@@ -6,7 +6,7 @@
 
 use super::format::ParsedList;
 use super::preview::{collection_named, followed, saved};
-use super::{ExistingLinks, ListCollection, ListImportOptions, ListImportReport, SOURCE};
+use super::{ExistingLinks, ListCollection, ListImportOptions, ListImportReport};
 use crate::db;
 use crate::feeds::{self, FeedDestination};
 use rusqlite::{params, Connection};
@@ -79,7 +79,15 @@ pub fn apply(
                 report.already_saved += 1;
                 if options.existing_links == ExistingLinks::AddTags && !tags.is_empty() {
                     let id: i64 = tx.query_row("SELECT id FROM bookmarks WHERE url = ?1", [&link.url], |r| r.get(0))?;
+                    let tagged = |tx: &Connection| -> rusqlite::Result<i64> {
+                        tx.prepare_cached("SELECT count(*) FROM bookmark_tags WHERE bookmark_id = ?1")?.query_row([id], |r| r.get(0))
+                    };
+                    let before = tagged(&tx)?;
                     db::link_tags(&tx, id, &tags, &now)?;
+                    // A change of the bookmark, as a bulk «Tag» is: only when a tag was added.
+                    if tagged(&tx)? != before {
+                        tx.execute("UPDATE bookmarks SET revision=revision+1, updated_at=?1 WHERE id=?2", params![now, id])?;
+                    }
                 }
             }
             None => {
@@ -104,7 +112,7 @@ pub fn apply(
                         link.description,
                         crate::metadata::extract_domain(&link.url),
                         collection_id,
-                        SOURCE,
+                        db::Source::List.as_str(),
                         list.meta.title,
                         now,
                         triaged_at,
@@ -226,6 +234,9 @@ mod tests {
         let r = apply(&c, &parse(VALID).unwrap(), &o, |_, _| {}).unwrap().report;
         assert_eq!((r.added, r.feeds_followed, r.collection_id), (3, 1, None));
         assert_eq!(count(&c, "SELECT count(*) FROM bookmarks WHERE triaged_at IS NULL AND collection_id IS NULL"), 3);
+        // The Inbox banner counts them as imported, as a bookmarks file's.
+        let counts = db::get_counts(&c).unwrap();
+        assert_eq!((counts.inbox, counts.inbox_imported), (3, 3));
         assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "unsafe"]);
         assert_eq!(count(&c, "SELECT count(*) FROM feeds"), 1, "only a feed of the file, and only a checked one");
     }
@@ -294,6 +305,15 @@ mod tests {
             c.query_row("SELECT title, collection_id FROM bookmarks WHERE uid = 'a'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
         assert_eq!((title.as_str(), collection), ("My Tokio", mine.id), "its collection never changes");
         assert_eq!(tags_of(&c, "https://tokio.rs/"), ["async", "runtime"]);
+        // A change for sync, as a bulk «Tag» is; the same tags again change nothing.
+        let stamp = |c: &Connection| -> (i64, String) {
+            c.query_row("SELECT revision, updated_at FROM bookmarks WHERE uid = 'a'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+        };
+        let (revision, updated_at) = stamp(&c);
+        assert_eq!(revision, 2);
+        assert_ne!(updated_at, "x");
+        apply(&c, &parse(VALID).unwrap(), &o, |_, _| {}).unwrap();
+        assert_eq!(stamp(&c), (revision, updated_at));
         let trashed: Option<String> = c.query_row("SELECT deleted_at FROM bookmarks WHERE uid = 'b'", [], |r| r.get(0)).unwrap();
         assert!(trashed.is_some(), "stays in the trash");
         assert_eq!(tags_of(&c, "https://this-week-in-rust.org/"), Vec::<String>::new());
@@ -327,6 +347,37 @@ mod tests {
         // Only the bookmark and its tags were written.
         assert!(c.total_changes() > changes);
         assert_eq!(count(&c, "SELECT count(*) FROM feeds"), 1);
+    }
+
+    #[test]
+    fn a_feed_that_fails_after_the_links_takes_the_links_back_too() {
+        let c = database();
+        let collections = count(&c, "SELECT count(*) FROM collections");
+        c.execute_batch("CREATE TEMP TRIGGER fail BEFORE INSERT ON feeds WHEN NEW.url = 'https://without.boats/index.xml' BEGIN SELECT RAISE(ABORT, 'disk full'); END;").unwrap();
+        assert!(apply(&c, &parse(VALID).unwrap(), &options(new_collection("Rust blogs worth following")), |_, _| {}).is_err());
+        assert_eq!(count(&c, "SELECT count(*) FROM bookmarks"), 0, "the links written before the feeds");
+        assert_eq!(count(&c, "SELECT count(*) FROM feeds"), 0, "the feed followed before the failing one");
+        assert_eq!(count(&c, "SELECT count(*) FROM collections"), collections);
+        assert_eq!(count(&c, "SELECT count(*) FROM tags"), 0);
+    }
+
+    #[test]
+    fn a_failure_after_tags_were_added_to_a_link_already_here_takes_them_back() {
+        let c = database();
+        c.execute_batch(
+            "INSERT INTO bookmarks (uid, url, title, domain, created_at, updated_at) VALUES ('a', 'https://tokio.rs/', 'My Tokio', 'tokio.rs', 'x', 'x');
+             CREATE TEMP TRIGGER fail BEFORE INSERT ON bookmarks WHEN NEW.url = 'https://this-week-in-rust.org/' BEGIN SELECT RAISE(ABORT, 'disk full'); END;",
+        )
+        .unwrap();
+        let mut o = options(ListCollection::None);
+        o.existing_links = ExistingLinks::AddTags;
+        assert!(apply(&c, &parse(VALID).unwrap(), &o, |_, _| {}).is_err());
+        assert_eq!(tags_of(&c, "https://tokio.rs/"), Vec::<String>::new());
+        let (revision, updated_at): (i64, String) =
+            c.query_row("SELECT revision, updated_at FROM bookmarks WHERE uid = 'a'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((revision, updated_at.as_str()), (1, "x"));
+        assert_eq!(count(&c, "SELECT count(*) FROM bookmarks"), 1);
+        assert_eq!(count(&c, "SELECT count(*) FROM tags"), 0);
     }
 
     #[test]

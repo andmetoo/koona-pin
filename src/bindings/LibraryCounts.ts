@@ -12,6 +12,7 @@ inbox: number,
 inbox_newest: string | null, 
 /**
  * Of the waiting ones, those an import put there: «— 340 из импорта» (frame 24, NP-031).
+ * A bookmarks file and a `.kpin` list both count (NP-137).
  */
 inbox_imported: number, 
 /**
