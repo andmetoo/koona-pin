@@ -62,7 +62,80 @@ test("a collection's menu opens the builder; Save writes what the preview shows 
   expect(call.id).toBe("dev-reading-2026");
   const file = JSON.parse(call.text);
   expect(file).toMatchObject({ format: "koona", app: "pin", kind: "list", version: "1.0", title: "Dev reading 2026", license: "CC0-1.0" });
+  // Save hands over the previewed text as it is. This runs the browser preview's stand-in builder:
+  // what a list may never hold is tested on the Rust writer (lists/export.rs).
   expect(JSON.stringify(file)).not.toMatch(/"(uid|created_at|triaged_at|deleted_at|notes|is_favorite)"/);
+});
+
+/** The first bookmark of a collection, given a note and an address with a key in its query. */
+async function seedCollectionLink(page: Page, collection: string, note: string, url?: string) {
+  await page.evaluate(
+    async ([name, note, url]) => {
+      const { api } = await import("/src/services/api.ts");
+      const id = (await api.getCollections()).find((c) => c.name === name)!.id;
+      const [first] = (await api.getBookmarks({ collectionId: id })).items;
+      await api.updateBookmark(first.id, { notes: note });
+      if (url) {
+        const stored = JSON.parse(localStorage.getItem("koonapin.demo.v4") ?? "null");
+        if (stored) {
+          stored.bookmarks = stored.bookmarks.map((b: { id: number; url: string }) => (b.id === first.id ? { ...b, url } : b));
+          localStorage.setItem("koonapin.demo.v4", JSON.stringify(stored));
+        }
+      }
+    },
+    [collection, note, url ?? ""] as const,
+  );
+  if (url) await page.reload();
+}
+
+test("Save and Copy wait for the build of the choices on screen; the rows show what goes in", async ({ page }) => {
+  await seedCollectionLink(page, "Development", "My private thought");
+  await mockSave(page);
+  // Each build takes a while, as a big library's would.
+  await page.evaluate(async () => {
+    const { lists } = await import("/src/services/shareList.ts");
+    const build = lists.buildList;
+    lists.buildList = async (options) => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return build(options);
+    };
+  });
+  await collectionRow(page, "Development").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Share as list…" }).click();
+  const share = dialog(page);
+  const save = share.getByRole("button", { name: "Save .kpin…" });
+  const copy = share.getByRole("button", { name: "Copy as Markdown" });
+  await expect(save).toBeEnabled();
+  const row = share.locator("[data-share-row]").first();
+  await expect(row.locator("[data-share-description]")).not.toHaveText("My private thought");
+
+  await share.getByLabel("My notes").check();
+  await expect(save).toBeDisabled();
+  await expect(copy).toBeDisabled();
+  await expect(row.locator("[data-share-description]")).toHaveText("My private thought");
+  await expect(save).toBeEnabled();
+
+  await share.getByLabel("My notes").uncheck();
+  await expect(save).toBeDisabled();
+  await save.click({ force: true });
+  expect(await saveCalls(page)).toHaveLength(0);
+  await expect(save).toBeEnabled();
+  await expect(row.locator("[data-share-description]")).not.toHaveText("My private thought");
+  await save.click();
+  await expect(share).toBeHidden();
+  const [call] = await saveCalls(page);
+  expect(call.text).not.toContain("My private thought");
+});
+
+test("an address whose query looks like a key is marked and counted, and still goes in", async ({ page }) => {
+  await seedCollectionLink(page, "Development", "", "https://user:pw@example.com/feed?token=abc");
+  await collectionRow(page, "Development").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Share as list…" }).click();
+  const share = dialog(page);
+  await expect(share.locator("[data-share-key]")).toHaveText(["May contain a private key"]);
+  await expect(share.locator("[data-share-keys]")).toHaveText("1 address may contain a private key: check before you share.");
+  await expect(share.locator("[data-share-row]").first()).toContainText("example.com");
+  await expect(share.getByText("user:pw")).toHaveCount(0);
 });
 
 test("a selection needs a title; Copy as Markdown copies the list; the author is remembered", async ({ page, context, browserName }) => {

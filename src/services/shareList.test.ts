@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftProblem, escapeMarkdown, fileName, listMarkdown, readDraft, slugify } from "./shareList";
+import { draftProblem, escapeMarkdown, escapeProse, fileName, listMarkdown, markdownUrl, mayHoldKey, publicUrl, readDraft, slugify } from "./shareList";
 
 const text = JSON.stringify({
   format: "koona",
@@ -27,6 +27,33 @@ describe("Copy as Markdown", () => {
   it("escapes what would break a link or start code", () => {
     expect(escapeMarkdown("a [b] (c) \\d `e`")).toBe("a \\[b\\] \\(c\\) \\\\d \\`e\\`");
     expect(escapeMarkdown("plain words")).toBe("plain words");
+    expect(escapeMarkdown("<b>bold</b>")).toBe("\\<b\\>bold\\</b\\>");
+  });
+
+  it("keeps a description's lines prose: no heading, list, quote or numbered item at a line's start", () => {
+    for (const [raw, safe] of [
+      ["# Not a heading", "\\# Not a heading"],
+      ["- not an item", "\\- not an item"],
+      ["+ not an item", "\\+ not an item"],
+      ["* not an item", "\\* not an item"],
+      ["> not a quote", "\\> not a quote"],
+      ["1. not numbered", "1\\. not numbered"],
+      ["`code` at the start", "\\`code\\` at the start"],
+      ["a - b # c 2. d", "a - b # c 2. d"],
+    ]) expect(escapeProse(raw)).toBe(safe);
+    expect(escapeProse("first\n  - second")).toBe("first\n  \\- second");
+  });
+
+  it("encodes what would end an address early and drops user names", () => {
+    expect(markdownUrl("https://example.com/a b\\c(d)")).toBe("https://example.com/a%20b%5Cc%28d%29");
+    expect(markdownUrl("https://me:pw@example.com/x")).toBe("https://example.com/x");
+    expect(publicUrl("https://example.com/x?y=1")).toBe("https://example.com/x?y=1");
+  });
+
+  it("warns of addresses whose query looks like a key", () => {
+    for (const url of ["https://a.example/feed?token=1", "https://a.example/?API_KEY=x", "https://a.example/?x=1&Sig=2", "https://a.example/?apikey=1"])
+      expect(mayHoldKey(url)).toBe(true);
+    for (const url of ["https://a.example/?q=token", "https://a.example/token", "https://a.example/?keys=1", undefined]) expect(mayHoldKey(url)).toBe(false);
   });
 
   it("gives a heading, the description and the items grouped under their sections", () => {

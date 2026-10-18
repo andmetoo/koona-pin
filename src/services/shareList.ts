@@ -86,16 +86,59 @@ export function today(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-/** Text in Markdown that cannot open a link, code or an escape: `\ ` [ ] ( )` get a backslash. */
-export const escapeMarkdown = (text: string) => text.replace(/[\\`[\]()]/g, "\\$&");
+/**
+ * Text in Markdown that cannot open a link, code, HTML or an escape: `\ ` [ ] ( ) < >` get a
+ * backslash.
+ */
+export const escapeMarkdown = (text: string) => text.replace(/[\\`[\]()<>]/g, "\\$&");
 
-/** An address inside `(…)`: what would end it early is percent-encoded. */
-const markdownUrl = (url: string) =>
-  url.replace(/[()<>\s]/g, (c) => ({ "(": "%28", ")": "%29", "<": "%3C", ">": "%3E" })[c] ?? encodeURIComponent(c));
+/**
+ * Lines of prose that stay prose: escaped as {@link escapeMarkdown}, and a line that would
+ * start a heading, a list, a quote or a numbered item (`#`, `-`, `+`, `*`, `>`, `1.`) is escaped
+ * at its start.
+ */
+export const escapeProse = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => escapeMarkdown(line).replace(/^(\s*)([#+*-])/, "$1\\$2").replace(/^(\s*)(\d+)\./, "$1$2\\."))
+    .join("\n");
+
+/** An address without a user name or password (`user:pass@`): they may be private. */
+export function publicUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.username && !parsed.password) return url;
+    parsed.username = "";
+    parsed.password = "";
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+/** An address inside `(…)`: what would end it early, spaces and `\` are percent-encoded. */
+export const markdownUrl = (url: string) =>
+  publicUrl(url).replace(/[()<>\\\s]/g, (c) => ({ "(": "%28", ")": "%29", "<": "%3C", ">": "%3E", "\\": "%5C" })[c] ?? encodeURIComponent(c));
+
+/** Query parameters whose value is often a key: the preview warns, the list still holds them. */
+const PRIVATE_PARAMS = new Set(["token", "key", "api_key", "apikey", "secret", "auth", "password", "sig", "signature"]);
+
+/** The address has a query parameter named like a key or a token (`?token=…`, `&API_KEY=…`). */
+export function mayHoldKey(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return [...new URL(url).searchParams.keys()].some((name) => PRIVATE_PARAMS.has(name.toLowerCase()));
+  } catch {
+    return false;
+  }
+}
+
+/** Items whose address or site may hold a key. */
+export const itemHoldsKey = (item: DraftItem) => mayHoldKey(item.url) || (item.type === "feed" && mayHoldKey(item.site));
 
 const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
 
-const hostOf = (url: string) => {
+export const hostOf = (url: string) => {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
@@ -110,7 +153,7 @@ const hostOf = (url: string) => {
  */
 export function listMarkdown(draft: ListDraft, feedWord: string): string {
   const lines: string[] = [`# ${escapeMarkdown(oneLine(draft.title))}`, ""];
-  if (draft.description) lines.push(escapeMarkdown(draft.description.trim()), "");
+  if (draft.description) lines.push(escapeProse(draft.description.trim()), "");
   for (const group of draft.groups) {
     if (group.name !== null) lines.push(`## ${escapeMarkdown(oneLine(group.name))}`, "");
     for (const item of group.items) {
@@ -122,7 +165,7 @@ export function listMarkdown(draft: ListDraft, feedWord: string): string {
             : `- [${title}](${markdownUrl(item.url)})`,
         );
       } else {
-        const description = item.description ? ` — ${escapeMarkdown(oneLine(item.description))}` : "";
+        const description = item.description ? ` — ${escapeProse(oneLine(item.description))}` : "";
         lines.push(`- [${title}](${markdownUrl(item.url)})${description}`);
       }
     }
@@ -131,10 +174,14 @@ export function listMarkdown(draft: ListDraft, feedWord: string): string {
   return lines.join("\n").replace(/\n+$/, "\n");
 }
 
-/**
- * The browser preview has no Rust: the same list from the demo library, by the rules of
- * `export.rs` (trash out, repeats once, sections by tag or collection, feeds in their own).
- */
+// The browser preview's stand-in for `export.rs`, which has no Rust behind it. It follows the
+// cheap rules (http(s) only, no user names in addresses, tags cleaned and once, the caps, feeds
+// once, sections and their names) so the preview looks like the app; it guarantees nothing.
+// What a list may hold is guaranteed by the Rust tests of `lists/export.rs`.
+const line = (text: string | null | undefined, max: number) => oneLine(text ?? "").slice(0, max).trimEnd();
+const paragraph = (text: string | null | undefined, max: number) => (text ?? "").trim().slice(0, max).trimEnd();
+const isWeb = (url: string) => /^https?:\/\/[^/?#\s]+/i.test(url.trim()) && url.trim().length <= 2048;
+
 async function demoBuild(options: ListBuildOptions): Promise<string> {
   const [page, collections, feeds] = await Promise.all([api.getBookmarks({}, { limit: 100_000 }), api.getCollections(), api.listFeeds()]);
   const seen = new Set<string>();
@@ -144,47 +191,54 @@ async function demoBuild(options: ListBuildOptions): Promise<string> {
     const collection = source.kind === "collection" ? source.id : null;
     return page.items.filter((b) => !b.deleted_at && (ids ? ids.has(b.id) : b.collection_id === collection));
   });
-  const links = chosen.filter((b) => !seen.has(b.url) && !!seen.add(b.url));
+  const links = chosen.filter((b) => isWeb(b.url) && !seen.has(publicUrl(b.url.trim())) && !!seen.add(publicUrl(b.url.trim())));
   const top: DraftItem[] = [];
   const sections = new Map<string, DraftItem[]>();
   const keyed: [string, number, DraftItem][] = [];
   const order = collections.map((c) => c.id);
+  const feedSources = options.sources.filter((s) => s.kind === "feeds");
+  const all = feedSources.some((s) => !s.uids);
+  const uids = new Set(feedSources.flatMap((s) => s.uids ?? []));
+  const feedUrls = new Set<string>();
+  const listed = feedSources.length
+    ? feeds.filter((f) => (all || uids.has(f.uid)) && isWeb(f.url) && !feedUrls.has(f.url) && !!feedUrls.add(f.url))
+    : [];
+  const feedsName = line(options.feeds_section, 120) || "Feeds";
+  const apart = (name: string) =>
+    listed.length && name.toLowerCase() === feedsName.toLowerCase() ? line(`${name} · ${line(options.links_word, 120) || "links"}`, 120) : name;
   for (const b of links) {
-    const tags = [...(b.tags ?? [])].map((t) => t.toLowerCase()).sort();
-    const note = options.notes && b.notes?.trim() ? b.notes.trim() : null;
-    const description = note ?? (options.titles ? b.description?.trim() || undefined : undefined);
+    const tags = [...new Set((b.tags ?? []).map((t) => line(t.toLowerCase(), 64)).filter(Boolean))].sort();
+    const note = options.notes ? paragraph(b.notes, 2000) : "";
+    const description = note || (options.titles ? paragraph(b.description, 2000) : "");
+    const title = options.titles ? line(b.title, 500) : "";
     const item: DraftItem = {
       type: "link",
-      url: b.url,
-      ...(options.titles && b.title.trim() ? { title: b.title.trim() } : {}),
+      url: publicUrl(b.url.trim()),
+      ...(title ? { title } : {}),
       ...(description ? { description } : {}),
       ...(options.tags && tags.length ? { tags: tags.slice(0, 20) } : {}),
     };
     const collection = collections.find((c) => c.id === b.collection_id);
-    const section = options.sections === "by_tag" ? tags[0] : options.sections === "by_collection" ? collection?.name : undefined;
+    const section = line(options.sections === "by_tag" ? tags[0] : options.sections === "by_collection" ? collection?.name : "", 120);
     if (!section) top.push(item);
     else keyed.push([section, options.sections === "by_collection" ? order.indexOf(collection!.id) : 0, item]);
   }
   keyed.sort((a, b) => (options.sections === "by_tag" ? (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0) : a[1] - b[1]));
-  for (const [name, , item] of keyed) sections.set(name, [...(sections.get(name) ?? []), item]);
-  const feedSources = options.sources.filter((s) => s.kind === "feeds");
-  const all = feedSources.some((s) => !s.uids);
-  const uids = new Set(feedSources.flatMap((s) => s.uids ?? []));
-  const listed = feedSources.length ? feeds.filter((f) => all || uids.has(f.uid)) : [];
+  for (const [name, , item] of keyed) sections.set(apart(name), [...(sections.get(apart(name)) ?? []), item]);
   if (listed.length) {
-    const name = options.feeds_section.trim() || "Feeds";
-    sections.set(name, [
-      ...(sections.get(name) ?? []),
+    sections.set(feedsName, [
+      ...(sections.get(feedsName) ?? []),
       ...listed.map((f): DraftItem => {
-        const title = f.title ?? f.feed_title;
-        return { type: "feed", url: f.url, ...(f.site_url ? { site: f.site_url } : {}), ...(options.titles && title ? { title } : {}) };
+        const title = line(f.title ?? f.feed_title, 500);
+        const site = f.site_url && isWeb(f.site_url) ? publicUrl(f.site_url) : "";
+        return { type: "feed", url: publicUrl(f.url), ...(site ? { site } : {}), ...(options.titles && title ? { title } : {}) };
       }),
     ]);
   }
   const license = options.license === "cc0" ? "CC0-1.0" : options.license === "cc_by" ? "CC-BY-4.0" : undefined;
   const author = {
-    ...(options.author_name.trim() ? { name: options.author_name.trim() } : {}),
-    ...(/^https?:\/\/[^/?#\s]+/i.test(options.author_url.trim()) ? { url: options.author_url.trim() } : {}),
+    ...(line(options.author_name, 120) ? { name: line(options.author_name, 120) } : {}),
+    ...(isWeb(options.author_url) ? { url: publicUrl(options.author_url.trim()) } : {}),
   };
   const file = {
     format: "koona",
@@ -193,8 +247,8 @@ async function demoBuild(options: ListBuildOptions): Promise<string> {
     version: "1.0",
     generator: "Koona Pin (browser preview)",
     ...(slugify(options.id) ? { id: slugify(options.id) } : {}),
-    title: options.title.trim(),
-    ...(options.description.trim() ? { description: options.description.trim() } : {}),
+    title: line(options.title, 120),
+    ...(paragraph(options.description, 2000) ? { description: paragraph(options.description, 2000) } : {}),
     ...(Object.keys(author).length ? { author } : {}),
     ...(license ? { license } : {}),
     ...(options.language ? { language: options.language } : {}),

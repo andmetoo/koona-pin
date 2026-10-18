@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, FileText, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, KeyRound, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Collection, Feed } from "../../types";
 import type { ListLicense } from "../../bindings/ListLicense";
@@ -15,6 +15,8 @@ import {
   ListSource,
   draftProblem,
   fileName,
+  hostOf,
+  itemHoldsKey,
   listMarkdown,
   lists,
   readDraft,
@@ -106,7 +108,10 @@ export function ShareListDialog({
   const [language, setLanguage] = useState(i18n.language);
   const [updated, setUpdated] = useState(today);
   const [adding, setAdding] = useState<{ anchor: DOMRect; trigger: HTMLElement } | null>(null);
-  const [text, setText] = useState<string | null>(null);
+  /** The last text built, with the choices it was built for. */
+  const [built, setBuilt] = useState<{ key: string; text: string } | null>(null);
+  /** The last build failed: what is shown is not what would be saved. */
+  const [buildError, setBuildError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -125,34 +130,40 @@ export function ShareListDialog({
     notes,
     sections,
     feeds_section: t("shareList.feedsSection"),
+    links_word: t("shareList.linksWord"),
     id: listId,
     language,
     updated,
   };
   const key = JSON.stringify(options);
-  const built = useRef(0);
+  const runs = useRef(0);
   useEffect(() => {
-    const run = ++built.current;
+    const run = ++runs.current;
     const timer = window.setTimeout(() => {
       lists.buildList(JSON.parse(key) as ListBuildOptions).then(
         (next) => {
-          if (run !== built.current) return;
-          setText(next);
-          setError("");
+          if (run !== runs.current) return;
+          setBuilt({ key, text: next });
+          setBuildError("");
         },
-        (err) => run === built.current && setError(describeError(err)),
+        (err) => run === runs.current && setBuildError(describeError(err)),
       );
     }, BUILD_DELAY);
     return () => window.clearTimeout(timer);
   }, [key]);
+  const text = built?.text ?? null;
+  // Save and Copy take only the text built for the choices on screen: a click right after a
+  // change waits for its build, and a failed build is never saved.
+  const fresh = !!built && built.key === key && !buildError;
   const draft: ListDraft | null = useMemo(() => (text ? readDraft(text) : null), [text]);
   const problem = draft ? draftProblem(draft) : "empty";
+  const keyed = draft ? draft.groups.flatMap((g) => g.items).filter(itemHoldsKey).length : 0;
 
   const remember = (name: string, value: string) => savePreference(name, value);
   const authorUrlWrong = !!authorUrl.trim() && !/^https?:\/\/[^/?#\s]+/i.test(authorUrl.trim());
 
   const save = async () => {
-    if (!text || problem) return;
+    if (!text || problem || !fresh) return;
     setBusy(true);
     setError("");
     try {
@@ -185,7 +196,7 @@ export function ShareListDialog({
     }
   };
   const copyMarkdown = async () => {
-    if (!draft || problem === "title" || problem === "empty") return;
+    if (!draft || !fresh || problem === "title" || problem === "empty") return;
     try {
       await navigator.clipboard.writeText(listMarkdown(draft, t("shareList.feedWord")));
       setError("");
@@ -249,20 +260,42 @@ export function ShareListDialog({
         .filter(Boolean)
         .join(" · ")
     : " ";
+  // A row shows what the file will hold for the item: its title, the site, the description
+  // (or the note in its place) and the tags, a line each.
   const row = (item: DraftItem, index: number) => (
-    <li key={index} className="flex min-w-0 items-center gap-2 py-1 text-sm">
-      <span className="min-w-0 flex-1 truncate" title={item.url}>
-        {item.title || item.url}
+    <li key={index} data-share-row className="flex min-w-0 flex-col py-1">
+      <span className="flex min-w-0 items-center gap-2 text-sm">
+        <span className="min-w-0 flex-1 truncate" title={item.url}>
+          {item.title || hostOf(item.url)}
+        </span>
+        {item.type === "feed" && (
+          <span className="shrink-0 rounded-sm bg-secondary px-1.5 py-px text-2xs font-medium text-muted">{t("shareList.feedBadge")}</span>
+        )}
       </span>
-      {item.type === "feed" && (
-        <span className="shrink-0 rounded-sm bg-secondary px-1.5 py-px text-2xs font-medium text-muted">{t("shareList.feedBadge")}</span>
+      <span className="truncate text-xs text-subtle">{hostOf(item.url)}</span>
+      {item.type === "link" && item.description && (
+        <span data-share-description className="truncate text-xs text-muted">
+          {item.description}
+        </span>
+      )}
+      {item.type === "link" && item.tags?.length ? (
+        <span data-share-tags className="truncate text-xs text-subtle">
+          {item.tags.map((tag) => `#${tag}`).join(" ")}
+        </span>
+      ) : null}
+      {itemHoldsKey(item) && (
+        <span data-share-key className="flex items-center gap-1 text-xs text-danger">
+          <Icon icon={KeyRound} size={12} className="shrink-0" />
+          {t("shareList.mayHoldKey")}
+        </span>
       )}
     </li>
   );
   const note =
     error ||
+    buildError ||
     (problem === "too_big" ? t("shareList.tooBig") : problem === "empty" && draft ? t("shareList.empty") : t("shareList.holdsOnly"));
-  const alarming = !!error || (problem === "too_big" || (problem === "empty" && !!draft));
+  const alarming = !!error || !!buildError || problem === "too_big" || (problem === "empty" && !!draft);
 
   return (
     <Dialog
@@ -466,6 +499,12 @@ export function ShareListDialog({
           </div>
         </section>
       </div>
+      {keyed > 0 && (
+        <p data-share-keys className="mt-3 flex items-center gap-1.5 text-xs text-danger">
+          <Icon icon={KeyRound} size={14} className="shrink-0" />
+          {t("shareList.keysNotice", { count: keyed })}
+        </p>
+      )}
       <footer className="mt-4 flex items-center gap-2">
         <p
           role={alarming ? "alert" : undefined}
@@ -476,10 +515,10 @@ export function ShareListDialog({
         <Button variant="outline" size="lg" onClick={onClose}>
           {t("shareList.cancel")}
         </Button>
-        <Button variant="outline" size="lg" disabled={!draft || problem === "title" || problem === "empty"} onClick={() => void copyMarkdown()}>
+        <Button variant="outline" size="lg" disabled={!draft || !fresh || problem === "title" || problem === "empty"} onClick={() => void copyMarkdown()}>
           <span aria-live="polite">{copied ? t("shareList.copied") : t("shareList.copyMarkdown")}</span>
         </Button>
-        <Button variant="primary" size="lg" disabled={!!problem || busy} onClick={() => void save()}>
+        <Button variant="primary" size="lg" disabled={!!problem || !fresh || busy} onClick={() => void save()}>
           {t("shareList.save")}
         </Button>
       </footer>
