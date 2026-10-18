@@ -7,6 +7,7 @@ import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
 import { importOpml } from "../../services/feeds";
+import { fileKindOf } from "../../services/openRequests";
 import { shortcut } from "../../services/keys";
 import {
   ConnectTab,
@@ -117,6 +118,7 @@ export function ImportDialog({
   onImport,
   onOpenInbox,
   onClose,
+  onList,
 }: {
   /** «Import feeds (OPML)…» opens it for feeds; either way it takes both kinds of file. */
   kind?: "bookmarks" | "feeds";
@@ -125,6 +127,8 @@ export function ImportDialog({
   onImport: (content: string, toInbox: boolean) => Promise<ImportSummary>;
   onOpenInbox: () => void;
   onClose: () => void;
+  /** A `.kpin` list picked here goes to the list dialog (NP-138). */
+  onList?: (file: { name: string; text: string }) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [file, setFile] = useState<ChosenFile | null>(() => (dropped ? chosenFile(dropped.name, dropped.content) : null));
@@ -346,7 +350,7 @@ export function ImportDialog({
             {!sizing && (
               <input
                 type="file"
-                accept={feeds ? ".opml,.xml,.html,.htm" : ".html,.htm,.opml,.xml"}
+                accept={feeds ? ".opml,.xml,.html,.htm,.kpin" : ".html,.htm,.opml,.xml,.kpin"}
                 className="sr-only"
                 onChange={(e) => {
                   const chosen = e.target.files?.[0];
@@ -355,6 +359,7 @@ export function ImportDialog({
                       .text()
                       .then((content) => {
                         setError("");
+                        if (onList && fileKindOf(chosen.name) === "kpin") return onList({ name: chosen.name, text: content });
                         setFile(chosenFile(chosen.name, content));
                       })
                       .catch((err) => setError(describeError(err)));

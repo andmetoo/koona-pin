@@ -81,6 +81,12 @@ import {
   UpdateStatus,
 } from "../types";
 import type { ReaderPage } from "../bindings/ReaderPage";
+import type { ListCheck } from "../bindings/ListCheck";
+import type { ListDownload } from "../bindings/ListDownload";
+import type { ListDownloadProgress } from "../bindings/ListDownloadProgress";
+import type { ListFile } from "../bindings/ListFile";
+import type { ListImportOptions } from "../bindings/ListImportOptions";
+import type { ListImportReport } from "../bindings/ListImportReport";
 import { demo } from "./demo";
 import { toCommandError } from "./errors";
 
@@ -214,6 +220,17 @@ const desktop = {
     call<ImportSummary>("import_html_bookmarks", { htmlContent, toInbox }),
   onImportProgress: (callback: (progress: ImportProgress) => void) =>
     subscription("import-progress", callback),
+  // `.kpin` lists (NP-138, src-tauri/src/lists): preview, import, the one-click download.
+  /** What the list would do to the library; writes nothing. `source` is a file name or a host. */
+  previewList: (text: string, source: string) => call<ListCheck>("preview_list", { text, source }),
+  /** One transaction; progress comes through onImportProgress. */
+  importList: (text: string, options: ListImportOptions) => call<ListImportReport>("import_list", { text, options }),
+  /** A `.kpin` the system opened with the app, by the path Rust checked. */
+  readListFile: (path: string) => call<ListFile>("read_list_file", { path }),
+  /** Only after **Download**: https, the guard, 2 MB, 15 s. */
+  downloadList: (url: string) => call<ListDownload>("download_list", { url }),
+  cancelListDownload: () => call<void>("cancel_list_download"),
+  onListDownloadProgress: (callback: (progress: ListDownloadProgress) => void) => subscription("list-download-progress", callback),
   /** The Save dialog and the file (NP-032); CSV needs its column titles; `ids` — only the selected (NP-029). */
   exportLibrary: (format: ExportFormat, columns?: CsvColumns, ids?: number[]) =>
     call<ExportOutcome>("export_library", { format, columns: columns ?? null, ids: ids ?? null }),

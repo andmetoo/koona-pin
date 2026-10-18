@@ -1,5 +1,11 @@
 import { version as packageVersion } from "../../package.json";
 import type { ReaderPage } from "../bindings/ReaderPage";
+import type { ListCheck } from "../bindings/ListCheck";
+import type { ListDownload } from "../bindings/ListDownload";
+import type { ListDownloadProgress } from "../bindings/ListDownloadProgress";
+import type { ListFile } from "../bindings/ListFile";
+import type { ListImportOptions } from "../bindings/ListImportOptions";
+import type { ListImportReport } from "../bindings/ListImportReport";
 import {
   AddedLink,
   BackupCopy,
@@ -638,6 +644,65 @@ const batchListeners = new Set<(changes: BookmarkChange[]) => void>();
 const invalidations = new Set<() => void>();
 const duplicateListeners = new Set<() => void>();
 const progressListeners = new Set<(progress: ImportProgress) => void>();
+
+type DemoListItem = { url: string; title: string | null; description: string | null; tags: string[]; section: string | null };
+type DemoList = { title: string; version: string; newer: boolean; links: DemoListItem[]; feeds: DemoListItem[]; sections: number; repeated: number; not_web: number; skipped_items: number; raw: Record<string, unknown> };
+
+/**
+ * `lists/format.rs` in the browser, roughly: the envelope and version, links and feeds by
+ * address, http(s) only, repeats once. The desktop app's reader is the one that counts.
+ */
+function demoList(text: string): DemoList | Exclude<ListCheck, { outcome: "ready" }> {
+  if (text.length > 2 * 1024 * 1024) return { outcome: "too_big" };
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { outcome: "not_a_list" };
+  }
+  if (!raw || typeof raw !== "object" || raw.format !== "koona") return { outcome: "not_a_list" };
+  if (raw.app !== "pin") return typeof raw.app === "string" ? { outcome: "other_app", app: raw.app } : { outcome: "not_a_list" };
+  const [major, minor] = String(raw.version ?? "").split(".").map(Number);
+  if (raw.kind !== "list" || major > 1) return { outcome: "needs_newer_app" };
+  const title = typeof raw.title === "string" ? raw.title.trim().slice(0, 120) : "";
+  if (major !== 1 || !title) return { outcome: "not_a_list" };
+  const list: DemoList = { title, version: String(raw.version), newer: minor > 0, links: [], feeds: [], sections: 0, repeated: 0, not_web: 0, skipped_items: 0, raw };
+  const seen = new Set<string>();
+  const take = (items: unknown, section: string | null) => {
+    for (const item of Array.isArray(items) ? (items as Record<string, unknown>[]) : []) {
+      if (item?.type !== "link" && item?.type !== "feed") {
+        list.skipped_items++;
+        continue;
+      }
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      if (!/^https?:\/\/[^/]/i.test(url)) {
+        list.not_web++;
+        continue;
+      }
+      if (seen.has(url)) {
+        list.repeated++;
+        continue;
+      }
+      seen.add(url);
+      const entry = {
+        url,
+        title: typeof item.title === "string" ? item.title : null,
+        description: typeof item.description === "string" ? item.description : null,
+        tags: Array.isArray(item.tags) ? item.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim().toLowerCase().slice(0, 64)) : [],
+        section,
+      };
+      (item.type === "link" ? list.links : list.feeds).push(entry);
+    }
+  };
+  for (const section of Array.isArray(raw.sections) ? (raw.sections as Record<string, unknown>[]) : []) {
+    list.sections++;
+    take(section?.items, typeof section?.name === "string" ? section.name : null);
+  }
+  take(raw.items, null);
+  if (list.links.length + list.feeds.length === 0) return { outcome: "empty" };
+  return list;
+}
+const demoListDownloads = new Set<(progress: ListDownloadProgress) => void>();
 function persist() {
   localStorage.setItem(key, JSON.stringify({ bookmarks, collections }));
 }
@@ -1258,7 +1323,7 @@ export const demo = {
       favorites: live().filter((b) => b.is_favorite).length,
       inbox: inbox.length,
       inbox_newest: inbox.reduce<string | null>((newest, b) => (newest === null || b.created_at > newest ? b.created_at : newest), null),
-      inbox_imported: inbox.filter((b) => b.source === "import").length,
+      inbox_imported: inbox.filter((b) => b.source === "import" || b.source === "list").length,
       trash: bookmarks.length - live().length,
       duplicates: groupsOf(bookmarks, dismissed).length,
       links: linksToDecide(),
@@ -1695,6 +1760,144 @@ export const demo = {
     persist();
     invalidations.forEach((fn) => fn());
     return { outcome: "restored", summary };
+  },
+  async previewList(text: string, source: string): Promise<ListCheck> {
+    const list = demoList(text);
+    if ("outcome" in list) return list;
+    const raw = list.raw as { description?: string; author?: { name?: string; url?: string }; license?: string; updated?: string; homepage?: string; id?: string; generator?: string; language?: string };
+    const known = new Map(bookmarks.map((b) => [b.url, b]));
+    const saved = list.links.filter((l) => known.get(l.url) && !known.get(l.url)!.deleted_at).length;
+    const trashed = list.links.filter((l) => known.get(l.url)?.deleted_at).length;
+    const followed = new Set(feedsState().feeds.map((f) => f.url));
+    const named = collections.find((c) => c.name.toLocaleLowerCase() === list.title.toLocaleLowerCase());
+    return {
+      outcome: "ready",
+      preview: {
+        meta: {
+          title: list.title,
+          description: raw.description ?? null,
+          author_name: raw.author?.name ?? null,
+          author_url: raw.author?.url ?? null,
+          license: raw.license ?? null,
+          language: raw.language ?? null,
+          updated: raw.updated ?? null,
+          homepage: raw.homepage ?? null,
+          id: raw.id ?? null,
+          generator: raw.generator ?? null,
+          version: list.version,
+        },
+        source,
+        newer: list.newer,
+        links: list.links.length,
+        feeds: list.feeds.length,
+        sections: list.sections,
+        new_links: list.links.length - saved - trashed,
+        already_saved: saved,
+        in_trash: trashed,
+        repeated: list.repeated,
+        not_web: list.not_web,
+        invalid: 0,
+        feeds_followed: list.feeds.filter((f) => followed.has(f.url)).length,
+        skipped_details: 0,
+        skipped_items: list.newer ? list.skipped_items : 0,
+        new_feeds: list.feeds.filter((f) => !followed.has(f.url)).map((f) => ({ url: f.url, title: f.title, site: null, section: f.section })),
+        existing_collection: named ? { id: named.id, name: named.name } : null,
+      },
+    };
+  },
+  /** `lists/apply.rs` in the browser: new links only, written at the end, then the feeds. */
+  async importList(text: string, options: ListImportOptions): Promise<ListImportReport> {
+    const list = demoList(text);
+    if ("outcome" in list) throw new CommandError("invalid_request", "This file isn't a Koona list");
+    const known = new Map(bookmarks.map((b) => [b.url, b]));
+    const now = new Date().toISOString();
+    let id = Math.max(Date.now(), ...bookmarks.map((b) => b.id + 1));
+    let collectionId: number | null = null;
+    let created: Collection | null = null;
+    if (options.collection.kind === "existing") collectionId = options.collection.id;
+    if (options.collection.kind === "new") {
+      const name = options.collection.name.trim();
+      const same = collections.find((c) => c.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+      if (same) collectionId = same.id;
+      else {
+        created = { id: id++, name, color: null, icon: null, count: 0, created_at: now };
+        collectionId = created.id;
+      }
+    }
+    const report: ListImportReport = { added: 0, already_saved: 0, in_trash: 0, repeated: list.repeated, not_web: list.not_web, invalid: 0, skipped_items: list.skipped_items, feeds_followed: 0, feeds_already: 0, collection_id: null };
+    const tagsOf = (link: DemoListItem) => [...new Set([...link.tags, ...(options.sections_as_tags && link.section ? [link.section.toLowerCase().slice(0, 64)] : [])])];
+    const added: Bookmark[] = [];
+    for (const [index, link] of list.links.entries()) {
+      const previous = known.get(link.url);
+      if (previous?.deleted_at) report.in_trash++;
+      else if (previous) {
+        report.already_saved++;
+        if (options.existing_links === "add_tags") previous.tags = [...new Set([...(previous.tags ?? []), ...tagsOf(link)])];
+      } else {
+        added.push({
+          id: id++,
+          url: link.url,
+          title: link.title || link.url,
+          description: link.description,
+          image_url: null,
+          favicon_url: null,
+          site_name: null,
+          notes: null,
+          domain: new URL(link.url).hostname.replace(/^www\./, ""),
+          collection_id: collectionId,
+          tags: tagsOf(link),
+          is_favorite: false,
+          reading_at: null,
+          reading_progress: 0,
+          read_at: null,
+          offline_at: null,
+          created_at: now,
+          updated_at: now,
+          revision: 1,
+          triaged_at: options.to_inbox ? null : now,
+          deleted_at: null,
+          source: "list",
+          source_name: list.title,
+        });
+        report.added++;
+      }
+      progressListeners.forEach((fn) => fn({ done: index + 1, total: list.links.length }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    bookmarks = [...added, ...bookmarks];
+    if (created && added.length) collections = [...collections, created];
+    if (added.length) report.collection_id = collectionId;
+    const followed = new Set(feedsState().feeds.map((f) => f.url));
+    for (const feed of list.feeds) {
+      if (followed.has(feed.url)) report.feeds_already++;
+      else if (options.follow_feeds.includes(feed.url)) {
+        await demo.subscribeFeed(feed.url, feed.title, "feeds");
+        report.feeds_followed++;
+      }
+    }
+    persist();
+    invalidations.forEach((fn) => fn());
+    if (added.length) startDemoRefresh(added.map((b) => b.id), true);
+    return report;
+  },
+  /** The preview is given no paths. */
+  async readListFile(path: string): Promise<ListFile> {
+    void path;
+    return { outcome: "unreadable" };
+  },
+  /** The preview downloads nothing: the server is never reached. Tests replace it for the other outcomes. */
+  async downloadList(url: string): Promise<ListDownload> {
+    void url;
+    demoListDownloads.forEach((fn) => fn({ received: 0, total: null }));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return { outcome: "unreachable" };
+  },
+  async cancelListDownload(): Promise<void> {},
+  onListDownloadProgress(fn: (progress: ListDownloadProgress) => void) {
+    demoListDownloads.add(fn);
+    return () => {
+      demoListDownloads.delete(fn);
+    };
   },
   onImportProgress(fn: (progress: ImportProgress) => void) {
     progressListeners.add(fn);

@@ -20,6 +20,8 @@ export function Dialog({
   width = 440,
   locked = false,
   badge,
+  height,
+  eyebrow = false,
 }: {
   title: string;
   onClose: () => void;
@@ -30,6 +32,10 @@ export function Dialog({
   locked?: boolean;
   /** Next to the title: «Test payments» of the Supporter dialog (sheet 45). */
   badge?: ReactNode;
+  /** A height of its own (the list dialog, NP-138: 640 px or the window less 48 px); the body fills it. */
+  height?: string;
+  /** The title as a small capitals label over the body's own heading (K1: «IMPORT LIST»). */
+  eyebrow?: boolean;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -52,7 +58,7 @@ export function Dialog({
       ref={ref}
       aria-labelledby={titleId}
       data-drawer={drawer || undefined}
-      style={drawer ? undefined : { width }}
+      style={drawer ? undefined : { width, height }}
       className={
         drawer
           ? "fixed inset-y-0 right-0 left-auto m-0 h-full max-h-full w-[380px] max-w-full animate-appear border-l border-border bg-card p-0 text-ink shadow-menu"
@@ -69,10 +75,10 @@ export function Dialog({
     >
       {open && (
         // A column: the states of a dialog (StatePanels) give way to a low window, the rest scrolls.
-        <div className={drawer ? "min-h-full p-6" : "flex min-h-0 flex-col p-5"}>
+        <div className={drawer ? "min-h-full p-6" : `flex min-h-0 flex-col p-5 ${height ? "flex-1" : ""}`}>
           <header className="mb-4 flex items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2">
-              <h2 id={titleId} className="text-lg font-semibold">
+              <h2 id={titleId} className={eyebrow ? "text-2xs font-semibold tracking-[0.06em] text-muted uppercase" : "text-lg font-semibold"}>
                 {title}
               </h2>
               {badge}

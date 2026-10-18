@@ -41,6 +41,7 @@ import { failureText } from "./components/reader/ArticleView";
 import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddSheet, NewLink } from "./components/library/AddSheet";
 import { BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
+import { ListImportDialog } from "./components/ListImportDialog";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
@@ -445,6 +446,15 @@ export function App() {
   // The lists Rust keeps (a `.kpin` opened with the app, a `koonapin://` link) wait in
   // openRequests for the list dialog (NP-139, NP-142); one refused because another is open is said.
   useEffect(() => receiveNativeOpens(() => sayRef.current(t("add.dropImportBusy"), true)), []);
+  // The list dialog (NP-138) takes the waiting request once nothing else is open over the window;
+  // a dialog opened over it lets the request go, as its own close would.
+  const [listRequest, setListRequest] = useState(openRequests.current);
+  useEffect(() => openRequests.subscribe(setListRequest), []);
+  const listShown = useRef(false);
+  useEffect(() => {
+    if (surface !== null && listShown.current) openRequests.done();
+    listShown.current = !!listRequest && surface === null;
+  }, [surface, listRequest]);
   // A dropped file belongs to the import dialog it opened: any other surface lets it go, so
   // «Import…» opened later starts empty.
   useEffect(() => {
@@ -1878,6 +1888,10 @@ export function App() {
           kind={surface === "importFeeds" ? "feeds" : "bookmarks"}
           file={droppedFile?.surface === surface ? droppedFile : undefined}
           onClose={() => setSurface(null)}
+          onList={(file) => {
+            setSurface(null);
+            if (!openRequests.push({ kind: "kpin", ...file })) say(t("add.dropImportBusy"), true);
+          }}
           onImport={async (content, toInbox) => {
             const summary = await api.importHtmlBookmarks(content, toInbox);
             if (importOffer) endImportOffer();
@@ -1888,6 +1902,29 @@ export function App() {
             setSurface(null);
             openInbox();
           }}
+        />
+      )}
+      {listRequest && surface === null && (
+        <ListImportDialog
+          request={listRequest}
+          collections={library.collections}
+          onClose={() => openRequests.done()}
+          onImported={async () => {
+            await Promise.all([library.refresh(), library.refreshCatalog()]);
+          }}
+          onShowCollection={(id) => {
+            openRequests.done();
+            setTriage(null);
+            setPage("library");
+            navigate({ collectionId: id });
+          }}
+          onCheckUpdates={() => {
+            // As «Update» of the sync dialog: the version on offer, or Settings → Updates.
+            if (offer(update)) return setSurface("update");
+            setTriage(null);
+            setPage("settings");
+          }}
+          onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
         />
       )}
       {surface === "restore" && (
