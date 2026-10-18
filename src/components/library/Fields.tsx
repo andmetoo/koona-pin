@@ -48,16 +48,16 @@ export function CollectionSelect({
 }
 
 /** Tags are stored lower case, without surrounding spaces (`db::link_tags`). */
-const cleanTag = (tag: string, language: string) => tag.trim().toLocaleLowerCase(language);
+export const cleanTag = (tag: string, language: string) => tag.trim().toLocaleLowerCase(language);
 /** A comma separates tags, the Chinese and Japanese ones too (NP-090). */
-const SEPARATORS = /[,，、]/;
+export const SEPARATORS = /[,，、]/;
 /**
  * A comma ends the tag typed before it, whether typed, pasted or committed by
  * an IME. The IME's comma arrives while composing, so it ends the tag at
  * compositionend. Firefox and WebKit then send one more, non-composing input
  * event with the same text: that echo is skipped, or the tag would be added twice.
  */
-function useCommaEnds(end: (text: string) => void) {
+export function useCommaEnds(end: (text: string) => void) {
   const ended = useRef<string | null>(null);
   return {
     /** For onChange: true when the comma ended the tag and the change is handled. */
