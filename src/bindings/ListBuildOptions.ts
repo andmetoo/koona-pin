@@ -24,6 +24,10 @@ notes: boolean, sections: ListSections,
  */
 feeds_section: string, 
 /**
+ * The word after a section of links named as the feeds' one: «Feeds · links».
+ */
+links_word: string, 
+/**
  * «More details»: made into a slug here; empty, none.
  */
 id: string, 

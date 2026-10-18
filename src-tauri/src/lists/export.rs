@@ -4,7 +4,7 @@
 //! list never holds uids, dates of the person's own activity, Inbox, Trash
 //! or reading state, and notes only when asked for.
 
-use super::format::{self, TAGS_PER_ITEM};
+use super::format::{self, AUTHOR_LEN, DESCRIPTION_LEN, ID_LEN, ITEM_TITLE_LEN, SECTION_LEN, TAGS_PER_ITEM, TITLE_LEN};
 use crate::{
     commands::{blocking, ExportOutcome, LastExport},
     db::DbState,
@@ -20,12 +20,6 @@ use ts_rs::TS;
 /// The version a builder writes.
 pub const WRITER_VERSION: &str = "1.0";
 
-const TITLE_LEN: usize = 120;
-const SECTION_LEN: usize = 120;
-const ITEM_TITLE_LEN: usize = 500;
-const DESCRIPTION_LEN: usize = 2_000;
-const AUTHOR_LEN: usize = 120;
-const ID_LEN: usize = 64;
 
 /// Where the links and feeds of a list come from (K2, «What goes in»).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, TS)]
@@ -90,6 +84,8 @@ pub struct ListBuildOptions {
     pub sections: ListSections,
     /// The name of the feeds' own section, in the interface's language.
     pub feeds_section: String,
+    /// The word after a section of links named as the feeds' one: «Feeds · links».
+    pub links_word: String,
     /// «More details»: made into a slug here; empty, none.
     pub id: String,
     /// A BCP 47 tag; anything else is left out.
@@ -190,17 +186,17 @@ struct Link {
     collection: Option<i64>,
 }
 
-/// A description or a note: line breaks kept, other control and invisible
-/// characters dropped, at most `max` characters. Empty: none.
-fn paragraph(raw: &str, max: usize) -> Option<String> {
-    let kept: String = raw
-        .replace("\r\n", "\n")
-        .chars()
-        .filter(|&c| c == '\n' || !(c.is_control() || matches!(c, '\u{061c}' | '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}' | '\u{2066}'..='\u{2069}' | '\u{feff}')))
-        .collect();
-    let capped: String = kept.trim().chars().take(max).collect();
-    let capped = capped.trim_end();
-    (!capped.is_empty()).then(|| capped.to_owned())
+/// An address as the list writes it: without a user name or password
+/// (`user:pass@host`), which may be private. One without them stays as it is.
+pub fn public_url(raw: &str) -> String {
+    match url::Url::parse(raw) {
+        Ok(mut url) if !url.username().is_empty() || url.password().is_some() => {
+            let _ = url.set_username("");
+            let _ = url.set_password(None);
+            url.to_string()
+        }
+        _ => raw.to_owned(),
+    }
 }
 
 /// The list's `id`: lowercase ASCII letters and digits, anything else a
@@ -217,21 +213,6 @@ pub fn slug(raw: &str) -> Option<String> {
     let capped: String = slug.chars().take(ID_LEN).collect();
     let capped = capped.trim_end_matches('-');
     (!capped.is_empty()).then(|| capped.to_owned())
-}
-
-/// A BCP 47 tag as the schema has it: 2–3 letters, then parts of 2–8 letters or digits.
-fn language(raw: &str) -> Option<String> {
-    let raw = raw.trim();
-    let mut parts = raw.split('-');
-    let first = parts.next()?;
-    let ok = (2..=3).contains(&first.len())
-        && first.chars().all(|c| c.is_ascii_alphabetic())
-        && parts.all(|p| (2..=8).contains(&p.len()) && p.chars().all(|c| c.is_ascii_alphanumeric()));
-    ok.then(|| raw.to_owned())
-}
-
-fn date(raw: &str) -> Option<String> {
-    chrono::NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").ok().map(|d| d.format("%Y-%m-%d").to_string())
 }
 
 /// The links of the sources, in their order and newest first within each,
@@ -259,6 +240,7 @@ fn links(conn: &Connection, sources: &[ListSource]) -> rusqlite::Result<Vec<Link
         for (id, url, title, description, note, collection) in rows {
             // What the reader would skip is not written: the file holds only what the preview shows.
             let Ok(url) = format::link_url(&url) else { continue };
+            let url = public_url(&url);
             let key = crate::dedupe::url_key(&url).unwrap_or_else(|| url.clone());
             if !seen_ids.insert(id) || !seen_keys.insert(key) {
                 continue;
@@ -275,8 +257,8 @@ fn links(conn: &Connection, sources: &[ListSource]) -> rusqlite::Result<Vec<Link
             found.push(Link {
                 url,
                 title: title.as_deref().and_then(|t| format::line(t, ITEM_TITLE_LEN)),
-                description: description.as_deref().and_then(|d| paragraph(d, DESCRIPTION_LEN)),
-                note: note.as_deref().and_then(|n| paragraph(n, DESCRIPTION_LEN)),
+                description: description.as_deref().and_then(|d| format::paragraph(d, DESCRIPTION_LEN)),
+                note: note.as_deref().and_then(|n| format::paragraph(n, DESCRIPTION_LEN)),
                 tags,
                 collection,
             });
@@ -358,22 +340,31 @@ pub fn build(conn: &Connection, options: &ListBuildOptions, followed: &[FeedRow]
             (Some(name), _) => keyed.push((name, item)),
         }
     }
+    let feeds_name = format::line(&options.feeds_section, SECTION_LEN).unwrap_or_else(|| "Feeds".to_owned());
+    // A tag or a collection named as the feeds' section keeps its links apart from the feeds.
+    let apart = |name: String| -> String {
+        if feeds.is_empty() || name.to_lowercase() != feeds_name.to_lowercase() {
+            return name;
+        }
+        let word = format::line(&options.links_word, SECTION_LEN).unwrap_or_else(|| "links".to_owned());
+        format::line(&format!("{name} · {word}"), SECTION_LEN).unwrap_or(name)
+    };
     // Stable sorts: within a section the links keep their order.
     keyed.sort_by(|a, b| a.0.cmp(&b.0));
     for (name, item) in keyed {
-        place(&mut sections, name, item);
+        place(&mut sections, apart(name), item);
     }
     by_collection.sort_by_key(|(rank, _, _)| *rank);
     for (_, name, item) in by_collection {
-        place(&mut sections, name, item);
+        place(&mut sections, apart(name), item);
     }
     if !feeds.is_empty() {
-        let name = format::line(&options.feeds_section, SECTION_LEN).unwrap_or_else(|| "Feeds".to_owned());
+        let name = feeds_name;
         for feed in feeds {
-            let url = format::feed_url(&feed.url).map(|u| u.to_string()).unwrap_or_else(|_| feed.url.clone());
+            let url = public_url(&format::feed_url(&feed.url).map(|u| u.to_string()).unwrap_or_else(|_| feed.url.clone()));
             let item = Item::Feed {
                 url,
-                site: feed.site.as_deref().and_then(|s| format::link_url(s).ok()),
+                site: feed.site.as_deref().and_then(|s| format::link_url(s).ok()).map(|s| public_url(&s)),
                 title: if options.titles { feed.title.as_deref().and_then(|t| format::line(t, ITEM_TITLE_LEN)) } else { None },
             };
             place(&mut sections, name.clone(), item);
@@ -382,7 +373,7 @@ pub fn build(conn: &Connection, options: &ListBuildOptions, followed: &[FeedRow]
 
     let author = Author {
         name: format::line(&options.author_name, AUTHOR_LEN),
-        url: format::link_url(&options.author_url).ok(),
+        url: format::link_url(&options.author_url).ok().map(|u| public_url(&u)),
     };
     let file = ListFile {
         format: "koona",
@@ -392,11 +383,11 @@ pub fn build(conn: &Connection, options: &ListBuildOptions, followed: &[FeedRow]
         generator: generator.to_owned(),
         id: slug(&options.id),
         title: format::line(&options.title, TITLE_LEN).unwrap_or_default(),
-        description: paragraph(&options.description, DESCRIPTION_LEN),
+        description: format::paragraph(&options.description, DESCRIPTION_LEN),
         author: (author.name.is_some() || author.url.is_some()).then_some(author),
         license: options.license.spdx(),
-        language: language(&options.language),
-        updated: date(&options.updated),
+        language: format::language(options.language.trim()),
+        updated: format::date(options.updated.trim()),
         sections,
         items: top,
     };
@@ -491,6 +482,7 @@ mod tests {
             notes: false,
             sections: ListSections::None,
             feeds_section: "Feeds".into(),
+            links_word: "links".into(),
             id: "rust-reading".into(),
             language: "en".into(),
             updated: "2026-10-18".into(),
@@ -730,5 +722,60 @@ mod tests {
         // Nothing chosen: a list with no items, which the reader calls empty.
         let empty = options(Vec::new());
         assert_eq!(parse(&build(&c, &empty, &[], GENERATOR).unwrap()).err(), Some(crate::lists::ListError::Empty));
+    }
+
+    #[test]
+    fn user_names_and_passwords_never_leave_an_address() {
+        let (c, rust) = library();
+        c.execute("UPDATE bookmarks SET url = 'https://me:secret@tokio.rs/' WHERE url = 'https://tokio.rs/'", []).unwrap();
+        let followed = vec![FeedRow {
+            uid: "f9".into(),
+            url: "https://reader:pw@example.com/feed.xml".into(),
+            title: None,
+            site: Some("https://reader@example.com/".into()),
+        }];
+        let mut opts = options(vec![ListSource::Collection { id: rust }, ListSource::Feeds { uids: None }]);
+        opts.author_url = "https://me:pw@koona.app/".into();
+        let text = build(&c, &opts, &followed, GENERATOR).unwrap();
+        for private in ["me:secret", "secret@", "reader", ":pw@"] {
+            assert!(!text.contains(private), "{private} in {text}");
+        }
+        let list = parse(&text).unwrap();
+        assert!(list.links.iter().any(|l| l.url == "https://tokio.rs/"));
+        assert_eq!(list.feeds[0].url, "https://example.com/feed.xml");
+        assert_eq!(list.feeds[0].site.as_deref(), Some("https://example.com/"));
+        assert_eq!(list.meta.author_url.as_deref(), Some("https://koona.app/"));
+        // An address without them is written as it was.
+        assert_eq!(public_url("https://example.com/a?b=c#d"), "https://example.com/a?b=c#d");
+    }
+
+    #[test]
+    fn a_section_named_as_the_feeds_one_keeps_its_links_apart() {
+        let (c, _) = library();
+        let named = crate::db::create_collection(&c, "FEEDS", None, None).unwrap();
+        c.execute("UPDATE bookmarks SET collection_id = ?1 WHERE url = 'https://tokio.rs/'", [named.id]).unwrap();
+        let tokio = id_of(&c, "https://tokio.rs/");
+        let mut opts = options(vec![ListSource::Bookmarks { ids: vec![tokio] }, ListSource::Feeds { uids: None }]);
+        opts.sections = ListSections::ByCollection;
+        let value = json(&build(&c, &opts, &feeds(), GENERATOR).unwrap());
+        schema_valid(&value);
+        let names: Vec<&str> = value["sections"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["FEEDS · links", "Feeds"]);
+        assert_eq!(value["sections"][1]["items"].as_array().unwrap().len(), 2, "only the feeds");
+        // By tag: a tag «feeds».
+        c.execute("INSERT INTO tags (name, uid, created_at) VALUES ('feeds', 'tag-feeds', '2026-10-18T00:00:00Z')", []).unwrap();
+        c.execute("INSERT INTO bookmark_tags (bookmark_id, tag_id) SELECT ?1, id FROM tags WHERE name = 'feeds'", [tokio]).unwrap();
+        opts.sections = ListSections::ByTag;
+        let value = json(&build(&c, &opts, &feeds(), GENERATOR).unwrap());
+        let names: Vec<&str> = value["sections"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["async", "Feeds"], "the first tag alphabetically is async");
+        c.execute("DELETE FROM bookmark_tags WHERE bookmark_id = ?1 AND tag_id <> (SELECT id FROM tags WHERE name = 'feeds')", [tokio]).unwrap();
+        let value = json(&build(&c, &opts, &feeds(), GENERATOR).unwrap());
+        let names: Vec<&str> = value["sections"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["feeds · links", "Feeds"]);
+        // Without feeds in the list the name stays as it is.
+        let alone = options(vec![ListSource::Bookmarks { ids: vec![tokio] }]);
+        let value = json(&build(&c, &ListBuildOptions { sections: ListSections::ByTag, ..alone }, &feeds(), GENERATOR).unwrap());
+        assert_eq!(value["sections"][0]["name"], "feeds");
     }
 }
