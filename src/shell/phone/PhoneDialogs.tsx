@@ -3,21 +3,23 @@ import { SyncDialog } from "../../components/commercial/SyncDialog";
 import { FeedbackDialog } from "../../components/FeedbackDialog";
 import { CollectionDialog, ConfirmDialog, ImportDialog, RestoreDialog } from "../../components/library/Dialogs";
 import { ListImportDialog } from "../../components/ListImportDialog";
-import { PlanDialog, SignInDialog, SupporterDialog } from "../../components/SupporterDialog";
+import { SupporterDialog } from "../../components/SupporterDialog";
+import { capabilities } from "../../platform/capabilities";
 import { api } from "../../services/api";
 import { bundle } from "../../services/bundle";
 import { describeError } from "../../services/errors";
 import { openRequests } from "../../services/openRequests";
-import { savePreference } from "../../services/preferences";
 import { usePhone } from "./PhoneContext";
+import { useSupporterSheets } from "./supporter/useSupporterSheets";
 
 /**
  * The shared dialogs a phone still shows (NP-072b), opened by `app.surface` and the app's other
- * dialog state as on the desktop: Supporter, sign-in, plan, the 5-year upgrade, sync; import,
- * a `.kpin` list, restore, backups, feedback, a new collection, the confirmations of deleting a
- * collection and deleting for good, and the feeds' own dialogs. Not here: what the phone has
- * instead (`add` → the newLink sheet, the editor → the edit sheet, the reading sheet and mode →
- * the reader route) and the desktop's own (update, background, assistants, browser capture).
+ * dialog state as on the desktop: the 5-year upgrade, sync; import, a `.kpin` list, restore,
+ * backups, feedback, a new collection, the confirmations of deleting a collection and deleting for
+ * good, and the feeds' own dialogs. Not here: what the phone has instead (`add` → the newLink
+ * sheet, the editor → the edit sheet, the reading sheet and mode → the reader route; Supporter,
+ * sign-in and the plan → the phone's own sheets in ./supporter, opened from here) and the desktop's
+ * own (update, background, assistants, browser capture).
  * The same props as in src/components/shell/Workspace.tsx; where the desktop opens its Settings
  * page, the phone pushes its settings route.
  */
@@ -43,9 +45,6 @@ export function PhoneDialogs() {
     feedbackDraft,
     setFeedbackDraft,
     supporter,
-    badge,
-    setBadge,
-    setUpgradeFrom,
     upgradeFrom,
     sync,
     setSync,
@@ -57,6 +56,7 @@ export function PhoneDialogs() {
     setPurging,
     feedMenu,
   } = app;
+  useSupporterSheets();
   const openSettings = () => {
     setSurface(null);
     stack.push({ name: "settings" });
@@ -154,35 +154,6 @@ export function PhoneDialogs() {
           }}
         />
       )}
-      {surface === "supporter" && (
-        <SupporterDialog
-          sandbox={!!supporter?.sandbox}
-          email={supporter?.email ?? null}
-          awaitingSignIn={!!supporter?.awaiting_sign_in}
-          paid={!!supporter?.plan}
-          planUnknown={!!supporter?.plan_unknown}
-          onClose={() => setSurface(null)}
-          onSignIn={() => setSurface("signIn")}
-        />
-      )}
-      {surface === "signIn" && <SignInDialog onClose={() => setSurface(null)} onPlans={() => setSurface("supporter")} />}
-      {surface === "plan" && supporter?.plan && (
-        <PlanDialog
-          supporter={supporter}
-          badge={badge}
-          onBadge={(shown) => {
-            setBadge(shown);
-            savePreference("supporterBadge", shown ? "on" : "off");
-          }}
-          onClose={() => setSurface(null)}
-          onUpgrade={() => {
-            setUpgradeFrom(supporter.plan);
-            setSurface("upgrade");
-          }}
-          sync={sync}
-          onSync={() => setSurface("sync")}
-        />
-      )}
       {surface === "sync" && sync && (
         <SyncDialog
           status={sync}
@@ -195,7 +166,8 @@ export function PhoneDialogs() {
           onSignIn={() => setSurface("signIn")}
         />
       )}
-      {surface === "upgrade" && supporter && upgradeFrom && (
+      {/* A sale: only where the build sells (the plan sheet offers it only there). */}
+      {surface === "upgrade" && capabilities.purchase === "paddle" && supporter && upgradeFrom && (
         <SupporterDialog
           sandbox={!!supporter.sandbox}
           email={supporter.email ?? null}

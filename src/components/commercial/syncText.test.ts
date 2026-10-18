@@ -1,6 +1,7 @@
 // Koona Pin Commercial License (LICENSE-COMMERCIAL.md, see NOTICE.md in `commercial`).
 import { describe, expect, it } from "vitest";
 import i18n from "../../i18n";
+import { capabilities } from "../../platform/capabilities";
 import type { PausedReason, SyncDevice, SyncProblem, SyncStatus, UnavailableReason } from "../../types";
 import {
   ago,
@@ -138,6 +139,16 @@ describe("sync texts (sheet 46)", () => {
     expect(planEndsBanner(plan(20), t, "en")?.title).toMatch(/^Sync stops on /);
     expect(planEndsBanner(plan(60), t, "en")).toBeNull();
     expect(planEndsBanner(plan(20, "active"), t, "en")).toBeNull();
+    expect(planEndsBanner(plan(20), t, "en")?.action?.kind).toBe("renew");
+    // A build that sells nothing (a phone's store build until NP-154): the words, no «Renew…».
+    capabilities.purchase = "none";
+    try {
+      expect(planEndsBanner(plan(20), t, "en")?.action).toBeUndefined();
+      expect(statusBanner({ ...base, phase: { state: "paused", reason: "plan" } }, t, "en").action).toBeUndefined();
+      expect(statusBanner({ ...base, phase: { state: "paused", reason: "signed_out" } }, t, "en").action?.kind).toBe("signIn");
+    } finally {
+      capabilities.purchase = "paddle";
+    }
   });
 
   it("shows the screen sync asks for", () => {

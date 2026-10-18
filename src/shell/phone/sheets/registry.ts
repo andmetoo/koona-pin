@@ -6,6 +6,9 @@ import { FeedMenuSheet } from "./FeedMenuSheet";
 import { NewLinkSheet } from "./NewLinkSheet";
 import { ReaderLookSheet } from "./ReaderLookSheet";
 import { YouSheet } from "./YouSheet";
+import { PlanSheet } from "../supporter/PlanSheet";
+import { SignInSheet } from "../supporter/SignInSheet";
+import { SupporterSheet } from "../supporter/SupporterSheet";
 
 /**
  * Every kind of sheet the phone opens (NP-072b), by name. A sheet is a component taking
@@ -27,6 +30,12 @@ export const SHEETS = {
   readerLook: ReaderLookSheet,
   /** A feed chip's long-press menu. */
   feedMenu: FeedMenuSheet,
+  /** Supporter: the perks, and the purchase where the build sells (`app.surface` "supporter"). */
+  supporter: SupporterSheet,
+  /** "I'm already a Supporter": the email and its code (`app.surface` "signIn"). */
+  signIn: SignInSheet,
+  /** A Supporter's plan (`app.surface` "plan"). */
+  plan: PlanSheet,
 };
 
 export type SheetKind = keyof typeof SHEETS;

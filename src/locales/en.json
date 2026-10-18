@@ -2103,7 +2103,7 @@
       "ends": "ends {{date}}",
       "until": "until {{date}}",
       "become": "Become a Supporter",
-      "becomeText": "Sync between your devices, backups to a folder and reading themes. Koona Pin stays free.",
+      "becomeText": "Sync between your devices, reading themes and the Supporter heart. Koona Pin stays free.",
       "devices_one": "{{count, number}} device",
       "devices_other": "{{count, number}} devices",
       "mainIs": "{{devices}} · {{name}} is the main computer",
@@ -2117,6 +2117,33 @@
       "backupsValue_one": "Daily · {{count, number}} kept",
       "backupsValue_other": "Daily · {{count, number}} kept",
       "footer": "Koona Pin {{version}} · your library stays on your devices"
+    },
+    "supporter": {
+      "title": "Koona Pin Supporter",
+      "lead": "Supporters keep Koona Pin going",
+      "leadText": "and get a few things more on this phone.",
+      "perksLabel": "With Supporter",
+      "perk": {
+        "sync": "Sync with your computers",
+        "syncHint": "This phone and your computers share the library, Reading and progress",
+        "reading": "Paper and Sepia",
+        "readingHint": "Reading themes for the reader",
+        "badge": "The Supporter heart",
+        "badgeHint": "At the top of every screen, in the colour of the season"
+      },
+      "freeLabel": "Koona Pin stays free",
+      "freeText": "The library, Inbox, search, Reading, feeds and backups on this phone stay free for everyone.",
+      "planLabel": "Plan",
+      "paddleHint": "Payment opens in your browser. Paddle handles it and the taxes as our reseller. Cancel any time.",
+      "waitingText": "The payment page has opened in your browser. Koona Pin notices the payment by itself, even if you close this.",
+      "thanksText": "Supporter is active for {{email}}, the email from your payment. On your other devices, choose «I'm already a Supporter» and sign in with it.",
+      "signInText": "Enter the email of your Supporter plan and we'll send a 6-digit code — no password. Koona Pin then shows your plan on this phone too.",
+      "perksTitle": "Your perks",
+      "sync": "Sync",
+      "syncOff": "Off",
+      "managed": "Your plan is managed where you started it.",
+      "pastDue": "The last payment didn't go through · Supporter until {{date}}",
+      "alsoRenews": "Your subscription still renews as well"
     },
     "bookmarkMenu": {
       "open": "Open original",

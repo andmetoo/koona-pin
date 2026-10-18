@@ -5,6 +5,7 @@
 // pause, problem and notice of `SyncStatus` gets its text here.
 import type { TFunction } from "i18next";
 import type { Plan, SyncDevice, SyncNotice, SyncProblem, SyncStatus } from "../../types";
+import { capabilities } from "../../platform/capabilities";
 
 /** Green of collections — synced; ochre — waiting or needs the person; blue of the update row — under way. */
 export type SyncTone = "ok" | "warn" | "sync";
@@ -252,12 +253,17 @@ function actionLabel(kind: SyncAction, t: TFunction): string {
     startOver: t("sync.banner.startOver"),
   }[kind];
 }
+/**
+ * «Renew…» leads to a purchase: only where the build sells Supporter. A phone's store build does
+ * not (NP-154), so its banner keeps the words and has no button.
+ */
+const offered = (kind: SyncAction) => kind !== "renew" || capabilities.purchase === "paddle";
 const banner = (id: string, tone: SyncTone, title: string, body?: string, kind?: SyncAction, t?: TFunction): SyncBanner => ({
   id,
   tone,
   title,
   body,
-  action: kind && t ? { kind, label: actionLabel(kind, t) } : undefined,
+  action: kind && t && offered(kind) ? { kind, label: actionLabel(kind, t) } : undefined,
 });
 
 /** Banners with a title and a line of the same name. */

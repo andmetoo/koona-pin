@@ -1,0 +1,300 @@
+/* Supporter, sign-in and the plan on a phone (`sp-`), NP-072b. Built on A1's cards and shelves
+   (../you/you.css): opaque paper inside the kit's sheet glass, pills for every control, one flat
+   primary per sheet. Scoped under the phone's root like src/styles/phone.css. */
+
+.phone .sp-sheet .ph-sheet-body {
+  display: flex;
+  flex-direction: column;
+}
+/* The body scrolls: its parts keep their height instead of shrinking into it. */
+.phone .sp-sheet .ph-sheet-body > * {
+  flex: none;
+}
+.phone .sp-sheet .ph-sheet-body > .ys-section:first-child {
+  margin-top: 0;
+}
+.phone .sp-sheet .ph-shelf-section {
+  margin: 0;
+}
+.phone .sp-sheet .ph-shelf {
+  margin: 0;
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+}
+
+/* The heart on the season's soft disc, at any size. */
+.phone .sp-heart {
+  width: var(--sp-heart, 48px);
+  height: var(--sp-heart, 48px);
+}
+.phone .sp-heart-row .ph-shelf-icon {
+  background: var(--ph-season-soft);
+  color: var(--ph-season);
+}
+.phone .sp-heart-row .ph-shelf-icon svg {
+  fill: currentColor;
+}
+/* Perk rows: two lines, the hint wrapping under the name. */
+.phone .sp-shelf .ph-shelf-row {
+  align-items: center;
+  min-height: 60px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.phone .sp-shelf .ph-shelf-text .ph-meta {
+  margin-top: 1px;
+}
+
+.phone .sp-hero {
+  min-height: 0;
+}
+.phone .sp-free {
+  margin: 0;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-body);
+}
+
+/* Running text of a step. */
+.phone .sp-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--ph-body);
+}
+.phone .sp-hint {
+  margin: 10px 4px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .sp-note {
+  margin: 12px 0 0;
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  background: var(--ph-well);
+  color: var(--ph-body);
+}
+.phone .sp-note[data-tone="danger"] {
+  color: var(--ph-danger);
+}
+.phone .sp-note[data-tone="amber"]::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--ph-amber);
+  vertical-align: 1px;
+}
+.phone .sp-test {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ph-body);
+}
+
+/* The plans: a list of paper tiles (C1's choice), the chosen one on accent-soft with an accent
+   edge and a filled radio; the badge on the right. */
+.phone .sp-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.phone .sp-plan {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--ph-r-tile);
+  background: var(--ph-paper);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+  color: var(--ph-ink);
+  text-align: left;
+}
+.phone .sp-plan[aria-checked="true"] {
+  background: var(--ph-accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--ph-accent);
+}
+.phone .sp-radio {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--ph-faint);
+}
+.phone .sp-plan[aria-checked="true"] .sp-radio {
+  background: var(--ph-on-accent);
+  box-shadow: inset 0 0 0 6px var(--ph-accent);
+}
+.phone .sp-plan-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.phone .sp-plan-name {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.phone .sp-plan-price {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-body);
+  font-variant-numeric: tabular-nums;
+}
+.phone .sp-plan-badge {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ph-on-accent-soft);
+  white-space: nowrap;
+}
+.phone .sp-plan[aria-checked="true"] .sp-plan-badge {
+  background: var(--ph-paper);
+}
+.phone .sp-pending {
+  display: inline-block;
+  width: 88px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  vertical-align: middle;
+}
+
+/* Waiting for the payment. */
+.phone .sp-waiting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+}
+.phone .sp-waiting-text {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.phone .sp-spinner {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid var(--ph-line);
+  border-top-color: var(--ph-accent);
+  animation: ph-turn 1s linear infinite;
+}
+.phone .sp-open-again {
+  align-self: flex-start;
+  margin-top: 8px;
+  color: var(--ph-accent);
+}
+
+/* Thank you, and a payment for an account that existed: the heart and the words in the middle. */
+.phone .sp-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 8px;
+  text-align: center;
+}
+
+/* The footer: one primary, its clear partner; side by side when there are two. */
+.phone .sp-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.phone .sp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.phone .sp-actions > .ph-button:not(.sp-sign-out) {
+  flex: 1;
+}
+.phone .sp-sign-out {
+  margin-right: auto;
+  color: var(--ph-meta);
+}
+
+/* Sign-in: the field under its words, the code in wide figures. */
+.phone .sp-form {
+  display: flex;
+  flex-direction: column;
+}
+.phone .sp-field {
+  margin-top: 16px;
+}
+.phone .sp-code input {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.phone .sp-resend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 10px 0 0;
+}
+.phone .sp-resend .ph-button {
+  color: var(--ph-accent);
+}
+.phone .sp-wait {
+  padding: 0 14px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-meta);
+}
+
+/* The plan: the email and its state under the plan's name. */
+.phone .sp-email {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .sp-status {
+  min-height: 18px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .sp-status[data-tone="danger"] {
+  font-weight: 500;
+  color: var(--ph-danger);
+}
+.phone .sp-status[data-tone="amber"] {
+  font-weight: 500;
+  color: var(--ph-body);
+}
+.phone .sp-done .ph-title2 {
+  margin: 0;
+  text-wrap: balance;
+}
+.phone .sp-managed {
+  margin: 0 4px 2px;
+  text-align: center;
+}
