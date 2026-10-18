@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { catalog, copyBookmark, failOnce, jsonCopy, text } from "../fixtures/app";
@@ -188,6 +189,29 @@ for (const code of ["en", "de", "ru"]) {
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("refused");
       await page.keyboard.press("Escape");
+
+      // A list (K10, K3): asked, a failed download, the preview with its rows, the report.
+      await page.evaluate(async (text) => {
+        const { api } = await import("/src/services/api.ts");
+        let attempt = 0;
+        api.downloadList = async (url: string) => (attempt++ === 0 ? { outcome: "status", status: 404 } : { outcome: "done", text, url });
+      }, readFileSync(path.join(here, "..", "..", "src-tauri", "tests", "fixtures", "kpin", "valid.kpin"), "utf8"));
+      await page.evaluate(async () => {
+        const { openRequests } = await import("/src/services/openRequests.ts");
+        openRequests.push({ kind: "kpin-url", url: "https://koona.app/pin/lists/rust-blogs.kpin" });
+      });
+      await track.open("list");
+      await button("lists.download").click();
+      await expect(dialog.getByRole("status")).toBeVisible();
+      await track.same("failed");
+      await button("common.retry").click();
+      await expect(dialog.locator("[data-list-group]").first()).toBeVisible();
+      await track.same("preview");
+      await expect(button("lists.accept")).toBeInViewport({ ratio: 1 });
+      await button("lists.accept").click();
+      await expect(dialog.locator("[data-list-report]")).toBeVisible();
+      await track.same("report");
+      await button("import.done").click();
 
       // Feedback: the form, the report shown, a wrong address, a failure, sent.
       await page.getByRole("button", { name: t("settings.feedbackButton") }).click();
