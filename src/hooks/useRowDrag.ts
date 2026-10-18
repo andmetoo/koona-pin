@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { parseDrop, RowDragItem } from "../services/drag";
+import { parseDrop, placeStack, RowDragItem } from "../services/drag";
 
 /** A press becomes a drag after this many pixels, as a drag of the selection does (NP-030). */
 const DRAG_START = 4;
@@ -79,7 +79,7 @@ export function useRowDrag(onDrop: (item: RowDragItem, at: { x: number; y: numbe
 
   const place = () => {
     const { x, y } = pointer.current;
-    if (stack.current) stack.current.style.transform = `translate(${x}px, ${y}px)`;
+    if (stack.current) placeStack(stack.current, x, y);
   };
 
   const start = useCallback((e: { clientX: number; clientY: number; currentTarget: Element }, item: RowDragItem) => {

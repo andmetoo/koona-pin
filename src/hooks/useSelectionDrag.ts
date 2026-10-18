@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bookmark } from "../types";
-import { DropTarget, parseDrop, sameDrop } from "../services/drag";
+import { DropTarget, parseDrop, placeStack, sameDrop } from "../services/drag";
 
 /** A press becomes a drag after this many pixels, as the selection frame does (NP-028). */
 const DRAG_START = 4;
@@ -46,7 +46,7 @@ export function useSelectionDrag(onDrop: (target: DropTarget, at: { x: number; y
 
   const place = () => {
     const { x, y } = pointer.current;
-    if (stack.current) stack.current.style.transform = `translate(${x}px, ${y}px)`;
+    if (stack.current) placeStack(stack.current, x, y);
   };
 
   const start = useCallback((e: { clientX: number; clientY: number }, bookmark: Bookmark, count: number) => {

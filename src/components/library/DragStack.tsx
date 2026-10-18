@@ -43,7 +43,9 @@ export function DragStack({
           <Preview b={bookmark} small />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-xs font-medium text-ink">{bookmark.title || bookmark.url}</span>
+          <span className="truncate text-xs font-medium text-ink" data-user-text>
+            {bookmark.title || bookmark.url}
+          </span>
           <span className="truncate text-2xs text-subtle">{count > 1 ? t("drag.more", { count: count - 1 }) : bookmark.domain}</span>
         </span>
       </div>

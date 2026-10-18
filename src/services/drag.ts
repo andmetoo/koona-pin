@@ -97,3 +97,24 @@ export function rowDropLabel(t: TFunction, item: RowDragItem): string {
   if (item.kind === "tag") return t("drag.bundleTag", { name: short(item.name) });
   return t("drag.bundleFeeds", { count: item.feeds.length });
 }
+
+/** Room the drag stack keeps from the window's edges, and how far it moves to the pointer's other side. */
+const STACK_EDGE = 8;
+const STACK_FLIP = { x: 12, y: 32 };
+
+/**
+ * Puts a drag stack at the pointer. Where it would leave the window it goes to the pointer's other
+ * side, so the card and the hint stay whole over the capsule in the bottom right corner; 32 px up
+ * clears the capsule under the pointer.
+ */
+export function placeStack(stack: HTMLElement, x: number, y: number) {
+  let width = 0;
+  let height = 0;
+  for (const child of Array.from(stack.children) as HTMLElement[]) {
+    width = Math.max(width, child.offsetLeft + child.offsetWidth);
+    height = Math.max(height, child.offsetTop + child.offsetHeight);
+  }
+  const left = x + width > innerWidth - STACK_EDGE ? Math.max(0, x - width - STACK_FLIP.x) : x;
+  const top = y + height > innerHeight - STACK_EDGE ? Math.max(0, y - height - STACK_FLIP.y) : y;
+  stack.style.transform = `translate(${left}px, ${top}px)`;
+}
