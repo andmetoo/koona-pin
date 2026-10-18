@@ -8,7 +8,6 @@ import { LibraryStatus, OpenFailure } from "../types";
 import { Icon } from "./icons";
 import { BackupRestoreDialog } from "./BackupRestoreDialog";
 import { Button } from "./ui/Button";
-import { WindowBar } from "./ui/WindowBar";
 
 const ready: LibraryStatus = { state: "ready", damaged: false, moved_aside: null };
 
@@ -23,7 +22,7 @@ const replaceable: OpenFailure["code"][] = ["DB_CORRUPT", "DB_NOT_DATABASE", "DB
  * «12 · Ошибки» instead of the library. Database commands are not called
  * before the library is ready.
  */
-export function LibraryGate({ children }: { children: ReactNode }) {
+export function LibraryGate({ children, windowBar }: { children: ReactNode; windowBar?: ReactNode }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LibraryStatus>(isTauri() ? { state: "opening" } : ready);
   const [slow, setSlow] = useState(false);
@@ -65,7 +64,7 @@ export function LibraryGate({ children }: { children: ReactNode }) {
   if (status.state === "ready") return <>{children}</>;
   return (
     <div className="flex h-full flex-col bg-bg text-ink">
-      <WindowBar />
+      {windowBar}
       <main className="flex flex-1 items-center justify-center overflow-y-auto p-6">
         {status.state === "failed" ? (
           <LibraryFailure

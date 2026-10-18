@@ -3,9 +3,8 @@ import { Copy, Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import { desktopOnly, isTauri } from "../../services/api";
-import { isMobile } from "../../platform/platform";
 import { Desktop, WindowButton } from "../../types";
-import { Icon } from "../icons";
+import { Icon } from "../../components/icons";
 
 /**
  * In a frameless window this strip drags it and holds the window
@@ -13,13 +12,12 @@ import { Icon } from "../icons";
  * system's layout and are round (sheet 40, NP-053). The library frames in
  * Lunacy do not draw window controls. macOS draws its real traffic lights over
  * the app, its title bar hidden; the app's own rows drag the window there.
+ *
+ * The desktop shell's (NP-072a): it hands the bar to the shared screens that keep one above them
+ * (the library, the reading mode, the gate while the library opens). A phone's app fills the screen
+ * under the system's own bars (NP-151).
  */
 export function WindowBar() {
-  // A phone's app fills the screen under the system's own bars (NP-151).
-  return isMobile ? null : <FramedWindowBar />;
-}
-
-function FramedWindowBar() {
   const { t } = useTranslation();
   const [maximized, setMaximized] = useState(false);
   const [desktop, setDesktop] = useState<Desktop | null>(null);
