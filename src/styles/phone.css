@@ -1186,6 +1186,11 @@
 .phone[data-fold] .ph-sheet[data-variant="detached"] {
   max-width: 480px;
 }
+/* A leaving sheet lets touches through at once: a tap right after closing reaches the screen. */
+.phone .ph-sheet-host[data-leaving],
+.phone .ph-sheet-host[data-leaving] * {
+  pointer-events: none;
+}
 .phone .ph-sheet-host[data-leaving] .ph-scrim {
   opacity: 0;
 }

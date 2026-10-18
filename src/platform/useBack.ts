@@ -12,7 +12,13 @@ export function useBack(close: () => void, open = true) {
   latest.current = close;
   useEffect(() => {
     if (!open || !isMobile) return;
+    // Closed once already: a second Back before React re-renders goes to the layer below. One
+    // that stayed open (busy, refusing) answers Back again a moment later.
+    let closed = false;
     return onBack(() => {
+      if (closed) return false;
+      closed = true;
+      window.setTimeout(() => (closed = false), 400);
       latest.current();
       return true;
     }, openPlace());
