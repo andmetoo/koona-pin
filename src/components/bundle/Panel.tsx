@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { bundle, BundleSnapshot, BundleState, itemCount, TITLE_LEN, titleOf, toModel } from "../../services/bundle";
 import { bundleApi } from "../../services/bundleApi";
 import { describeError } from "../../services/errors";
-import { listMarkdown, MAX_BYTES, readDraft, slugify } from "../../services/listText";
+import { listMarkdown, MAX_BYTES, readDraft, slugify, titleFileName } from "../../services/listText";
 import type { BundleModel } from "../../bindings/BundleModel";
 import { savePreference, storedValue } from "../../services/preferences";
 import { Icon } from "../icons";
@@ -85,18 +85,15 @@ export function Panel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.sections, state.title, state.titleEdited, state.description, state.author, t],
   );
-  const latest = useRef(model);
-  latest.current = model;
-  // The background build only drives the size line, so it follows the sections: a title,
-  // description or author typed in cannot take a list over its limits in a way that matters.
-  // Save and Copy always build anew.
+  // The background build drives the size line; `BUILD_DELAY` waits out typing. Save and Copy
+  // always build anew.
   const runs = useRef(0);
   useEffect(() => {
     if (empty) return setBuilt(null);
     const run = ++runs.current;
-    const timer = window.setTimeout(() => void build(latest.current).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
+    const timer = window.setTimeout(() => void build(model).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
     return () => window.clearTimeout(timer);
-  }, [state.sections, empty]);
+  }, [model, empty]);
   /** Builds the list; items gone from the library leave the bundle with their meta line. */
   const build = async (next: BundleModel): Promise<Built> => {
     try {
@@ -143,7 +140,7 @@ export function Panel({
     try {
       const text = await fresh();
       if (!text) return;
-      const result = await bundleApi.save(text, slugify(title), title);
+      const result = await bundleApi.save(text, slugify(title), titleFileName(title));
       if (result.outcome === "cancelled") return;
       if (result.outcome === "saved")
         return setNotice({

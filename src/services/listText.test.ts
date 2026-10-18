@@ -109,5 +109,9 @@ describe("the preview of a built list", () => {
     expect(titleFileName("🦀🔗 ✨")).toBe("list.kpin");
     expect(titleFileName('a/b\\c:d*e?f"g<h>i|j\u0007k')).toBe("a-b-c-d-e-f-g-h-i-j-k.kpin");
     expect([...fileSlug("я".repeat(100))].length).toBe(64);
+    // macOS hands titles over in NFD; the accents and the Hindi virama stay with their letters.
+    expect(titleFileName("Résumé".normalize("NFD"))).toBe("résumé.kpin");
+    expect(titleFileName("मेरी सूची")).toBe("मेरी-सूची.kpin");
+    expect(titleFileName("Λίστα ΟΔΟΣ")).toBe("λίστα-οδος.kpin");
   });
 });

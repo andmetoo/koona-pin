@@ -74,19 +74,20 @@ export function slugify(title: string): string {
 export const fileName = (id: string) => `${slugify(id) || "list"}.kpin`;
 
 /**
- * The file's name from the title, as `export.rs` makes one: letters and digits of any script,
- * lowercase, anything else a dash, at most 64 characters. None of `/ \ : * ? " < > |` is a letter.
+ * The file's name from the title: letters and digits of any script, lowercase, and the marks that
+ * follow them (an accent in NFD, a virama), anything else a dash, at most 64 characters. Only this
+ * side makes it; `export.rs` keeps it safe on every system. None of `/ \ : * ? " < > |` is a letter.
  */
 export function fileSlug(title: string): string {
   let slug = "";
-  for (const c of title.trim().toLowerCase()) {
-    if (/[\p{Alphabetic}\p{N}]/u.test(c)) slug += c;
+  for (const c of title.trim().toLowerCase().normalize("NFC")) {
+    if (/[\p{L}\p{N}]/u.test(c) || (/\p{M}/u.test(c) && slug && !slug.endsWith("-"))) slug += c;
     else if (slug && !slug.endsWith("-")) slug += "-";
   }
   return [...slug].slice(0, 64).join("").replace(/-+$/, "");
 }
 
-/** The name Save offers for a list with this title. */
+/** The name Save offers for a list with this title; `save_list` takes it as it is. */
 export const titleFileName = (title: string) => `${fileSlug(title) || "list"}.kpin`;
 
 /**

@@ -9,7 +9,7 @@ import type { BundleOrigin } from "../bindings/BundleOrigin";
 import type { ExportOutcome } from "../types";
 import { api, isTauri } from "./api";
 import { CommandError, toCommandError } from "./errors";
-import { DraftItem, MAX_BYTES, MAX_ITEMS, MAX_SECTIONS, draftProblem, fileName, publicUrl, readDraft, slugify, titleFileName } from "./listText";
+import { DraftItem, MAX_BYTES, MAX_ITEMS, MAX_SECTIONS, draftProblem, fileName, publicUrl, readDraft, slugify } from "./listText";
 
 export type { BundleBuild, BundleItem, BundleModel, BundleOrigin };
 
@@ -108,15 +108,15 @@ export const bundleApi = {
   /** The list's text for what the bundle holds; past a limit, `too_big` gives its size and the text is empty. */
   build: (model: BundleModel): Promise<BundleBuild> => (isTauri() ? call<BundleBuild>("build_bundle_list", { model }) : demoBuild(model)),
   /**
-   * The system Save dialog, then the file written as an export is; `name`, the title, names the
-   * file in any script, else `id`. The browser preview answers as if it were saved under that
+   * The system Save dialog, then the file written as an export is; `name`, made from the title by
+   * `titleFileName`, names the file, else `id`. The browser preview answers as if it were saved under that
    * name; tests replace it.
    */
   save: async (text: string, id: string, name?: string): Promise<ExportOutcome> => {
     if (isTauri()) return call<ExportOutcome>("save_list", { text, id, name: name ?? null });
     const draft = readDraft(text);
     if (draftProblem(draft)) throw new CommandError("invalid_request", "This file isn't a Koona list");
-    return { outcome: "saved", file_name: name === undefined ? fileName(id) : titleFileName(name), count: draft.links + draft.feeds };
+    return { outcome: "saved", file_name: name ?? fileName(id), count: draft.links + draft.feeds };
   },
   /** «Show» after a save: the file in its folder, as after an export. */
   reveal: (): Promise<void> => api.revealExport(),

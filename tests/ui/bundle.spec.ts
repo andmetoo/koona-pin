@@ -29,14 +29,13 @@ async function openFromMenu(page: Page) {
 async function mockSave(page: Page, delay = 0) {
   await page.evaluate(async (delay) => {
     const { bundleApi } = await import("/src/services/bundleApi.ts");
-    const { titleFileName } = await import("/src/services/listText.ts");
     const calls: { text: string; id: string; name?: string }[] = [];
     (window as unknown as { saveCalls: typeof calls }).saveCalls = calls;
     bundleApi.save = async (text, id, name) => {
       calls.push({ text, id, name });
       // The system dialog takes a while to come up.
       await new Promise((done) => setTimeout(done, delay));
-      return { outcome: "saved", file_name: name === undefined ? `${id}.kpin` : titleFileName(name), count: 1 };
+      return { outcome: "saved", file_name: name ?? `${id}.kpin`, count: 1 };
     };
   }, delay);
 }
@@ -178,7 +177,7 @@ test("a double click on Save opens one dialog; a title in Cyrillic names the fil
   await expect(panel(page).getByRole("status")).toContainText("Saved мои-ссылки.kpin");
   const calls = await saveCalls(page);
   expect(calls).toHaveLength(1);
-  expect(calls[0]).toMatchObject({ id: "", name: "Мои ссылки" });
+  expect(calls[0]).toMatchObject({ id: "", name: "мои-ссылки.kpin" });
   const file = JSON.parse(calls[0].text);
   expect(file.title).toBe("Мои ссылки");
   expect(file).not.toHaveProperty("id");
