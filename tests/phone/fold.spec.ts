@@ -38,7 +38,9 @@ test("the rail is on the right by default, the list next to it and the detail sh
   expect(r.width).toBe(72);
   expect(Math.round(FOLD.width - (r.x + r.width))).toBe(32);
   expect(Math.round(FOLD.height - (r.y + r.height))).toBe(24 + 16);
-  for (const name of ["Inbox", "All bookmarks", "Reading", "Feeds", "New link"]) await expect(rail(page).getByRole("button", { name, exact: true })).toBeVisible();
+  // The Inbox's name says how many wait there, as its badge does.
+  await expect(rail(page).getByRole("button", { name: "Inbox: 2 waiting", exact: true })).toBeVisible();
+  for (const name of ["All bookmarks", "Reading", "Feeds", "New link"]) await expect(rail(page).getByRole("button", { name, exact: true })).toBeVisible();
   await expect(rail(page).getByRole("button", { name: "All bookmarks" })).toHaveAttribute("aria-current", "page");
   // Nothing selected: no primary action, the calm empty sheet.
   await expect(primary(page)).toHaveCount(0);

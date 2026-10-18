@@ -6,7 +6,7 @@ import { TABS } from "./navigation/stack";
 import { usePhone } from "./PhoneContext";
 import { CircleButton } from "./ui/buttons";
 import { glass } from "./ui/Glass";
-import { TAB_ICONS } from "./ui/NavPill";
+import { TAB_ICONS, tabLabel } from "./ui/NavPill";
 import { PhIcon } from "./ui/icons";
 import { useLongPress } from "./ui/useLongPress";
 import { openSettings } from "./you/settingsRoute";
@@ -48,7 +48,7 @@ export function Rail() {
           <button
             key={tab}
             type="button"
-            aria-label={t(`phone.nav.${tab}`)}
+            aria-label={tabLabel(t, tab, inbox)}
             aria-current={tab === stack.tab ? "page" : undefined}
             className="ph-rail-slot"
             onClick={then(() => stack.selectTab(tab))}

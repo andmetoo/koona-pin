@@ -1,5 +1,6 @@
 import { type CSSProperties, type ReactNode, useState } from "react";
 import { BookOpen, type LucideIcon, Plus, Rss } from "lucide-react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { TABS, type Tab } from "../navigation/stack";
 import { glass } from "./Glass";
@@ -8,6 +9,13 @@ import { useLongPress } from "./useLongPress";
 
 /** Each tab's glyph and the key of its name (en.json `phone.nav.*`). */
 export const TAB_ICONS: Record<Tab, LucideIcon> = { inbox: InboxTray, all: ClipIcon, reading: BookOpen, feeds: Rss };
+
+/**
+ * A place's name for screen readers: the Inbox's says how many links wait there, which its badge
+ * shows to the eye ("Inbox: 7 waiting", as the desktop's sidebar says it).
+ */
+export const tabLabel = (t: TFunction, tab: Tab, inbox: number) =>
+  tab === "inbox" && inbox > 0 ? t("nav.inboxWaiting", { count: inbox }) : t(`phone.nav.${tab}`);
 
 /**
  * The nav pill (doc/mobile-design.md): floating chrome glass 361 × 60, five equal slots — Inbox
@@ -44,7 +52,7 @@ export function NavPill({
     >
       <span className="ph-navpill-active" aria-hidden="true" />
       {TABS.map((place) => (
-        <Slot key={place} name={t(`phone.nav.${place}`)} current={place === tab} onClick={() => onTab(place)}>
+        <Slot key={place} name={t(`phone.nav.${place}`)} label={tabLabel(t, place, inbox)} current={place === tab} onClick={() => onTab(place)}>
           <PhIcon icon={TAB_ICONS[place]} at="nav" />
           {place === "inbox" && inbox > 0 && (
             <span className="ph-badge" aria-hidden="true">
@@ -62,14 +70,15 @@ export function NavPill({
   );
 }
 
-function Slot({ name, current, onClick, children }: { name: string; current?: boolean; onClick: () => void; children: ReactNode }) {
+/** `name` shows on a long press; `label` (the name by default) is what a screen reader says. */
+function Slot({ name, label = name, current, onClick, children }: { name: string; label?: string; current?: boolean; onClick: () => void; children: ReactNode }) {
   const [named, setNamed] = useState(false);
   const press = useLongPress(
     () => setNamed(true),
     () => setNamed(false),
   );
   return (
-    <button type="button" className="ph-navpill-slot" aria-label={name} aria-current={current ? "page" : undefined} onClick={onClick} {...press}>
+    <button type="button" className="ph-navpill-slot" aria-label={label} aria-current={current ? "page" : undefined} onClick={onClick} {...press}>
       {children}
       {named && (
         <span className="ph-longpress-label" aria-hidden="true">
