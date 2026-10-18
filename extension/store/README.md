@@ -2,7 +2,7 @@
 
 Материалы для публикации (NP-017, NP-046). Пакеты — `release/publish/chrome/<версия>/koonapin-chrome.zip` и `release/publish/edge/<версия>/koonapin-edge.zip` из `bun run extension:build` (без поля `key`). Картинки пересобирает `bun scripts/store-assets.mjs` (Koona Pin закрыт): настоящее расширение с тестовым приложением через настоящий host.
 
-Обновлено 15 октября 2026 года для расширения 0.11.3 (приложение 1.7.1): краткое и подробное описания называют «Save to Reading» (меню страницы и ссылки, Alt+Shift+R; ссылка попадает в «Почитать» и во «Входящие»), приложение — для Windows, macOS и Linux; обоснование `contextMenus` покрывает пункты на страницах и ссылках; таблица разрешений сверена с манифестами из `scripts/build-extension.mjs`; в инструкциях для проверяющих — шаг про Save to Reading, строки про SmartScreen больше нет (установщик подписан Certum). Тексты 9 октября (0.9.2) — без «no account, no cloud»: платная синхронизация может потребовать аккаунт, решение владельца.
+Обновлено 18 октября 2026 года для расширения 0.11.3 (приложение 2.3.0): подробные описания говорят, что ссылки попадают во «Входящие» приложения, называют поиск с фильтрами (всё, «Входящие», «Избранное») и коротко — что умеет приложение сейчас: режим чтения, «Почитать» и ленты (RSS, Atom, JSON Feed), которые приложение загружает само; в обосновании `alarms` исправлена частота: приложение узнаёт о браузере каждые 30 минут, а не дважды в день (`HELLO_MINUTES` в `worker.js`). Тексты 15 октября (0.11.3, приложение 1.7.1) добавили «Save to Reading» и приложение для Windows, macOS и Linux. Тексты 9 октября (0.9.2) — без «no account, no cloud»: платная синхронизация может потребовать аккаунт, решение владельца.
 
 Safari: расширение для Safari приходит внутри приложения для Mac, в каталогах его нет; эта карточка — только Chrome Web Store, Edge Add-ons и AMO.
 
@@ -27,14 +27,16 @@ Safari: расширение для Safari приходит внутри при�
 **English**
 
 ```text
-Koona Pin is a desktop bookmark library. This extension adds one button to your browser: click it on any page, and the page goes to the Koona Pin app on your computer.
+Koona Pin is a desktop bookmark library. This extension adds one button to your browser: click it on any page, and the page goes to the Koona Pin app on your computer, into its Inbox.
 
 • One click saves the page's address and title. A short note in the corner of the page confirms it.
-• Save to Reading: right-click a page or a link and choose "Save page to Reading" or "Save link to Reading", or press Alt+Shift+R. The article goes to the app's Reading list and Inbox, to read later in reading mode.
+• Save to Reading: right-click a page or a link and choose "Save page to Reading" or "Save link to Reading", or press Alt+Shift+R. The article goes to the app's Reading list, to read later in reading mode, and waits in the Inbox too.
 • If Koona Pin is closed, saving a page starts it in the tray.
-• Alt+Shift+D searches your saved links right from the browser.
+• Alt+Shift+D searches your saved links right from the browser: all of them, the Inbox or Favorites.
 • Optionally, the button shows when the page you are on is already saved.
 • If the app can't take a link at the moment, the link waits in the browser and is sent again by itself.
+
+In the app you sort new links one card at a time, file them into collections and tags, and read saved articles in one calm column, without menus or banners. You can also follow sites' RSS, Atom or JSON feeds there; the app fetches them itself.
 
 The extension works with the free Koona Pin desktop app for Windows, macOS and Linux: https://koona.app/pin/
 It talks only to that app on the same computer, through the browser's native messaging. It makes no network requests and sends nothing to the developer.
@@ -43,14 +45,16 @@ It talks only to that app on the same computer, through the browser's native mes
 **Русский**
 
 ```text
-Koona Pin — библиотека закладок для компьютера. Расширение добавляет в браузер одну кнопку: нажмите её на любой странице, и страница попадёт в приложение Koona Pin на вашем компьютере.
+Koona Pin — библиотека закладок для компьютера. Расширение добавляет в браузер одну кнопку: нажмите её на любой странице, и страница попадёт в приложение Koona Pin на вашем компьютере, во «Входящие».
 
 • Одно нажатие сохраняет адрес и заголовок страницы. Короткое сообщение в углу страницы подтверждает это.
-• Отложить почитать: щёлкните правой кнопкой по странице или ссылке и выберите «Сохранить страницу в „Почитать“» или «Сохранить ссылку в „Почитать“», либо нажмите Alt+Shift+R. Статья попадёт в «Почитать» и во «Входящие» приложения, чтобы прочитать её позже в режиме чтения.
+• Отложить почитать: щёлкните правой кнопкой по странице или ссылке и выберите «Сохранить страницу в „Почитать“» или «Сохранить ссылку в „Почитать“», либо нажмите Alt+Shift+R. Статья попадёт в «Почитать», чтобы прочитать её позже в режиме чтения, и тоже подождёт во «Входящих».
 • Если Koona Pin закрыт, сохранение запустит его в трее.
-• Alt+Shift+D ищет по сохранённым ссылкам прямо в браузере.
+• Alt+Shift+D ищет по сохранённым ссылкам прямо в браузере: по всем, во «Входящих» или в «Избранном».
 • По желанию кнопка показывает, что открытая страница уже сохранена.
 • Если приложение сейчас не может принять ссылку, она ждёт в браузере и уходит повторно сама.
+
+В приложении новые ссылки разбираются по одной карточке, раскладываются по коллекциям и тегам, а сохранённые статьи читаются в одной спокойной колонке, без меню и баннеров. Там же можно подписаться на RSS, Atom или JSON Feed сайтов — приложение загружает их само.
 
 Расширение работает вместе с бесплатным приложением Koona Pin для Windows, macOS и Linux: https://koona.app/pin/
 Оно обращается только к этому приложению на том же компьютере через Native Messaging браузера. Сетевых запросов оно не делает и разработчику ничего не отправляет.
@@ -74,7 +78,7 @@ Save the current page or a link (its address and title) to the Koona Pin desktop
 | `contextMenus` | `Adds «Find a link» to the right-click menu of the extension's toolbar button, «Save page to Reading» to the right-click menu of web pages, and «Save link to Reading» to the right-click menu of links. The first opens the extension's search over the user's own Koona Pin library; the other two save that page or link to the Reading list of the Koona Pin app on the same computer. No other menus are changed.` |
 | `nativeMessaging` | `The saved link is delivered to the Koona Pin desktop app on the same computer through native messaging. The app's installer or package registers the native host; the extension talks to nothing else.` |
 | `storage` | `Links wait in local extension storage until the app confirms them, so nothing is lost while the app is unavailable. Also keeps the extension's settings and the time of the last save shown on the settings page.` |
-| `alarms` | `Retries delivery of waiting links once a minute, and tells the app twice a day that the browser is still connected.` |
+| `alarms` | `Retries delivery of waiting links once a minute, and tells the app every 30 minutes that the browser is still connected.` |
 
 Это все разрешения манифестов Chrome и Edge (`scripts/build-extension.mjs`): `activeTab`, `scripting`, `storage`, `alarms`, `nativeMessaging`, `contextMenus` и необязательное `tabs`; сочетания Alt+Shift+D и Alt+Shift+R — `commands`, разрешения не требуют. В Firefox вместо `contextMenus` — `menus` (те же пункты и ещё «Настройки» в меню кнопки) и `data_collection_permissions: none`. `unlimitedStorage` есть только в манифесте Safari (#315), в каталожных пакетах его нет.
 
