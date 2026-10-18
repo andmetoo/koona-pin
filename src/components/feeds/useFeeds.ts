@@ -35,8 +35,9 @@ const SEARCH_MS = 250;
 /**
  * The posts of one feed or of all (NP-132), newest first, a page at a time. Every change of
  * the feeds (`changed`) reads the loaded range again, so read marks and saves show at once.
+ * `unreadOnly`: only the posts not read yet (the phone's Unread | All switch).
  */
-export function useFeedItems(feedUid: string | null, typed: string, changed: unknown) {
+export function useFeedItems(feedUid: string | null, typed: string, changed: unknown, unreadOnly = false) {
   // The search waits for typing to settle: a query per keystroke would reload the list each time.
   const [search, setSearch] = useState(typed);
   useEffect(() => {
@@ -44,7 +45,7 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
     const timer = window.setTimeout(() => setSearch(typed), SEARCH_MS);
     return () => window.clearTimeout(timer);
   }, [typed]);
-  const key = `${feedUid ?? ""}\n${search}`;
+  const key = `${feedUid ?? ""}\n${search}\n${unreadOnly}`;
   const [state, setState] = useState<{ key: string; items: FeedItem[]; next: string | null; loaded: boolean }>({
     key,
     items: [],
@@ -67,7 +68,7 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
   }, [key]);
   useEffect(() => {
     let alive = true;
-    listFeedItems({ feed_uid: feedUid ?? undefined, unread_only: false, search: search.trim() || undefined, limit: loaded.current }).then(
+    listFeedItems({ feed_uid: feedUid ?? undefined, unread_only: unreadOnly, search: search.trim() || undefined, limit: loaded.current }).then(
       (page) => alive && setState({ key, items: page.items, next: page.next, loaded: true }),
       () => alive && setState({ key, items: [], next: null, loaded: true }),
     );
@@ -83,7 +84,7 @@ export function useFeedItems(feedUid: string | null, typed: string, changed: unk
     if (!current.next || loadingMore.current) return;
     loadingMore.current = true;
     const after = current.next;
-    listFeedItems({ feed_uid: feedUid ?? undefined, unread_only: false, search: search.trim() || undefined, limit: PAGE, after })
+    listFeedItems({ feed_uid: feedUid ?? undefined, unread_only: unreadOnly, search: search.trim() || undefined, limit: PAGE, after })
       .then((page) => {
         loaded.current += PAGE;
         setState((prev) => (prev.key === key && prev.next === after ? { key, items: [...prev.items, ...page.items], next: page.next, loaded: true } : prev));
