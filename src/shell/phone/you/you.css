@@ -7,6 +7,11 @@
   display: flex;
   flex-direction: column;
 }
+/* The body scrolls; its cards keep their whole height (the Supporter card's text at a large
+   font size), however tall they get. */
+.phone .ys-sheet .ph-sheet-body > * {
+  flex: none;
+}
 /* Shelves and cards fill the sheet's body (20 from its edges), not the screen's 16 margin. */
 .phone .ys-sheet .ph-shelf-section {
   margin: 0;
@@ -163,7 +168,7 @@
 }
 .phone .ys-sync-actions .ph-button,
 .phone .ys-card-action.ph-button {
-  height: 36px;
+  min-height: 36px;
   padding: 0 14px;
   font-weight: 500;
 }
@@ -230,6 +235,19 @@
   right: 0;
 }
 
+/* In both, a value too long for its side of the row (a longer language) wraps, right-aligned, and
+   the name keeps its longest word whole. */
+.phone :is(.ys-shelf, .st-shelf) .ph-shelf-text {
+  min-width: min-content;
+}
+.phone :is(.ys-shelf, .st-shelf) .ph-shelf-detail {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  text-align: right;
+  overflow-wrap: break-word;
+}
+
 /* ---------------------------------------------------------------- Settings (FL3) */
 /* A column of its own width, left where the title is, on the Fold's wide pane too. */
 .phone .st-screen .ph-header,
@@ -260,10 +278,6 @@
   padding: 4px 0;
 }
 .phone .st-shelf .ph-shelf-detail {
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 15px;
   line-height: 20px;
 }
@@ -326,7 +340,7 @@
 .phone .st-segmented {
   display: grid;
   width: 100%;
-  height: 44px;
+  min-height: 44px;
   margin-top: 16px;
   padding: 2px;
 }

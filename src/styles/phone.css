@@ -507,15 +507,35 @@
   -webkit-appearance: none;
   appearance: none;
 }
+/* The title and `beside` flow as one line of text around a float as wide as the buttons on their
+   line (Header measures them): a title too long for it wraps before the buttons, a first word too
+   long for it starts under them, `beside` follows on the line where the title ends. Words break
+   (at a hyphen where the language allows) only when one is wider than the whole line
+   (`data-break`, set by Header). */
 .phone .ph-header-title {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
   min-height: 38px;
+}
+.phone .ph-header-title[data-break] {
   overflow-wrap: anywhere;
 }
+.phone .ph-header-room {
+  float: right;
+  width: calc(var(--ph-header-room, 0px) + 12px);
+  height: 40px;
+}
 .phone .ph-header-title h1 {
-  margin: 0;
+  display: inline;
+  margin: 0 12px 0 0;
+  hyphens: auto;
+}
+.phone .ph-header-title > :not(h1, .ph-header-room) {
+  display: inline-block;
+}
+/* The large title grows with the system's font size up to the first accessibility size (1.6) and
+   no further: at Android's 2.0 a 64 px title fits few words on a phone. Body text grows on. */
+.phone[data-text-large] .ph-header-title h1 {
+  font-size: calc(32px * 1.6 / var(--ph-text-scale, 1));
+  line-height: calc(38px * 1.6 / var(--ph-text-scale, 1));
 }
 
 /* ---------------------------------------------------------------- Circle buttons */
@@ -555,19 +575,22 @@
 }
 
 /* ---------------------------------------------------------------- Buttons */
+/* Its height is the least it has: a label too long for one line (a larger font size, a longer
+   language) wraps, centred, and the pill grows with it. */
 .phone .ph-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 52px;
-  padding: 0 24px;
+  min-height: 52px;
+  padding: 4px 24px;
   border: 0;
   border-radius: 999px;
   font-size: 15px;
   line-height: 20px;
   font-weight: 600;
-  white-space: nowrap;
+  text-align: center;
+  overflow-wrap: break-word;
   background: transparent;
   color: var(--ph-ink);
   transition:
@@ -575,8 +598,8 @@
     opacity 120ms ease-out;
 }
 .phone .ph-button[data-size="compact"] {
-  height: 44px;
-  padding: 0 18px;
+  min-height: 44px;
+  padding: 4px 18px;
 }
 .phone .ph-button[data-block] {
   display: flex;
@@ -606,7 +629,7 @@
   color: var(--ph-on-ink-button);
 }
 .phone .ph-button[data-kind="ghost"] {
-  padding: 0 12px;
+  padding: 4px 12px;
 }
 
 /* ---------------------------------------------------------------- Chips */
@@ -671,12 +694,15 @@
 }
 
 /* ---------------------------------------------------------------- Segmented switch */
+/* Equal segments as wide as the widest label; on a line too narrow for them (a long language,
+   large text) they share it, their labels wrap and the switch grows taller. */
 .phone .ph-segmented {
   position: relative;
   display: inline-grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  height: 40px;
+  grid-auto-columns: minmax(0, 1fr);
+  min-height: 40px;
+  max-width: 100%;
   padding: 4px;
   border-radius: 999px;
   background: var(--ph-well);
@@ -708,7 +734,9 @@
   font-size: 14px;
   line-height: 20px;
   font-weight: 500;
-  white-space: nowrap;
+  text-align: center;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 .phone .ph-segment[aria-checked="true"] {
   color: var(--ph-ink);
@@ -751,6 +779,11 @@
 .phone .ph-field input::placeholder,
 .phone .ph-field textarea::placeholder {
   color: var(--ph-meta);
+}
+/* A hint longer than its field (large text, a long language) ends in an ellipsis, not mid-letter. */
+.phone .ph-search input,
+.phone .ph-field input {
+  text-overflow: ellipsis;
 }
 .phone .ph-search input:focus-visible,
 .phone .ph-field input:focus-visible,
@@ -929,6 +962,7 @@
   grid-row: 2;
   max-width: none;
   white-space: normal;
+  text-align: left;
 }
 
 /* ---------------------------------------------------------------- Progress */
@@ -1304,8 +1338,9 @@
   background: var(--ph-accent);
   box-shadow: 0 0 0 2px var(--ph-paper);
   color: var(--ph-on-accent);
-  font-size: 11px;
-  line-height: 16px;
+  /* Its size whatever the system's font size, as the nav pill's badge. */
+  font-size: calc(11px / var(--ph-text-scale, 1));
+  line-height: calc(16px / var(--ph-text-scale, 1));
   font-weight: 600;
 }
 .phone .ph-rail-rule {
@@ -1362,8 +1397,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  height: 52px;
-  padding: 0 14px;
+  min-height: 52px;
+  padding: 6px 14px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -1551,6 +1586,11 @@
 }
 .phone .ph-sheet-bar > :first-child {
   justify-self: start;
+}
+/* A title too long for the room between the buttons (German "Link bearbeiten") wraps, centred. */
+.phone .ph-sheet-bar > h2 {
+  margin: 0;
+  text-align: center;
 }
 .phone .ph-sheet-body {
   flex: 1;

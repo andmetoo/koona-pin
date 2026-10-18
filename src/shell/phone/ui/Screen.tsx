@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, type Ref, useContext, useEffect, useRef } from "react";
+import { createContext, type ReactNode, type Ref, useContext, useEffect, useLayoutEffect, useRef } from "react";
 import { ChevronLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CircleButton } from "./buttons";
@@ -15,6 +15,9 @@ export const AccountSlot = createContext<ReactNode>(null);
  * the right. The title scrolls with the content; the buttons stay, over the top edge's fade.
  * Put it first in a {@link Screen}. `account={false}` leaves the cluster out (triage, Search);
  * `onBack` puts a back circle on the left (pushed screens: iOS has no system Back button).
+ * The title keeps clear of the buttons on its line: with larger text or a longer language it
+ * wraps before them, or starts under them when its first word does not fit beside them (a float
+ * as wide as they are, `--ph-header-room`); `beside` follows it on its line or goes under it.
  */
 export function Header({
   title,
@@ -40,6 +43,25 @@ export function Header({
   const { t } = useTranslation();
   const shellAccount = useContext(AccountSlot);
   const cluster = account === false ? null : (account ?? shellAccount);
+  const row = useRef<HTMLDivElement>(null);
+  const buttons = useRef<HTMLDivElement>(null);
+  // Under a back circle the title starts below the buttons; otherwise it shares their line.
+  const shared = !onBack && !!(actions || cluster);
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const fit = () => {
+      if (shared) el.style.setProperty("--ph-header-room", `${buttons.current?.offsetWidth ?? 0}px`);
+      el.removeAttribute("data-break");
+      if (el.scrollWidth > el.clientWidth + 1) el.setAttribute("data-break", "");
+    };
+    fit();
+    // The buttons' width, and the title's lines when the language or the system's font size changes.
+    const watch = new ResizeObserver(fit);
+    watch.observe(el);
+    if (shared && buttons.current) watch.observe(buttons.current);
+    return () => watch.disconnect();
+  }, [shared, title]);
   return (
     <>
       {(actions || cluster || onBack) && (
@@ -49,14 +71,15 @@ export function Header({
               <CircleButton icon={ChevronLeft} label={t("phone.nav.back")} onClick={onBack} />
             </div>
           )}
-          <div className="ph-header-actions">
+          <div className="ph-header-actions" ref={buttons}>
             {actions}
             {cluster}
           </div>
         </div>
       )}
       <header className="ph-header" data-back={onBack ? "" : undefined}>
-        <div className="ph-header-title">
+        <div ref={row} className="ph-header-title">
+          {shared && <span className="ph-header-room" aria-hidden="true" />}
           <h1 className="ph-display">{title}</h1>
           {beside}
         </div>

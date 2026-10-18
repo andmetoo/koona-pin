@@ -228,7 +228,7 @@ export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "p
               <div className="rd-post-source">
                 <span className="rd-post-feed">
                   {feed && <FeedIcon feed={feed} size={24} round />}
-                  <span className="truncate">{[name, author].filter(Boolean).join(" · ")}</span>
+                  <span className="truncate" data-user-text>{[name, author].filter(Boolean).join(" · ")}</span>
                 </span>
                 {meta && <span>{meta}</span>}
               </div>

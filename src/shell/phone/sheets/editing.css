@@ -478,8 +478,10 @@
 .phone .nl-feed-text .ph-meta[data-tone="warn"] {
   color: var(--ph-danger);
 }
+/* "Save to" and its switch, the switch under it when a language makes the two too wide. */
 .phone .nl-saveto {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -493,7 +495,8 @@
   color: var(--ph-body);
 }
 .phone .nl-saveto .ph-segmented {
-  width: 188px;
+  flex: none;
+  min-width: 188px;
 }
 @media (prefers-reduced-motion: reduce) {
   .phone .nl-shimmer {

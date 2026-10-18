@@ -397,6 +397,16 @@
   font-family: var(--ph-reading-font);
   font-weight: 500;
 }
+/* The small and the large "A" are the buttons' glyphs: like icons they keep their size whatever the
+   system's font size (the WebView's text zoom multiplies them back by --ph-text-scale). */
+.phone .rd-look-a {
+  font-size: calc(14px / var(--ph-text-scale, 1));
+  line-height: calc(20px / var(--ph-text-scale, 1));
+}
+.phone .rd-look-a[data-size="large"] {
+  font-size: calc(21px / var(--ph-text-scale, 1));
+  line-height: calc(26px / var(--ph-text-scale, 1));
+}
 .phone .rd-look-size .ph-circle:disabled {
   opacity: 0.4;
 }
@@ -413,8 +423,8 @@
 }
 .phone .rd-look-theme {
   position: relative;
-  height: 48px;
-  padding: 0 12px;
+  min-height: 48px;
+  padding: 4px 12px;
   border: 0;
   border-radius: 999px;
   background: var(--swatch, var(--ph-paper));

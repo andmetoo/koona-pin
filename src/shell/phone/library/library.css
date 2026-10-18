@@ -37,7 +37,7 @@
 /* L1's list/grid switch and Q1's scope: a 36 trough, the thumb inset 2. */
 .phone .lib-segmented {
   flex: none;
-  height: 36px;
+  min-height: 36px;
   padding: 2px;
 }
 .phone .lib-segmented .ph-segmented-thumb {

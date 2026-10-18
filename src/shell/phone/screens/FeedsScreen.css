@@ -33,15 +33,17 @@
 }
 
 /* ---------------------------------------------------------------- The day and the switch */
+/* The switch goes under the day when the two do not fit on one line. */
 .phone .fd-dayrow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin: 15px var(--ph-side) 5px 24px;
 }
 .phone .fd-day {
-  min-width: 0;
+  min-width: min(max-content, 100%);
   margin: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -53,8 +55,8 @@
 }
 .phone .fd-scope.ph-segmented {
   flex: none;
-  width: 148px;
-  height: 32px;
+  min-width: 148px;
+  min-height: 32px;
   padding: 2px;
 }
 .phone .fd-scope .ph-segmented-thumb {
