@@ -1939,14 +1939,36 @@
     "edit": {
       "title": "Edit link",
       "save": "Save",
-      "titleField": "Title"
+      "titleField": "Title",
+      "noteField": "Note",
+      "notePlaceholder": "Add a note",
+      "openPage": "Open {{site}}",
+      "collection": "Collection",
+      "noCollection": "No collection",
+      "addTag": "Add tag",
+      "tagField": "New tag",
+      "removeTag": "Remove tag {{tag}}",
+      "tagSuggestions": "Your tags",
+      "trash": "Move to Trash"
     },
     "collectionPicker": {
       "title": "File into collection",
-      "done": "Done"
+      "done": "Done",
+      "several_one": "Move {{count, number}} link",
+      "several_other": "Move {{count, number}} links",
+      "find": "Find or create",
+      "namePlaceholder": "Name the new collection",
+      "suggested": "Suggested",
+      "suggestedWhy": "{{count, number}} of {{filed, number}} links from this site",
+      "all": "All collections",
+      "nothing": "No collection by that name",
+      "new": "New collection",
+      "newNamed": "New collection “{{name}}”"
     },
     "newLink": {
-      "title": "New link"
+      "title": "New link",
+      "feedLine": "New posts go to Feeds",
+      "saveTo": "Save to"
     },
     "you": {
       "title": "You & sync",
