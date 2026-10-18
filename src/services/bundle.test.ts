@@ -112,6 +112,25 @@ describe("the bundle store", () => {
     expect(bundle.get().left).toBe(0);
   });
 
+  it("prunes only what was added by the generation its ids were read at", () => {
+    const ids = (store: ReturnType<typeof createBundle>) => store.get().sections.flatMap((s) => s.entries.map((e) => e.kind === "bookmark" && e.bookmark.id));
+    const bundle = createBundle();
+    bundle.addBookmarks([b(1), b(2)]);
+    const before = bundle.generation();
+    bundle.addTag("later", [b(3)]);
+    bundle.addFeeds([feed("a")]);
+    // Ids and feeds read before the tag and the feed came in: those two stay.
+    expect(bundle.prune(new Set([1]), new Set(), before)).toBe(1);
+    expect(bundle.get().sections.map((s) => s.key)).toEqual(["links", "tag:later", "feeds"]);
+    // Removed and added again: as new, so only the tag and the feed go.
+    bundle.removeEntry("b:1");
+    const again = bundle.generation();
+    bundle.addBookmarks([b(1)]);
+    expect(bundle.prune(new Set(), new Set(), again)).toBe(2);
+    expect(ids(bundle)).toEqual([1]);
+    expect(bundle.prune(new Set(), new Set())).toBe(1);
+  });
+
   it("clears with an undo, and the note goes in only when asked", () => {
     const bundle = createBundle();
     bundle.addBookmarks([b(1, { notes: "mine" })]);
