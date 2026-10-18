@@ -4,7 +4,8 @@ import { RotateCw, Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Feed, FeedItem } from "../../types";
 import { feedName } from "../../services/feeds";
-import { dayGroups, dayLabel, pictureUrl, postAge } from "../../services/feedsView";
+import { dayGroups, dayLabel, postAge } from "../../services/feedsView";
+import { usePicture } from "../../hooks/usePicture";
 import { shortcut } from "../../services/keys";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
@@ -242,7 +243,8 @@ function FeedItemRow({
   onKeyDown: (e: KeyboardEvent) => void;
 }) {
   const { t } = useTranslation();
-  const thumbnail = pictureUrl(item.thumbnail_url);
+  // The local copy, then the post's address (NP-146); none once both failed.
+  const thumbnail = usePicture("post-thumb", item.id, item.thumbnail_url);
   const name = feed ? feedName(feed) : "";
   return (
     <div
@@ -274,12 +276,14 @@ function FeedItemRow({
               <h3 className={`line-clamp-2 text-md leading-[19px] font-semibold [overflow-wrap:anywhere] ${item.read ? "text-muted" : "text-ink"}`}>{item.title}</h3>
               <p className={`mt-1 line-clamp-3 text-[12.5px] leading-[17px] [overflow-wrap:anywhere] ${item.read ? "text-subtle" : "text-muted"}`}>{item.excerpt}</p>
             </div>
-            {thumbnail && (
+            {thumbnail.src && (
               <img
-                src={thumbnail}
+                src={thumbnail.src}
                 alt=""
                 loading="lazy"
                 referrerPolicy="no-referrer"
+                onError={thumbnail.onError}
+                onLoad={thumbnail.onLoad}
                 className={`mt-1.5 size-[76px] shrink-0 rounded-2xl bg-well object-cover ${item.read ? "opacity-70" : ""}`}
               />
             )}

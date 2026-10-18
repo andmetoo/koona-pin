@@ -7,6 +7,8 @@ import { collectionColor } from "../../services/collections";
 import { coverOf, monogram, pendingFor, siteName, VIEW } from "../../services/cover";
 import { shortcut } from "../../services/keys";
 import { daysLeft } from "../../services/library";
+import { pictureSrc } from "../../services/pictures";
+import { usePicture } from "../../hooks/usePicture";
 import { Icon, OfflineIcon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { Menu, MenuEntry } from "../ui/Menu";
@@ -240,12 +242,20 @@ function useBookmarkMenu(b: Bookmark, collections: Collection[], actions: Bookma
   return { menu, trigger, onContextMenu, onKeyDown, open };
 }
 
-/** Favicon, or the first letter when there is none. */
+/** Favicon, its local copy first (NP-146), or the first letter when there is none. */
 export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
-  // The address that failed: a cached failure comes before any effect could reset a flag.
-  const [failed, setFailed] = useState<string | null>(null);
-  return b.favicon_url && failed !== b.favicon_url ? (
-    <img src={b.favicon_url} alt="" width={size} height={size} className="shrink-0 rounded-[3px] object-contain" onError={() => setFailed(b.favicon_url)} />
+  const icon = usePicture("bookmark-icon", b.id, b.favicon_url);
+  return icon.src ? (
+    <img
+      src={icon.src}
+      alt=""
+      width={size}
+      height={size}
+      referrerPolicy="no-referrer"
+      className="shrink-0 rounded-[3px] object-contain"
+      onError={icon.onError}
+      onLoad={icon.onLoad}
+    />
   ) : (
     <span
       style={{ width: size, height: size, fontSize: size * 0.64 }}
@@ -280,11 +290,14 @@ function releasePointer(e: React.PointerEvent<HTMLElement>) {
  */
 function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean }) {
   const cover = useMemo(() => coverOf(b.domain, b.url), [b.domain, b.url]);
+  // The local copy, then the site's address (NP-146); none once both failed.
+  const picture = usePicture("bookmark-icon", b.id, b.favicon_url);
   // Kept with the address it was learnt for: a cached icon loads before any
-  // effect would run, so resetting in an effect would lose its answer.
-  const [learnt, setLearnt] = useState<{ url: string; icon: "large" | "small" | "none" } | null>(null);
-  const icon = !b.favicon_url ? "none" : learnt?.url === b.favicon_url ? learnt.icon : "loading";
-  const setIcon = (value: "large" | "small" | "none") => b.favicon_url && setLearnt({ url: b.favicon_url, icon: value });
+  // effect would run, so resetting in an effect would lose its answer. The copy
+  // keeps a small icon at its own size, so its width still tells large from small.
+  const [learnt, setLearnt] = useState<{ url: string; icon: "large" | "small" } | null>(null);
+  const icon = !picture.src ? "none" : learnt?.url === picture.src ? learnt.icon : "loading";
+  const setIcon = (value: "large" | "small") => picture.src && setLearnt({ url: picture.src, icon: value });
   return (
     <span
       data-preview-fallback
@@ -305,13 +318,18 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
         </svg>
       )}
       <span className="cover-tile" data-icon={icon}>
-        {b.favicon_url && icon !== "none" && (
+        {picture.src && (
           <img
-            src={b.favicon_url}
+            src={picture.src}
             alt=""
             decoding="async"
-            onLoad={(e) => setIcon(e.currentTarget.naturalWidth >= 32 ? "large" : "small")}
-            onError={() => setIcon("none")}
+            referrerPolicy="no-referrer"
+            onLoad={(e) => {
+              // A refused copy ends the chain: the letter, not a "small" icon.
+              picture.onLoad(e);
+              setIcon(e.currentTarget.naturalWidth >= 32 ? "large" : "small");
+            }}
+            onError={picture.onError}
           />
         )}
         {(icon === "small" || icon === "none") && <span className="cover-letter">{monogram(b.domain, b.title)}</span>}
@@ -320,7 +338,7 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
       {!small && (
         <>
           <span className="cover-chip">
-            {icon === "large" ? <img src={b.favicon_url!} alt="" /> : icon !== "loading" && monogram(b.domain, b.title)}
+            {icon === "large" ? <img src={picture.src!} alt="" referrerPolicy="no-referrer" /> : icon !== "loading" && monogram(b.domain, b.title)}
           </span>
           <span className="cover-domain">{b.domain}</span>
           <span className="cover-poster">{siteName(b)}</span>
@@ -336,10 +354,9 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
  * picture is on its way rather than missing (NP-087).
  */
 export function Preview({ b, live = false, small = false }: { b: Bookmark; live?: boolean; small?: boolean }) {
-  // The address that failed, not a flag: a cached failure comes before any effect.
-  const [failed, setFailed] = useState<string | null>(null);
-  const broken = failed !== null && failed === b.image_url;
-  const setBroken = () => setFailed(b.image_url);
+  // The local copy, then the page's own address once (NP-146). Kept with the
+  // addresses that failed, not a flag: a changed `image_url` tries again.
+  const picture = usePicture("bookmark-image", b.id, b.image_url);
   const [, recheck] = useState(0);
   const pending = pendingFor(b);
   useEffect(() => {
@@ -347,8 +364,19 @@ export function Preview({ b, live = false, small = false }: { b: Bookmark; live?
     const timer = window.setTimeout(() => recheck((n) => n + 1), pending);
     return () => window.clearTimeout(timer);
   }, [pending > 0, b.id]);
-  if (b.image_url && !broken)
-    return <img src={b.image_url} alt="" loading="lazy" decoding="async" className="size-full object-cover" onError={setBroken} />;
+  if (picture.src)
+    return (
+      <img
+        src={picture.src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="size-full object-cover"
+        onError={picture.onError}
+        onLoad={picture.onLoad}
+      />
+    );
   return pending ? <span data-preview-pending className="cover-pending" /> : <Cover b={b} live={live} small={small} />;
 }
 
@@ -455,13 +483,15 @@ const HALO_FADE_MS = 300;
 /**
  * The copy behind a selected preview: its picture over its cover's gradient, so a
  * picture that fails still leaves the colour. The same address as the preview's
- * image: the browser's cache answers, nothing is downloaded again. Two variables,
+ * image, its local copy (NP-146): the browser's cache answers, nothing is
+ * downloaded again. Two variables,
  * so Linux can keep the colour without the blurred picture (`app.css`).
  */
 function haloOf(b: Bookmark) {
   const cover = coverOf(b.domain, b.url);
+  const picture = pictureSrc("bookmark-image", b.id, b.image_url);
   return {
-    "--halo-picture": b.image_url ? `url(${JSON.stringify(b.image_url)})` : "none",
+    "--halo-picture": picture ? `url(${JSON.stringify(picture)})` : "none",
     "--halo-colour": `linear-gradient(${cover.angle}deg, ${cover.from}, ${cover.to})`,
   } as CSSProperties;
 }
