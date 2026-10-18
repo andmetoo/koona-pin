@@ -459,6 +459,7 @@ async fn refresh_one(app: AppHandle, state: Arc<DbState>, item: Item) -> Done {
         let changed = apply(&conn, item.id, &item.url, &meta).map_err(|_| ())?;
         if let Some(bookmark) = &changed {
             capture::emit(&app, ChangeKind::Updated, bookmark);
+            crate::thumbs::warm(&app, bookmark);
         }
         Ok::<_, ()>(changed)
     })

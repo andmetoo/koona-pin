@@ -445,6 +445,7 @@ pub async fn refresh_preview(
     let meta = metadata::fetch_metadata(&url).await;
     let bookmark = blocking(&state, move |conn| db::refresh_preview(conn, id, &url, &meta).map_err(text)).await?;
     capture::emit(&app, ChangeKind::Updated, &bookmark);
+    crate::thumbs::warm(&app, &bookmark);
     Ok(bookmark)
 }
 /// The sidebar's order after a drag or `Alt ↑` / `Alt ↓` (NP-114): every
@@ -505,6 +506,7 @@ pub async fn create_starter_library(
                 .and_then(|conn| db::refresh_preview(&conn, id, &url, &meta).map_err(|_| ()));
             if let Ok(bookmark) = updated {
                 capture::emit(&app, ChangeKind::Updated, &bookmark);
+                crate::thumbs::warm(&app, &bookmark);
             }
         }
     });
