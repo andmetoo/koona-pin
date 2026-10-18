@@ -234,7 +234,9 @@ export async function known(
     text = bytes <= HEAD ? head : await whole(CAPS[kind]);
     if (text === null) return { refused: "tooBig", cap: CAPS[kind] };
     // A file changed in between has another head; only the head is checked again, as a scan of
-    // the whole text would be the second one (Rust validates all of it anyway).
+    // the whole text would be the second one. After a scan in pieces (`late` of `readFile`), a
+    // `format` past the head that changed before this read is not caught here but by Rust, which
+    // validates the whole text (format.rs, restore.rs).
     if (text !== head) {
       const again = sniffHead(text);
       if (again !== kind && !(scanned && again === undefined)) return { refused: "unsupported" };

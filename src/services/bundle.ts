@@ -121,6 +121,10 @@ export function createBundle() {
     generation++;
     for (const e of entries) addedAt.set(entryKey(e), generation);
   };
+  /** Entries that left the bundle leave `addedAt` too, so it holds only what is in the bundle. */
+  const forget = (entries: Iterable<BundleEntry>) => {
+    for (const e of entries) addedAt.delete(entryKey(e));
+  };
   const listeners = new Set<() => void>();
   const set = (next: Partial<BundleState>) => {
     state = { ...state, ...next };
@@ -178,10 +182,12 @@ export function createBundle() {
       return { kind: "feeds", added: entries.length, total: itemCount(state) };
     },
     removeEntry(key: string) {
+      addedAt.delete(key);
       const sections = state.sections.map((s) => ({ ...s, entries: s.entries.filter((e) => entryKey(e) !== key) })).filter((s) => s.entries.length);
       set({ sections });
     },
     removeSection(key: string) {
+      forget(state.sections.find((s) => s.key === key)?.entries ?? []);
       set({ sections: state.sections.filter((s) => s.key !== key) });
     },
     setUseNote(key: string, useNote: boolean) {
@@ -200,11 +206,18 @@ export function createBundle() {
     /** Clear: everything goes; the snapshot brings it back with Undo. */
     clear(): BundleSnapshot {
       const { sections, title, titleEdited, description, author } = state;
+      addedAt.clear();
       set({ sections: [], title: "", titleEdited: false, description: "", left: 0 });
       return { sections, title, titleEdited, description, author };
     },
-    /** Undo of Clear: the entries come back with the generations they were added at. */
-    restore: (snapshot: BundleSnapshot) => set({ ...snapshot, sections: ordered(snapshot.sections) }),
+    /**
+     * Undo of Clear: the entries come back as added now, so a prune whose ids were read before
+     * the Undo leaves them be; the next one judges them.
+     */
+    restore(snapshot: BundleSnapshot) {
+      stamp(snapshot.sections.flatMap((s) => s.entries));
+      set({ ...snapshot, sections: ordered(snapshot.sections) });
+    },
     /** The generation of the last add: read it before the ids a prune is given (`addedBefore`). */
     generation: () => generation,
     /**
@@ -216,7 +229,9 @@ export function createBundle() {
     prune(live: ReadonlySet<number>, feeds: ReadonlySet<string> | null = null, addedBefore = Infinity): number {
       const keep = (e: BundleEntry) =>
         (addedAt.get(entryKey(e)) ?? 0) > addedBefore || (e.kind === "bookmark" ? live.has(e.bookmark.id) : !feeds || feeds.has(e.feed.uid));
-      const gone = state.sections.reduce((sum, s) => sum + s.entries.filter((e) => !keep(e)).length, 0);
+      const dropped = state.sections.flatMap((s) => s.entries.filter((e) => !keep(e)));
+      const gone = dropped.length;
+      forget(dropped);
       if (gone) set({ sections: state.sections.map((s) => ({ ...s, entries: s.entries.filter(keep) })).filter((s) => s.entries.length), left: state.left + gone });
       return gone;
     },
@@ -233,6 +248,8 @@ export function createBundle() {
       });
       if (changed) set({ sections });
     },
+    /** Tests only: how many entries have a generation kept. */
+    tracked: () => addedAt.size,
     /** Tests only: as at the start of the app. */
     reset() {
       addedAt.clear();

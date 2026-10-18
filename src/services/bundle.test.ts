@@ -131,6 +131,28 @@ describe("the bundle store", () => {
     expect(bundle.prune(new Set(), new Set())).toBe(1);
   });
 
+  it("keeps a generation only for what is in the bundle, and an Undo comes back as added now", () => {
+    const bundle = createBundle();
+    bundle.addBookmarks([b(1), b(2), b(3)]);
+    bundle.addTag("solo", [b(4)]);
+    bundle.addFeeds([feed("a")]);
+    expect(bundle.tracked()).toBe(5);
+    bundle.removeEntry("b:1");
+    bundle.removeSection("tag:solo");
+    expect(bundle.tracked()).toBe(3);
+    bundle.prune(new Set([3]), new Set(["a"]));
+    expect(bundle.tracked()).toBe(2);
+    const before = bundle.generation();
+    const snapshot = bundle.clear();
+    expect(bundle.tracked()).toBe(0);
+    bundle.restore(snapshot);
+    expect(bundle.tracked()).toBe(2);
+    // Ids read before the Undo do not judge what it brought back.
+    expect(bundle.prune(new Set(), new Set(), before)).toBe(0);
+    expect(bundle.prune(new Set(), new Set())).toBe(2);
+    expect(bundle.tracked()).toBe(0);
+  });
+
   it("clears with an undo, and the note goes in only when asked", () => {
     const bundle = createBundle();
     bundle.addBookmarks([b(1, { notes: "mine" })]);
