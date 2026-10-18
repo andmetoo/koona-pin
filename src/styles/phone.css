@@ -597,6 +597,10 @@
     transform 120ms ease-out,
     opacity 120ms ease-out;
 }
+/* Its icon keeps its size beside a label that fills the button (R1's Done at a large font size). */
+.phone .ph-button svg {
+  flex: none;
+}
 .phone .ph-button[data-size="compact"] {
   min-height: 44px;
   padding: 4px 18px;
@@ -1410,6 +1414,7 @@
   text-align: left;
 }
 .phone .ph-rail-menu-item svg {
+  flex: none;
   color: var(--ph-icon);
 }
 .phone .ph-rail-menu-item[data-main] {
