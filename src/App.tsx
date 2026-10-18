@@ -1532,6 +1532,7 @@ export function App() {
               : sectionCount
       }
       barShown={selecting}
+      headHeight={headHeight}
       blocked={!!reading || !!triage || surface !== null || listOpen || !!editing && !wide || !!purging || !!deletingCollection || !!sheet}
       drag={dragging ? { count: dragging.count, over: dragging.target?.kind === "bundle" } : null}
       collections={library.collections}
@@ -1999,7 +2000,11 @@ export function App() {
               // After a replace no open editor or selection points at a bookmark that is gone.
               closeEditor();
               selection.clear();
-              if (mode === "replace") library.replaced();
+              if (mode === "replace") {
+                library.replaced();
+                // The bundle holds ids: in another library they would be other bookmarks.
+                bundle.clear();
+              }
               await Promise.all([library.refresh(), library.refreshCatalog()]);
             }
             return outcome;
@@ -2016,6 +2021,7 @@ export function App() {
             closeEditor();
             selection.clear();
             library.replaced();
+            bundle.clear();
             setDataVersion((version) => version + 1);
             await Promise.all([library.refresh(), library.refreshCatalog()]);
           }}

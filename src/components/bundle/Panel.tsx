@@ -21,8 +21,11 @@ const NOTICE_MS = 8000;
 const AUTHOR_NAME = "share.authorName";
 
 type Notice = { text: string; actions: { label: string; run: () => void }[]; alert?: boolean };
-/** The last build: its text and the model it was built from; or why it failed. */
-type Built = { key: string; text: string } | { key: string; error: string; tooBig: boolean };
+/**
+ * The last build and the model it was built from: its text and size, or, past a limit, the size it
+ * would have and no text; or why it failed.
+ */
+type Built = { key: string; text: string; bytes: number; over: boolean } | { key: string; error: string };
 
 /**
  * The bundle panel (K7a, K7b): 380 px, non-modal, its bottom 12 px above the capsule in every
@@ -91,18 +94,17 @@ export function Panel({
     try {
       const result = await bundleApi.build(JSON.parse(model));
       if (result.left > 0) void pruneBundle();
-      return { key: model, text: result.text };
+      if (result.too_big !== null) return { key: model, text: "", bytes: result.too_big, over: true };
+      return { key: model, text: result.text, bytes: new TextEncoder().encode(result.text).length, over: false };
     } catch (err) {
-      // Every `ListError` reaches here as `invalid_request`; the builder's only one is too big.
-      const code = (err as { code?: string }).code;
-      return { key: model, error: describeError(err), tooBig: code === "invalid_request" };
+      return { key: model, error: describeError(err) };
     }
   };
-  const bytes = built && "text" in built ? new TextEncoder().encode(built.text).length : 0;
-  const tooBig = !!built && (("error" in built && built.tooBig) || bytes > MAX_BYTES);
+  const bytes = built && "text" in built ? built.bytes : 0;
+  const tooBig = !!built && "over" in built && built.over;
   const megabytes = (n: number) => new Intl.NumberFormat(i18n.language, { style: "unit", unit: "megabyte", maximumFractionDigits: 1 }).format(n / 1024 / 1024);
   const sizeLine = tooBig
-    ? bytes
+    ? bytes > MAX_BYTES
       ? t("bundle.tooBig", { size: megabytes(bytes) })
       : t("bundle.tooBigNoSize")
     : built && "error" in built
@@ -112,12 +114,14 @@ export function Panel({
         : "";
   const blocked = empty || tooBig || busy;
 
-  /** The text for what is on screen now: the last build if it is of this model, else a new one. */
+  /**
+   * The text for what is on screen now, always built anew: a bookmark trashed since the last build
+   * is never written, whatever the model says.
+   */
   const fresh = async (): Promise<string | null> => {
-    const result = built?.key === key ? built : await build(key);
-    if ("text" in result) return result.text;
+    const result = await build(key);
     setBuilt(result);
-    return null;
+    return "text" in result && !result.over ? result.text : null;
   };
   const save = async () => {
     if (blocked) return;

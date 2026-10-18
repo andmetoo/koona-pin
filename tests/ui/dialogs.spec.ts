@@ -261,7 +261,8 @@ test("dialogs with tabs keep their size and place when the tab changes", async (
 });
 
 // The bundle panel (share-bundle.md, M2): one size and place empty and full; its bottom 12 px over the
-// capsule's top, its height min(600, window − 24 − capsule area − 12). The bulk bar lifts both.
+// capsule's top, its top at least 12 px under the toolbar: min(600, main − (toolbar + 12) − capsule
+// area − 12). The bulk bar lifts both.
 for (const [width, height] of [[1200, 800], [800, 550]]) {
   test(`${width}×${height}: the bundle panel keeps its size and place through its states`, async ({ page }) => {
     await page.setViewportSize({ width, height });
@@ -279,8 +280,15 @@ for (const [width, height] of [[1200, 800], [800, 550]]) {
     await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
     await page.waitForTimeout(300);
     const first = await box();
-    // Bottom: the capsule's place, 24 + 48 + 12 over the window's bottom, even with no capsule shown.
-    expect(first).toEqual({ x: width - 24 - 380, y: height - 84 - Math.min(600, height - 24 - 72 - 12), width: 380, height: Math.min(600, height - 24 - 72 - 12) });
+    // The main area and the toolbar over it, as the window lays them out.
+    const room = await page.evaluate(() => {
+      const main = document.querySelector("main")!.getBoundingClientRect();
+      return { top: main.top, bottom: Math.round(main.bottom), toolbar: Math.round(document.querySelector(".toolbar-glass")!.getBoundingClientRect().bottom) };
+    });
+    const tallest = (capsule: number) => Math.min(600, room.bottom - room.toolbar - 12 - (capsule + 48) - 12);
+    // Bottom: the capsule's place, 24 + 48 + 12 over the main area's bottom, even with no capsule shown.
+    expect(first).toEqual({ x: width - 24 - 380, y: room.bottom - 84 - tallest(24), width: 380, height: tallest(24) });
+    expect(first.y).toBeGreaterThanOrEqual(room.toolbar + 12);
     await panel.getByRole("button", { name: /^Add All bookmarks/ }).click();
     await expect(panel.locator("[data-bundle-row]").first()).toBeVisible();
     expect(await box(), "full").toEqual(first);
@@ -293,13 +301,11 @@ for (const [width, height] of [[1200, 800], [800, 550]]) {
     await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
     expect(await box(), "cleared").toEqual(first);
 
-    // The bulk bar: the capsule rises to 80 px and the panel with it, still whole in the window.
+    // The bulk bar: the capsule rises to 24 + 52 + 12 and the panel with it, still under the toolbar.
     await page.locator("article[data-bookmark-id] h2").first().click({ modifiers: ["ControlOrMeta"] });
     await expect(page.getByRole("toolbar", { name: "Selected bookmarks" })).toBeVisible();
     const lifted = await box();
-    const tall = Math.min(600, height - 24 - (80 + 48) - 12);
-    expect(lifted).toEqual({ ...first, y: height - (80 + 48 + 12) - tall, height: tall });
-    if (height === 550) expect(tall).toBe(386);
-    expect(lifted.y).toBeGreaterThanOrEqual(0);
+    expect(lifted).toEqual({ ...first, y: room.bottom - (88 + 48 + 12) - tallest(88), height: tallest(88) });
+    expect(lifted.y, "12 px under the toolbar at least").toBeGreaterThanOrEqual(room.toolbar + 12);
   });
 }

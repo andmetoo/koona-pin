@@ -48,8 +48,8 @@ test("Export → Add to bundle; the capsule sits above the bulk bar and comes do
   await expect(announcer(page)).toHaveText("Added 2 bookmarks to the bundle, 2 items");
   await expect(capsule(page)).toHaveAccessibleName("Bundle, 2 items");
   const bottom = async () => 800 - (await capsule(page).boundingBox())!.y - (await capsule(page).boundingBox())!.height;
-  // 24 + 44 + 12 above the window's bottom while the bar shows (S6), never beside it.
-  expect(Math.round(await bottom())).toBe(80);
+  // 24 + 52 (the bar) + 12 above the window's bottom while the bar shows (S6), never beside it.
+  expect(Math.round(await bottom())).toBe(88);
   // Again: nothing new comes in.
   await addSelection(page);
   await expect(announcer(page)).toHaveText("Already in the bundle, 2 items");
@@ -211,4 +211,22 @@ test("the sidebar has no right-click menus; a reload empties the bundle", async 
   await expect(page.locator("[data-bundle-capsule]")).toHaveCount(0);
   await openFromMenu(page);
   await expect(panel(page).locator("[data-bundle-empty]")).toBeVisible();
+});
+
+test("a bookmark trashed while the panel is open leaves the bundle, and Save never writes it", async ({ page }) => {
+  await mockSave(page);
+  await select(page, ["Ten principles for good design", "Notes on attention"]);
+  await addSelection(page);
+  await page.keyboard.press("Escape");
+  await openFromMenu(page);
+  await expect(rows(page)).toHaveCount(2);
+  await card(page, "Ten principles for good design").locator("h2").first().click({ modifiers: ["ControlOrMeta"] });
+  await page.keyboard.press("Delete");
+  await expect(card(page, "Ten principles for good design")).toHaveCount(0);
+  await expect(rows(page)).toHaveCount(1);
+  await expect(panel(page).locator("[data-bundle-meta]")).toHaveText("1 item · CC0, anyone may reuse it · 1 item left the bundle");
+  await panel(page).getByRole("button", { name: "Save .kpin…" }).click();
+  await expect(panel(page).getByRole("status")).toContainText("Saved");
+  const [call] = await saveCalls(page);
+  expect(JSON.parse(call.text).items.map((i: { title: string }) => i.title)).toEqual(["Notes on attention"]);
 });

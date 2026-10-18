@@ -22,13 +22,12 @@ export async function viewBookmarks(filters: Partial<FilterState>): Promise<Book
   return all;
 }
 
-/** The bookmarks of these ids: the loaded ones as they are, the rest read one by one. */
+/** The bookmarks of these ids, in their order: the loaded ones as they are; any other, from one read of the library. */
 export async function bookmarksByIds(ids: Iterable<number>, loaded: Bookmark[]): Promise<Bookmark[]> {
+  const wanted = [...ids];
   const known = new Map(loaded.map((b) => [b.id, b]));
-  const found = await Promise.all(
-    [...ids].map(async (id) => known.get(id) ?? (await api.getBookmarks({}, { id, limit: 1 })).items[0] ?? null),
-  );
-  return found.filter((b): b is Bookmark => !!b);
+  if (wanted.some((id) => !known.has(id))) for (const b of await viewBookmarks({})) if (!known.has(b.id)) known.set(b.id, b);
+  return wanted.flatMap((id) => known.get(id) ?? []);
 }
 
 /** «Add {view}» (N6): the view's items at this moment, into its section. */

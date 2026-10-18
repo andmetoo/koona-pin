@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Collection } from "../../types";
+import type { BookmarkChange, Collection } from "../../types";
 import { api } from "../../services/api";
 import { bundle, BundleView, entryKey, itemCount, sectionKey, viewLabel } from "../../services/bundle";
 import { addedText, addView, pruneBundle, useBundle } from "./actions";
@@ -10,9 +10,12 @@ import { Panel } from "./Panel";
 /** The capsule's height and its gap to the window's edges (K6b). */
 const CAPSULE = 48;
 const EDGE = 24;
-/** While the bulk bar shows the capsule rises above it: 24 + 44 + 12 (S6). */
-const OVER_BAR = EDGE + 44 + 12;
-/** The panel's bottom is 12 px above the capsule's top; it is at most 600 px high (M2). */
+/** While the bulk bar shows the capsule rises above it (S6): 24, the bar's 52 (SelectionBar), 12. */
+const OVER_BAR = EDGE + 52 + 12;
+/**
+ * The panel's bottom is 12 px above the capsule's top, its top at least 12 px under the toolbar;
+ * it is at most 600 px high (M2).
+ */
 const GAP = 12;
 const PANEL_MAX = 600;
 
@@ -36,6 +39,7 @@ export function Bundle({
   view,
   viewCount,
   barShown,
+  headHeight,
   blocked,
   drag,
   collections,
@@ -47,6 +51,8 @@ export function Bundle({
   viewCount: number;
   /** The bulk bar shows: the capsule sits above it. */
   barShown: boolean;
+  /** The toolbar over the main area: the panel keeps 12 px under it. */
+  headHeight: number;
   blocked: boolean;
   /** The selection is dragged: its count, and whether it is over the bundle. */
   drag: { count: number; over: boolean } | null;
@@ -58,16 +64,32 @@ export function Bundle({
   const state = useBundle();
   const panelId = useId();
   const capsule = useRef<HTMLButtonElement>(null);
-  const [windowHeight, setWindowHeight] = useState(() => window.innerHeight);
+  // The main area's height: the panel fits between its toolbar and the capsule.
+  const probe = useRef<HTMLSpanElement>(null);
+  const [mainHeight, setMainHeight] = useState(() => window.innerHeight);
   useEffect(() => {
-    const resize = () => setWindowHeight(window.innerHeight);
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    const main = probe.current?.closest("main");
+    if (!main) return;
+    const observer = new ResizeObserver(() => setMainHeight(main.clientHeight));
+    observer.observe(main);
+    setMainHeight(main.clientHeight);
+    return () => observer.disconnect();
   }, []);
   // A collection's section follows its renames.
   useEffect(() => bundle.follow(collections), [collections]);
   // Items deleted or moved to Trash leave the bundle when the library changes under it, and on open.
-  useEffect(() => api.onLibraryInvalidated(() => void pruneBundle()), []);
+  // A bookmark trashed while the panel is open leaves it at once, so Save never writes it.
+  useEffect(() => {
+    const prune = () => void pruneBundle();
+    // Deleted (no bookmark) or moved to Trash; other edits leave the bundle as it is.
+    const gone = (change: BookmarkChange) => !change.bookmark || !!change.bookmark.deleted_at;
+    const stops = [
+      api.onLibraryInvalidated(prune),
+      api.onBookmarkChanged((change) => gone(change) && prune()),
+      api.onBookmarksChanged((changes) => changes.some(gone) && prune()),
+    ];
+    return () => stops.forEach((stop) => stop());
+  }, []);
   const open = state.open && !blocked;
   useEffect(() => {
     if (open) void pruneBundle();
@@ -76,7 +98,7 @@ export function Bundle({
   const count = itemCount(state);
   const capsuleBottom = barShown ? OVER_BAR : EDGE;
   const panelBottom = capsuleBottom + CAPSULE + GAP;
-  const panelHeight = Math.max(0, Math.min(PANEL_MAX, windowHeight - EDGE - (capsuleBottom + CAPSULE) - GAP));
+  const panelHeight = Math.max(0, Math.min(PANEL_MAX, mainHeight - (headHeight + GAP) - (capsuleBottom + CAPSULE) - GAP));
 
   // «Add {view} · N» shows while the view is not in the bundle yet and holds something.
   const [covered, setCovered] = useState(false);
@@ -153,12 +175,14 @@ export function Bundle({
     };
   }, [open, panelId]);
 
-  if (blocked) return null;
+  const probeElement = <span ref={probe} hidden />;
+  if (blocked) return probeElement;
   // At rest it shows while it holds something and was not hidden; any drag of the selection brings it.
   const shown = (count > 0 && !state.hidden) || !!drag;
   const over = !!drag?.over;
   return (
     <>
+      {probeElement}
       {shown && (
         <Capsule
           ref={capsule}
