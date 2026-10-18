@@ -162,7 +162,16 @@ export function App() {
   const readingFocus = useRef<HTMLElement | null>(null);
   /** What a screen reader hears when a click changes the selection (NP-123). */
   const [announcement, setAnnouncement] = useState("");
-  const [editing, setEditing] = useState<Bookmark | null>(null);
+  const [editing, setEditingState] = useState<Bookmark | null>(null);
+  /**
+   * Grows every time the editor opens or closes: a save that finishes later closes the
+   * editor only if it is still the one that was saved, not one opened since with its draft.
+   */
+  const editorSession = useRef(0);
+  const setEditing = useCallback((b: Bookmark | null) => {
+    editorSession.current++;
+    setEditingState(b);
+  }, []);
   const editingRef = useRef(editing);
   editingRef.current = editing;
   const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
@@ -1196,12 +1205,15 @@ export function App() {
       }}
       onSave={async (data) => {
         const hooks = editHooks.current;
+        const session = editorSession.current;
+        // Another editor opened while this save was on its way keeps its draft open.
+        const closeSaved = () => session === editorSession.current && closeEditor();
         if (hooks) {
           await hooks.save(data);
-          return closeEditor();
+          return void closeSaved();
         }
         const { command } = await api.updateBookmark(editing.id, data);
-        closeEditor();
+        closeSaved();
         say(t("notice.saved"), false, undoing(command));
       }}
     />

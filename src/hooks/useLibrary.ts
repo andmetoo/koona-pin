@@ -418,7 +418,10 @@ export function useLibrary(
         }
         if (!alive.current || list !== seq.current) return;
       }
-      for (const c of fresh) {
+      // While the database answered, a newer event may have come for some of them
+      // (a deletion, another edit) and been applied: this older change must not undo it.
+      const latest = fresh.filter((c) => revisions.current.get(c.id) === c.revision);
+      for (const c of latest) {
         const b = c.bookmark;
         apply(c, !!b && matchesFilters(b, filters) && (!found || found.has(b.id)), false);
       }

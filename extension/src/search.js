@@ -46,8 +46,22 @@ function dot(color) {
 const sameFilter = (a, b) => a.kind === b.kind && a.id === b.id;
 const collectionName = (id) => state.counts?.collections.find((c) => c.id === id)?.name ?? "";
 
+/**
+ * The answer still on its way for the newest query or filter: Enter waits for it, so it never
+ * opens a row of the list asked for before.
+ */
+let asking = null;
 /** One answer per typed query; an older answer never replaces a newer one. */
-async function search() {
+function search() {
+  const run = ask();
+  asking = run;
+  const done = () => {
+    if (asking === run) asking = null;
+  };
+  run.then(done, done);
+  return run;
+}
+async function ask() {
   const turn = ++state.turn;
   // The app may be starting in the tray (Р-40): say so if the first answer is slow.
   const slow = setTimeout(() => turn === state.turn && !state.counts && starting(), 300);
@@ -69,12 +83,18 @@ const later = () => {
     void search();
   }, 120);
 };
-/** The answer for what is typed now: Enter right after a character must not open the previous list. */
+/**
+ * The answer for what is typed and chosen now: Enter right after a character or a filter
+ * must not open the previous list, whether the query still waits to be sent or is being answered.
+ */
 async function current() {
-  if (!typing) return;
-  clearTimeout(typing);
-  typing = 0;
-  await search();
+  if (typing) {
+    clearTimeout(typing);
+    typing = 0;
+    void search();
+  }
+  // The newest answer: a query sent while waiting for an older one replaces it here.
+  while (asking) await asking.catch(() => {});
 }
 query.addEventListener("input", (event) => {
   if (!event.isComposing) later();
@@ -268,7 +288,7 @@ document.addEventListener("keydown", async (event) => {
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
     select(Math.min(state.items.length - 1, Math.max(0, state.selected + (event.key === "ArrowDown" ? 1 : -1))));
-  } else if (event.key === "Enter" && (item || typing) && !event.target.closest?.("button")) {
+  } else if (event.key === "Enter" && (item || typing || asking) && !event.target.closest?.("button")) {
     event.preventDefault();
     await current();
     const chosen = state.items[state.selected];

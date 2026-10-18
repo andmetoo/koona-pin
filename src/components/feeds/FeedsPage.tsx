@@ -100,19 +100,28 @@ export function FeedsPage({
     setSearching(false);
   }, [feedUid]);
 
-  // The saved post's bookmark: ✓, Reading and the heart of the toolbar follow it.
-  const [bookmark, setBookmark] = useState<Bookmark | null>(null);
+  // The saved post's bookmark: ✓, Reading and the heart of the toolbar follow it. It is kept
+  // with the post it belongs to: another post open shows (and changes) nothing of it.
+  const [held, setHeld] = useState<{ item: number; bookmark: Bookmark | null } | null>(null);
+  const selectedId = selected?.id ?? null;
+  const bookmark = held && held.item === selectedId ? held.bookmark : null;
   const bookmarkId = selected?.bookmark_id ?? null;
-  const loadBookmark = useCallback(() => {
-    if (bookmarkId === null) return Promise.resolve(setBookmark(null));
-    return api.getBookmarks({}, { id: bookmarkId, limit: 1 }).then(
-      (page) => setBookmark(page.items[0] ?? null),
-      () => setBookmark(null),
-    );
-  }, [bookmarkId]);
+  const shownId = useRef(selectedId);
+  shownId.current = selectedId;
+  /** Every read or save of the bookmark gets a turn: an older answer arriving later is dropped. */
+  const bookmarkTurn = useRef(0);
+  const holdBookmark = useCallback((item: number, found: Bookmark | null) => {
+    bookmarkTurn.current++;
+    if (shownId.current === item) setHeld({ item, bookmark: found });
+  }, []);
+  const loadBookmark = useCallback(async (item: number, id: number | null) => {
+    const turn = ++bookmarkTurn.current;
+    const found = id === null ? null : await api.getBookmarks({}, { id, limit: 1 }).then((page) => page.items[0] ?? null, () => null);
+    if (turn === bookmarkTurn.current && shownId.current === item) setHeld({ item, bookmark: found });
+  }, []);
   useEffect(() => {
-    void loadBookmark();
-  }, [loadBookmark, feeds]);
+    if (selectedId !== null) void loadBookmark(selectedId, bookmarkId);
+  }, [loadBookmark, selectedId, bookmarkId, feeds]);
 
   // Opening a post marks it read after a second; U takes it back.
   const latest = useRef(items);
@@ -162,14 +171,16 @@ export function FeedsPage({
     if (!item.url) return onNotice({ text: t("feeds.notice.noLink"), alert: true });
     try {
       if (kind === "library" && item.bookmark_id !== null) return onNotice({ text: t("feeds.notice.alreadySaved") });
-      if (kind === "reading" && bookmark?.reading_at) {
-        const { command } = await api.bulkUpdate([bookmark.id], { action: "reading", reading: false });
-        await loadBookmark();
+      // Only the bookmark of this very post: never one still held from the post open before.
+      const own = held && held.item === item.id ? held.bookmark : null;
+      if (kind === "reading" && own?.reading_at) {
+        const { command } = await api.bulkUpdate([own.id], { action: "reading", reading: false });
+        await loadBookmark(item.id, own.id);
         return onNotice({ text: t("notice.fromReading"), undo: onUndo(command) });
       }
-      if (kind === "favorite" && bookmark?.is_favorite) {
-        const { command } = await api.bulkUpdate([bookmark.id], { action: "favorite", favorite: false });
-        await loadBookmark();
+      if (kind === "favorite" && own?.is_favorite) {
+        const { command } = await api.bulkUpdate([own.id], { action: "favorite", favorite: false });
+        await loadBookmark(item.id, own.id);
         return onNotice({ text: t("feeds.notice.unfavorited"), undo: onUndo(command) });
       }
       const result = await saveFeedItem(item.id, kind === "reading" ? "reading" : "library", kind === "favorite");
@@ -185,8 +196,8 @@ export function FeedsPage({
         ({ command } = await api.bulkUpdate([saved.id], { action: "favorite", favorite: true }));
         topped = true;
       }
-      if (topped) await loadBookmark();
-      else setBookmark(saved);
+      if (topped) await loadBookmark(item.id, saved.id);
+      else holdBookmark(item.id, saved);
       // «Undo» of a bookmark this save made takes it away; of a link brought back from the
       // Trash, or one moved to Reading or Favorites, it is the journal's; else there is none.
       const undo = result.created && !topped ? () => onUnsave(saved.id) : command !== null ? onUndo(command) : undefined;
