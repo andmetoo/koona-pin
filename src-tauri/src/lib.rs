@@ -96,14 +96,15 @@ pub fn run() {
     let channel_state = Arc::new(capture_channel::ChannelState::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
+            // A `.kpin` file or a `koonapin://` link opened while the app runs (NP-139, NP-142):
+            // Windows and Linux start a second copy with it, which hands its arguments over. One
+            // dropped because another waits does not bring the window forward.
+            let kept = open_requests::keep_args(app, &args, std::path::Path::new(&cwd));
             // The native host starts the app with --autostart to save a link;
             // an app that is already running stays where it is.
-            if !args.iter().any(|arg| arg == autostart::ARG) {
+            if !args.iter().any(|arg| arg == autostart::ARG) && kept != Some(false) {
                 desktop::bring_forward(app, desktop::activation_token(&args))
             }
-            // A `.kpin` file or a `koonapin://` link opened while the app runs (NP-139, NP-142):
-            // Windows and Linux start a second copy with it, which hands its arguments over.
-            open_requests::deliver_args(app, &args, std::path::Path::new(&cwd));
         }))
         // Registers `koonapin://` for macOS and Windows from `plugins.deep-link` at bundle time. The
         // links themselves come as arguments or `RunEvent::Opened` and are checked by open_requests;
@@ -322,7 +323,9 @@ pub fn run() {
                     .iter()
                     .find_map(|url| open_requests::parse(url.as_str(), root))
                 {
-                    open_requests::deliver(_app, request);
+                    if open_requests::keep(_app, request) {
+                        show_window(_app);
+                    }
                 }
             }
         });
