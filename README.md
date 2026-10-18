@@ -34,7 +34,7 @@ Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 
 Koona Pin is free, and everything above stays free. **Supporter**, an optional subscription ($2 or €2 a month, $20 or €20 a year, or $50 or €50 once for five years), funds the project and adds:
 
-- **Sync between your computers**: bookmarks, collections, tags, the Reading list and where you stopped reading, and the feeds you follow. Posts and read marks stay on each computer. Sync is end-to-end encrypted and passes through a relay that stores nothing, so **it works only while Koona Pin is running on both computers at the same time**: changes wait on a computer until another one is online. One computer is the main one; another joins when you confirm a 6-digit code on the main one. Every computer needs the same major version of Koona Pin.
+- **Sync between your computers**: bookmarks, collections, tags, the Reading list and where you stopped reading, and the feeds you follow. Posts and read marks stay on each computer. Sync is end-to-end encrypted and passes through a relay that stores nothing, so **it works only while Koona Pin is running on both computers at the same time**: changes wait on a computer until another one is online. One computer is the main one; another joins when you confirm a 6-digit code on the main one. Keep every computer up to date: after some updates sync pauses until all of them have the new version.
 - **Automatic backups to a folder you choose**, such as a cloud drive.
 - **The Paper and Sepia reading themes** and a Supporter badge.
 

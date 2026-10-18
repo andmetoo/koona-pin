@@ -126,7 +126,7 @@ Sync lives in `commercial` directories under the commercial licence: the engine 
 
 - Every computer dials out over WSS to a relay. The relay routes end-to-end encrypted frames between the account's computers and keeps only the list of devices (id, public key, name, last seen); it stores nothing of the library and nothing for a computer that is offline. **So changes travel only while Koona Pin runs on two computers at the same time**; until then they wait on the computer where they were made.
 - One computer is the main one (the hub): it approves a new computer, which the person confirms by comparing a 6-digit code on both, and it rotates the library key. All computers share that key, so the relay cannot read or forge what it passes.
-- Synced: bookmarks, collections, tags, the Reading list with progress and read state, and followed feeds. Not synced: feed posts and their read marks, and offline copies. Computers on different major versions pause sync until both are updated.
+- Synced: bookmarks, collections, tags, the Reading list with progress and read state, and followed feeds. Not synced: feed posts and their read marks, and offline copies. After an update that changes what sync carries (1.8.0, 2.0.0), computers on different versions pause sync until all are updated.
 
 ## Backups and restore
 
