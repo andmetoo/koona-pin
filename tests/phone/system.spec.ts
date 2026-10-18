@@ -40,17 +40,18 @@ test("battery saver turned on and off: the glass follows, the layout stays", asy
   expect(await backdrop(pill)).toContain("blur(20px)");
 });
 
-// The system's font size reaches the page as the WebView's text zoom, which the browser cannot
-// play; the root's flags for it can be checked: the badge keeps its size, and at the accessibility
-// sizes a Settings row's value goes under its name.
+// The system's font size reaches the page as the WebView's text zoom, which the fixture plays by
+// scaling the page's font sizes and line heights (tests/phone/fixtures.ts, textZoom): the badge
+// keeps its size, and at the accessibility sizes a Settings row's value goes under its name.
 
 test("the text scale: the nav pill's badge keeps its size", async ({ page }) => {
   await openPhone(page, { system: { powerSave: false, lowRam: false, textScale: 2 } });
   const root = page.locator("[data-phone]");
   await expect(root).toHaveAttribute("data-text-large", "true");
-  // Zoomed twice by the WebView, 5.5 px are the designed 11.
+  // The page asks for 5.5 px, which the WebView's zoom draws at the designed 11.
   const badge = navPill(page).locator(".ph-badge");
-  expect(await badge.evaluate((node) => getComputedStyle(node).fontSize)).toBe("5.5px");
+  expect(await badge.evaluate((node) => getComputedStyle(node).fontSize)).toBe("11px");
+  expect((await badge.boundingBox())!.height).toBe(20);
 });
 
 test("1.5 is not an accessibility size yet; 1.8 is, and a row's value goes under its name", async ({ page }) => {

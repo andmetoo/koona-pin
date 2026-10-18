@@ -44,11 +44,11 @@ export function ReaderLookSheet(_: { props: ReaderLookSheetProps }) {
         <h3 className="rd-look-label">{t("readerAa.size")}</h3>
         <div className="rd-look-size">
           <CircleButton kind="flat" size={44} label={t("phone.reader.smaller")} disabled={smaller === choice.size} onClick={() => change({ size: smaller })}>
-            <span style={{ fontSize: 14 }}>A</span>
+            <span className="rd-look-a" data-size="small">A</span>
           </CircleButton>
           <output aria-live="polite">{t("readerAa.sizeValue", { size: choice.size + 1 })}</output>
           <CircleButton kind="flat" size={44} label={t("phone.reader.larger")} disabled={larger === choice.size} onClick={() => change({ size: larger })}>
-            <span style={{ fontSize: 21 }}>A</span>
+            <span className="rd-look-a" data-size="large">A</span>
           </CircleButton>
         </div>
       </section>

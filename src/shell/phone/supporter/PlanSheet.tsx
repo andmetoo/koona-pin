@@ -108,7 +108,7 @@ function PlanBody({ supporter }: { supporter: NonNullable<ReturnType<typeof useP
         <SeasonHeart />
         <span className="ys-supporter-text">
           <span className="ph-headline">{name}</span>
-          <span className="ph-meta sp-email">{supporter.email}</span>
+          <span className="ph-meta sp-email" data-user-text>{supporter.email}</span>
           <span role={tone === "muted" && !error ? undefined : "status"} className="sp-status" data-tone={error ? "danger" : tone}>
             {error ?? shownStatus}
           </span>

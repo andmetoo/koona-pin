@@ -14,6 +14,11 @@
   font-size: 28px;
   line-height: 34px;
 }
+/* Up to the first accessibility size, as every large title (src/styles/phone.css). */
+.phone[data-text-large] .inb-column:has(.inb-progress) .ph-header .ph-display {
+  font-size: calc(28px * 1.6 / var(--ph-text-scale, 1));
+  line-height: calc(34px * 1.6 / var(--ph-text-scale, 1));
+}
 .phone .inb-count {
   font-size: 15px;
   line-height: 20px;
@@ -24,7 +29,7 @@
 }
 .phone .inb-finish {
   top: -3px;
-  height: 40px;
+  min-height: 40px;
   padding: 0 20px;
   font-weight: 500;
 }
@@ -53,10 +58,13 @@
 }
 
 /* ---------------------------------------------------------------- The card stack */
-/* The picture shrinks on a short screen so the decisions stay in view: 176 at 852 − 54 − 34. */
+/* The picture shrinks on a short screen so the decisions stay in view: 176 at 852 − 54 − 34; and
+   with larger text, whose lines (`--ph-text-scale`) the card makes room for: 116 of its 178 below
+   the picture are text (the source line 20, two title lines 54, two description lines 42). */
 .phone .inb-stack {
-  --inb-cover: clamp(96px, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 588px), 176px);
-  --inb-card: calc(var(--inb-cover) + 178px);
+  --inb-scale: var(--ph-text-scale, 1);
+  --inb-cover: clamp(96px, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 588px - 160px * (var(--inb-scale) - 1)), 176px);
+  --inb-card: calc(var(--inb-cover) + 62px + 116px * var(--inb-scale));
   position: relative;
   width: min(calc(100% - 2 * var(--ph-side)), 520px);
   height: calc(var(--inb-card) + 22px);
@@ -199,7 +207,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 20px;
+  min-height: 20px;
   margin: 16px 0 0 12px;
 }
 .phone .inb-source .ph-circle {
@@ -359,7 +367,6 @@
   font-size: 15px;
   line-height: 20px;
   font-weight: 500;
-  white-space: nowrap;
   transition:
     background-color 160ms ease-out,
     color 160ms ease-out,
@@ -368,6 +375,53 @@
 }
 .phone .inb-seg svg {
   flex: none;
+}
+/* Beside its icon a label keeps to one line; when one does not fit (German "Papierkorb", a larger
+   font size) DecisionPill stacks them all: each label under its icon, in the same 60 while one
+   line of text fits, wrapping and growing the pill when a word is longer than its third. */
+.phone .inb-seg-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.phone .inb-decide[data-stacked],
+.phone[data-text-large] .inb-decide {
+  align-items: stretch;
+  height: auto;
+  min-height: 60px;
+}
+.phone .inb-decide[data-stacked] .inb-seg,
+.phone[data-text-large] .inb-seg {
+  flex-direction: column;
+  gap: 2px;
+  height: auto;
+  min-height: 52px;
+  padding: 4px;
+}
+.phone .inb-decide[data-stacked] .inb-seg-label,
+.phone[data-text-large] .inb-seg-label {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  text-align: center;
+}
+.phone .inb-decide[data-stacked] .inb-seg-rule,
+.phone[data-text-large] .inb-seg-rule {
+  align-self: center;
+}
+/* At the accessibility text sizes (doc/mobile-design.md, Dynamic Type) the labels are always under
+   their icons, in three equal thirds; they grow up to the first accessibility size (1.6) and no
+   further, so that a word still fits its third. */
+.phone[data-text-large] .inb-decide {
+  grid-template-columns: 1fr 1px 1fr 1fr;
+  border-radius: 32px;
+}
+.phone[data-text-large] .inb-seg {
+  padding: 6px 4px;
+  border-radius: 28px;
+  font-size: calc(15px * min(1, 1.6 / var(--ph-text-scale, 1)));
+  line-height: calc(20px * min(1, 1.6 / var(--ph-text-scale, 1)));
 }
 .phone .inb-seg:active,
 .phone .inb-seg[data-pressed] {
@@ -480,7 +534,7 @@
   margin-top: 14px;
 }
 .phone .inb-undo {
-  height: 44px;
+  min-height: 44px;
   font-size: 16px;
 }
 

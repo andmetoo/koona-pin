@@ -99,7 +99,7 @@ impl AppInfo {
                 quit: desktop,
                 folder_picker: desktop,
                 share_intake: false,
-                // The haptics plugin is registered on phones only (src/mobile).
+                // Played by the `haptic` command of koona-mobile, a plugin registered on phones only.
                 haptics: !desktop,
                 purchase: purchase(desktop),
             },
