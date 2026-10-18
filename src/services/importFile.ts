@@ -185,8 +185,8 @@ export type LateFormat = (cap: number) => Promise<{ format: string | null; text?
 const SCAN_PIECE = 4 * 1024 * 1024;
 
 /**
- * `LateFormat` from one whole read: the text, read under the cap, is scanned and kept, so it is not
- * read again.
+ * `LateFormat` from one whole read: the text, read under the cap, is scanned once and kept, so it is
+ * neither read nor scanned whole again.
  */
 const scanWhole =
   (whole: (cap: number) => Promise<string | null>): LateFormat =>
@@ -200,8 +200,9 @@ const scanWhole =
  * whole by `whole` (up to a cap; `null` past it) only once its kind is known and under that
  * kind's cap; a head of the whole file is not read again. A JSON whose `format` is past the head
  * is scanned whole by `late` under the largest cap (a full copy's), then held to the cap of the
- * kind found. The whole text must be of the kind its head was: a file changed in between is
- * refused. Exported for tests.
+ * kind found. The whole text must have a head of the same kind (or, scanned late, one that still
+ * does not tell): a file changed in between is refused. The whole text is scanned at most once.
+ * Exported for tests.
  */
 export async function known(
   name: string,
@@ -211,12 +212,15 @@ export async function known(
   late: LateFormat = scanWhole(whole),
 ): Promise<ImportFile | ImportRefusal> {
   let kind = sniffHead(head);
+  /** The kind came from a scan of the whole file: its head does not tell. */
+  const scanned = kind === undefined && bytes > HEAD;
   let text: string | null = null;
   if (kind === undefined) {
     if (bytes > CAPS.backup) return { refused: "tooBig", cap: CAPS.backup };
     if (bytes <= HEAD) {
+      // The head is all of it and was scanned whole: a JSON cut short, none of ours.
       text = head;
-      kind = sniff(head);
+      kind = null;
     } else {
       const found = await late(CAPS.backup);
       if (found === null) return { refused: "tooBig", cap: CAPS.backup };
@@ -229,7 +233,12 @@ export async function known(
   if (text === null) {
     text = bytes <= HEAD ? head : await whole(CAPS[kind]);
     if (text === null) return { refused: "tooBig", cap: CAPS[kind] };
-    if (text !== head && sniff(text) !== kind) return { refused: "unsupported" };
+    // A file changed in between has another head; only the head is checked again, as a scan of
+    // the whole text would be the second one (Rust validates all of it anyway).
+    if (text !== head) {
+      const again = sniffHead(text);
+      if (again !== kind && !(scanned && again === undefined)) return { refused: "unsupported" };
+    }
   }
   return { kind, name, text };
 }
