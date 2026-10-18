@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BookmarkChange, Collection } from "../../types";
 import { api } from "../../services/api";
@@ -126,19 +126,42 @@ export function Bundle({
   const panelHeight = Math.max(0, Math.min(PANEL_MAX, mainHeight - (headHeight + GAP) - (capsuleBottom + CAPSULE) - GAP));
 
   // «Add {view} · N» shows while the view is not in the bundle yet and holds something.
-  const [covered, setCovered] = useState(false);
+  // The view's ids are fetched once per view while the panel is open, and again only when the
+  // library changes; a change to the bundle checks them against its keys here.
   const viewKey = view && (view.kind === "links" ? JSON.stringify(view.filters) : view.kind);
+  const viewIds = useRef<{ key: string; ids: number[] } | null>(null);
+  const [idsFetched, setIdsFetched] = useState(0);
+  const [libraryChanged, setLibraryChanged] = useState(0);
   useEffect(() => {
-    if (!open || view?.kind !== "links") return setCovered(false);
+    if (!open) return;
+    const changed = () => setLibraryChanged((n) => n + 1);
+    const stops = [api.onLibraryInvalidated(changed), api.onBookmarkChanged(changed), api.onBookmarksChanged(changed)];
+    return () => stops.forEach((stop) => stop());
+  }, [open]);
+  useEffect(() => {
+    if (!open || view?.kind !== "links" || !viewKey) return;
     let live = true;
-    const inBundle = new Set(state.sections.flatMap((s) => s.entries.map(entryKey)));
-    void api.getBookmarkIds(view.filters).then((ids) => live && setCovered(ids.length > 0 && ids.every((id) => inBundle.has(`b:${id}`))), () => {});
+    void api.getBookmarkIds(view.filters).then(
+      (ids) => {
+        if (!live) return;
+        viewIds.current = { key: viewKey, ids };
+        setIdsFetched((n) => n + 1);
+      },
+      () => {},
+    );
     return () => {
       live = false;
     };
-    // The view's filters by their key: a new object for the same view checks nothing new.
+    // The view's filters by their key: a new object for the same view fetches nothing new.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, viewKey, state.sections]);
+  }, [open, viewKey, libraryChanged]);
+  const covered = useMemo(() => {
+    const fetched = viewIds.current;
+    if (!open || view?.kind !== "links" || !fetched || fetched.key !== viewKey || !fetched.ids.length) return false;
+    const inBundle = new Set(state.sections.flatMap((s) => s.entries.map(entryKey)));
+    return fetched.ids.every((id) => inBundle.has(`b:${id}`));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, viewKey, idsFetched, state.sections]);
   const inBundle = (key: string) => state.sections.some((s) => s.entries.some((e) => entryKey(e) === key));
   const offered =
     !!view &&
