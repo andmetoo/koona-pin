@@ -386,6 +386,8 @@
     "followHint": "Beiträge erscheinen unter Feeds.",
     "nothingSaved": "Nichts wird gespeichert, bevor du importierst.",
     "import": "{{what}} importieren",
+    "tagOnly_one": "Listen-Tags zu {{count, number}} Link hinzufügen",
+    "tagOnly_other": "Listen-Tags zu {{count, number}} Links hinzufügen",
     "failed": "Import fehlgeschlagen. {{reason}} Nichts wurde hinzugefügt – die Bibliothek ist wie zuvor.",
     "reportTagged": "Schon in der Bibliothek – Listen-Tags hinzugefügt",
     "reportRepeated": "Wiederholt in der Liste",

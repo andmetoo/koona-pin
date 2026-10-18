@@ -366,6 +366,7 @@
     "followHint": "文章会出现在“订阅源”中。",
     "nothingSaved": "导入之前不会保存任何内容。",
     "import": "导入 {{what}}",
+    "tagOnly_other": "为 {{count, number}} 个链接添加列表标签",
     "failed": "无法导入。{{reason}} 未添加任何内容，资料库保持原样。",
     "reportTagged": "已在资料库中 — 已添加列表标签",
     "reportRepeated": "列表内重复",

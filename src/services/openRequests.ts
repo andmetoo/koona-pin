@@ -77,25 +77,39 @@ export async function readDropped(
 type Listener = (request: OpenRequest | null) => void;
 
 /**
- * One request at a time: while one waits or its dialog is open, a later one is refused (`push`
- * says so, and the caller tells the person), so a page firing `koonapin://` links cannot stack
- * dialogs. The list dialog calls `done` whenever it closes.
+ * One request at a time, so a page firing `koonapin://` links cannot stack dialogs. A later one
+ * replaces the current while its dialog only shows or asks; while the dialog downloads or imports
+ * (`setBusy`), it is refused (`push` says so, and the caller tells the person). Each kept request
+ * gets a new `id`, the dialog's key. The list dialog calls `done` whenever it closes.
  */
 export function createOpenRequests() {
   let current: OpenRequest | null = null;
+  let busy = false;
+  let id = 0;
   const listeners = new Set<Listener>();
   const tell = () => listeners.forEach((listener) => listener(current));
   return {
-    /** Keeps the request unless one is pending; `true` when kept. */
+    /** Keeps the request, in place of an idle one; `true` when kept. */
     push(request: OpenRequest): boolean {
-      if (current) return false;
+      if (current && busy) return false;
       current = request;
+      id++;
       tell();
       return true;
     },
     current: () => current,
+    /** The number of the current request: a new one is a new dialog. */
+    id: () => id,
+    busy: () => busy,
+    /** The dialog downloads or imports: nothing may replace or drop its request meanwhile. */
+    setBusy(value: boolean) {
+      if (busy === value) return;
+      busy = value;
+      tell();
+    },
     /** The request is handled (imported, cancelled or refused): the next one may come. */
     done() {
+      busy = false;
       if (!current) return;
       current = null;
       tell();

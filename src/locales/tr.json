@@ -386,6 +386,8 @@
     "followHint": "Gönderiler Akışlar'da görünür.",
     "nothingSaved": "İçe aktarana kadar hiçbir şey kaydedilmez.",
     "import": "İçe aktar: {{what}}",
+    "tagOnly_one": "{{count, number}} bağlantıya liste etiketlerini ekle",
+    "tagOnly_other": "{{count, number}} bağlantıya liste etiketlerini ekle",
     "failed": "İçe aktarılamadı. {{reason}} Hiçbir şey eklenmedi; kitaplık olduğu gibi.",
     "reportTagged": "Zaten kitaplıkta — liste etiketleri eklendi",
     "reportRepeated": "Liste içinde yinelenen",

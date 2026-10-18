@@ -228,7 +228,7 @@ const desktop = {
   /** A `.kpin` the system opened with the app, by the path Rust checked. */
   readListFile: (path: string) => call<ListFile>("read_list_file", { path }),
   /** Only after **Download**: https, the guard, 2 MB, 15 s. */
-  downloadList: (url: string) => call<ListDownload>("download_list", { url }),
+  downloadList: (url: string, ticket: number) => call<ListDownload>("download_list", { url, ticket }),
   cancelListDownload: () => call<void>("cancel_list_download"),
   onListDownloadProgress: (callback: (progress: ListDownloadProgress) => void) => subscription("list-download-progress", callback),
   /** The Save dialog and the file (NP-032); CSV needs its column titles; `ids` — only the selected (NP-029). */

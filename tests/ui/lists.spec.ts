@@ -81,12 +81,78 @@ test("a list: the preview, choices, the import and its report, then «Show colle
   await expect(d.locator("[data-list-report]")).toContainText("Feeds followed1");
   await d.getByRole("button", { name: "Done" }).click();
   await expect(d).toHaveCount(0);
-  // And once more: nothing new.
+  // Once more: nothing to import, so the button closes, unless the saved links are to get the list's tags.
   expect(await push(page, { kind: "kpin", name: "rust-blogs.kpin", text: kpin("valid.kpin") })).toBe(true);
+  await expect(d.locator("[data-list-counts]")).toContainText("3 links already saved · 2 feeds already followed");
+  await expect(d.locator("footer").getByRole("button")).toHaveText(["Cancel", "Close"]);
+  await d.getByRole("radio", { name: "Add list tags" }).click();
+  await d.getByRole("button", { name: "Add list tags to 3 links" }).click();
+  await expect(d.locator("[data-list-report]")).toContainText("Already in the library — list tags added3");
+  await d.getByRole("button", { name: "Done" }).click();
+  await expect(d).toHaveCount(0);
+  const tagged = await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    return (await api.getBookmarks({ search: "Tokio" })).items.map((b) => b.tags);
+  });
+  expect(tagged).toEqual([["runtime", "async"]]);
+
+  // A list whose every feed is followed and that has no links: nothing new.
+  const feeds = JSON.stringify({
+    format: "koona",
+    app: "pin",
+    kind: "list",
+    version: "1.0",
+    title: "Rust feeds",
+    items: [
+      { type: "feed", url: "https://blog.rust-lang.org/feed.xml" },
+      { type: "feed", url: "https://without.boats/index.xml" },
+    ],
+  });
+  expect(await push(page, { kind: "kpin", name: "rust-feeds.kpin", text: feeds })).toBe(true);
   await expect(d.getByRole("status")).toHaveText("Nothing new in this list");
-  await expect(d).toContainText("Every link and feed of «Rust blogs worth following» is here already.");
-  await expect(d).toContainText("3 links already saved");
+  await expect(d).toContainText("Every link and feed of «Rust feeds» is here already.");
+  await expect(d).toContainText("2 feeds already followed");
   await d.locator("footer").getByRole("button", { name: "Close" }).click();
+  await expect(d).toHaveCount(0);
+});
+
+test("an import cannot be stopped or replaced; an idle dialog gives way to a new request", async ({ page }) => {
+  const d = dialog(page);
+  // A new request while the dialog only shows the preview replaces it, as a fresh dialog.
+  expect(await push(page, { kind: "kpin", name: "rust-blogs.kpin", text: kpin("valid.kpin") })).toBe(true);
+  await expect(d).toContainText("Rust blogs worth following");
+  await d.getByRole("radio", { name: "Ignore" }).click();
+  expect(await push(page, { kind: "kpin", name: "v2.kpin", text: kpin("version-2.kpin") })).toBe(true);
+  await expect(d.getByRole("status")).toHaveText("Update Koona Pin to open this list");
+  expect(await push(page, { kind: "kpin", name: "rust-blogs.kpin", text: kpin("valid.kpin") })).toBe(true);
+  await expect(d.getByRole("radio", { name: "As tags" })).toHaveAttribute("aria-checked", "true");
+
+  // The import waits for the test to let it finish.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { finish: () => void };
+    const real = api.importList.bind(api);
+    api.importList = (text, options) => new Promise((resolve, reject) => (w.finish = () => void real(text, options).then(resolve, reject)));
+  });
+  await d.getByRole("button", { name: "Import 3 links · 2 feeds" }).click();
+  await expect(d.getByRole("status")).toHaveText("Importing the list…");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  await expect(d.getByRole("status")).toHaveText("Importing the list…");
+  await expect(d.getByRole("button", { name: "Close" })).toBeDisabled();
+  // Another list meanwhile is refused, and a dropped one is refused aloud.
+  expect(await push(page, { kind: "kpin-url", url: "https://example.com/other.kpin" })).toBe(false);
+  await page.evaluate(() => {
+    for (const type of ["dragenter", "drop"]) {
+      const data = new DataTransfer();
+      data.items.add(new File(["{}"], "other.kpin"));
+      document.body.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
+    }
+  });
+  await expect(page.locator("[role=alert]", { hasText: "Another import is open — finish it first" })).toHaveCount(1);
+  await page.evaluate(() => (window as unknown as { finish: () => void }).finish());
+  await expect(d.getByRole("status")).toHaveText("List imported");
+  await page.keyboard.press("Escape");
   await expect(d).toHaveCount(0);
 });
 
@@ -106,9 +172,8 @@ test("a koonapin:// link asks first; Download fails with its reason, Try again s
   const d = dialog(page);
   await expect(d.getByRole("status")).toHaveText("Download a list from koona.app?");
   await expect(d.locator("[data-list-address]")).toHaveText(url);
-  // Nothing went over the network before Download, and a second link is refused meanwhile.
+  // Nothing went over the network before Download.
   expect(await page.evaluate(() => (window as unknown as { downloads: string[] }).downloads)).toEqual([]);
-  expect(await push(page, { kind: "kpin-url", url: "https://example.com/other.kpin" })).toBe(false);
   await page.waitForTimeout(300);
   const first = await box(page);
 

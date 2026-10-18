@@ -366,6 +366,7 @@
     "followHint": "게시물은 피드에 나타납니다.",
     "nothingSaved": "가져오기 전에는 아무것도 저장하지 않습니다.",
     "import": "{{what}} 가져오기",
+    "tagOnly_other": "링크 {{count, number}}개에 목록 태그 추가",
     "failed": "가져올 수 없습니다. {{reason}} 아무것도 추가되지 않았으며 라이브러리는 그대로입니다.",
     "reportTagged": "이미 라이브러리에 있음 — 목록 태그 추가",
     "reportRepeated": "목록 안에서 반복됨",

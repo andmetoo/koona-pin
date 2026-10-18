@@ -645,61 +645,128 @@ const invalidations = new Set<() => void>();
 const duplicateListeners = new Set<() => void>();
 const progressListeners = new Set<(progress: ImportProgress) => void>();
 
-type DemoListItem = { url: string; title: string | null; description: string | null; tags: string[]; section: string | null };
-type DemoList = { title: string; version: string; newer: boolean; links: DemoListItem[]; feeds: DemoListItem[]; sections: number; repeated: number; not_web: number; skipped_items: number; raw: Record<string, unknown> };
+type DemoListItem = { url: string; title: string | null; description: string | null; tags: string[]; sections: string[] };
+type DemoList = {
+  title: string;
+  version: string;
+  newer: boolean;
+  links: DemoListItem[];
+  feeds: DemoListItem[];
+  sections: number;
+  repeated: number;
+  not_web: number;
+  invalid: number;
+  skipped_items: number;
+  raw: Record<string, unknown>;
+};
+
+/** An http(s) address with a host, or null: the list's own links (author, homepage) are dropped otherwise. */
+const demoWebUrl = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value.trim());
+    return (url.protocol === "http:" || url.protocol === "https:") && url.hostname ? url.href : null;
+  } catch {
+    return null;
+  }
+};
+
+/** `dedupe::url_key`, roughly: host without `www.`, no fragment, no `utm_` parameters, no trailing slash. */
+function demoUrlKey(href: string) {
+  const url = new URL(href);
+  url.hash = "";
+  for (const key of [...url.searchParams.keys()]) if (key.toLowerCase().startsWith("utm_")) url.searchParams.delete(key);
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  return `${host}${url.port ? `:${url.port}` : ""}${url.pathname.replace(/\/+$/, "")}${url.search}`;
+}
 
 /**
- * `lists/format.rs` in the browser, roughly: the envelope and version, links and feeds by
- * address, http(s) only, repeats once. The desktop app's reader is the one that counts.
+ * Preview only: `lists/format.rs` in the browser, by its cheap rules — the envelope and version,
+ * 2 MB, 5,000 items and 200 sections refused rather than cut, empty only without items, http(s)
+ * links with a host, a repeated address (by a rough `url_key`) merged into the first with its
+ * tags, unknown item types counted. The desktop app's reader is the one that counts.
  */
 function demoList(text: string): DemoList | Exclude<ListCheck, { outcome: "ready" }> {
-  if (text.length > 2 * 1024 * 1024) return { outcome: "too_big" };
+  if (new TextEncoder().encode(text).length > 2 * 1024 * 1024) return { outcome: "too_big" };
   let raw: Record<string, unknown>;
   try {
     raw = JSON.parse(text);
   } catch {
     return { outcome: "not_a_list" };
   }
-  if (!raw || typeof raw !== "object" || raw.format !== "koona") return { outcome: "not_a_list" };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
   if (raw.app !== "pin") return typeof raw.app === "string" ? { outcome: "other_app", app: raw.app } : { outcome: "not_a_list" };
-  const [major, minor] = String(raw.version ?? "").split(".").map(Number);
+  const version = /^(\d+)\.(\d+)$/.exec(String(raw.version ?? ""));
+  if (!version) return { outcome: "not_a_list" };
+  const [major, minor] = [Number(version[1]), Number(version[2])];
   if (raw.kind !== "list" || major > 1) return { outcome: "needs_newer_app" };
-  const title = typeof raw.title === "string" ? raw.title.trim().slice(0, 120) : "";
+  const title = typeof raw.title === "string" ? raw.title.replace(/\s+/g, " ").trim().slice(0, 120) : "";
   if (major !== 1 || !title) return { outcome: "not_a_list" };
-  const list: DemoList = { title, version: String(raw.version), newer: minor > 0, links: [], feeds: [], sections: 0, repeated: 0, not_web: 0, skipped_items: 0, raw };
-  const seen = new Set<string>();
-  const take = (items: unknown, section: string | null) => {
-    for (const item of Array.isArray(items) ? (items as Record<string, unknown>[]) : []) {
+  const sections = Array.isArray(raw.sections) ? (raw.sections as Record<string, unknown>[]) : [];
+  if (sections.length > 200) return { outcome: "too_big" };
+  const groups: [string | null, Record<string, unknown>[]][] = [
+    ...sections.map((section): [string | null, Record<string, unknown>[]] => [
+      typeof section?.name === "string" && section.name.trim() ? section.name.trim().slice(0, 120) : null,
+      Array.isArray(section?.items) ? section.items : [],
+    ]),
+    [null, Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : []],
+  ];
+  const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
+  if (total > 5000) return { outcome: "too_big" };
+  if (total === 0) return { outcome: "empty" };
+  const list: DemoList = { title, version: `${major}.${minor}`, newer: minor > 0, links: [], feeds: [], sections: sections.length, repeated: 0, not_web: 0, invalid: 0, skipped_items: 0, raw };
+  const links = new Map<string, DemoListItem>();
+  const feeds = new Set<string>();
+  const tagsOf = (item: Record<string, unknown>) =>
+    [...new Set((Array.isArray(item.tags) ? item.tags : []).filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim().toLowerCase().slice(0, 64)).filter(Boolean))].slice(0, 20);
+  for (const [section, items] of groups) {
+    for (const item of items) {
       if (item?.type !== "link" && item?.type !== "feed") {
         list.skipped_items++;
         continue;
       }
-      const url = typeof item.url === "string" ? item.url.trim() : "";
-      if (!/^https?:\/\/[^/]/i.test(url)) {
+      const given = typeof item.url === "string" ? item.url.trim() : "";
+      if (!given) {
+        list.invalid++;
+        continue;
+      }
+      if (/^[a-z][a-z0-9+.-]*:/i.test(given) && !/^https?:/i.test(given)) {
         list.not_web++;
         continue;
       }
-      if (seen.has(url)) {
+      const url = demoWebUrl(given);
+      if (!url) {
+        list.invalid++;
+        continue;
+      }
+      const entry = {
+        url,
+        title: typeof item.title === "string" ? item.title.trim().slice(0, 300) || null : null,
+        description: typeof item.description === "string" ? item.description.trim().slice(0, 1000) || null : null,
+        tags: tagsOf(item),
+        sections: section ? [section] : [],
+      };
+      if (item.type === "feed") {
+        if (feeds.has(url)) list.repeated++;
+        else {
+          feeds.add(url);
+          list.feeds.push(entry);
+        }
+        continue;
+      }
+      const key = demoUrlKey(url);
+      const first = links.get(key);
+      if (first) {
+        // As format.rs: the repeat's tags and section join the first.
+        first.tags = [...new Set([...first.tags, ...entry.tags])].slice(0, 20);
+        if (section && !first.sections.includes(section)) first.sections.push(section);
         list.repeated++;
         continue;
       }
-      seen.add(url);
-      const entry = {
-        url,
-        title: typeof item.title === "string" ? item.title : null,
-        description: typeof item.description === "string" ? item.description : null,
-        tags: Array.isArray(item.tags) ? item.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim().toLowerCase().slice(0, 64)) : [],
-        section,
-      };
-      (item.type === "link" ? list.links : list.feeds).push(entry);
+      links.set(key, entry);
+      list.links.push(entry);
     }
-  };
-  for (const section of Array.isArray(raw.sections) ? (raw.sections as Record<string, unknown>[]) : []) {
-    list.sections++;
-    take(section?.items, typeof section?.name === "string" ? section.name : null);
   }
-  take(raw.items, null);
-  if (list.links.length + list.feeds.length === 0) return { outcome: "empty" };
   return list;
 }
 const demoListDownloads = new Set<(progress: ListDownloadProgress) => void>();
@@ -1765,6 +1832,7 @@ export const demo = {
     const list = demoList(text);
     if ("outcome" in list) return list;
     const raw = list.raw as { description?: string; author?: { name?: string; url?: string }; license?: string; updated?: string; homepage?: string; id?: string; generator?: string; language?: string };
+    const str = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
     const known = new Map(bookmarks.map((b) => [b.url, b]));
     const saved = list.links.filter((l) => known.get(l.url) && !known.get(l.url)!.deleted_at).length;
     const trashed = list.links.filter((l) => known.get(l.url)?.deleted_at).length;
@@ -1775,15 +1843,15 @@ export const demo = {
       preview: {
         meta: {
           title: list.title,
-          description: raw.description ?? null,
-          author_name: raw.author?.name ?? null,
-          author_url: raw.author?.url ?? null,
-          license: raw.license ?? null,
-          language: raw.language ?? null,
-          updated: raw.updated ?? null,
-          homepage: raw.homepage ?? null,
-          id: raw.id ?? null,
-          generator: raw.generator ?? null,
+          description: str(raw.description),
+          author_name: str(raw.author?.name),
+          author_url: demoWebUrl(raw.author?.url),
+          license: str(raw.license),
+          language: str(raw.language),
+          updated: str(raw.updated),
+          homepage: demoWebUrl(raw.homepage),
+          id: str(raw.id),
+          generator: str(raw.generator),
           version: list.version,
         },
         source,
@@ -1796,11 +1864,11 @@ export const demo = {
         in_trash: trashed,
         repeated: list.repeated,
         not_web: list.not_web,
-        invalid: 0,
+        invalid: list.invalid,
         feeds_followed: list.feeds.filter((f) => followed.has(f.url)).length,
         skipped_details: 0,
-        skipped_items: list.newer ? list.skipped_items : 0,
-        new_feeds: list.feeds.filter((f) => !followed.has(f.url)).map((f) => ({ url: f.url, title: f.title, site: null, section: f.section })),
+        skipped_items: list.skipped_items,
+        new_feeds: list.feeds.filter((f) => !followed.has(f.url)).map((f) => ({ url: f.url, title: f.title, site: null, section: f.sections[0] ?? null })),
         existing_collection: named ? { id: named.id, name: named.name } : null,
       },
     };
@@ -1824,8 +1892,8 @@ export const demo = {
         collectionId = created.id;
       }
     }
-    const report: ListImportReport = { added: 0, already_saved: 0, in_trash: 0, repeated: list.repeated, not_web: list.not_web, invalid: 0, skipped_items: list.skipped_items, feeds_followed: 0, feeds_already: 0, collection_id: null };
-    const tagsOf = (link: DemoListItem) => [...new Set([...link.tags, ...(options.sections_as_tags && link.section ? [link.section.toLowerCase().slice(0, 64)] : [])])];
+    const report: ListImportReport = { added: 0, already_saved: 0, in_trash: 0, repeated: list.repeated, not_web: list.not_web, invalid: list.invalid, skipped_items: list.skipped_items, feeds_followed: 0, feeds_already: 0, collection_id: null };
+    const tagsOf = (link: DemoListItem) => [...new Set([...link.tags, ...(options.sections_as_tags ? link.sections.map((s) => s.toLowerCase().slice(0, 64)) : [])])];
     const added: Bookmark[] = [];
     for (const [index, link] of list.links.entries()) {
       const previous = known.get(link.url);
@@ -1886,9 +1954,9 @@ export const demo = {
     return { outcome: "unreadable" };
   },
   /** The preview downloads nothing: the server is never reached. Tests replace it for the other outcomes. */
-  async downloadList(url: string): Promise<ListDownload> {
+  async downloadList(url: string, ticket: number): Promise<ListDownload> {
     void url;
-    demoListDownloads.forEach((fn) => fn({ received: 0, total: null }));
+    demoListDownloads.forEach((fn) => fn({ ticket, received: 0, total: null }));
     await new Promise((resolve) => setTimeout(resolve, 300));
     return { outcome: "unreachable" };
   },

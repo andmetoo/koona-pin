@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ListPreview } from "../bindings/ListPreview";
-import { defaultChoices, downloadFailure, downloadShare, fileOf, hostOf, importCounts, importOptions, nothingNew, otherAppName, refusalOf } from "./lists";
+import { defaultChoices, downloadFailure, downloadShare, fileOf, footerAction, hostOf, importCounts, importOptions, nothingNew, otherAppName, refusalOf } from "./lists";
 
 const preview = (over: Partial<ListPreview> = {}): ListPreview => ({
   meta: {
@@ -77,10 +77,19 @@ describe("the list dialog's choices", () => {
     expect(importOptions(p, { ...choices, follow: false }).follow_feeds).toEqual([]);
   });
 
-  it("know when nothing in the list is new", () => {
+  it("know when nothing in the list is new, and what the footer offers", () => {
     expect(nothingNew(preview())).toBe(false);
     expect(nothingNew(preview({ new_links: 0 }))).toBe(false);
-    expect(nothingNew(preview({ new_links: 0, new_feeds: [] }))).toBe(true);
+    // Saved links could still get the list's tags.
+    expect(nothingNew(preview({ new_links: 0, new_feeds: [] }))).toBe(false);
+    expect(nothingNew(preview({ new_links: 0, new_feeds: [], already_saved: 0 }))).toBe(true);
+    const p = preview();
+    const choices = defaultChoices(p);
+    expect(footerAction(p, choices)).toEqual({ kind: "import", links: 2, feeds: 2 });
+    const saved = preview({ new_links: 0, already_saved: 3 });
+    expect(footerAction(saved, { ...choices, follow: false })).toEqual({ kind: "close" });
+    expect(footerAction(saved, { ...choices, feeds: [] })).toEqual({ kind: "close" });
+    expect(footerAction(saved, { ...choices, follow: false, existing: "add_tags" })).toEqual({ kind: "tags", links: 3 });
   });
 });
 

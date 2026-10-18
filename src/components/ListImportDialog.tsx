@@ -16,7 +16,7 @@ import {
   DownloadReason,
   fileOf,
   hostOf,
-  importCounts,
+  footerAction,
   importOptions,
   ListChoices,
   nothingNew,
@@ -63,6 +63,7 @@ export function ListImportDialog({
   onShowCollection,
   onCheckUpdates,
   onOpen,
+  onBusy,
 }: {
   request: OpenRequest;
   collections: Collection[];
@@ -72,6 +73,8 @@ export function ListImportDialog({
   onShowCollection: (id: number) => void;
   onCheckUpdates: () => void;
   onOpen: (url: string) => void;
+  /** Downloading or importing: App keeps the dialog, and a new request is refused meanwhile. */
+  onBusy: (busy: boolean) => void;
 }) {
   const { t, i18n } = useTranslation();
   const url = request.kind === "kpin-url" ? request.url : null;
@@ -115,12 +118,23 @@ export function ListImportDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** A download or an import under way: a second click starts nothing. */
+  const inFlight = useRef(false);
+  /** The number of the download the bar follows: a late event of an earlier one is ignored. */
+  const ticket = useRef(0);
   const download = () => {
-    if (!url) return;
+    if (!url || inFlight.current) return;
+    inFlight.current = true;
+    const mine = ++ticket.current;
     setPhase({ state: "downloading", received: 0, total: null });
-    const off = api.onListDownloadProgress((p) => alive.current && setPhase((now) => (now.state === "downloading" ? { state: "downloading", received: p.received, total: p.total } : now)));
+    const off = api.onListDownloadProgress(
+      (p) =>
+        alive.current &&
+        p.ticket === mine &&
+        setPhase((now) => (now.state === "downloading" ? { state: "downloading", received: p.received, total: p.total } : now)),
+    );
     void api
-      .downloadList(url)
+      .downloadList(url, mine)
       .then(
         (result) => {
           if (!alive.current || result.outcome === "cancelled") return;
@@ -130,7 +144,10 @@ export function ListImportDialog({
         },
         () => alive.current && setPhase({ state: "failed", key: "unreachable" }),
       )
-      .finally(off);
+      .finally(() => {
+        off();
+        inFlight.current = false;
+      });
   };
 
   const importing = phase.state === "importing";
@@ -139,23 +156,32 @@ export function ListImportDialog({
     return api.onImportProgress((p) => alive.current && setPhase((now) => (now.state === "importing" ? { state: "importing", done: p.done, total: p.total } : now)));
   }, [importing]);
 
+  const busy = phase.state === "downloading" || importing;
+  const onBusyRef = useRef(onBusy);
+  onBusyRef.current = onBusy;
+  useEffect(() => onBusyRef.current(busy), [busy]);
+  // A dialog that goes while it downloads (another surface, the app) stops the download.
+  const downloading = useRef(false);
+  downloading.current = phase.state === "downloading";
+  useEffect(
+    () => () => {
+      if (downloading.current) void api.cancelListDownload().catch(console.error);
+      onBusyRef.current(false);
+    },
+    [],
+  );
+
   /** Every way out but an import under way: Escape, «×», Cancel, Close, Done. */
   const close = () => {
-    if (phase.state === "downloading") void api.cancelListDownload().catch(console.error);
+    if (phase.state === "downloading") {
+      downloading.current = false;
+      void api.cancelListDownload().catch(console.error);
+    }
     onClose();
   };
-  // A window closed to the tray or hidden takes the dialog with it, so the next request can come.
-  const importingRef = useRef(importing);
-  importingRef.current = importing;
-  const closeRef = useRef(close);
-  closeRef.current = close;
-  useEffect(() => {
-    const hidden = () => document.visibilityState === "hidden" && !importingRef.current && closeRef.current();
-    document.addEventListener("visibilitychange", hidden);
-    return () => document.removeEventListener("visibilitychange", hidden);
-  }, []);
   const start = async () => {
-    if (!list || !choices) return;
+    if (!list || !choices || inFlight.current) return;
+    inFlight.current = true;
     setPhase({ state: "importing", done: 0, total: list.preview.new_links });
     try {
       const report = await api.importList(list.text, importOptions(list.preview, choices));
@@ -163,6 +189,8 @@ export function ListImportDialog({
       if (alive.current) setPhase({ state: "report", report });
     } catch (err) {
       if (alive.current) setPhase({ state: "preview", error: describeError(err) });
+    } finally {
+      inFlight.current = false;
     }
   };
 
@@ -171,7 +199,8 @@ export function ListImportDialog({
   /** A K3 state: a mark, a heading and its words, centred over the footer. */
   const message = (icon: typeof CircleAlert, tone: "accent" | "danger" | "muted", heading: string, text: ReactNode, footer: ReactNode, extra?: ReactNode) => (
     <>
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+      {/* In a low window the words scroll and the footer stays put. */}
+      <div className="-m-1 flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto p-1 px-6 text-center before:flex-1 after:flex-1">
         <span
           className={`mb-2 flex size-11 items-center justify-center rounded-full ${tone === "accent" ? "bg-accent-soft text-accent" : tone === "danger" ? "bg-danger-soft text-on-danger-soft" : "bg-secondary text-icon"}`}
         >
@@ -232,8 +261,11 @@ export function ListImportDialog({
     const set = (change: Partial<ListChoices>) => setChoices({ ...choices, ...change });
     const others = collections.filter((c) => c.id !== p.existing_collection?.id);
     const meta = [p.meta.author_name, p.meta.license, p.meta.updated && formatDay(p.meta.updated, i18n.language), p.source].filter(Boolean);
-    const { links, feeds } = importCounts(p, choices);
-    const what = [links > 0 && t("import.links", { count: links }), feeds > 0 && t("import.opmlFeeds", { count: feeds })].filter(Boolean).join(" · ");
+    const action = footerAction(p, choices);
+    const what =
+      action.kind === "import"
+        ? [action.links > 0 && t("import.links", { count: action.links }), action.feeds > 0 && t("import.opmlFeeds", { count: action.feeds })].filter(Boolean).join(" · ")
+        : "";
     const shownFeeds = allFeeds ? p.new_feeds : p.new_feeds.slice(0, FEEDS_SHOWN);
     return (
       <>
@@ -368,9 +400,15 @@ export function ListImportDialog({
           <Button variant="outline" size="lg" onClick={close}>
             {t("import.cancel")}
           </Button>
-          <Button variant="primary" size="lg" disabled={!what} onClick={() => void start()}>
-            {what ? t("lists.import", { what }) : t("import.run")}
-          </Button>
+          {action.kind === "close" ? (
+            <Button variant="primary" size="lg" onClick={close}>
+              {t("common.close")}
+            </Button>
+          ) : (
+            <Button variant="primary" size="lg" onClick={() => void start()}>
+              {action.kind === "tags" ? t("lists.tagOnly", { count: action.links }) : t("lists.import", { what })}
+            </Button>
+          )}
         </Footer>
       </>
     );

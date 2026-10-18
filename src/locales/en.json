@@ -386,6 +386,8 @@
     "followHint": "Posts appear in Feeds.",
     "nothingSaved": "Nothing is saved until you import.",
     "import": "Import {{what}}",
+    "tagOnly_one": "Add list tags to {{count, number}} link",
+    "tagOnly_other": "Add list tags to {{count, number}} links",
     "failed": "Couldn't import. {{reason}} Nothing was added — the library is as it was.",
     "reportTagged": "Already in the library — list tags added",
     "reportRepeated": "Repeated within the list",
