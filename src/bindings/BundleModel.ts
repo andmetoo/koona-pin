@@ -8,4 +8,8 @@ export type BundleModel = { title: string, description: string, author_name: str
 /**
  * The name of the feeds' section, in the interface's language.
  */
-feeds_section: string, sections: Array<BundleSection>, };
+feeds_section: string, 
+/**
+ * The word after a section of links named as the feeds' one: «Feeds · links».
+ */
+links_word: string, sections: Array<BundleSection>, };
