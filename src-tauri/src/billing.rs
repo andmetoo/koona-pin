@@ -297,11 +297,25 @@ impl Stored {
         if !self.checkouts.iter().any(|c| c.secret == secret) {
             return false;
         }
-        self.session = Some(session);
+        // As any sign-in: what another account left here goes first, so an answer that fails (a
+        // reply without its plan) keeps nothing of that account for this one.
+        self.sign_in(session, key);
         self.take_answer(answer, key, now);
-        self.awaiting_sign_in = false;
         self.checkouts.retain(|c| c.secret != secret);
         true
+    }
+
+    /// A new sign-in: the session, and of the signed plan kept here only what is this account's.
+    /// Another account's lease is dropped, never shown, nor sent to the sync relay, as this one's.
+    fn sign_in(&mut self, session: Session, key: &[u8]) {
+        self.session = Some(session);
+        let kept = self.lease.take();
+        self.keep_lease(kept, key);
+        if self.plan.is_none() {
+            self.lease = None;
+        }
+        self.checked_at = None;
+        self.awaiting_sign_in = false;
     }
 
     /// Paid with the email of an account that existed before: done here, sign in by code. Only
@@ -988,12 +1002,7 @@ async fn verified_session(app: &AppHandle, email: &str, code: &str) -> Result<Se
 
 /// A new sign-in in `account.json`.
 fn keep_session(s: &mut Stored, session: Session) {
-    s.session = Some(session);
-    // A plan kept here counts only if it is this account's.
-    let kept = s.lease.take();
-    s.keep_lease(kept, &plan_key());
-    s.checked_at = None;
-    s.awaiting_sign_in = false;
+    s.sign_in(session, &plan_key());
 }
 
 /// «Sign in»: the code from the email becomes a session and the plan.
@@ -1295,6 +1304,30 @@ mod tests {
         assert_eq!(stored.session.as_ref().map(|s| s.access_token.as_str()), Some("new"));
         assert_eq!(stored.checked_at, None);
         assert!(!stored.awaiting_sign_in);
+    }
+
+    /// A purchase here signs in another account than the one with a plan, and its «paid» reply has
+    /// no plan in it: nothing of the first account's plan is kept, shown or sent for the new one.
+    #[test]
+    fn a_purchase_signing_in_another_account_keeps_nothing_of_the_first_ones_plan() {
+        let (signed, key) = lease(PAYLOAD, 7);
+        let mut stored = Stored { session: supporter("2027-10-11T12:00:00Z").session, ..Stored::default() };
+        stored.keep_lease(Some(signed.clone()), &key);
+        assert!(stored.plan.is_some(), "anna has a plan");
+        stored.add_checkout(checkout("year1", "2026-10-12T11:00:00Z", PlanInterval::Year));
+        let bob = Session { access_token: "b".into(), refresh_token: "rb".into(), expires_at: 9, email: "bob@example.com".into() };
+        let broken = Answer::of(&json!({ "status": "paid", "session": {} }));
+        assert!(stored.signed_in_by("year1", bob, broken, &key, at("2026-10-12T11:10:00Z")));
+        assert!(stored.same_account("bob@example.com"));
+        assert_eq!(stored.plan, None, "anna's plan is not bob's");
+        assert_eq!(stored.lease, None, "nor is her lease, which sync would send");
+        assert!(stored.check_failed && status(&stored, at("2026-10-12T11:10:00Z")).plan_unknown, "bob's plan is not known yet");
+        // The same account signing in again keeps its own lease until the server answers.
+        let mut again = Stored { session: supporter("2027-10-11T12:00:00Z").session, ..Stored::default() };
+        again.keep_lease(Some(signed.clone()), &key);
+        again.sign_in(supporter("2027-10-11T12:00:00Z").session.unwrap(), &key);
+        assert_eq!(again.lease, Some(signed));
+        assert!(again.plan.is_some());
     }
 
     #[test]
