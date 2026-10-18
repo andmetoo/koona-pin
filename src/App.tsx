@@ -57,7 +57,9 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { FeedsPage } from "./components/feeds/FeedsPage";
 import { Bundle, openBundle } from "./components/bundle/Bundle";
-import { addedText, bookmarksByIds } from "./components/bundle/actions";
+import { landInBundle } from "./components/bundle/Capsule";
+import { addedText, addView, bookmarksByIds } from "./components/bundle/actions";
+import { RowDragItem, rowCount } from "./services/drag";
 import { bundle, bundleView, itemCount } from "./services/bundle";
 import { useFeeds } from "./components/feeds/useFeeds";
 import { useFeedActions } from "./components/feeds/FeedMenu";
@@ -844,16 +846,30 @@ export function App() {
   const selectionActionsRef = useRef(selectionActions);
   selectionActionsRef.current = selectionActions;
   /** The selection dropped on the sidebar (NP-030): the bar's action, one command of the journal. */
-  const selectionDrag = useSelectionDrag((target) => {
+  const selectionDrag = useSelectionDrag((target, at) => {
     const run = selectionActionsRef.current;
     if (target.kind === "collection") run.move(target.id);
     else if (target.kind === "tag") run.tag(target.name);
     else if (target.kind === "trash") run.trash();
     else if (target.kind === "favorites") run.favorite(true);
     else if (target.kind === "reading") run.reading(true);
-    else if (target.kind === "bundle") run.addToBundle();
-    else run.newCollection();
+    else if (target.kind === "bundle") {
+      run.addToBundle();
+      landInBundle(at, selection.ids.size);
+    } else run.newCollection();
   });
+  /** A collection, a tag chip, a feed row or All feeds dropped on the bundle (share-bundle.md, piece C). */
+  const addRowToBundle = (item: RowDragItem, at: { x: number; y: number }) => {
+    landInBundle(at, rowCount(item));
+    const added =
+      item.kind === "feeds"
+        ? Promise.resolve(bundle.addFeeds(item.feeds))
+        : addView(item.kind === "collection" ? { kind: "collection", collection: item.collection } : { kind: "tag", name: item.name });
+    void added.then(
+      (result) => setAnnouncement(addedText(t, result)),
+      (err) => say(describeError(err), true),
+    );
+  };
   const dragging = selectionDrag.drag;
   const startDrag = (e: PointerEvent, id: number) => {
     const bookmark = library.bookmarks.find((b) => b.id === id);
@@ -1633,6 +1649,7 @@ export function App() {
             : null
         }
         dropping={dragging && { target: dragging.target }}
+        onAddToBundle={addRowToBundle}
         notifications={notifications}
         onClearNotifications={clearNotifications}
         feeds={feeds}

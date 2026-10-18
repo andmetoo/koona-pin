@@ -3012,10 +3012,10 @@
 }
 
 /* The bundle (share-bundle.md, K6b, K7a): the capsule at rest is glass, 48 px, with the menu's
-   material; hover and focus give it a 2 px accent ring, the pointer over it during a drag an
-   accent-soft fill and a glow. The panel is the card with the dialog's shadow. Only opacity,
-   box-shadow and colours change here; the motion of a drag (near, landing) is piece C's. */
-.bundle-capsule {
+   material (on `.bundle-shell`, so its width can follow a label by a scale); hover and focus give
+   it a 2 px accent ring, the pointer over it during a drag an accent-soft fill and a ring. The
+   panel is the card with the dialog's shadow. */
+.bundle-shell {
   background: var(--np-menu-glass);
   -webkit-backdrop-filter: blur(24px) saturate(170%);
   backdrop-filter: blur(24px) saturate(170%);
@@ -3023,19 +3023,22 @@
     0 10px 28px -8px rgb(0 0 0 / 0.26),
     0 1px 3px rgb(0 0 0 / 0.08),
     inset 0 0 0 1px var(--np-line);
+  transform-origin: right center;
   transition:
     box-shadow 160ms var(--ease-standard),
     background-color 160ms var(--ease-standard);
 }
-.bundle-capsule:hover,
 .bundle-capsule:focus-visible {
   outline: none;
+}
+.bundle-capsule:is(:hover, :focus-visible) .bundle-shell,
+[data-bundle-capsule][data-landed] .bundle-shell {
   box-shadow:
     0 10px 28px -8px rgb(0 0 0 / 0.26),
     0 1px 3px rgb(0 0 0 / 0.08),
     inset 0 0 0 2px var(--np-accent);
 }
-[data-bundle-capsule][data-over] .bundle-capsule {
+[data-bundle-capsule][data-over] .bundle-shell {
   background: color-mix(in srgb, var(--np-accent-soft) 92%, transparent);
   box-shadow:
     0 0 0 6px color-mix(in srgb, var(--np-accent) 16%, transparent),
@@ -3057,18 +3060,95 @@
     opacity: 0;
   }
 }
-/* Linux (S14): WebKitGTK gets no backdrop blur, a solid card and a plain 2 px ring for the glow. */
-:root[data-linux] :is(.bundle-capsule, .bundle-panel) {
+/* Motion (share-bundle.md, «Animation», piece C): transform and opacity only. Only Near moves:
+   `--near` (0 far … 1 at the capsule) and `--lean` (degrees toward the pointer) come from
+   Capsule.tsx while something is dragged. The capsule rises up to 8 px, the fan leans, the glow
+   grows; over it, the top card lifts. Hover and focus fan the cards wider. */
+.bundle-capsule {
+  transform: translateY(calc(var(--near, 0) * -8px));
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+[data-bundle-capsule][data-over] .bundle-capsule {
+  transform: translateY(-8px);
+}
+.bundle-fan {
+  transform: rotate(calc(var(--lean, 0) * 1deg));
+  transform-origin: 50% 100%;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bundle-card {
+  transform: rotate(calc(var(--angle, 0) * 1deg));
+  transform-origin: 50% 100%;
+  transition: transform 160ms var(--ease-standard);
+}
+.bundle-capsule:is(:hover, :focus-visible) .bundle-card {
+  transform: rotate(calc(var(--angle, 0) * 1.5deg));
+}
+[data-bundle-capsule][data-over] .bundle-card:last-child {
+  transform: translateY(-3px) rotate(calc(var(--angle, 0) * 1.5deg));
+}
+.bundle-glow {
+  opacity: var(--near, 0);
+  box-shadow: 0 0 24px 6px color-mix(in srgb, var(--np-accent) 38%, transparent);
+  transition: opacity 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+[data-bundle-capsule][data-over] .bundle-glow {
+  opacity: 1;
+}
+/* The light sweep after a drop runs across the glass (Capsule.tsx animates it); half as bright in dark. */
+.bundle-sweep {
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.6) 50%, transparent 70%);
+}
+[data-theme="dark"] .bundle-sweep {
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.3) 50%, transparent 70%);
+}
+/* The count rolls: the old digits up and out, the new ones in from below, 160 ms. */
+.bundle-roll-in {
+  animation: bundle-roll-in 160ms var(--ease-standard);
+}
+.bundle-roll-out {
+  animation: bundle-roll-out 160ms var(--ease-standard) forwards;
+}
+@keyframes bundle-roll-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+@keyframes bundle-roll-out {
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+/* Linux (S14): WebKitGTK gets no backdrop blur, a solid card, a plain 2 px ring for the glow and
+   no light sweep. */
+:root[data-linux] :is(.bundle-shell, .bundle-panel) {
   background: var(--np-card);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-:root[data-linux] [data-bundle-capsule][data-over] .bundle-capsule {
+:root[data-linux] [data-bundle-capsule][data-over] .bundle-shell {
   background: var(--np-accent-soft);
   box-shadow: inset 0 0 0 2px var(--np-accent);
 }
+:root[data-linux] .bundle-glow {
+  box-shadow: inset 0 0 0 2px var(--np-accent);
+}
+:root[data-linux] .bundle-sweep {
+  display: none;
+}
+/* Reduced motion: every step is an instant state change; Capsule.tsx shows the 2 px border for
+   300 ms instead of the landing. */
 @media (prefers-reduced-motion: reduce) {
-  [data-bundle-capsule] {
-    animation: none;
+  [data-bundle-capsule],
+  [data-bundle-capsule] * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .bundle-capsule,
+  [data-bundle-capsule][data-over] .bundle-capsule,
+  .bundle-fan {
+    transform: none;
   }
 }

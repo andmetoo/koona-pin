@@ -55,7 +55,19 @@
     "keys": "Pustite iznad kolekcije, oznake ili otpada  ·  Esc — otkaži prevlačenje",
     "bundle_one": "Dodaj {{count, number}} obeleživač u skup",
     "bundle_few": "Dodaj {{count, number}} obeleživača u skup",
-    "bundle_other": "Dodaj {{count, number}} obeleživača u skup"
+    "bundle_other": "Dodaj {{count, number}} obeleživača u skup",
+    "toBundle": "Pustite na skup",
+    "links_one": "{{count, number}} veza",
+    "links_few": "{{count, number}} veze",
+    "links_other": "{{count, number}} veza",
+    "feeds_one": "{{count, number}} fid",
+    "feeds_few": "{{count, number}} fida",
+    "feeds_other": "{{count, number}} fidova",
+    "bundleCollection": "Dodaj kolekciju „{{name}}“",
+    "bundleTag": "Dodaj oznaku „{{name}}“",
+    "bundleFeeds_one": "Dodaj {{count, number}} fid",
+    "bundleFeeds_few": "Dodaj {{count, number}} fida",
+    "bundleFeeds_other": "Dodaj {{count, number}} fidova"
   },
   "nav": {
     "inbox": "Prijemno sanduče",

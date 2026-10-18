@@ -53,7 +53,19 @@
     "keys": "Relâchez sur une collection, une étiquette ou la corbeille  ·  Échap — annuler le glisser",
     "bundle_one": "Ajouter {{count, number}} signet au lot",
     "bundle_many": "Ajouter {{count, number}} de signets au lot",
-    "bundle_other": "Ajouter {{count, number}} signets au lot"
+    "bundle_other": "Ajouter {{count, number}} signets au lot",
+    "toBundle": "Déposez sur le lot",
+    "links_one": "{{count, number}} lien",
+    "links_many": "{{count, number}} de liens",
+    "links_other": "{{count, number}} liens",
+    "feeds_one": "{{count, number}} flux",
+    "feeds_many": "{{count, number}} de flux",
+    "feeds_other": "{{count, number}} flux",
+    "bundleCollection": "Ajouter la collection « {{name}} »",
+    "bundleTag": "Ajouter l’étiquette « {{name}} »",
+    "bundleFeeds_one": "Ajouter {{count, number}} flux",
+    "bundleFeeds_many": "Ajouter {{count, number}} de flux",
+    "bundleFeeds_other": "Ajouter {{count, number}} flux"
   },
   "nav": {
     "inbox": "Boîte de réception",

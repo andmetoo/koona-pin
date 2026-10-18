@@ -50,7 +50,16 @@
     "nowhere": "Bir koleksiyonun, etiketin ya da çöp kutusunun üzerine bırakın",
     "keys": "Bir koleksiyon, etiket ya da çöp kutusunun üzerinde bırakın  ·  Esc — sürüklemeyi iptal et",
     "bundle_one": "{{count, number}} yer imini pakete ekle",
-    "bundle_other": "{{count, number}} yer imini pakete ekle"
+    "bundle_other": "{{count, number}} yer imini pakete ekle",
+    "toBundle": "Paketin üzerine bırakın",
+    "links_one": "{{count, number}} bağlantı",
+    "links_other": "{{count, number}} bağlantı",
+    "feeds_one": "{{count, number}} akış",
+    "feeds_other": "{{count, number}} akış",
+    "bundleCollection": "“{{name}}” koleksiyonunu ekle",
+    "bundleTag": "“{{name}}” etiketini ekle",
+    "bundleFeeds_one": "{{count, number}} akış ekle",
+    "bundleFeeds_other": "{{count, number}} akış ekle"
   },
   "nav": {
     "inbox": "Gelen kutusu",

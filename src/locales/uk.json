@@ -56,7 +56,22 @@
     "bundle_one": "Додати {{count, number}} закладку в набір",
     "bundle_few": "Додати {{count, number}} закладки в набір",
     "bundle_many": "Додати {{count, number}} закладок в набір",
-    "bundle_other": "Додати {{count, number}} закладки в набір"
+    "bundle_other": "Додати {{count, number}} закладки в набір",
+    "toBundle": "Відпустіть над набором",
+    "links_one": "{{count, number}} посилання",
+    "links_few": "{{count, number}} посилання",
+    "links_many": "{{count, number}} посилань",
+    "links_other": "{{count, number}} посилання",
+    "feeds_one": "{{count, number}} стрічка",
+    "feeds_few": "{{count, number}} стрічки",
+    "feeds_many": "{{count, number}} стрічок",
+    "feeds_other": "{{count, number}} стрічки",
+    "bundleCollection": "Додати колекцію «{{name}}»",
+    "bundleTag": "Додати тег «{{name}}»",
+    "bundleFeeds_one": "Додати {{count, number}} стрічку",
+    "bundleFeeds_few": "Додати {{count, number}} стрічки",
+    "bundleFeeds_many": "Додати {{count, number}} стрічок",
+    "bundleFeeds_other": "Додати {{count, number}} стрічки"
   },
   "nav": {
     "inbox": "Вхідні",

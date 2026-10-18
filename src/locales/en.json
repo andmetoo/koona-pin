@@ -50,7 +50,16 @@
     "nowhere": "Drop on a collection, a tag, Favorites, Reading or Trash",
     "keys": "Release over a collection, a tag, Favorites, Reading or Trash  ·  Esc — cancel the drag",
     "bundle_one": "Add {{count, number}} bookmark to bundle",
-    "bundle_other": "Add {{count, number}} bookmarks to bundle"
+    "bundle_other": "Add {{count, number}} bookmarks to bundle",
+    "toBundle": "Drop on the bundle",
+    "links_one": "{{count, number}} link",
+    "links_other": "{{count, number}} links",
+    "feeds_one": "{{count, number}} feed",
+    "feeds_other": "{{count, number}} feeds",
+    "bundleCollection": "Add collection “{{name}}”",
+    "bundleTag": "Add tag “{{name}}”",
+    "bundleFeeds_one": "Add {{count, number}} feed",
+    "bundleFeeds_other": "Add {{count, number}} feeds"
   },
   "nav": {
     "inbox": "Inbox",

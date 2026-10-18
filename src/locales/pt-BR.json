@@ -53,7 +53,19 @@
     "keys": "Solte sobre uma coleção, uma tag ou a lixeira  ·  Esc — cancelar o arraste",
     "bundle_one": "Adicionar {{count, number}} favorito ao pacote",
     "bundle_many": "Adicionar {{count, number}} de favoritos ao pacote",
-    "bundle_other": "Adicionar {{count, number}} favoritos ao pacote"
+    "bundle_other": "Adicionar {{count, number}} favoritos ao pacote",
+    "toBundle": "Solte no pacote",
+    "links_one": "{{count, number}} link",
+    "links_many": "{{count, number}} de links",
+    "links_other": "{{count, number}} links",
+    "feeds_one": "{{count, number}} feed",
+    "feeds_many": "{{count, number}} de feeds",
+    "feeds_other": "{{count, number}} feeds",
+    "bundleCollection": "Adicionar a coleção “{{name}}”",
+    "bundleTag": "Adicionar a tag “{{name}}”",
+    "bundleFeeds_one": "Adicionar {{count, number}} feed",
+    "bundleFeeds_many": "Adicionar {{count, number}} de feeds",
+    "bundleFeeds_other": "Adicionar {{count, number}} feeds"
   },
   "nav": {
     "inbox": "Caixa de entrada",

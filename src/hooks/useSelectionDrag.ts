@@ -36,7 +36,7 @@ const targetAt = (x: number, y: number) => parseDrop(document.elementFromPoint(x
  * releasing elsewhere or `Esc` does nothing; the click that ends a drag is
  * swallowed, so a card or a sidebar row under it does not open.
  */
-export function useSelectionDrag(onDrop: (target: DropTarget) => void) {
+export function useSelectionDrag(onDrop: (target: DropTarget, at: { x: number; y: number }) => void) {
   const [drag, setDrag] = useState<SelectionDrag | null>(null);
   const stack = useRef<HTMLDivElement>(null);
   const pointer = useRef({ x: 0, y: 0 });
@@ -97,7 +97,7 @@ export function useSelectionDrag(onDrop: (target: DropTarget) => void) {
       end();
       if (!was) return;
       swallowClick();
-      if (dropped) latest.current(dropped);
+      if (dropped) latest.current(dropped, { x: ev.clientX, y: ev.clientY });
     };
     const key = (ev: KeyboardEvent) => {
       if (!dragging || ev.key !== "Escape") return;

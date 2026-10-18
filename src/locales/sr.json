@@ -53,7 +53,19 @@
     "keys": "Пустите изнад колекције, ознаке или отпада  ·  Esc — откажи превлачење",
     "bundle_one": "Додај {{count, number}} обележивач у скуп",
     "bundle_few": "Додај {{count, number}} обележивача у скуп",
-    "bundle_other": "Додај {{count, number}} обележивача у скуп"
+    "bundle_other": "Додај {{count, number}} обележивача у скуп",
+    "toBundle": "Пустите на скуп",
+    "links_one": "{{count, number}} веза",
+    "links_few": "{{count, number}} везе",
+    "links_other": "{{count, number}} веза",
+    "feeds_one": "{{count, number}} фид",
+    "feeds_few": "{{count, number}} фида",
+    "feeds_other": "{{count, number}} фидова",
+    "bundleCollection": "Додај колекцију „{{name}}“",
+    "bundleTag": "Додај ознаку „{{name}}“",
+    "bundleFeeds_one": "Додај {{count, number}} фид",
+    "bundleFeeds_few": "Додај {{count, number}} фида",
+    "bundleFeeds_other": "Додај {{count, number}} фидова"
   },
   "nav": {
     "inbox": "Пријемно сандуче",

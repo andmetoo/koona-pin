@@ -1,10 +1,13 @@
 import { RefObject, useLayoutEffect } from "react";
-import { BookOpen, Folder, Heart, Layers, Plus, Tag as TagIcon, Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { BookOpen, Folder, Heart, Layers, Plus, Rss, Tag as TagIcon, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection } from "../../types";
-import { dropHint } from "../../services/drag";
+import { dropHint, RowDragItem, rowDropLabel, rowLine } from "../../services/drag";
+import { collectionColor } from "../../services/collections";
 import { SelectionDrag } from "../../hooks/useSelectionDrag";
 import { Icon } from "../icons";
+import { Dot } from "../ui/Controls";
 import { Preview } from "./Bookmarks";
 
 const icons = { collection: Folder, tag: TagIcon, trash: Trash2, new: Plus, favorites: Heart, reading: BookOpen, bundle: Layers };
@@ -60,5 +63,48 @@ export function DragStack({
         <span className={`truncate ${target ? "" : "opacity-65"}`}>{hint}</span>
       </span>
     </div>
+  );
+}
+
+/**
+ * A sidebar row on its way to the bundle (share-bundle.md, piece C): one row, «Development · 41
+ * links», and the hint of the drop. Like the stack it lets the pointer through; `place` moves it.
+ */
+export function RowStack({
+  item,
+  over,
+  stack,
+  place,
+}: {
+  item: RowDragItem;
+  over: boolean;
+  stack: RefObject<HTMLDivElement | null>;
+  place: () => void;
+}) {
+  const { t } = useTranslation();
+  useLayoutEffect(place);
+  // Into the body: in the sidebar a fixed element would be clipped by the scrolling section.
+  return createPortal(
+    <div ref={stack} data-drag-stack data-row-stack className="pointer-events-none fixed top-0 left-0 z-50" style={{ width: 260 }}>
+      <div aria-hidden className="absolute top-2.5 left-2 flex h-9 max-w-60 items-center gap-2 rounded-lg border border-border bg-card px-2.5 shadow-[0_8px_20px_rgb(0_0_0/0.15)]">
+        <span className="flex size-4 shrink-0 items-center justify-center text-icon">
+          {item.kind === "collection" ? (
+            <Dot color={collectionColor(item.collection.id)} />
+          ) : (
+            <Icon icon={item.kind === "tag" ? TagIcon : Rss} size={13} />
+          )}
+        </span>
+        <span className="truncate text-xs font-medium text-ink">{rowLine(t, item)}</span>
+      </div>
+      <span
+        role="status"
+        data-drop-hint
+        className="absolute top-[56px] left-2 flex h-[26px] max-w-[320px] items-center gap-1.5 rounded-lg bg-toast px-2.5 text-xs whitespace-nowrap text-[#e9e6dc]"
+      >
+        {over && <Icon icon={Layers} size={13} />}
+        <span className={`truncate ${over ? "" : "opacity-65"}`}>{over ? rowDropLabel(t, item) : t("drag.toBundle")}</span>
+      </span>
+    </div>,
+    document.body,
   );
 }
