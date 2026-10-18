@@ -109,7 +109,7 @@ fn app_folder() -> Option<PathBuf> {
 /// registers a development build for the user.
 #[cfg(target_os = "linux")]
 pub fn register() -> Result<(), (CaptureProblem, String)> {
-    if let Some(appimage) = crate::appimage::file() {
+    if let Some(appimage) = crate::desktop::appimage::file() {
         return register_appimage(&appimage);
     }
     if std::env::var_os(REGISTER_ENV).is_some_and(|v| v == "1") {
@@ -128,8 +128,8 @@ fn register_appimage(appimage: &Path) -> Result<(), (CaptureProblem, String)> {
     if !inside.is_file() {
         return Err((CaptureProblem::HostMissing, inside.display().to_string()));
     }
-    let folder = crate::appimage::host_folder().ok_or_else(|| registration(std::io::Error::other("cannot find the data folder")))?;
-    let host = crate::appimage::settle_host(&inside, appimage, &folder).map_err(registration)?;
+    let folder = crate::desktop::appimage::host_folder().ok_or_else(|| registration(std::io::Error::other("cannot find the data folder")))?;
+    let host = crate::desktop::appimage::settle_host(&inside, appimage, &folder).map_err(registration)?;
     let (home, config) = linux::user_places().map_err(registration)?;
     linux::write_user(&home, &config, &host, cfg!(feature = "public-release")).map_err(registration)
 }
@@ -138,7 +138,7 @@ fn register_appimage(appimage: &Path) -> Result<(), (CaptureProblem, String)> {
 /// the user (the package brings its own files).
 pub fn register_on_request() -> Result<(), (CaptureProblem, String)> {
     #[cfg(target_os = "linux")]
-    if let Some(appimage) = crate::appimage::file() {
+    if let Some(appimage) = crate::desktop::appimage::file() {
         return register_appimage(&appimage);
     }
     #[cfg(target_os = "linux")]
@@ -151,8 +151,8 @@ pub fn register_on_request() -> Result<(), (CaptureProblem, String)> {
 /// one copied out of the AppImage, or the one next to the program.
 #[cfg(target_os = "linux")]
 pub fn unregister() -> std::io::Result<()> {
-    if crate::appimage::file().is_some() {
-        let host = crate::appimage::host_folder()
+    if crate::desktop::appimage::file().is_some() {
+        let host = crate::desktop::appimage::host_folder()
             .ok_or_else(|| std::io::Error::other("cannot find the data folder"))?
             .join(linux::HOST_BINARY);
         let (home, config) = linux::user_places()?;
@@ -671,9 +671,9 @@ mod tests {
     #[test]
     fn the_installer_hooks_match_the_app() {
         // The hooks cannot read tauri.conf.json, so they spell the names out.
-        let hooks = include_str!("../nsis/hooks.nsh");
+        let hooks = include_str!("../../nsis/hooks.nsh");
         let conf: serde_json::Value =
-            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+            serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
         let define = |name: &str, value: &str| format!(r#"!define {name} "{value}""#);
         // The Run value tauri-plugin-autostart uses is named after productName.
         assert!(hooks.contains(&define("NP_PRODUCT", conf["productName"].as_str().unwrap())));
@@ -682,7 +682,7 @@ mod tests {
         assert!(hooks.contains(&define("NP_HOST_EXE", HOST_EXE)));
         // An assistant may hold the MCP server open as a browser holds the host (NP-091).
         #[cfg(windows)]
-        assert!(hooks.contains(&define("NP_MCP_EXE", crate::mcp::SERVER_EXE)));
+        assert!(hooks.contains(&define("NP_MCP_EXE", crate::desktop::mcp::SERVER_EXE)));
         assert_eq!(hooks.matches(r#"CheckIfAppIsRunning "$INSTDIR\${NP_MCP_EXE}""#).count(), 2, "install and uninstall");
         for arg in [REGISTER_ARG, UNREGISTER_ARG] {
             assert!(hooks.contains(&format!(r#""$INSTDIR\${{NP_EXE}}" {arg}'"#)), "{arg}");
@@ -714,7 +714,7 @@ mod tests {
         // A missing LangString is only a makensis warning, and the page shows
         // an empty label (NP-106).
         let conf: serde_json::Value =
-            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+            serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
         let nsis = &conf["bundle"]["windows"]["nsis"];
         let files = nsis["customLanguageFiles"].as_object().unwrap();
         let languages: Vec<&str> = nsis["languages"]
@@ -743,7 +743,7 @@ mod tests {
         };
         let english = strings("English");
         let keys: Vec<&String> = english.iter().map(|(key, _)| key).collect();
-        let hooks = include_str!("../nsis/hooks.nsh");
+        let hooks = include_str!("../../nsis/hooks.nsh");
         assert!(hooks.contains("$(npAutostart)") && keys.contains(&&"npAutostart".to_owned()));
         // The variables the template fills in, which a translation must keep.
         let tokens = ["{{product_name}}", "${PRODUCTNAME}", "${VERSION}", "$R4", "$0", "$1"];
@@ -950,17 +950,17 @@ mod tests {
 
     #[test]
     fn ids_match_the_extension_build() {
-        let build = include_str!("../../scripts/build-extension.mjs");
+        let build = include_str!("../../../scripts/build-extension.mjs");
         assert!(build.contains(&format!(r#"geckoId = "{GECKO_ID}""#)));
         // The store-id test package (NP-037) checks its key against this id.
         assert!(build.contains(&format!(r#"chromeStoreId = "{}""#, STORE_EXTENSION_IDS[0])));
         assert!(build.contains(&format!(r#"edgeStoreId = "{}""#, STORE_EXTENSION_IDS[1])));
         // «Connect a browser» opens these items' pages; the site builds them from the ids above.
-        let connect = include_str!("../../src/services/capture.ts");
+        let connect = include_str!("../../../src/services/capture.ts");
         assert!(connect.contains(&format!("chromewebstore.google.com/detail/{}\"", STORE_EXTENSION_IDS[0])));
         assert!(connect.contains(&format!("microsoftedge.microsoft.com/addons/detail/{}\"", STORE_EXTENSION_IDS[1])));
         // The development key in the repository gives exactly this id.
-        let key = include_str!("../../extension/dev-key.txt").trim();
+        let key = include_str!("../../../extension/dev-key.txt").trim();
         let der = base64::engine::general_purpose::STANDARD
             .decode(key)
             .unwrap();

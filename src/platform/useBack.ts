@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { isMobile, onBack, openPlace } from "../services/platform";
+import { onBack, openPlace } from "./back";
+import { isMobile } from "./platform";
 
 /**
  * While `open` (and on a phone), system Back and the iOS edge swipe call `close` (NP-151): a dialog,

@@ -7,7 +7,7 @@
 //! start.
 
 #[cfg(desktop)]
-use crate::capture_channel::{self, ChannelState};
+use crate::capture_channel::ChannelState;
 use crate::{
     db::DbState,
     library::{self, Health, OpenFailure, Paths},
@@ -101,7 +101,7 @@ pub fn start(app: AppHandle) {
             Ok(opened) => {
                 // Linux turns the start with the session on at the first start (NP-097).
                 #[cfg(target_os = "linux")]
-                crate::autostart::xdg::apply_default(&opened.conn);
+                crate::desktop::autostart::xdg::apply_default(&opened.conn);
                 let db = Arc::new(DbState::new(opened.conn));
                 app.manage(db.clone());
                 // The feed cache beside it (NP-128): its own file and lock.
@@ -110,7 +110,7 @@ pub fn start(app: AppHandle) {
                 crate::thumbs::start(&app);
                 // The browsers' pipe (NP-016); a phone has no browser extension to listen to.
                 #[cfg(desktop)]
-                capture_channel::start(app.clone(), db.clone(), app.state::<Arc<ChannelState>>().inner().clone());
+                crate::desktop::capture_server::start(app.clone(), db.clone(), app.state::<Arc<ChannelState>>().inner().clone());
                 let moved_aside = opened
                     .moved_aside
                     .map(|path| path.to_string_lossy().into_owned());

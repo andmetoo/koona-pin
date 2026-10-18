@@ -18,7 +18,7 @@ use crate::{
     capture::{self, CaptureResult},
     db::{self, AssistantChange, Bookmark, BookmarkQuery},
     journal::{Action, Journal},
-    mcp_tools::{self as tools, Access, Filter},
+    desktop::mcp_tools::{self as tools, Access, Filter},
 };
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
@@ -442,7 +442,7 @@ pub struct McpSetup {
 
 pub fn server_path() -> std::io::Result<std::path::PathBuf> {
     // An AppImage's own folder lasts until it is closed: the copy beside the host stays (NP-116).
-    if let Some(server) = crate::appimage::server() {
+    if let Some(server) = crate::desktop::appimage::server() {
         return Ok(server);
     }
     let app = std::env::current_exe()?;
@@ -497,7 +497,7 @@ pub fn write_bundle(server: &std::path::Path, to: &std::path::Path) -> std::io::
     let manifest = serde_json::to_vec_pretty(&manifest(server)).map_err(std::io::Error::other)?;
     let files: [(String, Vec<u8>); 3] = [
         ("manifest.json".into(), manifest),
-        ("icon.png".into(), include_bytes!("../icons/128x128.png").to_vec()),
+        ("icon.png".into(), include_bytes!("../../icons/128x128.png").to_vec()),
         (format!("server/{SERVER_EXE}"), std::fs::read(server)?),
     ];
     let partial = to.with_extension("partial");
@@ -984,7 +984,7 @@ mod tests {
 
     #[test]
     fn the_server_speaks_the_channel_protocol_of_the_app() {
-        let server = include_str!("bin/koonapin-mcp.rs");
+        let server = include_str!("../bin/koonapin-mcp.rs");
         assert!(server.contains(&format!("const PROTOCOL: u32 = {PROTOCOL};")), "koonapin-mcp sends another protocol");
     }
 }
