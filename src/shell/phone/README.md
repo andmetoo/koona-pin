@@ -23,7 +23,7 @@ The phone's own interface, "Paper & Glass" (`doc/mobile-design.md` in the notes,
 | `src/styles/phone.css` | Tokens and the kit's CSS | foundation |
 | `src/platform/haptics.ts`, `keyboard.ts` | Haptics, the on-screen keyboard | foundation |
 
-Replace a stub in place: keep its file name, its export and its props type (`hidden`, `route`, `{ props }`), and the shell picks it up. A screen's own CSS goes in a file next to it (`screens/LibraryScreen.css`, imported by the screen) with classes under `.phone` and a prefix of its own (`.phone .lib-…`). Strings go to `src/locales/en.json` under the screen's own group (`phone.library.*`, `phone.inbox.*`, …); other languages fall back to English until the phone is translated (`src/i18n/locales.test.ts` lets `phone.*` wait).
+Replace a stub in place: keep its file name, its export and its props type (`hidden`, `route`, `{ props }`), and the shell picks it up. A screen's own CSS goes in a file next to it (`screens/LibraryScreen.css`, imported by the screen) with classes under `.phone` and a prefix of its own (`.phone .lib-…`). Strings go to `src/locales/en.json` under the screen's own group (`phone.library.*`, `phone.inbox.*`, …) and into every other locale, as for the desktop (`docs/translating.md`).
 
 ## The app's state
 

@@ -1792,7 +1792,7 @@
       "progress": "{{done, number}} / {{total, number}}"
     },
     "account": {
-      "open": "我与同步",
+      "open": "我的 · 同步",
       "synced": "已同步",
       "syncing": "正在同步",
       "offline": "同步离线",
@@ -1968,7 +1968,7 @@
       "saveTo": "保存到"
     },
     "you": {
-      "title": "我与同步",
+      "title": "我的 · 同步",
       "supporter": "Supporter",
       "support": "支持 Koona Pin",
       "sync": "同步",
