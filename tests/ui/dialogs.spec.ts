@@ -259,3 +259,47 @@ test("dialogs with tabs keep their size and place when the tab changes", async (
   await page.getByRole("button", { name: "How to connect…" }).click();
   await steady("Connect an AI assistant", ["Claude Code", "ChatGPT", "Custom", "Claude Desktop"]);
 });
+
+// The bundle panel (share-bundle.md, M2): one size and place empty and full; its bottom 12 px over the
+// capsule's top, its height min(600, window − 24 − capsule area − 12). The bulk bar lifts both.
+for (const [width, height] of [[1200, 800], [800, 550]]) {
+  test(`${width}×${height}: the bundle panel keeps its size and place through its states`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
+    await page.reload();
+    await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+    const panel = page.locator("[data-bundle-panel]");
+    const box = async () => {
+      const b = (await panel.boundingBox())!;
+      return { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) };
+    };
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Share as list…/ }).click();
+    await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
+    await page.waitForTimeout(300);
+    const first = await box();
+    // Bottom: the capsule's place, 24 + 48 + 12 over the window's bottom, even with no capsule shown.
+    expect(first).toEqual({ x: width - 24 - 380, y: height - 84 - Math.min(600, height - 24 - 72 - 12), width: 380, height: Math.min(600, height - 24 - 72 - 12) });
+    await panel.getByRole("button", { name: /^Add All bookmarks/ }).click();
+    await expect(panel.locator("[data-bundle-row]").first()).toBeVisible();
+    expect(await box(), "full").toEqual(first);
+    await panel.locator("[data-bundle-row] > button").first().click();
+    await panel.getByRole("button", { name: "Add description and author" }).click();
+    expect(await box(), "a row and the details open").toEqual(first);
+    const capsule = (await page.locator("[data-bundle-capsule] > button").first().boundingBox())!;
+    expect(Math.round(capsule.y) - (first.y + first.height)).toBe(12);
+    await panel.getByRole("button", { name: "Clear", exact: true }).click();
+    await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
+    expect(await box(), "cleared").toEqual(first);
+
+    // The bulk bar: the capsule rises to 80 px and the panel with it, still whole in the window.
+    await page.locator("article[data-bookmark-id] h2").first().click({ modifiers: ["ControlOrMeta"] });
+    await expect(page.getByRole("toolbar", { name: "Selected bookmarks" })).toBeVisible();
+    const lifted = await box();
+    const tall = Math.min(600, height - 24 - (80 + 48) - 12);
+    expect(lifted).toEqual({ ...first, y: height - (80 + 48 + 12) - tall, height: tall });
+    if (height === 550) expect(tall).toBe(386);
+    expect(lifted.y).toBeGreaterThanOrEqual(0);
+  });
+}
