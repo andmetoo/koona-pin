@@ -47,9 +47,39 @@ export function addedText(t: TFunction, added: Added): string {
   return t(added.kind === "feeds" ? "bundle.addedFeeds" : "bundle.addedBookmarks", { count: added.added, items });
 }
 
-/** Bookmarks no longer in the library or in Trash leave the bundle; feeds no longer followed too. */
-export async function pruneBundle(): Promise<number> {
+/** One prune: the ids read now judge only what was in the bundle now, never an add made meanwhile. */
+async function pruneOnce(): Promise<number> {
   if (!bundle.get().sections.length) return 0;
+  const addedBefore = bundle.generation();
   const [ids, feeds] = await Promise.all([api.getBookmarkIds({}), api.listFeeds().catch(() => null)]);
-  return bundle.prune(new Set(ids), feeds && new Set(feeds.map((f) => f.uid)));
+  return bundle.prune(new Set(ids), feeds && new Set(feeds.map((f) => f.uid)), addedBefore);
+}
+
+/** The prune in flight, and the one more that runs after it for the calls made meanwhile. */
+let running: Promise<number> | null = null;
+let queued: Promise<number> | null = null;
+
+const start = () => {
+  const run = pruneOnce().finally(() => {
+    if (running === run) running = null;
+  });
+  running = run;
+  return run;
+};
+
+/**
+ * Bookmarks no longer in the library or in Trash leave the bundle; feeds no longer followed too.
+ * At most one prune is in flight: calls made meanwhile (a burst of library changes) share one more
+ * after it, which reads the ids anew.
+ */
+export function pruneBundle(): Promise<number> {
+  if (queued) return queued;
+  if (!running) return start();
+  queued = running
+    .catch(() => 0)
+    .then(() => {
+      queued = null;
+      return start();
+    });
+  return queued;
 }

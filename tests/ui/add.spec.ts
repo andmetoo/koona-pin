@@ -445,11 +445,13 @@ test("a dropped file goes by what it holds: a list, OPML, bookmarks and a backup
   const dialog = page.getByRole("dialog", { name: "Import feeds" });
   await expect(dialog).toContainText("feeds.txt");
   await expect(dialog).toContainText("2 feeds");
-  // A file dragged over an open import is «Busy».
-  await dragFiles(page, "dragenter", [{ name: "other.opml", text: OPML }]);
-  await expect(zone).toHaveAttribute("data-drop-zone", "busy");
-  await dragFiles(page, "dragleave", []);
+  // A file dropped on an open import, before it runs, takes the place of the one there.
+  expect(await dragFiles(page, "dragenter", [{ name: "other.opml", text: OPML }])).toBe("copy");
   await expect(zone).toHaveCount(0);
+  await expect(dialog.locator("[data-import-file]")).toHaveAttribute("data-over", "true");
+  await dragFiles(page, "drop", [{ name: "other.opml", text: OPML }]);
+  await expect(dialog).toContainText("other.opml");
+  await expect(dialog.locator("[data-import-file]")).not.toHaveAttribute("data-over", "true");
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
@@ -483,10 +485,13 @@ test("⋯ → «Import a file…» routes a picked file as a drop; a dropped fil
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: /^Import a file…/ })).toContainText("Lists, feeds, bookmarks or a backup");
   await expect(menu.getByRole("menuitem", { name: /Import feeds|Browser bookmarks|backup \(JSON\)/ })).toHaveCount(0);
+  // The item opens the Import window (2.6.0); a click on its file box is the system dialog.
   const pick = async (name: string, text: string) => {
     await more.click();
-    const chooser = page.waitForEvent("filechooser");
     await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+    await expect(page.getByRole("dialog", { name: "Import a file" })).toContainText("Drop a file or click to choose");
+    const chooser = page.waitForEvent("filechooser");
+    await page.locator("[data-import-file]").click();
     await (await chooser).setFiles({ name, mimeType: "application/octet-stream", buffer: Buffer.from(text) });
   };
   await page.keyboard.press("Escape");
@@ -505,8 +510,10 @@ test("⋯ → «Import a file…» routes a picked file as a drop; a dropped fil
   await pick("koona-pin.json", COPY);
   await expect(page.getByRole("dialog", { name: "Restore from a JSON copy" })).toContainText("koona-pin.json");
   await page.keyboard.press("Escape");
+  // A file none of ours is refused in the window, which stays for another.
   await pick("report.pdf", "%PDF-1.7");
-  await expect(page.getByRole("alert").filter({ hasText: "Koona Pin imports links" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Import a file" }).getByRole("alert")).toContainText("Koona Pin imports links");
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // A dropped file belongs to its dialog: Settings → Feeds → Import… later starts empty.
@@ -565,4 +572,51 @@ test("Collections and Tags fold, show their count, are remembered, and «+» ope
   await expect(nav(page, "Design 3")).toBeVisible();
   // The drag is over: the section folds again, as the person left it.
   await expect(collections).toHaveAttribute("aria-expanded", "false");
+});
+
+test("a link dropped on the New sheet fills its address; a file dropped on it is imported", async ({ page }) => {
+  await nav(page, "New link").click();
+  const field = sheet(page).getByRole("textbox", { name: "Link" });
+  await expect(field).toBeFocused();
+  const box = sheet(page).locator(".add-sheet-body");
+  // The sheet takes the drag itself: no zone over the list behind it.
+  expect(await dragAt(page, "dragenter", { link: "https://example.com/onto-the-sheet" }, box)).toBe("copy");
+  expect(await dragAt(page, "dragover", { link: "https://example.com/onto-the-sheet" }, box)).toBe("copy");
+  await expect(page.locator("[data-drop-zone]")).toHaveCount(0);
+  await dragAt(page, "drop", { link: "https://example.com/onto-the-sheet" }, box);
+  await expect(field).toHaveValue("https://example.com/onto-the-sheet");
+  await expect(field).toBeFocused();
+  // Nothing is saved until the person saves it.
+  await expect(card(page, "onto-the-sheet")).toHaveCount(0);
+
+  // A list dropped on the sheet: the sheet goes, the list dialog shows the list.
+  await dragFiles(page, "dragenter", [{ name: "shared.kpin", text: LIST }], false, box);
+  await dragFiles(page, "drop", [{ name: "shared.kpin", text: LIST }], false, box);
+  await expect(sheet(page)).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Import list" })).toContainText("Dropped list");
+});
+
+test("the Import window takes a dropped file by what it holds; a file beside it is not opened", async ({ page }) => {
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  const window = page.getByRole("dialog", { name: "Import a file" });
+  await expect(window).toContainText("a .kpin list, feeds in OPML");
+  const box = window.locator("[data-import-file]");
+  await expect(box).toContainText("Drop a file or click to choose");
+  // Over the box: it lights up and takes a copy; beside the dialog nothing is taken, nothing opened.
+  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }], true, box)).toBe("copy");
+  await expect(box).toHaveAttribute("data-over", "true");
+  await expect(page.locator("[data-drop-zone]")).toHaveCount(0);
+  await dragFiles(page, "dragleave", [], true, page.locator("body"));
+  await expect(box).not.toHaveAttribute("data-over", "true");
+  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }], true, "sidebar")).toBe("none");
+  await dragFiles(page, "dragleave", [], true, "sidebar");
+
+  // A list goes to the list dialog, which asks before anything is saved.
+  await dragFiles(page, "dragenter", [{ name: "shared.json", text: LIST }], false, box);
+  await dragFiles(page, "drop", [{ name: "shared.json", text: LIST }], false, box);
+  await expect(window).toHaveCount(0);
+  const list = page.getByRole("dialog", { name: "Import list" });
+  await expect(list).toContainText("Dropped list");
+  await expect(list.getByRole("button", { name: "Accept" })).toBeEnabled();
 });

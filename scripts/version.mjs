@@ -1,12 +1,13 @@
-// The app's version number in its four places (doc/development-process.md: bumped in the PR that changes
+// The app's version number in its six places (doc/development-process.md: bumped in the PR that changes
 // the app), and the changelog file that goes with it:
 //   bun run version:bump               prints the number of each place; fails when they differ
 //   bun run version:bump 0.12.0        writes 0.12.0 to package.json, src-tauri/Cargo.toml, the koonapin
-//                                      package of src-tauri/Cargo.lock and src-tauri/tauri.conf.json, and
+//                                      package of src-tauri/Cargo.lock, src-tauri/tauri.conf.json and the
+//                                      iOS project (Info.plist, project.yml), and
 //                                      starts changelog/0.12.0.md when it is not there
 //   bun run version:bump 0.12.0 --dry-run  says what it would change, writes nothing
 // Each file is edited where the number stands, by text: their formatting and the rest of Cargo.lock
-// stay as they are, so the diff is four lines and a new file.
+// stay as they are, so the diff is six lines and a new file.
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -18,6 +19,11 @@ const PLACES = [
   ["src-tauri/Cargo.toml", /^(\[package\][^[]*?^version\s*=\s*")([^"]+)(")/m],
   ["src-tauri/Cargo.lock", /^(\[\[package\]\]\nname = "koonapin"\nversion = ")([^"]+)(")/m],
   ["src-tauri/tauri.conf.json", /^(\s*"version":\s*")([^"]+)(")/m],
+  // The iOS project (NP-151) keeps the version as text too. CFBundleVersion, the build number, is
+  // not ours: `tauri ios build` writes it, and an upload of a second build of one version passes
+  // `--build-number`.
+  ["src-tauri/gen/apple/koonapin_iOS/Info.plist", /(<key>CFBundleShortVersionString<\/key>\s*<string>)([^<]+)(<\/string>)/],
+  ["src-tauri/gen/apple/project.yml", /^(\s*CFBundleShortVersionString:\s*)([^\s]+)()$/m],
 ];
 
 /** The version of each place, { file: version }; a place where none is found has null. */
@@ -30,7 +36,7 @@ export async function versions() {
   return found;
 }
 
-/** The one version of the four places; throws, naming each, when they differ. */
+/** The one version of the six places; throws, naming each, when they differ. */
 export async function version() {
   const found = await versions();
   const distinct = new Set(Object.values(found));
@@ -98,6 +104,6 @@ if (import.meta.main) {
   console.log(`
 Next:
   1. Write what changed for people in ${relative}: one «- » line per change, in English, as in the earlier files.
-  2. Commit the four files and the changelog in the PR of the change.
+  2. Commit the six files and the changelog in the PR of the change.
   3. After the merge: bun run release:tag on an up-to-date main.`);
 }

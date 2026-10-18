@@ -185,8 +185,9 @@ test("feeds that notify: «N new posts», their names and Read; a feed failing f
 
 test("More → «Import a file…» takes an OPML file and follows its feeds", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  const chooser = page.waitForEvent("filechooser");
   await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.locator("[data-import-file]").click();
   const opml = `<?xml version="1.0"?><opml version="2.0"><head><title>Reader</title></head><body>
     <outline text="Tech"><outline type="rss" text="Ars" xmlUrl="https://feeds.arstechnica.com/arstechnica/index"/>
     <outline type="rss" text="Notes" xmlUrl="https://notes.example.org/atom.xml"/></outline>

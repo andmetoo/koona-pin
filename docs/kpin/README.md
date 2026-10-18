@@ -304,8 +304,8 @@ What Koona Pin's bundle writes. The bundle collects what the person adds (bookma
 
 A list reaches Koona Pin in one of four ways, and every one opens the same dialog:
 
-- **Import a file…** in the ⋯ menu, or **Import…** in the import dialog, which takes `.kpin` next to bookmarks and OPML files;
-- dropping a `.kpin` file on the list area of the window. A file from the ⋯ menu or a drop is told apart by what it holds, not by its name: a list, a full copy, OPML or a bookmarks file each open their own dialog;
+- **Import a file…** in the ⋯ menu, which opens an Import window: a file dropped on it or chosen with a click; **Import…** in the bookmarks and feeds import dialogs takes `.kpin` the same way;
+- dropping a `.kpin` file on the list area of the window, or on the New window. A file from the Import window or a drop is told apart by what it holds, not by its name: a list, a full copy, OPML or a bookmarks file each open their own dialog;
 - opening a `.kpin` file with the app (double-click, Open With, or a path or `file://` address given to the program). Only an existing regular file whose name ends in `.kpin` is taken; a symbolic link is followed only to a file whose name also ends in `.kpin`;
 - a [one-click link](#the-one-click-link) from a web page.
 
@@ -315,7 +315,7 @@ A list reaches Koona Pin in one of four ways, and every one opens the same dialo
 - the counts: links, feeds and sections, and how many links are new, already saved or in Trash;
 - for a newer MINOR, how many details and items were skipped;
 - every item, grouped by section with the tag each section becomes; a link already saved or in Trash says so, and a feed already followed says "Following";
-- the choices: where the links go (a new collection named after the list, reused if a collection with that name exists, compared without case; an existing one; no collection; or no collection and no section tags), whether new links stay in Inbox, and which new feeds to follow ("Follow all", or one by one).
+- the choices: where the links go (a new collection named after the list, reused if a collection with that name exists, compared without case; an existing one; no collection; or no collection and no section tags), whether new links stay in Inbox, which new links to import and which new feeds to follow (one by one, or a section at a time with "Import all"; "Follow all" over feeds alone). A link left unchecked is not added, and a collection is made only if a link lands in it.
 
 Only **Accept** writes, in one transaction: an error leaves the library as it was. Then:
 

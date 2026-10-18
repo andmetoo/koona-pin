@@ -19,6 +19,8 @@ export type ListChoices = {
   toInbox: boolean;
   /** The new feeds' addresses that stay checked. */
   feeds: string[];
+  /** The new links' addresses the person unchecked: every new link is checked at first. */
+  leaveOut: string[];
 };
 
 /** The defaults of the plan: the list's collection, sorted, every new feed followed. */
@@ -26,6 +28,7 @@ export const defaultChoices = (preview: ListPreview): ListChoices => ({
   destination: { kind: "list" },
   toInbox: false,
   feeds: preview.new_feeds.map((feed) => feed.url),
+  leaveOut: [],
 });
 
 /** The new feeds that stay checked, in the list's order. */
@@ -36,7 +39,7 @@ function chosenFeeds(preview: ListPreview, choices: ListChoices) {
 
 /** What Accept adds: the links that are new and the feeds that stay checked. */
 export const importCounts = (preview: ListPreview, choices: ListChoices) => ({
-  links: preview.new_links,
+  links: Math.max(0, preview.new_links - choices.leaveOut.length),
   feeds: chosenFeeds(preview, choices).length,
 });
 
@@ -46,21 +49,32 @@ export const importCounts = (preview: ListPreview, choices: ListChoices) => ({
  */
 export const nothingNew = (preview: ListPreview) => preview.new_links === 0 && preview.new_feeds.length === 0;
 
-/** «Follow all» over some feeds: every one checked, none, or some. */
-export type FollowAll = "on" | "off" | "mixed";
+/** A group's checkbox («Import all», or «Follow all» over feeds alone): every one checked, none, or some. */
+export type GroupChoice = "on" | "off" | "mixed";
 
-export function followAll(urls: string[], chosen: string[]): FollowAll {
-  const checked = new Set(chosen);
-  const on = urls.filter((url) => checked.has(url)).length;
-  return on === 0 ? "off" : on === urls.length ? "on" : "mixed";
+/**
+ * The checkbox over a group (K10): its new links and its new feeds together, every one checked,
+ * none, or some; `undefined` when the group has nothing new to choose.
+ */
+export function groupChoice(row: { links: string[]; feeds: string[] }, choices: ListChoices): GroupChoice | undefined {
+  if (row.links.length + row.feeds.length === 0) return undefined;
+  const out = new Set(choices.leaveOut);
+  const feeds = new Set(choices.feeds);
+  const on = row.links.filter((url) => !out.has(url)).length + row.feeds.filter((url) => feeds.has(url)).length;
+  return on === 0 ? "off" : on === row.links.length + row.feeds.length ? "on" : "mixed";
 }
 
-/** «Follow all» clicked: some or none checked become all, all become none. */
-export function toggleAll(urls: string[], chosen: string[]): string[] {
-  const these = new Set(urls);
-  const rest = chosen.filter((url) => !these.has(url));
-  return followAll(urls, chosen) === "on" ? rest : [...rest, ...urls];
+/** The group's checkbox clicked: some or none checked become all, all become none. */
+export function toggleGroup(row: { links: string[]; feeds: string[] }, choices: ListChoices): Pick<ListChoices, "feeds" | "leaveOut"> {
+  const these = new Set([...row.links, ...row.feeds]);
+  const feeds = choices.feeds.filter((url) => !these.has(url));
+  const leaveOut = choices.leaveOut.filter((url) => !these.has(url));
+  return groupChoice(row, choices) === "on" ? { feeds, leaveOut: [...leaveOut, ...row.links] } : { feeds: [...feeds, ...row.feeds], leaveOut };
 }
+
+/** One new link checked or unchecked. */
+export const toggleLink = (url: string, choices: ListChoices): string[] =>
+  choices.leaveOut.includes(url) ? choices.leaveOut.filter((out) => out !== url) : [...choices.leaveOut, url];
 
 /** A group of more rows than this folds (K10)… */
 export const FOLD_OVER = 8;
@@ -83,6 +97,8 @@ export type PreviewRow =
       feedsOnly: boolean;
       /** The group's new feeds, which «Follow all» checks. */
       feeds: string[];
+      /** The group's new links, which its checkbox checks with the feeds. */
+      links: string[];
     }
   | { kind: "item"; group: number; item: ListPreviewItem }
   | { kind: "more"; group: number; count: number };
@@ -92,8 +108,8 @@ export const TOP_FEEDS = -1;
 
 /**
  * The preview's rows. Feeds outside any section make a «Feeds» group of their own, right after the
- * top level's links. The top level's links have no header when they are the only group; a group
- * with new feeds always has one, for «Follow all». A group of more than `FOLD_OVER` rows shows
+ * top level's links. A group with anything new has a header, for its checkbox; the top level's
+ * links with nothing new have none when they are the only group. A group of more than `FOLD_OVER` rows shows
  * `FOLDED` until it is in `open`.
  */
 export function previewRows(preview: ListPreview, open: ReadonlySet<number>): PreviewRow[] {
@@ -109,9 +125,11 @@ export function previewRows(preview: ListPreview, open: ReadonlySet<number>): Pr
     ];
   });
   for (const { group, name, tag, items } of shown) {
-    const feeds = items.filter((item) => item.kind === "feed" && item.status === "new").map((item) => item.url);
-    if (!(shown.length === 1 && name === null && feeds.length === 0))
-      rows.push({ kind: "group", group, name, tag, count: items.length, feedsOnly: items.every((item) => item.kind === "feed"), feeds });
+    const fresh = (kind: ListPreviewItem["kind"]) => items.filter((item) => item.kind === kind && item.status === "new").map((item) => item.url);
+    const feeds = fresh("feed");
+    const links = fresh("link");
+    if (!(shown.length === 1 && name === null && feeds.length + links.length === 0))
+      rows.push({ kind: "group", group, name, tag, count: items.length, feedsOnly: items.every((item) => item.kind === "feed"), feeds, links });
     const folded = items.length > FOLD_OVER && !open.has(group);
     for (const item of folded ? items.slice(0, FOLDED) : items) rows.push({ kind: "item", group, item });
     if (folded) rows.push({ kind: "more", group, count: items.length - FOLDED });
@@ -135,6 +153,7 @@ export function importOptions(preview: ListPreview, choices: ListChoices): ListI
     sections_as_tags: destination.kind !== "bare",
     existing_links: "leave",
     follow_feeds: chosenFeeds(preview, choices),
+    leave_out: choices.leaveOut,
   };
 }
 

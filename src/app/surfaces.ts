@@ -10,13 +10,13 @@ import type { Plan, SupporterStatus, SyncStatus, UpdateStatus } from "../types";
  * What opens over the window, one at a time: dialogs and sheets. `selectionCollection` — «Новая
  * коллекция из выбранного» in a narrow window, where the sidebar is a strip.
  */
-export type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
+export type Surface = "add" | "import" | "importFeeds" | "importFile" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
 
 /** An OPML, bookmarks or backup file dropped or picked: its dialog opens with it (NP-139, K9). */
 export type DroppedFile = { name: string; content: string; surface: "import" | "importFeeds" | "restore" };
 
 /** The dialogs a dropped file would compete with: another file meanwhile is «Busy» (K9). */
-export const IMPORT_SURFACES: Surface[] = ["import", "importFeeds", "restore", "backup"];
+export const IMPORT_SURFACES: Surface[] = ["import", "importFeeds", "importFile", "restore", "backup"];
 
 /**
  * The surfaces (dialogs, sheets) and what opens them by itself: the list dialog for a `.kpin` that
