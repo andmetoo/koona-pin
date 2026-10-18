@@ -118,6 +118,6 @@ export const bundleApi = {
     if (draftProblem(draft)) throw new CommandError("invalid_request", "This file isn't a Koona list");
     return { outcome: "saved", file_name: name ?? fileName(id), count: draft.links + draft.feeds };
   },
-  /** «Show» after a save: the file in its folder, as after an export. */
+  /** «Show» after a save: the file in its folder, as after an export; offered only with `capabilities.file_manager`. */
   reveal: async (): Promise<void> => desktopOnly().revealExport(),
 };

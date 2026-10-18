@@ -161,6 +161,25 @@ test("Save writes the built list under the title's name; Copy gives Markdown; Cl
   await expect(rows(page)).toHaveCount(2);
 });
 
+test("without a file manager the Saved notice offers no «Show»", async ({ page }) => {
+  // A desktop build whose capabilities have no file manager, as a phone's do (platform.ts).
+  await page.addInitScript(() => {
+    (window as { __KOONA__?: unknown }).__KOONA__ = {
+      platform: "desktop",
+      capabilities: { file_manager: false, tray: true, autostart: true, updates: "self", browser_capture: true, mcp: true, quit: true, folder_picker: true, share_intake: false, haptics: false, purchase: "paddle" },
+    };
+  });
+  await page.reload();
+  await mockSave(page);
+  await sidebar(page).getByRole("button", { name: /^Design/ }).click();
+  await openFromMenu(page);
+  await panel(page).getByRole("button", { name: /^Add Design/ }).click();
+  await panel(page).getByRole("button", { name: "Save .kpin…" }).click();
+  await expect(panel(page).getByRole("status")).toContainText("Saved design.kpin");
+  await expect(panel(page).getByRole("button", { name: "Clear" }).last()).toBeVisible();
+  await expect(panel(page).getByRole("button", { name: "Show" })).toHaveCount(0);
+});
+
 test("a double click on Save opens one dialog; a title in Cyrillic names the file, the id stays ASCII", async ({ page }) => {
   await mockSave(page, 300);
   await sidebar(page).getByRole("button", { name: /^Design/ }).click();

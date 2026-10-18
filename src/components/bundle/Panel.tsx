@@ -3,6 +3,7 @@ import { Pencil, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { bundle, BundleSnapshot, BundleState, itemCount, TITLE_LEN, titleOf, toModel } from "../../services/bundle";
 import { bundleApi } from "../../services/bundleApi";
+import { capabilities } from "../../platform/capabilities";
 import { describeError } from "../../services/errors";
 import { listMarkdown, MAX_BYTES, readDraft, slugify, titleFileName } from "../../services/listText";
 import type { BundleModel } from "../../bindings/BundleModel";
@@ -150,7 +151,10 @@ export function Panel({
         return setNotice({
           text: t("bundle.saved", { name: result.file_name }),
           actions: [
-            { label: t("export.show"), run: () => void bundleApi.reveal().catch((err) => setNotice({ text: describeError(err), actions: [], alert: true })) },
+            // «Show» needs a file manager: a phone has none (importExport.ts does the same).
+            ...(capabilities.file_manager
+              ? [{ label: t("export.show"), run: () => void bundleApi.reveal().catch((err) => setNotice({ text: describeError(err), actions: [], alert: true })) }]
+              : []),
             { label: t("bundle.clear"), run: clear },
           ],
         });
