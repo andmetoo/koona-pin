@@ -207,7 +207,9 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
   );
   const lead = leadImage.src ? (
     <figure className="feed-lead">
-      <img src={leadImage.src} alt="" referrerPolicy="no-referrer" onError={leadImage.onError} className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
+      <img src={leadImage.src} alt="" referrerPolicy="no-referrer" onError={leadImage.onError}
+        onLoad={leadImage.onLoad}
+        className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
       {caption && <figcaption className="feed-caption">{caption}</figcaption>}
     </figure>
   ) : null;

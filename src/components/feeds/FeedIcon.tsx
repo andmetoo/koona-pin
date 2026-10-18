@@ -19,6 +19,7 @@ export function FeedIcon({ feed, size, round = false }: { feed: Pick<Feed, "uid"
         alt=""
         referrerPolicy="no-referrer"
         onError={icon.onError}
+        onLoad={icon.onLoad}
         className={`shrink-0 bg-card object-cover ${shape}`}
         style={{ width: size, height: size }}
       />

@@ -283,6 +283,7 @@ function FeedItemRow({
                 loading="lazy"
                 referrerPolicy="no-referrer"
                 onError={thumbnail.onError}
+                onLoad={thumbnail.onLoad}
                 className={`mt-1.5 size-[76px] shrink-0 rounded-2xl bg-well object-cover ${item.read ? "opacity-70" : ""}`}
               />
             )}

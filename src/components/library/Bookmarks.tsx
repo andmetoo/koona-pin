@@ -254,6 +254,7 @@ export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
       referrerPolicy="no-referrer"
       className="shrink-0 rounded-[3px] object-contain"
       onError={icon.onError}
+      onLoad={icon.onLoad}
     />
   ) : (
     <span
@@ -323,7 +324,11 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
             alt=""
             decoding="async"
             referrerPolicy="no-referrer"
-            onLoad={(e) => setIcon(e.currentTarget.naturalWidth >= 32 ? "large" : "small")}
+            onLoad={(e) => {
+              // A refused copy ends the chain: the letter, not a "small" icon.
+              picture.onLoad(e);
+              setIcon(e.currentTarget.naturalWidth >= 32 ? "large" : "small");
+            }}
             onError={picture.onError}
           />
         )}
@@ -369,6 +374,7 @@ export function Preview({ b, live = false, small = false }: { b: Bookmark; live?
         referrerPolicy="no-referrer"
         className="size-full object-cover"
         onError={picture.onError}
+        onLoad={picture.onLoad}
       />
     );
   return pending ? <span data-preview-pending className="cover-pending" /> : <Cover b={b} live={live} small={small} />;

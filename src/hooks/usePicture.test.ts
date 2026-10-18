@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, createElement } from "react";
+import { act, createElement, SyntheticEvent } from "react";
 import { createRoot, Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Picture } from "./usePicture";
@@ -24,6 +24,8 @@ function Probe({ id, url, webFirst }: Props) {
 }
 const render = (props: Props) => act(() => root.render(createElement(Probe, props)));
 const fail = () => act(() => picture.onError());
+const load = (naturalWidth: number, naturalHeight: number) =>
+  act(() => picture.onLoad({ currentTarget: { naturalWidth, naturalHeight } } as unknown as SyntheticEvent<HTMLImageElement>));
 const setOnline = (online: boolean) => vi.spyOn(navigator, "onLine", "get").mockReturnValue(online);
 
 const A = "https://x.org/a.png";
@@ -51,13 +53,47 @@ describe("usePicture", () => {
     expect(picture.failed).toBe(true);
   });
 
-  it("goes straight to the fallback offline", () => {
+  it("tries the source address offline too: the WebView's own cache may hold it", () => {
     setOnline(false);
     render({ id: 3, url: A });
     expect(picture.src).toMatch(/^kpimg:/);
     fail();
+    expect(picture.src).toBe(A);
+    fail();
+    expect(picture.failed).toBe(true);
+  });
+
+  it("ends the chain at a refused copy, without trying the web", () => {
+    render({ id: 3, url: A });
+    load(1, 1);
     expect(picture.src).toBeNull();
     expect(picture.failed).toBe(true);
+  });
+
+  it("keeps a copy that loads at a real size, or without one of its own", () => {
+    render({ id: 3, url: A });
+    load(16, 16);
+    expect(picture.src).toMatch(/^kpimg:/);
+    // An SVG icon without a width can report 0.
+    load(0, 0);
+    expect(picture.src).toMatch(/^kpimg:/);
+  });
+
+  it("does not take a 1×1 picture from the web for a refusal", () => {
+    render({ id: 3, url: A });
+    fail();
+    load(1, 1);
+    expect(picture.src).toBe(A);
+  });
+
+  it("tries the failed pictures again when the network comes back", () => {
+    render({ id: 3, url: A });
+    fail();
+    fail();
+    expect(picture.failed).toBe(true);
+    act(() => window.dispatchEvent(new Event("online")));
+    expect(picture.src).toMatch(/^kpimg:/);
+    expect(picture.failed).toBe(false);
   });
 
   it("starts again for a new source address", () => {
@@ -94,7 +130,19 @@ describe("usePicture", () => {
     render({ id: 3, url: A, webFirst: true });
     expect(picture.src).toMatch(/^kpimg:/);
     fail();
+    expect(picture.src).toBe(A);
+    fail();
     expect(picture.failed).toBe(true);
+  });
+
+  it("listens for the network once, however many pictures there are", () => {
+    const add = vi.spyOn(window, "addEventListener");
+    const remove = vi.spyOn(window, "removeEventListener");
+    const many = (n: number) => Array.from({ length: n }, (_, i) => createElement(Probe, { key: i, id: i + 1, url: A }));
+    act(() => root.render(many(3)));
+    expect(add.mock.calls.filter(([type]) => type === "online")).toHaveLength(1);
+    act(() => root.render(many(0)));
+    expect(remove.mock.calls.filter(([type]) => type === "online")).toHaveLength(1);
   });
 
   it("outside Tauri tries the source address alone, as before the cache", () => {
