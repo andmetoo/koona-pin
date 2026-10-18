@@ -688,6 +688,8 @@ pub async fn clear_feed_cache(
     feed_cache: State<'_, Arc<cache::FeedCache>>,
 ) -> Result<(), CommandError> {
     cache::blocking(&feed_cache, |conn| Ok(cache::clear(conn)?)).await?;
+    // Their thumbnails go with the picture cache's next sweep (NP-146).
+    crate::thumbs::sweep_soon();
     changed(&app, &state).await;
     Ok(())
 }
