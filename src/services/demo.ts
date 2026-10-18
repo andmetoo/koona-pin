@@ -274,7 +274,8 @@ const isoMinutesAgo = (minutes: number) => new Date(minutesAgo(minutes)).toISOSt
 function demoDevice(id: string, name: string, extra: Partial<SyncDevice> = {}): SyncDevice {
   return { id, name, online: false, is_hub: false, status: "active", last_seen: minutesAgo(90), platform: null, app: null, last_sync_at: null, ...extra };
 }
-const DEMO_BOOKMARKS = 12480;
+/** The account's bookmarks, as sync counts them: the preview's own library, so the dialog agrees with it. */
+const demoLibraryCount = () => bookmarks.filter((b) => !b.deleted_at).length;
 /** What Home iMac, Office laptop and Studio PC say of themselves in their `hello`. */
 // The computers run the version this preview was built from.
 const IMAC = { platform: "macos", app: packageVersion } as const;
@@ -298,7 +299,7 @@ function demoSyncState(kind: string | null): SyncStatus {
     error: null,
     hub_change: null,
     notices: [],
-    bookmarks: DEMO_BOOKMARKS,
+    bookmarks: demoLibraryCount(),
     clock_offset_ms: 400,
     update_from: null,
     epoch: 2,
@@ -345,7 +346,7 @@ function demoSyncState(kind: string | null): SyncStatus {
       };
     }
     case "receiving":
-      return { ...other(null), phase: { state: "syncing", done: 4210, total: DEMO_BOOKMARKS }, last_sync_at: null };
+      return { ...other(null), phase: { state: "syncing", done: 4210, total: 12480 }, last_sync_at: null };
     case "syncing":
       return { ...on, phase: { state: "syncing", done: 38, total: 120 } };
     case "main_asked":

@@ -74,7 +74,7 @@ test("Sync: on the main computer — rename this one, remove another after a con
   const dialog = await openSync(page);
   await expect(dialog.locator("[data-sync-hub]")).toBeVisible();
   await expect(dialog.locator('[data-sync-banner="online"]')).toContainText("Synced just now");
-  await expect(dialog.locator('[data-sync-banner="online"]')).toContainText("3 computers · 12,480 bookmarks");
+  await expect(dialog.locator('[data-sync-banner="online"]')).toContainText(/3 computers · \d[\d,]* bookmarks/);
   await expect(dialog.locator('[data-sync-device="Home iMac"]')).toContainText(`macOS · Koona Pin ${version}`);
   await expect(dialog.locator('[data-sync-device="Office laptop"]')).toContainText("Windows · online");
   await expect(dialog.locator('[data-sync-device="Studio PC"]')).toContainText("Linux · last seen 3 hours ago");
