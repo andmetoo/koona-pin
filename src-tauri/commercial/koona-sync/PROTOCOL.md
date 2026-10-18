@@ -71,8 +71,8 @@ Browsers can't set headers on a WebSocket; v1 clients are native apps and MUST u
 | 4008 | Rate limited | Retry after backoff (at least 30 s) |
 | 4009 | Replaced: the same device id connected again | Don't reconnect from this connection |
 
-Standard codes (1000, 1001, 1002, 1009, 1011) keep their usual meaning. Rate limits are relay
-policy, not part of this contract.
+Standard codes (1000, 1001, 1002, 1009, 1011, 1012, 1013) keep their usual meaning: a client
+reconnects with backoff after any of them. Rate limits are relay policy, not part of this contract.
 
 ### 2.3 Control messages (text frames)
 
@@ -228,7 +228,17 @@ byte on the wire.
 - **Handshake strictness**: any message before `welcome` other than one `hello` closes with 4001;
   a second `hello` after `welcome` is answered with `error{code: "bad_message"}`.
 - **Replacement** (4009): the new socket gets `presence{online: true}`; `presence{online: false}`
-  is only sent when a device's last socket closes.
+  is only sent when a device's last socket closes. "Older" is the order connections were
+  accepted, not the order their `hello`s were verified: a `hello` that finishes after a newer
+  connection of the same device was welcomed closes its own connection with 4009 instead.
+- **Connection age**: the relay checks the token and lease only when a connection opens, so it
+  closes any connection after about 24 hours (spread over up to 30 more minutes) with **1012** and
+  reason `reconnect`. The client reconnects as after any 1012, presenting its current token and
+  lease.
+- **Signing keys**: while the relay can't fetch Supabase's keys it answers 1013, never 4001 for a
+  key it has not seen; 4001 for an unknown key comes only after a successful fetch without it.
+- **Epoch bounds**: an `epoch` request may raise the epoch by at most 1000; a start over when the
+  epoch is already 0xffffffff is refused with `error{code: "bad_epoch"}` and changes nothing.
 - **No-op requests** (`set_hub` to the current hub, `rename` to the same name) succeed and are
   broadcast like any other.
 - **Keepalive**: a text `{"t": "ping"}` is answered with `{"t": "pong"}` by the relay's runtime;
