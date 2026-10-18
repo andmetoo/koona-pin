@@ -111,6 +111,20 @@ export type BundleSnapshot = Pick<BundleState, "sections" | "title" | "titleEdit
 export function createBundle() {
   let state = initial();
   let nonce = 0;
+  /**
+   * Bumped by every add; each entry keeps the generation it came in at, so a prune whose ids were
+   * read before an add never drops what that add brought (`prune`'s `addedBefore`).
+   */
+  let generation = 0;
+  const addedAt = new Map<string, number>();
+  const stamp = (entries: BundleEntry[]) => {
+    generation++;
+    for (const e of entries) addedAt.set(entryKey(e), generation);
+  };
+  /** Entries that left the bundle leave `addedAt` too, so it holds only what is in the bundle. */
+  const forget = (entries: Iterable<BundleEntry>) => {
+    for (const e of entries) addedAt.delete(entryKey(e));
+  };
   const listeners = new Set<() => void>();
   const set = (next: Partial<BundleState>) => {
     state = { ...state, ...next };
@@ -133,6 +147,7 @@ export function createBundle() {
     const sections = existing
       ? state.sections.map((s) => (s === existing ? { ...s, entries: [...s.entries, ...entries] } : s))
       : [...state.sections, { key, origin, name, entries }];
+    stamp(entries);
     set({ sections: ordered(sections), left: 0 });
   };
   const named = (origin: Extract<BundleOrigin, { kind: "collection" | "tag" }>, name: string, bookmarks: Bookmark[]): Added => {
@@ -167,10 +182,12 @@ export function createBundle() {
       return { kind: "feeds", added: entries.length, total: itemCount(state) };
     },
     removeEntry(key: string) {
+      addedAt.delete(key);
       const sections = state.sections.map((s) => ({ ...s, entries: s.entries.filter((e) => entryKey(e) !== key) })).filter((s) => s.entries.length);
       set({ sections });
     },
     removeSection(key: string) {
+      forget(state.sections.find((s) => s.key === key)?.entries ?? []);
       set({ sections: state.sections.filter((s) => s.key !== key) });
     },
     setUseNote(key: string, useNote: boolean) {
@@ -189,17 +206,32 @@ export function createBundle() {
     /** Clear: everything goes; the snapshot brings it back with Undo. */
     clear(): BundleSnapshot {
       const { sections, title, titleEdited, description, author } = state;
+      addedAt.clear();
       set({ sections: [], title: "", titleEdited: false, description: "", left: 0 });
       return { sections, title, titleEdited, description, author };
     },
-    restore: (snapshot: BundleSnapshot) => set({ ...snapshot, sections: ordered(snapshot.sections) }),
+    /**
+     * Undo of Clear: the entries come back as added now, so a prune whose ids were read before
+     * the Undo leaves them be; the next one judges them.
+     */
+    restore(snapshot: BundleSnapshot) {
+      stamp(snapshot.sections.flatMap((s) => s.entries));
+      set({ ...snapshot, sections: ordered(snapshot.sections) });
+    },
+    /** The generation of the last add: read it before the ids a prune is given (`addedBefore`). */
+    generation: () => generation,
     /**
      * Drops bookmarks no longer in the library or in Trash, and feeds no longer followed (`feeds`
-     * null: not known, kept). The count is the meta line «N items left the bundle».
+     * null: not known, kept). Only entries added at or before `addedBefore` are judged: the ids
+     * were read then, so a later add is not in them yet. The count is the meta line «N items left
+     * the bundle».
      */
-    prune(live: ReadonlySet<number>, feeds: ReadonlySet<string> | null = null): number {
-      const keep = (e: BundleEntry) => (e.kind === "bookmark" ? live.has(e.bookmark.id) : !feeds || feeds.has(e.feed.uid));
-      const gone = state.sections.reduce((sum, s) => sum + s.entries.filter((e) => !keep(e)).length, 0);
+    prune(live: ReadonlySet<number>, feeds: ReadonlySet<string> | null = null, addedBefore = Infinity): number {
+      const keep = (e: BundleEntry) =>
+        (addedAt.get(entryKey(e)) ?? 0) > addedBefore || (e.kind === "bookmark" ? live.has(e.bookmark.id) : !feeds || feeds.has(e.feed.uid));
+      const dropped = state.sections.flatMap((s) => s.entries.filter((e) => !keep(e)));
+      const gone = dropped.length;
+      forget(dropped);
       if (gone) set({ sections: state.sections.map((s) => ({ ...s, entries: s.entries.filter(keep) })).filter((s) => s.entries.length), left: state.left + gone });
       return gone;
     },
@@ -216,8 +248,13 @@ export function createBundle() {
       });
       if (changed) set({ sections });
     },
+    /** Tests only: how many entries have a generation kept. */
+    tracked: () => addedAt.size,
     /** Tests only: as at the start of the app. */
-    reset: () => set(initial()),
+    reset() {
+      addedAt.clear();
+      set(initial());
+    },
   };
 }
 

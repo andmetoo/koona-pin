@@ -135,15 +135,38 @@ fn is_device(stem: &str) -> bool {
     }
 }
 
+/// An invisible format character (Unicode Cf) that may hide or reorder what
+/// a name shows: the soft hyphen, zero-width ones, bidi marks, embeddings,
+/// overrides and isolates, word joiners and invisible operators, the
+/// deprecated shaping controls, the BOM, interlinear annotation marks and
+/// tag characters. The Cf characters that show a sign of their own (Arabic
+/// and Syriac number signs, Kaithi, Egyptian and musical controls) stay.
+fn is_format(c: char) -> bool {
+    matches!(
+        c,
+        '\u{00AD}'
+            | '\u{061C}'
+            | '\u{180E}'
+            | '\u{200B}'..='\u{200F}'
+            | '\u{202A}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{206F}'
+            | '\u{FEFF}'
+            | '\u{FFF9}'..='\u{FFFB}'
+            | '\u{E0001}'
+            | '\u{E0020}'..='\u{E007F}'
+    )
+}
+
 /// The file name the app suggests (`listText.ts` makes it from the title),
-/// made safe on every system: no `/ \ : * ? " < > |` or control
-/// characters, no trailing dots or spaces, at most 64 characters, a device
+/// made safe on every system: no `/ \ : * ? " < > |`, control or invisible
+/// format characters (`is_format`), no trailing dots or spaces, at most 64 characters, a device
 /// name of Windows given `-list` before its first dot (`con.backup` →
 /// `con-list.backup`), else `list`; always with `.kpin`, in any case.
 pub fn safe_file_name(name: &str) -> String {
     let cut = name.len().checked_sub(5).filter(|&at| name.is_char_boundary(at) && name[at..].eq_ignore_ascii_case(".kpin"));
     let base = cut.map_or(name, |at| &name[..at]);
-    let kept: String = base.chars().filter(|c| !c.is_control() && !r#"/\:*?"<>|"#.contains(*c)).collect();
+    let kept: String = base.chars().filter(|c| !c.is_control() && !is_format(*c) && !r#"/\:*?"<>|"#.contains(*c)).collect();
     let capped: String = kept.trim_start().chars().take(ID_LEN).collect();
     let mut base = capped.trim_end_matches(['.', ' ']).to_owned();
     if base.is_empty() {
@@ -262,5 +285,28 @@ mod tests {
         assert_eq!(safe_file_name("con.KPIN"), "con-list.kpin");
         assert_eq!(safe_file_name("я.kpin"), "я.kpin");
         assert_eq!(safe_file_name("kpin"), "kpin.kpin");
+    }
+
+    #[test]
+    fn invisible_format_characters_leave_the_suggested_file_name() {
+        // A right-to-left override would show `evil\u{202E}nipk.exe` as `evilexe.kpin`.
+        assert_eq!(safe_file_name("evil\u{202E}nipk.exe"), "evilnipk.exe.kpin");
+        assert_eq!(safe_file_name("\u{FEFF}notes\u{200B}"), "notes.kpin");
+        assert_eq!(safe_file_name("a\u{200C}b\u{200D}c\u{200E}d\u{200F}e\u{061C}f"), "abcdef.kpin");
+        assert_eq!(safe_file_name("a\u{202A}b\u{202B}c\u{202C}d\u{202D}e"), "abcde.kpin");
+        assert_eq!(safe_file_name("a\u{2060}b\u{2061}c\u{2062}d\u{2063}e\u{2064}f"), "abcdef.kpin");
+        assert_eq!(safe_file_name("a\u{2066}b\u{2067}c\u{2068}d\u{2069}e"), "abcde.kpin");
+        // Nothing but them, or them past a trailing dot or a device name: as if they were not there.
+        assert_eq!(safe_file_name("\u{200B}\u{2066}\u{FEFF}"), "list.kpin");
+        assert_eq!(safe_file_name("notes.\u{200B}"), "notes.kpin");
+        assert_eq!(safe_file_name("con\u{200B}"), "con-list.kpin");
+        assert_eq!(safe_file_name("soft\u{00AD}hy\u{180E}phen"), "softhyphen.kpin");
+        assert_eq!(safe_file_name("a\u{206A}b\u{206B}c\u{206C}d\u{206D}e\u{206E}f\u{206F}g"), "abcdefg.kpin");
+        assert_eq!(safe_file_name("a\u{FFF9}b\u{FFFA}c\u{FFFB}d"), "abcd.kpin");
+        assert_eq!(safe_file_name("tag\u{E0001}\u{E0020}\u{E0061}\u{E007F}ged"), "tagged.kpin");
+        // A flag of tag characters keeps its black flag.
+        assert_eq!(safe_file_name("\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F} notes"), "\u{1F3F4} notes.kpin");
+        // Other characters around them stay.
+        assert_eq!(safe_file_name("👩\u{200D}💻 notes"), "👩💻 notes.kpin");
     }
 }

@@ -229,6 +229,36 @@ describe("readFile", () => {
     expect(await readFile(new File([none], "rows.json"))).toEqual({ refused: "unsupported" });
   });
 
+  it("scans a file whose format is past its head whole only once, by a drop and by the menu", async () => {
+    const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona-pin","version":1}`;
+    const head = late.slice(0, HEAD);
+    // A drop: scanned in pieces by `late`, then read whole by `whole` and not scanned again. The
+    // text read says another `format` than the scan found: only a second scan would see it (Rust
+    // validates the whole text).
+    const scans: number[] = [];
+    const reads: number[] = [];
+    const other = late.replace('"koona-pin"', '"koona"');
+    const scan = (cap: number) => (scans.push(cap), Promise.resolve({ format: "koona-pin" }));
+    const read = (cap: number) => (reads.push(cap), Promise.resolve(other));
+    expect(await known("f", late.length, head, read, scan)).toMatchObject({ kind: "backup", text: other });
+    expect(scans).toEqual([CAPS.backup]);
+    expect(reads).toEqual([CAPS.backup]);
+    // The menu: read whole once by `whole` and scanned by the default `late`; its text is kept, so
+    // `whole` is not called again.
+    const menuReads: number[] = [];
+    const menuRead = (cap: number) => (menuReads.push(cap), Promise.resolve(late));
+    expect(await known("f", late.length, head, menuRead)).toMatchObject({ kind: "backup", text: late });
+    expect(menuReads).toEqual([CAPS.backup]);
+  });
+
+  it("refuses a file whose head changed to another kind between the scan and the read", async () => {
+    const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona"}`;
+    const changed = `{"format":"koona-pin","blob":"${"x".repeat(HEAD)}"}`;
+    const lateFormat = () => Promise.resolve({ format: "koona" });
+    expect(await known("f", late.length, late.slice(0, HEAD), () => Promise.resolve(changed), lateFormat)).toEqual({ refused: "unsupported" });
+    expect(await known("f", late.length, late.slice(0, HEAD), () => Promise.resolve(late), lateFormat)).toMatchObject({ kind: "kpin" });
+  });
+
   it("takes a small head that does not tell as the whole file, not read again", async () => {
     const reads: string[] = [];
     const text = '{"format":"koo';

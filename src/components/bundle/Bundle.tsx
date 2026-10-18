@@ -110,12 +110,13 @@ export function Bundle({
   // «Add {view} · N»: bumped when the library changes while the panel is open (the view's ids below).
   const [libraryChanged, setLibraryChanged] = useState(0);
   // One subscription to the library: items deleted or moved to Trash leave the bundle at once, so a
-  // stream of changes never holds it off (Save builds anew anyway, so it never writes one); the open
+  // stream of changes never holds it off; a burst shares the prune in flight and one more after it
+  // (`pruneBundle`), not an id read per event (Save builds anew anyway, so it never writes one); the open
   // panel fetches the view's ids again once a burst has settled for `IDS_DELAY`.
   useEffect(() => {
     let timer = 0;
     const changed = (removed: boolean) => {
-      if (removed) void pruneBundle();
+      if (removed) void pruneBundle().catch(() => 0);
       window.clearTimeout(timer);
       timer = window.setTimeout(() => openNow.current && setLibraryChanged((n) => n + 1), IDS_DELAY);
     };
@@ -132,7 +133,7 @@ export function Bundle({
     };
   }, []);
   useEffect(() => {
-    if (open) void pruneBundle();
+    if (open) void pruneBundle().catch(() => 0);
   }, [open]);
 
   const count = itemCount(state);
