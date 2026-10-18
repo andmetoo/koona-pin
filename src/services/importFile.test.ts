@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CAPS, HEAD, LARGEST, formatScanner, known, readDropped, readFile, sniff, sniffHead, topLevelFormat } from "./importFile";
 
 const LIST = '{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Rust","items":[]}';
@@ -227,6 +227,30 @@ describe("readFile", () => {
     const none = `{"rows":[${"[1,2,3],".repeat(400_000)}[4]],"meta":{"format":"koona-pin"}}`;
     expect(none.length).toBeGreaterThan(3 * 1024 * 1024);
     expect(await readFile(new File([none], "rows.json"))).toEqual({ refused: "unsupported" });
+  });
+
+  it("scans a file whose format is past its head whole only once, by a drop and by the menu", async () => {
+    // Each scan that reaches the top-level `format` key reads that key once.
+    const parse = vi.spyOn(JSON, "parse");
+    const scans = () => parse.mock.calls.filter(([raw]) => raw === '"format"').length;
+    const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona-pin","version":1}`;
+    try {
+      expect(await readFile(new File([late], "sorted.json"))).toMatchObject({ kind: "backup", text: late });
+      expect(scans()).toBe(1);
+      parse.mockClear();
+      expect(await known("f", late.length, late.slice(0, HEAD), () => Promise.resolve(late))).toMatchObject({ kind: "backup", text: late });
+      expect(scans()).toBe(1);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
+  it("refuses a file whose head changed to another kind between the scan and the read", async () => {
+    const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona"}`;
+    const changed = `{"format":"koona-pin","blob":"${"x".repeat(HEAD)}"}`;
+    const lateFormat = () => Promise.resolve({ format: "koona" });
+    expect(await known("f", late.length, late.slice(0, HEAD), () => Promise.resolve(changed), lateFormat)).toEqual({ refused: "unsupported" });
+    expect(await known("f", late.length, late.slice(0, HEAD), () => Promise.resolve(late), lateFormat)).toMatchObject({ kind: "kpin" });
   });
 
   it("takes a small head that does not tell as the whole file, not read again", async () => {
