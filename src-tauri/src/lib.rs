@@ -311,6 +311,9 @@ pub fn run() {
             feeds::set_feeds_refresh_minutes,
             lists::preview_list,
             lists::import_list,
+            lists::download::download_list,
+            lists::download::cancel_list_download,
+            lists::download::read_list_file,
             tray::set_tray_labels,
             tray::get_tray_labels,
             open_requests::take_pending_opens
