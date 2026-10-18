@@ -108,7 +108,7 @@ export function ImportDialog({
   onClose,
   onList,
 }: {
-  /** «Import feeds (OPML)…» opens it for feeds; either way it takes both kinds of file. */
+  /** Settings → Feeds → «Import…» opens it for feeds; either way it takes both kinds of file. */
   kind?: "bookmarks" | "feeds";
   /** A file dropped on the window (NP-139): the dialog opens with it chosen. */
   file?: { name: string; content: string };
@@ -462,10 +462,13 @@ function ModeOption({ checked, title, hint, onSelect }: { checked: boolean; titl
  * nothing changed.
  */
 export function RestoreDialog({
+  file: dropped,
   onRestore,
   onShowBackups,
   onClose,
 }: {
+  /** A full copy dropped on the window or picked with «Import a file…»: checked at once. */
+  file?: { name: string; content: string };
   onRestore: (content: string, mode: RestoreMode) => Promise<RestoreOutcome>;
   /** None on a phone: no file manager to show the copy in (NP-151). */
   onShowBackups?: () => void;
@@ -481,21 +484,27 @@ export function RestoreDialog({
   const [report, setReport] = useState<{ summary: RestoreSummary; mode: RestoreMode } | null>(null);
   const number = (n: number) => n.toLocaleString(i18n.language);
 
-  const pick = async (picked: File) => {
+  const check = async (name: string, read: () => Promise<string>) => {
     setError("");
     setProblem("");
     setFile(null);
     try {
-      const content = await picked.text();
+      const content = await read();
       const check = await api.checkRestore(content);
       if (check.outcome === "rejected") {
-        setFile({ name: picked.name, content, preview: { bookmarks: 0, collections: 0, tags: 0, exported_at: "", current: 0 } });
+        setFile({ name, content, preview: { bookmarks: 0, collections: 0, tags: 0, exported_at: "", current: 0 } });
         setProblem(problemText(check.problem, t));
-      } else setFile({ name: picked.name, content, preview: check.preview });
+      } else setFile({ name, content, preview: check.preview });
     } catch (err) {
       setError(describeError(err));
     }
   };
+  const pick = (picked: File) => check(picked.name, () => picked.text());
+  // The dialog opens with a dropped copy chosen; the key of a new drop is a new dialog.
+  useEffect(() => {
+    if (dropped) void check(dropped.name, async () => dropped.content);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const run = async () => {
     if (!file) return;
     setBusy(true);

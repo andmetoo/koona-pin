@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOpenRequests, draggedFile, fileKindOf, MAX_FILE, readDropped, refusedByName } from "./openRequests";
+import { createOpenRequests, draggedFile, fileKindOf, refusedByName } from "./openRequests";
 
 /** What a drag carries, as much as a DataTransfer shows of it. */
 const drag = (init: { types: string[]; files?: File[]; items?: { kind: string; type: string }[] }) =>
@@ -19,14 +19,14 @@ describe("files dropped on the window", () => {
     expect(fileKindOf("archive.kpin.zip")).toBeNull();
   });
 
-  it("tells the veil what a drag carries before the drop", () => {
-    // A link is not a file: the link veil stays as it was.
+  it("tells the drop zone what a drag carries before the drop", () => {
+    // A link is not a file: the link variant stays as it was.
     expect(draggedFile(drag({ types: ["text/uri-list", "text/plain"] }))).toBeNull();
     expect(draggedFile(null)).toBeNull();
     // Real use: a drag from the system shows no file before the drop; the media type may say the
-    // kind, or nothing does and the veil says the generic line.
+    // kind, or nothing does and the zone shows its hero.
     expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "application/vnd.koona.list+json" }] }))).toEqual({ name: null, kind: "kpin" });
-    expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "text/html" }] }))).toEqual({ name: null, kind: "html" });
+    expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "text/html" }] }))).toEqual({ name: null, kind: "bookmarks" });
     expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "text/x-opml" }] }))).toEqual({ name: null, kind: "opml" });
     expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "" }] }))).toEqual({ name: null, kind: null });
     expect(draggedFile(drag({ types: ["Files"] }))).toEqual({ name: null, kind: null });
@@ -34,37 +34,20 @@ describe("files dropped on the window", () => {
     // DataTransfer made by a script).
     expect(draggedFile(drag({ types: ["Files"], files: [new File(["{}"], "rust-blogs.kpin")] }))).toEqual({ name: "rust-blogs.kpin", kind: "kpin" });
     expect(draggedFile(drag({ types: ["Files"], files: [new File(["x"], "notes.txt", { type: "text/plain" })] }))).toEqual({ name: "notes.txt", kind: null });
-  });
-
-  it("reads the first dropped file, says whether more came, or says why not", async () => {
-    expect(await readDropped([new File(['{"format":"koona"}'], "rust-blogs.kpin")])).toEqual({
-      file: { kind: "kpin", name: "rust-blogs.kpin", text: '{"format":"koona"}' },
-      more: false,
-    });
-    expect(await readDropped([new File(["<opml/>"], "feeds.opml"), new File(["x"], "notes.txt")])).toEqual({
-      file: { kind: "opml", name: "feeds.opml", text: "<opml/>" },
-      more: true,
-    });
-    expect(await readDropped([new File(["<DL>"], "bookmarks.html")])).toMatchObject({ file: { kind: "html" } });
-    // An `.xml` is OPML only when its first element says so.
-    expect(await readDropped([new File(['<?xml version="1.0"?>\n<opml version="2.0"><body/></opml>'], "subscriptions.xml")])).toMatchObject({
-      file: { kind: "opml", name: "subscriptions.xml" },
-    });
-    expect(await readDropped([new File(['<?xml version="1.0"?><rss version="2.0"/>'], "feed.xml")])).toBe("unsupported");
-    expect(await readDropped([new File(["x"], "notes.txt"), new File(["{}"], "list.kpin")])).toBe("unsupported");
-    expect(await readDropped([new File([new Uint8Array(MAX_FILE + 1)], "huge.kpin")])).toBe("tooBig");
-    expect(await readDropped([new File([new Uint8Array(MAX_FILE)], "just-fits.kpin")])).toMatchObject({ file: { kind: "kpin" } });
-    // A big bookmarks export is not a list: the list's 2 MB do not apply to it.
-    expect(await readDropped([new File([new Uint8Array(MAX_FILE + 1)], "bookmarks.html")])).toMatchObject({ file: { kind: "html" } });
-    expect(await readDropped([])).toBeNull();
-    expect(await readDropped(null)).toBeNull();
+    expect(draggedFile(drag({ types: ["Files"], files: [new File(["x"], "Bookmarks.HTM")] }))).toEqual({ name: "Bookmarks.HTM", kind: "bookmarks" });
+    expect(draggedFile(drag({ types: ["Files"], files: [new File(["{}"], "koona-pin-2026-10-18.json")] }))).toEqual({ name: "koona-pin-2026-10-18.json", kind: null });
   });
 });
 
-describe("the veil before the drop", () => {
-  it("refuses by name only what the drop would refuse", () => {
-    expect(refusedByName({ name: "notes.txt", kind: null })).toBe(true);
+describe("the drop zone before the drop", () => {
+  it("refuses by name only what cannot hide one of ours", () => {
+    expect(refusedByName({ name: "report.pdf", kind: null })).toBe(true);
+    expect(refusedByName({ name: "photo.JPG", kind: null })).toBe(true);
+    // OPML is exported as .xml or .txt too; a name without an extension says nothing.
+    expect(refusedByName({ name: "notes.txt", kind: null })).toBe(false);
     expect(refusedByName({ name: "subscriptions.xml", kind: null })).toBe(false);
+    expect(refusedByName({ name: "bookmarks", kind: null })).toBe(false);
+    expect(refusedByName({ name: "koona-pin-2026-10-18.json", kind: null })).toBe(false);
     expect(refusedByName({ name: null, kind: null })).toBe(false);
     expect(refusedByName({ name: "list.kpin", kind: "kpin" })).toBe(false);
   });

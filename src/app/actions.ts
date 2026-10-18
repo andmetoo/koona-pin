@@ -1,5 +1,7 @@
 import { MutableRefObject, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
+import { landInBundle } from "../components/bundle/Capsule";
+import { addedText, addView, bookmarksByIds } from "../components/bundle/actions";
 import type { BookmarkChanges } from "../components/library/BookmarkEditor";
 import type { BookmarkActions } from "../components/library/Bookmarks";
 import type { Arrows } from "../components/library/BookmarkList";
@@ -9,7 +11,9 @@ import { useSelectionDrag } from "../hooks/useSelectionDrag";
 import type { usePreviewRefresh } from "../hooks/usePreviewRefresh";
 import { api } from "../services/api";
 import { bulkFailure, bulkNotice, readingNotice } from "../services/bulk";
+import { Added, bundle } from "../services/bundle";
 import { collectionColor, suggestedName } from "../services/collections";
+import type { RowDragItem } from "../services/drag";
 import { describeError } from "../services/errors";
 import type { Bookmark, BulkChange, Collection } from "../types";
 import type { Editing } from "./editing";
@@ -44,11 +48,11 @@ export function linkActions(t: TFunction, { say }: Pick<Notices, "say">) {
 export function useBookmarkActions({
   t,
   narrow,
-  notices: { say, setNotice },
+  notices: { say, setNotice, setAnnouncement },
   undoing,
   editing: { editing, editingRef, setEditing, editorFocus, editHooks, editorSession, closeEditor },
   nav: { changeFilters },
-  surfaces: { setSurface, shareList },
+  surfaces: { setSurface },
   view: { library, loadedRef },
   selection,
   selectionRef,
@@ -59,11 +63,11 @@ export function useBookmarkActions({
 }: {
   t: TFunction;
   narrow: boolean;
-  notices: Pick<Notices, "say" | "setNotice">;
+  notices: Pick<Notices, "say" | "setNotice" | "setAnnouncement">;
   undoing: (command: number | null) => (() => void) | undefined;
   editing: Editing;
   nav: Pick<Navigation, "changeFilters">;
-  surfaces: Pick<Surfaces, "setSurface" | "shareList">;
+  surfaces: Pick<Surfaces, "setSurface">;
   view: Pick<LibraryView, "library" | "loadedRef">;
   selection: Selection;
   selectionRef: MutableRefObject<Selection>;
@@ -81,8 +85,6 @@ export function useBookmarkActions({
   bulkBusyRef.current = bulkBusy;
   /** «Новая коллекция из выбранного»: the name offered in the sidebar field and the colour the collection will get, while it is open. */
   const [naming, setNaming] = useState<{ suggested: string; color: string } | null>(null);
-  /** What a screen reader hears when a click changes the selection (NP-123). */
-  const [announcement, setAnnouncement] = useState("");
   /** The arrows of the grid and the list (#319), filled by `BookmarkList` while it is shown. */
   const arrowsRef = useRef<Arrows | null>(null);
 
@@ -134,7 +136,7 @@ export function useBookmarkActions({
     favorite: (favorite) => runBulk({ action: "favorite", favorite }),
     reading: (reading) => runBulk({ action: "reading", reading }),
     export: (format) => exportLibrary(format, [...selection.ids]),
-    shareList: () => shareList([{ kind: "bookmarks", ids: [...selection.ids] }]),
+    addToBundle: () => addSelectionToBundle(null),
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
     deleteForever: () => setPurging({ selected: [...selection.ids] }),
@@ -153,15 +155,40 @@ export function useBookmarkActions({
   const selectionActionsRef = useRef(selectionActions);
   selectionActionsRef.current = selectionActions;
   /** The selection dropped on the sidebar (NP-030): the bar's action, one command of the journal. */
-  const selectionDrag = useSelectionDrag((target) => {
+  const selectionDrag = useSelectionDrag((target, at) => {
     const run = selectionActionsRef.current;
     if (target.kind === "collection") run.move(target.id);
     else if (target.kind === "tag") run.tag(target.name);
     else if (target.kind === "trash") run.trash();
     else if (target.kind === "favorites") run.favorite(true);
     else if (target.kind === "reading") run.reading(true);
+    else if (target.kind === "bundle") addSelectionToBundle(at);
     else run.newCollection();
   });
+  /**
+   * What an add by drag says, and the capsule's landing at `at` (share-bundle.md, piece C) once it
+   * is known that something came in.
+   */
+  const bundleAdded = (added: Added, at: { x: number; y: number } | null) => {
+    setAnnouncement(addedText(t, added));
+    if (at && added.kind !== "already") landInBundle(at, added.added);
+  };
+  const addSelectionToBundle = (at: { x: number; y: number } | null) =>
+    void bookmarksByIds(selection.ids, library.bookmarks).then(
+      (picked) => bundleAdded(bundle.addBookmarks(picked), at),
+      (err) => say(describeError(err), true),
+    );
+  /** A collection, a tag chip, a feed row or All feeds dropped on the bundle. */
+  const addRowToBundle = (item: RowDragItem, at: { x: number; y: number }) => {
+    const added =
+      item.kind === "feeds"
+        ? Promise.resolve(bundle.addFeeds(item.feeds))
+        : addView(item.kind === "collection" ? { kind: "collection", collection: item.collection } : { kind: "tag", name: item.name });
+    void added.then(
+      (result) => bundleAdded(result, at),
+      (err) => say(describeError(err), true),
+    );
+  };
   const dragging = selectionDrag.drag;
   const startDrag = (e: PointerEvent, id: number) => {
     const bookmark = library.bookmarks.find((b) => b.id === id);
@@ -290,7 +317,7 @@ export function useBookmarkActions({
     setPurging,
     deletingCollection,
     setDeletingCollection,
-    announcement,
+    addRowToBundle,
     saveEdit,
     deleteEdit,
   };

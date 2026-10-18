@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type FileChooser, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { catalog, copyBookmark, failOnce, jsonCopy, text } from "../fixtures/app";
@@ -62,13 +63,17 @@ for (const code of ["en", "de", "ru"]) {
         await page.getByRole("button", { name: t("toolbar.more"), exact: true }).click();
         await page.getByRole("menuitem", { name: starts(t(item)) }).click();
       };
+      /** ⋯ → «Import a file…» with this file in the system dialog: it opens the dialog of its kind. */
+      const importFile = async (file: string | Parameters<FileChooser["setFiles"]>[0]) => {
+        const chooser = page.waitForEvent("filechooser");
+        await more("more.importFile");
+        await (await chooser).setFiles(file);
+      };
       const settings = () => page.getByRole("button", { name: t("nav.settings") }).first().click();
 
       // Import: the file, then a run held until released, the report, an error, a file without links.
-      await more("more.importHtml");
+      await importFile(fixture);
       await track.open("import");
-      await dialog.locator("input[type=file]").setInputFiles(fixture);
-      await track.same("file chosen");
       await page.evaluate(async () => {
         const { api } = await import("/src/services/api.ts");
         const run = api.importHtmlBookmarks.bind(api);
@@ -91,14 +96,13 @@ for (const code of ["en", "de", "ru"]) {
           throw new CommandError("database_busy", "database is locked");
         };
       });
-      await more("more.importHtml");
+      await importFile(fixture);
       await track.open("import");
-      await dialog.locator("input[type=file]").setInputFiles(fixture);
       await button("import.run").click();
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("error");
       await page.keyboard.press("Escape");
-      await more("more.importHtml");
+      await importFile(fixture);
       await track.open("import");
       await dialog.locator("input[type=file]").setInputFiles({ name: "notes.html", mimeType: "text/html", buffer: Buffer.from("<html><body>Notes</body></html>") });
       await expect(dialog.getByRole("alert")).toBeVisible();
@@ -106,10 +110,8 @@ for (const code of ["en", "de", "ru"]) {
       await page.keyboard.press("Escape");
 
       // Restore from a JSON copy: the file, the confirmation of a replace and back, the report, a refused copy.
-      await more("more.importJson");
+      await importFile(copyFile());
       await track.open("restore");
-      await dialog.locator("input[type=file]").setInputFiles(copyFile());
-      await track.same("file chosen");
       await dialog.getByRole("radio", { name: starts(t("restore.replace")) }).click();
       await button("restore.run").click();
       await expect(button("restore.confirm")).toBeVisible();
@@ -126,9 +128,9 @@ for (const code of ["en", "de", "ru"]) {
       await expect(dialog.getByRole("status")).toBeVisible();
       await track.same("report");
       await button("import.done").click();
-      await more("more.importJson");
+      await importFile(copyFile());
       await track.open("restore");
-      await dialog.locator("input[type=file]").setInputFiles(copyFile("other-app"));
+      await dialog.locator("input[type=file]").first().setInputFiles(copyFile("other-app"));
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("refused");
       await page.keyboard.press("Escape");
@@ -159,8 +161,18 @@ for (const code of ["en", "de", "ru"]) {
         await page.keyboard.press("Escape");
       }
 
-      // Restore a backup: the list, the confirmation and back, the report, a refused file.
+      // Import opened empty (Settings → Feeds → Import…): the same box once a file is chosen.
       await settings();
+      await page.getByRole("button", { name: t("feeds.settings.import"), exact: true }).click();
+      await track.open("import feeds, empty");
+      const opml = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/></body></opml>';
+      await dialog.locator("input[type=file]").setInputFiles({ name: "feeds.opml", mimeType: "text/x-opml", buffer: Buffer.from(opml) });
+      await expect(dialog).toContainText("feeds.opml");
+      await track.same("file chosen");
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+
+      // Restore a backup: the list, the confirmation and back, the report, a refused file.
       await page.getByRole("button", { name: t("settings.restore"), exact: true }).click();
       await track.open("backup");
       await expect(dialog.getByRole("radio").first()).toBeVisible();
@@ -188,6 +200,29 @@ for (const code of ["en", "de", "ru"]) {
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("refused");
       await page.keyboard.press("Escape");
+
+      // A list (K10, K3): asked, a failed download, the preview with its rows, the report.
+      await page.evaluate(async (text) => {
+        const { api } = await import("/src/services/api.ts");
+        let attempt = 0;
+        api.downloadList = async (url: string) => (attempt++ === 0 ? { outcome: "status", status: 404 } : { outcome: "done", text, url });
+      }, readFileSync(path.join(here, "..", "..", "src-tauri", "tests", "fixtures", "kpin", "valid.kpin"), "utf8"));
+      await page.evaluate(async () => {
+        const { openRequests } = await import("/src/services/openRequests.ts");
+        openRequests.push({ kind: "kpin-url", url: "https://koona.app/pin/lists/rust-blogs.kpin" });
+      });
+      await track.open("list");
+      await button("lists.download").click();
+      await expect(dialog.getByRole("status")).toBeVisible();
+      await track.same("failed");
+      await button("common.retry").click();
+      await expect(dialog.locator("[data-list-group]").first()).toBeVisible();
+      await track.same("preview");
+      await expect(button("lists.accept")).toBeInViewport({ ratio: 1 });
+      await button("lists.accept").click();
+      await expect(dialog.locator("[data-list-report]")).toBeVisible();
+      await track.same("report");
+      await button("import.done").click();
 
       // Feedback: the form, the report shown, a wrong address, a failure, sent.
       await page.getByRole("button", { name: t("settings.feedbackButton") }).click();
@@ -259,3 +294,53 @@ test("dialogs with tabs keep their size and place when the tab changes", async (
   await page.getByRole("button", { name: "How to connect…" }).click();
   await steady("Connect an AI assistant", ["Claude Code", "ChatGPT", "Custom", "Claude Desktop"]);
 });
+
+// The bundle panel (share-bundle.md, M2): one size and place empty and full; its bottom 12 px over the
+// capsule's top, its top at least 12 px under the toolbar: min(600, main − (toolbar + 12) − capsule
+// area − 12). The bulk bar lifts both.
+for (const [width, height] of [[1200, 800], [800, 550]]) {
+  test(`${width}×${height}: the bundle panel keeps its size and place through its states`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await page.evaluate(() => localStorage.removeItem("koonapin.demo.v4"));
+    await page.reload();
+    await expect(page.locator("[data-bookmark-id]").first()).toBeVisible();
+    const panel = page.locator("[data-bundle-panel]");
+    const box = async () => {
+      const b = (await panel.boundingBox())!;
+      return { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) };
+    };
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Share as list…/ }).click();
+    await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
+    await page.waitForTimeout(300);
+    const first = await box();
+    // The main area and the toolbar over it, as the window lays them out.
+    const room = await page.evaluate(() => {
+      const main = document.querySelector("main")!.getBoundingClientRect();
+      return { top: main.top, bottom: Math.round(main.bottom), toolbar: Math.round(document.querySelector(".toolbar-glass")!.getBoundingClientRect().bottom) };
+    });
+    const tallest = (capsule: number) => Math.min(600, room.bottom - room.toolbar - 12 - (capsule + 48) - 12);
+    // Bottom: the capsule's place, 24 + 48 + 12 over the main area's bottom, even with no capsule shown.
+    expect(first).toEqual({ x: width - 24 - 380, y: room.bottom - 84 - tallest(24), width: 380, height: tallest(24) });
+    expect(first.y).toBeGreaterThanOrEqual(room.toolbar + 12);
+    await panel.getByRole("button", { name: /^Add All bookmarks/ }).click();
+    await expect(panel.locator("[data-bundle-row]").first()).toBeVisible();
+    expect(await box(), "full").toEqual(first);
+    await panel.locator("[data-bundle-row] > button").first().click();
+    await panel.getByRole("button", { name: "Add description and author" }).click();
+    expect(await box(), "a row and the details open").toEqual(first);
+    const capsule = (await page.locator("[data-bundle-capsule] > button").first().boundingBox())!;
+    expect(Math.round(capsule.y) - (first.y + first.height)).toBe(12);
+    await panel.getByRole("button", { name: "Clear", exact: true }).click();
+    await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
+    expect(await box(), "cleared").toEqual(first);
+
+    // The bulk bar: the capsule rises to 24 + 52 + 12 and the panel with it, still under the toolbar.
+    await page.locator("article[data-bookmark-id] h2").first().click({ modifiers: ["ControlOrMeta"] });
+    await expect(page.getByRole("toolbar", { name: "Selected bookmarks" })).toBeVisible();
+    const lifted = await box();
+    expect(lifted).toEqual({ ...first, y: room.bottom - (88 + 48 + 12) - tallest(88), height: tallest(88) });
+    expect(lifted.y, "12 px under the toolbar at least").toBeGreaterThanOrEqual(room.toolbar + 12);
+  });
+}

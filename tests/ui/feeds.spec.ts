@@ -11,6 +11,11 @@ const row = (page: Page, name: string) =>
   name === "All feeds"
     ? section(page).getByRole("button", { name: /^All feeds/ })
     : section(page).locator("[data-feed-row]").filter({ has: page.getByText(name, { exact: true }) }).locator("button").first();
+/** A feed's row menu, from its «…»: the sidebar has no right-click menus (share-bundle.md, M6). */
+async function rowMenu(page: Page, name: string) {
+  await row(page, name).hover();
+  await page.getByRole("button", { name: `${name}: more` }).click();
+}
 const posts = (page: Page) => page.locator("[data-feed-item]");
 const sheet = (page: Page) => page.locator("[data-feed-article]");
 const openFeeds = async (page: Page) => {
@@ -108,7 +113,7 @@ test("⇧A marks all read; a feed's menu marks its own", async ({ page }) => {
   await row(page, "The Verge").click();
   await expect(page.getByRole("heading", { level: 1, name: "The Verge" })).toBeVisible();
   await expect(posts(page)).toHaveCount(4);
-  await row(page, "Ars Technica").click({ button: "right" });
+  await rowMenu(page, "Ars Technica");
   await page.getByRole("menuitem", { name: "Mark all read" }).click();
   await expect(row(page, "Ars Technica")).toContainText("0");
   await expect(row(page, "All feeds")).toContainText("9");
@@ -128,7 +133,7 @@ test("unfollowing is confirmed and takes the feed and its posts away", async ({ 
   const dialog = page.getByRole("dialog", { name: "Unfollow kottke.org?" });
   await dialog.getByRole("button", { name: "Keep" }).click();
   await expect(section(page).locator("[data-feed-row]")).toHaveCount(5);
-  await row(page, "kottke.org").click({ button: "right" });
+  await rowMenu(page, "kottke.org");
   await page.getByRole("menuitem", { name: "Unfollow…" }).click();
   await dialog.getByRole("button", { name: "Unfollow" }).click();
   await expect(section(page).locator("[data-feed-row]")).toHaveCount(4);
@@ -138,12 +143,12 @@ test("unfollowing is confirmed and takes the feed and its posts away", async ({ 
 
 test("rename and where new posts go, from the row menu", async ({ page }) => {
   await open(page);
-  await row(page, "Serious Eats").click({ button: "right" });
+  await rowMenu(page, "Serious Eats");
   await page.getByRole("menuitem", { name: "Rename…" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill("Eats");
   await page.getByRole("button", { name: "Rename", exact: true }).click();
   await expect(row(page, "Eats")).toBeVisible();
-  await row(page, "Eats").click({ button: "right" });
+  await rowMenu(page, "Eats");
   await page.getByRole("menuitem", { name: "Where new posts go" }).click();
   await expect(page.getByRole("menuitemradio", { name: "Also notify me" })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("menuitemradio", { name: "Feeds only" }).click();
@@ -215,7 +220,7 @@ test("Settings → Feeds: how often to check, OPML import and export", async ({ 
   await page.getByRole("radio", { name: "3 hr" }).click();
   await expect(page.getByRole("radio", { name: "3 hr" })).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => localStorage.getItem("koonapin.demo.feedsRefreshMinutes"))).toBe("180");
-  // Import… opens the import dialog for feeds, as More → «Import feeds (OPML)…» does.
+  // Import… opens the import dialog for feeds.
   await page.getByRole("button", { name: "Import…" }).click();
   const dialog = page.locator("dialog[open]");
   await dialog.locator("input[type=file]").setInputFiles({

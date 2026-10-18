@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ArrowUpFromLine, BookOpen, BookOpenText, FileSpreadsheet, FileText, Folder, ListPlus, LucideIcon, Plus, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { ArrowUpFromLine, BookOpen, BookOpenText, FileSpreadsheet, FileText, Folder, Layers, LucideIcon, Plus, RefreshCw, RotateCcw, Heart, Tag as TagIcon, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Collection, ExportFormat, Tag } from "../../types";
 import { Icon } from "../icons";
@@ -21,8 +21,8 @@ export interface SelectionActions {
   /** Into Reading, or out of it (NP-121). */
   reading: (reading: boolean) => void;
   export: (format: ExportFormat) => void;
-  /** «Share as list…» (NP-140): the list dialog with the selection; not in the trash. */
-  shareList: () => void;
+  /** Export → «Add to bundle» (share-bundle.md, M6): the selection into the bundle; not in the trash. */
+  addToBundle: () => void;
   /** «Refresh previews»: their pages read again in the background, as Settings → Data does. */
   refresh: () => void;
   trash: () => void;
@@ -82,11 +82,11 @@ export function SelectionBar({
   const [popover, setPopover] = useState<Popover | null>(null);
   const bar = useRef<HTMLDivElement>(null);
   const exportEntries: MenuEntry[] = [
+    // A list holds no trash (kpin-lists.md, «Builder»): the bundle is offered outside it only.
+    ...(trash ? [] : ([{ id: "bundle", icon: Layers, label: t("bundle.addToBundle"), count, onSelect: actions.addToBundle }, "separator"] as MenuEntry[])),
     { id: "html", icon: ArrowUpFromLine, label: t("more.exportHtml"), onSelect: () => actions.export("html") },
     { id: "json", icon: FileText, label: t("more.exportJson"), onSelect: () => actions.export("json") },
     { id: "csv", icon: FileSpreadsheet, label: t("more.exportCsv"), onSelect: () => actions.export("csv") },
-    // A list holds no trash (kpin-lists.md, «Builder»).
-    ...(trash ? [] : (["separator", { id: "share", icon: ListPlus, label: t("shareList.menu"), onSelect: actions.shareList }] as MenuEntry[])),
   ];
   const moveEntries: MenuEntry[] = [
     ...collectionEntries(collections, actions.move, t),

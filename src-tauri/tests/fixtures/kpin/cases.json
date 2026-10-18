@@ -11,5 +11,7 @@
   { "file": "unknown-kind.kpin", "schema_valid": true, "reader": "needs_newer_app" },
   { "file": "wrong-format.kpin", "schema_valid": false, "reader": "not_a_list" },
   { "file": "cut-off.kpin", "schema_valid": false, "reader": "not_a_list" },
-  { "file": "repeats.kpin", "schema_valid": true, "reader": "ready" }
+  { "file": "repeats.kpin", "schema_valid": true, "reader": "ready" },
+  { "file": "groups.kpin", "schema_valid": true, "reader": "ready" },
+  { "file": "max-items.kpin", "schema_valid": true, "reader": "ready" }
 ]

@@ -93,6 +93,7 @@ pub fn run() {
         .manage(open_requests::PendingOpens::default())
         .manage(commands::LastExport::default())
         .manage(commands::PickedBackup::default())
+        .manage(commands::PickedImportFile::default())
         .manage(linkcheck::Checker::default())
         .manage(refresh::Refresher::default())
         .manage(lifecycle::Lifecycle::default())

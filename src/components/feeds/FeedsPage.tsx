@@ -336,7 +336,7 @@ export function FeedsPage({
     return () => rise.cancel();
   }, [leaving]);
   return (
-    <div data-feeds-page className="flex min-h-0 flex-1">
+    <div data-feeds-page data-drop-area className="flex min-h-0 flex-1">
       {showList && (
         <div
           data-feed-slot

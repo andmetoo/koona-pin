@@ -121,7 +121,7 @@ export function FeedList({
 
   return (
     <section aria-label={title} data-feed-list className={`flex min-h-0 flex-col ${narrow ? "flex-1" : "w-[380px] shrink-0"}`}>
-      <header className="mb-[19px] flex shrink-0 items-start gap-2 pt-[22px] pr-5 pl-[26px]">
+      <header data-drop-head className="mb-[19px] flex shrink-0 items-start gap-2 pt-[22px] pr-5 pl-[26px]">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[26px] leading-[30px] font-bold tracking-[-0.01em]">{title}</h1>
           <p data-feed-status className={`mt-1.5 truncate text-xs leading-[15px] ${statusAlert ? "text-on-amber-soft dark:text-amber" : "text-subtle"}`}>

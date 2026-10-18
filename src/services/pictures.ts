@@ -42,6 +42,16 @@ export function hash8(text: string): string {
 const known = (id: number | string) => (typeof id === "number" ? Number.isInteger(id) && id > 0 : id !== "");
 
 /**
+ * The local copy alone, `kpimg://localhost/b%2F12%2Ficon`, for a saved bookmark or a followed feed
+ * whose source address the caller does not hold (the list preview, K10). The backend fetches only
+ * an address the library already has; nothing falls back to the web. Null in the browser demo.
+ */
+export function localPictureSrc(kind: PictureKind, id: number | string): string | null {
+  if (!isTauri() || !known(id)) return null;
+  return convertFileSrc(PATHS[kind](id), "kpimg");
+}
+
+/**
  * Where to load a picture from (NP-146): the local copy through the `kpimg`
  * scheme, `kpimg://localhost/b%2F12%2Fimage?v=…` (`http://kpimg.localhost/…` on
  * Windows). The backend reads the source address from the library by the id,

@@ -1261,6 +1261,127 @@ pub async fn pick_backup(
     Ok(outcome)
 }
 
+/// The largest file «Import a file…» reads: a full copy's cap, the biggest of the kinds it takes
+/// (share-bundle.md, «"Import a file…" and the sniffer»). The page checks each kind's own cap
+/// once it knows the kind.
+pub const IMPORT_FILE_CAP: u64 = 256 * 1024 * 1024;
+
+/// How much of a picked file the page sniffs before it reads the rest (`importFile.ts` HEAD).
+pub const IMPORT_HEAD: u64 = 64 * 1024;
+
+/// The file «Import a file…» picked: `read_picked_import` reads only this path, once.
+#[derive(Default)]
+pub struct PickedImportFile(pub std::sync::Mutex<Option<std::path::PathBuf>>);
+
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum PickedImport {
+    Cancelled,
+    /// The file's name, size and first `IMPORT_HEAD` bytes, to be sniffed by the page as a
+    /// dropped file's head is; the rest waits for `read_picked_import`.
+    Picked { name: String, bytes: u32, head: String },
+    /// Over `IMPORT_FILE_CAP`: not read.
+    TooBig { name: String },
+}
+
+/// The whole of the picked file, once the page knows its kind and that kind's cap.
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum PickedImportText {
+    Read { text: String },
+    /// Over the kind's cap (the file may have grown since it was picked): not read.
+    TooBig,
+}
+
+/// Bytes as text, not UTF-8 replaced, as the webview's `File.text()` does for a dropped file.
+fn lossy(bytes: Vec<u8>) -> String {
+    // Valid UTF-8 becomes the String without a copy; only a file that is not pays for one.
+    String::from_utf8(bytes).unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
+}
+
+/// The text of a file of at most `cap` bytes, or `None` when it is bigger. The read itself stops
+/// past the cap, so a file that grows after its size was taken is not read whole either.
+pub fn read_capped(path: &std::path::Path, cap: u64) -> std::io::Result<Option<(u32, String)>> {
+    use std::io::Read;
+    let file = std::fs::File::open(path)?;
+    let size = file.metadata()?.len();
+    if size > cap {
+        return Ok(None);
+    }
+    // Sized once from the metadata (still within the cap); one more byte tells a file that grew.
+    let mut bytes = Vec::with_capacity(size as usize + 1);
+    file.take(cap + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > cap {
+        return Ok(None);
+    }
+    // The cap is far under 4 GB, so the size fits.
+    let read = bytes.len() as u32;
+    Ok(Some((read, lossy(bytes))))
+}
+
+/// A picked file's name, size and head, its path kept in `slot` for the one read that follows.
+/// Over `IMPORT_FILE_CAP` nothing is read and nothing is kept.
+fn pick_into(slot: &PickedImportFile, path: std::path::PathBuf) -> Result<PickedImport, CommandError> {
+    use std::io::Read;
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let file = std::fs::File::open(&path).map_err(CommandError::internal)?;
+    let size = file.metadata().map_err(CommandError::internal)?.len();
+    if size > IMPORT_FILE_CAP {
+        return Ok(PickedImport::TooBig { name });
+    }
+    let mut head = Vec::with_capacity(size.min(IMPORT_HEAD) as usize);
+    file.take(IMPORT_HEAD).read_to_end(&mut head).map_err(CommandError::internal)?;
+    *slot.0.lock().map_err(CommandError::internal)? = Some(path);
+    // Under `IMPORT_FILE_CAP`, so the size fits.
+    Ok(PickedImport::Picked { name, bytes: size as u32, head: lossy(head) })
+}
+
+/// The whole of the file in `slot`, under `cap`; the slot is emptied whatever comes of it.
+fn read_from(slot: &PickedImportFile, cap: u64) -> Result<PickedImportText, CommandError> {
+    let path = slot.0.lock().map_err(CommandError::internal)?.take().ok_or_else(|| CommandError::invalid("No file is picked"))?;
+    Ok(match read_capped(&path, cap.min(IMPORT_FILE_CAP)).map_err(CommandError::internal)? {
+        Some((_, text)) => PickedImportText::Read { text },
+        None => PickedImportText::TooBig,
+    })
+}
+
+/// «Import a file…» in the ⋯ menu: the system Open dialog for any file, then only its head; what
+/// it is is the page's sniffer's call, as for a drop. Nothing is imported here.
+#[tauri::command]
+pub async fn pick_import_file(app: AppHandle, picked: State<'_, PickedImportFile>) -> Result<PickedImport, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+    // A new pick forgets the last one, read or not.
+    *picked.0.lock().map_err(CommandError::internal)? = None;
+    let dialog = over_main_window(&app, app.dialog().file());
+    let chosen = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(chosen) = chosen else {
+        return Ok(PickedImport::Cancelled);
+    };
+    let path = chosen.into_path().map_err(CommandError::internal)?;
+    tauri::async_runtime::spawn_blocking(move || pick_into(&app.state::<PickedImportFile>(), path))
+        .await
+        .map_err(CommandError::internal)?
+}
+
+/// The picked file forgotten unread: the page refused it by its head, or the head was all of it.
+#[tauri::command]
+pub fn forget_picked_import(picked: State<'_, PickedImportFile>) -> Result<(), CommandError> {
+    *picked.0.lock().map_err(CommandError::internal)? = None;
+    Ok(())
+}
+
+/// The picked file in full, once the page knows its kind: `cap` is that kind's.
+#[tauri::command]
+pub async fn read_picked_import(app: AppHandle, cap: u64) -> Result<PickedImportText, CommandError> {
+    tauri::async_runtime::spawn_blocking(move || read_from(&app.state::<PickedImportFile>(), cap))
+        .await
+        .map_err(CommandError::internal)?
+}
+
 /// Where a restore takes its copy.
 #[derive(Deserialize, TS)]
 #[serde(tag = "from", rename_all = "snake_case")]
@@ -1349,4 +1470,56 @@ pub async fn restore_backup(
         Err(crate::library::RestoreFailure::Backup(detail)) => BackupRestoreOutcome::BackupFailed { detail },
         Err(crate::library::RestoreFailure::Failed(detail)) => BackupRestoreOutcome::Failed { detail },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_capped_reads_up_to_the_cap_and_refuses_past_it() {
+        let dir = std::env::temp_dir().join(format!("koonapin-read-capped-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("bookmarks.html");
+        std::fs::write(&path, b"<DL>\xff</DL>").unwrap();
+        // At the cap the file is read, with bytes that are not UTF-8 replaced.
+        assert_eq!(read_capped(&path, 10).unwrap(), Some((10, "<DL>\u{fffd}</DL>".to_string())));
+        // One byte over: not read.
+        assert_eq!(read_capped(&path, 9).unwrap(), None);
+        // Valid UTF-8 comes back as it is.
+        std::fs::write(&path, "<DL>Ёлка</DL>").unwrap();
+        assert_eq!(read_capped(&path, 64).unwrap(), Some((17, "<DL>Ёлка</DL>".to_string())));
+        assert!(read_capped(&dir.join("missing"), IMPORT_FILE_CAP).is_err());
+        assert_eq!(IMPORT_FILE_CAP, 256 * 1024 * 1024);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_picked_file_gives_its_head_and_is_read_once_under_the_cap() {
+        let dir = std::env::temp_dir().join(format!("koonapin-picked-import-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("bookmarks.html");
+        let body = format!("<DL>\u{00e9}{}", "x".repeat(IMPORT_HEAD as usize));
+        std::fs::write(&path, &body).unwrap();
+        let slot = PickedImportFile::default();
+        let PickedImport::Picked { name, bytes, head } = pick_into(&slot, path.clone()).unwrap() else { panic!("not picked") };
+        assert_eq!((name.as_str(), bytes as usize), ("bookmarks.html", body.len()));
+        // Only the first 64 KB; here the cut falls among the x.
+        assert_eq!(head.len(), IMPORT_HEAD as usize);
+        assert!(head.starts_with("<DL>\u{00e9}x"));
+        // The whole file under the kind's cap, once: the slot is empty after.
+        assert!(matches!(read_from(&slot, 1024 * 1024).unwrap(), PickedImportText::Read { text } if text == body));
+        assert!(slot.0.lock().unwrap().is_none());
+        assert!(read_from(&slot, 1024 * 1024).is_err());
+        // Over the kind's cap: not read, and the slot is emptied all the same.
+        pick_into(&slot, path.clone()).unwrap();
+        assert!(matches!(read_from(&slot, 10).unwrap(), PickedImportText::TooBig));
+        assert!(slot.0.lock().unwrap().is_none());
+        // A head cut inside a character is replaced, not refused.
+        std::fs::write(&path, format!("{}\u{0401}", "x".repeat(IMPORT_HEAD as usize - 1))).unwrap();
+        let PickedImport::Picked { head, .. } = pick_into(&slot, path.clone()).unwrap() else { panic!("not picked") };
+        assert!(head.ends_with('\u{fffd}'));
+        assert!(pick_into(&slot, dir.join("missing")).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

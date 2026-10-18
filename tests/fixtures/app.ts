@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -92,4 +92,23 @@ export function jsonCopy(
   const copy: Record<string, unknown> = { format, version: 1, exported_at: "2026-10-04T18:20:00.000Z", app_version: "0.1.0", collections, tags, bookmarks };
   edit(copy);
   return { name: "koona-pin-2026-10-04.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) };
+}
+/** Where a drag from outside is dispatched (K9): a named region, or the middle of any element. */
+export type DropWhere = "list" | "sidebar" | "toolbar" | Locator;
+
+/**
+ * The point for `where`: the middle of the view's drop area below its heads, where the drop zone
+ * lies; the middle of the sidebar or of the view's first head (the toolbar), where it never does.
+ */
+export async function dropPoint(page: Page, where: DropWhere = "list") {
+  if (where === "list")
+    return page.evaluate(() => {
+      const box = document.querySelector("main [data-drop-area]")!.getBoundingClientRect();
+      const heads = Array.from(document.querySelectorAll("main [data-drop-head]"), (head) => head.getBoundingClientRect()).filter((head) => head.width > 0);
+      const top = Math.max(box.top, ...heads.map((head) => head.bottom));
+      return { x: Math.round(box.left + box.width / 2), y: Math.round((top + box.bottom) / 2) };
+    });
+  const region = where === "sidebar" ? page.getByRole("complementary").first() : where === "toolbar" ? page.locator("main [data-drop-head]").first() : where;
+  const box = (await region.boundingBox())!;
+  return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
 }

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { syncPrompt } from "../components/commercial/syncText";
 import { api } from "../services/api";
 import { openRequests } from "../services/openRequests";
-import type { ListSource } from "../services/shareList";
 import { offer } from "../services/update";
 import { emptyDraft, FeedbackDraft } from "../services/feedback";
 import type { Plan, SupporterStatus, SyncStatus, UpdateStatus } from "../types";
@@ -11,10 +10,13 @@ import type { Plan, SupporterStatus, SyncStatus, UpdateStatus } from "../types";
  * What opens over the window, one at a time: dialogs and sheets. `selectionCollection` — «Новая
  * коллекция из выбранного» in a narrow window, where the sidebar is a strip.
  */
-export type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | "shareList" | null;
+export type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
 
-/** An OPML or bookmarks file dropped on the window: the import dialog opens with it (NP-139). */
-export type DroppedFile = { name: string; content: string; surface: "import" | "importFeeds" };
+/** An OPML, bookmarks or backup file dropped or picked: its dialog opens with it (NP-139, K9). */
+export type DroppedFile = { name: string; content: string; surface: "import" | "importFeeds" | "restore" };
+
+/** The dialogs a dropped file would compete with: another file meanwhile is «Busy» (K9). */
+export const IMPORT_SURFACES: Surface[] = ["import", "importFeeds", "restore", "backup"];
 
 /**
  * The surfaces (dialogs, sheets) and what opens them by itself: the list dialog for a `.kpin` that
@@ -23,12 +25,6 @@ export type DroppedFile = { name: string; content: string; surface: "import" | "
  */
 export function useSurfaces({ supporter, sync, update }: { supporter: SupporterStatus | null; sync: SyncStatus | null; update: UpdateStatus | null }) {
   const [surface, setSurface] = useState<Surface>(null);
-  /** «Share as list…» (NP-140): where the list dialog was opened from. */
-  const [shareFrom, setShareFrom] = useState<ListSource[]>([]);
-  const shareList = (sources: ListSource[]) => {
-    setShareFrom(sources);
-    setSurface("shareList");
-  };
   /** The subscription «Switch to 5 years» was chosen for: the step says when it ends. */
   const [upgradeFrom, setUpgradeFrom] = useState<Plan | null>(null);
   // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
@@ -90,8 +86,6 @@ export function useSurfaces({ supporter, sync, update }: { supporter: SupporterS
     surface,
     setSurface,
     surfaceNow,
-    shareFrom,
-    shareList,
     upgradeFrom,
     setUpgradeFrom,
     feedbackDraft,

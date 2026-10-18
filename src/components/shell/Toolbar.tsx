@@ -6,14 +6,13 @@ import {
   ArrowUpFromLine,
   ChevronDown,
   Copy,
-  FileJson,
   FileSpreadsheet,
   FileText,
   Grid3x3,
+  Layers,
   LayoutGrid,
   List,
   MoreHorizontal,
-  Rss,
   Unlink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -39,13 +38,10 @@ export interface ToolbarProps {
   onSearch: (value: string) => void;
   onView: (view: ViewMode) => void;
   onSort: (sort: BookmarkSort) => void;
-  onImport: () => void;
-  /** Menu «⋯» → «Import feeds (OPML)…» (NP-133); without it, the import dialog, which takes OPML too. */
-  onImportFeeds?: () => void;
+  /** Menu «⋯» → «Import a file…»: any file, told apart by what it holds (share-bundle.md, K5). */
+  onImportFile: () => void;
   /** Menu «⋯» → Export (NP-032, frame 29). */
   onExport: (format: ExportFormat) => void;
-  /** Menu «⋯» → «Резервная копия Koona Pin (JSON)» (NP-033, frame 30). */
-  onRestore: () => void;
   /** Groups of duplicates (NP-035): the count of «Дубликаты» and the section. */
   duplicates: number;
   onDuplicates: () => void;
@@ -55,6 +51,9 @@ export interface ToolbarProps {
   /** «Read» in the right corner (Р-69, frame R0): the reading mode drops from it. */
   onRead: () => void;
   readRef?: React.Ref<HTMLButtonElement>;
+  /** Menu «⋯» → «Share as list…» with the bundle's count (K5): opens the bundle panel; `from` gets the focus back. */
+  onShareList: (from: HTMLElement | null) => void;
+  bundleCount: number;
 }
 
 /** The toolbar's outlined buttons: radius 9, a 1 px line and a faint lift (2026-10-16). */
@@ -174,16 +173,22 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           width={264}
           onClose={() => setMenu(null)}
           entries={[
+            {
+              id: "share-list",
+              icon: Layers,
+              label: t("bundle.share"),
+              count: props.bundleCount || undefined,
+              onSelect: () => props.onShareList(more.current),
+            },
+            "separator",
             { heading: t("more.import") },
             {
-              id: "import-html",
+              id: "import-file",
               icon: ArrowDownToLine,
-              label: t("more.importHtml"),
-              description: t("more.importHtmlHint"),
-              onSelect: props.onImport,
+              label: t("more.importFile"),
+              description: t("more.importFileHint"),
+              onSelect: props.onImportFile,
             },
-            { id: "import-json", icon: FileJson, label: t("more.importJson"), onSelect: props.onRestore },
-            { id: "import-feeds", icon: Rss, label: t("more.importFeeds"), onSelect: props.onImportFeeds ?? props.onImport },
             "separator",
             { heading: t("more.export") },
             { id: "export-html", icon: ArrowUpFromLine, label: t("more.exportHtml"), onSelect: () => props.onExport("html") },

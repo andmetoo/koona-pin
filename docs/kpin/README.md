@@ -2,7 +2,7 @@
 
 Version 1.0 of app `pin`, kind `list`. Readers and writers: Koona Pin 2.4.0 and later.
 
-A `.kpin` file is a shareable list of links and feeds: "Rust blogs worth following", "design systems", "indie web feeds". Someone makes it in Koona Pin (**Share as list…**) or by hand, publishes it anywhere, and anyone who opens it sees what it holds and chooses what to import. This document says what such a file contains, how readers must treat it, and how Koona Pin imports it, so that other tools can write and read `.kpin` files too.
+A `.kpin` file is a shareable list of links and feeds: "Rust blogs worth following", "design systems", "indie web feeds". Someone makes it in Koona Pin (the bundle, opened from **Share as list…** in the ⋯ menu) or by hand, publishes it anywhere, and anyone who opens it sees what it holds and chooses what to import. This document says what such a file contains, how readers must treat it, and how Koona Pin imports it, so that other tools can write and read `.kpin` files too.
 
 - [schema-1.json](schema-1.json): the JSON Schema (2020-12) of version 1.x.
 - [examples/](examples): a minimal list, a list with sections and feeds, and a file from a newer 1.x.
@@ -292,33 +292,34 @@ A writer must produce a file that [schema-1.json](schema-1.json) accepts and tha
 - should not write the same address twice, or two sections with the same name;
 - should leave out optional fields it has nothing for, rather than write empty strings or `null`.
 
-What Koona Pin's builder (**Share as list…**) writes:
+What Koona Pin's bundle writes. The bundle collects what the person adds (bookmarks, collections, tags and feeds, by a drag or from the panel) for as long as the app is open; it is never stored. Saving it writes:
 
-- `format`, `app`, `kind`, `"version": "1.0"`, `generator` (`"Koona Pin <version>"`), `title`, and `id`, `description`, `author`, `license` (`CC0-1.0`, `CC-BY-4.0`, or none), `language` and `updated` when they are filled in. It does not write `homepage`.
+- `format`, `app`, `kind`, `"version": "1.0"`, `generator` (`"Koona Pin <version>"`), `title`, `id` (a slug of the title, also the file's name), `license` (always `CC0-1.0`), `language` (the interface's) and `updated` (the day it is saved); `description` and `author` (a name) when they are filled in. It does not write `homepage`.
 - Always a top-level `items` array (it may be empty) and `sections` only when there are any.
-- Links from collections or a selection, without those in Trash, newest first, each address once (by its key); feeds the person follows. Titles, descriptions and tags only when chosen; a link's private note only when "my notes" is chosen, in place of its description.
-- Sections, when chosen, by tag (a link goes under its first tag in alphabetical order) or by collection (in the sidebar's order). Links without one go to the top level. Feeds go to a section of their own, named "Feeds" in the interface's language.
+- Bookmarks added one by one, by a selection or by a view such as All bookmarks or a search, as top-level `items`. A collection or a tag added as a whole becomes a section named after it, holding its links as they were when it was added; a collection renamed since keeps its new name. Feeds go to one section of their own, last, named "Feeds" in the interface's language.
+- Each address once, in the first section it was added to (by its key); nothing deleted or in Trash, and no feed no longer followed. A link's title, description and tags as the library has them when the file is saved; its private note only when the person adds it for that link, in place of its description.
 - Every address through the reader's rules, so the file reads back to the same addresses. It writes pretty-printed JSON with a final newline, and checks the text as a reader would before saving it.
 
 ## How Koona Pin imports a list
 
 A list reaches Koona Pin in one of four ways, and every one opens the same dialog:
 
-- **Import…** in the import dialog, which takes `.kpin` next to bookmarks and OPML files;
-- dropping a `.kpin` file on the window;
+- **Import a file…** in the ⋯ menu, or **Import…** in the import dialog, which takes `.kpin` next to bookmarks and OPML files;
+- dropping a `.kpin` file on the list area of the window. A file from the ⋯ menu or a drop is told apart by what it holds, not by its name: a list, a full copy, OPML or a bookmarks file each open their own dialog;
 - opening a `.kpin` file with the app (double-click, Open With, or a path or `file://` address given to the program). Only an existing regular file whose name ends in `.kpin` is taken; a symbolic link is followed only to a file whose name also ends in `.kpin`;
 - a [one-click link](#the-one-click-link) from a web page.
 
 **Nothing is written before the person confirms.** The dialog first shows a preview, computed without touching the library:
 
-- the list's title, author, license, update date and where it came from (a file name or a host);
-- the counts: links, feeds and sections; links already saved, links in Trash, feeds already followed; repeated, not web, invalid and skipped items;
+- the list's title, author, update date and where it came from (a file name or a host), and its description;
+- the counts: links, feeds and sections, and how many links are new, already saved or in Trash;
 - for a newer MINOR, how many details and items were skipped;
-- the choices: which collection the links go into (a new one named after the list, reused if a collection with that name exists, compared without case; an existing one; or none), whether new links stay in Inbox, whether sections become tags, whether links already saved get the list's tags, and which new feeds to follow.
+- every item, grouped by section with the tag each section becomes; a link already saved or in Trash says so, and a feed already followed says "Following";
+- the choices: where the links go (a new collection named after the list, reused if a collection with that name exists, compared without case; an existing one; no collection; or no collection and no section tags), whether new links stay in Inbox, and which new feeds to follow ("Follow all", or one by one).
 
-Only **Import** writes, in one transaction: an error leaves the library as it was. Then:
+Only **Accept** writes, in one transaction: an error leaves the library as it was. Then:
 
-- A link is already saved when the library has a bookmark with exactly the same address. It is left as it is, or given the list's tags if the person chose that; its collection never changes. A link in Trash stays there and is only counted.
+- A link is already saved when the library has a bookmark with exactly the same address. It is left as it is: its tags and its collection never change. A link in Trash stays there and is only counted.
 - A variant of a saved address (another spelling with the same key) is saved as a new bookmark and shows up among duplicates, as after any import.
 - New links are marked as coming from the list and named after its title.
 - Feeds the person kept checked are followed; feeds already followed are not touched. Feeds are fetched later, on the usual schedule, never during import.

@@ -265,9 +265,7 @@ test("trash: delete without a dialog, undo, restore with every field, a link sav
 
   // An import leaves a link in the trash where it is and says so.
   await trashCard(3);
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Browser bookmarks/ }).click();
-  await page.locator("input[type=file]").setInputFiles({
+  await openImport(page, {
     name: "bookmarks.html",
     mimeType: "text/html",
     buffer: Buffer.from('<a href="https://type.today/en">Typography</a>'),
@@ -724,9 +722,15 @@ test("Add sheet errors: a failed save keeps what was typed, a failure without wo
 });
 
 const fixture = (name: string) => new URL(`../fixtures/bookmarks/${name}.html`, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+/**
+ * ⋯ → «Import a file…» with a bookmarks file, then `file` chosen in the dialog: so a file the
+ * sniffer would refuse (no links at all) reaches the dialog too.
+ */
 async function openImport(page: import("@playwright/test").Page, file: string | { name: string; mimeType: string; buffer: Buffer }) {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Browser bookmarks/ }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  await (await chooser).setFiles(fixture("chrome"));
   await page.locator("dialog input[type=file]").setInputFiles(file);
   return page.getByRole("dialog");
 }
@@ -858,12 +862,13 @@ async function copyFile(page: import("@playwright/test").Page, edit?: (copy: Rec
   ];
   return jsonCopy({ collections, tags, bookmarks }, edit);
 }
+/** ⋯ → «Import a file…» with the copy: a full copy opens Restore with it checked. */
 async function openRestore(page: import("@playwright/test").Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Koona Pin backup/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Restore from a JSON copy" });
-  await dialog.locator("input[type=file]").first().setInputFiles(file);
-  return dialog;
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  await (await chooser).setFiles(file);
+  return page.getByRole("dialog", { name: "Restore from a JSON copy" });
 }
 
 test("restore: merge adds what is missing with its state and keeps what is there; a bad copy is refused with nothing changed", async ({ page }) => {

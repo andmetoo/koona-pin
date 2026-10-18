@@ -1,0 +1,277 @@
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { BookmarkChange, Collection } from "../../types";
+import { api } from "../../services/api";
+import { bundle, BundleView, entryKey, itemCount, sectionKey, viewLabel } from "../../services/bundle";
+import { addedText, addView, pruneBundle, useBundle } from "./actions";
+import { rowDropLabel } from "../../services/drag";
+import { useSidebarDrag } from "../../hooks/useRowDrag";
+import { Capsule, Landing, landingMs, onLanding } from "./Capsule";
+import { Panel } from "./Panel";
+
+/** The capsule's height and its gap to the window's edges (K6b). */
+const CAPSULE = 48;
+const EDGE = 24;
+/** While the bulk bar shows the capsule rises above it (S6): 24, the bar's 52 (SelectionBar), 12. */
+const OVER_BAR = EDGE + 52 + 12;
+/** The view's ids are fetched again this long after the last change to the library. */
+const IDS_DELAY = 200;
+/**
+ * The panel's bottom is 12 px above the capsule's top, its top at least 12 px under the toolbar;
+ * it is at most 600 px high (M2).
+ */
+const GAP = 12;
+const PANEL_MAX = 600;
+
+/** What had the focus before the panel opened from outside it: the capsule, or ⋯ in the toolbar. */
+let opener: HTMLElement | null = null;
+
+/** Opens the panel; Esc gives the focus back to `from` (⋯), else to the capsule. */
+export function openBundle(from: HTMLElement | null = null) {
+  opener = from;
+  bundle.setOpen(true);
+}
+
+const focusable = "button:not([disabled]), [href], input, textarea, select, [tabindex]:not([tabindex='-1'])";
+
+/**
+ * The bundle in the main area (share-bundle.md, piece B): the capsule at rest bottom right and the
+ * panel above it. Both go while a modal dialog, reading mode or triage is open (`blocked`); the
+ * contents stay. F6 moves the focus between the main list and the open panel.
+ */
+export function Bundle({
+  view,
+  viewCount,
+  barShown,
+  headHeight,
+  blocked,
+  drag,
+  collections,
+  announce,
+}: {
+  /** The view on screen as «Add {view}» would add it; null where nothing can be added (Trash). */
+  view: BundleView | null;
+  /** How many items the view holds. */
+  viewCount: number;
+  /** The bulk bar shows: the capsule sits above it. */
+  barShown: boolean;
+  /** The toolbar over the main area: the panel keeps 12 px under it. */
+  headHeight: number;
+  blocked: boolean;
+  /** The selection is dragged: its count, and whether it is over the bundle. */
+  drag: { count: number; over: boolean } | null;
+  collections: Collection[];
+  /** The app's polite live region. */
+  announce: (text: string) => void;
+}) {
+  const { t } = useTranslation();
+  const state = useBundle();
+  // A collection, a tag, a feed or All feeds dragged out of the sidebar (piece C).
+  const sidebar = useSidebarDrag();
+  // A drop that added something: the capsule plays it, and stays on screen until it has, even when
+  // hidden by × or when the add came in after the drag had ended.
+  const [lastLanding, setLastLanding] = useState<Landing | null>(null);
+  const [landing, setLanding] = useState(false);
+  useEffect(() => {
+    let timer = 0;
+    const stop = onLanding((next) => {
+      setLastLanding(next);
+      setLanding(true);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        setLanding(false);
+        // Played: a capsule that comes back later does not play it again.
+        setLastLanding(null);
+      }, landingMs(next.added));
+    });
+    return () => {
+      stop();
+      window.clearTimeout(timer);
+    };
+  }, []);
+  const panelId = useId();
+  const capsule = useRef<HTMLButtonElement>(null);
+  // The main area's height: the panel fits between its toolbar and the capsule.
+  const probe = useRef<HTMLSpanElement>(null);
+  const [mainHeight, setMainHeight] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const main = probe.current?.closest("main");
+    if (!main) return;
+    const observer = new ResizeObserver(() => setMainHeight(main.clientHeight));
+    observer.observe(main);
+    setMainHeight(main.clientHeight);
+    return () => observer.disconnect();
+  }, []);
+  // A collection's section follows its renames.
+  useEffect(() => bundle.follow(collections), [collections]);
+  const open = state.open && !blocked;
+  const openNow = useRef(open);
+  openNow.current = open;
+  // «Add {view} · N»: bumped when the library changes while the panel is open (the view's ids below).
+  const [libraryChanged, setLibraryChanged] = useState(0);
+  // One subscription to the library: items deleted or moved to Trash leave the bundle at once, so a
+  // stream of changes never holds it off (Save builds anew anyway, so it never writes one); the open
+  // panel fetches the view's ids again once a burst has settled for `IDS_DELAY`.
+  useEffect(() => {
+    let timer = 0;
+    const changed = (removed: boolean) => {
+      if (removed) void pruneBundle();
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => openNow.current && setLibraryChanged((n) => n + 1), IDS_DELAY);
+    };
+    // Deleted (no bookmark) or moved to Trash; other edits leave the bundle as it is.
+    const gone = (change: BookmarkChange) => !change.bookmark || !!change.bookmark.deleted_at;
+    const stops = [
+      api.onLibraryInvalidated(() => changed(true)),
+      api.onBookmarkChanged((change) => changed(gone(change))),
+      api.onBookmarksChanged((changes) => changed(changes.some(gone))),
+    ];
+    return () => {
+      window.clearTimeout(timer);
+      stops.forEach((stop) => stop());
+    };
+  }, []);
+  useEffect(() => {
+    if (open) void pruneBundle();
+  }, [open]);
+
+  const count = itemCount(state);
+  const capsuleBottom = barShown ? OVER_BAR : EDGE;
+  const panelBottom = capsuleBottom + CAPSULE + GAP;
+  const panelHeight = Math.max(0, Math.min(PANEL_MAX, mainHeight - (headHeight + GAP) - (capsuleBottom + CAPSULE) - GAP));
+
+  // «Add {view} · N» shows while the view is not in the bundle yet and holds something.
+  // The view's ids are fetched once per view while the panel is open, and again only when the
+  // library changes; a change to the bundle checks them against its keys here.
+  const viewKey = view && (view.kind === "links" ? JSON.stringify(view.filters) : view.kind);
+  const viewIds = useRef<{ key: string; ids: number[] } | null>(null);
+  const [idsFetched, setIdsFetched] = useState(0);
+  useEffect(() => {
+    if (!open || view?.kind !== "links" || !viewKey) return;
+    let live = true;
+    void api.getBookmarkIds(view.filters).then(
+      (ids) => {
+        if (!live) return;
+        viewIds.current = { key: viewKey, ids };
+        setIdsFetched((n) => n + 1);
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+    // The view's filters by their key: a new object for the same view fetches nothing new.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, viewKey, libraryChanged]);
+  const covered = useMemo(() => {
+    const fetched = viewIds.current;
+    if (!open || view?.kind !== "links" || !fetched || fetched.key !== viewKey || !fetched.ids.length) return false;
+    const inBundle = new Set(state.sections.flatMap((s) => s.entries.map(entryKey)));
+    return fetched.ids.every((id) => inBundle.has(`b:${id}`));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, viewKey, idsFetched, state.sections]);
+  const inBundle = (key: string) => state.sections.some((s) => s.entries.some((e) => entryKey(e) === key));
+  const offered =
+    !!view &&
+    viewCount > 0 &&
+    (view.kind === "collection"
+      ? !state.sections.some((s) => s.key === sectionKey({ kind: "collection", id: view.collection.id }))
+      : view.kind === "tag"
+        ? !state.sections.some((s) => s.key === sectionKey({ kind: "tag", name: view.name }))
+        : view.kind === "feeds"
+          ? !view.feeds.every((f) => inBundle(`f:${f.uid}`))
+          : !covered);
+  const add =
+    offered && view
+      ? {
+          label: t("bundle.addView", { name: viewLabel(view), count: viewCount }),
+          onAdd: () =>
+            void addView(view).then(
+              (added) => announce(addedText(t, added)),
+              (err) => announce(String(err)),
+            ),
+        }
+      : null;
+
+  const close = () => {
+    bundle.setOpen(false);
+    const back = opener?.isConnected ? opener : capsule.current;
+    opener = null;
+    back?.focus();
+  };
+  // F6: between the main list and the open panel, both ways.
+  const lastInMain = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const panel = () => document.getElementById(panelId);
+    const focusin = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (!panel()?.contains(target) && target.closest("main")) lastInMain.current = target;
+    };
+    const keydown = (e: KeyboardEvent) => {
+      if (e.key !== "F6" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const element = panel();
+      if (!element) return;
+      e.preventDefault();
+      if (element.contains(document.activeElement)) {
+        const main = element.closest("main");
+        const remembered = lastInMain.current?.isConnected ? lastInMain.current : null;
+        const card = main?.querySelector<HTMLElement>("[data-view] [data-bookmark-id]");
+        const any = [...(main?.querySelectorAll<HTMLElement>(focusable) ?? [])].find((el) => !element.contains(el) && !el.closest("[data-bundle-capsule]"));
+        (remembered ?? card ?? any)?.focus();
+      } else {
+        (element.querySelector<HTMLElement>("[data-bundle-row] button") ?? element.querySelector<HTMLElement>(focusable))?.focus();
+      }
+    };
+    document.addEventListener("focusin", focusin);
+    window.addEventListener("keydown", keydown);
+    return () => {
+      document.removeEventListener("focusin", focusin);
+      window.removeEventListener("keydown", keydown);
+    };
+  }, [open, panelId]);
+
+  const probeElement = <span ref={probe} hidden />;
+  if (blocked) return probeElement;
+  // At rest it shows while it holds something and was not hidden; any drag brings it, a drag from the
+  // sidebar once the pointer has left the sidebar (S13). A landing keeps it until it has played.
+  const dragging = !!drag || !!sidebar?.shown;
+  const shown = (count > 0 && !state.hidden) || dragging || landing;
+  const overLabel = drag?.over ? t("drag.bundle", { count: drag.count }) : sidebar?.shown && sidebar.over ? rowDropLabel(t, sidebar.item) : null;
+  const over = !!overLabel;
+  return (
+    <>
+      {probeElement}
+      {shown && (
+        <Capsule
+          ref={capsule}
+          count={count}
+          entries={state.sections.flatMap((s) => s.entries).slice(0, 3)}
+          bottom={capsuleBottom}
+          dragging={dragging}
+          over={overLabel}
+          expanded={open}
+          panelId={panelId}
+          landing={lastLanding}
+          onClick={() => (open ? close() : openBundle(null))}
+          onHide={() => {
+            bundle.setHidden(true);
+            if (open) bundle.setOpen(false);
+          }}
+        />
+      )}
+      {open && (
+        <Panel
+          id={panelId}
+          state={state}
+          bottom={panelBottom}
+          height={panelHeight}
+          dragging={dragging}
+          over={over}
+          add={add}
+          onClose={close}
+        />
+      )}
+    </>
+  );
+}

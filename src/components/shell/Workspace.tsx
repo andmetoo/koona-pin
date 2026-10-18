@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { ArrowDown, ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, CircleArrowDown, Heart, Link, Plus, Search, Trash2, X } from "lucide-react";
+import { ReactNode, useSyncExternalStore } from "react";
+import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, CircleArrowDown, Heart, Link, Plus, Search, Trash2, X } from "lucide-react";
 import type { AppState } from "../../app/appState";
 import { inboxLine } from "../../app/notifications";
 import { noSection } from "../../app/sections";
@@ -7,14 +7,16 @@ import { capabilities } from "../../platform/capabilities";
 import { destinationOf } from "../../services/addLink";
 import { api, desktopApi, desktopOnly } from "../../services/api";
 import { bulkNotice } from "../../services/bulk";
+import { bundle, bundleView, itemCount } from "../../services/bundle";
 import { mergedNotice } from "../../services/duplicates";
 import { describeError } from "../../services/errors";
 import { shortcut } from "../../services/keys";
 import { byTime } from "../../services/library";
-import { openRequests, refusedByName } from "../../services/openRequests";
+import { openRequests } from "../../services/openRequests";
 import { savePreference } from "../../services/preferences";
 import { offer } from "../../services/update";
 import { BackupRestoreDialog, copyTime } from "../BackupRestoreDialog";
+import { Bundle, openBundle } from "../bundle/Bundle";
 import { SyncDialog } from "../commercial/SyncDialog";
 import { FeedbackDialog } from "../FeedbackDialog";
 import { FeedsPage } from "../feeds/FeedsPage";
@@ -28,7 +30,6 @@ import { DragStack } from "../library/DragStack";
 import { DuplicatesPage } from "../library/DuplicatesPage";
 import { LinkCheckPage } from "../library/LinkCheckPage";
 import { SelectionBar } from "../library/SelectionBar";
-import { ShareListDialog } from "../library/ShareListDialog";
 import { Triage } from "../library/Triage";
 import { ListImportDialog } from "../ListImportDialog";
 import { ReadingMode } from "../reader/ReadingMode";
@@ -39,6 +40,7 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Kbd } from "../ui/Hint";
 import { Banner, Toast } from "../ui/Notices";
+import { DropZone } from "./DropZone";
 import { Sidebar } from "./Sidebar";
 import { Toolbar } from "./Toolbar";
 
@@ -53,6 +55,7 @@ import { Toolbar } from "./Toolbar";
 export function Workspace({ app, windowBar, overlays }: { app: AppState; windowBar?: ReactNode; overlays?: ReactNode }) {
   const {
     actions,
+    addRowToBundle,
     announcement,
     arrowsRef,
     badge,
@@ -73,7 +76,6 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     desktop,
     dragging,
     droppedFile,
-    dropPlace,
     editHooks,
     editing,
     editorFocus,
@@ -100,6 +102,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     linkTarget,
     list,
     listOpen,
+    mainRef,
     movedAside,
     naming,
     narrow,
@@ -115,6 +118,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     openLinks,
     openReading,
     openTriage,
+    pickImportFile,
     page,
     previews,
     purging,
@@ -141,6 +145,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     selectionActions,
     selectionDrag,
     selectionRef,
+    setAnnouncement,
     setBadge,
     setDataVersion,
     setDeletingCollection,
@@ -164,8 +169,6 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     setTriage,
     setUpgradeFrom,
     setView,
-    shareFrom,
-    shareList,
     sheet,
     sheetBookmarks,
     slowLoading,
@@ -182,9 +185,12 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     update,
     upgradeFrom,
     veil,
+    veilHint,
     view,
     wide,
   } = app;
+  /** The bundle's size (share-bundle.md): «Share as list…» shows it; the window renders again only when it changes. */
+  const bundleCount = useSyncExternalStore(bundle.subscribe, () => itemCount(bundle.get()));
   const editor = editing && (
     <BookmarkEditor
       key={editing.id}
@@ -394,6 +400,30 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
   ) : null;
 
 
+  // The bundle (share-bundle.md, piece B): bottom right of the library and the feeds; gone under a
+  // modal dialog, the reading mode or triage. In the tab order after the list, before the bulk bar.
+  const bundleHere = (
+    <Bundle
+      view={bundleView({ page, filters, collections: library.collections, section, feeds, feedUid: feedPlace.feed, t })}
+      viewCount={
+        page === "feeds"
+          ? feedPlace.feed === null
+            ? (feeds?.length ?? 0)
+            : 1
+          : filters.tag && !filters.collectionId && !filters.search.trim() && !filters.domain
+            ? (library.tags.find((tag) => tag.name === filters.tag)?.count ?? library.total)
+            : narrowed
+              ? library.total
+              : sectionCount
+      }
+      barShown={selecting}
+      headHeight={headHeight}
+      blocked={!!reading || !!triage || surface !== null || listOpen || !!editing && !wide || !!purging || !!deletingCollection || !!sheet}
+      drag={dragging ? { count: dragging.count, over: dragging.target?.kind === "bundle" } : null}
+      collections={library.collections}
+      announce={setAnnouncement}
+    />
+  );
   const padding = narrow ? "px-6" : "px-8";
   return (
     <div className="flex h-full bg-bg text-ink">
@@ -450,6 +480,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             : null
         }
         dropping={dragging && { target: dragging.target }}
+        onAddToBundle={addRowToBundle}
         notifications={notifications}
         onClearNotifications={clearNotifications}
         feeds={feeds}
@@ -457,19 +488,18 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         feedUid={feedPlace.feed}
         onFeed={openFeeds}
         feedActions={feedActions}
-        onShareList={shareList}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
         {windowBar}
         <div className="flex min-h-0 flex-1">
-          <main className="relative flex min-w-0 flex-1 flex-col">
+          <main ref={mainRef} className="relative flex min-w-0 flex-1 flex-col">
             {page === "settings" ? (
               <>
-                <div className={`${padding} pt-2 pb-5`}>
+                <div data-drop-head className={`${padding} pt-2 pb-5`}>
                   <h1 className="flex h-9 items-center text-2xl font-semibold">{t("nav.settings")}</h1>
                 </div>
-                <div className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>
+                <div data-drop-area className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>
                   <SettingsPage
                     theme={theme}
                     onTheme={setTheme}
@@ -506,6 +536,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                 </div>
               </>
             ) : page === "feeds" ? (
+              <>
               <FeedsPage
                 feeds={feeds ?? []}
                 refreshing={feedsRefreshing}
@@ -532,6 +563,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                 onUndo={undoing}
                 onNewLink={() => setSurface("add")}
               />
+              {bundleHere}
+              </>
             ) : page === "duplicates" ? (
               <DuplicatesPage
                 collections={library.collections}
@@ -575,7 +608,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             ) : (
               <>
                 {/* The toolbar is glass over the list (2026-10-16); 13 + 7 px under it: room for the selection ring of the first row. */}
-                <div ref={headRef} className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
+                <div ref={headRef} data-drop-head className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
                   <Toolbar
                     ref={searchRef}
                     title={section}
@@ -588,16 +621,16 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                     onSearch={(search) => changeFilters({ search })}
                     onView={setView}
                     onSort={setSort}
-                    onImport={() => setSurface("import")}
-                    onImportFeeds={() => setSurface("importFeeds")}
+                    onImportFile={pickImportFile}
                     onExport={exportLibrary}
-                    onRestore={() => setSurface("restore")}
                     duplicates={library.counts.duplicates}
                     onDuplicates={openDuplicates}
                     links={library.counts.links}
                     onLinks={openLinks}
                     onRead={() => openReading()}
                     readRef={readButton}
+                    onShareList={openBundle}
+                    bundleCount={bundleCount}
                   />
                   {damaged && (
                     <Banner
@@ -712,11 +745,13 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                 <div
                   ref={scrollRef}
                   data-scroll="main"
+                  data-drop-area
                   style={{ paddingTop: headHeight + 7, scrollPaddingTop: headHeight + 8 }}
                   className={`min-h-0 flex-1 overflow-y-auto ${padding} ${selecting ? "pb-[120px]" : "pb-8"}`}
                 >
                   {content}
                 </div>
+                {bundleHere}
                 {selecting && (
                   // Frames 04 and 27: the bar 24 px above the bottom, a message under it when there is one, notices above it.
                   <div
@@ -845,6 +880,8 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
       )}
       {surface === "restore" && (
         <RestoreDialog
+          key={droppedFile?.surface === "restore" ? droppedFile.name : ""}
+          file={droppedFile?.surface === "restore" ? droppedFile : undefined}
           onClose={() => setSurface(null)}
           onRestore={async (content, mode) => {
             const outcome = await api.restoreLibrary(content, mode);
@@ -852,7 +889,11 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
               // After a replace no open editor or selection points at a bookmark that is gone.
               closeEditor();
               selection.clear();
-              if (mode === "replace") library.replaced();
+              if (mode === "replace") {
+                library.replaced();
+                // The bundle holds ids: in another library they would be other bookmarks.
+                bundle.clear();
+              }
               await Promise.all([library.refresh(), library.refreshCatalog()]);
             }
             return outcome;
@@ -869,6 +910,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             closeEditor();
             selection.clear();
             library.replaced();
+            bundle.clear();
             setDataVersion((version) => version + 1);
             await Promise.all([library.refresh(), library.refreshCatalog()]);
           }}
@@ -898,9 +940,6 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             say(bulkNotice(t, { action: "new_collection", name }, result.count), false, undoing(result.command));
           }}
         />
-      )}
-      {surface === "shareList" && (
-        <ShareListDialog start={shareFrom} collections={library.collections} feeds={feeds} onClose={() => setSurface(null)} onNotice={setNotice} />
       )}
       {surface === "supporter" && (
         <SupporterDialog
@@ -1070,38 +1109,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         {announcement}
       </p>
       {(!selecting || reading) && toast}
-      {veil?.file && (
-        <div className="drop-veil" data-drop-veil="import" aria-hidden>
-          <div className="max-w-[min(420px,80vw)]">
-            <span className="drop-veil-ring">
-              <Icon icon={ArrowDown} size={26} strokeWidth={2} />
-            </span>
-            {/* The name shows only where the webview tells it before the drop; the kind, where its type is known. */}
-            <b className="block text-lg font-bold tracking-[-0.01em]">{t(refusedByName(veil.file) ? "add.dropImportNot" : "add.dropImport")}</b>
-            <span className="mt-1 block text-sm text-muted [overflow-wrap:anywhere]">
-              {!veil.file.kind
-                ? t("add.dropImportOther")
-                : veil.file.name
-                  ? t(`add.dropImportNamed_${veil.file.kind}`, { name: veil.file.name })
-                  : t(`add.dropImport_${veil.file.kind}`)}
-            </span>
-            {veil.file.kind === "kpin" && <span className="mt-4 block text-xs text-muted">{t("add.dropImportAlso")}</span>}
-          </div>
-        </div>
-      )}
-      {veil && !veil.file && (
-        <div className="drop-veil" data-drop-veil={veil.inbox ? "inbox" : "library"} aria-hidden>
-          <div>
-            <span className="drop-veil-ring">
-              <Icon icon={Plus} size={26} strokeWidth={2} />
-            </span>
-            <b className="block text-lg font-bold tracking-[-0.01em]">{t("add.dropTitle")}</b>
-            <span className="mt-1 block text-sm text-muted">
-              {veil.inbox || destinationOf(filters) === "inbox" ? t("add.dropHintInbox") : t("add.dropHint", { place: dropPlace })}
-            </span>
-          </div>
-        </div>
-      )}
+      {veil && <DropZone state={veil.file ?? { link: true, hint: veilHint(veil.inbox) }} area={veil.area} />}
     </div>
   );
 }

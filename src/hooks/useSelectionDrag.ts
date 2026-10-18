@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bookmark } from "../types";
-import { DropTarget, parseDrop, sameDrop } from "../services/drag";
+import { DropTarget, parseDrop, placeStack, sameDrop } from "../services/drag";
 
 /** A press becomes a drag after this many pixels, as the selection frame does (NP-028). */
 const DRAG_START = 4;
@@ -36,7 +36,7 @@ const targetAt = (x: number, y: number) => parseDrop(document.elementFromPoint(x
  * releasing elsewhere or `Esc` does nothing; the click that ends a drag is
  * swallowed, so a card or a sidebar row under it does not open.
  */
-export function useSelectionDrag(onDrop: (target: DropTarget) => void) {
+export function useSelectionDrag(onDrop: (target: DropTarget, at: { x: number; y: number }) => void) {
   const [drag, setDrag] = useState<SelectionDrag | null>(null);
   const stack = useRef<HTMLDivElement>(null);
   const pointer = useRef({ x: 0, y: 0 });
@@ -46,7 +46,7 @@ export function useSelectionDrag(onDrop: (target: DropTarget) => void) {
 
   const place = () => {
     const { x, y } = pointer.current;
-    if (stack.current) stack.current.style.transform = `translate(${x}px, ${y}px)`;
+    if (stack.current) placeStack(stack.current, x, y);
   };
 
   const start = useCallback((e: { clientX: number; clientY: number }, bookmark: Bookmark, count: number) => {
@@ -97,7 +97,7 @@ export function useSelectionDrag(onDrop: (target: DropTarget) => void) {
       end();
       if (!was) return;
       swallowClick();
-      if (dropped) latest.current(dropped);
+      if (dropped) latest.current(dropped, { x: ev.clientX, y: ev.clientY });
     };
     const key = (ev: KeyboardEvent) => {
       if (!dragging || ev.key !== "Escape") return;
