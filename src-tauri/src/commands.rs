@@ -1,22 +1,26 @@
 use crate::{
-    browsers::CaptureStatus,
     capture::{self, CaptureRequest, ChangeKind},
-    capture_channel::{self, ChannelState},
+    capture_channel::ChannelState,
     db::{
         self, Bookmark, BookmarkPage, BookmarkQuery, Collection, DbState, DomainCount,
         LibraryCounts, Purge, Source, Suggestion, Tag,
     },
     error::{CommandError, ErrorCode, ErrorDetail},
-    backup, dedupe, export, feedback, import, linkcheck, mcp, metadata, offline, refresh, restore,
+    backup, dedupe, export, feedback, import, linkcheck, metadata, offline, refresh, restore,
     journal::{Action, Undo},
     library_state::{self, Library, LibraryStatus},
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::sync::{atomic::Ordering, Arc};
-use tauri::{AppHandle, Emitter, Manager, State};
-#[cfg(not(target_os = "linux"))]
+#[cfg(desktop)]
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+#[cfg(desktop)]
+use crate::{browsers::CaptureStatus, capture_channel, mcp};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+#[cfg(all(desktop, not(target_os = "linux")))]
 use tauri_plugin_autostart::ManagerExt;
+use tauri_plugin_dialog::FileDialogBuilder;
 use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
 
@@ -802,6 +806,18 @@ pub enum ExportOutcome {
 #[derive(Default)]
 pub struct LastExport(pub std::sync::Mutex<Option<std::path::PathBuf>>);
 
+/// A file dialog over the app's window on a desktop; a phone's system picker has no parent
+/// window to name (NP-151).
+pub(crate) fn over_main_window<R: Runtime>(app: &AppHandle<R>, dialog: FileDialogBuilder<R>) -> FileDialogBuilder<R> {
+    #[cfg(desktop)]
+    if let Some(window) = app.get_webview_window("main") {
+        return dialog.set_parent(&window);
+    }
+    #[cfg(mobile)]
+    let _ = app;
+    dialog
+}
+
 /// Menu «⋯» → Export (NP-032, Р-30): the system Save dialog, then the file
 /// written next to the target and renamed over it when complete. With `ids`,
 /// only the selected bookmarks (the selection bar, NP-029).
@@ -818,14 +834,12 @@ pub async fn export_library(
     if format == export::ExportFormat::Csv && columns.is_none() {
         return Err(CommandError::invalid("CSV needs column titles"));
     }
-    let mut dialog = app
+    let dialog = app
         .dialog()
         .file()
         .set_file_name(export::default_name(format, export::Scope::of(ids.as_deref())))
         .add_filter(format.extension().to_uppercase(), &[format.extension()]);
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = over_main_window(&app, dialog);
     let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
         .await
         .map_err(CommandError::internal)?;
@@ -860,6 +874,7 @@ pub async fn export_library(
 }
 
 /// «Показать» after an export: Explorer with the file selected.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn reveal_export(app: AppHandle, last: State<'_, LastExport>) -> Result<(), CommandError> {
     let path = last.0.lock().map_err(CommandError::internal)?.clone();
@@ -1082,6 +1097,7 @@ pub async fn offline_stats(state: State<'_, Arc<DbState>>) -> Result<offline::Of
     blocking(&state, |conn| offline::stats(conn).map_err(text)).await
 }
 /// «Show folder»: the folder of copies, made if there is none yet.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn reveal_offline_folder(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<(), CommandError> {
     let root = blocking(&state, |conn| offline::root(conn).ok_or_else(|| CommandError::internal("the library has no folder"))).await?;
@@ -1096,6 +1112,7 @@ pub async fn set_reading_mark_at_end(state: State<'_, Arc<DbState>>, enabled: bo
     })
     .await
 }
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn set_close_to_tray(
     state: State<'_, Arc<DbState>>,
@@ -1115,6 +1132,7 @@ pub async fn set_close_to_tray(
 }
 /// «Hide window» in the dialog of the first close without a tray (NP-096):
 /// from then on closing just hides the window.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn hide_to_background(
     app: AppHandle,
@@ -1131,6 +1149,7 @@ pub async fn hide_to_background(
     Ok(())
 }
 /// Which browsers are connected; the sidebar and Settings → Browser (NP-016).
+#[cfg(desktop)]
 #[tauri::command]
 pub fn get_capture_status(state: State<'_, Arc<ChannelState>>) -> CaptureStatus {
     state.status(chrono::Utc::now())
@@ -1138,6 +1157,7 @@ pub fn get_capture_status(state: State<'_, Arc<ChannelState>>) -> CaptureStatus 
 
 /// «Повторить» when capture cannot work: registers the host again and reopens
 /// the pipe if it failed.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn repair_capture(
     app: AppHandle,
@@ -1180,6 +1200,7 @@ pub enum Place {
     Backup,
 }
 /// Paths come from the app, never from the page.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn reveal_library_place(
     app: AppHandle,
@@ -1203,12 +1224,14 @@ pub fn reveal_library_place(
     };
     shown.map_err(CommandError::internal)
 }
+#[cfg(desktop)]
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
 /// Linux keeps its own XDG autostart entry (`autostart::xdg`, NP-097).
+#[cfg(desktop)]
 #[tauri::command]
 pub fn get_autostart(app: AppHandle) -> Result<bool, CommandError> {
     #[cfg(target_os = "linux")]
@@ -1221,6 +1244,7 @@ pub fn get_autostart(app: AppHandle) -> Result<bool, CommandError> {
         .is_enabled()
         .map_err(CommandError::internal)
 }
+#[cfg(desktop)]
 #[tauri::command]
 pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), CommandError> {
     #[cfg(target_os = "linux")]
@@ -1309,10 +1333,8 @@ pub async fn save_backup_copy(
 ) -> Result<SaveCopyOutcome, CommandError> {
     use tauri_plugin_dialog::DialogExt;
     let name = format!("koona-pin-backup-{}.db", chrono::Local::now().format("%Y-%m-%d"));
-    let mut dialog = app.dialog().file().set_file_name(name).add_filter("Koona Pin", &["db"]);
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = app.dialog().file().set_file_name(name).add_filter("Koona Pin", &["db"]);
+    let dialog = over_main_window(&app, dialog);
     let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
         .await
         .map_err(CommandError::internal)?;
@@ -1365,14 +1387,12 @@ pub async fn pick_backup(
     picked: State<'_, PickedBackup>,
 ) -> Result<PickedCopy, CommandError> {
     use tauri_plugin_dialog::DialogExt;
-    let mut dialog = app
+    let dialog = app
         .dialog()
         .file()
         .add_filter("Koona Pin", &["db"])
         .set_directory(&library.paths.backups);
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = over_main_window(&app, dialog);
     let chosen = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
         .await
         .map_err(CommandError::internal)?;
@@ -1488,6 +1508,7 @@ pub async fn restore_backup(
 }
 
 /// «Show» after a restore: Explorer with the copy of the replaced library selected.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn reveal_backup(app: AppHandle, library: State<'_, Arc<Library>>, file_name: String) -> Result<(), CommandError> {
     let path = backup::listed(&library.paths.backups, &file_name)
@@ -1496,12 +1517,14 @@ pub fn reveal_backup(app: AppHandle, library: State<'_, Arc<Library>>, file_name
 }
 
 /// Settings → AI assistants (NP-091): access and the last request.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn get_mcp_status(state: State<'_, Arc<DbState>>) -> Result<mcp::McpStatus, CommandError> {
     blocking(&state, |conn| Ok(mcp::status(conn))).await
 }
 
 /// Off, read only, or read and add; the settings and every open window hear of it.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn set_mcp_access(
     app: AppHandle,
@@ -1518,6 +1541,7 @@ pub async fn set_mcp_access(
 }
 
 /// «How to connect…»: the commands and JSON with this computer's path.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn get_mcp_setup() -> Result<mcp::McpSetup, CommandError> {
     mcp::server_path().map(|server| mcp::setup(&server)).map_err(CommandError::internal)
@@ -1528,6 +1552,7 @@ pub fn get_mcp_setup() -> Result<mcp::McpSetup, CommandError> {
 /// from the app failed: on Windows Claude Desktop does not always take the
 /// file type, and a package in the temporary folder could not be found to
 /// open by hand. The dialog says how to install it. None when cancelled.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn save_mcpb(app: AppHandle) -> Result<Option<String>, CommandError> {
     use tauri_plugin_dialog::DialogExt;
@@ -1539,9 +1564,7 @@ pub async fn save_mcpb(app: AppHandle) -> Result<Option<String>, CommandError> {
     if let Some(downloads) = dirs::download_dir() {
         dialog = dialog.set_directory(downloads);
     }
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = over_main_window(&app, dialog);
     let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
         .await
         .map_err(CommandError::internal)?;

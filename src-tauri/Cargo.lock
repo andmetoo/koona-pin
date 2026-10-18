@@ -2542,6 +2542,7 @@ dependencies = [
  "tauri-plugin-autostart",
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
+ "tauri-plugin-koona-mobile",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
@@ -5109,6 +5110,15 @@ dependencies = [
  "thiserror 2.0.21",
  "toml 1.1.6+spec-1.1.0",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-koona-mobile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

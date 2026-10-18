@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # The sync engine (Р-68) is its own crate under the commercial license, without Tauri, so the
 # phone apps can wrap it later. One SQLite links: both crates use rusqlite 0.32.
 [workspace]
-members = [".", "commercial/koona-sync"]
+members = [".", "commercial/koona-sync", "plugins/koona-mobile"]
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
@@ -29,10 +29,6 @@ public-release = []
 [dependencies]
 tauri = { version = "2.1", features = ["tray-icon"] }
 tauri-plugin-opener = "2.0"
-tauri-plugin-single-instance = "2"
-# `koonapin://import?url=…` (NP-142): the scheme registered from `plugins.deep-link` by the bundler on
-# macOS and Windows. The links are read by open_requests.rs, not through the plugin's commands.
-tauri-plugin-deep-link = "2.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # `functions`: `np_fold` for search terms shorter than a trigram (NP-011).
@@ -53,12 +49,7 @@ url = "2.5"
 dirs = "5.0"
 # TypeScript types of the IPC contract, exported to src/bindings by `cargo test` (NP-007).
 ts-rs = { version = "12", default-features = false, features = ["serde-compat"] }
-tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
-# The app updates itself (NP-038, NP-102, Р-60): checks latest.json, downloads and verifies the
-# minisign signature, runs the NSIS installer on Windows. No zip: releases carry the installer
-# itself. The system proxy, as feedback has (NP-088).
-tauri-plugin-updater = { version = "2.13", default-features = false, features = ["rustls-tls", "system-proxy"] }
 # «Title A–Z» and «Site A–Z» (NP-114): sort keys in the interface's language.
 # The other ICU4X crates are already in the tree through `url`.
 icu_collator = "2.3"
@@ -89,6 +80,26 @@ quick-xml = "0.42"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "ico", "bmp"] }
 sha2 = "0.10"
 percent-encoding = "2.3"
+
+# Desktop only (NP-151): a phone has no second instance, no start at sign-in, no self-update (the
+# stores update it) and no `koonapin://` links or `.kpin` files yet.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+# The app updates itself (NP-038, NP-102, Р-60): checks latest.json, downloads and verifies the
+# minisign signature, runs the NSIS installer on Windows. No zip: releases carry the installer
+# itself. The system proxy, as feedback has (NP-088).
+tauri-plugin-updater = { version = "2.13", default-features = false, features = ["rustls-tls", "system-proxy"] }
+# `koonapin://import?url=…` (NP-142): the scheme registered from `plugins.deep-link` by the bundler on
+# macOS and Windows. The links are read by open_requests.rs, not through the plugin's commands.
+tauri-plugin-deep-link = "2.6"
+
+# Phones only (NP-151): our own plugin for system Back, the iOS edge swipe, renderer loss and the
+# insets (plugins/koona-mobile).
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-koona-mobile = { path = "plugins/koona-mobile" }
+# `_exit` at the end of a phone's run (lib.rs, `end_on_phone`). Already in the tree.
+libc = "0.2"
 
 [dev-dependencies]
 # `trace`: the example `query_plans` prints the plan of every statement a command runs (NP-114).

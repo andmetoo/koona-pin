@@ -1,6 +1,7 @@
 use crate::journal::Journal;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
+#[cfg(desktop)]
 use std::path::PathBuf;
 use std::sync::{atomic::{AtomicBool, Ordering}, Mutex};
 use ts_rs::TS;
@@ -263,7 +264,7 @@ pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<()> {
 
 /// Overrides the library folder; tests use it to stay away from user data.
 pub const DATA_DIR_ENV: &str = "KOONAPIN_DATA_DIR";
-const DB_FILE: &str = "koonapin.db";
+pub const DB_FILE: &str = "koonapin.db";
 /// The brand's folder in the platform data folder (`dirs::data_dir`: `%APPDATA%`,
 /// `$XDG_DATA_HOME`, `~/Library/Application Support`): each Koona app keeps its
 /// data in its own subfolder and never touches the others (Р-56).
@@ -271,6 +272,9 @@ pub const BRAND_FOLDER: &str = "Koona";
 /// The library folder in [`BRAND_FOLDER`]; the uninstaller may remove it (NP-037).
 pub const DATA_FOLDER: &str = "Pin";
 
+/// The desktop's library file. A phone has no such guess: its folders come from the system
+/// (`library::Paths::in_app_folders`, NP-151).
+#[cfg(desktop)]
 pub fn db_path() -> PathBuf {
     if let Some(directory) = std::env::var_os(DATA_DIR_ENV) {
         return PathBuf::from(directory).join(DB_FILE);

@@ -4,9 +4,15 @@ dist/
 release/
 # The Linux stages' exchange folder (scripts/build-linux-packages.mjs, .github/workflows/linux.yml)
 dist-linux/
-# Tauri writes the schema of the platform it builds on; only the Windows one is kept
+# Tauri writes the schema of the platform it builds on; only the Windows one is kept, and the phones'
+# shared one that capabilities/mobile.json names
 src-tauri/gen/schemas/macOS-schema.json
 src-tauri/gen/schemas/linux-schema.json
+src-tauri/gen/schemas/android-schema.json
+src-tauri/gen/schemas/iOS-schema.json
+# The plugins' permissions as the last build linked them (NP-151): a desktop build and a phone build link
+# different plugins, so each rewrites it; the build reads its own copy in OUT_DIR, never this one
+src-tauri/gen/schemas/acl-manifests.json
 dist-ssr/
 .cache/
 .test-data/

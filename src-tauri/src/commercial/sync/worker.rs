@@ -20,6 +20,7 @@ use crate::billing;
 use crate::capture;
 use crate::db::{self, DbState};
 use crate::feeds;
+use crate::lifecycle::Foreground;
 use base64::Engine;
 use koona_sync::library::{DeltaPage, Library, Meta};
 use koona_sync::model::{Group, Vector};
@@ -381,7 +382,7 @@ pub fn spawn(app: &AppHandle, start: Start) -> Running {
     let (handle, events, work) = net::client(ClientConfig::new(url), session, library, credentials);
     tauri::async_runtime::spawn(work);
     tauri::async_runtime::spawn(pump(app.clone(), events, handle.clone(), db.clone(), generation, abandoned.clone(), key_lost, done.clone()));
-    tauri::async_runtime::spawn(watch(db, handle.clone(), done.clone(), counter));
+    tauri::async_runtime::spawn(watch(db, handle.clone(), done.clone(), counter, crate::lifecycle::foreground(app)));
     Running { handle, sub, replica, generation, abandoned, done }
 }
 
@@ -471,11 +472,22 @@ impl Pending {
 
 /// Pushes local changes: see the module's comment. `start` is `start_counter`, read before the
 /// client began. Until `done`; public for the end-to-end test (`tests/sync_e2e.rs`), which runs
-/// clients without Tauri.
-pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>, start: Option<i64>) {
+/// clients without Tauri. Behind a phone's screen it does not look (`foreground`, NP-151).
+pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>, start: Option<i64>, mut foreground: Foreground) {
     let mut pending = Pending::new(start);
     loop {
-        tokio::time::sleep(WATCH_EVERY).await;
+        // A session that ended meanwhile is not waited for: behind a phone's screen this would park
+        // until the app came back. (A session that ends while the watcher is parked lets it go on
+        // the way back, here: `done` has no wake-up of its own to end the park sooner.)
+        if done.load(Ordering::SeqCst) {
+            return;
+        }
+        foreground.wait().await;
+        // A suspend during the wait skips this pass: nothing is pushed behind the screen.
+        tokio::select! {
+            _ = tokio::time::sleep(WATCH_EVERY) => {}
+            _ = foreground.suspended() => continue,
+        }
         if done.load(Ordering::SeqCst) {
             return;
         }

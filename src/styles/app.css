@@ -388,6 +388,11 @@
   #root {
     overflow: clip;
   }
+  /* A phone (NP-151) runs the app edge to edge: the page keeps clear of the status bar, the
+     cutout, the navigation bar and the keyboard (--safe-*, end of this file). */
+  :root[data-platform] body {
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  }
   body {
     margin: 0;
     overflow: hidden;
@@ -2986,4 +2991,58 @@
 }
 :root[data-mac-frame] .reading-sheet > div {
   top: 44px;
+}
+
+/* The safe area of a phone (NP-151): the status bar, the cutout, the navigation bar and the keyboard.
+   Android WebViews before 140 give env() nothing in an edge-to-edge window, so the koona-mobile plugin
+   passes the same insets, the keyboard included, as --kp-inset-*; the larger counts. Zero on a desktop.
+   The page's body is padded by them (above); what floats over it — dialogs, the editor's drawer, the
+   add sheet, the reading sheet and toasts — keeps inside them here. Not in a layer, so these win over
+   the utilities those elements carry. */
+:root {
+  --safe-top: 0px;
+  --safe-right: 0px;
+  --safe-bottom: 0px;
+  --safe-left: 0px;
+}
+:root[data-platform] {
+  --safe-top: max(env(safe-area-inset-top), var(--kp-inset-top, 0px));
+  --safe-right: max(env(safe-area-inset-right), var(--kp-inset-right, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom), var(--kp-inset-bottom, 0px));
+  --safe-left: max(env(safe-area-inset-left), var(--kp-inset-left, 0px));
+}
+:root[data-platform] dialog.app-dialog[open] {
+  inset: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 16px);
+}
+:root[data-platform] dialog[data-drawer] {
+  top: var(--safe-top);
+  right: var(--safe-right);
+  bottom: var(--safe-bottom);
+  height: auto;
+  max-height: none;
+}
+:root[data-platform] .add-sheet {
+  margin-top: calc(var(--safe-top) + 16px);
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 32px);
+}
+:root[data-platform] .reading-sheet,
+:root[data-platform] .reading-mode {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+:root[data-platform] .glass-toast:not([data-docked]),
+:root[data-platform] [data-toast]:not([data-docked]) {
+  bottom: calc(24px + var(--safe-bottom));
+}
+/* The editor's Save and Cancel on a phone stay at the bottom of the drawer or the side panel, above
+   the keyboard, while the fields scroll: focusing the note scrolls only the note into view (NP-151,
+   seen on the Fold's cover screen). The side bleed matches the containers' 24 px padding. */
+:root[data-platform] [data-editor-actions] {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -24px;
+  padding: 12px 24px;
+  background: var(--np-card);
+  border-top: 1px solid var(--color-border);
 }

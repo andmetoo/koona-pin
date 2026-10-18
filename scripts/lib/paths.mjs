@@ -15,6 +15,8 @@
 //     macos/<version>/<arch>/  test .app, its ZIP, SHA256SUMS.txt, build.json   bun run build:macos:test
 //     windows/<version>/   installer, unsigned                       bun run build:installer
 //     chrome-edge/<version>/  extension with the store id            bun run extension:build (CHROME_STORE_PUBLIC_KEY)
+//     android/<version>/   .aab and arm64 .apk, debug-signed, SHA256SUMS.txt   bun run build:android
+//     ios-simulator/<version>/  Koona Pin.app for the iOS Simulator (arm64)    bun run build:ios:sim
 //   release/dev/       this machine
 //     chrome/, edge/, firefox/  unpacked, development id («Load unpacked», tests)   bun run extension:build
 //     safari/              the web part of the Safari app extension (NP-119)          bun run extension:build
@@ -44,6 +46,8 @@ export const test = {
   macos: (version, arch) => path.join(release, "test", "macos", version, arch),
   windows: (version) => path.join(release, "test", "windows", version),
   chromeEdge: (version) => path.join(release, "test", "chrome-edge", version),
+  android: (version) => path.join(release, "test", "android", version),
+  iosSimulator: (version) => path.join(release, "test", "ios-simulator", version),
 };
 
 export const dev = {

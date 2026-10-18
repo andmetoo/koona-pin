@@ -9,6 +9,7 @@ import { Kbd } from "../ui/Hint";
 import { ReaderLook, readerStyle } from "../../services/readerLook";
 import { ArticleStatus, ArticleView, OfflineBanner } from "./ArticleView";
 import { OfflineButton, useOfflineCopies } from "./OfflineButton";
+import { useBack } from "../../hooks/useBack";
 
 /**
  * Reading over the list (Р-69 variant A, frame A): a sheet 760 px wide over
@@ -77,6 +78,8 @@ export function ReadingSheet({
   });
   const latest = useRef({ index, count: bookmarks.length, onIndex, onClose });
   latest.current = { index, count: bookmarks.length, onIndex, onClose };
+  // A phone's Back closes it as Escape does (NP-151).
+  useBack(() => latest.current.onClose());
 
   const shown = useRef(b.id);
   shown.current = b.id;
