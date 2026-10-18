@@ -12,6 +12,10 @@ The copyright holders may also grant separate commercial permissions for code th
 
 This licensing change applies to revisions carrying these notices. It does not withdraw AGPL rights already granted for earlier revisions or copies. Third-party licenses and rights already granted in individual contributions remain in force.
 
+## The `.kpin` list format: CC0
+
+The specification of the `.kpin` list format, its JSON Schema and its examples in [`docs/kpin/`](docs/kpin/README.md) are dedicated to the public domain under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/), so that any tool can implement the format. The app's code that reads and writes it stays under the GPL.
+
 ## Commercial code
 
 The [Koona Pin Commercial License](LICENSE-COMMERCIAL.md) covers code expressly designated as commercial by a file notice or a `LICENSE-COMMERCIAL.md` notice in its directory. Commercial features are kept in directories named `commercial`; each such directory must carry a notice linking to that license. Code is not moved out of the GPL merely because it becomes a paid feature.

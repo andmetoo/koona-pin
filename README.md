@@ -26,6 +26,7 @@ Website and downloads: **[koona.app/pin](https://koona.app/pin/)**
 - **Notifications** in one place: the bell in the sidebar collects new links waiting in Inbox, the offer to import from your browser and problems with saving from the browser.
 - **Trash** keeps deleted links for 30 days, so you can restore them.
 - **Import and export.** Import the bookmarks file your browser exports; export to HTML, JSON or CSV; keep a full JSON copy and restore from it.
+- **Shareable lists.** Open a `.kpin` list of links and feeds someone published, see what it holds and choose what to import; make one from a collection, a selection or your feeds with «Share as list…». The format is open and public domain: [docs/kpin](docs/kpin/README.md).
 - **AI assistants.** Claude and other assistants on your computer can search your links and, if you allow it, save, tag, file and star them, through MCP. It is off until you turn it on, and nothing deletes ([how it works](docs/architecture.md#ai-assistants-mcp)).
 - **Works offline.** The library is a file on your disk with automatic backups.
 - **Lives in the tray** (the menu bar on a Mac) and can start with the system.
@@ -126,7 +127,7 @@ Build output that leaves the repository (installers, packages, extension builds,
 | [`supabase/`](supabase) | The backend that receives feedback sent from the app and the website |
 | [`scripts/`](scripts) | Build, packaging, release and test scripts run by `bun run` |
 | [`tests/`](tests) | Playwright tests of the interface and the native app, WebKitGTK tests for Linux, and fixtures |
-| [`docs/`](docs) | Documentation: architecture, building, testing, the extension, translating, design and decisions |
+| [`docs/`](docs) | Documentation: architecture, building, testing, the extension, translating, design and decisions; the `.kpin` list format in [`docs/kpin`](docs/kpin/README.md) |
 
 ## Translations
 

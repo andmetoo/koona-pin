@@ -494,10 +494,10 @@ mod tests {
         c.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get(0)).unwrap()
     }
 
-    /// The rules of `tests/fixtures/kpin/kpin-format.schema.json` a writer
+    /// The rules of the public schema (`docs/kpin/schema-1.json`) a writer
     /// must keep, checked by hand: the crate has no JSON Schema validator.
     fn schema_valid(value: &Value) {
-        let schema: Value = serde_json::from_str(include_str!("../../tests/fixtures/kpin/kpin-format.schema.json")).unwrap();
+        let schema: Value = serde_json::from_str(include_str!("../../../docs/kpin/schema-1.json")).unwrap();
         let root = value.as_object().unwrap();
         for key in schema["required"].as_array().unwrap() {
             assert!(root.contains_key(key.as_str().unwrap()), "required {key}");

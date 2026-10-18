@@ -1,0 +1,45 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "generator": "Koona Pin 2.4.0",
+  "id": "small-web-starter",
+  "title": "Small web starter",
+  "description": "Personal sites and their feeds.\nChecked by hand in October 2026.",
+  "author": { "name": "A. Curator", "url": "https://curator.example/" },
+  "license": "CC0-1.0",
+  "language": "en",
+  "updated": "2026-10-18",
+  "homepage": "https://curator.example/lists/small-web-starter",
+  "sections": [
+    {
+      "name": "Essays",
+      "items": [
+        {
+          "type": "link",
+          "url": "https://essays.example/on-gardens",
+          "title": "On digital gardens",
+          "description": "Why a site can grow instead of being finished.",
+          "tags": ["writing", "web"]
+        },
+        {
+          "type": "feed",
+          "url": "https://essays.example/feed.xml",
+          "site": "https://essays.example/",
+          "title": "Essays"
+        }
+      ]
+    },
+    {
+      "name": "Tools",
+      "items": [
+        { "type": "link", "url": "https://tools.example/static-site", "title": "A static site in an afternoon", "tags": ["howto"] },
+        { "type": "feed", "url": "https://tools.example/atom.xml", "title": "Tools blog" }
+      ]
+    }
+  ],
+  "items": [
+    { "type": "link", "url": "https://directory.example/", "title": "A directory of personal sites" }
+  ]
+}

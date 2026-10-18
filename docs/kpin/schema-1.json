@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://koona.app/pin/schema/list-1.json",
+  "title": "Koona list (.kpin), version 1.x",
+  "description": "A shareable list of links and feeds for Koona Pin: the envelope shared by Koona apps with the payload of app \"pin\", kind \"list\". This schema is what a writer must produce; readers are more tolerant and are described in docs/kpin/README.md. Two rules of a writer cannot be written here: at most 5,000 items across all sections and the top level, and addresses of at most 2,048 bytes in UTF-8 (maxLength counts characters). Dedicated to the public domain under CC0 1.0.",
+  "type": "object",
+  "required": [
+    "format",
+    "app",
+    "kind",
+    "version",
+    "title"
+  ],
+  "anyOf": [
+    {
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1
+        }
+      }
+    },
+    {
+      "required": [
+        "sections"
+      ],
+      "properties": {
+        "sections": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "required": [
+              "items"
+            ],
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional pointer to this schema, for editors. Readers ignore it."
+    },
+    "format": {
+      "const": "koona",
+      "description": "Permanent identifier shared by every Koona app."
+    },
+    "app": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "The app the payload is for. Koona Pin reads \"pin\" and names the app for any other value."
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "What the file holds. Version 1 of app \"pin\" defines \"list\"."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]{0,3})$",
+      "description": "MAJOR.MINOR of this app and kind, as text: \"1.10\" is not \"1.1\". A newer MINOR only adds optional fields and item types; a newer MAJOR is refused by older readers."
+    },
+    "generator": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "What wrote the file, such as \"Koona Pin 2.4.0\". For diagnostics only, never for behaviour."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+      "description": "A slug that marks the same list across its updates."
+    },
+    "title": {
+      "type": "string",
+      "$ref": "#/$defs/text",
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Plain text; line breaks are kept."
+    },
+    "author": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "url": {
+          "$ref": "#/$defs/httpUrl"
+        }
+      }
+    },
+    "license": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "An SPDX license identifier, such as CC0-1.0 or CC-BY-4.0. It covers the list itself, not the pages it links to."
+    },
+    "language": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+      "description": "The language of the list's text, as a BCP 47 tag."
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "The date the list was last checked or changed, YYYY-MM-DD."
+    },
+    "homepage": {
+      "$ref": "#/$defs/httpUrl",
+      "description": "Where the list is published."
+    },
+    "sections": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "items"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "$ref": "#/$defs/text",
+            "maxLength": 120
+          },
+          "items": {
+            "$ref": "#/$defs/items"
+          }
+        }
+      }
+    },
+    "items": {
+      "$ref": "#/$defs/items",
+      "description": "The items that are in no section."
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "[^\\s\\u0000-\\u001f\\u007f-\\u009f\\u061c\\u200b-\\u200f\\u202a-\\u202e\\u2060\\u2066-\\u2069]",
+      "description": "One line of text with at least one visible character: not empty, and not only white space, control or invisible characters."
+    },
+    "httpUrl": {
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^/?#\\s]+",
+      "description": "An absolute http or https address with a host. A user name or password in it is dropped by readers; writers leave them out."
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/link"
+          },
+          {
+            "$ref": "#/$defs/feed"
+          },
+          {
+            "$ref": "#/$defs/unknown"
+          }
+        ]
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "type",
+        "url"
+      ],
+      "properties": {
+        "type": {
+          "const": "link"
+        },
+        "url": {
+          "$ref": "#/$defs/httpUrl"
+        },
+        "title": {
+          "type": "string",
+          "$ref": "#/$defs/text",
+          "maxLength": 500
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "$ref": "#/$defs/text",
+            "maxLength": 64
+          }
+        }
+      }
+    },
+    "feed": {
+      "type": "object",
+      "required": [
+        "type",
+        "url"
+      ],
+      "properties": {
+        "type": {
+          "const": "feed"
+        },
+        "url": {
+          "$ref": "#/$defs/httpUrl",
+          "description": "The address of the RSS, Atom or JSON feed itself. Readers do not follow feeds on this computer or the local network."
+        },
+        "site": {
+          "$ref": "#/$defs/httpUrl",
+          "description": "The site's home page."
+        },
+        "title": {
+          "type": "string",
+          "$ref": "#/$defs/text",
+          "maxLength": 500
+        }
+      }
+    },
+    "unknown": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "not": {
+            "enum": [
+              "link",
+              "feed"
+            ]
+          }
+        }
+      },
+      "description": "An item type from a newer 1.x. Valid; readers that do not know it skip it and count it."
+    }
+  }
+}
