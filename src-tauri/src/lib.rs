@@ -316,6 +316,7 @@ pub fn run() {
             lists::preview_list,
             lists::import_list,
             lists::export::build_list,
+            lists::bundle::build_bundle_list,
             lists::export::save_list,
             lists::download::download_list,
             lists::download::cancel_list_download,

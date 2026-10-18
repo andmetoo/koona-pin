@@ -115,48 +115,49 @@ impl From<&crate::feeds::Feed> for FeedRow {
     }
 }
 
+/// The file a builder writes; [`super::bundle`] writes it too.
 #[derive(Serialize)]
-struct ListFile {
-    format: &'static str,
-    app: &'static str,
-    kind: &'static str,
-    version: &'static str,
-    generator: String,
+pub(super) struct ListFile {
+    pub(super) format: &'static str,
+    pub(super) app: &'static str,
+    pub(super) kind: &'static str,
+    pub(super) version: &'static str,
+    pub(super) generator: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-    title: String,
+    pub(super) id: Option<String>,
+    pub(super) title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<String>,
+    pub(super) description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    author: Option<Author>,
+    pub(super) author: Option<Author>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    license: Option<&'static str>,
+    pub(super) license: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    language: Option<String>,
+    pub(super) language: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    updated: Option<String>,
+    pub(super) updated: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    sections: Vec<Section>,
-    items: Vec<Item>,
+    pub(super) sections: Vec<Section>,
+    pub(super) items: Vec<Item>,
 }
 
 #[derive(Serialize)]
-struct Author {
+pub(super) struct Author {
     #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
+    pub(super) name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    url: Option<String>,
+    pub(super) url: Option<String>,
 }
 
 #[derive(Serialize)]
-struct Section {
-    name: String,
-    items: Vec<Item>,
+pub(super) struct Section {
+    pub(super) name: String,
+    pub(super) items: Vec<Item>,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-enum Item {
+pub(super) enum Item {
     Link {
         url: String,
         #[serde(skip_serializing_if = "Option::is_none")]
