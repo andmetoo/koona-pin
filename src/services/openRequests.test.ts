@@ -35,7 +35,7 @@ describe("files dropped on the window", () => {
     expect(draggedFile(drag({ types: ["Files"], files: [new File(["{}"], "rust-blogs.kpin")] }))).toEqual({ name: "rust-blogs.kpin", kind: "kpin" });
     expect(draggedFile(drag({ types: ["Files"], files: [new File(["x"], "notes.txt", { type: "text/plain" })] }))).toEqual({ name: "notes.txt", kind: null });
     expect(draggedFile(drag({ types: ["Files"], files: [new File(["x"], "Bookmarks.HTM")] }))).toEqual({ name: "Bookmarks.HTM", kind: "bookmarks" });
-    expect(draggedFile(drag({ types: ["Files"], files: [new File(["{}"], "koona-pin-2026-10-18.json")] }))).toEqual({ name: "koona-pin-2026-10-18.json", kind: "backup" });
+    expect(draggedFile(drag({ types: ["Files"], files: [new File(["{}"], "koona-pin-2026-10-18.json")] }))).toEqual({ name: "koona-pin-2026-10-18.json", kind: null });
   });
 });
 
@@ -47,6 +47,7 @@ describe("the drop zone before the drop", () => {
     expect(refusedByName({ name: "notes.txt", kind: null })).toBe(false);
     expect(refusedByName({ name: "subscriptions.xml", kind: null })).toBe(false);
     expect(refusedByName({ name: "bookmarks", kind: null })).toBe(false);
+    expect(refusedByName({ name: "koona-pin-2026-10-18.json", kind: null })).toBe(false);
     expect(refusedByName({ name: null, kind: null })).toBe(false);
     expect(refusedByName({ name: "list.kpin", kind: "kpin" })).toBe(false);
   });

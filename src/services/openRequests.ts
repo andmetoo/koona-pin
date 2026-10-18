@@ -32,11 +32,13 @@ export function fileKindOf(name: string): FileKind | null {
   return null;
 }
 
-/** What a name suggests before the drop, for the drop zone only: the drop itself goes by content. */
+/**
+ * What a name suggests before the drop, for the drop zone only: the drop itself goes by content.
+ * A `.json` says nothing (a list or a full copy may be named so): the zone shows its hero.
+ */
 function importKindOf(name: string): ImportKind | null {
   const kind = fileKindOf(name);
-  if (kind) return kind === "html" ? "bookmarks" : kind;
-  return /\.json$/i.test(name.trim()) ? "backup" : null;
+  return kind === "html" ? "bookmarks" : kind;
 }
 
 /** The kind of a file by its media type, when the name is not known (a drag over the window). */
@@ -84,11 +86,11 @@ export function opmlRoot(content: string) {
 /**
  * Whether the zone may already say «can't import» (K9b c): the name is known and its extension is
  * none of ours. The drop goes by content, so names that may hide one of ours are not refused here:
- * `.xml` and `.txt` (OPML is exported so) or no extension at all.
+ * `.xml` and `.txt` (OPML is exported so), `.json` (a list or a full copy) or no extension at all.
  */
 export const refusedByName = (file: DraggedFile) => {
   const name = file.name?.trim() ?? "";
-  return !!name && !file.kind && /\.[^./\\]+$/.test(name) && !/\.(xml|txt)$/i.test(name);
+  return !!name && !file.kind && /\.[^./\\]+$/.test(name) && !/\.(xml|txt|json)$/i.test(name);
 };
 
 type Listener = (request: OpenRequest | null) => void;

@@ -257,7 +257,8 @@ test("a file dragged over the window: the hero, as real drags show it; the kind 
   await expect(zone).toContainText("Drop to import the feeds");
   await dragFiles(page, "dragleave", []);
   await dragFiles(page, "dragenter", [{ name: "koona-pin-2026-10-04.json" }]);
-  await expect(zone).toContainText("Drop to restore the backup");
+  // A .json may be a list or a full copy: by name it is neither, so the hero.
+  await expect(zone).toHaveAttribute("data-drop-zone", "hero");
   await dragFiles(page, "dragleave", []);
   // Refused by name (K9b c); a .txt may still be OPML, so it gets the hero.
   await dragFiles(page, "dragenter", [{ name: "report.pdf" }]);
