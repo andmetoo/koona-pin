@@ -922,8 +922,9 @@ mod tests {
         // No purge from the restore; the purge made after the copy stays, and
         // the bookmark it purged is back under a new uid (a purge is final).
         assert_eq!(one("SELECT count(*) FROM tombstones"), 1);
-        assert_eq!(one(&format!("SELECT count(*) FROM bookmarks WHERE uid = '{purged_uid}'")), 0);
-        assert_eq!(one(&format!("SELECT count(*) FROM tombstones WHERE uid = '{purged_uid}'")), 1);
+        let with_uid = |sql: &str| conn.query_row(sql, [&purged_uid], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(with_uid("SELECT count(*) FROM bookmarks WHERE uid = ?1"), 0);
+        assert_eq!(with_uid("SELECT count(*) FROM tombstones WHERE uid = ?1"), 1);
         assert_eq!(one("SELECT count(*) FROM bookmarks WHERE id = 2"), 1, "the purged one is back");
         // The connection records with the new replica.
         let next = capture(&conn, "https://example.com/next", "next");
