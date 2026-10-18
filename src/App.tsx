@@ -70,7 +70,8 @@ import { syncPrompt } from "./components/commercial/syncText";
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
 type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
 /** A drag from outside over the list area: where the zone lies, Shift for a link, or a file to import (K9). */
-type Veil = { inbox: boolean; file?: DropZoneState & { link?: false }; area: DropArea };
+type FileZone = DropZoneState & { link?: false };
+type Veil = { inbox: boolean; file?: FileZone; area: DropArea };
 
 const sameVeil = (a: Veil | null, b: Veil | null) =>
   a === b ||
@@ -402,23 +403,29 @@ export function App() {
   useEffect(() => {
     let depth = 0;
     let accepting: "link" | "file" | null = null;
-    let fileZone: (DropZoneState & { link?: false }) | null = null;
+    let fileZone: FileZone | null = null;
+    /** Where the zone last lay: some webviews (WebKitGTK, WebView2) give a drop no coordinates. */
+    let lastArea: DropArea | null = null;
     let said = false;
     let own = false;
     const start = () => (own = true);
     const end = () => (own = false);
-    /** The list area under the pointer: `<main>` below the library's toolbar, or null outside it. */
+    /**
+     * The list area under the pointer, or null outside it: the view's `[data-drop-area]` (the
+     * library's cards or rows, the posts of Feeds, the content of Settings) below any
+     * `[data-drop-head]` over it; `<main>` itself in a view without one.
+     */
     const areaAt = (e: DragEvent): DropArea | null => {
       const main = mainRef.current;
       if (!main) return null;
-      const box = main.getBoundingClientRect();
-      const top = Math.max(box.top, main.querySelector(".toolbar-glass")?.getBoundingClientRect().bottom ?? box.top);
+      const box = (main.querySelector("[data-drop-area]") ?? main).getBoundingClientRect();
+      const top = Math.max(box.top, main.querySelector("[data-drop-head]")?.getBoundingClientRect().bottom ?? box.top);
       const inside = e.clientX >= box.left && e.clientX < box.right && e.clientY >= top && e.clientY < box.bottom;
       return inside ? { top, left: box.left, width: box.width, height: box.bottom - top } : null;
     };
     /** The zone for where the pointer is now; it is said once per drag, when it first shows. */
     const show = (e: DragEvent) => {
-      const area = areaAt(e);
+      const area = (lastArea = areaAt(e));
       if (e.dataTransfer) e.dataTransfer.dropEffect = !area || (accepting === "file" && (importBlocked() || importBusy())) ? "none" : "copy";
       const next: Veil | null = !area ? null : accepting === "file" ? fileZone && { inbox: false, file: fileZone, area } : { inbox: e.shiftKey, area };
       if (next && !said) {
@@ -451,6 +458,7 @@ export function App() {
       depth = Math.max(0, depth - 1);
       if (depth === 0) {
         accepting = null;
+        lastArea = null;
         setVeil(null);
       }
     };
@@ -461,8 +469,10 @@ export function App() {
       depth = 0;
       accepting = null;
       setVeil(null);
-      // Over the sidebar or the toolbar a drop does nothing.
-      if (!areaAt(e)) return;
+      // Over the sidebar or the toolbar a drop does nothing; a drop at 0,0 goes by the last dragover.
+      const area = e.clientX || e.clientY ? areaAt(e) : lastArea;
+      lastArea = null;
+      if (!area) return;
       const data = e.dataTransfer;
       if (kind === "file") {
         if (!importBlocked() && !importBusy()) dropFileRef.current(data?.files);
@@ -1676,7 +1686,7 @@ export function App() {
                 <div className={`${padding} pt-2 pb-5`}>
                   <h1 className="flex h-9 items-center text-2xl font-semibold">{t("nav.settings")}</h1>
                 </div>
-                <div className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>
+                <div data-drop-area className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>
                   <SettingsPage
                     theme={theme}
                     onTheme={setTheme}
@@ -1785,7 +1795,7 @@ export function App() {
             ) : (
               <>
                 {/* The toolbar is glass over the list (2026-10-16); 13 + 7 px under it: room for the selection ring of the first row. */}
-                <div ref={headRef} className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
+                <div ref={headRef} data-drop-head className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
                   <Toolbar
                     ref={searchRef}
                     title={section}
@@ -1920,6 +1930,7 @@ export function App() {
                 <div
                   ref={scrollRef}
                   data-scroll="main"
+                  data-drop-area
                   style={{ paddingTop: headHeight + 7, scrollPaddingTop: headHeight + 8 }}
                   className={`min-h-0 flex-1 overflow-y-auto ${padding} ${selecting ? "pb-[120px]" : "pb-8"}`}
                 >

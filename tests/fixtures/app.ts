@@ -98,8 +98,8 @@ export function jsonCopy(
  * toolbar, where the drop zone lies; or the middle of the sidebar or the toolbar, where it never does.
  */
 export async function dropPoint(page: Page, where: "list" | "sidebar" | "toolbar" = "list") {
-  const head = page.locator("main .toolbar-glass");
-  const region = where === "sidebar" ? page.getByRole("complementary").first() : where === "toolbar" ? head : page.locator("main");
+  const head = page.locator("main [data-drop-head]");
+  const region = where === "sidebar" ? page.getByRole("complementary").first() : where === "toolbar" ? head : page.locator("main [data-drop-area]");
   const box = (await region.boundingBox())!;
   const below = where === "list" && (await head.count()) ? (await head.boundingBox())! : null;
   const top = below ? below.y + below.height : box.y;

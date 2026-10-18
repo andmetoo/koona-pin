@@ -2547,8 +2547,8 @@
     background: var(--np-hover);
   }
 
-  /* Something dragged in from outside (share-bundle.md, K9): one full-window zone, a scrim and a
-     dashed card 16 px in, at most three lines. In the top layer as a popover (DropZone), so not
+  /* Something dragged in from outside (share-bundle.md, K9): a zone over the list area only (never
+     the sidebar; App places it), a scrim and a dashed card 16 px in, at most three lines. In the top layer as a popover (DropZone), so not
      the browser's centred box; it never takes the pointer. No scale: it only fades (120 ms). */
   .drop-zone {
     position: fixed;

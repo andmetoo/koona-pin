@@ -182,7 +182,7 @@ export function FeedList({
           </div>
         </div>
       )}
-      <div ref={scroller} data-feed-scroller className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+      <div ref={scroller} data-feed-scroller data-drop-area className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
         {loaded && items.length === 0 ? (
           empty
         ) : (

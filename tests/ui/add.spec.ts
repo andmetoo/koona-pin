@@ -166,9 +166,10 @@ const dragAt = async (
   page: Page,
   type: "dragenter" | "dragover" | "dragleave" | "drop",
   init: { link?: string; file?: boolean; shift?: boolean } = {},
-  where: "list" | "sidebar" | "toolbar" = "list",
+  where: "list" | "sidebar" | "toolbar" | "zero" = "list",
 ) => {
-  const at = await dropPoint(page, where);
+  // "zero": as WebKitGTK and WebView2 may give a drop, with no coordinates.
+  const at = where === "zero" ? { x: 0, y: 0 } : await dropPoint(page, where);
   return page.evaluate(
     ({ type, init, at }) => {
       const data = new DataTransfer();
@@ -225,6 +226,7 @@ test("a link dragged over the window shows the drop zone; dropped, it is saved, 
 test("over the sidebar or the toolbar a drag from outside shows no zone and its drop does nothing", async ({ page }) => {
   const zone = page.locator("[data-drop-zone]");
   const cards = await page.locator("[data-bookmark-id]").count();
+  const inbox = await sidebar(page).getByRole("button", { name: /^Inbox/ }).first().textContent();
   for (const where of ["sidebar", "toolbar"] as const) {
     expect(await dragAt(page, "dragenter", { link: "https://example.com/nowhere" }, where)).toBe("none");
     expect(await dragAt(page, "dragover", { link: "https://example.com/nowhere" }, where)).toBe("none");
@@ -234,9 +236,12 @@ test("over the sidebar or the toolbar a drag from outside shows no zone and its 
     await expect(zone).toHaveCount(0);
     await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }], false, where);
   }
+  // A save would land within a frame or two: give it time, then nothing is in Library or Inbox.
+  await page.waitForTimeout(400);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
   await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
+  await expect(sidebar(page).getByRole("button", { name: /^Inbox/ }).first()).toHaveText(inbox!);
 
   // From the sidebar into the list the zone shows; back over the sidebar it goes, with no leave in between.
   await dragAt(page, "dragenter", { link: "https://example.com/moving" }, "sidebar");
@@ -246,6 +251,15 @@ test("over the sidebar or the toolbar a drag from outside shows no zone and its 
   await dragAt(page, "dragover", { link: "https://example.com/moving" }, "sidebar");
   await expect(zone).toHaveCount(0);
   await dragAt(page, "dragleave", {}, "sidebar");
+
+  // A drop that comes with no coordinates goes by where the last dragover was.
+  await dragAt(page, "dragenter", { link: "https://example.com/zero" });
+  await dragAt(page, "drop", { link: "https://example.com/zero" }, "zero");
+  await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Library");
+  await dragAt(page, "dragenter", { link: "https://example.com/zero-off" }, "sidebar");
+  await dragAt(page, "drop", { link: "https://example.com/zero-off" }, "zero");
+  await page.waitForTimeout(400);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards + 1);
 });
 
 test("at 800 × 550, beside the sidebar's strip, the zone covers the list and a drop there saves", async ({ page }) => {
@@ -309,8 +323,8 @@ test("a file dragged over the window: the hero, as real drags show it; the kind 
   await expect(page.locator("[data-announcer]")).toContainText("Drop anything here");
   // The zone lies over the list area only, below the toolbar and beside the sidebar: the dashed card 16 px in from its every edge.
   const box = (await zone.locator(".drop-zone-card").boundingBox())!;
-  const main = (await page.locator("main").boundingBox())!;
-  const head = (await page.locator("main .toolbar-glass").boundingBox())!;
+  const main = (await page.locator("main [data-drop-area]").boundingBox())!;
+  const head = (await page.locator("main [data-drop-head]").boundingBox())!;
   const top = head.y + head.height;
   expect([box.x - main.x, box.y - top, main.x + main.width - box.x - box.width, main.y + main.height - box.y - box.height].map(Math.round)).toEqual([16, 16, 16, 16]);
   expect(box.x).toBeGreaterThan((await page.getByRole("complementary").first().boundingBox())!.width);
