@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { McpSetup, McpStatus } from "../../types";
-import { api } from "../../services/api";
+import { desktopOnly } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
@@ -36,16 +36,17 @@ export function AssistantDialog({
   const notice = useRef(onNotice);
   notice.current = onNotice;
   useEffect(() => {
-    void api.getMcpSetup().then(setSetup).catch((err) => notice.current(describeError(err), true));
-    void api.getMcpStatus().then(setStatus).catch(() => {});
-    return api.onMcpStatus(setStatus);
+    const desktop = desktopOnly();
+    void desktop.getMcpSetup().then(setSetup).catch((err) => notice.current(describeError(err), true));
+    void desktop.getMcpStatus().then(setStatus).catch(() => {});
+    return desktop.onMcpStatus(setStatus);
   }, []);
   const access = status?.access ?? "off";
   const state = access === "off" ? t("assistant.statusOff") : t(access === "read" ? "assistant.statusRead" : "assistant.statusAdd");
   const code = (text: string | undefined) => text !== undefined && <CodeBlock text={text} onCopy={onCopy} />;
   const install = () => {
     setInstalling(true);
-    api
+    desktopOnly()
       .saveMcpb()
       .then((name) => name && onNotice(t("assistant.saved", { name })))
       .catch((err) => onNotice(describeError(err), true))

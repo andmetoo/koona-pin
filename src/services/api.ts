@@ -89,6 +89,7 @@ import type { ListImportOptions } from "../bindings/ListImportOptions";
 import type { ListImportReport } from "../bindings/ListImportReport";
 import { demo } from "./demo";
 import { toCommandError } from "./errors";
+import { desktopCommands } from "../platform/capabilities";
 
 export const isTauri = () =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -124,7 +125,7 @@ const call = <T>(command: string, args?: InvokeArgs) =>
   invoke<T>(command, args).catch((error: unknown) => {
     throw toCommandError(error);
   });
-const desktop = {
+const native = {
   getBookmarks: (filters: Partial<FilterState> = {}, page: PageRequest = {}) =>
     call<BookmarkPage>("get_bookmarks", { query: toQuery(filters, page) }),
   /** Every match in list order, ids only, loaded or not (NP-028). */
@@ -239,8 +240,6 @@ const desktop = {
   /** The Save dialog and the file (NP-032); CSV needs its column titles; `ids` — only the selected (NP-029). */
   exportLibrary: (format: ExportFormat, columns?: CsvColumns, ids?: number[]) =>
     call<ExportOutcome>("export_library", { format, columns: columns ?? null, ids: ids ?? null }),
-  /** The last exported file in Explorer. */
-  revealExport: () => call<void>("reveal_export"),
   /** Reads and checks a JSON copy; changes nothing (NP-033). */
   checkRestore: (content: string) => call<RestoreCheck>("check_restore", { content }),
   /** Merges the copy or replaces the library with it, after a backup. */
@@ -258,8 +257,6 @@ const desktop = {
   /** «Remove all copies»: how many went. */
   removeAllOfflineCopies: () => call<number>("remove_all_offline_copies"),
   offlineStats: () => call<OfflineStats>("offline_stats"),
-  /** The copies' folder in Finder or Explorer, made if missing. */
-  revealOfflineFolder: () => call<void>("reveal_offline_folder"),
   onBookmarkChanged: (callback: (change: BookmarkChange) => void) =>
     subscription("bookmark-changed", callback),
   /** Many changes at once: a bulk action or an undo of one (NP-029). */
@@ -273,27 +270,10 @@ const desktop = {
   setReadingMarkAtEnd: (enabled: boolean) => call<void>("set_reading_mark_at_end", { enabled }),
   /** «Save articles I open in Reading» (NP-126). */
   setReadingSaveOffline: (enabled: boolean) => call<void>("set_reading_save_offline", { enabled }),
-  setCloseToTray: (enabled: boolean) =>
-    call<void>("set_close_to_tray", { enabled }),
-  getCaptureStatus: () => call<CaptureStatus>("get_capture_status"),
-  onCaptureStatus: (callback: (status: CaptureStatus) => void) =>
-    subscription("capture-status", callback),
-  repairCapture: () => call<CaptureStatus>("repair_capture"),
   getLibraryStatus: () => call<LibraryStatus>("get_library_status"),
   onLibraryStatus: (callback: (status: LibraryStatus) => void) =>
     subscription("library-status", callback),
   retryLibrary: () => call<void>("retry_library"),
-  revealLibraryPlace: (place: LibraryPlace) =>
-    call<void>("reveal_library_place", { place }),
-  quitApp: () => call<void>("quit_app"),
-  /** The window buttons the system wants and whether a tray shows the icon (NP-053). */
-  getDesktop: () => call<Desktop>("get_desktop"),
-  /** «Hide window» after the first close without a tray (NP-096). */
-  hideToBackground: () => call<void>("hide_to_background"),
-  onCloseToBackground: (callback: () => void) =>
-    subscription("close-to-background", callback),
-  getAutostart: () => call<boolean>("get_autostart"),
-  setAutostart: (enabled: boolean) => call<void>("set_autostart", { enabled }),
   getDataSummary: () => call<DataSummary>("get_data_summary"),
   backUpNow: () => call<DataSummary>("back_up_now"),
   /** «Save a copy…» (NP-034): the Save dialog, then a checked copy there. */
@@ -303,8 +283,6 @@ const desktop = {
   pickBackup: () => call<PickedCopy>("pick_backup"),
   /** Replaces the library with a copy, after saving the current one. */
   restoreBackup: (source: BackupSource) => call<BackupRestoreOutcome>("restore_backup", { source }),
-  /** A copy in the backups folder, selected in Explorer. */
-  revealBackup: (fileName: string) => call<void>("reveal_backup", { fileName }),
   /** The section «Дубликаты» (NP-035): groups of the same page. */
   getDuplicates: () => call<DuplicateGroup[]>("get_duplicates"),
   /** One transaction and one journal command for all the groups. */
@@ -336,23 +314,6 @@ const desktop = {
   /** «Send»: the one request to the feedback service; nothing goes out before it (NP-088). */
   sendFeedback: (feedback: Feedback) => call<void>("send_feedback", { feedback }),
   getVersion: () => getVersion(),
-  /** The app's own update (NP-038, sheet 42): checked by Rust at the start and once a day. */
-  getUpdateStatus: () => call<UpdateStatus>("get_update_status"),
-  onUpdateStatus: (callback: (status: UpdateStatus) => void) => subscription("update-status", callback),
-  /** «Check for updates» and «Try again» in Settings. */
-  checkForUpdates: () => call<UpdateStatus>("check_for_updates"),
-  /** «Update»: the download starts; progress, installation and failure come through onUpdateStatus. */
-  installUpdate: () => call<void>("install_update"),
-  cancelUpdate: () => call<void>("cancel_update"),
-  /** The tray menu and tooltip in the interface's language (NP-085). */
-  setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
-  /** Settings → AI assistants (NP-091): access, the last request, and how to connect. */
-  getMcpStatus: () => call<McpStatus>("get_mcp_status"),
-  setMcpAccess: (access: McpAccess) => call<McpStatus>("set_mcp_access", { access }),
-  onMcpStatus: (callback: (status: McpStatus) => void) => subscription("mcp-status", callback),
-  getMcpSetup: () => call<McpSetup>("get_mcp_setup"),
-  /** «Save for Claude Desktop…»: the .mcpb package where the person saves it; its file name, none when cancelled. */
-  saveMcpb: () => call<string | null>("save_mcpb"),
   /** Supporter (NP-066, sheet 45): the plan as kept, no request. */
   getSupporterStatus: () => call<SupporterStatus>("get_supporter_status"),
   onSupporterStatus: (callback: (status: SupporterStatus) => void) => subscription("supporter-status", callback),
@@ -371,10 +332,7 @@ const desktop = {
   // Supporter's backups to a folder of one's choice (commercial/backup_folder.rs).
   getBackupFolder: () => call<BackupFolder>("get_backup_folder"),
   onBackupFolder: (callback: (folder: BackupFolder) => void) => subscription("backup-folder", callback),
-  /** The system's folder picker with this title; cancelling it changes nothing. */
-  chooseBackupFolder: (title: string) => call<BackupFolder>("choose_backup_folder", { title }),
   stopBackupFolder: () => call<BackupFolder>("stop_backup_folder"),
-  openBackupFolder: () => call<void>("open_backup_folder"),
   // Sync between a Supporter's computers (commercial/sync, NP-059); every command answers the new status.
   getSyncStatus: () => call<SyncStatus>("get_sync_status"),
   /** Before the first turn-on: whether the account has a main computer already; fails like the connection. */
@@ -441,4 +399,68 @@ const desktop = {
   onFeedsRefresh: (callback: (progress: FeedsRefresh) => void) => subscription("feeds-refresh", callback),
   // end feeds
 };
-export const api = isTauri() ? desktop : demo;
+/** The desktop's own commands (src-tauri/src/desktop/commands.rs and the desktop block of ipc.rs); a phone has none. */
+const nativeDesktop = {
+  /** The last exported file in Explorer. */
+  revealExport: () => call<void>("reveal_export"),
+  /** The copies' folder in Finder or Explorer, made if missing. */
+  revealOfflineFolder: () => call<void>("reveal_offline_folder"),
+  setCloseToTray: (enabled: boolean) =>
+    call<void>("set_close_to_tray", { enabled }),
+  getCaptureStatus: () => call<CaptureStatus>("get_capture_status"),
+  onCaptureStatus: (callback: (status: CaptureStatus) => void) =>
+    subscription("capture-status", callback),
+  repairCapture: () => call<CaptureStatus>("repair_capture"),
+  revealLibraryPlace: (place: LibraryPlace) =>
+    call<void>("reveal_library_place", { place }),
+  quitApp: () => call<void>("quit_app"),
+  /** The window buttons the system wants and whether a tray shows the icon (NP-053). */
+  getDesktop: () => call<Desktop>("get_desktop"),
+  /** «Hide window» after the first close without a tray (NP-096). */
+  hideToBackground: () => call<void>("hide_to_background"),
+  onCloseToBackground: (callback: () => void) =>
+    subscription("close-to-background", callback),
+  getAutostart: () => call<boolean>("get_autostart"),
+  setAutostart: (enabled: boolean) => call<void>("set_autostart", { enabled }),
+  /** A copy in the backups folder, selected in Explorer. */
+  revealBackup: (fileName: string) => call<void>("reveal_backup", { fileName }),
+  /** The app's own update (NP-038, sheet 42): checked by Rust at the start and once a day. */
+  getUpdateStatus: () => call<UpdateStatus>("get_update_status"),
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => subscription("update-status", callback),
+  /** «Check for updates» and «Try again» in Settings. */
+  checkForUpdates: () => call<UpdateStatus>("check_for_updates"),
+  /** «Update»: the download starts; progress, installation and failure come through onUpdateStatus. */
+  installUpdate: () => call<void>("install_update"),
+  cancelUpdate: () => call<void>("cancel_update"),
+  /** The tray menu and tooltip in the interface's language (NP-085). */
+  setTrayLabels: (labels: TrayLabels) => call<void>("set_tray_labels", { labels }),
+  /** Settings → AI assistants (NP-091): access, the last request, and how to connect. */
+  getMcpStatus: () => call<McpStatus>("get_mcp_status"),
+  setMcpAccess: (access: McpAccess) => call<McpStatus>("set_mcp_access", { access }),
+  onMcpStatus: (callback: (status: McpStatus) => void) => subscription("mcp-status", callback),
+  getMcpSetup: () => call<McpSetup>("get_mcp_setup"),
+  /** «Save for Claude Desktop…»: the .mcpb package where the person saves it; its file name, none when cancelled. */
+  saveMcpb: () => call<string | null>("save_mcpb"),
+  /** The system's folder picker with this title; cancelling it changes nothing. */
+  chooseBackupFolder: (title: string) => call<BackupFolder>("choose_backup_folder", { title }),
+  openBackupFolder: () => call<void>("open_backup_folder"),
+};
+/** The calls every build has. */
+export type Api = typeof native;
+/** The calls only a desktop has (NP-072a): reached through {@link desktopApi}. */
+export type DesktopApi = typeof nativeDesktop;
+export const api: Api = isTauri() ? native : demo;
+/**
+ * The desktop's own calls, or null in a build without them (a phone). Shared code shows what uses
+ * them only with the matching capability (src/platform/capabilities.ts).
+ */
+export const desktopApi: DesktopApi | null = !desktopCommands ? null : isTauri() ? nativeDesktop : demo;
+
+/**
+ * The desktop's calls, in code only a desktop reaches: a component shown with the matching
+ * capability. In a build without them this is a bug, said at once.
+ */
+export function desktopOnly(): DesktopApi {
+  if (!desktopApi) throw new Error("A desktop-only call in a build without the desktop's commands");
+  return desktopApi;
+}

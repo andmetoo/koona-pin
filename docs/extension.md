@@ -22,7 +22,7 @@ Safari has no store listing: the extension ships inside the signed and notarized
 
 The stores update their copies themselves; Firefox checks `https://koona.app/pin/firefox/updates.json` about once a day (see [Releasing](#releasing)).
 
-The app's "Connect a browser" dialog opens these pages: `installSources` in `src/services/capture.ts` gives each browser its page, the button's name, the install step and the update hint. A browser without an entry falls back to the developer-mode steps. The site builds its links from `chromeStoreId` and `edgeStoreId` in `scripts/build-extension.mjs`, and a test in `src-tauri/src/native_host.rs` checks those ids and the app's URLs against `STORE_EXTENSION_IDS`.
+The app's "Connect a browser" dialog opens these pages: `installSources` in `src/services/capture.ts` gives each browser its page, the button's name, the install step and the update hint. A browser without an entry falls back to the developer-mode steps. The site builds its links from `chromeStoreId` and `edgeStoreId` in `scripts/build-extension.mjs`, and a test in `src-tauri/src/desktop/native_host.rs` checks those ids and the app's URLs against `STORE_EXTENSION_IDS`.
 
 ## How capture works
 
@@ -121,7 +121,7 @@ The browser starts the host only if a manifest named `app.koona.pin` is register
 
 Which extension IDs are accepted:
 
-- Release builds (installer and packages, `--features public-release`) accept only the store IDs (`STORE_EXTENSION_IDS` in `src-tauri/src/native_host.rs`) and the Firefox ID.
+- Release builds (installer and packages, `--features public-release`) accept only the store IDs (`STORE_EXTENSION_IDS` in `src-tauri/src/desktop/native_host.rs`) and the Firefox ID.
 - Development builds also accept the development ID.
 
 So the unpacked development extension talks to a development build of the app, not to an installed release. Chrome and Edge report that mismatch as "forbidden", and the extension shows "Koona Pin doesn't accept this extension". Firefox does not distinguish it from a missing host.

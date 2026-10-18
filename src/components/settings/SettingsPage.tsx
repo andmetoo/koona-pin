@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, PreviewCounts, PreviewRefresh, PreviewScope, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
 import { useSyncSettingsLine } from "../commercial/SyncRows";
-import { api, isTauri } from "../../services/api";
-import { isMobile } from "../../services/platform";
+import { api, desktopApi, desktopOnly, isTauri } from "../../services/api";
+import { capabilities } from "../../platform/capabilities";
 import {
   appIsOlder,
   browserName,
@@ -103,7 +103,7 @@ export function SettingsPage({
   dataVersion: number;
 }) {
   const { t, i18n } = useTranslation();
-  const desktop = isTauri();
+  const inApp = isTauri();
   // Sync (sheet 46, frame 10): only in a build that sells Supporter and has a relay.
   const syncShown = !!supporter?.available && !!sync?.available;
   const hasPlan = !!supporter?.plan;
@@ -134,9 +134,8 @@ export function SettingsPage({
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
     // A phone has no start at sign-in, tray or window of its own to ask about (NP-151).
-    if (isMobile) return;
-    if (desktop) void api.getAutostart().then(setAutostart).catch(() => setAutostart(null));
-    void api.getDesktop().then(setSystem).catch(() => {});
+    if (inApp && capabilities.autostart) void desktopApi?.getAutostart().then(setAutostart).catch(() => setAutostart(null));
+    if (capabilities.tray) void desktopApi?.getDesktop().then(setSystem).catch(() => {});
   }, []);
 
   const attempt = async (name: string, action: () => Promise<void>) => {
@@ -197,41 +196,45 @@ export function SettingsPage({
             ]}
           />
         </Row>
-        {!isMobile && (
+        {capabilities.autostart && (
+          <Row title={t("settings.autostart")} description={inApp ? t(tray ? "settings.autostartHint" : "settings.autostartHintBackground") : t("settings.desktopOnly")}>
+            <Switch
+              label={t("settings.autostart")}
+              checked={autostart ?? false}
+              disabled={!inApp || autostart === null || busy("autostart")}
+              onChange={(enabled) =>
+                void attempt("autostart", async () => {
+                  await desktopOnly().setAutostart(enabled);
+                  setAutostart(enabled);
+                })
+              }
+            />
+          </Row>
+        )}
+        {capabilities.tray && (
+          <Row
+            title={t(tray ? "settings.tray" : "settings.trayBackground")}
+            description={t(tray ? "settings.trayHint" : "settings.trayBackgroundHint")}
+          >
+            <Switch
+              label={t(tray ? "settings.tray" : "settings.trayBackground")}
+              checked={settings?.close_to_tray ?? true}
+              disabled={!inApp || !settings || busy("tray")}
+              onChange={(enabled) =>
+                void attempt("tray", async () => {
+                  await desktopOnly().setCloseToTray(enabled);
+                  if (settings) onSettings({ ...settings, close_to_tray: enabled });
+                })
+              }
+            />
+          </Row>
+        )}
+        {capabilities.quit && (
           <>
-            <Row title={t("settings.autostart")} description={desktop ? t(tray ? "settings.autostartHint" : "settings.autostartHintBackground") : t("settings.desktopOnly")}>
-              <Switch
-                label={t("settings.autostart")}
-                checked={autostart ?? false}
-                disabled={!desktop || autostart === null || busy("autostart")}
-                onChange={(enabled) =>
-                  void attempt("autostart", async () => {
-                    await api.setAutostart(enabled);
-                    setAutostart(enabled);
-                  })
-                }
-              />
-            </Row>
-            <Row
-              title={t(tray ? "settings.tray" : "settings.trayBackground")}
-              description={t(tray ? "settings.trayHint" : "settings.trayBackgroundHint")}
-            >
-              <Switch
-                label={t(tray ? "settings.tray" : "settings.trayBackground")}
-                checked={settings?.close_to_tray ?? true}
-                disabled={!desktop || !settings || busy("tray")}
-                onChange={(enabled) =>
-                  void attempt("tray", async () => {
-                    await api.setCloseToTray(enabled);
-                    if (settings) onSettings({ ...settings, close_to_tray: enabled });
-                  })
-                }
-              />
-            </Row>
             {/* On every system (NP-096): without a tray it is the way out of the app. */}
             <Row title={t("settings.quit")} description={t("settings.quitHint")}>
               <Kbd>{shortcut("Q")}</Kbd>
-              <Button disabled={!desktop} onClick={() => void attempt("quit", api.quitApp)}>
+              <Button disabled={!inApp} onClick={() => void attempt("quit", () => desktopOnly().quitApp())}>
                 {t("settings.quitButton")}
               </Button>
             </Row>
@@ -325,8 +328,8 @@ export function SettingsPage({
             title={t("settings.offlineStats", { articles: t("settings.offlineArticles", { count: offline?.count ?? 0 }), size: size(offline?.bytes ?? 0) })}
             description={t("settings.offlineHint")}
           >
-            {!isMobile && (
-              <Button disabled={!desktop} onClick={() => void attempt("offlineFolder", api.revealOfflineFolder)}>
+            {capabilities.file_manager && (
+              <Button disabled={!inApp} onClick={() => void attempt("offlineFolder", () => desktopOnly().revealOfflineFolder())}>
                 {t("settings.showFolder")}
               </Button>
             )}
@@ -376,19 +379,16 @@ export function SettingsPage({
       />
 
       {/* Desktop only (NP-151): a phone has no browser extension or MCP server. */}
-      {!isMobile && (
-        <>
-          <BrowserSection
-            capture={capture}
-            busy={busy("capture")}
-            onConnect={onConnect}
-            onRepair={() => void attempt("capture", async () => onCapture(await api.repairCapture()))}
-            onReport={() => capture && onCopy(captureReport(capture, version))}
-          />
-
-          <AssistantsSection onConnect={onConnectAssistant} onNotice={onNotice} />
-        </>
+      {capabilities.browser_capture && (
+        <BrowserSection
+          capture={capture}
+          busy={busy("capture")}
+          onConnect={onConnect}
+          onRepair={() => void attempt("capture", async () => onCapture(await desktopOnly().repairCapture()))}
+          onReport={() => capture && onCopy(captureReport(capture, version))}
+        />
       )}
+      {capabilities.mcp && <AssistantsSection onConnect={onConnectAssistant} onNotice={onNotice} />}
 
       <Section title={t("settings.data")}>
         {syncShown && syncLine && hasPlan && (
@@ -408,8 +408,8 @@ export function SettingsPage({
           </div>
         )}
         <Row title={t("settings.folder")} description={data?.library_folder ?? ""}>
-          {!isMobile && (
-            <Button disabled={!desktop} onClick={() => void attempt("folder", () => api.revealLibraryPlace("data"))}>
+          {capabilities.file_manager && (
+            <Button disabled={!inApp} onClick={() => void attempt("folder", () => desktopOnly().revealLibraryPlace("data"))}>
               {t("common.open")}
             </Button>
           )}
@@ -418,18 +418,18 @@ export function SettingsPage({
           title={t("settings.backups")}
           description={`${t("settings.copies", { count: data?.copies ?? 0 })} · ${size(data?.bytes ?? 0)} · ${t("settings.keeps")}`}
         >
-          {!isMobile && (
-            <Button disabled={!desktop} onClick={() => void attempt("backups", () => api.revealLibraryPlace("backups"))}>
+          {capabilities.file_manager && (
+            <Button disabled={!inApp} onClick={() => void attempt("backups", () => desktopOnly().revealLibraryPlace("backups"))}>
               {t("settings.openFolder")}
             </Button>
           )}
         </Row>
         <Row title={lastCopy} description={t("settings.saveHint")}>
-          <Button disabled={!desktop || busy("save")} onClick={() => void attempt("save", onSaveCopy)}>
+          <Button disabled={!inApp || busy("save")} onClick={() => void attempt("save", onSaveCopy)}>
             {busy("save") ? t("settings.savingCopy") : t("settings.saveCopy")}
           </Button>
           <Button
-            disabled={!desktop || busy("copy")}
+            disabled={!inApp || busy("copy")}
             onClick={() =>
               void attempt("copy", async () => {
                 setData(await api.backUpNow());
@@ -496,7 +496,7 @@ function UpdatesSection({
   onOpen: (url: string) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const desktop = isTauri();
+  const inApp = isTauri();
   const upToDate = (iso: string) => {
     const at = moment(iso, i18n.language);
     return at.today ? t("settings.upToDateToday", at) : t("settings.upToDateOn", at);
@@ -519,7 +519,7 @@ function UpdatesSection({
         {t("settings.updateButton")}
       </Button>
     );
-  } else if (isMobile) {
+  } else if (capabilities.updates !== "self") {
     // A phone's store updates the app (NP-151): the version and what changed, nothing to check.
     description = "";
   } else if (state === "checking") {
@@ -538,11 +538,11 @@ function UpdatesSection({
         ? upToDate(update.checked_at)
         : update?.state === "check_failed"
           ? t("settings.checkFailed")
-          : desktop
+          : inApp
             ? t("settings.notChecked")
             : t("settings.desktopOnly");
     controls = (
-      <Button disabled={!desktop} onClick={onCheck}>
+      <Button disabled={!inApp} onClick={onCheck}>
         {update?.state === "check_failed" ? t("common.retry") : t("settings.checkUpdates")}
       </Button>
     );
@@ -653,13 +653,14 @@ function AssistantsSection({ onConnect, onNotice }: { onConnect: () => void; onN
   const [status, setStatus] = useState<McpStatus | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    void api.getMcpStatus().then(setStatus).catch(() => {});
-    return api.onMcpStatus(setStatus);
+    const desktop = desktopOnly();
+    void desktop.getMcpStatus().then(setStatus).catch(() => {});
+    return desktop.onMcpStatus(setStatus);
   }, []);
   const access = status?.access ?? "off";
   const change = (next: McpAccess) => {
     setBusy(true);
-    api
+    desktopOnly()
       .setMcpAccess(next)
       .then(setStatus)
       .catch((err) => onNotice(describeError(err), true))

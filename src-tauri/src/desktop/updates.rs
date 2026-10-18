@@ -378,7 +378,7 @@ async fn install(_app: &AppHandle, update: &Update, bytes: Vec<u8>) -> Result<()
 /// file (Tauri restarts `$APPIMAGE`, not the program in the old mount). No password.
 #[cfg(target_os = "linux")]
 async fn install(app: &AppHandle, update: &Update, bytes: Vec<u8>) -> Result<(), UpdateProblem> {
-    if crate::appimage::file().is_some() {
+    if crate::desktop::appimage::file().is_some() {
         let update = update.clone();
         tauri::async_runtime::spawn_blocking(move || update.install(bytes))
             .await
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn the_key_and_the_releases_are_configured() {
-        let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let conf: serde_json::Value = serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
         let updater = &conf["plugins"]["updater"];
         assert_eq!(updater["endpoints"][0], "https://koona.app/pin/updates/latest.json");
         // Only a signature made for the announced version is accepted (no downgrade by an old file).

@@ -123,7 +123,7 @@ pub mod xdg {
         use std::io::Write;
         let path = path().ok_or_else(|| std::io::Error::other("no configuration folder"))?;
         // The AppImage file itself (NP-116): the program inside lives in a mount of this start only.
-        let program = crate::appimage::program()?;
+        let program = crate::desktop::appimage::program()?;
         // Right after a package update the running binary is the replaced one.
         if program.to_string_lossy().ends_with(" (deleted)") {
             return Err(std::io::Error::other("the running program was replaced"));

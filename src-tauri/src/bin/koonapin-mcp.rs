@@ -10,13 +10,13 @@
 //! The server does not link the app: it shares the channel's address and
 //! client with koonapin-host, and the tool list with the app.
 
-#[path = "../channel_client.rs"]
+#[path = "../desktop/channel_client.rs"]
 mod channel_client;
 // The app reads some of it the server does not need.
 #[allow(dead_code)]
-#[path = "../mcp_tools.rs"]
+#[path = "../desktop/mcp_tools.rs"]
 mod mcp_tools;
-#[path = "../pipe_name.rs"]
+#[path = "../desktop/pipe_name.rs"]
 mod pipe_name;
 
 use mcp_tools::{Access, TOOLS, UNTRUSTED};

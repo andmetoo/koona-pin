@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ListBuildOptions } from "../bindings/ListBuildOptions";
 import type { ListSource } from "../bindings/ListSource";
 import type { ExportOutcome } from "../types";
-import { api, isTauri } from "./api";
+import { api, desktopOnly, isTauri } from "./api";
 import { CommandError, toCommandError } from "./errors";
 
 export type { ListBuildOptions, ListSource };
@@ -288,5 +288,5 @@ export const lists = {
     return { outcome: "saved", file_name: fileName(id), count: draft.links + draft.feeds };
   },
   /** «Show» after a save: the file in its folder, as after an export. */
-  reveal: (): Promise<void> => api.revealExport(),
+  reveal: async (): Promise<void> => desktopOnly().revealExport(),
 };

@@ -16,7 +16,7 @@ import { Icon } from "../icons";
 import { Dot, Switch } from "../ui/Controls";
 import { Preview } from "./Bookmarks";
 import { TagInput } from "./Fields";
-import { useBack } from "../../hooks/useBack";
+import { useBack } from "../../platform/useBack";
 
 export interface NewLink {
   url: string;

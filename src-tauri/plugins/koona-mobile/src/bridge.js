@@ -1,6 +1,7 @@
-// Koona Pin's phone bridge (NP-151), run before the page's own scripts. The page reads the platform
-// here and replaces `back` (src/services/platform.ts); the Kotlin and Swift parts of this plugin call
-// `back` on system Back and the iOS edge swipe, and Android passes its insets through `insets`.
+// Koona Pin's phone bridge (NP-151), run before the page's own scripts. The page replaces `back`
+// (src/platform/back.ts); the Kotlin and Swift parts of this plugin call `back` on system Back and
+// the iOS edge swipe, and Android passes its insets through `insets`. The platform itself comes from
+// the app's own `window.__KOONA__` (src-tauri/src/capabilities.rs, NP-072a).
 // Android numbers each Back: the page claims it with `claim` before it closes anything, and a Back
 // Android has already answered itself (the page was too slow) is not claimed, so it closes nothing.
 (function () {
@@ -13,7 +14,6 @@
     for (var i = 0; i < sides.length; i++) root.style.setProperty('--kp-inset-' + sides[i], insets[i] + 'px');
   }
   window.__KOONA_MOBILE__ = {
-    platform: '__PLATFORM__',
     // Until the page sets its own: nothing to close, so Android goes to the background.
     back: function () {
       return false;

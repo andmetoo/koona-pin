@@ -8,9 +8,9 @@
 //! The host does not link the app: it only shares the channel's address and
 //! its client with koonapin-mcp.
 
-#[path = "../channel_client.rs"]
+#[path = "../desktop/channel_client.rs"]
 mod channel_client;
-#[path = "../pipe_name.rs"]
+#[path = "../desktop/pipe_name.rs"]
 mod pipe_name;
 
 use serde_json::{json, Value};
