@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nothing leaves the phone through Android's backup or a device transfer (NP-151): the app's folder
+     holds the sync identity, the library key and the account, and a copy on another phone would be a
+     clone of this device. A restored or new phone is a new device and pairs again (NP-153).
+     allowBackup="false" covers Android 11 and older; these rules cover 12 and newer, where it no
+     longer stops a device-to-device transfer. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

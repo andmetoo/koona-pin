@@ -104,6 +104,18 @@ Official releases are signed (Windows code signing, the update key and Firefox a
 
 **The version and its changelog go together.** The PR that bumps the app's version (`package.json`, `src-tauri/Cargo.toml`, the `koonapin` package in `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`) also adds `changelog/<version>.md`: a `date` in the front matter and a few lines in plain English about what changed for people, the way the earlier files read. `bun run version:bump <x.y.z>` writes the number to the four places and starts the changelog file; `bun run release:tag` refuses to tag without it, the release's notes are taken from it, `release.json` carries it to the site's changelog page, and the update dialog shows it as «What's new».
 
+## Phone builds: how the code is split
+
+The phone builds (NP-151) share the Rust core and the React interface with the desktop. These rules keep the two apart as phone features are added:
+
+- **Desktop-only is left out, not stubbed.** Desktop-only crates sit in the non-mobile target section of `src-tauri/Cargo.toml`; desktop-only modules and commands are behind `#[cfg(desktop)]` and registered only on desktop. A phone never gets a command that pretends to work.
+- **`plugins/koona-mobile` hosts the WebView, nothing else:** system Back and the iOS edge swipe, the safe-area insets, renderer loss, the WebView version check, and later memory warnings and the iOS background task. Share intake, secure storage and store purchases get plugins of their own (`koona-share`, `koona-secrets`, a store plugin under `commercial/` behind a Cargo feature, so the site's APK carries no Play Billing).
+- **Types that cross IPC are never `cfg`-gated.** `src/bindings` are written by `cargo test` on a desktop; a `#[ts(export)]` type behind `cfg(mobile)` would never be exported. Only commands and native glue are gated.
+- **No new files "beside the library" on phones.** On a phone the app's data folder is backed up nowhere and its cache folder may be cleared by the system; anything new goes through an explicit place (the planned `AppDirs`, NP-153), and secrets go to the Keystore or the Keychain, not to files.
+- **Shared interface code asks what the app can do, not which system it is on.** `isMobile` in `src/services/platform.ts` is a stopgap for this build; NP-072 replaces it with a capability object from Rust and a separate phone shell, and desktop-only parts of the interface move into the desktop shell.
+- **Nothing leaves the phone through Android backup or device transfer** (`allowBackup="false"` and `res/xml/data_extraction_rules.xml`): the app's folder holds the sync identity and the account, and a copy would clone the device.
+- **Hand edits in the generated projects** (`src-tauri/gen`): edge to edge in `MainActivity.kt`, the SDK levels and debug signing in `app/build.gradle.kts`, `windowSoftInputMode`, `allowBackup` and the extraction rules in the manifest, the `bun` pre-build script and iOS 18 in `gen/apple/project.yml`. Port them when Tauri regenerates the projects.
+
 ## Releases
 
 A release is the tag `v<version>` on a commit of `main`, a GitHub Release built from it, and its data deployed to koona.app. `bun run release` shows where the release of this checkout's version stands and the next step; it changes nothing.
