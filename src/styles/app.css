@@ -2987,3 +2987,65 @@
 :root[data-mac-frame] .reading-sheet > div {
   top: 44px;
 }
+
+/* The bundle (share-bundle.md, K6b, K7a): the capsule at rest is glass, 48 px, with the menu's
+   material; hover and focus give it a 2 px accent ring, the pointer over it during a drag an
+   accent-soft fill and a glow. The panel is the card with the dialog's shadow. Only opacity,
+   box-shadow and colours change here; the motion of a drag (near, landing) is piece C's. */
+.bundle-capsule {
+  background: var(--np-menu-glass);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  box-shadow:
+    0 10px 28px -8px rgb(0 0 0 / 0.26),
+    0 1px 3px rgb(0 0 0 / 0.08),
+    inset 0 0 0 1px var(--np-line);
+  transition:
+    box-shadow 160ms var(--ease-standard),
+    background-color 160ms var(--ease-standard);
+}
+.bundle-capsule:hover,
+.bundle-capsule:focus-visible {
+  outline: none;
+  box-shadow:
+    0 10px 28px -8px rgb(0 0 0 / 0.26),
+    0 1px 3px rgb(0 0 0 / 0.08),
+    inset 0 0 0 2px var(--np-accent);
+}
+[data-bundle-capsule][data-over] .bundle-capsule {
+  background: color-mix(in srgb, var(--np-accent-soft) 92%, transparent);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--np-accent) 16%, transparent),
+    0 12px 30px -8px rgb(0 0 0 / 0.28),
+    inset 0 0 0 2px var(--np-accent);
+}
+.bundle-panel {
+  background: color-mix(in oklab, var(--np-card) 94%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow:
+    0 30px 70px -20px rgb(0 0 0 / 0.42),
+    0 2px 6px rgb(0 0 0 / 0.06),
+    inset 0 0 0 1px var(--np-line);
+}
+/* During a drag the capsule fades in, without movement (S13). */
+@keyframes bundle-fade {
+  from {
+    opacity: 0;
+  }
+}
+/* Linux (S14): WebKitGTK gets no backdrop blur, a solid card and a plain 2 px ring for the glow. */
+:root[data-linux] :is(.bundle-capsule, .bundle-panel) {
+  background: var(--np-card);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-linux] [data-bundle-capsule][data-over] .bundle-capsule {
+  background: var(--np-accent-soft);
+  box-shadow: inset 0 0 0 2px var(--np-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-bundle-capsule] {
+    animation: none;
+  }
+}

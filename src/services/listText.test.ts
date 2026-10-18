@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftProblem, escapeMarkdown, escapeProse, fileName, listMarkdown, markdownUrl, mayHoldKey, publicUrl, readDraft, slugify } from "./shareList";
+import { draftProblem, escapeMarkdown, escapeProse, fileName, listMarkdown, markdownUrl, mayHoldKey, publicUrl, readDraft, slugify } from "./listText";
 
 const text = JSON.stringify({
   format: "koona",
