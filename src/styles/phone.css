@@ -1,0 +1,1275 @@
+/* The phone's look (NP-072b): "Paper & Glass", doc/mobile-design.md and the NP-070 frames.
+   Imported by the phone shell only, but bundled with the app like any CSS: every rule here is
+   scoped under `.phone` (the shell's root), so the desktop's look cannot change. Tokens are
+   `--ph-*`; the dark set follows `data-theme` on <html> as the desktop's does (applyTheme,
+   src/services/preferences.ts). Classes are `ph-*`, apart from the desktop's.
+
+   Rules (doc/mobile-design.md, performance): glass (backdrop-filter) only on floating chrome,
+   sheets and the snackbar, never on rows, cards or chips; cards are opaque paper; motion on
+   transform and opacity only. WebKit reads -webkit-backdrop-filter with literal values only, so
+   each glass level spells its numbers out. */
+
+/* ---------------------------------------------------------------- Tokens, light */
+.phone {
+  --ph-bg: #faf9f6;
+  --ph-paper: #fffefa;
+  --ph-raised: #fffefa;
+  --ph-well: #edebe4;
+  --ph-ink: #2e302b;
+  --ph-body: #45473f;
+  --ph-icon: #5f6057;
+  --ph-meta: #66665d;
+  --ph-faint: #9a998e;
+  --ph-line: #e8e6df;
+  --ph-hairline: rgb(46 48 43 / 0.07);
+  --ph-accent: #2f6b4f;
+  --ph-accent-hi: #3b8060;
+  --ph-on-accent: #ffffff;
+  --ph-accent-soft: #e2eee6;
+  --ph-on-accent-soft: #1f4a36;
+  --ph-accent-shadow: 0 4px 12px -6px rgb(47 107 79 / 0.35);
+  --ph-accent-halo: rgb(47 107 79 / 0.16);
+  --ph-clear-rim: rgb(46 48 43 / 0.2);
+  --ph-mint: #8fd0ae;
+  --ph-ink-button: #24251f;
+  --ph-on-ink-button: #fbfaf6;
+  --ph-danger: #af3838;
+  --ph-scrim: rgb(46 48 43 / 0.24);
+  /* The Supporter heart: the season's colour of app.css (`data-season`, light and dark). */
+  --ph-season: var(--np-season);
+  --ph-season-soft: var(--np-season-soft);
+  /* Collections: app.css's palette (2026-10-16), light and dark; services/collections.ts picks. */
+  --ph-coral: var(--np-terracotta);
+  --ph-teal: var(--np-green);
+  --ph-indigo: var(--np-blue);
+  --ph-amber: var(--np-ochre);
+  --ph-violet: var(--np-lilac);
+
+  /* Elevation: e0 flat (wells), e1 card and shelf, e2 lifted (triage card, Fold detail); e3 is
+     the chrome glass, e4 the sheet glass (below). */
+  --ph-e1: 0 1px 2px rgb(46 48 43 / 0.04), 0 10px 24px -12px rgb(46 48 43 / 0.18);
+  --ph-e2: 0 1px 3px rgb(46 48 43 / 0.06), 0 24px 48px -16px rgb(46 48 43 / 0.28);
+
+  /* Radii: pill = height / 2 for every control (999px). */
+  --ph-r-thumb: 14px;
+  --ph-r-tile: 18px;
+  --ph-r-field: 20px;
+  --ph-r-card: 22px;
+  --ph-r-shelf: 24px;
+  --ph-r-triage: 28px;
+  --ph-r-sheet: 34px;
+
+  /* Spacing: 4/8 grid; side margins 20 for content, 16 for shelves and floating chrome. */
+  --ph-side: 20px;
+  --ph-side-chrome: 16px;
+  --ph-gap-section: 24px;
+
+  /* The nav pill: 361 × 60 on a 393 phone, 36 above the screen's edge (or the gesture inset). */
+  --ph-pill-height: 60px;
+  --ph-pill-bottom: max(36px, calc(var(--safe-bottom) + 2px));
+  /* What scrolls under the pill keeps clear of it: pill height + 36 below its top. */
+  --ph-pill-clearance: calc(var(--ph-pill-height) + var(--ph-pill-bottom) + 16px);
+
+  /* Three large glows behind content, painted once (doc/mobile-design.md "mesh"). */
+  --ph-mesh:
+    radial-gradient(75% 45% at 0% 0%, rgb(245 217 192 / 0.62), transparent 72%),
+    radial-gradient(70% 50% at 100% 50%, rgb(207 229 216 / 0.55), transparent 72%),
+    radial-gradient(85% 40% at 35% 100%, rgb(239 227 207 / 0.55), transparent 72%);
+
+  /* Springs (Motion): response 0.35 s, damping 0.82 as a cubic-bezier with a small overshoot. */
+  --ph-spring: cubic-bezier(0.32, 0.72, 0.24, 1.04);
+  --ph-spring-time: 350ms;
+
+  --ph-reading-font: "Literata Variable", Literata, Georgia, serif;
+}
+
+/* ---------------------------------------------------------------- Tokens, dark */
+[data-theme="dark"] .phone {
+  --ph-bg: #141413;
+  --ph-paper: #1d1d1b;
+  --ph-raised: #262624;
+  --ph-well: rgb(255 255 255 / 0.06);
+  --ph-ink: #ecebe6;
+  --ph-body: #cfcec7;
+  --ph-icon: #a3a29a;
+  --ph-meta: #9a9990;
+  --ph-faint: #6e6d67;
+  --ph-line: rgb(255 255 255 / 0.06);
+  --ph-hairline: rgb(255 255 255 / 0.08);
+  --ph-accent: #8fd0ae;
+  --ph-accent-hi: #a6ddc0;
+  --ph-on-accent: #141413;
+  --ph-accent-soft: #20302a;
+  --ph-on-accent-soft: #8fd0ae;
+  --ph-accent-shadow: 0 4px 12px -6px rgb(143 208 174 / 0.35);
+  --ph-accent-halo: rgb(143 208 174 / 0.16);
+  --ph-clear-rim: rgb(255 255 255 / 0.22);
+  --ph-ink-button: #ecebe6;
+  --ph-on-ink-button: #161615;
+  --ph-danger: #e99797;
+  --ph-scrim: rgb(0 0 0 / 0.55);
+  /* Cards add a 1 px top highlight instead of a visible shadow. */
+  --ph-e1: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --ph-e2: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 24px 48px -16px rgb(0 0 0 / 0.5);
+  --ph-mesh:
+    radial-gradient(75% 45% at 100% 0%, rgb(31 51 41 / 0.9), transparent 72%),
+    radial-gradient(70% 50% at 0% 45%, rgb(42 34 27 / 0.8), transparent 72%),
+    radial-gradient(85% 40% at 55% 100%, rgb(28 30 43 / 0.7), transparent 72%);
+}
+
+/* ---------------------------------------------------------------- The root */
+/* Edge to edge: fixed over the body (whose padding app.css sets from --safe-*), the safe area
+   kept by each surface with --safe-* (the only inset API). */
+.phone {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ph-mesh), var(--ph-bg);
+  color: var(--ph-ink);
+  font-family: var(--np-font);
+  font-size: 16px;
+  line-height: 24px;
+  -webkit-tap-highlight-color: transparent;
+}
+.phone button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.phone :focus-visible {
+  outline: 2px solid var(--ph-accent);
+  outline-offset: 2px;
+}
+
+/* The screen area; on the Fold the rail sits beside it (`data-fold`, `data-hand`). */
+.phone .ph-main {
+  position: absolute;
+  inset: 0;
+}
+.phone[data-fold] .ph-main {
+  right: calc(72px + 24px + var(--safe-right) + 12px);
+}
+.phone[data-fold][data-hand="left"] .ph-main {
+  right: 0;
+  left: calc(72px + 24px + var(--safe-left) + 12px);
+}
+
+/* ---------------------------------------------------------------- Type */
+.phone .ph-display {
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.phone .ph-title1 {
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+}
+.phone .ph-title2 {
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+}
+.phone .ph-headline {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.phone .ph-row {
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 600;
+}
+.phone .ph-body {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+.phone .ph-callout {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.phone .ph-subhead {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+.phone .ph-meta {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--ph-meta);
+}
+.phone .ph-caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+.phone .ph-eyebrow {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.phone .ph-reading {
+  font-family: var(--ph-reading-font);
+  font-size: 19px;
+  line-height: 30px;
+  font-weight: 400;
+  color: var(--ph-body);
+}
+.phone .ph-section-label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ph-meta);
+  padding: 0 var(--ph-side) 8px;
+}
+
+/* ---------------------------------------------------------------- Glass */
+/* Chrome: a flat slab with a 1 px rim on a pseudo-element, so the blur does not soften it. */
+.phone .ph-glass,
+.phone .ph-glass-sheet,
+.phone .ph-glass-toast {
+  position: relative;
+}
+.phone .ph-glass {
+  background: rgb(255 254 250 / 0.7) linear-gradient(rgb(255 255 255 / 0.12), transparent 40%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 10px 28px -10px rgb(42 44 38 / 0.18),
+    0 1px 2px rgb(0 0 0 / 0.05);
+}
+.phone .ph-glass::before,
+.phone .ph-glass-sheet::before,
+.phone .ph-glass-toast::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.phone .ph-glass::before {
+  background: linear-gradient(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.6) 50%, rgb(46 48 43 / 0.1));
+}
+[data-theme="dark"] .phone .ph-glass {
+  background: rgb(38 38 36 / 0.7) linear-gradient(rgb(255 255 255 / 0.05), transparent 40%);
+  box-shadow:
+    0 10px 28px -10px rgb(0 0 0 / 0.65),
+    0 1px 2px rgb(0 0 0 / 0.05);
+}
+[data-theme="dark"] .phone .ph-glass::before {
+  background: linear-gradient(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08) 50%, rgb(255 255 255 / 0.04));
+}
+
+/* Sheet: paper 95 %, blur 30. */
+.phone .ph-glass-sheet {
+  background: rgb(255 254 250 / 0.95);
+  -webkit-backdrop-filter: blur(30px) saturate(140%);
+  backdrop-filter: blur(30px) saturate(140%);
+  box-shadow: 0 -2px 40px rgb(46 48 43 / 0.18);
+}
+.phone .ph-glass-sheet::before {
+  background: linear-gradient(rgb(255 255 255 / 1), rgb(255 255 255 / 0) 12%);
+}
+[data-theme="dark"] .phone .ph-glass-sheet {
+  background: rgb(31 31 29 / 0.95);
+  box-shadow: 0 -2px 40px rgb(0 0 0 / 0.5);
+}
+[data-theme="dark"] .phone .ph-glass-sheet::before {
+  background: linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 12%);
+}
+
+/* Toast: dark glass in both themes. */
+.phone .ph-glass-toast {
+  background: rgb(42 44 39 / 0.9);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 10px 24px -8px rgb(0 0 0 / 0.35);
+  color: #fbfaf6;
+}
+.phone .ph-glass-toast::before {
+  background: linear-gradient(rgb(255 255 255 / 0.25), rgb(255 255 255 / 0.05) 50%, rgb(255 255 255 / 0.1));
+}
+[data-theme="dark"] .phone .ph-glass-toast {
+  background: rgb(58 58 55 / 0.94);
+}
+
+/* The fallback: opaque paper and a hairline, the same radius, shadow and layout. For Reduce
+   Transparency, a WebView without backdrop-filter, and `data-glass="flat"` on the root, which the
+   shell sets for Android's battery saver and slow devices. The rules are spelled three times:
+   a selector cannot sit inside @media and @supports at once. */
+.phone[data-glass="flat"] .ph-glass,
+.phone[data-glass="flat"] .ph-glass-sheet {
+  background: var(--ph-paper);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.phone[data-glass="flat"] .ph-glass-toast {
+  background: #2a2c27;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.phone[data-glass="flat"] .ph-glass::before,
+.phone[data-glass="flat"] .ph-glass-sheet::before {
+  background: var(--ph-hairline);
+}
+[data-theme="dark"] .phone[data-glass="flat"] .ph-glass,
+[data-theme="dark"] .phone[data-glass="flat"] .ph-glass-sheet {
+  background: #262624;
+}
+[data-theme="dark"] .phone[data-glass="flat"] .ph-glass-toast {
+  background: #3a3a37;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .phone .ph-glass,
+  .phone .ph-glass-sheet {
+    background: var(--ph-paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .phone .ph-glass-toast {
+    background: #2a2c27;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .phone .ph-glass::before,
+  .phone .ph-glass-sheet::before {
+    background: var(--ph-hairline);
+  }
+  [data-theme="dark"] .phone .ph-glass,
+  [data-theme="dark"] .phone .ph-glass-sheet {
+    background: #262624;
+  }
+  [data-theme="dark"] .phone .ph-glass-toast {
+    background: #3a3a37;
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .phone .ph-glass,
+  .phone .ph-glass-sheet {
+    background: var(--ph-paper);
+  }
+  .phone .ph-glass-toast {
+    background: #2a2c27;
+  }
+  .phone .ph-glass::before,
+  .phone .ph-glass-sheet::before {
+    background: var(--ph-hairline);
+  }
+  [data-theme="dark"] .phone .ph-glass,
+  [data-theme="dark"] .phone .ph-glass-sheet {
+    background: #262624;
+  }
+  [data-theme="dark"] .phone .ph-glass-toast {
+    background: #3a3a37;
+  }
+}
+
+/* Paper: opaque content surfaces (cards, shelves, fields). */
+.phone .ph-paper {
+  background: var(--ph-paper);
+  box-shadow: var(--ph-e1);
+}
+
+/* ---------------------------------------------------------------- Touch targets */
+/* A control drawn smaller than 48 dp still takes 48: an invisible ::after around it. */
+.phone .ph-hit {
+  position: relative;
+}
+.phone .ph-hit::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 48px);
+  height: max(100%, 48px);
+  transform: translate(-50%, -50%);
+}
+
+/* ---------------------------------------------------------------- Screens */
+/* A screen scrolls by itself; the title scrolls with the content, the header's buttons stay. */
+.phone .ph-screen {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(var(--safe-top) + 14px) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+.phone[data-pill] .ph-screen {
+  padding-bottom: var(--ph-pill-clearance);
+}
+.phone .ph-screen[hidden] {
+  display: block;
+  visibility: hidden;
+}
+.phone .ph-screen[data-route] {
+  animation: ph-push var(--ph-spring-time) var(--ph-spring);
+  background: var(--ph-mesh), var(--ph-bg);
+}
+@keyframes ph-push {
+  from {
+    transform: translateX(24%);
+    opacity: 0;
+  }
+}
+
+/* The top edge fades the content scrolling under it (iOS 26's scroll edge): the mesh painted
+   as for the whole screen, masked to a fade, shown once the screen is scrolled. */
+.phone .ph-fade-top {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  height: calc(var(--safe-top) + 72px);
+  margin: calc(-1 * (var(--safe-top) + 14px)) 0 calc(-1 * 58px);
+  pointer-events: none;
+  background: var(--ph-mesh), var(--ph-bg);
+  background-size: 100vw 100dvh;
+  -webkit-mask-image: linear-gradient(#000 calc(var(--safe-top) + 12px), transparent);
+  mask-image: linear-gradient(#000 calc(var(--safe-top) + 12px), transparent);
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+.phone .ph-screen[data-scrolled] .ph-fade-top {
+  opacity: 1;
+}
+/* And the bottom fades under the nav pill. */
+.phone .ph-fade-bottom {
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--ph-pill-bottom) + var(--ph-pill-height) + 24px);
+  pointer-events: none;
+  background: var(--ph-mesh), var(--ph-bg);
+  background-size: 100vw 100dvh;
+  background-position: bottom;
+  -webkit-mask-image: linear-gradient(transparent, #000 75%);
+  mask-image: linear-gradient(transparent, #000 75%);
+}
+
+/* ---------------------------------------------------------------- Header */
+.phone .ph-header-bar {
+  position: sticky;
+  z-index: 4;
+  top: calc(var(--safe-top) + 14px);
+  height: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--ph-side);
+  pointer-events: none;
+}
+.phone .ph-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 40px;
+  pointer-events: auto;
+}
+.phone .ph-header {
+  padding: 0 var(--ph-side) 12px;
+  min-height: 40px;
+}
+.phone .ph-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 38px;
+  overflow-wrap: anywhere;
+}
+.phone .ph-header-title h1 {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- Circle buttons */
+.phone .ph-circle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--ph-circle, 40px);
+  height: var(--ph-circle, 40px);
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  color: var(--ph-icon);
+  transition: transform 120ms ease-out;
+}
+.phone .ph-circle:not(.ph-glass) {
+  background: transparent;
+}
+.phone .ph-circle:active {
+  transform: scale(0.94);
+}
+.phone .ph-circle[data-kind="clear"] {
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+  color: var(--ph-ink);
+}
+.phone .ph-circle[data-kind="well"] {
+  background: var(--ph-well);
+}
+.phone .ph-circle[data-kind="accent"] {
+  background: var(--ph-accent);
+  color: var(--ph-on-accent);
+}
+.phone .ph-circle[data-kind="ink"] {
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+}
+
+/* ---------------------------------------------------------------- Buttons */
+.phone .ph-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--ph-ink);
+  transition:
+    transform 120ms ease-out,
+    opacity 120ms ease-out;
+}
+.phone .ph-button[data-size="compact"] {
+  height: 44px;
+  padding: 0 18px;
+}
+.phone .ph-button[data-block] {
+  display: flex;
+  width: 100%;
+}
+.phone .ph-button:active {
+  transform: scale(0.97);
+}
+.phone .ph-button:disabled {
+  opacity: 0.45;
+  transform: none;
+}
+.phone .ph-button[data-kind="primary"] {
+  background: var(--ph-accent) linear-gradient(rgb(255 255 255 / 0.08), transparent 50%);
+  color: var(--ph-on-accent);
+  box-shadow: var(--ph-accent-shadow);
+}
+.phone .ph-button[data-kind="clear"] {
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+}
+.phone .ph-button[data-kind="soft"] {
+  background: var(--ph-accent-soft);
+  color: var(--ph-on-accent-soft);
+}
+.phone .ph-button[data-kind="ink"] {
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+}
+.phone .ph-button[data-kind="ghost"] {
+  padding: 0 12px;
+}
+
+/* ---------------------------------------------------------------- Chips */
+.phone .ph-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 var(--ph-side);
+  scrollbar-width: none;
+}
+.phone .ph-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--ph-paper);
+  color: var(--ph-ink);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+}
+.phone .ph-chip[data-size="large"] {
+  height: 40px;
+  padding: 0 16px;
+}
+.phone .ph-chip[data-active] {
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+  box-shadow: none;
+}
+.phone .ph-chip-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--dot);
+}
+.phone .ph-chip[data-suggested] {
+  box-shadow:
+    inset 0 0 0 1.25px var(--dot),
+    0 0 14px -2px color-mix(in srgb, var(--dot) 35%, transparent);
+  padding-right: 6px;
+}
+.phone .ph-chip-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  color: var(--ph-on-accent-soft);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------- Segmented switch */
+.phone .ph-segmented {
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  height: 40px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--ph-well);
+}
+.phone .ph-segmented-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / var(--count));
+  border-radius: 999px;
+  background: var(--ph-raised);
+  box-shadow: 0 1px 3px rgb(46 48 43 / 0.12);
+  transform: translateX(calc(100% * var(--index)));
+  transition: transform 220ms var(--ph-spring);
+}
+.phone .ph-segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ph-meta);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.phone .ph-segment[aria-checked="true"] {
+  color: var(--ph-ink);
+}
+
+/* ---------------------------------------------------------------- Search field and fields */
+.phone .ph-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 6px 0 16px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  color: var(--ph-icon);
+  transition: box-shadow 160ms ease-out;
+}
+.phone .ph-search:focus-within,
+.phone .ph-field:focus-within {
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1.5px var(--ph-accent),
+    0 0 0 4px var(--ph-accent-halo);
+}
+.phone .ph-search input,
+.phone .ph-field input,
+.phone .ph-field textarea {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+}
+.phone .ph-search input::placeholder,
+.phone .ph-field input::placeholder,
+.phone .ph-field textarea::placeholder {
+  color: var(--ph-meta);
+}
+.phone .ph-search input:focus-visible,
+.phone .ph-field input:focus-visible,
+.phone .ph-field textarea:focus-visible {
+  outline: 0;
+}
+.phone .ph-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 56px;
+  padding: 7px 20px;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+  transition: box-shadow 160ms ease-out;
+}
+.phone .ph-field[data-multiline] {
+  border-radius: var(--ph-r-field);
+  padding: 10px 16px 12px;
+}
+.phone .ph-field textarea {
+  resize: none;
+  min-height: 48px;
+}
+.phone .ph-field-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ph-meta);
+}
+
+/* ---------------------------------------------------------------- Toggle and checkbox */
+.phone .ph-toggle {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: var(--ph-well);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+  transition: background-color 180ms ease-out;
+}
+.phone .ph-toggle::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #fffefa;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  transition: transform 220ms var(--ph-spring);
+}
+.phone .ph-toggle[aria-checked="true"] {
+  background: var(--ph-accent);
+  box-shadow: none;
+}
+.phone .ph-toggle[aria-checked="true"]::before {
+  transform: translateX(20px);
+}
+.phone .ph-checkbox {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ph-faint);
+  color: var(--ph-on-accent);
+}
+.phone .ph-checkbox[aria-checked="true"] {
+  background: var(--ph-accent);
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------------- Shelves */
+.phone .ph-shelf-section {
+  margin-bottom: var(--ph-gap-section);
+}
+.phone .ph-shelf {
+  margin: 0 var(--ph-side-chrome);
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow: var(--ph-e1);
+  overflow: hidden;
+}
+.phone .ph-shelf-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  text-align: left;
+}
+.phone .ph-shelf-row + .ph-shelf-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: var(--ph-line);
+}
+.phone .ph-shelf-row[data-inset-icon] + .ph-shelf-row[data-inset-icon]::before {
+  left: 66px;
+}
+.phone button.ph-shelf-row:active {
+  background: var(--ph-well);
+}
+.phone .ph-shelf-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  color: var(--ph-icon);
+}
+.phone .ph-shelf-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.phone .ph-shelf-title {
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 500;
+}
+.phone .ph-shelf-detail {
+  flex: none;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-meta);
+}
+
+/* ---------------------------------------------------------------- Progress */
+.phone .ph-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  overflow: hidden;
+}
+.phone .ph-progress-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ph-accent), var(--ph-accent-hi));
+  box-shadow: 0 0 6px var(--ph-accent-halo);
+  transform-origin: left;
+  transform: scaleX(var(--value));
+  transition: transform 300ms var(--ph-spring);
+}
+
+/* ---------------------------------------------------------------- Snackbar */
+.phone .ph-snackbar-slot {
+  position: absolute;
+  z-index: 30;
+  left: max(var(--ph-side-chrome), var(--safe-left));
+  right: max(var(--ph-side-chrome), var(--safe-right));
+  bottom: calc(max(16px, var(--safe-bottom) + 8px) + var(--ph-lift, 0px));
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform var(--ph-spring-time) var(--ph-spring);
+}
+.phone[data-pill] .ph-snackbar-slot {
+  bottom: calc(var(--ph-pill-bottom) + var(--ph-pill-height) + 12px + var(--ph-lift, 0px));
+}
+.phone[data-fold] .ph-snackbar-slot {
+  right: calc(72px + 24px + var(--safe-right) + 12px);
+}
+.phone .ph-snackbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  min-height: 48px;
+  padding: 0 6px 0 18px;
+  border-radius: 999px;
+  pointer-events: auto;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  animation: ph-rise 220ms var(--ph-spring);
+}
+.phone .ph-snackbar-text {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 0;
+}
+.phone .ph-snackbar-icon {
+  flex: none;
+  color: var(--ph-mint);
+}
+.phone .ph-snackbar[data-alert] .ph-snackbar-icon {
+  color: #e99797;
+}
+.phone .ph-snackbar-action {
+  position: relative;
+  flex: none;
+  height: 48px;
+  padding: 0 14px 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ph-mint);
+  font-size: 14px;
+  font-weight: 600;
+}
+.phone .ph-snackbar-action::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: rgb(255 255 255 / 0.18);
+}
+@keyframes ph-rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- Nav pill */
+.phone .ph-navpill {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: var(--ph-pill-bottom);
+  width: min(361px, calc(100% - 2 * var(--ph-side-chrome)));
+  height: var(--ph-pill-height);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  transition:
+    transform var(--ph-spring-time) var(--ph-spring),
+    opacity 180ms ease-out;
+}
+.phone .ph-navpill[data-hidden] {
+  transform: translateY(calc(100% + var(--ph-pill-bottom)));
+  opacity: 0;
+  pointer-events: none;
+}
+.phone .ph-navpill-active {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 5);
+  height: 52px;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  transform: translateX(calc(100% * var(--index)));
+  transition: transform 220ms var(--ph-spring);
+}
+.phone .ph-navpill-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ph-icon);
+}
+.phone .ph-navpill-slot[aria-current="page"] {
+  color: var(--ph-accent);
+}
+.phone .ph-navpill-new {
+  width: 44px;
+  height: 44px;
+  margin: auto;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+}
+.phone .ph-badge {
+  position: absolute;
+  top: 6px;
+  left: calc(50% + 2px);
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ph-accent);
+  color: var(--ph-on-accent);
+  font-size: 11px;
+  line-height: 20px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--ph-paper);
+}
+/* A long press names the place: a small label above it. */
+.phone .ph-longpress-label {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: ph-rise 160ms ease-out;
+}
+
+/* ---------------------------------------------------------------- Account cluster */
+.phone .ph-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 4px 0 6px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ph-season);
+}
+.phone .ph-account-heart {
+  display: inline-flex;
+  width: 34px;
+  justify-content: center;
+}
+.phone .ph-account-sync {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--ph-accent);
+  color: var(--ph-on-accent);
+}
+.phone .ph-account-sync[data-state="offline"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+  color: var(--ph-icon);
+}
+.phone .ph-account-sync[data-state="error"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--ph-danger);
+  box-shadow: 0 0 0 1.5px var(--ph-paper);
+}
+.phone .ph-account-sync[data-state="syncing"] svg {
+  animation: ph-turn 1.2s linear infinite;
+}
+@keyframes ph-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.phone .ph-account[data-free] {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+  color: var(--ph-icon);
+}
+
+/* ---------------------------------------------------------------- Sheets */
+.phone .ph-sheet-host {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+}
+.phone .ph-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--ph-scrim);
+  animation: ph-fade-in 200ms ease-out;
+  transition: opacity 200ms ease-out;
+}
+.phone .ph-sheet {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--ph-r-sheet);
+  outline: 0;
+  animation: ph-sheet-in var(--ph-spring-time) var(--ph-spring);
+  transition: transform var(--ph-spring-time) var(--ph-spring);
+}
+/* Compact sheets float 8 from the edges, concentric with the phone's corners. */
+.phone .ph-sheet[data-variant="detached"] {
+  left: max(8px, var(--safe-left));
+  right: max(8px, var(--safe-right));
+  bottom: max(8px, var(--safe-bottom));
+  max-height: calc(100dvh - var(--safe-top) - max(8px, var(--safe-bottom)) - 16px);
+  margin: 0 auto;
+  max-width: 560px;
+}
+/* Editing sheets: full height, attached to the bottom; their action bar is at the top, so it
+   stays above the keyboard. The keyboard is in --safe-bottom on Android. */
+.phone .ph-sheet[data-variant="attached"] {
+  left: var(--safe-left);
+  right: var(--safe-right);
+  top: calc(var(--safe-top) + 8px);
+  bottom: 0;
+  margin: 0 auto;
+  max-width: 640px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  padding-bottom: var(--safe-bottom);
+}
+.phone[data-fold] .ph-sheet[data-variant="detached"] {
+  max-width: 480px;
+}
+.phone .ph-sheet-host[data-leaving] .ph-scrim {
+  opacity: 0;
+}
+.phone .ph-sheet-host[data-leaving] .ph-sheet {
+  transform: translateY(calc(100% + 16px));
+}
+@keyframes ph-sheet-in {
+  from {
+    transform: translateY(calc(100% + 16px));
+  }
+}
+@keyframes ph-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.phone .ph-sheet-grab {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  padding: 8px 0 6px;
+  touch-action: none;
+}
+.phone .ph-grabber {
+  width: 36px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--ph-faint);
+  opacity: 0.6;
+}
+.phone .ph-sheet-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px 12px 24px;
+  touch-action: none;
+}
+.phone .ph-sheet-head > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.phone .ph-sheet-bar {
+  display: grid;
+  flex: none;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 12px;
+  touch-action: none;
+}
+.phone .ph-sheet-bar > :last-child {
+  justify-self: end;
+}
+.phone .ph-sheet-bar > :first-child {
+  justify-self: start;
+}
+.phone .ph-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 20px 20px;
+}
+.phone .ph-sheet-footer {
+  flex: none;
+  padding: 8px 20px 20px;
+}
+
+/* ---------------------------------------------------------------- Stubs */
+.phone .ph-stub {
+  margin: 0 var(--ph-side-chrome);
+  padding: 20px;
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow: var(--ph-e1);
+  color: var(--ph-meta);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* ---------------------------------------------------------------- Reduce Motion: cross-fades */
+@media (prefers-reduced-motion: reduce) {
+  .phone .ph-sheet,
+  .phone .ph-screen[data-route],
+  .phone .ph-snackbar,
+  .phone .ph-longpress-label {
+    animation-name: ph-fade-in;
+  }
+  .phone .ph-sheet-host[data-leaving] .ph-sheet {
+    transform: none;
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+  .phone .ph-navpill,
+  .phone .ph-navpill-active,
+  .phone .ph-segmented-thumb,
+  .phone .ph-toggle::before,
+  .phone .ph-progress-fill {
+    transition-duration: 1ms;
+  }
+  .phone .ph-account-sync[data-state="syncing"] svg {
+    animation: none;
+  }
+}

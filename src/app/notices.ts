@@ -21,16 +21,24 @@ export function noticeDuration(notice: NonNullable<Notice>): number | null {
   return notice.undo || notice.long ? UNDO_MS : NOTICE_MS;
 }
 
-/** The one notice at the bottom of the window (frames 12, 20, 21, 29). */
-export function useNotices() {
+/** How long a notice stays, null: until it is closed. */
+export type NoticeTiming = (notice: NonNullable<Notice>) => number | null;
+
+/**
+ * The one notice at the bottom of the window (frames 12, 20, 21, 29). `timing` says how long one
+ * stays; the phone's snackbar keeps its own time (5 s, paused while touched) and passes `() => null`.
+ */
+export function useNotices(timing: NoticeTiming = noticeDuration) {
   const [notice, setNotice] = useState<Notice>(null);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
   const sayAlert = useCallback((text: string) => setNotice({ text, alert: true }), []);
   const sayRef = useRef(say);
   sayRef.current = say;
+  const timingRef = useRef(timing);
+  timingRef.current = timing;
   useEffect(() => {
     if (!notice) return;
-    const ms = noticeDuration(notice);
+    const ms = timingRef.current(notice);
     if (ms === null) return;
     const timer = window.setTimeout(() => setNotice(null), ms);
     return () => window.clearTimeout(timer);
