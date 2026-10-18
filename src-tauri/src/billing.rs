@@ -557,16 +557,19 @@ impl Billing {
 /// purchase is waiting. A purchase is followed here whether its dialog is open or not, and a
 /// failed request is simply asked again at the next wake.
 pub fn start(app: &AppHandle) {
-    let path = crate::library::Paths::from_env().folder().join(FILE);
+    let path = app.state::<std::sync::Arc<crate::library_state::Library>>().paths.folder().join(FILE);
     app.manage(Billing::load(path));
     if service().is_none() {
         return;
     }
     let app = app.clone();
+    let mut foreground = crate::lifecycle::foreground(&app);
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(15)).await;
         let billing = app.state::<Billing>();
         loop {
+            // Not behind a phone's screen (NP-151): the check waits for the app to come back.
+            foreground.wait().await;
             if !billing.get().checkouts.is_empty() {
                 let _ = claim(&app).await;
             }

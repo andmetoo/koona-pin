@@ -9,7 +9,10 @@
 
 use crate::backup;
 use crate::billing;
-use crate::error::{CommandError, ErrorCode, ErrorDetail};
+use crate::error::CommandError;
+#[cfg(desktop)]
+use crate::error::{ErrorCode, ErrorDetail};
+#[cfg(desktop)]
 use crate::library;
 use crate::library_state::Library;
 use chrono::{DateTime, Utc};
@@ -19,7 +22,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
+#[cfg(desktop)]
 use tauri_plugin_dialog::DialogExt;
+#[cfg(desktop)]
 use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
 
@@ -97,7 +102,7 @@ impl BackupFolderState {
 
 /// Called in `setup`.
 pub fn start(app: &AppHandle) {
-    let path = library::Paths::from_env().folder().join(FILE);
+    let path = app.state::<Arc<Library>>().paths.folder().join(FILE);
     app.manage(BackupFolderState::load(path));
 }
 
@@ -167,6 +172,7 @@ pub fn mirror(app: &AppHandle, copy: &Path) {
     });
 }
 
+#[cfg(desktop)]
 fn need_plan(app: &AppHandle) -> Result<(), CommandError> {
     if billing::has_plan(app) {
         Ok(())
@@ -176,6 +182,7 @@ fn need_plan(app: &AppHandle) -> Result<(), CommandError> {
 }
 
 /// A fresh copy now and into the folder, so the row shows at once that it works.
+#[cfg(desktop)]
 fn copy_now(app: &AppHandle) {
     let Some(library) = app.try_state::<Arc<Library>>().map(|l| l.inner().clone()) else {
         return;
@@ -195,14 +202,12 @@ pub fn get_backup_folder(state: State<'_, BackupFolderState>) -> BackupFolder {
 
 /// «Choose folder…» / «Change…»: the system's folder picker, then a first copy there. Cancelling
 /// the picker changes nothing.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn choose_backup_folder(app: AppHandle, title: String) -> Result<BackupFolder, CommandError> {
     need_plan(&app)?;
     let (send, receive) = tokio::sync::oneshot::channel();
-    let mut dialog = app.dialog().file().set_title(title);
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = crate::commands::over_main_window(&app, app.dialog().file().set_title(title));
     dialog.pick_folder(move |picked| {
         let _ = send.send(picked);
     });
@@ -231,6 +236,7 @@ pub fn stop_backup_folder(app: AppHandle, state: State<'_, BackupFolderState>) -
 }
 
 /// The folder icon: the chosen folder in the file manager.
+#[cfg(desktop)]
 #[tauri::command]
 pub fn open_backup_folder(app: AppHandle, state: State<'_, BackupFolderState>) -> Result<(), CommandError> {
     let folder = state.get().folder.ok_or_else(|| CommandError::new(ErrorCode::InvalidRequest, "No folder is chosen"))?;

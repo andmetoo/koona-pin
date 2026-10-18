@@ -16,6 +16,7 @@ import { Icon } from "../icons";
 import { Dot, Switch } from "../ui/Controls";
 import { Preview } from "./Bookmarks";
 import { TagInput } from "./Fields";
+import { useBack } from "../../hooks/useBack";
 
 export interface NewLink {
   url: string;
@@ -119,6 +120,8 @@ export function AddSheet({
   const [lookup, setLookup] = useState<Lookup | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = busy ? () => {} : onClose;
+  // A phone's Back closes it as Esc does (NP-151).
+  useBack(() => closeRef.current());
 
   useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;

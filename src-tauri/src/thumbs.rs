@@ -324,8 +324,12 @@ fn file(root: &Path, key: &str, size: Size, ext: &str) -> PathBuf {
 
 /// The cache of the library at `paths`: beside it, but on Windows in the
 /// local AppData, since the library is in the roaming one; beside it there
-/// too when the data folder is set by `KOONAPIN_DATA_DIR`.
+/// too when the data folder is set by `KOONAPIN_DATA_DIR`. A phone's goes to
+/// the cache folder the system gives the app (NP-151).
 pub fn root_for(paths: &Paths) -> PathBuf {
+    if let Some(cache) = &paths.cache {
+        return cache.join(FOLDER);
+    }
     #[cfg(windows)]
     if std::env::var_os(crate::db::DATA_DIR_ENV).is_none() {
         if let Some(local) = dirs::data_local_dir() {

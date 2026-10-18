@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "../icons";
 import { IconButton } from "./Button";
 import { Kbd } from "./Hint";
+import { useBack } from "../../hooks/useBack";
 
 /**
  * A modal dialog or, with `drawer`, the editor over the content in a narrow
@@ -45,6 +46,8 @@ export function Dialog({
   const titleId = useId();
   const closeRef = useRef(onClose);
   closeRef.current = locked ? () => {} : onClose;
+  // A phone's Back closes it as Escape does (NP-151).
+  useBack(() => closeRef.current());
   const [open, setOpen] = useState(false);
   const heading = (
     <h2 id={titleId} className={eyebrow ? "text-2xs font-semibold tracking-[0.06em] text-muted uppercase" : "text-lg font-semibold"}>

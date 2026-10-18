@@ -468,11 +468,17 @@ export function useLibrary(
     });
     // «Не дубликаты»: only the count of groups changes.
     const offDuplicates = api.onDuplicatesChanged(catalogSoon);
+    // Back on a phone's screen (NP-151): shares, sync and feeds may have changed it meanwhile.
+    const offResumed = api.onResumed(() => {
+      void refreshCatalog();
+      void refresh();
+    });
     return () => {
       off();
       offBatch();
       offInvalidate();
       offDuplicates();
+      offResumed();
     };
   }, [refresh, refreshCatalog, catalogSoon, refreshTotal, scrollRef]);
   // At midnight «today» becomes «yesterday»: read the list again.

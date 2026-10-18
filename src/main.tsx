@@ -5,6 +5,7 @@ import { onTrayLabels } from "./i18n";
 import { App } from "./App";
 import { LibraryGate } from "./components/LibraryGate";
 import { api } from "./services/api";
+import { isMobile, platform } from "./services/platform";
 import { blockBrowserChrome } from "./services/browserChrome";
 import { trackInputMode } from "./services/inputMode";
 import { applyTheme, isDark, storedTheme } from "./services/preferences";
@@ -20,11 +21,14 @@ applySeason();
 // Linux, before the first paint (2.1.1): WebKitGTK rendering in software at times leaves the whole
 // window blank under a backdrop blur or a mask, so the glass and fades stay off there (app.css).
 if (/\b(Linux|X11)\b/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent)) document.documentElement.dataset.linux = "";
+// A phone (NP-151): the page keeps clear of the system's bars and the keyboard (app.css).
+if (isMobile) document.documentElement.dataset.platform = platform;
 blockBrowserChrome(window);
 // A card's ring of keyboard focus only after a key that moves focus, not after a click and Esc.
 trackInputMode(window, document.documentElement);
 // The tray speaks the interface's language, after a start in the tray too: the hidden window loads.
-onTrayLabels((labels) => void api.setTrayLabels(labels).catch(console.error));
+// A phone has no tray (NP-151).
+if (!isMobile) onTrayLabels((labels) => void api.setTrayLabels(labels).catch(console.error));
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

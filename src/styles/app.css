@@ -388,6 +388,13 @@
   #root {
     overflow: clip;
   }
+  /* A phone (NP-151) runs the app edge to edge: the page keeps clear of the status bar, the
+     cutout, the navigation bar and the keyboard. Android WebViews before 140 give env() nothing
+     there, so the koona-mobile plugin passes the same insets as --kp-inset-*; the larger counts. */
+  :root[data-platform] body {
+    padding: max(env(safe-area-inset-top), var(--kp-inset-top, 0px)) max(env(safe-area-inset-right), var(--kp-inset-right, 0px))
+      max(env(safe-area-inset-bottom), var(--kp-inset-bottom, 0px)) max(env(safe-area-inset-left), var(--kp-inset-left, 0px));
+  }
   body {
     margin: 0;
     overflow: hidden;

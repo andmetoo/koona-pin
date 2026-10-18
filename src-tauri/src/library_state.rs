@@ -6,8 +6,9 @@
 //! commands fail instead of touching the file, and the capture pipe does not
 //! start.
 
+#[cfg(desktop)]
+use crate::capture_channel::{self, ChannelState};
 use crate::{
-    capture_channel::{self, ChannelState},
     db::DbState,
     library::{self, Health, OpenFailure, Paths},
     trash,
@@ -104,8 +105,9 @@ pub fn start(app: AppHandle) {
                 crate::feeds::cache::start(&app, &library.paths.folder());
                 // The picture cache's sweep (NP-146): it needs both to know what is referred to.
                 crate::thumbs::start(&app);
-                let channel = app.state::<Arc<ChannelState>>().inner().clone();
-                capture_channel::start(app.clone(), db.clone(), channel);
+                // The browsers' pipe (NP-016); a phone has no browser extension to listen to.
+                #[cfg(desktop)]
+                capture_channel::start(app.clone(), db.clone(), app.state::<Arc<ChannelState>>().inner().clone());
                 let moved_aside = opened
                     .moved_aside
                     .map(|path| path.to_string_lossy().into_owned());
@@ -131,7 +133,10 @@ pub fn start(app: AppHandle) {
 
 fn maintain(app: &AppHandle, library: &Library, db: &DbState, moved_aside: Option<String>) {
     let mut check = true;
+    let mut foreground = crate::lifecycle::foreground(app);
     loop {
+        // A phone's app behind the screen copies and tidies when it is back (NP-151).
+        foreground.wait_blocking();
         // A damaged library gets no copies and no cleanup until it is restored.
         if library.damaged() {
             thread::sleep(MAINTENANCE_PERIOD);

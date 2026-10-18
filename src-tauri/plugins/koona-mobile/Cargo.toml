@@ -1,0 +1,16 @@
+[package]
+name = "tauri-plugin-koona-mobile"
+version = "0.1.0"
+description = "Koona Pin on phones: system Back, the iOS edge swipe, renderer loss and the system insets (NP-151)"
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+# Tauri plugins with native code name themselves here, so the app's build finds their Kotlin and Swift.
+links = "tauri-plugin-koona-mobile"
+
+[dependencies]
+tauri = "2.1"
+
+[build-dependencies]
+# Already in the tree through the other plugins' builds.
+tauri-plugin = { version = "2", features = ["build"] }

@@ -54,8 +54,9 @@ pub const QUIET_INTERVAL: TimeDelta = TimeDelta::hours(12);
 pub const FAILING_AFTER: TimeDelta = TimeDelta::days(7);
 /// ±10 %, so feeds added together do not stay in step.
 const JITTER: f64 = 0.10;
-/// Fetches at once, overall; one per host, this far apart.
-const PARALLEL: usize = 4;
+/// Fetches at once, overall; one per host, this far apart. A phone fetches two at a time
+/// (NP-151): its radio and memory are shared with everything else on it.
+const PARALLEL: usize = if cfg!(mobile) { 2 } else { 4 };
 const HOST_SPACING: Duration = Duration::from_secs(1);
 /// «Only when I refresh» still counts its backoff from an hour.
 const MANUAL_BASE_MINUTES: u32 = super::DEFAULT_REFRESH_MINUTES;
@@ -659,12 +660,15 @@ const SWEEP_EVERY: TimeDelta = TimeDelta::hours(24);
 /// Starts the loop; called once from `setup`. It waits for the library.
 pub fn start(app: &AppHandle) {
     let app = app.clone();
+    let mut foreground = crate::lifecycle::foreground(&app);
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(FIRST_PASS).await;
         let mut last_tick: Option<DateTime<Utc>> = None;
         let mut last_look = Utc::now();
         let mut last_sweep = Utc::now();
         loop {
+            // Behind a phone's screen nothing is fetched (NP-151); coming back counts as a wake.
+            foreground.wait().await;
             let now = Utc::now();
             if is_wake(last_look, now) {
                 tokio::time::sleep(WAKE_SETTLE).await;

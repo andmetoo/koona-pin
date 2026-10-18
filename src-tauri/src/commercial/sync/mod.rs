@@ -19,7 +19,6 @@ pub mod worker;
 use crate::billing;
 use crate::db::DbState;
 use crate::error::{CommandError, ErrorCode, ErrorDetail};
-use crate::library;
 use chrono::{DateTime, Utc};
 use identity::Identity;
 use koona_sync::net::{Event, Stop};
@@ -349,7 +348,7 @@ pub(crate) fn wake(app: &AppHandle) {
 /// needs is there and stops it when something goes, woken by the plan, the library and the
 /// person's commands.
 pub fn start(app: &AppHandle) {
-    app.manage(SyncState::load(library::Paths::from_env().folder()));
+    app.manage(SyncState::load(app.state::<std::sync::Arc<crate::library_state::Library>>().paths.folder()));
     for event in [billing::EVENT, "library-status", "library-invalidated"] {
         let handle = app.clone();
         app.listen_any(event, move |_| {
@@ -370,13 +369,18 @@ pub fn start(app: &AppHandle) {
         });
     }
     let app = app.clone();
+    let mut foreground = crate::lifecycle::foreground(&app);
     tauri::async_runtime::spawn(async move {
         loop {
+            // Behind a phone's screen the supervisor waits (NP-151); closing the session there is
+            // NP-153.
+            foreground.wait().await;
             let wait = supervise(&app).await;
             let state = app.state::<SyncState>();
             tokio::select! {
                 _ = tokio::time::sleep(wait) => {}
                 _ = state.wake.notified() => {}
+                _ = foreground.suspended() => {}
             }
         }
     });

@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../services/api";
+import { isMobile } from "../services/platform";
 import { describeError } from "../services/errors";
 import { LibraryStatus, OpenFailure } from "../types";
 import { Icon } from "./icons";
@@ -150,12 +151,15 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
             {t("common.retry")}
           </Button>
         )}
-        <Button
-          autoFocus={!retry}
-          onClick={() => void api.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
-        >
-          {place === "backup" ? t("gate.openBackup") : t("gate.openData")}
-        </Button>
+        {/* A phone has no file manager, and its app is not quit from a button (NP-151). */}
+        {!isMobile && (
+          <Button
+            autoFocus={!retry}
+            onClick={() => void api.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
+          >
+            {place === "backup" ? t("gate.openBackup") : t("gate.openData")}
+          </Button>
+        )}
         <Button
           onClick={() => {
             navigator.clipboard
@@ -166,9 +170,11 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
         >
           {t("gate.copyReport")}
         </Button>
-        <Button variant="ghost" onClick={() => void api.quitApp().catch(() => {})}>
-          {t("gate.quit")}
-        </Button>
+        {!isMobile && (
+          <Button variant="ghost" onClick={() => void api.quitApp().catch(() => {})}>
+            {t("gate.quit")}
+          </Button>
+        )}
       </div>
       {replaceable.includes(failure.code) && (
         <button type="button" onClick={onRestore} className="mt-1 text-xs font-medium text-accent hover:underline">

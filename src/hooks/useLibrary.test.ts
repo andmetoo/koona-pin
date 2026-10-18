@@ -21,6 +21,7 @@ const fake = vi.hoisted(() => ({
   onBookmarksChanged: vi.fn(),
   onLibraryInvalidated: vi.fn(() => () => {}),
   onDuplicatesChanged: vi.fn(() => () => {}),
+  onResumed: vi.fn(() => () => {}),
 }));
 vi.mock("../services/api", () => ({ api: fake }));
 vi.mock("../i18n", () => ({ default: { language: "en", t: (key: string) => key, on: () => {}, off: () => {} } }));
