@@ -269,8 +269,10 @@ test("states: loading, can't extract (Next, Mark as read), no connection (Try ag
   // (The page that hung above stays pending in this session: the next one fails instead.)
   await stubPages(page, "403", list[1].url);
   await readButton(page).click();
-  // J only once the mode has the keys: on a slow runner it can arrive before (#324's main run).
+  // J only once the mode has the keys and its queue: on a slow runner it can arrive before (#324's
+  // main run); the article takes focus at once, but J has nowhere to go until the queue has loaded.
   await expect(mode(page).locator("[data-reader-scroll]")).toBeFocused();
+  await expect(heading(page)).toHaveText(list[0].title);
   await page.keyboard.press("j");
   const card = mode(page).locator("[data-reader-failure=failed]");
   await expect(card).toContainText("Can’t show this page in reading mode");

@@ -188,6 +188,7 @@ pub fn run() {
             commands::suggest_collection,
             commands::get_counts,
             commands::open_url_external,
+            commands::check_public_resource,
             reader::fetch_reader_page,
             commands::import_html_bookmarks,
             commands::export_library,

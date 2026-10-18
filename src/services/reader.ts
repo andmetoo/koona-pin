@@ -335,6 +335,13 @@ function prepareLinks(doc: Document, base: string) {
   }
 }
 
+/** A picture taken out of an article; one alone in a figure takes the figure, or an empty frame stays. */
+export function removePicture(img: HTMLImageElement) {
+  const figure = img.closest("figure");
+  if (figure && figure.querySelectorAll("img").length === 1) figure.remove();
+  else img.remove();
+}
+
 /** Pictures keep https addresses only; one without any is dropped. */
 function preparePictures(doc: Document) {
   for (const img of Array.from(doc.querySelectorAll("img"))) {
@@ -346,10 +353,7 @@ function preparePictures(doc: Document) {
     const fallback = set.length ? set[set.length - 1].split(/\s+/)[0] : null;
     const chosen = https(src) ? src : fallback;
     if (!chosen) {
-      // A picture alone in a figure leaves an empty frame behind.
-      const figure = img.closest("figure");
-      if (figure && figure.querySelectorAll("img").length === 1) figure.remove();
-      else img.remove();
+      removePicture(img);
       continue;
     }
     img.setAttribute("src", chosen);

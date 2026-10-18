@@ -7,6 +7,7 @@ import { articleOfPost, captionOf, pictureUrl, publishedLine, startsWithPicture 
 import { Article, cachedArticle, readingMinutes } from "../../services/reader";
 import { ReaderChoice, ReaderLook, readerStyle } from "../../services/readerLook";
 import { describeError } from "../../services/errors";
+import { usePublicImage } from "../../services/imageGuard";
 import { Icon } from "../icons";
 import { Hint } from "../ui/Hint";
 import { AaButton } from "../reader/AaPanel";
@@ -174,7 +175,8 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
   // These checks parse a whole article into a temporary DOM. Read marks, feed
   // counts and reader settings can rerender this post without changing its text.
   const opensWithPicture = useMemo(() => !cached || startsWithPicture(cached.html), [cached]);
-  const leadPicture = page || opensWithPicture ? null : picture;
+  // Checked before the figure shows: a refused picture leaves no caption alone.
+  const leadPicture = usePublicImage(page || opensWithPicture ? null : picture);
   const caption = useMemo(() => (leadPicture && post ? captionOf(item.excerpt, post.html) : null), [leadPicture, post, item.excerpt]);
 
   if (failure)
