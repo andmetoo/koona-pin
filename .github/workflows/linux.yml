@@ -419,7 +419,8 @@ jobs:
   arch:
     name: Arch Linux (AUR)
     needs: [images, build, deb-package]
-    if: ${{ !inputs.release }}
+    # The AUR package is not published; re-enable when it is (if: ${{ !inputs.release }}).
+    if: false
     continue-on-error: ${{ !inputs.release }}
     runs-on: ubuntu-latest
     timeout-minutes: 30

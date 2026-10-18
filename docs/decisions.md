@@ -18,7 +18,11 @@ The `trigram` tokenizer finds any substring of three or more characters in any f
 
 ## Schema ready for sync, without choosing sync
 
-From the first schema, records carry a UUIDv7 `uid` next to the local integer `id`, deletion is a flag (`deleted_at`) with tombstones after purge, all times are UTC strings with milliseconds, and each bookmark records its `source`. No sync protocol or server was chosen; this only avoids a second migration of every library when one is.
+From the first schema, records carry a UUIDv7 `uid` next to the local integer `id`, deletion is a flag (`deleted_at`) with tombstones after purge, all times are UTC strings with milliseconds, and each bookmark records its `source`. No sync protocol or server was chosen then; this only avoided a second migration of every library when one was. Sync came later on this schema (below).
+
+## Sync through a relay that stores nothing
+
+Supporter sync passes end-to-end encrypted changes between the person's computers through a relay (a Cloudflare Worker) that keeps only the list of devices, never the library, and drops what is sent to a computer that is offline. The server cannot read a library or lose one, and there is no copy of anyone's bookmarks to protect. The cost: changes travel only while Koona Pin runs on two computers at the same time; until then they wait where they were made. One computer is the main one, approves new ones with a 6-digit code and holds the library key. The protocol is `src-tauri/commercial/koona-sync/PROTOCOL.md`.
 
 ## Migrations: one transaction, never edit a released step
 
@@ -26,7 +30,7 @@ Migrations use `rusqlite_migration`, with the schema number in `PRAGMA user_vers
 
 ## Tauri 2 with React
 
-Tauri uses the system WebView, so the installer stays small and the core is Rust with direct, safe access to SQLite, files and OS APIs. The interface is React 19 and TypeScript, built by Vite, styled with Tailwind 4 and tokens in one CSS file. Long lists are virtualised. Tauri's own risks for other platforms were probed early and found no blockers; macOS is not shipped for now.
+Tauri uses the system WebView, so the installer stays small and the core is Rust with direct, safe access to SQLite, files and OS APIs. The interface is React 19 and TypeScript, built by Vite, styled with Tailwind 4 and tokens in one CSS file. Long lists are virtualised. Tauri's own risks for other platforms were probed early and found no blockers; macOS (Apple Silicon) ships too, signed and notarized since 1.2.1.
 
 ## IPC types generated from Rust
 
@@ -38,7 +42,7 @@ Command errors are a closed set of machine codes plus an optional detail. Rust h
 
 Early builds took links from the browser over HTTP on a fixed localhost port with a token. That needed the person to copy a token, collided with anything else on the port, told the app nothing about which browsers were connected, and left an endpoint any local program or web page could probe.
 
-Now the extension uses the browser's native messaging. The browser itself starts a registered host program, and only for extension IDs listed in its manifest. The host is a tiny separate binary that forwards each message over a per-user named pipe (Windows) or a `0700`/`0600` Unix socket (Linux) to the running app, so one process writes the library and all checks stay in one place. If the app is closed, the host starts it in the tray. The cost: a new process per message (tens of milliseconds) and no fallback if an organisation's policy blocks native hosts. The app runs no server and listens on no port.
+Now the extension uses the browser's native messaging. The browser itself starts a registered host program, and only for extension IDs listed in its manifest. The host is a tiny separate binary that forwards each message over a per-user named pipe (Windows) or a `0700`/`0600` Unix socket (Linux, macOS) to the running app, so one process writes the library and all checks stay in one place. If the app is closed, the host starts it in the tray. The cost: a new process per message (tens of milliseconds) and no fallback if an organisation's policy blocks native hosts. The app runs no server and listens on no port.
 
 *Revisit if* enterprise policies or antivirus block it for many people.
 
@@ -46,9 +50,9 @@ Now the extension uses the browser's native messaging. The browser itself starts
 
 Every click is first written to the extension's own storage with a `request_id`, then sent. The item leaves the queue only after the app confirms a commit with a bookmark ID. Retries reuse the same `request_id`, and the app keeps receipts, so a lost answer never creates a duplicate and a retry never resurrects a bookmark the person has since deleted. This makes saving work when the app is closed, still starting, or its library failed to open.
 
-## One extension source for three browsers
+## One extension source for every browser
 
-Chrome, Edge and Firefox share `extension/src`; a build script writes each browser's manifest (service worker for Chromium, an event page for Firefox) and the packages. The version and protocol number live in one file. A fixed development key gives the unpacked build the same ID on every machine, so a development build of the app can admit it, while release builds admit only the store IDs.
+Chrome, Edge, Firefox and Safari share `extension/src`; a build script writes each browser's manifest (service worker for Chromium, an event page for Firefox and Safari) and the packages. The version and protocol number live in one file. A fixed development key gives the unpacked build the same ID on every machine, so a development build of the app can admit it, while release builds admit only the store IDs.
 
 ## Inbox and trash as flags
 
@@ -90,7 +94,7 @@ The library lives in `<data dir>/Koona/Pin`, a brand folder with a product subfo
 
 ## Linux packages built on the oldest glibc
 
-Linux binaries are compiled once, on Void Linux with glibc 2.41, the same floor as Debian 13, the oldest glibc of the supported set. A check fails the build when a binary needs a newer glibc, so an update of the rolling Void image cannot quietly break Debian. That very binary is then packed and tested on each distribution: Debian, Ubuntu, Fedora and Arch. The `.deb`, `.rpm`, AUR package and AppImage share it. Every job runs in a prebuilt image, and a local `bun run build:linux` uses the same images in Docker.
+Linux binaries are compiled once, on Void Linux with glibc 2.41, the same floor as Debian 13, the oldest glibc of the supported set. A check fails the build when a binary needs a newer glibc, so an update of the rolling Void image cannot quietly break Debian. That very binary is then packed and tested on each distribution: Debian, Ubuntu and Fedora (Arch too, while its job is on). The `.deb`, `.rpm` and AppImage share it, as would the AUR package, which is not published. Every job runs in a prebuilt image, and a local `bun run build:linux` uses the same images in Docker.
 
 ## A static site with no scripts
 

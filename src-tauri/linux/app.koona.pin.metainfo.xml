@@ -7,27 +7,21 @@
   <project_license>GPL-3.0-only</project_license>
   <name>Koona Pin</name>
   <summary>Save a link in one click, find it when you need it</summary>
-  <summary xml:lang="ru">Сохраните ссылку одной кнопкой и найдите, когда понадобится</summary>
   <developer id="app.koona">
     <name>Koona</name>
   </developer>
   <description>
-    <p>Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer.</p>
-    <p xml:lang="ru">Koona Pin — библиотека закладок для компьютера. Страницы попадают в неё из Chrome, Edge и Firefox одной кнопкой и остаются на вашем компьютере.</p>
+    <p>Koona Pin is a desktop bookmark library. Pages arrive from Chrome, Edge and Firefox with one button and stay on your computer. Read them later in reading mode, and follow the sites you like through their feeds.</p>
     <ul>
       <li>One button: click it on any page and the link is saved, even when the app is closed</li>
-      <li xml:lang="ru">Одна кнопка: нажмите на любой странице — ссылка сохранится, даже если приложение закрыто</li>
-      <li>Sort the inbox from the keyboard: keep, file or toss, one key each</li>
-      <li xml:lang="ru">Разбор входящих с клавиатуры: оставить, разложить или выбросить — одна клавиша</li>
+      <li>Sort new links as a stack of cards: keep, file or move to the trash, one key each</li>
+      <li>Reading mode: saved articles in one calm column, with a Reading list that remembers where you stopped</li>
+      <li>Feeds: follow RSS, Atom and JSON feeds and read new posts in three columns; the app fetches them itself</li>
       <li>Search titles, sites and tags while you type</li>
-      <li xml:lang="ru">Поиск по названию, сайту и тегам по мере ввода</li>
-      <li>Collections, tags and a trash that keeps links for 30 days</li>
-      <li xml:lang="ru">Коллекции, теги и корзина, которая хранит ссылки 30 дней</li>
+      <li>Collections, tags, favorites and a trash that keeps links for 30 days</li>
       <li>Import from your browser, export as HTML, JSON or CSV</li>
-      <li xml:lang="ru">Импорт из браузера, экспорт в HTML, JSON или CSV</li>
     </ul>
     <p>The library is a file on your disk, with automatic backups, and works offline. The extension for Chrome, Edge or Firefox is installed separately.</p>
-    <p xml:lang="ru">Библиотека — файл на вашем диске, с автоматическими копиями, работает без сети. Расширение для Chrome, Edge или Firefox ставится отдельно.</p>
   </description>
   <launchable type="desktop-id">koonapin.desktop</launchable>
   <url type="homepage">https://koona.app/pin/</url>
@@ -35,21 +29,24 @@
   <url type="vcs-browser">https://github.com/andmetoo/koona-pin</url>
   <screenshots>
     <screenshot type="default">
-      <caption>A library in a grid: previews, sites, collections and tags, new links waiting in Inbox</caption>
-      <caption xml:lang="ru">Библиотека сеткой: превью, сайты, коллекции и теги, новые ссылки ждут во «Входящих»</caption>
+      <caption>A library in a compact grid: pictures, sites and titles, with collections, tags and feeds in the sidebar</caption>
       <image>https://koona.app/pin/shots/app-en-light-grid.webp</image>
-      <image xml:lang="ru">https://koona.app/pin/shots/app-ru-light-grid.webp</image>
     </screenshot>
     <screenshot>
-      <caption>The same library as a list grouped by date</caption>
-      <caption xml:lang="ru">Та же библиотека списком по датам</caption>
-      <image>https://koona.app/pin/shots/app-en-light-list.webp</image>
-      <image xml:lang="ru">https://koona.app/pin/shots/app-ru-light-list.webp</image>
+      <caption>Feeds in three columns: the feeds, their posts and the open article</caption>
+      <image>https://koona.app/pin/shots/app-en-light-feeds.webp</image>
     </screenshot>
     <screenshot>
-      <caption>The dark theme</caption>
-      <caption xml:lang="ru">Тёмная тема</caption>
-      <image>https://koona.app/pin/shots/app-en-dark-grid.webp</image>
+      <caption>Reading mode: the Reading queue and an article in one column</caption>
+      <image>https://koona.app/pin/shots/app-en-light-reading.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>The dark theme, the library as a list grouped by date</caption>
+      <image>https://koona.app/pin/shots/app-en-dark-list.webp</image>
+    </screenshot>
+    <screenshot>
+      <caption>Sorting new links in the Inbox, one card at a time</caption>
+      <image>https://koona.app/pin/shots/app-en-light-triage.webp</image>
     </screenshot>
   </screenshots>
   <supports>

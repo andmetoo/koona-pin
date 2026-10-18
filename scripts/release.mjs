@@ -5,7 +5,7 @@
 //   1. bun run version:bump <x.y.z>, the changelog written, the PR merged
 //   2. bun run release:tag       on main: the tag v<version>; release.yml builds Linux and macOS into a draft
 //   3. bun run release:windows   on the Windows computer: the signed installer into the draft, then finalize
-//   4. release.yml finalize      latest.json, release.json and the AUR files, the release published
+//   4. release.yml finalize      latest.json and release.json, the release published
 //   5. release.yml deploy        the release data to koona.app (Р-60); the site reads it at request time
 // Read through git and gh only: the tag here and on origin, release.yml's runs of the tag, the release's assets.
 import { spawnSync } from "node:child_process";
@@ -90,7 +90,6 @@ const groups = {
   windows: has(`koonapin_${version}_x64-setup.exe`, "SHA256SUMS-windows.txt"),
   updates: has("latest.json"),
   data: has("release.json", "release.json.sig"),
-  aur: has("koonapin-bin.PKGBUILD", "koonapin-bin.SRCINFO"),
 };
 line("release", release ? `${release.isDraft ? "draft" : "published"} ${release.url}` : "none");
 if (release) line("assets", Object.entries(groups).map(([k, v]) => `${k} ${v ? "yes" : "no"}`).join(", "));
@@ -103,7 +102,6 @@ if (release && !release.isDraft) {
     deploy && deploy.status === "completed" && deploy.conclusion !== "success"
       ? `Its deploy to koona.app failed: ${deploy.url}. Again, alone: gh run rerun ${deploy.url.split("/").pop()} --failed`
       : "",
-    groups.aur ? `The AUR: koonapin-bin.PKGBUILD and .SRCINFO of the release, pushed by hand to aur.archlinux.org/koonapin-bin.git` : "",
   );
 }
 if (active(finalize)) next(`Finalize is running: ${finalize.url}`);
@@ -112,4 +110,4 @@ if (!build) next(`No release.yml run of ${tag}: was the tag pushed before releas
 if (failed(build) && !(groups.linux && groups.macos)) next(`release.yml failed for ${tag}: ${build.url}`, `Fix and rerun: gh run rerun ${build.url.split("/").pop()} --failed`);
 if (!groups.windows) next("On the Windows computer, at the tag's commit (git switch --detach " + tag + "): bun run release:windows");
 if (failed(finalize)) next(`Finalize failed: ${finalize.url}`, `Again: gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
-next(`Finalize (latest.json, release.json, the AUR files, publish, deploy): gh workflow run release.yml --ref ${tag} -f tag=${tag}`);
+next(`Finalize (latest.json, release.json, publish, deploy): gh workflow run release.yml --ref ${tag} -f tag=${tag}`);

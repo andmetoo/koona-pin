@@ -3,8 +3,8 @@
 // origin are the real ones. A plain `cargo build`, and the `cargo test` of `bun run check`, write the
 // same src-tauri/target/debug/koonapin.exe without it: that one loads the Vite server on
 // localhost:1420 and has no CSP at all (Tauri applies it to embedded pages only).
-// bun runs this before test:native, test:perf and site:shots. With KOONAPIN_TEST_BINARY set (a
-// release binary) there is nothing to build.
+// bun runs this before test:native, test:perf, site:shots and site:shots:mac (the same build on a Mac:
+// src-tauri/target/debug/koonapin). With KOONAPIN_TEST_BINARY set (a release binary) there is nothing to build.
 //   bun scripts/build-test-app.mjs
 import { execSync } from "node:child_process";
 import { root } from "./lib/paths.mjs";

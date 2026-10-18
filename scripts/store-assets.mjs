@@ -1,24 +1,27 @@
-// Store listing images (NP-017, NP-046): four screenshots at 1280×800 in English and Russian, made of the
+// Store listing images (NP-017, NP-046): four screenshots at 1280×800 in English, made of the
 // real extension connected to a test Koona Pin through the real host — the note after a save on an article,
 // the quick search over the library, the app's library (the site's screenshot), the options page — plus the
-// promo tile (440×280) and the Edge logo (300×300). Writes extension/store/.
+// promo tile (440×280) and the Edge logo (300×300). Writes extension/store/en/ and the logo beside it.
 //
 //   bun scripts/store-assets.mjs
-// Koona Pin must be closed: one instance per user, the test app would hand over to it.
+// On Windows or a Mac. Koona Pin must be closed: one instance per user, the test app would hand over to it.
+// The library screenshot is the site's: bun run site:shots (Windows) or site:shots:mac first.
 import { chromium } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appendFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildExtension } from "./build-extension.mjs";
-import { assertNoOtherApp, hostBinary, startedSince, testPipe } from "./lib/native-host.mjs";
+import { appBinary, assertNoOtherApp, hostBinary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
 import { release } from "./lib/paths.mjs";
 
 assertNoOtherApp();
 
+const windows = process.platform === "win32";
 const HOST = "app.koona.pin.test";
 const KEY = `HKCU\\Software\\Chromium\\NativeMessagingHosts\\${HOST}`;
 const out = path.resolve("extension/store");
+const en = path.join(out, "en");
 const directory = path.resolve(".test-data", `store-assets-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const built = await buildExtension({ log: () => {} });
@@ -52,7 +55,14 @@ await writeFile(
     allowed_origins: [`chrome-extension://${built.devId}/`],
   }),
 );
-execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
+// Chrome finds the host through the registry on Windows; on a Mac, in the profile's own
+// NativeMessagingHosts folder.
+const profile = path.join(directory, "profile");
+if (windows) execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
+else {
+  await mkdir(path.join(profile, "NativeMessagingHosts"), { recursive: true });
+  await cp(manifest, path.join(profile, "NativeMessagingHosts", `${HOST}.json`));
+}
 
 const env = {
   ...process.env,
@@ -61,6 +71,14 @@ const env = {
   KOONAPIN_PIPE: testPipe("store"),
 };
 const apps = startedSince();
+// The host starts the app on a save; on a Mac only an app inside its bundle, so the test build is
+// started here, on the run's own pipe, and the host finds it running.
+const macApp = windows ? null : spawn(appBinary(), [], { env, stdio: "ignore" });
+if (macApp)
+  for (const end = Date.now() + 60000; !(await pipeReady(env.KOONAPIN_PIPE, env)); ) {
+    if (Date.now() > end) throw new Error("The test app did not open its pipe");
+    await new Promise((r) => setTimeout(r, 300));
+  }
 
 const font = async (name) =>
   `data:font/woff2;base64,${(await readFile(path.join(built.unpacked.chrome, "fonts", name))).toString("base64")}`;
@@ -73,52 +91,27 @@ const fontFace = `
 
 /** What is in the library before the shots, and the article the note appears on. */
 const content = {
-  en: {
-    links: [
-      ["https://blog.example/rust-generics", "How Rust compiles generics"],
-      ["https://design.example/grids", "Grids that hold up on every screen"],
-      ["https://notes.example/sqlite-wal", "SQLite WAL mode, explained"],
-      ["https://kitchen.example/sourdough", "A sourdough starter in five days"],
-      ["https://travel.example/lisbon", "Three quiet days in Lisbon"],
-      ["https://docs.example/rust-traits", "Rust traits and generic bounds"],
-      ["https://news.example/webgpu", "WebGPU arrives in every browser"],
-      ["https://blog.example/rust-async", "Async Rust without the confusion"],
-      ["https://video.example/rust-ownership", "Ownership in Rust, drawn on a whiteboard"],
-    ],
-    query: "rust",
-    site: "blog.example",
-    kicker: "Engineering",
-    title: "How Rust compiles generics",
-    byline: "8 min read",
-    body: [
-      "When you write a generic function in Rust, the compiler does not keep one copy of it. It makes a separate copy for every type you call it with — a process called monomorphization.",
-      "That is why generic code in Rust is as fast as code written by hand for each type: every call goes straight to a function made for exactly that type, with nothing to look up at run time.",
-      "The price is in the binary. Each copy takes space, and a generic used with many types can make a program noticeably larger. Trait objects trade a little speed for one shared copy.",
-    ],
-  },
-  ru: {
-    links: [
-      ["https://blog.example/ru/rust-generics", "Как Rust компилирует обобщённый код"],
-      ["https://design.example/ru/grids", "Сетки, которые держатся на любом экране"],
-      ["https://notes.example/ru/sqlite-wal", "Режим WAL в SQLite простыми словами"],
-      ["https://kitchen.example/ru/sourdough", "Закваска для хлеба за пять дней"],
-      ["https://travel.example/ru/lisbon", "Три спокойных дня в Лиссабоне"],
-      ["https://docs.example/ru/rust-traits", "Типажи Rust и ограничения обобщений"],
-      ["https://news.example/ru/webgpu", "WebGPU приходит во все браузеры"],
-      ["https://blog.example/ru/rust-async", "Асинхронный Rust без путаницы"],
-      ["https://video.example/ru/rust-ownership", "Владение в Rust на маркерной доске"],
-    ],
-    query: "rust",
-    site: "blog.example",
-    kicker: "Разработка",
-    title: "Как Rust компилирует обобщённый код",
-    byline: "8 минут чтения",
-    body: [
-      "Когда вы пишете обобщённую функцию на Rust, компилятор не хранит одну её копию. Он делает отдельную копию для каждого типа, с которым её вызывают, — это называется мономорфизацией.",
-      "Поэтому обобщённый код на Rust так же быстр, как написанный вручную для каждого типа: каждый вызов идёт прямо в функцию, сделанную для этого типа, без поиска во время работы.",
-      "Цена — в размере программы. Каждая копия занимает место, и обобщение, вызванное со многими типами, заметно увеличивает файл. Типаж-объекты меняют немного скорости на одну общую копию.",
-    ],
-  },
+  links: [
+    ["https://blog.example/rust-generics", "How Rust compiles generics"],
+    ["https://design.example/grids", "Grids that hold up on every screen"],
+    ["https://notes.example/sqlite-wal", "SQLite WAL mode, explained"],
+    ["https://kitchen.example/sourdough", "A sourdough starter in five days"],
+    ["https://travel.example/lisbon", "Three quiet days in Lisbon"],
+    ["https://docs.example/rust-traits", "Rust traits and generic bounds"],
+    ["https://news.example/webgpu", "WebGPU arrives in every browser"],
+    ["https://blog.example/rust-async", "Async Rust without the confusion"],
+    ["https://video.example/rust-ownership", "Ownership in Rust, drawn on a whiteboard"],
+  ],
+  query: "rust",
+  site: "blog.example",
+  kicker: "Engineering",
+  title: "How Rust compiles generics",
+  byline: "8 min read",
+  body: [
+    "When you write a generic function in Rust, the compiler does not keep one copy of it. It makes a separate copy for every type you call it with — a process called monomorphization.",
+    "That is why generic code in Rust is as fast as code written by hand for each type: every call goes straight to a function made for exactly that type, with nothing to look up at run time.",
+    "The price is in the binary. Each copy takes space, and a generic used with many types can make a program noticeably larger. Trait objects trade a little speed for one shared copy.",
+  ],
 };
 
 /** The browser's bar drawn above a frame with the article: the note lands in the page, under the bar, as in a browser. */
@@ -148,14 +141,14 @@ const article = (c) => `<!doctype html><html><head><meta charset="utf-8"><style>
 <main><p class="kicker">${c.kicker}</p><h1>${c.title}</h1><p class="by">${c.byline}</p><div class="hero"></div>${c.body.map((p) => `<p>${p}</p>`).join("")}</main>
 </body></html>`;
 
-async function shots(lang) {
-  const c = content[lang];
-  const browser = await chromium.launchPersistentContext(path.join(directory, `profile-${lang}`), {
+async function shots() {
+  const c = content;
+  const browser = await chromium.launchPersistentContext(profile, {
     channel: "chromium",
     headless: true,
     env,
     ignoreDefaultArgs: ["--disable-extensions"],
-    args: ["--enable-unsafe-extension-debugging", `--lang=${lang}`],
+    args: ["--enable-unsafe-extension-debugging", "--lang=en"],
     viewport: { width: 1280, height: 800 },
   });
   try {
@@ -166,7 +159,7 @@ async function shots(lang) {
       (await browser.waitForEvent("serviceworker", { predicate: (w) => w.url().includes(id) }));
     // Real saves through the host, so the search finds them and the options page shows the last save.
     for (const [url, title] of c.links) await worker.evaluate(async (tab) => globalThis.__captureForTest(tab), { url, title });
-    await mkdir(path.join(out, lang), { recursive: true });
+    await mkdir(en, { recursive: true });
     const icon = `data:image/png;base64,${(await readFile(path.join(built.unpacked.chrome, "icons", "32.png"))).toString("base64")}`;
     // A persistent context keeps its own viewport: each page gets its size after it opens.
     const page = await browser.newPage();
@@ -182,7 +175,7 @@ async function shots(lang) {
     const note = await worker.evaluate(async () => globalThis.__noteForTest("saved"));
     await frame.evaluate(({ source, args }) => new Function(`return (${source})`)()(args[0]), note);
     await page.waitForTimeout(900);
-    await page.screenshot({ path: path.join(out, lang, "1-save-1280x800.png") });
+    await page.screenshot({ path: path.join(en, "1-save-1280x800.png") });
 
     // 2 · The quick search: the extension's popup (420×520, shown at 1.25×) over the article, under the button.
     const zoom = 1.25;
@@ -200,15 +193,15 @@ async function shots(lang) {
       .pop { position: absolute; top: 48px; right: 14px; width: ${420 * zoom}px; height: ${520 * zoom}px; border-radius: 10px; overflow: hidden;
         box-shadow: 0 2px 6px rgba(0,0,0,.18), 0 16px 48px rgba(0,0,0,.22); }
       </style><img class="back" src="data:image/png;base64,${plain.toString("base64")}"><img class="pop" src="data:image/png;base64,${popup.toString("base64")}">`);
-    await page.screenshot({ path: path.join(out, lang, "2-search-1280x800.png") });
+    await page.screenshot({ path: path.join(en, "2-search-1280x800.png") });
 
     // 3 · The app's library: the screenshot of the real app (bun run site:shots writes release/shots/).
     const shots = path.join(release, "shots");
     if (!existsSync(path.join(shots, "app-en-light-grid-1280.webp"))) throw new Error(`${shots} has no screenshots: bun run site:shots first`);
-    const shot = path.join(shots, `app-${existsSync(path.join(shots, `app-${lang}-light-grid-1280.webp`)) ? lang : "en"}-light-grid-1280.webp`);
+    const shot = path.join(shots, "app-en-light-grid-1280.webp");
     await page.setContent(`<style>body{margin:0}</style><img src="data:image/webp;base64,${(await readFile(shot)).toString("base64")}" width="1280" height="800">`);
     await page.locator("img").evaluate((img) => img.decode());
-    await page.screenshot({ path: path.join(out, lang, "3-library-1280x800.png") });
+    await page.screenshot({ path: path.join(en, "3-library-1280x800.png") });
 
     // 4 · The options page: connected, the app's version, the last save. A narrow column: laid out at
     // 800×500 and shown at 1.6×.
@@ -217,7 +210,7 @@ async function shots(lang) {
     await options.goto(`chrome-extension://${id}/options.html`);
     await options.locator('#status[data-state="connected"]').waitFor();
     await options.evaluate(() => (document.documentElement.style.zoom = "1.6"));
-    await options.screenshot({ path: path.join(out, lang, "4-options-1280x800.png") });
+    await options.screenshot({ path: path.join(en, "4-options-1280x800.png") });
   } finally {
     await browser.close();
   }
@@ -226,22 +219,20 @@ async function shots(lang) {
 // On envy green the mascot has the cream body (design/brand/pin-spirit-flat, NP-081).
 const spirit = `data:image/svg+xml;base64,${(await readFile(path.resolve("design/brand/pin-spirit-flat/pin-spirit-cream.svg"))).toString("base64")}`;
 const mark = (size) => `<img src="${spirit}" width="${Math.round((size * 880) / 916)}" height="${size}" alt="">`;
-const tagline = { en: "Save the page in one click", ru: "Сохраняйте страницу одним нажатием" };
+const tagline = "Save the page in one click";
 
 async function images() {
   const browser = await chromium.launch({ channel: "chromium", headless: true });
   try {
     const page = await browser.newPage({ deviceScaleFactor: 1 });
-    for (const lang of ["en", "ru"]) {
-      await page.setViewportSize({ width: 440, height: 280 });
-      await page.setContent(`<style>${fontFace}
-        body { width: 440px; height: 280px; background: #2f6b4f; color: #fffefa; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; gap: 18px; }
-        .brand { display: flex; align-items: center; gap: 16px; font-size: 40px; font-weight: 600; letter-spacing: -0.5px; }
-        p { font-size: 20px; color: #e2eee6; }
-        </style><div class="brand">${mark(84)}koona pin</div><p>${tagline[lang]}</p>`);
-      await page.evaluate(() => document.fonts.ready);
-      await page.screenshot({ path: path.join(out, lang, "promo-440x280.png") });
-    }
+    await page.setViewportSize({ width: 440, height: 280 });
+    await page.setContent(`<style>${fontFace}
+      body { width: 440px; height: 280px; background: #2f6b4f; color: #fffefa; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; gap: 18px; }
+      .brand { display: flex; align-items: center; gap: 16px; font-size: 40px; font-weight: 600; letter-spacing: -0.5px; }
+      p { font-size: 20px; color: #e2eee6; }
+      </style><div class="brand">${mark(84)}koona pin</div><p>${tagline}</p>`);
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: path.join(en, "promo-440x280.png") });
     await page.setViewportSize({ width: 300, height: 300 });
     await page.setContent(`<style>${fontFace}
       body { width: 300px; height: 300px; background: #2f6b4f; display: grid; place-items: center; }
@@ -253,12 +244,12 @@ async function images() {
 }
 
 try {
-  for (const lang of ["en", "ru"]) await rm(path.join(out, lang, "options-1280x800.png"), { force: true });
-  await shots("en");
-  await shots("ru");
+  await rm(path.join(en, "options-1280x800.png"), { force: true });
+  await shots();
   await images();
   console.log(`Store images: ${out}`);
 } finally {
   apps.stop();
-  execFileSync("reg", ["delete", KEY, "/f"], { stdio: "ignore" });
+  macApp?.kill();
+  if (windows) execFileSync("reg", ["delete", KEY, "/f"], { stdio: "ignore" });
 }

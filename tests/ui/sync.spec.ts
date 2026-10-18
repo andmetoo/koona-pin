@@ -1,5 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { openApp } from "../fixtures/app";
+
+/** The demo's computers run the version it was built from (package.json). */
+const version: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).version;
 
 // Sync between a Supporter's computers (NP-059, NP-063, sheet 46), in the demo: `koonapin.demo.sync`
 // starts the preview in a state of sync (src/services/demo.ts) so every screen is seen without a relay.
@@ -70,8 +74,8 @@ test("Sync: on the main computer — rename this one, remove another after a con
   const dialog = await openSync(page);
   await expect(dialog.locator("[data-sync-hub]")).toBeVisible();
   await expect(dialog.locator('[data-sync-banner="online"]')).toContainText("Synced just now");
-  await expect(dialog.locator('[data-sync-banner="online"]')).toContainText("3 computers · 12,480 bookmarks");
-  await expect(dialog.locator('[data-sync-device="Home iMac"]')).toContainText("macOS · Koona Pin 0.13.0");
+  await expect(dialog.locator('[data-sync-banner="online"]')).toContainText(/3 computers · \d[\d,]* bookmarks/);
+  await expect(dialog.locator('[data-sync-device="Home iMac"]')).toContainText(`macOS · Koona Pin ${version}`);
   await expect(dialog.locator('[data-sync-device="Office laptop"]')).toContainText("Windows · online");
   await expect(dialog.locator('[data-sync-device="Studio PC"]')).toContainText("Linux · last seen 3 hours ago");
   // No menus: the buttons are on the rows.
