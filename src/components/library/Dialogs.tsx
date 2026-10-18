@@ -417,7 +417,7 @@ export function ImportDialog({
             <p>{t("import.opmlRule")}</p>
           </div>
         )}
-        {!failed && !(empty && !sizing) && !feeds && (
+        {!failed && !(empty && !sizing) && !feeds && !any && (
           <>
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-muted">{t("import.destination")}</span>

@@ -728,7 +728,7 @@ function Rows({
     if (it.kind === "link" && it.status === "new") {
       const checked = !leftOut.has(it.url);
       return (
-        <label data-list-row="new" title={it.url} className={`${shape} ${checked ? "" : "text-muted"}`}>
+        <label data-list-row="new" title={it.url} className={shape}>
           {words}
           <input type="checkbox" checked={checked} onChange={() => onChoose({ leaveOut: toggleLink(it.url, choices) })} className="size-4 shrink-0 accent-accent" />
         </label>
