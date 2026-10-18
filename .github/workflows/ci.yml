@@ -217,6 +217,10 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Android debug build (arm64)
         run: bun run tauri android build --debug --target aarch64
+      # The plugin's Kotlin unit tests (the WebView version check), with the Gradle project the build made.
+      - name: Plugin unit tests
+        working-directory: src-tauri/gen/android
+        run: ./gradlew :tauri-plugin-koona-mobile:testDebugUnitTest
       # Android's 16 KB pages: zipalign and the ELF LOAD alignment, as build:android checks its release APK.
       - name: 16 KB alignment of the APK
         run: bun scripts/build-android.mjs --check src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
@@ -237,10 +241,13 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-ios-${{ hashFiles('bun.lock') }}
           restore-keys: bun-ios-
-      - name: Rust from rust-toolchain.toml, with the Simulator target
+      # llvm-tools: swift-rs keeps the plugins' Swift entry points exported with its llvm-objcopy, which a
+      # release build needs (scripts/build-ios-sim.mjs); here only, not in rust-toolchain.toml for every job.
+      - name: Rust from rust-toolchain.toml, with the Simulator target and llvm-tools
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup target add aarch64-apple-ios-sim
+          rustup component add llvm-tools
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri

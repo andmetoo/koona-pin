@@ -21,8 +21,10 @@ const built = path.join(root, "src-tauri", "gen", "apple", "build", "arm64-sim",
 if (!debug) {
   const sysroot = execFileSync("rustc", ["--print", "sysroot"], { cwd: root, encoding: "utf8" }).trim();
   const host = execFileSync("rustc", ["-vV"], { cwd: root, encoding: "utf8" }).match(/^host: (.+)$/m)?.[1];
-  if (!existsSync(path.join(sysroot, "lib", "rustlib", host ?? "", "bin", "llvm-objcopy")))
-    throw new Error("A release build needs llvm-objcopy: rustup component add llvm-tools");
+  if (!existsSync(path.join(sysroot, "lib", "rustlib", host ?? "", "bin", "llvm-objcopy"))) {
+    const toolchain = path.basename(sysroot);
+    throw new Error(`A release build needs llvm-objcopy. Install it with: rustup component add llvm-tools --toolchain ${toolchain}`);
+  }
 }
 rmSync(built, { recursive: true, force: true });
 execFileSync("bun", ["run", "tauri", "ios", "build", "--target", "aarch64-sim", ...(debug ? ["--debug"] : [])], {

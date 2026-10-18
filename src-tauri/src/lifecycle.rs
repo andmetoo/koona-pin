@@ -6,14 +6,15 @@
 use tauri::{AppHandle, Manager, Runtime};
 use tokio::sync::watch;
 
-/// Managed from the start; [`set`] moves it on `Suspended` and `Resumed`.
+/// Managed from the start; [`set`] moves it on `Suspended` and `Resumed`, [`hold`] keeps it shut.
 pub struct Lifecycle {
     on_screen: watch::Sender<bool>,
+    held: std::sync::atomic::AtomicBool,
 }
 
 impl Default for Lifecycle {
     fn default() -> Self {
-        Lifecycle { on_screen: watch::Sender::new(true) }
+        Lifecycle { on_screen: watch::Sender::new(true), held: Default::default() }
     }
 }
 
@@ -64,7 +65,18 @@ pub fn foreground<R: Runtime>(app: &AppHandle<R>) -> Foreground {
 pub fn set<R: Runtime>(app: &AppHandle<R>, on_screen: bool) {
     eprintln!("Koona Pin: {}", if on_screen { "back on the screen" } else { "behind the screen, the loops wait" });
     if let Some(lifecycle) = app.try_state::<Lifecycle>() {
-        lifecycle.on_screen.send_replace(on_screen);
+        if !lifecycle.held.load(std::sync::atomic::Ordering::SeqCst) {
+            lifecycle.on_screen.send_replace(on_screen);
+        }
+    }
+}
+
+/// Shuts the gate for this whole run: the app shows only a screen the interface cannot replace
+/// (an Android WebView too old for it), so the library stays closed and no loop starts.
+pub fn hold<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(lifecycle) = app.try_state::<Lifecycle>() {
+        lifecycle.held.store(true, std::sync::atomic::Ordering::SeqCst);
+        lifecycle.on_screen.send_replace(false);
     }
 }
 

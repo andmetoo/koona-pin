@@ -93,6 +93,8 @@ impl Library {
 
 pub fn start(app: AppHandle) {
     thread::spawn(move || {
+        // Not while a phone shows only its WebView update screen (lifecycle::hold, NP-151).
+        crate::lifecycle::foreground(&app).wait_blocking();
         let library = app.state::<Arc<Library>>().inner().clone();
         match library::open(&library.paths) {
             Ok(opened) => {

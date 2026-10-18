@@ -22,61 +22,75 @@ import android.webkit.SafeBrowsingResponse
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
+import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
+import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 
 private const val TAG = "KoonaPin"
 
 /**
- * Koona Pin on Android (NP-151): system Back, renderer loss and the insets. The page side is the
- * bridge script of this plugin (`window.__KOONA_MOBILE__`); see the crate's lib.rs.
+ * Koona Pin on Android (NP-151): system Back, renderer loss, the insets, and a screen asking to
+ * update a WebView too old for the interface. The page side is the bridge script of this plugin
+ * (`window.__KOONA_MOBILE__`); see the crate's lib.rs.
  */
 @TauriPlugin
 class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
   /** The last insets, in CSS pixels: top, right, bottom, left. Sent again after each page load. */
   private var insets: String? = null
 
+  /** The WebView's Chromium, read once: from its user agent, else the provider's version. */
+  private val found: WebViewVersion.Found by lazy {
+    val provider = WebView.getCurrentWebViewPackage()
+    val agent = try {
+      WebSettings.getDefaultUserAgent(activity)
+    } catch (error: Exception) {
+      null
+    }
+    WebViewVersion.Found(provider?.packageName, provider?.versionName, WebViewVersion.chromiumMajor(agent, provider?.versionName))
+  }
+
+  /** Each Back's state, by its number: waiting for the page, claimed by it, or given up on. */
+  private val backs = ConcurrentHashMap<Int, AtomicInteger>()
+  private val nextBack = AtomicInteger()
+
+  /**
+   * Whether the WebView runs the interface. The app asks once at its start, before it opens the
+   * library: with an old WebView it starts nothing behind the update screen (lib.rs).
+   */
+  @Command
+  fun webViewSupport(invoke: Invoke) {
+    invoke.resolve(JSObject().put("supported", WebViewVersion.supported(found.major)))
+  }
+
   override fun load(webView: WebView) {
     val owner = activity as AppCompatActivity
     // The interface needs Chrome 111 (Tailwind 4); Android 10 may still carry a WebView far older
     // until Play updates it. Then a native screen asks for the update instead of a blank page. wry
     // sets the WebView as the content after the plugins load: replace it once that has happened.
-    val provider = WebView.getCurrentWebViewPackage()
-    val major = provider?.versionName?.substringBefore('.')?.toIntOrNull()
-    if (provider != null && major != null && major < MIN_WEBVIEW) {
-      Log.w(TAG, "Android System WebView ${provider.versionName} is older than $MIN_WEBVIEW")
-      webView.post { showWebViewTooOld(provider.packageName, provider.versionName ?: "") }
+    val found = this.found
+    if (!WebViewVersion.supported(found.major)) {
+      Log.w(TAG, "The WebView (${found.packageName} ${found.versionName}, Chromium ${found.major}) is older than ${WebViewVersion.MIN}")
+      webView.post { showWebViewTooOld(found) }
     }
+    webView.addJavascriptInterface(BackClaims(), "KoonaMobileAndroid")
     // Added after Tauri's and wry's own callbacks, so it runs first: theirs would go back in the
     // WebView's history or finish the activity.
     owner.onBackPressedDispatcher.addCallback(owner, object : OnBackPressedCallback(true) {
-      override fun handleOnBackPressed() {
-        // The page closed something; otherwise (nothing to close, no page yet, or a page that does
-        // not answer within BACK_WAIT_MS) the app goes to the background as Android apps do. It
-        // never exits here.
-        var settled = false
-        val noAnswer = Runnable {
-          if (!settled) {
-            settled = true
-            activity.moveTaskToBack(true)
-          }
-        }
-        webView.postDelayed(noAnswer, BACK_WAIT_MS)
-        webView.evaluateJavascript(BACK) { answer ->
-          if (settled) return@evaluateJavascript
-          settled = true
-          webView.removeCallbacks(noAnswer)
-          if (answer != "true") activity.moveTaskToBack(true)
-        }
-      }
+      override fun handleOnBackPressed() = back(webView)
     })
     ViewCompat.setOnApplyWindowInsetsListener(webView) { view, windowInsets ->
       val bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -93,24 +107,56 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   /**
-   * «Update Android System WebView»: shown before the interface, so in English (the page's
-   * translations are not loaded yet). The button opens the WebView's page in Google Play.
+   * System Back, with exactly one outcome: the page closes one level, or the app goes to the
+   * background (nothing open, no page yet, or a page busy for BACK_WAIT_MS). It never exits here.
+   * The page claims the Back by its number before it closes anything (`KoonaMobileAndroid.claimBack`,
+   * a synchronous call); the timer takes it only while it is unclaimed, so a late page closes
+   * nothing once the app has gone to the background.
    */
-  private fun showWebViewTooOld(packageName: String, version: String) {
+  private fun back(webView: WebView) {
+    val id = nextBack.incrementAndGet()
+    val state = AtomicInteger(WAITING)
+    backs[id] = state
+    val giveUp = Runnable {
+      if (state.compareAndSet(WAITING, GIVEN_UP)) activity.moveTaskToBack(true)
+    }
+    webView.postDelayed(giveUp, BACK_WAIT_MS)
+    webView.evaluateJavascript("(function(){var m=window.__KOONA_MOBILE__;return !!(m&&m.back($id));})()") { answer ->
+      webView.removeCallbacks(giveUp)
+      backs.remove(id)
+      // Nothing closed: unless the timer already went, the app goes to the background now.
+      if (answer != "true" && (state.compareAndSet(WAITING, GIVEN_UP) || state.get() == CLAIMED)) {
+        activity.moveTaskToBack(true)
+      }
+    }
+  }
+
+  /** The page's side of [back]: called from the page's thread, before it closes anything. */
+  private inner class BackClaims {
+    @JavascriptInterface
+    fun claimBack(id: Int): Boolean = backs[id]?.compareAndSet(WAITING, CLAIMED) ?: false
+  }
+
+  /**
+   * «Update Android System WebView», shown instead of the interface. Its words are the plugin's
+   * string resources (res/values/strings.xml): the page's translations never load here. The button
+   * opens the WebView's page in Google Play, or on the web without Play.
+   */
+  private fun showWebViewTooOld(found: WebViewVersion.Found) {
     val density = activity.resources.displayMetrics.density
     fun dp(value: Int) = (value * density).toInt()
+    val packageName = found.packageName ?: "com.google.android.webview"
     val title = TextView(activity).apply {
-      text = "Update Android System WebView"
+      text = activity.getString(R.string.koona_webview_title)
       textSize = 22f
     }
     val body = TextView(activity).apply {
-      text = "Koona Pin needs Android System WebView $MIN_WEBVIEW or newer to show its pages. " +
-        "This phone has version $version. Update it in Google Play, then open Koona Pin again."
+      text = activity.getString(R.string.koona_webview_body, WebViewVersion.MIN, found.versionName ?: "?")
       textSize = 16f
       setPadding(0, dp(12), 0, dp(24))
     }
     val update = Button(activity).apply {
-      text = "Open Google Play"
+      text = activity.getString(R.string.koona_webview_button)
       setOnClickListener {
         val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
         try {
@@ -168,11 +214,11 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   private companion object {
-    const val BACK = "(function(){var m=window.__KOONA_MOBILE__;return !!(m&&m.back());})()"
-    /** The oldest Android System WebView (Chrome) major version the interface runs on. */
-    const val MIN_WEBVIEW = 111
-    /** How long Back waits for the page before it moves the app to the background anyway. */
-    const val BACK_WAIT_MS = 300L
+    /** How long Back waits for a busy page before it moves the app to the background anyway. */
+    const val BACK_WAIT_MS = 1000L
+    const val WAITING = 0
+    const val CLAIMED = 1
+    const val GIVEN_UP = 2
   }
 }
 

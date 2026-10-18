@@ -40,3 +40,18 @@ describe("platform", () => {
     offEditor();
   });
 });
+
+describe("a Back the phone gave up on", () => {
+  it("closes nothing when it is not claimed, and nothing is asked with nothing open", () => {
+    const closed: string[] = [];
+    let asked = 0;
+    expect(goBack(() => (asked++, true))).toBe(false);
+    expect(asked).toBe(0);
+    const off = onBack(() => (closed.push("dialog"), true));
+    expect(goBack(() => false)).toBe(false);
+    expect(closed).toEqual([]);
+    expect(goBack(() => true)).toBe(true);
+    expect(closed).toEqual(["dialog"]);
+    off();
+  });
+});

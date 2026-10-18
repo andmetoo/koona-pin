@@ -9,12 +9,25 @@
 //! - **Insets** (Android): the system bars, the cutout and the keyboard as `--kp-inset-*` CSS
 //!   variables, for WebViews whose `env(safe-area-inset-*)` stays zero in an edge-to-edge window.
 //!
+//! - **An old WebView** (Android): the interface needs Chromium 111. With an older one the plugin
+//!   shows a native «Update Android System WebView» screen instead of the page, and
+//!   [`webview_supported`] tells the app so, which then starts nothing behind it.
+//!
 //! The bridge script also tells the page its platform before the page's own scripts run.
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    Runtime,
+    AppHandle, Manager, Runtime,
 };
+
+/// Whether the WebView runs the interface, asked of the Kotlin side once at start.
+struct WebViewSupport(bool);
+
+/// False only on an Android phone whose WebView is too old for the interface; true everywhere
+/// else, and when the plugin could not tell.
+pub fn webview_supported<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.try_state::<WebViewSupport>().is_none_or(|support| support.0)
+}
 
 #[cfg(target_os = "ios")]
 tauri::ios_plugin_binding!(init_plugin_koona_mobile);
@@ -37,7 +50,15 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .js_init_script(bridge())
         .setup(|_app, _api| {
             #[cfg(target_os = "android")]
-            _api.register_android_plugin("app.koona.pin.mobile", "KoonaMobilePlugin")?;
+            {
+                #[derive(serde::Deserialize)]
+                struct Answer {
+                    supported: bool,
+                }
+                let handle = _api.register_android_plugin("app.koona.pin.mobile", "KoonaMobilePlugin")?;
+                let supported = handle.run_mobile_plugin::<Answer>("webViewSupport", ()).map_or(true, |answer| answer.supported);
+                _app.manage(WebViewSupport(supported));
+            }
             #[cfg(target_os = "ios")]
             _api.register_ios_plugin(init_plugin_koona_mobile)?;
             Ok(())

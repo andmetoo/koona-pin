@@ -476,6 +476,12 @@ impl Pending {
 pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>, start: Option<i64>, mut foreground: Foreground) {
     let mut pending = Pending::new(start);
     loop {
+        // A session that ended meanwhile is not waited for: behind a phone's screen this would park
+        // until the app came back. (A session that ends while the watcher is parked lets it go on
+        // the way back, here: `done` has no wake-up of its own to end the park sooner.)
+        if done.load(Ordering::SeqCst) {
+            return;
+        }
         foreground.wait().await;
         // A suspend during the wait skips this pass: nothing is pushed behind the screen.
         tokio::select! {

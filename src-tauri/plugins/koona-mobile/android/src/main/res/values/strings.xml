@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The screen shown instead of the interface when the WebView is too old (NP-151). The page's
+     translations (src/locales) never load there; translations of these follow Android's own route
+     (res/values-<language>/strings.xml). -->
+<resources>
+    <string name="koona_webview_title">Update Android System WebView</string>
+    <string name="koona_webview_body">Koona Pin needs Android System WebView %1$d or newer to show its pages. This phone has version %2$s. Update it in Google Play, then open Koona Pin again.</string>
+    <string name="koona_webview_button">Open Google Play</string>
+</resources>

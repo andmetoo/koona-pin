@@ -10,6 +10,7 @@ links = "tauri-plugin-koona-mobile"
 
 [dependencies]
 tauri = "2.1"
+serde = { version = "1.0", features = ["derive"] }
 
 [build-dependencies]
 # Already in the tree through the other plugins' builds.

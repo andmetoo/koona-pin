@@ -219,6 +219,12 @@ pub fn run() {
         .manage(refresh::Refresher::default())
         .manage(lifecycle::Lifecycle::default())
         .setup(move |app| {
+            // An Android WebView too old for the interface gets the plugin's update screen; nothing
+            // starts behind it: the library stays closed and the loops wait for good (NP-151).
+            #[cfg(target_os = "android")]
+            if !tauri_plugin_koona_mobile::webview_supported(app.handle()) {
+                lifecycle::hold(app.handle());
+            }
             // Before anything that reads or writes beside the library.
             app.manage(Arc::new(library_state::Library::new(library_paths(app)?)));
             // A file or a link the app was started with waits for the interface (cold start).
