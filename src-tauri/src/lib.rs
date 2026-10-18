@@ -215,6 +215,7 @@ pub fn run() {
         .manage(open_requests::PendingOpens::default())
         .manage(commands::LastExport::default())
         .manage(commands::PickedBackup::default())
+        .manage(commands::PickedImportFile::default())
         .manage(linkcheck::Checker::default())
         .manage(refresh::Refresher::default())
         .manage(lifecycle::Lifecycle::default())
@@ -361,6 +362,8 @@ pub fn run() {
             commands::list_backups,
             commands::pick_backup,
             commands::pick_import_file,
+            commands::read_picked_import,
+            commands::forget_picked_import,
             commands::restore_backup,
             #[cfg(desktop)]
             commands::reveal_backup,

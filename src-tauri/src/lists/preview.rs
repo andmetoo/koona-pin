@@ -29,11 +29,13 @@ pub(crate) fn followed(conn: &Connection, url: &str) -> rusqlite::Result<bool> {
     Ok(feed_at(conn, url)?.is_some())
 }
 
-/// The rows of the preview by section (K10): the top level first, then each
-/// section where it first appears, items in the file's order. A link is in
-/// its first section only, as `tags_with` names it first.
-fn groups(conn: &Connection, list: &ParsedList) -> rusqlite::Result<Vec<ListPreviewGroup>> {
-    let mut rows: Vec<(usize, Option<&str>, ListPreviewItem)> = Vec::with_capacity(list.links.len() + list.feeds.len());
+/// A row of the preview: where it is in the file, its first section, and the row itself.
+type Row<'a> = (usize, Option<&'a str>, ListPreviewItem);
+
+/// One row per link and feed, each looked up in the library once; the counts and the groups
+/// are both taken from these rows. Links first, then feeds, each in the list's order.
+fn rows<'a>(conn: &Connection, list: &'a ParsedList) -> rusqlite::Result<Vec<Row<'a>>> {
+    let mut rows: Vec<Row<'a>> = Vec::with_capacity(list.links.len() + list.feeds.len());
     for link in &list.links {
         let (status, bookmark_id) = match bookmark_at(conn, &link.url)? {
             Some((id, true)) => (ListPreviewStatus::InTrash, Some(id)),
@@ -66,6 +68,13 @@ fn groups(conn: &Connection, list: &ParsedList) -> rusqlite::Result<Vec<ListPrev
         };
         rows.push((feed.at, feed.section.as_deref(), item));
     }
+    Ok(rows)
+}
+
+/// The rows of the preview by section (K10): the top level first, then each
+/// section where it first appears, items in the file's order. A link is in
+/// its first section only, as `tags_with` names it first.
+fn groups(mut rows: Vec<Row<'_>>) -> Vec<ListPreviewGroup> {
     rows.sort_by_key(|(at, _, _)| *at);
     let mut groups = vec![ListPreviewGroup { name: None, tag: None, items: Vec::new() }];
     let mut group_at: HashMap<&str, usize> = HashMap::new();
@@ -86,7 +95,7 @@ fn groups(conn: &Connection, list: &ParsedList) -> rusqlite::Result<Vec<ListPrev
         }
     }
     groups.retain(|g| !g.items.is_empty());
-    Ok(groups)
+    groups
 }
 
 /// The collection with this name, case aside (`db::fold`, as the bookmarks import compares).
@@ -104,28 +113,23 @@ pub(crate) fn collection_named(conn: &Connection, name: &str) -> rusqlite::Resul
 }
 
 pub fn preview(conn: &Connection, list: &ParsedList, source: &str) -> rusqlite::Result<ListPreview> {
-    let (mut already_saved, mut in_trash) = (0, 0);
-    for link in &list.links {
-        match saved(conn, &link.url)? {
-            Some(true) => in_trash += 1,
-            Some(false) => already_saved += 1,
-            None => {}
-        }
-    }
-    let mut feeds_followed = 0;
-    let mut new_feeds = Vec::new();
-    for feed in &list.feeds {
-        if followed(conn, &feed.url)? {
-            feeds_followed += 1;
-        } else {
-            new_feeds.push(ListFeedEntry {
-                url: feed.url.clone(),
-                title: feed.title.clone(),
-                site: feed.site.clone(),
-                section: feed.section.clone(),
-            });
-        }
-    }
+    let rows = rows(conn, list)?;
+    let count = |status| rows.iter().filter(|(_, _, row)| row.status == status).count() as u32;
+    let (already_saved, in_trash, feeds_followed) =
+        (count(ListPreviewStatus::Saved), count(ListPreviewStatus::InTrash), count(ListPreviewStatus::Followed));
+    // The feeds' rows follow the links' in the list's order, until `groups` sorts them.
+    let new_feeds = list
+        .feeds
+        .iter()
+        .zip(&rows[list.links.len()..])
+        .filter(|(_, (_, _, row))| row.status == ListPreviewStatus::New)
+        .map(|(feed, _)| ListFeedEntry {
+            url: feed.url.clone(),
+            title: feed.title.clone(),
+            site: feed.site.clone(),
+            section: feed.section.clone(),
+        })
+        .collect();
     let links = list.links.len() as u32;
     Ok(ListPreview {
         meta: list.meta.clone(),
@@ -146,7 +150,7 @@ pub fn preview(conn: &Connection, list: &ParsedList, source: &str) -> rusqlite::
         skipped_items: list.skipped_items,
         new_feeds,
         existing_collection: collection_named(conn, &list.meta.title)?,
-        groups: groups(conn, list)?,
+        groups: groups(rows),
     })
 }
 
@@ -228,6 +232,23 @@ mod tests {
         let list = parse(include_str!("../../tests/fixtures/kpin/valid.kpin")).unwrap();
         let p = preview(&c, &list, "").unwrap();
         assert_eq!(p.groups.iter().map(|g| g.name.as_deref()).collect::<Vec<_>>(), [None, Some("Compiler and language"), Some("Async")]);
+    }
+
+    #[test]
+    fn the_new_feeds_keep_the_files_order_without_the_followed() {
+        let c = database();
+        let list = parse(include_str!("../../tests/fixtures/kpin/groups.kpin")).unwrap();
+        let urls = |p: &ListPreview| p.new_feeds.iter().map(|f| f.url.clone()).collect::<Vec<_>>();
+        let p = preview(&c, &list, "").unwrap();
+        assert_eq!(
+            urls(&p),
+            ["https://tools.example.com/feed.xml", "https://followed.example.com/rss", "https://new.example.com/atom.xml"]
+        );
+        c.execute("INSERT INTO feeds (uid, url, created_at, updated_at) VALUES ('f', 'https://followed.example.com/rss', 'x', 'x')", [])
+            .unwrap();
+        let p = preview(&c, &list, "").unwrap();
+        assert_eq!(urls(&p), ["https://tools.example.com/feed.xml", "https://new.example.com/atom.xml"]);
+        assert_eq!((p.feeds_followed, p.new_feeds[0].section.as_deref(), p.new_feeds[1].section.as_deref()), (1, Some("Tools"), Some("Feeds")));
     }
 
     #[test]

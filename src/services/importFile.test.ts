@@ -1,10 +1,31 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CAPS, LARGEST, classify, readDropped, readFile, sniff, topLevelFormat } from "./importFile";
+import { CAPS, HEAD, LARGEST, classify, readDropped, readFile, sniff, sniffHead, topLevelFormat } from "./importFile";
 
 const LIST = '{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Rust","items":[]}';
 const COPY = '{"format":"koona-pin","version":1,"bookmarks":[]}';
 const OPML = '<?xml version="1.0"?>\n<!-- feeds --><opml version="2.0"><body><outline xmlUrl="https://example.org/a.xml"/></body></opml>';
 const NETSCAPE = '<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type"><TITLE>Bookmarks</TITLE><DL><p><DT><A HREF="https://example.org">A</A></DL>';
+
+/** A browser's export from tests/fixtures/bookmarks. */
+const fixture = (name: string) => readFileSync(new URL(`../../tests/fixtures/bookmarks/${name}.html`, import.meta.url), "utf8");
+
+/** Safari's export: its folders and links carry no ADD_DATE. */
+const SAFARI = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+	<HTML>
+	<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+	<Title>Bookmarks</Title>
+	<H1>Bookmarks</H1>
+	<DT><H3 FOLDED>Favorites</H3>
+	<DL><p>
+		<DT><A HREF="https://www.apple.com/">Apple</A>
+	</DL><p>
+</HTML>`;
+
+/** A saved article whose glossary is a <dl>. */
+const ARTICLE = `<!DOCTYPE html><html><head><title>Rust terms</title></head><body><article><h1>Terms</h1>
+<dl><dt>Borrow</dt><dd>A reference. See <a href="https://doc.rust-lang.org/book/">the book</a>.</dd>
+<dt><a href="https://example.org/lifetime">Lifetime</a></dt><dd>How long a reference lives.</dd></dl></article></body></html>`;
 
 /** A file of `size` bytes whose text starts with `text`: its size is what a cap checks. */
 const sized = (text: string, size: number, name: string) => new File([text, new Uint8Array(Math.max(0, size - text.length)).fill(32)], name);
@@ -26,7 +47,7 @@ describe("sniff", () => {
     expect(sniff(OPML)).toBe("opml");
     expect(sniff("<OPML>")).toBe("opml");
     expect(sniff(NETSCAPE)).toBe("bookmarks");
-    expect(sniff('<html><body><H1>Bookmarks</H1>\n<DL><p><DT><A HREF="https://example.org">A</A></DL></body></html>')).toBe("bookmarks");
+    expect(sniff('<html><body><H1>Bookmarks</H1>\n<DL><p><DT><A HREF="https://example.org" ADD_DATE="1">A</A></DL></body></html>')).toBe("bookmarks");
     expect(sniff("<!doctype netscape-bookmark-file-1>")).toBe("bookmarks");
   });
 
@@ -44,6 +65,29 @@ describe("sniff", () => {
     expect(sniff(`<html>${" ".repeat(64 * 1024)}<dl></dl></html>`)).toBeNull();
     // <dlx> is not a <dl>.
     expect(sniff("<html><dlx>")).toBeNull();
+  });
+});
+
+describe("bookmarks", () => {
+  const noDoctype = (text: string) => text.replace(/<!DOCTYPE[^>]*>/i, "");
+
+  it("knows real Chrome, Edge, Firefox and Safari exports, with their DOCTYPE or without it", () => {
+    for (const text of [fixture("chrome"), fixture("edge"), fixture("firefox"), SAFARI]) {
+      expect(sniff(text)).toBe("bookmarks");
+      expect(sniff(noDoctype(text))).toBe("bookmarks");
+    }
+  });
+
+  it("takes a <dl> only with a <DT><H3 folder or a <DT><A carrying HREF and ADD_DATE", () => {
+    expect(sniff('<DL><p><DT><H3 ADD_DATE="1">Work</H3></DL>')).toBe("bookmarks");
+    expect(sniff('<DL><p><DT><A ADD_DATE="1" HREF="https://example.org">A</A></DL>')).toBe("bookmarks");
+    expect(sniff('<DL><p><DT><A HREF="https://example.org">A</A></DL>')).toBeNull();
+    expect(sniff('<DT><A HREF="https://example.org" ADD_DATE="1">A</A>')).toBeNull();
+  });
+
+  it("refuses a saved article with a glossary <dl>", async () => {
+    expect(sniff(ARTICLE)).toBeNull();
+    expect(await readFile(new File([ARTICLE], "rust-terms.html"))).toEqual({ refused: "unsupported" });
   });
 });
 
@@ -76,6 +120,8 @@ describe("topLevelFormat", () => {
     const late = (size: number) => `{"blob":"${"x".repeat(size)}","format":"koona"}`;
     expect(sniff(late(64 * 1024))).toBe("kpin");
     expect(sniff(late(CAPS.kpin))).toBeNull();
+    // From its head alone the late one is not known yet.
+    expect(sniffHead(late(64 * 1024))).toBeUndefined();
   });
 });
 
@@ -100,6 +146,48 @@ describe("readFile", () => {
     expect(await readFile(sized(LIST, CAPS.kpin, "just-fits.kpin"))).toMatchObject({ kind: "kpin" });
     expect(await readFile(sized(LIST, CAPS.kpin + 1, "huge.kpin"))).toEqual({ refused: "tooBig", cap: CAPS.kpin });
     expect(await readFile(sized(OPML, CAPS.kpin + 1, "feeds.opml"))).toMatchObject({ kind: "opml" });
+  });
+
+  it("reads the head first and the whole file only once its kind and cap allow it", async () => {
+    /** A file that records what was read of it. */
+    const watched = (text: string, size: number) => {
+      const reads: string[] = [];
+      const file = {
+        name: "f",
+        size,
+        slice: (from: number, to: number) => ({ text: () => (reads.push(`head ${from}-${to}`), Promise.resolve(text.slice(from, to))) }),
+        text: () => (reads.push("whole"), Promise.resolve(text)),
+      } as unknown as File;
+      return { file, reads };
+    };
+    // A list in its head: the head is the whole file, not read again.
+    let w = watched(LIST, LIST.length);
+    expect(await readFile(w.file)).toMatchObject({ kind: "kpin", text: LIST });
+    expect(w.reads).toEqual([`head 0-${HEAD}`]);
+    // A bigger one: head, then the whole.
+    const long = `{"format":"koona","blob":"${"x".repeat(HEAD)}"}`;
+    w = watched(long, long.length);
+    expect(await readFile(w.file)).toMatchObject({ kind: "kpin", text: long });
+    expect(w.reads).toEqual([`head 0-${HEAD}`, "whole"]);
+    // A whole file that is no longer what its head was (changed in between): refused.
+    w = watched(long, long.length);
+    (w.file as unknown as { text: () => Promise<string> }).text = () => Promise.resolve(`{"format":"koona-pin"}${" ".repeat(HEAD)}`);
+    expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
+    // A list over its cap, a PDF: the head only.
+    w = watched(LIST, CAPS.kpin + 1);
+    expect(await readFile(w.file)).toEqual({ refused: "tooBig", cap: CAPS.kpin });
+    expect(w.reads).toEqual([`head 0-${HEAD}`]);
+    w = watched("%PDF-1.7", 100 * 1024 * 1024);
+    expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
+    expect(w.reads).toEqual([`head 0-${HEAD}`]);
+    // A format past the head: a list-sized file is read whole once; a bigger one not at all.
+    const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona"}`;
+    w = watched(late, late.length);
+    expect(await readFile(w.file)).toMatchObject({ kind: "kpin", text: late });
+    expect(w.reads).toEqual([`head 0-${HEAD}`, "whole"]);
+    w = watched(late, CAPS.kpin + 1);
+    expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
+    expect(w.reads).toEqual([`head 0-${HEAD}`]);
   });
 
   it("does not read a file over the largest cap", async () => {

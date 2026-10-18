@@ -4,6 +4,7 @@
 // nothing is imported here.
 import { invoke } from "@tauri-apps/api/core";
 import type { PickedImport } from "../bindings/PickedImport";
+import type { PickedImportText } from "../bindings/PickedImportText";
 import { isTauri } from "./api";
 import { toCommandError } from "./errors";
 import { MAX_FILE, opmlRoot } from "./openRequests";
@@ -23,8 +24,11 @@ export const LARGEST = Math.max(...Object.values(CAPS));
 const LIST_FORMAT = "koona";
 const COPY_FORMAT = "koona-pin";
 
-/** How much of a JSON file is scanned for its top-level `format`. */
-const HEAD = 64 * 1024;
+/**
+ * How much of a file is read before its kind is known (Rust `IMPORT_HEAD`): the rest is read only
+ * once the kind and that kind's cap allow it.
+ */
+export const HEAD = 64 * 1024;
 
 /** Past the closing quote of the JSON string that opens at `from`; -1 when it does not close in `text`. */
 function stringEnd(text: string, from: number) {
@@ -98,31 +102,51 @@ export function topLevelFormat(json: string): string | null | undefined {
 }
 
 /**
- * The kind of a file by its text:
- * 1. JSON (past a BOM and white space, `{` first): a list or a full copy by its top-level `format`;
- *    any other JSON is none of ours.
- * 2. An `<opml>` root.
- * 3. A Netscape bookmarks file: its DOCTYPE or a `<dl>` in the first 64 KB.
+ * A browser's bookmarks (the Netscape format): its DOCTYPE; or, as some exports drop it, a `<dl>`
+ * with what only such a file has — a `<DT><H3` folder, or a `<DT><A` with both HREF and ADD_DATE.
+ * A page that merely has a `<dl>`, such as a saved article with a glossary, is not.
  */
-export function sniff(text: string): ImportKind | null {
-  const start = text.replace(/^\uFEFF/, "").trimStart();
+function bookmarksHead(head: string) {
+  if (/<!DOCTYPE\s+NETSCAPE-Bookmark-file-1\s*>/i.test(head)) return true;
+  if (!/<dl[\s>]/i.test(head)) return false;
+  return /<dt>\s*<h3[\s>]/i.test(head) || /<dt>\s*<a\s(?=[^>]*\bhref\s*=)(?=[^>]*\badd_date\s*=)/i.test(head);
+}
+
+/**
+ * The kind of a file by its head (its first `HEAD` bytes, or all of a smaller file):
+ * 1. JSON (past a BOM and white space, `{` first): a list or a full copy by its top-level `format`;
+ *    any other JSON is none of ours. `undefined` when the head does not reach the `format`.
+ * 2. An `<opml>` root.
+ * 3. A Netscape bookmarks file (`bookmarksHead`).
+ */
+export function sniffHead(head: string): ImportKind | null | undefined {
+  const start = head.replace(/^\uFEFF/, "").trimStart();
   if (start.startsWith("{")) {
-    let format = topLevelFormat(start);
-    // A `format` past the head (written by hand, not by Koona Pin): a file of a list's size is parsed whole.
-    if (format === undefined && start.length <= CAPS.kpin) {
-      try {
-        const value = (JSON.parse(start) as { format?: unknown } | null)?.format;
-        format = typeof value === "string" ? value : null;
-      } catch {
-        format = null;
-      }
-    }
-    return format === LIST_FORMAT ? "kpin" : format === COPY_FORMAT ? "backup" : null;
+    const format = topLevelFormat(start);
+    return format === undefined ? undefined : byFormat(format);
   }
   if (opmlRoot(start)) return "opml";
-  const head = start.slice(0, 64 * 1024);
-  if (/<!DOCTYPE\s+NETSCAPE-Bookmark-file-1\s*>/i.test(head) || /<dl[\s>]/i.test(head)) return "bookmarks";
-  return null;
+  return bookmarksHead(start.slice(0, HEAD)) ? "bookmarks" : null;
+}
+
+const byFormat = (format: string | null): ImportKind | null =>
+  format === LIST_FORMAT ? "kpin" : format === COPY_FORMAT ? "backup" : null;
+
+/**
+ * The kind of a whole file by its text: by its head (`sniffHead`), and for a JSON whose `format`
+ * is past the head (written by hand, not by Koona Pin), a file of a list's size is parsed whole.
+ */
+export function sniff(text: string): ImportKind | null {
+  const kind = sniffHead(text);
+  if (kind !== undefined) return kind;
+  const start = text.replace(/^\uFEFF/, "").trimStart();
+  if (start.length > CAPS.kpin) return null;
+  try {
+    const value = (JSON.parse(start) as { format?: unknown } | null)?.format;
+    return byFormat(typeof value === "string" ? value : null);
+  } catch {
+    return null;
+  }
 }
 
 /** A file read and known. */
@@ -141,10 +165,41 @@ export function classify(name: string, bytes: number, text: string): ImportFile 
   return { kind, name, text };
 }
 
-/** One file, read unless it is over the largest cap. */
+/**
+ * A file of `bytes` known by its `head`, then read whole by `whole` (up to a cap; `null` past it)
+ * only once its kind is known and under that kind's cap; a head of the whole file is not read
+ * again. A JSON whose `format` is past the head is read whole only when it is no bigger than a
+ * list. The whole text must be of the kind its head was: a file changed in between is refused.
+ */
+async function known(
+  name: string,
+  bytes: number,
+  head: string,
+  whole: (cap: number) => Promise<string | null>,
+): Promise<ImportFile | ImportRefusal> {
+  let kind = sniffHead(head);
+  let text: string | null = null;
+  if (kind === undefined) {
+    if (bytes > CAPS.kpin) return { refused: "unsupported" };
+    text = await whole(CAPS.kpin);
+    if (text === null) return { refused: "tooBig", cap: CAPS.kpin };
+    kind = sniff(text);
+  }
+  if (!kind) return { refused: "unsupported" };
+  if (bytes > CAPS[kind]) return { refused: "tooBig", cap: CAPS[kind] };
+  if (text === null) {
+    text = bytes <= HEAD ? head : await whole(CAPS[kind]);
+    if (text === null) return { refused: "tooBig", cap: CAPS[kind] };
+    if (text !== head && sniff(text) !== kind) return { refused: "unsupported" };
+  }
+  return { kind, name, text };
+}
+
+/** One file: its head first, the rest only once its kind and that kind's cap allow it. */
 export async function readFile(file: File): Promise<ImportFile | ImportRefusal> {
   if (file.size > LARGEST) return { refused: "tooBig", cap: LARGEST };
-  return classify(file.name, file.size, await file.text());
+  const head = await file.slice(0, HEAD).text();
+  return known(file.name, file.size, head, () => file.text());
 }
 
 /** The first dropped file, read and known, and whether others came with it; or why not. */
@@ -158,9 +213,9 @@ export async function readDropped(
 }
 
 /**
- * «Import a file…»: the system Open dialog (Rust `pick_import_file`, which reads up to the largest
- * cap), then the file known as a drop is. In the browser preview a file input stands for the
- * dialog. `null`: cancelled.
+ * «Import a file…»: the system Open dialog (Rust `pick_import_file`, which gives the file's head),
+ * then the file known as a drop is; Rust `read_picked_import` reads the rest under its kind's cap.
+ * In the browser preview a file input stands for the dialog. `null`: cancelled.
  */
 export async function pick(): Promise<ImportFile | ImportRefusal | null> {
   if (isTauri()) {
@@ -169,7 +224,17 @@ export async function pick(): Promise<ImportFile | ImportRefusal | null> {
     });
     if (picked.outcome === "cancelled") return null;
     if (picked.outcome === "too_big") return { refused: "tooBig", cap: LARGEST };
-    return classify(picked.name, picked.bytes, picked.text);
+    // The read empties Rust's slot; a file refused by its head, or whole in it, is forgotten.
+    let read = false;
+    const result = await known(picked.name, picked.bytes, picked.head, async (cap) => {
+      read = true;
+      const text = await invoke<PickedImportText>("read_picked_import", { cap }).catch((error: unknown) => {
+        throw toCommandError(error);
+      });
+      return text.outcome === "read" ? text.text : null;
+    });
+    if (!read) await invoke("forget_picked_import").catch(() => undefined);
+    return result;
   }
   const file = await new Promise<File | null>((resolve) => {
     const input = document.createElement("input");
@@ -181,4 +246,4 @@ export async function pick(): Promise<ImportFile | ImportRefusal | null> {
   return file ? readFile(file) : null;
 }
 
-export const importFile = { sniff, classify, readFile, readDropped, pick };
+export const importFile = { sniff, sniffHead, classify, readFile, readDropped, pick };
