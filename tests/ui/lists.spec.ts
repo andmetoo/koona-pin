@@ -224,10 +224,12 @@ test("a list from a newer format asks for an update; another app's list and a br
   await expect(d).toHaveCount(0);
 });
 
-test("a newer 1.x list says what was skipped; «Import…» takes a .kpin to the list dialog", async ({ page }) => {
+test("a newer 1.x list says what was skipped; «Import a file…» takes a list to the list dialog", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Browser bookmarks/ }).click();
-  await page.locator("dialog input[type=file]").setInputFiles({ name: "newer.kpin", mimeType: "application/json", buffer: Buffer.from(kpin("unknown-type.kpin")) });
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  // By content: a list named otherwise is a list.
+  await (await chooser).setFiles({ name: "newer.json", mimeType: "application/json", buffer: Buffer.from(kpin("unknown-type.kpin")) });
   const d = dialog(page);
   await expect(d).toContainText("From a newer writer");
   await expect(page.getByRole("dialog", { name: "Import bookmarks" })).toHaveCount(0);

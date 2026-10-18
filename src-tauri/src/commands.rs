@@ -1397,6 +1397,72 @@ pub async fn pick_backup(
     Ok(outcome)
 }
 
+/// The largest file «Import a file…» reads: a full copy's cap, the biggest of the kinds it takes
+/// (share-bundle.md, «"Import a file…" and the sniffer»). The page checks each kind's own cap
+/// once it knows the kind.
+pub const IMPORT_FILE_CAP: u64 = 256 * 1024 * 1024;
+
+#[derive(Serialize, TS)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[ts(export)]
+pub enum PickedImport {
+    Cancelled,
+    /// The file's name, size and text, to be sniffed by the page as a dropped file is.
+    Picked { name: String, bytes: u32, text: String },
+    /// Over `IMPORT_FILE_CAP`: not read.
+    TooBig { name: String },
+}
+
+/// The text of a file of at most `cap` bytes, or `None` when it is bigger. The read itself stops
+/// past the cap, so a file that grows after its size was taken is not read whole either. Not
+/// UTF-8 is replaced, as the webview's `File.text()` does for a dropped file.
+pub fn read_capped(path: &std::path::Path, cap: u64) -> std::io::Result<Option<(u32, String)>> {
+    use std::io::Read;
+    let file = std::fs::File::open(path)?;
+    let size = file.metadata()?.len();
+    if size > cap {
+        return Ok(None);
+    }
+    // Sized once from the metadata (still within the cap); one more byte tells a file that grew.
+    let mut bytes = Vec::with_capacity(size as usize + 1);
+    file.take(cap + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > cap {
+        return Ok(None);
+    }
+    // The cap is far under 4 GB, so the size fits.
+    let read = bytes.len() as u32;
+    // Valid UTF-8 becomes the String without a copy; only a file that is not pays for one.
+    let text = String::from_utf8(bytes).unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned());
+    Ok(Some((read, text)))
+}
+
+/// «Import a file…» in the ⋯ menu: the system Open dialog for any file, read up to the largest
+/// cap; what it is is the page's sniffer's call, as for a drop. Nothing is imported here.
+#[tauri::command]
+pub async fn pick_import_file(app: AppHandle) -> Result<PickedImport, CommandError> {
+    use tauri_plugin_dialog::DialogExt;
+    let mut dialog = app.dialog().file();
+    if let Some(window) = app.get_webview_window("main") {
+        dialog = dialog.set_parent(&window);
+    }
+    let chosen = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+        .await
+        .map_err(CommandError::internal)?;
+    let Some(chosen) = chosen else {
+        return Ok(PickedImport::Cancelled);
+    };
+    let path = chosen.into_path().map_err(CommandError::internal)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        Ok(match read_capped(&path, IMPORT_FILE_CAP).map_err(CommandError::internal)? {
+            Some((bytes, text)) => PickedImport::Picked { name, bytes, text },
+            None => PickedImport::TooBig { name },
+        })
+    })
+    .await
+    .map_err(CommandError::internal)?
+}
+
 /// Where a restore takes its copy.
 #[derive(Deserialize, TS)]
 #[serde(tag = "from", rename_all = "snake_case")]
@@ -1556,4 +1622,27 @@ pub async fn save_mcpb(app: AppHandle) -> Result<Option<String>, CommandError> {
         .map_err(CommandError::internal)?;
     let _ = app.opener().reveal_item_in_dir(&path);
     Ok(Some(path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_capped_reads_up_to_the_cap_and_refuses_past_it() {
+        let dir = std::env::temp_dir().join(format!("koonapin-read-capped-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("bookmarks.html");
+        std::fs::write(&path, b"<DL>\xff</DL>").unwrap();
+        // At the cap the file is read, with bytes that are not UTF-8 replaced.
+        assert_eq!(read_capped(&path, 10).unwrap(), Some((10, "<DL>\u{fffd}</DL>".to_string())));
+        // One byte over: not read.
+        assert_eq!(read_capped(&path, 9).unwrap(), None);
+        // Valid UTF-8 comes back as it is.
+        std::fs::write(&path, "<DL>Ёлка</DL>").unwrap();
+        assert_eq!(read_capped(&path, 64).unwrap(), Some((17, "<DL>Ёлка</DL>".to_string())));
+        assert!(read_capped(&dir.join("missing"), IMPORT_FILE_CAP).is_err());
+        assert_eq!(IMPORT_FILE_CAP, 256 * 1024 * 1024);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

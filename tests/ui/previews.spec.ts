@@ -163,10 +163,9 @@ test("an import refreshes the bookmarks it created, joining a run under way, and
     await api.startPreviewRefresh({ scope: "all" });
   });
   await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Browser bookmarks/ }).click();
-  await page
-    .locator("dialog input[type=file]")
-    .setInputFiles(new URL("../fixtures/bookmarks/chrome.html", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  await (await chooser).setFiles(new URL("../fixtures/bookmarks/chrome.html", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
   await page.getByRole("dialog").getByRole("button", { name: "Import", exact: true }).click();
   const report = page.getByRole("dialog", { name: "Import finished" });
   await expect(report.getByRole("status")).toHaveText("7 bookmarks added to Library");

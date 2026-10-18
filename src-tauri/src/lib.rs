@@ -239,6 +239,7 @@ pub fn run() {
             commands::save_backup_copy,
             commands::list_backups,
             commands::pick_backup,
+            commands::pick_import_file,
             commands::restore_backup,
             commands::reveal_backup,
             commands::get_duplicates,

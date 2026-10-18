@@ -160,7 +160,7 @@ test("⌘V in the library saves a link at once; Undo takes it away; text and fie
   await expect(nav(page, "Inbox 3")).toBeVisible();
 });
 
-test("a link dragged over the window frosts it; dropped, it is saved, with Shift into the inbox; a file asks to be imported", async ({ page }) => {
+test("a link dragged over the window shows the drop zone; dropped, it is saved, with Shift into the inbox; a file gets the zone's hero", async ({ page }) => {
   const drag = (type: "dragenter" | "dragover" | "dragleave" | "drop", init: { link?: string; file?: boolean; shift?: boolean } = {}) =>
     page.evaluate(
       ({ type, init }) => {
@@ -174,15 +174,18 @@ test("a link dragged over the window frosts it; dropped, it is saved, with Shift
       },
       { type, init },
     );
-  const veil = page.locator("[data-drop-veil]");
+  const zone = page.locator("[data-drop-zone]");
   await drag("dragenter", { link: "https://example.com/dropped" });
-  await expect(veil).toBeVisible();
-  await expect(veil).toContainText("Drop to save the link");
-  await expect(veil).toContainText("It goes to Library; hold Shift to send it to Inbox");
+  await expect(zone).toBeVisible();
+  await expect(zone).toHaveAttribute("data-drop-zone", "link");
+  await expect(zone).toContainText("Drop to save the link");
+  await expect(zone).toContainText("It goes to Library; hold Shift to send it to Inbox");
+  // Said once through the live region.
+  await expect(page.locator("[data-announcer]")).toHaveText("Drop to save the link. It goes to Library; hold Shift to send it to Inbox");
   await drag("dragover", { link: "https://example.com/dropped", shift: true });
-  await expect(veil).toContainText("It goes to Inbox");
+  await expect(zone).toContainText("It goes to Inbox");
   await drag("drop", { link: "https://example.com/dropped" });
-  await expect(veil).toHaveCount(0);
+  await expect(zone).toHaveCount(0);
   await expect(toast(page)).toContainText("Saved to Library");
   await expect(page.locator("[data-bookmark-id]").first()).toContainText("example.com");
 
@@ -191,15 +194,15 @@ test("a link dragged over the window frosts it; dropped, it is saved, with Shift
   await expect(toast(page)).toContainText("Saved to Inbox");
   await expect(nav(page, "Inbox 3")).toBeVisible();
 
-  // Leaving the window takes the veil away; a file gets the import veil, not the link's (NP-139).
+  // Leaving the window takes the zone away; a file gets the import hero, not the link's (K9).
   await drag("dragenter", { link: "https://example.com/away" });
-  await expect(veil).toBeVisible();
+  await expect(zone).toBeVisible();
   await drag("dragleave");
-  await expect(veil).toHaveCount(0);
+  await expect(zone).toHaveCount(0);
   await drag("dragenter", { file: true });
-  await expect(veil).toHaveAttribute("data-drop-veil", "import");
+  await expect(zone).toHaveAttribute("data-drop-zone", "hero");
   await drag("dragleave");
-  await expect(veil).toHaveCount(0);
+  await expect(zone).toHaveCount(0);
 });
 
 /**
@@ -223,94 +226,162 @@ const dragFiles = (page: Page, type: "dragenter" | "dragleave" | "drop", files: 
   );
 
 const OPML = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/><outline text="B" xmlUrl="https://example.org/b.xml"/></body></opml>';
+const LIST = '{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Dropped list","items":[{"type":"link","url":"https://example.org/dropped-list"}]}';
+const BOOKMARKS = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><A HREF="https://example.org/dropped">Dropped</A></DL>';
+const COPY = JSON.stringify({ format: "koona-pin", version: 1, exported_at: "2026-10-04T18:20:00.000Z", app_version: "0.1.0", collections: [], tags: [], bookmarks: [] });
 
-test("a file dragged over the window: the import veil, generic as real drags show it, with the name where the webview gives it", async ({ page }) => {
-  const veil = page.locator("[data-drop-veil]");
-  // Real use: no name before the drop, so the generic line.
+test("a file dragged over the window: the hero, as real drags show it; the kind or a refusal where the webview gives the name", async ({ page }) => {
+  const zone = page.locator("[data-drop-zone]");
+  // Real use: no name before the drop, so the hero of K9a, in three lines.
   await dragFiles(page, "dragenter", [{ name: "rust-blogs.kpin" }], true);
-  await expect(veil).toHaveAttribute("data-drop-veil", "import");
-  await expect(veil).toContainText("Drop to import");
-  await expect(veil).toContainText("Koona Pin imports .kpin lists, OPML and bookmarks files");
+  await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+  await expect(zone).toContainText("Drop anything here");
+  await expect(zone).toContainText("Lists, feeds, bookmarks or a backup — Koona Pin works out what it is");
+  await expect(zone).toContainText("Nothing is imported until you confirm");
+  await expect(page.locator("[data-announcer]")).toContainText("Drop anything here");
+  // One full-window zone: the dashed card 16 px in from every edge.
+  const box = (await zone.locator(".drop-zone-card").boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect([box.x, box.y, Math.round(viewport.width - box.x - box.width), Math.round(viewport.height - box.y - box.height)]).toEqual([16, 16, 16, 16]);
   await dragFiles(page, "dragleave", [], true);
-  await expect(veil).toHaveCount(0);
+  await expect(zone).toHaveCount(0);
 
-  // Progressive enhancement: a DataTransfer that shows the file names it and its kind (frame K4).
+  // Progressive enhancement: a DataTransfer that shows the file names it and its kind (K9b b).
   await dragFiles(page, "dragenter", [{ name: "rust-blogs.kpin" }]);
-  await expect(veil).toContainText("rust-blogs.kpin · a list of links and feeds");
-  await expect(veil).toContainText("Also .opml feeds and bookmarks .html");
+  await expect(zone).toHaveAttribute("data-drop-zone", "kind");
+  await expect(zone).toContainText("Drop to import the list");
+  await expect(zone).toContainText("rust-blogs.kpin");
+  await expect(zone).toContainText("Nothing is imported until you confirm");
   await dragFiles(page, "dragleave", []);
   await dragFiles(page, "dragenter", [{ name: "feeds.opml" }]);
-  await expect(veil).toContainText("feeds.opml · feeds in OPML");
+  await expect(zone).toContainText("Drop to import the feeds");
+  await dragFiles(page, "dragleave", []);
+  await dragFiles(page, "dragenter", [{ name: "koona-pin-2026-10-04.json" }]);
+  // A .json may be a list or a full copy: by name it is neither, so the hero.
+  await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+  await dragFiles(page, "dragleave", []);
+  // Refused by name (K9b c); a .txt may still be OPML, so it gets the hero.
+  await dragFiles(page, "dragenter", [{ name: "report.pdf" }]);
+  await expect(zone).toHaveAttribute("data-drop-zone", "refused");
+  await expect(zone).toContainText("Koona Pin can’t import this file");
+  await expect(zone).toContainText("Koona Pin imports links, .kpin lists, OPML, bookmarks .html and Koona Pin backups");
   await dragFiles(page, "dragleave", []);
   await dragFiles(page, "dragenter", [{ name: "notes.txt" }]);
-  await expect(veil).toContainText("This file can’t be imported");
-  await expect(veil).toContainText("Koona Pin imports .kpin lists, OPML and bookmarks files");
+  await expect(zone).toHaveAttribute("data-drop-zone", "hero");
   await dragFiles(page, "dragleave", []);
-  await expect(veil).toHaveCount(0);
+  await expect(zone).toHaveCount(0);
 });
 
-test("a dropped file: a .kpin list opens its dialog, OPML and bookmarks open their import, others are refused", async ({ page }) => {
+test("a dropped file goes by what it holds: a list, OPML, bookmarks and a backup open their dialogs; others are refused", async ({ page }) => {
   const drop = async (files: { name: string; text?: string }[]) => {
     await dragFiles(page, "dragenter", files);
     await dragFiles(page, "drop", files);
   };
-  const veil = page.locator("[data-drop-veil]");
+  const zone = page.locator("[data-drop-zone]");
   const alert = (text: string) => page.getByRole("alert").filter({ hasText: text });
-  await drop([{ name: "notes.txt" }]);
-  await expect(veil).toHaveCount(0);
-  await expect(alert("Koona Pin imports .kpin lists, OPML and bookmarks files")).toBeVisible();
+  await drop([{ name: "report.pdf", text: "%PDF-1.7" }]);
+  await expect(zone).toHaveCount(0);
+  await expect(alert("Koona Pin imports links, .kpin lists, OPML, bookmarks .html and Koona Pin backups")).toBeVisible();
+  // Other JSON is not ours, whatever its name.
+  await drop([{ name: "data.kpin", text: '{"format":"other"}' }]);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  // A list opens the list dialog (NP-138); a file dragged over it is not taken, and another list
-  // while it is open is refused (said aloud: lists.spec.ts).
-  await drop([{ name: "x.kpin", text: "{}" }]);
+  // A list opens the list dialog (NP-138), even named otherwise; a file dragged over it gets the
+  // «Busy» zone, and a list dropped meanwhile is refused (said aloud: lists.spec.ts).
+  await drop([{ name: "shared.json", text: LIST }]);
   const list = page.getByRole("dialog", { name: "Import list" });
-  await expect(list).toContainText("This file can't be imported");
-  await dragFiles(page, "dragenter", [{ name: "y.kpin", text: "{}" }]);
-  await page.waitForTimeout(200);
-  await expect(veil).toHaveCount(0);
-  const pushed = await page.evaluate(async () => {
-    const { openRequests } = await import("/src/services/openRequests.ts");
-    return openRequests.push({ kind: "kpin-url", url: "https://example.com/y.kpin" });
-  });
-  expect(pushed).toBe(false);
-  await expect(list).toContainText("This file can't be imported");
+  await expect(list).toContainText("Dropped list");
+  await dragFiles(page, "dragenter", [{ name: "y.kpin", text: LIST }]);
+  await expect(zone).toHaveAttribute("data-drop-zone", "busy");
+  await expect(zone).toContainText("Finish the open import first");
+  // Over the open dialog: the zone is in the top layer.
+  expect(await zone.evaluate((el) => typeof el.showPopover !== "function" || el.matches(":popover-open"))).toBe(true);
+  await dragFiles(page, "drop", [{ name: "y.kpin", text: LIST }]);
+  await expect(zone).toHaveCount(0);
+  await expect(alert("Another import is open — finish it first")).toBeVisible();
+  await expect(list).toContainText("Dropped list");
   await page.keyboard.press("Escape");
   await expect(list).toHaveCount(0);
 
-  // OPML opens its own import.
-  await drop([{ name: "feeds.opml", text: OPML }]);
+  // OPML opens its own import, named .txt too.
+  await drop([{ name: "feeds.txt", text: OPML }]);
   const dialog = page.getByRole("dialog", { name: "Import feeds" });
-  await expect(dialog).toContainText("feeds.opml");
+  await expect(dialog).toContainText("feeds.txt");
   await expect(dialog).toContainText("2 feeds");
-  // A file dragged over an open dialog is not taken.
+  // A file dragged over an open import is «Busy».
   await dragFiles(page, "dragenter", [{ name: "other.opml", text: OPML }]);
-  await page.waitForTimeout(200);
-  await expect(veil).toHaveCount(0);
+  await expect(zone).toHaveAttribute("data-drop-zone", "busy");
+  await dragFiles(page, "dragleave", []);
+  await expect(zone).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
   // Several files: the first is taken, and that is said.
-  const bookmarks = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><A HREF="https://example.org/dropped">Dropped</A></DL>';
-  await drop([{ name: "bookmarks.html", text: bookmarks }, { name: "feeds.opml", text: OPML }]);
+  await drop([{ name: "bookmarks.html", text: BOOKMARKS }, { name: "feeds.opml", text: OPML }]);
   const bookmarksDialog = page.getByRole("dialog", { name: "Import bookmarks" });
   await expect(bookmarksDialog).toContainText("bookmarks.html");
   await expect(bookmarksDialog).toContainText("1 link");
   await expect(page.getByText("One file at a time: only bookmarks.html is imported")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(bookmarksDialog).toHaveCount(0);
+
+  // A full copy opens Restore with the file checked, even named .kpin.
+  await drop([{ name: "library.kpin", text: COPY }]);
+  const restore = page.getByRole("dialog", { name: "Restore from a JSON copy" });
+  await expect(restore).toContainText("library.kpin");
+  await expect(restore).toContainText("0 bookmarks");
+  await expect(restore.getByRole("button", { name: "Restore", exact: true })).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await expect(restore).toHaveCount(0);
+
+  // A list over 2 MB is too big; its cap is said.
+  await drop([{ name: "huge.kpin", text: LIST.replace('"items"', `"description":"${"x".repeat(2 * 1024 * 1024)}","items"`) }]);
+  await expect(alert("This file is over 2 MB, too big to import")).toBeVisible();
 });
 
-test("a dropped file leaves with its dialog: «Import feeds (OPML)…» opened later starts empty", async ({ page }) => {
+test("⋯ → «Import a file…» routes a picked file as a drop; a dropped file leaves with its dialog", async ({ page }) => {
+  const more = page.getByRole("button", { name: "More", exact: true });
+  await more.click();
+  // One Import item (K5).
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem", { name: /^Import a file…/ })).toContainText("Lists, feeds, bookmarks or a backup");
+  await expect(menu.getByRole("menuitem", { name: /Import feeds|Browser bookmarks|backup \(JSON\)/ })).toHaveCount(0);
+  const pick = async (name: string, text: string) => {
+    await more.click();
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+    await (await chooser).setFiles({ name, mimeType: "application/octet-stream", buffer: Buffer.from(text) });
+  };
+  await page.keyboard.press("Escape");
+
+  await pick("subscriptions.xml", OPML);
+  const feeds = page.getByRole("dialog", { name: "Import feeds" });
+  await expect(feeds).toContainText("subscriptions.xml");
+  await expect(feeds).toContainText("2 feeds");
+  await page.keyboard.press("Escape");
+  await pick("export.txt", BOOKMARKS);
+  await expect(page.getByRole("dialog", { name: "Import bookmarks" })).toContainText("1 link");
+  await page.keyboard.press("Escape");
+  await pick("rust.kpin", LIST);
+  await expect(page.getByRole("dialog", { name: "Import list" })).toContainText("Dropped list");
+  await page.keyboard.press("Escape");
+  await pick("koona-pin.json", COPY);
+  await expect(page.getByRole("dialog", { name: "Restore from a JSON copy" })).toContainText("koona-pin.json");
+  await page.keyboard.press("Escape");
+  await pick("report.pdf", "%PDF-1.7");
+  await expect(page.getByRole("alert").filter({ hasText: "Koona Pin imports links" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // A dropped file belongs to its dialog: Settings → Feeds → Import… later starts empty.
   await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }]);
   await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }]);
-  const dialog = page.getByRole("dialog", { name: "Import feeds" });
-  await expect(dialog).toContainText("feeds.opml");
+  await expect(feeds).toContainText("feeds.opml");
   await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Import feeds (OPML)…" }).click();
-  await expect(dialog).toContainText("Feeds file .opml");
-  await expect(dialog).not.toContainText("feeds.opml");
+  await expect(feeds).toHaveCount(0);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Import…" }).click();
+  await expect(feeds).toContainText("Feeds file .opml");
+  await expect(feeds).not.toContainText("feeds.opml");
 });
 
 test("Collections and Tags fold, show their count, are remembered, and «+» opens the folded section", async ({ page }) => {

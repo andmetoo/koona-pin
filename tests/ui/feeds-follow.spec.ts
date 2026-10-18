@@ -183,17 +183,16 @@ test("feeds that notify: «N new posts», their names and Read; a feed failing f
   ]);
 });
 
-test("More → «Import feeds (OPML)…» takes an OPML file and follows its feeds", async ({ page }) => {
+test("More → «Import a file…» takes an OPML file and follows its feeds", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Import feeds (OPML)…" }).click();
-  // App opens it for feeds (NP-132): titled «Import feeds» from the start.
-  const dialog = page.getByRole("dialog", { name: "Import feeds" });
-  await expect(dialog.locator("input[type=file]")).toHaveAttribute("accept", /\.opml,\.xml/);
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
   const opml = `<?xml version="1.0"?><opml version="2.0"><head><title>Reader</title></head><body>
     <outline text="Tech"><outline type="rss" text="Ars" xmlUrl="https://feeds.arstechnica.com/arstechnica/index"/>
     <outline type="rss" text="Notes" xmlUrl="https://notes.example.org/atom.xml"/></outline>
     <outline text="Links" xmlUrl="https://links.example.net/feed.json"/></body></opml>`;
-  await dialog.locator("input[type=file]").setInputFiles({ name: "feeds.opml", mimeType: "text/x-opml", buffer: Buffer.from(opml) });
+  await (await chooser).setFiles({ name: "feeds.opml", mimeType: "text/x-opml", buffer: Buffer.from(opml) });
+  // The sniffer knows OPML: the import dialog for feeds opens with it (NP-132).
   const feeds = page.getByRole("dialog", { name: "Import feeds" });
   await expect(feeds).toContainText("3 feeds");
   await expect(feeds).toContainText("New posts go to Feeds");
