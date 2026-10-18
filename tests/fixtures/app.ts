@@ -93,3 +93,15 @@ export function jsonCopy(
   edit(copy);
   return { name: "koona-pin-2026-10-04.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(copy)) };
 }
+/**
+ * Where a drag from outside is dispatched (K9): the middle of the list area, below the library's
+ * toolbar, where the drop zone lies; or the middle of the sidebar or the toolbar, where it never does.
+ */
+export async function dropPoint(page: Page, where: "list" | "sidebar" | "toolbar" = "list") {
+  const head = page.locator("main .toolbar-glass");
+  const region = where === "sidebar" ? page.getByRole("complementary").first() : where === "toolbar" ? head : page.locator("main");
+  const box = (await region.boundingBox())!;
+  const below = where === "list" && (await head.count()) ? (await head.boundingBox())! : null;
+  const top = below ? below.y + below.height : box.y;
+  return { x: Math.round(box.x + box.width / 2), y: Math.round((top + box.y + box.height) / 2) };
+}

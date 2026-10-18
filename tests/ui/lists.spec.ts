@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { openApp } from "../fixtures/app";
+import { dropPoint, openApp } from "../fixtures/app";
 
 // The list dialog (NP-138, frames K10a, K10b and K3) in the browser preview: a list request goes
 // through openRequests as the entry points send it; the demo previews and imports, and tests
@@ -260,15 +260,18 @@ test("a list of 5,000 items scrolls in one virtualised list: groups fold, few ro
   await expect(d).toHaveCount(0);
 });
 
-/** A `.kpin` dropped on the window, as a webview delivers it. */
-const dropList = (page: Page) =>
-  page.evaluate(() => {
+/** A `.kpin` dropped on the list area, as a webview delivers it. */
+const dropList = async (page: Page) => {
+  const at = await dropPoint(page);
+  await page.evaluate((at) => {
     for (const type of ["dragenter", "drop"]) {
       const data = new DataTransfer();
       data.items.add(new File(["{}"], "other.kpin"));
-      document.body.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
+      const event = new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true, clientX: at.x, clientY: at.y });
+      (document.elementFromPoint(at.x, at.y) ?? document.body).dispatchEvent(event);
     }
-  });
+  }, at);
+};
 const busyAlert = (page: Page) => page.locator("[role=alert]", { hasText: "Another import is open — finish it first" });
 
 test("an open list dialog refuses another list in every state, aloud; an import cannot be stopped", async ({ page }) => {
