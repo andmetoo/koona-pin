@@ -88,6 +88,9 @@ register();
 
 const apps = startedSince();
 const library = path.join(directory, "koonapin.db");
+// A new library gets the starter set (NP-117, source «app») from the interface once its window loads, which
+// races the reads here: the checks count the captures only.
+const captured = "FROM bookmarks WHERE source IS NOT 'app'";
 async function until(check, label, ms = 30000) {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
@@ -219,7 +222,7 @@ try {
   const first = await waiting();
   assert.equal(first.length, 0, JSON.stringify(first));
   assert.equal(apps.ours().length, 1, "the host started the app");
-  assert.deepEqual(rows("SELECT title, source FROM bookmarks"), [{ title: "Настоящий Firefox", source: "firefox" }]);
+  assert.deepEqual(rows(`SELECT title, source ${captured}`), [{ title: "Настоящий Firefox", source: "firefox" }]);
   const [{ request_id: firstId }] = rows("SELECT request_id FROM capture_receipts");
   await reload();
   await until(async () => (await status()) === "connected", "status connected");
@@ -227,13 +230,13 @@ try {
   // A duplicate: existing, the title stays.
   await capture("https://example.invalid/firefox-capture", "Заголовок дубликата");
   assert.equal((await waiting()).length, 0);
-  assert.deepEqual(rows("SELECT title FROM bookmarks"), [{ title: "Настоящий Firefox" }]);
+  assert.deepEqual(rows(`SELECT title ${captured}`), [{ title: "Настоящий Firefox" }]);
 
   // «Save to Reading» on the saved page (NP-125): only added to Reading, still in the inbox, no duplicate.
   await capture("https://example.invalid/firefox-capture", "Заголовок дубликата", true);
   assert.equal((await waiting()).length, 0);
   assert.deepEqual(placed("https://example.invalid/firefox-capture"), [{ reading: 1, inbox: 1 }]);
-  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 1);
+  assert.equal(rows(`SELECT count(*) AS n ${captured}`)[0].n, 1);
 
   // The library cannot open: the link stays in the queue.
   apps.stop();
@@ -258,7 +261,7 @@ try {
   const retried = performance.now();
   await until(async () => (await waiting()).length === 0, "delivery by the alarm", 150000);
   const retryS = Math.round((performance.now() - retried) / 1000);
-  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 2);
+  assert.equal(rows(`SELECT count(*) AS n ${captured}`)[0].n, 2);
   // Saved to Reading while the app was away: in Reading and in the inbox once it is back.
   assert.deepEqual(placed("https://example.invalid/library-failed"), [{ reading: 1, inbox: 1 }]);
   const receipts = rows("SELECT request_id, outcome FROM capture_receipts");
@@ -289,12 +292,12 @@ try {
   await until(async () => (await status()) === "connected", "status after the id came back");
   await click("Send now");
   await until(async () => (await waiting()).length === 0, "delivery after the id came back");
-  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 4);
+  assert.equal(rows(`SELECT count(*) AS n ${captured}`)[0].n, 4);
 
   // The app keeps a record of Firefox for its status.
   const connections = JSON.parse(rows("SELECT value FROM app_settings WHERE key='capture_connections'")[0].value);
   assert.ok(connections.browsers.firefox, "the app knows Firefox");
-  assert.deepEqual([...new Set(rows("SELECT source FROM bookmarks").map((r) => r.source))], ["firefox"]);
+  assert.deepEqual([...new Set(rows(`SELECT source ${captured}`).map((r) => r.source))], ["firefox"]);
   console.log(`Firefox ${capabilities.browserVersion} (${flavor}); cold capture ${coldMs} ms; alarm delivered the queued link in ${retryS} s`);
   console.log(
     `PASS Firefox ${flavor}: native host, hello without starting the app, capture starts the app, duplicate, Save to Reading, queue when the library fails, delivery by the alarm, host not registered, foreign id, send now, browser record, the queue clock drawn into the icon`,

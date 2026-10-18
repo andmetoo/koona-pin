@@ -45,6 +45,9 @@ const env = {
   KOONAPIN_PIPE: testPipe("registration"),
 };
 const library = path.join(directory, "koonapin.db");
+// A new library gets the starter set (NP-117, source «app») from the interface once its window loads, which
+// races the reads here: the checks count the captures only.
+const captured = "FROM bookmarks WHERE source IS NOT 'app'";
 const rows = (sql) => {
   const db = new DatabaseSync(library, { readOnly: true });
   try {
@@ -172,7 +175,7 @@ try {
       : "ok: Firefox found the manifest in ~/.mozilla, the capture is in the library",
   );
 
-  assert.deepEqual(rows("SELECT title, source FROM bookmarks ORDER BY id"), [
+  assert.deepEqual(rows(`SELECT title, source ${captured} ORDER BY id`), [
     ...(installed ? [] : [{ title: "Chromium of the distribution", source: "chrome" }]),
     { title: "Firefox of the distribution", source: "firefox" },
   ]);
