@@ -3,19 +3,24 @@
 // the quick search over the library, the app's library (the site's screenshot), the options page — plus the
 // promo tile (440×280) and the Edge logo (300×300). Writes extension/store/.
 //
-//   bun scripts/store-assets.mjs
-// Koona Pin must be closed: one instance per user, the test app would hand over to it.
+//   bun scripts/store-assets.mjs   (--lang en: only English; a list: en,ru)
+// On Windows or a Mac. Koona Pin must be closed: one instance per user, the test app would hand over to it.
+// The library screenshot is the site's: bun run site:shots (Windows) or site:shots:mac first.
 import { chromium } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appendFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildExtension } from "./build-extension.mjs";
-import { assertNoOtherApp, hostBinary, startedSince, testPipe } from "./lib/native-host.mjs";
+import { appBinary, assertNoOtherApp, hostBinary, pipeReady, startedSince, testPipe } from "./lib/native-host.mjs";
 import { release } from "./lib/paths.mjs";
 
 assertNoOtherApp();
 
+const windows = process.platform === "win32";
+/** The store's languages: `--lang en` makes only those (a list: en,ru). */
+const langArg = process.argv.indexOf("--lang");
+const langs = langArg > 0 ? process.argv[langArg + 1].split(",") : ["en", "ru"];
 const HOST = "app.koona.pin.test";
 const KEY = `HKCU\\Software\\Chromium\\NativeMessagingHosts\\${HOST}`;
 const out = path.resolve("extension/store");
@@ -52,7 +57,15 @@ await writeFile(
     allowed_origins: [`chrome-extension://${built.devId}/`],
   }),
 );
-execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
+// Chrome finds the host through the registry on Windows; on a Mac, in the profile's own
+// NativeMessagingHosts folder (each language's profile below).
+const profile = (lang) => path.join(directory, `profile-${lang}`);
+if (windows) execFileSync("reg", ["add", KEY, "/ve", "/t", "REG_SZ", "/d", manifest, "/f"], { stdio: "ignore" });
+else
+  for (const lang of langs) {
+    await mkdir(path.join(profile(lang), "NativeMessagingHosts"), { recursive: true });
+    await cp(manifest, path.join(profile(lang), "NativeMessagingHosts", `${HOST}.json`));
+  }
 
 const env = {
   ...process.env,
@@ -61,6 +74,14 @@ const env = {
   KOONAPIN_PIPE: testPipe("store"),
 };
 const apps = startedSince();
+// The host starts the app on a save; on a Mac only an app inside its bundle, so the test build is
+// started here, on the run's own pipe, and the host finds it running.
+const macApp = windows ? null : spawn(appBinary(), [], { env, stdio: "ignore" });
+if (macApp)
+  for (const end = Date.now() + 60000; !(await pipeReady(env.KOONAPIN_PIPE, env)); ) {
+    if (Date.now() > end) throw new Error("The test app did not open its pipe");
+    await new Promise((r) => setTimeout(r, 300));
+  }
 
 const font = async (name) =>
   `data:font/woff2;base64,${(await readFile(path.join(built.unpacked.chrome, "fonts", name))).toString("base64")}`;
@@ -150,7 +171,7 @@ const article = (c) => `<!doctype html><html><head><meta charset="utf-8"><style>
 
 async function shots(lang) {
   const c = content[lang];
-  const browser = await chromium.launchPersistentContext(path.join(directory, `profile-${lang}`), {
+  const browser = await chromium.launchPersistentContext(profile(lang), {
     channel: "chromium",
     headless: true,
     env,
@@ -232,7 +253,7 @@ async function images() {
   const browser = await chromium.launch({ channel: "chromium", headless: true });
   try {
     const page = await browser.newPage({ deviceScaleFactor: 1 });
-    for (const lang of ["en", "ru"]) {
+    for (const lang of langs) {
       await page.setViewportSize({ width: 440, height: 280 });
       await page.setContent(`<style>${fontFace}
         body { width: 440px; height: 280px; background: #2f6b4f; color: #fffefa; display: flex; flex-direction: column; justify-content: center; padding: 0 40px; gap: 18px; }
@@ -253,12 +274,12 @@ async function images() {
 }
 
 try {
-  for (const lang of ["en", "ru"]) await rm(path.join(out, lang, "options-1280x800.png"), { force: true });
-  await shots("en");
-  await shots("ru");
+  for (const lang of langs) await rm(path.join(out, lang, "options-1280x800.png"), { force: true });
+  for (const lang of langs) await shots(lang);
   await images();
   console.log(`Store images: ${out}`);
 } finally {
   apps.stop();
-  execFileSync("reg", ["delete", KEY, "/f"], { stdio: "ignore" });
+  macApp?.kill();
+  if (windows) execFileSync("reg", ["delete", KEY, "/f"], { stdio: "ignore" });
 }
