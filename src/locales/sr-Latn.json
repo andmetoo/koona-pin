@@ -1968,6 +1968,7 @@
     "clear": "Očisti",
     "close": "Zatvori skup",
     "links": "Veze",
+    "linksWord": "linkovi",
     "feeds": "Fidovi",
     "removeSection": "Ukloni {{name}} iz skupa",
     "removeItem": "Ukloni {{name}} iz skupa",

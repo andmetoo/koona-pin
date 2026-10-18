@@ -1954,6 +1954,7 @@
     "clear": "Svuota",
     "close": "Chiudi la raccolta",
     "links": "Link",
+    "linksWord": "link",
     "feeds": "Feed",
     "removeSection": "Togli {{name}} dalla raccolta",
     "removeItem": "Togli {{name}} dalla raccolta",

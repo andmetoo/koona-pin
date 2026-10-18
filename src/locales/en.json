@@ -1846,6 +1846,7 @@
     "clear": "Clear",
     "close": "Close the bundle",
     "links": "Links",
+    "linksWord": "links",
     "feeds": "Feeds",
     "removeSection": "Remove {{name}} from the bundle",
     "removeItem": "Remove {{name}} from the bundle",

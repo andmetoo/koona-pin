@@ -1846,6 +1846,7 @@
     "clear": "Leeren",
     "close": "Bündel schließen",
     "links": "Links",
+    "linksWord": "Links",
     "feeds": "Feeds",
     "removeSection": "{{name}} aus dem Bündel entfernen",
     "removeItem": "{{name}} aus dem Bündel entfernen",

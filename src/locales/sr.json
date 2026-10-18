@@ -1954,6 +1954,7 @@
     "clear": "Очисти",
     "close": "Затвори скуп",
     "links": "Везе",
+    "linksWord": "линкови",
     "feeds": "Фидови",
     "removeSection": "Уклони {{name}} из скупа",
     "removeItem": "Уклони {{name}} из скупа",

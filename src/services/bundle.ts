@@ -95,6 +95,7 @@ export function toModel(state: BundleState, t: TFunction): BundleModel {
     description: state.description,
     author_name: state.author,
     feeds_section: t("bundle.feeds"),
+    links_word: t("bundle.linksWord"),
     sections: state.sections.map((s) => ({
       name: s.origin.kind === "links" ? t("bundle.links") : s.origin.kind === "feeds" ? t("bundle.feeds") : s.name,
       origin: s.origin,

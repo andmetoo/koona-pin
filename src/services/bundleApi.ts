@@ -30,6 +30,8 @@ async function demoBuild(model: BundleModel): Promise<BundleBuild> {
   let left = 0;
   const top: DraftItem[] = [];
   const sections: { name: string; items: DraftItem[] }[] = [];
+  let feedSection: { name: string; items: DraftItem[] } | null = null;
+  const feedsName = oneLine(model.feeds_section, 120) || "Feeds";
   for (const section of model.sections) {
     const items: DraftItem[] = [];
     for (const item of section.items) {
@@ -63,15 +65,15 @@ async function demoBuild(model: BundleModel): Promise<BundleBuild> {
     if (section.origin.kind === "links") top.push(...items);
     else if (items.length) {
       const origin = section.origin;
-      const name =
-        origin.kind === "feeds"
-          ? oneLine(model.feeds_section, 120) || "Feeds"
-          : origin.kind === "collection"
-            ? (collections.find((c) => c.id === origin.id)?.name ?? section.name)
-            : section.name;
-      sections.push({ name: oneLine(name, 120), items });
+      const own = origin.kind === "collection" ? (collections.find((c) => c.id === origin.id)?.name ?? section.name) : origin.kind === "tag" ? origin.name : section.name;
+      // A collection or a tag named as the feeds' section stays apart from it: «Feeds · links».
+      const name = own.trim().toLowerCase() === feedsName.toLowerCase() ? `${own.trim()} · ${oneLine(model.links_word, 120) || "links"}` : own;
+      // Feeds last, whatever the model's order.
+      if (origin.kind === "feeds") feedSection = { name: feedsName, items };
+      else sections.push({ name: oneLine(name, 120), items });
     }
   }
+  if (feedSection) sections.push(feedSection);
   const title = oneLine(model.title, 120);
   const file = {
     format: "koona",

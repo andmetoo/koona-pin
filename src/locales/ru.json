@@ -2062,6 +2062,7 @@
     "clear": "Очистить",
     "close": "Закрыть набор",
     "links": "Ссылки",
+    "linksWord": "ссылки",
     "feeds": "Ленты",
     "removeSection": "Убрать {{name}} из набора",
     "removeItem": "Убрать {{name}} из набора",

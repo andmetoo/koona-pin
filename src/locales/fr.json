@@ -1954,6 +1954,7 @@
     "clear": "Vider",
     "close": "Fermer le lot",
     "links": "Liens",
+    "linksWord": "liens",
     "feeds": "Flux",
     "removeSection": "Retirer {{name}} du lot",
     "removeItem": "Retirer {{name}} du lot",

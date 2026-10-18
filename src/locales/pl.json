@@ -2062,6 +2062,7 @@
     "clear": "Wyczyść",
     "close": "Zamknij zestaw",
     "links": "Linki",
+    "linksWord": "linki",
     "feeds": "Kanały",
     "removeSection": "Usuń {{name}} z zestawu",
     "removeItem": "Usuń {{name}} z zestawu",

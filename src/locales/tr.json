@@ -1846,6 +1846,7 @@
     "clear": "Temizle",
     "close": "Paketi kapat",
     "links": "Bağlantılar",
+    "linksWord": "bağlantılar",
     "feeds": "Akışlar",
     "removeSection": "{{name}} paketten çıkar",
     "removeItem": "{{name}} paketten çıkar",

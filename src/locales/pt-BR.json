@@ -1954,6 +1954,7 @@
     "clear": "Limpar",
     "close": "Fechar o pacote",
     "links": "Links",
+    "linksWord": "links",
     "feeds": "Feeds",
     "removeSection": "Tirar {{name}} do pacote",
     "removeItem": "Tirar {{name}} do pacote",

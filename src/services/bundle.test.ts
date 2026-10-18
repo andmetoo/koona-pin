@@ -27,12 +27,12 @@ describe("the bundle store", () => {
     const bundle = createBundle();
     expect(bundle.addBookmarks([b(1), b(2), b(2)])).toEqual({ kind: "bookmarks", added: 2, total: 2 });
     expect(bundle.addCollection(collection(7, "Design"), [b(2), b(3)])).toEqual({ kind: "section", name: "Design", added: 1, total: 3 });
-    expect(bundle.addBookmarks([b(3)]).added).toBe(0);
+    expect(bundle.addBookmarks([b(3)])).toMatchObject({ added: 0 });
     const [links, design] = bundle.get().sections;
     expect(links.entries.map((e) => e.kind === "bookmark" && e.bookmark.id)).toEqual([1, 2]);
     expect(design.entries.map((e) => e.kind === "bookmark" && e.bookmark.id)).toEqual([3]);
     // Trashed bookmarks never come in.
-    expect(bundle.addBookmarks([b(9, { deleted_at: "2026-10-01" })]).added).toBe(0);
+    expect(bundle.addBookmarks([b(9, { deleted_at: "2026-10-01" })])).toMatchObject({ added: 0 });
   });
 
   it("flashes a collection or a tag added again instead of adding it twice", () => {
@@ -57,7 +57,7 @@ describe("the bundle store", () => {
       ["Design", "collection"],
       ["Feeds", "feeds"],
     ]);
-    expect(model.feeds_section).toBe("Feeds");
+    expect([model.feeds_section, model.links_word]).toEqual(["Feeds", "links"]);
     expect(model.sections[0].items).toEqual([{ kind: "bookmark", id: 2, use_note: false }]);
   });
 
