@@ -63,4 +63,26 @@ describe("search page", () => {
     expect(tabs.create).toHaveBeenCalledTimes(1);
     expect(tabs.create).toHaveBeenLastCalledWith({ url: "https://example.com/in-inbox" });
   });
+
+  it("Enter gives up on an app that never answers instead of opening the list before", async () => {
+    vi.useFakeTimers();
+    try {
+      const query = document.getElementById("query");
+      query.value = "silence";
+      query.dispatchEvent(new Event("input", { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(150);
+      expect(answers.at(-1).message.query).toBe("silence");
+      enter();
+      await vi.advanceTimersByTimeAsync(4000);
+      expect(tabs.create).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2000);
+      // The Enter is over: an answer arriving much later shows the list but opens nothing.
+      answers.shift().resolve(results("late"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(document.querySelector("#results li")?.textContent).toContain("late");
+      expect(tabs.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

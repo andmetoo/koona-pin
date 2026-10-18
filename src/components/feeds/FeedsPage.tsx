@@ -108,13 +108,18 @@ export function FeedsPage({
   const bookmarkId = selected?.bookmark_id ?? null;
   const shownId = useRef(selectedId);
   shownId.current = selectedId;
-  /** Every read or save of the bookmark gets a turn: an older answer arriving later is dropped. */
+  /**
+   * Every read or save of the open post's bookmark gets a turn: an older answer arriving later
+   * is dropped. One for a post no longer open takes no turn, or the open post's would be lost.
+   */
   const bookmarkTurn = useRef(0);
   const holdBookmark = useCallback((item: number, found: Bookmark | null) => {
+    if (shownId.current !== item) return;
     bookmarkTurn.current++;
-    if (shownId.current === item) setHeld({ item, bookmark: found });
+    setHeld({ item, bookmark: found });
   }, []);
   const loadBookmark = useCallback(async (item: number, id: number | null) => {
+    if (shownId.current !== item) return;
     const turn = ++bookmarkTurn.current;
     const found = id === null ? null : await api.getBookmarks({}, { id, limit: 1 }).then((page) => page.items[0] ?? null, () => null);
     if (turn === bookmarkTurn.current && shownId.current === item) setHeld({ item, bookmark: found });

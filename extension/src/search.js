@@ -51,6 +51,8 @@ const collectionName = (id) => state.counts?.collections.find((c) => c.id === id
  * opens a row of the list asked for before.
  */
 let asking = null;
+/** How long Enter waits for that answer before it gives up. */
+const PATIENCE_MS = 5000;
 /** One answer per typed query; an older answer never replaces a newer one. */
 function search() {
   const run = ask();
@@ -93,8 +95,17 @@ async function current() {
     typing = 0;
     void search();
   }
-  // The newest answer: a query sent while waiting for an older one replaces it here.
-  while (asking) await asking.catch(() => {});
+  // The newest answer: a query sent while waiting for an older one replaces it here. An app
+  // that never answers does not hold Enter forever: after a while it opens nothing.
+  const until = Date.now() + PATIENCE_MS;
+  while (asking) {
+    let timer = 0;
+    const late = new Promise((resolve) => (timer = setTimeout(() => resolve(true), Math.max(0, until - Date.now()))));
+    const gaveUp = await Promise.race([asking.then(() => false, () => false), late]);
+    clearTimeout(timer);
+    if (gaveUp) return false;
+  }
+  return true;
 }
 query.addEventListener("input", (event) => {
   if (!event.isComposing) later();
@@ -290,7 +301,7 @@ document.addEventListener("keydown", async (event) => {
     select(Math.min(state.items.length - 1, Math.max(0, state.selected + (event.key === "ArrowDown" ? 1 : -1))));
   } else if (event.key === "Enter" && (item || typing || asking) && !event.target.closest?.("button")) {
     event.preventDefault();
-    await current();
+    if (!(await current())) return;
     const chosen = state.items[state.selected];
     if (chosen) await open(chosen, event.shiftKey);
   } else if (event.key === "Escape") {
