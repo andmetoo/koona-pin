@@ -11,6 +11,7 @@ import { useCollectionReorder } from "../../hooks/useCollectionReorder";
 import { useRowDrag } from "../../hooks/useRowDrag";
 import { RowStack } from "../library/DragStack";
 import { statusColor, statusLabel } from "../../services/capture";
+import { isMobile } from "../../services/platform";
 import { shortcut } from "../../services/keys";
 import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
@@ -403,12 +404,15 @@ export function Sidebar(props: SidebarProps) {
             </span>
           </StripButton>
         )}
-        <StripButton label={status.label} onClick={props.onConnect}>
-          <span className="relative">
-            <Icon icon={Link} />
-            <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full" style={{ background: status.color }} />
-          </span>
-        </StripButton>
+        {/* The browsers' status: a phone has no browser extension (NP-151). */}
+        {!isMobile && (
+          <StripButton label={status.label} onClick={props.onConnect}>
+            <span className="relative">
+              <Icon icon={Link} />
+              <span className="absolute -top-0.5 -right-1 size-1.5 rounded-full" style={{ background: status.color }} />
+            </span>
+          </StripButton>
+        )}
         <StripButton label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings}>
           <Icon icon={Settings} />
         </StripButton>
@@ -717,15 +721,17 @@ export function Sidebar(props: SidebarProps) {
       <div className="sidebar-foot mt-auto flex flex-col gap-0.5 pb-3.5">
       {update && <UpdateRow update={update} percent={percent(props.update)} onClick={props.onUpdate} />}
       {props.plan && <PlanRow plan={props.plan} badge={props.badge} onClick={props.plan === "free" ? props.onSupport : props.onPlan} />}
-      <NavRow
-        icon={<Icon icon={Link} />}
-        label={status.label}
-        title={status.label}
-        onClick={props.onConnect}
-        trailing={<Dot color={status.color} className="size-1.5" />}
-        plain
-        danger={capture?.state === "failing"}
-      />
+      {!isMobile && (
+        <NavRow
+          icon={<Icon icon={Link} />}
+          label={status.label}
+          title={status.label}
+          onClick={props.onConnect}
+          trailing={<Dot color={status.color} className="size-1.5" />}
+          plain
+          danger={capture?.state === "failing"}
+        />
+      )}
       <NavRow icon={<Icon icon={Settings} />} label={t("nav.settings")} active={settingsOpen} onClick={props.onSettings} plain />
       </div>
       </div>

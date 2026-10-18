@@ -22,6 +22,9 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct Paths {
     pub database: PathBuf,
     pub backups: PathBuf,
+    /// The system's cache folder of the app, on phones (NP-151): the picture cache goes there.
+    /// None keeps it as on a desktop (`thumbs::root_for`).
+    pub cache: Option<PathBuf>,
 }
 
 impl Paths {
@@ -30,11 +33,20 @@ impl Paths {
             .parent()
             .unwrap_or(Path::new("."))
             .join(backup::FOLDER);
-        Paths { database, backups }
+        Paths { database, backups, cache: None }
     }
 
+    /// The desktop's library: the brand folder, or `KOONAPIN_DATA_DIR`.
+    #[cfg(desktop)]
     pub fn from_env() -> Self {
         Paths::new(db::db_path())
+    }
+
+    /// A phone's library (NP-151): the library, its backups, the feed cache and the account and
+    /// sync files in the app's data folder, the picture cache in its cache folder. Both come
+    /// from the system; nothing here guesses.
+    pub fn in_app_folders(data: &Path, cache: &Path) -> Self {
+        Paths { cache: Some(cache.to_path_buf()), ..Paths::new(data.join(db::DB_FILE)) }
     }
 
     pub fn folder(&self) -> PathBuf {
@@ -408,6 +420,7 @@ fn prepare(source: &Path, backups: &Path) -> Result<PathBuf, String> {
     let opened = open(&Paths {
         database: database.clone(),
         backups: work.join(backup::FOLDER),
+        cache: None,
     })
     .map_err(|failure| format!("{}: {}", failure.code, failure.detail))?;
     // A copy is not the replica it was made from (Р-68): it comes in with
@@ -629,6 +642,40 @@ mod tests {
             .join(format!("{name}-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&folder).unwrap();
         Paths::new(folder.join("koonapin.db"))
+    }
+
+    /// The desktop's folders do not move (Р-9, NP-151): the brand folder in the system's data
+    /// folder, its backups beside the library, the picture cache where it always was.
+    #[cfg(desktop)]
+    #[test]
+    fn a_desktop_keeps_its_library_where_it_always_was() {
+        if std::env::var_os(db::DATA_DIR_ENV).is_some() {
+            return;
+        }
+        let paths = Paths::from_env();
+        let folder = dirs::data_dir().unwrap().join("Koona").join("Pin");
+        assert_eq!(paths.database, folder.join("koonapin.db"));
+        assert_eq!(paths.backups, folder.join("backups"));
+        assert_eq!(paths.folder(), folder);
+        assert_eq!(paths.cache, None);
+        #[cfg(not(windows))]
+        assert_eq!(crate::thumbs::root_for(&paths), folder.join("thumbs"));
+        #[cfg(windows)]
+        assert_eq!(
+            crate::thumbs::root_for(&paths),
+            dirs::data_local_dir().unwrap().join("Koona").join("Pin").join("thumbs")
+        );
+    }
+
+    /// A phone's library and everything beside it in the app's data folder, the picture cache in
+    /// its cache folder (NP-151).
+    #[test]
+    fn a_phone_keeps_everything_in_the_app_folders() {
+        let paths = Paths::in_app_folders(Path::new("/data/app"), Path::new("/cache/app"));
+        assert_eq!(paths.database, Path::new("/data/app/koonapin.db"));
+        assert_eq!(paths.backups, Path::new("/data/app/backups"));
+        assert_eq!(paths.folder(), Path::new("/data/app"));
+        assert_eq!(crate::thumbs::root_for(&paths), Path::new("/cache/app/thumbs"));
     }
 
     fn build(paths: &Paths, rows: usize) {

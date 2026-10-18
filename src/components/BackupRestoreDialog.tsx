@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
 import { BackupCopy, BackupRestoreOutcome, BackupSource, CopyProblem } from "../types";
 import { api } from "../services/api";
+import { isMobile } from "../services/platform";
 import { describeError } from "../services/errors";
 import { shortcut } from "../services/keys";
 import { Icon } from "./icons";
@@ -150,13 +151,16 @@ export function BackupRestoreDialog({
             <span className="text-sm">{t("backup.previous")}</span>
             <span className="text-xs text-subtle [overflow-wrap:anywhere]">{previous}</span>
           </span>
-          <button
-            type="button"
-            onClick={() => void api.revealBackup(previous).catch((err) => setError(describeError(err)))}
-            className="shrink-0 text-sm font-medium text-accent hover:underline"
-          >
-            {t("export.show")}
-          </button>
+          {/* A phone has no file manager to show it in (NP-151). */}
+          {!isMobile && (
+            <button
+              type="button"
+              onClick={() => void api.revealBackup(previous).catch((err) => setError(describeError(err)))}
+              className="shrink-0 text-sm font-medium text-accent hover:underline"
+            >
+              {t("export.show")}
+            </button>
+          )}
         </div>
         <Failure error={error} />
       </Scrolling>

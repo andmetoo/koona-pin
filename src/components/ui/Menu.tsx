@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronRight, LucideIcon } from "lucide-react";
 import { Icon } from "../icons";
 import { isMac, shortcut } from "../../services/keys";
+import { safeArea } from "../../services/platform";
 
 export interface MenuItem {
   id: string;
@@ -65,11 +66,15 @@ export function Menu({
     if (!returnTo.current) returnTo.current = document.activeElement as HTMLElement | null;
     const menu = ref.current!.getBoundingClientRect();
     const rect = "width" in anchor ? anchor : new DOMRect(anchor.x, anchor.y, 0, 0);
+    // Inside the window, and on a phone inside its safe area: not under the bars or the keyboard (NP-151).
+    const safe = safeArea();
+    const [minLeft, maxRight] = [safe.left + 8, innerWidth - safe.right - 8];
+    const [minTop, maxBottom] = [safe.top + 8, innerHeight - safe.bottom - 8];
     let left = nested ? rect.right + 4 : align === "end" ? rect.right - width : rect.left;
     let top = nested ? rect.top - 6 : rect.bottom + 6;
-    if (left + width > innerWidth - 8) left = nested ? rect.left - width - 4 : innerWidth - width - 8;
-    if (top + menu.height > innerHeight - 8) top = Math.max(8, (nested ? rect.bottom + 6 : rect.top - 6) - menu.height);
-    setPosition({ left: Math.max(8, left), top });
+    if (left + width > maxRight) left = nested ? rect.left - width - 4 : maxRight - width;
+    if (top + menu.height > maxBottom) top = Math.max(minTop, (nested ? rect.bottom + 6 : rect.top - 6) - menu.height);
+    setPosition({ left: Math.max(minLeft, left), top });
     focusItem(0);
   }, []);
 

@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
 import { api } from "../services/api";
+import { isMobile } from "../services/platform";
 import { describeError, toCommandError } from "../services/errors";
 import { savePreference, storedValue } from "../services/preferences";
 import { copyTime } from "./BackupRestoreDialog";
@@ -952,7 +953,8 @@ export function PlanDialog({
                 <span className={`flex shrink-0 self-start pt-0.5 ${perk === "badge" ? "text-season" : "text-icon"}`}>
                   {PerkIcon ? <Icon icon={PerkIcon} /> : <Heart size={16} strokeWidth={1.5} fill="currentColor" aria-hidden />}
                 </span>
-                {perk === "backups" && plan ? (
+                {/* The folder picker is a desktop's (NP-151): a phone shows the perk as text. */}
+                {perk === "backups" && plan && !isMobile ? (
                   <FolderRow onError={setError} />
                 ) : perk === "sync" ? (
                   <SyncPerkRow status={sync} onOpen={onSync} />

@@ -2051,6 +2051,10 @@ export const demo = {
       invalidations.delete(fn);
     };
   },
+  /** The demo runs in a browser tab, never suspended like a phone's app. */
+  onResumed(_fn: () => void) {
+    return () => {};
+  },
   async getAppSettings() {
     return {
       close_to_tray: true,

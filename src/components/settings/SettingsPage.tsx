@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, PreviewCounts, PreviewRefresh, PreviewScope, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
 import { useSyncSettingsLine } from "../commercial/SyncRows";
 import { api, isTauri } from "../../services/api";
+import { isMobile } from "../../services/platform";
 import {
   appIsOlder,
   browserName,
@@ -132,6 +133,8 @@ export function SettingsPage({
   }, [dataVersion]);
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
+    // A phone has no start at sign-in, tray or window of its own to ask about (NP-151).
+    if (isMobile) return;
     if (desktop) void api.getAutostart().then(setAutostart).catch(() => setAutostart(null));
     void api.getDesktop().then(setSystem).catch(() => {});
   }, []);
@@ -194,42 +197,46 @@ export function SettingsPage({
             ]}
           />
         </Row>
-        <Row title={t("settings.autostart")} description={desktop ? t(tray ? "settings.autostartHint" : "settings.autostartHintBackground") : t("settings.desktopOnly")}>
-          <Switch
-            label={t("settings.autostart")}
-            checked={autostart ?? false}
-            disabled={!desktop || autostart === null || busy("autostart")}
-            onChange={(enabled) =>
-              void attempt("autostart", async () => {
-                await api.setAutostart(enabled);
-                setAutostart(enabled);
-              })
-            }
-          />
-        </Row>
-        <Row
-          title={t(tray ? "settings.tray" : "settings.trayBackground")}
-          description={t(tray ? "settings.trayHint" : "settings.trayBackgroundHint")}
-        >
-          <Switch
-            label={t(tray ? "settings.tray" : "settings.trayBackground")}
-            checked={settings?.close_to_tray ?? true}
-            disabled={!desktop || !settings || busy("tray")}
-            onChange={(enabled) =>
-              void attempt("tray", async () => {
-                await api.setCloseToTray(enabled);
-                if (settings) onSettings({ ...settings, close_to_tray: enabled });
-              })
-            }
-          />
-        </Row>
-        {/* On every system (NP-096): without a tray it is the way out of the app. */}
-        <Row title={t("settings.quit")} description={t("settings.quitHint")}>
-          <Kbd>{shortcut("Q")}</Kbd>
-          <Button disabled={!desktop} onClick={() => void attempt("quit", api.quitApp)}>
-            {t("settings.quitButton")}
-          </Button>
-        </Row>
+        {!isMobile && (
+          <>
+            <Row title={t("settings.autostart")} description={desktop ? t(tray ? "settings.autostartHint" : "settings.autostartHintBackground") : t("settings.desktopOnly")}>
+              <Switch
+                label={t("settings.autostart")}
+                checked={autostart ?? false}
+                disabled={!desktop || autostart === null || busy("autostart")}
+                onChange={(enabled) =>
+                  void attempt("autostart", async () => {
+                    await api.setAutostart(enabled);
+                    setAutostart(enabled);
+                  })
+                }
+              />
+            </Row>
+            <Row
+              title={t(tray ? "settings.tray" : "settings.trayBackground")}
+              description={t(tray ? "settings.trayHint" : "settings.trayBackgroundHint")}
+            >
+              <Switch
+                label={t(tray ? "settings.tray" : "settings.trayBackground")}
+                checked={settings?.close_to_tray ?? true}
+                disabled={!desktop || !settings || busy("tray")}
+                onChange={(enabled) =>
+                  void attempt("tray", async () => {
+                    await api.setCloseToTray(enabled);
+                    if (settings) onSettings({ ...settings, close_to_tray: enabled });
+                  })
+                }
+              />
+            </Row>
+            {/* On every system (NP-096): without a tray it is the way out of the app. */}
+            <Row title={t("settings.quit")} description={t("settings.quitHint")}>
+              <Kbd>{shortcut("Q")}</Kbd>
+              <Button disabled={!desktop} onClick={() => void attempt("quit", api.quitApp)}>
+                {t("settings.quitButton")}
+              </Button>
+            </Row>
+          </>
+        )}
       </Section>
 
       {/* Reading (NP-124, frame B10): how links open, «read» at the end, the R key. */}
@@ -318,9 +325,11 @@ export function SettingsPage({
             title={t("settings.offlineStats", { articles: t("settings.offlineArticles", { count: offline?.count ?? 0 }), size: size(offline?.bytes ?? 0) })}
             description={t("settings.offlineHint")}
           >
-            <Button disabled={!desktop} onClick={() => void attempt("offlineFolder", api.revealOfflineFolder)}>
-              {t("settings.showFolder")}
-            </Button>
+            {!isMobile && (
+              <Button disabled={!desktop} onClick={() => void attempt("offlineFolder", api.revealOfflineFolder)}>
+                {t("settings.showFolder")}
+              </Button>
+            )}
           </Row>
         </div>
         <Row title={t("settings.saveOffline")} description={t("settings.saveOfflineHint")}>
@@ -366,15 +375,20 @@ export function SettingsPage({
         onOpen={(url) => void attempt("changelog", () => api.openUrl(url))}
       />
 
-      <BrowserSection
-        capture={capture}
-        busy={busy("capture")}
-        onConnect={onConnect}
-        onRepair={() => void attempt("capture", async () => onCapture(await api.repairCapture()))}
-        onReport={() => capture && onCopy(captureReport(capture, version))}
-      />
+      {/* Desktop only (NP-151): a phone has no browser extension or MCP server. */}
+      {!isMobile && (
+        <>
+          <BrowserSection
+            capture={capture}
+            busy={busy("capture")}
+            onConnect={onConnect}
+            onRepair={() => void attempt("capture", async () => onCapture(await api.repairCapture()))}
+            onReport={() => capture && onCopy(captureReport(capture, version))}
+          />
 
-      <AssistantsSection onConnect={onConnectAssistant} onNotice={onNotice} />
+          <AssistantsSection onConnect={onConnectAssistant} onNotice={onNotice} />
+        </>
+      )}
 
       <Section title={t("settings.data")}>
         {syncShown && syncLine && hasPlan && (
@@ -394,17 +408,21 @@ export function SettingsPage({
           </div>
         )}
         <Row title={t("settings.folder")} description={data?.library_folder ?? ""}>
-          <Button disabled={!desktop} onClick={() => void attempt("folder", () => api.revealLibraryPlace("data"))}>
-            {t("common.open")}
-          </Button>
+          {!isMobile && (
+            <Button disabled={!desktop} onClick={() => void attempt("folder", () => api.revealLibraryPlace("data"))}>
+              {t("common.open")}
+            </Button>
+          )}
         </Row>
         <Row
           title={t("settings.backups")}
           description={`${t("settings.copies", { count: data?.copies ?? 0 })} · ${size(data?.bytes ?? 0)} · ${t("settings.keeps")}`}
         >
-          <Button disabled={!desktop} onClick={() => void attempt("backups", () => api.revealLibraryPlace("backups"))}>
-            {t("settings.openFolder")}
-          </Button>
+          {!isMobile && (
+            <Button disabled={!desktop} onClick={() => void attempt("backups", () => api.revealLibraryPlace("backups"))}>
+              {t("settings.openFolder")}
+            </Button>
+          )}
         </Row>
         <Row title={lastCopy} description={t("settings.saveHint")}>
           <Button disabled={!desktop || busy("save")} onClick={() => void attempt("save", onSaveCopy)}>
@@ -501,6 +519,9 @@ function UpdatesSection({
         {t("settings.updateButton")}
       </Button>
     );
+  } else if (isMobile) {
+    // A phone's store updates the app (NP-151): the version and what changed, nothing to check.
+    description = "";
   } else if (state === "checking") {
     description = t("settings.checking");
     controls = (

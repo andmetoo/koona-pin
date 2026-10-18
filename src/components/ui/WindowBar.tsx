@@ -3,6 +3,7 @@ import { Copy, Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../../services/api";
+import { isMobile } from "../../services/platform";
 import { Desktop, WindowButton } from "../../types";
 import { Icon } from "../icons";
 
@@ -14,6 +15,11 @@ import { Icon } from "../icons";
  * the app, its title bar hidden; the app's own rows drag the window there.
  */
 export function WindowBar() {
+  // A phone's app fills the screen under the system's own bars (NP-151).
+  return isMobile ? null : <FramedWindowBar />;
+}
+
+function FramedWindowBar() {
   const { t } = useTranslation();
   const [maximized, setMaximized] = useState(false);
   const [desktop, setDesktop] = useState<Desktop | null>(null);

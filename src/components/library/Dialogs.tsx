@@ -470,7 +470,8 @@ export function RestoreDialog({
   /** A full copy dropped on the window or picked with «Import a file…»: checked at once. */
   file?: { name: string; content: string };
   onRestore: (content: string, mode: RestoreMode) => Promise<RestoreOutcome>;
-  onShowBackups: () => void;
+  /** None on a phone: no file manager to show the copy in (NP-151). */
+  onShowBackups?: () => void;
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -565,9 +566,11 @@ export function RestoreDialog({
             {summary.backup && (
               <div className="flex items-center justify-between gap-3 border-t border-divider py-2 text-sm">
                 <span className="min-w-0 [overflow-wrap:anywhere]">{t("restore.backup", { name: summary.backup })}</span>
-                <button type="button" onClick={onShowBackups} className="shrink-0 font-medium text-accent hover:underline">
-                  {t("export.show")}
-                </button>
+                {onShowBackups && (
+                  <button type="button" onClick={onShowBackups} className="shrink-0 font-medium text-accent hover:underline">
+                    {t("export.show")}
+                  </button>
+                )}
               </div>
             )}
           </div>

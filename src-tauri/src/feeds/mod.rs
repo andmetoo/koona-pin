@@ -734,15 +734,12 @@ pub enum OpmlExport {
 /// (NP-131), as «Save a copy…» does.
 #[tauri::command]
 pub async fn export_opml(app: AppHandle, state: State<'_, Arc<DbState>>) -> Result<OpmlExport, CommandError> {
-    use tauri::Manager;
     use tauri_plugin_dialog::DialogExt;
     let list = opml::exported(&all_feeds(&app, &state).await?);
     let count = list.len() as u32;
     let name = format!("koona-pin-feeds-{}.opml", chrono::Local::now().format("%Y-%m-%d"));
-    let mut dialog = app.dialog().file().set_file_name(name).add_filter("OPML", &["opml", "xml"]);
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = app.dialog().file().set_file_name(name).add_filter("OPML", &["opml", "xml"]);
+    let dialog = crate::commands::over_main_window(&app, dialog);
     let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
         .await
         .map_err(CommandError::internal)?;

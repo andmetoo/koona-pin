@@ -9,13 +9,17 @@
 use crate::{
     browsers::{self, Browser, CaptureProblem, CaptureStatus, Connections, PROTOCOL},
     capture::{self, CaptureRequest, CaptureResult},
-    db::{DbState, Source},
+    db::Source,
 };
+#[cfg(desktop)]
+use crate::db::DbState;
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
+#[cfg(desktop)]
+use std::sync::Arc;
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 
 /// The browser limits a message from the extension to the host; a line larger
@@ -292,6 +296,7 @@ pub fn emit_status(app: &AppHandle, state: &ChannelState) {
 
 /// Points the browsers at the host, when this build registers (see
 /// `native_host::should_register`).
+#[cfg(desktop)]
 pub fn register_host(app: &AppHandle, state: &ChannelState) {
     if crate::native_host::should_register() {
         state.set_registration(crate::native_host::register().err());
@@ -299,7 +304,9 @@ pub fn register_host(app: &AppHandle, state: &ChannelState) {
     }
 }
 
-/// Loads the records of the opened library and starts the pipe.
+/// Loads the records of the opened library and starts the pipe. Desktop only: a phone has
+/// neither the browser host nor the MCP server (NP-151).
+#[cfg(desktop)]
 pub fn start(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
     if let Ok(conn) = db.conn.lock() {
         *lock(&state.connections) = Connections::load(&conn);
@@ -369,7 +376,7 @@ fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
         }
     });
 }
-#[cfg(unix)]
+#[cfg(all(unix, desktop))]
 fn serve(app: AppHandle, db: Arc<DbState>, state: Arc<ChannelState>) {
     // Bound before this returns, so «Повторить» answers with the real state.
     let listener = crate::pipe_name::socket_path()
@@ -488,6 +495,7 @@ async fn serve_admitted<F, Fut>(
 
 /// One line in, one line out. `takes_mcp`: koonapin-mcp's messages are
 /// answered only on the host's socket, never on Safari's (NP-119).
+#[cfg(desktop)]
 async fn answer<F, Fut>(
     pipe: impl tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
     takes_mcp: bool,
@@ -522,6 +530,7 @@ where
 }
 
 /// What the app does with a message: the same for every socket.
+#[cfg(desktop)]
 async fn respond(
     envelope: Envelope,
     app: AppHandle,
@@ -586,7 +595,7 @@ async fn respond(
 
 /// The capture socket on Linux (Р-45, п. 6) and macOS (NP-050): what the
 /// pipe's DACL and first instance flag do on Windows.
-#[cfg(unix)]
+#[cfg(all(unix, desktop))]
 mod socket {
     use std::{
         fs, io,

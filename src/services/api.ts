@@ -267,6 +267,8 @@ const desktop = {
     subscription("bookmarks-changed", callback),
   onLibraryInvalidated:(callback: () => void) =>
     subscription("library-invalidated", callback),
+  /** A phone brought the app back to the screen (NP-151); never on a desktop. */
+  onResumed: (callback: () => void) => subscription("tauri://resumed", callback),
   getAppSettings: () => call<AppSettings>("get_app_settings"),
   setReadingMarkAtEnd: (enabled: boolean) => call<void>("set_reading_mark_at_end", { enabled }),
   /** «Save articles I open in Reading» (NP-126). */

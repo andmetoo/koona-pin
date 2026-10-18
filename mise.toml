@@ -1,2 +1,4 @@
 [tools]
-rust = "latest"
+# The same Rust as rust-toolchain.toml: with "latest" mise set RUSTUP_TOOLCHAIN to a newer one and local
+# builds stopped matching CI (NP-151).
+rust = "1.98.1"

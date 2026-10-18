@@ -153,7 +153,7 @@ export function BookmarkEditor({
           </p>
         </div>
       )}
-      <footer className="flex items-center gap-2">
+      <footer data-editor-actions className="flex items-center gap-2">
         <button type="button" onClick={() => onDelete(bookmark)} className="mr-auto text-sm text-muted hover:text-ink">
           {t("card.delete")}
         </button>

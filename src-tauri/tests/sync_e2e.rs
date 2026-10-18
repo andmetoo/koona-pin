@@ -17,6 +17,7 @@ use koonapin_lib::commercial::sync::status::{Model, Reaction};
 use koonapin_lib::commercial::sync::worker::{self, DbLibrary};
 use koonapin_lib::db::{self, BookmarkQuery, DbState, Purge, Source};
 use koonapin_lib::feeds;
+use koonapin_lib::lifecycle::Foreground;
 use koonapin_lib::{library, test_libraries};
 use ring::rand::SystemRandom;
 use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING};
@@ -446,7 +447,7 @@ impl Device {
                 done.store(true, Ordering::SeqCst);
             })
         };
-        let tasks = vec![tokio::spawn(work), pump, tokio::spawn(worker::watch(self.db.clone(), handle.clone(), done.clone(), counter))];
+        let tasks = vec![tokio::spawn(work), pump, tokio::spawn(worker::watch(self.db.clone(), handle.clone(), done.clone(), counter, Foreground::always()))];
         self.run = Some(Run { handle, done, tasks });
     }
 

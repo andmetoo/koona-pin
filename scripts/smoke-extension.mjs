@@ -117,6 +117,9 @@ register();
 const missingState = linux ? "unreachable" : "missing";
 const apps = startedSince();
 const library = path.join(directory, "koonapin.db");
+// A new library gets the starter set (NP-117, source «app») from the interface once its window loads, which
+// races the reads here: the checks count the captures only.
+const captured = "FROM bookmarks WHERE source IS NOT 'app'";
 let browser, worker;
 const notes = [];
 async function until(check, label, ms = 20000) {
@@ -194,7 +197,7 @@ try {
   const coldMs = Math.round(performance.now() - started);
   assert.equal((await waiting()).length, 0);
   assert.equal(apps.ours().length, 1, "the host started the app");
-  assert.deepEqual(rows("SELECT title, source FROM bookmarks"), [{ title: `Настоящий ${target.name}`, source: target.source }]);
+  assert.deepEqual(rows(`SELECT title, source ${captured}`), [{ title: `Настоящий ${target.name}`, source: target.source }]);
   const [{ request_id: firstId }] = rows("SELECT request_id FROM capture_receipts");
   await page.getByRole("button", { name: "Проверить снова" }).click();
   await page.locator('#status[data-state="connected"]').waitFor();
@@ -203,12 +206,12 @@ try {
   // A duplicate: existing, the title stays.
   assert.equal(await capture("https://example.invalid/extension-capture", "Заголовок дубликата"), "existing");
   assert.equal((await waiting()).length, 0);
-  assert.deepEqual(rows("SELECT title FROM bookmarks"), [{ title: `Настоящий ${target.name}` }]);
+  assert.deepEqual(rows(`SELECT title ${captured}`), [{ title: `Настоящий ${target.name}` }]);
 
   // «Save to Reading» on the saved page (NP-125): only added to Reading, still in the inbox, no duplicate.
   assert.equal(await capture("https://example.invalid/extension-capture", "Заголовок дубликата", undefined, true), "existing");
   assert.deepEqual(placed("https://example.invalid/extension-capture"), [{ reading: 1, inbox: 1 }]);
-  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 1);
+  assert.equal(rows(`SELECT count(*) AS n ${captured}`)[0].n, 1);
 
   // The library cannot open: the link stays in the queue.
   apps.stop();
@@ -243,7 +246,7 @@ try {
   const retried = performance.now();
   await until(async () => (await waiting()).length === 0, "delivery by the alarm", 150000);
   const retryS = Math.round((performance.now() - retried) / 1000);
-  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 2);
+  assert.equal(rows(`SELECT count(*) AS n ${captured}`)[0].n, 2);
   // Saved to Reading while the app was away: in Reading and in the inbox once it is back.
   assert.deepEqual(placed("https://example.invalid/library-failed"), [{ reading: 1, inbox: 1 }]);
   // Receipts: the first capture, the duplicate (existing), Save to Reading on it and the queued one.
@@ -281,7 +284,7 @@ try {
   await writeManifest(`chrome-extension://${built.devId}/`);
   await page.getByRole("button", { name: "Отправить сейчас" }).click();
   await until(async () => (await waiting()).length === 0, "delivery after registration came back");
-  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 4);
+  assert.equal(rows(`SELECT count(*) AS n ${captured}`)[0].n, 4);
 
   // NP-080: the answer on the page and on the button. The page forbids every
   // script and style of its own; the message is built from nodes in a shadow root.
@@ -355,7 +358,7 @@ try {
   } finally {
     site.close();
   }
-  assert.equal(rows("SELECT count(*) AS n FROM bookmarks")[0].n, 5);
+  assert.equal(rows(`SELECT count(*) AS n ${captured}`)[0].n, 5);
 
   // NP-082: the quick search. The popup's page opened as a tab talks to the
   // app the same way; the shortcut is the browser's, the popup is set only
@@ -398,7 +401,7 @@ try {
   const connections = JSON.parse(rows("SELECT value FROM app_settings WHERE key='capture_connections'")[0].value);
   assert.ok(connections.browsers[target.source], `the app knows ${target.name}`);
   assert.deepEqual(
-    [...new Set(rows("SELECT source FROM bookmarks").map((r) => r.source))],
+    [...new Set(rows(`SELECT source ${captured}`).map((r) => r.source))],
     [target.source],
     "every link carries this browser's name",
   );

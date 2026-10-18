@@ -8,7 +8,7 @@ use crate::{
     error::CommandError,
 };
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 /// The version a builder writes.
 pub const WRITER_VERSION: &str = "1.0";
@@ -124,10 +124,8 @@ pub async fn save_list(app: AppHandle, last: State<'_, LastExport>, text: String
     let checked = text.clone();
     let list = tauri::async_runtime::spawn_blocking(move || format::parse(&checked)).await.map_err(CommandError::internal)??;
     let count = (list.links.len() + list.feeds.len()) as u32;
-    let mut dialog = app.dialog().file().set_file_name(file_name(&id)).add_filter("Koona list", &["kpin"]);
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = app.dialog().file().set_file_name(file_name(&id)).add_filter("Koona list", &["kpin"]);
+    let dialog = crate::commands::over_main_window(&app, dialog);
     let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
         .await
         .map_err(CommandError::internal)?;
