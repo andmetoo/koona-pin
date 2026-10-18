@@ -412,14 +412,16 @@ export function App() {
     const end = () => (own = false);
     /**
      * The list area under the pointer, or null outside it: the view's `[data-drop-area]` (the
-     * library's cards or rows, the posts of Feeds, the content of Settings) below any
-     * `[data-drop-head]` over it; `<main>` itself in a view without one.
+     * library's cards or rows, the posts and the article of Feeds, the content of Settings) below
+     * the lowest `[data-drop-head]` on screen over it; `<main>` itself in a view without one.
      */
     const areaAt = (e: DragEvent): DropArea | null => {
       const main = mainRef.current;
       if (!main) return null;
       const box = (main.querySelector("[data-drop-area]") ?? main).getBoundingClientRect();
-      const top = Math.max(box.top, main.querySelector("[data-drop-head]")?.getBoundingClientRect().bottom ?? box.top);
+      // A head folded away (the post list behind a spread article) has no width and does not count.
+      const heads = Array.from(main.querySelectorAll("[data-drop-head]"), (head) => head.getBoundingClientRect()).filter((head) => head.width > 0);
+      const top = Math.max(box.top, ...heads.map((head) => head.bottom));
       const inside = e.clientX >= box.left && e.clientX < box.right && e.clientY >= top && e.clientY < box.bottom;
       return inside ? { top, left: box.left, width: box.width, height: box.bottom - top } : null;
     };
@@ -1683,7 +1685,7 @@ export function App() {
           <main ref={mainRef} className="relative flex min-w-0 flex-1 flex-col">
             {page === "settings" ? (
               <>
-                <div className={`${padding} pt-2 pb-5`}>
+                <div data-drop-head className={`${padding} pt-2 pb-5`}>
                   <h1 className="flex h-9 items-center text-2xl font-semibold">{t("nav.settings")}</h1>
                 </div>
                 <div data-drop-area className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>

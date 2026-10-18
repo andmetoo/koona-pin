@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { dropPoint } from "../fixtures/app";
+import { dropPoint, type DropWhere } from "../fixtures/app";
 
 // Adding a link (2026-10-16): «New link» in the sidebar and ⌘N open a glass sheet; ⌘V in the
 // library and a link dropped on the window save at once; the sidebar's sections fold.
@@ -166,7 +166,7 @@ const dragAt = async (
   page: Page,
   type: "dragenter" | "dragover" | "dragleave" | "drop",
   init: { link?: string; file?: boolean; shift?: boolean } = {},
-  where: "list" | "sidebar" | "toolbar" | "zero" = "list",
+  where: DropWhere | "zero" = "list",
 ) => {
   // "zero": as WebKitGTK and WebView2 may give a drop, with no coordinates.
   const at = where === "zero" ? { x: 0, y: 0 } : await dropPoint(page, where);
@@ -289,7 +289,7 @@ const dragFiles = async (
   type: "dragenter" | "dragover" | "dragleave" | "drop",
   files: { name: string; text?: string }[],
   real = false,
-  where: "list" | "sidebar" | "toolbar" = "list",
+  where: DropWhere = "list",
 ) => {
   const at = await dropPoint(page, where);
   return page.evaluate(
@@ -306,6 +306,58 @@ const dragFiles = async (
     { type, files, real, at },
   );
 };
+
+/** Whether a file dragged over `where` gets the zone (and a copy) or nothing (and none); the drag then leaves. */
+const zoneOver = async (page: Page, where: DropWhere, shows: boolean) => {
+  const zone = page.locator("[data-drop-zone]");
+  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml" }], true, where)).toBe(shows ? "copy" : "none");
+  if (shows) await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+  else {
+    await page.waitForTimeout(100);
+    await expect(zone).toHaveCount(0);
+  }
+  await dragFiles(page, "dragleave", [], true, where);
+  await expect(zone).toHaveCount(0);
+};
+
+test("Feeds: the zone lies over the posts and the article, wide and narrow; over the feed column or a header nothing", async ({ page }) => {
+  const posts = page.locator("[data-feed-item]");
+  const article = page.locator("[data-feed-article] [data-feed-scroll]");
+  const feedColumn = page.getByRole("navigation", { name: "Feeds" });
+  await feedColumn.getByRole("button", { name: /^All feeds/ }).click();
+  await posts.nth(1).click();
+  await expect(article).toBeVisible();
+  // Three columns: the posts and the article; not the feeds in the sidebar, not the headers.
+  await zoneOver(page, posts.nth(1), true);
+  await zoneOver(page, article, true);
+  await zoneOver(page, feedColumn, false);
+  await zoneOver(page, page.locator("[data-feed-list] header"), false);
+  await zoneOver(page, page.locator("[data-feed-article] header"), false);
+  // The card spread over the list: still the article.
+  await page.keyboard.press("e");
+  await expect(page.locator("[data-feed-slot]")).toHaveCSS("width", "0px");
+  await zoneOver(page, article, true);
+  await zoneOver(page, page.locator("[data-feed-article] header"), false);
+  // A narrow window: the list alone, then the post alone.
+  await page.setViewportSize({ width: 900, height: 700 });
+  await page.locator("[data-feed-article]").getByRole("button", { name: "Back to the list" }).click();
+  await expect(posts.first()).toBeVisible();
+  await zoneOver(page, posts.first(), true);
+  await zoneOver(page, page.locator("[data-feed-list] header"), false);
+  await zoneOver(page, "sidebar", false);
+  await posts.first().click();
+  await expect(article).toBeVisible();
+  await zoneOver(page, article, true);
+  await zoneOver(page, page.locator("[data-feed-article] header"), false);
+});
+
+test("Settings: the zone lies over the content, not over its header", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await zoneOver(page, "list", true);
+  await zoneOver(page, page.getByRole("heading", { level: 1, name: "Settings" }), false);
+  await zoneOver(page, "sidebar", false);
+});
 
 const OPML = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/><outline text="B" xmlUrl="https://example.org/b.xml"/></body></opml>';
 const LIST = '{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Dropped list","items":[{"type":"link","url":"https://example.org/dropped-list"}]}';
