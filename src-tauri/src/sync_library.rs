@@ -146,18 +146,25 @@ pub fn after_restore(conn: &Connection, kept: Kept, previous: &Path) -> koona_sy
             0
         }
     };
-    // A purge is final for its uid (SPIKE.md): the other devices that
-    // applied it keep the uid purged whatever comes. The purges of the
-    // library as it was stay (a copy of the whole file lacks those made
-    // after it), and a record the restore brought back under a purged uid
-    // gets a new one: a new record everywhere, so every device has it.
-    if let Err(error) = carry_tombstones(conn, previous) {
-        eprintln!("The purges of the replaced library were not carried over: {error}");
-    }
-    renew_purged(conn)?;
+    keep_purges(conn, previous)?;
     koona_sync::attach(conn, uuid::Uuid::new_v4())?;
     koona_sync::baseline(conn)?;
     Ok(trashed)
+}
+
+/// After any restore, sync on or off: a purge is final for its uid
+/// (SPIKE.md), and the other devices that applied it keep the uid purged
+/// whatever comes, also once sync is turned on later. The purges of
+/// `previous` (the library as it was) stay, since a copy of the whole file
+/// lacks those made after it; a record the restore brought back under a
+/// purged uid gets a new one: a new record everywhere, so every device has
+/// it. A `previous` that cannot be read carries nothing; the restore goes on.
+/// Returns how many records got a new uid.
+pub fn keep_purges(conn: &Connection, previous: &Path) -> rusqlite::Result<usize> {
+    if let Err(error) = carry_tombstones(conn, previous) {
+        eprintln!("The purges of the replaced library were not carried over: {error}");
+    }
+    renew_purged(conn)
 }
 
 /// The tombstones of `previous` (the library as it was) the library lacks,
@@ -183,17 +190,23 @@ fn carry_tombstones(conn: &Connection, previous: &Path) -> rusqlite::Result<usiz
 }
 
 /// Gives every bookmark, collection, tag and feed whose uid has a tombstone
-/// a new uid; the tombstone stays. The library refers to records by id, so
-/// nothing else changes. Returns how many.
+/// a new uid; the tombstone stays. The library refers to records by id; a
+/// dismissed duplicate (NP-035) is named by uid and follows. The posts of a
+/// feed in the cache (a database of its own) stay under the old uid and are
+/// fetched again under the new one. Returns how many.
 fn renew_purged(conn: &Connection) -> rusqlite::Result<usize> {
     let mut count = 0;
     for table in ["bookmarks", "collections", "tags", "feeds"] {
-        let ids: Vec<i64> = conn
-            .prepare(&format!("SELECT id FROM {table} WHERE uid IN (SELECT uid FROM tombstones) ORDER BY id"))?
-            .query_map([], |r| r.get(0))?
+        let rows: Vec<(i64, String)> = conn
+            .prepare(&format!("SELECT id, uid FROM {table} WHERE uid IN (SELECT uid FROM tombstones) ORDER BY id"))?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<rusqlite::Result<_>>()?;
-        for id in ids {
-            count += conn.execute(&format!("UPDATE {table} SET uid = ?1 WHERE id = ?2"), params![db::new_uid(), id])?;
+        for (id, old) in rows {
+            let new = db::new_uid();
+            count += conn.execute(&format!("UPDATE {table} SET uid = ?1 WHERE id = ?2"), params![new, id])?;
+            if table == "bookmarks" {
+                conn.execute("UPDATE duplicates_dismissed SET uid = ?1 WHERE uid = ?2", params![new, old])?;
+            }
         }
     }
     Ok(count)
@@ -590,6 +603,32 @@ mod tests {
             let tags = db::get_bookmark_by_id(&b, b.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get(0)).unwrap()).unwrap().tags;
             assert_eq!(tags.unwrap(), ["one"], "{mode:?}");
         }
+    }
+
+    /// A bookmark given a new uid for a purged one keeps its dismissed
+    /// duplicates (NP-035): they are named by uid.
+    #[test]
+    fn a_renewed_bookmark_keeps_its_dismissed_duplicates() {
+        let conn = library();
+        let a = save(&conn, "https://example.com/page", &[]);
+        let b = save(&conn, "https://www.example.com/page/", &[]);
+        let key: String = conn.query_row("SELECT url_key FROM bookmarks WHERE id = ?1", [a.id], |r| r.get(0)).unwrap();
+        crate::dedupe::dismiss(&conn, &key, &[a.id, b.id]).unwrap();
+        let old = uid(&conn, "bookmarks", a.id);
+        conn.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES (?1, 'bookmark', 'x', 'x')", [&old]).unwrap();
+        assert_eq!(keep_purges(&conn, Path::new("/nonexistent/koonapin.db")).unwrap(), 1);
+        let new = uid(&conn, "bookmarks", a.id);
+        assert_ne!(new, old);
+        let dismissed: Vec<String> = conn
+            .prepare("SELECT uid FROM duplicates_dismissed WHERE url_key = ?1 ORDER BY uid")
+            .unwrap()
+            .query_map([&key], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        let mut expected = vec![new, uid(&conn, "bookmarks", b.id)];
+        expected.sort();
+        assert_eq!(dismissed, expected);
     }
 
     /// Feeds (NP-130) through a restore and through sync turned off and on:

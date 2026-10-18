@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! offline/<bookmark id>/article.html   pictures as src="koona-offline:NN.ext"
-//! offline/<bookmark id>/article.json   the rest of [`OfflineArticle`], and the bookmark's uid
+//! offline/<bookmark id>/article.json   the rest of [`OfflineArticle`]
 //! offline/<bookmark id>/images/NN.ext
 //! ```
 //!
@@ -448,54 +448,38 @@ pub async fn stage(root: &Path, id: i64, article: &OfflineArticle, limits: &'sta
     Ok(staged)
 }
 
-/// The key of `article.json` that names the bookmark a copy belongs to.
-const OWNER: &str = "bookmark_uid";
-
-/// Writes the bookmark's uid into a staged copy's metadata; `bytes` follows the file's size.
-fn mark_owner(dir: &Path, uid: &str, bytes: &mut i64) -> Result<(), String> {
-    let path = dir.join(META);
-    let before = fs::read(&path).map_err(|e| e.to_string())?;
-    let mut meta: serde_json::Value = serde_json::from_slice(&before).map_err(|e| e.to_string())?;
-    meta.as_object_mut().ok_or("the metadata is not an object")?.insert(OWNER.into(), uid.into());
-    let after = serde_json::to_vec_pretty(&meta).map_err(|e| e.to_string())?;
-    fs::write(&path, &after).map_err(|e| e.to_string())?;
-    *bytes += after.len() as i64 - before.len() as i64;
-    Ok(())
-}
-
-/// Whether the copy in `dir` is the one its row describes: the page its
-/// metadata names is the row's, and so is the bookmark, where the metadata
-/// names one (copies saved before it did name none). Metadata that cannot be
-/// read tells nothing either way.
-fn belongs(dir: &Path, url: &str, uid: Option<&str>) -> bool {
+/// Whether the copy in `dir` is the one its row describes: its metadata
+/// names the row's page. A restored library's rows meet the folders of the
+/// library it replaced by bookmark id; the same page under the same id is
+/// the same article whichever bookmark holds it. Not by the bookmark's uid:
+/// sync gives a bookmark another uid when two devices saved the same
+/// address. Metadata that cannot be read tells nothing either way.
+fn belongs(dir: &Path, url: &str) -> bool {
     let Some(meta) = fs::read(dir.join(META)).ok().and_then(|m| serde_json::from_slice::<serde_json::Value>(&m).ok()) else {
         return true;
     };
-    let same_page = meta.get("url").and_then(|u| u.as_str()).is_none_or(|u| u == url);
-    let same_bookmark = match meta.get(OWNER).and_then(|o| o.as_str()) {
-        Some(owner) => uid == Some(owner),
-        None => true,
-    };
-    same_page && same_bookmark
+    meta.get("url").and_then(|u| u.as_str()).is_none_or(|u| u == url)
+}
+
+/// Puts the old copy back after a failed replace. If that fails too it
+/// stays in its `.old-` folder, which the sweep removes a day later.
+fn put_back(old: &Path, target: &Path) {
+    if let Err(error) = fs::rename(old, target) {
+        eprintln!("The previous offline copy was not put back at {}: {error}", target.display());
+    }
 }
 
 /// Puts a staged copy in place of the bookmark's old one, if any, and writes
 /// its row. Called under the library lock. A bookmark deleted for good
 /// meanwhile gets no copy.
 pub fn install(conn: &Connection, root: &Path, id: i64, article: &OfflineArticle, mut staged: Staged) -> Result<OfflineCopy, CommandError> {
-    let uid: Option<String> = conn.query_row("SELECT uid FROM bookmarks WHERE id = ?1", [id], |r| r.get(0)).optional()?;
-    let Some(uid) = uid else {
+    let exists: bool = conn.query_row("SELECT EXISTS (SELECT 1 FROM bookmarks WHERE id = ?1)", [id], |r| r.get(0))?;
+    if !exists {
         return Err(gone());
-    };
+    }
     let Some(dir) = staged.dir.take() else {
         return Err(CommandError::internal("the copy was installed already"));
     };
-    // Whose copy it is goes into its metadata: a folder left by another
-    // library (a restore) is told apart by [`sweep`].
-    if let Err(error) = mark_owner(&dir, &uid, &mut staged.bytes) {
-        let _ = fs::remove_dir_all(&dir);
-        return Err(CommandError::internal(error));
-    }
     let target = folder(root, id);
     let replaced = target.exists().then(|| root.join(format!("{REPLACED}{id}-{}", uuid::Uuid::new_v4().simple())));
     if let Some(old) = &replaced {
@@ -507,7 +491,7 @@ pub fn install(conn: &Connection, root: &Path, id: i64, article: &OfflineArticle
     if let Err(error) = fs::rename(&dir, &target) {
         let _ = fs::remove_dir_all(&dir);
         if let Some(old) = &replaced {
-            let _ = fs::rename(old, &target);
+            put_back(old, &target);
         }
         return Err(CommandError::internal(error));
     }
@@ -529,7 +513,7 @@ pub fn install(conn: &Connection, root: &Path, id: i64, article: &OfflineArticle
         // The row still describes the old copy: it goes back in place.
         let _ = fs::remove_dir_all(&target);
         if let Some(old) = &replaced {
-            let _ = fs::rename(old, &target);
+            put_back(old, &target);
         }
         return Err(error.into());
     }
@@ -648,7 +632,7 @@ pub fn stats(conn: &Connection) -> rusqlite::Result<OfflineStats> {
 
 /// Makes the rows and the folders agree, at start and hourly with the trash
 /// (`library_state`) and after a restore: a row whose folder is gone or
-/// holds a copy of another page or bookmark goes with that folder, a folder
+/// holds a copy of another page goes with that folder, a folder
 /// without a row goes, a save that never finished goes after a
 /// day. Under the library lock. A hard delete elsewhere (a purge synced from
 /// another device, a restore) leaves folders behind until then. Returns the
@@ -659,20 +643,20 @@ pub fn sweep(conn: &Connection) -> rusqlite::Result<usize> {
 
 fn sweep_at(conn: &Connection, now: SystemTime) -> rusqlite::Result<usize> {
     let Some(root) = root(conn) else { return Ok(0) };
-    let described: Vec<(i64, String, Option<String>)> = conn
-        .prepare("SELECT o.bookmark_id, o.url, b.uid FROM offline_copies o LEFT JOIN bookmarks b ON b.id = o.bookmark_id")?
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+    let described: Vec<(i64, String)> = conn
+        .prepare("SELECT bookmark_id, url FROM offline_copies")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<rusqlite::Result<_>>()?;
-    let rows: HashSet<i64> = described.iter().map(|(id, _, _)| *id).collect();
-    // A row whose folder is gone, or holds another copy: a restored library's
-    // rows meet the folders of the library it replaced, by bookmark id.
+    let rows: HashSet<i64> = described.iter().map(|(id, _)| *id).collect();
+    // A row whose folder is gone, or holds another page's copy: a restored
+    // library's rows meet the folders of the library it replaced, by bookmark id.
     let missing: Vec<i64> = described
         .iter()
-        .filter(|(id, url, uid)| {
+        .filter(|(id, url)| {
             let dir = folder(&root, *id);
-            !dir.join(ARTICLE).is_file() || !belongs(&dir, url, uid.as_deref())
+            !dir.join(ARTICLE).is_file() || !belongs(&dir, url)
         })
-        .map(|(id, _, _)| *id)
+        .map(|(id, _)| *id)
         .collect();
     if !missing.is_empty() {
         conn.execute(
@@ -1059,42 +1043,39 @@ mod tests {
     }
 
     /// A restored library's rows meet the folders of the library it
-    /// replaced by bookmark id: a folder holding another page's or another
-    /// bookmark's copy goes with its row; a copy saved before the metadata
-    /// named the bookmark is told by its page.
+    /// replaced by bookmark id: a folder holding another page's copy goes
+    /// with its row. A bookmark that got another uid from sync (two devices
+    /// saved the same address) keeps its copy, and so does a copy whose
+    /// metadata names a bookmark uid.
     #[tokio::test]
-    async fn the_sweep_drops_rows_whose_folder_holds_another_copy() {
+    async fn the_sweep_drops_rows_whose_folder_holds_another_page() {
         let (root, conn) = library("identity");
         let offline = root.join(FOLDER);
         let ids: Vec<i64> = {
             let conn = conn.lock().unwrap();
-            ["a", "b", "c", "d", "e"].iter().map(|p| add(&conn, p)).collect()
+            ["a", "b", "c", "d"].iter().map(|p| add(&conn, p)).collect()
         };
-        for (id, path) in ids.iter().zip(["a", "b", "c", "d", "e"]) {
+        for (id, path) in ids.iter().zip(["a", "b", "c", "d"]) {
             save(&conn, *id, &article(&format!("https://example.com/{path}"), "<p>x</p>"), &TEST, &TEST_CAPS).await.unwrap();
         }
         let conn = conn.lock().unwrap();
-        let meta = |id: i64| -> serde_json::Value { serde_json::from_slice(&fs::read(offline.join(id.to_string()).join(META)).unwrap()).unwrap() };
-        let uid = |id: i64| -> String { conn.query_row("SELECT uid FROM bookmarks WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
-        assert_eq!(meta(ids[0])[OWNER], uid(ids[0]), "a copy names its bookmark");
         // Another library's row for the same id: another page.
         conn.execute("UPDATE offline_copies SET url = 'https://other.example/' WHERE bookmark_id = ?1", [ids[0]]).unwrap();
-        // The same id is another bookmark there.
+        // Sync's takeover of the same address gives the bookmark the arriving uid; its id stays.
         conn.execute("UPDATE bookmarks SET uid = ?1 WHERE id = ?2", params![db::new_uid(), ids[1]]).unwrap();
-        // Copies saved before the uid was kept: told by the page alone.
-        for id in [ids[2], ids[3]] {
-            let mut old = meta(id);
-            old.as_object_mut().unwrap().remove(OWNER);
-            fs::write(offline.join(id.to_string()).join(META), serde_json::to_vec(&old).unwrap()).unwrap();
-        }
-        conn.execute("UPDATE offline_copies SET url = 'https://other.example/' WHERE bookmark_id = ?1", [ids[3]]).unwrap();
+        // Metadata that names some bookmark uid, as a copy may: not read.
+        let path = offline.join(ids[2].to_string()).join(META);
+        let mut meta: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        meta.as_object_mut().unwrap().insert("bookmark_uid".into(), db::new_uid().into());
+        fs::write(&path, serde_json::to_vec(&meta).unwrap()).unwrap();
 
-        assert_eq!(sweep(&conn).unwrap(), 3);
+        assert_eq!(sweep(&conn).unwrap(), 1);
         let kept = |id: i64| copy_of(&conn, id).unwrap().is_some() && offline.join(id.to_string()).exists();
-        assert_eq!(ids.iter().map(|id| kept(*id)).collect::<Vec<_>>(), [false, false, true, false, true]);
-        for id in [ids[0], ids[1], ids[3]] {
-            assert!(!offline.join(id.to_string()).exists(), "the other copy's folder goes too");
-            assert!(read(&conn, &offline, id).unwrap().is_none());
+        assert_eq!(ids.iter().map(|id| kept(*id)).collect::<Vec<_>>(), [false, true, true, true]);
+        assert!(!offline.join(ids[0].to_string()).exists(), "the other page's folder goes too");
+        assert!(read(&conn, &offline, ids[0]).unwrap().is_none());
+        for id in &ids[1..] {
+            assert!(content(read(&conn, &offline, *id).unwrap().unwrap()).is_some(), "still reads");
         }
         assert_eq!(sweep(&conn).unwrap(), 0, "the rest agree");
     }
