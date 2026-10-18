@@ -9,7 +9,7 @@ import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { moveCollection } from "../../services/library";
 import { useCollectionReorder } from "../../hooks/useCollectionReorder";
 import { statusColor, statusLabel } from "../../services/capture";
-import { isMobile } from "../../platform/platform";
+import { capabilities } from "../../platform/capabilities";
 import { shortcut } from "../../services/keys";
 import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
@@ -401,7 +401,7 @@ export function Sidebar(props: SidebarProps) {
           </StripButton>
         )}
         {/* The browsers' status: a phone has no browser extension (NP-151). */}
-        {!isMobile && (
+        {capabilities.browser_capture && (
           <StripButton label={status.label} onClick={props.onConnect}>
             <span className="relative">
               <Icon icon={Link} />
@@ -738,7 +738,7 @@ export function Sidebar(props: SidebarProps) {
       <div className="sidebar-foot mt-auto flex flex-col gap-0.5 pb-3.5">
       {update && <UpdateRow update={update} percent={percent(props.update)} onClick={props.onUpdate} />}
       {props.plan && <PlanRow plan={props.plan} badge={props.badge} onClick={props.plan === "free" ? props.onSupport : props.onPlan} />}
-      {!isMobile && (
+      {capabilities.browser_capture && (
         <NavRow
           icon={<Icon icon={Link} />}
           label={status.label}

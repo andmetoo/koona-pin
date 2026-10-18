@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
-import { isMobile } from "./platform/platform";
+import { capabilities } from "./platform/capabilities";
 import { useBack } from "./platform/useBack";
 import { describeError, reasonOf } from "./services/errors";
 import { composing } from "./services/ime";
@@ -292,7 +292,7 @@ export function App() {
         focusSearch(5);
       }
       // Quits from the window on every system (NP-096): without a tray it is the way out.
-      if (!isMobile && (e.ctrlKey || e.metaKey) && (key === "q" || e.code === "KeyQ") && !e.shiftKey && !e.altKey) {
+      if (capabilities.quit && (e.ctrlKey || e.metaKey) && (key === "q" || e.code === "KeyQ") && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         void api.quitApp().catch(() => {});
       }
@@ -502,7 +502,7 @@ export function App() {
   useEffect(() => {
     void api.getVersion().then(setAppVersion).catch(() => {});
     // A phone's store updates the app (NP-151).
-    if (isMobile) return;
+    if (capabilities.updates !== "self") return;
     const off = api.onUpdateStatus(setUpdate);
     void api.getUpdateStatus().then(setUpdate).catch(() => {});
     // The password texts of the update dialog are for the .deb and .rpm: an AppImage replaces its own file (NP-116).
@@ -545,7 +545,7 @@ export function App() {
   }, [surface, update]);
   useEffect(() => {
     // A phone has no browser extension to hear from (NP-151).
-    if (isMobile) return;
+    if (!capabilities.browser_capture) return;
     // The app learns about browsers when their extensions write (NP-016).
     const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
     const off = api.onCaptureStatus(setCapture);
@@ -723,7 +723,7 @@ export function App() {
             alert: false,
             long: true,
             // A phone has no file manager to show it in (NP-151).
-            show: isMobile ? undefined : () => void api.revealExport().catch((err) => say(describeError(err), true)),
+            show: !capabilities.file_manager ? undefined : () => void api.revealExport().catch((err) => say(describeError(err), true)),
           });
         const { file_name: name, folder, detail } = result;
         const text =
@@ -764,7 +764,7 @@ export function App() {
             text: t("settings.copySaved", { name: result.file_name }),
             alert: false,
             long: true,
-            show: isMobile ? undefined : () => void api.revealExport().catch((err) => say(describeError(err), true)),
+            show: !capabilities.file_manager ? undefined : () => void api.revealExport().catch((err) => say(describeError(err), true)),
           });
         setNotice({ text: t("settings.copySaveFailed", { name: result.file_name, detail: result.detail }), alert: true, retry: () => void saveBackupCopy() });
       },
@@ -1736,7 +1736,7 @@ export function App() {
                           <Button variant="onDanger" onClick={() => setSurface("backup")}>
                             {t("library.restore")}
                           </Button>
-                          {!isMobile && (
+                          {capabilities.file_manager && (
                             <Button variant="onDanger" onClick={() => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}>
                               {t("library.openBackups")}
                             </Button>
@@ -1987,7 +1987,7 @@ export function App() {
             }
             return outcome;
           }}
-          onShowBackups={isMobile ? undefined : () => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}
+          onShowBackups={!capabilities.file_manager ? undefined : () => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}
         />
       )}
       {surface === "backup" && (

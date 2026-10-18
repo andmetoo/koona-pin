@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
 import { BackupCopy, BackupRestoreOutcome, BackupSource, CopyProblem } from "../types";
 import { api } from "../services/api";
-import { isMobile } from "../platform/platform";
+import { capabilities } from "../platform/capabilities";
 import { describeError } from "../services/errors";
 import { shortcut } from "../services/keys";
 import { Icon } from "./icons";
@@ -152,7 +152,7 @@ export function BackupRestoreDialog({
             <span className="text-xs text-subtle [overflow-wrap:anywhere]">{previous}</span>
           </span>
           {/* A phone has no file manager to show it in (NP-151). */}
-          {!isMobile && (
+          {capabilities.file_manager && (
             <button
               type="button"
               onClick={() => void api.revealBackup(previous).catch((err) => setError(describeError(err)))}

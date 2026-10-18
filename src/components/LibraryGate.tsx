@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../services/api";
-import { isMobile } from "../platform/platform";
+import { capabilities } from "../platform/capabilities";
 import { describeError } from "../services/errors";
 import { LibraryStatus, OpenFailure } from "../types";
 import { Icon } from "./icons";
@@ -152,7 +152,7 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
           </Button>
         )}
         {/* A phone has no file manager, and its app is not quit from a button (NP-151). */}
-        {!isMobile && (
+        {capabilities.file_manager && (
           <Button
             autoFocus={!retry}
             onClick={() => void api.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
@@ -170,7 +170,7 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
         >
           {t("gate.copyReport")}
         </Button>
-        {!isMobile && (
+        {capabilities.quit && (
           <Button variant="ghost" onClick={() => void api.quitApp().catch(() => {})}>
             {t("gate.quit")}
           </Button>
