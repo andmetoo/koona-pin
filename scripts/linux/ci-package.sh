@@ -35,7 +35,7 @@ manifests=(/etc/opt/chrome /etc/opt/edge /etc/chromium /usr/lib/mozilla)
 # On disk. The Ubuntu image leaves out /usr/share/man and /usr/share/doc when dpkg unpacks
 # (/etc/dpkg/dpkg.cfg.d/excludes): the manual pages are looked for in the package itself.
 installed=(/usr/bin/koonapin /usr/bin/koonapin-host /usr/bin/koonapin-mcp /usr/share/applications/koonapin.desktop
-  /usr/share/metainfo/app.koona.pin.metainfo.xml /usr/share/icons/hicolor/512x512/apps/koonapin.png)
+  /usr/share/metainfo/app.koona.pin.metainfo.xml /usr/share/mime/packages/koonapin.xml /usr/share/icons/hicolor/512x512/apps/koonapin.png)
 for folder in "${manifests[@]}"; do installed+=("$folder/native-messaging-hosts/app.koona.pin.json"); done
 library="/home/dev/.local/share/Koona/Pin/koonapin.db"
 

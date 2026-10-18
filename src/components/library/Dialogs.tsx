@@ -94,24 +94,40 @@ export function opmlRoot(content: string) {
 /** How many feeds an OPML file lists: every outline with an `xmlUrl`, folders or not (plan §7.1). */
 export const opmlFeedCount = (content: string) => content.match(/<outline\b[^>]*\bxmlUrl\s*=/gi)?.length ?? 0;
 
+type ChosenFile = { name: string; content: string; preview: ParsedFile; feeds: number | null };
+
+/** A picked or dropped file as the dialog shows it: its feeds when it is OPML, else its links. */
+function chosenFile(name: string, content: string): ChosenFile {
+  const opml = isOpml(name, content);
+  return {
+    name,
+    content,
+    preview: opml ? { links: [], skipped: [], folders: 0 } : parseBookmarksFile(content),
+    feeds: opml ? opmlFeedCount(content) : null,
+  };
+}
+
 /**
  * Frame 28: the file and where to put it, progress, the report, an error with nothing changed.
  * An OPML file follows its feeds instead (NP-133): no place to choose, its own report.
  */
 export function ImportDialog({
   kind = "bookmarks",
+  file: dropped,
   onImport,
   onOpenInbox,
   onClose,
 }: {
   /** «Import feeds (OPML)…» opens it for feeds; either way it takes both kinds of file. */
   kind?: "bookmarks" | "feeds";
+  /** A file dropped on the window (NP-139): the dialog opens with it chosen. */
+  file?: { name: string; content: string };
   onImport: (content: string, toInbox: boolean) => Promise<ImportSummary>;
   onOpenInbox: () => void;
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [file, setFile] = useState<{ name: string; content: string; preview: ParsedFile; feeds: number | null } | null>(null);
+  const [file, setFile] = useState<ChosenFile | null>(() => (dropped ? chosenFile(dropped.name, dropped.content) : null));
   const [feedReport, setFeedReport] = useState<OpmlImport | null>(null);
   const [toInbox, setToInbox] = useState(false);
   const [running, setRunning] = useState<ImportProgress | null>(null);
@@ -339,13 +355,7 @@ export function ImportDialog({
                       .text()
                       .then((content) => {
                         setError("");
-                        const opml = isOpml(chosen.name, content);
-                        setFile({
-                          name: chosen.name,
-                          content,
-                          preview: opml ? { links: [], skipped: [], folders: 0 } : parseBookmarksFile(content),
-                          feeds: opml ? opmlFeedCount(content) : null,
-                        });
+                        setFile(chosenFile(chosen.name, content));
                       })
                       .catch((err) => setError(describeError(err)));
                 }}

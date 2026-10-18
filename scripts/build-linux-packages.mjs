@@ -218,6 +218,8 @@ async function compile() {
       files: {
         ...(await manifests("deb")),
         "/usr/share/metainfo/app.koona.pin.metainfo.xml": staged("app.koona.pin.metainfo.xml"),
+        // `*.kpin` as application/vnd.koona.list+json (NP-139); koonapin.desktop opens it and koonapin://.
+        "/usr/share/mime/packages/koonapin.xml": path.join(linux, "koonapin-mime.xml"),
         "/usr/share/doc/koonapin/copyright": staged("copyright"),
         "/usr/share/man/man1/koonapin.1.gz": staged("koonapin.1.gz"),
         "/usr/share/man/man1/koonapin-host.1.gz": staged("koonapin-host.1.gz"),
