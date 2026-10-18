@@ -714,7 +714,7 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
   if (total > 5000) return { outcome: "too_big" };
   if (total === 0) return { outcome: "empty" };
-  const list: DemoList = { title, version: `${major}.${minor}`, newer: minor > 0, links: [], feeds: [], sections: sections.length, repeated: 0, not_web: 0, invalid: 0, skipped_items: 0, raw };
+  const list: DemoList = { title, version: `${major}.${minor}`, newer: minor > 0, links: [], feeds: [], sections: groups.filter(([name]) => name !== null).length, repeated: 0, not_web: 0, invalid: 0, skipped_items: 0, raw };
   const links = new Map<string, DemoListItem>();
   const feeds = new Set<string>();
   const tagsOf = (item: Record<string, unknown>) =>

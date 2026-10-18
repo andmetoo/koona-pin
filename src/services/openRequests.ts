@@ -76,6 +76,12 @@ export function opmlRoot(content: string) {
   }
 }
 
+/**
+ * Whether the veil may already say «can't be imported»: the name is known and is none of ours. An
+ * `.xml` is not refused by its name, as the drop reads it and takes it when it is OPML.
+ */
+export const refusedByName = (file: DraggedFile) => !!file.name && !file.kind && !/\.xml$/i.test(file.name.trim());
+
 export type DropRefusal = "unsupported" | "tooBig";
 
 /** The first dropped file, read here, and whether others came with it; or why not. */
@@ -88,7 +94,8 @@ export async function readDropped(
   const xml = /\.xml$/i.test(file.name.trim());
   const kind = fileKindOf(file.name);
   if (!kind && !xml) return "unsupported";
-  if (file.size > MAX_FILE) return "tooBig";
+  // The 2 MB of a list (format.rs); OPML and bookmarks files have no such limit, as in Import….
+  if (kind === "kpin" && file.size > MAX_FILE) return "tooBig";
   const text = await file.text();
   if (!kind) return opmlRoot(text) ? { file: { kind: "opml", name: file.name, text }, more: (files?.length ?? 0) > 1 } : "unsupported";
   return { file: { kind, name: file.name, text }, more: (files?.length ?? 0) > 1 };

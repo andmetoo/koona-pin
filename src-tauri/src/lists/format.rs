@@ -299,17 +299,17 @@ pub fn parse(text: &str) -> Result<ParsedList, ListError> {
         Some(Value::Array(list)) => list.iter().map(|s| s.as_object().ok_or(ListError::NotAList)).collect::<Result<_, _>>()?,
         Some(_) => return Err(ListError::NotAList),
     };
-    let items_of = |object: &Map<String, Value>| -> Result<Vec<Value>, ListError> {
+    fn items_of(object: &Map<String, Value>) -> Result<&[Value], ListError> {
         match object.get("items") {
-            None | Some(Value::Null) => Ok(Vec::new()),
-            Some(Value::Array(items)) => Ok(items.clone()),
+            None | Some(Value::Null) => Ok(&[]),
+            Some(Value::Array(items)) => Ok(items.as_slice()),
             Some(_) => Err(ListError::NotAList),
         }
-    };
+    }
     if sections.len() > MAX_SECTIONS {
         return Err(ListError::TooBig);
     }
-    let mut groups: Vec<(Option<String>, Vec<Value>)> = Vec::with_capacity(sections.len() + 1);
+    let mut groups: Vec<(Option<String>, &[Value])> = Vec::with_capacity(sections.len() + 1);
     for section in &sections {
         groups.push((text_of(section, "name", SECTION_LEN), items_of(section)?));
     }
@@ -338,7 +338,8 @@ pub fn parse(text: &str) -> Result<ParsedList, ListError> {
             version: format!("{major}.{minor}"),
         },
         newer,
-        sections: sections.len() as u32,
+        // Only a section with a name is one: the items of a nameless one are at the top level.
+        sections: groups.iter().filter(|(name, _)| name.is_some()).count() as u32,
         ..Default::default()
     };
     if newer {
@@ -350,7 +351,7 @@ pub fn parse(text: &str) -> Result<ParsedList, ListError> {
     let mut link_at: HashMap<String, usize> = HashMap::new();
     let mut feed_at: HashMap<String, usize> = HashMap::new();
     for (section, items) in groups {
-        for item in &items {
+        for item in items {
             let Some(object) = item.as_object() else {
                 list.skipped_items += 1;
                 continue;
@@ -526,6 +527,17 @@ mod tests {
         }
         let schema: Value = serde_json::from_str(fixture!("kpin-format.schema.json")).unwrap();
         assert_eq!(schema["properties"]["format"]["const"], "koona");
+    }
+
+    #[test]
+    fn a_section_without_a_name_is_none_and_its_links_are_at_the_top() {
+        let text = r#"{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"T",
+            "sections":[{"name":"  ","items":[{"type":"link","url":"https://a.example/"}]},
+                        {"name":"Tools","items":[{"type":"link","url":"https://b.example/"}]}]}"#;
+        let list = parse(text).unwrap();
+        assert_eq!(list.sections, 1);
+        assert!(list.links[0].sections.is_empty());
+        assert_eq!(list.links[1].sections, ["Tools"]);
     }
 
     #[test]

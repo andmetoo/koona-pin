@@ -90,7 +90,7 @@ export function today(now = new Date()) {
  * Text in Markdown that cannot open a link, code, HTML or an escape: `\ ` [ ] ( ) < >` get a
  * backslash.
  */
-export const escapeMarkdown = (text: string) => text.replace(/[\\`[\]()<>]/g, "\\$&");
+export const escapeMarkdown = (text: string) => text.replace(/[\\`[\]()<>*_]/g, "\\$&");
 
 /**
  * Lines of prose that stay prose: escaped as {@link escapeMarkdown}, and a line that would
@@ -120,14 +120,22 @@ export function publicUrl(url: string): string {
 export const markdownUrl = (url: string) =>
   publicUrl(url).replace(/[()<>\\\s]/g, (c) => ({ "(": "%28", ")": "%29", "<": "%3C", ">": "%3E", "\\": "%5C" })[c] ?? encodeURIComponent(c));
 
-/** Query parameters whose value is often a key: the preview warns, the list still holds them. */
-const PRIVATE_PARAMS = new Set(["token", "key", "api_key", "apikey", "secret", "auth", "password", "sig", "signature"]);
+/** Words of a query parameter's name that often mean its value is a key: the preview warns, the list still holds them. */
+const PRIVATE_WORDS = new Set(["token", "key", "apikey", "secret", "auth", "password", "passwd", "sig", "signature", "session"]);
 
-/** The address has a query parameter named like a key or a token (`?token=…`, `&API_KEY=…`). */
+/** A parameter's name in words: `access_token`, `feed-token`, `apiKey` → access/token, feed/token, api/key. */
+const wordsOf = (name: string) =>
+  name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+
+/** The address has a query parameter named like a key or a token (`?token=…`, `&access_token=…`, `?feed_token=…`, `&apiKey=…`). */
 export function mayHoldKey(url: string | undefined): boolean {
   if (!url) return false;
   try {
-    return [...new URL(url).searchParams.keys()].some((name) => PRIVATE_PARAMS.has(name.toLowerCase()));
+    return [...new URL(url).searchParams.keys()].some((name) => wordsOf(name).some((word) => PRIVATE_WORDS.has(word)));
   } catch {
     return false;
   }

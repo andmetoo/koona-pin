@@ -7,7 +7,7 @@ import { composing } from "./services/ime";
 import { isArrow, isDeleteKey, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { carriesLink, destinationOf, linkFrom } from "./services/addLink";
-import { DraggedFile, draggedFile, openRequests, readDropped, receiveNativeOpens } from "./services/openRequests";
+import { DraggedFile, draggedFile, openRequests, readDropped, receiveNativeOpens, refusedByName } from "./services/openRequests";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedOpenLinks, storedTheme, storedValue, Theme } from "./services/preferences";
@@ -2207,7 +2207,7 @@ export function App() {
               <Icon icon={ArrowDown} size={26} strokeWidth={2} />
             </span>
             {/* The name shows only where the webview tells it before the drop; the kind, where its type is known. */}
-            <b className="block text-lg font-bold tracking-[-0.01em]">{t(veil.file.name && !veil.file.kind ? "add.dropImportNot" : "add.dropImport")}</b>
+            <b className="block text-lg font-bold tracking-[-0.01em]">{t(refusedByName(veil.file) ? "add.dropImportNot" : "add.dropImport")}</b>
             <span className="mt-1 block text-sm text-muted [overflow-wrap:anywhere]">
               {!veil.file.kind
                 ? t("add.dropImportOther")

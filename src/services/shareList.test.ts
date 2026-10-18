@@ -28,6 +28,8 @@ describe("Copy as Markdown", () => {
     expect(escapeMarkdown("a [b] (c) \\d `e`")).toBe("a \\[b\\] \\(c\\) \\\\d \\`e\\`");
     expect(escapeMarkdown("plain words")).toBe("plain words");
     expect(escapeMarkdown("<b>bold</b>")).toBe("\\<b\\>bold\\</b\\>");
+    // Emphasis would change the title readers see.
+    expect(escapeMarkdown("*nix tips: snake_case")).toBe("\\*nix tips: snake\\_case");
   });
 
   it("keeps a description's lines prose: no heading, list, quote or numbered item at a line's start", () => {
@@ -53,7 +55,11 @@ describe("Copy as Markdown", () => {
   it("warns of addresses whose query looks like a key", () => {
     for (const url of ["https://a.example/feed?token=1", "https://a.example/?API_KEY=x", "https://a.example/?x=1&Sig=2", "https://a.example/?apikey=1"])
       expect(mayHoldKey(url)).toBe(true);
-    for (const url of ["https://a.example/?q=token", "https://a.example/token", "https://a.example/?keys=1", undefined]) expect(mayHoldKey(url)).toBe(false);
+    // Names made of words: GitLab's feed_token, OAuth's access_token, apiKey.
+    for (const url of ["https://gitlab.example/u.atom?feed_token=abc", "https://a.example/?access_token=x", "https://a.example/?apiKey=1", "https://a.example/?private-token=1"])
+      expect(mayHoldKey(url)).toBe(true);
+    for (const url of ["https://a.example/?q=token", "https://a.example/token", "https://a.example/?keys=1", "https://a.example/?monkey=1", "https://a.example/?design=1", undefined])
+      expect(mayHoldKey(url)).toBe(false);
   });
 
   it("gives a heading, the description and the items grouped under their sections", () => {

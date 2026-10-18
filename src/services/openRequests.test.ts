@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOpenRequests, draggedFile, fileKindOf, MAX_FILE, readDropped } from "./openRequests";
+import { createOpenRequests, draggedFile, fileKindOf, MAX_FILE, readDropped, refusedByName } from "./openRequests";
 
 /** What a drag carries, as much as a DataTransfer shows of it. */
 const drag = (init: { types: string[]; files?: File[]; items?: { kind: string; type: string }[] }) =>
@@ -54,8 +54,19 @@ describe("files dropped on the window", () => {
     expect(await readDropped([new File(["x"], "notes.txt"), new File(["{}"], "list.kpin")])).toBe("unsupported");
     expect(await readDropped([new File([new Uint8Array(MAX_FILE + 1)], "huge.kpin")])).toBe("tooBig");
     expect(await readDropped([new File([new Uint8Array(MAX_FILE)], "just-fits.kpin")])).toMatchObject({ file: { kind: "kpin" } });
+    // A big bookmarks export is not a list: the list's 2 MB do not apply to it.
+    expect(await readDropped([new File([new Uint8Array(MAX_FILE + 1)], "bookmarks.html")])).toMatchObject({ file: { kind: "html" } });
     expect(await readDropped([])).toBeNull();
     expect(await readDropped(null)).toBeNull();
+  });
+});
+
+describe("the veil before the drop", () => {
+  it("refuses by name only what the drop would refuse", () => {
+    expect(refusedByName({ name: "notes.txt", kind: null })).toBe(true);
+    expect(refusedByName({ name: "subscriptions.xml", kind: null })).toBe(false);
+    expect(refusedByName({ name: null, kind: null })).toBe(false);
+    expect(refusedByName({ name: "list.kpin", kind: "kpin" })).toBe(false);
   });
 });
 
