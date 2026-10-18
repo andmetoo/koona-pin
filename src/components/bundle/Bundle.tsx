@@ -14,11 +14,8 @@ const CAPSULE = 48;
 const EDGE = 24;
 /** While the bulk bar shows the capsule rises above it (S6): 24, the bar's 52 (SelectionBar), 12. */
 const OVER_BAR = EDGE + 52 + 12;
-/**
- * A burst of changes to the library is handled once, this long after the last: the bundle is
- * pruned and the view's ids are fetched again.
- */
-const CHANGE_DELAY = 200;
+/** The view's ids are fetched again this long after the last change to the library. */
+const IDS_DELAY = 200;
 /**
  * The panel's bottom is 12 px above the capsule's top, its top at least 12 px under the toolbar;
  * it is at most 600 px high (M2).
@@ -112,20 +109,15 @@ export function Bundle({
   openNow.current = open;
   // «Add {view} · N»: bumped when the library changes while the panel is open (the view's ids below).
   const [libraryChanged, setLibraryChanged] = useState(0);
-  // One subscription to the library, settled for `CHANGE_DELAY`: items deleted or moved to Trash
-  // leave the bundle, and the open panel fetches the view's ids again. A bookmark trashed while the
-  // panel is open leaves it; Save builds anew anyway, so it never writes one.
+  // One subscription to the library: items deleted or moved to Trash leave the bundle at once, so a
+  // stream of changes never holds it off (Save builds anew anyway, so it never writes one); the open
+  // panel fetches the view's ids again once a burst has settled for `IDS_DELAY`.
   useEffect(() => {
     let timer = 0;
-    let prune = false;
     const changed = (removed: boolean) => {
-      prune ||= removed;
+      if (removed) void pruneBundle();
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (prune) void pruneBundle();
-        prune = false;
-        if (openNow.current) setLibraryChanged((n) => n + 1);
-      }, CHANGE_DELAY);
+      timer = window.setTimeout(() => openNow.current && setLibraryChanged((n) => n + 1), IDS_DELAY);
     };
     // Deleted (no bookmark) or moved to Trash; other edits leave the bundle as it is.
     const gone = (change: BookmarkChange) => !change.bookmark || !!change.bookmark.deleted_at;

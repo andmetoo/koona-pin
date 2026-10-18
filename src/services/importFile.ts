@@ -30,75 +30,99 @@ const COPY_FORMAT = "koona-pin";
  */
 export const HEAD = 64 * 1024;
 
-/** Past the closing quote of the JSON string that opens at `from`; -1 when it does not close in `text`. */
-function stringEnd(text: string, from: number) {
-  for (let i = from + 1; i < text.length; i++) {
-    if (text[i] === "\\") i++;
-    else if (text[i] === '"') return i + 1;
-  }
-  return -1;
-}
+/** What a scan for the top-level `format` says so far: its string; `null`, none; `undefined`, not yet. */
+export type FormatScan = string | null | undefined;
 
-/** The first index from `at` that is not JSON white space. */
-const skipSpace = (text: string, at: number) => {
-  while (at < text.length && " \t\n\r".includes(text[at])) at++;
-  return at;
-};
+/** A key or a `format` value longer than this is not one of ours (an escaped `format` is 38). */
+const TOKEN_MAX = 256;
 
 /**
- * The top-level `format` of a JSON object, read from its first `limit` characters without parsing
- * them (a full copy may weigh 256 MB): its string value; `null` when the object has none, or not
- * a string; or `undefined` when those characters do not tell. Only the shape is followed and
- * nested values are skipped: Rust validates the whole file afterwards (format.rs, restore.rs), so
- * a broken tail is refused there.
+ * A scanner for the top-level `format` of a JSON object, fed its text in pieces (a full copy may
+ * weigh 256 MB): its string value; `null` when the object has none, or not a string; or
+ * `undefined` while the text fed so far does not tell. Only the shape is followed and nested
+ * values are skipped, its state kept across pieces: Rust validates the whole file afterwards
+ * (format.rs, restore.rs), so a broken tail is refused there. A BOM and white space before the
+ * object are passed over.
  */
-export function topLevelFormat(json: string, limit = HEAD): string | null | undefined {
-  const text = json.length > limit ? json.slice(0, limit) : json;
+export function formatScanner() {
   let depth = 0;
   let keyNext = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (c === '"') {
-      const end = stringEnd(text, i);
-      if (end < 0) return undefined;
-      if (depth !== 1 || !keyNext) {
-        i = end - 1;
+  let inString = false;
+  let escaped = false;
+  /** The raw text of the key or `format` value being read; null for a string that is skipped. */
+  let token: string | null = null;
+  let tokenIsValue = false;
+  /** After a top-level key: its colon, then (for `format`) its value. */
+  let expect: "none" | "colon" | "value" = "none";
+  let isFormat = false;
+  let done: FormatScan = undefined;
+  const parsed = (raw: string) => {
+    try {
+      return JSON.parse(raw) as unknown;
+    } catch {
+      return undefined;
+    }
+  };
+  return (piece: string): FormatScan => {
+    if (done !== undefined) return done;
+    for (let i = 0; i < piece.length; i++) {
+      const c = piece[i];
+      if (inString) {
+        if (token !== null && token.length <= TOKEN_MAX) token += c;
+        if (escaped) escaped = false;
+        else if (c === "\\") escaped = true;
+        else if (c === '"') {
+          inString = false;
+          if (token === null) continue;
+          const long = token.length > TOKEN_MAX;
+          const value = long ? undefined : parsed(token);
+          token = null;
+          if (tokenIsValue) return (done = typeof value === "string" ? value : null);
+          // A broken key is no JSON; one too long to be `format` is some other key.
+          if (!long && value === undefined) return (done = null);
+          isFormat = value === "format";
+          expect = "colon";
+        }
         continue;
       }
-      keyNext = false;
-      let key: unknown;
-      try {
-        key = JSON.parse(text.slice(i, end));
-      } catch {
-        return null;
+      if (c === " " || c === "\t" || c === "\n" || c === "\r") continue;
+      if (expect === "colon") {
+        if (c !== ":") return (done = null);
+        expect = isFormat ? "value" : "none";
+        continue;
       }
-      let at = skipSpace(text, end);
-      if (at >= text.length) return undefined;
-      if (text[at] !== ":") return null;
-      at = skipSpace(text, at + 1);
-      if (key === "format") {
-        if (at >= text.length) return undefined;
-        if (text[at] !== '"') return null;
-        const close = stringEnd(text, at);
-        if (close < 0) return undefined;
-        try {
-          return JSON.parse(text.slice(at, close)) as string;
-        } catch {
-          return null;
+      if (expect === "value") {
+        if (c !== '"') return (done = null);
+        expect = "none";
+        inString = true;
+        token = c;
+        tokenIsValue = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = true;
+        if (depth === 1 && keyNext) {
+          keyNext = false;
+          token = c;
+          tokenIsValue = false;
         }
-      }
-      i = at - 1;
-    } else if (c === "{" || c === "[") {
-      depth++;
-      if (depth === 1 && c === "[") return null;
-      if (depth === 1) keyNext = true;
-    } else if (c === "}" || c === "]") {
-      depth--;
-      // The object closed with no `format`.
-      if (depth <= 0) return null;
-    } else if (c === "," && depth === 1) keyNext = true;
-  }
-  return undefined;
+      } else if (c === "{" || c === "[") {
+        depth++;
+        if (depth === 1 && c === "[") return (done = null);
+        if (depth === 1) keyNext = true;
+      } else if (c === "}" || c === "]") {
+        depth--;
+        // The object closed with no `format`.
+        if (depth <= 0) return (done = null);
+      } else if (c === "," && depth === 1) keyNext = true;
+    }
+    return undefined;
+  };
+}
+
+/** The top-level `format` of a JSON object, read from its first `limit` characters (`formatScanner`). */
+export function topLevelFormat(json: string, limit = HEAD): FormatScan {
+  return formatScanner()(json.length > limit ? json.slice(0, limit) : json);
 }
 
 /**
@@ -152,11 +176,31 @@ export type ImportRefusal = { refused: "unsupported" } | { refused: "tooBig"; ca
 export const isRefusal = (read: ImportFile | ImportRefusal): read is ImportRefusal => "refused" in read;
 
 /**
+ * The top-level `format` of a JSON file whose head does not reach it, by a scan of all of it under
+ * `cap` (`null` past it), with the whole text when it had to be read for the scan.
+ */
+export type LateFormat = (cap: number) => Promise<{ format: string | null; text?: string } | null>;
+
+/** A file is scanned in pieces of this size (`late` of `readFile`). */
+const SCAN_PIECE = 4 * 1024 * 1024;
+
+/**
+ * `LateFormat` from one whole read: the text, read under the cap, is scanned and kept, so it is not
+ * read again.
+ */
+const scanWhole =
+  (whole: (cap: number) => Promise<string | null>): LateFormat =>
+  async (cap) => {
+    const text = await whole(cap);
+    return text === null ? null : { format: topLevelFormat(text, Infinity) ?? null, text };
+  };
+
+/**
  * The one place of the sniff and cap rules. A file of `bytes` known by its `head`, then read
  * whole by `whole` (up to a cap; `null` past it) only once its kind is known and under that
  * kind's cap; a head of the whole file is not read again. A JSON whose `format` is past the head
- * is read whole under the largest cap (a full copy's), known by a scan of all of it, then held to
- * its kind's cap. The whole text must be of the kind its head was: a file changed in between is
+ * is scanned whole by `late` under the largest cap (a full copy's), then held to the cap of the
+ * kind found. The whole text must be of the kind its head was: a file changed in between is
  * refused. Exported for tests.
  */
 export async function known(
@@ -164,14 +208,21 @@ export async function known(
   bytes: number,
   head: string,
   whole: (cap: number) => Promise<string | null>,
+  late: LateFormat = scanWhole(whole),
 ): Promise<ImportFile | ImportRefusal> {
   let kind = sniffHead(head);
   let text: string | null = null;
   if (kind === undefined) {
     if (bytes > CAPS.backup) return { refused: "tooBig", cap: CAPS.backup };
-    text = bytes <= HEAD ? head : await whole(CAPS.backup);
-    if (text === null) return { refused: "tooBig", cap: CAPS.backup };
-    kind = sniff(text);
+    if (bytes <= HEAD) {
+      text = head;
+      kind = sniff(head);
+    } else {
+      const found = await late(CAPS.backup);
+      if (found === null) return { refused: "tooBig", cap: CAPS.backup };
+      kind = byFormat(found.format);
+      text = found.text ?? null;
+    }
   }
   if (!kind) return { refused: "unsupported" };
   if (bytes > CAPS[kind]) return { refused: "tooBig", cap: CAPS[kind] };
@@ -183,11 +234,25 @@ export async function known(
   return { kind, name, text };
 }
 
-/** One file: its head first, the rest only once its kind and that kind's cap allow it. */
+/**
+ * One file: its head first, the rest only once its kind and that kind's cap allow it. A JSON
+ * whose `format` is past its head is scanned in pieces, so one that is none of ours is never held
+ * whole. A piece may cut a character of several bytes in two; the scan follows only ASCII (quotes,
+ * brackets, `format` and our values), so that does not change what it finds.
+ */
 export async function readFile(file: File): Promise<ImportFile | ImportRefusal> {
   if (file.size > LARGEST) return { refused: "tooBig", cap: LARGEST };
   const head = await file.slice(0, HEAD).text();
-  return known(file.name, file.size, head, () => file.text());
+  const late: LateFormat = async (cap) => {
+    if (file.size > cap) return null;
+    const scan = formatScanner();
+    for (let at = 0; at < file.size; at += SCAN_PIECE) {
+      const format = scan(await file.slice(at, at + SCAN_PIECE).text());
+      if (format !== undefined) return { format };
+    }
+    return { format: null };
+  };
+  return known(file.name, file.size, head, () => file.text(), late);
 }
 
 /** The first dropped file, read and known, and whether others came with it; or why not. */
@@ -213,6 +278,9 @@ export async function pick(): Promise<ImportFile | ImportRefusal | null> {
     if (picked.outcome === "cancelled") return null;
     if (picked.outcome === "too_big") return { refused: "tooBig", cap: LARGEST };
     // The read empties Rust's slot; a file refused by its head, or whole in it, is forgotten.
+    // Rust reads a picked file once and whole, not in pieces: a JSON whose `format` is past its
+    // head (never one Koona Pin writes) is read under the largest cap and scanned here, and its
+    // text kept (`known`'s default `late`).
     let read = false;
     const result = await known(picked.name, picked.bytes, picked.head, async (cap) => {
       read = true;

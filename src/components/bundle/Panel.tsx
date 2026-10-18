@@ -92,8 +92,9 @@ export function Panel({
   useEffect(() => {
     if (empty) return setBuilt(null);
     const run = ++runs.current;
-    pending.current = window.setTimeout(() => void build(model).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
-    return () => window.clearTimeout(pending.current);
+    const timer = window.setTimeout(() => void build(model).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
+    pending.current = timer;
+    return () => window.clearTimeout(timer);
   }, [model, empty]);
   /** Builds the list; items gone from the library leave the bundle with their meta line. */
   const build = async (next: BundleModel): Promise<Built> => {

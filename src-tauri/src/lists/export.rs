@@ -153,6 +153,9 @@ pub fn safe_file_name(name: &str) -> String {
     if is_device(stem) {
         let at = stem.trim_end_matches(' ').len();
         base.insert_str(at, "-list");
+        // Still at most `ID_LEN`: what is cut is past the stem and its `-list`.
+        let capped: String = base.chars().take(ID_LEN).collect();
+        base = capped.trim_end_matches(['.', ' ']).to_owned();
     }
     format!("{base}.kpin")
 }
@@ -244,6 +247,12 @@ mod tests {
         assert_eq!(safe_file_name("COM¹"), "COM¹-list.kpin");
         assert_eq!(safe_file_name("lpt³.old"), "lpt³-list.old.kpin");
         assert_eq!(safe_file_name("com²"), "com²-list.kpin");
+        // The suffix does not push the name past the cap.
+        let long = safe_file_name(&format!("con.{}", "x".repeat(100)));
+        assert!(long.starts_with("con-list."), "{long}");
+        assert_eq!(long.trim_end_matches(".kpin").chars().count(), ID_LEN);
+        let dotted = safe_file_name(&format!("con.{}.y", "x".repeat(ID_LEN - 9)));
+        assert_eq!(dotted, format!("con-list.{}.kpin", "x".repeat(ID_LEN - 9)));
     }
 
     #[test]

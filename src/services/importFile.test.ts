@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CAPS, HEAD, LARGEST, known, readDropped, readFile, sniff, sniffHead, topLevelFormat } from "./importFile";
+import { CAPS, HEAD, LARGEST, formatScanner, known, readDropped, readFile, sniff, sniffHead, topLevelFormat } from "./importFile";
 
 const LIST = '{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Rust","items":[]}';
 const COPY = '{"format":"koona-pin","version":1,"bookmarks":[]}';
@@ -182,14 +182,37 @@ describe("readFile", () => {
     w = watched("%PDF-1.7", 100 * 1024 * 1024);
     expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
     expect(w.reads).toEqual([`head 0-${HEAD}`]);
-    // A format past the head: read whole once, then held to the cap of the kind found.
+    // A format past the head: scanned in pieces, read whole only once known and under its cap.
+    const piece = 4 * 1024 * 1024;
     const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona"}`;
     w = watched(late, late.length);
     expect(await readFile(w.file)).toMatchObject({ kind: "kpin", text: late });
-    expect(w.reads).toEqual([`head 0-${HEAD}`, "whole"]);
+    expect(w.reads).toEqual([`head 0-${HEAD}`, `head 0-${piece}`, "whole"]);
     w = watched(late, CAPS.kpin + 1);
     expect(await readFile(w.file)).toEqual({ refused: "tooBig", cap: CAPS.kpin });
-    expect(w.reads).toEqual([`head 0-${HEAD}`, "whole"]);
+    expect(w.reads).toEqual([`head 0-${HEAD}`, `head 0-${piece}`]);
+    // Other JSON of 10 MB: scanned piece by piece to its end, never read whole.
+    const other = `{"rows":[${"1,".repeat(5 * 1024 * 1024)}2]}`;
+    w = watched(other, other.length);
+    expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
+    expect(w.reads).toEqual([`head 0-${HEAD}`, `head 0-${piece}`, `head ${piece}-${2 * piece}`, `head ${2 * piece}-${3 * piece}`]);
+  });
+
+  it("keeps the scan's state across pieces", () => {
+    const text = `{"a":"x\\"y","b":[{"format":"no"}],"form\\u0061t":"koona-pin"}`;
+    for (let cut = 1; cut < text.length - 1; cut++) {
+      const scan = formatScanner();
+      expect(scan(text.slice(0, cut)), `cut at ${cut}`).toBeUndefined();
+      expect(scan(text.slice(cut)), `cut at ${cut}`).toBe("koona-pin");
+    }
+  });
+
+  it("the menu path, read once whole, scans that text and does not read it again", async () => {
+    const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona"}`;
+    const caps: number[] = [];
+    const whole = (cap: number) => (caps.push(cap), Promise.resolve(late));
+    expect(await known("f", late.length, late.slice(0, HEAD), whole)).toMatchObject({ kind: "kpin", text: late });
+    expect(caps).toEqual([CAPS.backup]);
   });
 
   it("knows a 3 MB backup whose format comes last, and refuses 3 MB of other JSON", async () => {
