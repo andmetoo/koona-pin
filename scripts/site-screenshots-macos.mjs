@@ -6,7 +6,7 @@
 // site-screenshots.mjs: the app of a test build listens on KOONAPIN_SHOTS_SOCKET (src-tauri/src/shots.rs)
 // and this script drives the page through it. The shot is the window itself, `screencapture -l`,
 // with its traffic lights and transparent rounded corners. The sync dialog is the browser preview's
-// (bun run dev): the real one needs a plan and a second computer.
+// (the built dist/ served outside Tauri, in Chromium): the real one needs a plan and a second computer.
 //
 //   bun run site:shots:mac   (builds the debug app with its interface embedded first)
 //   bun scripts/site-screenshots-macos.mjs --theme dark --view feeds   (only those; each takes a list: light,dark)
