@@ -125,6 +125,10 @@ class Driver {
 const oneLine = (text) => text.replace(/\s*\n\s*/g, " ");
 /** A string as an SQL literal. */
 const q = (value) => (value === null || value === undefined ? "NULL" : `'${String(value).replaceAll("'", "''")}'`);
+/** A value as a JavaScript literal for code sent to the page: JSON, with the characters that could end
+ * a string or a script outside JSON's rules (<, >, /, U+2028, U+2029) escaped. */
+const lit = (value) =>
+  JSON.stringify(value).replace(/[<>\/\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
 const escapeHtml = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -179,7 +183,7 @@ const collectionIds = [];
 /** The sample library, its previews, the feeds and the article to read, as the app keeps them. */
 async function fill({ driver, data, env }, base) {
   await driver.await(
-    `window.__TAURI_INTERNALS__.invoke("restore_library", { content: ${JSON.stringify(JSON.stringify(copyOf("https://previews.invalid", ANCHOR)))}, mode: "replace" })`,
+    `window.__TAURI_INTERNALS__.invoke("restore_library", { content: ${lit(JSON.stringify(copyOf("https://previews.invalid", ANCHOR)))}, mode: "replace" })`,
     "the restore",
   );
   // The collections' ids pick their colours (collectionColor): the sync shot's preview uses the same.
@@ -245,7 +249,7 @@ const label = (key) => key.split(".").reduce((o, k) => o[k], locale);
 
 /** A click on the button whose text is `text` (or starts with it, a count after it). */
 const click = (text, exact = false) => {
-  const match = exact ? `b.textContent.trim() === ${JSON.stringify(text)}` : `b.textContent.trim().startsWith(${JSON.stringify(text)})`;
+  const match = exact ? `b.textContent.trim() === ${lit(text)}` : `b.textContent.trim().startsWith(${lit(text)})`;
   return `(() => { const b = [...document.querySelectorAll("button")].find((b) => ${match}); if (!b) return false; b.click(); return true; })()`;
 };
 
@@ -263,11 +267,11 @@ const VIEW_STEPS = {
   list: { mode: "list", open: [], ready: "document.querySelectorAll('[data-bookmark-id]').length >= 10" },
   reading: {
     open: [click(label("nav.reading")), click(label("readingMode.read"), true)],
-    ready: `[...document.querySelectorAll("h1")].some((h) => h.textContent === ${JSON.stringify(library.bookmarks.find((b) => b.article).title)}) && [...document.querySelectorAll("article img, img")].some((i) => i.src.startsWith("data:") && i.complete)`,
+    ready: `[...document.querySelectorAll("h1")].some((h) => h.textContent === ${lit(library.bookmarks.find((b) => b.article).title)}) && [...document.querySelectorAll("article img, img")].some((i) => i.src.startsWith("data:") && i.complete)`,
   },
   feeds: {
     open: [click(label("feeds.all"))],
-    ready: `[...document.querySelectorAll("h1, h2")].some((h) => h.textContent === ${JSON.stringify(feeds.posts[feeds.open].title)})`,
+    ready: `[...document.querySelectorAll("h1, h2")].some((h) => h.textContent === ${lit(feeds.posts[feeds.open].title)})`,
   },
   triage: {
     open: [click(label("nav.inbox")), `(document.querySelector(".inbox-pill-sort")?.click(), true)`],
@@ -310,7 +314,7 @@ async function show(driver, theme, view) {
     // The cache is new: its posts' ids follow feeds.json's order from 1.
     "feeds.last": JSON.stringify({ feed: null, item: feeds.open + 1 }),
   };
-  await driver.js(`(Object.entries(${JSON.stringify(storage)}).forEach(([k, v]) => localStorage.setItem("koonapin." + k, v)), location.reload(), true)`);
+  await driver.js(`(Object.entries(${lit(storage)}).forEach(([k, v]) => localStorage.setItem("koonapin." + k, v)), location.reload(), true)`);
   await sleep(300);
   await driver.until(`document.readyState === "complete" && document.querySelectorAll("[data-bookmark-id]").length > 0`, "the library after a reload");
   // Opened once, the notifications are read: the bell has no badge.
