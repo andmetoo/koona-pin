@@ -267,6 +267,8 @@
     "dropImportAlso": "А також стрічки .opml і закладки .html",
     "dropImportOther": "Koona Pin імпортує списки .kpin, OPML і файли закладок",
     "dropImportTooBig": "Файл більший за 2 МБ — завеликий для імпорту",
+    "dropImportBusy": "Відкрито інший імпорт — спершу завершіть його",
+    "dropImportOne": "По одному файлу: імпортується лише {{name}}",
     "feedHas": "У {{site}} є стрічка",
     "feedToggle": "Підписатися на {{site}}",
     "feedOffHint": "Підпишіться, і нові дописи надходитимуть у Стрічки",

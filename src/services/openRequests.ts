@@ -1,7 +1,7 @@
 // Lists and import files that come from outside the window (NP-139, NP-142): a file dropped on it,
 // a `.kpin` opened with the app (double-click, Open With) and a `koonapin://import?url=…` link.
-// Every one becomes one «open request»; nothing is parsed or downloaded here. The import dialog
-// takes the request and asks the person first.
+// A list becomes one «open request» for the list dialog; nothing is parsed or downloaded here.
+// A dropped OPML or bookmarks file opens the import dialog of its format instead.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { OpenRequest as NativeOpenRequest } from "../bindings/OpenRequest";
@@ -10,11 +10,15 @@ import { isTauri } from "./api";
 /** The files the window takes: a `.kpin` list, feeds in OPML, a browser's bookmarks `.html`. */
 export type FileKind = "kpin" | "opml" | "html";
 
+/** A dropped file the window takes, read already. */
+export type DroppedFile = { kind: FileKind; name: string; text: string };
+
 /**
- * A dropped file, read already; or from Rust (`open_requests.rs`) a `.kpin` by its checked path,
- * or the `https` address of a list from a `koonapin://import` link, not downloaded yet.
+ * A list for the list dialog: a dropped `.kpin`, read already; or from Rust (`open_requests.rs`)
+ * a `.kpin` by its checked path, or the `https` address of a list from a `koonapin://import`
+ * link, not downloaded yet. OPML and bookmarks files never come here: they open their own dialog.
  */
-export type OpenRequest = { kind: FileKind; name: string; text: string } | NativeOpenRequest;
+export type OpenRequest = (DroppedFile & { kind: "kpin" }) | NativeOpenRequest;
 
 /** A list is at most 2 MB (kpin-lists.md, «Format v1»); a bigger dropped file is not read. */
 export const MAX_FILE = 2 * 1024 * 1024;
@@ -28,7 +32,7 @@ export function fileKindOf(name: string): FileKind | null {
   return null;
 }
 
-/** The kind of a file by its media type, when the name is not known yet (a drag over the window). */
+/** The kind of a file by its media type, when the name is not known (a drag over the window). */
 function fileKindOfType(type: string): FileKind | null {
   const media = type.split(";")[0].trim().toLowerCase();
   if (media === "application/vnd.koona.list+json") return "kpin";
@@ -37,13 +41,15 @@ function fileKindOfType(type: string): FileKind | null {
   return null;
 }
 
-/** What a drag over the window carries, for the veil: files or not, and the first one's name and kind. */
+/** What a drag over the window carries, for the veil: the first file's name and kind, where known. */
 export type DraggedFile = { name: string | null; kind: FileKind | null };
 
 /**
- * A drag that carries files, with what can be known of the first one before the drop. Browsers
- * and WebKit hide the file's name until the drop; its media type is often known (the system's
- * own types: `text/html`, and `.kpin` once the app has registered it).
+ * A drag that carries files, with what can be known of the first one before the drop. In real
+ * use WebKit, WebView2 and Chromium keep `files` empty until the drop, so the name is null and the
+ * veil says the generic line; at most the item's media type may tell the kind. The name is a
+ * progressive enhancement, used only where a webview does show it (a DataTransfer made by a
+ * script, as in the tests).
  */
 export function draggedFile(data: DataTransfer | null | undefined): DraggedFile | null {
   if (!data || !Array.from(data.types ?? []).includes("Files")) return null;
@@ -56,21 +62,24 @@ export function draggedFile(data: DataTransfer | null | undefined): DraggedFile 
 /** Why a dropped file is not taken. */
 export type DropRefusal = "unsupported" | "tooBig";
 
-/** The first dropped file as a request, read here; or why not. */
-export async function droppedRequest(files: FileList | readonly File[] | null | undefined): Promise<OpenRequest | DropRefusal | null> {
+/** The first dropped file, read here, and whether others came with it; or why not. */
+export async function readDropped(
+  files: FileList | readonly File[] | null | undefined,
+): Promise<{ file: DroppedFile; more: boolean } | DropRefusal | null> {
   const file = files?.[0];
   if (!file) return null;
   const kind = fileKindOf(file.name);
   if (!kind) return "unsupported";
   if (file.size > MAX_FILE) return "tooBig";
-  return { kind, name: file.name, text: await file.text() };
+  return { file: { kind, name: file.name, text: await file.text() }, more: (files?.length ?? 0) > 1 };
 }
 
 type Listener = (request: OpenRequest | null) => void;
 
 /**
- * One request at a time: while one waits or its dialog is open, later ones are dropped, so a page
- * firing `koonapin://` links cannot stack dialogs. The dialog calls `done` when it closes.
+ * One request at a time: while one waits or its dialog is open, a later one is refused (`push`
+ * says so, and the caller tells the person), so a page firing `koonapin://` links cannot stack
+ * dialogs. The list dialog calls `done` whenever it closes.
  */
 export function createOpenRequests() {
   let current: OpenRequest | null = null;
@@ -102,21 +111,20 @@ export const openRequests = createOpenRequests();
 
 /**
  * Takes the request Rust keeps from the start (argv, macOS `Opened`) and every later one it
- * announces with `open-request`. In the browser demo there are none.
+ * announces with `open-request`, first once the listener is in place, so nothing kept in between
+ * is missed. A taken request is always pushed, even after the caller stopped (React's StrictMode
+ * runs an effect twice): the queue outlives it. `onBusy`: refused, another one is open. In the
+ * browser demo there are none.
  */
-export function receiveNativeOpens(queue = openRequests): () => void {
+export function receiveNativeOpens(onBusy: () => void, queue = openRequests): () => void {
   if (!isTauri()) return () => {};
-  let disposed = false;
   const take = () =>
     void invoke<NativeOpenRequest | null>("take_pending_opens")
       .then((request) => {
-        if (request && !disposed) queue.push(request);
+        if (request && !queue.push(request)) onBusy();
       })
       .catch(console.error);
   const unlisten = listen("open-request", take);
-  take();
-  return () => {
-    disposed = true;
-    void unlisten.then((stop) => stop()).catch(console.error);
-  };
+  void unlisten.then(take, console.error);
+  return () => void unlisten.then((stop) => stop()).catch(console.error);
 }

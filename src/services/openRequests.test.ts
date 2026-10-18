@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOpenRequests, draggedFile, droppedRequest, fileKindOf, MAX_FILE } from "./openRequests";
+import { createOpenRequests, draggedFile, fileKindOf, MAX_FILE, readDropped } from "./openRequests";
 
 /** What a drag carries, as much as a DataTransfer shows of it. */
 const drag = (init: { types: string[]; files?: File[]; items?: { kind: string; type: string }[] }) =>
@@ -22,47 +22,51 @@ describe("files dropped on the window", () => {
     // A link is not a file: the link veil stays as it was.
     expect(draggedFile(drag({ types: ["text/uri-list", "text/plain"] }))).toBeNull();
     expect(draggedFile(null)).toBeNull();
-    // Where the name is shown (Chromium, a test's DataTransfer).
-    expect(draggedFile(drag({ types: ["Files"], files: [new File(["{}"], "rust-blogs.kpin")] }))).toEqual({ name: "rust-blogs.kpin", kind: "kpin" });
-    expect(draggedFile(drag({ types: ["Files"], files: [new File(["x"], "notes.txt", { type: "text/plain" })] }))).toEqual({ name: "notes.txt", kind: null });
-    // WebKit hides the name until the drop; the media type may say the kind.
+    // Real use: a drag from the system shows no file before the drop; the media type may say the
+    // kind, or nothing does and the veil says the generic line.
     expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "application/vnd.koona.list+json" }] }))).toEqual({ name: null, kind: "kpin" });
     expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "text/html" }] }))).toEqual({ name: null, kind: "html" });
     expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "text/x-opml" }] }))).toEqual({ name: null, kind: "opml" });
     expect(draggedFile(drag({ types: ["Files"], items: [{ kind: "file", type: "" }] }))).toEqual({ name: null, kind: null });
     expect(draggedFile(drag({ types: ["Files"] }))).toEqual({ name: null, kind: null });
+    // Progressive enhancement: the name, only where a webview shows it before the drop (a
+    // DataTransfer made by a script).
+    expect(draggedFile(drag({ types: ["Files"], files: [new File(["{}"], "rust-blogs.kpin")] }))).toEqual({ name: "rust-blogs.kpin", kind: "kpin" });
+    expect(draggedFile(drag({ types: ["Files"], files: [new File(["x"], "notes.txt", { type: "text/plain" })] }))).toEqual({ name: "notes.txt", kind: null });
   });
 
-  it("reads the first dropped file into a request, or says why not", async () => {
-    expect(await droppedRequest([new File(['{"format":"koona"}'], "rust-blogs.kpin")])).toEqual({
-      kind: "kpin",
-      name: "rust-blogs.kpin",
-      text: '{"format":"koona"}',
+  it("reads the first dropped file, says whether more came, or says why not", async () => {
+    expect(await readDropped([new File(['{"format":"koona"}'], "rust-blogs.kpin")])).toEqual({
+      file: { kind: "kpin", name: "rust-blogs.kpin", text: '{"format":"koona"}' },
+      more: false,
     });
-    expect(await droppedRequest([new File(["<opml/>"], "feeds.opml"), new File(["x"], "notes.txt")])).toEqual({ kind: "opml", name: "feeds.opml", text: "<opml/>" });
-    expect(await droppedRequest([new File(["<DL>"], "bookmarks.html")])).toMatchObject({ kind: "html" });
-    expect(await droppedRequest([new File(["x"], "notes.txt")])).toBe("unsupported");
-    expect(await droppedRequest([new File([new Uint8Array(MAX_FILE + 1)], "huge.kpin")])).toBe("tooBig");
-    expect(await droppedRequest([new File([new Uint8Array(MAX_FILE)], "just-fits.kpin")])).toMatchObject({ kind: "kpin" });
-    expect(await droppedRequest([])).toBeNull();
-    expect(await droppedRequest(null)).toBeNull();
+    expect(await readDropped([new File(["<opml/>"], "feeds.opml"), new File(["x"], "notes.txt")])).toEqual({
+      file: { kind: "opml", name: "feeds.opml", text: "<opml/>" },
+      more: true,
+    });
+    expect(await readDropped([new File(["<DL>"], "bookmarks.html")])).toMatchObject({ file: { kind: "html" } });
+    expect(await readDropped([new File(["x"], "notes.txt"), new File(["{}"], "list.kpin")])).toBe("unsupported");
+    expect(await readDropped([new File([new Uint8Array(MAX_FILE + 1)], "huge.kpin")])).toBe("tooBig");
+    expect(await readDropped([new File([new Uint8Array(MAX_FILE)], "just-fits.kpin")])).toMatchObject({ file: { kind: "kpin" } });
+    expect(await readDropped([])).toBeNull();
+    expect(await readDropped(null)).toBeNull();
   });
 });
 
 describe("the open requests", () => {
-  it("keeps one at a time and drops the rest until it is done", () => {
+  it("keeps one list at a time and refuses the rest until it is done", () => {
     const queue = createOpenRequests();
     const seen: unknown[] = [];
     const stop = queue.subscribe((request) => seen.push(request));
     const first = { kind: "kpin-url", url: "https://example.org/a.kpin" } as const;
     expect(queue.push(first)).toBe(true);
     expect(queue.push({ kind: "kpin-path", path: "/tmp/b.kpin" })).toBe(false);
-    expect(queue.push({ kind: "opml", name: "feeds.opml", text: "<opml/>" })).toBe(false);
+    expect(queue.push({ kind: "kpin", name: "c.kpin", text: "{}" })).toBe(false);
     expect(queue.current()).toEqual(first);
     queue.done();
     expect(queue.current()).toBeNull();
     queue.done();
-    const second = { kind: "html", name: "bookmarks.html", text: "<DL>" } as const;
+    const second = { kind: "kpin", name: "rust-blogs.kpin", text: "{}" } as const;
     expect(queue.push(second)).toBe(true);
     stop();
     queue.done();

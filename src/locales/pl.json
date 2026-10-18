@@ -267,6 +267,8 @@
     "dropImportAlso": "Także kanały .opml i zakładki .html",
     "dropImportOther": "Koona Pin importuje listy .kpin, pliki OPML i pliki zakładek",
     "dropImportTooBig": "Ten plik ma ponad 2 MB i jest za duży do importu",
+    "dropImportBusy": "Otwarty jest inny import — najpierw go dokończ",
+    "dropImportOne": "Jeden plik naraz: importowany jest tylko {{name}}",
     "feedHas": "{{site}} ma kanał",
     "feedToggle": "Obserwuj {{site}}",
     "feedOffHint": "Obserwuj, aby nowe wpisy trafiały do Kanałów",

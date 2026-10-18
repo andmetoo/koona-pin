@@ -249,6 +249,8 @@
     "dropImportAlso": "Auch Feeds als .opml und Lesezeichen als .html",
     "dropImportOther": "Koona Pin importiert .kpin-Listen, OPML- und Lesezeichendateien",
     "dropImportTooBig": "Diese Datei ist größer als 2 MB und zu groß zum Importieren",
+    "dropImportBusy": "Ein anderer Import ist geöffnet – schließen Sie ihn zuerst ab",
+    "dropImportOne": "Eine Datei nach der anderen: nur {{name}} wird importiert",
     "feedHas": "{{site}} hat einen Feed",
     "feedToggle": "{{site}} folgen",
     "feedOffHint": "Folgen, um neue Beiträge in Feeds zu bekommen",

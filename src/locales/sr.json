@@ -258,6 +258,8 @@
     "dropImportAlso": "Такође фидови .opml и обележивачи .html",
     "dropImportOther": "Koona Pin увози .kpin листе, OPML и датотеке обележивача",
     "dropImportTooBig": "Датотека је већа од 2 MB — превелика за увоз",
+    "dropImportBusy": "Отворен је други увоз — прво га завршите",
+    "dropImportOne": "Једна по једна датотека: увози се само {{name}}",
     "feedHas": "{{site}} има фид",
     "feedToggle": "Прати {{site}}",
     "feedOffHint": "Пратите га да би нове објаве стизале у Фидове",

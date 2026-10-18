@@ -267,6 +267,8 @@
     "dropImportAlso": "А также ленты .opml и закладки .html",
     "dropImportOther": "Koona Pin импортирует списки .kpin, OPML и файлы закладок",
     "dropImportTooBig": "Файл больше 2 МБ — слишком большой для импорта",
+    "dropImportBusy": "Открыт другой импорт — сначала завершите его",
+    "dropImportOne": "По одному файлу: импортируется только {{name}}",
     "feedHas": "У {{site}} есть лента",
     "feedToggle": "Подписаться на {{site}}",
     "feedOffHint": "Подпишитесь, и новые записи будут приходить в Ленты",

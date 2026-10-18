@@ -249,6 +249,8 @@
     "dropImportAlso": "Also .opml feeds and bookmarks .html",
     "dropImportOther": "Koona Pin imports .kpin lists, OPML and bookmarks files",
     "dropImportTooBig": "This file is over 2 MB, too big to import",
+    "dropImportBusy": "Another import is open — finish it first",
+    "dropImportOne": "One file at a time: only {{name}} is imported",
     "feedHas": "{{site}} has a feed",
     "feedToggle": "Follow {{site}}",
     "feedOffHint": "Follow it to get new posts in Feeds",

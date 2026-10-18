@@ -198,51 +198,107 @@ test("a link dragged over the window frosts it; dropped, it is saved, with Shift
   await expect(veil).toHaveCount(0);
   await drag("dragenter", { file: true });
   await expect(veil).toHaveAttribute("data-drop-veil", "import");
-  await expect(veil).toContainText("This file can’t be imported");
-  await expect(veil).toContainText("Koona Pin imports .kpin lists, OPML and bookmarks files");
   await drag("dragleave");
   await expect(veil).toHaveCount(0);
 });
 
-test("a dropped file: a .kpin list waits for its dialog, OPML and bookmarks open their import, others are refused", async ({ page }) => {
-  const drop = (type: "dragenter" | "drop", name: string, text = "x") =>
-    page.evaluate(
-      ({ type, name, text }) => {
-        const data = new DataTransfer();
-        data.items.add(new File([text], name));
-        document.body.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
-      },
-      { type, name, text },
-    );
+/**
+ * A drag of files, as a webview shows it. `real`: as a drag from the system looks before the
+ * drop in WebKit, WebView2 and Chromium, with `files` empty and no name; otherwise a DataTransfer
+ * made by a script, which shows the files.
+ */
+const dragFiles = (page: Page, type: "dragenter" | "dragleave" | "drop", files: { name: string; text?: string }[], real = false) =>
+  page.evaluate(
+    ({ type, files, real }) => {
+      const data = new DataTransfer();
+      for (const file of files) data.items.add(new File([file.text ?? "x"], file.name));
+      const event = new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true });
+      if (real) {
+        const hidden = { types: ["Files"], files: [], items: [{ kind: "file", type: "" }], dropEffect: "none" };
+        Object.defineProperty(event, "dataTransfer", { value: hidden });
+      }
+      document.body.dispatchEvent(event);
+    },
+    { type, files, real },
+  );
+
+const OPML = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/><outline text="B" xmlUrl="https://example.org/b.xml"/></body></opml>';
+
+test("a file dragged over the window: the import veil, generic as real drags show it, with the name where the webview gives it", async ({ page }) => {
   const veil = page.locator("[data-drop-veil]");
-  await drop("dragenter", "rust-blogs.kpin");
+  // Real use: no name before the drop, so the generic line.
+  await dragFiles(page, "dragenter", [{ name: "rust-blogs.kpin" }], true);
   await expect(veil).toHaveAttribute("data-drop-veil", "import");
   await expect(veil).toContainText("Drop to import");
+  await expect(veil).toContainText("Koona Pin imports .kpin lists, OPML and bookmarks files");
+  await dragFiles(page, "dragleave", [], true);
+  await expect(veil).toHaveCount(0);
+
+  // Progressive enhancement: a DataTransfer that shows the file names it and its kind (frame K4).
+  await dragFiles(page, "dragenter", [{ name: "rust-blogs.kpin" }]);
   await expect(veil).toContainText("rust-blogs.kpin · a list of links and feeds");
   await expect(veil).toContainText("Also .opml feeds and bookmarks .html");
-  await drop("drop", "notes.txt");
-  await expect(veil).toHaveCount(0);
-  await expect(page.getByRole("alert").filter({ hasText: "Koona Pin imports .kpin lists, OPML and bookmarks files" })).toBeVisible();
-
-  const opml = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/><outline text="B" xmlUrl="https://example.org/b.xml"/></body></opml>';
-  await drop("dragenter", "feeds.opml", opml);
+  await dragFiles(page, "dragleave", []);
+  await dragFiles(page, "dragenter", [{ name: "feeds.opml" }]);
   await expect(veil).toContainText("feeds.opml · feeds in OPML");
-  await drop("drop", "feeds.opml", opml);
-  const dialog = page.getByRole("dialog");
+  await dragFiles(page, "dragleave", []);
+  await dragFiles(page, "dragenter", [{ name: "notes.txt" }]);
+  await expect(veil).toContainText("This file can’t be imported");
+  await expect(veil).toContainText("Koona Pin imports .kpin lists, OPML and bookmarks files");
+  await dragFiles(page, "dragleave", []);
+  await expect(veil).toHaveCount(0);
+});
+
+test("a dropped file: a .kpin list waits for its dialog, OPML and bookmarks open their import, others are refused", async ({ page }) => {
+  const drop = async (files: { name: string; text?: string }[]) => {
+    await dragFiles(page, "dragenter", files);
+    await dragFiles(page, "drop", files);
+  };
+  const veil = page.locator("[data-drop-veil]");
+  const alert = (text: string) => page.getByRole("alert").filter({ hasText: text });
+  await drop([{ name: "notes.txt" }]);
+  await expect(veil).toHaveCount(0);
+  await expect(alert("Koona Pin imports .kpin lists, OPML and bookmarks files")).toBeVisible();
+
+  // A list waits for the list dialog (wave 2); it does not hold up an OPML file.
+  await drop([{ name: "x.kpin", text: "{}" }]);
+  await drop([{ name: "feeds.opml", text: OPML }]);
+  const dialog = page.getByRole("dialog", { name: "Import feeds" });
   await expect(dialog).toContainText("feeds.opml");
   await expect(dialog).toContainText("2 feeds");
   // A file dragged over an open dialog is not taken.
-  await drop("dragenter", "other.opml", opml);
+  await dragFiles(page, "dragenter", [{ name: "other.opml", text: OPML }]);
   await page.waitForTimeout(200);
   await expect(veil).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
+  // Another list while the first waits is refused aloud, not dropped in silence.
+  await drop([{ name: "y.kpin", text: "{}" }]);
+  await expect(alert("Another import is open — finish it first")).toBeVisible();
+
+  // Several files: the first is taken, and that is said.
   const bookmarks = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><A HREF="https://example.org/dropped">Dropped</A></DL>';
-  await drop("dragenter", "bookmarks.html", bookmarks);
-  await drop("drop", "bookmarks.html", bookmarks);
-  await expect(dialog).toContainText("bookmarks.html");
-  await expect(dialog).toContainText("1 link");
+  await drop([{ name: "bookmarks.html", text: bookmarks }, { name: "feeds.opml", text: OPML }]);
+  const bookmarksDialog = page.getByRole("dialog", { name: "Import bookmarks" });
+  await expect(bookmarksDialog).toContainText("bookmarks.html");
+  await expect(bookmarksDialog).toContainText("1 link");
+  await expect(page.getByText("One file at a time: only bookmarks.html is imported")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(bookmarksDialog).toHaveCount(0);
+});
+
+test("a dropped file leaves with its dialog: «Import feeds (OPML)…» opened later starts empty", async ({ page }) => {
+  await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }]);
+  await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }]);
+  const dialog = page.getByRole("dialog", { name: "Import feeds" });
+  await expect(dialog).toContainText("feeds.opml");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Import feeds (OPML)…" }).click();
+  await expect(dialog).toContainText("Feeds file .opml");
+  await expect(dialog).not.toContainText("feeds.opml");
 });
 
 test("Collections and Tags fold, show their count, are remembered, and «+» opens the folded section", async ({ page }) => {

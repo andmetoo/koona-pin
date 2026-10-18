@@ -7,7 +7,7 @@ import { composing } from "./services/ime";
 import { isArrow, isDeleteKey, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { carriesLink, destinationOf, linkFrom } from "./services/addLink";
-import { DraggedFile, draggedFile, droppedRequest, openRequests, receiveNativeOpens } from "./services/openRequests";
+import { DraggedFile, draggedFile, openRequests, readDropped, receiveNativeOpens } from "./services/openRequests";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedOpenLinks, storedTheme, storedValue, Theme } from "./services/preferences";
@@ -190,7 +190,7 @@ export function App() {
   /** A link dragged over the window: the veil, and whether Shift sends it to the inbox; or a file to import (NP-139). */
   const [veil, setVeil] = useState<{ inbox: boolean; file?: DraggedFile } | null>(null);
   /** An OPML or bookmarks file dropped on the window: the import dialog opens with it (NP-139). */
-  const [droppedFile, setDroppedFile] = useState<{ name: string; content: string } | null>(null);
+  const [droppedFile, setDroppedFile] = useState<{ name: string; content: string; surface: "import" | "importFeeds" } | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   /** The app's own update (NP-038, sheet 42), checked by Rust; the version that runs and the system for the dialog. */
@@ -375,7 +375,8 @@ export function App() {
   // Shift into the inbox (2026-10-16). The app's own drags are left alone: the selection's drag is
   // a pointer drag and never starts one of these. A file asks to be imported (NP-139): a `.kpin`
   // list, OPML or a bookmarks file; the webview must not open a dropped file itself, so a file
-  // drag is always taken, and refused with a word when the window cannot import now.
+  // drag is always taken. While something is open over the window (a dialog, a menu, triage,
+  // reading, the editor) it gets no veil and its drop is ignored.
   useEffect(() => {
     let depth = 0;
     let accepting: "link" | "file" | null = null;
@@ -441,23 +442,14 @@ export function App() {
       window.removeEventListener("drop", drop);
     };
   }, []);
-  // Requests from outside the window (NP-139): a dropped OPML or bookmarks file opens the import
-  // dialog that format has, with the file in it. A `.kpin` list and the requests Rust keeps (a
-  // file opened with the app, a `koonapin://` link) wait for the list dialog.
+  // The lists Rust keeps (a `.kpin` opened with the app, a `koonapin://` link) wait in
+  // openRequests for the list dialog (NP-139, NP-142); one refused because another is open is said.
+  useEffect(() => receiveNativeOpens(() => sayRef.current(t("add.dropImportBusy"), true)), []);
+  // A dropped file belongs to the import dialog it opened: any other surface lets it go, so
+  // «Import…» opened later starts empty.
   useEffect(() => {
-    const route = (request: ReturnType<typeof openRequests.current>) => {
-      if (request?.kind !== "opml" && request?.kind !== "html") return;
-      setDroppedFile({ name: request.name, content: request.text });
-      setSurface(request.kind === "opml" ? "importFeeds" : "import");
-    };
-    const stop = openRequests.subscribe(route);
-    route(openRequests.current());
-    const stopNative = receiveNativeOpens();
-    return () => {
-      stop();
-      stopNative();
-    };
-  }, []);
+    if (droppedFile && droppedFile.surface !== surface) setDroppedFile(null);
+  }, [surface, droppedFile]);
   // The landing plays once; a later render of the card must not play it again.
   useEffect(() => {
     if (fresh === null) return;
@@ -1061,18 +1053,33 @@ export function App() {
     destinationOf(filters) === "reading" ? t("nav.reading") : (library.collections.find((c) => c.id === filters.collectionId)?.name ?? t("import.library"));
   const quickSaveRef = useRef(quickSave);
   quickSaveRef.current = quickSave;
-  /** A file dropped on the window, read and handed on as a request; or why it is not taken. */
+  /**
+   * A file dropped on the window, read: a `.kpin` list waits for the list dialog, OPML and
+   * bookmarks open their import dialog with it; or the person hears why it is not taken. Of
+   * several files the first is taken, and that is said.
+   */
   const dropFile = (files: FileList | null | undefined) =>
-    void droppedRequest(files).then(
-      (request) => {
-        if (request === "unsupported") say(t("add.dropImportOther"), true);
-        else if (request === "tooBig") say(t("add.dropImportTooBig"), true);
-        else if (request) openRequests.push(request);
+    void readDropped(files).then(
+      (read) => {
+        if (!read) return;
+        if (read === "unsupported") return say(t("add.dropImportOther"), true);
+        if (read === "tooBig") return say(t("add.dropImportTooBig"), true);
+        const { file, more } = read;
+        if (file.kind === "kpin") {
+          if (!openRequests.push({ ...file, kind: "kpin" })) return say(t("add.dropImportBusy"), true);
+        } else {
+          const target = file.kind === "opml" ? "importFeeds" : "import";
+          setDroppedFile({ name: file.name, content: file.text, surface: target });
+          setSurface(target);
+        }
+        if (more) say(t("add.dropImportOne", { name: file.name }));
       },
       (err) => say(describeError(err), true),
     );
   const dropFileRef = useRef(dropFile);
   dropFileRef.current = dropFile;
+  const sayRef = useRef(say);
+  sayRef.current = say;
   /** Whether a dropped file may be imported now: nothing over the window, on any page. */
   const importBlocked = () => !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
   /** Whether `⌘V` and a drop may save now: the library on screen, nothing over it. */
@@ -1866,15 +1873,11 @@ export function App() {
       )}
       {(surface === "import" || surface === "importFeeds") && (
         <ImportDialog
+          // A new surface or a new dropped file is a new dialog: its first state is the file.
+          key={`${surface}:${droppedFile?.surface === surface ? droppedFile.name : ""}`}
           kind={surface === "importFeeds" ? "feeds" : "bookmarks"}
-          file={droppedFile ?? undefined}
-          onClose={() => {
-            setSurface(null);
-            if (droppedFile) {
-              setDroppedFile(null);
-              openRequests.done();
-            }
-          }}
+          file={droppedFile?.surface === surface ? droppedFile : undefined}
+          onClose={() => setSurface(null)}
           onImport={async (content, toInbox) => {
             const summary = await api.importHtmlBookmarks(content, toInbox);
             if (importOffer) endImportOffer();

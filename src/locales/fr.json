@@ -258,6 +258,8 @@
     "dropImportAlso": "Aussi les flux .opml et les signets .html",
     "dropImportOther": "Koona Pin importe les listes .kpin, l’OPML et les fichiers de signets",
     "dropImportTooBig": "Ce fichier dépasse 2 Mo, il est trop gros pour être importé",
+    "dropImportBusy": "Une autre importation est ouverte, terminez-la d’abord",
+    "dropImportOne": "Un fichier à la fois : seul {{name}} est importé",
     "feedHas": "{{site}} a un flux",
     "feedToggle": "Suivre {{site}}",
     "feedOffHint": "Suivez-le pour recevoir les nouveaux articles dans Flux",

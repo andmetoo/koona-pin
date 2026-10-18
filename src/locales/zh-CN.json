@@ -240,6 +240,8 @@
     "dropImportAlso": "也支持 .opml 订阅源和 .html 书签",
     "dropImportOther": "Koona Pin 可导入 .kpin 列表、OPML 和书签文件",
     "dropImportTooBig": "此文件超过 2 MB，太大，无法导入",
+    "dropImportBusy": "另一个导入正在进行，请先完成它",
+    "dropImportOne": "一次一个文件：只导入 {{name}}",
     "feedHas": "{{site}} 有订阅源",
     "feedToggle": "关注 {{site}}",
     "feedOffHint": "关注后，新文章会出现在订阅源中",

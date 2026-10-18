@@ -258,6 +258,8 @@
     "dropImportAlso": "Anche feed .opml e segnalibri .html",
     "dropImportOther": "Koona Pin importa elenchi .kpin, OPML e file di segnalibri",
     "dropImportTooBig": "Questo file supera i 2 MB ed è troppo grande da importare",
+    "dropImportBusy": "C’è già un’importazione aperta: completala prima",
+    "dropImportOne": "Un file alla volta: viene importato solo {{name}}",
     "feedHas": "{{site}} ha un feed",
     "feedToggle": "Segui {{site}}",
     "feedOffHint": "Seguilo per ricevere i nuovi articoli in Feed",

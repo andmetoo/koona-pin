@@ -240,6 +240,8 @@
     "dropImportAlso": "フィードの .opml とブックマークの .html もインポートできます",
     "dropImportOther": "Koona Pin でインポートできるのは .kpin リスト、OPML、ブックマークファイルです",
     "dropImportTooBig": "このファイルは 2 MB を超えているため、インポートできません",
+    "dropImportBusy": "別のインポートが開いています。先に完了してください",
+    "dropImportOne": "一度に 1 ファイルずつ：{{name}} だけをインポートします",
     "feedHas": "{{site}} にはフィードがあります",
     "feedToggle": "{{site}} をフォロー",
     "feedOffHint": "フォローすると新しい投稿がフィードに届きます",

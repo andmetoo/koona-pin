@@ -249,6 +249,8 @@
     "dropImportAlso": "Ayrıca .opml akışları ve .html yer işaretleri",
     "dropImportOther": "Koona Pin .kpin listelerini, OPML ve yer işareti dosyalarını içe aktarır",
     "dropImportTooBig": "Bu dosya 2 MB'tan büyük, içe aktarmak için fazla büyük",
+    "dropImportBusy": "Başka bir içe aktarma açık; önce onu bitirin",
+    "dropImportOne": "Her seferinde bir dosya: yalnızca {{name}} içe aktarılır",
     "feedHas": "{{site}} sitesinin bir akışı var",
     "feedToggle": "{{site}} takip et",
     "feedOffHint": "Yeni yazıları Akışlar’da görmek için takip edin",
