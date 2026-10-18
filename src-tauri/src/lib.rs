@@ -21,6 +21,7 @@ pub mod journal;
 pub mod library;
 pub mod library_state;
 pub mod linkcheck;
+pub mod lists;
 pub mod mcp;
 pub mod mcp_tools;
 pub mod metadata;
@@ -291,6 +292,8 @@ pub fn run() {
             feeds::import_opml,
             feeds::export_opml,
             feeds::set_feeds_refresh_minutes,
+            lists::preview_list,
+            lists::import_list,
             tray::set_tray_labels,
             tray::get_tray_labels
         ])
