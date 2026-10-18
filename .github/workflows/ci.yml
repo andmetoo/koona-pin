@@ -211,8 +211,10 @@ jobs:
           java-version: '21'
       - name: NDK and SDK platform from the SDK manager
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-37"
+          # `yes` dies of SIGPIPE when sdkmanager closes stdin; that must not fail the step under pipefail.
+          (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          # The SDK repository names API 37 "android-37.0" (compileSdk = 37 resolves to it).
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-37.0"
           echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
       - run: bun install --frozen-lockfile
       - name: Android debug build (arm64)
