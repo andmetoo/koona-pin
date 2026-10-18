@@ -1,0 +1,477 @@
+/* The phone's library, search and bookmark menu (NP-072b; frames L1, L2, Q1, L1 dark; sizes from
+   the Lunacy frames). Scoped under `.phone` with the `lib-` prefix; tokens from styles/phone.css.
+   Rows and cards are opaque paper: no backdrop-filter, one shadow per shelf, transform and
+   opacity the only things that move. */
+
+/* ---------------------------------------------------------------- Header and tools (L1) */
+/* L1: the count 6 under the title, the search row at 140. */
+.phone .lib-screen .ph-header .ph-meta {
+  margin-top: 6px;
+}
+.phone .lib-screen .ph-header {
+  padding-bottom: 10px;
+}
+.phone .lib-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 var(--ph-side);
+}
+.phone .lib-search {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding-left: 14px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  text-align: left;
+  color: var(--ph-icon);
+}
+.phone .lib-search > span {
+  overflow: hidden;
+  color: var(--ph-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* L1's list/grid switch and Q1's scope: a 36 trough, the thumb inset 2. */
+.phone .lib-segmented {
+  flex: none;
+  height: 36px;
+  padding: 2px;
+}
+.phone .lib-segmented .ph-segmented-thumb {
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--count));
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.1),
+    0 2px 8px -2px rgb(0 0 0 / 0.06);
+}
+.phone .lib-segmented .ph-segment {
+  padding: 0;
+}
+.phone .lib-chips {
+  margin-top: 14px;
+}
+
+/* ---------------------------------------------------------------- The list */
+.phone .lib-list {
+  position: relative;
+}
+.phone .lib-list-inner {
+  position: relative;
+  width: 100%;
+}
+.phone .lib-entry,
+.phone .lib-shelf {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+/* A section's shelf: one paper and one shadow under all its rows. */
+.phone .lib-shelf {
+  left: var(--ph-side-chrome);
+  right: var(--ph-side-chrome);
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+}
+.phone .lib-label {
+  margin: 0;
+  padding: 20px 24px 8px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ph-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .lib-more {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- A row (L1, Q1) */
+.phone .lib-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: calc(100% - 2 * var(--ph-side-chrome));
+  height: 100%;
+  margin: 0 var(--ph-side-chrome);
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  text-align: left;
+  font: inherit;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.phone .lib-row:active {
+  background: var(--ph-well);
+}
+.phone .lib-row[data-first] {
+  border-top-left-radius: var(--ph-r-shelf);
+  border-top-right-radius: var(--ph-r-shelf);
+}
+.phone .lib-row[data-last] {
+  border-bottom-left-radius: var(--ph-r-shelf);
+  border-bottom-right-radius: var(--ph-r-shelf);
+}
+.phone .lib-row:focus-visible,
+.phone .lib-card:focus-visible {
+  outline-offset: -2px;
+}
+/* An inset hairline between rows, from the text's edge to the shelf's. */
+.phone .lib-row:not([data-last])::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--ph-line);
+}
+/* Title at 14, the meta under it, 10 to the hairline: two lines of title fill it. */
+.phone .lib-row-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  align-self: stretch;
+  padding: 14px 0 10px;
+}
+.phone .lib-clamp-2,
+.phone .lib-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.phone .lib-clamp-3 {
+  -webkit-line-clamp: 3;
+}
+.phone .lib-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.phone .lib-meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .lib-heart {
+  flex: none;
+  color: var(--ph-coral);
+}
+
+/* ---------------------------------------------------------------- Pictures */
+.phone .lib-thumb {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: var(--ph-r-thumb);
+  background: var(--ph-well);
+}
+.phone .lib-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* No picture: the site's gradient with a soft light top right, and its letter (L1, L2). */
+.phone .lib-cover {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(80% 80% at 95% 0%, rgb(255 255 255 / 0.22), transparent 70%),
+    radial-gradient(90% 90% at 0% 100%, rgb(0 0 0 / 0.1), transparent 70%),
+    linear-gradient(135deg, var(--from), var(--to));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  color: rgb(255 255 255 / 0.92);
+  font-size: 27px;
+  line-height: 32px;
+  font-weight: 600;
+}
+[data-theme="dark"] .phone .lib-cover {
+  background:
+    linear-gradient(rgb(0 0 0 / 0.18), rgb(0 0 0 / 0.18)),
+    radial-gradient(80% 80% at 95% 0%, rgb(255 255 255 / 0.18), transparent 70%),
+    linear-gradient(135deg, var(--from), var(--to));
+}
+
+/* ---------------------------------------------------------------- Grid cards (L2) */
+.phone .lib-cards {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 var(--ph-side-chrome);
+}
+.phone .lib-card {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex-direction: column;
+  padding: 4px 4px 14px;
+  border: 0;
+  border-radius: var(--ph-r-card);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+  color: var(--ph-ink);
+  text-align: left;
+  font: inherit;
+  transition: transform 120ms ease-out;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.phone .lib-card:active {
+  transform: scale(0.98);
+}
+.phone .lib-card .lib-card-picture {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 166.5 / 109;
+  border-radius: var(--ph-r-tile);
+}
+.phone .lib-card .lib-cover {
+  font-size: 46px;
+  line-height: 55px;
+}
+.phone .lib-card-title {
+  height: calc(60px * var(--lib-scale, 1));
+  margin: 10px 8px 0;
+  font-size: 15px;
+  line-height: 20px;
+}
+.phone .lib-card .lib-meta {
+  margin: auto 8px 0;
+}
+
+/* ---------------------------------------------------------------- Pull to refresh */
+/* Sits above the content, hidden under the top edge until a pull brings it down. */
+.phone .lib-pull {
+  position: sticky;
+  z-index: 3;
+  top: var(--safe-top);
+  display: flex;
+  height: 0;
+  justify-content: center;
+  pointer-events: none;
+}
+.phone .lib-pull-disc {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  margin-top: -44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+  color: var(--ph-meta);
+  opacity: 0;
+  transition:
+    transform var(--ph-spring-time) var(--ph-spring),
+    opacity 180ms ease-out;
+}
+.phone .lib-pull-disc[data-pull] {
+  opacity: var(--pull, 1);
+}
+.phone .lib-pull-disc svg {
+  transform: rotate(calc(var(--pull, 0) * 270deg));
+}
+.phone .lib-pull-disc[data-pull="armed"],
+.phone .lib-pull-disc[data-pull="refreshing"] {
+  opacity: 1;
+  color: var(--ph-accent);
+}
+.phone .lib-pull-disc[data-pull="refreshing"] svg {
+  animation: ph-turn 0.9s linear infinite;
+}
+
+/* ---------------------------------------------------------------- "N new" */
+.phone .lib-new {
+  position: sticky;
+  z-index: 3;
+  top: calc(var(--safe-top) + 62px);
+  display: flex;
+  height: 0;
+  justify-content: center;
+}
+.phone .lib-new-pill {
+  height: 36px;
+  margin-top: 8px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.35);
+  animation: ph-rise 220ms var(--ph-spring);
+}
+
+/* ---------------------------------------------------------------- Empty and loading */
+.phone .lib-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 20px var(--ph-side-chrome) 0;
+  padding: 32px 24px;
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+  text-align: center;
+}
+.phone .lib-empty-icon {
+  display: flex;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--ph-well);
+  color: var(--ph-icon);
+}
+.phone .lib-empty-text {
+  max-width: 300px;
+  color: var(--ph-meta);
+}
+.phone .lib-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.phone .lib-skeleton {
+  margin: 46px var(--ph-side-chrome) 0;
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow: var(--ph-e1);
+}
+.phone .lib-skeleton-row {
+  display: flex;
+  height: 88px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+}
+.phone .lib-skeleton-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+}
+.phone .lib-skeleton-text > span,
+.phone .lib-skeleton-thumb {
+  border-radius: 999px;
+  background: var(--ph-well);
+}
+.phone .lib-skeleton-text > span {
+  height: 12px;
+}
+.phone .lib-skeleton-text > span:last-child {
+  width: 50%;
+}
+.phone .lib-skeleton-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--ph-r-thumb);
+}
+
+/* ---------------------------------------------------------------- Search (Q1) */
+/* The field and Cancel at the top (62 on the frame: 8 under the status bar), the scope under them. */
+.phone .srch-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -6px;
+  padding: 0 var(--ph-side);
+}
+.phone .srch-top .ph-search {
+  flex: 1;
+  min-width: 0;
+  padding-left: 14px;
+}
+.phone .srch-scope {
+  display: grid;
+  margin: 16px var(--ph-side) -2px;
+}
+.phone .srch-hint {
+  padding: 24px var(--ph-side);
+  color: var(--ph-meta);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- The bookmark menu */
+.phone .lib-menu-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.phone .lib-menu-shelf .ph-shelf {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone .lib-pull-disc,
+  .phone .lib-card {
+    transition-duration: 1ms;
+  }
+  .phone .lib-new-pill {
+    animation-name: ph-fade-in;
+  }
+}
+.phone .lib-menu-shelf {
+  margin-bottom: 12px;
+}
+.phone .lib-menu-shelf:last-child {
+  margin-bottom: 0;
+}
+/* One meta line, never seen: how large the system draws text (useTextScale). */
+.phone .lib-probe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}

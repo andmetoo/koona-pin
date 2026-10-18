@@ -7,7 +7,7 @@ test("glass only on floating chrome; the flat flag turns it into opaque paper", 
   await openPhone(page);
   await expect(navPill(page)).toHaveCSS("backdrop-filter", "blur(20px) saturate(1.5)");
   // Content is never glass: rows, shelves, chips.
-  for (const selector of [".ph-shelf", ".ph-shelf-row", "[data-bookmark-id]"])
+  for (const selector of [".ph-shelf, .lib-shelf", ".ph-shelf-row, .lib-row", "[data-bookmark-id]"])
     await expect(page.locator(selector).first()).toHaveCSS("backdrop-filter", "none");
 
   await page.locator("[data-phone]").evaluate((root) => root.setAttribute("data-glass", "flat"));

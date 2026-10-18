@@ -1915,7 +1915,24 @@
       "title": "Library",
       "count_one": "{{count, number}} link",
       "count_other": "{{count, number}} links",
-      "search": "Search {{count, number}} links"
+      "search": "Search {{count, number}} links",
+      "view": "Layout",
+      "list": "List",
+      "grid": "Grid",
+      "filters": "Filters",
+      "all": "All",
+      "favorite": "Favorite",
+      "unread": "Unread",
+      "read": "Read",
+      "newLinks_one": "{{count, number}} new link",
+      "newLinks_other": "{{count, number}} new links",
+      "refreshing": "Refreshing",
+      "empty": {
+        "libraryHint": "Tap + to save a link: it waits here with its title and picture.",
+        "favoritesHint": "Long-press a bookmark and choose Add to favorites — it will appear here.",
+        "readingHint": "Long-press a bookmark and choose Send to Reading. Read ones leave after a week.",
+        "collectionHint": "Long-press a bookmark and choose Move to collection, or save a new link here."
+      }
     },
     "inbox": {
       "title": "Inbox"
@@ -1931,7 +1948,18 @@
       "title": "Post"
     },
     "search": {
-      "title": "Search"
+      "title": "Search",
+      "scope": "Search in",
+      "all": "All",
+      "library": "Library",
+      "feeds": "Feeds",
+      "hint": "Titles, addresses, notes and tags of your bookmarks, and the posts of the feeds you follow.",
+      "searching": "Searching…",
+      "results_one": "{{count, number}} result",
+      "results_other": "{{count, number}} results",
+      "resultsMore_one": "{{count, number}}+ results",
+      "resultsMore_other": "{{count, number}}+ results",
+      "fromFeeds": "From your feeds"
     },
     "settings": {
       "title": "Settings",
@@ -2042,6 +2070,7 @@
       "footer": "Koona Pin {{version}} · your library stays on your devices"
     },
     "bookmarkMenu": {
+      "open": "Open original",
       "edit": "Edit",
       "collection": "Move to collection",
       "trash": "Move to Trash"
