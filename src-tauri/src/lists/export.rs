@@ -119,22 +119,40 @@ pub fn file_name(id: &str) -> String {
 /// Names Windows keeps for devices, whatever the extension.
 const RESERVED: [&str; 4] = ["con", "prn", "aux", "nul"];
 
+/// Whether Windows takes a file whose name before its first dot is `stem`
+/// for a device, trailing spaces dropped as Windows drops them: `con`,
+/// `prn`, `aux`, `nul`, or `com`/`lpt` with a digit or a superscript ¹ ² ³,
+/// in any case.
+fn is_device(stem: &str) -> bool {
+    let lower = stem.trim_end_matches(' ').to_lowercase();
+    if RESERVED.contains(&lower.as_str()) {
+        return true;
+    }
+    let chars: Vec<char> = lower.chars().collect();
+    match chars.as_slice() {
+        ['c', 'o', 'm', n] | ['l', 'p', 't', n] => n.is_ascii_digit() || "¹²³".contains(*n),
+        _ => false,
+    }
+}
+
 /// The file name the app suggests (`listText.ts` makes it from the title),
 /// made safe on every system: no `/ \ : * ? " < > |` or control
 /// characters, no trailing dots or spaces, at most 64 characters, a device
-/// name of Windows given `-list`, else `list`; always with `.kpin`.
+/// name of Windows given `-list` before its first dot (`con.backup` →
+/// `con-list.backup`), else `list`; always with `.kpin`, in any case.
 pub fn safe_file_name(name: &str) -> String {
-    let base = name.strip_suffix(".kpin").unwrap_or(name);
+    let cut = name.len().checked_sub(5).filter(|&at| name.is_char_boundary(at) && name[at..].eq_ignore_ascii_case(".kpin"));
+    let base = cut.map_or(name, |at| &name[..at]);
     let kept: String = base.chars().filter(|c| !c.is_control() && !r#"/\:*?"<>|"#.contains(*c)).collect();
     let capped: String = kept.trim_start().chars().take(ID_LEN).collect();
     let mut base = capped.trim_end_matches(['.', ' ']).to_owned();
     if base.is_empty() {
         base = "list".to_owned();
     }
-    let lower = base.to_ascii_lowercase();
-    let numbered = |prefix: &str| lower.len() == 4 && lower.starts_with(prefix) && lower.as_bytes()[3].is_ascii_digit();
-    if RESERVED.contains(&lower.as_str()) || numbered("com") || numbered("lpt") {
-        base.push_str("-list");
+    let stem = &base[..base.find('.').unwrap_or(base.len())];
+    if is_device(stem) {
+        let at = stem.trim_end_matches(' ').len();
+        base.insert_str(at, "-list");
     }
     format!("{base}.kpin")
 }
@@ -213,8 +231,27 @@ mod tests {
             assert!(safe.ends_with("-list.kpin"), "{name} → {safe}");
         }
         assert_eq!(safe_file_name("CON"), "CON-list.kpin");
-        for name in ["console", "com", "com10", "lptx", "nulls"] {
+        for name in ["console", "com", "com10", "lptx", "nulls", "com⁴", "lpt¹¹", "backup.con"] {
             assert_eq!(safe_file_name(name), format!("{name}.kpin"));
         }
+    }
+
+    #[test]
+    fn a_device_name_before_the_first_dot_or_with_a_superscript_gets_a_suffix() {
+        assert_eq!(safe_file_name("con.backup"), "con-list.backup.kpin");
+        assert_eq!(safe_file_name("NUL.tar.gz"), "NUL-list.tar.gz.kpin");
+        assert_eq!(safe_file_name("Aux .txt"), "Aux-list .txt.kpin");
+        assert_eq!(safe_file_name("COM¹"), "COM¹-list.kpin");
+        assert_eq!(safe_file_name("lpt³.old"), "lpt³-list.old.kpin");
+        assert_eq!(safe_file_name("com²"), "com²-list.kpin");
+    }
+
+    #[test]
+    fn the_kpin_suffix_is_dropped_in_any_case() {
+        assert_eq!(safe_file_name("Notes.KPIN"), "Notes.kpin");
+        assert_eq!(safe_file_name("notes.Kpin"), "notes.kpin");
+        assert_eq!(safe_file_name("con.KPIN"), "con-list.kpin");
+        assert_eq!(safe_file_name("я.kpin"), "я.kpin");
+        assert_eq!(safe_file_name("kpin"), "kpin.kpin");
     }
 }
