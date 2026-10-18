@@ -1,0 +1,11 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "One address is not on the web",
+  "items": [
+    { "type": "link", "url": "ftp://ftp.example.com/pub/file.txt" },
+    { "type": "link", "url": "https://example.com/kept" }
+  ]
+}

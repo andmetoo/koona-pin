@@ -1,0 +1,45 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "generator": "Koona Pin 2.4.0",
+  "id": "rust-blogs",
+  "title": "Rust blogs worth following",
+  "description": "Personal and team blogs about Rust, checked October 2026.",
+  "author": { "name": "Koona", "url": "https://koona.app" },
+  "license": "CC0-1.0",
+  "language": "en",
+  "updated": "2026-10-18",
+  "homepage": "https://koona.app/pin/lists/rust-blogs",
+  "sections": [
+    {
+      "name": "Compiler and language",
+      "items": [
+        {
+          "type": "feed",
+          "url": "https://blog.rust-lang.org/feed.xml",
+          "site": "https://blog.rust-lang.org",
+          "title": "Rust Blog"
+        },
+        {
+          "type": "link",
+          "url": "https://doc.rust-lang.org/nomicon/",
+          "title": "The Rustonomicon",
+          "description": "The dark arts of unsafe Rust.",
+          "tags": ["unsafe", "book"]
+        }
+      ]
+    },
+    {
+      "name": "Async",
+      "items": [
+        { "type": "link", "url": "https://tokio.rs/", "title": "Tokio", "tags": ["runtime"] },
+        { "type": "feed", "url": "https://without.boats/index.xml", "title": "Without boats" }
+      ]
+    }
+  ],
+  "items": [
+    { "type": "link", "url": "https://this-week-in-rust.org/", "title": "This Week in Rust" }
+  ]
+}

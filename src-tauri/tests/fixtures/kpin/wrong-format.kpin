@@ -1,0 +1,6 @@
+{
+  "format": "koona-pin",
+  "version": 1,
+  "title": "A library export, not a list",
+  "items": [{ "type": "link", "url": "https://example.com/" }]
+}

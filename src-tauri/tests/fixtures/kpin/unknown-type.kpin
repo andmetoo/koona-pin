@@ -1,0 +1,14 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.1",
+  "title": "From a newer writer",
+  "cover": "https://example.com/cover.png",
+  "author": { "name": "Someone", "mastodon": "@someone@example.social" },
+  "items": [
+    { "type": "link", "url": "https://example.com/a", "title": "A", "rating": 5 },
+    { "type": "note", "text": "A note is a type this reader does not know." },
+    { "type": "feed", "url": "https://example.com/feed.xml", "color": "#ff0000" }
+  ]
+}
