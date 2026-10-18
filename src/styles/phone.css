@@ -135,6 +135,14 @@
   outline: 2px solid var(--ph-accent);
   outline-offset: 2px;
 }
+/* A phone shows no scrollbars (the WebView draws app.css's desktop thumbs otherwise). */
+.phone,
+.phone * {
+  scrollbar-width: none;
+}
+.phone ::-webkit-scrollbar {
+  display: none;
+}
 
 /* The screen area; on the Fold the rail sits beside it (`data-fold`, `data-hand`). */
 .phone .ph-main {

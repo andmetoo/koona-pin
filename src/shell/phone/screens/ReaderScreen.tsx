@@ -153,9 +153,9 @@ const plain = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "
 
 /**
  * R1's hero (r 24): the page's picture, or the site's gradient when it has none, with the site
- * (and the collection) as its eyebrow and the saved title over it. When the saved title is the
- * article's own, it is not said twice: a picture keeps only its eyebrow, a gradient shows the
- * site's name as the desktop's poster covers do.
+ * (and the collection) as its eyebrow. A picture keeps only its eyebrow: pages' pictures often
+ * carry words of their own, and a title over them cannot be read. A gradient shows the saved title,
+ * or the site's name (as the desktop's poster covers do) when the title is the article's own.
  */
 function Hero({ b, articleTitle }: { b: Bookmark; articleTitle: string | null }) {
   const { app } = usePhone();
@@ -165,7 +165,7 @@ function Hero({ b, articleTitle }: { b: Bookmark; articleTitle: string | null })
   const collection = app.library.collections.find((c) => c.id === b.collection_id)?.name;
   const own = b.title || b.url;
   const repeats = plain(own) === plain(articleTitle ?? own);
-  const overlay = !repeats ? own : picture.src ? null : site;
+  const overlay = picture.src ? null : !repeats ? own : site;
   const eyebrow = [overlay === site ? b.domain : site, collection].filter(Boolean).join(" · ");
   return (
     <figure
