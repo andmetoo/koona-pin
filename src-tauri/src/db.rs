@@ -139,6 +139,12 @@ pub fn new_uid() -> String {
     uuid::Uuid::now_v7().to_string()
 }
 
+/// Whether a record with this uid was deleted for good here: a tombstone
+/// holds it (a purge, a deleted collection, tag or feed, a merge).
+pub fn is_purged(conn: &Connection, uid: &str) -> Result<bool> {
+    conn.query_row("SELECT EXISTS (SELECT 1 FROM tombstones WHERE uid = ?1)", [uid], |r| r.get(0))
+}
+
 /// Where a bookmark was saved from; `NULL` in the database means before v2.
 /// The schema also allows `bookmarklet`: the bookmarklet is gone (NP-016),
 /// but a released schema step does not change.
@@ -1178,9 +1184,14 @@ pub fn set_source_name(conn: &Connection, id: i64, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// The metadata read from `url` for a bookmark just saved. Written only while
+/// the bookmark still has that address: the page took seconds to read, and
+/// meanwhile the address may have been edited or the library replaced (the
+/// same id is another bookmark then).
 pub fn enrich_bookmark(
     conn: &Connection,
     id: i64,
+    url: &str,
     initial_revision: i64,
     meta: &crate::metadata::PageMetadata,
 ) -> Result<Option<Bookmark>> {
@@ -1188,8 +1199,8 @@ pub fn enrich_bookmark(
         title=CASE WHEN revision=?1 THEN COALESCE(?2,title) ELSE title END,
         description=COALESCE(?3,description),image_url=COALESCE(?4,image_url),favicon_url=COALESCE(?5,favicon_url),
         site_name=COALESCE(?8,site_name),
-        revision=revision+1,updated_at=?6 WHERE id=?7",
-        params![initial_revision,meta.title,meta.description,meta.image_url,meta.favicon_url,now(),id,meta.site_name])?;
+        revision=revision+1,updated_at=?6 WHERE id=?7 AND url=?9",
+        params![initial_revision,meta.title,meta.description,meta.image_url,meta.favicon_url,now(),id,meta.site_name,url])?;
     if changed == 0 {
         Ok(None)
     } else {
@@ -1201,16 +1212,18 @@ pub fn enrich_bookmark(
 /// read again. A new one replaces the old, what was not found keeps what
 /// there was; a bookmark saved before site names were read gets one here. Title
 /// and description fill in only where empty: the person may have edited them.
-/// The trash is left alone.
-pub fn refresh_preview(conn: &Connection, id: i64, meta: &crate::metadata::PageMetadata) -> Result<Bookmark> {
+/// The trash is left alone, and so is a bookmark whose address is no longer
+/// `url`, the one the page was read from: edited, or another bookmark after a
+/// restore, while the page was read.
+pub fn refresh_preview(conn: &Connection, id: i64, url: &str, meta: &crate::metadata::PageMetadata) -> Result<Bookmark> {
     conn.execute(
         "UPDATE bookmarks SET image_url=COALESCE(?1,image_url), favicon_url=COALESCE(?2,favicon_url),
             site_name=COALESCE(?7,site_name),
             description=COALESCE(NULLIF(description,''),?3),
             title=CASE WHEN title='' OR title=url THEN COALESCE(?4,title) ELSE title END,
             revision=revision+1, updated_at=?5
-         WHERE id=?6 AND deleted_at IS NULL",
-        params![meta.image_url, meta.favicon_url, meta.description, meta.title, now(), id, meta.site_name],
+         WHERE id=?6 AND url=?8 AND deleted_at IS NULL",
+        params![meta.image_url, meta.favicon_url, meta.description, meta.title, now(), id, meta.site_name, url],
     )?;
     get_bookmark_by_id(conn, id)
 }
@@ -1928,7 +1941,7 @@ mod tests {
             title: Some("Новое название".into()),
             ..Default::default()
         };
-        enrich_bookmark(&conn, captured.id, captured.revision, &meta).unwrap();
+        enrich_bookmark(&conn, captured.id, &captured.url, captured.revision, &meta).unwrap();
         let collection = create_collection(&conn, "Временная", None, None).unwrap();
         conn.execute(
             "UPDATE bookmarks SET collection_id = ?1 WHERE id = ?2",
@@ -2100,7 +2113,7 @@ mod tests {
             description: Some("Описание".into()),
             ..Default::default()
         };
-        enrich_bookmark(&conn, first.id, trashed.revision, &meta).unwrap();
+        enrich_bookmark(&conn, first.id, &first.url, trashed.revision, &meta).unwrap();
         assert!(get_bookmark_by_id(&conn, first.id)
             .unwrap()
             .deleted_at
@@ -2201,7 +2214,7 @@ mod tests {
             site_name: Some("Example Journal".into()),
             domain: "example.org".into(),
         };
-        let refreshed = refresh_preview(&conn, imported.id, &meta).unwrap();
+        let refreshed = refresh_preview(&conn, imported.id, url, &meta).unwrap();
         // An imported link had nothing: it gets everything.
         assert_eq!(refreshed.title, "Page title");
         assert_eq!(refreshed.description.as_deref(), Some("From the page"));
@@ -2213,17 +2226,53 @@ mod tests {
         update_bookmark(&conn, imported.id, Some("Mine".into()), None, None, None, None).unwrap();
         conn.execute("UPDATE bookmarks SET description='My words' WHERE id=?1", [imported.id]).unwrap();
         let none = crate::metadata::PageMetadata { title: Some("Other".into()), description: Some("Other".into()), ..Default::default() };
-        let again = refresh_preview(&conn, imported.id, &none).unwrap();
+        let again = refresh_preview(&conn, imported.id, url, &none).unwrap();
         assert_eq!((again.title.as_str(), again.description.as_deref()), ("Mine", Some("My words")));
         assert_eq!(again.image_url.as_deref(), Some("https://example.org/og.jpg"));
         assert_eq!(again.site_name.as_deref(), Some("Example Journal"), "a name not found again stays");
         let renamed = crate::metadata::PageMetadata { site_name: Some("Example Weekly".into()), ..Default::default() };
-        assert_eq!(refresh_preview(&conn, imported.id, &renamed).unwrap().site_name.as_deref(), Some("Example Weekly"));
+        assert_eq!(refresh_preview(&conn, imported.id, url, &renamed).unwrap().site_name.as_deref(), Some("Example Weekly"));
         // The trash is left alone.
         trash_bookmark(&conn, imported.id).unwrap();
-        let trashed = refresh_preview(&conn, imported.id, &meta).unwrap();
+        let trashed = refresh_preview(&conn, imported.id, url, &meta).unwrap();
         assert_eq!(trashed.revision, get_bookmark_by_id(&conn, imported.id).unwrap().revision);
         assert_eq!(trashed.title, "Mine");
+    }
+
+    /// A page takes seconds to read. When the bookmark's address changed
+    /// meanwhile (a moved link replaced, another library restored under the
+    /// same id), what was read from the old address is not written to it.
+    #[test]
+    fn late_metadata_of_an_old_address_is_not_written() {
+        let conn = setup_test_db();
+        let old = "https://example.org/old";
+        let b = insert_or_update_bookmark(&conn, old, old, None, None, None, "example.org", None, None, Source::Import).unwrap();
+        let meta = crate::metadata::PageMetadata {
+            title: Some("Old page".into()),
+            description: Some("Of the old page".into()),
+            image_url: Some("https://example.org/old.jpg".into()),
+            favicon_url: Some("https://example.org/old.png".into()),
+            site_name: Some("Old".into()),
+            domain: "example.org".into(),
+        };
+        // Read from `old`; meanwhile the link was replaced by the address it moved to.
+        conn.execute(
+            "INSERT INTO link_checks (bookmark_id, url, checked_at, outcome, target) VALUES (?1, ?2, 'x', 'moved', 'https://example.org/new')",
+            params![b.id, old],
+        )
+        .unwrap();
+        crate::linkcheck::replace(&conn, &[b.id]).unwrap();
+        let moved = get_bookmark_by_id(&conn, b.id).unwrap();
+        assert_eq!(moved.url, "https://example.org/new");
+
+        let refreshed = refresh_preview(&conn, b.id, old, &meta).unwrap();
+        let json = |b: &Bookmark| serde_json::to_value(b).unwrap();
+        assert_eq!(json(&refreshed), json(&moved), "«Обновить превью» wrote nothing");
+        assert!(enrich_bookmark(&conn, b.id, old, b.revision, &meta).unwrap().is_none());
+        assert_eq!(json(&get_bookmark_by_id(&conn, b.id).unwrap()), json(&moved), "nor did the capture's enrichment");
+        // At its address it is written.
+        let fresh = refresh_preview(&conn, b.id, &moved.url, &meta).unwrap();
+        assert_eq!(fresh.image_url.as_deref(), Some("https://example.org/old.jpg"));
     }
 
     #[test]
@@ -2484,7 +2533,7 @@ mod tests {
             domain: "example.com".into(),
         };
         let revision = get_bookmark_by_id(&conn, b.id).unwrap().revision;
-        enrich_bookmark(&conn, b.id, revision, &meta).unwrap();
+        enrich_bookmark(&conn, b.id, &b.url, revision, &meta).unwrap();
         assert_eq!(found(&conn, "метаданных"), [b.id]);
         assert_eq!(found(&conn, "страницы"), [b.id]);
 

@@ -443,7 +443,7 @@ pub async fn refresh_preview(
 ) -> Result<Bookmark, CommandError> {
     let url = blocking(&state, move |conn| db::get_bookmark_by_id(conn, id).map(|b| b.url).map_err(text)).await?;
     let meta = metadata::fetch_metadata(&url).await;
-    let bookmark = blocking(&state, move |conn| db::refresh_preview(conn, id, &meta).map_err(text)).await?;
+    let bookmark = blocking(&state, move |conn| db::refresh_preview(conn, id, &url, &meta).map_err(text)).await?;
     capture::emit(&app, ChangeKind::Updated, &bookmark);
     Ok(bookmark)
 }
@@ -502,7 +502,7 @@ pub async fn create_starter_library(
                 .conn
                 .lock()
                 .map_err(|_| ())
-                .and_then(|conn| db::refresh_preview(&conn, id, &meta).map_err(|_| ()));
+                .and_then(|conn| db::refresh_preview(&conn, id, &url, &meta).map_err(|_| ()));
             if let Ok(bookmark) = updated {
                 capture::emit(&app, ChangeKind::Updated, &bookmark);
             }

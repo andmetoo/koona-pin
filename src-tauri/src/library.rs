@@ -869,6 +869,7 @@ mod tests {
         // After the copy: a new bookmark with a tag, one purged.
         let after = capture(&conn, "https://example.com/after-the-copy", "after");
         db::update_bookmark(&conn, after.bookmark_id, None, Some("note".into()), None, None, Some(vec!["kept".into()])).unwrap();
+        let purged_uid: String = conn.query_row("SELECT uid FROM bookmarks WHERE id = 2", [], |r| r.get(0)).unwrap();
         db::trash_bookmark(&conn, 2).unwrap();
         db::purge_trash(&conn, db::Purge::One(2)).unwrap();
 
@@ -891,7 +892,12 @@ mod tests {
         assert_eq!(one("SELECT count(*) FROM sync_origins"), 1, "it holds nothing of anyone");
         assert_eq!(one("SELECT count(*) FROM sync_clock WHERE entity = 2 AND field = -1"), one("SELECT count(*) FROM bookmarks"));
         assert_eq!(one("SELECT count(*) FROM tombstones WHERE hlc IS NULL"), 0);
-        assert_eq!(one("SELECT count(*) FROM tombstones"), 0, "no purge from the restore");
+        // No purge from the restore; the purge made after the copy stays, and
+        // the bookmark it purged is back under a new uid (a purge is final).
+        assert_eq!(one("SELECT count(*) FROM tombstones"), 1);
+        assert_eq!(one(&format!("SELECT count(*) FROM bookmarks WHERE uid = '{purged_uid}'")), 0);
+        assert_eq!(one(&format!("SELECT count(*) FROM tombstones WHERE uid = '{purged_uid}'")), 1);
+        assert_eq!(one("SELECT count(*) FROM bookmarks WHERE id = 2"), 1, "the purged one is back");
         // The connection records with the new replica.
         let next = capture(&conn, "https://example.com/next", "next");
         assert_eq!(one(&format!("SELECT count(*) FROM sync_clock WHERE entity = 2 AND row = {} AND origin = (SELECT id FROM sync_origins)", next.bookmark_id)), 1);

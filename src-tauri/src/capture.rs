@@ -372,7 +372,7 @@ pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) 
         // A link previewed in «New link» in the last 10 minutes is not read again (NP-129).
         let meta = crate::feeds::discover::metadata_for_save(&bookmark.url).await;
         let updated = state.conn.lock().map_err(|_| ()).and_then(|conn| {
-            db::enrich_bookmark(&conn, bookmark.id, bookmark.revision, &meta).map_err(|_| ())
+            db::enrich_bookmark(&conn, bookmark.id, &bookmark.url, bookmark.revision, &meta).map_err(|_| ())
         });
         if let Ok(Some(updated)) = updated {
             emit(&app, ChangeKind::Updated, &updated);
@@ -457,7 +457,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            db::enrich_bookmark(&c, saved.id, saved.revision, &meta)
+            db::enrich_bookmark(&c, saved.id, &saved.url, saved.revision, &meta)
                 .unwrap()
                 .unwrap()
                 .title,
@@ -465,7 +465,7 @@ mod tests {
         );
         db::trash_bookmark(&c, saved.id).unwrap();
         db::purge_trash(&c, db::Purge::One(saved.id)).unwrap();
-        assert!(db::enrich_bookmark(&c, saved.id, saved.revision, &meta)
+        assert!(db::enrich_bookmark(&c, saved.id, &saved.url, saved.revision, &meta)
             .unwrap()
             .is_none());
     }
