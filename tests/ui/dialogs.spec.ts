@@ -160,8 +160,18 @@ for (const code of ["en", "de", "ru"]) {
         await page.keyboard.press("Escape");
       }
 
-      // Restore a backup: the list, the confirmation and back, the report, a refused file.
+      // Import opened empty (Settings → Feeds → Import…): the same box once a file is chosen.
       await settings();
+      await page.getByRole("button", { name: t("feeds.settings.import"), exact: true }).click();
+      await track.open("import feeds, empty");
+      const opml = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/></body></opml>';
+      await dialog.locator("input[type=file]").setInputFiles({ name: "feeds.opml", mimeType: "text/x-opml", buffer: Buffer.from(opml) });
+      await expect(dialog).toContainText("feeds.opml");
+      await track.same("file chosen");
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+
+      // Restore a backup: the list, the confirmation and back, the report, a refused file.
       await page.getByRole("button", { name: t("settings.restore"), exact: true }).click();
       await track.open("backup");
       await expect(dialog.getByRole("radio").first()).toBeVisible();
