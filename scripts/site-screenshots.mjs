@@ -3,9 +3,14 @@
 // scripts/shots/previews (Unsplash licence, scripts/shots/previews/CREDITS.md), Chrome connected.
 //
 //   bun run site:shots   (builds the debug app with its interface embedded first, scripts/build-test-app.mjs)
+//   bun scripts/site-screenshots.mjs --theme dark --view bundle,new-link   (only those; each takes a list)
 //
 // Writes release/shots/app-en-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280),
-// in English: the site's shots are English only.
+// in English: the site's shots are English only. Views: grid, list, and those of the help
+// (HELP_VIEWS in scripts/lib/shots.mjs): bundle (three bookmarks in the bundle, its capsule),
+// bundle-open (its panel), new-link (New link with a page pasted, its preview, Follow on) and
+// settings (the first section). The pasted page is the sample's: its answer comes from
+// KOONAPIN_SHOTS_PREVIEWS, which only a build without `public-release` reads.
 // The site lives in andmetoo/koona-site: the shots go there by a commit, every few versions. The link
 // previews (og-*.jpg) are drawn there, not shot. Quit your own Koona Pin first:
 // only one instance runs per user.
@@ -13,11 +18,20 @@ import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { parseArgs } from "node:util";
 import { appBinary, assertNoOtherApp, hello, hostMessage, pipeReady, testPipe } from "./lib/native-host.mjs";
-import { copyOf, servePreviews, shotsOut as out, until, webpEncoder } from "./lib/shots.mjs";
+import { copyOf, HELP_VIEWS, previewSeed, servePreviews, SETTLED, shotsOut as out, until, webpEncoder } from "./lib/shots.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const VIEW = { width: 1280, height: 800 };
+const VIEWS = ["grid", "list", ...Object.keys(HELP_VIEWS)];
+const { values: args } = parseArgs({
+  strict: false,
+  options: { theme: { type: "string", default: "light,dark" }, view: { type: "string", default: VIEWS.join(",") } },
+});
+const pick = (value, all) => value.split(",").filter((v) => all.includes(v));
+const themes = pick(args.theme, ["light", "dark"]);
+const views = pick(args.view, VIEWS);
 // The app drops pictures on local addresses from a restored copy (NP-019, net_guard::public_url),
 // so the copy names a host of the reserved .test zone; only the WebView of these shots maps it
 // to the previews' server (--host-resolver-rules below).
@@ -30,10 +44,14 @@ async function shoot(base, encoder) {
   const data = path.join(root, ".test-data", `site-shots-${Date.now()}`);
   await mkdir(data, { recursive: true });
   const pipe = testPipe("site");
+  // The answers New link gets for the sample's page and its feed (HELP_VIEWS["new-link"]).
+  const seed = path.join(data, "previews.json");
+  await writeFile(seed, JSON.stringify(previewSeed(base)));
   const env = {
     ...process.env,
     KOONAPIN_DATA_DIR: data,
     KOONAPIN_PIPE: pipe,
+    KOONAPIN_SHOTS_PREVIEWS: seed,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=9226 --lang=en-US --host-resolver-rules="MAP ${PREVIEW_HOST} 127.0.0.1"`,
   };
@@ -59,8 +77,9 @@ async function shoot(base, encoder) {
     // Larger than 1×: asks for 2×; WebView2 on this machine gives 1.5× (1920 px), enough for 1200 px on the page.
     const cdp = await context.newCDPSession(page);
     const metrics = () => cdp.send("Emulation.setDeviceMetricsOverride", { ...VIEW, deviceScaleFactor: 2, mobile: false });
-    for (const theme of ["light", "dark"]) {
-      for (const view of ["grid", "list"]) {
+    for (const theme of themes) {
+      for (const view of views) {
+        const help = HELP_VIEWS[view];
         // The app speaks English until a language is picked (NP-085): English, picked.
         await page.evaluate(([t, v, l]) => {
           localStorage.setItem("koonapin.language", l);
@@ -68,7 +87,7 @@ async function shoot(base, encoder) {
           localStorage.setItem("koonapin.view", v);
           // The import offer of a new library (NP-117) is closed: the shots show the library itself.
           localStorage.setItem("koonapin.importBanner", "done");
-        }, [theme, view, "en"]);
+        }, [theme, help ? "grid" : view, "en"]);
         await page.reload();
         await metrics();
         await page.locator("[data-bookmark-id]").first().waitFor();
@@ -82,6 +101,12 @@ async function shoot(base, encoder) {
         if (view === "grid") {
           const photos = await page.evaluate(() => [...document.querySelectorAll("[data-bookmark-id] img")].filter((i) => i.naturalWidth > 0).length);
           if (!photos) throw new Error(`${theme}: no preview photo loaded, the cards show covers`);
+        }
+        // A view of the help: its steps from the library, each run until it is true.
+        if (help) {
+          for (const step of help.open) await until(() => page.evaluate(step), `${view}: ${step.slice(0, 80)}`);
+          await until(() => page.evaluate(help.ready), `the ${view} view`);
+          await until(() => page.evaluate(SETTLED), `the ${view} view settled`, 15000);
         }
         // The window is a real one: the system's pointer resting over it leaves a card in its hover state
         // (the selection box and «…» on the first card, 9 October 2026), whatever CDP moves.

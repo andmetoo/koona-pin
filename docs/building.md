@@ -64,7 +64,20 @@ bun run site:shots:mac
 bun scripts/store-assets.mjs
 ```
 
-On a Mac, the first command shoots the real window of a debug build: the sample library of `scripts/shots/library.json` and the feeds of `scripts/shots/feeds.json`, in grid, list, reading, feeds, triage and sync views, light and dark, in English only. It writes `release/shots/app-en-<theme>-<view>.webp` (1920 px) and `-1280.webp`; copy them to koona-site's `pin/src/shots/` and the three README ones to `docs/shots/`. The script drives the page through `KOONAPIN_SHOTS_SOCKET` (`src-tauri/src/shots.rs`), which exists only in builds without `public-release`. Quit your own Koona Pin first, and allow Screen Recording for the terminal. The sync dialog comes from the browser preview, since the real one needs a plan and a second computer. On Windows, `bun run site:shots` does the same through WebView2. The second command makes the store images in `extension/store/en/`.
+On a Mac, the first command shoots the real window of a debug build: the sample library of `scripts/shots/library.json` and the feeds of `scripts/shots/feeds.json`, in grid, list, reading, feeds, triage and sync views, light and dark, in English only. It writes `release/shots/app-en-<theme>-<view>.webp` (1920 px) and `-1280.webp`; copy them to koona-site's `pin/src/shots/` and the three README ones to `docs/shots/`. The script drives the page through `KOONAPIN_SHOTS_SOCKET` (`src-tauri/src/shots.rs`), which exists only in builds without `public-release`. Quit your own Koona Pin first, and allow Screen Recording for the terminal. The sync dialog comes from the browser preview, since the real one needs a plan and a second computer. `--view` and `--theme` take a list, to shoot only some (`bun scripts/site-screenshots-macos.mjs --view bundle,settings`). The second command makes the store images in `extension/store/en/`.
+
+The help pages (koona.app/pin/help) also use four views, defined once in `scripts/lib/shots.mjs` (`HELP_VIEWS`) and shot by both scripts, all from the grid:
+
+| View | What it shows |
+| --- | --- |
+| `bundle` | Three bookmarks added to the bundle (Ctrl-click, Export → Add to bundle), the «Bundle» capsule with «3» at the bottom right |
+| `bundle-open` | The same bundle opened: its panel with the three rows, Copy as Markdown and Save .kpin… |
+| `new-link` | New link with `https://earlytrail.org/coastal-walks` pasted, its preview, and Follow turned on with the feed's rate |
+| `settings` | Settings at the top, its first section (General) |
+
+The sample's sites do not exist, so the page pasted into New link and its feed answer from a file the scripts write and name in `KOONAPIN_SHOTS_PREVIEWS` (`src-tauri/src/feeds/discover.rs`), read only by builds without `public-release`; its picture is one of `scripts/shots/previews`.
+
+On Windows, `bun run site:shots` shoots grid, list and the help's views through WebView2, with the same `--view` and `--theme`. The site's shots come from the Mac (its window has the traffic lights), so the Windows ones are for checking the views.
 
 ## The browser extension
 
