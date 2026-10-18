@@ -311,6 +311,8 @@ pub fn run() {
             feeds::set_feeds_refresh_minutes,
             lists::preview_list,
             lists::import_list,
+            lists::export::build_list,
+            lists::export::save_list,
             tray::set_tray_labels,
             tray::get_tray_labels,
             open_requests::take_pending_opens

@@ -53,6 +53,8 @@ import { mergedNotice } from "./services/duplicates";
 import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { FeedsPage } from "./components/feeds/FeedsPage";
+import { ShareListDialog } from "./components/library/ShareListDialog";
+import type { ListSource } from "./services/shareList";
 import { useFeeds } from "./components/feeds/useFeeds";
 import { useFeedActions } from "./components/feeds/FeedMenu";
 import { feedNotifications } from "./services/feedNotifications";
@@ -62,7 +64,7 @@ import { SyncDialog } from "./components/commercial/SyncDialog";
 import { syncPrompt } from "./components/commercial/syncText";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
+type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | "shareList" | null;
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -128,6 +130,12 @@ export function App() {
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
+  /** «Share as list…» (NP-140): where the list dialog was opened from. */
+  const [shareFrom, setShareFrom] = useState<ListSource[]>([]);
+  const shareList = (sources: ListSource[]) => {
+    setShareFrom(sources);
+    setSurface("shareList");
+  };
   /** The subscription «Switch to 5 years» was chosen for: the step says when it ends. */
   const [upgradeFrom, setUpgradeFrom] = useState<Plan | null>(null);
   // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
@@ -772,6 +780,7 @@ export function App() {
     favorite: (favorite) => runBulk({ action: "favorite", favorite }),
     reading: (reading) => runBulk({ action: "reading", reading }),
     export: (format) => exportLibrary(format, [...selection.ids]),
+    shareList: () => shareList([{ kind: "bookmarks", ids: [...selection.ids] }]),
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
     deleteForever: () => setPurging({ selected: [...selection.ids] }),
@@ -1536,6 +1545,7 @@ export function App() {
         feedUid={feedPlace.feed}
         onFeed={openFeeds}
         feedActions={feedActions}
+        onShareList={shareList}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1947,6 +1957,9 @@ export function App() {
         />
       )}
       {surface === "background" && <BackgroundDialog onClose={() => setSurface(null)} />}
+      {surface === "shareList" && (
+        <ShareListDialog start={shareFrom} collections={library.collections} feeds={feeds} onClose={() => setSurface(null)} onNotice={setNotice} />
+      )}
       {surface === "supporter" && (
         <SupporterDialog
           sandbox={!!supporter?.sandbox}

@@ -18,14 +18,14 @@ pub const MAX_ITEMS: usize = 5_000;
 pub const READER_MAJOR: u32 = 1;
 pub const READER_MINOR: u32 = 0;
 
-const TITLE_LEN: usize = 120;
-const SECTION_LEN: usize = 120;
-const ITEM_TITLE_LEN: usize = 500;
-const DESCRIPTION_LEN: usize = 2_000;
-const AUTHOR_LEN: usize = 120;
+pub(crate) const TITLE_LEN: usize = 120;
+pub(crate) const SECTION_LEN: usize = 120;
+pub(crate) const ITEM_TITLE_LEN: usize = 500;
+pub(crate) const DESCRIPTION_LEN: usize = 2_000;
+pub(crate) const AUTHOR_LEN: usize = 120;
 const LICENSE_LEN: usize = 64;
 const GENERATOR_LEN: usize = 80;
-const ID_LEN: usize = 64;
+pub(crate) const ID_LEN: usize = 64;
 /// The schema's `httpUrl`.
 const URL_LEN: usize = 2_048;
 pub const TAG_LEN: usize = 64;
@@ -125,7 +125,7 @@ pub fn line(raw: &str, max: usize) -> Option<String> {
 }
 
 /// A description: as [`line`], but its line breaks stay.
-fn paragraph(raw: &str, max: usize) -> Option<String> {
+pub(crate) fn paragraph(raw: &str, max: usize) -> Option<String> {
     let kept: String = raw
         .replace("\r\n", "\n")
         .chars()
@@ -139,7 +139,7 @@ fn paragraph(raw: &str, max: usize) -> Option<String> {
 /// Characters that are not seen but reorder or join the text around them
 /// (bidi marks and overrides, zero-width ones, a byte order mark anywhere):
 /// a title or a tag could hide what it says, or pass for another.
-fn is_invisible(c: char) -> bool {
+pub(crate) fn is_invisible(c: char) -> bool {
     matches!(
         c,
         '\u{061c}' | '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}' | '\u{2066}'..='\u{2069}' | '\u{feff}'
@@ -232,7 +232,7 @@ fn slug(raw: &str) -> Option<String> {
 }
 
 /// A BCP 47 tag, loosely: letters, digits and dashes, starting with 2–3 letters.
-fn language(raw: &str) -> Option<String> {
+pub(crate) fn language(raw: &str) -> Option<String> {
     let mut parts = raw.split('-');
     let first = parts.next()?;
     let ok = (2..=3).contains(&first.len())
@@ -242,7 +242,7 @@ fn language(raw: &str) -> Option<String> {
 }
 
 /// `YYYY-MM-DD`, a real date.
-fn date(raw: &str) -> Option<String> {
+pub(crate) fn date(raw: &str) -> Option<String> {
     chrono::NaiveDate::parse_from_str(raw, "%Y-%m-%d").ok().map(|d| d.format("%Y-%m-%d").to_string())
 }
 

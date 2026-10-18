@@ -421,7 +421,7 @@ async fn changed(app: &AppHandle, state: &State<'_, Arc<DbState>>) {
 
 /// Every subscription with what the cache knows of it (NP-131): the library
 /// is read and let go, then the cache. Without a cache, as the library has them.
-async fn all_feeds(app: &AppHandle, state: &State<'_, Arc<DbState>>) -> Result<Vec<Feed>, CommandError> {
+pub(crate) async fn all_feeds(app: &AppHandle, state: &State<'_, Arc<DbState>>) -> Result<Vec<Feed>, CommandError> {
     let mut list = blocking(state, |conn| feeds(conn).map_err(CommandError::from)).await?;
     let Some(feed_cache) = app.try_state::<Arc<cache::FeedCache>>() else {
         return Ok(list);
