@@ -101,9 +101,22 @@ impl AppInfo {
                 share_intake: false,
                 // The haptics plugin is registered on phones only (src/mobile).
                 haptics: !desktop,
-                purchase: if crate::billing::service().is_some() { Purchase::Paddle } else { Purchase::None },
+                purchase: purchase(desktop),
             },
         }
+    }
+}
+
+/// How this build sells Supporter. A computer with the billing service: Paddle's checkout. A phone:
+/// nothing until NP-154 — the Play build may sell only through Play Billing and must not link to
+/// the Paddle checkout (Google Play's payments policy); the site's APK gets `Paddle` through its own
+/// flavour (NP-074, NP-078). Signing in with the email code stays on phones, so someone who pays on
+/// a computer is a Supporter on the phone too.
+fn purchase(desktop: bool) -> Purchase {
+    if desktop && crate::billing::service().is_some() {
+        Purchase::Paddle
+    } else {
+        Purchase::None
     }
 }
 
@@ -130,6 +143,13 @@ mod tests {
         assert!(c.file_manager && c.tray && c.autostart && c.browser_capture && c.mcp && c.quit && c.folder_picker);
         assert_eq!(c.updates, UpdateSource::Itself);
         assert!(!c.share_intake && !c.haptics);
+        let paddle = if crate::billing::service().is_some() { Purchase::Paddle } else { Purchase::None };
+        assert_eq!(c.purchase, paddle);
+    }
+
+    #[test]
+    fn a_phone_sells_nothing() {
+        assert_eq!(purchase(false), Purchase::None);
     }
 
     #[test]

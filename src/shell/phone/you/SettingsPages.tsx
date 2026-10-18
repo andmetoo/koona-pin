@@ -212,7 +212,7 @@ export function ReadingPage() {
   const pickTheme = (theme: ReaderChoice["theme"]) => {
     if (theme !== "auto" && themeLocked(theme, unlocked)) {
       readerLook.wish({ theme });
-      setSurface(capabilities.purchase === "paddle" ? "supporter" : "signIn");
+      setSurface("supporter");
     } else setChoice({ ...choice, theme });
   };
   const themes: (ReaderTheme | "auto")[] = ["auto", ...FREE_THEMES, ...SUPPORTER_THEMES];

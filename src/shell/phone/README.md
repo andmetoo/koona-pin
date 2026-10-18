@@ -14,6 +14,7 @@ The phone's own interface, "Paper & Glass" (`doc/mobile-design.md` in the notes,
 | `navigation/usePhoneStack.ts` | The stack in React, tab → app section, system Back at place 0 | foundation |
 | `sheets/useSheets.ts`, `SheetLayer.tsx`, `registry.ts`, `useAppSheets.ts` | The sheet system | foundation |
 | `ui/` | The kit (below) | foundation |
+| `supporter/` | Supporter, sign-in and the plan as sheets; nothing sold where `capabilities.purchase` is `none` (the Play build until NP-154) | wave 2 |
 | `screens/*Screen.tsx` | One file per screen, stubs now | wave 1 |
 | `sheets/EditSheet.tsx`, `CollectionPicker.tsx`, `NewLinkSheet.tsx`, `YouSheet.tsx`, `BookmarkMenu.tsx` | One file per sheet, stubs now | wave 1 |
 | `Rail.tsx` | The Fold's rail, a placeholder now | wave 2 |
@@ -97,7 +98,7 @@ The glass falls back to opaque paper under Reduce Transparency, without `backdro
 
 ## Dialogs the phone still shows
 
-From shared code, opened by `app.surface` and the app's state (`PhoneDialogs.tsx`): Supporter, sign-in, plan, the 5-year upgrade, sync; import (bookmarks, feeds), a `.kpin` list, restore, backups, feedback, a new collection; the confirmations of deleting a collection and deleting for good; the feeds' own dialogs (`app.feedMenu.dialogs`). Replaced on the phone: `add` (the `newLink` sheet), the editor drawer (the `edit` sheet), the reading sheet and reading mode (the `reader` route). Left out: the desktop's update, background, assistants and browser-capture dialogs, and the share bundle.
+From shared code, opened by `app.surface` and the app's state (`PhoneDialogs.tsx`): the 5-year upgrade (only where the build sells), sync; import (bookmarks, feeds), a `.kpin` list, restore, backups, feedback, a new collection; the confirmations of deleting a collection and deleting for good; the feeds' own dialogs (`app.feedMenu.dialogs`). Replaced on the phone: `add` (the `newLink` sheet), the editor drawer (the `edit` sheet), the reading sheet and reading mode (the `reader` route), Supporter, sign-in and the plan (the `supporter`, `signIn` and `plan` sheets in `supporter/`, opened from `app.surface` by `useSupporterSheets`). Left out: the desktop's update, background, assistants and browser-capture dialogs, and the share bundle.
 
 ## Tests
 

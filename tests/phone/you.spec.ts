@@ -38,13 +38,13 @@ test("a Supporter sees the plan, sync with its devices, and Settings rows with v
   await expect(you.locator(".ys-footer")).toContainText("your library stays on your devices");
 });
 
-test("the plan and sync open the shared dialogs over the sheet; Back closes the dialog, then the sheet", async ({ page }) => {
+test("the plan opens its sheet and sync the shared dialog over the sheet; Back closes them in turn", async ({ page }) => {
   await openPhone(page, { settings: SUPPORTER });
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
-  await expect(sharedDialog(page)).toBeVisible();
+  await expect(page.locator('[data-sheet-kind="plan"]')).toBeVisible();
   expect(await systemBack(page)).toBe(true);
-  await expect(sharedDialog(page)).toHaveCount(0);
+  await expect(page.locator('[data-sheet-kind="plan"]')).toHaveCount(0);
   await expect(you).toBeVisible();
 
   await you.getByRole("button", { name: /Synced just now/ }).click();
@@ -58,12 +58,17 @@ test("the plan and sync open the shared dialogs over the sheet; Back closes the 
 test("without a plan: an invitation, sync explained, and the sign-in where the phone sells nothing", async ({ page }) => {
   await openPhone(page, { settings: { "demo.supporter": "free" } });
   const you = await openYou(page);
-  await expect(you.locator('[data-supporter="free"]')).toContainText("Become a Supporter");
+  // `purchase: "none"`: nothing invites to buy; the card names Supporter and leads to its sheet.
+  await expect(you.locator('[data-supporter="free"]')).toContainText("Koona Pin Supporter");
+  await expect(you.locator('[data-supporter="free"]')).not.toContainText("Become");
   await expect(you.locator('[data-sync-card="free"]')).toContainText("Sync comes with Supporter");
-  // `purchase: "none"`: no way to buy here, one way to sign in.
-  await expect(you.getByRole("button", { name: "I'm already a Supporter" })).toHaveCount(1);
-  await you.getByRole("button", { name: "I'm already a Supporter" }).click();
-  await expect(sharedDialog(page)).toContainText("Sign in as a Supporter");
+  await expect(you.getByRole("button", { name: "Learn more" })).toHaveCount(0);
+  await you.locator('[data-supporter="free"]').click();
+  const supporter = page.locator('[data-sheet-kind="supporter"]');
+  await expect(supporter.getByRole("button", { name: "I'm already a Supporter" })).toBeVisible();
+  await supporter.getByRole("button", { name: "I'm already a Supporter" }).click();
+  await expect(page.locator('[data-sheet-kind="signIn"]')).toContainText("Sign in as a Supporter");
+  await expect(sharedDialog(page)).toHaveCount(0);
 });
 
 test("a build that sells nothing shows neither Supporter nor sync", async ({ page }) => {

@@ -27,7 +27,8 @@ export const phoneCapabilities = {
 const FRAME_INSETS = { top: 54, right: 0, bottom: 34, left: 0 };
 
 /**
- * Opens the demo as a phone with a fresh library, at `viewport`, in `theme`; `settings` are
+ * Opens the demo as a phone with a fresh library, at `viewport`, in `theme`, with the phone's
+ * capabilities and `capabilities` over them; `settings` are
  * `koonapin.*` keys without the prefix, as tests/fixtures/app.ts `openApp` takes them.
  */
 export async function openPhone(
@@ -37,7 +38,15 @@ export async function openPhone(
     theme = "light",
     insets = FRAME_INSETS,
     settings = {},
-  }: { viewport?: { width: number; height: number }; theme?: "light" | "dark"; insets?: typeof FRAME_INSETS; settings?: Record<string, string> } = {},
+    capabilities = {},
+  }: {
+    viewport?: { width: number; height: number };
+    theme?: "light" | "dark";
+    insets?: typeof FRAME_INSETS;
+    settings?: Record<string, string>;
+    /** Over the phone's: `{ purchase: "paddle" }` for the site's APK. */
+    capabilities?: Partial<typeof phoneCapabilities>;
+  } = {},
 ) {
   await page.setViewportSize(viewport);
   await page.addInitScript(
@@ -56,7 +65,7 @@ export async function openPhone(
       localStorage.setItem("koonapin.theme", theme);
       for (const [key, value] of Object.entries(settings)) localStorage.setItem(`koonapin.${key}`, value);
     },
-    { capabilities: phoneCapabilities, insets, theme, settings },
+    { capabilities: { ...phoneCapabilities, ...capabilities }, insets, theme, settings },
   );
   await page.goto("/");
   await expect(page.locator("[data-phone]")).toBeVisible();
