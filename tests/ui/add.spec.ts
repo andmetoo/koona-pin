@@ -249,7 +249,7 @@ test("a file dragged over the window: the import veil, generic as real drags sho
   await expect(veil).toHaveCount(0);
 });
 
-test("a dropped file: a .kpin list waits for its dialog, OPML and bookmarks open their import, others are refused", async ({ page }) => {
+test("a dropped file: a .kpin list opens its dialog, OPML and bookmarks open their import, others are refused", async ({ page }) => {
   const drop = async (files: { name: string; text?: string }[]) => {
     await dragFiles(page, "dragenter", files);
     await dragFiles(page, "drop", files);
@@ -260,8 +260,25 @@ test("a dropped file: a .kpin list waits for its dialog, OPML and bookmarks open
   await expect(veil).toHaveCount(0);
   await expect(alert("Koona Pin imports .kpin lists, OPML and bookmarks files")).toBeVisible();
 
-  // A list waits for the list dialog (wave 2); it does not hold up an OPML file.
+  // A list opens the list dialog (NP-138); a file dragged over it is not taken. A koonapin:// link
+  // while it only shows something replaces it (lists.spec.ts: one downloading or importing refuses
+  // it, aloud).
   await drop([{ name: "x.kpin", text: "{}" }]);
+  const list = page.getByRole("dialog", { name: "Import list" });
+  await expect(list).toContainText("This file can't be imported");
+  await dragFiles(page, "dragenter", [{ name: "y.kpin", text: "{}" }]);
+  await page.waitForTimeout(200);
+  await expect(veil).toHaveCount(0);
+  const pushed = await page.evaluate(async () => {
+    const { openRequests } = await import("/src/services/openRequests.ts");
+    return openRequests.push({ kind: "kpin-url", url: "https://example.com/y.kpin" });
+  });
+  expect(pushed).toBe(true);
+  await expect(list).toContainText("Download a list from example.com?");
+  await page.keyboard.press("Escape");
+  await expect(list).toHaveCount(0);
+
+  // OPML opens its own import.
   await drop([{ name: "feeds.opml", text: OPML }]);
   const dialog = page.getByRole("dialog", { name: "Import feeds" });
   await expect(dialog).toContainText("feeds.opml");
@@ -272,10 +289,6 @@ test("a dropped file: a .kpin list waits for its dialog, OPML and bookmarks open
   await expect(veil).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-
-  // Another list while the first waits is refused aloud, not dropped in silence.
-  await drop([{ name: "y.kpin", text: "{}" }]);
-  await expect(alert("Another import is open — finish it first")).toBeVisible();
 
   // Several files: the first is taken, and that is said.
   const bookmarks = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><p><DT><A HREF="https://example.org/dropped">Dropped</A></DL>';

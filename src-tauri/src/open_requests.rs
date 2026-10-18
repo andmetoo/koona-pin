@@ -131,7 +131,7 @@ fn is_kpin(path: &Path) -> bool {
 
 /// An existing regular file whose name ends in `.kpin`, as an absolute path. A link is followed
 /// and its target checked the same way: a `.kpin` link to another file is refused.
-fn kpin_file(path: &Path) -> Option<String> {
+pub(crate) fn kpin_file(path: &Path) -> Option<String> {
     if !is_kpin(path) {
         return None;
     }

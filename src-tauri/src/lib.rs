@@ -313,6 +313,9 @@ pub fn run() {
             lists::import_list,
             lists::export::build_list,
             lists::export::save_list,
+            lists::download::download_list,
+            lists::download::cancel_list_download,
+            lists::download::read_list_file,
             tray::set_tray_labels,
             tray::get_tray_labels,
             open_requests::take_pending_opens

@@ -41,6 +41,7 @@ import { failureText } from "./components/reader/ArticleView";
 import { AssistantDialog } from "./components/settings/AssistantDialog";
 import { AddSheet, NewLink } from "./components/library/AddSheet";
 import { BackgroundDialog, CollectionDialog, ConfirmDialog, ConnectDialog, ImportDialog, RestoreDialog } from "./components/library/Dialogs";
+import { ListImportDialog } from "./components/ListImportDialog";
 import { BackupRestoreDialog, copyTime } from "./components/BackupRestoreDialog";
 import { FeedbackDialog } from "./components/FeedbackDialog";
 import { UpdateDialog } from "./components/UpdateDialog";
@@ -430,6 +431,8 @@ export function App() {
       const data = e.dataTransfer;
       if (kind === "file") {
         if (!importBlocked()) dropFileRef.current(data?.files);
+        // A list downloading or importing cannot be replaced: that is said, not dropped in silence.
+        else if (openRequests.busy()) sayRef.current(t("add.dropImportBusy"), true);
         return;
       }
       const url = linkFrom(data?.getData("text/uri-list"), true) ?? linkFrom(data?.getData("text/plain"));
@@ -453,6 +456,24 @@ export function App() {
   // The lists Rust keeps (a `.kpin` opened with the app, a `koonapin://` link) wait in
   // openRequests for the list dialog (NP-139, NP-142); one refused because another is open is said.
   useEffect(() => receiveNativeOpens(() => sayRef.current(t("add.dropImportBusy"), true)), []);
+  // The list dialog (NP-138) takes the waiting request once nothing else is open over the window.
+  // A dialog opened over an idle one lets the request go, as its own close would; one that
+  // downloads or imports keeps its request and stays until it closes itself.
+  const listNow = () => ({ request: openRequests.current(), id: openRequests.id(), busy: openRequests.busy() });
+  const [list, setList] = useState(listNow);
+  useEffect(() => openRequests.subscribe(() => setList(listNow())), []);
+  const [listKept, setListKept] = useState<number | null>(null);
+  const listOpen = !!list.request && (surface === null || list.busy || listKept === list.id);
+  const listShown = useRef(false);
+  useEffect(() => {
+    if (surface !== null && listShown.current && listKept !== list.id) {
+      if (list.busy) setListKept(list.id);
+      else openRequests.done();
+    }
+    listShown.current = listOpen;
+  }, [surface, list, listKept, listOpen]);
+  const listOpenRef = useRef(listOpen);
+  listOpenRef.current = listOpen;
   // A dropped file belongs to the import dialog it opened: any other surface lets it go, so
   // «Import…» opened later starts empty.
   useEffect(() => {
@@ -465,7 +486,14 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [fresh]);
   // The first close without a tray explains that the app keeps running (NP-096).
-  useEffect(() => api.onCloseToBackground(() => setSurface("background")), []);
+  // While the list dialog is open (an import cannot stop), it waits for that dialog to close.
+  const [backgroundWaits, setBackgroundWaits] = useState(false);
+  useEffect(() => api.onCloseToBackground(() => (listOpenRef.current ? setBackgroundWaits(true) : setSurface("background"))), []);
+  useEffect(() => {
+    if (!backgroundWaits || listOpen) return;
+    setBackgroundWaits(false);
+    setSurface("background");
+  }, [backgroundWaits, listOpen]);
   useEffect(() => {
     const off = api.onUpdateStatus(setUpdate);
     void api.getUpdateStatus().then(setUpdate).catch(() => {});
@@ -498,11 +526,11 @@ export function App() {
   const promptShown = useRef<string | null>(null);
   useEffect(() => {
     if (!prompt || prompt === promptShown.current) return;
-    // Another dialog open (a purchase among them) is finished first.
-    if (surface !== null && surface !== "sync") return;
+    // Another dialog open (a purchase among them, a list waiting or being imported) is finished first.
+    if ((surface !== null && surface !== "sync") || list.request) return;
     promptShown.current = prompt;
     setSurface("sync");
-  }, [prompt, surface]);
+  }, [prompt, surface, list.request]);
   // The dialog follows the update; when no version is in play any more (cancelled into a recheck,
   // or the preview «restarted»), it goes.
   useEffect(() => {
@@ -1888,6 +1916,10 @@ export function App() {
           kind={surface === "importFeeds" ? "feeds" : "bookmarks"}
           file={droppedFile?.surface === surface ? droppedFile : undefined}
           onClose={() => setSurface(null)}
+          onList={(file) => {
+            setSurface(null);
+            if (!openRequests.push({ kind: "kpin", ...file })) say(t("add.dropImportBusy"), true);
+          }}
           onImport={async (content, toInbox) => {
             const summary = await api.importHtmlBookmarks(content, toInbox);
             if (importOffer) endImportOffer();
@@ -1898,6 +1930,31 @@ export function App() {
             setSurface(null);
             openInbox();
           }}
+        />
+      )}
+      {listOpen && list.request && (
+        <ListImportDialog
+          key={list.id}
+          request={list.request}
+          onBusy={openRequests.setBusy}
+          collections={library.collections}
+          onClose={() => openRequests.done()}
+          onImported={async () => {
+            await Promise.all([library.refresh(), library.refreshCatalog()]);
+          }}
+          onShowCollection={(id) => {
+            openRequests.done();
+            setTriage(null);
+            setPage("library");
+            navigate({ collectionId: id });
+          }}
+          onCheckUpdates={() => {
+            // As «Update» of the sync dialog: the version on offer, or Settings → Updates.
+            if (offer(update)) return setSurface("update");
+            setTriage(null);
+            setPage("settings");
+          }}
+          onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
         />
       )}
       {surface === "restore" && (

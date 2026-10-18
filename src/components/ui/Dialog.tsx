@@ -22,6 +22,7 @@ export function Dialog({
   badge,
   height,
   caption,
+  eyebrow = false,
 }: {
   title: string;
   onClose: () => void;
@@ -32,10 +33,12 @@ export function Dialog({
   locked?: boolean;
   /** Next to the title: «Test payments» of the Supporter dialog (sheet 45). */
   badge?: ReactNode;
-  /** A fixed height, such as `min(640px, calc(100vh - 48px))`: the body fills it (K2). */
+  /** A fixed height, such as `min(640px, calc(100vh - 48px))`: the body fills it (K1, K2). */
   height?: string;
   /** A small capitalised line above the title (K2: «Share as list»). */
   caption?: string;
+  /** The title as a small capitals label over the body's own heading (K1: «IMPORT LIST»). */
+  eyebrow?: boolean;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -44,7 +47,7 @@ export function Dialog({
   closeRef.current = locked ? () => {} : onClose;
   const [open, setOpen] = useState(false);
   const heading = (
-    <h2 id={titleId} className="text-lg font-semibold">
+    <h2 id={titleId} className={eyebrow ? "text-2xs font-semibold tracking-[0.06em] text-muted uppercase" : "text-lg font-semibold"}>
       {title}
     </h2>
   );

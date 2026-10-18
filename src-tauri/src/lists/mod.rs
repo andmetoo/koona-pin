@@ -4,12 +4,14 @@
 //! - [`format`]: the envelope, versions and payload, text and address checks;
 //! - [`preview`]: what a list would do to this library, writing nothing;
 //! - [`apply`]: the import, one transaction by the rules of Р-29;
+//! - [`download`]: a list from a `koonapin://` link, and a file the system opened;
 //! - [`export`]: making a list of collections, a selection or feeds (NP-140).
 //!
 //! The interface sends the text it has (a dropped or picked file, a
 //! download) with both commands; nothing is kept between them.
 
 pub mod apply;
+pub mod download;
 pub mod export;
 pub mod format;
 pub mod preview;

@@ -54,22 +54,26 @@ describe("files dropped on the window", () => {
 });
 
 describe("the open requests", () => {
-  it("keeps one list at a time and refuses the rest until it is done", () => {
+  it("keeps one list at a time: a new one replaces an idle one, a busy one refuses it", () => {
     const queue = createOpenRequests();
     const seen: unknown[] = [];
     const stop = queue.subscribe((request) => seen.push(request));
     const first = { kind: "kpin-url", url: "https://example.org/a.kpin" } as const;
     expect(queue.push(first)).toBe(true);
-    expect(queue.push({ kind: "kpin-path", path: "/tmp/b.kpin" })).toBe(false);
+    const firstId = queue.id();
+    const replacing = { kind: "kpin-path", path: "/tmp/b.kpin" } as const;
+    expect(queue.push(replacing)).toBe(true);
+    expect(queue.id()).toBe(firstId + 1);
+    queue.setBusy(true);
     expect(queue.push({ kind: "kpin", name: "c.kpin", text: "{}" })).toBe(false);
-    expect(queue.current()).toEqual(first);
+    expect(queue.current()).toEqual(replacing);
     queue.done();
-    expect(queue.current()).toBeNull();
+    expect([queue.current(), queue.busy()]).toEqual([null, false]);
     queue.done();
     const second = { kind: "kpin", name: "rust-blogs.kpin", text: "{}" } as const;
     expect(queue.push(second)).toBe(true);
     stop();
     queue.done();
-    expect(seen).toEqual([first, null, second]);
+    expect(seen).toEqual([first, replacing, replacing, null, second]);
   });
 });

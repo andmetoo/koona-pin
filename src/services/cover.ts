@@ -155,7 +155,7 @@ export function siteName(b: { domain: string; title?: string; site_name?: string
 /**
  * Metadata of a link just saved is still on its way: no picture, no icon, the
  * first revision (the metadata's own update makes the second, found or not),
- * a few seconds old, not from an import (imports never fetch). The preview
+ * a few seconds old, not from an import or a list (imports never fetch). The preview
  * shimmers until it comes or this time is out.
  */
 export const PENDING_MS = 12_000;
@@ -163,7 +163,7 @@ export function pendingFor(
   b: { image_url: string | null; favicon_url: string | null; created_at: string; source: string | null; revision: number },
   now = Date.now(),
 ): number {
-  if (b.image_url || b.favicon_url || b.source === "import" || b.revision > 1) return 0;
+  if (b.image_url || b.favicon_url || b.source === "import" || b.source === "list" || b.revision > 1) return 0;
   const left = Date.parse(b.created_at) + PENDING_MS - now;
   return left > 0 && left <= PENDING_MS ? left : 0;
 }

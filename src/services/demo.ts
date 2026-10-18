@@ -1,5 +1,11 @@
 import { version as packageVersion } from "../../package.json";
 import type { ReaderPage } from "../bindings/ReaderPage";
+import type { ListCheck } from "../bindings/ListCheck";
+import type { ListDownload } from "../bindings/ListDownload";
+import type { ListDownloadProgress } from "../bindings/ListDownloadProgress";
+import type { ListFile } from "../bindings/ListFile";
+import type { ListImportOptions } from "../bindings/ListImportOptions";
+import type { ListImportReport } from "../bindings/ListImportReport";
 import {
   AddedLink,
   BackupCopy,
@@ -638,6 +644,132 @@ const batchListeners = new Set<(changes: BookmarkChange[]) => void>();
 const invalidations = new Set<() => void>();
 const duplicateListeners = new Set<() => void>();
 const progressListeners = new Set<(progress: ImportProgress) => void>();
+
+type DemoListItem = { url: string; title: string | null; description: string | null; tags: string[]; sections: string[] };
+type DemoList = {
+  title: string;
+  version: string;
+  newer: boolean;
+  links: DemoListItem[];
+  feeds: DemoListItem[];
+  sections: number;
+  repeated: number;
+  not_web: number;
+  invalid: number;
+  skipped_items: number;
+  raw: Record<string, unknown>;
+};
+
+/** An http(s) address with a host, or null: the list's own links (author, homepage) are dropped otherwise. */
+const demoWebUrl = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value.trim());
+    return (url.protocol === "http:" || url.protocol === "https:") && url.hostname ? url.href : null;
+  } catch {
+    return null;
+  }
+};
+
+/** `dedupe::url_key`, roughly: host without `www.`, no fragment, no `utm_` parameters, no trailing slash. */
+function demoUrlKey(href: string) {
+  const url = new URL(href);
+  url.hash = "";
+  for (const key of [...url.searchParams.keys()]) if (key.toLowerCase().startsWith("utm_")) url.searchParams.delete(key);
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  return `${host}${url.port ? `:${url.port}` : ""}${url.pathname.replace(/\/+$/, "")}${url.search}`;
+}
+
+/**
+ * Preview only: `lists/format.rs` in the browser, by its cheap rules — the envelope and version,
+ * 2 MB, 5,000 items and 200 sections refused rather than cut, empty only without items, http(s)
+ * links with a host, a repeated address (by a rough `url_key`) merged into the first with its
+ * tags, unknown item types counted. The desktop app's reader is the one that counts.
+ */
+function demoList(text: string): DemoList | Exclude<ListCheck, { outcome: "ready" }> {
+  if (new TextEncoder().encode(text).length > 2 * 1024 * 1024) return { outcome: "too_big" };
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { outcome: "not_a_list" };
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.format !== "koona") return { outcome: "not_a_list" };
+  if (raw.app !== "pin") return typeof raw.app === "string" ? { outcome: "other_app", app: raw.app } : { outcome: "not_a_list" };
+  const version = /^(\d+)\.(\d+)$/.exec(String(raw.version ?? ""));
+  if (!version) return { outcome: "not_a_list" };
+  const [major, minor] = [Number(version[1]), Number(version[2])];
+  if (raw.kind !== "list" || major > 1) return { outcome: "needs_newer_app" };
+  const title = typeof raw.title === "string" ? raw.title.replace(/\s+/g, " ").trim().slice(0, 120) : "";
+  if (major !== 1 || !title) return { outcome: "not_a_list" };
+  const sections = Array.isArray(raw.sections) ? (raw.sections as Record<string, unknown>[]) : [];
+  if (sections.length > 200) return { outcome: "too_big" };
+  const groups: [string | null, Record<string, unknown>[]][] = [
+    ...sections.map((section): [string | null, Record<string, unknown>[]] => [
+      typeof section?.name === "string" && section.name.trim() ? section.name.trim().slice(0, 120) : null,
+      Array.isArray(section?.items) ? section.items : [],
+    ]),
+    [null, Array.isArray(raw.items) ? (raw.items as Record<string, unknown>[]) : []],
+  ];
+  const total = groups.reduce((sum, [, items]) => sum + items.length, 0);
+  if (total > 5000) return { outcome: "too_big" };
+  if (total === 0) return { outcome: "empty" };
+  const list: DemoList = { title, version: `${major}.${minor}`, newer: minor > 0, links: [], feeds: [], sections: sections.length, repeated: 0, not_web: 0, invalid: 0, skipped_items: 0, raw };
+  const links = new Map<string, DemoListItem>();
+  const feeds = new Set<string>();
+  const tagsOf = (item: Record<string, unknown>) =>
+    [...new Set((Array.isArray(item.tags) ? item.tags : []).filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim().toLowerCase().slice(0, 64)).filter(Boolean))].slice(0, 20);
+  for (const [section, items] of groups) {
+    for (const item of items) {
+      if (item?.type !== "link" && item?.type !== "feed") {
+        list.skipped_items++;
+        continue;
+      }
+      const given = typeof item.url === "string" ? item.url.trim() : "";
+      if (!given) {
+        list.invalid++;
+        continue;
+      }
+      if (/^[a-z][a-z0-9+.-]*:/i.test(given) && !/^https?:/i.test(given)) {
+        list.not_web++;
+        continue;
+      }
+      const url = demoWebUrl(given);
+      if (!url) {
+        list.invalid++;
+        continue;
+      }
+      const entry = {
+        url,
+        title: typeof item.title === "string" ? item.title.trim().slice(0, 300) || null : null,
+        description: typeof item.description === "string" ? item.description.trim().slice(0, 1000) || null : null,
+        tags: tagsOf(item),
+        sections: section ? [section] : [],
+      };
+      if (item.type === "feed") {
+        if (feeds.has(url)) list.repeated++;
+        else {
+          feeds.add(url);
+          list.feeds.push(entry);
+        }
+        continue;
+      }
+      const key = demoUrlKey(url);
+      const first = links.get(key);
+      if (first) {
+        // As format.rs: the repeat's tags and section join the first.
+        first.tags = [...new Set([...first.tags, ...entry.tags])].slice(0, 20);
+        if (section && !first.sections.includes(section)) first.sections.push(section);
+        list.repeated++;
+        continue;
+      }
+      links.set(key, entry);
+      list.links.push(entry);
+    }
+  }
+  return list;
+}
+const demoListDownloads = new Set<(progress: ListDownloadProgress) => void>();
 function persist() {
   localStorage.setItem(key, JSON.stringify({ bookmarks, collections }));
 }
@@ -1258,7 +1390,7 @@ export const demo = {
       favorites: live().filter((b) => b.is_favorite).length,
       inbox: inbox.length,
       inbox_newest: inbox.reduce<string | null>((newest, b) => (newest === null || b.created_at > newest ? b.created_at : newest), null),
-      inbox_imported: inbox.filter((b) => b.source === "import").length,
+      inbox_imported: inbox.filter((b) => b.source === "import" || b.source === "list").length,
       trash: bookmarks.length - live().length,
       duplicates: groupsOf(bookmarks, dismissed).length,
       links: linksToDecide(),
@@ -1695,6 +1827,145 @@ export const demo = {
     persist();
     invalidations.forEach((fn) => fn());
     return { outcome: "restored", summary };
+  },
+  async previewList(text: string, source: string): Promise<ListCheck> {
+    const list = demoList(text);
+    if ("outcome" in list) return list;
+    const raw = list.raw as { description?: string; author?: { name?: string; url?: string }; license?: string; updated?: string; homepage?: string; id?: string; generator?: string; language?: string };
+    const str = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+    const known = new Map(bookmarks.map((b) => [b.url, b]));
+    const saved = list.links.filter((l) => known.get(l.url) && !known.get(l.url)!.deleted_at).length;
+    const trashed = list.links.filter((l) => known.get(l.url)?.deleted_at).length;
+    const followed = new Set(feedsState().feeds.map((f) => f.url));
+    const named = collections.find((c) => c.name.toLocaleLowerCase() === list.title.toLocaleLowerCase());
+    return {
+      outcome: "ready",
+      preview: {
+        meta: {
+          title: list.title,
+          description: str(raw.description),
+          author_name: str(raw.author?.name),
+          author_url: demoWebUrl(raw.author?.url),
+          license: str(raw.license),
+          language: str(raw.language),
+          updated: str(raw.updated),
+          homepage: demoWebUrl(raw.homepage),
+          id: str(raw.id),
+          generator: str(raw.generator),
+          version: list.version,
+        },
+        source,
+        newer: list.newer,
+        links: list.links.length,
+        feeds: list.feeds.length,
+        sections: list.sections,
+        new_links: list.links.length - saved - trashed,
+        already_saved: saved,
+        in_trash: trashed,
+        repeated: list.repeated,
+        not_web: list.not_web,
+        invalid: list.invalid,
+        feeds_followed: list.feeds.filter((f) => followed.has(f.url)).length,
+        skipped_details: 0,
+        skipped_items: list.skipped_items,
+        new_feeds: list.feeds.filter((f) => !followed.has(f.url)).map((f) => ({ url: f.url, title: f.title, site: null, section: f.sections[0] ?? null })),
+        existing_collection: named ? { id: named.id, name: named.name } : null,
+      },
+    };
+  },
+  /** `lists/apply.rs` in the browser: new links only, written at the end, then the feeds. */
+  async importList(text: string, options: ListImportOptions): Promise<ListImportReport> {
+    const list = demoList(text);
+    if ("outcome" in list) throw new CommandError("invalid_request", "This file isn't a Koona list");
+    const known = new Map(bookmarks.map((b) => [b.url, b]));
+    const now = new Date().toISOString();
+    let id = Math.max(Date.now(), ...bookmarks.map((b) => b.id + 1));
+    let collectionId: number | null = null;
+    let created: Collection | null = null;
+    if (options.collection.kind === "existing") collectionId = options.collection.id;
+    if (options.collection.kind === "new") {
+      const name = options.collection.name.trim();
+      const same = collections.find((c) => c.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+      if (same) collectionId = same.id;
+      else {
+        created = { id: id++, name, color: null, icon: null, count: 0, created_at: now };
+        collectionId = created.id;
+      }
+    }
+    const report: ListImportReport = { added: 0, already_saved: 0, in_trash: 0, repeated: list.repeated, not_web: list.not_web, invalid: list.invalid, skipped_items: list.skipped_items, feeds_followed: 0, feeds_already: 0, collection_id: null };
+    const tagsOf = (link: DemoListItem) => [...new Set([...link.tags, ...(options.sections_as_tags ? link.sections.map((s) => s.toLowerCase().slice(0, 64)) : [])])];
+    const added: Bookmark[] = [];
+    for (const [index, link] of list.links.entries()) {
+      const previous = known.get(link.url);
+      if (previous?.deleted_at) report.in_trash++;
+      else if (previous) {
+        report.already_saved++;
+        if (options.existing_links === "add_tags") previous.tags = [...new Set([...(previous.tags ?? []), ...tagsOf(link)])];
+      } else {
+        added.push({
+          id: id++,
+          url: link.url,
+          title: link.title || link.url,
+          description: link.description,
+          image_url: null,
+          favicon_url: null,
+          site_name: null,
+          notes: null,
+          domain: new URL(link.url).hostname.replace(/^www\./, ""),
+          collection_id: collectionId,
+          tags: tagsOf(link),
+          is_favorite: false,
+          reading_at: null,
+          reading_progress: 0,
+          read_at: null,
+          offline_at: null,
+          created_at: now,
+          updated_at: now,
+          revision: 1,
+          triaged_at: options.to_inbox ? null : now,
+          deleted_at: null,
+          source: "list",
+          source_name: list.title,
+        });
+        report.added++;
+      }
+      progressListeners.forEach((fn) => fn({ done: index + 1, total: list.links.length }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    bookmarks = [...added, ...bookmarks];
+    if (created && added.length) collections = [...collections, created];
+    if (added.length) report.collection_id = collectionId;
+    const followed = new Set(feedsState().feeds.map((f) => f.url));
+    for (const feed of list.feeds) {
+      if (followed.has(feed.url)) report.feeds_already++;
+      else if (options.follow_feeds.includes(feed.url)) {
+        await demo.subscribeFeed(feed.url, feed.title, "feeds");
+        report.feeds_followed++;
+      }
+    }
+    persist();
+    invalidations.forEach((fn) => fn());
+    if (added.length) startDemoRefresh(added.map((b) => b.id), true);
+    return report;
+  },
+  /** The preview is given no paths. */
+  async readListFile(path: string): Promise<ListFile> {
+    void path;
+    return { outcome: "unreadable" };
+  },
+  /** The preview downloads nothing: the server is never reached. Tests replace it for the other outcomes. */
+  async downloadList(url: string, ticket: number): Promise<ListDownload> {
+    void url;
+    demoListDownloads.forEach((fn) => fn({ ticket, received: 0, total: null }));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    return { outcome: "unreachable" };
+  },
+  async cancelListDownload(): Promise<void> {},
+  onListDownloadProgress(fn: (progress: ListDownloadProgress) => void) {
+    demoListDownloads.add(fn);
+    return () => {
+      demoListDownloads.delete(fn);
+    };
   },
   onImportProgress(fn: (progress: ImportProgress) => void) {
     progressListeners.add(fn);
