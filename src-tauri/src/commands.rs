@@ -1461,10 +1461,7 @@ pub fn read_capped(path: &std::path::Path, cap: u64) -> std::io::Result<Option<(
 #[tauri::command]
 pub async fn pick_import_file(app: AppHandle) -> Result<PickedImport, CommandError> {
     use tauri_plugin_dialog::DialogExt;
-    let mut dialog = app.dialog().file();
-    if let Some(window) = app.get_webview_window("main") {
-        dialog = dialog.set_parent(&window);
-    }
+    let dialog = over_main_window(&app, app.dialog().file());
     let chosen = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
         .await
         .map_err(CommandError::internal)?;
