@@ -14,6 +14,8 @@ const CAPSULE = 48;
 const EDGE = 24;
 /** While the bulk bar shows the capsule rises above it (S6): 24, the bar's 52 (SelectionBar), 12. */
 const OVER_BAR = EDGE + 52 + 12;
+/** The view's ids are fetched again this long after the last change to the library. */
+const IDS_DELAY = 200;
 /**
  * The panel's bottom is 12 px above the capsule's top, its top at least 12 px under the toolbar;
  * it is at most 600 px high (M2).
@@ -134,9 +136,17 @@ export function Bundle({
   const [libraryChanged, setLibraryChanged] = useState(0);
   useEffect(() => {
     if (!open) return;
-    const changed = () => setLibraryChanged((n) => n + 1);
+    // A burst of bookmark changes fetches once, when it has settled.
+    let timer = 0;
+    const changed = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setLibraryChanged((n) => n + 1), IDS_DELAY);
+    };
     const stops = [api.onLibraryInvalidated(changed), api.onBookmarkChanged(changed), api.onBookmarksChanged(changed)];
-    return () => stops.forEach((stop) => stop());
+    return () => {
+      window.clearTimeout(timer);
+      stops.forEach((stop) => stop());
+    };
   }, [open]);
   useEffect(() => {
     if (!open || view?.kind !== "links" || !viewKey) return;
