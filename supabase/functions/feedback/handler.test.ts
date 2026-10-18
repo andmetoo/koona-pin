@@ -110,6 +110,50 @@ describe("feedback function", () => {
     expect([huge.status, await huge.json()]).toEqual([400, { error: "invalid", field: "body" }]);
   });
 
+  it("stops reading a body without a length as soon as it passes the limit", async () => {
+    const { deps, rows } = fakes();
+    // A chunked upload that never ends: the answer must come without reading it all.
+    const chunk = new Uint8Array(16 * 1024).fill(0x20);
+    let sent = 0;
+    let cancelled = false;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const request = new Request(URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: endless,
+      duplex: "half",
+    } as RequestInit);
+    expect(request.headers.get("content-length")).toBeNull();
+    const answer = await handle(request, deps);
+    expect([answer.status, await answer.json()]).toEqual([400, { error: "invalid", field: "body" }]);
+    expect(cancelled).toBe(true);
+    expect(sent).toBeLessThanOrEqual(MAX_BODY + 4 * chunk.byteLength);
+    expect(rows).toEqual([]);
+    // Under the limit, a streamed body is read whole.
+    const json = new TextEncoder().encode(JSON.stringify(fromApp));
+    const small = new Request(URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(json.slice(0, 10));
+          controller.enqueue(json.slice(10));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    } as RequestInit);
+    expect((await handle(small, deps)).status).toBe(200);
+  });
+
   it("refuses a sender over the hourly limit with its own answer", async () => {
     const { deps, rows } = fakes(1);
     expect((await handle(app(fromApp), deps)).status).toBe(200);

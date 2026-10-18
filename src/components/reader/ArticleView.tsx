@@ -20,13 +20,22 @@ type State = { url: string } & (
  * The copy is looked for as the bookmark was when it opened: saving one later keeps
  * the article on screen.
  */
-function useArticle(url: string, attempt: number, bookmarkId: number | undefined, offlineAt: string | null, live: boolean, given?: Article) {
+function useArticle(
+  url: string,
+  attempt: number,
+  bookmarkId: number | undefined,
+  offlineAt: string | null,
+  live: boolean,
+  given: Article | undefined,
+  fetches: boolean,
+) {
   const [state, setState] = useState<State>({ url, kind: "loading" });
   const copy = useRef(offlineAt);
   copy.current = offlineAt;
   useEffect(() => {
-    // An article the caller already has (a feed's cached post, NP-132) is never fetched.
-    if (given) return;
+    // An article the caller already has (a feed's cached post, NP-132) is never fetched,
+    // nor one the caller is still getting by itself (`fetches` false).
+    if (given || !fetches) return;
     let current = true;
     setState({ url, kind: "loading" });
     openArticle({ id: bookmarkId ?? 0, url, offline_at: bookmarkId === undefined ? null : copy.current }, live).then(
@@ -38,8 +47,9 @@ function useArticle(url: string, attempt: number, bookmarkId: number | undefined
     return () => {
       current = false;
     };
-  }, [url, attempt, bookmarkId, live, !!given]);
+  }, [url, attempt, bookmarkId, live, !!given, fetches]);
   if (given) return { url, kind: "article", article: given, offlineAt: null } as const;
+  if (!fetches) return { url, kind: "loading" } as const;
   // Until the effect runs for a new address, the old article must not show under the new title.
   return state.url === url ? state : ({ url, kind: "loading" } as const);
 }
@@ -102,6 +112,7 @@ export function ArticleView({
   offlineAt = null,
   live = false,
   article: given,
+  fetches = true,
   onLoadFull,
   header,
   byline,
@@ -132,6 +143,11 @@ export function ArticleView({
   /** The article itself, already sanitised (a feed's cached post, NP-132): nothing is fetched. */
   article?: Article;
   /**
+   * `false`: the page is never read here; without `article` the skeleton stays. A feed's post
+   * waits for its cached copy and reads the page only on «Load the full article» (NP-120).
+   */
+  fetches?: boolean;
+  /**
    * «Load the full article» under a summary-only post (NP-132): the caller reads the page on
    * this click only; a rejection's message is shown under the button.
    */
@@ -144,7 +160,7 @@ export function ArticleView({
   lead?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
-  const state = useArticle(url, attempt, bookmarkId, offlineAt, live, given);
+  const state = useArticle(url, attempt, bookmarkId, offlineAt, live, given, fetches);
   const [full, setFull] = useState<{ busy: boolean; failure: string | null }>({ busy: false, failure: null });
   const article = state.kind === "article" ? state.article : null;
   useEffect(() => {

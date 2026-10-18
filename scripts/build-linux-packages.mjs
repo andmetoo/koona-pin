@@ -444,14 +444,15 @@ async function fromCi(ref) {
   let id = ref;
   if (!/^\d+$/.test(ref)) {
     // A run of a tag push has the tag as its branch. The newest successful one: a later run that failed
-    // or still runs has no packages, an earlier one of the same tag does.
-    const list = spawnSync("gh", ["run", "list", "--workflow", "release.yml", "--branch", ref, "--status", "success", "--limit", "1", "--json", "databaseId,status,conclusion,url"], {
+    // or still runs has no packages, an earlier one of the same tag does. Only push runs: the Finalize
+    // run (workflow_dispatch from the same tag) also has the tag as its branch but builds no packages.
+    const list = spawnSync("gh", ["run", "list", "--workflow", "release.yml", "--branch", ref, "--event", "push", "--status", "success", "--limit", "1", "--json", "databaseId,status,conclusion,url"], {
       cwd: root,
       encoding: "utf8",
     });
     if (list.status !== 0) fail(`gh run list: ${list.stderr.trim()}`);
     const runs = JSON.parse(list.stdout || "[]");
-    if (!runs.length) fail(`No successful release.yml run of ${ref}: a tag v<version> pushed by bun run release:tag starts one (gh run list --workflow release.yml --branch ${ref})`);
+    if (!runs.length) fail(`No successful release.yml run of ${ref}: a tag v<version> pushed by bun run release:tag starts one (gh run list --workflow release.yml --branch ${ref} --event push)`);
     id = String(runs[0].databaseId);
     console.log(`${ref}: run ${id} (${runs[0].conclusion || runs[0].status}) ${runs[0].url}`);
   }
