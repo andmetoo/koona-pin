@@ -20,6 +20,8 @@ export function Dialog({
   width = 440,
   locked = false,
   badge,
+  height,
+  caption,
 }: {
   title: string;
   onClose: () => void;
@@ -30,6 +32,10 @@ export function Dialog({
   locked?: boolean;
   /** Next to the title: «Test payments» of the Supporter dialog (sheet 45). */
   badge?: ReactNode;
+  /** A fixed height, such as `min(640px, calc(100vh - 48px))`: the body fills it (K2). */
+  height?: string;
+  /** A small capitalised line above the title (K2: «Share as list»). */
+  caption?: string;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -37,6 +43,11 @@ export function Dialog({
   const closeRef = useRef(onClose);
   closeRef.current = locked ? () => {} : onClose;
   const [open, setOpen] = useState(false);
+  const heading = (
+    <h2 id={titleId} className="text-lg font-semibold">
+      {title}
+    </h2>
+  );
   useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const dialog = ref.current;
@@ -52,7 +63,7 @@ export function Dialog({
       ref={ref}
       aria-labelledby={titleId}
       data-drawer={drawer || undefined}
-      style={drawer ? undefined : { width }}
+      style={drawer ? undefined : { width, height }}
       className={
         drawer
           ? "fixed inset-y-0 right-0 left-auto m-0 h-full max-h-full w-[380px] max-w-full animate-appear border-l border-border bg-card p-0 text-ink shadow-menu"
@@ -69,12 +80,17 @@ export function Dialog({
     >
       {open && (
         // A column: the states of a dialog (StatePanels) give way to a low window, the rest scrolls.
-        <div className={drawer ? "min-h-full p-6" : "flex min-h-0 flex-col p-5"}>
+        <div className={drawer ? "min-h-full p-6" : `flex min-h-0 flex-col p-5 ${height ? "flex-1" : ""}`}>
           <header className="mb-4 flex items-center justify-between gap-3">
             <span className="flex min-w-0 items-center gap-2">
-              <h2 id={titleId} className="text-lg font-semibold">
-                {title}
-              </h2>
+              {caption ? (
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-2xs font-semibold tracking-wide text-subtle uppercase">{caption}</span>
+                  {heading}
+                </span>
+              ) : (
+                heading
+              )}
               {badge}
             </span>
             <span className="flex items-center gap-1.5">
