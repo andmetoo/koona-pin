@@ -167,8 +167,9 @@ export function classify(name: string, bytes: number, text: string): ImportFile 
 
 /**
  * A file of `bytes` known by its `head`, then read whole by `whole` (up to a cap; `null` past it)
- * only once its kind is known and under that kind's cap. A JSON whose `format` is past the head is
- * read whole only when it is no bigger than a list.
+ * only once its kind is known and under that kind's cap; a head of the whole file is not read
+ * again. A JSON whose `format` is past the head is read whole only when it is no bigger than a
+ * list. The whole text must be of the kind its head was: a file changed in between is refused.
  */
 async function known(
   name: string,
@@ -186,8 +187,11 @@ async function known(
   }
   if (!kind) return { refused: "unsupported" };
   if (bytes > CAPS[kind]) return { refused: "tooBig", cap: CAPS[kind] };
-  text ??= await whole(CAPS[kind]);
-  if (text === null) return { refused: "tooBig", cap: CAPS[kind] };
+  if (text === null) {
+    text = bytes <= HEAD ? head : await whole(CAPS[kind]);
+    if (text === null) return { refused: "tooBig", cap: CAPS[kind] };
+    if (text !== head && sniff(text) !== kind) return { refused: "unsupported" };
+  }
   return { kind, name, text };
 }
 
@@ -220,12 +224,17 @@ export async function pick(): Promise<ImportFile | ImportRefusal | null> {
     });
     if (picked.outcome === "cancelled") return null;
     if (picked.outcome === "too_big") return { refused: "tooBig", cap: LARGEST };
-    return known(picked.name, picked.bytes, picked.head, async (cap) => {
-      const read = await invoke<PickedImportText>("read_picked_import", { cap }).catch((error: unknown) => {
+    // The read empties Rust's slot; a file refused by its head, or whole in it, is forgotten.
+    let read = false;
+    const result = await known(picked.name, picked.bytes, picked.head, async (cap) => {
+      read = true;
+      const text = await invoke<PickedImportText>("read_picked_import", { cap }).catch((error: unknown) => {
         throw toCommandError(error);
       });
-      return read.outcome === "read" ? read.text : null;
+      return text.outcome === "read" ? text.text : null;
     });
+    if (!read) await invoke("forget_picked_import").catch(() => undefined);
+    return result;
   }
   const file = await new Promise<File | null>((resolve) => {
     const input = document.createElement("input");

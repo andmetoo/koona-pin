@@ -363,6 +363,7 @@ pub fn run() {
             commands::pick_backup,
             commands::pick_import_file,
             commands::read_picked_import,
+            commands::forget_picked_import,
             commands::restore_backup,
             #[cfg(desktop)]
             commands::reveal_backup,

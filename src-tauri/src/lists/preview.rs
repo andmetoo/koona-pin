@@ -235,6 +235,23 @@ mod tests {
     }
 
     #[test]
+    fn the_new_feeds_keep_the_files_order_without_the_followed() {
+        let c = database();
+        let list = parse(include_str!("../../tests/fixtures/kpin/groups.kpin")).unwrap();
+        let urls = |p: &ListPreview| p.new_feeds.iter().map(|f| f.url.clone()).collect::<Vec<_>>();
+        let p = preview(&c, &list, "").unwrap();
+        assert_eq!(
+            urls(&p),
+            ["https://tools.example.com/feed.xml", "https://followed.example.com/rss", "https://new.example.com/atom.xml"]
+        );
+        c.execute("INSERT INTO feeds (uid, url, created_at, updated_at) VALUES ('f', 'https://followed.example.com/rss', 'x', 'x')", [])
+            .unwrap();
+        let p = preview(&c, &list, "").unwrap();
+        assert_eq!(urls(&p), ["https://tools.example.com/feed.xml", "https://new.example.com/atom.xml"]);
+        assert_eq!((p.feeds_followed, p.new_feeds[0].section.as_deref(), p.new_feeds[1].section.as_deref()), (1, Some("Tools"), Some("Feeds")));
+    }
+
+    #[test]
     fn rows_say_what_is_saved_in_the_trash_or_followed_with_their_ids() {
         let c = database();
         c.execute_batch(

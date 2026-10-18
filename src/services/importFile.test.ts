@@ -160,10 +160,19 @@ describe("readFile", () => {
       } as unknown as File;
       return { file, reads };
     };
-    // A list: head, then the whole.
+    // A list in its head: the head is the whole file, not read again.
     let w = watched(LIST, LIST.length);
     expect(await readFile(w.file)).toMatchObject({ kind: "kpin", text: LIST });
+    expect(w.reads).toEqual([`head 0-${HEAD}`]);
+    // A bigger one: head, then the whole.
+    const long = `{"format":"koona","blob":"${"x".repeat(HEAD)}"}`;
+    w = watched(long, long.length);
+    expect(await readFile(w.file)).toMatchObject({ kind: "kpin", text: long });
     expect(w.reads).toEqual([`head 0-${HEAD}`, "whole"]);
+    // A whole file that is no longer what its head was (changed in between): refused.
+    w = watched(long, long.length);
+    (w.file as unknown as { text: () => Promise<string> }).text = () => Promise.resolve(`{"format":"koona-pin"}${" ".repeat(HEAD)}`);
+    expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
     // A list over its cap, a PDF: the head only.
     w = watched(LIST, CAPS.kpin + 1);
     expect(await readFile(w.file)).toEqual({ refused: "tooBig", cap: CAPS.kpin });

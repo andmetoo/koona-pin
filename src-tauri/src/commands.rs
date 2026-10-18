@@ -1523,6 +1523,13 @@ pub async fn pick_import_file(app: AppHandle, picked: State<'_, PickedImportFile
         .map_err(CommandError::internal)?
 }
 
+/// The picked file forgotten unread: the page refused it by its head, or the head was all of it.
+#[tauri::command]
+pub fn forget_picked_import(picked: State<'_, PickedImportFile>) -> Result<(), CommandError> {
+    *picked.0.lock().map_err(CommandError::internal)? = None;
+    Ok(())
+}
+
 /// The picked file in full, once the page knows its kind: `cap` is that kind's.
 #[tauri::command]
 pub async fn read_picked_import(app: AppHandle, cap: u64) -> Result<PickedImportText, CommandError> {
