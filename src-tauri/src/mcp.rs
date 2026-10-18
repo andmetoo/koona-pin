@@ -316,32 +316,30 @@ impl Call<'_> {
             None => None,
         };
         let query: String = a.query.unwrap_or_default().trim().chars().take(MAX_QUERY).collect();
-        let page = db::get_bookmarks(
-            self.conn,
-            &BookmarkQuery {
-                search: (!query.is_empty()).then_some(query),
-                collection_id,
-                tag: a.tag.map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty()),
-                only_inbox: a.filter == Filter::Inbox,
-                only_favorites: a.filter == Filter::Favorites,
-                only_reading: a.filter == Filter::Reading,
-                limit: Some(a.limit.unwrap_or(DEFAULT_RESULTS).clamp(1, MAX_RESULTS)),
-                after,
-                ..Default::default()
-            },
-        )
-        .map_err(library_error)?;
+        let query = BookmarkQuery {
+            search: (!query.is_empty()).then_some(query),
+            collection_id,
+            tag: a.tag.map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty()),
+            only_inbox: a.filter == Filter::Inbox,
+            only_favorites: a.filter == Filter::Favorites,
+            only_reading: a.filter == Filter::Reading,
+            limit: Some(a.limit.unwrap_or(DEFAULT_RESULTS).clamp(1, MAX_RESULTS)),
+            after,
+            ..Default::default()
+        };
+        let page = db::get_bookmarks(self.conn, &query).map_err(library_error)?;
         let names = self.names()?;
         let mut items: Vec<Value> = page.items.iter().map(|b| summary(b, &names)).collect();
         let fit = fitting(&items);
         let truncated = fit < items.len();
         let next = if truncated {
-            // The next page starts after the last one kept.
+            // The next page starts after the last one kept, in the query's order.
             items.truncate(fit);
-            fit.checked_sub(1).and_then(|last| cursor_of(&page.items[last]))
+            fit.checked_sub(1).map(|last| query.cursor_after(&page.items[last]))
         } else {
-            page.next.and_then(|cursor| serde_json::to_string(&cursor).ok())
+            page.next
         };
+        let next = next.and_then(|cursor| serde_json::to_string(&cursor).ok());
         Ok(json!({ "bookmarks": items, "total": page.total, "next_cursor": next, "truncated": truncated }))
     }
 
@@ -568,10 +566,6 @@ fn fitting(items: &[Value]) -> usize {
             used <= MAX_REPLY
         })
         .count()
-}
-
-fn cursor_of(b: &Bookmark) -> Option<String> {
-    serde_json::to_string(&db::PageCursor { at: b.created_at.clone(), id: b.id, key: None }).ok()
 }
 
 /// A bookmark as a list shows it.
@@ -878,6 +872,43 @@ mod tests {
         let following = result(&next)["bookmarks"].as_array().unwrap();
         assert_eq!(following[0]["id"].as_i64().unwrap(), items.last().unwrap()["id"].as_i64().unwrap() - 1);
         assert_eq!(items.len() + following.len().min(50 - items.len()), 50);
+    }
+
+    /// Reading has its own order: a page of it cut to the size of an answer
+    /// goes on in that order, across the unread and the read ones, with no
+    /// bookmark twice and none left out.
+    #[test]
+    fn a_cut_page_of_reading_goes_on_in_reading_order() {
+        let conn = library();
+        let mut journal = Journal::default();
+        set_access(&conn, Access::Read).unwrap();
+        let path = "p".repeat(3_000);
+        let ids: Vec<i64> = (0..60).map(|i| saved(&conn, &format!("https://example.com/{i}/{path}"), &format!("Page {i}"))).collect();
+        db::apply_bulk(&conn, &ids, &db::Bulk::Reading(true)).unwrap();
+        // Added to Reading in the opposite order of saving; every third one read.
+        for (n, id) in ids.iter().enumerate() {
+            let added = format!("2026-10-{:02}T{:02}:00:00.000Z", 1 + (59 - n) / 24, (59 - n) % 24);
+            let read = (n % 3 == 0).then(|| format!("2026-10-05T{:02}:00:00.000Z", n % 24));
+            conn.execute("UPDATE bookmarks SET reading_at=?1, read_at=?2 WHERE id=?3", rusqlite::params![added, read, id]).unwrap();
+        }
+        let expected = db::get_bookmark_ids(&conn, &BookmarkQuery { only_reading: true, ..Default::default() }).unwrap();
+        assert_eq!(expected.len(), 60);
+
+        let mut seen: Vec<i64> = Vec::new();
+        let mut cursor = Value::Null;
+        let mut cut = false;
+        for _ in 0..10 {
+            let page = call(&conn, &mut journal, tools::SEARCH, json!({ "filter": "reading", "limit": 50, "cursor": cursor }));
+            let reply = result(&page);
+            cut |= reply["truncated"] == true;
+            seen.extend(reply["bookmarks"].as_array().unwrap().iter().map(|b| b["id"].as_i64().unwrap()));
+            cursor = reply["next_cursor"].clone();
+            if cursor.is_null() {
+                break;
+            }
+        }
+        assert!(cut, "the long addresses cut a page");
+        assert_eq!(seen, expected, "every bookmark once, in Reading order");
     }
 
     #[test]

@@ -323,6 +323,14 @@ impl SyncState {
         lock(&self.run).as_ref().filter(|r| !r.finished()).map(|r| r.handle.clone())
     }
 
+    /// Whether a supervisor pass may still start a client, asked under the `run` lock right before
+    /// it does: what it decided on at its start (sync on, the plan, no stop) may have changed while
+    /// it waited for the library and the token. `disable_sync` turns `enabled` off before it takes
+    /// `run`, so a client started after this said yes is one it then stops.
+    fn may_start(&self, plan: bool) -> bool {
+        self.stored().enabled && plan && lock(&self.model).stop.is_none()
+    }
+
     fn clear_stop(&self) {
         let mut model = lock(&self.model);
         model.stop = None;
@@ -375,14 +383,15 @@ pub fn start(app: &AppHandle) {
 }
 
 /// The library's replica, made one if sync is on and it is not yet (turned on, or restored
-/// from a copy made before sync); None when the library is not open or has no sync tables.
-async fn replica(app: &AppHandle) -> Option<(Arc<DbState>, Uuid)> {
+/// from a copy made before sync), with `worker::start_counter` read before any client starts;
+/// None when the library is not open or has no sync tables.
+async fn replica(app: &AppHandle) -> Option<(Arc<DbState>, Uuid, Option<i64>)> {
     let db = app.try_state::<Arc<DbState>>()?.inner().clone();
     let state = db.clone();
-    let replica = tauri::async_runtime::spawn_blocking(move || {
+    let (replica, counter) = tauri::async_runtime::spawn_blocking(move || {
         let conn = state.conn.lock().ok()?;
         match worker::prepare_library(&conn) {
-            Ok(replica) => Some(replica),
+            Ok(replica) => Some((replica, worker::start_counter(&conn))),
             Err(error) => {
                 eprintln!("Sync cannot use the library: {error}");
                 None
@@ -392,7 +401,7 @@ async fn replica(app: &AppHandle) -> Option<(Arc<DbState>, Uuid)> {
     .await
     .ok()
     .flatten()?;
-    Some((db, replica))
+    Some((db, replica, counter))
 }
 
 /// One pass: starts, keeps or stops the client. Returns when to look again.
@@ -404,7 +413,7 @@ async fn supervise(app: &AppHandle) -> Duration {
     let library = if enabled && url.is_some() && plan { replica(app).await } else { None };
     state.library_ready.store(library.is_some() || !enabled, Ordering::SeqCst);
     let stopped = lock(&state.model).stop.is_some();
-    let (Some(url), Some((db, replica)), false) = (url, library, stopped) else {
+    let (Some(url), Some((db, replica, counter)), false) = (url, library, stopped) else {
         // A stop stays shown (and keeps the client from starting again) until the person acts.
         if lock(&state.run).take().is_some() && !stopped {
             lock(&state.model).restart();
@@ -423,6 +432,13 @@ async fn supervise(app: &AppHandle) -> Duration {
     {
         let mut run = lock(&state.run);
         let keep = run.as_ref().is_some_and(|r| r.sub == sub && r.replica == replica && !r.finished() && !r.abandoned());
+        if !keep && !state.may_start(billing::has_plan(app)) {
+            // Turned off, the plan gone or a stop while this pass waited for the library and the
+            // token: nothing starts, and the next pass, at once, settles the rest.
+            drop(run);
+            state.emit(app);
+            return Duration::ZERO;
+        }
         if !keep {
             let identity = match state.saved_identity() {
                 Ok(identity) => identity,
@@ -439,7 +455,7 @@ async fn supervise(app: &AppHandle) -> Duration {
                 model.restart();
                 model.me = Some(identity.device);
             }
-            *run = Some(worker::spawn(app, worker::Start { url, key_file: state.key_path.clone(), db, replica, identity, sub, generation }));
+            *run = Some(worker::spawn(app, worker::Start { url, key_file: state.key_path.clone(), db, replica, identity, sub, generation, counter }));
         }
     }
     state.emit(app);
@@ -869,6 +885,27 @@ mod tests {
         assert_eq!(again.shown_identity().device, shown.device);
         state.update(|s| s.enabled = true).unwrap();
         assert!(SyncState::load(folder.clone()).stored().enabled);
+        let _ = fs::remove_dir_all(folder);
+    }
+
+    /// A supervisor pass that saw sync on and then waited for the library and the token asks again
+    /// before it starts the client: «Turn off sync», a lost plan or a stop meanwhile wins.
+    #[test]
+    fn a_pass_started_before_turning_sync_off_starts_nothing() {
+        let folder = std::env::temp_dir().join(format!("koonapin-sync-start-{}", Uuid::new_v4().simple()));
+        let state = SyncState::load(folder.clone());
+        assert!(!state.may_start(true), "off");
+        state.update(|s| s.enabled = true).unwrap();
+        // The pass reads `enabled` and goes off to prepare the replica and refresh the token…
+        let decided = state.stored().enabled;
+        assert!(decided && state.may_start(true));
+        assert!(!state.may_start(false), "the plan went meanwhile");
+        lock(&state.model).stop = Some(Stop::Auth);
+        assert!(!state.may_start(true), "the relay stopped it meanwhile");
+        state.clear_stop();
+        // …and `disable_sync` runs before it takes the `run` lock.
+        state.update(|s| s.enabled = false).unwrap();
+        assert!(decided && !state.may_start(true), "turned off meanwhile: no client");
         let _ = fs::remove_dir_all(folder);
     }
 

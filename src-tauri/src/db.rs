@@ -456,6 +456,21 @@ impl BookmarkQuery {
             false => self.sort.unwrap_or_default(),
         }
     }
+
+    /// Where a page of this query that ends with `last` goes on: its place in
+    /// the query's order (Reading, the trash, the title and site keys).
+    pub fn cursor_after(&self, last: &Bookmark) -> PageCursor {
+        let reading = self.only_reading.then(|| reading_place(last)).flatten();
+        PageCursor {
+            at: reading.or_else(|| last.deleted_at.clone()).unwrap_or_else(|| last.created_at.clone()),
+            id: last.id,
+            key: match self.order() {
+                BookmarkSort::Title => last.title_key.clone(),
+                BookmarkSort::Site => last.site_key.clone(),
+                BookmarkSort::Newest | BookmarkSort::Oldest => None,
+            },
+        }
+    }
 }
 
 /// The place of a bookmark in Reading as one text that sorts newest first:
@@ -1008,17 +1023,7 @@ pub fn get_bookmarks(conn: &Connection, query: &BookmarkQuery) -> Result<Bookmar
         .collect::<Result<Vec<_>>>()?;
     let next = (items.len() > limit as usize).then(|| {
         items.truncate(limit as usize);
-        let last = &items[items.len() - 1];
-        let reading = query.only_reading.then(|| reading_place(last)).flatten();
-        PageCursor {
-            at: reading.or_else(|| last.deleted_at.clone()).unwrap_or_else(|| last.created_at.clone()),
-            id: last.id,
-            key: match order {
-                BookmarkSort::Title => last.title_key.clone(),
-                BookmarkSort::Site => last.site_key.clone(),
-                BookmarkSort::Newest | BookmarkSort::Oldest => None,
-            },
-        }
+        query.cursor_after(&items[items.len() - 1])
     });
     attach_tags(conn, &mut items)?;
     Ok(BookmarkPage {

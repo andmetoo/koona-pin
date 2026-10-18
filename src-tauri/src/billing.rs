@@ -151,10 +151,18 @@ struct Answer {
 }
 
 impl Answer {
+    /// The answer in a reply of the function, which always names `lease`: the signed plan, or null
+    /// for none (koona-services `billing/handler.ts`, `planFor`). A body that does not (not JSON,
+    /// a proxy's page, a reply cut short) says nothing about the plan and is never «no plan»: as a
+    /// plan named that does not verify, it keeps what is here and counts as a failed check.
     fn of(value: &Value) -> Answer {
-        Answer {
-            has_plan: value["plan"].is_object() || value["lease"].is_object(),
-            lease: serde_json::from_value(value["lease"].clone()).unwrap_or(None),
+        let lease = value.as_object().and_then(|o| o.get("lease")).filter(|l| l.is_null() || l.is_object());
+        match lease {
+            Some(lease) => Answer {
+                has_plan: value["plan"].is_object() || lease.is_object(),
+                lease: serde_json::from_value(lease.clone()).unwrap_or(None),
+            },
+            None => Answer { has_plan: true, lease: None },
         }
     }
 }
@@ -250,7 +258,7 @@ impl Stored {
         };
         self.checked_at = Some(at);
         if answer.has_plan && verified.is_none() {
-            eprintln!("The server named a plan whose signature does not verify; the plan here is kept");
+            eprintln!("The server's answer has no plan that verifies; the plan here is kept");
             self.check_failed = true;
         } else {
             self.keep_lease(answer.lease, key);
@@ -738,6 +746,8 @@ async fn check(app: &AppHandle, automatic: bool) -> Result<SupporterStatus, Comm
     }
     .await;
     match result {
+        // A body that is not the function's answer is a failed check, as when offline: the plan
+        // here stays until its own `offline_until` and is asked about again within the hour.
         Ok(Some(value)) => {
             let answer = Answer::of(&value);
             billing.update(app, |s| {
@@ -798,6 +808,7 @@ async fn claim(app: &AppHandle) -> Result<CheckoutState, CommandError> {
             for_existing.push(checkout.secret.clone());
         } else if value["status"] == "paid" {
             let session = session_of(&value["session"]).ok_or_else(|| refused("billing claim", status))?;
+            // Signed in either way; a plan the reply does not give is not known yet, not «none».
             let answer = Answer::of(&value);
             let mut signed_in = false;
             billing.update(app, |s| {
@@ -1199,6 +1210,27 @@ mod tests {
         // Signed in with nothing known yet: not «no plan».
         stored.take_answer(Answer { has_plan: true, lease: None }, &key, at("2026-10-12T16:00:00Z"));
         assert!(status(&stored, at("2026-10-12T16:00:00Z")).plan_unknown);
+    }
+
+    /// A 200 whose body is not the function's answer (not JSON, a proxy's page, no `lease`) says
+    /// nothing about the plan: the lease stays, the check failed and is asked again within the hour.
+    /// Only the function's own «none», `lease: null`, is Free.
+    #[test]
+    fn a_broken_answer_keeps_the_plan_and_asks_again_soon() {
+        let (signed, key) = lease(PAYLOAD, 7);
+        let asked = at("2026-10-12T12:00:00Z");
+        let mut stored = Stored { session: supporter("2027-10-11T12:00:00Z").session, ..Stored::default() };
+        stored.take_answer(Answer::of(&json!({ "email": "anna@example.com", "plan": {}, "lease": signed })), &key, asked);
+        assert!(stored.plan.is_some() && !stored.check_failed);
+        for broken in [Value::Null, json!("<html>"), json!([]), json!({}), json!({ "email": "anna@example.com" }), json!({ "lease": "x" })] {
+            let mut after = stored.clone();
+            after.take_answer(Answer::of(&broken), &key, asked);
+            assert_eq!(after.lease, Some(signed.clone()), "{broken}: the lease stays");
+            assert!(after.plan.is_some() && after.check_failed, "{broken}: kept, as when offline");
+            assert!(due(&after, asked + CHECK_AGAIN), "{broken}: asked again within the hour, not in a week");
+        }
+        stored.take_answer(Answer::of(&json!({ "email": "anna@example.com", "plan": null, "lease": null })), &key, asked);
+        assert!(stored.plan.is_none() && stored.lease.is_none() && !stored.check_failed, "the server says there is none");
     }
 
     #[test]
