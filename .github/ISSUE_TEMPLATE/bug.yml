@@ -12,7 +12,7 @@ body:
     attributes:
       label: Koona Pin version
       description: "Windows: Settings → Apps → Installed apps → Koona Pin. Linux: `apt show koonapin`, `dnf info koonapin` or `pacman -Qi koonapin-bin`."
-      placeholder: "0.5.2"
+      placeholder: "2.3.0"
     validations:
       required: true
 
@@ -24,6 +24,7 @@ body:
         - Windows 11, 64-bit
         - Windows 10
         - Windows on ARM
+        - macOS (Apple Silicon)
         - Ubuntu
         - Debian
         - Fedora
@@ -45,13 +46,14 @@ body:
         - Chromium
         - Firefox
         - Firefox ESR
+        - Safari
 
   - type: input
     id: browser-version
     attributes:
       label: Browser and extension versions
-      description: "Browser: Help → About. Extension: chrome://extensions, edge://extensions or about:addons."
-      placeholder: "Chrome 131, extension 0.5.2"
+      description: "Browser: Help → About. Extension: chrome://extensions, edge://extensions, about:addons or Safari → Settings → Extensions."
+      placeholder: "Chrome 141, extension 0.11.3"
 
   - type: textarea
     id: steps
