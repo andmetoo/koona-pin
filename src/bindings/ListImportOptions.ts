@@ -14,4 +14,8 @@ sections_as_tags: boolean, existing_links: ExistingLinks,
 /**
  * The feeds to follow, from `ListPreview::new_feeds`; an address not in the list is ignored.
  */
-follow_feeds: Array<string>, };
+follow_feeds: Array<string>, 
+/**
+ * New links the person unchecked in the preview, by `ListPreviewItem::url`: they are not added.
+ */
+leave_out: Array<string>, };

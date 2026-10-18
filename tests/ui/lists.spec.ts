@@ -245,8 +245,8 @@ test("a list of 5,000 items scrolls in one virtualised list: groups fold, few ro
   const rows = d.locator("[data-list-rows]");
   // Each group over 8 rows shows 5, then «Show N more».
   await d.getByRole("button", { name: "Show 95 more" }).first().click();
-  // The button goes; focus moves to the first row it showed, not to the page.
-  await expect(row(d, "A loose link, number 5")).toBeFocused();
+  // The button goes; focus moves to the first row it showed (its checkbox), not to the page.
+  await expect(row(d, "A loose link, number 5").getByRole("checkbox")).toBeFocused();
   await expect(row(d, "A loose link, number 99")).toHaveCount(0);
   await rows.evaluate((list) => list.scrollBy(0, 2000));
   await expect(row(d, "A loose link, number 60")).toBeVisible();
@@ -373,8 +373,9 @@ test("a list from a newer format asks for an update; another app's list and a br
 
 test("a newer 1.x list says what was skipped; «Import a file…» takes a list to the list dialog", async ({ page }) => {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  const chooser = page.waitForEvent("filechooser");
   await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.locator("[data-import-file]").click();
   // By content: a list named otherwise is a list.
   await (await chooser).setFiles({ name: "newer.json", mimeType: "application/json", buffer: Buffer.from(kpin("unknown-type.kpin")) });
   const d = dialog(page);
@@ -406,4 +407,31 @@ test("a newer 1.x list says what was skipped; «Import a file…» takes a list 
   await expect(d.locator("[data-list-tag]")).toHaveCount(0);
   await d.getByRole("button", { name: "Cancel" }).click();
   await expect(d).toHaveCount(0);
+});
+
+test("new links can be left out one by one or a section at a time; the footer counts what is left", async ({ page }) => {
+  await recordImports(page);
+  expect(await push(page, { kind: "kpin", name: "rust-blogs.kpin", text: kpin("valid.kpin") })).toBe(true);
+  const d = dialog(page);
+  const footer = d.locator("footer");
+  await expect(footer).toContainText("3 links and 2 feeds");
+  // Each new link has its own box, checked at first.
+  const tokio = row(d, "Tokio").getByRole("checkbox");
+  await expect(tokio).toBeChecked();
+  await tokio.uncheck();
+  await expect(footer).toContainText("2 links and 2 feeds");
+  // «Import all» over a section: its links and feeds together.
+  const compiler = d.locator("[data-list-group='Compiler and language']").getByRole("checkbox", { name: "Import all" });
+  await expect(compiler).toBeChecked();
+  await compiler.uncheck();
+  await expect(row(d, "The Rustonomicon").getByRole("checkbox")).not.toBeChecked();
+  await expect(row(d, "Rust Blog").getByRole("checkbox")).not.toBeChecked();
+  await expect(footer).toContainText("1 link and 1 feed");
+  const async = d.locator("[data-list-group=Async]").getByRole("checkbox", { name: "Import all" });
+  await expect(async).toBeChecked({ indeterminate: true });
+  await d.getByRole("button", { name: "Accept" }).click();
+  expect((await imports(page)).at(-1)).toMatchObject({
+    leave_out: ["https://tokio.rs/", "https://doc.rust-lang.org/nomicon/"],
+    follow_feeds: ["https://without.boats/index.xml"],
+  });
 });

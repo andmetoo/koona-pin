@@ -1945,7 +1945,7 @@ export const demo = {
       else if (previous) {
         report.already_saved++;
         if (options.existing_links === "add_tags") previous.tags = [...new Set([...(previous.tags ?? []), ...tagsOf(link)])];
-      } else {
+      } else if (!options.leave_out.includes(link.url)) {
         added.push({
           id: id++,
           url: link.url,

@@ -19,7 +19,7 @@ import {
   downloadShare,
   DownloadReason,
   fileOf,
-  followAll,
+  groupChoice,
   hostOf,
   importCounts,
   importOptions,
@@ -30,7 +30,8 @@ import {
   previewRows,
   Refusal,
   refusalOf,
-  toggleAll,
+  toggleGroup,
+  toggleLink,
 } from "../services/lists";
 import { Icon } from "./icons";
 import { Footer } from "./library/Dialogs";
@@ -302,9 +303,9 @@ export function ListImportDialog({
         <Rows
           preview={p}
           rows={rows}
-          chosen={choices.feeds}
+          choices={choices}
           tags={choices.destination.kind !== "bare"}
-          onFeeds={(feeds) => set({ feeds })}
+          onChoose={set}
           onOpen={(group) => setOpen(new Set([...open, group]))}
         />
         {error && (
@@ -590,18 +591,18 @@ const keyOf = (row: PreviewRow) =>
 function Rows({
   preview,
   rows,
-  chosen,
+  choices,
   tags,
-  onFeeds,
+  onChoose,
   onOpen,
 }: {
   preview: ListPreview;
   rows: PreviewRow[];
-  /** The new feeds that stay checked. */
-  chosen: string[];
+  /** The new feeds that stay checked and the new links left out. */
+  choices: ListChoices;
   /** «→ tag …» is shown: the sections become tags. */
   tags: boolean;
-  onFeeds: (feeds: string[]) => void;
+  onChoose: (change: Partial<Pick<ListChoices, "feeds" | "leaveOut">>) => void;
   onOpen: (group: number) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -614,7 +615,9 @@ function Rows({
     overscan: 8,
   });
   const number = (n: number) => n.toLocaleString(i18n.language);
+  const chosen = choices.feeds;
   const checkedSet = useMemo(() => new Set(chosen), [chosen]);
+  const leftOut = useMemo(() => new Set(choices.leaveOut), [choices.leaveOut]);
 
   // «Show N more» goes as its group opens: focus moves to the first row it showed, which takes
   // its place in the list, so the keyboard does not fall back to the page.
@@ -661,7 +664,7 @@ function Rows({
 
   const group = (row: Extract<PreviewRow, { kind: "group" }>) => {
     const name = row.name ?? t(row.feedsOnly ? "lists.groupFeeds" : "lists.groupLinks");
-    const all = followAll(row.feeds, chosen);
+    const all = groupChoice(row, choices);
     return (
       <div data-list-group={name} className="flex h-9 items-end gap-2 pb-2 text-2xs">
         <Icon icon={row.feedsOnly ? Rss : row.name === null ? Link2 : Tag} size={12} className="mb-px shrink-0 text-icon" />
@@ -673,16 +676,16 @@ function Rows({
             {t("lists.toTag", { tag: row.tag })}
           </span>
         )}
-        {row.feedsOnly && row.feeds.length > 0 && (
+        {all && (
           <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
-            {t("lists.followAll")}
+            {t(row.feedsOnly ? "lists.followAll" : "lists.importAll")}
             <input
               type="checkbox"
               checked={all === "on"}
               ref={(box) => {
                 if (box) box.indeterminate = all === "mixed";
               }}
-              onChange={() => onFeeds(toggleAll(row.feeds, chosen))}
+              onChange={() => onChoose(toggleGroup(row, choices))}
               className="size-4 shrink-0 accent-accent"
             />
           </label>
@@ -716,9 +719,18 @@ function Rows({
           <input
             type="checkbox"
             checked={checked}
-            onChange={() => onFeeds(checked ? chosen.filter((url) => url !== it.url) : [...chosen, it.url])}
+            onChange={() => onChoose({ feeds: checked ? chosen.filter((url) => url !== it.url) : [...chosen, it.url] })}
             className="size-4 shrink-0 accent-accent"
           />
+        </label>
+      );
+    }
+    if (it.kind === "link" && it.status === "new") {
+      const checked = !leftOut.has(it.url);
+      return (
+        <label data-list-row="new" title={it.url} className={`${shape} ${checked ? "" : "text-muted"}`}>
+          {words}
+          <input type="checkbox" checked={checked} onChange={() => onChoose({ leaveOut: toggleLink(it.url, choices) })} className="size-4 shrink-0 accent-accent" />
         </label>
       );
     }

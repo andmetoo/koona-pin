@@ -75,6 +75,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     deletingCollection,
     desktop,
     dragging,
+    dropFile,
     droppedFile,
     editHooks,
     editing,
@@ -118,7 +119,6 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     openLinks,
     openReading,
     openTriage,
-    pickImportFile,
     page,
     previews,
     purging,
@@ -149,6 +149,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
     setBadge,
     setDataVersion,
     setDeletingCollection,
+    setDroppedFile,
     setEditing,
     setFeedbackDraft,
     setFeedPlace,
@@ -621,7 +622,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                     onSearch={(search) => changeFilters({ search })}
                     onView={setView}
                     onSort={setSort}
-                    onImportFile={pickImportFile}
+                    onImportFile={() => setSurface("importFile")}
                     onExport={exportLibrary}
                     duplicates={library.counts.duplicates}
                     onDuplicates={openDuplicates}
@@ -813,6 +814,10 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           destination={destinationOf(filters)}
           collectionId={filters.collectionId}
           onClose={() => setSurface(null)}
+          onDropFile={(files) => {
+            setSurface(null);
+            dropFile(files);
+          }}
           onShow={(b) => {
             setSurface(null);
             editorFocus.current = null;
@@ -830,16 +835,20 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           }}
         />
       )}
-      {(surface === "import" || surface === "importFeeds") && (
+      {(surface === "import" || surface === "importFeeds" || surface === "importFile") && (
         <ImportDialog
           // A new surface or a new dropped file is a new dialog: its first state is the file.
           key={`${surface}:${droppedFile?.surface === surface ? droppedFile.name : ""}`}
-          kind={surface === "importFeeds" ? "feeds" : "bookmarks"}
+          kind={surface === "importFeeds" ? "feeds" : surface === "importFile" ? "any" : "bookmarks"}
           file={droppedFile?.surface === surface ? droppedFile : undefined}
           onClose={() => setSurface(null)}
           onList={(file) => {
             setSurface(null);
             if (!openRequests.push({ kind: "kpin", ...file })) say(t("add.dropImportBusy"), true);
+          }}
+          onRestore={(file) => {
+            setDroppedFile({ ...file, surface: "restore" });
+            setSurface("restore");
           }}
           onImport={async (content, toInbox) => {
             const summary = await api.importHtmlBookmarks(content, toInbox);

@@ -15,7 +15,8 @@
         "trafficLightPosition": { "x": 20, "y": 21 },
         "visible": false,
         "shadow": true,
-        "center": true
+        "center": true,
+        "dragDropEnabled": false
       }
     ]
   }

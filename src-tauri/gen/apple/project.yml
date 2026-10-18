@@ -56,7 +56,7 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 2.5.0
+        CFBundleShortVersionString: 2.6.0
         CFBundleVersion: "2.5.0"
     entitlements:
       path: koonapin_iOS/koonapin_iOS.entitlements

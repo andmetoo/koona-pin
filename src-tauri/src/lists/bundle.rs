@@ -259,6 +259,7 @@ mod tests {
             sections_as_tags: true,
             existing_links: ExistingLinks::Leave,
             follow_feeds: Vec::new(),
+            leave_out: Vec::new(),
         };
         let id = apply(&c, &parse(VALID).unwrap(), &options, |_, _| {}).unwrap().report.collection_id.unwrap();
         (c, id)
@@ -564,6 +565,7 @@ mod tests {
             sections_as_tags: false,
             existing_links: ExistingLinks::Leave,
             follow_feeds: preview.new_feeds.iter().map(|f| f.url.clone()).collect(),
+            leave_out: Vec::new(),
         };
         let report = apply(&fresh, &list, &options, |_, _| {}).unwrap().report;
         assert_eq!((report.added, report.feeds_followed), (3, 2));

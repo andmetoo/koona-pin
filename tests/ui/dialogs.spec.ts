@@ -65,8 +65,9 @@ for (const code of ["en", "de", "ru"]) {
       };
       /** ⋯ → «Import a file…» with this file in the system dialog: it opens the dialog of its kind. */
       const importFile = async (file: string | Parameters<FileChooser["setFiles"]>[0]) => {
-        const chooser = page.waitForEvent("filechooser");
         await more("more.importFile");
+        const chooser = page.waitForEvent("filechooser");
+        await page.locator("[data-import-file]").click();
         await (await chooser).setFiles(file);
       };
       const settings = () => page.getByRole("button", { name: t("nav.settings") }).first().click();

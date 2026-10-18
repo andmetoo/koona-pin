@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ListPreview } from "../bindings/ListPreview";
 import type { ListPreviewItem } from "../bindings/ListPreviewItem";
-import { defaultChoices, downloadFailure, downloadShare, fileOf, FOLD_OVER, FOLDED, followAll, hostOf, importCounts, importOptions, nothingNew, otherAppName, previewRows, refusalOf, toggleAll, TOP_FEEDS } from "./lists";
+import { defaultChoices, downloadFailure, downloadShare, fileOf, FOLD_OVER, FOLDED, groupChoice, hostOf, importCounts, importOptions, nothingNew, otherAppName, previewRows, refusalOf, toggleGroup, toggleLink, TOP_FEEDS } from "./lists";
 
 const preview = (over: Partial<ListPreview> = {}): ListPreview => ({
   meta: {
@@ -49,8 +49,10 @@ describe("the list dialog's choices", () => {
       destination: { kind: "list" },
       toInbox: false,
       feeds: ["https://blog.rust-lang.org/feed.xml", "https://without.boats/index.xml"],
+      leaveOut: [],
     });
     expect(importCounts(p, choices)).toEqual({ links: 2, feeds: 2 });
+    expect(importCounts(p, { ...choices, leaveOut: ["https://example.com/a"] })).toEqual({ links: 1, feeds: 2 });
     expect(importCounts(p, { ...choices, feeds: [choices.feeds[1]] })).toEqual({ links: 2, feeds: 1 });
     expect(importCounts(p, { ...choices, feeds: [] })).toEqual({ links: 2, feeds: 0 });
   });
@@ -64,7 +66,10 @@ describe("the list dialog's choices", () => {
       sections_as_tags: true,
       existing_links: "leave",
       follow_feeds: ["https://blog.rust-lang.org/feed.xml", "https://without.boats/index.xml"],
+      leave_out: [],
     });
+    // Unchecked links are sent as they are, to be left out.
+    expect(importOptions(p, { ...choices, leaveOut: ["https://example.com/a"] }).leave_out).toEqual(["https://example.com/a"]);
     const reused = preview({ existing_collection: { id: 7, name: "RUST blogs worth following" } });
     expect(importOptions(reused, choices).collection).toEqual({ kind: "existing", id: 7 });
     expect(importOptions(p, { ...choices, destination: { kind: "existing", id: 3 } })).toMatchObject({ collection: { kind: "existing", id: 3 }, sections_as_tags: true });
@@ -79,6 +84,21 @@ describe("the list dialog's choices", () => {
     expect(importOptions(p, { ...choices, feeds: [] }).follow_feeds).toEqual([]);
   });
 
+  it("check and uncheck a group's new links and feeds together, and one link alone", () => {
+    const choices = { ...defaultChoices(preview()), feeds: ["https://f.example/1"] };
+    const row = { links: ["https://l.example/1", "https://l.example/2"], feeds: ["https://f.example/1"] };
+    expect(groupChoice(row, choices)).toBe("on");
+    expect(groupChoice({ links: [], feeds: [] }, choices)).toBeUndefined();
+    const none = { ...choices, ...toggleGroup(row, choices) };
+    expect(none).toMatchObject({ feeds: [], leaveOut: row.links });
+    expect(groupChoice(row, none)).toBe("off");
+    const one = { ...none, leaveOut: toggleLink("https://l.example/2", none) };
+    expect(one.leaveOut).toEqual(["https://l.example/1"]);
+    expect(groupChoice(row, one)).toBe("mixed");
+    // Some checked: the click checks all.
+    expect({ ...one, ...toggleGroup(row, one) }).toMatchObject({ feeds: row.feeds, leaveOut: [] });
+  });
+
   it("know when nothing in the list is new", () => {
     expect(nothingNew(preview())).toBe(false);
     expect(nothingNew(preview({ new_links: 0 }))).toBe(false);
@@ -86,14 +106,13 @@ describe("the list dialog's choices", () => {
     expect(nothingNew(preview({ new_links: 0, new_feeds: [], already_saved: 3, in_trash: 2 }))).toBe(true);
   });
 
-  it("follow all, none or some feeds", () => {
-    const urls = ["a", "b"];
-    expect(followAll(urls, ["a", "b", "x"])).toBe("on");
-    expect(followAll(urls, ["x"])).toBe("off");
-    expect(followAll(urls, ["b"])).toBe("mixed");
-    expect(toggleAll(urls, ["b", "x"])).toEqual(["x", "a", "b"]);
-    expect(toggleAll(urls, ["a", "b", "x"])).toEqual(["x"]);
-    expect(toggleAll(urls, [])).toEqual(["a", "b"]);
+  it("follow all, none or some feeds of a group, keeping the others' choice", () => {
+    const choices = { ...defaultChoices(preview()), feeds: ["b", "x"] };
+    const row = { links: [], feeds: ["a", "b"] };
+    expect(groupChoice(row, choices)).toBe("mixed");
+    expect(toggleGroup(row, choices).feeds).toEqual(["x", "a", "b"]);
+    expect(toggleGroup(row, { ...choices, feeds: ["a", "b", "x"] }).feeds).toEqual(["x"]);
+    expect(groupChoice(row, { ...choices, feeds: ["x"] })).toBe("off");
   });
 });
 
@@ -126,9 +145,14 @@ describe("the preview's rows", () => {
     expect(rows[3]).toMatchObject({ name: "Compiler and language", tag: "compiler-and-language", count: 1, feedsOnly: false, feeds: [] });
     // «Follow all» covers the new feeds only.
     expect(rows[5]).toMatchObject({ name: "Feeds", feedsOnly: true, feeds: ["https://a.example/feed"] });
-    expect(previewRows(preview({ groups: [groups[0]] }), new Set()).map((r) => r.kind)).toEqual(["item", "item"]);
+    // The top level alone keeps a header for its checkbox while it has new links…
+    expect(previewRows(preview({ groups: [groups[0]] }), new Set()).map((r) => r.kind)).toEqual(["group", "item", "item"]);
+    expect(previewRows(preview({ groups: [groups[0]] }), new Set())[0]).toMatchObject({ links: ["https://example.com/0", "https://example.com/1"], feeds: [] });
+    // …and has none with nothing new.
+    const saved = { ...groups[0], items: groups[0].items.map((it) => ({ ...it, status: "saved" as const })) };
+    expect(previewRows(preview({ groups: [saved] }), new Set()).map((r) => r.kind)).toEqual(["item", "item"]);
     // A newer MINOR: the notice first.
-    expect(previewRows(preview({ groups: [groups[0]], newer: true }), new Set())[0]).toEqual({ kind: "notice" });
+    expect(previewRows(preview({ groups: [saved], newer: true }), new Set())[0]).toEqual({ kind: "notice" });
   });
 
   it("give feeds outside any section a «Feeds» group with «Follow all»", () => {

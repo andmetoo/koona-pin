@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type DragEvent, FormEvent, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ClipboardPaste, Link, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Bookmark, Collection, FeedDestination } from "../../types";
@@ -8,7 +8,7 @@ import { shortcut } from "../../services/keys";
 import { collectionColor } from "../../services/collections";
 import { siteName } from "../../services/cover";
 import { suggestFrom } from "../../services/triage";
-import { Destination, domainOf, draftBookmark, linkFrom, previewedBookmark, samePage, typedLink, webLink } from "../../services/addLink";
+import { carriesLink, Destination, domainOf, draftBookmark, linkFrom, previewedBookmark, samePage, typedLink, webLink } from "../../services/addLink";
 import { subscribeFeed } from "../../services/feeds";
 import { FeedOffer, feedOffer, feedRate, primaryAction, useFeedPreview, useLinkPreview } from "../../services/linkPreview";
 import { relativeTime } from "../../services/relativeTime";
@@ -79,6 +79,7 @@ export function AddSheet({
   onShow,
   onShowFeed,
   onClose,
+  onDropFile,
 }: {
   collections: Collection[];
   /** The section the person is in: Inbox and Reading open with their own destination. */
@@ -92,6 +93,8 @@ export function AddSheet({
   /** «Show» of a site already followed (NP-133): the Feeds page on that feed. Without it, no button. */
   onShowFeed?: (uid: string) => void;
   onClose: () => void;
+  /** A file dropped on the sheet: it goes where a file dropped on the window goes (an import). */
+  onDropFile?: (files: FileList) => void;
 }) {
   const { t, i18n } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -140,6 +143,14 @@ export function AddSheet({
       live = false;
     };
   }, []);
+
+  /** A link, or a file when there is an import to send it to, dragged over the sheet. */
+  const takesDrag = (e: DragEvent) => {
+    const files = Array.from(e.dataTransfer.types).includes("Files");
+    if (busy || !(files ? onDropFile : carriesLink(e.dataTransfer.types))) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
 
   const url = useMemo(() => webLink(typedLink(text)), [text]);
   const href = url?.href ?? "";
@@ -396,7 +407,27 @@ export function AddSheet({
       ref={ref}
       aria-labelledby={titleId}
       data-add-sheet
+      // A link dropped on the sheet or its scrim fills the address, as a paste does; a file is an
+      // import. The window's own drop stays out (importExport.ts).
+      data-drop-accepts
       className="add-sheet"
+      onDragEnter={takesDrag}
+      onDragOver={takesDrag}
+      onDrop={(e) => {
+        if (busy) return;
+        const data = e.dataTransfer;
+        if (data.files.length > 0) {
+          if (!onDropFile) return;
+          e.preventDefault();
+          return onDropFile(data.files);
+        }
+        const link = linkFrom(data.getData("text/uri-list"), true) ?? linkFrom(data.getData("text/plain"));
+        if (!link) return;
+        e.preventDefault();
+        change(link);
+        setPasted(link);
+        field.current?.focus();
+      }}
       onCancel={(e) => {
         e.preventDefault();
         closeRef.current();
