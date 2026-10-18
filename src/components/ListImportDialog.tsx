@@ -1,13 +1,17 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
-import { ChevronDown, CircleAlert, CircleArrowDown, CircleCheck, FileText, Info, RefreshCw, Rss } from "lucide-react";
+import { ReactNode, useEffect, useLayoutEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { ChevronDown, CircleAlert, CircleArrowDown, CircleCheck, FileText, Info, Link2, RefreshCw, Rss, Tag, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Collection } from "../types";
 import type { ListCheck } from "../bindings/ListCheck";
 import type { ListImportReport } from "../bindings/ListImportReport";
 import type { ListPreview } from "../bindings/ListPreview";
+import type { ListPreviewItem } from "../bindings/ListPreviewItem";
 import { api } from "../services/api";
+import { hash, monogram, PALETTE } from "../services/cover";
 import { describeError } from "../services/errors";
 import type { OpenRequest } from "../services/openRequests";
+import { localPictureSrc } from "../services/pictures";
 import {
   defaultChoices,
   Destination,
@@ -15,19 +19,23 @@ import {
   downloadShare,
   DownloadReason,
   fileOf,
+  followAll,
   hostOf,
-  footerAction,
+  importCounts,
   importOptions,
   ListChoices,
   nothingNew,
   otherAppName,
+  PreviewRow,
+  previewRows,
   Refusal,
   refusalOf,
+  toggleAll,
 } from "../services/lists";
 import { Icon } from "./icons";
-import { Footer, Scrolling } from "./library/Dialogs";
+import { Footer } from "./library/Dialogs";
 import { Button } from "./ui/Button";
-import { Segmented, StatePanels, Switch } from "./ui/Controls";
+import { StatePanels } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
 /** Where a list's text came from and what the dialog calls it. */
@@ -41,19 +49,21 @@ type Phase =
   | Refusal
   | { state: "preview"; error?: string }
   | { state: "importing"; done: number; total: number }
-  | { state: "report"; report: ListImportReport }
-  | { state: "nothing" };
+  | { state: "report"; report: ListImportReport };
 
-const STATES = ["reading", "ask", "downloading", "failed", "newer", "otherApp", "notList", "preview", "importing", "report", "nothing"] as const;
+const STATES = ["reading", "ask", "downloading", "failed", "newer", "otherApp", "notList", "preview", "importing", "report"] as const;
 
-/** New feeds shown before «Show N more feeds». */
-const FEEDS_SHOWN = 4;
+/** The heights of the preview's rows (K10); the MINOR notice is measured. */
+const ROW_HEIGHT = 32;
+const GROUP_HEIGHT = 36;
+const NOTICE_HEIGHT = 64;
 
 /**
- * The list dialog (NP-138, frames K1a, K1b and K3): every `.kpin` request ends here. A link first
+ * The list dialog (NP-138, frames K10a, K10b and K3): every `.kpin` request ends here. A link first
  * asks and only then downloads; the preview writes nothing; the import is one transaction with
  * progress; the report or a refusal closes it. One dialog, 600 px wide and one height, 640 px or
- * the window less 48 px, the preview's middle scrolling. `onClose` runs on every way out.
+ * the window less 48 px; in the preview only the rows scroll, between the header and the choices.
+ * `onClose` runs on every way out.
  */
 export function ListImportDialog({
   request,
@@ -81,7 +91,8 @@ export function ListImportDialog({
   const [phase, setPhase] = useState<Phase>(url ? { state: "ask" } : { state: "reading" });
   const [list, setList] = useState<Loaded | null>(null);
   const [choices, setChoices] = useState<ListChoices | null>(null);
-  const [allFeeds, setAllFeeds] = useState(false);
+  /** Folded groups the person opened with «Show N more». */
+  const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -94,7 +105,7 @@ export function ListImportDialog({
     if (check.outcome !== "ready") return setPhase(refusalOf(check));
     setList({ text, preview: check.preview });
     setChoices(defaultChoices(check.preview));
-    setPhase(nothingNew(check.preview) ? { state: "nothing" } : { state: "preview" });
+    setPhase({ state: "preview" });
   };
   const preview = (text: string, source: string) =>
     api.previewList(text, source).then(
@@ -231,42 +242,29 @@ export function ListImportDialog({
     </div>
   );
 
+  /** One 12 px line: what the list holds, then what it is to this library (K10). */
   const counts = (p: ListPreview) => {
-    const first = [
+    const holds = [
       p.links > 0 && t("import.links", { count: p.links }),
       p.feeds > 0 && t("import.opmlFeeds", { count: p.feeds }),
       p.sections > 0 && t("lists.sections", { count: p.sections }),
     ].filter(Boolean);
     // Items of a type this version does not know are skipped in every version, not only a newer one.
     const skipped = p.not_web + p.invalid + p.skipped_items;
-    const second = [
-      p.already_saved > 0 && t("lists.alreadySaved", { count: p.already_saved }),
+    const here = [
+      p.links > 0 && t("lists.countNew", { count: p.new_links }),
+      p.already_saved > 0 && t("lists.countSaved", { count: p.already_saved }),
       p.in_trash > 0 && t("lists.inTrash", { count: p.in_trash }),
-      p.feeds_followed > 0 && t("lists.feedsFollowed", { count: p.feeds_followed }),
       p.repeated > 0 && t("lists.repeated", { count: p.repeated }),
       skipped > 0 && t("lists.skipped", { count: skipped }),
     ].filter(Boolean);
+    const line = holds.join(" · ") + (here.length > 0 ? ` — ${here.join(", ")}` : "");
     return (
-      <div data-list-counts>
-        <p className="text-sm font-medium">{first.join(" · ")}</p>
-        {second.length > 0 && <p className="mt-0.5 text-xs text-muted">{second.join(" · ")}</p>}
-      </div>
+      <p data-list-counts className="truncate text-xs text-muted" title={line}>
+        {line}
+      </p>
     );
   };
-
-  /** A row of the preview: what it is, a line under it, its control on the right. */
-  const row = (title: string, hint: string, control: ReactNode, below?: ReactNode) => (
-    <div className="border-t border-divider pt-3.5">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">{title}</p>
-          <p className="text-xs text-muted">{hint}</p>
-        </div>
-        {control}
-      </div>
-      {below}
-    </div>
-  );
 
   const destinationValue = (d: Destination) => (d.kind === "existing" ? String(d.id) : d.kind);
 
@@ -275,52 +273,60 @@ export function ListImportDialog({
     const p = list.preview;
     const set = (change: Partial<ListChoices>) => setChoices({ ...choices, ...change });
     const others = collections.filter((c) => c.id !== p.existing_collection?.id);
-    const meta = [p.meta.author_name, p.meta.license, p.meta.updated && formatDay(p.meta.updated, i18n.language), p.source].filter(Boolean);
-    const action = footerAction(p, choices);
-    const what =
-      action.kind === "import"
-        ? [action.links > 0 && t("import.links", { count: action.links }), action.feeds > 0 && t("import.opmlFeeds", { count: action.feeds })].filter(Boolean).join(" · ")
-        : "";
-    const shownFeeds = allFeeds ? p.new_feeds : p.new_feeds.slice(0, FEEDS_SHOWN);
+    const meta = [p.meta.author_name && t("lists.by", { name: p.meta.author_name }), p.meta.updated && formatDay(p.meta.updated, i18n.language), p.source].filter(Boolean);
+    const nothing = nothingNew(p);
+    const { links, feeds } = importCounts(p, choices);
+    const adding =
+      links > 0 && feeds > 0
+        ? t("lists.andFeeds", { links: t("import.links", { count: links }), feeds: t("import.opmlFeeds", { count: feeds }) })
+        : links > 0
+          ? t("import.links", { count: links })
+          : feeds > 0
+            ? t("import.opmlFeeds", { count: feeds })
+            : "";
     return (
-      <>
-        <Scrolling>
-          <div className="flex flex-col gap-1">
-            <h3 className="text-xl leading-[26px] font-semibold tracking-[-0.012em] text-balance [overflow-wrap:anywhere]">{p.meta.title}</h3>
-            {p.meta.description && <p className="line-clamp-3 text-sm text-muted [overflow-wrap:anywhere]">{p.meta.description}</p>}
-            {meta.length > 0 && <p className="truncate text-xs text-subtle" title={meta.join(" · ")}>{meta.join(" · ")}</p>}
-          </div>
-          {counts(p)}
-          {p.newer && (
-            <div data-list-newer className="flex gap-2.5 rounded-xl bg-accent-soft p-3 text-xs">
-              <Icon icon={Info} className="shrink-0 text-accent" />
-              <div>
-                <p className="font-medium text-ink">{t("lists.newer", { version: p.meta.version })}</p>
-                {p.skipped_details + p.skipped_items > 0 && (
-                  <p className="text-muted">
-                    {p.skipped_details > 0 && p.skipped_items > 0
-                      ? t("lists.newerText", { details: t("lists.details", { count: p.skipped_details }), items: t("lists.items", { count: p.skipped_items }) })
-                      : t("lists.newerSome", {
-                          what: p.skipped_details > 0 ? t("lists.details", { count: p.skipped_details }) : t("lists.items", { count: p.skipped_items }),
-                        })}
-                  </p>
-                )}
-              </div>
-            </div>
+      <div data-list-preview className="flex min-h-0 flex-1 flex-col">
+        <div data-list-head className="flex shrink-0 flex-col gap-0.5 border-b border-divider pb-2">
+          <h3 className="truncate text-xl leading-[26px] font-semibold tracking-[-0.012em]" title={p.meta.title}>
+            {p.meta.title}
+          </h3>
+          {meta.length > 0 && (
+            <p className="truncate text-xs text-muted" title={meta.join(" · ")}>
+              {meta.join(" · ")}
+            </p>
           )}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="list-destination" className="text-xs font-medium text-muted">
-              {t("lists.putInto")}
-            </label>
-            <div className="relative">
+          {p.meta.description && <Description text={p.meta.description} />}
+          {counts(p)}
+        </div>
+        <Rows
+          preview={p}
+          rows={previewRows(p, open)}
+          chosen={choices.feeds}
+          tags={choices.destination.kind !== "bare"}
+          onFeeds={(feeds) => set({ feeds })}
+          onOpen={(group) => setOpen(new Set([...open, group]))}
+        />
+        {error && (
+          <p role="alert" className="mt-2.5 shrink-0 rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-on-danger-soft">
+            {t("lists.failed", { reason: error })}
+          </p>
+        )}
+        {!nothing && (
+          <div data-list-choices className="flex shrink-0 flex-col gap-2.5 border-t border-divider pt-2.5">
+            <div className="field relative flex items-center gap-2 p-0 pl-[11px] has-[select:focus-visible]:border-accent has-[select:focus-visible]:shadow-[inset_0_0_0_0.5px_var(--np-accent),0_0_0_3px_color-mix(in_srgb,var(--np-accent)_25%,transparent)]">
+              <label htmlFor="list-destination" className="shrink-0 text-muted">
+                {t("lists.putInto")}
+              </label>
               <select
                 id="list-destination"
                 value={destinationValue(choices.destination)}
                 onChange={(e) => {
                   const v = e.target.value;
-                  set({ destination: v === "list" ? { kind: "list" } : v === "none" ? { kind: "none" } : { kind: "existing", id: Number(v) } });
+                  set({
+                    destination: v === "list" || v === "none" || v === "bare" ? { kind: v } : { kind: "existing", id: Number(v) },
+                  });
                 }}
-                className="field appearance-none pr-8"
+                className="min-w-0 flex-1 appearance-none truncate bg-transparent py-[7px] pr-8 outline-none"
               >
                 <option value="list">
                   {p.existing_collection ? t("lists.collectionExists", { name: p.existing_collection.name }) : t("lists.collectionNew", { name: p.meta.title })}
@@ -331,102 +337,39 @@ export function ListImportDialog({
                   </option>
                 ))}
                 <option value="none">{t("lists.noCollection")}</option>
+                <option value="bare">{t("lists.noSectionTags")}</option>
               </select>
               <Icon icon={ChevronDown} size={14} className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-icon" />
             </div>
-            <p className="text-xs text-subtle">{t("lists.reused")}</p>
+            <label className="flex items-center gap-2 self-start text-sm">
+              <input type="checkbox" checked={choices.toInbox} onChange={(e) => set({ toInbox: e.target.checked })} className="size-4 shrink-0 accent-accent" />
+              {t("lists.toInbox")}
+            </label>
           </div>
-          <div className="flex flex-col gap-3.5">
-            {row(t("lists.toInbox"), t("lists.toInboxHint"), <Switch label={t("lists.toInbox")} checked={choices.toInbox} onChange={(toInbox) => set({ toInbox })} />)}
-            {/* Only links take tags: sections of feeds alone change nothing. */}
-            {p.sectioned_links > 0 &&
-              row(
-                t("lists.sectionsTitle"),
-                t("lists.sectionsHint"),
-                <Segmented<"tags" | "ignore">
-                  label={t("lists.sectionsTitle")}
-                  value={choices.sectionsAsTags ? "tags" : "ignore"}
-                  onChange={(v) => set({ sectionsAsTags: v === "tags" })}
-                  options={[
-                    { value: "tags", label: t("lists.asTags") },
-                    { value: "ignore", label: t("lists.ignore") },
-                  ]}
-                />,
-              )}
-            {p.already_saved > 0 &&
-              row(
-                t("lists.existing"),
-                t("lists.existingHint"),
-                <Segmented<"leave" | "add_tags">
-                  label={t("lists.existing")}
-                  value={choices.existing}
-                  onChange={(existing) => set({ existing })}
-                  options={[
-                    { value: "leave", label: t("lists.leave") },
-                    { value: "add_tags", label: t("lists.addTags") },
-                  ]}
-                />,
-              )}
-            {p.new_feeds.length > 0 &&
-              row(
-                t("lists.follow", { count: p.new_feeds.length }),
-                p.feeds_followed > 0 ? t("lists.followedHint", { count: p.feeds_followed }) : t("lists.followHint"),
-                <Switch label={t("lists.follow", { count: p.new_feeds.length })} checked={choices.follow} onChange={(follow) => set({ follow })} />,
-                choices.follow && (
-                  <ul data-list-feeds className="mt-2.5 flex flex-col gap-0.5 rounded-xl bg-secondary p-1.5">
-                    {shownFeeds.map((feed) => {
-                      const checked = choices.feeds.includes(feed.url);
-                      return (
-                        <li key={feed.url}>
-                          <label className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-hover">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => set({ feeds: checked ? choices.feeds.filter((u) => u !== feed.url) : [...choices.feeds, feed.url] })}
-                              className="size-4 shrink-0 accent-accent"
-                            />
-                            <Icon icon={Rss} size={14} className="shrink-0 text-icon" />
-                            <span className="min-w-0 flex-1 truncate" title={feed.url}>
-                              {feed.title || hostOf(feed.url)}
-                            </span>
-                            {feed.section && <span className="max-w-[40%] shrink-0 truncate text-xs text-subtle">{feed.section}</span>}
-                          </label>
-                        </li>
-                      );
-                    })}
-                    {!allFeeds && p.new_feeds.length > FEEDS_SHOWN && (
-                      <li>
-                        <button type="button" onClick={() => setAllFeeds(true)} className="px-2 py-1.5 text-xs font-medium text-accent hover:underline">
-                          {t("lists.showMore", { count: p.new_feeds.length - FEEDS_SHOWN })}
-                        </button>
-                      </li>
-                    )}
-                  </ul>
-                ),
-              )}
-          </div>
-          {error && (
-            <p role="alert" className="rounded-xl bg-danger-soft px-3 py-2.5 text-sm text-on-danger-soft">
-              {t("lists.failed", { reason: error })}
-            </p>
-          )}
-        </Scrolling>
+        )}
         <Footer>
-          <p className="mr-auto self-center text-xs text-subtle">{t("lists.nothingSaved")}</p>
-          <Button variant="outline" size="lg" onClick={close}>
-            {t("import.cancel")}
-          </Button>
-          {action.kind === "close" ? (
-            <Button variant="primary" size="lg" onClick={close}>
-              {t("common.close")}
-            </Button>
+          {nothing ? (
+            <>
+              <p role="status" className="mr-auto self-center text-xs text-muted">
+                {t("lists.allHere")}
+              </p>
+              <Button variant="outline" size="lg" autoFocus onClick={close}>
+                {t("common.close")}
+              </Button>
+            </>
           ) : (
-            <Button variant="primary" size="lg" onClick={() => void start()}>
-              {action.kind === "tags" ? t("lists.tagOnly", { count: action.links }) : t("lists.import", { what })}
-            </Button>
+            <>
+              <p className="mr-auto self-center text-xs text-muted">{adding ? t("lists.willAdd", { what: adding }) : t("lists.nothingSaved")}</p>
+              <Button variant="outline" size="lg" onClick={close}>
+                {t("import.cancel")}
+              </Button>
+              <Button variant="primary" size="lg" disabled={!adding} onClick={() => void start()}>
+                {t("lists.accept")}
+              </Button>
+            </>
           )}
         </Footer>
-      </>
+      </div>
     );
   };
 
@@ -434,7 +377,7 @@ export function ListImportDialog({
     const skipped = report.not_web + report.invalid + report.skipped_items;
     const lines = [
       [t("import.added"), report.added],
-      report.already_saved > 0 && [t(choices?.existing === "add_tags" ? "lists.reportTagged" : "import.existing"), report.already_saved],
+      report.already_saved > 0 && [t("import.existing"), report.already_saved],
       report.in_trash > 0 && [t("import.inTrash"), report.in_trash],
       report.repeated > 0 && [t("lists.reportRepeated"), report.repeated],
       skipped > 0 && [t("lists.reportSkipped"), skipped],
@@ -577,21 +520,6 @@ export function ListImportDialog({
       }
       case "report":
         return reportPanel(shown.report);
-      case "nothing": {
-        const p = list?.preview;
-        return message(
-          CircleCheck,
-          "muted",
-          t("lists.nothingNew"),
-          p && (
-            <>
-              <p>{t("lists.nothingNewText", { name: p.meta.title })}</p>
-              <div className="mt-2">{counts(p)}</div>
-            </>
-          ),
-          closeButton(),
-        );
-      }
     }
   };
 
@@ -610,5 +538,236 @@ export function ListImportDialog({
 /** `YYYY-MM-DD` of the list as a date of the interface's language, or as written when it is not one. */
 function formatDay(day: string, language: string) {
   const at = new Date(`${day}T00:00:00`);
-  return Number.isNaN(at.getTime()) ? day : at.toLocaleDateString(language, { day: "numeric", month: "long", year: "numeric" });
+  return Number.isNaN(at.getTime()) ? day : at.toLocaleDateString(language, { day: "numeric", month: "short", year: "numeric" });
+}
+
+/**
+ * The list's description in the header (K10): one line, and «more» when it is cut. Opened, it
+ * takes two lines and scrolls beyond them, so the header stays within 110 px.
+ */
+function Description({ text }: { text: string }) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [cut, setCut] = useState(false);
+  const [whole, setWhole] = useState(false);
+  useLayoutEffect(() => {
+    const line = ref.current;
+    if (!line || whole) return;
+    const check = () => setCut(line.scrollWidth > line.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(line);
+    return () => observer.disconnect();
+  }, [text, whole]);
+  const toggle = (label: string, to: boolean) => (
+    <button type="button" onClick={() => setWhole(to)} className="shrink-0 font-medium text-accent hover:underline">
+      {label}
+    </button>
+  );
+  return whole ? (
+    <p data-list-description className="max-h-[36px] shrink-0 overflow-y-auto text-sm [overflow-wrap:anywhere]">
+      {text} {toggle(t("lists.less"), false)}
+    </p>
+  ) : (
+    <div data-list-description className="flex min-w-0 items-baseline gap-1 text-sm">
+      <p ref={ref} className="min-w-0 truncate">
+        {text}
+      </p>
+      {cut && toggle(t("lists.more"), true)}
+    </div>
+  );
+}
+
+/** The virtualiser's key of a row: a row keeps its own state (an icon that failed) as rows above it fold or open. */
+const keyOf = (row: PreviewRow) =>
+  row.kind === "item" ? `i ${row.group} ${row.item.kind} ${row.item.url}` : row.kind === "notice" ? "notice" : `${row.kind} ${row.group}`;
+
+/**
+ * The preview's rows (K10a, K10b): one flat list, group headers included, virtualised, so a list of
+ * 5,000 items draws only what is on screen and nothing nests a scroller of its own.
+ */
+function Rows({
+  preview,
+  rows,
+  chosen,
+  tags,
+  onFeeds,
+  onOpen,
+}: {
+  preview: ListPreview;
+  rows: PreviewRow[];
+  /** The new feeds that stay checked. */
+  chosen: string[];
+  /** «→ tag …» is shown: the sections become tags. */
+  tags: boolean;
+  onFeeds: (feeds: string[]) => void;
+  onOpen: (group: number) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => (rows[index]?.kind === "notice" ? NOTICE_HEIGHT : rows[index]?.kind === "group" ? GROUP_HEIGHT : ROW_HEIGHT),
+    getItemKey: (index) => keyOf(rows[index]),
+    overscan: 8,
+  });
+  const number = (n: number) => n.toLocaleString(i18n.language);
+
+  const notice = () => (
+    <div className="pb-2">
+      <div data-list-newer className="flex gap-2.5 rounded-xl bg-accent-soft p-3 text-xs">
+        <Icon icon={Info} className="shrink-0 text-accent" />
+        <div>
+          <p className="font-medium text-ink">{t("lists.newer", { version: preview.meta.version })}</p>
+          {preview.skipped_details + preview.skipped_items > 0 && (
+            <p className="text-muted">
+              {preview.skipped_details > 0 && preview.skipped_items > 0
+                ? t("lists.newerText", { details: t("lists.details", { count: preview.skipped_details }), items: t("lists.items", { count: preview.skipped_items }) })
+                : t("lists.newerSome", {
+                    what: preview.skipped_details > 0 ? t("lists.details", { count: preview.skipped_details }) : t("lists.items", { count: preview.skipped_items }),
+                  })}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const group = (row: Extract<PreviewRow, { kind: "group" }>) => {
+    const name = row.name ?? t(row.feedsOnly ? "lists.groupFeeds" : "lists.groupLinks");
+    const all = followAll(row.feeds, chosen);
+    return (
+      <div data-list-group={name} className="flex h-9 items-end gap-2 pb-2 text-2xs">
+        <Icon icon={row.feedsOnly ? Rss : row.name === null ? Link2 : Tag} size={12} className="mb-px shrink-0 text-icon" />
+        <span className="min-w-0 truncate font-semibold tracking-[0.06em] text-icon uppercase">{name}</span>
+        <span className="shrink-0 text-meta tabular-nums">{number(row.count)}</span>
+        <span className="ml-auto" />
+        {tags && row.tag && (
+          <span data-list-tag className="min-w-0 shrink truncate text-xs text-meta">
+            {t("lists.toTag", { tag: row.tag })}
+          </span>
+        )}
+        {row.feedsOnly && row.feeds.length > 0 && (
+          <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
+            {t("lists.followAll")}
+            <input
+              type="checkbox"
+              checked={all === "on"}
+              ref={(box) => {
+                if (box) box.indeterminate = all === "mixed";
+              }}
+              onChange={() => onFeeds(toggleAll(row.feeds, chosen))}
+              className="size-4 shrink-0 accent-accent"
+            />
+          </label>
+        )}
+      </div>
+    );
+  };
+
+  const badge = (text: string, icon?: typeof Trash2) => (
+    <span data-list-badge className="flex h-5 shrink-0 items-center gap-1 rounded-full bg-well px-2 text-2xs font-medium text-icon">
+      {icon && <Icon icon={icon} size={11} />}
+      {text}
+    </span>
+  );
+
+  const item = (it: ListPreviewItem) => {
+    const words = (
+      <>
+        <RowIcon item={it} />
+        <span className="min-w-0 truncate">{it.title || it.host}</span>
+        {it.title && <span className="min-w-0 shrink-[4] truncate text-xs text-meta">{it.host}</span>}
+        <span className="ml-auto" />
+      </>
+    );
+    const shape = "flex h-8 items-center gap-2.5 text-sm";
+    if (it.kind === "feed" && it.status === "new") {
+      const checked = chosen.includes(it.url);
+      return (
+        <label data-list-row="new" title={it.url} className={shape}>
+          {words}
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => onFeeds(checked ? chosen.filter((url) => url !== it.url) : [...chosen, it.url])}
+            className="size-4 shrink-0 accent-accent"
+          />
+        </label>
+      );
+    }
+    return (
+      <div data-list-row={it.status} title={it.url} className={shape}>
+        {words}
+        {it.status === "saved" && badge(t("lists.badgeSaved"))}
+        {it.status === "in_trash" && badge(t("lists.badgeTrash"), Trash2)}
+        {it.status === "followed" && badge(t("lists.following"))}
+      </div>
+    );
+  };
+
+  const row = (r: PreviewRow) => {
+    switch (r.kind) {
+      case "notice":
+        return notice();
+      case "group":
+        return group(r);
+      case "item":
+        return item(r.item);
+      case "more":
+        return (
+          <button type="button" onClick={() => onOpen(r.group)} className="h-8 pl-[26px] text-xs font-medium text-accent hover:underline">
+            {t("lists.showRows", { count: r.count })}
+          </button>
+        );
+    }
+  };
+
+  return (
+    <div ref={scrollRef} data-list-rows className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 py-2">
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((v) => (
+          <div key={v.key} data-index={v.index} ref={virtualizer.measureElement} className="absolute top-0 left-0 w-full" style={{ transform: `translateY(${v.start}px)` }}>
+            {row(rows[v.index])}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A row's icon (K10): the local copy of a saved bookmark's or a followed feed's icon, which the
+ * library already has; else a monogram, or the feed mark. A host that is only in the list is never
+ * asked for anything.
+ */
+function RowIcon({ item }: { item: ListPreviewItem }) {
+  const src =
+    item.kind === "link"
+      ? item.status !== "new" && item.bookmark_id !== null
+        ? localPictureSrc("bookmark-icon", item.bookmark_id)
+        : null
+      : item.status === "followed" && item.feed_uid
+        ? localPictureSrc("feed-icon", item.feed_uid)
+        : null;
+  const [failed, setFailed] = useState(false);
+  // The backend's 1×1 answer for an address it refuses: no icon.
+  const loaded = (e: SyntheticEvent<HTMLImageElement>) => e.currentTarget.naturalWidth === 1 && e.currentTarget.naturalHeight === 1 && setFailed(true);
+  if (src && !failed) return <img src={src} alt="" className="size-4 shrink-0 rounded-xs object-contain" onError={() => setFailed(true)} onLoad={loaded} />;
+  if (item.kind === "feed")
+    return (
+      <span aria-hidden className="flex size-4 shrink-0 items-center justify-center rounded-xs bg-accent-soft text-accent">
+        <Icon icon={Rss} size={11} />
+      </span>
+    );
+  return (
+    <span
+      aria-hidden
+      className="flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] leading-none font-semibold text-white"
+      style={{ background: PALETTE[hash(item.host.toLowerCase()) % PALETTE.length][1] }}
+    >
+      {monogram(item.host, item.title ?? "")}
+    </span>
+  );
 }
