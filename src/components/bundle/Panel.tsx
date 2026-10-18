@@ -1,10 +1,11 @@
-import { KeyboardEvent, ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { KeyboardEvent, ReactNode, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { bundle, BundleSnapshot, BundleState, itemCount, TITLE_LEN, titleOf, toModel } from "../../services/bundle";
 import { bundleApi } from "../../services/bundleApi";
 import { describeError } from "../../services/errors";
-import { listMarkdown, MAX_BYTES, readDraft, slugify } from "../../services/listText";
+import { listMarkdown, MAX_BYTES, readDraft, slugify, titleFileName } from "../../services/listText";
+import type { BundleModel } from "../../bindings/BundleModel";
 import { savePreference, storedValue } from "../../services/preferences";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
@@ -21,11 +22,8 @@ const NOTICE_MS = 8000;
 const AUTHOR_NAME = "share.authorName";
 
 type Notice = { text: string; actions: { label: string; run: () => void }[]; alert?: boolean };
-/**
- * The last build and the model it was built from: its text and size, or, past a limit, the size it
- * would have and no text; or why it failed.
- */
-type Built = { key: string; text: string; bytes: number; over: boolean } | { key: string; error: string };
+/** The last build: its text and size, or, past a limit, the size it would have and no text; or why it failed. */
+type Built = { text: string; bytes: number; over: boolean } | { error: string };
 
 /**
  * The bundle panel (K7a, K7b): 380 px, non-modal, its bottom 12 px above the capsule in every
@@ -81,23 +79,30 @@ export function Panel({
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const key = JSON.stringify(toModel(state, t));
+  // The model changes only with what goes into the list, not with the panel's own state.
+  const model = useMemo(
+    () => toModel(state, t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.sections, state.title, state.titleEdited, state.description, state.author, t],
+  );
+  // The background build drives the size line; `BUILD_DELAY` waits out typing. Save and Copy
+  // always build anew.
   const runs = useRef(0);
   useEffect(() => {
     if (empty) return setBuilt(null);
     const run = ++runs.current;
-    const timer = window.setTimeout(() => void build(key).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
+    const timer = window.setTimeout(() => void build(model).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
     return () => window.clearTimeout(timer);
-  }, [key, empty]);
+  }, [model, empty]);
   /** Builds the list; items gone from the library leave the bundle with their meta line. */
-  const build = async (model: string): Promise<Built> => {
+  const build = async (next: BundleModel): Promise<Built> => {
     try {
-      const result = await bundleApi.build(JSON.parse(model));
+      const result = await bundleApi.build(next);
       if (result.left > 0) void pruneBundle();
-      if (result.too_big !== null) return { key: model, text: "", bytes: result.too_big, over: true };
-      return { key: model, text: result.text, bytes: new TextEncoder().encode(result.text).length, over: false };
+      if (result.too_big !== null) return { text: "", bytes: result.too_big, over: true };
+      return { text: result.text, bytes: new TextEncoder().encode(result.text).length, over: false };
     } catch (err) {
-      return { key: model, error: describeError(err) };
+      return { error: describeError(err) };
     }
   };
   const bytes = built && "text" in built ? built.bytes : 0;
@@ -119,18 +124,23 @@ export function Panel({
    * is never written, whatever the model says.
    */
   const fresh = async (): Promise<string | null> => {
-    const result = await build(key);
-    setBuilt(result);
+    const run = ++runs.current;
+    const result = await build(model);
+    if (run === runs.current) setBuilt(result);
     return "text" in result && !result.over ? result.text : null;
   };
+  // A second click before the first one's dialog is up would open another: the guard is a ref,
+  // set at once, not `busy`, which only changes on the next render.
+  const inFlight = useRef(false);
   const save = async () => {
-    if (blocked) return;
+    if (blocked || inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setNotice(null);
     try {
       const text = await fresh();
       if (!text) return;
-      const result = await bundleApi.save(text, slugify(title));
+      const result = await bundleApi.save(text, slugify(title), titleFileName(title));
       if (result.outcome === "cancelled") return;
       if (result.outcome === "saved")
         return setNotice({
@@ -156,19 +166,23 @@ export function Panel({
     } catch (err) {
       setNotice({ text: describeError(err), actions: [], alert: true });
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
   const copy = async () => {
-    if (blocked) return;
-    const text = await fresh();
-    if (!text) return;
-    const draft = readDraft(text);
+    if (blocked || inFlight.current) return;
+    inFlight.current = true;
     try {
+      const text = await fresh();
+      if (!text) return;
+      const draft = readDraft(text);
       await navigator.clipboard.writeText(listMarkdown(draft, t("bundle.feedWord")));
       setNotice({ text: t("bundle.copied", { count: draft.links + draft.feeds }), actions: [] });
     } catch {
       setNotice({ text: t("notice.copyFailed"), actions: [], alert: true });
+    } finally {
+      inFlight.current = false;
     }
   };
   const clear = () => {

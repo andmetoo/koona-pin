@@ -26,18 +26,20 @@ async function openFromMenu(page: Page) {
   await expect(panel(page)).toBeVisible();
 }
 /** Save answers as the desktop app would, and keeps what it was given. */
-async function mockSave(page: Page) {
-  await page.evaluate(async () => {
+async function mockSave(page: Page, delay = 0) {
+  await page.evaluate(async (delay) => {
     const { bundleApi } = await import("/src/services/bundleApi.ts");
-    const calls: { text: string; id: string }[] = [];
+    const calls: { text: string; id: string; name?: string }[] = [];
     (window as unknown as { saveCalls: typeof calls }).saveCalls = calls;
-    bundleApi.save = async (text, id) => {
-      calls.push({ text, id });
-      return { outcome: "saved", file_name: `${id}.kpin`, count: 1 };
+    bundleApi.save = async (text, id, name) => {
+      calls.push({ text, id, name });
+      // The system dialog takes a while to come up.
+      await new Promise((done) => setTimeout(done, delay));
+      return { outcome: "saved", file_name: name ?? `${id}.kpin`, count: 1 };
     };
-  });
+  }, delay);
 }
-const saveCalls = (page: Page) => page.evaluate(() => (window as unknown as { saveCalls: { text: string; id: string }[] }).saveCalls);
+const saveCalls = (page: Page) => page.evaluate(() => (window as unknown as { saveCalls: { text: string; id: string; name?: string }[] }).saveCalls);
 
 test.beforeEach(({ page }) => openApp(page, { viewport: { width: 1200, height: 800 }, settings: { view: "grid" }, cards: 6 }));
 
@@ -157,6 +159,28 @@ test("Save writes the built list under the title's name; Copy gives Markdown; Cl
   await expect(panel(page).getByRole("button", { name: "Copy as Markdown" })).toBeDisabled();
   await panel(page).getByRole("button", { name: "Undo" }).click();
   await expect(rows(page)).toHaveCount(2);
+});
+
+test("a double click on Save opens one dialog; a title in Cyrillic names the file, the id stays ASCII", async ({ page }) => {
+  await mockSave(page, 300);
+  await sidebar(page).getByRole("button", { name: /^Design/ }).click();
+  await openFromMenu(page);
+  await panel(page).getByRole("button", { name: /^Add Design/ }).click();
+  await panel(page).getByRole("textbox", { name: "Title" }).fill("Мои ссылки");
+  // Two clicks before React renders again, as a fast double click on a busy machine lands.
+  await panel(page)
+    .getByRole("button", { name: "Save .kpin…" })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(panel(page).getByRole("status")).toContainText("Saved мои-ссылки.kpin");
+  const calls = await saveCalls(page);
+  expect(calls).toHaveLength(1);
+  expect(calls[0]).toMatchObject({ id: "", name: "мои-ссылки.kpin" });
+  const file = JSON.parse(calls[0].text);
+  expect(file.title).toBe("Мои ссылки");
+  expect(file).not.toHaveProperty("id");
 });
 
 test("× hides the resting capsule; a drag brings it back and a drop on it adds", async ({ page }) => {

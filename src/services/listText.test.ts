@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftProblem, escapeMarkdown, escapeProse, fileName, listMarkdown, markdownUrl, mayHoldKey, publicUrl, readDraft, slugify } from "./listText";
+import { draftProblem, escapeMarkdown, escapeProse, fileName, fileSlug, listMarkdown, markdownUrl, mayHoldKey, publicUrl, readDraft, slugify, titleFileName } from "./listText";
 
 const text = JSON.stringify({
   format: "koona",
@@ -100,5 +100,18 @@ describe("the preview of a built list", () => {
     expect(slugify("Блоги")).toBe("");
     expect(fileName("")).toBe("list.kpin");
     expect(fileName("rust-blogs")).toBe("rust-blogs.kpin");
+  });
+
+  it("names the file after the title in any script", () => {
+    expect(titleFileName("Мои ссылки")).toBe("мои-ссылки.kpin");
+    expect(titleFileName("Блоги о Rust: 2026!")).toBe("блоги-о-rust-2026.kpin");
+    expect(titleFileName("東京 links")).toBe("東京-links.kpin");
+    expect(titleFileName("🦀🔗 ✨")).toBe("list.kpin");
+    expect(titleFileName('a/b\\c:d*e?f"g<h>i|j\u0007k')).toBe("a-b-c-d-e-f-g-h-i-j-k.kpin");
+    expect([...fileSlug("я".repeat(100))].length).toBe(64);
+    // macOS hands titles over in NFD; the accents and the Hindi virama stay with their letters.
+    expect(titleFileName("Résumé".normalize("NFD"))).toBe("résumé.kpin");
+    expect(titleFileName("मेरी सूची")).toBe("मेरी-सूची.kpin");
+    expect(titleFileName("Λίστα ΟΔΟΣ")).toBe("λίστα-οδος.kpin");
   });
 });

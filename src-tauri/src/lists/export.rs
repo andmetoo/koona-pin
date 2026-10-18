@@ -116,15 +116,45 @@ pub fn file_name(id: &str) -> String {
     format!("{}.kpin", slug(id).unwrap_or_else(|| "list".to_owned()))
 }
 
+/// Names Windows keeps for devices, whatever the extension.
+const RESERVED: [&str; 4] = ["con", "prn", "aux", "nul"];
+
+/// The file name the app suggests (`listText.ts` makes it from the title),
+/// made safe on every system: no `/ \ : * ? " < > |` or control
+/// characters, no trailing dots or spaces, at most 64 characters, a device
+/// name of Windows given `-list`, else `list`; always with `.kpin`.
+pub fn safe_file_name(name: &str) -> String {
+    let base = name.strip_suffix(".kpin").unwrap_or(name);
+    let kept: String = base.chars().filter(|c| !c.is_control() && !r#"/\:*?"<>|"#.contains(*c)).collect();
+    let capped: String = kept.trim_start().chars().take(ID_LEN).collect();
+    let mut base = capped.trim_end_matches(['.', ' ']).to_owned();
+    if base.is_empty() {
+        base = "list".to_owned();
+    }
+    let lower = base.to_ascii_lowercase();
+    let numbered = |prefix: &str| lower.len() == 4 && lower.starts_with(prefix) && lower.as_bytes()[3].is_ascii_digit();
+    if RESERVED.contains(&lower.as_str()) || numbered("com") || numbered("lpt") {
+        base.push_str("-list");
+    }
+    format!("{base}.kpin")
+}
+
 /// «Save .kpin…»: the text the preview shows, checked as a reader would
-/// read it, through the system Save dialog, written as an export is.
+/// read it, through the system Save dialog, written as an export is. The
+/// `name` the app suggests names the file in any script; without it, `id`.
 #[tauri::command]
-pub async fn save_list(app: AppHandle, last: State<'_, LastExport>, text: String, id: String) -> Result<ExportOutcome, CommandError> {
+pub async fn save_list(
+    app: AppHandle,
+    last: State<'_, LastExport>,
+    text: String,
+    id: String,
+    name: Option<String>,
+) -> Result<ExportOutcome, CommandError> {
     use tauri_plugin_dialog::DialogExt;
     let checked = text.clone();
     let list = tauri::async_runtime::spawn_blocking(move || format::parse(&checked)).await.map_err(CommandError::internal)??;
     let count = (list.links.len() + list.feeds.len()) as u32;
-    let dialog = app.dialog().file().set_file_name(file_name(&id)).add_filter("Koona list", &["kpin"]);
+    let dialog = app.dialog().file().set_file_name(name.as_deref().map_or_else(|| file_name(&id), safe_file_name)).add_filter("Koona list", &["kpin"]);
     let dialog = crate::commands::over_main_window(&app, dialog);
     let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
         .await
@@ -160,5 +190,31 @@ mod tests {
         assert_eq!(slug(&"a".repeat(100)).map(|s| s.len()), Some(ID_LEN));
         assert_eq!(file_name("Rust blogs"), "rust-blogs.kpin");
         assert_eq!(file_name(""), "list.kpin");
+    }
+
+    #[test]
+    fn the_suggested_file_name_is_kept_in_any_script_and_made_safe() {
+        assert_eq!(safe_file_name("мои-ссылки.kpin"), "мои-ссылки.kpin");
+        assert_eq!(safe_file_name("मेरी-सूची"), "मेरी-सूची.kpin");
+        assert_eq!(safe_file_name("a/b\\c:d*e?f\"g<h>i|j\u{7}k\n.kpin"), "abcdefghijk.kpin");
+        assert_eq!(safe_file_name(" notes. . "), "notes.kpin");
+        assert_eq!(safe_file_name("..."), "list.kpin");
+        assert_eq!(safe_file_name(""), "list.kpin");
+        let long = safe_file_name(&"я".repeat(100));
+        assert_eq!(long.trim_end_matches(".kpin").chars().count(), ID_LEN);
+        // The id in the file stays ASCII.
+        assert_eq!(slug("Мои ссылки"), None);
+    }
+
+    #[test]
+    fn a_device_name_of_windows_gets_a_suffix() {
+        for name in ["con", "PRN", "Aux", "nul.kpin", "com1", "COM0", "lpt9"] {
+            let safe = safe_file_name(name);
+            assert!(safe.ends_with("-list.kpin"), "{name} → {safe}");
+        }
+        assert_eq!(safe_file_name("CON"), "CON-list.kpin");
+        for name in ["console", "com", "com10", "lptx", "nulls"] {
+            assert_eq!(safe_file_name(name), format!("{name}.kpin"));
+        }
     }
 }

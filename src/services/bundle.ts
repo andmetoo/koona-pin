@@ -116,13 +116,12 @@ export function createBundle() {
     state = { ...state, ...next };
     listeners.forEach((listener) => listener());
   };
-  const has = (key: string) => state.sections.some((s) => s.entries.some((e) => entryKey(e) === key));
-  /** The entries not in the bundle yet, each once. */
+  /** The entries not in the bundle yet, each once; the bundle's keys are gathered once per add. */
   const fresh = (entries: BundleEntry[]) => {
-    const seen = new Set<string>();
+    const seen = new Set<string>(state.sections.flatMap((s) => s.entries.map(entryKey)));
     return entries.filter((e) => {
       const key = entryKey(e);
-      if (seen.has(key) || has(key)) return false;
+      if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
