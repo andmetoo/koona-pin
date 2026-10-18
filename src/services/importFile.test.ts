@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CAPS, HEAD, LARGEST, classify, readDropped, readFile, sniff, sniffHead, topLevelFormat } from "./importFile";
+import { CAPS, HEAD, LARGEST, known, readDropped, readFile, sniff, sniffHead, topLevelFormat } from "./importFile";
 
 const LIST = '{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Rust","items":[]}';
 const COPY = '{"format":"koona-pin","version":1,"bookmarks":[]}';
@@ -116,10 +116,11 @@ describe("topLevelFormat", () => {
     const big = `{"format":"koona-pin","version":1,"bookmarks":[${'{"url":"https://example.org"},'.repeat(200_000)}`;
     expect(big.length).toBeGreaterThan(CAPS.kpin);
     expect(sniff(big)).toBe("backup");
-    // A format past the head: a list-sized file is parsed whole, a bigger one is refused.
+    // A format past the head: found by a scan of the whole text (caps are `known`'s).
     const late = (size: number) => `{"blob":"${"x".repeat(size)}","format":"koona"}`;
     expect(sniff(late(64 * 1024))).toBe("kpin");
-    expect(sniff(late(CAPS.kpin))).toBeNull();
+    expect(sniff(late(CAPS.kpin))).toBe("kpin");
+    expect(sniff(`{"blob":"${"x".repeat(HEAD)}","meta":{"format":"koona"}}`)).toBeNull();
     // From its head alone the late one is not known yet.
     expect(sniffHead(late(64 * 1024))).toBeUndefined();
   });
@@ -139,8 +140,9 @@ describe("readFile", () => {
   it("checks the cap of each kind", async () => {
     expect(CAPS).toEqual({ kpin: 2 * 1024 * 1024, opml: 8 * 1024 * 1024, bookmarks: 64 * 1024 * 1024, backup: 256 * 1024 * 1024 });
     for (const [kind, text] of [["kpin", LIST], ["opml", OPML], ["bookmarks", NETSCAPE], ["backup", COPY]] as const) {
-      expect(classify("f", CAPS[kind], text)).toMatchObject({ kind });
-      expect(classify("f", CAPS[kind] + 1, text)).toEqual({ refused: "tooBig", cap: CAPS[kind] });
+      // The file's size is what a cap checks; its text stands for it.
+      expect(await known("f", CAPS[kind], text, () => Promise.resolve(text))).toMatchObject({ kind });
+      expect(await known("f", CAPS[kind] + 1, text, () => Promise.resolve(text))).toEqual({ refused: "tooBig", cap: CAPS[kind] });
     }
     // Real files at the list's cap and one byte over.
     expect(await readFile(sized(LIST, CAPS.kpin, "just-fits.kpin"))).toMatchObject({ kind: "kpin" });
@@ -180,14 +182,35 @@ describe("readFile", () => {
     w = watched("%PDF-1.7", 100 * 1024 * 1024);
     expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
     expect(w.reads).toEqual([`head 0-${HEAD}`]);
-    // A format past the head: a list-sized file is read whole once; a bigger one not at all.
+    // A format past the head: read whole once, then held to the cap of the kind found.
     const late = `{"blob":"${"x".repeat(HEAD)}","format":"koona"}`;
     w = watched(late, late.length);
     expect(await readFile(w.file)).toMatchObject({ kind: "kpin", text: late });
     expect(w.reads).toEqual([`head 0-${HEAD}`, "whole"]);
     w = watched(late, CAPS.kpin + 1);
-    expect(await readFile(w.file)).toEqual({ refused: "unsupported" });
-    expect(w.reads).toEqual([`head 0-${HEAD}`]);
+    expect(await readFile(w.file)).toEqual({ refused: "tooBig", cap: CAPS.kpin });
+    expect(w.reads).toEqual([`head 0-${HEAD}`, "whole"]);
+  });
+
+  it("knows a 3 MB backup whose format comes last, and refuses 3 MB of other JSON", async () => {
+    const blob = (format: string) =>
+      `{"bookmarks":[${'{"url":"https://example.org/a","title":"A"},'.repeat(75_000)}{"url":"https://example.org/z"}],"format":"${format}","version":1}`;
+    const copy = blob("koona-pin");
+    expect(copy.length).toBeGreaterThan(3 * 1024 * 1024);
+    expect(sniffHead(copy)).toBeUndefined();
+    expect(await readFile(new File([copy], "sorted.json"))).toMatchObject({ kind: "backup", text: copy });
+    const other = blob("something-else");
+    expect(await readFile(new File([other], "data.json"))).toEqual({ refused: "unsupported" });
+    const none = `{"rows":[${"[1,2,3],".repeat(400_000)}[4]],"meta":{"format":"koona-pin"}}`;
+    expect(none.length).toBeGreaterThan(3 * 1024 * 1024);
+    expect(await readFile(new File([none], "rows.json"))).toEqual({ refused: "unsupported" });
+  });
+
+  it("takes a small head that does not tell as the whole file, not read again", async () => {
+    const reads: string[] = [];
+    const text = '{"format":"koo';
+    expect(await known("f", text.length, text, (cap) => (reads.push(`whole ${cap}`), Promise.resolve(text)))).toEqual({ refused: "unsupported" });
+    expect(reads).toEqual([]);
   });
 
   it("does not read a file over the largest cap", async () => {

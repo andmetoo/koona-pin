@@ -46,14 +46,14 @@ const skipSpace = (text: string, at: number) => {
 };
 
 /**
- * The top-level `format` of a JSON object, read from its head without parsing the rest (a full
- * copy may weigh 256 MB): its string value; `null` when the object has none, or not a string; or
- * `undefined` when the head does not tell. Only the shape is followed and nested values are
- * skipped: Rust validates the whole file afterwards (format.rs, restore.rs), so a broken tail is
- * refused there.
+ * The top-level `format` of a JSON object, read from its first `limit` characters without parsing
+ * them (a full copy may weigh 256 MB): its string value; `null` when the object has none, or not
+ * a string; or `undefined` when those characters do not tell. Only the shape is followed and
+ * nested values are skipped: Rust validates the whole file afterwards (format.rs, restore.rs), so
+ * a broken tail is refused there.
  */
-export function topLevelFormat(json: string): string | null | undefined {
-  const text = json.slice(0, HEAD);
+export function topLevelFormat(json: string, limit = HEAD): string | null | undefined {
+  const text = json.length > limit ? json.slice(0, limit) : json;
   let depth = 0;
   let keyNext = false;
   for (let i = 0; i < text.length; i++) {
@@ -134,19 +134,13 @@ const byFormat = (format: string | null): ImportKind | null =>
 
 /**
  * The kind of a whole file by its text: by its head (`sniffHead`), and for a JSON whose `format`
- * is past the head (written by hand, not by Koona Pin), a file of a list's size is parsed whole.
+ * is past the head (keys sorted by a tool, or written by hand) by the same scan over all of it,
+ * still without parsing it. Caps are the caller's (`known`).
  */
 export function sniff(text: string): ImportKind | null {
   const kind = sniffHead(text);
   if (kind !== undefined) return kind;
-  const start = text.replace(/^\uFEFF/, "").trimStart();
-  if (start.length > CAPS.kpin) return null;
-  try {
-    const value = (JSON.parse(start) as { format?: unknown } | null)?.format;
-    return byFormat(typeof value === "string" ? value : null);
-  } catch {
-    return null;
-  }
+  return byFormat(topLevelFormat(text.replace(/^\uFEFF/, "").trimStart(), Infinity) ?? null);
 }
 
 /** A file read and known. */
@@ -157,21 +151,15 @@ export type ImportRefusal = { refused: "unsupported" } | { refused: "tooBig"; ca
 
 export const isRefusal = (read: ImportFile | ImportRefusal): read is ImportRefusal => "refused" in read;
 
-/** The text of a file of `bytes`, known or refused: its kind, then the cap of that kind. */
-export function classify(name: string, bytes: number, text: string): ImportFile | ImportRefusal {
-  const kind = sniff(text);
-  if (!kind) return { refused: "unsupported" };
-  if (bytes > CAPS[kind]) return { refused: "tooBig", cap: CAPS[kind] };
-  return { kind, name, text };
-}
-
 /**
- * A file of `bytes` known by its `head`, then read whole by `whole` (up to a cap; `null` past it)
- * only once its kind is known and under that kind's cap; a head of the whole file is not read
- * again. A JSON whose `format` is past the head is read whole only when it is no bigger than a
- * list. The whole text must be of the kind its head was: a file changed in between is refused.
+ * The one place of the sniff and cap rules. A file of `bytes` known by its `head`, then read
+ * whole by `whole` (up to a cap; `null` past it) only once its kind is known and under that
+ * kind's cap; a head of the whole file is not read again. A JSON whose `format` is past the head
+ * is read whole under the largest cap (a full copy's), known by a scan of all of it, then held to
+ * its kind's cap. The whole text must be of the kind its head was: a file changed in between is
+ * refused. Exported for tests.
  */
-async function known(
+export async function known(
   name: string,
   bytes: number,
   head: string,
@@ -180,9 +168,9 @@ async function known(
   let kind = sniffHead(head);
   let text: string | null = null;
   if (kind === undefined) {
-    if (bytes > CAPS.kpin) return { refused: "unsupported" };
-    text = await whole(CAPS.kpin);
-    if (text === null) return { refused: "tooBig", cap: CAPS.kpin };
+    if (bytes > CAPS.backup) return { refused: "tooBig", cap: CAPS.backup };
+    text = bytes <= HEAD ? head : await whole(CAPS.backup);
+    if (text === null) return { refused: "tooBig", cap: CAPS.backup };
     kind = sniff(text);
   }
   if (!kind) return { refused: "unsupported" };
@@ -246,4 +234,4 @@ export async function pick(): Promise<ImportFile | ImportRefusal | null> {
   return file ? readFile(file) : null;
 }
 
-export const importFile = { sniff, sniffHead, classify, readFile, readDropped, pick };
+export const importFile = { sniff, sniffHead, readFile, readDropped, pick };
