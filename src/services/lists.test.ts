@@ -21,6 +21,7 @@ const preview = (over: Partial<ListPreview> = {}): ListPreview => ({
   links: 3,
   feeds: 2,
   sections: 2,
+  sectioned_links: 3,
   new_links: 2,
   already_saved: 1,
   in_trash: 0,

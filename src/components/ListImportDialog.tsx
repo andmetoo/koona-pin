@@ -223,13 +223,19 @@ export function ListImportDialog({
   );
 
   const counts = (p: ListPreview) => {
-    const first = [t("import.links", { count: p.links }), t("import.opmlFeeds", { count: p.feeds }), p.sections > 0 && t("lists.sections", { count: p.sections })].filter(Boolean);
+    const first = [
+      p.links > 0 && t("import.links", { count: p.links }),
+      p.feeds > 0 && t("import.opmlFeeds", { count: p.feeds }),
+      p.sections > 0 && t("lists.sections", { count: p.sections }),
+    ].filter(Boolean);
+    // Items of a type this version does not know are skipped in every version, not only a newer one.
+    const skipped = p.not_web + p.invalid + p.skipped_items;
     const second = [
       p.already_saved > 0 && t("lists.alreadySaved", { count: p.already_saved }),
       p.in_trash > 0 && t("lists.inTrash", { count: p.in_trash }),
       p.feeds_followed > 0 && t("lists.feedsFollowed", { count: p.feeds_followed }),
       p.repeated > 0 && t("lists.repeated", { count: p.repeated }),
-      p.not_web + p.invalid > 0 && t("lists.skipped", { count: p.not_web + p.invalid }),
+      skipped > 0 && t("lists.skipped", { count: skipped }),
     ].filter(Boolean);
     return (
       <div data-list-counts>
@@ -323,7 +329,8 @@ export function ListImportDialog({
           </div>
           <div className="flex flex-col gap-3.5">
             {row(t("lists.toInbox"), t("lists.toInboxHint"), <Switch label={t("lists.toInbox")} checked={choices.toInbox} onChange={(toInbox) => set({ toInbox })} />)}
-            {p.sections > 0 &&
+            {/* Only links take tags: sections of feeds alone change nothing. */}
+            {p.sectioned_links > 0 &&
               row(
                 t("lists.sectionsTitle"),
                 t("lists.sectionsHint"),

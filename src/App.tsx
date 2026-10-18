@@ -431,8 +431,8 @@ export function App() {
       const data = e.dataTransfer;
       if (kind === "file") {
         if (!importBlocked()) dropFileRef.current(data?.files);
-        // A list downloading or importing cannot be replaced: that is said, not dropped in silence.
-        else if (openRequests.busy()) sayRef.current(t("add.dropImportBusy"), true);
+        // Another list while one is open is refused: that is said, not dropped in silence.
+        else if (openRequests.current()) sayRef.current(t("add.dropImportBusy"), true);
         return;
       }
       const url = linkFrom(data?.getData("text/uri-list"), true) ?? linkFrom(data?.getData("text/plain"));
@@ -472,8 +472,9 @@ export function App() {
     }
     listShown.current = listOpen;
   }, [surface, list, listKept, listOpen]);
-  const listOpenRef = useRef(listOpen);
-  listOpenRef.current = listOpen;
+  // Rust brings the window forward for a list only when the interface has none (open_requests.rs).
+  const listPending = !!list.request;
+  useEffect(() => void api.setListOpen(listPending).catch(console.error), [listPending]);
   // A dropped file belongs to the import dialog it opened: any other surface lets it go, so
   // «Import…» opened later starts empty.
   useEffect(() => {
@@ -486,14 +487,15 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [fresh]);
   // The first close without a tray explains that the app keeps running (NP-096).
-  // While the list dialog is open (an import cannot stop), it waits for that dialog to close.
+  // A list dialog that downloads or imports holds it until it is done; an idle one is closed.
   const [backgroundWaits, setBackgroundWaits] = useState(false);
-  useEffect(() => api.onCloseToBackground(() => (listOpenRef.current ? setBackgroundWaits(true) : setSurface("background"))), []);
+  useEffect(() => api.onCloseToBackground(() => setBackgroundWaits(true)), []);
   useEffect(() => {
-    if (!backgroundWaits || listOpen) return;
+    if (!backgroundWaits || list.busy) return;
     setBackgroundWaits(false);
+    openRequests.done();
     setSurface("background");
-  }, [backgroundWaits, listOpen]);
+  }, [backgroundWaits, list.busy]);
   useEffect(() => {
     const off = api.onUpdateStatus(setUpdate);
     void api.getUpdateStatus().then(setUpdate).catch(() => {});

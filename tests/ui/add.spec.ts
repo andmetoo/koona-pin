@@ -260,9 +260,8 @@ test("a dropped file: a .kpin list opens its dialog, OPML and bookmarks open the
   await expect(veil).toHaveCount(0);
   await expect(alert("Koona Pin imports .kpin lists, OPML and bookmarks files")).toBeVisible();
 
-  // A list opens the list dialog (NP-138); a file dragged over it is not taken. A koonapin:// link
-  // while it only shows something replaces it (lists.spec.ts: one downloading or importing refuses
-  // it, aloud).
+  // A list opens the list dialog (NP-138); a file dragged over it is not taken, and another list
+  // while it is open is refused (said aloud: lists.spec.ts).
   await drop([{ name: "x.kpin", text: "{}" }]);
   const list = page.getByRole("dialog", { name: "Import list" });
   await expect(list).toContainText("This file can't be imported");
@@ -273,8 +272,8 @@ test("a dropped file: a .kpin list opens its dialog, OPML and bookmarks open the
     const { openRequests } = await import("/src/services/openRequests.ts");
     return openRequests.push({ kind: "kpin-url", url: "https://example.com/y.kpin" });
   });
-  expect(pushed).toBe(true);
-  await expect(list).toContainText("Download a list from example.com?");
+  expect(pushed).toBe(false);
+  await expect(list).toContainText("This file can't be imported");
   await page.keyboard.press("Escape");
   await expect(list).toHaveCount(0);
 

@@ -116,16 +116,28 @@ test("a list: the preview, choices, the import and its report, then «Show colle
   await expect(d).toHaveCount(0);
 });
 
-test("an import cannot be stopped or replaced; an idle dialog gives way to a new request", async ({ page }) => {
+/** A `.kpin` dropped on the window, as a webview delivers it. */
+const dropList = (page: Page) =>
+  page.evaluate(() => {
+    for (const type of ["dragenter", "drop"]) {
+      const data = new DataTransfer();
+      data.items.add(new File(["{}"], "other.kpin"));
+      document.body.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
+    }
+  });
+const busyAlert = (page: Page) => page.locator("[role=alert]", { hasText: "Another import is open — finish it first" });
+
+test("an open list dialog refuses another list in every state, aloud; an import cannot be stopped", async ({ page }) => {
   const d = dialog(page);
-  // A new request while the dialog only shows the preview replaces it, as a fresh dialog.
+  // While the preview shows, another list is refused and the dialog keeps what was chosen.
   expect(await push(page, { kind: "kpin", name: "rust-blogs.kpin", text: kpin("valid.kpin") })).toBe(true);
   await expect(d).toContainText("Rust blogs worth following");
   await d.getByRole("radio", { name: "Ignore" }).click();
-  expect(await push(page, { kind: "kpin", name: "v2.kpin", text: kpin("version-2.kpin") })).toBe(true);
-  await expect(d.getByRole("status")).toHaveText("Update Koona Pin to open this list");
-  expect(await push(page, { kind: "kpin", name: "rust-blogs.kpin", text: kpin("valid.kpin") })).toBe(true);
-  await expect(d.getByRole("radio", { name: "As tags" })).toHaveAttribute("aria-checked", "true");
+  expect(await push(page, { kind: "kpin", name: "v2.kpin", text: kpin("version-2.kpin") })).toBe(false);
+  await dropList(page);
+  await expect(busyAlert(page)).toHaveCount(1);
+  await expect(d).toContainText("Rust blogs worth following");
+  await expect(d.getByRole("radio", { name: "Ignore" })).toHaveAttribute("aria-checked", "true");
 
   // The import waits for the test to let it finish.
   await page.evaluate(async () => {
@@ -142,15 +154,12 @@ test("an import cannot be stopped or replaced; an idle dialog gives way to a new
   await expect(d.getByRole("button", { name: "Close" })).toBeDisabled();
   // Another list meanwhile is refused, and a dropped one is refused aloud.
   expect(await push(page, { kind: "kpin-url", url: "https://example.com/other.kpin" })).toBe(false);
-  await page.evaluate(() => {
-    for (const type of ["dragenter", "drop"]) {
-      const data = new DataTransfer();
-      data.items.add(new File(["{}"], "other.kpin"));
-      document.body.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
-    }
-  });
-  await expect(page.locator("[role=alert]", { hasText: "Another import is open — finish it first" })).toHaveCount(1);
+  await dropList(page);
+  await expect(busyAlert(page)).toHaveCount(1);
   await page.evaluate(() => (window as unknown as { finish: () => void }).finish());
+  await expect(d.getByRole("status")).toHaveText("List imported");
+  // The report too: a list is refused until the dialog is closed.
+  expect(await push(page, { kind: "kpin-url", url: "https://example.com/other.kpin" })).toBe(false);
   await expect(d.getByRole("status")).toHaveText("List imported");
   await page.keyboard.press("Escape");
   await expect(d).toHaveCount(0);
@@ -224,6 +233,27 @@ test("a newer 1.x list says what was skipped; «Import…» takes a .kpin to the
   await expect(page.getByRole("dialog", { name: "Import bookmarks" })).toHaveCount(0);
   await expect(d.locator("[data-list-newer]")).toContainText("Made in a newer Koona Pin (list 1.1)");
   await expect(d.locator("[data-list-newer]")).toContainText("Skipped as unknown to this version: 1 item.");
+  // The counts name only what there is, and the unknown item is among the skipped.
+  await expect(d.locator("[data-list-counts]")).toHaveText("1 link · 1 feed1 skipped");
+  await d.getByRole("button", { name: "Cancel" }).click();
+  await expect(d).toHaveCount(0);
+
+  // An item of an unknown type is skipped in a 1.0 list too.
+  const list = (version: string, sections: unknown[], items: unknown[]) =>
+    JSON.stringify({ format: "koona", app: "pin", kind: "list", version, title: "Mixed", sections, items });
+  await push(page, { kind: "kpin", name: "older.kpin", text: list("1.0", [], [{ type: "link", url: "https://example.com/older" }, { type: "note", text: "x" }]) });
+  await expect(d.locator("[data-list-counts]")).toHaveText("1 link1 skipped");
+  await expect(d.locator("[data-list-newer]")).toHaveCount(0);
+  await d.getByRole("button", { name: "Cancel" }).click();
+
+  // Sections of feeds alone: «Sections» would change nothing, so it is not offered.
+  await push(page, {
+    kind: "kpin",
+    name: "feeds-section.kpin",
+    text: list("1.0", [{ name: "Feeds", items: [{ type: "feed", url: "https://example.com/feed.xml" }] }], [{ type: "link", url: "https://example.com/plain" }]),
+  });
+  await expect(d.locator("[data-list-counts]")).toHaveText("1 link · 1 feed · 1 section");
+  await expect(d).not.toContainText("Collections are flat: sections become tags.");
   await d.getByRole("button", { name: "Cancel" }).click();
   await expect(d).toHaveCount(0);
 });

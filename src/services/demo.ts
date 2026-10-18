@@ -1859,6 +1859,7 @@ export const demo = {
         links: list.links.length,
         feeds: list.feeds.length,
         sections: list.sections,
+        sectioned_links: list.links.filter((l) => l.sections.length > 0).length,
         new_links: list.links.length - saved - trashed,
         already_saved: saved,
         in_trash: trashed,
@@ -1961,6 +1962,10 @@ export const demo = {
     return { outcome: "unreachable" };
   },
   async cancelListDownload(): Promise<void> {},
+  /** The preview has no second copy of the app to bring forward. */
+  async setListOpen(open: boolean): Promise<void> {
+    void open;
+  },
   onListDownloadProgress(fn: (progress: ListDownloadProgress) => void) {
     demoListDownloads.add(fn);
     return () => {
