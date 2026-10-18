@@ -28,6 +28,101 @@ export const phoneCapabilities = {
 export type SystemSignals = { powerSave: boolean; lowRam: boolean; textScale: number };
 const CALM: SystemSignals = { powerSave: false, lowRam: false, textScale: 1 };
 
+/**
+ * Android's font size as the WebView draws it (its text zoom, which the koona-mobile plugin keeps
+ * equal to the system's font scale): every `font-size` and every `line-height` given as a length
+ * grows by `scale`, boxes with a fixed size do not. Chromium in the tests has no text zoom (nor
+ * does `--blink-settings=accessibilityFontScaleFactor` reach a page here), and `zoom` would grow
+ * the boxes too, so the page's style rules and inline styles are rewritten: each such value
+ * becomes `calc((value) * scale)`, again whenever the scale changes or a stylesheet arrives.
+ * Sizes in `em` and `%` and unitless line heights follow their scaled parents by themselves.
+ * Runs in the page, before its scripts (`page.addInitScript`); `window.__textZoom(scale)` rescales.
+ */
+function textZoom(initial: number) {
+  let scale = initial;
+  const PROPS = ["font-size", "line-height"];
+  /** A length: px or rem, or what a variable or a calc() may give. A bare number is a factor. */
+  const length = (value: string) => /px|rem|var\(|calc\(/.test(value);
+  const originals = new Map<CSSStyleDeclaration, Record<string, string>>();
+  const zoomed = (value: string) => (scale === 1 ? value : `calc((${value}) * ${scale})`);
+  function zoom(style: CSSStyleDeclaration) {
+    let own = originals.get(style);
+    if (!own) {
+      own = {};
+      for (const prop of PROPS) {
+        const value = style.getPropertyValue(prop);
+        if (value && length(value)) own[prop] = value;
+      }
+      if (!Object.keys(own).length) return;
+      originals.set(style, own);
+    }
+    for (const [prop, value] of Object.entries(own)) style.setProperty(prop, zoomed(value), style.getPropertyPriority(prop));
+  }
+  function walk(rules: CSSRuleList) {
+    for (const rule of Array.from(rules)) {
+      if ("style" in rule) zoom((rule as CSSStyleRule).style);
+      if ("cssRules" in rule) walk((rule as CSSGroupingRule).cssRules);
+    }
+  }
+  const seen = new WeakSet<CSSStyleSheet>();
+  function sheets() {
+    for (const sheet of Array.from(document.styleSheets)) {
+      if (seen.has(sheet)) continue;
+      try {
+        walk(sheet.cssRules);
+        seen.add(sheet);
+      } catch {
+        // Not loaded yet, or another origin's.
+      }
+    }
+  }
+  /** What the inline styles read after the zoom wrote them (the browser simplifies a calc()). */
+  const written = new WeakMap<CSSStyleDeclaration, Record<string, string>>();
+  /** An inline style React wrote (a feed's letter, the reader's sample sizes): its own value, unless it is ours. */
+  function inline(el: Element) {
+    const style = (el as HTMLElement).style;
+    if (!style) return;
+    const own = originals.get(style) ?? {};
+    const ours = written.get(style) ?? {};
+    for (const prop of PROPS) {
+      const value = style.getPropertyValue(prop);
+      if (value && length(value) && value !== ours[prop]) own[prop] = value;
+    }
+    if (!Object.keys(own).length) return;
+    originals.set(style, own);
+    written.set(style, ours);
+    for (const [prop, value] of Object.entries(own)) {
+      if (style.getPropertyValue(prop) === ours[prop]) continue;
+      style.setProperty(prop, zoomed(value));
+      ours[prop] = style.getPropertyValue(prop);
+    }
+  }
+  const watch = new MutationObserver((records) => {
+    sheets();
+    for (const record of records) {
+      if (record.type === "attributes") inline(record.target as Element);
+      for (const node of Array.from(record.addedNodes)) {
+        if (node instanceof Element) {
+          inline(node);
+          for (const el of Array.from(node.querySelectorAll("[style]"))) inline(el);
+        }
+      }
+    }
+  });
+  watch.observe(document, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["style"] });
+  document.addEventListener("DOMContentLoaded", sheets);
+  window.addEventListener("load", sheets);
+  (window as unknown as { __textZoom: (next: number) => void }).__textZoom = (next) => {
+    scale = next;
+    for (const [style, own] of originals)
+      for (const [prop, value] of Object.entries(own)) {
+        style.setProperty(prop, zoomed(value), style.getPropertyPriority(prop));
+        const ours = written.get(style);
+        if (ours) ours[prop] = style.getPropertyValue(prop);
+      }
+  };
+}
+
 /** The frames' iPhone: a 54 status bar and a 34 home indicator. */
 const FRAME_INSETS = { top: 54, right: 0, bottom: 34, left: 0 };
 
@@ -56,6 +151,7 @@ export async function openPhone(
   } = {},
 ) {
   await page.setViewportSize(viewport);
+  await page.addInitScript(textZoom, system.textScale);
   await page.addInitScript(
     ({ capabilities, insets, theme, settings, system }) => {
       const w = window as unknown as Record<string, unknown>;
@@ -67,6 +163,7 @@ export async function openPhone(
         system: () => ({ ...signals }),
         systemChanged: (next: typeof system) => {
           signals = next;
+          (w.__textZoom as (scale: number) => void)(next.textScale);
           window.dispatchEvent(new Event("koona-system"));
         },
       };
