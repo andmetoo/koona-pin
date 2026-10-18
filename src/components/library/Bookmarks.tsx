@@ -455,12 +455,15 @@ const HALO_FADE_MS = 300;
 /**
  * The copy behind a selected preview: its picture over its cover's gradient, so a
  * picture that fails still leaves the colour. The same address as the preview's
- * image: the browser's cache answers, nothing is downloaded again.
+ * image: the browser's cache answers, nothing is downloaded again. Two variables,
+ * so Linux can keep the colour without the blurred picture (`app.css`).
  */
 function haloOf(b: Bookmark) {
   const cover = coverOf(b.domain, b.url);
-  const gradient = `linear-gradient(${cover.angle}deg, ${cover.from}, ${cover.to})`;
-  return b.image_url ? `url(${JSON.stringify(b.image_url)}), ${gradient}` : gradient;
+  return {
+    "--halo-picture": b.image_url ? `url(${JSON.stringify(b.image_url)})` : "none",
+    "--halo-colour": `linear-gradient(${cover.angle}deg, ${cover.from}, ${cover.to})`,
+  } as CSSProperties;
 }
 
 /** Height of a card below its preview: 10 + domain 15 + 10 + two title lines 38 (frame 01). */
@@ -510,7 +513,7 @@ export const BookmarkCard = memo(function BookmarkCard({
       {/* The preview in its ring (`app.css`, «grid card»): selected, it sinks into a frosted
           copy of its picture and a glass check marks it; hovered, glass buttons in its corner. */}
       <div data-ring className="card-ring">
-        {halo && <span aria-hidden className="card-halo" style={{ backgroundImage: haloOf(b) }} />}
+        {halo && <span aria-hidden className="card-halo" style={haloOf(b)} />}
         <div data-preview className="card-preview">
           <Preview b={b} live />
         </div>
