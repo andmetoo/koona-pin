@@ -10,11 +10,13 @@ export type Tab = (typeof TABS)[number];
 
 /**
  * A screen pushed over a tab; the nav pill hides while one is open. Add a route here with its
- * screen in ../screens/registry.ts.
+ * screen in ../ScreenStack.tsx (and its pane on the Fold in {@link paneOf}).
  */
 export type Route =
   /** R1: a bookmark in the reader. */
   | { name: "reader"; bookmarkId: number }
+  /** FL1: a bookmark's detail in the Fold's detail pane; a phone has none and reads it ({@link forPhone}). */
+  | { name: "bookmark"; bookmarkId: number }
   /** A feed's post (F1 → post view); `feedUid` null: opened from All feeds. */
   | { name: "post"; feedUid: string | null; itemId: number }
   /** Q1: search over the library. */
@@ -61,4 +63,61 @@ export function replaceTop(stack: Stack, route: Route): Stack {
 export function back(stack: Stack): Stack | null {
   if (atRoot(stack)) return null;
   return { ...stack, routes: stack.routes.slice(0, -1) };
+}
+
+/**
+ * Where a route shows on the Fold (two panes, NP-072b wave 2): Search takes the list pane's place;
+ * a bookmark, the reader, a post and Settings fill the detail pane on the far side.
+ */
+export const paneOf = (route: Route): "list" | "detail" => (route.name === "search" ? "list" : "detail");
+
+/** How many routes from the bottom belong to the list: up to the topmost list route. */
+function listDepth(stack: Stack) {
+  for (let i = stack.routes.length - 1; i >= 0; i--) if (paneOf(stack.routes[i]) === "list") return i + 1;
+  return 0;
+}
+
+const sameRoute = (a: Route, b: Route) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * A tap on a row on the Fold: the bookmark or post becomes the detail pane's only route above the
+ * list (what showed there closes), so Back clears the selection first. The same stack when it is
+ * the one shown already.
+ */
+export function select(stack: Stack, route: Route): Stack {
+  const keep = listDepth(stack);
+  const above = stack.routes.slice(keep);
+  if (above.length === 1 && sameRoute(above[0], route)) return stack;
+  return { ...stack, routes: [...stack.routes.slice(0, keep), route] };
+}
+
+/** What the Fold's detail pane shows: the topmost detail route, or null with nothing selected. */
+export function detailOf(stack: Stack): Route | null {
+  for (let i = stack.routes.length - 1; i >= 0; i--) if (paneOf(stack.routes[i]) === "detail") return stack.routes[i];
+  return null;
+}
+
+/**
+ * The stack as a phone shows it once the Fold closes: a bookmark's detail becomes its reader, and a
+ * reader opened from that detail stays alone, not twice. The same stack when nothing changes.
+ */
+export function forPhone(stack: Stack): Stack {
+  if (!stack.routes.some((r) => r.name === "bookmark")) return stack;
+  const routes: Route[] = [];
+  stack.routes.forEach((route, i) => {
+    if (route.name !== "bookmark") return void routes.push(route);
+    const next = stack.routes[i + 1];
+    if (next?.name === "reader" && next.bookmarkId === route.bookmarkId) return;
+    routes.push({ name: "reader", bookmarkId: route.bookmarkId });
+  });
+  return { ...stack, routes };
+}
+
+/**
+ * Closes the topmost route named `name` and everything opened over it (Search's Cancel on the Fold
+ * also closes the result chosen from it). The same stack when no such route is open.
+ */
+export function leave(stack: Stack, name: RouteName): Stack {
+  for (let i = stack.routes.length - 1; i >= 0; i--) if (stack.routes[i].name === name) return { ...stack, routes: stack.routes.slice(0, i) };
+  return stack;
 }

@@ -18,7 +18,7 @@ import { Chip, Segmented } from "../ui/controls";
 import { PhIcon } from "../ui/icons";
 import { Screen, Header } from "../ui/Screen";
 
-/** Grid cards: at least this wide (two columns on a phone, more on the Fold's list pane), 12 apart. */
+/** Grid cards: at least this wide (two columns on a phone and in the Fold's list pane, more where wider), 12 apart. */
 const CARD_MIN = 160;
 const CARD_GAP = 12;
 /** L2's card: the picture inset 4 at 166.5 × 109; title, meta and padding below it (scaledSizes). */
@@ -47,7 +47,7 @@ type ChipValue = "all" | "favorites" | number;
  * desktop; pull to refresh at the top.
  */
 export function LibraryScreen({ section, hidden }: { section: "all" | "reading"; hidden: boolean }) {
-  const { app, stack, sheets } = usePhone();
+  const { app, stack, sheets, selected } = usePhone();
   const { t, i18n, library, filters, counts, sort, view, setView, navigate } = app;
   const reading = section === "reading";
   const title = reading ? t("phone.nav.reading") : t("phone.library.title");
@@ -104,7 +104,7 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
   const collections = useMemo(() => new Map(library.collections.map((c) => [c.id, c])), [library.collections]);
   const stackRef = useRef(stack);
   stackRef.current = stack;
-  const onOpen = useCallback((b: Bookmark) => stackRef.current.push({ name: "reader", bookmarkId: b.id }), []);
+  const onOpen = useCallback((b: Bookmark) => stackRef.current.openBookmark(b.id), []);
   const onMenu = useCallback((b: Bookmark) => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, bookmark: b } }), [sheets]);
   const dotOf = (b: Bookmark) => (b.collection_id !== null && collections.has(b.collection_id) ? collectionColor(b.collection_id) : null);
   const favorite = t("phone.library.favorite");
@@ -200,13 +200,14 @@ export function LibraryScreen({ section, hidden }: { section: "all" | "reading";
               onOpen={onOpen}
               onMenu={onMenu}
               first={entry.first}
+              selected={b.id === selected.bookmarkId}
               last={entry.last}
             />
           )}
           renderCards={(entry) => (
             <div className="lib-cards" style={{ "--columns": columns, "--lib-scale": scale, height: cardHeight } as CSSProperties}>
               {entry.items.map((b) => (
-                <BookmarkCard key={b.id} bookmark={b} dot={dotOf(b)} language={i18n.language} favorite={favorite} onOpen={onOpen} onMenu={onMenu} />
+                <BookmarkCard key={b.id} bookmark={b} dot={dotOf(b)} language={i18n.language} favorite={favorite} onOpen={onOpen} onMenu={onMenu} selected={b.id === selected.bookmarkId} />
               ))}
             </div>
           )}

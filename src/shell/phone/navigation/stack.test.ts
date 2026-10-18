@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { goBack, onBack } from "../../../platform/back";
-import { atRoot, back, initialStack, push, replaceTop, selectTab, topRoute } from "./stack";
+import { atRoot, back, detailOf, forPhone, initialStack, leave, paneOf, push, replaceTop, select, selectTab, topRoute } from "./stack";
 import { enterTab } from "./usePhoneStack";
 
 describe("the phone's stack", () => {
@@ -72,5 +72,51 @@ describe("system Back with the stack at the bottom", () => {
     expect(closed).toEqual(["sheet", "route"]);
     expect(goBack()).toBe(false);
     offStack();
+  });
+});
+
+describe("the Fold's two panes", () => {
+  const bookmark = (id: number) => ({ name: "bookmark" as const, bookmarkId: id });
+  const reader = (id: number) => ({ name: "reader" as const, bookmarkId: id });
+
+  it("puts Search in the list pane and the rest in the detail pane", () => {
+    expect(paneOf({ name: "search" })).toBe("list");
+    for (const route of [bookmark(1), reader(1), { name: "post" as const, feedUid: null, itemId: 2 }, { name: "settings" as const }]) expect(paneOf(route)).toBe("detail");
+  });
+
+  it("selects a row into the detail pane, replacing what showed there, above the list", () => {
+    let stack = select(initialStack(), bookmark(1));
+    expect(stack.routes).toEqual([bookmark(1)]);
+    stack = push(stack, reader(1));
+    stack = select(stack, bookmark(2));
+    expect(stack.routes).toEqual([bookmark(2)]);
+    // The same row again changes nothing.
+    expect(select(stack, bookmark(2))).toBe(stack);
+    // Search over the selection: a result is selected above Search, the older one stays under it.
+    stack = select(push(stack, { name: "search" }), bookmark(3));
+    expect(stack.routes).toEqual([bookmark(2), { name: "search" }, bookmark(3)]);
+    expect(detailOf(stack)).toEqual(bookmark(3));
+    expect(detailOf(back(stack)!)).toEqual(bookmark(2));
+    expect(detailOf(initialStack())).toBeNull();
+  });
+
+  it("Back clears the selection first, then says false at the tab's root", () => {
+    const stack = select(initialStack("feeds"), { name: "post", feedUid: "f", itemId: 4 });
+    expect(back(stack)).toEqual(initialStack("feeds"));
+    expect(back(back(stack)!)).toBeNull();
+  });
+
+  it("Cancel leaves Search with the result chosen from it", () => {
+    const stack = select(push(select(initialStack(), bookmark(1)), { name: "search" }), bookmark(2));
+    expect(leave(stack, "search").routes).toEqual([bookmark(1)]);
+    expect(leave(initialStack(), "search")).toEqual(initialStack());
+  });
+
+  it("folded, a bookmark's detail becomes its reader, once", () => {
+    const plain = push(initialStack(), reader(1));
+    expect(forPhone(plain)).toBe(plain);
+    expect(forPhone(select(initialStack(), bookmark(1))).routes).toEqual([reader(1)]);
+    expect(forPhone(push(select(initialStack(), bookmark(1)), reader(1))).routes).toEqual([reader(1)]);
+    expect(forPhone({ tab: "all", routes: [bookmark(1), { name: "search" }, bookmark(2)] }).routes).toEqual([reader(1), { name: "search" }, reader(2)]);
   });
 });

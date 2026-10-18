@@ -1,8 +1,9 @@
 import "../reader/reader.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ALargeSmall, BookmarkCheck, BookmarkPlus, ExternalLink, Heart } from "lucide-react";
+import { ALargeSmall, BookmarkCheck, BookmarkPlus, BookOpen, ExternalLink, Heart } from "lucide-react";
 import type { Route } from "../navigation/stack";
-import { usePhone } from "../PhoneContext";
+import { usePhone, usePrimaryAction } from "../PhoneContext";
+import { PaneBar } from "../fold/PaneBar";
 import { updatePost, usePost } from "../feeds/posts";
 import { phoneReaderLook, useScreenLook } from "../reader/look";
 import { ReaderBar } from "../reader/parts";
@@ -27,9 +28,13 @@ const READ_AFTER_MS = 1000;
  * Glass circles: Aa, open original, favourite and "Save as bookmark" — a post becomes a bookmark
  * only when saved (favourite saves it too, as the desktop's F does). A summary-only post offers
  * the full article, read from the page on that tap only. Back returns to the list.
+ *
+ * On the Fold (FL2) it fills the detail sheet beside Feeds: clear circles along its top — Aa on the
+ * outer side; open original, favourite and Reading next to the list — and Save as the rail's
+ * primary circle.
  */
 export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "post" }>; hidden: boolean }) {
-  const { app, stack, sheets } = usePhone();
+  const { app, stack, sheets, fold } = usePhone();
   const { t, i18n, readerLook } = app;
   const id = route.itemId;
   const item = usePost(id);
@@ -73,6 +78,7 @@ export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "p
   const url = post?.url ?? item?.url ?? null;
   const saved = !!bookmark || (item?.bookmark_id ?? null) !== null;
   const favorite = !!bookmark?.is_favorite;
+  const reading = !!bookmark?.reading_at;
 
   const name = feed ? feedName(feed) : null;
   const cached = useMemo(() => (post ? articleOfPost(post, name) : null), [post, name]);
@@ -83,8 +89,11 @@ export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "p
   const caption = useMemo(() => (leadPicture && post && item ? captionOf(item.excerpt, post.html) : null), [leadPicture, post, item]);
 
   const failed = (err: unknown) => app.say(describeError(err), true);
-  /** "Save as bookmark", and the heart: the post becomes a bookmark (the desktop's S and F). */
-  const save = async (kind: "library" | "favorite") => {
+  /**
+   * "Save as bookmark", the heart and (on the Fold) Reading: the post becomes a bookmark (the
+   * desktop's S, F and R); the heart and Reading again take a saved one out.
+   */
+  const save = async (kind: "library" | "favorite" | "reading") => {
     if (!url) return app.say(t("feeds.notice.noLink"), true);
     try {
       if (kind === "library" && saved) return app.say(t("feeds.notice.alreadySaved"));
@@ -93,24 +102,44 @@ export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "p
         await reload(bookmark.id);
         return app.say(t("feeds.notice.unfavorited"), false, app.undoing(command));
       }
-      const result = await saveFeedItem(id, "library", kind === "favorite");
+      if (kind === "reading" && bookmark?.reading_at) {
+        const { command } = await api.bulkUpdate([bookmark.id], { action: "reading", reading: false });
+        await reload(bookmark.id);
+        return app.say(t("notice.fromReading"), false, app.undoing(command));
+      }
+      const result = await saveFeedItem(id, kind === "reading" ? "reading" : "library", kind === "favorite");
       let command = result.command;
       let topped = false;
-      // A link already in the library comes back as it was: the heart still does what it says.
+      // A link already in the library comes back as it was: the heart and Reading still do what they say.
       if (kind === "favorite" && !result.bookmark.is_favorite) {
         ({ command } = await api.bulkUpdate([result.bookmark.id], { action: "favorite", favorite: true }));
+        topped = true;
+      } else if (kind === "reading" && !result.bookmark.reading_at) {
+        ({ command } = await api.bulkUpdate([result.bookmark.id], { action: "reading", reading: true }));
         topped = true;
       }
       if (topped) await reload(result.bookmark.id);
       else hold(result.bookmark);
       const undo = result.created && !topped ? () => app.unsave(result.bookmark.id, false) : command !== null ? app.undoing(command) : undefined;
       const there = !result.created && result.command === null && !topped;
-      const text = there ? t("feeds.notice.alreadySaved") : kind === "favorite" ? t("feeds.notice.favorited") : t("add.savedTo", { place: t("import.library") });
+      const text = there
+        ? t("feeds.notice.alreadySaved")
+        : kind === "favorite"
+          ? t("feeds.notice.favorited")
+          : kind === "reading"
+            ? t("notice.toReading")
+            : t("add.savedTo", { place: t("import.library") });
       app.say(text, false, undo);
     } catch (err) {
       failed(err);
     }
   };
+
+  // On the Fold, Save is the rail's primary circle (FL2).
+  usePrimaryAction(
+    { icon: saved ? BookmarkCheck : BookmarkPlus, label: saved ? t("phone.post.saved") : t("phone.post.save"), pressed: saved, run: () => void save("library") },
+    fold && !hidden,
+  );
 
   const title = post?.title ?? item?.title ?? "";
   const meta = [
@@ -123,34 +152,64 @@ export function PostScreen({ route, hidden }: { route: Extract<Route, { name: "p
 
   return (
     <Screen label={title || t("phone.post.title")} hidden={hidden} route className="rd-screen rd-post" scrollRef={scroller}>
-      <ReaderBar
-        onBack={stack.back}
-        actions={
-          // One glass capsule for the four, flat circles on it: the screen keeps to four blurred layers.
-          <div className="rd-cluster ph-glass">
-            <CircleButton icon={ALargeSmall} kind="flat" size={40} label={t("readerAa.label")} onClick={() => sheets.open({ kind: "readerLook", props: {} })} />
-            <CircleButton icon={ExternalLink} kind="flat" size={40} label={t("phone.reader.openOriginal")} disabled={!url} onClick={() => url && app.open(url)} />
-            <CircleButton
-              icon={Heart}
-              kind="flat"
-              size={40}
-              label={favorite ? t("card.unfavorite") : t("card.favorite")}
-              aria-pressed={favorite}
-              className={favorite ? "rd-pressed" : undefined}
-              onClick={() => void save("favorite")}
-            />
-            <CircleButton
-              icon={saved ? BookmarkCheck : BookmarkPlus}
-              kind="flat"
-              size={40}
-              label={saved ? t("phone.post.saved") : t("phone.post.save")}
-              aria-pressed={saved}
-              className={saved ? "rd-pressed" : undefined}
-              onClick={() => void save("library")}
-            />
-          </div>
-        }
-      />
+      {fold ? (
+        // FL2: clear circles along the detail sheet's top; Save is the rail's primary circle.
+        <PaneBar
+          outer={<CircleButton icon={ALargeSmall} kind="clear" size={44} label={t("readerAa.label")} onClick={() => sheets.open({ kind: "readerLook", props: {} })} />}
+          near={
+            <>
+              <CircleButton icon={ExternalLink} kind="clear" size={44} label={t("phone.reader.openOriginal")} disabled={!url} onClick={() => url && app.open(url)} />
+              <CircleButton
+                icon={Heart}
+                kind="clear"
+                size={44}
+                label={favorite ? t("card.unfavorite") : t("card.favorite")}
+                aria-pressed={favorite}
+                className={favorite ? "rd-pressed" : undefined}
+                onClick={() => void save("favorite")}
+              />
+              <CircleButton
+                icon={BookOpen}
+                kind="clear"
+                size={44}
+                label={reading ? t("phone.post.inReading") : t("phone.post.toReading")}
+                aria-pressed={reading}
+                className={reading ? "rd-pressed" : undefined}
+                onClick={() => void save("reading")}
+              />
+            </>
+          }
+        />
+      ) : (
+        <ReaderBar
+          onBack={stack.back}
+          actions={
+            // One glass capsule for the four, flat circles on it: the screen keeps to four blurred layers.
+            <div className="rd-cluster ph-glass">
+              <CircleButton icon={ALargeSmall} kind="flat" size={40} label={t("readerAa.label")} onClick={() => sheets.open({ kind: "readerLook", props: {} })} />
+              <CircleButton icon={ExternalLink} kind="flat" size={40} label={t("phone.reader.openOriginal")} disabled={!url} onClick={() => url && app.open(url)} />
+              <CircleButton
+                icon={Heart}
+                kind="flat"
+                size={40}
+                label={favorite ? t("card.unfavorite") : t("card.favorite")}
+                aria-pressed={favorite}
+                className={favorite ? "rd-pressed" : undefined}
+                onClick={() => void save("favorite")}
+              />
+              <CircleButton
+                icon={saved ? BookmarkCheck : BookmarkPlus}
+                kind="flat"
+                size={40}
+                label={saved ? t("phone.post.saved") : t("phone.post.save")}
+                aria-pressed={saved}
+                className={saved ? "rd-pressed" : undefined}
+                onClick={() => void save("library")}
+              />
+            </div>
+          }
+        />
+      )}
       <div className="rd-column">
         {failure ? (
           <p role="status" className="rd-failure ph-subhead">
