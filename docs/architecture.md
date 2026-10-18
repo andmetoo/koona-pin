@@ -108,6 +108,7 @@ An AI assistant on this computer can search the library and, if the person allow
 
 - `reader.rs` fetches the page reading mode shows, with the guard of the metadata request, decodes it in its own encoding and hands it to the interface as text. Extraction and cleaning happen in the WebView (`src/services/reader.ts`, Defuddle and a sanitizer), shown by `src/components/reader`. While reading mode is open, the next article in the queue is fetched ahead.
 - `offline.rs` keeps an offline copy of an article the person chose to save (or of every article opened from Reading, a setting that is off by default): the extracted article and its pictures in `offline/<bookmark id>/` beside the library, and a row in `offline_copies`. Copies are never synced, exported or sent anywhere.
+- `thumbs.rs` keeps small copies of preview pictures and icons (NP-146): the app fetches each picture once (on save, otherwise on first display) under the same guard, and the WebView loads it only from the `kpimg` scheme. Previews are JPEG, 640 px wide; icons PNG, 96 px. Files live in `thumbs/` beside the library (Local AppData on Windows), keyed by the SHA-256 of the address; a sweep removes what no bookmark or feed post refers to, and the folder is capped at 1 GB. Never synced, exported or backed up.
 
 ## Feeds
 
@@ -158,7 +159,7 @@ The app accepts input from outside in one place, the capture channel above; the 
 
 **WebView.** The CSP in `tauri.conf.json` allows scripts, styles and fonts only from the app, no `eval`, images from the app, `data:` and the web (site previews), and IPC as the only connection. `src-tauri/capabilities/default.json` grants the interface only events, the app version and the frameless window's buttons. The opener plugin is not available to the interface: links open through the app's own `open_url_external` command, which accepts only HTTP(S).
 
-**Outgoing requests the app makes on its own:** metadata, link checks, reading mode's pages, pictures of offline copies and feeds (all guarded as above), the update check, with Supporter the plan check and the sync relay, and feedback, which is sent only when the person presses Send in the feedback dialog, to an address set at build time (`KOONAPIN_FEEDBACK_URL`). The receiving function lives in `supabase/`.
+**Outgoing requests the app makes on its own:** metadata, link checks, reading mode's pages, pictures of offline copies and feeds, preview pictures and icons (all guarded as above), the update check, with Supporter the plan check and the sync relay, and feedback, which is sent only when the person presses Send in the feedback dialog, to an address set at build time (`KOONAPIN_FEEDBACK_URL`). The receiving function lives in `supabase/`.
 
 **Logs.** The app and the host write to stderr only errors about opening the library, backups and the channel, without URLs or library content.
 
