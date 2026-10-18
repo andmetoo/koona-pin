@@ -1,0 +1,625 @@
+/* I1–I3 and E1, the Inbox (NP-072b, doc/mobile-design.md; the frames at 393×852 with insets 54 / 34).
+   Content is opaque paper; the decision pill is the screen's one glass layer of its own. */
+
+/* The screen's column fills it, so the decision pill sits at its bottom. */
+.phone .inb-column {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------- Header: "Sort inbox 5 of 12" */
+/* Triage's title is display 28 / 34 (the type scale's triage size), E1's "Inbox" the usual 32. */
+.phone .inb-column:has(.inb-progress) .ph-header .ph-display {
+  font-size: 28px;
+  line-height: 34px;
+}
+.phone .inb-count {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--ph-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.phone .inb-finish {
+  top: -3px;
+  height: 40px;
+  padding: 0 20px;
+  font-weight: 500;
+}
+.phone .inb-progress {
+  margin-top: 10px;
+}
+.phone .inb-failed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px var(--ph-side-chrome);
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--ph-r-card);
+  background: var(--ph-paper);
+  box-shadow: var(--ph-e1);
+  color: var(--ph-body);
+}
+.phone .inb-failed > svg {
+  flex: none;
+  color: var(--ph-danger);
+}
+.phone .inb-failed > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- The card stack */
+/* The picture shrinks on a short screen so the decisions stay in view: 176 at 852 − 54 − 34. */
+.phone .inb-stack {
+  --inb-cover: clamp(96px, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 588px), 176px);
+  --inb-card: calc(var(--inb-cover) + 178px);
+  position: relative;
+  width: min(calc(100% - 2 * var(--ph-side)), 520px);
+  height: calc(var(--inb-card) + 22px);
+  margin: 6px auto 0;
+}
+.phone .inb-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--inb-card);
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: var(--ph-r-triage);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e2);
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transform-origin: 50% 100%;
+  transition:
+    transform 220ms var(--ph-spring),
+    opacity 220ms ease-out;
+}
+/* The card on screen; the next one comes up from behind (0.96 → 1) when it leaves. */
+.phone .inb-card[data-slot="0"] {
+  z-index: 3;
+  animation: inb-card-in 220ms var(--ph-spring);
+}
+@keyframes inb-card-in {
+  from {
+    transform: translateY(11px) scale(0.96);
+  }
+}
+/* Two peeking behind: 11 and 22 lower, narrower (331 and 309 of 353), the second 70 % paper. */
+.phone .inb-card[data-slot="1"] {
+  z-index: 2;
+  transform: translateY(11px) scale(0.938);
+  box-shadow:
+    inset 0 0 0 1px rgb(46 48 43 / 0.07),
+    0 3px 10px rgb(0 0 0 / 0.06);
+}
+.phone .inb-card[data-slot="2"] {
+  z-index: 1;
+  transform: translateY(22px) scale(0.875);
+  opacity: 0.7;
+  box-shadow: inset 0 0 0 1px rgb(46 48 43 / 0.07);
+}
+[data-theme="dark"] .phone .inb-card[data-slot="1"],
+[data-theme="dark"] .phone .inb-card[data-slot="2"] {
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+}
+/* The card decided, flying off (InboxScreen's LeavingCard animates it). */
+.phone .inb-leaving {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.phone .inb-leaving .inb-card {
+  animation: none;
+  transition: none;
+}
+
+/* The picture inset 8, r 20; the site as an eyebrow, its name large on the cover without one. */
+.phone .inb-cover {
+  position: relative;
+  flex: none;
+  height: var(--inb-cover);
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(var(--angle, 135deg), var(--from, #a49c8e), var(--to, #5b564e));
+  color: #fff;
+  container-type: size;
+}
+/* A picture cut low on a short screen keeps its eyebrow, not the large name. */
+@container (max-height: 132px) {
+  .phone .inb-poster {
+    display: none;
+  }
+}
+.phone .inb-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0.2));
+}
+.phone .inb-cover[data-picture]::after {
+  background: linear-gradient(rgb(0 0 0 / 0.38), transparent 42%);
+}
+[data-theme="dark"] .phone .inb-cover::after {
+  background: linear-gradient(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.36));
+}
+[data-theme="dark"] .phone .inb-cover[data-picture]::after {
+  background: linear-gradient(rgb(0 0 0 / 0.45), rgb(0 0 0 / 0.1) 50%);
+}
+.phone .inb-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.phone .inb-eyebrow {
+  position: absolute;
+  z-index: 1;
+  top: 16px;
+  left: 18px;
+  right: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgb(255 255 255 / 0.81);
+}
+.phone .inb-poster {
+  position: absolute;
+  z-index: 1;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 26px;
+  line-height: 29px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgb(255 255 255 / 0.97);
+  overflow-wrap: anywhere;
+}
+
+/* Source row: favicon, domain · time, heart, more. */
+.phone .inb-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
+  margin: 16px 0 0 12px;
+}
+.phone .inb-source .ph-circle {
+  margin: -10px 0;
+  color: var(--ph-icon);
+}
+.phone .inb-source .ph-circle + .ph-circle {
+  margin-left: -4px;
+}
+.phone .inb-heart[data-on] svg {
+  fill: currentColor;
+}
+.phone .inb-heart[data-on] {
+  color: var(--ph-accent);
+}
+.phone .inb-favicon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--ph-well);
+  color: var(--ph-meta);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+}
+.phone .inb-favicon img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+.phone .inb-source-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ph-meta);
+}
+.phone .inb-title {
+  margin: 10px 12px 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 21px;
+  line-height: 27px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ph-ink);
+  overflow-wrap: anywhere;
+}
+.phone .inb-desc {
+  margin: 6px 12px 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--ph-meta);
+  overflow-wrap: anywhere;
+}
+
+/* While dragged: "Move to trash" or "Keep" on the cover, on the side the card leaves from (I2).
+   Opaque paper, not glass: it is part of the card. */
+.phone .inb-swipe-label {
+  position: absolute;
+  z-index: 2;
+  top: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px 0 14px;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    0 4px 12px -4px rgb(0 0 0 / 0.25);
+  color: var(--ph-ink);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  opacity: calc(0.35 + 0.65 * var(--swipe, 0));
+  transform: scale(calc(0.92 + 0.08 * var(--swipe, 0)));
+}
+.phone .inb-swipe-label[data-toward="trash"] {
+  right: 20px;
+}
+.phone .inb-swipe-label[data-toward="keep"] {
+  left: 20px;
+  color: var(--ph-accent);
+}
+
+/* ---------------------------------------------------------------- File into a collection */
+.phone .inb-file {
+  width: 100%;
+  max-width: 560px;
+  margin: 16px auto 0;
+  transition: opacity 180ms ease-out;
+}
+.phone .inb-column[data-dragging] .inb-file {
+  opacity: 0.45;
+}
+.phone .inb-file-label {
+  padding-left: 24px;
+}
+
+/* ---------------------------------------------------------------- The decision pill */
+/* At the bottom of the column, 20 above the nav pill; it stays in view over content on a short
+   screen (sticky offsets count from the screen's padding, which clears the nav pill). */
+.phone .inb-decide-slot {
+  position: sticky;
+  z-index: 5;
+  bottom: 4px;
+  margin-top: auto;
+  margin-bottom: 4px;
+  padding: 24px var(--ph-side) 0;
+  pointer-events: none;
+}
+.phone:not([data-pill]) .inb-decide-slot {
+  bottom: 16px;
+  margin-bottom: 16px;
+}
+.phone .inb-decide {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr 38%;
+  align-items: center;
+  height: 60px;
+  padding: 4px;
+  max-width: 520px;
+  margin: 0 auto;
+  border-radius: 999px;
+  pointer-events: auto;
+}
+.phone .inb-seg {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ph-body);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    transform 120ms ease-out;
+}
+.phone .inb-seg svg {
+  flex: none;
+}
+.phone .inb-seg:active,
+.phone .inb-seg[data-pressed] {
+  background: var(--ph-well);
+}
+.phone .inb-seg:disabled {
+  opacity: 0.45;
+}
+.phone .inb-seg-rule {
+  width: 1px;
+  height: 24px;
+  background: var(--ph-line);
+}
+.phone .inb-keep,
+.phone .inb-keep:active {
+  background: var(--ph-accent) linear-gradient(rgb(255 255 255 / 0.08), transparent 50%);
+  color: var(--ph-on-accent);
+  box-shadow: var(--ph-accent-shadow);
+  font-weight: 600;
+}
+.phone .inb-keep:active {
+  transform: scale(0.97);
+}
+/* Dragged toward Trash: Keep steps back, a hairline and an accent label. */
+.phone .inb-keep[data-recede] {
+  background: transparent;
+  color: var(--ph-accent);
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+}
+
+/* ---------------------------------------------------------------- I3 and E1 */
+.phone .inb-state {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 var(--ph-side) 24px;
+  text-align: center;
+}
+.phone .inb-state h2 {
+  margin: 0;
+}
+.phone .inb-state-line {
+  margin-top: 4px;
+}
+.phone .inb-done-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  margin: 18px 0 20px;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  color: var(--ph-accent);
+  box-shadow: 0 12px 28px -12px rgb(47 107 79 / 0.35);
+  animation: inb-pop var(--ph-spring-time) var(--ph-spring);
+}
+@keyframes inb-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+.phone .inb-summary {
+  align-self: stretch;
+  margin: 22px 0 16px;
+  text-align: left;
+}
+.phone .inb-summary .ph-shelf {
+  margin: 0;
+}
+.phone .inb-stat {
+  min-height: 56px;
+}
+.phone .inb-stat .ph-shelf-title {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 400;
+}
+.phone .inb-stat .ph-meta {
+  font-size: 12px;
+  line-height: 16px;
+}
+.phone .inb-stat .ph-shelf-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--ph-ink);
+  font-variant-numeric: tabular-nums;
+}
+.phone .inb-stat-kept .ph-shelf-icon {
+  background: var(--ph-accent-soft);
+  color: var(--ph-accent);
+}
+.phone .inb-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.phone .inb-state-actions {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 8px;
+  margin-top: 14px;
+}
+.phone .inb-undo {
+  height: 44px;
+  font-size: 16px;
+}
+
+/* E1: three cards, the Pin Spirit on the front one, a soft accent glow behind. */
+.phone .inb-art {
+  position: relative;
+  width: 300px;
+  height: 268px;
+  margin-top: 12px;
+}
+.phone .inb-art-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(closest-side, rgb(47 107 79 / 0.3), transparent);
+}
+[data-theme="dark"] .phone .inb-art-glow {
+  background: radial-gradient(closest-side, rgb(143 208 174 / 0.16), transparent);
+}
+.phone .inb-art-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 128px;
+  height: 156px;
+  padding: 8px;
+  border-radius: var(--ph-r-tile);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+}
+.phone .inb-art-card[data-at="left"] {
+  left: 13px;
+  top: 72px;
+  transform: rotate(-12deg);
+}
+.phone .inb-art-card[data-at="right"] {
+  left: 154px;
+  top: 64px;
+  transform: rotate(10deg);
+}
+.phone .inb-art-card[data-at="front"] {
+  left: 86px;
+  top: 60px;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  transform: rotate(-2deg);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e2);
+}
+.phone .inb-art-cover {
+  height: 62px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #e2bf95, #c9995a);
+}
+.phone .inb-art-card[data-at="right"] .inb-art-cover {
+  background: linear-gradient(135deg, #8fc0a5, #4f8a6c);
+}
+.phone .inb-art-line {
+  height: 8px;
+  width: 86%;
+  border-radius: 999px;
+  background: var(--ph-well);
+}
+.phone .inb-art-line[data-short] {
+  width: 56%;
+}
+.phone .inb-art-mark {
+  margin-top: 12px;
+}
+.phone .inb-empty-text {
+  max-width: 297px;
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--ph-meta);
+  text-wrap: balance;
+}
+.phone .inb-tip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  align-self: stretch;
+  min-height: 72px;
+  margin-top: 46px;
+  padding: 12px 16px;
+  border-radius: var(--ph-r-card);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+  text-align: left;
+}
+.phone .inb-tip-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  color: var(--ph-accent);
+}
+.phone .inb-tip-title {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--ph-ink);
+}
+.phone .inb-empty-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-self: stretch;
+  margin-top: 24px;
+}
+.phone .inb-empty-actions .ph-button {
+  padding: 0 12px;
+  font-size: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone .inb-card,
+  .phone .inb-seg {
+    transition: opacity 160ms ease-out;
+  }
+  .phone .inb-card[data-slot="0"] {
+    animation: inb-fade 160ms ease-out;
+  }
+  .phone .inb-done-mark {
+    animation: inb-fade 160ms ease-out;
+  }
+}
+@keyframes inb-fade {
+  from {
+    opacity: 0;
+  }
+}

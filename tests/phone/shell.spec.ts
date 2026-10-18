@@ -11,7 +11,7 @@ test("the nav pill switches tabs, and the app's section follows", async ({ page 
 
   await pill.getByRole("button", { name: "Inbox" }).click();
   await expect(pill.getByRole("button", { name: "Inbox" })).toHaveAttribute("aria-current", "page");
-  await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Inbox");
+  await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText(/^(Inbox|Sort inbox)$/);
 
   await pill.getByRole("button", { name: "Reading" }).click();
   await expect(topScreen(page).getByRole("heading", { level: 1 })).toHaveText("Reading");
