@@ -99,7 +99,8 @@ impl AppInfo {
                 quit: desktop,
                 folder_picker: desktop,
                 share_intake: false,
-                haptics: false,
+                // The haptics plugin is registered on phones only (src/mobile).
+                haptics: !desktop,
                 purchase: if crate::billing::service().is_some() { Purchase::Paddle } else { Purchase::None },
             },
         }

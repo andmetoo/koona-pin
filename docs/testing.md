@@ -36,7 +36,7 @@ bunx --bun playwright install chromium   # once
 bun run test:ui
 ```
 
-`tests/ui` against the browser preview with demo data (`playwright.config.ts` starts Vite itself). The locale is `en-US` and tests name controls in English. Tags:
+`tests/ui` against the browser preview with demo data (`playwright.config.ts` starts Vite itself). The locale is `en-US` and tests name controls in English. The project `phone` runs `tests/phone`: the same demo as a phone (`tests/phone/fixtures.ts` injects the platform, the phone's capabilities and a stub of the Back bridge before the page loads), 393×852 and the Fold's inner 1088×821; `-- --project desktop` or `--project phone` runs one. Tags:
 
 - `@visual` — screenshot comparisons, see [Visual baselines](#visual-baselines).
 - `@languages` — every language at 800×550 and 1600×800: no truncated interface labels, sidebar rows fit, IME input.

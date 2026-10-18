@@ -131,11 +131,6 @@
   line-height: 24px;
   -webkit-tap-highlight-color: transparent;
 }
-.phone button {
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
 .phone :focus-visible {
   outline: 2px solid var(--ph-accent);
   outline-offset: 2px;
@@ -400,20 +395,28 @@
 
 /* ---------------------------------------------------------------- Screens */
 /* A screen scrolls by itself; the title scrolls with the content, the header's buttons stay. */
+/* A flex column: the zero-height sticky bars and the fade's negative margins must not collapse. */
 .phone .ph-screen {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding: calc(var(--safe-top) + 14px) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  /* No top padding: sticky offsets count from the padding's inner edge. The fade below keeps the
+     safe area and the 14 above the title. */
+  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+.phone .ph-screen > * {
+  flex-shrink: 0;
 }
 .phone[data-pill] .ph-screen {
   padding-bottom: var(--ph-pill-clearance);
 }
 .phone .ph-screen[hidden] {
-  display: block;
+  display: flex;
   visibility: hidden;
 }
 .phone .ph-screen[data-route] {
@@ -434,7 +437,7 @@
   z-index: 2;
   top: 0;
   height: calc(var(--safe-top) + 72px);
-  margin: calc(-1 * (var(--safe-top) + 14px)) 0 calc(-1 * 58px);
+  margin-bottom: -58px;
   pointer-events: none;
   background: var(--ph-mesh), var(--ph-bg);
   background-size: 100vw 100dvh;
@@ -480,9 +483,20 @@
   height: 40px;
   pointer-events: auto;
 }
+.phone .ph-header-bar:has(> :nth-child(2)) {
+  justify-content: space-between;
+}
+/* Under a back circle the title starts below it. */
 .phone .ph-header {
   padding: 0 var(--ph-side) 12px;
   min-height: 40px;
+}
+.phone .ph-header[data-back] {
+  padding-top: 52px;
+}
+.phone .ph-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
 }
 .phone .ph-header-title {
   display: flex;
@@ -914,6 +928,10 @@
 }
 .phone[data-fold] .ph-snackbar-slot {
   right: calc(72px + 24px + var(--safe-right) + 12px);
+}
+.phone[data-fold][data-hand="left"] .ph-snackbar-slot {
+  right: max(var(--ph-side-chrome), var(--safe-right));
+  left: calc(72px + 24px + var(--safe-left) + 12px);
 }
 .phone .ph-snackbar {
   display: flex;

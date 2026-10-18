@@ -1887,5 +1887,81 @@
     "addedBookmarks_other": "Added {{count, number}} bookmarks to the bundle, {{items}}",
     "addedFeeds_one": "Added {{count, number}} feed to the bundle, {{items}}",
     "addedFeeds_other": "Added {{count, number}} feeds to the bundle, {{items}}"
+  },
+  "phone": {
+    "stub": "This screen is being built.",
+    "nav": {
+      "label": "Places",
+      "inbox": "Inbox",
+      "all": "All bookmarks",
+      "reading": "Reading",
+      "feeds": "Feeds",
+      "new": "New link",
+      "back": "Back"
+    },
+    "kit": {
+      "suggested": "Suggested",
+      "clear": "Clear",
+      "progress": "{{done, number}} of {{total, number}}"
+    },
+    "account": {
+      "open": "You & sync",
+      "synced": "synced",
+      "syncing": "syncing",
+      "offline": "sync offline",
+      "error": "sync problem"
+    },
+    "library": {
+      "title": "Library",
+      "count_one": "{{count, number}} link",
+      "count_other": "{{count, number}} links",
+      "search": "Search {{count, number}} links"
+    },
+    "inbox": {
+      "title": "Inbox"
+    },
+    "feeds": {
+      "title": "Feeds"
+    },
+    "reader": {
+      "title": "Reader",
+      "more": "More"
+    },
+    "post": {
+      "title": "Post"
+    },
+    "search": {
+      "title": "Search"
+    },
+    "settings": {
+      "title": "Settings"
+    },
+    "edit": {
+      "title": "Edit link",
+      "save": "Save",
+      "titleField": "Title"
+    },
+    "collectionPicker": {
+      "title": "File into collection",
+      "done": "Done"
+    },
+    "newLink": {
+      "title": "New link"
+    },
+    "you": {
+      "title": "You & sync",
+      "supporter": "Supporter",
+      "support": "Support Koona Pin",
+      "sync": "Sync",
+      "settings": "Settings"
+    },
+    "bookmarkMenu": {
+      "edit": "Edit",
+      "collection": "Move to collection",
+      "trash": "Move to Trash"
+    },
+    "rail": {
+      "label": "Places"
+    }
   }
 }

@@ -1,4 +1,7 @@
 import { createContext, type ReactNode, type Ref, useContext, useEffect, useRef } from "react";
+import { ChevronLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { CircleButton } from "./buttons";
 
 /**
  * The account cluster the shell puts in every header unless a screen says otherwise: the shell
@@ -10,7 +13,8 @@ export const AccountSlot = createContext<ReactNode>(null);
  * A large-title header (doc/mobile-design.md, Headers): the title (display) with an optional meta
  * line or a `beside` (triage's "5 of 12") on the left, circle buttons and the account cluster on
  * the right. The title scrolls with the content; the buttons stay, over the top edge's fade.
- * Put it first in a {@link Screen}. `account={false}` leaves the cluster out (triage, Search).
+ * Put it first in a {@link Screen}. `account={false}` leaves the cluster out (triage, Search);
+ * `onBack` puts a back circle on the left (pushed screens: iOS has no system Back button).
  */
 export function Header({
   title,
@@ -18,6 +22,7 @@ export function Header({
   beside,
   actions,
   account,
+  onBack,
   children,
 }: {
   title: ReactNode;
@@ -28,22 +33,29 @@ export function Header({
   actions?: ReactNode;
   /** The cluster, or false for none; by default the shell's. */
   account?: ReactNode | false;
+  onBack?: () => void;
   /** Under the title: a progress bar, the search field. */
   children?: ReactNode;
 }) {
+  const { t } = useTranslation();
   const shellAccount = useContext(AccountSlot);
   const cluster = account === false ? null : (account ?? shellAccount);
   return (
     <>
-      {(actions || cluster) && (
+      {(actions || cluster || onBack) && (
         <div className="ph-header-bar">
+          {onBack && (
+            <div className="ph-header-actions">
+              <CircleButton icon={ChevronLeft} label={t("phone.nav.back")} onClick={onBack} />
+            </div>
+          )}
           <div className="ph-header-actions">
             {actions}
             {cluster}
           </div>
         </div>
       )}
-      <header className="ph-header">
+      <header className="ph-header" data-back={onBack ? "" : undefined}>
         <div className="ph-header-title">
           <h1 className="ph-display">{title}</h1>
           {beside}

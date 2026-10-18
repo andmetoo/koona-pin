@@ -14,6 +14,9 @@ export type Phone = {
   sheets: Sheets;
   /** The window is wider than 840 dp (an unfolded Fold): the rail instead of the nav pill. */
   fold: boolean;
+  /** Which side the Fold's rail and main buttons are on (Settings → Layout, a long press on the rail). */
+  hand: "right" | "left";
+  setHand: (side: "right" | "left") => void;
   /** The on-screen keyboard is up. */
   keyboardUp: boolean;
   /** The nav pill shows: a tab's root, no keyboard, not on the Fold. */

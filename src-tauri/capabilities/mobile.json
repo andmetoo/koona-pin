@@ -1,8 +1,15 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "mobile",
-  "description": "Phones (NP-151): events and the version. No window buttons: the system draws the app full screen. Back, the edge swipe and the insets go through the koona-mobile plugin's bridge script, which needs no permission.",
+  "description": "Phones (NP-151): events and the version. No window buttons: the system draws the app full screen. Back, the edge swipe and the insets go through the koona-mobile plugin's bridge script, which needs no permission. Haptic feedback (NP-072b): the selection tick, impacts and notifications, not free vibration.",
   "windows": ["main"],
   "platforms": ["android", "iOS"],
-  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:app:allow-version"]
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:app:allow-version",
+    "haptics:allow-selection-feedback",
+    "haptics:allow-impact-feedback",
+    "haptics:allow-notification-feedback"
+  ]
 }
