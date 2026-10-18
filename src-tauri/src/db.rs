@@ -1460,7 +1460,7 @@ pub fn purge_trash(conn: &Connection, which: Purge) -> Result<Vec<(i64, i64)>> {
     crate::offline::forget(conn, gone.iter().map(|g| g.0));
     // Their pictures may be another bookmark's too: the picture cache's sweep decides (NP-146).
     if !gone.is_empty() {
-        crate::thumbs::purged();
+        crate::thumbs::sweep_soon();
     }
     Ok(gone)
 }

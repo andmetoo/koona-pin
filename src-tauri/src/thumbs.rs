@@ -1,73 +1,85 @@
-//! The picture cache (NP-146): previews and icons kept small beside the
-//! library, so they show without the network and scrolling asks no site:
+//! The picture cache (NP-146): previews and icons kept small on this
+//! computer, so they show without the network and scrolling asks no site:
 //!
 //! ```text
-//! thumbs/<aa>/<key>.jpg    a preview or a feed post's thumbnail: JPEG q80, at most 640 px wide
-//! thumbs/<aa>/<key>.png    an icon: at most 96 × 96
-//! thumbs/<aa>/<key>.svg    an SVG icon as it came, up to 64 KB
-//! thumbs/<aa>/<key>.miss   empty: the last fetch failed; tried again after 7 days
+//! thumbs/<aa>/<key>.jpg         a preview or a feed post's thumbnail: JPEG q80, at most 640 px wide
+//! thumbs/<aa>/<key>.png         the same with real transparency
+//! thumbs/<aa>/<key>.icon.png    an icon: at most 96 × 96
+//! thumbs/<aa>/<key>.icon.svg    an SVG icon as it came, up to 64 KB
+//! thumbs/<aa>/<key>.miss        the last fetch failed (`.icon.miss` for an icon): see [`Miss`]
 //! ```
 //!
 //! `key` is the SHA-256 of the source address, `aa` its first two letters:
 //! one Google icon serves every link of a domain, a saved feed post reuses
-//! its thumbnail. No table: the folder is the index, a file's mtime its last
-//! use. Not synced, exported, backed up or sent anywhere.
+//! its thumbnail. No table: the folder is the index. It sits beside the
+//! library, on Windows in the local (not roaming) AppData ([`root_for`]),
+//! and is never synced, exported, backed up or sent anywhere.
 //!
 //! The WebView asks through the `kpimg` scheme ([`protocol`]) by what shows
 //! the picture, never by address: `b/<bookmark id>/image`, `b/<id>/icon`,
-//! `p/<feed post id>/thumb`, `f/<feed uid>/icon`. The address is read from
-//! the database in a short step, the lock let go, then the file is served or
-//! fetched under [`LIMITS`], at most [`PARALLEL`] at a time, one fetch per
-//! key however many ask. A saved link's pictures are fetched at once in the
-//! background ([`warm`]); the rest on first display.
+//! `p/<feed post id>/thumb`, `f/<feed uid>/icon`. The address is read on a
+//! read-only connection of its own, never the library's writer, then the
+//! file is served, or fetched under [`LIMITS`]: the newest request first, at
+//! most [`PARALLEL`] at a time and [`PER_HOST`] per site, one fetch per file
+//! however many ask. A request that waits [`SLOT_WAIT`] for its turn gets a
+//! 404 and the card loads the source address itself. A saved link's pictures
+//! are fetched in the background ([`warm`]); the rest on first display.
 //!
-//! Files are written under a temporary name and renamed. [`sweep`] removes
+//! Files are written under a `.partial-` name and renamed. [`sweep`] removes
 //! what no bookmark (the trash included), feed post or feed icon refers to,
-//! a day after its last use, and keeps the folder under [`CAP`].
+//! a day after it was written, and keeps the folder under [`CAP`].
 
 use crate::db::{Bookmark, DbState};
 use crate::feeds::cache::FeedCache;
+use crate::library::Paths;
 use crate::library_state::Library;
 use crate::metadata::{self, FetchError, Limits};
 use crate::net_guard;
 use image::imageops::FilterType;
-use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
+use image::metadata::Orientation;
+use image::{DynamicImage, GenericImageView, ImageDecoder, ImageFormat, ImageReader};
 use percent_encoding::percent_decode_str;
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{Connection, OpenFlags, OptionalExtension};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
-use std::time::{Duration, SystemTime};
-use tauri::http::{header, Request, Response, StatusCode};
+use std::time::{Duration, Instant, SystemTime};
+use tauri::http::{header, Response, StatusCode};
 use tauri::{AppHandle, Manager, Runtime, UriSchemeContext, UriSchemeResponder};
-use tokio::sync::{Notify, OnceCell, Semaphore};
+use tokio::sync::{oneshot, watch, Notify, Semaphore};
 use url::Url;
 
-/// The folder of the cache in the library folder, beside `offline/`.
+/// The folder of the cache.
 pub const FOLDER: &str = "thumbs";
 /// The scheme the WebView asks for pictures by: `kpimg://localhost/…`, on
 /// Windows `http://kpimg.localhost/…`.
 pub const SCHEME: &str = "kpimg";
-/// Files being written; never a key.
-const TEMP: &str = ".tmp-";
-const MISS: &str = "miss";
+/// Part of the name of a file being written; never a key.
+const PARTIAL: &str = ".partial-";
 const DAY: Duration = Duration::from_secs(24 * 60 * 60);
-/// A failed fetch is not tried again sooner.
-const RETRY: Duration = Duration::from_secs(7 * 24 * 60 * 60);
-/// A file nothing refers to stays this long after its last use: a link saved
-/// a moment ago, a restore, a post still on screen.
+/// A file nothing refers to stays this long after it was written: a link
+/// saved a moment ago, a restore, a post still on screen.
 const GRACE: Duration = DAY;
-/// A served file's mtime is moved forward at most this often.
-const TOUCH: Duration = DAY;
-/// The whole folder; over it, the least recently used go down to 90%.
+/// The whole folder; over it, the oldest written go down to 90%.
 pub const CAP: u64 = 1024 * 1024 * 1024;
 /// Fetches at once, the displayed and the warmed together.
-pub const PARALLEL: usize = 4;
-/// Of those, at most this many warm a saved link: what is on screen comes first.
-const WARMING: usize = 2;
+pub const PARALLEL: usize = 8;
+/// Of those, at most this many to one site.
+pub const PER_HOST: usize = 2;
+/// A displayed picture waits this long for its fetch to start, then the card
+/// loads the source address itself; the fetch stays queued a while.
+pub const SLOT_WAIT: Duration = Duration::from_secs(3);
+/// A queued fetch nobody waits for any more gives up after this; a warm one after [`WARM_QUEUED`].
+const QUEUED: Duration = Duration::from_secs(30);
+const WARM_QUEUED: Duration = Duration::from_secs(10 * 60);
+/// Connection failures in a row that make the network suspect, as the
+/// preview refresh does: then every miss is a 404 at once for [`BREAKER_FOR`].
+const BREAKER_AFTER: u32 = 5;
+const BREAKER_FOR: Duration = Duration::from_secs(60);
 
 const PREVIEW_WIDTH: u32 = 640;
 const ICON_SIDE: u32 = 96;
@@ -75,13 +87,18 @@ const JPEG_QUALITY: u8 = 80;
 const MAX_SVG: usize = 64 * 1024;
 /// Against image bombs: a header can promise any size.
 const MAX_SIDE: u32 = 8000;
-const MAX_ALLOC: u64 = 64 * 1024 * 1024;
-/// Fast, and smooth enough at these sizes: a 4000 × 3000 JPEG is decoded and made a preview in about 45 ms (release build).
+const MAX_ALLOC: u64 = 100 * 1024 * 1024;
+/// Fast, and smooth enough at these sizes: a 4000 × 3000 JPEG is decoded and
+/// made a preview in about 45 ms (release build).
 const FILTER: FilterType = FilterType::Triangle;
 
 const CACHE_CONTROL: &str = "private, max-age=31536000, immutable";
+/// Every answer: an SVG from a local scheme must never run as a page.
+const SANDBOX: &str = "sandbox; default-src 'none'";
+/// The header of the answer to an address the guard refuses.
+pub const REFUSED_HEADER: &str = "X-Kpimg";
 
-/// A picture request: the image guard's rules, 15 s in all, up to 5 MB.
+/// A picture request: the metadata guard, 6 s to connect, 15 s in all, up to 5 MB.
 pub const LIMITS: Limits = Limits {
     allow: net_guard::public_ip,
     connect_timeout: Duration::from_secs(6),
@@ -90,11 +107,26 @@ pub const LIMITS: Limits = Limits {
     max_redirects: 5,
 };
 
-static FETCHES: Semaphore = Semaphore::const_new(PARALLEL);
-static WARMS: Semaphore = Semaphore::const_new(WARMING);
-/// The fetch under way for each file: the requests that come meanwhile wait for it.
-static FLIGHTS: LazyLock<Mutex<HashMap<String, Arc<OnceCell<Option<Stored>>>>>> = LazyLock::new(Default::default);
-/// A purge asks the sweep to run ([`purged`]).
+/// Not in a public build: with this set, end-to-end tests serve pictures from this computer.
+#[cfg(not(feature = "public-release"))]
+pub const LOOPBACK_ENV: &str = "KOONAPIN_THUMBS_LOOPBACK";
+
+#[cfg(not(feature = "public-release"))]
+fn loopback_or_public(ip: std::net::IpAddr) -> bool {
+    ip.is_loopback() || net_guard::public_ip(ip)
+}
+
+#[cfg(not(feature = "public-release"))]
+const LOOPBACK_LIMITS: Limits = Limits { allow: loopback_or_public, ..LIMITS };
+
+/// Decodes at once: each may take 100 MB.
+static DECODES: Semaphore = Semaphore::const_new(2);
+static QUEUE: LazyLock<Queue> = LazyLock::new(|| Queue::new(PARALLEL, PER_HOST));
+/// The fetch under way for each file: whoever asks meanwhile waits for it.
+static FLIGHTS: LazyLock<Mutex<HashMap<String, Flight>>> = LazyLock::new(Default::default);
+/// The order of requests: the newest is fetched first.
+static RANKS: AtomicU64 = AtomicU64::new(1);
+/// A purge or a cleared feed cache asks the sweep to run ([`sweep_soon`]).
 static SWEEP: Notify = Notify::const_new();
 
 /// What a picture is made into.
@@ -104,6 +136,16 @@ pub enum Size {
     Preview,
     /// A bookmark's or a feed's icon.
     Icon,
+}
+
+impl Size {
+    /// What the file name says after the key: an address can be both a preview and an icon.
+    fn tag(self) -> &'static str {
+        match self {
+            Size::Preview => "",
+            Size::Icon => "icon.",
+        }
+    }
 }
 
 /// A file of the cache.
@@ -134,8 +176,44 @@ impl Format {
     /// What a size class may be kept as, in the order looked for.
     fn of(size: Size) -> &'static [Format] {
         match size {
-            Size::Preview => &[Format::Jpeg],
+            Size::Preview => &[Format::Jpeg, Format::Png],
             Size::Icon => &[Format::Png, Format::Svg],
+        }
+    }
+}
+
+/// Why the last fetch kept nothing, written in the `.miss` file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Miss {
+    /// Gone, forbidden, not a picture, too large: tried again after 7 days.
+    Failed,
+    /// No answer in time: tried again after a day.
+    Timeout,
+    /// The guard refused the address (local, not http): the card shows its cover, not the web.
+    Refused,
+}
+
+impl Miss {
+    fn content(self) -> &'static [u8] {
+        match self {
+            Miss::Failed => b"",
+            Miss::Timeout => b"timeout",
+            Miss::Refused => b"refused",
+        }
+    }
+
+    fn read(bytes: &[u8]) -> Miss {
+        match bytes {
+            b"timeout" => Miss::Timeout,
+            b"refused" => Miss::Refused,
+            _ => Miss::Failed,
+        }
+    }
+
+    fn retry(self) -> Duration {
+        match self {
+            Miss::Timeout => DAY,
+            Miss::Failed | Miss::Refused => 7 * DAY,
         }
     }
 }
@@ -157,6 +235,8 @@ impl Picture {
     /// The path of a request, after its `/`: percent-encoded as one segment
     /// (`b%2F12%2Fimage`, as `convertFileSrc` makes it) or not.
     pub fn parse(path: &str) -> Option<Picture> {
+        // A whole address's query (`?v=`) is not part of it.
+        let path = path.split(['?', '#']).next().unwrap_or_default();
         let path = path.strip_prefix('/').unwrap_or(path);
         let decoded = percent_decode_str(path).decode_utf8().ok()?;
         let parts: Vec<&str> = decoded.split('/').collect();
@@ -207,377 +287,6 @@ pub fn feed_source(conn: &Connection, picture: &Picture) -> rusqlite::Result<Opt
     Ok(address.flatten().filter(|a| !a.trim().is_empty()))
 }
 
-/// The file name of an address: the hex SHA-256 of it, as it is stored.
-pub fn key(address: &str) -> String {
-    Sha256::digest(address.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
-}
-
-fn file(root: &Path, key: &str, ext: &str) -> PathBuf {
-    root.join(&key[..2]).join(format!("{key}.{ext}"))
-}
-
-/// The cache of the library in `folder`.
-pub fn root_of(folder: &Path) -> PathBuf {
-    folder.join(FOLDER)
-}
-
-fn root<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
-    Some(root_of(&app.try_state::<Arc<Library>>()?.paths.folder()))
-}
-
-fn age(path: &Path, now: SystemTime) -> Option<Duration> {
-    let modified = fs::metadata(path).and_then(|m| m.modified()).ok()?;
-    Some(now.duration_since(modified).unwrap_or_default())
-}
-
-/// A file kept for `key` in this size class.
-type Stored = (PathBuf, Format);
-
-/// What the folder holds for `key`.
-#[derive(Debug, PartialEq, Eq)]
-enum Cached {
-    File(PathBuf, Format),
-    /// A fetch failed less than [`RETRY`] ago.
-    Miss,
-    Nothing,
-}
-
-fn cached(root: &Path, key: &str, size: Size, now: SystemTime) -> Cached {
-    for &format in Format::of(size) {
-        let path = file(root, key, format.ext());
-        if path.is_file() {
-            return Cached::File(path, format);
-        }
-    }
-    match age(&file(root, key, MISS), now) {
-        Some(age) if age < RETRY => Cached::Miss,
-        _ => Cached::Nothing,
-    }
-}
-
-/// Writes `bytes` under a temporary name beside `path` and renames it into place.
-fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let dir = path.parent().ok_or_else(|| std::io::Error::other("no folder"))?;
-    fs::create_dir_all(dir)?;
-    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let temp = dir.join(format!("{TEMP}{name}-{}", uuid::Uuid::new_v4().simple()));
-    fs::write(&temp, bytes)?;
-    fs::rename(&temp, path).inspect_err(|_| {
-        let _ = fs::remove_file(&temp);
-    })
-}
-
-/// The file's mtime is its last use; moved at most once a day so serving stays a read.
-fn touch(path: &Path, now: SystemTime) {
-    if age(path, now).is_some_and(|age| age > TOUCH) {
-        if let Ok(file) = fs::File::options().write(true).open(path) {
-            let _ = file.set_modified(now);
-        }
-    }
-}
-
-/// Why a picture is not kept.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Fault {
-    /// No connection, no answer in time, a server error: tried again on the next display.
-    Offline,
-    /// Refused, gone, not a picture, too large: a `.miss` for [`RETRY`].
-    Bad,
-}
-
-/// The client every picture request goes through, and its limits.
-pub struct Fetcher {
-    client: reqwest::Client,
-    limits: &'static Limits,
-}
-
-impl Fetcher {
-    pub fn new(limits: &'static Limits) -> reqwest::Result<Fetcher> {
-        Ok(Fetcher { client: metadata::client(limits)?, limits })
-    }
-}
-
-fn fetcher() -> Option<&'static Fetcher> {
-    static FETCHER: OnceLock<Option<Fetcher>> = OnceLock::new();
-    FETCHER.get_or_init(|| Fetcher::new(&LIMITS).ok()).as_ref()
-}
-
-/// The body of a picture: an allowed http(s) address, a 2xx answer, at most `max_body`.
-/// No cookies (the client keeps none), no Referer, the app's own User-Agent.
-async fn download(fetcher: &Fetcher, address: &str) -> Result<Vec<u8>, Fault> {
-    let url = Url::parse(address.trim()).map_err(|_| Fault::Bad)?;
-    if !matches!(url.scheme(), "http" | "https") {
-        return Err(Fault::Bad);
-    }
-    match metadata::check_address(&url, fetcher.limits.allow).await {
-        Ok(()) => {}
-        Err(FetchError::Refused) => return Err(Fault::Bad),
-        // A name that does not resolve: offline looks the same.
-        Err(_) => return Err(Fault::Offline),
-    }
-    let mut response = fetcher
-        .client
-        .get(url)
-        .header(reqwest::header::USER_AGENT, metadata::FEED_USER_AGENT)
-        .header(reqwest::header::ACCEPT, "image/webp,image/png,image/jpeg,image/gif,image/svg+xml,image/*;q=0.8")
-        .send()
-        .await
-        .map_err(|e| if e.is_redirect() || metadata::failure(&e) == FetchError::Refused { Fault::Bad } else { Fault::Offline })?;
-    let status = response.status();
-    if !status.is_success() {
-        // 408 and 429 pass; a server error may too.
-        let lasting = status.is_client_error() && !matches!(status.as_u16(), 408 | 429) || status.is_redirection();
-        return Err(if lasting { Fault::Bad } else { Fault::Offline });
-    }
-    let max = fetcher.limits.max_body;
-    if response.content_length().is_some_and(|n| n > max as u64) {
-        return Err(Fault::Bad);
-    }
-    let mut body = Vec::new();
-    loop {
-        match response.chunk().await {
-            Ok(Some(chunk)) => body.extend_from_slice(&chunk),
-            Ok(None) => return Ok(body),
-            Err(_) => return Err(Fault::Offline),
-        }
-        if body.len() > max {
-            return Err(Fault::Bad);
-        }
-    }
-}
-
-/// An SVG document, as far as its start tells: text, then `<svg` after any
-/// prolog, comments or doctype; no script and no entity declarations.
-fn looks_like_svg(bytes: &[u8]) -> bool {
-    let Ok(text) = std::str::from_utf8(bytes) else { return false };
-    let text = text.trim_start_matches('\u{feff}').trim_start();
-    if !text.starts_with('<') {
-        return false;
-    }
-    let lower = text.to_ascii_lowercase();
-    let head = &lower[..lower.len().min(4096)];
-    let Some(at) = head.find("<svg") else { return false };
-    // Before `<svg` only the prolog: `<?xml`, comments, a doctype.
-    let before = &head[..at];
-    let only_prolog = before.split('<').skip(1).all(|tag| tag.starts_with('?') || tag.starts_with('!'));
-    only_prolog && !lower.contains("<script") && !lower.contains("<!entity") && lower.contains("</svg>")
-}
-
-fn reader_limits() -> image::Limits {
-    let mut limits = image::Limits::default();
-    limits.max_image_width = Some(MAX_SIDE);
-    limits.max_image_height = Some(MAX_SIDE);
-    limits.max_alloc = Some(MAX_ALLOC);
-    limits
-}
-
-/// Decodes by the bytes, whatever the header said: JPEG, PNG, GIF (its
-/// first frame), WebP, ICO, BMP, under [`reader_limits`].
-fn decode(bytes: &[u8]) -> Option<DynamicImage> {
-    let mut reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format().ok()?;
-    let format = reader.format()?;
-    if !matches!(format, ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::Gif | ImageFormat::WebP | ImageFormat::Ico | ImageFormat::Bmp) {
-        return None;
-    }
-    reader.limits(reader_limits());
-    reader.decode().ok()
-}
-
-/// Transparent parts on white: a JPEG has no alpha.
-fn on_white(image: &DynamicImage) -> image::RgbImage {
-    if !image.color().has_alpha() {
-        return image.to_rgb8();
-    }
-    let rgba = image.to_rgba8();
-    image::RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
-        let [r, g, b, a] = rgba.get_pixel(x, y).0;
-        let blend = |c: u8| ((c as u32 * a as u32 + 255 * (255 - a as u32) + 127) / 255) as u8;
-        image::Rgb([blend(r), blend(g), blend(b)])
-    })
-}
-
-/// A preview: taller than 2:1 cropped to its top, at most 640 px wide, JPEG q80.
-fn preview(image: DynamicImage) -> Option<Vec<u8>> {
-    let (w, h) = image.dimensions();
-    if w == 0 || h == 0 {
-        return None;
-    }
-    let image = if h > w.saturating_mul(2) { image.crop_imm(0, 0, w, w * 2) } else { image };
-    let (w, h) = image.dimensions();
-    let image = if w > PREVIEW_WIDTH {
-        let height = ((h as u64 * PREVIEW_WIDTH as u64 + w as u64 / 2) / w as u64).max(1) as u32;
-        image.resize_exact(PREVIEW_WIDTH, height, FILTER)
-    } else {
-        image
-    };
-    let mut out = Cursor::new(Vec::new());
-    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, JPEG_QUALITY);
-    DynamicImage::ImageRgb8(on_white(&image)).write_with_encoder(encoder).ok()?;
-    Some(out.into_inner())
-}
-
-/// An icon: within 96 × 96, PNG.
-fn icon(image: DynamicImage) -> Option<Vec<u8>> {
-    let (w, h) = image.dimensions();
-    if w == 0 || h == 0 {
-        return None;
-    }
-    let image = if w > ICON_SIDE || h > ICON_SIDE { image.resize(ICON_SIDE, ICON_SIDE, FILTER) } else { image };
-    let image = if image.color().has_alpha() { DynamicImage::ImageRgba8(image.to_rgba8()) } else { DynamicImage::ImageRgb8(image.to_rgb8()) };
-    let mut out = Cursor::new(Vec::new());
-    image.write_with_encoder(image::codecs::png::PngEncoder::new(&mut out)).ok()?;
-    Some(out.into_inner())
-}
-
-/// What a fetched body is kept as; none when it is not a picture this size class takes.
-fn make(bytes: &[u8], size: Size) -> Option<(Vec<u8>, Format)> {
-    if size == Size::Icon && looks_like_svg(bytes) {
-        return (bytes.len() <= MAX_SVG).then(|| (bytes.to_vec(), Format::Svg));
-    }
-    let image = decode(bytes)?;
-    match size {
-        Size::Preview => preview(image).map(|b| (b, Format::Jpeg)),
-        Size::Icon => icon(image).map(|b| (b, Format::Png)),
-    }
-}
-
-/// Fetches, makes and writes the file of `key`, or its `.miss`.
-async fn fetch_and_store(root: &Path, key: &str, address: &str, size: Size, fetcher: &Fetcher) -> Option<Stored> {
-    let _permit = FETCHES.acquire().await.ok()?;
-    // A fetch that finished while this one waited.
-    match cached(root, key, size, SystemTime::now()) {
-        Cached::File(path, format) => return Some((path, format)),
-        Cached::Miss => return None,
-        Cached::Nothing => {}
-    }
-    let made = match download(fetcher, address).await {
-        Ok(body) => tokio::task::spawn_blocking(move || make(&body, size)).await.ok().flatten().ok_or(Fault::Bad),
-        Err(fault) => Err(fault),
-    };
-    let (root, key) = (root.to_path_buf(), key.to_string());
-    tokio::task::spawn_blocking(move || {
-        let miss = file(&root, &key, MISS);
-        match made {
-            Ok((bytes, format)) => {
-                let path = file(&root, &key, format.ext());
-                write_atomic(&path, &bytes).ok()?;
-                let _ = fs::remove_file(miss);
-                Some((path, format))
-            }
-            Err(Fault::Bad) => {
-                let _ = write_atomic(&miss, &[]);
-                None
-            }
-            Err(Fault::Offline) => None,
-        }
-    })
-    .await
-    .ok()
-    .flatten()
-}
-
-/// The file of `address` in this size class: from the folder, or fetched now.
-/// Requests for one file while it is fetched share that fetch.
-pub async fn obtain(root: &Path, address: &str, size: Size, fetcher: &Fetcher) -> Option<Stored> {
-    let key = key(address);
-    let (r, k) = (root.to_path_buf(), key.clone());
-    match tokio::task::spawn_blocking(move || cached(&r, &k, size, SystemTime::now())).await.ok()? {
-        Cached::File(path, format) => return Some((path, format)),
-        Cached::Miss => return None,
-        Cached::Nothing => {}
-    }
-    let flight = format!("{}|{key}|{size:?}", root.display());
-    let cell = FLIGHTS.lock().ok()?.entry(flight.clone()).or_default().clone();
-    let stored = cell.get_or_init(|| fetch_and_store(root, &key, address, size, fetcher)).await.clone();
-    if let Ok(mut flights) = FLIGHTS.lock() {
-        if flights.get(&flight).is_some_and(|c| Arc::ptr_eq(c, &cell)) {
-            flights.remove(&flight);
-        }
-    }
-    stored
-}
-
-fn empty(status: StatusCode) -> Response<Vec<u8>> {
-    Response::builder().status(status).body(Vec::new()).unwrap_or_default()
-}
-
-/// The address of `picture`, read in a short step; neither lock is held after.
-fn source<R: Runtime>(app: &AppHandle<R>, picture: &Picture) -> Option<String> {
-    match picture {
-        Picture::BookmarkImage(_) | Picture::BookmarkIcon(_) => {
-            let db = app.try_state::<Arc<DbState>>()?;
-            let conn = db.conn.lock().ok()?;
-            library_source(&conn, picture).ok().flatten()
-        }
-        Picture::PostThumb(_) | Picture::FeedIcon(_) => {
-            let cache = app.try_state::<Arc<FeedCache>>()?;
-            let conn = cache.conn.lock().ok()?;
-            feed_source(&conn, picture).ok().flatten()
-        }
-    }
-}
-
-async fn answer<R: Runtime>(app: AppHandle<R>, picture: Picture) -> Response<Vec<u8>> {
-    let not_found = || empty(StatusCode::NOT_FOUND);
-    let Some(root) = root(&app) else { return not_found() };
-    let size = picture.size();
-    let Ok(Some(address)) = tokio::task::spawn_blocking(move || source(&app, &picture)).await else {
-        return not_found();
-    };
-    let Some(fetcher) = fetcher() else { return not_found() };
-    let Some((path, format)) = obtain(&root, &address, size, fetcher).await else {
-        return not_found();
-    };
-    let read = tokio::task::spawn_blocking(move || {
-        let bytes = fs::read(&path).ok()?;
-        touch(&path, SystemTime::now());
-        Some(bytes)
-    });
-    match read.await.ok().flatten() {
-        Some(bytes) => Response::builder()
-            .header(header::CONTENT_TYPE, format.mime())
-            .header(header::CACHE_CONTROL, CACHE_CONTROL)
-            .body(bytes)
-            .unwrap_or_else(|_| not_found()),
-        // Swept meanwhile: the next display fetches it again.
-        None => not_found(),
-    }
-}
-
-/// The `kpimg` scheme: `?v=` only tells the WebView a picture changed and is
-/// not read. 400 for a path that names nothing, 404 when there is no picture
-/// to give (no address, a failed fetch, offline); the interface then falls back.
-pub fn protocol<R: Runtime>(ctx: UriSchemeContext<'_, R>, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
-    let Some(picture) = Picture::parse(request.uri().path()) else {
-        responder.respond(empty(StatusCode::BAD_REQUEST));
-        return;
-    };
-    let app = ctx.app_handle().clone();
-    tauri::async_runtime::spawn(async move {
-        responder.respond(answer(app, picture).await);
-    });
-}
-
-/// A saved link's picture and icon, fetched in the background once its
-/// metadata is stored (a save, «Обновить превью»): nothing waits for it.
-pub fn warm<R: Runtime>(app: &AppHandle<R>, bookmark: &Bookmark) {
-    let Some(root) = root(app) else { return };
-    let wanted: Vec<(String, Size)> = [(&bookmark.image_url, Size::Preview), (&bookmark.favicon_url, Size::Icon)]
-        .into_iter()
-        .filter_map(|(address, size)| address.as_ref().filter(|a| !a.trim().is_empty()).map(|a| (a.clone(), size)))
-        .collect();
-    if wanted.is_empty() {
-        return;
-    }
-    tauri::async_runtime::spawn(async move {
-        let Some(fetcher) = fetcher() else { return };
-        for (address, size) in wanted {
-            let Ok(_turn) = WARMS.acquire().await else { return };
-            obtain(&root, &address, size, fetcher).await;
-        }
-    });
-}
-
 /// Every address the library refers to: pictures and icons of all bookmarks,
 /// those in the trash included.
 pub fn library_addresses(conn: &Connection) -> rusqlite::Result<Vec<String>> {
@@ -599,69 +308,9 @@ pub fn feed_addresses(conn: &Connection) -> rusqlite::Result<Vec<String>> {
     .collect()
 }
 
-/// What a sweep removed.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct Swept {
-    pub files: usize,
-    pub bytes: u64,
-}
-
-/// Mark and sweep over the folder, outside every lock: files of keys not in
-/// `referenced` a day after their last use, `.miss` markers past [`RETRY`],
-/// temporary files a day old; then, over `cap`, the least recently used down to 90%.
-pub fn sweep_folder(root: &Path, referenced: &HashSet<String>, now: SystemTime, cap: u64) -> Swept {
-    let mut swept = Swept::default();
-    let mut kept: Vec<(SystemTime, u64, PathBuf)> = Vec::new();
-    let remove = |path: &Path, bytes: u64, swept: &mut Swept| {
-        if fs::remove_file(path).is_ok() {
-            swept.files += 1;
-            swept.bytes += bytes;
-        }
-    };
-    let Ok(dirs) = fs::read_dir(root) else { return swept };
-    for dir in dirs.flatten() {
-        let Ok(files) = fs::read_dir(dir.path()) else { continue };
-        for entry in files.flatten() {
-            let Ok(meta) = entry.metadata() else { continue };
-            if !meta.is_file() {
-                continue;
-            }
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let modified = meta.modified().unwrap_or(now);
-            let age = now.duration_since(modified).unwrap_or_default();
-            if name.starts_with(TEMP) {
-                if age > GRACE {
-                    remove(&path, meta.len(), &mut swept);
-                }
-                continue;
-            }
-            let Some((stem, ext)) = name.split_once('.') else { continue };
-            let known = matches!(ext, MISS | "jpg" | "png" | "svg") && stem.len() == 64 && stem.bytes().all(|b| b.is_ascii_hexdigit());
-            if !known {
-                continue;
-            }
-            let stale = if ext == MISS { age > RETRY } else { false };
-            if stale || (!referenced.contains(stem) && age > GRACE) {
-                remove(&path, meta.len(), &mut swept);
-            } else {
-                kept.push((modified, meta.len(), path));
-            }
-        }
-    }
-    let mut total: u64 = kept.iter().map(|k| k.1).sum();
-    if total > cap {
-        kept.sort_by_key(|k| k.0);
-        let target = cap / 10 * 9;
-        for (_, bytes, path) in kept {
-            if total <= target {
-                break;
-            }
-            remove(&path, bytes, &mut swept);
-            total = total.saturating_sub(bytes);
-        }
-    }
-    swept
+/// The file name of an address: the hex SHA-256 of it, as it is stored.
+pub fn key(address: &str) -> String {
+    Sha256::digest(address.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// The keys of a set of addresses.
@@ -669,44 +318,853 @@ pub fn keys<'a>(addresses: impl IntoIterator<Item = &'a String>) -> HashSet<Stri
     addresses.into_iter().map(|a| key(a)).collect()
 }
 
-/// A sweep of the open library's cache. The addresses are read in two short
-/// steps, one per lock; without the feed cache, or with one only in memory,
-/// the set would be incomplete and nothing is removed.
-pub fn sweep<R: Runtime>(app: &AppHandle<R>) -> Option<Swept> {
-    let root = root(app)?;
-    let library = {
-        let db = app.try_state::<Arc<DbState>>()?;
-        let conn = db.conn.lock().ok()?;
-        library_addresses(&conn).ok()?
-    };
-    let feeds = {
-        let cache = app.try_state::<Arc<FeedCache>>()?;
-        let conn = cache.conn.lock().ok()?;
-        if conn.path().is_none_or(str::is_empty) {
-            return None;
-        }
-        feed_addresses(&conn).ok()?
-    };
-    let referenced = keys(library.iter().chain(feeds.iter()));
-    Some(sweep_folder(&root, &referenced, SystemTime::now(), CAP))
+fn file(root: &Path, key: &str, size: Size, ext: &str) -> PathBuf {
+    root.join(&key[..2]).join(format!("{key}.{}{ext}", size.tag()))
 }
 
-/// Bookmarks were deleted for good (`db::purge_trash`): the sweep runs soon.
-pub fn purged() {
+/// The cache of the library at `paths`: beside it, but on Windows in the
+/// local AppData, since the library is in the roaming one; beside it there
+/// too when the data folder is set by `KOONAPIN_DATA_DIR`.
+pub fn root_for(paths: &Paths) -> PathBuf {
+    #[cfg(windows)]
+    if std::env::var_os(crate::db::DATA_DIR_ENV).is_none() {
+        if let Some(local) = dirs::data_local_dir() {
+            return local.join(crate::db::BRAND_FOLDER).join(crate::db::DATA_FOLDER).join(FOLDER);
+        }
+    }
+    paths.folder().join(FOLDER)
+}
+
+/// Time Machine leaves the folder out, as `tmutil addexclusion` would; best effort.
+#[cfg(target_os = "macos")]
+fn exclude_from_backups(path: &Path) {
+    use std::os::unix::ffi::OsStrExt;
+    // The binary plist of the string "com.apple.backupd", as tmutil writes it.
+    const VALUE: &[u8] = b"bplist00_\x10\x11com.apple.backupd\x08\x00\x00\x00\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c";
+    let (Ok(path), Ok(name)) = (
+        std::ffi::CString::new(path.as_os_str().as_bytes()),
+        std::ffi::CString::new("com.apple.metadata:com_apple_backup_excludeItem"),
+    ) else {
+        return;
+    };
+    // SAFETY: both strings are NUL-terminated and outlive the call; VALUE is a static buffer of its length.
+    unsafe {
+        libc::setxattr(path.as_ptr(), name.as_ptr(), VALUE.as_ptr().cast(), VALUE.len(), 0, 0);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn exclude_from_backups(_: &Path) {}
+
+fn age(modified: SystemTime, now: SystemTime) -> Duration {
+    now.duration_since(modified).unwrap_or_default()
+}
+
+/// What the folder holds for `key`.
+#[derive(Debug, PartialEq, Eq)]
+enum Cached {
+    File(PathBuf, Format),
+    /// A fetch failed within its retry window.
+    Miss(Miss),
+    Nothing,
+}
+
+fn cached(root: &Path, key: &str, size: Size, now: SystemTime) -> Cached {
+    for &format in Format::of(size) {
+        let path = file(root, key, size, format.ext());
+        if path.is_file() {
+            return Cached::File(path, format);
+        }
+    }
+    let path = file(root, key, size, "miss");
+    let Some(modified) = fs::metadata(&path).and_then(|m| m.modified()).ok() else {
+        return Cached::Nothing;
+    };
+    let miss = Miss::read(&fs::read(&path).unwrap_or_default());
+    if age(modified, now) < miss.retry() {
+        Cached::Miss(miss)
+    } else {
+        Cached::Nothing
+    }
+}
+
+/// Writes `bytes` under a `.partial-` name beside `path` and renames it into place.
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let dir = path.parent().ok_or_else(|| std::io::Error::other("no folder"))?;
+    fs::create_dir_all(dir)?;
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let temp = dir.join(format!("{name}{PARTIAL}{}", uuid::Uuid::new_v4().simple()));
+    fs::write(&temp, bytes)?;
+    fs::rename(&temp, path).inspect_err(|_| {
+        let _ = fs::remove_file(&temp);
+    })
+}
+
+/// The newest-first queue of fetches: at most `total` at once, `per_host` to one site.
+pub struct Queue {
+    total: usize,
+    per_host: usize,
+    state: Mutex<QueueState>,
+}
+
+#[derive(Default)]
+struct QueueState {
+    running: usize,
+    hosts: HashMap<String, usize>,
+    waiting: Vec<Waiter>,
+    next: u64,
+}
+
+struct Waiter {
+    id: u64,
+    host: String,
+    rank: Arc<AtomicU64>,
+    granted: oneshot::Sender<()>,
+}
+
+/// A fetch's turn; given back when dropped.
+pub struct Slot<'q> {
+    queue: &'q Queue,
+    host: String,
+}
+
+impl Drop for Slot<'_> {
+    fn drop(&mut self) {
+        let mut state = self.queue.state.lock().unwrap_or_else(|e| e.into_inner());
+        release(&mut state, &self.host);
+        self.queue.dispatch(&mut state);
+    }
+}
+
+fn release(state: &mut QueueState, host: &str) {
+    state.running = state.running.saturating_sub(1);
+    if let Some(n) = state.hosts.get_mut(host) {
+        *n = n.saturating_sub(1);
+        if *n == 0 {
+            state.hosts.remove(host);
+        }
+    }
+}
+
+impl Queue {
+    pub fn new(total: usize, per_host: usize) -> Queue {
+        Queue {
+            total,
+            per_host,
+            state: Mutex::default(),
+        }
+    }
+
+    fn free(&self, state: &QueueState, host: &str) -> bool {
+        state.running < self.total && state.hosts.get(host).copied().unwrap_or(0) < self.per_host
+    }
+
+    fn take(state: &mut QueueState, host: &str) {
+        state.running += 1;
+        *state.hosts.entry(host.to_string()).or_default() += 1;
+    }
+
+    /// Hands free turns to the highest-ranked waiters whose site has room.
+    fn dispatch(&self, state: &mut QueueState) {
+        loop {
+            let best = state
+                .waiting
+                .iter()
+                .enumerate()
+                .filter(|(_, w)| self.free(state, &w.host))
+                .max_by_key(|(_, w)| (w.rank.load(Ordering::Relaxed), w.id))
+                .map(|(i, _)| i);
+            let Some(index) = best else { return };
+            let waiter = state.waiting.swap_remove(index);
+            Queue::take(state, &waiter.host);
+            if waiter.granted.send(()).is_err() {
+                release(state, &waiter.host);
+            }
+        }
+    }
+
+    /// A turn for `host` within `wait`; the higher `rank`, the sooner. None when the wait ran out.
+    pub async fn acquire(&self, host: &str, rank: Arc<AtomicU64>, wait: Duration) -> Option<Slot<'_>> {
+        let (id, granted) = {
+            let mut state = self.state.lock().ok()?;
+            if self.free(&state, host) && state.waiting.is_empty() {
+                Queue::take(&mut state, host);
+                return Some(Slot { queue: self, host: host.to_string() });
+            }
+            let (tx, rx) = oneshot::channel();
+            state.next += 1;
+            let id = state.next;
+            state.waiting.push(Waiter { id, host: host.to_string(), rank, granted: tx });
+            // Room for this one even with others waiting: another site's.
+            self.dispatch(&mut state);
+            (id, rx)
+        };
+        let mut granted = granted;
+        match tokio::time::timeout(wait, &mut granted).await {
+            Ok(Ok(())) => Some(Slot { queue: self, host: host.to_string() }),
+            _ => {
+                let mut state = self.state.lock().ok()?;
+                if let Some(index) = state.waiting.iter().position(|w| w.id == id) {
+                    state.waiting.swap_remove(index);
+                    return None;
+                }
+                drop(state);
+                // Granted just as the wait ran out: the turn is given back.
+                if granted.try_recv().is_ok() {
+                    drop(Slot { queue: self, host: host.to_string() });
+                }
+                None
+            }
+        }
+    }
+}
+
+/// Why a fetch kept nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Fault {
+    /// No connection, a server error: tried again on the next display, no `.miss`.
+    Offline,
+    Miss(Miss),
+}
+
+/// Where a fetch is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Phase {
+    Queued,
+    Running,
+    Done(Outcome),
+}
+
+/// What a request gets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Outcome {
+    File(PathBuf, Format),
+    /// The guard refused the address: the sentinel, and the card shows its cover.
+    Refused,
+    /// Nothing now: the card may load the source address itself.
+    Nothing,
+}
+
+struct Flight {
+    phase: watch::Receiver<Phase>,
+    rank: Arc<AtomicU64>,
+}
+
+/// Ranks of displayed pictures are above every warm one's.
+fn display_rank() -> u64 {
+    (1 << 62) + RANKS.fetch_add(1, Ordering::Relaxed)
+}
+
+fn warm_rank() -> u64 {
+    RANKS.fetch_add(1, Ordering::Relaxed)
+}
+
+/// The network looked down: misses are a 404 at once for a while.
+#[derive(Default)]
+struct Breaker {
+    failures: u32,
+    open_until: Option<Instant>,
+}
+
+/// A database read on a read-only connection of its own: the writer's lock
+/// is never taken for a picture. Opened on first use, again after an error.
+struct Reader {
+    path: PathBuf,
+    conn: Mutex<Option<Connection>>,
+}
+
+impl Reader {
+    fn new(path: PathBuf) -> Reader {
+        Reader { path, conn: Mutex::new(None) }
+    }
+
+    fn read<T>(&self, query: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Option<T> {
+        let mut conn = self.conn.lock().ok()?;
+        if conn.is_none() {
+            let opened = Connection::open_with_flags(&self.path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX).ok()?;
+            let _ = opened.busy_timeout(Duration::from_secs(2));
+            *conn = Some(opened);
+        }
+        match query(conn.as_ref()?) {
+            Ok(value) => Some(value),
+            Err(_) => {
+                *conn = None;
+                None
+            }
+        }
+    }
+}
+
+/// The cache of the open library: its folder, the read-only connections, the client.
+pub struct Thumbs {
+    root: PathBuf,
+    library: Reader,
+    /// None while the feed cache is in memory or missing: no feed pictures, no sweep.
+    feeds: Option<Reader>,
+    client: reqwest::Client,
+    limits: &'static Limits,
+    breaker: Mutex<Breaker>,
+}
+
+impl Thumbs {
+    /// `library` and `feeds` are the database files; `limits` is [`LIMITS`] outside tests.
+    pub fn new(root: PathBuf, library: PathBuf, feeds: Option<PathBuf>, limits: &'static Limits) -> reqwest::Result<Thumbs> {
+        Ok(Thumbs {
+            root,
+            library: Reader::new(library),
+            feeds: feeds.map(Reader::new),
+            client: metadata::client(limits)?,
+            limits,
+            breaker: Mutex::default(),
+        })
+    }
+
+    fn source(&self, picture: &Picture) -> Option<String> {
+        match picture {
+            Picture::BookmarkImage(_) | Picture::BookmarkIcon(_) => self.library.read(|c| library_source(c, picture)).flatten(),
+            Picture::PostThumb(_) | Picture::FeedIcon(_) => self.feeds.as_ref()?.read(|c| feed_source(c, picture)).flatten(),
+        }
+    }
+
+    fn broken(&self) -> bool {
+        let mut breaker = self.breaker.lock().unwrap_or_else(|e| e.into_inner());
+        match breaker.open_until {
+            Some(until) if Instant::now() < until => true,
+            Some(_) => {
+                breaker.open_until = None;
+                false
+            }
+            None => false,
+        }
+    }
+
+    /// A fetch's end: a connection failure counts towards the breaker, any answer resets it.
+    fn connected(&self, ok: bool) {
+        let mut breaker = self.breaker.lock().unwrap_or_else(|e| e.into_inner());
+        if ok {
+            breaker.failures = 0;
+        } else {
+            breaker.failures += 1;
+            if breaker.failures >= BREAKER_AFTER {
+                breaker.failures = 0;
+                breaker.open_until = Some(Instant::now() + BREAKER_FOR);
+            }
+        }
+    }
+}
+
+/// The body of a picture: an allowed http(s) address, a 2xx answer, at most
+/// `max_body`. Through [`metadata::client`] as it is: no proxy, no cookies,
+/// no Referer; the first address is checked here, each redirect by the client.
+async fn download(thumbs: &Thumbs, url: Url) -> Result<Vec<u8>, Fault> {
+    match metadata::check_address(&url, thumbs.limits.allow).await {
+        Ok(()) => {}
+        Err(FetchError::Refused) => return Err(Fault::Miss(Miss::Refused)),
+        // A name that does not resolve: offline looks the same.
+        Err(_) => return Err(Fault::Offline),
+    }
+    let mut response = thumbs.client.get(url).send().await.map_err(|e| {
+        if e.is_redirect() {
+            return Fault::Miss(Miss::Failed);
+        }
+        match metadata::failure(&e) {
+            FetchError::Refused => Fault::Miss(Miss::Refused),
+            FetchError::Timeout => Fault::Miss(Miss::Timeout),
+            FetchError::Failed => Fault::Offline,
+        }
+    })?;
+    let status = response.status();
+    if !status.is_success() {
+        // 408 and 429 pass; a server error may too.
+        let lasting = (status.is_client_error() && !matches!(status.as_u16(), 408 | 429)) || status.is_redirection();
+        return Err(if lasting { Fault::Miss(Miss::Failed) } else { Fault::Offline });
+    }
+    let max = thumbs.limits.max_body;
+    if response.content_length().is_some_and(|n| n > max as u64) {
+        return Err(Fault::Miss(Miss::Failed));
+    }
+    let mut body = Vec::new();
+    loop {
+        match response.chunk().await {
+            Ok(Some(chunk)) => body.extend_from_slice(&chunk),
+            Ok(None) => return Ok(body),
+            Err(e) if e.is_timeout() => return Err(Fault::Miss(Miss::Timeout)),
+            Err(_) => return Err(Fault::Offline),
+        }
+        if body.len() > max {
+            return Err(Fault::Miss(Miss::Failed));
+        }
+    }
+}
+
+/// An SVG document, as far as its start tells: text, then `<svg` after any
+/// prolog, comments or doctype; no script and no entity declarations.
+fn looks_like_svg(bytes: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(bytes) else { return false };
+    let text = text.trim_start_matches('\u{feff}').trim_start();
+    if !text.starts_with('<') {
+        return false;
+    }
+    let lower = text.to_ascii_lowercase();
+    let head = &lower[..lower.len().min(4096)];
+    let Some(at) = head.find("<svg") else { return false };
+    // Before `<svg` only the prolog: `<?xml`, comments, a doctype.
+    let only_prolog = head[..at].split('<').skip(1).all(|tag| tag.starts_with('?') || tag.starts_with('!'));
+    only_prolog && !lower.contains("<script") && !lower.contains("<!entity") && lower.contains("</svg>")
+}
+
+fn reader_limits() -> image::Limits {
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_SIDE);
+    limits.max_image_height = Some(MAX_SIDE);
+    limits.max_alloc = Some(MAX_ALLOC);
+    limits
+}
+
+/// Decodes by the bytes, whatever the header said: JPEG, PNG, GIF (its
+/// first frame), WebP, ICO, BMP, under [`reader_limits`], turned as its EXIF says.
+fn decode(bytes: &[u8]) -> Option<DynamicImage> {
+    let mut reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format().ok()?;
+    let format = reader.format()?;
+    if !matches!(format, ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::Gif | ImageFormat::WebP | ImageFormat::Ico | ImageFormat::Bmp) {
+        return None;
+    }
+    reader.limits(reader_limits());
+    let mut decoder = reader.into_decoder().ok()?;
+    // The pixels' size before they are allocated: `into_decoder` checks only the sides.
+    reader_limits().reserve(decoder.total_bytes()).ok()?;
+    let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
+    let mut image = DynamicImage::from_decoder(decoder).ok()?;
+    image.apply_orientation(orientation);
+    Some(image)
+}
+
+/// Some pixel shows what is behind it.
+fn transparent(image: &DynamicImage) -> bool {
+    image.color().has_alpha() && image.to_rgba8().pixels().any(|p| p.0[3] < 255)
+}
+
+/// A preview: taller than 2:1 cropped to its top, at most 640 px wide; JPEG
+/// q80, or PNG when it has real transparency.
+fn preview(image: DynamicImage) -> Option<(Vec<u8>, Format)> {
+    let (w, h) = image.dimensions();
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let image = if h > w.saturating_mul(2) { image.crop_imm(0, 0, w, w * 2) } else { image };
+    let (w, h) = image.dimensions();
+    let image = if w > PREVIEW_WIDTH {
+        let height = ((h as u64 * PREVIEW_WIDTH as u64 + w as u64 / 2) / w as u64).max(1) as u32;
+        image.resize_exact(PREVIEW_WIDTH, height, FILTER)
+    } else {
+        image
+    };
+    let mut out = Cursor::new(Vec::new());
+    if transparent(&image) {
+        DynamicImage::ImageRgba8(image.to_rgba8()).write_with_encoder(image::codecs::png::PngEncoder::new(&mut out)).ok()?;
+        return Some((out.into_inner(), Format::Png));
+    }
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, JPEG_QUALITY);
+    DynamicImage::ImageRgb8(image.to_rgb8()).write_with_encoder(encoder).ok()?;
+    Some((out.into_inner(), Format::Jpeg))
+}
+
+/// An icon: within 96 × 96, PNG.
+fn icon(image: DynamicImage) -> Option<(Vec<u8>, Format)> {
+    let (w, h) = image.dimensions();
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let image = if w > ICON_SIDE || h > ICON_SIDE { image.resize(ICON_SIDE, ICON_SIDE, FILTER) } else { image };
+    let image = if image.color().has_alpha() { DynamicImage::ImageRgba8(image.to_rgba8()) } else { DynamicImage::ImageRgb8(image.to_rgb8()) };
+    let mut out = Cursor::new(Vec::new());
+    image.write_with_encoder(image::codecs::png::PngEncoder::new(&mut out)).ok()?;
+    Some((out.into_inner(), Format::Png))
+}
+
+/// What a fetched body is kept as; none when it is not a picture this size class takes.
+fn make(bytes: &[u8], size: Size) -> Option<(Vec<u8>, Format)> {
+    if size == Size::Icon && looks_like_svg(bytes) {
+        return (bytes.len() <= MAX_SVG).then(|| (bytes.to_vec(), Format::Svg));
+    }
+    let image = decode(bytes)?;
+    match size {
+        Size::Preview => preview(image),
+        Size::Icon => icon(image),
+    }
+}
+
+/// Writes what a fetch gave: the file, or the `.miss` that says why not.
+fn store(root: &Path, key: &str, size: Size, made: Result<(Vec<u8>, Format), Fault>) -> Outcome {
+    let miss = file(root, key, size, "miss");
+    match made {
+        Ok((bytes, format)) => {
+            let path = file(root, key, size, format.ext());
+            if write_atomic(&path, &bytes).is_err() {
+                return Outcome::Nothing;
+            }
+            let _ = fs::remove_file(miss);
+            Outcome::File(path, format)
+        }
+        Err(Fault::Miss(kind)) => {
+            let _ = write_atomic(&miss, kind.content());
+            if kind == Miss::Refused {
+                Outcome::Refused
+            } else {
+                Outcome::Nothing
+            }
+        }
+        Err(Fault::Offline) => Outcome::Nothing,
+    }
+}
+
+fn of_cached(cached: Cached) -> Option<Outcome> {
+    match cached {
+        Cached::File(path, format) => Some(Outcome::File(path, format)),
+        Cached::Miss(Miss::Refused) => Some(Outcome::Refused),
+        Cached::Miss(_) => Some(Outcome::Nothing),
+        Cached::Nothing => None,
+    }
+}
+
+/// One fetch: waits for its turn, fetches, decodes (two at a time), writes.
+async fn fly(thumbs: Arc<Thumbs>, key: String, url: Url, size: Size, rank: Arc<AtomicU64>, queued: Duration, phase: watch::Sender<Phase>) -> Outcome {
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    let Some(slot) = QUEUE.acquire(&host, rank, queued).await else {
+        return Outcome::Nothing;
+    };
+    let _ = phase.send(Phase::Running);
+    let (root, k) = (thumbs.root.clone(), key.clone());
+    // A fetch that finished while this one waited.
+    if let Some(done) = tokio::task::spawn_blocking(move || of_cached(cached(&root, &k, size, SystemTime::now()))).await.ok().flatten() {
+        return done;
+    }
+    let body = download(&thumbs, url).await;
+    drop(slot);
+    thumbs.connected(!matches!(body, Err(Fault::Offline) | Err(Fault::Miss(Miss::Timeout))));
+    let made = match body {
+        Ok(body) => {
+            let Ok(_decoding) = DECODES.acquire().await else { return Outcome::Nothing };
+            tokio::task::spawn_blocking(move || make(&body, size)).await.ok().flatten().ok_or(Fault::Miss(Miss::Failed))
+        }
+        Err(fault) => Err(fault),
+    };
+    let root = thumbs.root.clone();
+    tokio::task::spawn_blocking(move || store(&root, &key, size, made)).await.unwrap_or(Outcome::Nothing)
+}
+
+/// The fetch of `address` in this size class, joined or started. A displayed
+/// picture (`wait` set) waits that long for the fetch to start, then gives
+/// up and leaves it queued; a warm one only starts it.
+async fn fetch(thumbs: &Arc<Thumbs>, address: &str, size: Size, wait: Option<Duration>) -> Outcome {
+    if thumbs.broken() {
+        return Outcome::Nothing;
+    }
+    let key = key(address);
+    let url = match Url::parse(address.trim()) {
+        Ok(url) if matches!(url.scheme(), "http" | "https") && url.host_str().is_some() => url,
+        // Not the web: never asked, the card shows its cover.
+        _ => {
+            let root = thumbs.root.clone();
+            return tokio::task::spawn_blocking(move || store(&root, &key, size, Err(Fault::Miss(Miss::Refused)))).await.unwrap_or(Outcome::Refused);
+        }
+    };
+    let name = format!("{}|{key}|{size:?}", thumbs.root.display());
+    let rank = if wait.is_some() { display_rank() } else { warm_rank() };
+    let mut phase = {
+        let Ok(mut flights) = FLIGHTS.lock() else { return Outcome::Nothing };
+        match flights.get(&name) {
+            Some(flight) => {
+                // Asked again: it moves up.
+                flight.rank.fetch_max(rank, Ordering::Relaxed);
+                flight.phase.clone()
+            }
+            None => {
+                let (tx, rx) = watch::channel(Phase::Queued);
+                let rank = Arc::new(AtomicU64::new(rank));
+                flights.insert(name.clone(), Flight { phase: rx.clone(), rank: rank.clone() });
+                let queued = if wait.is_some() { QUEUED } else { WARM_QUEUED };
+                let thumbs = thumbs.clone();
+                tauri::async_runtime::spawn(async move {
+                    let outcome = fly(thumbs, key, url, size, rank, queued, tx.clone()).await;
+                    if let Ok(mut flights) = FLIGHTS.lock() {
+                        flights.remove(&name);
+                    }
+                    let _ = tx.send(Phase::Done(outcome));
+                });
+                rx
+            }
+        }
+    };
+    let Some(wait) = wait else { return Outcome::Nothing };
+    let started = matches!(tokio::time::timeout(wait, phase.wait_for(|p| *p != Phase::Queued)).await, Ok(Ok(_)));
+    if !started {
+        return Outcome::Nothing;
+    }
+    match phase.wait_for(|p| matches!(p, Phase::Done(_))).await.map(|p| (*p).clone()) {
+        Ok(Phase::Done(outcome)) => outcome,
+        _ => Outcome::Nothing,
+    }
+}
+
+/// The 1 × 1 transparent PNG of a refused address.
+fn sentinel() -> &'static [u8] {
+    static PNG: OnceLock<Vec<u8>> = OnceLock::new();
+    PNG.get_or_init(|| {
+        let mut out = Cursor::new(Vec::new());
+        let _ = DynamicImage::ImageRgba8(image::RgbaImage::new(1, 1)).write_to(&mut out, ImageFormat::Png);
+        out.into_inner()
+    })
+}
+
+fn respond_with(status: StatusCode, headers: &[(&str, &str)], body: Vec<u8>) -> Response<Vec<u8>> {
+    let mut builder = Response::builder()
+        .status(status)
+        .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
+        .header(header::CONTENT_SECURITY_POLICY, SANDBOX);
+    for (name, value) in headers {
+        builder = builder.header(*name, *value);
+    }
+    builder.body(body).unwrap_or_default()
+}
+
+fn refused() -> Response<Vec<u8>> {
+    respond_with(
+        StatusCode::OK,
+        &[("Content-Type", "image/png"), ("Cache-Control", "no-store"), (REFUSED_HEADER, "refused")],
+        sentinel().to_vec(),
+    )
+}
+
+/// The answer to a `kpimg` path: 200 with the file; 200 with a 1 × 1
+/// transparent PNG and `X-Kpimg: refused` for an address the guard refuses
+/// (show the cover, not the web); 404 when there is nothing now (no address,
+/// a failed or slow fetch, offline: the card may load the address itself);
+/// 400 for a path that names nothing. `?v=` is not read: it only tells the
+/// WebView a picture changed.
+pub async fn respond(thumbs: &Arc<Thumbs>, path: &str) -> Response<Vec<u8>> {
+    let Some(picture) = Picture::parse(path) else {
+        return respond_with(StatusCode::BAD_REQUEST, &[], Vec::new());
+    };
+    let size = picture.size();
+    // The lookup, the stat and the read in one blocking step.
+    let found = {
+        let thumbs = thumbs.clone();
+        tokio::task::spawn_blocking(move || {
+            let address = thumbs.source(&picture)?;
+            let hit = match cached(&thumbs.root, &key(&address), size, SystemTime::now()) {
+                Cached::File(path, format) => fs::read(path).ok().map(|bytes| (bytes, format)),
+                _ => None,
+            };
+            Some((address, hit))
+        })
+        .await
+        .ok()
+        .flatten()
+    };
+    let not_found = || respond_with(StatusCode::NOT_FOUND, &[], Vec::new());
+    let Some((address, hit)) = found else { return not_found() };
+    let served = |bytes: Vec<u8>, format: Format| respond_with(StatusCode::OK, &[("Content-Type", format.mime()), ("Cache-Control", CACHE_CONTROL)], bytes);
+    if let Some((bytes, format)) = hit {
+        return served(bytes, format);
+    }
+    let root = thumbs.root.clone();
+    let k = key(&address);
+    let known = tokio::task::spawn_blocking(move || of_cached(cached(&root, &k, size, SystemTime::now()))).await.ok().flatten();
+    let outcome = match known {
+        Some(outcome) => outcome,
+        None => fetch(thumbs, &address, size, Some(SLOT_WAIT)).await,
+    };
+    match outcome {
+        Outcome::File(path, format) => match tokio::task::spawn_blocking(move || fs::read(path)).await {
+            Ok(Ok(bytes)) => served(bytes, format),
+            // Swept meanwhile: the next display fetches it again.
+            _ => not_found(),
+        },
+        Outcome::Refused => refused(),
+        Outcome::Nothing => not_found(),
+    }
+}
+
+/// The `kpimg` scheme: it only spawns; [`respond`] answers.
+pub fn protocol<R: Runtime>(ctx: UriSchemeContext<'_, R>, request: tauri::http::Request<Vec<u8>>, responder: UriSchemeResponder) {
+    let path = request.uri().path().to_string();
+    let thumbs = ctx.app_handle().try_state::<Arc<Thumbs>>().map(|t| t.inner().clone());
+    tauri::async_runtime::spawn(async move {
+        let response = match thumbs {
+            Some(thumbs) => respond(&thumbs, &path).await,
+            // The library is still opening.
+            None => respond_with(StatusCode::NOT_FOUND, &[], Vec::new()),
+        };
+        responder.respond(response);
+    });
+}
+
+/// A saved link's picture and icon, fetched in the background once its
+/// metadata is stored: a save, a capture, «Обновить превью» on one bookmark.
+/// Not for a run over many. Nothing waits for it; what is displayed comes first.
+pub fn warm<R: Runtime>(app: &AppHandle<R>, bookmark: &Bookmark) {
+    let Some(thumbs) = app.try_state::<Arc<Thumbs>>().map(|t| t.inner().clone()) else { return };
+    let wanted: Vec<(String, Size)> = [(&bookmark.image_url, Size::Preview), (&bookmark.favicon_url, Size::Icon)]
+        .into_iter()
+        .filter_map(|(address, size)| address.as_ref().filter(|a| !a.trim().is_empty()).map(|a| (a.clone(), size)))
+        .collect();
+    if wanted.is_empty() {
+        return;
+    }
+    tauri::async_runtime::spawn(async move {
+        for (address, size) in wanted {
+            let (root, k) = (thumbs.root.clone(), key(&address));
+            let known = tokio::task::spawn_blocking(move || cached(&root, &k, size, SystemTime::now())).await;
+            if matches!(known, Ok(Cached::Nothing)) {
+                fetch(&thumbs, &address, size, None).await;
+            }
+        }
+    });
+}
+
+/// What a sweep removed.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Swept {
+    pub files: usize,
+    pub bytes: u64,
+}
+
+struct Entry {
+    path: PathBuf,
+    name: String,
+    modified: SystemTime,
+    bytes: u64,
+}
+
+fn list(root: &Path) -> Vec<Entry> {
+    let mut entries = Vec::new();
+    let Ok(dirs) = fs::read_dir(root) else { return entries };
+    for dir in dirs.flatten() {
+        let Ok(files) = fs::read_dir(dir.path()) else { continue };
+        for entry in files.flatten() {
+            let Ok(meta) = entry.metadata() else { continue };
+            if meta.is_file() {
+                entries.push(Entry {
+                    path: entry.path(),
+                    name: entry.file_name().to_string_lossy().into_owned(),
+                    modified: meta.modified().unwrap_or_else(|_| SystemTime::now()),
+                    bytes: meta.len(),
+                });
+            }
+        }
+    }
+    entries
+}
+
+/// The key and the rest of a cache file's name, when it is one.
+fn parse_name(name: &str) -> Option<(&str, &str)> {
+    let (stem, rest) = name.split_once('.')?;
+    let known = matches!(rest, "jpg" | "png" | "miss" | "icon.png" | "icon.svg" | "icon.miss");
+    (known && stem.len() == 64 && stem.bytes().all(|b| b.is_ascii_hexdigit())).then_some((stem, rest))
+}
+
+/// Mark and sweep, outside every lock. The files are listed first, then
+/// `referenced` is asked for the keys still in use, so a file written
+/// meanwhile is not in the list; none means the set is incomplete and nothing
+/// goes. Removed: files of other keys a day after they were written, `.miss`
+/// past its retry, `.partial-` files a day old; then over `cap`, the oldest
+/// written down to 90%.
+pub fn sweep_folder(root: &Path, now: SystemTime, cap: u64, referenced: impl FnOnce() -> Option<HashSet<String>>) -> Option<Swept> {
+    let entries = list(root);
+    let referenced = referenced()?;
+    let mut swept = Swept::default();
+    let remove = |entry: &Entry, swept: &mut Swept| {
+        if fs::remove_file(&entry.path).is_ok() {
+            swept.files += 1;
+            swept.bytes += entry.bytes;
+        }
+    };
+    let mut kept = Vec::new();
+    for entry in entries {
+        let old = age(entry.modified, now) > GRACE;
+        if entry.name.contains(PARTIAL) {
+            if old {
+                remove(&entry, &mut swept);
+            }
+            continue;
+        }
+        let Some((key, rest)) = parse_name(&entry.name) else { continue };
+        let stale = rest.ends_with("miss") && age(entry.modified, now) > Miss::read(&fs::read(&entry.path).unwrap_or_default()).retry();
+        if stale || (old && !referenced.contains(key)) {
+            remove(&entry, &mut swept);
+        } else {
+            kept.push(entry);
+        }
+    }
+    let mut total: u64 = kept.iter().map(|e| e.bytes).sum();
+    if total > cap {
+        kept.sort_by_key(|e| e.modified);
+        let target = cap / 10 * 9;
+        for entry in kept {
+            if total <= target {
+                break;
+            }
+            remove(&entry, &mut swept);
+            total = total.saturating_sub(entry.bytes);
+        }
+    }
+    Some(swept)
+}
+
+/// A sweep of the open library's cache; none when the feed cache is not on
+/// disk, since its references would be missing.
+pub fn sweep(thumbs: &Thumbs) -> Option<Swept> {
+    let feeds = thumbs.feeds.as_ref()?;
+    sweep_folder(&thumbs.root, SystemTime::now(), CAP, || {
+        let library = thumbs.library.read(library_addresses)?;
+        let feeds = feeds.read(feed_addresses)?;
+        Some(keys(library.iter().chain(feeds.iter())))
+    })
+}
+
+/// Bookmarks were deleted for good (`db::purge_trash`) or the feed cache
+/// cleared: the sweep runs a minute later, once for a series of them.
+pub fn sweep_soon() {
     SWEEP.notify_one();
 }
 
-/// The sweep at library open, and after each purge, a minute later so a
-/// series of them is one sweep. Called once the library and the feed cache are managed.
+/// Manages the cache of the library just opened and sweeps it now and after
+/// each [`sweep_soon`]. Called once, after the library and the feed cache.
 pub fn start<R: Runtime>(app: &AppHandle<R>) {
-    let app = app.clone();
+    let Some(library) = app.try_state::<Arc<Library>>() else { return };
+    if app.try_state::<Arc<DbState>>().is_none() {
+        return;
+    }
+    let root = root_for(&library.paths);
+    if fs::create_dir_all(&root).is_ok() {
+        exclude_from_backups(&root);
+    }
+    // The cache on disk only: one in memory is not this file.
+    let feeds = app.try_state::<Arc<FeedCache>>().and_then(|cache| {
+        let on_disk = cache.conn.lock().ok()?.path().is_some_and(|p| !p.is_empty());
+        on_disk.then(|| cache.path.clone())
+    });
+    #[cfg(not(feature = "public-release"))]
+    let limits: &'static Limits = if std::env::var_os(LOOPBACK_ENV).is_some() { &LOOPBACK_LIMITS } else { &LIMITS };
+    #[cfg(feature = "public-release")]
+    let limits: &'static Limits = &LIMITS;
+    let thumbs = match Thumbs::new(root, library.paths.database.clone(), feeds, limits) {
+        Ok(thumbs) => Arc::new(thumbs),
+        Err(error) => {
+            eprintln!("The picture cache cannot start: {error}");
+            return;
+        }
+    };
+    app.manage(thumbs.clone());
     tauri::async_runtime::spawn(async move {
         loop {
-            let handle = app.clone();
-            if let Ok(Some(swept)) = tokio::task::spawn_blocking(move || sweep(&handle)).await {
-                if swept.files > 0 {
-                    eprintln!("Picture cache: removed {} files, {} bytes", swept.files, swept.bytes);
-                }
+            let swept = {
+                let thumbs = thumbs.clone();
+                tokio::task::spawn_blocking(move || sweep(&thumbs)).await.ok().flatten()
+            };
+            if let Some(swept) = swept.filter(|s| s.files > 0) {
+                eprintln!("Picture cache: removed {} files, {} bytes", swept.files, swept.bytes);
             }
             SWEEP.notified().await;
             tokio::time::sleep(Duration::from_secs(60)).await;
@@ -718,11 +1176,11 @@ pub fn start<R: Runtime>(app: &AppHandle<R>) {
 mod tests {
     use super::*;
     use crate::db::{insert_or_update_bookmark, trash_bookmark, Source};
-    use crate::library::{self, Paths};
+    use crate::library;
     use image::{Rgba, RgbaImage};
     use std::io::{Read, Write};
     use std::net::{IpAddr, Ipv4Addr, TcpListener};
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::atomic::AtomicUsize;
 
     fn folder(name: &str) -> PathBuf {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -756,8 +1214,17 @@ mod tests {
         assert_eq!(k.len(), 64);
         assert!(k.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()));
         assert_eq!(key("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
-        assert_eq!(file(Path::new("/lib/thumbs"), &k, "jpg"), Path::new("/lib/thumbs").join(&k[..2]).join(format!("{k}.jpg")));
+        let root = Path::new("/lib/thumbs");
+        assert_eq!(file(root, &k, Size::Preview, "jpg"), root.join(&k[..2]).join(format!("{k}.jpg")));
+        assert_eq!(file(root, &k, Size::Icon, "png"), root.join(&k[..2]).join(format!("{k}.icon.png")));
+        assert_eq!(file(root, &k, Size::Icon, "miss"), root.join(&k[..2]).join(format!("{k}.icon.miss")));
         assert_ne!(key("https://example.com/a.png"), key("https://example.com/a.png "), "the address as stored");
+        for name in [format!("{k}.jpg"), format!("{k}.png"), format!("{k}.miss"), format!("{k}.icon.png"), format!("{k}.icon.svg"), format!("{k}.icon.miss")] {
+            assert_eq!(parse_name(&name).map(|p| p.0), Some(k.as_str()), "{name}");
+        }
+        for name in [format!("{k}.gif"), format!("{k}.jpg{PARTIAL}1"), "koonapin.db".into(), "ab.jpg".into()] {
+            assert_eq!(parse_name(&name), None, "{name}");
+        }
     }
 
     #[test]
@@ -791,7 +1258,7 @@ mod tests {
             let source = if format == ImageFormat::Ico { picture(200, 150, 255) } else { source.clone() };
             let bytes = encoded(&source, format);
             let (jpeg, kind) = make(&bytes, Size::Preview).unwrap_or_else(|| panic!("{format:?} preview"));
-            assert_eq!(kind, Format::Jpeg);
+            assert_eq!(kind, Format::Jpeg, "{format:?}: opaque");
             assert_eq!(image::guess_format(&jpeg).unwrap(), ImageFormat::Jpeg);
             let expected = if source.width() > 640 { (640, 480) } else { source.dimensions() };
             assert_eq!(decoded(&jpeg).dimensions(), expected, "{format:?}");
@@ -815,22 +1282,54 @@ mod tests {
             }
         }
         let (png, _) = make(&out, Size::Icon).unwrap();
-        let first = decoded(&png).to_rgba8();
-        let [r, _, b, _] = first.get_pixel(5, 5).0;
+        let [r, _, b, _] = decoded(&png).to_rgba8().get_pixel(5, 5).0;
         assert!(r > 200 && b < 50, "{r} {b}");
     }
 
+    /// A JPEG with an EXIF APP1 segment saying `orientation`.
+    fn with_orientation(jpeg: &[u8], orientation: u16) -> Vec<u8> {
+        let mut tiff = b"II*\0\x08\0\0\0\x01\0".to_vec();
+        tiff.extend_from_slice(&0x0112u16.to_le_bytes());
+        tiff.extend_from_slice(&3u16.to_le_bytes());
+        tiff.extend_from_slice(&1u32.to_le_bytes());
+        tiff.extend_from_slice(&orientation.to_le_bytes());
+        tiff.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+        let mut payload = b"Exif\0\0".to_vec();
+        payload.extend_from_slice(&tiff);
+        let mut out = jpeg[..2].to_vec();
+        out.extend_from_slice(&[0xFF, 0xE1]);
+        out.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+        out.extend_from_slice(&payload);
+        out.extend_from_slice(&jpeg[2..]);
+        out
+    }
+
     #[test]
-    fn previews_are_never_upscaled_tall_ones_are_cropped_and_alpha_goes_white() {
+    fn exif_orientation_is_applied_before_the_resize() {
+        let jpeg = encoded(&picture(1200, 600, 255), ImageFormat::Jpeg);
+        assert_eq!(decoded(&make(&jpeg, Size::Preview).unwrap().0).dimensions(), (640, 320));
+        // 6: turned 90° clockwise to be seen upright, so it is tall.
+        let turned = with_orientation(&jpeg, 6);
+        assert_eq!(decoded(&make(&turned, Size::Preview).unwrap().0).dimensions(), (600, 1200));
+        assert_eq!(decoded(&make(&turned, Size::Icon).unwrap().0).dimensions(), (48, 96));
+    }
+
+    #[test]
+    fn previews_are_never_upscaled_tall_ones_are_cropped_and_transparent_ones_stay_png() {
         let small = encoded(&picture(300, 200, 255), ImageFormat::Png);
         assert_eq!(decoded(&make(&small, Size::Preview).unwrap().0).dimensions(), (300, 200));
         let tall = encoded(&picture(400, 2000, 255), ImageFormat::Png);
         assert_eq!(decoded(&make(&tall, Size::Preview).unwrap().0).dimensions(), (400, 800));
         let tall_wide = encoded(&picture(1280, 4000, 255), ImageFormat::Png);
         assert_eq!(decoded(&make(&tall_wide, Size::Preview).unwrap().0).dimensions(), (640, 1280));
-        let clear = encoded(&picture(50, 50, 0), ImageFormat::Png);
-        let white = decoded(&make(&clear, Size::Preview).unwrap().0).to_rgb8();
-        assert!(white.get_pixel(25, 25).0.iter().all(|&c| c > 245), "{:?}", white.get_pixel(25, 25));
+        let clear = encoded(&picture(800, 400, 100), ImageFormat::Png);
+        let (png, format) = make(&clear, Size::Preview).unwrap();
+        assert_eq!(format, Format::Png);
+        let kept = decoded(&png);
+        assert_eq!(kept.dimensions(), (640, 320));
+        assert!(kept.to_rgba8().get_pixel(10, 10).0[3] < 255);
+        // An alpha channel that is opaque everywhere is a JPEG.
+        assert_eq!(make(&encoded(&picture(50, 50, 255), ImageFormat::Png), Size::Preview).unwrap().1, Format::Jpeg);
         let tiny = encoded(&picture(16, 16, 128), ImageFormat::Png);
         let icon = decoded(&make(&tiny, Size::Icon).unwrap().0);
         assert_eq!(icon.dimensions(), (16, 16), "icons are not upscaled");
@@ -870,29 +1369,36 @@ mod tests {
 
     #[test]
     fn a_bomb_is_refused_before_it_is_allocated() {
-        // Over the side limit, and within it but over the allocation limit (5000² × 4 bytes).
-        for (w, h) in [(100_000, 100_000), (5000, 5000), (7999, 7999)] {
+        // Over the side limit; within it but over the allocation limit (7999² × 4 bytes).
+        for (w, h) in [(100_000, 100_000), (8001, 10), (7999, 7999)] {
             let started = std::time::Instant::now();
+            assert!(decode(&promised_png(w, h)).is_none());
             assert_eq!(make(&promised_png(w, h), Size::Preview), None);
-            assert!(started.elapsed() < Duration::from_secs(1), "{w}×{h} took {:?}", started.elapsed());
+            assert!(started.elapsed() < Duration::from_millis(500), "{w}×{h} took {:?}", started.elapsed());
         }
     }
 
     #[test]
-    fn a_miss_holds_for_seven_days() {
+    fn misses_hold_for_their_retry_window() {
         let root = folder("miss");
         let k = key("https://example.com/gone.png");
         let now = SystemTime::now();
         assert_eq!(cached(&root, &k, Size::Preview, now), Cached::Nothing);
-        write_atomic(&file(&root, &k, MISS), &[]).unwrap();
-        assert_eq!(cached(&root, &k, Size::Preview, now), Cached::Miss);
-        assert_eq!(cached(&root, &k, Size::Icon, now + RETRY - DAY), Cached::Miss);
-        assert_eq!(cached(&root, &k, Size::Icon, now + RETRY + DAY), Cached::Nothing);
-        write_atomic(&file(&root, &k, "png"), b"png").unwrap();
-        assert_eq!(cached(&root, &k, Size::Icon, now), Cached::File(file(&root, &k, "png"), Format::Png));
-        assert_eq!(cached(&root, &k, Size::Preview, now), Cached::Miss, "a preview is its own file");
-        let leftovers: Vec<_> = fs::read_dir(root.join(&k[..2])).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().starts_with(TEMP)).collect();
-        assert!(leftovers.is_empty());
+        write_atomic(&file(&root, &k, Size::Preview, "miss"), Miss::Failed.content()).unwrap();
+        assert_eq!(cached(&root, &k, Size::Preview, now), Cached::Miss(Miss::Failed));
+        assert_eq!(cached(&root, &k, Size::Preview, now + 6 * DAY), Cached::Miss(Miss::Failed));
+        assert_eq!(cached(&root, &k, Size::Preview, now + 8 * DAY), Cached::Nothing);
+        assert_eq!(cached(&root, &k, Size::Icon, now), Cached::Nothing, "an icon is its own file");
+        write_atomic(&file(&root, &k, Size::Icon, "miss"), Miss::Timeout.content()).unwrap();
+        assert_eq!(cached(&root, &k, Size::Icon, now), Cached::Miss(Miss::Timeout));
+        assert_eq!(cached(&root, &k, Size::Icon, now + 2 * DAY), Cached::Nothing, "a timeout is tried again after a day");
+        let r = key("http://10.0.0.1/x.png");
+        write_atomic(&file(&root, &r, Size::Icon, "miss"), Miss::Refused.content()).unwrap();
+        assert_eq!(cached(&root, &r, Size::Icon, now + 6 * DAY), Cached::Miss(Miss::Refused));
+        write_atomic(&file(&root, &k, Size::Icon, "png"), b"png").unwrap();
+        assert_eq!(cached(&root, &k, Size::Icon, now), Cached::File(file(&root, &k, Size::Icon, "png"), Format::Png));
+        let partial = fs::read_dir(root.join(&k[..2])).unwrap().flatten().any(|e| e.file_name().to_string_lossy().contains(PARTIAL));
+        assert!(!partial);
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -900,9 +1406,9 @@ mod tests {
         fs::File::options().write(true).open(path).unwrap().set_modified(at).unwrap();
     }
 
-    fn put(root: &Path, address: &str, ext: &str, bytes: usize, at: SystemTime) -> PathBuf {
-        let path = file(root, &key(address), ext);
-        write_atomic(&path, &vec![0u8; bytes]).unwrap();
+    fn put(root: &Path, address: &str, size: Size, ext: &str, bytes: &[u8], at: SystemTime) -> PathBuf {
+        let path = file(root, &key(address), size, ext);
+        write_atomic(&path, bytes).unwrap();
         aged(&path, at);
         path
     }
@@ -922,52 +1428,56 @@ mod tests {
     #[test]
     fn the_sweep_keeps_what_any_bookmark_refers_to_the_trash_included() {
         let (folder, conn) = library("sweep");
-        let root = root_of(&folder);
+        let root = folder.join(FOLDER);
         let shared = "https://www.google.com/s2/favicons?domain=example.com&sz=128";
-        let live = add(&conn, "live", Some("https://example.com/live.jpg"), Some(shared));
+        add(&conn, "live", Some("https://example.com/live.jpg"), Some(shared));
         let trashed = add(&conn, "trashed", Some("https://example.com/trashed.jpg"), Some(shared));
         trash_bookmark(&conn, trashed).unwrap();
         let now = SystemTime::now();
         let old = now - 3 * DAY;
-        let kept = [put(&root, "https://example.com/live.jpg", "jpg", 10, old), put(&root, shared, "png", 10, old), put(&root, "https://example.com/trashed.jpg", "jpg", 10, old)];
-        let post = put(&root, "https://feed.example/post.jpg", "jpg", 10, old);
-        let gone = put(&root, "https://example.com/deleted.jpg", "jpg", 10, old);
-        let young = put(&root, "https://example.com/just-saved.jpg", "jpg", 10, now - Duration::from_secs(60));
-        let gone_miss = put(&root, "https://example.com/deleted-miss.jpg", MISS, 0, old);
-        let stale_miss = put(&root, "https://example.com/live.jpg", MISS, 0, now - RETRY - DAY);
-        let temp = root.join("ab").join(format!("{TEMP}x.jpg-1"));
-        write_atomic(&temp, b"half").unwrap();
-        aged(&temp, old);
+        let live = put(&root, "https://example.com/live.jpg", Size::Preview, "jpg", b"x", old);
+        let icon = put(&root, shared, Size::Icon, "png", b"x", old);
+        let in_trash = put(&root, "https://example.com/trashed.jpg", Size::Preview, "jpg", b"x", old);
+        let post = put(&root, "https://feed.example/post.jpg", Size::Preview, "jpg", b"x", old);
+        let gone = put(&root, "https://example.com/deleted.jpg", Size::Preview, "jpg", b"x", old);
+        let young = put(&root, "https://example.com/just-saved.jpg", Size::Preview, "jpg", b"x", now - Duration::from_secs(60));
+        let gone_miss = put(&root, "https://example.com/deleted-miss.jpg", Size::Preview, "miss", b"", old);
+        let stale_miss = put(&root, "https://example.com/live.jpg", Size::Icon, "miss", b"", now - 8 * DAY);
+        let timeout_miss = put(&root, "https://example.com/live.jpg", Size::Preview, "miss", b"timeout", now - 2 * DAY);
+        let partial = root.join("ab").join(format!("x.jpg{PARTIAL}1"));
+        write_atomic(&partial, b"half").unwrap();
+        aged(&partial, old);
         let feeds = vec!["https://feed.example/post.jpg".to_string()];
-        let referenced = keys(library_addresses(&conn).unwrap().iter().chain(feeds.iter()));
-        let swept = sweep_folder(&root, &referenced, now, CAP);
-        assert_eq!(swept.files, 4);
-        for path in kept.iter().chain([&post, &young]) {
+        let referenced = || Some(keys(library_addresses(&conn).unwrap().iter().chain(feeds.iter())));
+        let swept = sweep_folder(&root, now, CAP, referenced).unwrap();
+        assert_eq!(swept.files, 5);
+        for path in [&live, &icon, &in_trash, &post, &young] {
             assert!(path.is_file(), "{path:?} kept");
         }
-        for path in [&gone, &gone_miss, &stale_miss, &temp] {
+        for path in [&gone, &gone_miss, &stale_miss, &timeout_miss, &partial] {
             assert!(!path.exists(), "{path:?} removed");
         }
         // Purged for good: the shared icon stays for the live one.
         crate::db::purge_trash(&conn, crate::db::Purge::All).unwrap();
-        let referenced = keys(library_addresses(&conn).unwrap().iter().chain(feeds.iter()));
-        assert_eq!(sweep_folder(&root, &referenced, now, CAP).files, 1);
-        assert!(!kept[2].exists() && kept[0].is_file() && kept[1].is_file());
-        let _ = live;
+        assert_eq!(sweep_folder(&root, now, CAP, referenced).unwrap().files, 1);
+        assert!(!in_trash.exists() && live.is_file() && icon.is_file());
+        // Without the feed cache's references nothing goes.
+        assert_eq!(sweep_folder(&root, now + 30 * DAY, 0, || None), None);
+        assert!(live.is_file() && post.is_file());
         drop(conn);
         fs::remove_dir_all(folder).unwrap();
     }
 
     #[test]
-    fn over_the_cap_the_least_recently_used_go_first() {
+    fn over_the_cap_the_oldest_written_go_first() {
         let root = folder("cap");
         let now = SystemTime::now();
-        let files: Vec<PathBuf> = (0..10).map(|i| put(&root, &format!("https://example.com/{i}.jpg"), "jpg", 100, now - Duration::from_secs(1000 - i * 10))).collect();
-        let referenced = keys(&(0..10).map(|i| format!("https://example.com/{i}.jpg")).collect::<Vec<_>>());
-        assert_eq!(sweep_folder(&root, &referenced, now, 1000).files, 0, "at the cap");
+        let addresses: Vec<String> = (0..10).map(|i| format!("https://example.com/{i}.jpg")).collect();
+        let files: Vec<PathBuf> =
+            addresses.iter().enumerate().map(|(i, a)| put(&root, a, Size::Preview, "jpg", &[0; 100], now - Duration::from_secs(1000 - i as u64 * 10))).collect();
+        assert_eq!(sweep_folder(&root, now, 1000, || Some(keys(&addresses))).unwrap().files, 0, "at the cap");
         // Over 800: down to 720, the three oldest go (700 left).
-        let swept = sweep_folder(&root, &referenced, now, 800);
-        assert_eq!(swept, Swept { files: 3, bytes: 300 });
+        assert_eq!(sweep_folder(&root, now, 800, || Some(keys(&addresses))).unwrap(), Swept { files: 3, bytes: 300 });
         for (i, path) in files.iter().enumerate() {
             assert_eq!(path.exists(), i >= 3, "{i}");
         }
@@ -993,25 +1503,41 @@ mod tests {
         assert_eq!(feed_source(&conn, &Picture::FeedIcon("f2".into())).unwrap(), None);
     }
 
-    #[test]
-    fn library_sources_include_the_trash_and_skip_empty_addresses() {
-        let (folder, conn) = library("sources");
-        let id = add(&conn, "a", Some("https://example.com/a.jpg"), Some(""));
-        trash_bookmark(&conn, id).unwrap();
-        assert_eq!(library_source(&conn, &Picture::BookmarkImage(id)).unwrap().as_deref(), Some("https://example.com/a.jpg"));
-        assert_eq!(library_source(&conn, &Picture::BookmarkIcon(id)).unwrap(), None);
-        assert_eq!(library_source(&conn, &Picture::BookmarkImage(id + 100)).unwrap(), None);
-        drop(conn);
-        fs::remove_dir_all(folder).unwrap();
+    #[tokio::test]
+    async fn the_queue_serves_the_newest_first_and_two_per_site() {
+        let queue: &'static Queue = Box::leak(Box::new(Queue::new(1, 1)));
+        let rank = |n| Arc::new(AtomicU64::new(n));
+        let first = queue.acquire("a", rank(1), SLOT_WAIT).await.unwrap();
+        let order = Arc::new(Mutex::new(Vec::new()));
+        let mut waiting = tokio::task::JoinSet::new();
+        for n in [2, 3, 4] {
+            let order = order.clone();
+            waiting.spawn(async move {
+                let _slot = queue.acquire("b", Arc::new(AtomicU64::new(n)), SLOT_WAIT).await.unwrap();
+                order.lock().unwrap().push(n);
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            });
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        drop(first);
+        waiting.join_all().await;
+        assert_eq!(*order.lock().unwrap(), [4, 3, 2]);
+
+        let queue: &'static Queue = Box::leak(Box::new(Queue::new(8, 2)));
+        let (_a1, _a2) = (queue.acquire("a", rank(1), SLOT_WAIT).await.unwrap(), queue.acquire("a", rank(1), SLOT_WAIT).await.unwrap());
+        assert!(queue.acquire("a", rank(9), Duration::from_millis(50)).await.is_none(), "a third to one site waits");
+        assert!(queue.acquire("b", rank(1), Duration::from_millis(50)).await.is_some(), "another site goes");
+        let state = queue.state.lock().unwrap();
+        assert_eq!((state.running, state.waiting.len()), (2, 0), "a wait that ran out holds no turn");
     }
 
-    fn first_loopback(ip: IpAddr) -> bool {
+    fn loopback(ip: IpAddr) -> bool {
         ip == IpAddr::V4(Ipv4Addr::LOCALHOST)
     }
     static TEST: Limits = Limits {
-        allow: first_loopback,
+        allow: loopback,
         connect_timeout: Duration::from_secs(2),
-        timeout: Duration::from_secs(4),
+        timeout: Duration::from_secs(2),
         max_body: 64 * 1024,
         max_redirects: 5,
     };
@@ -1030,8 +1556,10 @@ mod tests {
                     let mut request = [0u8; 4096];
                     let n = stream.read(&mut request).unwrap_or(0);
                     let text = String::from_utf8_lossy(&request[..n]).to_lowercase();
-                    assert!(!text.contains("referer") && !text.contains("cookie"), "{text}");
-                    assert!(text.contains("user-agent: koonapin/"), "{text}");
+                    // Only the metadata client's own headers.
+                    if text.contains("referer") || text.contains("cookie") || !text.contains("koonapin/") {
+                        return;
+                    }
                     counted.fetch_add(1, Ordering::SeqCst);
                     let path = text.split_whitespace().nth(1).unwrap_or("/").to_string();
                     std::thread::sleep(Duration::from_millis(50));
@@ -1048,8 +1576,12 @@ mod tests {
         reply
     }
 
+    fn miss_of(root: &Path, address: &str, size: Size) -> Option<Miss> {
+        fs::read(file(root, &key(address), size, "miss")).ok().map(|b| Miss::read(&b))
+    }
+
     #[tokio::test]
-    async fn fetches_are_shared_kept_and_failures_remembered_or_not() {
+    async fn the_handler_serves_fetches_once_and_remembers_failures() {
         let jpeg = encoded(&picture(1000, 500, 255), ImageFormat::Jpeg);
         let (port, count) = server(move |path| match path {
             // Sent as PNG: the bytes decide.
@@ -1058,50 +1590,105 @@ mod tests {
             "/forbidden.png" => answer("403 Forbidden", "text/plain", b"no"),
             "/busy.png" => answer("503 Service Unavailable", "text/plain", b"later"),
             "/huge.png" => answer("200 OK", "image/png", &vec![0u8; 100 * 1024]),
+            "/slow.png" => {
+                std::thread::sleep(Duration::from_secs(3));
+                answer("200 OK", "image/png", b"late")
+            }
             _ => answer("404 Not Found", "text/plain", b"gone"),
         });
-        let fetcher: &'static Fetcher = Box::leak(Box::new(Fetcher::new(&TEST).unwrap()));
-        let root = folder("fetch");
-        let a = format!("http://127.0.0.1:{port}/a.png");
+        let (folder, conn) = library("handler");
+        let at = |path: &str| format!("http://127.0.0.1:{port}/{path}");
+        let a = add(&conn, "a", Some(&at("a.png")), Some("http://10.0.0.1/icon.png"));
+        let bad: Vec<(&str, i64)> = ["page", "forbidden", "missing", "huge"].into_iter().map(|p| (p, add(&conn, p, Some(&at(&format!("{p}.png"))), None))).collect();
+        let busy = add(&conn, "busy", Some(&at("busy.png")), Some("data:image/png;base64,AAAA"));
+        let slow = add(&conn, "slow", Some(&at("slow.png")), None);
+        let none = add(&conn, "none", None, None);
+        let root = folder.join(FOLDER);
+        let thumbs = Arc::new(Thumbs::new(root.clone(), folder.join("koonapin.db"), None, &TEST).unwrap());
+
         let mut many = tokio::task::JoinSet::new();
         for _ in 0..6 {
-            let (root, a) = (root.clone(), a.clone());
-            many.spawn(async move { obtain(&root, &a, Size::Preview, fetcher).await });
+            let thumbs = thumbs.clone();
+            many.spawn(async move { respond(&thumbs, &format!("/b%2F{a}%2Fimage")).await });
         }
-        let results = many.join_all().await;
-        assert!(results.iter().all(|r| r.as_ref().is_some_and(|(_, f)| *f == Format::Jpeg)));
+        for response in many.join_all().await {
+            assert_eq!(response.status(), 200);
+            assert_eq!(response.headers()["content-type"], "image/jpeg");
+            assert_eq!(response.headers()["cache-control"], CACHE_CONTROL);
+            assert_eq!(response.headers()["x-content-type-options"], "nosniff");
+            assert_eq!(response.headers()["content-security-policy"], SANDBOX);
+            assert_eq!(decoded(response.body()).dimensions(), (640, 320));
+        }
         assert_eq!(count.load(Ordering::SeqCst), 1, "one fetch for all");
-        let (path, _) = results[0].clone().unwrap();
-        assert_eq!(decoded(&fs::read(&path).unwrap()).dimensions(), (640, 320));
-        assert!(obtain(&root, &a, Size::Preview, fetcher).await.is_some());
+        assert_eq!(respond(&thumbs, &format!("/b/{a}/image?v=1")).await.status(), 200);
         assert_eq!(count.load(Ordering::SeqCst), 1, "served from the folder");
 
-        for bad in ["page", "forbidden", "missing", "huge"] {
-            let address = format!("http://127.0.0.1:{port}/{bad}.png");
-            assert_eq!(obtain(&root, &address, Size::Preview, fetcher).await, None);
-            assert!(file(&root, &key(&address), MISS).is_file(), "{bad} leaves a miss");
+        for (name, id) in &bad {
+            assert_eq!(respond(&thumbs, &format!("/b/{id}/image")).await.status(), 404, "{name}");
+            assert_eq!(miss_of(&root, &at(&format!("{name}.png")), Size::Preview), Some(Miss::Failed), "{name}");
             let before = count.load(Ordering::SeqCst);
-            assert_eq!(obtain(&root, &address, Size::Preview, fetcher).await, None);
-            assert_eq!(count.load(Ordering::SeqCst), before, "{bad} is not asked again");
+            assert_eq!(respond(&thumbs, &format!("/b/{id}/image")).await.status(), 404);
+            assert_eq!(count.load(Ordering::SeqCst), before, "{name} is not asked again");
         }
-        let busy = format!("http://127.0.0.1:{port}/busy.png");
-        assert_eq!(obtain(&root, &busy, Size::Preview, fetcher).await, None);
-        assert!(!file(&root, &key(&busy), MISS).exists(), "a server error is tried again");
-        // Nobody listens: offline leaves no miss.
+        assert_eq!(respond(&thumbs, &format!("/b/{busy}/image")).await.status(), 404);
+        assert_eq!(miss_of(&root, &at("busy.png"), Size::Preview), None, "a server error is tried again");
+        let response = respond(&thumbs, &format!("/b/{slow}/image")).await;
+        assert_eq!(response.status(), 404);
+        assert_eq!(miss_of(&root, &at("slow.png"), Size::Preview), Some(Miss::Timeout));
+
+        // Refused by the guard, or not the web: the sentinel, no request.
+        for path in [format!("/b/{a}/icon"), format!("/b/{busy}/icon")] {
+            for _ in 0..2 {
+                let response = respond(&thumbs, &path).await;
+                assert_eq!(response.status(), 200, "{path}");
+                assert_eq!(response.headers()[REFUSED_HEADER], "refused");
+                assert_eq!(decoded(response.body()).dimensions(), (1, 1));
+            }
+        }
+        assert_eq!(respond(&thumbs, &format!("/b/{none}/image")).await.status(), 404, "no address");
+        assert_eq!(respond(&thumbs, "/b/999999/image").await.status(), 404, "no bookmark");
+        assert_eq!(respond(&thumbs, "/p/1/thumb").await.status(), 404, "no feed cache");
+        let malformed = respond(&thumbs, "/b/x/image").await;
+        assert_eq!(malformed.status(), 400);
+        assert_eq!(malformed.headers()["content-security-policy"], SANDBOX);
+        drop(conn);
+        fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[tokio::test]
+    async fn offline_leaves_no_miss_and_trips_the_breaker() {
+        let (folder, conn) = library("offline");
         let closed = TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port();
-        let offline = format!("http://127.0.0.1:{closed}/a.png");
-        assert_eq!(obtain(&root, &offline, Size::Preview, fetcher).await, None);
-        assert!(!file(&root, &key(&offline), MISS).exists());
-        // Refused by the guard and not http: a miss, no request.
-        for refused in ["http://10.0.0.1/a.png", "file:///etc/passwd", "data:image/png;base64,AAAA"] {
-            assert_eq!(obtain(&root, refused, Size::Icon, fetcher).await, None);
-            assert!(file(&root, &key(refused), MISS).is_file(), "{refused}");
+        let ids: Vec<i64> = (0..BREAKER_AFTER + 1).map(|i| add(&conn, &format!("o{i}"), Some(&format!("http://127.0.0.1:{closed}/{i}.png")), None)).collect();
+        let root = folder.join(FOLDER);
+        let thumbs = Arc::new(Thumbs::new(root.clone(), folder.join("koonapin.db"), None, &TEST).unwrap());
+        for id in &ids[..BREAKER_AFTER as usize] {
+            assert_eq!(respond(&thumbs, &format!("/b/{id}/image")).await.status(), 404);
         }
+        assert!(thumbs.broken(), "five connection failures in a row");
+        assert_eq!(respond(&thumbs, &format!("/b/{}/image", ids[BREAKER_AFTER as usize])).await.status(), 404);
+        assert!(!root.exists() || list(&root).is_empty(), "offline writes no miss");
+        drop(conn);
+        fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn time_machine_leaves_the_folder_out() {
+        let root = folder("backups");
+        exclude_from_backups(&root);
+        let name = std::ffi::CString::new("com.apple.metadata:com_apple_backup_excludeItem").unwrap();
+        let path = std::ffi::CString::new(root.to_str().unwrap()).unwrap();
+        let mut value = [0u8; 128];
+        // SAFETY: NUL-terminated strings and a buffer of the length given.
+        let n = unsafe { libc::getxattr(path.as_ptr(), name.as_ptr(), value.as_mut_ptr().cast(), value.len(), 0, 0) };
+        assert_eq!(n, 61);
+        assert!(value.starts_with(b"bplist00") && value[60] == 0x1c);
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    #[ignore = "a rough timing: cargo test --release thumbs::tests::resize_timing -- --ignored --nocapture"]
+    #[ignore = "a rough timing: cargo test --release --lib thumbs::tests::resize_timing -- --ignored --nocapture"]
     fn resize_timing() {
         let big = encoded(&picture(4000, 3000, 255), ImageFormat::Jpeg);
         let png = encoded(&picture(3000, 3000, 200), ImageFormat::Png);

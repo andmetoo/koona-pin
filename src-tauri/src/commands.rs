@@ -506,7 +506,6 @@ pub async fn create_starter_library(
                 .and_then(|conn| db::refresh_preview(&conn, id, &url, &meta).map_err(|_| ()));
             if let Ok(bookmark) = updated {
                 capture::emit(&app, ChangeKind::Updated, &bookmark);
-                crate::thumbs::warm(&app, &bookmark);
             }
         }
     });
