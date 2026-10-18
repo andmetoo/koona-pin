@@ -376,6 +376,7 @@ pub fn after_save(app: &AppHandle, state: Arc<DbState>, result: &CaptureResult) 
         });
         if let Ok(Some(updated)) = updated {
             emit(&app, ChangeKind::Updated, &updated);
+            crate::thumbs::warm(&app, &updated);
         }
     });
 }

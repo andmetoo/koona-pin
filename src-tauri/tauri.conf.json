@@ -32,7 +32,7 @@
         "script-src": "'self'",
         "style-src": "'self'",
         "font-src": "'self'",
-        "img-src": "'self' data: https: http:",
+        "img-src": "'self' data: kpimg: http://kpimg.localhost https: http:",
         "connect-src": "'self' ipc: http://ipc.localhost",
         "object-src": "'none'",
         "base-uri": "'none'",
