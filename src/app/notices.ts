@@ -36,6 +36,11 @@ export function useNotices(timing: NoticeTiming = noticeDuration) {
   sayRef.current = say;
   const timingRef = useRef(timing);
   timingRef.current = timing;
+  /**
+   * What a screen reader hears in the live region: a click that changes the selection (NP-123),
+   * an add to the bundle, the drop zone once per drag (K9).
+   */
+  const [announcement, setAnnouncement] = useState("");
   useEffect(() => {
     if (!notice) return;
     const ms = timingRef.current(notice);
@@ -43,7 +48,7 @@ export function useNotices(timing: NoticeTiming = noticeDuration) {
     const timer = window.setTimeout(() => setNotice(null), ms);
     return () => window.clearTimeout(timer);
   }, [notice]);
-  return { notice, setNotice, say, sayAlert, sayRef };
+  return { notice, setNotice, say, sayAlert, sayRef, announcement, setAnnouncement };
 }
 
 export type Notices = ReturnType<typeof useNotices>;

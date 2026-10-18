@@ -1,0 +1,41 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.0",
+  "title": "Groups of the preview",
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        { "type": "link", "url": "https://www.ripgrep.dev/", "title": "ripgrep" },
+        { "type": "feed", "url": "https://tools.example.com/feed.xml", "site": "https://tools.example.com/", "title": "Tools weekly" },
+        { "type": "link", "url": "https://fd.example.com/", "title": "fd" }
+      ]
+    },
+    {
+      "name": "Reading",
+      "items": [
+        { "type": "link", "url": "https://books.example.com/", "title": "Books" },
+        { "type": "link", "url": "https://www.ripgrep.dev/", "title": "ripgrep again" }
+      ]
+    },
+    {
+      "name": "Feeds",
+      "items": [
+        { "type": "feed", "url": "https://followed.example.com/rss", "title": "Already followed" },
+        { "type": "feed", "url": "https://new.example.com/atom.xml" }
+      ]
+    },
+    {
+      "name": "Tools",
+      "items": [
+        { "type": "link", "url": "https://jq.example.com/", "title": "jq" }
+      ]
+    }
+  ],
+  "items": [
+    { "type": "link", "url": "https://top-one.example.com/", "title": "Top one" },
+    { "type": "link", "url": "https://top-two.example.com/" }
+  ]
+}

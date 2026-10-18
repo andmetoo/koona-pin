@@ -56,6 +56,8 @@ pub struct ListLink {
     pub tags: Vec<String>,
     /// The names of the sections it is in, the first one first.
     pub sections: Vec<String>,
+    /// Its place among the links and feeds read, in the file's order.
+    pub at: usize,
 }
 
 impl ListLink {
@@ -85,6 +87,8 @@ pub struct ListFeed {
     pub title: Option<String>,
     pub site: Option<String>,
     pub section: Option<String>,
+    /// Its place among the links and feeds read, in the file's order.
+    pub at: usize,
 }
 
 /// A list read and checked; what it skipped is counted.
@@ -425,6 +429,7 @@ fn read_link(list: &mut ParsedList, seen: &mut HashMap<String, usize>, object: &
         description: object.get("description").and_then(Value::as_str).and_then(|s| paragraph(s, DESCRIPTION_LEN)),
         tags,
         sections: section.map(str::to_owned).into_iter().collect(),
+        at: list.links.len() + list.feeds.len(),
     });
 }
 
@@ -444,6 +449,7 @@ fn read_feed(list: &mut ParsedList, seen: &mut HashMap<String, usize>, object: &
         title: text_of(object, "title", ITEM_TITLE_LEN),
         site: web_address(object.get("site")),
         section: section.map(str::to_owned),
+        at: list.links.len() + list.feeds.len(),
     });
 }
 
@@ -474,6 +480,8 @@ mod tests {
             ("wrong-format.kpin", fixture!("wrong-format.kpin")),
             ("cut-off.kpin", fixture!("cut-off.kpin")),
             ("repeats.kpin", fixture!("repeats.kpin")),
+            ("groups.kpin", fixture!("groups.kpin")),
+            ("max-items.kpin", fixture!("max-items.kpin")),
         ]
     }
 

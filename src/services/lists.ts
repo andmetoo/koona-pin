@@ -1,58 +1,122 @@
 // The list dialog's rules (NP-138, kpin-lists.md «Import»), kept apart from the component so they
 // are tested on their own: what the person chose, what the footer counts, and the words of a
 // refusal or a failed download.
-import type { ExistingLinks } from "../bindings/ExistingLinks";
 import type { ListCheck } from "../bindings/ListCheck";
 import type { ListDownload } from "../bindings/ListDownload";
 import type { ListImportOptions } from "../bindings/ListImportOptions";
 import type { ListPreview } from "../bindings/ListPreview";
+import type { ListPreviewItem } from "../bindings/ListPreviewItem";
 
-/** «Put links into»: the list's own collection (new, or reused by name), one picked, or none. */
-export type Destination = { kind: "list" } | { kind: "existing"; id: number } | { kind: "none" };
+/**
+ * «Put links into» (K10): the list's own collection (new, or reused by name), one picked, none,
+ * or none and no tags from the sections either.
+ */
+export type Destination = { kind: "list" } | { kind: "existing"; id: number } | { kind: "none" } | { kind: "bare" };
 
-/** What the person chose in the preview (K1). */
+/** What the person chose in the preview (K10). Links already saved are left as they are. */
 export type ListChoices = {
   destination: Destination;
   toInbox: boolean;
-  sectionsAsTags: boolean;
-  existing: ExistingLinks;
-  follow: boolean;
   /** The new feeds' addresses that stay checked. */
   feeds: string[];
 };
 
-/** The defaults of the plan: the list's collection, sorted, sections as tags, links left, every feed followed. */
+/** The defaults of the plan: the list's collection, sorted, every new feed followed. */
 export const defaultChoices = (preview: ListPreview): ListChoices => ({
   destination: { kind: "list" },
   toInbox: false,
-  sectionsAsTags: true,
-  existing: "leave",
-  follow: true,
   feeds: preview.new_feeds.map((feed) => feed.url),
 });
 
-/** Feeds that will be followed. */
-export const feedsChosen = (choices: ListChoices) => (choices.follow ? choices.feeds.length : 0);
+/** The new feeds that stay checked, in the list's order. */
+function chosenFeeds(preview: ListPreview, choices: ListChoices) {
+  const checked = new Set(choices.feeds);
+  return preview.new_feeds.map((feed) => feed.url).filter((url) => checked.has(url));
+}
 
-/** What the footer's button counts: the links that are new and the feeds that will be followed. */
-export const importCounts = (preview: ListPreview, choices: ListChoices) => ({ links: preview.new_links, feeds: feedsChosen(choices) });
+/** What Accept adds: the links that are new and the feeds that stay checked. */
+export const importCounts = (preview: ListPreview, choices: ListChoices) => ({
+  links: preview.new_links,
+  feeds: chosenFeeds(preview, choices).length,
+});
 
 /**
- * Nothing in the list can change the library: no new link or feed, and no saved link that could
- * get the list's tags. «Nothing new in this list» (K3).
+ * Nothing in the list can change the library: no new link and no new feed. Saved links are left
+ * as they are and links in the Trash stay there: «Everything in this list is already here» (K10b).
  */
-export const nothingNew = (preview: ListPreview) =>
-  preview.new_links === 0 && preview.new_feeds.length === 0 && preview.already_saved === 0 && preview.in_trash === 0;
+export const nothingNew = (preview: ListPreview) => preview.new_links === 0 && preview.new_feeds.length === 0;
 
-/** The footer's main button: import what is new, only tag the links already saved, or close. */
-export type FooterAction = { kind: "import"; links: number; feeds: number } | { kind: "tags"; links: number } | { kind: "close" };
+/** «Follow all» over some feeds: every one checked, none, or some. */
+export type FollowAll = "on" | "off" | "mixed";
 
-export function footerAction(preview: ListPreview, choices: ListChoices): FooterAction {
-  const { links, feeds } = importCounts(preview, choices);
-  if (links > 0 || feeds > 0) return { kind: "import", links, feeds };
-  if (choices.existing === "add_tags" && preview.already_saved > 0) return { kind: "tags", links: preview.already_saved };
-  // Nothing would be imported: the button turns into Close, and the counts say why (the plan).
-  return { kind: "close" };
+export function followAll(urls: string[], chosen: string[]): FollowAll {
+  const checked = new Set(chosen);
+  const on = urls.filter((url) => checked.has(url)).length;
+  return on === 0 ? "off" : on === urls.length ? "on" : "mixed";
+}
+
+/** «Follow all» clicked: some or none checked become all, all become none. */
+export function toggleAll(urls: string[], chosen: string[]): string[] {
+  const these = new Set(urls);
+  const rest = chosen.filter((url) => !these.has(url));
+  return followAll(urls, chosen) === "on" ? rest : [...rest, ...urls];
+}
+
+/** A group of more rows than this folds (K10)… */
+export const FOLD_OVER = 8;
+/** …to this many, and «Show N more». */
+export const FOLDED = 5;
+
+/**
+ * A row of the preview's one scrolling list (K10): the MINOR notice, a group's header, a link or a
+ * feed, or a folded group's «Show N more». Headers are rows too, so one virtualiser holds them all.
+ */
+export type PreviewRow =
+  | { kind: "notice" }
+  | {
+      kind: "group";
+      group: number;
+      name: string | null;
+      tag: string | null;
+      count: number;
+      /** Only feeds: «Feeds» at the top level, and «Follow all» over `feeds`. */
+      feedsOnly: boolean;
+      /** The group's new feeds, which «Follow all» checks. */
+      feeds: string[];
+    }
+  | { kind: "item"; group: number; item: ListPreviewItem }
+  | { kind: "more"; group: number; count: number };
+
+/** The group of the top level's feeds: the top level is split in its links and its feeds. */
+export const TOP_FEEDS = -1;
+
+/**
+ * The preview's rows. Feeds outside any section make a «Feeds» group of their own, right after the
+ * top level's links. The top level's links have no header when they are the only group; a group
+ * with new feeds always has one, for «Follow all». A group of more than `FOLD_OVER` rows shows
+ * `FOLDED` until it is in `open`.
+ */
+export function previewRows(preview: ListPreview, open: ReadonlySet<number>): PreviewRow[] {
+  const rows: PreviewRow[] = preview.newer ? [{ kind: "notice" }] : [];
+  type Shown = { group: number; name: string | null; tag: string | null; items: ListPreviewItem[] };
+  const shown = preview.groups.flatMap((g, group): Shown[] => {
+    if (g.name !== null) return [{ group, name: g.name, tag: g.tag, items: g.items }];
+    const links = g.items.filter((item) => item.kind === "link");
+    const feeds = g.items.filter((item) => item.kind === "feed");
+    return [
+      ...(links.length > 0 ? [{ group, name: null, tag: null, items: links }] : []),
+      ...(feeds.length > 0 ? [{ group: TOP_FEEDS, name: null, tag: null, items: feeds }] : []),
+    ];
+  });
+  for (const { group, name, tag, items } of shown) {
+    const feeds = items.filter((item) => item.kind === "feed" && item.status === "new").map((item) => item.url);
+    if (!(shown.length === 1 && name === null && feeds.length === 0))
+      rows.push({ kind: "group", group, name, tag, count: items.length, feedsOnly: items.every((item) => item.kind === "feed"), feeds });
+    const folded = items.length > FOLD_OVER && !open.has(group);
+    for (const item of folded ? items.slice(0, FOLDED) : items) rows.push({ kind: "item", group, item });
+    if (folded) rows.push({ kind: "more", group, count: items.length - FOLDED });
+  }
+  return rows;
 }
 
 /** The options of `import_list`. The list's collection is reused by name when one exists (Р-29). */
@@ -62,15 +126,15 @@ export function importOptions(preview: ListPreview, choices: ListChoices): ListI
     collection:
       destination.kind === "existing"
         ? { kind: "existing", id: destination.id }
-        : destination.kind === "none"
+        : destination.kind === "none" || destination.kind === "bare"
           ? { kind: "none" }
           : preview.existing_collection
             ? { kind: "existing", id: preview.existing_collection.id }
             : { kind: "new", name: preview.meta.title },
     to_inbox: choices.toInbox,
-    sections_as_tags: choices.sectionsAsTags,
-    existing_links: choices.existing,
-    follow_feeds: choices.follow ? preview.new_feeds.map((feed) => feed.url).filter((url) => choices.feeds.includes(url)) : [],
+    sections_as_tags: destination.kind !== "bare",
+    existing_links: "leave",
+    follow_feeds: chosenFeeds(preview, choices),
   };
 }
 

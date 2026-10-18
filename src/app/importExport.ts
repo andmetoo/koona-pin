@@ -1,33 +1,40 @@
 import { MutableRefObject, useEffect, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import type { NewLink } from "../components/library/AddSheet";
+import { DropArea, DropZoneState, dropZoneText } from "../components/shell/DropZone";
 import { api, desktopApi } from "../services/api";
 import { carriesLink, destinationOf, linkFrom } from "../services/addLink";
 import { describeError } from "../services/errors";
 import { exportOpml, onFollowFailed } from "../services/feeds";
-import { DraggedFile, draggedFile, openRequests, readDropped, receiveNativeOpens } from "../services/openRequests";
+import { draggedFile, openRequests, receiveNativeOpens } from "../services/openRequests";
+import { ImportFile, ImportRefusal, importFile, isRefusal } from "../services/importFile";
 import { capabilities } from "../platform/capabilities";
 import type { CsvColumns, ExportFormat } from "../types";
 import type { Editing } from "./editing";
 import type { LibraryView } from "./library";
 import type { Navigation } from "./navigation";
 import type { Notices } from "./notices";
-import type { Surfaces } from "./surfaces";
+import { IMPORT_SURFACES, type Surfaces } from "./surfaces";
 
 /** Columns of the CSV, titled in the interface's language (NP-032). */
 const CSV_COLUMNS = ["title", "url", "domain", "collection", "tags", "notes", "favorite", "inbox", "saved"] as const;
 
-/** A link dragged over the window: the veil, and whether Shift sends it to the inbox; or a file to import (NP-139). */
-export type Veil = { inbox: boolean; file?: DraggedFile } | null;
+/** A drag from outside over the list area: where the zone lies, Shift for a link, or a file to import (K9). */
+type FileZone = DropZoneState & { link?: false };
+export type Veil = { inbox: boolean; file?: FileZone; area: DropArea } | null;
+
+const sameVeil = (a: Veil, b: Veil) =>
+  a === b ||
+  (!!a && !!b && a.inbox === b.inbox && a.file === b.file && (["top", "left", "width", "height"] as const).every((k) => a.area[k] === b.area[k]));
 
 /**
  * What comes into the library and goes out of it: a link saved by hand, pasted or dropped
- * (2026-10-16), a file dropped on the window (NP-139), a list the system opened with the app
+ * (2026-10-16), a file dropped on the list area or picked (NP-139, K9), a list the system opened with the app
  * (NP-142), and the exports and the copy of Settings (NP-032, NP-034, NP-132).
  */
 export function useImportExport(
   t: TFunction,
-  { say, sayRef, setNotice }: Pick<Notices, "say" | "sayRef" | "setNotice">,
+  { say, sayRef, setNotice, setAnnouncement }: Pick<Notices, "say" | "sayRef" | "setNotice" | "setAnnouncement">,
   { setEditing, editingRef, editorFocus }: Pick<Editing, "setEditing" | "editingRef" | "editorFocus">,
   { filters, scrollRef, pageRef, triageRef }: Pick<Navigation, "filters" | "scrollRef" | "pageRef" | "triageRef">,
   { surfaceNow, setSurface, setDroppedFile }: Pick<Surfaces, "surfaceNow" | "setSurface" | "setDroppedFile">,
@@ -36,7 +43,10 @@ export function useImportExport(
 ) {
   /** A link just saved by hand (2026-10-16): its card lands first with a spring. */
   const [fresh, setFresh] = useState<number | null>(null);
+  /** A link or a file dragged over the list area: the drop zone (K9). */
   const [veil, setVeil] = useState<Veil>(null);
+  /** The content region the drop zone lies over (K9): never the sidebar. */
+  const mainRef = useRef<HTMLElement>(null);
 
   // «New link» closes once the bookmark is saved and follows the site after (NP-133): a follow
   // that fails then has no sheet to say so, so the app's own notice does.
@@ -62,44 +72,76 @@ export function useImportExport(
     document.addEventListener("paste", paste);
     return () => document.removeEventListener("paste", paste);
   }, []);
-  // A link dragged from a browser or another app frosts the window; dropped, it is saved, with
+  // A link dragged from a browser or another app frosts the list; dropped, it is saved, with
   // Shift into the inbox (2026-10-16). The app's own drags are left alone: the selection's drag is
   // a pointer drag and never starts one of these. A file asks to be imported (NP-139): a `.kpin`
   // list, OPML or a bookmarks file; the webview must not open a dropped file itself, so a file
   // drag is always taken. While something is open over the window (a dialog, a menu, triage,
-  // reading, the editor) it gets no veil and its drop is ignored.
+  // reading, the editor) it gets no veil and its drop is ignored. The zone lies over the list
+  // area only: the sidebar has its own drops, and over it or the toolbar a drop does nothing.
+  // Whether the pointer is in the area goes by where it is, not by which child it entered, so
+  // moving between cards never flickers the zone.
   useEffect(() => {
     let depth = 0;
     let accepting: "link" | "file" | null = null;
+    let fileZone: FileZone | null = null;
+    /** Where the zone last lay: some webviews (WebKitGTK, WebView2) give a drop no coordinates. */
+    let lastArea: DropArea | null = null;
+    let said = false;
     let own = false;
     const start = () => (own = true);
     const end = () => (own = false);
+    /**
+     * The list area under the pointer, or null outside it: the view's `[data-drop-area]` (the
+     * library's cards or rows, the posts and the article of Feeds, the content of Settings) below
+     * the lowest `[data-drop-head]` on screen over it; `<main>` itself in a view without one.
+     */
+    const areaAt = (e: DragEvent): DropArea | null => {
+      const main = mainRef.current;
+      if (!main) return null;
+      const box = (main.querySelector("[data-drop-area]") ?? main).getBoundingClientRect();
+      // A head folded away (the post list behind a spread article) has no width and does not count.
+      const heads = Array.from(main.querySelectorAll("[data-drop-head]"), (head) => head.getBoundingClientRect()).filter((head) => head.width > 0);
+      const top = Math.max(box.top, ...heads.map((head) => head.bottom));
+      const inside = e.clientX >= box.left && e.clientX < box.right && e.clientY >= top && e.clientY < box.bottom;
+      return inside ? { top, left: box.left, width: box.width, height: box.bottom - top } : null;
+    };
+    /** The zone for where the pointer is now; it is said once per drag, when it first shows. */
+    const show = (e: DragEvent) => {
+      const area = (lastArea = areaAt(e));
+      if (e.dataTransfer) e.dataTransfer.dropEffect = !area || (accepting === "file" && (importBlocked() || importBusy())) ? "none" : "copy";
+      const next: Veil = !area ? null : accepting === "file" ? fileZone && { inbox: false, file: fileZone, area } : { inbox: e.shiftKey, area };
+      if (next && !said) {
+        said = true;
+        announceZoneRef.current(next.file ?? { link: true, hint: "" });
+      }
+      setVeil((current) => (sameVeil(current, next) ? current : next));
+    };
     const enter = (e: DragEvent) => {
       if (depth === 0) {
         const file = own ? null : draggedFile(e.dataTransfer);
         accepting = file ? "file" : !own && carriesLink(e.dataTransfer?.types) && !quickBlocked() ? "link" : null;
-        if (accepting === "file") setVeil(importBlocked() ? null : { inbox: false, file: file! });
+        // Another import open: the zone says so (K9 «Busy»); over anything else nothing shows.
+        const busy = !!file && importBusy();
+        fileZone = file && (busy || !importBlocked()) ? { file, busy } : null;
+        said = false;
       }
       if (!accepting) return;
       depth++;
       e.preventDefault();
-      if (accepting === "link") setVeil({ inbox: e.shiftKey });
+      show(e);
     };
     const over = (e: DragEvent) => {
       if (!accepting) return;
       e.preventDefault();
-      if (accepting === "file") {
-        if (e.dataTransfer) e.dataTransfer.dropEffect = importBlocked() ? "none" : "copy";
-        return;
-      }
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
-      setVeil((current) => (current?.inbox === e.shiftKey ? current : { inbox: e.shiftKey }));
+      show(e);
     };
     const leave = () => {
       if (!accepting) return;
       depth = Math.max(0, depth - 1);
       if (depth === 0) {
         accepting = null;
+        lastArea = null;
         setVeil(null);
       }
     };
@@ -110,11 +152,15 @@ export function useImportExport(
       depth = 0;
       accepting = null;
       setVeil(null);
+      // Over the sidebar or the toolbar a drop does nothing; a drop at 0,0 goes by the last dragover.
+      const area = e.clientX || e.clientY ? areaAt(e) : lastArea;
+      lastArea = null;
+      if (!area) return;
       const data = e.dataTransfer;
       if (kind === "file") {
-        if (!importBlocked()) dropFileRef.current(data?.files);
-        // Another list while one is open is refused: that is said, not dropped in silence.
-        else if (openRequests.current()) sayRef.current(t("add.dropImportBusy"), true);
+        if (!importBlocked() && !importBusy()) dropFileRef.current(data?.files);
+        // Another file while an import is open is refused: that is said, not dropped in silence.
+        else if (importBusy()) sayRef.current(t("add.dropImportBusy"), true);
         return;
       }
       const url = linkFrom(data?.getData("text/uri-list"), true) ?? linkFrom(data?.getData("text/plain"));
@@ -272,43 +318,66 @@ export function useImportExport(
       (err) => say(describeError(err), true),
     );
   };
-  /** Where a drop saves without Shift, as the veil names it. */
+  /** Where a drop saves without Shift, as the drop zone names it. */
   const dropPlace =
     destinationOf(filters) === "reading" ? t("nav.reading") : (library.collections.find((c) => c.id === filters.collectionId)?.name ?? t("import.library"));
+  /** The drop zone's line for a link: where it goes, and that Shift sends it to the inbox. */
+  const veilHint = (inbox: boolean) => (inbox || destinationOf(filters) === "inbox" ? t("add.dropHintInbox") : t("add.dropHint", { place: dropPlace }));
   const quickSaveRef = useRef(quickSave);
   quickSaveRef.current = quickSave;
   /**
-   * A file dropped on the window, read: a `.kpin` list waits for the list dialog, OPML and
-   * bookmarks open their import dialog with it; or the person hears why it is not taken. Of
-   * several files the first is taken, and that is said.
+   * A file dropped or picked, read and known (importFile.ts): a list waits for the list dialog,
+   * OPML and bookmarks open their import dialog with it, a full copy opens Restore; or the person
+   * hears why it is not taken.
    */
+  const routeImport = (read: ImportFile | ImportRefusal) => {
+    if (isRefusal(read)) {
+      if (read.refused === "unsupported") say(t("add.dropImportOther"), true);
+      else say(t("add.dropImportTooBig", { size: Math.round(read.cap / (1024 * 1024)) }), true);
+      return false;
+    }
+    if (read.kind === "kpin") {
+      if (openRequests.push({ kind: "kpin", name: read.name, text: read.text })) return true;
+      say(t("add.dropImportBusy"), true);
+      return false;
+    }
+    const target = read.kind === "opml" ? "importFeeds" : read.kind === "backup" ? "restore" : "import";
+    setDroppedFile({ name: read.name, content: read.text, surface: target });
+    setSurface(target);
+    return true;
+  };
+  /** Of several dropped files the first is taken, and that is said. */
   const dropFile = (files: FileList | null | undefined) =>
-    void readDropped(files).then(
+    void importFile.readDropped(files).then(
       (read) => {
-        if (!read) return;
-        if (read === "unsupported") return say(t("add.dropImportOther"), true);
-        if (read === "tooBig") return say(t("add.dropImportTooBig"), true);
-        const { file, more } = read;
-        if (file.kind === "kpin") {
-          if (!openRequests.push({ ...file, kind: "kpin" })) return say(t("add.dropImportBusy"), true);
-        } else {
-          const target = file.kind === "opml" ? "importFeeds" : "import";
-          setDroppedFile({ name: file.name, content: file.text, surface: target });
-          setSurface(target);
-        }
-        if (more) say(t("add.dropImportOne", { name: file.name }));
+        if (read && routeImport(read) && !isRefusal(read) && read.more) say(t("add.dropImportOne", { name: read.name }));
       },
+      (err) => say(describeError(err), true),
+    );
+  /** ⋯ → «Import a file…»: the system dialog, then the file goes where a dropped one would. */
+  const pickImportFile = () =>
+    void importFile.pick().then(
+      (read) => void (read && routeImport(read)),
       (err) => say(describeError(err), true),
     );
   const dropFileRef = useRef(dropFile);
   dropFileRef.current = dropFile;
   /** Whether a dropped file may be imported now: nothing over the window, on any page. */
   const importBlocked = () => !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
+  /** Another import is open (K9 «Busy»): a list waits or shows, or an import or restore dialog. */
+  const importBusy = () => !!openRequests.current() || IMPORT_SURFACES.includes(surfaceNow.current);
+  /** The drop zone is said once per drag, through the live region (K9). */
+  const announceZone = (zone: DropZoneState) => {
+    const words = dropZoneText(zone.link ? { link: true, hint: veilHint(false) } : zone, t);
+    setAnnouncement([words.title, words.line, words.hint].filter(Boolean).join(". "));
+  };
+  const announceZoneRef = useRef(announceZone);
+  announceZoneRef.current = announceZone;
   /** Whether `⌘V` and a drop may save now: the library on screen, nothing over it. */
   const quickBlocked = () =>
     pageRef.current !== "library" || !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
 
-  return { fresh, veil, dropPlace, exportLibrary, exportFeeds, saveBackupCopy, saveLink, unsave };
+  return { fresh, veil, veilHint, mainRef, pickImportFile, exportLibrary, exportFeeds, saveBackupCopy, saveLink, unsave };
 }
 
 export type ImportExport = ReturnType<typeof useImportExport>;

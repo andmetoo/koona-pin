@@ -8,7 +8,7 @@ const collections = [{ id: 3, name: "Разработка" }] as Collection[];
 
 describe("drop targets of the sidebar (NP-030)", () => {
   it("go to an attribute and back, a tag with colons included", () => {
-    for (const target of [{ kind: "collection", id: 3 }, { kind: "tag", name: "a:b" }, { kind: "trash" }, { kind: "new" }, { kind: "favorites" }, { kind: "reading" }] as const)
+    for (const target of [{ kind: "collection", id: 3 }, { kind: "tag", name: "a:b" }, { kind: "trash" }, { kind: "new" }, { kind: "favorites" }, { kind: "reading" }, { kind: "bundle" }] as const)
       expect(parseDrop(dropAttribute(target))).toEqual(target);
     expect(parseDrop("collection:x")).toBeNull();
     expect(parseDrop("tag:")).toBeNull();
@@ -23,6 +23,7 @@ describe("drop targets of the sidebar (NP-030)", () => {
     expect(dropHint(t, { kind: "new" }, 3, collections)).toBe("Новая коллекция из 3");
     expect(dropHint(t, { kind: "favorites" }, 3, collections)).toBe("3 в «Избранное»");
     expect(dropHint(t, { kind: "reading" }, 3, collections)).toBe("3 в «Почитать»");
+    expect(dropHint(t, { kind: "bundle" }, 3, collections)).toBe("Добавить 3 закладки в набор");
     expect(dropHint(t, null, 3, collections)).toBe("Бросьте на коллекцию, тег, избранное, «Почитать» или корзину");
   });
 });

@@ -1,6 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { readdirSync } from "node:fs";
-import { type Catalog, catalog, locales, text } from "../fixtures/app";
+import { type Catalog, catalog, dropPoint, locales, text } from "../fixtures/app";
 
 // Key screens in the longest language and in Serbian (NP-089): snapshots to look at,
 // not baselines, and a check that no interface label is cut off.
@@ -29,6 +29,41 @@ async function cutLabels(page: Page) {
     return cut;
   });
 }
+
+/**
+ * Whether a label's text is cut without an ellipsis: wider than its own box, or reaching past an
+ * ancestor that clips (overflow, clip-path) or the window. A nowrap label in a growing box (the
+ * capsule) or a button row in a fixed panel is cut this way, and `cutLabels` does not see it.
+ */
+const clipped = (label: Locator) =>
+  label.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const text = range.getBoundingClientRect();
+    const boxes: { left: number; right: number }[] = [{ left: 0, right: innerWidth }, el.getBoundingClientRect()];
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.overflowX !== "visible" || style.clipPath !== "none" || node.tagName === "MAIN") boxes.push(node.getBoundingClientRect());
+    }
+    return boxes.some((box) => text.left < box.left - 0.5 || text.right > box.right + 0.5);
+  });
+
+/** A drag of a file from outside over the list area, as a webview shows it before the drop: no name. */
+async function dragFile(page: Page, type: "dragenter" | "dragleave") {
+  const at = await dropPoint(page);
+  await page.evaluate(
+    ({ type, at }) => {
+      const event = new DragEvent(type, { bubbles: true, cancelable: true, clientX: at.x, clientY: at.y });
+      Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [], items: [{ kind: "file", type: "" }], dropEffect: "unset" } });
+      (document.elementFromPoint(at.x, at.y) ?? document.body).dispatchEvent(event);
+    },
+    { type, at },
+  );
+}
+
+/** A counted string of a catalog as the language says it for `count`. */
+const counted = (code: string, key: string, count: number) =>
+  text(catalog(code), `${key}_${new Intl.PluralRules(code).select(count)}`).replace(/\{\{\s*count[^}]*\}\}/, String(count));
 
 /** WebKitGTK draws a line 1–5 px wider than Windows (#183): a menu row keeps this much of its width free, the browser status this much of its 144 px slot (Р-52, п. 7). */
 const LINUX_SPARE = { row: 7, status: 8 };
@@ -215,6 +250,68 @@ for (const code of codes) {
       const centreBox = (await centre.boundingBox())!;
       if (centreBox.x + centreBox.width > width || centreBox.y + centreBox.height > height) found["notifications"].push("the centre leaves the window");
       await page.keyboard.press("Escape");
+
+      // The ⋯ menu: «Share as list…» and «Import a file…» (K5).
+      await page.getByRole("button", { name: t("toolbar.more"), exact: true }).click();
+      const importFile = page.getByRole("menuitem").getByText(t("more.importFile"), { exact: true });
+      await expect(importFile).toBeVisible();
+      await shot("more-menu");
+      if (await clipped(importFile)) found["more-menu"].push(t("more.importFile"));
+      await page.keyboard.press("Escape");
+
+      // A file from outside: the drop zone's hero over the list area (K9a).
+      await dragFile(page, "dragenter");
+      const zone = page.locator("[data-drop-zone]");
+      await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+      await expect(zone).toContainText(t("add.dropAnything"));
+      await shot("drop-zone");
+      for (const line of await zone.locator(".drop-zone-words > b, .drop-zone-words > span:not(.drop-zone-icon)").all())
+        if (await clipped(line)) found["drop-zone"].push((await line.textContent()) ?? "");
+      await dragFile(page, "dragleave");
+      await expect(zone).toHaveCount(0);
+
+      // Three bookmarks dragged over the capsule: it widens to say what the drop does (K6a).
+      const cards = page.locator("[data-bookmark-id]");
+      for (let i = 0; i < 3; i++) await cards.nth(i).locator("h2").first().click({ modifiers: ["ControlOrMeta"] });
+      const from = (await cards.first().locator("[data-preview]").boundingBox())!;
+      await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(from.x + from.width / 2 + 12, from.y + from.height / 2 + 8, { steps: 3 });
+      const capsule = page.locator("[data-bundle-capsule]");
+      await expect(capsule).toBeVisible();
+      const to = (await capsule.boundingBox())!;
+      await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+      const overLabel = capsule.getByText(counted(code, "drag.bundle", 3), { exact: true });
+      await expect(overLabel).toBeVisible();
+      // The widening runs 160 ms: wait for the glass to hold the label.
+      await expect.poll(() => clipped(overLabel)).toBe(false);
+      await shot("bundle-over");
+      // The stack's hint says it too, whole: by the capsule the stack goes to the pointer's other side.
+      const hint = page.locator("[data-drop-hint] > span");
+      await expect(hint).toHaveText(counted(code, "drag.bundle", 3));
+      if (await clipped(hint)) found["bundle-over"].push("the drop hint");
+      await page.mouse.up();
+      await page.keyboard.press("Escape");
+
+      // The panel with the three, then emptied (K7a, K7b).
+      await capsule.locator("> button").first().click();
+      const panel = page.locator("[data-bundle-panel]");
+      await expect(panel.locator("[data-bundle-row]")).toHaveCount(3);
+      await shot("bundle-panel");
+      for (const key of ["bundle.copy", "bundle.save"]) {
+        const button = panel.getByRole("button", { name: t(key), exact: true });
+        if (await clipped(button)) found["bundle-panel"].push(t(key));
+      }
+      await panel.getByRole("button", { name: t("bundle.clear"), exact: true }).click();
+      await expect(panel.locator("[data-bundle-empty]")).toBeVisible();
+      await shot("bundle-empty");
+      const addView = panel.locator("[data-bundle-empty] button").first();
+      if (await clipped(addView)) found["bundle-empty"].push("the empty state's button");
+      // Clear hands the focus to the empty state's button a frame later; Esc goes from there.
+      await expect(addView).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(panel).toHaveCount(0);
+
       await page.getByRole("button", { name: t("toolbar.list"), exact: true }).click();
       await shot("list");
 

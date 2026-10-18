@@ -94,7 +94,7 @@ export function FeedArticleSheet({
       style={readerStyle(look)}
       className={`reading-look feed-sheet mx-2.5 mt-2.5 -mb-6 flex min-w-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-sheet text-sheet-ink ${className}`}
     >
-      <header className="feed-toolbar flex h-[76px] shrink-0 items-center gap-[3px] pr-3 pl-[19px]">
+      <header data-drop-head className="feed-toolbar flex h-[76px] shrink-0 items-center gap-[3px] pr-3 pl-[19px]">
         {/* ← where the sheet stands in for the list; beside it the card can spread over the list instead. */}
         {narrow ? (
           <ToolButton label={t("feeds.back")} keys="Esc" onClick={onBack}>
