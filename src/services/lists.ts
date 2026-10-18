@@ -28,10 +28,16 @@ export const defaultChoices = (preview: ListPreview): ListChoices => ({
   feeds: preview.new_feeds.map((feed) => feed.url),
 });
 
+/** The new feeds that stay checked, in the list's order. */
+function chosenFeeds(preview: ListPreview, choices: ListChoices) {
+  const checked = new Set(choices.feeds);
+  return preview.new_feeds.map((feed) => feed.url).filter((url) => checked.has(url));
+}
+
 /** What Accept adds: the links that are new and the feeds that stay checked. */
 export const importCounts = (preview: ListPreview, choices: ListChoices) => ({
   links: preview.new_links,
-  feeds: preview.new_feeds.filter((feed) => choices.feeds.includes(feed.url)).length,
+  feeds: chosenFeeds(preview, choices).length,
 });
 
 /**
@@ -44,13 +50,15 @@ export const nothingNew = (preview: ListPreview) => preview.new_links === 0 && p
 export type FollowAll = "on" | "off" | "mixed";
 
 export function followAll(urls: string[], chosen: string[]): FollowAll {
-  const on = urls.filter((url) => chosen.includes(url)).length;
+  const checked = new Set(chosen);
+  const on = urls.filter((url) => checked.has(url)).length;
   return on === 0 ? "off" : on === urls.length ? "on" : "mixed";
 }
 
 /** «Follow all» clicked: some or none checked become all, all become none. */
 export function toggleAll(urls: string[], chosen: string[]): string[] {
-  const rest = chosen.filter((url) => !urls.includes(url));
+  const these = new Set(urls);
+  const rest = chosen.filter((url) => !these.has(url));
   return followAll(urls, chosen) === "on" ? rest : [...rest, ...urls];
 }
 
@@ -79,28 +87,35 @@ export type PreviewRow =
   | { kind: "item"; group: number; item: ListPreviewItem }
   | { kind: "more"; group: number; count: number };
 
+/** The group of the top level's feeds: the top level is split in its links and its feeds. */
+export const TOP_FEEDS = -1;
+
 /**
- * The preview's rows. The top level has no header when it is the only group; a group of more than
- * `FOLD_OVER` rows shows `FOLDED` until it is in `open`.
+ * The preview's rows. Feeds outside any section make a «Feeds» group of their own, right after the
+ * top level's links. The top level's links have no header when they are the only group; a group
+ * with new feeds always has one, for «Follow all». A group of more than `FOLD_OVER` rows shows
+ * `FOLDED` until it is in `open`.
  */
 export function previewRows(preview: ListPreview, open: ReadonlySet<number>): PreviewRow[] {
   const rows: PreviewRow[] = preview.newer ? [{ kind: "notice" }] : [];
-  const alone = preview.groups.length === 1;
-  preview.groups.forEach((g, group) => {
-    if (!(alone && g.name === null))
-      rows.push({
-        kind: "group",
-        group,
-        name: g.name,
-        tag: g.tag,
-        count: g.items.length,
-        feedsOnly: g.items.every((item) => item.kind === "feed"),
-        feeds: g.items.filter((item) => item.kind === "feed" && item.status === "new").map((item) => item.url),
-      });
-    const folded = g.items.length > FOLD_OVER && !open.has(group);
-    for (const item of folded ? g.items.slice(0, FOLDED) : g.items) rows.push({ kind: "item", group, item });
-    if (folded) rows.push({ kind: "more", group, count: g.items.length - FOLDED });
+  type Shown = { group: number; name: string | null; tag: string | null; items: ListPreviewItem[] };
+  const shown = preview.groups.flatMap((g, group): Shown[] => {
+    if (g.name !== null) return [{ group, name: g.name, tag: g.tag, items: g.items }];
+    const links = g.items.filter((item) => item.kind === "link");
+    const feeds = g.items.filter((item) => item.kind === "feed");
+    return [
+      ...(links.length > 0 ? [{ group, name: null, tag: null, items: links }] : []),
+      ...(feeds.length > 0 ? [{ group: TOP_FEEDS, name: null, tag: null, items: feeds }] : []),
+    ];
   });
+  for (const { group, name, tag, items } of shown) {
+    const feeds = items.filter((item) => item.kind === "feed" && item.status === "new").map((item) => item.url);
+    if (!(shown.length === 1 && name === null && feeds.length === 0))
+      rows.push({ kind: "group", group, name, tag, count: items.length, feedsOnly: items.every((item) => item.kind === "feed"), feeds });
+    const folded = items.length > FOLD_OVER && !open.has(group);
+    for (const item of folded ? items.slice(0, FOLDED) : items) rows.push({ kind: "item", group, item });
+    if (folded) rows.push({ kind: "more", group, count: items.length - FOLDED });
+  }
   return rows;
 }
 
@@ -119,7 +134,7 @@ export function importOptions(preview: ListPreview, choices: ListChoices): ListI
     to_inbox: choices.toInbox,
     sections_as_tags: destination.kind !== "bare",
     existing_links: "leave",
-    follow_feeds: preview.new_feeds.map((feed) => feed.url).filter((url) => choices.feeds.includes(url)),
+    follow_feeds: chosenFeeds(preview, choices),
   };
 }
 

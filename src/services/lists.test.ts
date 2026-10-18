@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ListPreview } from "../bindings/ListPreview";
 import type { ListPreviewItem } from "../bindings/ListPreviewItem";
-import { defaultChoices, downloadFailure, downloadShare, fileOf, FOLD_OVER, FOLDED, followAll, hostOf, importCounts, importOptions, nothingNew, otherAppName, previewRows, refusalOf, toggleAll } from "./lists";
+import { defaultChoices, downloadFailure, downloadShare, fileOf, FOLD_OVER, FOLDED, followAll, hostOf, importCounts, importOptions, nothingNew, otherAppName, previewRows, refusalOf, toggleAll, TOP_FEEDS } from "./lists";
 
 const preview = (over: Partial<ListPreview> = {}): ListPreview => ({
   meta: {
@@ -129,6 +129,19 @@ describe("the preview's rows", () => {
     expect(previewRows(preview({ groups: [groups[0]] }), new Set()).map((r) => r.kind)).toEqual(["item", "item"]);
     // A newer MINOR: the notice first.
     expect(previewRows(preview({ groups: [groups[0]], newer: true }), new Set())[0]).toEqual({ kind: "notice" });
+  });
+
+  it("give feeds outside any section a «Feeds» group with «Follow all»", () => {
+    const feed = (url: string, over: Partial<ListPreviewItem> = {}) => item(url, { kind: "feed", ...over });
+    // Feeds only, no sections: the one group still has its header.
+    const only = previewRows(preview({ groups: [{ name: null, tag: null, items: [feed("https://a.example/feed"), feed("https://b.example/feed")] }] }), new Set());
+    expect(only[0]).toMatchObject({ kind: "group", group: TOP_FEEDS, name: null, feedsOnly: true, feeds: ["https://a.example/feed", "https://b.example/feed"] });
+    // Mixed with links at the top level: the links, then the feeds apart.
+    const mixed = previewRows(preview({ groups: [{ name: null, tag: null, items: [feed("https://a.example/feed"), ...links(1)] }] }), new Set());
+    expect(mixed.map((r) => (r.kind === "group" ? `group ${r.group}` : r.kind))).toEqual(["group 0", "item", `group ${TOP_FEEDS}`, "item"]);
+    expect(mixed[0]).toMatchObject({ feedsOnly: false, feeds: [] });
+    // Every feed followed, alone: nothing to follow, no header.
+    expect(previewRows(preview({ groups: [{ name: null, tag: null, items: [feed("https://a.example/feed", { status: "followed" })] }] }), new Set())[0].kind).toBe("item");
   });
 
   it("fold a group of more than 8 rows to 5 until it is opened", () => {

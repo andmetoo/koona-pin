@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useLayoutEffect, useRef, useState, type SyntheticEvent } from "react";
+import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, CircleAlert, CircleArrowDown, CircleCheck, FileText, Info, Link2, RefreshCw, Rss, Tag, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -93,6 +93,7 @@ export function ListImportDialog({
   const [choices, setChoices] = useState<ListChoices | null>(null);
   /** Folded groups the person opened with «Show N more». */
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
+  const rows = useMemo(() => (list ? previewRows(list.preview, open) : []), [list, open]);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -300,7 +301,7 @@ export function ListImportDialog({
         </div>
         <Rows
           preview={p}
-          rows={previewRows(p, open)}
+          rows={rows}
           chosen={choices.feeds}
           tags={choices.destination.kind !== "bare"}
           onFeeds={(feeds) => set({ feeds })}
@@ -613,6 +614,30 @@ function Rows({
     overscan: 8,
   });
   const number = (n: number) => n.toLocaleString(i18n.language);
+  const checkedSet = useMemo(() => new Set(chosen), [chosen]);
+
+  // «Show N more» goes as its group opens: focus moves to the first row it showed, which takes
+  // its place in the list, so the keyboard does not fall back to the page.
+  const reveal = useRef<number | null>(null);
+  const more = (group: number, index: number) => {
+    reveal.current = index;
+    onOpen(group);
+  };
+  useEffect(() => {
+    const index = reveal.current;
+    if (index === null) return;
+    reveal.current = null;
+    virtualizer.scrollToIndex(index, { align: "auto" });
+    let tries = 0;
+    const focus = () => {
+      const shown = scrollRef.current?.querySelector<HTMLElement>(`[data-index="${index}"]`);
+      const target = shown?.querySelector<HTMLElement>("input, button") ?? (shown?.firstElementChild as HTMLElement | null);
+      if (target) target.focus({ preventScroll: true });
+      else if (tries++ < 5) frame = requestAnimationFrame(focus);
+    };
+    let frame = requestAnimationFrame(focus);
+    return () => cancelAnimationFrame(frame);
+  }, [rows, virtualizer]);
 
   const notice = () => (
     <div className="pb-2">
@@ -684,7 +709,7 @@ function Rows({
     );
     const shape = "flex h-8 items-center gap-2.5 text-sm";
     if (it.kind === "feed" && it.status === "new") {
-      const checked = chosen.includes(it.url);
+      const checked = checkedSet.has(it.url);
       return (
         <label data-list-row="new" title={it.url} className={shape}>
           {words}
@@ -698,7 +723,7 @@ function Rows({
       );
     }
     return (
-      <div data-list-row={it.status} title={it.url} className={shape}>
+      <div data-list-row={it.status} title={it.url} tabIndex={-1} className={`${shape} outline-none`}>
         {words}
         {it.status === "saved" && badge(t("lists.badgeSaved"))}
         {it.status === "in_trash" && badge(t("lists.badgeTrash"), Trash2)}
@@ -707,7 +732,7 @@ function Rows({
     );
   };
 
-  const row = (r: PreviewRow) => {
+  const row = (r: PreviewRow, index: number) => {
     switch (r.kind) {
       case "notice":
         return notice();
@@ -717,7 +742,7 @@ function Rows({
         return item(r.item);
       case "more":
         return (
-          <button type="button" onClick={() => onOpen(r.group)} className="h-8 pl-[26px] text-xs font-medium text-accent hover:underline">
+          <button type="button" onClick={() => more(r.group, index)} className="h-8 pl-[26px] text-xs font-medium text-accent hover:underline">
             {t("lists.showRows", { count: r.count })}
           </button>
         );
@@ -729,7 +754,7 @@ function Rows({
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((v) => (
           <div key={v.key} data-index={v.index} ref={virtualizer.measureElement} className="absolute top-0 left-0 w-full" style={{ transform: `translateY(${v.start}px)` }}>
-            {row(rows[v.index])}
+            {row(rows[v.index], v.index)}
           </div>
         ))}
       </div>
