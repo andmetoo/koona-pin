@@ -773,6 +773,15 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
   }
   return list;
 }
+/** `format::tag`: lowercased, control and invisible characters dropped, white space collapsed, at most 64 characters; none when empty. */
+function demoTag(raw: string): string | null {
+  const kept = [...raw.toLowerCase()]
+    // The invisible ones first: JavaScript counts U+FEFF as white space, Rust does not.
+    .map((c) => (/[\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/.test(c) ? "" : /\s/.test(c) ? " " : /\p{Cc}/u.test(c) ? "" : c))
+    .join("");
+  const capped = [...kept.split(/\s+/).filter(Boolean).join(" ")].slice(0, 64).join("").trimEnd();
+  return capped || null;
+}
 /** `ListPreview.groups` as `lists/preview.rs` makes them: the top level first, then each section where it first appears, a link under its first section. */
 function demoGroups(list: DemoList, bookmarkAt: (url: string) => Bookmark | undefined, feedAt: Map<string, string>): ListPreviewGroup[] {
   const rows = [...list.links.map((entry) => ({ entry, kind: "link" as const })), ...list.feeds.map((entry) => ({ entry, kind: "feed" as const }))].sort((a, b) => a.entry.at - b.entry.at);
@@ -796,7 +805,7 @@ function demoGroups(list: DemoList, bookmarkAt: (url: string) => Bookmark | unde
     });
   }
   // Feeds have no tags: a section of feeds only becomes none.
-  for (const group of groups) if (group.name && group.items.some((i) => i.kind === "link")) group.tag = group.name.toLowerCase().slice(0, 64);
+  for (const group of groups) if (group.name && group.items.some((i) => i.kind === "link")) group.tag = demoTag(group.name);
   return groups.filter((g) => g.items.length > 0);
 }
 const demoListDownloads = new Set<(progress: ListDownloadProgress) => void>();
