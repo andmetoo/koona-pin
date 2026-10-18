@@ -4,8 +4,10 @@
  * Without it — a desktop build, or the browser demo — it is the desktop.
  *
  * On a phone the bridge also asks the page to go back one level: system Back on Android, the
- * swipe from the left edge on iOS. What is open registers with {@link onBack}; the newest handler
- * that closes something wins. With none, Android moves the app to the background.
+ * swipe from the left edge on iOS. What is open registers with {@link onBack} at the place it took
+ * when it opened ({@link openPlace}); the one opened last that closes something wins, so a layer that
+ * registers again (the editor moving between the side and a drawer as a Fold opens) stays under
+ * what opened over it. With none, Android moves the app to the background.
  */
 export type Platform = "desktop" | "android" | "ios";
 
@@ -21,13 +23,21 @@ export const isMobile = platform !== "desktop";
 /** Closes one level and says true, or says false when it had nothing to close. */
 export type BackHandler = () => boolean;
 
-const handlers: BackHandler[] = [];
+type Entry = { handler: BackHandler; place: number };
+const entries: Entry[] = [];
+let lastPlace = 0;
 
-/** Goes back one level: the newest handler that closes something. */
+/** A new place on top of everything open so far: take it when a layer opens. */
+export function openPlace(): number {
+  return ++lastPlace;
+}
+
+/** Goes back one level: the handler at the highest place that closes something. */
 export function goBack(): boolean {
-  for (let i = handlers.length - 1; i >= 0; i--) {
+  const byPlace = [...entries].sort((a, b) => b.place - a.place);
+  for (const { handler } of byPlace) {
     try {
-      if (handlers[i]()) return true;
+      if (handler()) return true;
     } catch (error) {
       console.error(error);
     }
@@ -35,12 +45,16 @@ export function goBack(): boolean {
   return false;
 }
 
-/** Registers what Back closes while it is open; returns the call that unregisters it. */
-export function onBack(handler: BackHandler): () => void {
-  handlers.push(handler);
+/**
+ * Registers what Back closes while it is open, at `place` (a new one on top by default); returns the
+ * call that unregisters it.
+ */
+export function onBack(handler: BackHandler, place: number = openPlace()): () => void {
+  const entry = { handler, place };
+  entries.push(entry);
   return () => {
-    const at = handlers.lastIndexOf(handler);
-    if (at >= 0) handlers.splice(at, 1);
+    const at = entries.indexOf(entry);
+    if (at >= 0) entries.splice(at, 1);
   };
 }
 

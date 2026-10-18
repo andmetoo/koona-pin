@@ -477,7 +477,11 @@ pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>,
     let mut pending = Pending::new(start);
     loop {
         foreground.wait().await;
-        tokio::time::sleep(WATCH_EVERY).await;
+        // A suspend during the wait skips this pass: nothing is pushed behind the screen.
+        tokio::select! {
+            _ = tokio::time::sleep(WATCH_EVERY) => {}
+            _ = foreground.suspended() => continue,
+        }
         if done.load(Ordering::SeqCst) {
             return;
         }

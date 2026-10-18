@@ -1,3 +1,6 @@
 [toolchain]
 channel = "1.98.1"
 profile = "minimal"
+# llvm-objcopy for swift-rs: iOS release builds keep the plugins' Swift entry points exported with
+# it under Xcode 27 (NP-151, scripts/build-ios-sim.mjs).
+components = ["llvm-tools"]

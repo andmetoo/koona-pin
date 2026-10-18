@@ -24,6 +24,7 @@ export function Dialog({
   height,
   caption,
   eyebrow = false,
+  back = true,
 }: {
   title: string;
   onClose: () => void;
@@ -40,6 +41,8 @@ export function Dialog({
   caption?: string;
   /** The title as a small capitals label over the body's own heading (K1: «IMPORT LIST»). */
   eyebrow?: boolean;
+  /** A phone's Back closes it (NP-151); off where the owner handles Back itself (the editor). */
+  back?: boolean;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
@@ -47,7 +50,7 @@ export function Dialog({
   const closeRef = useRef(onClose);
   closeRef.current = locked ? () => {} : onClose;
   // A phone's Back closes it as Escape does (NP-151).
-  useBack(() => closeRef.current());
+  useBack(() => closeRef.current(), back);
   const [open, setOpen] = useState(false);
   const heading = (
     <h2 id={titleId} className={eyebrow ? "text-2xs font-semibold tracking-[0.06em] text-muted uppercase" : "text-lg font-semibold"}>

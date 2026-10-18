@@ -29,6 +29,8 @@ export function Toast({
   return (
     <div
       role={tone}
+      data-toast
+      data-docked={docked || undefined}
       className={`flex min-h-11 animate-appear items-center gap-3 rounded-xl bg-toast px-4 py-2 text-sm text-white shadow-menu ${docked ? "max-w-full" : "fixed bottom-6 left-1/2 z-40 max-w-[calc(100vw-32px)] -translate-x-1/2"}`}
     >
       {tone === "alert" && <Icon icon={CircleAlert} className="shrink-0 text-[#e99797]" />}

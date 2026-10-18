@@ -124,16 +124,37 @@ fn library_paths(app: &tauri::App) -> tauri::Result<library::Paths> {
 /// The end of a phone's run (NP-151): the system finished the activity. The process ends here, without
 /// the exit handlers, which would tear down what the runtime's and the library's threads may still use (a
 /// "lock of a destroyed mutex" abort, seen once in NP-150). The library's and the feed cache's locks are
-/// taken first, so no write is cut in half; what was committed is in the files.
+/// taken first when they come within [`END_WAIT`], so no write is cut in half; a write that holds one longer
+/// is cut, and SQLite's journal rolls it back at the next start. What was committed is in the files.
 #[cfg(mobile)]
 fn end_on_phone(app: &tauri::AppHandle) -> ! {
     eprintln!("Koona Pin: the app ends");
     let library = app.try_state::<Arc<db::DbState>>().map(|state| state.inner().clone());
     let feeds = app.try_state::<Arc<feeds::cache::FeedCache>>().map(|state| state.inner().clone());
-    let _library = library.as_ref().map(|state| state.conn.lock());
-    let _feeds = feeds.as_ref().map(|state| state.conn.lock());
+    let deadline = std::time::Instant::now() + END_WAIT;
+    let _library = library.as_ref().and_then(|state| lock_until(&state.conn, deadline));
+    let _feeds = feeds.as_ref().and_then(|state| lock_until(&state.conn, deadline));
     // SAFETY: `_exit` only ends the process; nothing after it runs.
     unsafe { libc::_exit(0) }
+}
+
+/// How long the end of a phone's run waits for writes in progress, at most.
+#[cfg(mobile)]
+const END_WAIT: std::time::Duration = std::time::Duration::from_millis(1500);
+
+/// The lock, if it comes before `deadline`; the main thread never waits on it for good.
+#[cfg(mobile)]
+fn lock_until<T>(mutex: &std::sync::Mutex<T>, deadline: std::time::Instant) -> Option<std::sync::MutexGuard<'_, T>> {
+    loop {
+        match mutex.try_lock() {
+            Ok(guard) => return Some(guard),
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => return Some(poisoned.into_inner()),
+            Err(std::sync::TryLockError::WouldBlock) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(10))
+            }
+            Err(std::sync::TryLockError::WouldBlock) => return None,
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

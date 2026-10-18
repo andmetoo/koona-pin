@@ -1,7 +1,13 @@
 package app.koona.pin.mobile
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.graphics.Bitmap
 import android.net.http.SslError
 import android.os.Message
@@ -40,13 +46,34 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
 
   override fun load(webView: WebView) {
     val owner = activity as AppCompatActivity
+    // The interface needs Chrome 111 (Tailwind 4); Android 10 may still carry a WebView far older
+    // until Play updates it. Then a native screen asks for the update instead of a blank page. wry
+    // sets the WebView as the content after the plugins load: replace it once that has happened.
+    val provider = WebView.getCurrentWebViewPackage()
+    val major = provider?.versionName?.substringBefore('.')?.toIntOrNull()
+    if (provider != null && major != null && major < MIN_WEBVIEW) {
+      Log.w(TAG, "Android System WebView ${provider.versionName} is older than $MIN_WEBVIEW")
+      webView.post { showWebViewTooOld(provider.packageName, provider.versionName ?: "") }
+    }
     // Added after Tauri's and wry's own callbacks, so it runs first: theirs would go back in the
     // WebView's history or finish the activity.
     owner.onBackPressedDispatcher.addCallback(owner, object : OnBackPressedCallback(true) {
       override fun handleOnBackPressed() {
+        // The page closed something; otherwise (nothing to close, no page yet, or a page that does
+        // not answer within BACK_WAIT_MS) the app goes to the background as Android apps do. It
+        // never exits here.
+        var settled = false
+        val noAnswer = Runnable {
+          if (!settled) {
+            settled = true
+            activity.moveTaskToBack(true)
+          }
+        }
+        webView.postDelayed(noAnswer, BACK_WAIT_MS)
         webView.evaluateJavascript(BACK) { answer ->
-          // The page closed something; otherwise (nothing to close, or no page yet) the app goes
-          // to the background as Android apps do. It never exits here.
+          if (settled) return@evaluateJavascript
+          settled = true
+          webView.removeCallbacks(noAnswer)
           if (answer != "true") activity.moveTaskToBack(true)
         }
       }
@@ -63,6 +90,51 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
     }
     // wry sets its WebViewClient after the plugins load: wrap it once that has happened.
     webView.post { watchRenderer(webView) }
+  }
+
+  /**
+   * «Update Android System WebView»: shown before the interface, so in English (the page's
+   * translations are not loaded yet). The button opens the WebView's page in Google Play.
+   */
+  private fun showWebViewTooOld(packageName: String, version: String) {
+    val density = activity.resources.displayMetrics.density
+    fun dp(value: Int) = (value * density).toInt()
+    val title = TextView(activity).apply {
+      text = "Update Android System WebView"
+      textSize = 22f
+    }
+    val body = TextView(activity).apply {
+      text = "Koona Pin needs Android System WebView $MIN_WEBVIEW or newer to show its pages. " +
+        "This phone has version $version. Update it in Google Play, then open Koona Pin again."
+      textSize = 16f
+      setPadding(0, dp(12), 0, dp(24))
+    }
+    val update = Button(activity).apply {
+      text = "Open Google Play"
+      setOnClickListener {
+        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+        try {
+          activity.startActivity(market)
+        } catch (_: ActivityNotFoundException) {
+          activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+        }
+      }
+    }
+    val content = LinearLayout(activity).apply {
+      orientation = LinearLayout.VERTICAL
+      setPadding(dp(32), dp(32), dp(32), dp(32))
+      addView(title)
+      addView(body)
+      addView(update)
+    }
+    // Clear of the system bars: the outer layout takes them as padding, the inner keeps its own.
+    val screen = LinearLayout(activity).apply {
+      orientation = LinearLayout.VERTICAL
+      gravity = Gravity.CENTER_VERTICAL
+      fitsSystemWindows = true
+      addView(content)
+    }
+    activity.setContentView(screen)
   }
 
   private fun sendInsets(webView: WebView) {
@@ -97,12 +169,22 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
 
   private companion object {
     const val BACK = "(function(){var m=window.__KOONA_MOBILE__;return !!(m&&m.back());})()"
+    /** The oldest Android System WebView (Chrome) major version the interface runs on. */
+    const val MIN_WEBVIEW = 111
+    /** How long Back waits for the page before it moves the app to the background anyway. */
+    const val BACK_WAIT_MS = 300L
   }
 }
 
 /**
  * wry's WebViewClient with a renderer-loss handler: every call goes to it unchanged, and
  * [onRenderProcessGone] restarts the app instead of letting Android end it as a crash.
+ *
+ * wry has no supported hook for this: its only one is a build-time text extension of the class
+ * (WRY_RUSTWEBVIEWCLIENT_CLASS_EXTENSION), which NP-151 left out. RustWebViewClient of wry 0.57.0
+ * overrides shouldInterceptRequest, shouldOverrideUrlLoading, onPageStarted, onPageFinished and
+ * onReceivedError; the rest of WebViewClient is forwarded too, for a later wry.
+ * `bun run build:android` (and CI) fail when wry overrides a method this class does not.
  */
 private class RendererWatch(
   private val inner: WebViewClient,

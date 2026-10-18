@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { goBack, isMobile, onBack, platform } from "./platform";
+import { goBack, isMobile, onBack, openPlace, platform } from "./platform";
 
 describe("platform", () => {
   it("is the desktop without the phone bridge", () => {
@@ -21,5 +21,22 @@ describe("platform", () => {
     offEditor();
     offIdle();
     expect(goBack()).toBe(false);
+  });
+
+  it("keeps a layer that registers again under what opened over it (a Fold unfolding with the editor open)", () => {
+    const closed: string[] = [];
+    // The editor opens, then a dialog over it.
+    const editorPlace = openPlace();
+    let offEditor = onBack(() => (closed.push("editor"), true), editorPlace);
+    const offDialog = onBack(() => (closed.push("dialog"), true), openPlace());
+    // The screen changes size: the editor moves between the side and a drawer and registers again.
+    offEditor();
+    offEditor = onBack(() => (closed.push("editor"), true), editorPlace);
+    expect(goBack()).toBe(true);
+    expect(closed).toEqual(["dialog"]);
+    offDialog();
+    expect(goBack()).toBe(true);
+    expect(closed).toEqual(["dialog", "editor"]);
+    offEditor();
   });
 });

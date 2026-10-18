@@ -1031,9 +1031,10 @@ export function App() {
     setEditing(null);
     editorFocus.current?.focus();
   };
-  // The editor beside the list (a wide screen) closes on a phone's Back; in a narrow one it is a
-  // drawer, which does that itself (NP-151).
-  useBack(closeEditor, !!editing && wide);
+  // A phone's Back closes the editor, beside the list or in a drawer (NP-151). Registered here for
+  // as long as it is open, so moving between the two (a Fold opening) keeps its place under a
+  // dialog opened over it; the drawer does not register itself (`back={false}`).
+  useBack(closeEditor, !!editing);
 
   const collection = library.collections.find((c) => c.id === filters.collectionId);
 
@@ -1897,7 +1898,7 @@ export function App() {
       </div>
 
       {editing && !wide && (
-        <Dialog title={t("editor.label")} drawer onClose={closeEditor}>
+        <Dialog title={t("editor.label")} drawer back={false} onClose={closeEditor}>
           {editor}
         </Dialog>
       )}
