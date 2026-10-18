@@ -6,7 +6,7 @@ import { useMedia } from "../../app/layout";
 import { useKeyboardUp } from "../../platform/keyboard";
 import { preference, savePreference } from "../../services/preferences";
 import { usePhoneStack } from "./navigation/usePhoneStack";
-import { type Phone, PhoneContext, usePhone } from "./PhoneContext";
+import { type Phone, PhoneContext, type PrimaryAction, usePhone } from "./PhoneContext";
 import { PhoneDialogs } from "./PhoneDialogs";
 import { Rail } from "./Rail";
 import { ScreenStack } from "./ScreenStack";
@@ -31,11 +31,11 @@ const FOLD = "(min-width: 840px)";
 export function PhoneShell() {
   // The snackbar keeps its own time (5 s, paused while touched): the app's notices wait for it.
   const app = useAppState(null, { noticeTiming: () => null });
-  const stack = usePhoneStack(app);
+  const fold = useMedia(FOLD);
+  const stack = usePhoneStack(app, fold);
   const { entries, sheets, exited } = useSheetState();
   useAppSheets(app, sheets, entries);
   const keyboardUp = useKeyboardUp();
-  const fold = useMedia(FOLD);
   const [bottomLift, setBottomLift] = useState(0);
   // The Fold's controls on the right by default; per device, not synced (doc/mobile-design.md).
   const [hand, setHandState] = useState(() => preference<"right" | "left">("foldHand", ["right", "left"], "right"));
@@ -44,10 +44,16 @@ export function PhoneShell() {
     savePreference("foldHand", side);
   }, []);
   const pillShown = !fold && stack.atRoot && !keyboardUp;
+  const [primary, setPrimary] = useState<PrimaryAction | null>(null);
+  // The row of what the Fold's detail pane shows is marked; a phone marks none.
+  const { detail } = stack;
+  const bookmarkId = fold && (detail?.name === "bookmark" || detail?.name === "reader") ? detail.bookmarkId : null;
+  const postId = fold && detail?.name === "post" ? detail.itemId : null;
+  const selected = useMemo(() => ({ bookmarkId, postId }), [bookmarkId, postId]);
 
   const phone = useMemo<Phone>(
-    () => ({ app, stack, sheets, fold, hand, setHand, keyboardUp, pillShown, setBottomLift }),
-    [app, stack, sheets, fold, hand, setHand, keyboardUp, pillShown],
+    () => ({ app, stack, sheets, fold, hand, setHand, keyboardUp, pillShown, setBottomLift, selected, primary, setPrimary }),
+    [app, stack, sheets, fold, hand, setHand, keyboardUp, pillShown, selected, primary],
   );
   const account = useMemo(
     () => (

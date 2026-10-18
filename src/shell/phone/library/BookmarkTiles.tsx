@@ -67,6 +67,8 @@ function Meta({ b, dot, language, favorite }: { b: Bookmark; dot: string | null;
 }
 
 type TileProps = {
+  /** On the Fold: the detail pane shows it (FL1's accent-soft row). */
+  selected?: boolean;
   bookmark: Bookmark;
   /** Its collection's colour, when it is in one. */
   dot: string | null;
@@ -85,6 +87,7 @@ export const BookmarkRow = memo(function BookmarkRow({
   favorite,
   first,
   last,
+  selected = false,
 }: TileProps & { favorite: string; first: boolean; last: boolean }) {
   const press = useLongPress(() => onMenu(b));
   return (
@@ -92,6 +95,8 @@ export const BookmarkRow = memo(function BookmarkRow({
       type="button"
       className="lib-row"
       data-bookmark-id={b.id}
+      data-selected={selected || undefined}
+      aria-current={selected || undefined}
       data-first={first || undefined}
       data-last={last || undefined}
       onClick={() => onOpen(b)}
@@ -107,10 +112,10 @@ export const BookmarkRow = memo(function BookmarkRow({
 });
 
 /** L2's card: paper r 22, the picture inset 4 r 18, the title up to 3 lines, the meta line. */
-export const BookmarkCard = memo(function BookmarkCard({ bookmark: b, dot, language, onOpen, onMenu, favorite }: TileProps & { favorite: string }) {
+export const BookmarkCard = memo(function BookmarkCard({ bookmark: b, dot, language, onOpen, onMenu, favorite, selected = false }: TileProps & { favorite: string }) {
   const press = useLongPress(() => onMenu(b));
   return (
-    <button type="button" className="lib-card" data-bookmark-id={b.id} onClick={() => onOpen(b)} {...press}>
+    <button type="button" className="lib-card" data-bookmark-id={b.id} data-selected={selected || undefined} aria-current={selected || undefined} onClick={() => onOpen(b)} {...press}>
       <Thumb b={b} className="lib-card-picture" />
       <span className="lib-card-title lib-clamp-3 ph-row">{b.title || b.url}</span>
       <Meta b={b} dot={dot} language={language} favorite={favorite} />
@@ -126,6 +131,7 @@ export const PostRow = memo(function PostRow({
   onOpen,
   first,
   last,
+  selected = false,
 }: {
   post: FeedItem;
   source: string;
@@ -133,6 +139,8 @@ export const PostRow = memo(function PostRow({
   onOpen: (post: FeedItem) => void;
   first: boolean;
   last: boolean;
+  /** On the Fold: the detail pane shows it. */
+  selected?: boolean;
 }) {
   const picture = usePicture("post-thumb", post.id, post.thumbnail_url);
   const age = shortAge(post.published_at ?? post.fetched_at, language);
@@ -146,6 +154,8 @@ export const PostRow = memo(function PostRow({
       type="button"
       className="lib-row"
       data-post-id={post.id}
+      data-selected={selected || undefined}
+      aria-current={selected || undefined}
       data-first={first || undefined}
       data-last={last || undefined}
       onClick={() => onOpen(post)}

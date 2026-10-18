@@ -62,7 +62,7 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
   const openPost = (item: FeedItem) => {
     if (scope === "unread") setKept((now) => new Set(now).add(item.id));
     app.setFeedPlace((place) => ({ ...place, item: item.id }));
-    stack.push({ name: "post", feedUid, itemId: item.id });
+    stack.openPost(feedUid, item.id);
   };
 
   const entries = useMemo(() => dayGroups(shown), [shown]);
@@ -164,7 +164,7 @@ function PostList({
   scroller: HTMLElement | null;
   label: string;
 }) {
-  const { app } = usePhone();
+  const { app, selected } = usePhone();
   const { t, i18n } = app;
   const list = useRef<HTMLDivElement>(null);
   const [margin, setMargin] = useState(0);
@@ -228,7 +228,7 @@ function PostList({
         const first = row.index === spans[day[row.index]]?.from;
         return (
           <div key={row.key} ref={virtualizer.measureElement} data-index={row.index} role="listitem" className="fd-row" style={style}>
-            <PostRow item={entry.item} feed={byUid.get(entry.item.feed_uid)} first={first} onOpen={onOpen} />
+            <PostRow item={entry.item} feed={byUid.get(entry.item.feed_uid)} first={first} selected={entry.item.id === selected.postId} onOpen={onOpen} />
           </div>
         );
       })}
@@ -241,13 +241,36 @@ function PostList({
  * shelf's left edge, the title (2 lines), the excerpt (2 lines), the picture 72 r 14 (the feed's
  * letter when the post has none), and "Saved" once it is a bookmark.
  */
-function PostRow({ item, feed, first, onOpen }: { item: FeedItem; feed: Feed | undefined; first: boolean; onOpen: (item: FeedItem) => void }) {
+function PostRow({
+  item,
+  feed,
+  first,
+  selected,
+  onOpen,
+}: {
+  item: FeedItem;
+  feed: Feed | undefined;
+  first: boolean;
+  /** On the Fold: the detail pane shows it. */
+  selected: boolean;
+  onOpen: (item: FeedItem) => void;
+}) {
   const { app } = usePhone();
   const { t, i18n } = app;
   const name = feed ? feedName(feed) : "";
   const meta = [name, item.author, postAge(item.published_at ?? item.fetched_at, i18n.language)].filter(Boolean).join(" · ");
   return (
-    <button type="button" className="fd-post" data-feed-item-id={item.id} data-feed-uid={item.feed_uid} data-read={item.read || undefined} data-first={first || undefined} onClick={() => onOpen(item)}>
+    <button
+      type="button"
+      className="fd-post"
+      data-feed-item-id={item.id}
+      data-feed-uid={item.feed_uid}
+      data-read={item.read || undefined}
+      data-first={first || undefined}
+      data-selected={selected || undefined}
+      aria-current={selected || undefined}
+      onClick={() => onOpen(item)}
+    >
       {!item.read && (
         <span className="fd-dot">
           <span className="sr-only">{t("feeds.unread")}</span>

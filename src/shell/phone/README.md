@@ -7,16 +7,18 @@ The phone's own interface, "Paper & Glass" (`doc/mobile-design.md` in the notes,
 | Path | What | Owner |
 | --- | --- | --- |
 | `PhoneShell.tsx` | The root: app state, stack, sheets, nav pill or rail, snackbar, sheet layer, dialogs | foundation |
-| `PhoneContext.ts` | `usePhone()`, `useBottomLift()` | foundation |
-| `ScreenStack.tsx` | Which screen a tab or route shows | foundation |
+| `PhoneContext.ts` | `usePhone()`, `useBottomLift()`, `usePrimaryAction()` (the rail's primary) | foundation, wave 2 |
+| `ScreenStack.tsx` | Which screen a tab or route shows; on the Fold, in which pane | foundation, wave 2 |
 | `PhoneDialogs.tsx` | The shared dialogs a phone still shows | foundation |
-| `navigation/stack.ts` | The pure stack model: tabs, routes, Back (Vitest) | foundation |
+| `navigation/stack.ts` | The pure stack model: tabs, routes, Back, the Fold's panes and selection (Vitest) | foundation, wave 2 |
 | `navigation/usePhoneStack.ts` | The stack in React, tab → app section, system Back at place 0 | foundation |
 | `sheets/useSheets.ts`, `SheetLayer.tsx`, `registry.ts`, `useAppSheets.ts` | The sheet system | foundation |
 | `ui/` | The kit (below) | foundation |
 | `screens/*Screen.tsx` | One file per screen, stubs now | wave 1 |
 | `sheets/EditSheet.tsx`, `CollectionPicker.tsx`, `NewLinkSheet.tsx`, `YouSheet.tsx`, `BookmarkMenu.tsx` | One file per sheet, stubs now | wave 1 |
-| `Rail.tsx` | The Fold's rail, a placeholder now | wave 2 |
+| `Rail.tsx` | The Fold's rail and its long-press popover (FL3) | wave 2 |
+| `fold/` | The Fold's detail sheet: `PaneBar` (its circles), `DetailEmpty`, `savedLine`, `fold.css` | wave 2 |
+| `screens/BookmarkScreen.tsx` | FL1: a bookmark in the detail sheet (route `bookmark`, Fold only) | wave 2 |
 | `src/styles/phone.css` | Tokens and the kit's CSS | foundation |
 | `src/platform/haptics.ts`, `keyboard.ts` | Haptics, the on-screen keyboard | foundation |
 
@@ -30,7 +32,7 @@ const { app, stack, sheets, fold, keyboardUp, pillShown } = usePhone();
 
 `app` is everything `useAppState` returns, as on the desktop: `library` (bookmarks of the current section, `collections`, `tags`, `loadMore`…), `filters`, `counts`, `sectionCount`, `navigate`, `changeFilters`, `actions` (`open`, `favorite`, `trash`…), `editing`/`setEditing`/`saveEdit`, `say`, `undoing`, `supporter`, `sync`, `setSurface`, `feeds`, `feedPlace`, `t`. Read it, call it; the shell does not wrap it.
 
-On a window wider than 840 dp (`fold`), the rail replaces the nav pill and the screen area leaves room for it. `hand` (`"right"` by default) and `setHand` keep the Fold's handedness per device (the preference `foldHand`); the shell mirrors the layout with `data-hand` on its root.
+On a window wider than 840 dp (`fold`), the rail replaces the nav pill and the screen area holds two panes (below, "The Fold"). `hand` (`"right"` by default) and `setHand` keep the Fold's handedness per device (the preference `foldHand`); the shell mirrors the layout with `data-hand` on its root.
 
 A tab sets the app's section itself (`navigation/usePhoneStack.ts`, `enterTab`): Inbox `navigate({ onlyInbox: true })`, All bookmarks `navigate()`, Reading `navigate({ onlyReading: true })`, Feeds `openFeeds(feedPlace.feed)`. A screen narrows further with `changeFilters` (search, a collection chip).
 
@@ -43,7 +45,19 @@ stack.back();          // as system Back: false at a tab's root
 stack.selectTab("inbox");
 ```
 
-Routes are typed in `navigation/stack.ts` (`reader`, `post`, `search`, `settings` with an optional `page`); a new one is added there and in `ScreenStack.tsx`. The nav pill hides on a pushed route, with the keyboard up and on the Fold. System Back (Android Back, the iOS edge swipe) goes through `src/platform/back.ts`: what opened last closes first — a shared dialog, then a sheet, then the top route; at a tab's root it says false and Android moves the app to the background. Something else of a screen's own that Back should close (a menu, a selection) registers with `useBack(close, open)` from `src/platform/useBack.ts`; it sits above the stack. Pushed screens show a back circle (`Header onBack={stack.back}`): iOS has no Back button.
+Routes are typed in `navigation/stack.ts` (`reader`, `bookmark` (the Fold's), `post`, `search`, `settings` with an optional `page`); a new one is added there, in `ScreenStack.tsx` and in `paneOf`. The nav pill hides on a pushed route, with the keyboard up and on the Fold. System Back (Android Back, the iOS edge swipe) goes through `src/platform/back.ts`: what opened last closes first — a shared dialog, then a sheet, then the top route; at a tab's root it says false and Android moves the app to the background. Something else of a screen's own that Back should close (a menu, a selection) registers with `useBack(close, open)` from `src/platform/useBack.ts`; it sits above the stack. Pushed screens show a back circle (`Header onBack={stack.back}`): iOS has no Back button.
+
+## The Fold (wave 2)
+
+On a window wider than 840 dp (`fold`, an unfolded Galaxy Z Fold; frames FL1–FL3) the screen has two panes and the rail:
+
+- **The rail** (`Rail.tsx`): chrome glass 72 wide, 32 from the edge the person holds (clear of the 24 back-gesture strip), 16 above the gesture inset; the four places, a hairline, the screen's primary action, "+". A long press opens its popover (move the controls to the other side, Layout settings…). It hides while the keyboard is up.
+- **The list pane** next to the rail: the tab's screen, or Search over it. Its screens get `--safe-left/right: 0` and a 16 side margin.
+- **The detail sheet** on the far side (raised paper r 28, e2): the topmost detail route — `bookmark` (FL1, `screens/BookmarkScreen.tsx`), `reader`, `post` (FL2), `settings` — or a calm empty state (`fold/DetailEmpty.tsx`). Inside it `--safe-*` are 0 and the page's colour is paper, so a phone screen fits as it is; a screen with its own circles along the sheet's top uses `fold/PaneBar.tsx` (`outer` on the edge side, `near` next to the list; the left hand mirrors them).
+
+A row's tap goes through `stack.openBookmark(id)` / `stack.openPost(feedUid, itemId)`: a phone pushes the reader or the post; the Fold selects the bookmark's detail or the post into the detail sheet (`select` in `navigation/stack.ts`: what showed there closes). `usePhone().selected` names the bookmark or post the sheet shows, for the row's `data-selected` / `aria-current`. Back closes the newest route, so the selection first; Search's Cancel is `stack.leave("search")`. The screen in the sheet offers the rail's primary circle with `usePrimaryAction({ icon, label, run, pressed }, fold && !hidden)` (Read on a bookmark, Save on a post).
+
+Folding and unfolding keeps every screen mounted in the same pane containers (on a phone they take no box), the sheets and their drafts: a phone's pushed reader or post shows in the detail sheet; when the Fold closes, a `bookmark` route becomes its reader (`forPhone`).
 
 ## Sheets
 
@@ -101,4 +115,4 @@ From shared code, opened by `app.surface` and the app's state (`PhoneDialogs.tsx
 
 ## Tests
 
-Vitest: `navigation/stack.test.ts`, `ui/accountState.test.ts`, `src/platform/haptics.test.ts`, `src/platform/keyboard.test.ts`. Playwright: `tests/phone/` (project `phone` of `playwright.config.ts`) with `tests/phone/fixtures.ts` (`openPhone`, `systemBack`, 393×852 and the Fold's 1088×821).
+Vitest: `navigation/stack.test.ts`, `fold/savedLine.test.ts`, `ui/accountState.test.ts`, `src/platform/haptics.test.ts`, `src/platform/keyboard.test.ts`. Playwright: `tests/phone/` (project `phone` of `playwright.config.ts`) with `tests/phone/fixtures.ts` (`openPhone`, `systemBack`, 393×852 and the Fold's 1088×821); the Fold's own in `tests/phone/fold.spec.ts`.

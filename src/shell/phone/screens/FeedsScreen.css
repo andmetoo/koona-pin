@@ -270,3 +270,20 @@
     animation: none;
   }
 }
+
+/* The post the Fold's detail sheet shows: an accent-soft pill in the shelf, as FL1's row. */
+.phone .fd-post[data-selected]::after {
+  content: "";
+  position: absolute;
+  inset: 4px 6px;
+  border-radius: var(--ph-r-tile);
+  background: var(--ph-accent-soft);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+.phone .fd-post[data-selected] > :not(.fd-dot) {
+  position: relative;
+  z-index: 1;
+}
+.phone .fd-post[data-selected] .fd-dot {
+  z-index: 1;
+}

@@ -110,7 +110,7 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
                   onMore={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: card.id } })}
                   onClick={(e) => {
                     if (!swipe.isTap(e) || (e.target as HTMLElement).closest("button")) return;
-                    stack.push({ name: "reader", bookmarkId: card.id });
+                    stack.openBookmark(card.id);
                   }}
                   {...swipe.bind}
                 />

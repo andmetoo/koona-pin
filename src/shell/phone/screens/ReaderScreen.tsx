@@ -152,12 +152,12 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
 const plain = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 
 /**
- * R1's hero (r 24): the page's picture, or the site's gradient when it has none, with the site
- * (and the collection) as its eyebrow and the saved title over it. When the saved title is the
- * article's own, it is not said twice: a picture keeps only its eyebrow, a gradient shows the
- * site's name as the desktop's poster covers do.
+ * R1's hero (r 24), and FL1's in the Fold's detail sheet: the page's picture, or the site's
+ * gradient when it has none, with the site (and the collection) as its eyebrow and the saved title
+ * over it. When the saved title is the article's own, it is not said twice: a picture keeps only
+ * its eyebrow, a gradient shows the site's name as the desktop's poster covers do.
  */
-function Hero({ b, articleTitle }: { b: Bookmark; articleTitle: string | null }) {
+export function Hero({ b, articleTitle }: { b: Bookmark; articleTitle: string | null }) {
   const { app } = usePhone();
   const picture = usePicture("bookmark-image", b.id, b.image_url);
   const cover = useMemo(() => coverOf(b.domain, b.url), [b.domain, b.url]);
@@ -189,7 +189,7 @@ function Hero({ b, articleTitle }: { b: Bookmark; articleTitle: string | null })
  * bookmark the list has not paged in, or one moved out of the section meanwhile), kept up to
  * date by the library's change events. Null until known.
  */
-function useRouteBookmark(id: number, loaded: Bookmark[]): Bookmark | null {
+export function useRouteBookmark(id: number, loaded: Bookmark[]): Bookmark | null {
   const listed = loaded.find((b) => b.id === id) ?? null;
   const [own, setOwn] = useState<Bookmark | null>(null);
   useEffect(() => {

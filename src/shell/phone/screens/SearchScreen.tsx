@@ -33,7 +33,7 @@ const POSTS_WAIT_MS = 200;
  * bookmarks, then the posts. The nav pill is hidden: it is a pushed route.
  */
 export function SearchScreen({ hidden }: { hidden: boolean }) {
-  const { app, stack, sheets } = usePhone();
+  const { app, stack, sheets, selected } = usePhone();
   const { t, i18n } = app;
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<Scope>("all");
@@ -77,9 +77,9 @@ export function SearchScreen({ hidden }: { hidden: boolean }) {
   const collections = useMemo(() => new Set(app.library.collections.map((c) => c.id)), [app.library.collections]);
   const stackRef = useRef(stack);
   stackRef.current = stack;
-  const onOpen = useCallback((b: Bookmark) => stackRef.current.push({ name: "reader", bookmarkId: b.id }), []);
+  const onOpen = useCallback((b: Bookmark) => stackRef.current.openBookmark(b.id), []);
   const onMenu = useCallback((b: Bookmark) => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, bookmark: b } }), [sheets]);
-  const onPost = useCallback((post: FeedItem) => stackRef.current.push({ name: "post", feedUid: post.feed_uid, itemId: post.id }), []);
+  const onPost = useCallback((post: FeedItem) => stackRef.current.openPost(post.feed_uid, post.id), []);
   const feedNames = useMemo(() => new Map((app.feeds ?? []).map((f) => [f.uid, feedName(f)])), [app.feeds]);
   const favorite = t("phone.library.favorite");
 
@@ -104,7 +104,7 @@ export function SearchScreen({ hidden }: { hidden: boolean }) {
             if (e.key === "Enter") e.currentTarget.blur();
           }}
         />
-        <Button compact onClick={stack.back}>
+        <Button compact onClick={() => stack.leave("search")}>
           {t("common.cancel")}
         </Button>
       </div>
@@ -154,6 +154,7 @@ export function SearchScreen({ hidden }: { hidden: boolean }) {
                 onMenu={onMenu}
                 first={entry.first}
                 last={entry.last}
+                selected={r.bookmark.id === selected.bookmarkId}
               />
             ) : (
               <PostRow
@@ -163,6 +164,7 @@ export function SearchScreen({ hidden }: { hidden: boolean }) {
                 onOpen={onPost}
                 first={entry.first}
                 last={entry.last}
+                selected={r.post.id === selected.postId}
               />
             )
           }

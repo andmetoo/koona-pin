@@ -69,6 +69,10 @@
   --ph-pill-bottom: max(36px, calc(var(--safe-bottom) + 2px));
   /* What scrolls under the pill keeps clear of it: pill height + 36 below its top. */
   --ph-pill-clearance: calc(var(--ph-pill-height) + var(--ph-pill-bottom) + 16px);
+  /* The Fold's rail: 72 wide, 32 from the screen's edge (clear of the 24 back-gesture strip), 16
+     above the gesture inset (FL1R). */
+  --ph-rail-width: 72px;
+  --ph-rail-edge: 32px;
 
   /* Three large glows behind content, painted once (doc/mobile-design.md "mesh"). */
   --ph-mesh:
@@ -136,17 +140,14 @@
   outline-offset: 2px;
 }
 
-/* The screen area; on the Fold the rail sits beside it (`data-fold`, `data-hand`). */
+/* The screen area; on the Fold the rail sits beside it (`data-fold`, `data-hand`) and the area
+   holds two panes (below, "The Fold"). On a phone the panes take no box of their own. */
 .phone .ph-main {
   position: absolute;
   inset: 0;
 }
-.phone[data-fold] .ph-main {
-  right: calc(72px + 24px + var(--safe-right) + 12px);
-}
-.phone[data-fold][data-hand="left"] .ph-main {
-  right: 0;
-  left: calc(72px + 24px + var(--safe-left) + 12px);
+.phone:not([data-fold]) :is(.ph-pane-list, .ph-pane-detail, .ph-pane-body) {
+  display: contents;
 }
 
 /* ---------------------------------------------------------------- Type */
@@ -927,11 +928,11 @@
   bottom: calc(var(--ph-pill-bottom) + var(--ph-pill-height) + 12px + var(--ph-lift, 0px));
 }
 .phone[data-fold] .ph-snackbar-slot {
-  right: calc(72px + 24px + var(--safe-right) + 12px);
+  right: calc(var(--ph-rail-edge) + var(--ph-rail-width) + 16px + var(--safe-right));
 }
 .phone[data-fold][data-hand="left"] .ph-snackbar-slot {
   right: max(var(--ph-side-chrome), var(--safe-right));
-  left: calc(72px + 24px + var(--safe-left) + 12px);
+  left: calc(var(--ph-rail-edge) + var(--ph-rail-width) + 16px + var(--safe-left));
 }
 .phone .ph-snackbar {
   display: flex;
@@ -1079,6 +1080,266 @@
   white-space: nowrap;
   pointer-events: none;
   animation: ph-rise 160ms ease-out;
+}
+
+/* ---------------------------------------------------------------- The Fold: panes */
+/* FL1R/FL2R (controls right, the default): the detail sheet on the far side, from the edge's
+   back-gesture strip; the list pane next to the rail, its content 16 in from either side. The left
+   hand is the exact mirror. The list pane is ~37 % of the inner screen (404 of 1088). */
+.phone[data-fold] {
+  --ph-fold-list: clamp(360px, 41%, 480px);
+}
+.phone[data-fold] .ph-main {
+  right: calc(var(--ph-rail-edge) + var(--ph-rail-width) + var(--safe-right));
+}
+.phone[data-fold][data-hand="left"] .ph-main {
+  right: 0;
+  left: calc(var(--ph-rail-edge) + var(--ph-rail-width) + var(--safe-left));
+}
+.phone[data-fold] .ph-pane-list {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--ph-fold-list);
+  /* The rail and the detail sheet keep the sides: the screens inside need no side insets. */
+  --safe-left: 0px;
+  --safe-right: 0px;
+  --ph-side: 16px;
+}
+.phone[data-fold][data-hand="left"] .ph-pane-list {
+  right: auto;
+  left: 0;
+}
+/* The screen's mesh shows through the pane: Search over the tab needs no ground of its own, and the
+   edges fade to the page's colour (the mesh, painted for a phone's width, would not line up). */
+.phone[data-fold] .ph-pane-list .ph-screen[data-route] {
+  background: none;
+}
+.phone[data-fold] .ph-pane-list :is(.ph-fade-top, .ph-pane-fade) {
+  background: var(--ph-bg);
+}
+.phone[data-fold] .ph-pane-fade {
+  height: calc(var(--safe-bottom) + 72px);
+}
+/* The detail sheet: raised paper r 28 (e2), 16 below the status bar, 12 above the gesture inset. */
+.phone[data-fold] .ph-pane-detail {
+  position: absolute;
+  top: calc(var(--safe-top) + 16px);
+  bottom: calc(var(--safe-bottom) + 12px);
+  left: calc(var(--safe-left) + 24px);
+  right: var(--ph-fold-list);
+  overflow: hidden;
+  border-radius: var(--ph-r-triage);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e2);
+}
+.phone[data-fold][data-hand="left"] .ph-pane-detail {
+  left: var(--ph-fold-list);
+  right: calc(var(--safe-right) + 24px);
+}
+/* Inside it the screens are paper with no insets of their own: their fades turn to paper. */
+.phone[data-fold] .ph-pane-body {
+  position: absolute;
+  inset: 0;
+  --safe-top: 0px;
+  --safe-right: 0px;
+  --safe-bottom: 0px;
+  --safe-left: 0px;
+  --ph-bg: var(--ph-paper);
+  --ph-mesh: linear-gradient(transparent, transparent);
+}
+/* Glass inside the sheet (the reader's circles and pill) is opaque paper: it floats over paper, and
+   the screen keeps to four blurred layers with the rail and the list's header beside it. */
+.phone[data-fold] .ph-pane-body .ph-glass {
+  background: var(--ph-paper);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.phone[data-fold] .ph-pane-body .ph-glass::before {
+  background: var(--ph-hairline);
+}
+/* The sheet's own circles along its top (fold/PaneBar.tsx): clear, on paper so the text scrolls
+   under them unseen; the left hand mirrors their order. */
+.phone .ph-panebar {
+  position: sticky;
+  z-index: 4;
+  top: 16px;
+  height: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 24px;
+  pointer-events: none;
+}
+.phone .ph-panebar-group {
+  display: flex;
+  gap: 8px;
+  height: 44px;
+  pointer-events: auto;
+}
+.phone .ph-panebar .ph-circle {
+  background: var(--ph-paper);
+  color: var(--ph-ink);
+}
+.phone .ph-panebar .ph-circle:disabled {
+  opacity: 0.4;
+}
+.phone[data-hand="left"] .ph-panebar,
+.phone[data-hand="left"] .ph-panebar-group {
+  flex-direction: row-reverse;
+}
+
+/* ---------------------------------------------------------------- The Fold: rail */
+.phone .ph-rail {
+  position: absolute;
+  z-index: 20;
+  right: calc(var(--ph-rail-edge) + var(--safe-right));
+  bottom: calc(var(--safe-bottom) + 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: var(--ph-rail-width);
+  padding: 8px;
+  border-radius: 999px;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transition:
+    transform var(--ph-spring-time) var(--ph-spring),
+    opacity 180ms ease-out;
+}
+.phone[data-hand="left"] .ph-rail {
+  right: auto;
+  left: calc(var(--ph-rail-edge) + var(--safe-left));
+}
+.phone .ph-rail[data-hidden] {
+  transform: translateY(24px);
+  opacity: 0;
+  pointer-events: none;
+}
+/* Held for its popover (FL3): above the scrim, with an accent ring. */
+.phone .ph-rail[data-open] {
+  z-index: 22;
+  outline: 1.5px solid var(--ph-accent);
+  outline-offset: 2px;
+}
+.phone .ph-rail-slot {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ph-icon);
+  transition: transform 120ms ease-out;
+}
+.phone .ph-rail-slot:active {
+  transform: scale(0.94);
+}
+.phone .ph-rail-slot[aria-current="page"] {
+  background: var(--ph-accent-soft);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+  color: var(--ph-accent);
+}
+.phone .ph-rail-badge {
+  position: absolute;
+  top: 6px;
+  left: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--ph-accent);
+  box-shadow: 0 0 0 2px var(--ph-paper);
+  color: var(--ph-on-accent);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+}
+.phone .ph-rail-rule {
+  flex: none;
+  width: 36px;
+  height: 1px;
+  margin: 8px 0;
+  background: var(--ph-line);
+}
+.phone .ph-rail-primary {
+  background-image: linear-gradient(rgb(255 255 255 / 0.08), transparent 50%);
+  box-shadow: var(--ph-accent-shadow);
+}
+.phone .ph-rail-primary + .ph-rail-new {
+  margin-top: 4px;
+}
+.phone .ph-rail-new {
+  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.25);
+}
+/* FL3's popover: beside the rail, its bottom on the rail's. */
+.phone .ph-rail-scrim {
+  position: absolute;
+  z-index: 21;
+  inset: 0;
+  background: var(--ph-scrim);
+  animation: ph-fade-in 200ms ease-out;
+}
+.phone .ph-rail-menu {
+  position: absolute;
+  z-index: 23;
+  right: calc(var(--ph-rail-edge) + var(--ph-rail-width) + 12px + var(--safe-right));
+  bottom: calc(var(--safe-bottom) + 16px);
+  display: flex;
+  flex-direction: column;
+  width: 288px;
+  padding: 8px;
+  border-radius: 24px;
+  animation: ph-rise 200ms var(--ph-spring);
+}
+.phone[data-hand="left"] .ph-rail-menu {
+  right: auto;
+  left: calc(var(--ph-rail-edge) + var(--ph-rail-width) + 12px + var(--safe-left));
+}
+.phone .ph-rail-menu-title {
+  margin: 0;
+  padding: 10px 12px 8px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ph-meta);
+}
+.phone .ph-rail-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ph-ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  text-align: left;
+}
+.phone .ph-rail-menu-item svg {
+  color: var(--ph-icon);
+}
+.phone .ph-rail-menu-item[data-main] {
+  background: var(--ph-accent-soft);
+  color: var(--ph-on-accent-soft);
+}
+.phone .ph-rail-menu-item[data-main] svg {
+  color: currentColor;
 }
 
 /* ---------------------------------------------------------------- Account cluster */
@@ -1277,7 +1538,8 @@
   .phone .ph-sheet,
   .phone .ph-screen[data-route],
   .phone .ph-snackbar,
-  .phone .ph-longpress-label {
+  .phone .ph-longpress-label,
+  .phone .ph-rail-menu {
     animation-name: ph-fade-in;
   }
   .phone .ph-sheet-host[data-leaving] .ph-sheet {
@@ -1286,6 +1548,7 @@
     transition: opacity 150ms ease-out;
   }
   .phone .ph-navpill,
+  .phone .ph-rail,
   .phone .ph-navpill-active,
   .phone .ph-segmented-thumb,
   .phone .ph-toggle::before,

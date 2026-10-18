@@ -279,7 +279,7 @@ test("pull to refresh arms past its threshold and spins while the list is read a
 });
 
 test.describe("on the Fold's inner screen", () => {
-  test("the list fills the pane beside the rail, and the grid takes more columns", async ({ page }) => {
+  test("the list fills the list pane beside the rail, and the grid fits it", async ({ page }) => {
     await openPhone(page, { viewport: FOLD, insets: { top: 32, right: 0, bottom: 24, left: 0 } });
     const rail = (await page.locator("[data-rail]").boundingBox())!;
     const row = (await rows(page).first().boundingBox())!;
@@ -288,6 +288,10 @@ test.describe("on the Fold's inner screen", () => {
     const cards = topScreen(page).locator(".lib-card[data-bookmark-id]");
     await expect(cards.first()).toBeVisible();
     const tops = await cards.evaluateAll((all) => all.map((c) => c.getBoundingClientRect().top));
-    expect(tops.filter((top) => top === tops[0]).length).toBeGreaterThan(2);
+    // Two panes (wave 2): the list pane holds two columns, all inside it.
+    expect(tops.filter((top) => top === tops[0]).length).toBe(2);
+    const pane = (await page.locator('[data-pane="list"]').boundingBox())!;
+    const rights = await cards.evaluateAll((all) => all.map((c) => c.getBoundingClientRect().right));
+    expect(Math.max(...rights)).toBeLessThanOrEqual(pane.x + pane.width);
   });
 });

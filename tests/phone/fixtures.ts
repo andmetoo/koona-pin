@@ -67,5 +67,5 @@ export async function openPhone(
 export const systemBack = (page: Page) => page.evaluate(() => (window as unknown as { __KOONA_MOBILE__: { back: () => boolean } }).__KOONA_MOBILE__.back());
 
 export const navPill = (page: Page) => page.locator("[data-navpill]");
-/** The screen on top (the others are hidden). */
-export const topScreen = (page: Page) => page.locator("[data-screen]:not([hidden])");
+/** The screen on top (the others are hidden); on the Fold the detail pane's, else the list pane's. */
+export const topScreen = (page: Page) => page.locator("[data-screen]:not([hidden])").last();

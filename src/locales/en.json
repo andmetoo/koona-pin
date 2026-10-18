@@ -1992,7 +1992,9 @@
     "post": {
       "title": "Post",
       "save": "Save as bookmark",
-      "saved": "Saved as a bookmark"
+      "saved": "Saved as a bookmark",
+      "toReading": "Add to Reading",
+      "inReading": "In Reading"
     },
     "search": {
       "title": "Search",
@@ -2123,7 +2125,20 @@
       "trash": "Move to Trash"
     },
     "rail": {
-      "label": "Places"
+      "label": "Places",
+      "menu": "Navigation rail",
+      "moveLeft": "Move controls to the left",
+      "moveRight": "Move controls to the right",
+      "layout": "Layout settings…"
+    },
+    "detail": {
+      "read": "Read",
+      "savedToday": "Saved today, {{time}}",
+      "savedYesterday": "Saved yesterday, {{time}}",
+      "savedOn": "Saved {{date}}",
+      "empty": "Choose a link to see it here.",
+      "emptyFeeds": "Choose a post to read it here.",
+      "emptyInbox": "Tap the card to see the whole link here."
     }
   }
 }
