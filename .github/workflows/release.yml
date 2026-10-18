@@ -21,7 +21,7 @@ name: Release
 #              anything, and the site's pages read release.json at request time. Skipped with a warning
 #              while DEPLOY_HOST is not set. A failed deploy is rerun alone: gh run rerun <run> --failed.
 #     aur      the release's PKGBUILD and .SRCINFO pushed to aur.archlinux.org/koonapin-bin.git
-#              (AUR_SSH_KEY of the maintainer's AUR account); skipped with a warning without the key
+#              (AUR_SSH_KEY of the maintainer's AUR account); off while the AUR package is not published
 # The Windows installer is not built here: Tauri signs the exes inside it with Certum while it builds,
 # and Certum signs only on the owner's computer (SimplySign).
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('Finalize {0}', inputs.tag) || format('Release {0}', github.ref_name) }}
@@ -397,7 +397,7 @@ jobs:
           {
             echo "Published $TAG: $(gh release view "$TAG" --json url --jq .url)"
             echo
-            echo "Next: the deploy job serves it on koona.app; the AUR files to aur.archlinux.org/koonapin-bin.git by hand."
+            echo "Next: the deploy job serves it on koona.app."
           } >> "$GITHUB_STEP_SUMMARY"
       # The bundle of the unit «app», flat and exactly these (koona-deploy refuses a missing or an extra
       # file): release.json with its .sig, latest.json, SHA256SUMS.txt, and every file release.json lists
@@ -476,7 +476,8 @@ jobs:
   aur:
     name: AUR
     needs: finalize
-    if: github.event_name == 'workflow_dispatch'
+    # The AUR package is not published; re-enable when it is (if: github.event_name == 'workflow_dispatch').
+    if: false
     environment: release
     runs-on: ubuntu-latest
     timeout-minutes: 10
