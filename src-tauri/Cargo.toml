@@ -80,11 +80,14 @@ feed-rs = "=3.0.0"
 # OPML import and export, and the item-level `media:thumbnail` pass feed-rs 3.0.0 drops. Already
 # in the tree through `plist`.
 quick-xml = "0.42"
+# The picture cache (NP-146): previews and icons decoded and made small, pure Rust only (zune-jpeg,
+# png, gif, image-webp); no AVIF, no rayon. Keys are SHA-256 of the address; `sha2` is in the tree
+# through Tauri, `percent-encoding` through `url`.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "ico", "bmp"] }
+sha2 = "0.10"
+percent-encoding = "2.3"
 
 [dev-dependencies]
-# Already in the tree through Tauri: a test recomputes the development
-# extension id from extension/dev-key.txt.
-sha2 = "0.10"
 # `trace`: the example `query_plans` prints the plan of every statement a command runs (NP-114).
 rusqlite = { version = "0.32", features = ["trace"] }
 
