@@ -46,6 +46,11 @@ describe("files dropped on the window", () => {
       more: true,
     });
     expect(await readDropped([new File(["<DL>"], "bookmarks.html")])).toMatchObject({ file: { kind: "html" } });
+    // An `.xml` is OPML only when its first element says so.
+    expect(await readDropped([new File(['<?xml version="1.0"?>\n<opml version="2.0"><body/></opml>'], "subscriptions.xml")])).toMatchObject({
+      file: { kind: "opml", name: "subscriptions.xml" },
+    });
+    expect(await readDropped([new File(['<?xml version="1.0"?><rss version="2.0"/>'], "feed.xml")])).toBe("unsupported");
     expect(await readDropped([new File(["x"], "notes.txt"), new File(["{}"], "list.kpin")])).toBe("unsupported");
     expect(await readDropped([new File([new Uint8Array(MAX_FILE + 1)], "huge.kpin")])).toBe("tooBig");
     expect(await readDropped([new File([new Uint8Array(MAX_FILE)], "just-fits.kpin")])).toMatchObject({ file: { kind: "kpin" } });

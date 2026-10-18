@@ -219,7 +219,8 @@ async function demoBuild(options: ListBuildOptions): Promise<string> {
       ...(options.tags && tags.length ? { tags: tags.slice(0, 20) } : {}),
     };
     const collection = collections.find((c) => c.id === b.collection_id);
-    const section = line(options.sections === "by_tag" ? tags[0] : options.sections === "by_collection" ? collection?.name : "", 120);
+    // As export.rs: only tags the person shares become sections.
+    const section = line(options.sections === "by_tag" ? (options.tags ? tags[0] : "") : options.sections === "by_collection" ? collection?.name : "", 120);
     if (!section) top.push(item);
     else keyed.push([section, options.sections === "by_collection" ? order.indexOf(collection!.id) : 0, item]);
   }

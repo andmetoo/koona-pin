@@ -229,6 +229,8 @@ const desktop = {
   readListFile: (path: string) => call<ListFile>("read_list_file", { path }),
   /** Only after **Download**: https, the guard, 2 MB, 15 s. */
   downloadList: (url: string, ticket: number) => call<ListDownload>("download_list", { url, ticket }),
+  /** A ticket for the next download: tickets only grow while the app runs, also across a reload of the page. */
+  nextListTicket: () => call<number>("next_list_ticket"),
   /** `ticket` is the download's; a Cancel sent before it started still stops it. */
   cancelListDownload: (ticket: number) => call<void>("cancel_list_download", { ticket }),
   /** Whether a list dialog is open or a list waits for it: Rust then brings no window forward for another. */

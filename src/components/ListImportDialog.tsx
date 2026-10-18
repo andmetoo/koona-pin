@@ -50,14 +50,6 @@ const STATES = ["reading", "ask", "downloading", "failed", "newer", "otherApp", 
 const FEEDS_SHOWN = 4;
 
 /**
- * Download tickets: they only grow, also across a reload of the page (they start from the clock's
- * seconds), so Rust can tell a Cancel that came before its download started (download.rs) from one
- * of an earlier dialog.
- */
-let lastTicket = Math.floor(Date.now() / 1000);
-const nextTicket = () => ++lastTicket;
-
-/**
  * The list dialog (NP-138, frames K1a, K1b and K3): every `.kpin` request ends here. A link first
  * asks and only then downloads; the preview writes nothing; the import is one transaction with
  * progress; the report or a refusal closes it. One dialog, 600 px wide and one height, 640 px or
@@ -133,27 +125,36 @@ export function ListImportDialog({
   const download = () => {
     if (!url || inFlight.current) return;
     inFlight.current = true;
-    const mine = (ticket.current = nextTicket());
     setPhase({ state: "downloading", received: 0, total: null });
-    const off = api.onListDownloadProgress(
-      (p) =>
-        alive.current &&
-        p.ticket === mine &&
-        setPhase((now) => (now.state === "downloading" ? { state: "downloading", received: p.received, total: p.total } : now)),
-    );
+    const failed = () => alive.current && setPhase({ state: "failed", key: "unreachable" });
+    // The ticket comes from Rust: tickets only grow while the app runs, so a Cancel sent before the
+    // download started is still known to be this download's (download.rs).
     void api
-      .downloadList(url, mine)
-      .then(
-        (result) => {
-          if (!alive.current || result.outcome === "cancelled") return;
-          if (result.outcome === "done") return void preview(result.text, hostOf(result.url));
-          if (result.outcome === "not_a_list") return setPhase({ state: "notList", reason: "not_a_list" });
-          setPhase({ state: "failed", ...(downloadFailure(result) ?? { key: "unreachable" }) });
-        },
-        () => alive.current && setPhase({ state: "failed", key: "unreachable" }),
-      )
+      .nextListTicket()
+      .then((mine) => {
+        ticket.current = mine;
+        // Closed while the ticket came: nothing is downloaded.
+        if (!alive.current) return;
+        const off = api.onListDownloadProgress(
+          (p) =>
+            alive.current &&
+            p.ticket === mine &&
+            setPhase((now) => (now.state === "downloading" ? { state: "downloading", received: p.received, total: p.total } : now)),
+        );
+        return api
+          .downloadList(url, mine)
+          .then(
+            (result) => {
+              if (!alive.current || result.outcome === "cancelled") return;
+              if (result.outcome === "done") return void preview(result.text, hostOf(result.url));
+              if (result.outcome === "not_a_list") return setPhase({ state: "notList", reason: "not_a_list" });
+              setPhase({ state: "failed", ...(downloadFailure(result) ?? { key: "unreachable" }) });
+            },
+            failed,
+          )
+          .finally(off);
+      }, failed)
       .finally(() => {
-        off();
         inFlight.current = false;
       });
   };
@@ -568,7 +569,8 @@ export function ListImportDialog({
           FileText,
           "accent",
           t("lists.importing"),
-          <p>{t("import.progress", { done: shown.done, count: shown.total })}</p>,
+          // A list of feeds only has no links to count: the bar alone says it is under way.
+          shown.total > 0 ? <p>{t("import.progress", { done: shown.done, count: shown.total })}</p> : null,
           null,
           bar(shown.total ? Math.min(1, shown.done / total) : null, t("lists.importing")),
         );

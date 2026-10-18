@@ -319,6 +319,7 @@ pub fn run() {
             lists::export::save_list,
             lists::download::download_list,
             lists::download::cancel_list_download,
+            lists::download::next_list_ticket,
             lists::download::read_list_file,
             tray::set_tray_labels,
             tray::get_tray_labels,

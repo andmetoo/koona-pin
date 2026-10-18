@@ -1316,6 +1316,9 @@ function demoSitePosts(uid: string, url: string, startId: number): DemoItemRow[]
 }
 // end feeds
 
+/** The demo's download tickets, as Rust hands them out. */
+let demoTicket = 0;
+
 export const demo = {
   async getBookmarks(
     filters: Partial<FilterState> = {},
@@ -1960,6 +1963,9 @@ export const demo = {
     demoListDownloads.forEach((fn) => fn({ ticket, received: 0, total: null }));
     await new Promise((resolve) => setTimeout(resolve, 300));
     return { outcome: "unreachable" };
+  },
+  async nextListTicket(): Promise<number> {
+    return ++demoTicket;
   },
   async cancelListDownload(_ticket: number): Promise<void> {},
   /** The preview has no second copy of the app to bring forward. */

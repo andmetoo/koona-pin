@@ -155,9 +155,9 @@ pub fn tag(raw: &str) -> Option<String> {
 /// bookmarks import (`import::classify`), and the schema's 2 048 characters.
 /// An address with spaces or control characters in it is saved as the URL
 /// parser writes it, so the library never holds a line break in an address.
-/// A user name or password (`user:pass@host`) is dropped, as the builder drops
-/// it (`export::public_url`): no credentials enter the library from a list, and
-/// an exported list imports to the same addresses.
+/// A user name or password (`user:pass@host`) is dropped: no credentials enter
+/// the library from a list, and the builder writes addresses through this same
+/// rule, so an exported list imports to the same addresses.
 pub fn link_url(raw: &str) -> Result<String, SkipReason> {
     let href = raw.trim();
     if href.len() > URL_LEN {
@@ -769,8 +769,8 @@ mod tests {
         assert_eq!(list.feeds[0].site.as_deref(), Some("https://example.com/"));
         assert_eq!(list.meta.author_url.as_deref(), Some("https://koona.app/"));
         assert_eq!(list.meta.homepage.as_deref(), Some("https://koona.app/lists"));
-        // What the builder writes reads back as the same address.
-        assert_eq!(link_url(&super::super::export::public_url("https://a:b@example.org/x")).unwrap(), "https://example.org/x");
+        // What the builder writes (through this rule) reads back as the same address.
+        assert_eq!(link_url(&link_url("https://a:b@example.org/x").unwrap()).unwrap(), "https://example.org/x");
         assert_eq!(link_url("https://example.org/x").unwrap(), "https://example.org/x");
     }
 }

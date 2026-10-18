@@ -412,7 +412,15 @@ export function ShareListDialog({
           </Group>
           <Group label={t("shareList.include")}>
             <Check checked={titles} onChange={setTitles} label={t("shareList.includeTitles")} />
-            <Check checked={tags} onChange={setTags} label={t("shareList.includeTags")} />
+            <Check
+              checked={tags}
+              onChange={(on) => {
+                setTags(on);
+                // Sections by tag would show the tags kept out: they go with them.
+                if (!on && sections === "by_tag") setSections("none");
+              }}
+              label={t("shareList.includeTags")}
+            />
             <Check checked={notes} onChange={setNotes} label={t("shareList.includeNotes")} hint={t("shareList.notesHint")} />
           </Group>
           <Group label={t("shareList.sections")}>
@@ -421,10 +429,11 @@ export function ShareListDialog({
                 label={t("shareList.sections")}
                 value={sections}
                 onChange={setSections}
+                // «By tag» needs the tags shared: with «Tags» off it is not offered.
                 options={[
-                  { value: "none", label: t("shareList.sectionsNone") },
-                  { value: "by_tag", label: t("shareList.sectionsByTag") },
-                  { value: "by_collection", label: t("shareList.sectionsByCollection") },
+                  { value: "none" as const, label: t("shareList.sectionsNone") },
+                  ...(tags ? [{ value: "by_tag" as const, label: t("shareList.sectionsByTag") }] : []),
+                  { value: "by_collection" as const, label: t("shareList.sectionsByCollection") },
                 ]}
               />
             </div>

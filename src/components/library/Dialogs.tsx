@@ -7,7 +7,9 @@ import { api } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
 import { importOpml } from "../../services/feeds";
-import { fileKindOf } from "../../services/openRequests";
+import { fileKindOf, opmlRoot } from "../../services/openRequests";
+
+export { opmlRoot };
 import { shortcut } from "../../services/keys";
 import {
   ConnectTab,
@@ -78,20 +80,6 @@ export const Scrolling = ({ children }: { children: ReactNode }) => (
 /** An OPML file (NP-133): by its name, or an `<opml>` root in a file named otherwise. */
 export const isOpml = (name: string, content: string) => /\.(opml|xml)$/i.test(name) || opmlRoot(content);
 
-/**
- * The first element is `<opml>`, past the XML declaration, comments and white space. Walked
- * by hand: a pattern for «any number of comments» backtracks exponentially on hostile text.
- */
-export function opmlRoot(content: string) {
-  let rest = content.slice(0, 64 * 1024).trimStart();
-  for (;;) {
-    const [open, close] = rest.startsWith("<?") ? ["<?", "?>"] : rest.startsWith("<!--") ? ["<!--", "-->"] : [null, null];
-    if (!open || !close) return /^<opml[\s>]/i.test(rest);
-    const end = rest.indexOf(close, open.length);
-    if (end < 0) return false;
-    rest = rest.slice(end + close.length).trimStart();
-  }
-}
 /** How many feeds an OPML file lists: every outline with an `xmlUrl`, folders or not (plan §7.1). */
 export const opmlFeedCount = (content: string) => content.match(/<outline\b[^>]*\bxmlUrl\s*=/gi)?.length ?? 0;
 

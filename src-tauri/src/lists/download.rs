@@ -224,10 +224,19 @@ pub struct ListDownloadProgress {
 /// The download in progress with its ticket, for Cancel. One dialog downloads at a time.
 static CANCEL: Mutex<Option<(u32, Arc<Notify>)>> = Mutex::new(None);
 
-/// The highest ticket cancelled so far. Tickets only grow (the interface counts
-/// them for the whole session), so a Cancel that reaches Rust before its
-/// download has started is not lost: the download sees it and stops at once.
+/// The highest ticket cancelled so far. Tickets are handed out here
+/// ([`next_list_ticket`]) and only grow while the app runs, whatever the page
+/// does, so a Cancel that reaches Rust before its download has started is not
+/// lost: the download sees it and stops at once.
 static CANCELLED: AtomicU32 = AtomicU32::new(0);
+static LAST_TICKET: AtomicU32 = AtomicU32::new(0);
+
+/// A ticket for the next download, asked for before **Download** is sent: its
+/// progress and its Cancel carry it.
+#[tauri::command]
+pub fn next_list_ticket() -> u32 {
+    LAST_TICKET.fetch_add(1, Ordering::SeqCst) + 1
+}
 
 /// Holds the download's place in [`CANCEL`] and gives it up on every way
 /// out, unless a newer download took it meanwhile.
@@ -570,6 +579,9 @@ mod tests {
         assert_eq!(outcome, ListDownload::Cancelled);
         assert!(started.elapsed() < Duration::from_millis(200), "{:?}", started.elapsed());
         drop(early);
+        // Tickets come from here and only grow.
+        let ticket = next_list_ticket();
+        assert!(next_list_ticket() > ticket);
         let later = CancelSlot::take(1_004);
         assert!(CANCEL.lock().unwrap().as_ref().is_some_and(|(t, _)| *t == 1_004));
         drop(later);

@@ -61,6 +61,21 @@ export function draggedFile(data: DataTransfer | null | undefined): DraggedFile 
 }
 
 /** Why a dropped file is not taken. */
+/**
+ * The first element is `<opml>`, past the XML declaration, comments and white space. Walked
+ * by hand: a pattern for «any number of comments» backtracks exponentially on hostile text.
+ */
+export function opmlRoot(content: string) {
+  let rest = content.slice(0, 64 * 1024).trimStart();
+  for (;;) {
+    const [open, close] = rest.startsWith("<?") ? ["<?", "?>"] : rest.startsWith("<!--") ? ["<!--", "-->"] : [null, null];
+    if (!open || !close) return /^<opml[\s>]/i.test(rest);
+    const end = rest.indexOf(close, open.length);
+    if (end < 0) return false;
+    rest = rest.slice(end + close.length).trimStart();
+  }
+}
+
 export type DropRefusal = "unsupported" | "tooBig";
 
 /** The first dropped file, read here, and whether others came with it; or why not. */
@@ -69,10 +84,14 @@ export async function readDropped(
 ): Promise<{ file: DroppedFile; more: boolean } | DropRefusal | null> {
   const file = files?.[0];
   if (!file) return null;
+  // An `.xml` may be OPML (some readers export subscriptions so): its first element decides.
+  const xml = /\.xml$/i.test(file.name.trim());
   const kind = fileKindOf(file.name);
-  if (!kind) return "unsupported";
+  if (!kind && !xml) return "unsupported";
   if (file.size > MAX_FILE) return "tooBig";
-  return { file: { kind, name: file.name, text: await file.text() }, more: (files?.length ?? 0) > 1 };
+  const text = await file.text();
+  if (!kind) return opmlRoot(text) ? { file: { kind: "opml", name: file.name, text }, more: (files?.length ?? 0) > 1 } : "unsupported";
+  return { file: { kind, name: file.name, text }, more: (files?.length ?? 0) > 1 };
 }
 
 type Listener = (request: OpenRequest | null) => void;

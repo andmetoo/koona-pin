@@ -186,19 +186,6 @@ struct Link {
     collection: Option<i64>,
 }
 
-/// An address as the list writes it: without a user name or password
-/// (`user:pass@host`), which may be private. One without them stays as it is.
-pub fn public_url(raw: &str) -> String {
-    match url::Url::parse(raw) {
-        Ok(mut url) if !url.username().is_empty() || url.password().is_some() => {
-            let _ = url.set_username("");
-            let _ = url.set_password(None);
-            url.to_string()
-        }
-        _ => raw.to_owned(),
-    }
-}
-
 /// The list's `id`: lowercase ASCII letters and digits, anything else a
 /// dash, at most 64 characters. A title in another script has none.
 pub fn slug(raw: &str) -> Option<String> {
@@ -239,8 +226,8 @@ fn links(conn: &Connection, sources: &[ListSource]) -> rusqlite::Result<Vec<Link
         };
         for (id, url, title, description, note, collection) in rows {
             // What the reader would skip is not written: the file holds only what the preview shows.
+            // The reader's own rule, credentials (`user:pass@`) dropped: the file holds what it reads back.
             let Ok(url) = format::link_url(&url) else { continue };
-            let url = public_url(&url);
             let key = crate::dedupe::url_key(&url).unwrap_or_else(|| url.clone());
             if !seen_ids.insert(id) || !seen_keys.insert(key) {
                 continue;
@@ -327,7 +314,9 @@ pub fn build(conn: &Connection, options: &ListBuildOptions, followed: &[FeedRow]
         tags.truncate(TAGS_PER_ITEM);
         let section = match options.sections {
             ListSections::None => None,
-            ListSections::ByTag => link.tags.first().and_then(|t| format::line(t, SECTION_LEN)),
+            // Only tags the person shares become sections: with «Tags» off none is written.
+            ListSections::ByTag if options.tags => link.tags.first().and_then(|t| format::line(t, SECTION_LEN)),
+            ListSections::ByTag => None,
             ListSections::ByCollection => link.collection.and_then(|id| names.get(&id)).and_then(|n| format::line(n, SECTION_LEN)),
         };
         let item = Item::Link { url: link.url, title: if options.titles { link.title } else { None }, description, tags };
@@ -361,10 +350,11 @@ pub fn build(conn: &Connection, options: &ListBuildOptions, followed: &[FeedRow]
     if !feeds.is_empty() {
         let name = feeds_name;
         for feed in feeds {
-            let url = public_url(&format::feed_url(&feed.url).map(|u| u.to_string()).unwrap_or_else(|_| feed.url.clone()));
+            // `feeds` kept only addresses `feed_url` reads, without credentials.
+            let Ok(url) = format::feed_url(&feed.url).map(|u| u.to_string()) else { continue };
             let item = Item::Feed {
                 url,
-                site: feed.site.as_deref().and_then(|s| format::link_url(s).ok()).map(|s| public_url(&s)),
+                site: feed.site.as_deref().and_then(|s| format::link_url(s).ok()),
                 title: if options.titles { feed.title.as_deref().and_then(|t| format::line(t, ITEM_TITLE_LEN)) } else { None },
             };
             place(&mut sections, name.clone(), item);
@@ -373,7 +363,7 @@ pub fn build(conn: &Connection, options: &ListBuildOptions, followed: &[FeedRow]
 
     let author = Author {
         name: format::line(&options.author_name, AUTHOR_LEN),
-        url: format::link_url(&options.author_url).ok().map(|u| public_url(&u)),
+        url: format::link_url(&options.author_url).ok(),
     };
     let file = ListFile {
         format: "koona",
@@ -630,6 +620,11 @@ mod tests {
         assert_eq!(value["items"][0]["url"], "https://this-week-in-rust.org/");
         let list = parse(&value.to_string()).unwrap();
         assert_eq!(list.sections, 2);
+        // With «Tags» off the tags are kept out of the sections too.
+        opts.tags = false;
+        let value = json(&build(&c, &opts, &[], GENERATOR).unwrap());
+        assert!(value.get("sections").is_none(), "{value}");
+        assert_eq!(value["items"].as_array().unwrap().len(), 3);
     }
 
     #[test]
@@ -746,7 +741,7 @@ mod tests {
         assert_eq!(list.feeds[0].site.as_deref(), Some("https://example.com/"));
         assert_eq!(list.meta.author_url.as_deref(), Some("https://koona.app/"));
         // An address without them is written as it was.
-        assert_eq!(public_url("https://example.com/a?b=c#d"), "https://example.com/a?b=c#d");
+        assert_eq!(format::link_url("https://example.com/a?b=c#d").unwrap(), "https://example.com/a?b=c#d");
     }
 
     #[test]
