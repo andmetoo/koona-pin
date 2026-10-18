@@ -778,4 +778,82 @@ mod tests {
         let value = json(&build(&c, &ListBuildOptions { sections: ListSections::ByTag, ..alone }, &feeds(), GENERATOR).unwrap());
         assert_eq!(value["sections"][0]["name"], "feeds");
     }
+
+    /// Each link's address and its tags, sorted, as the library holds them.
+    fn tags_by_url(c: &Connection) -> Vec<(String, Vec<String>)> {
+        let mut statement = c
+            .prepare(
+                "SELECT b.url, coalesce(group_concat(t.name, '|'), '') FROM bookmarks b
+                 LEFT JOIN bookmark_tags bt ON bt.bookmark_id = b.id LEFT JOIN tags t ON t.id = bt.tag_id
+                 WHERE b.deleted_at IS NULL GROUP BY b.id ORDER BY b.url",
+            )
+            .unwrap();
+        let rows = statement
+            .query_map([], |r| {
+                let mut tags: Vec<String> = r.get::<_, String>(1)?.split('|').filter(|t| !t.is_empty()).map(str::to_owned).collect();
+                tags.sort();
+                Ok((r.get(0)?, tags))
+            })
+            .unwrap();
+        rows.map(Result::unwrap).collect()
+    }
+
+    #[test]
+    fn a_list_built_here_imports_into_another_library_and_is_all_here_in_its_own() {
+        // The library: valid.kpin's links in «Rust», their feeds followed, a private note on one.
+        let original = database();
+        let source = parse(VALID).unwrap();
+        let followed: Vec<String> = source.feeds.iter().map(|f| f.url.clone()).collect();
+        let options_in = ListImportOptions {
+            collection: ListCollection::New { name: "Rust".into() },
+            to_inbox: false,
+            sections_as_tags: true,
+            existing_links: ExistingLinks::Leave,
+            follow_feeds: followed.clone(),
+        };
+        let rust = apply(&original, &source, &options_in, |_, _| {}).unwrap().report.collection_id.unwrap();
+        original.execute("UPDATE bookmarks SET notes = 'private' WHERE url = 'https://tokio.rs/'", []).unwrap();
+        let rows: Vec<FeedRow> = original
+            .prepare("SELECT uid, url FROM feeds ORDER BY url")
+            .unwrap()
+            .query_map([], |r| Ok(FeedRow { uid: r.get(0)?, url: r.get(1)?, title: None, site: None }))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(rows.len(), 2);
+
+        // Built with sections by tag and no notes.
+        let mut opts = options(vec![ListSource::Collection { id: rust }, ListSource::Feeds { uids: None }]);
+        opts.sections = ListSections::ByTag;
+        let text = build(&original, &opts, &rows, GENERATOR).unwrap();
+        assert!(!text.contains("private"));
+
+        // Into a fresh library, with sections as tags.
+        let fresh = database();
+        let list = parse(&text).unwrap();
+        let preview = crate::lists::preview::preview(&fresh, &list, "rust-reading.kpin").unwrap();
+        assert_eq!((preview.links, preview.feeds, preview.new_links, preview.new_feeds.len(), preview.repeated), (3, 2, 3, 2, 0));
+        assert_eq!((preview.not_web, preview.invalid, preview.skipped_items, preview.skipped_details), (0, 0, 0, 0));
+        // Two links went under a tag and the feeds have a section of their own; one link has none.
+        assert_eq!((preview.sections, preview.sectioned_links), (3, 2));
+        let options_out = ListImportOptions {
+            collection: ListCollection::New { name: list.meta.title.clone() },
+            to_inbox: false,
+            sections_as_tags: true,
+            existing_links: ExistingLinks::Leave,
+            follow_feeds: preview.new_feeds.iter().map(|f| f.url.clone()).collect(),
+        };
+        let report = apply(&fresh, &list, &options_out, |_, _| {}).unwrap().report;
+        assert_eq!((report.added, report.feeds_followed, report.repeated, report.already_saved), (3, 2, 0, 0));
+        // The same links with the same tags: a section by tag is one of the link's tags.
+        assert_eq!(tags_by_url(&fresh), tags_by_url(&original));
+        let feeds_of = |c: &Connection| -> Vec<String> { c.prepare("SELECT url FROM feeds ORDER BY url").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
+        assert_eq!(feeds_of(&fresh), feeds_of(&original));
+        let notes: i64 = fresh.query_row("SELECT count(*) FROM bookmarks WHERE notes IS NOT NULL AND notes != ''", [], |r| r.get(0)).unwrap();
+        assert_eq!(notes, 0, "no note travels");
+
+        // In its own library everything is here already.
+        let home = crate::lists::preview::preview(&original, &list, "rust-reading.kpin").unwrap();
+        assert_eq!((home.new_links, home.already_saved, home.in_trash, home.feeds_followed, home.new_feeds.len()), (0, 3, 0, 2, 0));
+    }
 }

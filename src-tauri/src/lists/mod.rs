@@ -143,6 +143,8 @@ pub struct ListPreview {
     pub links: u32,
     pub feeds: u32,
     pub sections: u32,
+    /// Links under a section: «Sections» changes something only when there are any.
+    pub sectioned_links: u32,
     /// Links that are not in the library yet.
     pub new_links: u32,
     /// The same address is saved, out of the trash: left as it is, or given the list's tags.

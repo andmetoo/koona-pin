@@ -20,6 +20,10 @@ newer: boolean,
  */
 links: number, feeds: number, sections: number, 
 /**
+ * Links under a section: «Sections» changes something only when there are any.
+ */
+sectioned_links: number, 
+/**
  * Links that are not in the library yet.
  */
 new_links: number, 

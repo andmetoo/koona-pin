@@ -11,6 +11,7 @@
 
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use ts_rs::TS;
@@ -37,9 +38,10 @@ pub enum OpenRequest {
     KpinUrl { url: String },
 }
 
-/// The one request waiting for the interface.
+/// The one request waiting for the interface, and whether the interface has
+/// a list dialog open (or a list waiting for it), as it says with `set_list_open`.
 #[derive(Default)]
-pub struct PendingOpens(Mutex<Option<OpenRequest>>);
+pub struct PendingOpens(Mutex<Option<OpenRequest>>, AtomicBool);
 
 impl PendingOpens {
     /// Keeps the request unless one already waits; `true` when kept.
@@ -54,6 +56,19 @@ impl PendingOpens {
 
     pub fn take(&self) -> Option<OpenRequest> {
         self.0.lock().unwrap_or_else(|e| e.into_inner()).take()
+    }
+
+    /// The interface has a list of its own: a new one is refused there.
+    pub fn list_open(&self) -> bool {
+        self.1.load(Ordering::Relaxed)
+    }
+
+    /// Offers the request for the interface; `true` only when it gets a dialog of its own, so
+    /// the window comes forward for it. One the interface refuses is still handed over, for the
+    /// interface to say so.
+    pub fn hand_over(&self, request: OpenRequest) -> bool {
+        let open = self.list_open();
+        self.offer(request) && !open
     }
 }
 
@@ -144,12 +159,15 @@ pub(crate) fn kpin_file(path: &Path) -> Option<String> {
 
 /// Keeps the request unless one waits, and tells the interface either way: taking from an empty
 /// buffer is harmless, and a request kept while no one listened is not stranded. An interface that
-/// is not loaded yet takes it with `take_pending_opens` when it starts. `true` when kept.
+/// is not loaded yet takes it with `take_pending_opens` when it starts. `true` when kept for a
+/// dialog of its own: one that the interface will refuse, because its list dialog is open, is
+/// handed over (the interface says it is refused) but is `false`, so the window is not brought
+/// forward for it.
 pub fn keep(app: &AppHandle, request: OpenRequest) -> bool {
     let Some(pending) = app.try_state::<PendingOpens>() else {
         return false;
     };
-    let kept = pending.offer(request);
+    let kept = pending.hand_over(request);
     let _ = app.emit(OPEN_REQUEST_EVENT, ());
     kept
 }
@@ -157,6 +175,12 @@ pub fn keep(app: &AppHandle, request: OpenRequest) -> bool {
 /// The arguments of a second start: `Some(kept)` when they named a file or a link.
 pub fn keep_args(app: &AppHandle, args: &[String], cwd: &Path) -> Option<bool> {
     from_args(args, cwd).map(|request| keep(app, request))
+}
+
+/// The interface tells whether its list dialog is open or a list waits for it (NP-138).
+#[tauri::command]
+pub fn set_list_open(pending: tauri::State<'_, PendingOpens>, open: bool) {
+    pending.1.store(open, Ordering::Relaxed);
 }
 
 /// The request waiting since the start or the last event, if any; taking it frees the buffer.
@@ -318,5 +342,19 @@ mod tests {
         assert_eq!(pending.take(), None);
         assert!(pending.offer(second.clone()));
         assert_eq!(pending.take(), Some(second));
+    }
+
+    #[test]
+    fn a_request_while_a_list_dialog_is_open_is_handed_over_but_brings_nothing_forward() {
+        let pending = PendingOpens::default();
+        let first = OpenRequest::KpinUrl { url: "https://example.org/a.kpin".into() };
+        let second = OpenRequest::KpinUrl { url: "https://example.org/b.kpin".into() };
+        assert!(pending.hand_over(first.clone()));
+        assert_eq!(pending.take(), Some(first));
+        pending.1.store(true, Ordering::Relaxed);
+        assert!(!pending.hand_over(second.clone()), "the window stays where it is");
+        assert_eq!(pending.take(), Some(second.clone()), "the interface still hears of it, to refuse it aloud");
+        pending.1.store(false, Ordering::Relaxed);
+        assert!(pending.hand_over(second));
     }
 }

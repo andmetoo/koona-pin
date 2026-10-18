@@ -63,6 +63,7 @@ pub fn preview(conn: &Connection, list: &ParsedList, source: &str) -> rusqlite::
         links,
         feeds: list.feeds.len() as u32,
         sections: list.sections,
+        sectioned_links: list.links.iter().filter(|l| !l.sections.is_empty()).count() as u32,
         new_links: links - already_saved - in_trash,
         already_saved,
         in_trash,

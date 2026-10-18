@@ -99,7 +99,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             // A `.kpin` file or a `koonapin://` link opened while the app runs (NP-139, NP-142):
             // Windows and Linux start a second copy with it, which hands its arguments over. One
-            // dropped because another waits does not bring the window forward.
+            // dropped because another waits, or refused because a list dialog is open, does not
+            // bring the window forward.
             let kept = open_requests::keep_args(app, &args, std::path::Path::new(&cwd));
             // The native host starts the app with --autostart to save a link;
             // an app that is already running stays where it is.
@@ -318,7 +319,8 @@ pub fn run() {
             lists::download::read_list_file,
             tray::set_tray_labels,
             tray::get_tray_labels,
-            open_requests::take_pending_opens
+            open_requests::take_pending_opens,
+            open_requests::set_list_open
         ])
         .build(context)
         .expect("error while running Koona Pin")

@@ -155,6 +155,9 @@ pub fn tag(raw: &str) -> Option<String> {
 /// bookmarks import (`import::classify`), and the schema's 2 048 characters.
 /// An address with spaces or control characters in it is saved as the URL
 /// parser writes it, so the library never holds a line break in an address.
+/// A user name or password (`user:pass@host`) is dropped, as the builder drops
+/// it (`export::public_url`): no credentials enter the library from a list, and
+/// an exported list imports to the same addresses.
 pub fn link_url(raw: &str) -> Result<String, SkipReason> {
     let href = raw.trim();
     if href.len() > URL_LEN {
@@ -162,8 +165,8 @@ pub fn link_url(raw: &str) -> Result<String, SkipReason> {
     }
     match Url::parse(href) {
         Ok(url) if !matches!(url.scheme(), "http" | "https") => Err(SkipReason::NotWeb),
-        Ok(url) if url.host_str().is_some_and(|h| !h.is_empty()) => {
-            if href.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        Ok(mut url) if url.host_str().is_some_and(|h| !h.is_empty()) => {
+            if without_credentials(&mut url) || href.chars().any(|c| c.is_whitespace() || c.is_control()) {
                 Ok(url.to_string())
             } else {
                 Ok(href.to_owned())
@@ -173,15 +176,28 @@ pub fn link_url(raw: &str) -> Result<String, SkipReason> {
     }
 }
 
+/// Drops a user name and password from an address; `true` when there were any.
+fn without_credentials(url: &mut Url) -> bool {
+    if url.username().is_empty() && url.password().is_none() {
+        return false;
+    }
+    let _ = url.set_username("");
+    let _ = url.set_password(None);
+    true
+}
+
 /// A feed's address through the guard `subscribe_feed` uses: a local one is invalid.
 pub fn feed_url(raw: &str) -> Result<Url, SkipReason> {
     if raw.trim().len() > URL_LEN {
         return Err(SkipReason::Invalid);
     }
-    crate::feeds::feed_url(raw).map_err(|_| match Url::parse(raw.trim()) {
+    let mut url = crate::feeds::feed_url(raw).map_err(|_| match Url::parse(raw.trim()) {
         Ok(url) if !matches!(url.scheme(), "http" | "https") => SkipReason::NotWeb,
         _ => SkipReason::Invalid,
-    })
+    })?;
+    // As for a link: no credentials are followed or kept.
+    without_credentials(&mut url);
+    Ok(url)
 }
 
 /// An optional address of the metadata: http(s) with a host, else none.
@@ -732,5 +748,29 @@ mod tests {
         };
         assert_eq!(parse(&sections(MAX_SECTIONS)).unwrap().sections as usize, MAX_SECTIONS);
         assert_eq!(parse(&sections(MAX_SECTIONS + 1)), Err(ListError::TooBig));
+    }
+
+    #[test]
+    fn no_user_name_or_password_comes_in_from_a_list() {
+        let list = parse(
+            r#"{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Secrets",
+                "author":{"name":"A","url":"https://me:pw@koona.app/"},"homepage":"https://me@koona.app/lists",
+                "items":[
+                  {"type":"link","url":"https://user:secret@example.com/page"},
+                  {"type":"link","url":"https://example.com/page"},
+                  {"type":"feed","url":"https://user:secret@example.com/feed.xml","site":"https://user@example.com/"}
+                ]}"#,
+        )
+        .unwrap();
+        assert_eq!(list.links.len(), 1, "the two addresses are one once the credentials go");
+        assert_eq!(list.links[0].url, "https://example.com/page");
+        assert_eq!(list.repeated, 1);
+        assert_eq!(list.feeds[0].url, "https://example.com/feed.xml");
+        assert_eq!(list.feeds[0].site.as_deref(), Some("https://example.com/"));
+        assert_eq!(list.meta.author_url.as_deref(), Some("https://koona.app/"));
+        assert_eq!(list.meta.homepage.as_deref(), Some("https://koona.app/lists"));
+        // What the builder writes reads back as the same address.
+        assert_eq!(link_url(&super::super::export::public_url("https://a:b@example.org/x")).unwrap(), "https://example.org/x");
+        assert_eq!(link_url("https://example.org/x").unwrap(), "https://example.org/x");
     }
 }
