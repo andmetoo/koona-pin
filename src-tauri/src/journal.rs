@@ -624,7 +624,7 @@ mod tests {
             description: Some("Описание".into()),
             ..Default::default()
         };
-        enrich_bookmark(&conn, b.id, b.revision, &meta).unwrap();
+        enrich_bookmark(&conn, b.id, &b.url, b.revision, &meta).unwrap();
         let back = undone(journal.undo(&conn, None).unwrap()).remove(0);
         assert_eq!(back.description.as_deref(), Some("Описание"));
         assert!(!back.is_favorite);

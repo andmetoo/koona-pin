@@ -256,6 +256,91 @@ test("a post's own scripts, frames and handlers never reach the sheet", async ({
   expect(await page.evaluate(() => (window as unknown as { owned?: number }).owned)).toBeUndefined();
 });
 
+test("a post is never read from its site until «Load the full article» (NP-120)", async ({ page }) => {
+  await open(page);
+  await openFeeds(page);
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { fetched: string[] };
+    w.fetched = [];
+    const original = api.fetchReaderPage;
+    api.fetchReaderPage = async (url: string) => (w.fetched.push(url), original(url));
+    // The cached post takes a moment, as a large one does from the database.
+    const article = api.getFeedArticle;
+    api.getFeedArticle = async (id: number) => (await new Promise((resolve) => setTimeout(resolve, 150)), article(id));
+  });
+  const fetched = () => page.evaluate(() => (window as unknown as { fetched: string[] }).fetched);
+  const loadFull = sheet(page).getByRole("button", { name: "Load the full article" });
+  const count = await posts(page).count();
+  for (let i = 0; i < count; i++) {
+    await posts(page).nth(i).click();
+    await expect(sheet(page).locator(".reader-body")).toBeVisible();
+    if (await loadFull.isVisible()) break;
+  }
+  await expect(loadFull).toBeVisible();
+  expect(await fetched()).toEqual([]);
+  await loadFull.click();
+  await expect.poll(fetched).toHaveLength(1);
+});
+
+test("R and F act on the open post's bookmark, not on the one of the post before", async ({ page }) => {
+  await open(page);
+  await openFeeds(page);
+  const sections = page.getByRole("navigation", { name: "Sections" });
+  const base = Number((await sections.getByRole("button", { name: /^Favorites \d+$/ }).textContent())!.match(/\d+/)![0]);
+  const favorites = (more: number) => sections.getByRole("button", { name: `Favorites ${base + more}` });
+  await posts(page).nth(0).click();
+  await page.keyboard.press("f");
+  await expect(favorites(1)).toBeVisible();
+  await posts(page).nth(1).click();
+  await page.keyboard.press("s");
+  await expect(posts(page).nth(1).locator("[data-feed-saved]")).toBeVisible();
+  // From now on the bookmark of an opened post takes a while to arrive.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const original = api.getBookmarks;
+    api.getBookmarks = async (filters, request = {}) => {
+      if (request.id !== undefined) await new Promise((resolve) => setTimeout(resolve, 1500));
+      return original(filters, request);
+    };
+  });
+  await posts(page).nth(0).click();
+  await expect(sheet(page).getByRole("button", { name: "Favorite" })).toHaveAttribute("aria-pressed", "true");
+  await posts(page).nth(1).click();
+  // Before it arrives, F favourites this post; the first one stays a favourite.
+  await page.keyboard.press("f");
+  await expect(favorites(2)).toBeVisible();
+});
+
+test("F finishing on a post left behind does not lose the bookmark of the post open now", async ({ page }) => {
+  await open(page);
+  await openFeeds(page);
+  const favorite = sheet(page).getByRole("button", { name: "Favorite" });
+  await posts(page).nth(0).click();
+  await page.keyboard.press("f");
+  await expect(favorite).toHaveAttribute("aria-pressed", "true");
+  await posts(page).nth(1).click();
+  await page.keyboard.press("f");
+  await expect(favorite).toHaveAttribute("aria-pressed", "true");
+  // From now on a bookmark's lookup takes 1.5 s and a bulk action 0.5 s.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const getBookmarks = api.getBookmarks;
+    api.getBookmarks = async (filters, request = {}) => {
+      if (request.id !== undefined) await new Promise((resolve) => setTimeout(resolve, 1500));
+      return getBookmarks(filters, request);
+    };
+    const bulkUpdate = api.bulkUpdate;
+    api.bulkUpdate = async (...args) => (await new Promise((resolve) => setTimeout(resolve, 500)), bulkUpdate(...args));
+  });
+  await posts(page).nth(0).click();
+  await expect(favorite).toHaveAttribute("aria-pressed", "true");
+  // F takes the first post out of Favorites; the second opens while that is still on its way.
+  await page.keyboard.press("f");
+  await posts(page).nth(1).click();
+  await expect(favorite).toHaveAttribute("aria-pressed", "true", { timeout: 4000 });
+});
+
 // The page against the Lunacy frame «RSS · Three columns · Light», light and dark, at 1200 and 1600.
 for (const width of [1200, 1600]) {
   for (const theme of ["light", "dark"]) {

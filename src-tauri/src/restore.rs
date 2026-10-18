@@ -234,6 +234,14 @@ impl From<rusqlite::Error> for RestoreError {
     }
 }
 
+/// The copy's uid for a record it brings, or a new one when that uid was
+/// deleted for good here: a purge is final for its uid. Its tombstone stays,
+/// so the other devices keep it purged; under a new uid the record is a new
+/// one everywhere and reaches them too.
+fn fresh_uid(conn: &Connection, uid: &str) -> rusqlite::Result<String> {
+    Ok(if db::is_purged(conn, uid)? { db::new_uid() } else { uid.to_owned() })
+}
+
 /// Restores a checked copy. A replace writes the backup first and gives up if
 /// it fails; then everything happens in one transaction.
 pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, backups: &Path) -> Result<RestoreSummary, RestoreError> {
@@ -281,20 +289,29 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
         .zip(crate::position_keys::spread(None, None, placed.len()))
         .collect();
 
-    // Collections: the same uid, else the same name (case aside), else a new one with the copy's uid.
+    // Collections. A merge: the same uid, else the same name (case aside),
+    // else a new one with the copy's uid. A replace starts from none and
+    // makes each of the copy's, «Work» and «work» each its own. A uid
+    // deleted for good here gets a new one (`fresh_uid`).
     let mut by_name: HashMap<String, i64> = tx
         .prepare("SELECT id, name FROM collections")?
         .query_map([], |r| Ok((db::fold(&r.get::<_, String>(1)?), r.get(0)?)))?
         .collect::<rusqlite::Result<_>>()?;
     let mut collection_ids = HashMap::new();
     for (index, c) in library.collections.iter().enumerate() {
-        let found = tx.query_row("SELECT id FROM collections WHERE uid = ?1", [&c.uid], |r| r.get::<_, i64>(0)).optional()?;
-        let id = match found.or_else(|| by_name.get(&db::fold(&c.name)).copied()) {
+        let found = match mode {
+            RestoreMode::Merge => tx
+                .query_row("SELECT id FROM collections WHERE uid = ?1", [&c.uid], |r| r.get::<_, i64>(0))
+                .optional()?
+                .or_else(|| by_name.get(&db::fold(&c.name)).copied()),
+            RestoreMode::Replace => None,
+        };
+        let id = match found {
             Some(id) => id,
             None => {
                 tx.execute(
                     "INSERT INTO collections (uid, name, color, icon, created_at, position_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![c.uid, c.name, c.color, c.icon, c.created_at, position_keys.remove(&index)],
+                    params![fresh_uid(&tx, &c.uid)?, c.name, c.color, c.icon, c.created_at, position_keys.remove(&index)],
                 )?;
                 summary.collections.push(c.name.clone());
                 let id = tx.last_insert_rowid();
@@ -311,7 +328,7 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
         let taken = tx.query_row("SELECT 1 FROM tags WHERE uid = ?1", [&t.uid], |_| Ok(())).optional()?.is_some();
         tx.execute(
             "INSERT INTO tags (uid, name, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(name) DO NOTHING",
-            params![if taken { db::new_uid() } else { t.uid.clone() }, t.name, t.created_at],
+            params![if taken { db::new_uid() } else { fresh_uid(&tx, &t.uid)? }, t.name, t.created_at],
         )?;
     }
 
@@ -329,7 +346,7 @@ pub fn restore(conn: &Connection, library: &JsonLibrary, mode: RestoreMode, back
                  reading_at, reading_progress, read_at, site_name)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
-                b.uid,
+                fresh_uid(&tx, &b.uid)?,
                 b.url,
                 b.title,
                 b.description,
@@ -532,6 +549,85 @@ mod tests {
         let mut after = moved.clone();
         after.sort();
         assert_eq!(names(&merged), [vec!["Ящик".to_string()], after].concat());
+    }
+
+    /// A purge is final for its uid: a record the copy brings back whose uid
+    /// was deleted for good here comes under a new uid, the tombstone stays,
+    /// and its collection and tags follow it. A merge and a replace alike.
+    #[test]
+    fn records_deleted_for_good_come_back_under_new_uids() {
+        let text = copy_of(&library());
+        let uid_in_copy = |kind: &str, field: &str, value: &str| -> String {
+            let copy: serde_json::Value = serde_json::from_str(&text).unwrap();
+            copy[kind].as_array().unwrap().iter().find(|r| r[field] == value).unwrap()["uid"].as_str().unwrap().to_owned()
+        };
+        let (tokio, work, tag) =
+            (uid_in_copy("bookmarks", "url", "https://tokio.rs/"), uid_in_copy("collections", "name", "Работа"), uid_in_copy("tags", "name", "async"));
+        for mode in [RestoreMode::Merge, RestoreMode::Replace] {
+            let c = database();
+            restore(&c, &check(&text).unwrap(), RestoreMode::Replace, &folder()).unwrap();
+            // Deleted for good: the bookmark purged, its collection deleted, its tag gone.
+            let id: i64 = c.query_row("SELECT id FROM bookmarks WHERE uid = ?1", [&tokio], |r| r.get(0)).unwrap();
+            db::trash_bookmark(&c, id).unwrap();
+            db::purge_trash(&c, db::Purge::One(id)).unwrap();
+            let work_id: i64 = c.query_row("SELECT id FROM collections WHERE uid = ?1", [&work], |r| r.get(0)).unwrap();
+            db::delete_collection(&c, work_id).unwrap();
+            c.execute("DELETE FROM tags WHERE uid = ?1", [&tag]).unwrap();
+            c.execute("INSERT INTO tombstones (uid, kind, deleted_at, purged_at) VALUES (?1, 'tag', 'x', 'x')", [&tag]).unwrap();
+            let gone = [&tokio, &work, &tag];
+            assert_eq!(gone.iter().filter(|uid| db::is_purged(&c, uid).unwrap()).count(), 3);
+
+            restore(&c, &check(&text).unwrap(), mode, &folder()).unwrap();
+            assert!(gone.iter().all(|uid| db::is_purged(&c, uid).unwrap()), "{mode:?}: the tombstones stay");
+            for (table, uid) in [("bookmarks", &tokio), ("collections", &work), ("tags", &tag)] {
+                let live: i64 = c.query_row(&format!("SELECT count(*) FROM {table} WHERE uid = ?1"), [uid], |r| r.get(0)).unwrap();
+                assert_eq!(live, 0, "{mode:?}: no {table} row under the purged uid");
+            }
+            let back = db::get_bookmarks(&c, &db::BookmarkQuery { search: Some("tokio.rs".into()), ..Default::default() }).unwrap().items.remove(0);
+            let collection: String = c.query_row("SELECT name FROM collections WHERE id = ?1", [back.collection_id.unwrap()], |r| r.get(0)).unwrap();
+            assert_eq!(collection, "Работа", "{mode:?}");
+            assert!(back.tags.unwrap().contains(&"async".to_string()), "{mode:?}");
+        }
+    }
+
+    /// A replace keeps collections whose names differ only in case apart,
+    /// each with its own uid, colour, icon, place and bookmarks.
+    #[test]
+    fn a_replace_keeps_collections_that_differ_only_in_case() {
+        let source = database();
+        let upper = db::create_collection(&source, "Work", Some("#ff0000"), Some("briefcase")).unwrap();
+        let lower = db::create_collection(&source, "work", Some("#00ff00"), Some("star")).unwrap();
+        let ids: Vec<i64> = db::get_collections(&source).unwrap().iter().map(|c| c.id).collect();
+        let mut order: Vec<i64> = ids.iter().copied().filter(|id| ![upper.id, lower.id].contains(id)).collect();
+        order.splice(0..0, [lower.id, upper.id]);
+        db::reorder_collections(&source, &order).unwrap();
+        crate::import::import(&source, &crate::import::parse(r#"<a href="https://a.example/">A</a><a href="https://b.example/">B</a>"#, Utc::now()), false, |_, _| {}).unwrap();
+        let id = |url: &str| source.query_row("SELECT id FROM bookmarks WHERE url = ?1", [url], |r| r.get::<_, i64>(0)).unwrap();
+        db::update_bookmark(&source, id("https://a.example/"), None, None, None, Some(Some(upper.id)), None).unwrap();
+        db::update_bookmark(&source, id("https://b.example/"), None, None, None, Some(Some(lower.id)), None).unwrap();
+        let text = copy_of(&source);
+
+        let target = database();
+        let summary = restore(&target, &check(&text).unwrap(), RestoreMode::Replace, &folder()).unwrap();
+        assert!(summary.collections.contains(&"Work".to_string()) && summary.collections.contains(&"work".to_string()));
+        let shape = |c: &Connection| {
+            db::get_collections(c)
+                .unwrap()
+                .into_iter()
+                .map(|col| {
+                    let uid: String = c.query_row("SELECT uid FROM collections WHERE id = ?1", [col.id], |r| r.get(0)).unwrap();
+                    let urls: Vec<String> = c
+                        .prepare("SELECT url FROM bookmarks WHERE collection_id = ?1 ORDER BY url")
+                        .unwrap()
+                        .query_map([col.id], |r| r.get(0))
+                        .unwrap()
+                        .map(Result::unwrap)
+                        .collect();
+                    (uid, col.name, col.color, col.icon, urls)
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(shape(&target), shape(&source));
     }
 
     #[test]

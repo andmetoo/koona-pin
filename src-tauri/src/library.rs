@@ -513,6 +513,16 @@ pub fn restore_into(
         let _ = crate::sorting::apply_stored_language(conn);
         // The engine's state on this connection was the old library's.
         let _ = crate::sync_library::register(conn);
+        // Sync on or off: the purges made since the copy stay purged, and a
+        // record back under a purged uid gets a new one. The copy is in
+        // whole already; a failure here leaves it as it came.
+        let purges = conn.unchecked_transaction().and_then(|tx| {
+            crate::sync_library::keep_purges(&tx, &previous)?;
+            tx.commit()
+        });
+        if let Err(error) = purges {
+            eprintln!("The purges of the replaced library were not kept: {error}");
+        }
         if let Some(kept) = kept {
             // The restore is done; without this the library stays with sync off.
             let carried = conn.unchecked_transaction().map_err(koona_sync::Error::from).and_then(|tx| {
@@ -528,6 +538,18 @@ pub fn restore_into(
     })();
     discard(&prepared);
     result
+}
+
+/// [`crate::sync_library::keep_purges`] on the prepared copy, a closed file:
+/// afterwards everything is in the file itself, without a WAL.
+fn keep_purges_in(prepared: &Path, previous: &Path) -> rusqlite::Result<()> {
+    let conn = Connection::open(prepared)?;
+    configure(&conn)?;
+    let tx = conn.unchecked_transaction()?;
+    crate::sync_library::keep_purges(&tx, previous)?;
+    tx.commit()?;
+    conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+    conn.close().map_err(|(_, e)| e)
 }
 
 /// Moves the library with its WAL; the shared-memory file is only a cache.
@@ -559,6 +581,11 @@ pub fn restore_closed(paths: &Paths, source: &Path) -> Result<Restored, RestoreF
     let result = (|| {
         let previous = backup::before_restore_path(&paths.backups);
         move_files(&paths.database, &previous).map_err(|e| RestoreFailure::Backup(e.to_string()))?;
+        // As `restore_into` does: what the library that did not open had
+        // purged stays purged, if it can still be read.
+        if let Err(error) = keep_purges_in(&prepared, &previous) {
+            eprintln!("The purges of the replaced library were not kept: {error}");
+        }
         if let Err(error) = fs::rename(&prepared, &paths.database) {
             let _ = move_files(&previous, &paths.database);
             return Err(RestoreFailure::Failed(error.to_string()));
@@ -869,6 +896,7 @@ mod tests {
         // After the copy: a new bookmark with a tag, one purged.
         let after = capture(&conn, "https://example.com/after-the-copy", "after");
         db::update_bookmark(&conn, after.bookmark_id, None, Some("note".into()), None, None, Some(vec!["kept".into()])).unwrap();
+        let purged_uid: String = conn.query_row("SELECT uid FROM bookmarks WHERE id = 2", [], |r| r.get(0)).unwrap();
         db::trash_bookmark(&conn, 2).unwrap();
         db::purge_trash(&conn, db::Purge::One(2)).unwrap();
 
@@ -891,7 +919,13 @@ mod tests {
         assert_eq!(one("SELECT count(*) FROM sync_origins"), 1, "it holds nothing of anyone");
         assert_eq!(one("SELECT count(*) FROM sync_clock WHERE entity = 2 AND field = -1"), one("SELECT count(*) FROM bookmarks"));
         assert_eq!(one("SELECT count(*) FROM tombstones WHERE hlc IS NULL"), 0);
-        assert_eq!(one("SELECT count(*) FROM tombstones"), 0, "no purge from the restore");
+        // No purge from the restore; the purge made after the copy stays, and
+        // the bookmark it purged is back under a new uid (a purge is final).
+        assert_eq!(one("SELECT count(*) FROM tombstones"), 1);
+        let with_uid = |sql: &str| conn.query_row(sql, [&purged_uid], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(with_uid("SELECT count(*) FROM bookmarks WHERE uid = ?1"), 0);
+        assert_eq!(with_uid("SELECT count(*) FROM tombstones WHERE uid = ?1"), 1);
+        assert_eq!(one("SELECT count(*) FROM bookmarks WHERE id = 2"), 1, "the purged one is back");
         // The connection records with the new replica.
         let next = capture(&conn, "https://example.com/next", "next");
         assert_eq!(one(&format!("SELECT count(*) FROM sync_clock WHERE entity = 2 AND row = {} AND origin = (SELECT id FROM sync_origins)", next.bookmark_id)), 1);
@@ -914,6 +948,75 @@ mod tests {
         capture(&conn, "https://example.com/next", "next");
         let clocks: i64 = conn.query_row("SELECT count(*) FROM sync_clock", [], |r| r.get(0)).unwrap();
         assert_eq!(clocks, 0, "nothing is recorded");
+    }
+
+    /// A purge is final for its uid with sync off too. A copy from before a
+    /// purge brings the bookmark back under a new uid and the purge stays;
+    /// once sync is turned on, a device that applied the purge gets the
+    /// bookmark, and keeps it.
+    #[test]
+    fn a_restore_with_sync_off_keeps_purges_for_a_later_sync() {
+        fn send(from: &Connection, to: &Connection) {
+            let since = koona_sync::vector(to).unwrap();
+            for chunk in koona_sync::delta_all(from, &since, 1 << 20).unwrap() {
+                assert_eq!(crate::sync_library::apply(to, &chunk.groups).unwrap().deferred, 0);
+                if chunk.last {
+                    koona_sync::merge_vector(to, &chunk.covers).unwrap();
+                }
+            }
+        }
+        let paths = library("restore-unsynced-purge");
+        build(&paths, 20);
+        let mut conn = open(&paths).unwrap().conn;
+        let mut peer = Connection::open_in_memory().unwrap();
+        configure(&peer).unwrap();
+        migrations::migrate(&mut peer, None).unwrap();
+        crate::sync_library::turn_on(&conn, uuid::Uuid::from_u128(1)).unwrap();
+        crate::sync_library::turn_on(&peer, uuid::Uuid::from_u128(2)).unwrap();
+        send(&conn, &peer);
+        let (url, uid): (String, String) = conn.query_row("SELECT url, uid FROM bookmarks WHERE id = 2", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        db::trash_bookmark(&conn, 2).unwrap();
+        db::purge_trash(&conn, db::Purge::One(2)).unwrap();
+        send(&conn, &peer);
+        // Sync off, then the copy from before the purge.
+        crate::sync_library::forget(&conn).unwrap();
+        restore_into(&mut conn, &paths, &copy).unwrap();
+        assert!(!crate::sync_library::is_on(&conn));
+        let here = |conn: &Connection| -> Option<String> {
+            use rusqlite::OptionalExtension;
+            conn.query_row("SELECT uid FROM bookmarks WHERE url = ?1", [&url], |r| r.get(0)).optional().unwrap()
+        };
+        let back = here(&conn).expect("back");
+        assert_ne!(back, uid, "under a new uid");
+        assert!(db::is_purged(&conn, &uid).unwrap(), "the purge stays");
+
+        crate::sync_library::turn_on(&conn, uuid::Uuid::from_u128(3)).unwrap();
+        send(&conn, &peer);
+        send(&peer, &conn);
+        assert_eq!(here(&conn), Some(back.clone()), "kept here");
+        assert_eq!(here(&peer), Some(back), "and on the device that purged it");
+    }
+
+    /// The same for a library that did not open, when it can still be read.
+    #[test]
+    fn a_restore_of_a_library_that_did_not_open_keeps_its_purges() {
+        let paths = library("restore-closed-purge");
+        build(&paths, 20);
+        let conn = open(&paths).unwrap().conn;
+        let (url, uid): (String, String) = conn.query_row("SELECT url, uid FROM bookmarks WHERE id = 2", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        let copy = back_up_now(&paths, Utc::now()).unwrap();
+        db::trash_bookmark(&conn, 2).unwrap();
+        db::purge_trash(&conn, db::Purge::One(2)).unwrap();
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+        drop(conn);
+
+        restore_closed(&paths, &copy).unwrap();
+        let conn = open(&paths).unwrap().conn;
+        let back: String = conn.query_row("SELECT uid FROM bookmarks WHERE url = ?1", [&url], |r| r.get(0)).unwrap();
+        assert_ne!(back, uid, "under a new uid");
+        assert!(db::is_purged(&conn, &uid).unwrap(), "the purge stays");
+        assert_eq!(quick_check(&conn).unwrap(), None);
     }
 
     #[test]

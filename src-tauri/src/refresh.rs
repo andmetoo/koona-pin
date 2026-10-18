@@ -105,15 +105,16 @@ fn preview(b: &Bookmark) -> (&str, Option<&str>, Option<&str>, Option<&str>, Opt
 
 /// Writes what the page gave, as the bookmark's «Обновить превью» does. The
 /// bookmark when something changed; none when nothing did — then nothing is
-/// written, its revision stays — or when it is in the trash or gone.
-pub fn apply(conn: &Connection, id: i64, meta: &PageMetadata) -> Result<Option<Bookmark>> {
+/// written, its revision stays — or when it is in the trash or gone, or no
+/// longer at `url`, the address the page was read from.
+pub fn apply(conn: &Connection, id: i64, url: &str, meta: &PageMetadata) -> Result<Option<Bookmark>> {
     let before = match db::get_bookmark_by_id(conn, id) {
         Ok(b) if b.deleted_at.is_none() => b,
         Ok(_) | Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
         Err(e) => return Err(e),
     };
     let tx = conn.unchecked_transaction()?;
-    let after = db::refresh_preview(&tx, id, meta)?;
+    let after = db::refresh_preview(&tx, id, url, meta)?;
     if preview(&after) == preview(&before) {
         // Dropped: rolled back, the revision and the time stay.
         return Ok(None);
@@ -455,7 +456,7 @@ async fn refresh_one(app: AppHandle, state: Arc<DbState>, item: Item) -> Done {
         if app.state::<Refresher>().abandoned.load(Ordering::SeqCst) {
             return Ok(None);
         }
-        let changed = apply(&conn, item.id, &meta).map_err(|_| ())?;
+        let changed = apply(&conn, item.id, &item.url, &meta).map_err(|_| ())?;
         if let Some(bookmark) = &changed {
             capture::emit(&app, ChangeKind::Updated, bookmark);
         }
@@ -615,15 +616,15 @@ mod tests {
         let conn = library();
         let b = saved(&conn, "https://a.example/1", None, None);
         let meta = PageMetadata { image_url: Some("https://a.example/i.png".into()), site_name: Some("A".into()), ..Default::default() };
-        let changed = apply(&conn, b.id, &meta).unwrap().expect("a picture and a name are new");
+        let changed = apply(&conn, b.id, &b.url, &meta).unwrap().expect("a picture and a name are new");
         assert_eq!(changed.image_url.as_deref(), Some("https://a.example/i.png"));
         assert_eq!(changed.site_name.as_deref(), Some("A"));
         assert_eq!(changed.revision, b.revision + 1);
-        assert!(apply(&conn, b.id, &meta).unwrap().is_none(), "the same page again changes nothing");
+        assert!(apply(&conn, b.id, &b.url, &meta).unwrap().is_none(), "the same page again changes nothing");
         assert_eq!(db::get_bookmark_by_id(&conn, b.id).unwrap().revision, changed.revision, "and keeps the revision");
         trash_bookmark(&conn, b.id).unwrap();
         let other = PageMetadata { image_url: Some("https://a.example/new.png".into()), ..Default::default() };
-        assert!(apply(&conn, b.id, &other).unwrap().is_none(), "the trash is not touched");
+        assert!(apply(&conn, b.id, &b.url, &other).unwrap().is_none(), "the trash is not touched");
     }
 
     fn items(urls: &[&str]) -> Vec<Item> {

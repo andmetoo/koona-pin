@@ -195,6 +195,13 @@ pub fn own_counter(conn: &Connection) -> rusqlite::Result<Option<i64>> {
     .optional()
 }
 
+/// The counter the watcher starts from, read before the client begins its transfers: every write
+/// after it is pushed, even one made before the watcher's first look. 0 while this replica has
+/// written nothing yet; None when it could not be read (the first look is the start then).
+pub fn start_counter(conn: &Connection) -> Option<i64> {
+    own_counter(conn).ok().map(|counter| counter.unwrap_or(0))
+}
+
 /// What the interface reads again after remote changes.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Refresh {
@@ -339,12 +346,14 @@ pub struct Start {
     pub identity: super::identity::Identity,
     pub sub: String,
     pub generation: u64,
+    /// `start_counter`, read before the client starts.
+    pub counter: Option<i64>,
 }
 
 /// Starts the client on the app's runtime, with the pump of its events and the watcher of local
 /// changes beside it.
 pub fn spawn(app: &AppHandle, start: Start) -> Running {
-    let Start { url, key_file, db, replica, identity, sub, generation } = start;
+    let Start { url, key_file, db, replica, identity, sub, generation, counter } = start;
     let abandoned = Arc::new(AtomicBool::new(false));
     let done = Arc::new(AtomicBool::new(false));
     let library = DbLibrary::new(db.clone(), replica, abandoned.clone()).with_key_file(key_file, sub.clone());
@@ -372,7 +381,7 @@ pub fn spawn(app: &AppHandle, start: Start) -> Running {
     let (handle, events, work) = net::client(ClientConfig::new(url), session, library, credentials);
     tauri::async_runtime::spawn(work);
     tauri::async_runtime::spawn(pump(app.clone(), events, handle.clone(), db.clone(), generation, abandoned.clone(), key_lost, done.clone()));
-    tauri::async_runtime::spawn(watch(db, handle.clone(), done.clone()));
+    tauri::async_runtime::spawn(watch(db, handle.clone(), done.clone(), counter));
     Running { handle, sub, replica, generation, abandoned, done }
 }
 
@@ -428,11 +437,43 @@ async fn pump(
     done.store(true, Ordering::SeqCst);
 }
 
-/// Pushes local changes: see the module's comment. Until `done`; public for the end-to-end test
-/// (`tests/sync_e2e.rs`), which runs clients without Tauri.
-pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>) {
-    let mut last: Option<i64> = None;
-    let mut waiting: Option<(Instant, Instant)> = None;
+/// What the watcher knows between its looks at the counter.
+struct Pending {
+    /// The highest counter seen, from `start_counter` on.
+    last: Option<i64>,
+    /// The first and the latest look that found new writes not pushed yet.
+    waiting: Option<(Instant, Instant)>,
+}
+
+impl Pending {
+    fn new(start: Option<i64>) -> Pending {
+        Pending { last: start, waiting: None }
+    }
+
+    /// One look, with the counter if it could be read now: true when the writes seen are to be
+    /// pushed now.
+    fn look(&mut self, counter: Option<i64>, now: Instant) -> bool {
+        if let Some(counter) = counter {
+            if self.last.is_some_and(|last| counter > last) {
+                self.waiting = Some((self.waiting.map_or(now, |w| w.0), now));
+            }
+            self.last = Some(self.last.map_or(counter, |last| last.max(counter)));
+        }
+        match self.waiting {
+            Some((first, latest)) if now - latest >= QUIET || now - first >= LONGEST_WAIT => {
+                self.waiting = None;
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Pushes local changes: see the module's comment. `start` is `start_counter`, read before the
+/// client began. Until `done`; public for the end-to-end test (`tests/sync_e2e.rs`), which runs
+/// clients without Tauri.
+pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>, start: Option<i64>) {
+    let mut pending = Pending::new(start);
     loop {
         tokio::time::sleep(WATCH_EVERY).await;
         if done.load(Ordering::SeqCst) {
@@ -447,20 +488,8 @@ pub async fn watch(db: Arc<DbState>, handle: net::Handle, done: Arc<AtomicBool>)
         .await
         .ok()
         .flatten();
-        let now = Instant::now();
-        if let Some(counter) = counter {
-            if last.is_some_and(|last| counter > last) {
-                waiting = Some((waiting.map_or(now, |w| w.0), now));
-            }
-            last = Some(last.map_or(counter, |last| last.max(counter)));
-        }
-        if let Some((first, latest)) = waiting {
-            if now - latest >= QUIET || now - first >= LONGEST_WAIT {
-                waiting = None;
-                if !handle.act(Action::LocalChange) {
-                    return;
-                }
-            }
+        if pending.look(counter, Instant::now()) && !handle.act(Action::LocalChange) {
+            return;
         }
     }
 }
@@ -573,6 +602,40 @@ pub mod tests {
         assert!(baseline >= 1, "the collection there before got a clock");
         let vector = koona_sync::vector(&conn).unwrap();
         assert_eq!(vector.get(&replica), baseline as u64);
+    }
+
+    /// A write made after the client started but before the watcher's first look is pushed: the
+    /// watcher starts from the counter read before the client, not from its first look.
+    #[test]
+    fn a_write_before_the_watchers_first_look_is_pushed() {
+        let conn = library();
+        prepare_library(&conn).unwrap();
+        let start = start_counter(&conn);
+        assert_eq!(start, own_counter(&conn).unwrap());
+        add_collection(&conn, "Written while the client connects");
+        let first_look = own_counter(&conn).unwrap();
+        let t0 = Instant::now();
+        let mut pending = Pending::new(start);
+        assert!(!pending.look(first_look, t0), "waits for the writes to be quiet");
+        assert!(pending.look(first_look, t0 + QUIET), "then pushes");
+        assert!(!pending.look(first_look, t0 + QUIET * 2), "once");
+        // Started from the first look instead, the write would wait for the next one.
+        let mut from_first_look = Pending::new(None);
+        assert!(!from_first_look.look(first_look, t0) && !from_first_look.look(first_look, t0 + QUIET));
+        // No counter of its own yet: it starts from 0, so its first write is pushed too.
+        assert_eq!(start_counter(&library()), Some(0));
+    }
+
+    #[test]
+    fn a_write_stream_is_pushed_at_least_every_few_seconds() {
+        let t0 = Instant::now();
+        let mut pending = Pending::new(Some(1));
+        let mut pushed = 0;
+        for second in 0..=LONGEST_WAIT.as_secs() {
+            pushed += usize::from(pending.look(Some(2 + second as i64), t0 + Duration::from_secs(second)));
+        }
+        assert_eq!(pushed, 1, "an import is not held back until it ends");
+        assert!(!pending.look(None, t0 + LONGEST_WAIT + QUIET), "an unread counter is no write");
     }
 
     #[test]

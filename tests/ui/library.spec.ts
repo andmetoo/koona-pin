@@ -1943,6 +1943,40 @@ test("a click on a domain filters by site; Esc clears the search; nothing found 
   await expect(page.locator("label kbd")).toHaveCSS("opacity", "1");
 });
 
+test("a save that finishes after another editor opened leaves that editor and its draft open", async ({ page }) => {
+  // The next save waits until the test lets it go.
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const w = window as unknown as { release: () => void };
+    const original = api.updateBookmark;
+    const gate = new Promise<void>((resolve) => (w.release = resolve));
+    api.updateBookmark = async (...args) => {
+      api.updateBookmark = original;
+      await gate;
+      return original(...args);
+    };
+  });
+  const edit = async (id: number) => {
+    const card = page.locator(`[data-bookmark-id="${id}"]`);
+    await card.hover();
+    await card.getByRole("button", { name: /^Actions:/ }).click();
+    await page.getByRole("menuitem", { name: "Edit…" }).click();
+  };
+  const editor = page.getByRole("complementary", { name: "Edit bookmark" });
+  await edit(1);
+  await page.getByLabel("Title", { exact: true }).fill("Saved slowly");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(editor).toHaveCount(0);
+  await edit(2);
+  await page.getByLabel("Title", { exact: true }).fill("A draft of the second");
+  await page.evaluate(() => (window as unknown as { release: () => void }).release());
+  await expect(page.getByRole("status")).toContainText("Changes saved");
+  await expect(page.locator('[data-bookmark-id="1"]')).toContainText("Saved slowly");
+  await expect(editor).toBeVisible();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("A draft of the second");
+});
+
 test("editor: empty title is marked, tags are chips, the collection clears, Ctrl Enter saves, a failed save keeps everything typed, Cancel keeps the bookmark; dialogs open on their field", async ({ page }) => {
   const card = page.locator('[data-bookmark-id="1"]');
   await card.hover();

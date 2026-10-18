@@ -133,6 +133,34 @@ function reply(source: "app" | "site", language: string | null, failure?: Failur
   return json(status, field ? { error: failure, field } : { error: failure });
 }
 
+/**
+ * The body, read as it arrives and given up on (`null`) as soon as it passes `limit` bytes: a
+ * chunked upload names no length, and reading it all first would hold any size in memory.
+ */
+export async function readAtMost(request: Request, limit: number): Promise<Uint8Array | null> {
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return bytes;
+}
+
 export async function handle(request: Request, deps: Deps): Promise<Response> {
   if (request.method !== "POST") return json(405, { error: "method" });
   const type = request.headers.get("content-type") ?? "";
@@ -144,8 +172,8 @@ export async function handle(request: Request, deps: Deps): Promise<Response> {
 
   let fields: Record<string, unknown>;
   try {
-    const bytes = await request.arrayBuffer();
-    if (bytes.byteLength > MAX_BODY) return reply(source, null, "invalid", "body");
+    const bytes = await readAtMost(request, MAX_BODY);
+    if (!bytes) return reply(source, null, "invalid", "body");
     const body = new TextDecoder().decode(bytes);
     fields = site ? Object.fromEntries(new URLSearchParams(body)) : JSON.parse(body);
     if (typeof fields !== "object" || fields === null || Array.isArray(fields)) throw new Error("not an object");

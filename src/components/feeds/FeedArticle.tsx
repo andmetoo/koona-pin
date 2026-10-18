@@ -216,6 +216,9 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
         domain=""
         onOpen={onOpen}
         article={article ?? undefined}
+        // Until the cached post arrives the skeleton shows: the page itself is read only
+        // on «Load the full article» (NP-120), never while the post is on its way.
+        fetches={false}
         header={chip ?? undefined}
         byline={byline}
         lead={lead}
