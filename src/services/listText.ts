@@ -74,6 +74,22 @@ export function slugify(title: string): string {
 export const fileName = (id: string) => `${slugify(id) || "list"}.kpin`;
 
 /**
+ * The file's name from the title, as `export.rs` makes one: letters and digits of any script,
+ * lowercase, anything else a dash, at most 64 characters. None of `/ \ : * ? " < > |` is a letter.
+ */
+export function fileSlug(title: string): string {
+  let slug = "";
+  for (const c of title.trim().toLowerCase()) {
+    if (/[\p{Alphabetic}\p{N}]/u.test(c)) slug += c;
+    else if (slug && !slug.endsWith("-")) slug += "-";
+  }
+  return [...slug].slice(0, 64).join("").replace(/-+$/, "");
+}
+
+/** The name Save offers for a list with this title. */
+export const titleFileName = (title: string) => `${fileSlug(title) || "list"}.kpin`;
+
+/**
  * Text in Markdown that cannot open a link, code, HTML or an escape: `\ ` [ ] ( ) < >` get a
  * backslash.
  */
