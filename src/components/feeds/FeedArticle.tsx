@@ -12,6 +12,7 @@ import { Hint } from "../ui/Hint";
 import { AaButton } from "../reader/AaPanel";
 import { ArticleView, failureText } from "../reader/ArticleView";
 import { FeedIcon } from "./FeedIcon";
+import { usePicture } from "../../hooks/usePicture";
 
 export interface AaProps {
   choice: ReaderChoice;
@@ -175,6 +176,9 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
   // counts and reader settings can rerender this post without changing its text.
   const opensWithPicture = useMemo(() => !cached || startsWithPicture(cached.html), [cached]);
   const leadPicture = page || opensWithPicture ? null : picture;
+  // The lead is the post's thumbnail at full size: from the web while online,
+  // the local copy of the thumbnail when the web does not answer (NP-146).
+  const leadImage = usePicture("post-thumb", item.id, leadPicture, { webFirst: true });
   const caption = useMemo(() => (leadPicture && post ? captionOf(item.excerpt, post.html) : null), [leadPicture, post, item.excerpt]);
 
   if (failure)
@@ -201,9 +205,9 @@ function Post({ item, feed, onOpen, onFeed }: { item: FeedItem; feed: Feed | und
         .join(" · ")}
     </p>
   );
-  const lead = leadPicture ? (
+  const lead = leadImage.src ? (
     <figure className="feed-lead">
-      <img src={leadPicture} alt="" referrerPolicy="no-referrer" className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
+      <img src={leadImage.src} alt="" referrerPolicy="no-referrer" onError={leadImage.onError} className="aspect-[680/382] w-full rounded-2xl bg-well object-cover" />
       {caption && <figcaption className="feed-caption">{caption}</figcaption>}
     </figure>
   ) : null;
