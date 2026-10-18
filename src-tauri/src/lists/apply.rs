@@ -30,8 +30,9 @@ pub struct Applied {
     pub named: Vec<(String, String)>,
 }
 
-/// Writes the list. `progress(done, total)` is called every 100 entries
-/// and at the end; entries are the links, then the feeds.
+/// Writes the list. `progress(done, total)` is called every 100 links and
+/// at the last one: the dialog says «N of M links», as the bookmarks import
+/// does; the feeds after them are few and quick.
 pub fn apply(
     conn: &Connection,
     list: &ParsedList,
@@ -63,7 +64,7 @@ pub fn apply(
     let triaged_at = (!options.to_inbox).then(|| now.clone());
     let follow: HashSet<String> =
         options.follow_feeds.iter().filter_map(|u| Url::parse(u.trim()).ok()).map(|u| u.to_string()).collect();
-    let total = list.links.len() + list.feeds.len();
+    let total = list.links.len();
     let mut done = 0;
     let mut step = |done: usize| {
         if done % 100 == 0 || done == total {
@@ -143,8 +144,6 @@ pub fn apply(
             }
             report.feeds_followed += 1;
         }
-        done += 1;
-        step(done);
     }
     tx.commit()?;
     Ok(applied)
@@ -191,7 +190,7 @@ mod tests {
         let applied = apply(&c, &list, &options(new_collection("Rust blogs worth following")), |d, t| calls.push((d, t))).unwrap();
         let r = &applied.report;
         assert_eq!((r.added, r.already_saved, r.in_trash, r.repeated, r.feeds_followed, r.feeds_already), (3, 0, 0, 0, 2, 0));
-        assert_eq!(calls, [(5, 5)]);
+        assert_eq!(calls, [(3, 3)]);
         assert_eq!(applied.created.len(), 3);
         let collection = r.collection_id.unwrap();
         let (source, name, collection_id, triaged, description, key): (String, String, i64, Option<String>, Option<String>, String) = c
@@ -415,8 +414,8 @@ mod tests {
         let took = started.elapsed();
         println!("a list of 5 000 items: {took:?}");
         assert_eq!((r.added, r.feeds_followed), (4_500, 500));
-        assert_eq!(calls.len(), 50);
-        assert_eq!(calls.last(), Some(&(5_000, 5_000)));
+        assert_eq!(calls.len(), 45);
+        assert_eq!(calls.last(), Some(&(4_500, 4_500)));
         // About 1.6 s alone in a debug build on an M-series Mac, about 30 s
         // while the whole suite runs beside it (the bookmarks import's 10 000
         // take as long then): the bound only catches a quadratic slip.

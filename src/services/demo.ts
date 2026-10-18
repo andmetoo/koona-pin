@@ -686,7 +686,7 @@ function demoUrlKey(href: string) {
  * links with a host, a repeated address (by a rough `url_key`) merged into the first with its
  * tags, unknown item types counted. The desktop app's reader is the one that counts.
  */
-function demoList(text: string): DemoList | Exclude<ListCheck, { outcome: "ready" }> {
+export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome: "ready" }> {
   if (new TextEncoder().encode(text).length > 2 * 1024 * 1024) return { outcome: "too_big" };
   let raw: Record<string, unknown>;
   try {
@@ -1961,7 +1961,7 @@ export const demo = {
     await new Promise((resolve) => setTimeout(resolve, 300));
     return { outcome: "unreachable" };
   },
-  async cancelListDownload(): Promise<void> {},
+  async cancelListDownload(_ticket: number): Promise<void> {},
   /** The preview has no second copy of the app to bring forward. */
   async setListOpen(open: boolean): Promise<void> {
     void open;

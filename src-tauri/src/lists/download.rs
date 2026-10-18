@@ -13,6 +13,7 @@ use crate::net_guard;
 use crate::open_requests;
 use reqwest::{header, redirect};
 use serde::Serialize;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
@@ -220,17 +221,26 @@ pub struct ListDownloadProgress {
     pub total: Option<u32>,
 }
 
-/// The download in progress, for Cancel. One dialog downloads at a time.
-static CANCEL: Mutex<Option<Arc<Notify>>> = Mutex::new(None);
+/// The download in progress with its ticket, for Cancel. One dialog downloads at a time.
+static CANCEL: Mutex<Option<(u32, Arc<Notify>)>> = Mutex::new(None);
+
+/// The highest ticket cancelled so far. Tickets only grow (the interface counts
+/// them for the whole session), so a Cancel that reaches Rust before its
+/// download has started is not lost: the download sees it and stops at once.
+static CANCELLED: AtomicU32 = AtomicU32::new(0);
 
 /// Holds the download's place in [`CANCEL`] and gives it up on every way
 /// out, unless a newer download took it meanwhile.
 struct CancelSlot(Arc<Notify>);
 
 impl CancelSlot {
-    fn take() -> Self {
+    fn take(ticket: u32) -> Self {
         let cancel = Arc::new(Notify::new());
-        *CANCEL.lock().unwrap_or_else(|e| e.into_inner()) = Some(cancel.clone());
+        *CANCEL.lock().unwrap_or_else(|e| e.into_inner()) = Some((ticket, cancel.clone()));
+        // Cancelled before it got here: the permit makes the download stop at its first await.
+        if ticket != 0 && CANCELLED.load(Ordering::SeqCst) >= ticket {
+            cancel.notify_one();
+        }
         CancelSlot(cancel)
     }
 }
@@ -238,7 +248,7 @@ impl CancelSlot {
 impl Drop for CancelSlot {
     fn drop(&mut self) {
         let mut current = CANCEL.lock().unwrap_or_else(|e| e.into_inner());
-        if current.as_ref().is_some_and(|c| Arc::ptr_eq(c, &self.0)) {
+        if current.as_ref().is_some_and(|(_, c)| Arc::ptr_eq(c, &self.0)) {
             *current = None;
         }
     }
@@ -265,7 +275,7 @@ pub async fn fetch_list(url: &str, limits: &DownloadLimits, cancel: &Notify, pro
 /// **Download** in the dialog (K3, state 1 → 2).
 #[tauri::command]
 pub async fn download_list(app: AppHandle, url: String, ticket: u32) -> ListDownload {
-    let slot = CancelSlot::take();
+    let slot = CancelSlot::take(ticket);
     let mut shown = Instant::now() - Duration::from_secs(1);
     let progress = |received: usize, total: Option<usize>| {
         if shown.elapsed() >= Duration::from_millis(100) || total == Some(received) {
@@ -278,11 +288,16 @@ pub async fn download_list(app: AppHandle, url: String, ticket: u32) -> ListDown
 }
 
 /// **Cancel** while a list downloads, or a dialog that goes while one runs:
-/// nothing more is read, and nothing was kept.
+/// nothing more is read, and nothing was kept. `ticket` is the download's; one
+/// that has not started yet stops as soon as it does.
 #[tauri::command]
-pub fn cancel_list_download() {
-    if let Some(cancel) = CANCEL.lock().unwrap_or_else(|e| e.into_inner()).take() {
-        cancel.notify_one();
+pub fn cancel_list_download(ticket: u32) {
+    CANCELLED.fetch_max(ticket, Ordering::SeqCst);
+    let mut current = CANCEL.lock().unwrap_or_else(|e| e.into_inner());
+    if current.as_ref().is_some_and(|(mine, _)| *mine <= ticket) {
+        if let Some((_, cancel)) = current.take() {
+            cancel.notify_one();
+        }
     }
 }
 
@@ -525,12 +540,12 @@ mod tests {
                 });
             }
         });
-        let slot = CancelSlot::take();
+        let slot = CancelSlot::take(1_000);
         let notify = slot.0.clone();
         let mut received = 0;
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(300)).await;
-            cancel_list_download();
+            cancel_list_download(1_000);
         });
         let started = Instant::now();
         let outcome = fetch_list(&format!("http://127.0.0.1:{port}/"), &TEST, &notify, |n, _| received = n).await;
@@ -540,12 +555,24 @@ mod tests {
         drop(slot);
         assert!(CANCEL.lock().unwrap().is_none());
         // A slot gives up its place on any way out, but not a newer download's.
-        let first = CancelSlot::take();
-        let second = CancelSlot::take();
+        let first = CancelSlot::take(1_001);
+        let second = CancelSlot::take(1_002);
         drop(first);
-        assert!(CANCEL.lock().unwrap().as_ref().is_some_and(|c| Arc::ptr_eq(c, &second.0)));
+        assert!(CANCEL.lock().unwrap().as_ref().is_some_and(|(_, c)| Arc::ptr_eq(c, &second.0)));
         drop(second);
         assert!(CANCEL.lock().unwrap().is_none());
+        // A Cancel that arrives before its download started is kept: the download stops at once,
+        // while a later ticket is not touched.
+        cancel_list_download(1_003);
+        let early = CancelSlot::take(1_003);
+        let started = Instant::now();
+        let outcome = fetch_list(&format!("http://127.0.0.1:{port}/"), &TEST, &early.0, |_, _| {}).await;
+        assert_eq!(outcome, ListDownload::Cancelled);
+        assert!(started.elapsed() < Duration::from_millis(200), "{:?}", started.elapsed());
+        drop(early);
+        let later = CancelSlot::take(1_004);
+        assert!(CANCEL.lock().unwrap().as_ref().is_some_and(|(t, _)| *t == 1_004));
+        drop(later);
     }
 
     #[tokio::test]

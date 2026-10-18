@@ -10,7 +10,8 @@ describe("files dropped on the window", () => {
     expect(fileKindOf("rust-blogs.kpin")).toBe("kpin");
     expect(fileKindOf("Rust Blogs.KPIN ")).toBe("kpin");
     expect(fileKindOf("feeds.opml")).toBe("opml");
-    expect(fileKindOf("feedly.xml")).toBe("opml");
+    expect(fileKindOf("feedly.opml")).toBe("opml");
+    expect(fileKindOf("feed.xml")).toBeNull();
     expect(fileKindOf("bookmarks_10_18_26.html")).toBe("html");
     expect(fileKindOf("Bookmarks.HTM")).toBe("html");
     expect(fileKindOf("notes.txt")).toBeNull();

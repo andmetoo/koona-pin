@@ -83,7 +83,9 @@ describe("the list dialog's choices", () => {
     expect(nothingNew(preview({ new_links: 0 }))).toBe(false);
     // Saved links could still get the list's tags.
     expect(nothingNew(preview({ new_links: 0, new_feeds: [] }))).toBe(false);
-    expect(nothingNew(preview({ new_links: 0, new_feeds: [], already_saved: 0 }))).toBe(true);
+    expect(nothingNew(preview({ new_links: 0, new_feeds: [], already_saved: 0, in_trash: 0 }))).toBe(true);
+    // Links waiting in the Trash are not «here already»: the preview says where they are.
+    expect(nothingNew(preview({ new_links: 0, new_feeds: [], already_saved: 0, in_trash: 2 }))).toBe(false);
     const p = preview();
     const choices = defaultChoices(p);
     expect(footerAction(p, choices)).toEqual({ kind: "import", links: 2, feeds: 2 });

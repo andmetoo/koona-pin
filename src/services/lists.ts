@@ -41,7 +41,8 @@ export const importCounts = (preview: ListPreview, choices: ListChoices) => ({ l
  * Nothing in the list can change the library: no new link or feed, and no saved link that could
  * get the list's tags. «Nothing new in this list» (K3).
  */
-export const nothingNew = (preview: ListPreview) => preview.new_links === 0 && preview.new_feeds.length === 0 && preview.already_saved === 0;
+export const nothingNew = (preview: ListPreview) =>
+  preview.new_links === 0 && preview.new_feeds.length === 0 && preview.already_saved === 0 && preview.in_trash === 0;
 
 /** The footer's main button: import what is new, only tag the links already saved, or close. */
 export type FooterAction = { kind: "import"; links: number; feeds: number } | { kind: "tags"; links: number } | { kind: "close" };

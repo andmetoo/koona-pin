@@ -27,7 +27,8 @@ export const MAX_FILE = 2 * 1024 * 1024;
 export function fileKindOf(name: string): FileKind | null {
   const ext = /\.([^./\\]+)$/.exec(name.trim())?.[1]?.toLowerCase();
   if (ext === "kpin") return "kpin";
-  if (ext === "opml" || ext === "xml") return "opml";
+  // Not every `.xml`: a feed, a sitemap or any other XML is not a subscriptions list.
+  if (ext === "opml") return "opml";
   if (ext === "html" || ext === "htm") return "html";
   return null;
 }

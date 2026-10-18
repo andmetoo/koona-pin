@@ -50,6 +50,14 @@ const STATES = ["reading", "ask", "downloading", "failed", "newer", "otherApp", 
 const FEEDS_SHOWN = 4;
 
 /**
+ * Download tickets: they only grow, also across a reload of the page (they start from the clock's
+ * seconds), so Rust can tell a Cancel that came before its download started (download.rs) from one
+ * of an earlier dialog.
+ */
+let lastTicket = Math.floor(Date.now() / 1000);
+const nextTicket = () => ++lastTicket;
+
+/**
  * The list dialog (NP-138, frames K1a, K1b and K3): every `.kpin` request ends here. A link first
  * asks and only then downloads; the preview writes nothing; the import is one transaction with
  * progress; the report or a refusal closes it. One dialog, 600 px wide and one height, 640 px or
@@ -125,7 +133,7 @@ export function ListImportDialog({
   const download = () => {
     if (!url || inFlight.current) return;
     inFlight.current = true;
-    const mine = ++ticket.current;
+    const mine = (ticket.current = nextTicket());
     setPhase({ state: "downloading", received: 0, total: null });
     const off = api.onListDownloadProgress(
       (p) =>
@@ -165,7 +173,7 @@ export function ListImportDialog({
   downloading.current = phase.state === "downloading";
   useEffect(
     () => () => {
-      if (downloading.current) void api.cancelListDownload().catch(console.error);
+      if (downloading.current) void api.cancelListDownload(ticket.current).catch(console.error);
       onBusyRef.current(false);
     },
     [],
@@ -175,14 +183,14 @@ export function ListImportDialog({
   const close = () => {
     if (phase.state === "downloading") {
       downloading.current = false;
-      void api.cancelListDownload().catch(console.error);
+      void api.cancelListDownload(ticket.current).catch(console.error);
     }
     onClose();
   };
   const start = async () => {
     if (!list || !choices || inFlight.current) return;
     inFlight.current = true;
-    setPhase({ state: "importing", done: 0, total: list.preview.new_links });
+    setPhase({ state: "importing", done: 0, total: list.preview.links });
     try {
       const report = await api.importList(list.text, importOptions(list.preview, choices));
       await onImported().catch(console.error);

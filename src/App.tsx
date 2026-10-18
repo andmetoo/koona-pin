@@ -487,15 +487,16 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [fresh]);
   // The first close without a tray explains that the app keeps running (NP-096).
-  // A list dialog that downloads or imports holds it until it is done; an idle one is closed.
-  const [backgroundWaits, setBackgroundWaits] = useState(false);
-  useEffect(() => api.onCloseToBackground(() => setBackgroundWaits(true)), []);
+  // A list dialog that downloads or imports holds it until the person closes the dialog, so the
+  // result is seen; an idle one is closed.
+  const [backgroundWaits, setBackgroundWaits] = useState<"now" | "list" | null>(null);
+  useEffect(() => api.onCloseToBackground(() => setBackgroundWaits(openRequests.busy() ? "list" : "now")), []);
   useEffect(() => {
-    if (!backgroundWaits || list.busy) return;
-    setBackgroundWaits(false);
+    if (!backgroundWaits || (backgroundWaits === "list" && list.request)) return;
+    setBackgroundWaits(null);
     openRequests.done();
     setSurface("background");
-  }, [backgroundWaits, list.busy]);
+  }, [backgroundWaits, list.request]);
   useEffect(() => {
     const off = api.onUpdateStatus(setUpdate);
     void api.getUpdateStatus().then(setUpdate).catch(() => {});

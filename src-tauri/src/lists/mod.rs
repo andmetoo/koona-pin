@@ -314,22 +314,11 @@ async fn feeds_followed(
             eprintln!("The names of a list's feeds were not kept: {}", error.message);
         }
     }
-    let list = blocking(state, |conn| Ok(feeds::feeds(conn)?)).await?;
-    let list = match &feed_cache {
-        Some(feed_cache) => {
-            let mut merged = list.clone();
-            match cache::blocking(feed_cache, move |conn| {
-                cache::merge_state(conn, &mut merged, chrono::Utc::now())?;
-                Ok(merged)
-            })
-            .await
-            {
-                Ok(merged) => merged,
-                // As the library has them: the cache adds only counts and health.
-                Err(_) => list,
-            }
-        }
-        None => list,
+    // Every subscription as `list_feeds` answers; if the cache can't add its counts and health,
+    // as the library has them.
+    let list = match feeds::all_feeds(app, state).await {
+        Ok(list) => list,
+        Err(_) => blocking(state, |conn| Ok(feeds::feeds(conn)?)).await?,
     };
     feeds::emit_changed(app, list);
     Ok(())
