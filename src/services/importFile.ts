@@ -23,6 +23,80 @@ export const LARGEST = Math.max(...Object.values(CAPS));
 const LIST_FORMAT = "koona";
 const COPY_FORMAT = "koona-pin";
 
+/** How much of a JSON file is scanned for its top-level `format`. */
+const HEAD = 64 * 1024;
+
+/** Past the closing quote of the JSON string that opens at `from`; -1 when it does not close in `text`. */
+function stringEnd(text: string, from: number) {
+  for (let i = from + 1; i < text.length; i++) {
+    if (text[i] === "\\") i++;
+    else if (text[i] === '"') return i + 1;
+  }
+  return -1;
+}
+
+/** The first index from `at` that is not JSON white space. */
+const skipSpace = (text: string, at: number) => {
+  while (at < text.length && " \t\n\r".includes(text[at])) at++;
+  return at;
+};
+
+/**
+ * The top-level `format` of a JSON object, read from its head without parsing the rest (a full
+ * copy may weigh 256 MB): its string value; `null` when the object has none, or not a string; or
+ * `undefined` when the head does not tell. Only the shape is followed and nested values are
+ * skipped: Rust validates the whole file afterwards (format.rs, restore.rs), so a broken tail is
+ * refused there.
+ */
+export function topLevelFormat(json: string): string | null | undefined {
+  const text = json.slice(0, HEAD);
+  let depth = 0;
+  let keyNext = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      const end = stringEnd(text, i);
+      if (end < 0) return undefined;
+      if (depth !== 1 || !keyNext) {
+        i = end - 1;
+        continue;
+      }
+      keyNext = false;
+      let key: unknown;
+      try {
+        key = JSON.parse(text.slice(i, end));
+      } catch {
+        return null;
+      }
+      let at = skipSpace(text, end);
+      if (at >= text.length) return undefined;
+      if (text[at] !== ":") return null;
+      at = skipSpace(text, at + 1);
+      if (key === "format") {
+        if (at >= text.length) return undefined;
+        if (text[at] !== '"') return null;
+        const close = stringEnd(text, at);
+        if (close < 0) return undefined;
+        try {
+          return JSON.parse(text.slice(at, close)) as string;
+        } catch {
+          return null;
+        }
+      }
+      i = at - 1;
+    } else if (c === "{" || c === "[") {
+      depth++;
+      if (depth === 1 && c === "[") return null;
+      if (depth === 1) keyNext = true;
+    } else if (c === "}" || c === "]") {
+      depth--;
+      // The object closed with no `format`.
+      if (depth <= 0) return null;
+    } else if (c === "," && depth === 1) keyNext = true;
+  }
+  return undefined;
+}
+
 /**
  * The kind of a file by its text:
  * 1. JSON (past a BOM and white space, `{` first): a list or a full copy by its top-level `format`;
@@ -31,13 +105,17 @@ const COPY_FORMAT = "koona-pin";
  * 3. A Netscape bookmarks file: its DOCTYPE or a `<dl>` in the first 64 KB.
  */
 export function sniff(text: string): ImportKind | null {
-  const start = text.replace(/^﻿/, "").trimStart();
+  const start = text.replace(/^\uFEFF/, "").trimStart();
   if (start.startsWith("{")) {
-    let format: unknown;
-    try {
-      format = (JSON.parse(start) as { format?: unknown } | null)?.format;
-    } catch {
-      return null;
+    let format = topLevelFormat(start);
+    // A `format` past the head (written by hand, not by Koona Pin): a file of a list's size is parsed whole.
+    if (format === undefined && start.length <= CAPS.kpin) {
+      try {
+        const value = (JSON.parse(start) as { format?: unknown } | null)?.format;
+        format = typeof value === "string" ? value : null;
+      } catch {
+        format = null;
+      }
     }
     return format === LIST_FORMAT ? "kpin" : format === COPY_FORMAT ? "backup" : null;
   }
