@@ -53,7 +53,19 @@
     "keys": "Rilascia su una raccolta, un tag o il cestino  ·  Esc — annulla il trascinamento",
     "bundle_one": "Aggiungi {{count, number}} segnalibro alla raccolta",
     "bundle_many": "Aggiungi {{count, number}} di segnalibri alla raccolta",
-    "bundle_other": "Aggiungi {{count, number}} segnalibri alla raccolta"
+    "bundle_other": "Aggiungi {{count, number}} segnalibri alla raccolta",
+    "toBundle": "Rilascia sulla raccolta",
+    "links_one": "{{count, number}} link",
+    "links_many": "{{count, number}} di link",
+    "links_other": "{{count, number}} link",
+    "feeds_one": "{{count, number}} feed",
+    "feeds_many": "{{count, number}} di feed",
+    "feeds_other": "{{count, number}} feed",
+    "bundleCollection": "Aggiungi la collezione «{{name}}»",
+    "bundleTag": "Aggiungi il tag «{{name}}»",
+    "bundleFeeds_one": "Aggiungi {{count, number}} feed",
+    "bundleFeeds_many": "Aggiungi {{count, number}} di feed",
+    "bundleFeeds_other": "Aggiungi {{count, number}} feed"
   },
   "nav": {
     "inbox": "In arrivo",

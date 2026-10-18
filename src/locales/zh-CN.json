@@ -47,7 +47,13 @@
     "reading": "将 {{count}} 个加入稍后读",
     "nowhere": "拖到合集、标签或回收站上",
     "keys": "在合集、标签或回收站上松开  ·  Esc — 取消拖动",
-    "bundle_other": "将 {{count, number}} 个书签加入合集"
+    "bundle_other": "将 {{count, number}} 个书签加入合集",
+    "toBundle": "放到合集上",
+    "links_other": "{{count, number}} 个链接",
+    "feeds_other": "{{count, number}} 个订阅源",
+    "bundleCollection": "添加收藏夹“{{name}}”",
+    "bundleTag": "添加标签“{{name}}”",
+    "bundleFeeds_other": "添加 {{count, number}} 个订阅源"
   },
   "nav": {
     "inbox": "收件箱",

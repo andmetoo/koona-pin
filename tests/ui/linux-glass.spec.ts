@@ -24,8 +24,29 @@ async function gridWithPoster(page: Page) {
   return poster;
 }
 
+/** The bundle's capsule with three bookmarks in it (share-bundle.md, S14). */
+async function capsule(page: Page) {
+  await openApp(page, { viewport: { width: 1200, height: 800 }, settings: { view: "grid" }, cards: 6 });
+  await page.evaluate(async () => {
+    const { api } = await import("/src/services/api.ts");
+    const { bundle } = await import("/src/services/bundle.ts");
+    bundle.addBookmarks((await api.getBookmarks()).items.slice(0, 3));
+  });
+  const capsule = page.locator("[data-bundle-capsule]");
+  await expect(capsule).toBeVisible();
+  return capsule;
+}
+
 test.describe("on Linux", () => {
   test.use({ userAgent: LINUX });
+
+  test("the bundle's capsule has no backdrop blur, a plain ring and no light sweep", async ({ page }) => {
+    const shell = (await capsule(page)).locator(".bundle-shell");
+    await expect(shell).toHaveCSS("backdrop-filter", "none");
+    await expect(shell.locator(".bundle-sweep")).toHaveCSS("display", "none");
+    // The glow near it is a plain 2 px ring, not a blur.
+    await expect(page.locator(".bundle-glow")).toHaveCSS("box-shadow", /0px 0px 0px 2px inset$/);
+  });
 
   test("grid cards draw no backdrop blur and no blurred halo", async ({ page }) => {
     const poster = await gridWithPoster(page);
@@ -53,6 +74,13 @@ test.describe("on Linux", () => {
 
 test.describe("elsewhere", () => {
   test.use({ userAgent: WINDOWS });
+
+  test("the bundle's capsule keeps its glass and its sweep", async ({ page }) => {
+    const shell = (await capsule(page)).locator(".bundle-shell");
+    await expect(shell).toHaveCSS("backdrop-filter", "blur(24px) saturate(1.7)");
+    await expect(shell.locator(".bundle-sweep")).toHaveCSS("display", "block");
+    await expect(page.locator(".bundle-glow")).toHaveCSS("box-shadow", /0px 0px 24px 6px$/);
+  });
 
   test("the grid keeps its glass", async ({ page }) => {
     const poster = await gridWithPoster(page);

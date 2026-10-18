@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { RowDragItem } from "../services/drag";
+import { bundleAt, outside, sidebarBox, sidebarDrag } from "./useRowDrag";
 
 /** A press becomes a move after this many pixels, as a drag of the selection does (NP-030). */
 const DRAG_START = 4;
@@ -13,6 +15,16 @@ export interface CollectionMove {
   from: number;
   /** The gap it would land in: 0 before the first, `count` after the last; none outside the list. */
   over: number | null;
+  /** Outside the sidebar: the ghost is the one-row stack, and the bundle is the target (piece C). */
+  outside: boolean;
+  /** Over the bundle: releasing adds the collection. */
+  bundle: boolean;
+}
+
+/** A collection taken out of the sidebar, to the bundle (share-bundle.md, piece C). */
+export interface ToBundle {
+  item: (from: number) => RowDragItem;
+  onDrop: (from: number, at: { x: number; y: number }) => void;
 }
 
 /** The click that follows the end of a move would open the collection it ended on. */
@@ -46,13 +58,19 @@ function gapAt(list: HTMLElement, x: number, y: number): number | null {
  * another gap calls `onMove(from, to)`, `to` being the place in the order;
  * releasing outside the list or in its own place, or `Esc`, changes nothing.
  * The click that ends a move is swallowed.
+ *
+ * Out of the sidebar the move becomes a drag to the bundle (share-bundle.md,
+ * piece C): the ghost turns into the one-row stack, the capsule comes, and a
+ * release over the bundle calls `toBundle.onDrop`. Back inside, it is a move.
  */
-export function useCollectionReorder(onMove: (from: number, to: number) => void) {
+export function useCollectionReorder(onMove: (from: number, to: number) => void, toBundle?: ToBundle) {
   const [move, setMove] = useState<CollectionMove | null>(null);
   const ghost = useRef<HTMLDivElement>(null);
   const pointer = useRef({ x: 0, y: 0 });
   const latest = useRef(onMove);
   latest.current = onMove;
+  const bundleRef = useRef(toBundle);
+  bundleRef.current = toBundle;
   const stop = useRef(() => {});
 
   const place = () => {
@@ -68,26 +86,49 @@ export function useCollectionReorder(onMove: (from: number, to: number) => void)
     pointer.current = origin;
     let moving = false;
     let over: number | null = null;
+    let away = false;
+    let onBundle = false;
+    /** The pointer has left the sidebar once: the capsule may come. */
+    let shown = false;
+    let item: RowDragItem | null = null;
     let animation = 0;
+    /** The pointer moved, or the sidebar scrolled under it, since the last frame. */
+    let dirty = false;
+    const aside = sidebarBox(list);
 
     const aim = () => {
-      const next = gapAt(list, pointer.current.x, pointer.current.y);
-      if (next === over) return;
+      const { x, y } = pointer.current;
+      const next = gapAt(list, x, y);
+      const out = !!bundleRef.current && outside(aside, x, y);
+      const hit = out && bundleAt(x, y);
+      if (out && !shown) {
+        shown = true;
+        item = bundleRef.current!.item(from);
+      }
+      if (item) sidebarDrag.set({ item, shown, over: hit });
+      if (next === over && out === away && hit === onBundle) return;
       over = next;
-      setMove((current) => current && { ...current, over: next });
+      away = out;
+      onBundle = hit;
+      setMove((current) => current && { ...current, over: next, outside: out, bundle: hit });
     };
-    const scroll = () => {
-      animation = requestAnimationFrame(scroll);
+    // Once a frame: the reads first (the gap, the target, the sidebar's box), then the writes
+    // (the scroll and the ghost). A scroll moves what is under the pointer: the next frame aims again.
+    const frame = () => {
+      animation = requestAnimationFrame(frame);
       const sidebar = list.closest<HTMLElement>("[data-drop-scroll]");
-      if (!sidebar) return;
-      const box = sidebar.getBoundingClientRect();
+      const box = sidebar?.getBoundingClientRect();
+      if (dirty) aim();
+      dirty = false;
+      place();
+      if (!sidebar || !box) return;
       const { y } = pointer.current;
       const below = y - (box.bottom - SCROLL_EDGE);
       const above = box.top + SCROLL_EDGE - y;
       const before = sidebar.scrollTop;
       if (below > 0) sidebar.scrollTop += Math.min(SCROLL_MAX, Math.ceil(below / 3));
       else if (above > 0) sidebar.scrollTop -= Math.min(SCROLL_MAX, Math.ceil(above / 3));
-      if (sidebar.scrollTop !== before) aim();
+      if (sidebar.scrollTop !== before) dirty = true;
     };
     const moved = (ev: PointerEvent) => {
       pointer.current = { x: ev.clientX, y: ev.clientY };
@@ -96,18 +137,20 @@ export function useCollectionReorder(onMove: (from: number, to: number) => void)
         moving = true;
         document.body.classList.add("select-none");
         window.getSelection()?.removeAllRanges();
-        setMove({ from, over: null });
-        animation = requestAnimationFrame(scroll);
+        setMove({ from, over: null, outside: false, bundle: false });
+        animation = requestAnimationFrame(frame);
       }
-      place();
-      aim();
+      dirty = true;
     };
-    const up = () => {
+    const up = (ev: PointerEvent) => {
       const was = moving;
-      const to = over;
+      // Where it is let go, even if the last frame has not caught up with the pointer.
+      const to = was ? gapAt(list, ev.clientX, ev.clientY) : null;
+      const dropped = was && !!bundleRef.current && outside(aside, ev.clientX, ev.clientY) && bundleAt(ev.clientX, ev.clientY);
       end();
       if (!was) return;
       swallowClick();
+      if (dropped) return bundleRef.current!.onDrop(from, { x: ev.clientX, y: ev.clientY });
       // The gaps on both sides of the row are its own place.
       if (to === null || to === from || to === from + 1) return;
       latest.current(from, to > from ? to - 1 : to);
@@ -129,7 +172,9 @@ export function useCollectionReorder(onMove: (from: number, to: number) => void)
       window.removeEventListener("keydown", key, { capture: true });
       window.removeEventListener("blur", end);
       if (moving) setMove(null);
+      if (item) sidebarDrag.set(null);
       moving = false;
+      item = null;
       stop.current = () => {};
     };
     stop.current = end;

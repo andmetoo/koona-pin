@@ -5,9 +5,11 @@ import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, Feed, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
 import { Offer, offer, percent } from "../../services/update";
 import { collectionColor } from "../../services/collections";
-import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
+import { DropTarget, dropAttribute, RowDragItem, sameDrop } from "../../services/drag";
 import { moveCollection } from "../../services/library";
 import { useCollectionReorder } from "../../hooks/useCollectionReorder";
+import { useRowDrag } from "../../hooks/useRowDrag";
+import { RowStack } from "../library/DragStack";
 import { statusColor, statusLabel } from "../../services/capture";
 import { shortcut } from "../../services/keys";
 import { savePreference, storedValue } from "../../services/preferences";
@@ -85,6 +87,11 @@ export interface SidebarProps {
   onFeed: (uid: string | null) => void;
   /** A feed's row menu: Rename, Where new posts go, Mark all read, Copy, Open site, Unfollow. */
   feedActions: FeedActions;
+  /**
+   * A collection, a tag chip, a feed row or All feeds dropped on the bundle (share-bundle.md,
+   * piece C), with where the pointer let go.
+   */
+  onAddToBundle: (item: RowDragItem, at: { x: number; y: number }) => void;
 }
 
 export interface NewCollectionField {
@@ -218,12 +225,23 @@ export function Sidebar(props: SidebarProps) {
     props.onReorderCollections(moveCollection(collections, from, to));
     setMoved(t("sidebar.collectionMoved", { name: collection.name, position: to + 1, count: collections.length }));
   };
-  const reorder = useCollectionReorder(moveTo);
+  // Out of the sidebar a moved collection goes to the bundle (share-bundle.md, piece C).
+  const reorder = useCollectionReorder(moveTo, {
+    item: (from) => ({ kind: "collection", collection: collections[from] }),
+    onDrop: (from, at) => props.onAddToBundle({ kind: "collection", collection: collections[from] }, at),
+  });
   const moving = reorder.move;
   const press = (index: number) => (e: PointerEvent) => {
     if (e.button !== 0 || dropping || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     reorder.start(e, index, list.current);
   };
+  // Tag chips, feed rows and All feeds: dragged, they go to the bundle only.
+  const rowDrag = useRowDrag(props.onAddToBundle);
+  const pressRow = (item: () => RowDragItem) => (e: PointerEvent) => {
+    if (e.button !== 0 || dropping || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    rowDrag.start(e, item());
+  };
+  const rowStack = rowDrag.drag && <RowStack item={rowDrag.drag.item} over={rowDrag.drag.over} stack={rowDrag.stack} place={rowDrag.place} />;
   const keys = (index: number, id: number) => (e: KeyboardEvent) => {
     if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
     e.preventDefault();
@@ -243,7 +261,14 @@ export function Sidebar(props: SidebarProps) {
           : null
       : null;
   const movedCollection = moving && collections[moving.from];
-  const ghost = movedCollection && (
+  const ghost = movedCollection && (moving.outside ? (
+    <RowStack
+      item={{ kind: "collection", collection: movedCollection }}
+      over={moving.bundle}
+      stack={reorder.ghost}
+      place={reorder.place}
+    />
+  ) : (
     <div
       ref={(element) => {
         reorder.ghost.current = element;
@@ -255,7 +280,7 @@ export function Sidebar(props: SidebarProps) {
       <Dot color={collectionColor(movedCollection.id)} />
       <span className="truncate">{movedCollection.name}</span>
     </div>
-  );
+  ));
   const announcement = (
     <span aria-live="polite" className="sr-only">
       {moved}
@@ -499,6 +524,7 @@ export function Sidebar(props: SidebarProps) {
                   label={t("feeds.all")}
                   active={feedsOpen && props.feedUid === null}
                   onClick={() => props.onFeed(null)}
+                  onPointerDown={pressRow(() => ({ kind: "feeds", label: t("feeds.all"), feeds }))}
                   trailing={<CountPill count={unread} current={feedsOpen && props.feedUid === null} />}
                 />
                 {feeds.map((feed) => {
@@ -517,6 +543,7 @@ export function Sidebar(props: SidebarProps) {
                         active={current}
                         plain
                         onClick={() => props.onFeed(feed.uid)}
+                        onPointerDown={pressRow(() => ({ kind: "feeds", label: feedName(feed), feeds: [feed] }))}
                         trailing={
                           <>
                             {problem && <span data-feed-problem role="img" aria-label={problem} className="size-1.5 shrink-0 rounded-full bg-amber" />}
@@ -628,6 +655,7 @@ export function Sidebar(props: SidebarProps) {
         ))}
         </div>
         {ghost}
+        {rowStack}
         {announcement}
         {dropping && <NewCollectionTarget hot={sameDrop(dropping.target, { kind: "new" })} />}
         {props.naming && <NameField key={props.naming.suggested} {...props.naming} />}
@@ -665,6 +693,7 @@ export function Sidebar(props: SidebarProps) {
                   aria-pressed={filters.tag === tag.name}
                   data-drop={target?.attr}
                   onClick={() => props.onTag(tag.name)}
+                  onPointerDown={pressRow(() => ({ kind: "tag", name: tag.name, count: tag.count ?? 0 }))}
                   className={`max-w-full truncate rounded-sm px-1.5 py-0.5 text-2xs transition-colors duration-150 ${look}`}
                 >
                   {tag.name}

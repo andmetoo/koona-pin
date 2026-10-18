@@ -56,7 +56,22 @@
     "bundle_one": "Добавить {{count, number}} закладку в набор",
     "bundle_few": "Добавить {{count, number}} закладки в набор",
     "bundle_many": "Добавить {{count, number}} закладок в набор",
-    "bundle_other": "Добавить {{count, number}} закладки в набор"
+    "bundle_other": "Добавить {{count, number}} закладки в набор",
+    "toBundle": "Отпустите над набором",
+    "links_one": "{{count, number}} ссылка",
+    "links_few": "{{count, number}} ссылки",
+    "links_many": "{{count, number}} ссылок",
+    "links_other": "{{count, number}} ссылки",
+    "feeds_one": "{{count, number}} лента",
+    "feeds_few": "{{count, number}} ленты",
+    "feeds_many": "{{count, number}} лент",
+    "feeds_other": "{{count, number}} ленты",
+    "bundleCollection": "Добавить коллекцию «{{name}}»",
+    "bundleTag": "Добавить тег «{{name}}»",
+    "bundleFeeds_one": "Добавить {{count, number}} ленту",
+    "bundleFeeds_few": "Добавить {{count, number}} ленты",
+    "bundleFeeds_many": "Добавить {{count, number}} лент",
+    "bundleFeeds_other": "Добавить {{count, number}} ленты"
   },
   "nav": {
     "inbox": "Входящие",

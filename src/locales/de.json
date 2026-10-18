@@ -50,7 +50,16 @@
     "nowhere": "Auf einer Sammlung, einem Tag oder dem Papierkorb ablegen",
     "keys": "Über einer Sammlung, einem Tag oder dem Papierkorb loslassen  ·  Esc — Ziehen abbrechen",
     "bundle_one": "{{count, number}} Lesezeichen zum Bündel",
-    "bundle_other": "{{count, number}} Lesezeichen zum Bündel"
+    "bundle_other": "{{count, number}} Lesezeichen zum Bündel",
+    "toBundle": "Auf dem Bündel ablegen",
+    "links_one": "{{count, number}} Link",
+    "links_other": "{{count, number}} Links",
+    "feeds_one": "{{count, number}} Feed",
+    "feeds_other": "{{count, number}} Feeds",
+    "bundleCollection": "Sammlung „{{name}}“ hinzufügen",
+    "bundleTag": "Tag „{{name}}“ hinzufügen",
+    "bundleFeeds_one": "{{count, number}} Feed hinzufügen",
+    "bundleFeeds_other": "{{count, number}} Feeds hinzufügen"
   },
   "nav": {
     "inbox": "Eingang",

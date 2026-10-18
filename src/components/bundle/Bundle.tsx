@@ -4,7 +4,9 @@ import type { BookmarkChange, Collection } from "../../types";
 import { api } from "../../services/api";
 import { bundle, BundleView, entryKey, itemCount, sectionKey, viewLabel } from "../../services/bundle";
 import { addedText, addView, pruneBundle, useBundle } from "./actions";
-import { Capsule } from "./Capsule";
+import { rowDropLabel } from "../../services/drag";
+import { useSidebarDrag } from "../../hooks/useRowDrag";
+import { Capsule, Landing, landingMs, onLanding } from "./Capsule";
 import { Panel } from "./Panel";
 
 /** The capsule's height and its gap to the window's edges (K6b). */
@@ -62,6 +64,29 @@ export function Bundle({
 }) {
   const { t } = useTranslation();
   const state = useBundle();
+  // A collection, a tag, a feed or All feeds dragged out of the sidebar (piece C).
+  const sidebar = useSidebarDrag();
+  // A drop that added something: the capsule plays it, and stays on screen until it has, even when
+  // hidden by × or when the add came in after the drag had ended.
+  const [lastLanding, setLastLanding] = useState<Landing | null>(null);
+  const [landing, setLanding] = useState(false);
+  useEffect(() => {
+    let timer = 0;
+    const stop = onLanding((next) => {
+      setLastLanding(next);
+      setLanding(true);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        setLanding(false);
+        // Played: a capsule that comes back later does not play it again.
+        setLastLanding(null);
+      }, landingMs(next.added));
+    });
+    return () => {
+      stop();
+      window.clearTimeout(timer);
+    };
+  }, []);
   const panelId = useId();
   const capsule = useRef<HTMLButtonElement>(null);
   // The main area's height: the panel fits between its toolbar and the capsule.
@@ -177,9 +202,12 @@ export function Bundle({
 
   const probeElement = <span ref={probe} hidden />;
   if (blocked) return probeElement;
-  // At rest it shows while it holds something and was not hidden; any drag of the selection brings it.
-  const shown = (count > 0 && !state.hidden) || !!drag;
-  const over = !!drag?.over;
+  // At rest it shows while it holds something and was not hidden; any drag brings it, a drag from the
+  // sidebar once the pointer has left the sidebar (S13). A landing keeps it until it has played.
+  const dragging = !!drag || !!sidebar?.shown;
+  const shown = (count > 0 && !state.hidden) || dragging || landing;
+  const overLabel = drag?.over ? t("drag.bundle", { count: drag.count }) : sidebar?.shown && sidebar.over ? rowDropLabel(t, sidebar.item) : null;
+  const over = !!overLabel;
   return (
     <>
       {probeElement}
@@ -189,10 +217,11 @@ export function Bundle({
           count={count}
           entries={state.sections.flatMap((s) => s.entries).slice(0, 3)}
           bottom={capsuleBottom}
-          dragging={!!drag}
-          over={over ? t("drag.bundle", { count: drag!.count }) : null}
+          dragging={dragging}
+          over={overLabel}
           expanded={open}
           panelId={panelId}
+          landing={lastLanding}
           onClick={() => (open ? close() : openBundle(null))}
           onHide={() => {
             bundle.setHidden(true);
@@ -206,7 +235,7 @@ export function Bundle({
           state={state}
           bottom={panelBottom}
           height={panelHeight}
-          dragging={!!drag}
+          dragging={dragging}
           over={over}
           add={add}
           onClose={close}

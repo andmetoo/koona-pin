@@ -57,8 +57,10 @@ import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { FeedsPage } from "./components/feeds/FeedsPage";
 import { Bundle, openBundle } from "./components/bundle/Bundle";
-import { addedText, bookmarksByIds } from "./components/bundle/actions";
-import { bundle, bundleView, itemCount } from "./services/bundle";
+import { landInBundle } from "./components/bundle/Capsule";
+import { addedText, addView, bookmarksByIds } from "./components/bundle/actions";
+import { RowDragItem } from "./services/drag";
+import { Added, bundle, bundleView, itemCount } from "./services/bundle";
 import { useFeeds } from "./components/feeds/useFeeds";
 import { useFeedActions } from "./components/feeds/FeedMenu";
 import { feedNotifications } from "./services/feedNotifications";
@@ -858,11 +860,7 @@ export function App() {
     favorite: (favorite) => runBulk({ action: "favorite", favorite }),
     reading: (reading) => runBulk({ action: "reading", reading }),
     export: (format) => exportLibrary(format, [...selection.ids]),
-    addToBundle: () =>
-      void bookmarksByIds(selection.ids, library.bookmarks).then(
-        (picked) => setAnnouncement(addedText(t, bundle.addBookmarks(picked))),
-        (err) => say(describeError(err), true),
-      ),
+    addToBundle: () => addSelectionToBundle(null),
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
     deleteForever: () => setPurging({ selected: [...selection.ids] }),
@@ -881,16 +879,40 @@ export function App() {
   const selectionActionsRef = useRef(selectionActions);
   selectionActionsRef.current = selectionActions;
   /** The selection dropped on the sidebar (NP-030): the bar's action, one command of the journal. */
-  const selectionDrag = useSelectionDrag((target) => {
+  const selectionDrag = useSelectionDrag((target, at) => {
     const run = selectionActionsRef.current;
     if (target.kind === "collection") run.move(target.id);
     else if (target.kind === "tag") run.tag(target.name);
     else if (target.kind === "trash") run.trash();
     else if (target.kind === "favorites") run.favorite(true);
     else if (target.kind === "reading") run.reading(true);
-    else if (target.kind === "bundle") run.addToBundle();
+    else if (target.kind === "bundle") addSelectionToBundle(at);
     else run.newCollection();
   });
+  /**
+   * What an add by drag says, and the capsule's landing at `at` (share-bundle.md, piece C) once it
+   * is known that something came in.
+   */
+  const bundleAdded = (added: Added, at: { x: number; y: number } | null) => {
+    setAnnouncement(addedText(t, added));
+    if (at && added.kind !== "already") landInBundle(at, added.added);
+  };
+  const addSelectionToBundle = (at: { x: number; y: number } | null) =>
+    void bookmarksByIds(selection.ids, library.bookmarks).then(
+      (picked) => bundleAdded(bundle.addBookmarks(picked), at),
+      (err) => say(describeError(err), true),
+    );
+  /** A collection, a tag chip, a feed row or All feeds dropped on the bundle. */
+  const addRowToBundle = (item: RowDragItem, at: { x: number; y: number }) => {
+    const added =
+      item.kind === "feeds"
+        ? Promise.resolve(bundle.addFeeds(item.feeds))
+        : addView(item.kind === "collection" ? { kind: "collection", collection: item.collection } : { kind: "tag", name: item.name });
+    void added.then(
+      (result) => bundleAdded(result, at),
+      (err) => say(describeError(err), true),
+    );
+  };
   const dragging = selectionDrag.drag;
   const startDrag = (e: PointerEvent, id: number) => {
     const bookmark = library.bookmarks.find((b) => b.id === id);
@@ -1670,6 +1692,7 @@ export function App() {
             : null
         }
         dropping={dragging && { target: dragging.target }}
+        onAddToBundle={addRowToBundle}
         notifications={notifications}
         onClearNotifications={clearNotifications}
         feeds={feeds}

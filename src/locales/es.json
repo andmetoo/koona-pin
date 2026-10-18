@@ -53,7 +53,19 @@
     "keys": "Suelta sobre una colección, una etiqueta o la papelera  ·  Esc — cancelar el arrastre",
     "bundle_one": "Añadir {{count, number}} marcador al paquete",
     "bundle_many": "Añadir {{count, number}} de marcadores al paquete",
-    "bundle_other": "Añadir {{count, number}} marcadores al paquete"
+    "bundle_other": "Añadir {{count, number}} marcadores al paquete",
+    "toBundle": "Suelta en el paquete",
+    "links_one": "{{count, number}} enlace",
+    "links_many": "{{count, number}} de enlaces",
+    "links_other": "{{count, number}} enlaces",
+    "feeds_one": "{{count, number}} fuente",
+    "feeds_many": "{{count, number}} de fuentes",
+    "feeds_other": "{{count, number}} fuentes",
+    "bundleCollection": "Añadir la colección «{{name}}»",
+    "bundleTag": "Añadir la etiqueta «{{name}}»",
+    "bundleFeeds_one": "Añadir {{count, number}} fuente",
+    "bundleFeeds_many": "Añadir {{count, number}} de fuentes",
+    "bundleFeeds_other": "Añadir {{count, number}} fuentes"
   },
   "nav": {
     "inbox": "Bandeja de entrada",

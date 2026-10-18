@@ -56,7 +56,22 @@
     "bundle_one": "Dodaj {{count, number}} zakładkę do zestawu",
     "bundle_few": "Dodaj {{count, number}} zakładki do zestawu",
     "bundle_many": "Dodaj {{count, number}} zakładek do zestawu",
-    "bundle_other": "Dodaj {{count, number}} zakładki do zestawu"
+    "bundle_other": "Dodaj {{count, number}} zakładki do zestawu",
+    "toBundle": "Upuść na zestawie",
+    "links_one": "{{count, number}} link",
+    "links_few": "{{count, number}} linki",
+    "links_many": "{{count, number}} linków",
+    "links_other": "{{count, number}} linku",
+    "feeds_one": "{{count, number}} kanał",
+    "feeds_few": "{{count, number}} kanały",
+    "feeds_many": "{{count, number}} kanałów",
+    "feeds_other": "{{count, number}} kanału",
+    "bundleCollection": "Dodaj kolekcję „{{name}}”",
+    "bundleTag": "Dodaj tag „{{name}}”",
+    "bundleFeeds_one": "Dodaj {{count, number}} kanał",
+    "bundleFeeds_few": "Dodaj {{count, number}} kanały",
+    "bundleFeeds_many": "Dodaj {{count, number}} kanałów",
+    "bundleFeeds_other": "Dodaj {{count, number}} kanału"
   },
   "nav": {
     "inbox": "Skrzynka odbiorcza",

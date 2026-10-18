@@ -47,7 +47,13 @@
     "reading": "{{count}} 件をあとで読むに追加",
     "nowhere": "コレクション、タグ、ゴミ箱のいずれかにドロップ",
     "keys": "コレクション、タグ、ゴミ箱の上で離す  ·  Esc — ドラッグをキャンセル",
-    "bundle_other": "{{count, number}} 件をバンドルに追加"
+    "bundle_other": "{{count, number}} 件をバンドルに追加",
+    "toBundle": "バンドルの上で離す",
+    "links_other": "{{count, number}} 件のリンク",
+    "feeds_other": "{{count, number}} 件のフィード",
+    "bundleCollection": "コレクション「{{name}}」を追加",
+    "bundleTag": "タグ「{{name}}」を追加",
+    "bundleFeeds_other": "{{count, number}} 件のフィードを追加"
   },
   "nav": {
     "inbox": "インボックス",

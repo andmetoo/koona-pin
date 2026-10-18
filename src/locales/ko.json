@@ -47,7 +47,13 @@
     "reading": "{{count}}개를 읽을거리에 추가",
     "nowhere": "컬렉션, 태그 또는 휴지통 위에 놓으세요",
     "keys": "컬렉션, 태그 또는 휴지통 위에서 놓기  ·  Esc — 끌기 취소",
-    "bundle_other": "북마크 {{count, number}}개를 번들에 추가"
+    "bundle_other": "북마크 {{count, number}}개를 번들에 추가",
+    "toBundle": "번들 위에 놓기",
+    "links_other": "링크 {{count, number}}개",
+    "feeds_other": "피드 {{count, number}}개",
+    "bundleCollection": "컬렉션 “{{name}}” 추가",
+    "bundleTag": "태그 “{{name}}” 추가",
+    "bundleFeeds_other": "피드 {{count, number}}개 추가"
   },
   "nav": {
     "inbox": "받은함",

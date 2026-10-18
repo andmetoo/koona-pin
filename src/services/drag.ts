@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { Collection } from "../types";
+import { Collection, Feed } from "../types";
 import { short } from "./undo";
 
 /**
@@ -70,4 +70,30 @@ export function dropHint(t: TFunction, target: DropTarget | null, count: number,
     case "bundle":
       return t("drag.bundle", { count });
   }
+}
+
+/**
+ * A sidebar row dragged to the bundle (share-bundle.md, piece C): a collection, a tag chip, a feed
+ * row or All feeds. Its only target is the bundle; sidebar targets refuse it.
+ */
+export type RowDragItem =
+  | { kind: "collection"; collection: Collection }
+  | { kind: "tag"; name: string; count: number }
+  | { kind: "feeds"; label: string; feeds: Feed[] };
+
+/** How many things the row brings: a collection's or a tag's links, the feeds. */
+export const rowCount = (item: RowDragItem) =>
+  item.kind === "collection" ? (item.collection.count ?? 0) : item.kind === "tag" ? item.count : item.feeds.length;
+
+/** The row's line in its stack: «Development · 41 links». */
+export function rowLine(t: TFunction, item: RowDragItem): string {
+  const name = item.kind === "collection" ? item.collection.name : item.kind === "tag" ? item.name : item.label;
+  return `${short(name)} · ${t(item.kind === "feeds" ? "drag.feeds" : "drag.links", { count: rowCount(item) })}`;
+}
+
+/** What the capsule says with the row over it: «Add collection “Development”», «Add 2 feeds». */
+export function rowDropLabel(t: TFunction, item: RowDragItem): string {
+  if (item.kind === "collection") return t("drag.bundleCollection", { name: short(item.collection.name) });
+  if (item.kind === "tag") return t("drag.bundleTag", { name: short(item.name) });
+  return t("drag.bundleFeeds", { count: item.feeds.length });
 }
