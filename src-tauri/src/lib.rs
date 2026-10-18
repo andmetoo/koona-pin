@@ -28,6 +28,7 @@ pub mod migrations;
 pub mod native_host;
 pub mod net_guard;
 pub mod offline;
+pub mod open_requests;
 pub mod pipe_name;
 pub mod position_keys;
 pub mod quick_search;
@@ -94,13 +95,20 @@ pub fn run() {
     }
     let channel_state = Arc::new(capture_channel::ChannelState::default());
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             // The native host starts the app with --autostart to save a link;
             // an app that is already running stays where it is.
             if !args.iter().any(|arg| arg == autostart::ARG) {
                 desktop::bring_forward(app, desktop::activation_token(&args))
             }
+            // A `.kpin` file or a `koonapin://` link opened while the app runs (NP-139, NP-142):
+            // Windows and Linux start a second copy with it, which hands its arguments over.
+            open_requests::deliver_args(app, &args, std::path::Path::new(&cwd));
         }))
+        // Registers `koonapin://` for macOS and Windows from `plugins.deep-link` at bundle time. The
+        // links themselves come as arguments or `RunEvent::Opened` and are checked by open_requests;
+        // the interface has no permission for the plugin's commands.
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         // File dialogs of export and backups, called from Rust only (NP-032, NP-034): no permission for the interface.
         .plugin(tauri_plugin_dialog::init())
@@ -111,6 +119,7 @@ pub fn run() {
         // Called from Rust only (updates.rs, NP-038): no permission for the interface.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(channel_state.clone())
+        .manage(open_requests::PendingOpens::default())
         .manage(commands::LastExport::default())
         .manage(commands::PickedBackup::default())
         .manage(linkcheck::Checker::default())
@@ -119,6 +128,13 @@ pub fn run() {
             library::Paths::from_env(),
         )))
         .setup(move |app| {
+            // A file or a link the app was started with waits for the interface (cold start).
+            if let Some(request) = open_requests::from_args(
+                std::env::args(),
+                &std::env::current_dir().unwrap_or_default(),
+            ) {
+                let _ = app.state::<open_requests::PendingOpens>().offer(request);
+            }
             // Before the library: its first daily copy goes to a Supporter's folder too, which
             // needs both states managed.
             billing::start(app.handle());
@@ -292,8 +308,22 @@ pub fn run() {
             feeds::export_opml,
             feeds::set_feeds_refresh_minutes,
             tray::set_tray_labels,
-            tray::get_tray_labels
+            tray::get_tray_labels,
+            open_requests::take_pending_opens
         ])
-        .run(context)
-        .expect("error while running Koona Pin");
+        .build(context)
+        .expect("error while running Koona Pin")
+        .run(|_app, _event| {
+            // macOS hands files and links to the running app, at a cold start too, as `Opened`.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = &_event {
+                let root = std::path::Path::new("/");
+                if let Some(request) = urls
+                    .iter()
+                    .find_map(|url| open_requests::parse(url.as_str(), root))
+                {
+                    open_requests::deliver(_app, request);
+                }
+            }
+        });
 }
