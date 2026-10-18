@@ -12,6 +12,12 @@
 //! - **An old WebView** (Android): the interface needs Chromium 111. With an older one the plugin
 //!   shows a native «Update Android System WebView» screen instead of the page, and
 //!   [`webview_supported`] tells the app so, which then starts nothing behind it.
+//! - **The look's signals** (Android, NP-072b): battery saver and a low-RAM device (the glass drawn
+//!   flat) and the text scale, through the bridge (`system()`, the `koona-system` event), read
+//!   before the page's first render. iOS reports none yet (Low Power Mode is a later task).
+//! - **Haptics** (NP-072b): the one command, `haptic`, plays the page's feedback as the system's
+//!   own (Android `performHapticFeedback`, iOS UIKit's generators), which follows the system's
+//!   touch-feedback setting.
 //!
 //! The page learns its platform from the app's own init script (`window.__KOONA__`, NP-072a), not
 //! from this bridge; the bridge only knows it to tell whether a Back is Android's.

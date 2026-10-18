@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useAppState } from "../../app/appState";
 import { useMedia } from "../../app/layout";
 import { useKeyboardUp } from "../../platform/keyboard";
+import { flatGlass, largeText, useSystemSignals } from "../../platform/system";
 import { preference, savePreference } from "../../services/preferences";
 import { usePhoneStack } from "./navigation/usePhoneStack";
 import { type Phone, PhoneContext, type PrimaryAction, usePhone } from "./PhoneContext";
@@ -36,6 +37,10 @@ export function PhoneShell() {
   const { entries, sheets, exited } = useSheetState();
   useAppSheets(app, sheets, entries);
   const keyboardUp = useKeyboardUp();
+  // Battery saver or a low-RAM device: the glass as opaque paper (phone.css, the fallback). The
+  // system's font size scales the text already (the WebView's text zoom); the root names it for
+  // what keeps its size and for the accessibility sizes' layout.
+  const system = useSystemSignals();
   const [bottomLift, setBottomLift] = useState(0);
   // The Fold's controls on the right by default; per device, not synced (doc/mobile-design.md).
   const [hand, setHandState] = useState(() => preference<"right" | "left">("foldHand", ["right", "left"], "right"));
@@ -71,8 +76,6 @@ export function PhoneShell() {
     <PhoneContext.Provider value={phone}>
       <SheetsContext.Provider value={sheets}>
         <AccountSlot.Provider value={account}>
-          {/* TODO(NP-072b): `data-glass="flat"` for Android's battery saver and slow devices, once the
-              bridge reports them (README.md). */}
           <div
             className="phone"
             data-phone
@@ -80,7 +83,9 @@ export function PhoneShell() {
             data-hand={hand}
             data-pill={pillShown || undefined}
             data-keyboard={keyboardUp || undefined}
-            style={{ "--ph-lift": `${bottomLift}px` } as CSSProperties}
+            data-glass={flatGlass(system) ? "flat" : undefined}
+            data-text-large={largeText(system) || undefined}
+            style={{ "--ph-lift": `${bottomLift}px`, "--ph-text-scale": system.textScale } as CSSProperties}
           >
             <div className="ph-main">
               <ScreenStack />

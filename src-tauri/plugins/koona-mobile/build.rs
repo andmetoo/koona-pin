@@ -1,6 +1,7 @@
-// No commands: the page talks to the plugin only through its bridge script (src/bridge.js), and
-// the Kotlin and Swift parts call into the page.
-const COMMANDS: &[&str] = &[];
+// One command, the page's haptics (src/platform/haptics.ts), played by the Kotlin and Swift parts.
+// The rest goes through the bridge script (src/bridge.js): the Kotlin and Swift parts call into
+// the page, and the page reads what it needs synchronously from Android's JavaScript interface.
+const COMMANDS: &[&str] = &["haptic"];
 
 fn main() {
     tauri_plugin::Builder::new(COMMANDS)

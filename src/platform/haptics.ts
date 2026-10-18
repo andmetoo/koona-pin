@@ -2,18 +2,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { capabilities } from "./capabilities";
 
 /**
- * Haptic feedback on a phone (NP-072b), through the haptics plugin of Tauri (registered on phone
- * builds only, src-tauri/src/mobile). Without the `haptics` capability — a desktop, the browser
- * demo, the tests — every call does nothing. A call never throws and never waits: feedback that
- * fails is lost, not reported.
- *
- * The commands are the plugin's own (`@tauri-apps/plugin-haptics` is a thin wrapper of the same
- * `invoke`). Android plays them as vibration patterns, without the system's touch-feedback setting.
+ * Haptic feedback on a phone (NP-072b), played by the koona-mobile plugin (registered on phone
+ * builds only, src-tauri/src/mobile) as the system's own touch feedback: Android's
+ * `performHapticFeedback` on the WebView and UIKit's feedback generators, both silent while the
+ * system's touch-feedback (haptics) setting is off. Without the `haptics` capability — a desktop,
+ * the browser demo, the tests — every call does nothing. A call never throws and never waits:
+ * feedback that fails is lost, not reported.
  */
-function play(command: string, args?: Record<string, unknown>): Promise<void> {
+function play(kind: "selection" | "impactLight" | "impactMedium" | "success"): Promise<void> {
   if (!capabilities.haptics) return Promise.resolve();
   try {
-    return invoke(`plugin:haptics|${command}`, args).then(
+    return invoke("plugin:koona-mobile|haptic", { kind }).then(
       () => {},
       () => {},
     );
@@ -23,13 +22,13 @@ function play(command: string, args?: Record<string, unknown>): Promise<void> {
 }
 
 /** A tick: a section or a tab changed, a long-press menu opened, pull-to-refresh armed. */
-export const selection = () => play("selection_feedback");
+export const selection = () => play("selection");
 
 /** A light knock: a triage swipe passed its threshold. */
-export const impactLight = () => play("impact_feedback", { style: "light" });
+export const impactLight = () => play("impactLight");
 
 /** A firmer knock: a decision landed (a card kept, trashed or put into Reading). */
-export const impactMedium = () => play("impact_feedback", { style: "medium" });
+export const impactMedium = () => play("impactMedium");
 
 /** Something finished well: the inbox is sorted. */
-export const success = () => play("notification_feedback", { type: "success" });
+export const success = () => play("success");

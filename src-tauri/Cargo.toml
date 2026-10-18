@@ -94,13 +94,10 @@ tauri-plugin-updater = { version = "2.13", default-features = false, features = 
 # macOS and Windows. The links are read by open_requests.rs, not through the plugin's commands.
 tauri-plugin-deep-link = "2.6"
 
-# Phones only (NP-151): our own plugin for system Back, the iOS edge swipe, renderer loss and the
-# insets (plugins/koona-mobile).
+# Phones only (NP-151): our own plugin for system Back, the iOS edge swipe, renderer loss, the
+# insets, and (NP-072b) the signals of the phone's look and the haptics (plugins/koona-mobile).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-koona-mobile = { path = "plugins/koona-mobile" }
-# Haptic feedback (NP-072b): a tick on a section change, a knock when a triage swipe passes its
-# threshold (src/platform/haptics.ts). 2.4 is the line for Tauri 2.12.
-tauri-plugin-haptics = "2.4"
 # `_exit` at the end of a phone's run (lib.rs, `end_on_phone`). Already in the tree.
 libc = "0.2"
 

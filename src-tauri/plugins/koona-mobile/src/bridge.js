@@ -4,9 +4,24 @@
 // the app's own `window.__KOONA__` (src-tauri/src/capabilities.rs, NP-072a).
 // Android numbers each Back: the page claims it with `claim` before it closes anything, and a Back
 // Android has already answered itself (the page was too slow) is not claimed, so it closes nothing.
+// The system's signals for the page's look (NP-072b, src/platform/system.ts): Android answers them
+// at once as the bridge starts, so the first render knows them, and sends `systemChanged` later.
 (function () {
   if (window.__KOONA_MOBILE__) return;
   var insets = null;
+  var system = { powerSave: false, lowRam: false, textScale: 1 };
+  function take(next) {
+    if (!next || typeof next !== 'object') return;
+    for (var key in system) if (typeof next[key] === typeof system[key]) system[key] = next[key];
+  }
+  var android = window.KoonaMobileAndroid;
+  if (android && android.system) {
+    try {
+      take(JSON.parse(android.system()));
+    } catch (e) {
+      // An older plugin, or none: the calm defaults.
+    }
+  }
   function apply() {
     var root = document.documentElement;
     if (!insets || !root) return;
@@ -30,6 +45,14 @@
     insets: function (top, right, bottom, left) {
       insets = [top, right, bottom, left];
       apply();
+    },
+    // A copy: battery saver, a low-RAM device, the text scale.
+    system: function () {
+      return { powerSave: system.powerSave, lowRam: system.lowRam, textScale: system.textScale };
+    },
+    systemChanged: function (next) {
+      take(next);
+      window.dispatchEvent(new Event('koona-system'));
     },
   };
   document.addEventListener('DOMContentLoaded', apply);
