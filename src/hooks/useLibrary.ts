@@ -31,6 +31,8 @@ import {
 
 /** Changes within this time share one read of the catalog. */
 const CATALOG_MS = 150;
+/** Typing in search reads the list once it pauses this long; anything else reads at once. */
+const SEARCH_MS = 150;
 
 /**
  * «Title A–Z» and «Site A–Z» compare in the interface's language (NP-114):
@@ -111,6 +113,8 @@ export function useLibrary(
   const catalogSeq = useRef(0);
   const totalSeq = useRef(0);
   const totalTimer = useRef(0);
+  /** What the last list was read for: the search apart from the rest. */
+  const lastList = useRef<{ search: string; others: string } | null>(null);
   const remember = (rows: Bookmark[]) =>
     rows.forEach((b) =>
       revisions.current.set(
@@ -294,9 +298,30 @@ export function useLibrary(
     setNext(null);
     nextRef.current = null;
     seq.current++;
+    // Only typing waits, so a word reads once; a section, a filter, the order
+    // and the first open read at once.
+    const { search } = filters;
+    const others = JSON.stringify([
+      filters.collectionId,
+      filters.tag,
+      filters.domain,
+      filters.onlyFavorites,
+      filters.onlyInbox,
+      filters.onlyTrash,
+      filters.onlyReading,
+      filters.onlyOffline,
+      sort,
+    ]);
+    const before = lastList.current;
+    lastList.current = { search, others };
+    const typed = !!before && before.search !== search && before.others === others;
+    if (!typed) {
+      void refresh();
+      return;
+    }
     const timeout = window.setTimeout(() => {
       void refresh();
-    }, 150);
+    }, SEARCH_MS);
     return () => window.clearTimeout(timeout);
   }, [
     filters.search,
