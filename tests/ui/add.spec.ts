@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { dropPoint, type DropWhere } from "../fixtures/app";
 
 // Adding a link (2026-10-16): «New link» in the sidebar and ⌘N open a glass sheet; ⌘V in the
 // library and a link dropped on the window save at once; the sidebar's sections fold.
@@ -160,20 +161,37 @@ test("⌘V in the library saves a link at once; Undo takes it away; text and fie
   await expect(nav(page, "Inbox 3")).toBeVisible();
 });
 
+/** A drag from outside, dispatched where the pointer would be: by default over the list area. */
+const dragAt = async (
+  page: Page,
+  type: "dragenter" | "dragover" | "dragleave" | "drop",
+  init: { link?: string; file?: boolean; shift?: boolean } = {},
+  where: DropWhere | "zero" = "list",
+) => {
+  // "zero": as WebKitGTK and WebView2 may give a drop, with no coordinates.
+  const at = where === "zero" ? { x: 0, y: 0 } : await dropPoint(page, where);
+  return page.evaluate(
+    ({ type, init, at }) => {
+      const data = new DataTransfer();
+      if (init.link) {
+        data.setData("text/uri-list", init.link);
+        data.setData("text/plain", init.link);
+      }
+      if (init.file) data.items.add(new File(["x"], "notes.txt", { type: "text/plain" }));
+      const event = new DragEvent(type, { bubbles: true, cancelable: true, shiftKey: !!init.shift, clientX: at.x, clientY: at.y });
+      // A script's DataTransfer keeps its dropEffect; this one tells what the app set, if anything.
+      const seen = { types: data.types, files: data.files, items: data.items, getData: (f: string) => data.getData(f), dropEffect: "unset" };
+      Object.defineProperty(event, "dataTransfer", { value: seen });
+      (document.elementFromPoint(at.x, at.y) ?? document.body).dispatchEvent(event);
+      return seen.dropEffect;
+    },
+    { type, init, at },
+  );
+};
+
 test("a link dragged over the window shows the drop zone; dropped, it is saved, with Shift into the inbox; a file gets the zone's hero", async ({ page }) => {
   const drag = (type: "dragenter" | "dragover" | "dragleave" | "drop", init: { link?: string; file?: boolean; shift?: boolean } = {}) =>
-    page.evaluate(
-      ({ type, init }) => {
-        const data = new DataTransfer();
-        if (init.link) {
-          data.setData("text/uri-list", init.link);
-          data.setData("text/plain", init.link);
-        }
-        if (init.file) data.items.add(new File(["x"], "notes.txt", { type: "text/plain" }));
-        document.body.dispatchEvent(new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true, shiftKey: !!init.shift }));
-      },
-      { type, init },
-    );
+    dragAt(page, type, init);
   const zone = page.locator("[data-drop-zone]");
   await drag("dragenter", { link: "https://example.com/dropped" });
   await expect(zone).toBeVisible();
@@ -205,25 +223,141 @@ test("a link dragged over the window shows the drop zone; dropped, it is saved, 
   await expect(zone).toHaveCount(0);
 });
 
+test("over the sidebar or the toolbar a drag from outside shows no zone and its drop does nothing", async ({ page }) => {
+  const zone = page.locator("[data-drop-zone]");
+  const cards = await page.locator("[data-bookmark-id]").count();
+  const inbox = await sidebar(page).getByRole("button", { name: /^Inbox/ }).first().textContent();
+  for (const where of ["sidebar", "toolbar"] as const) {
+    expect(await dragAt(page, "dragenter", { link: "https://example.com/nowhere" }, where)).toBe("none");
+    expect(await dragAt(page, "dragover", { link: "https://example.com/nowhere" }, where)).toBe("none");
+    await expect(zone).toHaveCount(0);
+    await dragAt(page, "drop", { link: "https://example.com/nowhere" }, where);
+    expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml", text: OPML }], false, where)).toBe("none");
+    await expect(zone).toHaveCount(0);
+    await dragFiles(page, "drop", [{ name: "feeds.opml", text: OPML }], false, where);
+  }
+  // A save would land within a frame or two: give it time, then nothing is in Library or Inbox.
+  await page.waitForTimeout(400);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-glass-toast]")).toHaveCount(0);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards);
+  await expect(sidebar(page).getByRole("button", { name: /^Inbox/ }).first()).toHaveText(inbox!);
+
+  // From the sidebar into the list the zone shows; back over the sidebar it goes, with no leave in between.
+  await dragAt(page, "dragenter", { link: "https://example.com/moving" }, "sidebar");
+  await expect(zone).toHaveCount(0);
+  expect(await dragAt(page, "dragover", { link: "https://example.com/moving" })).toBe("copy");
+  await expect(zone).toHaveAttribute("data-drop-zone", "link");
+  await dragAt(page, "dragover", { link: "https://example.com/moving" }, "sidebar");
+  await expect(zone).toHaveCount(0);
+  await dragAt(page, "dragleave", {}, "sidebar");
+
+  // A drop that comes with no coordinates goes by where the last dragover was.
+  await dragAt(page, "dragenter", { link: "https://example.com/zero" });
+  await dragAt(page, "drop", { link: "https://example.com/zero" }, "zero");
+  await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Library");
+  await dragAt(page, "dragenter", { link: "https://example.com/zero-off" }, "sidebar");
+  await dragAt(page, "drop", { link: "https://example.com/zero-off" }, "zero");
+  await page.waitForTimeout(400);
+  await expect(page.locator("[data-bookmark-id]")).toHaveCount(cards + 1);
+});
+
+test("at 800 × 550, beside the sidebar's strip, the zone covers the list and a drop there saves", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 550 });
+  await expect(page.locator(".sidebar-strip")).toBeVisible();
+  const zone = page.locator("[data-drop-zone]");
+  await dragAt(page, "dragenter", { link: "https://example.com/small" }, "sidebar");
+  await expect(zone).toHaveCount(0);
+  await dragAt(page, "dragover", { link: "https://example.com/small" });
+  await expect(zone).toBeVisible();
+  const box = (await zone.locator(".drop-zone-card").boundingBox())!;
+  const strip = (await page.locator(".sidebar-strip").boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(strip.x + strip.width + 16);
+  await expect(zone.locator(".drop-zone-words")).toBeInViewport({ ratio: 1 });
+  await dragAt(page, "drop", { link: "https://example.com/small" });
+  await expect(zone).toHaveCount(0);
+  await expect(page.locator("[data-glass-toast]")).toContainText("Saved to Library");
+});
+
 /**
  * A drag of files, as a webview shows it. `real`: as a drag from the system looks before the
  * drop in WebKit, WebView2 and Chromium, with `files` empty and no name; otherwise a DataTransfer
  * made by a script, which shows the files.
  */
-const dragFiles = (page: Page, type: "dragenter" | "dragleave" | "drop", files: { name: string; text?: string }[], real = false) =>
-  page.evaluate(
-    ({ type, files, real }) => {
+const dragFiles = async (
+  page: Page,
+  type: "dragenter" | "dragover" | "dragleave" | "drop",
+  files: { name: string; text?: string }[],
+  real = false,
+  where: DropWhere = "list",
+) => {
+  const at = await dropPoint(page, where);
+  return page.evaluate(
+    ({ type, files, real, at }) => {
       const data = new DataTransfer();
       for (const file of files) data.items.add(new File([file.text ?? "x"], file.name));
-      const event = new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true });
-      if (real) {
-        const hidden = { types: ["Files"], files: [], items: [{ kind: "file", type: "" }], dropEffect: "none" };
-        Object.defineProperty(event, "dataTransfer", { value: hidden });
-      }
-      document.body.dispatchEvent(event);
+      const event = new DragEvent(type, { bubbles: true, cancelable: true, clientX: at.x, clientY: at.y });
+      const hidden = { types: ["Files"], files: [], items: [{ kind: "file", type: "" }], dropEffect: "unset" };
+      const seen = real ? hidden : { types: data.types, files: data.files, items: data.items, dropEffect: "unset" };
+      Object.defineProperty(event, "dataTransfer", { value: seen });
+      (document.elementFromPoint(at.x, at.y) ?? document.body).dispatchEvent(event);
+      return seen.dropEffect;
     },
-    { type, files, real },
+    { type, files, real, at },
   );
+};
+
+/** Whether a file dragged over `where` gets the zone (and a copy) or nothing (and none); the drag then leaves. */
+const zoneOver = async (page: Page, where: DropWhere, shows: boolean) => {
+  const zone = page.locator("[data-drop-zone]");
+  expect(await dragFiles(page, "dragenter", [{ name: "feeds.opml" }], true, where)).toBe(shows ? "copy" : "none");
+  if (shows) await expect(zone).toHaveAttribute("data-drop-zone", "hero");
+  else {
+    await page.waitForTimeout(100);
+    await expect(zone).toHaveCount(0);
+  }
+  await dragFiles(page, "dragleave", [], true, where);
+  await expect(zone).toHaveCount(0);
+};
+
+test("Feeds: the zone lies over the posts and the article, wide and narrow; over the feed column or a header nothing", async ({ page }) => {
+  const posts = page.locator("[data-feed-item]");
+  const article = page.locator("[data-feed-article] [data-feed-scroll]");
+  const feedColumn = page.getByRole("navigation", { name: "Feeds" });
+  await feedColumn.getByRole("button", { name: /^All feeds/ }).click();
+  await posts.nth(1).click();
+  await expect(article).toBeVisible();
+  // Three columns: the posts and the article; not the feeds in the sidebar, not the headers.
+  await zoneOver(page, posts.nth(1), true);
+  await zoneOver(page, article, true);
+  await zoneOver(page, feedColumn, false);
+  await zoneOver(page, page.locator("[data-feed-list] header"), false);
+  await zoneOver(page, page.locator("[data-feed-article] header"), false);
+  // The card spread over the list: still the article.
+  await page.keyboard.press("e");
+  await expect(page.locator("[data-feed-slot]")).toHaveCSS("width", "0px");
+  await zoneOver(page, article, true);
+  await zoneOver(page, page.locator("[data-feed-article] header"), false);
+  // A narrow window: the list alone, then the post alone.
+  await page.setViewportSize({ width: 900, height: 700 });
+  await page.locator("[data-feed-article]").getByRole("button", { name: "Back to the list" }).click();
+  await expect(posts.first()).toBeVisible();
+  await zoneOver(page, posts.first(), true);
+  await zoneOver(page, page.locator("[data-feed-list] header"), false);
+  await zoneOver(page, "sidebar", false);
+  await posts.first().click();
+  await expect(article).toBeVisible();
+  await zoneOver(page, article, true);
+  await zoneOver(page, page.locator("[data-feed-article] header"), false);
+});
+
+test("Settings: the zone lies over the content, not over its header", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  await zoneOver(page, "list", true);
+  await zoneOver(page, page.getByRole("heading", { level: 1, name: "Settings" }), false);
+  await zoneOver(page, "sidebar", false);
+});
 
 const OPML = '<?xml version="1.0"?><opml version="2.0"><body><outline text="A" xmlUrl="https://example.org/a.xml"/><outline text="B" xmlUrl="https://example.org/b.xml"/></body></opml>';
 const LIST = '{"format":"koona","app":"pin","kind":"list","version":"1.0","title":"Dropped list","items":[{"type":"link","url":"https://example.org/dropped-list"}]}';
@@ -239,10 +373,13 @@ test("a file dragged over the window: the hero, as real drags show it; the kind 
   await expect(zone).toContainText("Lists, feeds, bookmarks or a backup — Koona Pin works out what it is");
   await expect(zone).toContainText("Nothing is imported until you confirm");
   await expect(page.locator("[data-announcer]")).toContainText("Drop anything here");
-  // One full-window zone: the dashed card 16 px in from every edge.
+  // The zone lies over the list area only, below the toolbar and beside the sidebar: the dashed card 16 px in from its every edge.
   const box = (await zone.locator(".drop-zone-card").boundingBox())!;
-  const viewport = page.viewportSize()!;
-  expect([box.x, box.y, Math.round(viewport.width - box.x - box.width), Math.round(viewport.height - box.y - box.height)]).toEqual([16, 16, 16, 16]);
+  const main = (await page.locator("main [data-drop-area]").boundingBox())!;
+  const head = (await page.locator("main [data-drop-head]").boundingBox())!;
+  const top = head.y + head.height;
+  expect([box.x - main.x, box.y - top, main.x + main.width - box.x - box.width, main.y + main.height - box.y - box.height].map(Math.round)).toEqual([16, 16, 16, 16]);
+  expect(box.x).toBeGreaterThan((await page.getByRole("complementary").first().boundingBox())!.width);
   await dragFiles(page, "dragleave", [], true);
   await expect(zone).toHaveCount(0);
 

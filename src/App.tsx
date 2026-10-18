@@ -30,7 +30,7 @@ import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
 import { AppNotification } from "./components/shell/NotificationCenter";
 import { Toolbar } from "./components/shell/Toolbar";
-import { DropZone, DropZoneState, dropZoneText } from "./components/shell/DropZone";
+import { DropArea, DropZone, DropZoneState, dropZoneText } from "./components/shell/DropZone";
 import { BookmarkActions, Preview } from "./components/library/Bookmarks";
 import { Arrows, BookmarkList } from "./components/library/BookmarkList";
 import { DragStack } from "./components/library/DragStack";
@@ -69,6 +69,14 @@ import { syncPrompt } from "./components/commercial/syncText";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
 type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
+/** A drag from outside over the list area: where the zone lies, Shift for a link, or a file to import (K9). */
+type FileZone = DropZoneState & { link?: false };
+type Veil = { inbox: boolean; file?: FileZone; area: DropArea };
+
+const sameVeil = (a: Veil | null, b: Veil | null) =>
+  a === b ||
+  (!!a && !!b && a.inbox === b.inbox && a.file === b.file && (["top", "left", "width", "height"] as const).every((k) => a.area[k] === b.area[k]));
+
 /** The dialogs a dropped file would compete with: another file meanwhile is «Busy» (K9). */
 const IMPORT_SURFACES: Surface[] = ["import", "importFeeds", "restore", "backup"];
 /**
@@ -197,8 +205,10 @@ export function App() {
   const [notice, setNotice] = useState<Notice>(null);
   /** A link just saved by hand (2026-10-16): its card lands first with a spring. */
   const [fresh, setFresh] = useState<number | null>(null);
-  /** A link dragged over the window: the drop zone, and whether Shift sends it to the inbox; or a file to import (K9). */
-  const [veil, setVeil] = useState<{ inbox: boolean; file?: DropZoneState & { link?: false } } | null>(null);
+  /** A link or a file dragged over the list area: the drop zone (K9). */
+  const [veil, setVeil] = useState<Veil | null>(null);
+  /** The content region the drop zone lies over (K9): never the sidebar. */
+  const mainRef = useRef<HTMLElement>(null);
   /** An OPML, bookmarks or backup file dropped or picked: its dialog opens with it (NP-139, K9). */
   const [droppedFile, setDroppedFile] = useState<{ name: string; content: string; surface: "import" | "importFeeds" | "restore" } | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -381,53 +391,76 @@ export function App() {
     document.addEventListener("paste", paste);
     return () => document.removeEventListener("paste", paste);
   }, []);
-  // A link dragged from a browser or another app frosts the window; dropped, it is saved, with
+  // A link dragged from a browser or another app frosts the list; dropped, it is saved, with
   // Shift into the inbox (2026-10-16). The app's own drags are left alone: the selection's drag is
   // a pointer drag and never starts one of these. A file asks to be imported (NP-139): a `.kpin`
   // list, OPML or a bookmarks file; the webview must not open a dropped file itself, so a file
   // drag is always taken. While something is open over the window (a dialog, a menu, triage,
-  // reading, the editor) it gets no veil and its drop is ignored.
+  // reading, the editor) it gets no veil and its drop is ignored. The zone lies over the list
+  // area only: the sidebar has its own drops, and over it or the toolbar a drop does nothing.
+  // Whether the pointer is in the area goes by where it is, not by which child it entered, so
+  // moving between cards never flickers the zone.
   useEffect(() => {
     let depth = 0;
     let accepting: "link" | "file" | null = null;
+    let fileZone: FileZone | null = null;
+    /** Where the zone last lay: some webviews (WebKitGTK, WebView2) give a drop no coordinates. */
+    let lastArea: DropArea | null = null;
+    let said = false;
     let own = false;
     const start = () => (own = true);
     const end = () => (own = false);
+    /**
+     * The list area under the pointer, or null outside it: the view's `[data-drop-area]` (the
+     * library's cards or rows, the posts and the article of Feeds, the content of Settings) below
+     * the lowest `[data-drop-head]` on screen over it; `<main>` itself in a view without one.
+     */
+    const areaAt = (e: DragEvent): DropArea | null => {
+      const main = mainRef.current;
+      if (!main) return null;
+      const box = (main.querySelector("[data-drop-area]") ?? main).getBoundingClientRect();
+      // A head folded away (the post list behind a spread article) has no width and does not count.
+      const heads = Array.from(main.querySelectorAll("[data-drop-head]"), (head) => head.getBoundingClientRect()).filter((head) => head.width > 0);
+      const top = Math.max(box.top, ...heads.map((head) => head.bottom));
+      const inside = e.clientX >= box.left && e.clientX < box.right && e.clientY >= top && e.clientY < box.bottom;
+      return inside ? { top, left: box.left, width: box.width, height: box.bottom - top } : null;
+    };
+    /** The zone for where the pointer is now; it is said once per drag, when it first shows. */
+    const show = (e: DragEvent) => {
+      const area = (lastArea = areaAt(e));
+      if (e.dataTransfer) e.dataTransfer.dropEffect = !area || (accepting === "file" && (importBlocked() || importBusy())) ? "none" : "copy";
+      const next: Veil | null = !area ? null : accepting === "file" ? fileZone && { inbox: false, file: fileZone, area } : { inbox: e.shiftKey, area };
+      if (next && !said) {
+        said = true;
+        announceZoneRef.current(next.file ?? { link: true, hint: "" });
+      }
+      setVeil((current) => (sameVeil(current, next) ? current : next));
+    };
     const enter = (e: DragEvent) => {
       if (depth === 0) {
         const file = own ? null : draggedFile(e.dataTransfer);
         accepting = file ? "file" : !own && carriesLink(e.dataTransfer?.types) && !quickBlocked() ? "link" : null;
-        if (accepting === "file") {
-          // Another import open: the zone says so (K9 «Busy»); over anything else nothing shows.
-          const busy = importBusy();
-          const zone = busy || !importBlocked() ? { file: file!, busy } : null;
-          setVeil(zone && { inbox: false, file: zone });
-          if (zone) announceZoneRef.current(zone);
-        }
+        // Another import open: the zone says so (K9 «Busy»); over anything else nothing shows.
+        const busy = !!file && importBusy();
+        fileZone = file && (busy || !importBlocked()) ? { file, busy } : null;
+        said = false;
       }
       if (!accepting) return;
       depth++;
       e.preventDefault();
-      if (accepting === "link") {
-        if (depth === 1) announceZoneRef.current({ link: true, hint: "" });
-        setVeil({ inbox: e.shiftKey });
-      }
+      show(e);
     };
     const over = (e: DragEvent) => {
       if (!accepting) return;
       e.preventDefault();
-      if (accepting === "file") {
-        if (e.dataTransfer) e.dataTransfer.dropEffect = importBlocked() || importBusy() ? "none" : "copy";
-        return;
-      }
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
-      setVeil((current) => (current?.inbox === e.shiftKey ? current : { inbox: e.shiftKey }));
+      show(e);
     };
     const leave = () => {
       if (!accepting) return;
       depth = Math.max(0, depth - 1);
       if (depth === 0) {
         accepting = null;
+        lastArea = null;
         setVeil(null);
       }
     };
@@ -438,6 +471,10 @@ export function App() {
       depth = 0;
       accepting = null;
       setVeil(null);
+      // Over the sidebar or the toolbar a drop does nothing; a drop at 0,0 goes by the last dragover.
+      const area = e.clientX || e.clientY ? areaAt(e) : lastArea;
+      lastArea = null;
+      if (!area) return;
       const data = e.dataTransfer;
       if (kind === "file") {
         if (!importBlocked() && !importBusy()) dropFileRef.current(data?.files);
@@ -1645,13 +1682,13 @@ export function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         <WindowBar />
         <div className="flex min-h-0 flex-1">
-          <main className="relative flex min-w-0 flex-1 flex-col">
+          <main ref={mainRef} className="relative flex min-w-0 flex-1 flex-col">
             {page === "settings" ? (
               <>
-                <div className={`${padding} pt-2 pb-5`}>
+                <div data-drop-head className={`${padding} pt-2 pb-5`}>
                   <h1 className="flex h-9 items-center text-2xl font-semibold">{t("nav.settings")}</h1>
                 </div>
-                <div className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>
+                <div data-drop-area className={`min-h-0 flex-1 overflow-y-auto ${padding}`}>
                   <SettingsPage
                     theme={theme}
                     onTheme={setTheme}
@@ -1760,7 +1797,7 @@ export function App() {
             ) : (
               <>
                 {/* The toolbar is glass over the list (2026-10-16); 13 + 7 px under it: room for the selection ring of the first row. */}
-                <div ref={headRef} className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
+                <div ref={headRef} data-drop-head className={`toolbar-glass absolute inset-x-0 top-0 z-20 flex flex-col gap-4 ${padding} pt-2 pb-[13px]`}>
                   <Toolbar
                     ref={searchRef}
                     title={section}
@@ -1895,6 +1932,7 @@ export function App() {
                 <div
                   ref={scrollRef}
                   data-scroll="main"
+                  data-drop-area
                   style={{ paddingTop: headHeight + 7, scrollPaddingTop: headHeight + 8 }}
                   className={`min-h-0 flex-1 overflow-y-auto ${padding} ${selecting ? "pb-[120px]" : "pb-8"}`}
                 >
@@ -2271,7 +2309,7 @@ export function App() {
         {announcement}
       </p>
       {(!selecting || reading) && toast}
-      {veil && <DropZone state={veil.file ?? { link: true, hint: veilHint(veil.inbox) }} />}
+      {veil && <DropZone state={veil.file ?? { link: true, hint: veilHint(veil.inbox) }} area={veil.area} />}
     </div>
   );
 }
