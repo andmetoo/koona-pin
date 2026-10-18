@@ -20,7 +20,7 @@ import { useSupporterSheets } from "./supporter/useSupporterSheets";
  * sheet, the editor → the edit sheet, the reading sheet and mode → the reader route; Supporter,
  * sign-in and the plan → the phone's own sheets in ./supporter, opened from here) and the desktop's
  * own (update, background, assistants, browser capture).
- * The same props as in src/components/shell/Workspace.tsx; where the desktop opens its Settings
+ * The same props as in the desktop's src/shell/desktop/Workspace.tsx; where the desktop opens its Settings
  * page, the phone pushes its settings route.
  */
 export function PhoneDialogs() {
