@@ -147,9 +147,13 @@ async fn within(
         if !status.is_success() {
             return Err(DownloadError::Status(status.as_u16()));
         }
-        // A size given is only a hint (gzip, a server that lies): the count below decides.
-        let total = response.content_length().map(|n| n as usize);
-        if total.is_some_and(|n| n > max) && response.headers().get(header::CONTENT_ENCODING).is_none() {
+        // A size given is only a hint, and none at all for a compressed body (what counts is what
+        // it unpacks to): the count below decides.
+        let total = match response.headers().contains_key(header::CONTENT_ENCODING) {
+            true => None,
+            false => response.content_length().map(|n| usize::try_from(n).unwrap_or(usize::MAX)),
+        };
+        if total.is_some_and(|n| n > max) {
             return Err(DownloadError::TooBig);
         }
         let mut bytes = Vec::new();
@@ -205,42 +209,50 @@ impl From<DownloadError> for ListDownload {
     }
 }
 
-/// The bytes of the download so far, for the dialog's bar.
+/// The bytes of the download so far, for the dialog's bar. `ticket` is the
+/// dialog's number for this download: a late event of an earlier one is ignored.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 pub struct ListDownloadProgress {
+    pub ticket: u32,
     pub received: u32,
-    /// As the server gave it, when it did.
+    /// As the server gave it, when it did and the body is not compressed.
     pub total: Option<u32>,
 }
 
 /// The download in progress, for Cancel. One dialog downloads at a time.
 static CANCEL: Mutex<Option<Arc<Notify>>> = Mutex::new(None);
 
-/// **Download** in the dialog (K3, state 1 → 2).
-#[tauri::command]
-pub async fn download_list(app: AppHandle, url: String) -> ListDownload {
-    let cancel = Arc::new(Notify::new());
-    *CANCEL.lock().unwrap_or_else(|e| e.into_inner()) = Some(cancel.clone());
-    let limits = &DownloadLimits::PUBLIC;
+/// Holds the download's place in [`CANCEL`] and gives it up on every way
+/// out, unless a newer download took it meanwhile.
+struct CancelSlot(Arc<Notify>);
+
+impl CancelSlot {
+    fn take() -> Self {
+        let cancel = Arc::new(Notify::new());
+        *CANCEL.lock().unwrap_or_else(|e| e.into_inner()) = Some(cancel.clone());
+        CancelSlot(cancel)
+    }
+}
+
+impl Drop for CancelSlot {
+    fn drop(&mut self) {
+        let mut current = CANCEL.lock().unwrap_or_else(|e| e.into_inner());
+        if current.as_ref().is_some_and(|c| Arc::ptr_eq(c, &self.0)) {
+            *current = None;
+        }
+    }
+}
+
+/// A download that `cancel` can stop at any point, as the dialog's answer.
+pub async fn fetch_list(url: &str, limits: &DownloadLimits, cancel: &Notify, progress: impl FnMut(usize, Option<usize>)) -> ListDownload {
     let Ok(client) = client(limits) else {
         return ListDownload::Unreachable;
     };
-    let mut shown = Instant::now() - Duration::from_secs(1);
-    let progress = |received: usize, total: Option<usize>| {
-        if shown.elapsed() >= Duration::from_millis(100) || total == Some(received) {
-            shown = Instant::now();
-            let _ = app.emit(PROGRESS_EVENT, ListDownloadProgress { received: received as u32, total: total.map(|n| n as u32) });
-        }
-    };
     let result = tokio::select! {
-        result = download(&client, &url, limits, progress) => result,
+        result = download(&client, url, limits, progress) => result,
         _ = cancel.notified() => return ListDownload::Cancelled,
     };
-    let mut current = CANCEL.lock().unwrap_or_else(|e| e.into_inner());
-    if current.as_ref().is_some_and(|c| Arc::ptr_eq(c, &cancel)) {
-        *current = None;
-    }
     match result {
         Ok(downloaded) => match String::from_utf8(downloaded.bytes) {
             Ok(text) => ListDownload::Done { text, url: downloaded.url.to_string() },
@@ -250,7 +262,23 @@ pub async fn download_list(app: AppHandle, url: String) -> ListDownload {
     }
 }
 
-/// **Cancel** while a list downloads: nothing more is read, and nothing was kept.
+/// **Download** in the dialog (K3, state 1 → 2).
+#[tauri::command]
+pub async fn download_list(app: AppHandle, url: String, ticket: u32) -> ListDownload {
+    let slot = CancelSlot::take();
+    let mut shown = Instant::now() - Duration::from_secs(1);
+    let progress = |received: usize, total: Option<usize>| {
+        if shown.elapsed() >= Duration::from_millis(100) || total == Some(received) {
+            shown = Instant::now();
+            let clamp = |n: usize| n.min(u32::MAX as usize) as u32;
+            let _ = app.emit(PROGRESS_EVENT, ListDownloadProgress { ticket, received: clamp(received), total: total.map(clamp) });
+        }
+    };
+    fetch_list(&url, &DownloadLimits::PUBLIC, &slot.0, progress).await
+}
+
+/// **Cancel** while a list downloads, or a dialog that goes while one runs:
+/// nothing more is read, and nothing was kept.
 #[tauri::command]
 pub fn cancel_list_download() {
     if let Some(cancel) = CANCEL.lock().unwrap_or_else(|e| e.into_inner()).take() {
@@ -438,6 +466,86 @@ mod tests {
         let started = Instant::now();
         assert_eq!(get(&format!("http://127.0.0.1:{port}/")).await.unwrap_err(), DownloadError::Timeout);
         assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
+    }
+
+    #[tokio::test]
+    async fn a_name_of_a_private_address_is_refused_by_the_resolver() {
+        // Where a name is checked: the client's own resolver, after the address passed by name.
+        // A name that resolves to a private address anywhere needs a hosts entry or a DNS server
+        // the tests do not have; `localhost` is the one name every system resolves, and the
+        // request is sent past the name check here to show that the resolver refuses it.
+        fn nowhere(_: IpAddr) -> bool {
+            false
+        }
+        let limits = DownloadLimits { net: Limits { allow: nowhere, ..TEST.net }, secure: not_plain };
+        let (port, hits) = server(|_, _| ok("{}"));
+        let error = client(&limits).unwrap().get(format!("http://localhost:{port}/")).send().await.unwrap_err();
+        assert_eq!(DownloadError::from(metadata::failure(&error)), DownloadError::Refused);
+        assert_eq!(hits.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn a_compressed_list_is_counted_as_it_unpacks() {
+        use flate2::{write::GzEncoder, Compression};
+        let gzip = |size: usize| {
+            let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
+            encoder.write_all(&vec![b' '; size]).unwrap();
+            encoder.finish().unwrap()
+        };
+        let reply = |body: Vec<u8>| {
+            let mut reply = format!("HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).into_bytes();
+            reply.extend(body);
+            reply
+        };
+        let small = gzip(100);
+        let bomb = gzip(TEST.net.max_body * 64);
+        assert!(bomb.len() < TEST.net.max_body, "{} bytes on the wire", bomb.len());
+        let (port, _) = server(move |_, path| reply(if path == "/bomb" { bomb.clone() } else { small.clone() }));
+        assert_eq!(get(&format!("http://127.0.0.1:{port}/small")).await.unwrap().bytes, vec![b' '; 100]);
+        assert_eq!(get(&format!("http://127.0.0.1:{port}/bomb")).await.unwrap_err(), DownloadError::TooBig);
+    }
+
+    #[tokio::test]
+    async fn cancel_stops_a_download_mid_stream_and_frees_its_place() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { continue };
+                std::thread::spawn(move || {
+                    let mut request = [0u8; 4096];
+                    let _ = stream.read(&mut request);
+                    let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n");
+                    for _ in 0..100 {
+                        std::thread::sleep(Duration::from_millis(50));
+                        if stream.write_all(b"x").is_err() {
+                            return;
+                        }
+                    }
+                });
+            }
+        });
+        let slot = CancelSlot::take();
+        let notify = slot.0.clone();
+        let mut received = 0;
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            cancel_list_download();
+        });
+        let started = Instant::now();
+        let outcome = fetch_list(&format!("http://127.0.0.1:{port}/"), &TEST, &notify, |n, _| received = n).await;
+        assert_eq!(outcome, ListDownload::Cancelled);
+        assert!(received > 0, "it was mid-stream");
+        assert!(started.elapsed() < Duration::from_millis(900), "{:?}", started.elapsed());
+        drop(slot);
+        assert!(CANCEL.lock().unwrap().is_none());
+        // A slot gives up its place on any way out, but not a newer download's.
+        let first = CancelSlot::take();
+        let second = CancelSlot::take();
+        drop(first);
+        assert!(CANCEL.lock().unwrap().as_ref().is_some_and(|c| Arc::ptr_eq(c, &second.0)));
+        drop(second);
+        assert!(CANCEL.lock().unwrap().is_none());
     }
 
     #[tokio::test]
