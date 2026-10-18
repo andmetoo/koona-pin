@@ -1419,16 +1419,21 @@ pub enum PickedImport {
 pub fn read_capped(path: &std::path::Path, cap: u64) -> std::io::Result<Option<(u32, String)>> {
     use std::io::Read;
     let file = std::fs::File::open(path)?;
-    if file.metadata()?.len() > cap {
+    let size = file.metadata()?.len();
+    if size > cap {
         return Ok(None);
     }
-    let mut bytes = Vec::new();
+    // Sized once from the metadata (still within the cap); one more byte tells a file that grew.
+    let mut bytes = Vec::with_capacity(size as usize + 1);
     file.take(cap + 1).read_to_end(&mut bytes)?;
     if bytes.len() as u64 > cap {
         return Ok(None);
     }
     // The cap is far under 4 GB, so the size fits.
-    Ok(Some((bytes.len() as u32, String::from_utf8_lossy(&bytes).into_owned())))
+    let read = bytes.len() as u32;
+    // Valid UTF-8 becomes the String without a copy; only a file that is not pays for one.
+    let text = String::from_utf8(bytes).unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned());
+    Ok(Some((read, text)))
 }
 
 /// «Import a file…» in the ⋯ menu: the system Open dialog for any file, read up to the largest
@@ -1633,6 +1638,9 @@ mod tests {
         assert_eq!(read_capped(&path, 10).unwrap(), Some((10, "<DL>\u{fffd}</DL>".to_string())));
         // One byte over: not read.
         assert_eq!(read_capped(&path, 9).unwrap(), None);
+        // Valid UTF-8 comes back as it is.
+        std::fs::write(&path, "<DL>Ёлка</DL>").unwrap();
+        assert_eq!(read_capped(&path, 64).unwrap(), Some((17, "<DL>Ёлка</DL>".to_string())));
         assert!(read_capped(&dir.join("missing"), IMPORT_FILE_CAP).is_err());
         assert_eq!(IMPORT_FILE_CAP, 256 * 1024 * 1024);
         std::fs::remove_dir_all(&dir).unwrap();
