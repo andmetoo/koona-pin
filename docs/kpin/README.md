@@ -71,7 +71,7 @@ A reader should refuse bytes that are not UTF-8 as not a list. Koona Pin 2.4.0 d
 
 ## The envelope
 
-Every Koona list file starts with the same five fields:
+Every Koona list file has the same five fields, in any order (the order of keys in a JSON object means nothing, and readers must not depend on it):
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -106,7 +106,7 @@ What a reader of version 1.N must do:
 
 "Unknown fields" are counted in the envelope, in `author`, in each section, in each link and in each feed. The fields of an unknown item type are not counted: the item is counted once.
 
-Koona Pin 2.4.0 reads version 1.0 and writes 1.0.
+Koona Pin 2.4.0 knows MINOR 0 of version 1: it opens every 1.x file, skipping what later MINORs added, and writes 1.0.
 
 ## How a reader answers a file
 
@@ -340,7 +340,7 @@ The link is accepted only when:
 - there is exactly one `url` parameter (others are ignored), and its value, once decoded, is an `https` address with a host and without a user name or password;
 - the whole link is at most 4,096 bytes in UTF-8.
 
-Anything else is ignored. Pages should percent-encode the `url` value. Sites that strip custom schemes, such as rendered Markdown on code hosts, should link to a web page that carries the button instead.
+Anything else is ignored. Pages must percent-encode the `url` value whenever the list's address has a `?`, `&` or `#` in it, and should always do so: an unencoded `&` ends the value early, and an unencoded `#` makes the rest a fragment of the `koonapin:` link, which is then refused. Sites that strip custom schemes, such as rendered Markdown on code hosts, should link to a web page that carries the button instead.
 
 **Safety rules.** A page can fire such a link at any moment, so a link can only ask a question:
 
