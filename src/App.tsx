@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri } from "./services/api";
+import { api, desktopApi, desktopOnly, isTauri } from "./services/api";
 import { capabilities } from "./platform/capabilities";
 import { useBack } from "./platform/useBack";
 import { describeError, reasonOf } from "./services/errors";
@@ -294,7 +294,7 @@ export function App() {
       // Quits from the window on every system (NP-096): without a tray it is the way out.
       if (capabilities.quit && (e.ctrlKey || e.metaKey) && (key === "q" || e.code === "KeyQ") && !e.shiftKey && !e.altKey) {
         e.preventDefault();
-        void api.quitApp().catch(() => {});
+        void desktopApi?.quitApp().catch(() => {});
       }
       if ((e.ctrlKey || e.metaKey) && key === "n" && !document.querySelector("dialog[open]")) {
         e.preventDefault();
@@ -492,7 +492,7 @@ export function App() {
   // A list dialog that downloads or imports holds it until the person closes the dialog, so the
   // result is seen; an idle one is closed.
   const [backgroundWaits, setBackgroundWaits] = useState<"now" | "list" | null>(null);
-  useEffect(() => api.onCloseToBackground(() => setBackgroundWaits(openRequests.busy() ? "list" : "now")), []);
+  useEffect(() => desktopApi?.onCloseToBackground(() => setBackgroundWaits(openRequests.busy() ? "list" : "now")), []);
   useEffect(() => {
     if (!backgroundWaits || (backgroundWaits === "list" && list.request)) return;
     setBackgroundWaits(null);
@@ -502,11 +502,12 @@ export function App() {
   useEffect(() => {
     void api.getVersion().then(setAppVersion).catch(() => {});
     // A phone's store updates the app (NP-151).
-    if (capabilities.updates !== "self") return;
-    const off = api.onUpdateStatus(setUpdate);
-    void api.getUpdateStatus().then(setUpdate).catch(() => {});
+    const desktop = desktopApi;
+    if (capabilities.updates !== "self" || !desktop) return;
+    const off = desktop.onUpdateStatus(setUpdate);
+    void desktop.getUpdateStatus().then(setUpdate).catch(() => {});
     // The password texts of the update dialog are for the .deb and .rpm: an AppImage replaces its own file (NP-116).
-    void api.getDesktop().then((desktop) => setLinux(desktop.linux && !desktop.appimage)).catch(() => {});
+    void desktop.getDesktop().then((desktop) => setLinux(desktop.linux && !desktop.appimage)).catch(() => {});
     return off;
   }, []);
   useEffect(() => {
@@ -545,10 +546,11 @@ export function App() {
   }, [surface, update]);
   useEffect(() => {
     // A phone has no browser extension to hear from (NP-151).
-    if (!capabilities.browser_capture) return;
+    const desktop = desktopApi;
+    if (!capabilities.browser_capture || !desktop) return;
     // The app learns about browsers when their extensions write (NP-016).
-    const refresh = () => void api.getCaptureStatus().then(setCapture).catch(() => {});
-    const off = api.onCaptureStatus(setCapture);
+    const refresh = () => void desktop.getCaptureStatus().then(setCapture).catch(() => {});
+    const off = desktop.onCaptureStatus(setCapture);
     refresh();
     const timer = window.setInterval(refresh, CAPTURE_REFRESH_MS);
     window.addEventListener("focus", refresh);
@@ -723,7 +725,7 @@ export function App() {
             alert: false,
             long: true,
             // A phone has no file manager to show it in (NP-151).
-            show: !capabilities.file_manager ? undefined : () => void api.revealExport().catch((err) => say(describeError(err), true)),
+            show: !capabilities.file_manager ? undefined : () => void desktopApi?.revealExport().catch((err) => say(describeError(err), true)),
           });
         const { file_name: name, folder, detail } = result;
         const text =
@@ -764,7 +766,7 @@ export function App() {
             text: t("settings.copySaved", { name: result.file_name }),
             alert: false,
             long: true,
-            show: !capabilities.file_manager ? undefined : () => void api.revealExport().catch((err) => say(describeError(err), true)),
+            show: !capabilities.file_manager ? undefined : () => void desktopApi?.revealExport().catch((err) => say(describeError(err), true)),
           });
         setNotice({ text: t("settings.copySaveFailed", { name: result.file_name, detail: result.detail }), alert: true, retry: () => void saveBackupCopy() });
       },
@@ -1616,7 +1618,7 @@ export function App() {
                     onFeedback={() => setSurface("feedback")}
                     update={update}
                     onUpdate={() => setSurface("update")}
-                    onCheckUpdates={async () => setUpdate(await api.checkForUpdates())}
+                    onCheckUpdates={async () => setUpdate(await desktopOnly().checkForUpdates())}
                     dataVersion={dataVersion}
                     supporter={supporter}
                     sync={sync}
@@ -1737,7 +1739,7 @@ export function App() {
                             {t("library.restore")}
                           </Button>
                           {capabilities.file_manager && (
-                            <Button variant="onDanger" onClick={() => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}>
+                            <Button variant="onDanger" onClick={() => void desktopApi?.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}>
                               {t("library.openBackups")}
                             </Button>
                           )}
@@ -1987,7 +1989,7 @@ export function App() {
             }
             return outcome;
           }}
-          onShowBackups={!capabilities.file_manager ? undefined : () => void api.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}
+          onShowBackups={!capabilities.file_manager ? undefined : () => void desktopApi?.revealLibraryPlace("backups").catch((err) => say(describeError(err), true))}
         />
       )}
       {surface === "backup" && (
@@ -2098,8 +2100,8 @@ export function App() {
           current={appVersion}
           linux={linux}
           onClose={() => setSurface(null)}
-          onInstall={() => void api.installUpdate().catch((err) => say(describeError(err), true))}
-          onCancel={() => void api.cancelUpdate().catch((err) => say(describeError(err), true))}
+          onInstall={() => void desktopApi?.installUpdate().catch((err) => say(describeError(err), true))}
+          onCancel={() => void desktopApi?.cancelUpdate().catch((err) => say(describeError(err), true))}
           onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
         />
       )}

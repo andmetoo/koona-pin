@@ -3,7 +3,7 @@ import { CircleAlert, CircleCheck, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
 import { BackupCopy, BackupRestoreOutcome, BackupSource, CopyProblem } from "../types";
-import { api } from "../services/api";
+import { api, desktopApi } from "../services/api";
 import { capabilities } from "../platform/capabilities";
 import { describeError } from "../services/errors";
 import { shortcut } from "../services/keys";
@@ -155,7 +155,7 @@ export function BackupRestoreDialog({
           {capabilities.file_manager && (
             <button
               type="button"
-              onClick={() => void api.revealBackup(previous).catch((err) => setError(describeError(err)))}
+              onClick={() => void desktopApi?.revealBackup(previous).catch((err) => setError(describeError(err)))}
               className="shrink-0 text-sm font-medium text-accent hover:underline"
             >
               {t("export.show")}

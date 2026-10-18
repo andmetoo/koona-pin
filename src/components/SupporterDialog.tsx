@@ -3,7 +3,7 @@ import { BookOpen, Check, Folder, Heart, RefreshCw, TriangleAlert, X } from "luc
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
-import { api } from "../services/api";
+import { api, desktopOnly } from "../services/api";
 import { capabilities } from "../platform/capabilities";
 import { describeError, toCommandError } from "../services/errors";
 import { savePreference, storedValue } from "../services/preferences";
@@ -747,7 +747,7 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
       setBusy(false);
     }
   };
-  const choose = () => act(() => api.chooseBackupFolder(t("supporter.folder.pickerTitle")));
+  const choose = () => act(() => desktopOnly().chooseBackupFolder(t("supporter.folder.pickerTitle")));
 
   const path = folder?.path ?? null;
   let line;
@@ -791,7 +791,7 @@ function FolderRow({ onError }: { onError: (text: string | null) => void }) {
         </Button>
       ) : (
         <span className="flex shrink-0 items-center gap-1">
-          <IconButton label={t("supporter.folder.open")} title={t("supporter.folder.open")} disabled={busy} onClick={() => void act(api.openBackupFolder)}>
+          <IconButton label={t("supporter.folder.open")} title={t("supporter.folder.open")} disabled={busy} onClick={() => void act(() => desktopOnly().openBackupFolder())}>
             <Icon icon={Folder} />
           </IconButton>
           <Button variant="outline" disabled={busy} onClick={() => void choose()}>

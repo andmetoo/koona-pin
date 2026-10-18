@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
-import { api, isTauri } from "../../services/api";
+import { desktopOnly, isTauri } from "../../services/api";
 import { isMobile } from "../../platform/platform";
 import { Desktop, WindowButton } from "../../types";
 import { Icon } from "../icons";
@@ -27,7 +27,7 @@ function FramedWindowBar() {
   useEffect(() => {
     let alive = true;
     const load = () =>
-      void api
+      void desktopOnly()
         .getDesktop()
         .then((next) => {
           linux.current = next.linux;

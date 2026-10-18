@@ -3,7 +3,7 @@ import { CircleCheck, FileText, Folder, Link, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
 import { CaptureStatus, ImportProgress, ImportSummary, OpmlImport, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
-import { api } from "../../services/api";
+import { api, desktopApi, desktopOnly } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
 import { importOpml } from "../../services/feeds";
@@ -763,7 +763,7 @@ export function BackgroundDialog({ onClose }: { onClose: () => void }) {
         <p className="rounded-lg bg-panel px-3 py-2.5 text-xs leading-[17px] text-muted dark:bg-hover">{t("background.hint", { quit: shortcut("Q") })}</p>
         <Failure error={error} reserve />
         <Footer>
-          <Button variant="outline" disabled={busy} onClick={() => void run(api.quitApp)}>
+          <Button variant="outline" disabled={busy} onClick={() => void run(() => desktopOnly().quitApp())}>
             {t("background.quit")}
           </Button>
           <Button
@@ -771,7 +771,7 @@ export function BackgroundDialog({ onClose }: { onClose: () => void }) {
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                await api.hideToBackground();
+                await desktopOnly().hideToBackground();
                 onClose();
               })
             }
@@ -801,7 +801,7 @@ export function ConnectDialog({
   const mac = capture?.system === "macos";
   const [tray, setTray] = useState(true);
   useEffect(() => {
-    if (linux) void api.getDesktop().then((desktop) => setTray(desktop.tray)).catch(() => {});
+    if (linux) void desktopApi?.getDesktop().then((desktop) => setTray(desktop.tray)).catch(() => {});
   }, [linux]);
   const status =
     capture?.state === "connected"

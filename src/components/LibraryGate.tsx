@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri } from "../services/api";
+import { api, desktopApi, isTauri } from "../services/api";
 import { capabilities } from "../platform/capabilities";
 import { describeError } from "../services/errors";
 import { LibraryStatus, OpenFailure } from "../types";
@@ -155,7 +155,7 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
         {capabilities.file_manager && (
           <Button
             autoFocus={!retry}
-            onClick={() => void api.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
+            onClick={() => void desktopApi?.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
           >
             {place === "backup" ? t("gate.openBackup") : t("gate.openData")}
           </Button>
@@ -171,7 +171,7 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
           {t("gate.copyReport")}
         </Button>
         {capabilities.quit && (
-          <Button variant="ghost" onClick={() => void api.quitApp().catch(() => {})}>
+          <Button variant="ghost" onClick={() => void desktopApi?.quitApp().catch(() => {})}>
             {t("gate.quit")}
           </Button>
         )}

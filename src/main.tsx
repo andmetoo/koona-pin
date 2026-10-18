@@ -4,7 +4,7 @@ import "./styles/app.css";
 import { onTrayLabels } from "./i18n";
 import { App } from "./App";
 import { LibraryGate } from "./components/LibraryGate";
-import { api } from "./services/api";
+import { desktopApi } from "./services/api";
 import { isMobile, platform } from "./platform/platform";
 import { capabilities } from "./platform/capabilities";
 // Back for the phone bridge, before the first render (NP-151).
@@ -31,7 +31,7 @@ blockBrowserChrome(window);
 trackInputMode(window, document.documentElement);
 // The tray speaks the interface's language, after a start in the tray too: the hidden window loads.
 // A phone has no tray (NP-151).
-if (capabilities.tray) onTrayLabels((labels) => void api.setTrayLabels(labels).catch(console.error));
+if (capabilities.tray) onTrayLabels((labels) => void desktopApi?.setTrayLabels(labels).catch(console.error));
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
