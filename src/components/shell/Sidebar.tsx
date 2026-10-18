@@ -9,7 +9,7 @@ import { DropTarget, dropAttribute, sameDrop } from "../../services/drag";
 import { moveCollection } from "../../services/library";
 import { useCollectionReorder } from "../../hooks/useCollectionReorder";
 import { statusColor, statusLabel } from "../../services/capture";
-import { isMobile } from "../../services/platform";
+import { isMobile } from "../../platform/platform";
 import { shortcut } from "../../services/keys";
 import { savePreference, storedValue } from "../../services/preferences";
 import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";

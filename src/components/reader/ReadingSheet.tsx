@@ -9,7 +9,7 @@ import { Kbd } from "../ui/Hint";
 import { ReaderLook, readerStyle } from "../../services/readerLook";
 import { ArticleStatus, ArticleView, OfflineBanner } from "./ArticleView";
 import { OfflineButton, useOfflineCopies } from "./OfflineButton";
-import { useBack } from "../../hooks/useBack";
+import { useBack } from "../../platform/useBack";
 
 /**
  * Reading over the list (Р-69 variant A, frame A): a sheet 760 px wide over

@@ -2,6 +2,7 @@ pub mod backup;
 pub mod billing;
 pub mod commercial;
 pub mod browsers;
+pub mod capabilities;
 pub mod capture;
 pub mod charset;
 pub mod capture_channel;
@@ -84,6 +85,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         // File dialogs of export and backups, called from Rust only (NP-032, NP-034): no permission for the interface.
         .plugin(tauri_plugin_dialog::init())
+        // What this build can do, read by the page before its first render (NP-072a).
+        .plugin(capabilities::plugin())
         // Previews and icons from the cache beside the library (NP-146), off the main thread.
         .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::protocol)
         .manage(channel_state.clone())

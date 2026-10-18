@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../services/api";
-import { isMobile } from "../services/platform";
+import { isMobile } from "../platform/platform";
 import { describeError } from "../services/errors";
 import { LibraryStatus, OpenFailure } from "../types";
 import { Icon } from "./icons";

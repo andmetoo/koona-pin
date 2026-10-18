@@ -3,7 +3,7 @@ import { Copy, Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "../../services/api";
-import { isMobile } from "../../services/platform";
+import { isMobile } from "../../platform/platform";
 import { Desktop, WindowButton } from "../../types";
 import { Icon } from "../icons";
 

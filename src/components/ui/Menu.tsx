@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronRight, LucideIcon } from "lucide-react";
 import { Icon } from "../icons";
 import { isMac, shortcut } from "../../services/keys";
-import { safeArea } from "../../services/platform";
+import { safeArea } from "../../platform/safeArea";
 
 export interface MenuItem {
   id: string;

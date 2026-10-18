@@ -5,7 +5,9 @@ import { onTrayLabels } from "./i18n";
 import { App } from "./App";
 import { LibraryGate } from "./components/LibraryGate";
 import { api } from "./services/api";
-import { isMobile, platform } from "./services/platform";
+import { isMobile, platform } from "./platform/platform";
+// Back for the phone bridge, before the first render (NP-151).
+import "./platform/back";
 import { blockBrowserChrome } from "./services/browserChrome";
 import { trackInputMode } from "./services/inputMode";
 import { applyTheme, isDark, storedTheme } from "./services/preferences";

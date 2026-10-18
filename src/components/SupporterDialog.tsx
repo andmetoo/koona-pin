@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
 import { api } from "../services/api";
-import { isMobile } from "../services/platform";
+import { isMobile } from "../platform/platform";
 import { describeError, toCommandError } from "../services/errors";
 import { savePreference, storedValue } from "../services/preferences";
 import { copyTime } from "./BackupRestoreDialog";

@@ -1,7 +1,7 @@
 //! Koona Pin on phones (NP-151): what the system does around the page, and Tauri does not.
 //!
 //! - **System Back** (Android) and the **edge swipe from the left** (iOS) ask the page to go back
-//!   one level (`window.__KOONA_MOBILE__.back()`, which `src/services/platform.ts` provides). With
+//!   one level (`window.__KOONA_MOBILE__.back()`, which `src/platform/back.ts` provides). With
 //!   nothing to close, Android moves the app to the background; it never exits.
 //! - **Renderer loss** (Android): a WebView whose renderer died cannot be used again, so the app
 //!   starts afresh, on the screen if it was there. What was committed is in the library.
@@ -13,7 +13,8 @@
 //!   shows a native «Update Android System WebView» screen instead of the page, and
 //!   [`webview_supported`] tells the app so, which then starts nothing behind it.
 //!
-//! The bridge script also tells the page its platform before the page's own scripts run.
+//! The page learns its platform from the app's own init script (`window.__KOONA__`, NP-072a), not
+//! from this bridge; the bridge only knows it to tell whether a Back is Android's.
 
 use tauri::{
     plugin::{Builder, TauriPlugin},
@@ -40,7 +41,7 @@ const PLATFORM: &str = if cfg!(target_os = "android") {
     "desktop"
 };
 
-/// The bridge with this build's platform filled in.
+/// The bridge with this build's platform filled in, for its own `claim`.
 fn bridge() -> String {
     include_str!("bridge.js").replace("__PLATFORM__", PLATFORM)
 }
@@ -69,9 +70,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn the_bridge_names_the_platform() {
+    fn the_bridge_fills_in_the_platform_and_leaves_naming_it_to_the_app() {
         let bridge = super::bridge();
         assert!(!bridge.contains("__PLATFORM__"));
-        assert!(bridge.contains(&format!("platform: '{}'", super::PLATFORM)));
+        assert!(bridge.contains(&format!("'{}' !== 'android'", super::PLATFORM)));
+        assert!(!bridge.contains("platform:"), "the page reads its platform from window.__KOONA__");
     }
 }

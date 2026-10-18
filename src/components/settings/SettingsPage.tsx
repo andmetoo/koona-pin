@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { AppSettings, CaptureStatus, DataSummary, Desktop, McpAccess, McpStatus, OfflineStats, PreviewCounts, PreviewRefresh, PreviewScope, SupporterStatus, SyncStatus, UpdateStatus } from "../../types";
 import { useSyncSettingsLine } from "../commercial/SyncRows";
 import { api, isTauri } from "../../services/api";
-import { isMobile } from "../../services/platform";
+import { isMobile } from "../../platform/platform";
 import {
   appIsOlder,
   browserName,

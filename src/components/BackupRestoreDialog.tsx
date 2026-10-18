@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
 import { BackupCopy, BackupRestoreOutcome, BackupSource, CopyProblem } from "../types";
 import { api } from "../services/api";
-import { isMobile } from "../services/platform";
+import { isMobile } from "../platform/platform";
 import { describeError } from "../services/errors";
 import { shortcut } from "../services/keys";
 import { Icon } from "./icons";
