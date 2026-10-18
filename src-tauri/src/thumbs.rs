@@ -1538,7 +1538,8 @@ mod tests {
     }
     static TEST: Limits = Limits {
         allow: loopback,
-        connect_timeout: Duration::from_secs(2),
+        // Shorter than the whole request, as in [`LIMITS`]: Windows takes about 2 s to refuse a closed port.
+        connect_timeout: Duration::from_millis(500),
         timeout: Duration::from_secs(2),
         max_body: 64 * 1024,
         max_redirects: 5,
