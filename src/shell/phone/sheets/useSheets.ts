@@ -68,7 +68,7 @@ export function useSheetState() {
       open: (request) => {
         const id = nextId.current++;
         // A long-press menu opens with a tick (doc/mobile-design.md, Motion).
-        if (request.kind === "bookmarkMenu") void selection();
+        if (request.kind === "bookmarkMenu" || request.kind === "feedMenu") void selection();
         const entry = { ...request, id, place: openPlace(), leaving: false, opener: document.activeElement } as SheetEntry;
         entriesRef.current = [...entriesRef.current, entry];
         setEntries(entriesRef.current);

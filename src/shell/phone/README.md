@@ -53,7 +53,7 @@ sheets.open({ kind: "collectionPicker", props: { bookmarkIds: [id] } });
 sheets.close();             // the top one
 ```
 
-Kinds and their props are in `sheets/registry.ts`; a sheet's props type is exported from its own file. A sheet component renders the kit's `Sheet`: `variant="detached"` (compact, over a scrim) or `variant="attached"` with `bar={<SheetBar left={Cancel} title="Edit link" right={Save} />}` (full height, the bar above the keyboard). Inside, `useCloseSheet()` closes it. Each open sheet answers Back; the scrim, a drag down on the grabber or the top, Escape and the close circle dismiss it. Long-press menus are sheets; `bookmarkMenu` opens with a haptic tick.
+Kinds and their props are in `sheets/registry.ts`; a sheet's props type is exported from its own file. A sheet component renders the kit's `Sheet`: `variant="detached"` (compact, over a scrim) or `variant="attached"` with `bar={<SheetBar left={Cancel} title="Edit link" right={Save} />}` (full height, the bar above the keyboard). Inside, `useCloseSheet()` closes it. Each open sheet answers Back; the scrim, a drag down on the grabber or the top, Escape and the close circle dismiss it. Long-press menus are sheets; `bookmarkMenu` and `feedMenu` open with a haptic tick.
 
 Two of the app's own ways in are wired by the shell (`sheets/useAppSheets.ts`): `app.setEditing(bookmark)` opens the `edit` sheet and closing it closes the editor (the edit sheet reads `app.editing`; key its form by `app.editing.id`); `app.setSurface("add")` opens `newLink`.
 

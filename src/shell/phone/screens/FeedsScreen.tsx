@@ -9,7 +9,6 @@ import { Chip, Segmented } from "../ui/controls";
 import { PhIcon } from "../ui/icons";
 import { Header, Screen } from "../ui/Screen";
 import { useLongPress } from "../ui/useLongPress";
-import { selection } from "../../../platform/haptics";
 import { FeedIcon } from "../../../components/feeds/FeedIcon";
 import { useFeedItems } from "../../../components/feeds/useFeeds";
 import { usePicture } from "../../../hooks/usePicture";
@@ -289,10 +288,8 @@ function PostPicture({ item, feed, name }: { item: FeedItem; feed: Feed | undefi
 /** A feed's chip: its avatar, name and unread count; a tap shows it, a long press opens its menu. */
 function FeedChip({ feed, active }: { feed: Feed; active: boolean }) {
   const { app, sheets } = usePhone();
-  const press = useLongPress(() => {
-    void selection();
-    sheets.open({ kind: "feedMenu", props: { feedUid: feed.uid } });
-  });
+  // The sheet gives the long-press tick (sheets/useSheets.ts).
+  const press = useLongPress(() => sheets.open({ kind: "feedMenu", props: { feedUid: feed.uid } }));
   return (
     <Chip active={active} className="fd-chip" data-feed-uid={feed.uid} onClick={() => !active && app.openFeeds(feed.uid)} {...press}>
       <FeedIcon feed={feed} size={22} round />
