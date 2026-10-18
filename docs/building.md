@@ -57,6 +57,15 @@ This serves the interface alone at `http://localhost:1420` in any browser. Witho
 
 This is the fastest way to work on layout, and it is what the Playwright UI tests drive.
 
+## Screenshots for the site and the stores
+
+```bash
+bun run site:shots:mac
+bun scripts/store-assets.mjs
+```
+
+On a Mac, the first command shoots the real window of a debug build: the sample library of `scripts/shots/library.json` and the feeds of `scripts/shots/feeds.json`, in grid, list, reading, feeds, triage and sync views, light and dark, in English only. It writes `release/shots/app-en-<theme>-<view>.webp` (1920 px) and `-1280.webp`; copy them to koona-site's `pin/src/shots/` and the three README ones to `docs/shots/`. The script drives the page through `KOONAPIN_SHOTS_SOCKET` (`src-tauri/src/shots.rs`), which exists only in builds without `public-release`. Quit your own Koona Pin first, and allow Screen Recording for the terminal. The sync dialog comes from the browser preview, since the real one needs a plan and a second computer. On Windows, `bun run site:shots` does the same through WebView2. The second command makes the store images in `extension/store/en/`.
+
 ## The browser extension
 
 ```powershell
