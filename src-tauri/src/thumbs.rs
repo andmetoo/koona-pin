@@ -669,6 +669,8 @@ async fn download(thumbs: &Thumbs, url: Url) -> Result<Vec<u8>, Fault> {
         }
         match metadata::failure(&e) {
             FetchError::Refused => Fault::Miss(Miss::Refused),
+            // No connection at all, timed out or not, is the network's fault, not the picture's.
+            _ if e.is_connect() => Fault::Offline,
             FetchError::Timeout => Fault::Miss(Miss::Timeout),
             FetchError::Failed => Fault::Offline,
         }
@@ -1651,8 +1653,10 @@ mod tests {
         let malformed = respond(&thumbs, "/b/x/image").await;
         assert_eq!(malformed.status(), 400);
         assert_eq!(malformed.headers()["content-security-policy"], SANDBOX);
+        // Windows keeps the files of open connections locked.
+        drop(thumbs);
         drop(conn);
-        fs::remove_dir_all(folder).unwrap();
+        let _ = fs::remove_dir_all(folder);
     }
 
     #[tokio::test]
@@ -1668,8 +1672,9 @@ mod tests {
         assert!(thumbs.broken(), "five connection failures in a row");
         assert_eq!(respond(&thumbs, &format!("/b/{}/image", ids[BREAKER_AFTER as usize])).await.status(), 404);
         assert!(!root.exists() || list(&root).is_empty(), "offline writes no miss");
+        drop(thumbs);
         drop(conn);
-        fs::remove_dir_all(folder).unwrap();
+        let _ = fs::remove_dir_all(folder);
     }
 
     #[cfg(target_os = "macos")]
