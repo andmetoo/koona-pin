@@ -53,7 +53,8 @@ test("a list: the preview (K10), Accept, the report, then «Show collection»", 
   await expect(head).toContainText("Personal and team blogs about Rust");
   await expect(head).toContainText("by Koona · Oct 18, 2026 · rust-blogs.kpin");
   await expect(d.locator("[data-list-counts]")).toHaveText("3 links · 2 feeds · 2 sections — 3 new");
-  // The header is at most 110 px at 1200×800 in English.
+  // The header is at most 110 px at 1200×800 in English. As decided, that is the frame's header
+  // block, `[data-list-head]`: the Dialog's «IMPORT LIST» and «×» row above it is not counted.
   expect((await head.boundingBox())!.height).toBeLessThanOrEqual(110);
   // The top level and each section, with the tag a section becomes; new rows have no badge.
   expect(await groupNames(d)).toEqual(["Links", "Compiler and language", "Async"]);
@@ -206,6 +207,37 @@ test("«Follow all» is on, off or mixed; the feeds checked are the feeds follow
   expect((await imports(page)).at(-1)).toMatchObject({ follow_feeds: ["https://fasterthanli.me/index.xml"], existing_links: "leave" });
 });
 
+test("feeds outside any section are a «Feeds» group with «Follow all», alone or after links", async ({ page }) => {
+  await recordImports(page);
+  const d = dialog(page);
+  const list = (items: unknown[]) => JSON.stringify({ format: "koona", app: "pin", kind: "list", version: "1.0", title: "Loose feeds", items });
+  const feeds = [
+    { type: "feed", url: "https://blog.rust-lang.org/feed.xml", title: "Rust Blog" },
+    { type: "feed", url: "https://without.boats/index.xml", title: "Without boats" },
+  ];
+  expect(await push(page, { kind: "kpin", name: "loose.kpin", text: list(feeds) })).toBe(true);
+  await expect(d.locator("[data-list-group=Feeds]")).toBeVisible();
+  expect(await groupNames(d)).toEqual(["Feeds"]);
+  const all = d.getByRole("checkbox", { name: "Follow all" });
+  await expect(all).toBeChecked();
+  await all.click();
+  await expect(d.getByRole("button", { name: "Accept" })).toBeDisabled();
+  await row(d, "Without boats").getByRole("checkbox").check();
+  await expect(all).toBeChecked({ indeterminate: true });
+  await d.getByRole("button", { name: "Accept" }).click();
+  expect((await imports(page)).at(-1)).toMatchObject({ follow_feeds: ["https://without.boats/index.xml"] });
+  await d.getByRole("button", { name: "Done" }).click();
+
+  // With links at the top level: the links under «Links», the feeds apart under «Feeds».
+  expect(await push(page, { kind: "kpin", name: "loose.kpin", text: list([feeds[0], { type: "link", url: "https://tokio.rs/", title: "Tokio" }, feeds[1]]) })).toBe(true);
+  await expect(d.locator("[data-list-group=Links]")).toBeVisible();
+  expect(await groupNames(d)).toEqual(["Links", "Feeds"]);
+  await expect(d.locator("[data-list-group=Links]")).not.toContainText("Follow all");
+  await expect(d.locator("[data-list-group=Feeds]").getByRole("checkbox", { name: "Follow all" })).toBeChecked();
+  await d.getByRole("button", { name: "Cancel" }).click();
+  await expect(d).toHaveCount(0);
+});
+
 test("a list of 5,000 items scrolls in one virtualised list: groups fold, few rows are drawn", async ({ page }) => {
   expect(await push(page, { kind: "kpin", name: "max-items.kpin", text: kpin("max-items.kpin") })).toBe(true);
   const d = dialog(page);
@@ -213,6 +245,8 @@ test("a list of 5,000 items scrolls in one virtualised list: groups fold, few ro
   const rows = d.locator("[data-list-rows]");
   // Each group over 8 rows shows 5, then «Show N more».
   await d.getByRole("button", { name: "Show 95 more" }).first().click();
+  // The button goes; focus moves to the first row it showed, not to the page.
+  await expect(row(d, "A loose link, number 5")).toBeFocused();
   await expect(row(d, "A loose link, number 99")).toHaveCount(0);
   await rows.evaluate((list) => list.scrollBy(0, 2000));
   await expect(row(d, "A loose link, number 60")).toBeVisible();
