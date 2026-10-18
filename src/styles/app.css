@@ -3166,6 +3166,7 @@
   .bundle-fan {
     transform: none;
   }
+}
 
 /* The safe area of a phone (NP-151): the status bar, the cutout, the navigation bar and the keyboard.
    Android WebViews before 140 give env() nothing in an edge-to-edge window, so the koona-mobile plugin
