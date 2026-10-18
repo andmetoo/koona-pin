@@ -225,14 +225,20 @@ export function Panel({
           </h2>
           <label className="group/title flex min-w-0 flex-1 items-center gap-1.5">
             <span className="sr-only">{t("bundle.titleLabel")}</span>
-            <input
-              value={title}
-              maxLength={TITLE_LEN}
-              onChange={(e) => bundle.setTitle(e.target.value)}
-              size={1}
-              className={`peer min-w-0 flex-1 truncate rounded-md bg-transparent px-1 py-0.5 -ml-1 text-md font-semibold outline-none hover:bg-hover focus:bg-hover ${empty && !state.titleEdited ? "text-muted" : ""}`}
-            />
-            <Icon icon={Pencil} size={13} className="shrink-0 text-subtle opacity-60 group-hover/title:opacity-100 peer-focus:opacity-100" />
+            {/* As wide as its text, so the pencil follows the title: the input over a hidden copy of it. */}
+            <span className="-ml-1 grid min-w-0 text-md font-semibold">
+              <span aria-hidden className="invisible col-start-1 row-start-1 truncate px-1 py-0.5 whitespace-pre">
+                {title || " "}
+              </span>
+              <input
+                value={title}
+                maxLength={TITLE_LEN}
+                onChange={(e) => bundle.setTitle(e.target.value)}
+                size={1}
+                className={`peer col-start-1 row-start-1 w-full min-w-0 truncate rounded-md bg-transparent px-1 py-0.5 outline-none hover:bg-hover focus:bg-hover ${empty && !state.titleEdited ? "text-muted" : ""}`}
+              />
+            </span>
+            <Icon icon={Pencil} size={13} className="shrink-0 text-subtle opacity-60 group-hover/title:opacity-100 group-focus-within/title:opacity-100" />
           </label>
           {!empty && (
             <button type="button" onClick={clear} className="h-7 shrink-0 rounded-md px-2 text-sm text-icon hover:bg-hover hover:text-ink">
