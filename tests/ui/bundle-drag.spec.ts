@@ -24,6 +24,8 @@ async function moveTo(page: Page, locator: Locator, dy = 0) {
 
 /** Press on a sidebar row and take it past the 4 px threshold, still inside the sidebar. */
 async function pick(page: Page, row: Locator) {
+  // In the middle of the sidebar: at its bottom the rows sit under the footer's glass.
+  await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
   const at = await centre(row);
   await page.mouse.move(at.x, at.y);
   await page.mouse.down();
@@ -55,8 +57,7 @@ async function watch(page: Page, selector: string, text = "") {
 }
 const seen = (page: Page) => page.evaluate(() => (window as unknown as { seen: boolean }).seen);
 
-// Tall enough that the tag chips are not under the sidebar's footer.
-test.beforeEach(({ page }) => openApp(page, { viewport: { width: 1200, height: 1100 }, settings: { view: "grid" }, cards: 6 }));
+test.beforeEach(({ page }) => openApp(page, { viewport: { width: 1200, height: 800 }, settings: { view: "grid" }, cards: 6 }));
 
 test("a collection dragged to the capsule becomes a section; a reorder still reorders", async ({ page }) => {
   await expect(capsule(page)).toHaveCount(0);
@@ -185,29 +186,85 @@ test("a drop flies cards into the capsule; the count rolls", async ({ page }) =>
   await page.mouse.up();
   await expect.poll(() => seen(page)).toBe(true);
   await expect(capsule(page).locator("[data-bundle-count]")).toHaveText("3");
+  // Settled: «+1» floats away.
+  await expect(capsule(page).locator("[data-bundle-plus]")).toHaveText("+1");
+  await expect(capsule(page).locator("[data-bundle-plus]")).toHaveCount(0);
 });
+
+test("a drop that adds nothing new does not land", async ({ page }) => {
+  for (let i = 0; i < 2; i++) {
+    await pick(page, sidebar(page).locator("[data-feed-row]").first());
+    await toCapsule(page);
+    if (i) await watch(page, "[data-bundle-flyer], [data-bundle-plus]");
+    await page.mouse.up();
+    await expect(announcer(page)).toHaveText(i ? "Already in the bundle, 1 item" : "Added 1 feed to the bundle, 1 item");
+    // The first landing has played out: «+1» came and went.
+    if (!i) await expect(capsule(page).locator("[data-bundle-plus]")).toHaveText("+1");
+    await expect(capsule(page).locator("[data-bundle-plus]")).toHaveCount(0);
+    await expect(page.locator("[data-bundle-flyer]")).toHaveCount(0);
+  }
+  await expect(capsule(page).locator("[data-bundle-plus]")).toHaveCount(0);
+  expect(await seen(page)).toBe(false);
+});
+
+/**
+ * Records the capsule's landing as it happens, in the page: when `data-landed` came and went, the
+ * ring then, the animations on the capsule and whether «+N» moved.
+ */
+async function recordLanding(page: Page) {
+  await page.evaluate(() => {
+    const record: { from?: number; to?: number; shadow?: string; animations?: number; plusMoved?: boolean; plus?: string } = {};
+    (window as unknown as { landing: typeof record }).landing = record;
+    new MutationObserver(() => {
+      const landed = document.querySelector("[data-bundle-capsule][data-landed]");
+      if (landed && record.from === undefined) {
+        record.from = performance.now();
+        record.shadow = getComputedStyle(landed.querySelector(".bundle-shell")!).boxShadow;
+        record.animations = landed.getAnimations({ subtree: true }).length;
+      }
+      if (!landed && record.from !== undefined && record.to === undefined) record.to = performance.now();
+      const plus = document.querySelector<HTMLElement>("[data-bundle-plus]");
+      if (plus) {
+        record.plus = plus.textContent ?? "";
+        record.plusMoved ||= getComputedStyle(plus).transform !== "none";
+      }
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-landed"] });
+  });
+}
 
 test.describe("with reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
-  test("nothing moves; a 2 px accent border shows for 300 ms", async ({ page }) => {
+  test("nothing moves; a 2 px accent border shows for 300 ms and «+N» holds still", async ({ page }) => {
+    // Dropped on the open panel, so the ring on the capsule is the landing's and not the hover's.
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Share as list…/ }).click();
+    const panel = page.locator("[data-bundle-panel]");
+    await expect(panel).toBeVisible();
     await pick(page, sidebar(page).getByRole("button", { name: "interfaces", exact: true }));
-    await toCapsule(page);
+    await page.mouse.move(700, 300, { steps: 8 });
+    await expect(capsule(page)).toBeVisible();
+    // Near the capsule, it holds still.
+    const box = (await capsuleButton(page).boundingBox())!;
+    await page.mouse.move(box.x - 30, box.y + box.height / 2, { steps: 4 });
     await expect(capsule(page)).toHaveAttribute("data-near", "");
-    // Near and over, it holds still.
     await expect(capsuleButton(page)).toHaveCSS("transform", "none");
     await expect(capsule(page).locator(".bundle-fan")).toHaveCSS("transform", "none");
+    await moveTo(page, panel.locator("[data-bundle-empty]"));
+    await expect(panel).toHaveAttribute("data-over", "true");
     await watch(page, "[data-bundle-flyer]");
+    await recordLanding(page);
     await page.mouse.up();
-    // Away from it, so the ring is the landing's and not the hover's.
-    await page.mouse.move(700, 300);
-    await expect(capsule(page)).toHaveAttribute("data-landed", "");
-    await expect(capsule(page).locator(".bundle-shell")).toHaveCSS("box-shadow", /0px 0px 0px 2px inset$/);
-    expect(await capsule(page).evaluate((el) => el.getAnimations({ subtree: true }).length)).toBe(0);
-    await expect(capsule(page)).not.toHaveAttribute("data-landed");
-    await expect(capsule(page).locator(".bundle-shell")).toHaveCSS("box-shadow", /0px 0px 0px 1px inset$/);
-    expect(await seen(page)).toBe(false);
-    await expect(capsule(page).locator("[data-bundle-count]")).toHaveText("2");
     await expect(announcer(page)).toHaveText("Added interfaces to the bundle, 2 items");
+    await expect.poll(() => page.evaluate(() => (window as unknown as { landing: { to?: number } }).landing.to)).toBeDefined();
+    const landing = await page.evaluate(() => (window as unknown as { landing: Record<string, unknown> }).landing);
+    expect(landing.shadow).toMatch(/0px 0px 0px 2px inset$/);
+    expect(landing.animations).toBe(0);
+    expect((landing.to as number) - (landing.from as number)).toBeGreaterThanOrEqual(250);
+    expect(landing.plus).toBe("+2");
+    expect(landing.plusMoved).toBe(false);
+    expect(await seen(page)).toBe(false);
+    await expect(capsule(page).locator(".bundle-shell")).toHaveCSS("box-shadow", /0px 0px 0px 1px inset$/);
+    await expect(capsule(page).locator("[data-bundle-count]")).toHaveText("2");
   });
 });
