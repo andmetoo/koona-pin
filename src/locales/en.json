@@ -1921,14 +1921,30 @@
       "title": "Inbox"
     },
     "feeds": {
-      "title": "Feeds"
+      "title": "Feeds",
+      "chips": "Feeds to show",
+      "scope": "Which posts",
+      "all": "All",
+      "noUnread": "Nothing new here. New posts appear after the next check.",
+      "showAll": "Show all posts",
+      "chosen": "chosen"
     },
     "reader": {
       "title": "Reader",
-      "more": "More"
+      "more": "More",
+      "actions": "Reader actions",
+      "openOriginal": "Open original",
+      "progress": "Read so far",
+      "percent": "{{percent}} %",
+      "done": "Done",
+      "smaller": "Smaller text",
+      "larger": "Larger text",
+      "themeAuto": "Match app"
     },
     "post": {
-      "title": "Post"
+      "title": "Post",
+      "save": "Save as bookmark",
+      "saved": "Saved as a bookmark"
     },
     "search": {
       "title": "Search"

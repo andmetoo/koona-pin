@@ -2,7 +2,9 @@ import type { ComponentProps } from "react";
 import { BookmarkMenu } from "./BookmarkMenu";
 import { CollectionPicker } from "./CollectionPicker";
 import { EditSheet } from "./EditSheet";
+import { FeedMenuSheet } from "./FeedMenuSheet";
 import { NewLinkSheet } from "./NewLinkSheet";
+import { ReaderLookSheet } from "./ReaderLookSheet";
 import { YouSheet } from "./YouSheet";
 
 /**
@@ -21,6 +23,10 @@ export const SHEETS = {
   you: YouSheet,
   /** A bookmark's long-press menu. */
   bookmarkMenu: BookmarkMenu,
+  /** "Aa" of the reader and the post view. */
+  readerLook: ReaderLookSheet,
+  /** A feed chip's long-press menu. */
+  feedMenu: FeedMenuSheet,
 };
 
 export type SheetKind = keyof typeof SHEETS;
