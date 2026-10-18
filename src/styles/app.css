@@ -2547,36 +2547,58 @@
     background: var(--np-hover);
   }
 
-  /* A link dragged over the window: the whole window frosts, an ink circle bobs in the middle. */
-  .drop-veil {
+  /* Something dragged in from outside (share-bundle.md, K9): one full-window zone, a scrim and a
+     dashed card 16 px in, at most three lines. In the top layer as a popover (DropZone), so not
+     the browser's centred box; it never takes the pointer. No scale: it only fades (120 ms). */
+  .drop-zone {
     position: fixed;
-    inset: 10px;
+    inset: 0;
     z-index: 60;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 16px;
+    border: 0;
+    overflow: hidden;
+    color: inherit;
+    background: var(--np-scrim);
+    pointer-events: none;
+    animation: drop-zone-fade 120ms var(--ease-standard);
+  }
+  .drop-zone-card {
     display: grid;
     place-items: center;
+    height: 100%;
+    border: 2.5px dashed var(--np-accent);
     border-radius: 18px;
     text-align: center;
-    pointer-events: none;
-    background: color-mix(in oklab, var(--np-bg) 70%, transparent);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-    box-shadow: inset 0 0 0 2px var(--np-ink);
-    animation: add-fade 160ms var(--ease-standard);
+    background: color-mix(in oklab, var(--np-card) 97%, transparent);
   }
-  .drop-veil-ring {
+  .drop-zone[data-warn] .drop-zone-card {
+    border-color: var(--np-faint);
+  }
+  .drop-zone-words {
+    animation: drop-zone-fade 120ms var(--ease-standard);
+  }
+  .drop-zone-icon {
     display: grid;
     place-items: center;
     width: 64px;
     height: 64px;
-    margin: 0 auto 10px;
+    margin: 0 auto 18px;
     border-radius: 50%;
-    background: var(--np-ink-btn);
-    color: var(--np-on-ink-btn);
-    animation: drop-bob 1.2s ease-in-out infinite alternate;
+    background: var(--np-accent-soft);
+    color: var(--np-accent);
   }
-  @keyframes drop-bob {
-    to {
-      transform: translateY(-6px);
+  .drop-zone[data-warn] .drop-zone-icon {
+    background: var(--np-amber-soft);
+    color: var(--np-amber);
+  }
+  @keyframes drop-zone-fade {
+    from {
+      opacity: 0;
     }
   }
 
@@ -2691,7 +2713,8 @@
   [data-fresh] .card-ring,
   [data-fresh][data-bookmark-row],
   .card-landing,
-  .drop-veil-ring,
+  .drop-zone,
+  .drop-zone-words,
   .add-sheet,
   .app-dialog,
   .app-dialog::backdrop,

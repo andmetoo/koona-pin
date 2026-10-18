@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
 import { describeError, reasonOf } from "./services/errors";
@@ -7,7 +7,8 @@ import { composing } from "./services/ime";
 import { isArrow, isDeleteKey, shortcut } from "./services/keys";
 import { undoNotice } from "./services/undo";
 import { carriesLink, destinationOf, linkFrom } from "./services/addLink";
-import { DraggedFile, draggedFile, openRequests, readDropped, receiveNativeOpens, refusedByName } from "./services/openRequests";
+import { draggedFile, openRequests, receiveNativeOpens } from "./services/openRequests";
+import { ImportFile, ImportRefusal, importFile, isRefusal } from "./services/importFile";
 import { bulkFailure, bulkNotice, readingNotice } from "./services/bulk";
 import { collectionColor, suggestedName } from "./services/collections";
 import { applyTheme, isDark, preference, savePreference, storedOpenLinks, storedTheme, storedValue, Theme } from "./services/preferences";
@@ -29,6 +30,7 @@ import { WindowBar } from "./components/ui/WindowBar";
 import { Sidebar } from "./components/shell/Sidebar";
 import { AppNotification } from "./components/shell/NotificationCenter";
 import { Toolbar } from "./components/shell/Toolbar";
+import { DropZone, DropZoneState, dropZoneText } from "./components/shell/DropZone";
 import { BookmarkActions, Preview } from "./components/library/Bookmarks";
 import { Arrows, BookmarkList } from "./components/library/BookmarkList";
 import { DragStack } from "./components/library/DragStack";
@@ -66,6 +68,8 @@ import { syncPrompt } from "./components/commercial/syncText";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
 type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | "shareList" | null;
+/** The dialogs a dropped file would compete with: another file meanwhile is «Busy» (K9). */
+const IMPORT_SURFACES: Surface[] = ["import", "importFeeds", "restore", "backup"];
 /**
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
@@ -196,10 +200,10 @@ export function App() {
   const [notice, setNotice] = useState<Notice>(null);
   /** A link just saved by hand (2026-10-16): its card lands first with a spring. */
   const [fresh, setFresh] = useState<number | null>(null);
-  /** A link dragged over the window: the veil, and whether Shift sends it to the inbox; or a file to import (NP-139). */
-  const [veil, setVeil] = useState<{ inbox: boolean; file?: DraggedFile } | null>(null);
-  /** An OPML or bookmarks file dropped on the window: the import dialog opens with it (NP-139). */
-  const [droppedFile, setDroppedFile] = useState<{ name: string; content: string; surface: "import" | "importFeeds" } | null>(null);
+  /** A link dragged over the window: the drop zone, and whether Shift sends it to the inbox; or a file to import (K9). */
+  const [veil, setVeil] = useState<{ inbox: boolean; file?: DropZoneState & { link?: false } } | null>(null);
+  /** An OPML, bookmarks or backup file dropped or picked: its dialog opens with it (NP-139, K9). */
+  const [droppedFile, setDroppedFile] = useState<{ name: string; content: string; surface: "import" | "importFeeds" | "restore" } | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [capture, setCapture] = useState<CaptureStatus | null>(null);
   /** The app's own update (NP-038, sheet 42), checked by Rust; the version that runs and the system for the dialog. */
@@ -396,18 +400,27 @@ export function App() {
       if (depth === 0) {
         const file = own ? null : draggedFile(e.dataTransfer);
         accepting = file ? "file" : !own && carriesLink(e.dataTransfer?.types) && !quickBlocked() ? "link" : null;
-        if (accepting === "file") setVeil(importBlocked() ? null : { inbox: false, file: file! });
+        if (accepting === "file") {
+          // Another import open: the zone says so (K9 «Busy»); over anything else nothing shows.
+          const busy = importBusy();
+          const zone = busy || !importBlocked() ? { file: file!, busy } : null;
+          setVeil(zone && { inbox: false, file: zone });
+          if (zone) announceZoneRef.current(zone);
+        }
       }
       if (!accepting) return;
       depth++;
       e.preventDefault();
-      if (accepting === "link") setVeil({ inbox: e.shiftKey });
+      if (accepting === "link") {
+        if (depth === 1) announceZoneRef.current({ link: true, hint: "" });
+        setVeil({ inbox: e.shiftKey });
+      }
     };
     const over = (e: DragEvent) => {
       if (!accepting) return;
       e.preventDefault();
       if (accepting === "file") {
-        if (e.dataTransfer) e.dataTransfer.dropEffect = importBlocked() ? "none" : "copy";
+        if (e.dataTransfer) e.dataTransfer.dropEffect = importBlocked() || importBusy() ? "none" : "copy";
         return;
       }
       if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
@@ -430,9 +443,9 @@ export function App() {
       setVeil(null);
       const data = e.dataTransfer;
       if (kind === "file") {
-        if (!importBlocked()) dropFileRef.current(data?.files);
-        // Another list while one is open is refused: that is said, not dropped in silence.
-        else if (openRequests.current()) sayRef.current(t("add.dropImportBusy"), true);
+        if (!importBlocked() && !importBusy()) dropFileRef.current(data?.files);
+        // Another file while an import is open is refused: that is said, not dropped in silence.
+        else if (importBusy()) sayRef.current(t("add.dropImportBusy"), true);
         return;
       }
       const url = linkFrom(data?.getData("text/uri-list"), true) ?? linkFrom(data?.getData("text/plain"));
@@ -1088,32 +1101,46 @@ export function App() {
       (err) => say(describeError(err), true),
     );
   };
-  /** Where a drop saves without Shift, as the veil names it. */
+  /** Where a drop saves without Shift, as the drop zone names it. */
   const dropPlace =
     destinationOf(filters) === "reading" ? t("nav.reading") : (library.collections.find((c) => c.id === filters.collectionId)?.name ?? t("import.library"));
+  /** The drop zone's line for a link: where it goes, and that Shift sends it to the inbox. */
+  const veilHint = (inbox: boolean) => (inbox || destinationOf(filters) === "inbox" ? t("add.dropHintInbox") : t("add.dropHint", { place: dropPlace }));
   const quickSaveRef = useRef(quickSave);
   quickSaveRef.current = quickSave;
   /**
-   * A file dropped on the window, read: a `.kpin` list waits for the list dialog, OPML and
-   * bookmarks open their import dialog with it; or the person hears why it is not taken. Of
-   * several files the first is taken, and that is said.
+   * A file dropped or picked, read and known (importFile.ts): a list waits for the list dialog,
+   * OPML and bookmarks open their import dialog with it, a full copy opens Restore; or the person
+   * hears why it is not taken.
    */
+  const routeImport = (read: ImportFile | ImportRefusal) => {
+    if (isRefusal(read)) {
+      if (read.refused === "unsupported") say(t("add.dropImportOther"), true);
+      else say(t("add.dropImportTooBig", { size: Math.round(read.cap / (1024 * 1024)) }), true);
+      return false;
+    }
+    if (read.kind === "kpin") {
+      if (openRequests.push({ kind: "kpin", name: read.name, text: read.text })) return true;
+      say(t("add.dropImportBusy"), true);
+      return false;
+    }
+    const target = read.kind === "opml" ? "importFeeds" : read.kind === "backup" ? "restore" : "import";
+    setDroppedFile({ name: read.name, content: read.text, surface: target });
+    setSurface(target);
+    return true;
+  };
+  /** Of several dropped files the first is taken, and that is said. */
   const dropFile = (files: FileList | null | undefined) =>
-    void readDropped(files).then(
+    void importFile.readDropped(files).then(
       (read) => {
-        if (!read) return;
-        if (read === "unsupported") return say(t("add.dropImportOther"), true);
-        if (read === "tooBig") return say(t("add.dropImportTooBig"), true);
-        const { file, more } = read;
-        if (file.kind === "kpin") {
-          if (!openRequests.push({ ...file, kind: "kpin" })) return say(t("add.dropImportBusy"), true);
-        } else {
-          const target = file.kind === "opml" ? "importFeeds" : "import";
-          setDroppedFile({ name: file.name, content: file.text, surface: target });
-          setSurface(target);
-        }
-        if (more) say(t("add.dropImportOne", { name: file.name }));
+        if (read && routeImport(read) && !isRefusal(read) && read.more) say(t("add.dropImportOne", { name: read.name }));
       },
+      (err) => say(describeError(err), true),
+    );
+  /** ⋯ → «Import a file…»: the system dialog, then the file goes where a dropped one would. */
+  const pickImportFile = () =>
+    void importFile.pick().then(
+      (read) => void (read && routeImport(read)),
       (err) => say(describeError(err), true),
     );
   const dropFileRef = useRef(dropFile);
@@ -1122,6 +1149,17 @@ export function App() {
   sayRef.current = say;
   /** Whether a dropped file may be imported now: nothing over the window, on any page. */
   const importBlocked = () => !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
+  /** Another import is open (K9 «Busy»): a list waits or shows, or an import or restore dialog. */
+  const importBusy = () => !!openRequests.current() || IMPORT_SURFACES.includes(surfaceRef.current);
+  const surfaceRef = useRef(surface);
+  surfaceRef.current = surface;
+  /** The drop zone is said once per drag, through the live region (K9). */
+  const announceZone = (zone: DropZoneState) => {
+    const words = dropZoneText(zone.link ? { link: true, hint: veilHint(false) } : zone, t);
+    setAnnouncement([words.title, words.line, words.hint].filter(Boolean).join(". "));
+  };
+  const announceZoneRef = useRef(announceZone);
+  announceZoneRef.current = announceZone;
   /** Whether `⌘V` and a drop may save now: the library on screen, nothing over it. */
   const quickBlocked = () =>
     pageRef.current !== "library" || !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
@@ -1707,10 +1745,8 @@ export function App() {
                     onSearch={(search) => changeFilters({ search })}
                     onView={setView}
                     onSort={setSort}
-                    onImport={() => setSurface("import")}
-                    onImportFeeds={() => setSurface("importFeeds")}
+                    onImportFile={pickImportFile}
                     onExport={exportLibrary}
-                    onRestore={() => setSurface("restore")}
                     duplicates={library.counts.duplicates}
                     onDuplicates={openDuplicates}
                     links={library.counts.links}
@@ -1962,6 +1998,8 @@ export function App() {
       )}
       {surface === "restore" && (
         <RestoreDialog
+          key={droppedFile?.surface === "restore" ? droppedFile.name : ""}
+          file={droppedFile?.surface === "restore" ? droppedFile : undefined}
           onClose={() => setSurface(null)}
           onRestore={async (content, mode) => {
             const outcome = await api.restoreLibrary(content, mode);
@@ -2200,38 +2238,7 @@ export function App() {
         {announcement}
       </p>
       {(!selecting || reading) && toast}
-      {veil?.file && (
-        <div className="drop-veil" data-drop-veil="import" aria-hidden>
-          <div className="max-w-[min(420px,80vw)]">
-            <span className="drop-veil-ring">
-              <Icon icon={ArrowDown} size={26} strokeWidth={2} />
-            </span>
-            {/* The name shows only where the webview tells it before the drop; the kind, where its type is known. */}
-            <b className="block text-lg font-bold tracking-[-0.01em]">{t(refusedByName(veil.file) ? "add.dropImportNot" : "add.dropImport")}</b>
-            <span className="mt-1 block text-sm text-muted [overflow-wrap:anywhere]">
-              {!veil.file.kind
-                ? t("add.dropImportOther")
-                : veil.file.name
-                  ? t(`add.dropImportNamed_${veil.file.kind}`, { name: veil.file.name })
-                  : t(`add.dropImport_${veil.file.kind}`)}
-            </span>
-            {veil.file.kind === "kpin" && <span className="mt-4 block text-xs text-muted">{t("add.dropImportAlso")}</span>}
-          </div>
-        </div>
-      )}
-      {veil && !veil.file && (
-        <div className="drop-veil" data-drop-veil={veil.inbox ? "inbox" : "library"} aria-hidden>
-          <div>
-            <span className="drop-veil-ring">
-              <Icon icon={Plus} size={26} strokeWidth={2} />
-            </span>
-            <b className="block text-lg font-bold tracking-[-0.01em]">{t("add.dropTitle")}</b>
-            <span className="mt-1 block text-sm text-muted">
-              {veil.inbox || destinationOf(filters) === "inbox" ? t("add.dropHintInbox") : t("add.dropHint", { place: dropPlace })}
-            </span>
-          </div>
-        </div>
-      )}
+      {veil && <DropZone state={veil.file ?? { link: true, hint: veilHint(veil.inbox) }} />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type FileChooser, type Page } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { catalog, copyBookmark, failOnce, jsonCopy, text } from "../fixtures/app";
@@ -62,13 +62,17 @@ for (const code of ["en", "de", "ru"]) {
         await page.getByRole("button", { name: t("toolbar.more"), exact: true }).click();
         await page.getByRole("menuitem", { name: starts(t(item)) }).click();
       };
+      /** ⋯ → «Import a file…» with this file in the system dialog: it opens the dialog of its kind. */
+      const importFile = async (file: string | Parameters<FileChooser["setFiles"]>[0]) => {
+        const chooser = page.waitForEvent("filechooser");
+        await more("more.importFile");
+        await (await chooser).setFiles(file);
+      };
       const settings = () => page.getByRole("button", { name: t("nav.settings") }).first().click();
 
       // Import: the file, then a run held until released, the report, an error, a file without links.
-      await more("more.importHtml");
+      await importFile(fixture);
       await track.open("import");
-      await dialog.locator("input[type=file]").setInputFiles(fixture);
-      await track.same("file chosen");
       await page.evaluate(async () => {
         const { api } = await import("/src/services/api.ts");
         const run = api.importHtmlBookmarks.bind(api);
@@ -91,14 +95,13 @@ for (const code of ["en", "de", "ru"]) {
           throw new CommandError("database_busy", "database is locked");
         };
       });
-      await more("more.importHtml");
+      await importFile(fixture);
       await track.open("import");
-      await dialog.locator("input[type=file]").setInputFiles(fixture);
       await button("import.run").click();
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("error");
       await page.keyboard.press("Escape");
-      await more("more.importHtml");
+      await importFile(fixture);
       await track.open("import");
       await dialog.locator("input[type=file]").setInputFiles({ name: "notes.html", mimeType: "text/html", buffer: Buffer.from("<html><body>Notes</body></html>") });
       await expect(dialog.getByRole("alert")).toBeVisible();
@@ -106,10 +109,8 @@ for (const code of ["en", "de", "ru"]) {
       await page.keyboard.press("Escape");
 
       // Restore from a JSON copy: the file, the confirmation of a replace and back, the report, a refused copy.
-      await more("more.importJson");
+      await importFile(copyFile());
       await track.open("restore");
-      await dialog.locator("input[type=file]").setInputFiles(copyFile());
-      await track.same("file chosen");
       await dialog.getByRole("radio", { name: starts(t("restore.replace")) }).click();
       await button("restore.run").click();
       await expect(button("restore.confirm")).toBeVisible();
@@ -126,9 +127,9 @@ for (const code of ["en", "de", "ru"]) {
       await expect(dialog.getByRole("status")).toBeVisible();
       await track.same("report");
       await button("import.done").click();
-      await more("more.importJson");
+      await importFile(copyFile());
       await track.open("restore");
-      await dialog.locator("input[type=file]").setInputFiles(copyFile("other-app"));
+      await dialog.locator("input[type=file]").first().setInputFiles(copyFile("other-app"));
       await expect(dialog.getByRole("alert")).toBeVisible();
       await track.same("refused");
       await page.keyboard.press("Escape");

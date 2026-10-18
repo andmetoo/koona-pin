@@ -6,14 +6,12 @@ import {
   ArrowUpFromLine,
   ChevronDown,
   Copy,
-  FileJson,
   FileSpreadsheet,
   FileText,
   Grid3x3,
   LayoutGrid,
   List,
   MoreHorizontal,
-  Rss,
   Unlink,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -39,13 +37,10 @@ export interface ToolbarProps {
   onSearch: (value: string) => void;
   onView: (view: ViewMode) => void;
   onSort: (sort: BookmarkSort) => void;
-  onImport: () => void;
-  /** Menu «⋯» → «Import feeds (OPML)…» (NP-133); without it, the import dialog, which takes OPML too. */
-  onImportFeeds?: () => void;
+  /** Menu «⋯» → «Import a file…»: any file, told apart by what it holds (share-bundle.md, K5). */
+  onImportFile: () => void;
   /** Menu «⋯» → Export (NP-032, frame 29). */
   onExport: (format: ExportFormat) => void;
-  /** Menu «⋯» → «Резервная копия Koona Pin (JSON)» (NP-033, frame 30). */
-  onRestore: () => void;
   /** Groups of duplicates (NP-035): the count of «Дубликаты» and the section. */
   duplicates: number;
   onDuplicates: () => void;
@@ -176,14 +171,12 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           entries={[
             { heading: t("more.import") },
             {
-              id: "import-html",
+              id: "import-file",
               icon: ArrowDownToLine,
-              label: t("more.importHtml"),
-              description: t("more.importHtmlHint"),
-              onSelect: props.onImport,
+              label: t("more.importFile"),
+              description: t("more.importFileHint"),
+              onSelect: props.onImportFile,
             },
-            { id: "import-json", icon: FileJson, label: t("more.importJson"), onSelect: props.onRestore },
-            { id: "import-feeds", icon: Rss, label: t("more.importFeeds"), onSelect: props.onImportFeeds ?? props.onImport },
             "separator",
             { heading: t("more.export") },
             { id: "export-html", icon: ArrowUpFromLine, label: t("more.exportHtml"), onSelect: () => props.onExport("html") },

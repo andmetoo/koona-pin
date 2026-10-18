@@ -215,7 +215,7 @@ test("Settings → Feeds: how often to check, OPML import and export", async ({ 
   await page.getByRole("radio", { name: "3 hr" }).click();
   await expect(page.getByRole("radio", { name: "3 hr" })).toHaveAttribute("aria-checked", "true");
   expect(await page.evaluate(() => localStorage.getItem("koonapin.demo.feedsRefreshMinutes"))).toBe("180");
-  // Import… opens the import dialog for feeds, as More → «Import feeds (OPML)…» does.
+  // Import… opens the import dialog for feeds.
   await page.getByRole("button", { name: "Import…" }).click();
   const dialog = page.locator("dialog[open]");
   await dialog.locator("input[type=file]").setInputFiles({
