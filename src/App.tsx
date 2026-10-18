@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowDownToLine, BookOpen, ChevronDown, CircleArrowDown, ChevronRight, Heart, Import, Link, Plus, RefreshCw, Search, Trash2, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, isTauri } from "./services/api";
@@ -56,8 +56,9 @@ import { mergedNotice } from "./services/duplicates";
 import { problemBanner } from "./services/capture";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { FeedsPage } from "./components/feeds/FeedsPage";
-import { ShareListDialog } from "./components/library/ShareListDialog";
-import type { ListSource } from "./services/shareList";
+import { Bundle, openBundle } from "./components/bundle/Bundle";
+import { addedText, bookmarksByIds } from "./components/bundle/actions";
+import { bundle, bundleView, itemCount } from "./services/bundle";
 import { useFeeds } from "./components/feeds/useFeeds";
 import { useFeedActions } from "./components/feeds/FeedMenu";
 import { feedNotifications } from "./services/feedNotifications";
@@ -67,7 +68,7 @@ import { SyncDialog } from "./components/commercial/SyncDialog";
 import { syncPrompt } from "./components/commercial/syncText";
 
 /** `selectionCollection` — «Новая коллекция из выбранного» in a narrow window, where the sidebar is a strip. */
-type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | "shareList" | null;
+type Surface = "add" | "import" | "importFeeds" | "restore" | "backup" | "connect" | "assistant" | "collection" | "selectionCollection" | "feedback" | "background" | "update" | "supporter" | "signIn" | "plan" | "upgrade" | "sync" | null;
 /** The dialogs a dropped file would compete with: another file meanwhile is «Busy» (K9). */
 const IMPORT_SURFACES: Surface[] = ["import", "importFeeds", "restore", "backup"];
 /**
@@ -135,12 +136,8 @@ export function App() {
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [surface, setSurface] = useState<Surface>(null);
-  /** «Share as list…» (NP-140): where the list dialog was opened from. */
-  const [shareFrom, setShareFrom] = useState<ListSource[]>([]);
-  const shareList = (sources: ListSource[]) => {
-    setShareFrom(sources);
-    setSurface("shareList");
-  };
+  /** The bundle's size (share-bundle.md): «Share as list…» shows it; App renders again only when it changes. */
+  const bundleCount = useSyncExternalStore(bundle.subscribe, () => itemCount(bundle.get()));
   /** The subscription «Switch to 5 years» was chosen for: the step says when it ends. */
   const [upgradeFrom, setUpgradeFrom] = useState<Plan | null>(null);
   // Kept while the app runs: closing the dialog or a failed send loses nothing (NP-088).
@@ -824,7 +821,11 @@ export function App() {
     favorite: (favorite) => runBulk({ action: "favorite", favorite }),
     reading: (reading) => runBulk({ action: "reading", reading }),
     export: (format) => exportLibrary(format, [...selection.ids]),
-    shareList: () => shareList([{ kind: "bookmarks", ids: [...selection.ids] }]),
+    addToBundle: () =>
+      void bookmarksByIds(selection.ids, library.bookmarks).then(
+        (picked) => setAnnouncement(addedText(t, bundle.addBookmarks(picked))),
+        (err) => say(describeError(err), true),
+      ),
     trash: () => runBulk({ action: "trash" }),
     restore: () => runBulk({ action: "restore" }),
     deleteForever: () => setPurging({ selected: [...selection.ids] }),
@@ -850,6 +851,7 @@ export function App() {
     else if (target.kind === "trash") run.trash();
     else if (target.kind === "favorites") run.favorite(true);
     else if (target.kind === "reading") run.reading(true);
+    else if (target.kind === "bundle") run.addToBundle();
     else run.newCollection();
   });
   const dragging = selectionDrag.drag;
@@ -1551,6 +1553,30 @@ export function App() {
     </Toast>
   ) : null;
 
+  // The bundle (share-bundle.md, piece B): bottom right of the library and the feeds; gone under a
+  // modal dialog, the reading mode or triage. In the tab order after the list, before the bulk bar.
+  const bundleHere = (
+    <Bundle
+      view={bundleView({ page, filters, collections: library.collections, section, feeds, feedUid: feedPlace.feed, t })}
+      viewCount={
+        page === "feeds"
+          ? feedPlace.feed === null
+            ? (feeds?.length ?? 0)
+            : 1
+          : filters.tag && !filters.collectionId && !filters.search.trim() && !filters.domain
+            ? (library.tags.find((tag) => tag.name === filters.tag)?.count ?? library.total)
+            : narrowed
+              ? library.total
+              : sectionCount
+      }
+      barShown={selecting}
+      headHeight={headHeight}
+      blocked={!!reading || !!triage || surface !== null || listOpen || !!editing && !wide || !!purging || !!deletingCollection || !!sheet}
+      drag={dragging ? { count: dragging.count, over: dragging.target?.kind === "bundle" } : null}
+      collections={library.collections}
+      announce={setAnnouncement}
+    />
+  );
   const padding = narrow ? "px-6" : "px-8";
   return (
     <div className="flex h-full bg-bg text-ink">
@@ -1614,7 +1640,6 @@ export function App() {
         feedUid={feedPlace.feed}
         onFeed={openFeeds}
         feedActions={feedActions}
-        onShareList={shareList}
       />
       {dragging && <DragStack drag={dragging} collections={library.collections} stack={selectionDrag.stack} place={selectionDrag.place} />}
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1663,6 +1688,7 @@ export function App() {
                 </div>
               </>
             ) : page === "feeds" ? (
+              <>
               <FeedsPage
                 feeds={feeds ?? []}
                 refreshing={feedsRefreshing}
@@ -1689,6 +1715,8 @@ export function App() {
                 onUndo={undoing}
                 onNewLink={() => setSurface("add")}
               />
+              {bundleHere}
+              </>
             ) : page === "duplicates" ? (
               <DuplicatesPage
                 collections={library.collections}
@@ -1753,6 +1781,8 @@ export function App() {
                     onLinks={openLinks}
                     onRead={() => openReading()}
                     readRef={readButton}
+                    onShareList={openBundle}
+                    bundleCount={bundleCount}
                   />
                   {damaged && (
                     <Banner
@@ -1870,6 +1900,7 @@ export function App() {
                 >
                   {content}
                 </div>
+                {bundleHere}
                 {selecting && (
                   // Frames 04 and 27: the bar 24 px above the bottom, a message under it when there is one, notices above it.
                   <div
@@ -2007,7 +2038,11 @@ export function App() {
               // After a replace no open editor or selection points at a bookmark that is gone.
               closeEditor();
               selection.clear();
-              if (mode === "replace") library.replaced();
+              if (mode === "replace") {
+                library.replaced();
+                // The bundle holds ids: in another library they would be other bookmarks.
+                bundle.clear();
+              }
               await Promise.all([library.refresh(), library.refreshCatalog()]);
             }
             return outcome;
@@ -2024,6 +2059,7 @@ export function App() {
             closeEditor();
             selection.clear();
             library.replaced();
+            bundle.clear();
             setDataVersion((version) => version + 1);
             await Promise.all([library.refresh(), library.refreshCatalog()]);
           }}
@@ -2055,9 +2091,6 @@ export function App() {
         />
       )}
       {surface === "background" && <BackgroundDialog onClose={() => setSurface(null)} />}
-      {surface === "shareList" && (
-        <ShareListDialog start={shareFrom} collections={library.collections} feeds={feeds} onClose={() => setSurface(null)} onNotice={setNotice} />
-      )}
       {surface === "supporter" && (
         <SupporterDialog
           sandbox={!!supporter?.sandbox}

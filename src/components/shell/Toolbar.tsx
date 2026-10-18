@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   FileText,
   Grid3x3,
+  Layers,
   LayoutGrid,
   List,
   MoreHorizontal,
@@ -50,6 +51,9 @@ export interface ToolbarProps {
   /** «Read» in the right corner (Р-69, frame R0): the reading mode drops from it. */
   onRead: () => void;
   readRef?: React.Ref<HTMLButtonElement>;
+  /** Menu «⋯» → «Share as list…» with the bundle's count (K5): opens the bundle panel; `from` gets the focus back. */
+  onShareList: (from: HTMLElement | null) => void;
+  bundleCount: number;
 }
 
 /** The toolbar's outlined buttons: radius 9, a 1 px line and a faint lift (2026-10-16). */
@@ -169,6 +173,14 @@ export const Toolbar = forwardRef<HTMLInputElement, ToolbarProps>(function Toolb
           width={264}
           onClose={() => setMenu(null)}
           entries={[
+            {
+              id: "share-list",
+              icon: Layers,
+              label: t("bundle.share"),
+              count: props.bundleCount || undefined,
+              onSelect: () => props.onShareList(more.current),
+            },
+            "separator",
             { heading: t("more.import") },
             {
               id: "import-file",

@@ -6,7 +6,8 @@ import { short } from "./undo";
  * Where the selection can be dropped (NP-030, frame 05, sheet 32): a
  * collection — move there; a tag — add it; «Корзина» — to the trash;
  * «Новая коллекция из выбранного» — create one and move there; Favorites
- * and Reading — star them, send them to Reading (the bar's same actions).
+ * and Reading — star them, send them to Reading (the bar's same actions); the
+ * bundle — add them to it (share-bundle.md, piece B).
  */
 export type DropTarget =
   | { kind: "collection"; id: number }
@@ -14,9 +15,10 @@ export type DropTarget =
   | { kind: "trash" }
   | { kind: "new" }
   | { kind: "favorites" }
-  | { kind: "reading" };
+  | { kind: "reading" }
+  | { kind: "bundle" };
 
-/** The `data-drop` of a sidebar element: `collection:12`, `tag:crypto`, `trash`, `new`, `favorites`, `reading`. */
+/** The `data-drop` of an element: `collection:12`, `tag:crypto`, `trash`, `new`, `favorites`, `reading`, `bundle`. */
 export function dropAttribute(target: DropTarget): string {
   switch (target.kind) {
     case "collection":
@@ -31,7 +33,7 @@ export function dropAttribute(target: DropTarget): string {
 /** The target an element under the pointer names; a tag may itself contain colons. */
 export function parseDrop(value: string | undefined | null): DropTarget | null {
   if (!value) return null;
-  if (value === "trash" || value === "new" || value === "favorites" || value === "reading") return { kind: value };
+  if (value === "trash" || value === "new" || value === "favorites" || value === "reading" || value === "bundle") return { kind: value };
   const colon = value.indexOf(":");
   const kind = value.slice(0, colon);
   const rest = value.slice(colon + 1);
@@ -65,5 +67,7 @@ export function dropHint(t: TFunction, target: DropTarget | null, count: number,
       return t("drag.favorites", { count });
     case "reading":
       return t("drag.reading", { count });
+    case "bundle":
+      return t("drag.bundle", { count });
   }
 }

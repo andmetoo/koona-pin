@@ -1,5 +1,5 @@
 import { KeyboardEvent, PointerEvent, ReactNode, TransitionEvent, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, ListPlus, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
+import { BookOpen, ChevronDown, CircleArrowDown, CircleArrowUp, Copy, Heart, Link, MoreHorizontal, Plus, Rss, Settings, Trash2, TriangleAlert, Unlink, X } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { CaptureStatus, Collection, Feed, FilterState, LibraryCounts, Tag, UpdateStatus } from "../../types";
@@ -15,8 +15,7 @@ import { ClipIcon, Icon, InboxTray, Mascot } from "../icons";
 import { Dot } from "../ui/Controls";
 import { Hint } from "../ui/Hint";
 import { AppNotification, NotificationCenter } from "./NotificationCenter";
-import { Menu, MenuEntry } from "../ui/Menu";
-import type { ListSource } from "../../services/shareList";
+import { Menu } from "../ui/Menu";
 import { feedName } from "../../services/feeds";
 import { healthLine } from "../../services/feedsView";
 import { FeedIcon } from "../feeds/FeedIcon";
@@ -86,8 +85,6 @@ export interface SidebarProps {
   onFeed: (uid: string | null) => void;
   /** A feed's row menu: Rename, Where new posts go, Mark all read, Copy, Open site, Unfollow. */
   feedActions: FeedActions;
-  /** «Share as list…» (NP-140) from a collection's, a feed's or All feeds' menu. */
-  onShareList: (sources: ListSource[]) => void;
 }
 
 export interface NewCollectionField {
@@ -209,21 +206,8 @@ export function Sidebar(props: SidebarProps) {
   const feedsFolded = folds.isFolded("feeds");
   const feeds = props.feeds ?? [];
   const unread = feeds.reduce((sum, f) => sum + f.unread, 0);
-  /** A feed's row menu, from its «…» or a right click. */
-  const [feedMenuAt, setFeedMenuAt] = useState<{ feed: Feed; anchor: DOMRect | { x: number; y: number }; trigger: Element | null } | null>(null);
-  /** The menu of a collection or of All feeds (NP-140): a right click, or the menu key on the row. */
-  const [rowMenu, setRowMenu] = useState<{ label: string; entries: MenuEntry[]; anchor: DOMRect | { x: number; y: number } } | null>(null);
-  const shareEntry = (sources: ListSource[]): MenuEntry => ({ id: "share", icon: ListPlus, label: t("shareList.menu"), onSelect: () => props.onShareList(sources) });
-  const collectionMenu = (c: Collection, anchor: DOMRect | { x: number; y: number }) =>
-    setRowMenu({
-      label: t("shareList.collectionMenu", { name: c.name }),
-      entries: [shareEntry([{ kind: "collection", id: c.id }]), "separator", { id: "delete", icon: X, label: t("sidebar.deleteCollection", { name: c.name }), onSelect: () => props.onDeleteCollection(c) }],
-      anchor,
-    });
-  const allFeedsMenu = (anchor: DOMRect | { x: number; y: number }) =>
-    setRowMenu({ label: t("shareList.allFeedsMenu"), entries: [shareEntry([{ kind: "feeds", uids: null }])], anchor });
-  /** The menu key, or Shift+F10, on a row opens its menu under it. */
-  const menuKey = (e: KeyboardEvent) => e.key === "ContextMenu" || (e.shiftKey && e.key === "F10");
+  /** A feed's row menu, from its «…» only: the sidebar has no right-click menus (share-bundle.md, M6). */
+  const [feedMenuAt, setFeedMenuAt] = useState<{ feed: Feed; anchor: DOMRect; trigger: Element } | null>(null);
 
   // The collections' order (NP-114, sheet 41): a drag of a row or of a dot,
   // or `Alt ↑` / `Alt ↓` on the focused one. A screen reader hears the place.
@@ -241,11 +225,6 @@ export function Sidebar(props: SidebarProps) {
     reorder.start(e, index, list.current);
   };
   const keys = (index: number, id: number) => (e: KeyboardEvent) => {
-    // The strip of a narrow window has no menus.
-    if (menuKey(e) && !props.narrow) {
-      e.preventDefault();
-      return collectionMenu(collections[index], e.currentTarget.getBoundingClientRect());
-    }
     if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
     e.preventDefault();
     const to = index + (e.key === "ArrowUp" ? -1 : 1);
@@ -511,30 +490,17 @@ export function Sidebar(props: SidebarProps) {
           ) : (
             props.feeds && (
               <>
-                <div
-                  className="contents"
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    allFeedsMenu({ x: e.clientX, y: e.clientY });
-                  }}
-                >
-                  <NavRow
-                    icon={
-                      <span className="flex size-4 items-center justify-center rounded-[4.5px] bg-ink-btn text-on-ink-btn">
-                        <Icon icon={Rss} size={10} strokeWidth={2.5} />
-                      </span>
-                    }
-                    label={t("feeds.all")}
-                    active={feedsOpen && props.feedUid === null}
-                    onClick={() => props.onFeed(null)}
-                    onKeyDown={(e) => {
-                      if (!menuKey(e)) return;
-                      e.preventDefault();
-                      allFeedsMenu(e.currentTarget.getBoundingClientRect());
-                    }}
-                    trailing={<CountPill count={unread} current={feedsOpen && props.feedUid === null} />}
-                  />
-                </div>
+                <NavRow
+                  icon={
+                    <span className="flex size-4 items-center justify-center rounded-[4.5px] bg-ink-btn text-on-ink-btn">
+                      <Icon icon={Rss} size={10} strokeWidth={2.5} />
+                    </span>
+                  }
+                  label={t("feeds.all")}
+                  active={feedsOpen && props.feedUid === null}
+                  onClick={() => props.onFeed(null)}
+                  trailing={<CountPill count={unread} current={feedsOpen && props.feedUid === null} />}
+                />
                 {feeds.map((feed) => {
                   const problem = healthLine(feed, t, i18n.language);
                   const current = feedsOpen && props.feedUid === feed.uid;
@@ -543,10 +509,6 @@ export function Sidebar(props: SidebarProps) {
                       key={feed.uid}
                       data-feed-row={feed.uid}
                       className="group relative"
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        setFeedMenuAt({ feed, anchor: { x: e.clientX, y: e.clientY }, trigger: null });
-                      }}
                     >
                       <NavRow
                         icon={<FeedIcon feed={feed} size={16} />}
@@ -579,12 +541,9 @@ export function Sidebar(props: SidebarProps) {
           )}
         </nav>
       </Folding>
-      {rowMenu && (
-        <Menu entries={rowMenu.entries} anchor={rowMenu.anchor} align="start" label={rowMenu.label} width={232} onClose={() => setRowMenu(null)} />
-      )}
       {feedMenuAt && (
         <Menu
-          entries={[...feedMenu(feedMenuAt.feed, t, props.feedActions), "separator", shareEntry([{ kind: "feeds", uids: [feedMenuAt.feed.uid] }])]}
+          entries={feedMenu(feedMenuAt.feed, t, props.feedActions)}
           anchor={feedMenuAt.anchor}
           align="start"
           label={t("feeds.menu.label", { name: feedName(feedMenuAt.feed) })}
@@ -625,11 +584,6 @@ export function Sidebar(props: SidebarProps) {
             key={c.id}
             data-collection-row={c.id}
             className={`group relative ${moving?.from === i ? "opacity-45" : ""}`}
-            onContextMenu={(e) => {
-              if (dropping || moving) return;
-              e.preventDefault();
-              collectionMenu(c, { x: e.clientX, y: e.clientY });
-            }}
           >
             {landing(i) && <LandingLine at={landing(i)!} />}
             <NavRow
