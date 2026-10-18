@@ -533,7 +533,7 @@ async fn fetch_bytes_within(
     Err(FetchError::Failed)
 }
 
-fn failure(error: &reqwest::Error) -> FetchError {
+pub(crate) fn failure(error: &reqwest::Error) -> FetchError {
     if error.is_timeout() {
         return FetchError::Timeout;
     }

@@ -43,6 +43,7 @@ pub mod sorting;
 pub mod sync_library;
 #[doc(hidden)]
 pub mod test_libraries;
+pub mod thumbs;
 pub mod trash;
 pub mod tray;
 pub mod updates;
@@ -110,6 +111,8 @@ pub fn run() {
         ))
         // Called from Rust only (updates.rs, NP-038): no permission for the interface.
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Previews and icons from the cache beside the library (NP-146), off the main thread.
+        .register_asynchronous_uri_scheme_protocol(thumbs::SCHEME, thumbs::protocol)
         .manage(channel_state.clone())
         .manage(commands::LastExport::default())
         .manage(commands::PickedBackup::default())
