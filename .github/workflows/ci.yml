@@ -173,13 +173,87 @@ jobs:
             CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
           codesign --verify --strict "$RUNNER_TEMP/safari/Products/Release/Koona Pin Safari.appex"
 
+  # The phone builds (NP-151): that main still builds for Android and the iOS Simulator, debug, one
+  # architecture each. Nothing is signed for a store, run or uploaded; the checks on emulators and phones
+  # are made by hand (docs/testing.md).
+  android:
+    name: Android / build
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # The NDK the Mac builds with; the SDK platform of compileSdk (src-tauri/gen/android/app/build.gradle.kts).
+      NDK_VERSION: 30.0.16248370
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-android-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-android-
+      - name: Rust from rust-toolchain.toml, with the Android target
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: android
+          cache-on-failure: true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: NDK and SDK platform from the SDK manager
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" "platforms;android-37"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+      - run: bun install --frozen-lockfile
+      - name: Android debug build (arm64)
+        run: bun run tauri android build --debug --target aarch64
+
+  ios:
+    name: iOS Simulator / build
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-ios-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-ios-
+      - name: Rust from rust-toolchain.toml, with the Simulator target
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ios-sim
+          cache-on-failure: true
+      - run: bun install --frozen-lockfile
+      # Signed to run in the Simulator only: no team, no profile.
+      - name: iOS Simulator debug build (arm64)
+        run: bun run tauri ios build --debug --target aarch64-sim
+
   # The one check main requires besides CLA: green when every job above either passed or was not needed
   # (skipped), red when one failed or was cancelled. It always runs, so a pull request of docs only has
   # it too, in seconds.
   ci:
     name: CI
     if: ${{ always() }}
-    needs: [changes, linux, windows, macos]
+    needs: [changes, linux, windows, macos, android, ios]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
