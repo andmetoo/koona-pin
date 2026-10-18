@@ -414,6 +414,7 @@ impl Device {
         let key = koona_sync::crypto::device_key(&self.pkcs8).unwrap();
         let config = Config::new(self.id, key, keys.sub.clone(), self.name.to_string(), "0.12.0".to_string());
         let session = Session::new(config, Box::new(SystemRandom::new()));
+        let counter = self.with(worker::start_counter);
         let library = DbLibrary::new(self.db.clone(), self.replica, Arc::new(AtomicBool::new(false))).with_key_file(self.key_file.clone(), keys.sub.clone());
         let credentials: CredentialSource = {
             let keys = keys.clone();
@@ -445,7 +446,7 @@ impl Device {
                 done.store(true, Ordering::SeqCst);
             })
         };
-        let tasks = vec![tokio::spawn(work), pump, tokio::spawn(worker::watch(self.db.clone(), handle.clone(), done.clone()))];
+        let tasks = vec![tokio::spawn(work), pump, tokio::spawn(worker::watch(self.db.clone(), handle.clone(), done.clone(), counter))];
         self.run = Some(Run { handle, done, tasks });
     }
 
