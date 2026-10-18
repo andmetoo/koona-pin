@@ -7,7 +7,6 @@
 
 use super::export::{self, Author, FeedRow, Item, ListFile, Section, WRITER_VERSION};
 use super::format::{self, AUTHOR_LEN, DESCRIPTION_LEN, ITEM_TITLE_LEN, MAX_BYTES, MAX_ITEMS, MAX_SECTIONS, SECTION_LEN, TAGS_PER_ITEM, TITLE_LEN};
-use super::ListError;
 use crate::{commands::blocking, db::DbState, error::CommandError};
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -72,6 +71,9 @@ pub struct BundleBuild {
     pub items: u32,
     /// Items left out because they were deleted, moved to the trash or unfollowed.
     pub left: u32,
+    /// Past the format's limits (2 MB, 5,000 items, 200 sections): the size the
+    /// text would have, in bytes, and `text` is empty. Save refuses such a list.
+    pub too_big: Option<u32>,
 }
 
 /// A bookmark as the bundle writes it, or `None` when it is gone or in the trash.
@@ -101,8 +103,8 @@ fn link(conn: &Connection, id: i64, use_note: bool) -> rusqlite::Result<Option<I
     }))
 }
 
-/// The list's text, or `TooBig` past the format's limits. `language` is
-/// the interface's; `today` is `YYYY-MM-DD`.
+/// The list's text; past the format's limits, its size in `too_big` instead.
+/// `language` is the interface's; `today` is `YYYY-MM-DD`.
 pub fn build(
     conn: &Connection,
     model: &BundleModel,
@@ -110,7 +112,7 @@ pub fn build(
     generator: &str,
     language: &str,
     today: &str,
-) -> rusqlite::Result<Result<BundleBuild, ListError>> {
+) -> rusqlite::Result<BundleBuild> {
     let feeds_by_uid: HashMap<&str, &FeedRow> = followed.iter().map(|f| (f.uid.as_str(), f)).collect();
     let feeds_name = format::line(&model.feeds_section, SECTION_LEN).unwrap_or_else(|| "Feeds".to_owned());
     let mut collection_name = conn.prepare_cached("SELECT name FROM collections WHERE id = ?1")?;
@@ -193,9 +195,7 @@ pub fn build(
     if !feed_items.is_empty() {
         sections.push(Section { name: feeds_name, items: feed_items });
     }
-    if items as usize > MAX_ITEMS || sections.len() > MAX_SECTIONS {
-        return Ok(Err(ListError::TooBig));
-    }
+    let section_count = sections.len();
     let title = format::line(&model.title, TITLE_LEN).unwrap_or_default();
     let author = format::line(&model.author_name, AUTHOR_LEN);
     let file = ListFile {
@@ -215,10 +215,11 @@ pub fn build(
         items: top,
     };
     let text = serde_json::to_string_pretty(&file).expect("a list is plain data") + "\n";
-    if text.len() > MAX_BYTES {
-        return Ok(Err(ListError::TooBig));
+    if items as usize > MAX_ITEMS || section_count > MAX_SECTIONS || text.len() > MAX_BYTES {
+        let bytes = u32::try_from(text.len()).unwrap_or(u32::MAX);
+        return Ok(BundleBuild { text: String::new(), items, left, too_big: Some(bytes) });
     }
-    Ok(Ok(BundleBuild { text, items, left }))
+    Ok(BundleBuild { text, items, left, too_big: None })
 }
 
 /// The bundle's list: what the panel checks its limits by and Save and Copy use.
@@ -234,7 +235,7 @@ pub async fn build_bundle_list(app: AppHandle, state: State<'_, Arc<DbState>>, m
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     blocking(&state, move |conn| {
         let language = crate::sorting::stored_language(conn).unwrap_or_default();
-        Ok(build(conn, &model, &followed, &generator, &language, &today)??)
+        Ok(build(conn, &model, &followed, &generator, &language, &today)?)
     })
     .await
 }
@@ -242,6 +243,7 @@ pub async fn build_bundle_list(app: AppHandle, state: State<'_, Arc<DbState>>, m
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::lists::ListError;
     use crate::lists::{apply::apply, format::parse, tests::database, ExistingLinks, ListCollection, ListImportOptions};
     use serde_json::Value;
 
@@ -286,7 +288,7 @@ mod tests {
     }
 
     fn built(c: &Connection, model: &BundleModel) -> BundleBuild {
-        build(c, model, &feeds(), GENERATOR, "en", "2026-10-18").unwrap().unwrap()
+        build(c, model, &feeds(), GENERATOR, "en", "2026-10-18").unwrap()
     }
 
     fn json(text: &str) -> Value {
@@ -340,7 +342,7 @@ mod tests {
         let mut m = everything(&c, rust);
         m.title = "Блоги".into();
         m.author_name = "".into();
-        let value = json(&build(&c, &m, &feeds(), GENERATOR, "not a language", "2026-10-18").unwrap().unwrap().text);
+        let value = json(&build(&c, &m, &feeds(), GENERATOR, "not a language", "2026-10-18").unwrap().text);
         for key in ["id", "language", "author"] {
             assert!(value.get(key).is_none(), "{key}");
         }
@@ -449,14 +451,19 @@ mod tests {
         let links = |ids: &[i64]| model(vec![section("Links", BundleOrigin::Links, ids.iter().copied().map(bookmark).collect())]);
         let ids = insert(MAX_ITEMS + 1, false);
         assert_eq!(built(&c, &links(&ids[..MAX_ITEMS])).items as usize, MAX_ITEMS);
-        assert_eq!(build(&c, &links(&ids), &[], GENERATOR, "en", "2026-10-18").unwrap(), Err(ListError::TooBig), "items");
+        let over = |m: &BundleModel| build(&c, m, &[], GENERATOR, "en", "2026-10-18").unwrap();
+        assert_eq!(built(&c, &links(&ids[..MAX_ITEMS])).too_big, None);
+        let items = over(&links(&ids));
+        assert!(items.text.is_empty() && items.too_big.is_some_and(|b| b as usize <= MAX_BYTES), "items");
         // Sections: 200 named ones are fine, 201 are not.
         let sectioned = |n: usize| model((0..n).map(|i| section(&format!("S{i}"), BundleOrigin::Tag { name: format!("s{i}") }, vec![bookmark(ids[i])])).collect());
-        assert!(build(&c, &sectioned(MAX_SECTIONS), &[], GENERATOR, "en", "2026-10-18").unwrap().is_ok());
-        assert_eq!(build(&c, &sectioned(MAX_SECTIONS + 1), &[], GENERATOR, "en", "2026-10-18").unwrap(), Err(ListError::TooBig), "sections");
+        assert_eq!(over(&sectioned(MAX_SECTIONS)).too_big, None);
+        assert!(over(&sectioned(MAX_SECTIONS + 1)).too_big.is_some(), "sections");
         // Bytes: 1,100 links with long descriptions are past 2 MB.
         let long = insert(1_100, true);
-        assert_eq!(build(&c, &links(&long), &[], GENERATOR, "en", "2026-10-18").unwrap(), Err(ListError::TooBig), "bytes");
+        // The size comes back, for «2.3 MB of 2 MB».
+        let bytes = over(&links(&long));
+        assert!(bytes.text.is_empty() && bytes.too_big.is_some_and(|b| b as usize > MAX_BYTES), "bytes");
     }
 
     #[test]

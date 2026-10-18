@@ -11,4 +11,9 @@ items: number,
 /**
  * Items left out because they were deleted, moved to the trash or unfollowed.
  */
-left: number, };
+left: number, 
+/**
+ * Past the format's limits (2 MB, 5,000 items, 200 sections): the size the
+ * text would have, in bytes, and `text` is empty. Save refuses such a list.
+ */
+too_big: number | null, };

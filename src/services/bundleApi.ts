@@ -93,9 +93,9 @@ async function demoBuild(model: BundleModel): Promise<BundleBuild> {
   };
   const text = `${JSON.stringify(file, null, 2)}\n`;
   const count = top.length + sections.reduce((sum, s) => sum + s.items.length, 0);
-  if (count > MAX_ITEMS || sections.length > MAX_SECTIONS || new TextEncoder().encode(text).length > MAX_BYTES)
-    throw new CommandError("invalid_request", "The list is too big");
-  return { text, items: count, left };
+  const bytes = new TextEncoder().encode(text).length;
+  if (count > MAX_ITEMS || sections.length > MAX_SECTIONS || bytes > MAX_BYTES) return { text: "", items: count, left, too_big: bytes };
+  return { text, items: count, left, too_big: null };
 }
 
 const call = <T>(command: string, args: Record<string, unknown>) =>
@@ -105,7 +105,7 @@ const call = <T>(command: string, args: Record<string, unknown>) =>
 
 /** The commands, replaceable in UI tests as `api`'s are. */
 export const bundleApi = {
-  /** The list's text for what the bundle holds. Over a limit it fails, as any `ListError`, with `invalid_request`. */
+  /** The list's text for what the bundle holds; past a limit, `too_big` gives its size and the text is empty. */
   build: (model: BundleModel): Promise<BundleBuild> => (isTauri() ? call<BundleBuild>("build_bundle_list", { model }) : demoBuild(model)),
   /**
    * The system Save dialog, then the file written as an export is; `id` names the file. The
