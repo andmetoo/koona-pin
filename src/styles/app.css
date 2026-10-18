@@ -3034,3 +3034,15 @@
 :root[data-platform] [data-toast]:not([data-docked]) {
   bottom: calc(24px + var(--safe-bottom));
 }
+/* The editor's Save and Cancel on a phone stay at the bottom of the drawer or the side panel, above
+   the keyboard, while the fields scroll: focusing the note scrolls only the note into view (NP-151,
+   seen on the Fold's cover screen). The side bleed matches the containers' 24 px padding. */
+:root[data-platform] [data-editor-actions] {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 -24px;
+  padding: 12px 24px;
+  background: var(--np-card);
+  border-top: 1px solid var(--color-border);
+}
