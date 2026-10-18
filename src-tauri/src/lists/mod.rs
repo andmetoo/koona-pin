@@ -5,12 +5,14 @@
 //! - [`preview`]: what a list would do to this library, writing nothing;
 //! - [`apply`]: the import, one transaction by the rules of Р-29;
 //! - [`download`]: a list from a `koonapin://` link, and a file the system opened;
-//! - [`export`]: making a list of collections, a selection or feeds (NP-140).
+//! - [`export`]: making a list of collections, a selection or feeds (NP-140);
+//! - [`bundle`]: making a list of what the bundle holds.
 //!
 //! The interface sends the text it has (a dropped or picked file, a
 //! download) with both commands; nothing is kept between them.
 
 pub mod apply;
+pub mod bundle;
 pub mod download;
 pub mod export;
 pub mod format;
@@ -122,6 +124,54 @@ pub struct ListFeedEntry {
     pub section: Option<String>,
 }
 
+/// What a row of the preview is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ListPreviewKind {
+    Link,
+    Feed,
+}
+
+/// What a row is to this library: a link is new, saved or in the trash; a feed is new or followed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum ListPreviewStatus {
+    New,
+    Saved,
+    InTrash,
+    Followed,
+}
+
+/// A row of the preview (K10): a link or a feed of the list, once.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct ListPreviewItem {
+    pub kind: ListPreviewKind,
+    pub url: String,
+    pub title: Option<String>,
+    /// The address's host without `www.`, as bookmarks show it.
+    pub host: String,
+    /// A feed's site, as the list gives it; a link has none.
+    pub site: Option<String>,
+    pub status: ListPreviewStatus,
+    /// The saved bookmark (Saved, In Trash), for its icon: `kpimg` `b/<id>/icon`.
+    pub bookmark_id: Option<i64>,
+    /// The followed feed, for its icon: `kpimg` `f/<uid>/icon`.
+    pub feed_uid: Option<String>,
+}
+
+/// A section of the list as the preview shows it, or its top level (no name).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+pub struct ListPreviewGroup {
+    pub name: Option<String>,
+    /// The tag the section becomes on import; none at the top level or for feeds only.
+    pub tag: Option<String>,
+    pub items: Vec<ListPreviewItem>,
+}
+
 /// A collection whose name is the list's title, case aside (Р-29).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
@@ -163,6 +213,9 @@ pub struct ListPreview {
     pub skipped_items: u32,
     pub new_feeds: Vec<ListFeedEntry>,
     pub existing_collection: Option<CollectionMatch>,
+    /// Every link and feed by section: the top level first, then the sections
+    /// as they first appear; a link under its first section, as the import tags it.
+    pub groups: Vec<ListPreviewGroup>,
 }
 
 /// The answer of `preview_list`: a preview, or why there is none.

@@ -36,6 +36,7 @@ const preview = (over: Partial<ListPreview> = {}): ListPreview => ({
     { url: "https://without.boats/index.xml", title: null, site: null, section: "Async" },
   ],
   existing_collection: null,
+  groups: [],
   ...over,
 });
 

@@ -6,6 +6,7 @@ import type { ListDownloadProgress } from "../bindings/ListDownloadProgress";
 import type { ListFile } from "../bindings/ListFile";
 import type { ListImportOptions } from "../bindings/ListImportOptions";
 import type { ListImportReport } from "../bindings/ListImportReport";
+import type { ListPreviewGroup } from "../bindings/ListPreviewGroup";
 import {
   AddedLink,
   BackupCopy,
@@ -645,7 +646,8 @@ const invalidations = new Set<() => void>();
 const duplicateListeners = new Set<() => void>();
 const progressListeners = new Set<(progress: ImportProgress) => void>();
 
-type DemoListItem = { url: string; title: string | null; description: string | null; tags: string[]; sections: string[] };
+/** `at`: its place among the links and feeds read, in the file's order; `site` is a feed's. */
+type DemoListItem = { url: string; title: string | null; description: string | null; tags: string[]; sections: string[]; site: string | null; at: number };
 type DemoList = {
   title: string;
   version: string;
@@ -745,6 +747,8 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
         description: typeof item.description === "string" ? item.description.trim().slice(0, 1000) || null : null,
         tags: tagsOf(item),
         sections: section ? [section] : [],
+        site: item.type === "feed" ? demoWebUrl(item.site) : null,
+        at: list.links.length + list.feeds.length,
       };
       if (item.type === "feed") {
         if (feeds.has(url)) list.repeated++;
@@ -768,6 +772,32 @@ export function demoList(text: string): DemoList | Exclude<ListCheck, { outcome:
     }
   }
   return list;
+}
+/** `ListPreview.groups` as `lists/preview.rs` makes them: the top level first, then each section where it first appears, a link under its first section. */
+function demoGroups(list: DemoList, bookmarkAt: (url: string) => Bookmark | undefined, feedAt: Map<string, string>): ListPreviewGroup[] {
+  const rows = [...list.links.map((entry) => ({ entry, kind: "link" as const })), ...list.feeds.map((entry) => ({ entry, kind: "feed" as const }))].sort((a, b) => a.entry.at - b.entry.at);
+  const groups: ListPreviewGroup[] = [{ name: null, tag: null, items: [] }];
+  const groupAt = new Map<string, number>();
+  for (const { entry, kind } of rows) {
+    const name = entry.sections[0] ?? null;
+    const index = name === null ? 0 : (groupAt.get(name) ?? groups.push({ name, tag: null, items: [] }) - 1);
+    if (name !== null) groupAt.set(name, index);
+    const saved = kind === "link" ? bookmarkAt(entry.url) : undefined;
+    const uid = kind === "feed" ? (feedAt.get(entry.url) ?? null) : null;
+    groups[index].items.push({
+      kind,
+      url: entry.url,
+      title: entry.title,
+      host: new URL(entry.url).hostname.toLowerCase().replace(/^www\./, ""),
+      site: entry.site,
+      status: kind === "feed" ? (uid ? "followed" : "new") : saved ? (saved.deleted_at ? "in_trash" : "saved") : "new",
+      bookmark_id: saved?.id ?? null,
+      feed_uid: uid,
+    });
+  }
+  // Feeds have no tags: a section of feeds only becomes none.
+  for (const group of groups) if (group.name && group.items.some((i) => i.kind === "link")) group.tag = group.name.toLowerCase().slice(0, 64);
+  return groups.filter((g) => g.items.length > 0);
 }
 const demoListDownloads = new Set<(progress: ListDownloadProgress) => void>();
 function persist() {
@@ -1874,6 +1904,7 @@ export const demo = {
         skipped_items: list.skipped_items,
         new_feeds: list.feeds.filter((f) => !followed.has(f.url)).map((f) => ({ url: f.url, title: f.title, site: null, section: f.sections[0] ?? null })),
         existing_collection: named ? { id: named.id, name: named.name } : null,
+        groups: demoGroups(list, (url) => known.get(url), new Map(feedsState().feeds.map((f) => [f.url, f.uid]))),
       },
     };
   },

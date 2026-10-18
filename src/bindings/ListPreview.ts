@@ -2,6 +2,7 @@
 import type { CollectionMatch } from "./CollectionMatch";
 import type { ListFeedEntry } from "./ListFeedEntry";
 import type { ListMeta } from "./ListMeta";
+import type { ListPreviewGroup } from "./ListPreviewGroup";
 
 /**
  * What importing the list would do (K1).
@@ -47,4 +48,9 @@ skipped_details: number,
 /**
  * Items of a type this reader does not know.
  */
-skipped_items: number, new_feeds: Array<ListFeedEntry>, existing_collection: CollectionMatch | null, };
+skipped_items: number, new_feeds: Array<ListFeedEntry>, existing_collection: CollectionMatch | null, 
+/**
+ * Every link and feed by section: the top level first, then the sections
+ * as they first appear; a link under its first section, as the import tags it.
+ */
+groups: Array<ListPreviewGroup>, };
