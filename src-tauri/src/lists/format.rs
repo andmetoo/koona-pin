@@ -501,8 +501,8 @@ mod tests {
         parse(text).unwrap()
     }
 
-    /// `cases.json` says, for every fixture, whether the draft schema
-    /// (`kpin-format.schema.json`, beside it) accepts it and what this reader
+    /// `cases.json` says, for every fixture, whether the public schema
+    /// (`docs/kpin/schema-1.json`) accepts it and what this reader
     /// answers. The schema column was checked with a JSON Schema 2020-12
     /// validator when the fixtures were written; the reader column is checked
     /// here. A schema-valid file is never refused for its content, only for
@@ -525,8 +525,24 @@ mod tests {
                 );
             }
         }
-        let schema: Value = serde_json::from_str(fixture!("kpin-format.schema.json")).unwrap();
+        let schema: Value = serde_json::from_str(include_str!("../../../docs/kpin/schema-1.json")).unwrap();
         assert_eq!(schema["properties"]["format"]["const"], "koona");
+    }
+
+    /// The examples of the public spec (`docs/kpin/examples`) read as it says they do.
+    #[test]
+    fn the_examples_of_the_spec_read_as_it_says() {
+        let minimal = parse(include_str!("../../../docs/kpin/examples/minimal.kpin")).unwrap();
+        assert_eq!((minimal.links.len(), minimal.feeds.len(), minimal.sections, minimal.newer), (3, 0, 0, false));
+        let sections = parse(include_str!("../../../docs/kpin/examples/sections-and-feeds.kpin")).unwrap();
+        assert_eq!((sections.links.len(), sections.feeds.len(), sections.sections), (3, 2, 2));
+        assert_eq!(sections.meta.description.as_deref(), Some("Personal sites and their feeds.\nChecked by hand in October 2026."));
+        assert_eq!((sections.meta.id.as_deref(), sections.meta.homepage.is_some()), (Some("small-web-starter"), true));
+        let newer = parse(include_str!("../../../docs/kpin/examples/newer-minor-1.1.kpin")).unwrap();
+        assert!(newer.newer);
+        assert_eq!((newer.links.len(), newer.feeds.len()), (1, 1));
+        // `cover`, the link's `rating`, the feed's `color`; the `note` is an item.
+        assert_eq!((newer.skipped_details, newer.skipped_items), (3, 1));
     }
 
     #[test]

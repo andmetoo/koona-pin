@@ -7,6 +7,7 @@
 - [Browser extension](extension.md) — how capture works, supported browsers, where people install it, loading the extension unpacked, native host registration, store builds.
 - [Translating](translating.md) — how locales work, adding a string or a language, and the glossary of interface terms.
 - [Design basics](design.md) — colour tokens, typography, icons, themes and where they live in code.
+- [The `.kpin` list format](kpin/README.md) — the specification of shareable lists of links and feeds, its JSON Schema and examples (CC0).
 - [Technical decisions](decisions.md) — the key choices and why they were made.
 - [How it is built](how-it-is-built.md) — how the maintainer directs and reviews the AI coding agents that write most of the code.
 

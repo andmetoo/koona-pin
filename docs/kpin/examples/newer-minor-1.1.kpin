@@ -1,0 +1,13 @@
+{
+  "format": "koona",
+  "app": "pin",
+  "kind": "list",
+  "version": "1.1",
+  "title": "Written by a newer writer",
+  "cover": "https://example.org/cover.png",
+  "items": [
+    { "type": "link", "url": "https://example.org/kept", "title": "Imported, its rating skipped", "rating": 5 },
+    { "type": "note", "text": "An item type a 1.0 reader does not know: skipped and counted." },
+    { "type": "feed", "url": "https://example.org/feed.xml", "title": "Followed, its colour skipped", "color": "#3366ff" }
+  ]
+}
