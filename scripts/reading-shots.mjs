@@ -1,5 +1,5 @@
 // Evidence for NP-122, acceptance 2: every state of the reading mode in both themes, at 1440×900
-// and 800×550, in English, German and Russian, to put beside its frame in a PR. Screenshots only;
+// and 800×550, in English and German (the longest), to put beside its frame in a PR. Screenshots only;
 // tests/ui/reading.spec.ts has the assertions. Needs the dev server (`bun run dev`, port in
 // KOONAPIN_DEV_URL, default http://127.0.0.1:1420). Writes .test-data/reading/<language>-<theme>-<width>-<state>.png
 // (or into READING_SHOTS).
@@ -70,7 +70,7 @@ const stubPages = (page, how, match) =>
   );
 
 const browser = await chromium.launch();
-for (const language of ["en", "de", "ru"]) {
+for (const language of ["en", "de"]) {
   const catalog = JSON.parse(await readFile(`src/locales/${language}.json`, "utf8"));
   for (const theme of ["light", "dark"]) {
     const context = await browser.newContext({ locale: "en-US" });
