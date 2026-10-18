@@ -6,7 +6,7 @@ import { bundle, BundleView, entryKey, itemCount, sectionKey, viewLabel } from "
 import { addedText, addView, pruneBundle, useBundle } from "./actions";
 import { rowDropLabel } from "../../services/drag";
 import { useSidebarDrag } from "../../hooks/useRowDrag";
-import { Capsule, landingMs, onLanding } from "./Capsule";
+import { Capsule, Landing, landingMs, onLanding } from "./Capsule";
 import { Panel } from "./Panel";
 
 /** The capsule's height and its gap to the window's edges (K6b). */
@@ -66,13 +66,21 @@ export function Bundle({
   const state = useBundle();
   // A collection, a tag, a feed or All feeds dragged out of the sidebar (piece C).
   const sidebar = useSidebarDrag();
+  // A drop that added something: the capsule plays it, and stays on screen until it has, even when
+  // hidden by × or when the add came in after the drag had ended.
+  const [lastLanding, setLastLanding] = useState<Landing | null>(null);
   const [landing, setLanding] = useState(false);
   useEffect(() => {
     let timer = 0;
-    const stop = onLanding(({ cards }) => {
+    const stop = onLanding((next) => {
+      setLastLanding(next);
       setLanding(true);
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => setLanding(false), landingMs(cards));
+      timer = window.setTimeout(() => {
+        setLanding(false);
+        // Played: a capsule that comes back later does not play it again.
+        setLastLanding(null);
+      }, landingMs(next.added));
     });
     return () => {
       stop();
@@ -213,6 +221,7 @@ export function Bundle({
           over={overLabel}
           expanded={open}
           panelId={panelId}
+          landing={lastLanding}
           onClick={() => (open ? close() : openBundle(null))}
           onHide={() => {
             bundle.setHidden(true);

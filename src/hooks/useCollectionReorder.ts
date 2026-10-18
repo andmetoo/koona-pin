@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RowDragItem } from "../services/drag";
-import { bundleAt, outsideSidebar, sidebarDrag } from "./useRowDrag";
+import { bundleAt, outside, sidebarBox, sidebarDrag } from "./useRowDrag";
 
 /** A press becomes a move after this many pixels, as a drag of the selection does (NP-030). */
 const DRAG_START = 4;
@@ -86,41 +86,49 @@ export function useCollectionReorder(onMove: (from: number, to: number) => void,
     pointer.current = origin;
     let moving = false;
     let over: number | null = null;
-    let outside = false;
+    let away = false;
     let onBundle = false;
     /** The pointer has left the sidebar once: the capsule may come. */
     let shown = false;
     let item: RowDragItem | null = null;
     let animation = 0;
+    /** The pointer moved, or the sidebar scrolled under it, since the last frame. */
+    let dirty = false;
+    const aside = sidebarBox(list);
 
     const aim = () => {
       const { x, y } = pointer.current;
       const next = gapAt(list, x, y);
-      const out = !!bundleRef.current && outsideSidebar(list, x, y);
+      const out = !!bundleRef.current && outside(aside, x, y);
       const hit = out && bundleAt(x, y);
       if (out && !shown) {
         shown = true;
         item = bundleRef.current!.item(from);
       }
       if (item) sidebarDrag.set({ item, shown, over: hit });
-      if (next === over && out === outside && hit === onBundle) return;
+      if (next === over && out === away && hit === onBundle) return;
       over = next;
-      outside = out;
+      away = out;
       onBundle = hit;
       setMove((current) => current && { ...current, over: next, outside: out, bundle: hit });
     };
-    const scroll = () => {
-      animation = requestAnimationFrame(scroll);
+    // Once a frame: the reads first (the gap, the target, the sidebar's box), then the writes
+    // (the scroll and the ghost). A scroll moves what is under the pointer: the next frame aims again.
+    const frame = () => {
+      animation = requestAnimationFrame(frame);
       const sidebar = list.closest<HTMLElement>("[data-drop-scroll]");
-      if (!sidebar) return;
-      const box = sidebar.getBoundingClientRect();
+      const box = sidebar?.getBoundingClientRect();
+      if (dirty) aim();
+      dirty = false;
+      place();
+      if (!sidebar || !box) return;
       const { y } = pointer.current;
       const below = y - (box.bottom - SCROLL_EDGE);
       const above = box.top + SCROLL_EDGE - y;
       const before = sidebar.scrollTop;
       if (below > 0) sidebar.scrollTop += Math.min(SCROLL_MAX, Math.ceil(below / 3));
       else if (above > 0) sidebar.scrollTop -= Math.min(SCROLL_MAX, Math.ceil(above / 3));
-      if (sidebar.scrollTop !== before) aim();
+      if (sidebar.scrollTop !== before) dirty = true;
     };
     const moved = (ev: PointerEvent) => {
       pointer.current = { x: ev.clientX, y: ev.clientY };
@@ -130,15 +138,15 @@ export function useCollectionReorder(onMove: (from: number, to: number) => void,
         document.body.classList.add("select-none");
         window.getSelection()?.removeAllRanges();
         setMove({ from, over: null, outside: false, bundle: false });
-        animation = requestAnimationFrame(scroll);
+        animation = requestAnimationFrame(frame);
       }
-      place();
-      aim();
+      dirty = true;
     };
     const up = (ev: PointerEvent) => {
       const was = moving;
-      const to = over;
-      const dropped = was && !!bundleRef.current && outsideSidebar(list, ev.clientX, ev.clientY) && bundleAt(ev.clientX, ev.clientY);
+      // Where it is let go, even if the last frame has not caught up with the pointer.
+      const to = was ? gapAt(list, ev.clientX, ev.clientY) : null;
+      const dropped = was && !!bundleRef.current && outside(aside, ev.clientX, ev.clientY) && bundleAt(ev.clientX, ev.clientY);
       end();
       if (!was) return;
       swallowClick();

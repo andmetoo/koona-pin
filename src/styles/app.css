@@ -3121,6 +3121,16 @@
     opacity: 0;
   }
 }
+/* Settled (K6b, 5): «+3» floats 12 px up and fades out over 500 ms; reduced motion, it holds still. */
+.bundle-plus {
+  animation: bundle-plus 500ms var(--ease-standard) forwards;
+}
+@keyframes bundle-plus {
+  to {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+}
 /* Linux (S14): WebKitGTK gets no backdrop blur, a solid card, a plain 2 px ring for the glow and
    no light sweep. */
 :root[data-linux] :is(.bundle-shell, .bundle-panel) {

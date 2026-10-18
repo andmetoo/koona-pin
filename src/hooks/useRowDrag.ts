@@ -41,11 +41,11 @@ export const useSidebarDrag = () => useSyncExternalStore(sidebarDrag.subscribe, 
 export const bundleAt = (x: number, y: number) =>
   parseDrop(document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-drop]")?.dataset.drop)?.kind === "bundle";
 
-/** The pointer is outside the sidebar (or the strip) that `from` sits in. */
-export function outsideSidebar(from: Element, x: number, y: number): boolean {
-  const box = from.closest("aside")?.getBoundingClientRect();
-  return !box || x < box.left || x > box.right || y < box.top || y > box.bottom;
-}
+/** The box of the sidebar (or the strip) that `from` sits in, taken once when a drag starts. */
+export const sidebarBox = (from: Element) => from.closest("aside")?.getBoundingClientRect() ?? null;
+
+/** The pointer is outside that box. */
+export const outside = (box: DOMRect | null, x: number, y: number) => !box || x < box.left || x > box.right || y < box.top || y > box.bottom;
 
 /** The click that follows the end of a drag would open the row it started on. */
 function swallowClick() {
@@ -84,13 +84,27 @@ export function useRowDrag(onDrop: (item: RowDragItem, at: { x: number; y: numbe
 
   const start = useCallback((e: { clientX: number; clientY: number; currentTarget: Element }, item: RowDragItem) => {
     stop.current();
-    const from = e.currentTarget;
+    const box = sidebarBox(e.currentTarget);
     const origin = { x: e.clientX, y: e.clientY };
     pointer.current = origin;
     let dragging = false;
     let shown = false;
     let over = false;
+    let frame = 0;
 
+    // Once a frame: what is under the pointer first (reads), then the stack moves (a write).
+    const tick = () => {
+      frame = 0;
+      const { x, y } = pointer.current;
+      shown ||= outside(box, x, y);
+      const next = shown && bundleAt(x, y);
+      if (next !== over) {
+        over = next;
+        setDrag({ item, over });
+      }
+      sidebarDrag.set({ item, shown, over });
+      place();
+    };
     const move = (ev: PointerEvent) => {
       pointer.current = { x: ev.clientX, y: ev.clientY };
       if (!dragging) {
@@ -100,14 +114,7 @@ export function useRowDrag(onDrop: (item: RowDragItem, at: { x: number; y: numbe
         window.getSelection()?.removeAllRanges();
         setDrag({ item, over: false });
       }
-      place();
-      shown ||= outsideSidebar(from, ev.clientX, ev.clientY);
-      const next = shown && bundleAt(ev.clientX, ev.clientY);
-      if (next !== over) {
-        over = next;
-        setDrag({ item, over });
-      }
-      sidebarDrag.set({ item, shown, over });
+      frame ||= requestAnimationFrame(tick);
     };
     const up = (ev: PointerEvent) => {
       const was = dragging;
@@ -126,6 +133,8 @@ export function useRowDrag(onDrop: (item: RowDragItem, at: { x: number; y: numbe
       window.addEventListener("pointerup", swallowClick, { once: true });
     };
     const end = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
       document.body.classList.remove("select-none");
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
