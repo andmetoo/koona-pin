@@ -115,13 +115,11 @@ describe("the bundle store", () => {
   });
 
   it("never touches storage", () => {
-    const calls = [
-      vi.spyOn(Storage.prototype, "setItem"),
-      vi.spyOn(Storage.prototype, "getItem"),
-      vi.spyOn(Storage.prototype, "removeItem"),
-      vi.spyOn(Storage.prototype, "clear"),
-    ];
-    const before = JSON.stringify({ ...localStorage });
+    // Tests run in Node: a storage that records every call stands in for the browser's.
+    const storage = { getItem: vi.fn(), setItem: vi.fn(), removeItem: vi.fn(), clear: vi.fn(), key: vi.fn(), length: 0 };
+    vi.stubGlobal("localStorage", storage);
+    vi.stubGlobal("sessionStorage", storage);
+    const calls = [storage.getItem, storage.setItem, storage.removeItem, storage.clear, storage.key];
     const bundle = createBundle();
     bundle.addBookmarks([b(1)]);
     bundle.addCollection(collection(2, "Design"), [b(2)]);
@@ -134,7 +132,7 @@ describe("the bundle store", () => {
     bundle.prune(new Set([1]));
     bundle.restore(bundle.clear());
     for (const call of calls) expect(call).not.toHaveBeenCalled();
-    expect(JSON.stringify({ ...localStorage })).toBe(before);
+    vi.unstubAllGlobals();
     // A new store, as after a restart, is empty.
     expect(itemCount(createBundle().get())).toBe(0);
   });
