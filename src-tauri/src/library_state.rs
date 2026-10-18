@@ -102,6 +102,8 @@ pub fn start(app: AppHandle) {
                 app.manage(db.clone());
                 // The feed cache beside it (NP-128): its own file and lock.
                 crate::feeds::cache::start(&app, &library.paths.folder());
+                // The picture cache's sweep (NP-146): it needs both to know what is referred to.
+                crate::thumbs::start(&app);
                 let channel = app.state::<Arc<ChannelState>>().inner().clone();
                 capture_channel::start(app.clone(), db.clone(), channel);
                 let moved_aside = opened

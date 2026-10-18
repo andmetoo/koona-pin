@@ -445,6 +445,7 @@ pub async fn refresh_preview(
     let meta = metadata::fetch_metadata(&url).await;
     let bookmark = blocking(&state, move |conn| db::refresh_preview(conn, id, &url, &meta).map_err(text)).await?;
     capture::emit(&app, ChangeKind::Updated, &bookmark);
+    crate::thumbs::warm(&app, &bookmark);
     Ok(bookmark)
 }
 /// The sidebar's order after a drag or `Alt ↑` / `Alt ↓` (NP-114): every
