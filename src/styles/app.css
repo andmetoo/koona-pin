@@ -886,6 +886,7 @@
     position: absolute;
     inset: -24px;
     z-index: 0;
+    background-image: var(--halo-picture), var(--halo-colour);
     background-position: center;
     background-size: cover;
     filter: blur(18px) saturate(1.6) brightness(1.06);
@@ -2909,6 +2910,29 @@
 :root[data-linux] .sidebar-scroll {
   -webkit-mask-image: none;
   mask-image: none;
+}
+/* Linux: on Fedora under Wayland the grid scrolled slowly in WebKitGTK while the list, without
+   this glass, stayed smooth. Each backdrop blur is a composited layer redrawn from what lies behind
+   it on every frame: a poster cover's icon chip on each card without a picture, the corner buttons
+   of the card under the pointer, the selection's check. There they are plain tints; the halo of a
+   selected card keeps its cover's colours without the blurred copy of its picture, and a hovered
+   cover holds still instead of repainting its gradient every frame. */
+:root[data-linux] :is(.cover-chip, .card-check, .card-action) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-linux] .card-action {
+  background: color-mix(in srgb, var(--np-card) 90%, transparent);
+}
+:root[data-linux] .card-action:hover {
+  background: var(--np-card);
+}
+:root[data-linux] .card-halo {
+  background-image: var(--halo-colour);
+  filter: none;
+}
+:root[data-linux] .cover[data-live]:hover {
+  animation: none;
 }
 /* A name longer than its row fades out over the last 24 px instead of ending in an ellipsis
    (2.1.2); data-clipped is set only when it does not fit, so a name that fits keeps its last letters. */
