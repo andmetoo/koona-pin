@@ -240,7 +240,7 @@ Feeds have no tags or description. A link or a feed without a usable `url` is sk
 | `generator` | 80 characters | cuts |
 | Any address | 2,048 bytes | skips the item, or drops the field |
 
-A list over a limit of the first three rows is refused rather than cut, because a cut list would be silently incomplete. Writers must stay within every limit. The [schema](#schema-and-readers) checks all of them except two: the total of items, and the length of addresses in bytes (its `maxLength` counts characters, so a non-ASCII address can pass it and still be too long).
+A list over a limit of the first three rows is refused rather than cut, because a cut list would be silently incomplete. Writers must stay within every limit. The [schema](#schema-and-readers) checks all of them except three: the size of the file, the total of items, and the length of addresses in bytes (its `maxLength` counts characters, so a non-ASCII address can pass it and still be too long).
 
 ## Text
 
@@ -284,7 +284,7 @@ The first occurrence wins: its address, title and description are kept. A later 
 
 ## Writing a list
 
-A writer must produce a file that [schema-1.json](schema-1.json) accepts and that has at most 5,000 items in all. It also:
+A writer must produce a file that [schema-1.json](schema-1.json) accepts and that keeps the three limits the schema cannot check: at most 2 MB, at most 5,000 items in all, and addresses of at most 2,048 bytes in UTF-8. It also:
 
 - must write `"version": "1.0"` unless it uses something a later MINOR added, and then the lowest MINOR that has it;
 - must not write credentials in addresses, or anything private the person did not choose to publish;
@@ -353,7 +353,7 @@ Anything else is ignored. Pages should percent-encode the `url` value. Sites tha
 
 ## Schema and readers
 
-[schema-1.json](schema-1.json) describes what a writer must produce. Readers are more tolerant, so that a list with one bad entry still imports: a file the schema refuses may still be read, with its bad items skipped and counted and its bad optional fields dropped. A file the schema accepts is never refused for its content, only for what it is (another app, an unknown kind) or for having more than 5,000 items in all. Its items can still be skipped: one whose address is longer than 2,048 bytes is invalid to the reader, though the schema, which counts characters, accepts it.
+[schema-1.json](schema-1.json) describes what a writer must produce. Readers are more tolerant, so that a list with one bad entry still imports: a file the schema refuses may still be read, with its bad items skipped and counted and its bad optional fields dropped. A file the schema accepts is never refused for its content, only for what it is (another app, an unknown kind) or for its size: more than 2 MB, or more than 5,000 items in all. Its items can still be skipped: one whose address is longer than 2,048 bytes is invalid to the reader, though the schema, which counts characters, accepts it.
 
 The schema allows any field and any item `type` beyond those of 1.0, so that it accepts files of later 1.x versions; it pins `version` to MAJOR 1. Its `$id`, `https://koona.app/pin/schema/list-1.json`, names the schema; this repository holds its source.
 

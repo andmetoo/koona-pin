@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://koona.app/pin/schema/list-1.json",
   "title": "Koona list (.kpin), version 1.x",
-  "description": "A shareable list of links and feeds for Koona Pin: the envelope shared by Koona apps with the payload of app \"pin\", kind \"list\". This schema is what a writer must produce; readers are more tolerant and are described in docs/kpin/README.md. Two rules of a writer cannot be written here: at most 5,000 items across all sections and the top level, and addresses of at most 2,048 bytes in UTF-8 (maxLength counts characters). Dedicated to the public domain under CC0 1.0.",
+  "description": "A shareable list of links and feeds for Koona Pin: the envelope shared by Koona apps with the payload of app \"pin\", kind \"list\". This schema is what a writer must produce; readers are more tolerant and are described in docs/kpin/README.md. Three rules of a writer cannot be written here: a file of at most 2 MB (2,097,152 bytes), at most 5,000 items across all sections and the top level, and addresses of at most 2,048 bytes in UTF-8 (maxLength counts characters). Dedicated to the public domain under CC0 1.0.",
   "type": "object",
   "required": [
     "format",
