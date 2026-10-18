@@ -37,6 +37,8 @@
     "extension:lint": "bun run extension:build && web-ext lint --self-hosted --source-dir release/dev/firefox",
     "presite:shots": "bun scripts/build-test-app.mjs",
     "site:shots": "bun scripts/site-screenshots.mjs",
+    "presite:shots:mac": "bun scripts/build-test-app.mjs",
+    "site:shots:mac": "bun scripts/site-screenshots-macos.mjs",
     "prebuild:installer": "bun scripts/clean.mjs",
     "build:installer": "bun scripts/build-installer.mjs",
     "prebuild:linux": "bun scripts/clean.mjs",

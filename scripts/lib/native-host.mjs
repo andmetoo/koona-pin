@@ -25,9 +25,14 @@ export const hostBinary = (app = appBinary()) => path.join(path.dirname(app), `k
  */
 export const testPipe = (label = "test") => `koonapin-${label}-${process.pid}-${Date.now()}`;
 
+/** The user's own folder of the system on macOS (`_CS_DARWIN_USER_DIR`), where the capture socket lives. */
+const darwinUserDir = () => execFileSync("getconf", ["DARWIN_USER_DIR"], { encoding: "utf8" }).trim();
+
 /** Where the app listens for `KOONAPIN_PIPE=name` (pipe_name.rs). */
 export const pipePath = (name, env = process.env) =>
-  windows ? `\\\\.\\pipe\\${name}` : path.join(env.XDG_RUNTIME_DIR ?? "", "koonapin", `${name}.sock`);
+  windows
+    ? `\\\\.\\pipe\\${name}`
+    : path.join(process.platform === "darwin" ? darwinUserDir() : (env.XDG_RUNTIME_DIR ?? ""), "koonapin", `${name}.sock`);
 
 /** The app answers on its pipe once the library is open. */
 export const pipeReady = (name, env = process.env) =>
@@ -94,6 +99,14 @@ function linuxProcesses() {
 
 /** Apps the host started (`--autostart`) from the binary under test. */
 export function hostStartedApps(binary = appBinary()) {
+  if (process.platform === "darwin") {
+    const real = realpathSync(binary);
+    return execFileSync("ps", ["-axo", "pid=,args="], { encoding: "utf8" })
+      .split("\n")
+      .map((line) => line.trim().match(/^(\d+) (.+)$/))
+      .filter((m) => m && m[2].startsWith(real) && m[2].includes("--autostart"))
+      .map((m) => Number(m[1]));
+  }
   if (!windows) {
     const real = realpathSync(binary);
     return linuxProcesses()
@@ -119,6 +132,18 @@ export function hostStartedApps(binary = appBinary()) {
  * and the host waits for nothing. Stop early with the reason instead.
  */
 export function assertNoOtherApp() {
+  if (process.platform === "darwin") {
+    // The app's executable: koonapin in a build, «Koona Pin» inside an installed .app.
+    const others = execFileSync("ps", ["-axo", "pid=,comm="], { encoding: "utf8" })
+      .split("\n")
+      .map((line) => line.trim().match(/^(\d+) (.+)$/))
+      .filter((m) => m && ["koonapin", "Koona Pin"].includes(path.basename(m[2])));
+    if (others.length)
+      throw new Error(
+        `Quit Koona Pin before this check (menu bar → Quit): only one instance runs per user, so the test app would exit at once.\n${others.map((m) => `${m[1]} ${m[2]}`).join("\n")}`,
+      );
+    return;
+  }
   if (!windows) {
     const others = linuxProcesses().filter((p) => path.basename(p.exe) === "koonapin");
     if (others.length)

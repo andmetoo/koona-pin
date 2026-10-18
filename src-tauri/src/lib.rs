@@ -37,6 +37,8 @@ pub mod refresh;
 pub mod restore;
 #[cfg(target_os = "macos")]
 pub mod safari_socket;
+#[cfg(all(unix, not(feature = "public-release")))]
+pub mod shots;
 pub mod sorting;
 pub mod sync_library;
 #[doc(hidden)]
@@ -134,6 +136,8 @@ pub fn run() {
             updates::start(app.handle());
             // The feeds' refresh loop (NP-129): it waits for the library and the feed cache.
             feeds::schedule::start(app.handle());
+            #[cfg(all(unix, not(feature = "public-release")))]
+            shots::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {

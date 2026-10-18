@@ -1,3 +1,4 @@
+import { version as packageVersion } from "../../package.json";
 import type { ReaderPage } from "../bindings/ReaderPage";
 import {
   AddedLink,
@@ -273,10 +274,12 @@ const isoMinutesAgo = (minutes: number) => new Date(minutesAgo(minutes)).toISOSt
 function demoDevice(id: string, name: string, extra: Partial<SyncDevice> = {}): SyncDevice {
   return { id, name, online: false, is_hub: false, status: "active", last_seen: minutesAgo(90), platform: null, app: null, last_sync_at: null, ...extra };
 }
-const DEMO_BOOKMARKS = 12480;
+/** The account's bookmarks, as sync counts them: the preview's own library, so the dialog agrees with it. */
+const demoLibraryCount = () => bookmarks.filter((b) => !b.deleted_at).length;
 /** What Home iMac, Office laptop and Studio PC say of themselves in their `hello`. */
-const IMAC = { platform: "macos", app: "0.13.0" } as const;
-const LAPTOP = { platform: "windows", app: "0.13.0" } as const;
+// The computers run the version this preview was built from.
+const IMAC = { platform: "macos", app: packageVersion } as const;
+const LAPTOP = { platform: "windows", app: packageVersion } as const;
 const STUDIO = { platform: "linux", app: "0.12.0" } as const;
 function demoSyncState(kind: string | null): SyncStatus {
   // On Home iMac, the main computer.
@@ -296,7 +299,7 @@ function demoSyncState(kind: string | null): SyncStatus {
     error: null,
     hub_change: null,
     notices: [],
-    bookmarks: DEMO_BOOKMARKS,
+    bookmarks: demoLibraryCount(),
     clock_offset_ms: 400,
     update_from: null,
     epoch: 2,
@@ -343,7 +346,7 @@ function demoSyncState(kind: string | null): SyncStatus {
       };
     }
     case "receiving":
-      return { ...other(null), phase: { state: "syncing", done: 4210, total: DEMO_BOOKMARKS }, last_sync_at: null };
+      return { ...other(null), phase: { state: "syncing", done: 4210, total: 12480 }, last_sync_at: null };
     case "syncing":
       return { ...on, phase: { state: "syncing", done: 38, total: 120 } };
     case "main_asked":
@@ -465,10 +468,20 @@ function demoArticle(b: Bookmark): string {
 
 /** Capture speaks of the system the preview pretends to run on (NP-054). */
 // A desktop with the system's own frame is a Mac's.
-// `koonapin.demo.capture` = `failing`: the capture channel would not open, as the notification centre shows it.
+// `koonapin.demo.capture` = `failing`: the capture channel would not open, as the notification centre shows it;
+// `connected`: Chrome saved a link a minute ago, as the sidebar shows a connected browser (the site's screenshots).
+const demoConnected = (): Partial<CaptureStatus> => {
+  const at = new Date(Date.now() - 60_000).toISOString();
+  return {
+    state: "connected",
+    browsers: [{ browser: "chrome", last_seen: at, extension_version: "0.5.0", extension_protocol: 2, compatible: true, recent: true }],
+    last_capture: { at, browser: "chrome" },
+  };
+};
 const demoCapture = (): CaptureStatus => ({
   ...demoCaptureStatus,
   ...(storedValue("demo.capture") === "failing" ? { state: "failing" as const, problem: "channel" as const } : {}),
+  ...(storedValue("demo.capture") === "connected" ? demoConnected() : {}),
   system: storedDesktop()?.linux ? "linux" : storedDesktop()?.native_frame ? "macos" : "windows",
 });
 const key = DEMO_STORAGE_KEY;
