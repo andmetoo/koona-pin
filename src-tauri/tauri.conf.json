@@ -50,7 +50,8 @@
     "copyright": "© 2026 Koona",
     "homepage": "https://koona.app/pin/",
     "category": "Productivity",
-    "shortDescription": "Koona Pin",
+    "shortDescription": "Desktop bookmark library: save a link in one click, read it later",
+    "longDescription": "Koona Pin is a desktop bookmark library. Save the page you are on from Chrome, Edge, Firefox or Safari with one button; the link lands in the app and stays on your computer. Sort new links in the Inbox, read saved articles in reading mode, and follow sites through their RSS, Atom or JSON feeds.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
