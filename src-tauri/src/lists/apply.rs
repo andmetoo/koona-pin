@@ -64,6 +64,7 @@ pub fn apply(
     let triaged_at = (!options.to_inbox).then(|| now.clone());
     let follow: HashSet<String> =
         options.follow_feeds.iter().filter_map(|u| Url::parse(u.trim()).ok()).map(|u| u.to_string()).collect();
+    let leave_out: HashSet<&str> = options.leave_out.iter().map(String::as_str).collect();
     let total = list.links.len();
     let mut done = 0;
     let mut step = |done: usize| {
@@ -91,6 +92,8 @@ pub fn apply(
                     }
                 }
             }
+            // Unchecked in the preview: not added, and its collection is not made for it.
+            None if leave_out.contains(link.url.as_str()) => {}
             None => {
                 let collection_id = match &target {
                     Target::None => None,
@@ -165,6 +168,7 @@ mod tests {
             sections_as_tags: true,
             existing_links: ExistingLinks::Leave,
             follow_feeds: vec!["https://blog.rust-lang.org/feed.xml".into(), "https://without.boats/index.xml".into()],
+            leave_out: Vec::new(),
         }
     }
     fn new_collection(name: &str) -> ListCollection {
@@ -238,6 +242,23 @@ mod tests {
         assert_eq!((counts.inbox, counts.inbox_imported), (3, 3));
         assert_eq!(tags_of(&c, "https://doc.rust-lang.org/nomicon/"), ["book", "unsafe"]);
         assert_eq!(count(&c, "SELECT count(*) FROM feeds"), 1, "only a feed of the file, and only a checked one");
+    }
+
+    #[test]
+    fn links_unchecked_in_the_preview_are_left_out_and_need_no_collection() {
+        let c = database();
+        let list = parse(VALID).unwrap();
+        let mut o = options(new_collection("Rust"));
+        o.leave_out = vec![list.links[0].url.clone(), "https://evil.example/not-in-the-file".into()];
+        let r = apply(&c, &list, &o, |_, _| {}).unwrap().report;
+        assert_eq!((r.added, r.already_saved, r.in_trash), (2, 0, 0));
+        assert_eq!(count(&c, &format!("SELECT count(*) FROM bookmarks WHERE url = '{}'", list.links[0].url)), 0);
+        // Every link unchecked: nothing lands, so the collection is never made.
+        let c = database();
+        o.leave_out = list.links.iter().map(|l| l.url.clone()).collect();
+        let r = apply(&c, &list, &o, |_, _| {}).unwrap().report;
+        assert_eq!((r.added, r.collection_id), (0, None));
+        assert_eq!(count(&c, "SELECT count(*) FROM collections WHERE name = 'Rust'"), 0);
     }
 
     #[test]

@@ -728,8 +728,9 @@ const fixture = (name: string) => new URL(`../fixtures/bookmarks/${name}.html`, 
  */
 async function openImport(page: import("@playwright/test").Page, file: string | { name: string; mimeType: string; buffer: Buffer }) {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  const chooser = page.waitForEvent("filechooser");
   await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.locator("[data-import-file]").click();
   await (await chooser).setFiles(fixture("chrome"));
   await page.locator("dialog input[type=file]").setInputFiles(file);
   return page.getByRole("dialog");
@@ -865,8 +866,9 @@ async function copyFile(page: import("@playwright/test").Page, edit?: (copy: Rec
 /** ⋯ → «Import a file…» with the copy: a full copy opens Restore with it checked. */
 async function openRestore(page: import("@playwright/test").Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   await page.getByRole("button", { name: "More", exact: true }).click();
-  const chooser = page.waitForEvent("filechooser");
   await page.getByRole("menuitem", { name: /^Import a file…/ }).click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.locator("[data-import-file]").click();
   await (await chooser).setFiles(file);
   return page.getByRole("dialog", { name: "Restore from a JSON copy" });
 }

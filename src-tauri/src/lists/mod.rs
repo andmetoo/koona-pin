@@ -277,6 +277,8 @@ pub struct ListImportOptions {
     pub existing_links: ExistingLinks,
     /// The feeds to follow, from `ListPreview::new_feeds`; an address not in the list is ignored.
     pub follow_feeds: Vec<String>,
+    /// New links the person unchecked in the preview, by `ListPreviewItem::url`: they are not added.
+    pub leave_out: Vec<String>,
 }
 
 /// What an import did (K3, state 7).
@@ -438,7 +440,8 @@ pub(crate) mod tests {
             "to_inbox": false,
             "sections_as_tags": true,
             "existing_links": "add_tags",
-            "follow_feeds": []
+            "follow_feeds": [],
+            "leave_out": []
         }))
         .unwrap();
         assert_eq!(options.collection, ListCollection::New { name: "Rust".into() });

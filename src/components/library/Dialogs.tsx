@@ -1,12 +1,13 @@
-import { ChangeEvent, ReactNode, useEffect, useState } from "react";
+import { ChangeEvent, type DragEvent, ReactNode, useEffect, useState } from "react";
 import { CircleCheck, FileText, Folder, Link, Rss } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
 import { CaptureStatus, ImportProgress, ImportSummary, OpmlImport, RestoreMode, RestoreOutcome, RestorePreview, RestoreProblem, RestoreSummary } from "../../types";
-import { api, desktopApi, desktopOnly } from "../../services/api";
+import { api, desktopApi, desktopOnly, isTauri } from "../../services/api";
 import { ParsedFile, parseBookmarksFile } from "../../services/bookmarksFile";
 import { describeError } from "../../services/errors";
 import { importOpml } from "../../services/feeds";
+import { ImportFile, ImportRefusal, importFile, isRefusal } from "../../services/importFile";
 import { fileKindOf, opmlRoot } from "../../services/openRequests";
 
 export { opmlRoot };
@@ -98,7 +99,9 @@ function chosenFile(name: string, content: string): ChosenFile {
 
 /**
  * Frame 28: the file and where to put it, progress, the report, an error with nothing changed.
- * An OPML file follows its feeds instead (NP-133): no place to choose, its own report.
+ * An OPML file follows its feeds instead (NP-133): no place to choose, its own report. A file is
+ * dropped on the dialog or picked with a click, and told apart by what it holds (importFile.ts):
+ * a list goes to the list dialog, a full copy to Restore.
  */
 export function ImportDialog({
   kind = "bookmarks",
@@ -107,9 +110,13 @@ export function ImportDialog({
   onOpenInbox,
   onClose,
   onList,
+  onRestore,
 }: {
-  /** Settings → Feeds → «Import…» opens it for feeds; either way it takes both kinds of file. */
-  kind?: "bookmarks" | "feeds";
+  /**
+   * Settings → Feeds → «Import…» opens it for feeds, ⋯ → «Import a file…» for any file; every
+   * way it takes every kind of file.
+   */
+  kind?: "bookmarks" | "feeds" | "any";
   /** A file dropped on the window (NP-139): the dialog opens with it chosen. */
   file?: { name: string; content: string };
   onImport: (content: string, toInbox: boolean) => Promise<ImportSummary>;
@@ -117,6 +124,8 @@ export function ImportDialog({
   onClose: () => void;
   /** A `.kpin` list picked here goes to the list dialog (NP-138). */
   onList?: (file: { name: string; text: string }) => void;
+  /** A full copy picked here goes to Restore. */
+  onRestore?: (file: { name: string; content: string }) => void;
 }) {
   const { t, i18n } = useTranslation();
   const [file, setFile] = useState<ChosenFile | null>(() => (dropped ? chosenFile(dropped.name, dropped.content) : null));
@@ -126,8 +135,48 @@ export function ImportDialog({
   const [report, setReport] = useState<ImportSummary | null>(null);
   const [error, setError] = useState("");
   const [showSkipped, setShowSkipped] = useState(false);
+  /** A file dragged over the dialog: the file box lights up. */
+  const [over, setOver] = useState(false);
   useEffect(() => api.onImportProgress((progress) => setRunning((current) => current && progress)), []);
   const feeds = file ? file.feeds !== null : kind === "feeds";
+  const any = !file && kind === "any";
+  /**
+   * A file dropped or picked here, known by what it holds. One named as bookmarks or OPML that the
+   * sniffer does not know is shown as such, so its own «no bookmarks» words explain it.
+   */
+  const route = (read: ImportFile | ImportRefusal) => {
+    setError("");
+    if (isRefusal(read))
+      return setError(read.refused === "unsupported" ? t("add.dropImportOther") : t("add.dropImportTooBig", { size: Math.round(read.cap / (1024 * 1024)) }));
+    if (read.kind === "kpin" && onList) return onList({ name: read.name, text: read.text });
+    if (read.kind === "backup" && onRestore) return onRestore({ name: read.name, content: read.text });
+    if (read.kind === "kpin" || read.kind === "backup") return setError(t("add.dropImportOther"));
+    setFile(chosenFile(read.name, read.text));
+  };
+  const take = (chosen: File) =>
+    void importFile
+      .readFile(chosen)
+      .then((read) => {
+        const named = fileKindOf(chosen.name);
+        if (isRefusal(read) && read.refused === "unsupported" && (named === "html" || named === "opml"))
+          return chosen.text().then((content) => setFile(chosenFile(chosen.name, content)));
+        route(read);
+      })
+      .catch((err) => setError(describeError(err)));
+  /** A click on the file box in the app: the system Open dialog, read by Rust under each kind's cap. */
+  const pick = () =>
+    void importFile.pick().then(
+      (read) => read && route(read),
+      (err) => setError(describeError(err)),
+    );
+  /** A drag that carries files, while a file may be chosen. */
+  const takesDrag = (e: DragEvent) => state === "choose" && Array.from(e.dataTransfer.types).includes("Files");
+  const dragOver = (e: DragEvent) => {
+    if (!takesDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setOver(true);
+  };
   const empty = !!file && (file.feeds !== null ? file.feeds === 0 : file.preview.links.length === 0 && file.preview.skipped.length === 0);
   const start = async () => {
     if (!file) return;
@@ -319,7 +368,7 @@ export function ImportDialog({
     ].filter(Boolean).join(" "));
     return (
       <>
-        <p className="text-sm text-muted">{t(feeds ? "import.leadFeeds" : "import.lead")}</p>
+        <p className="text-sm text-muted">{t(any ? "import.leadAny" : feeds ? "import.leadFeeds" : "import.lead")}</p>
         {failed && picked ? (
           <div className="flex items-center gap-2.5 rounded-xl bg-secondary px-3 py-3 text-sm">
             <Icon icon={FileText} className="shrink-0 text-icon" />
@@ -329,28 +378,32 @@ export function ImportDialog({
             </span>
           </div>
         ) : (
-          <label className="flex cursor-default flex-col items-center gap-1 rounded-xl border border-dashed border-border px-4 py-4 text-center text-sm hover:bg-panel focus-within:outline-2 focus-within:outline-accent">
+          <label
+            data-import-file={!sizing || undefined}
+            data-over={(!sizing && over) || undefined}
+            onClick={(e) => {
+              // In the app the system dialog stands for the file input (importFile.pick).
+              if (sizing || !isTauri()) return;
+              e.preventDefault();
+              pick();
+            }}
+            className={`flex cursor-default flex-col items-center gap-1 rounded-xl border border-dashed px-4 text-center text-sm focus-within:outline-2 focus-within:outline-accent ${any ? "py-8" : "py-4"} ${!sizing && over ? "border-accent bg-accent-soft" : "border-border hover:bg-panel"}`}
+          >
             <Icon icon={FileText} size={22} className="mb-1.5 text-icon" />
             <span className={`max-w-full truncate ${picked ? "font-medium" : "text-muted"}`} title={picked?.name}>
-              {picked?.name ?? t(feeds ? "import.fileFeeds" : "import.file")}
+              {picked?.name ?? t(any ? "import.fileAny" : feeds ? "import.fileFeeds" : "import.file")}
             </span>
             <span className="max-w-full truncate text-xs text-subtle">{picked ? `${summary} · ${t("import.another")}` : " "}</span>
             {!sizing && (
               <input
                 type="file"
-                accept={feeds ? ".opml,.xml,.html,.htm,.kpin" : ".html,.htm,.opml,.xml,.kpin"}
+                accept={feeds ? ".opml,.xml,.html,.htm,.kpin,.json" : ".html,.htm,.opml,.xml,.kpin,.json"}
                 className="sr-only"
                 onChange={(e) => {
                   const chosen = e.target.files?.[0];
-                  if (chosen)
-                    void chosen
-                      .text()
-                      .then((content) => {
-                        setError("");
-                        if (onList && fileKindOf(chosen.name) === "kpin") return onList({ name: chosen.name, text: content });
-                        setFile(chosenFile(chosen.name, content));
-                      })
-                      .catch((err) => setError(describeError(err)));
+                  // The same file picked again after an error is a change again.
+                  e.target.value = "";
+                  if (chosen) take(chosen);
                 }}
               />
             )}
@@ -364,7 +417,7 @@ export function ImportDialog({
             <p>{t("import.opmlRule")}</p>
           </div>
         )}
-        {!failed && !(empty && !sizing) && !feeds && (
+        {!failed && !(empty && !sizing) && !feeds && !any && (
           <>
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-muted">{t("import.destination")}</span>
@@ -402,10 +455,28 @@ export function ImportDialog({
 
   return (
     <Dialog
-      title={t(state === "report" ? "import.finished" : feeds ? "import.titleFeeds" : "import.title")}
+      title={t(state === "report" ? "import.finished" : any ? "import.titleAny" : feeds ? "import.titleFeeds" : "import.title")}
       onClose={onClose}
       locked={state === "running"}
     >
+      {/* A file dropped anywhere on the dialog is taken while one may be chosen; the window's own drop stays out (importExport.ts). */}
+      <div
+        data-drop-accepts={state === "choose" || undefined}
+        className="contents"
+        onDragEnter={dragOver}
+        onDragOver={dragOver}
+        onDragLeave={(e) => {
+          // Out of the dialog, not from one of its children to another.
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+        }}
+        onDrop={(e) => {
+          if (!takesDrag(e)) return;
+          e.preventDefault();
+          setOver(false);
+          const chosen = e.dataTransfer.files[0];
+          if (chosen) take(chosen);
+        }}
+      >
       <StatePanels value={state} states={["choose", "running", "report"] as const}>
         {(shown, sizing) =>
           shown === "report"
@@ -415,6 +486,7 @@ export function ImportDialog({
               : choosePanel(sizing)
         }
       </StatePanels>
+      </div>
     </Dialog>
   );
 }

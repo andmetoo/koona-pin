@@ -77,13 +77,15 @@ export function useImportExport(
   // a pointer drag and never starts one of these. A file asks to be imported (NP-139): a `.kpin`
   // list, OPML or a bookmarks file; the webview must not open a dropped file itself, so a file
   // drag is always taken. While something is open over the window (a dialog, a menu, triage,
-  // reading, the editor) it gets no veil and its drop is ignored. The zone lies over the list
+  // reading, the editor) it gets no veil and its drop is ignored, but for a dialog that takes drops
+  // itself (`[data-drop-accepts]`: New, Import): it has the drag, and the window only keeps the
+  // webview from opening a file dropped beside it. The zone lies over the list
   // area only: the sidebar has its own drops, and over it or the toolbar a drop does nothing.
   // Whether the pointer is in the area goes by where it is, not by which child it entered, so
   // moving between cards never flickers the zone.
   useEffect(() => {
     let depth = 0;
-    let accepting: "link" | "file" | null = null;
+    let accepting: "link" | "file" | "dialog" | null = null;
     let fileZone: FileZone | null = null;
     /** Where the zone last lay: some webviews (WebKitGTK, WebView2) give a drop no coordinates. */
     let lastArea: DropArea | null = null;
@@ -120,7 +122,8 @@ export function useImportExport(
     const enter = (e: DragEvent) => {
       if (depth === 0) {
         const file = own ? null : draggedFile(e.dataTransfer);
-        accepting = file ? "file" : !own && carriesLink(e.dataTransfer?.types) && !quickBlocked() ? "link" : null;
+        const taker = !own && (file || carriesLink(e.dataTransfer?.types)) && document.querySelector("[data-drop-accepts]");
+        accepting = taker ? "dialog" : file ? "file" : !own && carriesLink(e.dataTransfer?.types) && !quickBlocked() ? "link" : null;
         // Another import open: the zone says so (K9 «Busy»); over anything else nothing shows.
         const busy = !!file && importBusy();
         fileZone = file && (busy || !importBlocked()) ? { file, busy } : null;
@@ -128,11 +131,19 @@ export function useImportExport(
       }
       if (!accepting) return;
       depth++;
+      if (accepting === "dialog") return keepOut(e);
       e.preventDefault();
       show(e);
     };
+    /** Beside a dialog that takes drops: no drop, and no file opened by the webview. */
+    const keepOut = (e: DragEvent) => {
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+    };
     const over = (e: DragEvent) => {
       if (!accepting) return;
+      if (accepting === "dialog") return keepOut(e);
       e.preventDefault();
       show(e);
     };
@@ -152,6 +163,8 @@ export function useImportExport(
       depth = 0;
       accepting = null;
       setVeil(null);
+      // The dialog under the pointer took it, or it fell beside the dialog.
+      if (kind === "dialog") return;
       // Over the sidebar or the toolbar a drop does nothing; a drop at 0,0 goes by the last dragover.
       const area = e.clientX || e.clientY ? areaAt(e) : lastArea;
       lastArea = null;
@@ -354,12 +367,6 @@ export function useImportExport(
       },
       (err) => say(describeError(err), true),
     );
-  /** ⋯ → «Import a file…»: the system dialog, then the file goes where a dropped one would. */
-  const pickImportFile = () =>
-    void importFile.pick().then(
-      (read) => void (read && routeImport(read)),
-      (err) => say(describeError(err), true),
-    );
   const dropFileRef = useRef(dropFile);
   dropFileRef.current = dropFile;
   /** Whether a dropped file may be imported now: nothing over the window, on any page. */
@@ -377,7 +384,7 @@ export function useImportExport(
   const quickBlocked = () =>
     pageRef.current !== "library" || !!triageRef.current || !!readingRef.current || !!editingRef.current || !!document.querySelector("dialog[open], [data-menu]");
 
-  return { fresh, veil, veilHint, mainRef, pickImportFile, exportLibrary, exportFeeds, saveBackupCopy, saveLink, unsave };
+  return { fresh, veil, veilHint, mainRef, dropFile, exportLibrary, exportFeeds, saveBackupCopy, saveLink, unsave };
 }
 
 export type ImportExport = ReturnType<typeof useImportExport>;
