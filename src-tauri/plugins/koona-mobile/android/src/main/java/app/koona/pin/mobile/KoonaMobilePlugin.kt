@@ -27,8 +27,6 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -63,9 +61,8 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
     WebViewVersion.Found(provider?.packageName, provider?.versionName, WebViewVersion.chromiumMajor(agent, provider?.versionName))
   }
 
-  /** Each Back's state, by its number: waiting for the page, claimed by it, or given up on. */
-  private val backs = ConcurrentHashMap<Int, AtomicInteger>()
-  private val nextBack = AtomicInteger()
+  /** The system Backs still waiting for the page, claimed by it, or given up on. */
+  private val backs = BackLedger()
 
   /**
    * Whether the WebView runs the interface. The app asks once at its start, before it opens the
@@ -86,7 +83,13 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
       Log.w(TAG, "The WebView (${found.packageName} ${found.versionName}, Chromium ${found.major}) is older than ${WebViewVersion.MIN}")
       webView.post { showWebViewTooOld(found) }
     }
+    // A page sees the interface only from its next load on. Tauri loads the plugins from wry's
+    // webview-created hook, before the first page (wry posts its loadUrl); should a page be on its
+    // way already, it is loaded again, or its Backs would all be refused (bridge.js `claim`).
     webView.addJavascriptInterface(BackClaims(), "KoonaMobileAndroid")
+    val early = webView.url
+    Log.d(TAG, "Plugin loaded; page: ${early ?: "not started"}")
+    if (early != null) webView.reload()
     // Added after Tauri's and wry's own callbacks, so it runs first: theirs would go back in the
     // WebView's history or finish the activity.
     owner.onBackPressedDispatcher.addCallback(owner, object : OnBackPressedCallback(true) {
@@ -114,27 +117,22 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
    * nothing once the app has gone to the background.
    */
   private fun back(webView: WebView) {
-    val id = nextBack.incrementAndGet()
-    val state = AtomicInteger(WAITING)
-    backs[id] = state
+    val back = backs.open()
     val giveUp = Runnable {
-      if (state.compareAndSet(WAITING, GIVEN_UP)) activity.moveTaskToBack(true)
+      if (back.giveUp()) activity.moveTaskToBack(true)
     }
     webView.postDelayed(giveUp, BACK_WAIT_MS)
-    webView.evaluateJavascript("(function(){var m=window.__KOONA_MOBILE__;return !!(m&&m.back($id));})()") { answer ->
+    webView.evaluateJavascript("(function(){var m=window.__KOONA_MOBILE__;return !!(m&&m.back(${back.id}));})()") { answer ->
       webView.removeCallbacks(giveUp)
-      backs.remove(id)
       // Nothing closed: unless the timer already went, the app goes to the background now.
-      if (answer != "true" && (state.compareAndSet(WAITING, GIVEN_UP) || state.get() == CLAIMED)) {
-        activity.moveTaskToBack(true)
-      }
+      if (back.answered(answer == "true")) activity.moveTaskToBack(true)
     }
   }
 
   /** The page's side of [back]: called from the page's thread, before it closes anything. */
   private inner class BackClaims {
     @JavascriptInterface
-    fun claimBack(id: Int): Boolean = backs[id]?.compareAndSet(WAITING, CLAIMED) ?: false
+    fun claimBack(id: Int): Boolean = backs.claim(id)
   }
 
   /**
@@ -216,9 +214,6 @@ class KoonaMobilePlugin(private val activity: Activity) : Plugin(activity) {
   private companion object {
     /** How long Back waits for a busy page before it moves the app to the background anyway. */
     const val BACK_WAIT_MS = 1000L
-    const val WAITING = 0
-    const val CLAIMED = 1
-    const val GIVEN_UP = 2
   }
 }
 

@@ -18,9 +18,14 @@
     back: function () {
       return false;
     },
+    // Only Android numbers its Backs (iOS has nothing to race). There a numbered Back without the
+    // Kotlin interface is refused: nothing closes and Android moves the app to the background, so a
+    // Back never has two outcomes.
     claim: function (id) {
+      if (typeof id !== 'number') return true;
       var android = window.KoonaMobileAndroid;
-      return !android || typeof id !== 'number' || android.claimBack(id);
+      if (!android) return '__PLATFORM__' !== 'android';
+      return android.claimBack(id) === true;
     },
     insets: function (top, right, bottom, left) {
       insets = [top, right, bottom, left];
