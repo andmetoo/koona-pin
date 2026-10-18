@@ -22,17 +22,17 @@ export const saved = (i, from = Date.UTC(2026, 9, 4, 9, 30)) => new Date(from - 
  * Library copy in the app's JSON format (export.rs, restore.rs). `base` is where the previews are
  * served; a bookmark with `reading` is in Reading with that much read. `from` is when the newest was saved.
  */
-export function copyOf(lang, base, from) {
+export function copyOf(base, from) {
   const day = (i) => saved(i, from);
   const collections = library.collections.map((c, i) => ({
-    uid: `site-collection-${i}`, name: c[lang], color: null, icon: null, created_at: day(20),
+    uid: `site-collection-${i}`, name: c, color: null, icon: null, created_at: day(20),
   }));
   const tags = new Map();
   const bookmarks = library.bookmarks.map((b, i) => {
-    const t = b.tags[lang];
+    const t = b.tags;
     t.forEach((name) => tags.set(name, { uid: `site-tag-${name}`, name, created_at: day(20) }));
     return {
-      uid: `site-bookmark-${i}`, url: b.url, title: b.title[lang], description: null, notes: null,
+      uid: `site-bookmark-${i}`, url: b.url, title: b.title, description: null, notes: null,
       domain: new URL(b.url).hostname.replace(/^www\./, ""), image_url: `${base}/${b.preview}`, favicon_url: null, site_name: null,
       is_favorite: b.favorite, collection: `site-collection-${b.collection}`, tags: t,
       source: b.inbox ? "chrome" : "import", created_at: day(i), updated_at: day(i),

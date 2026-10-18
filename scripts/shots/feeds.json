@@ -1,239 +1,269 @@
 {
-  "_comment": "Feeds of the macOS screenshots (scripts/site-screenshots-macos.mjs): written here, not taken from the sites, like src/services/demoFeeds.ts (the English posts are its texts). `open` is the post shown open; `picture` a file of scripts/shots/previews; `body` the article, paragraph by paragraph.",
-  "en": {
-    "open": 0,
-    "feeds": [
-      { "uid": "shots-feed-verge", "url": "https://www.theverge.com/rss/index.xml", "title": "The Verge", "site": "https://www.theverge.com/" },
-      { "uid": "shots-feed-ars", "url": "https://feeds.arstechnica.com/arstechnica/index", "title": "Ars Technica", "site": "https://arstechnica.com/" },
-      { "uid": "shots-feed-eats", "url": "https://www.seriouseats.com/feeds/all", "title": "Serious Eats", "site": "https://www.seriouseats.com/" },
-      { "uid": "shots-feed-kottke", "url": "https://feeds.kottke.org/main", "title": "kottke.org", "site": "https://kottke.org/" },
-      { "uid": "shots-feed-smashing", "url": "https://www.smashingmagazine.com/feed/", "title": "Smashing Magazine", "site": "https://www.smashingmagazine.com/" }
-    ],
-    "posts": [
-      { "feed": "shots-feed-verge", "hoursAgo": 0.4, "author": "Mara Ellison", "picture": "turntable.jpg",
-        "title": "The quiet return of the dedicated music player",
-        "excerpt": "Phones do everything, which is exactly why a growing number of people are buying a device that only plays music — and keeping it in a drawer by the door.",
-        "body": [
-          "Phones do everything, which is exactly why a growing number of people are buying a device that only plays music.",
-          "The appeal is not the sound, though the sound is often better. It is the absence of everything else: no messages arriving between songs, no feed waiting one swipe away.",
-          "Most of the people we spoke to described the same moment. They reached for the phone to change a track, and twenty minutes later they were still holding it, the album long finished.",
-          "A player with a small screen and a few buttons does one thing and then gets out of the way. Some are new, built around files you copy over by hand; others are ten-year-old models bought second-hand and given a fresh battery.",
-          "None of this needs a new habit. It needs a small change to the one you already have, made on a quiet afternoon and then left alone for a few weeks so you can see whether it holds.",
-          "The details matter less than the direction. Try it once as described, note what felt awkward, and adjust a single thing at a time. Most of the gain comes from the first attempt anyway."
-        ] },
-      { "feed": "shots-feed-ars", "hoursAgo": 1.2, "author": "Owen Hartley", "picture": "battery.jpg",
-        "title": "Why your laptop battery report says 80 percent and what that really means",
-        "excerpt": "Battery health numbers are estimates built on a model of the cell. Here is how the model works, and when the number is worth worrying about.",
-        "body": [
-          "Battery health numbers are estimates built on a model of the cell, not a measurement of it.",
-          "The firmware tracks how much charge goes in and comes out, and compares it with what the cell held when new. Temperature, age and how often the battery sits at full all move the estimate.",
-          "A reading of 80 percent after three years is normal. A sudden drop of ten points in a month is not, and is worth a closer look."
-        ] },
-      { "feed": "shots-feed-eats", "hoursAgo": 2.5, "author": "Lena Ortiz", "picture": "beans.jpg",
-        "title": "Weeknight braised beans that taste like they took all day",
-        "excerpt": "A pot of beans, a few aromatics and one trick with the cooking liquid. Forty minutes, most of it hands-off.",
-        "body": [
-          "A pot of beans, a few aromatics and one trick with the cooking liquid: reduce half of it hard in a separate pan, then stir it back in.",
-          "The reduction concentrates everything that makes slow-cooked beans taste the way they do, in a fraction of the time."
-        ] },
-      { "feed": "shots-feed-kottke", "hoursAgo": 3.1, "author": null, "picture": "lighthouse.jpg",
-        "title": "A map of every lighthouse on the coast, drawn by hand",
-        "excerpt": "Someone spent four winters drawing every lighthouse on one coastline, and the result is lovely.",
-        "body": ["Someone spent four winters drawing every lighthouse on one coastline, and the result is lovely. Worth a slow look."] },
-      { "feed": "shots-feed-smashing", "hoursAgo": 4.8, "author": "Priya Raman", "picture": "wireframes.jpg",
-        "title": "Designing forms that forgive: error states people understand",
-        "excerpt": "Most form errors blame the person. A few patterns — inline hints, kept input, specific messages — turn them into help instead.",
-        "body": [
-          "Most form errors blame the person filling in the form. They arrive late, after the button, in red, and say what went wrong without saying what to do.",
-          "Three patterns change that: hints that appear while typing, input that survives a failed submit, and messages that name the fix rather than the fault."
-        ] },
-      { "feed": "shots-feed-verge", "hoursAgo": 6, "author": "Dev Patel", "picture": "ereader.jpg",
-        "title": "E-ink tablets are getting color, slowly",
-        "excerpt": "The new color panels are muted and a little slow, and for reading and sketching that turns out to be fine.",
-        "body": ["The new color panels are muted and a little slow, and for reading and sketching that turns out to be fine."] },
-      { "feed": "shots-feed-ars", "hoursAgo": 9, "author": "Nadia Brooks", "picture": "servers.jpg",
-        "title": "The long tail of a single typo in a config file",
-        "excerpt": "A misplaced character took a service down for six hours. The postmortem is a quiet masterclass in how small things travel.",
-        "body": [
-          "A misplaced character took a service down for six hours. The postmortem is a quiet masterclass in how small things travel through big systems.",
-          "Nothing in the chain was unusual. Each step trusted the one before it, as it should, and the typo passed through all of them."
-        ] },
-      { "feed": "shots-feed-eats", "hoursAgo": 20, "author": "Sam Whitaker", "picture": "herbs.jpg",
-        "title": "The best way to store herbs so they last a week",
-        "excerpt": "Treat soft herbs like flowers and hard herbs like vegetables. We tested six methods over ten days.",
-        "body": [
-          "Treat soft herbs like flowers and hard herbs like vegetables. We tested six methods over ten days, and two came out clearly ahead.",
-          "Parsley, cilantro and mint did best upright in a jar of water in the fridge, loosely covered. Rosemary and thyme lasted longest wrapped in a barely damp towel."
-        ] },
-      { "feed": "shots-feed-kottke", "hoursAgo": 26, "author": null, "picture": "fog.jpg", "read": true,
-        "title": "The slowest-moving video you will enjoy today",
-        "excerpt": "A glacier, a fixed camera and twelve years compressed into four minutes.",
-        "body": ["A glacier, a fixed camera and twelve years compressed into four minutes. Watch the left edge."] },
-      { "feed": "shots-feed-smashing", "hoursAgo": 30, "author": "Tomás Herrera", "picture": null, "read": true,
-        "title": "A practical guide to container queries in real layouts",
-        "excerpt": "Components that adapt to their own space, not the window's. What works today, and what to keep a fallback for.",
-        "body": [
-          "Container queries let a component adapt to the space it is given, not to the size of the window.",
-          "That sounds like a small change. In practice it removes a whole category of special cases: the card that looks right in the main column and wrong in the sidebar."
-        ] },
-      { "feed": "shots-feed-verge", "hoursAgo": 34, "author": "Mara Ellison", "picture": "phone.jpg",
-        "title": "What a repairable phone actually costs to own",
-        "excerpt": "We kept one for two years, replaced the battery and the screen ourselves, and added up the bill.",
-        "body": ["We kept one for two years, replaced the battery and the screen ourselves, and added up the bill."] },
-      { "feed": "shots-feed-ars", "hoursAgo": 48, "author": "Owen Hartley", "picture": "satellite.jpg", "read": true,
-        "title": "How a tiny satellite keeps its antenna pointed home",
-        "excerpt": "Reaction wheels, magnetorquers and a lot of patience: the attitude control of a shoebox-sized spacecraft.",
-        "body": [
-          "Reaction wheels, magnetorquers and a lot of patience keep a shoebox-sized spacecraft pointed where it needs to be.",
-          "The wheels spin up to turn the satellite the other way. Over time they saturate, and small electromagnets push against the Earth's field to bleed the momentum off."
-        ] },
-      { "feed": "shots-feed-eats", "hoursAgo": 52, "author": "Lena Ortiz", "picture": "potatoes.jpg",
-        "title": "Crisp roast potatoes, every time",
-        "excerpt": "Parboil, rough them up, then roast hot. The baking soda in the water is the part people skip.",
-        "body": [
-          "Parboil, rough them up, then roast hot. The pinch of baking soda in the water is the part people skip, and it is the part that matters.",
-          "It breaks down the surface just enough to make a starchy paste, which fries into a crust in the oven."
-        ] },
-      { "feed": "shots-feed-kottke", "hoursAgo": 70, "author": null, "picture": "journal.jpg", "read": true,
-        "title": "On keeping a list of things that made you happy",
-        "excerpt": "A short note about a long habit: one line a day, for ten years.",
-        "body": ["A short note about a long habit: one line a day, for ten years. The list is dull to read and wonderful to have."] },
-      { "feed": "shots-feed-smashing", "hoursAgo": 96, "author": "Priya Raman", "picture": "swatches.jpg",
-        "title": "Accessible color palettes without the guesswork",
-        "excerpt": "Start from contrast, not from hue. A method for building a palette that passes checks in light and dark themes.",
-        "body": ["Start from contrast, not from hue. Pick the lightness steps first, check them against both backgrounds, and only then choose the colours."] },
-      { "feed": "shots-feed-verge", "hoursAgo": 120, "author": "Dev Patel", "picture": "router.jpg", "read": true,
-        "title": "The case for a boring home router",
-        "excerpt": "Fewer features, fewer updates gone wrong. Why the plainest router on the shelf might be the right one.",
-        "body": ["Fewer features, fewer updates gone wrong. Why the plainest router on the shelf might be the right one."] },
-      { "feed": "shots-feed-ars", "hoursAgo": 150, "author": "Nadia Brooks", "picture": "retro.jpg", "read": true,
-        "title": "Inside the archive that keeps old software running",
-        "excerpt": "Disk images, manuals and emulators: how a small team preserves programs nobody sells any more.",
-        "body": ["Disk images, manuals and emulators: a small team preserves programs nobody sells any more, so that the files made with them can still be opened."] },
-      { "feed": "shots-feed-kottke", "hoursAgo": 260, "author": null, "picture": "street.jpg", "read": true,
-        "title": "Photographs of the same street, a hundred years apart",
-        "excerpt": "Old and new pictures of one city street, lined up so you can slide between them.",
-        "body": ["Old and new pictures of one city street, lined up so you can slide between them. The trees are the biggest change."] },
-      { "feed": "shots-feed-smashing", "hoursAgo": 330, "author": "Tomás Herrera", "picture": "motion.jpg", "read": true,
-        "title": "Motion that helps: when to animate an interface",
-        "excerpt": "Animation should explain a change, not decorate it. A short checklist for deciding when it earns its place.",
-        "body": ["Animation should explain a change, not decorate it. If the person would lose track of where something went, show it moving; otherwise, let it appear."] }
-    ]
-  },
-  "ru": {
-    "open": 0,
-    "feeds": [
-      { "uid": "shots-feed-lifehacker", "url": "https://lifehacker.ru/feed/", "title": "Лайфхакер", "site": "https://lifehacker.ru/" },
-      { "uid": "shots-feed-habr", "url": "https://habr.com/ru/rss/articles/", "title": "Хабр", "site": "https://habr.com/" },
-      { "uid": "shots-feed-nplus1", "url": "https://nplus1.ru/rss", "title": "N + 1", "site": "https://nplus1.ru/" },
-      { "uid": "shots-feed-eda", "url": "https://eda.ru/rss", "title": "Еда", "site": "https://eda.ru/" },
-      { "uid": "shots-feed-paper", "url": "https://paperpaper.ru/feed/", "title": "Бумага", "site": "https://paperpaper.ru/" }
-    ],
-    "posts": [
-      { "feed": "shots-feed-lifehacker", "hoursAgo": 0.4, "author": "Марина Елисеева", "picture": "turntable.jpg",
-        "title": "Тихое возвращение плеера, который умеет только играть музыку",
-        "excerpt": "Телефон умеет всё — и именно поэтому всё больше людей покупают устройство, которое только играет музыку, и держат его в ящике у двери.",
-        "body": [
-          "Телефон умеет всё — и именно поэтому всё больше людей покупают устройство, которое только играет музыку.",
-          "Дело не в звуке, хотя звук часто лучше. Дело в том, чего нет: ни сообщений между песнями, ни ленты на расстоянии одного свайпа.",
-          "Почти все, с кем мы говорили, описывали один и тот же момент. Берёшь телефон, чтобы переключить трек, а через двадцать минут всё ещё держишь его в руках — альбом давно закончился.",
-          "Плеер с маленьким экраном и парой кнопок делает одно дело и не мешает. Одни — новые, с файлами, которые копируешь вручную; другие — модели десятилетней давности, купленные с рук, с новым аккумулятором.",
-          "Для этого не нужна новая привычка. Нужна небольшая поправка к старой: сделать её спокойным днём и оставить на пару недель, чтобы понять, приживётся ли.",
-          "Детали важны меньше, чем направление. Попробуйте один раз как есть, заметьте, что было неудобно, и меняйте по одной вещи за раз. Большая часть пользы всё равно приходит с первой попытки."
-        ] },
-      { "feed": "shots-feed-habr", "hoursAgo": 1.2, "author": "Олег Харитонов", "picture": "battery.jpg",
-        "title": "Почему отчёт об аккумуляторе ноутбука пишет 80% и что это на самом деле значит",
-        "excerpt": "Здоровье батареи — это оценка по модели элемента, а не измерение. Разбираемся, как устроена модель и когда цифра должна беспокоить.",
-        "body": [
-          "Здоровье батареи — это оценка, построенная на модели элемента, а не его измерение.",
-          "Прошивка считает, сколько заряда вошло и вышло, и сравнивает с тем, сколько элемент держал новым. Температура, возраст и то, как часто батарея стоит на 100%, сдвигают оценку.",
-          "80% через три года — норма. Падение на десять пунктов за месяц — нет, и это стоит проверить."
-        ] },
-      { "feed": "shots-feed-eda", "hoursAgo": 2.5, "author": "Елена Орлова", "picture": "beans.jpg",
-        "title": "Тушёная фасоль на будний вечер — на вкус как будто готовилась весь день",
-        "excerpt": "Кастрюля фасоли, немного ароматных овощей и один приём с отваром. Сорок минут, почти без участия.",
-        "body": [
-          "Кастрюля фасоли, немного ароматных овощей и один приём: половину отвара сильно уварите в отдельной сковороде и верните обратно.",
-          "Уваренный отвар собирает всё то, за что любят долго тушённую фасоль, — за малую часть времени."
-        ] },
-      { "feed": "shots-feed-paper", "hoursAgo": 3.1, "author": null, "picture": "lighthouse.jpg",
-        "title": "Карта всех маяков побережья, нарисованная от руки",
-        "excerpt": "Кто-то четыре зимы рисовал каждый маяк одного побережья — и получилось очень красиво.",
-        "body": ["Кто-то четыре зимы рисовал каждый маяк одного побережья — и получилось очень красиво. Стоит рассматривать не торопясь."] },
-      { "feed": "shots-feed-habr", "hoursAgo": 4.8, "author": "Полина Раменская", "picture": "wireframes.jpg",
-        "title": "Формы, которые прощают: ошибки, понятные людям",
-        "excerpt": "Большинство ошибок в формах винят человека. Подсказки при вводе, сохранённые данные и точные сообщения превращают их в помощь.",
-        "body": [
-          "Большинство ошибок в формах винят того, кто их заполняет. Они появляются поздно, после кнопки, красным, и говорят, что не так, но не говорят, что делать.",
-          "Три приёма это меняют: подсказки прямо при вводе, данные, которые не пропадают после неудачной отправки, и сообщения, которые называют решение, а не вину."
-        ] },
-      { "feed": "shots-feed-nplus1", "hoursAgo": 6, "author": "Денис Павлов", "picture": "ereader.jpg",
-        "title": "Электронные чернила медленно становятся цветными",
-        "excerpt": "Новые цветные экраны приглушённые и немного медленные — а для чтения и набросков это как раз то, что нужно.",
-        "body": ["Новые цветные экраны приглушённые и немного медленные — а для чтения и набросков это как раз то, что нужно."] },
-      { "feed": "shots-feed-habr", "hoursAgo": 9, "author": "Надежда Брусникина", "picture": "servers.jpg",
-        "title": "Долгий след одной опечатки в конфиге",
-        "excerpt": "Один лишний символ положил сервис на шесть часов. Разбор инцидента — тихий мастер-класс о том, как далеко уходят мелочи.",
-        "body": [
-          "Один лишний символ положил сервис на шесть часов. Разбор инцидента — тихий мастер-класс о том, как мелочи путешествуют по большим системам.",
-          "Ничего необычного в цепочке не было. Каждый шаг доверял предыдущему, как и положено, и опечатка прошла через все."
-        ] },
-      { "feed": "shots-feed-eda", "hoursAgo": 20, "author": "Семён Витальев", "picture": "herbs.jpg",
-        "title": "Как хранить зелень, чтобы она жила неделю",
-        "excerpt": "С мягкой зеленью обращайтесь как с цветами, с жёсткой — как с овощами. Мы проверили шесть способов за десять дней.",
-        "body": [
-          "С мягкой зеленью обращайтесь как с цветами, с жёсткой — как с овощами. Мы проверили шесть способов за десять дней, и два явно выиграли.",
-          "Петрушка, кинза и мята лучше всего стоят в банке с водой в холодильнике, слегка накрытые. Розмарин и тимьян дольше всего живут в чуть влажном полотенце."
-        ] },
-      { "feed": "shots-feed-nplus1", "hoursAgo": 26, "author": null, "picture": "fog.jpg", "read": true,
-        "title": "Самое медленное видео, которое вам сегодня понравится",
-        "excerpt": "Ледник, неподвижная камера и двенадцать лет, сжатые в четыре минуты.",
-        "body": ["Ледник, неподвижная камера и двенадцать лет, сжатые в четыре минуты. Следите за левым краем."] },
-      { "feed": "shots-feed-habr", "hoursAgo": 30, "author": "Тимур Еремеев", "picture": null, "read": true,
-        "title": "Контейнерные запросы в настоящих макетах: практическое руководство",
-        "excerpt": "Компоненты, которые подстраиваются под своё место, а не под окно. Что работает уже сегодня и где нужен запасной вариант.",
-        "body": [
-          "Контейнерные запросы позволяют компоненту подстраиваться под отведённое ему место, а не под размер окна.",
-          "Звучит как мелочь. На деле это убирает целый класс особых случаев: карточку, которая хороша в основной колонке и плоха в боковой."
-        ] },
-      { "feed": "shots-feed-habr", "hoursAgo": 34, "author": "Марина Елисеева", "picture": "phone.jpg",
-        "title": "Сколько на самом деле стоит владеть ремонтопригодным телефоном",
-        "excerpt": "Мы пользовались им два года, сами поменяли аккумулятор и экран — и сложили все расходы.",
-        "body": ["Мы пользовались им два года, сами поменяли аккумулятор и экран — и сложили все расходы."] },
-      { "feed": "shots-feed-nplus1", "hoursAgo": 48, "author": "Олег Харитонов", "picture": "satellite.jpg", "read": true,
-        "title": "Как крошечный спутник держит антенну направленной на Землю",
-        "excerpt": "Маховики, магнитные катушки и много терпения: ориентация космического аппарата размером с коробку для обуви.",
-        "body": [
-          "Маховики, магнитные катушки и много терпения держат аппарат размером с коробку для обуви направленным туда, куда нужно.",
-          "Маховики раскручиваются, чтобы повернуть спутник в обратную сторону. Со временем они насыщаются, и маленькие электромагниты, отталкиваясь от поля Земли, сбрасывают лишний момент."
-        ] },
-      { "feed": "shots-feed-eda", "hoursAgo": 52, "author": "Елена Орлова", "picture": "potatoes.jpg",
-        "title": "Хрустящий запечённый картофель — каждый раз",
-        "excerpt": "Отварить до полуготовности, встряхнуть, запечь на сильном огне. Соду в воде обычно пропускают — а зря.",
-        "body": [
-          "Отварить до полуготовности, встряхнуть, запечь на сильном огне. Щепотку соды в воде обычно пропускают — а именно она и важна.",
-          "Она чуть разрыхляет поверхность, получается крахмальная паста, которая в духовке зажаривается в корочку."
-        ] },
-      { "feed": "shots-feed-lifehacker", "hoursAgo": 70, "author": null, "picture": "journal.jpg", "read": true,
-        "title": "Зачем вести список того, что вас порадовало",
-        "excerpt": "Короткая заметка о долгой привычке: одна строчка в день, десять лет подряд.",
-        "body": ["Короткая заметка о долгой привычке: одна строчка в день, десять лет подряд. Читать такой список скучно, а иметь — чудесно."] },
-      { "feed": "shots-feed-habr", "hoursAgo": 96, "author": "Полина Раменская", "picture": "swatches.jpg",
-        "title": "Доступные палитры без гадания",
-        "excerpt": "Начинайте с контраста, а не с оттенка. Способ собрать палитру, которая проходит проверки в светлой и тёмной теме.",
-        "body": ["Начинайте с контраста, а не с оттенка. Сначала выберите ступени светлоты, проверьте их на обоих фонах — и только потом цвета."] },
-      { "feed": "shots-feed-lifehacker", "hoursAgo": 120, "author": "Денис Павлов", "picture": "router.jpg", "read": true,
-        "title": "В защиту скучного домашнего роутера",
-        "excerpt": "Меньше функций — меньше неудачных обновлений. Почему самый простой роутер на полке может оказаться лучшим.",
-        "body": ["Меньше функций — меньше неудачных обновлений. Почему самый простой роутер на полке может оказаться лучшим."] },
-      { "feed": "shots-feed-habr", "hoursAgo": 150, "author": "Надежда Брусникина", "picture": "retro.jpg", "read": true,
-        "title": "Как устроен архив, который не даёт старым программам умереть",
-        "excerpt": "Образы дисков, руководства и эмуляторы: небольшая команда сохраняет программы, которые больше никто не продаёт.",
-        "body": ["Образы дисков, руководства и эмуляторы: небольшая команда сохраняет программы, которые больше никто не продаёт, чтобы сделанные в них файлы можно было открыть."] },
-      { "feed": "shots-feed-paper", "hoursAgo": 260, "author": null, "picture": "street.jpg", "read": true,
-        "title": "Одна и та же улица на фотографиях с разницей в сто лет",
-        "excerpt": "Старые и новые снимки одной улицы, совмещённые так, что между ними можно переключаться.",
-        "body": ["Старые и новые снимки одной улицы, совмещённые так, что между ними можно переключаться. Больше всего изменились деревья."] }
-    ]
-  }
+  "_comment": "Feeds of the macOS screenshots (scripts/site-screenshots-macos.mjs): invented feeds and posts written for the shots (the texts are the browser preview's, src/services/demoFeeds.ts). `open` is the post shown open; `picture` a file of scripts/shots/previews; `body` the article, paragraph by paragraph.",
+  "open": 0,
+  "feeds": [
+    {
+      "uid": "shots-feed-circuit",
+      "url": "https://pocketcircuit.net/feed.xml",
+      "title": "Pocket Circuit",
+      "site": "https://pocketcircuit.net/"
+    },
+    {
+      "uid": "shots-feed-wire",
+      "url": "https://longwire.org/rss",
+      "title": "The Long Wire",
+      "site": "https://longwire.org/"
+    },
+    {
+      "uid": "shots-feed-pantry",
+      "url": "https://weeknightpantry.co/feed",
+      "title": "Weeknight Pantry",
+      "site": "https://weeknightpantry.co/"
+    },
+    {
+      "uid": "shots-feed-wonders",
+      "url": "https://smallwonders.blog/feed/",
+      "title": "Small Wonders",
+      "site": "https://smallwonders.blog/"
+    },
+    {
+      "uid": "shots-feed-interface",
+      "url": "https://interfacenotes.studio/feed.xml",
+      "title": "Interface Notes",
+      "site": "https://interfacenotes.studio/"
+    }
+  ],
+  "posts": [
+    {
+      "feed": "shots-feed-circuit",
+      "hoursAgo": 0.4,
+      "author": "Mara Ellison",
+      "picture": "turntable.jpg",
+      "title": "The quiet return of the dedicated music player",
+      "excerpt": "Phones do everything, which is exactly why a growing number of people are buying a device that only plays music — and keeping it in a drawer by the door.",
+      "body": [
+        "Phones do everything, which is exactly why a growing number of people are buying a device that only plays music.",
+        "The appeal is not the sound, though the sound is often better. It is the absence of everything else: no messages arriving between songs, no feed waiting one swipe away.",
+        "Most of the people we spoke to described the same moment. They reached for the phone to change a track, and twenty minutes later they were still holding it, the album long finished.",
+        "A player with a small screen and a few buttons does one thing and then gets out of the way. Some are new, built around files you copy over by hand; others are ten-year-old models bought second-hand and given a fresh battery.",
+        "None of this needs a new habit. It needs a small change to the one you already have, made on a quiet afternoon and then left alone for a few weeks so you can see whether it holds.",
+        "The details matter less than the direction. Try it once as described, note what felt awkward, and adjust a single thing at a time. Most of the gain comes from the first attempt anyway."
+      ]
+    },
+    {
+      "feed": "shots-feed-wire",
+      "hoursAgo": 1.2,
+      "author": "Owen Hartley",
+      "picture": "battery.jpg",
+      "title": "Why your laptop battery report says 80 percent and what that really means",
+      "excerpt": "Battery health numbers are estimates built on a model of the cell. Here is how the model works, and when the number is worth worrying about.",
+      "body": [
+        "Battery health numbers are estimates built on a model of the cell, not a measurement of it.",
+        "The firmware tracks how much charge goes in and comes out, and compares it with what the cell held when new. Temperature, age and how often the battery sits at full all move the estimate.",
+        "A reading of 80 percent after three years is normal. A sudden drop of ten points in a month is not, and is worth a closer look."
+      ]
+    },
+    {
+      "feed": "shots-feed-pantry",
+      "hoursAgo": 2.5,
+      "author": "Lena Ortiz",
+      "picture": "beans.jpg",
+      "title": "Weeknight braised beans that taste like they took all day",
+      "excerpt": "A pot of beans, a few aromatics and one trick with the cooking liquid. Forty minutes, most of it hands-off.",
+      "body": [
+        "A pot of beans, a few aromatics and one trick with the cooking liquid: reduce half of it hard in a separate pan, then stir it back in.",
+        "The reduction concentrates everything that makes slow-cooked beans taste the way they do, in a fraction of the time."
+      ]
+    },
+    {
+      "feed": "shots-feed-wonders",
+      "hoursAgo": 3.1,
+      "author": null,
+      "picture": "lighthouse.jpg",
+      "title": "A map of every lighthouse on the coast, drawn by hand",
+      "excerpt": "Someone spent four winters drawing every lighthouse on one coastline, and the result is lovely.",
+      "body": [
+        "Someone spent four winters drawing every lighthouse on one coastline, and the result is lovely. Worth a slow look."
+      ]
+    },
+    {
+      "feed": "shots-feed-interface",
+      "hoursAgo": 4.8,
+      "author": "Priya Raman",
+      "picture": "wireframes.jpg",
+      "title": "Designing forms that forgive: error states people understand",
+      "excerpt": "Most form errors blame the person. A few patterns — inline hints, kept input, specific messages — turn them into help instead.",
+      "body": [
+        "Most form errors blame the person filling in the form. They arrive late, after the button, in red, and say what went wrong without saying what to do.",
+        "Three patterns change that: hints that appear while typing, input that survives a failed submit, and messages that name the fix rather than the fault."
+      ]
+    },
+    {
+      "feed": "shots-feed-circuit",
+      "hoursAgo": 6,
+      "author": "Dev Patel",
+      "picture": "ereader.jpg",
+      "title": "E-ink tablets are getting color, slowly",
+      "excerpt": "The new color panels are muted and a little slow, and for reading and sketching that turns out to be fine.",
+      "body": [
+        "The new color panels are muted and a little slow, and for reading and sketching that turns out to be fine."
+      ]
+    },
+    {
+      "feed": "shots-feed-wire",
+      "hoursAgo": 9,
+      "author": "Nadia Brooks",
+      "picture": "servers.jpg",
+      "title": "The long tail of a single typo in a config file",
+      "excerpt": "A misplaced character took a service down for six hours. The postmortem is a quiet masterclass in how small things travel.",
+      "body": [
+        "A misplaced character took a service down for six hours. The postmortem is a quiet masterclass in how small things travel through big systems.",
+        "Nothing in the chain was unusual. Each step trusted the one before it, as it should, and the typo passed through all of them."
+      ]
+    },
+    {
+      "feed": "shots-feed-pantry",
+      "hoursAgo": 20,
+      "author": "Sam Whitaker",
+      "picture": "herbs.jpg",
+      "title": "The best way to store herbs so they last a week",
+      "excerpt": "Treat soft herbs like flowers and hard herbs like vegetables. We tested six methods over ten days.",
+      "body": [
+        "Treat soft herbs like flowers and hard herbs like vegetables. We tested six methods over ten days, and two came out clearly ahead.",
+        "Parsley, cilantro and mint did best upright in a jar of water in the fridge, loosely covered. Rosemary and thyme lasted longest wrapped in a barely damp towel."
+      ]
+    },
+    {
+      "feed": "shots-feed-wonders",
+      "hoursAgo": 26,
+      "author": null,
+      "picture": "fog.jpg",
+      "read": true,
+      "title": "The slowest-moving video you will enjoy today",
+      "excerpt": "A glacier, a fixed camera and twelve years compressed into four minutes.",
+      "body": [
+        "A glacier, a fixed camera and twelve years compressed into four minutes. Watch the left edge."
+      ]
+    },
+    {
+      "feed": "shots-feed-interface",
+      "hoursAgo": 30,
+      "author": "Tomás Herrera",
+      "picture": null,
+      "read": true,
+      "title": "A practical guide to container queries in real layouts",
+      "excerpt": "Components that adapt to their own space, not the window's. What works today, and what to keep a fallback for.",
+      "body": [
+        "Container queries let a component adapt to the space it is given, not to the size of the window.",
+        "That sounds like a small change. In practice it removes a whole category of special cases: the card that looks right in the main column and wrong in the sidebar."
+      ]
+    },
+    {
+      "feed": "shots-feed-circuit",
+      "hoursAgo": 34,
+      "author": "Mara Ellison",
+      "picture": "phone.jpg",
+      "title": "What a repairable phone actually costs to own",
+      "excerpt": "We kept one for two years, replaced the battery and the screen ourselves, and added up the bill.",
+      "body": [
+        "We kept one for two years, replaced the battery and the screen ourselves, and added up the bill."
+      ]
+    },
+    {
+      "feed": "shots-feed-wire",
+      "hoursAgo": 48,
+      "author": "Owen Hartley",
+      "picture": "satellite.jpg",
+      "read": true,
+      "title": "How a tiny satellite keeps its antenna pointed home",
+      "excerpt": "Reaction wheels, magnetorquers and a lot of patience: the attitude control of a shoebox-sized spacecraft.",
+      "body": [
+        "Reaction wheels, magnetorquers and a lot of patience keep a shoebox-sized spacecraft pointed where it needs to be.",
+        "The wheels spin up to turn the satellite the other way. Over time they saturate, and small electromagnets push against the Earth's field to bleed the momentum off."
+      ]
+    },
+    {
+      "feed": "shots-feed-pantry",
+      "hoursAgo": 52,
+      "author": "Lena Ortiz",
+      "picture": "potatoes.jpg",
+      "title": "Crisp roast potatoes, every time",
+      "excerpt": "Parboil, rough them up, then roast hot. The baking soda in the water is the part people skip.",
+      "body": [
+        "Parboil, rough them up, then roast hot. The pinch of baking soda in the water is the part people skip, and it is the part that matters.",
+        "It breaks down the surface just enough to make a starchy paste, which fries into a crust in the oven."
+      ]
+    },
+    {
+      "feed": "shots-feed-wonders",
+      "hoursAgo": 70,
+      "author": null,
+      "picture": "journal.jpg",
+      "read": true,
+      "title": "On keeping a list of things that made you happy",
+      "excerpt": "A short note about a long habit: one line a day, for ten years.",
+      "body": [
+        "A short note about a long habit: one line a day, for ten years. The list is dull to read and wonderful to have."
+      ]
+    },
+    {
+      "feed": "shots-feed-interface",
+      "hoursAgo": 96,
+      "author": "Priya Raman",
+      "picture": "swatches.jpg",
+      "title": "Accessible color palettes without the guesswork",
+      "excerpt": "Start from contrast, not from hue. A method for building a palette that passes checks in light and dark themes.",
+      "body": [
+        "Start from contrast, not from hue. Pick the lightness steps first, check them against both backgrounds, and only then choose the colours."
+      ]
+    },
+    {
+      "feed": "shots-feed-circuit",
+      "hoursAgo": 120,
+      "author": "Dev Patel",
+      "picture": "router.jpg",
+      "read": true,
+      "title": "The case for a boring home router",
+      "excerpt": "Fewer features, fewer updates gone wrong. Why the plainest router on the shelf might be the right one.",
+      "body": [
+        "Fewer features, fewer updates gone wrong. Why the plainest router on the shelf might be the right one."
+      ]
+    },
+    {
+      "feed": "shots-feed-wire",
+      "hoursAgo": 150,
+      "author": "Nadia Brooks",
+      "picture": "retro.jpg",
+      "read": true,
+      "title": "Inside the archive that keeps old software running",
+      "excerpt": "Disk images, manuals and emulators: how a small team preserves programs nobody sells any more.",
+      "body": [
+        "Disk images, manuals and emulators: a small team preserves programs nobody sells any more, so that the files made with them can still be opened."
+      ]
+    },
+    {
+      "feed": "shots-feed-wonders",
+      "hoursAgo": 260,
+      "author": null,
+      "picture": "street.jpg",
+      "read": true,
+      "title": "Photographs of the same street, a hundred years apart",
+      "excerpt": "Old and new pictures of one city street, lined up so you can slide between them.",
+      "body": [
+        "Old and new pictures of one city street, lined up so you can slide between them. The trees are the biggest change."
+      ]
+    },
+    {
+      "feed": "shots-feed-interface",
+      "hoursAgo": 330,
+      "author": "Tomás Herrera",
+      "picture": "motion.jpg",
+      "read": true,
+      "title": "Motion that helps: when to animate an interface",
+      "excerpt": "Animation should explain a change, not decorate it. A short checklist for deciding when it earns its place.",
+      "body": [
+        "Animation should explain a change, not decorate it. If the person would lose track of where something went, show it moving; otherwise, let it appear."
+      ]
+    }
+  ]
 }

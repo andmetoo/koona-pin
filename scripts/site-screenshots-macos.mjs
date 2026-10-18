@@ -10,10 +10,9 @@
 //
 //   bun run site:shots:mac   (builds the debug app with its interface embedded first)
 //   bun scripts/site-screenshots-macos.mjs --theme dark --view feeds   (only those; each takes a list: light,dark)
-//   … --lang ru   (Russian: library.json and feeds.json have its texts; English by default, the site's)
 //   … --keep   (a failure leaves the test app open for a look, its socket named)
 //
-// Writes release/shots/app-<lang>-<theme>-<view>.webp (1920 px wide) and -1280.webp, and the 2× PNGs
+// Writes release/shots/app-en-<theme>-<view>.webp (1920 px wide) and -1280.webp, and the 2× PNGs
 // for a look in release/shots/png/. Views: grid, list, reading, feeds, triage, sync. Quit your own
 // Koona Pin first: only one instance runs per user. Needs Screen Recording for the terminal
 // (System Settings → Privacy & Security), and moves the test window to the front while it runs.
@@ -34,7 +33,6 @@ const VIEWS = ["grid", "list", "reading", "feeds", "triage", "sync"];
 const { values: args } = parseArgs({
   strict: false,
   options: {
-    lang: { type: "string", default: "en" },
     theme: { type: "string", default: "light,dark" },
     view: { type: "string", default: VIEWS.join(",") },
     // After a failure the test app stays open, its socket named, for a look (kill it by its path after).
@@ -42,7 +40,6 @@ const { values: args } = parseArgs({
   },
 });
 const pick = (value, all) => value.split(",").filter((v) => all.includes(v));
-const langs = pick(args.lang, ["en", "ru"]);
 const themes = pick(args.theme, ["light", "dark"]);
 const views = pick(args.view, VIEWS);
 
@@ -50,8 +47,17 @@ const views = pick(args.view, VIEWS);
 const SIZE = { width: 1280, height: 800 };
 /** The bookmark grid of the shots: the app's default, the compact grid (`dense`). */
 const GRID = "dense";
-/** The newest bookmark was saved two hours before the run: the list's groups read Today, Yesterday… */
-const NEWEST = Date.now() - 2 * 3600e3;
+/**
+ * The sample's clock: the newest bookmark and post are from 11:30 today, the rest days and hours
+ * before, so every clock time a shot shows is daytime. Before 11:45 that is still to come, and
+ * the shots are a day earlier: the newest then reads Yesterday, with the same times.
+ */
+const ANCHOR = (() => {
+  const at = new Date();
+  at.setHours(11, 30, 0, 0);
+  if (Date.now() < at.getTime() + 15 * 60e3) at.setDate(at.getDate() - 1);
+  return at.getTime();
+})();
 const feeds = JSON.parse(await readFile(path.join(shotsDir, "feeds.json"), "utf8"));
 const png = path.join(out, "png");
 
@@ -138,13 +144,13 @@ function windowOf(pid) {
 }
 
 /** Starts the test app with a fresh data folder and connects to its socket. */
-async function startApp(lang) {
-  const data = path.join(root, ".test-data", `mac-shots-${lang}-${Date.now()}`);
+async function startApp() {
+  const data = path.join(root, ".test-data", `mac-shots-${Date.now()}`);
   await mkdir(data, { recursive: true });
   // A Unix socket's path holds about 100 bytes: a short one beside the data folders.
   const socket = path.join(root, ".test-data", `shots-${process.pid}.sock`);
   await rm(socket, { force: true });
-  const pipe = testPipe(`mac-${lang}`);
+  const pipe = testPipe("mac");
   const env = { ...process.env, KOONAPIN_DATA_DIR: data, KOONAPIN_PIPE: pipe, KOONAPIN_SHOTS_SOCKET: socket };
   const app = spawn(appBinary(), [], { env, stdio: "ignore" });
   const exited = new Promise((resolve) => app.once("exit", resolve));
@@ -167,12 +173,18 @@ async function startApp(lang) {
   };
 }
 
+/** The ids the app gave the sample's collections, by their place in library.json. */
+const collectionIds = [];
+
 /** The sample library, its previews, the feeds and the article to read, as the app keeps them. */
-async function fill({ driver, data, env }, lang, base) {
+async function fill({ driver, data, env }, base) {
   await driver.await(
-    `window.__TAURI_INTERNALS__.invoke("restore_library", { content: ${JSON.stringify(JSON.stringify(copyOf(lang, "https://previews.invalid", NEWEST)))}, mode: "replace" })`,
+    `window.__TAURI_INTERNALS__.invoke("restore_library", { content: ${JSON.stringify(JSON.stringify(copyOf("https://previews.invalid", ANCHOR)))}, mode: "replace" })`,
     "the restore",
   );
+  // The collections' ids pick their colours (collectionColor): the sync shot's preview uses the same.
+  for (const [uid, id] of await driver.rows("SELECT uid, id FROM collections WHERE uid LIKE 'site-collection-%'"))
+    collectionIds[Number(uid.slice("site-collection-".length))] = id;
   // The restore drops pictures on local addresses (net_guard): the previews are set after it.
   await driver.sql(
     library.bookmarks.map((b, i) => `UPDATE bookmarks SET image_url = ${q(`${base}/${b.preview}`)} WHERE uid = 'site-bookmark-${i}';`).join(" "),
@@ -184,14 +196,14 @@ async function fill({ driver, data, env }, lang, base) {
   // fetched a moment ago and not due again for a month, so the app fetches nothing.
   const now = Date.now();
   const stamp = (ms) => new Date(ms).toISOString();
-  const { feeds: list, posts } = feeds[lang];
+  const { feeds: list, posts } = feeds;
   let cache = "";
   for (const f of list)
     cache += `INSERT INTO feed_state (feed_uid, title, site_url, fetched_at, succeeded_at, next_fetch_at, failures)
       VALUES (${q(f.uid)}, ${q(f.title)}, ${q(f.site)}, ${q(stamp(now))}, ${q(stamp(now))}, ${q(stamp(now + 30 * 86400e3))}, 0);`;
   for (const p of posts) {
     const url = `${new URL(list.find((f) => f.uid === p.feed).site).origin}/${p.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "")}`;
-    const at = stamp(now - p.hoursAgo * 3600e3);
+    const at = stamp(ANCHOR - p.hoursAgo * 3600e3);
     cache += `INSERT INTO feed_items (feed_uid, key, url, title, author, excerpt, content_html, full, thumbnail_url, published_at, fetched_at, read_at)
       VALUES (${q(p.feed)}, ${q(url)}, ${q(url)}, ${q(p.title)}, ${q(p.author)}, ${q(p.excerpt)}, ${q(html(p.body))}, 1,
       ${q(p.picture ? await dataUrl(p.picture) : null)}, ${q(at)}, ${q(at)}, ${p.read ? q(stamp(now)) : "NULL"});`;
@@ -205,7 +217,7 @@ async function fill({ driver, data, env }, lang, base) {
 
   // The article to read: an offline copy (offline.rs), so the reader shows it without the web.
   for (const [i, b] of library.bookmarks.entries()) {
-    const a = b.article?.[lang];
+    const a = b.article;
     if (!a) continue;
     const [[id]] = await driver.rows(`SELECT id FROM bookmarks WHERE uid = 'site-bookmark-${i}'`);
     const folder = path.join(data, "offline", String(id));
@@ -215,7 +227,7 @@ async function fill({ driver, data, env }, lang, base) {
     const body = `<figure><img src="koona-offline:01.jpg" alt=""></figure>\n${html(a.paragraphs)}`;
     await writeFile(path.join(folder, "article.html"), body);
     const words = a.paragraphs.join(" ").split(/\s+/).length;
-    const meta = { url: b.url, title: b.title[lang], author: a.author, site: a.site, published: a.published, description: a.description, language: lang, words };
+    const meta = { url: b.url, title: b.title, author: a.author, site: a.site, published: a.published, description: a.description, language: "en", words };
     await writeFile(path.join(folder, "article.json"), JSON.stringify(meta, null, 2));
     await driver.sql(
       `INSERT OR REPLACE INTO offline_copies (bookmark_id, saved_at, url, bytes, images, words) VALUES (${id}, ${q(stamp(now - 2 * 86400e3))}, ${q(b.url)}, ${picture.length + body.length}, 1, ${words});
@@ -227,12 +239,9 @@ async function fill({ driver, data, env }, lang, base) {
   await driver.js("(localStorage.clear(), true)");
 }
 
-/** Labels of the interface in the shot's language, to find buttons by what they say. */
-const locales = {
-  en: JSON.parse(await readFile(path.join(root, "src", "locales", "en.json"), "utf8")),
-  ru: JSON.parse(await readFile(path.join(root, "src", "locales", "ru.json"), "utf8")),
-};
-const label = (lang, key) => key.split(".").reduce((o, k) => o[k], locales[lang]);
+/** Labels of the interface (English), to find buttons by what they say. */
+const locale = JSON.parse(await readFile(path.join(root, "src", "locales", "en.json"), "utf8"));
+const label = (key) => key.split(".").reduce((o, k) => o[k], locale);
 
 /** A click on the button whose text is `text` (or starts with it, a count after it). */
 const click = (text, exact = false) => {
@@ -253,16 +262,16 @@ const VIEW_STEPS = {
   grid: { mode: GRID, open: [], ready: "document.querySelectorAll('[data-bookmark-id] img').length >= 6" },
   list: { mode: "list", open: [], ready: "document.querySelectorAll('[data-bookmark-id]').length >= 10" },
   reading: {
-    open: (lang) => [click(label(lang, "nav.reading")), click(label(lang, "readingMode.read"), true)],
-    ready: (lang) => `[...document.querySelectorAll("h1")].some((h) => h.textContent === ${JSON.stringify(library.bookmarks.find((b) => b.article).title[lang])}) && [...document.querySelectorAll("article img, img")].some((i) => i.src.startsWith("data:") && i.complete)`,
+    open: [click(label("nav.reading")), click(label("readingMode.read"), true)],
+    ready: `[...document.querySelectorAll("h1")].some((h) => h.textContent === ${JSON.stringify(library.bookmarks.find((b) => b.article).title)}) && [...document.querySelectorAll("article img, img")].some((i) => i.src.startsWith("data:") && i.complete)`,
   },
   feeds: {
-    open: (lang) => [click(label(lang, "feeds.all"))],
-    ready: (lang) => `[...document.querySelectorAll("h1, h2")].some((h) => h.textContent === ${JSON.stringify(feeds[lang].posts[feeds[lang].open].title)})`,
+    open: [click(label("feeds.all"))],
+    ready: `[...document.querySelectorAll("h1, h2")].some((h) => h.textContent === ${JSON.stringify(feeds.posts[feeds.open].title)})`,
   },
   triage: {
-    open: (lang) => [click(label(lang, "nav.inbox")), `(document.querySelector(".inbox-pill-sort")?.click(), true)`],
-    ready: () => `!!document.querySelector("[data-triage-card] img")`,
+    open: [click(label("nav.inbox")), `(document.querySelector(".inbox-pill-sort")?.click(), true)`],
+    ready: `!!document.querySelector("[data-triage-card] img")`,
   },
 };
 
@@ -283,13 +292,13 @@ async function settled(driver, what) {
 }
 
 /** Opens a view of the app in a theme, from a reload, and leaves it ready for the shot. */
-async function show(driver, lang, theme, view) {
+async function show(driver, theme, view) {
   const steps = VIEW_STEPS[view];
   // In front from the start: WebKit holds a covered window's animations, and the page would never settle.
   await driver.focus();
   await driver.until(`document.visibilityState === "visible"`, "the window uncovered (another window over it?)");
   const storage = {
-    language: lang,
+    language: "en",
     theme,
     view: steps.mode ?? GRID,
     // The import offer of a new library (NP-117) is closed: the shots show the library itself.
@@ -299,20 +308,18 @@ async function show(driver, lang, theme, view) {
     "sidebar.collections": view === "feeds" ? "folded" : "open",
     "sidebar.tags": "folded",
     // The cache is new: its posts' ids follow feeds.json's order from 1.
-    "feeds.last": JSON.stringify({ feed: null, item: feeds[lang].open + 1 }),
+    "feeds.last": JSON.stringify({ feed: null, item: feeds.open + 1 }),
   };
   await driver.js(`(Object.entries(${JSON.stringify(storage)}).forEach(([k, v]) => localStorage.setItem("koonapin." + k, v)), location.reload(), true)`);
   await sleep(300);
   await driver.until(`document.readyState === "complete" && document.querySelectorAll("[data-bookmark-id]").length > 0`, "the library after a reload");
   // Opened once, the notifications are read: the bell has no badge.
   await driver.until(`(() => { const bell = document.querySelector("[data-notification-bell]"); if (!/\\d/.test(bell.textContent)) return true; bell.click(); setTimeout(() => bell.click(), 200); return false; })()`, "the bell read");
-  const open = typeof steps.open === "function" ? steps.open(lang) : steps.open;
-  for (const step of open) {
+  for (const step of steps.open) {
     await driver.until(step, step.slice(0, 80));
     await sleep(250);
   }
-  const ready = typeof steps.ready === "function" ? steps.ready(lang) : steps.ready;
-  await driver.until(ready, `the ${view} view`);
+  await driver.until(steps.ready, `the ${view} view`);
   await settled(driver, `the ${view} view settled`);
   // The window is a real one: the system's pointer resting over it would leave a card in its hover
   // state. Nothing reacts to the pointer while the shot is taken, and nothing keeps the focus.
@@ -348,22 +355,22 @@ async function save(name, shot, encode) {
   console.log(`${name}.webp`);
 }
 
-/** The app's views in each theme for one language; the grid's PNG of each theme is kept as the sync shot's frame. */
-async function shootApp(lang, base, encode, frames, page) {
-  const app = await startApp(lang);
+/** The app's views in each theme; the first PNG of each theme is kept as the sync shot's frame. */
+async function shootApp(base, encode, frames, page) {
+  const app = await startApp();
   let failed = true;
   try {
-    await fill(app, lang, base);
+    await fill(app, base);
     await app.driver.size(SIZE.width, SIZE.height);
     await app.driver.until(`innerWidth === ${SIZE.width} && innerHeight === ${SIZE.height}`, "the window's size");
     for (const theme of themes) {
       const list = views.filter((v) => v !== "sync");
       if (views.includes("sync") && !list.length) list.push("grid");
       for (const view of list) {
-        await show(app.driver, lang, theme, view);
-        const name = `app-${lang}-${theme}-${view}`;
+        await show(app.driver, theme, view);
+        const name = `app-en-${theme}-${view}`;
         const shot = await capture(app, path.join(png, `${name}.png`), page);
-        if (!frames[`${lang}-${theme}`]) frames[`${lang}-${theme}`] = shot;
+        frames[theme] ??= shot;
         if (views.includes(view)) await save(name, shot, encode);
       }
     }
@@ -394,21 +401,21 @@ function serveDist() {
 }
 
 /** The sample library and feeds in the browser preview's own storage (src/services/demo.ts). */
-async function demoStorage(lang, base) {
-  const day = (i) => saved(i, NEWEST);
+async function demoStorage(base) {
+  const day = (i) => saved(i, ANCHOR);
   const bookmarks = library.bookmarks.map((b, i) => ({
-    id: i + 1, url: b.url, title: b.title[lang], description: null, image_url: `${base}/${b.preview}`, favicon_url: null,
+    id: i + 1, url: b.url, title: b.title, description: null, image_url: `${base}/${b.preview}`, favicon_url: null,
     site_name: null, domain: new URL(b.url).hostname.replace(/^www\./, ""), notes: null, is_favorite: b.favorite,
-    collection_id: b.collection + 1, created_at: day(i), updated_at: day(i), tags: b.tags[lang], revision: 1,
+    collection_id: collectionIds[b.collection] ?? b.collection + 1, created_at: day(i), updated_at: day(i), tags: b.tags, revision: 1,
     triaged_at: b.inbox ? null : day(i), deleted_at: null, source: b.inbox ? "chrome" : "import",
     reading_at: b.reading === undefined ? null : day(b.article ? -1 : i), reading_progress: b.article ? 0 : (b.reading ?? 0), read_at: null, offline_at: null,
   }));
-  const collections = library.collections.map((c, i) => ({ id: i + 1, name: c[lang], color: null, icon: null, count: null, created_at: day(20) }));
+  const collections = library.collections.map((c, i) => ({ id: collectionIds[i] ?? i + 1, name: c, color: null, icon: null, count: null, created_at: day(20) }));
   const now = Date.now();
-  const { feeds: list, posts } = feeds[lang];
+  const { feeds: list, posts } = feeds;
   const items = [];
   for (const [i, p] of posts.entries()) {
-    const at = new Date(now - p.hoursAgo * 3600e3).toISOString();
+    const at = new Date(ANCHOR - p.hoursAgo * 3600e3).toISOString();
     items.push({
       id: i + 1, feed_uid: p.feed, url: `${list.find((f) => f.uid === p.feed).site}${i}`, title: p.title, author: p.author, excerpt: p.excerpt,
       thumbnail_url: p.picture ? await dataUrl(p.picture) : null, published_at: at, fetched_at: at, read_at: p.read ? at : null,
@@ -430,54 +437,52 @@ async function shootSync(base, encode, frames, encoderPage) {
   const { server, url } = await serveDist();
   const browser = await chromium.launch();
   try {
-    for (const lang of langs) {
-      const storage = await demoStorage(lang, base);
-      for (const theme of themes) {
-        const page = await browser.newPage({ viewport: SIZE, deviceScaleFactor: 2, colorScheme: theme, locale: lang === "ru" ? "ru-RU" : "en-US" });
-        await page.addInitScript((entries) => {
-          if (sessionStorage.getItem("shots")) return;
-          sessionStorage.setItem("shots", "1");
-          localStorage.clear();
-          for (const [k, v] of entries) localStorage.setItem(k, v);
-        }, Object.entries({
-          ...storage,
-          "koonapin.language": lang,
-          "koonapin.theme": theme,
-          "koonapin.view": GRID,
-          "koonapin.importBanner": "done",
-          "koonapin.sidebar.feeds": "folded",
-          "koonapin.sidebar.collections": "open",
-          "koonapin.sidebar.tags": "folded",
-          "koonapin.notifications.seen": "[]",
-          // This computer is Home iMac, the main one of three; a Supporter plan.
-          "koonapin.demo.sync": "on",
-          "koonapin.demo.supporter": "supporter",
-          "koonapin.demo.capture": "connected",
-          "koonapin.demo.desktop": JSON.stringify({ native_frame: true, linux: false, left: [], right: [], tray: true, appimage: false }),
-        }));
-        await page.goto(url);
-        await page.locator("[data-bookmark-id] img").first().waitFor();
-        // The room the app keeps for the traffic lights in a Mac window (WindowBar.tsx: Tauri only).
-        await page.evaluate(() => (document.documentElement.dataset.macFrame = ""));
-        // Read once, the notifications leave no badge.
-        const bell = page.locator("[data-notification-bell]");
-        if (/\d/.test(await bell.textContent())) {
-          await bell.click();
-          await page.keyboard.press("Escape");
-        }
-        // The Supporter row of the sidebar → the plan → its perk «Sync»: the dialog opens over the library.
-        await page.locator("[data-plan-row]").click();
-        await page.locator("li", { hasText: label(lang, "supporter.perk.sync") }).getByRole("button").click();
-        await page.locator("[data-sync-hub]").waitFor();
-        await page.waitForFunction(SETTLED);
-        await page.mouse.move(SIZE.width / 2, 2);
-        await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
-        const shot = await page.screenshot({ scale: "device" });
-        const frame = frames[`${lang}-${theme}`];
-        const name = `app-${lang}-${theme}-sync`;
-        await save(name, await framed(shot, frame, encoderPage), encode);
-        await page.close();
+    const storage = await demoStorage(base);
+    for (const theme of themes) {
+      const page = await browser.newPage({ viewport: SIZE, deviceScaleFactor: 2, colorScheme: theme, locale: "en-US" });
+      await page.addInitScript((entries) => {
+        if (sessionStorage.getItem("shots")) return;
+        sessionStorage.setItem("shots", "1");
+        localStorage.clear();
+        for (const [k, v] of entries) localStorage.setItem(k, v);
+      }, Object.entries({
+        ...storage,
+        "koonapin.language": "en",
+        "koonapin.theme": theme,
+        "koonapin.view": GRID,
+        "koonapin.importBanner": "done",
+        "koonapin.sidebar.feeds": "folded",
+        "koonapin.sidebar.collections": "open",
+        "koonapin.sidebar.tags": "folded",
+        "koonapin.notifications.seen": "[]",
+        // This computer is Home iMac, the main one of three; a Supporter plan.
+        "koonapin.demo.sync": "on",
+        "koonapin.demo.supporter": "supporter",
+        "koonapin.demo.capture": "connected",
+        "koonapin.demo.desktop": JSON.stringify({ native_frame: true, linux: false, left: [], right: [], tray: true, appimage: false }),
+      }));
+      await page.goto(url);
+      await page.locator("[data-bookmark-id] img").first().waitFor();
+      // The room the app keeps for the traffic lights in a Mac window (WindowBar.tsx: Tauri only).
+      await page.evaluate(() => (document.documentElement.dataset.macFrame = ""));
+      // Read once, the notifications leave no badge.
+      const bell = page.locator("[data-notification-bell]");
+      if (/\d/.test(await bell.textContent())) {
+        await bell.click();
+        await page.keyboard.press("Escape");
       }
+      // The Supporter row of the sidebar → the plan → its perk «Sync»: the dialog opens over the library.
+      await page.locator("[data-plan-row]").click();
+      await page.locator("li", { hasText: label("supporter.perk.sync") }).getByRole("button").click();
+      await page.locator("[data-sync-hub]").waitFor();
+      await page.waitForFunction(SETTLED);
+      await page.mouse.move(SIZE.width / 2, 2);
+      await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+      const shot = await page.screenshot({ scale: "device" });
+      const frame = frames[theme];
+      const name = `app-en-${theme}-sync`;
+      await save(name, await framed(shot, frame, encoderPage), encode);
+      await page.close();
     }
   } finally {
     await browser.close();
@@ -566,10 +571,10 @@ await mkdir(png, { recursive: true });
 const { server, base } = await servePreviews();
 const webp = await webpEncoder({ smooth: true });
 await defineLights(webp.page);
-/** The real window of each language and theme: the sync shot borrows its frame. */
+/** The real window in each theme: the sync shot borrows its frame. */
 const frames = {};
 try {
-  if (views.length) for (const lang of langs) await shootApp(lang, base, webp.encode, frames, webp.page);
+  if (views.length) await shootApp(base, webp.encode, frames, webp.page);
   if (views.includes("sync")) await shootSync(base, webp.encode, frames, webp.page);
 } finally {
   await webp.close();

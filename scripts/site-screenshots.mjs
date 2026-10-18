@@ -4,9 +4,10 @@
 //
 //   bun run site:shots   (builds the debug app with its interface embedded first, scripts/build-test-app.mjs)
 //
-// Writes release/shots/app-<lang>-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280).
+// Writes release/shots/app-en-<theme>-<view>.webp (1920 px — WebView2 shoots at 1.5× — and -1280),
+// in English: the site's shots are English only.
 // The site lives in andmetoo/koona-site: the shots go there by a commit, every few versions. The link
-// previews (og-<lang>.jpg) are drawn there, not shot. Quit your own Koona Pin first:
+// previews (og-*.jpg) are drawn there, not shot. Quit your own Koona Pin first:
 // only one instance runs per user.
 import { chromium } from "@playwright/test";
 import { spawn } from "node:child_process";
@@ -25,16 +26,16 @@ const PREVIEW_HOST = "previews.koona.test";
 /** The window's page: the interface embedded in the binary (scripts/build-test-app.mjs). */
 const appPage = (p) => new URL(p.url()).origin === "http://tauri.localhost";
 
-async function shoot(lang, base, encoder) {
-  const data = path.join(root, ".test-data", `site-shots-${lang}-${Date.now()}`);
+async function shoot(base, encoder) {
+  const data = path.join(root, ".test-data", `site-shots-${Date.now()}`);
   await mkdir(data, { recursive: true });
-  const pipe = testPipe(`site-${lang}`);
+  const pipe = testPipe("site");
   const env = {
     ...process.env,
     KOONAPIN_DATA_DIR: data,
     KOONAPIN_PIPE: pipe,
     WEBVIEW2_USER_DATA_FOLDER: path.join(data, "webview"),
-    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=9226 --lang=${lang === "ru" ? "ru" : "en-US"} --host-resolver-rules="MAP ${PREVIEW_HOST} 127.0.0.1"`,
+    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=9226 --lang=en-US --host-resolver-rules="MAP ${PREVIEW_HOST} 127.0.0.1"`,
   };
   const app = spawn(appBinary(), [], { env, windowsHide: true, stdio: "ignore" });
   let browser;
@@ -51,7 +52,7 @@ async function shoot(lang, base, encoder) {
     await until(() => pipeReady(pipe), "the capture pipe");
     await page.evaluate(
       (content) => window.__TAURI_INTERNALS__.invoke("restore_library", { content, mode: "replace" }),
-      JSON.stringify(copyOf(lang, base)),
+      JSON.stringify(copyOf(base)),
     );
     // The sidebar shows Chrome as connected after a hello through the host.
     await hostMessage(hello("chrome"), { env });
@@ -60,15 +61,14 @@ async function shoot(lang, base, encoder) {
     const metrics = () => cdp.send("Emulation.setDeviceMetricsOverride", { ...VIEW, deviceScaleFactor: 2, mobile: false });
     for (const theme of ["light", "dark"]) {
       for (const view of ["grid", "list"]) {
-        if (lang === "ru" && theme === "dark") continue;
-        // The app speaks English until a language is picked (NP-085): pick the shot's.
+        // The app speaks English until a language is picked (NP-085): English, picked.
         await page.evaluate(([t, v, l]) => {
           localStorage.setItem("koonapin.language", l);
           localStorage.setItem("koonapin.theme", t);
           localStorage.setItem("koonapin.view", v);
           // The import offer of a new library (NP-117) is closed: the shots show the library itself.
           localStorage.setItem("koonapin.importBanner", "done");
-        }, [theme, view, lang]);
+        }, [theme, view, "en"]);
         await page.reload();
         await metrics();
         await page.locator("[data-bookmark-id]").first().waitFor();
@@ -81,7 +81,7 @@ async function shoot(lang, base, encoder) {
         // A preview that failed to load turns into a cover (NP-087): the shots must show the photos.
         if (view === "grid") {
           const photos = await page.evaluate(() => [...document.querySelectorAll("[data-bookmark-id] img")].filter((i) => i.naturalWidth > 0).length);
-          if (!photos) throw new Error(`${lang} ${theme}: no preview photo loaded, the cards show covers`);
+          if (!photos) throw new Error(`${theme}: no preview photo loaded, the cards show covers`);
         }
         // The window is a real one: the system's pointer resting over it leaves a card in its hover state
         // (the selection box and «…» on the first card, 9 October 2026), whatever CDP moves.
@@ -94,10 +94,10 @@ async function shoot(lang, base, encoder) {
         });
         await page.waitForTimeout(500);
         const png = await page.screenshot({ scale: "device" });
-        const name = `app-${lang}-${theme}-${view}`;
+        const name = `app-en-${theme}-${view}`;
         await writeFile(path.join(out, `${name}.webp`), await encoder(png));
         await writeFile(path.join(out, `${name}-1280.webp`), await encoder(png, { width: 1280 }));
-        console.log(`app-${lang}-${theme}-${view}.webp`);
+        console.log(`${name}.webp`);
       }
     }
   } finally {
@@ -113,7 +113,7 @@ const { server, base } = await servePreviews(PREVIEW_HOST);
 const webp = await webpEncoder();
 const encoder = webp.encode;
 try {
-  for (const lang of ["en", "ru"]) await shoot(lang, base, encoder);
+  await shoot(base, encoder);
 } finally {
   await webp.close();
   server.close();
