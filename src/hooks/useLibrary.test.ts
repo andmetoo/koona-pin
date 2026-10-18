@@ -110,4 +110,32 @@ describe("useLibrary events", () => {
     expect(state.bookmarks).toEqual([]);
     expect(state.total).toBe(0);
   });
+
+  it("reads the first list and a section at once, and waits only for typing", async () => {
+    let current = filters;
+    function Switching() {
+      state = useLibrary(current, "newest", { current: null });
+      return null;
+    }
+    // First pages only: no cursor to continue from, not the total alone.
+    const reads = () => fake.getBookmarks.mock.calls.filter(([, cursor]) => !cursor.limit && !cursor.after).map(([f]) => f as FilterState);
+    root = createRoot(document.createElement("div"));
+    await act(async () => root.render(createElement(Switching)));
+    expect(reads()).toHaveLength(1);
+
+    current = { ...filters, onlyInbox: true };
+    await act(async () => root.render(createElement(Switching)));
+    expect(reads()).toHaveLength(2);
+    expect(reads()[1].onlyInbox).toBe(true);
+
+    current = { ...current, search: "word" };
+    await act(async () => root.render(createElement(Switching)));
+    current = { ...current, search: "wor" };
+    await act(async () => root.render(createElement(Switching)));
+    expect(reads()).toHaveLength(2);
+    await act(() => wait(200));
+    // The pause read the last word once.
+    expect(reads()).toHaveLength(3);
+    expect(reads()[2].search).toBe("wor");
+  });
 });

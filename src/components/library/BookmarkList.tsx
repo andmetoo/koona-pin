@@ -24,7 +24,8 @@ const SELECTION_BAR = 120;
  */
 export type Arrows = (key: Arrow, from: number | null) => Bookmark | null;
 
-type ListEntry = { kind: "header"; group: DateGroup; size: number } | { kind: "row"; bookmark: Bookmark };
+/** `place`: the row's place among the rows, not counting headers. */
+type ListEntry = { kind: "header"; group: DateGroup; size: number } | { kind: "row"; bookmark: Bookmark; place: number };
 
 /** The selection frame starts after this many pixels; a shorter press is a click. */
 const DRAG_START = 4;
@@ -276,7 +277,7 @@ export function BookmarkList({
 
   const entries = useMemo<ListEntry[]>(() => {
     if (view !== "list") return [];
-    if (!grouped) return bookmarks.map((bookmark) => ({ kind: "row", bookmark }));
+    if (!grouped) return bookmarks.map((bookmark, place) => ({ kind: "row", bookmark, place }));
     const loaded = new Map<DateGroup, number>();
     // Grouped by when the list places them: saved, or deleted in the trash.
     for (const b of bookmarks) {
@@ -285,14 +286,14 @@ export function BookmarkList({
     }
     const result: ListEntry[] = [];
     let current: DateGroup | null = null;
-    for (const bookmark of bookmarks) {
+    for (const [place, bookmark] of bookmarks.entries()) {
       const group = groupOf(listTime(bookmark), dateGroups.starts);
       if (group !== current) {
         current = group;
         // The size over every page when the database counted it.
         result.push({ kind: "header", group, size: dateGroups.sizes?.[group] ?? loaded.get(group) ?? 0 });
       }
-      result.push({ kind: "row", bookmark });
+      result.push({ kind: "row", bookmark, place });
     }
     return result;
   }, [view, bookmarks, dateGroups, grouped]);
@@ -306,10 +307,13 @@ export function BookmarkList({
     scrollPaddingEnd: selected.size ? SELECTION_BAR : 0,
     estimateSize: (index) =>
       grid ? cardHeight + gapY : (entries[index]?.kind === "header" ? HEADER_HEIGHT : ROW_HEIGHT) + LIST_GAP,
+    // By place, not by bookmark: another section fills the cards and rows already
+    // on screen instead of tearing them down and building new ones. A row's place
+    // leaves the date headers out, so headers coming or going move no row.
     getItemKey: (index) => {
       if (grid) return `r${index}`;
       const entry = entries[index];
-      return entry?.kind === "header" ? `g-${entry.group}` : (entry?.bookmark.id ?? index);
+      return entry?.kind === "header" ? `g-${entry.group}` : `r${entry?.place ?? index}`;
     },
     overscan: grid ? 2 : 8,
   });
@@ -376,8 +380,8 @@ export function BookmarkList({
                 className="absolute top-0 left-0 grid w-full"
                 style={{ ...style, height: cardHeight, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, columnGap: gapX }}
               >
-                {row.map((b) => (
-                  <BookmarkCard key={b.id} bookmark={b} collections={collections} actions={actions} selected={selected.has(b.id)} dense={dense} fresh={b.id === fresh} />
+                {row.map((b, column) => (
+                  <BookmarkCard key={column} bookmark={b} collections={collections} actions={actions} selected={selected.has(b.id)} dense={dense} fresh={b.id === fresh} />
                 ))}
               </div>
             );

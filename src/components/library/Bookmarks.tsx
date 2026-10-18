@@ -204,17 +204,22 @@ function OfflineMark({ b, actions, t, group, open, className = "" }: { b: Bookma
 
 type Anchor = DOMRect | { x: number; y: number };
 
-/** A menu opened from a button, the context menu or `Shift F10`. */
-function useAnchoredMenu(label: string, entries: () => MenuEntry[]) {
-  const [anchor, setAnchor] = useState<Anchor | null>(null);
-  const menu = anchor && <Menu label={label} anchor={anchor} onClose={() => setAnchor(null)} entries={entries()} />;
-  return { menu, open: !!anchor, show: setAnchor };
+/**
+ * A menu opened from a button, the context menu or `Shift F10`. Kept with the
+ * bookmark it was opened for: a card on screen may show another one next.
+ */
+function useAnchoredMenu(label: string, entries: () => MenuEntry[], owner: number) {
+  const [state, setState] = useState<{ anchor: Anchor; owner: number } | null>(null);
+  const anchor = state?.owner === owner ? state.anchor : null;
+  const show = (value: Anchor | null) => setState(value && { anchor: value, owner });
+  const menu = anchor && <Menu label={label} anchor={anchor} onClose={() => setState(null)} entries={entries()} />;
+  return { menu, open: !!anchor, show };
 }
 
 function useBookmarkMenu(b: Bookmark, collections: Collection[], actions: BookmarkActions) {
   const { t } = useTranslation();
   const label = t("card.actions", { title: b.title });
-  const { menu, open, show } = useAnchoredMenu(label, () => menuEntries(b, collections, actions, t));
+  const { menu, open, show } = useAnchoredMenu(label, () => menuEntries(b, collections, actions, t), b.id);
   const button = useRef<HTMLButtonElement>(null);
   const trigger = (className: string) => (
     <button
@@ -246,7 +251,9 @@ function useBookmarkMenu(b: Bookmark, collections: Collection[], actions: Bookma
 export function SiteMark({ b, size = 14 }: { b: Bookmark; size?: number }) {
   const icon = usePicture("bookmark-icon", b.id, b.favicon_url);
   return icon.src ? (
+    // Keyed by its address: a reused card never shows the last bookmark's picture while the next loads.
     <img
+      key={icon.src}
       src={icon.src}
       alt=""
       width={size}
@@ -320,6 +327,7 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
       <span className="cover-tile" data-icon={icon}>
         {picture.src && (
           <img
+            key={picture.src}
             src={picture.src}
             alt=""
             decoding="async"
@@ -338,7 +346,7 @@ function Cover({ b, live, small }: { b: Bookmark; live: boolean; small: boolean 
       {!small && (
         <>
           <span className="cover-chip">
-            {icon === "large" ? <img src={picture.src!} alt="" referrerPolicy="no-referrer" /> : icon !== "loading" && monogram(b.domain, b.title)}
+            {icon === "large" ? <img key={picture.src} src={picture.src!} alt="" referrerPolicy="no-referrer" /> : icon !== "loading" && monogram(b.domain, b.title)}
           </span>
           <span className="cover-domain">{b.domain}</span>
           <span className="cover-poster">{siteName(b)}</span>
@@ -367,6 +375,7 @@ export function Preview({ b, live = false, small = false }: { b: Bookmark; live?
   if (picture.src)
     return (
       <img
+        key={picture.src}
         src={picture.src}
         alt=""
         loading="lazy"
@@ -468,15 +477,16 @@ const revealed = (group: "card" | "row", open: boolean) =>
 /**
  * True while `on`, and for `ms` after it turns off: the blurred copy behind a
  * selected preview exists only for the selected cards, and fades out before it goes.
+ * Only for the same `owner`: a card that shows another bookmark has nothing to fade.
  */
-function useLinger(on: boolean, ms: number) {
-  const [shown, setShown] = useState(on);
+function useLinger(on: boolean, ms: number, owner: number) {
+  const [shown, setShown] = useState<number | null>(on ? owner : null);
   useEffect(() => {
-    if (on) return setShown(true);
-    const timer = window.setTimeout(() => setShown(false), ms);
+    if (on) return setShown(owner);
+    const timer = window.setTimeout(() => setShown(null), ms);
     return () => window.clearTimeout(timer);
-  }, [on, ms]);
-  return on || shown;
+  }, [on, ms, owner]);
+  return on || shown === owner;
 }
 const HALO_FADE_MS = 300;
 
@@ -525,7 +535,7 @@ export const BookmarkCard = memo(function BookmarkCard({
   const { t } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
   const control = cardControl(b, actions, selected);
-  const halo = useLinger(selected, HALO_FADE_MS);
+  const halo = useLinger(selected, HALO_FADE_MS, b.id);
   return (
     <article
       data-bookmark-id={b.id}
@@ -656,7 +666,7 @@ export const BookmarkRow = memo(function BookmarkRow({
 }) {
   const { t, i18n } = useTranslation();
   const menu = useBookmarkMenu(b, collections, actions);
-  const move = useAnchoredMenu(t("card.moveTo"), () => moveEntries(b, collections, actions, t));
+  const move = useAnchoredMenu(t("card.moveTo"), () => moveEntries(b, collections, actions, t), b.id);
   const open = menu.open || move.open;
   const collection = collections.find((c) => c.id === b.collection_id);
   const control = cardControl(b, actions, selected);
