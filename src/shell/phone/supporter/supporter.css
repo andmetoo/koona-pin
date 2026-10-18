@@ -294,3 +294,7 @@
   margin: 0;
   text-wrap: balance;
 }
+.phone .sp-managed {
+  margin: 0 4px 2px;
+  text-align: center;
+}

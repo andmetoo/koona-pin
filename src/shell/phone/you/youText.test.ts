@@ -74,6 +74,9 @@ describe("the Supporter card's line", () => {
     expect(planLine(plan({ interval: "five_years", renews_at: null }), t, "en-GB")).toBe("Thank you · 5 years, until 9 Oct 2027");
     expect(planLine(plan({ interval: "five_years", also_renews: true }), t, "en-GB")).toBe(t("supporter.alsoRenews"));
     expect(planLine(plan({ status: "past_due" }), t, "en-GB")).toBe(t("supporter.pastDue"));
+    // Where nothing is sold: no card to update, no Manage.
+    expect(planLine(plan({ status: "past_due" }), t, "en-GB", false)).toMatch(/^The last payment didn't go through · Supporter until \d+ \w+ \d{4}$/);
+    expect(planLine(plan({ interval: "five_years", also_renews: true }), t, "en-GB", false)).toBe("Your subscription still renews as well");
   });
 });
 

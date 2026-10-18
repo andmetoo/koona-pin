@@ -99,7 +99,42 @@ test("signed in to an account with no plan: what it is, sign out, and no plans t
   await expect(sheet(page, "signIn")).toHaveCount(0);
 });
 
-test("the plan sheet: the plan, its state, the perks with the heart's switch, Manage, sign out", async ({ page }) => {
+test("where nothing is sold, the plan sheet links to no Paddle page: a failed renewal says so plainly", async ({ page }) => {
+  await openPhone(page, { settings: { "demo.supporter": "past_due", "demo.sync": "on" } });
+  const you = await openYou(page);
+  await expect(you.locator('[data-supporter="plan"]')).toContainText(/The last payment didn't go through · Supporter until/);
+  await you.locator('[data-supporter="plan"]').click();
+  const plan = sheet(page, "plan");
+  await expect(plan.locator("[data-plan-sheet]")).toHaveAttribute("data-plan-sheet", "past_due");
+  await expect(plan.getByRole("status")).toHaveText(/^The last payment didn't go through · Supporter until \w+ \d+, \d{4}$/);
+  await expect(plan).toContainText("Your plan is managed where you started it.");
+  for (const name of ["Manage", "Update card", "Switch to 5 years"]) await expect(plan.getByRole("button", { name })).toHaveCount(0);
+  await expect(plan).not.toContainText(/card|Paddle|browser/i);
+  await expect(plan.getByRole("button", { name: "Sign out" })).toBeVisible();
+});
+
+test("where nothing is sold, sync's banner for a plan that ends has no Renew", async ({ page }) => {
+  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" } });
+  const you = await openYou(page);
+  await you.locator('[data-supporter="plan"]').click();
+  await sheet(page, "plan").getByRole("button", { name: /Sync/ }).click();
+  const banner = sharedDialog(page).locator('[data-sync-banner="plan_ends"]');
+  await expect(banner).toContainText("Sync stops on");
+  await expect(banner.getByRole("button")).toHaveCount(0);
+});
+
+test("a build that sells through Paddle keeps Renew in sync's banner and Manage in the plan", async ({ page }) => {
+  await openPhone(page, { settings: { "demo.supporter": "canceling", "demo.sync": "on" }, capabilities: PADDLE });
+  const you = await openYou(page);
+  await you.locator('[data-supporter="plan"]').click();
+  const plan = sheet(page, "plan");
+  await expect(plan.getByRole("button", { name: "Manage" })).toBeVisible();
+  await expect(plan).not.toContainText("managed where you started it");
+  await plan.getByRole("button", { name: /Sync/ }).click();
+  await expect(sharedDialog(page).locator('[data-sync-banner="plan_ends"]').getByRole("button", { name: "Renew…" })).toBeVisible();
+});
+
+test("the plan sheet: the plan, its state, the perks with the heart's switch, sign out", async ({ page }) => {
   await openPhone(page, { settings: SUPPORTER });
   const you = await openYou(page);
   await you.locator('[data-supporter="plan"]').click();
@@ -109,8 +144,9 @@ test("the plan sheet: the plan, its state, the perks with the heart's switch, Ma
   await expect(plan).toContainText("anna@example.com");
   await expect(plan).toContainText(/Renews on/);
   await expect(plan.getByRole("button", { name: /Sync/ })).toContainText("Synced just now");
-  await expect(plan.getByRole("button", { name: "Manage" })).toBeVisible();
-  // The phone sells nothing: no switch to five years.
+  // The phone sells nothing: no Paddle portal, no switch to five years.
+  await expect(plan.getByRole("button", { name: "Manage" })).toHaveCount(0);
+  await expect(plan).toContainText("Your plan is managed where you started it.");
   await expect(plan.getByRole("button", { name: "Switch to 5 years" })).toHaveCount(0);
   await expect(plan).not.toContainText(/folder/i);
 

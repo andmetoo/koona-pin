@@ -78,12 +78,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         commands::feedback_report,
         commands::send_feedback,
         billing::get_supporter_status,
-        billing::get_supporter_prices,
-        billing::start_checkout,
-        billing::poll_checkout,
-        billing::open_checkout,
         billing::refresh_supporter,
-        billing::open_supporter_portal,
         billing::send_sign_in_code,
         billing::verify_sign_in_code,
         billing::sign_out_supporter,
@@ -172,6 +167,19 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         desktop::updates::install_update,
         #[cfg(desktop)]
         desktop::updates::cancel_update,
+        // Paddle's purchase and its portal: a phone sells nothing until NP-154 (Play Billing) and
+        // links to no Paddle page (capabilities.rs, `purchase`); the site's APK gets them back with
+        // its own flavour (NP-074, NP-078).
+        #[cfg(desktop)]
+        billing::get_supporter_prices,
+        #[cfg(desktop)]
+        billing::start_checkout,
+        #[cfg(desktop)]
+        billing::poll_checkout,
+        #[cfg(desktop)]
+        billing::open_checkout,
+        #[cfg(desktop)]
+        billing::open_supporter_portal,
         #[cfg(desktop)]
         commercial::backup_folder::choose_backup_folder,
         #[cfg(desktop)]
