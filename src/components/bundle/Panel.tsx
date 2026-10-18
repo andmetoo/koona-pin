@@ -88,11 +88,12 @@ export function Panel({
   // The background build drives the size line; `BUILD_DELAY` waits out typing. Save and Copy
   // always build anew.
   const runs = useRef(0);
+  const pending = useRef(0);
   useEffect(() => {
     if (empty) return setBuilt(null);
     const run = ++runs.current;
-    const timer = window.setTimeout(() => void build(model).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
-    return () => window.clearTimeout(timer);
+    pending.current = window.setTimeout(() => void build(model).then((next) => run === runs.current && setBuilt(next)), BUILD_DELAY);
+    return () => window.clearTimeout(pending.current);
   }, [model, empty]);
   /** Builds the list; items gone from the library leave the bundle with their meta line. */
   const build = async (next: BundleModel): Promise<Built> => {
@@ -124,6 +125,8 @@ export function Panel({
    * is never written, whatever the model says.
    */
   const fresh = async (): Promise<string | null> => {
+    // This build stands for the pending background one: no second build follows it.
+    window.clearTimeout(pending.current);
     const run = ++runs.current;
     const result = await build(model);
     if (run === runs.current) setBuilt(result);

@@ -14,8 +14,11 @@ const CAPSULE = 48;
 const EDGE = 24;
 /** While the bulk bar shows the capsule rises above it (S6): 24, the bar's 52 (SelectionBar), 12. */
 const OVER_BAR = EDGE + 52 + 12;
-/** The view's ids are fetched again this long after the last change to the library. */
-const IDS_DELAY = 200;
+/**
+ * A burst of changes to the library is handled once, this long after the last: the bundle is
+ * pruned and the view's ids are fetched again.
+ */
+const CHANGE_DELAY = 200;
 /**
  * The panel's bottom is 12 px above the capsule's top, its top at least 12 px under the toolbar;
  * it is at most 600 px high (M2).
@@ -104,20 +107,38 @@ export function Bundle({
   }, []);
   // A collection's section follows its renames.
   useEffect(() => bundle.follow(collections), [collections]);
-  // Items deleted or moved to Trash leave the bundle when the library changes under it, and on open.
-  // A bookmark trashed while the panel is open leaves it at once, so Save never writes it.
+  const open = state.open && !blocked;
+  const openNow = useRef(open);
+  openNow.current = open;
+  // «Add {view} · N»: bumped when the library changes while the panel is open (the view's ids below).
+  const [libraryChanged, setLibraryChanged] = useState(0);
+  // One subscription to the library, settled for `CHANGE_DELAY`: items deleted or moved to Trash
+  // leave the bundle, and the open panel fetches the view's ids again. A bookmark trashed while the
+  // panel is open leaves it; Save builds anew anyway, so it never writes one.
   useEffect(() => {
-    const prune = () => void pruneBundle();
+    let timer = 0;
+    let prune = false;
+    const changed = (removed: boolean) => {
+      prune ||= removed;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (prune) void pruneBundle();
+        prune = false;
+        if (openNow.current) setLibraryChanged((n) => n + 1);
+      }, CHANGE_DELAY);
+    };
     // Deleted (no bookmark) or moved to Trash; other edits leave the bundle as it is.
     const gone = (change: BookmarkChange) => !change.bookmark || !!change.bookmark.deleted_at;
     const stops = [
-      api.onLibraryInvalidated(prune),
-      api.onBookmarkChanged((change) => gone(change) && prune()),
-      api.onBookmarksChanged((changes) => changes.some(gone) && prune()),
+      api.onLibraryInvalidated(() => changed(true)),
+      api.onBookmarkChanged((change) => changed(gone(change))),
+      api.onBookmarksChanged((changes) => changed(changes.some(gone))),
     ];
-    return () => stops.forEach((stop) => stop());
+    return () => {
+      window.clearTimeout(timer);
+      stops.forEach((stop) => stop());
+    };
   }, []);
-  const open = state.open && !blocked;
   useEffect(() => {
     if (open) void pruneBundle();
   }, [open]);
@@ -133,21 +154,6 @@ export function Bundle({
   const viewKey = view && (view.kind === "links" ? JSON.stringify(view.filters) : view.kind);
   const viewIds = useRef<{ key: string; ids: number[] } | null>(null);
   const [idsFetched, setIdsFetched] = useState(0);
-  const [libraryChanged, setLibraryChanged] = useState(0);
-  useEffect(() => {
-    if (!open) return;
-    // A burst of bookmark changes fetches once, when it has settled.
-    let timer = 0;
-    const changed = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => setLibraryChanged((n) => n + 1), IDS_DELAY);
-    };
-    const stops = [api.onLibraryInvalidated(changed), api.onBookmarkChanged(changed), api.onBookmarksChanged(changed)];
-    return () => {
-      window.clearTimeout(timer);
-      stops.forEach((stop) => stop());
-    };
-  }, [open]);
   useEffect(() => {
     if (!open || view?.kind !== "links" || !viewKey) return;
     let live = true;
