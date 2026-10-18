@@ -8,9 +8,10 @@ import { undoNotice } from "../services/undo";
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
  * 8 seconds with a close button (frame 21); `show` is «Показать» after an
- * export, 8 seconds (frame 29).
+ * export, 8 seconds (frame 29). `icon`: the glyph the phone's snackbar shows instead of its
+ * check (a move to the trash); the desktop shows none.
  */
-export type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void; glass?: boolean } | null;
+export type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void; glass?: boolean; icon?: "trash" } | null;
 
 export const NOTICE_MS = 3000;
 export const UNDO_MS = 8000;

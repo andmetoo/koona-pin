@@ -66,6 +66,8 @@ test("a swipe left past the threshold trashes, a short one springs back, one fro
 
   await drag(page, -180);
   await expect(snackbar(page)).toContainText("Moved to trash · ");
+  // The trash, not the check.
+  await expect(snackbar(page).locator("svg[class*=trash]")).toHaveCount(1);
   await expect(count(page)).toHaveText(/^2 of/);
   await expect(card(page)).not.toHaveAttribute("data-triage-card", first!);
 
@@ -110,9 +112,19 @@ test("a collection chip files the card", async ({ page }) => {
   await chip.click();
   await expect(snackbar(page)).toContainText(`Filed in ${name} · `);
   await expect(count(page)).toHaveText(/^2 of/);
-  // "More" opens the collection picker for the card on screen.
+  // "More": the collection picker hands its choice back, and triage files the card as a chip does.
   await topScreen(page).locator("[data-collection-chips]").getByRole("button", { name: "More" }).click();
-  await expect(page.locator('[data-sheet-kind="collectionPicker"]').getByRole("dialog")).toBeVisible();
+  const picker = page.locator('[data-sheet-kind="collectionPicker"]');
+  await expect(picker.getByRole("dialog", { name: "File into collection" })).toBeVisible();
+  const other = (await picker.locator(".cp-row[aria-checked=false] .cp-name").first().textContent())!;
+  await picker.getByRole("radio", { name: other }).click();
+  await picker.getByRole("button", { name: "Done" }).click();
+  await expect(picker).toHaveCount(0);
+  await expect(snackbar(page)).toContainText(`Filed in ${other} · `);
+  // An undoable decision: the card comes back.
+  await snackbar(page).getByRole("button", { name: "Undo" }).click();
+  await expect(snackbar(page)).toContainText("Back in the queue");
+  await expect(count(page)).toHaveText(/^2 of/);
 });
 
 test("the inbox sorted: summary, undo of the last decision, then the library; empty afterwards", async ({ page }) => {

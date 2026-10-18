@@ -1,5 +1,6 @@
 import "../../styles/phone.css";
 import { type CSSProperties, useCallback, useMemo, useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useAppState } from "../../app/appState";
 import { useMedia } from "../../app/layout";
 import { useKeyboardUp } from "../../platform/keyboard";
@@ -134,7 +135,14 @@ function PhoneSnackbar() {
           : undefined;
   return (
     <div className="ph-snackbar-slot">
-      <Snackbar key={keys.current.get(notice)} text={notice.text} alert={notice.alert} action={action} onTimeout={close} />
+      <Snackbar
+        key={keys.current.get(notice)}
+        text={notice.text}
+        alert={notice.alert}
+        icon={notice.icon === "trash" ? Trash2 : undefined}
+        action={action}
+        onTimeout={close}
+      />
     </div>
   );
 }

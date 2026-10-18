@@ -134,10 +134,12 @@ export function InboxScreen({ hidden }: { hidden: boolean }) {
                   <Chip
                     large
                     icon={Ellipsis}
-                    onClick={() => {
-                      triage.pickFor(card.id);
-                      sheets.open({ kind: "collectionPicker", props: { bookmarkIds: [card.id] } });
-                    }}
+                    onClick={() =>
+                      sheets.open({
+                        kind: "collectionPicker",
+                        props: { bookmarkIds: [card.id], selected: card.collection_id, title: card.title || card.url, onPick: triage.fileInto },
+                      })
+                    }
                   >
                     {t("phone.inbox.more")}
                   </Chip>

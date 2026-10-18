@@ -4,7 +4,7 @@ import { impactMedium } from "../../../platform/haptics";
 import { api } from "../../../services/api";
 import { describeError, reasonOf, toCommandError } from "../../../services/errors";
 import { short, undoNotice } from "../../../services/undo";
-import type { Bookmark, BookmarkPage, Changed, Collection, PageCursor, Suggestion } from "../../../types";
+import type { Bookmark, BookmarkChange, BookmarkPage, Changed, Collection, PageCursor, Suggestion } from "../../../types";
 import { current, type Decision, type TriageAction, triageReducer, type TriageState } from "./triage";
 
 /** A decision just made: the card on screen leaves toward its side (Reading up, a collection down). */
@@ -59,22 +59,8 @@ export function useTriage(app: AppState) {
     void load();
   }, [load]);
 
-  /** The collection picker opened from triage, for this card: a collection it sets is a decision. */
-  const picking = useRef<number | null>(null);
   useEffect(() => {
-    const hear = (change: Parameters<Parameters<typeof api.onBookmarkChanged>[0]>[0]) => {
-      const shown = current(ref.current);
-      const b = change.bookmark;
-      if (b && shown && b.id === shown.id && picking.current === b.id && b.collection_id !== null && b.collection_id !== shown.collection_id) {
-        // Filed through the picker: it leaves as filed. Its undo is the picker's own notice.
-        picking.current = null;
-        apply({ type: "decide", id: b.id, kind: "move", collectionId: b.collection_id, at: Date.now() });
-        apply({ type: "settled", id: b.id, bookmark: b, commands: [] });
-        void impactMedium();
-        return;
-      }
-      apply({ type: "changed", change });
-    };
+    const hear = (change: BookmarkChange) => apply({ type: "changed", change });
     const offOne = api.onBookmarkChanged(hear);
     const offMany = api.onBookmarksChanged((changes) => changes.forEach(hear));
     return () => {
@@ -142,7 +128,6 @@ export function useTriage(app: AppState) {
   const decide = (kind: Decision, { collection, from = 0 }: { collection?: Collection; from?: number } = {}) => {
     const b = current(ref.current);
     if (!b) return;
-    picking.current = null;
     apply({ type: "decide", id: b.id, kind, collectionId: collection?.id ?? null, at: Date.now() });
     setLeaving((last) => ({ b, kind, from, n: (last?.n ?? 0) + 1 }));
     void impactMedium();
@@ -150,8 +135,9 @@ export function useTriage(app: AppState) {
       try {
         const { bookmark, commands } = await commandsOf(kind, b, collection);
         apply({ type: "settled", id: b.id, bookmark, commands });
-        const now = appRef.current;
-        now.say(said(kind, bookmark.title || bookmark.url, collection), false, undo);
+        // The snackbar with Undo; a move to the trash shows the trash, not the check.
+        const text = said(kind, bookmark.title || bookmark.url, collection);
+        appRef.current.setNotice({ text, alert: false, undo, icon: kind === "trash" ? "trash" : undefined });
       } catch (err) {
         epoch.current++;
         apply({ type: "failed", id: b.id });
@@ -219,9 +205,10 @@ export function useTriage(app: AppState) {
     decide,
     favorite,
     undo,
-    /** The picker is about to open for the card on screen. */
-    pickFor: (id: number | null) => {
-      picking.current = id;
+    /** The collection picker's choice for the card on screen: filed, as a chip does it. */
+    fileInto: (collectionId: number | null) => {
+      const collection = appRef.current.library.collections.find((c) => c.id === collectionId);
+      if (collectionId !== null) decide("move", { collection: collection ?? ({ id: collectionId, name: "" } as Collection) });
     },
   };
 }
