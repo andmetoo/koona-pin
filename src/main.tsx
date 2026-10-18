@@ -2,10 +2,15 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/app.css";
 import { onTrayLabels } from "./i18n";
-import { App } from "./App";
 import { LibraryGate } from "./components/LibraryGate";
-import { api } from "./services/api";
-import { isMobile, platform } from "./services/platform";
+import { DesktopShell } from "./shell/desktop/DesktopShell";
+import { WindowBar } from "./shell/desktop/WindowBar";
+import { PhoneShell } from "./shell/phone/PhoneShell";
+import { desktopApi } from "./services/api";
+import { isMobile, platform } from "./platform/platform";
+import { capabilities } from "./platform/capabilities";
+// Back for the phone bridge, before the first render (NP-151).
+import "./platform/back";
 import { blockBrowserChrome } from "./services/browserChrome";
 import { trackInputMode } from "./services/inputMode";
 import { applyTheme, isDark, storedTheme } from "./services/preferences";
@@ -28,12 +33,19 @@ blockBrowserChrome(window);
 trackInputMode(window, document.documentElement);
 // The tray speaks the interface's language, after a start in the tray too: the hidden window loads.
 // A phone has no tray (NP-151).
-if (!isMobile) onTrayLabels((labels) => void api.setTrayLabels(labels).catch(console.error));
+if (capabilities.tray) onTrayLabels((labels) => void desktopApi?.setTrayLabels(labels).catch(console.error));
 
+// The shell by platform, not by width (NP-072a): an unfolded Fold is still a phone.
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <LibraryGate>
-      <App />
-    </LibraryGate>
+    {isMobile ? (
+      <LibraryGate>
+        <PhoneShell />
+      </LibraryGate>
+    ) : (
+      <LibraryGate windowBar={<WindowBar />}>
+        <DesktopShell />
+      </LibraryGate>
+    )}
   </React.StrictMode>,
 );

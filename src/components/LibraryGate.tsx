@@ -1,14 +1,13 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, isTauri } from "../services/api";
-import { isMobile } from "../services/platform";
+import { api, desktopApi, isTauri } from "../services/api";
+import { capabilities } from "../platform/capabilities";
 import { describeError } from "../services/errors";
 import { LibraryStatus, OpenFailure } from "../types";
 import { Icon } from "./icons";
 import { BackupRestoreDialog } from "./BackupRestoreDialog";
 import { Button } from "./ui/Button";
-import { WindowBar } from "./ui/WindowBar";
 
 const ready: LibraryStatus = { state: "ready", damaged: false, moved_aside: null };
 
@@ -23,7 +22,7 @@ const replaceable: OpenFailure["code"][] = ["DB_CORRUPT", "DB_NOT_DATABASE", "DB
  * «12 · Ошибки» instead of the library. Database commands are not called
  * before the library is ready.
  */
-export function LibraryGate({ children }: { children: ReactNode }) {
+export function LibraryGate({ children, windowBar }: { children: ReactNode; windowBar?: ReactNode }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<LibraryStatus>(isTauri() ? { state: "opening" } : ready);
   const [slow, setSlow] = useState(false);
@@ -65,7 +64,7 @@ export function LibraryGate({ children }: { children: ReactNode }) {
   if (status.state === "ready") return <>{children}</>;
   return (
     <div className="flex h-full flex-col bg-bg text-ink">
-      <WindowBar />
+      {windowBar}
       <main className="flex flex-1 items-center justify-center overflow-y-auto p-6">
         {status.state === "failed" ? (
           <LibraryFailure
@@ -152,10 +151,10 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
           </Button>
         )}
         {/* A phone has no file manager, and its app is not quit from a button (NP-151). */}
-        {!isMobile && (
+        {capabilities.file_manager && (
           <Button
             autoFocus={!retry}
-            onClick={() => void api.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
+            onClick={() => void desktopApi?.revealLibraryPlace(place).catch((err) => setNote(describeError(err)))}
           >
             {place === "backup" ? t("gate.openBackup") : t("gate.openData")}
           </Button>
@@ -170,8 +169,8 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
         >
           {t("gate.copyReport")}
         </Button>
-        {!isMobile && (
-          <Button variant="ghost" onClick={() => void api.quitApp().catch(() => {})}>
+        {capabilities.quit && (
+          <Button variant="ghost" onClick={() => void desktopApi?.quitApp().catch(() => {})}>
             {t("gate.quit")}
           </Button>
         )}

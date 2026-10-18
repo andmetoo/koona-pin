@@ -12,7 +12,6 @@ import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Hint, Kbd } from "../ui/Hint";
 import { Menu } from "../ui/Menu";
-import { WindowBar } from "../ui/WindowBar";
 import { ReaderChoice, ReaderLook, readerStyle } from "../../services/readerLook";
 import { AaButton } from "./AaPanel";
 import { ArticleStatus, ArticleView, failureText, OfflineBanner } from "./ArticleView";
@@ -72,9 +71,12 @@ export function ReadingMode({
   onRemoveOffline,
   look,
   aa,
+  windowBar,
 }: {
   /** How reading looks (NP-124): the theme, font, size and column of the Aa panel. */
   look: ReaderLook;
+  /** The desktop's window bar above the article, as above the library; none on a phone (NP-072a). */
+  windowBar?: ReactNode;
   aa: {
     choice: ReaderChoice;
     unlocked: boolean;
@@ -373,7 +375,7 @@ export function ReadingMode({
       {!narrow && queue}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* A frameless window keeps its strip and buttons above the article, as above the library. */}
-        <WindowBar />
+        {windowBar}
         <div className="relative flex min-h-0 flex-1 flex-col">
         {current && (
           <ProgressLine key={current.id} bookmark={current} status={currentStatus} scroller={scroller} />

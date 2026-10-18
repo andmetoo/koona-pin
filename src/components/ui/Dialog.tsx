@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "../icons";
 import { IconButton } from "./Button";
 import { Kbd } from "./Hint";
-import { useBack } from "../../hooks/useBack";
+import { useBack } from "../../platform/useBack";
 
 /**
  * A modal dialog or, with `drawer`, the editor over the content in a narrow

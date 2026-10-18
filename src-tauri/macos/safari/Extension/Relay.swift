@@ -7,7 +7,7 @@ import Foundation
 enum Relay {
     /// The `caller` of the envelope: the app admits Safari only from its own extension.
     static let caller = "app.koona.pin.safari"
-    /// src-tauri/src/channel_client.rs: START_WAIT, MAX_LINE; capture_channel.rs: READ_TIMEOUT.
+    /// src-tauri/src/desktop/channel_client.rs: START_WAIT, MAX_LINE; capture_channel.rs: READ_TIMEOUT.
     static let startWait: TimeInterval = 10
     static let readTimeout: TimeInterval = 10
     static let maxLine = 1024 * 1024

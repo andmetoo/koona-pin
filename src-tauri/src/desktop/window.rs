@@ -218,7 +218,7 @@ pub mod linux {
             left,
             right,
             tray,
-            appimage: crate::appimage::file().is_some(),
+            appimage: crate::desktop::appimage::file().is_some(),
         }
     }
 

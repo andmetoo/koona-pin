@@ -7,7 +7,7 @@ import type { BundleItem } from "../bindings/BundleItem";
 import type { BundleModel } from "../bindings/BundleModel";
 import type { BundleOrigin } from "../bindings/BundleOrigin";
 import type { ExportOutcome } from "../types";
-import { api, isTauri } from "./api";
+import { api, desktopOnly, isTauri } from "./api";
 import { CommandError, toCommandError } from "./errors";
 import { DraftItem, MAX_BYTES, MAX_ITEMS, MAX_SECTIONS, draftProblem, fileName, publicUrl, readDraft, slugify } from "./listText";
 
@@ -119,5 +119,5 @@ export const bundleApi = {
     return { outcome: "saved", file_name: name ?? fileName(id), count: draft.links + draft.feeds };
   },
   /** «Show» after a save: the file in its folder, as after an export. */
-  reveal: (): Promise<void> => api.revealExport(),
+  reveal: async (): Promise<void> => desktopOnly().revealExport(),
 };

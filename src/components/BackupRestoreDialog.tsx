@@ -3,8 +3,8 @@ import { CircleAlert, CircleCheck, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
 import { BackupCopy, BackupRestoreOutcome, BackupSource, CopyProblem } from "../types";
-import { api } from "../services/api";
-import { isMobile } from "../services/platform";
+import { api, desktopApi } from "../services/api";
+import { capabilities } from "../platform/capabilities";
 import { describeError } from "../services/errors";
 import { shortcut } from "../services/keys";
 import { Icon } from "./icons";
@@ -152,10 +152,10 @@ export function BackupRestoreDialog({
             <span className="text-xs text-subtle [overflow-wrap:anywhere]">{previous}</span>
           </span>
           {/* A phone has no file manager to show it in (NP-151). */}
-          {!isMobile && (
+          {capabilities.file_manager && (
             <button
               type="button"
-              onClick={() => void api.revealBackup(previous).catch((err) => setError(describeError(err)))}
+              onClick={() => void desktopApi?.revealBackup(previous).catch((err) => setError(describeError(err)))}
               className="shrink-0 text-sm font-medium text-accent hover:underline"
             >
               {t("export.show")}
