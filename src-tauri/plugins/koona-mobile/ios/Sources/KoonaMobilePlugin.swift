@@ -49,14 +49,18 @@ class KoonaMobilePlugin: Plugin {
     webview.scrollView.bounces = false
     // Nor does its edge effect (iOS 26) belong there: it would shade the status bar in the
     // system's appearance, not the page's, and the page draws its own fades.
-    if #available(iOS 26.0, *) {
-      MainActor.assumeIsolated {
-        let scroll = webview.scrollView
-        for edge in [scroll.topEdgeEffect, scroll.leftEdgeEffect, scroll.bottomEdgeEffect, scroll.rightEdgeEffect] {
-          edge.isHidden = true
+    // Built with an older SDK (CI's Xcode 16) these APIs do not exist: compiled out, as the
+    // runtime checks would skip them anyway. Swift 6.2 is Xcode 26's, 6.4 Xcode 27's.
+    #if compiler(>=6.2)
+      if #available(iOS 26.0, *) {
+        MainActor.assumeIsolated {
+          let scroll = webview.scrollView
+          for edge in [scroll.topEdgeEffect, scroll.leftEdgeEffect, scroll.bottomEdgeEffect, scroll.rightEdgeEffect] {
+            edge.isHidden = true
+          }
         }
       }
-    }
+    #endif
 
     // The keyboard: the page learns its height as the bottom inset, as Android passes it
     // (`--kp-inset-bottom`, the bridge's `insets`), so sheets and bars rise above it; while it is
@@ -90,15 +94,17 @@ class KoonaMobilePlugin: Plugin {
     // orientation changes.
     center.addObserver(self, selector: #selector(barSoon), name: UIDevice.orientationDidChangeNotification, object: nil)
     center.addObserver(self, selector: #selector(barSoon), name: UIApplication.didBecomeActiveNotification, object: nil)
-    if #available(iOS 27.1, *) {
-      MainActor.assumeIsolated {
-        let traits = UITraitCollection.systemTraitsAffectingVerticalBarEdge + [
-          UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self, UITraitLayoutDirection.self,
-        ]
-        webview.registerForTraitChanges(traits) { [weak self] (_: WKWebView, _: UITraitCollection) in self?.barSoon() }
-        webview.addInteraction(UIHingeInteraction { [weak self] _, _ in self?.barSoon() })
+    #if compiler(>=6.4)
+      if #available(iOS 27.1, *) {
+        MainActor.assumeIsolated {
+          let traits = UITraitCollection.systemTraitsAffectingVerticalBarEdge + [
+            UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self, UITraitLayoutDirection.self,
+          ]
+          webview.registerForTraitChanges(traits) { [weak self] (_: WKWebView, _: UITraitCollection) in self?.barSoon() }
+          webview.addInteraction(UIHingeInteraction { [weak self] _, _ in self?.barSoon() })
+        }
       }
-    }
+    #endif
     // The page may be loading already: tell it now as well.
     systemChanged()
   }
@@ -117,7 +123,9 @@ class KoonaMobilePlugin: Plugin {
   @MainActor private func sendBar() {
     guard let webView = webView else { return }
     var json = "null"
-    if #available(iOS 27.1, *) { json = Self.bar(of: webView) }
+    #if compiler(>=6.4)
+      if #available(iOS 27.1, *) { json = Self.bar(of: webView) }
+    #endif
     if json == sentBar { return }
     sentBar = json
     webView.evaluateJavaScript("window.__KOONA_MOBILE__ && window.__KOONA_MOBILE__.barChanged(\(json))", completionHandler: nil)
@@ -127,6 +135,7 @@ class KoonaMobilePlugin: Plugin {
   /// CSS pixels): the edge it is on, the column (the safe area's inset on that side), the status
   /// block at its top (the occlusion regions in it) and the fold (the division region). "null"
   /// where the system places no vertical bar.
+  #if compiler(>=6.4)
   @available(iOS 27.1, *)
   @MainActor private static func bar(of webView: WKWebView) -> String {
     let edge = webView.traitCollection.verticalBarEdge
@@ -146,6 +155,7 @@ class KoonaMobilePlugin: Plugin {
     }
     return "{\"edge\":\"\(right ? "right" : "left")\",\"column\":\(rect(column)),\"status\":\(rect(status)),\"division\":\(rect(division))}"
   }
+  #endif
 
   private var pinned: NSKeyValueObservation?
   /// The keyboard's height over the WebView now, in points; 0 without it.
