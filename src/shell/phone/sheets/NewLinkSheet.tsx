@@ -206,6 +206,13 @@ export function NewLinkSheet({ props }: { props: NewLinkSheetProps }) {
               });
             }}
             onChange={(e) => change(e.target.value)}
+            onKeyDown={(e) => {
+              // On a phone links are typed more than pasted: «Go» on a typed link asks for it as a
+              // paste does (its preview and feed, owner 19 October); «Go» again saves it.
+              if (e.key !== "Enter" || !url || pasted === text) return;
+              e.preventDefault();
+              setPasted(text);
+            }}
           />
           {text && (
             <button

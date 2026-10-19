@@ -161,6 +161,22 @@ test("New link: Follow turns Save into Save and follow; the feed is followed aft
   await expect(newLink(page).locator("[data-feed-offer]")).toContainText("You follow this site");
 });
 
+test("New link: a typed link is looked up on Go, not saved; Go again saves it", async ({ page }) => {
+  await openPhone(page);
+  await navPill(page).getByRole("button", { name: "New link" }).click();
+  const sheet = newLink(page);
+  const field = sheet.getByRole("textbox", { name: "Link" });
+  await field.pressSequentially("fieldnotes.example.com/walking-the-old-railway");
+  // Typed by hand: no request yet, so no feed offer.
+  await expect(sheet.locator("[data-feed-offer]")).toHaveCount(0);
+  await field.press("Enter");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("switch", { name: "Follow Field Notes" })).toBeVisible();
+  await field.press("Enter");
+  await expect(sheet).toHaveCount(0);
+  await expect(snackbar(page)).toContainText("Saved to Inbox");
+});
+
 test("New link: not a link says so; a link already saved offers to show it", async ({ page }) => {
   await openPhone(page);
   const first = topScreen(page).locator("[data-bookmark-id]").first();
