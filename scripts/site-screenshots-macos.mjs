@@ -13,7 +13,11 @@
 //   … --keep   (a failure leaves the test app open for a look, its socket named)
 //
 // Writes release/shots/app-en-<theme>-<view>.webp (1920 px wide) and -1280.webp, and the 2× PNGs
-// for a look in release/shots/png/. Views: grid, list, reading, feeds, triage, sync. Quit your own
+// for a look in release/shots/png/. Views: grid, list, reading, feeds, triage, sync, and those of the
+// help, shared with site-screenshots.mjs (HELP_VIEWS in scripts/lib/shots.mjs): bundle (three
+// bookmarks in the bundle, its capsule), bundle-open (its panel), new-link (New link with a page of
+// the sample pasted, its preview, Follow on; the answers from KOONAPIN_SHOTS_PREVIEWS) and settings
+// (the first section). Quit your own
 // Koona Pin first: only one instance runs per user. Needs Screen Recording for the terminal
 // (System Settings → Privacy & Security), and moves the test window to the front while it runs.
 import { chromium } from "@playwright/test";
@@ -25,11 +29,13 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { appBinary, assertNoOtherApp, hello, hostMessage, pipeReady, testPipe } from "./lib/native-host.mjs";
 import { root } from "./lib/paths.mjs";
-import { copyOf, library, previews, saved, servePreviews, shotsDir, shotsOut as out, until, webpEncoder } from "./lib/shots.mjs";
+import {
+  click, copyOf, HELP_VIEWS, label, library, lit, previews, previewSeed, saved, servePreviews, SETTLED, shotsDir, shotsOut as out, until, webpEncoder,
+} from "./lib/shots.mjs";
 
 if (process.platform !== "darwin") throw new Error("site-screenshots-macos.mjs shoots a Mac window: run it on a Mac");
 
-const VIEWS = ["grid", "list", "reading", "feeds", "triage", "sync"];
+const VIEWS = ["grid", "list", "reading", "feeds", "triage", "sync", ...Object.keys(HELP_VIEWS)];
 const { values: args } = parseArgs({
   strict: false,
   options: {
@@ -125,10 +131,6 @@ class Driver {
 const oneLine = (text) => text.replace(/\s*\n\s*/g, " ");
 /** A string as an SQL literal. */
 const q = (value) => (value === null || value === undefined ? "NULL" : `'${String(value).replaceAll("'", "''")}'`);
-/** A value as a JavaScript literal for code sent to the page: JSON, with the characters that could end
- * a string or a script outside JSON's rules (<, >, /, U+2028, U+2029) escaped. */
-const lit = (value) =>
-  JSON.stringify(value).replace(/[<>\/\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
 const escapeHtml = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -147,15 +149,18 @@ function windowOf(pid) {
   return windows.sort((a, b) => b[3] * b[4] - a[3] * a[4])[0];
 }
 
-/** Starts the test app with a fresh data folder and connects to its socket. */
-async function startApp() {
+/** Starts the test app with a fresh data folder and connects to its socket; `base` serves the previews. */
+async function startApp(base) {
   const data = path.join(root, ".test-data", `mac-shots-${Date.now()}`);
   await mkdir(data, { recursive: true });
+  // The answers New link gets for the sample's page and its feed (HELP_VIEWS["new-link"]).
+  const seed = path.join(data, "previews.json");
+  await writeFile(seed, JSON.stringify(previewSeed(base)));
   // A Unix socket's path holds about 100 bytes: a short one beside the data folders.
   const socket = path.join(root, ".test-data", `shots-${process.pid}.sock`);
   await rm(socket, { force: true });
   const pipe = testPipe("mac");
-  const env = { ...process.env, KOONAPIN_DATA_DIR: data, KOONAPIN_PIPE: pipe, KOONAPIN_SHOTS_SOCKET: socket };
+  const env = { ...process.env, KOONAPIN_DATA_DIR: data, KOONAPIN_PIPE: pipe, KOONAPIN_SHOTS_SOCKET: socket, KOONAPIN_SHOTS_PREVIEWS: seed };
   const app = spawn(appBinary(), [], { env, stdio: "ignore" });
   const exited = new Promise((resolve) => app.once("exit", resolve));
   let driver;
@@ -243,24 +248,10 @@ async function fill({ driver, data, env }, base) {
   await driver.js("(localStorage.clear(), true)");
 }
 
-/** Labels of the interface (English), to find buttons by what they say. */
-const locale = JSON.parse(await readFile(path.join(root, "src", "locales", "en.json"), "utf8"));
-const label = (key) => key.split(".").reduce((o, k) => o[k], locale);
-
-/** A click on the button whose text is `text` (or starts with it, a count after it). */
-const click = (text, exact = false) => {
-  const match = exact ? `b.textContent.trim() === ${lit(text)}` : `b.textContent.trim().startsWith(${lit(text)})`;
-  return `(() => { const b = [...document.querySelectorAll("button")].find((b) => ${match}); if (!b) return false; b.click(); return true; })()`;
-};
-
-/** What the page settles into before a shot: no picture, font or animation under way. */
-const SETTLED = `document.fonts.status === "loaded"
-  && [...document.images].filter((i) => { const r = i.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0; }).every((i) => i.complete && i.naturalWidth > 0)
-  && document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming().iterations === Infinity)`;
-
 /**
  * Each view: the section to open after the reload, and what shows it is there. The reading mode and
- * the feed open on their article, the triage on the first card of the inbox.
+ * the feed open on their article, the triage on the first card of the inbox; the help's views
+ * (HELP_VIEWS, scripts/lib/shots.mjs) start from the grid.
  */
 const VIEW_STEPS = {
   grid: { mode: GRID, open: [], ready: "document.querySelectorAll('[data-bookmark-id] img').length >= 6" },
@@ -277,6 +268,7 @@ const VIEW_STEPS = {
     open: [click(label("nav.inbox")), `(document.querySelector(".inbox-pill-sort")?.click(), true)`],
     ready: `!!document.querySelector("[data-triage-card] img")`,
   },
+  ...HELP_VIEWS,
 };
 
 /** What keeps the page from settling, for the error when it never does. */
@@ -361,7 +353,7 @@ async function save(name, shot, encode) {
 
 /** The app's views in each theme; the first PNG of each theme is kept as the sync shot's frame. */
 async function shootApp(base, encode, frames, page) {
-  const app = await startApp();
+  const app = await startApp(base);
   let failed = true;
   try {
     await fill(app, base);

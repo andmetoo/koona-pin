@@ -193,7 +193,7 @@ pub struct FeedArticle {
 }
 
 /// A feed a page names with `<link rel="alternate">`, or the pasted address itself.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct FeedCandidate {
     pub url: String,
@@ -203,7 +203,8 @@ pub struct FeedCandidate {
 }
 
 /// The one request when a link is pasted into «New link» (plan §4.2).
-#[derive(Debug, Clone, Serialize, TS)]
+// `Deserialize` (with its parts'): the screenshots' answers are read from a file (`shot_previews`, test builds only).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct LinkPreview {
     /// The final address, after redirects.
@@ -217,7 +218,7 @@ pub struct LinkPreview {
 }
 
 /// The feed fetched once the «Follow» toggle is on.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct FeedPreview {
     pub title: Option<String>,

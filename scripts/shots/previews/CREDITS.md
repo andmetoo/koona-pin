@@ -24,7 +24,7 @@ Bookmark previews (`library.json`):
 | notebook.jpg | https://unsplash.com/photos/IZj7vckPGiw | engin akyurt |
 | street-dusk.jpg | https://unsplash.com/photos/_wrXiIzRK1A | Mohammad Ebesh |
 
-Feed pictures and the open post (`feeds.json`):
+Feed pictures and the open post (`feeds.json`); lighthouse.jpg is also the page pasted into New link (`NEW_LINK` in `scripts/lib/shots.mjs`):
 
 | File | Photo | Author |
 | --- | --- | --- |

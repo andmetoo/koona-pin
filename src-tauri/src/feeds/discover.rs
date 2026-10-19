@@ -33,7 +33,7 @@ pub const KEEP: Duration = Duration::from_secs(10 * 60);
 static PREVIEWS: LazyLock<Mutex<HashMap<String, (Instant, LinkPreview)>>> = LazyLock::new(Mutex::default);
 
 /// The address as the cache knows it: parsed, without its fragment.
-fn key(url: &str) -> Option<String> {
+pub(crate) fn key(url: &str) -> Option<String> {
     let mut url = Url::parse(url.trim()).ok()?;
     url.set_fragment(None);
     Some(url.to_string())
@@ -53,6 +53,8 @@ pub fn remember(asked: &str, preview: &LinkPreview, now: Instant) {
 /// An answer kept for `url` less than 10 minutes ago.
 pub fn recall(url: &str, now: Instant) -> Option<LinkPreview> {
     let key = key(url)?;
+    #[cfg(all(desktop, not(feature = "public-release")))]
+    if let Some(seeded) = crate::shot_previews::link(&key) { return Some(seeded) }
     let previews = PREVIEWS.lock().ok()?;
     let (at, preview) = previews.get(&key)?;
     (now.duration_since(*at) < KEEP).then(|| preview.clone())
@@ -181,6 +183,8 @@ pub fn posts_per_day(dates: &[DateTime<Utc>]) -> Option<f32> {
 
 /// The feed fetched once the «Follow» toggle is on: is it one, how often it posts.
 pub async fn feed(url: &Url, limits: &Limits) -> Result<FeedPreview, Failure> {
+    #[cfg(all(desktop, not(feature = "public-release")))]
+    if let Some(seeded) = key(url.as_str()).and_then(|key| crate::shot_previews::feed(&key)) { return Ok(seeded) }
     let fetched = fetch::fetch_feed(url, &Conditional::default(), limits).await;
     let feed = match fetched.outcome {
         Outcome::Fetched { feed, .. } => feed,
