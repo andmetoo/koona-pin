@@ -168,7 +168,7 @@ expect("CFBundleIdentifier", plist(info, "CFBundleIdentifier"), bundleId);
 expect("CFBundleShortVersionString", plist(info, "CFBundleShortVersionString"), version);
 expect("CFBundleVersion", plist(info, "CFBundleVersion"), build);
 expect("MinimumOSVersion", plist(info, "MinimumOSVersion"), "18.0");
-expect("ITSAppUsesNonExemptEncryption", plist(info, "ITSAppUsesNonExemptEncryption"), "true");
+expect("ITSAppUsesNonExemptEncryption", plist(info, "ITSAppUsesNonExemptEncryption"), undefined);
 const privacy = path.join(bundle, "PrivacyInfo.xcprivacy");
 if (!existsSync(privacy)) failures.push("PrivacyInfo.xcprivacy is missing");
 else if (spawnSync("plutil", ["-lint", "-s", privacy]).status !== 0) failures.push("PrivacyInfo.xcprivacy is not a valid plist");
@@ -189,7 +189,7 @@ if (plist(profileFile, "ProvisionedDevices") !== undefined) failures.push("the p
 expect("the profile's team", plist(profileFile, "TeamIdentifier:0"), team);
 if (failures.length > 0) throw new Error(`The IPA fails its checks:\n- ${failures.join("\n- ")}`);
 console.log(`Checked: ${bundleId} ${version} (${build}), Apple Distribution, the team of APPLE_TEAM_ID, an App Store profile, `
-  + "export compliance and the privacy manifest present");
+  + "no export compliance key, the privacy manifest present");
 
 // 4. The IPA, its dSYMs and the checksums of the folder.
 const target = publish.ios(version);
