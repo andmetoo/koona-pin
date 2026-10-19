@@ -1,0 +1,291 @@
+/* F1 Feeds (NP-072b): feed chips with round avatars, the day and the Unread | All switch, the
+   posts on a shelf per day. Scoped under `.phone`; classes `fd-*`. Rows are opaque content: no
+   glass, one shadow per day's shelf. */
+
+/* ---------------------------------------------------------------- Header and chips */
+.phone .fd-refresh[data-spinning] svg {
+  animation: ph-turn 1.2s linear infinite;
+}
+.phone .fd-chips {
+  margin-top: -2px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+.phone .fd-chips .ph-chip:not([data-active]) {
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    0 1px 2px rgb(0 0 0 / 0.04);
+}
+.phone .fd-chip {
+  gap: 7px;
+  padding-left: 7px;
+}
+.phone .fd-chip > img,
+.phone .fd-chip > span:first-child {
+  flex: none;
+}
+.phone .fd-count {
+  margin-left: 1px;
+  color: var(--ph-meta);
+}
+.phone .ph-chip[data-active] .fd-count {
+  color: color-mix(in srgb, var(--ph-on-ink-button) 70%, transparent);
+}
+
+/* ---------------------------------------------------------------- The day and the switch */
+/* The switch goes under the day when the two do not fit on one line. */
+.phone .fd-dayrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 15px var(--ph-side) 5px 24px;
+}
+.phone .fd-day {
+  min-width: min(max-content, 100%);
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ph-meta);
+}
+.phone .fd-scope.ph-segmented {
+  flex: none;
+  min-width: 148px;
+  min-height: 32px;
+  padding: 2px;
+}
+.phone .fd-scope .ph-segmented-thumb {
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--count));
+  box-shadow:
+    0 1px 3px rgb(0 0 0 / 0.1),
+    0 2px 8px -2px rgb(0 0 0 / 0.06);
+}
+.phone .fd-scope .ph-segment {
+  padding: 0 10px;
+  font-size: 14px;
+  line-height: 18px;
+}
+.phone .fd-scope .ph-segment[aria-checked="true"] {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- The list */
+.phone .fd-list {
+  position: relative;
+  margin: 0 var(--ph-side-chrome);
+}
+.phone .fd-shelf {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+}
+.phone .fd-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+.phone .fd-day-gap {
+  padding: 24px 8px 8px;
+}
+
+/* ---------------------------------------------------------------- A post */
+.phone .fd-post {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  text-align: left;
+}
+.phone .fd-post:not([data-first])::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--ph-line);
+}
+.phone .fd-post:active .fd-main {
+  opacity: 0.72;
+}
+.phone .fd-dot {
+  position: absolute;
+  top: 23px;
+  left: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ph-accent);
+}
+.phone .fd-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
+}
+.phone .fd-avatar-none {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--ph-well);
+}
+.phone .fd-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ph-meta);
+}
+.phone .fd-saved {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px 0 9px;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  color: var(--ph-on-accent-soft);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+.phone .fd-main {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  transition: opacity 120ms ease-out;
+}
+.phone .fd-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.phone .fd-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.phone .fd-post[data-read] .fd-title {
+  color: var(--ph-body);
+}
+.phone .fd-excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+  overflow-wrap: anywhere;
+}
+.phone .fd-picture {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  margin-top: 2px;
+  border-radius: var(--ph-r-thumb);
+  object-fit: cover;
+  background: var(--ph-well);
+}
+.phone .fd-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tint) 45%, #fff), var(--tint));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  color: rgb(255 255 255 / 0.92);
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- Empty */
+.phone .fd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 48px 28px 0;
+  text-align: center;
+}
+.phone .fd-empty .ph-subhead {
+  margin-bottom: 10px;
+  color: var(--ph-meta);
+}
+.phone .fd-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 6px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  color: var(--ph-icon);
+}
+.phone .fd-none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 12px var(--ph-side-chrome) 0;
+  padding: 28px 20px;
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow: var(--ph-e1);
+  text-align: center;
+  color: var(--ph-meta);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone .fd-refresh[data-spinning] svg {
+    animation: none;
+  }
+}
+
+/* The post the Fold's detail sheet shows: an accent-soft pill in the shelf, as FL1's row. */
+.phone .fd-post[data-selected]::after {
+  content: "";
+  position: absolute;
+  inset: 4px 6px;
+  border-radius: var(--ph-r-tile);
+  background: var(--ph-accent-soft);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+.phone .fd-post[data-selected] > :not(.fd-dot) {
+  position: relative;
+  z-index: 1;
+}
+.phone .fd-post[data-selected] .fd-dot {
+  z-index: 1;
+}

@@ -16,7 +16,7 @@ import { useLibraryView } from "./library";
 import { useLook } from "./look";
 import { useNavigation } from "./navigation";
 import { notificationsOf } from "./notifications";
-import { useNotices, useUndo } from "./notices";
+import { type NoticeTiming, useNotices, useUndo } from "./notices";
 import { useReading } from "./reading";
 import { isNarrowed, sectionCount, sectionName } from "./sections";
 import { useAppSettings, useLibraryHealth, useSupporter } from "./status";
@@ -25,13 +25,13 @@ import { useSurfaces } from "./surfaces";
 /**
  * The app's state and what changes it, by concern (NP-072a): what both shells show of the library.
  * `desktop` is what only the desktop shell reads (the update, the browsers' capture); a phone's
- * shell passes null.
+ * shell passes null. `noticeTiming` replaces how long a notice stays (the phone's snackbar).
  */
-export function useAppState(desktop: DesktopStatus | null) {
+export function useAppState(desktop: DesktopStatus | null, { noticeTiming }: { noticeTiming?: NoticeTiming } = {}) {
   const { t, i18n } = useTranslation();
   const narrow = useMedia(NARROW);
   const wide = useMedia(WIDE);
-  const notices = useNotices();
+  const notices = useNotices(noticeTiming);
   const editing = useEditing();
   /** How many bookmarks wait in the inbox, for triage: known once the library below is read. */
   const inboxCount = useRef<() => number>(() => 0);

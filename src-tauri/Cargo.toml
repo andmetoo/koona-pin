@@ -1,6 +1,6 @@
 [package]
 name = "koonapin"
-version = "2.6.0"
+version = "2.7.0"
 description = "Koona Pin desktop bookmark library"
 license = "GPL-3.0-only"
 edition = "2021"
@@ -94,8 +94,8 @@ tauri-plugin-updater = { version = "2.13", default-features = false, features = 
 # macOS and Windows. The links are read by open_requests.rs, not through the plugin's commands.
 tauri-plugin-deep-link = "2.6"
 
-# Phones only (NP-151): our own plugin for system Back, the iOS edge swipe, renderer loss and the
-# insets (plugins/koona-mobile).
+# Phones only (NP-151): our own plugin for system Back, the iOS edge swipe, renderer loss, the
+# insets, and (NP-072b) the signals of the phone's look and the haptics (plugins/koona-mobile).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-koona-mobile = { path = "plugins/koona-mobile" }
 # `_exit` at the end of a phone's run (lib.rs, `end_on_phone`). Already in the tree.

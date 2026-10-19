@@ -11,7 +11,8 @@ pub fn hand_over(_context: &tauri::Context<tauri::Wry>) -> bool {
     false
 }
 
-/// System Back, the iOS edge swipe, renderer loss and the insets (NP-151).
+/// System Back, the iOS edge swipe, renderer loss and the insets (NP-151); the signals of the
+/// phone's look and haptic feedback (NP-072b, src/platform/system.ts and haptics.ts).
 pub fn plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     let builder = builder.plugin(tauri_plugin_koona_mobile::init());
     // iOS ended the page's WebContent process (memory, a crash): the same page again, which

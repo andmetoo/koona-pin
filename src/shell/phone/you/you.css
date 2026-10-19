@@ -1,0 +1,403 @@
+/* "You & sync" (A1, `ys-`) and the phone's Settings (FL3, `st-`), NP-072b. Scoped under the
+   phone's root like src/styles/phone.css, whose tokens they use. Cards and shelves are opaque
+   paper (content, never glass); the sheet itself is the kit's. */
+
+/* ---------------------------------------------------------------- The sheet (A1) */
+.phone .ys-sheet .ph-sheet-body {
+  display: flex;
+  flex-direction: column;
+}
+/* The body scrolls; its cards keep their whole height (the Supporter card's text at a large
+   font size), however tall they get. */
+.phone .ys-sheet .ph-sheet-body > * {
+  flex: none;
+}
+/* Shelves and cards fill the sheet's body (20 from its edges), not the screen's 16 margin. */
+.phone .ys-sheet .ph-shelf-section {
+  margin: 0;
+}
+.phone .ys-sheet .ph-shelf {
+  margin: 0;
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+}
+.phone .ys-section {
+  margin-top: 20px;
+}
+.phone .ys-label {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ph-meta);
+}
+.phone .ys-section:has(> .ys-label-link) {
+  display: flex;
+  flex-direction: column;
+}
+.phone .ys-footer {
+  margin-top: 18px;
+  min-height: 16px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ph-meta);
+}
+
+/* ---------------------------------------------------------------- Cards */
+.phone .ys-card {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: var(--ph-r-card);
+  background: var(--ph-paper);
+  /* FL3's cards keep a hairline edge: on the dark sheet it is what sets them off. */
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+  color: var(--ph-ink);
+  text-align: left;
+}
+.phone button.ys-card:active {
+  background: var(--ph-well);
+}
+
+/* The Supporter card: the heart on the season's soft disc, the plan's line, a chevron. */
+.phone .ys-supporter {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 84px;
+  padding: 16px;
+}
+.phone .ys-heart {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--ph-season-soft);
+  color: var(--ph-season);
+}
+.phone .ys-supporter-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.phone .ys-chevron {
+  flex: none;
+  color: var(--ph-meta);
+}
+.phone .ys-card-action {
+  margin-top: 10px;
+}
+
+/* The sync card: the circle as the account cluster's, the state, the action below the text. */
+.phone .ys-sync {
+  padding-bottom: 16px;
+}
+.phone .ys-sync-status {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 16px 0;
+  border: 0;
+  border-radius: var(--ph-r-card) var(--ph-r-card) 0 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.phone .ys-sync-circle {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--ph-accent) linear-gradient(rgb(255 255 255 / 0.08), transparent 50%);
+  color: var(--ph-on-accent);
+}
+.phone .ys-sync-circle[data-state="offline"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+  color: var(--ph-icon);
+}
+.phone .ys-sync-circle[data-state="error"]::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--ph-danger);
+  box-shadow: 0 0 0 2px var(--ph-paper);
+}
+.phone .ys-sync-circle[data-state="syncing"] svg {
+  animation: ph-turn 1.2s linear infinite;
+}
+.phone .ys-sync-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.phone .ys-sync-title {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.phone .ys-sync-actions {
+  padding: 10px 16px 0 68px;
+}
+.phone .ys-sync-actions .ph-button,
+.phone .ys-card-action.ph-button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-weight: 500;
+}
+
+/* The devices: small chips (content, opaque) with a green dot when online. */
+.phone .ys-devices {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.phone .ys-device {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ph-body);
+  white-space: nowrap;
+}
+.phone .ys-device[data-own] {
+  font-weight: 600;
+  color: var(--ph-ink);
+}
+.phone .ys-device-dot,
+.phone .st-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--ph-faint);
+}
+.phone .ys-device[data-online] .ys-device-dot,
+.phone .st-dot[data-online] {
+  background: var(--ph-accent);
+  box-shadow: none;
+}
+
+/* A1's Settings shelf: icons in round wells, 52 rows, the hairline from the text to the edge. */
+.phone .ys-shelf .ph-shelf-row {
+  gap: 12px;
+  padding: 8px 16px 8px 10px;
+}
+.phone .ys-shelf .ph-shelf-title {
+  font-size: 15px;
+  line-height: 20px;
+}
+.phone .ys-shelf .ph-shelf-detail {
+  font-size: 13px;
+  line-height: 18px;
+}
+.phone .ys-shelf .ph-shelf-row[data-inset-icon] + .ph-shelf-row[data-inset-icon]::before {
+  left: 58px;
+  right: 0;
+}
+
+/* In both, a value too long for its side of the row (a longer language) wraps, right-aligned, and
+   the name keeps its longest word whole. */
+.phone :is(.ys-shelf, .st-shelf) .ph-shelf-text {
+  min-width: min-content;
+}
+.phone :is(.ys-shelf, .st-shelf) .ph-shelf-detail {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  text-align: right;
+  overflow-wrap: break-word;
+}
+
+/* ---------------------------------------------------------------- Settings (FL3) */
+/* A column of its own width, left where the title is, on the Fold's wide pane too. */
+.phone .st-screen .ph-header,
+.phone .st-body {
+  width: 100%;
+  max-width: 640px;
+}
+.phone .st-body {
+  padding: 8px 0 24px;
+}
+/* FL3's rows: a bare icon, the name in body type, the value, a chevron; 56 tall. */
+.phone .st-shelf .ph-shelf-row {
+  min-height: 56px;
+  gap: 14px;
+  padding: 8px 18px;
+}
+.phone .st-shelf .ph-shelf-icon {
+  width: 20px;
+  height: 20px;
+  background: transparent;
+}
+.phone .st-shelf .ph-shelf-title {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 400;
+}
+.phone .st-shelf .ph-shelf-text {
+  padding: 4px 0;
+}
+.phone .st-shelf .ph-shelf-detail {
+  font-size: 15px;
+  line-height: 20px;
+}
+.phone .st-shelf .ph-shelf-row + .ph-shelf-row::before {
+  right: 0;
+}
+.phone .st-shelf .ph-shelf-row[data-inset-icon] + .ph-shelf-row[data-inset-icon]::before {
+  left: 52px;
+}
+.phone .st-shelf .ph-shelf {
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+}
+.phone .st-sync-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.phone .st-sync-detail .st-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--ph-teal);
+  box-shadow: none;
+}
+.phone .st-sync-detail[data-tone="warn"] .st-dot {
+  background: var(--ph-amber);
+}
+.phone .st-sync-detail[data-tone="sync"] .st-dot {
+  background: var(--ph-indigo);
+}
+.phone .st-device {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A card of its own: title, caption, the control, a footnote. */
+.phone .st-body > .ys-settings-card,
+.phone .st-block {
+  margin: 0 var(--ph-side-chrome) var(--ph-gap-section);
+  width: auto;
+}
+.phone .ys-settings-card {
+  padding: 18px 20px 16px;
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    var(--ph-e1);
+}
+.phone .ys-caption {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-meta);
+}
+.phone .ys-settings-card > .ph-meta {
+  margin-top: 16px;
+}
+/* FL3's switch: the full width of the card, 44 tall with a 40 thumb. */
+.phone .st-segmented {
+  display: grid;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 16px;
+  padding: 2px;
+}
+.phone .st-segmented .ph-segmented-thumb {
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--count));
+}
+.phone .st-segmented .ph-segment {
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.phone .st-segmented .ph-segment[aria-checked="true"] {
+  font-weight: 600;
+}
+
+/* Reading: the text size stepper and a sample in the reader's font. */
+.phone .st-stepper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.phone .st-stepper-value {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.phone .st-sample {
+  margin-top: 14px;
+  color: var(--ph-body);
+  font-family: var(--ph-reading-font);
+}
+.phone .st-sample[data-font="sans"] {
+  font-family: var(--np-font);
+}
+
+/* A single choice: the row is the radio, the round tick on the right. */
+.phone .ys-choice .ph-checkbox {
+  pointer-events: none;
+}
+
+.phone .st-note {
+  margin: -12px var(--ph-side) var(--ph-gap-section);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .st-note-top {
+  margin-top: 0;
+}
+.phone .st-actions {
+  margin: -8px var(--ph-side-chrome) var(--ph-gap-section);
+}

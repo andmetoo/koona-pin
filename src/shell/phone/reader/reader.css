@@ -1,0 +1,554 @@
+/* The phone's reader (R1) and post view (FL2's content), NP-072b: full-bleed reading under glass
+   circles, Inter titles, the text in Literata at the reading look's size (reader/look.ts sets
+   --rd-font, --rd-size and --rd-line, and the phone's tokens for a chosen theme). Scoped under
+   `.phone`; the desktop's article rules (app.css, a layer) give way to these. */
+
+/* ---------------------------------------------------------------- The top: glass circles 44 */
+.phone .rd-bar {
+  position: sticky;
+  z-index: 4;
+  top: calc(var(--safe-top) + 4px);
+  height: 0;
+  /* The screen's top fade leaves the flow 14 below the safe area; the circles sit 4 below it. */
+  margin-top: -10px;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 var(--ph-side-chrome);
+  pointer-events: none;
+}
+.phone .rd-bar-group {
+  display: flex;
+  gap: 8px;
+  height: 44px;
+  pointer-events: auto;
+}
+.phone .rd-screen .ph-circle[data-kind="glass"] {
+  color: var(--ph-ink);
+}
+
+/* ---------------------------------------------------------------- The column */
+.phone .rd-column {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  /* The first line clears the circles (R1: the hero at 64 below the safe area); the last one the pill. */
+  padding: 60px 0 calc(var(--ph-pill-height) + 32px + 40px);
+}
+.phone .rd-loading {
+  min-height: 60dvh;
+}
+
+/* ---------------------------------------------------------------- The hero (r 24) */
+.phone .rd-hero {
+  position: relative;
+  margin: 0 var(--ph-side-chrome);
+  aspect-ratio: 361 / 200;
+  max-height: 300px;
+  border-radius: var(--ph-r-shelf);
+  overflow: hidden;
+  background: linear-gradient(var(--angle, 135deg), var(--from), var(--to));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+.phone .rd-hero img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Words over a picture stay legible: a shade at the top and a deeper one at the bottom. */
+.phone .rd-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgb(0 0 0 / 0.1), transparent 30%, transparent 45%, rgb(0 0 0 / 0.42));
+}
+.phone .rd-hero:not([data-picture])::after {
+  background: linear-gradient(transparent 55%, rgb(0 0 0 / 0.1));
+}
+.phone .rd-hero figcaption {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 18px;
+}
+.phone .rd-hero .ph-eyebrow {
+  color: rgb(255 255 255 / 0.81);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* Over a picture the eyebrow sits on a small dark pill: pages' pictures carry words of their own. */
+.phone .rd-hero[data-picture] .ph-eyebrow {
+  align-self: flex-start;
+  max-width: 100%;
+  margin: -3px 0 0 -8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(20 20 19 / 0.55);
+  color: #fff;
+}
+.phone .rd-hero-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-size: 28px;
+  line-height: 31px;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.97);
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- The article */
+.phone .rd-screen .reader-article {
+  max-width: none;
+  margin-top: 24px;
+  padding: 0 24px;
+  color: var(--ph-ink);
+}
+.phone .rd-post .reader-article {
+  margin-top: 12px;
+}
+.phone .rd-source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ph-meta);
+}
+.phone .rd-source > :first-child {
+  border-radius: 6px;
+}
+.phone .rd-screen .reader-title {
+  margin: 16px 0 0;
+  font-family: var(--np-font);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ph-ink);
+  overflow-wrap: anywhere;
+}
+.phone .rd-authors {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-meta);
+}
+.phone .rd-rule {
+  width: 40px;
+  height: 2px;
+  margin: 20px 0;
+  border: 0;
+  border-radius: 1px;
+  background: var(--ph-line);
+}
+.phone .rd-screen .reader-dek {
+  margin: 0 0 20px;
+  font-family: var(--rd-font, var(--ph-reading-font));
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--ph-body);
+}
+.phone .rd-screen .reader-body {
+  font-family: var(--rd-font, var(--ph-reading-font));
+  font-size: var(--rd-size, 19px);
+  line-height: var(--rd-line, 30px);
+  color: var(--ph-body);
+}
+.phone .rd-screen .reader-body a[href] {
+  color: var(--ph-accent);
+}
+.phone .rd-screen .reader-body :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--np-font);
+  color: var(--ph-ink);
+}
+.phone .rd-screen .reader-body img {
+  border-radius: var(--ph-r-thumb);
+}
+.phone .rd-screen .reader-body blockquote {
+  border-left-color: var(--ph-line);
+  color: var(--ph-body);
+}
+.phone .rd-screen .reader-body :is(code, pre) {
+  background: var(--ph-well);
+}
+.phone .rd-screen .reader-body figcaption {
+  color: var(--ph-meta);
+}
+
+/* ---------------------------------------------------------------- The post's source and picture (FL2) */
+.phone .rd-post-source {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 16px;
+  row-gap: 2px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .rd-post-feed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ph-ink);
+}
+.phone .rd-post-lead {
+  margin: 0 0 20px;
+}
+.phone .rd-post-lead img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 680 / 382;
+  object-fit: cover;
+  border-radius: var(--ph-r-tile);
+  background: var(--ph-well);
+}
+.phone .rd-post-lead figcaption {
+  margin-top: 10px;
+  font-family: var(--rd-font, var(--ph-reading-font));
+  font-size: 14px;
+  line-height: 20px;
+  font-style: italic;
+  color: var(--ph-meta);
+}
+.phone .rd-post [data-load-full] .ph-button {
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------- When the page cannot be read */
+.phone .rd-failure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 0;
+  padding: 28px 20px 24px;
+  border-radius: var(--ph-r-shelf);
+  background: var(--ph-paper);
+  box-shadow: var(--ph-e1);
+  text-align: center;
+  color: var(--ph-ink);
+}
+.phone .rd-failure .ph-subhead {
+  color: var(--ph-meta);
+}
+.phone .rd-failure-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  color: var(--ph-icon);
+}
+.phone .rd-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ---------------------------------------------------------------- The action pill (R1) */
+/* At the bottom of the screen's content, sticky: the pill floats 32 above the screen's edge (or
+   just above the gesture inset) while the text scrolls under it; the content ends clear of it. */
+.phone .rd-dock {
+  position: sticky;
+  z-index: 5;
+  bottom: 0;
+  height: 0;
+  margin-top: auto;
+}
+.phone .rd-fade-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--safe-bottom));
+  height: 162px;
+  pointer-events: none;
+  background: var(--ph-mesh), var(--ph-bg);
+  background-size: 100vw 100dvh;
+  background-position: bottom;
+  -webkit-mask-image: linear-gradient(transparent, rgb(0 0 0 / 0.85) 60%, rgb(0 0 0 / 0.95));
+  mask-image: linear-gradient(transparent, rgb(0 0 0 / 0.85) 60%, rgb(0 0 0 / 0.95));
+}
+.phone .rd-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(max(32px, var(--safe-bottom) - 2px) - var(--safe-bottom));
+  display: flex;
+  align-items: center;
+  width: min(312px, calc(100% - 2 * var(--ph-side-chrome)));
+  height: 60px;
+  margin: 0 auto;
+  padding: 4px;
+  border-radius: 999px;
+}
+.phone .rd-action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ph-ink);
+  transition: transform 120ms ease-out;
+}
+.phone .rd-action:active {
+  transform: scale(0.94);
+}
+.phone .rd-action:active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--ph-well);
+}
+.phone .rd-action svg {
+  position: relative;
+}
+.phone .rd-filled {
+  color: var(--ph-accent);
+  fill: var(--ph-accent);
+}
+.phone .rd-progress {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 56px;
+  height: 52px;
+}
+.phone .rd-percent {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--ph-meta);
+  white-space: nowrap;
+}
+.phone .rd-track {
+  width: 32px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ph-well);
+  overflow: hidden;
+}
+.phone .rd-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ph-accent), var(--ph-accent-hi));
+  transform-origin: left;
+  transform: scaleX(var(--value));
+  transition: transform 160ms ease-out;
+}
+.phone .rd-divider {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 7px 0 4px;
+  background: var(--ph-line);
+}
+.phone .rd-done {
+  flex: 1;
+  min-width: 0;
+  padding: 0 18px;
+}
+
+/* ---------------------------------------------------------------- The Aa sheet */
+.phone .rd-look-label {
+  margin: 4px 4px 8px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ph-meta);
+}
+.phone .rd-look-group + .rd-look-group {
+  margin-top: 20px;
+}
+.phone .rd-look-size {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 52px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--ph-well);
+}
+.phone .rd-look-size .ph-circle {
+  background: var(--ph-raised);
+  color: var(--ph-ink);
+  box-shadow: 0 1px 3px rgb(46 48 43 / 0.12);
+  font-family: var(--ph-reading-font);
+  font-weight: 500;
+}
+/* The small and the large "A" are the buttons' glyphs: like icons they keep their size whatever the
+   system's font size (the WebView's text zoom multiplies them back by --ph-text-scale). */
+.phone .rd-look-a {
+  font-size: calc(14px / var(--ph-text-scale, 1));
+  line-height: calc(20px / var(--ph-text-scale, 1));
+}
+.phone .rd-look-a[data-size="large"] {
+  font-size: calc(21px / var(--ph-text-scale, 1));
+  line-height: calc(26px / var(--ph-text-scale, 1));
+}
+.phone .rd-look-size .ph-circle:disabled {
+  opacity: 0.4;
+}
+.phone .rd-look-size output {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--ph-ink);
+}
+.phone .rd-look-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+.phone .rd-look-theme {
+  position: relative;
+  min-height: 48px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--swatch, var(--ph-paper));
+  color: var(--swatch-ink, var(--ph-ink));
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+  font-family: var(--ph-reading-font);
+  font-size: 14px;
+  line-height: 20px;
+}
+.phone .rd-look-theme[aria-checked="true"] {
+  box-shadow:
+    inset 0 0 0 2px var(--ph-accent),
+    0 0 0 3px var(--ph-accent-halo);
+}
+.phone .rd-look-lock {
+  position: absolute;
+  top: -4px;
+  right: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--ph-ink-button);
+  color: var(--ph-on-ink-button);
+}
+.phone .rd-look-hint {
+  margin: 10px 4px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .rd-look-hint button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ph-accent);
+  font: inherit;
+  font-weight: 600;
+}
+.phone .rd-look-group .ph-segmented {
+  display: grid;
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------- The post view's own */
+.phone .rd-post .reader-title {
+  margin-bottom: 20px;
+}
+.phone .rd-pressed {
+  color: var(--ph-accent);
+}
+.phone .rd-pressed .lucide-heart {
+  fill: currentColor;
+}
+.phone .rd-load-full {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 24px;
+}
+.phone .rd-load-full .ph-subhead {
+  color: var(--ph-meta);
+}
+
+/* ---------------------------------------------------------------- A chosen theme's glass */
+/* A reading theme darker or lighter than the app's (Dark in a light app, White in a dark one):
+   the circles and the pill take the glass of the page's tone, so their icons stay legible. The
+   fallbacks (flat flag, Reduce Transparency) keep their opaque paper, which the look sets. */
+.phone:not([data-glass="flat"]) .rd-screen[data-page="dark"] .ph-glass {
+  background: rgb(38 38 36 / 0.7) linear-gradient(rgb(255 255 255 / 0.05), transparent 40%);
+  box-shadow:
+    0 10px 28px -10px rgb(0 0 0 / 0.65),
+    0 1px 2px rgb(0 0 0 / 0.05);
+}
+.phone:not([data-glass="flat"]) .rd-screen[data-page="dark"] .ph-glass::before {
+  background: linear-gradient(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08) 50%, rgb(255 255 255 / 0.04));
+}
+.phone:not([data-glass="flat"]) .rd-screen[data-page="light"] .ph-glass {
+  background: rgb(255 254 250 / 0.7) linear-gradient(rgb(255 255 255 / 0.12), transparent 40%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 10px 28px -10px rgb(42 44 38 / 0.18),
+    0 1px 2px rgb(0 0 0 / 0.05);
+}
+.phone:not([data-glass="flat"]) .rd-screen[data-page="light"] .ph-glass::before {
+  background: linear-gradient(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.6) 50%, rgb(46 48 43 / 0.1));
+}
+@media (prefers-reduced-transparency: reduce) {
+  .phone .rd-screen[data-page] .ph-glass {
+    background: var(--ph-paper);
+  }
+  .phone .rd-screen[data-page] .ph-glass::before {
+    background: var(--ph-hairline);
+  }
+}
+
+/* The post view's four actions on one glass capsule (flat circles on it, no glass on glass). */
+.phone .rd-cluster {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  padding: 0 2px;
+  border-radius: 999px;
+}
+.phone .rd-cluster .ph-circle {
+  color: var(--ph-ink);
+}
+.phone .rd-cluster .ph-circle:disabled {
+  opacity: 0.4;
+}
+.phone .rd-cluster .rd-pressed {
+  color: var(--ph-accent);
+}

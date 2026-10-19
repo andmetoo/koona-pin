@@ -8,9 +8,10 @@ import { undoNotice } from "../services/undo";
  * `undo` turns the notice into «… · Отменить Ctrl Z» for 8 seconds (frame 12);
  * `retry` adds «Повторить» to an alert (frame 20); `long` keeps a plain notice
  * 8 seconds with a close button (frame 21); `show` is «Показать» after an
- * export, 8 seconds (frame 29).
+ * export, 8 seconds (frame 29). `icon`: the glyph the phone's snackbar shows instead of its
+ * check (a move to the trash); the desktop shows none.
  */
-export type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void; glass?: boolean } | null;
+export type Notice = { text: string; alert: boolean; undo?: () => void; retry?: () => void; long?: boolean; show?: () => void; glass?: boolean; icon?: "trash" } | null;
 
 export const NOTICE_MS = 3000;
 export const UNDO_MS = 8000;
@@ -21,13 +22,21 @@ export function noticeDuration(notice: NonNullable<Notice>): number | null {
   return notice.undo || notice.long ? UNDO_MS : NOTICE_MS;
 }
 
-/** The one notice at the bottom of the window (frames 12, 20, 21, 29). */
-export function useNotices() {
+/** How long a notice stays, null: until it is closed. */
+export type NoticeTiming = (notice: NonNullable<Notice>) => number | null;
+
+/**
+ * The one notice at the bottom of the window (frames 12, 20, 21, 29). `timing` says how long one
+ * stays; the phone's snackbar keeps its own time (5 s, paused while touched) and passes `() => null`.
+ */
+export function useNotices(timing: NoticeTiming = noticeDuration) {
   const [notice, setNotice] = useState<Notice>(null);
   const say = (text: string, alert = false, undo?: () => void) => setNotice({ text, alert, undo });
   const sayAlert = useCallback((text: string) => setNotice({ text, alert: true }), []);
   const sayRef = useRef(say);
   sayRef.current = say;
+  const timingRef = useRef(timing);
+  timingRef.current = timing;
   /**
    * What a screen reader hears in the live region: a click that changes the selection (NP-123),
    * an add to the bundle, the drop zone once per drag (K9).
@@ -35,7 +44,7 @@ export function useNotices() {
   const [announcement, setAnnouncement] = useState("");
   useEffect(() => {
     if (!notice) return;
-    const ms = noticeDuration(notice);
+    const ms = timingRef.current(notice);
     if (ms === null) return;
     const timer = window.setTimeout(() => setNotice(null), ms);
     return () => window.clearTimeout(timer);

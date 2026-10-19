@@ -1,109 +1,33 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BookOpen, Check, Folder, Heart, RefreshCw, TriangleAlert, X } from "lucide-react";
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { BackupFolder, Plan, PlanInterval, SupporterPrices, SupporterStatus, SyncStatus } from "../types";
+import type { BackupFolder, Plan, SupporterStatus, SyncStatus } from "../types";
 import { api, desktopOnly } from "../services/api";
 import { capabilities } from "../platform/capabilities";
-import { describeError, toCommandError } from "../services/errors";
-import { savePreference, storedValue } from "../services/preferences";
 import { copyTime } from "./BackupRestoreDialog";
 import { SyncPerkRow } from "./commercial/SyncRows";
 import { Icon } from "./icons";
+import {
+  failureText,
+  FALLBACK,
+  fiveYearsAfter,
+  longDate,
+  planBadge,
+  planName,
+  priceLine,
+  useSignIn,
+  usePlan,
+  useSupporterPurchase,
+  whole,
+} from "./supporterFlow";
 import { Button, IconButton } from "./ui/Button";
 import { Field, StatePanels, Switch } from "./ui/Controls";
 import { Dialog } from "./ui/Dialog";
 
-/**
- * What a failed request says here: the details of feedback («your text is kept») do not fit, so a
- * network failure is the server that could not be reached.
- */
-function failureText(error: unknown, t: TFunction): string {
-  const failure = toCommandError(error);
-  if (failure.detail === "too_many_messages") return t("supporter.tooManyCodes");
-  if (failure.code === "network") return t("supporter.unreachable");
-  return describeError(error);
-}
+export { POLL_MS, whole } from "./supporterFlow";
 
-/** How often the payment step asks whether the payment went through; only while it is open. */
-export const POLL_MS = 3000;
-/**
- * Shown when Paddle's own prices cannot be had and none are remembered (Р-64: $2 a month, $20 a
- * year; $50 once for 5 years).
- */
-const FALLBACK: SupporterPrices = {
-  month: { price_id: "", total: "$2", currency: "USD" },
-  year: { price_id: "", total: "$20", currency: "USD" },
-  five_years: { price_id: "", total: "$50", currency: "USD" },
-};
-/**
- * The prices Paddle gave last time, shown at once next time: dollars turning into euros while the
- * dialog opens looks like a change of price. Kept a week, so a new price or another country's
- * currency is not shown first for long; without them the cards wait for Paddle's answer.
- */
-const PRICES_KEY = "supporterPrices";
-const PRICES_KEPT_MS = 7 * 86_400_000;
-type RememberedPrices = { at: number; prices: SupporterPrices };
-function rememberedPrices(): SupporterPrices | null {
-  try {
-    const kept = JSON.parse(storedValue(PRICES_KEY) ?? "null") as RememberedPrices | null;
-    const fresh = kept && Date.now() - kept.at < PRICES_KEPT_MS && kept.at <= Date.now();
-    // Kept by 0.10, before five years were sold, the prices say nothing about them (no key, not
-    // null): forgotten, or their card would appear only once Paddle answers.
-    const complete = kept?.prices?.month?.total && kept.prices.year?.total && "five_years" in kept.prices;
-    return fresh && complete ? kept.prices : null;
-  } catch {
-    return null;
-  }
-}
-const rememberPrices = (prices: SupporterPrices) =>
-  savePreference(PRICES_KEY, JSON.stringify({ at: Date.now(), prices } satisfies RememberedPrices));
-
-/**
- * Supporter's prices: the ones remembered at once, then Paddle's answer, remembered for next time.
- * `ask` «if_unknown» keeps the remembered ones without asking (a dialog that only needs to know
- * what is sold), and asks only without any; «never» does not ask at all.
- */
-function useSupporterPrices(ask: "always" | "if_unknown" | "never" = "always") {
-  const [prices, setPrices] = useState<SupporterPrices | null>(rememberedPrices);
-  const [failed, setFailed] = useState(false);
-  const needed = ask === "always" || (ask === "if_unknown" && prices === null);
-  useEffect(() => {
-    if (!needed) return;
-    let alive = true;
-    api
-      .getSupporterPrices()
-      .then((p) => {
-        rememberPrices(p);
-        if (alive) setPrices(p);
-      })
-      .catch(() => alive && setFailed(true));
-    return () => {
-      alive = false;
-    };
-    // Asked once per dialog: what it shows does not depend on later renders.
-  }, []);
-  return { prices, failed };
-}
 /** What Supporter gives; «reading» is the themes and fonts of the Aa panel (NP-124). */
 const PERKS = ["sync", "backups", "reading", "badge"] as const;
-/** «$20.00» → «$20», «20,00 €» → «20 €»: whole prices without their cents, as on the page of prices. */
-export const whole = (price: string) => price.replace(/([.,])00(?!\d)/, "");
-
-type Step = "plans" | "waiting" | "thanks" | "signIn";
-/** Steps where the dialog has not heard how the payment ended. */
-const unanswered = (s: Step) => s === "plans" || s === "waiting";
-
-/** A date as the dialogs write it: «October 11, 2027». */
-const longDate = (iso: string, language: string) => new Date(iso).toLocaleDateString(language, { day: "numeric", month: "long", year: "numeric" });
-
-/** Five years after a date, as the server counts them (koona-services `upgrade`). */
-function fiveYearsAfter(iso: string): string {
-  const date = new Date(iso);
-  date.setUTCFullYear(date.getUTCFullYear() + 5);
-  return date.toISOString();
-}
-
 /**
  * «Support Koona Pin» (NP-066, sheet 45): the plan → the payment in the browser → thank you, one
  * height for all three (NP-118). The payment page asks for the email and the card; the server makes
@@ -137,103 +61,14 @@ export function SupporterDialog({
   onSignIn: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [step, setStep] = useState<Step>(awaitingSignIn ? "signIn" : "plans");
-  // The app follows a purchase by itself (billing.rs, start) and may see it before this dialog
-  // asks: what it found moves the open dialog on, from the plans or the waiting step.
-  useEffect(() => {
-    if (awaitingSignIn) setStep((s) => (unanswered(s) ? "signIn" : s));
-  }, [awaitingSignIn]);
-  const paidAtOpen = useRef(paid);
-  // Opened while the plan is not known yet: ask now. The notice goes when the answer comes, and a
-  // plan found this way closes the dialog — there was no purchase here to thank for.
-  const unknownAtOpen = useRef(planUnknown);
-  const stepNow = useRef(step);
-  stepNow.current = step;
-  useEffect(() => {
-    if (unknownAtOpen.current) void api.refreshSupporter(true).catch(() => {});
-  }, []);
-  useEffect(() => {
-    if (!paid || paidAtOpen.current) return;
-    if (unknownAtOpen.current && stepNow.current === "plans") {
-      onClose();
-      return;
-    }
-    setPaidEmail(email);
-    setStep((s) => (unanswered(s) || s === "signIn" ? "thanks" : s));
-  }, [paid, email]);
-  const [interval, setPlan] = useState<PlanInterval>(upgrade ? "five_years" : "year");
-  const { prices, failed: pricesFailed } = useSupporterPrices();
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [checkout, setCheckout] = useState<string | null>(null);
-  const [paidEmail, setPaidEmail] = useState(email);
-
-  // The payment step asks every few seconds; closing the dialog or leaving the step stops it. The
-  // app keeps following the purchase by itself, less often (billing.rs, start), and signs in when
-  // it sees the payment.
-  useEffect(() => {
-    if (step !== "waiting") return;
-    let alive = true;
-    const timer = window.setInterval(() => {
-      api
-        .pollCheckout()
-        .then(async (state) => {
-          if (!alive) return;
-          if (state === "paid") {
-            setPaidEmail((await api.getSupporterStatus()).email);
-            setStep("thanks");
-          } else if (state === "sign_in") {
-            setStep("signIn");
-          } else if (state === "none") {
-            // The app follows the payment by itself too (billing.rs): when it was first to see it
-            // paid, the purchase is gone here but the plan is already in place.
-            const status = await api.getSupporterStatus();
-            if (!alive) return;
-            // A subscriber switching to five years has a plan all along: only the five years count.
-            if (upgrade ? status.plan?.interval === "five_years" : status.plan) {
-              setPaidEmail(status.email);
-              setStep("thanks");
-            } else {
-              setStep("plans");
-            }
-          }
-        })
-        .catch(() => {});
-    }, POLL_MS);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [step]);
-
-  const pay = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      setCheckout(await api.startCheckout(interval));
-      setStep("waiting");
-    } catch (err) {
-      setError(failureText(err, t));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Nothing remembered and no answer yet: the cards keep their room with no price in it.
-  const shown = prices ?? (pricesFailed ? FALLBACK : null);
-  // Five years paid once, while the server sells them: their card waits for the prices too.
-  const fiveYearsSold = !shown || !!shown.five_years;
-  const plans = fiveYearsSold ? (["year", "month", "five_years"] as const) : (["year", "month"] as const);
-  // Chosen before Paddle's answer said they are not sold: back to the yearly plan, never a hidden choice.
-  useEffect(() => {
-    if (!fiveYearsSold && !upgrade) setPlan((chosen) => (chosen === "five_years" ? "year" : chosen));
-  }, [fiveYearsSold, upgrade]);
-  const priceLine = (value: PlanInterval, price: string) =>
-    t(value === "year" ? "supporter.perYear" : value === "month" ? "supporter.perMonth" : "supporter.once", { price: whole(price) });
-  const planName = (value: PlanInterval) =>
-    t(value === "year" ? "supporter.yearly" : value === "month" ? "supporter.monthly" : "supporter.fiveYears");
-  const planBadge = (value: PlanInterval) =>
-    value === "year" ? t("supporter.twoMonthsFree") : value === "five_years" ? t("supporter.save50") : null;
+  const { step, interval, setPlan, shown, plans, pay, openAgain, busy, error, checkout, paidEmail } = useSupporterPurchase({
+    email,
+    awaitingSignIn,
+    paid,
+    planUnknown,
+    upgrade,
+    onClose,
+  });
   const plansPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
       <p className="text-sm text-muted">{t("supporter.intro")}</p>
@@ -259,9 +94,9 @@ export function SupporterDialog({
               wide={value === "five_years"}
               checked={interval === value}
               onSelect={() => setPlan(value)}
-              name={planName(value)}
-              price={price ? priceLine(value, price.total) : <PricePending />}
-              badge={planBadge(value)}
+              name={planName(value, t)}
+              price={price ? priceLine(value, price.total, t) : <PricePending />}
+              badge={planBadge(value, t)}
             />
           );
         })}
@@ -313,7 +148,7 @@ export function SupporterDialog({
           )}
         </p>
         <div className="mt-4">
-          <PlanCard checked wide name={t("supporter.fiveYears")} price={price ? priceLine("five_years", price.total) : <PricePending />} badge={t("supporter.save50")} />
+          <PlanCard checked wide name={t("supporter.fiveYears")} price={price ? priceLine("five_years", price.total, t) : <PricePending />} badge={t("supporter.save50")} />
         </div>
         {failure ? (
           <FailureNote text={failure} />
@@ -351,7 +186,7 @@ export function SupporterDialog({
         <button
           type="button"
           disabled={!checkout}
-          onClick={() => checkout && void api.openCheckout(checkout).catch((err) => setError(failureText(err, t)))}
+          onClick={openAgain}
           className="font-medium text-accent hover:underline"
         >
           {t("supporter.openAgain")} ↗
@@ -492,66 +327,15 @@ function PlanCard({
   );
 }
 
-type SignInStep = "email" | "code" | "noPlan";
-
 /**
  * «Sign in as a Supporter» on another computer (sheet 45): the email of the payment, then the code
  * Supabase sends to it. Opened by «I'm already a Supporter». Signed in to an account with no active
- * plan (it ended or was cancelled), the dialog says so instead of closing as if nothing happened.
+ * plan (it ended or was cancelled), the dialog says so instead of closing as if nothing happened;
+ * «See plans» there only where the build sells Supporter.
  */
 export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlans: () => void }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<SignInStep>("email");
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [wait, setWait] = useState(0);
-  const timer = useRef<number | null>(null);
-
-  useEffect(() => () => void (timer.current && window.clearInterval(timer.current)), []);
-  const countdown = () => {
-    setWait(60);
-    if (timer.current) window.clearInterval(timer.current);
-    timer.current = window.setInterval(() => setWait((left) => Math.max(0, left - 1)), 1000);
-  };
-
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-    } catch (err) {
-      setError(failureText(err, t));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const send = () =>
-    run(async () => {
-      await api.sendSignInCode(email);
-      setCode("");
-      setStep("code");
-      countdown();
-    });
-  // Signed in with no plan here: `unknown` when the server could not be asked about it, which is
-  // not the same as «this account has none».
-  const [unknown, setUnknown] = useState(false);
-  const signedIn = (status: SupporterStatus) => {
-    if (status.plan) {
-      onClose();
-      return;
-    }
-    setUnknown(status.plan_unknown);
-    setStep("noPlan");
-  };
-  const verify = () => run(async () => signedIn(await api.verifySignInCode(email, code)));
-  const retry = () => run(async () => signedIn(await api.refreshSupporter()));
-  const signOut = () =>
-    run(async () => {
-      await api.signOutSupporter();
-      onClose();
-    });
+  const { step, setStep, email, setEmail, code, setCode, error, busy, wait, send, verify, retry, signOut, anotherEmail, unknown, codeReady } = useSignIn({ onClose });
 
   const noPlanPanel = (failure: string | null, sizing: boolean) => (
     <div className="flex flex-1 flex-col">
@@ -574,11 +358,11 @@ export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlan
           <Button variant="primary" size="lg" disabled={busy} onClick={() => void retry()}>
             {t("common.retry")}
           </Button>
-        ) : (
+        ) : capabilities.purchase === "paddle" ? (
           <Button variant="primary" size="lg" onClick={onPlans}>
             {t("supporter.seePlans")}
           </Button>
-        )}
+        ) : null}
       </footer>
     </div>
   );
@@ -667,10 +451,7 @@ export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlan
         </span>
         <button
           type="button"
-          onClick={() => {
-            setError(null);
-            setStep("email");
-          }}
+          onClick={anotherEmail}
           className="font-medium text-accent hover:underline"
         >
           {t("supporter.anotherEmail")}
@@ -680,7 +461,7 @@ export function SignInDialog({ onClose, onPlans }: { onClose: () => void; onPlan
         <Button variant="outline" size="lg" type="button" onClick={() => setStep("email")}>
           {t("supporter.back")}
         </Button>
-        <Button variant="primary" size="lg" type="submit" disabled={busy || code.replace(/\D/g, "").length < 6}>
+        <Button variant="primary" size="lg" type="submit" disabled={busy || !codeReady}>
           {t("supporter.signIn")}
         </Button>
       </footer>
@@ -834,97 +615,37 @@ export function PlanDialog({
   /** «Switch to 5 years», offered while a subscription renews. */
   onUpgrade?: () => void;
 }) {
-  const { t, i18n } = useTranslation();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
+  const { status, tone, action: kind, busy, error, setError, offerSwitch, act, signOut } = usePlan({ supporter, onClose, onUpgrade });
   const plan = supporter.plan;
-  const date = (iso: string) => longDate(iso, i18n.language);
-  // «Switch to 5 years» only for a renewing subscription, and only while the server sells them: the
-  // prices remembered this week say so, Paddle is asked only without them, and never for a plan
-  // that cannot switch (five years, canceling, past due).
-  const renewing = !!(plan?.renews_at && plan.status === "active" && plan.interval !== "five_years");
-  const { prices } = useSupporterPrices(renewing ? "if_unknown" : "never");
-  const offerSwitch = renewing && prices?.five_years ? onUpgrade : undefined;
-
-  const run = async (action: () => Promise<unknown>, closeAfter = false) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-      if (closeAfter) onClose();
-    } catch (err) {
-      setError(failureText(err, t));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // The plan as the server has it now: a change or a cancellation in the portal shows here, not
-  // only in the last days of the period. Asked when the dialog opens and each time the window
-  // comes back into focus, as after «Manage» (the app skips an answer seconds old); a failure says
-  // nothing here, the background asks again.
-  useEffect(() => {
-    const recheck = () => void api.refreshSupporter(true).catch(() => {});
-    recheck();
-    window.addEventListener("focus", recheck);
-    return () => window.removeEventListener("focus", recheck);
-  }, []);
-
-  let status: string;
-  let tone: "muted" | "danger" | "amber" = "muted";
-  let action = (
-    <Button variant="outline" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
-      {t("plan.manage")} ↗
-    </Button>
-  );
-  if (!plan) {
-    status = "";
-  } else if (supporter.check_failed) {
-    // Until when the signed plan is kept without the server (billing.rs, `offline_until`).
-    status = t("supporter.unchecked", { date: date(plan.offline_until) });
-    tone = "amber";
-    action = (
-      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(() => api.refreshSupporter())}>
+  let action =
+    kind === "retry" ? (
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => act(kind)}>
         {t("common.retry")}
       </Button>
-    );
-  } else if (plan.status === "past_due") {
-    status = t("supporter.pastDue");
-    tone = "danger";
-    action = (
-      <Button variant="primary" size="lg" disabled={busy} onClick={() => void run(api.openSupporterPortal)}>
+    ) : kind === "updateCard" ? (
+      <Button variant="primary" size="lg" disabled={busy} onClick={() => act(kind)}>
         {t("plan.updateCard")} ↗
       </Button>
+    ) : kind === "close" ? (
+      <Button variant="outline" size="lg" onClick={onClose}>
+        {t("common.close")}
+      </Button>
+    ) : (
+      <Button variant="outline" size="lg" disabled={busy} onClick={() => act(kind)}>
+        {t("plan.manage")} ↗
+      </Button>
     );
-  } else if (plan.interval === "five_years") {
-    // Paid once: nothing to manage in Paddle's portal unless a subscription still renews too.
-    if (plan.also_renews) {
-      status = t("supporter.alsoRenews");
-      tone = "amber";
-    } else {
-      status = t("supporter.paidUntil", { date: date(plan.valid_until) });
-      action = (
-        <Button variant="outline" size="lg" onClick={onClose}>
-          {t("common.close")}
+  // A subscription that renews can become five years paid once, from the end of its period.
+  if (offerSwitch && kind === "manage")
+    action = (
+      <>
+        <Button variant="outline" size="lg" onClick={offerSwitch}>
+          {t("plan.switchToFiveYears")}
         </Button>
-      );
-    }
-  } else if (plan.status === "canceling") {
-    status = t("supporter.endsOn", { date: date(plan.valid_until) });
-  } else {
-    status = plan.renews_at ? t("supporter.renewsOn", { date: date(plan.renews_at) }) : "";
-    // A subscription that renews can become five years paid once, from the end of its period.
-    if (offerSwitch) {
-      action = (
-        <>
-          <Button variant="outline" size="lg" onClick={offerSwitch}>
-            {t("plan.switchToFiveYears")}
-          </Button>
-          {action}
-        </>
-      );
-    }
-  }
+        {action}
+      </>
+    );
   const toneClass = { muted: "text-muted", danger: "font-medium text-danger", amber: "font-medium text-amber" }[tone];
 
   return (
@@ -977,7 +698,7 @@ export function PlanDialog({
           <button
             type="button"
             disabled={busy}
-            onClick={() => void run(api.signOutSupporter, true)}
+            onClick={signOut}
             className="mr-auto text-sm font-medium text-muted hover:text-ink"
           >
             {t("plan.signOut")}

@@ -1,0 +1,511 @@
+/* The phone's editing sheets (NP-072b): B1 Edit link (`ed-`), C1 the collection picker (`cp-`),
+   N1 New link (`nl-`). Under `.phone`, with the kit's tokens (src/styles/phone.css). Opaque
+   content inside the sheet's glass: no backdrop-filter here. */
+
+/* ---------------------------------------------------------------- A link's picture */
+.phone .ed-thumb {
+  position: relative;
+  display: block;
+  flex: none;
+  width: var(--ed-thumb);
+  height: var(--ed-thumb);
+  overflow: hidden;
+  border-radius: var(--ph-r-thumb);
+  background: var(--ph-well);
+}
+.phone .ed-thumb > * {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------- B1 Edit link */
+.phone .ed-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 2px;
+}
+.phone .ed-site {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  text-align: left;
+}
+.phone .ed-site-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.phone .ed-site-text > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .ed-site-text b {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.phone .ed-field textarea {
+  min-height: 0;
+  line-height: 22px;
+  /* Grows with its text where the WebView can (Chromium); a fixed two lines elsewhere. */
+  field-sizing: content;
+  max-height: calc(22px * 6);
+}
+.phone .ed-note textarea {
+  min-height: 44px;
+}
+.phone .ed-field[data-invalid] {
+  box-shadow:
+    inset 0 0 0 1.5px var(--ph-danger),
+    0 0 0 4px color-mix(in srgb, var(--ph-danger) 16%, transparent);
+}
+.phone .ed-field-note {
+  margin: -6px 16px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-danger);
+}
+.phone .ed-collection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 6px 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ph-well);
+  color: var(--ph-icon);
+  text-align: left;
+}
+.phone .ed-collection:active .ed-collection-chip {
+  transform: scale(0.97);
+}
+.phone .ed-collection-label {
+  flex: 1;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--ph-body);
+}
+.phone .ed-collection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  max-width: 60%;
+  padding: 0 12px 0 14px;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  box-shadow:
+    inset 0 0 0 1px var(--ph-hairline),
+    0 1px 2px rgb(0 0 0 / 0.04);
+  color: var(--ph-meta);
+  transition: transform 120ms ease-out;
+}
+.phone .ed-collection-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ph-ink);
+}
+.phone .ed-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.phone .ed-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.phone .ed-tag-row .ph-chip svg {
+  color: var(--ph-icon);
+}
+.phone .ed-tag-row .ph-chip .ed-tag-x {
+  margin-right: -4px;
+  color: var(--ph-faint);
+}
+.phone .ed-add-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 12px;
+  border: 1.25px dashed var(--ph-faint);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ph-accent);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+}
+.phone .ed-tag-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  min-width: 150px;
+  padding: 0 14px 0 12px;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  color: var(--ph-icon);
+  box-shadow:
+    inset 0 0 0 1.5px var(--ph-accent),
+    0 0 0 4px var(--ph-accent-halo);
+}
+.phone .ed-tag-input input {
+  width: 120px;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 18px;
+}
+.phone .ed-tag-suggestions .ph-chip {
+  background: var(--ph-well);
+  box-shadow: none;
+  color: var(--ph-body);
+}
+.phone .ed-alert {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--ph-r-field);
+  background: color-mix(in srgb, var(--ph-danger) 10%, var(--ph-paper));
+  color: var(--ph-danger);
+  font-size: 14px;
+  line-height: 20px;
+}
+.phone .ed-alert svg {
+  flex: none;
+  margin-top: 1px;
+}
+.phone .ed-alert p {
+  color: var(--ph-ink);
+}
+.phone .ed-alert-reason {
+  color: var(--ph-meta);
+  font-size: 13px;
+}
+.phone .ed-trash {
+  align-self: flex-start;
+  margin-top: 8px;
+  margin-left: -12px;
+  color: var(--ph-meta);
+}
+
+/* ---------------------------------------------------------------- C1 Collection picker */
+.phone .cp-search {
+  margin-bottom: 14px;
+}
+.phone .cp-label {
+  margin: 14px 4px 6px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ph-meta);
+}
+.phone .cp-label:first-child {
+  margin-top: 0;
+}
+.phone .cp-suggested {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 16px 8px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ph-accent) 18%, transparent);
+  color: var(--ph-ink);
+  text-align: left;
+}
+.phone .cp-suggested .ph-chip-dot {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+.phone .cp-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.phone .cp-text b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.phone .cp-why {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ph-on-accent-soft);
+}
+.phone .cp-shelf {
+  margin: 0;
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+}
+.phone .cp-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 16px 0 20px;
+  border: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  text-align: left;
+}
+.phone .cp-row + .cp-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 38px;
+  right: 0;
+  height: 1px;
+  background: var(--ph-line);
+}
+.phone .cp-row:active,
+.phone .cp-suggested:active {
+  background: var(--ph-well);
+}
+.phone .cp-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.phone .cp-count {
+  flex: 1;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .cp-new {
+  color: var(--ph-accent);
+}
+.phone .cp-new .cp-name {
+  flex: 1;
+  font-weight: 600;
+}
+.phone .cp-new svg {
+  margin-left: -5px;
+}
+/* The kit's round checkbox, drawn inside a row that is the control (a radio). */
+.phone .cp-check {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--ph-faint);
+  color: var(--ph-on-accent);
+}
+.phone [aria-checked="true"] > .cp-check {
+  background: var(--ph-accent);
+  box-shadow: none;
+}
+.phone .cp-empty {
+  padding: 14px 20px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ph-meta);
+}
+
+/* ---------------------------------------------------------------- N1 New link */
+.phone .nl-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.phone .nl-url {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 6px 0 18px;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+  color: var(--ph-icon);
+  transition: box-shadow 160ms ease-out;
+}
+.phone .nl-url:focus-within {
+  box-shadow:
+    inset 0 0 0 1.5px var(--ph-accent),
+    0 0 0 4px var(--ph-accent-halo);
+}
+.phone .nl-url input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ph-ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 22px;
+}
+.phone .nl-url input::placeholder {
+  color: var(--ph-meta);
+}
+.phone .nl-note {
+  margin: -4px 18px 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ph-meta);
+}
+.phone .nl-note[data-tone="error"] {
+  color: var(--ph-danger);
+}
+.phone .nl-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 88px;
+  padding: 12px;
+  border-radius: var(--ph-r-field);
+  background: var(--ph-paper);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+}
+.phone .nl-card-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.phone .nl-card-text b {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 600;
+}
+.phone .nl-card-text .ph-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .nl-shimmer {
+  display: block;
+  border-radius: 999px;
+  background: var(--ph-well);
+  animation: nl-pulse 1.2s ease-in-out infinite alternate;
+}
+.phone .nl-card .nl-shimmer.ed-thumb {
+  border-radius: var(--ph-r-thumb);
+}
+@keyframes nl-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+.phone .nl-feed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px 16px 12px 12px;
+  border-radius: 34px;
+  background: var(--ph-paper);
+  box-shadow: inset 0 0 0 1px var(--ph-hairline);
+}
+.phone .nl-feed-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--ph-accent-soft);
+  color: var(--ph-accent);
+}
+.phone .nl-feed-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.phone .nl-feed-text > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone .nl-feed-text b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.phone .nl-feed-text .ph-meta[data-tone="warn"] {
+  color: var(--ph-danger);
+}
+/* "Save to" and its switch, the switch under it when a language makes the two too wide. */
+.phone .nl-saveto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  padding-left: 4px;
+}
+.phone .nl-saveto > span {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--ph-body);
+}
+.phone .nl-saveto .ph-segmented {
+  flex: none;
+  min-width: 188px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone .nl-shimmer {
+    animation: none;
+  }
+}
+.phone .cp-check .cp-tick {
+  opacity: 0;
+}
+.phone [aria-checked="true"] > .cp-check .cp-tick {
+  opacity: 1;
+}

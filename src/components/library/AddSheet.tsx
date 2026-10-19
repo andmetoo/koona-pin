@@ -38,7 +38,7 @@ interface Lookup {
 const LOOKUP_MS = 220;
 
 /** The library's bookmarks of one site, for «already saved» and the suggested collection. Read locally, never sent anywhere. */
-const siteBookmarks = (url: URL) =>
+export const siteBookmarks = (url: URL) =>
   api
     .getBookmarks({ domain: domainOf(url) }, { limit: 200 })
     .then((page) => page.items)
@@ -49,7 +49,7 @@ const siteBookmarks = (url: URL) =>
  * asking (Chromium's `clipboard-read` already granted); otherwise none, and no
  * prompt. It stays on this computer: it is only shown, and compared with the library.
  */
-async function clipboardLink(): Promise<string | null> {
+export async function clipboardLink(): Promise<string | null> {
   try {
     const state = await navigator.permissions?.query({ name: "clipboard-read" as PermissionName });
     if (state?.state !== "granted") return null;

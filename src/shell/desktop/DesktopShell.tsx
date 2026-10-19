@@ -3,7 +3,7 @@ import { useCloseToBackground, useDesktopStatus } from "../../app/desktopStatus"
 import { useShortcuts } from "../../app/shortcuts";
 import { BackgroundDialog } from "../../components/library/Dialogs";
 import { AssistantDialog } from "../../components/settings/AssistantDialog";
-import { Workspace } from "../../components/shell/Workspace";
+import { Workspace } from "./Workspace";
 import { UpdateDialog } from "../../components/UpdateDialog";
 import { api, desktopOnly } from "../../services/api";
 import { describeError } from "../../services/errors";
