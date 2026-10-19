@@ -9,6 +9,7 @@ import { Icon } from "./icons";
 import { BackupRestoreDialog } from "./BackupRestoreDialog";
 import { Button } from "./ui/Button";
 import { HelpLink } from "./ui/HelpLink";
+import { opener } from "../services/opener";
 
 const ready: LibraryStatus = { state: "ready", damaged: false, moved_aside: null };
 
@@ -182,7 +183,7 @@ function LibraryFailure({ failure, onRetry, onRestore }: { failure: OpenFailure;
             {t("gate.restore")}
           </button>
         )}
-        <HelpLink topic="libraryWontOpen" onOpen={(url) => void api.openUrl(url).catch((err) => setNote(describeError(err)))} />
+        <HelpLink topic="libraryWontOpen" onOpen={opener(setNote)} />
       </div>
       {note && (
         <p role="status" className="text-xs">

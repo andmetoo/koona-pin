@@ -36,6 +36,7 @@ import { type SettingsPage, themeName } from "./settingsRoute";
 import { SyncCard, useSyncCard, useSyncNow } from "./SyncCard";
 import { sizeName } from "./youText";
 import { helpUrl } from "../../../services/help";
+import { opener } from "../../../services/opener";
 
 // The phone's Settings (NP-072b): what the desktop's Settings page offers that a phone has, as
 // shelves of rows and a page per topic. Hidden here, by capability or because a phone has no use
@@ -121,7 +122,7 @@ export function SettingsList({ go }: { go: (page: SettingsPage) => void }) {
           title={t("settings.help")}
           subtitle={t("settings.helpHint")}
           chevron
-          onClick={() => void api.openUrl(helpUrl("home")).catch((err) => say(describeError(err), true))}
+          onClick={() => opener(say)(helpUrl("home"))}
         />
         <ShelfRow icon={MessageSquare} title={t("settings.feedback")} chevron onClick={() => setSurface("feedback")} />
         <ShelfRow icon={Info} title={t("phone.settings.about")} chevron onClick={() => go("about")} />
@@ -387,7 +388,7 @@ export function AboutPage() {
   const { app } = usePhone();
   const { t, i18n, say, setSurface } = app;
   const version = useVersion();
-  const open = (url: string) => void api.openUrl(url).catch((err) => say(describeError(err), true));
+  const open = opener(say);
   return (
     <>
       <Shelf className="st-shelf">

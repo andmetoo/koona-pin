@@ -2,13 +2,14 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { McpSetup, McpStatus } from "../../types";
-import { api, desktopOnly } from "../../services/api";
+import { desktopOnly } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { Icon } from "../icons";
 import { Button } from "../ui/Button";
 import { Dot, Segmented, TabPanels } from "../ui/Controls";
 import { Dialog } from "../ui/Dialog";
 import { HelpLink } from "../ui/HelpLink";
+import { opener } from "../../services/opener";
 
 type Client = "desktop" | "code" | "chatgpt" | "custom";
 const CLIENTS: readonly Client[] = ["desktop", "code", "chatgpt", "custom"];
@@ -142,7 +143,7 @@ export function AssistantDialog({
           )}
         </TabPanels>
         <p className="border-t border-divider pt-4 text-xs leading-4 text-muted">
-          {t("assistant.note")} <HelpLink topic="aiAssistants" onOpen={(url) => void api.openUrl(url).catch((err) => onNotice(describeError(err), true))} />
+          {t("assistant.note")} <HelpLink topic="aiAssistants" onOpen={opener(onNotice)} />
         </p>
       </div>
     </Dialog>

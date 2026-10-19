@@ -485,7 +485,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
         onAddToBundle={addRowToBundle}
         notifications={notifications}
         onClearNotifications={clearNotifications}
-        onOpenUrl={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
+        onOpenUrl={actions.open}
         feeds={feeds}
         feedsOpen={page === "feeds"}
         feedUid={feedPlace.feed}
@@ -653,7 +653,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
                       {latestCopy
                         ? t("library.damagedLatest", { when: copyTime(latestCopy.created_at, t, i18n.language, true) })
                         : t("library.damaged")}{" "}
-                      <HelpLink topic="libraryMessages" look="inherit" onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))} />
+                      <HelpLink topic="libraryMessages" look="inherit" onOpen={actions.open} />
                     </Banner>
                   )}
                   {library.error && (
@@ -887,7 +887,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
             setTriage(null);
             setPage("settings");
           }}
-          onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
+          onOpen={actions.open}
         />
       )}
       {surface === "restore" && (
@@ -989,6 +989,7 @@ export function Workspace({ app, windowBar, overlays }: { app: AppState; windowB
           onStatus={setSync}
           onClose={() => setSurface(null)}
           onCopy={(text) => void copy(text)}
+          onOpen={actions.open}
           onUpdate={() => {
             // No version on offer yet: Settings → Updates, where it is checked for.
             if (offer(update)) return setSurface("update");

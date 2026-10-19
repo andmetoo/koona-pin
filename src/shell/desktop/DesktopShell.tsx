@@ -5,10 +5,11 @@ import { BackgroundDialog } from "../../components/library/Dialogs";
 import { AssistantDialog } from "../../components/settings/AssistantDialog";
 import { Workspace } from "./Workspace";
 import { UpdateDialog } from "../../components/UpdateDialog";
-import { api, desktopOnly } from "../../services/api";
+import { desktopOnly } from "../../services/api";
 import { describeError } from "../../services/errors";
 import { offer } from "../../services/update";
 import { WindowBar } from "./WindowBar";
+import { opener } from "../../services/opener";
 
 /**
  * The desktop's window (NP-072a): the library with the sidebar and the toolbar, under the window bar
@@ -39,7 +40,7 @@ export function DesktopShell() {
               onClose={() => setSurface(null)}
               onInstall={() => void desktopOnly().installUpdate().catch((err) => say(describeError(err), true))}
               onCancel={() => void desktopOnly().cancelUpdate().catch((err) => say(describeError(err), true))}
-              onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
+              onOpen={opener(say)}
             />
           )}
           {surface === "assistant" && (

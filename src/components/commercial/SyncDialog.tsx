@@ -50,6 +50,7 @@ export function SyncDialog({
   onStatus,
   onClose,
   onCopy,
+  onOpen,
   onUpdate,
   onRenew,
   onSignIn,
@@ -61,6 +62,8 @@ export function SyncDialog({
   onStatus: (status: SyncStatus) => void;
   onClose: () => void;
   onCopy: (text: string) => void;
+  /** Opens the help on sync (NP-092) in the browser, and says when it can't, outside the dialog. */
+  onOpen: (url: string) => void;
   /** «Update»: the app's update dialog. */
   onUpdate: () => void;
   /** «Renew…»: the Supporter dialog. */
@@ -83,9 +86,6 @@ export function SyncDialog({
   useEffect(() => {
     void api.getVersion().then(setVersion).catch(() => {});
   }, []);
-
-  /** The help on sync (NP-092) in the browser; a browser that does not open is said in the dialog. */
-  const openHelp = (url: string) => void api.openUrl(url).catch((err) => setError(describeError(err)));
 
   /** Runs a command; its status is shown, a failure stays in the dialog. Returns whether it worked. */
   const run = async (action: () => Promise<SyncStatus | void>): Promise<SyncStatus | null> => {
@@ -183,7 +183,7 @@ export function SyncDialog({
       />
     );
 
-  if (view === "setup") return <SetupDialog key="setup" status={status} busy={busy} error={error} onClose={onClose} onOpen={openHelp} onTurnOn={(name) => void run(() => api.enableSync(name))} />;
+  if (view === "setup") return <SetupDialog key="setup" status={status} busy={busy} error={error} onClose={onClose} onOpen={onOpen} onTurnOn={(name) => void run(() => api.enableSync(name))} />;
 
   if (view === "pairHub" && status.pairing?.code) {
     const pairing = status.pairing;
@@ -382,7 +382,7 @@ export function SyncDialog({
             <button type="button" disabled={busy} onClick={() => void run(api.disableSync)} className="text-sm font-medium whitespace-nowrap text-muted hover:text-ink">
               {t("sync.turnOff")}
             </button>
-            <HelpLink topic="sync" label="help" look="sm" onOpen={openHelp} className="whitespace-nowrap" />
+            <HelpLink topic="sync" label="help" look="sm" onOpen={onOpen} className="whitespace-nowrap" />
           </div>
           <div className="flex items-center gap-2">
             {!removed && (

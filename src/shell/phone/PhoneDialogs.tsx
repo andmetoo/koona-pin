@@ -7,10 +7,10 @@ import { SupporterDialog } from "../../components/SupporterDialog";
 import { capabilities } from "../../platform/capabilities";
 import { api } from "../../services/api";
 import { bundle } from "../../services/bundle";
-import { describeError } from "../../services/errors";
 import { openRequests } from "../../services/openRequests";
 import { usePhone } from "./PhoneContext";
 import { useSupporterSheets } from "./supporter/useSupporterSheets";
+import { opener } from "../../services/opener";
 
 /**
  * The shared dialogs a phone still shows (NP-072b), opened by `app.surface` and the app's other
@@ -106,7 +106,7 @@ export function PhoneDialogs() {
             openRequests.done();
             stack.push({ name: "settings" });
           }}
-          onOpen={(url) => void api.openUrl(url).catch((err) => say(describeError(err), true))}
+          onOpen={opener(say)}
         />
       )}
       {surface === "restore" && (
@@ -161,6 +161,7 @@ export function PhoneDialogs() {
           onStatus={setSync}
           onClose={() => setSurface(null)}
           onCopy={(text) => void copy(text)}
+          onOpen={opener(say)}
           onUpdate={openSettings}
           onRenew={() => setSurface(supporter?.plan ? "plan" : "supporter")}
           onSignIn={() => setSurface("signIn")}
