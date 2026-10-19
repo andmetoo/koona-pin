@@ -71,6 +71,9 @@ test("the sheet saves to Library, Inbox and Reading, with a preview and the sugg
   await expect(design).toHaveAttribute("aria-pressed", "true");
   await expect(design).toHaveAttribute("data-suggested", "true");
   await expect(sheet(page).getByRole("button", { name: "Library", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // Typed: the first Enter looks the page up, the second saves it.
+  await page.keyboard.press("Enter");
+  await expect(sheet(page).getByRole("button", { name: "Save link" })).toBeEnabled();
   await page.keyboard.press("Enter");
   await expect(sheet(page)).toHaveCount(0);
   await expect(toast(page)).toContainText("Saved to Design");

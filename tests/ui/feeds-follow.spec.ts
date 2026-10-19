@@ -91,6 +91,24 @@ test("a link typed by hand asks nothing; a pasted one asks once, and editing it 
   expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/abc"']);
 });
 
+test("a typed link is looked up on Enter, not saved; Enter again saves it", async ({ page }) => {
+  await page.getByRole("complementary").getByRole("button", { name: "New link", exact: true }).click();
+  await field(page).pressSequentially("fieldnotes.example.com/walking-the-old-railway");
+  await page.waitForTimeout(600);
+  expect(await calls(page, "previewLink")).toEqual([]);
+  await field(page).press("Enter");
+  await expect(sheet(page)).toBeVisible();
+  // While it is looked up saving waits, so it cannot save before the feed is known.
+  await expect(sheet(page).getByRole("button", { name: "Save link" })).toBeDisabled();
+  await expect(offer(page)).toContainText("Field Notes has a feed");
+  await expect(sheet(page).locator("[data-add-preview=new]")).toContainText("Walking the old railway");
+  expect(await calls(page, "previewLink")).toEqual(['previewLink "https://fieldnotes.example.com/walking-the-old-railway"']);
+  await field(page).press("Enter");
+  await expect(sheet(page)).toHaveCount(0);
+  expect(await calls(page, "addBookmark")).toHaveLength(1);
+  expect(await calls(page, "previewLink")).toHaveLength(1);
+});
+
 test("«Save and follow» saves the bookmark, then follows the feed; its posts are there", async ({ page }) => {
   await open(page, "https://fieldnotes.example.com/");
   await sheet(page).getByRole("switch", { name: "Follow Field Notes" }).click();
