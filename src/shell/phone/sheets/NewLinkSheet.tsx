@@ -105,9 +105,12 @@ export function NewLinkSheet({ props }: { props: NewLinkSheetProps }) {
     setSaved(null);
   };
 
+  /** The link is being looked up: the primary button waits, so it never saves a feed's address as a page. */
+  const asking = !!url && pasted === text && linkPreview.state === "looking";
+
   const save = async () => {
     const link = typedLink(text);
-    if (busy) return;
+    if (busy || asking) return;
     if (!link) return field.current?.focus();
     const candidate = offer.kind === "offer" || offer.kind === "feed" ? offer.candidate : null;
     const following = candidate && (primary === "saveFollow" || primary === "follow") ? candidate : null;
@@ -176,7 +179,7 @@ export function NewLinkSheet({ props }: { props: NewLinkSheetProps }) {
       label={t("phone.newLink.title")}
       title={t("phone.newLink.title")}
       footer={
-        <Button kind="primary" block type="submit" form={formId} disabled={busy}>
+        <Button kind="primary" block type="submit" form={formId} disabled={busy || asking}>
           {primaryLabel}
         </Button>
       }

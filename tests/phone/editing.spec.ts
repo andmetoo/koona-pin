@@ -171,6 +171,8 @@ test("New link: a typed link is looked up on Go, not saved; Go again saves it", 
   await expect(sheet.locator("[data-feed-offer]")).toHaveCount(0);
   await field.press("Enter");
   await expect(sheet).toBeVisible();
+  // While it is looked up the button waits, so it cannot save before the feed is known.
+  await expect(sheet.getByRole("button", { name: "Save link" })).toBeDisabled();
   await expect(sheet.getByRole("switch", { name: "Follow Field Notes" })).toBeVisible();
   await field.press("Enter");
   await expect(sheet).toHaveCount(0);
