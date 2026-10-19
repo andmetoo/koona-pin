@@ -1877,8 +1877,6 @@
       "minLeft_other": "{{count}}분 남음",
       "end": "끝까지 읽었습니다",
       "progress": "읽은 정도",
-      "percent": "{{percent}}%",
-      "done": "완료",
       "smaller": "글자 작게",
       "larger": "글자 크게",
       "themeAuto": "앱과 같게"

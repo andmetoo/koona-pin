@@ -11,7 +11,12 @@ import { Shelf, ShelfRow } from "../ui/Shelf";
  * `bookmark`: the one the opener has at hand (a search result is not in the app's list); the menu
  * takes the app's own copy when it has it, and reads it by id when neither is there.
  */
-export type BookmarkMenuProps = { bookmarkId: number; bookmark?: Bookmark };
+export type BookmarkMenuProps = {
+  bookmarkId: number;
+  bookmark?: Bookmark;
+  /** Opened from the reader: "Remove from Reading" finishes it (out of Reading and read, one Undo). */
+  fromReader?: boolean;
+};
 
 /**
  * A bookmark's long-press menu (NP-072b): a detached sheet with its title and site, and the
@@ -39,7 +44,15 @@ export function BookmarkMenu({ props }: { props: BookmarkMenuProps }) {
             <ShelfRow icon={ExternalLink} title={t("phone.bookmarkMenu.open")} onClick={run((b) => actions.open(b.url))} />
             <ShelfRow icon={Pencil} title={t("phone.bookmarkMenu.edit")} onClick={run(actions.edit)} />
             <ShelfRow icon={Heart} title={bookmark.is_favorite ? t("card.unfavorite") : t("card.favorite")} onClick={run(actions.favorite)} />
-            <ShelfRow icon={BookOpen} title={bookmark.reading_at ? t("card.fromReading") : t("card.toReading")} onClick={run(actions.reading)} />
+            <ShelfRow
+              icon={BookOpen}
+              title={bookmark.reading_at ? t("card.fromReading") : t("card.toReading")}
+              onClick={run(
+                props.fromReader && bookmark.reading_at
+                  ? (b) => void app.readingChange(b, { action: "finish" }, t("phone.reader.finished", { title: b.title || b.domain || b.url }))
+                  : actions.reading,
+              )}
+            />
             {/* Read or not matters in Reading, and for an article read once (as on the desktop). */}
             {(bookmark.reading_at || bookmark.read_at) && (
               <ShelfRow icon={BookCheck} title={bookmark.read_at ? t("card.markUnread") : t("card.markRead")} onClick={run(actions.read)} />

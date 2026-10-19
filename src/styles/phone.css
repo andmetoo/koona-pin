@@ -1503,6 +1503,15 @@
 .phone[data-vbar]:has(.ph-vbar-thumb:not(:empty)) .ph-rail-rule {
   margin: 5px 0;
 }
+/* The reader's drop stretches up out of the thumb zone: no "+" over it there. The places keep
+   exactly where they are (the rail stands 63 higher by what it gives up: the rule and "+"), and
+   the space under them is the drop's. */
+.phone[data-vbar]:has(.ph-vbar-thumb .lq-drop) :is(.ph-rail-new, .ph-rail-rule) {
+  display: none;
+}
+.phone[data-vbar]:has(.ph-vbar-thumb .lq-drop) .ph-rail-column {
+  bottom: calc(var(--safe-bottom) + 80px + 63px);
+}
 /* The inner display: the list pane between the fold and the column, the detail sheet on the far
    side of the fold (DU1, DU2), 16 from the edges and on the bottom inset. */
 .phone[data-fold][data-vbar] .ph-pane-list {

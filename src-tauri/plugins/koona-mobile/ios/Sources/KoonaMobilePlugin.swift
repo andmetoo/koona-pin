@@ -59,16 +59,20 @@ class KoonaMobilePlugin: Plugin {
     }
 
     // The keyboard: the page learns its height as the bottom inset, as Android passes it
-    // (`--kp-inset-bottom`, the bridge's `insets`), so sheets and bars rise above it; the WebView
-    // does not scroll the whole page up to reveal a field, which moved the bars off the screen.
-    pinned = webview.scrollView.observe(\.contentOffset, options: [.new]) { scroll, _ in
+    // (`--kp-inset-bottom`, the bridge's `insets`), so sheets and bars rise above it; while it is
+    // up the WebView does not scroll the whole page up to reveal a field, which moved the bars off
+    // the screen. Otherwise WebKit's own scrolling is left alone.
+    pinned = webview.scrollView.observe(\.contentOffset, options: [.new]) { [weak self] scroll, _ in
       MainActor.assumeIsolated {
+        guard let self = self, self.keyboard > 0 else { return }
         if scroll.contentOffset != .zero { scroll.contentOffset = .zero }
       }
     }
 
     // Each page load asks for the system's signals and reports its theme as it changes.
     let controller = webview.configuration.userContentController
+    // A second load must not add the handler twice (WebKit throws on a name it has).
+    controller.removeScriptMessageHandler(forName: "koonaMobile")
     controller.add(WeakMessages(self), name: "koonaMobile")
     controller.addUserScript(WKUserScript(source: Self.pageScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
 
@@ -159,6 +163,8 @@ class KoonaMobilePlugin: Plugin {
       }
       if height == self.keyboard { return }
       self.keyboard = height
+      // Up or down again: the page where it belongs, whatever WebKit scrolled before we heard.
+      if webView.scrollView.contentOffset != .zero { webView.scrollView.contentOffset = .zero }
       self.sendInsets()
     }
   }

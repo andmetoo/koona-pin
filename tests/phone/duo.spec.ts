@@ -47,8 +47,12 @@ test("outer display, the reader (DO2): no pill; actions on a slab, the navigatio
   expect(Math.round(slab.x)).toBe(382);
   expect(Math.round(slab.y)).toBe(174 + 4);
   await expect(page.locator("[data-vbar-actions]").getByRole("button", { name: "Open original" })).toBeVisible();
-  // The navigation stays, higher and compact, above the drop.
+  // The navigation stays, higher and compact, above the drop; no "+" over the drop, the places
+  // where they would be with it.
   await expect(page.locator(".ph-rail-column")).not.toHaveAttribute("data-hidden");
+  await expect(rail(page).getByRole("button", { name: "New link", exact: true })).toBeHidden();
+  const reading = await box(rail(page).getByRole("button", { name: "Reading", exact: true }));
+  expect(Math.round(reading.y)).toBe(314 + 5 + 2 * 44 + 1);
   const nav = await box(rail(page));
   const drop = await box(page.locator("[data-vbar-thumb] .lq-drop-body"));
   expect(nav.y + nav.height).toBeLessThanOrEqual(drop.y - 14);

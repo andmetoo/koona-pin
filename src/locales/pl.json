@@ -2252,8 +2252,6 @@
       "minLeft_other": "zostało {{count}} min",
       "end": "Doczytano do końca",
       "progress": "Przeczytano",
-      "percent": "{{percent}} %",
-      "done": "Gotowe",
       "smaller": "Mniejszy tekst",
       "larger": "Większy tekst",
       "themeAuto": "Jak w aplikacji"

@@ -333,7 +333,7 @@
   color: var(--ph-accent);
   fill: var(--ph-accent);
 }
-/* The reading progress (LiquidProgress.tsx): a 22 pie, an accent sector on a hairline track, no
+/* The reading progress (LiquidProgress.tsx): a 26 pie, an accent sector on a hairline track, no
    number; pulled up out of the pill it stretches into a drop. Owner, 19 October: no Done. */
 .phone .rd-actions .lq-pie {
   display: flex;

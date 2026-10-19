@@ -2002,8 +2002,6 @@
       "minLeft_other": "{{count}} min left",
       "end": "You reached the end",
       "progress": "Read so far",
-      "percent": "{{percent}} %",
-      "done": "Done",
       "smaller": "Smaller text",
       "larger": "Larger text",
       "themeAuto": "Match app"

@@ -1877,8 +1877,6 @@
       "minLeft_other": "还剩 {{count}} 分钟",
       "end": "已读到结尾",
       "progress": "已读进度",
-      "percent": "{{percent}}%",
-      "done": "完成",
       "smaller": "缩小文字",
       "larger": "放大文字",
       "themeAuto": "跟随应用"

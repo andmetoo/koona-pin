@@ -13,6 +13,8 @@ const THRESHOLD = 110;
 const THRESHOLD_UP = 120;
 /** Movement before a touch is a drag (sideways) or a scroll (up and down). */
 const SLOP = 8;
+/** Until the drag is this long its axis may still change: a swipe that starts a little upward can become Keep. */
+const AXIS = 28;
 
 /**
  * The triage card's swipe (doc/mobile-design.md, Triage card; owner, 19 October): it follows the
@@ -78,6 +80,7 @@ export function useSwipe(onDecide: (kind: Swiped, from: number) => void) {
         el.setPointerCapture?.(e.pointerId);
         el.style.transition = "none";
       }
+      if (Math.hypot(dx, dy) < AXIS) g.up = -dy >= Math.abs(dx);
       g.dx = dx;
       g.dy = dy;
       let progress: number;

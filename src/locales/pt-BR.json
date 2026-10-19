@@ -2127,8 +2127,6 @@
       "minLeft_other": "faltam {{count}} min",
       "end": "Você chegou ao fim",
       "progress": "Lido até agora",
-      "percent": "{{percent}} %",
-      "done": "Concluir",
       "smaller": "Texto menor",
       "larger": "Texto maior",
       "themeAuto": "Igual ao app"

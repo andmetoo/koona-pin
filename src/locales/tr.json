@@ -2002,8 +2002,6 @@
       "minLeft_other": "{{count}} dk kaldı",
       "end": "Sona ulaştınız",
       "progress": "Okunan kısım",
-      "percent": "%{{percent}}",
-      "done": "Tamam",
       "smaller": "Daha küçük metin",
       "larger": "Daha büyük metin",
       "themeAuto": "Uygulamaya uy"

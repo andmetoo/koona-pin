@@ -119,6 +119,21 @@ test("a swipe up past the threshold keeps the link and adds it to Reading; a sho
   await expect(card(page)).not.toHaveAttribute("data-triage-card", first!);
 });
 
+test("a swipe that starts a little upward and goes right is still Keep", async ({ page }) => {
+  await openInbox(page);
+  const first = await card(page).getAttribute("data-triage-card");
+  const box = (await card(page).boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 4, y - 11, { steps: 2 });
+  await page.mouse.move(x + 180, y - 14, { steps: 12 });
+  await page.mouse.up();
+  await expect(snackbar(page)).toContainText("Kept · ");
+  await expect(card(page)).not.toHaveAttribute("data-triage-card", first!);
+});
+
 test("a drag that starts downward on the card decides nothing", async ({ page }) => {
   await openInbox(page);
   const first = await card(page).getAttribute("data-triage-card");

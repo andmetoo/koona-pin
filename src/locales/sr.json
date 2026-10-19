@@ -2127,8 +2127,6 @@
       "minLeft_other": "остало {{count}} мин",
       "end": "Стигли сте до краја",
       "progress": "Прочитано до сада",
-      "percent": "{{percent}} %",
-      "done": "Готово",
       "smaller": "Мањи текст",
       "larger": "Већи текст",
       "themeAuto": "Као апликација"

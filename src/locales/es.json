@@ -2127,8 +2127,6 @@
       "minLeft_other": "quedan {{count}} min",
       "end": "Has llegado al final",
       "progress": "Leído hasta ahora",
-      "percent": "{{percent}} %",
-      "done": "Listo",
       "smaller": "Texto más pequeño",
       "larger": "Texto más grande",
       "themeAuto": "Como la app"

@@ -108,6 +108,9 @@ pub enum BulkChange {
     Reading { reading: bool },
     /// Marked read, or unread.
     Read { read: bool },
+    /// Finished from the phone's reader: out of Reading and marked read, one
+    /// command undone whole.
+    Finish,
     /// «Новая коллекция из выбранного»: created and filled in one go.
     NewCollection { name: String },
 }
@@ -148,6 +151,7 @@ pub async fn bulk_update(
         BulkChange::Reading { reading: false } => (Action::FromReading, Ok(db::Bulk::Reading(false))),
         BulkChange::Read { read: true } => (Action::Read, Ok(db::Bulk::Read(true))),
         BulkChange::Read { read: false } => (Action::Unread, Ok(db::Bulk::Read(false))),
+        BulkChange::Finish => (Action::FromReading, Ok(db::Bulk::Finish)),
         BulkChange::NewCollection { name } if name.trim().is_empty() => {
             return Err(CommandError::detailed(ErrorCode::InvalidRequest, ErrorDetail::EmptyCollectionName, "Enter a collection name"))
         }

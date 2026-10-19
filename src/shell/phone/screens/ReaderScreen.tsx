@@ -15,7 +15,6 @@ import { SiteMark } from "../../../components/library/Bookmarks";
 import { usePicture } from "../../../hooks/usePicture";
 import { useReadingProgress } from "../../../hooks/useReadingProgress";
 import { api } from "../../../services/api";
-import { describeError } from "../../../services/errors";
 import { coverOf, siteName } from "../../../services/cover";
 import { knownMinutes, readingMinutes } from "../../../services/reader";
 import type { Bookmark, BookmarkChange } from "../../../types";
@@ -73,22 +72,23 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
       setReady(true);
     });
 
-  // Finishing takes the bookmark out of Reading, with Undo in the snackbar; the reader stays.
+  // Finishing takes the bookmark out of Reading and marks it read, one command with one Undo
+  // (app/actions.ts `readingChange`); the reader stays. Once only: a snap and a tap, or two taps
+  // on the end row, finish it once.
   const inReading = !!b.reading_at;
   const [finished, setFinished] = useState(false);
+  const finishing = useRef(false);
   useEffect(() => {
     if (inReading) setFinished(false);
   }, [inReading]);
   const finish = () => {
-    if (!b.reading_at) return;
+    if (!b.reading_at || finished || finishing.current) return;
+    finishing.current = true;
     setFinished(true);
-    void api
-      .bulkUpdate([b.id], { action: "reading", reading: false })
-      .then(({ command }) => app.say(t("phone.reader.finished", { title: b.title || b.domain || b.url }), false, app.undoing(command)))
-      .catch((err) => {
-        setFinished(false);
-        app.say(describeError(err), true);
-      });
+    void app.readingChange(b, { action: "finish" }, t("phone.reader.finished", { title: b.title || b.domain || b.url })).then((done) => {
+      finishing.current = false;
+      if (!done) setFinished(false);
+    });
   };
   const ask = () => sheets.open({ kind: "finishReading", props: { onFinish: finish } });
   const left = minutes !== null && progress < 1 ? Math.max(1, Math.ceil(minutes * (1 - progress))) : null;
@@ -138,7 +138,7 @@ function Reader({ bookmark: b, hidden }: { bookmark: Bookmark; hidden: boolean }
                 icon={Ellipsis}
                 size={44}
                 label={t("phone.reader.more")}
-                onClick={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id } })}
+                onClick={() => sheets.open({ kind: "bookmarkMenu", props: { bookmarkId: b.id, fromReader: true } })}
               />
             </>
           }

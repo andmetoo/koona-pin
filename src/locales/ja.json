@@ -1877,8 +1877,6 @@
       "minLeft_other": "残り {{count}} 分",
       "end": "最後まで読みました",
       "progress": "読んだ割合",
-      "percent": "{{percent}}%",
-      "done": "完了",
       "smaller": "文字を小さく",
       "larger": "文字を大きく",
       "themeAuto": "アプリに合わせる"

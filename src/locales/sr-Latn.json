@@ -2141,8 +2141,6 @@
       "minLeft_other": "ostalo {{count}} min",
       "end": "Stigli ste do kraja",
       "progress": "Pročitano do sada",
-      "percent": "{{percent}} %",
-      "done": "Gotovo",
       "smaller": "Manji tekst",
       "larger": "Veći tekst",
       "themeAuto": "Kao aplikacija"

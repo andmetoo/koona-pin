@@ -125,6 +125,37 @@ test.describe("the reader", () => {
     await expect(end).toHaveCount(0);
   });
 
+  test("finishing also marks it read, once; one Undo puts back both", async ({ page }) => {
+    await openPhone(page);
+    await navPill(page).getByRole("button", { name: "Reading" }).click();
+    const reader = await openFirstBookmark(page);
+    const end = reader.locator("[data-reader-end]");
+    await end.scrollIntoViewIfNeeded();
+    // How it stood before (scrolled to the end, it may be read already): Undo returns to that.
+    const menu = page.locator('[data-sheet-kind="bookmarkMenu"]');
+    const readRow = menu.getByRole("button", { name: /^Mark as (un)?read$/ });
+    await reader.getByRole("button", { name: "More" }).click();
+    const before = await readRow.textContent();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    // Two quick taps: one finish, one notice.
+    await end.getByRole("button", { name: "Remove from Reading" }).dblclick();
+    await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+    await expect(page.locator("[data-snackbar]")).toHaveCount(1);
+    await reader.getByRole("button", { name: "More" }).click();
+    await expect(menu.getByRole("button", { name: "Send to Reading" })).toBeVisible();
+    await expect(menu.getByRole("button", { name: "Mark as unread" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await page.locator("[data-snackbar]").getByRole("button", { name: "Undo" }).click();
+    await reader.getByRole("button", { name: "More" }).click();
+    await expect(menu.getByRole("button", { name: "Remove from Reading" })).toBeVisible();
+    await expect(readRow).toHaveText(before!);
+    // From the reader, the menu's "Remove from Reading" finishes it too.
+    await menu.getByRole("button", { name: "Remove from Reading" }).click();
+    await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+  });
+
   test("outside Reading the pie only shows the progress", async ({ page }) => {
     await openPhone(page);
     const reader = await openFirstBookmark(page);

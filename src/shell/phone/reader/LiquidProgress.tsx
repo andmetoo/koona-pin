@@ -27,7 +27,16 @@ export type LiquidProgressProps = {
   caption?: string;
 };
 
-const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** Reduce Motion, read once and kept up to date: not a media query per frame. */
+let still = false;
+if (typeof window !== "undefined" && window.matchMedia) {
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  still = query.matches;
+  query.addEventListener?.("change", (e) => {
+    still = e.matches;
+  });
+}
+const reducedMotion = () => still;
 
 /**
  * The reading progress as liquid (the progress board and DO2's motion note): at rest a pie's sector
@@ -40,8 +49,9 @@ const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia
  */
 export function LiquidProgress({ variant, progress, label, value, finishLabel, finished, onFinish, onAsk, threshold, caption }: LiquidProgressProps) {
   const pie = variant === "pie";
-  const base = pie ? 6 : 14;
-  const top = pie ? 11 : 20;
+  // The pie is 26 pt (R1, FC3); the drop 52 (DO2).
+  const base = pie ? 7 : 14;
+  const top = pie ? 13 : 20;
   const host = useRef<HTMLDivElement>(null);
   const liquid = useRef<SVGPathElement>(null);
   const lifted = useRef<SVGGElement>(null);
@@ -72,21 +82,21 @@ export function LiquidProgress({ variant, progress, label, value, finishLabel, f
 
   const draw = useCallback(() => {
     const s = m.current;
-    const still = reducedMotion();
-    const h = still ? 0 : Math.max(0, s.h.x);
+    const reduced = reducedMotion();
+    const h = reduced ? 0 : Math.max(0, s.h.x);
     liquid.current?.setAttribute("d", s.snapped ? "" : liquidPath(base, top, h, threshold));
     lifted.current?.setAttribute("transform", `translate(0 ${-h})`);
     if (lifted.current && !pie) lifted.current.style.opacity = String(Math.min(1, h / 24));
-    const level = still ? s.levelTarget : s.level.x;
-    if (pie) fill.current?.setAttribute("d", sectorPath(0, 0, 9.25, level));
+    const level = reduced ? s.levelTarget : s.level.x;
+    if (pie) fill.current?.setAttribute("d", sectorPath(0, 0, 11.25, level));
     else fill.current?.setAttribute("d", levelPath(25, level, s.level.v * -0.6));
     const now = performance.now();
     const since = (now - s.wobbleAt) / 1000;
-    const scale = still || !s.wobbleAt ? 1 : wobble(since);
+    const scale = reduced || !s.wobbleAt ? 1 : wobble(since);
     body.current?.setAttribute("transform", `scale(${(2 - scale).toFixed(3)} ${scale.toFixed(3)})`);
     if (droplet.current) {
       const t = s.snapAt ? (now - s.snapAt) / 320 : 1;
-      const on = !still && t < 1;
+      const on = !reduced && t < 1;
       droplet.current.style.opacity = on ? String(1 - t * 0.6) : "0";
       if (on) droplet.current.setAttribute("cy", String(-(s.snapH / 2) * (1 - t * t)));
     }
@@ -100,8 +110,8 @@ export function LiquidProgress({ variant, progress, label, value, finishLabel, f
       s.h = springStep(s.h, s.target, s.pointer?.pulling ? SPRINGS.follow : SPRINGS.back, dt);
       s.level = springStep(s.level, s.levelTarget, SPRINGS.slosh, dt);
       draw();
+      // A finger resting still needs no frames: the next move starts them again.
       const busy =
-        !!s.pointer ||
         !settled(s.h, s.target, 0.2) ||
         !settled(s.level, s.levelTarget, 0.002) ||
         (s.wobbleAt && time - s.wobbleAt < 900) ||
@@ -204,16 +214,16 @@ export function LiquidProgress({ variant, progress, label, value, finishLabel, f
           data-reading-progress
           {...handlers}
         >
-          <svg className="lq-svg" viewBox="-14 -14 28 28" width="28" height="28" aria-hidden="true">
+          <svg className="lq-svg" viewBox="-16 -16 32 32" width="32" height="32" aria-hidden="true">
             <path ref={liquid} className="lq-liquid" />
             <circle ref={droplet} className="lq-droplet" r="2.2" cx="0" cy="0" />
             <g ref={lifted}>
               <g ref={body}>
-                <circle className="lq-track" r="10.25" />
+                <circle className="lq-track" r="12.25" />
                 <path ref={fill} className="lq-sector" />
                 <g className="lq-check">
-                  <circle r="11" />
-                  <path d="M-4.6 0.4 L-1.4 3.6 L4.8 -3.2" />
+                  <circle r="13" />
+                  <path d="M-5.4 0.4 L-1.6 4.2 L5.6 -3.8" />
                 </g>
               </g>
             </g>
