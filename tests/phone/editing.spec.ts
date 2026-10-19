@@ -179,6 +179,19 @@ test("New link: a typed link is looked up on Go, not saved; Go again saves it", 
   await expect(snackbar(page)).toContainText("Saved to Inbox");
 });
 
+test("New link: a feed's address is followed, and Show opens its posts on All", async ({ page }) => {
+  await openPhone(page);
+  await navPill(page).getByRole("button", { name: "New link" }).click();
+  await paste(page, "fieldnotes.example.com/feed.xml");
+  const sheet = newLink(page);
+  await sheet.getByRole("button", { name: "Follow", exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(snackbar(page)).toContainText("You follow this site");
+  await snackbar(page).getByRole("button", { name: "Show" }).click();
+  await expect(navPill(page).getByRole("button", { name: "Feeds" })).toHaveAttribute("aria-current", "page");
+  await expect(topScreen(page).getByRole("radio", { name: "All" })).toHaveAttribute("aria-checked", "true");
+});
+
 test("New link: not a link says so; a link already saved offers to show it", async ({ page }) => {
   await openPhone(page);
   const first = topScreen(page).locator("[data-bookmark-id]").first();

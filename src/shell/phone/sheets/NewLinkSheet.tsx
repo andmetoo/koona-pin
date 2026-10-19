@@ -8,6 +8,7 @@ import { type FeedOffer, feedOffer, feedRate, primaryAction, useFeedPreview, use
 import { siteName } from "../../../services/cover";
 import type { Bookmark } from "../../../types";
 import { usePhone } from "../PhoneContext";
+import { showAllPosts } from "../screens/FeedsScreen";
 import { Button } from "../ui/buttons";
 import { Segmented, Toggle } from "../ui/controls";
 import { PhIcon } from "../ui/icons";
@@ -119,10 +120,22 @@ export function NewLinkSheet({ props }: { props: NewLinkSheetProps }) {
     if (already && !following) return;
     setBusy(true);
     setError("");
+    // A feed's first posts come marked read: «Show» opens them on All, or Unread would look empty.
+    const followed = (uid: string) =>
+      app.setNotice({
+        text: t("add.feedFollowed"),
+        alert: false,
+        show: () => {
+          stack.selectTab("feeds");
+          app.openFeeds(uid);
+          showAllPosts();
+        },
+      });
     try {
       if (feedOnly && following) {
-        await subscribeFeed(following.url, null, "feeds");
+        const feed = await subscribeFeed(following.url, null, "feeds");
         close();
+        followed(feed.uid);
         return;
       }
       if (already && following) {

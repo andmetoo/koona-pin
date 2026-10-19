@@ -32,6 +32,15 @@ const DAY = 50;
  * Unread | All switch; the posts by day, each day on a shelf, virtualised and paged as the
  * desktop's list. A tap pushes the post view. The feed shown is the app's `feedPlace`.
  */
+/**
+ * Shows every post of the list, not only the unread: a feed just followed has its posts marked
+ * read, and on Unread it would look as if nothing had come. New link's «Show» after a follow.
+ */
+export function showAllPosts() {
+  savePreference("feedsScope", "all");
+  window.dispatchEvent(new Event("koona-feeds-all"));
+}
+
 export function FeedsScreen({ hidden }: { hidden: boolean }) {
   const { app, stack, sheets } = usePhone();
   const { t, i18n } = app;
@@ -42,6 +51,11 @@ export function FeedsScreen({ hidden }: { hidden: boolean }) {
     setScopeState(next);
     savePreference("feedsScope", next);
   };
+  useEffect(() => {
+    const all = () => setScopeState("all");
+    window.addEventListener("koona-feeds-all", all);
+    return () => window.removeEventListener("koona-feeds-all", all);
+  }, []);
   const { items, loaded, hasMore, loadMore } = useFeedItems(feedUid, "", app.feeds, scope === "unread");
   // Posts read from this list stay on Unread until the feed, the switch or a check changes it.
   const [kept, setKept] = useState<ReadonlySet<number>>(() => new Set());
