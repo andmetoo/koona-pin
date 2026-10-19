@@ -54,6 +54,7 @@ export function PhoneShell() {
   const bar = useVerticalBar();
   const hand = bar ? bar.edge : chosenHand;
   const [column, setColumn] = useState<HTMLElement | null>(null);
+  const [thumb, setThumb] = useState<HTMLElement | null>(null);
   const pillShown = !fold && stack.atRoot && !keyboardUp;
   const [primary, setPrimary] = useState<PrimaryAction | null>(null);
   // The row of what the Fold's detail pane shows is marked; a phone marks none.
@@ -63,8 +64,8 @@ export function PhoneShell() {
   const selected = useMemo(() => ({ bookmarkId, postId }), [bookmarkId, postId]);
 
   const phone = useMemo<Phone>(
-    () => ({ app, stack, sheets, fold, hand, setHand, bar, column, keyboardUp, pillShown, setBottomLift, selected, primary, setPrimary }),
-    [app, stack, sheets, fold, hand, setHand, bar, column, keyboardUp, pillShown, selected, primary],
+    () => ({ app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, setBottomLift, selected, primary, setPrimary }),
+    [app, stack, sheets, fold, hand, setHand, bar, column, thumb, keyboardUp, pillShown, selected, primary],
   );
   const account = useMemo(
     () => (
@@ -98,12 +99,16 @@ export function PhoneShell() {
           >
             <div className="ph-main">
               <ScreenStack />
-              {pillShown && <div className="ph-fade-bottom" aria-hidden="true" />}
+              {/* The bottom fade under the nav pill (iPhone Duo's outer display: under the list; triage's
+                  own pill stands at the bottom there and stays clear, DO1). */}
+              {pillShown && !(bar && stack.tab === "inbox") && <div className="ph-fade-bottom" aria-hidden="true" />}
             </div>
             {bar ? (
               <>
-                <Rail account={null} hidden={!fold && !pillShown} />
+                {/* On the outer display the reader keeps the navigation beside its drop (DO2). */}
+                <Rail account={null} hidden={!fold && !pillShown && !(stack.top?.name === "reader" && !keyboardUp)} />
                 <div ref={setColumn} className="ph-vbar-actions" data-vbar-actions />
+                <div ref={setThumb} className="ph-vbar-thumb" data-vbar-thumb />
               </>
             ) : fold ? (
               <Rail account={account} />

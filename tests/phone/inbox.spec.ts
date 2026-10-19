@@ -94,6 +94,43 @@ test("iOS's WebKit: a child's lost capture as the card takes it over does not en
   await expect(card(page)).not.toHaveAttribute("data-triage-card", first!);
 });
 
+test("a swipe up past the threshold keeps the link and adds it to Reading; a short one springs back", async ({ page }) => {
+  await openInbox(page);
+  const first = await card(page).getAttribute("data-triage-card");
+  const box = (await card(page).boundingBox())!;
+  const lift = async (dy: number) => {
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y - dy / 2, { steps: 6 });
+    // Halfway the card says where it goes, and the pill's Reading shows pressed.
+    if (dy > 100) {
+      await expect(card(page).locator('.inb-swipe-label[data-toward="reading"]')).toBeVisible();
+      await expect(pill(page).getByRole("button", { name: "Reading" })).toHaveAttribute("data-pressed", "true");
+    }
+    await page.mouse.move(x, y - dy, { steps: 6 });
+    await page.mouse.up();
+  };
+  await lift(40);
+  await expect(card(page)).toHaveAttribute("data-triage-card", first!);
+  await lift(200);
+  await expect(snackbar(page)).toContainText("Added to Reading · ");
+  await expect(card(page)).not.toHaveAttribute("data-triage-card", first!);
+});
+
+test("a drag that starts downward on the card decides nothing", async ({ page }) => {
+  await openInbox(page);
+  const first = await card(page).getAttribute("data-triage-card");
+  const box = (await card(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 60, box.y + 240, { steps: 10 });
+  await page.mouse.up();
+  await expect(card(page)).toHaveAttribute("data-triage-card", first!);
+  await expect(snackbar(page)).toHaveCount(0);
+});
+
 test("dragging toward Trash presses Trash and steps Keep back", async ({ page }) => {
   await openInbox(page);
   const box = (await card(page).boundingBox())!;

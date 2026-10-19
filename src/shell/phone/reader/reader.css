@@ -333,50 +333,162 @@
   color: var(--ph-accent);
   fill: var(--ph-accent);
 }
-.phone .rd-progress {
+/* The reading progress (LiquidProgress.tsx): a 22 pie, an accent sector on a hairline track, no
+   number; pulled up out of the pill it stretches into a drop. Owner, 19 October: no Done. */
+.phone .rd-actions .lq-pie {
   display: flex;
   flex: none;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   width: 56px;
   height: 52px;
 }
-.phone .rd-percent {
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
-  color: var(--ph-meta);
-  white-space: nowrap;
-}
-.phone .rd-track {
-  width: 32px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--ph-well);
-  overflow: hidden;
-}
-.phone .rd-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--ph-accent), var(--ph-accent-hi));
-  transform-origin: left;
-  transform: scaleX(var(--value));
-  transition: transform 160ms ease-out;
+.phone .rd-actions {
+  width: fit-content;
+  padding: 4px;
 }
 .phone .rd-divider {
   flex: none;
   width: 1px;
   height: 24px;
-  margin: 0 7px 0 4px;
+  margin: 0 2px;
   background: var(--ph-line);
 }
-.phone .rd-done {
-  flex: 1;
+.phone .lq-host {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.phone .lq-pie .lq-host {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+}
+.phone .lq-svg {
+  overflow: visible;
+  pointer-events: none;
+}
+.phone .lq-track {
+  fill: none;
+  stroke: var(--ph-line);
+  stroke-width: 1.5;
+}
+.phone .lq-sector {
+  fill: var(--ph-accent);
+}
+.phone .lq-liquid {
+  fill: var(--ph-accent);
+  opacity: 0.32;
+}
+.phone .lq-droplet {
+  fill: var(--ph-accent);
+  opacity: 0;
+}
+.phone .lq-check {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.phone .lq-check circle {
+  fill: var(--ph-accent);
+}
+.phone .lq-check path {
+  fill: none;
+  stroke: var(--ph-on-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.phone .lq[data-finished] .lq-check {
+  opacity: 1;
+}
+.phone .lq[data-finished] :is(.lq-track, .lq-sector) {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+[data-theme="dark"] .phone .lq-track {
+  stroke: rgb(255 255 255 / 0.22);
+}
+
+/* iPhone Duo's outer display (DO2): the drop in the column's thumb zone, "6 min left" above it. */
+.phone .lq-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 72px;
+}
+.phone .lq-caption {
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--ph-meta);
+  white-space: nowrap;
+}
+.phone .lq-drop-body {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+}
+.phone .lq-level {
+  fill: var(--ph-accent);
+  opacity: 0.3;
+}
+.phone .lq-grip {
+  fill: rgb(46 48 43 / 0.35);
+}
+[data-theme="dark"] .phone .lq-grip {
+  fill: rgb(255 255 255 / 0.35);
+}
+.phone .lq-drop:not([data-can]) .lq-grip,
+.phone .lq-drop[data-finished] .lq-grip {
+  opacity: 0;
+}
+.phone .lq-top {
+  fill: var(--ph-accent);
+  opacity: 0.45;
+}
+
+/* The article's end: a quiet row to leave Reading (with the ⋯ menu's "Remove from Reading"). */
+.phone .rd-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 32px 16px 8px;
+  padding: 12px 12px 12px 18px;
+  border-radius: var(--ph-r-card);
+  background: var(--ph-well);
+}
+.phone .rd-end-text {
+  display: flex;
+  flex: 1 1 96px;
   min-width: 0;
-  padding: 0 18px;
+  flex-direction: column;
+}
+.phone .rd-end-action {
+  display: inline-flex;
+  flex: none;
+  max-width: 100%;
+  margin-left: auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ph-paper);
+  box-shadow: inset 0 0 0 1px var(--ph-clear-rim);
+  color: var(--ph-ink);
+  font-weight: 500;
+}
+.phone .rd-finish-text {
+  margin: 0 4px 8px;
+  color: var(--ph-body);
 }
 
 /* ---------------------------------------------------------------- The Aa sheet */
@@ -551,4 +663,11 @@
 }
 .phone .rd-cluster .rd-pressed {
   color: var(--ph-accent);
+}
+
+/* iPhone Duo's outer display (DO2): every block of the reader keeps to the hero's edges, 16 in
+   from the column, as the end row does. */
+.phone[data-vbar] .rd-failure {
+  margin-left: 16px;
+  margin-right: 16px;
 }

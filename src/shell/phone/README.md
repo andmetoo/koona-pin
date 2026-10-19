@@ -70,6 +70,12 @@ On both of iPhone Duo's displays the status bar is a vertical column on the righ
 - **A screen's secondary actions** move into UIKit's toolbar slots under the status block, 38 pt circles: wrap them in `<ColumnActions rank active>`; the lowest rank holds the slots (Feeds' refresh, 1, before a bookmark's open-original and favourite, 2), the others stay in place.
 - **The inner display** keeps the Fold's two panes on either side of the fold: the detail sheet beyond it, the list between the fold and the column; triage spans both (DU3).
 - **No handedness**: the bar stays on the device's side (Apple's guidance), so the Layout setting and the rail's popover are left out; the account cluster stays in the list's header.
+- **The outer display's reader (DO2)** keeps the navigation in the column, compact and 80 higher, its actions on a slab under the status block, and the reading progress as a drop in the thumb zone (`ColumnThumb`) with the time left above it; no drop while there is nothing to read.
+- **Triage on the inner display (DU3)**: two full-height panels — title, progress, the collections, "Up next" and the Undo row on the left; the account cluster, the card and the decision pill under the thumb on the right. No Done on the Duo.
+
+## Reading progress and leaving Reading
+
+The reader's pill has no Done (owner, 19 October): favourite, open original and the progress as a 22 pie (`reader/LiquidProgress.tsx`, its maths in `reader/liquid.ts`). The progress behaves like liquid: it settles with a soft slosh when it changes; pulled up out of the pill it follows the finger, stretches and thins at the neck, and past ~80 (iPhone Duo's drop: ~120) it snaps with a haptic and the reading is finished — the bookmark leaves Reading with Undo, the reader stays; let go early, it springs back. A tap asks first (the `finishReading` sheet). Screen readers get the value ("34 % read, 6 minutes left") and a "Mark as finished" button. Reduce Motion: no stretch, a cross-fade. The same way out is the row at the article's end and the ⋯ menu's "Remove from Reading". Only a bookmark in Reading can be finished; otherwise the pie only shows the progress.
 
 ## Sheets
 
@@ -93,7 +99,7 @@ Say it through the app, as the desktop does: `app.say(text)`, `app.say(text, fal
 import { selection, impactLight, impactMedium, success } from "../../platform/haptics";
 ```
 
-`selection()` on a section or tab change (the stack does it for tabs), when pull-to-refresh arms and when a long-press menu opens; `impactLight()` when a triage swipe passes its threshold; `impactMedium()` when a decision lands; `success()` when the inbox is sorted. Without the `haptics` capability (desktop, browser demo) they do nothing; they never throw. The koona-mobile plugin plays them as the system's own feedback (Android `performHapticFeedback` on the WebView, iOS UIKit's generators), so they are silent while the system's touch feedback is off. A debug iOS build logs each one (`Koona Pin: haptic selection`, `log stream` on the Simulator), which has no Taptic Engine.
+`selection()` on a section or tab change (the stack does it for tabs), when pull-to-refresh arms and when a long-press menu opens; `impactLight()` when a triage swipe passes its threshold (left Trash, up Reading, right Keep; only a drag that starts on the card, which takes no scrolling); `impactMedium()` when a decision lands and when a pulled reading progress snaps; `success()` when the inbox is sorted. Without the `haptics` capability (desktop, browser demo) they do nothing; they never throw. The koona-mobile plugin plays them as the system's own feedback (Android `performHapticFeedback` on the WebView, iOS UIKit's generators), so they are silent while the system's touch feedback is off. A debug iOS build logs each one (`Koona Pin: haptic selection`, `log stream` on the Simulator), which has no Taptic Engine.
 
 ## The kit (`ui/`)
 

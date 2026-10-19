@@ -45,3 +45,13 @@ export function ColumnActions({ rank, active = true, children }: { rank: number;
   if (claiming && column && held === id) return createPortal(children, column);
   return <>{children}</>;
 }
+
+/**
+ * The vertical bar's thumb zone, under the navigation (DO2: the reader's progress drop). While
+ * something is there the rail stands higher and compact (phone.css). Nothing without a bar.
+ */
+export function ColumnThumb({ active = true, children }: { active?: boolean; children: ReactNode }) {
+  const { bar, thumb } = usePhone();
+  if (!bar || !thumb || !active) return null;
+  return createPortal(children, thumb);
+}

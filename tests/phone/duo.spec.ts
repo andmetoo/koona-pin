@@ -34,9 +34,36 @@ test("outer display (DU4): the rail in the right column instead of the nav pill,
   const row = await box(page.locator("[data-screen]:not([hidden]) [data-bookmark-id]").first());
   expect(row.x + row.width).toBeLessThanOrEqual(382);
   expect(row.x + row.width).toBeGreaterThan(382 - 40);
-  // A pushed screen hides the rail as it hides the pill.
+});
+
+test("outer display, the reader (DO2): no pill; actions on a slab, the navigation and the progress drop in the column", async ({ page }) => {
+  await openOuter(page);
+  await rail(page).getByRole("button", { name: "Reading", exact: true }).click();
   await page.locator("[data-screen]:not([hidden]) [data-bookmark-id]").first().click();
-  await expect(page.locator(".ph-rail-column")).toHaveAttribute("data-hidden", "true");
+  const reader = page.locator("[data-screen][data-route]:not([hidden])");
+  await expect(reader.locator(".rd-actions")).toHaveCount(0);
+  // The slab under the status block: favourite and open original, 38 pt.
+  const slab = await box(page.locator("[data-vbar-actions] .ph-vbar-slab"));
+  expect(Math.round(slab.x)).toBe(382);
+  expect(Math.round(slab.y)).toBe(174 + 4);
+  await expect(page.locator("[data-vbar-actions]").getByRole("button", { name: "Open original" })).toBeVisible();
+  // The navigation stays, higher and compact, above the drop.
+  await expect(page.locator(".ph-rail-column")).not.toHaveAttribute("data-hidden");
+  const nav = await box(rail(page));
+  const drop = await box(page.locator("[data-vbar-thumb] .lq-drop-body"));
+  expect(nav.y + nav.height).toBeLessThanOrEqual(drop.y - 14);
+  expect(Math.round(drop.y + drop.height)).toBeLessThanOrEqual(678 - 34);
+  expect(drop.x).toBeGreaterThanOrEqual(382);
+  await expect(page.locator("[data-vbar-thumb]")).toContainText(/min left/);
+  // Pulling the drop up finishes the reading.
+  const x = drop.x + drop.width / 2;
+  const y = drop.y + drop.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y - 150, { steps: 14 });
+  await page.mouse.up();
+  await expect(page.locator("[data-snackbar]")).toContainText("Finished · ");
+  await expect(page.locator("[data-vbar-thumb]")).toContainText("Finished");
 });
 
 test("outer display: the rail takes the tabs and opens New link", async ({ page }) => {
@@ -87,15 +114,33 @@ test("inner display (DU2): Feeds' refresh holds the column, so a post keeps its 
   await expect(columnActions(page).first()).toHaveAccessibleName("Check for new posts");
 });
 
-test("inner display (DU3): triage spans the fold, the card on the near side and the decisions beyond it", async ({ page }) => {
+test("inner display (DU3): two full-height panels; the card and the pill under the thumb, Up next and Undo on the left; no Done", async ({ page }) => {
   await openInner(page);
   await rail(page).getByRole("button", { name: /^Inbox/ }).click();
+  await expect(page.locator(".inb-finish")).toHaveCount(0);
   const card = await box(page.locator(".inb-stack"));
-  expect(card.x + card.width).toBeLessThanOrEqual(455.5);
+  expect(card.x).toBeGreaterThanOrEqual(495.5);
+  expect(card.x + card.width).toBeLessThanOrEqual(867);
   const pill = await box(page.locator(".inb-decide"));
   expect(pill.x).toBeGreaterThanOrEqual(495.5);
   expect(pill.x + pill.width).toBeLessThanOrEqual(867);
+  expect(Math.round(pill.y + pill.height)).toBeLessThanOrEqual(669 - 34 - 16);
+  // The account cluster at the top of the right panel.
+  const account = await box(listPane(page).locator("[data-account]"));
+  expect(account.x).toBeGreaterThanOrEqual(495.5);
+  expect(account.y).toBeLessThan(card.y);
+  // Up next and the collections on the left, before the fold.
+  const next = await box(page.locator(".inb-next"));
+  expect(next.x + next.width).toBeLessThanOrEqual(455.5);
+  await expect(page.locator(".inb-next")).toContainText("Up next");
+  const chips = await box(page.locator(".inb-file"));
+  expect(chips.x + chips.width).toBeLessThanOrEqual(455.5);
   await expect(detailPane(page)).toBeHidden();
+  // The Undo row lands in the left panel.
+  await page.locator(".inb-decide").getByRole("button", { name: "Keep" }).click();
+  const undo = await box(page.locator("[data-snackbar]"));
+  expect(undo.x + undo.width).toBeLessThanOrEqual(455.5);
+  expect(undo.y).toBeGreaterThan(next.y + next.height - 1);
 });
 
 test("the controls cannot change sides beside the vertical bar: no Layout row, no popover", async ({ page }) => {

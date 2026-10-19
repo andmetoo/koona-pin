@@ -39,6 +39,8 @@ export type Phone = {
   bar: VerticalBar | null;
   /** The vertical bar's slots for a screen's secondary actions (`ui/ColumnActions.tsx`); null without one. */
   column: HTMLElement | null;
+  /** The vertical bar's thumb zone under the navigation (`ColumnThumb`); null without one. */
+  thumb: HTMLElement | null;
   /** The on-screen keyboard is up. */
   keyboardUp: boolean;
   /** The nav pill shows (or, on iPhone Duo's outer display, the rail in the column): a tab's root, no keyboard, not on the Fold. */
