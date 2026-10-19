@@ -104,7 +104,7 @@ export function AddSheet({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   /**
-   * The text as it came whole, by a paste or «Add it». Only such a link is asked for: a
+   * The text as it came whole, by a paste, «Add it» or Enter. Only such a link is asked for: a
    * link typed by hand passes through half-domains on the way (`example.c`), and none of
    * them should get a request (privacy policy: «the page you paste»).
    */
@@ -211,8 +211,11 @@ export function AddSheet({
     setError("");
     setSaved(null);
   };
+  /** The link is being looked up: saving waits, so it never saves a feed's address as a page. */
+  const asking = !!url && pasted === text && linkPreview.state === "looking";
+
   const save = async (link = typedLink(text)) => {
-    if (busy) return;
+    if (busy || asking) return;
     if (!link) {
       field.current?.focus();
       return;
@@ -459,6 +462,13 @@ export function AddSheet({
                 });
               }}
               onChange={(e) => change(e.target.value)}
+              onKeyDown={(e) => {
+                // A typed link is looked up on Enter as a paste is (its preview and feed, as on a
+                // phone's Go, owner 19 October); Enter again saves it.
+                if (e.key !== "Enter" || !url || pasted === text) return;
+                e.preventDefault();
+                setPasted(text);
+              }}
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
@@ -545,7 +555,7 @@ export function AddSheet({
             <button type="button" className="add-cancel" onClick={() => closeRef.current()}>
               {t("common.cancel")}
             </button>
-            <button type="submit" className="add-ink-btn h-[34px] rounded-[10px] px-3.5 text-[13px]" disabled={busy}>
+            <button type="submit" className="add-ink-btn h-[34px] rounded-[10px] px-3.5 text-[13px]" disabled={busy || asking}>
               {busy
                 ? t(feedOnly ? "add.feedFollowing" : "add.saving")
                 : t(primary === "follow" ? "add.feedFollow" : primary === "saveFollow" ? "add.feedSaveFollow" : "add.save")}
